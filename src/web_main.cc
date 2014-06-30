@@ -653,6 +653,7 @@ void CheckDoco(const CheckIn::TPaxDocoItem &doc,
 
 CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
   CheckIn::TPaxDocoItem result;
   TElemFmt fmt;
   
@@ -672,8 +673,12 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
     throw UserException("MSG.CHECK_DOCO.INVALID_NO", LParams()<<LParam("fieldname", "doco/no" ));
   
   result.issue_place=upperc(doc.issue_place);
-  if (result.issue_place.size()>35)
-    throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" ));
+  if (result.issue_place.size()>35) { //!!!vladdjek
+    if ( reqInfo->client_type != ctKiosk &&
+         reqInfo->client_type==ctWeb ) {
+      throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" ));
+    }
+  }
   
   if (doc.issue_date!=NoExists)
     modf(doc.issue_date, &result.issue_date);
@@ -695,11 +700,15 @@ void PaxDocToXML(const CheckIn::TPaxDocItem &doc,
                  const xmlNodePtr node)
 {
   if (node==NULL) return;
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  bool pr_kiosk = ( reqInfo->client_type != ctKiosk &&
+                    reqInfo->client_type==ctWeb );
+  TElemFmt fmt;
   xmlNodePtr docNode=NewTextChild(node,"document");
   NewTextChild(docNode, "type", doc.type);
-  NewTextChild(docNode, "issue_country", PaxDocCountryToXML(doc.issue_country));
+  NewTextChild(docNode, "issue_country", pr_kiosk?ElemToPaxDocCountryId(doc.issue_country, fmt) : PaxDocCountryToXML(doc.issue_country));
   NewTextChild(docNode, "no", doc.no);
-  NewTextChild(docNode, "nationality", PaxDocCountryToXML(doc.nationality));
+  NewTextChild(docNode, "nationality", pr_kiosk?ElemToPaxDocCountryId(doc.nationality, fmt) : PaxDocCountryToXML(doc.nationality));
   if (doc.birth_date!=ASTRA::NoExists)
     NewTextChild(docNode, "birth_date", DateTimeToStr(doc.birth_date, ServerFormatDateTimeAsString));
   else
@@ -718,6 +727,10 @@ void PaxDocoToXML(const CheckIn::TPaxDocoItem &doco,
                   const xmlNodePtr node)
 {
   if (node==NULL) return;
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  bool pr_kiosk = ( reqInfo->client_type != ctKiosk &&
+                    reqInfo->client_type==ctWeb );
+  TElemFmt fmt;
   xmlNodePtr docNode=NewTextChild(node,"doco");
   NewTextChild(docNode, "birth_place", doco.birth_place);
   NewTextChild(docNode, "type", doco.type);
@@ -731,7 +744,7 @@ void PaxDocoToXML(const CheckIn::TPaxDocoItem &doco,
     NewTextChild(docNode, "expiry_date", DateTimeToStr(doco.expiry_date, ServerFormatDateTimeAsString));
   else
     NewTextChild(docNode, "expiry_date");
-  NewTextChild(docNode, "applic_country", PaxDocCountryToXML(doco.applic_country));
+  NewTextChild(docNode, "applic_country", pr_kiosk?ElemToPaxDocCountryId(doco.applic_country, fmt) :  PaxDocCountryToXML(doco.applic_country));
 };
 
 void PaxDocFromXML(const xmlNodePtr node,
@@ -3582,6 +3595,59 @@ void WebRequestsIface::GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
       node1 = NewTextChild( flightNode, "stations" );
     SetProp( NewTextChild( node1, "station", i->name ), "work_mode", i->work_mode );
   }
+}
+
+
+void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  xmlNodePtr n = GetNode( "table_name", reqNode );
+  if ( n == NULL ) {
+    throw EXCEPTIONS::Exception( "tag 'table_name' not found'" );
+  }
+  string table_name = NodeAsString( n );
+  table_name = lowerc( table_name );
+  if ( table_name != "rcpt_doc_types" ) {
+    throw EXCEPTIONS::Exception( "invalid table_name %s", table_name.c_str() );
+  }
+  n = GetNode( "tid", reqNode );
+  int tid;
+  if ( n ) {
+    tid = NodeAsInteger( n );
+  }
+  else {
+    tid = ASTRA::NoExists;
+  }
+  ProgTrace( TRACE5, "WebRequestsIface::GetCacheTable: table_name=%s, tid=%d", table_name.c_str(), tid );
+  n = NewTextChild( resNode, "GetCacheTable" );
+  NewTextChild( n, "table_name", table_name );
+  TQuery Qry(&OraSession);
+  if ( tid != ASTRA::NoExists ) {
+    Qry.SQLText =
+      "SELECT tid FROM rcpt_doc_types WHERE tid>:tid AND rownum<2";
+    Qry.CreateVariable( "tid", otInteger, tid );
+    Qry.Execute();
+    if ( Qry.Eof ) {
+      NewTextChild( n, "tid", tid );
+      return;
+    }
+    tid = ASTRA::NoExists;
+  }
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT id,code,code code_lat,name,name_lat,pr_del,tid FROM pax_doc_countries ORDER BY code";
+  Qry.Execute();
+  xmlNodePtr node = NewTextChild( n, "data" );
+  for ( ; !Qry.Eof; Qry.Next() ) {
+    xmlNodePtr rowNode = NewTextChild( node, "row" );
+    NewTextChild( rowNode, "code", Qry.FieldAsString( "code" ) );
+    NewTextChild( rowNode, "code_lat", Qry.FieldAsString( "code_lat" ) );
+    NewTextChild( rowNode, "name", Qry.FieldAsString( "name" ) );
+    NewTextChild( rowNode, "name_lat", Qry.FieldAsString( "name_lat" ) );
+    if ( tid < Qry.FieldAsInteger( "tid" ) ) {
+      tid = Qry.FieldAsInteger( "tid" );
+    }
+  }
+  NewTextChild( n, "tid", tid );
 }
 
 void WebRequestsIface::ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
