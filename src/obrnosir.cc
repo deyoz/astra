@@ -19,6 +19,7 @@
 #include "salons.h"
 #include "file_queue.h"
 #include "empty_proc.h"
+#include "event_utils.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
 #include "edilib/edi_loading.h"
@@ -70,7 +71,9 @@ const
     {"-test_file_queue",        test_file_queue,        NULL,                       NULL},
     {"-tscript",                nosir_tscript,          NULL,                       NULL},
     {"-rollback096",            rollback096,            NULL,                       NULL},
-    {"-mobile_stat",            mobile_stat,            NULL,                       NULL}
+    {"-mobile_stat",            mobile_stat,            NULL,                       NULL},
+    {"-test_event_utils",       test_event_utils,       NULL,                       NULL},
+    {"-insert_locales",         insert_locales,         NULL,                       NULL}
   };
 
 int nosir_test(int argc,char **argv)

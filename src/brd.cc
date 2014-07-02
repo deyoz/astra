@@ -321,18 +321,18 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   if (reqInfo->screen.name == "BRDBUS.EXE")
   {
     if (boarding)
-      lexeme_id="MSG.PASSENGER.ALL_BOARDED";
+      lexeme_id="EVT.PASSENGER.ALL_BOARDED";
     else
-      lexeme_id="MSG.PASSENGER.ALL_NOT_BOARDED";
+      lexeme_id="EVT.PASSENGER.ALL_NOT_BOARDED";
   }
   else
   {
     if (boarding)
-      lexeme_id="MSG.PASSENGER.ALL_EXAMED";
+      lexeme_id="EVT.PASSENGER.ALL_EXAMED";
     else
-      lexeme_id="MSG.PASSENGER.ALL_NOT_EXAMED";
+      lexeme_id="EVT.PASSENGER.ALL_NOT_EXAMED";
   };
-  reqInfo->MsgToLog(getLocaleText(lexeme_id,AstraLocale::LANG_RU), evtPax, point_id);
+  reqInfo->LocaleToLog(lexeme_id, evtPax, point_id);
 
   if (reqInfo->screen.name == "BRDBUS.EXE")
   {
@@ -388,24 +388,22 @@ bool PaxUpdate(int point_id, int pax_id, int tid, bool mark, bool pr_exam_with_b
   {
     int grp_id=Qry.FieldAsInteger("grp_id");
 
-    string msg = (string)
-                "Пассажир " + Qry.FieldAsString("surname") + " " +
-                Qry.FieldAsString("name");
+    string lexema_id;
     if (reqInfo->screen.name == "BRDBUS.EXE")
     {
       if (pr_exam_with_brd)
-        msg+=     (mark ? " прошел досмотр," : " возвращен на досмотр,");
-      msg+=     (mark ? " прошел посадку" : " высажен");
+        lexema_id = (mark ? "EVT.PASSENGER.EXAMED_WITH_BRD" : "EVT.PASSENGER.NOT_EXAMED_WITH_BRD");
+      else
+        lexema_id = (mark ? "EVT.PASSENGER.BOARDED" : "EVT.PASSENGER.NOT_BOARDED");
       if (is_sync_paxs(point_id))
         update_pax_change( point_id, pax_id, Qry.FieldAsInteger("reg_no"), "П");
     }
     else
-      msg+=     (mark ? " прошел досмотр" : " возвращен на досмотр");
+      lexema_id = (mark ? "EVT.PASSENGER.EXAMED" : "EVT.PASSENGER.NOT_EXAMED");
 
-    TReqInfo::Instance()->MsgToLog(msg, evtPax,
-                                   point_id,
-                                   Qry.FieldAsInteger("reg_no"),
-                                   grp_id);
+    TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << PrmSmpl<string>("surname", Qry.FieldAsString("surname"))
+                                      << PrmSmpl<string>("name", Qry.FieldAsString("name")),
+                                      evtPax, point_id, Qry.FieldAsInteger("reg_no"), grp_id);
 
     //отвяжем сквозняков от предыдущих сегментов
     SeparateTCkin(grp_id,cssAllPrevCurr,cssCurr,Qry.FieldAsInteger("tid"));
@@ -767,13 +765,14 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
 
   if (apis_control)
   {
-    list<string> msgs;
+    list<pair<string, string> > msgs;
     GetAPISLogMsgs(prior_apis, apis, msgs);
-    for(list<string>::const_iterator m=msgs.begin(); m!=msgs.end(); ++m)
+    for(list<pair<string, string> >::const_iterator m=msgs.begin(); m!=msgs.end(); ++m)
     {
-      ostringstream msg;
-      msg << logPaxNameStr(status, surname, name, pers_type) << ". " << *m;
-      TReqInfo::Instance()->MsgToLog(msg.str(), ASTRA::evtPax, point_id, reg_no, grp_id);
+      LEvntPrms params;
+      logPaxName(status, surname, name, pers_type, params);
+      TReqInfo::Instance()->LocaleToLog((*m).first, params << PrmSmpl<string>("params", (*m).second),
+                                     ASTRA::evtPax, point_id, reg_no, grp_id);
     };
   }
   else
@@ -782,10 +781,12 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
           apis.doco.equalAttrs(prior_apis.doco) &&
           apis.doca==prior_apis.doca))
     {
-      ostringstream msg;
-      msg << logPaxNameStr(status, surname, name, pers_type) << ". "
-          << "Изменены данные " << (status!=EncodePaxStatus(psCrew)?"пассажира.":"члена экипажа.");
-      TReqInfo::Instance()->MsgToLog(msg.str(), ASTRA::evtPax, point_id, reg_no, grp_id);
+      string lexema_id;
+      if (status!=EncodePaxStatus(psCrew)) lexema_id = "EVT.CHANGED_PASSENGER_DATA";
+      else lexema_id = "EVT.CHANGED_CREW_MEMBER_DATA";
+      LEvntPrms params;
+      logPaxName(status, surname, name, pers_type, params);
+      TReqInfo::Instance()->LocaleToLog(lexema_id, params, ASTRA::evtPax, point_id, reg_no, grp_id);
     };
   };
 };

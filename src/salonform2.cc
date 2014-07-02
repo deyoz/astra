@@ -122,41 +122,41 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   Salons.classes = RTrimString( classes );
   Salons.verifyValidRem( "MCLS", "Э" );
   Salons.Write();
-  string msg;
+  string lexema_id;
+  LEvntPrms params;
   switch ( Salons.modify ) {
     case mDelete:
-      msg = string( "Удалена базовая компоновка (ид=" ) + IntToString( comp_id ) + ").";
+      lexema_id = "EVT.BASE_LAYOUT_DELETED";
+      params << PrmSmpl<int>("id", comp_id);
       Salons.comp_id = -1;
       break;
     default:
       if ( Salons.modify == mAdd )
-        msg = "Создана базовая компоновка (ид=";
+        lexema_id = "EVT.BASE_LAYOUT_CREATED";
       else
-        msg = "Изменена базовая компоновка (ид=";
-      msg += IntToString( Salons.comp_id );
-      msg += "). Код а/к: ";
+        lexema_id = "EVT.BASE_LAYOUT_MODIFIED";
+      params << PrmSmpl<int>("id", Salons.comp_id);
       if ( Salons.airline.empty() )
-      	msg += "не указан";
+        params << PrmLexema("airl", "EVT.UNKNOWN");
       else
-      	msg += Salons.airline;
-      msg += ", код а/п: ";
+        params << PrmElem<std::string>("airl", etAirline, Salons.airline);
       if ( Salons.airp.empty() )
-      	msg += "не указан";
+        params << PrmLexema("airp", "EVT.UNKNOWN");
       else
-      	msg += Salons.airp;
-      msg += ", тип ВС: " + Salons.craft + ", борт: ";
+        params << PrmElem<std::string>("airp", etAirp, Salons.airp);
+      params << PrmElem<std::string>("craft", etCraft, Salons.craft);
       if ( Salons.bort.empty() )
-        msg += "не указан";
+        params << PrmLexema("bort", "EVT.UNKNOWN");
       else
-        msg += Salons.bort;
-      msg += ", классы: " + Salons.classes + ", описание: ";
+        params << PrmSmpl<std::string>("bort", Salons.bort);
+      params << PrmSmpl<std::string>("cls", Salons.classes);
       if ( Salons.descr.empty() )
-        msg += "не указано";
+        params << PrmLexema("descr", "EVT.UNKNOWN");
       else
-        msg += Salons.descr;
+        params << PrmSmpl<std::string>("descr", Salons.descr);
       break;
   }
-  r->MsgToLog( msg, evtComp, comp_id );
+  r->LocaleToLog(lexema_id, params, evtComp, comp_id);
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   NewTextChild( dataNode, "comp_id", Salons.comp_id );
   if ( !Salons.airline.empty() )

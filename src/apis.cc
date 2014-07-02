@@ -1020,11 +1020,12 @@ bool create_apis_file(int point_id, const string& task_name)
               };
             };
 
-            ostringstream msg;
-            msg << "Сформирован APIS формата " << fmt
-                << ": " << country_dep << "(" << airp_dep.code << ")"
-                << "->" << country_arv.code << "(" << airp_arv.code << ")";
-            TReqInfo::Instance()->MsgToLog(msg.str(),evtFlt,point_id);
+            LEvntPrms params;
+            params << PrmSmpl<string>("fmt", fmt) << PrmElem<string>("country_dep", etCountry, country_dep)
+                   << PrmElem<string>("airp_dep", etAirp, airp_dep.code)
+                   << PrmElem<string>("country_arv", etCountry, country_arv.code)
+                   << PrmElem<string>("airp_arv", etAirp, airp_arv.code);
+            TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, point_id);
 
             result=true;
           };

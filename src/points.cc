@@ -561,108 +561,132 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
   TReqInfo* reqInfo = TReqInfo::Instance();
   if ( status == tdInsert || status == tdDelete ||
        events.isFlag( dmSetCancel ) || events.isFlag( dmSetUnCancel ) ) {
-    string msg;
+    std::string lexema_id;
     if ( status == tdInsert )
-      msg = "Ввод нового пункта ";
-    if ( status == tdDelete )
-      msg = "Удаление пункта ";
-    if ( events.isFlag( dmSetCancel ) )
-      msg = "Отмена пункта ";
-    if ( events.isFlag( dmSetUnCancel ) )
-      msg = "Возврат пункта ";
+      lexema_id = "EVT.INPUT_NEW_POINT";
+    else if ( status == tdDelete )
+      lexema_id = "EVT.DELETE_POINT";
+    else if ( events.isFlag( dmSetCancel ) )
+      lexema_id = "EVT.CANCEL_POINT";
+    else if ( events.isFlag( dmSetUnCancel ) )
+      lexema_id = "EVT.RETURN_POINT";
     if ( flt_no != NoExists )
-      reqInfo->MsgToLog( msg + airline + IntToString(flt_no) + suffix + " " + airp, evtDisp, move_id, point_id );
+      reqInfo->LocaleToLog(lexema_id, LEvntPrms() << PrmFlight("flt", airline, flt_no, suffix)
+                           << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
     else
-      reqInfo->MsgToLog( msg + airp, evtDisp, move_id, point_id );
+      reqInfo->LocaleToLog(lexema_id, LEvntPrms() << PrmSmpl<std::string>("flt", "")
+                           << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   }
   if ( events.isFlag( dmChangeAirline ) ||
        events.isFlag( dmChangeFltNo ) ||
        events.isFlag( dmChangeSuffix ) ) {
-    if ( dest.flt_no != NoExists ) {
-      reqInfo->MsgToLog( string( "Изменение атрибутов рейса с " ) + dest.airline + IntToString(dest.flt_no) + dest.suffix +
-                         " на " + airline + IntToString(flt_no) + suffix + " порт " + airp, evtDisp, move_id, point_id );
-    }
-    else {
-      reqInfo->MsgToLog( string( "Изменение атрибутов рейса на ") + airline + IntToString(flt_no) + suffix + " порт " + airp, evtDisp, move_id, point_id );
-    }
+    if ( dest.flt_no != NoExists )
+        reqInfo->LocaleToLog("EVT.FLIGHT.MODIFY_ATTRIBUTES_FROM", LEvntPrms() << PrmFlight("flt", dest.airline, dest.flt_no, dest.suffix)
+                              << PrmFlight("new_flt", airline, flt_no, suffix) << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
+    else
+        reqInfo->LocaleToLog("EVT.FLIGHT.MODIFY_ATTRIBUTES", LEvntPrms() << PrmFlight("flt", airline, flt_no, suffix)
+                              << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   }
   if ( events.isFlag( dmSetSCDOUT ) )
-    reqInfo->MsgToLog( string( "Задано плановое время вылета " ) + DateTimeToStr( scd_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.SET_TAKEOFF_PLAN", LEvntPrms() << PrmDate("time", scd_out, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmChangeSCDOUT ) )
-    reqInfo->MsgToLog( string( "Изменено плановое время вылета " ) + DateTimeToStr( scd_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.MODIFY_TAKEOFF_PLAN", LEvntPrms() << PrmDate("time", scd_out, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmDeleteSCDOUT ) )
-    reqInfo->MsgToLog( string( "Удалено плановое время вылета " ) + DateTimeToStr( dest.scd_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.DELETE_TAKEOFF_PLAN", LEvntPrms() << PrmDate("time", dest.scd_out, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmSetESTOUT ) )
-    reqInfo->MsgToLog( string( "Задано расчетное время вылета " ) + DateTimeToStr( est_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.SET_TAKEOFF_EST", LEvntPrms() << PrmDate("time", est_out, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmChangeESTOUT ) )
-    reqInfo->MsgToLog( string( "Изменено расчетное время вылета " ) + DateTimeToStr( est_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.MODIFY_TAKEOFF_EST", LEvntPrms() << PrmDate("time", est_out, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmDeleteESTOUT ) )
-    reqInfo->MsgToLog( string( "Удалено расчетное время вылета " ) + DateTimeToStr( dest.est_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.DELETE_TAKEOFF_EST", LEvntPrms() << PrmDate("time", dest.est_out, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmSetACTOUT ) )
-    reqInfo->MsgToLog( string( "Задано фактическое время вылета " ) + DateTimeToStr( act_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.SET_TAKEOFF_ACT", LEvntPrms() << PrmDate("time", act_out, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmChangeACTOUT ) )
-    reqInfo->MsgToLog( string( "Изменено фактическое время вылета " ) + DateTimeToStr( act_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.MODIFY_TAKEOFF_ACT", LEvntPrms() << PrmDate("time", act_out, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmDeleteACTOUT ) )
-    reqInfo->MsgToLog( string( "Удалено фактическое время вылета " ) + DateTimeToStr( dest.act_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
-    
+    reqInfo->LocaleToLog("EVT.DISP.DELETE_TAKEOFF_ACT", LEvntPrms() << PrmDate("time", dest.act_out, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmSetSCDIN ) )
-    reqInfo->MsgToLog( string( "Задано плановое время прилета " ) + DateTimeToStr( scd_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.SET_LANDING_PLAN", LEvntPrms() << PrmDate("time", scd_in, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmChangeSCDIN ) )
-    reqInfo->MsgToLog( string( "Изменено плановое время прилета " ) + DateTimeToStr( scd_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.MODIFY_LANDING_PLAN", LEvntPrms() << PrmDate("time", scd_in, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmDeleteSCDIN ) )
-    reqInfo->MsgToLog( string( "Удалено плановое время прилета " ) + DateTimeToStr( dest.scd_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.DELETE_LANDING_PLAN", LEvntPrms() << PrmDate("time", dest.scd_in, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmSetESTIN ) )
-    reqInfo->MsgToLog( string( "Задано расчетное время прилета " ) + DateTimeToStr( est_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.SET_LANDING_EST", LEvntPrms() << PrmDate("time", est_in, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmChangeESTIN ) )
-    reqInfo->MsgToLog( string( "Изменено расчетное время прилета " ) + DateTimeToStr( est_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.MODIFY_LANDING_EST", LEvntPrms() << PrmDate("time", est_in, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmDeleteESTIN ) )
-    reqInfo->MsgToLog( string( "Удалено расчетное время прилета " ) + DateTimeToStr( dest.est_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.DELETE_LANDING_EST", LEvntPrms() << PrmDate("time", dest.est_in, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmSetACTIN ) )
-    reqInfo->MsgToLog( string( "Задано фактическое время прилета " ) + DateTimeToStr( act_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.SET_LANDING_ACT", LEvntPrms() << PrmDate("time", act_in, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmChangeACTIN ) )
-    reqInfo->MsgToLog( string( "Изменено фактическое время прилета " ) + DateTimeToStr( act_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.MODIFY_LANDING_ACT", LEvntPrms() << PrmDate("time", act_in, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmDeleteACTIN ) )
-    reqInfo->MsgToLog( string( "Удалено фактическое время прилета " ) + DateTimeToStr( dest.act_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.DISP.DELETE_LANDING_ACT", LEvntPrms() << PrmDate("time", dest.act_in, "hh:nn dd.mm.yy (UTC)")
+                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
 
   if ( events.isFlag( dmChangeStageESTTime ) ) {
     TDateTime diff = stage_est - stage_scd;
   	double f;
-  	string msg;
     if ( diff < 0 ) {
   	  modf( diff, &f );
-  		msg = "Опережение выполнения технологического графика на ";
   		if ( f )
-    	  msg += IntToString( (int)f ) + " ";
-    	msg += DateTimeToStr( fabs(diff), "hh:nn" );
+        reqInfo->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_AHEAD", LEvntPrms() << PrmSmpl<int>("val", (int)f)
+                             << PrmDate("time", fabs(diff), "hh:nn") << PrmElem<std::string>("airp", etAirp, airp), evtFlt, point_id);
   	}
   	if ( diff >= 0 ) {
   	  modf( diff, &f );
   	  if ( diff ) {
-  		  msg = "Задержка выполнения технологического графика на ";
   		  if ( f )
-  		   	msg += IntToString( (int)f ) + " ";
-  		  msg += DateTimeToStr( diff, "hh:nn" );
+          reqInfo->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_DELAY", LEvntPrms() << PrmSmpl<int>("val", (int)f)
+                               << PrmDate("time", diff, "hh:nn") << PrmElem<std::string>("airp", etAirp, airp), evtFlt, point_id);
   		}
   		else
-  		  msg = "Отмена задержка выполнения технологического графика";
+          reqInfo->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_DELAY_CANCEL", LEvntPrms() <<
+                               PrmElem<std::string>("airp", etAirp, airp), evtFlt, point_id);
     }
-	  reqInfo->MsgToLog( msg + " порт " + airp, evtFlt, point_id );
   }
 
   if ( events.isFlag( dmChangeTripType ) )
-    reqInfo->MsgToLog( string( "Изменение типа рейса с '" ) + dest.trip_type + "' на '" + trip_type + "' порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.MODIFY_FLIGHT_TYPE", LEvntPrms() << PrmElem<std::string>("type", etTripType, dest.trip_type, efmtNameLong)
+                         << PrmElem<std::string>("new_type", etTripType, trip_type, efmtNameLong)
+                         << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmChangeLitera ) )
-    reqInfo->MsgToLog( string( "Изменение литеры рейса с '" ) + dest.litera + "' на '" + litera + "' порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.MODIFY_FLIGHT_LITERA", LEvntPrms() << PrmElem<std::string>("litera", etTripLiter, dest.litera)
+                         << PrmElem<std::string>("new_litera", etTripLiter, litera)
+                         << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmReg ) )
-    reqInfo->MsgToLog( string( "Изменение признака регистрации с '" ) + IntToString(dest.pr_reg) + "' на '" + IntToString(pr_reg) + "' порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.MODIFY_REG_FLAG", LEvntPrms() << PrmBool("pr_reg", dest.pr_reg) << PrmBool("new_pr_reg", pr_reg)
+                         << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmChangeCraft ) )
-    reqInfo->MsgToLog( string( "Изменение типа ВС на " ) + craft + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.MODIFY_CRAFT_TYPE", LEvntPrms() << PrmElem<std::string>("craft", etCraft, craft)
+                         << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmSetCraft ) )
-		reqInfo->MsgToLog( string( "Назначение типа ВС " ) + craft + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.ASSIGNE_CRAFT_TYPE", LEvntPrms() << PrmElem<std::string>("craft", etCraft, craft)
+                         << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmChangeBort ) )
-    reqInfo->MsgToLog( string( "Изменение борта на " ) + bort + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.MODIFY_BOARD_TYPE", LEvntPrms() << PrmSmpl<std::string>("bort", bort)
+                         << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmSetBort ) )
-    reqInfo->MsgToLog( string( "Назначение борта " ) + bort + " порт " + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.ASSIGNE_BOARD_TYPE", LEvntPrms() << PrmSmpl<std::string>("bort", bort)
+                         << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( status != tdInsert &&
        ( events.isFlag( dmSetACTOUT ) ||
          events.isFlag( dmDeleteACTOUT ) ||
@@ -821,9 +845,10 @@ void TPoints::WriteDest( TPointsDest &dest )
   }
   if ( dest.events.isFlag( dmInitStages ) ) {
     ProgTrace( TRACE5, "dmInitStages, point_id=%d", dest.point_id );
-    TReqInfo::Instance()->MsgToLog( dest.airline+IntToString(dest.flt_no)+dest.suffix +
-                                    " " +dest.airp + ": Была вызвана процедура назначения шагов тех графика на рейс ",
-                                    evtDisp, move_id, dest.point_id );
+    TReqInfo::Instance()->LocaleToLog("EVT.TECHNOLOGY_STEPS_ASSIGNEMENT", LEvntPrms()
+                                      << PrmFlight("flt", dest.airline, dest.flt_no, dest.suffix)
+                                      << PrmElem<std::string>("airp", etAirp, dest.airp),
+                                      evtDisp, move_id, dest.point_id );
   	Qry.Clear();
   	Qry.SQLText =
       "BEGIN "
@@ -1172,157 +1197,157 @@ string DecodeEvents( TTripEvents event )
   string res;
   switch ( (int)event ) {
     case teNewLand:
-      res = "teNewLand: Добавление прилет";
+      res = "EVT.NEW_LAND";
       break;
     case teNewTakeoff:
-      res = "teNewTakeoff: Добавление вылет";
+      res = "EVT.NEW_TAKEOFF";
       break;
     case teDeleteLand:
-      res = "teDeleteLand: Удаление прилета";
+      res = "EVT.DELETE_LAND";
       break;
     case teDeleteTakeoff:
-      res = "teDeleteTakeoff: Удаление вылета";
+      res = "EVT.DELETE_TAKEOFF";
       break;
     case teSetCancelLand:
-      res = "teSetCancelLand: Отмена прилета";
+      res = "EVT.CANCEL_LAND";
       break;
     case teSetCancelTakeoff:
-      res = "teSetCancelTakeoff: Отмена вылета";
+      res = "EVT.CANCEL_TAKEOFF";
       break;
     case teSetUnCancelLand:
-      res = "teSetUnCancelLand: Возврат прилета";
+      res = "EVT.SET_UNCANCEL_LAND";
       break;
     case teSetUnCancelTakeoff:
-      res = "teSetUnCancelTakeoff: Возврат вылета";
+      res = "EVT.SET_UNCANCEL_TAKEOFF";
       break;
     case teSetSCDIN:
-      res = "teSetSCDIN: Ввод планового времени прилета";
+      res = "EVT.SET_SCD_IN";
       break;
     case teChangeSCDIN:
-      res = "teChangeSCDIN: Изменение планового времени прилета";
+      res = "EVT.CHANGE_SCD_IN";
       break;
     case teDeleteSCDIN:
-      res = "teDeleteSCDIN: Удаление планового времени прилета";
+      res = "EVT.DELETE_SCD_IN";
       break;
     case teSetESTIN:
-      res = "teSetESTIN: Ввод расчетного времени прилета";
+      res = "EVT.SET_EST_IN";
       break;
     case teChangeESTIN:
-      res = "teChangeESTIN: Изменение расчетного времени прилета";
+      res = "EVT.CHANGE_EST_IN";
       break;
     case teDeleteESTIN:
-      res = "teDeleteESTIN: Удаление расчетного времени прилета";
+      res = "EVT.DELETE_EST_IN";
       break;
     case teSetACTIN:
-      res = "teSetACTIN: Ввод фактического времени прилета";
+      res = "EVT.SET_ACT_IN";
       break;
     case teChangeACTIN:
-      res = "teChangeACTIN: Изменение фактического времени прилета";
+      res = "EVT.CHANGE_ACT_IN";
       break;
     case teDeleteACTIN:
-      res = "teDeleteACTIN: Удаление фактического времени прилета";
+      res = "EVT.DELETE_ACT_IN";
       break;
     case teChangeParkIn:
-      res = "teChangeParkIn: Изменение стоянки на прилет";
+      res = "EVT.CHANGE_PARK_IN";
       break;
     case teChangeCraftLand:
-      res = "teChangeCraftLand: Изменение типа ВС на прилет";
+      res = "EVT.CHANGE_CRAFT_LAND";
       break;
     case teSetCraftLand:
-      res = "teSetCraftLand: Ввод типа ВС на прилет";
+      res = "EVT.SET_CRAFT_LAND";
       break;
     case teChangeBortLand:
-      res = "teChangeBortLand: Изменение борта ВС на прилет";
+      res = "EVT.CHANGE_BORT_LAND";
       break;
     case teSetBortLand:
-      res = "teSetBortLand: Ввод борта ВС на прилет";
+      res = "EVT.SET_BORT_LAND";
       break;
     case teChangeTripTypeLand:
-      res = "teChangeTripTypeLand: Изменение типа рейса на прилет";
+      res = "EVT.CHANGE_TRIP_TYPE_LAND";
       break;
     case teChangeLiteraLand:
-      res = "teChangeTripTypeLand: Изменение литеры рейса на прилет";
+      res = "EVT.CHANGE_LITERA_LAND";
       break;
     case teChangeFlightAttrLand:
-      res = "teChangeFlightAttrLand: Изменение аттрибутов рейса на прилет";
+      res = "EVT.CHANGE_FLIGHT_ATTR_LAND";
       break;
     case teInitStages:
-      res = "teInitStages: Необходима инициализация шагов тех. графика";
+      res = "EVT.INIT_STAGESа";
       break;
     case teInitComps:
-      res = "teInitComps: Необходим автоматический поиск компоновки";
+      res = "EVT.INIT_COMPS";
       break;
     case teChangeStageESTTime:
-      res = "teChangeStageESTTime: Изменения в расчетных временах тех. графика";
+      res = "EVT.CHANGE_STAGE_EST_TIME";
       break;
     case teSetSCDOUT:
-      res = "teSetSCDOUT: Ввод планового времени вылета";
+      res = "EVT.SET_SCD_OUT";
       break;
     case teChangeSCDOUT:
-      res = "teChangeSCDOUT: Изменение планового времени вылета";
+      res = "EVT.CHANGE_SCD_OUT";
       break;
     case teDeleteSCDOUT:
-      res = "teDeleteSCDOUT: Удаление планового времени вылета";
+      res = "EVT.DELETE_SCD_OUT";
       break;
     case teSetESTOUT:
-      res = "teSetESTOUT: Ввод расчетного времени вылета";
+      res = "EVT.SET_EST_OUT";
       break;
     case teChangeESTOUT:
-      res = "teChangeESTOUT: Изменение расчетного времени вылета";
+      res = "EVT.CHANGE_EST_OUT";
       break;
     case teDeleteESTOUT:
-      res = "teDeleteESTOUT: Удаление расчетного времени вылета";
+      res = "EVT.DELETE_EST_OUT";
       break;
     case teSetACTOUT:
-      res = "teSetACTOUT: Ввод фактического времени вылета";
+      res = "EVT.SET_ACT_OUT";
       break;
     case teChangeACTOUT:
-      res = "teChangeACTOUT: Изменение фактического времени вылета";
+      res = "EVT.CHANGE_ACT_OUT";
       break;
     case teDeleteACTOUT:
-      res = "teDeleteACTOUT: Удаление фактического времени вылета";
+      res = "EVT.DELETE_ACT_OUT";
       break;
     case teChangeCraftTakeoff:
-      res = "teChangeCraftTakeoff: Изменение типа ВС на вылет";
+      res = "EVT.CHANGE_CRAFT_TAKEOFF";
       break;
     case teSetCraftTakeoff:
-      res = "teSetCraftTakeoff: Ввод типа ВС на вылет";
+      res = "EVT.SET_CRAFT_TAKEOFF";
       break;
     case teChangeBortTakeoff:
-      res = "teChangeBortTakeoff: Изменение борта ВС на вылет";
+      res = "EVT.CHANGE_BORT_TAKEOFF";
       break;
     case teSetBortTakeoff:
-      res = "teSetBortTakeoff: Ввод борта ВС на вылет";
+      res = "EVT.SET_BORT_TAKEOFF";
       break;
     case teChangeLiteraTakeoff:
-      res = "teChangeLiteraTakeoff: Изменение литеры рейс на вылет";
+      res = "EVT.CHANGE_LITERA_TAKEOFF";
       break;
     case teChangeTripTypeTakeoff:
-      res = "teChangeTripTypeTakeoff: Изменение типа рейс на вылет";
+      res = "EVT.CHANGE_TRIP_TYPE_TAKEOFF";
       break;
     case teChangeParkOut:
-      res = "teChangeParkOut: Изменение стоянки рейс на вылет";
+      res = "EVT.CHANGE_PARK_OUT";
       break;
     case teChangeFlightAttrTakeoff:
-      res = "teChangeFlightAttrTakeoff: Изменение аттрибутов рейс на вылет";
+      res = "EVT.CHANGE_FLIGHT_ATTR_TAKEOFF";
       break;
     case teChangeDelaysTakeoff:
-      res = "teChangeDelaysTakeoff: Изменение задержки рейса на вылет";
+      res = "EVT.CHANGE_DELAYS_TAKEOFF";
       break;
     case teTranzitTakeoff:
-      res = "teTranzitTakeoff: Изменение признака транзита рейса на вылет";
+      res = "EVT.TRANZIT_TAKEOFF";
       break;
     case teRegTakeoff:
-      res = "teRegTakeoff: Изменение признака регистрации рейса в порту на вылет";
+      res = "EVT.REG_TAKEOFF";
       break;
     case teFirst_PointTakeoff:
-      res = "teFirst_PointTakeoff: Изменение признака 'first_point' рейса на вылет";
+      res = "EVT.FIRST_POINT_TAKEOFF";
       break;
     case teChangeRemarkTakeoff:
-      res = "teChangeRemarkTakeoff: Изменение ремарки рейса на вылет";
+      res = "EVT.CHANGE_REMARK_TAKEOFF";
       break;
     case tePoint_NumTakeoff:
-      res = "teFirst_PointTakeoff: Изменение признака 'point_num' рейса на вылет";
+      res = "EVT.POINT_NUM_TAKEOFF";
       break;
   }
   return res;
@@ -1335,18 +1360,21 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
   TQuery Qry(&OraSession);
   for ( int i=(int)teNewLand; i<=(int)tePoint_NumTakeoff; i++ ) {
     if ( this->events.isFlag( (TTripEvents)i ) ) {
-      ProgTrace( TRACE5, "point_id=%d, event=%s", this->key.point_id, DecodeEvents( (TTripEvents)i ).c_str() );
-      string msg = this->key.airline;
+      LEvntPrms params;
+      params << PrmElem<string>("airl", etAirline, this->key.airline);
       if ( this->key.flt_no != NoExists )
-        msg += IntToString(this->key.flt_no);
-      msg += this->key.suffix + " " + this->key.airp + ": " + DecodeEvents( (TTripEvents)i );
-      TReqInfo::Instance()->MsgToLog( msg, evtDisp, move_id, this->key.point_id );
+        params << PrmSmpl<int>("flt_no", this->key.flt_no);
+      else
+        params << PrmSmpl<string>("flt_no", "");
+      params << PrmElem<string>("suffix", etSuffix, this->key.airline)
+                << PrmElem<string>("airp", etAirp, this->key.airp);
+      TReqInfo::Instance()->LocaleToLog( DecodeEvents( (TTripEvents)i ), params, evtDisp, move_id, this->key.point_id );
     }
   }
   
   
   if ( this->events.isFlag( teInitComps ) ) {
-    TReqInfo::Instance()->MsgToLog( "Была вызвана процедура автоматического назначения компоновки на рейс", evtDisp, move_id, this->key.point_id );
+    TReqInfo::Instance()->LocaleToLog( "EVT.SALONS.ASSIGNE_LAYOUT", evtDisp, move_id, this->key.point_id );
     SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( this->key.point_id );
     if ( res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
       if ( this->key.pr_reg &&
@@ -1395,7 +1423,7 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
         vector<TypeB::TCreateInfo> createInfo;
         TypeB::TMVTBCreator(prior_airp.point_id).getInfo(createInfo);
         TelegramInterface::SendTlg(createInfo);
-        TReqInfo::Instance()->MsgToLog( "Была вызвана процедура формирования телеграммы MVTB", evtDisp, move_id, this->key.point_id );
+        TReqInfo::Instance()->LocaleToLog( "EVT.TLG.MVTB_CREATION", evtDisp, move_id, this->key.point_id );
       };
     }
     catch(std::exception &E) {
@@ -1405,7 +1433,7 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
   if ( this->events.isFlag( teSetACTOUT ) ) {
     try {
       exec_stage( this->key.point_id, sTakeoff );
-      TReqInfo::Instance()->MsgToLog( "Была вызвана процедура выполнения шага тех графика 'Вылет'", evtDisp, move_id, this->key.point_id );
+      TReqInfo::Instance()->LocaleToLog( "EVT.TECHNOLOGY_STEP_TAKEOFF", evtDisp, move_id, this->key.point_id );
     }
     catch( std::exception &E ) {
       ProgError( STDLOG, "SetACTOUT.exec.stages(point_id=%d, sTakeoff): %s", this->key.point_id, E.what() );
@@ -1423,7 +1451,7 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
       vector<TypeB::TCreateInfo> createInfo;
       TypeB::TMVTACreator(this->key.point_id).getInfo(createInfo);
       TelegramInterface::SendTlg(createInfo);
-      TReqInfo::Instance()->MsgToLog( "Была вызвана процедура формирования телеграммы MVTA", evtDisp, move_id, this->key.point_id );
+      TReqInfo::Instance()->LocaleToLog( "EVT.TLG.MVTA_CREATION", evtDisp, move_id, this->key.point_id );
     }
     catch(std::exception &E) {
       ProgError(STDLOG,"teSetACTOUT||ChangeACTOUT.SendTlg (point_id=%d): %s",this->key.point_id,E.what());
@@ -1437,7 +1465,7 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
   	    "UPDATE trip_sets SET pr_etstatus=0,et_final_attempt=0 WHERE point_id=:point_id";
       Qry.CreateVariable("point_id",otInteger,this->key.point_id);
       Qry.Execute();
-      TReqInfo::Instance()->MsgToLog( "Была вызвана процедура удаления признака эл. билета", evtDisp, move_id, this->key.point_id );
+      TReqInfo::Instance()->LocaleToLog( "EVT.ETICKET.DELETE_FLAG", evtDisp, move_id, this->key.point_id );
     }
     catch(std::exception &E) {
       ProgError(STDLOG,"teDeleteACTOUT.ETStatus (point_id=%d): %s",this->key.point_id,E.what());
@@ -1470,10 +1498,12 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
     };
     tst();
     if ( this->key.flt_no != NoExists )
-      TReqInfo::Instance()->MsgToLog( this->key.airline+IntToString(this->key.flt_no)+this->key.suffix+
-                                      " "+this->key.airp+": Была вызвана процедура отвязки PNL", evtDisp, move_id, this->key.point_id );
+      TReqInfo::Instance()->LocaleToLog("EVT.UNBINED_PNL", LEvntPrms()
+                                        << PrmFlight("flt", this->key.airline, this->key.flt_no, this->key.suffix)
+                                        << PrmElem<std::string>("airp", etAirp, this->key.airp), evtDisp, move_id, this->key.point_id);
     else
-      TReqInfo::Instance()->MsgToLog( " "+this->key.airp+": Была вызвана процедура отвязки PNL", evtDisp, move_id, this->key.point_id );
+      TReqInfo::Instance()->LocaleToLog("EVT.UNBINED_PNL", LEvntPrms() << PrmSmpl<std::string>("flt", "")
+                                        << PrmElem<std::string>("airp", etAirp, this->key.airp), evtDisp, move_id, this->key.point_id);
     tst();
   }
   tst();
@@ -1497,10 +1527,13 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
       ProgError(STDLOG,"BindTlg: point_id=%d, %s",this->key.point_id,E.what());
     };
     if ( tripInfo.flt_no != NoExists )
-      TReqInfo::Instance()->MsgToLog( tripInfo.airline+IntToString(tripInfo.flt_no)+tripInfo.suffix+
-                                      " "+tripInfo.airp+": Была вызвана процедура привязки PNL", evtDisp, move_id, this->key.point_id );
+      TReqInfo::Instance()->LocaleToLog("EVT.BINED_PNL", LEvntPrms()
+                                        << PrmFlight("flt", tripInfo.airline, tripInfo.flt_no, tripInfo.suffix)
+                                        << PrmElem<std::string>("airp", etAirp, tripInfo.airp), evtDisp, move_id, this->key.point_id);
+
     else
-      TReqInfo::Instance()->MsgToLog( " "+tripInfo.airp+": Была вызвана процедура привязки PNL", evtDisp, move_id, this->key.point_id );
+      TReqInfo::Instance()->LocaleToLog("EVT.BINED_PNL", LEvntPrms() << PrmSmpl<std::string>("flt", "")
+                                        << PrmElem<std::string>("airp", etAirp, tripInfo.airp), evtDisp, move_id, this->key.point_id);
     try {
       string region = AirpTZRegion( this->key.airp, true );
       TDateTime locale_scd_out = UTCToLocal( this->key.scd_out, region );
@@ -1749,25 +1782,26 @@ void TPoints::Save( bool isShowMsg )
                 id->point_id, id->point_num, id->airp.c_str(), id->bort.c_str() );
     WriteDest( *id );
   }
-  string msg;
+  string lexema_id;
+  PrmEnum prmenum("flt", "-");
   for( vector<TPointsDest>::iterator id=dests.items.begin(); id!=dests.items.end(); id++ ) {
     id->DoEvents( move_id, olddests[ id->point_id ] );
     if ( events.isFlag( pePointNum ) && id->status != tdDelete ) {
-      if ( msg.empty() )
+      if ( lexema_id.empty() ) {
         if ( status == peInsert )
-          msg = "Ввод нового рейса: ";
+          lexema_id = "EVT.FLIGHT.NEW";
         else
-          msg = "Изменение маршрута рейса: ";
-      else
-        msg += "-";
+          lexema_id = "EVT.FLIGHT.MODIFY_ROUTE";
+      }
       if ( id->flt_no != NoExists )
-        msg += id->airline + IntToString(id->flt_no) + id->suffix + " " + id->airp;
+        prmenum.prms << PrmFlight("", id->airline, id->flt_no, id->suffix)
+                     << PrmElem<std::string>("", etAirp, id->airp);
       else
-        msg += id->airp;
+        prmenum.prms << PrmElem<std::string>("", etAirp, id->airp);
     }
   }
-  if ( !msg.empty() )
-    TReqInfo::Instance()->MsgToLog( msg, evtDisp, move_id );
+  if ( !lexema_id.empty() )
+    TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << prmenum, evtDisp, move_id);
 
   //получение событий по рейсам, которые есть или были в маршруте
   vector<PointsKeyTrip<TPointsDest> > keytrips1, keytrips2;
@@ -2132,10 +2166,11 @@ void TFlightCargos::Save( int point_id, const vector<TPointsDest> &dests )
       Qry.SetVariable( "cargo", icargo->cargo );
       Qry.SetVariable( "mail", icargo->mail );
       Qry.Execute();
-      TReqInfo::Instance()->MsgToLog(
-          	string( "Направление " ) + icargo->airp_arv + ": " +
-            "груз " + IntToString( icargo->cargo ) + " кг., " +
-            "почта " + IntToString( icargo->mail ) + " кг.", evtFlt, point_id );
+      TReqInfo::Instance()->LocaleToLog("EVT.CARGO_MAIL_WEIGHT", LEvntPrms()
+                                     << PrmElem<std::string>("airp", etAirp, icargo->airp_arv)
+                                     << PrmSmpl<int>("cargo_weight", icargo->cargo)
+                                     << PrmSmpl<int>("mail_weight", icargo->mail),
+                                     evtFlt, point_id);
     }
     if ( jcargo != oldcargos.cargos.end() )
       oldcargos.cargos.erase( jcargo );
@@ -2150,10 +2185,11 @@ void TFlightCargos::Save( int point_id, const vector<TPointsDest> &dests )
   for ( vector<TPointsDestCargo>::iterator jcargo=oldcargos.cargos.begin(); jcargo!=oldcargos.cargos.end(); jcargo++ ) {
     Qry.SetVariable( "point_arv", jcargo->point_arv );
     Qry.Execute();
-      TReqInfo::Instance()->MsgToLog(
-          	string( "Направление " ) + jcargo->airp_arv + ": " +
-            "груз " + IntToString( 0 ) + " кг., " +
-            "почта " + IntToString( 0 ) + " кг.", evtFlt, point_id );
+    TReqInfo::Instance()->LocaleToLog("EVT.CARGO_MAIL_WEIGHT", LEvntPrms()
+                                   << PrmElem<std::string>("airp", etAirp, jcargo->airp_arv)
+                                   << PrmSmpl<int>("cargo_weight", 0)
+                                   << PrmSmpl<int>("mail_weight", 0),
+                                   evtFlt, point_id);
   }
   tst();
 }
@@ -2191,9 +2227,10 @@ void TFlightMaxCommerce::Save( int point_id )
     Qry.CreateVariable( "max_commerce", otInteger, value );
  	Qry.Execute();
  	if ( value == NoExists )
- 	  TReqInfo::Instance()->MsgToLog( string( "Макс. коммерческая загрузка: " ) + "не задано", evtFlt, point_id );
+      TReqInfo::Instance()->LocaleToLog("EVT.MAX_COMMERCE_LOAD_UNKNOWN", evtFlt, point_id);
  	else
-    TReqInfo::Instance()->MsgToLog( string( "Макс. коммерческая загрузка: " ) + IntToString( value ) + "кг.", evtFlt, point_id );
+      TReqInfo::Instance()->LocaleToLog("EVT.MAX_COMMERCE_LOAD", LEvntPrms()
+                                        << PrmSmpl<int>("weight", value), evtFlt, point_id);
   Set_AODB_overload_alarm( point_id, pr_overload_alarm );
 }
 ////////////////////////////////////TFlightDelays///////////////////////////////
@@ -2310,7 +2347,8 @@ void TFlightStations::Save( int point_id )
       DelQry.Execute();
       Qry.SetVariable( "work_mode", work_mode );
       vector<string> terms;
-      string tolog;
+      string lexema_id;
+      PrmEnum prmenum("names", ",");
       for ( tstations::iterator istation=stations.begin(); istation!=stations.end(); istation++ ) {
         if ( istation->work_mode != work_mode )
           continue;
@@ -2319,26 +2357,32 @@ void TFlightStations::Save( int point_id )
         	Qry.SetVariable( "name", istation->name );
        		Qry.SetVariable( "pr_main", istation->pr_main );
           Qry.Execute();
-          if ( !tolog.empty() )
-          	tolog += ", ";
-          tolog += istation->name;
-          if ( istation->pr_main )
-          	tolog += " (главная)";
+          if ( istation->pr_main ) {
+            PrmLexema prmlexema("", "EVT.DESK_MAIN");
+            prmlexema.prms << PrmSmpl<std::string>("", istation->name);
+            prmenum.prms << prmlexema;
+          }
+          else
+            prmenum.prms << PrmSmpl<std::string>("", istation->name);
+
+          if (lexema_id.empty() && work_mode == "Р")
+            lexema_id = "EVT.ASSIGNE_DESKS";
+          else if (lexema_id.empty() && work_mode == "П")
+            lexema_id = "EVT.ASSIGNE_BOARDING_GATES";
         }
       }
-     	if ( work_mode == "Р" ) {
-     	  if ( tolog.empty() )
-     		  tolog = "Не назначены стойки регистрации";
-    	  else
-     	  	tolog = "Назначены стойки регистрации: " + tolog;
+      if ( work_mode == "Р" ) {
+        if (lexema_id.empty())
+          TReqInfo::Instance()->LocaleToLog("EVT.DESKS_NOT_ASSIGNED", evtFlt, point_id);
+        else
+          TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << prmenum, evtFlt, point_id);
    	  }
    	  if ( work_mode == "П" ) {
-       	if ( tolog.empty() )
-   		    tolog = "Не назначены выходы на посадку";
-   	    else
-   	    	tolog = "Назначены выходы на посадку: " + tolog;
-   	  }
-   	  TReqInfo::Instance()->MsgToLog( tolog, evtFlt, point_id );
+        if (lexema_id.empty())
+          TReqInfo::Instance()->LocaleToLog("EVT.BOARDING_GATES_NOT_ASSIGNED", evtFlt, point_id);
+        else
+          TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << prmenum, evtFlt, point_id);
+      }
    	  check_DesksGates( point_id );
     }
   }

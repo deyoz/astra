@@ -11,6 +11,7 @@
 #include "serverlib/posthooks.h"
 #include "telegram.h"
 #include "typeb_utils.h"
+#include "../event_utils.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/test.h"
@@ -141,7 +142,8 @@ static void scan_tlg(void)
       }
       for(map<string, string>::iterator im = item->params.begin(); im != item->params.end(); im++) {
         if(validate_param_name(im->first, pnHTTP)) { // handle HTTP
-          string str_result;
+          string str_result, lexema_id;
+          LEvntPrms params;
           ostringstream msg;
           bool err = false;
           try {
@@ -153,10 +155,16 @@ static void scan_tlg(void)
               << FILE_HTTP_TYPEB_TYPE << ": Телеграмма " << tlg_short_name << " "
               << "(ид=" << item->id << ", " << im->first << "=" << im->second << ") "
               << "отправлена.";
+            params << PrmElem<std::string>("tlg_name", etTypeBType, p.tlg_type, efmtNameShort)
+                   << PrmSmpl<int>("tlg_id", item->id) << PrmSmpl<string>("first", im->first)
+                   << PrmSmpl<string>("second", im->second);
             if(str_result.empty()) {
               err = true;
               msg << " Нет ответа от сервера.";
+              lexema_id = "EVT.HTTP_TYPEB_TLG_SENT_NO_RESPONSE";
             }
+            else
+              lexema_id = "EVT.HTTP_TYPEB_TLG_SENT";
           }
           catch(Exception &E) {
             err = true;
@@ -169,17 +177,17 @@ static void scan_tlg(void)
             send_error(msg, tlg_short_name, item->id, im->first, im->second);
           }
           if(err) {
-            TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,p.point_id,item->id);
+            TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, p.point_id, item->id);
             continue;
           }
           try {
            (*parser)(str_result, msg);
           }
           catch(...) {
-            TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,p.point_id,item->id);
+            TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, p.point_id, item->id);
             continue;
           }
-          TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,p.point_id,item->id);
+          TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, p.point_id, item->id);
           TFileQueue::deleteFile(item->id);
           break;
         } else

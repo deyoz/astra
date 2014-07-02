@@ -1258,30 +1258,51 @@ TNormItem& TNormItem::fromDB(TQuery &Qry)
   return *this;
 };
 
-std::string TNormItem::str() const
+std::string TNormItem::str(const std::string& lang) const
 {
-  //!!!нет локализации
   if (empty()) return "";
   ostringstream result;
-  result << lowerc(norm_type);
+  result << ElemIdToPrefferedElem(etBagNormType, norm_type, efmtCodeNative, lang);
   if (weight!=ASTRA::NoExists)
   {
     if (amount!=ASTRA::NoExists)
-      result << " " << amount << "м" << weight;
+      result << " " << amount << getLocaleText("м", lang) << weight;
     else
       result << " " << weight;
     if (per_unit!=ASTRA::NoExists && per_unit!=0)
-      result << "кг/м";
+      result << getLocaleText("кг/м", lang);
     else
-      result << "кг";
+      result << getLocaleText("кг", lang);
   }
   else
   {
     if (amount!=ASTRA::NoExists)
-      result << " " << amount << "м";
+      result << " " << amount << getLocaleText("м", lang);
   };
   return result.str();
-};
+}
+
+void TNormItem::GetNorms(PrmEnum prmenum) const
+{
+  if (empty()) return;
+  prmenum.prms << PrmElem<string>("", etBagNormType, norm_type, efmtCodeNative);
+  if (weight!=ASTRA::NoExists)
+  {
+    if (amount!=ASTRA::NoExists)
+      prmenum.prms << PrmSmpl<int>("", amount) << PrmLexema("", "EVT.P") << PrmSmpl<int>("", weight);
+    else
+      prmenum.prms << PrmSmpl<int>("", weight);
+    if (per_unit!=ASTRA::NoExists && per_unit!=0)
+      prmenum.prms << PrmLexema("", "EVT.KG_P");
+    else
+      prmenum.prms << PrmLexema("", "EVT.KG");
+  }
+  else
+  {
+    if (amount!=ASTRA::NoExists)
+      prmenum.prms << PrmSmpl<int>("", amount) << PrmLexema("", "EVT.P");
+  };
+}
 
 const TPaxNormItem& TPaxNormItem::toXML(xmlNodePtr node) const
 {

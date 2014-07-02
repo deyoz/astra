@@ -953,9 +953,9 @@ class TRights: public TIdBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TRights() {
+    TRights() {
   		Init();
-  		select_sql = "SELECT ida AS id,name,name_lat FROM rights_list";
+        select_sql = "SELECT ida AS id,name,name_lat FROM rights_list";
   	};
 };
 
@@ -1015,6 +1015,23 @@ class TBagNormTypes: public TCodeBaseTable {
   	TBagNormTypes() {
   		Init( "bag_norm_types" );
   	};
+};
+
+class TBagTypesRow: public TIdBaseTableRow {
+      public:
+    const char *get_row_name() const { return "TBagTypesRow"; };
+};
+
+class TBagTypes: public TIdBaseTable {
+  protected:
+    const char *get_table_name() { return "TBagTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+    TBagTypes() {
+        Init();
+        select_sql = "SELECT code AS id,name,name_lat FROM bag_types";
+    };
 };
 
 class TLangTypesRow: public TCodeBaseTableRow {

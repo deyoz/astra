@@ -6,57 +6,61 @@
 #include "base_tables.h"
 
 enum TElemType {
-                 etAgency,
-                 etAirline,
-                 etAirp,
-                 etAlarmType,
-                 etBagNormType,
-                 etCity,
-                 etCkinRemType,
-                 etClass,
-                 etClientType,
-                 etClsGrp,
-                 etCompLayerType,
-                 etCountry,
-                 etCraft,
-                 etCurrency,
-                 etDelayType,
-                 etDeskGrp,
-                 etDevFmtType,
-                 etDevModel,
-                 etDevOperType,
-                 etDevSessType,
-                 etGenderType,
-                 etGraphStage,
-                 etGraphStageWOInactive,
-                 etGrpStatusType,
-                 etHall,
-                 etLangType,
-                 etMiscSetType,
-                 etPaxDocCountry,
-                 etPaxDocType,
-                 etPayType,
-                 etPersType,
-                 etRcptDocType,
-                 etRefusalType,
-                 etReportType,
-                 etRemGrp,
-                 etRight,
-                 etSalePoint,
-                 etSeasonType,
-                 etSeatAlgoType,
-                 etStationMode,
-                 etSubcls,
-                 etSuffix,
-                 etTagColor,
-                 etTripLiter,
-                 etTripType,
-                 etTypeBOptionValue,
-                 etTypeBSender,
-                 etTypeBType,
-                 etUserSetType,
-                 etUserType,
-                 etValidatorType
+                 etAgency,                   //кассирские агентства
+                 etAirline,                  //авиакомпании
+                 etAirp,                     //аэропорты
+                 etAlarmType,                //типы тревог
+                 etBagNormType,              //типы багажных норм
+                 etBagType,                  //типы багажа
+                 etCity,                     //города
+                 etCkinRemType,              //коды ремарок регистрации
+                 etClass,                    //базовые классы
+                 etClientType,               //типы клиентов (терминал, веб, киоск)
+                 etClsGrp,                   //группы подклассов
+                 etCompLayerType,            //типы слоев в компановке
+                 etCompElemType,             //типы элементов в компановке
+                 etCountry,                  //государства
+                 etCraft,                    //тип ВС (воздушное судно)
+                 etCurrency,                 //коды валют
+                 etDelayType,                //коды задержек рейсов
+                 etDeskGrp,                  //группы пультов
+                 etDevFmtType,               //форматы устройств
+                 etDevModel,                 //модели устройств
+                 etDevOperType,              //типы операций устройств
+                 etDevSessType,              //типы интерфейсов устройств
+                 etGenderType,               //пол пассажиров
+                 etGraphStage,               //этапы технологического графика
+                 etGraphStageWOInactive,     //этапы технологического графика без статуса "неактивен"
+                 etGrpStatusType,            //статус группы пассажиров
+                 etHall,                     //залы регистрации и посадки
+                 etLangType,                 //языки
+                 etMiscSetType,              //типы настроек для рейсов
+                 etPaxDocCountry,            //коды государств в документах пассажиров
+                 etPaxDocType,               //типы документов пассажиров
+                 etPayType,                  //код типа оплаты
+                 etPersType,                 //тип пассажира ВЗ, РБ, РМ
+                 etRcptDocType,              //типы документов пассажиров для оплаты багажа
+                 etRefusalType,              //коды причин отказа в регистрации
+                 etReportType,               //типы отчетов
+                 etRemGrp,                   //группы ремарок
+                 etRight,                    //идентификаторы прав пользователей
+                 etRoles,                    //роли пользователей
+                 etSalePoint,                //коды пунктов продаж
+                 etSeasonType,               //зима/лето
+                 etSeatAlgoType,             //тип рассадки в салоне ВС
+                 etStationMode,              //режим терминала (регистрация/посадка)
+                 etSubcls,                   //подкласс бронирования
+                 etSuffix,                   //суффиксы рейсов
+                 etTagColor,                 //цвета багажных бирок
+                 etTripLiter,                //литеры рейсов
+                 etTripType,                 //типы рейсов
+                 etTypeBOptionValue,         //типы параметров typeb-телеграмм
+                 etTypeBSender,              //центры бронирования
+                 etTypeBType,                //типы typeb телеграмм
+                 etUsers,                    //пользователи
+                 etUserSetType,              //типы пользовательских настроек
+                 etUserType,                 //типы пользователей
+                 etValidatorType             //типы валидаторов
                };
 
 enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB, ecNone };
@@ -97,6 +101,8 @@ std::string ElemIdToElem(TElemType type, int id, TElemFmt fmt, const std::string
 //если и на языке LANG_RU ничего не найдено, возвращается пустая строка
 std::string ElemIdToClientElem(TElemType type, const std::string &id, TElemFmt fmt, bool with_deleted=true);
 std::string ElemIdToClientElem(TElemType type, int id, TElemFmt fmt, bool with_deleted=true);
+std::string ElemIdToPrefferedElem(TElemType type, const int &id, TElemFmt fmt, const std::string &lang, bool with_deleted=true);
+std::string ElemIdToPrefferedElem(TElemType type, const std::string &id, TElemFmt fmt, const std::string &lang, bool with_deleted=true);
 
 //вызывается ElemIdToClientElem с fmt=efmtCodeNative
 std::string ElemIdToCodeNative(TElemType type, const std::string &id);

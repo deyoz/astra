@@ -618,16 +618,16 @@ enum TEventsMsg  { evSend, evCommit };
 
 void createMsg( TQueueItem item, TEventsMsg event )
 {
-  std::string evstr;
+  TLogLocale tlocale;
   switch ( event ) {
     case evSend:
-      evstr = "отправлен";
+      tlocale.lexema_id = "EVT.FILE_SENT";
       if ( item.type == "BSM" ) {
         return;
       }
       break;
     case evCommit:
-      evstr = "доставлен";
+      tlocale.lexema_id = "EVT.FILE_DELIVERED";
       break;
     default:;
   }
@@ -636,26 +636,27 @@ void createMsg( TQueueItem item, TEventsMsg event )
   if ( item.id != ASTRA::NoExists &&
        item.params.find( NS_PARAM_EVENT_TYPE ) != item.params.end() ) {
     tst();
-    TLogMsg msg;
-    msg.ev_type = DecodeEventType( item.params[ NS_PARAM_EVENT_TYPE ] );
+    tlocale.ev_type = DecodeEventType( item.params[ NS_PARAM_EVENT_TYPE ] );
     if ( item.params.find( NS_PARAM_EVENT_ID1 ) != item.params.end() ) {
-      msg.id1 = ToInt( item.params[ NS_PARAM_EVENT_ID1 ] );
+      tlocale.id1 = ToInt( item.params[ NS_PARAM_EVENT_ID1 ] );
     }
     if ( item.params.find( NS_PARAM_EVENT_ID2 ) != item.params.end() ) {
-      msg.id2 = ToInt( item.params[ NS_PARAM_EVENT_ID2 ] );
+      tlocale.id2 = ToInt( item.params[ NS_PARAM_EVENT_ID2 ] );
     }
     if ( item.params.find( NS_PARAM_EVENT_ID3 ) != item.params.end() ) {
-      msg.id3 = ToInt( item.params[ NS_PARAM_EVENT_ID3 ] );
+      tlocale.id3 = ToInt( item.params[ NS_PARAM_EVENT_ID3 ] );
     }
-  	msg.msg = string("Файл ") + evstr + " (тип=" + item.type + ", адресат=" +
-              item.params[ PARAM_CANON_NAME ] + ", ид.=" +
-              IntToString( item.id );
+    tlocale.prms << PrmSmpl<string>("type", item.type)
+                    << PrmSmpl<string>("target", item.params[PARAM_CANON_NAME])
+                    << PrmSmpl<int>("id", item.id);
     if ( item.wait_time != ASTRA::NoExists ) {
-      msg.msg += ", задержка=" + IntToString( (int)(item.wait_time*60.0*60.0*24.0)) + "сек.";
+        PrmLexema lexema("wait_time", "EVT.FILE_WAIT_TIME");
+        lexema.prms << PrmSmpl<int>("wait_time", (int)(item.wait_time*60.0*60.0*24.0));
+        tlocale.prms << lexema;
     }
-    msg.msg += ")";
-    ProgTrace( TRACE5, "msg=%s", msg.msg.c_str() );
-  	TReqInfo::Instance()->MsgToLog( msg );
+    else
+        tlocale.prms << PrmSmpl<string>("wait_time", "");
+    TReqInfo::Instance()->LocaleToLog(tlocale);
   }
 }
 
@@ -895,17 +896,20 @@ bool CreateCommonFileData( bool pr_commit,
                       else
                         file_id = TFileQueue::putFile( client_canon_name, OWN_POINT_ADDR(), type, i->params, str_file );
                       ProgTrace( TRACE5, "file create file_id=%d, type=%s", file_id, type.c_str() );
-                      TLogMsg msg;
+                      TLogLocale tlocale;
+                      tlocale.lexema_id = "EVT.FILE_CREATED";
                       if ( i->params.find( NS_PARAM_EVENT_TYPE ) != i->params.end() ) {
-                    	  msg.ev_type = DecodeEventType( i->params[ NS_PARAM_EVENT_TYPE ] );
+                          tlocale.ev_type = DecodeEventType( i->params[ NS_PARAM_EVENT_TYPE ] );
                     	  if ( i->params.find( NS_PARAM_EVENT_ID1 ) != i->params.end() )
-                    		  msg.id1 = ToInt( i->params[ NS_PARAM_EVENT_ID1 ] );
+                              tlocale.id1 = ToInt( i->params[ NS_PARAM_EVENT_ID1 ] );
                     	  if ( i->params.find( NS_PARAM_EVENT_ID2 ) != i->params.end() )
-                    		  msg.id2 = ToInt( i->params[ NS_PARAM_EVENT_ID2 ] );
+                              tlocale.id2 = ToInt( i->params[ NS_PARAM_EVENT_ID2 ] );
                     	  if ( i->params.find( NS_PARAM_EVENT_ID3 ) != i->params.end() )
-                    		  msg.id3 = ToInt( i->params[ NS_PARAM_EVENT_ID3 ] );
-                    		msg.msg = string("Файл создан (тип=" + type + ", адресат=" + client_canon_name + ", ид.=") + IntToString( file_id ) + ")";
-                    		TReqInfo::Instance()->MsgToLog( msg );
+                              tlocale.id3 = ToInt( i->params[ NS_PARAM_EVENT_ID3 ] );
+                            tlocale.prms << PrmSmpl<string>("type", type)
+                                         << PrmSmpl<string>("target", client_canon_name)
+                                         << PrmSmpl<int>("id", file_id);
+                            TReqInfo::Instance()->LocaleToLog(tlocale);
                       }
                     }
                     if ( pr_commit ) {

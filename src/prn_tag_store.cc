@@ -116,9 +116,7 @@ string TTagLang::ElemIdToTagElem(TElemType type, const string &id, TElemFmt fmt,
 
   string lang=GetLang(fmt, firm_lang); //специально вынесено, так как fmt в процедуре может измениться
 
-  vector< pair<TElemFmt,string> > fmts;
-  getElemFmts(fmt, lang, fmts);
-  return ElemIdToElem(type, id, fmts, true);
+  return ElemIdToPrefferedElem(type, id, fmt, lang, true);
 };
 
 string TTagLang::GetLang()
@@ -134,10 +132,7 @@ string TTagLang::ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, string fi
 
   string lang=GetLang(fmt, firm_lang); //специально вынесено, так как fmt в процедуре может измениться
 
-  vector< pair<TElemFmt,string> > fmts;
-
-  getElemFmts(fmt, lang, fmts);
-  return ElemIdToElem(type, id, fmts, true);
+  return ElemIdToPrefferedElem(type, id, fmt, lang, true);
 };
 
 

@@ -217,7 +217,6 @@ void ZoneLoads(int point_id,
 
 void WriteCompSections( int id, const vector<SALONS2::TCompSection> &CompSections )
 {
-  string msg, ms;
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "DELETE comp_sections WHERE comp_id=:id";
@@ -232,25 +231,20 @@ void WriteCompSections( int id, const vector<SALONS2::TCompSection> &CompSection
   Qry.DeclareVariable( "name", otString );
   Qry.DeclareVariable( "first_rownum", otInteger );
   Qry.DeclareVariable( "last_rownum", otInteger );
+  PrmLexema lexema("is_sect_del", "");
   if ( CompSections.empty() && pr_exists )
-    msg = "Удалены все багажные секции";
+    lexema.ChangeLexemaId("EVT.DELETE_LAGGAGE_SECTIONS");
+  PrmEnum prmenum("sect", " ");
   for ( vector<SALONS2::TCompSection>::const_iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
-    if ( i == CompSections.begin() )
-      msg = "Назначены багажные секции: ";
-    ms = "название:" + i->name + ",первый ряд:" + IntToString( i->getFirstRow() ) + ",последний ряд:" + IntToString( i->getLastRow() );
-    if ( msg.size() + ms.size() >= 250 ) {
-      TReqInfo::Instance()->MsgToLog( msg, evtComp, id );
-      msg.clear();
-    }
-    msg += ms;
+    PrmLexema new_lexema("", "EVT.SECTIONS");
+    new_lexema.prms << PrmSmpl<std::string>("", i->name) << PrmSmpl<int>("", i->getFirstRow()) << PrmSmpl<int>("", i->getLastRow());
+    prmenum.prms << new_lexema;
     Qry.SetVariable( "name", i->name );
     Qry.SetVariable( "first_rownum", i->getFirstRow() );
     Qry.SetVariable( "last_rownum", i->getLastRow() );
     Qry.Execute();
   }
-  if ( !msg.empty() ) {
-    TReqInfo::Instance()->MsgToLog( msg, evtComp, id );
-  }
+    TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_LAGGAGE_SECTIONS", LEvntPrms() << lexema << prmenum, evtComp, id);
 }
 
 bool filterCompons( const string &airline, const string &airp )
@@ -750,31 +744,37 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
   /* инициализация VIP */
   SALONS2::InitVIP( trip_id );
-  string msg;
+  string lexema_id;
+  LEvntPrms params;
   string comp_lang;
+  int pr_lat = NodeAsInteger( "pr_lat", refcompNode );
   if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
-  	if ( NodeAsInteger( "pr_lat", refcompNode ) != 0 )
+    if (pr_lat != 0)
   	  comp_lang = "лат.";
   	else
-  		comp_lang = "рус.";
+      comp_lang = "рус.";
   }
   else
-  	comp_lang = NodeAsString( "lang", refcompNode );
+    comp_lang = NodeAsString( "lang", refcompNode ); //!!!DJEK
 
   if ( pr_initcomp ) { /* изменение компоновки */
     if ( cBase ) {
-      msg = string( "Назначена базовая компоновка (ид=" ) +
-            IntToString( comp_id ) +
-            "). Классы: " + NodeAsString( "classes", refcompNode );
-      if ( cChange )
-        msg = string( "Назначена компоновка рейса. Классы: " ) +
-              NodeAsString( "classes", refcompNode );
+      lexema_id = "EVT.LAYOUT_ASSIGNED_SALON_CHANGES";
+      params << PrmSmpl<int>("id", comp_id) << PrmSmpl<string>("cls", NodeAsString("classes", refcompNode)); // !!!DJEK
+      if ( cChange ) {
+        PrmLexema lexema("layout", "EVT.FLIGHT_CRAFT_LAYOUT_ASSIGNED");
+        lexema.prms << PrmSmpl<string>("cls", NodeAsString("classes", refcompNode));
+        params << lexema;
+      }
+      else
+        params << PrmSmpl<string>("layout", "");
     }
-    msg += string( ", кодировка: " ) + comp_lang;
+    params << PrmLexema("lang", (pr_lat != 0)?"EVT.LANGUAGE_LAT":"EVT.LANGUAGE_RUS");
   }
   else {
-  	msg = string( "Изменена компоновка рейса. Классы: " ) + NodeAsString( "classes", refcompNode );
-  	msg += string( ", кодировка: " ) + comp_lang;
+    lexema_id = "EVT.LAYOUT_MODIFIED_SALON_CHANGES";
+    params << PrmSmpl<string>("cls", NodeAsString("classes", refcompNode))
+              << PrmLexema("lang", (pr_lat != 0)?"EVT.LANGUAGE_LAT":"EVT.LANGUAGE_RUS");
   }
   SALONS2::setTRIP_CLASSES( trip_id );
   //set flag auto change in false state
@@ -786,20 +786,18 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Execute();
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   SALONS2::GetTripParams( trip_id, dataNode );
-  vector<string> referStrs;
   // надо перечитать заново
-/*всегда работаем с новой компоновкой, т.к. см. !salonChangesToText*/
-    salonList.ReadFlight( SALONS2::TFilterRoutesSets( trip_id ), SALONS2::rfTranzitVersion, "" );
-    BitSet<ASTRA::TCompLayerType> editabeLayers;
-    salonList.getEditableFlightLayers( editabeLayers );
-    salonChangesToText( trip_id, priorsalonList, priorsalonList.isCraftLat(),
+  /*всегда работаем с новой компоновкой, т.к. см. !salonChangesToText*/
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( trip_id ), SALONS2::rfTranzitVersion, "" );
+  BitSet<ASTRA::TCompLayerType> editabeLayers;
+  salonList.getEditableFlightLayers( editabeLayers );
+  PrmEnum salon_changes("salon" , "");
+  salonChangesToText( trip_id, priorsalonList, priorsalonList.isCraftLat(),
                         salonList, salonList.isCraftLat(),
                         editabeLayers,
-                        referStrs, cBase && comp_id != -2, 100 );
-  referStrs.insert( referStrs.begin(), msg );
-  for ( vector<string>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
-  	TReqInfo::Instance()->MsgToLog( *i, evtFlt, trip_id );
-  }
+                        salon_changes, cBase && comp_id != -2, 100 );
+  params << salon_changes;
+  TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtFlt, trip_id);
   // конец перечитки
   SALONS2::check_diffcomp_alarm( trip_id );
   if ( SALONS2::isTranzitSalons( trip_id ) ) {
@@ -959,52 +957,50 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     priorsalonList.ReadCompon( comp_id );
   }
   salonList.WriteCompon( comp_id, componSets );
+  PrmEnum salon_changes("salon" , "");
   salonChangesToText( NoExists, priorsalonList, priorsalonList.isCraftLat(),
                       salonList, salonList.isCraftLat(),
                       editabeLayers,
-                      referStrs, componSets.modify != SALONS2::mDelete, 100 );
+                      salon_changes, componSets.modify != SALONS2::mDelete, 100 );
   if ( componSets.modify !=  SALONS2::mDelete ) {
     salonList.ReadCompon( comp_id );
   }
   if ( componSets.modify != SALONS2::mNone ) {
-    string msg;
+    string lexema_id;
+    LEvntPrms params;
     switch ( componSets.modify ) {
       case SALONS2::mDelete:
-        msg = string( "Удалена базовая компоновка (ид=" ) + IntToString( comp_id ) + ").";
+        lexema_id = "EVT.LAYOUT_DELETED_SALON_CHANGES";
+        params << PrmSmpl<int>("id", comp_id);
         break;
       default:
         if ( componSets.modify == SALONS2::mAdd ) {
-          msg = "Создана базовая компоновка (ид=";
+          lexema_id = "EVT.LAYOUT_CREATED_SALON_CHANGES";
         }
         else
-          msg = "Изменена базовая компоновка (ид=";
-        msg += IntToString( comp_id );
-        msg += "). Код а/к: ";
+          lexema_id = "EVT.LAYOUT_UPDATED_SALON_CHANGES";
+        params << PrmSmpl<int>("id", comp_id);
         if ( componSets.airline.empty() )
-        	msg += "не указан";
+          params << PrmLexema("airl", "EVT.UNKNOWN");
         else
-      	  msg += componSets.airline;
-        msg += ", код а/п: ";
+          params << PrmElem<string>("airl", etAirline, componSets.airline);
         if ( componSets.airp.empty() )
-      	  msg += "не указан";
+          params << PrmLexema("airp", "EVT.UNKNOWN");
         else
-      	  msg += componSets.airp;
-        msg += ", тип ВС: " + componSets.craft + ", борт: ";
+          params << PrmElem<string>("airp", etAirp, componSets.airp);
+        params << PrmElem<string>("craft", etCraft, componSets.craft);
         if ( componSets.bort.empty() )
-          msg += "не указан";
+          params << PrmLexema("bort", "EVT.UNKNOWN");
         else
-          msg += componSets.bort;
-        msg += ", классы: " + componSets.classes + ", описание: ";
+          params << PrmSmpl<string>("bort", componSets.bort);
+        params << PrmSmpl<string>("cls", componSets.classes);
         if ( componSets.descr.empty() )
-          msg += "не указано";
+          params << PrmLexema("descr", "EVT.UNKNOWN");
         else
-          msg += componSets.descr;
+          params << PrmSmpl<string>("descr", componSets.descr);
         break;
     }
-    referStrs.insert( referStrs.begin(), msg );
-    for ( vector<string>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
-  	  r->MsgToLog( *i, evtComp, comp_id );
-    }
+      r->LocaleToLog(lexema_id, params << salon_changes, evtComp, comp_id);
   }
   //bagsections
   vector<SALONS2::TCompSection> CompSections;

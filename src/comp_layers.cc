@@ -207,36 +207,27 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
          layer_type==cltPNLAfterPay||
          layer_type==cltProtCkin))
     {
-      TLogMsg msg;
-      msg.ev_type=ASTRA::evtPax;
-      msg.id1=i->point_id;
+      TLogLocale tlocale;
+      tlocale.ev_type=ASTRA::evtPax;
+      tlocale.id1=i->point_id;
       int seats;
       string seat_view=GetSeatRangeView(seat_view_ranges, "list", i->pr_lat_seat, seats);
+      tlocale.prms << PrmSmpl<string>("pax_name", crs_pax_name) << PrmSmpl<string>("seat_view", seat_view);
       switch (layer_type)
       {
-        case cltPNLBeforePay:  msg.msg="Пассажиру "+crs_pax_name+" произведено резервирование"+
-                                       (seats<=1?" места ":" мест ")+seat_view+
-                                       " перед оплатой (PNL/ADL)";
+        case cltPNLBeforePay:  tlocale.lexema_id = "EVT.SEATS_RESERVATION_BEFORE_PNL_ADL";
                                break;
-        case cltPNLAfterPay:   msg.msg="Пассажиру "+crs_pax_name+" произведено резервирование"+
-                                       (seats<=1?" места ":" мест ")+seat_view+
-                                       " после оплаты (PNL/ADL)";
+        case cltPNLAfterPay:   tlocale.lexema_id = "EVT.SEATS_RESERVATION_AFTER_PNL_ADL";
                                break;
-        case cltProtBeforePay: msg.msg="Пассажиру "+crs_pax_name+" произведено резервирование"+
-                                       (seats<=1?" места ":" мест ")+seat_view+
-                                       " перед оплатой (WEB)";
+        case cltProtBeforePay: tlocale.lexema_id = "EVT.SEATS_RESERVATION_BEFORE_WEB";
                                break;
-        case cltProtAfterPay:  msg.msg="Пассажиру "+crs_pax_name+" произведено резервирование"+
-                                       (seats<=1?" места ":" мест ")+seat_view+
-                                       " после оплаты (WEB)";
+        case cltProtAfterPay:  tlocale.lexema_id = "EVT.SEATS_RESERVATION_AFTER_WEBL";
                                break;
-        case cltProtCkin:      msg.msg="Пассажиру "+crs_pax_name+
-                                       (seats<=1?" предварительно назначено место ":
-                                                 " предварительно назначены места ")+seat_view;
+        case cltProtCkin:      tlocale.lexema_id = "EVT.PRELIMINARY_ASSIGNED_SEATS";
                                break;
         default: break;
       };
-      TReqInfo::Instance()->MsgToLog(msg);
+      TReqInfo::Instance()->LocaleToLog(tlocale);
     };
   };
 };
@@ -409,36 +400,27 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
         bool pr_lat_seat=r->second.second;
         const vector< TSeatRange > &seat_view_ranges=r->second.first;
       
-        TLogMsg msg;
-        msg.ev_type=ASTRA::evtPax;
-        msg.id1=point_id;
+        TLogLocale tlocale;
+        tlocale.ev_type=ASTRA::evtPax;
+        tlocale.id1=point_id;
         int seats;
         string seat_view=GetSeatRangeView(seat_view_ranges, "list", pr_lat_seat, seats);
+        tlocale.prms << PrmSmpl<string>("pax_name", crs_pax_name) << PrmSmpl<string>("seat_view", seat_view);
         switch (layer_type)
         {
-          case cltPNLBeforePay:  msg.msg="Пассажиру "+crs_pax_name+" отменено резервирование"+
-                                       (seats<=1?" места ":" мест ")+seat_view+
-                                       " перед оплатой (PNL/ADL)";
+          case cltPNLBeforePay:  tlocale.lexema_id = "EVT.CANCEL_SEATS_RESERVATION_BEFORE_PNL_ADL";
                                  break;
-          case cltPNLAfterPay:   msg.msg="Пассажиру "+crs_pax_name+" отменено резервирование"+
-                                         (seats<=1?" места ":" мест ")+seat_view+
-                                         " после оплаты (PNL/ADL)";
+          case cltPNLAfterPay:   tlocale.lexema_id = "EVT.CANCEL_SEATS_RESERVATION_AFTER_PNL_ADL";
                                  break;
-          case cltProtBeforePay: msg.msg="Пассажиру "+crs_pax_name+" отменено резервирование"+
-                                         (seats<=1?" места ":" мест ")+seat_view+
-                                         " перед оплатой (WEB)";
+          case cltProtBeforePay: tlocale.lexema_id = "EVT.CANCEL_SEATS_RESERVATION_BEFORE_WEB";
                                  break;
-          case cltProtAfterPay:  msg.msg="Пассажиру "+crs_pax_name+" отменено резервирование"+
-                                         (seats<=1?" места ":" мест ")+seat_view+
-                                         " после оплаты (WEB)";
+          case cltProtAfterPay:  tlocale.lexema_id = "EVT.CANCEL_SEATS_RESERVATION_AFTER_WEB";
                                  break;
-          case cltProtCkin:      msg.msg="Пассажиру "+crs_pax_name+
-                                         (seats<=1?" отменено предварительно назначенное место ":
-                                                   " отменены предварительно назначенные места ")+seat_view;
+          case cltProtCkin:      tlocale.lexema_id = "EVT.CANCEL_PRELIMINARY_ASSIGNED_SEATS";
                                  break;
           default: break;
         };
-        TReqInfo::Instance()->MsgToLog(msg);
+        TReqInfo::Instance()->LocaleToLog(tlocale);
       };
     };
   }

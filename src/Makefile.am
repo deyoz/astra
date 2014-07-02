@@ -62,6 +62,7 @@ astra_SOURCES = \
   empty_proc.cc \
   etick_change_status.cpp \
   etick.cc \
+  event_utils.cc \
   events.cc \
   flt_binding.cc \
   file_queue.cc \
@@ -168,10 +169,11 @@ noinst_HEADERS = \
   dev_tuning.h \
   dev_utils.h \
   develop_dbf.h \
-  docs.h \
+  docs.h \  
   empty_proc.h \
   etick_change_status.h \
   etick.h \
+  event_utils.h \
   events.h \
   flt_binding.h \
   file_queue.h \

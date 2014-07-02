@@ -4866,32 +4866,30 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
   }
 }
 
-std::string getStrWaitListReasion( const std::string &fullname,
+void getStrWaitListReasion( const std::string &fullname,
                                    const std::string &seat_no,
                                    const std::string &airp_dep,
                                    const std::string &airp_arv,
                                    int regNo,
-                                   const std::string &strreason )
+                                   LEvntPrms &params)
 {
-  string res = string("Пассажир " ) + fullname;
-  TrimString( res );
+  params << PrmSmpl<std::string>("fullname", fullname);
   if ( !seat_no.empty() ) {
-    res += ",место: " + seat_no + ",";
+    PrmLexema lexema("seat", "EVT.SEAT_NO");
+    lexema.prms << PrmSmpl<std::string>("seat_no", seat_no);
+    params << lexema;
   }
-  res += " поставлен на ЛО ";
-  res += " " + strreason;
-  bool pr_s = false;
   if ( !airp_dep.empty() && !airp_arv.empty() ) {
-    res += " с сегмента " + airp_dep + "-" + airp_arv;
-    pr_s = true;
+    PrmLexema lexema("route", "EVT.ROUTE");
+    lexema.prms << PrmElem<std::string>("airp_dep", etAirp, airp_dep)
+                   << PrmElem<std::string>("airp_arv", etAirp, airp_arv);
+    params << lexema;
   }
   if ( regNo != ASTRA::NoExists ) {
-    if ( pr_s ) {
-      res += ",";
-    }
-    res += " рег. ном. " + IntToString( regNo );
+    PrmLexema lexema("reg_no", "EVT.REG_NO");
+    lexema.prms << PrmSmpl<int>("reg_no", regNo);
+    params << lexema;
   }
-  return res;
 }
 
 void CheckWaitListToLog( TQuery &QryAirp,
@@ -4913,28 +4911,27 @@ void CheckWaitListToLog( TQuery &QryAirp,
   string new_seat_no = ipass->second.seat_no( "list", pr_craft_lat, waitListReason );
   if ( waitListReason.layerStatus == layerValid ) {
     if ( pr_exists ) {
-      TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + fullname +
-                                      " пересажен. Новое место: " +
-                                      new_seat_no, evtPax, point_dep,
-                                      ipass->second.reg_no, ipass->second.grp_id );
+      TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                                        << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_dep,
+                                        ipass->second.reg_no, ipass->second.grp_id);
     }
     else {
-      TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + fullname +
-                                      " посажен на место: " +
-                                      new_seat_no, evtPax, point_dep,
-                                      ipass->second.reg_no, ipass->second.grp_id );
+      TReqInfo::Instance()->LocaleToLog( "EVT.PASSENGER_SEATED", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                                        << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_dep,
+                                        ipass->second.reg_no, ipass->second.grp_id );
     }
     return;
   }
   if ( new_seat_no.empty() ) {
     new_seat_no = ipass->second.prior_seat_no( "list", pr_craft_lat );
   }
-  string str_reason;
+  LEvntPrms params;
   string airp_dep, airp_arv;
   int regNo = ASTRA::NoExists;
   switch( waitListReason.layerStatus ) {
     case layerInvalid:
-      str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за смены компоновки" );
+      params << PrmLexema("reason", "EVT.REASON_LAYER_INVALID");
+      getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
       break;
     case layerLess:
       airp_dep.clear();
@@ -4957,44 +4954,52 @@ void CheckWaitListToLog( TQuery &QryAirp,
       }
       switch ( waitListReason.layer.layer_type ) {
         case cltBlockCent:
-          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за разметки блокировки цетровки" );
+          params << PrmLexema("reason", "EVT.REASON_BLOCK_CENT");
+          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltDisable:
-          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за недоступности места" );
+          params << PrmLexema("reason", "EVT.REASON_DISABLE");
+          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltProtBeforePay:
         case cltProtAfterPay:
         case cltPNLBeforePay:
         case cltPNLAfterPay:
-          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за оплаты места пассажиром" );
+          params << PrmLexema("reason", "EVT.REASON_PAYMENT");
+          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltBlockTrzt:
         case cltSOMTrzt:
         case cltPRLTrzt:
         case cltProtTrzt:
-          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за разметки транзитного места" );
+          params << PrmLexema("reason", "EVT.REASON_TRZT");
+          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltPNLCkin:
-          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за разметки места из PNL" );
+          params << PrmLexema("reason", "EVT.REASON_PNL_CKIN");
+          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltProtCkin:
-          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за ручной разметки брони места пассажиром" );
+          params << PrmLexema("reason", "EVT.REASON_PROT_CKIN");
+          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltProtect:
-          str_reason = getStrWaitListReasion( fullname, airp_dep, new_seat_no, airp_arv, regNo, "из-за разметки резервирования места" );
+          params << PrmLexema("reason", "EVT.REASON_PROTECT");
+          getStrWaitListReasion(fullname, airp_dep, new_seat_no, airp_arv, regNo, params);
           break;
         case cltCheckin:
         case cltTCheckin:
         case cltGoShow:
         case cltTranzit:
-          str_reason = getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, "из-за занятого места пассажиром" );
+          params << PrmLexema("reason", "EVT.REASON_COOUPIED");
+          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
         default:;
       };
       break;
     default:
       break;
   };
-  TReqInfo::Instance()->MsgToLog( str_reason, evtPax,
+  TReqInfo::Instance()->LocaleToLog("EVT.WAIT_LIST_REASON", params, evtPax,
                                   point_dep, ipass->second.reg_no, ipass->second.grp_id );
 }
 
@@ -6403,8 +6408,10 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
       QryTripSets.SetVariable( "point_id", i->point_id );
       QryTripSets.SetVariable( "crc_comp", crc_comp );
       QryTripSets.Execute();
-      TReqInfo::Instance()->MsgToLog( string( "Назначена базовая компоновка (ид=" ) + IntToString( comp_id ) +
-      	                              "). Классы: " + TCFG(i->point_id).str(AstraLocale::LANG_RU), evtFlt, i->point_id );
+      LEvntPrms prms;
+      TCFG(i->point_id).param(prms);
+      prms << PrmSmpl<int>("id", comp_id);
+      TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_BASE_LAYOUT", prms, evtFlt, i->point_id);
       if ( SALONS2::isTranzitSalons( i->point_id ) ) {
         if ( find( points_tranzit_check_wait_alarm.begin(),
                    points_tranzit_check_wait_alarm.end(),
@@ -6847,7 +6854,9 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
         trip_classes2.deleteCfg( ); //delete old
         trip_classes2.writeCfg( ); //write new
         ProgTrace( TRACE5, "SetCraft: isFreeSeating found bort, return rsComp_Found" );
-        TReqInfo::Instance()->MsgToLog( string( "Назначена компоновка ") + TCFG(point_id).str(AstraLocale::LANG_RU) + " на основе номера борта", evtFlt, point_id );
+        LEvntPrms prms;
+        TCFG(point_id).param(prms);
+        TReqInfo::Instance()->LocaleToLog("EVT.LAYOUT_BASED_ON_BOARD_NUM", prms, evtFlt, point_id);
         return rsComp_Found;
       }
     }
@@ -6869,7 +6878,9 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
       }
       trip_classes2.deleteCfg( ); //delete old
       trip_classes2.writeCfg( ); //write new
-      TReqInfo::Instance()->MsgToLog( string( "Назначена компоновка ") + TCFG(point_id).str(AstraLocale::LANG_RU) + " на основе данных PNL/ADL", evtFlt, point_id );
+      LEvntPrms prms;
+      TCFG(point_id).param(prms);
+      TReqInfo::Instance()->LocaleToLog("EVT.LAYOUT_BASED_ON_PNL_ADL_DATA", prms, evtFlt, point_id);
       return rsComp_Found;
     }
     ProgTrace( TRACE5, "SetCraft: isFreeSeating return rsComp_NoFound" );
@@ -7410,7 +7421,7 @@ bool RightRows( const string &row1, const string &row2 )
 
 
 
-void getStrSeats( const RowsRef &rows, vector<TStringRef> &referStrs, bool pr_lat )
+void getStrSeats( const RowsRef &rows, PrmEnum &params, bool pr_lat )
 {
 	for ( RowsRef::const_iterator i=rows.begin(); i!=rows.end(); i++ ) {
 		 //!logProgTrace( TRACE5, "i->first=%d, i->second.yname=%s, i->second.xnames=%s", i->first, i->second.yname.c_str(), i->second.xnames.c_str() );
@@ -7477,105 +7488,121 @@ void getStrSeats( const RowsRef &rows, vector<TStringRef> &referStrs, bool pr_la
    	  isr++;
     }
   }
-  for ( vector<TStringRef>::iterator i=strs1.begin(); i!=strs1.end(); i++ ) {
-    //!logProgTrace( TRACE5, "getStrSeats: str1=%s", i->value.c_str() );
+  if ( var1_size < var2_size || !pr_right_rows ) {
+    for ( vector<TStringRef>::iterator i=strs1.begin(); i!=strs1.end(); i++ ) {
+      //!logProgTrace( TRACE5, "getStrSeats: str1=%s", i->value.c_str() );
+      params.prms << PrmSmpl<string>("", i->value);
+    }
   }
-  for ( vector<TStringRef>::iterator i=strs2.begin(); i!=strs2.end(); i++ ) {
-    //!logProgTrace( TRACE5, "getStrSeats: str2=%s", i->value.c_str() );
+  else {
+    for ( vector<TStringRef>::iterator i=strs2.begin(); i!=strs2.end(); i++ ) {
+      //!logProgTrace( TRACE5, "getStrSeats: str2=%s", i->value.c_str() );
+      params.prms << PrmSmpl<string>("", i->value);
+    }
   }
-  if ( var1_size < var2_size || !pr_right_rows )
-    referStrs.insert(	referStrs.end(), strs1.begin(), strs1.end() );
-  else
-  	referStrs.insert(	referStrs.end(), strs2.begin(), strs2.end() );
 }
 
-void ReferPlaces( int point_id, string name, TPlaces places, std::vector<TStringRef> &referStrs, bool pr_lat )
+void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bool pr_lat )
 {
-	referStrs.clear();
 	//!logProgTrace( TRACE5, "ReferPlacesRow: name=%s", name.c_str() );
-	string str, tmp;
+    string tmp;
 	if ( places.empty() )
 		return;
   TCompElemType elem_type;
   TCompElemTypes::Instance()->getElem( places.begin()->elem_type, elem_type );
 	tmp = "ADD_COMMON_SALON_REF";
   if ( name.find( tmp ) != string::npos ) {
-  	referStrs.push_back( TStringRef("+Cалон "+name.substr(name.find( tmp )+tmp.size() ) + " " + places.begin()->clname + " " +
-                         elem_type.getName() + ":", true) );
+      params.prms << PrmSmpl<string>("", "+") << PrmLexema("", "EVT.SALON")
+           << PrmSmpl<string>("", " "+name.substr(name.find( tmp )+tmp.size() ) + " ")
+           << PrmElem<string>("", etClass, places.begin()->clname) << PrmSmpl<string>("", " ")
+           << PrmElem<string>("", etCompElemType, elem_type.getCode(), efmtNameLong) << PrmSmpl<string>("", ":");
   	name.clear();
   }
 	tmp = "ADD_SALON";
   if ( name.find( tmp ) != string::npos ) {
-  	referStrs.push_back( TStringRef("+Cалон "+name.substr(name.find( tmp )+tmp.size() ) + ":", true) );
+    params.prms << PrmSmpl<string>("", "+") << PrmLexema("", "EVT.SALON")
+           << PrmSmpl<string>("", " "+name.substr(name.find( tmp )+tmp.size() ) + ":");
   }
   tmp = string("DEL_SALON" );
   if ( name.find( tmp ) != string::npos ) {
-  	referStrs.push_back( TStringRef("-Cалон "+name.substr(name.find( tmp )+tmp.size() ) + ":", true) );
+    params.prms << PrmSmpl<string>("", "-") << PrmLexema("", "EVT.SALON")
+           << PrmSmpl<string>("", " "+name.substr(name.find( tmp )+tmp.size() ) + ":");
   }
   tmp = "ADD_SEATS";
   if ( name.find( tmp ) != string::npos ) {
-  	referStrs.push_back( TStringRef("+" + elem_type.getName() + " " + places.begin()->clname + ":", true) );
+    params.prms << PrmSmpl<string>("", "+") << PrmElem<string>("", etCompElemType, elem_type.getCode(), efmtNameLong)
+           << PrmSmpl<string>("", " ") << PrmElem<string>("", etClass, places.begin()->clname)
+           << PrmSmpl<string>("", ":");
   }
   tmp = "DEL_SEATS";
   if ( name.find( tmp ) != string::npos ) {
-  	referStrs.push_back( TStringRef("-" + elem_type.getName() + " " + places.begin()->clname + ":", true) );
+    params.prms << PrmSmpl<string>("", "-") << PrmElem<string>("", etCompElemType, elem_type.getCode(), efmtNameLong)
+           << PrmSmpl<string>("", " ") << PrmElem<string>("", etClass, places.begin()->clname)
+           << PrmSmpl<string>("", ":");
   }
   tmp = "ADD_REMS";
   if ( name.find( tmp ) != string::npos ) {
-  	string rem = name.substr( name.find( tmp )+tmp.size() );
-  	referStrs.push_back( TStringRef("+" + rem + ":",true) );
+    params.prms << PrmSmpl<string>("", "+"+name.substr(name.find( tmp )+tmp.size() ) + ":");
   }
   tmp = "DEL_REMS";
   if ( name.find( tmp ) != string::npos ) {
-  	string rem = name.substr( name.find( tmp )+tmp.size() );
-  	referStrs.push_back( TStringRef("-" + rem + ":", true) );
+    params.prms << PrmSmpl<string>("", "-"+name.substr(name.find( tmp )+tmp.size() ) + ":");
   }
   tmp = "ADD_LAYERS";
   if ( name.find( tmp ) != string::npos ) {
-  	ASTRA::TCompLayerType layer_type = DecodeCompLayerType( name.substr( name.find( tmp )+tmp.size() ).c_str() );
-  	BASIC_SALONS::TCompLayerTypes *compLayerTypes = BASIC_SALONS::TCompLayerTypes::Instance();
-  	referStrs.push_back( TStringRef("+" + compLayerTypes->getName( layer_type ) + ":", true) );
+    ASTRA::TCompLayerType layer_type = DecodeCompLayerType( name.substr( name.find( tmp )+tmp.size() ).c_str() );
+    BASIC_SALONS::TCompLayerTypes *compLayerTypes = BASIC_SALONS::TCompLayerTypes::Instance();
+    params.prms << PrmSmpl<string>("", "+")
+           << PrmElem<string>("", etCompLayerType, compLayerTypes->getCode((layer_type)), efmtNameLong)
+           << PrmSmpl<string>("", ":");
   }
   tmp = "DEL_LAYERS";
   if ( name.find( tmp ) != string::npos ) {
     ASTRA::TCompLayerType layer_type = DecodeCompLayerType( name.substr( name.find( tmp )+tmp.size() ).c_str() );
   	BASIC_SALONS::TCompLayerTypes *compLayerTypes = BASIC_SALONS::TCompLayerTypes::Instance();
-  	referStrs.push_back( TStringRef("-" + compLayerTypes->getName( layer_type ) + ":",true) );
+    params.prms << PrmSmpl<string>("", "-")
+           << PrmElem<string>("", etCompLayerType, compLayerTypes->getCode((layer_type)), efmtNameLong)
+           << PrmSmpl<string>("", ":");
   }
   tmp = "ADD_WEB_TARIFF";
   if ( name.find( tmp ) != string::npos ) {
+    params.prms << PrmSmpl<string>("", "+") << PrmLexema("", "WEB_TARIFF") << PrmSmpl<string>("", " ");
   	ostringstream str;
   	if ( TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) ) {
       std::map<int, TSeatTariff,classcomp> tariffs;
       places.begin()->GetTariffs( tariffs );
       if ( tariffs.find( point_id ) != tariffs.end() ) {
-  	    str << std::fixed << std::setprecision(2) << tariffs[ point_id ].value << tariffs[ point_id ].currency_id;
+        str << std::fixed << std::setprecision(2) << tariffs[ point_id ].value;
+        params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, tariffs[ point_id ].currency_id);
       }
   	}
   	else {
-  	  str << std::fixed << std::setprecision(2) << places.begin()->WebTariff.value << places.begin()->WebTariff.currency_id;
+      str << std::fixed << std::setprecision(2) << places.begin()->WebTariff.value;
+      params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, places.begin()->WebTariff.currency_id);
     }
-  	referStrs.push_back( TStringRef("+Web-тариф " + str.str() + ":",true) );
+    params.prms << PrmSmpl<string>("", ":");
   }
   tmp = "DEL_WEB_TARIFF";
   if ( name.find( tmp ) != string::npos ) {
+    params.prms << PrmSmpl<string>("", "-") << PrmLexema("", "WEB_TARIFF") << PrmSmpl<string>("", " ");
   	ostringstream str;
   	if ( TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) ) {
       std::map<int, TSeatTariff,classcomp> tariffs;
       places.begin()->GetTariffs( tariffs );
       if ( tariffs.find( point_id ) != tariffs.end() ) {
-  	    str << std::fixed << std::setprecision(2) << tariffs[ point_id ].value << tariffs[ point_id ].currency_id;
+        str << std::fixed << std::setprecision(2) << tariffs[ point_id ].value;
+        params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, tariffs[ point_id ].currency_id);
       }
   	}
   	else {
-  	  str << std::fixed << std::setprecision(2) << places.begin()->WebTariff.value << places.begin()->WebTariff.currency_id;
+      str << std::fixed << std::setprecision(2) << places.begin()->WebTariff.value;
+      params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, places.begin()->WebTariff.currency_id);
     }
-  	referStrs.push_back( TStringRef("-Web-тариф " + str.str() + ":",true) );
+    params.prms << PrmSmpl<string>("", ":");
   }
 
 	RowsRef rows;
 	SALONS2::TPlace first_in_row;
-	TPlaces::iterator priorip;
   // имеем набор одиноких мест - попробуем сделать из них объединение по линии
 	//собираем одну группу мест
   for ( TPlaces::iterator ip=places.begin(), priorip=places.begin(); ip!=places.end(); ip++ ) {
@@ -7599,7 +7626,7 @@ void ReferPlaces( int point_id, string name, TPlaces places, std::vector<TString
   			rows[ ip->y ].yname = ip->yname;
   	  }
       else { // время собирать строки
-      	getStrSeats( rows, referStrs, pr_lat );
+        getStrSeats( rows, params, pr_lat );
       	//ProgTrace( TRACE5, "str=%s, single=%d", str.c_str(), pr_single_place );
       	rows.clear();
     		first_in_row = *ip;
@@ -7609,7 +7636,7 @@ void ReferPlaces( int point_id, string name, TPlaces places, std::vector<TString
       }
   	}
   }
- 	getStrSeats( rows, referStrs, pr_lat );
+    getStrSeats( rows, params, pr_lat );
 }
 
 struct TRP {
@@ -7703,21 +7730,19 @@ void fillMapChangesTariffsSeats( int point_id,
 }
 
 //only new version TSalonList
-bool salonChangesToText( int point_id,
+void salonChangesToText( int point_id,
                          const std::vector<TPlaceList*> &oldlist, bool oldpr_craft_lat,
                          const std::vector<TPlaceList*> &newlist, bool newpr_craft_lat,
                          const BitSet<ASTRA::TCompLayerType> &editabeLayers,
-                         std::vector<std::string> &referStrs, bool pr_set_base, int line_len )
+                         PrmEnum &params, bool pr_set_base, int line_len )
 {
 	ProgTrace( TRACE5, "salonChangesToText: point_id=%d, placelists.size()=%zu,placelists.size()=%zu",
              point_id, oldlist.size(), newlist.size() );
 	typedef vector<string> TVecStrs;
-	map<string,TVecStrs>  mapStrs;
-	referStrs.clear();
 	vector<TRefPlaces> vecChanges;
 	map<string,TRP> mapChanges;
 	vector<int> salonNums;
-  // поиск в новой компоновки нужного салона
+  // поиск в новой компоновке нужного салона
   ProgTrace( TRACE5, "pr_set_base=%d", pr_set_base );
   TCompareCompsFlags compareFlags;
   compareFlags.setFlag( ccXYVisible );
@@ -7850,19 +7875,12 @@ bool salonChangesToText( int point_id,
  	        	pr_lat = oldpr_craft_lat;
  	        else
  	      	  pr_lat = newpr_craft_lat;
-    		  ReferPlaces( point_id, im->first, im->second.places, im->second.refs, pr_lat );
-    		  Refs.insert( Refs.end(), im->second.refs.begin(), im->second.refs.end() );
-   		    // деление по строкам
-    	  }
-    	  if ( !Refs.empty() ) {
-          SeparateEvents( Refs, eventsStrs, line_len );
-    		  referStrs.insert( referStrs.end(), eventsStrs.begin(), eventsStrs.end() );
-    		}
-      }
+              ReferPlaces( point_id, im->first, im->second.places, params, pr_lat );
+          }
+        }
     }
   }
   // хорошо было бы проанализировать на совпадение мест по нескольким добавленным/удаленным св-вам
-  return !referStrs.empty();
 }
 
 void getXYName( int point_id, std::string seat_no, std::string &xname, std::string &yname )
@@ -8566,14 +8584,13 @@ bool isUserProtectLayer( ASTRA::TCompLayerType layer_type )
 
 void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
                   const std::vector<TSeatRange> &seatRanges,
-                  const std::string &reason )
+                  const std::string &lexema_id )
 {
   TDateTime time_create = NowUTC();
   TFlights flights;
   flights.Get( point_id, ftTranzit );
   flights.Lock();
   SALONS2::TSalonList priorsalonList, salonList;
-  vector<string> referStrs;
   // надо перечитать заново
   /*всегда работаем с новой компоновкой, т.к. см. !salonChangesToText*/
   priorsalonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id ), SALONS2::rfTranzitVersion, "" );
@@ -8624,23 +8641,18 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
   SALONS2::setTRIP_CLASSES( point_id );
 
   BitSet<ASTRA::TCompLayerType> editabeLayers;
+  PrmEnum salon_changes("salon" , "");
   salonList.getEditableFlightLayers( editabeLayers );
-  if ( salonChangesToText( point_id, priorsalonList, priorsalonList.isCraftLat(),
-                           salonList, salonList.isCraftLat(),
-                           editabeLayers,
-                           referStrs, false, 100 ) ) {
-    referStrs.insert( referStrs.begin(), "Изменена компоновка рейса, " + reason );
-    for ( vector<string>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
-    	TReqInfo::Instance()->MsgToLog( *i, evtFlt, point_id );
-    }
-    // конец перечитки
-    SALONS2::check_diffcomp_alarm( point_id );
-    if ( SALONS2::isTranzitSalons( point_id ) ) {
-      SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
-    }
-    else {
-      check_waitlist_alarm( point_id );
-    }
+  salonChangesToText( point_id, priorsalonList, priorsalonList.isCraftLat(), salonList,
+                      salonList.isCraftLat(), editabeLayers, salon_changes, false, 100 );
+  TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << salon_changes, evtFlt, point_id);
+  // конец перечитки
+  SALONS2::check_diffcomp_alarm( point_id );
+  if ( SALONS2::isTranzitSalons( point_id ) ) {
+    SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
+  }
+  else {
+    check_waitlist_alarm( point_id );
   }
 }
 

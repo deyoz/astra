@@ -619,7 +619,14 @@ void ChangeStatusToLog(const xmlNodePtr statusNode,
   }
   msg.msg+=msg_text;
 
-  if (!repeated) MsgToLog(msg,screen,user,desk);
+  if (!repeated)
+  {
+      TReqInfo *reqInfo=TReqInfo::Instance();
+      reqInfo->screen.name=screen;
+      reqInfo->user.descr=user;
+      reqInfo->desk.code=desk;
+      reqInfo->MsgToLog(msg);  // !!!VLAD
+  }
 
   if (statusNode!=NULL)
   {
@@ -679,7 +686,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
         if (Qry.RowsProcessed()>0)
         {
           //запишем в лог
-          MsgToLog( "Возвращен режим интерактива с СЭБ", ASTRA::evtFlt, point_id );
+          TReqInfo::Instance()->LocaleToLog("EVT.RETURNED_INTERACTIVE_WITH_ETC", ASTRA::evtFlt, point_id);
         };
       };
     };
@@ -1039,7 +1046,7 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
       if (Qry.RowsProcessed()>0)
       {
         //запишем в лог
-        MsgToLog( "Возвращен режим интерактива с СЭБ", ASTRA::evtFlt, point_id );
+        TReqInfo::Instance()->LocaleToLog("EVT.RETURNED_INTERACTIVE_WITH_ETC", ASTRA::evtFlt, point_id );
       };
 
       if (GetNode("@req_ctxt_id",rootNode))

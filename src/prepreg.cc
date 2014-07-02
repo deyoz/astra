@@ -380,11 +380,9 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       Qry.SetVariable( "resa", resa );
       Qry.SetVariable( "tranzit", tranzit );
       Qry.Execute();
-      TReqInfo::Instance()->MsgToLog( string( "Изменены данные по продаже." ) +
-                                      " Центр: , п/н: " + airp_arv +
-                                      ", класс: " + cl + ", прод: " +
-                                      IntToString( resa ) + ", трзт: " + IntToString(tranzit),
-                                      evtFlt, point_id );
+      TReqInfo::Instance()->LocaleToLog("EVT.SALE_CHANGED", LEvntPrms() << PrmElem<std::string>("airp", etAirp, airp_arv)
+                                        << PrmElem<std::string>("cl", etClass, cl) << PrmSmpl<int>("resa", resa)
+                                        << PrmSmpl<int>("tranzit", tranzit), evtFlt, point_id );
       node = node->next;
     };
     SALONS2::AutoSetCraft( point_id );
@@ -571,20 +569,19 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         if (old_pr_tranzit!=new_pr_tranzit ||
             old_pr_tranz_reg!=new_pr_tranz_reg ||
             old_pr_block_trzt!=new_pr_block_trzt) {
-          TLogMsg msg;
-          msg.msg = "Установлен режим";
-          if ( !pr_tranz_reg ) msg.msg += " без";
-          msg.msg += " перерегистрации транзита,";
-          if ( !pr_block_trzt ) msg.msg += " без";
-          msg.msg += " ручной разметки транзита";
-          msg.msg += " для";
+          TLogLocale tlocale;
+          tlocale.lexema_id = "EVT.SET_MODE";
+          if ( !pr_tranz_reg ) tlocale.prms << PrmLexema("trans_reg", "EVT.WITHOUT_TRANS_REG");
+          tlocale.prms << PrmLexema("trans_reg", "EVT.TRANS_REG");
+          if ( !pr_block_trzt ) tlocale.prms << PrmLexema("block_trans", "EVT.WITHOUT_BLOCK_TRANS");
+          tlocale.prms << PrmLexema("block_trans", "EVT.WITHOUT_BLOCK_TRANS");
           if ( !new_pr_tranzit )
-            msg.msg += " нетранзитного рейса";
+            tlocale.prms << PrmLexema("trans", "EVT.NON_TRANS_FLIGHT");
           else
-            msg.msg += " транзитного рейса";
-          msg.ev_type=evtFlt;
-          msg.id1=point_id;
-          TReqInfo::Instance()->MsgToLog(msg);
+            tlocale.prms << PrmLexema("trans", "EVT.TRANS_FLIGHT");
+          tlocale.ev_type=evtFlt;
+          tlocale.id1=point_id;
+          TReqInfo::Instance()->LocaleToLog(tlocale);
         }
         
         check_diffcomp_alarms.push_back( point_id );
@@ -657,103 +654,91 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       Qry.CreateVariable("point_id",otInteger,point_id);
       Qry.Execute();
 
-      TLogMsg msg;
-      msg.ev_type=evtFlt;
-      msg.id1=point_id;
+      TLogLocale locale;
+      locale.ev_type=evtFlt;
+      locale.id1=point_id;
       if (old_pr_check_load!=new_pr_check_load)
       {
-        msg.msg = "Установлен режим";
-        if ( !new_pr_check_load ) msg.msg += " без";
-        msg.msg += " контроля загрузки при регистрации";
-        TReqInfo::Instance()->MsgToLog(msg);
+        if (!new_pr_check_load) locale.lexema_id = "EVT.SET_MODE_WITHOUT_CHECK_LOAD";
+        else locale.lexema_id = "EVT.SET_MODE_CHECK_LOAD";
+        TReqInfo::Instance()->LocaleToLog(locale);
       };
       if (old_pr_overload_reg!=new_pr_overload_reg)
       {
-        msg.msg = "Установлен режим";
-        if ( !new_pr_overload_reg ) msg.msg += " запрета"; else msg.msg += " разрешения";
-        msg.msg += " регистрации при превышении загрузки";
-        TReqInfo::Instance()->MsgToLog(msg);
+        if (!new_pr_overload_reg) locale.lexema_id = "EVT.SET_MODE_OVERLOAD_REG_PROHIBITION";
+        else locale.lexema_id = "EVT.SET_MODE_OVERLOAD_REG_PERMISSION";
+        TReqInfo::Instance()->LocaleToLog(locale);
       };
       if (old_pr_exam!=new_pr_exam)
       {
-        msg.msg = "Установлен режим";
-        if ( !new_pr_exam ) msg.msg += " без";
-        msg.msg += " досмотрового контроля перед посадкой";
-        TReqInfo::Instance()->MsgToLog(msg);
+        if (!new_pr_exam) locale.lexema_id = "EVT.SET_MODE_WITHOUT_EXAM";
+        locale.lexema_id = "EVT.SET_MODE_EXAM";
+        TReqInfo::Instance()->LocaleToLog(locale);
       };
       if (old_pr_check_pay!=new_pr_check_pay)
       {
-        msg.msg = "Установлен режим";
-        if ( !new_pr_check_pay ) msg.msg += " без";
-        msg.msg += " контроля оплаты багажа при посадке";
-        TReqInfo::Instance()->MsgToLog(msg);
+        if (!new_pr_check_pay) locale.lexema_id = "EVT.SET_MODE_WITHOUT_CHECK_PAY";
+        locale.lexema_id = "EVT.SET_MODE_CHECK_PAY";
+        TReqInfo::Instance()->LocaleToLog(locale);
       };
       if (old_pr_exam_check_pay!=new_pr_exam_check_pay)
       {
-        msg.msg = "Установлен режим";
-        if ( !new_pr_exam_check_pay ) msg.msg += " без";
-        msg.msg += " контроля оплаты багажа при досмотре";
-        TReqInfo::Instance()->MsgToLog(msg);
+        if (!new_pr_exam_check_pay) locale.lexema_id = "EVT.SET_MODE_WITHOUT_EXAM_CHACK_PAY";
+        locale.lexema_id = "EVT.SET_MODE_EXAM_CHACK_PAY";
+        TReqInfo::Instance()->LocaleToLog(locale);
       };
       if (old_pr_reg_with_tkn!=new_pr_reg_with_tkn)
       {
-        msg.msg = "Установлен режим";
-        if ( new_pr_reg_with_tkn ) msg.msg += " запрета"; else msg.msg += " разрешения";
-        msg.msg += " регистрации без номеров билетов";
-        TReqInfo::Instance()->MsgToLog(msg);
+        if (new_pr_reg_with_tkn) locale.lexema_id = "EVT.SET_MODE_REG_WITHOUT_TKN_PROHIBITION";
+        else locale.lexema_id = "EVT.SET_MODE_REG_WITHOUT_TKN_PERMISSION";
+        TReqInfo::Instance()->LocaleToLog(locale);
       };
       if (old_pr_reg_with_doc!=new_pr_reg_with_doc)
       {
-        msg.msg = "Установлен режим";
-        if ( new_pr_reg_with_doc ) msg.msg += " запрета"; else msg.msg += " разрешения";
-        msg.msg += " регистрации без номеров документов";
-        TReqInfo::Instance()->MsgToLog(msg);
+        if (new_pr_reg_with_doc) locale.lexema_id = "EVT.SET_MODE_REG_WITHOUT_DOC_PROHIBITION";
+        else locale.lexema_id = "EVT.SET_MODE_REG_WITHOUT_DOC_PERMISSION";
+        TReqInfo::Instance()->LocaleToLog(locale);
       };
       if (old_auto_weighing!=new_auto_weighing)
       {
-        if ( new_auto_weighing ) msg.msg = "Установлен"; else msg.msg = "Отменен";
-        msg.msg += " контроль автоматического взвешивания багажа для стоек с весами";
-        TReqInfo::Instance()->MsgToLog(msg);
+        if (new_auto_weighing) locale.lexema_id = "EVT.SET_AUTO_WEIGHING";
+        else locale.lexema_id = "EVT.CANCEL_AUTO_WEIGHING";
+        TReqInfo::Instance()->LocaleToLog(locale);
       };
       if (old_pr_free_seating!=new_pr_free_seating) {
-
-        TLogMsg msg;
-        if (new_pr_free_seating) msg.msg = "Установлен"; else msg.msg = "Отменен";
-        msg.msg += " режим свободной рассадки";
-        msg.ev_type=evtFlt;
-        msg.id1=point_id;
-        TReqInfo::Instance()->MsgToLog(msg);
+        if (new_pr_free_seating) locale.lexema_id = "EVT.SET_FREE_SEATING";
+        else locale.lexema_id = "EVT.CANCEL_FREE_SEATING";
+        TReqInfo::Instance()->LocaleToLog(locale);
         if ( new_pr_free_seating ) {
           SALONS2::DeleteSalons( point_id );
         }
         check_diffcomp_alarms.push_back( point_id );
         check_waitlist_alarms.push_back( point_id );
-      };
+      }
       if (old_apis_control!=new_apis_control)
       {
-        if ( new_apis_control ) msg.msg = "Установлен"; else msg.msg = "Отменен";
-        msg.msg += " контроль данных APIS";
-        TReqInfo::Instance()->MsgToLog(msg);
+        if ( new_apis_control ) locale.lexema_id = "EVT.SET_APIS_DATA_CONTROL";
+        else locale.lexema_id = "EVT.CANCELED_APIS_DATA_CONTROL";
+        TReqInfo::Instance()->LocaleToLog(locale);
       };
       if (old_apis_manual_input!=new_apis_manual_input)
       {
-        if ( new_apis_manual_input ) msg.msg = "Разрешен"; else msg.msg = "Запрещен";
-        msg.msg += " ручной ввод данных APIS";
-        TReqInfo::Instance()->MsgToLog(msg);
+        if ( new_apis_manual_input ) locale.lexema_id = "EVT.ALLOWED_APIS_DATA_MANUAL_INPUT";
+        else locale.lexema_id = "EVT.NOT_ALLOWED_APIS_DATA_MANUAL_INPUT";
+        TReqInfo::Instance()->LocaleToLog(locale);
       };
       if (old_pr_airp_seance!=new_pr_airp_seance)
       {
-        msg.msg = "Установлен режим регистрации";
         if ( new_pr_airp_seance!=-1 )
         {
           if ( new_pr_airp_seance!=0 )
-            msg.msg += " в сеансе аэропорта";
+            locale.lexema_id = "EVT.SET_MODE_AIRP_SEANCE";
           else
-            msg.msg += " в сеансе авиакомпании";
+            locale.lexema_id = "EVT.SET_MODE_AIRLINE_SEANCE";
         }
         else
-          msg.msg += " в неопределенном сеансе";
-        TReqInfo::Instance()->MsgToLog(msg);
+          locale.lexema_id = "EVT.SET_MODE_UNKNOWN_SEANCE";
+        TReqInfo::Instance()->LocaleToLog(locale);
       };
     };
     for ( vector<int>::iterator ipoint_id=check_diffcomp_alarms.begin();

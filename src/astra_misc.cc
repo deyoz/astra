@@ -1581,17 +1581,10 @@ string GetRouteAfterStr(TDateTime part_key,
   TTripRoute route;
   route.GetRouteAfter(part_key, point_id, route_type1, trtWithCancelled);
   
-  vector< pair<TElemFmt,string> > fmts_code, fmts_name;
+  std::string language = lang;
+
   if (lang.empty())
-  {
-    getElemFmts(efmtCodeNative, TReqInfo::Instance()->desk.lang, fmts_code);
-    getElemFmts(efmtNameLong, TReqInfo::Instance()->desk.lang, fmts_name);
-  }
-  else
-  {
-    getElemFmts(efmtCodeNative, lang, fmts_code);
-    getElemFmts(efmtNameLong, lang, fmts_name);
-  };
+      language = TReqInfo::Instance()->desk.lang;
   
   for(TTripRoute::iterator r = route.begin(); r != route.end(); r++)
   {
@@ -1606,10 +1599,10 @@ string GetRouteAfterStr(TDateTime part_key,
     catch (EBaseTableError) {};
       
     if (!city.empty())
-      result << ElemIdToElem(etCity, city, fmts_name, true)
-             << "(" << ElemIdToElem(etAirp, r->airp, fmts_code, true) << ")";
+      result << ElemIdToPrefferedElem(etCity, city, efmtNameLong, language, true)
+             << "(" << ElemIdToPrefferedElem(etAirp, r->airp, efmtCodeNative, language, true) << ")";
     else
-      result << ElemIdToElem(etAirp, r->airp, fmts_code, true);
+      result << ElemIdToPrefferedElem(etAirp, r->airp, efmtCodeNative, language, true);
   };
 
   return result.str();
@@ -2037,19 +2030,27 @@ int CalcWeightInKilos(int weight, std::string weight_unit)
 
 string TCFG::str(const string &lang, const string &separator)
 {
-    vector< pair<TElemFmt,string> > fmts_code;
+    std::string language = lang;
     if (lang.empty())
-        getElemFmts(efmtCodeNative, TReqInfo::Instance()->desk.lang, fmts_code);
-    else
-        getElemFmts(efmtCodeNative, lang, fmts_code);
+        language = TReqInfo::Instance()->desk.lang;
     ostringstream result;
     for(vector<TCFGItem>::iterator iv = begin(); iv != end(); ++iv) {
         if (!result.str().empty()) result << separator;
         result
-            << ElemIdToElem(etClass, iv->cls, fmts_code, true)
+            << ElemIdToPrefferedElem(etClass, iv->cls, efmtCodeNative, language, true)
             << iv->cfg;
     }
     return result.str();
+}
+
+void TCFG::param(LEvntPrms& params)
+{
+    PrmEnum prmenum("cls", "");
+    for(vector<TCFGItem>::iterator iv = begin(); iv != end(); ++iv) {
+        prmenum.prms << PrmSmpl<std::string>("", " ");
+        prmenum.prms << PrmElem<std::string>("", etClass, iv->cls) << PrmSmpl<int>("", iv->cfg);
+    }
+    params << prmenum;
 }
 
 void TCFG::get(int point_id, TDateTime part_key)

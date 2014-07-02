@@ -1238,11 +1238,11 @@ class TSalonList: public std::vector<TPlaceList*> {
   void BuildSalonChanges( xmlNodePtr dataNode, const std::vector<TSalonSeat> &seats );
   void BuildSalonChanges( xmlNodePtr dataNode, int point_dep, const std::vector<TSalonSeat> &seats,
                           bool with_pax, const std::map<int,SALONS2::TPaxList> &pax_lists );
-  bool salonChangesToText( int point_id,
+  void salonChangesToText( int point_id,
                            const std::vector<TPlaceList*> &oldlist, bool oldpr_craft_lat,
                            const std::vector<TPlaceList*> &newlist, bool newpr_craft_lat,
                            const BitSet<ASTRA::TCompLayerType> &editabeLayers,
-                           std::vector<std::string> &referStrs, bool pr_set_base, int line_len );
+                           PrmEnum &params, bool pr_set_base, int line_len );
   void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &CompSections );
   void getLayerPlacesCompSection( TSalons &NSalons, TCompSection &compSection,
                                   bool only_high_layer,

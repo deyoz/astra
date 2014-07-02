@@ -48,7 +48,7 @@ struct TRange {
 
 struct TPeriod {
   int move_id;
-//фы  тvўшёыхэшх яхЁхїюфр  int first_dest;
+//фы  тvўшёыхэшх яхЁхїюфр  int first_dest;
   TDateTime first;
   TDateTime last;
   string days;
@@ -972,7 +972,7 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     "DELETE sched_days WHERE trip_id=:trip_id; END; ";
     Qry.CreateVariable( "trip_id", otInteger, NodeAsInteger( "trip_id", reqNode ) );
     Qry.Execute();
-    TReqInfo::Instance()->MsgToLog("Удаление рейса ", evtSeason, NodeAsInteger("trip_id", reqNode));
+    TReqInfo::Instance()->LocaleToLog("EVT.SEASON.DELETE_FLIGHT", evtSeason, NodeAsInteger("trip_id", reqNode));
   AstraLocale::showMessage( getLocaleText("MSG.FLIGHT_DELETED"));
 }
 
@@ -1217,7 +1217,8 @@ void CreateSPP( BASIC::TDateTime localdate )
       };
     }
   }
-  TReqInfo::Instance()->MsgToLog( string( "Получение СПП за " ) + DateTimeToStr( localdate, "dd.mm.yy" ), evtSeason );
+  TReqInfo::Instance()->LocaleToLog("EVT.SEASON.GET_SPP", LEvntPrms()
+                                    << PrmDate("time", localdate, "dd.mm.yy"), evtSeason);
 }
 
 void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2114,9 +2115,6 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   }*/
   VerifyRangeList( rangeList, mapds );
   vector<TPeriod> nperiods, speriods;
-
-  string log;
-  string sql;
   TQuery SQry( &OraSession );
   xmlNodePtr node = GetNode( "trip_id", reqNode );
   int trip_id;
@@ -2170,7 +2168,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     SQry.Execute();
     trip_id = SQry.FieldAsInteger(0);
     ProgTrace( TRACE5, "new trip_id=%d", trip_id );
-    TReqInfo::Instance()->MsgToLog( "Ввод нового рейса ", evtSeason, trip_id );
+    TReqInfo::Instance()->LocaleToLog("EVT.SEASON.NEW_FLIGHT", evtSeason, trip_id);
   }
   // все диапазоны уже в UTC
   // пробегаем по всем полученным с клиента и накладываем их на все из БД
@@ -2342,36 +2340,50 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     	if ( ew->first == ip->first && ew->last == ip->last )
     		break;
     }
+    string lexema_id;
+    LEvntPrms params;
     if ( ew == oldperiods.end() ) {
-      log = "Ввод нового периода " +
-            DateTimeToStr( ip->first, "dd.mm.yy" ) +
-            "-" +
-            DateTimeToStr( ip->last, "dd.mm.yy" ) + " " +
-            ip->days;
+      lexema_id = "EVT.SEASON.NEW_PERIOD";
+      params << PrmDate("date_first", ip->first, "dd.mm.yy")
+                << PrmDate("date_last", ip->last, "dd.mm.yy")
+                << PrmSmpl<string>("days", ip->days);
       if ( ip->pr_del )
-    	  log += " отм.";
+        params << PrmLexema("del", "EVT.CANCEL");
+      else params << PrmSmpl<string>("del", "");
     }
     else {
-    	log.clear();
-    	if ( ip->days != ew->days )
-    		log += " дни " + ip->days;
-      if ( ew->pr_del != ip->pr_del )
-      	log += " отм.";
-    	if ( ip->tlg != ew->tlg )
-    		log += " кратко " + ip->tlg;
-    	if ( ip->ref != ew->ref )
-    		log += " источники " + ip->ref;
-    	if ( !log.empty() )
-    	  log = "Изменение периода " +
-    	        DateTimeToStr( ip->first, "dd.mm.yy" ) +
-    	        "-" +
-              DateTimeToStr( ip->last, "dd.mm.yy" ) + log;
-    	ProgTrace( TRACE5, "log=%s, move_id=%d", log.c_str(), ew->move_id );
+      bool empty = true;
+      if ( ip->days != ew->days ) {
+        PrmLexema lexema("days", "EVT.DAYS");
+        lexema.prms << PrmSmpl<string>("days", ip->days);
+        params << lexema;
+        empty = false;
+      }
+      if ( ew->pr_del != ip->pr_del ) {
+        params << PrmLexema("del", "EVT.CANCEL");
+        empty = false;
+      }
+      if ( ip->tlg != ew->tlg ) {
+        PrmLexema lexema("tlg", "EVT.TLG");
+        lexema.prms << PrmSmpl<string>("tlg", ip->tlg);
+        params << lexema;
+        empty = false;
+      }
+      if ( ip->ref != ew->ref ) {
+        PrmLexema lexema("ref", "EVT.REFERENCES");
+        lexema.prms << PrmSmpl<string>("ref", ip->ref);
+        params << lexema;
+        empty = false;
+      }
+      if (!empty)
+        lexema_id = "EVT.SEASON.MODIFY_PERIOD";
+        params << PrmDate("date_first", ip->first, "dd.mm.yy")
+                  << PrmDate("date_last", ip->last, "dd.mm.yy");
     	ew->modify = fdelete;
     }
-    if ( !log.empty() ) {
-      log += " (ид. рейса=" + IntToString( trip_id ) + ",ид. маршрута=" + IntToString( new_move_id ) + ")";
-      TReqInfo::Instance()->MsgToLog( log, evtSeason, trip_id, new_move_id );
+    if (!lexema_id.empty()) {
+      params << PrmSmpl<int>("trip_id", trip_id) << PrmSmpl<int>("route_id", new_move_id);
+      TReqInfo::Instance()->LocaleToLog( lexema_id, params, evtSeason, trip_id, new_move_id );
     }
     SQry.Execute()  ;
     num++;
@@ -2379,45 +2391,43 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     int dnum = 0;
     double fl, ff;
     if ( !ds.dests.empty() ) {
-    	log.clear();
+      PrmEnum prmenum("route", "-");
       for ( TDests::iterator id=ds.dests.begin(); id!=ds.dests.end(); id++ ) {
         RQry.SetVariable( "move_id", new_move_id );
         RQry.SetVariable( "num", dnum );
         RQry.SetVariable( "airp", id->airp );
         RQry.SetVariable( "airp_fmt", (int)id->airp_fmt );
-        if ( !log.empty() )
-        	log += "-";
-        else
-        	log = "Маршрут: ";
+        PrmEnum prmenum2("", "");
         bool pr_add = false;
         if ( !id->airline.empty() ) {
-          log += id->airline;
+          prmenum2.prms << PrmElem<string>("", etAirline, id->airline);
           pr_add = true;
         }
         if ( id->trip != NoExists ) {
-          log += IntToString( id->trip );
+          prmenum2.prms << PrmSmpl<int>("", id->trip);
           pr_add = true;
         }
         if ( !id->suffix.empty() ) {
-          log += id->suffix;
+          prmenum2.prms << PrmElem<string>("", etSuffix, id->suffix);
           pr_add = true;
         }
         if ( !id->craft.empty() ) {
-          log += "," + id->craft;
+          prmenum2.prms << PrmSmpl<string>("", ",");
+          prmenum2.prms << PrmElem<string>("", etCraft, id->craft);
           pr_add = true;
         }
         if ( pr_add )
-          log += ",";
+          prmenum2.prms << PrmSmpl<string>("", ",");
         RQry.SetVariable( "pr_del", id->pr_del );
         if ( id->scd_in > NoExists ) {
           RQry.SetVariable( "scd_in", modf( (double)id->scd_in, &fl ) ); // удаляем delta_in
-          log += DateTimeToStr( id->scd_in, "hh:nn(UTC)" );
+          prmenum2.prms << PrmDate("", id->scd_in, "hh:nn(UTC)");
         }
         else {
           fl = 0.0;
           RQry.SetVariable( "scd_in", FNull );
         }
-        log += id->airp;
+        prmenum2.prms << PrmElem<string>("", etAirp, id->airp);
         if ( id->airline.empty() ) {
           RQry.SetVariable( "airline", FNull );
           RQry.SetVariable( "airline_fmt", FNull );
@@ -2441,14 +2451,14 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         }
         if ( id->scd_out > NoExists ) {
           RQry.SetVariable( "scd_out", modf( (double)id->scd_out, &ff ) ); // удаляем delta_out
-          log += DateTimeToStr( id->scd_out, "hh:nn(UTC)" );
+          prmenum2.prms << PrmDate("", id->scd_out, "hh:nn(UTC)");
         }
         else {
           ff = 0.0;
           RQry.SetVariable( "scd_out", FNull );
         }
         if ( id->pr_del )
-        	log += " отм.";
+          prmenum2.prms << PrmLexema("", "EVT.CANCEL");
         if ( id->triptype.empty() )
           RQry.SetVariable( "trip_type", FNull );
         else
@@ -2482,24 +2492,26 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         }
         RQry.Execute();
         dnum++;
+        prmenum.prms << prmenum2;
       }
       mapds[ ip->move_id ].dests.clear();
       ip->move_id = new_move_id;
-      TReqInfo::Instance()->MsgToLog( log, evtSeason, trip_id, new_move_id );
+      TReqInfo::Instance()->LocaleToLog("EVT.SEASON.ROUTE", LEvntPrms() << prmenum, evtSeason, trip_id, new_move_id );
     }
   }
   for ( vector<TPeriod>::const_iterator ew=oldperiods.begin(); ew!=oldperiods.end(); ew++ ) {
-  	if ( ew->modify == fdelete )
+    if ( ew->modify == fdelete )
   		continue;
-      log = "Удаление периода " +
-            DateTimeToStr( ew->first, "dd.mm.yy" ) +
-            "-" +
-            DateTimeToStr( ew->last, "dd.mm.yy" ) + " " +
-            ew->days;
-      if ( ew->pr_del )
-    	  log += " отм.";
-      log +=" (ид. рейса=" + IntToString( trip_id ) + ",ид. маршрута=" + IntToString( ew->move_id ) + ")";
-    	TReqInfo::Instance()->MsgToLog( log, evtSeason, trip_id, ew->move_id );
+    LEvntPrms params;
+    params << PrmDate("date_first", ew->first, "dd.mm.yy")
+              << PrmDate("date_last", ew->last, "dd.mm.yy")
+              << PrmSmpl<string>("days", ew->days);
+    if ( ew->pr_del )
+      params << PrmLexema("del", "EVT.CANCEL");
+    else
+        params << PrmSmpl<string>("del", "");
+    params << PrmSmpl<int>("trip_id", trip_id) << PrmSmpl<int>("route_id", ew->move_id);
+    TReqInfo::Instance()->LocaleToLog("EVT.SEASON.DELETE_PERIOD", params, evtSeason, trip_id, ew->move_id);
   }
 
   // надо перечитать информацию по экрану редактирования

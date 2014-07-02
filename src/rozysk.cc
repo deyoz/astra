@@ -1038,9 +1038,6 @@ void get_pax_list(int point_id,
 
     int idx_ticket_no = Qry.FieldIndex( "ticket_no" );
 
-    vector< pair<TElemFmt,string> > fmts;
-    getElemFmts(efmtCodeNative, AstraLocale::LANG_EN, fmts);
-
     for ( ;!Qry.Eof; Qry.Next() )
     {
       mintrans::TPax pax;
@@ -1085,9 +1082,9 @@ void get_pax_list(int point_id,
       };
 
       pax.docNumber = Qry.FieldAsString( idx_doc_no );
-      pax.departPlace = ElemIdToElem(etAirp, Qry.FieldAsString( idx_airp_dep ), fmts);
+      pax.departPlace = ElemIdToPrefferedElem(etAirp, Qry.FieldAsString( idx_airp_dep ), efmtCodeNative, AstraLocale::LANG_EN);
       if (pax.departPlace.empty()) pax.departPlace = Qry.FieldAsString( idx_airp_dep );
-      pax.arrivePlace = ElemIdToElem(etAirp, Qry.FieldAsString( idx_airp_arv ), fmts);
+      pax.arrivePlace = ElemIdToPrefferedElem(etAirp, Qry.FieldAsString( idx_airp_arv ), efmtCodeNative, AstraLocale::LANG_EN);
       if (pax.arrivePlace.empty()) pax.arrivePlace = Qry.FieldAsString( idx_airp_arv );
       if ( Qry.FieldIsNULL( idx_route_type ) )
         pax.rtType = ASTRA::NoExists;
@@ -1105,10 +1102,10 @@ void get_pax_list(int point_id,
       //Данные о регистрируемой операции
       pax.operationType = Qry.FieldAsString( idx_operation );
       pax.registerTimeIS = Qry.FieldAsDateTime( idx_time );
-      pax.airlineCode = ElemIdToElem(etAirline, Qry.FieldAsString( idx_airline ), fmts);
+      pax.airlineCode = ElemIdToPrefferedElem(etAirline, Qry.FieldAsString( idx_airline ), efmtCodeNative, AstraLocale::LANG_EN);
       if (pax.airlineCode.empty()) pax.airlineCode = Qry.FieldAsString( idx_airline );
       pax.flightNum = Qry.FieldAsInteger( idx_flt_no );
-      pax.operSuff = ElemIdToElem(etSuffix, Qry.FieldAsString( idx_suffix ), fmts);
+      pax.operSuff = ElemIdToPrefferedElem(etSuffix, Qry.FieldAsString( idx_suffix ), efmtCodeNative, AstraLocale::LANG_EN);
       if (pax.operSuff.empty()) pax.operSuff = Qry.FieldAsString( idx_suffix );
       pax.actLoc = Qry.FieldAsString( idx_seat_no );
       pax.pnrId = Qry.FieldAsString( idx_pnr );

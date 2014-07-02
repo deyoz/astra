@@ -1017,7 +1017,7 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT typeb_types.short_name, "
+    "SELECT typeb_types.code, "
     "       point_id, "
     "       NVL(LENGTH(addr),0)+ "
     "       NVL(LENGTH(origin),0)+ "
@@ -1032,7 +1032,7 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   if (tlg_body.size()+Qry.FieldAsInteger("len") > PART_SIZE)
     throw AstraLocale::UserException("MSG.TLG.MAX_LENGTH", LParams() << LParam("count", (int)PART_SIZE));
 
-  string tlg_short_name=Qry.FieldAsString("short_name");
+  string tlg_code=Qry.FieldAsString("code");
   int point_id=Qry.FieldAsInteger("point_id");
 
   Qry.Clear();
@@ -1050,9 +1050,8 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
   check_tlg_out_alarm(point_id);
 
-  ostringstream msg;
-  msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") изменена";
-  TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+  TReqInfo::Instance()->LocaleToLog("EVT.TLG.MODIFIED", LEvntPrms() << PrmElem<std::string>("tlg_name", etTypeBType, tlg_code, efmtNameShort)
+                                    << PrmSmpl<int>("tlg_id", tlg_id), evtTlg, point_id, tlg_id);
   AstraLocale::showMessage("MSG.TLG.SAVED");
 };
 
@@ -1091,12 +1090,10 @@ void TelegramInterface::SendTlg(int tlg_id)
                          "");
 
     string tlg_basic_type;
-    string tlg_short_name;
     try
     {
       const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg.tlg_type));
       tlg_basic_type=row.basic_type;
-      tlg_short_name=row.short_name;
     }
     catch(EBaseTableError)
     {
@@ -1251,9 +1248,9 @@ void TelegramInterface::SendTlg(int tlg_id)
       "UPDATE tlg_out SET time_send_act=system.UTCSYSDATE WHERE id=:id";
     TlgQry.CreateVariable( "id", otInteger, tlg_id);
     TlgQry.Execute();
-    ostringstream msg;
-    msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") отправлена";
-    TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,tlg.point_id,tlg_id);
+    TReqInfo::Instance()->LocaleToLog("EVT.TLG.SENT", LEvntPrms()
+                                      << PrmElem<std::string>("tlg_name", etTypeBType, tlg.tlg_type, efmtNameShort)
+                                      << PrmSmpl<int>("tlg_id", tlg_id), evtTlg, tlg.point_id, tlg_id);
   }
   catch(EOracleError &E)
   {
@@ -1280,12 +1277,12 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
-        "SELECT typeb_types.basic_type, typeb_types.short_name,point_id FROM tlg_out,typeb_types "
+        "SELECT typeb_types.basic_type, typeb_types.code,point_id FROM tlg_out,typeb_types "
         "WHERE tlg_out.type=typeb_types.code AND id=:id AND num=1 FOR UPDATE";
     Qry.CreateVariable( "id", otInteger, tlg_id);
     Qry.Execute();
     if (Qry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
-    string tlg_short_name=Qry.FieldAsString("short_name");
+    string tlg_code=Qry.FieldAsString("code");
     string tlg_basic_type=Qry.FieldAsString("basic_type");
     int point_id=Qry.FieldAsInteger("point_id");
 
@@ -1302,9 +1299,9 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "   delete from typeb_out_errors where tlg_id = :id; "
             "end;";
         Qry.Execute();
-        ostringstream msg;
-        msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") удалена";
-        TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+        TReqInfo::Instance()->LocaleToLog("EVT.TLG.DELETED", LEvntPrms()
+                                          << PrmElem<std::string>("tlg_name", etTypeBType, tlg_code, efmtNameShort)
+                                          << PrmSmpl<int>("tlg_id", tlg_id), evtTlg, point_id, tlg_id);
         AstraLocale::showMessage("MSG.TLG.DELETED");
     };
     check_tlg_out_alarm(point_id);

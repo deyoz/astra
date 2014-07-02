@@ -836,7 +836,7 @@ struct TCFGItem {
 struct TCFG:public std::vector<TCFGItem> {
     void get(int point_id, BASIC::TDateTime part_key = ASTRA::NoExists); //NoExists если в оперативной базе, иначе в архивной
     std::string str(const std::string &lang="", const std::string &separator=" ");
-
+    void param(LEvntPrms& params);
     TCFG(int point_id, BASIC::TDateTime part_key = ASTRA::NoExists) { get(point_id, part_key); };
     TCFG() {};
 };

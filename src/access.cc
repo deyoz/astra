@@ -57,24 +57,16 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     int role_id = NodeAsInteger("role_id", reqNode);
     TRightListType rlt = DecodeRightListType(NodeAsString("rlt", reqNode));
     string table = get_rights_table(rlt);
-    string table_name;
-    switch(rlt) {
-        case rltRights:
-            table_name = "Доступ к операциям";
-            break;
-        case rltAssignRights:
-            table_name = "Делегирование операций";
-            break;
-        default:
-            throw Exception("AccessInterface::RoleRights: unexpected TRightListType: %d", rlt);
-    }
+    if (rlt != rltRights && rlt != rltAssignRights)
+        throw Exception("AccessInterface::RoleRights: unexpected TRightListType: %d", rlt);
     xmlNodePtr itemNode = NodeAsNode("items", reqNode)->children;
     TQuery Qry(&OraSession);
     Qry.CreateVariable("user_id", otInteger, info.user.user_id);
     Qry.CreateVariable("role_id", otInteger, role_id);
     Qry.DeclareVariable("right_id", otInteger);
     for(; itemNode; itemNode = itemNode->next) {
-        ostringstream log_msg;
+        string lexema_id;
+        LEvntPrms params;
         xmlNodePtr dataNode = itemNode->children;
         int right_id = NodeAsIntegerFast("id", dataNode);
         Qry.SetVariable("right_id", right_id);
@@ -88,7 +80,9 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                     "  :right_id:=adm.check_right_access(:right_id,:user_id,1); "
                     "  INSERT INTO " + table + "(role_id,right_id) VALUES(:role_id,:right_id); "
                     "END;";
-                log_msg << table_name << ". Для роли " << role_id << " вкл. операция " << right_id;
+                lexema_id = (rlt==rltRights)?"EVT.ACCESS_OPERATION_ON":"EVT.ASSIGNE_OPERATION_ON";
+                params << PrmElem<int>("name", etRoles, role_id, efmtNameLong) << PrmSmpl<int>("id", role_id)
+                       << PrmElem<int>("right", etRight, right_id, efmtNameLong);
                 break;
             case rsOff:
                 SQLText =
@@ -98,8 +92,9 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                     "  DELETE FROM " + table + " "
                     "  WHERE role_id=:role_id AND right_id=:right_id; "
                     "END;";
-                log_msg << table_name << ". Для роли " << role_id << " выкл. операция " << right_id;
-                break;
+                lexema_id = (rlt==rltRights)?"EVT.ACCESS_OPERATION_OFF":"EVT.ASSIGNE_OPERATION_OFF";
+                params << PrmElem<int>("name", etRoles, role_id, efmtNameLong) << PrmSmpl<int>("id", role_id)
+                       << PrmElem<int>("right", etRight, right_id, efmtNameLong);                break;
         }
         Qry.SQLText = SQLText;
         try {
@@ -112,10 +107,7 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
             } else
                 throw;
         }
-        TLogMsg message;
-        message.msg = log_msg.str();
-        message.ev_type = evtAccess;
-        info.MsgToLog( message );
+        info.LocaleToLog(lexema_id, params, evtAccess);
     }
 }
 
@@ -753,12 +745,9 @@ void TUserData::del()
     Qry.CreateVariable("OLD_user_id", otInteger, user_id);
     try {
         Qry.Execute();
-        ostringstream log_msg;
-        log_msg << "Пользователь " << user_id << " удален";
-        TLogMsg message;
-        message.ev_type = evtAccess;
-        message.msg = log_msg.str();
-        TReqInfo::Instance()->MsgToLog( message );
+        TReqInfo::Instance()->LocaleToLog("EVT.USER_DELETED", LEvntPrms()
+                                          << PrmElem<int>("name", etUsers, user_id, efmtNameLong)
+                                          << PrmSmpl<int>("id", user_id), evtAccess);
     }
     catch(EOracleError &E)
     {
@@ -776,8 +765,6 @@ void TUserData::update_aro(bool pr_insert)
 {
     TReqInfo &info = *(TReqInfo::Instance());
     try {
-        TLogMsg message;
-        message.ev_type = evtAccess;
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "begin "
@@ -792,10 +779,10 @@ void TUserData::update_aro(bool pr_insert)
             Qry.SetVariable("airline", *iv);
             try {
                 Qry.Execute();
-                ostringstream log_msg;
-                log_msg << "Добавлена а/к " << *iv << " для пользователя " << user_id;
-                message.msg = log_msg.str();
-                info.MsgToLog(message);
+                info.LocaleToLog("EVT.AIRLINE_ADDED_FOR_USER", LEvntPrms()
+                                 << PrmElem<string>("airl", etAirline, *iv)
+                                 << PrmElem<int>("name", etUsers, user_id, efmtNameLong)
+                                 << PrmSmpl<int>("id", user_id), evtAccess);
             } catch(EOracleError &E) {
                 if(E.Code != 1) // dup_val_on_index
                     throw;
@@ -827,12 +814,11 @@ void TUserData::update_aro(bool pr_insert)
             delQry.SetVariable("airline", airline);
             delQry.Execute();
             delQry.SetVariable("first", 0);
-            ostringstream log_msg;
-            log_msg << "Удалена а/к " << airline << " для пользователя " << user_id;
-            message.msg = log_msg.str();
-            info.MsgToLog(message);
+            info.LocaleToLog("EVT.AIRLINE_DELETED_FOR_USER", LEvntPrms()
+                          << PrmElem<string>("airl", etAirline, airline)
+                          << PrmElem<int>("name", etUsers, user_id, efmtNameLong)
+                          << PrmSmpl<int>("id", user_id), evtAccess);
         }
-
         Qry.Clear();
         Qry.SQLText =
             "begin "
@@ -847,10 +833,10 @@ void TUserData::update_aro(bool pr_insert)
             Qry.SetVariable("airp", *iv);
             try {
                 Qry.Execute();
-                ostringstream log_msg;
-                log_msg << "Добавлен а/п " << *iv << " для пользователя " << user_id;
-                message.msg = log_msg.str();
-                info.MsgToLog(message);
+                info.LocaleToLog("EVT.AIRP_ADDED_FOR_USER", LEvntPrms()
+                              << PrmElem<string>("airp", etAirp, *iv)
+                              << PrmElem<int>("name", etUsers, user_id, efmtNameLong)
+                              << PrmSmpl<int>("id", user_id), evtAccess);
             } catch(EOracleError &E) {
                 if(E.Code != 1) // dup_val_on_index
                     throw;
@@ -882,10 +868,10 @@ void TUserData::update_aro(bool pr_insert)
             delQry.SetVariable("airp", airp);
             delQry.Execute();
             delQry.SetVariable("first", 0);
-            ostringstream log_msg;
-            log_msg << "Удален а/п " << airp << " для пользователя " << user_id;
-            message.msg = log_msg.str();
-            info.MsgToLog(message);
+            info.LocaleToLog("EVT.AIRP_DELETED_FOR_USER", LEvntPrms()
+                          << PrmElem<string>("airp", etAirp, airp)
+                          << PrmElem<int>("name", etUsers, user_id, efmtNameLong)
+                          << PrmSmpl<int>("id", user_id), evtAccess);
         }
 
         Qry.Clear();
@@ -901,13 +887,18 @@ void TUserData::update_aro(bool pr_insert)
         vector<string> role_ids;
         for(set<string>::iterator iv = roles.begin(); iv != roles.end(); iv++) {
             role_ids.push_back(get_role_id(*iv));
+            int id;
+            BASIC::StrToInt(role_ids.back().c_str(), id);
             Qry.SetVariable("role", role_ids.back());
             try {
                 Qry.Execute();
                 ostringstream log_msg;
                 log_msg << "Добавлена роль " << role_ids.back() << " для пользователя " << user_id;
-                message.msg = log_msg.str();
-                info.MsgToLog(message);
+
+                info.LocaleToLog("EVT.ROLE_ADDED_FOR_USER", LEvntPrms()
+                              << PrmElem<int>("role", etRoles, id, efmtNameLong)
+                              << PrmSmpl<int>("id", id) << PrmElem<int>("name", etUsers, user_id, efmtNameLong)
+                              << PrmSmpl<int>("id", user_id), evtAccess);
             } catch(EOracleError &E) {
                 if(E.Code != 1) // dup_val_on_index
                     throw;
@@ -939,10 +930,10 @@ void TUserData::update_aro(bool pr_insert)
             delQry.SetVariable("role_id", role_id);
             delQry.Execute();
             delQry.SetVariable("first", 0);
-            ostringstream log_msg;
-            log_msg << "Удалена роль " << role_id << " для пользователя " << user_id;
-            message.msg = log_msg.str();
-            info.MsgToLog(message);
+            info.LocaleToLog("EVT.ROLE_DELETED_FOR_USER", LEvntPrms()
+                          << PrmElem<int>("role", etRoles, role_id, efmtNameLong)
+                          << PrmSmpl<int>("id", role_id) << PrmElem<int>("name", etUsers, user_id, efmtNameLong)
+                          << PrmSmpl<int>("id", user_id), evtAccess);
         }
 
         Qry.Clear();
@@ -994,24 +985,24 @@ void TUserData::update()
 
 void TUserData::to_log(bool pr_update)
 {
-    ostringstream log_msg;
-    log_msg
-        << (pr_update ? "Изменение" : "Ввод")
-        << " строки в таблице 'Пользователи': "
-        << "Ф.И.О.='" << descr << "', "
-        << "Логин='" << login << "', "
-        << "TYPE_CODE=" << user_type << ", "
-        << "Откл.=" << pr_denial;
-    if(time_fmt >= 0) log_msg << ", TIME_FMT=" << time_fmt;
-    if(airline_fmt >= 0) log_msg << ", DISP_AIRLINE_FMT=" << airline_fmt;
-    if(airp_fmt >= 0) log_msg << ", DISP_AIRP_FMT=" << airp_fmt;
-    if(craft_fmt >= 0) log_msg << ", DISP_CRAFT_FMT=" << craft_fmt;
-    if(suff_fmt >= 0) log_msg << ", DISP_SUFFIX_FMT=" << suff_fmt;
-    TLogMsg message;
-    message.msg = log_msg.str();
-    message.ev_type = evtAccess;
-    TReqInfo::Instance()->MsgToLog( message );
-
+    string lexema_id;
+    LEvntPrms params;
+    lexema_id = pr_update ? "EVT.TABLE_USERS_MODIFY_ROW" : "EVT.TABLE_USERS_ADD_ROW";
+    params << PrmSmpl<string>("descr", descr) << PrmElem<int>("user_type", etUserType, user_type, efmtNameLong)
+           << PrmBool("pr_denial", pr_denial);
+    PrmEnum fmts("fmts", "");
+    if(time_fmt >= 0)
+        fmts.prms << PrmSmpl<string>("", ", TIME_FMT=") << PrmElem<int>("", etUserSetType, time_fmt, efmtNameShort);
+    if(airline_fmt >= 0)
+        fmts.prms << PrmSmpl<string>("", ", DISP_AIRLINE_FMT=") << PrmElem<int>("", etUserSetType, airline_fmt, efmtNameShort);
+    if(airp_fmt >= 0)
+        fmts.prms << PrmSmpl<string>("", ", DISP_AIRP_FMT=") << PrmElem<int>("", etUserSetType, airp_fmt, efmtNameShort);
+    if(craft_fmt >= 0)
+        fmts.prms << PrmSmpl<string>("", ", DISP_CRAFT_FMT=") << PrmElem<int>("", etUserSetType, craft_fmt, efmtNameShort);
+    if(suff_fmt >= 0)
+        fmts.prms << PrmSmpl<string>("", ", DISP_SUFFIX_FMT=") << PrmElem<int>("", etUserSetType, suff_fmt, efmtNameShort);
+    params << fmts;
+    TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtAccess);
 }
 
 void TUserData::insert()

@@ -543,12 +543,10 @@ std::string GetPaxDocStr(TDateTime part_key,
     result << doc.no;
     if (with_issue_country && !doc.issue_country.empty())
     {
-      vector< pair<TElemFmt,string> > fmts_code;
       if (lang.empty())
-        getElemFmts(efmtCodeNative, TReqInfo::Instance()->desk.lang, fmts_code);
+        result << " " << ElemIdToPrefferedElem(etPaxDocCountry, doc.issue_country, efmtCodeNative, TReqInfo::Instance()->desk.lang, true);
       else
-        getElemFmts(efmtCodeNative, lang, fmts_code);
-      result << " " << ElemIdToElem(etPaxDocCountry, doc.issue_country, fmts_code, true);
+        result << " " << ElemIdToPrefferedElem(etPaxDocCountry, doc.issue_country, efmtCodeNative, lang, true);
     };
   };
   return result.str();

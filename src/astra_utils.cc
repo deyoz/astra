@@ -542,7 +542,7 @@ long TReqInfo::getExecuteMSec()
 	return pt.total_milliseconds();
 }
 
-void MsgToLog(TLogMsg &msg, const string &screen, const string &user, const string &desk)
+void TReqInfo::MsgToLog(TLogMsg &msg)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -564,9 +564,9 @@ void MsgToLog(TLogMsg &msg, const string &screen, const string &user, const stri
     Qry.CreateVariable("ev_order", otInteger, FNull);
     Qry.SetVariable("type", EncodeEventType(msg.ev_type));
     Qry.SetVariable("msg", msg.msg);
-    Qry.SetVariable("screen", screen);
-    Qry.SetVariable("ev_user", user);
-    Qry.SetVariable("station", desk);
+    Qry.SetVariable("screen", screen.name);
+    Qry.SetVariable("ev_user", user.descr);
+    Qry.SetVariable("station", desk.code);
     if(msg.id1!=0 && msg.id1!=NoExists)
         Qry.SetVariable("id1", msg.id1);
     else
@@ -590,17 +590,6 @@ void MsgToLog(TLogMsg &msg, const string &screen, const string &user, const stri
       msg.ev_order=ASTRA::NoExists;
 };
 
-void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3)
-{
-    TLogMsg msgh;
-    msgh.msg = msg;
-    msgh.ev_type = ev_type;
-    msgh.id1 = id1;
-    msgh.id2 = id2;
-    msgh.id3 = id3;
-    MsgToLog(msgh,"","","");
-};
-
 void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id3)
 {
     TLogMsg msgh;
@@ -612,11 +601,86 @@ void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id
     MsgToLog(msgh);
 }
 
-void TReqInfo::MsgToLog(TLogMsg &msg)
+void TReqInfo::LocaleToLog(const string &vlexema, TEventType ev_type, int id1, int id2, int id3)
 {
-    ::MsgToLog(msg,screen.name,user.descr,desk.code);
-};
+ TLogLocale msgh;
+ msgh.lexema_id = vlexema;
+ msgh.ev_type = ev_type;
+ msgh.id1 = id1;
+ msgh.id2 = id2;
+ msgh.id3 = id3;
+ LocaleToLog(msgh);
+}
 
+void TReqInfo::LocaleToLog(const string &vlexema, const LEvntPrms &prms, TEventType ev_type, int id1, int id2, int id3)
+{
+ TLogLocale msgh;
+ msgh.lexema_id = vlexema;
+ msgh.prms = prms;
+ msgh.ev_type = ev_type;
+ msgh.id1 = id1;
+ msgh.id2 = id2;
+ msgh.id3 = id3;
+ LocaleToLog(msgh);
+}
+
+void TReqInfo::LocaleToLog(TLogLocale &msg)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "BEGIN "
+        "  INSERT INTO events_bilingual(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,lang) "
+        "  VALUES(:type,system.UTCSYSDATE,events__seq.nextval,"
+        "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang) "
+        "  RETURNING time,ev_order INTO :ev_time,:ev_order; "
+        "END;";
+    Qry.DeclareVariable("type", otString);
+    Qry.DeclareVariable("msg", otString);
+    Qry.DeclareVariable("screen", otString);
+    Qry.DeclareVariable("ev_user", otString);
+    Qry.DeclareVariable("station", otString);
+    Qry.DeclareVariable("id1", otInteger);
+    Qry.DeclareVariable("id2", otInteger);
+    Qry.DeclareVariable("id3", otInteger);
+    Qry.CreateVariable("ev_time", otDate, FNull);
+    Qry.CreateVariable("ev_order", otInteger, FNull);
+    Qry.SetVariable("type", EncodeEventType(msg.ev_type));
+    Qry.SetVariable("screen", screen.name);
+    Qry.SetVariable("ev_user", user.descr);
+    Qry.SetVariable("station", desk.code);
+    if(msg.id1!=0 && msg.id1!=NoExists)
+        Qry.SetVariable("id1", msg.id1);
+    else
+        Qry.SetVariable("id1", FNull);
+    if(msg.id2!=0 && msg.id2!=NoExists)
+        Qry.SetVariable("id2", msg.id2);
+    else
+        Qry.SetVariable("id2", FNull);
+    if(msg.id3!=0 && msg.id3!=NoExists)
+        Qry.SetVariable("id3", msg.id3);
+    else
+        Qry.SetVariable("id3", FNull);
+    Qry.DeclareVariable("lang", otString);
+    for (std::vector<std::string>::iterator lang = msg.vlangs.begin(); lang != msg.vlangs.end(); lang++) {
+        (*lang == AstraLocale::LANG_RU)?Qry.SetVariable("lang", "RU"):Qry.SetVariable("lang", "EN");
+        std::string message;
+        message = AstraLocale::getLocaleText(msg.lexema_id, msg.prms.GetParams(*lang), *lang);
+        vector<string> strs;
+        SeparateString(message, 250, strs);
+        for (vector<string>::iterator i=strs.begin(); i!=strs.end(); i++) {
+            Qry.SetVariable("msg", *i);
+            Qry.Execute();
+        }
+        if (!Qry.VariableIsNULL("ev_time"))
+            msg.ev_time=Qry.GetVariableAsDateTime("ev_time");
+        else
+            msg.ev_time=ASTRA::NoExists;
+        if (!Qry.VariableIsNULL("ev_order"))
+            msg.ev_order=Qry.GetVariableAsInteger("ev_order");
+        else
+            msg.ev_order=ASTRA::NoExists;
+    }
+}
 
 /***************************************************************************************/
 

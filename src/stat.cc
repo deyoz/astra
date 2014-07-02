@@ -593,7 +593,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "       id1 AS point_id,  "
             "       events.screen,  "
             "       ev_user, station, ev_order  "
-            "FROM events  "
+            "FROM events  " //!!!anna
             "WHERE "
             "   events.type = :evtFltTask AND  "
             "   events.id1=:point_id  ";
@@ -614,7 +614,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "       id1 AS point_id,  "
             "       arx_events.screen,  "
             "       ev_user, station, ev_order  "
-            "FROM arx_events  "
+            "FROM arx_events  " //!!!anna
             "WHERE "
             "   arx_events.part_key = :part_key and "
             "   arx_events.type = :evtFltTask AND  "
@@ -749,7 +749,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no,  "
             "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM events  "
+            "FROM events  " //!!!anna
             "WHERE "
             "   events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
             "   events.id1=:point_id  ";
@@ -760,7 +760,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       NULL AS reg_no,  "
             "       NULL AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM events  "
+            "FROM events  " //!!!anna
             "WHERE "
             "events.type IN (:evtDisp) AND "
             "events.id1=:move_id  ";
@@ -784,7 +784,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no,  "
             "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM arx_events  "
+            "FROM arx_events  " //!!!anna
             "WHERE "
             "   arx_events.part_key = :part_key and "
             "   arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
@@ -796,7 +796,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       NULL AS reg_no,  "
             "       NULL AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM arx_events  "
+            "FROM arx_events  " //!!!anna
             "WHERE "
             "      arx_events.part_key = :part_key and "
             "      arx_events.type IN (:evtDisp) AND "
@@ -936,7 +936,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
-            "FROM events "
+            "FROM events " //!!!anna
             "WHERE type IN (:evtPax,:evtPay) AND "
             "      screen <> 'ASTRASERV.EXE' and "
             "      id1=:point_id AND "
@@ -1127,7 +1127,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
                 "  ev_user, station, ev_order, null part_key "
                 "FROM "
-                "   events "
+                "   events " //!!!anna
                 "WHERE "
                 "  events.time >= :FirstDate and "
                 "  events.time < :LastDate and "
@@ -1159,7 +1159,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
                 "  ev_user, station, ev_order, part_key "
                 "FROM "
-                "   arx_events "
+                "   arx_events " //!!!anna
                 "WHERE "
                 "  arx_events.part_key >= :FirstDate - 10 and " // time и part_key не совпадают для
                 "  arx_events.part_key < :LastDate + 10 and "   // разных типов событий

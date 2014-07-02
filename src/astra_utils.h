@@ -4,13 +4,16 @@
 #include <string>
 #include <map>
 #include <set>
+#include <vector>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/local_time/local_time.hpp>
+#include <boost/interprocess/smart_ptr/unique_ptr.hpp>
 #include "astra_consts.h"
+#include "astra_locale.h"
+#include "event_utils.h"
 #include "basic.h"
 #include "exceptions.h"
-#include "astra_locale.h"
 #include "oralib.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_xml_cont.h"
@@ -255,16 +258,10 @@ class TReqInfo
     void Initialize( const std::string &city );
     void Initialize( TReqInfoInitData &InitData );
     void MsgToLog(TLogMsg &msg);
-    void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3);
-    void MsgToLog(std::string msg, ASTRA::TEventType ev_type) {
-      MsgToLog(msg, ev_type, ASTRA::NoExists, ASTRA::NoExists, ASTRA::NoExists);
-    }
-    void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1) {
-      MsgToLog(msg, ev_type, id1, ASTRA::NoExists, ASTRA::NoExists);
-    }
-    void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2) {
-      MsgToLog(msg, ev_type, id1, id2, ASTRA::NoExists);
-    }
+    void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
+    void LocaleToLog(const std::string &vlexema, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
+    void LocaleToLog(const std::string &vlexema, const LEvntPrms &prms, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
+    void LocaleToLog(TLogLocale &msg);
     void setPerform();
     void clearPerform();
     long getExecuteMSec();
@@ -275,16 +272,6 @@ class TReqInfo
 
 void MergeAccess(std::vector<std::string> &a, bool &ap,
                  std::vector<std::string> b, bool bp);
-
-void MsgToLog(TLogMsg &msg,
-              const std::string &screen,
-              const std::string &user,
-              const std::string &desk);
-void MsgToLog(std::string msg,
-              ASTRA::TEventType ev_type,
-              int id1 = ASTRA::NoExists,
-              int id2 = ASTRA::NoExists,
-              int id3 = ASTRA::NoExists);
 
 ASTRA::TRptType DecodeRptType(const std::string s);
 const std::string EncodeRptType(ASTRA::TRptType s);

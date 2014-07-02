@@ -1347,16 +1347,12 @@ void PrintInterface::ConfirmPrintBP(const std::vector<BPPax> &paxs,
             if (Qry.GetVariableAsInteger("rows")==0)
                 throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
             string seat_no = Qry.GetVariableAsString("seat_no");
-            ostringstream msg;
-            msg << "Напечатан пос. талон для " << iPax->full_name
-                << ". Место в пос. талоне: " << (seat_no.empty() ? "нет" : seat_no) << ".";
-            TReqInfo::Instance()->MsgToLog(
-                    msg.str(),
-                    ASTRA::evtPax,
-                    iPax->point_dep,
-                    iPax->reg_no,
-                    iPax->grp_id
-                    );
+            LEvntPrms params;
+            params << PrmSmpl<std::string>("full_name", iPax->full_name);
+            if (seat_no.empty()) params << PrmBool("seat_no", false);
+            else PrmSmpl<std::string>("seat_no", seat_no);
+            TReqInfo::Instance()->LocaleToLog("EVT.PRINT_BOARDING_PASS", params, ASTRA::evtPax, iPax->point_dep,
+                                              iPax->reg_no, iPax->grp_id);
         }
         catch(AstraLocale::UserException &e)
         {
