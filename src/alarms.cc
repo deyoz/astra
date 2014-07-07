@@ -12,6 +12,7 @@
 #include "trip_tasks.h"
 #include "salons.h"
 #include "qrys.h"
+#include "brd.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -36,7 +37,10 @@ const char *TripAlarmsTypeS[] = {
     "CONFLICT_TRFER",
     "CREW_CHECKIN",
     "CREW_NUMBER",
-    "CREW_DIFF"
+    "CREW_DIFF",
+    "APIS_DIFFERS_FROM_BOOKING",
+    "APIS_INCOMPLETE",
+    "APIS_MANUAL_INPUT"
 };
 
 TTripAlarmsType DecodeAlarmType( const string &alarm )
@@ -120,6 +124,9 @@ bool get_alarm( int point_id, TTripAlarmsType alarm_type )
         case atCrewCheckin:
         case atCrewNumber:
         case atCrewDiff:
+        case atAPISDiffersFromBooking:
+        case atAPISIncomplete:
+        case atAPISManualInput:
             break;
         default: throw Exception("get_alarm: alarm_type=%s not processed", EncodeAlarmType(alarm_type).c_str());
     };
@@ -147,6 +154,9 @@ void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
         case atCrewCheckin:
         case atCrewNumber:
         case atCrewDiff:
+        case atAPISDiffersFromBooking:
+        case atAPISIncomplete:
+        case atAPISManualInput:
             break;
         default: throw Exception("set_alarm: alarm_type=%s not processed", EncodeAlarmType(alarm_type).c_str());
     };
@@ -552,6 +562,120 @@ void check_crew_alarms(int point_id)
   set_alarm( point_id, atCrewNumber, crew_number );
 	set_alarm( point_id, atCrewDiff, crew_diff );
 }
+
+void check_apis_alarms(int point_id)
+{
+  set<TTripAlarmsType> checked_alarms;
+  checked_alarms.insert(atAPISDiffersFromBooking);
+  checked_alarms.insert(atAPISIncomplete);
+  checked_alarms.insert(atAPISManualInput);
+  check_apis_alarms(point_id, checked_alarms);
+};
+
+void check_apis_alarms(int point_id, const set<TTripAlarmsType> &checked_alarms)
+{
+  set<APIS::TAlarmType> off_alarms;
+
+  if (checked_alarms.find(atAPISDiffersFromBooking)!=checked_alarms.end())
+    off_alarms.insert(APIS::atDiffersFromBooking);
+  if (checked_alarms.find(atAPISIncomplete)!=checked_alarms.end())
+    off_alarms.insert(APIS::atIncomplete);
+  if (checked_alarms.find(atAPISManualInput)!=checked_alarms.end())
+    off_alarms.insert(APIS::atManualInput);
+
+  if (off_alarms.empty()) return;
+
+  bool apis_control=false;
+  bool apis_manual_input=false;
+
+  TAPISMap apis_map;
+  set<string> apis_formats;
+  GetAPISSets(point_id, apis_map, apis_formats);
+  if (!apis_formats.empty())
+  {
+    //хотя бы по одному из направлений настроен APIS
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+        "SELECT apis_control, apis_manual_input "
+        "FROM trip_sets WHERE point_id=:point_id";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.Execute();
+    if (!Qry.Eof)
+    {
+      apis_control=Qry.FieldAsInteger("apis_control")!=0;
+      apis_manual_input=Qry.FieldAsInteger("apis_manual_input")!=0;
+    };
+
+    if (!apis_control) off_alarms.clear();
+    if (apis_manual_input) off_alarms.erase(APIS::atManualInput);
+
+    if (!off_alarms.empty())
+    {
+      bool need_crs_pax=off_alarms.find(APIS::atDiffersFromBooking)!=off_alarms.end();
+
+      ostringstream sql;
+      sql << "SELECT pax.pax_id, pax.name, pax_grp.airp_arv, pax_grp.status, ";
+      if (need_crs_pax)
+        sql << "       crs_pax.pax_id AS crs_pax_id ";
+      else
+        sql << "       NULL AS crs_pax_id ";
+      sql << "FROM pax_grp, pax ";
+      if (need_crs_pax)
+        sql << ", crs_pax ";
+      sql << "WHERE pax_grp.grp_id = pax.grp_id AND "
+             "      pax_grp.point_dep = :point_id AND "
+             "      pax.refuse IS NULL ";
+      if (need_crs_pax)
+        sql << "      AND pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 ";
+      Qry.Clear();
+      Qry.SQLText=sql.str().c_str();
+      Qry.CreateVariable("point_id", otInteger, point_id);
+      Qry.Execute();
+      for(;!Qry.Eof;Qry.Next())
+      {
+        if (off_alarms.empty()) break;
+
+        int pax_id=Qry.FieldAsInteger("pax_id");
+        int crs_pax_id=Qry.FieldIsNULL("crs_pax_id")?NoExists:Qry.FieldAsInteger("crs_pax_id");
+        string name=Qry.FieldAsString("name");
+        string airp_arv=Qry.FieldAsString("airp_arv");
+        TPaxStatus status=DecodePaxStatus(Qry.FieldAsString("status"));
+
+        TAPISMap::const_iterator iAPISMap=apis_map.find(airp_arv);
+        if (iAPISMap==apis_map.end() || iAPISMap->second.second.empty()) continue;
+
+        CheckIn::TAPISItem apis;
+        if (off_alarms.find(APIS::atDiffersFromBooking)!=off_alarms.end() ||
+            off_alarms.find(APIS::atIncomplete)!=off_alarms.end())
+          //грузим все данные
+          apis.fromDB(pax_id);
+        else
+          //грузим только документ
+          CheckIn::LoadPaxDoc(pax_id, apis.doc);
+
+        TCheckDocInfo check_info=status==psCrew?iAPISMap->second.first.crew:iAPISMap->second.first.pass;
+        set<APIS::TAlarmType> alarms;
+        GetAPISAlarms(name=="CBBG", crs_pax_id, check_info, apis, off_alarms, alarms);
+        for(set<APIS::TAlarmType>::const_iterator a=alarms.begin(); a!=alarms.end(); ++a) off_alarms.erase(*a);
+      };
+    };
+  };
+
+  if (checked_alarms.find(atAPISDiffersFromBooking)!=checked_alarms.end())
+    set_alarm( point_id,
+               atAPISDiffersFromBooking,
+               apis_control && off_alarms.find(APIS::atDiffersFromBooking)==off_alarms.end() );
+  if (checked_alarms.find(atAPISIncomplete)!=checked_alarms.end())
+    set_alarm( point_id,
+               atAPISIncomplete,
+               apis_control && off_alarms.find(APIS::atIncomplete)==off_alarms.end() );
+  if (checked_alarms.find(atAPISManualInput)!=checked_alarms.end())
+    set_alarm( point_id,
+               atAPISManualInput,
+               apis_control && !apis_manual_input && off_alarms.find(APIS::atManualInput)==off_alarms.end() );
+
+};
 
 
 

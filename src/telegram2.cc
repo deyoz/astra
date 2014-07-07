@@ -4472,7 +4472,7 @@ void TPIMDest::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
             + "/" + transliter(convert_char_view(doc.no, info.is_lat()), 1, info.is_lat())
             + "/" + (doc.nationality.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.nationality))
             + "/" + (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", info.is_lat()):"")
-            + "/" + (doc.gender.empty()?"":info.TlgElemIdToElem(etGenderType, doc.gender))
+            + "/" + (doc.gender.empty()?"":info.TlgElemIdToElem(etGenderType, doc.gender)) //не клеим inf_indicator, надо будет - подклеим
             + "/" + (doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(doc.expiry_date, "ddmmmyy", info.is_lat()):"")
             + "/" + (doc.issue_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.issue_country))
             + "/";

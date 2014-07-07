@@ -1196,6 +1196,14 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
           if (reqInfo->screen.name == "TLG.EXE")
           	rem = TripAlarmString( alarm );
           break;
+        case atAPISIncomplete:
+          if (reqInfo->screen.name == "AIR.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
+        case atAPISManualInput:
+          if (reqInfo->screen.name == "AIR.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
       	default:
           break;
       }

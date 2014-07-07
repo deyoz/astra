@@ -756,6 +756,16 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         }
       }
     }
+    if (old_apis_control!=new_apis_control)
+    {
+      check_apis_alarms(point_id);
+    }
+    if (old_apis_manual_input!=new_apis_manual_input)
+    {
+      set<TTripAlarmsType> checked_alarms;
+      checked_alarms.insert(atAPISManualInput);
+      check_apis_alarms(point_id, checked_alarms);
+    }
   };
   
 

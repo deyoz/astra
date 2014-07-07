@@ -447,6 +447,22 @@ TCompleteCheckTknInfo GetCheckTknInfo(const int point_dep)
   return result;
 };
 
+void GetAPISSets( const int point_id, TAPISMap &apis_map, set<string> &apis_formats)
+{
+  apis_map.clear();
+  apis_formats.clear();
+
+  TTripRoute route;
+  route.GetRouteAfter(NoExists,point_id,trtNotCurrent,trtNotCancelled);
+  for(TTripRoute::iterator r = route.begin(); r != route.end(); ++r)
+  {
+    set<string> formats;
+    TCompleteCheckDocInfo check_info=GetCheckDocInfo(point_id, r->airp, formats);
+    apis_map.insert( make_pair(r->airp, make_pair(check_info, formats)));
+    apis_formats.insert(formats.begin(), formats.end());
+  };
+};
+
 std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs)
 {
     string airline;
