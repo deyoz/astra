@@ -1451,13 +1451,14 @@ void LoadContent(int grp_id, TTlgContent& con)
   Qry.Execute();
   if (Qry.Eof) return;
   con.pr_lat_seat=Qry.FieldAsInteger("pr_lat_seat")!=0;
+  con.OutCls=Qry.FieldAsString("class");
 
   int point_id=Qry.FieldAsInteger("point_id");
   int point_num=Qry.FieldAsInteger("point_num");
   int first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
   bool pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
 
-  bool pr_unaccomp=Qry.FieldIsNULL("class");
+  bool pr_unaccomp=con.OutCls.empty();
   
   //читаем OutFlt и OnwardFlt
   if (!con.OnwardFlt.GetRoute(grp_id, trtWithFirstSeg)) return;
@@ -1469,6 +1470,28 @@ void LoadContent(int grp_id, TTlgContent& con)
   {
     vector<TTlgCompLayer> complayers;
     getSalonLayers( point_id, point_num, first_point, pr_tranzit, complayers, false );
+
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT DISTINCT transfer_subcls.transfer_num, classes.code, classes.priority "
+      "FROM pax, transfer_subcls, subcls, classes "
+      "WHERE pax.pax_id=transfer_subcls.pax_id AND "
+      "      transfer_subcls.subclass=subcls.code AND "
+      "      subcls.class=classes.code AND "
+      "      pax.grp_id=:grp_id AND transfer_subcls.transfer_num>0 "
+      "ORDER BY transfer_num, priority ";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.Execute();
+    int num=0;
+    for(;!Qry.Eof;Qry.Next())
+    {
+      if (num!=Qry.FieldAsInteger("transfer_num"))
+      {
+        num=Qry.FieldAsInteger("transfer_num");
+        con.OnwardCls.push_back(list<string>());
+      };
+      con.OnwardCls.back().push_back(Qry.FieldAsString("code"));
+    };
   
     Qry.Clear();
     Qry.SQLText=
@@ -1528,16 +1551,22 @@ void CompareContent(const TTlgContent& con1, const TTlgContent& con2, vector<TTl
   conADD.OutFlt=con2.OutFlt;
   conADD.OnwardFlt=con2.OnwardFlt;
   conADD.pr_lat_seat=con2.pr_lat_seat;
+  conADD.OutCls=con2.OutCls;
+  conADD.OnwardCls=con2.OnwardCls;
 
   conCHG.indicator=TypeB::CHG;
   conCHG.OutFlt=con2.OutFlt;
   conCHG.OnwardFlt=con2.OnwardFlt;
   conCHG.pr_lat_seat=con2.pr_lat_seat;
+  conCHG.OutCls=con2.OutCls;
+  conCHG.OnwardCls=con2.OnwardCls;
 
   conDEL.indicator=TypeB::DEL;
   conDEL.OutFlt=con1.OutFlt;
   conDEL.OnwardFlt=con1.OnwardFlt;
   conDEL.pr_lat_seat=con1.pr_lat_seat;
+  conDEL.OutCls=con1.OutCls;
+  conDEL.OnwardCls=con1.OnwardCls;
 
 
   //проверяем рейс
@@ -1662,9 +1691,11 @@ std::string TlgElemIdToElem(TElemType type, std::string id, bool pr_lat)
     }
 };
 
-void CreateTlgBody(const TTlgContent& con, TTlgOutPartInfo &partInfo)
+void CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo, TTlgOutPartInfo &partInfo)
 {
-  bool pr_lat=partInfo.pr_lat;
+  const TypeB::TBSMOptions &options=*(createInfo.optionsAs<TypeB::TBSMOptions>());
+
+  partInfo.pr_lat=options.is_lat;
 
   map<int/*reg_no*/, pair<TPaxItem, vector<CheckIn::TTagItem> > > tmpPax;
   for(map<double, CheckIn::TTagItem>::const_iterator iTag=con.tags.begin();iTag!=con.tags.end();++iTag)
@@ -1700,7 +1731,7 @@ void CreateTlgBody(const TTlgContent& con, TTlgOutPartInfo &partInfo)
      default: ;
   };
 
-  body << ".V/1L" << TlgElemIdToElem(etAirp, con.OutFlt.operFlt.airp, pr_lat) << ENDL;
+  body << ".V/1L" << TlgElemIdToElem(etAirp, con.OutFlt.operFlt.airp, options.is_lat) << ENDL;
 
   TDateTime scd_out;
   if(con.OutFlt.operFlt.airp == "АЯТ")
@@ -1709,20 +1740,31 @@ void CreateTlgBody(const TTlgContent& con, TTlgOutPartInfo &partInfo)
       scd_out = con.OutFlt.operFlt.scd_out;
 
   body << ".F/"
-       << TlgElemIdToElem(etAirline, con.OutFlt.operFlt.airline, pr_lat)
+       << TlgElemIdToElem(etAirline, con.OutFlt.operFlt.airline, options.is_lat)
        << setw(3) << setfill('0') << con.OutFlt.operFlt.flt_no
-       << (con.OutFlt.operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, con.OutFlt.operFlt.suffix, pr_lat)) << '/'
-       << DateTimeToStr( scd_out, "ddmmm", pr_lat) << '/'
-       << TlgElemIdToElem(etAirp, con.OutFlt.airp_arv, pr_lat) << ENDL;
+       << (con.OutFlt.operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, con.OutFlt.operFlt.suffix, options.is_lat)) << '/'
+       << DateTimeToStr( scd_out, "ddmmm", options.is_lat) << '/'
+       << TlgElemIdToElem(etAirp, con.OutFlt.airp_arv, options.is_lat);
+  if (options.class_of_travel && !con.OutCls.empty())
+    body << '/' << TlgElemIdToElem(etClass, con.OutCls, options.is_lat);
+  body << ENDL;
 
-  for(TTrferRoute::const_iterator i=con.OnwardFlt.begin();i!=con.OnwardFlt.end();++i)
+  vector<list<string> >::const_iterator j=con.OnwardCls.begin();
+  for(TTrferRoute::const_iterator i=con.OnwardFlt.begin(); i!=con.OnwardFlt.end(); ++i)
   {
     body << ".O/"
-         << TlgElemIdToElem(etAirline, i->operFlt.airline, pr_lat)
+         << TlgElemIdToElem(etAirline, i->operFlt.airline, options.is_lat)
          << setw(3) << setfill('0') << i->operFlt.flt_no
-         << (i->operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, i->operFlt.suffix, pr_lat)) << '/'
-         << DateTimeToStr( i->operFlt.scd_out, "ddmmm", pr_lat) << '/'
-         << TlgElemIdToElem(etAirp, i->airp_arv, pr_lat) << ENDL;
+         << (i->operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, i->operFlt.suffix, options.is_lat)) << '/'
+         << DateTimeToStr( i->operFlt.scd_out, "ddmmm", options.is_lat) << '/'
+         << TlgElemIdToElem(etAirp, i->airp_arv, options.is_lat);
+    if (j!=con.OnwardCls.end())
+    {
+      if (!j->empty() && !j->begin()->empty() && options.class_of_travel && !con.OutCls.empty())
+        body << '/' << TlgElemIdToElem(etClass, *(j->begin()), options.is_lat);
+      ++j;
+    };
+    body << ENDL;
   };
   
   map<int, pair<TPaxItem, vector<CheckIn::TTagItem> > >::const_iterator p=tmpPax.begin();
@@ -1755,7 +1797,7 @@ void CreateTlgBody(const TTlgContent& con, TTlgOutPartInfo &partInfo)
          << (con.indicator==TypeB::DEL?'N':'Y');
     if (p->second.first.reg_no!=ASTRA::NoExists)
       body << '/'
-           << p->second.first.seat_no.get_seat_one(con.pr_lat_seat || pr_lat) << '/'
+           << p->second.first.seat_no.get_seat_one(con.pr_lat_seat || options.is_lat) << '/'
            << p->second.first.status << '/'
            << setw(3) << setfill('0') << p->second.first.reg_no;
     body << ENDL;
@@ -1765,13 +1807,13 @@ void CreateTlgBody(const TTlgContent& con, TTlgOutPartInfo &partInfo)
       body << '/' << p->second.first.rk_weight;*/
     body << ENDL;
     
-    body << ".P/" << transliter(p->second.first.surname,1,pr_lat);
+    body << ".P/" << transliter(p->second.first.surname,1,options.is_lat);
     if (!p->second.first.name.empty())
-      body << '/' << transliter(p->second.first.name,1,pr_lat);
+      body << '/' << transliter(p->second.first.name,1,options.is_lat);
     body  << ENDL;
     
     if (!p->second.first.pnr_addr.empty())
-      body << ".L/" << convert_pnr_addr(p->second.first.pnr_addr,pr_lat) << ENDL;
+      body << ".L/" << convert_pnr_addr(p->second.first.pnr_addr,options.is_lat) << ENDL;
   };
   partInfo.body = body.str();
 
@@ -1823,16 +1865,17 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
       {
         p.id=NoExists;
         p.num=1;
-        p.pr_lat=j->get_options().is_lat; //обязательно устанавливаем до CreateTlgBody
         p.addr=TypeB::format_addr_line(j->get_addrs());
-        CreateTlgBody(*i,p);
+        CreateTlgBody(*i, *j, p);
         TelegramInterface::SaveTlgOutPart(p, true, false);
         TelegramInterface::SendTlg(p.id);
       };
       if(not addrs.HTTP_TYPEBparams.empty()) {
           map<string, string> params = addrs.HTTP_TYPEBparams;
-          p.pr_lat=true; //обязательно устанавливаем до CreateTlgBody
-          CreateTlgBody(*i,p);
+          TypeB::TCreateInfo createInfo("BSM", TypeB::TCreatePoint());
+          ((TypeB::TBSMOptions*)createInfo.optionsAs<TypeB::TBSMOptions>())->is_lat=true;  //!!! а надо бы читать из настроечной таблицы:
+                                                                                           //!!! как, например, быть с class_of_travel?
+          CreateTlgBody(*i, createInfo, p);
           p.addToFileParams(params);
 
           TFileQueue::putFile(OWN_POINT_ADDR(),

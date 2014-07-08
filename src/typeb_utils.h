@@ -993,6 +993,105 @@ class TLCIOptions : public TCreateOptions
     };
 };
 
+class TBSMOptions : public TCreateOptions
+{
+  private:
+    void init()
+    {
+      class_of_travel=false;
+    };
+  public:
+    bool class_of_travel;
+    TBSMOptions() {init();};
+    virtual ~TBSMOptions() {};
+    virtual void clear()
+    {
+      TCreateOptions::clear();
+      init();
+    };
+    virtual void fromXML(xmlNodePtr node)
+    {
+      TCreateOptions::fromXML(node);
+      if (node==NULL) return;
+      xmlNodePtr node2=node->children;
+      class_of_travel=NodeAsIntegerFast("class_of_travel", node2, (int)class_of_travel) != 0;
+    };
+    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    {
+      TCreateOptions::fromDB(Qry, OptionsQry);
+      OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
+      OptionsQry.SetVariable("tlg_type", Qry.FieldAsString("tlg_type"));
+      OptionsQry.Execute();
+      for(;!OptionsQry.Eof;OptionsQry.Next())
+      {
+        std::string cat=OptionsQry.FieldAsString("category");
+        if (cat=="CLASS_OF_TRAVEL")
+        {
+          class_of_travel=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
+      };
+    };
+    virtual localizedstream& logStr(localizedstream &s) const
+    {
+      TCreateOptions::logStr(s);
+      s << ", "
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.CLASS_OF_TRAVEL") << ": "
+        << (class_of_travel ? s.getLocaleText("да"):
+                              s.getLocaleText("нет"));
+      return s;
+    };
+    virtual localizedstream& extraStr(localizedstream &s) const
+    {
+      TCreateOptions::extraStr(s);
+      s << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.CLASS_OF_TRAVEL") << ": "
+        << (class_of_travel ? s.getLocaleText("да"):
+                              s.getLocaleText("нет"))
+        << endl;
+      return s;
+    };
+    virtual std::string typeName() const
+    {
+      return "TBSMOptions";
+    };
+    virtual bool similar(const TCreateOptions &item) const
+    {
+      if (!TCreateOptions::similar(item)) return false;
+      try
+      {
+        const TBSMOptions &opt = dynamic_cast<const TBSMOptions&>(item);
+        return class_of_travel==opt.class_of_travel;
+      }
+      catch(std::bad_cast)
+      {
+        return false;
+      };
+    };
+    virtual bool equal(const TCreateOptions &item) const
+    {
+      if (!TCreateOptions::equal(item)) return false;
+      try
+      {
+        const TBSMOptions &opt = dynamic_cast<const TBSMOptions&>(item);
+        return class_of_travel==opt.class_of_travel;
+      }
+      catch(std::bad_cast)
+      {
+        return false;
+      };
+    };
+    virtual void copy(const TCreateOptions &item)
+    {
+      TCreateOptions::copy(item);
+      try
+      {
+        const TBSMOptions &opt = dynamic_cast<const TBSMOptions&>(item);
+        class_of_travel=opt.class_of_travel;
+      }
+      catch(std::bad_cast) {};
+    };
+};
+
 std::tr1::shared_ptr<TCreateOptions> make_options(const std::string &tlg_type);
 
 class TOptionsInfo
