@@ -224,6 +224,9 @@ class TTlgContent
     TTrferRoute OnwardFlt;
     bool pr_lat_seat;
 
+    std::string OutCls;
+    std::vector< std::list<std::string/*class*/> > OnwardCls;
+
     std::map<double, CheckIn::TTagItem> tags;
     std::map<int/*bag_num*/, CheckIn::TBagItem> bags;
     std::map<int/*bag_pool_num*/, TPaxItem> pax;
@@ -239,7 +242,7 @@ class TTlgContent
 
 void LoadContent(int grp_id, TTlgContent& con);
 void CompareContent(const TTlgContent& con1, const TTlgContent& con2, std::vector<TTlgContent>& bsms);
-std::string CreateTlgBody(const TTlgContent& con, bool pr_lat);
+
 struct TBSMAddrs {
     std::vector<TypeB::TCreateInfo> createInfo;
     std::map<std::string, std::string> HTTP_TYPEBparams;

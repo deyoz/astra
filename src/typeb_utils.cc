@@ -821,6 +821,8 @@ tr1::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
     return tr1::shared_ptr<TCreateOptions>(new TLDMOptions);
   else if (basic_type=="LCI")
     return tr1::shared_ptr<TCreateOptions>(new TLCIOptions);
+  else if (basic_type=="BSM")
+    return tr1::shared_ptr<TCreateOptions>(new TBSMOptions);
   else if (basic_type=="???")
     return tr1::shared_ptr<TCreateOptions>(new TUnknownFmtOptions);
   else
