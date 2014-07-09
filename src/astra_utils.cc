@@ -627,13 +627,6 @@ void TReqInfo::LocaleToLog(const string &vlexema, const LEvntPrms &prms, TEventT
 void TReqInfo::LocaleToLog(TLogLocale &msg)
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "BEGIN "
-        "  INSERT INTO events_bilingual(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,lang) "
-        "  VALUES(:type,system.UTCSYSDATE,events__seq.nextval,"
-        "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang) "
-        "  RETURNING time,ev_order INTO :ev_time,:ev_order; "
-        "END;";
     Qry.DeclareVariable("type", otString);
     Qry.DeclareVariable("msg", otString);
     Qry.DeclareVariable("screen", otString);
@@ -662,11 +655,30 @@ void TReqInfo::LocaleToLog(TLogLocale &msg)
         Qry.SetVariable("id3", FNull);
     Qry.DeclareVariable("lang", otString);
     for (std::vector<std::string>::iterator lang = msg.vlangs.begin(); lang != msg.vlangs.end(); lang++) {
+        if(*lang == AstraLocale::LANG_RU)
+        Qry.SQLText =
+            "BEGIN "
+            "  INSERT INTO events_bilingual(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,lang) "
+            "  VALUES(:type,system.UTCSYSDATE,events__seq.nextval,"
+            "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang) "
+            "  RETURNING time,ev_order INTO :ev_time,:ev_order; "
+            "  INSERT INTO events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
+            "  VALUES(:type,system.UTCSYSDATE,events__seq.nextval,"
+            "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3);"
+            "END;";
+        else
+        Qry.SQLText =
+            "BEGIN "
+            "  INSERT INTO events_bilingual(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,lang) "
+            "  VALUES(:type,system.UTCSYSDATE,events__seq.nextval,"
+            "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang) "
+            "  RETURNING time,ev_order INTO :ev_time,:ev_order; "
+            "END;";
         (*lang == AstraLocale::LANG_RU)?Qry.SetVariable("lang", "RU"):Qry.SetVariable("lang", "EN");
         std::string message;
         message = AstraLocale::getLocaleText(msg.lexema_id, msg.prms.GetParams(*lang), *lang);
         vector<string> strs;
-        SeparateString(message, 250, strs);
+        SeparateString(message.c_str(), 250, strs);
         for (vector<string>::iterator i=strs.begin(); i!=strs.end(); i++) {
             Qry.SetVariable("msg", *i);
             Qry.Execute();

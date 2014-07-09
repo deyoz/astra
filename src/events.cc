@@ -446,7 +446,7 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
         << apisAfter.doc.first_name << "/"
         << apisAfter.doc.second_name << ". ";
         id = (manualInputAfter?"EVT.APIS_LOG_MANUAL_INPUT":"EVT.APIS_LOG_SCANNING");
-     msgs.push_back(make_pair(msg.str(), id));
+     msgs.push_back(make_pair(id, msg.str()));
   };
 
   manualInputBefore=(apisBefore.doco.scanned_attrs & apisBefore.doco.getNotEmptyFieldsMask()) != apisBefore.doco.getNotEmptyFieldsMask();
@@ -465,7 +465,7 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
         << apisAfter.doco.applic_country << "/"
         << (apisAfter.doco.expiry_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doco.expiry_date, "ddmmmyy"):"") << ". ";
         id = (manualInputAfter?"EVT.APIS_LOG_MANUAL_INPUT":"EVT.APIS_LOG_SCANNING");
-    msgs.push_back(make_pair(msg.str(), id));
+    msgs.push_back(make_pair(id, msg.str()));
   };
 
   CheckIn::TPaxDocaItem docaBefore[3];
@@ -499,7 +499,7 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
         << docaAfter[pass].city << "/"
         << docaAfter[pass].region << "/"
         << docaAfter[pass].postal_code;
-    msgs.push_back(make_pair(msg.str(), "EVT.APIS_LOG"));
+    msgs.push_back(make_pair("EVT.APIS_LOG", msg.str()));
   };
 };
 

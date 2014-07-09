@@ -217,7 +217,6 @@ int test_event_utils(int argc,char **argv)
 
     printf("%s\n", (ElemIdToPrefferedElem(etRight, 810, efmtNameLong, AstraLocale::LANG_EN)).c_str());
     printf("%s\n", (ElemIdToPrefferedElem(etRight, 390, efmtNameLong, AstraLocale::LANG_RU)).c_str());
-
     return 0;
 }
 
@@ -226,9 +225,11 @@ int insert_locales(int argc,char **argv)
     std::ifstream fin_loc;
     std::ifstream fin_ru;
     std::ifstream fin_en;
-    fin_loc.open("/home/user/work/locales_id", std::ios::in);
-    fin_ru.open("/home/user/work/locales_ru", std::ios::in);
-    fin_en.open("/home/user/work/locales_en", std::ios::in);
+    if (argc != 4)
+        throw EXCEPTIONS::Exception("Not enouth arguments");
+    fin_loc.open(argv[1], std::ios::in);
+    fin_ru.open(argv[2], std::ios::in);
+    fin_en.open(argv[3], std::ios::in);
     if(fin_loc.fail() || fin_ru.fail() || fin_en.fail())
         throw EXCEPTIONS::Exception("Can't open file");
     TQuery Qry(&OraSession);
@@ -263,6 +264,15 @@ int insert_locales(int argc,char **argv)
             Qry.SetVariable("msg_en", msg_en);
             Qry.Execute();
         }
+        Qry.Clear();
+        Qry.CreateVariable("lexema_id", otString, "¬");
+        Qry.CreateVariable("lang_en", otString, "EN");
+        Qry.CreateVariable("msg_en", otString, "pc");
+        Qry.CreateVariable("tid", otInteger, tid);
+        Qry.CreateVariable("pr_del", otInteger, 0);
+        Qry.CreateVariable("pr_term", otInteger, 0);
+        Qry.SQLText = "INSERT INTO locale_messages(id,lang,text,pr_del,tid,pr_term) VALUES(:lexema_id,:lang_en,:msg_en,:pr_del,:tid,:pr_term)";
+        Qry.Execute();
     }
     catch(...) {
         OraSession.Rollback();
