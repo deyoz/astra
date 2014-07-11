@@ -5615,10 +5615,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         if ( first_pax_on_flight ) {
           SALONS2::setManualCompChg( grp.point_dep );
         }
+        check_apis_alarms( grp.point_dep );
       };
       if (!pr_unaccomp && grp.status==psCrew)
       {
         check_crew_alarms( grp.point_dep );
+        check_apis_alarms( grp.point_dep );
       };
 
       check_TrferExists( grp.point_dep );

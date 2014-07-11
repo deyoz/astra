@@ -1099,10 +1099,13 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     };*/
 
     if (reqInfo->screen.name == "AIR.EXE" ||
-        reqInfo->screen.name == "DOCS.EXE" ||
         reqInfo->screen.name == "PREPREG.EXE")
     {
       NewTextChild( node, "pr_tranz_reg", (int)(Qryh.FieldAsInteger("pr_tranz_reg")!=0) );
+    };
+
+    if (reqInfo->screen.name == "PREPREG.EXE")
+    {
       NewTextChild( node, "pr_block_trzt", (int)(Qryh.FieldAsInteger("pr_block_trzt")!=0) );
       NewTextChild( node, "pr_check_load", (int)(Qryh.FieldAsInteger("pr_check_load")!=0) );
       NewTextChild( node, "pr_overload_reg", (int)(Qryh.FieldAsInteger("pr_overload_reg")!=0) );
@@ -1113,13 +1116,20 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "pr_reg_with_doc", (int)(Qryh.FieldAsInteger("pr_reg_with_doc")!=0) );
       NewTextChild( node, "auto_weighing", (int)(Qryh.FieldAsInteger("auto_weighing")!=0) );
       NewTextChild( node, "pr_free_seating", (int)(Qryh.FieldAsInteger("pr_free_seating")!=0) );
+
+      TAPISMap apis_map;
+      set<string> apis_formats;
+      GetAPISSets(point_id, apis_map, apis_formats);
+      NewTextChild( node, "apis_exists", (int)(!apis_formats.empty()) );
       NewTextChild( node, "apis_control", (int)(Qryh.FieldAsInteger("apis_control")!=0) );
       NewTextChild( node, "apis_manual_input", (int)(Qryh.FieldAsInteger("apis_manual_input")!=0) );
+
       if (!Qryh.FieldIsNULL("pr_airp_seance"))
         NewTextChild( node, "pr_airp_seance", (int)(Qryh.FieldAsInteger("pr_airp_seance")!=0) );
       else
         NewTextChild( node, "pr_airp_seance" );
     };
+
     if (reqInfo->screen.name == "AIR.EXE" ||
         reqInfo->screen.name == "BRDBUS.EXE" ||
         reqInfo->screen.name == "EXAM.EXE")
@@ -1127,6 +1137,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "pr_etstatus", Qryh.FieldAsInteger("pr_etstatus") );
       NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
     };
+
     if (reqInfo->screen.name == "AIR.EXE")
     {
       NewTextChild( node, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,info) );
@@ -1194,6 +1205,14 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
           break;
         case atTlgOut:
           if (reqInfo->screen.name == "TLG.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
+        case atAPISIncomplete:
+          if (reqInfo->screen.name == "AIR.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
+        case atAPISManualInput:
+          if (reqInfo->screen.name == "AIR.EXE")
           	rem = TripAlarmString( alarm );
           break;
       	default:

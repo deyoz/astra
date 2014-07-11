@@ -4,6 +4,7 @@
 #include <libxml/tree.h>
 #include "oralib.h"
 #include "docs.h"
+#include "passenger.h"
 #include "jxtlib/JxtInterface.h"
 
 class BrdInterface : public JxtInterface
@@ -52,5 +53,12 @@ public:
 
   static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
+
+void GetAPISAlarms(bool isCBBG,
+                   int crs_pax_id, //¬.¡. NoExists
+                   const TCheckDocInfo &check_info,
+                   const CheckIn::TAPISItem &apis,
+                   const std::set<APIS::TAlarmType> &required_alarms,
+                   std::set<APIS::TAlarmType> &alarms);
 
 #endif

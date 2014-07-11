@@ -410,6 +410,9 @@ TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& ai
                                       std::set<std::string> &apis_formats);
 TCompleteCheckTknInfo GetCheckTknInfo(const int point_dep);
 
+typedef std::map<std::string/*airp_arv*/, std::pair<TCompleteCheckDocInfo, std::set<std::string> > > TAPISMap;
+void GetAPISSets( const int point_id, TAPISMap &apis_map, std::set<std::string> &apis_formats);
+
 class TPnrAddrItem
 {
   public:
