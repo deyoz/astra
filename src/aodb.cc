@@ -1439,13 +1439,11 @@ try {
 	TQuery QrySet(&OraSession);
 	QrySet.SQLText =
      "BEGIN "
-     " sopp.set_flight_sets(:point_id,:use_seances);"
      " IF :max_commerce IS NOT NULL THEN "
      "  UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id;"
      " END IF; "
      "END;";
 	QrySet.DeclareVariable( "point_id", otInteger );
-	QrySet.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
 	QrySet.DeclareVariable( "max_commerce", otInteger );
 
 
@@ -1572,6 +1570,7 @@ try {
     Qry.Execute();
     err++;
     // создаем времена технологического графика только для пункта вылета из ВНК и далее по маршруту
+    set_flight_sets(point_id);
     QrySet.SetVariable( "point_id", point_id );
     if ( fl.max_load != NoExists )
       QrySet.SetVariable( "max_commerce", fl.max_load );

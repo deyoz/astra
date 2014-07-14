@@ -12,6 +12,8 @@ enum TElemType {
                  etAlarmType,                //типы тревог
                  etBagNormType,              //типы багажных норм
                  etBagType,                  //типы багажа
+                 etBPType,                   //типы посадочных талонов
+                 etBTType,                   //типы багажных бирок
                  etCity,                     //города
                  etCkinRemType,              //коды ремарок регистрации
                  etClass,                    //базовые классы

@@ -849,14 +849,7 @@ void TPoints::WriteDest( TPointsDest &dest )
                                       << PrmFlight("flt", dest.airline, dest.flt_no, dest.suffix)
                                       << PrmElem<std::string>("airp", etAirp, dest.airp),
                                       evtDisp, move_id, dest.point_id );
-  	Qry.Clear();
-  	Qry.SQLText =
-      "BEGIN "
-      " sopp.set_flight_sets(:point_id,:use_seances);"
-      "END;";
- 		Qry.CreateVariable( "point_id", otInteger, dest.point_id );
- 		Qry.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
- 		Qry.Execute();
+    set_flight_sets(dest.point_id);
 /* 		TMapTripStages NewStages;
  		TTripStages::LoadStages( dest.point_id, NewStages );
  		for (TMapTripStages::iterator istage=NewStages.begin(); istage!=NewStages.end(); istage++ ) {

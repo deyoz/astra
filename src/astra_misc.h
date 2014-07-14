@@ -275,17 +275,31 @@ class TLastTCkinSegInfo : public TLastTrferInfo
 };
 
 //настройки рейса
-enum TTripSetType { tsCraftInitVIP=1,
-                    tsETLOnly=11,
-                    tsIgnoreTrferSet=12,
-                    tsMixedNorms=13,
-                    tsNoTicketCheck=15,
-                    tsCharterSearch=16,
-                    tsCraftNoChangeSections=17,
-                    tsCheckMVTDelays=18,
-                    tsSendMVTDelays=19,
-                    tsPrintSCDCloseBoarding=21,
-                    tsMintransFile=22 };
+enum TTripSetType { /*не привязанные к рейсу*/
+                    tsCraftInitVIP=1,               //Автоматическая разметка VIP-мест в компоновке
+                    tsETLOnly=11,                   //Запрет интерактива с СЭБом. Только ETL.
+                    tsIgnoreTrferSet=12,            //Оформление любого трансфера без учета настроек
+                    tsMixedNorms=13,                //Смешивание норм, тарифов, сборов при трансфере
+                    tsNoTicketCheck=15,             //Отмена контроля номеров билетов
+                    tsCharterSearch=16,             //Поисковый запрос регистрации для чартеров
+                    tsCraftNoChangeSections=17,     //Запрет изменения компоновки, назначенной на рейс
+                    tsCheckMVTDelays=18,            //Контроль ввода задержек
+                    tsSendMVTDelays=19,             //Отправка MVT на взлет с задержками
+                    tsPrintSCDCloseBoarding=21,     //Отображение планового времени в посадочном талоне
+                    tsMintransFile=22,              //Файл для Минтранса
+                    /*привязанные к рейсу*/
+                    tsCheckLoad=2,                  //Контроль загрузки при регистрации
+                    tsOverloadReg=3,                //Разрешение регистрации при превышении загрузки
+                    tsExam=4,                       //Досмотровый контроль перед посадкой
+                    tsCheckPay=5,                   //Контроль оплаты багажа при посадке
+                    tsExamCheckPay=7,               //Контроль оплаты багажа при досмотре
+                    tsRegWithTkn=8,                 //Запрет регистрации без номеров билетов
+                    tsRegWithDoc=9,                 //Запрет регистрации без номеров документов
+                    tsAutoWeighing=20,              //Контроль автоматического взвешивания багажа
+                    tsFreeSeating=23,               //Свободная рассадка
+                    tsAPISControl=24,               //Контроль данных APIS
+                    tsAPISManualInput=25            //Ручной ввод данных APIS
+                  };
                     
 const long int NO_FIELDS=0x0000;
 

@@ -4107,14 +4107,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       }
   	}
   	if ( init_trip_stages ) {
-  		Qry.Clear();
-  		Qry.SQLText =
-       "BEGIN "
-       " sopp.set_flight_sets(:point_id,:use_seances);"
-       "END;";
-  		Qry.CreateVariable( "point_id", otInteger, id->point_id );
-  		Qry.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
-  		Qry.Execute();
+      set_flight_sets(id->point_id);
   	}
   	else { //!!!возможно изменился признак ignore_auto в trip_stages
       if ( !insert_point ) {
@@ -5783,5 +5776,661 @@ void SoppInterface::CreateAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     AstraLocale::showErrorMessage("MSG.APIS_NOT_CREATED_FOR_FLIGHT");
 }
 
+void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tranzit)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  if (new_pr_tranzit)
+    Qry.SQLText =
+      "BEGIN "
+      "  UPDATE points SET pr_tranzit=:pr_tranzit WHERE point_id=:point_id AND pr_del>=0; "
+      "  UPDATE points SET first_point=:first_point "
+      "  WHERE first_point=:point_id AND point_num>:point_num AND pr_del>=0; "
+      "END; ";
+  else
+    Qry.SQLText =
+      "BEGIN "
+      "  UPDATE points SET pr_tranzit=:pr_tranzit WHERE point_id=:point_id AND pr_del>=0; "
+      "  UPDATE points SET first_point=:point_id "
+      "  WHERE first_point=:first_point AND point_num>:point_num AND pr_del>=0; "
+      "END; ";
+  Qry.CreateVariable("pr_tranzit",otInteger,(int)new_pr_tranzit);
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.CreateVariable("first_point",otInteger,first_point);
+  Qry.CreateVariable("point_num",otInteger,point_num);
+  Qry.Execute();
+}
 
+void set_trip_sets(const TAdvTripInfo &flt)
+{
+  /*очистка настроек рейса*/
+  TQuery Qry(&OraSession);
+  TQuery InsQry(&OraSession);
+
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  DELETE FROM trip_bp WHERE point_id=:point_id; "
+    "  DELETE FROM trip_bt WHERE point_id=:point_id; "
+    "  DELETE FROM trip_hall WHERE point_id=:point_id; "
+    "END;";
+  Qry.CreateVariable("point_id", otInteger, flt.point_id);
+  Qry.Execute();
+
+  Qry.Clear();
+  Qry.CreateVariable("airline", otString, flt.airline);
+  Qry.CreateVariable("flt_no", otInteger, flt.flt_no);
+  Qry.CreateVariable("airp_dep", otString, flt.airp);
+
+  //посадочные талоны
+  InsQry.Clear();
+  InsQry.SQLText=
+    "INSERT INTO trip_bp(point_id, class, bp_type) "
+    "VALUES(:point_id, :class, :bp_type) ";
+  InsQry.CreateVariable("point_id", otInteger, flt.point_id);
+  InsQry.DeclareVariable("class", otString);
+  InsQry.DeclareVariable("bp_type", otString);
+
+  Qry.SQLText=
+    "SELECT class,bp_type, "
+    "       DECODE(airline,NULL,0,8)+ "
+    "       DECODE(flt_no,NULL,0,2)+ "
+    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM bp_set "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+    "ORDER BY class,priority DESC ";
+  Qry.Execute();
+
+  bool pr_first=true;
+  string prev_cl;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    string cl=Qry.FieldAsString("class");
+    string bp_type=Qry.FieldAsString("bp_type");
+    if (pr_first || prev_cl!=cl)
+    {
+      InsQry.SetVariable("class", cl);
+      InsQry.SetVariable("bp_type", bp_type);
+      InsQry.Execute();
+
+      ostringstream msg;
+      msg << "Установлен бланк пос. талона '"
+          << ElemIdToPrefferedElem(etBPType, bp_type, efmtNameLong, LANG_RU)
+          << "'";
+      if (!cl.empty())
+      {
+        msg << " для класса "
+            << ElemIdToPrefferedElem(etClass, cl, efmtCodeNative, LANG_RU);
+      };
+      msg << ".";
+      TReqInfo::Instance()->MsgToLog(msg.str(), evtFlt, flt.point_id);
+    };
+    pr_first=false;
+    prev_cl=cl;
+  };
+
+  //багажные бирки
+  InsQry.Clear();
+  InsQry.SQLText=
+    "INSERT INTO trip_bt(point_id, tag_type) "
+    "VALUES(:point_id, :tag_type) ";
+  InsQry.CreateVariable("point_id", otInteger, flt.point_id);
+  InsQry.DeclareVariable("tag_type", otString);
+
+  Qry.SQLText=
+    "SELECT tag_type, "
+    "       DECODE(airline,NULL,0,8)+ "
+    "       DECODE(flt_no,NULL,0,2)+ "
+    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM bt_set "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+    "ORDER BY priority DESC ";
+  Qry.Execute();
+
+  if (!Qry.Eof)
+  {
+    string tag_type=Qry.FieldAsString("tag_type");
+    InsQry.SetVariable("tag_type", tag_type);
+    InsQry.Execute();
+
+    ostringstream msg;
+    msg << "Установлен бланк баг. бирки '"
+        << ElemIdToPrefferedElem(etBTType, tag_type, efmtNameLong, LANG_RU)
+        << "'.";
+    TReqInfo::Instance()->MsgToLog(msg.str(), evtFlt, flt.point_id);
+  };
+
+  //залы
+  InsQry.Clear();
+  InsQry.SQLText=
+    "INSERT INTO trip_hall(point_id, type, hall, pr_misc) "
+    "VALUES(:point_id, :type, :hall, :pr_misc) ";
+  InsQry.CreateVariable("point_id", otInteger, flt.point_id);
+  InsQry.DeclareVariable("type", otInteger);
+  InsQry.DeclareVariable("hall", otInteger);
+  InsQry.DeclareVariable("pr_misc", otInteger);
+
+  Qry.SQLText=
+    "SELECT type,hall,pr_misc, "
+    "       DECODE(airline,NULL,0,8)+ "
+    "       DECODE(flt_no,NULL,0,2)+ "
+    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM hall_set "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+    "ORDER BY type,hall,priority DESC ";
+  Qry.Execute();
+
+  pr_first=true;
+  int prev_type=NoExists;
+  int prev_hall=NoExists;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    int type=Qry.FieldAsInteger("type");
+    int hall=Qry.FieldIsNULL("hall")?NoExists:Qry.FieldAsInteger("hall");
+    bool pr_misc=Qry.FieldAsInteger("pr_misc")!=0;
+    if (pr_first || prev_type!=type || prev_hall!=hall)
+    {
+      InsQry.SetVariable("type", type);
+      hall!=NoExists?InsQry.SetVariable("hall", hall):
+                     InsQry.SetVariable("hall", FNull);
+      InsQry.SetVariable("pr_misc", (int)pr_misc);
+      InsQry.Execute();
+
+      if (type==1 || type==2)
+      {
+        ostringstream msg;
+        msg << "Установлен режим";
+        if (type==1)
+          msg << (pr_misc?" посадки при регистрации":" раздельной регистрации и посадки");
+        if (type==2)
+          msg << (pr_misc?" досмотра при посадке":" раздельной посадки и досмотра");
+
+        if (hall!=NoExists)
+        {
+          msg << " для зала '"
+              << ElemIdToPrefferedElem(etHall, hall, efmtNameLong, LANG_RU)
+              << "'";
+        };
+        msg << ".";
+        TReqInfo::Instance()->MsgToLog(msg.str(), evtFlt, flt.point_id);
+      };
+    };
+    pr_first=false;
+    prev_type=type;
+    prev_hall=hall;
+  };
+
+  //транзитные настройки
+  if (flt.first_point!=NoExists)
+  {
+    InsQry.Clear();
+    InsQry.SQLText="UPDATE trip_sets SET pr_tranz_reg=:pr_reg WHERE point_id=:point_id";
+    InsQry.CreateVariable("point_id", otInteger, flt.point_id);
+    InsQry.DeclareVariable("pr_reg", otInteger);
+
+    Qry.SQLText=
+      "SELECT pr_tranzit,pr_reg, "
+      "       DECODE(airline,NULL,0,8)+ "
+      "       DECODE(flt_no,NULL,0,2)+ "
+      "       DECODE(airp_dep,NULL,0,4) AS priority "
+      "FROM tranzit_set "
+      "WHERE (airline IS NULL OR airline=:airline) AND "
+      "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+      "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+      "ORDER BY priority DESC ";
+    Qry.Execute();
+    if (!Qry.Eof)
+    {
+      bool pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
+      bool pr_reg=Qry.FieldAsInteger("pr_reg")!=0;
+      InsQry.SetVariable("pr_reg", (int)pr_reg);
+      InsQry.Execute();
+
+      if (flt.pr_tranzit!=pr_tranzit)
+        set_pr_tranzit(flt.point_id, flt.point_num, flt.first_point, pr_tranzit);  //!!!djek функция должна быть более серьезной - взять куски из prepreg.cc
+
+      ostringstream msg;
+      msg << "Установлен режим"
+          << (pr_reg?"":" без") << " перерегистрации транзита для"
+          << (pr_tranzit?" транзитного рейса":" нетранзитного рейса")
+          << ".";
+      TReqInfo::Instance()->MsgToLog(msg.str(), evtFlt, flt.point_id);
+    };
+  };
+
+  //настройки разные
+  Qry.SQLText=
+    "SELECT type,pr_misc, "
+    "       DECODE(airline,NULL,0,8)+ "
+    "       DECODE(flt_no,NULL,0,2)+ "
+    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM misc_set "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+    "ORDER BY type,priority DESC ";
+  Qry.Execute();
+
+  pr_first=true;
+  prev_type=NoExists;
+  map<TTripSetType, bool> sets;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    int type=Qry.FieldAsInteger("type");
+    bool pr_misc=Qry.FieldAsInteger("pr_misc")!=0;
+    if (pr_first || prev_type!=type)
+    {
+      sets.insert(make_pair((TTripSetType)type, pr_misc));
+    };
+    pr_first=false;
+    prev_type=type;
+  };
+  update_trip_sets(flt.point_id, sets, true);
+
+  //платная регистрация
+  InsQry.Clear();
+  InsQry.SQLText=
+    "INSERT INTO trip_paid_ckin(point_id, pr_permit, prot_timeout) "
+    "VALUES(:point_id, :pr_permit, :prot_timeout) ";
+  InsQry.CreateVariable("point_id", otInteger, flt.point_id);
+  InsQry.DeclareVariable("pr_permit", otInteger);
+  InsQry.DeclareVariable("prot_timeout", otInteger);
+
+  Qry.SQLText=
+    "SELECT pr_permit,prot_timeout, "
+    "       DECODE(airline,NULL,0,8)+ "
+    "       DECODE(flt_no,NULL,0,2)+ "
+    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM paid_ckin_sets "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+    "ORDER BY priority DESC ";
+  Qry.Execute();
+
+  bool pr_permit=false;
+  int prot_timeout=NoExists;
+  if (!Qry.Eof)
+  {
+    pr_permit=Qry.FieldAsInteger("pr_permit")!=0;
+    prot_timeout=Qry.FieldIsNULL("prot_timeout")?NoExists:Qry.FieldAsInteger("prot_timeout");
+  };
+
+  InsQry.SetVariable("pr_permit", (int)pr_permit);
+  prot_timeout!=NoExists?InsQry.SetVariable("prot_timeout", prot_timeout):
+                         InsQry.SetVariable("prot_timeout", FNull);
+  InsQry.Execute();
+
+  if (pr_permit)
+  {
+    //пишем в лог только в случае платной регистрации
+    ostringstream msg;
+    msg << "На рейсе"
+        << (pr_permit?"":" не") << " производится платная регистрация";
+    if (pr_permit)
+    {
+      msg << ". Таймаут резервирования до оплаты";
+      if (prot_timeout==NoExists)
+        msg << " не определен";
+      else
+        msg << " " << prot_timeout << " мин.";
+    };
+    TReqInfo::Instance()->MsgToLog(msg.str(), evtFlt, flt.point_id);
+  };
+};
+
+void update_trip_sets(int point_id, const map<TTripSetType, bool> &sets, bool first_init)
+{
+  TQuery Qry(&OraSession);
+
+  list<string> fields;
+  list<string> msgs;
+  for(map<TTripSetType, bool>::const_iterator s=sets.begin(); s!=sets.end(); ++s)
+  {
+    switch (s->first)
+    {
+      case tsCheckLoad:
+        fields.push_back("pr_check_load=:pr_check_load");
+        msgs.push_back(s->second?"EVT.SET_MODE_CHECK_LOAD":
+                                 "EVT.SET_MODE_WITHOUT_CHECK_LOAD");
+        Qry.CreateVariable("pr_check_load", otInteger, (int)s->second);
+        break;
+      case tsOverloadReg:
+        fields.push_back("pr_overload_reg=:pr_overload_reg");
+        msgs.push_back(s->second?"EVT.SET_MODE_OVERLOAD_REG_PERMISSION":
+                                 "EVT.SET_MODE_OVERLOAD_REG_PROHIBITION");
+        Qry.CreateVariable("pr_overload_reg", otInteger, (int)s->second);
+        break;
+      case tsExam:
+        fields.push_back("pr_exam=:pr_exam");
+        msgs.push_back(s->second?"EVT.SET_MODE_EXAM":
+                                 "EVT.SET_MODE_WITHOUT_EXAM");
+        Qry.CreateVariable("pr_exam", otInteger, (int)s->second);
+        break;
+      case tsCheckPay:
+        fields.push_back("pr_check_pay=:pr_check_pay");
+        msgs.push_back(s->second?"EVT.SET_MODE_CHECK_PAY":
+                                 "EVT.SET_MODE_WITHOUT_CHECK_PAY");
+        Qry.CreateVariable("pr_check_pay", otInteger, (int)s->second);
+        break;
+      case tsExamCheckPay:
+        fields.push_back("pr_exam_check_pay=:pr_exam_check_pay");
+        msgs.push_back(s->second?"EVT.SET_MODE_EXAM_CHACK_PAY":
+                                 "EVT.SET_MODE_WITHOUT_EXAM_CHACK_PAY");
+        Qry.CreateVariable("pr_exam_check_pay", otInteger, (int)s->second);
+        break;
+      case tsRegWithTkn:
+        fields.push_back("pr_reg_with_tkn=:pr_reg_with_tkn");
+        msgs.push_back(s->second?"EVT.SET_MODE_REG_WITHOUT_TKN_PROHIBITION":
+                                 "EVT.SET_MODE_REG_WITHOUT_TKN_PERMISSION");
+        Qry.CreateVariable("pr_reg_with_tkn", otInteger, (int)s->second);
+        break;
+      case tsRegWithDoc:
+        fields.push_back("pr_reg_with_doc=:pr_reg_with_doc");
+        msgs.push_back(s->second?"EVT.SET_MODE_REG_WITHOUT_DOC_PROHIBITION":
+                                 "EVT.SET_MODE_REG_WITHOUT_DOC_PERMISSION");
+        Qry.CreateVariable("pr_reg_with_doc", otInteger, (int)s->second);
+        break;
+      case tsAutoWeighing:
+        fields.push_back("auto_weighing=:auto_weighing");
+        msgs.push_back(s->second?"EVT.SET_AUTO_WEIGHING":
+                                 "EVT.CANCEL_AUTO_WEIGHING");
+        Qry.CreateVariable("auto_weighing", otInteger, (int)s->second);
+        break;
+      case tsFreeSeating:
+        fields.push_back("pr_free_seating=:pr_free_seating");
+        if (!first_init || s->second)
+          msgs.push_back(s->second?"EVT.SET_FREE_SEATING":
+                                   "EVT.CANCEL_FREE_SEATING");
+        Qry.CreateVariable("pr_free_seating", otInteger, (int)s->second);
+        break;
+      case tsAPISControl:
+        fields.push_back("apis_control=:apis_control");
+        if (!first_init || !s->second)
+          msgs.push_back(s->second?"EVT.SET_APIS_DATA_CONTROL":
+                                   "EVT.CANCELED_APIS_DATA_CONTROL");
+        Qry.CreateVariable("apis_control", otInteger, (int)s->second);
+        break;
+      case tsAPISManualInput:
+        fields.push_back("apis_manual_input=:apis_manual_input");
+        if (!first_init || s->second)
+          msgs.push_back(s->second?"EVT.ALLOWED_APIS_DATA_MANUAL_INPUT":
+                                   "EVT.NOT_ALLOWED_APIS_DATA_MANUAL_INPUT");
+        Qry.CreateVariable("apis_manual_input", otInteger, (int)s->second);
+        break;
+      default:
+        break;
+    };
+  };
+
+  if (fields.empty()) return;
+
+  ostringstream sql;
+  sql << "UPDATE trip_sets SET ";
+  for(list<string>::const_iterator i=fields.begin(); i!=fields.end(); ++i)
+  {
+    if (i!=fields.begin()) sql << ", ";
+    sql << *i;
+  };
+  sql << " WHERE point_id=:point_id";
+
+  Qry.SQLText=sql.str().c_str();
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  if (Qry.RowsProcessed()>0)
+  {
+    //запись в журнал операций
+    TLogLocale locale;
+    locale.ev_type=evtFlt;
+    locale.id1=point_id;
+    for(list<string>::const_iterator i=msgs.begin(); i!=msgs.end(); ++i)
+    {
+      locale.lexema_id=*i;
+      TReqInfo::Instance()->LocaleToLog(locale);
+    };
+  };
+};
+
+void puttrip_stages(int point_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline, flt_no, suffix, airp, scd_out, points.pr_del "
+    "       act_out, craft, trip_type "
+    "FROM points, trip_types "
+    "WHERE points.point_id = :point_id AND points.pr_del>=0 AND "
+    "      points.trip_type = trip_types.code AND "
+    "      trip_types.pr_reg = 1";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  if (Qry.Eof) return;
+
+  TTripInfo flt(Qry);
+  TDateTime act_out=Qry.FieldIsNULL("act_out")?NoExists:Qry.FieldAsDateTime("act_out");
+  string craft=Qry.FieldAsString("craft");
+  string trip_type=Qry.FieldAsString("trip_type");
+
+  TQuery TimesQry(&OraSession);
+  TimesQry.Clear();
+  TimesQry.SQLText=
+    "SELECT TRUNC(:scd_out-time/1440,'MI') AS time, "
+    "       DECODE( graph_times.airline, NULL, 0, 8 ) + "
+    "       DECODE( graph_times.airp, NULL, 0, 4 ) + "
+    "       DECODE( graph_times.craft, NULL, 0, 2 ) + "
+    "       DECODE( graph_times.trip_type, NULL, 0, 1 ) AS priority "
+    "FROM graph_times "
+    "WHERE stage_id = :stage_id AND "
+    "      ( graph_times.airline IS NULL OR graph_times.airline = :airline ) AND "
+    "      ( graph_times.airp IS NULL OR graph_times.airp = :airp ) AND "
+    "      ( graph_times.craft IS NULL OR graph_times.craft = :craft ) AND "
+    "      ( graph_times.trip_type IS NULL OR graph_times.trip_type = :trip_type ) "
+    "UNION "
+    "SELECT TRUNC(:scd_out-time/1440,'MI') AS time, -1 AS priority "
+    "FROM graph_stages "
+    "WHERE stage_id = :stage_id "
+    "ORDER BY 2/*priority*/ DESC ";
+  TimesQry.DeclareVariable("stage_id", otInteger);
+  TimesQry.CreateVariable("airline", otString, flt.airline);
+  TimesQry.CreateVariable("airp", otString, flt.airp);
+  TimesQry.CreateVariable("craft", otString, craft);
+  TimesQry.CreateVariable("trip_type", otString, trip_type);
+  flt.scd_out!=NoExists?TimesQry.CreateVariable("scd_out", otDate, flt.scd_out):
+                        TimesQry.CreateVariable("scd_out", otDate, FNull);
+
+  bool ignore_auto=!(act_out==NoExists && flt.pr_del==0);
+  TQuery InsQry(&OraSession);
+  InsQry.Clear();
+  InsQry.SQLText=
+    "INSERT INTO trip_stages(point_id, stage_id, scd, est, act, pr_auto, pr_manual, ignore_auto) "
+    "VALUES(:point_id, :stage_id, :time, NULL, NULL, :pr_auto, 0, :ignore_auto ) ";
+  InsQry.CreateVariable("point_id", otInteger, point_id);
+  InsQry.DeclareVariable("stage_id", otInteger);
+  InsQry.DeclareVariable("time", otDate);
+  InsQry.DeclareVariable("pr_auto", otInteger);
+  InsQry.CreateVariable("ignore_auto", otInteger, (int)ignore_auto);
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT graph_stages.stage_id, "
+    "       NVL(stage_names.name,graph_stages.name) name, "
+    "       NVL(stage_sets.pr_auto,graph_stages.pr_auto) pr_auto "
+    "FROM graph_stages, stage_sets, stage_names "
+    "WHERE graph_stages.stage_id > 0 AND graph_stages.stage_id < 99 AND "
+    "      stage_sets.airp(+) = :airp AND "
+    "      stage_names.airp(+) = :airp AND "
+    "      stage_sets.stage_id(+) = graph_stages.stage_id AND "
+    "      stage_names.stage_id(+) = graph_stages.stage_id AND "
+    "      NOT EXISTS(SELECT stage_id FROM trip_stages WHERE point_id = :point_id AND stage_id = graph_stages.stage_id) "
+    "ORDER BY stage_id ";
+  Qry.CreateVariable("airp", otString, flt.airp);
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TimesQry.SetVariable("stage_id", Qry.FieldAsInteger("stage_id"));
+    TimesQry.Execute();
+    if (TimesQry.Eof) continue;
+
+    TDateTime time=TimesQry.FieldIsNULL("time")?NoExists:TimesQry.FieldAsDateTime("time");
+
+    InsQry.SetVariable("stage_id", Qry.FieldAsInteger("stage_id"));
+    time!=NoExists?InsQry.SetVariable("time", time):
+                   InsQry.SetVariable("time", FNull);                                 ;
+    InsQry.SetVariable("pr_auto", (int)(Qry.FieldAsInteger("pr_auto")!=0));
+    InsQry.Execute();
+
+    ostringstream msg;
+    msg << "Этап '" << Qry.FieldAsString("name")
+        << "': план. время";
+    if (time!=NoExists)
+      msg << "=" << DateTimeToStr(time, "hh:nn dd.mm.yy") << " (UTC)";
+    else
+      msg << " не определено";
+    TReqInfo::Instance()->MsgToLog(msg.str(), evtGraph, point_id);
+  };
+
+  Qry.Clear();
+  Qry.SQLText =
+    "BEGIN "
+    "  gtimer.sync_trip_final_stages(:point_id); "
+    "END;";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+}
+
+void set_flight_sets(int point_id, int f, int c, int y)
+{
+  //лочим рейс - весь маршрут, т.к. pr_tranzit может поменяться
+  TFlights flights;
+	 flights.Get( point_id, ftAll );
+	 flights.Lock();
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline, flt_no, suffix, airp, scd_out, "
+    "       point_id, point_num, first_point, pr_tranzit "
+    "FROM points "
+    "WHERE point_id=:point_id AND pr_del>=0";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  if (Qry.Eof) return;
+  TAdvTripInfo flt(Qry);
+
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO trip_sets "
+    " (point_id,f,c,y,max_commerce,pr_etstatus,pr_stat, "
+    "  pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay, "
+    "  pr_exam_check_pay,pr_reg_with_tkn,pr_reg_with_doc,crc_comp, "
+		"  pr_basel_stat,auto_weighing,pr_free_seating,apis_control,apis_manual_input) "
+    "VALUES(:point_id,:f,:c,:y, NULL, 0, 0, NULL, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0) ";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  f!=NoExists?Qry.CreateVariable("f", otInteger, f):
+              Qry.CreateVariable("f", otInteger, FNull);
+  c!=NoExists?Qry.CreateVariable("c", otInteger, c):
+              Qry.CreateVariable("c", otInteger, FNull);
+  y!=NoExists?Qry.CreateVariable("y", otInteger, y):
+              Qry.CreateVariable("y", otInteger, FNull);
+  Qry.Execute();
+
+  TQuery InsQry(&OraSession);
+  InsQry.Clear();
+  InsQry.SQLText=
+    "INSERT INTO trip_ckin_client(point_id, client_type, pr_permit, pr_waitlist, pr_tckin, pr_upd_stage, desk_grp_id) "
+    "VALUES(:point_id, :client_type, :pr_permit, :pr_waitlist, :pr_tckin, :pr_upd_stage, :desk_grp_id)";
+  InsQry.CreateVariable("point_id", otInteger, point_id);
+  InsQry.DeclareVariable("client_type", otString);
+  InsQry.DeclareVariable("pr_permit", otInteger);
+  InsQry.DeclareVariable("pr_waitlist", otInteger);
+  InsQry.DeclareVariable("pr_tckin", otInteger);
+  InsQry.DeclareVariable("pr_upd_stage", otInteger);
+  InsQry.DeclareVariable("desk_grp_id", otInteger);
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT client_types.code AS client_type, "
+    "       ckin_client_sets.desk_grp_id, "
+    "       NVL(ckin_client_sets.pr_permit,0) AS pr_permit, "
+    "       NVL(ckin_client_sets.pr_waitlist,0) AS pr_waitlist, "
+    "       NVL(ckin_client_sets.pr_tckin,0) AS pr_tckin, "
+    "       NVL(ckin_client_sets.pr_upd_stage,0) AS pr_upd_stage, "
+    "       NVL(ckin_client_sets.priority,0) AS priority "
+    "FROM client_types, "
+    " (SELECT client_type, "
+    "         desk_grp_id, "
+    "         pr_permit, "
+    "         pr_waitlist, "
+    "         pr_tckin, "
+    "         pr_upd_stage, "
+    "         DECODE(airline,NULL,0,8)+ "
+    "         DECODE(flt_no,NULL,0,2)+ "
+    "         DECODE(airp_dep,NULL,0,4) AS priority "
+    "  FROM ckin_client_sets "
+    "  WHERE (airline IS NULL OR airline=:airline) AND "
+    "        (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "        (airp_dep IS NULL OR airp_dep=:airp_dep)) ckin_client_sets "
+    "WHERE client_types.code=ckin_client_sets.client_type(+) AND code IN (:ctWeb, :ctKiosk) "
+    "ORDER BY client_types.code,ckin_client_sets.desk_grp_id,priority DESC ";
+  Qry.CreateVariable("airline", otString, flt.airline);
+  Qry.CreateVariable("flt_no", otInteger, flt.flt_no);
+  Qry.CreateVariable("airp_dep", otString, flt.airp);
+  Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
+  Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
+  Qry.Execute();
+  TClientType prev_client_type=ctTypeNum;
+  int prev_desk_grp_id=NoExists;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TClientType client_type=DecodeClientType(Qry.FieldAsString("client_type"));
+    int desk_grp_id=Qry.FieldIsNULL("desk_grp_id")?NoExists:Qry.FieldAsInteger("desk_grp_id");
+    bool pr_permit=Qry.FieldAsInteger("pr_permit")!=0;
+    bool pr_waitlist=Qry.FieldAsInteger("pr_waitlist")!=0;
+    bool pr_tckin=Qry.FieldAsInteger("pr_tckin")!=0;
+    bool pr_upd_stage=Qry.FieldAsInteger("pr_upd_stage")!=0;
+
+    if (!((prev_client_type==client_type && prev_desk_grp_id==desk_grp_id) ||
+          (client_type==ctKiosk && desk_grp_id==NoExists) ||
+          (client_type==ctWeb && desk_grp_id!=NoExists)))
+    {
+      InsQry.SetVariable("client_type", EncodeClientType(client_type));
+      InsQry.SetVariable("pr_permit", (int)pr_permit);
+      InsQry.SetVariable("pr_waitlist", (int)pr_waitlist);
+      InsQry.SetVariable("pr_tckin", (int)pr_tckin);
+      InsQry.SetVariable("pr_upd_stage", (int)pr_upd_stage);
+      desk_grp_id!=NoExists?InsQry.SetVariable("desk_grp_id", desk_grp_id):
+                            InsQry.SetVariable("desk_grp_id", FNull);
+      InsQry.Execute();
+
+      ostringstream msg;
+      msg << "На рейсе"
+          << (pr_permit?" разрешена":" запрещена")
+          << (client_type==ctWeb?" web-регистрация":" регистрация");
+      if (desk_grp_id!=NoExists)
+        msg << (client_type==ctWeb?" для группы пультов '":" для группы киосков '")
+            << ElemIdToPrefferedElem(etDeskGrp, desk_grp_id, efmtNameLong, LANG_RU)
+            << "'";
+      if (pr_permit)
+      {
+        msg << " с параметрами: "
+//            << "лист ожидания: " << (pr_waitlist?"да":"нет") << ", " //пока признак нигде не используется - на будущее
+            << "сквоз. рег.: " << (pr_tckin?"да":"нет") << ", "
+            << "перерасч. времен: " << (pr_upd_stage?"да":"нет");
+      };
+      TReqInfo::Instance()->MsgToLog(msg.str(), evtFlt, point_id);   //!!!djek наверное надо всегда писать от имени системы, а этого не будет при формировании СПП вручную
+    };
+
+    prev_client_type=client_type;
+    prev_desk_grp_id=desk_grp_id;
+  };
+  set_trip_sets(flt);
+  puttrip_stages(point_id);
+}
 

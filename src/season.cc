@@ -1021,16 +1021,6 @@ void CreateSPP( BASIC::TDateTime localdate )
   PQry.DeclareVariable( "pr_del", otInteger );
   PQry.DeclareVariable( "pr_reg", otInteger );
 
-  TQuery TQry(&OraSession);
-  TQry.SQLText =
-   "BEGIN "
-   " sopp.set_flight_sets(:point_id,:use_seances,:f,:c,:y);"
-   "END;";
-  TQry.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
-  TQry.DeclareVariable( "point_id", otInteger );
-  TQry.DeclareVariable( "f", otInteger );
-  TQry.DeclareVariable( "c", otInteger );
-  TQry.DeclareVariable( "y", otInteger );
   TSpp spp;
   string err_city;
   createSPP( localdate, spp, false, err_city );
@@ -1178,11 +1168,7 @@ void CreateSPP( BASIC::TDateTime localdate )
           first_point=point_id;
         ProgTrace( TRACE5, "new line into points with point_id=%d", point_id );
         if ( pr_reg ) {
-          TQry.SetVariable( "point_id", point_id );
-          TQry.SetVariable( "f", d->f );
-          TQry.SetVariable( "c", d->c );
-          TQry.SetVariable( "y", d->y );
-          TQry.Execute();
+          set_flight_sets(point_id, d->f, d->c, d->y);
         }
         //вычисление весов пассажиров по рейсу
         PersWeightRules weights;
