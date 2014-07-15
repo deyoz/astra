@@ -18,6 +18,7 @@
 #include "points.h"
 #include "trip_tasks.h"
 #include "qrys.h"
+#include "stat.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1015,22 +1016,15 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-  	TQuery Qry(&OraSession);
-  	Qry.Clear();
-  	Qry.SQLText=
-  	  "BEGIN "
-  	  "  statist.get_full_stat(:point_id, 0); "
-  	  "END;";
-  	Qry.CreateVariable( "point_id", otInteger, point_id );
-  	Qry.Execute();
+    get_flight_stat(point_id, false);
   }
   catch(std::exception &E)
   {
-    ProgError(STDLOG,"Takeoff.get_full_stat (point_id=%d): %s",point_id,E.what());
+    ProgError(STDLOG,"Takeoff.get_flight_stat (point_id=%d): %s",point_id,E.what());
   };
   time_end=time(NULL);
   if (time_end-time_start>1)
-    ProgTrace(TRACE5,"Attention! statist.get_full_stat execute time: %ld secs, point_id=%d",
+    ProgTrace(TRACE5,"Attention! get_flight_stat execute time: %ld secs, point_id=%d",
                      time_end-time_start,point_id);
 
   time_start=time(NULL);

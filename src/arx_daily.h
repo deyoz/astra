@@ -37,6 +37,7 @@ class TArxMoveFlt : public TArxMove
   protected:
     TQuery *PointsQry;
     bool GetPartKey(int move_id, BASIC::TDateTime& part_key, double &date_range);
+    void LockAndCollectStat(int move_id);
   public:
     TArxMoveFlt(BASIC::TDateTime utc_date);
     virtual ~TArxMoveFlt();

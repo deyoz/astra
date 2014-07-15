@@ -8,11 +8,12 @@
 #include "misc.h"
 #include "docs.h"
 #include "base_tables.h"
-#include "timer.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "term_version.h"
 #include "passenger.h"
+#include "points.h"
+#include "qrys.h"
 #include "tlg/tlg.h"
 
 #define NICKNAME "DENIS"
@@ -6061,7 +6062,31 @@ void STAT::agent_stat_delta(
     Qry.Execute();
 }
 
-void StatInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void get_flight_stat(int point_id, bool final_collection)
 {
+   TFlights flightsForLock;
+   flightsForLock.Get( point_id, ftTranzit );
+   flightsForLock.Lock();
 
-}
+   {
+     QParams QryParams;
+     QryParams << QParam("point_id", otInteger, point_id);
+     QryParams << QParam("final_collection", otInteger, (int)final_collection);
+     TCachedQuery Qry("UPDATE trip_sets SET pr_stat=:final_collection WHERE point_id=:point_id AND pr_stat=0", QryParams);
+     Qry.get().Execute();
+     if (Qry.get().RowsProcessed()<=0) return; //статистику не собираем
+   };
+   {
+     QParams QryParams;
+     QryParams << QParam("point_id", otInteger, point_id);
+     TCachedQuery Qry("BEGIN "
+                      "  statist.get_stat(:point_id); "
+                      "  statist.get_trfer_stat(:point_id); "
+                      "  statist.get_kiosk_stat(:point_id); "
+                      "END;",
+                      QryParams);
+     Qry.get().Execute();
+   };
+
+   TReqInfo::Instance()->MsgToLog("Сбор статистики по рейсу", evtFlt, point_id);
+};
