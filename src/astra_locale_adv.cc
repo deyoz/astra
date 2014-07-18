@@ -1,9 +1,7 @@
 #include <string>
-#include <fstream>
 #include "astra_locale.h"
-#include "astra_elems.h"
+#include "astra_locale_adv.h"
 #include "astra_utils.h"
-#include "event_utils.h"
 
 template<> std::string PrmSmpl<int>::GetMsg (const std::string& lang) const {
     return IntToString(param);
@@ -161,14 +159,101 @@ LEvntPrms& LEvntPrms::operator << (const PrmStage&  prmstage) {
     return *this;
 }
 
-AstraLocale::LParams LEvntPrms::GetParams (const std::string& lang) {
+AstraLocale::LParams LEvntPrms::GetParams (const std::string& lang) const {
     AstraLocale::LParams lparams;
-    for (std::deque<LEvntPrm*>::iterator iter=begin(); iter != end(); iter++)
+    for (std::deque<LEvntPrm*>::const_iterator iter=begin(); iter != end(); iter++)
         lparams<<(*iter)->GetParam(lang);
     return lparams;
 }
 
-int test_event_utils(int argc,char **argv)
+void LEvntPrms::toXML(xmlNodePtr eventNode) const {
+    xmlNodePtr paramsNode = NewTextChild(eventNode,"params");
+    for (std::deque<LEvntPrm*>::const_iterator iter=begin(); iter != end(); iter++) {
+        xmlNodePtr paramNode = NewTextChild(paramsNode,"param");
+        (*iter)->ParamToXML(paramNode);
+    }
+}
+
+void LEvntPrms::fromXML(xmlNodePtr paramsNode) {
+    for(xmlNodePtr paramNode = paramsNode->children; paramNode != NULL; paramNode = paramNode->next) {
+        std::string type = NodeAsString("type", paramNode);
+        if(type == "PrmSmpl<int>") {
+            std::string name = NodeAsString("name", paramNode);
+            int value = NodeAsInteger("value", paramNode);
+            push_back(new PrmSmpl<int>(name, value));
+        }
+        else if(type == "PrmSmpl<string>") {
+            std::string name = NodeAsString("name", paramNode);
+            std::string value = NodeAsString("value", paramNode);
+            push_back(new PrmSmpl<std::string>(name, value));
+        }
+        else if(type == "PrmSmpl<double>") {
+            std::string name = NodeAsString("name", paramNode);
+            double value = NodeAsFloat("value", paramNode);
+            push_back(new PrmSmpl<double>(name, value));
+        }
+        else if(type == "PrmElem<int>") {
+            std::string name = NodeAsString("name", paramNode);
+            int elem_type = NodeAsInteger("elem_type", paramNode);
+            int id = NodeAsInteger("id", paramNode);
+            int fmt = NodeAsInteger("fmt", paramNode);
+            push_back(new PrmElem<int>(name, (TElemType)elem_type, id, (TElemFmt)fmt));
+        }
+        else if(type == "PrmElem<string>") {
+            std::string name = NodeAsString("name", paramNode);
+            int elem_type = NodeAsInteger("elem_type", paramNode);
+            std::string id = NodeAsString("id", paramNode);
+            int fmt = NodeAsInteger("fmt", paramNode);
+            push_back(new PrmElem<std::string>(name, (TElemType)elem_type, id, (TElemFmt)fmt));
+        }
+        else if(type == "PrmLexema") {
+            std::string name = NodeAsString("name", paramNode);
+            std::string id = NodeAsString("id", paramNode);
+            xmlNodePtr paramsNode = NodeAsNode("params", paramNode);
+            PrmLexema lexema(name, id);
+            lexema.prms.fromXML(paramsNode);
+            push_back(new PrmLexema(lexema));
+        }
+        else if(type == "PrmEnum") {
+            std::string name = NodeAsString("name", paramNode);
+            std::string separator = NodeAsString("separator", paramNode);
+            xmlNodePtr paramsNode = NodeAsNode("params", paramNode);
+            PrmEnum prmenum(name, separator);
+            prmenum.prms.fromXML(paramsNode);
+            push_back(new PrmEnum(prmenum));
+        }
+        else if(type == "PrmBool") {
+            std::string name = NodeAsString("name", paramNode);
+            int val = NodeAsInteger("val", paramNode);
+            push_back(new PrmBool(name, val));
+        }
+        else if(type == "PrmStage") {
+            std::string name = NodeAsString("name", paramNode);
+            int stage = NodeAsInteger("stage", paramNode);
+            std::string airp = NodeAsString("airp", paramNode);
+            push_back(new PrmStage(name, (TStage)stage, airp));
+        }
+        else if(type == "PrmFlight") {
+            std::string name = NodeAsString("name", paramNode);
+            std::string airline = NodeAsString("airline", paramNode);
+            int flt_no = NodeAsInteger("flt_no", paramNode);
+            std::string suffix = NodeAsString("suffix", paramNode);
+            push_back(new PrmFlight(name, airline, flt_no, suffix));
+        }
+        else if(type == "PrmDate") {
+            std::string name = NodeAsString("name", paramNode);
+            double date = NodeAsFloat("date", paramNode);
+            std::string  fmt = NodeAsString("fmt", paramNode);
+            push_back(new PrmDate(name, date, fmt));
+        }
+    }
+}
+
+#include "jxtlib/xml_stuff.h"
+#include "transfer.h"
+#include <set>
+
+int test_astra_locale_adv(int argc,char **argv)
 {
     TLogLocale tloglocale;
     tloglocale.lexema_id = "MSG.BAGGAGE.FROM_FLIGHT"; //Baggage from flight [flt%s]
@@ -217,6 +302,25 @@ int test_event_utils(int argc,char **argv)
 
     printf("%s\n", (ElemIdToPrefferedElem(etRight, 810, efmtNameLong, AstraLocale::LANG_EN)).c_str());
     printf("%s\n", (ElemIdToPrefferedElem(etRight, 390, efmtNameLong, AstraLocale::LANG_RU)).c_str());
+
+    std::ifstream fin;
+    fin.open("/home/user/work/xml", std::ios::in);
+    std::string text, tmp, lexema_id;
+    while(getline(fin, tmp))
+        text += tmp + "\n";
+    XMLDoc doc(text);
+    LEvntPrms params;
+    xml_decode_nodelist(doc.docPtr()->children);
+    xmlNodePtr eventNode = NodeAsNode("/event", doc.docPtr());
+    XMLToLocale(eventNode, lexema_id, params);
+    printf("%s\n", AstraLocale::getLocaleText(lexema_id, params.GetParams(AstraLocale::LANG_RU), AstraLocale::LANG_RU).c_str());
+    printf("%s\n", AstraLocale::getLocaleText(lexema_id, params.GetParams(AstraLocale::LANG_EN), AstraLocale::LANG_EN).c_str());
+
+    std::set<InboundTrfer::TConflictReason> conflicts;
+    for (int i = 0; i < 7; i++)
+        conflicts.insert(InboundTrfer::TConflictReason(i));
+    TLogLocale tlocale;
+    ConflictReasonsToLog(conflicts, tlocale);
     return 0;
 }
 
@@ -280,4 +384,18 @@ int insert_locales(int argc,char **argv)
     }
     OraSession.Commit();
     return 0;
+}
+
+void LocaleToXML (xmlNodePtr parent, const std::string& lexema_id, const LEvntPrms& params)
+{
+    xmlNodePtr eventNode = NewTextChild(parent,"event");
+    NewTextChild(eventNode,"lexema_id", lexema_id);
+    params.toXML(eventNode);
+}
+
+void XMLToLocale (const xmlNodePtr eventNode, std::string& lexema_id, LEvntPrms& params)
+{
+    lexema_id = NodeAsString("lexema_id", eventNode);
+    xmlNodePtr paramsNode = NodeAsNode("params", eventNode);
+    params.fromXML(paramsNode);
 }
