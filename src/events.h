@@ -58,9 +58,7 @@ class TPaxToLogInfo
     std::string surname, name, pers_type, refuse, subcl, seat_no;
     bool pr_brd, pr_exam;
     CheckIn::TPaxTknItem tkn;
-    CheckIn::TPaxDocItem doc;
-    CheckIn::TPaxDocoItem doco;
-    std::list<CheckIn::TPaxDocaItem> doca;
+    CheckIn::TAPISItem apis;
     int bag_amount, bag_weight, rk_amount, rk_weight;
     std::string tags;
     std::map< int/*bag_type*/, CheckIn::TNormItem> norms;
@@ -84,9 +82,7 @@ class TPaxToLogInfo
       pr_brd=false;
       pr_exam=false;
       tkn.clear();
-      doc.clear();
-      doco.clear();
-      doca.clear();
+      apis.clear();
       bag_amount=0;
       bag_weight=0;
       rk_amount=0;
@@ -217,6 +213,14 @@ class TAgentStatInfo
                      drk_weight(0,0) {};
 };
 
+std::string logPaxNameStr(const std::string &status,
+                          const std::string &surname,
+                          const std::string &name,
+                          const std::string &pers_type);
+void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
+                    const CheckIn::TAPISItem &apisAfter,
+                    std::list<std::string> &msgs);
+
 void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo);
 void SaveGrpToLog(int point_id,
                   const TTripInfo &operFlt,
@@ -227,6 +231,7 @@ void SaveGrpToLog(int point_id,
 //функция не только возвращает auto_weighing для пульта,
 //но и пишет в лог, если для данного пульта изменилась настройка
 bool GetAutoWeighing(int point_id, const std::string &work_mode);
+bool GetAPISControl(int point_id);
 
 
 #endif

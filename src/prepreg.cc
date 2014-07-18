@@ -414,6 +414,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       "SELECT pr_tranz_reg,pr_block_trzt,pr_check_load,pr_overload_reg,pr_exam, "
       "       pr_check_pay,pr_exam_check_pay, "
       "       pr_reg_with_tkn,pr_reg_with_doc,auto_weighing,pr_free_seating, "
+      "       apis_control, apis_manual_input, "
       "       pr_airp_seance "
       "FROM trip_sets WHERE point_id=:point_id";
     SetsQry.CreateVariable("point_id",otInteger,point_id);
@@ -431,7 +432,9 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
          new_pr_reg_with_tkn,   old_pr_reg_with_tkn,
          new_pr_reg_with_doc,   old_pr_reg_with_doc,
          new_auto_weighing,     old_auto_weighing,
-         new_pr_free_seating,   old_pr_free_seating;
+         new_pr_free_seating,   old_pr_free_seating,
+         new_apis_control,      old_apis_control,
+         new_apis_manual_input, old_apis_manual_input;
     int  new_pr_airp_seance,    old_pr_airp_seance;
 
     old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
@@ -446,6 +449,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     old_pr_reg_with_doc=SetsQry.FieldAsInteger("pr_reg_with_doc")!=0;
     old_auto_weighing=SetsQry.FieldAsInteger("auto_weighing")!=0;
     old_pr_free_seating=SetsQry.FieldAsInteger("pr_free_seating")!=0;
+    old_apis_control=SetsQry.FieldAsInteger("apis_control")!=0;
+    old_apis_manual_input=SetsQry.FieldAsInteger("apis_manual_input")!=0;
     if (!SetsQry.FieldIsNULL("pr_airp_seance"))
       old_pr_airp_seance=(int)(SetsQry.FieldAsInteger("pr_airp_seance")!=0);
     else
@@ -469,6 +474,9 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       new_pr_free_seating=NodeAsInteger("pr_free_seating",node)!=0;
     else
       new_pr_free_seating=old_pr_free_seating;
+    xmlNodePtr node2=node->children;
+    new_apis_control=NodeAsIntegerFast("apis_control",node2,(int)old_apis_control)!=0;
+    new_apis_manual_input=NodeAsIntegerFast("apis_manual_input",node2,(int)old_apis_manual_input)!=0;
     if (!NodeIsNULL("pr_airp_seance",node))
       new_pr_airp_seance=(int)(NodeAsInteger("pr_airp_seance",node)!=0);
     else
@@ -597,6 +605,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         old_pr_reg_with_doc!=new_pr_reg_with_doc ||
         old_auto_weighing!=new_auto_weighing ||
         old_pr_free_seating!=new_pr_free_seating ||
+        old_apis_control!=new_apis_control ||
+        old_apis_manual_input!=new_apis_manual_input ||
         old_pr_airp_seance!=new_pr_airp_seance)
     {
       if (old_pr_airp_seance!=new_pr_airp_seance)
@@ -624,6 +634,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         "    pr_reg_with_doc=:pr_reg_with_doc, "
         "    auto_weighing=:auto_weighing, "
         "    pr_free_seating=:pr_free_seating, "
+        "    apis_control=:apis_control, "
+        "    apis_manual_input=:apis_manual_input, "
         "    pr_airp_seance=:pr_airp_seance "
         "WHERE point_id=:point_id";
       Qry.CreateVariable("pr_check_load",otInteger,(int)new_pr_check_load);
@@ -635,6 +647,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       Qry.CreateVariable("pr_reg_with_doc",otInteger,(int)new_pr_reg_with_doc);
       Qry.CreateVariable("auto_weighing",otInteger,(int)new_auto_weighing);
       Qry.CreateVariable("pr_free_seating",otInteger,(int)new_pr_free_seating);
+      Qry.CreateVariable("apis_control",otInteger,(int)new_apis_control);
+      Qry.CreateVariable("apis_manual_input",otInteger,(int)new_apis_manual_input);
       if (new_pr_airp_seance!=-1)
         Qry.CreateVariable("pr_airp_seance",otInteger,new_pr_airp_seance);
       else
@@ -697,15 +711,15 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       };
       if (old_auto_weighing!=new_auto_weighing)
       {
-        if ( new_auto_weighing ) msg.msg += "Установлен "; else msg.msg += "Отменен ";
+        if ( new_auto_weighing ) msg.msg = "Установлен"; else msg.msg = "Отменен";
         msg.msg += " контроль автоматического взвешивания багажа для стоек с весами";
         TReqInfo::Instance()->MsgToLog(msg);
       };
       if (old_pr_free_seating!=new_pr_free_seating) {
 
         TLogMsg msg;
-        if (new_pr_free_seating) msg.msg = "Установлен "; else msg.msg = "Отменен ";
-        msg.msg += "режим свободной рассадки";
+        if (new_pr_free_seating) msg.msg = "Установлен"; else msg.msg = "Отменен";
+        msg.msg += " режим свободной рассадки";
         msg.ev_type=evtFlt;
         msg.id1=point_id;
         TReqInfo::Instance()->MsgToLog(msg);
@@ -714,7 +728,19 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         }
         check_diffcomp_alarms.push_back( point_id );
         check_waitlist_alarms.push_back( point_id );
-      }
+      };
+      if (old_apis_control!=new_apis_control)
+      {
+        if ( new_apis_control ) msg.msg = "Установлен"; else msg.msg = "Отменен";
+        msg.msg += " контроль данных APIS";
+        TReqInfo::Instance()->MsgToLog(msg);
+      };
+      if (old_apis_manual_input!=new_apis_manual_input)
+      {
+        if ( new_apis_manual_input ) msg.msg = "Разрешен"; else msg.msg = "Запрещен";
+        msg.msg += " ручной ввод данных APIS";
+        TReqInfo::Instance()->MsgToLog(msg);
+      };
       if (old_pr_airp_seance!=new_pr_airp_seance)
       {
         msg.msg = "Установлен режим регистрации";
@@ -744,6 +770,16 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
           check_waitlist_alarm( *ipoint_id );
         }
       }
+    }
+    if (old_apis_control!=new_apis_control)
+    {
+      check_apis_alarms(point_id);
+    }
+    if (old_apis_manual_input!=new_apis_manual_input)
+    {
+      set<TTripAlarmsType> checked_alarms;
+      checked_alarms.insert(atAPISManualInput);
+      check_apis_alarms(point_id, checked_alarms);
     }
   };
   

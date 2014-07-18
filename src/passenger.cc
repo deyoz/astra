@@ -5,6 +5,7 @@
 #include "term_version.h"
 #include "baggage.h"
 #include "qrys.h"
+#include "exceptions.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -66,21 +67,12 @@ TPaxTknItem& TPaxTknItem::fromDB(TQuery &Qry)
     coupon=ASTRA::NoExists;
   rem=Qry.FieldAsString("ticket_rem");
   confirm=Qry.FieldAsInteger("ticket_confirm")!=0;
-  if (Qry.GetFieldIndex("pers_type")>=0 && Qry.GetFieldIndex("seats")>=0)
-    pr_inf=DecodePerson(Qry.FieldAsString("pers_type"))==ASTRA::baby && Qry.FieldAsInteger("seats")==0;
-  else
-  {
-    if (Qry.GetFieldIndex("pr_inf")>=0)
-      pr_inf=Qry.FieldAsInteger("pr_inf")!=0;
-    else
-      pr_inf=false;
-  };
   return *this;
 };
 
 long int TPaxTknItem::getNotEmptyFieldsMask() const
 {
-  long int result=0x0000;
+  long int result=NO_FIELDS;
 
   if (!no.empty()) result|=TKN_TICKET_NO_FIELD;
   return result;
@@ -121,7 +113,7 @@ bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn)
 {
   tkn.clear();
   const char* sql1=
-    "SELECT ticket_no, coupon_no, rem_code AS ticket_rem, 0 AS ticket_confirm, pr_inf "
+    "SELECT ticket_no, coupon_no, rem_code AS ticket_rem, 0 AS ticket_confirm "
     "FROM crs_pax_tkn "
     "WHERE pax_id=:pax_id "
     "ORDER BY DECODE(rem_code,'TKNE',0,'TKNA',1,'TKNO',2,3),ticket_no,coupon_no ";
@@ -186,6 +178,16 @@ string PaxDocCountryFromTerm(const string &doc_code)
     };
 };
 
+string PaxDocGenderNormalize(const string &pax_doc_gender)
+{
+  if (pax_doc_gender.empty()) return "";
+  int is_female=CheckIn::is_female(pax_doc_gender, "");
+  if (is_female!=ASTRA::NoExists)
+    return (is_female==0?"M":"F");
+  else
+    return "";
+};
+
 const TPaxDocItem& TPaxDocItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -204,6 +206,7 @@ const TPaxDocItem& TPaxDocItem::toXML(xmlNodePtr node) const
   NewTextChild(docNode, "first_name", first_name, "");
   NewTextChild(docNode, "second_name", second_name, "");
   NewTextChild(docNode, "pr_multi", (int)pr_multi, (int)false);
+  NewTextChild(docNode, "scanned_attrs", scanned_attrs, (int)NO_FIELDS);
   return *this;
 };
 
@@ -220,13 +223,14 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   nationality=PaxDocCountryFromTerm(NodeAsStringFast("nationality",node2,""));
   if (!NodeIsNULLFast("birth_date",node2,true))
     birth_date=NodeAsDateTimeFast("birth_date",node2);
-  gender=NodeAsStringFast("gender",node2,"");
+  gender=PaxDocGenderNormalize(NodeAsStringFast("gender",node2,""));
   if (!NodeIsNULLFast("expiry_date",node2,true))
     expiry_date=NodeAsDateTimeFast("expiry_date",node2);
   surname=NodeAsStringFast("surname",node2,"");
   first_name=NodeAsStringFast("first_name",node2,"");
   second_name=NodeAsStringFast("second_name",node2,"");
   pr_multi=NodeAsIntegerFast("pr_multi",node2,0)!=0;
+  scanned_attrs=NodeAsIntegerFast("scanned_attrs",node2,NO_FIELDS);
   return *this;
 };
 
@@ -250,6 +254,8 @@ const TPaxDocItem& TPaxDocItem::toDB(TQuery &Qry) const
   Qry.SetVariable("second_name", second_name);
   Qry.SetVariable("pr_multi", (int)pr_multi);
   Qry.SetVariable("type_rcpt", type_rcpt);
+  if (Qry.GetVariableIndex("scanned_attrs")>=0)
+    Qry.SetVariable("scanned_attrs", (int)scanned_attrs);
   return *this;
 };
 
@@ -264,7 +270,7 @@ TPaxDocItem& TPaxDocItem::fromDB(TQuery &Qry)
     birth_date=Qry.FieldAsDateTime("birth_date");
   else
     birth_date=ASTRA::NoExists;
-  gender=Qry.FieldAsString("gender");
+  gender=PaxDocGenderNormalize(Qry.FieldAsString("gender"));
   if (!Qry.FieldIsNULL("expiry_date"))
     expiry_date=Qry.FieldAsDateTime("expiry_date");
   else
@@ -274,23 +280,42 @@ TPaxDocItem& TPaxDocItem::fromDB(TQuery &Qry)
   second_name=Qry.FieldAsString("second_name");
   pr_multi=Qry.FieldAsInteger("pr_multi")!=0;
   type_rcpt=Qry.FieldAsString("type_rcpt");
+  if (Qry.GetFieldIndex("scanned_attrs")>=0)
+    scanned_attrs=Qry.FieldAsInteger("scanned_attrs");
   return *this;
 };
 
 long int TPaxDocItem::getNotEmptyFieldsMask() const
 {
-  long int result=0x0000;
+  long int result=NO_FIELDS;
   
-  if (!type.empty()) result|=DOC_TYPE_FIELD;
-  if (!issue_country.empty()) result|=DOC_ISSUE_COUNTRY_FIELD;
-  if (!no.empty()) result|=DOC_NO_FIELD;
-  if (!nationality.empty()) result|=DOC_NATIONALITY_FIELD;
-  if (birth_date!=ASTRA::NoExists) result|=DOC_BIRTH_DATE_FIELD;
-  if (!gender.empty()) result|=DOC_GENDER_FIELD;
+  if (!type.empty())                result|=DOC_TYPE_FIELD;
+  if (!issue_country.empty())       result|=DOC_ISSUE_COUNTRY_FIELD;
+  if (!no.empty())                  result|=DOC_NO_FIELD;
+  if (!nationality.empty())         result|=DOC_NATIONALITY_FIELD;
+  if (birth_date!=ASTRA::NoExists)  result|=DOC_BIRTH_DATE_FIELD;
+  if (!gender.empty())             result|=DOC_GENDER_FIELD;
   if (expiry_date!=ASTRA::NoExists) result|=DOC_EXPIRY_DATE_FIELD;
-  if (!surname.empty()) result|=DOC_SURNAME_FIELD;
-  if (!first_name.empty()) result|=DOC_FIRST_NAME_FIELD;
-  if (!second_name.empty()) result|=DOC_SECOND_NAME_FIELD;
+  if (!surname.empty())             result|=DOC_SURNAME_FIELD;
+  if (!first_name.empty())          result|=DOC_FIRST_NAME_FIELD;
+  if (!second_name.empty())         result|=DOC_SECOND_NAME_FIELD;
+  return result;
+};
+
+long int TPaxDocItem::getEqualAttrsFieldsMask(const TPaxDocItem &item) const
+{
+  long int result=NO_FIELDS;
+
+  if (type == item.type)                   result|=DOC_TYPE_FIELD;
+  if (issue_country == item.issue_country) result|=DOC_ISSUE_COUNTRY_FIELD;
+  if (no == item.no)                       result|=DOC_NO_FIELD;
+  if (nationality == item.nationality)     result|=DOC_NATIONALITY_FIELD;
+  if (birth_date == item.birth_date)       result|=DOC_BIRTH_DATE_FIELD;
+  if (gender == item.gender)             result|=DOC_GENDER_FIELD;
+  if (expiry_date == item.expiry_date)     result|=DOC_EXPIRY_DATE_FIELD;
+  if (surname == item.surname)             result|=DOC_SURNAME_FIELD;
+  if (first_name == item.first_name)       result|=DOC_FIRST_NAME_FIELD;
+  if (second_name == item.second_name)     result|=DOC_SECOND_NAME_FIELD;
   return result;
 };
 
@@ -307,7 +332,7 @@ const TPaxDocoItem& TPaxDocoItem::toXML(xmlNodePtr node) const
   if (expiry_date!=ASTRA::NoExists)
     NewTextChild(docNode, "expiry_date", DateTimeToStr(expiry_date, ServerFormatDateTimeAsString));
   NewTextChild(docNode, "applic_country", PaxDocCountryToTerm(applic_country), "");
-  NewTextChild(docNode, "pr_inf", (int)pr_inf, (int)false);
+  NewTextChild(docNode, "scanned_attrs", scanned_attrs, (int)NO_FIELDS);
   return *this;
 };
 
@@ -327,7 +352,7 @@ TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
   if (!NodeIsNULLFast("expiry_date",node2,true))
     expiry_date=NodeAsDateTimeFast("expiry_date",node2);
   applic_country=PaxDocCountryFromTerm(NodeAsStringFast("applic_country",node2,""));
-  pr_inf=NodeAsIntegerFast("pr_inf",node2,0)!=0;
+  scanned_attrs=NodeAsIntegerFast("scanned_attrs",node2,NO_FIELDS);
   return *this;
 };
 
@@ -346,7 +371,8 @@ const TPaxDocoItem& TPaxDocoItem::toDB(TQuery &Qry) const
   else
     Qry.SetVariable("expiry_date", FNull);
   Qry.SetVariable("applic_country", applic_country);
-  Qry.SetVariable("pr_inf", (int)pr_inf);
+  if (Qry.GetVariableIndex("scanned_attrs")>=0)
+    Qry.SetVariable("scanned_attrs", (int)scanned_attrs);
   return *this;
 };
 
@@ -366,21 +392,36 @@ TPaxDocoItem& TPaxDocoItem::fromDB(TQuery &Qry)
   else
     expiry_date=ASTRA::NoExists;
   applic_country=Qry.FieldAsString("applic_country");
-  pr_inf=Qry.FieldAsInteger("pr_inf")!=0;
+  if (Qry.GetFieldIndex("scanned_attrs")>=0)
+    scanned_attrs=Qry.FieldAsInteger("scanned_attrs");
   return *this;
 };
 
 long int TPaxDocoItem::getNotEmptyFieldsMask() const
 {
-  long int result=0x0000;
+  long int result=NO_FIELDS;
 
-  if (!birth_place.empty()) result|=DOCO_BIRTH_PLACE_FIELD;
-  if (!type.empty()) result|=DOCO_TYPE_FIELD;
-  if (!no.empty()) result|=DOCO_NO_FIELD;
-  if (!issue_place.empty()) result|=DOCO_ISSUE_PLACE_FIELD;
-  if (issue_date!=ASTRA::NoExists) result|=DOCO_ISSUE_DATE_FIELD;
+  if (!birth_place.empty())         result|=DOCO_BIRTH_PLACE_FIELD;
+  if (!type.empty())                result|=DOCO_TYPE_FIELD;
+  if (!no.empty())                  result|=DOCO_NO_FIELD;
+  if (!issue_place.empty())         result|=DOCO_ISSUE_PLACE_FIELD;
+  if (issue_date!=ASTRA::NoExists)  result|=DOCO_ISSUE_DATE_FIELD;
   if (expiry_date!=ASTRA::NoExists) result|=DOCO_EXPIRY_DATE_FIELD;
-  if (!applic_country.empty()) result|=DOCO_APPLIC_COUNTRY_FIELD;
+  if (!applic_country.empty())      result|=DOCO_APPLIC_COUNTRY_FIELD;
+  return result;
+};
+
+long int TPaxDocoItem::getEqualAttrsFieldsMask(const TPaxDocoItem &item) const
+{
+  long int result=NO_FIELDS;
+
+  if (birth_place == item.birth_place)       result|=DOCO_BIRTH_PLACE_FIELD;
+  if (type == item.type)                     result|=DOCO_TYPE_FIELD;
+  if (no == item.no)                         result|=DOCO_NO_FIELD;
+  if (issue_place == item.issue_place)       result|=DOCO_ISSUE_PLACE_FIELD;
+  if (issue_date == item.issue_date)         result|=DOCO_ISSUE_DATE_FIELD;
+  if (expiry_date == item.expiry_date)       result|=DOCO_EXPIRY_DATE_FIELD;
+  if (applic_country == item.applic_country) result|=DOCO_APPLIC_COUNTRY_FIELD;
   return result;
 };
 
@@ -394,7 +435,6 @@ const TPaxDocaItem& TPaxDocaItem::toXML(xmlNodePtr node) const
   NewTextChild(docaNode, "city", city, "");
   NewTextChild(docaNode, "region", region, "");
   NewTextChild(docaNode, "postal_code", postal_code, "");
-  NewTextChild(docaNode, "pr_inf", (int)pr_inf, (int)false);
   return *this;
 };
 
@@ -410,7 +450,6 @@ TPaxDocaItem& TPaxDocaItem::fromXML(xmlNodePtr node)
   city=NodeAsStringFast("city",node2,"");
   region=NodeAsStringFast("region",node2,"");
   postal_code=NodeAsStringFast("postal_code",node2,"");
-  pr_inf=NodeAsIntegerFast("pr_inf",node2,0)!=0;
   return *this;
 };
 
@@ -422,7 +461,6 @@ const TPaxDocaItem& TPaxDocaItem::toDB(TQuery &Qry) const
   Qry.SetVariable("city", city);
   Qry.SetVariable("region", region);
   Qry.SetVariable("postal_code", postal_code);
-  Qry.SetVariable("pr_inf", (int)pr_inf);
   return *this;
 };
 
@@ -435,20 +473,32 @@ TPaxDocaItem& TPaxDocaItem::fromDB(TQuery &Qry)
   city=Qry.FieldAsString("city");
   region=Qry.FieldAsString("region");
   postal_code=Qry.FieldAsString("postal_code");
-  pr_inf=Qry.FieldAsInteger("pr_inf")!=0;
   return *this;
 };
 
 long int TPaxDocaItem::getNotEmptyFieldsMask() const
 {
-  long int result=0x0000;
+  long int result=NO_FIELDS;
 
-  if (!type.empty()) result|=DOCA_TYPE_FIELD;
-  if (!country.empty()) result|=DOCA_COUNTRY_FIELD;
-  if (!address.empty()) result|=DOCA_ADDRESS_FIELD;
-  if (!city.empty()) result|=DOCA_CITY_FIELD;
-  if (!region.empty()) result|=DOCA_REGION_FIELD;
+  if (!type.empty())        result|=DOCA_TYPE_FIELD;
+  if (!country.empty())     result|=DOCA_COUNTRY_FIELD;
+  if (!address.empty())     result|=DOCA_ADDRESS_FIELD;
+  if (!city.empty())        result|=DOCA_CITY_FIELD;
+  if (!region.empty())      result|=DOCA_REGION_FIELD;
   if (!postal_code.empty()) result|=DOCA_POSTAL_CODE_FIELD;
+  return result;
+};
+
+long int TPaxDocaItem::getEqualAttrsFieldsMask(const TPaxDocaItem &item) const
+{
+  long int result=NO_FIELDS;
+
+  if (type == item.type)               result|=DOCA_TYPE_FIELD;
+  if (country == item.country)         result|=DOCA_COUNTRY_FIELD;
+  if (address == item.address)         result|=DOCA_ADDRESS_FIELD;
+  if (city == item.city)               result|=DOCA_CITY_FIELD;
+  if (region == item.region)           result|=DOCA_REGION_FIELD;
+  if (postal_code == item.postal_code) result|=DOCA_POSTAL_CODE_FIELD;
   return result;
 };
 
@@ -571,7 +621,7 @@ bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc)
 {
   doc.clear();
   const char* sql=
-    "SELECT birth_place, type, no, issue_place, issue_date, NULL AS expiry_date, applic_country, pr_inf "
+    "SELECT birth_place, type, no, issue_place, issue_date, NULL AS expiry_date, applic_country "
     "FROM crs_pax_doco "
     "WHERE pax_id=:pax_id AND rem_code='DOCO' AND type='V' "
     "ORDER BY no ";
@@ -639,7 +689,7 @@ bool LoadCrsPaxDoca(int pax_id, list<TPaxDocaItem> &doca)
 {
   doca.clear();
   const char* sql=
-    "SELECT type, country, address, city, region, postal_code, pr_inf "
+    "SELECT type, country, address, city, region, postal_code "
     "FROM crs_pax_doca "
     "WHERE pax_id=:pax_id AND rem_code='DOCA' AND type IS NOT NULL "
     "ORDER BY type, address ";
@@ -667,10 +717,10 @@ void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry)
         "  IF :only_delete=0 THEN "
         "    INSERT INTO pax_doc "
         "      (pax_id,type,issue_country,no,nationality,birth_date,gender,expiry_date, "
-        "       surname,first_name,second_name,pr_multi,type_rcpt) "
+        "       surname,first_name,second_name,pr_multi,type_rcpt,scanned_attrs) "
         "    VALUES "
         "      (:pax_id,:type,:issue_country,:no,:nationality,:birth_date,:gender,:expiry_date, "
-        "       :surname,:first_name,:second_name,:pr_multi,:type_rcpt); "
+        "       :surname,:first_name,:second_name,:pr_multi,:type_rcpt,:scanned_attrs); "
         "  END IF; "
         "END;";
   if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
@@ -690,6 +740,7 @@ void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry)
     PaxDocQry.DeclareVariable("second_name",otString);
     PaxDocQry.DeclareVariable("pr_multi",otInteger);
     PaxDocQry.DeclareVariable("type_rcpt",otString);
+    PaxDocQry.DeclareVariable("scanned_attrs",otInteger);
     PaxDocQry.DeclareVariable("only_delete",otInteger);
   };
 
@@ -706,9 +757,9 @@ void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry)
         "  DELETE FROM pax_doco WHERE pax_id=:pax_id; "
         "  IF :only_delete=0 THEN "
         "    INSERT INTO pax_doco "
-        "      (pax_id,birth_place,type,no,issue_place,issue_date,expiry_date,applic_country,pr_inf) "
+        "      (pax_id,birth_place,type,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs) "
         "    VALUES "
-        "      (:pax_id,:birth_place,:type,:no,:issue_place,:issue_date,:expiry_date,:applic_country,:pr_inf); "
+        "      (:pax_id,:birth_place,:type,:no,:issue_place,:issue_date,:expiry_date,:applic_country,:scanned_attrs); "
         "  END IF; "
         "END;";
   if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
@@ -723,7 +774,7 @@ void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry)
     PaxDocQry.DeclareVariable("issue_date",otDate);
     PaxDocQry.DeclareVariable("expiry_date",otDate);
     PaxDocQry.DeclareVariable("applic_country",otString);
-    PaxDocQry.DeclareVariable("pr_inf",otInteger);
+    PaxDocQry.DeclareVariable("scanned_attrs",otInteger);
     PaxDocQry.DeclareVariable("only_delete",otInteger);
   };
 
@@ -743,9 +794,9 @@ void SavePaxDoca(int pax_id, const list<TPaxDocaItem> &doca, TQuery& PaxDocaQry)
         "  END IF; "
         "  IF :only_delete=0 THEN "
         "    INSERT INTO pax_doca "
-        "      (pax_id,type,country,address,city,region,postal_code,pr_inf) "
+        "      (pax_id,type,country,address,city,region,postal_code) "
         "    VALUES "
-        "      (:pax_id,:type,:country,:address,:city,:region,:postal_code,:pr_inf); "
+        "      (:pax_id,:type,:country,:address,:city,:region,:postal_code); "
         "  END IF; "
         "END;";
   if (strcmp(PaxDocaQry.SQLText.SQLText(),sql)!=0)
@@ -759,7 +810,6 @@ void SavePaxDoca(int pax_id, const list<TPaxDocaItem> &doca, TQuery& PaxDocaQry)
     PaxDocaQry.DeclareVariable("city",otString);
     PaxDocaQry.DeclareVariable("region",otString);
     PaxDocaQry.DeclareVariable("postal_code",otString);
-    PaxDocaQry.DeclareVariable("pr_inf",otInteger);
     PaxDocaQry.DeclareVariable("only_delete",otInteger);
     PaxDocaQry.DeclareVariable("first_iteration",otInteger);
   };
@@ -1124,6 +1174,28 @@ int is_female(const string &pax_doc_gender, const string &pax_name)
   return result;
 };
 
+TAPISItem& TAPISItem::fromDB(int pax_id)
+{
+  clear();
+  CheckIn::LoadPaxDoc(pax_id, doc);
+  CheckIn::LoadPaxDoco(pax_id, doco);
+  CheckIn::LoadPaxDoca(pax_id, doca);
+  return *this;
+};
+
+const TAPISItem& TAPISItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+
+  xmlNodePtr apisNode=NewTextChild(node, "apis");
+  doc.toXML(apisNode);
+  doco.toXML(apisNode);
+  xmlNodePtr docaNode=NewTextChild(apisNode, "addresses");
+  for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
+    d->toXML(docaNode);
+  return *this;
+};
+
 const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -1293,6 +1365,23 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
   return *this;
 };
 
+}; //namespace CheckIn
+
+namespace APIS
+{
+const char *AlarmTypeS[] = {
+    "APIS_DIFFERS_FROM_BOOKING",
+    "APIS_INCOMPLETE",
+    "APIS_MANUAL_INPUT"
 };
+
+string EncodeAlarmType(const TAlarmType alarm )
+{
+    if(alarm < 0 or alarm >= atLength)
+        throw EXCEPTIONS::Exception("InboundTrfer::EncodeAlarmType: wrong alarm type %d", alarm);
+    return AlarmTypeS[ alarm ];
+};
+
+}; //namespace APIS
 
 

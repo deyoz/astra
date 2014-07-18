@@ -5680,10 +5680,10 @@ void SaveDOCORem(int pax_id, const vector<TDocoItem> &doc)
   Qry.SQLText=
     "INSERT INTO crs_pax_doco "
     "  (pax_id,rem_code,rem_status,birth_place,type,no,issue_place,issue_date, "
-    "   applic_country,pr_inf) "
+    "   applic_country) "
     "VALUES "
     "  (:pax_id,:rem_code,:rem_status,:birth_place,:type,:no,:issue_place,:issue_date, "
-    "   :applic_country,:pr_inf) ";
+    "   :applic_country) ";
   Qry.CreateVariable("pax_id",otInteger,pax_id);
   Qry.DeclareVariable("rem_code",otString);
   Qry.DeclareVariable("rem_status",otString);
@@ -5693,7 +5693,6 @@ void SaveDOCORem(int pax_id, const vector<TDocoItem> &doc)
   Qry.DeclareVariable("issue_place",otString);
   Qry.DeclareVariable("issue_date",otDate);
   Qry.DeclareVariable("applic_country",otString);
-  Qry.DeclareVariable("pr_inf",otInteger);
   for(vector<TDocoItem>::const_iterator i=doc.begin();i!=doc.end();i++)
   {
     if (i->Empty()) continue;
@@ -5708,7 +5707,6 @@ void SaveDOCORem(int pax_id, const vector<TDocoItem> &doc)
     else
       Qry.SetVariable("issue_date",FNull);
     Qry.SetVariable("applic_country",i->applic_country);
-    Qry.SetVariable("pr_inf",(int)i->pr_inf);
     Qry.Execute();
   };
 };
@@ -5720,11 +5718,9 @@ void SaveDOCARem(int pax_id, const vector<TDocaItem> &doca)
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO crs_pax_doca "
-    "  (pax_id,rem_code,rem_status,type,country,address,city,region,postal_code, "
-    "   pr_inf) "
+    "  (pax_id,rem_code,rem_status,type,country,address,city,region,postal_code) "
     "VALUES "
-    "  (:pax_id,:rem_code,:rem_status,:type,:country,:address,:city,:region,:postal_code, "
-    "   :pr_inf) ";
+    "  (:pax_id,:rem_code,:rem_status,:type,:country,:address,:city,:region,:postal_code) ";
   Qry.CreateVariable("pax_id",otInteger,pax_id);
   Qry.DeclareVariable("rem_code",otString);
   Qry.DeclareVariable("rem_status",otString);
@@ -5734,7 +5730,6 @@ void SaveDOCARem(int pax_id, const vector<TDocaItem> &doca)
   Qry.DeclareVariable("city",otString);
   Qry.DeclareVariable("region",otString);
   Qry.DeclareVariable("postal_code",otString);
-  Qry.DeclareVariable("pr_inf",otInteger);
   for(vector<TDocaItem>::const_iterator i=doca.begin();i!=doca.end();i++)
   {
     if (i->Empty()) continue;
@@ -5746,7 +5741,6 @@ void SaveDOCARem(int pax_id, const vector<TDocaItem> &doca)
     Qry.SetVariable("city",i->city.substr(0,35));
     Qry.SetVariable("region",i->region.substr(0,35));
     Qry.SetVariable("postal_code",i->postal_code.substr(0,17));
-    Qry.SetVariable("pr_inf",(int)i->pr_inf);
     Qry.Execute();
   };
 };
@@ -5758,14 +5752,13 @@ void SaveTKNRem(int pax_id, vector<TTKNItem> &tkn)
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO crs_pax_tkn "
-    "  (pax_id,rem_code,ticket_no,coupon_no,pr_inf) "
+    "  (pax_id,rem_code,ticket_no,coupon_no) "
     "VALUES "
-    "  (:pax_id,:rem_code,:ticket_no,:coupon_no,:pr_inf) ";
+    "  (:pax_id,:rem_code,:ticket_no,:coupon_no) ";
   Qry.CreateVariable("pax_id",otInteger,pax_id);
   Qry.DeclareVariable("rem_code",otString);
   Qry.DeclareVariable("ticket_no",otString);
   Qry.DeclareVariable("coupon_no",otInteger);
-  Qry.DeclareVariable("pr_inf",otInteger);
   for(vector<TTKNItem>::iterator i=tkn.begin();i!=tkn.end();i++)
   {
     Qry.SetVariable("rem_code",i->rem_code);
@@ -5774,7 +5767,6 @@ void SaveTKNRem(int pax_id, vector<TTKNItem> &tkn)
       Qry.SetVariable("coupon_no",i->coupon_no);
     else
       Qry.SetVariable("coupon_no",FNull);
-    Qry.SetVariable("pr_inf",(int)i->pr_inf);
     Qry.Execute();
   };
 };
@@ -5787,19 +5779,17 @@ bool SaveCHKDRem(int pax_id, const vector<TCHKDItem> &chkd)
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO crs_pax_chkd "
-    "  (pax_id,rem_status,reg_no,pr_inf) "
+    "  (pax_id,rem_status,reg_no) "
     "VALUES "
-    "  (:pax_id,:rem_status,:reg_no,:pr_inf) ";
+    "  (:pax_id,:rem_status,:reg_no) ";
   Qry.CreateVariable("pax_id",otInteger,pax_id);
   Qry.DeclareVariable("rem_status",otString);
   Qry.DeclareVariable("reg_no",otInteger);
-  Qry.DeclareVariable("pr_inf",otInteger);
   for(vector<TCHKDItem>::const_iterator i=chkd.begin();i!=chkd.end();++i)
   {
     if (i->Empty()) continue;
     Qry.SetVariable("rem_status",i->rem_status);
     Qry.SetVariable("reg_no",(int)i->reg_no);
-    Qry.SetVariable("pr_inf",(int)i->pr_inf);
     Qry.Execute();
     result=true;
   };

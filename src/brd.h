@@ -4,6 +4,7 @@
 #include <libxml/tree.h>
 #include "oralib.h"
 #include "docs.h"
+#include "passenger.h"
 #include "jxtlib/JxtInterface.h"
 
 class BrdInterface : public JxtInterface
@@ -21,10 +22,17 @@ public:
 
      evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::DeplaneAll);
      AddEvent("DeplaneAll",evHandle);
+
+     evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::LoadPaxAPIS);
+     AddEvent("LoadPaxAPIS",evHandle);
+     evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::SavePaxAPIS);
+     AddEvent("SavePaxAPIS",evHandle);
   };
 
   void PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void LoadPaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void SavePaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
@@ -45,5 +53,12 @@ public:
 
   static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
+
+void GetAPISAlarms(bool isCBBG,
+                   int crs_pax_id, //¬.¡. NoExists
+                   const TCheckDocInfo &check_info,
+                   const CheckIn::TAPISItem &apis,
+                   const std::set<APIS::TAlarmType> &required_alarms,
+                   std::set<APIS::TAlarmType> &alarms);
 
 #endif
