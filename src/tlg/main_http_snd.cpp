@@ -11,7 +11,6 @@
 #include "serverlib/posthooks.h"
 #include "telegram.h"
 #include "typeb_utils.h"
-#include "../event_utils.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/test.h"

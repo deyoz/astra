@@ -21,13 +21,12 @@ struct TPointIds
 };
 
 string GetPaxName(const char* surname,
-                  const char* name,
-                  const char* pers_type)
+                  const char* name)
 {
-  if (*surname==0 && *name==0 && *pers_type==0)
+  if (*surname==0 && *name==0)
     return "";
   else
-    return (string)surname+(*name!=0?" ":"")+name+" ("+pers_type+")";
+    return (string)surname+(*name!=0?" ":"")+name;
 };
 
 bool IsTlgCompLayer(TCompLayerType layer_type)
@@ -49,6 +48,7 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
                           TCompLayerType layer_type,
                           int crs_pax_id,            //может быть NoExists
                           const string &crs_pax_name,
+                          const string &pers_type,
                           bool UsePriorContext,
                           TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
@@ -212,7 +212,8 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
       tlocale.id1=i->point_id;
       int seats;
       string seat_view=GetSeatRangeView(seat_view_ranges, "list", i->pr_lat_seat, seats);
-      tlocale.prms << PrmSmpl<string>("pax_name", crs_pax_name) << PrmSmpl<string>("seat_view", seat_view);
+      tlocale.prms << PrmSmpl<string>("pax_name", crs_pax_name) << PrmElem<string>("type", etPersType, pers_type)
+                   << PrmSmpl<string>("seat_view", seat_view);
       switch (layer_type)
       {
         case cltPNLBeforePay:  tlocale.lexema_id = "EVT.SEATS_RESERVATION_BEFORE_PNL_ADL";
@@ -248,7 +249,7 @@ void InsertTlgSeatRanges(int point_id_tlg,
 
   TQuery Qry(&OraSession);
 
-  string crs_pax_name;
+  string crs_pax_name, pers_type;
   if (crs_pax_id!=NoExists)
   {
     Qry.Clear();
@@ -270,9 +271,9 @@ void InsertTlgSeatRanges(int point_id_tlg,
     Qry.CreateVariable("pers_type", otString, FNull);
     Qry.Execute();
     crs_pax_name=GetPaxName(Qry.GetVariableAsString("surname"),
-                            Qry.GetVariableAsString("name"),
-                            Qry.GetVariableAsString("pers_type"));
+                            Qry.GetVariableAsString("name"));
     curr_tid=(Qry.VariableIsNULL("tid")?NoExists:Qry.GetVariableAsInteger("tid"));
+    pers_type = Qry.GetVariableAsString("pers_type");
   };
 
   Qry.Clear();
@@ -333,6 +334,7 @@ void InsertTlgSeatRanges(int point_id_tlg,
                        layer_type,
                        crs_pax_id,
                        crs_pax_name,
+                       pers_type,
                        UsePriorContext,
                        point_ids_spp);
 };
@@ -341,6 +343,7 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
                           int point_id_spp, //может быть NoExists
                           int crs_pax_id,   //может быть NoExists
                           const string& crs_pax_name,
+                          const string& pers_type,
                           TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
   if (range_ids.empty()) return;
@@ -405,7 +408,8 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
         tlocale.id1=point_id;
         int seats;
         string seat_view=GetSeatRangeView(seat_view_ranges, "list", pr_lat_seat, seats);
-        tlocale.prms << PrmSmpl<string>("pax_name", crs_pax_name) << PrmSmpl<string>("seat_view", seat_view);
+        tlocale.prms << PrmSmpl<string>("pax_name", crs_pax_name) << PrmElem<string>("type", etPersType, pers_type)
+                     << PrmSmpl<string>("seat_view", seat_view);
         switch (layer_type)
         {
           case cltPNLBeforePay:  tlocale.lexema_id = "EVT.CANCEL_SEATS_RESERVATION_BEFORE_PNL_ADL";
@@ -478,7 +482,7 @@ void DeleteTlgSeatRanges(vector<int> range_ids,
 {
   if (range_ids.empty()) return;
   TQuery Qry(&OraSession);
-  string crs_pax_name;
+  string crs_pax_name, pers_type;
   if (crs_pax_id!=NoExists)
   {
     Qry.Clear();
@@ -500,8 +504,8 @@ void DeleteTlgSeatRanges(vector<int> range_ids,
     Qry.CreateVariable("pers_type", otString, FNull);
     Qry.Execute();
     crs_pax_name=GetPaxName(Qry.GetVariableAsString("surname"),
-                            Qry.GetVariableAsString("name"),
-                            Qry.GetVariableAsString("pers_type"));
+                            Qry.GetVariableAsString("name"));
+    pers_type = Qry.GetVariableAsString("pers_type");
     curr_tid=(Qry.VariableIsNULL("tid")?NoExists:Qry.GetVariableAsInteger("tid"));
   };
 
@@ -509,6 +513,7 @@ void DeleteTlgSeatRanges(vector<int> range_ids,
                        NoExists,
                        crs_pax_id,
                        crs_pax_name,
+                       pers_type,
                        point_ids_spp);
   Qry.Clear();
   Qry.SQLText="DELETE FROM tlg_comp_layers WHERE range_id=:range_id";
@@ -611,9 +616,8 @@ void InsertTripCompLayers(int point_id_tlg,
     string airp_arv=Qry.FieldAsString("airp_arv");
     int crs_pax_id=(Qry.FieldIsNULL("crs_pax_id")?NoExists:Qry.FieldAsInteger("crs_pax_id"));
     string crs_pax_name=GetPaxName(Qry.FieldAsString("surname"),
-                                   Qry.FieldAsString("name"),
-                                   Qry.FieldAsString("pers_type"));
-
+                                   Qry.FieldAsString("name"));
+    string pers_type = Qry.FieldAsString("pers_type");
     Qry.Next();
 
     int next_point_id_tlg=NoExists;
@@ -639,6 +643,7 @@ void InsertTripCompLayers(int point_id_tlg,
                            layer_type,
                            crs_pax_id,
                            crs_pax_name,
+                           pers_type,
                            UsePriorContext,
                            point_ids_spp);
       ranges_for_sync.clear();
@@ -708,9 +713,8 @@ void DeleteTripCompLayers(int point_id_tlg,
     };
     int crs_pax_id=(Qry.FieldIsNULL("crs_pax_id")?NoExists:Qry.FieldAsInteger("crs_pax_id"));
     string crs_pax_name=GetPaxName(Qry.FieldAsString("surname"),
-                                   Qry.FieldAsString("name"),
-                                   Qry.FieldAsString("pers_type"));
-
+                                   Qry.FieldAsString("name"));
+    string pers_type = Qry.FieldAsString("pers_type");
     Qry.Next();
 
     int next_crs_pax_id=NoExists;
@@ -727,6 +731,7 @@ void DeleteTripCompLayers(int point_id_tlg,
                            point_id_spp,
                            crs_pax_id,
                            crs_pax_name,
+                           pers_type,
                            point_ids_spp);
       ranges_for_sync.clear();
       prior_range_id=NoExists; //можно этого было и не делать

@@ -1350,7 +1350,7 @@ void PrintInterface::ConfirmPrintBP(const std::vector<BPPax> &paxs,
             LEvntPrms params;
             params << PrmSmpl<std::string>("full_name", iPax->full_name);
             if (seat_no.empty()) params << PrmBool("seat_no", false);
-            else PrmSmpl<std::string>("seat_no", seat_no);
+            else params << PrmSmpl<std::string>("seat_no", seat_no);
             TReqInfo::Instance()->LocaleToLog("EVT.PRINT_BOARDING_PASS", params, ASTRA::evtPax, iPax->point_dep,
                                               iPax->reg_no, iPax->grp_id);
         }

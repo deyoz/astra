@@ -590,57 +590,64 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
 
 void ChangeStatusToLog(const xmlNodePtr statusNode,
                        const bool repeated,
-                       const string &msg_text,
+                       const string lexema_id,
+                       LEvntPrms& params,
                        const string &screen,
                        const string &user,
                        const string &desk)
 {
-  TLogMsg msg;
-  msg.ev_type=ASTRA::evtPax;
+  TLogLocale locale;
+  locale.ev_type=ASTRA::evtPax;
 
   if (statusNode!=NULL)
   {
     xmlNodePtr node2=statusNode;
 
-    msg.id1=NodeAsIntegerFast("point_id",node2);
+    locale.id1=NodeAsIntegerFast("point_id",node2);
     if (GetNodeFast("reg_no",node2)!=NULL)
     {
-      msg.id2=NodeAsIntegerFast("reg_no",node2);
-      msg.id3=NodeAsIntegerFast("grp_id",node2);
+      locale.id2=NodeAsIntegerFast("reg_no",node2);
+      locale.id3=NodeAsIntegerFast("grp_id",node2);
     };
     if (GetNodeFast("pax_full_name",node2)!=NULL &&
         GetNodeFast("pers_type",node2)!=NULL)
     {
-      ostringstream pax;
-      pax << "Пассажир " << NodeAsStringFast("pax_full_name",node2)
-          << " (" << NodeAsStringFast("pers_type",node2) << "). ";
-      msg.msg+=pax.str();
-    };
+      locale.lexema_id = "EVT.PASSENGER_DATA";
+      locale.prms << PrmSmpl<string>("pax_name", NodeAsStringFast("pax_full_name",node2))
+                  << PrmElem<string>("pers_type", etPersType, NodeAsStringFast("pax_full_name",node2));
+      PrmLexema lexema("param", lexema_id);
+      lexema.prms = params;
+      locale.prms << lexema;
+    }
   }
-  msg.msg+=msg_text;
-
+  else
+  {
+    locale.lexema_id = lexema_id;
+    locale.prms = params;
+  }
   if (!repeated)
   {
       TReqInfo *reqInfo=TReqInfo::Instance();
       reqInfo->screen.name=screen;
       reqInfo->user.descr=user;
       reqInfo->desk.code=desk;
-      reqInfo->MsgToLog(msg);  // !!!VLAD
+      reqInfo->LocaleToLog(locale);
   }
 
   if (statusNode!=NULL)
   {
     SetProp(statusNode,"repeated",(int)repeated);
-    xmlNodePtr eventNode=NewTextChild(statusNode,"event",msg.msg);
+    LocaleToXML (statusNode, locale.lexema_id, locale.prms);
+    xmlNodePtr eventNode = NodeAsNode("event", statusNode);
     if (!repeated &&
-        msg.ev_time!=ASTRA::NoExists &&
-        msg.ev_order!=ASTRA::NoExists)
+        locale.ev_time!=ASTRA::NoExists &&
+        locale.ev_order!=ASTRA::NoExists)
     {
-      SetProp(eventNode,"ev_time",DateTimeToStr(msg.ev_time, ServerFormatDateTimeAsString));
-      SetProp(eventNode,"ev_order",msg.ev_order);
+      SetProp(eventNode,"ev_time",DateTimeToStr(locale.ev_time, ServerFormatDateTimeAsString));
+      SetProp(eventNode,"ev_order",locale.ev_order);
     };
   };
-};
+}
 
 void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                               edi_common_data *data)
@@ -747,12 +754,10 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
         for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
         {
           xmlNodePtr node2=node->children;
-
-          ostringstream msgh;
-          msgh << "Эл. билет "
-               << NodeAsStringFast("ticket_no",node2) << "/"
-               << NodeAsIntegerFast("coupon_no",node2)
-               << ": " << err << ". ";
+          LEvntPrms params;
+          params << PrmSmpl<std::string>("ticket_no", NodeAsStringFast("ticket_no",node2))
+                 << PrmSmpl<int>("coupon_no", NodeAsIntegerFast("coupon_no",node2))
+                 << PrmSmpl<std::string>("err", err);
           xmlNodePtr errNode=NewTextChild(node,"global_error");
           LexemeDataToXML(err_lexeme, errNode);
           if (err.size()>100) err.erase(100);
@@ -769,7 +774,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
           UpdQry.Execute();
           //bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
           //              UpdQry.GetVariableAsString("prior_error")==err;
-          ChangeStatusToLog(errNode, /*repeated*/false, msgh.str(), screen, user, desk);
+          ChangeStatusToLog(errNode, /*repeated*/false, "EVT.ETICKET", params, screen, user, desk);
         };
     }
     else
@@ -778,17 +783,15 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
 
       for(currTick=chngStatAns.ltick().begin();currTick!=chngStatAns.ltick().end();currTick++)
       {
-        ostringstream msgh;
-
         //попробуем проанализировать ошибку уровня билета
         string err=chngStatAns.err2Tick(currTick->ticknum(), 0);
         if (!err.empty())
         {
           ProgTrace(TRACE5,"ticket=%s error=%s",
                            currTick->ticknum().c_str(), err.c_str());
-          msgh << "Ошибка при изменении статуса эл. билета "
-               << currTick->ticknum()
-               << ": " << err << ". ";
+          LEvntPrms params;
+          params << PrmSmpl<std::string>("tick_num", currTick->ticknum())
+                 << PrmSmpl<std::string>("err", err);
 
           LexemaData err_lexeme;
           err_lexeme.lexema_id="MSG.ETICK.CHANGE_STATUS_ERROR";
@@ -819,13 +822,13 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                 UpdQry.Execute();
                 //bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
                 //              UpdQry.GetVariableAsString("prior_error")==err;
-                ChangeStatusToLog(errNode, /*repeated*/false, msgh.str(), screen, user, desk);
+                ChangeStatusToLog(errNode, /*repeated*/false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
               };
             };
           }
           else
           {
-            ChangeStatusToLog(NULL, false, msgh.str(), screen, user, desk);
+            ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
           };
           continue;
         };
@@ -840,10 +843,10 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                     currTick->ticknum().c_str(),
                     currTick->getCoupon().front().couponInfo().num(),
                     err.c_str());
-          msgh << "Ошибка при изменении статуса эл. билета "
-               << currTick->ticknum() << "/"
-               << currTick->getCoupon().front().couponInfo().num()
-               << ": " << err << ". ";
+          LEvntPrms params;
+          params << PrmSmpl<std::string>("ticket_no", currTick->ticknum())
+                 << PrmSmpl<int>("coupon_no", currTick->getCoupon().front().couponInfo().num())
+                 << PrmSmpl<std::string>("err", err);
 
           LexemaData err_lexeme;
           err_lexeme.lexema_id="MSG.ETICK.CHANGE_STATUS_ERROR";
@@ -876,13 +879,13 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                 UpdQry.Execute();
                 //bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
                 //              UpdQry.GetVariableAsString("prior_error")==err;
-                ChangeStatusToLog(errNode, /*repeated*/false, msgh.str(), screen, user, desk);
+                ChangeStatusToLog(errNode, /*repeated*/false, "EVT.ETICKET_CHANGE STATUS MISTAKE", params, screen, user, desk);
               };
             };
           }
           else
           {
-            ChangeStatusToLog(NULL, false, msgh.str(), screen, user, desk);
+            ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE STATUS MISTAKE", params, screen, user, desk);
           };
           continue;
         };
@@ -895,10 +898,10 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                          currTick->getCoupon().front().couponInfo().num(),
                          status->dispCode());
 
-        msgh << "Изменен статус эл. билета "
-             << currTick->ticknum() << "/"
-             << currTick->getCoupon().front().couponInfo().num()
-             << ": " << status->dispCode() << ". ";
+        LEvntPrms params;
+        params << PrmSmpl<std::string>("ticket_no", currTick->ticknum())
+               << PrmSmpl<int>("coupon_no", currTick->getCoupon().front().couponInfo().num())
+               << PrmSmpl<std::string>("disp_code", status->dispCode());
 
         if (ticketNode!=NULL)
         {
@@ -929,13 +932,13 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
               bool repeated=(UpdQry.VariableIsNULL("prior_status") &&
                              status->codeInt()==CouponStatus::OriginalIssue) ||
                             UpdQry.GetVariableAsString("prior_status")==status->dispCode();
-              ChangeStatusToLog(statusNode, repeated, msgh.str(), screen, user, desk);
+              ChangeStatusToLog(statusNode, repeated, "EVT.ETICKET_CHANGE STATUS", params, screen, user, desk);
             };
           };
         }
         else
         {
-          ChangeStatusToLog(NULL, false, msgh.str(), screen, user, desk);
+            ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE STATUS", params, screen, user, desk);
         };
       };
     };

@@ -178,7 +178,7 @@ void TPaxToLogInfo::getBag(PrmEnum& param) const
   bool empty = true;
   if (bag_amount!=0 || bag_weight!=0)
   {
-      param.prms << PrmLexema("", "EVT.LAGGAGE") << PrmSmpl<string>("", " ")
+      param.prms << PrmLexema("", "EVT.LUGGAGE") << PrmSmpl<string>("", " ")
                  << PrmSmpl<int>("", bag_amount) << PrmSmpl<string>("", "/")
                  << PrmSmpl<int>("", bag_weight);
       empty = false;
@@ -186,7 +186,7 @@ void TPaxToLogInfo::getBag(PrmEnum& param) const
   if (rk_amount!=0 || rk_weight!=0)
   {
     if (!empty) param.prms << PrmSmpl<string>("", ", ");
-    param.prms << PrmLexema("", "EVT.CABIN_LAGGAGE") << PrmSmpl<string>("", " ")
+    param.prms << PrmLexema("", "EVT.CABIN_LUGGAGE") << PrmSmpl<string>("", " ")
                << PrmSmpl<int>("", bag_amount) << PrmSmpl<string>("", "/")
                << PrmSmpl<int>("", bag_weight);
     empty = false;
@@ -205,7 +205,7 @@ void logPaxName(const string &status, const string &surname,
                 LEvntPrms& params)
 {
   if (pers_type.empty())
-    params << PrmLexema("pax_name", "EVT.UNACCOMPANIED_LAGGAGE");
+    params << PrmLexema("pax_name", "EVT.UNACCOMPANIED_LUGGAGE");
   else {
     PrmLexema lexema("pax_name", "EVT.PASSENGER");
   if (status == EncodePaxStatus(psCrew)) lexema.ChangeLexemaId("EVT.CREW_MEMBER");
@@ -256,7 +256,6 @@ std::string TPaxToLogInfo::getNormStr(const std::string& lang) const
   };
   return msg.str();
 };
-
 void TPaxToLogInfo::getNorm(PrmEnum& param) const
 {
   if (norms.empty()) {
@@ -267,17 +266,13 @@ void TPaxToLogInfo::getNorm(PrmEnum& param) const
   std::map< int/*bag_type*/, CheckIn::TNormItem>::const_iterator n=norms.begin();
   for(;n!=norms.end();++n)
   {
-    PrmEnum norms("", "");
+    if (n!=norms.begin()) param.prms << PrmSmpl<string>("", ",");
     if (n->first!=-1) {
-      norms.prms << PrmElem<int>("", etBagType, n->first, efmtNameLong);
+      param.prms << PrmElem<int>("", etBagType, n->first, efmtNameLong);
       msg << "(" << setw(2) << setfill('0') << n->first << ")" << ": ";
-      norms.prms << PrmSmpl<string>("", msg.str());
+      param.prms << PrmSmpl<string>("", msg.str());
     }
-
-    PrmEnum prmenum("", "");
-    n->second.GetNorms(prmenum);
-    norms.prms << prmenum;
-    param.prms << norms;
+    n->second.GetNorms(param);
   };
 };
 
@@ -439,12 +434,12 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
         << apisAfter.doc.issue_country << "/"
         << apisAfter.doc.no << "/"
         << apisAfter.doc.nationality << "/"
-        << (apisAfter.doc.birth_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doc.birth_date, "ddmmmyy"):"") << "/"
+        << (apisAfter.doc.birth_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doc.birth_date, "ddmmmyy", true):"") << "/"
         << apisAfter.doc.gender << "/"
-        << (apisAfter.doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doc.expiry_date, "ddmmmyy"):"") << "/"
+        << (apisAfter.doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doc.expiry_date, "ddmmmyy", true):"") << "/"
         << apisAfter.doc.surname << "/"
         << apisAfter.doc.first_name << "/"
-        << apisAfter.doc.second_name << ". ";
+        << apisAfter.doc.second_name << ".";
         id = (manualInputAfter?"EVT.APIS_LOG_MANUAL_INPUT":"EVT.APIS_LOG_SCANNING");
      msgs.push_back(make_pair(id, msg.str()));
   };
@@ -461,9 +456,9 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
         << apisAfter.doco.type << "/"
         << apisAfter.doco.no << "/"
         << apisAfter.doco.issue_place << "/"
-        << (apisAfter.doco.issue_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doco.issue_date, "ddmmmyy"):"") << "/"
+        << (apisAfter.doco.issue_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doco.issue_date, "ddmmmyy", true):"") << "/"
         << apisAfter.doco.applic_country << "/"
-        << (apisAfter.doco.expiry_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doco.expiry_date, "ddmmmyy"):"") << ". ";
+        << (apisAfter.doco.expiry_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doco.expiry_date, "ddmmmyy", true):"") << ".";
         id = (manualInputAfter?"EVT.APIS_LOG_MANUAL_INPUT":"EVT.APIS_LOG_SCANNING");
     msgs.push_back(make_pair(id, msg.str()));
   };
@@ -594,8 +589,9 @@ void SaveGrpToLog(int point_id,
             }
             else
               params << PrmSmpl<string>("airline", "");
-            PrmEnum norms("norm", ",");
+            PrmEnum norms("norm", "");
             aPax->second.getNorm(norms);
+            params << norms;
             reqInfo->LocaleToLog("EVT.BAGG_NORMS", params, ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
             changed=true;
           };
@@ -657,7 +653,7 @@ void SaveGrpToLog(int point_id,
           }
           else
             params << PrmSmpl<string>("airline", "");
-          PrmEnum norms("norm", ",");
+          PrmEnum norms("norm", "");
           aPax->second.getNorm(norms);
           params << norms;
           reqInfo->LocaleToLog("EVT.PASSENGER.CHECKEDIN", params, ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
@@ -752,7 +748,6 @@ void SaveGrpToLog(int point_id,
     if (d>0) agentStat.dpax_amount.inc++;
     if (d<0) agentStat.dpax_amount.dec++;
     if (changed) agentStat.pax_amount++;
-    
     if (bagStrAfter!=bagStrBefore)
     {
       //багаж изменился
@@ -762,15 +757,15 @@ void SaveGrpToLog(int point_id,
       (aPax!=grpInfoAfter.pax.end()?aPax->second.getPaxName(params):bPax->second.getPaxName(params));
       
       if (bagStrAfter.empty()) {
-        lexema_id = "EVT.LAGGAGE_DELETED";
+        lexema_id = "EVT.LUGGAGE_DELETED";
         bPax->second.getBag(prmenum);
       }
       else if (bagStrBefore.empty()) {
-        lexema_id = "EVT.LAGGAGE_ADDED";
+        lexema_id = "EVT.LUGGAGE_ADDED";
         aPax->second.getBag(prmenum);
       }
       else if (!bagStrAfter.empty() && !bagStrBefore.empty()) {
-        lexema_id = "EVT.LAGGAGE_MODIFIED";
+        lexema_id = "EVT.LUGGAGE_MODIFIED";
         aPax->second.getBag(prmenum);
       }
       params << prmenum;
@@ -923,6 +918,8 @@ void SaveGrpToLog(int point_id,
       grpInfoBefore.excess==grpInfoAfter.excess) return;
 
   LEvntPrms lprms;
+  lprms << PrmSmpl<int>("weight", grpInfoAfter.excess);
+
   if (!grpInfoAfter.paid.empty())
   {
     ostringstream msg;
@@ -973,7 +970,7 @@ bool GetAutoWeighing(int point_id, const string &work_mode)
     {
       Qry.Execute();
       if (Qry.RowsProcessed()>0)
-        reqInfo->LocaleToLog("EVT.SET_LUGGAGE_AUTO_WAIGHING_CONTROL",
+        reqInfo->LocaleToLog("EVT.SET_LUGGAGE_AUTO_WEIGHTING_CONTROL",
                              LEvntPrms() << PrmSmpl<std::string>("desk", reqInfo->desk.code), ASTRA::evtFlt, point_id);
     }
     catch(EOracleError E)
@@ -987,7 +984,7 @@ bool GetAutoWeighing(int point_id, const string &work_mode)
       "DELETE FROM trip_auto_weighing WHERE point_id=:point_id AND desk=:desk";
     Qry.Execute();
     if (Qry.RowsProcessed()>0)
-      reqInfo->LocaleToLog("EVT.CANCEL_LUGGAGE_AUTO_WAIGHING_CONTROL",
+      reqInfo->LocaleToLog("EVT.CANCEL_LUGGAGE_AUTO_WEIGHTING_CONTROL",
                            LEvntPrms() << PrmSmpl<std::string>("desk", reqInfo->desk.code), ASTRA::evtFlt, point_id);
   };
 

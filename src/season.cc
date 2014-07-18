@@ -2345,22 +2345,26 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         params << lexema;
         empty = false;
       }
+      else params << PrmSmpl<string>("days", "");
       if ( ew->pr_del != ip->pr_del ) {
         params << PrmLexema("del", "EVT.CANCEL");
         empty = false;
       }
+      else params << PrmSmpl<string>("del", "");
       if ( ip->tlg != ew->tlg ) {
         PrmLexema lexema("tlg", "EVT.TLG");
         lexema.prms << PrmSmpl<string>("tlg", ip->tlg);
         params << lexema;
         empty = false;
       }
+      else params << PrmSmpl<string>("tlg", "");
       if ( ip->ref != ew->ref ) {
         PrmLexema lexema("ref", "EVT.REFERENCES");
         lexema.prms << PrmSmpl<string>("ref", ip->ref);
         params << lexema;
         empty = false;
       }
+      else params << PrmSmpl<string>("ref", "");
       if (!empty)
         lexema_id = "EVT.SEASON.MODIFY_PERIOD";
         params << PrmDate("date_first", ip->first, "dd.mm.yy")

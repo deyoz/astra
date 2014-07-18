@@ -233,18 +233,19 @@ void WriteCompSections( int id, const vector<SALONS2::TCompSection> &CompSection
   Qry.DeclareVariable( "last_rownum", otInteger );
   PrmLexema lexema("is_sect_del", "");
   if ( CompSections.empty() && pr_exists )
-    lexema.ChangeLexemaId("EVT.DELETE_LAGGAGE_SECTIONS");
+    lexema.ChangeLexemaId("EVT.DELETE_LUGGAGE_SECTIONS");
   PrmEnum prmenum("sect", " ");
   for ( vector<SALONS2::TCompSection>::const_iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
     PrmLexema new_lexema("", "EVT.SECTIONS");
-    new_lexema.prms << PrmSmpl<std::string>("", i->name) << PrmSmpl<int>("", i->getFirstRow()) << PrmSmpl<int>("", i->getLastRow());
+    new_lexema.prms << PrmSmpl<std::string>("name", i->name) << PrmSmpl<int>("FirstRow", i->getFirstRow())
+                    << PrmSmpl<int>("LastRow", i->getLastRow());//!!!ANNA ряды выводятся неправильно
     prmenum.prms << new_lexema;
     Qry.SetVariable( "name", i->name );
     Qry.SetVariable( "first_rownum", i->getFirstRow() );
     Qry.SetVariable( "last_rownum", i->getLastRow() );
     Qry.Execute();
   }
-    TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_LAGGAGE_SECTIONS", LEvntPrms() << lexema << prmenum, evtComp, id);
+    TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_LUGGAGE_SECTIONS", LEvntPrms() << lexema << prmenum, evtComp, id);
 }
 
 bool filterCompons( const string &airline, const string &airp )
@@ -980,27 +981,27 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
         else
           lexema_id = "EVT.LAYOUT_UPDATED_SALON_CHANGES";
         params << PrmSmpl<int>("id", comp_id);
-        if ( componSets.airline.empty() )
-          params << PrmLexema("airl", "EVT.UNKNOWN");
-        else
-          params << PrmElem<string>("airl", etAirline, componSets.airline);
-        if ( componSets.airp.empty() )
-          params << PrmLexema("airp", "EVT.UNKNOWN");
-        else
-          params << PrmElem<string>("airp", etAirp, componSets.airp);
-        params << PrmElem<string>("craft", etCraft, componSets.craft);
-        if ( componSets.bort.empty() )
-          params << PrmLexema("bort", "EVT.UNKNOWN");
-        else
-          params << PrmSmpl<string>("bort", componSets.bort);
-        params << PrmSmpl<string>("cls", componSets.classes);
-        if ( componSets.descr.empty() )
-          params << PrmLexema("descr", "EVT.UNKNOWN");
-        else
-          params << PrmSmpl<string>("descr", componSets.descr);
         break;
     }
-      r->LocaleToLog(lexema_id, params << salon_changes, evtComp, comp_id);
+    if ( componSets.airline.empty() )
+      params << PrmLexema("airl", "EVT.UNKNOWN");
+    else
+      params << PrmElem<string>("airl", etAirline, componSets.airline);
+    if ( componSets.airp.empty() )
+      params << PrmLexema("airp", "EVT.UNKNOWN");
+    else
+      params << PrmElem<string>("airp", etAirp, componSets.airp);
+    params << PrmElem<string>("craft", etCraft, componSets.craft);
+    if ( componSets.bort.empty() )
+      params << PrmLexema("bort", "EVT.UNKNOWN");
+    else
+      params << PrmSmpl<string>("bort", componSets.bort);
+    params << PrmSmpl<string>("cls", componSets.classes);
+    if ( componSets.descr.empty() )
+      params << PrmLexema("descr", "EVT.UNKNOWN");
+    else
+      params << PrmSmpl<string>("descr", componSets.descr);
+    r->LocaleToLog(lexema_id, params << salon_changes, evtComp, comp_id);
   }
   //bagsections
   vector<SALONS2::TCompSection> CompSections;

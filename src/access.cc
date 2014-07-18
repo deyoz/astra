@@ -897,7 +897,7 @@ void TUserData::update_aro(bool pr_insert)
 
                 info.LocaleToLog("EVT.ROLE_ADDED_FOR_USER", LEvntPrms()
                               << PrmElem<int>("role", etRoles, id, efmtNameLong)
-                              << PrmSmpl<int>("id", id) << PrmElem<int>("name", etUsers, user_id, efmtNameLong)
+                              << PrmSmpl<int>("role_id", id) << PrmElem<int>("name", etUsers, user_id, efmtNameLong)
                               << PrmSmpl<int>("id", user_id), evtAccess);
             } catch(EOracleError &E) {
                 if(E.Code != 1) // dup_val_on_index
@@ -932,7 +932,7 @@ void TUserData::update_aro(bool pr_insert)
             delQry.SetVariable("first", 0);
             info.LocaleToLog("EVT.ROLE_DELETED_FOR_USER", LEvntPrms()
                           << PrmElem<int>("role", etRoles, role_id, efmtNameLong)
-                          << PrmSmpl<int>("id", role_id) << PrmElem<int>("name", etUsers, user_id, efmtNameLong)
+                          << PrmSmpl<int>("role_id", role_id) << PrmElem<int>("name", etUsers, user_id, efmtNameLong)
                           << PrmSmpl<int>("id", user_id), evtAccess);
         }
 

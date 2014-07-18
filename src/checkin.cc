@@ -5367,13 +5367,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   !Qry.VariableIsNULL("reg_no") &&
                   !Qry.VariableIsNULL("grp_id"))
               {
-                TLogMsg msg;
-                msg.ev_type=ASTRA::evtPax;
-                msg.id1=grp.point_dep;
-                msg.id2=Qry.GetVariableAsInteger("reg_no");
-                msg.id3=Qry.GetVariableAsInteger("grp_id");
-                msg.msg=NodeAsString(eventNode);
-                reqInfo->MsgToLog(msg);   // !!!VLAD
+                TLogLocale locale;
+                locale.ev_type=ASTRA::evtPax;
+                locale.id1=grp.point_dep;
+                locale.id2=Qry.GetVariableAsInteger("reg_no");
+                locale.id3=Qry.GetVariableAsInteger("grp_id");
+                XMLToLocale(eventNode, locale.lexema_id, locale.prms);
+                reqInfo->LocaleToLog(locale);
               };
             
             };
@@ -6193,6 +6193,8 @@ void CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const map<
   Qry.DeclareVariable("airp_arv",otString);
   Qry.DeclareVariable("pr_final",otInteger);
 
+  tlocale.lexema_id = "EVT.THROUGH_CHECKIN_PERFORMED";
+  PrmEnum route("route", "");
   for(seg_no=1;segNode!=NULL;segNode=segNode->next,seg_no++)
   {
     map<int,TSegInfo>::const_iterator s=segs.find(NodeAsInteger("point_dep",segNode));
@@ -6218,11 +6220,12 @@ void CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const map<
       TTrferBinding().bind_flt(point_id_trfer);
     };
 
-    tlocale.lexema_id = "EVT.THROUGH_CHECKIN_PERFORMED";
-    tlocale.prms << PrmFlight("flt", fltInfo.airline, fltInfo.flt_no, fltInfo.suffix)
-                 << PrmDate("date", local_scd,"dd") << PrmElem<std::string>("airp",  etAirp, fltInfo.airp)
-                 << PrmElem<std::string>("airp_arv", etAirp, s->second.airp_arv);
+    route.prms << PrmSmpl<string>("", " -> ") << PrmFlight("", fltInfo.airline, fltInfo.flt_no, fltInfo.suffix)
+               << PrmSmpl<string>("", "/") << PrmDate("", local_scd,"dd") << PrmSmpl<string>("", ":")
+               << PrmElem<string>("",  etAirp, fltInfo.airp) << PrmSmpl<string>("", "-")
+               << PrmElem<string>("", etAirp, s->second.airp_arv);
   };
+  tlocale.prms << route;
 };
 
 void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
@@ -6480,6 +6483,7 @@ void CheckInInterface::SaveTransfer(int grp_id,
   
   string strh;
   int trfer_num=1;
+  PrmEnum route("route", "");
   for(vector<CheckIn::TTransferItem>::const_iterator t=firstTrfer;t!=trfer.end();++t,trfer_num++)
   {
     if (checkType==checkAllSeg ||
@@ -6553,13 +6557,14 @@ void CheckInInterface::SaveTransfer(int grp_id,
     };
 
     tlocale.lexema_id = "EVT.CHECKIN.TRANSFER_BAGGAGE_REGISTER";
-    tlocale.prms << PrmFlight("flt", t->operFlt.airline, t->operFlt.flt_no, t->operFlt.suffix)
-                 << PrmDate("date", t->operFlt.scd_out,"dd") << PrmElem<std::string>("airp",  etAirp, t->operFlt.airp)
-                 << PrmElem<std::string>("airp_arv", etAirp, t->airp_arv);
+    route.prms << PrmSmpl<string>("", " -> ") << PrmFlight("", t->operFlt.airline, t->operFlt.flt_no, t->operFlt.suffix)
+               << PrmSmpl<string>("", "/") << PrmDate("", t->operFlt.scd_out,"dd") << PrmSmpl<string>("", ":")
+               << PrmElem<string>("",  etAirp, t->operFlt.airp) << PrmSmpl<string>("", "-") << PrmElem<string>("", etAirp, t->airp_arv);
 
     airline_in=t->operFlt.airline;
     flt_no_in=t->operFlt.flt_no;
   };
+  tlocale.prms << route;
 };
 
 void CheckInInterface::LoadTransfer(int grp_id, vector<CheckIn::TTransferItem> &trfer)

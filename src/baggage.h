@@ -197,7 +197,7 @@ class TNormItem
   const TNormItem& toXML(xmlNodePtr node) const;
   TNormItem& fromDB(TQuery &Qry);
   std::string str(const std::string& lang = AstraLocale::LANG_RU) const;
-  void GetNorms(PrmEnum prmenum) const;
+  void GetNorms(PrmEnum& prmenum) const;
 };
 
 class TPaxNormItem

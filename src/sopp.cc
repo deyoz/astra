@@ -3831,7 +3831,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
                                 << PrmElem<std::string>("airp", etAirp, id->airp), evtDisp, move_id, id->point_id);
   	  	}
   	  	else {
-            reqInfo->LocaleToLog("EVT.ASSIGNE_CRAFT_TYPE", LEvntPrms() << PrmSmpl<std::string>("bort", id->bort)
+            reqInfo->LocaleToLog("EVT.ASSIGNE_BOARD_TYPE", LEvntPrms() << PrmSmpl<std::string>("bort", id->bort)
                                  << PrmElem<std::string>("airp", etAirp, id->airp), evtDisp, move_id, id->point_id );
   	  	}
   	  	reSetCraft = true;
@@ -3890,7 +3890,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
           (!id->airline.empty() && !old_dest.airline.empty() && id->flt_no != old_dest.flt_no) ||
           (!id->airline.empty() && !old_dest.airline.empty() && id->suffix != old_dest.suffix) ) {
          reqInfo->LocaleToLog("EVT.FLIGHT.MODIFY_ATTRIBUTES_FROM", LEvntPrms() << PrmFlight("flt", old_dest.airline, old_dest.flt_no, old_dest.suffix)
-                              << PrmFlight("new_flt", id->airline, id->flt_no, id->suffix) << PrmElem<std::string>("", etAirp, id->airp),
+                              << PrmFlight("new_flt", id->airline, id->flt_no, id->suffix) << PrmElem<std::string>("airp", etAirp, id->airp),
                               evtDisp, move_id, id->point_id);
        pr_check_wait_list_alarm = true;
        pr_check_diffcomp_alarm = true;
@@ -5856,16 +5856,18 @@ void set_trip_sets(const TAdvTripInfo &flt)
       InsQry.Execute();
 
       ostringstream msg;
-      msg << "Установлен бланк пос. талона '"
-          << ElemIdToPrefferedElem(etBPType, bp_type, efmtNameLong, LANG_RU)
-          << "'";
+      string lexema_id;
+      LEvntPrms params;
+      params << PrmElem<string>("name", etBPType, bp_type, efmtNameLong);
       if (!cl.empty())
       {
-        msg << " для класса "
-            << ElemIdToPrefferedElem(etClass, cl, efmtCodeNative, LANG_RU);
-      };
+        lexema_id = "EVT.BP_FORM_INSERTED_FOR_CLASS";
+        params << PrmElem<string>("cls", etClass, cl, efmtCodeNative);
+      }
+      else
+        lexema_id = "EVT.BP_FORM_INSERTED";
       msg << ".";
-      TReqInfo::Instance()->MsgToLog(msg.str(), evtFlt, flt.point_id);
+      TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtFlt, flt.point_id);
     };
     pr_first=false;
     prev_cl=cl;
@@ -5897,11 +5899,9 @@ void set_trip_sets(const TAdvTripInfo &flt)
     InsQry.SetVariable("tag_type", tag_type);
     InsQry.Execute();
 
-    ostringstream msg;
-    msg << "Установлен бланк баг. бирки '"
-        << ElemIdToPrefferedElem(etBTType, tag_type, efmtNameLong, LANG_RU)
-        << "'.";
-    TReqInfo::Instance()->MsgToLog(msg.str(), evtFlt, flt.point_id);
+    TReqInfo::Instance()->LocaleToLog("EVT.BT_FORM_INSERTED", LEvntPrms()
+                                      << PrmElem<string>("name", etBTType, tag_type, efmtNameLong),
+                                      evtFlt, flt.point_id);
   };
 
   //залы
@@ -5944,21 +5944,23 @@ void set_trip_sets(const TAdvTripInfo &flt)
 
       if (type==1 || type==2)
       {
-        ostringstream msg;
-        msg << "Установлен режим";
+        string lexema_id;
+        LEvntPrms params;
+        params << PrmLexema("action", "EVT.MODE_INSERTED");
         if (type==1)
-          msg << (pr_misc?" посадки при регистрации":" раздельной регистрации и посадки");
+          lexema_id = (pr_misc?"EVT.TRIP_BRD_AND_REG":"EVT.TRIP_SEPARATE_BRD_AND_REG");
         if (type==2)
-          msg << (pr_misc?" досмотра при посадке":" раздельной посадки и досмотра");
+          lexema_id = (pr_misc?"EVT.TRIP_EXAM_AND_BRD":"EVT.TRIP_SEPARATE_EXAM_AND_BRD");
 
         if (hall!=NoExists)
         {
-          msg << " для зала '"
-              << ElemIdToPrefferedElem(etHall, hall, efmtNameLong, LANG_RU)
-              << "'";
-        };
-        msg << ".";
-        TReqInfo::Instance()->MsgToLog(msg.str(), evtFlt, flt.point_id);
+          PrmLexema lexema("hall", "EVT.FOR_HALL");
+          lexema.prms << PrmElem<int>("hall", etHall, hall, efmtNameLong);
+          params << lexema;
+        }
+        else
+          params << PrmSmpl<string>("hall", "");
+        TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtFlt, flt.point_id);
       };
     };
     pr_first=false;
@@ -5995,12 +5997,12 @@ void set_trip_sets(const TAdvTripInfo &flt)
       if (flt.pr_tranzit!=pr_tranzit)
         set_pr_tranzit(flt.point_id, flt.point_num, flt.first_point, pr_tranzit);  //!!!djek функция должна быть более серьезной - взять куски из prepreg.cc
 
-      ostringstream msg;
-      msg << "Установлен режим"
-          << (pr_reg?"":" без") << " перерегистрации транзита для"
-          << (pr_tranzit?" транзитного рейса":" нетранзитного рейса")
-          << ".";
-      TReqInfo::Instance()->MsgToLog(msg.str(), evtFlt, flt.point_id);
+      string lexema_id;
+      if (pr_reg && pr_tranzit) lexema_id = "EVT.SET_MODE_WITH_REG_TRANS_FLIGHT";
+      else if (!pr_reg && pr_tranzit) lexema_id = "EVT.SET_MODE_WITHOUT_REG_TRANS_FLIGHT";
+      else if (pr_reg && !pr_tranzit) lexema_id = "EVT.SET_MODE_WITH_REG_NON_TRANS_FLIGHT";
+      else lexema_id = "EVT.SET_MODE_WITHOUT_REG_NON_TRANS_FLIGHT";
+      TReqInfo::Instance()->LocaleToLog(lexema_id, evtFlt, flt.point_id);
     };
   };
 
@@ -6070,18 +6072,24 @@ void set_trip_sets(const TAdvTripInfo &flt)
   if (pr_permit)
   {
     //пишем в лог только в случае платной регистрации
-    ostringstream msg;
-    msg << "На рейсе"
-        << (pr_permit?"":" не") << " производится платная регистрация";
+    LEvntPrms params;
+    params << PrmLexema("action", (pr_permit?"EVT.CKIN_PERFORMED":"EVT.CKIN_NOT_PERFORMED"))
+           << PrmLexema("what", "EVT.TRIP_PAID_CKIN");
     if (pr_permit)
     {
-      msg << ". Таймаут резервирования до оплаты";
-      if (prot_timeout==NoExists)
-        msg << " не определен";
+      PrmLexema lexema("params", "EVT.PROT_TIMEOUT");
+      if (prot_timeout!=NoExists) {
+        PrmLexema timeout("timeout", "EVT.TIMEOUT_VALUE");
+        timeout.prms << PrmSmpl<int>("timeout", prot_timeout);
+        lexema.prms << timeout;
+      }
       else
-        msg << " " << prot_timeout << " мин.";
-    };
-    TReqInfo::Instance()->MsgToLog(msg.str(), evtFlt, flt.point_id);
+        lexema.prms << PrmLexema("timeout", "EVT.UNKNOWN");
+      params << lexema;
+    }
+    else
+      params << PrmSmpl<string>("params" , "");
+    TReqInfo::Instance()->LocaleToLog("EVT.TRIP_CKIN", params, evtFlt, flt.point_id);
   };
 };
 
@@ -6274,26 +6282,27 @@ void puttrip_stages(int point_id)
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
-    TimesQry.SetVariable("stage_id", Qry.FieldAsInteger("stage_id"));
+    int stage_id=Qry.FieldAsInteger("stage_id");
+
+    TimesQry.SetVariable("stage_id", stage_id);
     TimesQry.Execute();
     if (TimesQry.Eof) continue;
 
     TDateTime time=TimesQry.FieldIsNULL("time")?NoExists:TimesQry.FieldAsDateTime("time");
 
-    InsQry.SetVariable("stage_id", Qry.FieldAsInteger("stage_id"));
+    InsQry.SetVariable("stage_id", stage_id);
     time!=NoExists?InsQry.SetVariable("time", time):
                    InsQry.SetVariable("time", FNull);                                 ;
     InsQry.SetVariable("pr_auto", (int)(Qry.FieldAsInteger("pr_auto")!=0));
     InsQry.Execute();
 
-    ostringstream msg;
-    msg << "Этап '" << Qry.FieldAsString("name")
-        << "': план. время";
+    LEvntPrms params;
+    params << PrmStage("name", TStage(stage_id), flt.airp);
     if (time!=NoExists)
-      msg << "=" << DateTimeToStr(time, "hh:nn dd.mm.yy") << " (UTC)";
+      params << PrmDate("time", time, "hh:nn dd.mm.yy (UTC)");
     else
-      msg << " не определено";
-    TReqInfo::Instance()->MsgToLog(msg.str(), evtGraph, point_id);
+      params << PrmLexema("time", "EVT.UNKNOWN");
+    TReqInfo::Instance()->LocaleToLog("EVT.STAGE.PLAN_TIME", params, evtGraph, point_id);
   };
 
   Qry.Clear();
@@ -6409,22 +6418,25 @@ void set_flight_sets(int point_id, int f, int c, int y)
                             InsQry.SetVariable("desk_grp_id", FNull);
       InsQry.Execute();
 
-      ostringstream msg;
-      msg << "На рейсе"
-          << (pr_permit?" разрешена":" запрещена")
-          << (client_type==ctWeb?" web-регистрация":" регистрация");
-      if (desk_grp_id!=NoExists)
-        msg << (client_type==ctWeb?" для группы пультов '":" для группы киосков '")
-            << ElemIdToPrefferedElem(etDeskGrp, desk_grp_id, efmtNameLong, LANG_RU)
-            << "'";
+      LEvntPrms params;
+      params << PrmLexema("action", (pr_permit?"EVT.CKIN_ALLOWED":"EVT.CKIN_NOT_ALLOWED"));
+      PrmLexema what("what", (client_type==ctWeb?"EVT.TRIP_WEB_CKIN":"EVT.TRIP_KIOSK_CKIN"));
+      if (desk_grp_id!=NoExists) {
+        PrmLexema lexema("desk_grp", (client_type==ctWeb?"EVT.FOR_PULT_GRP":"EVT.FOR_DESK_GRP"));
+        lexema.prms << PrmElem<int>("desk_grp", etDeskGrp, desk_grp_id, efmtNameLong);
+        what.prms << lexema;
+      }
+      else what.prms << PrmSmpl<string>("desk_grp", "");
+      params << what;
       if (pr_permit)
       {
-        msg << " с параметрами: "
-//            << "лист ожидания: " << (pr_waitlist?"да":"нет") << ", " //пока признак нигде не используется - на будущее
-            << "сквоз. рег.: " << (pr_tckin?"да":"нет") << ", "
-            << "перерасч. времен: " << (pr_upd_stage?"да":"нет");
-      };
-      TReqInfo::Instance()->MsgToLog(msg.str(), evtFlt, point_id);   //!!!djek наверное надо всегда писать от имени системы, а этого не будет при формировании СПП вручную
+        PrmLexema prms("params", "EVT.PARAMS");
+//      "лист ожидания: " << (pr_waitlist?"да":"нет") //пока признак нигде не используется - на будущее
+        prms.prms << PrmBool("tckin", pr_tckin) << PrmBool("upd_stage", pr_upd_stage);
+        params << prms;
+      }
+      else params << PrmSmpl<string>("params", "");
+      TReqInfo::Instance()->LocaleToLog("EVT.TRIP_CKIN", params, evtFlt, point_id);   //!!!djek наверное надо всегда писать от имени системы, а этого не будет при формировании СПП вручную
     };
 
     prev_client_type=client_type;

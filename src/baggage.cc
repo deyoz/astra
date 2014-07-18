@@ -1282,10 +1282,13 @@ std::string TNormItem::str(const std::string& lang) const
   return result.str();
 }
 
-void TNormItem::GetNorms(PrmEnum prmenum) const
+void TNormItem::GetNorms(PrmEnum& prmenum) const
 {
   if (empty()) return;
-  prmenum.prms << PrmElem<string>("", etBagNormType, norm_type, efmtCodeNative);
+
+  prmenum.prms << PrmElem<string>("", etBagNormType, norm_type, efmtCodeNative)
+               << PrmSmpl<string>("", " ");
+
   if (weight!=ASTRA::NoExists)
   {
     if (amount!=ASTRA::NoExists)

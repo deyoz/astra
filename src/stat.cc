@@ -6088,5 +6088,5 @@ void get_flight_stat(int point_id, bool final_collection)
      Qry.get().Execute();
    };
 
-   TReqInfo::Instance()->MsgToLog("Сбор статистики по рейсу", evtFlt, point_id);
+   TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
 };

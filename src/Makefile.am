@@ -36,6 +36,7 @@ astra_SOURCES = \
   astra_context.cc \
   astra_elems.cc \
   astra_locale.cc \
+  astra_locale_adv.cc \
   astra_main.cc \
   astra_misc.cc \
   astra_service.cc \
@@ -62,7 +63,6 @@ astra_SOURCES = \
   empty_proc.cc \
   etick_change_status.cpp \
   etick.cc \
-  event_utils.cc \
   events.cc \
   flt_binding.cc \
   file_queue.cc \
@@ -145,6 +145,7 @@ noinst_HEADERS = \
   astra_context.h \
   astra_elems.h \
   astra_locale.h \
+  astra_locale_adv.h \
   astra_main.h \
   astra_misc.h \
   astra_service.h \
@@ -173,7 +174,6 @@ noinst_HEADERS = \
   empty_proc.h \
   etick_change_status.h \
   etick.h \
-  event_utils.h \
   events.h \
   flt_binding.h \
   file_queue.h \

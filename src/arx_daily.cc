@@ -242,7 +242,7 @@ void TArxMoveFlt::LockAndCollectStat(int move_id)
     int point_id=Qry.FieldAsInteger("point_id");
     if (pr_del<0) continue;
     if (pr_del==0 && pr_reg) get_flight_stat(point_id, true);
-    TReqInfo::Instance()->MsgToLog("Рейс перемещен в архив", evtFlt, point_id);
+    TReqInfo::Instance()->LocaleToLog("EVT.FLIGHT_MOOVED_TO_ARCHIVE", evtFlt, point_id);
   };
 };
 

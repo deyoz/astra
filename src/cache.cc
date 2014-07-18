@@ -1049,7 +1049,7 @@ int TCacheTable::FieldIndex( const string name )
 string TCacheTable::FieldValue( const string name, const TRow &row )
 {
   int idx = FieldIndex(name);
-  if ( idx < 0 )
+  if ( idx < 0 || idx >=row.cols.size() )
     throw Exception( "TCacheTable::FieldValue: field '%s' not found", name.c_str() );
   return row.cols[idx];
 };
@@ -1057,7 +1057,7 @@ string TCacheTable::FieldValue( const string name, const TRow &row )
 string TCacheTable::FieldOldValue( const string name, const TRow &row )
 {
   int idx = FieldIndex(name);
-  if ( idx < 0 )
+  if ( idx < 0 || idx >=row.old_cols.size() )
     throw Exception( "TCacheTable::FieldOldValue: field '%s' not found", name.c_str() );
   return row.old_cols[idx];
 };
@@ -1162,10 +1162,9 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
   if ( code == "TRIP_BRD_WITH_REG" ||
        code == "TRIP_EXAM_WITH_BRD" )
   {
-    if (UpdateStatus == usDeleted || UpdateStatus == usInserted)
+    if (UpdateStatus == usDeleted)
     {
-      if (UpdateStatus == usDeleted) tlocale.prms << PrmLexema("action", "EVT.MODE_DELETED");
-      else tlocale.prms << PrmLexema("action", "EVT.MODE_INSERTED");
+      tlocale.prms << PrmLexema("action", "EVT.MODE_DELETED");
       if (code == "TRIP_BRD_WITH_REG")
       {
         if ( ToInt(cache.FieldOldValue( "pr_misc", row )) == 0 )
@@ -1188,8 +1187,34 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
       }
       else
           tlocale.prms << PrmSmpl<string>("hall", "");
-    };
-    if (UpdateStatus == usModified)
+    }
+    else if (UpdateStatus == usInserted)
+    {
+        tlocale.prms << PrmLexema("action", "EVT.MODE_INSERTED");
+        if (code == "TRIP_BRD_WITH_REG")
+        {
+          if ( ToInt(cache.FieldValue( "pr_misc", row )) == 0 )
+            tlocale.lexema_id = "EVT.TRIP_SEPARATE_BRD_AND_REG";
+          else
+            tlocale.lexema_id = "EVT.TRIP_BRD_AND_REG";
+        }
+        else
+        {
+          if ( ToInt(cache.FieldValue( "pr_misc", row )) == 0 )
+            tlocale.lexema_id = "EVT.TRIP_SEPARATE_EXAM_AND_BRD";
+          else
+            tlocale.lexema_id = "EVT.TRIP_EXAM_AND_BRD";
+        }
+        if ( !cache.FieldValue( "hall", row ).empty() )
+        {
+            PrmLexema lexema("hall", "EVT.FOR_HALL");
+            lexema.prms <<  PrmSmpl<string>("hall", cache.FieldValue( "hall_view", row ));
+            tlocale.prms << lexema;
+        }
+        else
+            tlocale.prms << PrmSmpl<string>("hall", "");
+    }
+    else if (UpdateStatus == usModified)
     {
       tlocale.lexema_id = "EVT.MODE_MODIFIED";
       PrmLexema old_mode("old_mode", "EVT.TRIP_BRD_AND_REG");
@@ -1263,8 +1288,11 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
           tlocale.prms << PrmLexema("action", "EVT.CKIN_NOT_PERFORMED");
       };
 
-      if ( code == "TRIP_WEB_CKIN")
-        tlocale.prms << PrmLexema("what", "EVT.TRIP_WEB_CKIN");
+      if ( code == "TRIP_WEB_CKIN") {
+        PrmLexema lexema("what", "EVT.TRIP_WEB_CKIN");
+        lexema.prms << PrmSmpl<string>("desk_grp", "");
+        tlocale.prms << lexema;
+      }
       else if ( code == "TRIP_PAID_CKIN")
         tlocale.prms << PrmLexema("what", "EVT.TRIP_PAID_CKIN");
       else if ( code == "TRIP_KIOSK_CKIN")
@@ -1295,18 +1323,19 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
         if ( code == "TRIP_WEB_CKIN" ||
              code == "TRIP_KIOSK_CKIN" )
         {
-          params.prms << PrmBool("tckin", (ToInt(cache.FieldValue( "pr_tckin", row )) == 0));
-          params.prms << PrmBool("upd_stage", (ToInt(cache.FieldValue( "pr_upd_stage", row )) == 0));
+          params.prms << PrmBool("tckin", ToInt(cache.FieldValue( "pr_tckin", row )));
+          params.prms << PrmBool("upd_stage", ToInt(cache.FieldValue( "pr_upd_stage", row )));
         }
         else
         {
           params.ChangeLexemaId("EVT.PROT_TIMEOUT");
-          PrmLexema timeout("timeout", "EVT.TIMEOUT_VALUE");
-          if ( cache.FieldValue( "prot_timeout", row ).empty() )
-            timeout.prms << PrmLexema("timeout", "EVT.UNKNOWN");
-          else
+          if ( !cache.FieldValue( "prot_timeout", row ).empty() ) {
+            PrmLexema timeout("timeout", "EVT.TIMEOUT_VALUE");
             timeout.prms << PrmSmpl<int>("timeout", ToInt(cache.FieldValue( "prot_timeout", row )));
-          params.prms << timeout;
+            params.prms << timeout;
+          }
+          else
+            params.prms << PrmLexema("timeout", "EVT.UNKNOWN");
         };
         tlocale.prms << params;
       }

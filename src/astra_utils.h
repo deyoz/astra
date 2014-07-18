@@ -11,7 +11,7 @@
 #include <boost/interprocess/smart_ptr/unique_ptr.hpp>
 #include "astra_consts.h"
 #include "astra_locale.h"
-#include "event_utils.h"
+#include "astra_locale_adv.h"
 #include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
@@ -39,6 +39,22 @@ struct TLogMsg {
       id2 = ASTRA::NoExists;
       id3 = ASTRA::NoExists;
     };
+};
+
+struct TLogLocale {
+  public:
+    BASIC::TDateTime ev_time;
+    int ev_order;
+    ASTRA::TEventType ev_type;
+    std::string lexema_id;
+    LEvntPrms prms;
+    int id1,id2,id3;
+    std::vector<std::string> vlangs;
+    TLogLocale(): ev_time(ASTRA::NoExists), ev_order(ASTRA::NoExists), ev_type(ASTRA::evtUnknown),
+        lexema_id(""), prms(), id1(ASTRA::NoExists), id2(ASTRA::NoExists), id3(ASTRA::NoExists), vlangs() {
+        vlangs.push_back(AstraLocale::LANG_RU);
+        vlangs.push_back(AstraLocale::LANG_EN);
+    }
 };
 
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };
@@ -366,12 +382,6 @@ public:
   void ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
-};
-
-class UserException2:public AstraLocale::UserException
-{
-  public:
-    UserException2(): UserException(""){};
 };
 
 std::string convert_pnr_addr(const std::string &value, bool pr_lat);

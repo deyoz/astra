@@ -4879,17 +4879,20 @@ void getStrWaitListReasion( const std::string &fullname,
     lexema.prms << PrmSmpl<std::string>("seat_no", seat_no);
     params << lexema;
   }
+  else params << PrmSmpl<std::string>("seat", "");
   if ( !airp_dep.empty() && !airp_arv.empty() ) {
     PrmLexema lexema("route", "EVT.ROUTE");
     lexema.prms << PrmElem<std::string>("airp_dep", etAirp, airp_dep)
                    << PrmElem<std::string>("airp_arv", etAirp, airp_arv);
     params << lexema;
   }
+  else params << PrmSmpl<std::string>("route", "");
   if ( regNo != ASTRA::NoExists ) {
     PrmLexema lexema("reg_no", "EVT.REG_NO");
     lexema.prms << PrmSmpl<int>("reg_no", regNo);
     params << lexema;
   }
+  else params << PrmSmpl<std::string>("reg_no", "");
 }
 
 void CheckWaitListToLog( TQuery &QryAirp,
@@ -4906,7 +4909,7 @@ void CheckWaitListToLog( TQuery &QryAirp,
     return;
   }
   string fullname = ipass->second.surname;
-  fullname = TrimString( fullname )  + " " + ipass->second.name;
+  fullname = TrimString( fullname )  + (ipass->second.name.empty()?"":" ") + ipass->second.name;
   TWaitListReason waitListReason;
   string new_seat_no = ipass->second.seat_no( "list", pr_craft_lat, waitListReason );
   if ( waitListReason.layerStatus == layerValid ) {
@@ -7566,7 +7569,7 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
   }
   tmp = "ADD_WEB_TARIFF";
   if ( name.find( tmp ) != string::npos ) {
-    params.prms << PrmSmpl<string>("", "+") << PrmLexema("", "WEB_TARIFF") << PrmSmpl<string>("", " ");
+    params.prms << PrmSmpl<string>("", "+") << PrmLexema("", "EVT.WEB_TARIFF") << PrmSmpl<string>("", " ");
   	ostringstream str;
   	if ( TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) ) {
       std::map<int, TSeatTariff,classcomp> tariffs;
@@ -7584,7 +7587,7 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
   }
   tmp = "DEL_WEB_TARIFF";
   if ( name.find( tmp ) != string::npos ) {
-    params.prms << PrmSmpl<string>("", "-") << PrmLexema("", "WEB_TARIFF") << PrmSmpl<string>("", " ");
+    params.prms << PrmSmpl<string>("", "-") << PrmLexema("", "EVT.WEB_TARIFF") << PrmSmpl<string>("", " ");
   	ostringstream str;
   	if ( TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) ) {
       std::map<int, TSeatTariff,classcomp> tariffs;

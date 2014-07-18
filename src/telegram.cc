@@ -1316,7 +1316,8 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
     {
         int tlg_id=NoExists;
         TTypeBTypesRow tlgTypeInfo;
-        localizedstream msg(LANG_RU);;
+        string lexema_id;
+        LEvntPrms params;
         try
         {
             time_t time_start=time(NULL);
@@ -1329,17 +1330,22 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
                         i->get_tlg_type().c_str(),
                         i->point_id);
 
-            msg << "Телеграмма " << tlgTypeInfo.short_name
-                << " (ид=" << tlg_id << ") сформирована: ";
+            lexema_id = "EVT.TLG.CREATED";
+            params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
+                   << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", i->get_options().is_lat);
         }
         catch(AstraLocale::UserException &E)
         {
-            msg << "Ошибка формирования телеграммы "
-                << (tlgTypeInfo.short_name.empty()?i->get_tlg_type():tlgTypeInfo.short_name)
-                << ": " << getLocaleText(E.getLexemaData(), AstraLocale::LANG_RU) << ", ";
+            lexema_id = "EVT.TLG.CREATE_ERROR";
+            string err_id;
+            LEvntPrms err_prms;
+            E.getAdvParams(err_id, err_prms);
+
+            params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
+                   << PrmBool("lat", i->get_options().is_lat) << PrmLexema("what", err_id, err_prms);
         }
 
-        TReqInfo::Instance()->MsgToLog(i->get_options().logStr(msg).str(),evtTlg,i->point_id,tlg_id);
+        TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, tlg_id);
 
         if (tlg_id!=NoExists)
         {
@@ -1350,12 +1356,14 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
             }
             catch(AstraLocale::UserException &E)
             {
-                msg.str("");
-                msg << "Ошибка отправки телеграммы "
-                    << (tlgTypeInfo.short_name.empty()?i->get_tlg_type():tlgTypeInfo.short_name)
-                    << " (ид=" << tlg_id << ")"
-                    << ": " << getLocaleText(E.getLexemaData(), AstraLocale::LANG_RU);
-                TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,i->point_id,tlg_id);
+                string err_id;
+                LEvntPrms err_prms;
+                E.getAdvParams(err_id, err_prms);
+
+                params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
+                       << PrmSmpl<int>("id", tlg_id) << PrmLexema("what", err_id, err_prms);
+
+                TReqInfo::Instance()->LocaleToLog("EVT.TLG.SEND_ERROR", params, evtTlg, i->point_id, tlg_id);
             };
             time_t time_end=time(NULL);
             if (time_end-time_start>1)
