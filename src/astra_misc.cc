@@ -257,6 +257,15 @@ const long int DOC_EDI_UK_FIELDS=DOC_TYPE_FIELD|
                                  DOC_SURNAME_FIELD|
                                  DOC_FIRST_NAME_FIELD;
 //==============================================================================
+const long int DOC_EDI_ES_FIELDS=DOC_TYPE_FIELD|
+                                 DOC_ISSUE_COUNTRY_FIELD|
+                                 DOC_NO_FIELD|
+                                 DOC_NATIONALITY_FIELD|
+                                 DOC_BIRTH_DATE_FIELD|
+                                 DOC_GENDER_FIELD|
+                                 DOC_SURNAME_FIELD|
+                                 DOC_FIRST_NAME_FIELD;
+//==============================================================================
 const long int DOC_CSV_DE_FIELDS=DOC_SURNAME_FIELD|
                                  DOC_FIRST_NAME_FIELD|
                                  DOC_GENDER_FIELD|
@@ -403,6 +412,11 @@ TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_ar
           {
             result.pass.doc.required_fields|=DOC_EDI_UK_FIELDS;
             result.crew.doc.required_fields|=DOC_EDI_UK_FIELDS;
+          };
+          if (fmt=="EDI_ES")
+          {
+            result.pass.doc.required_fields|=DOC_EDI_ES_FIELDS;
+            result.crew.doc.required_fields|=DOC_EDI_ES_FIELDS;
           };
           if (fmt=="CSV_DE")
           {

@@ -437,7 +437,7 @@ bool need_crew_checkin(const TAdvTripInfo &fltInfo)
     "SELECT format FROM apis_sets "
     "WHERE airline=:airline AND "
     "      country_dep=:country_dep AND country_arv=:country_arv AND "
-    "      format IN ('EDI_CN', 'EDI_IN', 'EDI_US', 'EDI_USBACK', 'EDI_UK') AND pr_denial=0 AND rownum<2";
+    "      format IN ('EDI_CN', 'EDI_IN', 'EDI_US', 'EDI_USBACK', 'EDI_UK', 'EDI_ES') AND pr_denial=0 AND rownum<2";
   Qry.CreateVariable("airline", otString, fltInfo.airline);
   Qry.CreateVariable("country_dep", otString, country_dep);
   Qry.DeclareVariable("country_arv", otString);
