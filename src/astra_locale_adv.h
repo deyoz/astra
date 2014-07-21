@@ -57,15 +57,15 @@ template <typename T>
 class PrmElem:public LEvntPrm {
   private:
     std::string name;
-    TElemType type;
+    TElemType elem_type;
     T id;
     TElemFmt fmt;
   public:
     PrmElem(const std::string& name, TElemType type, T id, TElemFmt fmt = efmtCodeNative):
-        LEvntPrm(), name(name), type(type), id(id), fmt(fmt) {}
+        LEvntPrm(), name(name), elem_type(type), id(id), fmt(fmt) {}
     virtual ~PrmElem() {}
     virtual std::string GetMsg (const std::string& lang) const{
-        return ElemIdToPrefferedElem(type, id, fmt, lang);
+        return ElemIdToPrefferedElem(elem_type, id, fmt, lang);
     }
     virtual AstraLocale::LParam GetParam (const std::string& lang) const {
         return AstraLocale::LParam(name, GetMsg(lang));
@@ -77,11 +77,10 @@ class PrmElem:public LEvntPrm {
         std::string type = std::string("PrmElem<") + typeid(T).name() + std::string(">");
         NewTextChild(paramNode, "type", type);
         NewTextChild(paramNode, "name", name);
-        NewTextChild(paramNode, "elem_type", type);
+        NewTextChild(paramNode, "elem_type", elem_type);
         NewTextChild(paramNode, "id", id);
         NewTextChild(paramNode, "fmt", fmt);
     }
-
 };
 
 template <typename T>
@@ -304,14 +303,14 @@ class UserException:public EXCEPTIONS::Exception
     void getAdvParams(std::string &lexema, LEvntPrms &aparams)
     {
         lexema = lexema_id;
-        if (useAdvParams) {
+        if (!useAdvParams) {
           for(std::map<std::string, boost::any>::iterator iter = lparams.begin(); iter != lparams.end(); iter++) {
             if ( boost::any_cast<std::string>(&(iter->second)))
-              advParams << PrmSmpl<std::string>(iter->first, boost::any_cast<std::string>(iter->second));
+              aparams << PrmSmpl<std::string>(iter->first, boost::any_cast<std::string>(iter->second));
             else if ((iter->second).type() != typeid(int))
-              advParams << PrmSmpl<int>(iter->first, boost::any_cast<int>(iter->second));
+              aparams << PrmSmpl<int>(iter->first, boost::any_cast<int>(iter->second));
             else if ((iter->second).type() != typeid(double))
-              advParams << PrmSmpl<double>(iter->first, boost::any_cast<double>(iter->second));
+              aparams << PrmSmpl<double>(iter->first, boost::any_cast<double>(iter->second));
           }
         }
         else

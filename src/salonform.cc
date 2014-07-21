@@ -235,6 +235,7 @@ void WriteCompSections( int id, const vector<SALONS2::TCompSection> &CompSection
   if ( CompSections.empty() && pr_exists )
     lexema.ChangeLexemaId("EVT.DELETE_LUGGAGE_SECTIONS");
   PrmEnum prmenum("sect", " ");
+  bool empty = true;
   for ( vector<SALONS2::TCompSection>::const_iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
     PrmLexema new_lexema("", "EVT.SECTIONS");
     new_lexema.prms << PrmSmpl<std::string>("name", i->name) << PrmSmpl<int>("FirstRow", i->getFirstRow())
@@ -244,7 +245,11 @@ void WriteCompSections( int id, const vector<SALONS2::TCompSection> &CompSection
     Qry.SetVariable( "first_rownum", i->getFirstRow() );
     Qry.SetVariable( "last_rownum", i->getLastRow() );
     Qry.Execute();
+    empty = false;
   }
+  if (CompSections.empty() && pr_exists && empty)
+    TReqInfo::Instance()->LocaleToLog("EVT.DELETE_LUGGAGE_SECTIONS", evtComp, id);
+  else
     TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_LUGGAGE_SECTIONS", LEvntPrms() << lexema << prmenum, evtComp, id);
 }
 

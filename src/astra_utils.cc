@@ -638,6 +638,7 @@ void TReqInfo::LocaleToLog(TLogLocale &msg)
     Qry.DeclareVariable("id3", otInteger);
     Qry.CreateVariable("ev_time", otDate, FNull);
     Qry.CreateVariable("ev_order", otInteger, FNull);
+    Qry.CreateVariable("part_num", otInteger, FNull);
     Qry.SetVariable("type", EncodeEventType(msg.ev_type));
     Qry.SetVariable("screen", screen.name);
     Qry.SetVariable("ev_user", user.descr);
@@ -661,10 +662,11 @@ void TReqInfo::LocaleToLog(TLogLocale &msg)
             "  IF :ev_time IS NULL OR :ev_order IS NULL THEN"
             "    SELECT system.UTCSYSDATE, events__seq.nextval INTO :ev_time, :ev_order FROM dual; "
             "  END IF; "
-            "  INSERT INTO events_bilingual(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,lang) "
-            "  VALUES(:type,:ev_time,:ev_order,"
-            "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang); "
-            "  IF :lang=:LANG_RU THEN"
+            "  IF :part_num IS NULL THEN :part_num:=1; ELSE :part_num:=:part_num+1; END IF; "
+            "  INSERT INTO events_bilingual(type,time,ev_order,part_num,msg,screen,ev_user,station,id1,id2,id3,lang) "
+            "  VALUES(:type,:ev_time,:ev_order,:part_num,"
+            "         :msg,:screen,:ev_user,:part_num,:station,:id1,:id2,:id3,:lang); "
+            "  IF :lang=:LANG_RU AND :part_num=1 THEN"
             "    INSERT INTO events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
             "    VALUES(:type,:ev_time,:ev_order,"
             "           :msg,:screen,:ev_user,:station,:id1,:id2,:id3);"

@@ -614,7 +614,7 @@ void ChangeStatusToLog(const xmlNodePtr statusNode,
     {
       locale.lexema_id = "EVT.PASSENGER_DATA";
       locale.prms << PrmSmpl<string>("pax_name", NodeAsStringFast("pax_full_name",node2))
-                  << PrmElem<string>("pers_type", etPersType, NodeAsStringFast("pax_full_name",node2));
+                  << PrmElem<string>("pers_type", etPersType, NodeAsStringFast("pers_type",node2));
       PrmLexema lexema("param", lexema_id);
       lexema.prms = params;
       locale.prms << lexema;
@@ -879,13 +879,13 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                 UpdQry.Execute();
                 //bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
                 //              UpdQry.GetVariableAsString("prior_error")==err;
-                ChangeStatusToLog(errNode, /*repeated*/false, "EVT.ETICKET_CHANGE STATUS MISTAKE", params, screen, user, desk);
+                ChangeStatusToLog(errNode, /*repeated*/false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
               };
             };
           }
           else
           {
-            ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE STATUS MISTAKE", params, screen, user, desk);
+            ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
           };
           continue;
         };
@@ -932,13 +932,13 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
               bool repeated=(UpdQry.VariableIsNULL("prior_status") &&
                              status->codeInt()==CouponStatus::OriginalIssue) ||
                             UpdQry.GetVariableAsString("prior_status")==status->dispCode();
-              ChangeStatusToLog(statusNode, repeated, "EVT.ETICKET_CHANGE STATUS", params, screen, user, desk);
+              ChangeStatusToLog(statusNode, repeated, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
             };
           };
         }
         else
         {
-            ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE STATUS", params, screen, user, desk);
+            ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
         };
       };
     };

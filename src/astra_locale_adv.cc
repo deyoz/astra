@@ -177,29 +177,29 @@ void LEvntPrms::toXML(xmlNodePtr eventNode) const {
 void LEvntPrms::fromXML(xmlNodePtr paramsNode) {
     for(xmlNodePtr paramNode = paramsNode->children; paramNode != NULL; paramNode = paramNode->next) {
         std::string type = NodeAsString("type", paramNode);
-        if(type == "PrmSmpl<int>") {
+        if(type == (std::string("PrmSmpl<") + typeid(int).name() + std::string(">"))) {
             std::string name = NodeAsString("name", paramNode);
             int value = NodeAsInteger("value", paramNode);
             push_back(new PrmSmpl<int>(name, value));
         }
-        else if(type == "PrmSmpl<string>") {
+        else if(type == (std::string("PrmSmpl<") + typeid(std::string).name() + std::string(">"))) {
             std::string name = NodeAsString("name", paramNode);
             std::string value = NodeAsString("value", paramNode);
             push_back(new PrmSmpl<std::string>(name, value));
         }
-        else if(type == "PrmSmpl<double>") {
+        else if(type == (std::string("PrmSmpl<") + typeid(double).name() + std::string(">"))) {
             std::string name = NodeAsString("name", paramNode);
             double value = NodeAsFloat("value", paramNode);
             push_back(new PrmSmpl<double>(name, value));
         }
-        else if(type == "PrmElem<int>") {
+        else if(type == (std::string("PrmElem<") + typeid(int).name() + std::string(">"))) {
             std::string name = NodeAsString("name", paramNode);
             int elem_type = NodeAsInteger("elem_type", paramNode);
             int id = NodeAsInteger("id", paramNode);
             int fmt = NodeAsInteger("fmt", paramNode);
             push_back(new PrmElem<int>(name, (TElemType)elem_type, id, (TElemFmt)fmt));
         }
-        else if(type == "PrmElem<string>") {
+        else if(type == (std::string("PrmElem<") + typeid(std::string).name() + std::string(">"))) {
             std::string name = NodeAsString("name", paramNode);
             int elem_type = NodeAsInteger("elem_type", paramNode);
             std::string id = NodeAsString("id", paramNode);
@@ -208,7 +208,7 @@ void LEvntPrms::fromXML(xmlNodePtr paramsNode) {
         }
         else if(type == "PrmLexema") {
             std::string name = NodeAsString("name", paramNode);
-            std::string id = NodeAsString("id", paramNode);
+            std::string id = NodeAsString("lexema_id", paramNode);
             xmlNodePtr paramsNode = NodeAsNode("params", paramNode);
             PrmLexema lexema(name, id);
             lexema.prms.fromXML(paramsNode);
