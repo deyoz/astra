@@ -230,8 +230,7 @@ TQry_ptr TQrys::get(const std::string &SQLText, const QParams &p)
     TQuery &Qry = (*i_qry)->Qry;
 
     for(QParams::const_iterator iv = p.begin(); iv != p.end(); iv++) {
-        if(iv->empty) continue;
-        if(iv->pr_null)
+        if(iv->empty)
             Qry.SetVariable(iv->name, FNull);
         else
             switch(iv->ft) {
