@@ -1242,7 +1242,7 @@ class TSalonList: public std::vector<TPlaceList*> {
                            const std::vector<TPlaceList*> &oldlist, bool oldpr_craft_lat,
                            const std::vector<TPlaceList*> &newlist, bool newpr_craft_lat,
                            const BitSet<ASTRA::TCompLayerType> &editabeLayers,
-                           PrmEnum &params, bool pr_set_base, int line_len );
+                           LEvntPrms &params, bool pr_set_base );
   void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &CompSections );
   void getLayerPlacesCompSection( TSalons &NSalons, TCompSection &compSection,
                                   bool only_high_layer,

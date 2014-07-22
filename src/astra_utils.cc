@@ -657,6 +657,7 @@ void TReqInfo::LocaleToLog(TLogLocale &msg)
         Qry.SetVariable("id3", FNull);
     Qry.DeclareVariable("lang", otString);
     for (std::vector<std::string>::iterator lang = msg.vlangs.begin(); lang != msg.vlangs.end(); lang++) {
+        Qry.SetVariable("part_num", FNull);
         Qry.SQLText =
             "BEGIN "
             "  IF :ev_time IS NULL OR :ev_order IS NULL THEN"
@@ -665,7 +666,7 @@ void TReqInfo::LocaleToLog(TLogLocale &msg)
             "  IF :part_num IS NULL THEN :part_num:=1; ELSE :part_num:=:part_num+1; END IF; "
             "  INSERT INTO events_bilingual(type,time,ev_order,part_num,msg,screen,ev_user,station,id1,id2,id3,lang) "
             "  VALUES(:type,:ev_time,:ev_order,:part_num,"
-            "         :msg,:screen,:ev_user,:part_num,:station,:id1,:id2,:id3,:lang); "
+            "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang); "
             "  IF :lang=:LANG_RU AND :part_num=1 THEN"
             "    INSERT INTO events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
             "    VALUES(:type,:ev_time,:ev_order,"

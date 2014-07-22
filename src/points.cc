@@ -1265,7 +1265,7 @@ string DecodeEvents( TTripEvents event )
       res = "EVT.CHANGE_FLIGHT_ATTR_LAND";
       break;
     case teInitStages:
-      res = "EVT.INIT_STAGES ";
+      res = "EVT.INIT_STAGES";
       break;
     case teInitComps:
       res = "EVT.INIT_COMPS";

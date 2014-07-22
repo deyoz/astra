@@ -7351,7 +7351,6 @@ struct TStringRef {
 	}
 };
 
-
 void SeparateEvents( vector<TStringRef> referStrs, vector<string> &eventsStrs, unsigned int line_len )
 {
 	for ( vector<TStringRef>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
@@ -7737,7 +7736,7 @@ void salonChangesToText( int point_id,
                          const std::vector<TPlaceList*> &oldlist, bool oldpr_craft_lat,
                          const std::vector<TPlaceList*> &newlist, bool newpr_craft_lat,
                          const BitSet<ASTRA::TCompLayerType> &editabeLayers,
-                         PrmEnum &params, bool pr_set_base, int line_len )
+                         LEvntPrms &params, bool pr_set_base )
 {
 	ProgTrace( TRACE5, "salonChangesToText: point_id=%d, placelists.size()=%zu,placelists.size()=%zu",
              point_id, oldlist.size(), newlist.size() );
@@ -7819,7 +7818,7 @@ void salonChangesToText( int point_id,
     if ( find( salonNums.begin(), salonNums.end(), (*sn)->num ) != salonNums.end() )
     	continue; // этот салон уже описан
     	bool pr_equal_salon_and_seats=true;
-    	string clname, elem_type, name;
+        string clname, elem_type;
       for ( TPlaces::iterator pn = (*sn)->places.begin(); pn != (*sn)->places.end(); pn++ ) {
       	if ( pn->visible ) {
       		if ( clname.empty() ) {
@@ -7853,15 +7852,12 @@ void salonChangesToText( int point_id,
   // имеем массив названий с местами и салонами
   //необходимо сортировать по салонам и действиям
   bool pr_lat;
-  vector<string> eventsStrs;
-  vector<TStringRef> Refs;
   // пробег по салонам
   for ( vector<TRefPlaces>::iterator iref=vecChanges.begin(); iref!=vecChanges.end(); iref++ ) {
   	// вначале все удаленные свойства
   	for ( int i=0; i<=1; i++ ) {
   		for ( int j=0; j<5; j++ ) {
     		// пробег по изменениям
-    		Refs.clear();
     	  for ( map<string,TRP>::iterator im=iref->mapRef.begin(); im!=iref->mapRef.end(); im++ ) {
     		  if ( im->second.places.empty() )
             		continue;
@@ -7877,8 +7873,10 @@ void salonChangesToText( int point_id,
  	        if ( i == 0 )
  	        	pr_lat = oldpr_craft_lat;
  	        else
- 	      	  pr_lat = newpr_craft_lat;
-              ReferPlaces( point_id, im->first, im->second.places, params, pr_lat );
+                pr_lat = newpr_craft_lat;
+            PrmEnum salon("salon", "");
+            ReferPlaces( point_id, im->first, im->second.places, salon, pr_lat );
+            params << salon;
           }
         }
     }
@@ -8644,11 +8642,14 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
   SALONS2::setTRIP_CLASSES( point_id );
 
   BitSet<ASTRA::TCompLayerType> editabeLayers;
-  PrmEnum salon_changes("salon" , "");
+  LEvntPrms salon_changes;
   salonList.getEditableFlightLayers( editabeLayers );
   salonChangesToText( point_id, priorsalonList, priorsalonList.isCraftLat(), salonList,
-                      salonList.isCraftLat(), editabeLayers, salon_changes, false, 100 );
-  TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << salon_changes, evtFlt, point_id);
+                      salonList.isCraftLat(), editabeLayers, salon_changes, false );
+  TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms(), evtFlt, point_id);
+  for (std::deque<LEvntPrm*>::const_iterator iter=salon_changes.begin(); iter != salon_changes.end(); iter++) {
+      TReqInfo::Instance()->LocaleToLog("EVT.SALON_CHANGES", LEvntPrms() << *(dynamic_cast<PrmEnum*>(*iter)), evtFlt, point_id);
+  }
   // конец перечитки
   SALONS2::check_diffcomp_alarm( point_id );
   if ( SALONS2::isTranzitSalons( point_id ) ) {

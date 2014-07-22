@@ -1508,7 +1508,7 @@ try {
             prmenum.prms << PrmElem<std::string>("", etAirp, airp);
     }
     err++;
-    reqInfo->LocaleToLog("EVT.INPUT_NEW_POINT", LEvntPrms() << PrmSmpl<std::string>("flt", "") << PrmFlight("flt", fl.airline, fl.flt_no, fl.suffix)
+    reqInfo->LocaleToLog("EVT.FLIGHT.NEW_FLIGHT", LEvntPrms() << PrmSmpl<std::string>("flt", "") << PrmFlight("flt", fl.airline, fl.flt_no, fl.suffix)
                           << prmenum, evtDisp, move_id, point_id);
     err++;
     reqInfo->LocaleToLog("EVT.INPUT_NEW_POINT", LEvntPrms() << PrmSmpl<std::string>("flt", "") << PrmElem<std::string>("airp", etAirp, airp),
@@ -1880,7 +1880,7 @@ try {
 	}
 	if ( pr_change_brd ) {
 		if ( !brd_del.empty() )
-            reqInfo->LocaleToLog("DELETE_GATE_ON_FLIGHT", LEvntPrms() << PrmSmpl<std::string>("gate", brd_del),
+            reqInfo->LocaleToLog("EVT.DELETE_GATE_ON_FLIGHT", LEvntPrms() << PrmSmpl<std::string>("gate", brd_del),
                                   evtDisp, move_id, point_id);
 		if ( !brd.empty() )
             reqInfo->LocaleToLog("EVT.ASSIGNE_GATE_ON_FLIGHT", LEvntPrms() << PrmSmpl<std::string>("gate", brd),

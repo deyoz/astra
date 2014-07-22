@@ -797,13 +797,15 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( trip_id ), SALONS2::rfTranzitVersion, "" );
   BitSet<ASTRA::TCompLayerType> editabeLayers;
   salonList.getEditableFlightLayers( editabeLayers );
-  PrmEnum salon_changes("salon" , "");
+  LEvntPrms salon_changes;
   salonChangesToText( trip_id, priorsalonList, priorsalonList.isCraftLat(),
                         salonList, salonList.isCraftLat(),
                         editabeLayers,
-                        salon_changes, cBase && comp_id != -2, 100 );
-  params << salon_changes;
+                        salon_changes, cBase && comp_id != -2);
   TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtFlt, trip_id);
+  for (std::deque<LEvntPrm*>::const_iterator iter=salon_changes.begin(); iter != salon_changes.end(); iter++) {
+      TReqInfo::Instance()->LocaleToLog("EVT.SALON_CHANGES", LEvntPrms() << *(dynamic_cast<PrmEnum*>(*iter)), evtFlt, trip_id);
+  }
   // конец перечитки
   SALONS2::check_diffcomp_alarm( trip_id );
   if ( SALONS2::isTranzitSalons( trip_id ) ) {
@@ -955,7 +957,6 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   SALONS2::TComponSets componSets;
   BitSet<ASTRA::TCompLayerType> editabeLayers;
   getEditabeLayers( editabeLayers, true );
-  vector<string> referStrs;
   componSets.Parse( reqNode );
   salonList.Parse( ASTRA::NoExists, GetNode( "salons", reqNode ) );
   if ( componSets.modify != SALONS2::mNone &&
@@ -963,11 +964,11 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     priorsalonList.ReadCompon( comp_id );
   }
   salonList.WriteCompon( comp_id, componSets );
-  PrmEnum salon_changes("salon" , "");
+  LEvntPrms salon_changes;
   salonChangesToText( NoExists, priorsalonList, priorsalonList.isCraftLat(),
                       salonList, salonList.isCraftLat(),
                       editabeLayers,
-                      salon_changes, componSets.modify != SALONS2::mDelete, 100 );
+                      salon_changes, componSets.modify != SALONS2::mDelete);
   if ( componSets.modify !=  SALONS2::mDelete ) {
     salonList.ReadCompon( comp_id );
   }
@@ -1006,7 +1007,10 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
       params << PrmLexema("descr", "EVT.UNKNOWN");
     else
       params << PrmSmpl<string>("descr", componSets.descr);
-    r->LocaleToLog(lexema_id, params << salon_changes, evtComp, comp_id);
+    r->LocaleToLog(lexema_id, params, evtComp, comp_id);
+    for (std::deque<LEvntPrm*>::const_iterator iter=salon_changes.begin(); iter != salon_changes.end(); iter++) {
+        r->LocaleToLog("EVT.SALON_CHANGES", LEvntPrms() << *(dynamic_cast<PrmEnum*>(*iter)), evtComp, comp_id);
+    }
   }
   //bagsections
   vector<SALONS2::TCompSection> CompSections;

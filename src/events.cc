@@ -879,12 +879,12 @@ void SaveGrpToLog(int point_id,
     {
       if (i->second.empty()) continue;
 
-      PrmEnum prmenum("bag", ",");
+      PrmEnum prmenum("bag", ", ");
       ostringstream msg;
       for(map< int/*id*/, TBagToLogInfo>::const_iterator j=i->second.begin();
                                                          j!=i->second.end(); ++j)
       {
-        if (j!=i->second.begin()) msg << ", ";
+        ostringstream msg;
         if (j->second.bag_type!=ASTRA::NoExists)
           msg << setw(2) << setfill('0') << j->second.bag_type << ":";
           msg << j->second.amount << "/" << j->second.weight;
