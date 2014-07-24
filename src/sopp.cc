@@ -3590,7 +3590,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   bool reSetCraft;
   bool reSetWeights;
   string lexema_id;
-  PrmEnum prmenum("flt", "-");
+  PrmEnum prmenum("flt", "");
   TBaseTable &baseairps = base_tables.get( "airps" );
   vector<int> points_MVTdelays;
   std::vector<int> points_check_wait_alarm;
@@ -3666,8 +3666,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
           lexema_id = "EVT.FLIGHT.NEW";
         else
           lexema_id = "EVT.FLIGHT.MODIFY_ROUTE";
+      else
+        prmenum.prms << PrmSmpl<string>("", "-");
         if ( id->flt_no != NoExists )
-          prmenum.prms << PrmFlight("", id->airline, id->flt_no, id->suffix)
+          prmenum.prms << PrmFlight("", id->airline, id->flt_no, id->suffix) << PrmSmpl<string>("", " ")
                        << PrmElem<std::string>("", etAirp, id->airp);
         else
           prmenum.prms << PrmElem<std::string>("", etAirp, id->airp);
@@ -5313,6 +5315,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
       }
       if (!empty) {
       name.prms << prior_name;
+      prior_name.prms.clearPrms();
       empty = true;
       }
       if ( prior_airline.empty() || prior_airline != Qry.FieldAsString( "airline" ) ) {

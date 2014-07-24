@@ -245,7 +245,7 @@ void PersWeightRules::write( int point_id )
   Qry.DeclareVariable( "infant", otInteger );
   ProgTrace( TRACE5, "weights.size()=%zu", weights.size() );
   std::string lexema_id = "EVT.PERS_WEIGHTS";
-  PrmEnum prmenum("weights", ",");
+  PrmEnum prmenum("weights", ", ");
   for ( std::vector<ClassesPersWeight>::iterator i=weights.begin(); i!=weights.end(); i++ ) {
     Qry.SetVariable( "class", i->cl );
     Qry.SetVariable( "subclass", i->subcl );

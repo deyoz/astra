@@ -262,11 +262,11 @@ void TPaxToLogInfo::getNorm(PrmEnum& param) const
     param.prms << PrmBool("", false);
     return;
   }
-  std::ostringstream msg;
   std::map< int/*bag_type*/, CheckIn::TNormItem>::const_iterator n=norms.begin();
   for(;n!=norms.end();++n)
   {
-    if (n!=norms.begin()) param.prms << PrmSmpl<string>("", ",");
+    std::ostringstream msg;
+    if (n!=norms.begin()) param.prms << PrmSmpl<string>("", ", ");
     if (n->first!=-1) {
       param.prms << PrmElem<int>("", etBagType, n->first, efmtNameLong);
       msg << "(" << setw(2) << setfill('0') << n->first << ")" << ": ";
@@ -922,11 +922,11 @@ void SaveGrpToLog(int point_id,
 
   if (!grpInfoAfter.paid.empty())
   {
-    ostringstream msg;
-    PrmEnum prmenum("bag", ",");
+    PrmEnum prmenum("bag", ", ");
     map< int/*bag_type*/, TPaidToLogInfo>::const_iterator p=grpInfoAfter.paid.begin();
     for(;p!=grpInfoAfter.paid.end();++p)
     {
+      ostringstream msg;
       if (p->second.bag_type!=-1) msg << setw(2) << setfill('0') << p->second.bag_type << ":";
       msg << p->second.bag_amount << "/" << p->second.bag_weight << "/" << p->second.paid_weight;
       prmenum.prms << PrmSmpl<std::string>("", msg.str());

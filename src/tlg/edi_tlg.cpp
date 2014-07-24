@@ -846,7 +846,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
           LEvntPrms params;
           ostringstream msgh;
           msgh << currTick->ticknum() << "/" << currTick->getCoupon().front().couponInfo().num();
-          params << PrmSmpl<std::string>("ticket_no", msgh.str())
+          params << PrmSmpl<std::string>("tick_num", msgh.str())
                  << PrmSmpl<std::string>("err", err);
 
           LexemaData err_lexeme;

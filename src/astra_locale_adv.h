@@ -36,6 +36,11 @@ class LEvntPrms: public std::deque<LEvntPrm*>
         for (std::deque<LEvntPrm*>::iterator iter=begin(); iter != end(); iter++)
             delete *iter;
     }
+    void clearPrms () {
+        for (std::deque<LEvntPrm*>::iterator iter=begin(); iter != end(); iter++)
+            delete *iter;
+        clear();
+    }
     LEvntPrms& operator = (const LEvntPrms& params);
     LEvntPrms& operator << (const PrmElem<int>&  prmelem);
     LEvntPrms& operator << (const PrmElem<std::string>&  prmelem);
