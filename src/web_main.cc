@@ -4031,16 +4031,19 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
 
             string surname=Qry.FieldAsString("surname");
             string name=Qry.FieldAsString("name");
-            LexemaData lexemeData=e.getLexemaData();
+            string err_id;
+            LEvntPrms err_prms;
+            e.getAdvParams(err_id, err_prms);
 
-            TLogMsg msg;
-            msg.ev_type=ASTRA::evtPax;
-            msg.id1=point_id_spp;
-            msg.id2=NoExists;
-            msg.id3=NoExists;
-            msg.msg="Ошибка регистрации пассажира "+surname+(name.empty()?"":" ")+name+" из PNL/ADL: "+
-                    getLocaleText(lexemeData.lexema_id, lexemeData.lparams, LANG_RU);
-            TReqInfo::Instance()->MsgToLog(msg);
+            TLogLocale locale;
+            locale.ev_type=ASTRA::evtPax;
+            locale.id1=point_id_spp;
+            locale.id2=NoExists;
+            locale.id3=NoExists;
+            locale.lexema_id = "EVT.PAX.REG_ERROR";
+
+            locale.prms << PrmSmpl<string>("name", surname+(name.empty()?"":" ")+name) << PrmLexema("what", err_id, err_prms);
+            TReqInfo::Instance()->LocaleToLog(locale);
           }
           catch(EXCEPTIONS::Exception &e)
           {

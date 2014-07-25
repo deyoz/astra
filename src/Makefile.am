@@ -36,6 +36,7 @@ astra_SOURCES = \
   astra_context.cc \
   astra_elems.cc \
   astra_locale.cc \
+  astra_locale_adv.cc \
   astra_main.cc \
   astra_misc.cc \
   astra_service.cc \
@@ -142,6 +143,7 @@ noinst_HEADERS = \
   astra_context.h \
   astra_elems.h \
   astra_locale.h \
+  astra_locale_adv.h \
   astra_main.h \
   astra_misc.h \
   astra_service.h \
@@ -166,7 +168,7 @@ noinst_HEADERS = \
   dev_tuning.h \
   dev_utils.h \
   develop_dbf.h \
-  docs.h \
+  docs.h \  
   empty_proc.h \
   etick_change_status.h \
   etick.h \

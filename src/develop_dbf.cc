@@ -396,7 +396,7 @@ void Develop_dbf::AddRow( DBFRow &row )
 	              throw Exception( "Invalid format data" );
       case 'N': t = r->find( "." );
       	        if ( t == string::npos || f->precision == f->len ||
-      	        	   ( (int)t <= f->precision ) && f->len - f->precision >= (int)( r->size() - t ) - 1 )
+      	        	   (( (int)t <= f->precision ) && f->len - f->precision >= (int)( r->size() - t ) - 1) )
       	        	break;
       	        throw Exception( "Invalid format data" );
       case 'D': TDateTime v;

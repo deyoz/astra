@@ -128,7 +128,7 @@ string next_iata_line(string line)
         if(seat[i] == line[0])
             break;
     string result;
-    if(i >= 0 and i < strlen(seat) - 1)
+    if(/*i >= 0 and*/ i < strlen(seat) - 1)
         result = seat[i + 1];
     return result;
 }

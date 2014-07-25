@@ -37,63 +37,66 @@ void sync_trip_task(int point_id, const string& task_name, const string &params,
     remove_trip_task(point_id, task_name, params);
   else      
     add_trip_task(point_id, task_name, params, next_exec);  
-};    
+}
 
-string LCIparamsToLog(const string &params)
+void LCIparamsToLog(LEvntPrms& prms, const string &params)
 {
     TypeB::TCreatePoint cp(params);
     ostringstream result;
-    result
-        << "Этап: " << ElemIdToNameLong(etGraphStage, cp.stage_id) << "; "
-        << "Время до: "
-        << setw(2) << setfill('0') << -cp.time_offset / 60
+    result << setw(2) << setfill('0') << -cp.time_offset / 60
         << "-"
         << setw(2) << setfill('0') << -cp.time_offset % 60;
-    return result.str();
+    PrmLexema lexema("params", "EVT.STAGE.TIME_BEFORE");
+    lexema.prms << PrmElem<int>("stage", etGraphStage, cp.stage_id, efmtNameLong)
+                << PrmSmpl<std::string>("time", result.str());
+    prms << lexema;
 }
 
-string paramsToLog(const string &task_name, const string &params)
+void paramsToLog(LEvntPrms& prms, const string &task_name, const string &params)
 {
     if(task_name == LCI)
-        return LCIparamsToLog(params);
+        LCIparamsToLog(prms, params);
     else
-        return params;
+        prms << PrmSmpl<std::string>("params", params);
 }
 
 enum TTaskState {tsAdd, tsUpdate, tsDelete, tsDone};
 
-string taskToLog(
+void taskToLog(TLogLocale& tlocale,
         const string &task_name,
         const string &params,
         TTaskState ts,
         TDateTime next_exec,
         TDateTime new_next_exec = ASTRA::NoExists)
 {
-    ostringstream result;
-    result << "Задача " << task_name << " <" << paramsToLog(task_name, params) << "> ";
+    tlocale.prms << PrmSmpl<std::string>("task_name", task_name);
+
+    paramsToLog(tlocale.prms, task_name, params);
+
     switch(ts) {
         case tsAdd:
-            result << "создана; ";
+            tlocale.lexema_id = "EVT.TASK_CREATED";
             break;
         case tsUpdate:
-            result << "изменена; ";
+            tlocale.lexema_id = "EVT.TASK_MODIFIED";
             break;
         case tsDelete:
-            result << "удалена; ";
+            tlocale.lexema_id = "EVT.TASK_DELETED";
             break;
         case tsDone:
-            result << "выполнена; ";
+            tlocale.lexema_id = "EVT.TASK_COMPLETED";
             break;
     }
     if(ts == tsUpdate) {
-        result
-            << "стар. план. вр.: " << DateTimeToStr(next_exec, "dd.mm.yy hh:nn") << " (UTC), "
-            << "нов. план. вр.: " << DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn") << " (UTC)";
+        PrmLexema lexema("time", "EVT.OLD_NEW_PLAN_TIME");
+        lexema.prms << PrmDate("old_time", next_exec, "dd.mm.yy hh:nn")
+                    << PrmDate("new_time", new_next_exec, "dd.mm.yy hh:nn");
+        tlocale.prms << lexema;
     } else {
-        result
-            << "План. вр.: " << DateTimeToStr(next_exec, "dd.mm.yy hh:nn") << " (UTC)";
+        PrmLexema lexema("time", "EVT.PLAN_TIME");
+        lexema.prms << PrmDate("time", next_exec, "dd.mm.yy hh:nn");
+        tlocale.prms << lexema;
     }
-    return result.str();
 }
 
 void add_trip_task(int point_id, const string& task_name, const string &params, TDateTime new_next_exec)
@@ -135,7 +138,11 @@ void add_trip_task(int point_id, const string& task_name, const string &params, 
                           point_id,
                           task_name.c_str(),
                           DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn:ss").c_str());
-        TReqInfo::Instance()->MsgToLog( taskToLog(task_name, params, tsAdd, new_next_exec) , ASTRA::evtFltTask, point_id );
+        TLogLocale tlocale;
+        tlocale.ev_type=ASTRA::evtFltTask;
+        tlocale.id1=point_id;
+        taskToLog(tlocale, task_name, params, tsAdd, new_next_exec);
+        TReqInfo::Instance()->LocaleToLog(tlocale);
       }
       catch(EOracleError E)
       {
@@ -168,14 +175,20 @@ void add_trip_task(int point_id, const string& task_name, const string &params, 
                                    task_id,
                                    DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str(),
                                    DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn:ss").c_str());
-                TReqInfo::Instance()->MsgToLog(
-                        taskToLog(task_name, params, tsUpdate, next_exec, new_next_exec),
-                        ASTRA::evtFltTask, point_id );
+                TLogLocale tlocale;
+                tlocale.ev_type=ASTRA::evtFltTask;
+                tlocale.id1=point_id;
+                taskToLog(tlocale, task_name, params, tsUpdate, next_exec, new_next_exec);
+                TReqInfo::Instance()->LocaleToLog(tlocale);
             } else {
                 ProgTrace(TRACE5, "trip_tasks: task added (id=%d next_exec=%s)",
                                   task_id,
                                   DateTimeToStr(new_next_exec, "dd.mm.yy hh:nn:ss").c_str());
-                TReqInfo::Instance()->MsgToLog( taskToLog(task_name, params, tsAdd, new_next_exec), ASTRA::evtFltTask, point_id );
+                TLogLocale tlocale;
+                tlocale.ev_type=ASTRA::evtFltTask;
+                tlocale.id1=point_id;
+                taskToLog(tlocale, task_name, params, tsAdd, new_next_exec);
+                TReqInfo::Instance()->LocaleToLog(tlocale);
             }
         };
       };
@@ -220,7 +233,11 @@ void remove_trip_task(int point_id, const string& task_name, const string &param
           ProgTrace(TRACE5, "trip_tasks: task deleted (id=%d next_exec=%s)",
                             task_id,
                             DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str());
-          TReqInfo::Instance()->MsgToLog( taskToLog(task_name, params, tsDelete, next_exec), ASTRA::evtFltTask, point_id );
+          TLogLocale tlocale;
+          tlocale.ev_type=ASTRA::evtFltTask;
+          tlocale.id1=point_id;
+          taskToLog(tlocale, task_name, params, tsDelete, next_exec);
+          TReqInfo::Instance()->LocaleToLog(tlocale);
       }
     };
   }
@@ -237,7 +254,11 @@ void remove_trip_task(int point_id, const string& task_name, const string &param
         ProgTrace(TRACE5, "trip_tasks: task deleted (id=%d next_exec=%s)",
                           task_id,
                           DateTimeToStr(next_exec, "dd.mm.yy hh:nn:ss").c_str());
-        TReqInfo::Instance()->MsgToLog( taskToLog(task_name, params, tsDelete, next_exec), ASTRA::evtFltTask, point_id );
+        TLogLocale tlocale;
+        tlocale.ev_type=ASTRA::evtFltTask;
+        tlocale.id1=point_id;
+        taskToLog(tlocale, task_name, params, tsDelete, next_exec);
+        TReqInfo::Instance()->LocaleToLog(tlocale);
     }
   };
 };
@@ -294,7 +315,11 @@ void check_trip_tasks()
                         last_exec<next_exec)
                 {
                     trip_tasks[i].p(point_id, task_name, params);
-                    TReqInfo::Instance()->MsgToLog( taskToLog(task_name, params, tsDone, next_exec), ASTRA::evtFltTask, point_id );
+                    TLogLocale tlocale;
+                    tlocale.ev_type=ASTRA::evtFltTask;
+                    tlocale.id1=point_id;
+                    taskToLog(tlocale, task_name, params, tsDone, next_exec);
+                    TReqInfo::Instance()->LocaleToLog(tlocale);
                 };
             };
             if (task_processed)

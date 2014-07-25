@@ -3034,7 +3034,23 @@ bool CheckRefusability(int point_dep, int pax_id)
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
   if (!Qry.Eof) return false;
-
+/*
+  Qry.Clear(); //!!!anna
+  Qry.SQLText=
+    "SELECT events.station "
+    "FROM "
+    "  (SELECT station FROM events_bilingual "
+    "   WHERE lang=:lang AND type=:evtPax AND id1=:point_dep AND id3=:grp_id) events, "
+    "  web_clients "
+    "WHERE events.station=web_clients.desk(+) AND "
+    "      web_clients.desk IS NULL AND rownum<2";
+  Qry.CreateVariable("lang", otString, AstraLocale::LANG_RU);
+  Qry.CreateVariable("evtPax", otString, EncodeEventType(ASTRA::evtPax));
+  Qry.CreateVariable("point_dep", otInteger, point_dep);
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.Execute();
+  if (!Qry.Eof) return false;
+*/
   return true;
 };
 
@@ -4857,20 +4873,20 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           if (first_segment) CheckIn::SaveNorms(segNode,pr_unaccomp);
         };
         
-        TLogMsg msg;
-        msg.ev_type=ASTRA::evtPax;
-        msg.id1=grp.point_dep;
-        msg.id2=NoExists;
-        msg.id3=grp.id;
+        TLogLocale tlocale;
+        tlocale.ev_type=ASTRA::evtPax;
+        tlocale.id1=grp.point_dep;
+        tlocale.id2=NoExists;
+        tlocale.id3=grp.id;
         if (save_trfer)
         {
-          msg.msg=SaveTransfer(grp.id,trfer,trfer_segs,pr_unaccomp,seg_no);
-          if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
+          SaveTransfer(grp.id,trfer,trfer_segs,pr_unaccomp,seg_no, tlocale);
+          if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
         };
-        msg.msg=SaveTCkinSegs(grp.id,reqNode,segs,seg_no);
-        if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
+        SaveTCkinSegs(grp.id,reqNode,segs,seg_no, tlocale);
+        if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
         if (!inbound_trfer_conflicts.empty())
-          ConflictReasonsToLog(inbound_trfer_conflicts, msg);
+          ConflictReasonsToLog(inbound_trfer_conflicts, tlocale);
       } //new_checkin
       else
       {
@@ -5123,13 +5139,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         
         if (save_trfer)
         {
-          TLogMsg msg;
-          msg.ev_type=ASTRA::evtPax;
-          msg.id1=grp.point_dep;
-          msg.id2=NoExists;
-          msg.id3=grp.id;
-          msg.msg=SaveTransfer(grp.id,trfer,trfer_segs,pr_unaccomp,seg_no);
-          if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
+          TLogLocale tlocale;
+          tlocale.ev_type=ASTRA::evtPax;
+          tlocale.id1=grp.point_dep;
+          tlocale.id2=NoExists;
+          tlocale.id3=grp.id;
+          SaveTransfer(grp.id,trfer,trfer_segs,pr_unaccomp,seg_no, tlocale);
+          if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
         };
       };
 
@@ -5289,7 +5305,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "    RETURNING grp_id,reg_no INTO :grp_id,:reg_no; "
             "    IF :grp_id IS NOT NULL AND :reg_no IS NOT NULL AND "
             "       :ev_time IS NOT NULL AND :ev_order IS NOT NULL THEN "
-            "      DELETE FROM events WHERE time=:ev_time AND ev_order=:ev_order; "
+            "      DELETE FROM events WHERE time=:ev_time AND ev_order=:ev_order; " //!!!anna :(
             "    END IF; "
             "  END IF; "
             "END; ";
@@ -5351,13 +5367,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   !Qry.VariableIsNULL("reg_no") &&
                   !Qry.VariableIsNULL("grp_id"))
               {
-                TLogMsg msg;
-                msg.ev_type=ASTRA::evtPax;
-                msg.id1=grp.point_dep;
-                msg.id2=Qry.GetVariableAsInteger("reg_no");
-                msg.id3=Qry.GetVariableAsInteger("grp_id");
-                msg.msg=NodeAsString(eventNode);
-                reqInfo->MsgToLog(msg);
+                TLogLocale locale;
+                locale.ev_type=ASTRA::evtPax;
+                locale.id1=grp.point_dep;
+                locale.id2=Qry.GetVariableAsInteger("reg_no");
+                locale.id3=Qry.GetVariableAsInteger("grp_id");
+                XMLToLocale(eventNode, locale.lexema_id, locale.prms);
+                reqInfo->LocaleToLog(locale);
               };
             
             };
@@ -6102,12 +6118,13 @@ void CheckInInterface::LoadPaxTransfer(int pax_id, xmlNodePtr paxNode)
   TrferQry.Close();
 };
 
-string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const map<int,TSegInfo> &segs, int seg_no)
+void CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const map<int,TSegInfo> &segs, int seg_no, TLogLocale& tlocale)
 {
-  if (segsNode==NULL) return "";
+  tlocale.lexema_id.clear();
+  if (segsNode==NULL) return;
 
   xmlNodePtr segNode=GetNode("segments",segsNode);
-  if (segNode==NULL) return "";
+  if (segNode==NULL) return;
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -6122,16 +6139,18 @@ string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const ma
   segNode=segNode->children;
   if (segNode==NULL)
   {
-    if (Qry.GetVariableAsInteger("rows")>0)
-      return "Отменена сквозная регистрация пассажиров и багажа";
+    if (Qry.GetVariableAsInteger("rows")>0) {
+      tlocale.lexema_id = "EVT.THROUGH_CHECKIN_CANCEL";
+      return;
+    }
     else
-      return "";
+      return;
   };
 
   for(;segNode!=NULL&&seg_no>1;segNode=segNode->next,seg_no--);
-  if (segNode==NULL) return "";
+  if (segNode==NULL) return;
   segNode=segNode->next;
-  if (segNode==NULL) return "";
+  if (segNode==NULL) return;
 
   Qry.Clear();
   Qry.SQLText=
@@ -6174,8 +6193,8 @@ string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const ma
   Qry.DeclareVariable("airp_arv",otString);
   Qry.DeclareVariable("pr_final",otInteger);
 
-  ostringstream msg;
-  msg << "Произведена сквозная регистрация по маршруту:";
+  tlocale.lexema_id = "EVT.THROUGH_CHECKIN_PERFORMED";
+  PrmEnum route("route", "");
   for(seg_no=1;segNode!=NULL;segNode=segNode->next,seg_no++)
   {
     map<int,TSegInfo>::const_iterator s=segs.find(NodeAsInteger("point_dep",segNode));
@@ -6201,15 +6220,12 @@ string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const ma
       TTrferBinding().bind_flt(point_id_trfer);
     };
 
-    msg << " -> "
-        << fltInfo.airline
-        << setw(3) << setfill('0') << fltInfo.flt_no
-        << fltInfo.suffix << "/"
-        << DateTimeToStr(local_scd,"dd")
-        << ":" << fltInfo.airp << "-" << s->second.airp_arv;
+    route.prms << PrmSmpl<string>("", " -> ") << PrmFlight("", fltInfo.airline, fltInfo.flt_no, fltInfo.suffix)
+               << PrmSmpl<string>("", "/") << PrmDate("", local_scd,"dd") << PrmSmpl<string>("", ":")
+               << PrmElem<string>("",  etAirp, fltInfo.airp) << PrmSmpl<string>("", "-")
+               << PrmElem<string>("", etAirp, s->second.airp_arv);
   };
-
-  return msg.str();
+  tlocale.prms << route;
 };
 
 void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
@@ -6342,10 +6358,10 @@ void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
   };
 };
 
-string CheckInInterface::SaveTransfer(int grp_id,
+void CheckInInterface::SaveTransfer(int grp_id,
                                       const vector<CheckIn::TTransferItem> &trfer,
                                       const map<int, pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs,
-                                      bool pr_unaccomp, int seg_no)
+                                      bool pr_unaccomp, int seg_no, TLogLocale& tlocale)
 {
   map<int, pair<TCkinSegFlts, TTrferSetsInfo> >::const_iterator s=trfer_segs.find(seg_no);
   vector<CheckIn::TTransferItem>::const_iterator firstTrfer=trfer.begin();
@@ -6363,10 +6379,11 @@ string CheckInInterface::SaveTransfer(int grp_id,
   
   if (firstTrfer==trfer.end()) //ничего не записываем в базу
   {
-    if (TrferQry.GetVariableAsInteger("rows")>0)
-      return "Отменен трансфер пассажиров и багажа";
-    else
-      return "";
+    if (TrferQry.GetVariableAsInteger("rows")>0) {
+        tlocale.lexema_id = "EVT.CHECKIN.TRANSFER_BAGGAGE_CANCEL";
+        return;
+    }
+    else return;
   };
 
   TrferQry.Clear();
@@ -6465,9 +6482,8 @@ string CheckInInterface::SaveTransfer(int grp_id,
   TrferQry.DeclareVariable("pr_final",otInteger);
   
   string strh;
-  ostringstream msg;
-  msg << "Оформлен багаж трансфером по маршруту:  ";
   int trfer_num=1;
+  PrmEnum route("route", "");
   for(vector<CheckIn::TTransferItem>::const_iterator t=firstTrfer;t!=trfer.end();++t,trfer_num++)
   {
     if (checkType==checkAllSeg ||
@@ -6540,18 +6556,15 @@ string CheckInInterface::SaveTransfer(int grp_id,
       TTrferBinding().bind_flt(point_id_trfer);
     };
 
-    msg << " -> "
-        << t->operFlt.airline
-        << setw(3) << setfill('0') << t->operFlt.flt_no
-        << t->operFlt.suffix << "/"
-        << DateTimeToStr(t->operFlt.scd_out,"dd")
-        << ":" << t->operFlt.airp << "-" << t->airp_arv;
+    tlocale.lexema_id = "EVT.CHECKIN.TRANSFER_BAGGAGE_REGISTER";
+    route.prms << PrmSmpl<string>("", " -> ") << PrmFlight("", t->operFlt.airline, t->operFlt.flt_no, t->operFlt.suffix)
+               << PrmSmpl<string>("", "/") << PrmDate("", t->operFlt.scd_out,"dd") << PrmSmpl<string>("", ":")
+               << PrmElem<string>("",  etAirp, t->operFlt.airp) << PrmSmpl<string>("", "-") << PrmElem<string>("", etAirp, t->airp_arv);
 
     airline_in=t->operFlt.airline;
     flt_no_in=t->operFlt.flt_no;
   };
-
-  return msg.str();
+  tlocale.prms << route;
 };
 
 void CheckInInterface::LoadTransfer(int grp_id, vector<CheckIn::TTransferItem> &trfer)
@@ -6928,9 +6941,9 @@ void CheckInInterface::OpenCheckInInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   Qry.CreateVariable( "work_mode", otString, "Р" );
   Qry.Execute();
   if ( open == 1 )
-    TReqInfo::Instance()->MsgToLog( "Открытие регистрации для системы информирования", evtFlt, point_id );
+    TReqInfo::Instance()->LocaleToLog("EVT.CHECKIN_OPEN_FOR_INFO_SYS", evtFlt, point_id);
   else
-  	TReqInfo::Instance()->MsgToLog( "Закрытие регистрации для системы информирования", evtFlt, point_id );
+    TReqInfo::Instance()->LocaleToLog("EVT.CHECKIN_CLOSE_FOR_INFO_SYS", evtFlt, point_id);
 
 };
 

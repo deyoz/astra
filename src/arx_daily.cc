@@ -4,6 +4,8 @@
 #include "exceptions.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "qrys.h"
+#include "stat.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -226,6 +228,24 @@ bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key, double &date_rang
   return false;
 };
 
+void TArxMoveFlt::LockAndCollectStat(int move_id)
+{
+  QParams PointsQryParams;
+  PointsQryParams << QParam("move_id", otInteger, move_id);
+  TCachedQuery PointsQry("SELECT point_id,pr_del,pr_reg FROM points WHERE move_id=:move_id FOR UPDATE", PointsQryParams);
+  TQuery &Qry=PointsQry.get();
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    int pr_del=Qry.FieldAsInteger("pr_del");
+    bool pr_reg=Qry.FieldAsInteger("pr_reg")!=0;
+    int point_id=Qry.FieldAsInteger("point_id");
+    if (pr_del<0) continue;
+    if (pr_del==0 && pr_reg) get_flight_stat(point_id, true);
+    TReqInfo::Instance()->LocaleToLog("EVT.FLIGHT_MOOVED_TO_ARCHIVE", evtFlt, point_id);
+  };
+};
+
 bool TArxMoveFlt::Next(int max_rows, int duration)
 {
   if (step==0 || step==3 || step==6)
@@ -331,6 +351,7 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
             };
           }
           else Qry->SetVariable("date_range",FNull);
+          LockAndCollectStat(move_id);
           Qry->Execute();
           OraSession.Commit();
           proc_count++;

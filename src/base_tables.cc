@@ -38,6 +38,8 @@ TBaseTable &TBaseTables::get(string name)
     if(ti == base_tables.end()) {
         if(name == "AIRPS")
             base_tables[name] = new TAirps();
+        else if(name == "BAG_TYPES")
+            base_tables[name] = new TBagTypes();
         else if(name == "COUNTRIES")
             base_tables[name] = new TCountries();
         else if(name == "PERS_TYPES")
@@ -95,7 +97,7 @@ TBaseTable &TBaseTables::get(string name)
         else if(name == "SEAT_ALGO_TYPES")
         	  base_tables[name] = new TSeatAlgoTypes();
         else if(name == "RIGHTS")
-        	  base_tables[name] = new TRights();
+              base_tables[name] = new TRights();
         else if(name == "USER_TYPES")
         	  base_tables[name] = new TUserTypes();
         else if(name == "USER_SET_TYPES")
@@ -897,6 +899,13 @@ void TBagNormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
 	*row = new TBagNormTypesRow;
   mem.create(*row, STDLOG);
 	TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TBagTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TBagTypesRow;
+  mem.create(*row, STDLOG);
+  TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TLangTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)

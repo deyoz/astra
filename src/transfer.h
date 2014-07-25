@@ -7,6 +7,7 @@
 #include "basic.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
+#include "astra_utils.h"
 
 namespace CheckIn
 {
@@ -482,7 +483,7 @@ void NewGrpInfoToGrpsView(const TNewGrpInfo &inbound_trfer,
                           std::vector<TrferList::TGrpViewItem> &grps);
 
 void ConflictReasonsToLog(const std::set<TConflictReason> &conflicts,
-                          TLogMsg &msg);
+                          TLogLocale &locale);
 
 }; //namespace InboundTrfer
 

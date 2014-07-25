@@ -65,12 +65,16 @@ const
                          {etAirp,                  "etAirp",                  "airps"},
                          {etAlarmType,             "etAlarmType",             "alarm_types"},
                          {etBagNormType,           "etBagNormType",           "bag_norm_types"},
+                         {etBagType,               "etBagType",               "bag_types"},
+                         {etBPType,                "etBPType",                ""},
+                         {etBTType,                "etBTType",                ""},
                          {etCity,                  "etCity",                  "cities"},
                          {etCkinRemType,           "etCkinRemType",           "ckin_rem_types"},
                          {etClass,                 "etClass",                 "classes"},
                          {etClientType,            "etClientType",            "client_types"},
                          {etClsGrp,                "etClsGrp",                "cls_grp"},
                          {etCompLayerType,         "etCompLayerType",         "comp_layer_types"},
+                         {etCompElemType,          "etCompElemType",          ""},
                          {etCountry,               "etCountry",               "countries"},
                          {etCraft,                 "etCraft",                 "crafts"},
                          {etCurrency,              "etCurrency",              "currency"},
@@ -96,6 +100,7 @@ const
                          {etReportType,            "etReportType",             "report_types"},
                          {etRemGrp,                "etRemGrp",                ""},
                          {etRight,                 "etRight",                 "rights"},
+                         {etRoles,                 "etRoles",                 ""},
                          {etSalePoint,             "etSalePoint",             ""},
                          {etSeasonType,            "etSeasonType",            "season_types"},
                          {etSeatAlgoType,          "etSeatAlgoType",          "seat_algo_types"},
@@ -108,6 +113,7 @@ const
                          {etTypeBOptionValue,      "etTypeBOptionValue",      "typeb_option_values"},
                          {etTypeBSender,           "etTypeBSender",           ""},
                          {etTypeBType,             "etTypeBType",             "typeb_types"},
+                         {etUsers,                 "etUsers",                 ""},
                          {etUserSetType,           "etUserSetType",           "user_set_types"},
                          {etUserType,              "etUserType",              "user_types"},
                          {etValidatorType,         "etValidatorType",         ""}
@@ -601,6 +607,9 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
       case etValidatorType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM validator_types WHERE code=:id";break;
           case etSalePoint: Qry.SQLText="SELECT code,descr name,descr_lat name_lat FROM sale_points WHERE code=:id";break;
              case etAgency: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM agencies WHERE code=:id";break;
+       case etCompElemType: Qry.SQLText="SELECT name,name_lat FROM comp_elem_types WHERE code=:id"; break;
+             case etBPType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id"; break;
+             case etBTType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM tag_types WHERE code=:id"; break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otString,id);
@@ -635,7 +644,6 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
     try
     {
       const TBaseTableRow& BaseTableRow=base_tables.get(table_name).get_row("id",id,with_deleted);
-
       for(vector< pair<TElemFmt,string> >::const_iterator i=fmts.begin();i!=fmts.end();i++)
       {
         getElem(i->first, i->second, BaseTableRow, elem);
@@ -652,6 +660,8 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
          case etHall: Qry.SQLText="SELECT name,name_lat FROM halls2 WHERE id=:id"; break;
       case etDeskGrp: Qry.SQLText="SELECT descr AS name, descr_lat AS name_lat FROM desk_grp WHERE grp_id=:id"; break;
        case etRemGrp: Qry.SQLText="SELECT name, name_lat FROM rem_grp WHERE id=:id"; break;
+        case etUsers: Qry.SQLText="SELECT descr AS name, descr AS name_lat FROM users2 WHERE user_id=:id"; break;
+        case etRoles: Qry.SQLText="SELECT name AS name, name AS name_lat FROM roles WHERE role_id=:id"; break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otInteger,id);
@@ -762,6 +772,22 @@ string ElemIdToClientElem(TElemType type, int id, TElemFmt fmt, bool with_delete
 
   vector< pair<TElemFmt,string> > fmts;
   getElemFmts(fmt, TReqInfo::Instance()->desk.lang, fmts);
+  return ElemIdToElem(type, id, fmts, with_deleted);
+};
+
+std::string ElemIdToPrefferedElem(TElemType type, const int &id, TElemFmt fmt, const std::string &lang, bool with_deleted)
+{
+  if (id==ASTRA::NoExists) return "";
+  vector< pair<TElemFmt,string> > fmts;
+  getElemFmts(fmt, lang, fmts);
+  return ElemIdToElem(type, id, fmts, with_deleted);
+};
+
+std::string ElemIdToPrefferedElem(TElemType type, const std::string &id, TElemFmt fmt, const std::string &lang, bool with_deleted)
+{
+  if (id.empty()) return "";
+  vector< pair<TElemFmt,string> > fmts;
+  getElemFmts(fmt, lang, fmts);
   return ElemIdToElem(type, id, fmts, with_deleted);
 };
 

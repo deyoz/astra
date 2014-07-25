@@ -1616,7 +1616,7 @@ void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Execute();
     if(Qry.RowsProcessed() == 0)
         throw Exception("user not found (user_id=%d)",reqInfo->user.user_id);
-    TReqInfo::Instance()->MsgToLog("Изменен пароль пользователя", evtAccess);
+    TReqInfo::Instance()->LocaleToLog("EVT.PASSWORD.MODIFIED", evtAccess);
     AstraLocale::showMessage("MSG.PASSWORD.MODIFIED");
 }
 

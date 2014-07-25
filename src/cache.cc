@@ -30,6 +30,7 @@ const
                          {"AIRLINES",                etAirline},
                          {"AIRPS",                   etAirp},
                          {"BAG_NORM_TYPES",          etBagNormType},
+                         {"BAG_TYPES",               etBagType},
                          {"CITIES",                  etCity},
                          {"CKIN_REM_TYPES",          etCkinRemType},
                          {"CLASSES",                 etClass},
@@ -1048,7 +1049,7 @@ int TCacheTable::FieldIndex( const string name )
 string TCacheTable::FieldValue( const string name, const TRow &row )
 {
   int idx = FieldIndex(name);
-  if ( idx < 0 )
+  if ( idx < 0 || idx >=(int)row.cols.size() )
     throw Exception( "TCacheTable::FieldValue: field '%s' not found", name.c_str() );
   return row.cols[idx];
 };
@@ -1056,15 +1057,298 @@ string TCacheTable::FieldValue( const string name, const TRow &row )
 string TCacheTable::FieldOldValue( const string name, const TRow &row )
 {
   int idx = FieldIndex(name);
-  if ( idx < 0 )
+  if ( idx < 0 || idx >=(int)row.old_cols.size() )
     throw Exception( "TCacheTable::FieldOldValue: field '%s' not found", name.c_str() );
   return row.old_cols[idx];
 };
 
 void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateStatus,
-                 TLogMsg &message )
+                 TLogLocale &tlocale )
 {
   string code = cache.code();
+  ostringstream msg;
+  tlocale.ev_type = evtFlt;
+  int point_id;
+  if ( UpdateStatus == usInserted ) {
+    TParams::const_iterator ip = row.params.find( "POINT_ID" );
+    if ( ip == row.params.end() )
+      throw Exception( "Can't find variable point_id" );
+    point_id = ToInt( ip->second.Value );
+  }
+  else {
+    point_id = ToInt( cache.FieldOldValue("point_id", row) );
+  }
+  tlocale.id1 = point_id;
+  if (code == "TRIP_BP")
+  {
+    if (UpdateStatus == usDeleted)
+    {
+      if (!cache.FieldOldValue( "class", row ).empty())
+      {
+        tlocale.lexema_id = "EVT.BP_FORM_DELETED_FOR_CLASS";
+        tlocale.prms << PrmSmpl<string>("old_name", cache.FieldOldValue("bp_name", row))
+                     << PrmElem<string>("old_cls", etClass, cache.FieldOldValue("class", row));
+      }
+      else
+      {
+        tlocale.lexema_id = "EVT.BP_FORM_DELETED";
+        tlocale.prms << PrmSmpl<string>("old_name", cache.FieldOldValue("bp_name", row));
+      }
+    }
+    else if (UpdateStatus == usInserted)
+    {
+      if (!cache.FieldValue( "class", row ).empty())
+      {
+        tlocale.lexema_id = "EVT.BP_FORM_INSERTED_FOR_CLASS";
+        tlocale.prms << PrmSmpl<string>("name", cache.FieldValue("bp_name", row))
+                     << PrmElem<string>("cls", etClass, cache.FieldValue("class", row));
+      }
+      else
+      {
+        tlocale.lexema_id = "EVT.BP_FORM_INSERTED";
+        tlocale.prms << PrmSmpl<string>("name", cache.FieldValue("bp_name", row));
+      }
+    }
+    else if (UpdateStatus == usModified)
+    {
+      tlocale.lexema_id = "EVT.BP_FORM_MODIFIED";
+      if (!cache.FieldOldValue( "class", row ).empty())
+      {
+        PrmLexema old_form("old_form", "EVT.BP_FORM_DELETED_FOR_CLASS");
+        old_form.prms << PrmSmpl<string>("old_name", cache.FieldOldValue("bp_name", row))
+                     << PrmElem<string>("old_cls", etClass, cache.FieldOldValue("class", row));
+        tlocale.prms << old_form;
+      }
+      else
+      {
+        PrmLexema old_form("old_form", "EVT.BP_FORM_DELETED");
+        old_form.prms << PrmSmpl<string>("old_name", cache.FieldOldValue("bp_name", row));
+        tlocale.prms << old_form;
+      }
+      if (!cache.FieldValue( "class", row ).empty())
+      {
+        PrmLexema new_form("new_form", "EVT.BP_FORM_INSERTED_FOR_CLASS");
+        new_form.prms << PrmSmpl<string>("name", cache.FieldValue("bp_name", row))
+                     << PrmElem<string>("cls", etClass, cache.FieldValue("class", row));
+        tlocale.prms << new_form;
+      }
+      else
+      {
+        PrmLexema new_form("new_form", "EVT.BP_FORM_INSERTED");
+        new_form.prms << PrmSmpl<string>("name", cache.FieldValue("bp_name", row));
+        tlocale.prms << new_form;
+      }
+    }
+  }
+  if ( code == "TRIP_BT" )
+  {
+    if (UpdateStatus == usDeleted )
+    {
+      tlocale.lexema_id = "EVT.BT_FORM_INSERTED";
+      tlocale.prms << PrmSmpl<string>("name", cache.FieldOldValue("bt_name", row));
+    }
+    else if ( UpdateStatus == usInserted)
+    {
+      tlocale.lexema_id = "EVT.BT_FORM_DELETED";
+      tlocale.prms << PrmSmpl<string>("name", cache.FieldValue("bt_name", row));
+    }
+    else if ( UpdateStatus == usModified)
+    {
+        tlocale.lexema_id = "EVT.BT_FORM_MODIFIED";
+        tlocale.prms << PrmSmpl<string>("old_name", cache.FieldOldValue("bt_name", row))
+                     << PrmSmpl<string>("name", cache.FieldValue("bt_name", row));
+    }
+  }
+  if ( code == "TRIP_BRD_WITH_REG" ||
+       code == "TRIP_EXAM_WITH_BRD" )
+  {
+    if (UpdateStatus == usDeleted)
+    {
+      tlocale.prms << PrmLexema("action", "EVT.MODE_DELETED");
+      if (code == "TRIP_BRD_WITH_REG")
+      {
+        if ( ToInt(cache.FieldOldValue( "pr_misc", row )) == 0 )
+          tlocale.lexema_id = "EVT.TRIP_SEPARATE_BRD_AND_REG";
+        else
+          tlocale.lexema_id = "EVT.TRIP_BRD_AND_REG";
+      }
+      else
+      {
+        if ( ToInt(cache.FieldOldValue( "pr_misc", row )) == 0 )
+          tlocale.lexema_id = "EVT.TRIP_SEPARATE_EXAM_AND_BRD";
+        else
+          tlocale.lexema_id = "EVT.TRIP_EXAM_AND_BRD";
+      }
+      if ( !cache.FieldOldValue( "hall", row ).empty() )
+      {
+          PrmLexema lexema("hall", "EVT.FOR_HALL");
+          lexema.prms <<  PrmSmpl<string>("hall", cache.FieldOldValue( "hall_view", row ));
+          tlocale.prms << lexema;
+      }
+      else
+          tlocale.prms << PrmSmpl<string>("hall", "");
+    }
+    else if (UpdateStatus == usInserted)
+    {
+        tlocale.prms << PrmLexema("action", "EVT.MODE_INSERTED");
+        if (code == "TRIP_BRD_WITH_REG")
+        {
+          if ( ToInt(cache.FieldValue( "pr_misc", row )) == 0 )
+            tlocale.lexema_id = "EVT.TRIP_SEPARATE_BRD_AND_REG";
+          else
+            tlocale.lexema_id = "EVT.TRIP_BRD_AND_REG";
+        }
+        else
+        {
+          if ( ToInt(cache.FieldValue( "pr_misc", row )) == 0 )
+            tlocale.lexema_id = "EVT.TRIP_SEPARATE_EXAM_AND_BRD";
+          else
+            tlocale.lexema_id = "EVT.TRIP_EXAM_AND_BRD";
+        }
+        if ( !cache.FieldValue( "hall", row ).empty() )
+        {
+            PrmLexema lexema("hall", "EVT.FOR_HALL");
+            lexema.prms <<  PrmSmpl<string>("hall", cache.FieldValue( "hall_view", row ));
+            tlocale.prms << lexema;
+        }
+        else
+            tlocale.prms << PrmSmpl<string>("hall", "");
+    }
+    else if (UpdateStatus == usModified)
+    {
+      tlocale.lexema_id = "EVT.MODE_MODIFIED";
+      PrmLexema old_mode("old_mode", "EVT.TRIP_BRD_AND_REG");
+      old_mode.prms << PrmLexema("action", "EVT.MODE_DELETED");
+
+      PrmLexema new_mode("new_mode", "EVT.TRIP_BRD_AND_REG");
+      new_mode.prms << PrmLexema("action", "EVT.MODE_INSERTED");
+      if (code == "TRIP_BRD_WITH_REG")
+      {
+        if ( ToInt(cache.FieldOldValue( "pr_misc", row )) == 0 )
+          old_mode.ChangeLexemaId("EVT.TRIP_SEPARATE_BRD_AND_REG");
+        if ( ToInt(cache.FieldValue( "pr_misc", row )) == 0 )
+          new_mode.ChangeLexemaId("EVT.TRIP_SEPARATE_BRD_AND_REG");
+      }
+      else
+      {
+        if ( ToInt(cache.FieldOldValue( "pr_misc", row )) == 0 )
+          old_mode.ChangeLexemaId("EVT.TRIP_SEPARATE_EXAM_AND_BRD");
+        else
+          old_mode.ChangeLexemaId("EVT.TRIP_EXAM_AND_BRD");
+        if ( ToInt(cache.FieldValue( "pr_misc", row )) == 0 )
+          new_mode.ChangeLexemaId("EVT.TRIP_SEPARATE_EXAM_AND_BRD");
+        else
+          new_mode.ChangeLexemaId("EVT.TRIP_EXAM_AND_BRD");
+      };
+      if ( !cache.FieldOldValue("hall", row ).empty())
+      {
+        PrmLexema lexema("hall", "EVT.FOR_HALL");
+        lexema.prms << PrmSmpl<string>("hall", cache.FieldOldValue( "hall_view", row ));
+        old_mode.prms << lexema;
+      }
+      else
+          old_mode.prms << PrmSmpl<string>("hall", "");
+      if ( !cache.FieldValue("hall", row ).empty())
+      {
+        PrmLexema lexema("hall", "EVT.FOR_HALL");
+        lexema.prms << PrmSmpl<string>("hall", cache.FieldValue( "hall_view", row ));
+        new_mode.prms << lexema;
+      }
+      else
+        new_mode.prms << PrmSmpl<string>("hall", "");
+      tlocale.prms << new_mode << old_mode;
+    }
+  }
+  if ( code == "TRIP_WEB_CKIN" ||
+       code == "TRIP_KIOSK_CKIN" ||
+       code == "TRIP_PAID_CKIN" ) {
+    if ( (UpdateStatus == usDeleted || ToInt(cache.FieldValue( "pr_permit", row )) == 0) &&
+         (UpdateStatus == usInserted || ToInt(cache.FieldOldValue( "pr_permit", row )) == 0) )
+    {
+        tlocale.lexema_id.clear(); //не записываем в лог
+    }
+    else
+    {
+      tlocale.lexema_id = "EVT.TRIP_CKIN";
+      if ((UpdateStatus == usInserted || UpdateStatus == usModified) &&
+          ToInt(cache.FieldValue( "pr_permit", row )) != 0)
+      {
+        if ( code == "TRIP_WEB_CKIN" ||
+             code == "TRIP_KIOSK_CKIN" )
+          tlocale.prms << PrmLexema("action", "EVT.CKIN_ALLOWED");
+        else
+          tlocale.prms << PrmLexema("action", "EVT.CKIN_PERFORMED");
+      }
+      else
+      {
+        if ( code == "TRIP_WEB_CKIN" ||
+             code == "TRIP_KIOSK_CKIN" )
+          tlocale.prms << PrmLexema("action", "EVT.CKIN_NOT_ALLOWED");
+        else
+          tlocale.prms << PrmLexema("action", "EVT.CKIN_NOT_PERFORMED");
+      };
+
+      if ( code == "TRIP_WEB_CKIN") {
+        PrmLexema lexema("what", "EVT.TRIP_WEB_CKIN");
+        lexema.prms << PrmSmpl<string>("desk_grp", "");
+        tlocale.prms << lexema;
+      }
+      else if ( code == "TRIP_PAID_CKIN")
+        tlocale.prms << PrmLexema("what", "EVT.TRIP_PAID_CKIN");
+      else if ( code == "TRIP_KIOSK_CKIN")
+      {
+        PrmLexema lexema("what", "EVT.TRIP_KIOSK_CKIN");
+        //важно что desk_grp_id не может меняться когда UpdateStatus == usModified
+        //если это не так, алгоритм надо переделывать
+        if (((UpdateStatus == usInserted || UpdateStatus == usModified) &&
+             !cache.FieldValue( "desk_grp_id", row ).empty()) ||
+            ((UpdateStatus == usDeleted) &&
+             !cache.FieldOldValue( "desk_grp_id", row ).empty()))
+        {
+          PrmLexema desk_grp("desk_grp", "EVT.FOR_DESK_GRP");
+          if (UpdateStatus == usInserted || UpdateStatus == usModified)
+            desk_grp.prms << PrmElem<int>("desk_grp", etDeskGrp, ToInt(cache.FieldValue("desk_grp_id", row)), efmtNameLong);
+          else
+            desk_grp.prms << PrmElem<int>("desk_grp", etDeskGrp, ToInt(cache.FieldOldValue("desk_grp_id", row)), efmtNameLong);
+          lexema.prms << desk_grp;
+        }
+        else
+          lexema.prms << PrmSmpl<string>("desk_grp", "");
+        tlocale.prms << lexema;
+      };
+      PrmLexema params("params", "EVT.PARAMS");
+      if ((UpdateStatus == usInserted || UpdateStatus == usModified) &&
+          ToInt(cache.FieldValue( "pr_permit", row )) != 0)
+      {
+        if ( code == "TRIP_WEB_CKIN" ||
+             code == "TRIP_KIOSK_CKIN" )
+        {
+          params.prms << PrmBool("tckin", ToInt(cache.FieldValue( "pr_tckin", row )));
+          params.prms << PrmBool("upd_stage", ToInt(cache.FieldValue( "pr_upd_stage", row )));
+        }
+        else
+        {
+          params.ChangeLexemaId("EVT.PROT_TIMEOUT");
+          if ( !cache.FieldValue( "prot_timeout", row ).empty() ) {
+            PrmLexema timeout("timeout", "EVT.TIMEOUT_VALUE");
+            timeout.prms << PrmSmpl<int>("timeout", ToInt(cache.FieldValue( "prot_timeout", row )));
+            params.prms << timeout;
+          }
+          else
+            params.prms << PrmLexema("timeout", "EVT.UNKNOWN");
+        };
+        tlocale.prms << params;
+      }
+      else
+      tlocale.prms << PrmSmpl<string>("params", "");
+    };
+  };
+  return;
+}
+
+void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
+{
+  string code = this->code();
   if ( code == "TRIP_BP" ||
        code == "TRIP_BT" ||
        code == "TRIP_BRD_WITH_REG" ||
@@ -1072,224 +1356,32 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
        code == "TRIP_WEB_CKIN" ||
        code == "TRIP_KIOSK_CKIN" ||
        code == "TRIP_PAID_CKIN" ) {
-    ostringstream msg;
-    message.ev_type = evtFlt;
-    int point_id;
-    if ( UpdateStatus == usInserted ) {
-      TParams::const_iterator ip = row.params.find( "POINT_ID" );
-      if ( ip == row.params.end() )
-        throw Exception( "Can't find variable point_id" );
-      point_id = ToInt( ip->second.Value );
-    }
-    else {
-      point_id = ToInt( cache.FieldOldValue("point_id", row) );
-    }
-    message.id1 = point_id;
-    if ( code == "TRIP_BP" )
-    {
-      if ( UpdateStatus == usModified || UpdateStatus == usDeleted )
-      {
-        msg << "Отменен бланк пос. талона '"
-            << cache.FieldOldValue( "bp_name", row ) << "'";
-        bool first=true;
-        if ( !cache.FieldOldValue( "class", row ).empty() )
-        {
-          msg << (first?" для ":", ") << "класса " << cache.FieldOldValue( "class", row );
-          first=false;
-        };
-        msg << ". ";
-      };
-      if ( UpdateStatus == usInserted || UpdateStatus == usModified )
-      {
-        msg << "Установлен бланк пос. талона '"
-            << cache.FieldValue( "bp_name", row ) << "'";
-        bool first=true;
-        if ( !cache.FieldValue( "class", row ).empty() )
-        {
-          msg << (first?" для ":", ") << "класса " << cache.FieldValue( "class", row );
-          first=false;
-        };
-        msg << ". ";
-      };
-    };
-    if ( code == "TRIP_BT" ) {
-      if ( UpdateStatus == usModified || UpdateStatus == usDeleted )
-      {
-        msg << "Отменен бланк баг. бирки '"
-            << cache.FieldOldValue( "bt_name", row ) << "'. ";
-      };
-      if ( UpdateStatus == usInserted || UpdateStatus == usModified )
-      {
-        msg << "Установлен бланк баг. бирки '"
-            << cache.FieldValue( "bt_name", row ) << "'. ";
-      };
-    };
-    if ( code == "TRIP_BRD_WITH_REG" ||
-         code == "TRIP_EXAM_WITH_BRD" )
-    {
-      if ( UpdateStatus == usModified || UpdateStatus == usDeleted )
-      {
-        msg << "Отменен режим";
-        if (code == "TRIP_BRD_WITH_REG")
-        {
-          if ( ToInt(cache.FieldOldValue( "pr_misc", row )) == 0 )
-            msg << " раздельной регистрации и посадки";
-          else
-            msg << " посадки при регистрации";
-        }
-        else
-        {
-          if ( ToInt(cache.FieldOldValue( "pr_misc", row )) == 0 )
-            msg << " раздельной посадки и досмотра";
-          else
-            msg << " досмотра при посадке";
-        };
-        if ( !cache.FieldOldValue( "hall", row ).empty() )
-        {
-          msg << " для зала '"
-              << cache.FieldOldValue( "hall_view", row ) << "'";
-        };
-        msg << ". ";
-      };
-      if ( UpdateStatus == usInserted || UpdateStatus == usModified )
-      {
-        msg << "Установлен режим";
-        if (code == "TRIP_BRD_WITH_REG")
-        {
-          if ( ToInt(cache.FieldValue( "pr_misc", row )) == 0 )
-            msg << " раздельной регистрации и посадки";
-          else
-            msg << " посадки при регистрации";
-        }
-        else
-        {
-          if ( ToInt(cache.FieldValue( "pr_misc", row )) == 0 )
-            msg << " раздельной посадки и досмотра";
-          else
-            msg << " досмотра при посадке";
-        };
-        if ( !cache.FieldValue( "hall", row ).empty() )
-        {
-          msg << " для зала '"
-              << cache.FieldValue( "hall_view", row ) << "'";
-        };
-        msg << ". ";
-      };
-    };
-    if ( code == "TRIP_WEB_CKIN" ||
-         code == "TRIP_KIOSK_CKIN" ||
-         code == "TRIP_PAID_CKIN" ) {
-      if ( (UpdateStatus == usDeleted || ToInt(cache.FieldValue( "pr_permit", row )) == 0) &&
-           (UpdateStatus == usInserted || ToInt(cache.FieldOldValue( "pr_permit", row )) == 0) )
-      {
-          msg.str(""); //не записываем в лог
-      }
-      else
-      {
-        msg << "На рейсе";
-        if ((UpdateStatus == usInserted || UpdateStatus == usModified) &&
-            ToInt(cache.FieldValue( "pr_permit", row )) != 0)
-        {
-          if ( code == "TRIP_WEB_CKIN" ||
-               code == "TRIP_KIOSK_CKIN" )
-            msg << " разрешена";
-          else
-
-            msg << " производится";
-        }
-        else
-        {
-          if ( code == "TRIP_WEB_CKIN" ||
-               code == "TRIP_KIOSK_CKIN" )
-            msg << " запрещена";
-          else
-            msg << " не производится";
-        };
-
-        if ( code == "TRIP_WEB_CKIN")
-          msg << " web-регистрация";
-        if ( code == "TRIP_KIOSK_CKIN")
-          msg << " регистрация";
-        if ( code == "TRIP_PAID_CKIN")
-          msg << " платная регистрация";
-
-        if ( code == "TRIP_KIOSK_CKIN" )
-        {
-          //важно что desk_grp_id не может меняться когда UpdateStatus == usModified
-          //если это не так, алгоритм надо переделывать
-          if (((UpdateStatus == usInserted || UpdateStatus == usModified) &&
-               !cache.FieldValue( "desk_grp_id", row ).empty()) ||
-              ((UpdateStatus == usDeleted) &&
-               !cache.FieldOldValue( "desk_grp_id", row ).empty()))
-          {
-            msg << " для группы киосков '";
-
-            if (UpdateStatus == usInserted || UpdateStatus == usModified)
-              msg << cache.FieldValue( "desk_grp_view", row ) << "'";
-            else
-              msg << cache.FieldOldValue( "desk_grp_view", row ) << "'";
-          };
-        };
-
-        if ((UpdateStatus == usInserted || UpdateStatus == usModified) &&
-            ToInt(cache.FieldValue( "pr_permit", row )) != 0)
-        {
-          if ( code == "TRIP_WEB_CKIN" ||
-               code == "TRIP_KIOSK_CKIN" )
-          {
-            msg << " с параметрами: ";
-  /*          msg << "лист ожидания: ";
-            if ( ToInt(cache.FieldValue( "pr_waitlist", row )) == 0 )
-              msg << "нет, ";
-            else
-              msg << "да ,";*/
-            msg << "сквоз. рег.: ";
-            if ( ToInt(cache.FieldValue( "pr_tckin", row )) == 0 )
-              msg << "нет, ";
-            else
-              msg << "да, ";
-            msg << "перерасч. времен: ";
-            if ( ToInt(cache.FieldValue( "pr_upd_stage", row )) == 0 )
-              msg << "нет";
-            else
-              msg << "да";
-          }
-          else
-          {
-            msg << ". Таймаут резервирования до оплаты";
-            if ( cache.FieldValue( "prot_timeout", row ).empty() )
-              msg << " не определен";
-            else
-              msg << " " << ToInt(cache.FieldValue( "prot_timeout", row )) << " мин.";
-          };
-        };
-      };
-    };
-    message.msg=msg.str();
+    TLogLocale tlocale;
+    OnLoggingF( *this, row, UpdateStatus, tlocale);
+    if (!tlocale.lexema_id.empty())
+      TReqInfo::Instance()->LocaleToLog(tlocale);
     return;
   }
-}
-
-void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
-{
-  string str1, str2;
+  string str1, str2, lexema_id;
+  PrmEnum enum1("str1", ",");
+  PrmEnum enum2("str2", ",");
   if ( UpdateStatus == usModified || UpdateStatus == usInserted ) {
     int Idx=0;
     for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
       if ( iv->VarIdx[0] < 0 )
-       continue;
-      if ( !str1.empty() )
-        str1 += ", ";
-        if ( iv->Title.empty() )
-          str1 += iv->Name;
-        else
-          str1 += iv->Title;
-        str1 += "='" + string( Qry->GetVariableAsString( vars[ iv->VarIdx[ 0 ] ] ) ) + "'";
+        continue;
+      str1.clear();
+      if ( iv->Title.empty() )
+        str1 += iv->Name;
+      else
+        str1 += iv->Title;
+      str1 += "='" + string( Qry->GetVariableAsString( vars[ iv->VarIdx[ 0 ] ] ) ) + "'";
+      enum1.prms << PrmSmpl<string>("", str1);
     }
   }
   for (int l=0; l<2; l++ ) {
     int Idx=0;
-    str2 = "";
+    bool empty = true;
     for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
       ProgTrace( TRACE5, "l=%d, Name=%s, Ident=%d, Idx=%d, iv->VarIdx[0]=%d, iv->VarIdx[1]=%d",
                  l, iv->Name.c_str(), iv->Ident, Idx, iv->VarIdx[0], iv->VarIdx[1] );
@@ -1297,8 +1389,7 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
            (UpdateStatus == usInserted && iv->VarIdx[ 0 ] < 0) ||
            (UpdateStatus != usInserted && iv->VarIdx[ 1 ] < 0) )
         continue;
-      if ( !str2.empty() )
-        str2 += ", ";
+      str2.clear();
       if ( !iv->Title.empty() )
         str2 += iv->Title;
       else
@@ -1307,32 +1398,28 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
         str2 += "='" + string( Qry->GetVariableAsString( vars[ iv->VarIdx[ 0 ] ] ) ) + "'";
       else
         str2 += "='" + string( Qry->GetVariableAsString( vars[ iv->VarIdx[ 1 ] ] ) ) + "'";
+      empty = false;
       ProgTrace( TRACE5, "str2=|%s|", str2.c_str() );
+      enum2.prms << PrmSmpl<string>("", str2);
     }
-    if ( !str2.empty() )
+    if (!empty)
       break;
   }
   switch( UpdateStatus ) {
     case usInserted:
-           str1 = "Ввод строки в таблице '" + Title + "': " + str1 +
-                  ". Идентификатор: " + str2;
+           lexema_id = "EVT.TABLE.INSERT_ROW";
            break;
     case usModified:
-           str1 = "Изменение строки в таблице '" + Title + "': " + str1 +
-                  ". Идентификатор: " + str2;
+           lexema_id = "EVT.TABLE.UPDATE_ROW";
            break;
     case usDeleted:
-           str1 = "Удаление строки в таблице '" + Title + "'"+
-                  ". Идентификатор: " + str2;
+           lexema_id = "EVT.TABLE.DELETE_ROW";
            break;
     default:;
   }
-  TLogMsg message;
-  message.msg = str1;
-  message.ev_type = EventType;
-  OnLoggingF( *this, row, UpdateStatus, message );
-  if (!message.msg.empty())
-    TReqInfo::Instance()->MsgToLog( message );
+  if (!lexema_id.empty())
+      TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << PrmSmpl<string>("title", Title)
+                                        << enum1 << enum2, EventType);
 }
 
 void DeclareVariablesFromParams(const std::vector<string> &vars, const TParams &SQLParams, TQuery &Qry)

@@ -4,13 +4,16 @@
 #include <string>
 #include <map>
 #include <set>
+#include <vector>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/local_time/local_time.hpp>
+#include <boost/interprocess/smart_ptr/unique_ptr.hpp>
 #include "astra_consts.h"
+#include "astra_locale.h"
+#include "astra_locale_adv.h"
 #include "basic.h"
 #include "exceptions.h"
-#include "astra_locale.h"
 #include "oralib.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_xml_cont.h"
@@ -36,6 +39,22 @@ struct TLogMsg {
       id2 = ASTRA::NoExists;
       id3 = ASTRA::NoExists;
     };
+};
+
+struct TLogLocale {
+  public:
+    BASIC::TDateTime ev_time;
+    int ev_order;
+    ASTRA::TEventType ev_type;
+    std::string lexema_id;
+    LEvntPrms prms;
+    int id1,id2,id3;
+    std::vector<std::string> vlangs;
+    TLogLocale(): ev_time(ASTRA::NoExists), ev_order(ASTRA::NoExists), ev_type(ASTRA::evtUnknown),
+        lexema_id(""), prms(), id1(ASTRA::NoExists), id2(ASTRA::NoExists), id3(ASTRA::NoExists), vlangs() {
+        vlangs.push_back(AstraLocale::LANG_RU);
+        vlangs.push_back(AstraLocale::LANG_EN);
+    }
 };
 
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };
@@ -255,16 +274,10 @@ class TReqInfo
     void Initialize( const std::string &city );
     void Initialize( TReqInfoInitData &InitData );
     void MsgToLog(TLogMsg &msg);
-    void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3);
-    void MsgToLog(std::string msg, ASTRA::TEventType ev_type) {
-      MsgToLog(msg, ev_type, ASTRA::NoExists, ASTRA::NoExists, ASTRA::NoExists);
-    }
-    void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1) {
-      MsgToLog(msg, ev_type, id1, ASTRA::NoExists, ASTRA::NoExists);
-    }
-    void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2) {
-      MsgToLog(msg, ev_type, id1, id2, ASTRA::NoExists);
-    }
+    void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
+    void LocaleToLog(const std::string &vlexema, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
+    void LocaleToLog(const std::string &vlexema, const LEvntPrms &prms, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
+    void LocaleToLog(TLogLocale &msg);
     void setPerform();
     void clearPerform();
     long getExecuteMSec();
@@ -275,16 +288,6 @@ class TReqInfo
 
 void MergeAccess(std::vector<std::string> &a, bool &ap,
                  std::vector<std::string> b, bool bp);
-
-void MsgToLog(TLogMsg &msg,
-              const std::string &screen,
-              const std::string &user,
-              const std::string &desk);
-void MsgToLog(std::string msg,
-              ASTRA::TEventType ev_type,
-              int id1 = ASTRA::NoExists,
-              int id2 = ASTRA::NoExists,
-              int id3 = ASTRA::NoExists);
 
 ASTRA::TRptType DecodeRptType(const std::string s);
 const std::string EncodeRptType(ASTRA::TRptType s);
@@ -379,12 +382,6 @@ public:
   void ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
-};
-
-class UserException2:public AstraLocale::UserException
-{
-  public:
-    UserException2(): UserException(""){};
 };
 
 std::string convert_pnr_addr(const std::string &value, bool pr_lat);

@@ -21,15 +21,11 @@ class localizedstream : public std::ostringstream
     std::string lang() {return plang;};
     std::string ElemIdToCodeNative(TElemType type, const std::string &elem)
     {
-      std::vector< std::pair<TElemFmt,std::string> > fmts;
-      getElemFmts(efmtCodeNative, plang, fmts);
-      return ::ElemIdToElem(type, elem, fmts);
+      return ::ElemIdToPrefferedElem(type, elem, efmtNameShort, plang);
     };
     std::string ElemIdToNameShort(TElemType type, const std::string &elem)
     {
-      std::vector< std::pair<TElemFmt,std::string> > fmts;
-      getElemFmts(efmtNameShort, plang, fmts);
-      return ::ElemIdToElem(type, elem, fmts);
+      return ::ElemIdToPrefferedElem(type, elem, efmtNameShort, plang);
     };
                               
     std::string getLocaleText(const std::string &vlexema)

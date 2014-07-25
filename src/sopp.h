@@ -332,5 +332,9 @@ void check_trip_tasks( int move_id );
 bool CheckApis_USA( const std::string &airp );
 void IntReadTrips( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, long int &exec_time );
 
+void update_trip_sets(int point_id, const std::map<TTripSetType, bool> &sets, bool first_init);
+void set_flight_sets(int point_id, int f=0, int c=0, int y=0);
+void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tranzit);
+
 #endif /*_SOPP_H_*/
 
