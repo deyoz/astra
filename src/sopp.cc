@@ -6439,7 +6439,7 @@ void set_flight_sets(int point_id, int f, int c, int y)
         params << prms;
       }
       else params << PrmSmpl<string>("params", "");
-      TReqInfo::Instance()->LocaleToLog("EVT.TRIP_CKIN", params, evtFlt, point_id);   //!!!djek наверное надо всегда писать от имени системы, а этого не будет при формировании СПП вручную
+      TReqInfo::Instance()->LocaleToLog("EVT.TRIP_CKIN", params, evtFlt, point_id);
     };
 
     prev_client_type=client_type;

@@ -1049,7 +1049,7 @@ int TCacheTable::FieldIndex( const string name )
 string TCacheTable::FieldValue( const string name, const TRow &row )
 {
   int idx = FieldIndex(name);
-  if ( idx < 0 || idx >=row.cols.size() )
+  if ( idx < 0 || idx >=(int)row.cols.size() )
     throw Exception( "TCacheTable::FieldValue: field '%s' not found", name.c_str() );
   return row.cols[idx];
 };
@@ -1057,7 +1057,7 @@ string TCacheTable::FieldValue( const string name, const TRow &row )
 string TCacheTable::FieldOldValue( const string name, const TRow &row )
 {
   int idx = FieldIndex(name);
-  if ( idx < 0 || idx >=row.old_cols.size() )
+  if ( idx < 0 || idx >=(int)row.old_cols.size() )
     throw Exception( "TCacheTable::FieldOldValue: field '%s' not found", name.c_str() );
   return row.old_cols[idx];
 };

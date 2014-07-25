@@ -232,7 +232,7 @@ LParser::LParser( const string &lexema )
     while ( first_elem_idx != string::npos ) {
         string::size_type first_format_idx = lexema.find( FORMAT_FIRST_ELEM, first_elem_idx + VARIABLE_FIRST_ELEM.size() );
         string::size_type end_elem_idx = lexema.find( VARIABLE_END_ELEM,  first_elem_idx + VARIABLE_FIRST_ELEM.size() );
-        if(first_format_idx == string::npos or end_elem_idx != string::npos and first_format_idx > end_elem_idx) // special var encountered
+        if(first_format_idx == string::npos or (end_elem_idx != string::npos and first_format_idx > end_elem_idx)) // special var encountered
             first_format_idx = end_elem_idx;
 
         if ( first_format_idx == string::npos )

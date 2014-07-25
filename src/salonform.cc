@@ -761,7 +761,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       comp_lang = "рус.";
   }
   else
-    comp_lang = NodeAsString( "lang", refcompNode ); //!!!DJEK
+    comp_lang = NodeAsString( "lang", refcompNode ); //!!!DJEK  удалить, не используется
 
   if ( pr_initcomp ) { /* изменение компоновки */
     if ( cBase ) {

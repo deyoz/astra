@@ -3034,7 +3034,7 @@ bool CheckRefusability(int point_dep, int pax_id)
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
   if (!Qry.Eof) return false;
-
+/*
   Qry.Clear(); //!!!anna
   Qry.SQLText=
     "SELECT events.station "
@@ -3050,7 +3050,7 @@ bool CheckRefusability(int point_dep, int pax_id)
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
   if (!Qry.Eof) return false;
-
+*/
   return true;
 };
 
