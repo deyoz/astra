@@ -3020,7 +3020,7 @@ bool CheckRefusability(int point_dep, int pax_id)
   if (!(ckinClientType==ctWeb && reqInfo->client_type==ctWeb /*||
         ckinClientType==ctWeb && reqInfo->client_type==ctKiosk ||
         ckinClientType==ctKiosk && reqInfo->client_type==ctKiosk*/)) return false;
-/*
+
   Qry.Clear(); //!!!anna
   Qry.SQLText=
     "SELECT events_bilingual.station "
@@ -3036,7 +3036,7 @@ bool CheckRefusability(int point_dep, int pax_id)
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
   if (!Qry.Eof) return false;
-*/
+
   return true;
 };
 
