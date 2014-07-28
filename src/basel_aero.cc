@@ -384,18 +384,20 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
   if (part_key!=NoExists)
   {
     sql <<
-      "FROM arx_events " //!!!anna
-      "WHERE type=:evtPax AND part_key=:part_key AND id1=:point_id AND ";
+      "FROM arx_events " //!!!anna  !!!vlad
+      "WHERE type=:evtPax AND part_key=:part_key AND (lang=:lang OR lang=:lang_undef) AND id1=:point_id AND ";
     Qry.CreateVariable("part_key", otDate, part_key);
+    Qry.CreateVariable("lang_undef", otString, "ZZ");
   }
   else
     sql <<
-      "FROM events " //!!!anna
-      "WHERE type=:evtPax AND id1=:point_id AND ";
+      "FROM events_bilingual " //!!!anna  !!!vlad
+      "WHERE lang=:lang AND type=:evtPax AND id1=:point_id AND ";
   sql <<
     "      (msg like '%зарегистрирован%' OR msg like '%прошел посадку%') "
     "GROUP BY id3, id2";
   Qry.SQLText=sql.str().c_str();
+  Qry.CreateVariable("lang", otString, AstraLocale::LANG_RU);
   Qry.CreateVariable("evtPax", otString, EncodeEventType(ASTRA::evtPax));
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();

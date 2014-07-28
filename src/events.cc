@@ -81,10 +81,10 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
                "       ev_user, station, ev_order \n";
         if (part_key != NoExists)
           sql << "FROM arx_events \n"
-                 "WHERE part_key=:part_key AND \n";
+                 "WHERE part_key=:part_key AND (lang=:lang OR lang=:lang_undef) AND \n";
         else
-          sql << "FROM events \n" //!!!anna
-                 "WHERE \n";
+          sql << "FROM events_bilingual \n" //!!!anna
+                 "WHERE lang=:lang AND \n";
         sql << " type=:evtDisp AND id1=:move_id \n";
         Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
         Qry.CreateVariable("move_id",otInteger,move_id);
@@ -100,17 +100,20 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
                "       ev_user, station, ev_order \n";
         if (part_key != NoExists)
           sql << "FROM arx_events \n"
-                 "WHERE part_key=:part_key AND \n";
+                 "WHERE part_key=:part_key AND (lang=:lang OR lang=:lang_undef) AND \n";
         else
-          sql << "FROM events \n" //!!!anna
-                 "WHERE \n";
+          sql << "FROM events_bilingual \n" //!!!anna
+                 "WHERE lang=:lang AND \n";
         sql << " type IN " << GetSQLEnum(eventTypes) << " AND id1=:point_id \n";
         Qry.CreateVariable("point_id",otInteger,point_id);
       };
+      Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
       Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
       Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
-      if (part_key != NoExists)
+      if (part_key != NoExists) {
         Qry.CreateVariable( "part_key", otDate, part_key );
+        Qry.CreateVariable("lang_undef", otString, "ZZ");
+      }
 
       //ProgTrace(TRACE5, "GetEvents: SQL=\n%s", sql.str().c_str());
       Qry.SQLText=sql.str().c_str();

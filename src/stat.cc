@@ -592,12 +592,13 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         SQLQuery =
             "SELECT msg, time,  "
             "       id1 AS point_id,  "
-            "       events.screen,  "
+            "       events_bilingual.screen,  "
             "       ev_user, station, ev_order  "
-            "FROM events  " //!!!anna
+            "FROM events_bilingual  " //!!!anna
             "WHERE "
-            "   events.type = :evtFltTask AND  "
-            "   events.id1=:point_id  ";
+            "   events_bilingual.lang = :lang AND  "
+            "   events_bilingual.type = :evtFltTask AND  "
+            "   events_bilingual.id1=:point_id  ";
     } else {
         {
             TQuery Qry(&OraSession);
@@ -618,6 +619,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "FROM arx_events  " //!!!anna
             "WHERE "
             "   arx_events.part_key = :part_key and "
+            "   (arx_events.lang = :lang OR arx_events.lang = :lang_undef) AND "
             "   arx_events.type = :evtFltTask AND  "
             "   arx_events.id1=:point_id  ";
     }
@@ -628,10 +630,13 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     xmlNodePtr rowsNode = NULL;
     Qry.Clear();
     Qry.SQLText = SQLQuery;
+    Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("evtFltTask",otString,EncodeEventType(ASTRA::evtFltTask));
-    if(part_key != NoExists)
+    if(part_key != NoExists) {
         Qry.CreateVariable("part_key", otDate, part_key);
+        Qry.CreateVariable("lang_undef", otString, "ZZ");
+    }
     try {
         Qry.Execute();
     } catch (EOracleError &E) {
@@ -746,25 +751,27 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         qry1 =
             "SELECT msg, time,  "
             "       id1 AS point_id,  "
-            "       events.screen,  "
+            "       events_bilingual.screen,  "
             "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no,  "
             "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM events  " //!!!anna
+            "FROM events_bilingual  " //!!!anna
             "WHERE "
-            "   events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
-            "   events.id1=:point_id  ";
+            "   events_bilingual.lang = :lang AND  "
+            "   events_bilingual.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
+            "   events_bilingual.id1=:point_id  ";
         qry2 =
             "SELECT msg, time,  "
             "       id2 AS point_id,  "
-            "       events.screen,  "
+            "       events_bilingual.screen,  "
             "       NULL AS reg_no,  "
             "       NULL AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM events  " //!!!anna
+            "FROM events_bilingual  " //!!!anna
             "WHERE "
-            "events.type IN (:evtDisp) AND "
-            "events.id1=:move_id  ";
+            "   events_bilingual.lang = :lang AND  "
+            "   events_bilingual.type IN (:evtDisp) AND  "
+            "   events_bilingual.id1=:move_id  ";
     } else {
         {
             TQuery Qry(&OraSession);
@@ -788,6 +795,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "FROM arx_events  " //!!!anna
             "WHERE "
             "   arx_events.part_key = :part_key and "
+            "   (arx_events.lang = :lang OR arx_events.lang = :lang_undef) and "
             "   arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
             "   arx_events.id1=:point_id  ";
         qry2 =
@@ -800,6 +808,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "FROM arx_events  " //!!!anna
             "WHERE "
             "      arx_events.part_key = :part_key and "
+            "      (arx_events.lang = :lang OR arx_events.lang = :lang_undef) and "
             "      arx_events.type IN (:evtDisp) AND "
             "      arx_events.id1=:move_id  ";
     }
@@ -824,8 +833,11 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             Qry.CreateVariable("move_id", otInteger, move_id);
             Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
         }
-        if(part_key != NoExists)
+        Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
+        if(part_key != NoExists) {
             Qry.CreateVariable("part_key", otDate, part_key);
+            Qry.CreateVariable("lang_undef", otString, "ZZ");
+        }
         try {
             Qry.Execute();
         } catch (EOracleError &E) {
@@ -937,8 +949,10 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
-            "FROM events " //!!!anna
-            "WHERE type IN (:evtPax,:evtPay) AND "
+            "FROM events_bilingual " //!!!anna
+            "WHERE "
+            "      lang = :lang AND "
+            "      type IN (:evtPax,:evtPay) AND "
             "      screen <> 'ASTRASERV.EXE' and "
             "      id1=:point_id AND "
             "      (id2 IS NULL OR id2=:reg_no) AND "
@@ -949,16 +963,19 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
-            "FROM arx_events "
+            "FROM arx_events " //!!!anna
             "WHERE part_key = :part_key AND "
+            "      (lang = :lang OR lang = :lang_undef) AND "
             "      type IN (:evtPax,:evtPay) AND "
             "      screen <> 'ASTRASERV.EXE' and "
             "      id1=:point_id AND "
             "      (id2 IS NULL OR id2=:reg_no) AND "
             "      (id3 IS NULL OR id3=:grp_id) ";
         Qry.CreateVariable("part_key", otDate, part_key);
+        Qry.CreateVariable("lang_undef", otString, "ZZ");
     }
 
+    Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
     Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
     Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -1128,14 +1145,15 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
                 "  ev_user, station, ev_order, null part_key "
                 "FROM "
-                "   events " //!!!anna
+                "  events_bilingual " //!!!anna
                 "WHERE "
-                "  events.time >= :FirstDate and "
-                "  events.time < :LastDate and "
+                "  events_bilingual.lang = :lang AND "
+                "  events_bilingual.time >= :FirstDate and "
+                "  events_bilingual.time < :LastDate and "
                 "  (:agent is null or nvl(ev_user, :system_user) = :agent) and "
                 "  (:module is null or nvl(screen, :system_user) = :module) and "
                 "  (:station is null or nvl(station, :system_user) = :station) and "
-                "  events.type IN ( "
+                "  events_bilingual.type IN ( "
                 "    :evtFlt, "
                 "    :evtFltTask, "
                 "    :evtPax, "
@@ -1164,6 +1182,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "WHERE "
                 "  arx_events.part_key >= :FirstDate - 10 and " // time и part_key не совпадают для
                 "  arx_events.part_key < :LastDate + 10 and "   // разных типов событий
+                "  (arx_events.lang = :lang OR arx_events.lang = :lang_undef) and "
                 "  arx_events.time >= :FirstDate and "         // поэтому для part_key берем больший диапазон time
                 "  arx_events.time < :LastDate and "
                 "  (:agent is null or nvl(ev_user, :system_user) = :agent) and "
@@ -1184,8 +1203,10 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "    :evtDisp, "
                 "    :evtPeriod "
                 "          ) ";
+            Qry.CreateVariable("lang_undef", otString, "ZZ");
         }
 
+        Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
         Qry.CreateVariable("evtFlt", otString, NodeAsString("evtFlt", reqNode));
         Qry.CreateVariable("evtPax", otString, NodeAsString("evtPax", reqNode));
         Qry.CreateVariable("system_user", otString, SYSTEM_USER);
