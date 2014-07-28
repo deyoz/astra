@@ -5291,7 +5291,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "    RETURNING grp_id,reg_no INTO :grp_id,:reg_no; "
             "    IF :grp_id IS NOT NULL AND :reg_no IS NOT NULL AND "
             "       :ev_time IS NOT NULL AND :ev_order IS NOT NULL THEN "
-            "      DELETE FROM events_bilingual WHERE time=:ev_time AND ev_order=:ev_order; " //!!!anna !!! vlad
+            "      DELETE FROM events_bilingual WHERE time=:ev_time AND ev_order=:ev_order; "
             "    END IF; "
             "  END IF; "
             "END; ";
