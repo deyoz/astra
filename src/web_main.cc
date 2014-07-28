@@ -1817,6 +1817,63 @@ void CompletePnrData(bool is_test, int pnr_id, WebSearch::TPnrData &pnrData)
   };
 };
 
+void CheckSeatNoFromReq(int point_id,
+                        int crs_pax_id,
+                        const string &prior_seat_no,
+                        const string &curr_seat_no,
+                        string &curr_xname,
+                        string &curr_yname,
+                        bool &changed)
+{
+  curr_xname.clear();
+  curr_yname.clear();
+  changed=false;
+  if (curr_seat_no.empty()) return;
+
+  getXYName( point_id, curr_seat_no, curr_xname, curr_yname );
+	if ( curr_xname.empty() && curr_yname.empty() )
+		throw UserException( "MSG.SEATS.SEAT_NO.NOT_FOUND" );
+
+  if (!prior_seat_no.empty())
+  {
+    // надо номализовать старое и новое место, сравнить их, если изменены, то вызвать пересадку
+    string prior_xname, prior_yname;
+  	getXYName( point_id, prior_seat_no, prior_xname, prior_yname );
+
+  	if ( prior_xname + prior_yname != curr_xname + curr_yname )
+    {
+      TQuery Qry(&OraSession);
+      Qry.Clear();
+      Qry.SQLText=
+        "DECLARE "
+        "vseat_xname crs_pax.seat_xname%TYPE; "
+        "vseat_yname crs_pax.seat_yname%TYPE; "
+        "vseats      crs_pax.seats%TYPE; "
+        "vpoint_id   crs_pnr.point_id%TYPE; "
+        "BEGIN "
+        "  SELECT crs_pax.seat_xname, crs_pax.seat_yname, crs_pax.seats, crs_pnr.point_id "
+        "  INTO vseat_xname, vseat_yname, vseats, vpoint_id "
+        "  FROM crs_pnr,crs_pax "
+        "  WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:crs_pax_id AND crs_pax.pr_del=0; "
+        "  :crs_seat_no:=salons.get_crs_seat_no(:crs_pax_id, vseat_xname, vseat_yname, vseats, vpoint_id, :layer_type, 'one', 1); "
+        "EXCEPTION "
+        "  WHEN NO_DATA_FOUND THEN NULL; "
+        "END;";
+      Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
+      Qry.CreateVariable("layer_type", otString, FNull);
+      Qry.CreateVariable("crs_seat_no", otString, FNull);
+      Qry.Execute();
+      TCompLayerType layer_type=DecodeCompLayerType(Qry.GetVariableAsString("layer_type"));
+      if (layer_type==cltPNLBeforePay ||
+          layer_type==cltPNLAfterPay ||
+          layer_type==cltProtBeforePay ||
+          layer_type==cltProtAfterPay)
+        throw UserException( "MSG.SEATS.SEAT_NO.NOT_COINCIDE_WITH_PREPAID" );
+      changed=true;
+    };
+  };
+}
+
 void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs,
                     const vector<WebSearch::TPnrData> &PNRs,
                     const XMLDoc &emulDocHeader,
@@ -1900,6 +1957,19 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
               if (iPaxFromReq->crs_pax_id==iPaxForCkin->crs_pax_id) break;
             if (iPaxFromReq==currPnr.paxFromReq.end())
               throw EXCEPTIONS::Exception("CreateEmulDocs: iPaxFromReq==currPnr.paxFromReq.end() (seg_no=%d, crs_pax_id=%d)", seg_no, iPaxForCkin->crs_pax_id);
+
+            if (!iPaxFromReq->seat_no.empty())
+            {
+              string curr_xname, curr_yname;
+              bool changed;
+              CheckSeatNoFromReq(iPnrData->flt.point_dep,
+                                 iPaxForCkin->crs_pax_id,
+                                 iPaxForCkin->seat_no,
+                                 iPaxFromReq->seat_no,
+                                 curr_xname,
+                                 curr_yname,
+                                 changed);
+            };
 
             xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
             NewTextChild(paxNode,"pax_id",iPaxForCkin->crs_pax_id);
@@ -2001,14 +2071,17 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           //пассажир зарегистрирован
           if (!iPaxFromReq->refuse &&!iPaxFromReq->seat_no.empty() && iPaxForChng->seats > 0)
           {
-          	string prior_xname, prior_yname;
-          	string curr_xname, curr_yname;
-          	// надо номализовать старое и новое место, сравнить их, если изменены, то вызвать пересадку
-          	getXYName( iPnrData->flt.point_dep, iPaxForChng->seat_no, prior_xname, prior_yname );
-          	getXYName( iPnrData->flt.point_dep, iPaxFromReq->seat_no, curr_xname, curr_yname );
-          	if ( curr_xname.empty() && curr_yname.empty() )
-          		throw UserException( "MSG.SEATS.SEAT_NO.NOT_FOUND" );
-          	if ( prior_xname + prior_yname != curr_xname + curr_yname ) {
+            string curr_xname, curr_yname;
+            bool changed;
+            CheckSeatNoFromReq(iPnrData->flt.point_dep,
+                               iPaxForChng->crs_pax_id,
+                               iPaxForChng->seat_no,
+                               iPaxFromReq->seat_no,
+                               curr_xname,
+                               curr_yname,
+                               changed);
+            if (changed)
+            {
               if ( isTranzitSalonsVersion ) {
                 IntChangeSeatsN( iPnrData->flt.point_dep,
                                   iPaxForChng->crs_pax_id,
@@ -2029,7 +2102,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
                                 false, false,
                                 NULL );
           	  }
-            }
+            };
           };
 
           bool DocUpdatesPending=false;
