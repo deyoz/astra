@@ -753,15 +753,14 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   string lexema_id;
   LEvntPrms params;
   string comp_lang;
-  int pr_lat = NodeAsInteger( "pr_lat", refcompNode );
   if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
-    if (pr_lat != 0)
+    if ( NodeAsInteger( "pr_lat", refcompNode ) != 0 )
   	  comp_lang = "лат.";
   	else
-      comp_lang = "рус.";
+  		comp_lang = "рус.";
   }
   else
-    comp_lang = NodeAsString( "lang", refcompNode ); //!!!DJEK  удалить, не используется
+    comp_lang = NodeAsString( "lang", refcompNode );
 
   if ( pr_initcomp ) { /* изменение компоновки */
     if ( cBase ) {
@@ -775,12 +774,12 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       else
         params << PrmSmpl<string>("layout", "");
     }
-    params << PrmLexema("lang", (pr_lat != 0)?"EVT.LANGUAGE_LAT":"EVT.LANGUAGE_RUS");
+    params << PrmLexema("lang", (comp_lang == "лат.")?"EVT.LANGUAGE_LAT":"EVT.LANGUAGE_RUS");
   }
   else {
     lexema_id = "EVT.LAYOUT_MODIFIED_SALON_CHANGES";
     params << PrmSmpl<string>("cls", NodeAsString("classes", refcompNode))
-              << PrmLexema("lang", (pr_lat != 0)?"EVT.LANGUAGE_LAT":"EVT.LANGUAGE_RUS");
+              << PrmLexema("lang", (comp_lang == "лат.")?"EVT.LANGUAGE_LAT":"EVT.LANGUAGE_RUS");
   }
   SALONS2::setTRIP_CLASSES( trip_id );
   //set flag auto change in false state
