@@ -3021,7 +3021,7 @@ bool CheckRefusability(int point_dep, int pax_id)
         ckinClientType==ctWeb && reqInfo->client_type==ctKiosk ||
         ckinClientType==ctKiosk && reqInfo->client_type==ctKiosk*/)) return false;
 
-  Qry.Clear(); //!!!anna
+  Qry.Clear();
   Qry.SQLText=
     "SELECT events_bilingual.station "
     "FROM "

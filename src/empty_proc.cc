@@ -257,7 +257,7 @@ int get_events_stat(int argc,char **argv)
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO drop_events_stat(month, event_type, event_count) "
-    "SELECT :low_date, type, COUNT(*) FROM events " //!!!anna возможно эта процедура не нужна вообще
+    "SELECT :low_date, type, COUNT(*) FROM events_bilingual "
     "WHERE time>=:low_date AND time<:high_date "
     "GROUP BY type";
   Qry.DeclareVariable("low_date", otDate);
@@ -296,7 +296,7 @@ int get_events_stat2(int argc,char **argv)
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO drop_events(type, time, ev_order, msg, screen, ev_user, station, id1, id2, id3) "
-    "SELECT type, time, ev_order, msg, screen, ev_user, station, id1, id2, id3 FROM events "  //!!!anna возможно эта процедура не нужна вообще
+    "SELECT type, time, ev_order, msg, screen, ev_user, station, id1, id2, id3 FROM events_bilingual "
     "WHERE time>=:low_date AND time<:high_date AND type<>'СЕЗ' ";
   Qry.DeclareVariable("low_date", otDate);
   Qry.DeclareVariable("high_date", otDate);
@@ -485,23 +485,22 @@ int get_sirena_rozysk_stat(int argc,char **argv)
       PaxQry.DeclareVariable("point_dep", otInteger);
       PaxQry.DeclareVariable("point_arv", otInteger);
 
-      throw EXCEPTIONS::Exception("check events_bilingual instead events");
-
       TQuery EventsQry(&OraSession);
       EventsQry.Clear();
       if (pass==1)
       {
         EventsQry.SQLText=
           "SELECT MIN(time) AS time FROM arx_events "
-          "WHERE part_key=:part_key AND type=:evtPax AND id1=:point_dep AND id2=:reg_no";
+          "WHERE part_key=:part_key AND lang=:lang AND type=:evtPax AND id1=:point_dep AND id2=:reg_no";
         EventsQry.DeclareVariable("part_key", otDate);
       }
       else
       {
         EventsQry.SQLText=
-          "SELECT MIN(time) AS time FROM events "
-          "WHERE type=:evtPax AND id1=:point_dep AND id2=:reg_no";
+          "SELECT MIN(time) AS time FROM events_bilingual "
+          "WHERE lang=:lang AND type=:evtPax AND id1=:point_dep AND id2=:reg_no";
       };
+      EventsQry.CreateVariable("lang", otString, AstraLocale::LANG_RU);
       EventsQry.CreateVariable("evtPax", otString, EncodeEventType(ASTRA::evtPax));
       EventsQry.DeclareVariable("point_dep", otInteger);
       EventsQry.DeclareVariable("reg_no", otInteger);
@@ -2480,10 +2479,12 @@ int mobile_stat(int argc,char **argv)
   if (Qry.Eof) return 0;
   int user_id=Qry.FieldAsInteger("user_id");
 
-  throw EXCEPTIONS::Exception("check events_bilingual instead events");
-
   TQuery EventQry(&OraSession);
-  EventQry.SQLText="SELECT MIN(time) AS time FROM events WHERE type=:type AND id1=:point_id AND id3=:grp_id";
+  EventQry.SQLText=
+    "SELECT MIN(time) AS time "
+    "FROM events_bilingual "
+    "WHERE lang=:lang AND type=:type AND id1=:point_id AND id3=:grp_id";
+  EventQry.CreateVariable("lang", otString, AstraLocale::LANG_RU);
   EventQry.CreateVariable("type", otString, EncodeEventType(ASTRA::evtPax));
   EventQry.DeclareVariable("point_id", otInteger);
   EventQry.DeclareVariable("grp_id", otInteger);

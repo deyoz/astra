@@ -542,65 +542,6 @@ long TReqInfo::getExecuteMSec()
 	return pt.total_milliseconds();
 }
 
-void TReqInfo::MsgToLog(TLogMsg &msg)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "BEGIN "
-        "  INSERT INTO events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
-        "  VALUES(:type,system.UTCSYSDATE,events__seq.nextval,"
-        "         SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) "
-        "  RETURNING time,ev_order INTO :ev_time,:ev_order; "
-        "END;";
-    Qry.DeclareVariable("type", otString);
-    Qry.DeclareVariable("msg", otString);
-    Qry.DeclareVariable("screen", otString);
-    Qry.DeclareVariable("ev_user", otString);
-    Qry.DeclareVariable("station", otString);
-    Qry.DeclareVariable("id1", otInteger);
-    Qry.DeclareVariable("id2", otInteger);
-    Qry.DeclareVariable("id3", otInteger);
-    Qry.CreateVariable("ev_time", otDate, FNull);
-    Qry.CreateVariable("ev_order", otInteger, FNull);
-    Qry.SetVariable("type", EncodeEventType(msg.ev_type));
-    Qry.SetVariable("msg", msg.msg);
-    Qry.SetVariable("screen", screen.name);
-    Qry.SetVariable("ev_user", user.descr);
-    Qry.SetVariable("station", desk.code);
-    if(msg.id1!=0 && msg.id1!=NoExists)
-        Qry.SetVariable("id1", msg.id1);
-    else
-        Qry.SetVariable("id1", FNull);
-    if(msg.id2!=0 && msg.id2!=NoExists)
-        Qry.SetVariable("id2", msg.id2);
-    else
-        Qry.SetVariable("id2", FNull);
-    if(msg.id3!=0 && msg.id3!=NoExists)
-        Qry.SetVariable("id3", msg.id3);
-    else
-        Qry.SetVariable("id3", FNull);
-    Qry.Execute();
-    if (!Qry.VariableIsNULL("ev_time"))
-      msg.ev_time=Qry.GetVariableAsDateTime("ev_time");
-    else
-      msg.ev_time=ASTRA::NoExists;
-    if (!Qry.VariableIsNULL("ev_order"))
-      msg.ev_order=Qry.GetVariableAsInteger("ev_order");
-    else
-      msg.ev_order=ASTRA::NoExists;
-};
-
-void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id3)
-{
-    TLogMsg msgh;
-    msgh.msg = msg;
-    msgh.ev_type = ev_type;
-    msgh.id1 = id1;
-    msgh.id2 = id2;
-    msgh.id3 = id3;
-    MsgToLog(msgh);
-}
-
 void TReqInfo::LocaleToLog(const string &vlexema, TEventType ev_type, int id1, int id2, int id3)
 {
  TLogLocale msgh;

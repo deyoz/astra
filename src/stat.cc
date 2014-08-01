@@ -594,7 +594,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "       id1 AS point_id,  "
             "       events_bilingual.screen,  "
             "       ev_user, station, ev_order  "
-            "FROM events_bilingual  " //!!!anna
+            "FROM events_bilingual  "
             "WHERE "
             "   events_bilingual.lang = :lang AND  "
             "   events_bilingual.type = :evtFltTask AND  "
@@ -616,7 +616,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "       id1 AS point_id,  "
             "       arx_events.screen,  "
             "       ev_user, station, ev_order  "
-            "FROM arx_events  " //!!!anna
+            "FROM arx_events  "
             "WHERE "
             "   arx_events.part_key = :part_key and "
             "   (arx_events.lang = :lang OR arx_events.lang = :lang_undef) AND "
@@ -755,7 +755,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no,  "
             "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM events_bilingual  " //!!!anna
+            "FROM events_bilingual  "
             "WHERE "
             "   events_bilingual.lang = :lang AND  "
             "   events_bilingual.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
@@ -767,7 +767,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       NULL AS reg_no,  "
             "       NULL AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM events_bilingual  " //!!!anna
+            "FROM events_bilingual  "
             "WHERE "
             "   events_bilingual.lang = :lang AND  "
             "   events_bilingual.type IN (:evtDisp) AND  "
@@ -792,7 +792,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no,  "
             "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM arx_events  " //!!!anna
+            "FROM arx_events  "
             "WHERE "
             "   arx_events.part_key = :part_key and "
             "   (arx_events.lang = :lang OR arx_events.lang = :lang_undef) and "
@@ -805,7 +805,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       NULL AS reg_no,  "
             "       NULL AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM arx_events  " //!!!anna
+            "FROM arx_events  "
             "WHERE "
             "      arx_events.part_key = :part_key and "
             "      (arx_events.lang = :lang OR arx_events.lang = :lang_undef) and "
@@ -949,7 +949,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
-            "FROM events_bilingual " //!!!anna
+            "FROM events_bilingual "
             "WHERE "
             "      lang = :lang AND "
             "      type IN (:evtPax,:evtPay) AND "
@@ -963,7 +963,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
-            "FROM arx_events " //!!!anna
+            "FROM arx_events "
             "WHERE part_key = :part_key AND "
             "      (lang = :lang OR lang = :lang_undef) AND "
             "      type IN (:evtPax,:evtPay) AND "
@@ -1145,7 +1145,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
                 "  ev_user, station, ev_order, null part_key "
                 "FROM "
-                "  events_bilingual " //!!!anna
+                "  events_bilingual "
                 "WHERE "
                 "  events_bilingual.lang = :lang AND "
                 "  events_bilingual.time >= :FirstDate and "
@@ -1178,7 +1178,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
                 "  ev_user, station, ev_order, part_key "
                 "FROM "
-                "   arx_events " //!!!anna
+                "   arx_events "
                 "WHERE "
                 "  arx_events.part_key >= :FirstDate - 10 and " // time и part_key не совпадают для
                 "  arx_events.part_key < :LastDate + 10 and "   // разных типов событий

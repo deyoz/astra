@@ -83,7 +83,7 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
           sql << "FROM arx_events \n"
                  "WHERE part_key=:part_key AND (lang=:lang OR lang=:lang_undef) AND \n";
         else
-          sql << "FROM events_bilingual \n" //!!!anna
+          sql << "FROM events_bilingual \n"
                  "WHERE lang=:lang AND \n";
         sql << " type=:evtDisp AND id1=:move_id \n";
         Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
@@ -102,7 +102,7 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
           sql << "FROM arx_events \n"
                  "WHERE part_key=:part_key AND (lang=:lang OR lang=:lang_undef) AND \n";
         else
-          sql << "FROM events_bilingual \n" //!!!anna
+          sql << "FROM events_bilingual \n"
                  "WHERE lang=:lang AND \n";
         sql << " type IN " << GetSQLEnum(eventTypes) << " AND id1=:point_id \n";
         Qry.CreateVariable("point_id",otInteger,point_id);
