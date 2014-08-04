@@ -593,7 +593,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "SELECT msg, time,  "
             "       id1 AS point_id,  "
             "       events_bilingual.screen,  "
-            "       ev_user, station, ev_order  "
+            "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num "
             "FROM events_bilingual  "
             "WHERE "
             "   events_bilingual.lang = :lang AND  "
@@ -615,7 +615,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "SELECT msg, time,  "
             "       id1 AS point_id,  "
             "       arx_events.screen,  "
-            "       ev_user, station, ev_order  "
+            "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num  "
             "FROM arx_events  "
             "WHERE "
             "   arx_events.part_key = :part_key and "
@@ -664,6 +664,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         int col_time=Qry.FieldIndex("time");
         int col_msg=Qry.FieldIndex("msg");
         int col_ev_order=Qry.FieldIndex("ev_order");
+        int col_part_num=Qry.FieldIndex("part_num");
         int col_screen=Qry.FieldIndex("screen");
 
         if(!rowsNode)
@@ -682,6 +683,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
                     );
             NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
             NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+            NewTextChild(rowNode, "part_num", Qry.FieldAsInteger(col_part_num), 1);
             NewTextChild(rowNode, "ev_user", ev_user, "");
             NewTextChild(rowNode, "station", station, "");
             string screen = Qry.FieldAsString(col_screen);
@@ -754,7 +756,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       events_bilingual.screen,  "
             "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no,  "
             "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id,  "
-            "       ev_user, station, ev_order  "
+            "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num  "
             "FROM events_bilingual  "
             "WHERE "
             "   events_bilingual.lang = :lang AND  "
@@ -766,7 +768,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       events_bilingual.screen,  "
             "       NULL AS reg_no,  "
             "       NULL AS grp_id,  "
-            "       ev_user, station, ev_order  "
+            "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num  "
             "FROM events_bilingual  "
             "WHERE "
             "   events_bilingual.lang = :lang AND  "
@@ -791,7 +793,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       arx_events.screen,  "
             "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no,  "
             "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id,  "
-            "       ev_user, station, ev_order  "
+            "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num  "
             "FROM arx_events  "
             "WHERE "
             "   arx_events.part_key = :part_key and "
@@ -804,7 +806,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       arx_events.screen,  "
             "       NULL AS reg_no,  "
             "       NULL AS grp_id,  "
-            "       ev_user, station, ev_order  "
+            "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num  "
             "FROM arx_events  "
             "WHERE "
             "      arx_events.part_key = :part_key and "
@@ -867,6 +869,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             int col_reg_no=Qry.FieldIndex("reg_no");
             int col_msg=Qry.FieldIndex("msg");
             int col_ev_order=Qry.FieldIndex("ev_order");
+            int col_part_num=Qry.FieldIndex("part_num");
             int col_screen=Qry.FieldIndex("screen");
 
             if(!rowsNode)
@@ -885,6 +888,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                         );
                 NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
                 NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+                NewTextChild(rowNode, "part_num", Qry.FieldAsInteger(col_part_num), 1);
                 if(!Qry.FieldIsNULL(col_grp_id))
                     NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
                 if(!Qry.FieldIsNULL(col_reg_no))
@@ -948,7 +952,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         AirlineQry.SQLText = "select airline from points where point_id = :point_id and pr_del >= 0";
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
-            "       ev_user, station, ev_order "
+            "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num "
             "FROM events_bilingual "
             "WHERE "
             "      lang = :lang AND "
@@ -962,7 +966,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         AirlineQry.CreateVariable("part_key", otDate, part_key);
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
-            "       ev_user, station, ev_order "
+            "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num "
             "FROM arx_events "
             "WHERE part_key = :part_key AND "
             "      (lang = :lang OR lang = :lang_undef) AND "
@@ -1016,6 +1020,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         int col_reg_no=Qry.FieldIndex("reg_no");
         int col_msg=Qry.FieldIndex("msg");
         int col_ev_order=Qry.FieldIndex("ev_order");
+        int col_part_num=Qry.FieldIndex("part_num");
         int col_screen=Qry.FieldIndex("screen");
 
         xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
@@ -1033,6 +1038,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
                     );
             NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
             NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+            NewTextChild(rowNode, "part_num", Qry.FieldAsInteger(col_part_num), 1);
             if(!Qry.FieldIsNULL(col_grp_id))
                 NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
             if(!Qry.FieldIsNULL(col_reg_no))
@@ -1143,7 +1149,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "       screen, "
                 "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-                "  ev_user, station, ev_order, null part_key "
+                "  ev_user, station, ev_order, NVL(part_num, 1) AS part_num, null part_key "
                 "FROM "
                 "  events_bilingual "
                 "WHERE "
@@ -1176,7 +1182,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "       screen, "
                 "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-                "  ev_user, station, ev_order, part_key "
+                "  ev_user, station, ev_order, NVL(part_num, 1) AS part_num, part_key "
                 "FROM "
                 "   arx_events "
                 "WHERE "
@@ -1276,6 +1282,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             int col_reg_no=Qry.FieldIndex("reg_no");
             int col_msg=Qry.FieldIndex("msg");
             int col_ev_order=Qry.FieldIndex("ev_order");
+            int col_part_num=Qry.FieldIndex("part_num");
             int col_screen=Qry.FieldIndex("screen");
             int col_part_key=Qry.FieldIndex("part_key");
 
@@ -1325,6 +1332,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                         );
                 NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
                 NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+                NewTextChild(rowNode, "part_num", Qry.FieldAsInteger(col_part_num), 1);
                 if(!Qry.FieldIsNULL(col_point_id)) {
                     int point_id = Qry.FieldAsInteger(col_point_id);
                     if(TripItems.find(point_id) == TripItems.end()) {

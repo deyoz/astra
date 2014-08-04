@@ -94,10 +94,10 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       
       if (!eventTypes.empty())
       {
-        sql << "SELECT type, msg, time, id1 AS point_id, \n"
+        sql << "SELECT msg, time, id1 AS point_id, \n"
                "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, \n"
                "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, \n"
-               "       ev_user, station, ev_order \n";
+               "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num \n";
         if (part_key != NoExists)
           sql << "FROM arx_events \n"
                  "WHERE part_key=:part_key AND (lang=:lang OR lang=:lang_undef) AND \n";
@@ -119,21 +119,35 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       Qry.SQLText=sql.str().c_str();
       Qry.Execute();
 
-      for(;!Qry.Eof;Qry.Next())
+      if (!Qry.Eof)
       {
-        xmlNodePtr rowNode=NewTextChild(logNode,"row");
-        NewTextChild(rowNode,"point_id",Qry.FieldAsInteger("point_id"));
-        NewTextChild(rowNode,"ev_user",Qry.FieldAsString("ev_user"));
-        NewTextChild(rowNode,"station",Qry.FieldAsString("station"));
+        int col_msg=Qry.FieldIndex("msg");
+        int col_time=Qry.FieldIndex("time");
+        int col_point_id=Qry.FieldIndex("point_id");
+        int col_reg_no=Qry.FieldIndex("reg_no");
+        int col_grp_id=Qry.FieldIndex("grp_id");
+        int col_ev_user=Qry.FieldIndex("ev_user");
+        int col_station=Qry.FieldIndex("station");
+        int col_ev_order=Qry.FieldIndex("ev_order");
+        int col_part_num=Qry.FieldIndex("part_num");
 
-        TDateTime time = UTCToClient(Qry.FieldAsDateTime("time"),reqInfo->desk.tz_region);
+        for(;!Qry.Eof;Qry.Next())
+        {
+          xmlNodePtr rowNode=NewTextChild(logNode,"row");
+          NewTextChild(rowNode,"point_id",Qry.FieldAsInteger(col_point_id));
+          NewTextChild(rowNode,"ev_user",Qry.FieldAsString(col_ev_user));
+          NewTextChild(rowNode,"station",Qry.FieldAsString(col_station));
 
-        NewTextChild(rowNode,"time",DateTimeToStr(time));
-        NewTextChild(rowNode,"fmt_time",DateTimeToStr(time, "dd.mm.yy hh:nn"));
-        NewTextChild(rowNode,"grp_id",Qry.FieldAsInteger("grp_id"),-1);
-        NewTextChild(rowNode,"reg_no",Qry.FieldAsInteger("reg_no"),-1);
-        NewTextChild(rowNode,"msg",Qry.FieldAsString("msg"));
-        NewTextChild(rowNode,"ev_order",Qry.FieldAsInteger("ev_order"));
+          TDateTime time = UTCToClient(Qry.FieldAsDateTime(col_time),reqInfo->desk.tz_region);
+
+          NewTextChild(rowNode,"time",DateTimeToStr(time));
+          NewTextChild(rowNode,"fmt_time",DateTimeToStr(time, "dd.mm.yy hh:nn"));
+          NewTextChild(rowNode,"grp_id",Qry.FieldAsInteger(col_grp_id),-1);
+          NewTextChild(rowNode,"reg_no",Qry.FieldAsInteger(col_reg_no),-1);
+          NewTextChild(rowNode,"msg",Qry.FieldAsString(col_msg));
+          NewTextChild(rowNode,"ev_order",Qry.FieldAsInteger(col_ev_order));
+          NewTextChild(rowNode,"part_num",Qry.FieldAsInteger(col_part_num),1);
+        };
       };
     };
     logNode = NewTextChild(resNode, "form_data");
