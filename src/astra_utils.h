@@ -273,8 +273,6 @@ class TReqInfo
     static TReqInfo *Instance();
     void Initialize( const std::string &city );
     void Initialize( TReqInfoInitData &InitData );
-    void MsgToLog(TLogMsg &msg);
-    void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
     void LocaleToLog(const std::string &vlexema, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
     void LocaleToLog(const std::string &vlexema, const LEvntPrms &prms, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
     void LocaleToLog(TLogLocale &msg);

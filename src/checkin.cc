@@ -3020,29 +3020,15 @@ bool CheckRefusability(int point_dep, int pax_id)
   if (!(ckinClientType==ctWeb && reqInfo->client_type==ctWeb /*||
         ckinClientType==ctWeb && reqInfo->client_type==ctKiosk ||
         ckinClientType==ctKiosk && reqInfo->client_type==ctKiosk*/)) return false;
+
   Qry.Clear();
   Qry.SQLText=
-    "SELECT events.station "
-    "FROM "
-    "  (SELECT station FROM events "
-    "   WHERE type=:evtPax AND id1=:point_dep AND id3=:grp_id) events, "
-    "  web_clients "
-    "WHERE events.station=web_clients.desk(+) AND "
-    "      web_clients.desk IS NULL AND rownum<2";
-  Qry.CreateVariable("evtPax", otString, EncodeEventType(ASTRA::evtPax));
-  Qry.CreateVariable("point_dep", otInteger, point_dep);
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.Execute();
-  if (!Qry.Eof) return false;
-/*
-  Qry.Clear(); //!!!anna
-  Qry.SQLText=
-    "SELECT events.station "
+    "SELECT events_bilingual.station "
     "FROM "
     "  (SELECT station FROM events_bilingual "
-    "   WHERE lang=:lang AND type=:evtPax AND id1=:point_dep AND id3=:grp_id) events, "
+    "   WHERE lang=:lang AND type=:evtPax AND id1=:point_dep AND id3=:grp_id) events_bilingual, "
     "  web_clients "
-    "WHERE events.station=web_clients.desk(+) AND "
+    "WHERE events_bilingual.station=web_clients.desk(+) AND "
     "      web_clients.desk IS NULL AND rownum<2";
   Qry.CreateVariable("lang", otString, AstraLocale::LANG_RU);
   Qry.CreateVariable("evtPax", otString, EncodeEventType(ASTRA::evtPax));
@@ -3050,7 +3036,7 @@ bool CheckRefusability(int point_dep, int pax_id)
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
   if (!Qry.Eof) return false;
-*/
+
   return true;
 };
 
@@ -5294,7 +5280,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         };
         if (ediResNode!=NULL)
         {
-          //изменим ticket_confirm и events на основе подтвержденных статусов
+          //изменим ticket_confirm и events_bilingual на основе подтвержденных статусов
           Qry.Clear();
           Qry.SQLText=
             "BEGIN "
@@ -5305,7 +5291,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "    RETURNING grp_id,reg_no INTO :grp_id,:reg_no; "
             "    IF :grp_id IS NOT NULL AND :reg_no IS NOT NULL AND "
             "       :ev_time IS NOT NULL AND :ev_order IS NOT NULL THEN "
-            "      DELETE FROM events WHERE time=:ev_time AND ev_order=:ev_order; " //!!!anna :(
+            "      DELETE FROM events_bilingual WHERE time=:ev_time AND ev_order=:ev_order; "
             "    END IF; "
             "  END IF; "
             "END; ";
