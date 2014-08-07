@@ -75,10 +75,10 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       ostringstream sql;
       if (move_id != NoExists)
       {
-        sql << "SELECT type, msg, time, id2 AS point_id, \n"
+        sql << "SELECT msg, time, id2 AS point_id, \n"
                "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, \n"
                "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, \n"
-               "       ev_user, station, ev_order \n";
+               "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num \n";
         if (part_key != NoExists)
           sql << "FROM arx_events \n"
                  "WHERE part_key=:part_key AND (lang=:lang OR lang=:lang_undef) AND \n";
