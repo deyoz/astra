@@ -33,6 +33,7 @@
 #include "xml_unit.h"
 #include "base_tables.h"
 #include "web_main.h"
+#include "http_main.h"
 #include "astra_locale.h"
 #include "empty_proc.h"
 #include "tlg/tlg.h"
@@ -81,6 +82,9 @@ void AstraJxtCallbacks::InitInterfaces()
     new TestInterface();
 
     new AstraWeb::WebRequestsIface();
+
+    new AstraHTTP::HTTPRequestsIface();
+
 };
 
 
@@ -196,7 +200,6 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
    }
    else xmlRC->setLang(RUSSIAN);
 
-
     reqInfoData.checkUserLogon =
         GetNode( "UserLogon", node ) == NULL &&
         GetNode( "ClientError", node ) == NULL &&
@@ -205,7 +208,13 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
         GetNode( "RequestCertificateData", node ) == NULL &&
         GetNode( "PutRequestCertificate", node ) == NULL &&
         GetNode( "CryptValidateServerKey", node ) == NULL;
-
+     //!!!djek begin
+     if ( reqInfoData.checkUserLogon &&
+          GetNode( "@id", node ) != NULL &&
+          std::string( "HTTP" ) == NodeAsString( GetNode( "@id", node ) ) ) {
+       reqInfoData.checkUserLogon = false;
+     }
+     //!!!djek end
     reqInfoData.checkCrypt =
         GetNode( "kick", node ) == NULL &&
         GetNode( "GetCertificates", node ) == NULL &&

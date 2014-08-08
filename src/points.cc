@@ -458,17 +458,20 @@ void TPointsDest::getEvents( const TPointsDest &vdest )
   if ( isDeleteTime( status, scd_in, vdest.scd_in ) )
     events.setFlag( dmDeleteSCDIN );
   //est out
-  if ( isSetOtherTime( status, est_out, vdest.est_out ) )
+  if ( isSetOtherTime( status, est_out, vdest.est_out ) ) {
     events.setFlag( dmSetESTOUT );
-  if ( isChangeTime( status, est_out, vdest.est_out ) )
+  }
+  if ( isChangeTime( status, est_out, vdest.est_out ) ) {
     events.setFlag( dmChangeESTOUT );
+  }
   if ( isDeleteTime( status, est_out, vdest.est_out ) )
     events.setFlag( dmDeleteESTOUT );
   //est in
   if ( isSetOtherTime( status, est_in, vdest.est_in ) )
     events.setFlag( dmSetESTIN );
-  if ( isChangeTime( status, est_in, vdest.est_in ) )
+  if ( isChangeTime( status, est_in, vdest.est_in ) ) {
     events.setFlag( dmChangeESTIN );
+  }
   if ( isDeleteTime( status, est_in, vdest.est_in ) )
     events.setFlag( dmDeleteESTIN );
   //act out
@@ -711,8 +714,10 @@ int TPoints::getPoint_id()
 
 void TPoints::WriteDest( TPointsDest &dest )
 {
-  if ( dest.events.emptyFlags() )  //нет изменений
+  if ( dest.events.emptyFlags() ) { //нет изменений
+    ProgTrace( TRACE5, "WriteDest: no data writed, point_id=%d", dest.point_id );
     return;
+  }
   ProgTrace( TRACE5, "WriteDest" );
   TQuery Qry(&OraSession);
   Qry.SQLText =
@@ -720,7 +725,7 @@ void TPoints::WriteDest( TPointsDest &dest )
  	Qry.Execute();
  	dest.tid = Qry.FieldAsInteger( "n" );
  	if ( dest.status == tdInsert ) {
- 	  tst();
+    ProgTrace( TRACE5, "insert" );
     Qry.Clear();
     Qry.SQLText =
       "BEGIN "
@@ -736,6 +741,7 @@ void TPoints::WriteDest( TPointsDest &dest )
       "END;";
   }
   else {
+    ProgTrace( TRACE5, "update, point_id=%d, est_out=%s", dest.point_id, DateTimeToStr( dest.est_out ).c_str() );
   	Qry.Clear();
   	Qry.SQLText =
       "BEGIN "
@@ -756,8 +762,8 @@ void TPoints::WriteDest( TPointsDest &dest )
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.CreateVariable( "point_id", otInteger, dest.point_id );
  	Qry.CreateVariable( "point_num", otInteger, dest.point_num );
-  ProgTrace( TRACE5, "desk.airp=%s, point_id=%d, point_num=%d",
-             dest.airp.c_str(), dest.point_id, dest.point_num );
+//  ProgTrace( TRACE5, "move_id=%d, desk.airp=%s, point_id=%d, point_num=%d",
+//             move_id, dest.airp.c_str(), dest.point_id, dest.point_num );
   Qry.CreateVariable( "airp", otString, dest.airp );
   Qry.CreateVariable( "airp_fmt", otInteger, (int)dest.airp_fmt );
   Qry.CreateVariable( "pr_tranzit", otInteger, dest.pr_tranzit );
@@ -813,8 +819,10 @@ void TPoints::WriteDest( TPointsDest &dest )
   	Qry.CreateVariable( "scd_out", otDate, dest.scd_out );
   if ( dest.est_out == NoExists )
   	Qry.CreateVariable( "est_out", otDate, FNull );
-  else
+  else {
   	Qry.CreateVariable( "est_out", otDate, dest.est_out );
+//    ProgTrace( TRACE5, "dest.est_out=%f", dest.est_out );
+  }
   if ( dest.act_out == NoExists )
   	Qry.CreateVariable( "act_out", otDate, FNull );
   else
@@ -926,7 +934,6 @@ void TPoints::WriteDest( TPointsDest &dest )
   }
   tst();
 }
-
 
 template <class A, class B>
 void getKeyTrips( const std::vector<A> &dests, std::vector<B> &trips )
@@ -1265,7 +1272,7 @@ string DecodeEvents( TTripEvents event )
       res = "EVT.CHANGE_FLIGHT_ATTR_LAND";
       break;
     case teInitStages:
-      res = "EVT.INIT_STAGES";
+      res = "EVT.INIT_STAGESа";
       break;
     case teInitComps:
       res = "EVT.INIT_COMPS";
@@ -1771,8 +1778,8 @@ void TPoints::Save( bool isShowMsg )
   //сохранение маршрута
   tst();
   for( vector<TPointsDest>::iterator id=dests.items.begin(); id!=dests.items.end(); id++ ) {
-    ProgTrace( TRACE5, "id->point_id=%d,point_id->num=%d, id->airp=%s, id->bort=%s",
-                id->point_id, id->point_num, id->airp.c_str(), id->bort.c_str() );
+    ProgTrace( TRACE5, "id->point_id=%d,point_id->num=%d, id->airp=%s, id->bort=%s, id->est_out=%f",
+                id->point_id, id->point_num, id->airp.c_str(), id->bort.c_str(), id->est_out );
     WriteDest( *id );
   }
   string lexema_id;
@@ -1870,7 +1877,7 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
   double local_scd_in,local_scd_out,d1;
   TBaseTable &baseairps = base_tables.get( "airps" );
   string region = CityTZRegion( ((TAirpsRow&)baseairps.get_row( "code", airp, true )).city );
-  if ( scd_in >NoExists ) {
+  if ( scd_in > NoExists ) {
     d1 = UTCToLocal( scd_in, region );
     modf( d1, &local_scd_in );
   }
@@ -1883,26 +1890,79 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT scd_in, scd_out, move_id, point_id FROM points "
+    "SELECT airline, flt_no, suffix, scd_in, scd_out, move_id, point_id FROM points "
+    "  WHERE move_id!=:move_id AND airp=:airp AND pr_del!=-1 AND "
+    "       ( time_in BETWEEN :scd_in-2 AND :scd_in+2 OR "
+    "         time_out BETWEEN :scd_out-2 AND :scd_out+2 )";
+/*    "SELECT scd_in, scd_out, move_id, point_id FROM points "
     " WHERE airline=:airline AND flt_no=:flt_no AND NVL(suffix,' ')=NVL(:suffix,' ') AND "
     "       move_id!=:move_id AND airp=:airp AND pr_del!=-1 AND "
     "       ( scd_in BETWEEN :scd_in-2 AND :scd_in+2 OR "
-    "         scd_out BETWEEN :scd_out-2 AND :scd_out+2 )";
+    "         scd_out BETWEEN :scd_out-2 AND :scd_out+2 )";*/
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.CreateVariable( "airp", otString, airp );
-  Qry.CreateVariable( "airline", otString,airline );
+/*  Qry.CreateVariable( "airline", otString,airline );
   Qry.CreateVariable( "flt_no", otInteger, flt_no );
-  Qry.CreateVariable( "suffix", otString, suffix );
-	if ( scd_in > NoExists )
-	  Qry.CreateVariable( "scd_in", otDate, scd_in );
+  Qry.CreateVariable( "suffix", otString, suffix );*/
+	if ( scd_in > NoExists ) {
+    double d;
+    modf( scd_in, &d );
+	  Qry.CreateVariable( "scd_in", otDate, d );
+  }
 	else
 		Qry.CreateVariable( "scd_in", otDate, FNull );
-	if ( scd_out > NoExists )
-		Qry.CreateVariable( "scd_out", otDate, scd_out );
+	if ( scd_out > NoExists ) {
+    double d;
+    modf( scd_out, &d );
+		Qry.CreateVariable( "scd_out", otDate, d );
+  }
 	else
 		Qry.CreateVariable( "scd_out", otDate, FNull );
 	Qry.Execute();
+  string prior_airline, prior_suffix;
+  int prior_flt_no;
   while ( !Qry.Eof ) {
+    if ( !Qry.FieldIsNULL( "airline" ) ) {
+      prior_airline = Qry.FieldAsString( "airline" );
+      prior_suffix = Qry.FieldAsString( "suffix" );
+      if ( Qry.FieldIsNULL( "flt_no" ) ) {
+        prior_flt_no = NoExists;
+      }
+      else {
+        prior_flt_no = Qry.FieldAsInteger( "flt_no" );
+      }
+    }
+    else {
+      prior_airline.clear();
+      prior_suffix.clear();
+      prior_flt_no = NoExists;
+      TTripRoute route;
+      if ( route.GetRouteBefore( NoExists, Qry.FieldAsInteger( "point_id" ), trtNotCurrent, trtWithCancelled ) && !route.empty() ) {
+        TQuery QryFlt(&OraSession);
+        QryFlt.SQLText = "SELECT airline,flt_no,suffix FROM points WHERE point_id=:point_id";
+        QryFlt.CreateVariable( "point_id", otInteger, route.back().point_id );
+        QryFlt.Execute();
+        if ( !QryFlt.Eof ) {
+          prior_airline = QryFlt.FieldAsString( "airline" );
+          prior_suffix = QryFlt.FieldAsString( "suffix" );
+          if ( QryFlt.FieldIsNULL( "flt_no" ) ) {
+            prior_flt_no = NoExists;
+          }
+          else {
+            prior_flt_no = QryFlt.FieldAsInteger( "flt_no" );
+          }
+        }
+      }
+    }
+    ProgTrace( TRACE5, "flt_no=%d, prior_flt_no=%d", flt_no, prior_flt_no );
+    if ( airline != prior_airline ||
+         suffix != prior_suffix ||
+         flt_no != prior_flt_no ) {
+      Qry.Next();
+      tst();
+      continue;
+    }
+
   	if ( !Qry.FieldIsNULL( "scd_in" ) && local_scd_in > NoExists ) {
       modf( (double)UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), region ), &d1 );
       if ( d1 == local_scd_in ) {

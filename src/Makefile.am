@@ -67,6 +67,7 @@ astra_SOURCES = \
   flt_binding.cc \
   file_queue.cc \
   http_io.cpp \
+  http_main.cc \
   images.cc \
   load_fr.cc \
   locale.cc \
@@ -178,6 +179,7 @@ noinst_HEADERS = \
   flt_binding.h \
   file_queue.h \
   http_io.h \
+  http_main.h \
   images.h \
   load_fr.h \
   maindcs.h \
