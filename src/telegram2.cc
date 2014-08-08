@@ -2100,7 +2100,7 @@ int COM(TypeB::TDetailCreateInfo &info)
         ostringstream body;
         body
             << info.flight_view() << "/"
-            << info.scd_local_view() << " " << info.airp_dep_view()
+            << DateTimeToStr(info.scd_utc, "ddmmm", 1) << " " << info.airp_dep_view()
             << "/0 OP/NAM" << TypeB::endl;
         TCOMClasses classes;
         TCOMZones zones;
