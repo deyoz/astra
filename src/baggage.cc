@@ -1516,6 +1516,114 @@ void LoadPaidBag(int grp_id, xmlNodePtr paidbagNode)
   };
 };
 
+const TPaidBagEMDItem& TPaidBagEMDItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  if (bag_type!=ASTRA::NoExists)
+    NewTextChild(node,"bag_type",bag_type);
+  else
+    NewTextChild(node,"bag_type");
+  NewTextChild(node,"emd_no",emd_no);
+  NewTextChild(node,"emd_coupon",emd_coupon);
+  NewTextChild(node,"weight",weight);
+  return *this;
+};
+
+TPaidBagEMDItem& TPaidBagEMDItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  if (!NodeIsNULLFast("bag_type",node2))
+    bag_type=NodeAsIntegerFast("bag_type",node2);
+  emd_no=NodeAsStringFast("emd_no",node2);
+  emd_coupon=NodeAsIntegerFast("emd_coupon",node2);
+  weight=NodeAsIntegerFast("weight",node2);
+  return *this;
+};
+
+const TPaidBagEMDItem& TPaidBagEMDItem::toDB(TQuery &Qry) const
+{
+  if (bag_type!=ASTRA::NoExists)
+    Qry.SetVariable("bag_type",bag_type);
+  else
+    Qry.SetVariable("bag_type",FNull);
+  Qry.SetVariable("emd_no",emd_no);
+  Qry.SetVariable("emd_coupon",emd_coupon);
+  Qry.SetVariable("weight",weight);
+  return *this;
+};
+
+TPaidBagEMDItem& TPaidBagEMDItem::fromDB(TQuery &Qry)
+{
+  clear();
+  if (!Qry.FieldIsNULL("bag_type"))
+    bag_type=Qry.FieldAsInteger("bag_type");
+  emd_no=Qry.FieldAsString("emd_no");
+  emd_coupon=Qry.FieldAsInteger("emd_coupon");
+  weight=Qry.FieldAsInteger("weight");
+  return *this;
+};
+
+bool PaidBagEMDFromXML(xmlNodePtr emdNode,
+                       std::list<TPaidBagEMDItem> &emd)
+{
+  emd.clear();
+  if (emdNode==NULL) return false;
+  emdNode=GetNode("paid_bag_emd",emdNode);
+  if (emdNode!=NULL)
+  {
+    for(xmlNodePtr node=emdNode->children;node!=NULL;node=node->next)
+      emd.push_back(TPaidBagEMDItem().fromXML(node));
+    return true;
+  };
+  return false;
+};
+
+void PaidBagEMDToDB(int grp_id,
+                    const std::list<TPaidBagEMDItem> &emd)
+{
+  TQuery BagQry(&OraSession);
+  BagQry.Clear();
+  BagQry.SQLText="DELETE FROM paid_bag_emd WHERE grp_id=:grp_id";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
+  BagQry.SQLText=
+    "INSERT INTO paid_bag_emd(grp_id,bag_type,emd_no,emd_coupon,weight) "
+    "VALUES(:grp_id,:bag_type,:emd_no,:emd_coupon,:weight)";
+  BagQry.DeclareVariable("bag_type",otInteger);
+  BagQry.DeclareVariable("emd_no",otString);
+  BagQry.DeclareVariable("emd_coupon",otInteger);
+  BagQry.DeclareVariable("weight",otInteger);
+  for(list<TPaidBagEMDItem>::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+  {
+    i->toDB(BagQry);
+    BagQry.Execute();
+  };
+};
+
+void SavePaidBagEMD(int grp_id, xmlNodePtr emdNode)
+{
+  list<TPaidBagEMDItem> emd;
+  if (PaidBagEMDFromXML(emdNode, emd))
+    PaidBagEMDToDB(grp_id, emd);
+};
+
+void LoadPaidBagEMD(int grp_id, xmlNodePtr emdNode)
+{
+  if (emdNode==NULL) return;
+
+  xmlNodePtr node=NewTextChild(emdNode,"paid_bag_emd");
+  TQuery BagQry(&OraSession);
+  BagQry.Clear();
+  BagQry.SQLText=
+    "SELECT bag_type, emd_no, emd_coupon, weight FROM paid_bag_emd WHERE grp_id=:grp_id";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
+  for(;!BagQry.Eof;BagQry.Next())
+    TPaidBagEMDItem().fromDB(BagQry).toXML(NewTextChild(node,"emd"));
+};
+
 }; //namespace CheckIn
 
 namespace BagPayment

@@ -123,5 +123,21 @@ inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
     return ifaceNode;
 }
 
+class EMDSearchInterface : public JxtInterface
+{
+public:
+  EMDSearchInterface() : JxtInterface("","EMDSearch")
+  {
+     Handler *evHandle;
+     evHandle=JxtHandler<EMDSearchInterface>::CreateHandler(&EMDSearchInterface::EMDTextView);
+     AddEvent("EMDTextView",evHandle);
+
+
+  };
+
+  void EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+};
+
 #endif
 
