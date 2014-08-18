@@ -263,6 +263,37 @@ void PaidBagToDB(int grp_id,
 void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
 void LoadPaidBag(int grp_id, xmlNodePtr paidbagNode);
 
+class TPaidBagEMDItem
+{
+  public:
+    int bag_type;
+    std::string emd_no;
+    int emd_coupon;
+    int weight;
+  TPaidBagEMDItem()
+  {
+    clear();
+  };
+  void clear()
+  {
+    bag_type=ASTRA::NoExists;
+    emd_no.clear();
+    emd_coupon=ASTRA::NoExists;
+    weight=ASTRA::NoExists;
+  };
+  const TPaidBagEMDItem& toXML(xmlNodePtr node) const;
+  TPaidBagEMDItem& fromXML(xmlNodePtr node);
+  const TPaidBagEMDItem& toDB(TQuery &Qry) const;
+  TPaidBagEMDItem& fromDB(TQuery &Qry);
+};
+
+bool PaidBagEMDFromXML(xmlNodePtr emdNode,
+                       std::list<TPaidBagEMDItem> &emd);
+void PaidBagEMDToDB(int grp_id,
+                    const std::list<TPaidBagEMDItem> &emd);
+void SavePaidBagEMD(int grp_id, xmlNodePtr emdNode);
+void LoadPaidBagEMD(int grp_id, xmlNodePtr emdNode);
+
 }; //namespace CheckIn
 
 namespace BagPayment

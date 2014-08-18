@@ -60,6 +60,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new SeasonInterface();
     new ETSearchInterface();
     new ETStatusInterface();
+    new EMDSearchInterface();
     new ImagesInterface();
     new CheckInInterface();
     new EventsInterface();
