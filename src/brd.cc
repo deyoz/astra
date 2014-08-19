@@ -889,9 +889,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         if (Qry.Eof)
         {
           if (search_type==updateByPaxId)
-            AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+            throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
           if (search_type==refreshByPaxId)
-            AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+            throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
         };
         found_point_id=Qry.FieldAsInteger("point_dep");
         reg_no=Qry.FieldAsInteger("reg_no");
@@ -906,7 +906,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       if (point_id!=found_point_id)
       {
         if (search_type==refreshByPaxId)
-          AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+          throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
 
         point_id=found_point_id;
 
@@ -1209,12 +1209,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             {
               if (alarms.find(APIS::atIncomplete)!=alarms.end())
               {
-                AstraLocale::showErrorMessage("MSG.PASSENGER.APIS_INCOMPLETE", DOCUMENT_ALARM_ERRCODE);
+                AstraLocale::showErrorMessage("MSG.PASSENGER.APIS_INCOMPLETE", without_monitor?0:DOCUMENT_ALARM_ERRCODE);
                 throw 1;
               };
               if (alarms.find(APIS::atManualInput)!=alarms.end())
               {
-                AstraLocale::showErrorMessage("MSG.PASSENGER.APIS_MANUAL_INPUT", DOCUMENT_ALARM_ERRCODE);
+                AstraLocale::showErrorMessage("MSG.PASSENGER.APIS_MANUAL_INPUT", without_monitor?0:DOCUMENT_ALARM_ERRCODE);
                 throw 1;
               };
             };
