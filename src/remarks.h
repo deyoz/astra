@@ -2,6 +2,7 @@
 #define _REMARKS_H_
 
 #include <string>
+#include <set>
 #include "astra_consts.h"
 #include "oralib.h"
 #include "xml_unit.h"

@@ -297,6 +297,8 @@ class TPrnTagStore {
         struct TPaxInfo {
             int pax_id;
             std::string name, surname, document;
+            std::string name_2d;
+            std::string surname_2d;
             std::string ticket_rem;
             std::string ticket_no;
             int coupon_no;

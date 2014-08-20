@@ -73,7 +73,7 @@ std::string createEdiPaxlstFileName( const std::string& carrierCode,
     fname << BASIC::DateTimeToStr( departureDate, "yyyymmdd" );
     fname << "." << ext;
     if( partNum )
-        fname << ".PART" << partNum;
+        fname << ".PART" << std::setfill('0') << std::setw(2) << partNum;
     return fname.str();
 }
 
@@ -444,6 +444,7 @@ namespace
 
         Paxlst::PassengerInfo pass1;
         pass1.setSurname( "StRaNsKy" );
+        pass1.setSex( "M" );
 
         paxlstInfo.addPassenger( pass1 );
 
@@ -732,9 +733,10 @@ START_TEST( test2 )
       "LOC+87'\n"
       "DTM+232::201'\n"
       "NAD+FL+++STRANSKY'\n"
+      "ATT+2++M'\n"
       "DTM+329'\n"
       "CNT+42:1'\n"
-      "UNT+12+1'\n"
+      "UNT+13+1'\n"
       "UNE+1+1'\n";
 
     // Сгенерированный текст
@@ -810,7 +812,13 @@ START_TEST( test4 )
     fail_if( fname != "OK0421CAIPRG20070907.TXT" );
 
     fname = Paxlst::createEdiPaxlstFileName( "OK", 421, "", "CAI", "PRG", depDate, "TXT", 2 );
-    fail_if( fname != "OK0421CAIPRG20070907.TXT.PART2" );
+    fail_if( fname != "OK0421CAIPRG20070907.TXT.PART02" );
+
+    fname = Paxlst::createEdiPaxlstFileName( "OK", 421, "", "CAI", "PRG", depDate, "TXT", 22 );
+    fail_if( fname != "OK0421CAIPRG20070907.TXT.PART22" );
+
+    fname = Paxlst::createEdiPaxlstFileName( "OK", 421, "", "CAI", "PRG", depDate, "TXT", 222 );
+    fail_if( fname != "OK0421CAIPRG20070907.TXT.PART222" );
 }
 END_TEST;
 
