@@ -880,6 +880,8 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
         Qry.Execute();
         if(Qry.Eof)
             throw Exception("TPrnTagStore::TPaxInfo::Init no data found for pax_id = %d", pax_id);
+        surname_2d = Qry.FieldAsString("surname");
+        name_2d = Qry.FieldAsString("name");
         if(doc.surname.empty() or doc.first_name.empty()) {
             surname = Qry.FieldAsString("surname");
             name = Qry.FieldAsString("name");
@@ -1039,8 +1041,8 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
         << "M"
         << 1;
     // Passenger Name
-    string surname = SURNAME(fp);
-    string name = NAME(fp);
+    string surname = paxInfo.surname_2d;
+    string name = paxInfo.name_2d;
     string pax_name = surname;
     if(!name.empty())
         pax_name += "/" + name;
