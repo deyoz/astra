@@ -1068,8 +1068,21 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
       if (docNode!=NULL) doc.fromXML(docNode);
       xmlNodePtr docoNode=GetNodeFast("doco",node2);
       if (docoNode!=NULL) doco.fromXML(docoNode);
+      xmlNodePtr docaNode=GetNodeFast("addresses",node2);
+      if (docaNode!=NULL)
+      {
+        for(docaNode=docaNode->children; docaNode!=NULL; docaNode=docaNode->next)
+        {
+          TPaxDocaItem docaItem;
+          docaItem.fromXML(docaNode);
+          if (docaItem.empty()) continue;
+          doca.push_back(docaItem);
+        };
+      };
+
       DocExists=(tid==ASTRA::NoExists || docNode!=NULL);
       DocoExists=(tid==ASTRA::NoExists || docoNode!=NULL);
+      DocaExists=(tid==ASTRA::NoExists || docaNode!=NULL);
     };
   };
 
