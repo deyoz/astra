@@ -9,6 +9,13 @@
 namespace WebSearch
 {
 
+std::string airl_fromXML(std::string str, bool err_msg);
+std::string  airp_fromXML(std::string str, bool err_msg);
+int flt_no_fromXML(std::string str);
+std::string  suffix_fromXML(std::string str);
+BASIC::TDateTime scd_out_fromXML(std::string str, const char* fmt);
+BASIC::TDateTime date_fromXML(std::string str);
+
 struct TPNRAddrInfo
 {
   std::string airline, addr;
@@ -52,9 +59,6 @@ struct TTestPaxInfo
 
 class TPNRFilter
 {
-  private:
-    bool vtracing, vtracing_init;
-    bool tracing();
   public:
     std::set<std::string> airlines;
     int flt_no;
@@ -88,16 +92,12 @@ class TPNRFilter
       name_equal_len=ASTRA::NoExists;
       airp_dep.clear();
       airp_arv.clear();
-
-      vtracing=true;
-      vtracing_init=false;
     };
 
     TPNRFilter& fromXML(xmlNodePtr node);
     TPNRFilter& fromBCBP_M(const std::string bcbp);
     TPNRFilter& testPaxFromDB();
     void trace( TRACE_SIGNATURE ) const;
-    void traceToMonitor( TRACE_SIGNATURE, const char *format,  ...);
     std::string getSurnameSQLFilter(const std::string &field_name, TQuery &Qry) const;
     bool isNameEqual(const std::string &pax_name) const;
 };

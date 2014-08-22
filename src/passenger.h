@@ -6,6 +6,8 @@
 #include "xml_unit.h"
 #include "baggage.h"
 
+const long int NO_FIELDS=0x0000;
+
 namespace CheckIn
 {
 
@@ -406,6 +408,7 @@ void SaveNorms(xmlNodePtr node, bool pr_unaccomp);
 
 }; //namespace CheckIn
 
+//!!!anna apis_utils
 namespace APIS
 {
 enum TAlarmType { atDiffersFromBooking,

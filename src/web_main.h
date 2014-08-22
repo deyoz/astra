@@ -6,22 +6,24 @@
 #include "passenger.h"
 #include "typeb_utils.h"
 #include "tlg/tlg_parser.h"
+#include "web_search.h"
+#include "checkin_utils.h"
 
 #define WEB_JXT_IFACE_ID "WEB"
 #define EMUL_CLIENT_TYPE ctWeb
 
-
-namespace AstraWeb
-{
-
 struct InetClient
 {
-  int client_id;
+  std::string client_id;
   std::string pult;
   std::string opr;
   std::string client_type;
 };
 
+InetClient getInetClient(std::string client_id);
+
+namespace AstraWeb
+{
 bool is_sync_meridian( const TTripInfo &tripInfo );
 
 int internet_main(const char *body, int blen, const char *head,
@@ -90,7 +92,6 @@ public:
   void RemoveProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
-  
   
   void GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

@@ -247,11 +247,14 @@ class TDeletePaxFilter
   public:
     std::string status;
     int inbound_point_dep;
-  TDeletePaxFilter():inbound_point_dep(ASTRA::NoExists) {};
+    bool with_crew;
+    TDeletePaxFilter():inbound_point_dep(ASTRA::NoExists),with_crew(false) {};
 };
 
 void DeletePassengers( int point_id, const TDeletePaxFilter &filter, std::map<int,TAdvTripInfo> &segs );
 void DeletePassengersAnswer( std::map<int,TAdvTripInfo> &segs, xmlNodePtr resNode );
+void validateField( const std::string &surname, const std::string &fieldname );
+void UpdateCrew( int point_id, std::string commander, int cockpit, int cabin );
 
 class SoppInterface : public JxtInterface
 {

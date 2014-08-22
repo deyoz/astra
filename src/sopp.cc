@@ -2432,7 +2432,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   TCkinQry.DeclareVariable("seg_no",otInteger);
 
   ostringstream sql;
-  sql << "SELECT pax_grp.grp_id, pax_grp.class, \n"
+  sql << "SELECT pax_grp.grp_id, pax_grp.class, pax_grp.status, \n"
          "       tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no \n"
          "FROM pax_grp, tckin_pax_grp \n"
          "WHERE pax_grp.point_dep=:point_id \n";
@@ -2456,28 +2456,27 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   segs.insert(make_pair(point_id, fltInfo));
   for(;!Qry.Eof;Qry.Next())
   {
-    if (Qry.FieldIsNULL("class")) continue;  //несопровождаемый багаж не разрегистрируем!
+    if (Qry.FieldIsNULL("class") &&
+            (!filter.with_crew || DecodePaxStatus(Qry.FieldAsString("status"))!=psCrew))
+      continue;  //несопровождаемый багаж и иногда crew не разрегистрируем!
+
     int tckin_id=Qry.FieldIsNULL("tckin_id")?NoExists:Qry.FieldAsInteger("tckin_id");
     int tckin_seg_no=Qry.FieldIsNULL("seg_no")?NoExists:Qry.FieldAsInteger("seg_no");
   
     if ( filter.inbound_point_dep!=NoExists )
     {
       if (tckin_id==NoExists || tckin_seg_no==NoExists) continue;
-    
       TCkinRouteItem inboundSeg;
       TCkinRoute().GetPriorSeg(tckin_id, tckin_seg_no, crtIgnoreDependent, inboundSeg);
       if (inboundSeg.grp_id==NoExists) continue;
-      
       TTripRouteItem priorAirp;
       TTripRoute().GetPriorAirp(NoExists,inboundSeg.point_arv,trtNotCancelled,priorAirp);
       if (priorAirp.point_id==NoExists) continue;
-      
       if (priorAirp.point_id!=filter.inbound_point_dep) continue;
     };
   
     //пробегаемся по всем группам рейса
     int grp_id=Qry.FieldAsInteger("grp_id");
-
     //отвяжем сквозняков от предыдущих сегментов
     if (tckin_id!=NoExists && tckin_seg_no!=NoExists)
     {
@@ -2617,6 +2616,45 @@ void DeletePassengersAnswer( map<int,TAdvTripInfo> &segs, xmlNodePtr resNode )
     NewTextChild( segNode, "pr_etl_only", (int)pr_etl_only );
     NewTextChild( segNode, "pr_etstatus", pr_etstatus );
   }
+}
+
+void UpdateCrew(int point_id, std::string commander, int cockpit, int cabin)
+{
+    LEvntPrms params;
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+      "BEGIN "
+      "  UPDATE trip_crew "
+      "  SET commander=SUBSTR(:commander,1,100), cockpit=:cockpit, cabin=:cabin "
+      "  WHERE point_id=:point_id; "
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO trip_crew(point_id, commander, cockpit, cabin) "
+      "    VALUES(:point_id, SUBSTR(:commander,1,100), :cockpit, :cabin); "
+      "  END IF;"
+      "END;";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    validateField( commander, "КВС" );
+    Qry.CreateVariable( "commander", otString, commander );
+    if (cockpit) {
+      Qry.CreateVariable( "cockpit", otInteger, cockpit );
+      params << PrmSmpl<int>("cockpit", cockpit);
+    }
+    else {
+      Qry.CreateVariable( "cockpit", otInteger, FNull );
+      params << PrmLexema("cockpit", "EVT.UNKNOWN");
+    }
+    if (cabin) {
+      Qry.CreateVariable( "cabin", otInteger, cabin );
+      params << PrmSmpl<int>("cabin", cabin);
+    }
+    else {
+      Qry.CreateVariable( "cabin", otInteger, FNull );
+      params << PrmLexema("cabin", "EVT.UNKNOWN");
+  }
+  params << PrmSmpl<std::string>("commander", commander);
+    Qry.Execute();
+    TReqInfo::Instance()->LocaleToLog("EVT.SET_CREW", params, evtFlt, point_id );
+  check_crew_alarms( point_id );
 }
 
 void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -5523,7 +5561,7 @@ void SoppInterface::ReadCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 void validateField( const string &surname, const string &fieldname )
 {
   for ( string::const_iterator istr=surname.begin(); istr!=surname.end(); istr++ ) {
-     if ( !IsDigitIsLetter( *istr ) && *istr != ' ' )
+     if ( !IsLetter( *istr ) && *istr != ' ' && *istr != '.')
        throw AstraLocale::UserException( "MSG.FIELD_INCLUDE_INVALID_CHARACTER1",
                                          LParams() << LParam( "field_name", AstraLocale::getLocaleText( fieldname ) )
                                                    << LParam( "symbol", string(1,*istr)) );
@@ -5532,44 +5570,19 @@ void validateField( const string &surname, const string &fieldname )
 
 void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    LEvntPrms params;
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "BEGIN "
-	  "  UPDATE trip_crew "
-	  "  SET commander=SUBSTR(:commander,1,100), cockpit=:cockpit, cabin=:cabin "
-	  "  WHERE point_id=:point_id; "
-	  "  IF SQL%NOTFOUND THEN "
-	  "    INSERT INTO trip_crew(point_id, commander, cockpit, cabin) "
-	  "    VALUES(:point_id, SUBSTR(:commander,1,100), :cockpit, :cabin); "
-	  "  END IF;"
-	  "END;";
-	xmlNodePtr dataNode = NodeAsNode( "data/crew", reqNode );
+  xmlNodePtr dataNode = NodeAsNode( "data/crew", reqNode );
   int point_id=NodeAsInteger( "point_id", dataNode );
-	Qry.CreateVariable( "point_id", otInteger, point_id );
+  int cockpit, cabin;
   string commander = NodeAsString( "commander", dataNode );
-  validateField( commander, "КВС" );
- 	Qry.CreateVariable( "commander", otString, commander );
-	if (GetNode( "cockpit", dataNode )!=NULL && !NodeIsNULL( "cockpit", dataNode )) {
-	  Qry.CreateVariable( "cockpit", otInteger, NodeAsInteger( "cockpit", dataNode ) );
-      params << PrmSmpl<int>("cockpit", NodeAsInteger("cockpit", dataNode));
-    }
-	else {
-	  Qry.CreateVariable( "cockpit", otInteger, FNull );
-      params << PrmLexema("cockpit", "EVT.UNKNOWN");
-    }
-    if (GetNode( "cabin", dataNode )!=NULL && !NodeIsNULL( "cabin", dataNode )) {
-	  Qry.CreateVariable( "cabin", otInteger, NodeAsInteger( "cabin", dataNode ) );
-      params << PrmSmpl<int>("cabin", NodeAsInteger("cabin", dataNode));
-    }
-	else {
-	  Qry.CreateVariable( "cabin", otInteger, FNull );
-      params << PrmLexema("cabin", "EVT.UNKNOWN");
-  }
-  params << PrmSmpl<std::string>("commander", NodeAsString("commander", dataNode));
-	Qry.Execute();
-    TReqInfo::Instance()->LocaleToLog("EVT.SET_CREW", params, evtFlt, point_id );
-  check_crew_alarms( point_id );
+  if (GetNode( "cockpit", dataNode )!=NULL && !NodeIsNULL( "cockpit", dataNode ))
+    cockpit = NodeAsInteger( "cockpit", dataNode );
+  else
+    cockpit = 0;
+  if (GetNode( "cabin", dataNode )!=NULL && !NodeIsNULL( "cabin", dataNode ))
+    cabin = NodeAsInteger("cabin", dataNode);
+  else
+    cabin = 0;
+  UpdateCrew(point_id, commander, cockpit, cabin);
 }
 
 void SoppInterface::ReadDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

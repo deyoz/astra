@@ -255,6 +255,8 @@ class TReqInfo
 {
 	private:
 		boost::posix_time::ptime execute_time;
+        bool vtracing, vtracing_init;
+        bool tracing();
   public:
     TUser user;
     TDesk desk;
@@ -268,7 +270,9 @@ class TReqInfo
       screen.clear();
       client_type = ASTRA::ctTerm;
       duplicate = false;
-    };
+      vtracing=true;
+      vtracing_init=false;
+    }
     virtual ~TReqInfo() {}
     static TReqInfo *Instance();
     void Initialize( const std::string &city );
@@ -282,6 +286,7 @@ class TReqInfo
 
     bool CheckAirline(const std::string &airline);
     bool CheckAirp(const std::string &airp);
+    void traceToMonitor( TRACE_SIGNATURE, const char *format,  ...);
 };
 
 void MergeAccess(std::vector<std::string> &a, bool &ap,

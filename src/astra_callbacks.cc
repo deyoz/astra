@@ -42,6 +42,7 @@
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/perfom.h"
+#include "external_spp_synch.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -84,7 +85,7 @@ void AstraJxtCallbacks::InitInterfaces()
 
     new AstraWeb::WebRequestsIface();
 
-    new AstraHTTP::HTTPRequestsIface();
+    new HTTPRequestsIface();
 
 };
 
@@ -209,13 +210,7 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
         GetNode( "RequestCertificateData", node ) == NULL &&
         GetNode( "PutRequestCertificate", node ) == NULL &&
         GetNode( "CryptValidateServerKey", node ) == NULL;
-     //!!!djek begin
-     if ( reqInfoData.checkUserLogon &&
-          GetNode( "@id", node ) != NULL &&
-          std::string( "HTTP" ) == NodeAsString( GetNode( "@id", node ) ) ) {
-       reqInfoData.checkUserLogon = false;
-     }
-     //!!!djek end
+
     reqInfoData.checkCrypt =
         GetNode( "kick", node ) == NULL &&
         GetNode( "GetCertificates", node ) == NULL &&
@@ -223,7 +218,7 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
         GetNode( "PutRequestCertificate", node ) == NULL &&
         !((head)[getGrp3ParamsByte()+1]&MSG_MESPRO_CRYPT);
 
-    reqInfoData.pr_web = (head[0]==2);
+    reqInfoData.pr_web = (head[0]==2); //признак того что обмен с SWC А через него работают пока веб и киоск регистрации
     reqInfoData.duplicate = (head[100]=='D');
 
     try
@@ -254,13 +249,17 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
     ServerFramework::getQueryRunner().setPult(xmlRC->pult);
 }
 
-void CheckTermResDoc( xmlNodePtr resNode )
+void CheckTermResDoc()
 {
-  xmlNodePtr errNode=NULL;
+    XMLRequestCtxt *xmlRC = getXmlCtxt();
+    xmlNodePtr resNode=NodeAsNode("/term/answer",xmlRC->resDoc);
+    SetProp(resNode, "execute_time", TReqInfo::Instance()->getExecuteMSec() );
+
+    xmlNodePtr errNode=NULL;
 	int errPriority=ASTRA::NoExists;
 	for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
 	{
-	  if (strcmp((const char*)node->name,"command")==0)
+      if (strcmp((const char*)node->name,"command")==0)
 	  {
 	    for(xmlNodePtr cmdNode=node->children; cmdNode!=NULL; cmdNode=cmdNode->next)
 	    {
@@ -302,32 +301,65 @@ void CheckTermResDoc( xmlNodePtr resNode )
   };
 };
 
-void RevertWebResDoc( const char* answer_tag, xmlNodePtr resNode )
+void RevertWebResDoc()
 {
-	// если есть тег <error> || <checkin_user_error> || <user_error>, то все остальное удаляем их из xml дерева
-	xmlNodePtr errNode=NULL;
-	int errPriority=ASTRA::NoExists;
-	for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
-	{
-	  if (strcmp((const char*)node->name,"command")==0)
-	  {
-	    for(xmlNodePtr cmdNode=node->children; cmdNode!=NULL; cmdNode=cmdNode->next)
-	    {
-	      int priority=ASTRA::NoExists;
-	      if (strcmp((const char*)cmdNode->name,"error")==0) priority=1;
-	      if (strcmp((const char*)cmdNode->name,"checkin_user_error")==0) priority=2;
-	      if (strcmp((const char*)cmdNode->name,"user_error")==0) priority=3;
-	      if (priority!=ASTRA::NoExists &&
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer",xmlRC->resDoc);
+  const char* answer_tag = (const char*)xmlRC->reqDoc->children->children->children->name;
+  SetProp(resNode, "execute_time", TReqInfo::Instance()->getExecuteMSec() );
+  std::string error_code, error_message;
+  xmlNodePtr errNode = ResDocSelectPrior(resNode, error_code, error_message);
+
+  if (errNode!=NULL)
+  {
+    resNode=NewTextChild( resNode, answer_tag );
+
+    if (strcmp((const char*)errNode->name,"error")==0 ||
+        strcmp((const char*)errNode->name,"checkin_user_error")==0 ||
+        strcmp((const char*)errNode->name,"user_error")==0)
+    {
+      NewTextChild( resNode, "error_code", error_code );
+      NewTextChild( resNode, "error_message", error_message );
+    };
+
+    if (strcmp((const char*)errNode->name,"checkin_user_error")==0)
+    {
+      xmlNodePtr segsNode=NodeAsNode("segments",errNode);
+      if (segsNode!=NULL)
+      {
+        xmlUnlinkNode(segsNode);
+        xmlAddChild( resNode, segsNode);
+      };
+    };
+    xmlFreeNode(errNode);
+  };
+}
+
+xmlNodePtr ResDocSelectPrior(xmlNodePtr resNode, std::string& error_code, std::string& error_message)
+{
+    // если есть тег <error> || <checkin_user_error> || <user_error>, то все остальное удаляем их из xml дерева
+    xmlNodePtr errNode=NULL;
+    int errPriority=ASTRA::NoExists;
+    for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
+    {
+      if (strcmp((const char*)node->name,"command")==0)
+      {
+        for(xmlNodePtr cmdNode=node->children; cmdNode!=NULL; cmdNode=cmdNode->next)
+        {
+          int priority=ASTRA::NoExists;
+          if (strcmp((const char*)cmdNode->name,"error")==0) priority=1;
+          if (strcmp((const char*)cmdNode->name,"checkin_user_error")==0) priority=2;
+          if (strcmp((const char*)cmdNode->name,"user_error")==0) priority=3;
+          if (priority!=ASTRA::NoExists &&
             (errPriority==ASTRA::NoExists || priority<errPriority))
         {
           errNode=cmdNode;
           errPriority = priority;
         };
       };
-	  };
+      };
   };
 
-  std::string error_code, error_message;
   if (errNode!=NULL)
   {
     if (strcmp((const char*)errNode->name,"error")==0 ||
@@ -366,59 +398,35 @@ void RevertWebResDoc( const char* answer_tag, xmlNodePtr resNode )
 
   for(xmlNodePtr node=resNode->children; node!=NULL;)
   {
- 	  //отцепляем и удаляем либо все, либо <command> внутри <answer>
-	  xmlNodePtr node2=node->next;
+      //отцепляем и удаляем либо все, либо <command> внутри <answer>
+    xmlNodePtr node2=node->next;
     if (errNode!=NULL || strcmp((const char*)node->name,"command")==0)
     {
-	    xmlUnlinkNode(node);
-	    xmlFreeNode(node);
-	  };
-	  node=node2;
-  };
-
-  if (errNode!=NULL)
-  {
-    resNode=NewTextChild( resNode, answer_tag );
-
-    if (strcmp((const char*)errNode->name,"error")==0 ||
-        strcmp((const char*)errNode->name,"checkin_user_error")==0 ||
-        strcmp((const char*)errNode->name,"user_error")==0)
-    {
-      NewTextChild( resNode, "error_code", error_code );
-      NewTextChild( resNode, "error_message", error_message );
+      xmlUnlinkNode(node);
+      xmlFreeNode(node);
     };
-
-    if (strcmp((const char*)errNode->name,"checkin_user_error")==0)
-    {
-      xmlNodePtr segsNode=NodeAsNode("segments",errNode);
-      if (segsNode!=NULL)
-      {
-        xmlUnlinkNode(segsNode);
-        xmlAddChild( resNode, segsNode);
-      };
-    };
-    xmlFreeNode(errNode);
+    node=node2;
   };
+  return errNode;
 }
-
 
 void AstraJxtCallbacks::UserAfter()
 {
     base_tables.Invalidate();
     PerfomTest( 2007 );
-	  XMLRequestCtxt *xmlRC = getXmlCtxt();
-	  xmlNodePtr node=NodeAsNode("/term/answer",xmlRC->resDoc);
-	  SetProp(node, "execute_time", TReqInfo::Instance()->getExecuteMSec() );
-	  if ( TReqInfo::Instance()->client_type == ctWeb ||
-	       TReqInfo::Instance()->client_type == ctKiosk )
-	  	RevertWebResDoc( (const char*)xmlRC->reqDoc->children->children->children->name, node );
-	  else
-	    CheckTermResDoc( node );
-   //жестко требуем encoding=UTF-8
-   //ранее, при добавлении в дерево хотя бы одной property не в UTF-8, encoding сбивается
-   //это в свою очередь приводит к ошибке xmlDocDumpFormatMemory
-   //вообще libxml с версии 2.7 хранит и требует работать с деревом в UTF-8, а не в 866
-   SetXMLDocEncoding(xmlRC->resDoc, "UTF-8");
+    if (fp_post_process != NULL)
+      (*fp_post_process)();
+    XMLRequestCtxt *xmlRC = getXmlCtxt();
+    //жестко требуем encoding=UTF-8
+    //ранее, при добавлении в дерево хотя бы одной property не в UTF-8, encoding сбивается
+    //это в свою очередь приводит к ошибке xmlDocDumpFormatMemory
+    //вообще libxml с версии 2.7 хранит и требует работать с деревом в UTF-8, а не в 866
+    SetXMLDocEncoding(xmlRC->resDoc, "UTF-8");
+
+    if ( TReqInfo::Instance()->client_type != ctWeb ||
+         TReqInfo::Instance()->client_type != ctKiosk ||
+         TReqInfo::Instance()->client_type != ctHTTP)
+      CheckTermResDoc(); //!!!anna
 }
 
 
@@ -498,5 +506,4 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
       ProgError(STDLOG,"AstraJxtCallbacks::HandleException: %s", localException.what());
       throw;
     };
-
 }

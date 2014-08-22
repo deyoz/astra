@@ -11,7 +11,6 @@
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
-#include "serverlib/lwriter.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -21,37 +20,132 @@ using namespace AstraLocale;
 namespace WebSearch
 {
 
-bool TPNRFilter::tracing()
+string airl_fromXML(string str, bool err_msg)
 {
-  if (vtracing_init) return vtracing;
-  vtracing_init=true;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT tracing_search FROM web_clients WHERE desk=:desk";
-  Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
-  Qry.Execute();
-  if (!Qry.Eof && !Qry.FieldIsNULL("tracing_search"))
-    vtracing=Qry.FieldAsInteger("tracing_search")!=0;
-  return vtracing;
-};
+    string airline;
+    TElemFmt fmt;
+    TrimString(str);
+    if (!str.empty())
+    {
+        airline = ElemToElemId( etAirline, upperc(str), fmt );
+        if (fmt==efmtUnknown)
+        {
+            TReqInfo::Instance()->traceToMonitor(TRACE5, "airl_fromXML: unknown <airline> %s", str.c_str());
+            throw UserException( "MSG.AIRLINE.INVALID",
+                                 LEvntPrms() << PrmSmpl<string>("airline", str ) );
+        };
+    }
+    else
+    {
+        if (err_msg)
+            TReqInfo::Instance()->traceToMonitor(TRACE5, "airl_fromXML: empty <airline>");
+    };
+    return airline;
+}
 
-void TPNRFilter::traceToMonitor( TRACE_SIGNATURE, const char *format,  ...)
+string airp_fromXML(string str, bool err_msg)
 {
-  va_list ap;
-  va_start(ap,format);
-  if (tracing())
-    write_log_message(ERROR_PARAMS, format, ap);
-   else
-    write_log_message(TRACE_PARAMS, format, ap);
-  va_end(ap);
-};
+    string airp;
+    TElemFmt fmt;
+    TrimString(str);
+    if (!str.empty())
+    {
+        airp = ElemToElemId( etAirp, upperc(str), fmt );
+        if (fmt==efmtUnknown)
+        {
+            TReqInfo::Instance()->traceToMonitor(TRACE5, "airp_fromXML: unknown <airport> %s", str.c_str());
+            throw UserException( "MSG.AIRPORT.INVALID",
+                                 LEvntPrms() << PrmSmpl<string>("airp", str ) );
+        };
+    }
+    else
+    {
+        if (err_msg)
+            TReqInfo::Instance()->traceToMonitor(TRACE5, "airp_fromXML: empty <airport>");
+    };
+    return airp;
+}
+
+int flt_no_fromXML(string str)
+{
+    int flt_no;
+    TrimString(str);
+    if (!str.empty())
+    {
+        if ( StrToInt( str.c_str(), flt_no ) == EOF ||
+             flt_no > 99999 || flt_no <= 0 )
+        {
+            TReqInfo::Instance()->traceToMonitor(TRACE5, "flt_no_fromXML: invalid <flt_no> %s", str.c_str());
+            throw UserException( "MSG.FLT_NO.INVALID",
+                                 LEvntPrms() << PrmSmpl<string>("flt_no", str) );
+        };
+    }
+    else
+    {
+        TReqInfo::Instance()->traceToMonitor(TRACE5, "flt_no_fromXML: <flt_no> not defined");
+        throw UserException( "MSG.CHECK_FLIGHT.NOT_SET_FLT_NO" );
+    };
+    return flt_no;
+}
+
+string suffix_fromXML(string str)
+{
+    string suffix;
+    TElemFmt fmt;
+    TrimString(str);
+    if (!str.empty())
+    {
+        suffix = ElemToElemId( etSuffix, upperc(str), fmt );
+        if (fmt==efmtUnknown)
+        {
+            TReqInfo::Instance()->traceToMonitor(TRACE5, "suffix_fromXML: unknown <suffix> %s", str.c_str());
+            throw UserException( "MSG.SUFFIX.INVALID",
+                                 LEvntPrms() << PrmSmpl<string>("suffix", str) );
+        };
+    };
+    return suffix;
+}
+
+TDateTime scd_out_fromXML(string str, const char* fmt)
+{
+    TDateTime scd_out;
+    TrimString(str);
+    if (!str.empty())
+    {
+        if ( StrToDateTime( str.c_str(), fmt, scd_out ) == EOF )
+        {
+            TReqInfo::Instance()->traceToMonitor(TRACE5, "scd_out_fromXML: invalid <scd_out> %s", str.c_str());
+            throw UserException( "MSG.FLIGHT_DATE.INVALID",
+                                 LEvntPrms() << PrmSmpl<string>("scd_out", str) );
+        };
+    };
+    return scd_out;
+}
+
+TDateTime date_fromXML(string str)
+{
+    TDateTime date;
+    TrimString(str);
+    if (!str.empty())
+    {
+        if ( StrToDateTime( str.c_str(), "dd.mm.yyyy hh:nn:ss", date ) == EOF )
+        {
+            if ( StrToDateTime( str.c_str(), "dd.mm.yyyy", date ) == EOF )
+            {
+                TReqInfo::Instance()->traceToMonitor(TRACE5, "date_fromXML: invalid <date> %s", str.c_str());
+                throw UserException( "Date is invalid" );
+            }
+        };
+    };
+    return date;
+}
 
 TPNRFilter& TPNRFilter::fromBCBP_M(const std::string bcbp)
 {
   clear();
   if (bcbp.empty())
   {
-    traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: empty bcbp");
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: empty bcbp");
     throw UserException("MSG.SCAN_CODE.NOT_SET");
   };
 
@@ -62,7 +156,7 @@ TPNRFilter& TPNRFilter::fromBCBP_M(const std::string bcbp)
   }
   catch(EXCEPTIONS::EConvertError &e)
   {
-    traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: %s", e.what());
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: %s", e.what());
     throw UserException("MSG.SCAN_CODE.UNKNOWN_FORMAT");
   };
     
@@ -231,7 +325,7 @@ TPNRFilter& TPNRFilter::fromBCBP_M(const std::string bcbp)
   }
   catch(EXCEPTIONS::EConvertError &e)
   {
-    traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: %s", e.what());
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: %s", e.what());
     throw UserException("MSG.SCAN_CODE.UNKNOWN_DATA");
   };
 
@@ -244,7 +338,6 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
   if (node==NULL) return *this;
   xmlNodePtr node2=node->children;
   string str;
-  TElemFmt fmt;
 
   for(int pass=0; pass<2; pass++)
   {
@@ -262,58 +355,14 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
 
     for(; alNode!=NULL; alNode=alNode->next)
     {
-      str=NodeAsString(alNode);
-      TrimString(str);
-      if (!str.empty())
-      {
-        airline = ElemToElemId( etAirline, upperc(str), fmt );
-        if (fmt==efmtUnknown)
-        {
-          traceToMonitor(TRACE5, "TPNRFilter::fromXML: unknown <airline> %s", str.c_str());
-        	throw UserException( "MSG.AIRLINE.INVALID",
-        		                   LParams()<<LParam("airline", str ) );
-        };
-        airlines.insert(airline);
-      }
-      else
-      {
-        if (pass==0)
-          traceToMonitor(TRACE5, "TPNRFilter::fromXML: empty <airline>");
-      };
+      airline = airl_fromXML(NodeAsString(alNode), pass==0);
+      airlines.insert(airline);
       if (pass==1) break;
     };
   };
-  
-  str=NodeAsStringFast("flt_no", node2, "");
-  TrimString(str);
-	if (!str.empty())
-  {
-    if ( StrToInt( str.c_str(), flt_no ) == EOF ||
-		     flt_no > 99999 || flt_no <= 0 )
-    {
-      traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <flt_no> %s", str.c_str());
-      throw UserException( "MSG.FLT_NO.INVALID",
-		                       LParams()<<LParam("flt_no", str) );
-    };
-	}
-  else
-  {
-    traceToMonitor(TRACE5, "TPNRFilter::fromXML: <flt_no> not defined");
-    throw UserException( "MSG.CHECK_FLIGHT.NOT_SET_FLT_NO" );
-  };
-  
-  str=NodeAsStringFast("suffix", node2, "");
-  TrimString(str);
-  if (!str.empty())
-  {
-    suffix = ElemToElemId( etSuffix, upperc(str), fmt );
-    if (fmt==efmtUnknown)
-    {
-      traceToMonitor(TRACE5, "TPNRFilter::fromXML: unknown <suffix> %s", str.c_str());
-  		throw UserException( "MSG.SUFFIX.INVALID",
-  			                   LParams()<<LParam("suffix", str) );
-  	};
-  };
+
+  flt_no = flt_no_fromXML(NodeAsStringFast("flt_no", node2, ""));
+  suffix = suffix_fromXML(NodeAsStringFast("suffix", node2, ""));
   
   for(int pass=0; pass<3; pass++)
   {
@@ -326,7 +375,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
       {
         if ( StrToDateTime( str.c_str(), "dd.mm.yyyy hh:nn:ss", scd_out_range.first ) == EOF )
         {
-          traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out_min> %s", str.c_str());
+          TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out_min> %s", str.c_str());
   			  throw UserException( "MSG.FLIGHT_DATE.INVALID",
   				                     LParams()<<LParam("scd_out", str) );
   			};
@@ -337,36 +386,26 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
       {
         if ( StrToDateTime( str.c_str(), "dd.mm.yyyy hh:nn:ss", scd_out_range.second ) == EOF )
         {
-          traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out_max> %s", str.c_str());
+          TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out_max> %s", str.c_str());
   			  throw UserException( "MSG.FLIGHT_DATE.INVALID",
   				                     LParams()<<LParam("scd_out", str) );
   			};
   	  };
       if (scd_out_range.first==NoExists && scd_out_range.second!=NoExists)
       {
-        traceToMonitor(TRACE5, "TPNRFilter::fromXML: <scd_out_min> not defined");
+        TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: <scd_out_min> not defined");
         throw UserException("MSG.INVALID_RANGE");
       };
       if (scd_out_range.first!=NoExists && scd_out_range.second==NoExists)
       {
-        traceToMonitor(TRACE5, "TPNRFilter::fromXML: <scd_out_max> not defined");
+        TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: <scd_out_max> not defined");
         throw UserException("MSG.INVALID_RANGE");
       };
     };
     if (pass==1)
     {
-      str=NodeAsStringFast("scd_out", node2, "");
-      TrimString(str);
-      if (!str.empty())
-      {
-        if ( StrToDateTime( str.c_str(), "dd.mm.yyyy hh:nn:ss", scd_out_range.first ) == EOF )
-        {
-          traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out> %s", str.c_str());
-    		  throw UserException( "MSG.FLIGHT_DATE.INVALID",
-    			                     LParams()<<LParam("scd_out", str) );
-    		};
-    		scd_out_range.second=scd_out_range.first+1.0; //1 сутки
-    	};
+      scd_out_range.first = scd_out_fromXML(NodeAsStringFast("scd_out", node2, ""), "dd.mm.yyyy hh:nn:ss");
+      scd_out_range.second=scd_out_range.first+1.0; //1 сутки
     };
     if (pass==2)
     {
@@ -377,7 +416,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
       {
         if ( StrToInt( str.c_str(), scd_out_shift ) == EOF )
         {
-          traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out_shift> %s", str.c_str());
+          TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out_shift> %s", str.c_str());
           throw UserException("MSG.INVALID_RANGE");
         };
       	scd_out_range.first=NowUTC();
@@ -388,7 +427,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     {
       if (scd_out_range.first>=scd_out_range.second)
       {
-        traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid search period");
+        TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid search period");
         throw UserException("MSG.INVALID_RANGE");
       };
       if (pass==0 || pass==1)
@@ -404,7 +443,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     local_days+=(r->second-r->first);
   if (local_days>5.0)
   {
-    traceToMonitor(TRACE5, "TPNRFilter::fromXML: search period too large");
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: search period too large");
     throw UserException("MSG.SEARCH_PERIOD_MAX_N_DAYS", LParams()<<LParam("days", 5));
   };
   double utc_days=0;
@@ -413,13 +452,13 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     utc_days+=(r->second-r->first);
   if (utc_days>5.0)
   {
-    traceToMonitor(TRACE5, "TPNRFilter::fromXML: search period too large");
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: search period too large");
     throw UserException("MSG.SEARCH_PERIOD_MAX_N_DAYS", LParams()<<LParam("days", 5));
   };
   
   if (local_days<=0 && utc_days<=0)
   {
-    traceToMonitor(TRACE5, "TPNRFilter::fromXML: empty search period");
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: empty search period");
     throw UserException("MSG.NOT_SET_RANGE");
   };
 
@@ -427,7 +466,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
   TrimString(surname);
   if (surname.empty())
   {
-    traceToMonitor(TRACE5, "TPNRFilter::fromXML: <surname> not defined");
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: <surname> not defined");
     throw UserException("MSG.PASSENGER.NOT_SET.SURNAME");
   };
   surname=upperc(surname);
@@ -456,7 +495,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     if ( StrToInt( str.c_str(), reg_no ) == EOF ||
 		     reg_no > 999 || reg_no <= 0 )
 		{
-  	  traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <reg_no> %s", str.c_str());
+      TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <reg_no> %s", str.c_str());
       throw UserException("MSG.INVALID_REG_NO");
   	};
   };
@@ -1300,7 +1339,7 @@ void checkPnrData(const TFlightInfo &flt, const TDestInfo &dest, const TPNRSegIn
 void TPNRSegInfo::getMarkFlt(const TFlightInfo &flt, bool is_test, TTripInfo &mark) const
 {
   mark.Clear();
-  if (!is_test)
+  if (!is_test && pnr_id!=NoExists)
   {
     //коммерческий рейс PNR
     TMktFlight mktFlt;

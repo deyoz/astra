@@ -30,6 +30,7 @@ astra_SOURCES = \
   aodb.cc \
   apis.cc \
   apis_edi_file.cc \
+  apis_utils.cc \
   arx_daily.cc \
   astra_callbacks.cc \
   astra_consts.cc \
@@ -50,6 +51,7 @@ astra_SOURCES = \
   cache.cc \
   cent.cc \
   checkin.cc \
+  checkin_utils.cc \
   cobra.cc \
   comp_layers.cc \
   convert.cc \
@@ -64,6 +66,7 @@ astra_SOURCES = \
   etick_change_status.cpp \
   etick.cc \
   events.cc \
+  external_spp_synch.cc \
   flt_binding.cc \
   file_queue.cc \
   http_io.cpp \
@@ -156,6 +159,7 @@ noinst_HEADERS = \
   astra_tick_view.h \
   astra_ticket.h \
   astra_utils.h \
+  apis_utils.h \
   baggage.h \
   base_tables.h \
   basel_aero.h \
@@ -163,6 +167,7 @@ noinst_HEADERS = \
   cache.h \
   cent.h \
   checkin.h \
+  checkin_utils.h \
   cobra.h \
   comp_layers.h \
   convert.h \
@@ -171,11 +176,12 @@ noinst_HEADERS = \
   dev_tuning.h \
   dev_utils.h \
   develop_dbf.h \
-  docs.h \  
+  docs.h \
   empty_proc.h \
   etick_change_status.h \
   etick.h \
   events.h \
+  external_spp_synch.h \
   flt_binding.h \
   file_queue.h \
   http_io.h \

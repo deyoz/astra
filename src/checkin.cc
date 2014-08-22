@@ -37,6 +37,8 @@
 #include "apis.h"
 #include "qrys.h"
 #include "jxtlib/jxt_cont.h"
+#include "apis_utils.h"
+#include "astra_callbacks.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -7652,6 +7654,157 @@ void CheckInInterface::ParseScanDocData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   throw AstraLocale::UserException("MSG.DEVICE.INVALID_SCAN_FORMAT");
 };
 
+void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    ofstream fout;
+    fout.open("/home/user/work/xml_for_reg", ios::out);
+    xmlNodePtr flightNode = NodeAsNode("flight", reqNode);
+    TSearchFltInfo filter;
+    filter.airline = WebSearch::airl_fromXML(NodeAsString("airline", flightNode), true);
+    filter.flt_no = WebSearch::flt_no_fromXML(NodeAsString("flt_no", flightNode));
+    filter.suffix = WebSearch::suffix_fromXML(NodeAsString("suffix", flightNode,""));
+    filter.airp_dep = WebSearch::airp_fromXML(NodeAsString("airp_dep", flightNode), true);
+    filter.scd_out = WebSearch::scd_out_fromXML(NodeAsString("scd", flightNode), "dd.mm.yyyy");
+    filter.scd_out_in_utc = false;
+    filter.only_with_reg = true;
+
+    //ищем рейс в СПП
+    list<TAdvTripInfo> flts;
+    SearchFlt(filter, flts);
+    if (flts.size() == 0) {
+        throw AstraLocale::UserException("MSG.FLIGHTS_NOT_FOUND");
+    }
+    else if (flts.size() > 1) {
+        throw AstraLocale::UserException("MSG.FLIGHT.FOUND_MORE");
+    }
+    try
+    {
+        const TAdvTripInfo &flt=*(flts.begin());
+        TFlights flightsForLock;
+        flightsForLock.Get(flt.point_id, ftTranzit);
+        flightsForLock.Lock();
+
+        WebSearch::TPnrData pnrData;
+        pnrData.flt.fromDB(flt.point_id, true, true);
+        vector<WebSearch::TPnrData> PNRs;
+        PNRs.insert(PNRs.begin(), pnrData); //вставляем в начало первый сегмент
+        xmlNodePtr crew_groups = NodeAsNode("crew_groups", reqNode);
+
+        map<int,TAdvTripInfo> segs; // набор рейсов
+        TDeletePaxFilter filter;
+        filter.status=EncodePaxStatus(psCrew);
+        filter.with_crew=true;
+        DeletePassengers( flt.point_id, filter, segs );
+        string commander;
+        int cockpit = 0;
+        int cabin = 0;
+        bool is_commander = false;
+
+        for(xmlNodePtr crew_group = crew_groups->children; crew_group != NULL; crew_group = crew_group->next) {
+            xmlNodePtr crew_members = NodeAsNode("crew_members", crew_group);
+            TWebPnrForSave pnr;
+            pnr.status = psCrew;
+            pnr.paxFromReq.push_back(TWebPaxFromReq());
+            for(xmlNodePtr crew_member = crew_members->children; crew_member != NULL; crew_member = crew_member->next) {
+                string location = NodeAsString("location", crew_member);
+                if (location == string("commander")) {
+                    if (!commander.empty())
+                        throw AstraLocale::UserException("MSG.CHECK_XML_COMMANDER_DUPLICATED",
+                                                   LEvntPrms() << PrmSmpl<string>("fieldname", "location"));
+                    cockpit++;
+                    is_commander = true;
+                }
+                else if (location == string("cabin"))
+                    cabin++;
+                else if (location == string("cockpit"))
+                    cockpit++;
+                else throw AstraLocale::UserException("MSG.CHECK_XML_INVALID_LOCATION",
+                                                LEvntPrms() << PrmSmpl<string>("fieldname", "location"));
+                xmlNodePtr pers_data = NodeAsNode("personal_data", crew_member);
+                TWebPaxForCkin paxForCkin;
+
+                for (xmlNodePtr document = pers_data->children; document != NULL; document = document->next) {
+
+                    if (strcmp((const char*)document->name,"docs") == 0) {
+                        if (!paxForCkin.present_in_req.insert(ciDoc).second)
+                            throw AstraLocale::UserException("MSG.SECTION_DUPLICATED",
+                                                              LEvntPrms() << PrmSmpl<string>("airline", "docs"));
+                        paxForCkin.surname = upperc(NodeAsString("surname", document));
+                        string name = NodeAsString("first_name", document);
+                        string second_name = NodeAsString("second_name", document);
+                        if (!second_name.empty())
+                            name = name + " " + second_name;
+                        paxForCkin.name = upperc(name);
+                        if (is_commander) {
+                            commander = paxForCkin.surname + " " + upperc(name.substr(0, 1)) + ".";
+                            if (!second_name.empty())
+                                commander = commander + upperc(second_name.substr(0, 1)) + ".";
+                            is_commander = false;
+                        }
+                        paxForCkin.pers_type = EncodePerson(ASTRA::adult);
+                        paxForCkin.seats = 1;
+                        paxForCkin.apis.doc=NormalizeDoc(CheckIn::TPaxDocItem().fromXML(document));
+                    }
+                    else if (strcmp((const char*)document->name,"doco") == 0) {
+                        if (!paxForCkin.present_in_req.insert(ciDoco).second)
+                            throw AstraLocale::UserException("MSG.SECTION_DUPLICATED",
+                                                              LEvntPrms() << PrmSmpl<string>("name", "doco"));
+
+                        paxForCkin.apis.doco = NormalizeDoco(CheckIn::TPaxDocoItem().fromXML(document));
+                    }
+                    else if (strcmp((const char*)document->name,"doca") == 0) {
+                        string type = upperc(NodeAsString("type", document));
+
+                        if (!(type == "B" || type == "R" || type == "D"))
+                            throw AstraLocale::UserException("MSG.INVALID_ADDRES_TYPE");
+
+                        if ((type == "B" && !paxForCkin.present_in_req.insert(ciDocaB).second) ||
+                            ((type == "R" && !paxForCkin.present_in_req.insert(ciDocaR).second)) ||
+                            (type == "D" && !paxForCkin.present_in_req.insert(ciDocaD).second))
+                            throw AstraLocale::UserException("MSG.SECTION_DUPLICATED_WITH_TYPE",
+                                                              LEvntPrms() << PrmSmpl<string>("name", "doca")
+                                                              << PrmSmpl<string>("type", type));
+
+                        paxForCkin.apis.doca.push_back(NormalizeDoca(CheckIn::TPaxDocaItem().fromXML(document)));
+                    }
+                }
+
+                if (paxForCkin.present_in_req.find(ciDoc) == paxForCkin.present_in_req.end())
+                    throw AstraLocale::UserException("MSG.SECTION_NOT_FOUND", LEvntPrms() << PrmSmpl<string>("name", "docs"));
+                pnr.paxForCkin.push_back(paxForCkin);
+            }
+
+            WebSearch::TPnrData &pnrData=*(PNRs.begin());
+            string airp_arv = WebSearch::airp_fromXML(NodeAsString("airp_arv", crew_group), true);
+            CompletePnrDataForCrew(airp_arv, pnrData);
+            XMLDoc emulDocHeader;
+            CreateEmulXMLDoc(emulDocHeader);
+            XMLDoc emulCkinDoc;
+            map<int,XMLDoc> emulChngDocs;
+            CreateEmulDocs(vector< pair<int, TWebPnrForSave > >(1, make_pair(pnrData.flt.point_dep, pnr)),
+                           PNRs, emulDocHeader, emulCkinDoc, emulChngDocs);
+            fout << XMLTreeToText(emulCkinDoc.docPtr());
+
+            int first_grp_id, tckin_id;
+            TChangeStatusList ETInfo;
+
+            if (emulCkinDoc.docPtr()!=NULL) //регистрация новой группы
+            {
+              xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
+              if (emulReqNode==NULL)
+                throw EXCEPTIONS::Exception("CheckInInterface::CrewCheckin: emulReqNode=NULL");
+              SavePax(emulReqNode, NULL, first_grp_id, ETInfo, tckin_id);
+            }
+        }
+        UpdateCrew(flt.point_id, commander, cockpit, cabin);
+
+    }
+    catch(...)
+    {
+        throw;
+    }
+}
+
 namespace CheckIn
 {
 
@@ -7692,8 +7845,3 @@ void showError(const std::map<int, std::map<int, AstraLocale::LexemaData> > &seg
 };
 
 }; //namespace CheckIn
-
-
-
-
-
