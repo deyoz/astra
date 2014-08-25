@@ -427,6 +427,30 @@ long int TPaxDocoItem::getEqualAttrsFieldsMask(const TPaxDocoItem &item) const
   return result;
 };
 
+void TPaxDocoItem::ReplaceIncorrectSymbols()
+{
+  string syms_for_rep(".,:;'\"\\/");
+  for (string::iterator i = syms_for_rep.begin(); i != syms_for_rep.end(); ++i)
+  {
+    if (*i == '\\' || *i == '/')
+    {
+      replace(birth_place.begin(), birth_place.end(), *i, '-');
+      replace(type.begin(), type.end(), *i, '-');
+      replace(no.begin(), no.end(), *i, '-');
+      replace(issue_place.begin(), issue_place.end(), *i, '-');
+      replace(applic_country.begin(), applic_country.end(), *i, '-');
+    }
+    else
+    {
+      replace(birth_place.begin(), birth_place.end(), *i, ' ');
+      replace(type.begin(), type.end(), *i, ' ');
+      replace(no.begin(), no.end(), *i, ' ');
+      replace(issue_place.begin(), issue_place.end(), *i, ' ');
+      replace(applic_country.begin(), applic_country.end(), *i, ' ');
+    }
+  }
+}
+
 const TPaxDocaItem& TPaxDocaItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -503,6 +527,32 @@ long int TPaxDocaItem::getEqualAttrsFieldsMask(const TPaxDocaItem &item) const
   if (postal_code == item.postal_code) result|=DOCA_POSTAL_CODE_FIELD;
   return result;
 };
+
+void TPaxDocaItem::ReplaceIncorrectSymbols()
+{
+  string syms_for_rep(".,:;'\"\\/");
+  for (string::iterator i = syms_for_rep.begin(); i != syms_for_rep.end(); ++i)
+  {
+    if (*i == '\\' || *i == '/')
+    {
+      replace(type.begin(), type.end(), *i, '-');
+      replace(country.begin(), country.end(), *i, '-');
+      replace(address.begin(), address.end(), *i, '-');
+      replace(city.begin(), city.end(), *i, '-');
+      replace(region.begin(), region.end(), *i, '-');
+      replace(postal_code.begin(), postal_code.end(), *i, '-');
+    }
+    else
+    {
+      replace(type.begin(), type.end(), *i, ' ');
+      replace(country.begin(), country.end(), *i, ' ');
+      replace(address.begin(), address.end(), *i, ' ');
+      replace(city.begin(), city.end(), *i, ' ');
+      replace(region.begin(), region.end(), *i, ' ');
+      replace(postal_code.begin(), postal_code.end(), *i, ' ');
+    }
+  }
+}
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
 {

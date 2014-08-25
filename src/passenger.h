@@ -192,6 +192,7 @@ class TPaxDocoItem
     
     long int getNotEmptyFieldsMask() const;
     long int getEqualAttrsFieldsMask(const TPaxDocoItem &item) const;
+    void ReplaceIncorrectSymbols();
 };
 
 class TPaxDocaItem
@@ -241,6 +242,7 @@ class TPaxDocaItem
 
     long int getNotEmptyFieldsMask() const;
     long int getEqualAttrsFieldsMask(const TPaxDocaItem &item) const;
+    void ReplaceIncorrectSymbols();
 };
 
 class TPaxItem

@@ -7656,8 +7656,6 @@ void CheckInInterface::ParseScanDocData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
 void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    ofstream fout;
-    fout.open("/home/user/work/xml_for_reg", ios::out);
     xmlNodePtr flightNode = NodeAsNode("flight", reqNode);
     TSearchFltInfo filter;
     filter.airline = WebSearch::airl_fromXML(NodeAsString("airline", flightNode), true);
@@ -7783,7 +7781,6 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
             map<int,XMLDoc> emulChngDocs;
             CreateEmulDocs(vector< pair<int, TWebPnrForSave > >(1, make_pair(pnrData.flt.point_dep, pnr)),
                            PNRs, emulDocHeader, emulCkinDoc, emulChngDocs);
-            fout << XMLTreeToText(emulCkinDoc.docPtr());
 
             int first_grp_id, tckin_id;
             TChangeStatusList ETInfo;

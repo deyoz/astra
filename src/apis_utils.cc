@@ -384,10 +384,6 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
   CheckIn::TPaxDocoItem result;
   TElemFmt fmt;
 
-  if (reqInfo->client_type == ctHTTP) {
-
-  }
-
   result.birth_place = upperc(doc.birth_place);
   result.birth_place = TrimString(result.birth_place);
   if (result.birth_place.size()>35)
@@ -430,6 +426,10 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
     if (fmt==efmtUnknown)
       throw UserException("MSG.CHECK_DOCO.INVALID_APPLIC_COUNTRY", LParams()<<LParam("fieldname", "doco/applic_country" ));
   };
+
+  if (reqInfo->client_type == ctHTTP)
+    result.ReplaceIncorrectSymbols();
+
   return result;
 }
 
@@ -491,5 +491,9 @@ CheckIn::TPaxDocaItem NormalizeDoca(const CheckIn::TPaxDocaItem &doc)
     if (result.postal_code.size() > 17) {
         throw UserException("MSG.CHECK_DOCO.INVALID_POSTAL_CODE", LParams()<<LParam("fieldname", "doca/postal_code"));
     }
+
+    if (TReqInfo::Instance()->client_type == ctHTTP)
+      result.ReplaceIncorrectSymbols();
+
     return result;
 }
