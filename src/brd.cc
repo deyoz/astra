@@ -100,8 +100,9 @@ void BrdInterface::readTripCounters( const int point_id,
             sql += " AND pax_grp.client_type = :client_type ";
             Qry.CreateVariable("client_type",otString,client_type);
         } else {
-            sql += " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
+            sql += " AND pax_grp.client_type IN (:ctWeb, :ctMobile, :ctKiosk) ";
             Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
+            Qry.CreateVariable("ctMobile", otString, EncodeClientType(ctMobile));
             Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
         }
     }
@@ -196,8 +197,9 @@ void BrdInterface::readTripCounters( const int point_id,
                 SQLText += " AND pax_grp.client_type = :client_type ";
                 Qry.CreateVariable("client_type",otString,client_type);
             } else {
-                SQLText += " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
+                SQLText += " AND pax_grp.client_type IN (:ctWeb, :ctMobile, :ctKiosk) ";
                 Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
+                Qry.CreateVariable("ctMobile", otString, EncodeClientType(ctMobile));
                 Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
             }
         }
@@ -549,8 +551,9 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
             sql << " AND pax_grp.client_type = :client_type ";
             Qry.CreateVariable("client_type",otString,client_type);
         } else {
-            sql << " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
+            sql << " AND pax_grp.client_type IN (:ctWeb, :ctMobile, :ctKiosk) ";
             Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
+            Qry.CreateVariable("ctMobile", otString, EncodeClientType(ctMobile));
             Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
         }
     };

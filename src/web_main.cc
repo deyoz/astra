@@ -477,14 +477,15 @@ void checkDocInfoToXML(const TCheckDocInfo &checkDocInfo,
     NewTextChild(fieldsNode, "field", "applic_country");
 };
 
-string PaxDocCountryToXML(const string &pax_doc_country)
+string PaxDocCountryToXML(const string &pax_doc_country, const TClientType client_type)
 {
   string result;
   if (!pax_doc_country.empty())
   {
     try
     {
-      result=getBaseTable(etPaxDocCountry).get_row("code",pax_doc_country).AsString("country");
+      if (client_type != ctKiosk)
+        result=getBaseTable(etPaxDocCountry).get_row("code",pax_doc_country).AsString("country");
     }
     catch (EBaseTableError) {};
     if (result.empty()) result=pax_doc_country;
@@ -496,15 +497,12 @@ void PaxDocToXML(const CheckIn::TPaxDocItem &doc,
                  const xmlNodePtr node)
 {
   if (node==NULL) return;
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  bool pr_kiosk = ( reqInfo->client_type != ctKiosk &&
-                    reqInfo->client_type==ctWeb );
-  TElemFmt fmt;
+
   xmlNodePtr docNode=NewTextChild(node,"document");
   NewTextChild(docNode, "type", doc.type);
-  NewTextChild(docNode, "issue_country", pr_kiosk?ElemToPaxDocCountryId(doc.issue_country, fmt) : PaxDocCountryToXML(doc.issue_country));
+  NewTextChild(docNode, "issue_country", PaxDocCountryToXML(doc.issue_country, TReqInfo::Instance()->client_type));
   NewTextChild(docNode, "no", doc.no);
-  NewTextChild(docNode, "nationality", pr_kiosk?ElemToPaxDocCountryId(doc.nationality, fmt) : PaxDocCountryToXML(doc.nationality));
+  NewTextChild(docNode, "nationality", PaxDocCountryToXML(doc.nationality, TReqInfo::Instance()->client_type));
   if (doc.birth_date!=ASTRA::NoExists)
     NewTextChild(docNode, "birth_date", DateTimeToStr(doc.birth_date, ServerFormatDateTimeAsString));
   else
@@ -523,10 +521,7 @@ void PaxDocoToXML(const CheckIn::TPaxDocoItem &doco,
                   const xmlNodePtr node)
 {
   if (node==NULL) return;
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  bool pr_kiosk = ( reqInfo->client_type != ctKiosk &&
-                    reqInfo->client_type==ctWeb );
-  TElemFmt fmt;
+
   xmlNodePtr docNode=NewTextChild(node,"doco");
   NewTextChild(docNode, "birth_place", doco.birth_place);
   NewTextChild(docNode, "type", doco.type);
@@ -540,7 +535,7 @@ void PaxDocoToXML(const CheckIn::TPaxDocoItem &doco,
     NewTextChild(docNode, "expiry_date", DateTimeToStr(doco.expiry_date, ServerFormatDateTimeAsString));
   else
     NewTextChild(docNode, "expiry_date");
-  NewTextChild(docNode, "applic_country", pr_kiosk?ElemToPaxDocCountryId(doco.applic_country, fmt) :  PaxDocCountryToXML(doco.applic_country));
+  NewTextChild(docNode, "applic_country", PaxDocCountryToXML(doco.applic_country, TReqInfo::Instance()->client_type));
 };
 
 void PaxDocFromXML(const xmlNodePtr node,
@@ -708,6 +703,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
           	  switch(DecodeClientType(Qry.FieldAsString( "client_type" )))
           	  {
           	    case ctWeb:
+                case ctMobile:
           	    case ctKiosk:
         		    	pax.checkin_status = "web_checked";
         		  		break;
@@ -3048,8 +3044,8 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     if ( FltQry.Eof )
       throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );
     TTripInfo tripInfo( FltQry );
-    if ( TReqInfo::Instance()->client_type != ctWeb ||
-         !is_sync_meridian( tripInfo ) ) {
+    if ( TReqInfo::Instance()->client_type != ctWeb || //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
+         !is_sync_meridian( tripInfo ) ) {             //но описывается в таблице web_clients как веб-регистрация!
       continue;
     }
 

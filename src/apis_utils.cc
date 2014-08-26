@@ -405,12 +405,8 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
 
   result.issue_place = upperc(doc.issue_place);
   result.issue_place = TrimString(result.issue_place);
-  if (result.issue_place.size()>35) { //!!!vladdjek
-    if ( reqInfo->client_type != ctKiosk &&
-         reqInfo->client_type==ctWeb ) {
-      throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" ));
-    }
-  }
+  if (result.issue_place.size()>35)
+    throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" ));
 
   if (doc.issue_date!=NoExists)
     modf(doc.issue_date, &result.issue_date);

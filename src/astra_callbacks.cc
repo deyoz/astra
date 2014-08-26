@@ -423,9 +423,7 @@ void AstraJxtCallbacks::UserAfter()
     //вообще libxml с версии 2.7 хранит и требует работать с деревом в UTF-8, а не в 866
     SetXMLDocEncoding(xmlRC->resDoc, "UTF-8");
 
-    if ( TReqInfo::Instance()->client_type != ctWeb ||
-         TReqInfo::Instance()->client_type != ctKiosk ||
-         TReqInfo::Instance()->client_type != ctHTTP)
+    if ( TReqInfo::Instance()->client_type == ctTerm )
       CheckTermResDoc(); //!!!anna
 }
 
