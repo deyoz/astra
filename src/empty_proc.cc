@@ -1536,7 +1536,7 @@ int compare_apis(int argc,char **argv)
     return 0;
   };
 
-  if (init_edifact()<0)
+  if (edifact::init_edifact()<0)
   {
     printf("'init_edifact' error");
     return 0;

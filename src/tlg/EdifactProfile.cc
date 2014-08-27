@@ -1,11 +1,13 @@
+#include "EdifactProfile.h"
+
+#include <serverlib/str_utils.h>
+#include <serverlib/cursctl.h>
+
+#include <boost/lexical_cast.hpp>
+
 #define NICKNAME "NONSTOP"
 #define NICKTRACE NONSTOP_TRACE
-#include "serverlib/slogger.h"
-
-//#include "TicketBaseTypesOci.h"
-
-#include <EdifactProfile.h>
-#include "serverlib/str_utils.h"
+#include <serverlib/slogger.h>
 
 using std::string;
 
@@ -81,18 +83,19 @@ EdifactProfile::~EdifactProfile()
 EdifactProfile::id_t EdifactProfile::idByName(const std::string & name)
 {
     id_t id;
-    OciCpp::CursCtl cur = make_curs("select ida from edifact_profiles where name = :n");
-    cur.
-            bind(":n", name).
-            def(id).
-            EXfet();
+    // TODO
+//    OciCpp::CursCtl cur = make_curs("select ida from edifact_profiles where name = :n");
+//    cur.
+//            bind(":n", name).
+//            def(id).
+//            EXfet();
 
-    if(cur.err() == NO_DATA_FOUND)
-    {
-        LogTrace(TRACE1) << "not found by name = " << name;
-        throw BadEdifactProfile(STDLOG,
-                                std::string("edifact_profile not found by name = ") + name);
-    }
+//    if(cur.err() == NO_DATA_FOUND)
+//    {
+//        LogTrace(TRACE1) << "not found by name = " << name;
+//        throw BadEdifactProfile(STDLOG,
+//                                std::string("edifact_profile not found by name = ") + name);
+//    }
 
     return id;
 }
@@ -100,55 +103,57 @@ EdifactProfile::id_t EdifactProfile::idByName(const std::string & name)
 EdifactProfile EdifactProfile::load(id_t id)
 {
     string name, synName;
-    int synVer, isBatch;
-    LogTrace(TRACE3) << "EdifactProfile::load, id = " << id;
-    OciCpp::CursCtl cr = make_curs("select name, syntax_name, syntax_ver, batch from edifact_profiles where ida = :id");
-    cr.bind(":id", id);
-    cr.def(name).def(synName).def(synVer).def(isBatch);
-    cr.EXfet();
-    if (cr.err() == NO_DATA_FOUND)
-        throw BadEdifactProfile(STDLOG, "load by id failed");
+      // TODO
+//    int synVer, isBatch;
+//    LogTrace(TRACE3) << "EdifactProfile::load, id = " << id;
+//    OciCpp::CursCtl cr = make_curs("select name, syntax_name, syntax_ver, batch from edifact_profiles where ida = :id");
+//    cr.bind(":id", id);
+//    cr.def(name).def(synName).def(synVer).def(isBatch);
+//    cr.EXfet();
+//    if (cr.err() == NO_DATA_FOUND)
+//        throw BadEdifactProfile(STDLOG, "load by id failed");
     EdifactProfile ep(name);
-    ep.m_id = id;
-    ep.setSyntax(synName, synVer);
-    ep.setBatch(isBatch);
+//    ep.m_id = id;
+//    ep.setSyntax(synName, synVer);
+//    ep.setBatch(isBatch);
 
-    MessageOptions mo;
-    OciCpp::CursCtl crMsgTypes = make_curs("select name, major_version, minor_version, agency from edifact_profile_msg_types where ida_ep = :id");
-    crMsgTypes.bind(":id", id);
-    crMsgTypes.def(mo.name).def(mo.majorVersion).def(mo.minorVersion).def(mo.agency);
-    crMsgTypes.exec();
-    while (!crMsgTypes.fen())
-        ep.m_opts.push_back(mo);
+//    MessageOptions mo;
+//    OciCpp::CursCtl crMsgTypes = make_curs("select name, major_version, minor_version, agency from edifact_profile_msg_types where ida_ep = :id");
+//    crMsgTypes.bind(":id", id);
+//    crMsgTypes.def(mo.name).def(mo.majorVersion).def(mo.minorVersion).def(mo.agency);
+//    crMsgTypes.exec();
+//    while (!crMsgTypes.fen())
+//        ep.m_opts.push_back(mo);
     return ep;
 }
 
 void EdifactProfile::save()
 {
-    make_curs(
-        "begin\n"
-        "insert into edifact_profiles (ida, name, syntax_name, syntax_ver, batch) "
-        "values (edifact_profiles_seq.nextval, :name, :sn, :sv, :b) "
-        "returning ida into :id;\n"
-        "end;")
-        .bind(":name", m_name)
-        .bind(":sn", m_syntax.name)
-        .bind(":sv", m_syntax.version)
-        .bind(":b", (int)m_batch)
-        .bindOut(":id", m_id)
-        .exec();
-    if (m_opts.empty())
-        return;
-    OciCpp::CursCtl cr = make_curs(
-        "insert into edifact_profile_msg_types (ida_ep, name, major_version, minor_version, agency) "
-        "values (:ep, :name, :majv, :minv, :ag)");
-    cr.bind(":ep", m_id);
-    for (MessageOptionsCIter_t it = m_opts.begin(); it != m_opts.end(); ++it)
-    {
-        cr.bind(":name", it->name).bind(":majv", it->majorVersion)
-            .bind(":minv", it->minorVersion).bind(":ag", it->agency)
-            .exec();
-    }
+    // TODO
+//    make_curs(
+//        "begin\n"
+//        "insert into edifact_profiles (ida, name, syntax_name, syntax_ver, batch) "
+//        "values (edifact_profiles_seq.nextval, :name, :sn, :sv, :b) "
+//        "returning ida into :id;\n"
+//        "end;")
+//        .bind(":name", m_name)
+//        .bind(":sn", m_syntax.name)
+//        .bind(":sv", m_syntax.version)
+//        .bind(":b", (int)m_batch)
+//        .bindOut(":id", m_id)
+//        .exec();
+//    if (m_opts.empty())
+//        return;
+//    OciCpp::CursCtl cr = make_curs(
+//        "insert into edifact_profile_msg_types (ida_ep, name, major_version, minor_version, agency) "
+//        "values (:ep, :name, :majv, :minv, :ag)");
+//    cr.bind(":ep", m_id);
+//    for (MessageOptionsCIter_t it = m_opts.begin(); it != m_opts.end(); ++it)
+//    {
+//        cr.bind(":name", it->name).bind(":majv", it->majorVersion)
+//            .bind(":minv", it->minorVersion).bind(":ag", it->agency)
+//            .exec();
+//    }
 }
 
 EdifactProfile::id_t EdifactProfile::id() const
@@ -229,24 +234,25 @@ MsgEdifactProfile::~MsgEdifactProfile()
 MsgEdifactProfile MsgEdifactProfile::load(id_t id, const std::string& msgType)
 {
     string name, synName;
-    int synVer, isBatch;
+    int synVer = 0, isBatch = 0;
     EdifactProfile::MessageOptions mo;
 
-    LogTrace(TRACE3) << "EdifactProfile::load id = " << id <<
-            "; msgType = " << msgType;
+    // TODO
+//    LogTrace(TRACE3) << "EdifactProfile::load id = " << id <<
+//            "; msgType = " << msgType;
 
-    OciCpp::CursCtl cr = make_curs(
-        "select ep.name, ep.syntax_name, ep.syntax_ver, ep.batch, "
-        "ept.name, ept.major_version, ept.minor_version, ept.agency "
-        "from edifact_profiles ep, edifact_profile_msg_types ept "
-        "where ep.ida = ept.ida_ep and ida = :id and ept.name = :msgType");
-    cr.bind(":id", id).bind(":msgType", msgType);
-    cr.def(name).def(synName).def(synVer).def(isBatch);
-    cr.def(mo.name).def(mo.majorVersion).def(mo.minorVersion).def(mo.agency);
-    cr.EXfet();
-    if (cr.err() == NO_DATA_FOUND)
-        throw BadEdifactMsgProfile(STDLOG, msgType, "load by id failed. msgType=" +
-                msgType + " ida_ep = " + HelpCpp::string_cast(id.get()));
+//    OciCpp::CursCtl cr = make_curs(
+//        "select ep.name, ep.syntax_name, ep.syntax_ver, ep.batch, "
+//        "ept.name, ept.major_version, ept.minor_version, ept.agency "
+//        "from edifact_profiles ep, edifact_profile_msg_types ept "
+//        "where ep.ida = ept.ida_ep and ida = :id and ept.name = :msgType");
+//    cr.bind(":id", id).bind(":msgType", msgType);
+//    cr.def(name).def(synName).def(synVer).def(isBatch);
+//    cr.def(mo.name).def(mo.majorVersion).def(mo.minorVersion).def(mo.agency);
+//    cr.EXfet();
+//    if (cr.err() == NO_DATA_FOUND)
+//        throw BadEdifactMsgProfile(STDLOG, msgType, "load by id failed. msgType=" +
+//                msgType + " ida_ep = " + HelpCpp::string_cast(id.get()));
 
     MsgEdifactProfile ep(name);
     ep.m_id = id;

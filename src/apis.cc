@@ -3,6 +3,7 @@
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "astra_utils.h"
+#include "astra_main.h"
 #include "base_tables.h"
 #include "apis_edi_file.h"
 #include "misc.h"
@@ -362,7 +363,7 @@ int create_apis_nosir(int argc,char **argv)
     return 1;
   };
 
-  if (init_edifact()<0) throw Exception("'init_edifact' error");
+  init_locale();
   create_apis_file(point_id, "");
 
   puts("create_apis successfully completed");

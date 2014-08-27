@@ -8,6 +8,11 @@
 #include "astra_misc.h"
 #include "xml_unit.h"
 
+namespace edifact{
+    class RemoteResults;
+}//namespace edifact
+
+
 class ETSearchInterface : public JxtInterface
 {
 public:
@@ -18,12 +23,41 @@ public:
      AddEvent("SearchETByTickNo",evHandle);
      AddEvent("TickPanel",evHandle);
      AddEvent("kick", JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::KickHandler));
-  };
+  }
 
   void SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ETChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
+};
+
+class EMDSearchInterface : public JxtInterface
+{
+public:
+    EMDSearchInterface() : JxtInterface("EMDSearchForm", "EMDSearchForm")
+    {
+        AddEvent("SearchEMDByDocNo", JXT_HANDLER(EMDSearchInterface, SearchEMDByDocNo));
+        AddEvent("kick",             JXT_HANDLER(EMDSearchInterface, KickHandler));
+    }
+
+    void SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
+};
+
+class EMDDisassociateInterface : public JxtInterface
+{
+public:
+    EMDDisassociateInterface() : JxtInterface("EMDDisassociateForm", "EMDDisassociateForm")
+    {
+        AddEvent("DisassociateEMD", JXT_HANDLER(EMDDisassociateInterface, DisassociateEmdCoupon));
+        AddEvent("kick",            JXT_HANDLER(EMDDisassociateInterface, KickHandler));
+    }
+
+    void DisassociateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void MakeAnAnswer(xmlNodePtr resNode, boost::shared_ptr<edifact::RemoteResults> remRes);
+    virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 };
 
 enum TETCheckStatusArea {csaFlt,csaGrp,csaPax};
@@ -122,22 +156,6 @@ inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
 
     return ifaceNode;
 }
-
-class EMDSearchInterface : public JxtInterface
-{
-public:
-  EMDSearchInterface() : JxtInterface("","EMDSearch")
-  {
-     Handler *evHandle;
-     evHandle=JxtHandler<EMDSearchInterface>::CreateHandler(&EMDSearchInterface::EMDTextView);
-     AddEvent("EMDTextView",evHandle);
-
-
-  };
-
-  void EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
-};
 
 #endif
 

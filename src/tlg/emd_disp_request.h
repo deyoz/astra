@@ -2,47 +2,65 @@
 #define _EMD_DISP_REQUEST_H_
 
 #include "edi_tlg.h"
-#include "edi_tkt_request.h"
+#include "emd_request.h"
 
 enum EmdDispType_e{
     emdDispByNum,
 };
 
-class EmdDispParams : public edi_common_data
+namespace edifact
 {
-    int reqCtxtId;
-    EmdDispType_e DispType;
+
+class EmdDispParams : public EmdRequestParams
+{
+    EmdDispType_e m_dispType;
 public:
-    EmdDispParams(const Ticketing::OrigOfRequest &org,
-             const std::string &ctxt,
-             const int req_ctxt_id,
-             EmdDispType_e dt)
-    :edi_common_data(org, ctxt, req_ctxt_id), DispType(dt)
-    {
-    }
-    EmdDispType_e dispType() { return DispType; }
+    EmdDispParams(const Ticketing::OrigOfRequest& org,
+                  const std::string& ctxt,
+                  const int reqCtxtId,
+                  const std::string& airline,
+                  const Ticketing::FlightNum_t& flNum,
+                  EmdDispType_e dt)
+    : EmdRequestParams(org, ctxt, reqCtxtId, airline, flNum),
+      m_dispType(dt)
+    {}
+
+    EmdDispType_e dispType() { return m_dispType; }
 };
+
+//-----------------------------------------------------------------------------
 
 class EmdDispByNum : public EmdDispParams
 {
-    std::string TickNum;
+    Ticketing::TicketNum_t m_tickNum;
 public:
     EmdDispByNum(const Ticketing::OrigOfRequest &org,
-                  const std::string &ctxt,
-                  const int req_ctxt_id,
-                  const std::string &ticknum)
-    :   EmdDispParams(org, ctxt, req_ctxt_id, emdDispByNum),
-        TickNum(ticknum)
-    {
-    }
+                 const std::string &ctxt,
+                 const int reqCtxtId,
+                 const std::string& airline,
+                 const Ticketing::FlightNum_t& flNum,
+                 const Ticketing::TicketNum_t &ticknum)
+    : EmdDispParams(org, ctxt, reqCtxtId, airline, flNum, emdDispByNum),
+      m_tickNum(ticknum)
+    {}
 
-    const std::string tickNum() const { return TickNum; }
+    const Ticketing::TicketNum_t& tickNum() const { return m_tickNum; }
 };
 
-void CreateTKCREQEmdDisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
-void ProcTKCRESemdDisplay(edi_mes_head *pHead, edi_udata &udata,
-                             edi_common_data *data);
-void ParseTKCRESemdDisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
+//-----------------------------------------------------------------------------
 
-void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp);
+class EmdDispRequestByNum: public EmdRequest
+{
+    EmdDispByNum m_dispParams;
+public:
+    EmdDispRequestByNum(const EmdDispByNum& dispParams);
+
+    virtual std::string mesFuncCode() const;
+    virtual void collectMessage();
+
+    virtual ~EmdDispRequestByNum() {}
+};
+
+}//namespace edifact
+
 #endif /* _EMD_DISP_REQUEST_H_ */

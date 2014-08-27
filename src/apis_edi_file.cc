@@ -33,7 +33,7 @@
 namespace Paxlst
 {
 using namespace edilib;
-using namespace ASTRA::edifact;
+using namespace edifact;
 
 
 static const char* UnhNumber = "1";
@@ -425,7 +425,7 @@ namespace
     void init()
     {
         ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()->connect_db();
-        init_edifact();
+        edifact::init_edifact();
     }
 
     void tear_down()

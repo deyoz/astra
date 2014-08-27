@@ -6,12 +6,13 @@
 #include <tcl.h>
 #include <string>
 #include "astra_consts.h"
+#include "astra_main.h"
 #include "astra_utils.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
-#include "edilib/edi_user_func.h"
-#include "serverlib/ourtime.h"
+#include <edilib/edi_user_func.h>
+#include <serverlib/ourtime.h>
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -48,7 +49,7 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[])
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
       ->connect_db();
-    if (init_edifact()<0) throw Exception("'init_edifact' error");
+    init_locale();
 
     if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==-1)
       throw Exception("'socket' error %d: %s",errno,strerror(errno));

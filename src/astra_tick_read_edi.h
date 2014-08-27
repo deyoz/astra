@@ -155,6 +155,16 @@ namespace TickReader{
     // read IFT from EDIFACT
     void readEdiIFT(EDI_REAL_MES_STRUCT *pMes, list<FreeTextInfo> &lIft);
     Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes, TickStatAction::TickStatAction_t tickStatAction);
+
+    // read ORG from EDIFACT
+    OrigOfRequest readOrigOfRequest(EDI_REAL_MES_STRUCT* pMes);
+
+    // read RCI from EDIFACT
+    ResContrInfo readResContrInfo(EDI_REAL_MES_STRUCT* pMes);
+
+    // read TIF from EDIFACT
+    Passenger readPassenger(EDI_REAL_MES_STRUCT* pMes);
+
 } // namespace Ticketing
 } // namespace TickReader
 #endif /*_ASTRA_TICK_READ_EDI_H_*/

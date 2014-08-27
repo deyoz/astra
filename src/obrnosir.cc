@@ -21,6 +21,7 @@
 #include "empty_proc.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
+#include "serverlib/testmode.h"
 #include "edilib/edi_loading.h"
 
 #define NICKNAME "VLAD"
@@ -109,9 +110,9 @@ int main_nosir_user(int argc,char **argv)
         ProgTrace(TRACE1,"nosir func finished: name='%s, id=%i, res=%i", argv[0], i, res);
 
         if(res != 0)
-           ASTRA::rollback();
+            ASTRA::rollback();
         else
-           ASTRA::commit();
+            ASTRA::commit();
         OraSession.LogOff();
       }
       catch(const std::exception &e)

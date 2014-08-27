@@ -7,22 +7,31 @@
 // Author: Komtech-N <rom@sirena2000.ru>, (C) 2007
 //
 //
-#ifndef _EDIFACTREQUEST_H_
-#define _EDIFACTREQUEST_H_
+#pragma once
+
 #include <string>
-#include "edilib/edi_types.h"
-#include "edilib/edi_request.h"
+
+#include <edilib/edi_types.h>
+#include <edilib/edi_request.h>
+
 
 struct _edi_mes_head_;
 struct _EDI_REAL_MES_STRUCT_;
 
+class AstraEdiSessWR;
+namespace Ticketing {
 namespace RemoteSystemContext{
     class SystemContext;
-}
+}//namespace RemoteSystemContext
+}//namespace Ticketing
+
+namespace TlgHandling{
+    class TlgSourceEdifact;
+}//namespace TlgHandling
+
 
 namespace edifact
 {
-    class AstraEdiSessWR;
 
 /**
  * @class EdifactRequest
@@ -30,34 +39,27 @@ namespace edifact
  */
 class EdifactRequest : public edilib::EdifactRequest
 {
-   std::string *TlgOut;
+   TlgHandling::TlgSourceEdifact *TlgOut;
+   int ReqCtxtId;
 public:
     /**
      * @brief EdifactRequest
      * @param msg_type тип сообщения
      */
-    EdifactRequest(const std::string &pult,
-                   const RemoteSystemContext::SystemContext *SCont,
-                   edi_msg_types_t msg_type);
+    EdifactRequest(const std::string &pult, int ctxtId, edi_msg_types_t msg_type,
+                   const Ticketing::RemoteSystemContext::SystemContext* sysCont);
 
-    /**
-     * @brief remote system context
-     * @return
-     */
-    const RemoteSystemContext::SystemContext *sysCont();
 
-    /**
-     * @brief Послать телеграмму, используя данные из pMes()
-     */
+    virtual void collectMessage() = 0;
+
     virtual void sendTlg();
 
-    /**
-     * Последняя посланная телеграмма
-     * @return
-     */
+    int reqCtxtId() const;
+
     const TlgHandling::TlgSourceEdifact *tlgOut() const;
+
+    const Ticketing::RemoteSystemContext::SystemContext *sysCont();
 
     virtual ~EdifactRequest();
 };
 } // namespace edifact
-#endif /*_EDIFACTREQUEST_H_*/

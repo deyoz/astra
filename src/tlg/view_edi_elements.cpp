@@ -1,20 +1,19 @@
 #include "view_edi_elements.h"
 #include "astra_consts.h"
 
-#include <boost/lexical_cast.hpp>
-
 #include <edilib/edi_func_cpp.h>
 #include <edilib/edi_astra_msg_types.h>
 #include <edilib/edi_sess.h>
 #include <serverlib/str_utils.h>
+
+#include <boost/lexical_cast.hpp>
+#include <boost/foreach.hpp>
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ROMAN_TRACE
 #include <serverlib/slogger.h>
 
 
-namespace ASTRA
-{
 namespace edifact
 {
 using namespace edilib;
@@ -232,5 +231,78 @@ void viewCntElement( _EDI_REAL_MES_STRUCT_* pMes, const CntElem& elem, int num )
     SetEdiFullSegment( pMes, SegmElement( "CNT", num ), cnt.str() );
 }
 
+void viewTktElement( _EDI_REAL_MES_STRUCT_* pMes, const TktElem& elem )
+{
+    std::ostringstream tkt;
+    tkt << elem.m_ticketNum.get() << ":";
+    if(elem.m_docType)
+        tkt << elem.m_docType->code();
+    tkt << ":";
+    if(elem.m_conjunctionNum)
+        tkt << elem.m_conjunctionNum.get();
+    tkt << ":";
+    if(elem.m_tickStatAction)
+        tkt << Ticketing::TickStatAction::TickActionStr(elem.m_tickStatAction.get());
+    tkt << "::";
+    if(elem.m_inConnectionTicketNum)
+        tkt << elem.m_inConnectionTicketNum.get();
+
+    SetEdiFullSegment( pMes, SegmElement( "TKT" ), tkt.str() );
+}
+
+void viewCpnElement( _EDI_REAL_MES_STRUCT_* pMes, const CpnElem& elem )
+{
+    std::ostringstream cpn;
+    cpn << elem.m_num << ":";
+    if( elem.m_status )
+        cpn << elem.m_status->code();
+    cpn << ":";
+    if( elem.m_amount.isValid() )
+        cpn << elem.m_amount.amStr();
+    cpn << ":";
+    if( elem.m_media )
+        cpn << elem.m_media->code();
+
+    cpn << ":" << elem.m_sac << ":::";
+    if( elem.m_connectedNum )
+        cpn << elem.m_connectedNum;
+    cpn << "::";
+    if( !elem.m_action.empty() )
+        cpn << elem.m_action;
+
+    SetEdiFullSegment( pMes, SegmElement( "CPN" ), cpn.str() );
+}
+
+void viewEqnElement( _EDI_REAL_MES_STRUCT_* pMes, const EqnElem& elem )
+{
+    std::ostringstream eqn;
+    eqn << elem.m_numberOfUnits << ":";
+    eqn << elem.m_qualifier;
+    SetEdiFullSegment( pMes, SegmElement( "EQN" ), eqn.str() );
+}
+
+void viewEqnElement( _EDI_REAL_MES_STRUCT_* pMes, const std::list<EqnElem>& lElem )
+{
+    if(lElem.empty())
+        return;
+
+    std::ostringstream eqn;
+    BOOST_FOREACH(const EqnElem& elem, lElem)
+    {
+        eqn << elem.m_numberOfUnits << ":";
+        eqn << elem.m_qualifier << "+";
+    }
+    SetEdiFullSegment(pMes, SegmElement( "EQN" ), eqn.str());
+}
+
+void viewOrgElement( _EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem )
+{
+    std::ostringstream org;
+    org << elem.airlineCode() << ":" + elem.locationCode() << "+";
+    org << elem.pprNumber() << "+++";
+    org << elem.type() << "+::";
+    org << elem.langStr()<< "+" << elem.pult();
+    SetEdiFullSegment( pMes, SegmElement( "ORG" ), org.str() );
+}
+
 }//namespace edifact
-}//namespace ASTRA

@@ -1,91 +1,79 @@
 #include "config.h"
-#include "tlg/emd_disp_request.h"
-#include <edilib/edi_func_cpp.h>
 #include "astra_context.h"
-#include <serverlib/EdiHelpManager.h>
-#include "serverlib/query_runner.h"
 #include "astra_ticket.h"
-#include "edilib/edi_astra_msg_types.h"
+#include "remote_results.h"
+#include "AgentWaitsForRemote.h"
+#include "view_edi_elements.h"
+#include "emd_disp_request.h"
+#include "remote_system_context.h"
 
-#define NICKNAME "ROMAN"
+#include <edilib/edi_func_cpp.h>
+#include <serverlib/EdiHelpManager.h>
+#include <serverlib/query_runner.h>
+
+#define NICKNAME "ANTON"
+#define NICK_TRACE ANTON_TRACE
 #include <serverlib/slogger.h>
 
+namespace edifact
+{
 using namespace edilib;
+using namespace Ticketing;
 
-void CreateTKCREQEmdDisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
+
+EmdDispRequestByNum::EmdDispRequestByNum(const EmdDispByNum& dispParams)
+    : EmdRequest(dispParams), m_dispParams(dispParams)
 {
-    EDI_REAL_MES_STRUCT *pMes = GetEdiMesStructW();
-    EmdDispParams &TickD = dynamic_cast<EmdDispParams &>(*data);
-
-    switch(TickD.dispType())
-    {
-        case emdDispByNum:
-        {
-            EmdDispByNum & TickDisp= dynamic_cast<EmdDispByNum &>(TickD);
-
-            SetEdiSegGr(pMes, 1);
-            SetEdiPointToSegGrW(pMes, 1);
-            SetEdiFullSegment(pMes, "TKT",0, TickDisp.tickNum());
-        }
-        break;
-        default:
-            throw EdiExcept("Unsupported dispType");
-    }
-
-    //запишем контексты
-    AstraContext::SetContext("EDI_SESSION",
-                             udata.sessData()->ediSession()->ida().get(),
-                             TickD.context());
-
-    if (TickD.req_ctxt_id()!=ASTRA::NoExists)
-    {
-      AstraContext::SetContext("EDI_HELP_INTMSGID",
-                                 udata.sessData()->ediSession()->ida().get(),
-                                 get_internal_msgid_hex());
-
-      ServerFramework::getQueryRunner().getEdiHelpManager().
-              configForPerespros(STDLOG, prepareKickText("ETSearchForm", TickD.req_ctxt_id()).c_str(),-1,15);
-      LogTrace(TRACE3) << "get_internal_msgid_hex() = " << get_internal_msgid_hex();
-    } else {
-      LogTrace(TRACE3) << "TickD.req_ctxt_id() = " << TickD.req_ctxt_id();
-    }
 }
 
-void ProcTKCRESemdDisplay(edi_mes_head *pHead, edi_udata &udata,
-                             edi_common_data *data)
+void EmdDispRequestByNum::collectMessage()
 {
-
+    viewOrgElement(pMes(), m_dispParams.org());
+    edilib::SetEdiSegGr(pMes(), 1);
+    edilib::SetEdiPointToSegGrW(pMes(), 1);
+    TktElem tkt;
+    tkt.m_ticketNum = m_dispParams.tickNum();
+    viewTktElement(pMes(), tkt);
 }
 
-void ParseTKCRESemdDisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
+std::string EmdDispRequestByNum::mesFuncCode() const
 {
-
+    return "791";
 }
 
-void SendEdiTlgTKCREQ_Disp(EmdDispParams &TDisp)
-{
-    int err=0;
-    edi_udata_wr ud(new AstraEdiSessWR(TDisp.org().pult()), EdiMess::EmdDisplay);
-
-    int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TDisp, &err);
-    if(ret)
-    {
-        throw EXCEPTIONS::Exception("SendEdiMessage DISPLAY failed");
-    }
-}
+}//namespace edifact
 
 
 #ifdef XP_TESTING
 #include <serverlib/func_placeholders.h>
-static std::string FP_send_emd_disp(const std::vector<std::string> &p)
-{
-    Ticketing::OrigOfRequest org("UT");
 
-    EmdDispByNum params(org, "", 0, p.at(0));
-    SendEdiTlgTKCREQ_Disp(params);
+void runEdiTimer_4testsOnly();
+
+static std::string FP_init_eds(const std::vector<std::string> &p)
+{
+    using namespace Ticketing::RemoteSystemContext;
+
+    ASSERT(p.size() == 3);
+    std::string airline = p.at(0);
+    std::string ediAddrTo = p.at(1);
+    std::string ediAddrFrom = p.at(2);
+
+    EdsSystemContext::create4TestsOnly(airline, ediAddrTo, ediAddrFrom);
+
+    // for compatibility
+    set_edi_addrs(std::make_pair(ediAddrFrom, ediAddrTo));
     return "";
 }
 
-FP_REGISTER("send_emd_disp", FP_send_emd_disp);
+std::string FP_run_daemon(const std::vector<std::string> &params) {
+    assert(params.size() > 0);
+    if(params.at(0) == "edi_timeout") {
+        runEdiTimer_4testsOnly();
+    }
+    return "";
+}
+
+FP_REGISTER("init_eds",   FP_init_eds);
+FP_REGISTER("run_daemon", FP_run_daemon);
 
 #endif /* XP_TESTING */

@@ -5,10 +5,13 @@
 #include "oralib.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "tlg_source_edifact.h"
 #include "qrys.h"
-#include "serverlib/tcl_utils.h"
-#include "serverlib/logger.h"
+#include <serverlib/tcl_utils.h>
+#include <serverlib/logger.h>
 #include <serverlib/testmode.h>
+#include <serverlib/TlgLogger.h>
+#include <edilib/edi_user_func.h>
 #include <libtlg/tlg_outbox.h>
 #include "xp_testing.h"
 
@@ -267,6 +270,74 @@ string getTlgText(int tlg_id,
   return result;
 };
 
+static void logTlgTypeA(const std::string& text)
+{
+    LogTlg() << TlgHandling::TlgSourceEdifact(text).text2view();
+}
+
+static void logTlgTypeB(const std::string& text)
+{
+    LogTlg() << text;
+}
+
+static void logTlg(const std::string& type, int tlgNum, const std::string& receiver, const std::string& text)
+{
+    if(type != "OUTA" && type != "OUTB")
+        return;
+
+    LogTlg() << "| TNUM: " << tlgNum
+             << " | DIR: " << "OUT"
+             << " | ROUTER: " << receiver
+             << " | TSTAMP: " << boost::posix_time::second_clock::local_time();
+
+    if(type == "OUTA")
+        logTlgTypeA(text);
+    else
+        logTlgTypeB(text);
+}
+
+static void putTlg2OutQueue(const std::string& receiver,
+                            const std::string& sender,
+                            const std::string& type,
+                            const std::string& text,
+                            int priority,
+                            int tlgNum,
+                            int ttl)
+{
+    BASIC::TDateTime nowUTC=BASIC::NowUTC();
+    TQuery Qry(&OraSession);
+    Qry.SQLText=
+      "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
+      "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:priority,'PUT',:time,:ttl,:time_msec,NULL) ";
+    Qry.CreateVariable("sender",otString,sender);
+    Qry.CreateVariable("receiver",otString,receiver);
+    Qry.CreateVariable("type",otString, type.c_str());
+    Qry.CreateVariable("priority",otInteger,priority);
+    Qry.CreateVariable("time",otDate,nowUTC);
+    if ((priority==qpOutA || priority==qpOutAStepByStep) && ttl>0)
+      Qry.CreateVariable("ttl",otInteger,ttl);
+    else
+      Qry.CreateVariable("ttl",otInteger,FNull);
+    Qry.CreateVariable("time_msec",otFloat,nowUTC);
+    Qry.CreateVariable("tlg_num",otInteger,tlgNum);
+    Qry.Execute();
+
+    ProgTrace(TRACE5,"OUT: PUT (sender=%s, tlg_num=%d, time=%.10f, priority=%d)",
+                     Qry.GetVariableAsString("sender"),
+                     tlgNum,
+                     nowUTC,
+                     priority);
+    Qry.Close();
+#ifdef XP_TESTING
+    if (inTestMode()) {
+        xp_testing::TlgOutbox::getInstance().push(tlgnum_t("no tlg num"), text, 0);
+    }
+#endif /* #ifdef XP_TESTING */
+
+    // дадим работу TlgLogger'у
+    logTlg(type, tlgNum, receiver, text);
+}
+
 int sendTlg(const char* receiver,
             const char* sender,
             TTlgQueuePriority queuePriority,
@@ -298,41 +369,14 @@ int sendTlg(const char* receiver,
         int tlg_num = saveTlg(receiver, sender, type.c_str(), ttl, text,
                               typeb_tlg_id, typeb_tlg_num);
 
-        BASIC::TDateTime nowUTC=BASIC::NowUTC();
-        TQuery Qry(&OraSession);
-        Qry.SQLText=
-          "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
-          "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:priority,'PUT',:time,:ttl,:time_msec,NULL) ";
-        Qry.CreateVariable("sender",otString,sender);
-        Qry.CreateVariable("receiver",otString,receiver);
-        Qry.CreateVariable("type",otString, type.c_str());
-        Qry.CreateVariable("priority",otInteger,priority);
-        Qry.CreateVariable("time",otDate,nowUTC);
-        if ((queuePriority==qpOutA || queuePriority==qpOutAStepByStep) && ttl>0)
-          Qry.CreateVariable("ttl",otInteger,ttl);
-        else
-          Qry.CreateVariable("ttl",otInteger,FNull);
-        Qry.CreateVariable("time_msec",otFloat,nowUTC);
-        Qry.CreateVariable("tlg_num",otInteger,tlg_num);
-        Qry.Execute();
-
-        ProgTrace(TRACE5,"OUT: PUT (sender=%s, tlg_num=%d, time=%.10f, priority=%d)",
-                         Qry.GetVariableAsString("sender"),
-                         tlg_num,
-                         nowUTC,
-                         (int)queuePriority);
-        Qry.Close();
-#ifdef XP_TESTING
-        if (inTestMode()) {
-            xp_testing::TlgOutbox::getInstance().push(tlgnum_t("no tlg num"), text, 0);
-        }
-#endif /* #ifdef XP_TESTING */
+        // кладём тлг в очередь на отправку
+        putTlg2OutQueue(receiver, sender, type, text, priority, tlg_num, ttl);
 
         return tlg_num;
     }
     catch( std::exception &e)
     {
-        ProgError(STDLOG, e.what());
+        ProgError(STDLOG, "%s", e.what());
         throw;
     }
     catch(...)
@@ -416,7 +460,7 @@ void loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_err
     }
     catch( std::exception &e)
     {
-        ProgError(STDLOG, e.what());
+        ProgError(STDLOG, "%s", e.what());
         throw;
     }
     catch(...)
@@ -440,7 +484,7 @@ bool deleteTlg(int tlg_id)
   }
   catch( std::exception &e)
   {
-      ProgError(STDLOG, e.what());
+      ProgError(STDLOG, "%s", e.what());
       throw;
   }
   catch(...)
@@ -479,7 +523,7 @@ bool errorTlg(int tlg_id, const string &type, const string &msg)
   }
   catch( std::exception &e)
   {
-      ProgError(STDLOG, e.what());
+      ProgError(STDLOG, "%s", e.what());
       throw;
   }
   catch(...)
@@ -505,7 +549,7 @@ void parseTypeB(int tlg_id)
   }
   catch( std::exception &e)
   {
-      ProgError(STDLOG, e.what());
+      ProgError(STDLOG, "%s", e.what());
       throw;
   }
   catch(...)
@@ -551,7 +595,7 @@ void errorTypeB(int tlg_id,
   }
   catch( std::exception &e)
   {
-      ProgError(STDLOG, e.what());
+      ProgError(STDLOG, "%s", e.what());
       throw;
   }
   catch(...)
@@ -577,7 +621,7 @@ void procTypeB(int tlg_id, int inc)
   }
   catch( std::exception &e)
   {
-      ProgError(STDLOG, e.what());
+      ProgError(STDLOG, "%s", e.what());
       throw;
   }
   catch(...)
@@ -601,7 +645,7 @@ bool procTlg(int tlg_id)
   }
   catch( std::exception &e)
   {
-      ProgError(STDLOG, e.what());
+      ProgError(STDLOG, "%s", e.what());
       throw;
   }
   catch(...)

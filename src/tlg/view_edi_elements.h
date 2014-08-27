@@ -6,8 +6,6 @@
 #include <edilib/edi_types.h>
 
 
-namespace ASTRA
-{
 namespace edifact
 {
 
@@ -86,8 +84,28 @@ void viewDocElement( _EDI_REAL_MES_STRUCT_* pMes, const DocElem& elem, int num =
 */
 void viewCntElement( _EDI_REAL_MES_STRUCT_* pMes, const CntElem& elem, int num = 0 );
 
+/**
+ * @brief makes a TKT element
+*/
+void viewTktElement( _EDI_REAL_MES_STRUCT_* pMes, const TktElem& elem );
+
+/**
+ * @brief makes a CPN element
+*/
+void viewCpnElement( _EDI_REAL_MES_STRUCT_* pMes, const CpnElem& elem );
+
+/**
+ * @brief makes an EQN element
+*/
+void viewEqnElement( _EDI_REAL_MES_STRUCT_* pMes, const EqnElem& elem );
+void viewEqnElement( _EDI_REAL_MES_STRUCT_* pMes, const std::list<EqnElem>& lElem );
+
+/**
+ * @brief makes an ORG element
+*/
+void viewOrgElement( _EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem );
+
 
 }//namespace edifact
-}//namespace ASTRA
 
 #endif/*_VIEW_EDI_ELEMENTS_H_*/

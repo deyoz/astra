@@ -2,7 +2,6 @@
 #include <string>
 #include "xml_unit.h"
 #include "tlg/edi_tlg.h"
-#include "edilib/edi_func_cpp.h"
 #include "astra_ticket.h"
 #include "etick_change_status.h"
 #include "astra_tick_view_xml.h"
@@ -18,9 +17,19 @@
 #include "web_main.h"
 #include "term_version.h"
 #include "misc.h"
-#include "jxtlib/jxtlib.h"
-#include "jxtlib/xml_stuff.h"
-#include "serverlib/query_runner.h"
+#include <jxtlib/jxtlib.h>
+#include <jxtlib/xml_stuff.h>
+#include <serverlib/query_runner.h>
+#include <edilib/edi_func_cpp.h>
+#include <serverlib/testmode.h>
+
+// TODO emd
+#include "astra_emd.h"
+#include "astra_emd_view_xml.h"
+#include "tlg/emd_disp_request.h"
+#include "tlg/emd_system_update_request.h"
+#include "tlg/emd_edifact.h"
+#include "tlg/remote_results.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -42,35 +51,63 @@ using namespace EXCEPTIONS;
 
 #define MAX_TICKETS_IN_TLG 5
 
+static void checkDocNum(const std::string& doc_no)
+{
+    std::string docNum = doc_no;
+    TrimString(docNum);
+    for(string::const_iterator c=docNum.begin(); c!=docNum.end(); ++c)
+      if (!IsDigitIsLetter(*c))
+        throw AstraLocale::UserException("MSG.ETICK.TICKET_NO_INVALID_CHARS");
+}
+
+static TTripInfo getTripInfo(int point_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText=
+      "SELECT airline,flt_no,airp FROM points "
+      "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.Execute();
+    if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+    TTripInfo info;
+    info.airline=Qry.FieldAsString("airline");
+    info.flt_no=Qry.FieldAsInteger("flt_no");
+    info.airp=Qry.FieldAsString("airp");
+    if (GetTripSets(tsETLOnly,info))
+      throw AstraLocale::UserException("MSG.ETICK.INTERACTIVE_MODE_NOT_ALLOWED");
+
+    return info;
+}
+
+static std::string getTripAirline(const TTripInfo& ti)
+{
+    return ti.airline;
+}
+
+static Ticketing::FlightNum_t getTripFlightNum(const TTripInfo& ti)
+{
+    if(ti.flt_no < 1)
+        return Ticketing::FlightNum_t();
+    return Ticketing::FlightNum_t(ti.flt_no);
+}
+
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   string tick_no=NodeAsString("TickNoEdit",reqNode);
-  TrimString(tick_no);
-  for(string::const_iterator c=tick_no.begin(); c!=tick_no.end(); ++c)
-    if (!IsDigitIsLetter(*c))
-      throw AstraLocale::UserException("MSG.ETICK.TICKET_NO_INVALID_CHARS");
+  checkDocNum(tick_no);
 
   int point_id=NodeAsInteger("point_id",reqNode);
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT airline,flt_no,airp FROM points "
-    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.Execute();
-  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-  TTripInfo info;
-  info.airline=Qry.FieldAsString("airline");
-  info.flt_no=Qry.FieldAsInteger("flt_no");
-  info.airp=Qry.FieldAsString("airp");
-  if (GetTripSets(tsETLOnly,info))
-    throw AstraLocale::UserException("MSG.ETICK.INTERACTIVE_MODE_NOT_ALLOWED");
+  TTripInfo info = getTripInfo(point_id);
 
-  pair<string,string> edi_addrs;
-  if (!get_et_addr_set(info.airline,info.flt_no,edi_addrs))
-    throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+  if(!inTestMode())
+  {
+    pair<string,string> edi_addrs;
+    if (!get_et_addr_set(info.airline,info.flt_no,edi_addrs))
+        throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
     	                               LParams() << LParam("flight", ElemIdToCodeNative(etAirline,info.airline) + IntToString(info.flt_no)));
 
-  set_edi_addrs(edi_addrs);
+    set_edi_addrs(edi_addrs);
+  }
 
   string oper_carrier=info.airline;
   /*
@@ -115,8 +152,8 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     }
     else
       AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
-  };
-};
+  }
+}
 
 void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
                                     xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -210,6 +247,137 @@ void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     else
       throw AstraLocale::UserException("MSG.ETICK.FLIGHT_CANNOT_BE_SET_IN_THIS_MODE");
 };
+
+//----------------------------------------------------------------------------------------------------------------
+
+void EMDSearchInterface::SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    LogTrace(TRACE3) << "SearchEMDByDocNo";
+    Ticketing::TicketNum_t emdNum(NodeAsString("EmdNoEdit",reqNode));
+
+    int pointId = NodeAsInteger("point_id",reqNode);
+    TTripInfo info = getTripInfo(pointId);
+
+    std::string airline = getTripAirline(info);
+    Ticketing::FlightNum_t flNum = getTripFlightNum(info);
+
+    OrigOfRequest org(airline, *TReqInfo::Instance());
+
+    int reqCtxtId=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
+
+    XMLDoc xmlCtxt("context");
+    if (xmlCtxt.docPtr()==NULL)
+      throw EXCEPTIONS::Exception("SearchETByTickNo: CreateXMLDoc failed");
+    xmlNodePtr rootNode=NodeAsNode("/context",xmlCtxt.docPtr());
+    NewTextChild(rootNode,"point_id",pointId);
+    SetProp(rootNode,"req_ctxt_id",reqCtxtId);
+
+    edifact::EmdDispByNum emdDispParams(org,
+                                        XMLTreeToText(xmlCtxt.docPtr()),
+                                        reqCtxtId,
+                                        airline,
+                                        flNum,
+                                        emdNum);
+    edifact::EmdDispRequestByNum ediReq(emdDispParams);
+    ediReq.sendTlg();
+}
+
+void EMDSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
+                                     xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    FuncIn(KickHandler);
+
+    using namespace edifact;
+    pRemoteResults res = RemoteResults::readSingle(ctxt->pult);
+    if(res->status() != RemoteStatus::Success)
+    {
+        LogTrace(TRACE1) << "Remote error!";
+        throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", "Remote error!"));
+        //AddRemoteResultsMessageBox(resNode, *res);
+    }
+    else
+    {
+        std::list<Emd> emdList = EmdEdifactReader::readList(res->tlgSource());
+        if(emdList.size() == 1)
+        {
+            LogTrace(TRACE3) << "Show EMD:\n" << emdList.front();
+            EmdDisp::doDisplay(EmdXmlView(resNode, emdList.front()));
+        }
+        else
+        {
+            LogError(STDLOG) << "Unable to display " << emdList.size() << " EMDs";
+            throw AstraLocale::UserException("MSG.ETICK.EMD_LIST_VIEW_UNSUPPORTED");
+        }
+    }
+
+    FuncOut(KickHandler);
+}
+
+//----------------------------------------------------------------------------------------------------------------
+
+void EMDDisassociateInterface::DisassociateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    LogTrace(TRACE3) << "DisassociateEmdCoupon";
+    Ticketing::TicketNum_t etTickNum(NodeAsString("TickNoEdit", reqNode));
+    CouponNum_t etCpnNum(NodeAsInteger("TickCpnNo", reqNode));
+
+    Ticketing::TicketNum_t emdDocNum(NodeAsString("EmdNoEdit", reqNode));
+    CouponNum_t emdCpnNum(NodeAsInteger("EmdCpnNo", reqNode));
+
+    int pointId = NodeAsInteger("point_id",reqNode);
+    TTripInfo info = getTripInfo(pointId);
+
+    std::string airline = getTripAirline(info);
+    Ticketing::FlightNum_t flNum = getTripFlightNum(info);
+
+    OrigOfRequest org(airline, *TReqInfo::Instance());
+
+    int reqCtxtId=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
+
+    XMLDoc xmlCtxt("context");
+    if (xmlCtxt.docPtr()==NULL)
+      throw EXCEPTIONS::Exception("SearchETByTickNo: CreateXMLDoc failed");
+    xmlNodePtr rootNode=NodeAsNode("/context",xmlCtxt.docPtr());
+    NewTextChild(rootNode,"point_id",pointId);
+    SetProp(rootNode,"req_ctxt_id",reqCtxtId);
+
+    edifact::EmdDisassociateRequestParams disassocParams(org,
+                                                         XMLTreeToText(xmlCtxt.docPtr()),
+                                                         reqCtxtId,
+                                                         airline,
+                                                         flNum,
+                                                         Ticketing::TicketCpn_t(etTickNum, etCpnNum),
+                                                         Ticketing::TicketCpn_t(emdDocNum, emdCpnNum));
+    edifact::EmdDisassociateRequest ediReq(disassocParams);
+    ediReq.sendTlg();
+}
+
+void EMDDisassociateInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    FuncIn(KickHandler);
+
+    using namespace edifact;
+    pRemoteResults res = RemoteResults::readSingle(ctxt->pult);
+    MakeAnAnswer(resNode, res);
+
+    FuncOut(KickHandler);
+}
+
+void EMDDisassociateInterface::MakeAnAnswer(xmlNodePtr resNode, edifact::pRemoteResults remRes)
+{
+    using namespace edifact;
+    bool success = remRes->status() == RemoteStatus::Success;
+    LogTrace(TRACE3) << "Handle " << ( success? "successfull" : "unsuccessfull") << " disassociation";
+    xmlNodePtr answerNode = newChild(resNode, "result");
+    xmlSetProp(answerNode, "status", remRes->status()->description());
+    if(!success)
+    {
+        xmlSetProp(answerNode, "edi_error_code", remRes->ediErrCode());
+        xmlSetProp(answerNode, "remark", remRes->remark());
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------
 
 void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1188,14 +1356,3 @@ bool ETStatusInterface::ETChangeStatus(const int reqCtxtId,
   };
   return result;
 };
-
-void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  throw UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
-  //NewTextChild(resNode,"text","...");
-};
-
-
-
-
-

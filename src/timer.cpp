@@ -9,6 +9,7 @@
 #include "season.h"
 #include "stages.h"
 #include "tlg/tlg.h"
+#include "astra_main.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "misc.h"
@@ -64,7 +65,7 @@ int main_timer_tcl(int supervisorSocket, int argc, char *argv[])
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
         ->connect_db();
-    if (init_edifact()<0) throw Exception("'init_edifact' error");
+    init_locale();
     for( ;; )
     {
       InitLogTime(argc>0?argv[0]:NULL);

@@ -8,3 +8,4 @@ rm -rf Cores/*;
 
 #./run -nosir -tscript $@
 XP_TESTING=1 ./nosir.tcl -tscript $@
+mv nosir.log tclmon.log

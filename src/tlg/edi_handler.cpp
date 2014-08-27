@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <tcl.h>
 #include <math.h>
+#include "astra_main.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "base_tables.h"
@@ -12,14 +13,17 @@
 #include "edi_tlg.h"
 #include "edi_msg.h"
 #include "edi_handler.h"
+#include "tlg_source_edifact.h"
 
-#include "serverlib/query_runner.h"
-#include "serverlib/posthooks.h"
-#include "serverlib/ourtime.h"
+#include <serverlib/query_runner.h>
+#include <serverlib/posthooks.h>
+#include <serverlib/ourtime.h>
+#include <serverlib/TlgLogger.h>
+#include <edilib/edi_func_cpp.h>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/test.h>
 
 using namespace ASTRA;
 using namespace BASIC;
@@ -61,7 +65,7 @@ int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[])
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
-    if (init_edifact()<0) throw Exception("'init_edifact' error");
+    init_locale();
 
     char buf[10];
     for(;;)
@@ -97,8 +101,30 @@ int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[])
   return 0;
 };
 
-void handle_edi_tlg(const tlg_info &tlg)
+
+static bool isNewEdifact(const std::string& ediText)
 {
+    EDI_REAL_MES_STRUCT *pMes = edilib::ReadEdifactMessage(ediText.c_str());
+    const std::string func_code = edilib::GetDBFName(pMes,
+                                                     edilib::DataElement(1225), "",
+                                                     edilib::CompElement("C302"),
+                                                     edilib::SegmElement("MSG"));
+    if(func_code == "791"
+    || func_code == "794") {
+        return true;
+    }
+
+    return false;
+}
+
+void handle_edi_tlg(const tlg_info &tlg)
+{    
+    LogTlg() << "| TNUM: " << tlg.id
+             << " | DIR: " << "IN"
+             << " | ROUTER: " << tlg.sender
+             << " | TSTAMP: " << boost::posix_time::second_clock::local_time();
+    LogTlg() << TlgHandling::TlgSourceEdifact(tlg.text).text2view();
+
     const int tlg_id = tlg.id;
     ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg_id);
     ProgTrace(TRACE1,"========= (sender=%s tlg_num=%d) =============",
@@ -114,8 +140,7 @@ void handle_edi_tlg(const tlg_info &tlg)
     {
         procTlg(tlg_id);
         ASTRA::commit();
-
-        proc_edifact(tlg.text);
+        isNewEdifact(tlg.text) ? proc_new_edifact(tlg.text) : proc_edifact(tlg.text);
         deleteTlg(tlg_id);
         callPostHooksBefore();
         ASTRA::commit();

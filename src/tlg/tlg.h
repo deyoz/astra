@@ -54,7 +54,9 @@ typedef struct H2H_MSG
 	char qri6;
 } H2H_MSG;
 
+namespace edifact {
 int init_edifact();
+}//namespace edifact
 
 int main_http_snd_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_snd_tcl(int supervisorSocket, int argc, char *argv[]);

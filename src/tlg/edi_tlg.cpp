@@ -1,10 +1,6 @@
 #include "config.h"
 #include "edi_tlg.h"
-#include "edilib/edi_func_cpp.h"
-#include "edilib/edi_types.h"
-#include "edilib/edi_astra_msg_types.h"
 #include "edi_msg.h"
-#include "etick/lang.h"
 #include "etick_change_status.h"
 #include "tlg.h"
 #include "basic.h"
@@ -16,26 +12,39 @@
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "astra_context.h"
-#include "jxtlib/cont_tools.h"
-#include "jxtlib/xml_stuff.h"
-#include "serverlib/cursctl.h"
-#include "serverlib/ocilocal.h"
-#include "serverlib/ehelpsig.h"
-#include "serverlib/dates_io.h"
-#include "serverlib/posthooks.h"
-#include "serverlib/testmode.h"
-#include "serverlib/EdiHelpManager.h"
 #include "emd_disp_request.h"
+#include "tlg_source_edifact.h"
+#include "remote_system_context.h"
+
+// handlers
+#include "EmdDispResponseHandler.h"
+#include "EmdSysUpdateResponseHandler.h"
+
+#include <etick/lang.h>
+#include <jxtlib/cont_tools.h>
+#include <jxtlib/xml_stuff.h>
+#include <serverlib/cursctl.h>
+#include <serverlib/ocilocal.h>
+#include <serverlib/ehelpsig.h>
+#include <serverlib/dates_io.h>
+#include <serverlib/posthooks.h>
+#include <serverlib/testmode.h>
+#include <serverlib/EdiHelpManager.h>
+#include <edilib/edi_func_cpp.h>
+#include <edilib/edi_types.h>
+#include <edilib/edi_astra_msg_types.h>
+#include <edilib/edi_handler.h>
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
-#include "serverlib/slogger.h"
+#include <serverlib/slogger.h>
 
 using namespace BASIC;
 using namespace edilib;
 using namespace Ticketing;
 using namespace Ticketing::ChangeStatus;
 using namespace AstraLocale;
+using namespace TlgHandling;
 
 static std::string edi_addr,edi_own_addr;
 
@@ -65,25 +74,25 @@ bool get_et_addr_set( string airline, int flt_no, pair<string,string> &addrs )
     return true;
   };
   return false;
-};
+}
 
 void set_edi_addrs( const pair<string,string> &addrs )
 {
   edi_addr=addrs.first;
   edi_own_addr=addrs.second;
-};
+}
 
 std::string get_edi_addr()
 {
   return edi_addr;
-};
+}
 
 std::string get_edi_own_addr()
 {
   return edi_own_addr;
-};
+}
 
-std::string get_canon_name(std::string edi_addr)
+std::string get_canon_name(const std::string& edi_addr)
 {
   TQuery Qry(&OraSession);
   Qry.SQLText=
@@ -93,18 +102,23 @@ std::string get_canon_name(std::string edi_addr)
   if (Qry.Eof||Qry.FieldIsNULL("canon_name"))
     return ETS_CANON_NAME();
   return Qry.FieldAsString("canon_name");
-};
+}
 
+//---------------------------------------------------------------------------------------
+
+std::string NewAstraEdiSessWR::ourUnbAddr() const { return sysCont()->ourAddrEdifact(); }
+std::string NewAstraEdiSessWR::unbAddr() const { return sysCont()->remoteAddrEdifact(); }
+
+//---------------------------------------------------------------------------------------
 
 const std::string EdiMess::Display = "131";
 const std::string EdiMess::ChangeStat = "142";
-const std::string EdiMess::EmdDisplay = "791";
 static std::string last_session_ref;
 
 std::string get_last_session_ref()
 {
   return last_session_ref;
-};
+}
 
 // static edi_loaded_char_sets edi_chrset[]=
 // {
@@ -328,10 +342,6 @@ message_funcs_type message_TKCREQ[] =
             ProcTKCRESchange_status,
             CreateTKCREQchange_status,
             "Ticket change of status"},
-    {EdiMess::EmdDisplay.c_str(), ParseTKCRESemdDisplay,
-            ProcTKCRESemdDisplay,
-            CreateTKCREQEmdDisplay,
-            "Emd display"},
 };
 
 message_funcs_str message_funcs[] =
@@ -340,7 +350,7 @@ message_funcs_str message_funcs[] =
     {TKCRES, "Ticketing", message_TKCREQ, sizeof(message_TKCREQ)/sizeof(message_TKCREQ[0])},
 };
 
-int init_edifact()
+int edifact::init_edifact()
 {
     InitEdiLogger(ProgError,WriteLog,ProgTrace);
 
@@ -385,7 +395,7 @@ void proc_edifact(const std::string &tlg)
         udata.sessDataRd()->setMesHead(edih);
 
         ProgTrace(TRACE2, "Edifact Handle");
-        ret = FullObrEdiMessage(tlg.c_str(),&edih,&udata,&err);
+        ret = FullObrEdiMessage(tlg.c_str(),udata.sessDataRd()->edih(),&udata,&err);
     }
     catch(...)
     {
@@ -396,6 +406,339 @@ void proc_edifact(const std::string &tlg)
          throw edi_fatal_except(STDLOG, EdiErr::EDI_PROC_ERR, "Ошибка обработки");
     }
     ProgTrace(TRACE2, "Edifact done.");
+}
+
+/*************************/
+class AstraEdifactRequestHandlerFactory : public edilib::EdiRequestHandlerFactory
+{
+    static AstraEdifactRequestHandlerFactory *Instance;
+public:
+    AstraEdifactRequestHandlerFactory() {}
+
+    /**
+      * @brief interface method to get edifact request handler
+      * @overload
+    */
+    virtual edilib::EdiRequestHandler * makeHandler (EDI_REAL_MES_STRUCT *pMes,
+                                                     edi_msg_types_t req,
+                                                     const hth::HthInfo *hth,
+                                                     const edilib::EdiSessRdData *) const;
+
+    static const AstraEdifactRequestHandlerFactory *instance();
+
+    virtual ~AstraEdifactRequestHandlerFactory() {}
+};
+
+/// Ets concrete factory
+class AstraEdifactResponseHandlerFactory : public edilib::EdiResponseHandlerFactory
+{
+    static AstraEdifactResponseHandlerFactory *Instance;
+public:
+    AstraEdifactResponseHandlerFactory()
+    {
+        LogTrace(TRACE3) << "Enter AstraEdifactResponseHandlerFactory()";
+    }
+    /**
+      * @brief interface method to get edifact request handler
+      * @overload
+    */
+    virtual edilib::EdiResponseHandler * makeHandler (EDI_REAL_MES_STRUCT *pMes,
+                                                      edi_msg_types_t msgid,
+                                                      const hth::HthInfo *hth,
+                                                      const edilib::EdiSessRdData *) const;
+
+    static const AstraEdifactResponseHandlerFactory *instance();
+
+    virtual ~AstraEdifactResponseHandlerFactory() {}
+};
+
+#define __DECLARE_HANDLER__(handler, msg__, func_code__) \
+        if(msg__ == msgid && (func_code == func_code__ || !*func_code__))\
+        {\
+            return new handler(pMes, sessionHandler);\
+        }
+
+edilib::EdiRequestHandler *
+    AstraEdifactRequestHandlerFactory::makeHandler(EDI_REAL_MES_STRUCT *pMes,
+                                                   edi_msg_types_t msgid,
+                                                   const hth::HthInfo *hth,
+                                                   const edilib::EdiSessRdData *sessionHandler) const
+{
+    const std::string func_code = edilib::GetDBFName(pMes,
+                                                     edilib::DataElement(1225), "",
+                                                     edilib::CompElement("C302"),
+                                                     edilib::SegmElement("MSG"));
+    // здесь будут регистрироваться обработчики edifact-запросов
+    return 0;
+}
+
+AstraEdifactRequestHandlerFactory *AstraEdifactRequestHandlerFactory::Instance = 0;
+const AstraEdifactRequestHandlerFactory *AstraEdifactRequestHandlerFactory::instance()
+{
+    if(!Instance)
+        Instance = new AstraEdifactRequestHandlerFactory();
+
+    return Instance;
+}
+
+AstraEdifactResponseHandlerFactory *AstraEdifactResponseHandlerFactory::Instance = 0;
+const AstraEdifactResponseHandlerFactory *AstraEdifactResponseHandlerFactory::instance()
+{
+    if(!Instance)
+        Instance = new AstraEdifactResponseHandlerFactory();
+
+    return Instance;
+}
+
+edilib::EdiResponseHandler *
+    AstraEdifactResponseHandlerFactory::makeHandler(EDI_REAL_MES_STRUCT *pMes,
+                                                    edi_msg_types_t msgid,
+                                                    const hth::HthInfo *hth,
+                                                    const edilib::EdiSessRdData *sessionHandler) const
+{
+    tst();
+    const std::string func_code = edilib::GetDBFName(pMes,
+                                                     edilib::DataElement(1225), "",
+                                                     edilib::CompElement("C302"),
+                                                     edilib::SegmElement("MSG"));
+
+    LogTrace(TRACE3) << "find response handler for msg with func_code: " << func_code;
+    // здесь будут регистрироваться обработчики edifact-ответов
+    __DECLARE_HANDLER__(EmdDispResponseHandler,             TKCRES, "791");
+    __DECLARE_HANDLER__(EmdSysUpdateResponseHandler,        TKCRES, "794");
+
+    return 0;
+}
+
+class AstraEdiHandlerManager : public edilib::EdiHandlerManager
+{
+    TlgSourceEdifact *TlgSrc;
+    boost::optional<TlgSourceEdifact> AnswerTlg;
+    AstraEdiSessRD *astraSessionHandler;
+    bool NeedNoAnswer;
+    bool ProcSavePoint;
+
+    void put2queue(const std::exception * e);
+    void detectLang();
+public:
+    AstraEdiHandlerManager(TlgSourceEdifact *tlg) :
+        edilib::EdiHandlerManager(tlg->h2h(), tlg->text().c_str()),
+        TlgSrc(tlg), astraSessionHandler(0), NeedNoAnswer(false), ProcSavePoint(false)
+    {
+    }
+
+    /// @brief abstract factory to get edifact request handler
+    /// @overload
+    virtual const edilib::EdiRequestHandlerFactory *requestHandlerFactory() {
+        return AstraEdifactRequestHandlerFactory::instance();
+    }
+
+    /// @brief abstract factory to get edifact response handler
+    /// @overload
+    virtual const edilib::EdiResponseHandlerFactory *responseHandlerFactory() {
+        return AstraEdifactResponseHandlerFactory::instance();
+    }
+
+    /**
+     * a new copy of application specific edifact session handler
+    */
+    virtual edilib::EdiSessRdData * makeSessionHandler(const hth::HthInfo *hth,
+                                                       const edi_mes_head &Head)
+    {
+        return astraSessionHandler = new AstraEdiSessRD(hth, Head);
+    }
+
+    bool needNoAnswer() const { return NeedNoAnswer; }
+
+    // callbacks
+    void beforeProc();
+    void afterProc();
+    void afterProcFailed(const std::exception * e, const edilib::EdiRequestHandler * rh);
+    void afterProcFailed(const std::exception * e, const edilib::EdiResponseHandler * rh);
+    void afterMakeAnswer();
+    void afterMakeAnswerFailed(const std::exception *, const edilib::EdiRequestHandler *rh);
+};
+
+void AstraEdiHandlerManager::put2queue(const std::exception *e)
+{
+//#define __CAST(type, var, c) const type *var = dynamic_cast<const type *>(c)
+//#define UNUSED(x) (void)(x)
+
+//    if(__CAST(RemoteSystemContext::UnknownSystAddrs, exc, e)) {
+//        UNUSED(exc);
+//        TlgHandling::ErrTlgQueue::putTlg2ErrQueue(qn_unknown_system_address,
+//                                                  TlgSrc->tlgNum(),
+//                                                  Tr(EtsErr::UNKN_SYSTEM_ADDR));
+//    }
+//    else if(__CAST(edilib::Exception, exc, e)) {
+//        std::string errCode = (exc->hasErrCode() ? exc->errCode() : EtsErr::EDI_PROC_ERR);
+//        TlgHandling::ErrTlgQueue::putTlg2ErrQueue(qn_edifact_soft_err,
+//                                                  TlgSrc->tlgNum(),
+//                                                  Tr(errCode));
+//    }
+//    else if(__CAST(TickExceptions::tick_soft_except, exc, e)) {
+//        TlgHandling::ErrTlgQueue::putTlg2ErrQueue(qn_edifact_soft_err,
+//                                                  TlgSrc->tlgNum(),
+//                                                  Tr(exc->errCode()));
+//    }
+//    else if(__CAST(std::exception, exc, e)) {
+//        UNUSED(exc);
+//        TlgHandling::ErrTlgQueue::putTlg2ErrQueue(qn_edifact_fatal_err,
+//                                                  TlgSrc->tlgNum(),
+//                                                  Tr(EtsErr:EtsEdifactResponseHandlerFactory:EDI_PROC_ERR));
+//    }
+//#undef __CAST
+//#undef UNUSED
+}
+
+void AstraEdiHandlerManager::detectLang()
+{
+    // Get language
+//    const char *lng = GetDBFName(GetEdiMesStruct(),
+//                                 edilib::DataElement(3453), "",
+//                                 edilib::CompElement("C354"),
+//                                 edilib::SegmElement("ORG"));
+
+//    Language Lang = RemoteSystemContext::SystemContext::Instance(STDLOG).lang();
+
+//    LogTrace(TRACE3) << "Lang = " << lng;
+
+//    if(!strcmp(lng, "RU"))
+//    {
+//        Lang = RUSSIAN;
+//    }
+//    else if(!strcmp(lng, "EN"))
+//    {
+//        Lang = ENGLISH;
+//    }
+//    else
+//    {
+//        LogTrace(TRACE3) << "use default lang for remote system: " <<
+//                            (Lang == RUSSIAN?"RUS":"ENG");
+//    }
+
+    //RemoteSystemContext::SystemContext::Instance(STDLOG).setLang(Lang);
+}
+
+void AstraEdiHandlerManager::beforeProc()
+{
+//    if(sessionHandler()->edih()->msg_type_req == QUERY)
+//    {
+//        Ticketing::RemoteSystemContext::SystemContext::initEdifact(
+//                    sessionHandler()->edih()->from,
+//                    sessionHandler()->edih()->to);
+//    }
+//    else
+//    {
+//        Ticketing::RemoteSystemContext::SystemContext::initEdifactByAnswer(
+//                    sessionHandler()->edih()->from,
+//                    sessionHandler()->edih()->to);
+//    }
+    RemoteSystemContext::SystemContext::initDummyContext();
+    RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().setTlgSrc(TlgSrc->text());
+
+//    etsSessionHandler->setSysCont(&RemoteSystemContext::SystemContext::Instance(STDLOG));
+
+//    LogTrace(TRACE1) << "Request/Response from " <<
+//              RemoteSystemContext::SystemContext::Instance(STDLOG).description();
+
+
+//    detectLang();
+
+//    if(sessionHandler()->edih()->msg_type_req == RESPONSE
+//            && sessionHandler()->ediSession()->msgId().num.valid())
+//    {
+//        TlgSource::setAnswerTlgNumDb(sessionHandler()->ediSession()->msgId(),
+//                                     TlgSrc->tlgNum());
+//    }
+
+//    ProgTrace(TRACE1,"Check edifact session - Ok");
+//    /* ВСЕ ХОРОШО, ПРОДОЛЖАЕМ ... */
+//    Utils::BeforeSoftError();
+//    ProcSavePoint = true;
+}
+
+void AstraEdiHandlerManager::afterProc()
+{
+//    if(sessionHandler()->edih()->msg_type_req == RESPONSE) {
+//        /* Если обрабатываем ответ */
+//        if(sessionHandler()->ediSession()->mustBeDeleted()) {
+//            PostponedTlgHandling::deleteWaiting(sessionHandler()->ediSession()->ida());
+//        }
+//    }
+}
+
+void AstraEdiHandlerManager::afterProcFailed(const std::exception *e, const edilib::EdiRequestHandler *rh)
+{
+//    if(dynamic_cast<const PostponedTlgExcpt *>(e)) {
+//        NeedNoAnswer = true;
+//        TlgSrc->setPostponed();
+//    } else {
+//        if(ProcSavePoint)
+//            Utils::AfterSoftError();
+
+//        const EtsEdifactRequestHandler *reqHandler = dynamic_cast<const EtsEdifactRequestHandler *>(rh);
+
+//        if(!reqHandler->needPutErrToQueue()) {
+//            // no error to queue
+//            return;
+//        }
+
+//        this->put2queue(e);
+//    }
+}
+
+void AstraEdiHandlerManager::afterProcFailed(const std::exception *e, const edilib::EdiResponseHandler *rh)
+{
+//    LogTrace(TRACE1) << "EtsEdiHandlerManager::afterProcFailed";
+//    if(ProcSavePoint)
+//        Utils::AfterSoftError();
+//    // оставляем сессию в прежнем состоянии, даем отработать тайм ауту.
+//    // ситуация с ошибкой обработки ответа приравниваем к неответу
+//    etsSessionHandler->ediSession()->EdiSessNotUpdate();
+
+//    this->put2queue(e);
+}
+
+void AstraEdiHandlerManager::afterMakeAnswer()
+{
+}
+
+void AstraEdiHandlerManager::afterMakeAnswerFailed(const std::exception *e, const edilib::EdiRequestHandler *rh)
+{
+//    LogError(STDLOG) << e->what();
+//    TlgHandling::ErrTlgQueue::putTlg2ErrQueue(qn_edifact_fatal_err,
+//                                              TlgSrc->tlgNum(),
+//                                              Tr(EtsErr::EDI_PROC_ERR));
+}
+
+void proc_new_edifact(const std::string& tlg)
+{
+    try
+    {
+        AstraEdiHandlerManager megaHandler(new TlgSourceEdifact(tlg));
+        megaHandler.handle();
+
+//        if(!megaHandler.needNoAnswer() && megaHandler.answer()) {
+//            TlgSourceEdifact *tlg;
+//            tlg_info.setTlg(tlg = new TlgSourceEdifact(megaHandler.answer()->MessageText));
+//            if(megaHandler.answer()->hth) {
+//                tlg->setH2h(*megaHandler.answer()->hth);
+//            }
+//            tlg->setHandMade(tlgSrc()->handMade());
+//            LogTrace(TRACE1) << "tlgout: " << *tlg;
+//        }
+    }
+    catch(std::exception &e)
+    {
+        LogError(STDLOG) << "Exception at this point tells something wrong";
+        LogError(STDLOG) << e.what();
+        // TODO throw normal typified exception here
+        //throw EdifactTlgHandleErr(Tr(EtsErr::EDI_PROC_ERR, ENGLISH));
+        throw EXCEPTIONS::Exception("EDI_PROC_ERR");
+    }
+
+    ProgTrace(TRACE2, "New Edifact done.");
 }
 
 

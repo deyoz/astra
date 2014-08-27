@@ -13,16 +13,26 @@ SysTarg:
 	$(MAKE) -f $(srcdir)/systarg.mk
 
 astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@
-xp-tests:
+
+
+clean-xp-tests:
+	@if [ ! -d ./Cores ]; then \
+		mkdir ./Cores; \
+	fi; \
+	rm -rf Cores/*; \
+	rm -f *.log sirena_run_time.txt;
+
+
+xp-tests: clean-xp-tests
 	@if [ -n "$(XP_LIST)" ]; then \
-	        XP_TESTING=1 XP_LIST=$(XP_LIST) ./run -run_tests | tee xp-tests.log 2>&1; \
+		XP_TESTING=1 XP_LIST=$(XP_LIST) ./nosir.tcl -run_tests | tee xp-tests.log 2>&1; \
 	else \
-	        XP_TESTING=1 ./run -run_tests | tee xp-tests.log 2>&1; \
+		XP_TESTING=1 ./nosir.tcl -run_tests | tee xp-tests.log 2>&1; \
 	fi; \
 	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
+	
 
-
-AM_CXXFLAGS = $(TCLINCLUDE)
+AM_CXXFLAGS = $(TCLINCLUDE) @PION_CXXFLAGS@
 astra_SOURCES = \
   adm.cc \
   access.cc \
@@ -43,7 +53,9 @@ astra_SOURCES = \
   astra_service.cc \
   astra_tick_read_edi.cpp \
   astra_tick_view_xml.cc \
+  astra_emd_view_xml.cc \
   astra_utils.cc \
+  autotests.cc \
   baggage.cc \
   base_tables.cc \
   basel_aero.cc \
@@ -110,7 +122,9 @@ astra_SOURCES = \
   xml_unit.cc \
   xp_testing.cc \
   tscript_callbacks.cc \
-  ticket_types.cpp
+  ticket_types.cpp \
+  astra_emd.cpp \
+  EdiTimeOutsDaemon.cc
 
 
 astra_LDADD = $(all_libraries) \
@@ -156,6 +170,7 @@ noinst_HEADERS = \
   astra_tick_read_edi.h \
   astra_tick_reader.h \
   astra_tick_view_xml.h \
+  astra_emd_view_xml.h \
   astra_tick_view.h \
   astra_ticket.h \
   astra_utils.h \
@@ -220,8 +235,7 @@ noinst_HEADERS = \
   web_main.h \
   web_search.h \
   xml_unit.h \
-  ticket_types.h
-
-
-
-
+  ticket_types.h \
+  astra_dates.h \
+  astra_dates_oci.h \
+  astra_emd.h
