@@ -86,7 +86,6 @@ void parseFlt( const string &value, string &airline, int &flt_no, string &suffix
   airline = cairline;
   flt_no = cflt_no;
   suffix = csuffix;
-  tst();
 }
 
 void TPointsDest::getDestData( TQuery &Qry )
@@ -145,24 +144,14 @@ void TPointsDest::getDestData( TQuery &Qry )
   remark = Qry.FieldAsString( "remark" );
 }
 
-void TPointsDest::Load( int vpoint_id, BitSet<TUseDestData> FUseData )
+void TPointsDest::LoadProps( int vpoint_id, BitSet<TUseDestData> FUseData )
 {
-  for ( int i=0; i<(int)udNum; i++ )
-    if ( FUseData.isFlag( (TUseDestData)i ) )
-      UseData.setFlag( (TUseDestData)i );
-  status = tdUpdate;
-  point_id = vpoint_id;
-  
-  TQuery Qry(&OraSession);
-  Qry.SQLText = points_dest_SQL;
-  Qry.CreateVariable( "point_id", otInteger, vpoint_id );
-  Qry.Execute();
-  getDestData( Qry );
-
-
-  if ( UseData.isFlag( udStages ) )
+  if ( UseData.isFlag( udStages ) ) {
+    tst();
     stages.Load( point_id );
+  }
   if ( UseData.isFlag( udDelays ) ) {
+    tst();
     delays.Load( point_id );
   }
   if ( UseData.isFlag( udCargo ) ) {
@@ -177,6 +166,22 @@ void TPointsDest::Load( int vpoint_id, BitSet<TUseDestData> FUseData )
     tst();
     stations.Load( point_id );
   }
+}
+
+void TPointsDest::Load( int vpoint_id, BitSet<TUseDestData> FUseData )
+{
+  for ( int i=0; i<(int)udNum; i++ )
+    if ( FUseData.isFlag( (TUseDestData)i ) )
+      UseData.setFlag( (TUseDestData)i );
+  status = tdUpdate;
+  point_id = vpoint_id;
+  
+  TQuery Qry(&OraSession);
+  Qry.SQLText = points_dest_SQL;
+  Qry.CreateVariable( "point_id", otInteger, vpoint_id );
+  Qry.Execute();
+  getDestData( Qry );
+  LoadProps( vpoint_id, FUseData );
 }
 
 void TPoints::Verify( bool ignoreException, LexemaData &lexemaData )
@@ -534,8 +539,9 @@ void TPointsDest::getEvents( const TPointsDest &vdest )
       events.setFlag( dmChangeStageESTTime );
     }
   }
-  if ( status == tdInsert || point_num != vdest.point_num )
+  if ( status == tdInsert || point_num != vdest.point_num ) {
     events.setFlag( dmPoint_Num );
+  }
 }
 
 void TPointsDest::setRemark( const TPointsDest &dest )
@@ -699,6 +705,16 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
     SetTripStages_IgnoreAuto( point_id, act_out != NoExists || pr_del != 0 );
   }
   on_change_trip( CALL_POINT, point_id );
+  if ( events.isFlag( dmChangeDelays ) ) {
+    try {
+          vector<TypeB::TCreateInfo> createInfo;
+          TypeB::TMVTCCreator(point_id).getInfo(createInfo);
+          TelegramInterface::SendTlg(createInfo);
+    }
+    catch(std::exception &E) {
+        ProgError(STDLOG,"TPointsDest::DoEvents: SendTlg (point_id=%d): %s",point_id,E.what());
+    };
+  }
 }
 
 ////////////////////////////////////////////////////
@@ -715,7 +731,7 @@ int TPoints::getPoint_id()
 void TPoints::WriteDest( TPointsDest &dest )
 {
   if ( dest.events.emptyFlags() ) { //нет изменений
-    ProgTrace( TRACE5, "WriteDest: no data writed, point_id=%d", dest.point_id );
+    ProgTrace( TRACE5, "WriteDest: no change, point_id=%d", dest.point_id );
     return;
   }
   ProgTrace( TRACE5, "WriteDest" );
@@ -1190,6 +1206,39 @@ void PointsKeyTrip<T>::getEvents( KeyTrip<T> &trip )
       this->events.setFlag( teChangeStations );
     }
   }
+
+  if ( this->key.status == tdInsert ||
+       this->key.status == tdDelete ||
+       this->events.isFlag( teNewLand ) ||
+       this->events.isFlag( teNewTakeoff ) ||
+       this->events.isFlag( teDeleteLand ) ||
+       this->events.isFlag( teDeleteTakeoff ) ||
+       this->events.isFlag( teSetCancelLand ) ||
+       this->events.isFlag( teSetCancelTakeoff ) ||
+       this->events.isFlag( teSetUnCancelLand ) ||
+       this->events.isFlag( teSetUnCancelTakeoff ) ||
+       this->events.isFlag( teRegTakeoff ) ||
+       this->events.isFlag( teTranzitTakeoff ) ||
+       this->events.isFlag( teFirst_PointTakeoff ) ||
+       this->events.isFlag( teSetSCDOUT  ) ||
+       this->events.isFlag( teChangeSCDOUT  ) ||
+       this->events.isFlag( teDeleteSCDOUT  ) ||
+       this->events.isFlag( teSetACTOUT  ) ||
+       this->events.isFlag( teChangeACTOUT  ) ||
+       this->events.isFlag( teDeleteACTOUT  ) ||
+       this->events.isFlag( teChangeFlightAttrTakeoff  ) ||
+       this->events.isFlag( teSetESTOUT  ) ||
+       this->events.isFlag( teChangeESTOUT  ) ||
+       this->events.isFlag( teDeleteESTOUT  ) ||
+       this->events.isFlag( teChangeFlightAttrLand  ) ||
+       this->events.isFlag( teChangeStageESTTime  ) ) {
+    for ( vector<TPointsDest>::iterator id=this->dests.begin(); id!=this->dests.end(); id++ ) {
+      if ( CheckApis_USA( id->airp ) ) {
+        this->events.setFlag( teNeedApisUSA );
+        break;
+      }
+    }
+  }
 }
 
 string DecodeEvents( TTripEvents event )
@@ -1368,7 +1417,7 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
         params << PrmSmpl<string>("flt_no", "");
       params << PrmElem<string>("suffix", etSuffix, this->key.airline)
                 << PrmElem<string>("airp", etAirp, this->key.airp);
-      TReqInfo::Instance()->LocaleToLog( DecodeEvents( (TTripEvents)i ), params, evtDisp, move_id, this->key.point_id );
+      //TReqInfo::Instance()->LocaleToLog( DecodeEvents( (TTripEvents)i ), params, evtDisp, move_id, this->key.point_id );
     }
   }
   
@@ -1471,9 +1520,9 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
       ProgError(STDLOG,"teDeleteACTOUT.ETStatus (point_id=%d): %s",this->key.point_id,E.what());
     };
   }
-  if ( this->events.isFlag( teSetSCDOUT ) ||
+  if ( this->events.isFlag( teSetUnCancelTakeoff ) ||
+       this->events.isFlag( teSetSCDOUT ) ||
        this->events.isFlag( teChangeSCDOUT ) ||
-       this->events.isFlag( teDeleteSCDOUT ) ||
        this->events.isFlag( teChangeCraftTakeoff ) ||
        this->events.isFlag( teSetCraftTakeoff ) ||
        this->events.isFlag( teChangeBortTakeoff ) ||
@@ -1482,70 +1531,50 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
      TPersWeights persWeights; // некрасиво, т.к. каждый раз начитка
      PersWeightRules weights;
      persWeights.getRules( this->key.point_id, weights );
-     weights.write( this->key.point_id );
+     PersWeightRules oldweights;
+     oldweights.read( this->key.point_id );
+     if ( !oldweights.equal( &weights ) ) {
+       weights.write( this->key.point_id );
+     }
   }
        
-  //отвязка PNL-телеграмм
-  if ( this->events.isFlag( teNeedUnBindTlgs ) ) {
-    vector<int> point_ids;
-    point_ids.push_back( this->key.point_id );
-    ProgTrace( TRACE5, "teNeedUnBindTlgs: key->point_id=%d", this->key.point_id );
-    try {
-    //!!!
-    }
-    catch(std::exception &E) {
-      ProgError(STDLOG,"UnBindTlg: point_id=%d, %s",this->key.point_id,E.what());
-    };
-    tst();
-    if ( this->key.flt_no != NoExists )
-      TReqInfo::Instance()->LocaleToLog("EVT.UNBINED_PNL", LEvntPrms()
-                                        << PrmFlight("flt", this->key.airline, this->key.flt_no, this->key.suffix)
-                                        << PrmElem<std::string>("airp", etAirp, this->key.airp), evtDisp, move_id, this->key.point_id);
-    else
-      TReqInfo::Instance()->LocaleToLog("EVT.UNBINED_PNL", LEvntPrms() << PrmSmpl<std::string>("flt", "")
-                                        << PrmElem<std::string>("airp", etAirp, this->key.airp), evtDisp, move_id, this->key.point_id);
-    tst();
-  }
-  tst();
-  if ( this->events.isFlag( teNeedBindTlgs ) ) {
-    vector<TTripInfo> flts;
-    TTripInfo tripInfo;
-    tripInfo.airline = this->key.airline;
-    tripInfo.flt_no = this->key.flt_no;
-    tripInfo.suffix = this->key.suffix;
-    tripInfo.airp = this->key.airp;
-    tripInfo.scd_out = this->key.scd_out;
-    flts.push_back( tripInfo );
-    ProgTrace( TRACE5, "teNeedBindTlgs: key->point_id=%d, airp=%s, trip=%s",
-               this->key.point_id,
-               tripInfo.airp.c_str(),
-               string(tripInfo.airline + IntToString(tripInfo.flt_no) + tripInfo.suffix + DateTimeToStr( tripInfo.scd_out, "hh:nn dd.mm.yy (UTC)" )).c_str() );
-    try {
-    //!!!
-    }
-    catch(std::exception &E) {
-      ProgError(STDLOG,"BindTlg: point_id=%d, %s",this->key.point_id,E.what());
-    };
-    if ( tripInfo.flt_no != NoExists )
+/*    if ( tripInfo.flt_no != NoExists )
       TReqInfo::Instance()->LocaleToLog("EVT.BINED_PNL", LEvntPrms()
                                         << PrmFlight("flt", tripInfo.airline, tripInfo.flt_no, tripInfo.suffix)
                                         << PrmElem<std::string>("airp", etAirp, tripInfo.airp), evtDisp, move_id, this->key.point_id);
 
     else
       TReqInfo::Instance()->LocaleToLog("EVT.BINED_PNL", LEvntPrms() << PrmSmpl<std::string>("flt", "")
-                                        << PrmElem<std::string>("airp", etAirp, tripInfo.airp), evtDisp, move_id, this->key.point_id);
-    try {
-      string region = AirpTZRegion( this->key.airp, true );
-      TDateTime locale_scd_out = UTCToLocal( this->key.scd_out, region );
-      bindingAODBFlt( this->key.airline, this->key.flt_no, this->key.suffix,
-                      locale_scd_out, this->key.airp );
+                                        << PrmElem<std::string>("airp", etAirp, tripInfo.airp), evtDisp, move_id, this->key.point_id);*/
+   if ( this->events.isFlag( teNewLand ) ||
+        this->events.isFlag( teNewTakeoff ) ||
+        this->events.isFlag( teDeleteLand ) ||
+        this->events.isFlag( teDeleteTakeoff ) ||
+        this->events.isFlag( teSetSCDIN ) ||
+        this->events.isFlag( teSetSCDOUT ) ||
+        this->events.isFlag( teChangeSCDOUT ) ||
+        this->events.isFlag( teDeleteSCDOUT ) ||
+        this->events.isFlag( teChangeSCDIN ) ||
+        this->events.isFlag( teDeleteSCDIN ) ||
+        this->events.isFlag( teDeleteSCDOUT ) ||
+        this->events.isFlag( teDeleteSCDIN ) ||
+        this->events.isFlag( teChangeFlightAttrTakeoff ) ||
+        this->events.isFlag( teChangeFlightAttrLand ) ) {
+    if ( this->key.scd_out != ASTRA::NoExists ) {
+      try {
+        string region = AirpTZRegion( this->key.airp, true );
+        TDateTime locale_scd_out = UTCToLocal( this->key.scd_out, region );
+        bindingAODBFlt( this->key.airline, this->key.flt_no, this->key.suffix,
+                        locale_scd_out, this->key.airp );
+      }
+      catch(std::exception &E) {
+        ProgError(STDLOG,"BindAODBFlt: point_id=%d, %s",this->key.point_id,E.what());
+      };
     }
-    catch(std::exception &E) {
-      ProgError(STDLOG,"BindAODBFlt: point_id=%d, %s",this->key.point_id,E.what());
-    };
   }
-  tst();
+
   if ( this->events.isFlag( teChangeCargos ) ) {
+    tst();
     this->key.cargos.Save( this->key.point_id, this->dests );
   }
   if ( this->events.isFlag( teChangeMaxCommerce ) ) {
@@ -1553,10 +1582,21 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
     this->key.max_commerce.Save( this->key.point_id );
   }
   if ( this->events.isFlag( teChangeCargos ) || this->events.isFlag( teChangeMaxCommerce ) ) {
+    tst();
     check_overload_alarm( this->key.point_id );
   }
   if ( this->events.isFlag( teChangeStations ) ) {
+    tst();
     this->key.stations.Save( this->key.point_id );
+  }
+
+  if ( this->events.isFlag( teNeedApisUSA ) ) {
+    try {
+      check_trip_tasks( move_id );
+    }
+    catch(std::exception &E) {
+      ProgError(STDLOG,"internal_WriteDests.check_trip_tasks (move_id=%d): %s",move_id,E.what());
+    };
   }
   tst();
 }
@@ -1576,15 +1616,46 @@ bool existsTranzitPassengers( int point_id ) // определение того, можно ли сдела
     Qry.SetVariable( "point_dep", i->point_id );
     for ( vector<TTripRouteItem>::iterator j=routes_after.begin(); j!=routes_after.end(); j++ ) {
       Qry.SetVariable( "point_arv", j->point_id );
-      ProgTrace( TRACE5, "point_dep=%d, point_arv=%d", i->point_id, j->point_id );
       Qry.Execute();
+      ProgTrace( TRACE5, "point_dep=%d, point_arv=%d, Qry.Eof=%d", i->point_id, j->point_id, Qry.Eof );
       if ( !Qry.Eof ) {
-        tst();
         return true;
       }
     }
   }
   return false;
+}
+
+void ReBindTlgs( int move_id, const std::vector<int> &oldPointsId )
+{
+  TTlgBinding tlgBinding(true);
+  TTrferBinding trferBinding;
+  tlgBinding.unbind_flt(oldPointsId);
+  trferBinding.unbind_flt(oldPointsId);
+
+  vector<TTripInfo> flts;
+	TPointDests vdests;
+
+  BitSet<TUseDestData> FUseData;
+  FUseData.clearFlags();
+  vdests.Load( move_id, FUseData );
+  // создаем все возможные рейсы из нового маршрута исключая удаленные пункты
+  for( std::vector<TPointsDest>::iterator i=vdests.items.begin(); i!=vdests.items.end(); i++ ) {
+  	if ( i->pr_del == -1 ) continue;
+  	if ( i->airline.empty() ||
+         i->flt_no == NoExists ||
+         i->scd_out == NoExists )
+      continue;
+    TTripInfo tripInfo;
+    tripInfo.airline = i->airline;
+    tripInfo.flt_no = i->flt_no;
+    tripInfo.suffix = i->suffix;
+    tripInfo.airp = i->airp;
+    tripInfo.scd_out = i->scd_out;
+    flts.push_back( tripInfo );
+  }
+  tlgBinding.bind_flt_oper(flts);
+  trferBinding.bind_flt_oper(flts);
 }
 
 void TPoints::Save( bool isShowMsg )
@@ -1808,11 +1879,14 @@ void TPoints::Save( bool isShowMsg )
   // создаем все возможные рейсы из нового маршрута исключая удаленные пункты
   getKeyTrips( dests.items, keytrips1 );
   std::vector<TPointsDest> priorDests;
+  std::vector<int> priorPointIds;
+
   for ( map<int,TPointsDest>::iterator i=olddests.begin(); i!=olddests.end(); i++ ) {
     if ( i->second.point_id == NoExists )
       continue;
     ProgTrace( TRACE5, "priorDests.push_back point_id=%d, i->first=%d", i->second.point_id, i->first );
     priorDests.push_back( i->second );
+    priorPointIds.push_back( i->second.point_id );
   }
   // создаем всевозможные рейсы из старого маршрута исключая удаленные пункты
   getKeyTrips( priorDests, keytrips2 );
@@ -1851,6 +1925,9 @@ void TPoints::Save( bool isShowMsg )
     if ( i->isNeedChangeComps() )
       pr_need_changecomps = true;
   }
+  //перепривязка телеграмм
+  ReBindTlgs( move_id, priorPointIds );
+
   if ( isShowMsg ) {
     if ( pr_need_changecomps )
       AstraLocale::showErrorMessage( "MSG.DATA_SAVED.NEED_SET_COMPON" );
@@ -1954,12 +2031,10 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
         }
       }
     }
-    ProgTrace( TRACE5, "flt_no=%d, prior_flt_no=%d", flt_no, prior_flt_no );
     if ( airline != prior_airline ||
          suffix != prior_suffix ||
          flt_no != prior_flt_no ) {
       Qry.Next();
-      tst();
       continue;
     }
 
@@ -2441,7 +2516,7 @@ void TFlightStations::Save( int point_id )
   }
 }
 //////////////////////////////TPointDests//////////////////////////////////////
-void TPointDests::Load( int move_id )
+void TPointDests::Load( int move_id, BitSet<TUseDestData> FUseData )
 {
   items.clear();
   TQuery Qry(&OraSession);
@@ -2457,7 +2532,8 @@ void TPointDests::Load( int move_id )
   while ( !Qry.Eof ) {
     TPointsDest dest;
     dest.getDestData( Qry );
-    dest.stages.Load( dest.point_id );
+    dest.UseData = FUseData;
+    dest.LoadProps( dest.point_id, FUseData );
     items.push_back( dest );
     Qry.Next();
   }

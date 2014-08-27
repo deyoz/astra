@@ -52,12 +52,12 @@ HTTPClient getHTTPClient(const request& req)
   HTTPClient client;
   for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {
     if ( iheader->name == CLIENT_ID ) {
-      try {
+//      try {
         client.client_info = getInetClient(iheader->value);
-      }
-      catch (...) {
-        throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
-      }
+//      }
+//      catch (...) {
+//        throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
+//!!!anna      }
     }
     if ( iheader->name == OPERATION ) {
       client.operation = iheader->value;
@@ -148,7 +148,6 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
       else
           ProgTrace(TRACE1,"Unable to find <query> tag!");
   }
-  ProgTrace( TRACE5, "http_main: body=%s", body.c_str() );
 }
 
 reply& HTTPClient::fromJXT( std::string res, reply& rep )
@@ -169,7 +168,6 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
   rep.headers[0].name = "Content-Length";
   rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
   rep.headers[1].name = "Content-Type";
-  ProgTrace( TRACE5, "rep.content=%s", rep.content.c_str() );
   return rep;
 }
 
@@ -196,13 +194,22 @@ void http_main(reply& rep, const request& req)
     astra_cb_ptr->SetPostProcessXMLAnswerCallback(client.jxt_interface[client.operation].post_proc);
 
     int newlen=ac->jxt_proc((const char *)body.data(),body.size(),(const char *)header.data(),header.size(), &res, len);
-    ProgTrace( TRACE5, "newlen=%d, len=%d, header.size()=%zu, *res+100=%s", newlen, len, header.size(), res+100 );
+    ProgTrace( TRACE5, "newlen=%d, len=%d, header.size()=%zu", newlen, len, header.size() );
     body = string( res + header.size(), newlen - header.size() );
     client.fromJXT( body, rep );
   }
+  catch( Exception &e ) {
+     ProgError( STDLOG,"HTTP Exception: %s", e.what());
+     rep.status = reply::internal_server_error;
+     rep.headers.resize(2);
+     rep.headers[0].name = "Content-Length";
+     rep.content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<error/>";
+     rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
+     rep.headers[1].name = "Content-Type";
+  }
   catch(...)
   {
-     ProgError( STDLOG,"HTTP Exception");
+     ProgError( STDLOG,"HTTP Exception: unknown error");
      rep.status = reply::internal_server_error;
      rep.headers.resize(2);
      rep.headers[0].name = "Content-Length";

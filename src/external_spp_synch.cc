@@ -59,7 +59,6 @@ void TParseFlight::add_scd( const std::string &value ) {
   }
   if ( StrToDateTime( tmp_value.c_str(), FormatFlightDateTime.c_str(), scd ) == EOF )
         throw Exception( "Ошибка формата планового времени, значение=%s", value.c_str() );
-  ProgTrace( TRACE5, "own_region=%s", own_region.c_str() );
   try {
       scd = LocalToUTC( scd, own_region );
     }
@@ -68,12 +67,6 @@ void TParseFlight::add_scd( const std::string &value ) {
   }
   catch( boost::local_time::time_label_invalid ) {
     throw Exception( "Плановое время выполнения рейса не существует" );
-  }
-  ProgTrace( TRACE5, "scd=%f, error=%s", scd, error.c_str() );
-  if ( est != ASTRA::NoExists ) {
-    if ( scd == est ) {
-      est = ASTRA::NoExists;
-    }
   }
 }
 
@@ -94,11 +87,6 @@ void TParseFlight::add_est( const std::string &value ) {
   }
   catch( boost::local_time::time_label_invalid ) {
     throw Exception( "Расчетное время выполнения рейса не существует" );
-  }
-  if ( scd != ASTRA::NoExists ) {
-    if ( scd == est ) {
-      est = ASTRA::NoExists;
-    }
   }
 }
 
@@ -147,7 +135,6 @@ void TParseFlight::add_dests( const std::string &value ) {
 }
 
 TParseFlight& TParseFlight::operator << (const FlightProperty &prop) {
-  ProgTrace( TRACE5, "own_region=%s", own_region.c_str() );
   if ( !error.empty() ) {
     return *this;
   }
@@ -216,7 +203,6 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     return;
   }
   string buffer = NodeAsString( contentNode );
-  ProgTrace( TRACE5, "contentNode=%s", buffer.c_str() );
   typedef boost::char_separator<char> token_func_type;
   typedef boost::tokenizer<token_func_type> tokenizer_type;
   //typedef std::vector<std::string> token_vector_type;
@@ -257,11 +243,19 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     TParseFlight flight( "УФА" );
     for ( std::vector<std::string>::iterator ifield=fields.begin(), ivalue=values.begin();
          ifield!=fields.end(), ivalue!=values.end(); ifield++, ivalue++ ) {
-       ProgTrace( TRACE5, "ifield=%s, ivalue=%s", ifield->c_str(), ivalue->c_str() );
        flight<<FlightProperty( *ifield, *ivalue );
     }
+
+    if ( flight.scd != ASTRA::NoExists ) {
+      if ( flight.scd == flight.est &&
+           ( ( flight.pr_landing && flight.status != "ПРИЛЕТЕЛ" ) ||
+             ( !flight.pr_landing && flight.status != "ВЫЛЕТЕЛ" ) ) ) {
+        flight.est = ASTRA::NoExists;
+      }
+    }
+
     if ( flight.is_valid() ) {
-      ProgTrace( TRACE5, "flights insert airline=%s, flt_no=%d, scd=%f, pr_landing=%d",
+      ProgTrace( TRACE5, "flights Add airline=%s, flt_no=%d, scd=%f, pr_landing=%d",
                  flight.airline.code.c_str(),
                  flight.flt_no,
                  flight.scd,
@@ -291,9 +285,7 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
                  flight.error.c_str() );
     }
   }
-  tst();
   saveFlights( flights );
-  tst();
   for ( std::map<std::string,map<bool, TParseFlight> >::iterator iflight = flights.begin();
         iflight != flights.end(); iflight ++ ) {
     map<bool, TParseFlight>::iterator fl_in = iflight->second.find( true );
@@ -320,7 +312,7 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     }
   }
   NodeSetContent( resNode, content );
-  ProgTrace( TRACE5, "finish, context=%s", content.c_str() );
+//  ProgTrace( TRACE5, "finish, context=%s", content.c_str() );
 }
 
 void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
@@ -394,16 +386,16 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
       }
       continue;
     }*/
-    tst();
     bool pr_own = false;
     TPointDests dests;
     if ( doubleMove_id != ASTRA::NoExists ) {
-      tst();
-      points.dests.Load( doubleMove_id );
-      tst();
+      BitSet<TUseDestData> FUseData;
+      FUseData.clearFlags();
+      FUseData.setFlag( udDelays );
+      FUseData.setFlag( udStages );
+      points.dests.Load( doubleMove_id, FUseData );
     }
     for ( std::vector<TCode>::iterator iairp=airps.begin(); iairp!=airps.end(); iairp++ ) {
-      ProgTrace( TRACE5, "airp=%s", iairp->code.c_str() );
       TPointsDest dest;
       dest.airp = iairp->code;
       dest.airp_fmt = iairp->fmt;
@@ -416,7 +408,6 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
       if ( fl_in != iflight->second.end() && fl_in->second.is_valid() ) {
         ProgTrace( TRACE5, "flight in  found flt_no=%d", fl_in->second.flt_no );
         if ( !pr_own ) {
-          ProgTrace( TRACE5, "dest in found airp=%s, flt_no=%d", dest.airp.c_str(), fl_in->second.flt_no );
           dest.airline = fl_in->second.airline.code;
           dest.airline_fmt = fl_in->second.airline.fmt;
           dest.flt_no = fl_in->second.flt_no;
@@ -428,14 +419,16 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
         }
         if ( fl_in->second.own_airp == dest.airp ) {
           dest.scd_in = fl_in->second.scd;
-          dest.est_in = fl_in->second.est;
-          ProgTrace( TRACE5, "dest in own, set scd_in=%f, est_in=%f", dest.scd_in, dest.est_in );
+          if ( fl_in->second.status == "ПРИЛЕТЕЛ" ) {
+            dest.act_in = fl_in->second.est;
+          }
+          else {
+            dest.est_in = fl_in->second.est;
+          }
         }
       }
       if ( fl_out != iflight->second.end() && fl_out->second.is_valid() ) {
-        ProgTrace( TRACE5, "flight out  found flt_no=%d", fl_out->second.flt_no );
         if ( pr_own ) {
-          ProgTrace( TRACE5, "own airp found, flt_no=%d, airp=%s", fl_out->second.flt_no, dest.airp.c_str() );
           dest.airline = fl_out->second.airline.code;
           dest.airline_fmt = fl_out->second.airline.fmt;
           dest.flt_no = fl_out->second.flt_no;
@@ -447,18 +440,21 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
         }
         if ( fl_out->second.own_airp == dest.airp ) {
           dest.scd_out = fl_out->second.scd;
-          dest.est_out = fl_out->second.est;
-          ProgTrace( TRACE5, "set scd_out=%f, est_out=%f", dest.scd_out, dest.est_out );
+          if ( fl_out->second.status == "ВЫЛЕТЕЛ" ) {
+            dest.act_out = fl_out->second.est;
+          }
+          else {
+            dest.est_out = fl_out->second.est;
+          }
         }
       }
       tst();
       dests.items.push_back( dest );
     }
     //синхронизация маршрута, но не уже существующих пунктов
-    points.dests.sychDests( dests, false, true );
+    points.dests.sychDests( dests, points.dests.items.empty(), true );
     if ( doubleMove_id != ASTRA::NoExists ) {
       for ( std::vector<TPointsDest>::iterator idest=dests.items.begin(); idest!= dests.items.end(); idest++ ) {
-        ProgTrace( TRACE5, "idest->point_id=%d", idest->point_id );
         if ( idest->point_id == ASTRA::NoExists ) {
           continue;
         }
@@ -468,7 +464,12 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
             ProgTrace( TRACE5, "jdest->est_in=%f, idest->est_in=%f, jdest->est_out=%f, idest->est_out=%f, jdest->craft=%s, idest->craft=%s",
                        jdest->est_in, idest->est_in, jdest->est_out, idest->est_out, jdest->craft.c_str(), idest->craft.c_str() );
             jdest->est_in = idest->est_in;
-            jdest->est_out = idest->est_out;
+            if ( idest->est_out != ASTRA::NoExists ) {
+              jdest->est_out = idest->est_out;
+            }
+            if ( idest->act_out != ASTRA::NoExists ) {
+              jdest->act_out = idest->act_out;
+            }
             jdest->craft = idest->craft;
             jdest->craft_fmt = idest->craft_fmt;
             break;
@@ -477,22 +478,39 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
       }
     }
     points.move_id = doubleMove_id;
-    tst();
     try {
-      tst();
       if ( !points.dests.items.empty() ) {
-        tst();
-        points.Save( false );
+        try {
+          points.Save( false );
+          if ( fl_in != iflight->second.end() ) {
+            fl_in->second.error = "ok";
+          }
+          if ( fl_out != iflight->second.end() ) {
+            fl_out->second.error = "ok";
+          }
+          OraSession.Commit();
+        }
+        catch( Exception &e ) {
+          ProgError( STDLOG, "saveFlights: exception=%s", e.what() );
+          try { OraSession.Rollback(); } catch(...){};
+          if ( fl_in != iflight->second.end() ) {
+            fl_in->second.error = string("save error: ") + e.what();
+          }
+          if ( fl_out != iflight->second.end() ) {
+            fl_out->second.error = string("save error: ") + e.what();
+          }
+        }
+        catch( ... ) {
+          ProgError( STDLOG, "saveFlights: unknown error move_id=%d", points.move_id );
+          try { OraSession.Rollback(); } catch(...){};
+          if ( fl_in != iflight->second.end() ) {
+            fl_in->second.error = "save error: unknown";
+          }
+          if ( fl_out != iflight->second.end() ) {
+            fl_out->second.error = "save error: unknown";
+          }
+        }
       }
-      if ( fl_in != iflight->second.end() ) {
-        fl_in->second.error = "ok";
-        tst();
-      }
-      if ( fl_out != iflight->second.end() ) {
-        fl_out->second.error = "ok";
-        tst();
-      }
-      tst();
     }
     catch( Exception &e ) {
       tst();

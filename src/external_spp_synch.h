@@ -71,7 +71,7 @@ struct  TParseFlight {
   void add_craft( const std::string &value );
   void add_dests( const std::string &value );
   void add_status( const std::string &value ) {
-    status = value;
+    status = upperc( value );
   }
   void add_prlanding( const std::string &value ) {
     std::string tmp_value = upperc( value );

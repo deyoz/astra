@@ -3137,42 +3137,6 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
   }
 }
 
-void ReBindTlgs( int move_id, TSOPPDests &dests )
-{
-  vector<int> point_ids;
-  for (TSOPPDests::const_iterator i=dests.begin(); i!=dests.end(); i++) {
-     point_ids.push_back( i->point_id );
-  }
-  TTlgBinding tlgBinding(true);
-  TTrferBinding trferBinding;
-  tlgBinding.unbind_flt(point_ids);
-  trferBinding.unbind_flt(point_ids);
-
-  vector<TTripInfo> flts;
-	TSOPPDests vdests;
-	string reference;
-	internal_ReadDests( move_id, vdests, reference, NoExists);
-  // создаем все возможные рейсы из нового маршрута исключая удаленные пункты
-  for( TSOPPDests::iterator i=vdests.begin(); i!=vdests.end(); i++ ) {
-    /*ProgTrace( TRACE5, "move_id=%d, point_id=%d, airline=%s, flt_no=%d, scd_out=%f",
-               move_id, i->point_id, i->airline.c_str(), i->flt_no, i->scd_out );*/
-  	if ( i->pr_del == -1 ) continue;
-  	if ( i->airline.empty() ||
-         i->flt_no == NoExists ||
-         i->scd_out == NoExists )
-      continue;
-    TTripInfo tripInfo;
-    tripInfo.airline = i->airline;
-    tripInfo.flt_no = i->flt_no;
-    tripInfo.suffix = i->suffix;
-    tripInfo.airp = i->airp;
-    tripInfo.scd_out = i->scd_out;
-    flts.push_back( tripInfo );
-  }
-  tlgBinding.bind_flt_oper(flts);
-  trferBinding.bind_flt_oper(flts);
-}
-
 void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr node = NewTextChild( resNode, "data" );
@@ -4342,7 +4306,11 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   else
     AstraLocale::showMessage( "MSG.DATA_SAVED" );
   //новая отвязка телеграмм
-  ReBindTlgs( move_id, voldDests );
+  vector<int> voldPoints;
+  for ( vector<TSOPPDest>::iterator i=voldDests.begin(); i!=voldDests.end(); i++ ) {
+    voldPoints.push_back( i->point_id );
+  }
+  ReBindTlgs( move_id, voldPoints );
   //тревога различие компоновок
   for ( std::vector<int>::iterator i=points_check_diffcomp_alarm.begin();
         i!=points_check_diffcomp_alarm.end(); i++ ) {
@@ -5305,8 +5273,10 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   vector<TSOPPTrip> trs;
   // создаем все возможные рейсы из нового маршрута исключая удаленные пункты
   int lock_point_id = NoExists;
+  vector<int> priorPointIds;
   for( TSOPPDests::iterator i=dests_del.begin(); i!=dests_del.end(); i++ ) {
   	if ( i->pr_del == -1 ) continue;
+    priorPointIds.push_back( i->point_id );
   	if ( lock_point_id == NoExists && i->point_id != NoExists ) {
       lock_point_id = i->point_id;
   	}
@@ -5403,8 +5373,8 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   for (TSOPPDests::iterator i=dests_del.begin(); i!=dests_del.end(); i++ ) {
     on_change_trip( CALL_POINT, i->point_id );
   }
+  ReBindTlgs( move_id, priorPointIds );
   TReqInfo::Instance()->LocaleToLog("EVT.FLIGHT.DELETE", LEvntPrms() << name << dests, evtDisp, move_id);
-  ReBindTlgs( move_id, dests_del );
 }
 
 
