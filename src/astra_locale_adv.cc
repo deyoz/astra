@@ -343,6 +343,7 @@ int insert_locales(int argc,char **argv)
     Qry.Clear();
     Qry.SQLText =
         "begin "
+        "  DELETE FROM locale_messages WHERE id=:lexema_id; "
         "  INSERT INTO locale_messages(id,lang,text,pr_del,tid,pr_term) VALUES(:lexema_id,:lang_ru,:msg_ru,:pr_del,:tid,:pr_term); "
         "  INSERT INTO locale_messages(id,lang,text,pr_del,tid,pr_term) VALUES(:lexema_id,:lang_en,:msg_en,:pr_del,:tid,:pr_term); "
         "end; ";
@@ -375,7 +376,11 @@ int insert_locales(int argc,char **argv)
         Qry.CreateVariable("tid", otInteger, tid);
         Qry.CreateVariable("pr_del", otInteger, 0);
         Qry.CreateVariable("pr_term", otInteger, 0);
-        Qry.SQLText = "INSERT INTO locale_messages(id,lang,text,pr_del,tid,pr_term) VALUES(:lexema_id,:lang_en,:msg_en,:pr_del,:tid,:pr_term)";
+        Qry.SQLText =
+          "begin "
+          "  DELETE FROM locale_messages WHERE id=:lexema_id; "
+          "  INSERT INTO locale_messages(id,lang,text,pr_del,tid,pr_term) VALUES(:lexema_id,:lang_en,:msg_en,:pr_del,:tid,:pr_term); "
+          "end; ";
         Qry.Execute();
     }
     catch(...) {
