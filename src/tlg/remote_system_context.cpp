@@ -19,6 +19,7 @@
 #include "edi_tlg.h"
 
 #include <serverlib/posthooks.h>
+#include <serverlib/cursctl.h>
 #include <etick/etick_msg.h>
 #include <etick/exceptions.h>
 
