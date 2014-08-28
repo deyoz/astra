@@ -61,7 +61,7 @@ enum TTripEvents { teNewLand, teNewTakeoff, teDeleteLand, teDeleteTakeoff,
                    teChangeRemarkTakeoff, tePoint_NumTakeoff,
                    teNeedChangeComps, teNeedUnBindTlgs, teNeedBindTlgs,
                    teChangeCargos, teChangeMaxCommerce, teChangeStages,
-                   teChangeStations };
+                   teChangeStations, teNeedApisUSA };
                    
 class TPointsDestDelay {
 public:
@@ -348,6 +348,7 @@ public:
   }
   void getDestData( TQuery &Qry );
   void Load( int vpoint_id, BitSet<TUseDestData> FUseData );
+  void LoadProps( int vpoint_id, BitSet<TUseDestData> FUseData );
   void getEvents( const TPointsDest &vdest );
   void setRemark( const TPointsDest &dest );
   void DoEvents( int move_id, const TPointsDest &dest );
@@ -357,7 +358,7 @@ class TPointDests {
   private:
   public:
     std::vector<TPointsDest> items;
-    void Load( int move_id );
+    void Load( int move_id, BitSet<TUseDestData> FUseData );
     //возвращаем new_dests с заданными point_id
     void sychDests( TPointDests &new_dests, bool pr_change_dests, bool pr_compare_date ); // возвращаем изменение в объекте, но не синхронизируем по существующим строкам. Надо делать отдельно
 };
@@ -426,6 +427,7 @@ void ConvertSOPPToPOINTS( int move_id, const TSOPPDests &dests, std::string refe
 void WriteDests( TPoints &points, bool ignoreException,
                  XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
 void parseFlt( const std::string &value, std::string &airline, int &flt_no, std::string &suffix );
+void ReBindTlgs( int move_id, const std::vector<int> &oldPointsId );
 
 struct TFndFlt {
   int point_id;

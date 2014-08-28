@@ -4,7 +4,7 @@
 #include <libxml/tree.h>
 #include "oralib.h"
 #include "docs.h"
-#include "passenger.h"
+#include "apis_utils.h"
 #include "jxtlib/JxtInterface.h"
 
 class BrdInterface : public JxtInterface

@@ -6,6 +6,8 @@
 #include "xml_unit.h"
 #include "baggage.h"
 
+const long int NO_FIELDS=0x0000;
+
 namespace CheckIn
 {
 
@@ -190,6 +192,7 @@ class TPaxDocoItem
     
     long int getNotEmptyFieldsMask() const;
     long int getEqualAttrsFieldsMask(const TPaxDocoItem &item) const;
+    void ReplaceIncorrectSymbols();
 };
 
 class TPaxDocaItem
@@ -239,6 +242,7 @@ class TPaxDocaItem
 
     long int getNotEmptyFieldsMask() const;
     long int getEqualAttrsFieldsMask(const TPaxDocaItem &item) const;
+    void ReplaceIncorrectSymbols();
 };
 
 class TPaxItem
@@ -406,6 +410,7 @@ void SaveNorms(xmlNodePtr node, bool pr_unaccomp);
 
 }; //namespace CheckIn
 
+//!!!anna apis_utils
 namespace APIS
 {
 enum TAlarmType { atDiffersFromBooking,

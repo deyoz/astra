@@ -15,6 +15,7 @@
 #include "serverlib/monitor_ctl.h"
 #include "serverlib/sirena_queue.h"
 #include "serverlib/testmode.h"
+#include "serverlib/lwriter.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_cont.h"
 #include "jxtlib/xml_stuff.h"
@@ -269,8 +270,8 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   Qry.CreateVariable( "user_id", otInteger, user.user_id );
   Qry.Execute();
   if ( (!Qry.Eof && !InitData.pr_web) ||
-  	    (Qry.Eof && InitData.pr_web) ) //???
-    	throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
+        (Qry.Eof && InitData.pr_web) ) //???
+        throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
 
   if ( InitData.pr_web )
   	client_type = DecodeClientType( Qry.FieldAsString( "client_type" ) );
@@ -452,6 +453,31 @@ bool TReqInfo::CheckAirp(const string &airp)
                 user.access.airps.end(),airp)==user.access.airps.end();
   };
 };
+
+bool TReqInfo::tracing()
+{
+  if (vtracing_init) return vtracing;
+  vtracing_init=true;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT tracing_search FROM web_clients WHERE desk=:desk";
+  Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
+  Qry.Execute();
+  if (!Qry.Eof && !Qry.FieldIsNULL("tracing_search"))
+    vtracing=Qry.FieldAsInteger("tracing_search")!=0;
+  return vtracing;
+}
+
+void TReqInfo::traceToMonitor( TRACE_SIGNATURE, const char *format,  ...)
+{
+  va_list ap;
+  va_start(ap,format);
+  if (tracing())
+    write_log_message(ERROR_PARAMS, format, ap);
+   else
+    write_log_message(TRACE_PARAMS, format, ap);
+  va_end(ap);
+}
 
 void MergeAccess(vector<string> &a, bool &ap,
                  vector<string> b, bool bp)

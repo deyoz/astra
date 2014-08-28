@@ -7,6 +7,8 @@
 #include "qrys.h"
 #include "exceptions.h"
 #include "jxtlib/jxt_cont.h"
+#include "web_search.h"
+#include "apis_utils.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -222,10 +224,10 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   no=NodeAsStringFast("no",node2,"");
   nationality=PaxDocCountryFromTerm(NodeAsStringFast("nationality",node2,""));
   if (!NodeIsNULLFast("birth_date",node2,true))
-    birth_date=NodeAsDateTimeFast("birth_date",node2);
+    birth_date = WebSearch::date_fromXML(NodeAsStringFast("birth_date",node2,""));
   gender=PaxDocGenderNormalize(NodeAsStringFast("gender",node2,""));
   if (!NodeIsNULLFast("expiry_date",node2,true))
-    expiry_date=NodeAsDateTimeFast("expiry_date",node2);
+    expiry_date = WebSearch::date_fromXML(NodeAsStringFast("expiry_date",node2,""));
   surname=NodeAsStringFast("surname",node2,"");
   first_name=NodeAsStringFast("first_name",node2,"");
   second_name=NodeAsStringFast("second_name",node2,"");
@@ -348,9 +350,9 @@ TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
   no=NodeAsStringFast("no",node2,"");
   issue_place=NodeAsStringFast("issue_place",node2,"");
   if (!NodeIsNULLFast("issue_date",node2,true))
-    issue_date=NodeAsDateTimeFast("issue_date",node2);
+    issue_date = WebSearch::date_fromXML(NodeAsStringFast("issue_date",node2,""));
   if (!NodeIsNULLFast("expiry_date",node2,true))
-    expiry_date=NodeAsDateTimeFast("expiry_date",node2);
+    expiry_date=WebSearch::date_fromXML(NodeAsStringFast("expiry_date",node2,""));
   applic_country=PaxDocCountryFromTerm(NodeAsStringFast("applic_country",node2,""));
   scanned_attrs=NodeAsIntegerFast("scanned_attrs",node2,NO_FIELDS);
   return *this;
@@ -424,6 +426,30 @@ long int TPaxDocoItem::getEqualAttrsFieldsMask(const TPaxDocoItem &item) const
   if (applic_country == item.applic_country) result|=DOCO_APPLIC_COUNTRY_FIELD;
   return result;
 };
+
+void TPaxDocoItem::ReplaceIncorrectSymbols()
+{
+  string syms_for_rep(".,:;'\"\\/");
+  for (string::iterator i = syms_for_rep.begin(); i != syms_for_rep.end(); ++i)
+  {
+    if (*i == '\\' || *i == '/')
+    {
+      replace(birth_place.begin(), birth_place.end(), *i, '-');
+      replace(type.begin(), type.end(), *i, '-');
+      replace(no.begin(), no.end(), *i, '-');
+      replace(issue_place.begin(), issue_place.end(), *i, '-');
+      replace(applic_country.begin(), applic_country.end(), *i, '-');
+    }
+    else
+    {
+      replace(birth_place.begin(), birth_place.end(), *i, ' ');
+      replace(type.begin(), type.end(), *i, ' ');
+      replace(no.begin(), no.end(), *i, ' ');
+      replace(issue_place.begin(), issue_place.end(), *i, ' ');
+      replace(applic_country.begin(), applic_country.end(), *i, ' ');
+    }
+  }
+}
 
 const TPaxDocaItem& TPaxDocaItem::toXML(xmlNodePtr node) const
 {
@@ -501,6 +527,32 @@ long int TPaxDocaItem::getEqualAttrsFieldsMask(const TPaxDocaItem &item) const
   if (postal_code == item.postal_code) result|=DOCA_POSTAL_CODE_FIELD;
   return result;
 };
+
+void TPaxDocaItem::ReplaceIncorrectSymbols()
+{
+  string syms_for_rep(".,:;'\"\\/");
+  for (string::iterator i = syms_for_rep.begin(); i != syms_for_rep.end(); ++i)
+  {
+    if (*i == '\\' || *i == '/')
+    {
+      replace(type.begin(), type.end(), *i, '-');
+      replace(country.begin(), country.end(), *i, '-');
+      replace(address.begin(), address.end(), *i, '-');
+      replace(city.begin(), city.end(), *i, '-');
+      replace(region.begin(), region.end(), *i, '-');
+      replace(postal_code.begin(), postal_code.end(), *i, '-');
+    }
+    else
+    {
+      replace(type.begin(), type.end(), *i, ' ');
+      replace(country.begin(), country.end(), *i, ' ');
+      replace(address.begin(), address.end(), *i, ' ');
+      replace(city.begin(), city.end(), *i, ' ');
+      replace(region.begin(), region.end(), *i, ' ');
+      replace(postal_code.begin(), postal_code.end(), *i, ' ');
+    }
+  }
+}
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
 {
@@ -1068,8 +1120,21 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
       if (docNode!=NULL) doc.fromXML(docNode);
       xmlNodePtr docoNode=GetNodeFast("doco",node2);
       if (docoNode!=NULL) doco.fromXML(docoNode);
+      xmlNodePtr docaNode=GetNodeFast("addresses",node2);
+      if (docaNode!=NULL)
+      {
+        for(docaNode=docaNode->children; docaNode!=NULL; docaNode=docaNode->next)
+        {
+          TPaxDocaItem docaItem;
+          docaItem.fromXML(docaNode);
+          if (docaItem.empty()) continue;
+          doca.push_back(docaItem);
+        };
+      };
+
       DocExists=(tid==ASTRA::NoExists || docNode!=NULL);
       DocoExists=(tid==ASTRA::NoExists || docoNode!=NULL);
+      DocaExists=(tid==ASTRA::NoExists || docaNode!=NULL);
     };
   };
 

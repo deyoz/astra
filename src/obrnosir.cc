@@ -72,7 +72,7 @@ const
     {"-rollback096",            rollback096,            NULL,                       NULL},
     {"-mobile_stat",            mobile_stat,            NULL,                       NULL},
     {"-test_astra_locale_adv",  test_astra_locale_adv,  NULL,                       NULL},
-    {"-insert_locales",         insert_locales,         NULL,                       NULL}
+    {"-insert_locales",         insert_locales,         NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

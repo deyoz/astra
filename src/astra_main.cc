@@ -9,6 +9,7 @@
 #include "empty_proc.h"
 #include "crypt.h"
 #include "web_main.h"
+#include "http_main.h"
 #include "obrnosir.h"
 
 #include "jxtlib/jxtlib.h"
@@ -96,8 +97,15 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
       ServerFramework::QueryRunner query_runner (ServerFramework::TextQueryRunner());
       query_runner.getEdiHelpManager().multiMsgidMode(true);
       OciCpp::mainSession().set7(); //переключение в OCI8 не идет, но на всякий случай подстрахуемся!
-      return jxtlib::JXTLib::Instance()->GetCallbacks()->Main(body,blen,head,hlen,res,len);
+      int i= jxtlib::JXTLib::Instance()->GetCallbacks()->Main(body,blen,head,hlen,res,len);
+      return i;
     }
+    virtual void http_handle(ServerFramework::HTTP::reply& rep, const ServerFramework::HTTP::request& req) 
+    {
+      OciCpp::mainSession().set7(); //это очень плохо что где-то в serverlib постоянно идет переключение на OCI8 !
+      AstraHTTP::http_main(rep, req);
+    }
+    
     virtual int internet_proc(const char *body, int blen,
                               const char *head, int hlen, char **res, int len)
     {
