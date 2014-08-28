@@ -3291,10 +3291,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	    case cltTranzit:
   	    case cltCheckin:
   	    case cltTCheckin:
-          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
-                             " посажен на место: " +
-                             new_seat_no,
-                             evtPax, point_id, idx1, idx2 );
+            reqinfo->LocaleToLog("EVT.PASSENGER_SEATED", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                              << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_id, idx1, idx2);
           if ( is_sync_paxs( point_id ) )
             update_pax_change( point_id, pax_id, idx1, "Р" );
           break;
@@ -3307,10 +3305,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
        	case cltTranzit:
   	    case cltCheckin:
   	    case cltTCheckin:
-          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
-                             " пересажен. Новое место: " +
-                             new_seat_no,
-                             evtPax, point_id, idx1, idx2 );
+            reqinfo->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                              << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_id, idx1, idx2);
           if ( is_sync_paxs( point_id ) )
             update_pax_change( point_id, pax_id, idx1, "Р" );
           break;
@@ -3323,9 +3319,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       	case cltTranzit:
       	case cltCheckin:
   	    case cltTCheckin:
-          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
-                             " высажен. Место: " + prior_seat,
-                             evtPax, point_id, idx1, idx2 );
+          reqinfo->LocaleToLog("EVT.EVT.PASSENGER_DISEMBARKED", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                               << PrmSmpl<std::string>("seat", prior_seat), evtPax, point_id, idx1, idx2);
           if ( is_sync_paxs( point_id ) )
             update_pax_change( point_id, pax_id, idx1, "Р" );
           break;
@@ -3466,10 +3461,11 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
       ProgTrace( TRACE5, "pax_id=%d, prev_seat_no=%s,pass.InUse=%d", pass.paxId, prev_seat_no.c_str(), pass.InUse );
 
     	if ( !pass.InUse ) { /* не смогли посадить */
-    		if ( !pass.foundSeats.empty() ) {
-          TReqInfo::Instance()->MsgToLog( string("Пассажир " ) + pass.fullName +
-                                          " из-за смены компоновки высажен с места " +
-                                          prev_seat_no, evtPax, Salons.trip_id, pass.regNo, pass.grpId );
+          if ( !pass.foundSeats.empty() ) {
+            TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_DISEMBARKED_DUE_TO_LAYOUT",
+                                              LEvntPrms() << PrmSmpl<std::string>("name", pass.fullName)
+                                              << PrmSmpl<std::string>("seat", prev_seat_no),
+                                              evtPax, Salons.trip_id, pass.regNo, pass.grpId);
           if ( is_sync_paxs( Salons.trip_id ) )
             update_pax_change( Salons.trip_id, pass.paxId, pass.regNo, "Р" );
         }
@@ -3491,9 +3487,11 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
         string new_seat_no = QryPax.FieldAsString( "seat_no" );
         ProgTrace( TRACE5, "oldplace=%s, newplace=%s", prev_seat_no.c_str(), new_seat_no.c_str() );
       	if ( prev_seat_no != new_seat_no ){ /* пересадили на другое место */
-          TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + pass.fullName +
-                                          " из-за смены компоновки пересажен на место " +
-                                          new_seat_no, evtPax, Salons.trip_id, pass.regNo, pass.grpId );
+
+          TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT_DUE_TO_LAYOUT",
+                                            LEvntPrms() << PrmSmpl<std::string>("name", pass.fullName)
+                                            << PrmSmpl<std::string>("seat", new_seat_no),
+                                            evtPax, Salons.trip_id, pass.regNo, pass.grpId);
           if ( is_sync_paxs( Salons.trip_id ) )
             update_pax_change( Salons.trip_id, pass.paxId, pass.regNo, "Р" );
         }
@@ -3872,10 +3870,8 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
   	    case cltTranzit:
   	    case cltCheckin:
   	    case cltTCheckin:
-          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
-                             " посажен на место: " +
-                             new_seat_no,
-                             evtPax, point_id, idx1, idx2 );
+          reqinfo->LocaleToLog("EVT.PASSENGER_SEATED", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                            << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_id, idx1, idx2);
 /*          if ( is_sync_paxs( point_id ) )
             update_pax_change( point_id, pax_id, idx1, "Р" );*/
           break;
@@ -3888,10 +3884,8 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
        	case cltTranzit:
   	    case cltCheckin:
   	    case cltTCheckin:
-          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
-                             " пересажен. Новое место: " +
-                             new_seat_no,
-                             evtPax, point_id, idx1, idx2 );
+          reqinfo->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                            << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_id, idx1, idx2);
 /*          if ( is_sync_paxs( point_id ) )
             update_pax_change( point_id, pax_id, idx1, "Р" );*/
           break;
@@ -3904,9 +3898,8 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       	case cltTranzit:
       	case cltCheckin:
   	    case cltTCheckin:
-          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
-                             " высажен. Место: " + prior_seat,
-                             evtPax, point_id, idx1, idx2 );
+          reqinfo->LocaleToLog("EVT.EVT.PASSENGER_DISEMBARKED", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                               << PrmSmpl<std::string>("seat", prior_seat), evtPax, point_id, idx1, idx2);
 /*          if ( is_sync_paxs( point_id ) )
             update_pax_change( point_id, pax_id, idx1, "Р" );*/
           break;

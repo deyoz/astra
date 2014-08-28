@@ -468,9 +468,7 @@ string TRptParams::ElemIdToReportElem(TElemType type, const string &id, TElemFmt
 
   string lang=GetLang(fmt, firm_lang); //специально вынесено, так как fmt в процедуре может измениться
 
-  vector< pair<TElemFmt,string> > fmts;
-  getElemFmts(fmt, lang, fmts);
-  return ElemIdToElem(type, id, fmts, true);
+  return ElemIdToPrefferedElem(type, id, fmt, lang, true);
 };
 
 string TRptParams::ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, string firm_lang) const
@@ -479,10 +477,7 @@ string TRptParams::ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, stri
 
   string lang=GetLang(fmt, firm_lang); //специально вынесено, так как fmt в процедуре может измениться
 
-  vector< pair<TElemFmt,string> > fmts;
-
-  getElemFmts(fmt, lang, fmts);
-  return ElemIdToElem(type, id, fmts, true);
+  return ElemIdToPrefferedElem(type, id, fmt, lang, true);
 };
 
 
@@ -3341,18 +3336,17 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
 void  DocsInterface::LogPrintEvent(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    ostringstream msg;
-    msg << "Печать документации '" << ElemIdToElem(etReportType, NodeAsString("rpt_type", reqNode), efmtNameLong, LANG_RU) << "'";
-    TReqInfo::Instance()->MsgToLog(msg.str(), ASTRA::evtPrn, NodeAsInteger("point_id", reqNode));
+    TReqInfo::Instance()->LocaleToLog("EVT.PRINT_REPORT", LEvntPrms()
+                                       << PrmElem<std::string>("report", etReportType, NodeAsString("rpt_type", reqNode), efmtNameLong),
+                                       ASTRA::evtPrn, NodeAsInteger("point_id", reqNode));
 }
 
 void  DocsInterface::LogExportEvent(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    ostringstream msg;
-    msg
-        << "Экспорт документации '" << ElemIdToElem(etReportType, NodeAsString("rpt_type", reqNode), efmtNameLong, LANG_RU)
-        << "'; формат: " << NodeAsString("export_name", reqNode);
-    TReqInfo::Instance()->MsgToLog(msg.str(), ASTRA::evtPrn, NodeAsInteger("point_id", reqNode));
+    TReqInfo::Instance()->LocaleToLog("EVT.EXPORT_REPORT", LEvntPrms()
+                                       << PrmElem<std::string>("report", etReportType, NodeAsString("rpt_type", reqNode), efmtNameLong)
+                                       << PrmSmpl<std::string>("fmt", NodeAsString("export_name", reqNode)),
+                                       ASTRA::evtPrn, NodeAsInteger("point_id", reqNode));
 }
 
 void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -3374,7 +3368,7 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     Qry.Execute();
     if(!Qry.RowsProcessed())
       throw UserException("MSG.REPORT_UPDATE_FAILED.NOT_FOUND", LParams() << LParam("report_name", name));
-    TReqInfo::Instance()->MsgToLog( (string)"Обновлен шаблон отчета " + name, evtSystem);
+    TReqInfo::Instance()->LocaleToLog("EVT.UPDATE_REPORT", LEvntPrms() << PrmSmpl<std::string>("name", name), evtSystem);
 }
 
 vector<string> get_grp_zone_list(int point_id)

@@ -703,9 +703,7 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     CheckIn::SaveBag(point_dep,grp_id,ASTRA::NoExists,reqNode);
     CheckIn::SavePaidBag(grp_id,reqNode);
 
-    TReqInfo::Instance()->MsgToLog(
-            "Данные по багажным тарифам и ценному багажу сохранены.",
-            ASTRA::evtPay,point_dep,0,grp_id);
+    TReqInfo::Instance()->LocaleToLog("EVT.LUGGAGE.SAVE_DATA", ASTRA::evtPay,point_dep,0,grp_id);
 };
 
 void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -779,40 +777,49 @@ void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
         NewTextChild(resNode,"receipt_id",Qry.GetVariableAsInteger("receipt_id"));
 
-        ostringstream logmsg;
+        std::string lexema_id;
+        LEvntPrms params;
+        PrmLexema lexema1("rcpt_param1", ""), lexema2("rcpt_param2", "");
         if (idNode==NULL)
         {
-          logmsg << "Квитанция предоплаты " << aircode << " " << no << " введена. ";
+            lexema_id = "EVT.RCPT_ADD";
+            params << PrmSmpl<std::string>("rcpt", aircode) << PrmSmpl<std::string>("num", no);
         }
         else
         {
           if (aircode==old_aircode && no==old_no)
           {
-            logmsg << "Квитанция предоплаты " << aircode << " " << no << " изменена. ";
+              lexema_id = "EVT.RCPT_CHANGE";
+              params << PrmSmpl<std::string>("rcpt", aircode) << PrmSmpl<std::string>("num", no);
           }
           else
           {
-            logmsg << "Квитанция предоплаты " << old_aircode << " " << old_no << " удалена";
-            reqInfo->MsgToLog(logmsg.str(),ASTRA::evtPay,point_dep,0,grp_id);
-            logmsg.str("");
-            logmsg << "Квитанция предоплаты " << aircode << " " << no << " введена. ";
+              reqInfo->LocaleToLog("EVT.RCPT_REMOVE", LEvntPrms() << PrmSmpl<std::string>("rcpt", old_aircode)
+                                   << PrmSmpl<std::string>("num", old_no), ASTRA::evtPay,point_dep,0,grp_id);
+              lexema_id = "EVT.RCPT_ADD";
+              params << PrmSmpl<std::string>("rcpt", aircode) << PrmSmpl<std::string>("num", no);
           };
         };
         if (!NodeIsNULLFast("ex_weight",node,true))
         {
-          if (!NodeIsNULLFast("bag_type",node))
-            logmsg << "Тип багажа: " << NodeAsIntegerFast("bag_type",node)
-                   << ", вес багажа: " << NodeAsIntegerFast("ex_weight",node) << " кг.";
-          else
-            logmsg << "Вес багажа: " << NodeAsIntegerFast("ex_weight",node) << " кг.";
-        };
+          if (!NodeIsNULLFast("bag_type",node)) {
+              lexema1.ChangeLexemaId("EVT.LUGGAGE.TYPE_WEIGHT");
+              lexema1.prms << PrmSmpl<int>("type", NodeAsIntegerFast("bag_type",node))
+                          << PrmSmpl<int>("weight", NodeAsIntegerFast("ex_weight",node));
+          }
+          else {
+              lexema1.ChangeLexemaId("EVT.LUGGAGE.WEIGHT");
+              lexema1.prms << PrmSmpl<int>("weight", NodeAsIntegerFast("ex_weight",node));
+          }
+        }
+        else
         if (!NodeIsNULLFast("value",node,true))
         {
-          logmsg << "Ценность багажа: "
-                 << fixed << setprecision(2) << NodeAsFloatFast("value",node)
-                 << NodeAsStringFast("value_cur",node,"");
-        };
-        reqInfo->MsgToLog(logmsg.str(),ASTRA::evtPay,point_dep,0,grp_id);
+          lexema2.ChangeLexemaId("EVT.LUGGAGE.VALUE");
+          lexema2.prms << PrmSmpl<double>("value", NodeAsFloatFast("value",node))
+                       << PrmElem<std::string>("cur", etCurrency, NodeAsStringFast("value_cur",node,""));
+        }
+        reqInfo->LocaleToLog(lexema_id, params << lexema1 << lexema2, ASTRA::evtPay,point_dep,0,grp_id);
     }
     else
     {
@@ -821,9 +828,8 @@ void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         Qry.Execute();
         if (Qry.RowsProcessed()<=0)
             throw AstraLocale::UserException("MSG.RECEIPT_NOT_FOUND.REFRESH_DATA");
-        ostringstream logmsg;
-        logmsg << "Квитанция предоплаты " << old_aircode << " " << old_no << " удалена";
-        reqInfo->MsgToLog(logmsg.str(),ASTRA::evtPay,point_dep,0,grp_id);
+        reqInfo->LocaleToLog("EVT.RCPT_REMOVE", LEvntPrms() << PrmSmpl<std::string>("rcpt", old_aircode)
+                             << PrmSmpl<std::string>("num", old_no), ASTRA::evtPay,point_dep,0,grp_id);
     };
 }
 
@@ -1825,13 +1831,10 @@ void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     PutReceiptToXML(rcpt,*rcpt_id,prnParams.pr_lat,NewTextChild(rcptsNode,"receipt"));
 
     ostringstream logmsg;
-    logmsg << "Квитанция " << rcpt.form_type << " "
-           << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no
-           << " аннулирована";
-    reqInfo->MsgToLog(logmsg.str(),ASTRA::evtPay,
-                                   point_dep!=NoExists?point_dep:0,
-                                   0,
-                                   grp_id!=NoExists?grp_id:0);
+    logmsg << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
+    reqInfo->LocaleToLog("EVT.RCPT_ANNUL", LEvntPrms() << PrmSmpl<std::string>("rcpt", rcpt.form_type)
+                         << PrmSmpl<std::string>("num", logmsg.str()), ASTRA::evtPay,
+                                   point_dep!=NoExists?point_dep:0, 0, grp_id!=NoExists?grp_id:0);
   };
 };
 
@@ -1850,8 +1853,9 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
     TBagReceipt rcpt;
     int rcpt_id;
-    ostringstream logmsg;
     xmlNodePtr rcptNode;
+    std::string lexema_id;
+    LEvntPrms params;
     if (GetNode("receipt/no",reqNode)!=NULL)
     {
         if (GetNode("receipt/id",reqNode)==NULL)
@@ -1859,9 +1863,11 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             //печать новой квитанции
             GetReceiptFromXML(reqNode,rcpt);
             rcptNode=NewTextChild(resNode,"receipt");
-            logmsg << "Квитанция " << rcpt.form_type << " "
-                   << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no
-                   << " напечатана";
+            ostringstream logmsg;
+            logmsg << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
+            lexema_id = "EVT.RCPT_PRINT";
+            params << PrmSmpl<std::string>("rcpt", rcpt.form_type)
+                   << PrmSmpl<std::string>("num", logmsg.str());
         }
         else
         {
@@ -1901,9 +1907,13 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             rcpt.annul_desk="";
 
             rcptNode=NewTextChild(resNode,"new_receipt");
-            logmsg << "Замена бланка " << rcpt.form_type << ": "
-                   << fixed << setw(10) << setfill('0') << setprecision(0) << old_no << " на "
-                   << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
+            ostringstream logmsg1, logmsg2;
+            logmsg1 << fixed << setw(10) << setfill('0') << setprecision(0) << old_no;
+            logmsg2 << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
+            lexema_id = "EVT.RCPT_REPLACE";
+            params << PrmSmpl<std::string>("rcpt", rcpt.form_type)
+                   << PrmSmpl<std::string>("old_num", logmsg1.str())
+                   << PrmSmpl<std::string>("num", logmsg2.str());
         };
 
         rcpt_id=PutReceiptToDB(rcpt,point_dep,grp_id);  //запись квитанции в базу
@@ -1945,8 +1955,11 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         if (!GetReceiptFromDB(rcpt_id,rcpt))
           throw AstraLocale::UserException("MSG.RECEIPT_NOT_FOUND.REFRESH_DATA");
         rcptNode=NewTextChild(resNode,"receipt");
-        logmsg << "Повтор печати квитанции " << rcpt.form_type << " "
-               << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
+        ostringstream logmsg;
+        logmsg << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
+        lexema_id = "EVT.RCPT_PRINT_REPEAT";
+        params << PrmSmpl<std::string>("rcpt", rcpt.form_type)
+               << PrmSmpl<std::string>("num", logmsg.str());
     };
 
     //последовательность для принтера
@@ -1961,5 +1974,5 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             reqNode
             ); //последовательность для принтера
     SetProp( NewTextChild(rcptNode, "form", data), "hex", (int)hex);
-    reqInfo->MsgToLog(logmsg.str(),ASTRA::evtPay,point_dep,0,grp_id);
+    reqInfo->LocaleToLog(lexema_id, params, ASTRA::evtPay, point_dep, 0, grp_id);
 };

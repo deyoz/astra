@@ -173,8 +173,10 @@ void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
         if(Qry.RowsProcessed()) {
             ostringstream msg;
             msg << "Тревога '" << TripAlarmName(alarm_type) << "' "
-                << (alarm_value?"установлена":"отменена");
-            TReqInfo::Instance()->MsgToLog( msg.str(), evtFlt, point_id );
+                << (alarm_value?"EVT.ALARM_SET":"EVT.ALARM_DELETED");
+            TReqInfo::Instance()->LocaleToLog(alarm_value?"EVT.ALARM_SET":"EVT.ALARM_DELETED", LEvntPrms()
+                                              << PrmElem<string>("alarm_type", etAlarmType, EncodeAlarmType(alarm_type), efmtNameLong),
+                                              evtFlt, point_id );
         }
     } catch (EOracleError &E) {
         if(E.Code != 1) throw;

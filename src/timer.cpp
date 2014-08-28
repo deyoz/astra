@@ -29,6 +29,7 @@
 #include "qrys.h"
 #include "points.h"
 #include "trip_tasks.h"
+#include "stat.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -418,15 +419,6 @@ void get_full_stat(TDateTime utcdate)
 {
 	//соберем статистику по истечении двух дней от вылета,
 	//если не проставлен признак окончательного сбора статистики pr_stat
-	ProgTrace(TRACE5,"arx_daily: statist.get_full_stat(:point_id)");
-	TQuery Qry(&OraSession);
-	Qry.Clear();
-	Qry.SQLText=
-	  "BEGIN "
-	  "  statist.get_full_stat(:point_id, 1); "
-	  "END;";
-	Qry.DeclareVariable("point_id",otInteger);
-
 
 	TQuery PointsQry(&OraSession);
   PointsQry.Clear();
@@ -439,8 +431,7 @@ void get_full_stat(TDateTime utcdate)
   PointsQry.Execute();
   for(;!PointsQry.Eof;PointsQry.Next())
   {
-  	Qry.SetVariable("point_id",PointsQry.FieldAsInteger("point_id"));
-  	Qry.Execute();
+    get_flight_stat(PointsQry.FieldAsInteger("point_id"), true);
   	OraSession.Commit();
   };
 };

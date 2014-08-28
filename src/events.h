@@ -2,7 +2,6 @@
 #define _EVENTS_H_
 #include "astra_consts.h"
 #include "passenger.h"
-#include "baggage.h"
 #include "remarks.h"
 #include "astra_misc.h"
 #include "stat.h"
@@ -92,8 +91,11 @@ class TPaxToLogInfo
       rems.clear();
     };
     std::string getBagStr() const;
+    void getBag(PrmEnum& param) const;
+    void getPaxName(LEvntPrms& params) const;
     std::string getPaxNameStr() const;
-    std::string getNormStr() const;
+    std::string getNormStr(const std::string& lang = AstraLocale::LANG_RU) const;
+    void getNorm(PrmEnum& param) const;
 };
 
 class TBagToLogInfo
@@ -217,9 +219,14 @@ std::string logPaxNameStr(const std::string &status,
                           const std::string &surname,
                           const std::string &name,
                           const std::string &pers_type);
+void logPaxName(const std::string &status,
+                          const std::string &surname,
+                          const std::string &name,
+                          const std::string &pers_type,
+                          LEvntPrms& params);
 void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
                     const CheckIn::TAPISItem &apisAfter,
-                    std::list<std::string> &msgs);
+                    std::list<std::pair<std::string, std::string> > &msgs);
 
 void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo);
 void SaveGrpToLog(int point_id,

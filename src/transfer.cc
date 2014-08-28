@@ -1850,38 +1850,36 @@ void NewGrpInfoToGrpsView(const TNewGrpInfo &inbound_trfer,
 };
 
 void ConflictReasonsToLog(const set<TConflictReason> &conflicts,
-                          TLogMsg &msg)
+                          TLogLocale &tlocale)
 {
   for(set<TConflictReason>::const_iterator c=conflicts.begin(); c!=conflicts.end(); ++c)
   {
-    ostringstream s;
-    s << "Не привязан входящий трансферный багаж. Причина: ";
+    tlocale.lexema_id.clear();
     switch(*c)
     {
       case conflictInPaxDuplicate:
-        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.IN_PAX_DUPLICATE", AstraLocale::LANG_RU);
+        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.IN_PAX_DUPLICATE";
         break;
       case conflictOutPaxDuplicate:
-        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.OUT_PAX_DUPLICATE", AstraLocale::LANG_RU);
+        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.OUT_PAX_DUPLICATE";
         break;
       case conflictInRouteIncomplete:
-        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.IN_ROUTE_INCOMPLETE", AstraLocale::LANG_RU);
+        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.IN_ROUTE_INCOMPLETE";
         break;
       case conflictInRouteDiffer:
-        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.IN_ROUTE_DIFFER", AstraLocale::LANG_RU);
+        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.IN_ROUTE_DIFFER";
         break;
       case conflictOutRouteDiffer:
-        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER", AstraLocale::LANG_RU);
+        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER";
         break;
       case conflictInOutRouteDiffer:
-        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.IN_OUT_ROUTE_DIFFER", AstraLocale::LANG_RU);
+        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.IN_OUT_ROUTE_DIFFER";
         break;
       case conflictWeightNotDefined:
-        s << AstraLocale::getLocaleText("MSG.TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED", AstraLocale::LANG_RU);
+        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED";
         break;
     };
-    msg.msg=s.str();
-    TReqInfo::Instance()->MsgToLog(msg);
+    TReqInfo::Instance()->LocaleToLog(tlocale);
   };
 };
 

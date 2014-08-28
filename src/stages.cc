@@ -18,6 +18,7 @@
 #include "points.h"
 #include "trip_tasks.h"
 #include "qrys.h"
+#include "stat.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -287,23 +288,22 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
  	  check_brd_alarm( point_id );
     check_unattached_trfer_alarm( point_id );
     check_crew_alarms( point_id );
-
-    string tolog = string( "Этап '" ) + sr->stage_name( i->first, airp, false ) + "'";
+    string lexema_id;
+    LEvntPrms params;
+    params << PrmStage("stage", i->first, airp);
     if ( i->second.old_act == NoExists && i->second.act > NoExists )
-      tolog += " выполнен";
+      lexema_id = "EVT.STAGE.COMPLETED_ACT_EST_TIME";
     if ( i->second.old_act > NoExists && i->second.act == NoExists )
-      tolog += " отменен";
-    tolog += ": расч. время";
+      lexema_id = "EVT.STAGE.CANCELED";
     if ( i->second.est > NoExists )
-      tolog += DateTimeToStr( i->second.est, "=hh:nn dd.mm.yy (UTC)" );
+      params << PrmDate("est_time", i->second.est, "=hh:nn dd.mm.yy (UTC)");
     else
-      tolog += " не задано";
-    tolog += ", факт. время";
+      params << PrmLexema("est_time", "EVT.UNKNOWN");
     if ( i->second.act > NoExists )
-      tolog += DateTimeToStr( i->second.act, "=hh:nn dd.mm.yy (UTC)" );
+      params << PrmDate("act_time", i->second.act, "=hh:nn dd.mm.yy (UTC)");
     else
-       tolog += " не задано";
-    reqInfo->MsgToLog( tolog, evtGraph, point_id, (int)i->first );
+      params << PrmLexema("act_time", "EVT.UNKNOWN");
+    reqInfo->LocaleToLog(lexema_id, params, evtGraph, point_id, (int)i->first );
   }
   Qry.Clear();
   Qry.SQLText =
@@ -828,11 +828,9 @@ void astra_timer( TDateTime utcdate )
   		  TDateTime act_stage = QExecStage.GetVariableAsDateTime( "act" );
   		  if ( pr_exec_stage ) {
     		  // запись в лог о выполнении шага
-          TStagesRules *r = TStagesRules::Instance();
-          string tolog = string( "Этап '" ) + r->stage_name( (TStage)stage_id, airp, false ) + "'";
-          tolog += " выполнен: факт. время=";
-          tolog += DateTimeToStr( act_stage, "hh:nn dd.mm.yy (UTC)" );
-          TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );
+          TReqInfo::Instance()->LocaleToLog( "EVT.STAGE.COMPLETED_ACT_TIME", LEvntPrms() << PrmStage("stage", (TStage)stage_id, airp)
+                                             << PrmDate("act_time", act_stage, "hh:nn dd.mm.yy (UTC)"),
+                                             evtGraph, point_id, stage_id );
   		  }
   		}
       catch( Exception &E ) {
@@ -949,7 +947,8 @@ void SetCraft( int point_id, TStage stage )
   	   (stage == sOpenCheckIn && string( "СОЧ" ) == Qry.FieldAsString( "airp" )) ) {
     SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( point_id );
     if ( res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
-  	  TReqInfo::Instance()->MsgToLog( string( "Подходящая для рейса компоновка " ) + craft + " не найдена", evtFlt, point_id );
+        TReqInfo::Instance()->LocaleToLog("EVT.LAYOUT_NOT_FOUND", LEvntPrms()
+                                          << PrmElem<std::string>("craft", etCraft, craft), evtFlt, point_id );
   	}
   }
 }
@@ -1017,22 +1016,15 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-  	TQuery Qry(&OraSession);
-  	Qry.Clear();
-  	Qry.SQLText=
-  	  "BEGIN "
-  	  "  statist.get_full_stat(:point_id, 0); "
-  	  "END;";
-  	Qry.CreateVariable( "point_id", otInteger, point_id );
-  	Qry.Execute();
+    get_flight_stat(point_id, false);
   }
   catch(std::exception &E)
   {
-    ProgError(STDLOG,"Takeoff.get_full_stat (point_id=%d): %s",point_id,E.what());
+    ProgError(STDLOG,"Takeoff.get_flight_stat (point_id=%d): %s",point_id,E.what());
   };
   time_end=time(NULL);
   if (time_end-time_start>1)
-    ProgTrace(TRACE5,"Attention! statist.get_full_stat execute time: %ld secs, point_id=%d",
+    ProgTrace(TRACE5,"Attention! get_flight_stat execute time: %ld secs, point_id=%d",
                      time_end-time_start,point_id);
 
   time_start=time(NULL);

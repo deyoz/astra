@@ -236,13 +236,13 @@ void DevTuningInterface::UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Execute();
     if(Qry.RowsProcessed() == 0)
         throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
-    ostringstream msg;
+
     if(*(char*)reqNode->name == 'U') // Update
-        msg << "Изменены данные пектаба.";
+        TReqInfo::Instance()->LocaleToLog("EVT.DEVICE.CHANGE_PECTAB_DATA",
+                                           LEvntPrms() << PrmSmpl<int>("id", id) << PrmSmpl<int>("vers", vers), evtSystem);
     else // Copy
-        msg << "Скопированы данные пектаба.";
-    msg << " id = " << id << "; vers = " << vers;
-    TReqInfo::Instance()->MsgToLog( msg.str(), evtSystem);
+        TReqInfo::Instance()->LocaleToLog("EVT.DEVICE.COPY_PECTAB_DATA",
+                                           LEvntPrms() << PrmSmpl<int>("id", id) << PrmSmpl<int>("vers", vers), evtSystem);
 }
 
 ///////////////////////////////////// Export stuff /////////////////////////////

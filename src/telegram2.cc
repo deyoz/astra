@@ -7274,10 +7274,10 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
     if (tlg_id == NoExists) throw Exception("TelegramInterface::CreateTlg: create_tlg without result");
 
-    localizedstream msg(LANG_RU);
-    msg << "Телеграмма " << tlgTypeInfo.short_name
-        << " (ид=" << tlg_id << ") сформирована: ";
-    TReqInfo::Instance()->MsgToLog(createInfo.get_options().logStr(msg).str(),evtTlg,createInfo.point_id,tlg_id);
+    TReqInfo::Instance()->LocaleToLog("EVT.TLG.CREATED", LEvntPrms()
+                                      << PrmElem<std::string>("name", etTypeBType, createInfo.get_tlg_type(), efmtNameShort)
+                                      << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", createInfo.get_options().is_lat),
+                                      evtTlg, createInfo.point_id, tlg_id);
     NewTextChild( resNode, "tlg_id", tlg_id);
 };
 

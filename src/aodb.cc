@@ -1439,13 +1439,11 @@ try {
 	TQuery QrySet(&OraSession);
 	QrySet.SQLText =
      "BEGIN "
-     " sopp.set_flight_sets(:point_id,:use_seances);"
      " IF :max_commerce IS NOT NULL THEN "
      "  UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id;"
      " END IF; "
      "END;";
 	QrySet.DeclareVariable( "point_id", otInteger );
-	QrySet.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
 	QrySet.DeclareVariable( "max_commerce", otInteger );
 
 
@@ -1503,17 +1501,18 @@ try {
     POINT_IDQry.Execute();
     err++;
     point_id = POINT_IDQry.FieldAsInteger( "point_id" );
-    string lmes = "Ввод нового рейса ";
-    lmes +=  fl.airline + IntToString( fl.flt_no ) + fl.suffix + ", маршрут: " + airp + "-";
+    PrmEnum prmenum("route", "-");
+    prmenum.prms << PrmElem<std::string>("", etAirp, airp);
     for ( vector<AODB_Dest>::iterator it=fl.dests.begin(); it!=fl.dests.end(); it++ ) {
-    	if ( it != fl.dests.begin() )
-    		lmes += "-";
-      lmes += it->airp;
+        if ( it != fl.dests.begin() )
+            prmenum.prms << PrmElem<std::string>("", etAirp, airp);
     }
     err++;
-    reqInfo->MsgToLog( lmes, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.FLIGHT.NEW_FLIGHT", LEvntPrms() << PrmSmpl<std::string>("flt", "") << PrmFlight("flt", fl.airline, fl.flt_no, fl.suffix)
+                          << prmenum, evtDisp, move_id, point_id);
     err++;
-    reqInfo->MsgToLog( string( "Ввод нового пункта " ) + airp, evtDisp, move_id, point_id );
+    reqInfo->LocaleToLog("EVT.INPUT_NEW_POINT", LEvntPrms() << PrmSmpl<std::string>("flt", "") << PrmElem<std::string>("airp", etAirp, airp),
+                          evtDisp, move_id, point_id);
     TTripInfo tripInfo;
     tripInfo.airline = fl.airline;
     tripInfo.flt_no = fl.flt_no;
@@ -1571,6 +1570,7 @@ try {
     Qry.Execute();
     err++;
     // создаем времена технологического графика только для пункта вылета из ВНК и далее по маршруту
+    set_flight_sets(point_id);
     QrySet.SetVariable( "point_id", point_id );
     if ( fl.max_load != NoExists )
       QrySet.SetVariable( "max_commerce", fl.max_load );
@@ -1619,7 +1619,9 @@ try {
       err++;
       Qry.Execute();
       err++;
-      reqInfo->MsgToLog( string( "Ввод нового пункта " ) + it->airp, evtDisp, move_id, POINT_IDQry.FieldAsInteger( "point_id" ) );
+      reqInfo->LocaleToLog("EVT.INPUT_NEW_POINT", LEvntPrms() << PrmSmpl<std::string>("flt", "")
+                           << PrmElem<std::string>("airp", etAirp, it->airp),
+                           evtDisp, move_id, POINT_IDQry.FieldAsInteger("point_id"));
     }
 	}
 	else { // update
@@ -1645,14 +1647,16 @@ try {
     Qry.CreateVariable( "craft", otString, fl.craft );
  	  if ( fl.craft != dest.craft ) {
 	  	if ( dest.craft.empty() ) {
- 	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + fl.craft + " порт " + airp , evtDisp, move_id, point_id );
+            reqInfo->LocaleToLog("EVT.ASSIGNE_CRAFT_TYPE", LEvntPrms() << PrmElem<std::string>("craft", etCraft, fl.craft)
+                                 << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
  	  		change_comp = true;
  	  	}
  	  }
  	  Qry.CreateVariable( "bort", otString, fl.bort );
  	  if ( fl.bort != dest.bort ) {
  	  	if ( dest.bort.empty() ) {
- 	  		reqInfo->MsgToLog( string( "Назначение борта " ) + fl.bort + " порт " + airp, evtDisp, move_id, point_id );
+            reqInfo->LocaleToLog("EVT.ASSIGNE_BOARD_TYPE", LEvntPrms() << PrmSmpl<std::string>("bort", fl.bort)
+                                 << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
  	  		change_comp = true;
  	  	}
  	  }
@@ -1704,14 +1708,16 @@ try {
     pr_check_USA_apis = true; //т.к. я не знаю маршрута
     if ( fl.est != NoExists ) {
       ProgTrace( TRACE5, "events: %s, %d, %d",
-                 string(string("Проставление расч. время вылета а/п ") + airp + " " + DateTimeToStr( fl.est, "dd hh:nn" )).c_str(), move_id, point_id );
-      reqInfo->MsgToLog( string("Проставление расч. время вылета а/п ") + airp + " " + DateTimeToStr( fl.est, "dd hh:nn" ), evtDisp, move_id, point_id );
+                 string(string("Проставление расч. времени вылета а/п ") + airp + " " + DateTimeToStr( fl.est, "dd hh:nn" )).c_str(), move_id, point_id );
+      reqInfo->LocaleToLog("EVT.FLIGHT.SET_TAKEOFF_EST", LEvntPrms() <<  PrmElem<std::string>("airp", etAirp, airp)
+                            << PrmDate("time", fl.est, "dd hh:nn"), evtDisp, move_id, point_id);
     }
     else
       if ( old_est != NoExists ) {
       ProgTrace( TRACE5, "events: %s, %d, %d",
                  string(string("Удаление расч. времени вылета а/п ") + airp).c_str(), move_id, point_id );
-        reqInfo->MsgToLog( string("Удаление расч. времени вылета а/п ") + airp, evtDisp, move_id, point_id );
+        reqInfo->LocaleToLog("EVT.FLIGHT.DELETE_TAKEOFF_EST", LEvntPrms() <<  PrmElem<std::string>("airp", etAirp, airp),
+                              evtDisp, move_id, point_id);
       }
   }
   tst();
@@ -1719,10 +1725,12 @@ try {
   if ( old_act != fl.act ) {
     pr_check_USA_apis = true; //т.к. я не знаю маршрута
     if ( fl.act != NoExists )
-      reqInfo->MsgToLog( string("Проставление факт. времени вылета а/п ")  + airp + " " + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)"), evtDisp, move_id, point_id );
+      reqInfo->LocaleToLog("EVT.FLIGHT.SET_TAKEOFF_FACT", LEvntPrms() <<  PrmElem<std::string>("airp", etAirp, airp)
+                            << PrmDate("time", fl.act, "hh:nn dd.mm.yy"), evtDisp, move_id, point_id);
     else
       if ( old_act != NoExists )
-        reqInfo->MsgToLog( string("Отмена факта вылета а/п ") + airp, evtDisp, move_id, point_id );
+        reqInfo->LocaleToLog("EVT.FLIGHT.DELETE_TAKEOFF_FACT", LEvntPrms() <<  PrmElem<std::string>("airp", etAirp, airp),
+                           evtDisp, move_id, point_id);
   }
   tst();
 	//определяем время задержки на прилет
@@ -1760,8 +1768,9 @@ try {
 	Qry.Execute();
 	if ( Qry.RowsProcessed() > 0 ) {
      if ( fl.checkin_beg != NoExists && trip_stages.time( sOpenCheckIn ) != fl.checkin_beg )
-       reqInfo->MsgToLog( string( "Этап '" ) + TStagesRules::Instance()->stage_name( sOpenCheckIn, airp, false ) + "': " +
-                          " расч. время=" + DateTimeToStr( fl.checkin_beg, "hh:nn dd.mm.yy" ) + " (UTC)", evtGraph, point_id, sOpenCheckIn );
+         reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", sOpenCheckIn, airp)
+                              << PrmDate("est_time", fl.checkin_beg, "hh:nn dd.mm.yy (UTC)"),
+                              evtGraph, point_id, sOpenCheckIn );
 	}
 	err++;
 	Qry.SetVariable( "stage_id", sCloseCheckIn );
@@ -1773,8 +1782,9 @@ try {
 	Qry.Execute();
 	if ( Qry.RowsProcessed() > 0 ) {
      if ( fl.checkin_end != NoExists && trip_stages.time( sCloseCheckIn ) != fl.checkin_end )
-       reqInfo->MsgToLog( string( "Этап '" ) + TStagesRules::Instance()->stage_name( sCloseCheckIn, airp, false ) + "': " +
-                          " расч. время=" + DateTimeToStr( fl.checkin_end, "hh:nn dd.mm.yy" ) + " (UTC)", evtGraph, point_id, sCloseCheckIn );
+       reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", sCloseCheckIn, airp)
+                            << PrmDate("est_time", fl.checkin_end, "hh:nn dd.mm.yy (UTC)"),
+                            evtGraph, point_id, sCloseCheckIn );
 	}
 	err++;
 	Qry.SetVariable( "stage_id", sOpenBoarding );
@@ -1786,8 +1796,9 @@ try {
 	Qry.Execute();
 	if ( Qry.RowsProcessed() > 0 ) {
      if ( fl.boarding_beg != NoExists && trip_stages.time( sOpenBoarding ) != fl.boarding_beg )
-       reqInfo->MsgToLog( string( "Этап '" ) + TStagesRules::Instance()->stage_name( sOpenBoarding, airp, false ) + "': " +
-                          " расч. время=" + DateTimeToStr( fl.boarding_beg, "hh:nn dd.mm.yy" ) + " (UTC)", evtGraph, point_id, sOpenBoarding );
+       reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", sOpenBoarding, airp)
+                            << PrmDate("est_time", fl.boarding_beg, "hh:nn dd.mm.yy (UTC)"),
+                            evtGraph, point_id, sOpenBoarding );
 	}
 	err++;
 	// расчитаем время окончания посадки
@@ -1804,10 +1815,11 @@ try {
   	err++;
   	Qry.Execute();
   	if ( Qry.RowsProcessed() > 0 ) {
-       if ( fl.boarding_end != NoExists && trip_stages.time( sCloseBoarding ) != fl.boarding_end )
-         reqInfo->MsgToLog( string( "Этап '" ) + TStagesRules::Instance()->stage_name( sCloseBoarding, airp, false ) + "': " +
-                            " расч. время=" + DateTimeToStr( fl.boarding_end, "hh:nn dd.mm.yy" ) + " (UTC)", evtGraph, point_id, sCloseBoarding );
-	  }
+      if ( fl.boarding_end != NoExists && trip_stages.time( sCloseBoarding ) != fl.boarding_end )
+        reqInfo->LocaleToLog("EVT.STAGE.COMPLETED_EST_TIME", LEvntPrms() << PrmStage("stage", sCloseBoarding, airp)
+                             << PrmDate("est_time", fl.boarding_end, "hh:nn dd.mm.yy (UTC)"),
+                             evtGraph, point_id, sCloseBoarding );
+    }
   }
 	err++;
 	// обновление стоек регистрации и выходов на поcадку
@@ -1860,15 +1872,19 @@ try {
 	}
 	if ( pr_change_reg ) {
 		if ( !reg_del.empty() )
-	    reqInfo->MsgToLog( string( "Удаление стоек регистрации" ) + reg_del, evtDisp, move_id, point_id );
+            reqInfo->LocaleToLog("EVT.DELETE_DESK", LEvntPrms() << PrmSmpl<std::string>("desk", reg_del),
+                                  evtDisp, move_id, point_id);
 		if ( !reg.empty() )
-	    reqInfo->MsgToLog( string( "Назначение стоек регистрации" ) + reg, evtDisp, move_id, point_id );
+            reqInfo->LocaleToLog("EVT.ASSIGNE_DESK", LEvntPrms() << PrmSmpl<std::string>("desk", reg),
+                                  evtDisp, move_id, point_id);
 	}
 	if ( pr_change_brd ) {
 		if ( !brd_del.empty() )
-		  reqInfo->MsgToLog( string( "Удаление выходов на посадку" ) + brd_del, evtDisp, move_id, point_id );
+            reqInfo->LocaleToLog("EVT.DELETE_GATE_ON_FLIGHT", LEvntPrms() << PrmSmpl<std::string>("gate", brd_del),
+                                  evtDisp, move_id, point_id);
 		if ( !brd.empty() )
-		  reqInfo->MsgToLog( string( "Назначение выходов на посадку" ) + brd, evtDisp, move_id, point_id );
+            reqInfo->LocaleToLog("EVT.ASSIGNE_GATE_ON_FLIGHT", LEvntPrms() << PrmSmpl<std::string>("gate", brd),
+                                  evtDisp, move_id, point_id);
 	}
 	if ( pr_change_reg ||
        pr_change_brd ) {

@@ -8,11 +8,12 @@
 #include "misc.h"
 #include "docs.h"
 #include "base_tables.h"
-#include "timer.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "term_version.h"
 #include "passenger.h"
+#include "points.h"
+#include "qrys.h"
 #include "tlg/tlg.h"
 
 #define NICKNAME "DENIS"
@@ -593,7 +594,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "       id1 AS point_id,  "
             "       events.screen,  "
             "       ev_user, station, ev_order  "
-            "FROM events  "
+            "FROM events  " //!!!anna
             "WHERE "
             "   events.type = :evtFltTask AND  "
             "   events.id1=:point_id  ";
@@ -614,7 +615,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "       id1 AS point_id,  "
             "       arx_events.screen,  "
             "       ev_user, station, ev_order  "
-            "FROM arx_events  "
+            "FROM arx_events  " //!!!anna
             "WHERE "
             "   arx_events.part_key = :part_key and "
             "   arx_events.type = :evtFltTask AND  "
@@ -749,7 +750,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no,  "
             "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM events  "
+            "FROM events  " //!!!anna
             "WHERE "
             "   events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
             "   events.id1=:point_id  ";
@@ -760,7 +761,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       NULL AS reg_no,  "
             "       NULL AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM events  "
+            "FROM events  " //!!!anna
             "WHERE "
             "events.type IN (:evtDisp) AND "
             "events.id1=:move_id  ";
@@ -784,7 +785,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no,  "
             "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM arx_events  "
+            "FROM arx_events  " //!!!anna
             "WHERE "
             "   arx_events.part_key = :part_key and "
             "   arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
@@ -796,7 +797,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       NULL AS reg_no,  "
             "       NULL AS grp_id,  "
             "       ev_user, station, ev_order  "
-            "FROM arx_events  "
+            "FROM arx_events  " //!!!anna
             "WHERE "
             "      arx_events.part_key = :part_key and "
             "      arx_events.type IN (:evtDisp) AND "
@@ -936,7 +937,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
-            "FROM events "
+            "FROM events " //!!!anna
             "WHERE type IN (:evtPax,:evtPay) AND "
             "      screen <> 'ASTRASERV.EXE' and "
             "      id1=:point_id AND "
@@ -1127,7 +1128,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
                 "  ev_user, station, ev_order, null part_key "
                 "FROM "
-                "   events "
+                "   events " //!!!anna
                 "WHERE "
                 "  events.time >= :FirstDate and "
                 "  events.time < :LastDate and "
@@ -1159,7 +1160,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
                 "  ev_user, station, ev_order, part_key "
                 "FROM "
-                "   arx_events "
+                "   arx_events " //!!!anna
                 "WHERE "
                 "  arx_events.part_key >= :FirstDate - 10 and " // time и part_key не совпадают для
                 "  arx_events.part_key < :LastDate + 10 and "   // разных типов событий
@@ -6061,7 +6062,31 @@ void STAT::agent_stat_delta(
     Qry.Execute();
 }
 
-void StatInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void get_flight_stat(int point_id, bool final_collection)
 {
+   TFlights flightsForLock;
+   flightsForLock.Get( point_id, ftTranzit );
+   flightsForLock.Lock();
 
-}
+   {
+     QParams QryParams;
+     QryParams << QParam("point_id", otInteger, point_id);
+     QryParams << QParam("final_collection", otInteger, (int)final_collection);
+     TCachedQuery Qry("UPDATE trip_sets SET pr_stat=:final_collection WHERE point_id=:point_id AND pr_stat=0", QryParams);
+     Qry.get().Execute();
+     if (Qry.get().RowsProcessed()<=0) return; //статистику не собираем
+   };
+   {
+     QParams QryParams;
+     QryParams << QParam("point_id", otInteger, point_id);
+     TCachedQuery Qry("BEGIN "
+                      "  statist.get_stat(:point_id); "
+                      "  statist.get_trfer_stat(:point_id); "
+                      "  statist.get_kiosk_stat(:point_id); "
+                      "END;",
+                      QryParams);
+     Qry.get().Execute();
+   };
+
+   TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
+};

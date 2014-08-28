@@ -108,70 +108,6 @@ struct LexemaData {
 
 void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &text, std::string &master_lexema_id );
 
-class UserException:public EXCEPTIONS::Exception
-{
-	private:
-		std::string lexema_id;
-		LParams lparams;
-        int FCode;
-  protected:
-    void setLexemaData( const LexemaData &data) {
-    	lexema_id = data.lexema_id;
-    	lparams = data.lparams;
-    }
-	public:
-    int Code() { return FCode; };
-    UserException( int code, const std::string &vlexema, const LParams &aparams):EXCEPTIONS::Exception(vlexema)
-    {
-    	lparams = aparams;
-    	lexema_id = vlexema;
-        FCode = code;
-    }
-    UserException( const std::string &vlexema, const LParams &aparams):EXCEPTIONS::Exception(vlexema)
-    {
-    	lparams = aparams;
-    	lexema_id = vlexema;
-        FCode = 0;
-    }
-    UserException( int code, const std::string &vlexema):EXCEPTIONS::Exception(vlexema)
-    {
-    	lexema_id = vlexema;
-        FCode = code;
-    }
-    UserException( const std::string &vlexema):EXCEPTIONS::Exception(vlexema)
-    {
-    	lexema_id = vlexema;
-        FCode = 0;
-    }
-    LexemaData getLexemaData( ) const {
-    	LexemaData data;
-    	data.lexema_id = lexema_id;
-    	data.lparams = lparams;
-    	return data;
-    }
-    virtual const char* what() const throw()
-    {
-      LexemaData lexemeData=getLexemaData();
-      if (lexemeData.lexema_id.empty()) return EXCEPTIONS::Exception::what();
-      std::string text, master_lexema_id;
-      try
-      {
-        buildMsg( LANG_EN, lexemeData, text, master_lexema_id );
-        return text.c_str();
-      }
-      catch (...) {};
-      try
-      {
-        buildMsg( LANG_RU, lexemeData, text, master_lexema_id );
-        return text.c_str();
-      }
-      catch (...) {};
-      return lexemeData.lexema_id.c_str();
-    };
-    virtual ~UserException() throw(){};
-};
-
-
 const std::string VARIABLE_FIRST_ELEM = "[";
 const std::string VARIABLE_END_ELEM = "]";
 const std::string FORMAT_FIRST_ELEM = "%";
@@ -289,5 +225,3 @@ class TLocaleMessages
 
 } //end namespace AstraLocale
 #endif /*_ASTRA_LOCALE_H_*/
-
-

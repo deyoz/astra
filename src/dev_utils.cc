@@ -48,7 +48,7 @@ void checkBCBP_M(const string bcbp,
   airline_use_end_idx=string::npos;
   if (bcbp.empty()) throw Exception("checkBCBP_M: empty bcbp");
   string::size_type bcbp_size=bcbp.size();
-  if (bcbp_begin_idx<0 || bcbp_begin_idx>=bcbp_size) throw Exception("checkBCBP_M: wrong bcbp_begin_idx");
+  if (/*bcbp_begin_idx<0 ||*/ bcbp_begin_idx>=bcbp_size) throw Exception("checkBCBP_M: wrong bcbp_begin_idx");
 
   string::size_type p=bcbp_begin_idx;
   int item6, len_u, len_r;

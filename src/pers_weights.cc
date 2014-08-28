@@ -244,8 +244,8 @@ void PersWeightRules::write( int point_id )
   Qry.DeclareVariable( "child", otInteger );
   Qry.DeclareVariable( "infant", otInteger );
   ProgTrace( TRACE5, "weights.size()=%zu", weights.size() );
-  string msg = "Назначение весов пассажиров на рейс: ";
-  bool pr_sep = false;
+  std::string lexema_id = "EVT.PERS_WEIGHTS";
+  PrmEnum prmenum("weights", ", ");
   for ( std::vector<ClassesPersWeight>::iterator i=weights.begin(); i!=weights.end(); i++ ) {
     Qry.SetVariable( "class", i->cl );
     Qry.SetVariable( "subclass", i->subcl );
@@ -258,34 +258,27 @@ void PersWeightRules::write( int point_id )
     Qry.SetVariable( "infant", i->infant );
     Qry.Execute();
     if ( !i->cl.empty() ) {
-      if ( pr_sep )
-        msg += ",";
-      msg += string("кл.=") + i->cl;
-      pr_sep =true;
+      PrmLexema lexema("", "EVT.PERS_WEIGHTS_CLASS");
+      lexema.prms << PrmElem<std::string>("cl", etClass, i->cl);
+      prmenum.prms << lexema;
     }
     if ( !i->subcl.empty() ) {
-      if ( pr_sep )
-        msg += ",";
-      msg += string("подкл.=") + i->subcl;
-      pr_sep = true;
+      PrmLexema lexema("", "EVT.PERS_WEIGHTS_SUBCLASS");
+      lexema.prms << PrmElem<std::string>("subcl", etSubcls, i->subcl);
+      prmenum.prms << lexema;
     }
-    if ( pr_sep )
-      msg += ",";
+    PrmLexema lexema("", "EVT.PERS_WEIGHTS_ADULT");
     if ( i->female == ASTRA::NoExists )
-      msg += string("ВЗ=") + IntToString( i->male );
-    else
-      msg += string("М=") + IntToString( i->male ) + ",Ж=" + IntToString( i->female );
-    msg += ",";
-    msg += string("РБ=") + IntToString( i->child );
-    msg += ",";
-    msg += string("РМ=") + IntToString( i->infant );
-    pr_sep = true;
+      lexema.prms << PrmSmpl<int>("adult", i->male);
+    else {
+      lexema.ChangeLexemaId("EVT.PERS_WEIGHTS_MALE_FEMALE");
+      lexema.prms << PrmSmpl<int>("male", i->male) << PrmSmpl<int>("female", i->female);
+    }
+    lexema.prms << PrmSmpl<int>("child", i->child);
+    lexema.prms << PrmSmpl<int>("infant", i->infant);
+    prmenum.prms << lexema;
   }
-  vector<string> strs;
-  SeparateString( msg, 250, strs );
-  for ( vector<string>::iterator i=strs.begin(); i!=strs.end(); i++ ) {
-    TReqInfo::Instance()->MsgToLog( *i, evtFlt, point_id );
-  }
+    TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << prmenum, evtFlt, point_id);
 }
 
 bool PersWeightRules::weight( std::string cl, std::string subcl, ClassesPersWeight &weight )

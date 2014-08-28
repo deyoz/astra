@@ -1017,7 +1017,7 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT typeb_types.short_name, "
+    "SELECT typeb_types.code, "
     "       point_id, "
     "       NVL(LENGTH(addr),0)+ "
     "       NVL(LENGTH(origin),0)+ "
@@ -1032,7 +1032,7 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   if (tlg_body.size()+Qry.FieldAsInteger("len") > PART_SIZE)
     throw AstraLocale::UserException("MSG.TLG.MAX_LENGTH", LParams() << LParam("count", (int)PART_SIZE));
 
-  string tlg_short_name=Qry.FieldAsString("short_name");
+  string tlg_code=Qry.FieldAsString("code");
   int point_id=Qry.FieldAsInteger("point_id");
 
   Qry.Clear();
@@ -1050,9 +1050,8 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
   check_tlg_out_alarm(point_id);
 
-  ostringstream msg;
-  msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") изменена";
-  TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+  TReqInfo::Instance()->LocaleToLog("EVT.TLG.MODIFIED", LEvntPrms() << PrmElem<std::string>("tlg_name", etTypeBType, tlg_code, efmtNameShort)
+                                    << PrmSmpl<int>("tlg_id", tlg_id), evtTlg, point_id, tlg_id);
   AstraLocale::showMessage("MSG.TLG.SAVED");
 };
 
@@ -1091,12 +1090,10 @@ void TelegramInterface::SendTlg(int tlg_id)
                          "");
 
     string tlg_basic_type;
-    string tlg_short_name;
     try
     {
       const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg.tlg_type));
       tlg_basic_type=row.basic_type;
-      tlg_short_name=row.short_name;
     }
     catch(EBaseTableError)
     {
@@ -1251,9 +1248,9 @@ void TelegramInterface::SendTlg(int tlg_id)
       "UPDATE tlg_out SET time_send_act=system.UTCSYSDATE WHERE id=:id";
     TlgQry.CreateVariable( "id", otInteger, tlg_id);
     TlgQry.Execute();
-    ostringstream msg;
-    msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") отправлена";
-    TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,tlg.point_id,tlg_id);
+    TReqInfo::Instance()->LocaleToLog("EVT.TLG.SENT", LEvntPrms()
+                                      << PrmElem<std::string>("tlg_name", etTypeBType, tlg.tlg_type, efmtNameShort)
+                                      << PrmSmpl<int>("tlg_id", tlg_id), evtTlg, tlg.point_id, tlg_id);
   }
   catch(EOracleError &E)
   {
@@ -1280,12 +1277,12 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
-        "SELECT typeb_types.basic_type, typeb_types.short_name,point_id FROM tlg_out,typeb_types "
+        "SELECT typeb_types.basic_type, typeb_types.code,point_id FROM tlg_out,typeb_types "
         "WHERE tlg_out.type=typeb_types.code AND id=:id AND num=1 FOR UPDATE";
     Qry.CreateVariable( "id", otInteger, tlg_id);
     Qry.Execute();
     if (Qry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
-    string tlg_short_name=Qry.FieldAsString("short_name");
+    string tlg_code=Qry.FieldAsString("code");
     string tlg_basic_type=Qry.FieldAsString("basic_type");
     int point_id=Qry.FieldAsInteger("point_id");
 
@@ -1302,9 +1299,9 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "   delete from typeb_out_errors where tlg_id = :id; "
             "end;";
         Qry.Execute();
-        ostringstream msg;
-        msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") удалена";
-        TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+        TReqInfo::Instance()->LocaleToLog("EVT.TLG.DELETED", LEvntPrms()
+                                          << PrmElem<std::string>("tlg_name", etTypeBType, tlg_code, efmtNameShort)
+                                          << PrmSmpl<int>("tlg_id", tlg_id), evtTlg, point_id, tlg_id);
         AstraLocale::showMessage("MSG.TLG.DELETED");
     };
     check_tlg_out_alarm(point_id);
@@ -1319,7 +1316,8 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
     {
         int tlg_id=NoExists;
         TTypeBTypesRow tlgTypeInfo;
-        localizedstream msg(LANG_RU);;
+        string lexema_id;
+        LEvntPrms params;
         try
         {
             time_t time_start=time(NULL);
@@ -1332,17 +1330,22 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
                         i->get_tlg_type().c_str(),
                         i->point_id);
 
-            msg << "Телеграмма " << tlgTypeInfo.short_name
-                << " (ид=" << tlg_id << ") сформирована: ";
+            lexema_id = "EVT.TLG.CREATED";
+            params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
+                   << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", i->get_options().is_lat);
         }
         catch(AstraLocale::UserException &E)
         {
-            msg << "Ошибка формирования телеграммы "
-                << (tlgTypeInfo.short_name.empty()?i->get_tlg_type():tlgTypeInfo.short_name)
-                << ": " << getLocaleText(E.getLexemaData(), AstraLocale::LANG_RU) << ", ";
+            lexema_id = "EVT.TLG.CREATE_ERROR";
+            string err_id;
+            LEvntPrms err_prms;
+            E.getAdvParams(err_id, err_prms);
+
+            params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
+                   << PrmBool("lat", i->get_options().is_lat) << PrmLexema("what", err_id, err_prms);
         }
 
-        TReqInfo::Instance()->MsgToLog(i->get_options().logStr(msg).str(),evtTlg,i->point_id,tlg_id);
+        TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, tlg_id);
 
         if (tlg_id!=NoExists)
         {
@@ -1353,12 +1356,14 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
             }
             catch(AstraLocale::UserException &E)
             {
-                msg.str("");
-                msg << "Ошибка отправки телеграммы "
-                    << (tlgTypeInfo.short_name.empty()?i->get_tlg_type():tlgTypeInfo.short_name)
-                    << " (ид=" << tlg_id << ")"
-                    << ": " << getLocaleText(E.getLexemaData(), AstraLocale::LANG_RU);
-                TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,i->point_id,tlg_id);
+                string err_id;
+                LEvntPrms err_prms;
+                E.getAdvParams(err_id, err_prms);
+
+                params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
+                       << PrmSmpl<int>("id", tlg_id) << PrmLexema("what", err_id, err_prms);
+
+                TReqInfo::Instance()->LocaleToLog("EVT.TLG.SEND_ERROR", params, evtTlg, i->point_id, tlg_id);
             };
             time_t time_end=time(NULL);
             if (time_end-time_start>1)
