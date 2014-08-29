@@ -883,8 +883,8 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
         surname_2d = Qry.FieldAsString("surname");
         name_2d = Qry.FieldAsString("name");
         if(doc.surname.empty() or doc.first_name.empty()) {
-            surname = Qry.FieldAsString("surname");
-            name = Qry.FieldAsString("name");
+            surname = surname_2d;
+            name = name_2d;
         } else {
             surname = doc.surname;
             name = doc.first_name;
@@ -1041,8 +1041,8 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
         << "M"
         << 1;
     // Passenger Name
-    string surname = paxInfo.surname_2d;
-    string name = paxInfo.name_2d;
+    string surname = transliter(paxInfo.surname_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    string name = transliter(paxInfo.name_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     string pax_name = surname;
     if(!name.empty())
         pax_name += "/" + name;
