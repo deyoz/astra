@@ -135,7 +135,8 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
     virtual int tcl_init(Tcl_Interp *interp)
     {
       ApplicationCallbacks::tcl_init(interp);
-      new AstraJxtCallbacks();
+      AstraJxtCallbacks* astra_cb_ptr = new AstraJxtCallbacks();
+      astra_cb_ptr->SetPostProcessXMLAnswerCallback(CheckTermResDoc);
       return 0;
     }
 
