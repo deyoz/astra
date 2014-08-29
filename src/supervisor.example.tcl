@@ -122,6 +122,8 @@ proc astra_init {} {
         create_dispatcher 1 [ list logger logairimp $::SOCKDIR/logger-signal-airimp] 0
 
         create_dispatcher 1 [ list logger logdaemon $::SOCKDIR/logger-signal-daemon ] 0
+
+        create_dispatcher 1 [ list logger logtlg $::SOCKDIR/logtlg-signal ] 0
     }
 
     #   group 2 - internet queries
