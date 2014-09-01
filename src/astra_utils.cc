@@ -1249,6 +1249,14 @@ const int ARX_TRIP_DATE_RANGE()
   return VAR;
 };
 
+const int ARX_EVENTS_DISABLED()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("ARX_EVENTS_DISABLED",0,1,0);
+  return VAR;
+};
+
 void showBasicInfo(void)
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();

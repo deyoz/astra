@@ -68,7 +68,10 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     };
     
     xmlNodePtr logNode = NewTextChild(resNode, "events_log");
-    
+
+    if(part_key != NoExists && ARX_EVENTS_DISABLED())
+        throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
+
     if (move_id != NoExists || !eventTypes.empty())
     {
       Qry.Clear();

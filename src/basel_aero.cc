@@ -383,6 +383,8 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
     "       MAX(DECODE(INSTR(msg,'прошел посадку'),0,TO_DATE(NULL),time)) AS brd_time ";
   if (part_key!=NoExists)
   {
+    if(ARX_EVENTS_DISABLED())
+      throw AstraLocale::UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
     sql <<
       "FROM arx_events "
       "WHERE type=:evtPax AND part_key=:part_key AND (lang=:lang OR lang=:lang_undef) AND id1=:point_id AND ";

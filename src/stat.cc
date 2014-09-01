@@ -601,6 +601,8 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "   events_bilingual.type = :evtFltTask AND  "
             "   events_bilingual.id1=:point_id  ";
     } else {
+        if(ARX_EVENTS_DISABLED())
+            throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
         {
             TQuery Qry(&OraSession);
             Qry.SQLText =
@@ -776,6 +778,8 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "   events_bilingual.type IN (:evtDisp) AND  "
             "   events_bilingual.id1=:move_id  ";
     } else {
+        if(ARX_EVENTS_DISABLED())
+            throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
         {
             TQuery Qry(&OraSession);
             Qry.SQLText =
@@ -963,6 +967,8 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "      (id2 IS NULL OR id2=:reg_no) AND "
             "      (id3 IS NULL OR id3=:grp_id) ";
     } else {
+        if(ARX_EVENTS_DISABLED())
+            throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
         AirlineQry.SQLText = "select airline from arx_points where point_id = :point_id and part_key = :part_key and pr_del >= 0";
         AirlineQry.CreateVariable("part_key", otDate, part_key);
         Qry.SQLText =
@@ -1176,6 +1182,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "    :evtPeriod "
                 "          ) ";
         } else {
+            if(ARX_EVENTS_DISABLED())
+                throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
             Qry.SQLText =
                 "SELECT msg, time, "
                 "       DECODE(type, :evtFlt, id1, :evtFltTask, id1, :evtPax, id1, :evtPay, id1, :evtGraph, id1, :evtTlg, id1, "
