@@ -223,12 +223,14 @@ void http_main(reply& rep, const request& req)
 
 void HTTPPostProcessXMLAnswer()
 {
+  ProgTrace(TRACE5, "%s started", __FUNCTION__);
+
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer",xmlRC->resDoc);
   const char* operation = (const char*)xmlRC->reqDoc->children->children->children->name;
 
   std::string error_code, error_message;
-  xmlNodePtr errNode = ResDocSelectPrior(resNode, error_code, error_message);
+  xmlNodePtr errNode = AstraLocale::selectPriorityMessage(resNode, error_code, error_message);
 
   resNode = NewTextChild( resNode, operation );
 

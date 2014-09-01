@@ -348,7 +348,9 @@ void LexemeDataToXML(const AstraLocale::LexemaData &lexemeData, xmlNodePtr lexem
 void LexemeDataFromXML(xmlNodePtr lexemeNode, AstraLocale::LexemaData &lexemeData);
 
 void getLexemaText( LexemaData lexemaData, std::string &text, std::string &master_lexema_id, std::string lang = "" );
-} // end namespace astraLocale
+
+xmlNodePtr selectPriorityMessage(xmlNodePtr resNode, std::string& error_code, std::string& error_message);
+} // end namespace AstraLocale
 
 
 

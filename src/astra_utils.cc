@@ -1070,6 +1070,81 @@ void LexemeDataFromXML(xmlNodePtr lexemeNode, LexemaData &lexemeData)
   };
 };
 
+xmlNodePtr selectPriorityMessage(xmlNodePtr resNode, std::string& error_code, std::string& error_message)
+{
+  // если есть тег <error> || <checkin_user_error> || <user_error>, то все остальное удаляем их из xml дерева
+  xmlNodePtr errNode=NULL;
+  int errPriority=ASTRA::NoExists;
+  for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
+  {
+    if (strcmp((const char*)node->name,"command")==0)
+    {
+      for(xmlNodePtr cmdNode=node->children; cmdNode!=NULL; cmdNode=cmdNode->next)
+      {
+        int priority=ASTRA::NoExists;
+        if (strcmp((const char*)cmdNode->name,"error")==0) priority=1;
+        if (strcmp((const char*)cmdNode->name,"checkin_user_error")==0) priority=2;
+        if (strcmp((const char*)cmdNode->name,"user_error")==0) priority=3;
+        if (priority!=ASTRA::NoExists &&
+          (errPriority==ASTRA::NoExists || priority<errPriority))
+        {
+          errNode=cmdNode;
+          errPriority = priority;
+        };
+      };
+    };
+  };
+
+  if (errNode!=NULL)
+  {
+    if (strcmp((const char*)errNode->name,"error")==0 ||
+        strcmp((const char*)errNode->name,"user_error")==0)
+    {
+      error_message = NodeAsString(errNode);
+      error_code = NodeAsString( "@lexema_id", errNode, "" );
+    };
+    if (strcmp((const char*)errNode->name,"checkin_user_error")==0)
+    {
+      xmlNodePtr segNode=NodeAsNode("segments",errNode)->children;
+      for(;segNode!=NULL; segNode=segNode->next)
+      {
+        if (GetNode("error_code",segNode)!=NULL)
+        {
+          error_message = NodeAsString("error_message", segNode, "");
+          error_code = NodeAsString("error_code", segNode);
+          break;
+        };
+        xmlNodePtr paxNode=NodeAsNode("passengers",segNode)->children;
+        for(;paxNode!=NULL; paxNode=paxNode->next)
+        {
+          if (GetNode("error_code",paxNode)!=NULL)
+          {
+            error_message = NodeAsString("error_message", paxNode, "");
+            error_code = NodeAsString("error_code", paxNode);
+            break;
+          };
+        };
+        if (paxNode!=NULL) break;
+      };
+    };
+    //отцепляем
+    xmlUnlinkNode(errNode);
+  };
+
+  for(xmlNodePtr node=resNode->children; node!=NULL;)
+  {
+      //отцепляем и удаляем либо все, либо <command> внутри <answer>
+    xmlNodePtr node2=node->next;
+    if (errNode!=NULL || strcmp((const char*)node->name,"command")==0)
+    {
+      xmlUnlinkNode(node);
+      xmlFreeNode(node);
+    };
+    node=node2;
+  };
+  return errNode;
+};
+
 } // end namespace AstraLocale
 
 int getTCLParam(const char* name, int min, int max, int def)

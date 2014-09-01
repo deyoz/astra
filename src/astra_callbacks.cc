@@ -251,11 +251,13 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
 
 void CheckTermResDoc()
 {
-    XMLRequestCtxt *xmlRC = getXmlCtxt();
-    xmlNodePtr resNode=NodeAsNode("/term/answer",xmlRC->resDoc);
-    SetProp(resNode, "execute_time", TReqInfo::Instance()->getExecuteMSec() );
+  ProgTrace(TRACE5, "%s started", __FUNCTION__);
 
-    xmlNodePtr errNode=NULL;
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode=NodeAsNode("/term/answer",xmlRC->resDoc);
+  SetProp(resNode, "execute_time", TReqInfo::Instance()->getExecuteMSec() );
+
+  xmlNodePtr errNode=NULL;
 	int errPriority=ASTRA::NoExists;
 	for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
 	{
@@ -301,130 +303,18 @@ void CheckTermResDoc()
   };
 };
 
-void RevertWebResDoc()
-{
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer",xmlRC->resDoc);
-  const char* answer_tag = (const char*)xmlRC->reqDoc->children->children->children->name;
-  SetProp(resNode, "execute_time", TReqInfo::Instance()->getExecuteMSec() );
-  std::string error_code, error_message;
-  xmlNodePtr errNode = ResDocSelectPrior(resNode, error_code, error_message);
-
-  if (errNode!=NULL)
-  {
-    resNode=NewTextChild( resNode, answer_tag );
-
-    if (strcmp((const char*)errNode->name,"error")==0 ||
-        strcmp((const char*)errNode->name,"checkin_user_error")==0 ||
-        strcmp((const char*)errNode->name,"user_error")==0)
-    {
-      NewTextChild( resNode, "error_code", error_code );
-      NewTextChild( resNode, "error_message", error_message );
-    };
-
-    if (strcmp((const char*)errNode->name,"checkin_user_error")==0)
-    {
-      xmlNodePtr segsNode=NodeAsNode("segments",errNode);
-      if (segsNode!=NULL)
-      {
-        xmlUnlinkNode(segsNode);
-        xmlAddChild( resNode, segsNode);
-      };
-    };
-    xmlFreeNode(errNode);
-  };
-}
-
-xmlNodePtr ResDocSelectPrior(xmlNodePtr resNode, std::string& error_code, std::string& error_message)
-{
-    // если есть тег <error> || <checkin_user_error> || <user_error>, то все остальное удаляем их из xml дерева
-    xmlNodePtr errNode=NULL;
-    int errPriority=ASTRA::NoExists;
-    for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
-    {
-      if (strcmp((const char*)node->name,"command")==0)
-      {
-        for(xmlNodePtr cmdNode=node->children; cmdNode!=NULL; cmdNode=cmdNode->next)
-        {
-          int priority=ASTRA::NoExists;
-          if (strcmp((const char*)cmdNode->name,"error")==0) priority=1;
-          if (strcmp((const char*)cmdNode->name,"checkin_user_error")==0) priority=2;
-          if (strcmp((const char*)cmdNode->name,"user_error")==0) priority=3;
-          if (priority!=ASTRA::NoExists &&
-            (errPriority==ASTRA::NoExists || priority<errPriority))
-        {
-          errNode=cmdNode;
-          errPriority = priority;
-        };
-      };
-      };
-  };
-
-  if (errNode!=NULL)
-  {
-    if (strcmp((const char*)errNode->name,"error")==0 ||
-        strcmp((const char*)errNode->name,"user_error")==0)
-    {
-      error_message = NodeAsString(errNode);
-      error_code = NodeAsString( "@lexema_id", errNode, "" );
-    };
-    if (strcmp((const char*)errNode->name,"checkin_user_error")==0)
-    {
-      xmlNodePtr segNode=NodeAsNode("segments",errNode)->children;
-      for(;segNode!=NULL; segNode=segNode->next)
-      {
-        if (GetNode("error_code",segNode)!=NULL)
-        {
-          error_message = NodeAsString("error_message", segNode, "");
-          error_code = NodeAsString("error_code", segNode);
-          break;
-        };
-        xmlNodePtr paxNode=NodeAsNode("passengers",segNode)->children;
-        for(;paxNode!=NULL; paxNode=paxNode->next)
-        {
-          if (GetNode("error_code",paxNode)!=NULL)
-          {
-            error_message = NodeAsString("error_message", paxNode, "");
-            error_code = NodeAsString("error_code", paxNode);
-            break;
-          };
-        };
-        if (paxNode!=NULL) break;
-      };
-    };
-    //отцепляем
-    xmlUnlinkNode(errNode);
-  };
-
-  for(xmlNodePtr node=resNode->children; node!=NULL;)
-  {
-      //отцепляем и удаляем либо все, либо <command> внутри <answer>
-    xmlNodePtr node2=node->next;
-    if (errNode!=NULL || strcmp((const char*)node->name,"command")==0)
-    {
-      xmlUnlinkNode(node);
-      xmlFreeNode(node);
-    };
-    node=node2;
-  };
-  return errNode;
-}
-
 void AstraJxtCallbacks::UserAfter()
 {
     base_tables.Invalidate();
     PerfomTest( 2007 );
     if (fp_post_process != NULL)
       (*fp_post_process)();
-    XMLRequestCtxt *xmlRC = getXmlCtxt();
+
     //жестко требуем encoding=UTF-8
     //ранее, при добавлении в дерево хотя бы одной property не в UTF-8, encoding сбивается
     //это в свою очередь приводит к ошибке xmlDocDumpFormatMemory
     //вообще libxml с версии 2.7 хранит и требует работать с деревом в UTF-8, а не в 866
-    SetXMLDocEncoding(xmlRC->resDoc, "UTF-8");
-
-    if ( TReqInfo::Instance()->client_type == ctTerm )
-      CheckTermResDoc(); //!!!anna
+    SetXMLDocEncoding(getXmlCtxt()->resDoc, "UTF-8");
 }
 
 

@@ -52,9 +52,7 @@ bool BuildMsgForTermRequestDup(const std::string &pult,
 bool BuildMsgForWebRequestDup(short int client_id,
                               const std::string &body,
                               std::string &msg);
-void RevertWebResDoc();
 void CheckTermResDoc();
-xmlNodePtr ResDocSelectPrior(xmlNodePtr resNode, std::string& error_code, std::string& error_message);
 
 #endif /*_ASTRACALLBACKS_H_*/
 

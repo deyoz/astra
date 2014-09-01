@@ -81,6 +81,8 @@ int readInetClientId(const char *head)
   return ntohs(grp);
 }
 
+void RevertWebResDoc();
+
 int internet_main(const char *body, int blen, const char *head,
                   int hlen, char **res, int len)
 {
@@ -2741,6 +2743,41 @@ void WebRequestsIface::ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   SysReqInterface::ErrorToLog(ctxt, reqNode, resNode);
   NewTextChild(resNode, "ClientError");
 };
+
+void RevertWebResDoc()
+{
+  ProgTrace(TRACE5, "%s started", __FUNCTION__);
+
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer",xmlRC->resDoc);
+  const char* answer_tag = (const char*)xmlRC->reqDoc->children->children->children->name;
+  std::string error_code, error_message;
+  xmlNodePtr errNode = selectPriorityMessage(resNode, error_code, error_message);
+
+  if (errNode!=NULL)
+  {
+    resNode=NewTextChild( resNode, answer_tag );
+
+    if (strcmp((const char*)errNode->name,"error")==0 ||
+        strcmp((const char*)errNode->name,"checkin_user_error")==0 ||
+        strcmp((const char*)errNode->name,"user_error")==0)
+    {
+      NewTextChild( resNode, "error_code", error_code );
+      NewTextChild( resNode, "error_message", error_message );
+    };
+
+    if (strcmp((const char*)errNode->name,"checkin_user_error")==0)
+    {
+      xmlNodePtr segsNode=NodeAsNode("segments",errNode);
+      if (segsNode!=NULL)
+      {
+        xmlUnlinkNode(segsNode);
+        xmlAddChild( resNode, segsNode);
+      };
+    };
+    xmlFreeNode(errNode);
+  };
+}
 
 ////////////////////////////////////MERIDIAN SYSTEM/////////////////////////////
 void WebRequestsIface::GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
