@@ -486,6 +486,8 @@ int get_sirena_rozysk_stat(int argc,char **argv)
       EventsQry.Clear();
       if (pass==1)
       {
+        if(ARX_EVENTS_DISABLED())
+          throw AstraLocale::UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
         EventsQry.SQLText=
           "SELECT MIN(time) AS time FROM arx_events "
           "WHERE part_key=:part_key AND lang=:lang AND type=:evtPax AND id1=:point_dep AND id2=:reg_no";

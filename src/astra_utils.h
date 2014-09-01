@@ -399,6 +399,7 @@ const char* OWN_POINT_ADDR();
 const char* SERVER_ID();
 const bool USE_SEANCES();
 const int ARX_TRIP_DATE_RANGE();
+const int ARX_EVENTS_DISABLED();
 bool get_test_server();
 
 std::string& EOracleError2UserException(std::string& msg);
