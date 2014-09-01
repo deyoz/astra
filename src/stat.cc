@@ -3058,21 +3058,21 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     NewTextChild(rowNode, "col", total.pax_amount);
 
     if(params.statType != statPactShort) {
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Web/°/Ø"));
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Web/ÅÉ/èí"));
         SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", taLeftJustify);
         SetProp(colNode, "sort", sortSlashedInt);
         NewTextChild(rowNode, "col", total.web_str());
 
-        colNode = NewTextChild(headerNode, "col", getLocaleText("ä®Æ·™®/°/Ø"));
+        colNode = NewTextChild(headerNode, "col", getLocaleText("ä®Æ·™®/ÅÉ/èí"));
         SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", taLeftJustify);
         SetProp(colNode, "sort", sortSlashedInt);
         NewTextChild(rowNode, "col", total.kiosk_str());
 
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Mobcek/°/Ø"));
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Mobcek/ÅÉ/èí"));
         SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", taLeftJustify);
         SetProp(colNode, "sort", sortSlashedInt);
         NewTextChild(rowNode, "col", total.mobile_str());
     }
@@ -3241,21 +3241,21 @@ void createXMLFullStat(const TStatParams &params,
 
     if (params.statType==statFull)
     {
-      colNode = NewTextChild(headerNode, "col", getLocaleText("Web/°/Ø"));
+      colNode = NewTextChild(headerNode, "col", getLocaleText("Web/ÅÉ/èí"));
       SetProp(colNode, "width", 85);
-      SetProp(colNode, "align", taRightJustify);
+      SetProp(colNode, "align", taLeftJustify);
       SetProp(colNode, "sort", sortSlashedInt);
       NewTextChild(rowNode, "col", total.web_str());
 
-      colNode = NewTextChild(headerNode, "col", getLocaleText("ä®Æ·™®/°/Ø"));
+      colNode = NewTextChild(headerNode, "col", getLocaleText("ä®Æ·™®/ÅÉ/èí"));
       SetProp(colNode, "width", 85);
-      SetProp(colNode, "align", taRightJustify);
+      SetProp(colNode, "align", taLeftJustify);
       SetProp(colNode, "sort", sortSlashedInt);
       NewTextChild(rowNode, "col", total.kiosk_str());
 
-      colNode = NewTextChild(headerNode, "col", getLocaleText("Mobcek/°/Ø"));
+      colNode = NewTextChild(headerNode, "col", getLocaleText("Mobcek/ÅÉ/èí"));
       SetProp(colNode, "width", 85);
-      SetProp(colNode, "align", taRightJustify);
+      SetProp(colNode, "align", taLeftJustify);
       SetProp(colNode, "sort", sortSlashedInt);
       NewTextChild(rowNode, "col", total.mobile_str());
     };
@@ -4103,9 +4103,9 @@ void createXMLKioskStat(const TStatParams &params,
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col");
     }
-    colNode = NewTextChild(headerNode, "col", getLocaleText("è†·./°/Ø"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("è†·./ÅÉ/èí"));
     SetProp(colNode, "width", 85);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortSlashedInt);
     NewTextChild(rowNode, "col", total.pax_amount_str());
     if(params.statType == statKioskFull) {
