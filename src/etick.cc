@@ -407,6 +407,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       string termReqName=(char*)(termReqNode->name);
 
       if (reqInfo->client_type==ctWeb ||
+          reqInfo->client_type==ctMobile ||
           reqInfo->client_type==ctKiosk) {
       	xmlNodePtr node = NodeAsNode("/term/query",reqNode->doc);
       	xmlUnlinkNode( reqNode );
@@ -496,9 +497,11 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         map<string, pair< vector<string>, vector< pair<string,string> > > >::iterator i;
         if ((reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) && !defer_etstatus) ||
         	  reqInfo->client_type == ctWeb ||
+            reqInfo->client_type == ctMobile ||
         	  reqInfo->client_type == ctKiosk)
         {
           if (reqInfo->client_type == ctWeb ||
+              reqInfo->client_type == ctMobile ||
         	    reqInfo->client_type == ctKiosk)
         	{
         	  if (!segs.empty())
@@ -567,6 +570,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         };
 
         if (reqInfo->client_type==ctWeb ||
+            reqInfo->client_type==ctMobile ||
             reqInfo->client_type==ctKiosk)
       	{
           if (termReqName=="SavePax")

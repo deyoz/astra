@@ -3040,9 +3040,10 @@ bool CheckRefusability(int point_dep, int pax_id)
       Qry.FieldAsInteger("pr_brd")!=0) return false;
   int grp_id=Qry.FieldAsInteger("grp_id");
   TClientType ckinClientType=DecodeClientType(Qry.FieldAsString("client_type"));
-  if (!(ckinClientType==ctWeb && reqInfo->client_type==ctWeb /*||
+  if (!((ckinClientType==ctWeb || ckinClientType==ctMobile) &&               //!!!ctMobile
+        (reqInfo->client_type==ctWeb || reqInfo->client_type==ctMobile)) /*||
         ckinClientType==ctWeb && reqInfo->client_type==ctKiosk ||
-        ckinClientType==ctKiosk && reqInfo->client_type==ctKiosk*/)) return false;
+        ckinClientType==ctKiosk && reqInfo->client_type==ctKiosk*/) return false;
 
   Qry.Clear();
   Qry.SQLText=

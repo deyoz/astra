@@ -384,7 +384,9 @@ string GetTermInfo( TQuery &Qry, int pax_id, int reg_no, bool pr_tcheckin, const
   Qry.SetVariable( "work_mode", work_mode );
   Qry.Execute();
   if ( !Qry.Eof ) {
- 	  if ( DecodeClientType( client_type.c_str() ) == ASTRA::ctWeb )
+ 	  if ( DecodeClientType( client_type.c_str() ) == ASTRA::ctWeb ||
+         DecodeClientType( client_type.c_str() ) == ASTRA::ctMobile ||
+         DecodeClientType( client_type.c_str() ) == ASTRA::ctKiosk )
    		term = "777";
     else    // αβ®©ͺ 
       if ( string(Qry.FieldAsString( "airp" )) == airp_dep ) {

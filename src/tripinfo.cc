@@ -1099,6 +1099,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     };*/
 
     if (reqInfo->screen.name == "AIR.EXE" ||
+        reqInfo->screen.name == "DOCS.EXE" ||
         reqInfo->screen.name == "PREPREG.EXE")
     {
       NewTextChild( node, "pr_tranz_reg", (int)(Qryh.FieldAsInteger("pr_tranz_reg")!=0) );
