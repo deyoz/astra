@@ -3078,7 +3078,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
         SetProp(colNode, "sort", sortSlashedInt);
         NewTextChild(rowNode, "col", total.kiosk_str());
 
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Mobcek/ÅÉ/èí"));
+        colNode = NewTextChild(headerNode, "col", getLocaleText("åÆ°./ÅÉ/èí"));
         SetProp(colNode, "width", 85);
         SetProp(colNode, "align", taLeftJustify);
         SetProp(colNode, "sort", sortSlashedInt);
@@ -3261,7 +3261,7 @@ void createXMLFullStat(const TStatParams &params,
       SetProp(colNode, "sort", sortSlashedInt);
       NewTextChild(rowNode, "col", total.kiosk_str());
 
-      colNode = NewTextChild(headerNode, "col", getLocaleText("Mobcek/ÅÉ/èí"));
+      colNode = NewTextChild(headerNode, "col", getLocaleText("åÆ°./ÅÉ/èí"));
       SetProp(colNode, "width", 85);
       SetProp(colNode, "align", taLeftJustify);
       SetProp(colNode, "sort", sortSlashedInt);
