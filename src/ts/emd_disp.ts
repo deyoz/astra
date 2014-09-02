@@ -9,7 +9,7 @@ $(init_eds ž’ UTET UTDC)
 
 {<?xml version='1.0' encoding='UTF-8'?>
  <term>
-   <query handle='0' id='EMDSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <SearchEMDByDocNo>
        <point_id>2276899</point_id>
        <EmdNoEdit>2982348111616</EmdNoEdit>
@@ -154,7 +154,7 @@ $(init_eds ž’ UTET UTDC)
 
 {<?xml version='1.0' encoding='UTF-8'?>
  <term>
-   <query handle='0' id='EMDSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <SearchEMDByDocNo>
        <point_id>2276899</point_id>
        <EmdNoEdit>2982348111616</EmdNoEdit>

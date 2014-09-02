@@ -34,12 +34,14 @@ public:
 class EMDSearchInterface : public JxtInterface
 {
 public:
-    EMDSearchInterface() : JxtInterface("EMDSearchForm", "EMDSearchForm")
+    EMDSearchInterface() : JxtInterface("", "EMDSearch")
     {
+        AddEvent("EMDTextView",      JXT_HANDLER(EMDSearchInterface, EMDTextView));
         AddEvent("SearchEMDByDocNo", JXT_HANDLER(EMDSearchInterface, SearchEMDByDocNo));
         AddEvent("kick",             JXT_HANDLER(EMDSearchInterface, KickHandler));
     }
 
+    void EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
     void SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
     void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
     virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
