@@ -65,6 +65,7 @@ InetClient getInetClient(string client_id)
     client.opr = Qry.FieldAsString( "login" );
     client.client_type = Qry.FieldAsString( "client_type" );
   }
+  else ProgError(STDLOG, "%s: client_id=%s not found", __FUNCTION__, client_id.c_str());
   return client;
 }
 

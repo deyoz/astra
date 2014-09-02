@@ -35,15 +35,15 @@ using namespace std;
 namespace AstraHTTP
 {
 
-const std::string CLIENT_ID = "CLIENT_ID";
+const std::string CLIENT_ID = "CLIENT-ID";
 const std::string OPERATION = "OPERATION";
-const std::string AUTORIZATION = "Authorization";
+const std::string AUTHORIZATION = "Authorization";
 
 using namespace ServerFramework::HTTP;
 
 std::string HTTPClient::toString()
 {
-  string res = "client_id: " + client_info.client_id + ", operation=" + operation + ",user_name=" + user_name + ",password=" + password;
+  string res = "client_id: " + client_info.client_id + ", operation=" + operation + ", user_name=" + user_name + ", password=" + password;
   return res;
 }
 
@@ -51,18 +51,14 @@ HTTPClient getHTTPClient(const request& req)
 {
   HTTPClient client;
   for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {
+    ProgTrace( TRACE5, "%s: header: name=%s, value=%s", __FUNCTION__, iheader->name.c_str(), iheader->value.c_str() );
     if ( iheader->name == CLIENT_ID ) {
-//      try {
         client.client_info = getInetClient(iheader->value);
-//      }
-//      catch (...) {
-//        throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
-//!!!anna      }
     }
     if ( iheader->name == OPERATION ) {
       client.operation = iheader->value;
     }
-    if ( iheader->name == AUTORIZATION && iheader->value.length() > 6 ) {
+    if ( iheader->name == AUTHORIZATION && iheader->value.length() > 6 ) {
       string Authorization = iheader->value.substr( 6 );
       Authorization = StrUtils::b64_decode( Authorization );
       if ( Authorization.find( ":" ) != std::string::npos ) {
@@ -71,26 +67,26 @@ HTTPClient getHTTPClient(const request& req)
       }
     }
   }
-  if (!client.user_name.empty() && !client.password.empty())
+  if (client.client_info.client_id.empty()) ProgError(STDLOG, "%s: empty client_id", __FUNCTION__);
+
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT http_user, http_pswd "
+    "FROM http_clients "
+    "WHERE id=:client_id";
+  Qry.CreateVariable( "client_id", otString, client.client_info.client_id );
+  Qry.Execute();
+  if (Qry.Eof ||
+      client.user_name != Qry.FieldAsString( "http_user" ) ||
+      client.password != Qry.FieldAsString( "http_pswd" ))
   {
-      TQuery Qry(&OraSession);
-      Qry.SQLText =
-        "SELECT http_user, http_pswd "
-        "FROM http_clients "
-        "WHERE id=:client_id";
-      Qry.CreateVariable( "client_id", otString, client.client_info.client_id );
-      Qry.Execute();
-      if ( !Qry.Eof ) {
-        if (client.user_name != Qry.FieldAsString( "http_user" ) ||
-        client.password != Qry.FieldAsString( "http_pswd" ))
-          throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
-      }
-      else {
-        throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
-      }
+      client.client_info.opr.clear();
+      ProgError(STDLOG, "%s: wrong authorization (client_id=%s)",
+                __FUNCTION__,
+                client.client_info.client_id.c_str());
   }
   if (client.operation.empty()) client.jxt_format = true;
-  ProgTrace( TRACE5, "client=%s", client.toString().c_str() );
+  ProgTrace( TRACE5, "%s: %s", __FUNCTION__, client.toString().c_str() );
   return client;
 }
 
@@ -173,49 +169,50 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
 
 void http_main(reply& rep, const request& req)
 {
-  string answer;
-
   try
   {
-    HTTPClient client = getHTTPClient( req );
+    try
+    {
+      HTTPClient client = getHTTPClient( req );
 
-    InitLogTime(client.client_info.pult.c_str());
+      InitLogTime(client.client_info.pult.c_str());
 
-    char *res = 0;
-    int len = 0;
-    static ServerFramework::ApplicationCallbacks *ac=
-             ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks();
+      char *res = 0;
+      int len = 0;
+      static ServerFramework::ApplicationCallbacks *ac=
+               ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks();
 
-    string header, body;
-    client.toJXT( req, header, body );
-    ProgTrace( TRACE5, "body.size()=%zu, header.size()=%zu, len=%d", body.size(), header.size(), len );
+      string header, body;
+      client.toJXT( req, header, body );
+      ProgTrace( TRACE5, "body.size()=%zu, header.size()=%zu, len=%d", body.size(), header.size(), len );
 
-    AstraJxtCallbacks* astra_cb_ptr = dynamic_cast<AstraJxtCallbacks*>(jxtlib::JXTLib::Instance()->GetCallbacks());
-    astra_cb_ptr->SetPostProcessXMLAnswerCallback(client.jxt_interface[client.operation].post_proc);
+      AstraJxtCallbacks* astra_cb_ptr = dynamic_cast<AstraJxtCallbacks*>(jxtlib::JXTLib::Instance()->GetCallbacks());
+      astra_cb_ptr->SetPostProcessXMLAnswerCallback(client.jxt_interface[client.operation].post_proc);
 
-    int newlen=ac->jxt_proc((const char *)body.data(),body.size(),(const char *)header.data(),header.size(), &res, len);
-    ProgTrace( TRACE5, "newlen=%d, len=%d, header.size()=%zu", newlen, len, header.size() );
-    body = string( res + header.size(), newlen - header.size() );
-    client.fromJXT( body, rep );
-  }
-  catch( Exception &e ) {
-     ProgError( STDLOG,"HTTP Exception: %s", e.what());
-     rep.status = reply::internal_server_error;
-     rep.headers.resize(2);
-     rep.headers[0].name = "Content-Length";
-     rep.content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<error/>";
-     rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
-     rep.headers[1].name = "Content-Type";
+      int newlen=ac->jxt_proc((const char *)body.data(),body.size(),(const char *)header.data(),header.size(), &res, len);
+      ProgTrace( TRACE5, "newlen=%d, len=%d, header.size()=%zu", newlen, len, header.size() );
+      body = string( res + header.size(), newlen - header.size() );
+      client.fromJXT( body, rep );
+    }
+    catch(Exception &e)
+    {
+      ProgError(STDLOG, "%s: Exception: %s", __FUNCTION__, e.what());
+      throw;
+    }
+    catch(...)
+    {
+      ProgError(STDLOG, "%s: Unknown error", __FUNCTION__);
+      throw;
+    }
   }
   catch(...)
   {
-     ProgError( STDLOG,"HTTP Exception: unknown error");
-     rep.status = reply::internal_server_error;
-     rep.headers.resize(2);
-     rep.headers[0].name = "Content-Length";
-     rep.content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<error/>";
-     rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
-     rep.headers[1].name = "Content-Type";
+    rep.status = reply::internal_server_error;
+    rep.headers.resize(2);
+    rep.headers[0].name = "Content-Length";
+    rep.content = "SERVER ERROR! CONTACT WITH DEVELOPERS";
+    rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
+    rep.headers[1].name = "Content-Type";
   }
   InitLogTime(NULL);
   return;
