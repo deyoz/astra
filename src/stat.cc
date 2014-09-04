@@ -97,7 +97,8 @@ enum TColumnSortType {sortString,
                       sortDate,
                       sortDateTime,
                       sortTime,
-                      sortIntegerSlashInteger};
+                      sortIntegerSlashInteger,
+                      sortSlashedInt}; // любая последовательность, вида N.../N.../N...
 
 void GetSystemLogAgentSQL(TQuery &Qry)
 {
@@ -1921,444 +1922,21 @@ struct TStatParams {
     void get(xmlNodePtr resNode);
 };
 
-string GetStatSQLTextOld(const TStatParams &params, bool pr_arx)
-{
-    if (!pr_arx)
-    {
-        string mainSQLText =
-            "select \n";
-        if (USE_SEANCES())
-          mainSQLText +=
-            "  decode(trip_sets.pr_airp_seance, null, '', 1, 'АП', 'АК') seance, \n";
-        else
-          mainSQLText +=
-            "  NULL seance, \n";
-        if (params.statType==statTrferFull)
-        {
-            mainSQLText +=
-                "  points.airp, \n"
-                "  points.airline, \n"
-                "  points.flt_no, \n"
-                "  points.scd_out, \n"
-                "  trfer_stat.point_id, \n"
-                "  trfer_stat.trfer_route places, \n"
-                "  adult + child + baby pax_amount, \n"
-                "  adult, \n"
-                "  child, \n"
-                "  baby, \n"
-                "  unchecked rk_weight, \n"
-                "  pcs bag_amount, \n"
-                "  weight bag_weight, \n"
-                "  excess \n";
-        };
-        if (params.statType==statFull)
-        {
-            mainSQLText +=
-                "  points.airp, \n"
-                "  points.airline, \n"
-                "  points.flt_no, \n"
-                "  points.scd_out, \n"
-                "  stat.point_id, \n"
-                "  sum(adult + child + baby) pax_amount, \n"
-                "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
-                "  sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
-                "  sum(adult) adult, \n"
-                "  sum(child) child, \n"
-                "  sum(baby) baby, \n"
-                "  sum(unchecked) rk_weight, \n"
-                "  sum(pcs) bag_amount, \n"
-                "  sum(weight) bag_weight, \n"
-                "  sum(excess) excess \n";
-        };
-        if (params.statType==statShort)
-        {
-            if(params.airp_column_first)
-                mainSQLText +=
-                    "    points.airp,  \n";
-            else
-                mainSQLText +=
-                    "    points.airline,  \n";
-            mainSQLText +=
-                "    count(distinct stat.point_id) flt_amount, \n"
-                "    sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
-                "    sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
-                "    sum(adult + child + baby) pax_amount \n";
-        };
-        if (params.statType==statDetail)
-        {
-            mainSQLText +=
-                "  points.airp, \n"
-                "  points.airline, \n"
-                "  count(distinct stat.point_id) flt_amount, \n"
-                "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
-                "  sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
-                "  sum(adult + child + baby) pax_amount \n";
-        };
-        mainSQLText +=
-            "from \n"
-            "  points, \n";
-        if (params.statType==statTrferFull)
-        {
-            mainSQLText +=
-                "  trfer_stat \n";
-        };
-        if (params.statType==statFull || params.statType==statShort || params.statType==statDetail)
-        {
-            mainSQLText +=
-                "  stat \n";
-        };
-        if (USE_SEANCES())
-          mainSQLText += ", trip_sets \n";
-        else
-        {
-          if(params.seance==seanceAirport)
-              mainSQLText += ", " + AIRP_PERIODS;
-          if(params.seance==seanceAirline)
-              mainSQLText += ", " + AIRLINE_PERIODS;
-        };
-        mainSQLText +=
-            "where \n";
-        if(params.flt_no != NoExists)
-            mainSQLText += "  points.flt_no = :flt_no and \n";
-        if (USE_SEANCES())
-        {
-          if (params.seance!=seanceAll)
-            mainSQLText += "  trip_sets.pr_airp_seance = :pr_airp_seance and \n";
-        };
-
-        if (params.statType==statTrferFull)
-        {
-            mainSQLText +=
-                "  points.point_id = trfer_stat.point_id and points.pr_del>=0 and \n";
-        };
-        if (params.statType==statFull || params.statType==statShort || params.statType==statDetail)
-        {
-            mainSQLText +=
-                "  points.point_id = stat.point_id and points.pr_del>=0 and \n";
-        };
-        if (USE_SEANCES())
-        {
-          mainSQLText +=
-              "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate and \n"
-              "  points.point_id = trip_sets.point_id \n";
-        }
-        else
-        {
-          if (params.seance==seanceAirport ||
-              params.seance==seanceAirline)
-              mainSQLText +=
-                  "  points.scd_out >= periods.period_first_date AND points.scd_out < periods.period_last_date  \n";
-          else
-              mainSQLText +=
-                  "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
-        };
-        if (!USE_SEANCES() && params.seance==seanceAirport)
-        {
-          mainSQLText +=
-              " AND points.airp = :ap \n";
-        }
-        else
-        {
-          if (!params.airps.empty()) {
-              if (params.airps_permit)
-                  mainSQLText += " AND points.airp IN "+GetSQLEnum(params.airps)+"\n";
-              else
-                  mainSQLText += " AND points.airp NOT IN "+GetSQLEnum(params.airps)+"\n";
-          };
-        };
-
-        if (!USE_SEANCES() && params.seance==seanceAirline)
-        {
-          mainSQLText +=
-              " AND points.airline = :ak \n";
-        }
-        else
-        {
-          if (!params.airlines.empty()) {
-              if (params.airlines_permit)
-                  mainSQLText += " AND points.airline IN "+GetSQLEnum(params.airlines)+"\n";
-              else
-                  mainSQLText += " AND points.airline NOT IN "+GetSQLEnum(params.airlines)+"\n";
-          }
-        };
-
-        if (!USE_SEANCES())
-        {
-          if(params.seance==seanceAirport)
-            mainSQLText +=
-              " and points.airline not in " + AIRLINE_LIST + "\n";
-          if(params.seance==seanceAirline)
-            mainSQLText +=
-              " and points.airp in " + AIRP_LIST + "\n";
-        };
-
-        if (params.statType==statFull)
-        {
-            mainSQLText +=
-                "group by \n";
-            if (USE_SEANCES())
-              mainSQLText +=
-                "  trip_sets.pr_airp_seance, \n";
-            mainSQLText +=
-                "  points.airp, \n"
-                "  points.airline, \n"
-                "  points.flt_no, \n"
-                "  points.scd_out, \n"
-                "  stat.point_id \n";
-        };
-        if (params.statType==statShort)
-        {
-            mainSQLText +=
-                "group by \n";
-            if (USE_SEANCES())
-              mainSQLText +=
-                "  trip_sets.pr_airp_seance, \n";
-            if(params.airp_column_first)
-                mainSQLText +=
-                    "    points.airp \n";
-            else
-                mainSQLText +=
-                    "    points.airline \n";
-        };
-        if (params.statType==statDetail)
-        {
-            mainSQLText +=
-                "group by \n";
-            if (USE_SEANCES())
-              mainSQLText +=
-                "  trip_sets.pr_airp_seance, \n";
-            mainSQLText +=
-                "  points.airp, \n"
-                "  points.airline \n";
-        };
-        return mainSQLText;
-    }
-    else
-    {
-        string arxSQLText =
-            "select \n";
-        if (USE_SEANCES())
-          arxSQLText +=
-            "  decode(arx_trip_sets.pr_airp_seance, null, '', 1, 'АП', 'АК') seance, \n";
-        else
-          arxSQLText +=
-            "  NULL seance, \n";
-        if (params.statType==statTrferFull)
-        {
-            arxSQLText +=
-                "  arx_points.airp, \n"
-                "  arx_points.airline, \n"
-                "  arx_points.flt_no, \n"
-                "  arx_points.scd_out, \n"
-                "  arx_trfer_stat.point_id, \n"
-                "  arx_trfer_stat.trfer_route places, \n"
-                "  adult + child + baby pax_amount, \n"
-                "  adult, \n"
-                "  child, \n"
-                "  baby, \n"
-                "  unchecked rk_weight, \n"
-                "  pcs bag_amount, \n"
-                "  weight bag_weight, \n"
-                "  excess \n";
-        };
-        if (params.statType==statFull)
-        {
-            arxSQLText +=
-                "  arx_points.airp, \n"
-                "  arx_points.airline, \n"
-                "  arx_points.flt_no, \n"
-                "  arx_points.scd_out, \n"
-                "  arx_stat.point_id, \n"
-                "  arx_stat.part_key, \n"
-                "  sum(adult + child + baby) pax_amount, \n"
-                "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
-                "  sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
-                "  sum(adult) adult, \n"
-                "  sum(child) child, \n"
-                "  sum(baby) baby, \n"
-                "  sum(unchecked) rk_weight, \n"
-                "  sum(pcs) bag_amount, \n"
-                "  sum(weight) bag_weight, \n"
-                "  sum(excess) excess \n";
-        };
-        if (params.statType==statShort)
-        {
-            if(params.airp_column_first)
-                arxSQLText +=
-                    "    arx_points.airp,  \n";
-            else
-                arxSQLText +=
-                    "    arx_points.airline,  \n";
-            arxSQLText +=
-                "    count(distinct arx_stat.point_id) flt_amount, \n"
-                "    sum(adult + child + baby) pax_amount, \n"
-                "    sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
-                "    sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk \n";
-        };
-        if (params.statType==statDetail)
-        {
-            arxSQLText +=
-                "  arx_points.airp, \n"
-                "  arx_points.airline, \n"
-                "  count(distinct arx_stat.point_id) flt_amount, \n"
-                "  sum(adult + child + baby) pax_amount, \n"
-                "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
-                "  sum(decode(client_type, :kiosk, adult + child + baby, 0)) kiosk \n";
-        };
-        arxSQLText +=
-            "from \n"
-            "  arx_points, \n";
-        if (params.statType==statTrferFull)
-        {
-            arxSQLText +=
-                "  arx_trfer_stat \n";
-        };
-        if (params.statType==statFull || params.statType==statShort || params.statType==statDetail)
-        {
-            arxSQLText +=
-                "  arx_stat \n";
-        };
-        if (USE_SEANCES())
-          arxSQLText += ", arx_trip_sets \n";
-        else
-        {
-          if(params.seance==seanceAirport)
-              arxSQLText += ", " + AIRP_PERIODS;
-          if(params.seance==seanceAirline)
-              arxSQLText += ", " + AIRLINE_PERIODS;
-        };
-        arxSQLText +=
-            "where \n";
-        if(params.flt_no != NoExists)
-            arxSQLText += "  arx_points.flt_no = :flt_no and \n";
-        if (USE_SEANCES())
-        {
-          if (params.seance!=seanceAll)
-            arxSQLText += "  arx_trip_sets.pr_airp_seance = :pr_airp_seance and \n";
-        };
-
-        if (USE_SEANCES())
-        {
-          arxSQLText +=
-            "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + :arx_trip_date_range AND \n"
-            "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n";
-          arxSQLText +=
-            "  arx_points.part_key = arx_trip_sets.part_key AND \n"
-            "  arx_points.point_id = arx_trip_sets.point_id AND \n";
-        }
-        else
-        {
-          if (params.seance==seanceAirport ||
-              params.seance==seanceAirline)
-            arxSQLText +=
-              "  arx_points.part_key >= periods.period_first_date AND arx_points.part_key < periods.period_last_date + :arx_trip_date_range AND "
-              "  arx_points.scd_out >= periods.period_first_date AND arx_points.scd_out < periods.period_last_date  AND ";
-
-          else
-            arxSQLText +=
-              "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + :arx_trip_date_range AND "
-              "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND ";
-
-        };
-        arxSQLText +=
-            "  arx_points.pr_del>=0 AND \n";
-        if (params.statType==statTrferFull)
-        {
-            arxSQLText +=
-                "  arx_points.part_key = arx_trfer_stat.part_key AND \n"
-                "  arx_points.point_id = arx_trfer_stat.point_id \n";
-        };
-        if (params.statType==statFull || params.statType==statShort || params.statType==statDetail)
-        {
-            arxSQLText +=
-                "  arx_points.part_key = arx_stat.part_key AND \n"
-                "  arx_points.point_id = arx_stat.point_id \n";
-        };
-        if (!USE_SEANCES() && params.seance==seanceAirport)
-        {
-          arxSQLText +=
-                " and arx_points.airp = :ap \n";
-        }
-        else
-        {
-          if (!params.airps.empty()) {
-              if (params.airps_permit)
-                  arxSQLText += " AND arx_points.airp IN "+GetSQLEnum(params.airps);
-              else
-                  arxSQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(params.airps);
-          }
-        };
-
-        if (!USE_SEANCES() && params.seance==seanceAirline)
-        {
-          arxSQLText +=
-                " and arx_points.airline = :ak \n";
-        }
-        else
-        {
-          if (!params.airlines.empty()) {
-              if (params.airlines_permit)
-                  arxSQLText += " AND arx_points.airline IN "+GetSQLEnum(params.airlines);
-              else
-                  arxSQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(params.airlines);
-          }
-        };
-
-        if (!USE_SEANCES())
-        {
-          if(params.seance==seanceAirport)
-            arxSQLText +=
-              " and arx_points.airline not in " + AIRLINE_LIST + "\n";
-          if(params.seance==seanceAirline)
-            arxSQLText +=
-              " and arx_points.airp in " + AIRP_LIST + "\n";
-        };
-        if (params.statType==statFull)
-        {
-            arxSQLText +=
-                "group by \n";
-            if (USE_SEANCES())
-              arxSQLText +=
-                "  arx_trip_sets.pr_airp_seance, \n";
-            arxSQLText +=
-                "  arx_points.airp, \n"
-                "  arx_points.airline, \n"
-                "  arx_points.flt_no, \n"
-                "  arx_points.scd_out, \n"
-                "  arx_stat.point_id, \n"
-                "  arx_stat.part_key \n";
-        };
-        if (params.statType==statShort)
-        {
-            arxSQLText +=
-                "group by  \n";
-            if (USE_SEANCES())
-              arxSQLText +=
-                "  arx_trip_sets.pr_airp_seance, \n";
-            if(params.airp_column_first)
-                arxSQLText +=
-                    "    arx_points.airp \n";
-            else
-                arxSQLText +=
-                    "    arx_points.airline \n";
-        };
-        if (params.statType==statDetail)
-        {
-            arxSQLText +=
-                "group by \n";
-            if (USE_SEANCES())
-              arxSQLText +=
-                "  arx_trip_sets.pr_airp_seance, \n";
-            arxSQLText +=
-                "  arx_points.airp, \n"
-                "  arx_points.airline \n";
-        };
-        return arxSQLText;
-    };
-}
-
 string GetStatSQLText(const TStatParams &params, int pass)
 {
+    static const string sum_pax_by_client_type =
+        " SUM(DECODE(client_type, :web, adult + child + baby, 0)) web, \n"
+        " SUM(DECODE(client_type, :web, term_bag, 0)) web_bag, \n"
+        " SUM(DECODE(client_type, :web, term_bp, 0)) web_bp, \n"
+
+        " SUM(DECODE(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
+        " SUM(DECODE(client_type, :kiosk, term_bag, 0)) kiosk_bag, \n"
+        " SUM(DECODE(client_type, :kiosk, term_bp, 0)) kiosk_bp, \n"
+
+        " SUM(DECODE(client_type, :mobile, adult + child + baby, 0)) mobile, \n"
+        " SUM(DECODE(client_type, :mobile, term_bp, 0)) mobile_bp, \n"
+        " SUM(DECODE(client_type, :mobile, term_bag, 0)) mobile_bag \n";
+
   ostringstream sql;
   sql << "SELECT \n";
   if (USE_SEANCES())
@@ -2392,10 +1970,9 @@ string GetStatSQLText(const TStatParams &params, int pass)
     if (pass!=0)
       sql << " stat.part_key, \n";
     sql << " stat.point_id, \n"
-           " SUM(adult + child + baby) pax_amount, \n"
-           " SUM(DECODE(client_type, :web, adult + child + baby, 0)) web, \n"
-           " SUM(DECODE(client_type, :kiosk, adult + child + baby, 0)) kiosk, \n"
-           " SUM(adult) adult, \n"
+           " SUM(adult + child + baby) pax_amount, \n" <<
+           sum_pax_by_client_type <<
+           ", SUM(adult) adult, \n"
            " SUM(child) child, \n"
            " SUM(baby) baby, \n"
            " SUM(unchecked) rk_weight, \n"
@@ -2410,18 +1987,16 @@ string GetStatSQLText(const TStatParams &params, int pass)
     else
       sql << " points.airline, \n";
     sql << " COUNT(distinct stat.point_id) flt_amount, \n"
-           " SUM(adult + child + baby) pax_amount, \n"
-           " SUM(DECODE(client_type, :web, adult + child + baby, 0)) web, \n"
-           " SUM(DECODE(client_type, :kiosk, adult + child + baby, 0)) kiosk \n";
+           " SUM(adult + child + baby) pax_amount, \n" <<
+           sum_pax_by_client_type;
   };
   if (params.statType==statDetail)
   {
     sql << " points.airp, \n"
            " points.airline, \n"
            " COUNT(distinct stat.point_id) flt_amount, \n"
-           " SUM(adult + child + baby) pax_amount, \n"
-           " SUM(DECODE(client_type, :web, adult + child + baby, 0)) web, \n"
-           " SUM(DECODE(client_type, :kiosk, adult + child + baby, 0)) kiosk \n";
+           " SUM(adult + child + baby) pax_amount, \n" <<
+           sum_pax_by_client_type;
   };
   sql << "FROM \n";
   if (pass==0)
@@ -2805,13 +2380,18 @@ void TStatParams::get(xmlNodePtr reqNode)
 };
 
 struct TDetailStatRow {
-    int flt_amount, pax_amount, web, kiosk;
+    int flt_amount, pax_amount, web, kiosk, mobile;
+    int web_bp, kiosk_bp;   // Кол-во пассажиров из веб и киоска, которые распечатали посадочный на стойке
+    int web_bag, kiosk_bag; //        ___,,____                 , которые зарег. багаж на стойке
+    int mobile_bp, mobile_bag;
     set<int> flts;
     TDetailStatRow():
         flt_amount(0),
         pax_amount(0),
-        web(0),
-        kiosk(0)
+        web(0), kiosk(0), mobile(0),
+        web_bp(0), kiosk_bp(0),
+        web_bag(0), kiosk_bag(0),
+        mobile_bp(0), mobile_bag(0)
     {};
     bool operator == (const TDetailStatRow &item) const
     {
@@ -2819,6 +2399,13 @@ struct TDetailStatRow {
                pax_amount == item.pax_amount &&
                web == item.web &&
                kiosk == item.kiosk &&
+               mobile == item.mobile &&
+               web_bp == item.web_bp &&
+               web_bag == item.web_bag &&
+               kiosk_bp == item.kiosk_bp &&
+               kiosk_bag == item.kiosk_bag &&
+               mobile_bp == item.mobile_bp &&
+               mobile_bag == item.mobile_bag &&
                flts.size() == item.flts.size();
     };
     void operator += (const TDetailStatRow &item)
@@ -2827,8 +2414,33 @@ struct TDetailStatRow {
         pax_amount += item.pax_amount;
         web += item.web;
         kiosk += item.kiosk;
+        mobile += item.mobile;
+        web_bp += item.web_bp;
+        web_bag += item.web_bag;
+        kiosk_bp += item.kiosk_bp;
+        kiosk_bag += item.kiosk_bag;
+        mobile_bp += item.mobile_bp;
+        mobile_bag += item.mobile_bag;
         flts.insert(item.flts.begin(),item.flts.end());
     };
+
+    string mobile_str() const {
+        ostringstream buf;
+        buf << mobile << "/" << mobile_bag << "/" << mobile_bp;
+        return buf.str();
+    }
+
+    string kiosk_str() const {
+        ostringstream buf;
+        buf << kiosk << "/" << kiosk_bag << "/" << kiosk_bp;
+        return buf.str();
+    }
+
+    string web_str() const {
+        ostringstream buf;
+        buf << web << "/" << web_bag << "/" << web_bp;
+        return buf.str();
+    }
 };
 
 struct TDetailStatKey {
@@ -2862,6 +2474,10 @@ struct TFullStatRow {
     int pax_amount;
     int web;
     int kiosk;
+    int mobile;
+    int web_bp, kiosk_bp;   // Кол-во пассажиров из веб и киоска, которые распечатали посадочный на стойке
+    int web_bag, kiosk_bag; //        ___,,____                 , которые зарег. багаж на стойке
+    int mobile_bp, mobile_bag;
     int adult;
     int child;
     int baby;
@@ -2873,6 +2489,10 @@ struct TFullStatRow {
         pax_amount(0),
         web(0),
         kiosk(0),
+        mobile(0),
+        web_bp(0), kiosk_bp(0),
+        web_bag(0), kiosk_bag(0),
+        mobile_bp(0), mobile_bag(0),
         adult(0),
         child(0),
         baby(0),
@@ -2886,6 +2506,13 @@ struct TFullStatRow {
         return pax_amount == item.pax_amount &&
                web == item.web &&
                kiosk == item.kiosk &&
+               mobile == item.mobile &&
+               web_bp == item.web_bp &&
+               web_bag == item.web_bag &&
+               kiosk_bp == item.kiosk_bp &&
+               kiosk_bag == item.kiosk_bag &&
+               mobile_bp == item.mobile_bp &&
+               mobile_bag == item.mobile_bag &&
                adult == item.adult &&
                child == item.child &&
                baby == item.baby &&
@@ -2899,6 +2526,13 @@ struct TFullStatRow {
         pax_amount += item.pax_amount;
         web += item.web;
         kiosk += item.kiosk;
+        mobile += item.mobile;
+        web_bp += item.web_bp;
+        web_bag += item.web_bag;
+        kiosk_bp += item.kiosk_bp;
+        kiosk_bag += item.kiosk_bag;
+        mobile_bp += item.mobile_bp;
+        mobile_bag += item.mobile_bag;
         adult += item.adult;
         child += item.child;
         baby += item.baby;
@@ -2907,6 +2541,24 @@ struct TFullStatRow {
         bag_weight += item.bag_weight;
         excess += item.excess;
     };
+
+    string mobile_str() const {
+        ostringstream buf;
+        buf << mobile << "/" << mobile_bag << "/" << mobile_bp;
+        return buf.str();
+    }
+
+    string kiosk_str() const {
+        ostringstream buf;
+        buf << kiosk << "/" << kiosk_bag << "/" << kiosk_bp;
+        return buf.str();
+    }
+
+    string web_str() const {
+        ostringstream buf;
+        buf << web << "/" << web_bag << "/" << web_bp;
+        return buf.str();
+    }
 };
 
 struct TStatPlaces {
@@ -3015,8 +2667,19 @@ void GetDetailStat(const TStatParams &params, TQuery &Qry,
     TDetailStatRow row;
     row.flt_amount = Qry.FieldAsInteger("flt_amount");
     row.pax_amount = Qry.FieldAsInteger("pax_amount");
+
     row.web = Qry.FieldAsInteger("web");
+    row.web_bag = Qry.FieldAsInteger("web_bag");
+    row.web_bp = Qry.FieldAsInteger("web_bp");
+
     row.kiosk = Qry.FieldAsInteger("kiosk");
+    row.kiosk_bag = Qry.FieldAsInteger("kiosk_bag");
+    row.kiosk_bp = Qry.FieldAsInteger("kiosk_bp");
+
+    row.mobile = Qry.FieldAsInteger("mobile");
+    row.mobile_bag = Qry.FieldAsInteger("mobile_bag");
+    row.mobile_bp = Qry.FieldAsInteger("mobile_bp");
+
     if (!params.skip_rows)
     {
       TDetailStatKey key;
@@ -3058,12 +2721,32 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
       int col_airp = Qry.FieldIndex("airp");
       int col_airline = Qry.FieldIndex("airline");
       int col_pax_amount = Qry.FieldIndex("pax_amount");
+
       int col_web = -1;
+      int col_web_bag = -1;
+      int col_web_bp = -1;
+
       int col_kiosk = -1;
+      int col_kiosk_bag = -1;
+      int col_kiosk_bp = -1;
+
+      int col_mobile = -1;
+      int col_mobile_bag = -1;
+      int col_mobile_bp = -1;
+
       if (params.statType==statFull)
       {
         col_web = Qry.FieldIndex("web");
+        col_web_bag = Qry.FieldIndex("web_bag");
+        col_web_bp = Qry.FieldIndex("web_bp");
+
         col_kiosk = Qry.FieldIndex("kiosk");
+        col_kiosk_bag = Qry.FieldIndex("kiosk_bag");
+        col_kiosk_bp = Qry.FieldIndex("kiosk_bp");
+
+        col_mobile = Qry.FieldIndex("mobile");
+        col_mobile_bag = Qry.FieldIndex("mobile_bag");
+        col_mobile_bp = Qry.FieldIndex("mobile_bp");
       };
       int col_adult = Qry.FieldIndex("adult");
       int col_child = Qry.FieldIndex("child");
@@ -3083,7 +2766,16 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
         if (params.statType==statFull)
         {
           row.web = Qry.FieldAsInteger(col_web);
+          row.web_bag = Qry.FieldAsInteger(col_web_bag);
+          row.web_bp = Qry.FieldAsInteger(col_web_bp);
+
           row.kiosk = Qry.FieldAsInteger(col_kiosk);
+          row.kiosk_bag = Qry.FieldAsInteger(col_kiosk_bag);
+          row.kiosk_bp = Qry.FieldAsInteger(col_kiosk_bp);
+
+          row.mobile = Qry.FieldAsInteger(col_mobile);
+          row.mobile_bag = Qry.FieldAsInteger(col_mobile_bag);
+          row.mobile_bp = Qry.FieldAsInteger(col_mobile_bp);
         };
         row.adult = Qry.FieldAsInteger(col_adult);
         row.child = Qry.FieldAsInteger(col_child);
@@ -3258,8 +2950,9 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
               NewTextChild(rowNode, "col", si->first.pact_descr);
           NewTextChild(rowNode, "col", si->second.pax_amount);
           if(params.statType != statPactShort) {
-              NewTextChild(rowNode, "col", si->second.web);
-              NewTextChild(rowNode, "col", si->second.kiosk);
+              NewTextChild(rowNode, "col", si->second.web_str());
+              NewTextChild(rowNode, "col", si->second.kiosk_str());
+              NewTextChild(rowNode, "col", si->second.mobile_str());
           }
           if(pr_pact and params.statType != statPactShort)
               NewTextChild(rowNode, "col", si->first.pact_descr);
@@ -3336,17 +3029,23 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     NewTextChild(rowNode, "col", total.pax_amount);
 
     if(params.statType != statPactShort) {
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Web/БГ/ПТ"));
         SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", taRightJustify);
-        SetProp(colNode, "sort", sortInteger);
-        NewTextChild(rowNode, "col", total.web);
+        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "sort", sortSlashedInt);
+        NewTextChild(rowNode, "col", total.web_str());
 
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Киоски"));
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Киоски/БГ/ПТ"));
         SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", taRightJustify);
-        SetProp(colNode, "sort", sortInteger);
-        NewTextChild(rowNode, "col", total.kiosk);
+        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "sort", sortSlashedInt);
+        NewTextChild(rowNode, "col", total.kiosk_str());
+
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Моб./БГ/ПТ"));
+        SetProp(colNode, "width", 85);
+        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "sort", sortSlashedInt);
+        NewTextChild(rowNode, "col", total.mobile_str());
     }
 
     if(pr_pact and params.statType != statPactShort)
@@ -3432,8 +3131,9 @@ void createXMLFullStat(const TStatParams &params,
           NewTextChild(rowNode, "col", im->second.pax_amount);
           if (params.statType==statFull)
           {
-              NewTextChild(rowNode, "col", im->second.web);
-              NewTextChild(rowNode, "col", im->second.kiosk);
+              NewTextChild(rowNode, "col", im->second.web_str());
+              NewTextChild(rowNode, "col", im->second.kiosk_str());
+              NewTextChild(rowNode, "col", im->second.mobile_str());
           };
           NewTextChild(rowNode, "col", im->second.adult);
           NewTextChild(rowNode, "col", im->second.child);
@@ -3512,17 +3212,23 @@ void createXMLFullStat(const TStatParams &params,
 
     if (params.statType==statFull)
     {
-      colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
-      SetProp(colNode, "width", 35);
-      SetProp(colNode, "align", taRightJustify);
-      SetProp(colNode, "sort", sortInteger);
-      NewTextChild(rowNode, "col", total.web);
+      colNode = NewTextChild(headerNode, "col", getLocaleText("Web/БГ/ПТ"));
+      SetProp(colNode, "width", 85);
+      SetProp(colNode, "align", taLeftJustify);
+      SetProp(colNode, "sort", sortSlashedInt);
+      NewTextChild(rowNode, "col", total.web_str());
 
-      colNode = NewTextChild(headerNode, "col", getLocaleText("Киоски"));
-      SetProp(colNode, "width", 40);
-      SetProp(colNode, "align", taRightJustify);
-      SetProp(colNode, "sort", sortInteger);
-      NewTextChild(rowNode, "col", total.kiosk);
+      colNode = NewTextChild(headerNode, "col", getLocaleText("Киоски/БГ/ПТ"));
+      SetProp(colNode, "width", 85);
+      SetProp(colNode, "align", taLeftJustify);
+      SetProp(colNode, "sort", sortSlashedInt);
+      NewTextChild(rowNode, "col", total.kiosk_str());
+
+      colNode = NewTextChild(headerNode, "col", getLocaleText("Моб./БГ/ПТ"));
+      SetProp(colNode, "width", 85);
+      SetProp(colNode, "align", taLeftJustify);
+      SetProp(colNode, "sort", sortSlashedInt);
+      NewTextChild(rowNode, "col", total.mobile_str());
     };
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
@@ -3664,6 +3370,8 @@ void RunPactDetailStat(bool pr_new, const TStatParams &params,
                " adult, \n"
                " child, \n"
                " baby, \n"
+               " term_bp, \n"
+               " term_bag, \n"
                " client_type \n"
                "FROM \n";
         if (pass!=0)
@@ -3721,6 +3429,8 @@ void RunPactDetailStat(bool pr_new, const TStatParams &params,
             "   adult, "
             "   child, "
             "   baby, "
+            "   term_bp, \n"
+            "   term_bag, \n"
             "   client_type "
             "from ";
         if(pass)
@@ -3774,6 +3484,8 @@ void RunPactDetailStat(bool pr_new, const TStatParams &params,
             int col_adult = Qry.FieldIndex("adult");
             int col_child = Qry.FieldIndex("child");
             int col_baby = Qry.FieldIndex("baby");
+            int col_term_bp = Qry.FieldIndex("term_bp");
+            int col_term_bag = Qry.FieldIndex("term_bag");
             int col_client_type = Qry.FieldIndex("client_type");
             for(; not Qry.Eof; Qry.Next())
             {
@@ -3785,8 +3497,22 @@ void RunPactDetailStat(bool pr_new, const TStatParams &params,
                              
               row.flts.insert(Qry.FieldAsInteger(col_point_id));
               row.pax_amount = pax_amount;
+
               row.web = (client_type == ctWeb ? pax_amount : 0);
               row.kiosk = (client_type == ctKiosk ? pax_amount : 0);
+              row.mobile = (client_type == ctMobile ? pax_amount : 0);
+
+              int term_bp = Qry.FieldAsInteger(col_term_bp);
+              int term_bag = Qry.FieldAsInteger(col_term_bag);
+
+              row.web_bag = (client_type == ctWeb ? term_bag : 0);
+              row.web_bp = (client_type == ctWeb ? term_bp : 0);
+
+              row.kiosk_bag = (client_type == ctKiosk ? term_bag : 0);
+              row.kiosk_bp = (client_type == ctKiosk ? term_bp : 0);
+
+              row.mobile_bag = (client_type == ctMobile ? term_bag : 0);
+              row.mobile_bp = (client_type == ctMobile ? term_bp : 0);
               
               if (!params.skip_rows)
               {
@@ -3851,6 +3577,7 @@ void RunDetailStat(bool pr_new, const TStatParams &params,
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
     Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
+    Qry.CreateVariable("mobile", otString, EncodeClientType(ctMobile));
     if (!USE_SEANCES() && params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
     if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
     if (USE_SEANCES() && params.seance!=seanceAll)
@@ -3910,6 +3637,7 @@ void RunFullStat(bool pr_new, const TStatParams &params,
     {
       Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
       Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
+      Qry.CreateVariable("mobile", otString, EncodeClientType(ctMobile));
     };
     if (!USE_SEANCES() && params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
     if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
@@ -3964,6 +3692,8 @@ void RunFullStat(bool pr_new, const TStatParams &params,
 
 struct TKioskStatRow {
     int pax_amount;
+    int term_bp;
+    int term_bag;
     int adult;
     int child;
     int baby;
@@ -3971,6 +3701,8 @@ struct TKioskStatRow {
     set<int> flts;
     TKioskStatRow():
         pax_amount(0),
+        term_bp(0),
+        term_bag(0),
         adult(0),
         child(0),
         baby(0),
@@ -3979,6 +3711,8 @@ struct TKioskStatRow {
     bool operator == (const TKioskStatRow &item) const
     {
         return pax_amount == item.pax_amount &&
+               term_bp == item.term_bp &&
+               term_bag == item.term_bag &&
                adult == item.adult &&
                child == item.child &&
                baby == item.baby &&
@@ -3988,12 +3722,20 @@ struct TKioskStatRow {
     void operator += (const TKioskStatRow &item)
     {
         pax_amount += item.pax_amount;
+        term_bp += item.term_bp;
+        term_bag += item.term_bag;
         adult += item.adult;
         child += item.child;
         baby += item.baby;
         tckin += item.tckin;
         flts.insert(item.flts.begin(),item.flts.end());
     };
+    string pax_amount_str() const
+    {
+        ostringstream result;
+        result << pax_amount << "/" << term_bag << "/" << term_bp;
+        return result.str();
+    }
 };
 
 struct TKioskStatKey {
@@ -4051,6 +3793,8 @@ void RunKioskStat(const TStatParams &params,
             "    adult, "
             "    child, "
             "    baby, "
+            "    term_bp, "
+            "    term_bag, "
             "    tckin "
             "from ";
         if(pass != 0) {
@@ -4115,6 +3859,8 @@ void RunKioskStat(const TStatParams &params,
             int col_descr = Qry.FieldIndex("descr");
             int col_adult = Qry.FieldIndex("adult");
             int col_child = Qry.FieldIndex("child");
+            int col_term_bp = Qry.FieldIndex("term_bp");
+            int col_term_bag = Qry.FieldIndex("term_bag");
             int col_baby = Qry.FieldIndex("baby");
             int col_tckin = Qry.FieldIndex("tckin");
             for(; not Qry.Eof; Qry.Next())
@@ -4128,6 +3874,8 @@ void RunKioskStat(const TStatParams &params,
               row.baby = Qry.FieldAsInteger(col_baby);
               row.tckin = Qry.FieldAsInteger(col_tckin);
               row.pax_amount = row.adult + row.child + row.baby;
+              row.term_bp = Qry.FieldAsInteger(col_term_bp);
+              row.term_bag = Qry.FieldAsInteger(col_term_bag);
               int point_id=Qry.FieldAsInteger(col_point_id);
               row.flts.insert(point_id);
               if (!params.skip_rows)
@@ -4242,7 +3990,7 @@ void createXMLKioskStat(const TStatParams &params,
               NewTextChild(rowNode, "col", im->first.places.get());
           }
           // Кол-во пасс.
-          NewTextChild(rowNode, "col", im->second.pax_amount);
+          NewTextChild(rowNode, "col", im->second.pax_amount_str());
           if(params.statType == statKioskFull) {
               // ВЗ
               NewTextChild(rowNode, "col", im->second.adult);
@@ -4326,11 +4074,11 @@ void createXMLKioskStat(const TStatParams &params,
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col");
     }
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Пас."));
-    SetProp(colNode, "width", 35);
-    SetProp(colNode, "align", taRightJustify);
-    SetProp(colNode, "sort", sortInteger);
-    NewTextChild(rowNode, "col", total.pax_amount);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Пас./БГ/ПТ"));
+    SetProp(colNode, "width", 85);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortSlashedInt);
+    NewTextChild(rowNode, "col", total.pax_amount_str());
     if(params.statType == statKioskFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
         SetProp(colNode, "width", 30);

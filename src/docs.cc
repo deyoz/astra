@@ -3087,6 +3087,9 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 case ctWeb:
                     ls_type = getLocaleText("CAP.PAX_LIST.WEB", rpt_params.GetLang());
                     break;
+                case ctMobile:
+                    ls_type = getLocaleText("CAP.PAX_LIST.MOBILE", rpt_params.GetLang());
+                    break;
                 case ctKiosk:
                     ls_type = getLocaleText("CAP.PAX_LIST.KIOSK", rpt_params.GetLang());
                     break;

@@ -6389,12 +6389,13 @@ void set_flight_sets(int point_id, int f, int c, int y)
     "  WHERE (airline IS NULL OR airline=:airline) AND "
     "        (flt_no IS NULL OR flt_no=:flt_no) AND "
     "        (airp_dep IS NULL OR airp_dep=:airp_dep)) ckin_client_sets "
-    "WHERE client_types.code=ckin_client_sets.client_type(+) AND code IN (:ctWeb, :ctKiosk) "
+    "WHERE client_types.code=ckin_client_sets.client_type(+) AND code IN (:ctWeb, :ctMobile, :ctKiosk) "
     "ORDER BY client_types.code,ckin_client_sets.desk_grp_id,priority DESC ";
   Qry.CreateVariable("airline", otString, flt.airline);
   Qry.CreateVariable("flt_no", otInteger, flt.flt_no);
   Qry.CreateVariable("airp_dep", otString, flt.airp);
   Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
+  Qry.CreateVariable("ctMobile", otString, EncodeClientType(ctMobile));
   Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
   Qry.Execute();
   TClientType prev_client_type=ctTypeNum;
@@ -6410,7 +6411,8 @@ void set_flight_sets(int point_id, int f, int c, int y)
 
     if (!((prev_client_type==client_type && prev_desk_grp_id==desk_grp_id) ||
           (client_type==ctKiosk && desk_grp_id==NoExists) ||
-          (client_type==ctWeb && desk_grp_id!=NoExists)))
+          (client_type==ctWeb && desk_grp_id!=NoExists) ||
+          (client_type==ctMobile && desk_grp_id!=NoExists)))
     {
       InsQry.SetVariable("client_type", EncodeClientType(client_type));
       InsQry.SetVariable("pr_permit", (int)pr_permit);
@@ -6423,9 +6425,9 @@ void set_flight_sets(int point_id, int f, int c, int y)
 
       LEvntPrms params;
       params << PrmLexema("action", (pr_permit?"EVT.CKIN_ALLOWED":"EVT.CKIN_NOT_ALLOWED"));
-      PrmLexema what("what", (client_type==ctWeb?"EVT.TRIP_WEB_CKIN":"EVT.TRIP_KIOSK_CKIN"));
+      PrmLexema what("what", ((client_type==ctWeb || client_type==ctMobile)?"EVT.TRIP_WEB_CKIN":"EVT.TRIP_KIOSK_CKIN"));     //!!!ctMobile
       if (desk_grp_id!=NoExists) {
-        PrmLexema lexema("desk_grp", (client_type==ctWeb?"EVT.FOR_PULT_GRP":"EVT.FOR_DESK_GRP"));
+        PrmLexema lexema("desk_grp", ((client_type==ctWeb || client_type==ctMobile)?"EVT.FOR_PULT_GRP":"EVT.FOR_DESK_GRP")); //!!!ctMobile
         lexema.prms << PrmElem<int>("desk_grp", etDeskGrp, desk_grp_id, efmtNameLong);
         what.prms << lexema;
       }

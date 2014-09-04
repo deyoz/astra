@@ -3608,7 +3608,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       "        reg_no, pax.name, pax.surname, pax.is_female, pax_grp.status, "
       "        pax_grp.point_dep, pax_grp.point_arv, "
       "        crs_inf.pax_id AS parent_pax_id, "
-      "        DECODE(client_type,:web_client,1,0) pr_web "
+      "        DECODE(client_type,:web_client,1,:mobile_client,1,0) pr_web "
       "    FROM pax_grp, pax, crs_inf "
       "   WHERE pax.grp_id=pax_grp.grp_id AND "
       "         pax_grp.point_dep=:point_dep AND "
@@ -3617,6 +3617,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       "         pax.refuse IS NULL ";
     Qry.DeclareVariable( "point_dep", otInteger );
     Qry.CreateVariable( "web_client", otString, EncodeClientType( ASTRA::ctWeb ) );
+    Qry.CreateVariable( "mobile_client", otString, EncodeClientType( ASTRA::ctMobile ) );
     for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
           iseg!=filterRoutes.end(); iseg++ ) {
       if ( filterSets.version==rfNoTranzitVersion && iseg->point_id != filterRoutesSets.point_dep ) {
