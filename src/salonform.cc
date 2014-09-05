@@ -763,16 +763,13 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     comp_lang = NodeAsString( "lang", refcompNode );
 
   if ( pr_initcomp ) { /* изменение компоновки */
-    if ( cBase ) {
+    if ( cBase && cChange ) {
+      lexema_id = "EVT.FLIGHT_CRAFT_LAYOUT_ASSIGNED";
+      params << PrmSmpl<string>("cls", NodeAsString("classes", refcompNode));
+    }
+    else if ( cBase ) {
       lexema_id = "EVT.LAYOUT_ASSIGNED_SALON_CHANGES";
       params << PrmSmpl<int>("id", comp_id) << PrmSmpl<string>("cls", NodeAsString("classes", refcompNode)); // !!!DJEK
-      if ( cChange ) {
-        PrmLexema lexema("layout", "EVT.FLIGHT_CRAFT_LAYOUT_ASSIGNED");
-        lexema.prms << PrmSmpl<string>("cls", NodeAsString("classes", refcompNode));
-        params << lexema;
-      }
-      else
-        params << PrmSmpl<string>("layout", "");
     }
     params << PrmLexema("lang", (comp_lang == "лат.")?"EVT.LANGUAGE_LAT":"EVT.LANGUAGE_RUS");
   }

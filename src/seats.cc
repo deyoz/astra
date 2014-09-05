@@ -3319,7 +3319,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       	case cltTranzit:
       	case cltCheckin:
   	    case cltTCheckin:
-          reqinfo->LocaleToLog("EVT.EVT.PASSENGER_DISEMBARKED", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+          reqinfo->LocaleToLog("EVT.PASSENGER_DISEMBARKED", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                                << PrmSmpl<std::string>("seat", prior_seat), evtPax, point_id, idx1, idx2);
           if ( is_sync_paxs( point_id ) )
             update_pax_change( point_id, pax_id, idx1, "ê" );
@@ -3898,7 +3898,7 @@ void ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       	case cltTranzit:
       	case cltCheckin:
   	    case cltTCheckin:
-          reqinfo->LocaleToLog("EVT.EVT.PASSENGER_DISEMBARKED", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+          reqinfo->LocaleToLog("EVT.PASSENGER_DISEMBARKED", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                                << PrmSmpl<std::string>("seat", prior_seat), evtPax, point_id, idx1, idx2);
 /*          if ( is_sync_paxs( point_id ) )
             update_pax_change( point_id, pax_id, idx1, "ê" );*/
