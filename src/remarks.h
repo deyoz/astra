@@ -14,6 +14,7 @@ bool isDisabledRemCategory( TRemCategory cat );
 bool isDisabledRem( const std::string &rem_code, const std::string &rem_text );
 
 enum TRemEventType {
+    retBP,
     retALARM_SS,
     retPNL_SEL,
     retBRD_VIEW,

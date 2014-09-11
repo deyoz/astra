@@ -25,6 +25,7 @@ const int BRD_INFO = 8;
 const int FQT_INFO = 16;
 const int PNR_INFO = 32;
 const int RSTATION_INFO = 64;
+const int REM_INFO = 128;
 
 bool TTagLang::IsInter(const TTrferRoute &aroute, string &country)
 {
@@ -343,6 +344,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::PLACE_ARV,       TTagListItem(&TPrnTagStore::PLACE_ARV)));
     tag_list.insert(make_pair(TAG::PLACE_DEP,       TTagListItem(&TPrnTagStore::PLACE_DEP)));
     tag_list.insert(make_pair(TAG::REG_NO,          TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::REM,             TTagListItem(&TPrnTagStore::REM, REM_INFO)));
     tag_list.insert(make_pair(TAG::RK_AMOUNT,       TTagListItem(&TPrnTagStore::RK_AMOUNT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RK_WEIGHT,       TTagListItem(&TPrnTagStore::RK_WEIGHT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RSTATION,        TTagListItem(&TPrnTagStore::RSTATION, RSTATION_INFO)));
@@ -469,6 +471,8 @@ string TPrnTagStore::get_real_field(std::string name, size_t len, std::string da
         pnrInfo.Init(pax_id);
     if((im->second.info_type & RSTATION_INFO) == RSTATION_INFO)
         rstationInfo.Init();
+    if((im->second.info_type & REM_INFO) == REM_INFO)
+        remInfo.Init(grpInfo.point_dep);
     string result;
     try {
         result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len));
@@ -772,6 +776,14 @@ void TPrnTagStore::TFqtInfo::Init(int apax_id)
             no = Qry.FieldAsString("no");
             extra = Qry.FieldAsString("extra");
         }
+    }
+}
+
+void TPrnTagStore::TRemInfo::Init(int point_id)
+{
+    if(not pr_init) {
+        pr_init = true;
+        rem.Load(retBP, point_id);
     }
 }
 
@@ -1600,6 +1612,11 @@ string TPrnTagStore::PLACE_ARV(TFieldParams fp)
 string TPrnTagStore::PLACE_DEP(TFieldParams fp)
 {
     return cut_place(AIRP_DEP(fp), CITY_DEP_NAME(fp), fp.len);
+}
+
+string TPrnTagStore::REM(TFieldParams fp)
+{
+    return GetRemarkStr(remInfo.rem, pax_id, " ");
 }
 
 string TPrnTagStore::REG_NO(TFieldParams fp)
