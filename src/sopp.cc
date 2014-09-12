@@ -5811,8 +5811,8 @@ void set_trip_sets(const TAdvTripInfo &flt)
   //посадочные талоны
   InsQry.Clear();
   InsQry.SQLText=
-    "INSERT INTO trip_bp(point_id, class, bp_type) "
-    "VALUES(:point_id, :class, :bp_type) ";
+    "INSERT INTO trip_bp(point_id, class, bp_type, id) "
+    "VALUES(:point_id, :class, :bp_type, id__seq.nextval) ";
   InsQry.CreateVariable("point_id", otInteger, flt.point_id);
   InsQry.DeclareVariable("class", otString);
   InsQry.DeclareVariable("bp_type", otString);
@@ -6339,8 +6339,8 @@ void set_flight_sets(int point_id, int f, int c, int y)
   TQuery InsQry(&OraSession);
   InsQry.Clear();
   InsQry.SQLText=
-    "INSERT INTO trip_ckin_client(point_id, client_type, pr_permit, pr_waitlist, pr_tckin, pr_upd_stage, desk_grp_id) "
-    "VALUES(:point_id, :client_type, :pr_permit, :pr_waitlist, :pr_tckin, :pr_upd_stage, :desk_grp_id)";
+    "INSERT INTO trip_ckin_client(point_id, client_type, pr_permit, pr_waitlist, pr_tckin, pr_upd_stage, desk_grp_id, id) "
+    "VALUES(:point_id, :client_type, :pr_permit, :pr_waitlist, :pr_tckin, :pr_upd_stage, :desk_grp_id, id__seq.nextval)";
   InsQry.CreateVariable("point_id", otInteger, point_id);
   InsQry.DeclareVariable("client_type", otString);
   InsQry.DeclareVariable("pr_permit", otInteger);

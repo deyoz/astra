@@ -178,8 +178,8 @@ void AccessInterface::Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         "  if :pr_force = 0 and sql%rowcount > 0 then "
         "    raise_application_error(-20000, 'role_assign_rights found'); "
         "  end if; "
-        "  insert into role_rights(role_id, right_id) select :dst_role, right_id from role_rights where role_id = :src_role; "
-        "  insert into role_assign_rights(role_id, right_id) select :dst_role, right_id from role_assign_rights where role_id = :src_role; "
+        "  insert into role_rights(id, role_id, right_id) select id__seq.nextval, :dst_role, right_id from role_rights where role_id = :src_role; "
+        "  insert into role_assign_rights(role_id, right_id, id) select :dst_role, right_id, id__seq.nextval from role_assign_rights where role_id = :src_role; "
         "end; ";
     Qry.CreateVariable("src_role", otInteger, src_role);
     Qry.CreateVariable("dst_role", otInteger, dst_role);
@@ -768,7 +768,7 @@ void TUserData::update_aro(bool pr_insert)
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "begin "
-            "  INSERT INTO aro_airlines(aro_id,airline) VALUES(:user_id,:airline); "
+            "  INSERT INTO aro_airlines(aro_id,airline,id) VALUES(:user_id,:airline,id__seq.nextval); "
             "  :user_id:=adm.check_user_access(:user_id,:SYS_user_id,1); "
             "  :airline:=adm.check_airline_access(:airline,:airline,:SYS_user_id,1); "
             "end; ";
@@ -822,7 +822,7 @@ void TUserData::update_aro(bool pr_insert)
         Qry.Clear();
         Qry.SQLText =
             "begin "
-            "  INSERT INTO aro_airps(aro_id,airp) VALUES(:user_id,:airp); "
+            "  INSERT INTO aro_airps(aro_id,airp,id) VALUES(:user_id,:airp,id__seq.nextval); "
             "  :user_id:=adm.check_user_access(:user_id,:SYS_user_id,1); "
             "  :airp:=adm.check_airp_access(:airp,:airp,:SYS_user_id,1); "
             "end; ";
@@ -877,7 +877,7 @@ void TUserData::update_aro(bool pr_insert)
         Qry.Clear();
         Qry.SQLText =
             "begin "
-            "  INSERT INTO user_roles(user_id,role_id) VALUES(:user_id,:role); "
+            "  INSERT INTO user_roles(user_id,role_id, id) VALUES(:user_id,:role, id__seq.nextval); "
             "  :user_id:=adm.check_user_access(:user_id,:SYS_user_id,1); "
             "  :role:=adm.check_role_access(:role,:SYS_user_id,1); "
             "end; ";

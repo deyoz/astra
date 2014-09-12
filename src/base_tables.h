@@ -470,7 +470,7 @@ class TCities: public TTIDBaseTable {
     const char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,name,name_lat, "
+        "SELECT cities.id,code,code_lat,name,name_lat, "
         "       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
         "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
@@ -481,7 +481,7 @@ class TCities: public TTIDBaseTable {
     const char *get_refresh_sql_text()
     {
       return
-      	"SELECT id,code,code_lat,name,name_lat, "
+        "SELECT cities.id,code,code_lat,name,name_lat, "
       	"       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
         "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
@@ -490,7 +490,7 @@ class TCities: public TTIDBaseTable {
       	"      cities.country=tz_regions.country(+) AND "
         "      cities.tz=tz_regions.tz(+) "
         "UNION "
-        "SELECT id,code,code_lat,name,name_lat, "
+        "SELECT cities.id,code,code_lat,name,name_lat, "
       	"       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
         "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
