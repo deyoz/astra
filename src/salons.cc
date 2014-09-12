@@ -772,9 +772,9 @@ bool TPlace::isChange( const TPlace &seat, BitSet<TCompareComps> &compare ) cons
     if ( visible != seat.visible ||
          ( visible && !CompareTariffs( seat ) ) ) {
 //!log      ProgTrace( TRACE5, "TPlace::isChange(ccTariffs), seat1(%d,%d).visible=%d, "
-//!log                 "seat2(%d,%d).visible=%d, seat1.name=%s, seat2.name=%s",
-//!log                 x, y, visible, seat.x, seat.y, seat.visible,
-//!log                 string(yname+xname).c_str(), string(seat.yname+seat.xname).c_str() );
+//!log                "seat2(%d,%d).visible=%d, seat1.name=%s, seat2.name=%s",
+//!log                x, y, visible, seat.x, seat.y, seat.visible,
+//!log                string(yname+xname).c_str(), string(seat.yname+seat.xname).c_str() );
       return true;
     }
   }
@@ -7403,7 +7403,7 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
   if ( name.find( tmp ) != string::npos ) {
     params.prms << PrmSmpl<string>("", "+") << PrmLexema("", "EVT.WEB_TARIFF") << PrmSmpl<string>("", " ");
   	ostringstream str;
-  	if ( TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) ) {
+  	if ( /*TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION )*/ true ) {
       std::map<int, TSeatTariff,classcomp> tariffs;
       places.begin()->GetTariffs( tariffs );
       if ( tariffs.find( point_id ) != tariffs.end() ) {
@@ -7421,7 +7421,7 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
   if ( name.find( tmp ) != string::npos ) {
     params.prms << PrmSmpl<string>("", "-") << PrmLexema("", "EVT.WEB_TARIFF") << PrmSmpl<string>("", " ");
   	ostringstream str;
-  	if ( TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) ) {
+  	if ( /*TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION )*/ true ) {
       std::map<int, TSeatTariff,classcomp> tariffs;
       places.begin()->GetTariffs( tariffs );
       if ( tariffs.find( point_id ) != tariffs.end() ) {

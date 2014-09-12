@@ -242,8 +242,8 @@ void WriteCompSections( int id, const vector<SALONS2::TCompSection> &CompSection
                     << PrmSmpl<int>("LastRow", i->getLastRow());//!!!ANNA ряды выводятся неправильно
     prmenum.prms << new_lexema;
     Qry.SetVariable( "name", i->name );
-    Qry.SetVariable( "first_rownum", i->getFirstRow() );
-    Qry.SetVariable( "last_rownum", i->getLastRow() );
+    Qry.SetVariable( "first_rownum", i->getFirstRow() + 1 );
+    Qry.SetVariable( "last_rownum", i->getLastRow() + 1 );
     Qry.Execute();
     empty = false;
   }
