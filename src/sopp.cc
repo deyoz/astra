@@ -6196,7 +6196,7 @@ void puttrip_stages(int point_id)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT airline, flt_no, suffix, airp, scd_out, points.pr_del "
+    "SELECT airline, flt_no, suffix, airp, scd_out, points.pr_del, "
     "       act_out, craft, trip_type "
     "FROM points, trip_types "
     "WHERE points.point_id = :point_id AND points.pr_del>=0 AND "
