@@ -1777,6 +1777,10 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         SetProp(paxNode, "pax_id", iPax->pax_id);
         SetProp(paxNode, "reg_no", (int)iPax->reg_no);
         SetProp(paxNode, "time_print", DateTimeToStr(iPax->time_print));
+        bool unbound_emd_warning=(pax_id == NoExists &&               // печать всех или только тех, у которых не подтверждена распечатка
+                                  iPax->grp_id == first_seg_grp_id && // только для пассажиров первого сегмента сквозной регистрации
+                                  CheckIn::ExistsPaxUnboundEMD(iPax->pax_id));
+        NewTextChild(paxNode, "unbound_emd_warning", (int)unbound_emd_warning, (int)false);
     }
 }
 

@@ -139,6 +139,15 @@ class TPaxASVCItem
       emd_coupon=ASTRA::NoExists;
       ssr_text.clear();
     };
+    bool operator < (const TPaxASVCItem &item) const
+    {
+      if (emd_no!=item.emd_no)
+        return emd_no<item.emd_no;
+      if (emd_coupon!=item.emd_coupon)
+        return (item.emd_coupon==ASTRA::NoExists ||
+                (emd_coupon!=ASTRA::NoExists && emd_coupon<item.emd_coupon));
+      return emd_type<item.emd_type;
+    };
     const TPaxASVCItem& toXML(xmlNodePtr node) const;
     const TPaxASVCItem& toDB(TQuery &Qry) const;
     TPaxASVCItem& fromDB(TQuery &Qry);
@@ -154,6 +163,11 @@ bool LoadCrsPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 
 void SavePaxRem(int pax_id, const std::vector<TPaxRemItem> &rems);
 void SavePaxFQT(int pax_id, const std::vector<TPaxFQTItem> &fqts);
+
+bool SyncPaxASVC(int id, bool is_grp_id);
+void GetUnboundEMD(int point_id, std::multiset<TPaxASVCItem> &asvc);
+bool ExistsUnboundEMD(int point_id);
+bool ExistsPaxUnboundEMD(int pax_id);
 
 };
 

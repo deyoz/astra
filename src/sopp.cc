@@ -2551,6 +2551,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     }
     check_brd_alarm( i->first );
     check_spec_service_alarm( i->first );
+    check_unbound_emd_alarm( i->first );
     check_TrferExists( i->first );
     check_unattached_trfer_alarm( i->first );
     check_conflict_trfer_alarm( i->first );
@@ -2856,6 +2857,22 @@ void GetBirks( int point_id, xmlNodePtr dataNode )
 	NewTextChild( node, "birks", Qry.FieldAsString( "birks" ) );
 }
 
+void GetEMD( int point_id, xmlNodePtr dataNode )
+{
+  xmlNodePtr node = NewTextChild( dataNode, "emd" );
+  std::multiset<CheckIn::TPaxASVCItem> asvc;
+  CheckIn::GetUnboundEMD(point_id, asvc);
+
+  ostringstream s;
+  for(multiset<CheckIn::TPaxASVCItem>::const_iterator i=asvc.begin(); i!=asvc.end(); ++i)
+  {
+    if (i!=asvc.begin()) s << ", ";
+    s << i->emd_no << "/" << i->emd_coupon;
+  };
+  NewTextChild( node, "count", (int)asvc.size() );
+  NewTextChild( node, "numbers", s.str());
+}
+
 void GetLuggage( int point_id, xmlNodePtr dataNode )
 {
 	xmlNodePtr node = NewTextChild( dataNode, "luggage" );
@@ -2961,6 +2978,9 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     readPaxLoad( point_id, reqNode, dataNode );
   if ( GetNode( "birks", reqNode ) ) {
   	GetBirks( point_id, dataNode );
+  }
+  if ( GetNode( "emd", reqNode ) ) {
+  	GetEMD( point_id, dataNode );
   }
   if ( GetNode( "luggage", reqNode ) ) {
   	GetLuggage( point_id, dataNode );

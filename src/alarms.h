@@ -24,6 +24,7 @@ enum TTripAlarmsType { atSalon,
                        atAPISDiffersFromBooking,
                        atAPISIncomplete,
                        atAPISManualInput,
+                       atUnboundEMD,
                        atLength };
 extern const char *TripAlarmsTypeS[];
 
@@ -55,6 +56,8 @@ void check_crew_alarms(int point_id);
 void check_crew_alarms(int point_id, const std::string& task_name, const std::string &params);
 void check_apis_alarms(int point_id);
 void check_apis_alarms(int point_id, const std::set<TTripAlarmsType> &checked_alarms);
+void check_unbound_emd_alarm( int point_id );
+void check_unbound_emd_alarm( std::set<int> &pax_ids );
 
 #endif
 

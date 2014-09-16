@@ -2,6 +2,7 @@
 #define _EVENTS_H_
 #include "astra_consts.h"
 #include "passenger.h"
+#include "baggage.h"
 #include "remarks.h"
 #include "astra_misc.h"
 #include "stat.h"
@@ -164,19 +165,39 @@ class TPaidToLogInfo
     };
 };
 
+class TPaidEMDToLogComparator
+{
+  public:
+    bool operator()(const CheckIn::TPaidBagEMDItem &item1,
+                    const CheckIn::TPaidBagEMDItem &item2)
+    {
+      if (item1.bag_type!=item2.bag_type)
+        return (item1.bag_type==ASTRA::NoExists ||
+                (item2.bag_type!=ASTRA::NoExists && item1.bag_type<item2.bag_type));
+      if (item1.emd_no!=item2.emd_no)
+        return item1.emd_no<item2.emd_no;
+      if (item1.emd_coupon!=item2.emd_coupon)
+        return (item1.emd_coupon==ASTRA::NoExists ||
+                (item2.emd_coupon!=ASTRA::NoExists && item1.emd_coupon<item2.emd_coupon));
+      return item1.weight<item2.weight;
+    };
+};
+
 class TGrpToLogInfo
 {
   public:
     int grp_id, excess;
-    std::map< TPaxToLogInfoKey, TPaxToLogInfo> pax;
-    std::map< int/*id*/, TBagToLogInfo> bag;
-    std::map< int/*bag_type*/, TPaidToLogInfo> paid;
+    std::map<TPaxToLogInfoKey, TPaxToLogInfo> pax;
+    std::map<int/*id*/, TBagToLogInfo> bag;
+    std::map<int/*bag_type*/, TPaidToLogInfo> paid;
+    std::multiset<CheckIn::TPaidBagEMDItem, TPaidEMDToLogComparator> emd;
     void clear()
     {
       grp_id=ASTRA::NoExists;
       excess=0;
       pax.clear();
       paid.clear();
+      emd.clear();
     };
     TGrpToLogInfo()
     {
