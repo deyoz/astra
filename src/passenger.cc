@@ -610,8 +610,8 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, bool without_inf_indicator)
   const char* sql1=
     "SELECT * "
     "FROM crs_pax_doc "
-    "WHERE pax_id=:pax_id AND no IS NOT NULL "
-    "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no ";
+    "WHERE pax_id=:pax_id "
+    "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no NULLS LAST";
   const char* sql2=
     "SELECT report.get_PSPT2(:pax_id) AS no FROM dual";
   QParams QryParams;
