@@ -30,7 +30,7 @@ void TCompElemTypes::Update()
   default_elem_code.clear();
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT code, name, name_lat, pr_seat, pr_del, time_create, image "
+    "SELECT code, filename, name, name_lat, pr_seat, pr_del, time_create, image "
     " FROM comp_elem_types";
   Qry.Execute();
   int len = 0;
@@ -39,6 +39,7 @@ void TCompElemTypes::Update()
     for ( ;!Qry.Eof; Qry.Next() ) {
       if ( Qry.FieldIsNULL( "pr_del" ) || Qry.FieldAsInteger( "pr_del" ) == 0 ) {
         string code = Qry.FieldAsString( "code" );
+        string filename = Qry.FieldAsString( "filename" );
         string name = Qry.FieldAsString( "name" );
         string name_lat = Qry.FieldAsString( "name_lat" );
         TDateTime time_create = Qry.FieldAsDateTime( "time_create" );
@@ -65,7 +66,8 @@ void TCompElemTypes::Update()
                                  Qry.FieldAsInteger( "pr_seat" ),
                                  is_default_element,
                                  time_create,
-                                 image );
+                                 image,
+                                 filename );
         if ( max_time_create < time_create )
           max_time_create = time_create;
         is_places.insert( make_pair( code, comp_elem ) );
@@ -152,22 +154,49 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
 
    bool sendImages = ( fabs( TCompElemTypes::Instance()->getLastUpdateDate() - NodeAsDateTime( "@lastUpdDate", reqNode ) ) > 5.0/(24.0*60.0*60.0) );
 
-   std::vector<std::string> server_elem_types;
+   std::vector<std::string> server_elem_types, server_elem_files;
    TCompElemTypes::Instance()->getElemTypes( server_elem_types );
+   for ( std::vector<std::string>::iterator icode=server_elem_types.begin();
+         icode!=server_elem_types.end(); icode++ ) {
+      TCompElemType comp_elem;
+      TCompElemTypes::Instance()->getElem( *icode, comp_elem );
+      server_elem_files.push_back( comp_elem.getFilename() );
+   }
    xmlNodePtr codeNode = GetNode( "codes", reqNode );
-   if ( codeNode && !sendImages ) {
-   	 codeNode = GetNode( "code", codeNode );
-     std::vector<std::string> client_elem_codes;
-     while ( codeNode && string((char*)codeNode->name) == "code" ) {
-     	 client_elem_codes.push_back( NodeAsString( codeNode ) );
-     	 codeNode = codeNode->next;
+   if ( codeNode != NULL ) {
+     if ( codeNode && !sendImages ) {
+   	   codeNode = GetNode( "code", codeNode );
+       std::vector<std::string> client_elem_codes;
+       while ( codeNode && string((char*)codeNode->name) == "code" ) {
+       	 client_elem_codes.push_back( NodeAsString( codeNode ) );
+     	   codeNode = codeNode->next;
+       }
+       // надо убедиться что на клиенте есть все элементы сервера
+       for ( std::vector<std::string>::iterator icode=server_elem_types.begin();
+             icode!=server_elem_types.end(); icode++ ) {
+         if ( find( client_elem_codes.begin(), client_elem_codes.end(), *icode ) == client_elem_codes.end() ) {
+           sendImages = true;
+       	   break;
+         }
+       }
      }
-     // надо убедиться что на клиенте есть все элементы сервера
-     for ( std::vector<std::string>::iterator icode=server_elem_types.begin();
-           icode!=server_elem_types.end(); icode++ ) {
-       if ( find( client_elem_codes.begin(), client_elem_codes.end(), *icode ) == client_elem_codes.end() ) {
-         sendImages = true;
-     	   break;
+   }
+   codeNode = GetNode( "files", reqNode );
+   if ( codeNode != NULL ) {
+     if ( codeNode && !sendImages ) {
+   	   codeNode = GetNode( "filename", codeNode );
+       std::vector<std::string> client_elem_files;
+       while ( codeNode && string((char*)codeNode->name) == "filename" ) {
+       	 client_elem_files.push_back( NodeAsString( codeNode ) );
+     	   codeNode = codeNode->next;
+       }
+       // надо убедиться что на клиенте есть все элементы сервера
+       for ( std::vector<std::string>::iterator icode=server_elem_files.begin();
+             icode!=server_elem_files.end(); icode++ ) {
+         if ( find( client_elem_files.begin(), client_elem_files.end(), *icode ) == client_elem_files.end() ) {
+           sendImages = true;
+       	   break;
+         }
        }
      }
    }
@@ -181,6 +210,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
      if ( TCompElemTypes::Instance()->getElem( *icode, elem_type ) ) {
        xmlNodePtr imageNode = NewTextChild( imagesNode, "image" );
        NewTextChild( imageNode, "code", elem_type.getCode() );
+       NewTextChild( imageNode, "filename", elem_type.getFilename() );
        if ( TReqInfo::Instance()->desk.lang == AstraLocale::LANG_RU )
          NewTextChild( imageNode, "name", elem_type.getName() );
        else
