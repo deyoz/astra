@@ -398,6 +398,33 @@ bool LoadPaxFQT(int pax_id, vector<TPaxFQTItem> &fqts)
   return !fqts.empty();
 };
 
+bool SyncPaxASVC(int id, bool is_grp_id)
+{
+  ostringstream sql;
+  sql <<
+    "INSERT INTO pax_asvc(pax_id, rfic, rfisc, ssr_code, service_name, emd_type, emd_no, emd_coupon) "
+    "SELECT pax.pax_id, rfic, rfisc, ssr_code, service_name, emd_type, emd_no, emd_coupon "
+    "FROM pax, crs_pax_asvc "
+    "WHERE pax.pax_id=crs_pax_asvc.pax_id AND "
+    "      rem_status='HI' AND "
+    "      rfic IS NOT NULL AND "
+    "      rfisc IS NOT NULL AND "
+    "      service_name IS NOT NULL AND "
+    "      emd_type='A' AND "
+    "      emd_no IS NOT NULL AND "
+    "      emd_coupon IS NOT NULL AND ";
+  if (is_grp_id)
+    sql <<  "      pax.grp_id=:id ";
+  else
+    sql <<  "      pax.pax_id=:id ";
+
+  QParams QryParams;
+  QryParams << QParam("id", otInteger, id);
+  TCachedQuery Qry(sql.str().c_str(), QryParams);
+  Qry.get().Execute();
+  return (Qry.get().RowsProcessed()>0);
+};
+
 bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
 {
   asvc.clear();
@@ -405,11 +432,12 @@ bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
     "SELECT * FROM pax_asvc WHERE pax_id=:pax_id";
   const char* crs_sql=
     "SELECT * FROM crs_pax_asvc "
-    "WHERE pax_id=:pax_id AND rem_status='HI' AND "
+    "WHERE pax_id=:pax_id AND "
+    "      rem_status='HI' AND "
     "      rfic IS NOT NULL AND "
     "      rfisc IS NOT NULL AND "
     "      service_name IS NOT NULL AND "
-    "      emd_type IS NOT NULL AND "
+    "      emd_type='A' AND "
     "      emd_no IS NOT NULL AND "
     "      emd_coupon IS NOT NULL ";
 
@@ -460,6 +488,87 @@ bool LoadCrsPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc)
   return LoadPaxASVC(pax_id, asvc, true);
 };
 
+void GetUnboundEMD(int id, multiset<TPaxASVCItem> &asvc, bool is_pax_id, bool only_one)
+{
+  ostringstream sql;
+  sql << "SELECT a.rfic, "
+         "       a.rfisc, "
+         "       a.ssr_code, "
+         "       a.service_name, "
+         "       a.emd_type, "
+         "       a.emd_no, "
+         "       a.emd_coupon "
+         "FROM "
+         " (SELECT pax_grp.grp_id, "
+         "         pax_asvc.rfic, "
+         "         pax_asvc.rfisc, "
+         "         pax_asvc.ssr_code, "
+         "         pax_asvc.service_name, "
+         "         pax_asvc.emd_type, "
+         "         pax_asvc.emd_no, "
+         "         pax_asvc.emd_coupon "
+         "  FROM pax_grp, pax, pax_asvc "
+         "  WHERE pax_grp.grp_id=pax.grp_id AND "
+         "        pax.pax_id=pax_asvc.pax_id AND ";
+  if (!is_pax_id)
+    sql << "        pax_grp.point_dep=:id AND ";
+  else
+    sql << "        pax.pax_id=:id AND ";
+  sql << "        pax_grp.status NOT IN ('E') AND "
+         "        pax.refuse IS NULL) a, "
+         " (SELECT pax_grp.grp_id, paid_bag_emd.emd_no, paid_bag_emd.emd_coupon ";
+  if (!is_pax_id)
+    sql << "  FROM pax_grp, paid_bag_emd "
+           "  WHERE pax_grp.grp_id=paid_bag_emd.grp_id AND "
+           "        pax_grp.point_dep=:id AND ";
+  else
+    sql << "  FROM pax_grp, paid_bag_emd, pax "
+           "  WHERE pax_grp.grp_id=paid_bag_emd.grp_id AND "
+           "        pax.grp_id=pax_grp.grp_id AND "
+           "        pax.pax_id=:id AND ";
+  sql << "        pax_grp.status NOT IN ('E')) b "
+         "WHERE a.grp_id=b.grp_id(+) AND "
+         "      a.emd_no=b.emd_no(+) AND "
+         "      a.emd_coupon=b.emd_coupon(+) AND "
+         "      b.grp_id IS NULL ";
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+	Qry.SQLText = sql.str().c_str();
+  Qry.CreateVariable( "id", otInteger, id );
+	Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TPaxASVCItem item;
+    item.fromDB(Qry);
+    std::set<ASTRA::TRcptServiceType> service_types;
+    item.rcpt_service_types(service_types);
+    if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
+        service_types.find(ASTRA::rstPaid)==service_types.end()) continue;
+    asvc.insert(item);
+    if (only_one) break;
+  };
+};
+
+void GetUnboundEMD(int point_id, multiset<TPaxASVCItem> &asvc)
+{
+  GetUnboundEMD(point_id, asvc, false, false);
+};
+
+bool ExistsUnboundEMD(int point_id)
+{
+  multiset<TPaxASVCItem> asvc;
+  GetUnboundEMD(point_id, asvc, false, true);
+  return !asvc.empty();
+};
+
+bool ExistsPaxUnboundEMD(int pax_id)
+{
+  multiset<TPaxASVCItem> asvc;
+  GetUnboundEMD(pax_id, asvc, true, true);
+  return !asvc.empty();
+};
+
 void SavePaxRem(int pax_id, const vector<TPaxRemItem> &rems)
 {
   TQuery RemQry(&OraSession);
@@ -502,7 +611,7 @@ void SavePaxFQT(int pax_id, const vector<TPaxFQTItem> &fqts)
   };
 };
 
-};
+}; //namespace CheckIn
 
 
 

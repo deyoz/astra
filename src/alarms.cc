@@ -40,7 +40,8 @@ const char *TripAlarmsTypeS[] = {
     "CREW_DIFF",
     "APIS_DIFFERS_FROM_BOOKING",
     "APIS_INCOMPLETE",
-    "APIS_MANUAL_INPUT"
+    "APIS_MANUAL_INPUT",
+    "UNBOUND_EMD"
 };
 
 TTripAlarmsType DecodeAlarmType( const string &alarm )
@@ -127,6 +128,7 @@ bool get_alarm( int point_id, TTripAlarmsType alarm_type )
         case atAPISDiffersFromBooking:
         case atAPISIncomplete:
         case atAPISManualInput:
+        case atUnboundEMD:
             break;
         default: throw Exception("get_alarm: alarm_type=%s not processed", EncodeAlarmType(alarm_type).c_str());
     };
@@ -157,6 +159,7 @@ void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
         case atAPISDiffersFromBooking:
         case atAPISIncomplete:
         case atAPISManualInput:
+        case atUnboundEMD:
             break;
         default: throw Exception("set_alarm: alarm_type=%s not processed", EncodeAlarmType(alarm_type).c_str());
     };
@@ -677,7 +680,32 @@ void check_apis_alarms(int point_id, const set<TTripAlarmsType> &checked_alarms)
 
 };
 
+void check_unbound_emd_alarm( int point_id )
+{
+  bool emd_alarm = false;
+	if ( CheckStageACT(point_id, sCloseCheckIn) )
+    emd_alarm=CheckIn::ExistsUnboundEMD(point_id);
+	set_alarm( point_id, atUnboundEMD, emd_alarm );
+};
 
+void check_unbound_emd_alarm( set<int> &pax_ids )
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pax_grp.point_dep FROM pax_grp, pax WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id";
+  Qry.DeclareVariable("pax_id", otInteger);
+  set<int> point_ids;
+  for(set<int>::const_iterator i=pax_ids.begin(); i!=pax_ids.end(); ++i)
+  {
+    Qry.SetVariable("pax_id", *i);
+    Qry.Execute();
+    if (!Qry.Eof) point_ids.insert(Qry.FieldAsInteger("point_dep"));
+  };
+
+  for(set<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
+    check_unbound_emd_alarm(*i);
+};
 
 
 

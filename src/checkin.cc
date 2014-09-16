@@ -4882,6 +4882,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             }; // end for paxs
           }; //end for k
+          CheckIn::SyncPaxASVC(grp.id, true); //синхронизируем ASVC только при первой регистрации
         }
         else
         {
@@ -5645,6 +5646,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         //вычисляем и записываем признак waitlist_alarm и brd_alarm и spec_service_alarm
         check_brd_alarm( grp.point_dep );
         check_spec_service_alarm( grp.point_dep );
+        check_unbound_emd_alarm( grp.point_dep );
         check_conflict_trfer_alarm( grp.point_dep );
         if ( first_pax_on_flight ) {
           SALONS2::setManualCompChg( grp.point_dep );

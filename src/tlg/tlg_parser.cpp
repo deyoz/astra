@@ -23,6 +23,7 @@
 #include "rozysk.h"
 #include "alarms.h"
 #include "trip_tasks.h"
+#include "remarks.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -1910,8 +1911,7 @@ bool isBlockSeatsRem(const string &rem_code)
 
 bool isNotAdditionalSeatRem(const string &rem_code)
 {
-  return rem_code=="CHKD" ||
-         rem_code=="DOCA" ||
+  return rem_code=="DOCA" ||
          rem_code=="DOCO" ||
          rem_code=="DOCS" ||
          rem_code=="PSPT" ||
@@ -1926,7 +1926,9 @@ bool isNotAdditionalSeatRem(const string &rem_code)
          rem_code=="FQTR" ||
          rem_code=="FQTV" ||
          rem_code=="FQTU" ||
-         rem_code=="FQTS";
+         rem_code=="FQTS" ||
+         rem_code=="CHKD" ||
+         rem_code=="ASVC";
 };
 
 bool isAdditionalSeat(const TPaxItem &pax)
@@ -3291,6 +3293,7 @@ bool ParseDOCSRem(TTlgParser &tlg, BASIC::TDateTime scd_local, std::string &rem_
 bool ParseDOCORem(TTlgParser &tlg, BASIC::TDateTime scd_local, std::string &rem_text, TDocoItem &doc);
 bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca);
 bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd);
+bool ParseASVCRem(TTlgParser &tlg, string &rem_text, TASVCItem &asvc);
 bool ParseOTHSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc);
 void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
                    const TDetailRemAncestor &item)
@@ -3299,7 +3302,7 @@ void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
   {
     if (paxItem.inf.size()==1)
     {
-      for(int pass=0; pass<5 ;pass++)
+      for(int pass=0; pass<6 ;pass++)
       try
       {
         switch(pass)
@@ -3309,6 +3312,7 @@ void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
           case 2: paxItem.inf.begin()->doca.push_back(dynamic_cast<const TDocaItem&>(item)); break;
           case 3: paxItem.inf.begin()->tkn.push_back(dynamic_cast<const TTKNItem&>(item)); break;
           case 4: paxItem.inf.begin()->chkd.push_back(dynamic_cast<const TCHKDItem&>(item)); break;
+          case 5: break;
           default: return;
         };
         break;
@@ -3320,7 +3324,7 @@ void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
   }
   else
   {
-    for(int pass=0; pass<5 ;pass++)
+    for(int pass=0; pass<6 ;pass++)
     try
     {
       switch(pass)
@@ -3330,6 +3334,7 @@ void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
         case 2: paxItem.doca.push_back(dynamic_cast<const TDocaItem&>(item)); break;
         case 3: paxItem.tkn.push_back(dynamic_cast<const TTKNItem&>(item)); break;
         case 4: paxItem.chkd.push_back(dynamic_cast<const TCHKDItem&>(item)); break;
+        case 5: paxItem.asvc.push_back(dynamic_cast<const TASVCItem&>(item)); break;
         default: return;
       };
       break;
@@ -3448,6 +3453,16 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               if (ParseCHKDRem(tlg,iRemItem->text,chkd))
               {
                 BindDetailRem(*iRemItem, false, *iPaxItem, chkd);
+              };
+              continue;
+            };
+
+            if (strcmp(iRemItem->code,"ASVC")==0)
+            {
+              TASVCItem asvc;
+              if (ParseASVCRem(tlg,iRemItem->text,asvc))
+              {
+                BindDetailRem(*iRemItem, false, *iPaxItem, asvc);
               };
               continue;
             };
@@ -3683,6 +3698,19 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               if (ParseCHKDRem(tlg,iRemItem->text,chkd))
               {
                 BindDetailRem(*iRemItem, true, *(ne.pax.begin()), chkd);
+              };
+            };
+            continue;
+          };
+
+          if (strcmp(iRemItem->code,"ASVC")==0)
+          {
+            if (ne.pax.size()==1)
+            {
+              TASVCItem asvc;
+              if (ParseASVCRem(tlg,iRemItem->text,asvc))
+              {
+                BindDetailRem(*iRemItem, true, *(ne.pax.begin()), asvc);
               };
             };
             continue;
@@ -4609,77 +4637,6 @@ bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocoI
   return false;
 };
 
-bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd)
-{
-  char c;
-  int res,k;
-
-  const char *p=rem_text.c_str();
-
-  chkd.Clear();
-
-  if (rem_text.empty()) return false;
-  p=tlg.GetWord(p);
-  c=0;
-  res=sscanf(tlg.lex,"%5[A-Z€-Ÿð0-9]%c",chkd.rem_code,&c);
-  if (c!=0||res!=1) return false;
-
-  if (strcmp(chkd.rem_code,"CHKD")==0)
-  {
-    for(k=0;k<=2;k++)
-    try
-    {
-      try
-      {
-        p=tlg.GetLexeme(p);
-        if (p==NULL && k>=2) break;
-        if (p==NULL) throw ETlgError("Lexeme not found");
-        if (*tlg.lex==0) continue;
-        c=0;
-        switch(k)
-        {
-          case 0:
-            res=sscanf(tlg.lex,"%2[A-Z]%1[1-3]%c",chkd.rem_status,lexh,&c);
-            if (c!=0||res!=2) throw ETlgError("Wrong format");
-            break;
-          case 1:
-            res=sscanf(tlg.lex,"%ld%c",&chkd.reg_no,&c);
-            if (c!=0||res!=1||
-                chkd.reg_no<0||chkd.reg_no>9999) throw ETlgError("Wrong format");
-            break;
-          case 2:
-            res=sscanf(tlg.lex,"%1[I]%c",lexh,&c);
-            if (c!=0||res!=1||strcmp(lexh,"I")!=0) throw ETlgError("Wrong format");
-            chkd.pr_inf=true;
-            break;
-        }
-      }
-      catch(exception &E)
-      {
-        switch(k)
-        {
-          case 0:
-            *chkd.rem_status=0;
-            throw ETlgError("action/status code: %s",E.what());
-          case 1:
-            chkd.reg_no=NoExists;
-            throw ETlgError("sequence number: %s",E.what());
-          case 2:
-            chkd.pr_inf=false;
-            throw ETlgError("infant indicator: %s",E.what());
-        };
-      };
-    }
-    catch(ETlgError &E)
-    {
-      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",chkd.rem_code,E.what(),rem_text.c_str());
-    };
-    return true;
-  };
-
-  return false;
-};
-
 bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca)
 {
   char c;
@@ -4800,6 +4757,181 @@ bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca)
     catch(ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doca.rem_code,E.what(),rem_text.c_str());
+    };
+    return true;
+  };
+
+  return false;
+};
+
+bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd)
+{
+  char c;
+  int res,k;
+
+  const char *p=rem_text.c_str();
+
+  chkd.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-Z€-Ÿð0-9]%c",chkd.rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(chkd.rem_code,"CHKD")==0)
+  {
+    for(k=0;k<=2;k++)
+    try
+    {
+      try
+      {
+        p=tlg.GetLexeme(p);
+        if (p==NULL && k>=2) break;
+        if (p==NULL) throw ETlgError("Lexeme not found");
+        if (*tlg.lex==0) continue;
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1-3]%c",chkd.rem_status,lexh,&c);
+            if (c!=0||res!=2) throw ETlgError("Wrong format");
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"%ld%c",&chkd.reg_no,&c);
+            if (c!=0||res!=1||
+                chkd.reg_no<0||chkd.reg_no>9999) throw ETlgError("Wrong format");
+            break;
+          case 2:
+            res=sscanf(tlg.lex,"%1[I]%c",lexh,&c);
+            if (c!=0||res!=1||strcmp(lexh,"I")!=0) throw ETlgError("Wrong format");
+            chkd.pr_inf=true;
+            break;
+        }
+      }
+      catch(exception &E)
+      {
+        switch(k)
+        {
+          case 0:
+            *chkd.rem_status=0;
+            throw ETlgError("action/status code: %s",E.what());
+          case 1:
+            chkd.reg_no=NoExists;
+            throw ETlgError("sequence number: %s",E.what());
+          case 2:
+            chkd.pr_inf=false;
+            throw ETlgError("infant indicator: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",chkd.rem_code,E.what(),rem_text.c_str());
+    };
+    return true;
+  };
+
+  return false;
+};
+
+bool ParseASVCRem(TTlgParser &tlg, string &rem_text, TASVCItem &asvc)
+{
+  char c;
+  int res,k;
+
+  const char *p=rem_text.c_str();
+
+  asvc.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-Z€-Ÿð0-9]%c",asvc.rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(asvc.rem_code,"ASVC")==0)
+  {
+    for(k=0;k<=6;k++)
+    try
+    {
+      try
+      {
+        if (k==0)
+          p=tlg.GetLexeme(p);
+        else
+          p=tlg.GetSlashedLexeme(p);
+        if (p==NULL) throw ETlgError("Lexeme not found");
+        if (*tlg.lex==0) continue;
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1]%c",asvc.rem_status,lexh,&c);
+            if (c!=0||res!=2) throw ETlgError("Wrong format");
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"%1[A-Z€-Ÿð0-9]%c",asvc.RFIC,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            break;
+          case 2:
+            res=sscanf(tlg.lex,"%15[A-Z€-Ÿð0-9]%c",asvc.RFISC,&c);
+            if (c!=0||res!=1||strlen(asvc.RFISC)<3) throw ETlgError("Wrong format");
+            break;
+          case 3:
+            res=sscanf(tlg.lex,"%4[A-Z€-Ÿð]%c",asvc.ssr_code,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            break;
+          case 4:
+            res=sscanf(tlg.lex,"%30[A-Z€-Ÿð0-9 ]%c",asvc.service_name,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            break;
+          case 5:
+            res=sscanf(tlg.lex,"%1[AS]%c",asvc.emd_type,&c);
+            if (c!=0||res!=1||
+                (strcmp(asvc.emd_type,"A")!=0&&strcmp(asvc.emd_type,"S")!=0)) throw ETlgError("Wrong format");
+            break;
+          case 6:
+            res=sscanf(tlg.lex,"%13[A-Z€-Ÿð0-9]%1[C]%d%c",asvc.emd_no,lexh,&asvc.emd_coupon,&c);
+            if (c!=0||res!=3||
+                strlen(asvc.emd_no)!=13||
+                strcmp(lexh,"C")!=0||
+                asvc.emd_coupon<0||asvc.emd_coupon>9) throw ETlgError("Wrong format");
+            break;
+        }
+      }
+      catch(exception &E)
+      {
+        switch(k)
+        {
+          case 0:
+            *asvc.rem_status=0;
+            throw ETlgError("status code: %s",E.what());
+          case 1:
+            *asvc.RFIC=0;
+            throw ETlgError("reason for issuance code: %s",E.what());
+          case 2:
+            *asvc.RFISC=0;
+            throw ETlgError("reason for issuance sub code: %s",E.what());
+          case 3:
+            *asvc.ssr_code=0;
+            throw ETlgError("SSR code: %s",E.what());
+          case 4:
+            *asvc.service_name=0;
+            throw ETlgError("commercial name of service: %s",E.what());
+          case 5:
+            *asvc.emd_type=0;
+            throw ETlgError("EMD type: %s",E.what());
+          case 6:
+            *asvc.emd_no=0;
+            asvc.emd_coupon=NoExists;
+            throw ETlgError("EMD number: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",asvc.rem_code,E.what(),rem_text.c_str());
     };
     return true;
   };
@@ -5803,6 +5935,44 @@ bool SaveCHKDRem(int pax_id, const vector<TCHKDItem> &chkd)
   return result;
 };
 
+void SaveASVCRem(int pax_id, const vector<TASVCItem> &asvc, bool &sync_pax_asvc)
+{
+  sync_pax_asvc=false;
+  if (asvc.empty()) return;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO crs_pax_asvc "
+    "  (pax_id,rem_status,rfic,rfisc,ssr_code,service_name,emd_type,emd_no,emd_coupon) "
+    "VALUES "
+    "  (:pax_id,:rem_status,:rfic,:rfisc,:ssr_code,:service_name,:emd_type,:emd_no,:emd_coupon) ";
+  Qry.CreateVariable("pax_id",otInteger,pax_id);
+  Qry.DeclareVariable("rem_status",otString);
+  Qry.DeclareVariable("rfic",otString);
+  Qry.DeclareVariable("rfisc",otString);
+  Qry.DeclareVariable("ssr_code",otString);
+  Qry.DeclareVariable("service_name",otString);
+  Qry.DeclareVariable("emd_type",otString);
+  Qry.DeclareVariable("emd_no",otString);
+  Qry.DeclareVariable("emd_coupon",otInteger);
+  for(vector<TASVCItem>::const_iterator i=asvc.begin();i!=asvc.end();++i)
+  {
+    if (i->Empty()) continue;
+    Qry.SetVariable("rem_status",i->rem_status);
+    Qry.SetVariable("rfic",i->RFIC);
+    Qry.SetVariable("rfisc",i->RFISC);
+    Qry.SetVariable("ssr_code",i->ssr_code);
+    Qry.SetVariable("service_name",i->service_name);
+    Qry.SetVariable("emd_type",i->emd_type);
+    Qry.SetVariable("emd_no",i->emd_no);
+    i->emd_coupon!=NoExists?Qry.SetVariable("emd_coupon",i->emd_coupon):
+                            Qry.SetVariable("emd_coupon",FNull);
+    Qry.Execute();
+  };
+
+  sync_pax_asvc=CheckIn::SyncPaxASVC(pax_id, false);
+};
+
 void SaveFQTRem(int pax_id, vector<TFQTItem> &fqt)
 {
   if (fqt.empty()) return;
@@ -6398,6 +6568,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         bool pr_sync_pnr;
         bool UsePriorContext=false;
         TPointIdsForCheck point_ids_spp;
+        set<int> emd_alarm_pax_ids;
         bool chkd_exists=false;
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
         {
@@ -6640,6 +6811,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "    DELETE FROM crs_pax_tkn WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_fqt WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_chkd WHERE pax_id=curRow.inf_id; "
+                    "    DELETE FROM crs_pax_asvc WHERE pax_id=curRow.inf_id; "
+                    "    DELETE FROM pax_asvc WHERE pax_id=curRow.inf_id; "
+                    "    :sync_pax_asvc_rows:=:sync_pax_asvc_rows+SQL%ROWCOUNT; "
                     "    DELETE FROM crs_pax_refuse WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax WHERE pax_id=curRow.inf_id; "
                     "  END LOOP; "
@@ -6650,9 +6824,14 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "  DELETE FROM crs_pax_tkn WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_fqt WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_chkd WHERE pax_id=:pax_id; "
+                    "  DELETE FROM crs_pax_asvc WHERE pax_id=:pax_id; "
+                    "  DELETE FROM pax_asvc WHERE pax_id=:pax_id; "
+                    "  :sync_pax_asvc_rows:=:sync_pax_asvc_rows+SQL%ROWCOUNT; "
                     "END;";
-                  Qry.CreateVariable("pax_id",otInteger,pax_id);
+                  Qry.CreateVariable("pax_id", otInteger, pax_id);
+                  Qry.CreateVariable("sync_pax_asvc_rows", otInteger, 0);
                   Qry.Execute();
+                  if (Qry.GetVariableAsInteger("sync_pax_asvc_rows")>0) emd_alarm_pax_ids.insert(pax_id);
                   
                   DeleteTlgSeatRanges(cltPNLCkin, pax_id, tid, point_ids_spp);
                   DeleteTlgSeatRanges(cltPNLBeforePay, pax_id, tid, point_ids_spp);
@@ -6702,6 +6881,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   SaveTKNRem(pax_id,iPaxItem->tkn);
                   SaveFQTRem(pax_id,iPaxItem->fqt);
                   if (SaveCHKDRem(pax_id,iPaxItem->chkd)) chkd_exists=true;
+                  bool sync_pax_asvc;
+                  SaveASVCRem(pax_id,iPaxItem->asvc,sync_pax_asvc);
+                  if (sync_pax_asvc) emd_alarm_pax_ids.insert(pax_id);
                   //à §¬¥âª  á«®¥¢
                   InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,iPaxItem->seatRanges,
                                       pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);
@@ -6808,6 +6990,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           };//for(iPnrItem=iTotals->pnr.begin()
         };
         check_layer_change(point_ids_spp);
+        check_unbound_emd_alarm(emd_alarm_pax_ids);
         if (!isPRL && chkd_exists)
         {
           Qry.Clear();
