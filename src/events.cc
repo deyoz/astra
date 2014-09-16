@@ -288,8 +288,7 @@ void TPaxToLogInfo::getNorm(PrmEnum& param) const
     std::ostringstream msg;
     if (n!=norms.begin()) param.prms << PrmSmpl<string>("", ", ");
     if (n->first!=-1) {
-      param.prms << PrmElem<int>("", etBagType, n->first, efmtNameLong);
-      msg << "(" << setw(2) << setfill('0') << n->first << ")" << ": ";
+      msg << setw(2) << setfill('0') << n->first << ": ";
       param.prms << PrmSmpl<string>("", msg.str());
     }
     n->second.GetNorms(param);
@@ -900,15 +899,14 @@ void SaveGrpToLog(int point_id,
       if (i->second.empty()) continue;
 
       PrmEnum prmenum("bag", ", ");
-      ostringstream msg;
       for(map< int/*id*/, TBagToLogInfo>::const_iterator j=i->second.begin();
                                                          j!=i->second.end(); ++j)
       {
         ostringstream msg;
         if (j->second.bag_type!=ASTRA::NoExists)
           msg << setw(2) << setfill('0') << j->second.bag_type << ":";
-          msg << j->second.amount << "/" << j->second.weight;
-          prmenum.prms << PrmSmpl<std::string>("", msg.str());
+        msg << j->second.amount << "/" << j->second.weight;
+        prmenum.prms << PrmSmpl<std::string>("", msg.str());
       };
 
       if (pass==0)
