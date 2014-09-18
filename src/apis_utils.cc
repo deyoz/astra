@@ -212,7 +212,6 @@ bool CheckLetDigSpace(const string &str, const TCheckDocTknInfo &checkDocInfo, s
 bool CheckLetSpaceDash(const string &str, const TCheckDocTknInfo &checkDocInfo, string::size_type &errorIdx)
 {
   errorIdx=0;
-  ProgTrace(TRACE5, "checkDocInfo.not_apis %d", checkDocInfo.not_apis);
   for(string::const_iterator i=str.begin(); i!=str.end(); ++i, errorIdx++)
     if (!(( !checkDocInfo.is_inter || IsAscii7(*i) ) &&
           ( IsUpperLetter(*i) || *i==' ' || *i=='-' || (checkDocInfo.not_apis && *i=='.'))
@@ -225,7 +224,6 @@ bool CheckLetSpaceDash(const string &str, const TCheckDocTknInfo &checkDocInfo, 
 bool CheckLetDigSpaceDash(const string &str, const TCheckDocTknInfo &checkDocInfo, string::size_type &errorIdx)
 {
   errorIdx=0;
-  ProgTrace(TRACE5, "checkDocInfo.not_apis %d", checkDocInfo.not_apis);
   for(string::const_iterator i=str.begin(); i!=str.end(); ++i, errorIdx++)
     if (!(( !checkDocInfo.is_inter || IsAscii7(*i) ) &&
           ( IsUpperLetter(*i) || IsDigit(*i) || *i==' ' || *i=='-' || (checkDocInfo.not_apis && (*i=='.' || *i=='/')))
@@ -273,16 +271,28 @@ void CheckDoc(const CheckIn::TPaxDocItem &doc,
     throw UserException("MSG.CHECK_DOC.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "document/expiry_date" ));
 
   if (!CheckLetDigSpace(doc.no, checkDocInfo, errorIdx))
+  {
+    ProgTrace(TRACE5, ">>>> document/no: %s", doc.no.c_str());
     throw UserException("MSG.CHECK_DOC.INVALID_NO", LParams()<<LParam("fieldname", "document/no" ));
+  };
 
   if (!CheckLetSpaceDash(doc.surname, checkDocInfo, errorIdx))
+  {
+    ProgTrace(TRACE5, ">>>> document/surname: %s", doc.surname.c_str());
     throw UserException("MSG.CHECK_DOC.INVALID_SURNAME", LParams()<<LParam("fieldname", "document/surname" ));
+  };
 
   if (!CheckLetSpaceDash(doc.first_name, checkDocInfo, errorIdx))
+  {
+    ProgTrace(TRACE5, ">>>> document/first_name: %s", doc.first_name.c_str());
     throw UserException("MSG.CHECK_DOC.INVALID_FIRST_NAME", LParams()<<LParam("fieldname", "document/first_name" ));
+  };
 
   if (!CheckLetSpaceDash(doc.second_name, checkDocInfo, errorIdx))
+  {
+    ProgTrace(TRACE5, ">>>> document/second_name: %s", doc.second_name.c_str());
     throw UserException("MSG.CHECK_DOC.INVALID_SECOND_NAME", LParams()<<LParam("fieldname", "document/second_name" ));
+  };
 }
 
 CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc)
@@ -369,13 +379,22 @@ void CheckDoco(const CheckIn::TPaxDocoItem &doc,
     throw UserException("MSG.CHECK_DOCO.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "doco/expiry_date" ));
 
   if (!CheckLetDigSpaceDash(doc.birth_place, checkDocInfo, errorIdx))
+  {
+    ProgTrace(TRACE5, ">>>> doco/birth_place: %s", doc.birth_place.c_str());
     throw UserException("MSG.CHECK_DOCO.INVALID_BIRTH_PLACE", LParams()<<LParam("fieldname", "doco/birth_place" ));
+  };
 
   if (!CheckLetDigSpace(doc.no, checkDocInfo, errorIdx))
+  {
+    ProgTrace(TRACE5, ">>>> doco/no: %s", doc.no.c_str());
     throw UserException("MSG.CHECK_DOCO.INVALID_NO", LParams()<<LParam("fieldname", "doco/no" ));
+  };
 
   if (!CheckLetDigSpaceDash(doc.issue_place, checkDocInfo, errorIdx))
+  {
+    ProgTrace(TRACE5, ">>>> doco/issue_place: %s", doc.issue_place.c_str());
     throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" ));
+  };
 }
 
 CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
@@ -424,7 +443,7 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
   };
 
   if (reqInfo->client_type == ctHTTP)
-    result.ReplaceIncorrectSymbols();
+    result.ReplacePunctSymbols();
 
   return result;
 }
@@ -434,19 +453,28 @@ void CheckDoca(const CheckIn::TPaxDocaItem &doc,
 {
     string::size_type errorIdx;
     if (!CheckLetDigSpaceDash(doc.address, checkDocInfo, errorIdx))
+    {
+        ProgTrace(TRACE5, ">>>> doca/address: %s", doc.address.c_str());
         throw UserException("MSG.CHECK_DOCA.INVALID_ADDRESS", LParams()<<LParam("fieldname", "doca/address" ));
+    };
 
-    if (!CheckLetSpaceDash(doc.city, checkDocInfo, errorIdx))
-        throw UserException("MSG.CHECK_DOCA.INVALID_SITY", LParams()<<LParam("fieldname", "doca/city" ));
+    if (!CheckLetDigSpaceDash(doc.city, checkDocInfo, errorIdx))
+    {
+        ProgTrace(TRACE5, ">>>> doca/city: %s", doc.city.c_str());
+        throw UserException("MSG.CHECK_DOCA.INVALID_CITY", LParams()<<LParam("fieldname", "doca/city" ));
+    };
 
-    if (!CheckLetSpaceDash(doc.region, checkDocInfo, errorIdx))
+    if (!CheckLetDigSpaceDash(doc.region, checkDocInfo, errorIdx))
+    {
+        ProgTrace(TRACE5, ">>>> doca/region: %s", doc.region.c_str());
         throw UserException("MSG.CHECK_DOCA.INVALID_REGION", LParams()<<LParam("fieldname", "doca/region" ));
-
-    if (!CheckLetSpaceDash(doc.region, checkDocInfo, errorIdx))
-        throw UserException("MSG.CHECK_DOCA.INVALID_REGION", LParams()<<LParam("fieldname", "doca/region" ));
+    };
 
     if (!CheckLetDigSpaceDash(doc.postal_code, checkDocInfo, errorIdx))
+    {
+        ProgTrace(TRACE5, ">>>> doca/postal_code: %s", doc.postal_code.c_str());
         throw UserException("MSG.CHECK_DOCA.INVALID_POSTAL_CODE", LParams()<<LParam("fieldname", "doca/postal_code" ));
+    };
 }
 
 CheckIn::TPaxDocaItem NormalizeDoca(const CheckIn::TPaxDocaItem &doc)
@@ -489,7 +517,26 @@ CheckIn::TPaxDocaItem NormalizeDoca(const CheckIn::TPaxDocaItem &doc)
     }
 
     if (TReqInfo::Instance()->client_type == ctHTTP)
-      result.ReplaceIncorrectSymbols();
+      result.ReplacePunctSymbols();
 
     return result;
 }
+
+namespace APIS
+{
+const char *AlarmTypeS[] = {
+    "APIS_DIFFERS_FROM_BOOKING",
+    "APIS_INCOMPLETE",
+    "APIS_MANUAL_INPUT"
+};
+
+string EncodeAlarmType(const TAlarmType alarm )
+{
+    if(alarm < 0 or alarm >= atLength)
+        throw EXCEPTIONS::Exception("InboundTrfer::EncodeAlarmType: wrong alarm type %d", alarm);
+    return AlarmTypeS[ alarm ];
+};
+
+}; //namespace APIS
+
+

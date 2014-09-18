@@ -4688,7 +4688,7 @@ bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca)
             break;
           case 3:
           case 6:
-            res=sscanf(tlg.lex,"%[A-Z€-Ÿð0-9 -]%c",lexh,&c);
+            res=sscanf(tlg.lex,"%[A-Z€-Ÿð0-9 -]%c",lexh,&c);   //¬®¦­® ®¡ê¥¤¨­¨âì á 4 ¨ 5
             if (c!=0||res!=1) throw ETlgError("Wrong format");
             if (k==3)
             {
@@ -4703,7 +4703,7 @@ bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca)
             break;
           case 4:
           case 5:
-            res=sscanf(tlg.lex,"%[A-Z€-Ÿð -]%c",lexh,&c);
+            res=sscanf(tlg.lex,"%[A-Z€-Ÿð0-9 -]%c",lexh,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
             if (k==4)
             {
