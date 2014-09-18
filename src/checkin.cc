@@ -4042,12 +4042,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               if (pax.refuse.empty() && pax.name!="CBBG")
               {
                 CheckIn::TPaxDocaItem docaB, docaR, docaD;
-                for(list<CheckIn::TPaxDocaItem>::const_iterator d=pax.doca.begin(); d!=pax.doca.end(); ++d)
-                {
-                  if (d->type=="B") docaB=*d;
-                  if (d->type=="R") docaR=*d;
-                  if (d->type=="D") docaD=*d;
-                };
+                CheckIn::ConvertDoca(pax.doca, docaB, docaR, docaD);
+
                 if ((docaB.getNotEmptyFieldsMask()&checkDocInfo.docaB.required_fields)!=checkDocInfo.docaB.required_fields)
                   throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCA_B_INFO_NOT_SET"); //WEB
                 if ((docaR.getNotEmptyFieldsMask()&checkDocInfo.docaR.required_fields)!=checkDocInfo.docaR.required_fields)
@@ -4845,13 +4841,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
                 if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
                 {
-                  if (pax.DocaExists) CheckIn::SavePaxDoca(pax_id, pax.doca, PaxDocaQry);
+                  if (pax.DocaExists) CheckIn::SavePaxDoca(pax_id, pax.doca, PaxDocaQry, true);
                 }
                 else
                 {
                   list<CheckIn::TPaxDocaItem> doca;
                   if (LoadCrsPaxDoca(pax_id, doca))
-                    SavePaxDoca(pax_id, doca, PaxDocaQry);
+                    SavePaxDoca(pax_id, doca, PaxDocaQry, true);
                 };
 
                 if (save_trfer)
@@ -5086,7 +5082,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
                 if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
                 {
-                  if (pax.DocaExists) CheckIn::SavePaxDoca(pax.id, pax.doca, PaxDocaQry);
+                  if (pax.DocaExists) CheckIn::SavePaxDoca(pax.id, pax.doca, PaxDocaQry, false);
                 };
 
                 if (reqInfo->client_type!=ctTerm && pax.refuse==refuseAgentError) //ctPNL???

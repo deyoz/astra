@@ -281,6 +281,7 @@ void GetAPISSets( const int point_id, TAPISMap &apis_map, std::set<std::string> 
 bool CheckLetDigSpace(const std::string &str, const TCheckDocTknInfo &checkDocInfo, std::string::size_type &errorIdx);
 bool CheckLetSpaceDash(const std::string &str, const TCheckDocTknInfo &checkDocInfo, std::string::size_type &errorIdx);
 bool CheckLetDigSpaceDash(const std::string &str, const TCheckDocTknInfo &checkDocInfo, std::string::size_type &errorIdx);
+
 void CheckDoc(const CheckIn::TPaxDocItem &doc,
               const TCheckDocTknInfo &checkDocInfo,
               BASIC::TDateTime nowLocal);
@@ -292,5 +293,15 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc);
 void CheckDoca(const CheckIn::TPaxDocaItem &doc,
                const TCheckDocTknInfo &checkDocInfo);
 CheckIn::TPaxDocaItem NormalizeDoca(const CheckIn::TPaxDocaItem &doc);
+
+namespace APIS
+{
+enum TAlarmType { atDiffersFromBooking,
+                  atIncomplete,
+                  atManualInput,
+                  atLength };
+
+std::string EncodeAlarmType(const TAlarmType alarm );
+}; //namespace APIS
 
 #endif // APIS_UTILS_H

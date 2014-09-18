@@ -416,12 +416,8 @@ bool is_valid_doca_info(const TCheckDocInfo &checkDocInfo,
                         const list<CheckIn::TPaxDocaItem> &doca)
 {
   CheckIn::TPaxDocaItem docaB, docaR, docaD;
-  for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
-  {
-    if (d->type=="B") docaB=*d;
-    if (d->type=="R") docaR=*d;
-    if (d->type=="D") docaD=*d;
-  };
+  CheckIn::ConvertDoca(doca, docaB, docaR, docaD);
+
   if ((checkDocInfo.docaB.required_fields&docaB.getNotEmptyFieldsMask())!=checkDocInfo.docaB.required_fields) return false;
   if ((checkDocInfo.docaR.required_fields&docaR.getNotEmptyFieldsMask())!=checkDocInfo.docaR.required_fields) return false;
   if ((checkDocInfo.docaD.required_fields&docaD.getNotEmptyFieldsMask())!=checkDocInfo.docaD.required_fields) return false;
