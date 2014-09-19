@@ -17,6 +17,7 @@
 #include "typeb_utils.h"
 #include "term_version.h"
 #include "alarms.h"
+#include "qrys.h"
 #include "serverlib/logger.h"
 #include "serverlib/posthooks.h"
 
@@ -1055,6 +1056,59 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   AstraLocale::showMessage("MSG.TLG.SAVED");
 };
 
+void IataAddrToCanonName(const string &iata_addr, string &canon_name, string &country)
+{
+  canon_name.clear();
+  country.clear();
+
+  if (iata_addr.size()!=7)
+    throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", iata_addr));
+  for(string::const_iterator p=iata_addr.begin(); p!=iata_addr.end(); ++p)
+    if (!((IsUpperLetter(*p)&&IsAscii7(*p))||IsDigit(*p)))
+      throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", iata_addr));
+
+  QParams QryParams;
+  QryParams << QParam("addr", otString, iata_addr);
+  TCachedQuery Qry("SELECT canon_name, country FROM addrs WHERE addr=:addr", QryParams);
+  Qry.get().Execute();
+  if (!Qry.get().Eof)
+  {
+    canon_name=Qry.get().FieldAsString("canon_name");
+    country=Qry.get().FieldAsString("country");
+  }
+  else
+  {
+    Qry.get().SetVariable("addr",iata_addr.substr(0,5)); //обрезаем до 5-ти символов - а надо ли это? Де-факто не работает
+    Qry.get().Execute();
+    if (!Qry.get().Eof)
+    {
+      canon_name=Qry.get().FieldAsString("canon_name");
+      country=Qry.get().FieldAsString("country");
+    }
+    else
+    {
+      if (*(DEF_CANON_NAME())!=0)
+      {
+        canon_name=DEF_CANON_NAME();
+        country="";
+      }
+      else
+        throw AstraLocale::UserException("MSG.TLG.SITA.CANON_ADDR_UNDEFINED", LParams() << LParam("addr", iata_addr));
+    };
+  };
+};
+
+string GetOutputGateway(const string &orig_canon_name,
+                        const string &dest_canon_name)
+{
+  QParams QryParams;
+  QryParams << QParam("orig", otString, orig_canon_name)
+            << QParam("dest", otString, dest_canon_name);
+  TCachedQuery Qry("SELECT out_canon_name FROM output_gateways WHERE orig_canon_name=:orig AND dest_canon_name=:dest", QryParams);
+  Qry.get().Execute();
+  if (Qry.get().Eof) return dest_canon_name;
+  return Qry.get().FieldAsString("out_canon_name");
+};
 
 void TelegramInterface::SendTlg(int tlg_id)
 {
@@ -1089,6 +1143,9 @@ void TelegramInterface::SendTlg(int tlg_id)
                          OWN_CANON_NAME(),
                          "");
 
+    string orig_canon_name, orig_country;
+    IataAddrToCanonName(originator.addr, orig_canon_name, orig_country);
+
     string tlg_basic_type;
     try
     {
@@ -1111,10 +1168,6 @@ void TelegramInterface::SendTlg(int tlg_id)
       fltInfo.Init(Qry);
     };
 
-    Qry.Clear();
-    Qry.SQLText="SELECT canon_name, country FROM addrs WHERE addr=:addr";
-    Qry.DeclareVariable("addr",otString);
-
     string old_addrs;
     map<string, vector<TTlgStatPoint> > recvs;
     TypeB::TTlgParser parser;
@@ -1134,46 +1187,14 @@ void TelegramInterface::SendTlg(int tlg_id)
             addrs=parser.GetLexeme(line_p);
             while (addrs!=NULL)
             {
-              string canon_name,country;
-              if (strlen(parser.lex)!=7)
-                throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", parser.lex));
-              for(char *p=parser.lex;*p!=0;p++)
-                if (!((IsUpperLetter(*p)&&IsAscii7(*p))||IsDigit(*p)))
-                    throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", parser.lex));
-              char addr[8];
-              strcpy(addr,parser.lex);
-              Qry.SetVariable("addr",addr);
-              Qry.Execute();
-              if (!Qry.Eof)
-              {
-                canon_name=Qry.FieldAsString("canon_name");
-                country=Qry.FieldAsString("country");
-              }
-              else
-              {
-                addr[5]=0; //обрезаем до 5-ти символов
-                Qry.SetVariable("addr",addr);
-                Qry.Execute();
-                if (!Qry.Eof)
-                {
-                  canon_name=Qry.FieldAsString("canon_name");
-                  country=Qry.FieldAsString("country");
-                }
-                else
-                {
-                  if (*(DEF_CANON_NAME())!=0)
-                  {
-                    canon_name=DEF_CANON_NAME();
-                    country="";
-                  }
-                  else
-                    throw AstraLocale::UserException("MSG.TLG.SITA.CANON_ADDR_UNDEFINED", LParams() << LParam("addr", parser.lex));
-                };
-              };
-              recvs[canon_name].push_back(TTlgStatPoint(parser.lex,
-                                                        canon_name,
-                                                        canon_name,
-                                                        country));
+              string dest_canon_name, dest_country;
+              IataAddrToCanonName(parser.lex, dest_canon_name, dest_country);
+              string out_canon_name=GetOutputGateway(orig_canon_name, dest_canon_name);
+
+              recvs[out_canon_name].push_back(TTlgStatPoint(parser.lex,
+                                                            out_canon_name,
+                                                            out_canon_name,
+                                                            dest_country));
               addrs=parser.GetLexeme(addrs);
             };
           }
