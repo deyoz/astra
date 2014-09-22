@@ -1286,15 +1286,14 @@ void TNormItem::GetNorms(PrmEnum& prmenum) const
 {
   if (empty()) return;
 
-  prmenum.prms << PrmElem<string>("", etBagNormType, norm_type, efmtCodeNative)
-               << PrmSmpl<string>("", " ");
+  prmenum.prms << PrmElem<string>("", etBagNormType, norm_type, efmtCodeNative);
 
   if (weight!=ASTRA::NoExists)
   {
     if (amount!=ASTRA::NoExists)
-      prmenum.prms << PrmSmpl<int>("", amount) << PrmLexema("", "EVT.P") << PrmSmpl<int>("", weight);
+      prmenum.prms << PrmSmpl<string>("", " ") << PrmSmpl<int>("", amount) << PrmLexema("", "EVT.P") << PrmSmpl<int>("", weight);
     else
-      prmenum.prms << PrmSmpl<int>("", weight);
+      prmenum.prms << PrmSmpl<string>("", " ") << PrmSmpl<int>("", weight);
     if (per_unit!=ASTRA::NoExists && per_unit!=0)
       prmenum.prms << PrmLexema("", "EVT.KG_P");
     else
@@ -1303,7 +1302,7 @@ void TNormItem::GetNorms(PrmEnum& prmenum) const
   else
   {
     if (amount!=ASTRA::NoExists)
-      prmenum.prms << PrmSmpl<int>("", amount) << PrmLexema("", "EVT.P");
+      prmenum.prms << PrmSmpl<string>("", " ") << PrmSmpl<int>("", amount) << PrmLexema("", "EVT.P");
   };
 }
 

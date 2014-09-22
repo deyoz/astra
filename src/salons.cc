@@ -772,9 +772,9 @@ bool TPlace::isChange( const TPlace &seat, BitSet<TCompareComps> &compare ) cons
     if ( visible != seat.visible ||
          ( visible && !CompareTariffs( seat ) ) ) {
 //!log      ProgTrace( TRACE5, "TPlace::isChange(ccTariffs), seat1(%d,%d).visible=%d, "
-//!log                 "seat2(%d,%d).visible=%d, seat1.name=%s, seat2.name=%s",
-//!log                 x, y, visible, seat.x, seat.y, seat.visible,
-//!log                 string(yname+xname).c_str(), string(seat.yname+seat.xname).c_str() );
+//!log                "seat2(%d,%d).visible=%d, seat1.name=%s, seat2.name=%s",
+//!log                x, y, visible, seat.x, seat.y, seat.visible,
+//!log                string(yname+xname).c_str(), string(seat.yname+seat.xname).c_str() );
       return true;
     }
   }
@@ -7255,7 +7255,7 @@ void getStrSeats( const RowsRef &rows, PrmEnum &params, bool pr_lat )
 
 void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bool pr_lat )
 {
-	//!logProgTrace( TRACE5, "ReferPlacesRow: name=%s", name.c_str() );
+    //!logProgTrace( TRACE5, "ReferPlacesRow: name=%s", name.c_str() );
     string tmp;
 	if ( places.empty() )
 		return;
@@ -7319,7 +7319,7 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
   if ( name.find( tmp ) != string::npos ) {
     params.prms << PrmSmpl<string>("", "+") << PrmLexema("", "EVT.WEB_TARIFF") << PrmSmpl<string>("", " ");
   	ostringstream str;
-  	if ( TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) ) {
+  	if ( /*TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION )*/ true ) {
       std::map<int, TSeatTariff,classcomp> tariffs;
       places.begin()->GetTariffs( tariffs );
       if ( tariffs.find( point_id ) != tariffs.end() ) {
@@ -7337,7 +7337,7 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
   if ( name.find( tmp ) != string::npos ) {
     params.prms << PrmSmpl<string>("", "-") << PrmLexema("", "EVT.WEB_TARIFF") << PrmSmpl<string>("", " ");
   	ostringstream str;
-  	if ( TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) ) {
+  	if ( /*TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION )*/ true ) {
       std::map<int, TSeatTariff,classcomp> tariffs;
       places.begin()->GetTariffs( tariffs );
       if ( tariffs.find( point_id ) != tariffs.end() ) {
@@ -7601,24 +7601,24 @@ void salonChangesToText( int point_id,
   // имеем массив названий с местами и салонами
   //необходимо сортировать по салонам и действиям
   bool pr_lat;
-  // пробег по салонам
-  for ( vector<TRefPlaces>::iterator iref=vecChanges.begin(); iref!=vecChanges.end(); iref++ ) {
-  	// вначале все удаленные свойства
-  	for ( int i=0; i<=1; i++ ) {
-  		for ( int j=0; j<5; j++ ) {
-    		// пробег по изменениям
-    	  for ( map<string,TRP>::iterator im=iref->mapRef.begin(); im!=iref->mapRef.end(); im++ ) {
-    		  if ( im->second.places.empty() )
-            		continue;
-          if ( ( i == 0 && im->first.find( "DEL" ) == string::npos ) ||
+    for ( int i=0; i<=1; i++ ) {
+      for ( int j=0; j<5; j++ ) {
+        // пробег по салонам
+        for ( vector<TRefPlaces>::iterator iref=vecChanges.begin(); iref!=vecChanges.end(); iref++ ) {
+          // пробег по изменениям
+          for ( map<string,TRP>::iterator im=iref->mapRef.begin(); im!=iref->mapRef.end(); im++ ) {
+            // вначале все удаленные свойства
+            if ( im->second.places.empty() )
+                continue;
+            if ( ( i == 0 && im->first.find( "DEL" ) == string::npos ) ||
         	     ( i == 1 && im->first.find( "DEL" ) != string::npos ) )
  	        	continue;
-          if ( ( j == 0 && im->first.find( "SALON" ) == string::npos ) ||
-    	    	   ( j == 1 && im->first.find( "SEATS" ) == string::npos ) ||
-    	     	   ( j == 2 && im->first.find( "LAYERS" ) == string::npos ) ||
-    	     	   ( j == 3 && im->first.find( "REMS" ) == string::npos ) ||
-    	     	   ( j == 4 && im->first.find( "WEB_TARIFF" ) == string::npos ) )
-    	     	continue;
+            ProgTrace(TRACE5, "i=%d, j=%d", i, j);
+            if ( j == 0 && im->first.find( "SALON" ) == string::npos ) continue;
+            if ( j == 1 && im->first.find( "SEATS" ) == string::npos ) continue;
+            if ( j == 2 && im->first.find( "LAYERS" ) == string::npos ) continue;
+            if ( j == 3 && im->first.find( "REMS" ) == string::npos ) continue;
+            if ( j == 4 && im->first.find( "WEB_TARIFF" ) == string::npos ) continue;
  	        if ( i == 0 )
  	        	pr_lat = oldpr_craft_lat;
  	        else

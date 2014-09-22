@@ -816,6 +816,9 @@ void astra_timer( TDateTime utcdate )
   		int point_id = Qry.FieldAsInteger( "point_id" );
   		int stage_id = Qry.FieldAsInteger( "stage_id" );
   		string airp = Qry.FieldAsString( "airp" );
+      TFlights flightsForLock;
+      flightsForLock.Get( point_id, ftTranzit );
+      flightsForLock.Lock();
   		QExecStage.SetVariable( "point_id", point_id );
   		QExecStage.SetVariable( "stage_id", stage_id );
   	  TDateTime execTime2 = NowUTC();

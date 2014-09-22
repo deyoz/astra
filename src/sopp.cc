@@ -6213,7 +6213,7 @@ void puttrip_stages(int point_id)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT airline, flt_no, suffix, airp, scd_out, points.pr_del "
+    "SELECT airline, flt_no, suffix, airp, scd_out, points.pr_del, "
     "       act_out, craft, trip_type "
     "FROM points, trip_types "
     "WHERE points.point_id = :point_id AND points.pr_del>=0 AND "
@@ -6389,13 +6389,13 @@ void set_flight_sets(int point_id, int f, int c, int y)
     "  WHERE (airline IS NULL OR airline=:airline) AND "
     "        (flt_no IS NULL OR flt_no=:flt_no) AND "
     "        (airp_dep IS NULL OR airp_dep=:airp_dep)) ckin_client_sets "
-    "WHERE client_types.code=ckin_client_sets.client_type(+) AND code IN (:ctWeb, :ctMobile, :ctKiosk) "
+    "WHERE client_types.code=ckin_client_sets.client_type(+) AND code IN (:ctWeb, :ctKiosk) " //!!!ctMobile
     "ORDER BY client_types.code,ckin_client_sets.desk_grp_id,priority DESC ";
   Qry.CreateVariable("airline", otString, flt.airline);
   Qry.CreateVariable("flt_no", otInteger, flt.flt_no);
   Qry.CreateVariable("airp_dep", otString, flt.airp);
   Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
-  Qry.CreateVariable("ctMobile", otString, EncodeClientType(ctMobile));
+  //Qry.CreateVariable("ctMobile", otString, EncodeClientType(ctMobile)); //!!!ctMobile
   Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
   Qry.Execute();
   TClientType prev_client_type=ctTypeNum;
