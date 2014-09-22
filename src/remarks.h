@@ -152,6 +152,7 @@ class TPaxASVCItem
     const TPaxASVCItem& toDB(TQuery &Qry) const;
     TPaxASVCItem& fromDB(TQuery &Qry);
     std::string text(const std::string &rem_status) const;
+    std::string no_str() const;
     void rcpt_service_types(std::set<ASTRA::TRcptServiceType> &service_types) const;
 };
 

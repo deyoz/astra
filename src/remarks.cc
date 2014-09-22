@@ -332,6 +332,17 @@ std::string TPaxASVCItem::text(const std::string &rem_status) const
   return s.str();
 };
 
+std::string TPaxASVCItem::no_str() const
+{
+  ostringstream s;
+  s << emd_no;
+  if (emd_coupon!=ASTRA::NoExists)
+    s << "/" << emd_coupon;
+  else
+    if (emd_type=="A") s << "/?";
+  return s.str();
+};
+
 void TPaxASVCItem::rcpt_service_types(set<ASTRA::TRcptServiceType> &service_types) const
 {
   service_types.clear();
