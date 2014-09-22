@@ -2,13 +2,21 @@
 #define _ASTRA_CALLBACKS_H_
 
 #include "jxtlib/jxtlib.h"
+#include "string"
 
 class AstraJxtCallbacks : public jxtlib::JXTLibCallbacks
 {
+  private:
+    void (*fp_post_process)();
   public:
     AstraJxtCallbacks() : JXTLibCallbacks()
     {
       jxtlib::JXTLib::Instance()->SetCallbacks(this);
+      fp_post_process = NULL;
+    }
+    void SetPostProcessXMLAnswerCallback(void (*post_process_ptr)())
+    {
+        fp_post_process = post_process_ptr;
     }
     virtual void InitInterfaces();
     virtual void HandleException(ServerFramework::Exception *e);
@@ -44,6 +52,7 @@ bool BuildMsgForTermRequestDup(const std::string &pult,
 bool BuildMsgForWebRequestDup(short int client_id,
                               const std::string &body,
                               std::string &msg);
+void CheckTermResDoc();
 
 #endif /*_ASTRACALLBACKS_H_*/
 

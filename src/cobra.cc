@@ -1562,7 +1562,10 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
               if ( flight_pr_cobra && points.move_id != findMove_id )
                 throw EXCEPTIONS::Exception( "flight already exists" );
               points.move_id = findMove_id;
-              old_dests.Load( points.move_id ); //зачитаем старый маршрут
+              BitSet<TUseDestData> FUseData;
+              FUseData.clearFlags();
+              FUseData.setFlag( udStages );
+              old_dests.Load( points.move_id, FUseData ); //зачитаем старый маршрут
               ProgTrace( TRACE5, "old_dests.items.size()=%zu", old_dests.items.size() );
             }
             else {

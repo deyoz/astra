@@ -7,6 +7,8 @@
 #include "qrys.h"
 #include "exceptions.h"
 #include "jxtlib/jxt_cont.h"
+#include "web_search.h"
+#include "apis_utils.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -14,6 +16,25 @@
 
 using namespace std;
 using namespace BASIC;
+
+namespace APIS
+{
+
+char ReplacePunctSymbol(char c)
+{
+  ByteReplace(&c,1,".,:;'\"\\/",
+                   "      --");
+  return c;
+};
+
+char ReplaceDigit(char c)
+{
+  ByteReplace(&c,1,"1234567890",
+                   "----------");
+  return c;
+};
+
+}; //namespace APIS
 
 namespace CheckIn
 {
@@ -222,10 +243,10 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   no=NodeAsStringFast("no",node2,"");
   nationality=PaxDocCountryFromTerm(NodeAsStringFast("nationality",node2,""));
   if (!NodeIsNULLFast("birth_date",node2,true))
-    birth_date=NodeAsDateTimeFast("birth_date",node2);
+    birth_date = WebSearch::date_fromXML(NodeAsStringFast("birth_date",node2,""));
   gender=PaxDocGenderNormalize(NodeAsStringFast("gender",node2,""));
   if (!NodeIsNULLFast("expiry_date",node2,true))
-    expiry_date=NodeAsDateTimeFast("expiry_date",node2);
+    expiry_date = WebSearch::date_fromXML(NodeAsStringFast("expiry_date",node2,""));
   surname=NodeAsStringFast("surname",node2,"");
   first_name=NodeAsStringFast("first_name",node2,"");
   second_name=NodeAsStringFast("second_name",node2,"");
@@ -348,9 +369,9 @@ TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
   no=NodeAsStringFast("no",node2,"");
   issue_place=NodeAsStringFast("issue_place",node2,"");
   if (!NodeIsNULLFast("issue_date",node2,true))
-    issue_date=NodeAsDateTimeFast("issue_date",node2);
+    issue_date = WebSearch::date_fromXML(NodeAsStringFast("issue_date",node2,""));
   if (!NodeIsNULLFast("expiry_date",node2,true))
-    expiry_date=NodeAsDateTimeFast("expiry_date",node2);
+    expiry_date=WebSearch::date_fromXML(NodeAsStringFast("expiry_date",node2,""));
   applic_country=PaxDocCountryFromTerm(NodeAsStringFast("applic_country",node2,""));
   scanned_attrs=NodeAsIntegerFast("scanned_attrs",node2,NO_FIELDS);
   return *this;
@@ -425,6 +446,12 @@ long int TPaxDocoItem::getEqualAttrsFieldsMask(const TPaxDocoItem &item) const
   return result;
 };
 
+void TPaxDocoItem::ReplacePunctSymbols()
+{
+  transform(birth_place.begin(), birth_place.end(), birth_place.begin(), APIS::ReplacePunctSymbol);
+  transform(issue_place.begin(), issue_place.end(), issue_place.begin(), APIS::ReplacePunctSymbol);
+}
+
 const TPaxDocaItem& TPaxDocaItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -432,8 +459,23 @@ const TPaxDocaItem& TPaxDocaItem::toXML(xmlNodePtr node) const
   NewTextChild(docaNode, "type", type);
   NewTextChild(docaNode, "country", PaxDocCountryToTerm(country), "");
   NewTextChild(docaNode, "address", address, "");
-  NewTextChild(docaNode, "city", city, "");
-  NewTextChild(docaNode, "region", region, "");
+  if (TReqInfo::Instance()->client_type!=ASTRA::ctTerm ||
+      TReqInfo::Instance()->desk.compatible(APIS_CITY_REGION_VERSION))
+  {
+    NewTextChild(docaNode, "city", city, "");
+    NewTextChild(docaNode, "region", region, "");
+  }
+  else
+  {
+    string str;
+    str.clear();
+    transform(city.begin(), city.end(), back_inserter(str), APIS::ReplaceDigit);
+    NewTextChild(docaNode, "city", str, "");
+    str.clear();
+    transform(region.begin(), region.end(), back_inserter(str), APIS::ReplaceDigit);
+    NewTextChild(docaNode, "region", str, "");
+  };
+
   NewTextChild(docaNode, "postal_code", postal_code, "");
   return *this;
 };
@@ -501,6 +543,14 @@ long int TPaxDocaItem::getEqualAttrsFieldsMask(const TPaxDocaItem &item) const
   if (postal_code == item.postal_code) result|=DOCA_POSTAL_CODE_FIELD;
   return result;
 };
+
+void TPaxDocaItem::ReplacePunctSymbols()
+{
+  transform(address.begin(), address.end(), address.begin(), APIS::ReplacePunctSymbol);
+  transform(city.begin(), city.end(), city.begin(), APIS::ReplacePunctSymbol);
+  transform(region.begin(), region.end(), region.begin(), APIS::ReplacePunctSymbol);
+  transform(postal_code.begin(), postal_code.end(), postal_code.begin(), APIS::ReplacePunctSymbol);
+}
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
 {
@@ -629,6 +679,22 @@ bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc)
   PaxDocQry.get().Execute();
   if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   return !doc.empty();
+};
+
+void ConvertDoca(const list<TPaxDocaItem> &doca,
+                 TPaxDocaItem &docaB,
+                 TPaxDocaItem &docaR,
+                 TPaxDocaItem &docaD)
+{
+  docaB.clear();
+  docaR.clear();
+  docaD.clear();
+  for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
+  {
+    if (d->type=="B") docaB=*d;
+    if (d->type=="R") docaR=*d;
+    if (d->type=="D") docaD=*d;
+  };
 };
 
 bool LoadPaxDoca(int pax_id, list<TPaxDocaItem> &doca)
@@ -782,8 +848,37 @@ void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry)
   PaxDocQry.Execute();
 };
 
-void SavePaxDoca(int pax_id, const list<TPaxDocaItem> &doca, TQuery& PaxDocaQry)
+void SavePaxDoca(int pax_id, const list<TPaxDocaItem> &doca, TQuery& PaxDocaQry, bool new_checkin)
 {
+  list<TPaxDocaItem> doca2=doca;
+  if (!doca2.empty() &&
+      !(TReqInfo::Instance()->client_type!=ASTRA::ctTerm ||
+        TReqInfo::Instance()->desk.compatible(APIS_CITY_REGION_VERSION)))
+  {
+    list<TPaxDocaItem> old_doca;
+    if (new_checkin)
+      LoadCrsPaxDoca(pax_id, old_doca); //данные из бронирования
+    else
+      LoadPaxDoca(ASTRA::NoExists, pax_id, old_doca);
+
+    TPaxDocaItem old_docaB, old_docaR, old_docaD;
+    ConvertDoca(old_doca, old_docaB, old_docaR, old_docaD);
+    for(list<CheckIn::TPaxDocaItem>::iterator d=doca2.begin(); d!=doca2.end(); ++d)
+    {
+      CheckIn::TPaxDocaItem old_doca;
+      if (d->type=="B") old_doca=old_docaB;
+      if (d->type=="R") old_doca=old_docaR;
+      if (d->type=="D") old_doca=old_docaD;
+
+      string city, region;
+      transform(old_doca.city.begin(), old_doca.city.end(), back_inserter(city), APIS::ReplaceDigit);
+      transform(old_doca.region.begin(), old_doca.region.end(), back_inserter(region), APIS::ReplaceDigit);
+
+      if (d->city==city) d->city=old_doca.city;
+      if (d->region==region) d->region=old_doca.region;
+    };
+  };
+
   const char* sql=
         "BEGIN "
         "  IF :first_iteration<>0 THEN "
@@ -814,9 +909,9 @@ void SavePaxDoca(int pax_id, const list<TPaxDocaItem> &doca, TQuery& PaxDocaQry)
 
   PaxDocaQry.SetVariable("pax_id",pax_id);
   PaxDocaQry.SetVariable("first_iteration",(int)true);
-  if (!doca.empty())
+  if (!doca2.empty())
   {
-    for(list<TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
+    for(list<TPaxDocaItem>::const_iterator d=doca2.begin(); d!=doca2.end(); ++d)
     {
       d->toDB(PaxDocaQry);
       PaxDocaQry.SetVariable("only_delete",(int)d->empty());
@@ -1068,8 +1163,21 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
       if (docNode!=NULL) doc.fromXML(docNode);
       xmlNodePtr docoNode=GetNodeFast("doco",node2);
       if (docoNode!=NULL) doco.fromXML(docoNode);
+      xmlNodePtr docaNode=GetNodeFast("addresses",node2);
+      if (docaNode!=NULL)
+      {
+        for(docaNode=docaNode->children; docaNode!=NULL; docaNode=docaNode->next)
+        {
+          TPaxDocaItem docaItem;
+          docaItem.fromXML(docaNode);
+          if (docaItem.empty()) continue;
+          doca.push_back(docaItem);
+        };
+      };
+
       DocExists=(tid==ASTRA::NoExists || docNode!=NULL);
       DocoExists=(tid==ASTRA::NoExists || docoNode!=NULL);
+      DocaExists=(tid==ASTRA::NoExists || docaNode!=NULL);
     };
   };
 
@@ -1365,21 +1473,5 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
 
 }; //namespace CheckIn
 
-namespace APIS
-{
-const char *AlarmTypeS[] = {
-    "APIS_DIFFERS_FROM_BOOKING",
-    "APIS_INCOMPLETE",
-    "APIS_MANUAL_INPUT"
-};
-
-string EncodeAlarmType(const TAlarmType alarm )
-{
-    if(alarm < 0 or alarm >= atLength)
-        throw EXCEPTIONS::Exception("InboundTrfer::EncodeAlarmType: wrong alarm type %d", alarm);
-    return AlarmTypeS[ alarm ];
-};
-
-}; //namespace APIS
 
 

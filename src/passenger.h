@@ -6,6 +6,8 @@
 #include "xml_unit.h"
 #include "baggage.h"
 
+const long int NO_FIELDS=0x0000;
+
 namespace CheckIn
 {
 
@@ -190,6 +192,7 @@ class TPaxDocoItem
     
     long int getNotEmptyFieldsMask() const;
     long int getEqualAttrsFieldsMask(const TPaxDocoItem &item) const;
+    void ReplacePunctSymbols();
 };
 
 class TPaxDocaItem
@@ -239,6 +242,7 @@ class TPaxDocaItem
 
     long int getNotEmptyFieldsMask() const;
     long int getEqualAttrsFieldsMask(const TPaxDocaItem &item) const;
+    void ReplacePunctSymbols();
 };
 
 class TPaxItem
@@ -386,6 +390,11 @@ enum TDocaType
   docaBirth
 };
 
+void ConvertDoca(const std::list<TPaxDocaItem> &doca,
+                 TPaxDocaItem &docaB,
+                 TPaxDocaItem &docaR,
+                 TPaxDocaItem &docaD);
+
 bool LoadPaxDoca(int pax_id, std::list<TPaxDocaItem> &doca);
 bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca);
 bool LoadPaxDoca(BASIC::TDateTime part_key, int pax_id, std::list<TPaxDocaItem> &doca);
@@ -397,7 +406,7 @@ bool LoadCrsPaxDoca(int pax_id, std::list<TPaxDocaItem> &doca);
 
 void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
-void SavePaxDoca(int pax_id, const std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry);
+void SavePaxDoca(int pax_id, const std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry, bool new_checkin);
 
 bool LoadPaxNorms(int pax_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms);
 bool LoadGrpNorms(int grp_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms);
@@ -405,16 +414,6 @@ void LoadNorms(xmlNodePtr node, bool pr_unaccomp);
 void SaveNorms(xmlNodePtr node, bool pr_unaccomp);
 
 }; //namespace CheckIn
-
-namespace APIS
-{
-enum TAlarmType { atDiffersFromBooking,
-                  atIncomplete,
-                  atManualInput,
-                  atLength };
-
-std::string EncodeAlarmType(const TAlarmType alarm );
-}; //namespace APIS
 
 #endif
 

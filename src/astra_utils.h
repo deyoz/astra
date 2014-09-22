@@ -255,6 +255,8 @@ class TReqInfo
 {
 	private:
 		boost::posix_time::ptime execute_time;
+        bool vtracing, vtracing_init;
+        bool tracing();
   public:
     TUser user;
     TDesk desk;
@@ -268,7 +270,9 @@ class TReqInfo
       screen.clear();
       client_type = ASTRA::ctTerm;
       duplicate = false;
-    };
+      vtracing=true;
+      vtracing_init=false;
+    }
     virtual ~TReqInfo() {}
     static TReqInfo *Instance();
     void Initialize( const std::string &city );
@@ -284,6 +288,7 @@ class TReqInfo
 
     bool CheckAirline(const std::string &airline);
     bool CheckAirp(const std::string &airp);
+    void traceToMonitor( TRACE_SIGNATURE, const char *format,  ...);
 };
 
 void MergeAccess(std::vector<std::string> &a, bool &ap,
@@ -345,7 +350,9 @@ void LexemeDataToXML(const AstraLocale::LexemaData &lexemeData, xmlNodePtr lexem
 void LexemeDataFromXML(xmlNodePtr lexemeNode, AstraLocale::LexemaData &lexemeData);
 
 void getLexemaText( LexemaData lexemaData, std::string &text, std::string &master_lexema_id, std::string lang = "" );
-} // end namespace astraLocale
+
+xmlNodePtr selectPriorityMessage(xmlNodePtr resNode, std::string& error_code, std::string& error_message);
+} // end namespace AstraLocale
 
 
 

@@ -4609,6 +4609,133 @@ bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocoI
   return false;
 };
 
+bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca)
+{
+  char c;
+  int res,k;
+
+  const char *p=rem_text.c_str();
+
+  doca.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",doca.rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(doca.rem_code,"DOCA")==0)
+  {
+    for(k=0;k<=7;k++)
+    try
+    {
+      try
+      {
+        if (k==0)
+        {
+          p=tlg.GetWord(p);       //это не соответствует стандарту, но Сирена так формирует :(
+          if (*p=='/') p++;
+        }
+        else
+          p=tlg.GetSlashedLexeme(p);
+        if (p==NULL && k>=7) break;
+        if (p==NULL) throw ETlgError("Lexeme not found");
+        if (*tlg.lex==0) continue;
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1-3]%c",doca.rem_status,lexh,&c);
+            if (c!=0||res!=2) throw ETlgError("Wrong format");
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"%1[RD]%c",doca.type,&c);
+            if (c!=0||res!=1||
+                (strcmp(doca.type,"R")!=0&&strcmp(doca.type,"D")!=0)) throw ETlgError("Wrong format");
+            break;
+          case 2:
+            res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            GetPaxDocCountry(lexh,doca.country);
+            break;
+          case 3:
+          case 6:
+            res=sscanf(tlg.lex,"%[A-ZА-ЯЁ0-9 -]%c",lexh,&c);   //можно объединить с 4 и 5
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            if (k==3)
+            {
+              doca.address=lexh;
+              if (doca.address.size()>35) throw ETlgError("Wrong format");
+            };
+            if (k==6)
+            {
+              doca.postal_code=lexh;
+              if (doca.postal_code.size()>17) throw ETlgError("Wrong format");
+            };
+            break;
+          case 4:
+          case 5:
+            res=sscanf(tlg.lex,"%[A-ZА-ЯЁ0-9 -]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            if (k==4)
+            {
+              doca.city=lexh;
+              if (doca.city.size()>35) throw ETlgError("Wrong format");
+            };
+            if (k==5)
+            {
+              doca.region=lexh;
+              if (doca.region.size()>35) throw ETlgError("Wrong format");
+            };
+            break;
+          case 7:
+            res=sscanf(tlg.lex,"%1[I]%c",lexh,&c);
+            if (c!=0||res!=1||strcmp(lexh,"I")!=0) throw ETlgError("Wrong format");
+            doca.pr_inf=true;
+            break;
+        }
+      }
+      catch(exception &E)
+      {
+        switch(k)
+        {
+          case 0:
+            *doca.rem_status=0;
+            throw ETlgError("action/status code: %s",E.what());
+          case 1:
+            *doca.type=0;
+            throw ETlgError("type of address: %s",E.what());
+          case 2:
+            *doca.country=0;
+            throw ETlgError("country: %s",E.what());
+          case 3:
+            doca.address.clear();
+            throw ETlgError("address details: %s",E.what());
+          case 4:
+            doca.city.clear();
+            throw ETlgError("city: %s",E.what());
+          case 5:
+            doca.region.clear();
+            throw ETlgError("state/province/county: %s",E.what());
+          case 6:
+            doca.postal_code.clear();
+            throw ETlgError("zip/postal code: %s",E.what());
+          case 7:
+            doca.pr_inf=false;
+            throw ETlgError("infant indicator: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doca.rem_code,E.what(),rem_text.c_str());
+    };
+    return true;
+  };
+
+  return false;
+};
+
 bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd)
 {
   char c;
@@ -4673,133 +4800,6 @@ bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd)
     catch(ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",chkd.rem_code,E.what(),rem_text.c_str());
-    };
-    return true;
-  };
-
-  return false;
-};
-
-bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca)
-{
-  char c;
-  int res,k;
-
-  const char *p=rem_text.c_str();
-
-  doca.Clear();
-
-  if (rem_text.empty()) return false;
-  p=tlg.GetWord(p);
-  c=0;
-  res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",doca.rem_code,&c);
-  if (c!=0||res!=1) return false;
-
-  if (strcmp(doca.rem_code,"DOCA")==0)
-  {
-    for(k=0;k<=7;k++)
-    try
-    {
-      try
-      {
-        if (k==0)
-        {
-          p=tlg.GetWord(p);       //это не соответствует стандарту, но Сирена так формирует :(
-          if (*p=='/') p++;
-        }
-        else
-          p=tlg.GetSlashedLexeme(p);
-        if (p==NULL && k>=7) break;
-        if (p==NULL) throw ETlgError("Lexeme not found");
-        if (*tlg.lex==0) continue;
-        c=0;
-        switch(k)
-        {
-          case 0:
-            res=sscanf(tlg.lex,"%2[A-Z]%1[1-3]%c",doca.rem_status,lexh,&c);
-            if (c!=0||res!=2) throw ETlgError("Wrong format");
-            break;
-          case 1:
-            res=sscanf(tlg.lex,"%1[RD]%c",doca.type,&c);
-            if (c!=0||res!=1||
-                (strcmp(doca.type,"R")!=0&&strcmp(doca.type,"D")!=0)) throw ETlgError("Wrong format");
-            break;
-          case 2:
-            res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",lexh,&c);
-            if (c!=0||res!=1) throw ETlgError("Wrong format");
-            GetPaxDocCountry(lexh,doca.country);
-            break;
-          case 3:
-          case 6:
-            res=sscanf(tlg.lex,"%[A-ZА-ЯЁ0-9 -]%c",lexh,&c);
-            if (c!=0||res!=1) throw ETlgError("Wrong format");
-            if (k==3)
-            {
-              doca.address=lexh;
-              if (doca.address.size()>35) throw ETlgError("Wrong format");
-            };
-            if (k==6)
-            {
-              doca.postal_code=lexh;
-              if (doca.postal_code.size()>17) throw ETlgError("Wrong format");
-            };
-            break;
-          case 4:
-          case 5:
-            res=sscanf(tlg.lex,"%[A-ZА-ЯЁ -]%c",lexh,&c);
-            if (c!=0||res!=1) throw ETlgError("Wrong format");
-            if (k==4)
-            {
-              doca.city=lexh;
-              if (doca.city.size()>35) throw ETlgError("Wrong format");
-            };
-            if (k==5)
-            {
-              doca.region=lexh;
-              if (doca.region.size()>35) throw ETlgError("Wrong format");
-            };
-            break;
-          case 7:
-            res=sscanf(tlg.lex,"%1[I]%c",lexh,&c);
-            if (c!=0||res!=1||strcmp(lexh,"I")!=0) throw ETlgError("Wrong format");
-            doca.pr_inf=true;
-            break;
-        }
-      }
-      catch(exception &E)
-      {
-        switch(k)
-        {
-          case 0:
-            *doca.rem_status=0;
-            throw ETlgError("action/status code: %s",E.what());
-          case 1:
-            *doca.type=0;
-            throw ETlgError("type of address: %s",E.what());
-          case 2:
-            *doca.country=0;
-            throw ETlgError("country: %s",E.what());
-          case 3:
-            doca.address.clear();
-            throw ETlgError("address details: %s",E.what());
-          case 4:
-            doca.city.clear();
-            throw ETlgError("city: %s",E.what());
-          case 5:
-            doca.region.clear();
-            throw ETlgError("state/province/county: %s",E.what());
-          case 6:
-            doca.postal_code.clear();
-            throw ETlgError("zip/postal code: %s",E.what());
-          case 7:
-            doca.pr_inf=false;
-            throw ETlgError("infant indicator: %s",E.what());
-        };
-      };
-    }
-    catch(ETlgError &E)
-    {
-      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doca.rem_code,E.what(),rem_text.c_str());
     };
     return true;
   };

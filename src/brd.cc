@@ -621,12 +621,7 @@ void GetAPISAlarms(bool isCBBG,
   if (isCBBG) return;
 
   CheckIn::TPaxDocaItem docaB, docaR, docaD;
-  for(list<CheckIn::TPaxDocaItem>::const_iterator d=apis.doca.begin(); d!=apis.doca.end(); ++d)
-  {
-    if (d->type=="B") docaB=*d;
-    if (d->type=="R") docaR=*d;
-    if (d->type=="D") docaD=*d;
-  };
+  CheckIn::ConvertDoca(apis.doca, docaB, docaR, docaD);
 
   if (required_alarms.find(APIS::atDiffersFromBooking)!=required_alarms.end() && crs_pax_id!=NoExists)
   {
@@ -644,12 +639,8 @@ void GetAPISAlarms(bool isCBBG,
       {
         LoadCrsPaxDoca(crs_pax_id, crs_apis.doca);
         CheckIn::TPaxDocaItem crs_docaB, crs_docaR, crs_docaD;
-        for(list<CheckIn::TPaxDocaItem>::const_iterator d=crs_apis.doca.begin(); d!=crs_apis.doca.end(); ++d)
-        {
-          if (d->type=="B") crs_docaB=*d;
-          if (d->type=="R") crs_docaR=*d;
-          if (d->type=="D") crs_docaD=*d;
-        };
+        CheckIn::ConvertDoca(crs_apis.doca, crs_docaB, crs_docaR, crs_docaD);
+
         if ((crs_docaB.getEqualAttrsFieldsMask(docaB) & crs_docaB.getNotEmptyFieldsMask()) != crs_docaB.getNotEmptyFieldsMask() ||
             (crs_docaR.getEqualAttrsFieldsMask(docaR) & crs_docaR.getNotEmptyFieldsMask()) != crs_docaR.getNotEmptyFieldsMask() ||
             (crs_docaD.getEqualAttrsFieldsMask(docaD) & crs_docaD.getNotEmptyFieldsMask()) != crs_docaD.getNotEmptyFieldsMask())
@@ -786,7 +777,7 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
       if (docaItem.empty()) continue;
       apis.doca.push_back(docaItem);
     };
-    SavePaxDoca(pax_id, apis.doca, Qry);
+    SavePaxDoca(pax_id, apis.doca, Qry, false);
   };
 
   if (apis_control)

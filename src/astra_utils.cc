@@ -15,6 +15,7 @@
 #include "serverlib/monitor_ctl.h"
 #include "serverlib/sirena_queue.h"
 #include "serverlib/testmode.h"
+#include "serverlib/lwriter.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_cont.h"
 #include "jxtlib/xml_stuff.h"
@@ -269,8 +270,8 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   Qry.CreateVariable( "user_id", otInteger, user.user_id );
   Qry.Execute();
   if ( (!Qry.Eof && !InitData.pr_web) ||
-  	    (Qry.Eof && InitData.pr_web) ) //???
-    	throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
+        (Qry.Eof && InitData.pr_web) ) //???
+        throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
 
   if ( InitData.pr_web )
   	client_type = DecodeClientType( Qry.FieldAsString( "client_type" ) );
@@ -452,6 +453,31 @@ bool TReqInfo::CheckAirp(const string &airp)
                 user.access.airps.end(),airp)==user.access.airps.end();
   };
 };
+
+bool TReqInfo::tracing()
+{
+  if (vtracing_init) return vtracing;
+  vtracing_init=true;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT tracing_search FROM web_clients WHERE desk=:desk";
+  Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
+  Qry.Execute();
+  if (!Qry.Eof && !Qry.FieldIsNULL("tracing_search"))
+    vtracing=Qry.FieldAsInteger("tracing_search")!=0;
+  return vtracing;
+}
+
+void TReqInfo::traceToMonitor( TRACE_SIGNATURE, const char *format,  ...)
+{
+  va_list ap;
+  va_start(ap,format);
+  if (tracing())
+    write_log_message(ERROR_PARAMS, format, ap);
+   else
+    write_log_message(TRACE_PARAMS, format, ap);
+  va_end(ap);
+}
 
 void MergeAccess(vector<string> &a, bool &ap,
                  vector<string> b, bool bp)
@@ -1101,6 +1127,81 @@ void LexemeDataFromXML(xmlNodePtr lexemeNode, LexemaData &lexemeData)
   {
     lexemeData.lparams << LParam((const char*)node->name, NodeAsString(node));
   };
+};
+
+xmlNodePtr selectPriorityMessage(xmlNodePtr resNode, std::string& error_code, std::string& error_message)
+{
+  // если есть тег <error> || <checkin_user_error> || <user_error>, то все остальное удаляем их из xml дерева
+  xmlNodePtr errNode=NULL;
+  int errPriority=ASTRA::NoExists;
+  for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
+  {
+    if (strcmp((const char*)node->name,"command")==0)
+    {
+      for(xmlNodePtr cmdNode=node->children; cmdNode!=NULL; cmdNode=cmdNode->next)
+      {
+        int priority=ASTRA::NoExists;
+        if (strcmp((const char*)cmdNode->name,"error")==0) priority=1;
+        if (strcmp((const char*)cmdNode->name,"checkin_user_error")==0) priority=2;
+        if (strcmp((const char*)cmdNode->name,"user_error")==0) priority=3;
+        if (priority!=ASTRA::NoExists &&
+          (errPriority==ASTRA::NoExists || priority<errPriority))
+        {
+          errNode=cmdNode;
+          errPriority = priority;
+        };
+      };
+    };
+  };
+
+  if (errNode!=NULL)
+  {
+    if (strcmp((const char*)errNode->name,"error")==0 ||
+        strcmp((const char*)errNode->name,"user_error")==0)
+    {
+      error_message = NodeAsString(errNode);
+      error_code = NodeAsString( "@lexema_id", errNode, "" );
+    };
+    if (strcmp((const char*)errNode->name,"checkin_user_error")==0)
+    {
+      xmlNodePtr segNode=NodeAsNode("segments",errNode)->children;
+      for(;segNode!=NULL; segNode=segNode->next)
+      {
+        if (GetNode("error_code",segNode)!=NULL)
+        {
+          error_message = NodeAsString("error_message", segNode, "");
+          error_code = NodeAsString("error_code", segNode);
+          break;
+        };
+        xmlNodePtr paxNode=NodeAsNode("passengers",segNode)->children;
+        for(;paxNode!=NULL; paxNode=paxNode->next)
+        {
+          if (GetNode("error_code",paxNode)!=NULL)
+          {
+            error_message = NodeAsString("error_message", paxNode, "");
+            error_code = NodeAsString("error_code", paxNode);
+            break;
+          };
+        };
+        if (paxNode!=NULL) break;
+      };
+    };
+    //отцепляем
+    xmlUnlinkNode(errNode);
+  };
+
+  for(xmlNodePtr node=resNode->children; node!=NULL;)
+  {
+      //отцепляем и удаляем либо все, либо <command> внутри <answer>
+    xmlNodePtr node2=node->next;
+    if (errNode!=NULL || strcmp((const char*)node->name,"command")==0)
+    {
+      xmlUnlinkNode(node);
+      xmlFreeNode(node);
+    };
+    node=node2;
+  };
+  return errNode;
 };
 
 } // end namespace AstraLocale

@@ -33,9 +33,6 @@
 #include "typeb_utils.h"
 #include "misc.h"
 #include "apis.h"
-#include "serverlib/posthooks.h"
-
-
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -2555,6 +2552,3 @@ int mobile_stat(int argc,char **argv)
 
   return 0;
 };
-
-
-
