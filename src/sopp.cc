@@ -2867,7 +2867,7 @@ void GetEMD( int point_id, xmlNodePtr dataNode )
   for(multiset<CheckIn::TPaxASVCItem>::const_iterator i=asvc.begin(); i!=asvc.end(); ++i)
   {
     if (i!=asvc.begin()) s << ", ";
-    s << i->emd_no << "/" << i->emd_coupon;
+    s << i->no_str();
   };
   NewTextChild( node, "count", (int)asvc.size() );
   NewTextChild( node, "numbers", s.str());
