@@ -9,6 +9,7 @@
 #include "astra_misc.h"
 #include "dev_utils.h"
 #include "payment.h"
+#include "remarks.h"
 
 const std::string FT_M61 = "M61"; // form type
 const std::string FT_298_451 = "298 451";
@@ -58,6 +59,7 @@ namespace TAG {
     const std::string PLACE_ARV = "PLACE_ARV";
     const std::string PLACE_DEP = "PLACE_DEP";
     const std::string REG_NO = "REG_NO";
+    const std::string REM = "REM";
     const std::string RK_AMOUNT = "RK_AMOUNT";
     const std::string RK_WEIGHT = "RK_WEIGHT";
     const std::string RSTATION = "RSTATION";
@@ -339,6 +341,14 @@ class TPrnTagStore {
         };
         TBrdInfo brdInfo;
 
+        struct TRemInfo {
+            bool pr_init;
+            TRemGrp rem;
+            TRemInfo(): pr_init(false) {}
+            void Init(int point_id);
+        };
+        TRemInfo remInfo;
+
         struct TPnrInfo {
             bool pr_init;
             std::string airline;
@@ -422,6 +432,7 @@ class TPrnTagStore {
         std::string PLACE_ARV(TFieldParams fp);
         std::string PLACE_DEP(TFieldParams fp);
         std::string REG_NO(TFieldParams fp);
+        std::string REM(TFieldParams fp);
         std::string RK_AMOUNT(TFieldParams fp);
         std::string RK_WEIGHT(TFieldParams fp);
         std::string RSTATION(TFieldParams fp);

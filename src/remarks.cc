@@ -77,6 +77,9 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
     Clear();
     string event_type;
     switch(rem_set_type) {
+        case retBP:
+            event_type = "BP";
+            break;
         case retALARM_SS:
             event_type = "ALARM_SS";
             break;
