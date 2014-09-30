@@ -68,23 +68,26 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     };
     
     xmlNodePtr logNode = NewTextChild(resNode, "events_log");
-    
+
+    if(part_key != NoExists && ARX_EVENTS_DISABLED())
+        throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
+
     if (move_id != NoExists || !eventTypes.empty())
     {
       Qry.Clear();
       ostringstream sql;
       if (move_id != NoExists)
       {
-        sql << "SELECT type, msg, time, id2 AS point_id, \n"
+        sql << "SELECT msg, time, id2 AS point_id, \n"
                "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, \n"
                "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, \n"
-               "       ev_user, station, ev_order \n";
+               "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num \n";
         if (part_key != NoExists)
           sql << "FROM arx_events \n"
-                 "WHERE part_key=:part_key AND \n";
+                 "WHERE part_key=:part_key AND (lang=:lang OR lang=:lang_undef) AND \n";
         else
-          sql << "FROM events \n" //!!!anna
-                 "WHERE \n";
+          sql << "FROM events_bilingual \n"
+                 "WHERE lang=:lang AND \n";
         sql << " type=:evtDisp AND id1=:move_id \n";
         Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
         Qry.CreateVariable("move_id",otInteger,move_id);
@@ -94,43 +97,60 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       
       if (!eventTypes.empty())
       {
-        sql << "SELECT type, msg, time, id1 AS point_id, \n"
+        sql << "SELECT msg, time, id1 AS point_id, \n"
                "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, \n"
                "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, \n"
-               "       ev_user, station, ev_order \n";
+               "       ev_user, station, ev_order, NVL(part_num, 1) AS part_num \n";
         if (part_key != NoExists)
           sql << "FROM arx_events \n"
-                 "WHERE part_key=:part_key AND \n";
+                 "WHERE part_key=:part_key AND (lang=:lang OR lang=:lang_undef) AND \n";
         else
-          sql << "FROM events \n" //!!!anna
-                 "WHERE \n";
+          sql << "FROM events_bilingual \n"
+                 "WHERE lang=:lang AND \n";
         sql << " type IN " << GetSQLEnum(eventTypes) << " AND id1=:point_id \n";
         Qry.CreateVariable("point_id",otInteger,point_id);
       };
+      Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
       Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
       Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
-      if (part_key != NoExists)
+      if (part_key != NoExists) {
         Qry.CreateVariable( "part_key", otDate, part_key );
+        Qry.CreateVariable("lang_undef", otString, "ZZ");
+      }
 
       //ProgTrace(TRACE5, "GetEvents: SQL=\n%s", sql.str().c_str());
       Qry.SQLText=sql.str().c_str();
       Qry.Execute();
 
-      for(;!Qry.Eof;Qry.Next())
+      if (!Qry.Eof)
       {
-        xmlNodePtr rowNode=NewTextChild(logNode,"row");
-        NewTextChild(rowNode,"point_id",Qry.FieldAsInteger("point_id"));
-        NewTextChild(rowNode,"ev_user",Qry.FieldAsString("ev_user"));
-        NewTextChild(rowNode,"station",Qry.FieldAsString("station"));
+        int col_msg=Qry.FieldIndex("msg");
+        int col_time=Qry.FieldIndex("time");
+        int col_point_id=Qry.FieldIndex("point_id");
+        int col_reg_no=Qry.FieldIndex("reg_no");
+        int col_grp_id=Qry.FieldIndex("grp_id");
+        int col_ev_user=Qry.FieldIndex("ev_user");
+        int col_station=Qry.FieldIndex("station");
+        int col_ev_order=Qry.FieldIndex("ev_order");
+        int col_part_num=Qry.FieldIndex("part_num");
 
-        TDateTime time = UTCToClient(Qry.FieldAsDateTime("time"),reqInfo->desk.tz_region);
+        for(;!Qry.Eof;Qry.Next())
+        {
+          xmlNodePtr rowNode=NewTextChild(logNode,"row");
+          NewTextChild(rowNode,"point_id",Qry.FieldAsInteger(col_point_id));
+          NewTextChild(rowNode,"ev_user",Qry.FieldAsString(col_ev_user));
+          NewTextChild(rowNode,"station",Qry.FieldAsString(col_station));
 
-        NewTextChild(rowNode,"time",DateTimeToStr(time));
-        NewTextChild(rowNode,"fmt_time",DateTimeToStr(time, "dd.mm.yy hh:nn"));
-        NewTextChild(rowNode,"grp_id",Qry.FieldAsInteger("grp_id"),-1);
-        NewTextChild(rowNode,"reg_no",Qry.FieldAsInteger("reg_no"),-1);
-        NewTextChild(rowNode,"msg",Qry.FieldAsString("msg"));
-        NewTextChild(rowNode,"ev_order",Qry.FieldAsInteger("ev_order"));
+          TDateTime time = UTCToClient(Qry.FieldAsDateTime(col_time),reqInfo->desk.tz_region);
+
+          NewTextChild(rowNode,"time",DateTimeToStr(time));
+          NewTextChild(rowNode,"fmt_time",DateTimeToStr(time, "dd.mm.yy hh:nn"));
+          NewTextChild(rowNode,"grp_id",Qry.FieldAsInteger(col_grp_id),-1);
+          NewTextChild(rowNode,"reg_no",Qry.FieldAsInteger(col_reg_no),-1);
+          NewTextChild(rowNode,"msg",Qry.FieldAsString(col_msg));
+          NewTextChild(rowNode,"ev_order",Qry.FieldAsInteger(col_ev_order));
+          NewTextChild(rowNode,"part_num",Qry.FieldAsInteger(col_part_num),1);
+        };
       };
     };
     logNode = NewTextChild(resNode, "form_data");

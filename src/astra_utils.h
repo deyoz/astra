@@ -277,8 +277,6 @@ class TReqInfo
     static TReqInfo *Instance();
     void Initialize( const std::string &city );
     void Initialize( TReqInfoInitData &InitData );
-    void MsgToLog(TLogMsg &msg);
-    void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
     void LocaleToLog(const std::string &vlexema, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
     void LocaleToLog(const std::string &vlexema, const LEvntPrms &prms, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
     void LocaleToLog(TLogLocale &msg);
@@ -403,6 +401,7 @@ const char* OWN_POINT_ADDR();
 const char* SERVER_ID();
 const bool USE_SEANCES();
 const int ARX_TRIP_DATE_RANGE();
+const int ARX_EVENTS_DISABLED();
 bool get_test_server();
 
 std::string& EOracleError2UserException(std::string& msg);

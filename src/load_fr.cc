@@ -20,12 +20,26 @@ const string FALSE_LOCALE = "0";
 
 // тест
 
-void my(const fs::path &full_path, string fname)
+void my(const fs::path &apath)
 {
-    fs::path apath = full_path / fname;
-    ifstream in(apath.native_file_string().c_str());
+    // в boost 1.43 filename возвращает string,
+    // а в boost 1.49 - объект
+    // чтобы работало с обеими версиями, использован ostringstream
+    //
+    // Причем, если передать в ostringstream посто объект filename (без c_str()),
+    // в boost 1.49 сформируется название файла с кавычками, напр. "crs.fr3",
+    // чтобы было без кавычек для обеих версий boost (crs.fr3), передаем в поток c_str()
+    ostringstream fname;
+    fname << apath.filename().c_str();
+    if(
+            not fs::is_regular_file(apath) or
+            apath.extension() != ".fr3"
+      )
+        return;
+
+    ifstream in(apath.string().c_str());
     if(!in.good())
-        throw Exception("Cannot open file %s", fname.c_str());
+        throw Exception("Cannot open file %s", fname.str().c_str());
     char c;
     streambuf *sb;
     sb = in.rdbuf();
@@ -38,15 +52,15 @@ void my(const fs::path &full_path, string fname)
 
     vector<string> tokens;
     size_t begin_pos = 0;
-    size_t dot_pos = fname.find(".");
+    size_t dot_pos = fname.str().find(".");
     while(dot_pos != string::npos) {
-        tokens.push_back(fname.substr(begin_pos, dot_pos - begin_pos));
+        tokens.push_back(fname.str().substr(begin_pos, dot_pos - begin_pos));
         begin_pos = dot_pos + 1;
-        dot_pos = fname.find(".", begin_pos);
+        dot_pos = fname.str().find(".", begin_pos);
     }
 
     if(tokens.size() > 3)
-        throw Exception("wrong file name: %s", fname.c_str());
+        throw Exception("wrong file name: %s", fname.str().c_str());
 
     string name, version;
     int locale;
@@ -80,6 +94,7 @@ void my(const fs::path &full_path, string fname)
         Qry.SQLText = "insert into fr_forms2(name, version, form, pr_locale) values(:name, :version, :form, :pr_locale)";
         Qry.Execute();
     }
+    cout << fname.str() << "  ok." << endl;
 }
 
 void load_fr_help(const char *name)
@@ -109,7 +124,9 @@ int get_fr(int argc,char **argv)
         else
             throw Exception("dir not specified");
         if ( !fs::exists( full_path ) )
-            throw Exception("path not found: %s", full_path.native_file_string().c_str());
+            throw Exception("path not found: %s", full_path.string().c_str());
+        if ( not fs::is_directory( full_path ) )
+            throw Exception("path is not directory: %s", full_path.string().c_str());
 
         TQuery Qry(&OraSession);
         Qry.SQLText = "select name, version, form, pr_locale from fr_forms2";
@@ -130,11 +147,11 @@ int get_fr(int argc,char **argv)
             string form;
             form.append(data.get(), len);
 
-            ProgTrace(TRACE5, "getting %s", fname.c_str());
+            cout << "getting " << fname.c_str() << endl;
             fs::path apath = full_path / fname;
-            ofstream out(apath.native_file_string().c_str());
+            ofstream out(apath.string().c_str());
             if(!out.good())
-                throw Exception("Cannot open file %s", apath.native_file_string().c_str());
+                throw Exception("Cannot open file %s", apath.string().c_str());
             out << form;
         }
         cout << "The templates were fetched successfully" << endl;
@@ -154,25 +171,15 @@ int load_fr(int argc,char **argv)
         else
             throw Exception("dir not specified");
         if ( !fs::exists( full_path ) )
-            throw Exception("path not found: %s", full_path.native_file_string().c_str());
+            throw Exception("path not found: %s", full_path.string().c_str());
 
         if ( fs::is_directory( full_path ) )
         {
             fs::directory_iterator end_iter;
             for ( fs::directory_iterator dir_itr( full_path ); dir_itr != end_iter; ++dir_itr )
-            {
-                if ( not fs::is_directory( *dir_itr ) )
-                {
-                    if(dir_itr->leaf().substr(dir_itr->leaf().size() - 4, 4) == ".fr3") {
-                        ProgTrace(TRACE5, "loading %s", dir_itr->leaf().c_str());
-                        my(full_path, dir_itr->leaf());
-                        cout << dir_itr->filename() << "  ok." << endl;
-                    }
-                }
-            }
+                my(dir_itr->path());
         } else {
-            my(full_path.parent_path(), full_path.filename());
-            cout << full_path.filename() << "  ok." << endl;
+            my(full_path);
         }
     } catch(Exception &E) {
         usage(argv[0], E.what());
