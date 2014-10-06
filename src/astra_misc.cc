@@ -12,8 +12,7 @@
 #include "web_main.h"
 #include "basel_aero.h"
 #include "qrys.h"
-#include "remarks.h"
-#include "baggage.h"
+#include "passenger.h"
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
@@ -1411,55 +1410,6 @@ string GetBagRcptStr(const vector<string> &rcpts)
   return result.str();
 };
 
-void GetBoundPaidBagEMD(int grp_id, list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > &emd)
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-	Qry.SQLText =
-    "SELECT paid_bag_emd.bag_type, "
-    "       paid_bag_emd.emd_no, "
-    "       paid_bag_emd.emd_coupon, "
-    "       paid_bag_emd.weight, "
-    "       'C' AS rfic, "
-    "       NULL AS rfisc, "
-    "       NULL AS ssr_code, "
-    "       NULL AS service_name, "
-    "       'A' AS emd_type "
-    "FROM paid_bag_emd "
-    "WHERE paid_bag_emd.grp_id=:grp_id";
- /*
-    "SELECT paid_bag_emd.bag_type, "
-    "       paid_bag_emd.emd_no, "
-    "       paid_bag_emd.emd_coupon, "
-    "       paid_bag_emd.weight, "
-    "       pax_asvc.rfic, "
-    "       pax_asvc.rfisc, "
-    "       pax_asvc.ssr_code, "
-    "       pax_asvc.service_name, "
-    "       pax_asvc.emd_type "
-    "FROM paid_bag_emd, pax, pax_asvc "
-    "WHERE paid_bag_emd.grp_id=pax.grp_id AND "
-    "      pax.pax_id=pax_asvc.pax_id AND "
-    "      paid_bag_emd.emd_no=pax_asvc.emd_no AND "
-    "      paid_bag_emd.emd_coupon=pax_asvc.emd_coupon AND "
-    "      paid_bag_emd.grp_id=:grp_id AND "
-    "      pax.refuse IS NULL";*/
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    CheckIn::TPaxASVCItem asvcItem;
-    CheckIn::TPaidBagEMDItem emdItem;
-    asvcItem.fromDB(Qry);
-    emdItem.fromDB(Qry);
-    std::set<ASTRA::TRcptServiceType> service_types;
-    asvcItem.rcpt_service_types(service_types);
-    if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
-        service_types.find(ASTRA::rstPaid)==service_types.end()) continue;
-    emd.push_back(make_pair(asvcItem, emdItem));
-  };
-};
-
 string GetBagRcptStr(int grp_id, int pax_id)
 {
   TQuery Qry(&OraSession);
@@ -1480,7 +1430,7 @@ string GetBagRcptStr(int grp_id, int pax_id)
     list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
     GetBoundPaidBagEMD(grp_id, emd);
     for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
-      rcpts.push_back(i->first.no_str());
+      rcpts.push_back(i->first.emd_no);
 
     Qry.SQLText="SELECT no FROM bag_prepay WHERE grp_id=:grp_id";
     Qry.Execute();

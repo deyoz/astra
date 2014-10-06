@@ -969,7 +969,7 @@ void SaveGrpToLog(int point_id,
       LEvntPrms params;
       params << prmenum;
       reqInfo->LocaleToLog(pass==0?"EVT.EMD_DELETED":"EVT.EMD_ADDED",
-                           params, ASTRA::evtPax, point_id, ASTRA::NoExists, grp_id);
+                           params, ASTRA::evtPay, point_id, ASTRA::NoExists, grp_id);
     };
   };
 
