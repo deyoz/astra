@@ -119,15 +119,17 @@ class TStagesRules {
   private:
   	std::map<int,TCkinClients> ClientStages;
     std::vector<TStage_name> Graph_Stages;
-    void Update();
+    void Update();    
   public:
     std::map<TStageStep,TMapRules> GrphRls;
     TGraph_Level GrphLvl;
     TMapStatuses StageStatuses;
     TStagesRules();
     bool CanStatus( TStage_Type stage_type, TStage stage );
-    std::string status( TStage_Type stage_type, TStage stage, bool pr_locale );
-    std::string stage_name( TStage stage, std::string airp, bool pr_locale );
+    std::string status( TStage_Type stage_type, TStage stage, bool is_lat );
+    std::string status_view( TStage_Type stage_type, TStage stage );
+    std::string stage_name( TStage stage, const std::string &airp, bool is_lat );
+    std::string stage_name_view( TStage stage, const std::string &airp );    
     void Build( xmlNodePtr dataNode );
     void UpdateGraph_Stages( );
     void BuildGraph_Stages( const std::string airp, xmlNodePtr dataNode );

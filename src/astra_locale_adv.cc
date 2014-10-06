@@ -20,7 +20,7 @@ AstraLocale::LParam PrmDate::GetParam (const std::string& lang) const {
 }
 
 std::string PrmDate::GetMsg (const std::string& lang) const {
-    return BASIC::DateTimeToStr(date, fmt, (lang == AstraLocale::LANG_EN)?true:false);
+    return BASIC::DateTimeToStr(date, fmt, lang != AstraLocale::LANG_RU);
 }
 
 LEvntPrm* PrmDate::MakeCopy () const {
@@ -91,7 +91,7 @@ AstraLocale::LParam PrmStage::GetParam (const std::string& lang) const {
 }
 
 std::string PrmStage::GetMsg (const std::string& lang) const {
-    return TStagesRules::Instance()->stage_name(stage, airp, (lang == AstraLocale::LANG_EN)?true:false);
+    return TStagesRules::Instance()->stage_name(stage, airp, lang != AstraLocale::LANG_RU);
 }
 
 LEvntPrm* PrmStage::MakeCopy () const {
@@ -347,8 +347,8 @@ int insert_locales(int argc,char **argv)
         "  INSERT INTO locale_messages(id,lang,text,pr_del,tid,pr_term) VALUES(:lexema_id,:lang_ru,:msg_ru,:pr_del,:tid,:pr_term); "
         "  INSERT INTO locale_messages(id,lang,text,pr_del,tid,pr_term) VALUES(:lexema_id,:lang_en,:msg_en,:pr_del,:tid,:pr_term); "
         "end; ";
-    Qry.CreateVariable("lang_ru", otString, "RU");
-    Qry.CreateVariable("lang_en", otString, "EN");
+    Qry.CreateVariable("lang_ru", otString, AstraLocale::LANG_RU);
+    Qry.CreateVariable("lang_en", otString, AstraLocale::LANG_EN);
     Qry.CreateVariable("tid", otInteger, tid);
     Qry.CreateVariable("pr_del", otInteger, 0);
     Qry.CreateVariable("pr_term", otInteger, 0);

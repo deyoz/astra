@@ -593,8 +593,7 @@ void TReqInfo::LocaleToLog(const string &vlexema, const LEvntPrms &prms, TEventT
 
 void TReqInfo::LocaleToLog(TLogLocale &msg)
 {
-    TQuery Qry(&OraSession);
-    Qry.CreateVariable("LANG_RU", otString, AstraLocale::LANG_RU);
+    TQuery Qry(&OraSession);    
     Qry.DeclareVariable("type", otString);
     Qry.DeclareVariable("msg", otString);
     Qry.DeclareVariable("screen", otString);
@@ -633,14 +632,10 @@ void TReqInfo::LocaleToLog(TLogLocale &msg)
             "  IF :part_num IS NULL THEN :part_num:=1; ELSE :part_num:=:part_num+1; END IF; "
             "  INSERT INTO events_bilingual(type,time,ev_order,part_num,msg,screen,ev_user,station,id1,id2,id3,lang) "
             "  VALUES(:type,:ev_time,:ev_order,:part_num,"
-            "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang); "
-            "  IF :lang=:LANG_RU AND :part_num=1 THEN"
-            "    INSERT INTO events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
-            "    VALUES(:type,:ev_time,:ev_order,"
-            "           :msg,:screen,:ev_user,:station,:id1,:id2,:id3);"
-            "  END IF; "
+            "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang); "            
             "END;";
-        (*lang == AstraLocale::LANG_RU)?Qry.SetVariable("lang", "RU"):Qry.SetVariable("lang", "EN");
+        (*lang == AstraLocale::LANG_RU)?Qry.SetVariable("lang", AstraLocale::LANG_RU):
+                                        Qry.SetVariable("lang", AstraLocale::LANG_EN);
         std::string message;
         message = AstraLocale::getLocaleText(msg.lexema_id, msg.prms.GetParams(*lang), *lang);
         vector<string> strs;
