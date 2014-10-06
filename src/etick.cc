@@ -519,12 +519,6 @@ void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   ChangeAreaStatus(csaFlt,ctxt,reqNode,resNode);
 };
 
-struct TETErrorFlight
-{
-  vector<string> global_errors;
-  vector<string> errors;
-};
-
 void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string context;
