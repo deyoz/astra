@@ -994,12 +994,12 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   if ( reqInfo->screen.name == "BRDBUS.EXE" ||
        reqInfo->screen.name == "EXAM.EXE")
   {
-    status = stagesRules->status( stBoarding, tripStages.getStage( stBoarding ), true );
+    status = stagesRules->status_view( stBoarding, tripStages.getStage( stBoarding ) );
   };
   if ( reqInfo->screen.name == "AIR.EXE" ||
        reqInfo->screen.name == "PREPREG.EXE" )
   {
-    status = stagesRules->status( stCheckIn, tripStages.getStage( stCheckIn ), true );
+    status = stagesRules->status_view( stCheckIn, tripStages.getStage( stCheckIn ) );
   };
   if ( reqInfo->screen.name == "KASSA.EXE" ||
        reqInfo->screen.name == "CENT.EXE" )
@@ -1007,23 +1007,23 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     TStage ckin_stage =  tripStages.getStage( stCheckIn );
     TStage craft_stage = tripStages.getStage( stCraft );
     if ( craft_stage == sRemovalGangWay || craft_stage == sTakeoff )
-      status = stagesRules->status( stCraft, craft_stage, true );
+      status = stagesRules->status_view( stCraft, craft_stage );
     else
-      status = stagesRules->status( stCheckIn, ckin_stage, true );
+      status = stagesRules->status_view( stCheckIn, ckin_stage );
   };
   if ( reqInfo->screen.name == "DOCS.EXE" )
   {
     if (act_out_client==ASTRA::NoExists)
-      status = stagesRules->status( stCheckIn, tripStages.getStage( stCheckIn ), true );
+      status = stagesRules->status_view( stCheckIn, tripStages.getStage( stCheckIn ) );
     else
-      status = stagesRules->status( stCheckIn, sTakeoff, true );
+      status = stagesRules->status_view( stCheckIn, sTakeoff );
   };
   if ( reqInfo->screen.name == "TLG.EXE" )
   {
     if (act_out_client==ASTRA::NoExists)
-      status = stagesRules->status( stCraft, tripStages.getStage( stCraft ), true );
+      status = stagesRules->status_view( stCraft, tripStages.getStage( stCraft ) );
     else
-      status = stagesRules->status( stCraft, sTakeoff, true );
+      status = stagesRules->status_view( stCraft, sTakeoff );
   };
   NewTextChild( node, "status", status );
 
