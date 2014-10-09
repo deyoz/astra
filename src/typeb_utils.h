@@ -626,7 +626,7 @@ class TPRLOptions : public TMarkInfoOptions
         void init()
         {
             create_point = "CLOSE_CKIN";
-            pax_state = "CKIN";
+            pax_state = "BRD";
         }
     public:
         std::string create_point;

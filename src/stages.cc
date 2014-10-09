@@ -338,8 +338,8 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
       }
       catch( boost::local_time::ambiguous_result ) {
          throw AstraLocale::UserException( "MSG.STAGE.EST_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
-                 LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp, true ))
-                 << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
+                 LParams() << LParam("stage", TStagesRules::Instance()->stage_name_view( i->first, airp ))
+                           << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
       }
     }
     if ( i->second.act != NoExists ) {
@@ -348,8 +348,8 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
       }
       catch( boost::local_time::ambiguous_result ) {
          throw AstraLocale::UserException( "MSG.STAGE.ACT_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
-                 LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp, true ))
-                 << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
+                 LParams() << LParam("stage", TStagesRules::Instance()->stage_name_view( i->first, airp ))
+                           << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
       }
     }
   }
@@ -534,14 +534,12 @@ void TStagesRules::Update()
  }
 }
 
-string getLocaleName( const string &name, const string &name_lat, bool pr_locale )
-{
-	string res;
-	if ( !pr_locale || TReqInfo::Instance()->desk.lang == AstraLocale::LANG_RU || name_lat.empty() )
-		res = name;
+string getLocaleName( const string &name, const string &name_lat, bool is_lat )
+{	
+    if ( !is_lat || name_lat.empty() )
+        return name;
 	else
-		res = name_lat;
-	return res;
+        return name_lat;
 }
 
 void TStagesRules::BuildGraph_Stages( const string airp, xmlNodePtr dataNode )
@@ -554,7 +552,7 @@ void TStagesRules::BuildGraph_Stages( const string airp, xmlNodePtr dataNode )
       if ( CompatibleStage( i->stage ) )	{
         snode = NewTextChild( node, "stage" );
         NewTextChild( snode, "stage_id", (int)i->stage );
-        NewTextChild( snode, "name", getLocaleName( i->name, i->name_lat, true ) );
+        NewTextChild( snode, "name", getLocaleName( i->name, i->name_lat, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU ) );
         NewTextChild( snode, "airp", i->airp );
       }
     }
@@ -595,7 +593,7 @@ void TStagesRules::Build( xmlNodePtr dataNode )
       if ( CompatibleStage( s->stage ) )	{
         xmlNodePtr stagestatusNode = NewTextChild( snode, "stagestatus" );
         NewTextChild( stagestatusNode, "stage", (int)s->stage );
-        NewTextChild( stagestatusNode, "status", getLocaleName( s->status, s->status_lat, true ) );
+        NewTextChild( stagestatusNode, "status", getLocaleName( s->status, s->status_lat, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU ) );
       }
     }
   }
@@ -622,27 +620,37 @@ bool TStagesRules::CanStatus( TStage_Type stage_type, TStage stage )
   return false;
 }
 
-string TStagesRules::status( TStage_Type stage_type, TStage stage, bool pr_locale )
+string TStagesRules::status_view( TStage_Type stage_type, TStage stage )
+{
+  return status(stage_type, stage, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+}
+
+string TStagesRules::status( TStage_Type stage_type, TStage stage, bool is_lat )
 {
   TStage_Statuses &v = StageStatuses[ stage_type ];
   for( TStage_Statuses::iterator s=v.begin(); s!=v.end(); s++ ) {
     if ( s->stage == stage )
-      return getLocaleName( s->status, s->status_lat, pr_locale );
+      return getLocaleName( s->status, s->status_lat, is_lat );
   }
   return "";
 }
 
-string TStagesRules::stage_name( TStage stage, std::string airp, bool pr_locale )
+string TStagesRules::stage_name_view( TStage stage, const std::string &airp )
+{
+  return stage_name(stage, airp, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+}
+
+string TStagesRules::stage_name( TStage stage, const std::string &airp, bool is_lat )
 {
 	string res, res1;
 	for ( vector<TStage_name>::iterator n=Graph_Stages.begin(); n!=Graph_Stages.end(); n++ ) {
 		if ( n->stage == stage ) {
   		if ( n->airp.empty() ) {
-	  		res1 = getLocaleName( n->name, n->name_lat, pr_locale );
+            res1 = getLocaleName( n->name, n->name_lat, is_lat );
       }
 			else {
 			  if ( n->airp == airp ) {
-			  	res = getLocaleName( n->name, n->name_lat, pr_locale );
+                res = getLocaleName( n->name, n->name_lat, is_lat );
         }
       }
     }
