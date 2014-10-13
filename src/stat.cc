@@ -3036,6 +3036,8 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     };
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "kiosks", getLocaleText("CAP.KIOSKS"));
+    NewTextChild(variablesNode, "mobile_devices", getLocaleText("CAP.MOBILE_DEVICES"));
     NewTextChild(variablesNode, "pr_pact", pr_pact);
     if(params.statType == statPactShort) {
         NewTextChild(variablesNode, "stat_type", params.statType);
