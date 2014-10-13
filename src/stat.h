@@ -64,8 +64,6 @@ public:
      AddEvent("CommonCBoxDropDown",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::RunStat);
      AddEvent("run_stat",evHandle);
-     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::TestRunStat);
-     AddEvent("TestRunStat",evHandle);
   };
 
   void FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
