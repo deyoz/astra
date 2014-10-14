@@ -7,7 +7,7 @@
 #include "oralib.h"
 #include "xml_unit.h"
 
-enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remUnknown };
+enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remASVC, remUnknown };
 
 TRemCategory getRemCategory( const std::string &rem_code, const std::string &rem_text );
 bool isDisabledRemCategory( TRemCategory cat );
@@ -113,12 +113,62 @@ class TPaxFQTItem
     TPaxFQTItem& fromDB(TQuery &Qry);
 };
 
+class TPaxASVCItem
+{
+  public:
+    std::string RFIC;
+    std::string RFISC;
+    std::string ssr_code;
+    std::string service_name;
+    std::string emd_type;
+    std::string emd_no;
+    int emd_coupon;
+    std::string ssr_text;  //дополнительно, вычисляется из ремарок пассажира
+    TPaxASVCItem()
+    {
+      clear();
+    };
+    void clear()
+    {
+      RFIC.clear();
+      RFISC.clear();
+      ssr_code.clear();
+      service_name.clear();
+      emd_type.clear();
+      emd_no.clear();
+      emd_coupon=ASTRA::NoExists;
+      ssr_text.clear();
+    };
+    bool operator < (const TPaxASVCItem &item) const
+    {
+      if (emd_no!=item.emd_no)
+        return emd_no<item.emd_no;
+      if (emd_coupon!=item.emd_coupon)
+        return (item.emd_coupon==ASTRA::NoExists ||
+                (emd_coupon!=ASTRA::NoExists && emd_coupon<item.emd_coupon));
+      return emd_type<item.emd_type;
+    };
+    const TPaxASVCItem& toXML(xmlNodePtr node) const;
+    const TPaxASVCItem& toDB(TQuery &Qry) const;
+    TPaxASVCItem& fromDB(TQuery &Qry);
+    std::string text(const std::string &rem_status) const;
+    std::string no_str() const;
+    void rcpt_service_types(std::set<ASTRA::TRcptServiceType> &service_types) const;
+};
+
 bool LoadPaxRem(int pax_id, bool withFQTcat, std::vector<TPaxRemItem> &rems);
 bool LoadCrsPaxRem(int pax_id, std::vector<TPaxRemItem> &rems);
 bool LoadPaxFQT(int pax_id, std::vector<TPaxFQTItem> &fqts);
+bool LoadPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
+bool LoadCrsPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 
 void SavePaxRem(int pax_id, const std::vector<TPaxRemItem> &rems);
 void SavePaxFQT(int pax_id, const std::vector<TPaxFQTItem> &fqts);
+
+bool SyncPaxASVC(int id, bool is_grp_id);
+void GetUnboundEMD(int point_id, std::multiset<TPaxASVCItem> &asvc);
+bool ExistsUnboundEMD(int point_id);
+bool ExistsPaxUnboundEMD(int pax_id);
 
 };
 

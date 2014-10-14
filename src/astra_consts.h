@@ -53,6 +53,8 @@ enum TBagNormType { bntFree, bntOrdinary, bntPaid,
                     bntFreeExcess, bntFreeOrdinary, bntFreePaid, bntOrdinaryPaid,
                     bntUnknown, bntTypeNum };
 
+enum TRcptServiceType { rstExcess=1, rstPaid=2, rstDeclaredValue=3 };
+
 extern const char* BagNormTypeS[bntTypeNum];
 
 enum TRptType {

@@ -432,6 +432,13 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paidInfo.paid_weight=Qry.FieldAsInteger("weight");
       };
     };
+
+    Qry.Clear();
+    Qry.SQLText="SELECT * FROM paid_bag_emd WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+      grpInfo.emd.insert(CheckIn::TPaidBagEMDItem().fromDB(Qry));
   };
 };
 
@@ -927,6 +934,42 @@ void SaveGrpToLog(int point_id,
           reqInfo->LocaleToLog("EVT.ENTER_LUGGAGE_MAN_ENTERED_WEIGHT", LEvntPrms() << prmenum,
                                          ASTRA::evtPax, point_id, ASTRA::NoExists, grp_id);
       };
+    };
+  };
+
+  for(int pass=0; pass<2; pass++)
+  {
+    multiset<CheckIn::TPaidBagEMDItem, TPaidEMDToLogComparator> emd;
+    if (pass==0)
+      set_difference(grpInfoBefore.emd.begin(), grpInfoBefore.emd.end(),
+                     grpInfoAfter.emd.begin(), grpInfoAfter.emd.end(),
+                     inserter(emd, emd.end()),
+                     TPaidEMDToLogComparator());
+    else
+      set_difference(grpInfoAfter.emd.begin(), grpInfoAfter.emd.end(),
+                     grpInfoBefore.emd.begin(), grpInfoBefore.emd.end(),
+                     inserter(emd, emd.end()),
+                     TPaidEMDToLogComparator());
+    if (!emd.empty())
+    {
+      PrmEnum prmenum("emd", "");
+      for(multiset<CheckIn::TPaidBagEMDItem, TPaidEMDToLogComparator>::const_iterator e=emd.begin(); e!=emd.end(); ++e)
+      {
+        std::ostringstream msg;
+        if (e!=emd.begin()) prmenum.prms << PrmSmpl<string>("", ", ");
+        if (e->bag_type!=ASTRA::NoExists)
+          msg << setw(2) << setfill('0') << e->bag_type << ":";
+        msg << e->emd_no;
+        if (e->emd_coupon!=ASTRA::NoExists)
+          msg << "/" << e->emd_coupon;
+        prmenum.prms << PrmSmpl<string>("", msg.str());
+        if (e->weight!=ASTRA::NoExists)
+          prmenum.prms << PrmSmpl<string>("", ":") << PrmSmpl<int>("", e->weight) << PrmLexema("", "EVT.KG");
+      };
+      LEvntPrms params;
+      params << prmenum;
+      reqInfo->LocaleToLog(pass==0?"EVT.EMD_DELETED":"EVT.EMD_ADDED",
+                           params, ASTRA::evtPay, point_id, ASTRA::NoExists, grp_id);
     };
   };
 

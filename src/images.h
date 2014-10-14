@@ -44,6 +44,7 @@ class TCompElemType {
     bool is_default;
     BASIC::TDateTime time_create;
     std::string image;
+    std::string filename;
   public:
     TCompElemType( const std::string &vcode,
                    const std::string &vname,
@@ -51,7 +52,8 @@ class TCompElemType {
                    const bool vis_seat,
                    const bool vis_default,
                    const BASIC::TDateTime &vtime_create,
-                   const std::string &vimage ) {
+                   const std::string &vimage,
+                   const std::string &vfilename ) {
       code = vcode;
       name = vname;
       name_lat = vname_lat;
@@ -59,6 +61,7 @@ class TCompElemType {
       is_default = vis_default;
       time_create = vtime_create;
       image = vimage;
+      filename = vfilename;
     }
     TCompElemType() {
       Clear();
@@ -70,6 +73,7 @@ class TCompElemType {
        is_default = elem.is_default;
        time_create = elem.time_create;
        image = elem.image;
+       filename = elem.filename;
     }
     void Clear() {
       code.clear();
@@ -79,6 +83,7 @@ class TCompElemType {
       is_default = false;
       time_create = -1;
       image.clear();
+      filename.clear();
     }
     bool isSeat() {
       return is_seat;
@@ -94,6 +99,9 @@ class TCompElemType {
     }
     std::string getImage() {
       return image;
+    }
+    std::string getFilename() {
+      return filename;
     }
 };
 
@@ -241,7 +249,7 @@ class TCompLayerTypes {
       TCompLayerType elem;
       getElem( layer_type, elem );
       return elem.getPriority();
-    }                        /*  ан  е = layer1, ╗озже layer2, ╗о  oо└ ани   ан  ий ╗ ио и е нее ╗озднего */
+    }                        /*  ан  е = layer1, ┐озже layer2, ┐о  oоL ани   ан  ий ┐ ио и е нее ┐озднего */
     bool priority_on_routes( const ASTRA::TCompLayerType &layer_type1,
                              const ASTRA::TCompLayerType &layer_type2,
                              int layer1_time_less ) {
@@ -249,7 +257,7 @@ class TCompLayerTypes {
         if ( layers_priority_routes[ layer_type1 ].find( layer_type2 ) != layers_priority_routes[ layer_type1 ].end() ) {
           if ( layers_priority_routes[ layer_type1 ][ layer_type2 ] == ASTRA::NoExists ||
                layers_priority_routes[ layer_type1 ][ layer_type2 ] == layer1_time_less ) {
-            return false; // ес└и найден  └еoен ,  о  ан  ий oен  е ╗озднего
+            return false; // есLи найден  Lеoен ,  о  ан  ий oен  е ┐озднего
           }
         }
       }

@@ -12,6 +12,7 @@
 #include "web_main.h"
 #include "basel_aero.h"
 #include "qrys.h"
+#include "passenger.h"
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
@@ -1426,6 +1427,11 @@ string GetBagRcptStr(int grp_id, int pax_id)
       (main_pax_id!=NoExists && main_pax_id==pax_id))
   {
     vector<string> rcpts;
+    list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
+    GetBoundPaidBagEMD(grp_id, emd);
+    for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+      rcpts.push_back(i->first.emd_no);
+
     Qry.SQLText="SELECT no FROM bag_prepay WHERE grp_id=:grp_id";
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
@@ -1538,6 +1544,17 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
         else
           rcpt_paid_bag[bag_type]+=Qry.FieldAsInteger("ex_weight");
       };
+    };
+    //EMD
+    list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
+    GetBoundPaidBagEMD(grp_id, emd);
+    for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+    {
+      int bag_type=i->second.bag_type;
+      if (rcpt_paid_bag.find(bag_type)==rcpt_paid_bag.end())
+        rcpt_paid_bag[bag_type]=i->second.weight;
+      else
+        rcpt_paid_bag[bag_type]+=i->second.weight;
     };
     
     for(vector< pair< int, int> >::const_iterator i=paid_bag.begin();i!=paid_bag.end();++i)
@@ -1865,6 +1882,7 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
   };
 
 };
+
 
 
 

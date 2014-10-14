@@ -603,6 +603,8 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
+const int EMD_RCPT_ID=-2;
+
 void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr dataNode)
 {
   if (dataNode==NULL) return;
@@ -610,12 +612,29 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
   TQuery Qry(&OraSession);
   if (pr_grp)
   {
+    xmlNodePtr node=NewTextChild(dataNode,"prepayment");
+
+    //квитанции EMD
+    list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
+    GetBoundPaidBagEMD(id, emd);
+    for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+    {
+      xmlNodePtr receiptNode=NewTextChild(node,"receipt");
+      NewTextChild(receiptNode,"id",EMD_RCPT_ID);
+      NewTextChild(receiptNode,"no",i->first.no_str());
+      NewTextChild(receiptNode,"aircode","");
+      NewTextChild(receiptNode,"ex_weight",i->second.weight);
+      if (i->second.bag_type!=ASTRA::NoExists)
+        NewTextChild(receiptNode,"bag_type",i->second.bag_type);
+      else
+        NewTextChild(receiptNode,"bag_type");
+    };
+
     //квитанции предоплаты
     Qry.Clear();
     Qry.SQLText="SELECT * FROM bag_prepay WHERE grp_id=:grp_id";
     Qry.CreateVariable("grp_id", otInteger, id);
-    Qry.Execute();
-    xmlNodePtr node=NewTextChild(dataNode,"prepayment");
+    Qry.Execute();    
     for(;!Qry.Eof;Qry.Next())
     {
       xmlNodePtr receiptNode=NewTextChild(node,"receipt");
@@ -717,13 +736,16 @@ void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     xmlNodePtr node=NodeAsNode("receipt",reqNode)->children;
     bool pr_del=NodeAsIntegerFast("pr_del",node);
-    xmlNodePtr idNode=GetNodeFast("id",node);
+    xmlNodePtr idNode=GetNodeFast("id",node);    
 
     string old_aircode, old_no;
     TQuery Qry(&OraSession);
     Qry.Clear();
     if (idNode!=NULL)
     {
+        if (NodeAsInteger(idNode)==EMD_RCPT_ID )
+          throw AstraLocale::UserException("MSG.UNABLE_CHANGE_DELETE_EMD");
+
         Qry.CreateVariable("receipt_id",otInteger,NodeAsInteger(idNode));
         Qry.SQLText="SELECT * FROM bag_prepay WHERE receipt_id=:receipt_id";
         Qry.Execute();
@@ -1491,7 +1513,21 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
     if (rcpt.kit_num!=NoExists)
       rcpt.prev_no=GetKitPrevNoStr(rcpt.kit_items).substr(0,50);
     else
+    {
       rcpt.prev_no=NodeAsString("prev_no",rcptNode);
+      if (NodeIsNULL("no",rcptNode) && !rcpt.prev_no.empty())
+      {
+        //проверим что это не номер EMD
+        list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
+        GetBoundPaidBagEMD(grp_id, emd);
+        for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+          if (rcpt.prev_no==i->first.no_str())
+          {
+            rcpt.prev_no.clear();
+            break;
+          };
+      };
+    };
     
     rcpt.service_type=NodeAsInteger("service_type",rcptNode);
     if (!NodeIsNULL("bag_type",rcptNode))

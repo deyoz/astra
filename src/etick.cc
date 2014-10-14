@@ -351,12 +351,6 @@ void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   ChangeAreaStatus(csaFlt,ctxt,reqNode,resNode);
 };
 
-struct TETErrorFlight
-{
-  vector<string> global_errors;
-  vector<string> errors;
-};
-
 void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string context;
@@ -1189,7 +1183,11 @@ bool ETStatusInterface::ETChangeStatus(const int reqCtxtId,
   return result;
 };
 
-
+void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  throw UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
+  //NewTextChild(resNode,"text","...");
+};
 
 
 

@@ -1416,6 +1416,45 @@ void CreateCrewResponse(int point_dep, const TInquiryGroupSummary &sum, xmlNodeP
   };
 };
 
+void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
+{
+  if (node==NULL) return;
+
+  vector<CheckIn::TPaxRemItem> rems;
+  if (from_crs)
+    CheckIn::LoadCrsPaxRem(pax_id, rems);
+  else
+    CheckIn::LoadPaxRem(pax_id, true, rems);
+
+  xmlNodePtr remsNode=NULL;
+  for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
+  {
+    if (isDisabledRem(r->code, r->text)) continue;
+
+    if (remsNode==NULL) remsNode=NewTextChild(node,"rems");
+    r->toXML(remsNode);
+  };
+
+  vector<CheckIn::TPaxASVCItem> asvc;
+  if (from_crs)
+    CheckIn::LoadCrsPaxASVC(pax_id, asvc);
+  else
+    CheckIn::LoadPaxASVC(pax_id, asvc);
+
+  xmlNodePtr asvcNode=NULL;
+  for(vector<CheckIn::TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
+  {
+    if (!from_crs)
+    {
+      if (asvcNode==NULL) asvcNode=NewTextChild(node,"asvc_rems");
+      r->toXML(asvcNode);
+    };
+
+    if (remsNode==NULL) remsNode=NewTextChild(node,"rems");
+    CheckIn::TPaxRemItem("ASVC", r->text("HI")).toXML(remsNode);
+  };
+};
+
 int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
 {
   TQuery FltQry(&OraSession);
@@ -1440,11 +1479,6 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
   PnrAddrQry.SQLText =
     "SELECT airline,addr FROM pnr_addrs WHERE pnr_id=:pnr_id";
   PnrAddrQry.DeclareVariable("pnr_id",otInteger);
-
-  TQuery RemQry(&OraSession);
-  RemQry.SQLText =
-    "SELECT rem_code,rem FROM crs_pax_rem WHERE pax_id=:pax_id";
-  RemQry.DeclareVariable("pax_id",otInteger);
 
   int point_id=-1;
   int pnr_id=-1, pax_id;
@@ -1654,20 +1688,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
       };
     };
 
-    RemQry.SetVariable("pax_id",pax_id);
-    RemQry.Execute();
-    xmlNodePtr remsNode=NULL;
-    for(;!RemQry.Eof;RemQry.Next())
-    {
-      const char* rem_code=RemQry.FieldAsString("rem_code");
-      const char* rem_text=RemQry.FieldAsString("rem");
-      if (isDisabledRem(rem_code, rem_text)) continue;
-      
-      if (remsNode==NULL) remsNode=NewTextChild(node,"rems");
-      xmlNodePtr remNode=NewTextChild(remsNode,"rem");
-      NewTextChild(remNode,"rem_code",rem_code,"");
-      NewTextChild(remNode,"rem_text",rem_text);
-    };
+    LoadPaxRemAndASVC(pax_id, node, true);
   };
   return count;
 };
@@ -3604,7 +3625,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         p->remsExists=(remNode!=NULL);
         if (remNode!=NULL) remNode=remNode->children;
         for(; remNode!=NULL; remNode=remNode->next)
-          p->rems.push_back(CheckIn::TPaxRemItem().fromXML(remNode));
+        {
+          CheckIn::TPaxRemItem rem;
+          rem.fromXML(remNode);
+          TRemCategory cat=getRemCategory(rem.code, rem.text);
+          if (cat==remASVC) continue; //пропускаем переданные ASVC
+          p->rems.push_back(rem);
+        };
+
       };
     };
 
@@ -4850,6 +4878,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             }; // end for paxs
           }; //end for k
+          CheckIn::SyncPaxASVC(grp.id, true); //синхронизируем ASVC только при первой регистрации
         }
         else
         {
@@ -5178,6 +5207,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             group_bag.toDB(grp.id);
           };
           CheckIn::SavePaidBag(grp.id,reqNode);
+          CheckIn::SavePaidBagEMD(grp.id,segNode);
           SaveTagPacks(reqNode);
         };
         first_grp_id=grp.id;
@@ -5612,6 +5642,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         //вычисляем и записываем признак waitlist_alarm и brd_alarm и spec_service_alarm
         check_brd_alarm( grp.point_dep );
         check_spec_service_alarm( grp.point_dep );
+        check_unbound_emd_alarm( grp.point_dep );
         check_conflict_trfer_alarm( grp.point_dep );
         if ( first_pax_on_flight ) {
           SALONS2::setManualCompChg( grp.point_dep );
@@ -6002,6 +6033,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     {
       CheckIn::LoadBag(grp.id,resNode);
       CheckIn::LoadPaidBag(grp.id,resNode);
+      CheckIn::LoadPaidBagEMD(grp.id, segNode);
       readTripCounters(grp.point_dep, segNode);
       
       if (afterSavePax)
@@ -6036,15 +6068,7 @@ void CheckInInterface::LoadPaxRem(xmlNodePtr paxNode)
   xmlNodePtr node2=paxNode->children;
   int pax_id=NodeAsIntegerFast("pax_id",node2);
 
-  vector<CheckIn::TPaxRemItem> rems;
-  CheckIn::LoadPaxRem(pax_id, true, rems);
-
-  xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
-  for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
-  {
-    if (isDisabledRem(r->code, r->text)) continue;
-    r->toXML(remsNode);
-  };
+  LoadPaxRemAndASVC(pax_id, paxNode, false);
 };
 
 void CheckInInterface::SavePaxTransfer(int pax_id, int pax_no, const vector<CheckIn::TTransferItem> &trfer, int seg_no)

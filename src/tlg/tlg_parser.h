@@ -481,6 +481,40 @@ class TCHKDItem : public TDetailRemAncestor
     };
 };
 
+class TASVCItem : public TDetailRemAncestor
+{
+  public:
+    char RFIC[2], RFISC[16], ssr_code[5], service_name[31];
+    char emd_type[2], emd_no[14];
+    int emd_coupon;
+    TASVCItem()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      TDetailRemAncestor::Clear();
+      *RFIC=0;
+      *RFISC=0;
+      *ssr_code=0;
+      *service_name=0;
+      *emd_type=0;
+      *emd_no=0;
+      emd_coupon=ASTRA::NoExists;
+    };
+    bool Empty() const
+    {
+      return TDetailRemAncestor::Empty() &&
+             *RFIC==0 &&
+             *RFISC==0 &&
+             *ssr_code==0 &&
+             *service_name==0 &&
+             *emd_type==0 &&
+             *emd_no==0 &&
+             emd_coupon==ASTRA::NoExists;
+    };
+};
+
 class TRemItem
 {
   public:
@@ -537,6 +571,7 @@ class TPaxItem
     std::vector<TTKNItem> tkn;
     std::vector<TFQTItem> fqt;
     std::vector<TCHKDItem> chkd;
+    std::vector<TASVCItem> asvc;
     TPaxItem()
     {
       pers_type=ASTRA::adult;

@@ -608,8 +608,8 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, bool without_inf_indicator)
   const char* sql1=
     "SELECT * "
     "FROM crs_pax_doc "
-    "WHERE pax_id=:pax_id AND no IS NOT NULL "
-    "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no ";
+    "WHERE pax_id=:pax_id "
+    "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no NULLS LAST";
   const char* sql2=
     "SELECT report.get_PSPT2(:pax_id) AS no FROM dual";
   QParams QryParams;
@@ -1469,6 +1469,55 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
     bag_refuse=ASTRA::refuseAgentError;
   tid=Qry.FieldAsInteger("tid");
   return *this;
+};
+
+void GetBoundPaidBagEMD(int grp_id, list< pair<TPaxASVCItem, TPaidBagEMDItem> > &emd)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+    Qry.SQLText =
+    "SELECT paid_bag_emd.bag_type, "
+    "       paid_bag_emd.emd_no, "
+    "       paid_bag_emd.emd_coupon, "
+    "       paid_bag_emd.weight, "
+    "       'C' AS rfic, "
+    "       NULL AS rfisc, "
+    "       NULL AS ssr_code, "
+    "       NULL AS service_name, "
+    "       'A' AS emd_type "
+    "FROM paid_bag_emd "
+    "WHERE paid_bag_emd.grp_id=:grp_id";
+ /*
+    "SELECT paid_bag_emd.bag_type, "
+    "       paid_bag_emd.emd_no, "
+    "       paid_bag_emd.emd_coupon, "
+    "       paid_bag_emd.weight, "
+    "       pax_asvc.rfic, "
+    "       pax_asvc.rfisc, "
+    "       pax_asvc.ssr_code, "
+    "       pax_asvc.service_name, "
+    "       pax_asvc.emd_type "
+    "FROM paid_bag_emd, pax, pax_asvc "
+    "WHERE paid_bag_emd.grp_id=pax.grp_id AND "
+    "      pax.pax_id=pax_asvc.pax_id AND "
+    "      paid_bag_emd.emd_no=pax_asvc.emd_no AND "
+    "      paid_bag_emd.emd_coupon=pax_asvc.emd_coupon AND "
+    "      paid_bag_emd.grp_id=:grp_id AND "
+    "      pax.refuse IS NULL";*/
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    CheckIn::TPaxASVCItem asvcItem;
+    CheckIn::TPaidBagEMDItem emdItem;
+    asvcItem.fromDB(Qry);
+    emdItem.fromDB(Qry);
+    std::set<ASTRA::TRcptServiceType> service_types;
+    asvcItem.rcpt_service_types(service_types);
+    if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
+        service_types.find(ASTRA::rstPaid)==service_types.end()) continue;
+    emd.push_back(make_pair(asvcItem, emdItem));
+  };
 };
 
 }; //namespace CheckIn
