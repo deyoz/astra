@@ -59,7 +59,7 @@ const
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
     {"-lci",                    TypeB::lci,             NULL,                       NULL},
     {"-ssm",                    TypeB::ssm,             NULL,                       NULL},
-    {"-tz2db",                  tz2db,                  NULL,                       "save date_time_zonespec.csv content to db"},
+    {"-tz2db",                  tz2db,                  NULL,                       "reload date_time_zonespec.csv content to db"},
     {"-get_sirena_rozysk_stat", get_sirena_rozysk_stat, NULL,                       NULL},
     {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
     {"-get_basel_aero_stat",    get_basel_aero_stat,    NULL,                       NULL},
