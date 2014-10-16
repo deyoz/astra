@@ -196,95 +196,133 @@ using namespace ASTRA;
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/split.hpp>
 
+namespace TZ_2_DB {
+    void from_file(vector<vector<string> > &data)
+    {
+        ifstream input("date_time_zonespec.csv");
+        bool pr_first = true;
+        for(string line; getline(input, line);) {
+            if(pr_first) {
+                pr_first = not pr_first; //skip first row
+                continue;
+            }
+            vector<string> values;
+            vector<string> row;
+            boost::algorithm::split(values, line, boost::is_any_of(","));
+            for(vector<string>::const_iterator i = values.begin(); i != values.end(); i++) {
+                string val = *i;
+                boost::algorithm::erase_all(val, "\"");
+                row.push_back(val);
+            }
+            if(row.size() < 11) throw logic_error((string)"not enough fields " + IntToString(row.size()) + ": " + line);
+            if(row.size() > 11) throw logic_error((string)"too many fields " + IntToString(row.size()) + ": " + line);
+            data.push_back(row);
+        }
+    }
+
+    string rowToString(const vector<string> &val)
+    {
+        string result;
+        for(vector<string>::const_iterator i = val.begin(); i != val.end(); i++) {
+            if(not result.empty()) result += ", ";
+            result += *i;
+        }
+        return result;
+    }
+
+    void to_db(vector<vector<string> > &data)
+    {
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "begin "
+            "   execute immediate 'drop table new_date_time_zonespec'; "
+            "   execute immediate 'create table new_date_time_zonespec  "
+            "(   id varchar2(50) not null,  "
+            "    std_abbr varchar2(5),  "
+            "    std_name varchar2(50),  "
+            "    dst_abbr varchar2(5),  "
+            "    dst_name varchar2(50),  "
+            "    gmt_offset varchar2(9),  "
+            "    dst_adjustment varchar2(9),  "
+            "    dst_start_date_rule varchar2(10),  "
+            "    start_time varchar2(9),  "
+            "    dst_end_date_rule varchar2(10),  "
+            "    end_time varchar2(9) "
+            ")'; "
+            "end; ";
+        Qry.Execute();
+
+        Qry.SQLText =
+            "insert into new_date_time_zonespec( "
+            " id, "
+            " std_abbr, "
+            " std_name, "
+            " dst_abbr, "
+            " dst_name, "
+            " gmt_offset, "
+            " dst_adjustment, "
+            " dst_start_date_rule, "
+            " start_time, "
+            " dst_end_date_rule, "
+            " end_time "
+            ") values ( "
+            " :id, "
+            " :std_abbr, "
+            " :std_name, "
+            " :dst_abbr, "
+            " :dst_name, "
+            " :gmt_offset, "
+            " :dst_adjustment, "
+            " :dst_start_date_rule, "
+            " :start_time, "
+            " :dst_end_date_rule, "
+            " :end_time "
+            ")";
+
+        Qry.DeclareVariable("id", otString);
+        Qry.DeclareVariable("std_abbr", otString);
+        Qry.DeclareVariable("std_name", otString);
+        Qry.DeclareVariable("dst_abbr", otString);
+        Qry.DeclareVariable("dst_name", otString);
+        Qry.DeclareVariable("gmt_offset", otString);
+        Qry.DeclareVariable("dst_adjustment", otString);
+        Qry.DeclareVariable("dst_start_date_rule", otString);
+        Qry.DeclareVariable("start_time", otString);
+        Qry.DeclareVariable("dst_end_date_rule", otString);
+        Qry.DeclareVariable("end_time", otString);
+
+        for(vector<vector<string> >::const_iterator row = data.begin(); row != data.end(); row++) {
+            int idx = 0;
+            if(row->size() < 11) throw logic_error((string)"not enough fields in row " + IntToString(row->size()) + ": " + rowToString(*row));
+            if(row->size() > 11) throw logic_error((string)"too many fields in row " + IntToString(row->size()) + ": " + rowToString(*row));
+            for(vector<string>::const_iterator val = row->begin(); val != row->end(); val++, idx++) {
+                switch(idx) {
+                    case 0: Qry.SetVariable("id", *val); break;
+                    case 1: Qry.SetVariable("std_abbr", *val); break;
+                    case 2: Qry.SetVariable("std_name", *val); break;
+                    case 3: Qry.SetVariable("dst_abbr", *val); break;
+                    case 4: Qry.SetVariable("dst_name", *val); break;
+                    case 5: Qry.SetVariable("gmt_offset", *val); break;
+                    case 6: Qry.SetVariable("dst_adjustment", *val); break;
+                    case 7: Qry.SetVariable("dst_start_date_rule", *val); break;
+                    case 8: Qry.SetVariable("start_time", *val); break;
+                    case 9: Qry.SetVariable("dst_end_date_rule", *val); break;
+                    case 10: Qry.SetVariable("end_time", *val); break;
+                }
+            }
+            Qry.Execute();
+        }
+        cout << data.size() << " rows inserted." << endl;
+    }
+}
+
+
+
 int tz2db(int argc,char **argv)
 {
-    ifstream input("date_time_zonespec.csv");
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "begin "
-        "   execute immediate 'drop table new_date_time_zonespec'; "
-        "   execute immediate 'create table new_date_time_zonespec  "
-        "(   id varchar2(50) not null,  "
-        "    std_abbr varchar2(5),  "
-        "    std_name varchar2(50),  "
-        "    dst_abbr varchar2(5),  "
-        "    dst_name varchar2(50),  "
-        "    gmt_offset varchar2(9),  "
-        "    dst_adjustment varchar2(9),  "
-        "    dst_start_date_rule varchar2(10),  "
-        "    start_time varchar2(9),  "
-        "    dst_end_date_rule varchar2(10),  "
-        "    end_time varchar2(9) "
-        ")'; "
-        "end; ";
-    Qry.Execute();
-
-    Qry.SQLText =
-        "insert into new_date_time_zonespec( "
-        " id, "
-        " std_abbr, "
-        " std_name, "
-        " dst_abbr, "
-        " dst_name, "
-        " gmt_offset, "
-        " dst_adjustment, "
-        " dst_start_date_rule, "
-        " start_time, "
-        " dst_end_date_rule, "
-        " end_time "
-        ") values ( "
-        " :id, "
-        " :std_abbr, "
-        " :std_name, "
-        " :dst_abbr, "
-        " :dst_name, "
-        " :gmt_offset, "
-        " :dst_adjustment, "
-        " :dst_start_date_rule, "
-        " :start_time, "
-        " :dst_end_date_rule, "
-        " :end_time "
-        ")";
-
-    Qry.DeclareVariable("id", otString);
-    Qry.DeclareVariable("std_abbr", otString);
-    Qry.DeclareVariable("std_name", otString);
-    Qry.DeclareVariable("dst_abbr", otString);
-    Qry.DeclareVariable("dst_name", otString);
-    Qry.DeclareVariable("gmt_offset", otString);
-    Qry.DeclareVariable("dst_adjustment", otString);
-    Qry.DeclareVariable("dst_start_date_rule", otString);
-    Qry.DeclareVariable("start_time", otString);
-    Qry.DeclareVariable("dst_end_date_rule", otString);
-    Qry.DeclareVariable("end_time", otString);
-
-    int rows = 0;
-    for(string line; getline(input, line);rows++) {
-        if(not rows) continue; // skip first row
-        vector<string> values;
-        boost::algorithm::split(values, line, boost::is_any_of(","));
-        int idx = 0;
-        for(vector<string>::const_iterator i = values.begin(); i != values.end(); i++, idx++) {
-            string val = *i;
-            boost::algorithm::erase_all(val, "\"");
-            switch(idx) {
-                case 0: Qry.SetVariable("id", val); break;
-                case 1: Qry.SetVariable("std_abbr", val); break;
-                case 2: Qry.SetVariable("std_name", val); break;
-                case 3: Qry.SetVariable("dst_abbr", val); break;
-                case 4: Qry.SetVariable("dst_name", val); break;
-                case 5: Qry.SetVariable("gmt_offset", val); break;
-                case 6: Qry.SetVariable("dst_adjustment", val); break;
-                case 7: Qry.SetVariable("dst_start_date_rule", val); break;
-                case 8: Qry.SetVariable("start_time", val); break;
-                case 9: Qry.SetVariable("dst_end_date_rule", val); break;
-                case 10: Qry.SetVariable("end_time", val); break;
-                default: throw logic_error("wrong format");
-            }
-        }
-        Qry.Execute();
-    }
-    cout << rows - 1 << " rows inserted." << endl;
+    vector<vector<string> > data;
+    TZ_2_DB::from_file(data);
+    TZ_2_DB::to_db(data);
     return 0;
 }
 
