@@ -1806,7 +1806,7 @@ try {
 	err++;
 	// расчитаем время окончания посадки
 	if ( old_est != fl.est ) { // изменение расчетного времени вылета
-    fl.boarding_end = trip_stages.time_scd( sCloseBoarding );
+    fl.boarding_end = trip_stages.getStageTimes( sCloseBoarding ).scd;
     if ( fl.est != NoExists && fl.scd != fl.est ) { // задержка != 0
       fl.boarding_end += fl.est - fl.scd; // добавляем к плановому времени окончания посадки задержку по вылету
     }

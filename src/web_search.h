@@ -153,7 +153,7 @@ struct TFlightInfo
   
   std::vector<TTripInfo> mark;
   
-  std::map<TStage, BASIC::TDateTime> stages;
+  std::map<TStage, TTripStageTimes> stage_times;
   std::map<TStage_Type, TStage> stage_statuses;
   bool pr_paid_ckin;
   TFlightInfo() { clear(); };
@@ -176,7 +176,7 @@ struct TFlightInfo
     dep_utc_offset=ASTRA::NoExists;
     dests.clear();
     mark.clear();
-    stages.clear();
+    stage_times.clear();
     stage_statuses.clear();
     pr_paid_ckin=false;
   };
