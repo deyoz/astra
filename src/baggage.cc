@@ -1564,6 +1564,15 @@ TPaidBagEMDItem& TPaidBagEMDItem::fromDB(TQuery &Qry)
   return *this;
 };
 
+std::string TPaidBagEMDItem::no_str() const
+{
+  ostringstream s;
+  s << emd_no;
+  if (emd_coupon!=ASTRA::NoExists)
+    s << "/" << emd_coupon;
+  return s.str();
+};
+
 bool PaidBagEMDFromXML(xmlNodePtr emdNode,
                        std::list<TPaidBagEMDItem> &emd)
 {
@@ -1597,7 +1606,17 @@ void PaidBagEMDToDB(int grp_id,
   for(list<TPaidBagEMDItem>::const_iterator i=emd.begin(); i!=emd.end(); ++i)
   {
     i->toDB(BagQry);
-    BagQry.Execute();
+    try
+    {
+      BagQry.Execute();
+    }
+    catch(EOracleError E)
+    {
+      if (E.Code==1)
+        throw UserException("MSG.DUPLICATED_EMD_NUMBER", LParams()<<LParam("emd_no",i->no_str()));
+      else
+        throw;
+    };
   };
 };
 
