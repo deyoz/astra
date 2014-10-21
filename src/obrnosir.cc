@@ -35,7 +35,9 @@ int LocalIsNosir=0;
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
 int seasons_dst_format(int argc,char **argv);
+int points_dst_format(int argc,char **argv);
 int nosir_tscript(int argc, char** argv);
+int tz2db(int argc,char **argv);
 
 const
   struct {
@@ -57,6 +59,7 @@ const
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
     {"-lci",                    TypeB::lci,             NULL,                       NULL},
     {"-ssm",                    TypeB::ssm,             NULL,                       NULL},
+    {"-tz2db",                  tz2db,                  NULL,                       "reload date_time_zonespec.csv content to db"},
     {"-get_sirena_rozysk_stat", get_sirena_rozysk_stat, NULL,                       NULL},
     {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
     {"-get_basel_aero_stat",    get_basel_aero_stat,    NULL,                       NULL},
@@ -73,6 +76,7 @@ const
     {"-mobile_stat",            mobile_stat,            NULL,                       NULL},
     {"-test_astra_locale_adv",  test_astra_locale_adv,  NULL,                       NULL},
     {"-insert_locales",         insert_locales,         NULL,                       NULL},
+    {"-dst_points",             points_dst_format,         NULL,                       NULL}
   };
 
 int nosir_test(int argc,char **argv)
@@ -189,18 +193,493 @@ using namespace BASIC;
 using namespace SEASON;
 using namespace ASTRA;
 
+TDateTime getdiffhours( const std::string &region )
+{
+/*'Asia/Magadan' +2
+'Asia/Anadyr') +0
+'Asia/Kamchatka' +0
+'Asia/Novokuznetsk' +0
+'Europe/Samara' +0
+'Europe/Kaliningrad' +1
+'Europe/Moscow' +1
+'Europe/Simferopol' +1
+'Europe/Volgograd' +1
+'Asia/Yekaterinburg' +1
+'Asia/Omsk' +1
+'Asia/Novosibirsk' +1
+'Asia/Krasnoyarsk' +1
+'Asia/Irkutsk' +1
+'Asia/Yakutsk' +1
+'Asia/Khandyga' +1
+'Asia/Vladivostok' +1
+'Asia/Sakhalin' +1
+'Asia/Ust-Nera' +1
+'Asia/Chita' +2
+'Asia/Srednekolymsk' +1
+*/
+  if ( region == "Asia/Anadyr" ||
+       region == "Asia/Kamchatka" ||
+       region == "Asia/Novokuznetsk" ||
+       region == "Europe/Samara" ) {
+    return 0.0;
+  }
+
+  if ( region == "Asia/Magadan" ||
+       region == "Asia/Chita" ) {
+    return 2.0;
+  }
+  return 1.0;
+}
+
+
+using namespace boost::local_time;
+using namespace boost::posix_time;
+
+
+void gettime( const TDateTime &old_utc, TDateTime &new_utc,
+              TDateTime &old_local, TDateTime &new_local, const std::string &region )
+{
+   new_utc = old_utc;
+   old_local = NoExists;
+   new_local = NoExists;
+   if ( old_utc == NoExists ) {
+     return;
+   }
+   tz_database &tz_db = get_tz_database();
+   old_local = UTCToLocal( old_utc, region );
+   ptime vtime( DateTimeToBoost( old_utc ) );
+   time_zone_ptr tz = tz_db.time_zone_from_region( region );
+   local_date_time ltime( vtime, tz ); /* определяем текущее время локальное */
+   if ( !ltime.is_dst() ) { // зима
+     new_utc = new_utc + getdiffhours( region ) /24.0;
+   }
+   new_local = UTCToLocal( new_utc, region );
+}
+
+/*
+
+update points set pr_del=-1 WHERE move_id in
+( select move_id from points
+where (scd_in >= to_date('24.10.14','DD.MM.YY') or scd_out >= to_date('24.10.14','DD.MM.YY')) AND pr_del <> -1 )
+*/
+
+int points_dst_format(int argc,char **argv)
+{
+  bool prior = false;
+  printf("argc=%i\n",argc);
+  for(int i=0; i<argc; i++) {
+    printf("argv[%i]='%s'\n",i,argv[i]);
+    if ( string( argv[i] ) == "prior" ) {
+      prior = true;
+      tst();
+      break;
+    }
+  }
+
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "select point_id,airp,scd_in,scd_out,est_in,est_out,act_in,act_out, t.region from airps a, cities c, tz_regions t, "
+    " ( select point_id,airp,scd_in,scd_out,est_in,est_out,act_in,act_out from points p "
+    " where (scd_in >= to_date('24.10.14','DD.MM.YY') or scd_out >= to_date('24.10.14','DD.MM.YY')) AND pr_del <> -1 ) p "
+    " WHERE "
+    " p.airp=a.code AND a.city=c.code AND c.country='РФ' "
+    " AND c.country=t.COUNTRY AND "
+    " t.tz=c.tz ";
+  Qry.Execute();
+  TQuery UQry(&OraSession);
+  UQry.SQLText =
+    "UPDATE points SET scd_in=:scd_in,scd_out=:scd_out,est_in=:est_in,est_out=:est_out,act_in=:act_in,act_out=:act_out WHERE point_id=:point_id";
+  UQry.DeclareVariable( "point_id", otInteger );
+  UQry.DeclareVariable( "scd_in", otDate );
+  UQry.DeclareVariable( "scd_out", otDate );
+  UQry.DeclareVariable( "est_in", otDate );
+  UQry.DeclareVariable( "est_out", otDate );
+  UQry.DeclareVariable( "act_in", otDate );
+  UQry.DeclareVariable( "act_out", otDate );
+  TQuery CQry(&OraSession);
+  if ( prior ) {
+    CQry.SQLText =
+    "INSERT INTO dpoints( point_id,scd_in,scd_out,est_in,est_out,act_in,act_out,pscd_in,pscd_out,pest_in,pest_out,pact_in,pact_out )"
+    "VALUES(:point_id,:scd_in,:scd_out,:est_in,:est_out,:act_in,:act_out,:pscd_in,:pscd_out,:pest_in,:pest_out,:pact_in,:pact_out)";
+  }
+  else {
+    CQry.SQLText =
+    "UPDATE dpoints SET nscd_in=:nscd_in,nscd_out=:nscd_out,nest_in=:nest_in,nest_out=:nest_out,nact_in=:nact_in,nact_out=:nact_out WHERE point_id=:point_id";
+  }
+  CQry.DeclareVariable( "point_id", otInteger );
+  if ( prior ) {
+    CQry.DeclareVariable( "scd_in", otDate );
+    CQry.DeclareVariable( "scd_out", otDate );
+    CQry.DeclareVariable( "est_in", otDate );
+    CQry.DeclareVariable( "est_out", otDate );
+    CQry.DeclareVariable( "act_in", otDate );
+    CQry.DeclareVariable( "act_out", otDate );
+    CQry.DeclareVariable( "pscd_in", otDate );
+    CQry.DeclareVariable( "pscd_out", otDate );
+    CQry.DeclareVariable( "pest_in", otDate );
+    CQry.DeclareVariable( "pest_out", otDate );
+    CQry.DeclareVariable( "pact_in", otDate );
+    CQry.DeclareVariable( "pact_out", otDate );
+  }
+  else {
+    CQry.DeclareVariable( "nscd_in", otDate );
+    CQry.DeclareVariable( "nscd_out", otDate );
+    CQry.DeclareVariable( "nest_in", otDate );
+    CQry.DeclareVariable( "nest_out", otDate );
+    CQry.DeclareVariable( "nact_in", otDate );
+    CQry.DeclareVariable( "nact_out", otDate );
+  }
+
+  for ( ;!Qry.Eof; Qry.Next() ) {
+  TDateTime putc_scd_in = NoExists,
+            putc_scd_out = NoExists,
+            putc_est_in  = NoExists,
+            putc_est_out  = NoExists,
+            putc_act_in  = NoExists,
+            putc_act_out = NoExists;
+  TDateTime nutc_scd_in = NoExists,
+            nutc_scd_out = NoExists,
+            nutc_est_in  = NoExists,
+            nutc_est_out  = NoExists,
+            nutc_act_in  = NoExists,
+            nutc_act_out = NoExists;
+  TDateTime plocal_scd_in = NoExists,
+            plocal_scd_out = NoExists,
+            plocal_est_in  = NoExists,
+            plocal_est_out  = NoExists,
+            plocal_act_in  = NoExists,
+            plocal_act_out = NoExists;
+  TDateTime nlocal_scd_in = NoExists,
+            nlocal_scd_out = NoExists,
+            nlocal_est_in  = NoExists,
+            nlocal_est_out  = NoExists,
+            nlocal_act_in  = NoExists,
+            nlocal_act_out = NoExists;
+    if ( !Qry.FieldIsNULL( "scd_in" ) ) {
+      putc_scd_in = Qry.FieldAsDateTime("scd_in");
+      gettime( putc_scd_in, nutc_scd_in,
+               plocal_scd_in, nlocal_scd_in, Qry.FieldAsString( "region" ) );
+    }
+    if ( !Qry.FieldIsNULL( "scd_out" ) ) {
+      putc_scd_out = Qry.FieldAsDateTime("scd_out");
+      gettime( putc_scd_out, nutc_scd_out,
+               plocal_scd_out, nlocal_scd_out, Qry.FieldAsString( "region" ) );
+    }
+    if ( !Qry.FieldIsNULL( "est_in" ) ) {
+      putc_est_in = Qry.FieldAsDateTime("est_in");
+      gettime( putc_est_in, nutc_est_in,
+               plocal_est_in, nlocal_est_in, Qry.FieldAsString( "region" ) );
+    }
+    if ( !Qry.FieldIsNULL( "est_out" ) ) {
+      putc_est_out = Qry.FieldAsDateTime("est_out");
+      gettime( putc_est_out, nutc_est_out,
+               plocal_est_out, nlocal_est_out, Qry.FieldAsString( "region" ) );
+    }
+    if ( !Qry.FieldIsNULL( "act_in" ) ) {
+      putc_act_in = Qry.FieldAsDateTime("act_in");
+      gettime( putc_act_in, nutc_act_in,
+               plocal_act_in, nlocal_act_in, Qry.FieldAsString( "region" ) );
+    }
+    if ( !Qry.FieldIsNULL( "act_out" ) ) {
+      putc_act_out = Qry.FieldAsDateTime("act_out");
+      gettime( putc_act_out, nutc_act_out,
+               plocal_act_out, nlocal_act_out, Qry.FieldAsString( "region" ) );
+    }
+    UQry.SetVariable( "point_id", Qry.FieldAsInteger("point_id") );
+    CQry.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
+    if ( nutc_scd_in != NoExists ) {
+      UQry.SetVariable( "scd_in", nutc_scd_in );
+      if ( prior ) {
+        CQry.SetVariable( "scd_in", putc_scd_in );
+        CQry.SetVariable( "pscd_in", plocal_scd_in );
+      }
+      else {
+        CQry.SetVariable( "nscd_in", nlocal_scd_in );
+      }
+    }
+    else {
+      UQry.SetVariable( "scd_in", FNull );
+      if ( prior ) {
+        CQry.SetVariable( "scd_in", FNull );
+        CQry.SetVariable( "pscd_in", FNull );
+      }
+      else {
+        CQry.SetVariable( "nscd_in", FNull );
+      }
+    }
+    if ( nutc_scd_out != NoExists ) {
+      UQry.SetVariable( "scd_out", nutc_scd_out );
+      if ( prior ) {
+        CQry.SetVariable( "scd_out", putc_scd_out );
+        CQry.SetVariable( "pscd_out", plocal_scd_out );
+      }
+      else {
+        CQry.SetVariable( "nscd_out", nlocal_scd_out );
+      }
+    }
+    else {
+      UQry.SetVariable( "scd_out", FNull );
+      if ( prior ) {
+        CQry.SetVariable( "scd_out", FNull );
+        CQry.SetVariable( "pscd_out", FNull );
+      }
+      else {
+        CQry.SetVariable( "nscd_out", FNull );
+      }
+    }
+    if ( nutc_est_in != NoExists ) {
+      UQry.SetVariable( "est_in", nutc_est_in );
+      if ( prior ) {
+        CQry.SetVariable( "est_in", putc_est_in );
+        CQry.SetVariable( "pest_in", plocal_est_in );
+      }
+      else {
+        CQry.SetVariable( "nest_in", nlocal_scd_in );
+      }
+    }
+    else {
+      UQry.SetVariable( "est_in", FNull );
+      if ( prior ) {
+        CQry.SetVariable( "est_in", FNull );
+        CQry.SetVariable( "pest_in", FNull );
+      }
+      else {
+        CQry.SetVariable( "nest_in", FNull );
+      }
+    }
+    if ( nutc_est_out != NoExists ) {
+      UQry.SetVariable( "est_out", nutc_est_out );
+      if ( prior ) {
+        CQry.SetVariable( "est_out", putc_est_out );
+        CQry.SetVariable( "pest_out", plocal_est_out );
+      }
+      else {
+        CQry.SetVariable( "nest_out", nlocal_est_out );
+      }
+    }
+    else {
+      UQry.SetVariable( "est_out", FNull );
+      if ( prior ) {
+        CQry.SetVariable( "est_out", FNull );
+        CQry.SetVariable( "pest_out", FNull );
+      }
+      else {
+        CQry.SetVariable( "nest_out", FNull );
+      }
+    }
+    if ( nutc_act_in != NoExists ) {
+      UQry.SetVariable( "act_in", nutc_act_in );
+      if ( prior ) {
+        CQry.SetVariable( "act_in", putc_act_in );
+        CQry.SetVariable( "pact_in", plocal_act_in );
+      }
+      else {
+        CQry.SetVariable( "nact_in", nlocal_act_in );
+      }
+    }
+    else {
+      UQry.SetVariable( "act_in", FNull );
+      if ( prior ) {
+        CQry.SetVariable( "act_in", FNull );
+        CQry.SetVariable( "pact_in", FNull );
+      }
+      else {
+        CQry.SetVariable( "nact_in", FNull );
+      }
+    }
+    if ( nutc_act_out != NoExists ) {
+      UQry.SetVariable( "act_out", nutc_act_out );
+      if ( prior ) {
+        CQry.SetVariable( "act_out", putc_act_out );
+        CQry.SetVariable( "pact_out", plocal_act_out );
+      }
+      else {
+        CQry.SetVariable( "nact_out", nlocal_act_out );
+      }
+    }
+    else {
+      UQry.SetVariable( "act_out", FNull );
+      if ( prior ) {
+        CQry.SetVariable( "act_out", FNull );
+        CQry.SetVariable( "pact_out", FNull );
+      }
+      else {
+        CQry.SetVariable( "nact_out", FNull );
+      }
+    }
+    tst();
+    CQry.Execute();
+    if ( !prior ) {
+      UQry.Execute();
+    }
+  }
+  OraSession.Commit();
+  if ( !prior ) {
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT point_id from dpoints "
+      " WHERE NVL(pscd_in,to_date('24.10.14','DD.MM.YY'))!=NVL(nscd_in,to_date('24.10.14','DD.MM.YY')) OR "
+      "        NVL(pscd_out,to_date('24.10.14','DD.MM.YY'))!=NVL(nscd_out,to_date('24.10.14','DD.MM.YY')) OR "
+      "        NVL(pest_in,to_date('24.10.14','DD.MM.YY'))!=NVL(nest_in,to_date('24.10.14','DD.MM.YY')) OR "
+      "        NVL(pest_out,to_date('24.10.14','DD.MM.YY'))!=NVL(nest_out,to_date('24.10.14','DD.MM.YY')) OR "
+      "        NVL(pact_in,to_date('24.10.14','DD.MM.YY'))!=NVL(nact_in,to_date('24.10.14','DD.MM.YY')) OR "
+      "        NVL(pact_out,to_date('24.10.14','DD.MM.YY'))!=NVL(nact_out,to_date('24.10.14','DD.MM.YY')) ";
+    Qry.Execute();
+    for ( ; !Qry.Eof; Qry.Next() ) {
+      ProgError( STDLOG, "point_id=%d", Qry.FieldAsInteger( "point_id" ) );
+    }
+  }
+  return 0;
+}
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/split.hpp>
+
+namespace TZ_2_DB {
+    void from_file(vector<vector<string> > &data)
+    {
+        ifstream input("date_time_zonespec.csv");
+        bool pr_first = true;
+        for(string line; getline(input, line);) {
+            if(pr_first) {
+                pr_first = not pr_first; //skip first row
+                continue;
+            }
+            vector<string> values;
+            vector<string> row;
+            boost::algorithm::split(values, line, boost::is_any_of(","));
+            for(vector<string>::const_iterator i = values.begin(); i != values.end(); i++) {
+                string val = *i;
+                boost::algorithm::erase_all(val, "\"");
+                row.push_back(val);
+            }
+            if(row.size() < 11) throw logic_error((string)"not enough fields " + IntToString(row.size()) + ": " + line);
+            if(row.size() > 11) throw logic_error((string)"too many fields " + IntToString(row.size()) + ": " + line);
+            data.push_back(row);
+        }
+    }
+
+    string rowToString(const vector<string> &val)
+    {
+        string result;
+        for(vector<string>::const_iterator i = val.begin(); i != val.end(); i++) {
+            if(not result.empty()) result += ", ";
+            result += *i;
+        }
+        return result;
+    }
+
+    void to_db(vector<vector<string> > &data)
+    {
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "begin "
+            "   execute immediate 'drop table new_date_time_zonespec'; "
+            "   execute immediate 'create table new_date_time_zonespec  "
+            "(   id varchar2(50) not null,  "
+            "    std_abbr varchar2(5),  "
+            "    std_name varchar2(50),  "
+            "    dst_abbr varchar2(5),  "
+            "    dst_name varchar2(50),  "
+            "    gmt_offset varchar2(9),  "
+            "    dst_adjustment varchar2(9),  "
+            "    dst_start_date_rule varchar2(10),  "
+            "    start_time varchar2(9),  "
+            "    dst_end_date_rule varchar2(10),  "
+            "    end_time varchar2(9) "
+            ")'; "
+            "end; ";
+        Qry.Execute();
+
+        Qry.SQLText =
+            "insert into new_date_time_zonespec( "
+            " id, "
+            " std_abbr, "
+            " std_name, "
+            " dst_abbr, "
+            " dst_name, "
+            " gmt_offset, "
+            " dst_adjustment, "
+            " dst_start_date_rule, "
+            " start_time, "
+            " dst_end_date_rule, "
+            " end_time "
+            ") values ( "
+            " :id, "
+            " :std_abbr, "
+            " :std_name, "
+            " :dst_abbr, "
+            " :dst_name, "
+            " :gmt_offset, "
+            " :dst_adjustment, "
+            " :dst_start_date_rule, "
+            " :start_time, "
+            " :dst_end_date_rule, "
+            " :end_time "
+            ")";
+
+        Qry.DeclareVariable("id", otString);
+        Qry.DeclareVariable("std_abbr", otString);
+        Qry.DeclareVariable("std_name", otString);
+        Qry.DeclareVariable("dst_abbr", otString);
+        Qry.DeclareVariable("dst_name", otString);
+        Qry.DeclareVariable("gmt_offset", otString);
+        Qry.DeclareVariable("dst_adjustment", otString);
+        Qry.DeclareVariable("dst_start_date_rule", otString);
+        Qry.DeclareVariable("start_time", otString);
+        Qry.DeclareVariable("dst_end_date_rule", otString);
+        Qry.DeclareVariable("end_time", otString);
+
+        for(vector<vector<string> >::const_iterator row = data.begin(); row != data.end(); row++) {
+            int idx = 0;
+            if(row->size() < 11) throw logic_error((string)"not enough fields in row " + IntToString(row->size()) + ": " + rowToString(*row));
+            if(row->size() > 11) throw logic_error((string)"too many fields in row " + IntToString(row->size()) + ": " + rowToString(*row));
+            for(vector<string>::const_iterator val = row->begin(); val != row->end(); val++, idx++) {
+                switch(idx) {
+                    case 0: Qry.SetVariable("id", *val); break;
+                    case 1: Qry.SetVariable("std_abbr", *val); break;
+                    case 2: Qry.SetVariable("std_name", *val); break;
+                    case 3: Qry.SetVariable("dst_abbr", *val); break;
+                    case 4: Qry.SetVariable("dst_name", *val); break;
+                    case 5: Qry.SetVariable("gmt_offset", *val); break;
+                    case 6: Qry.SetVariable("dst_adjustment", *val); break;
+                    case 7: Qry.SetVariable("dst_start_date_rule", *val); break;
+                    case 8: Qry.SetVariable("start_time", *val); break;
+                    case 9: Qry.SetVariable("dst_end_date_rule", *val); break;
+                    case 10: Qry.SetVariable("end_time", *val); break;
+                }
+            }
+            Qry.Execute();
+        }
+        cout << data.size() << " rows inserted." << endl;
+    }
+}
+
+
+
+int tz2db(int argc,char **argv)
+{
+    vector<vector<string> > data;
+    TZ_2_DB::from_file(data);
+    TZ_2_DB::to_db(data);
+    return 0;
+}
+
 int seasons_dst_format(int argc,char **argv)
 {
   vector<TSTrip> trips;
   try{
   TQuery Qry(&OraSession);
+  //1 - зима
   Qry.Clear();
   Qry.SQLText =
-    "SELECT trip_id,move_id,num,first_day,last_day,days,sched_days.tz FROM sched_days, seasons "
-    "WHERE seasons.hours = 0 AND seasons.tz=sched_days.tz AND "
+    "SELECT trip_id,move_id,num,first_day,last_day,days,sched_days.tz,sched_days.region FROM sched_days, seasons "
+    "WHERE seasons.hours = 1 AND seasons.tz=sched_days.tz AND "
     "      first_day BETWEEN seasons.first AND seasons.last "
     "ORDER BY trip_id,move_id,num";
   Qry.Execute();
+
   TQuery UQry(&OraSession);
   UQry.SQLText =
     "BEGIN "
@@ -251,6 +730,7 @@ int seasons_dst_format(int argc,char **argv)
 
     TDateTime prior_first_day = Qry.FieldAsDateTime( "first_day" );
     TDateTime prior_last_day = Qry.FieldAsDateTime( "last_day" );
+    string region = Qry.FieldAsString( "region" );
     TDateTime trunc_pf, trunc_f;
     modf( prior_first_day, &trunc_pf );
     int trip_id = Qry.FieldAsInteger( "trip_id" );
@@ -258,12 +738,12 @@ int seasons_dst_format(int argc,char **argv)
     string prior_days = Qry.FieldAsString( "days" );
     TDateTime first_day, last_day;
     string days;
-    first_day = prior_first_day - 1.0/24.0;
-    last_day = prior_last_day - 1.0/24.0;
+    first_day = prior_first_day + getdiffhours( region )/24.0;
+    last_day = prior_last_day + getdiffhours( region)/24.0;
     ProgTrace( TRACE5, "start, trip_id=%d, move_id=%d, num=%d", trip_id, Qry.FieldAsInteger( "move_id" ), sched_num );
     ProgTrace( TRACE5, "prior_first_day=%f, trunc_pf=%f", prior_first_day, trunc_pf );
     modf( first_day, &trunc_f );
-    int diff = (int)trunc_f - (int)trunc_pf;
+    int diff = (int)trunc_f - (int)trunc_pf; // переход на зиму
 
     if ( move_id != Qry.FieldAsInteger( "move_id" ) ) {
       move_id = Qry.FieldAsInteger( "move_id" );
@@ -283,15 +763,16 @@ int seasons_dst_format(int argc,char **argv)
         int route_num = RQry.FieldAsInteger( "num" );
         string city = ((TAirpsRow&)baseairps.get_row( "code", RQry.FieldAsString( "airp" )  , true )).city;
         TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
+        string city_region = CityTZRegion( city );
 
         if (  prior_scd_in != NoExists ) {
           ProgTrace( TRACE5, "before convert move_id=%d, route.num=%d, scd_in=%s, delta_in=%d, airp=%s",
                      move_id, route_num, DateTimeToStr( prior_scd_in, "dd.mm.yyyy hh:nn" ).c_str(),
                      prior_delta_in, RQry.FieldAsString( "airp" ) );
-          if ( row.country == "РФ" || row.country == "УА" || row.country == "БЛ" ) {
+          if ( row.country == "РФ" ) {
             scd_in = trunc_f + prior_delta_in + prior_scd_in;
             ProgTrace( TRACE5, "scd_in=%f, scd_in=%s", scd_in, DateTimeToStr( scd_in, "dd.mm.yyyy hh:nn" ).c_str() );
-            scd_in -= 1.0/24.0;
+            scd_in += getdiffhours(city_region)/24.0;
             ProgTrace( TRACE5, "scd_in=%f, scd_in=%s", scd_in, DateTimeToStr( scd_in, "dd.mm.yyyy hh:nn" ).c_str() );
             TDateTime f2, f3;
             f2 = modf( scd_in, &f3 );
@@ -331,10 +812,10 @@ int seasons_dst_format(int argc,char **argv)
           ProgTrace( TRACE5, "before convert move_id=%d,route.num=%d, scd_out=%s, delta_out=%d, airp=%s",
                      move_id, route_num, DateTimeToStr( prior_scd_out, "dd.mm.yyyy hh:nn" ).c_str(),
                      prior_delta_out, RQry.FieldAsString( "airp" ) );
-          if ( row.country == "РФ" || row.country == "УА" || row.country == "БЛ" ) {
+          if ( row.country == "РФ" ) {
             scd_out = trunc_f + prior_delta_out + prior_scd_out;
             ProgTrace( TRACE5, "scd_out=%f, scd_out=%s", scd_out, DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" ).c_str() );
-            scd_out -= 1.0/24.0;
+            scd_out += getdiffhours(city_region)/24.0;
             ProgTrace( TRACE5, "scd_out=%f, scd_out=%s", scd_out, DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" ).c_str() );
             TDateTime f2, f3;
             f2 = modf( scd_out, &f3 );
@@ -449,7 +930,8 @@ int seasons_dst_format(int argc,char **argv)
         ProgTrace( TRACE5, "trip convert: trip_id=%d, move_id=%d, num=%d", Qry.FieldAsInteger( "trip_id" ), Qry.FieldAsInteger( "move_id" ), Qry.FieldAsInteger( "num" ) );
         string city = ((TAirpsRow&)baseairps.get_row( "code", Qry.FieldAsString( "airp" )  , true )).city;
         TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
-        if ( row.country == "РФ" || row.country == "УА" || row.country == "БЛ" ) {
+        string city_region = CityTZRegion( city );
+        if ( row.country == "РФ" ) {
             TDateTime trunc_f, scd_in, prior_scd_in, scd_out, prior_scd_out;
             modf( Qry.FieldAsDateTime( "first_day" ), &trunc_f );
             int delta_in, prior_delta_in, delta_out, prior_delta_out;
@@ -462,7 +944,7 @@ int seasons_dst_format(int argc,char **argv)
             if (  prior_scd_in != NoExists ) {
               scd_in = trunc_f + prior_delta_in + prior_scd_in;
               ProgTrace( TRACE5, "scd_in=%f, scd_in=%s", scd_in, DateTimeToStr( scd_in, "dd.mm.yyyy hh:nn" ).c_str() );
-              scd_in -= 1.0/24.0;
+              scd_in += getdiffhours( city_region ) /24.0;
               ProgTrace( TRACE5, "scd_in=%f, scd_in=%s", scd_in, DateTimeToStr( scd_in, "dd.mm.yyyy hh:nn" ).c_str() );
               TDateTime f2, f3;
               f2 = modf( scd_in, &f3 );
@@ -488,7 +970,7 @@ int seasons_dst_format(int argc,char **argv)
             if ( prior_scd_out != NoExists ) {
               scd_out = trunc_f + prior_delta_out + prior_scd_out;
               ProgTrace( TRACE5, "scd_out=%f, scd_out=%s", scd_out, DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" ).c_str() );
-              scd_out -= 1.0/24.0;
+              scd_out += getdiffhours( city_region )/24.0;
               ProgTrace( TRACE5, "scd_out=%f, scd_out=%s", scd_out, DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" ).c_str() );
               TDateTime f2, f3;
               f2 = modf( scd_out, &f3 );

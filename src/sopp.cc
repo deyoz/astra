@@ -1154,32 +1154,35 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
         //create trips
     string airline;
     vtrips.clear();
-    for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
-      if ( id != dests.end() - 1 )
-        airline = id->airline;
-      else {
-        TSOPPDests::iterator f = id;
-        f--;
-        airline = f->airline;
-      }
-      if ( reqInfo->CheckAirline( airline ) &&
-        	 reqInfo->CheckAirp( id->airp ) ) {
-         TSOPPTrip ntr = createTrip( move_id, id, dests );
-         ntr.ref = ref;
-         if ( FilterFlightDate( ntr, first_date, next_date,
-         	                      errcity, module == tISG ) ) {
-          	vector<TSOPPTrip>::iterator v=vtrips.end();
-          	if ( module == tISG && reqInfo->desk.city != "óãÅ" ) {
-           	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
-           	  	if ( EqualTrips( ntr, *v ) )
-           	  		break;
-             	}
-            }
-           	if ( v == vtrips.end() ) {
-              trips.push_back( ntr );
-              vtrips.push_back( ntr );
-            }
-         }
+    //!!! dests.size=1 core!!!
+    if ( dests.size() >= 2 ) {
+      for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
+        if ( id != dests.end() - 1 )
+          airline = id->airline;
+        else {
+          TSOPPDests::iterator f = id;
+          f--;
+          airline = f->airline;
+       }
+        if ( reqInfo->CheckAirline( airline ) &&
+          	 reqInfo->CheckAirp( id->airp ) ) {
+           TSOPPTrip ntr = createTrip( move_id, id, dests );
+           ntr.ref = ref;
+           if ( FilterFlightDate( ntr, first_date, next_date,
+         	                        errcity, module == tISG ) ) {
+          	  vector<TSOPPTrip>::iterator v=vtrips.end();
+          	  if ( module == tISG && reqInfo->desk.city != "óãÅ" ) {
+           	    for (v=vtrips.begin(); v!=vtrips.end(); v++) {
+             	  	if ( EqualTrips( ntr, *v ) )
+             	  		break;
+               	}
+              }
+             	if ( v == vtrips.end() ) {
+                trips.push_back( ntr );
+                vtrips.push_back( ntr );
+              }
+           }
+        }
       }
     }
   }
