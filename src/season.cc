@@ -1231,7 +1231,7 @@ TDateTime ddiff( const string &region, TDateTime first_day, TDateTime curr_day )
 bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day, int offset,
                     TDateTime vd, TDestList &ds, const TRegion &flight_tz_region )
 {
-  ProgTrace( TRACE5, "first_day=%s", DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str() );
+  ProgTrace( TRACE5, "move_id=%d, first_day=%s", move_id, DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str() );
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool canUseAirline, canUseAirp; /* можно ли использовать данный рейс */
@@ -3552,6 +3552,7 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
   bool canRange;
   bool canTrips;
   bool DestsExists = false;
+  int zone_error = NoExists;
   while ( !SQry.Eof ) {
     TDateTime first = SQry.FieldAsDateTime( idx_first_day );
     TDateTime last = SQry.FieldAsDateTime( idx_last_day );
@@ -3562,8 +3563,11 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
     GetRegionFromTZ( flight_tz_region, mapreg );
     if ( flight_tz_region.region.empty() ) {
       ProgError( STDLOG, "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE: region=%s, tz=%d", flight_tz_region.region.c_str(), flight_tz_region.tz );
-    	throw AstraLocale::UserException( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE",
-    		                                LParams() << LParam("country", ElemIdToCodeNative(etCountry,"РФ")) << LParam("zone", flight_tz_region.tz));
+      if ( trip_id != NoExists && SQry.FieldAsInteger( idx_trip_id ) == trip_id ) {
+        zone_error = flight_tz_region.tz;
+      }
+      SQry.Next();
+      continue;
     }
 /*    TDateTime hours = GetTZTimeDiff( NowUTC(), first, last, ptz, v );
     first += hours; //???
@@ -3732,6 +3736,10 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
       NewTextChild( tripNode, "trip_id", t->trip_id );
       NewTextChild( tripNode, "name", t->name );
     }
+  }
+  if ( zone_error != NoExists ) {
+    AstraLocale::showErrorMessage( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE",
+    		                           LParams() << LParam("country", ElemIdToCodeNative(etCountry,"РФ")) << LParam("zone", zone_error));
   }
 }
 
