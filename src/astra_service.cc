@@ -2099,25 +2099,44 @@ void get_string_into_snapshot_points( int point_id, const std::string &file_type
 	}
 }
 
-void putUTG(int id, int part, const string &basic_type, const TTripInfo &flt, const string &data)
+void putUTG(
+        int id,
+        int part,
+        const string &basic_type,
+        const TTripInfo &flt,
+        const string &data,
+        const map<std::string/*lang*/, string> &extra // used for BTM, PTM; extract airp trfer
+        )
 {
-    map<string, string> file_params;
-    TFileQueue::add_sets_params( flt.airp,
-            flt.airline,
-            IntToString(flt.flt_no),
-            OWN_POINT_ADDR(),
-            FILE_UTG_TYPE,
-            1,
-            file_params );
+    vector<string> airps;
+    airps.push_back(flt.airp);
+    if(basic_type == "BTM" or basic_type == "PTM") {
+        map<string, string>::const_iterator i_extra = extra.find(LANG_RU);
+        if(i_extra != extra.end()) {
+            string airp_trfer = TypeB::getAirpTrferFromExtra(i_extra->second);
+            if(not airp_trfer.empty()) airps.push_back(airp_trfer);
+        }
+    }
 
-    if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find(basic_type) != string::npos)) {
-        string encoding=TFileQueue::getEncoding(FILE_UTG_TYPE, OWN_POINT_ADDR(), true);
-        if (encoding.empty()) encoding="CP866";
-        file_params[PARAM_FILE_NAME] = UTG_file_name(id, part, basic_type, flt, file_params[PARAM_FILE_NAME_ENC]);
-        TFileQueue::putFile( OWN_POINT_ADDR(),
+    for(vector<string>::const_iterator i = airps.begin(); i != airps.end(); i++) {
+        map<string, string> file_params;
+        TFileQueue::add_sets_params( *i,
+                flt.airline,
+                IntToString(flt.flt_no),
                 OWN_POINT_ADDR(),
                 FILE_UTG_TYPE,
-                file_params,
-                (encoding == "CP866" ? data : ConvertCodepage(data, "CP866", encoding)));
+                1,
+                file_params );
+
+        if(not file_params.empty() and (file_params[PARAM_TLG_TYPE].find(basic_type) != string::npos)) {
+            string encoding=TFileQueue::getEncoding(FILE_UTG_TYPE, OWN_POINT_ADDR(), true);
+            if (encoding.empty()) encoding="CP866";
+            file_params[PARAM_FILE_NAME] = UTG_file_name(id, part, basic_type, flt, file_params[PARAM_FILE_NAME_ENC]);
+            TFileQueue::putFile( OWN_POINT_ADDR(),
+                    OWN_POINT_ADDR(),
+                    FILE_UTG_TYPE,
+                    file_params,
+                    (encoding == "CP866" ? data : ConvertCodepage(data, "CP866", encoding)));
+        }
     }
 }

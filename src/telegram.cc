@@ -126,6 +126,17 @@ void TTlgOutPartInfo::addFromFileParams(const map<string, string> &params)
   };
 };
 
+void TTlgOutPartInfo::getExtra()
+{
+    extra.clear();
+    QParams QryParams;
+    QryParams << QParam("tlg_id", otInteger, id);
+    TCachedQuery Qry("select * from typeb_out_extra where tlg_id = :tlg_id", QryParams);
+    Qry.get().Execute();
+    for(; !Qry.get().Eof; Qry.get().Next())
+        extra.insert(make_pair(Qry.get().FieldAsString("lang"), Qry.get().FieldAsString("text")));
+}
+
 TTlgOutPartInfo& TTlgOutPartInfo::fromDB(TQuery &Qry)
 {
   clear();
@@ -144,6 +155,7 @@ TTlgOutPartInfo& TTlgOutPartInfo::fromDB(TQuery &Qry)
   originator_id=Qry.FieldAsInteger("originator_id");
   airline_mark=Qry.FieldAsString("airline_mark");
   manual_creation=Qry.FieldAsInteger("manual_creation")!=0;
+  getExtra();
   return *this;
 };
 
@@ -1260,7 +1272,7 @@ void TelegramInterface::SendTlg(int tlg_id)
 
           TFileQueue::putFile(i->first,OWN_POINT_ADDR(),tlg.tlg_type,params,tlg.heading+tlg.body+tlg.ending);
         };
-        putUTG(tlg_id, tlg.num, tlg_basic_type, fltInfo, tlg.heading+tlg.body+tlg.ending);
+        putUTG(tlg_id, tlg.num, tlg_basic_type, fltInfo, tlg.heading+tlg.body+tlg.ending, tlg.extra);
       };
     };
 

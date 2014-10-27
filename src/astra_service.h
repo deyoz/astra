@@ -38,7 +38,14 @@ void sync_1ccek( void );
 void sync_checkin_data( void );
 void sync_checkin_data( int point_id );
 void utg_prl(void);
-void putUTG(int id, int part, const std::string &basic_type, const TTripInfo &flt, const std::string &data);
+void putUTG(
+        int id,
+        int part,
+        const std::string &basic_type,
+        const TTripInfo &flt,
+        const std::string &data,
+        const std::map<std::string/*lang*/, std::string> &extra // used for BTM, PTM; extract airp trfer
+        );
 void sync_fids_data( );
 
 
