@@ -190,6 +190,7 @@ struct TTlgOutPartInfo
   void addToFileParams(std::map<std::string, std::string> &params) const;
   void addFromFileParams(const std::map<std::string, std::string> &params);
   TTlgOutPartInfo& fromDB(TQuery &Qry);
+  void getExtra();
 };
 
 namespace BSM

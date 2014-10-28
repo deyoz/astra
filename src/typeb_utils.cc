@@ -1298,6 +1298,19 @@ void TCreator::getInfo(vector<TCreateInfo> &info)
   };
 };
 
+string getAirpTrferFromExtra(const string &val)
+{
+    string result;
+    static const string header = " /¯: ";
+    size_t idx = val.find(header);
+    if(idx != string::npos) {
+        TElemFmt fmt;
+        result = ElemToElemId(etAirp, val.substr(idx + header.size(), 3), fmt);
+        if(fmt == efmtUnknown) result.clear();
+    }
+    return result;
+}
+
 }
 
 

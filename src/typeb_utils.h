@@ -276,6 +276,8 @@ class TAirpTrferOptions : public TCreateOptions
     };
 };
 
+std::string getAirpTrferFromExtra(const std::string &val);
+
 class TCrsOptions : public TCreateOptions
 {
   private:
