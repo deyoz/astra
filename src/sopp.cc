@@ -4218,17 +4218,15 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	      t1 = t2-t1;
   	      if ( t1 < 0 ) {
   	      	modf( t1, &f );
-  		      if ( f )
-                reqInfo->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_AHEAD", LEvntPrms() << PrmSmpl<int>("val", (int)f)
-                                     << PrmDate("time", fabs(t1), "hh:nn") << PrmElem<std::string>("airp", etAirp, id->airp),
-                                     evtGraph, id->point_id);
+            reqInfo->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_AHEAD", LEvntPrms() << PrmSmpl<std::string>("val", f ? IntToString((int)f) : "")
+                                 << PrmDate("time", fabs(t1), "hh:nn") << PrmElem<std::string>("airp", etAirp, id->airp),
+                                 evtGraph, id->point_id);
           }
   	      if ( t1 >= 0 ) {
             modf( t1, &f );
   	      	if ( t1 ) {
-              if ( f )
-                reqInfo->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_DELAY", LEvntPrms() << PrmSmpl<int>("val", (int)f)
-                                     << PrmDate("time", t1, "hh:nn") << PrmElem<std::string>("airp", etAirp, id->airp), evtFlt, id->point_id);
+              reqInfo->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_DELAY", LEvntPrms() << PrmSmpl<std::string>("val", f ? IntToString((int)f) : "")
+                                   << PrmDate("time", t1, "hh:nn") << PrmElem<std::string>("airp", etAirp, id->airp), evtFlt, id->point_id);
             }
             else
               reqInfo->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_DELAY_CANCEL", LEvntPrms() <<
