@@ -238,12 +238,12 @@ void WriteCompSections( int id, const vector<SALONS2::TCompSection> &CompSection
   bool empty = true;
   for ( vector<SALONS2::TCompSection>::const_iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
     PrmLexema new_lexema("", "EVT.SECTIONS");
-    new_lexema.prms << PrmSmpl<std::string>("name", i->name) << PrmSmpl<int>("FirstRow", i->getFirstRow())
-                    << PrmSmpl<int>("LastRow", i->getLastRow());//!!!ANNA ряды выводятся неправильно
+    new_lexema.prms << PrmSmpl<std::string>("name", i->name) << PrmSmpl<int>("FirstRow", i->getFirstRow()+1)
+                    << PrmSmpl<int>("LastRow", i->getLastRow()+1);//!!!ANNA ряды выводятся неправильно - это индекс ряда, т.к. названия номера ряда может меняться
     prmenum.prms << new_lexema;
     Qry.SetVariable( "name", i->name );
-    Qry.SetVariable( "first_rownum", i->getFirstRow() + 1 );
-    Qry.SetVariable( "last_rownum", i->getLastRow() + 1 );
+    Qry.SetVariable( "first_rownum", i->getFirstRow() );
+    Qry.SetVariable( "last_rownum", i->getLastRow() );
     Qry.Execute();
     empty = false;
   }
