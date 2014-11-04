@@ -252,7 +252,6 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
                 OWN_CANON_NAME(),
                 queuePriority,
                 20, tlg, ASTRA::NoExists, ASTRA::NoExists);
-        registerHookAfter(sendCmdTlgSnd);
     }
     catch (std::exception &x){
         ProgError(STDLOG, "%s", x.what());
@@ -276,32 +275,25 @@ void confirm_notify_levb(const int edi_sess_id)
 {
   ProgTrace(TRACE2,"confirm_notify_levb: called with edi_sess_id=%d",edi_sess_id);
 
-  string hex_msg_id;
-  if (AstraContext::GetContext("EDI_HELP_INTMSGID", edi_sess_id, hex_msg_id)==ASTRA::NoExists)
-    return; //контекст не существует, значит и подвешивания запроса не было
-  AstraContext::ClearContext("EDI_HELP_INTMSGID", edi_sess_id);
-  if (hex_msg_id.empty())
-    throw EXCEPTIONS::Exception("confirm_notify_levb: context EDI_HELP_INTMSGID empty for edi_sess_id=%d", edi_sess_id);
-  ProgTrace(TRACE2,"confirm_notify_levb: edi_sess_id=%d, intmsgid=%s", edi_sess_id, hex_msg_id.c_str());
-
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
-    "  DELETE FROM edi_help WHERE date1<SYSDATE-1/1440; "
-    "  DELETE FROM edi_help WHERE intmsgid=HEXTORAW(:id) AND rownum<2 "
-    "    RETURNING address,text,1 INTO :address,:text,:exists; "
+    "  DELETE FROM edi_help WHERE session_id=:id AND rownum<2 "
+    "    RETURNING address,text,RAWTOHEX(intmsgid) INTO :address,:text,:intmsgid; "
     "  SELECT COUNT(*) INTO :remained FROM edi_help "
-    "    WHERE intmsgid=HEXTORAW(:id) AND rownum<2; "
+    "    WHERE intmsgid=HEXTORAW(:intmsgid) AND rownum<2; "
     "END;";
-  Qry.CreateVariable("id",otString,hex_msg_id);
+
+  Qry.CreateVariable("id",otString,edi_sess_id);
+  Qry.CreateVariable("intmsgid",otString,FNull);
   Qry.CreateVariable("address",otString,FNull);
-  Qry.CreateVariable("text",otString,FNull);
-  Qry.CreateVariable("exists",otInteger,0);
+  Qry.CreateVariable("text",otString,FNull);  
   Qry.CreateVariable("remained",otInteger,FNull);
   Qry.Execute();
-  if (Qry.GetVariableAsInteger("exists")==0)
-    throw EXCEPTIONS::Exception("confirm_notify_levb: nothing in edi_help for intmsgid=%s", hex_msg_id.c_str());
+  if (Qry.VariableIsNULL("intmsgid"))
+    throw EXCEPTIONS::Exception("confirm_notify_levb: nothing in edi_help for session_id=%d", edi_sess_id);
+  string hex_msg_id=Qry.GetVariableAsString("intmsgid");
   if (Qry.GetVariableAsInteger("remained")==0)
   {
     string txt=Qry.GetVariableAsString("text");
@@ -311,7 +303,7 @@ void confirm_notify_levb(const int edi_sess_id)
     ProgTrace(TRACE2,"confirm_notify_levb: prepare signal %s",txt.c_str());
     sethAfter(EdiHelpSignal((const int*)str_msg_id.c_str(),
                             Qry.GetVariableAsString("address"),
-                            txt.c_str()));
+                            txt.c_str()));    
 #ifdef XP_TESTING
     if(inTestMode()) {
         ServerFramework::setRedisplay(txt);
@@ -796,44 +788,27 @@ void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
     }
 }
 
-xmlDocPtr prepareKickXMLDoc(string iface, int reqCtxtId)
+string make_xml_kick(const edifact::KickInfo &kickInfo)
 {
-  xmlDocPtr kickDoc=CreateXMLDoc("term");
-  if (kickDoc==NULL)
-    throw EXCEPTIONS::Exception("prepareKickXMLDoc failed");
+  XMLDoc kickDoc("term");
+  if (kickDoc.docPtr()==NULL)
+    throw EXCEPTIONS::Exception("%s: kickDoc.docPtr()==NULL", __FUNCTION__);
   TReqInfo *reqInfo = TReqInfo::Instance();
-  xmlNodePtr node=NodeAsNode("/term",kickDoc);
+  xmlNodePtr node=NodeAsNode("/term",kickDoc.docPtr());
   node=NewTextChild(node,"query");
   SetProp(node,"handle","0");
-  SetProp(node,"id",iface);
+  SetProp(node,"id",kickInfo.iface);
   SetProp(node,"ver","1");
   SetProp(node,"opr",reqInfo->user.login);
   SetProp(node,"screen",reqInfo->screen.name);
   SetProp(node,"lang",reqInfo->desk.lang);
   if (reqInfo->desk.term_id!=ASTRA::NoExists)
     SetProp(node,"term_id",FloatToString(reqInfo->desk.term_id,0));
-  if (reqCtxtId!=ASTRA::NoExists)
-    SetProp(NewTextChild(node,"kick"),"req_ctxt_id",reqCtxtId);
+  if (kickInfo.reqCtxtId!=ASTRA::NoExists)
+    SetProp(NewTextChild(node,"kick"),"req_ctxt_id",kickInfo.reqCtxtId);
   else
     NewTextChild(node,"kick");
-  return kickDoc;
-};
-
-string prepareKickText(string iface, int reqCtxtId)
-{
-  string res;
-  xmlDocPtr kickDoc=prepareKickXMLDoc(iface, reqCtxtId);
-  try
-  {
-    res=ConvertCodepage(XMLTreeToText(kickDoc),"CP866","UTF-8");
-    xmlFreeDoc(kickDoc);
-  }
-  catch(...)
-  {
-    xmlFreeDoc(kickDoc);
-    throw;
-  };
-  return res;
+  return ConvertCodepage(XMLTreeToText(kickDoc.docPtr()),"CP866","UTF-8");
 };
 
 void makeItin(EDI_REAL_MES_STRUCT *pMes, const Itin &itin, int cpnnum=0)
@@ -920,14 +895,13 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
                              udata.sessData()->ediSession()->ida().get(),
                              TickD.context());
 
-    if (TickD.req_ctxt_id()!=ASTRA::NoExists)
+    if (!TickD.kickInfo().empty())
     {
-        AstraContext::SetContext("EDI_HELP_INTMSGID",
-                                 udata.sessData()->ediSession()->ida().get(),
-                                 get_internal_msgid_hex());
-
         ServerFramework::getQueryRunner().getEdiHelpManager().
-                configForPerespros(STDLOG,prepareKickText("ETStatus",TickD.req_ctxt_id()).c_str(),-1,15);
+                configForPerespros(STDLOG,
+                                   make_xml_kick(TickD.kickInfo()).c_str(),
+                                   udata.sessData()->ediSession()->ida().get(),
+                                   15);
     };
 }
 
@@ -1353,18 +1327,14 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
                              udata.sessData()->ediSession()->ida().get(),
                              TickD.context());
 
-    if (TickD.req_ctxt_id()!=ASTRA::NoExists)
-    {
-      AstraContext::SetContext("EDI_HELP_INTMSGID",
-                                 udata.sessData()->ediSession()->ida().get(),
-                                 get_internal_msgid_hex());
-
+    if (!TickD.kickInfo().empty())
+    {     
       ServerFramework::getQueryRunner().getEdiHelpManager().
-              configForPerespros(STDLOG,prepareKickText("ETSearchForm",TickD.req_ctxt_id()).c_str(),-1,15);
-      LogTrace(TRACE3) << "get_internal_msgid_hex() = " << get_internal_msgid_hex();
-    } else {
-      LogTrace(TRACE3) << "TickD.req_ctxt_id() = " << TickD.req_ctxt_id();
-    }
+              configForPerespros(STDLOG,
+                                 make_xml_kick(TickD.kickInfo()).c_str(),
+                                 udata.sessData()->ediSession()->ida().get(),
+                                 15);
+    };
 }
 
 void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)

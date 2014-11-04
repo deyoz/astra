@@ -12,7 +12,7 @@
 #include "web_main.h"
 #include "basel_aero.h"
 #include "qrys.h"
-#include "passenger.h"
+#include "emdoc.h"
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
@@ -1428,7 +1428,7 @@ string GetBagRcptStr(int grp_id, int pax_id)
   {
     vector<string> rcpts;
     list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
-    GetBoundPaidBagEMD(grp_id, emd);
+    PaxASVCList::GetBoundPaidBagEMD(grp_id, emd);
     for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
       rcpts.push_back(i->first.emd_no);
 
@@ -1547,7 +1547,7 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
     };
     //EMD
     list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
-    GetBoundPaidBagEMD(grp_id, emd);
+    PaxASVCList::GetBoundPaidBagEMD(grp_id, emd);
     for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
     {
       int bag_type=i->second.bag_type;

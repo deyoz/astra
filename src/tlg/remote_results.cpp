@@ -89,7 +89,7 @@ struct defsupport
 inline void OciDef(CursCtl &ctl, defsupport &def)
 {
     ctl.
-            def(def.Pult).
+            defNull(def.Pult, "").
             def(def.Status).
             def(def.odt).
             def(def.EdiSession).
@@ -114,19 +114,21 @@ void RemoteResults::add(const std::string &pult,
                         const Ticketing::SystemAddrs_t &remoteId)
 {
     RemoteResults tmp(pult, edisess, remoteId);
-    tmp.removeOld();
+    //tmp.removeOld(); неприемлемо
     tmp.writeDb();
 }
-
-void RemoteResults::readDb(const std::string &pult, std::list<RemoteResults> &lres)
+/*
+для Астры неприемлемо завязываться на пульт, только на msgid либо на ид. edifact сессии
+из-за того что от имени одного пульта могут одновременно работать много независимых edifact запросов!
+*/
+void RemoteResults::readDb(/*const std::string &pult,*/ std::list<RemoteResults> &lres)
 {
     defsupport defs;
 
-    CursCtl cur = make_curs((select + " where pult = :pult and INTMSGID=:INTID").c_str());
+    CursCtl cur = make_curs((select + " where INTMSGID=:INTID").c_str());
 
     cur.
-            stb().
-            bind(":pult", pult).
+            stb().            
             bind(":INTID", ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString());
     OciDef(cur, defs);
     cur.exec();
@@ -138,34 +140,33 @@ void RemoteResults::readDb(const std::string &pult, std::list<RemoteResults> &lr
 
     if(!lres.empty())
     {
-        make_curs("delete from REMOTE_RESULTS where pult = :p").
-                bind(":p", pult).
+        make_curs("delete from REMOTE_RESULTS where INTMSGID=:INTID").
+                bind(":INTID", ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString()).
                 exec();
     }
 }
-
-pRemoteResults RemoteResults::readSingle(const std::string &pult)
+/*
+для Астры неприемлемо завязываться на пульт, только на msgid либо на ид. edifact сессии
+из-за того что от имени одного пульта могут одновременно работать много независимых edifact запросов!
+*/
+pRemoteResults RemoteResults::readSingle(/*const std::string &pult*/)
 {
     std::list<RemoteResults> lres;
-    readDb(pult, lres);
+    readDb(lres);
     if(lres.size() != 1)
     {
-        LogError(STDLOG) << "Got " << lres.size() << " for " << pult <<
+        LogError(STDLOG) << "Got " << lres.size() << " for " <<
                 " MsgId: " << ServerFramework::getQueryRunner().getEdiHelpManager().msgId() <<
                 " remote results while one was expected";
         throw EXCEPTIONS::Exception("Failed to read results"); // TODO throw UserException
     }
-/*    else if(lres.empty())
-    {
-        return pRemoteResults();
-    }*/
     else
     {
         return pRemoteResults(new RemoteResults(lres.front()));
     }
 }
 
-pRemoteResults RemoteResults::readDb(edilib::EdiSessionId_t Id)
+pRemoteResults RemoteResults::readDb(const edilib::EdiSessionId_t &Id)
 {
     defsupport defs;
     CursCtl cur = make_curs((select + " where EDISESSION_ID = :SID").c_str());
@@ -195,7 +196,7 @@ void RemoteResults::writeDb()
 
     cur.
             stb().
-            bind(":INTMSGID", ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString()).
+            bind(":INTMSGID", pult().empty()?"":ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString()).
             bind(":PULT", pult()).
             bind(":STATUS", status()->code()).
             bind(":LOCAL_TIME", OciCpp::to_oracle_datetime(Dates::second_clock::local_time())).
@@ -222,7 +223,9 @@ void RemoteResults::updateDb() const
             bind(":EDISESSION_ID", ediSession()).
             exec();
 }
-
+/*
+для Астры неприемлемо завязываться на пульт, только на msgid либо на ид. edifact сессии
+из-за того что от имени одного пульта могут одновременно работать много независимых edifact запросов!
 void RemoteResults::removeOld() const
 {
     CursCtl cur = make_curs("delete from REMOTE_RESULTS where INTMSGID <> :INTID "
@@ -234,6 +237,28 @@ void RemoteResults::removeOld() const
             exec();
 
     LogTrace(TRACE3) << __FUNCTION__ << ": " << cur.rowcount() << " rows deleted.";
+}
+*/
+
+void RemoteResults::deleteDb(const edilib::EdiSessionId_t &Id)
+{
+  CursCtl cur = make_curs("delete from REMOTE_RESULTS where EDISESSION_ID = :SID");
+  cur.
+          stb().
+          bind(":SID", Id).
+          exec();
+
+  LogTrace(TRACE3) << __FUNCTION__ << ": " << cur.rowcount() << " rows deleted.";
+}
+
+void RemoteResults::cleanOldRecords(const int min_ago)
+{
+    using namespace Dates;
+    LogTrace(TRACE3) << __FUNCTION__;
+    const ptime amin_ago = second_clock::local_time() - seconds(60*min_ago);
+    make_curs("delete from REMOTE_RESULTS where DATE_CR < :min_ago")
+            .bind(":min_ago", OciCpp::to_oracle_datetime(amin_ago))
+            .exec();
 }
 
 std::ostream & operator <<(std::ostream & os, const RemoteResults & rr)

@@ -17,11 +17,11 @@ class EmdDispParams : public EmdRequestParams
 public:
     EmdDispParams(const Ticketing::OrigOfRequest& org,
                   const std::string& ctxt,
-                  const int reqCtxtId,
+                  const edifact::KickInfo &kickInfo,
                   const std::string& airline,
                   const Ticketing::FlightNum_t& flNum,
                   EmdDispType_e dt)
-    : EmdRequestParams(org, ctxt, reqCtxtId, airline, flNum),
+    : EmdRequestParams(org, ctxt, kickInfo, airline, flNum),
       m_dispType(dt)
     {}
 
@@ -36,11 +36,11 @@ class EmdDispByNum : public EmdDispParams
 public:
     EmdDispByNum(const Ticketing::OrigOfRequest &org,
                  const std::string &ctxt,
-                 const int reqCtxtId,
+                 const edifact::KickInfo &kickInfo,
                  const std::string& airline,
                  const Ticketing::FlightNum_t& flNum,
                  const Ticketing::TicketNum_t &ticknum)
-    : EmdDispParams(org, ctxt, reqCtxtId, airline, flNum, emdDispByNum),
+    : EmdDispParams(org, ctxt, kickInfo, airline, flNum, emdDispByNum),
       m_tickNum(ticknum)
     {}
 

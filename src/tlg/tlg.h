@@ -4,6 +4,7 @@
 #include "oralib.h"
 #include "serverlib/query_runner.h"
 #include "astra_consts.h"
+#include "EdifactRequest.h"
 
 /* константы задающие максимальные значения для телеграмм */
 #define MAX_TLG_LEN       65536
@@ -121,5 +122,8 @@ void sendCmdTlgHttpSnd();
 void sendCmdTlgSnd();
 void sendCmdTlgSndStepByStep();
 void sendCmdTypeBHandler();
+
+void confirm_notify_levb(const int edi_sess_id);
+std::string make_xml_kick(const edifact::KickInfo &kickInfo);
 
 #endif

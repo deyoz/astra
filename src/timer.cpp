@@ -282,8 +282,7 @@ void ETCheckStatusFlt(void)
     TDateTime now=NowUTC();
 
     AstraContext::ClearContext("EDI_SESSION",now-1.0/48);
-    AstraContext::ClearContext("TERM_REQUEST",now-1.0/48);
-    AstraContext::ClearContext("EDI_HELP_INTMSGID",now-1.0/48);
+    AstraContext::ClearContext("TERM_REQUEST",now-1.0/48);    
     AstraContext::ClearContext("EDI_RESPONSE",now-1.0/48);
 
     Qry.Clear();
@@ -375,7 +374,7 @@ void ETCheckStatusFlt(void)
           	ProgTrace(TRACE5,"ETCheckStatusFlt.ETCheckStatus: point_id=%d",point_id);
             TChangeStatusList mtick;
             ETStatusInterface::ETCheckStatus(point_id,csaFlt,point_id,true,mtick);
-            if (!ETStatusInterface::ETChangeStatus(ASTRA::NoExists,mtick))
+            if (!ETStatusInterface::ETChangeStatus(NULL,mtick))
             {
               if (fltParams.in_final_status)
               {

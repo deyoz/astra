@@ -13,7 +13,10 @@ namespace edifact
 using namespace Ticketing;
 
 EmdRequest::EmdRequest(const EmdRequestParams& params)
-    : EdifactRequest(params.org().pult(), params.req_ctxt_id(), TKCREQ,
+    : EdifactRequest(params.org().pult(),
+                     params.context(),
+                     params.kickInfo(),
+                     TKCREQ,
                      RemoteSystemContext::EdsSystemContext::read(params.airline(),
                                                                  params.flightNum()))
 {

@@ -48,7 +48,7 @@ static CpnElem getCpn(const EmdDisassociateRequestParams& params)
     CpnElem cpn;
     cpn.m_num = params.emdTickCpn().cpn();
     cpn.m_connectedNum = params.etTickCpn().cpn();
-    cpn.m_action = CpnStatAction::CpnActionStr(CpnStatAction::disassociate);
+    cpn.m_action = CpnStatAction::CpnActionStr(params.emdStatAction());
     return cpn;
 }
 

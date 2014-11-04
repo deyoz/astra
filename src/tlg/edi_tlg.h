@@ -168,14 +168,13 @@ enum TickDispType_t {
 
 class TickDisp : public edi_common_data
 {
-    TickDispType_t DispType;
-    int reqCtxtId;
+    TickDispType_t DispType;   
 public:
     TickDisp(const Ticketing::OrigOfRequest &org,
              const std::string &ctxt,
-             const int req_ctxt_id,
+             const edifact::KickInfo &kickInfo,
              TickDispType_t dt)
-    :edi_common_data(org, ctxt, req_ctxt_id), DispType(dt)
+    :edi_common_data(org, ctxt, kickInfo), DispType(dt)
     {
     }
     TickDispType_t dispType() { return DispType; }
@@ -187,9 +186,9 @@ class TickDispByNum : public TickDisp
 public:
     TickDispByNum(const Ticketing::OrigOfRequest &org,
                   const std::string &ctxt,
-                  const int req_ctxt_id,
+                  const edifact::KickInfo &kickInfo,
                   const std::string &ticknum)
-    :   TickDisp(org, ctxt, req_ctxt_id, TickDispByTickNo),
+    :   TickDisp(org, ctxt, kickInfo, TickDispByTickNo),
         TickNum(ticknum)
     {
     }
@@ -204,10 +203,10 @@ class ChngStatData : public edi_common_data
 public:
     ChngStatData(const Ticketing::OrigOfRequest &org,
                  const std::string &ctxt,
-                 const int req_ctxt_id,
+                 const edifact::KickInfo &kickInfo,
                  const std::list<Ticketing::Ticket> &lt,
                  const Ticketing::Itin *itin_ = NULL)
-    :edi_common_data(org, ctxt, req_ctxt_id), lTick(lt)
+    :edi_common_data(org, ctxt, kickInfo), lTick(lt)
     {
         if(itin_){
             Itin_ = Ticketing::Itin::SharedPtr(new Ticketing::Itin(*itin_));
@@ -274,6 +273,5 @@ public:
 // Обработка EDIFACT
 void proc_edifact(const std::string &tlg);
 void proc_new_edifact(const std::string &tlg);
-std::string prepareKickText(std::string iface, int reqCtxtId);
 
 #endif /*_EDI_TLG_H_*/

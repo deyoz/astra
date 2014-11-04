@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CheckinBaseTypes.h"
+#include "EdifactRequest.h"
 #include <edilib/EdiSessionId_t.h>
 
 namespace edifact
@@ -19,7 +20,7 @@ namespace Ticketing
     void ConfigAgentToWait(const Ticketing::SystemAddrs_t &rida,
                            const std::string& pult,
                            const edilib::EdiSessionId_t& sida,
-                           int reqCtxtId);
+                           const edifact::KickInfo &kickInfo);
     void MeetAgentExpectations(const edifact::RemoteResults &res);
     bool isDoomedToWait();
 

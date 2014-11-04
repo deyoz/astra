@@ -16,6 +16,7 @@ const std::string LCI="LCI";
 
 const std::string SYNC_NEW_CHKD="SYNC_NEW_CHKD";
 const std::string SYNC_ALL_CHKD="SYNC_ALL_CHKD";
+const std::string EMD_SYS_UPDATE="EMD_SYS_UPDATE";
 
 void add_trip_task(int point_id,
                    const std::string& task_name,

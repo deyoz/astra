@@ -1022,6 +1022,8 @@ void CloseBoarding( int point_id )
 
 void Takeoff( int point_id )
 {
+  add_trip_task(point_id, EMD_SYS_UPDATE, "");
+
   time_t time_start,time_end;
 
   time_start=time(NULL);

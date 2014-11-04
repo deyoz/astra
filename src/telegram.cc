@@ -1256,8 +1256,7 @@ void TelegramInterface::SendTlg(int tlg_id)
                                      fltInfo,
                                      tlg.airline_mark,
                                      originator.descr);
-            };
-            registerHookAfter(sendCmdTlgSnd);
+            };            
           };
         }
         else

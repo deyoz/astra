@@ -14,6 +14,7 @@
 #include <edilib/edi_types.h>
 #include <edilib/edi_request.h>
 
+#include "astra_consts.h"
 
 struct _edi_mes_head_;
 struct _EDI_REAL_MES_STRUCT_;
@@ -33,6 +34,24 @@ namespace TlgHandling{
 namespace edifact
 {
 
+struct KickInfo
+{
+  int reqCtxtId;
+  std::string iface;
+  std::string handle;
+public:
+  KickInfo() : reqCtxtId(ASTRA::NoExists) {};
+  KickInfo(const int v_reqCtxtId,
+           const std::string &v_iface)
+    : reqCtxtId(v_reqCtxtId),
+      iface(v_iface),
+      handle("0") {};
+  bool empty() const
+  {
+    return iface.empty();
+  }
+};
+
 /**
  * @class EdifactRequest
  * @brief Makes an EDIFACT request structure
@@ -40,13 +59,17 @@ namespace edifact
 class EdifactRequest : public edilib::EdifactRequest
 {
    TlgHandling::TlgSourceEdifact *TlgOut;
-   int ReqCtxtId;
+   std::string ediSessCtxt;
+   KickInfo m_kickInfo;
 public:
     /**
      * @brief EdifactRequest
      * @param msg_type тип сообщения
      */
-    EdifactRequest(const std::string &pult, int ctxtId, edi_msg_types_t msg_type,
+    EdifactRequest(const std::string &pult,
+                   const std::string& ctxt,
+                   const KickInfo &v_kickInfo,                   
+                   edi_msg_types_t msg_type,
                    const Ticketing::RemoteSystemContext::SystemContext* sysCont);
 
 
@@ -54,7 +77,8 @@ public:
 
     virtual void sendTlg();
 
-    int reqCtxtId() const;
+    const std::string & context() const { return ediSessCtxt; }
+    const KickInfo &kickInfo() const { return m_kickInfo; }
 
     const TlgHandling::TlgSourceEdifact *tlgOut() const;
 

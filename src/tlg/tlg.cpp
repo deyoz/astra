@@ -11,6 +11,7 @@
 #include <serverlib/logger.h>
 #include <serverlib/testmode.h>
 #include <serverlib/TlgLogger.h>
+#include <serverlib/posthooks.h>
 #include <edilib/edi_user_func.h>
 #include <libtlg/tlg_outbox.h>
 #include "xp_testing.h"
@@ -371,6 +372,8 @@ int sendTlg(const char* receiver,
 
         // кладём тлг в очередь на отправку
         putTlg2OutQueue(receiver, sender, type, text, priority, tlg_num, ttl);
+
+        registerHookAfter(sendCmdTlgSnd);
 
         return tlg_num;
     }

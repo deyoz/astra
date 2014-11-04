@@ -11,6 +11,7 @@
 #include <string>
 #include <map>
 #include "astra_ticket.h"
+#include "tlg/EdifactRequest.h"
 #include "edilib/edi_func_cpp.h"
 
 namespace Ticketing
@@ -62,7 +63,7 @@ namespace ChangeStatus
     void ETChangeStatus(const OrigOfRequest &org,
                         const std::list<Ticket> &lTick,
                         const std::string &ediSessCtxt,
-                        const int ediCtxtId,
+                        const edifact::KickInfo &kickInfo,
                         Ticketing::Itin* itin=NULL);
 }
 }

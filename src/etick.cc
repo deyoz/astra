@@ -17,6 +17,7 @@
 #include "web_main.h"
 #include "term_version.h"
 #include "misc.h"
+#include "qrys.h"
 #include <jxtlib/jxtlib.h>
 #include <jxtlib/xml_stuff.h>
 #include <serverlib/query_runner.h>
@@ -24,6 +25,7 @@
 #include <serverlib/testmode.h>
 
 // TODO emd
+#include "emdoc.h"
 #include "astra_emd.h"
 #include "astra_emd_view_xml.h"
 #include "tlg/emd_disp_request.h"
@@ -86,9 +88,33 @@ static std::string getTripAirline(const TTripInfo& ti)
 
 static Ticketing::FlightNum_t getTripFlightNum(const TTripInfo& ti)
 {
-    if(ti.flt_no < 1)
+    if(ti.flt_no < 1 || ti.flt_no == NoExists)
         return Ticketing::FlightNum_t();
     return Ticketing::FlightNum_t(ti.flt_no);
+}
+
+CouponStatus calcPaxCouponStatus(const string& refuse,
+                                 const bool pr_brd,
+                                 const bool in_final_status)
+{
+  CouponStatus real_status;
+  if (!refuse.empty())
+    //разрегистрирован
+    real_status=CouponStatus(CouponStatus::OriginalIssue);
+  else
+  {
+    if (!pr_brd)
+      //не посажен
+      real_status=CouponStatus(CouponStatus::Checked);
+    else
+    {
+      if (!in_final_status)
+        real_status=CouponStatus(CouponStatus::Boarded);
+      else
+        real_status=CouponStatus(CouponStatus::Flown);
+    };
+  };
+  return real_status;
 }
 
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -123,16 +149,17 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 
   OrigOfRequest org(oper_carrier,*TReqInfo::Instance());
 
-  int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
+  edifact::KickInfo kickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
+                             "ETSearchForm");
 
   XMLDoc xmlCtxt("context");
   if (xmlCtxt.docPtr()==NULL)
     throw EXCEPTIONS::Exception("SearchETByTickNo: CreateXMLDoc failed");
   xmlNodePtr rootNode=NodeAsNode("/context",xmlCtxt.docPtr());
   NewTextChild(rootNode,"point_id",point_id);
-  SetProp(rootNode,"req_ctxt_id",req_ctxt);
+  SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
 
-  TickDispByNum tickDisp(org, XMLTreeToText(xmlCtxt.docPtr()), req_ctxt, tick_no);
+  TickDispByNum tickDisp(org, XMLTreeToText(xmlCtxt.docPtr()), kickInfo, tick_no);
   SendEdiTlgTKCREQ_Disp( tickDisp );
   //в лог отсутствие связи
   if (TReqInfo::Instance()->desk.compatible(DEFER_ETSTATUS_VERSION))
@@ -263,18 +290,11 @@ void EMDSearchInterface::SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 
     OrigOfRequest org(airline, *TReqInfo::Instance());
 
-    int reqCtxtId=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
-
-    XMLDoc xmlCtxt("context");
-    if (xmlCtxt.docPtr()==NULL)
-      throw EXCEPTIONS::Exception("SearchETByTickNo: CreateXMLDoc failed");
-    xmlNodePtr rootNode=NodeAsNode("/context",xmlCtxt.docPtr());
-    NewTextChild(rootNode,"point_id",pointId);
-    SetProp(rootNode,"req_ctxt_id",reqCtxtId);
+    edifact::KickInfo kickInfo(ASTRA::NoExists,"EMDSearch");
 
     edifact::EmdDispByNum emdDispParams(org,
-                                        XMLTreeToText(xmlCtxt.docPtr()),
-                                        reqCtxtId,
+                                        "",
+                                        kickInfo,
                                         airline,
                                         flNum,
                                         emdNum);
@@ -288,7 +308,7 @@ void EMDSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
     FuncIn(KickHandler);
 
     using namespace edifact;
-    pRemoteResults res = RemoteResults::readSingle(ctxt->pult);
+    pRemoteResults res = RemoteResults::readSingle();
     if(res->status() != RemoteStatus::Success)
     {
         LogTrace(TRACE1) << "Remote error!";
@@ -315,14 +335,18 @@ void EMDSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
 
 //----------------------------------------------------------------------------------------------------------------
 
-void EMDDisassociateInterface::DisassociateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void EMDSystemUpdateInterface::SysUpdateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    LogTrace(TRACE3) << "DisassociateEmdCoupon";
+    LogTrace(TRACE3) << __FUNCTION__;
     Ticketing::TicketNum_t etTickNum(NodeAsString("TickNoEdit", reqNode));
     CouponNum_t etCpnNum(NodeAsInteger("TickCpnNo", reqNode));
 
     Ticketing::TicketNum_t emdDocNum(NodeAsString("EmdNoEdit", reqNode));
     CouponNum_t emdCpnNum(NodeAsInteger("EmdCpnNo", reqNode));
+
+    Ticketing::CpnStatAction::CpnStatAction_t cpnStatAction(CpnStatAction::disassociate);
+    if( strcmp((char *)reqNode->name, "AssociateEMD") == 0)
+      cpnStatAction=CpnStatAction::associate;
 
     int pointId = NodeAsInteger("point_id",reqNode);
     TTripInfo info = getTripInfo(pointId);
@@ -332,38 +356,168 @@ void EMDDisassociateInterface::DisassociateEmdCoupon(XMLRequestCtxt *ctxt, xmlNo
 
     OrigOfRequest org(airline, *TReqInfo::Instance());
 
-    int reqCtxtId=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
-
-    XMLDoc xmlCtxt("context");
-    if (xmlCtxt.docPtr()==NULL)
-      throw EXCEPTIONS::Exception("SearchETByTickNo: CreateXMLDoc failed");
-    xmlNodePtr rootNode=NodeAsNode("/context",xmlCtxt.docPtr());
-    NewTextChild(rootNode,"point_id",pointId);
-    SetProp(rootNode,"req_ctxt_id",reqCtxtId);
+    edifact::KickInfo kickInfo(ASTRA::NoExists, "EMDSystemUpdate");
 
     edifact::EmdDisassociateRequestParams disassocParams(org,
-                                                         XMLTreeToText(xmlCtxt.docPtr()),
-                                                         reqCtxtId,
+                                                         "",
+                                                         kickInfo,
                                                          airline,
                                                          flNum,
                                                          Ticketing::TicketCpn_t(etTickNum, etCpnNum),
-                                                         Ticketing::TicketCpn_t(emdDocNum, emdCpnNum));
+                                                         Ticketing::TicketCpn_t(emdDocNum, emdCpnNum),
+                                                         cpnStatAction);
     edifact::EmdDisassociateRequest ediReq(disassocParams);
     ediReq.sendTlg();
 }
 
-void EMDDisassociateInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+string TEMDSystemUpdateItem::traceStr() const
+{
+  ostringstream s;
+  s << "airline_oper: " << airline_oper << " "
+       "flt_no_oper: " << flt_no_oper << " "
+       "et: " << et << " "
+       "emd: " << emd << " "
+       "action: " << CpnActionTraceStr(action);
+  return s.str();
+};
+
+bool EMDSystemUpdateInterface::EMDChangeDisassociation(const edifact::KickInfo &kickInfo,
+                                                       const TEMDSystemUpdateList &emdList)
+{
+  bool result=false;
+
+  TReqInfo& reqInfo = *(TReqInfo::Instance());
+
+  for(TEMDSystemUpdateList::const_iterator i=emdList.begin();i!=emdList.end();i++)
+  {
+
+    xmlNodePtr rootNode=NodeAsNode("/context",i->second.docPtr());
+
+    if (kickInfo.reqCtxtId!=ASTRA::NoExists)
+      SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
+    SetProp(rootNode,"desk",reqInfo.desk.code);
+    SetProp(rootNode,"user",reqInfo.user.descr);
+    SetProp(rootNode,"screen",reqInfo.screen.name);
+
+    string ediCtxt=XMLTreeToText(i->second.docPtr());
+
+    const OrigOfRequest &org=reqInfo.desk.code.empty()?OrigOfRequest(i->first.airline_oper):
+                                                       OrigOfRequest(i->first.airline_oper, reqInfo);
+
+    edifact::EmdDisassociateRequestParams disassocParams(org,
+                                                         ediCtxt,
+                                                         kickInfo,
+                                                         i->first.airline_oper,
+                                                         i->first.flt_no_oper,
+                                                         i->first.et,
+                                                         i->first.emd,
+                                                         i->first.action);
+    edifact::EmdDisassociateRequest ediReq(disassocParams);
+    ediReq.sendTlg();
+
+    LogTrace(TRACE5) << __FUNCTION__ << ": " << i->first.traceStr();
+
+    result=true;
+  };
+  return result;
+};
+
+void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
+                                                      TEMDSystemUpdateList &emdList)
+{
+  emdList.clear(); 
+
+  TTripInfo info = getTripInfo(point_id); //!!!vlad здесь падает когда интерактив отключен
+
+  list< PaxASVCList::TEMDDisassocListItem > assoc, disassoc;
+  PaxASVCList::GetEMDDisassocList(point_id, assoc, disassoc);
+  for(int pass=0; pass<=1; pass++)
+  {
+    list< PaxASVCList::TEMDDisassocListItem > &l=(pass==0?assoc:disassoc);
+    Ticketing::CpnStatAction::CpnStatAction_t new_action=(pass==0?CpnStatAction::associate:CpnStatAction::disassociate);
+
+    for(list< PaxASVCList::TEMDDisassocListItem >::iterator i=l.begin(); i!=l.end(); ++i)
+    {            
+      TEMDocItem EMDocItem;
+      EMDocItem.fromDB(i->asvc.emd_no, i->asvc.emd_coupon, false);      
+      if (!EMDocItem.empty())
+      {        
+        if (EMDocItem.action==new_action) continue;        
+        if (i->pax.tkn.empty())
+        {
+          i->pax.tkn.no=EMDocItem.et_no;
+          i->pax.tkn.coupon=EMDocItem.et_coupon;
+          i->pax.tkn.rem="TKNE";
+        };        
+      }
+      else
+      {        
+        //в emdocs нет ничего
+        if (new_action==CpnStatAction::associate) continue; //считаем что ассоциация сделана по умолчанию        
+      };      
+
+      if (i->pax.tkn.no.empty() ||
+          i->pax.tkn.coupon==ASTRA::NoExists ||
+          i->pax.tkn.rem!="TKNE")
+      {
+      /*  Невозможно провести операцию ассоциации/диссоциации из-за  информации по эл. билету пассажира
+        !!!vlad
+        if (i->pax.tkn.no.empty())
+          ProgError(STDLOG, "%s: ticket number empty for EMD %s", __FUNCTION__, i->asvc.no_str().c_str());  //здесь ругаться в журнал операций
+        else if(i->pax.tkn.rem!='TKNE')
+          ProgError(STDLOG, "%s: ticket number empty for EMD %s", __FUNCTION__, i->asvc.no_str().c_str());  //здесь ругаться в журнал операций*/
+        continue;
+      };
+
+      emdList.push_back(make_pair(TEMDSystemUpdateItem(), XMLDoc()));
+
+      TEMDSystemUpdateItem &item=emdList.back().first;
+      item.airline_oper=getTripAirline(info);
+      item.flt_no_oper=getTripFlightNum(info);
+      item.et=Ticketing::TicketCpn_t(i->pax.tkn.no, i->pax.tkn.coupon);
+      item.emd=Ticketing::TicketCpn_t(i->asvc.emd_no, i->asvc.emd_coupon);
+      item.action=new_action;
+
+      XMLDoc &ctxt=emdList.back().second;
+      if (ctxt.docPtr()==NULL)
+      {
+        ctxt.set("context");
+        if (ctxt.docPtr()==NULL)
+          throw EXCEPTIONS::Exception("%s: CreateXMLDoc failed", __FUNCTION__);
+        xmlNodePtr node=NewTextChild(NodeAsNode("/context",ctxt.docPtr()),"emdoc");
+        NewTextChild(node,"doc_no", i->asvc.emd_no);
+        NewTextChild(node,"coupon_no", i->asvc.emd_coupon);
+        NewTextChild(node,"associated", (int)(new_action==CpnStatAction::associate));
+        NewTextChild(node,"associated_no", i->pax.tkn.no);
+        NewTextChild(node,"associated_coupon", i->pax.tkn.coupon);
+        NewTextChild(node,"point_id", point_id);
+        NewTextChild(node,"grp_id", i->grp_id);
+        NewTextChild(node,"pax_id", i->pax.id);
+        NewTextChild(node,"reg_no", i->pax.reg_no);
+        ostringstream pax;
+        pax << i->pax.surname
+            << (i->pax.name.empty()?"":" ") << i->pax.name;
+        NewTextChild(node,"pax_full_name",pax.str());
+        NewTextChild(node,"pers_type",EncodePerson(i->pax.pers_type));
+      };
+
+    };
+
+  };
+}
+
+void EMDSystemUpdateInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     FuncIn(KickHandler);
 
     using namespace edifact;
-    pRemoteResults res = RemoteResults::readSingle(ctxt->pult);
+    pRemoteResults res = RemoteResults::readSingle();
     MakeAnAnswer(resNode, res);
 
     FuncOut(KickHandler);
 }
 
-void EMDDisassociateInterface::MakeAnAnswer(xmlNodePtr resNode, edifact::pRemoteResults remRes)
+void EMDSystemUpdateInterface::MakeAnAnswer(xmlNodePtr resNode, edifact::pRemoteResults remRes)
 {
     using namespace edifact;
     bool success = remRes->status() == RemoteStatus::Success;
@@ -486,9 +640,8 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
   };
 
   if (!mtick.empty())
-  {
-    int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
-    if (!ETStatusInterface::ETChangeStatus(req_ctxt,mtick))
+  {    
+    if (!ETStatusInterface::ETChangeStatus(reqNode,mtick))
       throw EXCEPTIONS::Exception("ChangeAreaStatus: Wrong variable 'processed'");
 
 /*  это позже, когда терминалы будут отложенное подтверждение тоже обрабатывать через ets_connect_error!!!
@@ -785,7 +938,7 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
     ProgTrace(TRACE5,"ETRollbackStatus: rollback point_id=%d",*i);
     ETStatusInterface::ETCheckStatus(*i,ediResDocPtr,false,mtick);
   };
-  ETStatusInterface::ETChangeStatus(ASTRA::NoExists,mtick);
+  ETStatusInterface::ETChangeStatus(NULL,mtick);
 };
 
 bool ETStatusInterface::TFltParams::get(int point_id)
@@ -910,23 +1063,11 @@ void ETStatusInterface::ETCheckStatus(int point_id,
           Qry.SetVariable("coupon_no", coupon_no);
           Qry.Execute();
 
-          CouponStatus real_status;
-          if (Qry.Eof || !Qry.FieldIsNULL("refuse"))
-            //разрегистрирован
-            real_status=CouponStatus(CouponStatus::OriginalIssue);
-          else
-          {
-            if (Qry.FieldAsInteger("pr_brd")==0)
-            	//не посажен
-              real_status=CouponStatus(CouponStatus::Checked);
-            else
-            {
-              if (!fltParams.in_final_status)
-                real_status=CouponStatus(CouponStatus::Boarded);
-              else
-                real_status=CouponStatus(CouponStatus::Flown);
-            };
-          };
+          CouponStatus real_status(CouponStatus::OriginalIssue);
+          if (!Qry.Eof)
+            real_status=calcPaxCouponStatus(Qry.FieldAsString("refuse"),
+                                            Qry.FieldAsInteger("pr_brd")!=0,
+                                            fltParams.in_final_status);
 
           if (status==real_status) continue;
 
@@ -1103,22 +1244,9 @@ void ETStatusInterface::ETCheckStatus(int id,
               status=CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status"));
 
             CouponStatus real_status;
-            if (!Qry.FieldIsNULL("refuse"))
-              //разрегистрирован
-              real_status=CouponStatus(CouponStatus::OriginalIssue);
-            else
-            {
-              if (Qry.FieldAsInteger("pr_brd")==0)
-              	//не посажен
-                real_status=CouponStatus(CouponStatus::Checked);
-              else
-              {
-                if (!fltParams.in_final_status)
-                  real_status=CouponStatus(CouponStatus::Boarded);
-                else
-                  real_status=CouponStatus(CouponStatus::Flown);
-              };
-            };
+            real_status=calcPaxCouponStatus(Qry.FieldAsString("refuse"),
+                                            Qry.FieldAsInteger("pr_brd")!=0,
+                                            fltParams.in_final_status);
 
             if (status!=real_status ||
                 (!Qry.FieldIsNULL("tick_point_id") &&
@@ -1290,23 +1418,29 @@ void ETStatusInterface::ETCheckStatus(int id,
   };
 }
 
-bool ETStatusInterface::ETChangeStatus(const int reqCtxtId,
+bool ETStatusInterface::ETChangeStatus(xmlNodePtr reqNode,
                                        const TChangeStatusList &mtick)
 {
   bool result=false;
 
-  string oper_carrier;
-  for(TChangeStatusList::const_iterator i=mtick.begin();i!=mtick.end();i++)
+  if (!mtick.empty())
   {
-    for(vector<TTicketListCtxt>::const_iterator j=i->second.begin();j!=i->second.end();j++)
-    {
-      const TTicketList &ltick=j->first;
-      if (ltick.empty()) continue;
+    const edifact::KickInfo &kickInfo=reqNode!=NULL?
+                                      edifact::KickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)), "ETStatus"):
+                                      edifact::KickInfo();
 
-      if (i->first.airline_oper.empty())
-        throw EXCEPTIONS::Exception("ETChangeStatus: unkown operation carrier");
-      oper_carrier=i->first.airline_oper;
-      /*
+    string oper_carrier;
+    for(TChangeStatusList::const_iterator i=mtick.begin();i!=mtick.end();i++)
+    {
+      for(vector<TTicketListCtxt>::const_iterator j=i->second.begin();j!=i->second.end();j++)
+      {
+        const TTicketList &ltick=j->first;
+        if (ltick.empty()) continue;
+
+        if (i->first.airline_oper.empty())
+          throw EXCEPTIONS::Exception("ETChangeStatus: unkown operation carrier");
+        oper_carrier=i->first.airline_oper;
+        /*
       try
       {
         TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",oper_carrier);
@@ -1314,38 +1448,39 @@ bool ETStatusInterface::ETChangeStatus(const int reqCtxtId,
       }
       catch(EBaseTableError) {};
       */
-      if (i->first.addrs.first.empty() ||
-          i->first.addrs.second.empty())
-        throw EXCEPTIONS::Exception("ETChangeStatus: edifact UNB-adresses not defined");
-      set_edi_addrs(i->first.addrs);
+        if (i->first.addrs.first.empty() ||
+            i->first.addrs.second.empty())
+          throw EXCEPTIONS::Exception("ETChangeStatus: edifact UNB-adresses not defined");
+        set_edi_addrs(i->first.addrs);
 
-      ProgTrace(TRACE5,"ETChangeStatus: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
-                       oper_carrier.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
+        ProgTrace(TRACE5,"ETChangeStatus: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
+                  oper_carrier.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
 
-      TReqInfo& reqInfo = *(TReqInfo::Instance());
-      xmlNodePtr rootNode=NodeAsNode("/context",j->second.docPtr());
+        TReqInfo& reqInfo = *(TReqInfo::Instance());
+        xmlNodePtr rootNode=NodeAsNode("/context",j->second.docPtr());
 
-      if (reqCtxtId!=ASTRA::NoExists)
-        SetProp(rootNode,"req_ctxt_id",reqCtxtId);
-      SetProp(rootNode,"desk",reqInfo.desk.code);
-      SetProp(rootNode,"user",reqInfo.user.descr);
-      SetProp(rootNode,"screen",reqInfo.screen.name);
+        if (kickInfo.reqCtxtId!=ASTRA::NoExists)
+          SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
+        SetProp(rootNode,"desk",reqInfo.desk.code);
+        SetProp(rootNode,"user",reqInfo.user.descr);
+        SetProp(rootNode,"screen",reqInfo.screen.name);
 
-      string ediCtxt=XMLTreeToText(j->second.docPtr());
+        string ediCtxt=XMLTreeToText(j->second.docPtr());
 
-      if (reqInfo.desk.code.empty())
-      {
-        //не запрос
-        OrigOfRequest org(oper_carrier);
-        ChangeStatus::ETChangeStatus(org, ltick, ediCtxt, reqCtxtId);
-      }
-      else
-      {
-        OrigOfRequest org(oper_carrier,reqInfo);
-        ChangeStatus::ETChangeStatus(org, ltick, ediCtxt, reqCtxtId);
+        if (reqInfo.desk.code.empty())
+        {
+          //не запрос
+          OrigOfRequest org(oper_carrier);
+          ChangeStatus::ETChangeStatus(org, ltick, ediCtxt, kickInfo);
+        }
+        else
+        {
+          OrigOfRequest org(oper_carrier,reqInfo);
+          ChangeStatus::ETChangeStatus(org, ltick, ediCtxt, kickInfo);
+        };
+
+        result=true;
       };
-
-      result=true;
     };
   };
   return result;

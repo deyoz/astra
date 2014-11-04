@@ -74,6 +74,7 @@ astra_SOURCES = \
   develop_dbf.cc \
   docs.cc \
   docs2.cc \
+  emdoc.cc \
   empty_proc.cc \
   etick_change_status.cpp \
   etick.cc \
@@ -192,6 +193,7 @@ noinst_HEADERS = \
   dev_utils.h \
   develop_dbf.h \
   docs.h \
+  emdoc.h \
   empty_proc.h \
   etick_change_status.h \
   etick.h \

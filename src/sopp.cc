@@ -36,6 +36,7 @@
 #include "trip_tasks.h"
 
 #include "aodb.h"
+#include "emdoc.h"
 #include "serverlib/perfom.h"
 
 #define NICKNAME "DJEK"
@@ -2864,7 +2865,7 @@ void GetEMD( int point_id, xmlNodePtr dataNode )
 {
   xmlNodePtr node = NewTextChild( dataNode, "emd" );
   std::multiset<CheckIn::TPaxASVCItem> asvc;
-  CheckIn::GetUnboundEMD(point_id, asvc);
+  PaxASVCList::GetUnboundEMD(point_id, asvc);
 
   ostringstream s;
   for(multiset<CheckIn::TPaxASVCItem>::const_iterator i=asvc.begin(); i!=asvc.end(); ++i)

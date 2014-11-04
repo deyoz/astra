@@ -6,6 +6,7 @@
 #include "qrys.h"
 #include "timer.h"
 #include "telegram.h"
+#include "etick.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -18,6 +19,8 @@ namespace TypeB {
     void check_lci(int point_id, const std::string &task_name, const std::string &params);
 }
 
+void emd_sys_update(int point_id, const string &task_name, const string &params);
+
 const
   struct {
     string task_name;
@@ -28,7 +31,8 @@ const
     {BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL, check_crew_alarms},
     {LCI, TypeB::check_lci},
     {SYNC_NEW_CHKD, TypeB::SyncNewCHKD },
-    {SYNC_ALL_CHKD, TypeB::SyncAllCHKD }
+    {SYNC_ALL_CHKD, TypeB::SyncAllCHKD },
+    {EMD_SYS_UPDATE, emd_sys_update }
   };
 
 void sync_trip_task(int point_id, const string& task_name, const string &params, TDateTime next_exec)
@@ -314,12 +318,16 @@ void check_trip_tasks()
                 if (last_exec==ASTRA::NoExists ||
                         last_exec<next_exec)
                 {
+                    ProgTrace(TRACE5, "%s: task %s started (point_id=%d, params=%s)",
+                                      __FUNCTION__, task_name.c_str(), point_id, params.c_str());
                     trip_tasks[i].p(point_id, task_name, params);
                     TLogLocale tlocale;
                     tlocale.ev_type=ASTRA::evtFltTask;
                     tlocale.id1=point_id;
                     taskToLog(tlocale, task_name, params, tsDone, next_exec);
                     TReqInfo::Instance()->LocaleToLog(tlocale);
+                    ProgTrace(TRACE5, "%s: task %s finished (point_id=%d, params=%s)",
+                                      __FUNCTION__, task_name.c_str(), point_id, params.c_str());
                 };
             };
             if (task_processed)
@@ -693,4 +701,11 @@ void on_change_trip(const string &descr, int point_id)
     } catch(std::exception &E) {
         ProgError(STDLOG,"%s: %s (point_id=%d): %s", __FUNCTION__, descr.c_str(), point_id,E.what());
     };
+}
+
+void emd_sys_update(int point_id, const string &task_name, const string &params)
+{
+  TEMDSystemUpdateList emdList;
+  EMDSystemUpdateInterface::EMDCheckDisassociation(point_id, emdList);
+  EMDSystemUpdateInterface::EMDChangeDisassociation(edifact::KickInfo(), emdList);
 }

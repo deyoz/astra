@@ -15,6 +15,7 @@
 #include "astra_misc.h"
 #include "dev_utils.h"
 #include "term_version.h"
+#include "emdoc.h"
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DENIS"
@@ -1779,7 +1780,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         SetProp(paxNode, "time_print", DateTimeToStr(iPax->time_print));
         bool unbound_emd_warning=(pax_id == NoExists &&               // печать всех или только тех, у которых не подтверждена распечатка
                                   iPax->grp_id == first_seg_grp_id && // только для пассажиров первого сегмента сквозной регистрации
-                                  CheckIn::ExistsPaxUnboundEMD(iPax->pax_id));
+                                  PaxASVCList::ExistsPaxUnboundEMD(iPax->pax_id));
         NewTextChild(paxNode, "unbound_emd_warning", (int)unbound_emd_warning, (int)false);
     }
 }

@@ -60,12 +60,12 @@ typedef boost::shared_ptr<RemoteResults> pRemoteResults;
 class RemoteResults
 {
     RemoteResults():Status(RemoteStatus::RequestSent){}
-    void removeOld() const;
-public:
+    //void removeOld() const;
+private:
     RemoteResults(const std::string &pult,
                   const edilib::EdiSessionId_t &edisess,
                   const Ticketing::SystemAddrs_t &remoteId);
-
+public:
     /**
      * @brief add record
      * @param pult
@@ -124,16 +124,16 @@ public:
      * @brief reads all results by levb msg Id
      * @param lres
      */
-    static void readDb(const std::string &pult, std::list<RemoteResults> &lres);
+    static void readDb(std::list<RemoteResults> &lres);
 
-    static pRemoteResults readSingle(const std::string &pult);
+    static pRemoteResults readSingle();
 
     /**
      * @brief reads by edifact session Id
      * @param Id
      * @return
      */
-    static pRemoteResults readDb(edilib::EdiSessionId_t Id);
+    static pRemoteResults readDb(const edilib::EdiSessionId_t &Id);
 
     /**
      * @brief write data
@@ -141,6 +141,10 @@ public:
     void writeDb();
 
     void updateDb() const;
+
+    void deleteDb(const edilib::EdiSessionId_t &Id);
+
+    static void cleanOldRecords(const int min_ago);
 
     void setEdiErrCode(const std::string &err)
     {

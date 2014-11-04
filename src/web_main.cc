@@ -2059,8 +2059,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       //хотя бы один билет будет обрабатываться
       OraSession.Rollback();  //откат
 
-      int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
-      if (!ETStatusInterface::ETChangeStatus(req_ctxt,ETInfo))
+      if (!ETStatusInterface::ETChangeStatus(reqNode,ETInfo))
         throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: Wrong ETInfo");
       AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
       return false;

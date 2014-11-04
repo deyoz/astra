@@ -11,6 +11,8 @@
 #include "remote_system_context.h"
 #include "remote_results.h"
 #include "astra_utils.h"
+#include "astra_context.h"
+#include "tlg.h"
 
 #include <boost/format.hpp>
 
@@ -27,62 +29,31 @@
 namespace Ticketing
 {
 
-namespace
-{
-    std::string make_xml_kick(int reqCtxtId = 0)
-    {
-        std::string text =
-        "<?xml version=\"1.0\" encoding=\"CP866\"?>"
-        "<term>"
-        "<query handle=\"%1%\" id=\"%2%\" ver=\"0\" opr=\"%3%\" screen=\"%4%\" lang=\"%5%\" term_id=\"%6%\">";
-        if(reqCtxtId)
-            text += "<kick req_ctxt_id=\"%7%\"></kick>";
-        else
-            text += "<kick/>";
-        text +=
-        "</query>"
-        "</term>";
-
-        using namespace JxtContext;
-        TReqInfo *reqInfo = TReqInfo::Instance();
-        std::string iface = getSysContext()->read("CUR_IFACE", "");
-        std::string handle= getSysContext()->read("HANDLE","");
-
-        std::string oper  = reqInfo->user.login;
-        std::string screen= reqInfo->screen.name;
-        std::string lang  = reqInfo->desk.lang;
-        double   term_id  = reqInfo->desk.term_id != ASTRA::NoExists ? reqInfo->desk.term_id : 0.;
-
-        boost::format str(text);
-        str % handle % iface % oper % screen % lang % FloatToString(term_id, 0);
-        if(reqCtxtId)
-            str % reqCtxtId;
-
-        return str.str();
-    }
-}
-
 static void ConfigAgentToWait_(const std::string& pult,
                                const Ticketing::SystemAddrs_t &rida,
                                const edilib::EdiSessionId_t &sida,
-                               int reqCtxtId)
+                               const edifact::KickInfo &kickInfo)
 {
-    ServerFramework::getQueryRunner().
-            getEdiHelpManager().
-            configForPerespros(STDLOG, make_xml_kick(reqCtxtId).c_str(), 0, 56 /*seconds to wait*/);
+  //std::string iface = JxtContext::getSysContext()->read("CUR_IFACE", ""); Не использовать эту конструкцию, так как от имени одного пульта м.б. множество разных параллельных запросов
 
-    edifact::RemoteResults::add(pult, sida, rida);
+  ServerFramework::getQueryRunner().
+      getEdiHelpManager().
+      configForPerespros(STDLOG, make_xml_kick(kickInfo).c_str(), sida.get(), 15 /*seconds to wait*/);
+
+  //edifact::RemoteResults::add(pult, sida, rida); здесь не надо, потому что это логически не связано с AgentToWait
+
 }
 
 void ConfigAgentToWait(const Ticketing::SystemAddrs_t& rida,
                        const std::string& pult,
                        const edilib::EdiSessionId_t& sida,
-                       int reqCtxtId)
+                       const edifact::KickInfo &kickInfo)
 {
-    //if(Environment::Environ::Instance().handlerType() == Environment::HumanHandler)
+    //if(Environment::Environ::Instance().handlerType() == Environment::HumanHandler)    
+    if (!kickInfo.empty())
     {
         LogTrace(TRACE3) << "ConfigAgentToWait for pult " << pult;
-        ConfigAgentToWait_(pult.c_str(), rida, sida, reqCtxtId);
+        ConfigAgentToWait_(pult.c_str(), rida, sida, kickInfo);
     }
 }
 
@@ -91,8 +62,10 @@ void MeetAgentExpectations(const edifact::RemoteResults & res)
     res.updateDb();
     LogTrace(TRACE1) << res;
     // cleanOldRecords can be called in some daemon
-    ServerFramework::EdiHelpManager::cleanOldRecords();
-    ServerFramework::EdiHelpManager::confirm_notify(res.pult().c_str());
+    //ServerFramework::EdiHelpManager::cleanOldRecords(); //!!!vlad
+    //ServerFramework::EdiHelpManager::confirm_notify(res.pult().c_str());
+    LogTrace(TRACE3) << "confirm_notify_levb for edisession: " << res.ediSession();
+    confirm_notify_levb(res.ediSession().get());
 }
 
 bool isDoomedToWait()

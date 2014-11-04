@@ -10,11 +10,13 @@
 #include "EdifactRequest.h"
 #include "exceptions.h"
 #include "remote_system_context.h"
+#include "remote_results.h"
 #include "edi_tlg.h"
 #include "tlg.h"
 #include "tlg_source_edifact.h"
 #include "EdiSessionTimeOut.h"
 #include "AgentWaitsForRemote.h"
+#include "astra_context.h"
 
 #include <edilib/edi_func_cpp.h>
 
@@ -31,9 +33,12 @@ using namespace EXCEPTIONS;
 using namespace TlgHandling;
 using namespace Ticketing;
 
-EdifactRequest::EdifactRequest(const std::string &pult, int ctxtId, edi_msg_types_t msg_type,
+EdifactRequest::EdifactRequest(const std::string &pult,
+                               const std::string& ctxt,
+                               const KickInfo &v_kickInfo,
+                               edi_msg_types_t msg_type,
                                const Ticketing::RemoteSystemContext::SystemContext* sysCont)
-    :edilib::EdifactRequest(msg_type), TlgOut(0), ReqCtxtId(ctxtId)
+    :edilib::EdifactRequest(msg_type), TlgOut(0), ediSessCtxt(ctxt), m_kickInfo(v_kickInfo)
 {
     setEdiSessionController(new NewAstraEdiSessWR(pult, msgHead(), sysCont));
     setEdiSessMesAttr();
@@ -65,22 +70,27 @@ void EdifactRequest::sendTlg()
               ASTRA::NoExists);
     ediSess()->ediSession()->CommitEdiSession();
 
+    //запишем контексты
+    AstraContext::SetContext("EDI_SESSION",
+                             ediSessId().get(),
+                             context());
+
+
     // Записать информацию о timeout отправленной телеграммы
     edilib::EdiSessionTimeOut::add(ediSess()->edih()->msg_type,
                                    mesFuncCode(),
                                    ediSessId(),
                                    sysCont()->edifactResponseTimeOut());
 
-     Ticketing::ConfigAgentToWait(sysCont()->ida(),
-                                  ediSess()->ediSession()->pult(),
-                                  ediSess()->ediSession()->ida(),
-                                  reqCtxtId());
+    edifact::RemoteResults::add(kickInfo().empty()?"":ediSess()->ediSession()->pult(), //правильно ли закладываться на kickInfo().empty() ?
+                                ediSess()->ediSession()->ida(),
+                                sysCont()->ida());
 
-}
+    Ticketing::ConfigAgentToWait(sysCont()->ida(),
+                                 ediSess()->ediSession()->pult(),
+                                 ediSess()->ediSession()->ida(),
+                                 kickInfo());
 
-int EdifactRequest::reqCtxtId() const
-{
-    return ReqCtxtId;
 }
 
 const TlgSourceEdifact * EdifactRequest::tlgOut() const
