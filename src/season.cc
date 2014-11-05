@@ -301,6 +301,7 @@ void TFilter::GetSeason()
   int year = utcd.date().year();
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( filter_tz_region.region );
+  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",filter_tz_region.region.c_str());
   local_date_time ld( utcd, tz ); /* определяем текущее время локальное */
   bool summer = true;
   /* устанавливаем первый год и признак периода */
@@ -856,6 +857,7 @@ void TFilter::Parse( xmlNodePtr filterNode )
     range.days = NodeAsString( node );
     tz_database &tz_db = get_tz_database();
     time_zone_ptr tz = tz_db.time_zone_from_region( filter_tz_region.region );
+    if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",filter_tz_region.region.c_str());
     if ( tz->has_dst() ) {
       TDateTime f = range.first;
       ptime p = DateTimeToBoost( f ) - tz->base_utc_offset();
@@ -937,6 +939,7 @@ void TFilter::Build( xmlNodePtr filterNode )
 {
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( filter_tz_region.region );
+  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",filter_tz_region.region.c_str());
   NewTextChild( filterNode, "season_idx", 0 );
   NewTextChild( filterNode, "season_count", SEASON_PERIOD_COUNT );
   filterNode = NewTextChild( filterNode, "seasons" );
@@ -979,7 +982,9 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void CreateSPP( BASIC::TDateTime localdate )
 {
-  //throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
+//  if ( string( "МОВЖЕК" ) != TReqInfo::Instance()->desk.code ) {
+//    throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
+//  }
   TPersWeights persWeights;
   TQuery MIDQry(&OraSession);
   MIDQry.SQLText =
@@ -1221,6 +1226,7 @@ TDateTime ddiff( const string &region, TDateTime first_day, TDateTime curr_day )
 {
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( region );
+  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",region.c_str());
   if ( !tz->has_dst() )
     return 0.0;
   local_date_time local_first_day( DateTimeToBoost( first_day ), tz ); /* определяем время начала периода локальное */
@@ -1429,7 +1435,9 @@ int GetHoursTZOffSet( TDateTime first, const TRegion &tz_region, map<string,TTim
 
 void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_city )
 {
-  //throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
+//  if ( string( "МОВЖЕК" ) != TReqInfo::Instance()->desk.code ) {
+//    throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
+//  }
 	map<int,string> mapreg;
   map<string,TTimeDiff> v;
   TFilter filter;
@@ -3455,7 +3463,9 @@ void ReadTripInfo( int trip_id, vector<TViewPeriod> &viewp, xmlNodePtr reqNode )
 
 void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  //throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
+//  if ( string( "МОВЖЕК" ) != TReqInfo::Instance()->desk.code ) {
+//    throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
+//  }
   map<int,TDestList> mapds;
   TReqInfo *reqInfo = TReqInfo::Instance();
 //  ri->user.check_access( amRead );
@@ -3512,7 +3522,9 @@ void SeasonInterface::Slots(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 
 void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dataNode, string &err_city )
 {
-  //throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
+//  if ( string( "МОВЖЕК" ) != TReqInfo::Instance()->desk.code ) {
+//    throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
+//  }
 	TRegion err_tz_region( NoExists, "" );
   TQuery SQry( &OraSession );
   TDateTime begin_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );

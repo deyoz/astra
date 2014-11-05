@@ -1578,7 +1578,7 @@ string UTG_file_name(int id, int part, const string &basic_type, const TTripInfo
         << "." << setw(9) << setfill('0') << id << setw(5) << part
         << "." << basic_type
         << "." << airline_view
-        << setw(3) << setfill('0') << flt.flt_no << flt.suffix
+        << setw(3) << setfill('0') << flt.flt_no << ElemIdToElem(etSuffix, flt.suffix, fmts)
         << "." << DateTimeToStr(flt.scd_out, "dd.mm");
     if(file_name_enc.empty()) file_name_enc = "CP866";
     return (file_name_enc == "CP866" ? file_name.str() : ConvertCodepage(file_name.str(), "CP866", file_name_enc));

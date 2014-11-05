@@ -1272,7 +1272,8 @@ void TelegramInterface::SendTlg(int tlg_id)
 
           TFileQueue::putFile(i->first,OWN_POINT_ADDR(),tlg.tlg_type,params,tlg.heading+tlg.body+tlg.ending);
         };
-        putUTG(tlg_id, tlg.num, tlg_basic_type, fltInfo, tlg.heading+tlg.body+tlg.ending, tlg.extra);
+        if (i == recvs.begin()) // ignore same tlg for different receivers
+            putUTG(tlg_id, tlg.num, tlg_basic_type, fltInfo, tlg.heading+tlg.body+tlg.ending, tlg.extra);
       };
     };
 

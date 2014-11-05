@@ -20,6 +20,8 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
+#include "astra_service.h"
+
 using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
@@ -427,6 +429,16 @@ bool handle_tlg(void)
                                << info.flt.airp_dep << info.flt.airp_arv;
               if (info.association_number>0)
                 merge_key << " " << setw(6) << setfill('0') << info.association_number;
+
+              TTripInfo fltInfo;
+              TElemFmt fmt;
+              fltInfo.airline = ElemToElemId(etAirline, info.flt.airline, fmt);
+              fltInfo.flt_no = info.flt.flt_no;
+              fltInfo.suffix = ElemToElemId(etSuffix, info.flt.suffix, fmt);
+              fltInfo.scd_out = info.flt.scd;
+              map<string, string> extra;
+              putUTG(tlg_id, typeb_tlg_num, info.tlg_type, fltInfo, tlgs_text, extra);
+
             }
             else
             {
