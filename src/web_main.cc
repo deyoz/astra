@@ -1265,7 +1265,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
 
 int get_seat_status( TWebPlace &wp, bool pr_find_free_subcls_place )
 {
-  int status;
+  int status = 0;
   switch( wp.pr_free ) {
   	case 0: // занято
    		status = 1;

@@ -1323,7 +1323,7 @@ void GetTagRanges(const multiset<TBagTagNumber> &tags,
   if (tags.empty()) return;
 
   string first_alpha_part,curr_alpha_part;
-  double first_no,first_pack,curr_no,curr_pack;
+  double first_no = 0.,first_pack = 0.,curr_no = 0.,curr_pack=0.;
   first_alpha_part=tags.begin()->alpha_part;
   first_no=fmod(tags.begin()->numeric_part, 1000.0);
   modf(tags.begin()->numeric_part/1000.0,&first_pack);

@@ -2472,7 +2472,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   rem_grp.Load(retPNL_SEL, point_id);
 
   int point_id_tlg=-1;
-  xmlNodePtr tripNode,paxNode,node;
+  xmlNodePtr tripNode=NULL,paxNode=NULL,node=NULL;
   int col_pnr_status=Qry.FieldIndex("pnr_status");
   int col_pnr_priority=Qry.FieldIndex("pnr_priority");
   int col_full_name=Qry.FieldIndex("full_name");

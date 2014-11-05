@@ -63,7 +63,7 @@ void my(const fs::path &apath)
         throw Exception("wrong file name: %s", fname.str().c_str());
 
     string name, version;
-    int locale;
+    int locale = 0;
     name = tokens[0];
     if(tokens.size() == 3) {
         version = tokens[1];

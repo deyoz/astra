@@ -1035,7 +1035,7 @@ void CreateSPP( BASIC::TDateTime localdate )
     tmapds &mapds = sp->second;
     for ( map<int,TDestList>::iterator im=mapds.begin(); im!=mapds.end(); im++ ) {
       TDests::iterator p = im->second.dests.end();
-      int point_id,first_point;
+      int point_id = 0,first_point = 0;
 
       TElemFmt fmt;
       /* проверка на не существование */
@@ -1498,7 +1498,7 @@ void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_c
      int vmove_id = -1;
      
      TRegion flight_tz_region;
-     TDateTime first_day, last_day;
+     TDateTime first_day = ASTRA::NoExists, last_day = ASTRA::NoExists;
      while ( 1 ) {
        if ( vmove_id > 0 && ( Qry.Eof || vmove_id != Qry.FieldAsInteger( "move_id" ) ) ) {
         // цикл по полученным датам
@@ -3055,9 +3055,9 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
   int move_id = NoExists;
   TDestList ds;
   TDest d;
-  bool canUseAirline, canUseAirp; /* можно ли использовать данный */
-  bool compKey, cityKey, airpKey, triptypeKey, timeKey;
-  double f1;
+  bool canUseAirline = false, canUseAirp = false; /* можно ли использовать данный */
+  bool compKey = false, cityKey = false, airpKey = false, triptypeKey = false, timeKey = false;
+  double f1 = 0.;
   while ( !RQry.Eof ) {
     if ( move_id != RQry.FieldAsInteger( idx_rmove_id ) ) {
       if ( move_id >= 0 ) {
@@ -3282,7 +3282,7 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
   TDestList ds;
   string s;
 //  string exec, noexec;
-  bool canRange;
+  bool canRange = false;
   bool rangeListEmpty = false;
   while ( !SQry.Eof ) {
     if ( viewperiod.trip_id != SQry.FieldAsInteger( idx_trip_id ) ) {
@@ -3554,15 +3554,15 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
   map<string,TTimeDiff> v;
   map<int,TDestList> mapds;
   GetDests( mapds, filter );
-  xmlNodePtr node;
+  xmlNodePtr node = NULL;
   if ( trip_id > NoExists ) {
     NewTextChild( dataNode, "trip_id", trip_id );
     node = NewTextChild( dataNode, "ranges" );
   }
   int move_id = -1;
   int vtrip_id = -1;
-  bool canRange;
-  bool canTrips;
+  bool canRange = false;
+  bool canTrips = false;
   bool DestsExists = false;
   int zone_error = NoExists;
   while ( !SQry.Eof ) {
@@ -3790,7 +3790,7 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
   int trip_id = NoExists, move_id = NoExists;
   xmlNodePtr reqn = NewTextChild( resNode, "data" );
-  xmlNodePtr node;
+  xmlNodePtr node = NULL;
   while ( !Qry.Eof ) {
   	if ( trip_id != Qry.FieldAsInteger( "trip_id" ) ) {
   		if ( trip_id > NoExists ) {

@@ -1482,7 +1482,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
 
   int point_id=-1;
   int pnr_id=-1, pax_id;
-  xmlNodePtr tripNode,pnrNode,paxNode,node;
+  xmlNodePtr tripNode = NULL,pnrNode = NULL,paxNode = NULL,node = NULL;
 
   TMktFlight mktFlt;
   TTripInfo tlgTripsFlt;
@@ -4783,7 +4783,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                     };
                     ProgTrace( TRACE5, "ranges.size=%zu", ranges.size() );
                     //запись в базу
-                    TCompLayerType layer_type;
+                    TCompLayerType layer_type = cltCheckin;
                     switch( grp.status ) {
                     	case psCheckin:
                     		layer_type = cltCheckin;

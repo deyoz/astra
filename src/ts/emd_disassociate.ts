@@ -1,5 +1,7 @@
 include(ts/macro.ts)
 
+#meta: suite emd
+
 $(init_jxt_pult Œ‚Œ)
 $(login)
 $(init_eds ’ UTET UTDC)
@@ -37,7 +39,7 @@ UNT+3+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 >> lines=auto
-    <kick req_ctxt_id...
+    <kick...
 
 !! capture=on err=ignore
 $(lastRedisplay)
@@ -82,7 +84,7 @@ $(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
 $(run_daemon edi_timeout)
 
 >> lines=auto
-    <kick req_ctxt_id...
+    <kick...
 
 !! capture=on err=ignore
 $(lastRedisplay)
@@ -133,7 +135,7 @@ UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 >> lines=auto
-    <kick req_ctxt_id...
+    <kick...
 
 !! capture=on err=ignore
 $(lastRedisplay)

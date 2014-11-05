@@ -1815,8 +1815,8 @@ void CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
   {
     const vector<CheckIn::TTagItem> &tmpTags=p->second.second;
     if (tmpTags.empty()) throw Exception("BSM::CreateTlgBody: tmpTags empty");
-    double first_no;
-    int num;
+    double first_no = 0.;
+    int num = 0;
     vector<CheckIn::TTagItem>::const_iterator i=tmpTags.begin();
     while(true)
     {

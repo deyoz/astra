@@ -228,7 +228,7 @@ void GetBoundPaidBagEMD(int grp_id, list< pair<CheckIn::TPaxASVCItem, CheckIn::T
 
 }; //namespace PaxASVCList
 
-const TEMDocItem::TEMDocItem& TEMDocItem::toDB() const
+const TEMDocItem& TEMDocItem::toDB() const
 {
   if (emd_no.empty() || emd_coupon==ASTRA::NoExists)
     throw EXCEPTIONS::Exception("TEMDocItem::toDB: empty emd");
@@ -261,9 +261,9 @@ const TEMDocItem::TEMDocItem& TEMDocItem::toDB() const
   return *this;
 };
 
-TEMDocItem::TEMDocItem& TEMDocItem::fromDB(const string &v_emd_no,
-                                           const int v_emd_coupon,
-                                           const bool lock)
+TEMDocItem& TEMDocItem::fromDB(const string &v_emd_no,
+                               const int v_emd_coupon,
+                               const bool lock)
 {
   clear();
 

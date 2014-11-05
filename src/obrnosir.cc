@@ -750,8 +750,9 @@ int seasons_dst_format(int argc,char **argv)
       move_id = Qry.FieldAsInteger( "move_id" );
       RQry.SetVariable( "move_id", move_id );
       RQry.Execute();
-      TDateTime scd_in, prior_scd_in, scd_out, prior_scd_out;
-      int delta_in, prior_delta_in, delta_out, prior_delta_out;
+      TDateTime scd_in = ASTRA::NoExists, prior_scd_in = ASTRA::NoExists, 
+                scd_out = ASTRA::NoExists, prior_scd_out = ASTRA::NoExists;
+      int delta_in = 0, prior_delta_in = 0, delta_out = 0, prior_delta_out = 0;
       bool pr_dest_flight_time = false;
       int date_diff = 0;
       while ( !RQry.Eof ) {
@@ -781,7 +782,7 @@ int seasons_dst_format(int argc,char **argv)
               scd_in = f3 - trunc_f - f2;
             else
               scd_in = f3 - trunc_f + f2;
-            double df;
+            double df = 0.;
             scd_in = modf( scd_in, &df );
             delta_in = (int)df;
           }
@@ -933,9 +934,10 @@ int seasons_dst_format(int argc,char **argv)
         TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
         string city_region = CityTZRegion( city );
         if ( row.country == "êî" ) {
-            TDateTime trunc_f, scd_in, prior_scd_in, scd_out, prior_scd_out;
+            TDateTime trunc_f = ASTRA::NoExists, scd_in = ASTRA::NoExists, prior_scd_in = ASTRA::NoExists, 
+                      scd_out = ASTRA::NoExists, prior_scd_out = ASTRA::NoExists;
             modf( Qry.FieldAsDateTime( "first_day" ), &trunc_f );
-            int delta_in, prior_delta_in, delta_out, prior_delta_out;
+            int delta_in = 0, prior_delta_in = 0, delta_out = 0, prior_delta_out = 0;
             if ( Qry.FieldIsNULL( "scd_in" ) )
               prior_scd_in = NoExists;
             else

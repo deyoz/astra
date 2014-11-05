@@ -499,7 +499,7 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 	xmlNodePtr dataNode = NewTextChild( resNode, "data" );
 	map<string,string> fileparams, first_fileparams;
 	string airline, first_airline;
-	int new_id = -1, first_new_id;
+	int new_id = -1, first_new_id = -1;
 	int id=0;
 	while ( !Qry.Eof ) {
 		ProgTrace( TRACE5, "new_id=%d", id );

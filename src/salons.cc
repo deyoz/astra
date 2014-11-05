@@ -1593,7 +1593,7 @@ void ClearInvalidPaxLayers( TSalons *CSalon, TPaxLayers::iterator ipax )
 void GetValidPaxLayer( TSalons *CSalon, TPaxLayers &pax_layers, TPaxLayers::iterator ipax )
 {
 //  ProgTrace( TRACE5, "GetValidPaxLayer1: pax_id=%d", ipax->first );
-  TPlace *place;
+  TPlace *place = 0;
   for ( vector<TPaxLayer>::iterator ipax_layer=ipax->second.paxLayers.begin(); ipax_layer!=ipax->second.paxLayers.end(); ipax_layer++ ) { // пробег по слоям пассажира
     int vfirst_x = NoExists;
     int vfirst_y = NoExists;
@@ -5392,12 +5392,12 @@ void TSalons::Read( bool drop_not_used_pax_layers )
   int baselayer_col_layer_type = LQry.FieldIndex( "layer_type" );
 
   
-  int webtariff_col_num;
-  int webtariff_col_x;
-  int webtariff_col_y;
-  int webtariff_col_color;
-  int webtariff_col_rate;
-  int webtariff_col_rate_cur;
+  int webtariff_col_num = 0;
+  int webtariff_col_x = 0;
+  int webtariff_col_y = 0;
+  int webtariff_col_color = 0;
+  int webtariff_col_rate = 0;
+  int webtariff_col_rate_cur = 0;
 
   if ( readStyle != rTripSalons ||
        FilterLayers.CanUseLayer( cltProtBeforePay, -1, -1, false ) ||
@@ -7298,7 +7298,7 @@ void BuildSalonChanges( xmlNodePtr dataNode, const vector<TSalonSeat> &seats )
   xmlNodePtr node = NewTextChild( dataNode, "update_salons" );
  	node = NewTextChild( node, "seats" );
  	int num = -1;
- 	xmlNodePtr salonNode;
+ 	xmlNodePtr salonNode = NULL;
   BitSet<TDrawPropsType> props;
 	for ( vector<TSalonSeat>::const_iterator p=seats.begin(); p!=seats.end(); p++ ) {
 		if ( num != p->first ) {
@@ -7321,7 +7321,7 @@ void BuildSalonChanges( xmlNodePtr dataNode,
   xmlNodePtr node = NewTextChild( dataNode, "update_salons" );
  	node = NewTextChild( node, "seats" );
  	int num = -1;
- 	xmlNodePtr salonNode;
+ 	xmlNodePtr salonNode = NULL;
   BitSet<TDrawPropsType> props;
 	for ( vector<TSalonSeat>::const_iterator p=seats.begin(); p!=seats.end(); p++ ) {
 		if ( num != p->first ) {
@@ -7432,7 +7432,7 @@ void getStrSeats( const RowsRef &rows, PrmEnum &params, bool pr_lat )
 	vector<TStringRef> strs1, strs2;
   string str, max_lines, denorm_max_lines;
   int var1_size=0, var2_size=0;
-  bool pr_rr, pr_right_rows=true;
+  bool pr_rr = false, pr_right_rows=true;
   for ( int i=0; i<=1; i++ ) {
     RowsRef::const_iterator first_isr=rows.begin();
     RowsRef::const_iterator prior_isr=rows.begin();

@@ -28,7 +28,7 @@ void AstraEdiResponseHandler::setRemoteResultStatus()
         return;
 
     using namespace edifact;
-    RemoteStatus::Status_t stat;
+    RemoteStatus::Status_t stat = RemoteStatus::Success;
     switch(respStatus().status())
     {
         case EdiRespStatus::successfully:

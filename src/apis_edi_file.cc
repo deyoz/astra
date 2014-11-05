@@ -468,7 +468,7 @@ namespace
 
         paxlstInfo.setFlight( "OK688" );
         paxlstInfo.setDepPort( "PrG" );
-        BASIC::TDateTime depDate, arrDate;
+        BASIC::TDateTime depDate = ASTRA::NoExists, arrDate = ASTRA::NoExists;
         BASIC::StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
         paxlstInfo.setDepDateTime( depDate );
         paxlstInfo.setArrPort( "BCN" );
@@ -479,7 +479,7 @@ namespace
         pass1.setSurname( "STRANSKY" );
         pass1.setFirstName( "JAROSLAV VICtOROVICH" );
         pass1.setSex( "M" );
-        BASIC::TDateTime bd1;
+        BASIC::TDateTime bd1 = ASTRA::NoExists;
         BASIC::StrToDateTime( "10.06.67 00:00:00", bd1 ); //"670610"
         pass1.setBirthDate( bd1 );
         pass1.setDepPort( "ZdN" );
@@ -493,7 +493,7 @@ namespace
         pass2.setSurname( "kovacs" );
         pass2.setFirstName( "PETR" );
         pass2.setSex( "M" );
-        BASIC::TDateTime bd2;
+        BASIC::TDateTime bd2 = ASTRA::NoExists;
         BASIC::StrToDateTime( "09.12.69 00:00:00", bd2 ); //"691209"
         pass2.setBirthDate( bd2 );
         pass2.setDepPort( "ZDN" );
@@ -502,7 +502,7 @@ namespace
         pass2.setReservNum( "Z9WJK" );
         pass2.setDocType( "p" );
         pass2.setDocNumber( "35485167" );
-        BASIC::TDateTime expd1;
+        BASIC::TDateTime expd1 = ASTRA::NoExists;
         BASIC::StrToDateTime( "11.09.08 00:00:00", expd1 );
         pass2.setDocExpirateDate( expd1 );
 
@@ -510,7 +510,7 @@ namespace
         pass3.setSurname( "LESKA" );
         pass3.setFirstName( "PAVEL" );
         pass3.setSex( "M" );
-        BASIC::TDateTime bd3;
+        BASIC::TDateTime bd3 = ASTRA::NoExists;
         BASIC::StrToDateTime( "02.05.76 00:00:00", bd3 ); //"760502"
         pass3.setBirthDate( bd3 );
         pass3.setDepPort( "VIE" );
@@ -546,12 +546,12 @@ namespace
         paxlstInfo.setFlight( "OK688XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
 
         paxlstInfo.setDepPort( "PRGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-        BASIC::TDateTime depDate;
+        BASIC::TDateTime depDate = ASTRA::NoExists;
         BASIC::StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
         paxlstInfo.setDepDateTime( depDate );
 
         paxlstInfo.setArrPort( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-        BASIC::TDateTime arrDate;
+        BASIC::TDateTime arrDate = ASTRA::NoExists;
         BASIC::StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
         paxlstInfo.setArrDateTime( arrDate );
 
@@ -560,7 +560,7 @@ namespace
         pass1.setSurname( "STRANSKYXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass1.setFirstName( "JAROSLAV VICTOROVICHXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass1.setSex( "M" );
-        BASIC::TDateTime bd1;
+        BASIC::TDateTime bd1 = ASTRA::NoExists;
         BASIC::StrToDateTime( "10.06.67 00:00:00", bd1 ); //"670610"
         pass1.setBirthDate( bd1 );
         pass1.setDepPort( "ZDNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
@@ -575,7 +575,7 @@ namespace
         pass2.setSurname( "KOVACSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass2.setFirstName( "PETRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass2.setSex( "MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-        BASIC::TDateTime bd2;
+        BASIC::TDateTime bd2 = ASTRA::NoExists;
         BASIC::StrToDateTime( "09.12.69 00:00:00", bd2 ); //"691209"
         pass2.setBirthDate( bd2 );
         pass2.setDepPort( "ZDNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
@@ -584,7 +584,7 @@ namespace
         pass2.setReservNum( "Z9WJKXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass2.setDocType( "PXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass2.setDocNumber( "35485167XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-        BASIC::TDateTime expd2;
+        BASIC::TDateTime expd2 = ASTRA::NoExists;
         BASIC::StrToDateTime( "11.09.08 00:00:00", expd2 );
         pass2.setDocExpirateDate( expd2 );
 
@@ -593,8 +593,8 @@ namespace
         pass3.setSurname( "LESKAXXXXXXXXXXXXXXXXXXXXXdXXXXXXXXXXXXXXXXX" );
         pass3.setFirstName( "PAVELXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass3.setSex( "MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-        BASIC::TDateTime bd3;
-        BASIC::StrToDateTime( "02.05.76 00:00:00", bd2 ); //"760502"
+        BASIC::TDateTime bd3 = ASTRA::NoExists;
+        BASIC::StrToDateTime( "02.05.76 00:00:00", bd3 ); //"760502"
         pass3.setBirthDate( bd3 );
         pass3.setDepPort( "VIEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass3.setArrPort( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
@@ -621,7 +621,7 @@ namespace
         pass4.setSurname( "PUTIN" );
         pass4.setFirstName( "VOVA" );
         pass4.setSex( "M" );
-        BASIC::TDateTime bd4;
+        BASIC::TDateTime bd4 = ASTRA::NoExists;
         BASIC::StrToDateTime( "02.05.52 00:00:00", bd4 );
         pass4.setBirthDate( bd4 );
         pass4.setDepPort( "VIE" );
@@ -636,7 +636,7 @@ namespace
         pass5.setSurname( "PUTINA" );
         pass5.setFirstName( "LUDA" );
         pass5.setSex( "F" );
-        BASIC::TDateTime bd5;
+        BASIC::TDateTime bd5 = ASTRA::NoExists;
         BASIC::StrToDateTime( "10.05.55 00:00:00", bd5 );
         pass5.setBirthDate( bd5 );
         pass5.setDepPort( "VIE" );
@@ -772,7 +772,6 @@ START_TEST( test3 )
       "LOC+178+ZDNXXXXXXXXXXXXXXXXXXXXXX'\n"
       "LOC+179+BCNXXXXXXXXXXXXXXXXXXXXXX'\n"
       "NAT+2+CZE'\n"
-
       "DOC+IXX:110:111+102865098XXXXXXXXXXXXXXXXXXXXXXXXXX'\n"
       "NAD+FL+++KOVACSXXXXXXXXXXXXXXXXXXXXXXXXXXXXX:PETRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'\n"
       "ATT+2++MXXXXXXXXXXXXXXXX'\n"
@@ -785,7 +784,7 @@ START_TEST( test3 )
       "DTM+36:080911'\n"
       "NAD+FL+++LESKAXXXXXXXXXXXXXXXXXXXXXDXXXXXXXX:PAVELXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX+ARBATXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX+MOSCOWXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'\n"
       "ATT+2++MXXXXXXXXXXXXXXXX'\n"
-      "DTM+329:991230'\n"
+      "DTM+329:760502'\n"
       "LOC+178+VIEXXXXXXXXXXXXXXXXXXXXXX'\n"
       "LOC+179+BCNXXXXXXXXXXXXXXXXXXXXXX'\n"
       "NAT+2+RUS'\n"
@@ -797,7 +796,7 @@ START_TEST( test3 )
 
     // Сгенерированный текст
     LogTrace(TRACE5) << "\nText:\n" << text;
-
+    
     std::string chk( ts.check( text ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }
@@ -805,7 +804,7 @@ END_TEST;
 
 START_TEST( test4 )
 {
-    BASIC::TDateTime depDate;
+    BASIC::TDateTime depDate = ASTRA::NoExists;
     BASIC::StrToDateTime( "2007.09.07", "yyyy.mm.dd", depDate );
 
     std::string fname = Paxlst::createEdiPaxlstFileName( "OK", 421, "", "CAI", "PRG", depDate, "TXT" );
@@ -824,7 +823,7 @@ END_TEST;
 
 START_TEST( test5 )
 {
-    BASIC::TDateTime destDate;
+    BASIC::TDateTime destDate = ASTRA::NoExists;
     BASIC::StrToDateTime( "2007.09.15 12:10", "yyyy.mm.dd hh:nn", destDate );
 
     std::string iataCode = Paxlst::createIataCode( "OK0012", destDate );

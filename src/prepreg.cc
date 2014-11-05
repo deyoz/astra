@@ -184,7 +184,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.DeclareVariable( "priority", otInteger );
   Qry.Execute();
   bool empty_priority = Qry.VariableIsNULL( "priority" );
-  int priority;
+  int priority = 0;
   if ( !empty_priority )
     priority = Qry.GetVariableAsInteger( "priority" );
   ProgTrace( TRACE5, "airline=%s, flt_no=%d, airp=%s, empty_priority=%d, priority=%d",
@@ -471,7 +471,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     new_apis_manual_input=NodeAsIntegerFast("apis_manual_input",node2,(int)old_apis_manual_input)!=0;
       
     vector<int> check_waitlist_alarms, check_diffcomp_alarms;
-    bool pr_isTranzitSalons;
+    bool pr_isTranzitSalons = false;
     if (old_pr_tranzit!=new_pr_tranzit ||
         old_pr_tranz_reg!=new_pr_tranz_reg ||
         old_pr_block_trzt!=new_pr_block_trzt ||

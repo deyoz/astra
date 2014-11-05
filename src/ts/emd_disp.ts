@@ -65,7 +65,7 @@ UNZ+1+$(last_edifact_ref)0001"
 
 
 >> lines=auto
-    <kick req_ctxt_id...
+    <kick...
 
 
 !! capture=on err=ignore
@@ -177,7 +177,7 @@ $(run_daemon edi_timeout)
 
 # пришёл пинок от обработчика таймаута edifact
 >> lines=auto
-    <kick req_ctxt_id...
+    <kick...
 
 #!! capture=on err=ignore
 #$(lastRedisplay)

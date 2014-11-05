@@ -197,7 +197,7 @@ namespace to_esc {
         char Mode = 'S';
         TFields fields;
         string num;
-        int x, y, font, prnParamsOffset, prnParamsTop;
+        int x = 0, y = 0, font = 0, prnParamsOffset = 0, prnParamsTop = 0;
 
         try {
             mso_form = ConvertCodepage( mso_form, "CP866", prnParams.encoding );
