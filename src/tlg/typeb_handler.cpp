@@ -433,6 +433,7 @@ bool handle_tlg(void)
               TTripInfo fltInfo;
               TElemFmt fmt;
               fltInfo.airline = ElemToElemId(etAirline, info.flt.airline, fmt);
+              fltInfo.airp = ElemToElemId(etAirp, info.flt.airp_dep, fmt);
               fltInfo.flt_no = info.flt.flt_no;
               fltInfo.suffix = ElemToElemId(etSuffix, info.flt.suffix, fmt);
               fltInfo.scd_out = info.flt.scd;
