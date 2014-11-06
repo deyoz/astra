@@ -149,9 +149,9 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
     {
       return help_nosir_user();
     }
-    virtual int form_crypt_error(char *res, char *head, int hlen, int error)
+    virtual size_t form_crypt_error(char* res, size_t res_len, const char* head, size_t hlen, int error)
     {
-      return ::form_crypt_error(res,head,hlen,error);
+        return ::form_crypt_error(res,res_len,head,hlen,error);
     }
 #ifdef USE_MESPRO
     virtual void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &params)
