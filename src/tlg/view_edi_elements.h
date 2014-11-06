@@ -85,6 +85,11 @@ void viewDocElement( _EDI_REAL_MES_STRUCT_* pMes, const DocElem& elem, int num =
 void viewCntElement( _EDI_REAL_MES_STRUCT_* pMes, const CntElem& elem, int num = 0 );
 
 /**
+ * @brief makes a TVL element
+*/
+void viewTvlElement( _EDI_REAL_MES_STRUCT_* pMes, const TvlElem& elem );
+
+/**
  * @brief makes a TKT element
 */
 void viewTktElement( _EDI_REAL_MES_STRUCT_* pMes, const TktElem& elem );

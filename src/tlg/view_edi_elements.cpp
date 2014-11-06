@@ -5,6 +5,7 @@
 #include <edilib/edi_astra_msg_types.h>
 #include <edilib/edi_sess.h>
 #include <serverlib/str_utils.h>
+#include <serverlib/dates_io.h>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/foreach.hpp>
@@ -229,6 +230,29 @@ void viewCntElement( _EDI_REAL_MES_STRUCT_* pMes, const CntElem& elem, int num )
     cnt << boost::lexical_cast< std::string >( elem.m_cntType ) << ":";
     cnt << elem.m_cnt;
     SetEdiFullSegment( pMes, SegmElement( "CNT", num ), cnt.str() );
+}
+
+void viewTvlElement( _EDI_REAL_MES_STRUCT_* pMes, const TvlElem& elem )
+{
+    std::ostringstream tvl;
+    if(!elem.m_depDate.is_special())
+        tvl << HelpCpp::string_cast(elem.m_depDate, "%d%m%y");
+    tvl << ":";
+    if(!elem.m_depTime.is_special())
+        tvl << HelpCpp::string_cast(elem.m_depTime, "%H%M");
+    tvl << ":";
+    if(!elem.m_arrDate.is_special())
+        tvl << HelpCpp::string_cast(elem.m_arrDate, "%d%m%y");
+    tvl << ":";
+    if(!elem.m_arrTime.is_special())
+        tvl << HelpCpp::string_cast(elem.m_arrTime, "%H%M");
+    
+    tvl << "+" << elem.m_depPoint << "+" << elem.m_arrPoint;
+    tvl << "+" << elem.m_airline;
+    if(elem.m_flNum.valid())
+        tvl << "+" << elem.m_flNum;
+    
+    SetEdiFullSegment( pMes, SegmElement( "TVL" ), tvl.str());
 }
 
 void viewTktElement( _EDI_REAL_MES_STRUCT_* pMes, const TktElem& elem )

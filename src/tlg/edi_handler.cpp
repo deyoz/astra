@@ -110,6 +110,7 @@ static bool isNewEdifact(const std::string& ediText)
                                                      edilib::CompElement("C302"),
                                                      edilib::SegmElement("MSG"));
     if(func_code == "791"
+    || func_code == "793"
     || func_code == "794") {
         return true;
     }

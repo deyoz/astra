@@ -68,7 +68,7 @@ public:
     {
         AddEvent("DisassociateEMD", JXT_HANDLER(EMDSystemUpdateInterface, SysUpdateEmdCoupon));
         AddEvent("AssociateEMD",    JXT_HANDLER(EMDSystemUpdateInterface, SysUpdateEmdCoupon));        
-        AddEvent("kick",            JXT_HANDLER(EMDSystemUpdateInterface, KickHandler));        
+        AddEvent("kick",            JXT_HANDLER(EMDSystemUpdateInterface, KickHandler));
     }
 
     void SysUpdateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -104,7 +104,7 @@ class TTicketListKey
       if (addrs.second!=key.addrs.second)
         return addrs.second<key.addrs.second;
       return coupon_status<key.coupon_status;
-    };
+    }
 };
 
 class TChangeStatusList : public std::map<TTicketListKey, std::vector<TTicketListCtxt> >
@@ -130,7 +130,7 @@ public:
         in_final_status=false;
         pr_etstatus=ASTRA::NoExists;
         et_final_attempt=ASTRA::NoExists;
-      };
+      }
       bool get(int point_id);
   };
 
@@ -144,14 +144,14 @@ public:
      AddEvent("ChangeGrpStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangeGrpStatus));
      AddEvent("ChangeFltStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangeFltStatus));
      AddEvent("kick", JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::KickHandler));
-  };  
+  }
 
   void SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
   static void ETCheckStatus(int point_id,
                             xmlDocPtr ediResDocPtr,
@@ -167,6 +167,22 @@ public:
                                bool check_connect);
   static bool ETChangeStatus(xmlNodePtr reqNode,
                              const TChangeStatusList &mtick);
+};
+
+
+class EMDStatusInterface: public JxtInterface
+{
+public:
+    EMDStatusInterface(): JxtInterface("EMDStatus", "EMDStatus")
+    {
+        AddEvent("ChangeStatus",    JXT_HANDLER(EMDStatusInterface, ChangeStatus));        
+        AddEvent("kick",            JXT_HANDLER(EMDStatusInterface, KickHandler));
+    }
+    
+    void ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    
+    virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 };
 
 

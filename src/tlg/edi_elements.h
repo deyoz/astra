@@ -459,7 +459,7 @@ struct EbdElem {
 
 ///@class EqnElem - Number Of Units --EQN
 struct EqnElem {
-    int         m_numberOfUnits;
+    unsigned    m_numberOfUnits;
     std::string m_qualifier;
 
     EqnElem(int nof, const std::string& qualifier)

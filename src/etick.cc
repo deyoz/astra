@@ -30,6 +30,7 @@
 #include "astra_emd_view_xml.h"
 #include "tlg/emd_disp_request.h"
 #include "tlg/emd_system_update_request.h"
+#include "tlg/emd_cos_request.h"
 #include "tlg/emd_edifact.h"
 #include "tlg/remote_results.h"
 
@@ -112,8 +113,8 @@ CouponStatus calcPaxCouponStatus(const string& refuse,
         real_status=CouponStatus(CouponStatus::Boarded);
       else
         real_status=CouponStatus(CouponStatus::Flown);
-    };
-  };
+    }
+  }
   return real_status;
 }
 
@@ -142,7 +143,7 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",oper_carrier);
     if (!row.code_lat.empty()) oper_carrier=row.code_lat;
   }
-  catch(EBaseTableError) {};
+  catch(EBaseTableError) {}
   */
   ProgTrace(TRACE5,"ETSearch: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
                    oper_carrier.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
@@ -273,7 +274,7 @@ void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       throw AstraLocale::UserException("MSG.ETICK.FLIGHT_IN_THIS_MODE_ALREADY");
     else
       throw AstraLocale::UserException("MSG.ETICK.FLIGHT_CANNOT_BE_SET_IN_THIS_MODE");
-};
+}
 
 //----------------------------------------------------------------------------------------------------------------
 
@@ -379,7 +380,7 @@ string TEMDSystemUpdateItem::traceStr() const
        "emd: " << emd << " "
        "action: " << CpnActionTraceStr(action);
   return s.str();
-};
+}
 
 bool EMDSystemUpdateInterface::EMDChangeDisassociation(const edifact::KickInfo &kickInfo,
                                                        const TEMDSystemUpdateList &emdList)
@@ -418,9 +419,9 @@ bool EMDSystemUpdateInterface::EMDChangeDisassociation(const edifact::KickInfo &
     LogTrace(TRACE5) << __FUNCTION__ << ": " << i->first.traceStr();
 
     result=true;
-  };
+  }
   return result;
-};
+}
 
 void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
                                                       TEMDSystemUpdateList &emdList)
@@ -448,13 +449,13 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
           i->pax.tkn.no=EMDocItem.et_no;
           i->pax.tkn.coupon=EMDocItem.et_coupon;
           i->pax.tkn.rem="TKNE";
-        };        
+        }        
       }
       else
       {        
         //в emdocs нет ничего
         if (new_action==CpnStatAction::associate) continue; //считаем что ассоциация сделана по умолчанию        
-      };      
+      }      
 
       if (i->pax.tkn.no.empty() ||
           i->pax.tkn.coupon==ASTRA::NoExists ||
@@ -467,7 +468,7 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
         else if(i->pax.tkn.rem!='TKNE')
           ProgError(STDLOG, "%s: ticket number empty for EMD %s", __FUNCTION__, i->asvc.no_str().c_str());  //здесь ругаться в журнал операций*/
         continue;
-      };
+      }
 
       emdList.push_back(make_pair(TEMDSystemUpdateItem(), XMLDoc()));
 
@@ -499,11 +500,11 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
             << (i->pax.name.empty()?"":" ") << i->pax.name;
         NewTextChild(node,"pax_full_name",pax.str());
         NewTextChild(node,"pers_type",EncodePerson(i->pax.pers_type));
-      };
+      }
 
-    };
+    }
 
-  };
+  }
 }
 
 void EMDSystemUpdateInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -549,7 +550,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
   {
     segNode=reqNode;
     only_one=true;
-  };
+  }
   TChangeStatusList mtick;
   for(;segNode!=NULL;segNode=segNode->next)
   {
@@ -620,7 +621,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
               "      pax_id=:id";
             break;
           default: throw;
-        };
+        }
         Qry.CreateVariable("id",otInteger,*i);
         Qry.Execute();
         if (!Qry.Eof)
@@ -637,7 +638,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
         throw;
     }
     if (!tckin_version) break; //старый терминал
-  };
+  }
 
   if (!mtick.empty())
   {    
@@ -654,23 +655,23 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
     }
     else*/
       AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
-  };
-};
+  }
+}
 
 void ETStatusInterface::ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ChangeAreaStatus(csaPax,ctxt,reqNode,resNode);
-};
+}
 
 void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ChangeAreaStatus(csaGrp,ctxt,reqNode,resNode);
-};
+}
 
 void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ChangeAreaStatus(csaFlt,ctxt,reqNode,resNode);
-};
+}
 
 void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -718,7 +719,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       {
         //это web-регистрация
         if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
-      };
+      }
       string termReqName=(char*)(termReqNode->name);
 
       if (reqInfo->client_type==ctWeb ||
@@ -786,8 +787,8 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             err.second.push_back(make_pair(pax,getLocaleText(lexemeData)));
             //ошибка уровня пассажира
             segs[point_id][pax_id]=lexemeData;
-          };
-        };
+          }
+        }
         if (!tick_event)
         {
           ostringstream ticknum;
@@ -802,8 +803,8 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
           pair< vector<string>, vector< pair<string,string> > > &err=errors[flight];
           err.second.push_back(make_pair(pax,err_locale));
           segs[point_id][pax_id]=lexemeData;
-        };
-      };
+        }
+      }
 
       if (!errors.empty())
       {
@@ -835,7 +836,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
               {
                 if (use_flight) msg << "     ";
                 msg << *j << std::endl;
-              };
+              }
               for(vector< pair<string,string> >::iterator j=i->second.second.begin(); j!=i->second.second.end(); j++)
               {
                 if (use_flight) msg << "     ";
@@ -844,12 +845,12 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                   msg << j->first << std::endl
                       << "     ";
                   if (use_flight) msg << "     ";
-                };
+                }
                 msg << j->second << std::endl;
-              };
-            };
+              }
+            }
             NewTextChild(resNode,"ets_error",msg.str());
-          };
+          }
           //откат всех подтвержденных статусов
           ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
           return;
@@ -863,8 +864,8 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
           for(i=errors.begin();i!=errors.end();i++)
             if (!i->second.second.empty())
               throw AstraLocale::UserException((i->second.second.begin())->second);
-        };
-      };
+        }
+      }
 
       if (defer_etstatus) return;
 
@@ -880,9 +881,9 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
               //откатываем статусы так как запись группы так и не прошла
               ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
               return;
-            };
-          };
-        };
+            }
+          }
+        }
 
         if (reqInfo->client_type==ctWeb ||
             reqInfo->client_type==ctMobile ||
@@ -895,18 +896,18 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
               //откатываем статусы так как запись группы так и не прошла
               ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
               return;
-            };
-          };
-        };
+            }
+          }
+        }
       }
       catch(ServerFramework::Exception &e)
       {
         OraSession.Rollback();
         jxtlib::JXTLib::Instance()->GetCallbacks()->HandleException(&e);
         ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
-      };
-    };
-};
+      }
+    }
+}
 
 void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
                                          bool check_connect)
@@ -930,16 +931,16 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
                                    NodeAsIntegerFast("point_id",node2));
     if (find(point_ids.begin(),point_ids.end(),point_id)==point_ids.end())
       point_ids.push_back(point_id);
-  };
+  }
 
   TChangeStatusList mtick;
   for(vector<int>::iterator i=point_ids.begin();i!=point_ids.end();i++)
   {
     ProgTrace(TRACE5,"ETRollbackStatus: rollback point_id=%d",*i);
     ETStatusInterface::ETCheckStatus(*i,ediResDocPtr,false,mtick);
-  };
+  }
   ETStatusInterface::ETChangeStatus(NULL,mtick);
-};
+}
 
 bool ETStatusInterface::TFltParams::get(int point_id)
 {
@@ -982,7 +983,7 @@ bool ETStatusInterface::TFltParams::get(int point_id)
 
   in_final_status=fltInfo.real_out!=NoExists && real_in!=NoExists && real_in<NowUTC();
   return true;
-};
+}
 
 xmlNodePtr TChangeStatusList::addTicket(const TTicketListKey &key,
                                         const Ticketing::Ticket &tick)
@@ -991,7 +992,7 @@ xmlNodePtr TChangeStatusList::addTicket(const TTicketListKey &key,
       (*this)[key].back().first.size()>=MAX_TICKETS_IN_TLG)
   {
     (*this)[key].push_back(TTicketListCtxt());
-  };
+  }
 
   TTicketListCtxt &ltick=(*this)[key].back();
   if (ltick.second.docPtr()==NULL)
@@ -1000,10 +1001,10 @@ xmlNodePtr TChangeStatusList::addTicket(const TTicketListKey &key,
     if (ltick.second.docPtr()==NULL)
       throw EXCEPTIONS::Exception("ETCheckStatus: CreateXMLDoc failed");
     NewTextChild(NodeAsNode("/context",ltick.second.docPtr()),"tickets");
-  };
+  }
   ltick.first.push_back(tick);
   return NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr()),"ticket");
-};
+}
 
 void ETStatusInterface::ETCheckStatus(int point_id,
                                       xmlDocPtr ediResDocPtr,
@@ -1081,9 +1082,9 @@ void ETStatusInterface::ETCheckStatus(int point_id,
                   << setw(3) << setfill('0') << fltParams.fltInfo.flt_no;
               throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
               	                               LParams() << LParam("flight", flt.str()));
-            };
+            }
             init_edi_addrs=true;
-          };
+          }
           key.coupon_status=real_status->codeInt();
 
           ProgTrace(TRACE5,"status=%s prior_status=%s real_status=%s",
@@ -1121,14 +1122,14 @@ void ETStatusInterface::ETCheckStatus(int point_id,
               NewTextChild(node,"reg_no",NodeAsIntegerFast("reg_no",node2));
             NewTextChild(node,"pax_full_name",NodeAsStringFast("pax_full_name",node2));
             NewTextChild(node,"pers_type",NodeAsStringFast("pers_type",node2));
-          };
+          }
 
           ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
                            ticket_no.c_str(),
                            coupon_no,
                            real_status->dispCode());
-        };
-      };
+        }
+      }
     }
     catch(CheckIn::UserException)
     {
@@ -1137,9 +1138,9 @@ void ETStatusInterface::ETCheckStatus(int point_id,
     catch(AstraLocale::UserException &e)
     {
       throw CheckIn::UserException(e.getLexemaData(), point_id);
-    };
-  };
-};
+    }
+  }
+}
 
 void ETStatusInterface::ETCheckStatus(int id,
                                       TETCheckStatusArea area,
@@ -1171,7 +1172,7 @@ void ETStatusInterface::ETCheckStatus(int id,
       if (!Qry.Eof) point_id=Qry.FieldAsInteger("point_dep");
       break;
     default: ;
-  };
+  }
 
   TFltParams fltParams;
   if (point_id!=NoExists && fltParams.get(point_id))
@@ -1214,7 +1215,7 @@ void ETStatusInterface::ETCheckStatus(int id,
             Qry.CreateVariable("pax_id",otInteger,id);
             break;
           default: ;
-        };
+        }
         //из двух пассажиров с одинаковым билетом/купоном приоритетным является неразрегистрированный
         sql << "ORDER BY pax.ticket_no,pax.coupon_no,DECODE(pax.refuse,NULL,0,1)";
 
@@ -1264,9 +1265,9 @@ void ETStatusInterface::ETCheckStatus(int id,
                       << setw(3) << setfill('0') << fltParams.fltInfo.flt_no;
                   throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
                   	                               LParams() << LParam("flight", flt.str()));
-                };
+                }
                 init_edi_addrs=true;
-              };
+              }
               key.coupon_status=real_status->codeInt();
 
               ProgTrace(TRACE5,"status=%s real_status=%s",status->dispCode(),real_status->dispCode());
@@ -1311,16 +1312,16 @@ void ETStatusInterface::ETCheckStatus(int id,
                 NewTextChild(node,"prior_point_id",Qry.FieldAsInteger("tick_point_id"));
                 NewTextChild(node,"prior_airp_dep",Qry.FieldAsString("tick_airp_dep"));
                 NewTextChild(node,"prior_airp_arv",Qry.FieldAsString("tick_airp_arv"));
-              };
+              }
 
               ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
                                ticket_no.c_str(),
                                coupon_no,
                                real_status->dispCode());
-            };
-          };
-        };
-      };
+            }
+          }
+        }
+      }
     }
     catch(CheckIn::UserException)
     {
@@ -1329,8 +1330,8 @@ void ETStatusInterface::ETCheckStatus(int id,
     catch(AstraLocale::UserException &e)
     {
       throw CheckIn::UserException(e.getLexemaData(), point_id);
-    };
-  };
+    }
+  }
 
   if (check_point_id!=NoExists && fltParams.get(check_point_id))
   {
@@ -1364,7 +1365,7 @@ void ETStatusInterface::ETCheckStatus(int id,
                 << setw(3) << setfill('0') << fltParams.fltInfo.flt_no;
             throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
              	                               LParams() << LParam("flight", flt.str()));
-          };
+          }
           key.coupon_status=real_status->codeInt();
 
           for(;!Qry.Eof;Qry.Next())
@@ -1403,9 +1404,9 @@ void ETStatusInterface::ETCheckStatus(int id,
                              ticket_no.c_str(),
                              coupon_no,
                              real_status->dispCode());
-          };
-        };
-      };
+          }
+        }
+      }
     }
     catch(CheckIn::UserException)
     {
@@ -1414,8 +1415,8 @@ void ETStatusInterface::ETCheckStatus(int id,
     catch(AstraLocale::UserException &e)
     {
       throw CheckIn::UserException(e.getLexemaData(), check_point_id);
-    };
-  };
+    }
+  }
 }
 
 bool ETStatusInterface::ETChangeStatus(xmlNodePtr reqNode,
@@ -1446,7 +1447,7 @@ bool ETStatusInterface::ETChangeStatus(xmlNodePtr reqNode,
         TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",oper_carrier);
         if (!row.code_lat.empty()) oper_carrier=row.code_lat;
       }
-      catch(EBaseTableError) {};
+      catch(EBaseTableError) {}
       */
         if (i->first.addrs.first.empty() ||
             i->first.addrs.second.empty())
@@ -1477,17 +1478,49 @@ bool ETStatusInterface::ETChangeStatus(xmlNodePtr reqNode,
         {
           OrigOfRequest org(oper_carrier,reqInfo);
           ChangeStatus::ETChangeStatus(org, ltick, ediCtxt, kickInfo);
-        };
+        }
 
         result=true;
-      };
-    };
-  };
+      }
+    }
+  }
   return result;
-};
+}
 
 void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   throw UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
   //NewTextChild(resNode,"text","...");
-};
+}
+
+
+void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+    
+    Ticketing::TicketNum_t emdDocNum(NodeAsString("EmdNoEdit", reqNode));
+    CouponNum_t emdCpnNum(NodeAsInteger("CpnNoEdit", reqNode));
+    Ticketing::CouponStatus emdCpnStatus;
+    emdCpnStatus = Ticketing::CouponStatus::fromDispCode(NodeAsString("CpnStatusEdit", reqNode));
+    int pointId = NodeAsInteger("point_id",reqNode);
+    
+    TTripInfo info = getTripInfo(pointId);
+    std::string airline = getTripAirline(info);
+    Ticketing::FlightNum_t flNum = getTripFlightNum(info);
+    OrigOfRequest org(airline, *TReqInfo::Instance());
+    edifact::KickInfo kickInfo(ASTRA::NoExists, "EMDStatus");
+
+    edifact::EmdCOSParams cosParams(org, "", kickInfo, airline, flNum, emdDocNum, emdCpnNum, emdCpnStatus);
+    edifact::EmdCOSRequest ediReq(cosParams);
+    ediReq.sendTlg();
+}
+
+void EMDStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    FuncIn(KickHandler);
+    using namespace edifact;
+    pRemoteResults res = RemoteResults::readSingle();
+    LogTrace(TRACE3) << "RemoteResults::Status: " << res->status();
+    // TODO add kick handling
+    FuncOut(KickHandler);    
+}

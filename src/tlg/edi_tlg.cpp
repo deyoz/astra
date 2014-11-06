@@ -19,6 +19,7 @@
 // handlers
 #include "EmdDispResponseHandler.h"
 #include "EmdSysUpdateResponseHandler.h"
+#include "EmdCosResponseHandler.h"
 
 #include <etick/lang.h>
 #include <jxtlib/cont_tools.h>
@@ -497,6 +498,7 @@ edilib::EdiResponseHandler *
     LogTrace(TRACE3) << "find response handler for msg with func_code: " << func_code;
     // здесь будут регистрироваться обработчики edifact-ответов
     __DECLARE_HANDLER__(EmdDispResponseHandler,             TKCRES, "791");
+    __DECLARE_HANDLER__(EmdCosResponseHandler,              TKCRES, "793");
     __DECLARE_HANDLER__(EmdSysUpdateResponseHandler,        TKCRES, "794");
 
     return 0;
