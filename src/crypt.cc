@@ -270,10 +270,10 @@ static int init_rand_callback1(int c, int step, int from, char *userdata)
 
 // определяет ошибку режима шифрования и возвращает признак шифрования для группы
 // за основу определения шифрования по группе или пульту берем эту ф-цию
-bool GetCryptGrp( TQuery *Qry, const std::string &desk, int &grp_id, bool &pr_grp )
+bool GetCryptGrp( TQuery &Qry, const std::string &desk, int &grp_id, bool &pr_grp )
 {
-	Qry->Clear();
-  Qry->SQLText =
+    Qry.Clear();
+  Qry.SQLText =
     "SELECT pr_crypt,crypt_sets.desk_grp_id grp_id, crypt_sets.desk "
     "FROM desks,desk_grp,crypt_sets "
     "WHERE desks.code = UPPER(:desk) AND "
@@ -281,51 +281,51 @@ bool GetCryptGrp( TQuery *Qry, const std::string &desk, int &grp_id, bool &pr_gr
     "      crypt_sets.desk_grp_id=desk_grp.grp_id AND "
     "      ( crypt_sets.desk IS NULL OR crypt_sets.desk=desks.code ) "
     "ORDER BY desk ASC ";
-  Qry->CreateVariable( "desk", otString, desk );
-  Qry->Execute();
-  if ( !Qry->Eof ) {
-  	 grp_id = Qry->FieldAsInteger( "grp_id" );
-  	 pr_grp = Qry->FieldIsNULL( "desk" );
+  Qry.CreateVariable( "desk", otString, desk );
+  Qry.Execute();
+  if ( !Qry.Eof ) {
+     grp_id = Qry.FieldAsInteger( "grp_id" );
+     pr_grp = Qry.FieldIsNULL( "desk" );
   }
-  return ( !Qry->Eof && Qry->FieldAsInteger( "pr_crypt" ) != 0 ); //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
+  return ( !Qry.Eof && Qry.FieldAsInteger( "pr_crypt" ) != 0 ); //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
 }
 
 //сертификат выбираем по след. правилам:
 //1. сортировка по пульту, доступу и времени начала действия сертификата
 //2. pr_grp - определяет какой сертификат изпользовать (для пульта или групповой)
-bool GetClientCertificate( TQuery *Qry, int grp_id, bool pr_grp, const std::string &desk, std::string &certificate, int &pkcs_id )
+bool GetClientCertificate( TQuery &Qry, int grp_id, bool pr_grp, const std::string &desk, std::string &certificate, int &pkcs_id )
 {
 	pkcs_id = -1;
 	certificate.clear();
-	Qry->Clear();
-  Qry->SQLText =
+    Qry.Clear();
+  Qry.SQLText =
     "SELECT pkcs_id, desk, certificate, pr_denial, first_date, last_date, SYSDATE now FROM crypt_term_cert "
     " WHERE desk_grp_id=:grp_id AND ( desk IS NULL OR desk=:desk ) "
     " ORDER BY desk ASC, pr_denial ASC, first_date ASC, id ASC";
-  Qry->CreateVariable( "grp_id", otInteger, grp_id );
-  Qry->CreateVariable( "desk", otString, desk );
-  Qry->Execute();
+  Qry.CreateVariable( "grp_id", otInteger, grp_id );
+  Qry.CreateVariable( "desk", otString, desk );
+  Qry.Execute();
   bool pr_exists=false;
-  while ( !Qry->Eof ) {
-  	if ( (!Qry->FieldIsNULL( "desk" ) && pr_grp) || // если пультовой сертификат, а у нас описан групповой
-  		   (Qry->FieldIsNULL( "desk" ) && !pr_grp) ) { // если групповой сертификат, а у нас описан пультовой
-  		Qry->Next();
+  while ( !Qry.Eof ) {
+    if ( (!Qry.FieldIsNULL( "desk" ) && pr_grp) || // если пультовой сертификат, а у нас описан групповой
+           (Qry.FieldIsNULL( "desk" ) && !pr_grp) ) { // если групповой сертификат, а у нас описан пультовой
+        Qry.Next();
   	  continue;
   	}
-    if ( Qry->FieldAsInteger( "pr_denial" ) == 0 && // разрешен
-  	     Qry->FieldAsDateTime( "now" ) > Qry->FieldAsDateTime( "first_date" ) ) // начал выполняться
+    if ( Qry.FieldAsInteger( "pr_denial" ) == 0 && // разрешен
+         Qry.FieldAsDateTime( "now" ) > Qry.FieldAsDateTime( "first_date" ) ) // начал выполняться
   	pr_exists = true; // значит сертификат есть, но возможно он просрочен
-    if ( Qry->FieldAsDateTime( "now" ) < Qry->FieldAsDateTime( "first_date" ) || // не начал выполняться
-  	     Qry->FieldAsDateTime( "now" ) > Qry->FieldAsDateTime( "last_date" ) ) { // закончил выполняться
-  	  Qry->Next();
+    if ( Qry.FieldAsDateTime( "now" ) < Qry.FieldAsDateTime( "first_date" ) || // не начал выполняться
+         Qry.FieldAsDateTime( "now" ) > Qry.FieldAsDateTime( "last_date" ) ) { // закончил выполняться
+      Qry.Next();
   	  continue;
     }
     // сертификат актуален. Сортировка по пульту. а потом по группе + признак отмены
-    if ( Qry->FieldAsInteger( "pr_denial" ) != 0 )
+    if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
     	break;
-    certificate = Qry->FieldAsString( "certificate" );
-    if ( !Qry->FieldIsNULL( "pkcs_id" ) )
-    	pkcs_id = Qry->FieldAsInteger( "pkcs_id" );
+    certificate = Qry.FieldAsString( "certificate" );
+    if ( !Qry.FieldIsNULL( "pkcs_id" ) )
+        pkcs_id = Qry.FieldAsInteger( "pkcs_id" );
 
     break;
   }
@@ -335,24 +335,24 @@ bool GetClientCertificate( TQuery *Qry, int grp_id, bool pr_grp, const std::stri
   return pr_exists;
 }
 
-void GetServerCertificate( TQuery *Qry, std::string &ca, std::string &pk, std::string &server )
+void GetServerCertificate( TQuery &Qry, std::string &ca, std::string &pk, std::string &server )
 {
-	Qry->Clear();
-  Qry->SQLText =
+    Qry.Clear();
+  Qry.SQLText =
     "SELECT certificate,private_key,first_date,last_date,pr_ca FROM crypt_server "
     " WHERE pr_denial=0 AND system.UTCSYSDATE BETWEEN first_date AND last_date "
     " ORDER BY id DESC";
-  Qry->Execute();
-  while ( !Qry->Eof ) {
-	  if ( Qry->FieldAsInteger("pr_ca") && ca.empty() )
-  		ca = Qry->FieldAsString( "certificate" );
-    if ( !Qry->FieldAsInteger("pr_ca") && pk.empty() ) {
-  		pk = Qry->FieldAsString( "private_key" );
-  		server = Qry->FieldAsString( "certificate" );
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+      if ( Qry.FieldAsInteger("pr_ca") && ca.empty() )
+        ca = Qry.FieldAsString( "certificate" );
+    if ( !Qry.FieldAsInteger("pr_ca") && pk.empty() ) {
+        pk = Qry.FieldAsString( "private_key" );
+        server = Qry.FieldAsString( "certificate" );
   	}
   	if ( !ca.empty() && !pk.empty() )
   	  break;
-  	Qry->Next();
+    Qry.Next();
   }
   return;
 }
@@ -372,44 +372,37 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
   
   using namespace std;
   string desk = string(head+45,6);
-  TQuery *Qry = new TQuery(&OraSession);
+  TQuery Qry(&OraSession);
   int grp_id;
   bool pr_grp;
-  try {
-  	if ( !GetCryptGrp( Qry, desk, grp_id, pr_grp ) ) { //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
-      *error=WRONG_TERM_CRYPT_MODE;
-      tst();
-    	return;
-    }
-    GetServerCertificate( Qry, params.CA, params.PKey, params.server_cert );
-    if ( params.PKey.empty() ) {
-    	*error = UNKNOWN_KEY;
-    	return;
-    }
-    if ( params.CA.empty() ) {
-    	*error = UNKNOWN_CA_CERTIFICATE;
-    	return;
-    }
-    if ( params.server_cert.empty() ) {
-    	*error = UNKNOWN_SERVER_CERTIFICATE;
-    	return;
-    }
 
-    int pkcs_id;
-    bool pr_exists = GetClientCertificate( Qry, grp_id, pr_grp, desk, params.client_cert, pkcs_id );
-    if ( params.client_cert.empty() ) {
-    	if ( pr_exists )
-    		*error = EXPIRED_KEY;
-    	else
- 	  	  *error = UNKNOWN_CLIENT_CERTIFICATE;
-  	  return;
-    }
+  if ( !GetCryptGrp( Qry, desk, grp_id, pr_grp ) ) { //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
+    *error=WRONG_TERM_CRYPT_MODE;
+    return;
   }
-  catch(...) {
-  	delete Qry;
-  	throw;
-  };
-  delete Qry;
+  GetServerCertificate( Qry, params.CA, params.PKey, params.server_cert );
+  if ( params.PKey.empty() ) {
+    *error = UNKNOWN_KEY;
+    return;
+  }
+  if ( params.CA.empty() ) {
+    *error = UNKNOWN_CA_CERTIFICATE;
+    return;
+  }
+  if ( params.server_cert.empty() ) {
+    *error = UNKNOWN_SERVER_CERTIFICATE;
+    return;
+  }
+
+  int pkcs_id;
+  bool pr_exists = GetClientCertificate( Qry, grp_id, pr_grp, desk, params.client_cert, pkcs_id );
+  if ( params.client_cert.empty() ) {
+    if ( pr_exists )
+      *error = EXPIRED_KEY;
+    else
+      *error = UNKNOWN_CLIENT_CERTIFICATE;
+    return;
+  }
 }
 
 #endif // USE_MESPRO
