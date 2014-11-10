@@ -417,15 +417,15 @@ void TCrypt::Init( const std::string &desk )
   TQuery Qry(&OraSession);
   int grp_id;
   bool pr_grp;
-  if ( !GetCryptGrp( &Qry, desk, grp_id, pr_grp ) )
+  if ( !GetCryptGrp( Qry, desk, grp_id, pr_grp ) )
   	return;
   ProgTrace( TRACE5, "grp_id=%d,pr_grp=%d", grp_id, pr_grp );
   string pk;
-  GetServerCertificate( &Qry, ca_cert, pk, server_cert );
+  GetServerCertificate( Qry, ca_cert, pk, server_cert );
   if ( ca_cert.empty() || server_cert.empty() )
   	throw Exception("ca or server certificate not found");
 
-  bool pr_exists = GetClientCertificate( &Qry, grp_id, pr_grp, desk, client_cert, pkcs_id );
+  bool pr_exists = GetClientCertificate( Qry, grp_id, pr_grp, desk, client_cert, pkcs_id );
   if ( client_cert.empty() ) {
   	if ( !pr_exists )
   	  AstraLocale::showProgError("MSG.MESSAGEPRO.CRYPT_CONNECT_CERT_NOT_FOUND.CALL_ADMIN");
