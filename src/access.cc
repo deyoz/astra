@@ -739,10 +739,12 @@ void TUserData::del()
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "BEGIN "
-        "  adm.delete_user(:OLD_user_id,:SYS_user_id); "
+        "  adm.delete_user(:OLD_user_id,:SYS_user_id,:SYS_user_descr,:SYS_desk_code); "
         "END;";
     Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
     Qry.CreateVariable("OLD_user_id", otInteger, user_id);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     try {
         Qry.Execute();
         TReqInfo::Instance()->LocaleToLog("EVT.USER_DELETED", LEvntPrms()
