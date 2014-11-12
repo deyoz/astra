@@ -629,10 +629,12 @@ class TPRLOptions : public TMarkInfoOptions
         {
             create_point = "CLOSE_CKIN";
             pax_state = "BRD";
+            rbd = false;
         }
     public:
         std::string create_point;
         std::string pax_state;
+        bool rbd;
         TPRLOptions() { init(); }
         virtual ~TPRLOptions() {};
         virtual void clear()
@@ -647,6 +649,7 @@ class TPRLOptions : public TMarkInfoOptions
             xmlNodePtr node2=node->children;
             create_point = NodeAsStringFast("create_point", node2, create_point.c_str());
             pax_state = NodeAsStringFast("pax_state", node2, pax_state.c_str());
+            rbd = NodeAsIntegerFast("rbd", node2, rbd) != 0;
         }
         virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
         {
@@ -681,6 +684,11 @@ class TPRLOptions : public TMarkInfoOptions
                     pax_state = OptionsQry.FieldAsString("value");
                     continue;
                 };
+                if (cat=="RBD")
+                {
+                    rbd = OptionsQry.FieldAsInteger("value") != 0;
+                    continue;
+                };
             }
         }
         virtual localizedstream& logStr(localizedstream &s) const
@@ -692,7 +700,11 @@ class TPRLOptions : public TMarkInfoOptions
                 << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+CREATE_POINT+"+create_point)
                 << ", "
                 << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.PAX_STATE") << ": "
-                << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+PAX_STATE+"+pax_state);
+                << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+PAX_STATE+"+pax_state)
+                << ", "
+                << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.RBD") << ": "
+                << (rbd ? s.getLocaleText("да"):
+                        s.getLocaleText("нет"));
             return s;
         }
         virtual localizedstream& extraStr(localizedstream &s) const
@@ -704,6 +716,10 @@ class TPRLOptions : public TMarkInfoOptions
                 << endl
                 << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.PAX_STATE") << ": "
                 << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+PAX_STATE+"+pax_state)
+                << endl
+                << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.RBD") << ": "
+                << (rbd ? s.getLocaleText("да"):
+                        s.getLocaleText("нет"))
                 << endl;
             return s;
         };
@@ -719,6 +735,7 @@ class TPRLOptions : public TMarkInfoOptions
                 const TPRLOptions &opt = dynamic_cast<const TPRLOptions&>(item);
                 return
                     create_point == opt.create_point and
+                    rbd == opt.rbd and
                     pax_state == opt.pax_state;
             }
             catch(std::bad_cast)
@@ -734,6 +751,7 @@ class TPRLOptions : public TMarkInfoOptions
                 const TPRLOptions &opt = dynamic_cast<const TPRLOptions&>(item);
                 return
                     create_point == opt.create_point and
+                    rbd == opt.rbd and
                     pax_state == opt.pax_state;
             }
             catch(std::bad_cast)
@@ -749,6 +767,7 @@ class TPRLOptions : public TMarkInfoOptions
                 const TPRLOptions &opt = dynamic_cast<const TPRLOptions&>(item);
                 create_point = opt.create_point;
                 pax_state = opt.pax_state;
+                rbd = opt.rbd;
             }
             catch(std::bad_cast) {};
         };

@@ -1502,7 +1502,7 @@ namespace PRL_SPACE {
 
     struct TPRLDest {
         string airp;
-        string cls;
+        string cls; // if rbd is on, this field contains fare class, otherwise - compartment class
         vector<TPRLPax> PaxList;
         TGRPMap *grp_map;
         TInfants *infants;
@@ -1539,8 +1539,12 @@ namespace PRL_SPACE {
 
         string SQLText =
             "select "
-            "    pax_grp.airp_arv target, "
-            "    cls_grp.id cls, "
+            "    pax_grp.airp_arv target, ";
+        if(PRLOptions and PRLOptions->rbd)
+            SQLText += "    NULL cls, ";
+        else
+            SQLText += "    cls_grp.id cls, ";
+        SQLText +=
             "    system.transliter(pax.surname, 1, :pr_lat) surname, "
             "    system.transliter(pax.name, 1, :pr_lat) name, "
             "    crs_pnr.pnr_id, "
@@ -1555,17 +1559,25 @@ namespace PRL_SPACE {
             "    pax.pers_type "
             "from "
             "    pax, "
-            "    pax_grp, "
-            "    cls_grp, "
+            "    pax_grp, ";
+        if(not(PRLOptions and PRLOptions->rbd))
+            SQLText += "    cls_grp, ";
+        SQLText +=
             "    crs_pax, "
             "    crs_pnr "
             "WHERE "
             "    pax_grp.point_dep = :point_id and "
             "    pax_grp.status NOT IN ('E') AND "
             "    pax_grp.airp_arv = :airp and "
-            "    pax_grp.grp_id=pax.grp_id AND "
-            "    pax_grp.class_grp = cls_grp.id(+) AND "
-            "    cls_grp.code = :class and ";
+            "    pax_grp.grp_id=pax.grp_id AND ";
+        if(PRLOptions and PRLOptions->rbd) {
+            SQLText +=
+                "   NVL(pax.subclass,pax_grp.class) = :class and ";
+        } else {
+            SQLText +=
+                "    pax_grp.class_grp = cls_grp.id(+) AND "
+                "    cls_grp.code = :class and ";
+        }
         if((PRLOptions and PRLOptions->pax_state == "CKIN") or info.get_tlg_type() == "LCI")
             SQLText += " pax.pr_brd is not null and ";
         else
@@ -4787,7 +4799,7 @@ struct TDestList {
     TGRPMap grp_map; // PRL, ETL
     TInfants infants; // PRL
     vector<T> items;
-    void get_subcls_lst(int point_id, list<string> &lst);
+    void get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &lst);
     void get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
@@ -4836,12 +4848,18 @@ void TDestList<T>::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
                 << "00" << info.TlgElemIdToElem(etSubcls, iv->cls, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
             body.push_back(line.str());
         } else {
+            const TypeB::TPRLOptions *PRLOptions=NULL;
+            if(info.optionsIs<TypeB::TPRLOptions>())
+                PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
             pr_empty = false;
             line.str("");
             line
                 << "-" << info.TlgElemIdToElem(etAirp, iv->airp)
-                << setw(2) << setfill('0') << iv->PaxList.size()
-                << info.TlgElemIdToElem(etClsGrp, iv->PaxList[0].cls_grp_id, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
+                << setw(2) << setfill('0') << iv->PaxList.size();
+            if(PRLOptions and PRLOptions->rbd)
+                line << info.TlgElemIdToElem(etSubcls, iv->cls, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
+            else
+                line << info.TlgElemIdToElem(etClsGrp, iv->PaxList[0].cls_grp_id, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
             body.push_back(line.str());
             iv->PaxListToTlg(info, body);
         }
@@ -6278,32 +6296,55 @@ struct TSubclsItem {
 };
 
 template <class T>
-void TDestList<T>::get_subcls_lst(int point_id, list<string> &lst)
+void TDestList<T>::get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &lst)
 {
-    // достает все возможные классы и подклассы, использующиеся на рейсе
-    TCFG cfg(point_id);
-    if(cfg.empty()) cfg.get(NoExists);
+    const TypeB::TPRLOptions *PRLOptions=NULL;
+    if(info.optionsIs<TypeB::TPRLOptions>())
+        PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
 
     set<TSubclsItem> subcls_set;
-    for(TCFG::iterator i = cfg.begin(); i != cfg.end(); i++)
-        subcls_set.insert(TSubclsItem(i->priority, i->cls));
 
-    QParams QryParams;
-    QryParams << QParam("point_id", otInteger, point_id);
-    TCachedQuery Qry(
-            "SELECT DISTINCT cls_grp.priority, cls_grp.code AS class "
-            "FROM pax_grp,cls_grp "
-            "WHERE pax_grp.class_grp=cls_grp.id AND "
-            "      pax_grp.point_dep = :point_id AND pax_grp.bag_refuse=0 ",
-            QryParams);
-    Qry.get().Execute();
-    for(; not Qry.get().Eof; Qry.get().Next())
-        subcls_set.insert(
-                TSubclsItem(
-                    Qry.get().FieldAsInteger("priority"),
-                    Qry.get().FieldAsString("class")
-                    )
-                );
+    if(PRLOptions and PRLOptions->rbd) {
+        QParams QryParams;
+        QryParams << QParam("point_id", otInteger, info.point_id);
+        TCachedQuery Qry(
+                "select distinct nvl(pax.subclass, pax_grp.class) subcls from pax, pax_grp "
+                "where pax_grp.point_dep = :point_id and pax_grp.grp_id = pax.grp_id",
+                QryParams);
+        Qry.get().Execute();
+        for(; not Qry.get().Eof; Qry.get().Next())
+            subcls_set.insert(
+                    TSubclsItem(
+                        0,
+                        Qry.get().FieldAsString("subcls")
+                        )
+                    );
+    } else {
+        // достает все возможные классы и подклассы, использующиеся на рейсе
+        TCFG cfg(info.point_id);
+        if(cfg.empty()) cfg.get(NoExists);
+
+        for(TCFG::iterator i = cfg.begin(); i != cfg.end(); i++)
+            subcls_set.insert(TSubclsItem(i->priority, i->cls));
+
+        QParams QryParams;
+        QryParams << QParam("point_id", otInteger, info.point_id);
+        TCachedQuery Qry(
+                "SELECT DISTINCT cls_grp.priority, cls_grp.code AS class "
+                "FROM pax_grp,cls_grp "
+                "WHERE pax_grp.class_grp=cls_grp.id AND "
+                "      pax_grp.point_dep = :point_id AND pax_grp.bag_refuse=0 ",
+                QryParams);
+        Qry.get().Execute();
+        for(; not Qry.get().Eof; Qry.get().Next())
+            subcls_set.insert(
+                    TSubclsItem(
+                        Qry.get().FieldAsInteger("priority"),
+                        Qry.get().FieldAsString("class")
+                        )
+                    );
+    }
+
     // Здесь имеем список пар priority, cls
     // Уберем дубликаты и заполним ответ
     set<string> used;
@@ -6322,7 +6363,7 @@ void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &com
     TTripRoute route;
     route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
     list<string> subcls_lst;
-    get_subcls_lst(info.point_id, subcls_lst);
+    get_subcls_lst(info, subcls_lst);
     for(TTripRoute::iterator i_route = route.begin(); i_route != route.end(); i_route++)
         for(list<string>::iterator i_cfg = subcls_lst.begin(); i_cfg != subcls_lst.end(); i_cfg++) {
             T dest(&grp_map, &infants);
