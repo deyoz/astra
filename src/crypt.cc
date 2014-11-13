@@ -34,8 +34,7 @@ using namespace std;
 
 static time_t randt = time(NULL);
 
-
-int form_crypt_error(char *res, char *head, int hlen, int error)
+size_t form_crypt_error(char* res, size_t res_len, const char* head, size_t hlen, int error)
 {
   int newlen;
   char *utf8txt=NULL;
@@ -84,8 +83,8 @@ int form_crypt_error(char *res, char *head, int hlen, int error)
   }
 
   ProgTrace(TRACE1,"Crypting error occured: (%i) '%s'",error,msg_error.c_str());
-  (head[byte])|=MSG_SYS_ERROR;
   memcpy(res, head, hlen);
+  res[byte] |= MSG_SYS_ERROR;
   utf8len=CP866toUTF8((unsigned char **)&utf8txt,(unsigned char *)msg_error.c_str());
   if(utf8len<=0)
     utf8txt=(char *)"System error!";
