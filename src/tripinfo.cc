@@ -1136,7 +1136,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
         reqInfo->screen.name == "EXAM.EXE")
     {
       NewTextChild( node, "pr_etstatus", Qryh.FieldAsInteger("pr_etstatus") );
-      NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
+      NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETSNoInteract,info) );
     };
 
     if (reqInfo->screen.name == "AIR.EXE")

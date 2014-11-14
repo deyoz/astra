@@ -466,8 +466,8 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
         << apisAfter.doc.surname << "/"
         << apisAfter.doc.first_name << "/"
         << apisAfter.doc.second_name << ".";
-        id = (manualInputAfter?"EVT.APIS_LOG_MANUAL_INPUT":"EVT.APIS_LOG_SCANNING");
-     msgs.push_back(make_pair(id, msg.str()));
+    id = (manualInputAfter?"EVT.APIS_LOG_MANUAL_INPUT":"EVT.APIS_LOG_SCANNING");
+    msgs.push_back(make_pair(id, msg.str()));
   };
 
   manualInputBefore=(apisBefore.doco.scanned_attrs & apisBefore.doco.getNotEmptyFieldsMask()) != apisBefore.doco.getNotEmptyFieldsMask();
@@ -629,7 +629,7 @@ void SaveGrpToLog(int point_id,
             {
               LEvntPrms params;
               aPax->second.getPaxName(params);
-              reqInfo->LocaleToLog((*m).first, params << PrmSmpl<string>("params", (*m).second),
+              reqInfo->LocaleToLog(m->first, params << PrmSmpl<string>("params", m->second),
                                                ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
               changed=true;
             };
@@ -692,7 +692,7 @@ void SaveGrpToLog(int point_id,
             {
               LEvntPrms params;
               aPax->second.getPaxName(params);
-              reqInfo->LocaleToLog((*m).first, params << PrmSmpl<string>("params", (*m).second),
+              reqInfo->LocaleToLog(m->first, params << PrmSmpl<string>("params", m->second),
                                                ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
             };
           };

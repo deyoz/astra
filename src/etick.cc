@@ -28,11 +28,13 @@
 #include "emdoc.h"
 #include "astra_emd.h"
 #include "astra_emd_view_xml.h"
+#include "edi_utils.h"
 #include "tlg/emd_disp_request.h"
 #include "tlg/emd_system_update_request.h"
 #include "tlg/emd_cos_request.h"
 #include "tlg/emd_edifact.h"
 #include "tlg/remote_results.h"
+#include "tlg/remote_system_context.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -51,72 +53,9 @@ using namespace ASTRA;
 using namespace AstraLocale;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace AstraEdifact;
 
 #define MAX_TICKETS_IN_TLG 5
-
-static void checkDocNum(const std::string& doc_no)
-{
-    std::string docNum = doc_no;
-    TrimString(docNum);
-    for(string::const_iterator c=docNum.begin(); c!=docNum.end(); ++c)
-      if (!IsDigitIsLetter(*c))
-        throw AstraLocale::UserException("MSG.ETICK.TICKET_NO_INVALID_CHARS");
-}
-
-static TTripInfo getTripInfo(int point_id)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText=
-      "SELECT airline,flt_no,airp FROM points "
-      "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.Execute();
-    if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-    TTripInfo info;
-    info.airline=Qry.FieldAsString("airline");
-    info.flt_no=Qry.FieldAsInteger("flt_no");
-    info.airp=Qry.FieldAsString("airp");
-    if (GetTripSets(tsETLOnly,info))
-      throw AstraLocale::UserException("MSG.ETICK.INTERACTIVE_MODE_NOT_ALLOWED");
-
-    return info;
-}
-
-static std::string getTripAirline(const TTripInfo& ti)
-{
-    return ti.airline;
-}
-
-static Ticketing::FlightNum_t getTripFlightNum(const TTripInfo& ti)
-{
-    if(ti.flt_no < 1 || ti.flt_no == NoExists)
-        return Ticketing::FlightNum_t();
-    return Ticketing::FlightNum_t(ti.flt_no);
-}
-
-CouponStatus calcPaxCouponStatus(const string& refuse,
-                                 const bool pr_brd,
-                                 const bool in_final_status)
-{
-  CouponStatus real_status;
-  if (!refuse.empty())
-    //разрегистрирован
-    real_status=CouponStatus(CouponStatus::OriginalIssue);
-  else
-  {
-    if (!pr_brd)
-      //не посажен
-      real_status=CouponStatus(CouponStatus::Checked);
-    else
-    {
-      if (!in_final_status)
-        real_status=CouponStatus(CouponStatus::Boarded);
-      else
-        real_status=CouponStatus(CouponStatus::Flown);
-    }
-  }
-  return real_status;
-}
 
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -124,7 +63,8 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   checkDocNum(tick_no);
 
   int point_id=NodeAsInteger("point_id",reqNode);
-  TTripInfo info = getTripInfo(point_id);
+  TTripInfo info;
+  checkETSInteract(point_id, true, info);
 
   if(!inTestMode())
   {
@@ -284,7 +224,8 @@ void EMDSearchInterface::SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     Ticketing::TicketNum_t emdNum(NodeAsString("EmdNoEdit",reqNode));
 
     int pointId = NodeAsInteger("point_id",reqNode);
-    TTripInfo info = getTripInfo(pointId);
+    TTripInfo info;
+    checkEDSInteract(pointId, true, info);
 
     std::string airline = getTripAirline(info);
     Ticketing::FlightNum_t flNum = getTripFlightNum(info);
@@ -293,14 +234,22 @@ void EMDSearchInterface::SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 
     edifact::KickInfo kickInfo(ASTRA::NoExists,"EMDSearch");
 
-    edifact::EmdDispByNum emdDispParams(org,
-                                        "",
-                                        kickInfo,
-                                        airline,
-                                        flNum,
-                                        emdNum);
-    edifact::EmdDispRequestByNum ediReq(emdDispParams);
-    ediReq.sendTlg();
+    try
+    {
+      edifact::EmdDispByNum emdDispParams(org,
+                                          "",
+                                          kickInfo,
+                                          airline,
+                                          flNum,
+                                          emdNum);
+      edifact::EmdDispRequestByNum ediReq(emdDispParams);
+      ediReq.sendTlg();
+    }
+    catch(RemoteSystemContext::system_not_found)
+    {
+      throw AstraLocale::UserException("MSG.EMD.EDS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+                                       LEvntPrms() << PrmFlight("flight", info.airline, info.flt_no, info.suffix) );
+    };
 }
 
 void EMDSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
@@ -350,7 +299,8 @@ void EMDSystemUpdateInterface::SysUpdateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodeP
       cpnStatAction=CpnStatAction::associate;
 
     int pointId = NodeAsInteger("point_id",reqNode);
-    TTripInfo info = getTripInfo(pointId);
+    TTripInfo info;
+    checkEDSInteract(pointId, true, info);
 
     std::string airline = getTripAirline(info);
     Ticketing::FlightNum_t flNum = getTripFlightNum(info);
@@ -424,23 +374,64 @@ bool EMDSystemUpdateInterface::EMDChangeDisassociation(const edifact::KickInfo &
 }
 
 void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
+                                                      const TFltParams &fltParams,
                                                       TEMDSystemUpdateList &emdList)
 {
-  emdList.clear(); 
-
-  TTripInfo info = getTripInfo(point_id); //!!!vlad здесь падает когда интерактив отключен
+  emdList.clear();   
 
   list< PaxASVCList::TEMDDisassocListItem > assoc, disassoc;
-  PaxASVCList::GetEMDDisassocList(point_id, assoc, disassoc);
+  PaxASVCList::GetEMDDisassocList(point_id, fltParams.in_final_status, assoc, disassoc);
+
+  if ((!assoc.empty() || !disassoc.empty()) && fltParams.eds_no_interact)
+    throw AstraLocale::UserException("MSG.EMD.INTERACTIVE_MODE_NOT_ALLOWED");
+
   for(int pass=0; pass<=1; pass++)
   {
     list< PaxASVCList::TEMDDisassocListItem > &l=(pass==0?assoc:disassoc);
     Ticketing::CpnStatAction::CpnStatAction_t new_action=(pass==0?CpnStatAction::associate:CpnStatAction::disassociate);
 
     for(list< PaxASVCList::TEMDDisassocListItem >::iterator i=l.begin(); i!=l.end(); ++i)
-    {            
+    {                  
+      if (i->pax.tkn.no.empty() ||
+          i->pax.tkn.coupon==ASTRA::NoExists ||
+          i->pax.tkn.rem!="TKNE")
+      {
+        /*  Невозможно провести операцию ассоциации/диссоциации из-за отсутствия или неполной информации по эл. билету пассажира */
+        //!!!vlad возможно надо более тонко
+        TLogLocale locale;
+        locale.ev_type=ASTRA::evtPay;
+        locale.id1=point_id;
+        locale.id2=i->pax.reg_no;
+        locale.id3=i->grp_id;
+
+        ostringstream pax;
+        pax << i->pax.surname
+            << (i->pax.name.empty()?"":" ") << i->pax.name;
+
+        locale.lexema_id = "EVT.PASSENGER_DATA";
+        locale.prms << PrmSmpl<string>("pax_name", pax.str())
+                    << PrmElem<string>("pers_type", etPersType, EncodePerson(i->pax.pers_type));
+
+        PrmLexema param("param", new_action==CpnStatAction::associate?"EVT.EMD_ASSOCIATION_MISTAKE":
+                                                                      "EVT.EMD_DISASSOCIATION_MISTAKE");
+
+        param.prms << PrmSmpl<std::string>("emd_no", i->asvc.emd_no)
+                   << PrmSmpl<int>("emd_coupon", i->asvc.emd_coupon);
+
+        if (i->pax.tkn.rem!="TKNE" || i->pax.tkn.no.empty())
+          param.prms << PrmLexema("err", "MSG.ETICK.NUMBER_NOT_SET");
+        else
+          param.prms << PrmLexema("err", "MSG.ETICK.COUPON_NOT_SET", LEvntPrms() << PrmSmpl<std::string>("etick", i->pax.tkn.no));
+
+        locale.prms << param;
+
+        TReqInfo *reqInfo=TReqInfo::Instance();
+        reqInfo->LocaleToLog(locale);
+        continue;
+      };
+
       TEMDocItem EMDocItem;
-      EMDocItem.fromDB(i->asvc.emd_no, i->asvc.emd_coupon, false);      
+      EMDocItem.fromDB(i->asvc.emd_no, i->asvc.emd_coupon, false);                        
       if (!EMDocItem.empty())
       {        
         if (EMDocItem.action==new_action) continue;        
@@ -457,24 +448,11 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
         if (new_action==CpnStatAction::associate) continue; //считаем что ассоциация сделана по умолчанию        
       }      
 
-      if (i->pax.tkn.no.empty() ||
-          i->pax.tkn.coupon==ASTRA::NoExists ||
-          i->pax.tkn.rem!="TKNE")
-      {
-      /*  Невозможно провести операцию ассоциации/диссоциации из-за  информации по эл. билету пассажира
-        !!!vlad
-        if (i->pax.tkn.no.empty())
-          ProgError(STDLOG, "%s: ticket number empty for EMD %s", __FUNCTION__, i->asvc.no_str().c_str());  //здесь ругаться в журнал операций
-        else if(i->pax.tkn.rem!='TKNE')
-          ProgError(STDLOG, "%s: ticket number empty for EMD %s", __FUNCTION__, i->asvc.no_str().c_str());  //здесь ругаться в журнал операций*/
-        continue;
-      }
-
       emdList.push_back(make_pair(TEMDSystemUpdateItem(), XMLDoc()));
 
       TEMDSystemUpdateItem &item=emdList.back().first;
-      item.airline_oper=getTripAirline(info);
-      item.flt_no_oper=getTripFlightNum(info);
+      item.airline_oper=getTripAirline(fltParams.fltInfo);
+      item.flt_no_oper=getTripFlightNum(fltParams.fltInfo);
       item.et=Ticketing::TicketCpn_t(i->pax.tkn.no, i->pax.tkn.coupon);
       item.emd=Ticketing::TicketCpn_t(i->asvc.emd_no, i->asvc.emd_coupon);
       item.action=new_action;
@@ -942,49 +920,6 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
   ETStatusInterface::ETChangeStatus(NULL,mtick);
 }
 
-bool ETStatusInterface::TFltParams::get(int point_id)
-{
-  clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT points.point_id, points.point_num, points.first_point, points.pr_tranzit, "
-    "       points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
-    "       points.act_out AS real_out, trip_sets.pr_etstatus, trip_sets.et_final_attempt "
-    "FROM points,trip_sets "
-    "WHERE trip_sets.point_id=points.point_id AND "
-    "      points.point_id=:point_id AND points.pr_del>=0 ";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.Execute();
-  if (Qry.Eof) return false;
-  fltInfo.Init(Qry);
-  etl_only=GetTripSets(tsETLOnly,fltInfo);
-  pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
-  et_final_attempt=Qry.FieldAsInteger("et_final_attempt");
-  TTripRoute route;
-  route.GetRouteAfter(NoExists,
-                      point_id,
-                      Qry.FieldAsInteger("point_num"),
-                      Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
-                      Qry.FieldAsInteger("pr_tranzit")!=0,
-                      trtNotCurrent,
-                      trtNotCancelled);
-
-  if (route.empty()) return false;
-  //время прибытия в конечный пункт маршрута
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT NVL(act_in,NVL(est_in,scd_in)) AS real_in FROM points WHERE point_id=:point_id AND pr_del=0";
-  Qry.CreateVariable("point_id",otInteger,route.back().point_id);
-  Qry.Execute();
-  if (Qry.Eof) return false;
-  TDateTime real_in=ASTRA::NoExists;
-  if (!Qry.FieldIsNULL("real_in")) real_in=Qry.FieldAsDateTime("real_in");
-
-  in_final_status=fltInfo.real_out!=NoExists && real_in!=NoExists && real_in<NowUTC();
-  return true;
-}
-
 xmlNodePtr TChangeStatusList::addTicket(const TTicketListKey &key,
                                         const Ticketing::Ticket &tick)
 {
@@ -1021,7 +956,7 @@ void ETStatusInterface::ETCheckStatus(int point_id,
   {
     try
     {
-      if ((fltParams.pr_etstatus>=0 || check_connect) && !fltParams.etl_only)
+      if ((fltParams.pr_etstatus>=0 || check_connect) && !fltParams.ets_no_interact)
       {
         TQuery Qry(&OraSession);
         Qry.Clear();
@@ -1181,7 +1116,7 @@ void ETStatusInterface::ETCheckStatus(int id,
     {
       if (check_point_id!=NoExists && check_point_id!=point_id) check_point_id=point_id;
 
-      if ((fltParams.pr_etstatus>=0 || check_connect) && !fltParams.etl_only)
+      if ((fltParams.pr_etstatus>=0 || check_connect) && !fltParams.ets_no_interact)
       {
         Qry.Clear();
         ostringstream sql;
@@ -1339,7 +1274,7 @@ void ETStatusInterface::ETCheckStatus(int id,
     try
     {
       CouponStatus real_status=CouponStatus(CouponStatus::OriginalIssue);
-      if ((fltParams.pr_etstatus>=0 || check_connect) && !fltParams.etl_only)
+      if ((fltParams.pr_etstatus>=0 || check_connect) && !fltParams.ets_no_interact)
       {
         Qry.Clear();
         Qry.SQLText=
@@ -1504,7 +1439,8 @@ void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     emdCpnStatus = Ticketing::CouponStatus::fromDispCode(NodeAsString("CpnStatusEdit", reqNode));
     int pointId = NodeAsInteger("point_id",reqNode);
     
-    TTripInfo info = getTripInfo(pointId);
+    TTripInfo info;
+    checkEDSInteract(pointId, true, info);
     std::string airline = getTripAirline(info);
     Ticketing::FlightNum_t flNum = getTripFlightNum(info);
     OrigOfRequest org(airline, *TReqInfo::Instance());

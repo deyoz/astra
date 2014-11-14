@@ -1,5 +1,6 @@
 #include "config.h"
 #include "edi_tlg.h"
+#include "edi_utils.h"
 #include "edi_msg.h"
 #include "etick_change_status.h"
 #include "tlg.h"
@@ -35,6 +36,7 @@
 #include <edilib/edi_types.h>
 #include <edilib/edi_astra_msg_types.h>
 #include <edilib/edi_handler.h>
+#include <edilib/EdiSessionTimeOut.h>
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -46,36 +48,9 @@ using namespace Ticketing;
 using namespace Ticketing::ChangeStatus;
 using namespace AstraLocale;
 using namespace TlgHandling;
+using namespace AstraEdifact;
 
 static std::string edi_addr,edi_own_addr;
-
-bool get_et_addr_set( string airline, int flt_no, pair<string,string> &addrs )
-{
-  addrs.first.clear();
-  addrs.second.clear();
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT edi_addr,edi_own_addr, "
-    "       DECODE(airline,NULL,0,2)+ "
-    "       DECODE(flt_no,NULL,0,1) AS priority "
-    "FROM et_addr_set "
-    "WHERE airline=:airline AND "
-    "      (flt_no IS NULL OR flt_no=:flt_no) "
-    "ORDER BY priority DESC";
-  Qry.CreateVariable("airline",otString,airline);
-  if (flt_no!=-1)
-    Qry.CreateVariable("flt_no",otInteger,flt_no);
-  else
-    Qry.CreateVariable("flt_no",otInteger,FNull);
-  Qry.Execute();
-  if (!Qry.Eof)
-  {
-    addrs.first=Qry.FieldAsString("edi_addr");
-    addrs.second=Qry.FieldAsString("edi_own_addr");
-    return true;
-  };
-  return false;
-}
 
 void set_edi_addrs( const pair<string,string> &addrs )
 {
@@ -91,18 +66,6 @@ std::string get_edi_addr()
 std::string get_edi_own_addr()
 {
   return edi_own_addr;
-}
-
-std::string get_canon_name(const std::string& edi_addr)
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT canon_name FROM edi_addrs WHERE addr=:addr";
-  Qry.CreateVariable("addr",otString,edi_addr);
-  Qry.Execute();
-  if (Qry.Eof||Qry.FieldIsNULL("canon_name"))
-    return ETS_CANON_NAME();
-  return Qry.FieldAsString("canon_name");
 }
 
 //---------------------------------------------------------------------------------------
@@ -271,52 +234,6 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
     return ret;
 }
 
-
-void confirm_notify_levb(const int edi_sess_id)
-{
-  ProgTrace(TRACE2,"confirm_notify_levb: called with edi_sess_id=%d",edi_sess_id);
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "BEGIN "
-    "  DELETE FROM edi_help WHERE session_id=:id AND rownum<2 "
-    "    RETURNING address,text,RAWTOHEX(intmsgid) INTO :address,:text,:intmsgid; "
-    "  SELECT COUNT(*) INTO :remained FROM edi_help "
-    "    WHERE intmsgid=HEXTORAW(:intmsgid) AND rownum<2; "
-    "END;";
-
-  Qry.CreateVariable("id",otString,edi_sess_id);
-  Qry.CreateVariable("intmsgid",otString,FNull);
-  Qry.CreateVariable("address",otString,FNull);
-  Qry.CreateVariable("text",otString,FNull);  
-  Qry.CreateVariable("remained",otInteger,FNull);
-  Qry.Execute();
-  if (Qry.VariableIsNULL("intmsgid"))
-    throw EXCEPTIONS::Exception("confirm_notify_levb: nothing in edi_help for session_id=%d", edi_sess_id);
-  string hex_msg_id=Qry.GetVariableAsString("intmsgid");
-  if (Qry.GetVariableAsInteger("remained")==0)
-  {
-    string txt=Qry.GetVariableAsString("text");
-    string str_msg_id;
-    if (!HexToString(hex_msg_id,str_msg_id) || str_msg_id.size()!=sizeof(int)*3)
-      throw EXCEPTIONS::Exception("confirm_notify_levb: wrong intmsgid=%s", hex_msg_id.c_str());
-    ProgTrace(TRACE2,"confirm_notify_levb: prepare signal %s",txt.c_str());
-    sethAfter(EdiHelpSignal((const int*)str_msg_id.c_str(),
-                            Qry.GetVariableAsString("address"),
-                            txt.c_str()));    
-#ifdef XP_TESTING
-    if(inTestMode()) {
-        ServerFramework::setRedisplay(txt);
-    }
-#endif /* XP_TESTING */
-  }
-  else
-  {
-    ProgTrace(TRACE2,"confirm_notify_levb: more records in edi_help for intmsgid=%s", hex_msg_id.c_str());
-  };
-};
-
 void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
 void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
 void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
@@ -341,6 +258,16 @@ message_funcs_str message_funcs[] =
 {
     {TKCREQ, "Ticketing", message_TKCREQ, sizeof(message_TKCREQ)/sizeof(message_TKCREQ[0])},
     {TKCRES, "Ticketing", message_TKCREQ, sizeof(message_TKCREQ)/sizeof(message_TKCREQ[0])},
+};
+
+class AstraEdiSessCallBack : public edilib::EdiSessCallBack
+{
+  public:
+    virtual void deleteDbEdiSession(edilib::EdiSessionId_t edisess)
+    {
+      edilib::EdiSessCallBack::deleteDbEdiSession(edisess);
+      edilib::EdiSessionTimeOut::deleteDb(edisess); //чистим также таблицу edisession_timeouts
+    }
 };
 
 int edifact::init_edifact()
@@ -369,7 +296,7 @@ int edifact::init_edifact()
         return -3;
     }*/
     edilib::EdiSessLib::Instance()->
-            setCallBacks(new edilib::EdiSessCallBack());
+            setCallBacks(new AstraEdiSessCallBack());
 
     EdiMesFuncs::init_messages(message_funcs,
                                sizeof(message_funcs)/sizeof(message_funcs[0]));
@@ -789,29 +716,6 @@ void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
         throw EXCEPTIONS::Exception("SendEdiMessage DISPLAY failed");
     }
 }
-
-string make_xml_kick(const edifact::KickInfo &kickInfo)
-{
-  XMLDoc kickDoc("term");
-  if (kickDoc.docPtr()==NULL)
-    throw EXCEPTIONS::Exception("%s: kickDoc.docPtr()==NULL", __FUNCTION__);
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  xmlNodePtr node=NodeAsNode("/term",kickDoc.docPtr());
-  node=NewTextChild(node,"query");
-  SetProp(node,"handle","0");
-  SetProp(node,"id",kickInfo.iface);
-  SetProp(node,"ver","1");
-  SetProp(node,"opr",reqInfo->user.login);
-  SetProp(node,"screen",reqInfo->screen.name);
-  SetProp(node,"lang",reqInfo->desk.lang);
-  if (reqInfo->desk.term_id!=ASTRA::NoExists)
-    SetProp(node,"term_id",FloatToString(reqInfo->desk.term_id,0));
-  if (kickInfo.reqCtxtId!=ASTRA::NoExists)
-    SetProp(NewTextChild(node,"kick"),"req_ctxt_id",kickInfo.reqCtxtId);
-  else
-    NewTextChild(node,"kick");
-  return ConvertCodepage(XMLTreeToText(kickDoc.docPtr()),"CP866","UTF-8");
-};
 
 void makeItin(EDI_REAL_MES_STRUCT *pMes, const Itin &itin, int cpnnum=0)
 {

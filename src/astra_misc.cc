@@ -148,7 +148,7 @@ bool GetTripSets( const TTripSetType setType, const TTripInfo &info )
     switch(setType)
     {
       //запрет интерактива с СЭБом
-      case tsETLOnly: return false;
+      case tsETSNoInteract: return false;
               default: return false;
     };
   };

@@ -31,6 +31,7 @@
 #include "points.h"
 #include "trip_tasks.h"
 #include "stat.h"
+#include "edi_utils.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -279,16 +280,10 @@ void ETCheckStatusFlt(void)
   TQuery Qry(&OraSession);
   try
   {
-    TDateTime now=NowUTC();
+    AstraEdifact::cleanOldRecords(30);
+    OraSession.Commit();    
 
-    AstraContext::ClearContext("EDI_SESSION",now-1.0/48);
-    AstraContext::ClearContext("TERM_REQUEST",now-1.0/48);    
-    AstraContext::ClearContext("EDI_RESPONSE",now-1.0/48);
-
-    Qry.Clear();
-    Qry.SQLText="DELETE FROM edisession WHERE sessdatecr<SYSDATE-1/48";
-    Qry.Execute();
-    OraSession.Commit();
+    TDateTime now=NowUTC();    
 
     TQuery UpdQry(&OraSession);
     UpdQry.SQLText=
@@ -340,12 +335,12 @@ void ETCheckStatusFlt(void)
       int point_id=ETQry.FieldAsInteger("point_id");
       try
       {
-        ETStatusInterface::TFltParams fltParams;
+        AstraEdifact::TFltParams fltParams;
         fltParams.get(point_id);
 
         if (fltParams.in_final_status &&
             (fltParams.et_final_attempt>=5 || //не менее 5 попыток подтвердить статусы интерактивом
-             fltParams.etl_only))                //либо выставлен признак запрета интерактива
+             fltParams.ets_no_interact))                //либо выставлен признак запрета интерактива
         {
           //Работа с сервером эл. билетов в интерактивном режиме запрещена
           //либо же никак не хотят подтверждаться конечные статусы

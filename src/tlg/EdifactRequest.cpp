@@ -82,9 +82,9 @@ void EdifactRequest::sendTlg()
                                    ediSessId(),
                                    sysCont()->edifactResponseTimeOut());
 
-    edifact::RemoteResults::add(kickInfo().empty()?"":ediSess()->ediSession()->pult(), //правильно ли закладываться на kickInfo().empty() ?
-                                ediSess()->ediSession()->ida(),
-                                sysCont()->ida());
+    RemoteResults::add(kickInfo().empty()?"":ediSess()->ediSession()->pult(), //правильно ли закладываться на kickInfo().empty() ?
+                       ediSess()->ediSession()->ida(),
+                       sysCont()->ida());
 
     Ticketing::ConfigAgentToWait(sysCont()->ida(),
                                  ediSess()->ediSession()->pult(),

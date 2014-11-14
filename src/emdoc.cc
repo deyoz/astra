@@ -1,5 +1,5 @@
 #include "emdoc.h"
-#include "etick.h"
+#include "edi_utils.h"
 #include "qrys.h"
 
 #define NICKNAME "VLAD"
@@ -9,6 +9,7 @@
 using namespace std;
 using namespace BASIC;
 using namespace Ticketing;
+using namespace AstraEdifact;
 
 namespace PaxASVCList
 {
@@ -94,11 +95,13 @@ string GetSQL(const TListType ltype)
 }
 
 void GetEMDDisassocList(const int point_id,
+                        const bool in_final_status,
                         list< TEMDDisassocListItem > &assoc,
                         list< TEMDDisassocListItem > &disassoc)
 {
   assoc.clear();
-  disassoc.clear();
+  disassoc.clear();  
+
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText = PaxASVCList::GetSQL(PaxASVCList::allWithTknByPointId);
@@ -125,7 +128,7 @@ void GetEMDDisassocList(const int point_id,
 
     item.status=calcPaxCouponStatus(item.pax.refuse,
                                     item.pax.pr_brd,
-                                    false);
+                                    in_final_status);
     if (item.status==CouponStatus::Flown) continue; //если финальный статус, то никаких ассоциаций
 
     if (item.status==CouponStatus::Boarded &&

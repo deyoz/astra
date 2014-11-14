@@ -2608,7 +2608,7 @@ void DeletePassengersAnswer( map<int,TAdvTripInfo> &segs, xmlNodePtr resNode )
 	xmlNodePtr segsNode=NewTextChild(resNode,"segments");
 	for(map<int,TAdvTripInfo>::const_iterator i=segs.begin();i!=segs.end();++i)
   {
-    bool pr_etl_only=GetTripSets(tsETLOnly,i->second);
+    bool pr_etl_only=GetTripSets(tsETSNoInteract,i->second);
     Qry.SetVariable("point_id",i->first);
     Qry.Execute();
     int pr_etstatus=-1;

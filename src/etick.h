@@ -7,6 +7,7 @@
 #include "astra_ticket.h"
 #include "astra_misc.h"
 #include "xml_unit.h"
+#include "edi_utils.h"
 #include "tlg/EdifactRequest.h"
 
 namespace edifact{
@@ -75,15 +76,12 @@ public:
     void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
     void MakeAnAnswer(xmlNodePtr resNode, boost::shared_ptr<edifact::RemoteResults> remRes);    
     static void EMDCheckDisassociation(const int point_id,
+                                       const AstraEdifact::TFltParams &fltParams,
                                        TEMDSystemUpdateList &emdList);
     static bool EMDChangeDisassociation(const edifact::KickInfo &kickInfo,
                                         const TEMDSystemUpdateList &emdList);
     virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}    
 };
-
-Ticketing::CouponStatus calcPaxCouponStatus(const std::string& refuse,
-                                            const bool pr_brd,
-                                            const bool in_final_status);
 
 enum TETCheckStatusArea {csaFlt,csaGrp,csaPax};
 typedef std::list<Ticketing::Ticket> TTicketList;
@@ -116,24 +114,7 @@ class TChangeStatusList : public std::map<TTicketListKey, std::vector<TTicketLis
 
 class ETStatusInterface : public JxtInterface
 {
-public:
-  class TFltParams
-  {
-    public:
-      TTripInfo fltInfo;
-      bool etl_only, in_final_status;
-      int pr_etstatus, et_final_attempt;
-      void clear()
-      {
-        fltInfo.Clear();
-        etl_only=false;
-        in_final_status=false;
-        pr_etstatus=ASTRA::NoExists;
-        et_final_attempt=ASTRA::NoExists;
-      }
-      bool get(int point_id);
-  };
-
+public:  
   ETStatusInterface() : JxtInterface("ETStatus","ETStatus")
   {
      Handler *evHandle;

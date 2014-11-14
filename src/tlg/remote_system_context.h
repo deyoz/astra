@@ -36,6 +36,7 @@ namespace Ticketing
 
 namespace RemoteSystemContext
 {
+    class system_not_found {};
 
     class UnknownSystAddrs: public EXCEPTIONS::Exception
     {

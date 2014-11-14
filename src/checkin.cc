@@ -3891,7 +3891,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
       bool free_seating=Qry.FieldAsInteger("pr_free_seating")!=0;
-      bool pr_etl_only=GetTripSets(tsETLOnly,fltInfo);
+      bool pr_etl_only=GetTripSets(tsETSNoInteract,fltInfo);
       bool pr_mintrans_file=GetTripSets(tsMintransFile,fltInfo);
 
       bool addVIP=false;
@@ -6920,7 +6920,7 @@ void CheckInInterface::readTripSets( int point_id,
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   
-  NewTextChild( tripSetsNode, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
+  NewTextChild( tripSetsNode, "pr_etl_only", (int)GetTripSets(tsETSNoInteract,fltInfo) );
   NewTextChild( tripSetsNode, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
   NewTextChild( tripSetsNode, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,fltInfo) );
 };

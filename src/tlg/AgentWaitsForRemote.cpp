@@ -12,7 +12,7 @@
 #include "remote_results.h"
 #include "astra_utils.h"
 #include "astra_context.h"
-#include "tlg.h"
+#include "edi_utils.h"
 
 #include <boost/format.hpp>
 
@@ -25,6 +25,8 @@
 #define NICKNAME "ROMAN"
 #define NICK_TRACE ROMAN_TRACE
 #include <serverlib/slogger.h>
+
+using namespace AstraEdifact;
 
 namespace Ticketing
 {
@@ -61,11 +63,12 @@ void MeetAgentExpectations(const edifact::RemoteResults & res)
 {
     res.updateDb();
     LogTrace(TRACE1) << res;
-    // cleanOldRecords can be called in some daemon
-    //ServerFramework::EdiHelpManager::cleanOldRecords(); //!!!vlad
-    //ServerFramework::EdiHelpManager::confirm_notify(res.pult().c_str());
-    LogTrace(TRACE3) << "confirm_notify_levb for edisession: " << res.ediSession();
-    confirm_notify_levb(res.ediSession().get());
+
+    if (!res.pult().empty())
+    {
+      LogTrace(TRACE3) << "confirm_notify_levb for edisession: " << res.ediSession();
+      confirm_notify_levb(res.ediSession().get());
+    };
 }
 
 bool isDoomedToWait()

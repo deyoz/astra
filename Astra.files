@@ -83,6 +83,8 @@ src/develop_dbf.h
 src/docs.cc
 src/docs.h
 src/docs2.cc
+src/edi_utils.cc
+src/edi_utils.h
 src/emdoc.cc
 src/emdoc.h
 src/empty_proc.cc
@@ -245,3 +247,5 @@ src/xml_unit.cc
 src/xml_unit.h
 src/xp_testing.cc
 src/xp_testing.h
+src/Makefile.am
+src/tlg/Makefile.am

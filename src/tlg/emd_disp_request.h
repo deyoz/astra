@@ -1,7 +1,6 @@
 #ifndef _EMD_DISP_REQUEST_H_
 #define _EMD_DISP_REQUEST_H_
 
-#include "edi_tlg.h"
 #include "emd_request.h"
 
 enum EmdDispType_e{

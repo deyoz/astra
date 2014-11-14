@@ -123,7 +123,4 @@ void sendCmdTlgSnd();
 void sendCmdTlgSndStepByStep();
 void sendCmdTypeBHandler();
 
-void confirm_notify_levb(const int edi_sess_id);
-std::string make_xml_kick(const edifact::KickInfo &kickInfo);
-
 #endif

@@ -7,6 +7,7 @@
 #include "timer.h"
 #include "telegram.h"
 #include "etick.h"
+#include "tlg/remote_system_context.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -315,12 +316,13 @@ void check_trip_tasks()
             {
                 if (trip_tasks[i].task_name!=task_name) continue;
                 task_processed=true;
-                if (last_exec==ASTRA::NoExists ||
-                        last_exec<next_exec)
+                if (last_exec==ASTRA::NoExists || last_exec<next_exec)
                 {
                     ProgTrace(TRACE5, "%s: task %s started (point_id=%d, params=%s)",
                                       __FUNCTION__, task_name.c_str(), point_id, params.c_str());
+
                     trip_tasks[i].p(point_id, task_name, params);
+
                     TLogLocale tlocale;
                     tlocale.ev_type=ASTRA::evtFltTask;
                     tlocale.id1=point_id;
@@ -705,7 +707,33 @@ void on_change_trip(const string &descr, int point_id)
 
 void emd_sys_update(int point_id, const string &task_name, const string &params)
 {
-  TEMDSystemUpdateList emdList;
-  EMDSystemUpdateInterface::EMDCheckDisassociation(point_id, emdList);
-  EMDSystemUpdateInterface::EMDChangeDisassociation(edifact::KickInfo(), emdList);
+  AstraEdifact::TFltParams fltParams;
+  if (!fltParams.get(point_id)) return;
+
+  try
+  {
+    try
+    {
+      TEMDSystemUpdateList emdList;
+      EMDSystemUpdateInterface::EMDCheckDisassociation(point_id, fltParams, emdList);
+      EMDSystemUpdateInterface::EMDChangeDisassociation(edifact::KickInfo(), emdList);
+    }
+    catch(Ticketing::RemoteSystemContext::system_not_found)
+    {
+      throw AstraLocale::UserException("MSG.EMD.EDS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+                                       LEvntPrms() << PrmFlight("flight", fltParams.fltInfo.airline, fltParams.fltInfo.flt_no, fltParams.fltInfo.suffix) );
+    };
+  }
+  catch(AstraLocale::UserException &e)
+  {
+    string err_id;
+    LEvntPrms err_prms;
+    e.getAdvParams(err_id, err_prms);
+
+    TReqInfo *reqInfo=TReqInfo::Instance();
+    reqInfo->LocaleToLog("EVT.EMD_SYS_UPDATE",
+                         LEvntPrms() << PrmLexema("text", err_id, err_prms),
+                         ASTRA::evtPay,
+                         point_id);
+  };
 }

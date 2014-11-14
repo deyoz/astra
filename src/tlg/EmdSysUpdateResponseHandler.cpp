@@ -81,10 +81,10 @@ void EmdSysUpdateResponseHandler::handle()
                     << PrmElem<string>("pers_type", etPersType, NodeAsStringFast("pers_type",node));
 
         PrmLexema lexema("param", res->status() == RemoteStatus::Success?
-                           (EMDocItem.action==CpnStatAction::associate?"EVT.EMD_ASSOCIATION":
-                                                                       "EVT.EMD_DISASSOCIATION"):
-                           (EMDocItem.action==CpnStatAction::associate?"EVT.EMD_ASSOCIATION_MISTAKE":
-                                                                       "EVT.EMD_DISASSOCIATION_MISTAKE"));
+                           (EMDocItem.action==CpnStatAction::associate?"EVT.ETICK_EMD_ASSOCIATION":
+                                                                       "EVT.ETICK_EMD_DISASSOCIATION"):
+                           (EMDocItem.action==CpnStatAction::associate?"EVT.ETICK_EMD_ASSOCIATION_MISTAKE":
+                                                                       "EVT.ETICK_EMD_DISASSOCIATION_MISTAKE"));
 
 
         lexema.prms << PrmSmpl<std::string>("et_no", EMDocItem.et_no)

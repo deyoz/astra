@@ -30,6 +30,7 @@ class TEMDDisassocListItem
 };
 
 void GetEMDDisassocList(const int point_id,
+                        const bool in_final_status,
                         std::list< TEMDDisassocListItem > &assoc,
                         std::list< TEMDDisassocListItem > &disassoc);
 

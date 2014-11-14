@@ -13,11 +13,9 @@ namespace RemoteSystemContext {
 }//RemoteSystemContext
 }//namespace Ticketing
 
-bool get_et_addr_set( std::string airline, int flt_no, std::pair<std::string,std::string> &addrs );
 void set_edi_addrs( const std::pair<std::string,std::string> &addrs );
 std::string get_edi_addr();
 std::string get_edi_own_addr();
-std::string get_canon_name(const std::string& edi_addr);
 
 std::string get_last_session_ref();
 

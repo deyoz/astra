@@ -5,7 +5,6 @@
 *
 */
 #include "tlg_source_edifact.h"
-#include "edi_tlg.h"
 
 #include <edilib/edi_user_func.h>
 #include <libtlg/telegrams.h>

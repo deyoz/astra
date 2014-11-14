@@ -16,7 +16,7 @@
 #include "EdifactProfile.h"
 #include "CheckinBaseTypesOci.h"
 #include "exceptions.h"
-#include "edi_tlg.h"
+#include "edi_utils.h"
 
 #include <serverlib/posthooks.h>
 #include <serverlib/cursctl.h>
@@ -33,8 +33,6 @@ namespace Ticketing {
 namespace RemoteSystemContext {
 
 using namespace Ticketing;
-
-class system_not_found {};
 
 UnknownSystAddrs::UnknownSystAddrs(const std::string& src, const std::string& dest)
     : Exception("Invalid addresses pair src:["+src+"], dest:["+dest+"]"), Src(src), Dest(dest)
@@ -74,6 +72,13 @@ const SystemContext& SystemContext::Instance(const char *nick, const char *file,
 SystemContext SystemContext::readByAirlineAndFlight(const std::string& airl,
                                                     const Ticketing::FlightNum_t& flNum)
 {
+  int systemId=0;
+  std::pair<std::string, std::string> addrs;
+  if (!AstraEdifact::get_et_addr_set( airl, flNum?flNum.get():ASTRA::NoExists, addrs, systemId ))
+    throw system_not_found();
+  std::string ediAddr=addrs.first, ourEdiAddr=addrs.second;
+  std::string airline=airl;
+/*
     std::string sql =
 "select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR "
 "from ET_ADDR_SET "
@@ -97,7 +102,7 @@ SystemContext SystemContext::readByAirlineAndFlight(const std::string& airl,
     {
         throw system_not_found();
     }
-
+*/
     SystemContextMaker ctxtMaker;
     ctxtMaker.setIda(Ticketing::SystemAddrs_t(systemId));
     ctxtMaker.setAirline(airline);
@@ -213,7 +218,7 @@ void SystemContext::free()
 
 std::string SystemContext::routerCanonName() const
 {
-    return get_canon_name(RemoteAddrEdifact);
+    return AstraEdifact::get_canon_name(RemoteAddrEdifact);
 }
 
 unsigned SystemContext::edifactResponseTimeOut() const
