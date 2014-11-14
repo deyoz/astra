@@ -1695,12 +1695,16 @@ namespace ASTRA
 
 void commit()
 {
-  inTestMode()?commit():OraSession.Commit();
-};
+    //inTestMode()?commit():OraSession.Commit();
+    if(!inTestMode())
+        OraSession.Commit();
+}
 
 void rollback()
 {
-  inTestMode()?rollback():OraSession.Rollback();
-};
+    //inTestMode()?rollback():OraSession.Rollback();
+    if(!inTestMode())
+        OraSession.Rollback();
+}
 
-};
+}// namespace ASTRA

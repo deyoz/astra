@@ -36,7 +36,7 @@ public:
  * */
 class EdifactProfile
 {
-    typedef ASTRA::EdifactProfile_t id_t;
+    typedef Ticketing::EdifactProfile_t id_t;
 public:
     struct Syntax
     {
@@ -113,7 +113,7 @@ typedef boost::shared_ptr<EdifactProfile> pEdifactProfile;
  * */
 class MsgEdifactProfile
 {
-    typedef ASTRA::EdifactProfile_t id_t;
+    typedef Ticketing::EdifactProfile_t id_t;
 public:
     MsgEdifactProfile(const std::string& name);
     virtual ~MsgEdifactProfile();

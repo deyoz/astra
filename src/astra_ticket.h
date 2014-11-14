@@ -7,7 +7,9 @@
 #include "etick/tickmng.h"
 #include "etick/ticket.h"
 #include "astra_utils.h"
+#include "astra_dates.h"
 #include "ticket_types.h"
+#include "tlg/CheckinBaseTypes.h"
 
 namespace Ticketing{
 // NOTE: See eticklib for realization
@@ -92,6 +94,38 @@ public:
                               Fare,
                               ver, // Version
                               lugg)
+    {
+    }
+
+    Itin(const std::string &airline,
+        const std::string &operAirline,
+        const FlightNum_t &flNum,
+        const FlightNum_t &operFlNum,
+        const Dates::Date_t &depDate,
+        const Dates::time_duration &depTime,
+        const Dates::Date_t &arrDate,
+        const Dates::time_duration &arrTime,
+        const std::string &depPoint,
+        const std::string &arrPoint,
+        int ver = 1)
+        :
+          BaseItin<Luggage>("",
+               airline,
+               operAirline,
+               flNum ? flNum.get() : 0,
+               operFlNum ? operFlNum.get() : 0,
+               SubClass(),
+               depDate,
+               depTime,
+               arrDate,
+               arrTime,
+               depPoint,
+               arrPoint,
+               std::make_pair(Dates::Date_t(), Dates::Date_t()),
+               ItinStatus(),
+               "",
+               ver,
+               Luggage())
     {
     }
 };

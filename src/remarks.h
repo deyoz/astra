@@ -166,9 +166,6 @@ void SavePaxRem(int pax_id, const std::vector<TPaxRemItem> &rems);
 void SavePaxFQT(int pax_id, const std::vector<TPaxFQTItem> &fqts);
 
 bool SyncPaxASVC(int id, bool is_grp_id);
-void GetUnboundEMD(int point_id, std::multiset<TPaxASVCItem> &asvc);
-bool ExistsUnboundEMD(int point_id);
-bool ExistsPaxUnboundEMD(int pax_id);
 
 };
 

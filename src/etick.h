@@ -7,6 +7,13 @@
 #include "astra_ticket.h"
 #include "astra_misc.h"
 #include "xml_unit.h"
+#include "edi_utils.h"
+#include "tlg/EdifactRequest.h"
+
+namespace edifact{
+    class RemoteResults;
+}//namespace edifact
+
 
 class ETSearchInterface : public JxtInterface
 {
@@ -18,12 +25,62 @@ public:
      AddEvent("SearchETByTickNo",evHandle);
      AddEvent("TickPanel",evHandle);
      AddEvent("kick", JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::KickHandler));
-  };
+  }
 
   void SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ETChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
+};
+
+class EMDSearchInterface : public JxtInterface
+{
+public:
+    EMDSearchInterface() : JxtInterface("", "EMDSearch")
+    {
+        AddEvent("EMDTextView",      JXT_HANDLER(EMDSearchInterface, EMDTextView));
+        AddEvent("SearchEMDByDocNo", JXT_HANDLER(EMDSearchInterface, SearchEMDByDocNo));
+        AddEvent("kick",             JXT_HANDLER(EMDSearchInterface, KickHandler));
+    }
+
+    void EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
+};
+
+class TEMDSystemUpdateItem
+{
+  public:
+    std::string airline_oper;
+    Ticketing::FlightNum_t flt_no_oper;
+    Ticketing::TicketCpn_t et;
+    Ticketing::TicketCpn_t emd;
+    Ticketing::CpnStatAction::CpnStatAction_t action;
+    std::string traceStr() const;
+};
+
+typedef std::list< std::pair<TEMDSystemUpdateItem, XMLDoc> > TEMDSystemUpdateList;
+
+class EMDSystemUpdateInterface : public JxtInterface
+{
+public:
+    EMDSystemUpdateInterface() : JxtInterface("", "EMDSystemUpdate")
+    {
+        AddEvent("DisassociateEMD", JXT_HANDLER(EMDSystemUpdateInterface, SysUpdateEmdCoupon));
+        AddEvent("AssociateEMD",    JXT_HANDLER(EMDSystemUpdateInterface, SysUpdateEmdCoupon));        
+        AddEvent("kick",            JXT_HANDLER(EMDSystemUpdateInterface, KickHandler));
+    }
+
+    void SysUpdateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void MakeAnAnswer(xmlNodePtr resNode, boost::shared_ptr<edifact::RemoteResults> remRes);    
+    static void EMDCheckDisassociation(const int point_id,
+                                       const AstraEdifact::TFltParams &fltParams,
+                                       TEMDSystemUpdateList &emdList);
+    static bool EMDChangeDisassociation(const edifact::KickInfo &kickInfo,
+                                        const TEMDSystemUpdateList &emdList);
+    virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}    
 };
 
 enum TETCheckStatusArea {csaFlt,csaGrp,csaPax};
@@ -45,7 +102,7 @@ class TTicketListKey
       if (addrs.second!=key.addrs.second)
         return addrs.second<key.addrs.second;
       return coupon_status<key.coupon_status;
-    };
+    }
 };
 
 class TChangeStatusList : public std::map<TTicketListKey, std::vector<TTicketListCtxt> >
@@ -57,24 +114,7 @@ class TChangeStatusList : public std::map<TTicketListKey, std::vector<TTicketLis
 
 class ETStatusInterface : public JxtInterface
 {
-public:
-  class TFltParams
-  {
-    public:
-      TTripInfo fltInfo;
-      bool etl_only, in_final_status;
-      int pr_etstatus, et_final_attempt;
-      void clear()
-      {
-        fltInfo.Clear();
-        etl_only=false;
-        in_final_status=false;
-        pr_etstatus=ASTRA::NoExists;
-        et_final_attempt=ASTRA::NoExists;
-      };
-      bool get(int point_id);
-  };
-
+public:  
   ETStatusInterface() : JxtInterface("ETStatus","ETStatus")
   {
      Handler *evHandle;
@@ -85,14 +125,14 @@ public:
      AddEvent("ChangeGrpStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangeGrpStatus));
      AddEvent("ChangeFltStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangeFltStatus));
      AddEvent("kick", JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::KickHandler));
-  };
+  }
 
   void SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
   static void ETCheckStatus(int point_id,
                             xmlDocPtr ediResDocPtr,
@@ -106,8 +146,24 @@ public:
                             bool before_checkin=false);
   static void ETRollbackStatus(xmlDocPtr ediResDocPtr,
                                bool check_connect);
-  static bool ETChangeStatus(const int reqCtxtId,
+  static bool ETChangeStatus(xmlNodePtr reqNode,
                              const TChangeStatusList &mtick);
+};
+
+
+class EMDStatusInterface: public JxtInterface
+{
+public:
+    EMDStatusInterface(): JxtInterface("EMDStatus", "EMDStatus")
+    {
+        AddEvent("ChangeStatus",    JXT_HANDLER(EMDStatusInterface, ChangeStatus));        
+        AddEvent("kick",            JXT_HANDLER(EMDStatusInterface, KickHandler));
+    }
+    
+    void ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    
+    virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 };
 
 
@@ -122,22 +178,6 @@ inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
 
     return ifaceNode;
 }
-
-class EMDSearchInterface : public JxtInterface
-{
-public:
-  EMDSearchInterface() : JxtInterface("","EMDSearch")
-  {
-     Handler *evHandle;
-     evHandle=JxtHandler<EMDSearchInterface>::CreateHandler(&EMDSearchInterface::EMDTextView);
-     AddEvent("EMDTextView",evHandle);
-
-
-  };
-
-  void EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
-};
 
 #endif
 

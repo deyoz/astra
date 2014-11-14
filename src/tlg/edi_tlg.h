@@ -5,8 +5,14 @@
 #include "astra_ticket.h"
 #include "serverlib/monitor_ctl.h"
 #include "libtlg/hth.h"
+#include "tlg/edi_tkt_request.h"
 
-bool get_et_addr_set( std::string airline, int flt_no, std::pair<std::string,std::string> &addrs );
+namespace Ticketing {
+namespace RemoteSystemContext {
+    class SystemContext;
+}//RemoteSystemContext
+}//namespace Ticketing
+
 void set_edi_addrs( const std::pair<std::string,std::string> &addrs );
 std::string get_edi_addr();
 std::string get_edi_own_addr();
@@ -17,18 +23,25 @@ struct EdiMess
 {
     static const std::string Display;
     static const std::string ChangeStat;
+    static const std::string EmdDisplay;
 };
 
 class AstraEdiSessWR : public edilib::EdiSessWrData
 {
     edilib::EdiSession EdiSess;
-    edi_mes_head EdiHead;
     std::string Pult;
+    edi_mes_head *EdiHead;
 public:
     AstraEdiSessWR(const std::string &pult)
     : Pult(pult)
     {
-        memset(&EdiHead, 0, sizeof(EdiHead));
+        static const edi_mes_head zero_head = {};
+        EdiHead = new edi_mes_head(zero_head);
+    }
+
+    AstraEdiSessWR(const std::string &pult, edi_mes_head *mhead)
+        : Pult(pult), EdiHead(mhead)
+    {
     }
 
     virtual edilib::EdiSession *ediSession() { return &EdiSess; }
@@ -41,38 +54,54 @@ public:
     // В СИРЕНЕ это recloc/ или our_name из sirena.cfg
     // Идентификатор сессии
     virtual std::string baseOurrefName() const { return "ASTRA"; };
-
-    virtual edi_mes_head *edih() { return &EdiHead; };
-    virtual const edi_mes_head *edih() const { return &EdiHead; };
-    // Внешняя ссылка на сессию
-    // virtual int externalIda() const { return 0; }
-    // Пульт
+    virtual edi_mes_head *edih() { return EdiHead; };
+    virtual const edi_mes_head *edih() const { return EdiHead; };
     virtual std::string pult() const { return Pult; };
-
     // Аттрибуты сообщения
-/*    virtual std::string syntax() const { return "IATA"; }
-    virtual unsigned syntaxVer() const { return 1; }
-    virtual std::string ctrlAgency() const { return "IA"; }
-    virtual std::string version() const { return "96"; }
-    virtual std::string subVersion() const { return "2"; }*/
     virtual std::string ourUnbAddr() const { return get_edi_own_addr(); }
     virtual std::string unbAddr() const { return get_edi_addr(); }
 };
 
+// new edifact
+class NewAstraEdiSessWR: public AstraEdiSessWR
+{
+    const Ticketing::RemoteSystemContext::SystemContext* SysCtxt;
+public:
+    NewAstraEdiSessWR(const std::string &pult, edi_mes_head *mhead,
+                      const Ticketing::RemoteSystemContext::SystemContext* sysctxt)
+        : AstraEdiSessWR(pult, mhead), SysCtxt(sysctxt)
+    {}
+
+    const Ticketing::RemoteSystemContext::SystemContext *sysCont() const { return SysCtxt; }
+
+    // Аттрибуты сообщения
+    virtual std::string ourUnbAddr() const;
+    virtual std::string unbAddr() const;
+};
+
 class AstraEdiSessRD : public edilib::EdiSessRdData
 {
-    edi_mes_head *Head;
-    //H2host H2H;
+    edi_mes_head Head;
+    hth::HthInfo* H2H;
     bool isH2H;
     std::string rcvr;
     std::string sndr;
     public:
-        AstraEdiSessRD():
-        isH2H(false)
+        AstraEdiSessRD(const hth::HthInfo * H2H_, const edi_mes_head &Head_)
+            : Head(Head_),
+              H2H( H2H_?(new hth::HthInfo(*H2H_)):0),
+              isH2H(H2H?true:false)
         {
         }
 
-        virtual hth::HthInfo *hth() { return 0; };
+        AstraEdiSessRD()
+            : H2H(0),
+              isH2H(false)
+        {
+            memset(&Head, 0, sizeof(Head));
+        }
+
+        virtual hth::HthInfo *hth() { return H2H; };
         virtual std::string sndrHthAddr() const { return ""; };
         virtual std::string rcvrHthAddr() const { return ""; };
         virtual std::string hthTpr() const { return ""; };
@@ -82,12 +111,9 @@ class AstraEdiSessRD : public edilib::EdiSessRdData
             return "ASTRA";
         }
 
-        void setMesHead(edi_mes_head &head)
-        {
-            Head = &head;
-        }
-        virtual const edi_mes_head *edih() const { return Head; };
-        virtual edi_mes_head *edih() { return Head; };
+        void setMesHead(const edi_mes_head &head) { Head = head; }
+        virtual const edi_mes_head *edih() const { return &Head; };
+        virtual edi_mes_head *edih() { return &Head; };
 };
 
 class edi_udata
@@ -133,25 +159,6 @@ public:
     const std::string tlgText() const { return TlgText; }
 };
 
-//======================================
-class edi_common_data
-{
-    Ticketing::OrigOfRequest Org;
-    std::string ediSessCtxt;
-    int reqCtxtId;
-public:
-    edi_common_data(const Ticketing::OrigOfRequest &org,
-                    const std::string &ctxt,
-                    const int req_ctxt_id)
-        :Org(org), ediSessCtxt(ctxt)
-    {
-      reqCtxtId = req_ctxt_id;
-    }
-    const Ticketing::OrigOfRequest &org() const { return Org; }
-    const std::string & context() const { return ediSessCtxt; }
-    const int req_ctxt_id() const { return reqCtxtId; }
-    virtual ~edi_common_data(){}
-};
 
 enum TickDispType_t {
     TickDispByTickNo=0,
@@ -159,14 +166,13 @@ enum TickDispType_t {
 
 class TickDisp : public edi_common_data
 {
-    TickDispType_t DispType;
-    int reqCtxtId;
+    TickDispType_t DispType;   
 public:
     TickDisp(const Ticketing::OrigOfRequest &org,
              const std::string &ctxt,
-             const int req_ctxt_id,
+             const edifact::KickInfo &kickInfo,
              TickDispType_t dt)
-    :edi_common_data(org, ctxt, req_ctxt_id), DispType(dt)
+    :edi_common_data(org, ctxt, kickInfo), DispType(dt)
     {
     }
     TickDispType_t dispType() { return DispType; }
@@ -178,9 +184,9 @@ class TickDispByNum : public TickDisp
 public:
     TickDispByNum(const Ticketing::OrigOfRequest &org,
                   const std::string &ctxt,
-                  const int req_ctxt_id,
+                  const edifact::KickInfo &kickInfo,
                   const std::string &ticknum)
-    :   TickDisp(org, ctxt, req_ctxt_id, TickDispByTickNo),
+    :   TickDisp(org, ctxt, kickInfo, TickDispByTickNo),
         TickNum(ticknum)
     {
     }
@@ -195,10 +201,10 @@ class ChngStatData : public edi_common_data
 public:
     ChngStatData(const Ticketing::OrigOfRequest &org,
                  const std::string &ctxt,
-                 const int req_ctxt_id,
+                 const edifact::KickInfo &kickInfo,
                  const std::list<Ticketing::Ticket> &lt,
                  const Ticketing::Itin *itin_ = NULL)
-    :edi_common_data(org, ctxt, req_ctxt_id), lTick(lt)
+    :edi_common_data(org, ctxt, kickInfo), lTick(lt)
     {
         if(itin_){
             Itin_ = Ticketing::Itin::SharedPtr(new Ticketing::Itin(*itin_));
@@ -264,5 +270,6 @@ public:
 
 // Обработка EDIFACT
 void proc_edifact(const std::string &tlg);
+void proc_new_edifact(const std::string &tlg);
 
 #endif /*_EDI_TLG_H_*/

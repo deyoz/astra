@@ -7,33 +7,41 @@
 * Author: Komtech-N <rom@sirena2000.ru>, (C) 2007
 *
 */
+#include "EdifactRequest.h"
+#include "exceptions.h"
+#include "remote_system_context.h"
+#include "remote_results.h"
+#include "edi_tlg.h"
+#include "tlg.h"
+#include "tlg_source_edifact.h"
+#include "EdiSessionTimeOut.h"
+#include "AgentWaitsForRemote.h"
+#include "astra_context.h"
+
+#include <edilib/edi_func_cpp.h>
+
 #include <memory.h>
 #include <boost/scoped_ptr.hpp>
 
-#include "EdifactRequest.h"
-#include "edilib/edi_func_cpp.h"
-#include "exceptions.h"
-#include "EdiSessionAstra.h"
-#include "remote_system_context.h"
-// #include "tlg_source_edifact.h"
-// #include "obr_tlg_queue.h"
-#include "EdiSessionTimeOut.h"
-// #include "AgentWaitsForRemote.h"
-
 #define NICKNAME "ROMAN"
 #define NICK_TRACE ROMAN_TRACE
-#include "serverlib/slogger.h"
+#include <serverlib/slogger.h>
 
 namespace edifact
 {
 using namespace EXCEPTIONS;
+using namespace TlgHandling;
+using namespace Ticketing;
 
 EdifactRequest::EdifactRequest(const std::string &pult,
-                               const RemoteSystemContext::SystemContext *SCont,
-                               edi_msg_types_t msg_type)
-    :edilib::EdifactRequest(msg_type), TlgOut(0)
+                               const std::string& ctxt,
+                               const KickInfo &v_kickInfo,
+                               edi_msg_types_t msg_type,
+                               const Ticketing::RemoteSystemContext::SystemContext* sysCont)
+    :edilib::EdifactRequest(msg_type), TlgOut(0), ediSessCtxt(ctxt), m_kickInfo(v_kickInfo)
 {
-    setEdiSessionController(new AstraEdiSessWR(pult));
+    setEdiSessionController(new NewAstraEdiSessWR(pult, msgHead(), sysCont));
+    setEdiSessMesAttr();
 }
 
 EdifactRequest::~EdifactRequest()
@@ -41,40 +49,58 @@ EdifactRequest::~EdifactRequest()
     delete TlgOut;
 }
 
-const RemoteSystemContext::SystemContext * EdifactRequest::sysCont()
-{
-    return dynamic_cast<AstraEdiSessWR *>(ediSess())->sysCont();
-}
-
 void EdifactRequest::sendTlg()
 {
     if(TlgOut)
         delete TlgOut;
 
-    LogTrace(TRACE2) <<
-            "RouterId: " << sysCont()->router() <<
-            "; Router H2h: " << (ediSess()->hth()?"yes":"NO");
+    collectMessage();
 
     TlgOut = new TlgSourceEdifact(makeEdifactText(), ediSess()->hth());
 
     LogTrace(TRACE1) << *TlgOut;
 
-    sendTlg(sysCont()->canonName().c_str(),
-            OWN_CANON_NAME(), true/*edifact*/, sysCont()->edifactResponseTimeOut()/*TTL*/, *TlgOut);
+    // Положить тлг в очередь на отправку
+    ::sendTlg(sysCont()->routerCanonName().c_str(),
+              OWN_CANON_NAME(),
+              qpOutA,
+              sysCont()->edifactResponseTimeOut(),
+              TlgOut->text(),
+              ASTRA::NoExists,
+              ASTRA::NoExists);
     ediSess()->ediSession()->CommitEdiSession();
-    Записать информацию о timeout отправленной телеграммы
-    EdiSessionTimeOut::add(ediSess()->edih()->msg_type,
-                           MsgFuncCode,
-                           ediSessId(),
-                           sysCont()->edifactResponseTimeOut());
 
-//     Ticketing::ConfigAgentToWait(sysCont()->ida(),
-//                                  Ticketing::EdiSessionId_t(ediSess()->ediSession()->ida()));
+    //запишем контексты
+    AstraContext::SetContext("EDI_SESSION",
+                             ediSessId().get(),
+                             context());
+
+
+    // Записать информацию о timeout отправленной телеграммы
+    edilib::EdiSessionTimeOut::add(ediSess()->edih()->msg_type,
+                                   mesFuncCode(),
+                                   ediSessId(),
+                                   sysCont()->edifactResponseTimeOut());
+
+    RemoteResults::add(kickInfo().empty()?"":ediSess()->ediSession()->pult(), //правильно ли закладываться на kickInfo().empty() ?
+                       ediSess()->ediSession()->ida(),
+                       sysCont()->ida());
+
+    Ticketing::ConfigAgentToWait(sysCont()->ida(),
+                                 ediSess()->ediSession()->pult(),
+                                 ediSess()->ediSession()->ida(),
+                                 kickInfo());
+
 }
 
-const TlgHandling::TlgSourceEdifact * EdifactRequest::tlgOut() const
+const TlgSourceEdifact * EdifactRequest::tlgOut() const
 {
     return TlgOut;
+}
+
+const Ticketing::RemoteSystemContext::SystemContext * EdifactRequest::sysCont()
+{
+    return dynamic_cast<NewAstraEdiSessWR*>(ediSess())->sysCont();
 }
 
 } // namespace edifact

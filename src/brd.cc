@@ -1321,7 +1321,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         {
           TTripInfo info(FltQry);
           xmlNodePtr node=NewTextChild(dataNode,"trip_sets");
-          NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
+          NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETSNoInteract,info) );
           NewTextChild( node, "pr_etstatus", pr_etstatus );
         }
         else

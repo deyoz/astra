@@ -2,15 +2,18 @@
 #define _EDI_ELEMENTS_H_
 
 #include "basic.h"
+#include "ticket_types.h"
+#include "astra_dates.h"
+#include "astra_ticket.h"
+#include "CheckinBaseTypes.h"
+
+#include <etick/tick_doctype.h>
+#include <etick/tick_data.h>
 
 #include <string>
 #include <boost/optional.hpp>
-#include <etick/tick_doctype.h>
-#include <etick/tick_data.h>
-#include "ticket_types.h"
 
-namespace ASTRA
-{
+
 namespace edifact
 {
 
@@ -370,31 +373,206 @@ struct UneElem
     {}
 };
 
-struct TktElement {
-    Ticketing::DocType           docType;
-    Ticketing::TicketNum_t       ticketNum;
-    boost::optional<int>         nBooklets;
-    boost::optional<int>         conjunctionNum;
-    boost::optional<Ticketing::TicketNum_t> inConnectionTicketNum;
-    boost::optional<Ticketing::TickStatAction::TickStatAction_t> tickStatAction;
-};
+//-----------------------------------------------------------------------------
 
-std::ostream & operator << (std::ostream &os, const TktElement &tkt);
-
-struct CpnElement
+///@class PtkElem - Ppricing/Ticketing Details --PTK
+struct PtkElem
 {
-    Ticketing::CouponNum_t num;
-    Ticketing::TicketMedia media;
-    Ticketing::TaxAmount::Amount amount;
-    Ticketing::CouponStatus status;
-    std::string sac;
-    std::string action;
-    Ticketing::CouponNum_t connectedNum;
+    Dates::date m_issueDate;
 };
-typedef boost::optional<CpnElement> CpnElement_o;
-std::ostream &operator << (std::ostream &s, const CpnElement&);
+
+//-----------------------------------------------------------------------------
+
+///@class PtsElem - Pricing/Ticketing Subsequent --PTS
+struct PtsElem
+{
+    std::string m_fareBasis;
+    std::string m_rfic;
+    std::string m_rfisc;
+    int         m_itemNumber;
+
+    PtsElem()
+        : m_itemNumber( 0 )
+    {}
+};
+
+//-----------------------------------------------------------------------------
+
+///@class RciElem - Reservation Control Information --RCI
+struct RciElem
+{
+    std::string m_airline;
+    std::string m_recloc;
+    std::string m_type;
+
+    RciElem( const std::string& airline, const std::string& recloc, const std::string& type = "1" )
+        : m_airline( airline ), m_recloc( recloc ), m_type( type )
+    {
+        if( m_type.empty() )
+            m_type = "1";
+    }
+};
+
+//-----------------------------------------------------------------------------
+
+///@class MonElem - Monetary Information --MON
+struct MonElem
+{
+    Ticketing::AmountCode m_code;
+    bool m_addCollect;
+    std::string m_currency;
+    std::string m_value;
+    MonElem()
+        : m_addCollect(false)
+    {}
+};
+
+//-----------------------------------------------------------------------------
+
+///@class FtiElem - Frequent Traveller Information --FTI
+struct FtiElem
+{
+    std::string m_airline;
+    std::string m_fqtvIdCode;
+    std::string m_passRefNum;
+    std::string m_statusCode;
+
+    FtiElem( const std::string& airline, const std::string& fqtvIdCode )
+        : m_airline( airline ), m_fqtvIdCode( fqtvIdCode )
+    {}
+};
+
+//-----------------------------------------------------------------------------
+
+///@class EbdElem - Excess Baggage Details --EBD
+struct EbdElem {
+    int         m_quantity;
+    std::string m_charge;
+    std::string m_measure;
+
+    EbdElem(int quantity, const std::string& charge, const std::string& measure)
+        : m_quantity(quantity), m_charge(charge), m_measure(measure)
+    {}
+};
+
+//-----------------------------------------------------------------------------
+
+///@class EqnElem - Number Of Units --EQN
+struct EqnElem {
+    unsigned    m_numberOfUnits;
+    std::string m_qualifier;
+
+    EqnElem(int nof, const std::string& qualifier)
+        : m_numberOfUnits(nof), m_qualifier(qualifier)
+    {}
+};
+
+//-----------------------------------------------------------------------------
+
+///@class TvlElem - Travel Product Information --TVL
+struct TvlElem
+{
+    Dates::Date_t          m_depDate;
+    Dates::time_duration   m_depTime;
+    Dates::Date_t          m_arrDate;
+    Dates::time_duration   m_arrTime;
+    std::string            m_depPoint;
+    std::string            m_arrPoint;
+    std::string            m_airline;  // string ?
+    std::string            m_operAirline;
+    Ticketing::FlightNum_t m_flNum;
+    Ticketing::FlightNum_t m_operFlNum;
+
+    TvlElem()
+        : m_depTime( Dates::not_a_date_time ),
+          m_arrTime( Dates::not_a_date_time )
+    {}
+};
+
+//-----------------------------------------------------------------------------
+
+///@class TktElem - Ticket Number Details --TKT
+struct TktElem
+{
+    Ticketing::DocType           m_docType;
+    Ticketing::TicketNum_t       m_ticketNum;
+    boost::optional<int>         m_nBooklets;
+    boost::optional<int>         m_conjunctionNum;
+    boost::optional<Ticketing::TicketNum_t> m_inConnectionTicketNum;
+    boost::optional<Ticketing::TickStatAction::TickStatAction_t> m_tickStatAction;
+};
+
+//-----------------------------------------------------------------------------
+
+///@class CpnElem - Coupon Information --CPN
+struct CpnElem
+{
+    Ticketing::CouponNum_t m_num;
+    Ticketing::TicketMedia m_media;
+    Ticketing::TaxAmount::Amount m_amount;
+    Ticketing::CouponStatus m_status;
+    std::string m_sac;
+    std::string m_action;
+    Ticketing::CouponNum_t m_connectedNum;
+};
+
+//-----------------------------------------------------------------------------
+
+///@class RciElements
+struct RciElements
+{
+    std::list<RciElem>  m_lReclocs;
+    std::list<Ticketing::FormOfId> m_lFoid;
+
+    RciElements operator+( const RciElements &other ) const;
+};
+
+//-----------------------------------------------------------------------------
+
+///@class MonElements
+struct MonElements
+{
+    std::list<MonElem> m_lMon;
+
+    MonElements operator+( const MonElements &other ) const;
+};
+
+//-----------------------------------------------------------------------------
+
+///@class IftElements
+struct IftElements
+{
+    std::list<Ticketing::FreeTextInfo> m_lIft;
+
+    IftElements operator+( const IftElements &other ) const;
+};
+
+//-----------------------------------------------------------------------------
+
+///@class TxdElements
+struct TxdElements
+{
+    std::list<Ticketing::TaxDetails> m_lTax;
+
+    TxdElements operator+( const TxdElements &other ) const;
+};
+
+//-----------------------------------------------------------------------------
+
+///@class FopElements
+struct FopElements
+{
+    std::list<Ticketing::FormOfPayment> m_lFop;
+
+    FopElements operator+( const FopElements &other ) const;
+};
+
+//-----------------------------------------------------------------------------
+
+std::ostream& operator<<( std::ostream &os, const TktElem &tkt );
+std::ostream& operator<<( std::ostream &os, const CpnElem &cpn );
+
 
 }//namespace edifact
-}//namespace ASTRA
 
 #endif/*_EDI_ELEMENTS_H_*/

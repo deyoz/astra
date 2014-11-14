@@ -1482,7 +1482,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
 
   int point_id=-1;
   int pnr_id=-1, pax_id;
-  xmlNodePtr tripNode,pnrNode,paxNode,node;
+  xmlNodePtr tripNode = NULL,pnrNode = NULL,paxNode = NULL,node = NULL;
 
   TMktFlight mktFlt;
   TTripInfo tlgTripsFlt;
@@ -3091,8 +3091,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       //хотя бы один билет будет обрабатываться
       OraSession.Rollback();  //откат
 
-      int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
-      if (!ETStatusInterface::ETChangeStatus(req_ctxt,ETInfo))
+      if (!ETStatusInterface::ETChangeStatus(reqNode, ETInfo))
         throw EXCEPTIONS::Exception("CheckInInterface::SavePax: Wrong ETInfo");
       AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
       return false;
@@ -3892,7 +3891,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
       bool free_seating=Qry.FieldAsInteger("pr_free_seating")!=0;
-      bool pr_etl_only=GetTripSets(tsETLOnly,fltInfo);
+      bool pr_etl_only=GetTripSets(tsETSNoInteract,fltInfo);
       bool pr_mintrans_file=GetTripSets(tsMintransFile,fltInfo);
 
       bool addVIP=false;
@@ -4784,7 +4783,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                     };
                     ProgTrace( TRACE5, "ranges.size=%zu", ranges.size() );
                     //запись в базу
-                    TCompLayerType layer_type;
+                    TCompLayerType layer_type = cltCheckin;
                     switch( grp.status ) {
                     	case psCheckin:
                     		layer_type = cltCheckin;
@@ -6921,7 +6920,7 @@ void CheckInInterface::readTripSets( int point_id,
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   
-  NewTextChild( tripSetsNode, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
+  NewTextChild( tripSetsNode, "pr_etl_only", (int)GetTripSets(tsETSNoInteract,fltInfo) );
   NewTextChild( tripSetsNode, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
   NewTextChild( tripSetsNode, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,fltInfo) );
 };

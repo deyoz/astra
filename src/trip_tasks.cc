@@ -6,6 +6,8 @@
 #include "qrys.h"
 #include "timer.h"
 #include "telegram.h"
+#include "etick.h"
+#include "tlg/remote_system_context.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -18,6 +20,8 @@ namespace TypeB {
     void check_lci(int point_id, const std::string &task_name, const std::string &params);
 }
 
+void emd_sys_update(int point_id, const string &task_name, const string &params);
+
 const
   struct {
     string task_name;
@@ -28,7 +32,8 @@ const
     {BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL, check_crew_alarms},
     {LCI, TypeB::check_lci},
     {SYNC_NEW_CHKD, TypeB::SyncNewCHKD },
-    {SYNC_ALL_CHKD, TypeB::SyncAllCHKD }
+    {SYNC_ALL_CHKD, TypeB::SyncAllCHKD },
+    {EMD_SYS_UPDATE, emd_sys_update }
   };
 
 void sync_trip_task(int point_id, const string& task_name, const string &params, TDateTime next_exec)
@@ -311,15 +316,20 @@ void check_trip_tasks()
             {
                 if (trip_tasks[i].task_name!=task_name) continue;
                 task_processed=true;
-                if (last_exec==ASTRA::NoExists ||
-                        last_exec<next_exec)
+                if (last_exec==ASTRA::NoExists || last_exec<next_exec)
                 {
+                    ProgTrace(TRACE5, "%s: task %s started (point_id=%d, params=%s)",
+                                      __FUNCTION__, task_name.c_str(), point_id, params.c_str());
+
                     trip_tasks[i].p(point_id, task_name, params);
+
                     TLogLocale tlocale;
                     tlocale.ev_type=ASTRA::evtFltTask;
                     tlocale.id1=point_id;
                     taskToLog(tlocale, task_name, params, tsDone, next_exec);
                     TReqInfo::Instance()->LocaleToLog(tlocale);
+                    ProgTrace(TRACE5, "%s: task %s finished (point_id=%d, params=%s)",
+                                      __FUNCTION__, task_name.c_str(), point_id, params.c_str());
                 };
             };
             if (task_processed)
@@ -693,4 +703,37 @@ void on_change_trip(const string &descr, int point_id)
     } catch(std::exception &E) {
         ProgError(STDLOG,"%s: %s (point_id=%d): %s", __FUNCTION__, descr.c_str(), point_id,E.what());
     };
+}
+
+void emd_sys_update(int point_id, const string &task_name, const string &params)
+{
+  AstraEdifact::TFltParams fltParams;
+  if (!fltParams.get(point_id)) return;
+
+  try
+  {
+    try
+    {
+      TEMDSystemUpdateList emdList;
+      EMDSystemUpdateInterface::EMDCheckDisassociation(point_id, fltParams, emdList);
+      EMDSystemUpdateInterface::EMDChangeDisassociation(edifact::KickInfo(), emdList);
+    }
+    catch(Ticketing::RemoteSystemContext::system_not_found)
+    {
+      throw AstraLocale::UserException("MSG.EMD.EDS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+                                       LEvntPrms() << PrmFlight("flight", fltParams.fltInfo.airline, fltParams.fltInfo.flt_no, fltParams.fltInfo.suffix) );
+    };
+  }
+  catch(AstraLocale::UserException &e)
+  {
+    string err_id;
+    LEvntPrms err_prms;
+    e.getAdvParams(err_id, err_prms);
+
+    TReqInfo *reqInfo=TReqInfo::Instance();
+    reqInfo->LocaleToLog("EVT.EMD_SYS_UPDATE",
+                         LEvntPrms() << PrmLexema("text", err_id, err_prms),
+                         ASTRA::evtPay,
+                         point_id);
+  };
 }

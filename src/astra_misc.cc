@@ -12,7 +12,7 @@
 #include "web_main.h"
 #include "basel_aero.h"
 #include "qrys.h"
-#include "passenger.h"
+#include "emdoc.h"
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
@@ -148,7 +148,7 @@ bool GetTripSets( const TTripSetType setType, const TTripInfo &info )
     switch(setType)
     {
       //запрет интерактива с СЭБом
-      case tsETLOnly: return false;
+      case tsETSNoInteract: return false;
               default: return false;
     };
   };
@@ -1323,7 +1323,7 @@ void GetTagRanges(const multiset<TBagTagNumber> &tags,
   if (tags.empty()) return;
 
   string first_alpha_part,curr_alpha_part;
-  double first_no,first_pack,curr_no,curr_pack;
+  double first_no = 0.,first_pack = 0.,curr_no = 0.,curr_pack=0.;
   first_alpha_part=tags.begin()->alpha_part;
   first_no=fmod(tags.begin()->numeric_part, 1000.0);
   modf(tags.begin()->numeric_part/1000.0,&first_pack);
@@ -1428,7 +1428,7 @@ string GetBagRcptStr(int grp_id, int pax_id)
   {
     vector<string> rcpts;
     list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
-    GetBoundPaidBagEMD(grp_id, emd);
+    PaxASVCList::GetBoundPaidBagEMD(grp_id, emd);
     for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
       rcpts.push_back(i->first.emd_no);
 
@@ -1547,7 +1547,7 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
     };
     //EMD
     list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
-    GetBoundPaidBagEMD(grp_id, emd);
+    PaxASVCList::GetBoundPaidBagEMD(grp_id, emd);
     for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
     {
       int bag_type=i->second.bag_type;

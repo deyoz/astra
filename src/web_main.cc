@@ -1265,7 +1265,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
 
 int get_seat_status( TWebPlace &wp, bool pr_find_free_subcls_place )
 {
-  int status;
+  int status = 0;
   switch( wp.pr_free ) {
   	case 0: // занято
    		status = 1;
@@ -2059,8 +2059,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       //хотя бы один билет будет обрабатываться
       OraSession.Rollback();  //откат
 
-      int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
-      if (!ETStatusInterface::ETChangeStatus(req_ctxt,ETInfo))
+      if (!ETStatusInterface::ETChangeStatus(reqNode,ETInfo))
         throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: Wrong ETInfo");
       AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
       return false;

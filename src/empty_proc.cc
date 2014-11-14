@@ -967,7 +967,7 @@ int test_trfer_exists(int argc,char **argv)
       for(int pass=0; pass<4; pass++)
       {
         int point_id=NoExists;
-        TrferList::TTrferType trferType;
+        TrferList::TTrferType trferType = TrferList::tckinInbound;
         string title;
         bool exists=false;
         try
@@ -1538,7 +1538,7 @@ int compare_apis(int argc,char **argv)
     return 0;
   };
 
-  if (init_edifact()<0)
+  if (edifact::init_edifact()<0)
   {
     printf("'init_edifact' error");
     return 0;

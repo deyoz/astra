@@ -1,0 +1,20 @@
+#!/bin/sh -e
+
+rm -f ok oldlog2
+if [ -f oldlog1 ]; then
+    mv oldlog1 oldlog2
+fi
+if [ -f log ]; then
+    mv log oldlog1
+fi
+
+for f in `ls *.ldr | sort`; do
+    echo $f >>log
+    NLS_DATE_FORMAT=YYYYMMDDHH24MISS sqlldr $1 $f </dev/null 2>&1 | tee -a log
+done 
+
+for f in `ls *.sql | sort`; do
+    echo $f >>log
+    sqlplus $1 @$f < /dev/null 2>&1 | tee -a log
+done 
+

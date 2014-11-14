@@ -156,7 +156,7 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
        type==etSuffix)
     {
       TReqInfo *reqInfo = TReqInfo::Instance();
-      TUserSettingType user_fmt;
+      TUserSettingType user_fmt = ustCodeNative;
       switch(ctxt) {
       	case ecDisp:
           if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
@@ -262,7 +262,7 @@ string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
        type==etSuffix)
     {
       TReqInfo *reqInfo = TReqInfo::Instance();
-      TUserSettingType user_fmt;
+      TUserSettingType user_fmt = ustCodeNative;
       switch (ctxt) {
       	case ecDisp:
           if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;

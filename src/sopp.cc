@@ -36,6 +36,7 @@
 #include "trip_tasks.h"
 
 #include "aodb.h"
+#include "emdoc.h"
 #include "serverlib/perfom.h"
 
 #define NICKNAME "DJEK"
@@ -984,7 +985,7 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
   int move_id = NoExists;
   string ref;
   int col_move_id = PointsQry.FieldIndex( "move_id" );
-  int col_ref;
+  int col_ref = 0;
   if ( module == tISG )
   	col_ref = PointsQry.FieldIndex( "ref" );
   int col_point_id = PointsQry.FieldIndex( "point_id" );
@@ -1395,7 +1396,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   int move_id = NoExists;
   string ref;
   int col_move_id = PointsQry.FieldIndex( "move_id" );
-  int col_ref;
+  int col_ref = 0;
   if ( module == tISG )
   	col_ref = PointsQry.FieldIndex( "ref" );
   int col_point_id = PointsQry.FieldIndex( "point_id" );
@@ -2607,7 +2608,7 @@ void DeletePassengersAnswer( map<int,TAdvTripInfo> &segs, xmlNodePtr resNode )
 	xmlNodePtr segsNode=NewTextChild(resNode,"segments");
 	for(map<int,TAdvTripInfo>::const_iterator i=segs.begin();i!=segs.end();++i)
   {
-    bool pr_etl_only=GetTripSets(tsETLOnly,i->second);
+    bool pr_etl_only=GetTripSets(tsETSNoInteract,i->second);
     Qry.SetVariable("point_id",i->first);
     Qry.Execute();
     int pr_etstatus=-1;
@@ -2864,7 +2865,7 @@ void GetEMD( int point_id, xmlNodePtr dataNode )
 {
   xmlNodePtr node = NewTextChild( dataNode, "emd" );
   std::multiset<CheckIn::TPaxASVCItem> asvc;
-  CheckIn::GetUnboundEMD(point_id, asvc);
+  PaxASVCList::GetUnboundEMD(point_id, asvc);
 
   ostringstream s;
   for(multiset<CheckIn::TPaxASVCItem>::const_iterator i=asvc.begin(); i!=asvc.end(); ++i)
@@ -3601,19 +3602,19 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     Qry.Execute();
   }
   bool ch_dests = false;
-  int new_tid;
-  bool init_trip_stages;
+  int new_tid = 0;
+  bool init_trip_stages = false;
   //bool set_act_out;
-  bool set_pr_del;
+  bool set_pr_del = false;
   int point_num = 0;
-  int first_point;
-  bool insert_point;
+  int first_point = 0;
+  bool insert_point = false;
   bool pr_begin = true;
-  bool change_stages_out;
-  bool pr_change_tripinfo;
+  bool change_stages_out = false;
+  bool pr_change_tripinfo = false;
   vector<int> setcraft_points;
-  bool reSetCraft;
-  bool reSetWeights;
+  bool reSetCraft = false;
+  bool reSetWeights = false;
   string lexema_id;
   PrmEnum prmenum("flt", "");
   TBaseTable &baseairps = base_tables.get( "airps" );
@@ -5655,7 +5656,7 @@ bool trip_calc_data( int point_id, BitSet<TTrip_Calc_Data> &whatcalc,
     gates = Qry.FieldAsString( "gates" );
   }
 
-  bool new_trfer_exists;
+  bool new_trfer_exists = false;
   string new_ckin_desks;
   string new_gates;
   Qry.Clear();

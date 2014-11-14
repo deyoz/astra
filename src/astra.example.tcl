@@ -135,6 +135,13 @@ if { ! [  info exists logdaemon(LEVEL) ] } {
     set logdaemon(LEVEL) 19
 }
 
+set logtlg(SOCKET) $SOCKDIR/logtlg-socket
+set logtlg(SOCKET_SHM) $SOCKDIR/logtlg-socket-shm
+set logtlg(FILE) tlg.log
+if { ! [  info exists logtlg(LEVEL) ] } {
+    set logtlg(LEVEL) 19
+}
+
 set log_sys(SOCKET) $SOCKDIR/logsys-socket
 set log_sys(SOCKET_SHM) $SOCKDIR/logsys-socket-shm
 set log_sys(FILE) system.log

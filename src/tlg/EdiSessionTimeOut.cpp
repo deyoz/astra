@@ -7,17 +7,20 @@
 * Author: Kovalev Roman <rom@sirena2000.ru>, (C) 2008
 *
 */
-#include <boost/scoped_ptr.hpp>
-#include "EdiSessionTimeOut.h"
-#include "edilib/edi_func_cpp.h"
-#include "edilib/edi_session.h"
-#include "EdiHandlersFactory.h"
-#include "EdiSessionAstra.h"
-#include "AgentWaitsForRemote.h"
-#include "RemoteResults.h"
 
+#include "EdiSessionTimeOut.h"
+#include "EdiHandlersFactory.h"
+#include "AgentWaitsForRemote.h"
+#include "ResponseHandler.h"
+#include "remote_results.h"
+#include "edi_tlg.h"
+
+#include <edilib/edi_func_cpp.h>
+#include <edilib/edi_session.h>
 #include <serverlib/ocilocal.h>
-#include <serverlib/dates_boost.h>
+
+#include <boost/scoped_ptr.hpp>
+
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
 #include <serverlib/slogger.h>
@@ -29,21 +32,23 @@ using namespace edilib;
 namespace
 {
 
-inline static boost::shared_ptr<edifact::AstraEdiSessDR> getSess(EdiSessionId_t id)
+inline static boost::shared_ptr<AstraEdiSessRD> getSess(EdiSessionId_t id)
 {
-    boost::shared_ptr<edifact::EdiSessRD> psess (new edifact::EdiSessRD(0));
+    boost::shared_ptr<AstraEdiSessRD> psess (new AstraEdiSessRD());
     psess->loadEdiSession(id);
     return psess;
 }
 
-}
+}//namespace
+
+
 void HandleEdiSessTimeOut(const EdiSessionTimeOut & to)
 {
     using namespace Ticketing;
 
-    boost::shared_ptr<edifact::AstraEdiSessDR> psess = getSess(to.ediSessionId());
+    boost::shared_ptr<AstraEdiSessRD> psess = getSess(to.ediSessionId());
 
-    boost::scoped_ptr<EdifactResponse> handler
+    boost::scoped_ptr<TlgHandling::AstraEdiResponseHandler> handler
             (Ticketing::EdiResHandlersFactory(to.answerMsgType(), to.funcCode(), psess));
 
     if(!handler)
@@ -55,40 +60,42 @@ void HandleEdiSessTimeOut(const EdiSessionTimeOut & to)
         handler->onTimeOut();
     }
 
+    handler->readRemoteResults();
     if(handler->remoteResults())
         handler->remoteResults()->setStatus(RemoteStatus::Timeout);
 }
 
-void HandleEdiSessCONTRL(EdiSessionId_t Id)
-{
-    using namespace Ticketing;
+//void HandleEdiSessCONTRL(EdiSessionId_t Id)
+//{
+//    using namespace Ticketing;
 
-    EdiSessionTimeOut to = EdiSessionTimeOut::readById(Id);
-    boost::shared_ptr<edifact::AstraEdiSessDR> psess = getSess(Id);
-    boost::scoped_ptr<EdifactResponse> handler
-            (Ticketing::EdiResHandlersFactory(to.answerMsgType(), to.funcCode(), psess));
+//    EdiSessionTimeOut to = EdiSessionTimeOut::readById(Id);
+//    boost::shared_ptr<edifact::AstraEdiSessRD> psess = getSess(Id);
+//    boost::scoped_ptr<TlgHandling::EdifactResponse> handler
+//            (Ticketing::EdiResHandlersFactory(to.answerMsgType(), to.funcCode(), psess));
 
-    if(!handler)
-    {
-        LogTrace(TRACE1) << "Nothing to do";
-    }
-    else
-    {
-        handler->onCONTRL();
-    }
+//    if(!handler)
+//    {
+//        LogTrace(TRACE1) << "Nothing to do";
+//    }
+//    else
+//    {
+//        handler->onCONTRL();
+//    }
 
-    if(handler->remoteResults())
-        handler->remoteResults()->setStatus(RemoteStatus::Contrl);
-}
+//    if(handler->remoteResults())
+//        handler->remoteResults()->setStatus(RemoteStatus::Contrl);
+//}
 
-}
+}//namespace edifact
+
+#if 0
 
 #include "xp_testing.h"
 #ifdef XP_TESTING
 #include <edilib/edi_session.h>
 #include <serverlib/int_parameters_oci.h>
-#include <edilib/edi_tick_msg_types.h>
-#include "environ.h"
+#include <edilib/edi_astra_msg_types.h>
 #include "local.h"
 
 using namespace edifact;
@@ -250,3 +257,5 @@ TCASEREGISTER( init, tear_down)
 }
 TCASEFINISH;
 #endif /*XP_TESTING*/
+
+#endif /*0*/

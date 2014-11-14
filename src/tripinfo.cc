@@ -1136,7 +1136,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
         reqInfo->screen.name == "EXAM.EXE")
     {
       NewTextChild( node, "pr_etstatus", Qryh.FieldAsInteger("pr_etstatus") );
-      NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
+      NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETSNoInteract,info) );
     };
 
     if (reqInfo->screen.name == "AIR.EXE")
@@ -2472,7 +2472,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   rem_grp.Load(retPNL_SEL, point_id);
 
   int point_id_tlg=-1;
-  xmlNodePtr tripNode,paxNode,node;
+  xmlNodePtr tripNode=NULL,paxNode=NULL,node=NULL;
   int col_pnr_status=Qry.FieldIndex("pnr_status");
   int col_pnr_priority=Qry.FieldIndex("pnr_priority");
   int col_full_name=Qry.FieldIndex("full_name");

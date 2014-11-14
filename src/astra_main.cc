@@ -23,6 +23,8 @@
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
 
+int main_edi_timer_tcl(int supervisorSocket, int argc, char *argv[]);
+
 int astraMsgControl(int type /* 0 - request, 1 - answer */,
                      const char *head, int hlen, const char *body, int blen)
 {
@@ -89,7 +91,8 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
                 ->add("cobra_handler", "logdaemon", main_cobra_handler_tcl)
                 ->add("wb_garantserv", "logdaemon", main_tcp_wb_garant_tcl)
                 ->add("wb_garant_handler", "logdaemon", main_wb_garant_handler_tcl)
-                ->add("empty_proc", "logdaemon", main_empty_proc_tcl);
+                ->add("empty_proc", "logdaemon", main_empty_proc_tcl)
+                ->add("edi_timer", "logdaemon", main_edi_timer_tcl);
     }
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,
                  char **res, int len)
@@ -166,7 +169,7 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
 
 void AstraApplication::levC_app_init()
 {
-  init_edifact();
+  init_locale();
   ServerFramework::getQueryRunner().getEdiHelpManager().multiMsgidMode(true);
 }
 

@@ -13,6 +13,7 @@
 #include "salons.h"
 #include "qrys.h"
 #include "brd.h"
+#include "emdoc.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -684,7 +685,7 @@ void check_unbound_emd_alarm( int point_id )
 {
   bool emd_alarm = false;
 	if ( CheckStageACT(point_id, sCloseCheckIn) )
-    emd_alarm=CheckIn::ExistsUnboundEMD(point_id);
+    emd_alarm=PaxASVCList::ExistsUnboundEMD(point_id);
 	set_alarm( point_id, atUnboundEMD, emd_alarm );
 };
 

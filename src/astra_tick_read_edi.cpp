@@ -107,61 +107,7 @@ ResContrInfo ResContrInfoEdiR::operator() (ReaderData &RData) const
     REdiData &Data = dynamic_cast<REdiData &>(RData);
     EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
 
-    date DateOfIssue;
-    DateOfIssue=getIssueDate(pMes);
-
-    PushEdiPointG(pMes);
-    if(!SetEdiPointToSegmentG(pMes, "RCI"))
-    {
-        ResetEdiPointG(pMes);
-        SetEdiPointToSegmentG(pMes, SegmElement("RCI"), "INV_SYS_CONTROL");
-    }
-
-    unsigned Num=GetNumComposite(pMes, "C330", "INV_SYS_CONTROL");
-
-    if(/*Num>2 || */Num<1){
-        ProgError(STDLOG,
-                           "Bad number of record locators [%d]. Must be 1 or 2", Num);
-        throw Exception("Bad number of record locators");
-    }
-
-    std::string OurAwk, CrsAwk;
-    string CrsRecloc, AirRecloc, Recloc;
-
-    PushEdiPointG(pMes);
-    for(unsigned i=0;i<Num;i++)
-    {
-        SetEdiPointToCompositeG(pMes, "C330",i, "PROG_ERR");
-        char typeChr = *GetDBNum(pMes, 9958);
-        if (!typeChr)
-        {
-            typeChr='1';
-        }
-
-        string Awk = GetDBNum(pMes, 9906,0, typeChr == '1' ? "INV_AIRLINE" : "");
-        string recloc = GetDBNum(pMes, 9956,0, typeChr == '1' ? "NEED_RECLOC" : "");
-
-        switch(typeChr){
-        case '1':
-            if(i==0 && Num>1){
-                CrsRecloc = recloc;
-                CrsAwk = Awk;
-            } else {
-                AirRecloc = recloc;
-                OurAwk = Awk;
-            }
-            break;
-        default:
-            LogWarning(STDLOG) << "Invalid reservation control type [" << typeChr << "]";
-    }
-
-    PopEdiPoint_wdG(pMes);
-    }
-
-    PopEdiPointG(pMes);
-    PopEdiPointG(pMes);
-
-    return ResContrInfo(Recloc, OurAwk, AirRecloc, CrsRecloc, CrsAwk, DateOfIssue);
+    return readResContrInfo(pMes);
 }
 
 OrigOfRequest OrigOfRequestEdiR::operator ( )(ReaderData &RData) const
@@ -169,53 +115,7 @@ OrigOfRequest OrigOfRequestEdiR::operator ( )(ReaderData &RData) const
     REdiData &Data = dynamic_cast<REdiData &>(RData);
     EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
 
-    PushEdiPointG(pMes);
-    if(!SetEdiPointToSegmentG(pMes, "ORG"))
-    {
-        ResetEdiPointG(pMes);
-        SetEdiPointToSegmentG(pMes, SegmElement("ORG"), "NEED_ORG");
-    }
-    PushEdiPointG(pMes);
-
-    SetEdiPointToCompositeG(pMes, "C336", 0, "NEED_ORG");
-    string Awk = GetDBNum(pMes, 9906,0, "INV_ORG");
-    string Location = GetDBNum(pMes, 3225);
-    PopEdiPoint_wdG(pMes); //ORG
-
-    string PprNumber;
-    string Agn;
-    if (SetEdiPointToCompositeG(pMes, "C300"))
-    {
-        PprNumber = GetDBNum(pMes, 9900);
-        Agn = GetDBNum(pMes, 9902);
-        PopEdiPoint_wdG(pMes); //ORG
-    }
-
-
-    string OrigLocation = GetDBFName(pMes, DataElement(3225), "",CompElement("C328"));
-
-    char Type = *GetDBNum(pMes, 9972);
-    const char *lng = GetDBFName(pMes, DataElement(3453), "", CompElement("C354"));
-    Language Lang;
-    if(!strcmp(lng, "RU")){
-        Lang = RUSSIAN;
-    } else {
-        ProgTrace(TRACE3,"Lang=%s, Use EN", lng);
-        Lang = ENGLISH;
-    }
-
-    string AuthCode = GetDBNum(pMes, 9904);
-    string Pult = GetDBNum(pMes, 3148);
-  /*  if(Pult.size()>6){
-        ProgError(STDLOG, "Invalid length of the communication number %s [%d/6 max]",
-                               Pult.c_str(), Pult.size());
-        throw Exception("Invalid length of the communication number");
-    }*/
-
-    PopEdiPointG(pMes);
-    PopEdiPointG(pMes);
-
-    return OrigOfRequest(Awk, Location, PprNumber, Agn, OrigLocation, Type, Pult, AuthCode, Lang);
+    return readOrigOfRequest(pMes);
 }
 
 Passenger::SharedPtr PassengerEdiR::operator () (ReaderData &RData) const
@@ -455,24 +355,24 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
         edilib::EdiPointHolder ph(pMes);
 
         SetEdiPointToSegGrG(pMes, 4, itick, "INV_TUCKNUM");
-        boost::optional<ASTRA::edifact::TktElement> tkt = TickReader::readEdiTkt(pMes);
+        boost::optional<edifact::TktElem> tkt = TickReader::readEdiTkt(pMes);
         if(!tkt)
             throw Exception("TKT not found");
 
-        std::string ticknum = tkt.get().ticketNum.get();
-        if(tkt.get().docType != Ticketing::DocType::Ticket
-            && tkt.get().docType != Ticketing::DocType::EmdA
-            && tkt.get().docType != Ticketing::DocType::EmdS)
+        std::string ticknum = tkt->m_ticketNum.get();
+        if(tkt->m_docType != Ticketing::DocType::Ticket
+            && tkt->m_docType != Ticketing::DocType::EmdA
+            && tkt->m_docType != Ticketing::DocType::EmdS)
         {
             //Странно, прислали вовсе не билет и не EMD
-            ProgError(STDLOG, "Invalid document type %s", tkt.get().docType->code());
+            ProgError(STDLOG, "Invalid document type %s", tkt->m_docType->code());
             throw Exception("Invalid document type");
         }
         //Общее кол-во билетов на пассажира (до 4х)
 
         TickStatAction::TickStatAction_t tick_act_code;
-        if(tkt.get().tickStatAction)
-            tick_act_code = tkt.get().tickStatAction.get();
+        if(tkt->m_tickStatAction)
+            tick_act_code = tkt->m_tickStatAction.get();
         else
             tick_act_code = TickStatAction::newtick;
 
@@ -486,10 +386,10 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
 
             ltick.push_back(Ticket(ticknum, tick_act_code, itick+1, lCpn));
         } else if(tick_act_code == TickStatAction::inConnectionWith)  {
-            ASSERT(tkt->inConnectionTicketNum);
-            Ticket ticket(tkt->ticketNum.get(), *tkt->tickStatAction,
-                          *tkt->nBooklets, getConnectedCoupons(pMes, Data.currTicket().first));
-            ticket.setConnectedDocNum(*tkt->inConnectionTicketNum);
+            ASSERT(tkt->m_inConnectionTicketNum);
+            Ticket ticket(tkt->m_ticketNum.get(), *tkt->m_tickStatAction,
+                          *tkt->m_nBooklets, getConnectedCoupons(pMes, Data.currTicket().first));
+            ticket.setConnectedDocNum(*tkt->m_inConnectionTicketNum);
             ltick.push_back(ticket);
 
         }
@@ -507,25 +407,25 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
 
 Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes, TickStatAction::TickStatAction_t tickStatAction)
 {
-    boost::optional<ASTRA::edifact::CpnElement> cpn = readEdiCpn(pMes, 0);
+    boost::optional<edifact::CpnElem> cpn = readEdiCpn(pMes, 0);
 
     if(!cpn)
         throw Exception("EtsErr::INV_COUPON");
-    if(!cpn->num)
+    if(!cpn->m_num)
         throw Exception("EtsErr::INV_COUPON");
 
-    if(!cpn->media) {
-        if(cpn->status == CouponStatus::Paper || cpn->status == CouponStatus::Printed)
-            cpn->media = TicketMedia::Paper;
+    if(!cpn->m_media) {
+        if(cpn->m_status == CouponStatus::Paper || cpn->m_status == CouponStatus::Printed)
+            cpn->m_media = TicketMedia::Paper;
         else
-            cpn->media = TicketMedia::Electronic;
+            cpn->m_media = TicketMedia::Electronic;
     }
 
-    Coupon_info cpnInfo(cpn->num.get(), cpn->status, cpn->media, cpn->sac);
-    if(cpn->connectedNum)
-        cpnInfo.setConnectedCpnNum(cpn->connectedNum.get());
-    if(!cpn->action.empty())
-        cpnInfo.setActionCode(CpnStatAction::GetCpnAction(cpn->action.c_str()));
+    Coupon_info cpnInfo(cpn->m_num.get(), cpn->m_status, cpn->m_media, cpn->m_sac);
+    if(cpn->m_connectedNum)
+        cpnInfo.setConnectedCpnNum(cpn->m_connectedNum.get());
+    if(!cpn->m_action.empty())
+        cpnInfo.setActionCode(CpnStatAction::GetCpnAction(cpn->m_action.c_str()));
 
     return cpnInfo;
 }
@@ -1068,6 +968,141 @@ void FreeTextInfoEdiR::operator () (ReaderData &RData, list<FreeTextInfo> &lIft)
     }
 
     makeIFT(Data, lvl, lIft);
+}
+
+OrigOfRequest readOrigOfRequest(EDI_REAL_MES_STRUCT* pMes)
+{
+    PushEdiPointG(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "ORG"))
+    {
+        ResetEdiPointG(pMes);
+        SetEdiPointToSegmentG(pMes, SegmElement("ORG"), "NEED_ORG");
+    }
+    PushEdiPointG(pMes);
+
+    SetEdiPointToCompositeG(pMes, "C336", 0, "NEED_ORG");
+    string Awk = GetDBNum(pMes, 9906,0, "INV_ORG");
+    string Location = GetDBNum(pMes, 3225);
+    PopEdiPoint_wdG(pMes); //ORG
+
+    string PprNumber;
+    string Agn;
+    if (SetEdiPointToCompositeG(pMes, "C300"))
+    {
+        PprNumber = GetDBNum(pMes, 9900);
+        Agn = GetDBNum(pMes, 9902);
+        PopEdiPoint_wdG(pMes); //ORG
+    }
+
+
+    string OrigLocation = GetDBFName(pMes, DataElement(3225), "",CompElement("C328"));
+
+    char Type = *GetDBNum(pMes, 9972);
+    const char *lng = GetDBFName(pMes, DataElement(3453), "", CompElement("C354"));
+    Language Lang;
+    if(!strcmp(lng, "RU")){
+        Lang = RUSSIAN;
+    } else {
+        ProgTrace(TRACE3,"Lang=%s, Use EN", lng);
+        Lang = ENGLISH;
+    }
+
+    string AuthCode = GetDBNum(pMes, 9904);
+    string Pult = GetDBNum(pMes, 3148);
+  /*  if(Pult.size()>6){
+        ProgError(STDLOG, "Invalid length of the communication number %s [%d/6 max]",
+                               Pult.c_str(), Pult.size());
+        throw Exception("Invalid length of the communication number");
+    }*/
+
+    PopEdiPointG(pMes);
+    PopEdiPointG(pMes);
+
+    return OrigOfRequest(Awk, Location, PprNumber, Agn, OrigLocation, Type, Pult, AuthCode, Lang);
+}
+
+ResContrInfo readResContrInfo(EDI_REAL_MES_STRUCT* pMes)
+{
+    date DateOfIssue;
+    DateOfIssue=getIssueDate(pMes);
+
+    PushEdiPointG(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "RCI"))
+    {
+        ResetEdiPointG(pMes);
+        SetEdiPointToSegmentG(pMes, SegmElement("RCI"), "INV_SYS_CONTROL");
+    }
+
+    unsigned Num=GetNumComposite(pMes, "C330", "INV_SYS_CONTROL");
+
+    if(/*Num>2 || */Num<1){
+        ProgError(STDLOG,
+                           "Bad number of record locators [%d]. Must be 1 or 2", Num);
+        throw Exception("Bad number of record locators");
+    }
+
+    std::string OurAwk, CrsAwk;
+    string CrsRecloc, AirRecloc, Recloc;
+
+    PushEdiPointG(pMes);
+    for(unsigned i=0;i<Num;i++)
+    {
+        SetEdiPointToCompositeG(pMes, "C330",i, "PROG_ERR");
+        char typeChr = *GetDBNum(pMes, 9958);
+        if (!typeChr)
+        {
+            typeChr='1';
+        }
+
+        string Awk = GetDBNum(pMes, 9906,0, typeChr == '1' ? "INV_AIRLINE" : "");
+        string recloc = GetDBNum(pMes, 9956,0, typeChr == '1' ? "NEED_RECLOC" : "");
+
+        switch(typeChr){
+        case '1':
+            if(i==0 && Num>1){
+                CrsRecloc = recloc;
+                CrsAwk = Awk;
+            } else {
+                AirRecloc = recloc;
+                OurAwk = Awk;
+            }
+            break;
+        default:
+            LogWarning(STDLOG) << "Invalid reservation control type [" << typeChr << "]";
+    }
+
+    PopEdiPoint_wdG(pMes);
+    }
+
+    PopEdiPointG(pMes);
+    PopEdiPointG(pMes);
+
+    return ResContrInfo(Recloc, OurAwk, AirRecloc, CrsRecloc, CrsAwk, DateOfIssue);
+}
+
+Passenger readPassenger(EDI_REAL_MES_STRUCT* pMes)
+{
+    EdiPointHolder ph(pMes);
+
+    SetEdiPointToSegmentG(pMes, "TIF", 0, "EtsErr::NEED_SURNAME");
+
+    EdiPointHolder insideTif(pMes);
+    SetEdiPointToCompositeG(pMes, "C322",0, "EtsErr::NEED_SURNAME");
+
+    //Фамилия (обязательно)
+    std::string Surname = GetDBNum(pMes, DataElement(9936), "EtsErr::NEED_SURNAME");
+    // Тип
+    string Type = GetDBNum(pMes, 6353);
+
+    // Возраст
+    int Age = GetDBNumCast<int> (edilib::EdiDigitCast<int>(), pMes, 6060);
+
+    insideTif.pop();
+
+    // Имя (Обязательно/или нет (при разборе для поиска))
+    std::string Name = GetDBFName(pMes, DataElement(9942), "", CompElement("C324",0));
+
+    return Passenger(Surname, Name, Age, Type);
 }
 
 } //namespace Ticketing

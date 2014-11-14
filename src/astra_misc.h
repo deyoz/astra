@@ -277,7 +277,8 @@ class TLastTCkinSegInfo : public TLastTrferInfo
 //настройки рейса
 enum TTripSetType { /*не привязанные к рейсу*/
                     tsCraftInitVIP=1,               //Автоматическая разметка VIP-мест в компоновке
-                    tsETLOnly=11,                   //Запрет интерактива с СЭБом. Только ETL.
+                    tsEDSNoInteract=10,             //Запрет интерактива с СЭДом.
+                    tsETSNoInteract=11,             //Запрет интерактива с СЭБом. Только ETL.
                     tsIgnoreTrferSet=12,            //Оформление любого трансфера без учета настроек
                     tsMixedNorms=13,                //Смешивание норм, тарифов, сборов при трансфере
                     tsNoTicketCheck=15,             //Отмена контроля номеров билетов
