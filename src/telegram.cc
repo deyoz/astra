@@ -17,6 +17,7 @@
 #include "typeb_utils.h"
 #include "term_version.h"
 #include "alarms.h"
+#include "salons.h"
 #include "qrys.h"
 #include "serverlib/logger.h"
 #include "serverlib/posthooks.h"
@@ -1512,7 +1513,9 @@ void LoadContent(int grp_id, TTlgContent& con)
   if (!pr_unaccomp)
   {
     vector<TTlgCompLayer> complayers;
-    getSalonLayers( point_id, point_num, first_point, pr_tranzit, complayers, false );
+    if(not SALONS2::isFreeSeating(point_id) and not SALONS2::isEmptySalons(point_id)) {
+      getSalonLayers( point_id, point_num, first_point, pr_tranzit, complayers, false );
+    }
 
     Qry.Clear();
     Qry.SQLText=
