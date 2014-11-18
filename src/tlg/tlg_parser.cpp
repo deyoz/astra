@@ -1971,6 +1971,23 @@ vector<TPaxItem>::const_iterator findPaxForBlockSeats(vector<TPaxItem>::const_it
   return minSeatsPax;
 };
 
+template <typename T>
+void CompartmentToFareClass(const vector<TRbdItem> &rbd, T &pattern)
+{
+  pattern.cl=NoClass;
+  for(vector<TRbdItem>::const_iterator iRbdItem=rbd.begin();iRbdItem!=rbd.end();++iRbdItem)
+    if (iRbdItem->rbds.find_first_of(pattern.subcl[0])!=string::npos)
+    {
+      if (pattern.cl!=NoClass)
+        throw ETlgError("Duplicate RBD subclass '%s'",pattern.subcl);
+      if (iRbdItem->cl==NoClass)
+        throw ETlgError("Unknown RBD class code '%s'",iRbdItem->subcl);
+      pattern.cl=iRbdItem->cl;
+    };
+  if (pattern.cl==NoClass&&(pattern.cl=GetClass(pattern.subcl))==NoClass)
+    throw ETlgError("Unknown subclass '%s'",pattern.subcl);
+};
+
 void CheckDCSBagPool(const TPNLADLPRLContent& con)
 {
   if (con.resa.empty() || con.resa.back().pnr.empty() || con.resa.back().pnr.back().ne.empty()) return;
@@ -2176,18 +2193,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
                 };
 
                 //проверим в RBD
-                SeatsItem.cl=NoClass;
-                for(iRbdItem=con.rbd.begin();iRbdItem!=con.rbd.end();iRbdItem++)
-                  if (iRbdItem->rbds.find_first_of(SeatsItem.subcl[0])!=string::npos)
-                  {
-                    if (SeatsItem.cl!=NoClass)
-                      throw ETlgError("Duplicate RBD subclass '%s'",SeatsItem.subcl);
-                    if (iRbdItem->cl==NoClass)
-                      throw ETlgError("Unknown RBD class code '%s'",iRbdItem->subcl);
-                    SeatsItem.cl=iRbdItem->cl;
-                 };
-                if (SeatsItem.cl==NoClass&&(SeatsItem.cl=GetClass(SeatsItem.subcl))==NoClass)
-                  throw ETlgError("Unknown subclass '%s'",SeatsItem.subcl);
+                CompartmentToFareClass<TSeatsItem>(con.rbd, SeatsItem);
                 iRouteItem=con.avail.begin();
                 do
                 {
@@ -2268,18 +2274,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
                 };
 
                 //проверим в RBD
-                SeatsItem.cl=NoClass;
-                for(iRbdItem=con.rbd.begin();iRbdItem!=con.rbd.end();iRbdItem++)
-                  if (iRbdItem->rbds.find_first_of(SeatsItem.subcl[0])!=string::npos)
-                  {
-                    if (SeatsItem.cl!=NoClass)
-                      throw ETlgError("Duplicate RBD subclass '%s'",SeatsItem.subcl);
-                    if (iRbdItem->cl==NoClass)
-                      throw ETlgError("Unknown RBD class code '%s'",iRbdItem->subcl);
-                    SeatsItem.cl=iRbdItem->cl;
-                 };
-                if (SeatsItem.cl==NoClass&&(SeatsItem.cl=GetClass(SeatsItem.subcl))==NoClass)
-                  throw ETlgError("Unknown subclass '%s'",SeatsItem.subcl);
+                CompartmentToFareClass<TSeatsItem>(con.rbd, SeatsItem);
                 iRouteItem=con.transit.begin();
                 do
                 {
@@ -2338,18 +2333,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             }
             else
             {
-              Totals.cl=NoClass;
-              for(iRbdItem=con.rbd.begin();iRbdItem!=con.rbd.end();iRbdItem++)
-                if (iRbdItem->rbds.find_first_of(Totals.subcl[0])!=string::npos)
-                {
-                  if (Totals.cl!=NoClass)
-                    throw ETlgError("Duplicate RBD subclass '%s'",Totals.subcl);
-                  if (iRbdItem->cl==NoClass)
-                    throw ETlgError("Unknown RBD class code '%s'",iRbdItem->subcl);
-                  Totals.cl=iRbdItem->cl;
-                };
-              if (Totals.cl==NoClass&&(Totals.cl=GetClass(Totals.subcl))==NoClass)
-                throw ETlgError("Unknown subclass '%s'",Totals.subcl);
+              CompartmentToFareClass<TTotalsByDest>(con.rbd, Totals);
               iTotals=con.resa.insert(con.resa.end(),Totals);
             };
 
@@ -2558,7 +2542,23 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
         };
       };
     };
-    
+       
+    //нормализуем RBD для записи в базу
+    for(vector<TRbdItem>::iterator i=con.rbd.begin(); i!=con.rbd.end(); ++i)
+    {
+      GetSubcl(i->subcl);
+      string normal_rbds;
+      for(string::const_iterator j=i->rbds.begin(); j!=i->rbds.end(); ++j)
+      {
+        char subclh[2];
+        subclh[0]=*j;
+        subclh[1]=0;
+        GetSubcl(subclh);
+        if (normal_rbds.find_first_of(subclh[0])==string::npos) normal_rbds.append(subclh);
+      };
+      i->rbds=normal_rbds;
+    };
+
     //C. разобрать ремарки
     TSeatRemPriority seat_rem_priority;
     string airline_mark; //по какой компании посторен seat_rem_priority
@@ -6057,6 +6057,67 @@ void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con)
   };
 };
 
+void UpdateCrsDataStat(const TTlgElement elem,
+                       const int point_id,
+                       const string &system,
+                       const TDCSHeadingInfo &info)
+{
+   string crs_data_set_null, crs_data_stat_field;
+   switch (elem)
+   {
+     case TotalsByDestination:
+       crs_data_set_null = "  SET resa=NULL, pad=NULL ";
+       crs_data_stat_field = "last_resa";
+       break;
+     case TranzitElement:
+       crs_data_set_null = "  SET tranzit=NULL ";
+       crs_data_stat_field = "last_tranzit";
+       break;
+     case SpaceAvailableElement:
+       crs_data_set_null = "  SET avail=NULL ";
+       crs_data_stat_field = "last_avail";
+       break;
+     case Configuration:
+       crs_data_set_null = "  SET cfg=NULL ";
+       crs_data_stat_field = "last_cfg";
+       break;
+     case ClassCodes:
+       crs_data_stat_field = "last_rbd";
+       break;
+     default: return;
+   };
+
+
+   ostringstream sql;
+   sql << "BEGIN ";
+
+   if (elem!=ClassCodes)
+     sql << "  UPDATE crs_data "
+         << crs_data_set_null
+         << "  WHERE point_id=:point_id AND system=:system AND sender=:sender; ";
+
+   else
+     sql << "  DELETE FROM crs_rbd WHERE point_id=:point_id AND system=:system AND sender=:sender; ";
+
+   sql << "  IF :system='CRS' THEN "
+          "    UPDATE crs_data_stat SET " << crs_data_stat_field << "=:time_create WHERE point_id=:point_id AND crs=:sender; "
+          "    IF SQL%NOTFOUND THEN "
+          "      INSERT INTO crs_data_stat(point_id,crs," << crs_data_stat_field << ") "
+          "      VALUES(:point_id,:sender,:time_create); "
+          "    END IF; "
+          "  END IF; "
+          "END;";
+
+   TQuery Qry(&OraSession);
+   Qry.Clear();
+   Qry.SQLText=sql.str().c_str();
+   Qry.CreateVariable("point_id",otInteger,point_id);
+   Qry.CreateVariable("system",otString,system);
+   Qry.CreateVariable("sender",otString,info.sender);
+   Qry.CreateVariable("time_create",otDate,info.time_create);
+   Qry.Execute();
+};
+
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly)
 {
   vector<TRouteItem>::iterator iRouteItem;
@@ -6128,7 +6189,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   TDateTime last_resa=NoExists,
             last_tranzit=NoExists,
             last_avail=NoExists,
-            last_cfg=NoExists;
+            last_cfg=NoExists,
+            last_rbd=NoExists;
   int pr_pnl=0;
             
   if (!isPRL)
@@ -6167,7 +6229,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
     Qry.Clear();
     Qry.SQLText=
-      "SELECT last_resa,last_tranzit,last_avail,last_cfg,pr_pnl FROM crs_data_stat "
+      "SELECT last_resa,last_tranzit,last_avail,last_cfg,last_rbd,pr_pnl FROM crs_data_stat "
       "WHERE point_id=:point_id AND crs=:crs FOR UPDATE";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("crs",otString,info.sender);
@@ -6182,6 +6244,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         last_avail=Qry.FieldAsDateTime("last_avail");
       if (!Qry.FieldIsNULL("last_cfg"))
         last_cfg=Qry.FieldAsDateTime("last_cfg");
+      if (!Qry.FieldIsNULL("last_rbd"))
+        last_rbd=Qry.FieldAsDateTime("last_rbd");
       pr_pnl=Qry.FieldAsInteger("pr_pnl");
     };
 
@@ -6199,24 +6263,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   if (!con.resa.empty()&&(last_resa==NoExists||last_resa<=info.time_create))
   {
     pr_recount=true;
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  UPDATE crs_data SET resa=NULL,pad=NULL "
-      "  WHERE point_id=:point_id AND system=:system AND sender=:sender; "
-      "  IF :system='CRS' THEN "
-      "    UPDATE crs_data_stat SET last_resa=:time_create WHERE point_id=:point_id AND crs=:sender; "
-      "    IF SQL%NOTFOUND THEN "
-      "      INSERT INTO crs_data_stat(point_id,crs,last_resa) "
-      "      VALUES(:point_id,:sender,:time_create); "
-      "    END IF; "
-      "  END IF; "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("system",otString,system);
-    Qry.CreateVariable("sender",otString,info.sender);
-    Qry.CreateVariable("time_create",otDate,info.time_create);
-    Qry.Execute();
+    UpdateCrsDataStat(TotalsByDestination, point_id, system, info);
 
     Qry.Clear();
     Qry.SQLText=
@@ -6249,24 +6296,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   if (!con.transit.empty()&&(last_tranzit==NoExists||last_tranzit<=info.time_create))
   {
     pr_recount=true;
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  UPDATE crs_data SET tranzit=NULL "
-      "  WHERE point_id=:point_id AND system=:system AND sender=:sender; "
-      "  IF :system='CRS' THEN "
-      "    UPDATE crs_data_stat SET last_tranzit=:time_create WHERE point_id=:point_id AND crs=:sender; "
-      "    IF SQL%NOTFOUND THEN "
-      "      INSERT INTO crs_data_stat(point_id,crs,last_tranzit) "
-      "      VALUES(:point_id,:sender,:time_create); "
-      "    END IF; "
-      "  END IF; "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("system",otString,system);
-    Qry.CreateVariable("sender",otString,info.sender);
-    Qry.CreateVariable("time_create",otDate,info.time_create);
-    Qry.Execute();
+    UpdateCrsDataStat(TranzitElement, point_id, system, info);
 
     Qry.Clear();
     Qry.SQLText=
@@ -6300,24 +6330,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   if (!con.avail.empty()&&(last_avail==NoExists||last_avail<=info.time_create))
   {
     pr_recount=true;
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  UPDATE crs_data SET avail=NULL "
-      "  WHERE point_id=:point_id AND system=:system AND sender=:sender; "
-      "  IF :system='CRS' THEN "
-      "    UPDATE crs_data_stat SET last_avail=:time_create WHERE point_id=:point_id AND crs=:sender; "
-      "    IF SQL%NOTFOUND THEN "
-      "      INSERT INTO crs_data_stat(point_id,crs,last_avail) "
-      "      VALUES(:point_id,:sender,:time_create); "
-      "    END IF; "
-      "  END IF; "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("system",otString,system);
-    Qry.CreateVariable("sender",otString,info.sender);
-    Qry.CreateVariable("time_create",otDate,info.time_create);
-    Qry.Execute();
+    UpdateCrsDataStat(SpaceAvailableElement, point_id, system, info);
 
     Qry.Clear();
     Qry.SQLText=
@@ -6351,24 +6364,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   if (!con.cfg.empty()&&(last_cfg==NoExists||last_cfg<=info.time_create))
   {
     pr_recount=true;
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  UPDATE crs_data SET cfg=NULL "
-      "  WHERE point_id=:point_id AND system=:system AND sender=:sender; "
-      "  IF :system='CRS' THEN "
-      "    UPDATE crs_data_stat SET last_cfg=:time_create WHERE point_id=:point_id AND crs=:sender; "
-      "    IF SQL%NOTFOUND THEN "
-      "      INSERT INTO crs_data_stat(point_id,crs,last_cfg) "
-      "      VALUES(:point_id,:sender,:time_create); "
-      "    END IF; "
-      "  END IF; "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("system",otString,system);
-    Qry.CreateVariable("sender",otString,info.sender);
-    Qry.CreateVariable("time_create",otDate,info.time_create);
-    Qry.Execute();
+    UpdateCrsDataStat(Configuration, point_id, system, info);
 
     Qry.Clear();
     Qry.SQLText=
@@ -6398,6 +6394,31 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
       };
     };
   };
+
+  if (!con.rbd.empty()&&(last_rbd==NoExists||last_rbd<=info.time_create))
+  {
+    UpdateCrsDataStat(ClassCodes, point_id, system, info);
+    Qry.Clear();
+    Qry.SQLText=
+      "INSERT INTO crs_rbd(point_id, sender, system, fare_class, compartment) "
+      "VALUES(:point_id, :sender, :system, :fare_class, :compartment) ";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("sender",otString,info.sender);
+    Qry.CreateVariable("system",otString,system);
+    Qry.DeclareVariable("fare_class",otString);
+    Qry.DeclareVariable("compartment",otString);
+
+    for(vector<TRbdItem>::const_iterator i=con.rbd.begin(); i!=con.rbd.end(); ++i)
+    {
+      for(string::const_iterator j=i->rbds.begin(); j!=i->rbds.end(); ++j)
+      {
+        Qry.SetVariable("fare_class", string(1,*j));
+        Qry.SetVariable("compartment", i->subcl);
+        Qry.Execute();
+      };
+    };
+  };
+
   if (pr_recount) crs_recount(point_id,NoExists,true);
 
   OraSession.Commit();
