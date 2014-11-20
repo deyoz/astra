@@ -7075,6 +7075,125 @@ int PFS(TypeB::TDetailCreateInfo &info)
     return tlg_row.id;
 }
 
+class TRBD:map<string, set<string> > {
+    private:
+    public:
+        void get(TypeB::TDetailCreateInfo &info);
+        void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
+};
+
+void TRBD::get(TypeB::TDetailCreateInfo &info)
+{
+    const TypeB::TPRLOptions *PRLOptions=NULL;
+    if(info.optionsIs<TypeB::TPRLOptions>())                                                                                                
+        PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
+    if(PRLOptions and PRLOptions->rbd) {
+        const TypeB::TMarkInfoOptions *markOptions=NULL;
+        if(info.optionsIs<TypeB::TMarkInfoOptions>())
+            markOptions=info.optionsAs<TypeB::TMarkInfoOptions>();
+
+        // 1. шаг - определить crs_rbd.point_id (который есть tlg_trips.point_id)
+        int crs_rbd_point_id = NoExists;
+        QParams QryParams;
+        QryParams << QParam("point_id", otInteger, info.point_id);
+        TCachedQuery Qry(
+                "SELECT tlg_trips.point_id, tlg_trips.airline, tlg_trips.flt_no, tlg_trips.suffix "
+                "FROM tlg_trips, tlg_binding "
+                "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg AND "
+                "             tlg_binding.point_id_spp=:point_id ",
+                QryParams);
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            for(; not Qry.get().Eof; Qry.get().Next()) {
+                TMktFlight flt;
+                int tlg_trips_point_id = Qry.get().FieldAsInteger("point_id");
+                flt.airline = Qry.get().FieldAsString("airline");
+                flt.flt_no = Qry.get().FieldAsInteger("flt_no");
+                flt.suffix = Qry.get().FieldAsString("suffix");
+                if(markOptions and not markOptions->mark_info.empty() and flt == markOptions->mark_info) {
+                    crs_rbd_point_id = tlg_trips_point_id;
+                    break;
+                } else if(
+                        info.airline == flt.airline and
+                        info.flt_no == flt.flt_no and
+                        info.suffix == flt.suffix
+                        ) {
+                    crs_rbd_point_id = tlg_trips_point_id;
+                    break;
+                }
+            }
+        }
+        // 2. шаг. Определить crs_rbd.sender
+        string crs_rbd_sender;
+        if(markOptions and not markOptions->mark_info.empty())
+            crs_rbd_sender = markOptions->crs;
+
+        if(
+                crs_rbd_point_id == NoExists or 
+                crs_rbd_sender.empty())
+        {
+            // 3. шаг. Выбор наиболее подходящих point_id и sender из CRS_RBD
+            QryParams.clear();
+            if(crs_rbd_point_id == NoExists)
+                QryParams << QParam("point_id_tlg", otInteger, FNull);
+            else
+                QryParams << QParam("point_id_tlg", otInteger, crs_rbd_point_id);
+            QryParams
+                << QParam("sender", otString, crs_rbd_sender)
+                << QParam("point_id_spp", otInteger, info.point_id);
+
+            TCachedQuery Step3Qry(
+                    "SELECT crs_rbd.point_id, crs_rbd.sender, "
+                    "  DECODE(crs_rbd.point_id, :point_id_tlg, 2, 0)+ "
+                    "  DECODE(crs_rbd.sender, :sender, 1, 0) AS priority "
+                    "FROM crs_rbd, tlg_binding "
+                    "WHERE crs_rbd.point_id=tlg_binding.point_id_tlg AND "
+                    "             tlg_binding.point_id_spp=:point_id_spp AND crs_rbd.system='CRS' "
+                    "ORDER BY priority DESC, crs_rbd.point_id, crs_rbd.sender ",
+                    QryParams);
+            Step3Qry.get().Execute();
+            for(; not Step3Qry.get().Eof; Step3Qry.get().Next()) {
+                crs_rbd_point_id = Step3Qry.get().FieldAsInteger("point_id");
+                crs_rbd_sender = Step3Qry.get().FieldAsString("sender");
+                break;
+            }
+        }
+
+        // Здесь определены оба параметра (point_id и sender из CRS_RBD)
+        QryParams.clear();
+        QryParams
+            << QParam("point_id", otInteger, crs_rbd_point_id)
+            << QParam("sender", otString, crs_rbd_sender);
+        TCachedQuery Step4Qry(
+                "SELECT fare_class, compartment "
+                "FROM crs_rbd "
+                "WHERE point_id=:point_id and sender=:sender ",
+                QryParams);
+        Step4Qry.get().Execute();
+        for(; not Step4Qry.get().Eof; Step4Qry.get().Next())
+            (*this)[Step4Qry.get().FieldAsString("compartment")].insert(Step4Qry.get().FieldAsString("fare_class"));
+    }
+}
+
+void TRBD::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
+{
+    if(empty()) return;
+    string result = "RBD";
+    for(
+            map<string, set<string> >::iterator compartment = begin();
+            compartment != end(); compartment++) {
+        result += " " + info.TlgElemIdToElem(etSubcls, compartment->first, prLatToElemFmt(efmtCodeNative,true)) + "/";
+        for(
+                set<string>::iterator fare_class = compartment->second.begin();
+                fare_class != compartment->second.end();
+                fare_class++
+           ) {
+            result += info.TlgElemIdToElem(etSubcls, *fare_class, prLatToElemFmt(efmtCodeNative,true));
+        }
+    }
+    body.insert(body.end(), result);
+}
+
 int PRL(TypeB::TDetailCreateInfo &info)
 {
 #ifdef SQL_COUNTERS
@@ -7093,6 +7212,9 @@ int PRL(TypeB::TDetailCreateInfo &info)
 
     vector<string> body;
     try {
+        TRBD rbd;
+        rbd.get(info);
+        rbd.ToTlg(info, body);
         vector<TTlgCompLayer> complayers;
         if(not isFreeSeating(info.point_id) and not isEmptySalons(info.point_id))
             getSalonLayers( info, complayers, false );
