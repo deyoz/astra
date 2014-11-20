@@ -6206,6 +6206,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
     Qry.CreateVariable("airline",otString,con.flt.airline);
     Qry.CreateVariable("flt_no",otInteger,(int)con.flt.flt_no);
     Qry.CreateVariable("airp_dep",otString,con.flt.airp_dep);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     Qry.Execute();
     if (!Qry.Eof)
     {
@@ -6214,8 +6216,13 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
     else
     {
       Qry.SQLText=
-        "INSERT INTO crs_set(id,airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl) "
-        "VALUES(id__seq.nextval,:airline,:flt_no,:airp_dep,:crs,0,0)";
+        "DECLARE "
+        "  vid crs_set.id%TYPE; "
+        "BEGIN "
+        "  INSERT INTO crs_set(id,airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl) "
+        "  VALUES(id__seq.nextval,:airline,:flt_no,:airp_dep,:crs,0,0) RETURNING id INTO vid; "
+        "  hist.synchronize_history('crs_set',vid,:SYS_user_descr,:SYS_desk_code); "
+        "END;";
       Qry.SetVariable("flt_no",FNull);
       try
       {

@@ -827,6 +827,8 @@ void TBRTypes::ToBase()
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
+        "declre "
+        "  vid form_types.id%TYPE; "
         "begin "
         "  update form_types set "
         "    name = :name, "
@@ -835,7 +837,7 @@ void TBRTypes::ToBase()
         "    pr_check_bit = :pr_check_bit, "
         "    validator = :validator, "
         "    basic_type = :basic_type "
-        "  where code = :code; "
+        "  where code = :code returning id into vid; "
         "  if sql%notfound then "
         "    insert into form_types( "
         "      code, "
@@ -855,8 +857,9 @@ void TBRTypes::ToBase()
         "      :validator, "
         "      :basic_type, "
         "      id__seq.nextval "
-        "    ); "
+        "    ) returning id into vid; "
         "  end if; "
+        "  hist.synchronize_history('form_types',vid,:SYS_user_descr,:SYS_desk_code); "
         "end; ";
     Qry.DeclareVariable("code", otString);
     Qry.DeclareVariable("name", otString);
@@ -865,6 +868,8 @@ void TBRTypes::ToBase()
     Qry.DeclareVariable("pr_check_bit", otInteger);
     Qry.DeclareVariable("validator", otString);
     Qry.DeclareVariable("basic_type", otString);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     for(vector<TBRTypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
         Qry.SetVariable("code", iv->code);
         Qry.SetVariable("name", iv->name);
@@ -882,30 +887,37 @@ void TBPTypes::ToBase()
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
+        "declare "
+        "  vid bp_types.id%TYPE; "
         "begin "
         "  update bp_types set "
         "    airline = :airline, "
         "    airp = :airp, "
         "    name = :name "
-        "  where code = :code; "
+        "  where code = :code returning id into vid; "
         "  if sql%notfound then "
         "    insert into bp_types( "
         "      code, "
         "      airline, "
         "      airp, "
-        "      name "
+        "      name, "
+        "      id "
         "    ) values ( "
         "      :code, "
         "      :airline, "
         "      :airp, "
-        "      :name "
-        "    ); "
+        "      :name, "
+        "      id__seq.nextval "
+        "    ) returning id into vid; "
         "  end if; "
+        "  hist.synchronize_history('bp_types',vid,:SYS_user_descr,:SYS_desk_code); "
         "end; ";
     Qry.DeclareVariable("code", otString);
     Qry.DeclareVariable("airline", otString);
     Qry.DeclareVariable("airp", otString);
     Qry.DeclareVariable("name", otString);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     for(vector<TBPTypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
         Qry.SetVariable("code", iv->code);
         Qry.SetVariable("airline", iv->airline);
@@ -1231,6 +1243,8 @@ void TTagTypes::ToBase()
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
+        "declare "
+        "  vid tag_types.id%TYPE; "
         "begin "
         "  update tag_types set "
         "    airline = :airline, "
@@ -1238,7 +1252,7 @@ void TTagTypes::ToBase()
         "    no_len = :no_len, "
         "    printable = :printable, "
         "    airp = :airp "
-        "  where code = :code; "
+        "  where code = :code returning id into vid; "
         "  if sql%notfound then "
         "    insert into tag_types ( "
         "      code, "
@@ -1256,8 +1270,9 @@ void TTagTypes::ToBase()
         "      :printable, "
         "      :airp, "
         "      id__seq.nextval "
-        "    ); "
+        "    ) returning id into vid; "
         "  end if; "
+        "  hist.synchronize_history('tag_types',vid,:SYS_user_descr,:SYS_desk_code); "
         "end; ";
     Qry.DeclareVariable("code", otString);
     Qry.DeclareVariable("airline", otString);
@@ -1265,6 +1280,8 @@ void TTagTypes::ToBase()
     Qry.DeclareVariable("no_len", otInteger);
     Qry.DeclareVariable("printable", otInteger);
     Qry.DeclareVariable("airp", otString);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     for(vector<TTagTypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
         Qry.SetVariable("code", iv->code);
         Qry.SetVariable("airline", iv->airline);
