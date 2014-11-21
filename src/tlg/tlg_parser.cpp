@@ -2457,14 +2457,14 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
       };
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
-    
+
     //3 прохода обработки ремарок
     //A. привязать ремарки к пассажирам
     for(iTotals=con.resa.begin();iTotals!=con.resa.end();++iTotals)
       for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();++iPnrItem)
         for(vector<TNameElement>::iterator i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();++i)
           BindRemarks(tlg,*i);
-    
+
     //B. проанализировать дополнительные места пассажиров (после привязки, но до разбора ремарок!)
     for(iTotals=con.resa.begin();iTotals!=con.resa.end();++iTotals)
     {
@@ -2542,7 +2542,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
         };
       };
     };
-       
+
     //нормализуем RBD для записи в базу
     for(vector<TRbdItem>::iterator i=con.rbd.begin(); i!=con.rbd.end(); ++i)
     {
@@ -2554,6 +2554,17 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
         subclh[0]=*j;
         subclh[1]=0;
         GetSubcl(subclh);
+
+        //проверим на дублирование
+        vector<TRbdItem>::const_iterator k=con.rbd.begin();
+        for(; k!=i; ++k)
+        {
+          if (k->rbds.find_first_of(subclh[0])==string::npos) continue;
+          if (strcmp(i->subcl, k->subcl)==0) break;
+          throw ETlgError("Duplicate RBD subclass '%s'",subclh);
+        };
+        if (k!=i) continue; //уже есть такая пара compartment/fare_class
+
         if (normal_rbds.find_first_of(subclh[0])==string::npos) normal_rbds.append(subclh);
       };
       i->rbds=normal_rbds;
@@ -2967,7 +2978,7 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
   {
     if (!ne.bag.Empty())
       throw ETlgError("Duplicate pieces/weight data element");
-    
+
     c=0;
     ne.bag.weight_unit[1]=0;
     res=sscanf(tlg.lex,".W/%c%[^.]",&ne.bag.weight_unit[0],tlg.lex);
@@ -2998,7 +3009,7 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
         c=0;
         res=sscanf(tlg.lex,"/%3lu%c",&ne.bag.rk_weight,&c);
         if (c!=0||res!=1||ne.bag.rk_weight<0) throw ETlgError("Wrong pieces/weight data element");
-        
+
       };
     };
     pr_bag_info=true;
@@ -3018,7 +3029,7 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
         throw ETlgError("Wrong baggage tag details element");
       if (strlen(tagh.first_no)<8)
         throw ETlgError("Wrong baggage tag ID number");
-        
+
       lexh[0]=0;
       c=0;
       if (IsDigit(tagh.first_no[2]))
@@ -3415,7 +3426,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               };
               continue;
             };
-            
+
             if (strcmp(iRemItem->code,"DOCO")==0)
             {
               TDocoItem doc;
@@ -3761,7 +3772,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
         for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
         {
           if (iRemItem->text.empty()) continue;
-          
+
           if (iRemItem->code!=r->first) continue;
           vector<TSeatRange> seats;
           TSeat seat;
@@ -4633,7 +4644,7 @@ bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocoI
     };
     return true;
   };
-  
+
   return false;
 };
 
@@ -6141,9 +6152,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   //идентифицируем систему бронирования
   bool isPRL=strcmp(info.tlg_type,"PRL")==0;
   if (isPRL && !DeletePRLContent(point_id,info)) return true;
-  
+
   string system=isPRL?"DCS":"CRS";
-  
+
   Qry.Clear();
   Qry.SQLText="INSERT INTO typeb_senders(code,name) VALUES(:code,:code)";
   Qry.CreateVariable("code",otString,info.sender);
@@ -6155,7 +6166,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   {
     if (E.Code!=1) throw;
   };
-  
+
   Qry.Clear();
   Qry.SQLText="INSERT INTO typeb_sender_systems(sender,system) VALUES(:sender,:system)";
   Qry.CreateVariable("sender",otString,info.sender);
@@ -6168,7 +6179,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   {
     if (E.Code!=1) throw;
   };
-  
+
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
@@ -6192,7 +6203,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             last_cfg=NoExists,
             last_rbd=NoExists;
   int pr_pnl=0;
-            
+
   if (!isPRL)
   {
     Qry.Clear();
@@ -6260,7 +6271,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
     //pr_pnl=1 - пришел цифровой PNL
     //pr_pnl=2 - пришел нецифровой PNL
   };
-  
+
   bool pr_save_ne=isPRL ||
                   !((strcmp(info.tlg_type,"PNL")==0&&pr_pnl==2)|| //пришел второй нецифровой PNL
                     (strcmp(info.tlg_type,"ADL")==0&&pr_pnl!=2)); //пришел ADL до обоих PNL
@@ -6407,20 +6418,23 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
     UpdateCrsDataStat(ClassCodes, point_id, system, info);
     Qry.Clear();
     Qry.SQLText=
-      "INSERT INTO crs_rbd(point_id, sender, system, fare_class, compartment) "
-      "VALUES(:point_id, :sender, :system, :fare_class, :compartment) ";
+      "INSERT INTO crs_rbd(point_id, sender, system, fare_class, compartment, view_order) "
+      "VALUES(:point_id, :sender, :system, :fare_class, :compartment, :view_order) ";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("sender",otString,info.sender);
     Qry.CreateVariable("system",otString,system);
     Qry.DeclareVariable("fare_class",otString);
     Qry.DeclareVariable("compartment",otString);
+    Qry.DeclareVariable("view_order",otInteger);
 
+    int view_order=1;
     for(vector<TRbdItem>::const_iterator i=con.rbd.begin(); i!=con.rbd.end(); ++i)
     {
       for(string::const_iterator j=i->rbds.begin(); j!=i->rbds.end(); ++j)
       {
         Qry.SetVariable("fare_class", string(1,*j));
         Qry.SetVariable("compartment", i->subcl);
+        Qry.SetVariable("view_order", view_order++);
         Qry.Execute();
       };
     };
@@ -6860,7 +6874,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   Qry.CreateVariable("sync_pax_asvc_rows", otInteger, 0);
                   Qry.Execute();
                   if (Qry.GetVariableAsInteger("sync_pax_asvc_rows")>0) emd_alarm_pax_ids.insert(pax_id);
-                  
+
                   DeleteTlgSeatRanges(cltPNLCkin, pax_id, tid, point_ids_spp);
                   DeleteTlgSeatRanges(cltPNLBeforePay, pax_id, tid, point_ids_spp);
                   DeleteTlgSeatRanges(cltPNLAfterPay, pax_id, tid, point_ids_spp);
@@ -6938,7 +6952,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   //делаем синхронизацию пассажира с розыском
                   rozysk::sync_crs_pax(pax_id, "", "");
                 };
-                
+
                 if (isPRL && iPaxItem==ne.pax.begin())
                 {
                   //запишем багаж
