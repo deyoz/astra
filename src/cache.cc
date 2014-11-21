@@ -482,6 +482,14 @@ void TCacheTable::DeclareSysVariables(std::vector<string> &vars, TQuery *Qry)
       vars.erase( f );
     }
 
+    // задание переменной SYS_user_descr
+    f = find( vars.begin(), vars.end(), "SYS_USER_DESCR" );
+    if ( f != vars.end() ) {
+      Qry->DeclareVariable("SYS_user_descr", otString);
+      Qry->SetVariable( "SYS_user_descr", TReqInfo::Instance()->user.descr );
+      vars.erase( f );
+    }
+
     // задание переменной SYS_canon_name
     f = find( vars.begin(), vars.end(), "SYS_CANON_NAME" );
     if ( f != vars.end() ) {
@@ -502,6 +510,13 @@ void TCacheTable::DeclareSysVariables(std::vector<string> &vars, TQuery *Qry)
     if ( f != vars.end() ) {
       Qry->DeclareVariable("SYS_desk_lang", otString);
       Qry->SetVariable( "SYS_desk_lang", TReqInfo::Instance()->desk.lang );
+      vars.erase( f );
+    }
+
+    f = find( vars.begin(), vars.end(), "SYS_DESK_CODE" );
+    if ( f != vars.end() ) {
+      Qry->DeclareVariable("SYS_desk_code", otString);
+      Qry->SetVariable( "SYS_desk_code", TReqInfo::Instance()->desk.code );
       vars.erase( f );
     }
 

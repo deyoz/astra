@@ -1,7 +1,7 @@
 /*
 create table aodb_pax( point_id NUMBER(9), pax_id NUMBER(9), record VARCHAR2(2000) );
 create table aodb_bag( pax_id NUMBER(9), num NUMBAR(3), record VARCHAR2(2000) );
-INSERT INTO file_types(code,name,in_order) VALUES( "AODB", "AODB", 1 );
+INSERT INTO file_types(code,name,in_order,id) VALUES( "AODB", "AODB", 1, id__seq.nextval );
 INSERT INTO file_param_sets
 alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 */

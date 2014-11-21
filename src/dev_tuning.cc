@@ -227,7 +227,7 @@ void DevTuningInterface::UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             "update prn_form_vers set form = :form, data = :data, descr = :descr where id = :id and version = :vers";
     else // Copy
         Qry.SQLText =
-            "insert into prn_form_vers(id, version, descr, form, data, read_only) values(:id, :vers, :descr, :form, :data, 0)";
+            "insert into prn_form_vers(id, version, descr, form, data, read_only, form_id) values(:id, :vers, :descr, :form, :data, 0, id__seq.nextval)";
     Qry.CreateVariable("id", otInteger, id);
     Qry.CreateVariable("vers", otInteger, vers);
     Qry.CreateVariable("form", otString, form);
@@ -419,14 +419,16 @@ void TPrnFormVers::ToBase()
         "      descr, "
         "      form, "
         "      data, "
-        "      read_only "
+        "      read_only, "
+        "      form_id  "
         "    ) values ( "
         "      :id, "
         "      :version, "
         "      :descr, "
         "      :form, "
         "      :data, "
-        "      :read_only "
+        "      :read_only, "
+        "      id__seq.nextval  "
         "    ); "
         "  end if; "
         "end; ";
@@ -518,13 +520,15 @@ void TBRModels::ToBase()
         "      dev_model, "
         "      fmt_type, "
         "      id, "
-        "      version "
+        "      version, "
+        "      model_id "
         "    ) values ( "
         "      :form_type, "
         "      :dev_model, "
         "      :fmt_type, "
         "      :id, "
-        "      :version "
+        "      :version, "
+        "      id__seq.nextval "
         "    ); "
         "  end if; "
         "end; ";
@@ -563,13 +567,15 @@ void TBPModels::ToBase()
         "      dev_model, "
         "      fmt_type, "
         "      id, "
-        "      version "
+        "      version, "
+        "      model_id "
         "    ) values ( "
         "      :form_type, "
         "      :dev_model, "
         "      :fmt_type, "
         "      :id, "
-        "      :version "
+        "      :version, "
+        "      id__seq.nextval "
         "    ); "
         "  end if; "
         "end; ";
@@ -709,13 +715,15 @@ void TBRTypes::copy(string src, string dest)
         "  dev_model, "
         "  fmt_type, "
         "  id, "
-        "  version "
+        "  version, "
+        "  model_id "
         ") values ( "
         "  :form_type, "
         "  :dev_model, "
         "  :fmt_type, "
         "  :id, "
-        "  :version "
+        "  :version, "
+        "  id__seq.nextval "
         ") ";
     Qry.DeclareVariable("form_type", otString);
     Qry.DeclareVariable("dev_model", otString);
@@ -788,13 +796,15 @@ void TBPTypes::copy(string src, string dest)
         "  dev_model, "
         "  fmt_type, "
         "  id, "
-        "  version "
+        "  version, "
+        "  model_id "
         ") values ( "
         "  :form_type, "
         "  :dev_model, "
         "  :fmt_type, "
         "  :id, "
-        "  :version "
+        "  :version, "
+        "  id__seq.nextval "
         ") ";
     Qry.DeclareVariable("form_type", otString);
     Qry.DeclareVariable("dev_model", otString);
@@ -817,6 +827,8 @@ void TBRTypes::ToBase()
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
+        "declre "
+        "  vid form_types.id%TYPE; "
         "begin "
         "  update form_types set "
         "    name = :name, "
@@ -825,7 +837,7 @@ void TBRTypes::ToBase()
         "    pr_check_bit = :pr_check_bit, "
         "    validator = :validator, "
         "    basic_type = :basic_type "
-        "  where code = :code; "
+        "  where code = :code returning id into vid; "
         "  if sql%notfound then "
         "    insert into form_types( "
         "      code, "
@@ -834,7 +846,8 @@ void TBRTypes::ToBase()
         "      no_len, "
         "      pr_check_bit, "
         "      validator, "
-        "      basic_type "
+        "      basic_type, "
+        "      id "
         "    ) values ( "
         "      :code, "
         "      :name, "
@@ -842,9 +855,11 @@ void TBRTypes::ToBase()
         "      :no_len, "
         "      :pr_check_bit, "
         "      :validator, "
-        "      :basic_type "
-        "    ); "
+        "      :basic_type, "
+        "      id__seq.nextval "
+        "    ) returning id into vid; "
         "  end if; "
+        "  hist.synchronize_history('form_types',vid,:SYS_user_descr,:SYS_desk_code); "
         "end; ";
     Qry.DeclareVariable("code", otString);
     Qry.DeclareVariable("name", otString);
@@ -853,6 +868,8 @@ void TBRTypes::ToBase()
     Qry.DeclareVariable("pr_check_bit", otInteger);
     Qry.DeclareVariable("validator", otString);
     Qry.DeclareVariable("basic_type", otString);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     for(vector<TBRTypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
         Qry.SetVariable("code", iv->code);
         Qry.SetVariable("name", iv->name);
@@ -870,30 +887,37 @@ void TBPTypes::ToBase()
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
+        "declare "
+        "  vid bp_types.id%TYPE; "
         "begin "
         "  update bp_types set "
         "    airline = :airline, "
         "    airp = :airp, "
         "    name = :name "
-        "  where code = :code; "
+        "  where code = :code returning id into vid; "
         "  if sql%notfound then "
         "    insert into bp_types( "
         "      code, "
         "      airline, "
         "      airp, "
-        "      name "
+        "      name, "
+        "      id "
         "    ) values ( "
         "      :code, "
         "      :airline, "
         "      :airp, "
-        "      :name "
-        "    ); "
+        "      :name, "
+        "      id__seq.nextval "
+        "    ) returning id into vid; "
         "  end if; "
+        "  hist.synchronize_history('bp_types',vid,:SYS_user_descr,:SYS_desk_code); "
         "end; ";
     Qry.DeclareVariable("code", otString);
     Qry.DeclareVariable("airline", otString);
     Qry.DeclareVariable("airp", otString);
     Qry.DeclareVariable("name", otString);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     for(vector<TBPTypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
         Qry.SetVariable("code", iv->code);
         Qry.SetVariable("airline", iv->airline);
@@ -1064,14 +1088,16 @@ void TBTModels::ToBase()
         "      num, "
         "      fmt_type, "
         "      id, "
-        "      version "
+        "      version, "
+        "      model_id "
         "    ) values ( "
         "      :form_type, "
         "      :dev_model, "
         "      :num, "
         "      :fmt_type, "
         "      :id, "
-        "      :version "
+        "      :version, "
+        "      id__seq.nextval "
         "    ); "
         "  end if; "
         "end; ";
@@ -1183,14 +1209,16 @@ void TTagTypes::copy(string src, string dest)
         "  num, "
         "  fmt_type, "
         "  id, "
-        "  version "
+        "  version, "
+        "  model_id "
         ") values ( "
         "  :form_type, "
         "  :dev_model, "
         "  :num, "
         "  :fmt_type, "
         "  :id, "
-        "  :version "
+        "  :version, "
+        "  id__seq.nextval "
         ") ";
     Qry.DeclareVariable("form_type", otString);
     Qry.DeclareVariable("dev_model", otString);
@@ -1215,6 +1243,8 @@ void TTagTypes::ToBase()
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
+        "declare "
+        "  vid tag_types.id%TYPE; "
         "begin "
         "  update tag_types set "
         "    airline = :airline, "
@@ -1222,7 +1252,7 @@ void TTagTypes::ToBase()
         "    no_len = :no_len, "
         "    printable = :printable, "
         "    airp = :airp "
-        "  where code = :code; "
+        "  where code = :code returning id into vid; "
         "  if sql%notfound then "
         "    insert into tag_types ( "
         "      code, "
@@ -1230,16 +1260,19 @@ void TTagTypes::ToBase()
         "      name, "
         "      no_len, "
         "      printable, "
-        "      airp "
+        "      airp, "
+        "      id "
         "    ) values ( "
         "      :code, "
         "      :airline, "
         "      :name, "
         "      :no_len, "
         "      :printable, "
-        "      :airp "
-        "    ); "
+        "      :airp, "
+        "      id__seq.nextval "
+        "    ) returning id into vid; "
         "  end if; "
+        "  hist.synchronize_history('tag_types',vid,:SYS_user_descr,:SYS_desk_code); "
         "end; ";
     Qry.DeclareVariable("code", otString);
     Qry.DeclareVariable("airline", otString);
@@ -1247,6 +1280,8 @@ void TTagTypes::ToBase()
     Qry.DeclareVariable("no_len", otInteger);
     Qry.DeclareVariable("printable", otInteger);
     Qry.DeclareVariable("airp", otString);
+    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     for(vector<TTagTypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
         Qry.SetVariable("code", iv->code);
         Qry.SetVariable("airline", iv->airline);
@@ -1802,13 +1837,15 @@ void TBPPrnFormType::insert(TVersionType &vers)
         "  dev_model,  "
         "  fmt_type,  "
         "  id,  "
-        "  version "
+        "  version, "
+        "  model_id "
         ") values ( "
         "  :form_type,  "
         "  :dev_model,  "
         "  :fmt_type,  "
         "  :id,  "
-        "  :version "
+        "  :version, "
+        "  id__seq.nextval "
         ") ";
     Qry.CreateVariable("form_type", otString, form_type);
     Qry.CreateVariable("dev_model", otString, dev_model);
@@ -1831,13 +1868,15 @@ void TBRPrnFormType::insert(TVersionType &vers)
         "  dev_model,  "
         "  fmt_type,  "
         "  id,  "
-        "  version "
+        "  version,  "
+        "  mode_id  "
         ") values ( "
         "  :form_type,  "
         "  :dev_model,  "
         "  :fmt_type,  "
         "  :id,  "
-        "  :version "
+        "  :version,  "
+        "  id__seq.nextval  "
         ") ";
     Qry.CreateVariable("form_type", otString, form_type);
     Qry.CreateVariable("dev_model", otString, dev_model);
@@ -1861,14 +1900,16 @@ void TBTPrnFormType::insert(TVersionType &vers)
         "  num,  "
         "  fmt_type,  "
         "  id,  "
-        "  version "
+        "  version, "
+        "  model_id "
         ") values ( "
         "  :form_type,  "
         "  :dev_model,  "
         "  :num,  "
         "  :fmt_type,  "
         "  :id,  "
-        "  :version "
+        "  :version, "
+        "  id__seq.nextval "
         ") ";
     Qry.CreateVariable("form_type", otString, form_type);
     Qry.CreateVariable("dev_model", otString, dev_model);
@@ -2206,8 +2247,8 @@ void TVersionType::insert()
         "  insert into prn_forms( id, op_type, fmt_type, name) "
         "    values(id__seq.nextval, :op_type, :fmt_type, :name) "
         "  returning id into :id; "
-        "  insert into prn_form_vers(id, version, descr, form, data, read_only) "
-        "    values(:id, 0, 'Inserted by prnc', :form, :data, 1); "
+        "  insert into prn_form_vers(id, version, descr, form, data, read_only, form_id) "
+        "    values(:id, 0, 'Inserted by prnc', :form, :data, 1, id__seq.nextval); "
         "end; ";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));

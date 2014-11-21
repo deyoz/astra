@@ -99,9 +99,13 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   TQuery Qry(&OraSession);
   int user_id = NodeAsInteger( "user_id", reqNode );
   Qry.SQLText =
-    "UPDATE users2 SET passwd=login WHERE user_id=:user_id";
-  Qry.DeclareVariable( "user_id", otInteger );
-  Qry.SetVariable( "user_id", user_id );
+    "BEGIN "
+    "  UPDATE users2 SET passwd=login WHERE user_id=:user_id; "
+    "  hist.synchronize_history('users2',:user_id,:SYS_user_descr,:SYS_desk_code); "
+    "END; ";
+  Qry.CreateVariable( "user_id", otInteger, user_id );
+  Qry.CreateVariable( "SYS_user_descr", otString, reqInfo->user.descr );
+  Qry.CreateVariable( "SYS_desk_code", otString, reqInfo->desk.code );
   Qry.Execute();
   if ( Qry.RowsProcessed() == 0 )
     throw Exception("Невозможно сбросить пароль");
