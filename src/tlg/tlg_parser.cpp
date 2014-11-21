@@ -6206,8 +6206,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
     Qry.CreateVariable("airline",otString,con.flt.airline);
     Qry.CreateVariable("flt_no",otInteger,(int)con.flt.flt_no);
     Qry.CreateVariable("airp_dep",otString,con.flt.airp_dep);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     Qry.Execute();
     if (!Qry.Eof)
     {
@@ -6224,6 +6222,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         "  hist.synchronize_history('crs_set',vid,:SYS_user_descr,:SYS_desk_code); "
         "END;";
       Qry.SetVariable("flt_no",FNull);
+      Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
+      Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
       try
       {
         Qry.Execute();
