@@ -21,13 +21,13 @@ class localizedstream : public std::ostringstream
     std::string lang() {return plang;};
     std::string ElemIdToCodeNative(TElemType type, const std::string &elem)
     {
-      return ::ElemIdToPrefferedElem(type, elem, efmtNameShort, plang);
+      return ::ElemIdToPrefferedElem(type, elem, efmtCodeNative, plang);
     };
     std::string ElemIdToNameShort(TElemType type, const std::string &elem)
     {
       return ::ElemIdToPrefferedElem(type, elem, efmtNameShort, plang);
     };
-                              
+
     std::string getLocaleText(const std::string &vlexema)
     {
       return AstraLocale::getLocaleText(vlexema, plang);
@@ -1632,7 +1632,7 @@ class TCreator
     const std::set<std::string>& airps();
     const std::vector<std::string>& crs();
     const std::vector<TSimpleMktFlight>& mkt_flights();
-    
+
     TCreatePoint create_point;
   public:
     TCreator(const TAdvTripInfo &fltInfo):flt(fltInfo)
@@ -1672,7 +1672,7 @@ class TCloseCheckInCreator : public TCreator
         if (info.optionsIs<TPRLOptions>())
         {
           if (info.optionsAs<TPRLOptions>()->create_point!="CLOSE_CKIN") return false;
-        };    
+        };
 
         return true;
     };
@@ -1693,7 +1693,7 @@ class TCloseBoardingCreator : public TCreator
         if (info.optionsIs<TPRLOptions>())
         {
           if (info.optionsAs<TPRLOptions>()->create_point!="CLOSE_BRD") return false;
-        };    
+        };
 
         return true;
     };
@@ -1726,7 +1726,7 @@ class TTakeoffCreator : public TCreator
         if (info.optionsIs<TPRLOptions>())
         {
           if (info.optionsAs<TPRLOptions>()->create_point!="TAKEOFF") return false;
-        };    
+        };
 
         return true;
     };
