@@ -1502,7 +1502,7 @@ namespace PRL_SPACE {
 
     struct TPRLDest {
         string airp;
-        string cls;
+        string cls; // if rbd is on, this field contains fare class, otherwise - compartment class
         vector<TPRLPax> PaxList;
         TGRPMap *grp_map;
         TInfants *infants;
@@ -1539,8 +1539,12 @@ namespace PRL_SPACE {
 
         string SQLText =
             "select "
-            "    pax_grp.airp_arv target, "
-            "    cls_grp.id cls, "
+            "    pax_grp.airp_arv target, ";
+        if(PRLOptions and PRLOptions->rbd)
+            SQLText += "    NULL cls, ";
+        else
+            SQLText += "    cls_grp.id cls, ";
+        SQLText +=
             "    system.transliter(pax.surname, 1, :pr_lat) surname, "
             "    system.transliter(pax.name, 1, :pr_lat) name, "
             "    crs_pnr.pnr_id, "
@@ -1555,17 +1559,25 @@ namespace PRL_SPACE {
             "    pax.pers_type "
             "from "
             "    pax, "
-            "    pax_grp, "
-            "    cls_grp, "
+            "    pax_grp, ";
+        if(not(PRLOptions and PRLOptions->rbd))
+            SQLText += "    cls_grp, ";
+        SQLText +=
             "    crs_pax, "
             "    crs_pnr "
             "WHERE "
             "    pax_grp.point_dep = :point_id and "
             "    pax_grp.status NOT IN ('E') AND "
             "    pax_grp.airp_arv = :airp and "
-            "    pax_grp.grp_id=pax.grp_id AND "
-            "    pax_grp.class_grp = cls_grp.id(+) AND "
-            "    cls_grp.code = :class and ";
+            "    pax_grp.grp_id=pax.grp_id AND ";
+        if(PRLOptions and PRLOptions->rbd) {
+            SQLText +=
+                "   NVL(pax.subclass,pax_grp.class) = :class and ";
+        } else {
+            SQLText +=
+                "    pax_grp.class_grp = cls_grp.id(+) AND "
+                "    cls_grp.code = :class and ";
+        }
         if((PRLOptions and PRLOptions->pax_state == "CKIN") or info.get_tlg_type() == "LCI")
             SQLText += " pax.pr_brd is not null and ";
         else
@@ -4787,7 +4799,7 @@ struct TDestList {
     TGRPMap grp_map; // PRL, ETL
     TInfants infants; // PRL
     vector<T> items;
-    void get_subcls_lst(int point_id, list<string> &lst);
+    void get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &lst);
     void get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
@@ -4836,12 +4848,18 @@ void TDestList<T>::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
                 << "00" << info.TlgElemIdToElem(etSubcls, iv->cls, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
             body.push_back(line.str());
         } else {
+            const TypeB::TPRLOptions *PRLOptions=NULL;
+            if(info.optionsIs<TypeB::TPRLOptions>())
+                PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
             pr_empty = false;
             line.str("");
             line
                 << "-" << info.TlgElemIdToElem(etAirp, iv->airp)
-                << setw(2) << setfill('0') << iv->PaxList.size()
-                << info.TlgElemIdToElem(etClsGrp, iv->PaxList[0].cls_grp_id, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
+                << setw(2) << setfill('0') << iv->PaxList.size();
+            if(PRLOptions and PRLOptions->rbd)
+                line << info.TlgElemIdToElem(etSubcls, iv->cls, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
+            else
+                line << info.TlgElemIdToElem(etClsGrp, iv->PaxList[0].cls_grp_id, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
             body.push_back(line.str());
             iv->PaxListToTlg(info, body);
         }
@@ -6278,32 +6296,55 @@ struct TSubclsItem {
 };
 
 template <class T>
-void TDestList<T>::get_subcls_lst(int point_id, list<string> &lst)
+void TDestList<T>::get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &lst)
 {
-    // достает все возможные классы и подклассы, использующиеся на рейсе
-    TCFG cfg(point_id);
-    if(cfg.empty()) cfg.get(NoExists);
+    const TypeB::TPRLOptions *PRLOptions=NULL;
+    if(info.optionsIs<TypeB::TPRLOptions>())
+        PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
 
     set<TSubclsItem> subcls_set;
-    for(TCFG::iterator i = cfg.begin(); i != cfg.end(); i++)
-        subcls_set.insert(TSubclsItem(i->priority, i->cls));
 
-    QParams QryParams;
-    QryParams << QParam("point_id", otInteger, point_id);
-    TCachedQuery Qry(
-            "SELECT DISTINCT cls_grp.priority, cls_grp.code AS class "
-            "FROM pax_grp,cls_grp "
-            "WHERE pax_grp.class_grp=cls_grp.id AND "
-            "      pax_grp.point_dep = :point_id AND pax_grp.bag_refuse=0 ",
-            QryParams);
-    Qry.get().Execute();
-    for(; not Qry.get().Eof; Qry.get().Next())
-        subcls_set.insert(
-                TSubclsItem(
-                    Qry.get().FieldAsInteger("priority"),
-                    Qry.get().FieldAsString("class")
-                    )
-                );
+    if(PRLOptions and PRLOptions->rbd) {
+        QParams QryParams;
+        QryParams << QParam("point_id", otInteger, info.point_id);
+        TCachedQuery Qry(
+                "select distinct nvl(pax.subclass, pax_grp.class) subcls from pax, pax_grp "
+                "where pax_grp.point_dep = :point_id and pax_grp.grp_id = pax.grp_id",
+                QryParams);
+        Qry.get().Execute();
+        for(; not Qry.get().Eof; Qry.get().Next())
+            subcls_set.insert(
+                    TSubclsItem(
+                        0,
+                        Qry.get().FieldAsString("subcls")
+                        )
+                    );
+    } else {
+        // достает все возможные классы и подклассы, использующиеся на рейсе
+        TCFG cfg(info.point_id);
+        if(cfg.empty()) cfg.get(NoExists);
+
+        for(TCFG::iterator i = cfg.begin(); i != cfg.end(); i++)
+            subcls_set.insert(TSubclsItem(i->priority, i->cls));
+
+        QParams QryParams;
+        QryParams << QParam("point_id", otInteger, info.point_id);
+        TCachedQuery Qry(
+                "SELECT DISTINCT cls_grp.priority, cls_grp.code AS class "
+                "FROM pax_grp,cls_grp "
+                "WHERE pax_grp.class_grp=cls_grp.id AND "
+                "      pax_grp.point_dep = :point_id AND pax_grp.bag_refuse=0 ",
+                QryParams);
+        Qry.get().Execute();
+        for(; not Qry.get().Eof; Qry.get().Next())
+            subcls_set.insert(
+                    TSubclsItem(
+                        Qry.get().FieldAsInteger("priority"),
+                        Qry.get().FieldAsString("class")
+                        )
+                    );
+    }
+
     // Здесь имеем список пар priority, cls
     // Уберем дубликаты и заполним ответ
     set<string> used;
@@ -6322,7 +6363,7 @@ void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &com
     TTripRoute route;
     route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
     list<string> subcls_lst;
-    get_subcls_lst(info.point_id, subcls_lst);
+    get_subcls_lst(info, subcls_lst);
     for(TTripRoute::iterator i_route = route.begin(); i_route != route.end(); i_route++)
         for(list<string>::iterator i_cfg = subcls_lst.begin(); i_cfg != subcls_lst.end(); i_cfg++) {
             T dest(&grp_map, &infants);
@@ -7034,6 +7075,140 @@ int PFS(TypeB::TDetailCreateInfo &info)
     return tlg_row.id;
 }
 
+class TRBD:list<pair<string, list<string> > > {
+    private:
+    public:
+        void get(TypeB::TDetailCreateInfo &info);
+        void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
+};
+
+void TRBD::get(TypeB::TDetailCreateInfo &info)
+{
+    const TypeB::TPRLOptions *PRLOptions=NULL;
+    if(info.optionsIs<TypeB::TPRLOptions>())                                                                                                
+        PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
+    if(PRLOptions and PRLOptions->rbd) {
+        const TypeB::TMarkInfoOptions *markOptions=NULL;
+        if(info.optionsIs<TypeB::TMarkInfoOptions>())
+            markOptions=info.optionsAs<TypeB::TMarkInfoOptions>();
+
+        // 1. шаг - определить crs_rbd.point_id (который есть tlg_trips.point_id)
+        int crs_rbd_point_id_mark = NoExists;
+        int crs_rbd_point_id_oper = NoExists;
+        QParams QryParams;
+        QryParams << QParam("point_id", otInteger, info.point_id);
+        TCachedQuery Qry(
+                "SELECT tlg_trips.point_id, tlg_trips.airline, tlg_trips.flt_no, tlg_trips.suffix "
+                "FROM tlg_trips, tlg_binding "
+                "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg AND "
+                "             tlg_binding.point_id_spp=:point_id ",
+                QryParams);
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            for(; not Qry.get().Eof; Qry.get().Next()) {
+                TMktFlight flt;
+                int tlg_trips_point_id = Qry.get().FieldAsInteger("point_id");
+                flt.airline = Qry.get().FieldAsString("airline");
+                flt.flt_no = Qry.get().FieldAsInteger("flt_no");
+                flt.suffix = Qry.get().FieldAsString("suffix");
+                if(markOptions and not markOptions->mark_info.empty()) {
+                    if(flt == markOptions->mark_info) {
+                        crs_rbd_point_id_mark = tlg_trips_point_id;
+                    }
+                }
+                if(
+                        info.airline == flt.airline and
+                        info.flt_no == flt.flt_no and
+                        info.suffix == flt.suffix
+                        ) {
+                    crs_rbd_point_id_oper = tlg_trips_point_id;
+                }
+            }
+        }
+        // 2. шаг. Определить crs_rbd.sender
+        string crs_rbd_sender;
+        if(markOptions and not markOptions->mark_info.empty())
+            crs_rbd_sender = markOptions->crs;
+
+        // 3. шаг. Выбор наиболее подходящих point_id и sender из CRS_RBD
+        QryParams.clear();
+
+        if(crs_rbd_point_id_mark == NoExists)
+            QryParams << QParam("point_id_tlg_mark", otInteger, FNull);
+        else
+            QryParams << QParam("point_id_tlg_mark", otInteger, crs_rbd_point_id_mark);
+
+        if(crs_rbd_point_id_oper == NoExists)
+            QryParams << QParam("point_id_tlg_oper", otInteger, FNull);
+        else
+            QryParams << QParam("point_id_tlg_oper", otInteger, crs_rbd_point_id_oper);
+
+        QryParams
+            << QParam("sender", otString, crs_rbd_sender)
+            << QParam("point_id_spp", otInteger, info.point_id);
+
+        TCachedQuery Step3Qry(
+                "SELECT crs_rbd.point_id, crs_rbd.sender, "
+                "  DECODE(crs_rbd.point_id, :point_id_tlg_mark, 2, 0)+ "
+                "  DECODE(crs_rbd.sender, :sender, 1, 0) AS priority "
+                "FROM crs_rbd, tlg_binding "
+                "WHERE crs_rbd.point_id=tlg_binding.point_id_tlg AND "
+                "      tlg_binding.point_id_spp=:point_id_spp AND "
+                "      crs_rbd.point_id IN (:point_id_tlg_mark, :point_id_tlg_oper) AND crs_rbd.system='CRS' "
+                "ORDER BY priority DESC, crs_rbd.point_id, crs_rbd.sender ",
+                QryParams);
+        Step3Qry.get().Execute();
+
+        if(not Step3Qry.get().Eof) {
+            int crs_rbd_point_id = Step3Qry.get().FieldAsInteger("point_id");
+            crs_rbd_sender = Step3Qry.get().FieldAsString("sender");
+
+            // Здесь определены оба параметра (point_id и sender из CRS_RBD)
+            QryParams.clear();
+            QryParams
+                << QParam("point_id", otInteger, crs_rbd_point_id)
+                << QParam("sender", otString, crs_rbd_sender);
+            TCachedQuery Step4Qry(
+                    "SELECT fare_class, compartment "
+                    "FROM crs_rbd "
+                    "WHERE point_id=:point_id AND sender=:sender AND system='CRS' "
+                    "ORDER BY view_order",
+                    QryParams);
+            Step4Qry.get().Execute();
+            string compartment;
+            for(; not Step4Qry.get().Eof; Step4Qry.get().Next()) {
+                string curr_compartment = Step4Qry.get().FieldAsString("compartment");
+                string fare_class = Step4Qry.get().FieldAsString("fare_class");
+                if(curr_compartment != compartment) {
+                    compartment = curr_compartment;
+                    push_back(make_pair(compartment, list<string>()));
+                }
+                back().second.push_back(fare_class);
+            }
+        }
+    }
+}
+
+void TRBD::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
+{
+    if(empty()) return;
+    string result = "RBD";
+    for(
+            list<pair<string, list<string> > >::iterator compartment = begin();
+            compartment != end(); compartment++)
+    {
+        result += " " + info.TlgElemIdToElem(etSubcls, compartment->first, prLatToElemFmt(efmtCodeNative,true)) + "/";
+        for(
+                list<string>::iterator fare_class = compartment->second.begin();
+                fare_class != compartment->second.end();
+                fare_class++
+           ) {
+            result += info.TlgElemIdToElem(etSubcls, *fare_class, prLatToElemFmt(efmtCodeNative,true));
+        }
+    }
+    body.insert(body.end(), result);
+}
+
 int PRL(TypeB::TDetailCreateInfo &info)
 {
 #ifdef SQL_COUNTERS
@@ -7052,6 +7227,9 @@ int PRL(TypeB::TDetailCreateInfo &info)
 
     vector<string> body;
     try {
+        TRBD rbd;
+        rbd.get(info);
+        rbd.ToTlg(info, body);
         vector<TTlgCompLayer> complayers;
         if(not isFreeSeating(info.point_id) and not isEmptySalons(info.point_id))
             getSalonLayers( info, complayers, false );
