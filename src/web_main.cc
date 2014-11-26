@@ -225,7 +225,7 @@ int VerifyPNR( int point_id, int id, bool is_pnr_id )
   };
 }
 
-int VerifyPNRByPaxId( int point_id, int pax_id )
+int VerifyPNRByPaxId( int point_id, int pax_id ) //возвращает pnr_id
 {
   return VerifyPNR(point_id, pax_id, false);
 }
@@ -233,6 +233,21 @@ int VerifyPNRByPaxId( int point_id, int pax_id )
 void VerifyPNRByPnrId( int point_id, int pnr_id )
 {
   VerifyPNR(point_id, pnr_id, true);
+}
+
+int VerifyPNRById( int point_id, xmlNodePtr node ) //возвращает pnr_id
+{
+  int pnr_id=NoExists;
+  if (GetNode( "pnr_id", node )!=NULL)
+  {
+    pnr_id = NodeAsInteger( "pnr_id", node );
+    VerifyPNRByPnrId( point_id, pnr_id );
+  }
+  else
+  {
+    pnr_id = VerifyPNRByPaxId( point_id, NodeAsInteger( "crs_pax_id", node ) );
+  };
+  return pnr_id;
 }
 
 void WebRequestsIface::SearchPNRs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1027,12 +1042,11 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   vector<TIdsPnrData> ids;
   for(xmlNodePtr node=segsNode->children; node!=NULL; node=node->next)
   {
-    int point_id=NodeAsInteger( "point_id", node );
-    int pnr_id=NodeAsInteger( "pnr_id", node );
+    int point_id=NodeAsInteger( "point_id", node );    
     WebSearch::TFlightInfo flt;
     flt.fromDB(point_id, false, true);
     flt.fromDBadditional(false, true);
-    VerifyPNRByPnrId( point_id, pnr_id );
+    int pnr_id=VerifyPNRById( point_id, node );
     TIdsPnrData idsPnrData;
     idsPnrData.point_id=point_id;
     idsPnrData.airline=flt.oper.airline;
@@ -1358,18 +1372,9 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   }
   TWebPnr pnr;
   WebSearch::TFlightInfo flt;
-  flt.fromDB(point_id, false, true);
+  flt.fromDB(point_id, false, true);  
 
-  int pnr_id=NoExists;
-  if (GetNode( "pnr_id", reqNode )!=NULL)
-  {
-    pnr_id = NodeAsInteger( "pnr_id", reqNode );
-    VerifyPNRByPnrId( point_id, pnr_id );
-  }
-  else
-  {
-    pnr_id = VerifyPNRByPaxId( point_id, NodeAsInteger( "crs_pax_id", reqNode ) );
-  };
+  int pnr_id=VerifyPNRById(point_id, reqNode);
 
   getPnr( point_id, pnr_id, pnr, true, false );
 
