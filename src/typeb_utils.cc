@@ -945,7 +945,7 @@ void add_filtered_item(const TSendInfo &sendInfo, TQuery &Qry, vector<TCreateInf
     createInfo.fromDB(Qry, OptionsQry);
     createInfo.create_point = sendInfo.create_point; // надо присваивать после fromDB, т.к. в нем clear
     result.push_back(createInfo);
-};    
+};
 
 template <typename T>
 void filter_typeb_addrs(const TSendInfo &sendInfo,
@@ -1051,7 +1051,7 @@ void TSendInfo::getCreatePoints(const vector<TSimpleMktFlight> &mktFlights,
                                 set<TCreatePoint> &info) const
 {
     filter_typeb_addrs< set<TCreatePoint> >(*this, mktFlights, true, info);
-};    
+};
 
 void TSendInfo::getCreateInfo(const vector<TSimpleMktFlight> &mktFlights,
                               bool onlyOneFlight,
@@ -1269,7 +1269,6 @@ void TCreator::getInfo(vector<TCreateInfo> &info)
             //здесь сформирован createInfo полностью
             if (i->get_options().similar(createInfo.get_options()))
             {
-                localizedstream lstream(AstraLocale::LANG_RU);
               if (validInfo(createInfo))
               {
                 vector<TCreateInfo>::iterator i2=info.begin();

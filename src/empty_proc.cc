@@ -1332,165 +1332,173 @@ DROP FUNCTION pax_is_female;
 */
 int test_typeb_utils(int argc,char **argv)
 {
-  set<string> tlg_types;
-//  tlg_types.insert("PRL");
-  tlg_types.insert("LCI");
-  tlg_types.insert("COM");
-//  tlg_types.insert("PRL");
-//  tlg_types.insert("PRLC");
-//  tlg_types.insert("PSM");
-//  tlg_types.insert("PIL");
-//  tlg_types.insert("SOM");
-  TQuery Qry(&OraSession);
-/*  Qry.SQLText =
-    "INSERT INTO tranzit_algo_seats(id,airline,flt_no,airp,pr_new) "
-    "SELECT 1,NULL,NULL,NULL,1 FROM dual";
-  Qry.Execute();*/
-  ofstream f1, f2;
-  try
-  {
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT airline,flt_no,suffix,airp,scd_out,act_out, "
-      "       point_id,point_num,first_point,pr_tranzit "
-      "FROM points "
-//      "WHERE point_id=2253498";
-      "WHERE scd_out BETWEEN SYSTEM.UTCSYSDATE-24/24 AND SYSTEM.UTCSYSDATE AND act_out IS NOT NULL AND pr_del=0";
-      
-    TQuery TlgQry(&OraSession);
-    TlgQry.Clear();
-    string sql =
-      "SELECT * "
-      "FROM tlg_out, typeb_out_extra "
-      "WHERE point_id=:point_id AND manual_creation=0 AND "
-      "      tlg_out.id=typeb_out_extra.tlg_id(+) AND typeb_out_extra.lang(+)='EN' ";
-
-    if ( !tlg_types.empty() ) {
-      sql += " and type in " + GetSQLEnum(tlg_types);
+    string interval = "SYSTEM.UTCSYSDATE-24/24 AND SYSTEM.UTCSYSDATE";
+    if(argc == 2) interval = argv[1];
+    if(argc > 2) {
+        cout << "Usage: " << argv[0] << " \"" << interval << "\"" << endl;
+        return 1;
     }
-    sql += " ORDER BY type, typeb_out_extra.text, addr, id, num";
-    TlgQry.SQLText=sql;
-    TlgQry.DeclareVariable("point_id", otInteger);
 
-    TQuery OrigQry(&OraSession);
-    OrigQry.Clear();
-    OrigQry.SQLText="SELECT * FROM typeb_originators WHERE id=:id";
-    OrigQry.DeclareVariable("id", otInteger);
-
-    string file_name;
-    file_name="telegram1.txt";
-    f1.open(file_name.c_str());
-    if (!f1.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",file_name.c_str());
-    file_name="telegram2.txt";
-    f2.open(file_name.c_str());
-    if (!f2.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",file_name.c_str());
-
-    Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
+    set<string> tlg_types;
+    tlg_types.insert("PRL");
+    //  tlg_types.insert("LCI");
+    //  tlg_types.insert("COM");
+    //  tlg_types.insert("PRL");
+    //  tlg_types.insert("PRLC");
+    //  tlg_types.insert("PSM");
+    //  tlg_types.insert("PIL");
+    //  tlg_types.insert("SOM");
+    TQuery Qry(&OraSession);
+    /*  Qry.SQLText =
+        "INSERT INTO tranzit_algo_seats(id,airline,flt_no,airp,pr_new) "
+        "SELECT 1,NULL,NULL,NULL,1 FROM dual";
+        Qry.Execute();*/
+    ofstream f1, f2;
+    try
     {
-      TDateTime time_create=NowUTC();
-      TAdvTripInfo fltInfo(Qry);
+        Qry.Clear();
+        string SQLText = (string)
+            "SELECT airline,flt_no,suffix,airp,scd_out,act_out, "
+            "       point_id,point_num,first_point,pr_tranzit "
+            "FROM points "
+            //      "WHERE point_id=2253498";
+            "WHERE scd_out BETWEEN " + interval + " AND act_out IS NOT NULL AND pr_del=0";
 
+        Qry.SQLText= SQLText;
+        TQuery TlgQry(&OraSession);
+        TlgQry.Clear();
+        string sql =
+            "SELECT * "
+            "FROM tlg_out, typeb_out_extra "
+            "WHERE point_id=:point_id AND manual_creation=0 AND "
+            "      tlg_out.id=typeb_out_extra.tlg_id(+) AND typeb_out_extra.lang(+)='EN' ";
 
-      set<int> tlg_ids;
+        if ( !tlg_types.empty() ) {
+            sql += " and type in " + GetSQLEnum(tlg_types);
+        }
+        sql += " ORDER BY type, typeb_out_extra.text, addr, id, num";
+        TlgQry.SQLText=sql;
+        TlgQry.DeclareVariable("point_id", otInteger);
 
-      for(int pass=0; pass<=1; pass++)
-      {
-        TlgQry.SetVariable("point_id", fltInfo.point_id);
-        TlgQry.Execute();
-        if (!TlgQry.Eof)
+        TQuery OrigQry(&OraSession);
+        OrigQry.Clear();
+        OrigQry.SQLText="SELECT * FROM typeb_originators WHERE id=:id";
+        OrigQry.DeclareVariable("id", otInteger);
+
+        string file_name;
+        file_name="telegram1.txt";
+        f1.open(file_name.c_str());
+        if (!f1.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",file_name.c_str());
+        file_name="telegram2.txt";
+        f2.open(file_name.c_str());
+        if (!f2.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",file_name.c_str());
+
+        Qry.Execute();
+        for(;!Qry.Eof;Qry.Next())
         {
-          string body;
-          for(;!TlgQry.Eof;)
-          {
-            TTlgOutPartInfo tlg;
-            tlg.fromDB(TlgQry);
-            //originator
-            TypeB::TOriginatorInfo origInfo;
-            OrigQry.SetVariable("id", tlg.originator_id);
-            OrigQry.Execute();
-            if (!OrigQry.Eof)
-              origInfo.fromDB(OrigQry);
-            tlg.origin=origInfo.originSection(time_create, TypeB::endl);
+            TDateTime time_create=NowUTC();
+            TAdvTripInfo fltInfo(Qry);
 
-            body+=tlg.body;
-            TlgQry.Next();
-            if (TlgQry.Eof || tlg.id!=TlgQry.FieldAsInteger("id"))
+
+            set<int> tlg_ids;
+
+            for(int pass=0; pass<=1; pass++)
             {
-              if (tlg_ids.find(tlg.id)==tlg_ids.end())
-              {
-                if (tlg.tlg_type!="BSM")
+                TlgQry.SetVariable("point_id", fltInfo.point_id);
+                TlgQry.Execute();
+                if (!TlgQry.Eof)
                 {
-                  ofstream &f=(pass==0?f1:f2);
-                  f << ConvertCodepage(tlg.addr, "CP866", "CP1251")
-                    << ConvertCodepage(tlg.origin, "CP866", "CP1251")
-                    << ConvertCodepage(tlg.heading, "CP866", "CP1251")
-                    << ConvertCodepage(body, "CP866", "CP1251")
-                    << ConvertCodepage(tlg.ending, "CP866", "CP1251")
-                    << "====================================================" << TypeB::endl;
+                    string body;
+                    for(;!TlgQry.Eof;)
+                    {
+                        TTlgOutPartInfo tlg;
+                        tlg.fromDB(TlgQry);
+                        //originator
+                        TypeB::TOriginatorInfo origInfo;
+                        OrigQry.SetVariable("id", tlg.originator_id);
+                        OrigQry.Execute();
+                        if (!OrigQry.Eof)
+                            origInfo.fromDB(OrigQry);
+                        tlg.origin=origInfo.originSection(time_create, TypeB::endl);
+
+                        body+=tlg.body;
+                        TlgQry.Next();
+                        if (TlgQry.Eof || tlg.id!=TlgQry.FieldAsInteger("id"))
+                        {
+                            if (tlg_ids.find(tlg.id)==tlg_ids.end())
+                            {
+                                if (tlg.tlg_type!="BSM")
+                                {
+                                    ofstream &f=(pass==0?f1:f2);
+                                    f << ConvertCodepage(tlg.addr, "CP866", "CP1251")
+                                        << ConvertCodepage(tlg.origin, "CP866", "CP1251")
+                                        << ConvertCodepage(tlg.heading, "CP866", "CP1251")
+                                        << ConvertCodepage(body, "CP866", "CP1251")
+                                        << ConvertCodepage(tlg.ending, "CP866", "CP1251")
+                                        << "====================================================" << TypeB::endl;
+                                };
+                                tlg_ids.insert(tlg.id);
+                            };
+                            body.clear();
+                        };
+                    };
+
                 };
-                tlg_ids.insert(tlg.id);
-              };
-              body.clear();
+
+
+                if (pass==0)
+                {
+                    vector<TypeB::TCreateInfo> createInfo;
+                    TypeB::TTakeoffCreator(fltInfo.point_id).getInfo(createInfo);
+                    filter(createInfo, tlg_types);
+                    TelegramInterface::SendTlg(createInfo);
+
+                    TypeB::TMVTACreator(fltInfo.point_id).getInfo(createInfo);
+                    filter(createInfo, tlg_types);
+                    TelegramInterface::SendTlg(createInfo);
+
+                    TypeB::TCloseCheckInCreator(fltInfo.point_id).getInfo(createInfo);
+                    filter(createInfo, tlg_types);
+                    TelegramInterface::SendTlg(createInfo);
+
+                    TypeB::TCloseBoardingCreator(fltInfo.point_id).getInfo(createInfo);
+                    filter(createInfo, tlg_types);
+                    TelegramInterface::SendTlg(createInfo);
+                };
             };
-          };
 
+
+            OraSession.Rollback();
         };
-
-
-        if (pass==0)
+        OraSession.Rollback();
+        if (f1.is_open()) f1.close();
+        if (f2.is_open()) f2.close();
+    }
+    catch(EXCEPTIONS::Exception &e)
+    {
+        try
         {
-          vector<TypeB::TCreateInfo> createInfo;
-          TypeB::TTakeoffCreator(fltInfo.point_id).getInfo(createInfo);
-          filter(createInfo, tlg_types);
-          TelegramInterface::SendTlg(createInfo);
-
-          TypeB::TMVTACreator(fltInfo.point_id).getInfo(createInfo);
-          filter(createInfo, tlg_types);
-          TelegramInterface::SendTlg(createInfo);
-
-          TypeB::TCloseCheckInCreator(fltInfo.point_id).getInfo(createInfo);
-          filter(createInfo, tlg_types);
-          TelegramInterface::SendTlg(createInfo);
-
-          TypeB::TCloseBoardingCreator(fltInfo.point_id).getInfo(createInfo);
-          filter(createInfo, tlg_types);
-          TelegramInterface::SendTlg(createInfo);
-        };
-      };
-
-
-      OraSession.Rollback();
+            OraSession.Rollback();
+            if (f1.is_open()) f1.close();
+            if (f2.is_open()) f2.close();
+            ProgError(STDLOG, "test_typeb_utils2: %s", e.what() );
+        }
+        catch(...) {};
+        throw;
+    }
+    catch(...)
+    {
+        try
+        {
+            OraSession.Rollback();
+            if (f1.is_open()) f1.close();
+            if (f2.is_open()) f2.close();
+        }
+        catch(...) {};
+        throw;
     };
-    OraSession.Rollback();
-    if (f1.is_open()) f1.close();
-    if (f2.is_open()) f2.close();
-  }
-  catch(EXCEPTIONS::Exception &e)
-  {
-    try
-    {
-      OraSession.Rollback();
-      if (f1.is_open()) f1.close();
-      if (f2.is_open()) f2.close();
-      ProgError(STDLOG, "test_typeb_utils2: %s", e.what() );
-    }
-    catch(...) {};
-    throw;
-  }
-  catch(...)
-  {
-    try
-    {
-      OraSession.Rollback();
-      if (f1.is_open()) f1.close();
-      if (f2.is_open()) f2.close();
-    }
-    catch(...) {};
-    throw;
-  };
 
-  return 0;
+    return 0;
 };
 
 #include <sys/types.h>
