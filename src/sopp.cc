@@ -2368,10 +2368,11 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
     {
       std::string lexema_id;
       lexema_id = (status!=psCrew)?"EVT.PASSENGER_CANCEL_CHECKIN":"EVT.CREW_MEMBER_CANCEL_CHECKIN";
-      TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << PrmSmpl<std::string>("surname", surname)
-                                        << PrmSmpl<std::string>("name", (name.empty()?"":" ") + name)
-                                        << PrmElem<std::string>("pers_type", etPersType, pers_type)
-                                        << PrmSmpl<std::string>("reason", refuseAgentError),
+      TReqInfo::Instance()->LocaleToLog(lexema_id,
+                                        LEvntPrms() << PrmSmpl<std::string>("surname", surname)
+                                                    << PrmSmpl<std::string>("name", (name.empty()?"":" ") + name)
+                                                    << PrmElem<std::string>("pers_type", etPersType, pers_type)
+                                                    << PrmSmpl<std::string>("reason", refuseAgentError),
                                         ASTRA::evtPax, point_id, reg_no, grp_id);
     };
   };

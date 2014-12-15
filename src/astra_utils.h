@@ -42,19 +42,39 @@ struct TLogMsg {
 };
 
 struct TLogLocale {
+  protected:
+    std::vector<std::string> vlangs;
   public:
     BASIC::TDateTime ev_time;
     int ev_order;
     ASTRA::TEventType ev_type;
     std::string lexema_id;
     LEvntPrms prms;
-    int id1,id2,id3;
-    std::vector<std::string> vlangs;
-    TLogLocale(): ev_time(ASTRA::NoExists), ev_order(ASTRA::NoExists), ev_type(ASTRA::evtUnknown),
-        lexema_id(""), prms(), id1(ASTRA::NoExists), id2(ASTRA::NoExists), id3(ASTRA::NoExists), vlangs() {
-        vlangs.push_back(AstraLocale::LANG_RU);
-        vlangs.push_back(AstraLocale::LANG_EN);
+    int id1,id2,id3;    
+    TLogLocale()
+    {
+      clear();
     }
+    void clear()
+    {
+      ev_time=ASTRA::NoExists;
+      ev_order=ASTRA::NoExists;
+      ev_type=ASTRA::evtUnknown;
+      lexema_id.clear();
+      prms.clearPrms();
+      id1=ASTRA::NoExists;
+      id2=ASTRA::NoExists;
+      id3=ASTRA::NoExists;
+      vlangs.clear();
+      vlangs.push_back(AstraLocale::LANG_RU);
+      vlangs.push_back(AstraLocale::LANG_EN);
+    }
+
+    void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
+    void toDB(const std::string &screen,
+              const std::string &user_descr,
+              const std::string &desk_code);
 };
 
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };

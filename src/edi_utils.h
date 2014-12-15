@@ -56,8 +56,11 @@ bool get_et_addr_set(const std::string &airline,
 
 std::string get_canon_name(const std::string& edi_addr);
 
-void confirm_notify_levb(const int edi_sess_id);
+void confirm_notify_levb(const int edi_sess_id, const bool err_if_not_found);
 std::string make_xml_kick(const edifact::KickInfo &kickInfo);
+void addToEdiResponseCtxt(const int ctxtId,
+                          const xmlNodePtr srcNode,
+                          const std::string &destNodeName);
 
 void cleanOldRecords(const int min_ago);
 

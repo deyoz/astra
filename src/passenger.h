@@ -309,6 +309,7 @@ class TPaxItem
     const TPaxItem& toDB(TQuery &Qry) const;
     TPaxItem& fromDB(TQuery &Qry);
     int is_female() const;
+    std::string full_name() const;
 };
 
 class TAPISItem

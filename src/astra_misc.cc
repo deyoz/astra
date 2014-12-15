@@ -149,6 +149,7 @@ bool GetTripSets( const TTripSetType setType, const TTripInfo &info )
     {
       //запрет интерактива с СЭБом
       case tsETSNoInteract: return false;
+      case tsEDSNoInteract: return false;
               default: return false;
     };
   };
@@ -1427,9 +1428,9 @@ string GetBagRcptStr(int grp_id, int pax_id)
       (main_pax_id!=NoExists && main_pax_id==pax_id))
   {
     vector<string> rcpts;
-    list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
+    CheckIn::PaidBagEMDList emd;
     PaxASVCList::GetBoundPaidBagEMD(grp_id, emd);
-    for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+    for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
       rcpts.push_back(i->first.emd_no);
 
     Qry.SQLText="SELECT no FROM bag_prepay WHERE grp_id=:grp_id";
@@ -1546,9 +1547,9 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
       };
     };
     //EMD
-    list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
+    CheckIn::PaidBagEMDList emd;
     PaxASVCList::GetBoundPaidBagEMD(grp_id, emd);
-    for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+    for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
     {
       int bag_type=i->second.bag_type;
       if (rcpt_paid_bag.find(bag_type)==rcpt_paid_bag.end())

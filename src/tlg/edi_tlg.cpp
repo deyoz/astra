@@ -848,20 +848,13 @@ void ChangeStatusToLog(const xmlNodePtr statusNode,
     locale.lexema_id = lexema_id;
     locale.prms = params;
   }
-  if (!repeated)
-  {
-      TReqInfo *reqInfo=TReqInfo::Instance();
-      reqInfo->screen.name=screen;
-      reqInfo->user.descr=user;
-      reqInfo->desk.code=desk;
-      reqInfo->LocaleToLog(locale);
-  }
+  if (!repeated) locale.toDB(screen, user, desk);
 
   if (statusNode!=NULL)
   {
     SetProp(statusNode,"repeated",(int)repeated);
-    LocaleToXML (statusNode, locale.lexema_id, locale.prms);
-    xmlNodePtr eventNode = NodeAsNode("event", statusNode);
+    xmlNodePtr eventNode = NewTextChild(statusNode, "event");
+    LocaleToXML (eventNode, locale.lexema_id, locale.prms);
     if (!repeated &&
         locale.ev_time!=ASTRA::NoExists &&
         locale.ev_order!=ASTRA::NoExists)
@@ -1167,37 +1160,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
       };
     };
 
-    if (ticketNode!=NULL && req_ctxt_id!=ASTRA::NoExists)
-    {
-      AstraContext::GetContext("EDI_RESPONSE",
-                               req_ctxt_id,
-                               ctxt);
-      XMLDoc ediResCtxt;
-      if (!ctxt.empty())
-      {
-        ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
-        ediResCtxt.set(ctxt);
-        if (ediResCtxt.docPtr()!=NULL)
-          xml_decode_nodelist(ediResCtxt.docPtr()->children);
-      }
-      else
-      {
-        ediResCtxt.set("context");
-        if (ediResCtxt.docPtr()!=NULL)
-          NewTextChild(NodeAsNode("/context",ediResCtxt.docPtr()),"tickets");
-      };
-      if (ediResCtxt.docPtr()!=NULL)
-      {
-        xmlNodePtr node=NodeAsNode("/context/tickets",ediResCtxt.docPtr());
-        CopyNodeList(node,ticketNode->parent);
-        ctxt=XMLTreeToText(ediResCtxt.docPtr());
-        if (!ctxt.empty())
-        {
-          AstraContext::ClearContext("EDI_RESPONSE",req_ctxt_id);
-          AstraContext::SetContext("EDI_RESPONSE",req_ctxt_id,ctxt);
-        };
-      };
-    };
+    addToEdiResponseCtxt(req_ctxt_id, ticketNode, "tickets");
 }
 
 void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
@@ -1205,7 +1168,7 @@ void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
 {
     AstraContext::ClearContext("EDI_SESSION",
                                udata.sessData()->ediSession()->ida().get());
-    confirm_notify_levb(udata.sessData()->ediSession()->ida().get());
+    confirm_notify_levb(udata.sessData()->ediSession()->ida().get(), false);
 }
 
 void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
@@ -1234,7 +1197,7 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
                              TickD.context());
 
     if (!TickD.kickInfo().empty())
-    {     
+    {
       ServerFramework::getQueryRunner().getEdiHelpManager().
               configForPerespros(STDLOG,
                                  make_xml_kick(TickD.kickInfo()).c_str(),
@@ -1285,7 +1248,7 @@ void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *d
 {
     AstraContext::ClearContext("EDI_SESSION",
                                (int)udata.sessData()->ediSession()->ida().get());
-    confirm_notify_levb(udata.sessData()->ediSession()->ida().get());
+    confirm_notify_levb(udata.sessData()->ediSession()->ida().get(), true);
 }
 
 

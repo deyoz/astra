@@ -181,6 +181,8 @@ src/tlg/EdifactProfile.cc
 src/tlg/EdifactProfile.h
 src/tlg/EdifactRequest.cpp
 src/tlg/EdifactRequest.h
+src/tlg/EmdCosResponseHandler.cpp
+src/tlg/EmdCosResponseHandler.h
 src/tlg/EmdDispResponseHandler.cpp
 src/tlg/EmdDispResponseHandler.h
 src/tlg/EmdSysUpdateResponseHandler.cpp

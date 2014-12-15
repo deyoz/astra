@@ -71,7 +71,7 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     pair<string,string> edi_addrs;
     if (!get_et_addr_set(info.airline,info.flt_no,edi_addrs))
         throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
-    	                               LParams() << LParam("flight", ElemIdToCodeNative(etAirline,info.airline) + IntToString(info.flt_no)));
+                                       LParams() << LParam("flight", ElemIdToCodeNative(etAirline,info.airline) + IntToString(info.flt_no)));
 
     set_edi_addrs(edi_addrs);
   }
@@ -332,6 +332,103 @@ string TEMDSystemUpdateItem::traceStr() const
   return s.str();
 }
 
+string TEMDChangeStatusKey::traceStr() const
+{
+  ostringstream s;
+  s << "airline_oper: " << airline_oper << " "
+       "flt_no_oper: " << flt_no_oper << " "
+       "coupon_status: " << coupon_status;
+  return s.str();
+}
+
+string TEMDChangeStatusItem::traceStr() const
+{
+  ostringstream s;
+  s << "emd: " << emd;
+  return s.str();
+}
+
+void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
+                                                      TEMDSystemUpdateList &emdList)
+{
+  emdList.clear();
+
+  AstraEdifact::TFltParams fltParams;
+  if (!fltParams.get(point_id)) return;
+
+  list< TEMDCtxtItem > emds;
+  GetEMDDisassocList(point_id, fltParams.in_final_status, emds);
+
+  string flight=GetTripName(fltParams.fltInfo,ecNone,true,false);
+
+  if (!emds.empty() && fltParams.eds_no_interact)
+    throw AstraLocale::UserException("MSG.EMD.INTERACTIVE_MODE_NOT_ALLOWED");
+
+  for(list< TEMDCtxtItem >::iterator i=emds.begin(); i!=emds.end(); ++i)
+  {
+    if (i->pax.tkn.no.empty() ||
+        i->pax.tkn.coupon==ASTRA::NoExists ||
+        i->pax.tkn.rem!="TKNE")
+    {
+      /*  Невозможно провести операцию ассоциации/диссоциации из-за отсутствия или неполной информации по эл. билету пассажира */
+      //!!!vlad возможно надо более тонко
+      TLogLocale event;
+      event.ev_type=ASTRA::evtPay;
+      event.lexema_id= i->action==CpnStatAction::associate?"EVT.EMD_ASSOCIATION_MISTAKE":
+                                                           "EVT.EMD_DISASSOCIATION_MISTAKE";
+      event.prms << PrmSmpl<std::string>("emd_no", i->asvc.emd_no)
+                 << PrmSmpl<int>("emd_coupon", i->asvc.emd_coupon);
+
+      if (i->pax.tkn.rem!="TKNE" || i->pax.tkn.no.empty())
+        event.prms << PrmLexema("err", "MSG.ETICK.NUMBER_NOT_SET");
+      else
+        event.prms << PrmLexema("err", "MSG.ETICK.COUPON_NOT_SET", LEvntPrms() << PrmSmpl<std::string>("etick", i->pax.tkn.no));
+
+      ProcEdiEvent(event, *i, NULL, false);
+      continue;
+    };
+
+    TEMDocItem EMDocItem;
+    EMDocItem.fromDB(i->asvc.emd_no, i->asvc.emd_coupon, false);
+    if (!EMDocItem.empty())
+    {
+      if (EMDocItem.action==i->action) continue;
+      if (i->pax.tkn.empty())
+      {
+        i->pax.tkn.no=EMDocItem.et_no;
+        i->pax.tkn.coupon=EMDocItem.et_coupon;
+        i->pax.tkn.rem="TKNE";
+      }
+    }
+    else
+    {
+      //в emdocs нет ничего
+      if (i->action==CpnStatAction::associate) continue; //считаем что ассоциация сделана по умолчанию
+    }
+
+    emdList.push_back(make_pair(TEMDSystemUpdateItem(), XMLDoc()));
+
+    TEMDSystemUpdateItem &item=emdList.back().first;
+    item.airline_oper=getTripAirline(fltParams.fltInfo);
+    item.flt_no_oper=getTripFlightNum(fltParams.fltInfo);
+    item.et=Ticketing::TicketCpn_t(i->pax.tkn.no, i->pax.tkn.coupon);
+    item.emd=Ticketing::TicketCpn_t(i->asvc.emd_no, i->asvc.emd_coupon);
+    item.action=i->action;
+
+    XMLDoc &ctxt=emdList.back().second;
+    if (ctxt.docPtr()==NULL)
+    {
+      ctxt.set("context");
+      if (ctxt.docPtr()==NULL)
+        throw EXCEPTIONS::Exception("%s: CreateXMLDoc failed", __FUNCTION__);
+      xmlNodePtr node=NewTextChild(NodeAsNode("/context",ctxt.docPtr()),"emdoc");
+
+      i->flight=flight;
+      i->toXML(node);
+    }
+  }
+}
+
 bool EMDSystemUpdateInterface::EMDChangeDisassociation(const edifact::KickInfo &kickInfo,
                                                        const TEMDSystemUpdateList &emdList)
 {
@@ -339,150 +436,45 @@ bool EMDSystemUpdateInterface::EMDChangeDisassociation(const edifact::KickInfo &
 
   TReqInfo& reqInfo = *(TReqInfo::Instance());
 
-  for(TEMDSystemUpdateList::const_iterator i=emdList.begin();i!=emdList.end();i++)
+  try
   {
+    for(TEMDSystemUpdateList::const_iterator i=emdList.begin();i!=emdList.end();i++)
+    {
 
-    xmlNodePtr rootNode=NodeAsNode("/context",i->second.docPtr());
+      xmlNodePtr rootNode=NodeAsNode("/context",i->second.docPtr());
 
-    if (kickInfo.reqCtxtId!=ASTRA::NoExists)
-      SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
-    SetProp(rootNode,"desk",reqInfo.desk.code);
-    SetProp(rootNode,"user",reqInfo.user.descr);
-    SetProp(rootNode,"screen",reqInfo.screen.name);
+      if (kickInfo.reqCtxtId!=ASTRA::NoExists)
+        SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
+      TEdiOriginCtxt::toXML(rootNode);
 
-    string ediCtxt=XMLTreeToText(i->second.docPtr());
+      string ediCtxt=XMLTreeToText(i->second.docPtr());
 
-    const OrigOfRequest &org=reqInfo.desk.code.empty()?OrigOfRequest(i->first.airline_oper):
-                                                       OrigOfRequest(i->first.airline_oper, reqInfo);
+      const OrigOfRequest &org=reqInfo.desk.code.empty()?OrigOfRequest(i->first.airline_oper):
+                                                         OrigOfRequest(i->first.airline_oper, reqInfo);
 
-    edifact::EmdDisassociateRequestParams disassocParams(org,
-                                                         ediCtxt,
-                                                         kickInfo,
-                                                         i->first.airline_oper,
-                                                         i->first.flt_no_oper,
-                                                         i->first.et,
-                                                         i->first.emd,
-                                                         i->first.action);
-    edifact::EmdDisassociateRequest ediReq(disassocParams);
-    ediReq.sendTlg();
+      edifact::EmdDisassociateRequestParams disassocParams(org,
+                                                           ediCtxt,
+                                                           kickInfo,
+                                                           i->first.airline_oper,
+                                                           i->first.flt_no_oper,
+                                                           i->first.et,
+                                                           i->first.emd,
+                                                           i->first.action);
+      edifact::EmdDisassociateRequest ediReq(disassocParams);
+      ediReq.sendTlg();
 
-    LogTrace(TRACE5) << __FUNCTION__ << ": " << i->first.traceStr();
+      LogTrace(TRACE5) << __FUNCTION__ << ": " << i->first.traceStr();
 
-    result=true;
-  }
-  return result;
-}
-
-void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
-                                                      const TFltParams &fltParams,
-                                                      TEMDSystemUpdateList &emdList)
-{
-  emdList.clear();   
-
-  list< PaxASVCList::TEMDDisassocListItem > assoc, disassoc;
-  PaxASVCList::GetEMDDisassocList(point_id, fltParams.in_final_status, assoc, disassoc);
-
-  if ((!assoc.empty() || !disassoc.empty()) && fltParams.eds_no_interact)
-    throw AstraLocale::UserException("MSG.EMD.INTERACTIVE_MODE_NOT_ALLOWED");
-
-  for(int pass=0; pass<=1; pass++)
-  {
-    list< PaxASVCList::TEMDDisassocListItem > &l=(pass==0?assoc:disassoc);
-    Ticketing::CpnStatAction::CpnStatAction_t new_action=(pass==0?CpnStatAction::associate:CpnStatAction::disassociate);
-
-    for(list< PaxASVCList::TEMDDisassocListItem >::iterator i=l.begin(); i!=l.end(); ++i)
-    {                  
-      if (i->pax.tkn.no.empty() ||
-          i->pax.tkn.coupon==ASTRA::NoExists ||
-          i->pax.tkn.rem!="TKNE")
-      {
-        /*  Невозможно провести операцию ассоциации/диссоциации из-за отсутствия или неполной информации по эл. билету пассажира */
-        //!!!vlad возможно надо более тонко
-        TLogLocale locale;
-        locale.ev_type=ASTRA::evtPay;
-        locale.id1=point_id;
-        locale.id2=i->pax.reg_no;
-        locale.id3=i->grp_id;
-
-        ostringstream pax;
-        pax << i->pax.surname
-            << (i->pax.name.empty()?"":" ") << i->pax.name;
-
-        locale.lexema_id = "EVT.PASSENGER_DATA";
-        locale.prms << PrmSmpl<string>("pax_name", pax.str())
-                    << PrmElem<string>("pers_type", etPersType, EncodePerson(i->pax.pers_type));
-
-        PrmLexema param("param", new_action==CpnStatAction::associate?"EVT.EMD_ASSOCIATION_MISTAKE":
-                                                                      "EVT.EMD_DISASSOCIATION_MISTAKE");
-
-        param.prms << PrmSmpl<std::string>("emd_no", i->asvc.emd_no)
-                   << PrmSmpl<int>("emd_coupon", i->asvc.emd_coupon);
-
-        if (i->pax.tkn.rem!="TKNE" || i->pax.tkn.no.empty())
-          param.prms << PrmLexema("err", "MSG.ETICK.NUMBER_NOT_SET");
-        else
-          param.prms << PrmLexema("err", "MSG.ETICK.COUPON_NOT_SET", LEvntPrms() << PrmSmpl<std::string>("etick", i->pax.tkn.no));
-
-        locale.prms << param;
-
-        TReqInfo *reqInfo=TReqInfo::Instance();
-        reqInfo->LocaleToLog(locale);
-        continue;
-      };
-
-      TEMDocItem EMDocItem;
-      EMDocItem.fromDB(i->asvc.emd_no, i->asvc.emd_coupon, false);                        
-      if (!EMDocItem.empty())
-      {        
-        if (EMDocItem.action==new_action) continue;        
-        if (i->pax.tkn.empty())
-        {
-          i->pax.tkn.no=EMDocItem.et_no;
-          i->pax.tkn.coupon=EMDocItem.et_coupon;
-          i->pax.tkn.rem="TKNE";
-        }        
-      }
-      else
-      {        
-        //в emdocs нет ничего
-        if (new_action==CpnStatAction::associate) continue; //считаем что ассоциация сделана по умолчанию        
-      }      
-
-      emdList.push_back(make_pair(TEMDSystemUpdateItem(), XMLDoc()));
-
-      TEMDSystemUpdateItem &item=emdList.back().first;
-      item.airline_oper=getTripAirline(fltParams.fltInfo);
-      item.flt_no_oper=getTripFlightNum(fltParams.fltInfo);
-      item.et=Ticketing::TicketCpn_t(i->pax.tkn.no, i->pax.tkn.coupon);
-      item.emd=Ticketing::TicketCpn_t(i->asvc.emd_no, i->asvc.emd_coupon);
-      item.action=new_action;
-
-      XMLDoc &ctxt=emdList.back().second;
-      if (ctxt.docPtr()==NULL)
-      {
-        ctxt.set("context");
-        if (ctxt.docPtr()==NULL)
-          throw EXCEPTIONS::Exception("%s: CreateXMLDoc failed", __FUNCTION__);
-        xmlNodePtr node=NewTextChild(NodeAsNode("/context",ctxt.docPtr()),"emdoc");
-        NewTextChild(node,"doc_no", i->asvc.emd_no);
-        NewTextChild(node,"coupon_no", i->asvc.emd_coupon);
-        NewTextChild(node,"associated", (int)(new_action==CpnStatAction::associate));
-        NewTextChild(node,"associated_no", i->pax.tkn.no);
-        NewTextChild(node,"associated_coupon", i->pax.tkn.coupon);
-        NewTextChild(node,"point_id", point_id);
-        NewTextChild(node,"grp_id", i->grp_id);
-        NewTextChild(node,"pax_id", i->pax.id);
-        NewTextChild(node,"reg_no", i->pax.reg_no);
-        ostringstream pax;
-        pax << i->pax.surname
-            << (i->pax.name.empty()?"":" ") << i->pax.name;
-        NewTextChild(node,"pax_full_name",pax.str());
-        NewTextChild(node,"pers_type",EncodePerson(i->pax.pers_type));
-      }
-
+      result=true;
     }
-
   }
+  catch(Ticketing::RemoteSystemContext::system_not_found &e)
+  {
+    throw AstraLocale::UserException("MSG.EMD.EDS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+                                     LEvntPrms() << PrmFlight("flight", e.airline(), e.flNum()?e.flNum().get():ASTRA::NoExists, "") );
+  };
+
+  return result;
 }
 
 void EMDSystemUpdateInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -529,7 +521,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
     segNode=reqNode;
     only_one=true;
   }
-  TChangeStatusList mtick;
+  TETChangeStatusList mtick;
   for(;segNode!=NULL;segNode=segNode->next)
   {
     set<int> ids;
@@ -619,13 +611,13 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
   }
 
   if (!mtick.empty())
-  {    
+  {
     if (!ETStatusInterface::ETChangeStatus(reqNode,mtick))
-      throw EXCEPTIONS::Exception("ChangeAreaStatus: Wrong variable 'processed'");
+      throw EXCEPTIONS::Exception("ChangeAreaStatus: Wrong mtick");
 
 /*  это позже, когда терминалы будут отложенное подтверждение тоже обрабатывать через ets_connect_error!!!
     if (TReqInfo::Instance()->client_type==ctTerm &&
-    	  TReqInfo::Instance()->desk.compatible(DEFER_ETSTATUS_VERSION2))
+          TReqInfo::Instance()->desk.compatible(DEFER_ETSTATUS_VERSION2))
     {
       xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
       SetProp(errNode,"internal_msgid",get_internal_msgid_hex());
@@ -651,242 +643,6 @@ void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   ChangeAreaStatus(csaFlt,ctxt,reqNode,resNode);
 }
 
-void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    string context;
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    if (GetNode("@req_ctxt_id",reqNode)!=NULL)  //req_ctxt_id отсутствует, если телеграмма сформирована не от пульта
-    {
-      int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
-      AstraContext::GetContext("TERM_REQUEST",
-                               req_ctxt_id,
-                               context);
-      AstraContext::ClearContext("TERM_REQUEST", req_ctxt_id);
-      XMLDoc termReqCtxt;
-      if (context.empty())
-        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST empty");
-
-      context=ConvertCodepage(context,"CP866","UTF-8");
-      termReqCtxt.set(context);
-      if (termReqCtxt.docPtr()==NULL)
-        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST wrong XML format");;
-
-      xml_decode_nodelist(termReqCtxt.docPtr()->children);
-
-      AstraContext::GetContext("EDI_RESPONSE",
-                               req_ctxt_id,
-                               context);
-      AstraContext::ClearContext("EDI_RESPONSE", req_ctxt_id);
-      XMLDoc ediResCtxt;
-      if (context.empty())
-        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context EDI_RESPONSE empty");
-
-      context=ConvertCodepage(context,"CP866","UTF-8");
-      ediResCtxt.set(context);
-      if (ediResCtxt.docPtr()==NULL)
-        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context EDI_RESPONSE wrong XML format");;
-
-      xml_decode_nodelist(ediResCtxt.docPtr()->children);
-
-      xmlNodePtr termReqNode=NodeAsNode("/term/query",termReqCtxt.docPtr())->children;
-      if (termReqNode==NULL)
-        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
-      //если эмулируем запрос web-регистрации с терминала - то делаем подмену client_type
-      xmlNodePtr ifaceNode=GetNode("/term/query/@id",termReqCtxt.docPtr());
-      if (ifaceNode!=NULL && strcmp(NodeAsString(ifaceNode), WEB_JXT_IFACE_ID)==0)
-      {
-        //это web-регистрация
-        if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
-      }
-      string termReqName=(char*)(termReqNode->name);
-
-      if (reqInfo->client_type==ctWeb ||
-          reqInfo->client_type==ctMobile ||
-          reqInfo->client_type==ctKiosk) {
-      	xmlNodePtr node = NodeAsNode("/term/query",reqNode->doc);
-      	xmlUnlinkNode( reqNode );
-      	xmlFreeNode( reqNode );
-      	reqNode = NewTextChild( node, termReqName.c_str() );
-      }
-
-
-      bool defer_etstatus=(termReqName=="ChangePaxStatus" ||
-                           termReqName=="ChangeGrpStatus" ||
-                           termReqName=="ChangeFltStatus");
-      ProgTrace( TRACE5, "termReqName=%s", termReqName.c_str() );
-
-      xmlNodePtr ediResNode=NodeAsNode("/context",ediResCtxt.docPtr());
-
-
-      map<string, pair< vector<string>, vector< pair<string,string> > > > errors; //flight,вектор global_error, вектор пар pax+ticket/coupon_error
-      map<int, map<int, AstraLocale::LexemaData> > segs;
-
-      xmlNodePtr ticketNode=NodeAsNode("tickets",ediResNode)->children;
-      for(;ticketNode!=NULL;ticketNode=ticketNode->next)
-      {
-        string flight=NodeAsString("flight",ticketNode);
-        string pax;
-        if (GetNode("pax_full_name",ticketNode)!=NULL&&
-            GetNode("pers_type",ticketNode)!=NULL)
-          pax=getLocaleText("WRAP.PASSENGER", LParams() << LParam("name",NodeAsString("pax_full_name",ticketNode))
-                                                        << LParam("pers_type",ElemIdToCodeNative(etPersType,NodeAsString("pers_type",ticketNode))));
-        int point_id=NodeAsInteger("point_id",ticketNode);
-        int pax_id=ASTRA::NoExists;
-        if (GetNode("pax_id",ticketNode)!=NULL)
-          pax_id=NodeAsInteger("pax_id",ticketNode);
-
-        bool tick_event=false;
-        for(xmlNodePtr node=ticketNode->children;node!=NULL;node=node->next)
-        {
-          if (strcmp((const char*)node->name,"coupon_status")==0) tick_event=true;
-
-          if (!(strcmp((const char*)node->name,"global_error")==0 ||
-                strcmp((const char*)node->name,"ticket_error")==0 ||
-                strcmp((const char*)node->name,"coupon_error")==0)) continue;
-
-          tick_event=true;
-
-          pair< vector<string>, vector< pair<string,string> > > &err=errors[flight];
-
-          if (strcmp((const char*)node->name,"global_error")==0)
-          {
-            LexemaData lexemeData;
-            LexemeDataFromXML(node, lexemeData);
-            string err_locale=getLocaleText(lexemeData);
-            if (find(err.first.begin(),err.first.end(),err_locale)==err.first.end())
-              err.first.push_back(err_locale);
-            //ошибка уровня сегмента
-            segs[point_id][ASTRA::NoExists]=lexemeData;
-          }
-          else
-          {
-            LexemaData lexemeData;
-            LexemeDataFromXML(node, lexemeData);
-            err.second.push_back(make_pair(pax,getLocaleText(lexemeData)));
-            //ошибка уровня пассажира
-            segs[point_id][pax_id]=lexemeData;
-          }
-        }
-        if (!tick_event)
-        {
-          ostringstream ticknum;
-          ticknum << NodeAsString("ticket_no",ticketNode) << "/"
-                  << NodeAsInteger("coupon_no",ticketNode);
-
-          LexemaData lexemeData;
-          lexemeData.lexema_id="MSG.ETICK.CHANGE_STATUS_UNKNOWN_RESULT";
-          lexemeData.lparams << LParam("ticknum",ticknum.str());
-          string err_locale=getLocaleText(lexemeData);
-
-          pair< vector<string>, vector< pair<string,string> > > &err=errors[flight];
-          err.second.push_back(make_pair(pax,err_locale));
-          segs[point_id][pax_id]=lexemeData;
-        }
-      }
-
-      if (!errors.empty())
-      {
-        bool use_flight=(GetNode("segments",termReqNode)!=NULL &&
-                         NodeAsNode("segments/segment",termReqNode)->next!=NULL);  //определим по запросу TERM_REQUEST;
-        map<string, pair< vector<string>, vector< pair<string,string> > > >::iterator i;
-        if ((reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) && !defer_etstatus) ||
-        	  reqInfo->client_type == ctWeb ||
-            reqInfo->client_type == ctMobile ||
-        	  reqInfo->client_type == ctKiosk)
-        {
-          if (reqInfo->client_type == ctWeb ||
-              reqInfo->client_type == ctMobile ||
-        	    reqInfo->client_type == ctKiosk)
-        	{
-        	  if (!segs.empty())
-        	    CheckIn::showError(segs);
-        	  else
-        	    AstraLocale::showError( "MSG.ETICK.CHANGE_STATUS_ERROR", LParams() << LParam("ticknum","") << LParam("error","") ); //!!! надо выводить номер билета и ошибку
-          }
-          else
-          {
-            ostringstream msg;
-            for(i=errors.begin();i!=errors.end();i++)
-            {
-              if (use_flight)
-                msg << getLocaleText("WRAP.FLIGHT", LParams() << LParam("flight",i->first) << LParam("text","") ) << std::endl;
-              for(vector<string>::iterator j=i->second.first.begin(); j!=i->second.first.end(); j++)
-              {
-                if (use_flight) msg << "     ";
-                msg << *j << std::endl;
-              }
-              for(vector< pair<string,string> >::iterator j=i->second.second.begin(); j!=i->second.second.end(); j++)
-              {
-                if (use_flight) msg << "     ";
-                if (!(j->first.empty()))
-                {
-                  msg << j->first << std::endl
-                      << "     ";
-                  if (use_flight) msg << "     ";
-                }
-                msg << j->second << std::endl;
-              }
-            }
-            NewTextChild(resNode,"ets_error",msg.str());
-          }
-          //откат всех подтвержденных статусов
-          ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
-          return;
-        }
-        else
-        {
-          //отката не делаем если раздельное подтверждение или терминал несовместим
-          for(i=errors.begin();i!=errors.end();i++)
-            if (!i->second.first.empty())
-              throw AstraLocale::UserException(*i->second.first.begin());
-          for(i=errors.begin();i!=errors.end();i++)
-            if (!i->second.second.empty())
-              throw AstraLocale::UserException((i->second.second.begin())->second);
-        }
-      }
-
-      if (defer_etstatus) return;
-
-      try
-      {
-      	if (reqInfo->client_type==ctTerm)
-      	{
-          if (termReqName=="TCkinSavePax" ||
-              termReqName=="TCkinSaveUnaccompBag")
-          {
-            if (!CheckInInterface::SavePax(termReqNode, ediResNode, resNode))
-            {
-              //откатываем статусы так как запись группы так и не прошла
-              ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
-              return;
-            }
-          }
-        }
-
-        if (reqInfo->client_type==ctWeb ||
-            reqInfo->client_type==ctMobile ||
-            reqInfo->client_type==ctKiosk)
-      	{
-          if (termReqName=="SavePax")
-          {
-            if (!AstraWeb::WebRequestsIface::SavePax(termReqNode, ediResNode, resNode))
-            {
-              //откатываем статусы так как запись группы так и не прошла
-              ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
-              return;
-            }
-          }
-        }
-      }
-      catch(ServerFramework::Exception &e)
-      {
-        OraSession.Rollback();
-        jxtlib::JXTLib::Instance()->GetCallbacks()->HandleException(&e);
-        ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
-      }
-    }
-}
-
 void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
                                          bool check_connect)
 {
@@ -894,15 +650,18 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
 
   vector<int> point_ids;
 
-  xmlNodePtr ticketNode=NodeAsNode("/context/tickets",ediResDocPtr);
-  for(xmlNodePtr node=ticketNode->children;node!=NULL;node=node->next)
+  //ProgTrace(TRACE5, "ediResDoc=%s", XMLTreeToText(ediResDocPtr).c_str());
+
+  xmlNodePtr ticketNode=GetNode("/context/tickets",ediResDocPtr);
+  if (ticketNode!=NULL) ticketNode=ticketNode->children;
+  for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
   {
     //цикл по билетам
     xmlNodePtr node2=node->children;
 
     ProgTrace(TRACE5,"ETRollbackStatus: ticket_no=%s coupon_no=%d",
-                     NodeAsStringFast("ticket_no",node2),
-                     NodeAsIntegerFast("coupon_no",node2));
+              NodeAsStringFast("ticket_no",node2),
+              NodeAsIntegerFast("coupon_no",node2));
 
     if (GetNodeFast("coupon_status",node2)==NULL) continue;
     int point_id=NodeAsIntegerFast("prior_point_id",node2,
@@ -911,7 +670,7 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
       point_ids.push_back(point_id);
   }
 
-  TChangeStatusList mtick;
+  TETChangeStatusList mtick;
   for(vector<int>::iterator i=point_ids.begin();i!=point_ids.end();i++)
   {
     ProgTrace(TRACE5,"ETRollbackStatus: rollback point_id=%d",*i);
@@ -920,16 +679,16 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
   ETStatusInterface::ETChangeStatus(NULL,mtick);
 }
 
-xmlNodePtr TChangeStatusList::addTicket(const TTicketListKey &key,
+xmlNodePtr TETChangeStatusList::addTicket(const TETChangeStatusKey &key,
                                         const Ticketing::Ticket &tick)
 {
   if ((*this)[key].empty() ||
       (*this)[key].back().first.size()>=MAX_TICKETS_IN_TLG)
   {
-    (*this)[key].push_back(TTicketListCtxt());
+    (*this)[key].push_back(TETChangeStatusItem());
   }
 
-  TTicketListCtxt &ltick=(*this)[key].back();
+  TETChangeStatusItem &ltick=(*this)[key].back();
   if (ltick.second.docPtr()==NULL)
   {
     ltick.second.set("context");
@@ -944,7 +703,7 @@ xmlNodePtr TChangeStatusList::addTicket(const TTicketListKey &key,
 void ETStatusInterface::ETCheckStatus(int point_id,
                                       xmlDocPtr ediResDocPtr,
                                       bool check_connect,
-                                      TChangeStatusList &mtick)
+                                      TETChangeStatusList &mtick)
 {
   //mtick.clear(); добавляем уже к заполненному
 
@@ -973,7 +732,7 @@ void ETStatusInterface::ETCheckStatus(int point_id,
         Qry.DeclareVariable("ticket_no",otString);
         Qry.DeclareVariable("coupon_no",otInteger);
 
-        TTicketListKey key;
+        TETChangeStatusKey key;
         bool init_edi_addrs=false;
 
         xmlNodePtr ticketNode=NodeAsNode("/context/tickets",ediResDocPtr);
@@ -1016,7 +775,7 @@ void ETStatusInterface::ETCheckStatus(int point_id,
               flt << ElemIdToCodeNative(etAirline,fltParams.fltInfo.airline)
                   << setw(3) << setfill('0') << fltParams.fltInfo.flt_no;
               throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
-              	                               LParams() << LParam("flight", flt.str()));
+                                               LParams() << LParam("flight", flt.str()));
             }
             init_edi_addrs=true;
           }
@@ -1077,11 +836,134 @@ void ETStatusInterface::ETCheckStatus(int point_id,
   }
 }
 
+void TEMDChangeStatusList::addEMD(const TEMDChangeStatusKey &key,
+                                  const TEMDCtxtItem &item)
+{
+  TEMDChangeStatusList::iterator i=find(key);
+  if (i==end()) i=insert(make_pair(key, list<TEMDChangeStatusItem>())).first;
+  if (i==end()) throw EXCEPTIONS::Exception("%s: i==end()", __FUNCTION__);
+
+  list<TEMDChangeStatusItem>::iterator j=i->second.insert(i->second.end(), TEMDChangeStatusItem());
+  j->emd=Ticketing::TicketCpn_t(item.asvc.emd_no, item.asvc.emd_coupon);
+  xmlNodePtr emdocsNode=NULL;
+  if (j->ctxt.docPtr()==NULL)
+  {
+    j->ctxt.set("context");
+    if (j->ctxt.docPtr()==NULL) throw EXCEPTIONS::Exception("%s: j->ctxt.docPtr()==NULL", __FUNCTION__);
+    emdocsNode=NewTextChild(NodeAsNode("/context",j->ctxt.docPtr()),"emdocs");
+  }
+  else
+    emdocsNode=NodeAsNode("/context/emdocs",j->ctxt.docPtr());
+
+  item.toXML(NewTextChild(emdocsNode, "emdoc"));
+}
+
+
+void EMDStatusInterface::EMDCheckStatus(const int grp_id,
+                                        const CheckIn::PaidBagEMDList &prior_emds,
+                                        TEMDChangeStatusList &emdList)
+{
+  if (TReqInfo::Instance()->duplicate) return;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT point_dep FROM pax_grp WHERE pax_grp.grp_id=:grp_id";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  if (Qry.Eof) return;
+  int point_id=Qry.FieldAsInteger("point_dep");
+
+  TFltParams fltParams;
+  if (!fltParams.get(point_id)) return;
+  if (fltParams.eds_no_interact) return;
+
+  list<TEMDCtxtItem> emds;
+  GetBoundEMDStatusList(grp_id, fltParams.in_final_status, emds);
+  string flight=GetTripName(fltParams.fltInfo,ecNone,true,false);
+
+  for(list<TEMDCtxtItem>::iterator e=emds.begin(); e!=emds.end(); ++e)
+  {
+    CheckIn::PaidBagEMDList::const_iterator pe=prior_emds.begin();
+    for(; pe!=prior_emds.end(); ++pe)
+      if (e->asvc.emd_no==pe->first.emd_no &&
+          e->asvc.emd_coupon==pe->first.emd_coupon) break;
+    if (pe!=prior_emds.end()) continue; //уже был раньше введен EMD
+
+    e->point_id=point_id;
+    e->flight=flight;
+    if (e->paxUnknown()) throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
+                                             LParams() << LParam("emd", e->asvc.no_str()));
+
+    if (e->status==CouponStatus::OriginalIssue ||
+        e->status==CouponStatus::Unavailable) continue;  //пассажир разрегистрируется
+
+
+    TEMDChangeStatusKey key;
+    key.airline_oper=fltParams.fltInfo.airline;
+    key.flt_no_oper=fltParams.fltInfo.flt_no;
+    key.coupon_status=e->status;
+
+    emdList.addEMD(key, *e);
+  };
+
+}
+
+bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
+                                         const TEMDChangeStatusList &emdList)
+{
+  bool result=false;
+
+  TReqInfo& reqInfo = *(TReqInfo::Instance());
+
+  try
+  {
+    for(TEMDChangeStatusList::const_iterator i=emdList.begin(); i!=emdList.end(); ++i)
+    {
+      for(list<TEMDChangeStatusItem>::const_iterator j=i->second.begin(); j!=i->second.end(); ++j)
+      {
+        xmlNodePtr rootNode=NodeAsNode("/context",j->ctxt.docPtr());
+
+        if (kickInfo.reqCtxtId!=ASTRA::NoExists)
+          SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
+        TEdiOriginCtxt::toXML(rootNode);
+
+        string ediCtxt=XMLTreeToText(j->ctxt.docPtr());
+        //ProgTrace(TRACE5, "ediCosCtxt=%s", ediCtxt.c_str());
+
+        const OrigOfRequest &org=reqInfo.desk.code.empty()?OrigOfRequest(i->first.airline_oper):
+                                                           OrigOfRequest(i->first.airline_oper, reqInfo);
+
+        edifact::EmdCOSParams cosParams(org,
+                                        ediCtxt,
+                                        kickInfo,
+                                        i->first.airline_oper,
+                                        Ticketing::FlightNum_t(i->first.flt_no_oper),
+                                        j->emd.ticket(),
+                                        j->emd.cpn(),
+                                        i->first.coupon_status);
+
+        edifact::EmdCOSRequest ediReq(cosParams);
+        ediReq.sendTlg();
+
+        LogTrace(TRACE5) << __FUNCTION__ << ": " << i->first.traceStr() << " " << j->traceStr();
+
+        result=true;
+      };
+    };
+  }
+  catch(Ticketing::RemoteSystemContext::system_not_found &e)
+  {
+    throw AstraLocale::UserException("MSG.EMD.EDS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+                                     LEvntPrms() << PrmFlight("flight", e.airline(), e.flNum()?e.flNum().get():ASTRA::NoExists, "") );
+  };
+
+  return result;
+}
+
 void ETStatusInterface::ETCheckStatus(int id,
                                       TETCheckStatusArea area,
                                       int check_point_id,  //м.б. NoExists
                                       bool check_connect,
-                                      TChangeStatusList &mtick,
+                                      TETChangeStatusList &mtick,
                                       bool before_checkin)
 {
   //mtick.clear(); добавляем уже к заполненному
@@ -1160,7 +1042,7 @@ void ETStatusInterface::ETCheckStatus(int id,
         {
           string ticket_no;
           int coupon_no=-1;
-          TTicketListKey key;
+          TETChangeStatusKey key;
           bool init_edi_addrs=false;
           for(;!Qry.Eof;Qry.Next())
           {
@@ -1199,7 +1081,7 @@ void ETStatusInterface::ETCheckStatus(int id,
                   flt << ElemIdToCodeNative(etAirline,fltParams.fltInfo.airline)
                       << setw(3) << setfill('0') << fltParams.fltInfo.flt_no;
                   throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
-                  	                               LParams() << LParam("flight", flt.str()));
+                                                   LParams() << LParam("flight", flt.str()));
                 }
                 init_edi_addrs=true;
               }
@@ -1291,7 +1173,7 @@ void ETStatusInterface::ETCheckStatus(int id,
         Qry.Execute();
         if (!Qry.Eof)
         {
-          TTicketListKey key;
+          TETChangeStatusKey key;
           key.airline_oper=fltParams.fltInfo.airline;
           if (!get_et_addr_set(fltParams.fltInfo.airline,fltParams.fltInfo.flt_no,key.addrs))
           {
@@ -1299,7 +1181,7 @@ void ETStatusInterface::ETCheckStatus(int id,
             flt << ElemIdToCodeNative(etAirline,fltParams.fltInfo.airline)
                 << setw(3) << setfill('0') << fltParams.fltInfo.flt_no;
             throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
-             	                               LParams() << LParam("flight", flt.str()));
+                                               LParams() << LParam("flight", flt.str()));
           }
           key.coupon_status=real_status->codeInt();
 
@@ -1354,21 +1236,32 @@ void ETStatusInterface::ETCheckStatus(int id,
   }
 }
 
-bool ETStatusInterface::ETChangeStatus(xmlNodePtr reqNode,
-                                       const TChangeStatusList &mtick)
+bool ETStatusInterface::ETChangeStatus(const xmlNodePtr reqNode,
+                                       const TETChangeStatusList &mtick)
 {
   bool result=false;
 
   if (!mtick.empty())
   {
-    const edifact::KickInfo &kickInfo=reqNode!=NULL?
-                                      edifact::KickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)), "ETStatus"):
-                                      edifact::KickInfo();
+    const edifact::KickInfo &kickInfo=
+        reqNode!=NULL?edifact::KickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)), "ChangeStatus"):
+                      edifact::KickInfo();
+    result=ETChangeStatus(kickInfo, mtick);
+  }
+  return result;
+}
 
+bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
+                                       const TETChangeStatusList &mtick)
+{
+  bool result=false;
+
+  if (!mtick.empty())
+  {
     string oper_carrier;
-    for(TChangeStatusList::const_iterator i=mtick.begin();i!=mtick.end();i++)
+    for(TETChangeStatusList::const_iterator i=mtick.begin();i!=mtick.end();i++)
     {
-      for(vector<TTicketListCtxt>::const_iterator j=i->second.begin();j!=i->second.end();j++)
+      for(vector<TETChangeStatusItem>::const_iterator j=i->second.begin();j!=i->second.end();j++)
       {
         const TTicketList &ltick=j->first;
         if (ltick.empty()) continue;
@@ -1397,9 +1290,7 @@ bool ETStatusInterface::ETChangeStatus(xmlNodePtr reqNode,
 
         if (kickInfo.reqCtxtId!=ASTRA::NoExists)
           SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
-        SetProp(rootNode,"desk",reqInfo.desk.code);
-        SetProp(rootNode,"user",reqInfo.user.descr);
-        SetProp(rootNode,"screen",reqInfo.screen.name);
+        TEdiOriginCtxt::toXML(rootNode);
 
         string ediCtxt=XMLTreeToText(j->second.docPtr());
 
@@ -1432,13 +1323,13 @@ void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     LogTrace(TRACE3) << __FUNCTION__;
-    
+
     Ticketing::TicketNum_t emdDocNum(NodeAsString("EmdNoEdit", reqNode));
-    CouponNum_t emdCpnNum(NodeAsInteger("CpnNoEdit", reqNode));
+    Ticketing::CouponNum_t emdCpnNum(NodeAsInteger("CpnNoEdit", reqNode));
     Ticketing::CouponStatus emdCpnStatus;
     emdCpnStatus = Ticketing::CouponStatus::fromDispCode(NodeAsString("CpnStatusEdit", reqNode));
     int pointId = NodeAsInteger("point_id",reqNode);
-    
+
     TTripInfo info;
     checkEDSInteract(pointId, true, info);
     std::string airline = getTripAirline(info);
@@ -1458,5 +1349,303 @@ void EMDStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     pRemoteResults res = RemoteResults::readSingle();
     LogTrace(TRACE3) << "RemoteResults::Status: " << res->status();
     // TODO add kick handling
-    FuncOut(KickHandler);    
+    FuncOut(KickHandler);
 }
+
+void ChangeStatusInterface::ChangeStatus(const xmlNodePtr reqNode,
+                                         const TChangeStatusList &info)
+{
+  bool existsET=false;
+  bool existsEMD=false;
+
+  if (!info.empty())
+  {
+    const edifact::KickInfo &kickInfo=
+        reqNode!=NULL?edifact::KickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)), "ChangeStatus"):
+                      edifact::KickInfo();
+    existsET=ETStatusInterface::ETChangeStatus(kickInfo,info.ET);
+    existsEMD=EMDStatusInterface::EMDChangeStatus(kickInfo,info.EMD);
+  };
+  if (existsET)
+  {
+    if (existsEMD)
+      AstraLocale::showProgError("MSG.ETS_EDS_CONNECT_ERROR");
+    else
+      AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
+  }
+  else
+  {
+    if (existsEMD)
+      AstraLocale::showProgError("MSG.EDS_CONNECT_ERROR");
+    else
+      throw EXCEPTIONS::Exception("ChangeStatusInterface::ChangeStatus: empty info");
+  };
+}
+
+void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string context;
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if (GetNode("@req_ctxt_id",reqNode)!=NULL)  //req_ctxt_id отсутствует, если телеграмма сформирована не от пульта
+    {
+      int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
+      AstraContext::GetContext("TERM_REQUEST",
+                               req_ctxt_id,
+                               context);
+      AstraContext::ClearContext("TERM_REQUEST", req_ctxt_id);
+      XMLDoc termReqCtxt;
+      if (context.empty())
+        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST empty");
+
+      context=ConvertCodepage(context,"CP866","UTF-8");
+      termReqCtxt.set(context);
+      if (termReqCtxt.docPtr()==NULL)
+        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST wrong XML format");;
+
+      xml_decode_nodelist(termReqCtxt.docPtr()->children);
+
+      AstraContext::GetContext("EDI_RESPONSE",
+                               req_ctxt_id,
+                               context);
+      AstraContext::ClearContext("EDI_RESPONSE", req_ctxt_id);
+      XMLDoc ediResCtxt;
+      if (context.empty())
+        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context EDI_RESPONSE empty");
+
+      context=ConvertCodepage(context,"CP866","UTF-8");
+      ediResCtxt.set(context);
+      if (ediResCtxt.docPtr()==NULL)
+        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context EDI_RESPONSE wrong XML format");;
+
+      xml_decode_nodelist(ediResCtxt.docPtr()->children);
+
+      xmlNodePtr termReqNode=NodeAsNode("/term/query",termReqCtxt.docPtr())->children;
+      if (termReqNode==NULL)
+        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
+      //если эмулируем запрос web-регистрации с терминала - то делаем подмену client_type
+      xmlNodePtr ifaceNode=GetNode("/term/query/@id",termReqCtxt.docPtr());
+      if (ifaceNode!=NULL && strcmp(NodeAsString(ifaceNode), WEB_JXT_IFACE_ID)==0)
+      {
+        //это web-регистрация
+        if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+      }
+      string termReqName=(char*)(termReqNode->name);
+
+      if (reqInfo->client_type==ctWeb ||
+          reqInfo->client_type==ctMobile ||
+          reqInfo->client_type==ctKiosk) {
+        xmlNodePtr node = NodeAsNode("/term/query",reqNode->doc);
+        xmlUnlinkNode( reqNode );
+        xmlFreeNode( reqNode );
+        reqNode = NewTextChild( node, termReqName.c_str() );
+      }
+
+
+      bool defer_etstatus=(termReqName=="ChangePaxStatus" ||
+                           termReqName=="ChangeGrpStatus" ||
+                           termReqName=="ChangeFltStatus");
+      ProgTrace( TRACE5, "termReqName=%s", termReqName.c_str() );
+
+      xmlNodePtr ediResNode=NodeAsNode("/context",ediResCtxt.docPtr());
+
+
+      map<string, pair< set<string>, vector< pair<string,string> > > > errors; //flight,множество global_error, вектор пар pax+ticket/coupon_error
+      map<int, map<int, AstraLocale::LexemaData> > segs;
+
+      xmlNodePtr emdNode=GetNode("emdocs", ediResNode);
+      if (emdNode!=NULL) emdNode=emdNode->children;
+      for(; emdNode!=NULL; emdNode=emdNode->next)
+      {
+        TEMDCtxtItem EMDCtxt;
+        EMDCtxt.fromXML(emdNode);
+        string pax;
+        if (!EMDCtxt.paxUnknown())
+          pax=getLocaleText("WRAP.PASSENGER",
+                            LParams() << LParam("name", EMDCtxt.pax.full_name())
+                                      << LParam("pers_type",ElemIdToCodeNative(etPersType,EncodePerson(EMDCtxt.pax.pers_type))));
+
+        EdiErrorList errList;
+        GetEdiError(emdNode, errList);
+        if (!errList.empty())
+        {
+          pair< set<string>, vector< pair<string,string> > > &err=errors[EMDCtxt.flight];
+
+          for(EdiErrorList::const_iterator e=errList.begin(); e!=errList.end(); ++e)
+            if (e->second) //global
+            {
+              err.first.insert(getLocaleText(e->first));
+              //ошибка уровня сегмента
+              segs[EMDCtxt.point_id][ASTRA::NoExists]=e->first;
+            }
+            else
+            {
+              err.second.push_back(make_pair(pax,getLocaleText(e->first)));
+              //ошибка уровня пассажира
+              segs[EMDCtxt.point_id][EMDCtxt.pax.id]=e->first;
+            };
+        };
+      };
+
+      xmlNodePtr ticketNode=GetNode("tickets", ediResNode);
+      if (ticketNode!=NULL) ticketNode=ticketNode->children;
+      for(;ticketNode!=NULL;ticketNode=ticketNode->next)
+      {
+        string flight=NodeAsString("flight",ticketNode);
+        string pax;
+        if (GetNode("pax_full_name",ticketNode)!=NULL&&
+            GetNode("pers_type",ticketNode)!=NULL)
+          pax=getLocaleText("WRAP.PASSENGER", LParams() << LParam("name",NodeAsString("pax_full_name",ticketNode))
+                                                        << LParam("pers_type",ElemIdToCodeNative(etPersType,NodeAsString("pers_type",ticketNode))));
+        int point_id=NodeAsInteger("point_id",ticketNode);
+        int pax_id=ASTRA::NoExists;
+        if (GetNode("pax_id",ticketNode)!=NULL)
+          pax_id=NodeAsInteger("pax_id",ticketNode);
+
+        bool tick_event=false;
+        for(xmlNodePtr node=ticketNode->children;node!=NULL;node=node->next)
+        {
+          if (strcmp((const char*)node->name,"coupon_status")==0) tick_event=true;
+
+          if (!(strcmp((const char*)node->name,"global_error")==0 ||
+                strcmp((const char*)node->name,"ticket_error")==0 ||
+                strcmp((const char*)node->name,"coupon_error")==0)) continue;
+
+          tick_event=true;
+
+          pair< set<string>, vector< pair<string,string> > > &err=errors[flight];
+
+          LexemaData lexemeData;
+          LexemeDataFromXML(node, lexemeData);
+          if (strcmp((const char*)node->name,"global_error")==0)
+          {
+            err.first.insert(getLocaleText(lexemeData));
+            //ошибка уровня сегмента
+            segs[point_id][ASTRA::NoExists]=lexemeData;
+          }
+          else
+          {
+            err.second.push_back(make_pair(pax,getLocaleText(lexemeData)));
+            //ошибка уровня пассажира
+            segs[point_id][pax_id]=lexemeData;
+          }
+        }
+        if (!tick_event)
+        {
+          ostringstream ticknum;
+          ticknum << NodeAsString("ticket_no",ticketNode) << "/"
+                  << NodeAsInteger("coupon_no",ticketNode);
+
+          LexemaData lexemeData;
+          lexemeData.lexema_id="MSG.ETICK.CHANGE_STATUS_UNKNOWN_RESULT";
+          lexemeData.lparams << LParam("ticknum",ticknum.str());
+          string err_locale=getLocaleText(lexemeData);
+
+          pair< set<string>, vector< pair<string,string> > > &err=errors[flight];
+          err.second.push_back(make_pair(pax,err_locale));
+          segs[point_id][pax_id]=lexemeData;
+        }
+      }
+
+      if (!errors.empty())
+      {
+        bool use_flight=(GetNode("segments",termReqNode)!=NULL &&
+                         NodeAsNode("segments/segment",termReqNode)->next!=NULL);  //определим по запросу TERM_REQUEST;
+        map<string, pair< set<string>, vector< pair<string,string> > > >::iterator i;
+        if ((reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) && !defer_etstatus) ||
+            reqInfo->client_type == ctWeb ||
+            reqInfo->client_type == ctMobile ||
+            reqInfo->client_type == ctKiosk)
+        {
+          if (reqInfo->client_type == ctWeb ||
+              reqInfo->client_type == ctMobile ||
+              reqInfo->client_type == ctKiosk)
+          {
+            if (!segs.empty())
+              CheckIn::showError(segs);
+            else
+              AstraLocale::showError( "MSG.ETICK.CHANGE_STATUS_ERROR", LParams() << LParam("ticknum","") << LParam("error","") ); //!!! надо выводить номер билета и ошибку
+          }
+          else
+          {
+            ostringstream msg;
+            for(i=errors.begin();i!=errors.end();i++)
+            {
+              if (use_flight)
+                msg << getLocaleText("WRAP.FLIGHT", LParams() << LParam("flight",i->first) << LParam("text","") ) << std::endl;
+              for(set<string>::const_iterator j=i->second.first.begin(); j!=i->second.first.end(); ++j)
+              {
+                if (use_flight) msg << "     ";
+                msg << *j << std::endl;
+              }
+              for(vector< pair<string,string> >::const_iterator j=i->second.second.begin(); j!=i->second.second.end(); ++j)
+              {
+                if (use_flight) msg << "     ";
+                if (!(j->first.empty()))
+                {
+                  msg << j->first << std::endl
+                      << "     ";
+                  if (use_flight) msg << "     ";
+                }
+                msg << j->second << std::endl;
+              }
+            }
+            NewTextChild(resNode,"ets_error",msg.str());
+          }
+          //откат всех подтвержденных статусов
+          ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
+          return;
+        }
+        else
+        {
+          //отката не делаем если раздельное подтверждение или терминал несовместим
+          for(i=errors.begin();i!=errors.end();i++)
+            if (!i->second.first.empty())
+              throw AstraLocale::UserException(*i->second.first.begin());
+          for(i=errors.begin();i!=errors.end();i++)
+            if (!i->second.second.empty())
+              throw AstraLocale::UserException((i->second.second.begin())->second);
+        }
+      }
+
+      if (defer_etstatus) return;
+
+      try
+      {
+        if (reqInfo->client_type==ctTerm)
+        {
+          if (termReqName=="TCkinSavePax" ||
+              termReqName=="TCkinSaveUnaccompBag")
+          {
+            if (!CheckInInterface::SavePax(termReqNode, ediResNode, resNode))
+            {
+              //откатываем статусы так как запись группы так и не прошла
+              ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
+              return;
+            }
+          }
+        }
+
+        if (reqInfo->client_type==ctWeb ||
+            reqInfo->client_type==ctMobile ||
+            reqInfo->client_type==ctKiosk)
+        {
+          if (termReqName=="SavePax")
+          {
+            if (!AstraWeb::WebRequestsIface::SavePax(termReqNode, ediResNode, resNode))
+            {
+              //откатываем статусы так как запись группы так и не прошла
+              ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
+              return;
+            }
+          }
+        }
+      }
+      catch(ServerFramework::Exception &e)
+      {
+        OraSession.Rollback();
+        jxtlib::JXTLib::Instance()->GetCallbacks()->HandleException(&e);
+        ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
+      }
+    }
+}
+

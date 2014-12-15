@@ -67,7 +67,7 @@ void MeetAgentExpectations(const edifact::RemoteResults & res)
     if (!res.pult().empty())
     {
       LogTrace(TRACE3) << "confirm_notify_levb for edisession: " << res.ediSession();
-      confirm_notify_levb(res.ediSession().get());
+      confirm_notify_levb(res.ediSession().get(), true);
     };
 }
 
