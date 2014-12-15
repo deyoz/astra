@@ -1862,6 +1862,7 @@ struct TStatParams {
     string typeb_type;
     string sender_addr;
     string receiver_descr;
+    string reg_type;
     bool skip_rows;
     void get(xmlNodePtr resNode);
 };
@@ -2179,7 +2180,12 @@ void TStatParams::get(xmlNodePtr reqNode)
                 else
                     if(name == "Трансфер") statType=statTrferFull;
                     else throw Exception("Unknown stat mode " + name);
-    } else if(type == "По киоскам") {
+    } else if(type ==
+            (TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION) ?
+             "Саморегистрация" :
+             "По киоскам"
+            )
+            ) {
         if(name == "Подробная")
             statType=statKioskFull;
         else if(name == "Общая")
@@ -2235,6 +2241,7 @@ void TStatParams::get(xmlNodePtr reqNode)
     typeb_type = NodeAsStringFast("typeb_type", curNode, "");
     sender_addr = NodeAsStringFast("sender_addr", curNode, "");
     receiver_descr = NodeAsStringFast("receiver_descr", curNode, "");
+    reg_type = NodeAsStringFast("reg_type", curNode, "");
 
     ProgTrace(TRACE5, "ak: %s", ak.c_str());
     ProgTrace(TRACE5, "ap: %s", ap.c_str());
@@ -3640,7 +3647,7 @@ struct TKioskStatRow {
 };
 
 struct TKioskStatKey {
-    string kiosk, descr, ak, ap;
+    string client_type, kiosk, descr, ak, ap;
     int flt_no;
     int point_id;
     TStatPlaces places;
@@ -3651,25 +3658,28 @@ struct TKioskStatKey {
 struct TKioskCmp {
     bool operator() (const TKioskStatKey &lr, const TKioskStatKey &rr) const
     {
-        if(lr.kiosk == rr.kiosk)
-            if(lr.ak == rr.ak)
-                if(lr.ap == rr.ap)
-                    if(lr.flt_no == rr.flt_no)
-                        if(lr.scd_out == rr.scd_out)
-                            if(lr.point_id == rr.point_id)
-                                return lr.places.get() < rr.places.get();
+        if(lr.client_type == rr.client_type)
+            if(lr.kiosk == rr.kiosk)
+                if(lr.ak == rr.ak)
+                    if(lr.ap == rr.ap)
+                        if(lr.flt_no == rr.flt_no)
+                            if(lr.scd_out == rr.scd_out)
+                                if(lr.point_id == rr.point_id)
+                                    return lr.places.get() < rr.places.get();
+                                else
+                                    return lr.point_id < rr.point_id;
                             else
-                                return lr.point_id < rr.point_id;
+                                return lr.scd_out < rr.scd_out;
                         else
-                            return lr.scd_out < rr.scd_out;
+                            return lr.flt_no < rr.flt_no;
                     else
-                        return lr.flt_no < rr.flt_no;
+                        return lr.ap < rr.ap;
                 else
-                    return lr.ap < rr.ap;
+                    return lr.ak < rr.ak;
             else
-                return lr.ak < rr.ak;
+                return lr.kiosk < rr.kiosk;
         else
-            return lr.kiosk < rr.kiosk;
+            return lr.client_type < rr.client_type;
     }
 };
 
@@ -3688,6 +3698,7 @@ void RunKioskStat(const TStatParams &params,
             "    points.scd_out, "
             "    points.flt_no, "
             "    kiosk_stat.point_id, "
+            "    kiosk_stat.client_type, "
             "    desk, "
             "    desk_airp, "
             "    descr, "
@@ -3723,6 +3734,15 @@ void RunKioskStat(const TStatParams &params,
             "    points.pr_del >= 0 and "
             "    points.scd_out >= :FirstDate and "
             "    points.scd_out < :LastDate ";
+        if(TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) {
+            if(not params.reg_type.empty()) {
+                SQLText += " and kiosk_stat.client_type = :reg_type ";
+                Qry.CreateVariable("reg_type", otString, params.reg_type);
+            }
+        } else {
+            SQLText += " and kiosk_stat.client_type = :reg_type ";
+            Qry.CreateVariable("reg_type", otString, EncodeClientType(ctKiosk));
+        }
         if(params.flt_no != NoExists) {
             SQLText += " and points.flt_no = :flt_no ";
             Qry.CreateVariable("flt_no", otInteger, params.flt_no);
@@ -3755,6 +3775,7 @@ void RunKioskStat(const TStatParams &params,
             int col_scd_out = Qry.FieldIndex("scd_out");
             int col_flt_no = Qry.FieldIndex("flt_no");
             int col_point_id = Qry.FieldIndex("point_id");
+            int col_client_type = Qry.FieldIndex("client_type");
             int col_desk = Qry.FieldIndex("desk");
             int col_desk_airp = Qry.FieldIndex("desk_airp");
             int col_descr = Qry.FieldIndex("descr");
@@ -3784,11 +3805,13 @@ void RunKioskStat(const TStatParams &params,
                 string airp = Qry.FieldAsString(col_airp);
                 TDateTime scd_out = Qry.FieldAsDateTime(col_scd_out);
                 int flt_no = Qry.FieldAsInteger(col_flt_no);
+                string client_type = Qry.FieldAsString(col_client_type);
                 string desk = Qry.FieldAsString(col_desk);
                 string desk_airp = Qry.FieldAsString(col_desk_airp);
                 string descr = Qry.FieldAsString(col_descr);
 
                 TKioskStatKey key;
+                key.client_type = client_type;
                 key.kiosk = desk;
                 if(not desk_airp.empty())
                     key.kiosk += "/" + ElemIdToCodeNative(etAirp, desk_airp);
@@ -3859,6 +3882,8 @@ void createXMLKioskStat(const TStatParams &params,
           };
       
           rowNode = NewTextChild(rowsNode, "row");
+          // Тип рег.
+          NewTextChild(rowNode, "col", im->first.client_type);
           // № киоска
           NewTextChild(rowNode, "col", im->first.kiosk);
           // примечание
@@ -3924,11 +3949,16 @@ void createXMLKioskStat(const TStatParams &params,
     rowNode = NewTextChild(rowsNode, "row");
 
     xmlNodePtr colNode;
-    colNode = NewTextChild(headerNode, "col", getLocaleText("№ киоска"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип рег."));
     SetProp(colNode, "width", 75);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Пульт"));
+    SetProp(colNode, "width", 75);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    NewTextChild(rowNode, "col");
     if(params.statType == statKioskFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
         SetProp(colNode, "width", 280);
@@ -4045,7 +4075,12 @@ void createXMLKioskStat(const TStatParams &params,
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
     NewTextChild(variablesNode, "stat_type", params.statType);
-    NewTextChild(variablesNode, "stat_mode", getLocaleText("Киоски саморегистрации"));
+    NewTextChild(variablesNode, "stat_mode", getLocaleText(
+                (TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION) ?
+                 "Саморегистрация" :
+                 "Киоски саморегистрации"
+                )
+                ));
     string buf;
     switch(params.statType) {
         case statKioskShort:
