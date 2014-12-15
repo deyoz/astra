@@ -140,7 +140,7 @@ public:
   static void SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no, TLogLocale& tlocale);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
-                      int &first_grp_id, TChangeStatusList &ETInfo, int &tckin_id);
+                      int &first_grp_id, TChangeStatusList &ChangeStatusInfo, int &tckin_id);
 
   static void SaveTagPacks(xmlNodePtr node);
 

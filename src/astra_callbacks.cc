@@ -65,6 +65,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new EMDSystemUpdateInterface();
     new EMDStatusInterface();
     new ETStatusInterface();
+    new ChangeStatusInterface();
     new ImagesInterface();
     new CheckInInterface();
     new EventsInterface();

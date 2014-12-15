@@ -6,6 +6,7 @@
 #include "tlg/remote_results.h"
 #include <serverlib/ehelpsig.h>
 #include <serverlib/EdiHelpManager.h>
+#include <serverlib/xml_stuff.h>
 #include <edilib/EdiSessionTimeOut.h>
 #include <edilib/edi_session.h>
 
@@ -113,7 +114,7 @@ bool checkInteract(const int point_id,
         "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
-    if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");    
+    if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
     info.airline=Qry.FieldAsString("airline");
     info.flt_no=Qry.FieldAsInteger("flt_no");
     info.airp=Qry.FieldAsString("airp");
@@ -219,7 +220,7 @@ std::string get_canon_name(const std::string& edi_addr)
   return Qry.FieldAsString("canon_name");
 }
 
-void confirm_notify_levb(const int edi_sess_id)
+void confirm_notify_levb(const int edi_sess_id, const bool err_if_not_found)
 {
   ProgTrace(TRACE2,"confirm_notify_levb: called with edi_sess_id=%d",edi_sess_id);
 
@@ -240,7 +241,11 @@ void confirm_notify_levb(const int edi_sess_id)
   Qry.CreateVariable("remained",otInteger,FNull);
   Qry.Execute();
   if (Qry.VariableIsNULL("intmsgid"))
-    throw EXCEPTIONS::Exception("confirm_notify_levb: nothing in edi_help for session_id=%d", edi_sess_id);
+  {
+    if (err_if_not_found)
+      throw EXCEPTIONS::Exception("confirm_notify_levb: nothing in edi_help for session_id=%d", edi_sess_id);
+    return;
+  };
   string hex_msg_id=Qry.GetVariableAsString("intmsgid");
   if (Qry.GetVariableAsInteger("remained")==0)
   {
@@ -285,6 +290,45 @@ string make_xml_kick(const edifact::KickInfo &kickInfo)
   else
     NewTextChild(node,"kick");
   return ConvertCodepage(XMLTreeToText(kickDoc.docPtr()),"CP866","UTF-8");
+};
+
+void addToEdiResponseCtxt(const int ctxtId,
+                          const xmlNodePtr srcNode,
+                          const string &destNodeName)
+{
+  if (ctxtId==ASTRA::NoExists || srcNode==NULL || destNodeName.empty()) return;
+  string ctxt;
+  AstraContext::GetContext("EDI_RESPONSE",
+                           ctxtId,
+                           ctxt);
+  XMLDoc ediResCtxt;
+  if (!ctxt.empty())
+  {
+    ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
+    ediResCtxt.set(ctxt);
+    if (ediResCtxt.docPtr()!=NULL)
+      xml_decode_nodelist(ediResCtxt.docPtr()->children);
+  }
+  else
+  {
+    ediResCtxt.set("context");
+  };
+  if (ediResCtxt.docPtr()!=NULL)
+  {
+    xmlNodePtr rootNode=NodeAsNode("/context",ediResCtxt.docPtr());
+    xmlNodePtr destNode=GetNode(destNodeName.c_str(), rootNode);
+    if (destNode==NULL)
+      destNode=NewTextChild(rootNode, destNodeName.c_str());
+
+    CopyNodeList(destNode,srcNode->parent);
+    ctxt=XMLTreeToText(ediResCtxt.docPtr());
+
+    if (!ctxt.empty())
+    {
+      AstraContext::ClearContext("EDI_RESPONSE",ctxtId);
+      AstraContext::SetContext("EDI_RESPONSE",ctxtId,ctxt);
+    };
+  };
 };
 
 void cleanOldRecords(const int min_ago)

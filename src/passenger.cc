@@ -1280,6 +1280,15 @@ int is_female(const string &pax_doc_gender, const string &pax_name)
   return result;
 };
 
+std::string TPaxItem::full_name() const
+{
+  ostringstream s;
+  s << surname;
+  if (!name.empty())
+    s << " " << name;
+  return s.str();
+};
+
 TAPISItem& TAPISItem::fromDB(int pax_id)
 {
   clear();

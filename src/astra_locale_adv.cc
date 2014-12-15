@@ -312,7 +312,7 @@ int test_astra_locale_adv(int argc,char **argv)
     LEvntPrms params;
     xml_decode_nodelist(doc.docPtr()->children);
     xmlNodePtr eventNode = NodeAsNode("/event", doc.docPtr());
-    XMLToLocale(eventNode, lexema_id, params);
+    LocaleFromXML(eventNode, lexema_id, params);
     printf("%s\n", AstraLocale::getLocaleText(lexema_id, params.GetParams(AstraLocale::LANG_RU), AstraLocale::LANG_RU).c_str());
     printf("%s\n", AstraLocale::getLocaleText(lexema_id, params.GetParams(AstraLocale::LANG_EN), AstraLocale::LANG_EN).c_str());
 
@@ -391,16 +391,18 @@ int insert_locales(int argc,char **argv)
     return 0;
 }
 
-void LocaleToXML (xmlNodePtr parent, const std::string& lexema_id, const LEvntPrms& params)
+
+void LocaleToXML (const xmlNodePtr node, const std::string& lexema_id, const LEvntPrms& params)
 {
-    xmlNodePtr eventNode = NewTextChild(parent,"event");
-    NewTextChild(eventNode,"lexema_id", lexema_id);
-    params.toXML(eventNode);
+    if (node==NULL) return;
+    NewTextChild(node,"lexema_id", lexema_id);
+    params.toXML(node);
 }
 
-void XMLToLocale (const xmlNodePtr eventNode, std::string& lexema_id, LEvntPrms& params)
+void LocaleFromXML (const xmlNodePtr node, std::string& lexema_id, LEvntPrms& params)
 {
-    lexema_id = NodeAsString("lexema_id", eventNode);
-    xmlNodePtr paramsNode = NodeAsNode("params", eventNode);
+    if (node==NULL) return;
+    lexema_id = NodeAsString("lexema_id", node);
+    xmlNodePtr paramsNode = NodeAsNode("params", node);
     params.fromXML(paramsNode);
 }

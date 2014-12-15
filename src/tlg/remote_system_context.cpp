@@ -18,6 +18,7 @@
 #include "exceptions.h"
 #include "edi_utils.h"
 #include "astra_utils.h"
+#include "astra_consts.h"
 
 #include <serverlib/posthooks.h>
 #include <serverlib/cursctl.h>
@@ -76,7 +77,7 @@ SystemContext SystemContext::readByAirlineAndFlight(const std::string& airl,
   int systemId=0;
   std::pair<std::string, std::string> addrs;
   if (!AstraEdifact::get_et_addr_set( airl, flNum?flNum.get():ASTRA::NoExists, addrs, systemId ))
-    throw system_not_found();
+    throw system_not_found(airl, flNum);
   std::string ediAddr=addrs.first, ourEdiAddr=addrs.second;
   std::string airline=airl;
 /*

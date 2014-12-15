@@ -2040,7 +2040,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   VerifyPax(segs, emulDocHeader, emulCkinDoc, emulChngDocs, ids);
 
   int first_grp_id, tckin_id;
-  TChangeStatusList ETInfo;
+  TChangeStatusList ChangeStatusInfo;
   set<int> tckin_ids;
   bool result=true;
   //важно, что сначала вызывается CheckInInterface::SavePax для emulCkinDoc
@@ -2053,7 +2053,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
     if (emulReqNode==NULL)
       throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-    if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ETInfo, tckin_id))
+    if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id))
     {
       if (tckin_id!=NoExists) tckin_ids.insert(tckin_id);
     }
@@ -2068,7 +2068,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulChngDoc.docPtr())->children;
       if (emulReqNode==NULL)
         throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-      if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ETInfo, tckin_id))
+      if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id))
       {
         if (tckin_id!=NoExists) tckin_ids.insert(tckin_id);
       }
@@ -2087,14 +2087,11 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
   if (result)
   {
-    if (ediResNode==NULL && !ETInfo.empty())
+    if (ediResNode==NULL && !ChangeStatusInfo.empty())
     {
       //хотя бы один билет будет обрабатываться
       OraSession.Rollback();  //откат
-
-      if (!ETStatusInterface::ETChangeStatus(reqNode,ETInfo))
-        throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: Wrong ETInfo");
-      AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
+      ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
       return false;
     };
     
@@ -3323,8 +3320,8 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
                 throw EXCEPTIONS::Exception("emulReqNode=NULL");
 
               int first_grp_id, tckin_id;
-              TChangeStatusList ETInfo;
-              CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, first_grp_id, ETInfo, tckin_id);
+              TChangeStatusList ChangeStatusInfo;
+              CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, first_grp_id, ChangeStatusInfo, tckin_id);
             };
           }
           catch(AstraLocale::UserException &e)

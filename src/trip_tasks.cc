@@ -40,8 +40,8 @@ void sync_trip_task(int point_id, const string& task_name, const string &params,
 {
   if (next_exec==ASTRA::NoExists)
     remove_trip_task(point_id, task_name, params);
-  else      
-    add_trip_task(point_id, task_name, params, next_exec);  
+  else
+    add_trip_task(point_id, task_name, params, next_exec);
 }
 
 void LCIparamsToLog(LEvntPrms& prms, const string &params)
@@ -123,7 +123,7 @@ void add_trip_task(int point_id, const string& task_name, const string &params, 
     if (CQry.get().Eof)
     {
       TQuery Qry(&OraSession);
-	     Qry.SQLText =
+         Qry.SQLText =
         "BEGIN "
         "  SELECT cycle_id__seq.nextval INTO :id FROM dual; "
         "  INSERT INTO trip_tasks(id, point_id, name, params, last_exec, next_exec) "
@@ -168,7 +168,7 @@ void add_trip_task(int point_id, const string& task_name, const string &params, 
           next_exec!=new_next_exec)
       {
         TQuery Qry(&OraSession);
-	       Qry.SQLText =
+           Qry.SQLText =
           "UPDATE trip_tasks SET next_exec=:next_exec WHERE id=:id";
         Qry.CreateVariable("id", otInteger, task_id);
         Qry.CreateVariable("next_exec", otDate, new_next_exec);
@@ -299,6 +299,8 @@ void check_trip_tasks()
 
     for(;!Qry.Eof;Qry.Next())
     {
+        TReqInfo::Instance()->clear();
+
         int task_id=Qry.FieldAsInteger("id");
         int point_id=Qry.FieldAsInteger("point_id");
         string task_name=Qry.FieldAsString("name");
@@ -448,7 +450,7 @@ struct TTripTask {
         TTripTask(int vpoint_id, const string &vname): point_id(vpoint_id), name(vname) {};
         bool operator < (const TTripTask &task) const
         {
-            if(point_id != task.point_id) 
+            if(point_id != task.point_id)
                 return point_id < task.point_id;
             return name < task.name;
         }
@@ -503,9 +505,9 @@ TDateTime TLCITripTask::actual_next_exec(TDateTime curr_next_exec) const
     TTripStages::LoadStage(point_id, (TStage)create_point.stage_id, ts);
     TDateTime result=ASTRA::NoExists;
     if(create_point.time_offset < 0) {
-        if (ts.act == ASTRA::NoExists)            
+        if (ts.act == ASTRA::NoExists)
           result = ts.est != ASTRA::NoExists ? ts.est : ts.scd;
-        else           
+        else
           //Удаляем из trip_tasks запланированную, но еще не выполненную задачу
           return ASTRA::NoExists;
     };
@@ -515,11 +517,11 @@ TDateTime TLCITripTask::actual_next_exec(TDateTime curr_next_exec) const
           return curr_next_exec;
         else
           result = ts.act;
-    };    
+    };
     if(create_point.time_offset > 0) {
-        return ASTRA::NoExists; 
-    };    
-    
+        return ASTRA::NoExists;
+    };
+
     if (result != ASTRA::NoExists)
         result = result + create_point.time_offset / 1440.;
     return result;
@@ -531,10 +533,10 @@ TDateTime TCreatePointTripTask::actual_next_exec(TDateTime curr_next_exec) const
     TTripStages::LoadStage(point_id, (TStage)create_point.stage_id, ts);
     TDateTime result=ASTRA::NoExists;
     if(create_point.time_offset < 0) {
-        if (ts.act == ASTRA::NoExists)            
+        if (ts.act == ASTRA::NoExists)
           result = ts.est != ASTRA::NoExists ? ts.est : ts.scd;
-        else           
-          //ничего не меняем в trip_tasks  
+        else
+          //ничего не меняем в trip_tasks
           return curr_next_exec;
     };
     if(create_point.time_offset == 0) {
@@ -542,16 +544,16 @@ TDateTime TCreatePointTripTask::actual_next_exec(TDateTime curr_next_exec) const
           //ничего не меняем в trip_tasks
           return curr_next_exec;
         else
-          result = ts.act;            
-    };    
+          result = ts.act;
+    };
     if(create_point.time_offset > 0) {
         if (ts.act == ASTRA::NoExists)
           //удаление из trip_tasks
           return ASTRA::NoExists;
         else
-          result = ts.act;  
-    };    
-    
+          result = ts.act;
+    };
+
     if (result != ASTRA::NoExists)
         result = result + create_point.time_offset / 1440.;
     return result;
@@ -648,41 +650,41 @@ void sync_trip_tasks(int point_id)
     typename set<T>::const_iterator actual_task = actual_tasks.begin();
     for(;curr_task!=curr_tasks.end() || actual_task!=actual_tasks.end();)
     {
-        bool proc_curr=   actual_task==actual_tasks.end() || 
+        bool proc_curr=   actual_task==actual_tasks.end() ||
                           (curr_task!=curr_tasks.end() &&  curr_task->first < *actual_task);
 
         bool proc_actual= curr_task==curr_tasks.end() ||
                           (actual_task!=actual_tasks.end() &&  *actual_task < curr_task->first);
-        bool proc_curr_and_actual = 
-                          curr_task!=curr_tasks.end() && 
+        bool proc_curr_and_actual =
+                          curr_task!=curr_tasks.end() &&
                           actual_task!=actual_tasks.end() &&
                           curr_task->first == *actual_task;
 
 
         if (proc_curr_and_actual) {
             //синхронизация задач в trip_tasks
-            sync_trip_task(actual_task->point_id, 
-                           actual_task->name, 
+            sync_trip_task(actual_task->point_id,
+                           actual_task->name,
                            actual_task->paramsToString(),
                            actual_task->actual_next_exec(curr_task->second.next_exec));
         }
-        else   
+        else
         {
             if (proc_curr) {
-                //надо удалить задачу из trip_tasks 
-                sync_trip_task(curr_task->first.point_id, 
-                               curr_task->first.name, 
+                //надо удалить задачу из trip_tasks
+                sync_trip_task(curr_task->first.point_id,
+                               curr_task->first.name,
                                curr_task->first.paramsToString(),
                                ASTRA::NoExists);
             }
             if(proc_actual) {
                 //надо добавить задачу в trip_tasks
-                sync_trip_task(actual_task->point_id, 
-                               actual_task->name, 
+                sync_trip_task(actual_task->point_id,
+                               actual_task->name,
                                actual_task->paramsToString(),
                                actual_task->actual_next_exec(ASTRA::NoExists));
             }
-        };    
+        };
 
 
         if (proc_curr_and_actual || proc_curr) ++curr_task;
@@ -707,22 +709,14 @@ void on_change_trip(const string &descr, int point_id)
 
 void emd_sys_update(int point_id, const string &task_name, const string &params)
 {
-  AstraEdifact::TFltParams fltParams;
-  if (!fltParams.get(point_id)) return;
+  TReqInfo *reqInfo=TReqInfo::Instance();
+  reqInfo->user.sets.time = ustTimeUTC;
 
   try
   {
-    try
-    {
-      TEMDSystemUpdateList emdList;
-      EMDSystemUpdateInterface::EMDCheckDisassociation(point_id, fltParams, emdList);
-      EMDSystemUpdateInterface::EMDChangeDisassociation(edifact::KickInfo(), emdList);
-    }
-    catch(Ticketing::RemoteSystemContext::system_not_found)
-    {
-      throw AstraLocale::UserException("MSG.EMD.EDS_ADDR_NOT_DEFINED_FOR_FLIGHT",
-                                       LEvntPrms() << PrmFlight("flight", fltParams.fltInfo.airline, fltParams.fltInfo.flt_no, fltParams.fltInfo.suffix) );
-    };
+    TEMDSystemUpdateList emdList;
+    EMDSystemUpdateInterface::EMDCheckDisassociation(point_id, emdList);
+    EMDSystemUpdateInterface::EMDChangeDisassociation(edifact::KickInfo(), emdList);
   }
   catch(AstraLocale::UserException &e)
   {
@@ -730,7 +724,6 @@ void emd_sys_update(int point_id, const string &task_name, const string &params)
     LEvntPrms err_prms;
     e.getAdvParams(err_id, err_prms);
 
-    TReqInfo *reqInfo=TReqInfo::Instance();
     reqInfo->LocaleToLog("EVT.EMD_SYS_UPDATE",
                          LEvntPrms() << PrmLexema("text", err_id, err_prms),
                          ASTRA::evtPay,

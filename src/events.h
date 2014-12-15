@@ -90,12 +90,10 @@ class TPaxToLogInfo
       tags.clear();
       norms.clear();
       rems.clear();
-    };
+    };    
     std::string getBagStr() const;
     void getBag(PrmEnum& param) const;
-    void getPaxName(LEvntPrms& params) const;
-    std::string getPaxNameStr() const;
-    std::string getNormStr(const std::string& lang = AstraLocale::LANG_RU) const;
+    void getPaxName(LEvntPrms& params) const;    
     void getNorm(PrmEnum& param) const;
 };
 

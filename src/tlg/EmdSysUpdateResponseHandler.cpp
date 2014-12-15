@@ -43,63 +43,53 @@ void EmdSysUpdateResponseHandler::handle()
       //для нормальной работы надо все дерево перевести в CP866:
       xml_decode_nodelist(ediSessCtxt.docPtr()->children);
 
-      TEMDocItem EMDocItem;
-      xmlNodePtr node=NodeAsNode("/context/emdoc",ediSessCtxt.docPtr())->children;
-      EMDocItem.emd_no=NodeAsStringFast("doc_no", node);
-      EMDocItem.emd_coupon=NodeAsIntegerFast("coupon_no", node);
-      EMDocItem.action=NodeAsIntegerFast("associated", node)!=0?CpnStatAction::associate:
-                                                                CpnStatAction::disassociate;
-      EMDocItem.et_no=NodeAsStringFast("associated_no", node);
-      EMDocItem.et_coupon=NodeAsIntegerFast("associated_coupon", node);
+      xmlNodePtr node=NodeAsNode("/context/emdoc",ediSessCtxt.docPtr());
 
-      TLogLocale locale;
-      locale.ev_type=ASTRA::evtPay;
-      locale.id1=NodeAsIntegerFast("point_id", node);
-      locale.id2=NodeAsIntegerFast("reg_no", node);
-      locale.id3=NodeAsIntegerFast("grp_id", node);
+      TEMDCtxtItem EMDCtxt;
+      EMDCtxt.fromXML(node);
+
+      TEMDocItem EMDocItem;
+      EMDocItem.emd_no=EMDCtxt.asvc.emd_no;
+      EMDocItem.emd_coupon=EMDCtxt.asvc.emd_coupon;
+      EMDocItem.et_no=EMDCtxt.pax.tkn.no;
+      EMDocItem.et_coupon=EMDCtxt.pax.tkn.coupon;
+      EMDocItem.action=EMDCtxt.action;      
 
       using namespace edifact;
       pRemoteResults res = remoteResults();
       if (res==NULL)
-        throw EXCEPTIONS::Exception("res==NULL (ediSessId()=%d)", ediSessId().get());      
+        throw EXCEPTIONS::Exception("EmdSysUpdateResponseHandler::handle: res==NULL (ediSessId()=%d)", ediSessId().get());
 
       if (res->status() == RemoteStatus::CommonError)
       {
         if (res->remark().empty())
-          EMDocItem.error="ОШИБКА " + res->ediErrCode();
+          EMDocItem.system_update_error="ОШИБКА " + res->ediErrCode();
         else
-          EMDocItem.error=res->remark();
+          EMDocItem.system_update_error=res->remark();
       };
 
-      if (res->status() == RemoteStatus::Success) EMDocItem.toDB();
+      if (res->status() == RemoteStatus::Success) EMDocItem.toDB(TEMDocItem::SystemUpdate);
 
       if (res->status() == RemoteStatus::Success ||
           res->status() == RemoteStatus::CommonError)
       {
-        locale.lexema_id = "EVT.PASSENGER_DATA";
-        locale.prms << PrmSmpl<string>("pax_name", NodeAsStringFast("pax_full_name",node))
-                    << PrmElem<string>("pers_type", etPersType, NodeAsStringFast("pers_type",node));
-
-        PrmLexema lexema("param", res->status() == RemoteStatus::Success?
-                           (EMDocItem.action==CpnStatAction::associate?"EVT.ETICK_EMD_ASSOCIATION":
-                                                                       "EVT.ETICK_EMD_DISASSOCIATION"):
-                           (EMDocItem.action==CpnStatAction::associate?"EVT.ETICK_EMD_ASSOCIATION_MISTAKE":
-                                                                       "EVT.ETICK_EMD_DISASSOCIATION_MISTAKE"));
-
-
-        lexema.prms << PrmSmpl<std::string>("et_no", EMDocItem.et_no)
-                    << PrmSmpl<int>("et_coupon", EMDocItem.et_coupon)
-                    << PrmSmpl<std::string>("emd_no", EMDocItem.emd_no)
-                    << PrmSmpl<int>("emd_coupon", EMDocItem.emd_coupon);
+        TLogLocale event;
+        event.ev_type=ASTRA::evtPay;
+        event.lexema_id=res->status() == RemoteStatus::Success?
+              (EMDocItem.action==CpnStatAction::associate?"EVT.ETICK_EMD_ASSOCIATION":
+                                                          "EVT.ETICK_EMD_DISASSOCIATION"):
+              (EMDocItem.action==CpnStatAction::associate?"EVT.ETICK_EMD_ASSOCIATION_MISTAKE":
+                                                          "EVT.ETICK_EMD_DISASSOCIATION_MISTAKE");
+        event.prms << PrmSmpl<std::string>("et_no", EMDocItem.et_no)
+                   << PrmSmpl<int>("et_coupon", EMDocItem.et_coupon)
+                   << PrmSmpl<std::string>("emd_no", EMDocItem.emd_no)
+                   << PrmSmpl<int>("emd_coupon", EMDocItem.emd_coupon);
 
         if (res->status() == RemoteStatus::CommonError)
-          lexema.prms << PrmSmpl<std::string>("err", EMDocItem.error);
+          event.prms << PrmSmpl<std::string>("err", EMDocItem.system_update_error);
 
-        locale.prms << lexema;
-
-        TReqInfo *reqInfo=TReqInfo::Instance();
-        reqInfo->LocaleToLog(locale);
-      };    
+        ProcEdiEvent(event, EMDCtxt, NULL, false);
+      };
     };
     AstraContext::ClearContext("EDI_SESSION", ediSessId().get());
   }
