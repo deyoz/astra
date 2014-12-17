@@ -161,7 +161,7 @@ bool isValidDocType(const string &fmt, const TPaxStatus &status, const string &d
           (status==psCrew &&
            (doc_type=="AC")))) return false;
   };
-  if (fmt=="EDI_US" || fmt=="EDI_USBACK")
+  if (fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="XML_TR")
   {
     /*
     P - Passport
@@ -364,7 +364,7 @@ int create_apis_nosir(int argc,char **argv)
   };
 
   init_locale();
-  create_apis_file(point_id, "");
+  create_apis_file(point_id, (argc>=3)?argv[2]:"");
 
   puts("create_apis successfully completed");
   return 0;
@@ -418,7 +418,7 @@ bool create_apis_file(int point_id, const string& task_name)
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
       "SELECT pax.pax_id, pax.surname, pax.name, pax.pr_brd, "
-      "       tckin_segments.airp_arv AS airp_final, pax_grp.status "
+      "       tckin_segments.airp_arv AS airp_final, pax_grp.status, pers_type, ticket_no "
       "FROM pax_grp,pax,tckin_segments "
       "WHERE pax_grp.grp_id=pax.grp_id AND "
       "      pax_grp.grp_id=tckin_segments.grp_id(+) AND tckin_segments.pr_final(+)<>0 AND "
@@ -426,6 +426,14 @@ bool create_apis_file(int point_id, const string& task_name)
       "      (pax.name IS NULL OR pax.name<>'CBBG')";
     PaxQry.CreateVariable("point_dep",otInteger,point_id);
     PaxQry.DeclareVariable("point_arv",otInteger);
+
+    TQuery SeatsQry(&OraSession);
+    SeatsQry.SQLText=
+      "SELECT yname AS seat_row, xname AS seat_column "
+      "FROM pax_seats "
+      "WHERE pax_id=:pax_id AND point_id=:point_id";
+    SeatsQry.CreateVariable("point_id",otInteger,point_id);
+    SeatsQry.DeclareVariable("pax_id",otInteger);
 
     TQuery CustomsQry(&OraSession);
 
@@ -443,18 +451,22 @@ bool create_apis_file(int point_id, const string& task_name)
       string country_regul_dep=APIS::GetCustomsRegulCountry(country_dep, CustomsQry);
       string country_regul_arv=APIS::GetCustomsRegulCountry(country_arv.code, CustomsQry);
       bool use_us_customs_tasks=country_regul_dep==US_CUSTOMS_CODE || country_regul_arv==US_CUSTOMS_CODE;
+      bool use_tr_customs_tasks=country_regul_dep==TR_CUSTOMS_CODE || country_regul_arv==TR_CUSTOMS_CODE;
+      bool is_original=(country_regul_arv==TR_CUSTOMS_CODE && task_name==ON_TAKEOFF) ||
+          (country_regul_dep==TR_CUSTOMS_CODE && task_name==ON_CLOSE_CHECKIN);
       map<string, string>::iterator iCBPAirp=CBPAirps.find(country_regul_arv);
       if (iCBPAirp==CBPAirps.end())
         iCBPAirp=CBPAirps.insert(make_pair(country_regul_arv, RouteQry.FieldAsString("airp"))).first;
       if (iCBPAirp==CBPAirps.end()) throw Exception("iCBPAirp==CBPAirps.end()");
 
-      if (!(task_name.empty() ||
+      if (!((task_name.empty() && !use_tr_customs_tasks) ||
             (use_us_customs_tasks &&
              (task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL ||
               task_name==BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL)) ||
             (!use_us_customs_tasks &&
              (task_name==ON_TAKEOFF ||
               task_name==ON_CLOSE_CHECKIN)))) continue;
+
       //получим информацию по настройке APIS
       ApisSetsQry.SetVariable("country_arv",country_arv.code);
       ApisSetsQry.Execute();
@@ -490,8 +502,7 @@ bool create_apis_file(int point_id, const string& task_name)
         {
           string fmt=ApisSetsQry.FieldAsString("format");
 
-          if (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK") continue;
-
+          if (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK" && !is_original) continue;
           string airline_name=airline.short_name_lat;
           if (airline_name.empty())
             airline_name=airline.name_lat;
@@ -517,12 +528,13 @@ bool create_apis_file(int point_id, const string& task_name)
           Paxlst::PaxlstInfo FPM(Paxlst::PaxlstInfo::FlightPassengerManifest, lst_type_extra);
         	Paxlst::PaxlstInfo FCM(Paxlst::PaxlstInfo::FlightCrewManifest, lst_type_extra);
 
-          if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES")
+          if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")
           {
             for(int pass=0; pass<2; pass++)
             {
               Paxlst::PaxlstInfo& paxlstInfo=(pass==0?FPM:FCM);
-
+              if (fmt=="XML_TR")
+                paxlstInfo.MakeFlightLegs(Qry.FieldIsNULL("first_point")?point_id:Qry.FieldAsInteger("first_point"));
               if (fmt=="EDI_CN")
                 paxlstInfo.settings().setRespAgnCode("ZZZ");
               if (fmt=="EDI_UK")
@@ -561,7 +573,6 @@ bool create_apis_file(int point_id, const string& task_name)
 
               vector<string> strs;
               vector<string>::const_iterator i;
-
               SeparateString(string(ApisSetsQry.FieldAsString("edi_own_addr")), ':', strs);
               i=strs.begin();
               if (i!=strs.end()) paxlstInfo.setSenderName(*i++);
@@ -573,15 +584,18 @@ bool create_apis_file(int point_id, const string& task_name)
               if (i!=strs.end()) paxlstInfo.setRecipientCarrierCode(*i++);
 
               ostringstream flight;
-              flight << airline.code_lat << flt_no << suffix;
+              if (fmt!="XML_TR") flight << airline.code_lat;
+              flight << flt_no << suffix;
 
               string iataCode;
               if (fmt=="EDI_UK")
                 iataCode=Paxlst::createIataCode(flight.str(),scd_in_local,"yyyymmddhhnn");
+              else if (fmt=="XML_TR")
+                iataCode=Paxlst::createIataCode(airline.code_lat + flight.str(),scd_in_local,"/yymmdd/hhnn");
               else
                 iataCode=Paxlst::createIataCode(flight.str(),scd_in_local,"/yymmdd/hhnn");
               paxlstInfo.setIataCode( iataCode );
-              if (fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES")
+              if (fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")
                 paxlstInfo.setCarrier(airline.code_lat);
               paxlstInfo.setFlight(flight.str());
               paxlstInfo.setDepPort(airp_dep.code_lat);
@@ -600,8 +614,8 @@ bool create_apis_file(int point_id, const string& task_name)
             int pax_id=PaxQry.FieldAsInteger("pax_id");
             bool boarded=PaxQry.FieldAsInteger("pr_brd")!=0;
             TPaxStatus status=DecodePaxStatus(PaxQry.FieldAsString("status"));
-            if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES")) continue;
-            if (status!=psCrew && !boarded && final_apis) continue;
+            if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")) continue;
+            if (status!=psCrew && !boarded && final_apis && fmt!="XML_TR") continue;
 
       	    Paxlst::PassengerInfo paxInfo;
       	    string airp_final_lat;
@@ -625,7 +639,7 @@ bool create_apis_file(int point_id, const string& task_name)
             bool docaD_exists=false;
             bool docaR_exists=false;
             bool docaB_exists=false;
-            if (fmt=="EDI_US" || fmt=="EDI_USBACK")
+            if (fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="XML_TR")
             {
               docaD_exists=LoadPaxDoca(pax_id, CheckIn::docaDestination, (CheckIn::TPaxDocaItem&)docaD);
               docaR_exists=LoadPaxDoca(pax_id, CheckIn::docaResidence, (CheckIn::TPaxDocaItem&)docaR);
@@ -645,7 +659,7 @@ bool create_apis_file(int point_id, const string& task_name)
               doc_surname=transliter(PaxQry.FieldAsString("surname"),1,1);
               doc_first_name=transliter(PaxQry.FieldAsString("name"),1,1);
             };
-            if (fmt=="CSV_DE" || fmt=="TXT_EE")
+            if (fmt=="CSV_DE" || fmt=="TXT_EE" || fmt=="XML_TR")
             {
               doc_first_name=TruncNameTitles(doc_first_name.c_str());
               doc_second_name=TruncNameTitles(doc_second_name.c_str());
@@ -668,7 +682,7 @@ bool create_apis_file(int point_id, const string& task_name)
             else
             {
               if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US" || fmt=="EDI_USBACK") gender = "M";//gender.clear();
-              if (fmt=="CSV_DE" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_UK" || fmt=="EDI_ES") gender = "U";
+              if (fmt=="CSV_DE" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR") gender = "U";
               if (fmt=="TXT_EE") gender = "N";
             };
 
@@ -716,7 +730,35 @@ bool create_apis_file(int point_id, const string& task_name)
             if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES")
               doc_no=NormalizeDocNo(doc.no, false);
 
-            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES")
+            if (fmt=="XML_TR") {
+              paxInfo.setPrBrd(boarded);
+              paxInfo.setGoShow(status==psGoshow);
+              TPerson pers_type = DecodePerson(PaxQry.FieldAsString("pers_type"));
+              switch(pers_type) {
+                case adult:
+                  paxInfo.setPersType("Adult");
+                  break;
+                case child:
+                  paxInfo.setPersType("Child");
+                  break;
+                case baby:
+                  paxInfo.setPersType("Infant");
+                  break;
+                break;
+              default:
+                  throw Exception("DecodePerson failed");
+              }
+              paxInfo.setTicketNumber(PaxQry.FieldAsString("ticket_no"));
+
+              vector< pair<int, string> > seats;
+              SeatsQry.SetVariable("pax_id",pax_id);
+              SeatsQry.Execute();
+              for(;!SeatsQry.Eof;SeatsQry.Next())
+                seats.push_back(make_pair(SeatsQry.FieldAsInteger("seat_row"), SeatsQry.FieldAsString("seat_column")));
+              paxInfo.setSeats(seats);
+            }
+            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US"
+                || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")
             {
               paxInfo.setSurname(doc_surname);
               paxInfo.setFirstName(doc_first_name);
@@ -745,7 +787,8 @@ bool create_apis_file(int point_id, const string& task_name)
               };
 
 
-              if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES")
+              if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK"
+                                || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")
               {
                 if (!doc_type.empty() && !doc_no.empty())
                 {
@@ -841,7 +884,7 @@ bool create_apis_file(int point_id, const string& task_name)
               };
             };
 
-            if (docaD_exists && (fmt=="EDI_US" || fmt=="EDI_USBACK"))
+            if (docaD_exists && (fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="XML_TR"))
             {
               if (status!=psCrew && country_regul_dep!=US_CUSTOMS_CODE)
               {
@@ -853,6 +896,10 @@ bool create_apis_file(int point_id, const string& task_name)
                 paxInfo.setDestCountry(docaD.country);
               };
             };
+
+            if (docaR_exists && fmt=="XML_TR") {
+              paxInfo.setResidCountry(docaR.country);
+            }
 
             if (docaR_exists && (fmt=="EDI_US" || fmt=="EDI_USBACK"))
             {
@@ -871,6 +918,10 @@ bool create_apis_file(int point_id, const string& task_name)
               };
             };
 
+            if (docaB_exists && fmt=="XML_TR") {
+              paxInfo.setBirthCountry(docaB.country);
+            }
+
             if (docaB_exists && (fmt=="EDI_US" || fmt=="EDI_USBACK"))
             {
               if (status==psCrew)
@@ -884,7 +935,7 @@ bool create_apis_file(int point_id, const string& task_name)
             if (fmt=="CSV_CZ" || fmt=="CSV_DE")
               body << ENDL;
 
-            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES")
+            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")
             {
               if (status!=psCrew)
       	        FPM.addPassenger( paxInfo );
@@ -947,6 +998,26 @@ bool create_apis_file(int point_id, const string& task_name)
               };
             };
       	  }
+          else if (fmt=="XML_TR") {
+            XMLDoc doc;
+            doc.set("FlightMessage");
+            if (doc.docPtr()==NULL)
+              throw EXCEPTIONS::Exception("CreateEmulXMLDoc: CreateXMLDoc failed");
+            xmlNodePtr apisNode=NodeAsNode("/FlightMessage",doc.docPtr());
+            int passengers_count = FPM.passengersList().size();
+            int crew_count = FCM.passengersList().size();
+            if (passengers_count)
+              FPM.toXMLFormat(apisNode, passengers_count, crew_count, is_original);
+            if (crew_count)
+              FCM.toXMLFormat(apisNode, passengers_count, crew_count, is_original);
+            ostringstream file_name;
+            file_name << ApisSetsQry.FieldAsString("dir") << "/"
+                      << Paxlst::createEdiPaxlstFileName(airline.code_lat, flt_no, suffix,
+                                                         airp_dep.code_lat, airp_arv.code_lat,
+                                                         scd_out_local,"XML", 0);
+            if (country_regul_dep==TR_CUSTOMS_CODE) file_name << ".V" << (is_original?1:2);
+            files.push_back( make_pair(file_name.str(), GetXMLDocText(doc.docPtr())));
+          }
       	  else
           {
             if (task_name.empty() ||
