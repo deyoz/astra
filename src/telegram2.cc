@@ -7101,7 +7101,10 @@ void TRBD::get(TypeB::TDetailCreateInfo &info)
                 "SELECT tlg_trips.point_id, tlg_trips.airline, tlg_trips.flt_no, tlg_trips.suffix "
                 "FROM tlg_trips, tlg_binding "
                 "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg AND "
-                "             tlg_binding.point_id_spp=:point_id ",
+                "             tlg_binding.point_id_spp=:point_id and exists ( "
+                "               select * from typeb_data_stat where "
+                "                   typeb_data_stat.point_id = tlg_trips.point_id and "
+                "                   typeb_data_stat.system = 'CRS' and rownum < 2)",
                 QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
