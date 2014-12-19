@@ -640,7 +640,7 @@ public:
     std::string docId() const { return m_docId; }
 
     std::string toEdiString() const;
-    void toXMLFormat(xmlNodePtr emulApisNode, int psg_num, int crew_num, bool is_original) const;
+    void toXMLFormat(xmlNodePtr emulApisNode, const int psg_num, const int crew_num, const int version) const;
     std::vector< std::string > toEdiStrings( unsigned maxPaxPerString ) const;
     
 protected:
@@ -663,6 +663,10 @@ std::string createIataCode( const std::string& flight,
                             const std::string& destDateTimeFmt = "/yymmdd/hhnn" );
 
 const std::string generate_envelope_id (const std::string& airl);
+const std::string get_msg_identifier ();
+bool get_trip_apis_param (const int point_id, const std::string& format, const std::string& param_name, int& param_value);
+void set_trip_apis_param(const int point_id, const std::string& format, const std::string& param_name, const int param_value);
+
 }//namespace Paxlst
 
 #endif//_APIS_EDI_FILE_H_

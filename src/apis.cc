@@ -451,15 +451,12 @@ bool create_apis_file(int point_id, const string& task_name)
       string country_regul_dep=APIS::GetCustomsRegulCountry(country_dep, CustomsQry);
       string country_regul_arv=APIS::GetCustomsRegulCountry(country_arv.code, CustomsQry);
       bool use_us_customs_tasks=country_regul_dep==US_CUSTOMS_CODE || country_regul_arv==US_CUSTOMS_CODE;
-      bool use_tr_customs_tasks=country_regul_dep==TR_CUSTOMS_CODE || country_regul_arv==TR_CUSTOMS_CODE;
-      bool is_original=(country_regul_arv==TR_CUSTOMS_CODE && task_name==ON_TAKEOFF) ||
-          (country_regul_dep==TR_CUSTOMS_CODE && task_name==ON_CLOSE_CHECKIN);
       map<string, string>::iterator iCBPAirp=CBPAirps.find(country_regul_arv);
       if (iCBPAirp==CBPAirps.end())
         iCBPAirp=CBPAirps.insert(make_pair(country_regul_arv, RouteQry.FieldAsString("airp"))).first;
       if (iCBPAirp==CBPAirps.end()) throw Exception("iCBPAirp==CBPAirps.end()");
 
-      if (!((task_name.empty() && !use_tr_customs_tasks) ||
+      if (!(task_name.empty() ||
             (use_us_customs_tasks &&
              (task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL ||
               task_name==BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL)) ||
@@ -502,7 +499,7 @@ bool create_apis_file(int point_id, const string& task_name)
         {
           string fmt=ApisSetsQry.FieldAsString("format");
 
-          if (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK" && !is_original) continue;
+          if (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK" && !(fmt=="XML_TR" && country_regul_dep==TR_CUSTOMS_CODE)) continue;
           string airline_name=airline.short_name_lat;
           if (airline_name.empty())
             airline_name=airline.name_lat;
@@ -1006,16 +1003,20 @@ bool create_apis_file(int point_id, const string& task_name)
             xmlNodePtr apisNode=NodeAsNode("/FlightMessage",doc.docPtr());
             int passengers_count = FPM.passengersList().size();
             int crew_count = FCM.passengersList().size();
+            int version;
+            if (!Paxlst::get_trip_apis_param(point_id, "XML_TR", "version", version)) version = 0;
+            else version++;
+            Paxlst::set_trip_apis_param(point_id, "XML_TR", "version", version);
             if (passengers_count)
-              FPM.toXMLFormat(apisNode, passengers_count, crew_count, is_original);
+              FPM.toXMLFormat(apisNode, passengers_count, crew_count, version);
             if (crew_count)
-              FCM.toXMLFormat(apisNode, passengers_count, crew_count, is_original);
+              FCM.toXMLFormat(apisNode, passengers_count, crew_count, version);
             ostringstream file_name;
             file_name << ApisSetsQry.FieldAsString("dir") << "/"
                       << Paxlst::createEdiPaxlstFileName(airline.code_lat, flt_no, suffix,
                                                          airp_dep.code_lat, airp_arv.code_lat,
                                                          scd_out_local,"XML", 0);
-            if (country_regul_dep==TR_CUSTOMS_CODE) file_name << ".V" << (is_original?1:2);
+            file_name << ".V" << version;
             files.push_back( make_pair(file_name.str(), GetXMLDocText(doc.docPtr())));
           }
       	  else

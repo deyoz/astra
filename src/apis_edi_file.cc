@@ -404,22 +404,29 @@ std::vector< std::string > PaxlstInfo::toEdiStrings( unsigned maxPaxPerString ) 
     return res;
 }
 
-void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, int pax_num, int crew_num, bool is_original) const
+void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const int crew_num, const int version) const
 {
   // Make segment "Message"
   if(GetNode("Message", emulApisNode) == NULL) {
     BASIC::TDateTime nowUtc = BASIC::NowUTC();
     xmlNodePtr messageNode = NewTextChild(emulApisNode, "Message");
-    NewTextChild(messageNode, "Destination", recipientName());
+    NewTextChild(messageNode, "Destination", "GTB");
+    xmlNodePtr systemNode = NewTextChild(messageNode, "System");
+    SetProp(systemNode, "Application", "DCS ASTRA");
+    SetProp(systemNode, "Organization", "SIRENA-TRAVEL");
+    SetProp(systemNode, "ApplicationVersion", 1);
+    xmlNodePtr contactNode = NewTextChild(systemNode, "Contact");
+    NewTextChild(contactNode, "Name", "SIRENA-TRAVEL");
     NewTextChild(messageNode, "CreateDateTime",
                  BASIC::DateTimeToStr(nowUtc, "yyyy-mm-dd'T'hh:nn:00"));
     NewTextChild(messageNode, "SentDateTime",
                  BASIC::DateTimeToStr(nowUtc, "yyyy-mm-dd"));
     NewTextChild(messageNode, "EnvelopeID",
                  generate_envelope_id(senderCarrierCode()));
-    NewTextChild(messageNode, "Owner", senderName());
-    NewTextChild(messageNode, "Version", is_original?1:2);
-    NewTextChild(messageNode, "Context", is_original?"Original":"Update");
+    NewTextChild(messageNode, "Owner", "DCS ASTRA");
+    NewTextChild(messageNode, "Identifier", get_msg_identifier());
+    NewTextChild(messageNode, "Version", version);
+    NewTextChild(messageNode, "Context", version?"Update":"Original");
   }
   // Make segment "Flight"
   if(GetNode("Flight", emulApisNode) == NULL) {
@@ -603,6 +610,60 @@ const std::string generate_envelope_id (const std::string& airl)
   std::stringstream ss;
   ss << uuid;
   return airl + string("-") + ss.str();
+}
+
+const std::string get_msg_identifier ()
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT apis_id__seq.nextval vid FROM dual";
+  Qry.Execute();
+  std::stringstream ss;
+  ss << string("ASTRA") << setw(7) << setfill('0') << Qry.FieldAsString("vid");
+  return ss.str();
+}
+
+bool get_trip_apis_param (const int point_id, const std::string& format, const std::string& param_name, int& param_value)
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText=
+    "SELECT param_value "
+    "FROM trip_apis_params "
+    "WHERE point_id=:point_id AND format=:format "
+    "AND param_name=:param_name ";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.CreateVariable("format", otString, format);
+  Qry.CreateVariable("param_name", otString, param_name);
+  Qry.Execute();
+  if (Qry.Eof) return false;
+  param_value = Qry.FieldAsInteger("param_value");
+  return true;
+}
+
+void set_trip_apis_param(const int point_id, const std::string& format, const std::string& param_name, const int param_value)
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText=
+    "BEGIN "
+    "  UPDATE trip_apis_params SET param_value=:param_value "
+    "  WHERE point_id=:point_id AND format=:format "
+    "  AND param_name=:param_name; "
+    "  IF SQL%ROWCOUNT=0 THEN "
+    "    INSERT INTO trip_apis_params(point_id, format, param_name, param_value)"
+    "    VALUES (:point_id, :format, :param_name, :param_value);"
+    "  END IF; "
+    "END;";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.CreateVariable("format", otString, format);
+  Qry.CreateVariable("param_name", otString, param_name);
+  Qry.CreateVariable("param_value", otInteger, param_value);
+  try
+  {
+    Qry.Execute();
+  }
+  catch(EOracleError E)
+  {
+    if (E.Code!=1) throw;
+  };
 }
 
 }//namespace Paxlst
