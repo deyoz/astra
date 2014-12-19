@@ -19,7 +19,7 @@
 #include <basic.h>
 #include <stl_utils.h>
 #include <astra_consts.h>
-
+#include "xml_unit.h"
 
 namespace Paxlst
 {
@@ -324,6 +324,11 @@ class PassengerInfo
     std::string m_birthCountry;
     std::string m_birthCity;
     std::string m_birthRegion;
+    bool pr_brd;
+    bool go_show;
+    std::string pers_type;
+    std::string ticket_num;
+    std::vector< std::pair<int, std::string> > pax_seats;
 
 public:
     PassengerInfo()
@@ -511,6 +516,36 @@ public:
     void setBirthRegion( const std::string& s ) {
         m_birthRegion = upperc( s.substr( 0, 70 ) );
     }
+    const bool prBrd() const {
+        return pr_brd;
+    }
+    void setPrBrd(bool boarded) {
+      pr_brd = boarded;
+    }
+    const bool goShow() const {
+        return go_show;
+    }
+    void setGoShow(bool goshow) {
+      go_show = goshow;
+    }
+    const std::string& persType() const {
+        return pers_type;
+    }
+    void setPersType(const std::string& type) {
+      pers_type = type;
+    }
+    const std::string& ticketNumber() const {
+        return ticket_num;
+    }
+    void setTicketNumber(const std::string& num) {
+      ticket_num = num;
+    }
+    const std::vector< std::pair<int, std::string> >& seats() const {
+        return pax_seats;
+    }
+    void setSeats(std::vector< std::pair<int, std::string> >& values) {
+      pax_seats = values;
+    }
 };
 typedef std::list< PassengerInfo > PassengersList_t;
 
@@ -551,7 +586,30 @@ public:
 
 //-------------------------------------------------------------------------------------------------
 
-class PaxlstInfo: public GeneralInfo, public PartyInfo, public FlightInfo
+class FlightLeg {
+private:
+  int loc_qualifier;
+  std::string airp;
+  std::string country;
+  BASIC::TDateTime sch_in;
+  BASIC::TDateTime sch_out;
+public:
+  FlightLeg (std::string airp, std::string country, BASIC::TDateTime sch_in, BASIC::TDateTime sch_out):
+    airp(airp), country(country), sch_in(sch_in), sch_out(sch_out) {}
+  void setLocQualifier(const int value) {loc_qualifier = value; }
+  const std::string Country() { return country; }
+  void toXML(xmlNodePtr FlightLegsNode) const;
+};
+
+class FlightLegs : public std::vector<FlightLeg> {
+  public:
+  void FlightLegstoXML(xmlNodePtr FlightLegsNode) const;
+  void MakeFlightLegs(int first_point);
+};
+
+//-------------------------------------------------------------------------------------------------
+
+class PaxlstInfo: public GeneralInfo, public PartyInfo, public FlightInfo, public FlightLegs
 {
 public:
     enum PaxlstType
@@ -582,6 +640,7 @@ public:
     std::string docId() const { return m_docId; }
 
     std::string toEdiString() const;
+    void toXMLFormat(xmlNodePtr emulApisNode, const int psg_num, const int crew_num, const int version) const;
     std::vector< std::string > toEdiStrings( unsigned maxPaxPerString ) const;
     
 protected:
@@ -602,6 +661,11 @@ std::string createEdiPaxlstFileName( const std::string& carrierCode,
 std::string createIataCode( const std::string& flight,
                             const BASIC::TDateTime& destDateTime,
                             const std::string& destDateTimeFmt = "/yymmdd/hhnn" );
+
+const std::string generate_envelope_id (const std::string& airl);
+const std::string get_msg_identifier ();
+bool get_trip_apis_param (const int point_id, const std::string& format, const std::string& param_name, int& param_value);
+void set_trip_apis_param(const int point_id, const std::string& format, const std::string& param_name, const int param_value);
 
 }//namespace Paxlst
 
