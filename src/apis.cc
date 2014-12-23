@@ -999,7 +999,7 @@ bool create_apis_file(int point_id, const string& task_name)
             XMLDoc doc;
             doc.set("FlightMessage");
             if (doc.docPtr()==NULL)
-              throw EXCEPTIONS::Exception("CreateEmulXMLDoc: CreateXMLDoc failed");
+              throw EXCEPTIONS::Exception("CreateXMLDoc failed");
             xmlNodePtr apisNode=NodeAsNode("/FlightMessage",doc.docPtr());
             int passengers_count = FPM.passengersList().size();
             int crew_count = FCM.passengersList().size();
