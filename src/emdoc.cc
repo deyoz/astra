@@ -411,7 +411,9 @@ const TEMDocItem& TEMDocItem::toDB(const TEdiAction ediAction) const
 
   QParams QryParams;
   QryParams << QParam("doc_no", otString, emd_no)
-            << QParam("coupon_no", otInteger, emd_coupon);
+            << QParam("coupon_no", otInteger, emd_coupon)
+            << (point_id!=ASTRA::NoExists?QParam("point_id", otInteger, point_id):
+                                          QParam("point_id", otInteger, FNull));
   switch(ediAction)
   {
     case ChangeOfStatus:
@@ -432,11 +434,12 @@ const TEMDocItem& TEMDocItem::toDB(const TEdiAction ediAction) const
     const char* sql=
         "BEGIN "
         "  UPDATE emdocs "
-        "  SET change_status_error=:change_status_error, coupon_status=:coupon_status "
+        "  SET change_status_error=:change_status_error, coupon_status=:coupon_status, "
+        "      point_id=:point_id "
         "  WHERE doc_no=:doc_no AND coupon_no=:coupon_no; "
         "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO emdocs(doc_no, coupon_no, coupon_status, change_status_error, associated) "
-        "    VALUES(:doc_no, :coupon_no, :coupon_status, :change_status_error, 1); "
+        "    INSERT INTO emdocs(doc_no, coupon_no, coupon_status, change_status_error, associated, point_id) "
+        "    VALUES(:doc_no, :coupon_no, :coupon_status, :change_status_error, 1, :point_id); "
         "  END IF; "
         "END;";
 
@@ -448,12 +451,13 @@ const TEMDocItem& TEMDocItem::toDB(const TEdiAction ediAction) const
     const char* sql=
         "BEGIN "
         "  UPDATE emdocs "
-        "  SET  system_update_error=:system_update_error, "
-        "       associated=:associated, associated_no=:associated_no, associated_coupon=:associated_coupon "
+        "  SET system_update_error=:system_update_error, "
+        "      associated=:associated, associated_no=:associated_no, associated_coupon=:associated_coupon, "
+        "      point_id=:point_id "
         "  WHERE doc_no=:doc_no AND coupon_no=:coupon_no; "
         "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO emdocs(doc_no, coupon_no, system_update_error, associated, associated_no, associated_coupon) "
-        "    VALUES(:doc_no, :coupon_no, :system_update_error, :associated, :associated_no, :associated_coupon); "
+        "    INSERT INTO emdocs(doc_no, coupon_no, system_update_error, associated, associated_no, associated_coupon, point_id) "
+        "    VALUES(:doc_no, :coupon_no, :system_update_error, :associated, :associated_no, :associated_coupon, :point_id); "
         "  END IF; "
         "END;";
 
@@ -477,7 +481,7 @@ TEMDocItem& TEMDocItem::fromDB(const string &v_emd_no,
   QryParams << QParam("coupon_no", otInteger, v_emd_coupon);
 
   const string sql="SELECT coupon_status, associated, associated_no, associated_coupon, "
-                   "       change_status_error, system_update_error "
+                   "       change_status_error, system_update_error, point_id "
                    "FROM emdocs "
                    "WHERE doc_no=:doc_no AND coupon_no=:coupon_no";
 
@@ -486,11 +490,12 @@ TEMDocItem& TEMDocItem::fromDB(const string &v_emd_no,
   Qry.get().Execute();
   if (!Qry.get().Eof)
   {
-    et_no=Qry.get().FieldAsString("associated_no");
-    et_coupon=Qry.get().FieldAsInteger("associated_coupon");
-
     emd_no=v_emd_no;
     emd_coupon=v_emd_coupon;
+
+    et_no=Qry.get().FieldAsString("associated_no");
+    et_coupon=Qry.get().FieldIsNULL("associated_coupon")?ASTRA::NoExists:
+                                                         Qry.get().FieldAsInteger("associated_coupon");
 
     status=Qry.get().FieldIsNULL("coupon_status")?Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable):
                                                   Ticketing::CouponStatus(CouponStatus::fromDispCode(Qry.get().FieldAsString("coupon_status")));
@@ -499,6 +504,9 @@ TEMDocItem& TEMDocItem::fromDB(const string &v_emd_no,
 
     change_status_error=Qry.get().FieldAsString("change_status_error");
     system_update_error=Qry.get().FieldAsString("system_update_error");
+
+    point_id=Qry.get().FieldIsNULL("point_id")?ASTRA::NoExists:
+                                               Qry.get().FieldAsInteger("point_id");
   };
 
   return *this;
