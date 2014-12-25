@@ -1,5 +1,6 @@
 #include "http_io.h"
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <pion/http/request.hpp>
 #include <pion/http/response.hpp>
 #include <pion/http/request_writer.hpp>
@@ -21,6 +22,7 @@
 #include "tlg/tlg.h"
 #include "serverlib/posthooks.h"
 #include "xml_unit.h"
+#include "httpClient.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -354,136 +356,4 @@ void sirena_rozysk_send(const HTTPRequestInfo &r)
             throw Exception("wrong answer XML");
     } else
         throw Exception("result is empty");
-}
-
-void apis_tr_send()
-{
-  ProgTrace(TRACE5,"apis_tr_send started");
-  HTTPRequestInfo req;
-  req.resource = "https://10.4.40.46:7443/INT/VOY/Provider/VOY_WS";
-  req.action = "GTB_VOY2_XML_WebServices_VOY_WS_Binder_getFlightMessage";
-  req.user = "VOYTESTUSER_ORB";
-  req.pswd = "Travel_Sirena_!%";
-
-  DIR *dir;
-  struct dirent *entry;
-  dir = opendir("xml/tr");
-  if (!dir) throw Exception("Can't open dir xml/tr");
-  string file_name;
-
-  while ( (entry = readdir(dir)) != NULL) {
-    ProgTrace(TRACE5,"apis_tr_send: process file name %s", entry->d_name);
-    fstream f;
-    file_name = string("xml/tr/") + string(entry->d_name);
-    f.open(file_name.c_str());
-    if (!f.is_open()) throw Exception("Can't open file '%s'",entry->d_name);
-    ostringstream tmpstream;
-    try {
-      tmpstream << f.rdbuf();
-    }
-    catch( ... ) {
-      try { f.close(); } catch( ... ) { };
-      throw;
-    }
-    f.close();
-
-    xmlDocPtr apisDoc;
-    apisDoc = TextToXMLTree(tmpstream.str());
-    XMLDoc soap_reqDoc;
-    soap_reqDoc.set("soapenvEnvelope");
-    if (soap_reqDoc.docPtr()==NULL)
-      throw EXCEPTIONS::Exception("apis_tr_send: CreateXMLDoc failed");
-    xmlNodePtr soapNode=NodeAsNode("/soapenvEnvelope", soap_reqDoc.docPtr());
-    SetProp(soapNode, "xmlns:soapenv", "http://schemas.xmlsoap.org/soap/envelope/");
-    NewTextChild(soapNode, "soapenv:Header");
-    xmlNodePtr bodyNode = NewTextChild(soapNode, "soapenv:Body");
-    xmlNodePtr operationNode = NewTextChild(bodyNode, "voy:getFlightMessageSIN");
-    SetProp(operationNode, "xmlns:voy", "http://www.gtb.gov.tr/voy.xml.webservices");
-    xmlNodePtr messageNode = NewTextChild(operationNode, "FlightMessage");
-    xmlNodePtr apisNode=NodeAsNode("/FlightMessage",apisDoc)->children;
-    for(;apisNode!=NULL;apisNode=apisNode->next)
-      CopyNode(messageNode, apisNode, true); //копируем полностью XML
-    req.content = GetXMLDocText(soap_reqDoc.docPtr());
-
-    string search("soapenvEnvelope");
-    string replace("soapenv:Envelope");
-    size_t pos = 0;
-    while ((pos = req.content.find(search, pos)) != std::string::npos) {
-         req.content.replace(pos, search.length(), replace);
-         pos += replace.length();
-    }
-
-    f.open(entry->d_name, std::ios::out);
-    f << req.content;
-
-    string proto;
-    string host;
-    uint16_t port;
-    string path;
-    string query;
-    if(not parser::parse_uri(req.resource, proto, host, port, path, query))
-      throw Exception("parse_uri failed for '%s'", req.resource.c_str());
-    ostringstream host_port;
-    host_port << host << ":" << port;
-
-    io_service io_service;
-    pion::tcp::connection tcp_conn(io_service, false);
-
-    if(boost::system::error_code error_code = tcp_conn.connect(host, port))
-      throw Exception("connect failed: %s", error_code.message().c_str());
-
-    request post(path);
-    typedef boost::shared_ptr<pion::user> user_ptr;
-    post.set_method(types::REQUEST_METHOD_POST);
-    post.set_user(user_ptr(new pion::user(req.user, req.pswd)));
-    post.add_header("SOAPAction", req.action);
-    post.add_header(types::HEADER_HOST, host_port.str());
-    post.set_content_type("text/xml;charset=UTF-8");
-    post.set_content(req.content);
-
-    boost::system::error_code failed;
-    tst();
-    post.send(tcp_conn, failed);
-    tst();
-    if(failed)
-      throw Exception("send failed: %s", failed.message().c_str());
-
-    response rc(post);
-    tst();
-    rc.receive(tcp_conn, failed);
-    tst();
-    if(failed)
-      throw Exception("receive failed: %s", failed.message().c_str());
-
-    if(rc.get_status_code() != 200)
-      throw Exception("HTTP status not ok: Status(%i :: %s), content: |%s|", rc.get_status_code(), rc.get_status_message().c_str(), rc.get_content());
-
-    const char* content_ptr = rc.get_content();
-
-    string result = (content_ptr ? std::string(content_ptr, rc.get_content_length()) : "");
-    if(not result.empty()) {
-      xmlDocPtr doc = NULL;
-      try {
-        doc = TextToXMLTree(result);
-      }
-      catch(...) {
-      }
-      if(doc != NULL) {
-      // обработать ответ
-      xmlFreeDoc(doc);
-      } else
-        throw Exception("wrong answer XML");
-    } else
-      throw Exception("result is empty");
-  }
-  closedir(dir);
-
-  // удалим отправленный файл из папки
-  int ret_code = std::remove(file_name.c_str());
-  if (ret_code == 0) {
-      std::cout << "File was successfully deleted\n";
-  } else {
-      std::cerr << "Error during the deletion: " << ret_code << '\n';
-  }
-  ProgTrace(TRACE5, "apis_tr_send: completed");
 }

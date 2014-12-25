@@ -11,11 +11,10 @@ struct HTTPRequestInfo
   std::string resource;
   std::string action;
   std::string content;
-  std::string user;
+  std::string login;
   std::string pswd;
 };
 
 void sirena_rozysk_send(const HTTPRequestInfo &request);
-void apis_tr_send();
 
 #endif

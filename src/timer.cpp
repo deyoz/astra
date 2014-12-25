@@ -33,6 +33,7 @@
 #include "stat.h"
 #include "edi_utils.h"
 #include "http_io.h"
+#include "httpClient.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -160,7 +161,7 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
 /*	  else
       if ( name == "cobra" ) cobra();*/
       else
-      if ( name == "apis_tr" ) apis_tr_send();
+      if ( name == "send_apis_tr" ) send_apis_tr();
 
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )

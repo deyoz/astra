@@ -996,11 +996,17 @@ bool create_apis_file(int point_id, const string& task_name)
             };
       	  }
           else if (fmt=="XML_TR") {
-            XMLDoc doc;
-            doc.set("FlightMessage");
-            if (doc.docPtr()==NULL)
-              throw EXCEPTIONS::Exception("CreateXMLDoc failed");
-            xmlNodePtr apisNode=NodeAsNode("/FlightMessage",doc.docPtr());
+            XMLDoc soap_reqDoc;
+            soap_reqDoc.set("soapenvEnvelope");
+            if (soap_reqDoc.docPtr()==NULL)
+              throw EXCEPTIONS::Exception("apis_tr_send: CreateXMLDoc failed");
+            xmlNodePtr soapNode=NodeAsNode("/soapenvEnvelope", soap_reqDoc.docPtr());
+            SetProp(soapNode, "xmlns:soapenv", "http://schemas.xmlsoap.org/soap/envelope/");
+            NewTextChild(soapNode, "soapenv:Header");
+            xmlNodePtr bodyNode = NewTextChild(soapNode, "soapenv:Body");
+            xmlNodePtr operationNode = NewTextChild(bodyNode, "voy:getFlightMessageSIN");
+            SetProp(operationNode, "xmlns:voy", "http://www.gtb.gov.tr/voy.xml.webservices");
+            xmlNodePtr apisNode = NewTextChild(operationNode, "FlightMessage");
             int passengers_count = FPM.passengersList().size();
             int crew_count = FCM.passengersList().size();
             int version;
@@ -1011,13 +1017,7 @@ bool create_apis_file(int point_id, const string& task_name)
               FPM.toXMLFormat(apisNode, passengers_count, crew_count, version);
             if (crew_count)
               FCM.toXMLFormat(apisNode, passengers_count, crew_count, version);
-            ostringstream file_name;
-            file_name << ApisSetsQry.FieldAsString("dir") << "/"
-                      << Paxlst::createEdiPaxlstFileName(airline.code_lat, flt_no, suffix,
-                                                         airp_dep.code_lat, airp_arv.code_lat,
-                                                         scd_out_local,"XML", 0);
-            file_name << ".V" << version;
-            files.push_back( make_pair(file_name.str(), GetXMLDocText(doc.docPtr())));
+            Paxlst::put_in_queue(soap_reqDoc);
           }
       	  else
           {
