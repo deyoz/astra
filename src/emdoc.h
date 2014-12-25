@@ -121,6 +121,7 @@ class TEMDocItem
     Ticketing::CouponStatus status;
     Ticketing::CpnStatAction::CpnStatAction_t action;
     std::string change_status_error, system_update_error;
+    int point_id;
     TEMDocItem()
     {
       clear();
@@ -136,6 +137,7 @@ class TEMDocItem
       action=Ticketing::CpnStatAction::associate;
       change_status_error.clear();
       system_update_error.clear();
+      point_id=ASTRA::NoExists;
     };
 
     bool empty() const

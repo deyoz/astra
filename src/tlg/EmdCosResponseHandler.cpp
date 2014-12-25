@@ -66,6 +66,7 @@ void EmdCosResponseHandler::handle()
       EMDocItem.et_no=EMDCtxt.pax.tkn.no;
       EMDocItem.et_coupon=EMDCtxt.pax.tkn.coupon;
       EMDocItem.action=EMDCtxt.action;
+      EMDocItem.point_id=EMDCtxt.point_id;
 
       using namespace edifact;
       pRemoteResults res = remoteResults();
