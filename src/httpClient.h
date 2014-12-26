@@ -5,6 +5,10 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/bind.hpp>
+#include "file_queue.h"
+#include "astra_utils.h"
+
+const std::string APIS_TR = "APIS_TR";
 
 struct RequestInfo
 {
@@ -16,6 +20,19 @@ struct RequestInfo
   std::string login;
   std::string pswd;
 };
+
+class TApisTRFilter {
+    private:
+    public:
+        static TFilterQueue *Instance() {
+            static TFilterQueue *_instance = 0;
+            if ( !_instance ) {
+                _instance = new TFilterQueue( OWN_POINT_ADDR(), APIS_TR, ASTRA::NoExists, ASTRA::NoExists, true, 10 );
+            }
+            return _instance;
+        }
+};
+
 
 class Client
 {

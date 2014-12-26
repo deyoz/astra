@@ -68,7 +68,7 @@ void createFileParamsSofi( int point_id, int receipt_id, string pult, const stri
 }
 
 bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams,
-	                   const std::string &point_addr, TFileDatas &fds )
+                     const std::string &point_addr, TFileDatas &fds )
 {
 	ProgTrace( TRACE5, "inparams.size()=%zu", inparams.size() );
   TQuery Qry(&OraSession);

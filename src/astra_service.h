@@ -6,6 +6,7 @@
 #include <map>
 #include "jxtlib/JxtInterface.h"
 #include "astra_misc.h"
+#include "file_queue.h"
 
 const std::string PARAM_TYPE = "type";
 const std::string VALUE_TYPE_FILE = "FILE";
@@ -47,6 +48,10 @@ void putUTG(
         const std::map<std::string/*lang*/, std::string> &extra // used for BTM, PTM; extract airp trfer
         );
 void sync_fids_data( );
+
+enum TEventsMsg  { evSend, evCommit };
+
+void createMsg( TQueueItem item, TEventsMsg event );
 
 
 class AstraServiceInterface : public JxtInterface

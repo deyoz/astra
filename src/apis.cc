@@ -11,6 +11,8 @@
 #include "tlg/tlg.h"
 #include "trip_tasks.h"
 #include "httpClient.h"
+#include "file_queue.h"
+#include "astra_service.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1020,7 +1022,24 @@ bool create_apis_file(int point_id, const string& task_name)
               FPM.toXMLFormat(apisNode, passengers_count, crew_count, version);
             if (crew_count)
               FCM.toXMLFormat(apisNode, passengers_count, crew_count, version);
-            Paxlst::put_in_queue(soap_reqDoc);
+
+            // Paxlst::put_in_queue(soap_reqDoc);
+
+            std::map<std::string, std::string> file_params;
+            TFileQueue::add_sets_params(airp_dep.code, airline.code, IntToString(flt_no), OWN_POINT_ADDR(),
+                    "APIS_TR", 1, file_params);
+            if(not file_params.empty()) {
+                file_params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+                file_params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
+                TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
+                        "APIS_TR", file_params, GetXMLDocText(soap_reqDoc.docPtr()));
+                LEvntPrms params;
+                params << PrmSmpl<string>("fmt", fmt) << PrmElem<string>("country_dep", etCountry, country_dep)
+                    << PrmElem<string>("airp_dep", etAirp, airp_dep.code)
+                    << PrmElem<string>("country_arv", etCountry, country_arv.code)
+                    << PrmElem<string>("airp_arv", etAirp, airp_arv.code);
+                TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, point_id);
+            }
           }
       	  else
           {

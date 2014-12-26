@@ -1,5 +1,6 @@
 #include "httpClient.h"
 #include "file_queue.h"
+#include "astra_service.h"
 #include "astra_utils.h"
 #include "basic.h"
 #include "serverlib/str_utils.h"
@@ -15,7 +16,6 @@
 
 using namespace EXCEPTIONS;
 
-const std::string APIS_TR = "APIS_TR";
 const std::string PARAM_URL = "URL";
 const std::string PARAM_ACTION_CODE = "ACTION_CODE";
 const std::string PARAM_LOGIN = "LOGIN";
@@ -110,10 +110,11 @@ void Client::handle_read_body(const boost::system::error_code& error)
     std::stringstream ss;
     ss << &reply_;
     std::string result = ss.str();
-    process_reply(result);
+    process_reply(result);    
   }
-  else
+  else {
     throw Exception("Read failed: %s", error.message().c_str());
+  }
 }
 
 int httpClient_main(RequestInfo& request)
@@ -144,7 +145,7 @@ int httpClient_main(RequestInfo& request)
 void send_apis_tr()
 {
   TFileQueue file_queue;
-  file_queue.get( TFilterQueue( OWN_POINT_ADDR(), APIS_TR ) );
+  file_queue.get( *TApisTRFilter::Instance() );
   for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++) {
       if ( item->params.find( PARAM_URL ) == item->params.end() ||
               item->params[ PARAM_URL ].empty() )
@@ -167,8 +168,10 @@ void send_apis_tr()
       request.login = item->params[PARAM_LOGIN];
       request.pswd = item->params[PARAM_PASSWORD];
       request.content = item->data;
+      TFileQueue::sendFile(item->id);
       httpClient_main(request);
-      TFileQueue::deleteFile(item->id);
+      TFileQueue::doneFile(item->id);
+      createMsg( *item, evCommit );
   }
 }
 
