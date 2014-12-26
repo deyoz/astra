@@ -10,6 +10,7 @@
 #include "passenger.h"
 #include "tlg/tlg.h"
 #include "trip_tasks.h"
+#include "httpClient.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -367,6 +368,8 @@ int create_apis_nosir(int argc,char **argv)
   create_apis_file(point_id, (argc>=3)?argv[2]:"");
 
   puts("create_apis successfully completed");
+  send_apis_tr();
+
   return 0;
 };
 
@@ -997,10 +1000,10 @@ bool create_apis_file(int point_id, const string& task_name)
       	  }
           else if (fmt=="XML_TR") {
             XMLDoc soap_reqDoc;
-            soap_reqDoc.set("soapenvEnvelope");
+            soap_reqDoc.set("soapenv:Envelope");
             if (soap_reqDoc.docPtr()==NULL)
-              throw EXCEPTIONS::Exception("apis_tr_send: CreateXMLDoc failed");
-            xmlNodePtr soapNode=NodeAsNode("/soapenvEnvelope", soap_reqDoc.docPtr());
+              throw EXCEPTIONS::Exception("create_apis_file: CreateXMLDoc failed");
+            xmlNodePtr soapNode=xmlDocGetRootElement(soap_reqDoc.docPtr());
             SetProp(soapNode, "xmlns:soapenv", "http://schemas.xmlsoap.org/soap/envelope/");
             NewTextChild(soapNode, "soapenv:Header");
             xmlNodePtr bodyNode = NewTextChild(soapNode, "soapenv:Body");

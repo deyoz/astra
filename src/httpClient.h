@@ -37,7 +37,9 @@ public:
 
   void handle_write(const boost::system::error_code& error);
 
-  void handle_read(const boost::system::error_code& error);
+  void handle_read_header(const boost::system::error_code& error, size_t bytes_transferred);
+
+  void handle_read_body(const boost::system::error_code& error);
 
 private:
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> socket_;
@@ -48,6 +50,6 @@ private:
 
 int httpClient_main(RequestInfo& request);
 void send_apis_tr();
-std::string base64_encode(const std::string &s);
+void process_reply (const std::string& result);
 
 #endif // HTTPCLIENT_H

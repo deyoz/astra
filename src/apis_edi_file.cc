@@ -673,17 +673,9 @@ void put_in_queue(XMLDoc& doc)
   std::map<std::string, std::string> file_params;
   TFileQueue::add_sets_params(airp, airline, flt_no, OWN_POINT_ADDR(),
                               "APIS_TR", 1, file_params);
-  std::string content = GetXMLDocText(doc.docPtr());
-  std::string search("soapenvEnvelope");
-  std::string replace("soapenv:Envelope");
-  size_t pos = 0;
-  while ((pos = content.find(search, pos)) != std::string::npos) {
-       content.replace(pos, search.length(), replace);
-       pos += replace.length();
-  }
   if(not file_params.empty())
     TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
-                        "APIS_TR", file_params, content);
+                        "APIS_TR", file_params, GetXMLDocText(doc.docPtr()));
 }
 
 }//namespace Paxlst
