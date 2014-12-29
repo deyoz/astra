@@ -3875,7 +3875,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       Qry.Clear();
       Qry.SQLText=
-        "SELECT pr_tranz_reg,pr_etstatus,pr_airp_seance,pr_free_seating "
+        "SELECT pr_tranz_reg,pr_etstatus,pr_airp_seance,pr_free_seating,pr_reg_without_tkna "
         "FROM trip_sets WHERE point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,grp.point_dep);
       Qry.Execute();
@@ -3889,6 +3889,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
       bool free_seating=Qry.FieldAsInteger("pr_free_seating")!=0;
+      bool pr_reg_without_tkna=Qry.FieldAsInteger("pr_reg_without_tkna")!=0;
       bool pr_etl_only=GetTripSets(tsETSNoInteract,fltInfo);
       bool pr_mintrans_file=GetTripSets(tsMintransFile,fltInfo);
 
@@ -3934,7 +3935,17 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         {
           const CheckIn::TPaxItem &pax=p->pax;
           try
-          {
+          {            
+            CheckIn::TPaxTknItem priorTkn;
+
+            if (!new_checkin)
+            {
+              Qry.SetVariable("pax_id",pax.id);
+              Qry.Execute();
+              if (Qry.Eof) throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+              priorTkn.fromDB(Qry);
+            };
+
             if (pax.name.empty() && pr_mintrans_file)
               throw UserException("MSG.CHECKIN.PASSENGERS_NAMES_NOT_SET");
 
@@ -3946,12 +3957,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               //а пульт не успел перечитать эту настройку
               if (new_checkin) throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
 
-              Qry.SetVariable("pax_id",pax.id);
-              Qry.Execute();
-              if (Qry.Eof) throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
-
-              CheckIn::TPaxTknItem priorTkn;
-              priorTkn.fromDB(Qry);
               if (pax.tkn.rem    != priorTkn.rem ||
                   pax.tkn.no     != priorTkn.no  ||
                   pax.tkn.coupon != priorTkn.coupon)
@@ -3968,7 +3973,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             //билет
             if (pax.TknExists)
-            {
+            {              
+              if (pr_reg_without_tkna && pax.tkn.rem!="TKNE" &&
+                  (pax.tkn.rem    != priorTkn.rem ||
+                   pax.tkn.no     != priorTkn.no  ||
+                   pax.tkn.coupon != priorTkn.coupon))
+                throw UserException("MSG.CHECKIN.TKNA_DENIAL");
+
               if (pax.tkn.no.size()>15)
               {
                 string ticket_no=pax.tkn.no;

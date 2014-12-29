@@ -103,7 +103,7 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
 {
   Qry.Clear();
   ostringstream sql;
-  
+
   try
   {
     const TTripListSQLParams &params=dynamic_cast<const TTripListSQLParams&>(filter);
@@ -143,9 +143,9 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
         sql << "WHERE points.time_out=:first_date ";
       Qry.CreateVariable("first_date", otDate, params.first_date);
     };
-    
+
     sql << "AND points.pr_reg<>0 ";
-    
+
     if (params.flt_no!=NoExists)
     {
       sql << "AND points.flt_no=:flt_no ";
@@ -160,7 +160,7 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
   catch(bad_cast)
   {
     const TTripInfoSQLParams &params=dynamic_cast<const TTripInfoSQLParams&>(filter);
-    
+
     sql <<
       "SELECT points.point_id, "
       "       points.airline, "
@@ -186,16 +186,16 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
     sql << "WHERE points.point_id=:point_id ";
     Qry.CreateVariable( "point_id", otInteger, params.point_id);
   };
-    
+
   sql << "AND points.pr_reg<>0 ";
-    
+
   if (!filter.pr_cancel)
     sql << "AND points.pr_del=0 ";
   else
     sql << "AND points.pr_del>=0 ";
   if (!filter.pr_takeoff)
     sql << "AND points.act_out IS NULL ";
-    
+
   if (!filter.station.first.empty() && !filter.station.second.empty())
   {
     sql << "AND points.point_id=trip_stations.point_id "
@@ -203,7 +203,7 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
     Qry.CreateVariable( "desk", otString, filter.station.first );
     Qry.CreateVariable( "work_mode", otString, filter.station.second);
   };
-  
+
   if (!filter.access.airlines.empty())
   {
     if (filter.access.airlines_permit)
@@ -211,7 +211,7 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
     else
       sql << "AND points.airline NOT IN " << GetSQLEnum(filter.access.airlines) << " ";
   };
-  
+
   if (!filter.access.airps.empty())
   {
     if ( !filter.use_arrival_permit )
@@ -233,7 +233,7 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
             << GetSQLEnum(filter.access.airps) << ") ";
     };
   };
-  
+
   Qry.SQLText=sql.str().c_str();
 };
 
@@ -259,7 +259,7 @@ TStage getFinalStage( TQuery &Qry, const int point_id, const TStage_Type stage_t
 bool checkFinalStages( TQuery &Qry, const int point_id, const TTripListSQLFilter &filter)
 {
   if (filter.final_stages.empty()) return true;
-  
+
   const char* sql="SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:stage_type";
   if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
   {
@@ -268,7 +268,7 @@ bool checkFinalStages( TQuery &Qry, const int point_id, const TTripListSQLFilter
     Qry.DeclareVariable("point_id", otInteger);
     Qry.DeclareVariable("stage_type", otInteger);
   };
-  
+
   Qry.SetVariable("point_id",point_id);
   //фильтрация по final_stages
   map< TStage_Type, vector<TStage> >::const_iterator iStage=filter.final_stages.begin();
@@ -325,13 +325,13 @@ class TTripListOrder
         if (item1.real_out_client_trunk!=item2.real_out_client_trunk)
         return item1.real_out_client_trunk>item2.real_out_client_trunk;
       };
-    
+
       if (order_type=="date_sort_order")
       {
         if (item1.real_out_client!=item2.real_out_client)
         return item1.real_out_client<item2.real_out_client;
       };
-    
+
       if (order_type=="airp_sort_order")
       {
         if (item1.airp.value!=item2.airp.value)
@@ -353,7 +353,7 @@ class TTripListOrder
 void TTripListSQLFilter::set(void)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  
+
   access=reqInfo->user.access;
 
   if (reqInfo->screen.name=="BRDBUS.EXE" ||
@@ -427,7 +427,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   //reqInfo->user.check_access( amRead );
-  
+
   TTripListInfo listInfo;
   listInfo.FromXML(reqNode);
 
@@ -436,14 +436,14 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (!listInfo.filter.airline.empty())
     MergeAccess(SQLfilter.access.airlines, SQLfilter.access.airlines_permit,
                 vector<string>(1,listInfo.filter.airline), true);
-  
+
   SQLfilter.flt_no=listInfo.filter.flt_no;
   SQLfilter.suffix=listInfo.filter.suffix;
-  
+
   if (!listInfo.filter.airp_dep.empty())
     MergeAccess(SQLfilter.access.airps, SQLfilter.access.airps_permit,
                 vector<string>(1,listInfo.filter.airp_dep), true);
-                
+
   if (listInfo.view.codes_fmt==ustCodeNative ||
       listInfo.view.codes_fmt==ustCodeInter ||
       listInfo.view.codes_fmt==ustCodeICAONative ||
@@ -480,7 +480,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     TDateTime client_date=UTCToClient(utc_date,reqInfo->desk.tz_region);
     modf(utc_date, &utc_date); //округляем до дня
     modf(client_date, &client_date); //округляем до дня
-    
+
     int shift_down_additional=-1;
     int shift_up_additional=1;
     if (reqInfo->user.sets.time==ustTimeUTC)
@@ -491,7 +491,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     vector< pair<int,int> > shifts;
     vector< pair<TDateTime, TDateTime> > ranges;
-    
+
     TQuery Qry( &OraSession );
     TQuery StagesQry( &OraSession );
     if (advanced_trip_list)
@@ -601,7 +601,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           try
           {
             TTripListItem listItem;
-            
+
             if (!listInfo.filter.airp_dep.empty() && listInfo.filter.airp_dep!=info.airp) continue;  //пропускаем, рейс не подходит по airp_dep
             TDateTime scd_out_client;
             info.get_client_dates(scd_out_client,listItem.real_out_client,false);
@@ -672,7 +672,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         if (!use_single_day) break;
       };
     };
-    
+
     if (advanced_trip_list)
     {
       int sort_order;
@@ -705,7 +705,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       sort(list.begin(),list.end(),TTripListOrder("name_sort_order"));
     };
   };
-  
+
 
   //формируем ответ
   xmlNodePtr dataNode;
@@ -714,7 +714,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     dataNode = resNode;
     //пишем listInfo
     NewTextChild(resNode, "date", DateTimeToStr(listInfo.date)); //подразумеваем что не может быть NoExists
-    
+
     if (!listInfo.filter_from_xml)
     {
       //записываем
@@ -768,7 +768,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( tripNode, "name_sort_order", i->name.sort_order );
       NewTextChild( tripNode, "date_sort_order", i->date.sort_order, i->name.sort_order );
       NewTextChild( tripNode, "airp_sort_order", i->airp.sort_order, i->name.sort_order );
-      
+
       NewTextChild( tripNode, "b_color", i->b_color, "");
       NewTextChild( tripNode, "f_color", i->f_color, "");
       NewTextChild( tripNode, "name_b_color", i->name.b_color, "");
@@ -922,7 +922,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   if ((reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit) ||
       (reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit))
     return false;
-    
+
   TTripInfoSQLParams filter;
   filter.set();
   filter.point_id=point_id;
@@ -934,7 +934,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   Qry.Execute();
   if (Qry.Eof) return false;
   if (!checkFinalStages(StagesQry, point_id, filter)) return false;
-  
+
   TTripInfo info(Qry);
   xmlNodePtr node = NewTextChild( dataNode, "tripheader" );
   NewTextChild( node, "point_id", Qry.FieldAsInteger( "point_id" ) );
@@ -1082,7 +1082,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg, "
       "       NVL(pr_block_trzt,0) AS pr_block_trzt, "
       "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
-      "       pr_reg_with_tkn,pr_reg_with_doc,auto_weighing,pr_etstatus, "
+      "       pr_reg_with_tkn,pr_reg_with_doc,pr_reg_without_tkna, "
+      "       auto_weighing,pr_etstatus, "
       "       pr_free_seating, apis_control, apis_manual_input, "
       "       pr_airp_seance "
       "FROM trip_sets WHERE point_id=:point_id ";
@@ -1115,6 +1116,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "pr_exam_check_pay", (int)(Qryh.FieldAsInteger("pr_exam_check_pay")!=0) );
       NewTextChild( node, "pr_reg_with_tkn", (int)(Qryh.FieldAsInteger("pr_reg_with_tkn")!=0) );
       NewTextChild( node, "pr_reg_with_doc", (int)(Qryh.FieldAsInteger("pr_reg_with_doc")!=0) );
+      NewTextChild( node, "pr_reg_without_tkna", (int)(Qryh.FieldAsInteger("pr_reg_without_tkna")!=0) );
       NewTextChild( node, "auto_weighing", (int)(Qryh.FieldAsInteger("auto_weighing")!=0) );
       NewTextChild( node, "pr_free_seating", (int)(Qryh.FieldAsInteger("pr_free_seating")!=0) );
 
@@ -1146,19 +1148,19 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   };
 
   {
-  	string stralarms;
+    string stralarms;
     BitSet<TTripAlarmsType> Alarms;
     TripAlarms( point_id, Alarms );
     for ( int ialarm=0; ialarm<atLength; ialarm++ ) {
       string rem;
       TTripAlarmsType alarm = (TTripAlarmsType)ialarm;
       if ( !Alarms.isFlag( alarm ) )
-      	continue;
+        continue;
       switch( alarm ) {
-      	case atWaitlist:
+        case atWaitlist:
           if (reqInfo->screen.name == "CENT.EXE" ||
-  	          reqInfo->screen.name == "PREPREG.EXE" ||
-  	          reqInfo->screen.name == "AIR.EXE" ||
+              reqInfo->screen.name == "PREPREG.EXE" ||
+              reqInfo->screen.name == "AIR.EXE" ||
               reqInfo->screen.name == "BRDBUS.EXE" ||
               reqInfo->screen.name == "EXAM.EXE" ||
               reqInfo->screen.name == "DOCS.EXE") {
@@ -1167,33 +1169,33 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
           break;
         case atOverload:
           if (reqInfo->screen.name == "CENT.EXE" ||
-          	  reqInfo->screen.name == "PREPREG.EXE")
-          	rem = TripAlarmString( alarm );
+              reqInfo->screen.name == "PREPREG.EXE")
+            rem = TripAlarmString( alarm );
           break;
         case atBrd:
           if (reqInfo->screen.name == "BRDBUS.EXE" ||
-          	  reqInfo->screen.name == "DOCS.EXE")
-          	rem = TripAlarmString( alarm );
+              reqInfo->screen.name == "DOCS.EXE")
+            rem = TripAlarmString( alarm );
           break;
         case atSalon:
           if (reqInfo->screen.name == "CENT.EXE" ||
-  	          reqInfo->screen.name == "PREPREG.EXE" ||
-  	          reqInfo->screen.name == "AIR.EXE")
-          	rem = TripAlarmString( alarm );
+              reqInfo->screen.name == "PREPREG.EXE" ||
+              reqInfo->screen.name == "AIR.EXE")
+            rem = TripAlarmString( alarm );
           break;
         case atETStatus:
-        	if (reqInfo->screen.name == "AIR.EXE" ||
-        		  reqInfo->screen.name == "BRDBUS.EXE")
-          	rem = TripAlarmString( alarm );
+            if (reqInfo->screen.name == "AIR.EXE" ||
+                  reqInfo->screen.name == "BRDBUS.EXE")
+            rem = TripAlarmString( alarm );
           break;
         case atSeance:
-        	if (reqInfo->screen.name == "AIR.EXE")
-          	rem = TripAlarmString( alarm );
+            if (reqInfo->screen.name == "AIR.EXE")
+            rem = TripAlarmString( alarm );
           break;
-      	case atDiffComps:
+        case atDiffComps:
           if (reqInfo->screen.name == "CENT.EXE" ||
-  	          reqInfo->screen.name == "PREPREG.EXE" ||
-  	          reqInfo->screen.name == "AIR.EXE" ||
+              reqInfo->screen.name == "PREPREG.EXE" ||
+              reqInfo->screen.name == "AIR.EXE" ||
               reqInfo->screen.name == "BRDBUS.EXE" ||
               reqInfo->screen.name == "EXAM.EXE" ||
               reqInfo->screen.name == "DOCS.EXE") {
@@ -1202,26 +1204,26 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
           break;
         case atTlgIn:
           if (reqInfo->screen.name == "TLG.EXE")
-          	rem = TripAlarmString( alarm );
+            rem = TripAlarmString( alarm );
           break;
         case atTlgOut:
           if (reqInfo->screen.name == "TLG.EXE")
-          	rem = TripAlarmString( alarm );
+            rem = TripAlarmString( alarm );
           break;
         case atAPISIncomplete:
           if (reqInfo->screen.name == "AIR.EXE")
-          	rem = TripAlarmString( alarm );
+            rem = TripAlarmString( alarm );
           break;
         case atAPISManualInput:
           if (reqInfo->screen.name == "AIR.EXE")
-          	rem = TripAlarmString( alarm );
+            rem = TripAlarmString( alarm );
           break;
-      	default:
+        default:
           break;
       }
       if ( !rem.empty() ) {
         if ( !stralarms.empty() )
-        	stralarms += " ";
+            stralarms += " ";
         stralarms += "!" + rem;
       }
     }
@@ -1332,7 +1334,7 @@ class TPaxLoadItem
     string ticket_rem;
 
     string rem_code;
-    
+
     string section;
 
     //данные
@@ -1667,7 +1669,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
     if (rems.empty()) pr_rems=false;
   };
-  
+
   if (paxLoadOrder.fields.size()==1 &&
       *paxLoadOrder.fields.begin()=="rems" && !pr_rems) return;
 
@@ -1687,7 +1689,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                    << "            transfer.pr_final<>0 AND " << endl
                    << "            " << crew_filter << endl
                    << "            pax_grp.point_dep=:point_id) last_trfer" << endl;
-  
+
     for(int pass=1;pass<=5;pass++)
     {
       //1. Вычисление cfg
@@ -1930,9 +1932,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         Qry.CreateVariable("child",otString,EncodePerson(ASTRA::child));
         Qry.CreateVariable("baby",otString,EncodePerson(ASTRA::baby));
       };
-      
+
       //ProgTrace(TRACE5, "readPaxLoad: SQL=%s", sql.str().c_str());
-      
+
       Qry.Execute();
       for(;!Qry.Eof;Qry.Next())
       {
@@ -2187,11 +2189,11 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       pax.bag_weight=Qry.FieldAsInteger("bag_weight");
       zonePaxs.push_back(pax);
     };
-    
+
     vector<SALONS2::TCompSection> compSections;
     //получаем информацию по зонам
     ZonePax(point_id, zonePaxs, compSections);
-    
+
     for(vector<SALONS2::TCompSection>::const_iterator i=compSections.begin();i!=compSections.end();i++)
     {
       TPaxLoadItem item;
@@ -2214,7 +2216,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       paxLoad.push_back(item);
     };
   };
-    
+
   //сортируем массив
   paxLoad.sort(paxLoadOrder);
 
@@ -2339,7 +2341,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 void viewCRSList( int point_id, xmlNodePtr dataNode )
 {
   bool pr_free_seating = SALONS2::isFreeSeating( point_id );
-	TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
+    TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   TQuery Qry( &OraSession );
   TPaxSeats priorSeats( point_id );
   Qry.Clear();
@@ -2502,8 +2504,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   vector<TPnrAddrItem> pnrs;
   for(;!Qry.Eof;Qry.Next())
   {
-  	mode = -1; // не надо искать место
-  	string seat_no;
+    mode = -1; // не надо искать место
+    string seat_no;
     if (!Qry.FieldIsNULL(col_grp_id))
     {
       PointsQry.SetVariable("grp_id",Qry.FieldAsInteger(col_grp_id));
@@ -2575,7 +2577,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
       rem_detail << ".R/" << r->text << "   ";
       if ( r->code == "STCR" && !stcrNode )
       {
-      	stcrNode = NewTextChild( node, "step", "down" );
+        stcrNode = NewTextChild( node, "step", "down" );
       };
     };
     NewTextChild( node, "rems", GetRemarkStr(rem_grp, rems), "" );
@@ -2583,15 +2585,15 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pax_id", pax_id );
     NewTextChild( node, "pnr_id", Qry.FieldAsInteger( col_pnr_id ) );
     NewTextChild( node, "tid", Qry.FieldAsInteger( col_tid ) );
-   	if ( !Qry.FieldIsNULL( col_wl_type ) )
-   		NewTextChild( node, "wl_type", Qry.FieldAsString( col_wl_type ) );
+    if ( !Qry.FieldIsNULL( col_wl_type ) )
+        NewTextChild( node, "wl_type", Qry.FieldAsString( col_wl_type ) );
 
     if (!Qry.FieldIsNULL(col_grp_id))
     {
       NewTextChild( node, "reg_no", Qry.FieldAsInteger( col_reg_no ) );
       NewTextChild( node, "refuse", Qry.FieldAsString( col_refuse ), "" );
       if ( !Qry.FieldIsNULL( col_refuse ) )
-      	continue; // не надо искать место
+        continue; // не надо искать место
       mode = 0;
       SQry.SetVariable( "layer_type", Qry.FieldAsString( col_grp_status ) );
       SQry.SetVariable( "seats", Qry.FieldAsInteger(col_pax_seats)  );
@@ -2602,13 +2604,13 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
                          pax_row, Qry.FieldAsString( col_grp_status ) );
     }
     else {
-    	mode = 1;
-    	SQry.SetVariable( "xname", Qry.FieldAsString( col_seat_xname ) );
-    	SQry.SetVariable( "yname", Qry.FieldAsString( col_seat_yname ) );
-    	SQry.SetVariable( "layer_type", FNull );
-    	SQry.SetVariable( "seats", Qry.FieldAsInteger(col_seats)  );
-    	SQry.SetVariable( "point_id", Qry.FieldAsInteger(col_point_id_tlg) );
-    	SQry.SetVariable( "crs_row", crs_row );
+        mode = 1;
+        SQry.SetVariable( "xname", Qry.FieldAsString( col_seat_xname ) );
+        SQry.SetVariable( "yname", Qry.FieldAsString( col_seat_yname ) );
+        SQry.SetVariable( "layer_type", FNull );
+        SQry.SetVariable( "seats", Qry.FieldAsInteger(col_seats)  );
+        SQry.SetVariable( "point_id", Qry.FieldAsInteger(col_point_id_tlg) );
+        SQry.SetVariable( "crs_row", crs_row );
       ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, crs_row=%d, layer_type=%s",
                          mode, pax_id, Qry.FieldAsInteger(col_seats), point_id,
                          crs_row, "" );
@@ -2618,51 +2620,51 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     SQry.SetVariable( "seat_no", FNull );
     SQry.Execute();
     if ( mode == 0 )
-    	pax_row++;
+        pax_row++;
     else
-    	crs_row++;
+        crs_row++;
     NewTextChild( node, "isseat", ( pr_free_seating || !SQry.VariableIsNULL( "seat_no" ) || !Qry.FieldAsInteger( col_seats ) ) );
     if ( !SQry.VariableIsNULL( "seat_no" ) ) {
-    	string seat_no = SQry.GetVariableAsString( "seat_no" );
-    	string layer_type;
-    	if ( mode == 0 ) {
-    		layer_type = ((TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( col_grp_status ))).layer_type;
-    	}
-    	else {
-    		layer_type = SQry.GetVariableAsString( "layer_type" );
-    	}
-    	switch ( DecodeCompLayerType( (char*)layer_type.c_str() ) ) { // 12.12.08 для совместимости со старой версией
-    		case cltProtCkin:
-    			NewTextChild( node, "preseat_no", seat_no );
-    			NewTextChild( node, "crs_seat_no", string(Qry.FieldAsString( col_seat_xname ))+Qry.FieldAsString( col_seat_yname ) );
-    			break;
-    		case cltPNLCkin:
-    			NewTextChild( node, "crs_seat_no", seat_no );
-    			break;
-    		default:
-    			NewTextChild( node, "seat_no", seat_no );
-    			break;
-    	}
+        string seat_no = SQry.GetVariableAsString( "seat_no" );
+        string layer_type;
+        if ( mode == 0 ) {
+            layer_type = ((TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( col_grp_status ))).layer_type;
+        }
+        else {
+            layer_type = SQry.GetVariableAsString( "layer_type" );
+        }
+        switch ( DecodeCompLayerType( (char*)layer_type.c_str() ) ) { // 12.12.08 для совместимости со старой версией
+            case cltProtCkin:
+                NewTextChild( node, "preseat_no", seat_no );
+                NewTextChild( node, "crs_seat_no", string(Qry.FieldAsString( col_seat_xname ))+Qry.FieldAsString( col_seat_yname ) );
+                break;
+            case cltPNLCkin:
+                NewTextChild( node, "crs_seat_no", seat_no );
+                break;
+            default:
+                NewTextChild( node, "seat_no", seat_no );
+                break;
+        }
       if ( !TReqInfo::Instance()->desk.compatible(SORT_SEAT_NO_VERSION) )
-      	seat_no = LTrimString( seat_no );
-    	NewTextChild( node, "nseat_no", seat_no );
-   		NewTextChild( node, "layer_type", layer_type );
+        seat_no = LTrimString( seat_no );
+        NewTextChild( node, "nseat_no", seat_no );
+        NewTextChild( node, "layer_type", layer_type );
     } // не задано место
     else
-    	if ( mode == 0 &&
+        if ( mode == 0 &&
            Qry.FieldAsInteger( col_seats ) &&
            !pr_free_seating ) {
-    		string old_seat_no;
-    		if ( Qry.FieldIsNULL( col_wl_type ) ) {
-    		  old_seat_no = priorSeats.getSeats( pax_id, "seats" );
-    		  if ( !old_seat_no.empty() )
-    		  	old_seat_no = "(" + old_seat_no + ")";
-    		}
-    		else
-    			old_seat_no = AstraLocale::getLocaleText("ЛО");
-    		if ( !old_seat_no.empty() )
-    		  NewTextChild( node, "nseat_no", old_seat_no );
-   		}
+            string old_seat_no;
+            if ( Qry.FieldIsNULL( col_wl_type ) ) {
+              old_seat_no = priorSeats.getSeats( pax_id, "seats" );
+              if ( !old_seat_no.empty() )
+                old_seat_no = "(" + old_seat_no + ")";
+            }
+            else
+                old_seat_no = AstraLocale::getLocaleText("ЛО");
+            if ( !old_seat_no.empty() )
+              NewTextChild( node, "nseat_no", old_seat_no );
+        }
   };
 
 };
