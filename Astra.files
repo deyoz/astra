@@ -101,6 +101,8 @@ src/file_queue.cc
 src/file_queue.h
 src/flt_binding.cc
 src/flt_binding.h
+src/httpClient.cc
+src/httpClient.h
 src/http_io.cpp
 src/http_io.h
 src/http_main.cc

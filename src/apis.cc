@@ -10,6 +10,9 @@
 #include "passenger.h"
 #include "tlg/tlg.h"
 #include "trip_tasks.h"
+#include "httpClient.h"
+#include "file_queue.h"
+#include "astra_service.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -367,6 +370,8 @@ int create_apis_nosir(int argc,char **argv)
   create_apis_file(point_id, (argc>=3)?argv[2]:"");
 
   puts("create_apis successfully completed");
+  send_apis_tr();
+
   return 0;
 };
 
@@ -996,11 +1001,17 @@ bool create_apis_file(int point_id, const string& task_name)
             };
       	  }
           else if (fmt=="XML_TR") {
-            XMLDoc doc;
-            doc.set("FlightMessage");
-            if (doc.docPtr()==NULL)
-              throw EXCEPTIONS::Exception("CreateEmulXMLDoc: CreateXMLDoc failed");
-            xmlNodePtr apisNode=NodeAsNode("/FlightMessage",doc.docPtr());
+            XMLDoc soap_reqDoc;
+            soap_reqDoc.set("soapenv:Envelope");
+            if (soap_reqDoc.docPtr()==NULL)
+              throw EXCEPTIONS::Exception("create_apis_file: CreateXMLDoc failed");
+            xmlNodePtr soapNode=xmlDocGetRootElement(soap_reqDoc.docPtr());
+            SetProp(soapNode, "xmlns:soapenv", "http://schemas.xmlsoap.org/soap/envelope/");
+            NewTextChild(soapNode, "soapenv:Header");
+            xmlNodePtr bodyNode = NewTextChild(soapNode, "soapenv:Body");
+            xmlNodePtr operationNode = NewTextChild(bodyNode, "voy:getFlightMessageSIN");
+            SetProp(operationNode, "xmlns:voy", "http://www.gtb.gov.tr/voy.xml.webservices");
+            xmlNodePtr apisNode = NewTextChild(operationNode, "FlightMessage");
             int passengers_count = FPM.passengersList().size();
             int crew_count = FCM.passengersList().size();
             int version;
@@ -1011,13 +1022,24 @@ bool create_apis_file(int point_id, const string& task_name)
               FPM.toXMLFormat(apisNode, passengers_count, crew_count, version);
             if (crew_count)
               FCM.toXMLFormat(apisNode, passengers_count, crew_count, version);
-            ostringstream file_name;
-            file_name << ApisSetsQry.FieldAsString("dir") << "/"
-                      << Paxlst::createEdiPaxlstFileName(airline.code_lat, flt_no, suffix,
-                                                         airp_dep.code_lat, airp_arv.code_lat,
-                                                         scd_out_local,"XML", 0);
-            file_name << ".V" << version;
-            files.push_back( make_pair(file_name.str(), GetXMLDocText(doc.docPtr())));
+
+            // Paxlst::put_in_queue(soap_reqDoc);
+
+            std::map<std::string, std::string> file_params;
+            TFileQueue::add_sets_params(airp_dep.code, airline.code, IntToString(flt_no), OWN_POINT_ADDR(),
+                    "APIS_TR", 1, file_params);
+            if(not file_params.empty()) {
+                file_params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+                file_params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
+                TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
+                        "APIS_TR", file_params, ConvertCodepage(GetXMLDocText(soap_reqDoc.docPtr()), "CP866", "UTF-8"));
+                LEvntPrms params;
+                params << PrmSmpl<string>("fmt", fmt) << PrmElem<string>("country_dep", etCountry, country_dep)
+                    << PrmElem<string>("airp_dep", etAirp, airp_dep.code)
+                    << PrmElem<string>("country_arv", etCountry, country_arv.code)
+                    << PrmElem<string>("airp_arv", etAirp, airp_arv.code);
+                TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, point_id);
+            }
           }
       	  else
           {

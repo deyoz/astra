@@ -32,6 +32,8 @@
 #include "trip_tasks.h"
 #include "stat.h"
 #include "edi_utils.h"
+#include "http_io.h"
+#include "httpClient.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -158,6 +160,8 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       if ( name == "sync_fids" ) sync_fids_data();
 /*	  else
       if ( name == "cobra" ) cobra();*/
+      else
+      if ( name == "send_apis_tr" ) send_apis_tr();
 
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )

@@ -666,7 +666,7 @@ const std::string generate_envelope_id (const std::string& airl);
 const std::string get_msg_identifier ();
 bool get_trip_apis_param (const int point_id, const std::string& format, const std::string& param_name, int& param_value);
 void set_trip_apis_param(const int point_id, const std::string& format, const std::string& param_name, const int param_value);
-
+void put_in_queue(XMLDoc& doc);
 }//namespace Paxlst
 
 #endif//_APIS_EDI_FILE_H_

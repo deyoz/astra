@@ -15,6 +15,7 @@
 #include "config.h"
 #include "tlg/tlg.h"
 #include "astra_misc.h"
+#include "file_queue.h"
 
 #include <edilib/edi_func_cpp.h>
 #include <edilib/edi_astra_msg_types.h>
@@ -664,6 +665,17 @@ void set_trip_apis_param(const int point_id, const std::string& format, const st
   {
     if (E.Code!=1) throw;
   };
+}
+
+void put_in_queue(XMLDoc& doc)
+{
+  std::string airp, airline, flt_no;
+  std::map<std::string, std::string> file_params;
+  TFileQueue::add_sets_params(airp, airline, flt_no, OWN_POINT_ADDR(),
+                              "APIS_TR", 1, file_params);
+  if(not file_params.empty())
+    TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
+                        "APIS_TR", file_params, GetXMLDocText(doc.docPtr()));
 }
 
 }//namespace Paxlst
