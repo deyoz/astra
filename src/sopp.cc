@@ -6154,6 +6154,13 @@ void update_trip_sets(int point_id, const map<TTripSetType, bool> &sets, bool fi
                                  "EVT.SET_MODE_REG_WITHOUT_DOC_PERMISSION");
         Qry.CreateVariable("pr_reg_with_doc", otInteger, (int)s->second);
         break;
+      case tsRegWithoutTKNA:
+        fields.push_back("pr_reg_without_tkna=:pr_reg_without_tkna");
+        if (!first_init || s->second)
+          msgs.push_back(s->second?"EVT.SET_MODE_REG_WITHOUT_TKNA":
+                                   "EVT.CANCEL_MODE_REG_WITHOUT_TKNA");
+        Qry.CreateVariable("pr_reg_without_tkna", otInteger, (int)s->second);
+        break;
       case tsAutoWeighing:
         fields.push_back("auto_weighing=:auto_weighing");
         msgs.push_back(s->second?"EVT.SET_AUTO_WEIGHING":
@@ -6347,9 +6354,9 @@ void set_flight_sets(int point_id, int f, int c, int y)
     "INSERT INTO trip_sets "
     " (point_id,f,c,y,max_commerce,pr_etstatus,pr_stat, "
     "  pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay, "
-    "  pr_exam_check_pay,pr_reg_with_tkn,pr_reg_with_doc,crc_comp, "
+    "  pr_exam_check_pay,pr_reg_with_tkn,pr_reg_with_doc,pr_reg_without_tkna,crc_comp, "
 		"  pr_basel_stat,auto_weighing,pr_free_seating,apis_control,apis_manual_input) "
-    "VALUES(:point_id,:f,:c,:y, NULL, 0, 0, NULL, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0) ";
+    "VALUES(:point_id,:f,:c,:y, NULL, 0, 0, NULL, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0) ";
   Qry.CreateVariable("point_id", otInteger, point_id);
   f!=NoExists?Qry.CreateVariable("f", otInteger, f):
               Qry.CreateVariable("f", otInteger, FNull);

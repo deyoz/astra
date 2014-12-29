@@ -296,6 +296,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsExamCheckPay=7,               //Контроль оплаты багажа при досмотре
                     tsRegWithTkn=8,                 //Запрет регистрации без номеров билетов
                     tsRegWithDoc=9,                 //Запрет регистрации без номеров документов
+                    tsRegWithoutTKNA=14,            //Запрет регистрации TKNA
                     tsAutoWeighing=20,              //Контроль автоматического взвешивания багажа
                     tsFreeSeating=23,               //Свободная рассадка
                     tsAPISControl=24,               //Контроль данных APIS
