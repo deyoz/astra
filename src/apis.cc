@@ -1032,7 +1032,7 @@ bool create_apis_file(int point_id, const string& task_name)
                 file_params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
                 file_params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
                 TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
-                        "APIS_TR", file_params, GetXMLDocText(soap_reqDoc.docPtr()));
+                        "APIS_TR", file_params, ConvertCodepage(GetXMLDocText(soap_reqDoc.docPtr()), "CP866", "UTF-8"));
                 LEvntPrms params;
                 params << PrmSmpl<string>("fmt", fmt) << PrmElem<string>("country_dep", etCountry, country_dep)
                     << PrmElem<string>("airp_dep", etAirp, airp_dep.code)
