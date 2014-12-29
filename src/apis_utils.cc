@@ -137,6 +137,11 @@ TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_ar
             result.pass.doc.required_fields|=DOC_TXT_EE_FIELDS;
             result.pass.doco.required_fields|=DOCO_TXT_EE_FIELDS;
           };
+          if (fmt=="XML_TR")
+          {
+            result.pass.doc.required_fields|=DOC_XML_TR_FIELDS;
+            result.crew.doc.required_fields|=DOC_XML_TR_FIELDS;
+          };
         };
       };
       if (apis_formats.empty())
