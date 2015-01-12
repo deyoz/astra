@@ -64,6 +64,7 @@ struct  TParseFlight {
   std::vector<TCode> airps_out;
   bool pr_landing;
   std::string status;
+  std::string record;
   void add_airline( const std::string &value );
   void add_fltno( const std::string &value );
   void add_scd( const std::string &value );
