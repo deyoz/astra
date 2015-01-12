@@ -1,4 +1,4 @@
-#include <stdlib.h>
+  #include <stdlib.h>
 #include "points.h"
 #include "pers_weights.h"
 #include "stages.h"
@@ -357,6 +357,8 @@ inline bool isSetOtherTime( TStatus status, BASIC::TDateTime time, BASIC::TDateT
 
 void TPointsDest::getEvents( const TPointsDest &vdest )
 {
+  ProgTrace( TRACE5, "TPointsDest::getEvents: point_id=%d", vdest.point_id );
+
   events.clearFlags();
   //создание шагов технологического графика
   if ( status != tdDelete && pr_reg &&
@@ -574,11 +576,11 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
     if ( status == tdInsert )
       lexema_id = "EVT.INPUT_NEW_POINT";
     else if ( status == tdDelete )
-      lexema_id = "EVT.DELETE_POINT";
+      lexema_id = "EVT.DISP.DELETE_POINT";
     else if ( events.isFlag( dmSetCancel ) )
-      lexema_id = "EVT.CANCEL_POINT";
+      lexema_id = "EVT.DISP.CANCEL_POINT";
     else if ( events.isFlag( dmSetUnCancel ) )
-      lexema_id = "EVT.RETURN_POINT";
+      lexema_id = "EVT.DISP.RETURN_POINT";
     if ( flt_no != NoExists )
       reqInfo->LocaleToLog(lexema_id, LEvntPrms() << PrmFlight("flt", airline, flt_no, suffix)
                            << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
@@ -730,7 +732,9 @@ int TPoints::getPoint_id()
 
 void TPoints::WriteDest( TPointsDest &dest )
 {
-  if ( dest.events.emptyFlags() ) { //нет изменений
+  if ( dest.events.emptyFlags() &&
+       ( dest.status != tdInsert && dest.status != tdDelete &&
+         !dest.events.isFlag( dmSetCancel ) && !dest.events.isFlag( dmSetUnCancel ) ) ) { //нет изменений
     ProgTrace( TRACE5, "WriteDest: no change, point_id=%d", dest.point_id );
     return;
   }
@@ -1562,7 +1566,6 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
         this->events.isFlag( teChangeFlightAttrLand ) ) {
     if ( this->key.scd_out != ASTRA::NoExists ) {
       try {
-        ProgTrace( TRACE5, "this->key.airp=%s,this->key.scd_out=%f", this->key.airp.c_str(), this->key.scd_out );
         string region = AirpTZRegion( this->key.airp, true );
         TDateTime locale_scd_out = UTCToLocal( this->key.scd_out, region );
         bindingAODBFlt( this->key.airline, this->key.flt_no, this->key.suffix,
@@ -1793,11 +1796,13 @@ void TPoints::Save( bool isShowMsg )
     Qry.CreateVariable( "reference", otString, ref );
     Qry.Execute();
   }
+  tst();
   //проверка на то, что пункт можно отменить или удалить
   map<int,TPointsDest> olddests;
   for( vector<TPointsDest>::iterator id=dests.items.begin(); id!=dests.items.end(); id++ ) {
     ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d", id->airp.c_str(), id->pr_del );
     if ( id->status != tdInsert ) {
+      ProgTrace( TRACE5, "load: point_id=%d", id->point_id );
       olddests[ id->point_id ].Load( id->point_id, id->UseData );
     }
     id->getEvents( olddests[ id->point_id ] );
@@ -1944,10 +1949,10 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
 {
   findMove_id = NoExists;
   point_id = NoExists;
-  ProgTrace( TRACE5, "TPoints::isDouble: move_id=%d, airline=%s, flt_no=%d, suffix=%s, airp=%s, scd_in=%s, scd_out=%s",
+  ProgTrace( TRACE5, "TPoints::isDouble: move_id=%d, airline=%s, flt_no=%d, suffix=%s, airp=%s, scd_in=%s(%f), scd_out=%s(%f)",
              move_id, airline.c_str(), flt_no, suffix.c_str(), airp.c_str(),
-             DateTimeToStr( scd_in, "hh:nn dd.mm.yy" ).c_str(),
-             DateTimeToStr( scd_out, "hh:nn dd.mm.yy" ).c_str() );
+             DateTimeToStr( scd_in, "hh:nn dd.mm.yy" ).c_str(), scd_in,
+             DateTimeToStr( scd_out, "hh:nn dd.mm.yy" ).c_str(), scd_out );
   TElemFmt fmt;
   airp = ElemToElemId( etAirp, airp, fmt );
   suffix = ElemToElemId( etSuffix, suffix, fmt );
@@ -1968,10 +1973,11 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT airline, flt_no, suffix, scd_in, scd_out, move_id, point_id FROM points "
+    "SELECT airline, flt_no, suffix, scd_in, scd_out, move_id, point_id, point_num FROM points "
     "  WHERE move_id!=:move_id AND airp=:airp AND pr_del!=-1 AND "
-    "       ( time_in BETWEEN :scd_in-2 AND :scd_in+2 OR "
-    "         time_out BETWEEN :scd_out-2 AND :scd_out+2 )";
+    "       ( scd_in BETWEEN :scd_in-2 AND :scd_in+2 OR "
+    "         scd_out BETWEEN :scd_out-2 AND :scd_out+2 ) "
+    "ORDER BY move_id,point_num ";
 /*    "SELECT scd_in, scd_out, move_id, point_id FROM points "
     " WHERE airline=:airline AND flt_no=:flt_no AND NVL(suffix,' ')=NVL(:suffix,' ') AND "
     "       move_id!=:move_id AND airp=:airp AND pr_del!=-1 AND "
@@ -2038,7 +2044,7 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
       Qry.Next();
       continue;
     }
-
+    tst();
   	if ( !Qry.FieldIsNULL( "scd_in" ) && local_scd_in > NoExists ) {
       modf( (double)UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), region ), &d1 );
       if ( d1 == local_scd_in ) {
@@ -2549,6 +2555,8 @@ void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, bool 
   for ( std::vector<TPointsDest>::iterator i=items.begin(); i!=items.end(); i++ ) {
     std::vector<TPointsDest>::iterator j=prior_find_dest;
     for ( ; j!=new_dests.items.end(); j++ ) {
+        ProgTrace( TRACE5, "i->point_id=%d, i->airline=%s, i->flt_no=%d, i->airp=%s, j->point_id=%d, j->airline=%s, j->flt_no=%d, j->airp=%s",
+                   i->point_id, i->airline.c_str(), i->flt_no, i->airp.c_str(), j->point_id, j->airline.c_str(), j->flt_no, j->airp.c_str() );
       if ( i->airline == j->airline &&
            i->flt_no == j->flt_no &&
            i->suffix == j->suffix &&
@@ -2586,9 +2594,10 @@ void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, bool 
       }
     }
     if ( j == new_dests.items.end() ) {
+      tst();
       if ( pr_change_dests ) {
         i->pr_del = -1;
-        tst();
+        ProgTrace( TRACE5, "delete i->point_id=%d", i->point_id );
       }
     }
     else {
