@@ -551,7 +551,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
         uQry.Execute();
         pr_change_dests = uQry.Eof;
       }
-      ProgTrace( TRACE5, "dests.size()=%zu, pr_change_dests=%¢", dests.items.size(), pr_change_dests );
+      ProgTrace( TRACE5, "dests.size()=%zu, pr_change_dests=%d", dests.items.size(), pr_change_dests );
       points.dests.sychDests( dests, pr_change_dests, true );
       ProgTrace( TRACE5, "doubleMove_id=%d", doubleMove_id );
       if ( doubleMove_id != ASTRA::NoExists ) {
