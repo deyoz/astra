@@ -614,8 +614,6 @@ void AstraServiceInterface::AstraTasksLogon( XMLRequestCtxt *ctxt, xmlNodePtr re
 	}
 }
 
-enum TEventsMsg  { evSend, evCommit };
-
 void createMsg( TQueueItem item, TEventsMsg event )
 {
   TLogLocale tlocale;

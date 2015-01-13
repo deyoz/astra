@@ -1,11 +1,15 @@
 #include "http_io.h"
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <pion/http/request.hpp>
 #include <pion/http/response.hpp>
 #include <pion/http/request_writer.hpp>
 #include <pion/http/response_reader.hpp>
 #include <pion/tcp/connection.hpp>
 #include <pion/algorithm.hpp>
+#include <sys/types.h>
+#include <dirent.h>
+#include <cstdio>
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -18,6 +22,7 @@
 #include "tlg/tlg.h"
 #include "serverlib/posthooks.h"
 #include "xml_unit.h"
+#include "httpClient.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
