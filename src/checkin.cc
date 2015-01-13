@@ -3935,7 +3935,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         {
           const CheckIn::TPaxItem &pax=p->pax;
           try
-          {            
+          {
             CheckIn::TPaxTknItem priorTkn;
 
             if (!new_checkin)
@@ -3973,7 +3973,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             //билет
             if (pax.TknExists)
-            {              
+            {
               if (pr_reg_without_tkna && pax.tkn.rem!="TKNE" &&
                   (pax.tkn.rem    != priorTkn.rem ||
                    pax.tkn.no     != priorTkn.no  ||
@@ -6170,6 +6170,7 @@ void CheckInInterface::LoadPaxTransfer(int pax_id, xmlNodePtr paxNode)
 void CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const map<int,TSegInfo> &segs, int seg_no, TLogLocale& tlocale)
 {
   tlocale.lexema_id.clear();
+  tlocale.prms.clearPrms();
   if (segsNode==NULL) return;
 
   xmlNodePtr segNode=GetNode("segments",segsNode);
@@ -6412,6 +6413,9 @@ void CheckInInterface::SaveTransfer(int grp_id,
                                       const map<int, pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs,
                                       bool pr_unaccomp, int seg_no, TLogLocale& tlocale)
 {
+  tlocale.lexema_id.clear();
+  tlocale.prms.clearPrms();
+
   map<int, pair<TCkinSegFlts, TTrferSetsInfo> >::const_iterator s=trfer_segs.find(seg_no);
   vector<CheckIn::TTransferItem>::const_iterator firstTrfer=trfer.begin();
   for(;firstTrfer!=trfer.end()&&seg_no>1;firstTrfer++,seg_no--);
