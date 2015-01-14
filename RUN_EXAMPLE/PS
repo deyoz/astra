@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 
 if [  -z "$1" ] ; then
-	port=`awk '/tclmode/ {print $3}' sirena.pid`
+	port=`awk '/tclmode/ {print $3}' astra.pid`
 else
 	port=$1
 fi
