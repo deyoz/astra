@@ -1340,7 +1340,7 @@ class TPaxLoadItem
     //данные
     int cfg; //компоновка
     int crs_ok,crs_tranzit; //данные бронирования
-    int seats,adult,child,baby; //пассажиры
+    int seats,adult_m,adult_f,child,baby; //пассажиры
     int rk_weight,bag_amount,bag_weight; //багаж
     int excess; //платный вес
 
@@ -1357,7 +1357,7 @@ class TPaxLoadItem
       grp_status_priority(NoExists),
       cfg(0),
       crs_ok(0), crs_tranzit(0),
-      seats(0), adult(0), child(0), baby(0),
+      seats(0), adult_m(0), adult_f(0), child(0), baby(0),
       rk_weight(0), bag_amount(0), bag_weight(0),
       excess(0) {};
 
@@ -1384,7 +1384,8 @@ class TPaxLoadItem
       crs_ok+=item.crs_ok;
       crs_tranzit+=item.crs_tranzit;
       seats+=item.seats;
-      adult+=item.adult;
+      adult_m+=item.adult_m;
+      adult_f+=item.adult_f;
       child+=item.child;
       baby+=item.baby;
       rk_weight+=item.rk_weight;
@@ -1539,6 +1540,7 @@ class TZonePaxItem
     int pax_id, grp_id, seats, parent_pax_id, temp_parent_id, reg_no;
     string surname, pers_type, zone;
     int rk_weight,bag_amount,bag_weight;
+    bool is_female;
 };
 
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
@@ -1563,7 +1565,13 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   NewTextChild(fieldsNode,"field","crs_ok");
   NewTextChild(fieldsNode,"field","crs_tranzit");
   NewTextChild(fieldsNode,"field","seats");
-  NewTextChild(fieldsNode,"field","adult");
+  if (TReqInfo::Instance()->desk.compatible(PAX_LOAD_BY_GENDER))
+  {
+    NewTextChild(fieldsNode,"field","adult_m");
+    NewTextChild(fieldsNode,"field","adult_f");
+  }
+  else
+    NewTextChild(fieldsNode,"field","adult");
   NewTextChild(fieldsNode,"field","child");
   NewTextChild(fieldsNode,"field","baby");
   NewTextChild(fieldsNode,"field","rk_weight");
@@ -1585,7 +1593,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
   Qry.Clear();
   Qry.SQLText =
-    "SELECT a.seats,a.adult,a.child,a.baby, "
+    "SELECT a.seats,a.adult_m,a.adult_f,a.child,a.baby, "
     "       b.bag_amount, "
     "       b.bag_weight, "
     "       b.rk_weight, "
@@ -1593,7 +1601,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     "       e.excess,f.cfg "
     "FROM "
     " (SELECT NVL(SUM(seats),0) AS seats, "
-    "         NVL(SUM(DECODE(pers_type,:adult,1,0)),0) AS adult, "
+    "         NVL(SUM(DECODE(pers_type,:adult,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS adult_m, "
+    "         NVL(SUM(DECODE(pers_type,:adult,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS adult_f, "
     "         NVL(SUM(DECODE(pers_type,:child,1,0)),0) AS child, "
     "         NVL(SUM(DECODE(pers_type,:baby,1,0)),0) AS baby "
     "  FROM pax_grp,pax "
@@ -1629,7 +1638,13 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   xmlNodePtr rowNode=NewTextChild(rowsNode,"row");
   NewTextChild(rowNode,"title",AstraLocale::getLocaleText("Всего"));
   NewTextChild(rowNode,"seats",Qry.FieldAsInteger("seats"),0);
-  NewTextChild(rowNode,"adult",Qry.FieldAsInteger("adult"),0);
+  if (TReqInfo::Instance()->desk.compatible(PAX_LOAD_BY_GENDER))
+  {
+    NewTextChild(rowNode,"adult_m",Qry.FieldAsInteger("adult_m"),0);
+    NewTextChild(rowNode,"adult_f",Qry.FieldAsInteger("adult_f"),0);
+  }
+  else
+    NewTextChild(rowNode,"adult",Qry.FieldAsInteger("adult_m")+Qry.FieldAsInteger("adult_f"),0);
   NewTextChild(rowNode,"child",Qry.FieldAsInteger("child"),0);
   NewTextChild(rowNode,"baby",Qry.FieldAsInteger("baby"),0);
   NewTextChild(rowNode,"bag_amount",Qry.FieldAsInteger("bag_amount"),0);
@@ -1694,7 +1709,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     {
       //1. Вычисление cfg
       //2. Вычисление crs_ok, crs_tranzit
-      //3. Вычисление seats, adult, child, baby
+      //3. Вычисление seats, adult_m, adult_f, child, baby
       //4. Вычисление rk_weight, bag_amount, bag_weight
       //5. Вычисление excess
       if ((pass==1 && (pr_cl_grp || pr_hall || pr_airp_arv || pr_trfer || pr_user || pr_client_type || pr_status || pr_ticket_rem || pr_rems)) ||
@@ -1758,7 +1773,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         };
 
         sql << "SELECT SUM(pax.seats) AS seats, " << endl
-            << "       SUM(DECODE(pax.pers_type,:adult,1,0)) AS adult, " << endl
+            << "       SUM(DECODE(pax.pers_type,:adult,DECODE(pax.is_female,0,1,NULL,1,0),0)) AS adult_m, " << endl
+            << "       SUM(DECODE(pax.pers_type,:adult,DECODE(pax.is_female,0,0,NULL,0,1),0)) AS adult_f, " << endl
             << "       SUM(DECODE(pax.pers_type,:child,1,0)) AS child, " << endl
             << "       SUM(DECODE(pax.pers_type,:baby,1,0)) AS baby, " << endl
             << "       " << select.str().erase(0,1) << endl
@@ -1969,7 +1985,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         if (pass==3)
         {
           item.seats=Qry.FieldAsInteger("seats");
-          item.adult=Qry.FieldAsInteger("adult");
+          item.adult_m=Qry.FieldAsInteger("adult_m");
+          item.adult_f=Qry.FieldAsInteger("adult_f");
           item.child=Qry.FieldAsInteger("child");
           item.baby=Qry.FieldAsInteger("baby");
         };
@@ -2159,6 +2176,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     Qry.Clear();
     ostringstream sql;
     sql << "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, pax.reg_no, " << endl
+        << "       NVL(pax.is_female, 0) AS is_female, " << endl
         << "       crs_inf.pax_id AS parent_pax_id, " << endl
         << "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, " << endl
         << "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, " << endl
@@ -2183,6 +2201,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       pax.reg_no=Qry.FieldAsInteger("reg_no");
       pax.surname=Qry.FieldAsString("surname");
       pax.pers_type=Qry.FieldAsString("pers_type");
+      pax.is_female=Qry.FieldAsInteger("is_female")!=0;
       pax.parent_pax_id=Qry.FieldIsNULL("parent_pax_id")?NoExists:Qry.FieldAsInteger("parent_pax_id");
       pax.rk_weight=Qry.FieldAsInteger("rk_weight");
       pax.bag_amount=Qry.FieldAsInteger("bag_amount");
@@ -2204,7 +2223,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         item.seats+=p->seats;
         switch(DecodePerson(p->pers_type.c_str()))
         {
-          case adult: item.adult++; break;
+          case adult: p->is_female?item.adult_f++:item.adult_m++; break;
           case child: item.child++; break;
           case baby:  item.baby++;  break;
           default: ;
@@ -2225,7 +2244,13 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   {
     rowNode=NewTextChild(rowsNode,"row");
     NewTextChild(rowNode,"seats",i->seats,0);
-    NewTextChild(rowNode,"adult",i->adult,0);
+    if (TReqInfo::Instance()->desk.compatible(PAX_LOAD_BY_GENDER))
+    {
+      NewTextChild(rowNode,"adult_m",i->adult_m,0);
+      NewTextChild(rowNode,"adult_f",i->adult_f,0);
+    }
+    else
+      NewTextChild(rowNode,"adult",i->adult_m+i->adult_f,0);
     NewTextChild(rowNode,"child",i->child,0);
     NewTextChild(rowNode,"baby",i->baby,0);
 

@@ -877,10 +877,11 @@ struct TPMTotalsCmp {
 };
 
 struct TPMTotalsRow {
-    int seats, adl, chd, inf, rk_weight, bag_amount, bag_weight, excess;
+    int seats, adl_m, adl_f, chd, inf, rk_weight, bag_amount, bag_weight, excess;
     TPMTotalsRow():
         seats(0),
-        adl(0),
+        adl_m(0),
+        adl_f(0),
         chd(0),
         inf(0),
         rk_weight(0),
@@ -1085,7 +1086,10 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
             switch(pers_type) {
                 case adult:
-                    row.adl++;
+                    if(not Qry.FieldIsNULL("is_female") and Qry.FieldAsInteger("is_female") != 0)
+                      row.adl_f++;
+                    else
+                      row.adl_m++;
                     break;
                 case child:
                     row.chd++;
@@ -1178,7 +1182,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "class_name", key.cls_name);
         NewTextChild(rowNode, "lvl", key.lvl);
         NewTextChild(rowNode, "seats", row.seats);
-        NewTextChild(rowNode, "adl", row.adl);
+        NewTextChild(rowNode, "adl", row.adl_m+row.adl_f);
+        NewTextChild(rowNode, "adl_f", row.adl_f);
         NewTextChild(rowNode, "chd", row.chd);
         NewTextChild(rowNode, "inf", row.inf);
         NewTextChild(rowNode, "rk_weight", row.rk_weight);
@@ -1896,8 +1901,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     vector<string> rows;
     map< string, vector<string> > fields;
     int row;
-    xmlNodePtr rowNode=dataSetNode->children;
-    int fem = 0; int male = 0;
+    xmlNodePtr rowNode=dataSetNode->children;    
     for(;rowNode!=NULL;rowNode=rowNode->next)
     {
       str=NodeAsString("airp_arv_name",rowNode);
@@ -1917,8 +1921,6 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       fields["remarks"]=rows;
 
       string gender = NodeAsString("gender",rowNode);
-      if(gender == "M") male++;
-      if(gender == "F") fem++;
 
       row=0;
       string pers_type=NodeAsString("pers_type",rowNode);
@@ -1998,7 +2000,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     for(;rowNode!=NULL;rowNode=rowNode->next)
     {
       ostringstream adl_fem;
-      adl_fem << NodeAsInteger("adl", rowNode) << '/' << fem;
+      adl_fem << NodeAsInteger("adl", rowNode) << '/' << NodeAsInteger("adl_f", rowNode);
       s.str("");
       s << setw(rpt_params.pr_trfer?24:20) << NodeAsString("class_name",rowNode)
         << setw(7) << NodeAsInteger("seats",rowNode)
