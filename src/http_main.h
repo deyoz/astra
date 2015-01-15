@@ -11,6 +11,7 @@ namespace AstraHTTP
 
 #define SPP_SYNCH_JXT_INTERFACE_ID "SppSynch"
 #define CHECKIN_JXT_INTERFACE_ID "CheckIn"
+#define TELEGRAM_JXT_INTERFACE_ID "Telegram"
 
 void HTTPPostProcessXMLAnswer();
 
@@ -37,6 +38,7 @@ struct HTTPClient
     jxt_format = false;
     jxt_interface["SaveSPP"] = JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID, NULL);
     jxt_interface["CrewCheckin"] = JxtInfo(CHECKIN_JXT_INTERFACE_ID, HTTPPostProcessXMLAnswer);
+    jxt_interface["LCI_srv"] = JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
   }
 };
 

@@ -7462,6 +7462,18 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( resNode, "tlg_id", tlg_id);
 };
 
+void TelegramInterface::LCI_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    ProgTrace(TRACE5, "%s", __FUNCTION__);
+    xmlNodePtr contentNode = GetNode( "content", reqNode );
+    if ( contentNode == NULL ) {
+        return;
+    }
+    string buffer = NodeAsString( contentNode );
+    NewTextChild(resNode, "content", "Success");
+
+}
+
 void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_type )
 {
   //try verify its new code!!!
