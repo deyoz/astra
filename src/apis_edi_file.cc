@@ -15,7 +15,7 @@
 #include "config.h"
 #include "tlg/tlg.h"
 #include "astra_misc.h"
-#include "file_queue.h"
+#include "apis_tools.h"
 
 #include <edilib/edi_func_cpp.h>
 #include <edilib/edi_astra_msg_types.h>
@@ -23,9 +23,6 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/foreach.hpp>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
 
 #include <time.h>
 #include <sstream>
@@ -405,7 +402,7 @@ std::vector< std::string > PaxlstInfo::toEdiStrings( unsigned maxPaxPerString ) 
     return res;
 }
 
-void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const int crew_num, const int version) const
+void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const int crew_num, const int version, bool checkorg) const
 {
   // Make segment "Message"
   if(GetNode("Message", emulApisNode) == NULL) {
@@ -427,7 +424,10 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     NewTextChild(messageNode, "Owner", "DCS ASTRA");
     NewTextChild(messageNode, "Identifier", get_msg_identifier());
     NewTextChild(messageNode, "Version", version);
-    NewTextChild(messageNode, "Context", version?"Update":"Original");
+    std::string context;
+    if (checkorg) context = "CHECKORG";
+    else context = version?"UPDATE":"ORIGINAL";
+    NewTextChild(messageNode, "Context", context);
   }
   // Make segment "Flight"
   if(GetNode("Flight", emulApisNode) == NULL) {
@@ -442,6 +442,18 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     SetProp(carrierNode, "CodeType", settings().mesAssCode());
     NewTextChild(carrierNode, "CarrierCode",carrier());
     NewTextChild(opfltidNode, "FlightNumber",flight());
+    if(!markFlts().empty()) {
+      for(vector<TTripInfo>::const_iterator i=markFlts().begin();i!=markFlts().end();i++)
+      {
+        xmlNodePtr codeshareNode = NewTextChild(flightNode, "CodeShareFlightId");
+        xmlNodePtr carrierNode = NewTextChild(codeshareNode, "Carrier");
+        SetProp(carrierNode, "CodeType", settings().mesAssCode());
+        TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",i->airline);
+        if (airline.code_lat.empty()) throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
+        NewTextChild(carrierNode, "CarrierCode", airline.code_lat);
+        NewTextChild(codeshareNode, "FlightNumber", IntToString(i->flt_no));
+      }
+    }
     NewTextChild(flightNode, "ScheduledDepartureDateTime",
                  BASIC::DateTimeToStr(depDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
     NewTextChild(flightNode, "DepartureAirport",depPort());
@@ -449,7 +461,7 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
                  BASIC::DateTimeToStr(arrDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
     NewTextChild(flightNode, "ArrivalAirport",arrPort());
     xmlNodePtr FlightLegsNode = NewTextChild(flightNode, "FlightLegs");
-    FlightLegstoXML(FlightLegsNode);
+    fltLegs().FlightLegstoXML(FlightLegsNode);
   }
   // Make segment "Travellers"
   xmlNodePtr travellersNode = GetNode("Travellers", emulApisNode);
@@ -465,17 +477,27 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     xmlNodePtr flyerNode,checkInNode,boardingNode;
     if (!it->prBrd()) {
       checkInNode = NewTextChild(travellerNode, "CheckIn");
+      SetProp(checkInNode, "CheckInStatus", it->prBrd()?"B":"C");
       flyerNode = NewTextChild(checkInNode, "DCS_Traveller");
       SetProp(flyerNode, "Type", it->persType());
       if (!it->seats().empty()) {
-        xmlNodePtr seatsNode = NewTextChild(checkInNode, "CheckInSeats");
-        SetProp(seatsNode, "NumberOfSeats", it->seats().size());
         for(vector< pair<int, string> >::const_iterator i=it->seats().begin();i!=it->seats().end();i++)
         {
-          xmlNodePtr seatNode = NewTextChild(seatsNode, "CheckInSeat");
+          xmlNodePtr seatNode = NewTextChild(checkInNode, "CheckInSeat");
           SetProp(seatNode, "Number", IntToString(i->first) + i->second);
           SetProp(seatNode, "Row", i->first);
           SetProp(seatNode, "Column", i->second);
+        }
+      }
+      if (!it->fqts().empty()) {
+        xmlNodePtr fqtsNode = NewTextChild(checkInNode, "FrequentFlyer");
+        for(std::vector<CheckIn::TPaxFQTItem>::const_iterator i=it->fqts().begin();i!=it->fqts().end();i++)
+        {
+          xmlNodePtr memberNode = NewTextChild(fqtsNode, "ProgramMember");
+          NewTextChild(memberNode, "Number", i->no);
+          TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",i->airline);
+          if (airline.code_lat.empty()) throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
+          NewTextChild(memberNode, "Sponsor", airline.code_lat);
         }
       }
       xmlNodePtr TicketsNode = NewTextChild(checkInNode, "Tickets");
@@ -531,71 +553,6 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
   }
 }
 
-void FlightLeg::toXML(xmlNodePtr FlightLegsNode) const
-{
-  xmlNodePtr legNode = NewTextChild(FlightLegsNode, "FlightLeg");
-  SetProp(legNode, "LocationQualifier", loc_qualifier);
-  SetProp(legNode, "Airport", airp);
-  SetProp(legNode, "Country", country);
-  if (sch_in != ASTRA::NoExists)
-    SetProp(legNode, "ArrivalDateTime", BASIC::DateTimeToStr(sch_in, "yyyy-mm-dd'T'hh:nn:00"));
-  if (sch_out != ASTRA::NoExists)
-    SetProp(legNode, "DepartureDateTime", BASIC::DateTimeToStr(sch_out, "yyyy-mm-dd'T'hh:nn:00"));
-}
-
-void FlightLegs::FlightLegstoXML(xmlNodePtr FlightLegsNode) const {
-  for (std::vector<FlightLeg>::const_iterator iter=begin(); iter != end(); iter++)
-     iter->toXML(FlightLegsNode);
-}
-
-void FlightLegs::MakeFlightLegs(int first_point) {
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT airp,scd_in,scd_out,country "
-    "FROM points,airps,cities "
-    "WHERE points.airp=airps.code AND airps.city=cities.code "
-    "AND :first_point IN (first_point,point_id) "
-    "AND points.pr_del=0 ORDER BY point_num " ;
-  Qry.CreateVariable("first_point",otInteger,first_point);
-  Qry.Execute();
-
-  for(;!Qry.Eof;Qry.Next())
-  {
-    TAirpsRow &airp = (TAirpsRow&)base_tables.get("airps").get_row("code",Qry.FieldAsString("airp"));
-    if (airp.code_lat.empty()) throw Exception("airp.code_lat empty (code=%s)",airp.code.c_str());
-    string tz_region=AirpTZRegion(airp.code);
-    BASIC::TDateTime scd_in_local,scd_out_local;
-    scd_in_local = scd_out_local = ASTRA::NoExists;
-    if (!Qry.FieldIsNULL("scd_out"))
-      scd_out_local	= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
-    if (!Qry.FieldIsNULL("scd_in"))
-      scd_in_local = UTCToLocal(Qry.FieldAsDateTime("scd_in"),tz_region);
-    TCountriesRow &countryRow = (TCountriesRow&)base_tables.get("countries").get_row("code",Qry.FieldAsString("country"));
-    if (countryRow.code_iso.empty()) throw Exception("countryRow.code_iso empty (code=%s)",countryRow.code.c_str());
-    push_back(FlightLeg(airp.code_lat, countryRow.code_iso, scd_in_local, scd_out_local));
-  }
-  /* Fill in LocationQualifier. Code set:
-  87 : airport initial arrival in target country.
-  125: last departure airport before arrival in target country.
-  130: final destination airport in target country.
-  92: in-transit airport. */
-  std::string target_country;
-  bool change_flag = false;
-  vector<FlightLeg>::reverse_iterator previos, next;
-  for (previos=rbegin(), (next=rbegin())++; next!=rend(); previos++, next++) {
-    if(previos==rbegin()) target_country = previos->Country();
-    if(change_flag) next->setLocQualifier(92);
-    else if(previos->Country() != next->Country() && previos->Country() == target_country) {
-      previos->setLocQualifier(87);
-      next->setLocQualifier(125);
-      change_flag = true;
-    }
-    else if(previos==rbegin())
-      previos->setLocQualifier(130);
-    else previos->setLocQualifier(92);
-  }
-}
-
 void PaxlstInfo::checkInvariant() const
 {
     if( passengersList().size() < 1 || passengersList().size() > 99999 )
@@ -604,80 +561,6 @@ void PaxlstInfo::checkInvariant() const
     if( senderName().empty() )
         throw EXCEPTIONS::Exception( "Empty sender name!" );
 }
-
-const std::string generate_envelope_id (const std::string& airl)
-{
-  boost::uuids::uuid uuid = boost::uuids::random_generator()();
-  std::stringstream ss;
-  ss << uuid;
-  return airl + string("-") + ss.str();
-}
-
-const std::string get_msg_identifier ()
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT apis_id__seq.nextval vid FROM dual";
-  Qry.Execute();
-  std::stringstream ss;
-  ss << string("ASTRA") << setw(7) << setfill('0') << Qry.FieldAsString("vid");
-  return ss.str();
-}
-
-bool get_trip_apis_param (const int point_id, const std::string& format, const std::string& param_name, int& param_value)
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT param_value "
-    "FROM trip_apis_params "
-    "WHERE point_id=:point_id AND format=:format "
-    "AND param_name=:param_name ";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.CreateVariable("format", otString, format);
-  Qry.CreateVariable("param_name", otString, param_name);
-  Qry.Execute();
-  if (Qry.Eof) return false;
-  param_value = Qry.FieldAsInteger("param_value");
-  return true;
-}
-
-void set_trip_apis_param(const int point_id, const std::string& format, const std::string& param_name, const int param_value)
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "BEGIN "
-    "  UPDATE trip_apis_params SET param_value=:param_value "
-    "  WHERE point_id=:point_id AND format=:format "
-    "  AND param_name=:param_name; "
-    "  IF SQL%ROWCOUNT=0 THEN "
-    "    INSERT INTO trip_apis_params(point_id, format, param_name, param_value)"
-    "    VALUES (:point_id, :format, :param_name, :param_value);"
-    "  END IF; "
-    "END;";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.CreateVariable("format", otString, format);
-  Qry.CreateVariable("param_name", otString, param_name);
-  Qry.CreateVariable("param_value", otInteger, param_value);
-  try
-  {
-    Qry.Execute();
-  }
-  catch(EOracleError E)
-  {
-    if (E.Code!=1) throw;
-  };
-}
-
-void put_in_queue(XMLDoc& doc)
-{
-  std::string airp, airline, flt_no;
-  std::map<std::string, std::string> file_params;
-  TFileQueue::add_sets_params(airp, airline, flt_no, OWN_POINT_ADDR(),
-                              "APIS_TR", 1, file_params);
-  if(not file_params.empty())
-    TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
-                        "APIS_TR", file_params, GetXMLDocText(doc.docPtr()));
-}
-
 }//namespace Paxlst
 
 

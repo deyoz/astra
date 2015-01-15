@@ -40,6 +40,7 @@ astra_SOURCES = \
   aodb.cc \
   apis.cc \
   apis_edi_file.cc \
+  apis_tools.cc \
   apis_utils.cc \
   arx_daily.cc \
   astra_callbacks.cc \
@@ -160,6 +161,7 @@ noinst_HEADERS = \
   aodb.h \
   apis.h \
   apis_edi_file.h \
+  apis_tools.h \
   arx_daily.h \
   astra_callbacks.h \
   astra_consts.h \

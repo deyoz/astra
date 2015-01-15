@@ -370,8 +370,8 @@ int create_apis_nosir(int argc,char **argv)
   create_apis_file(point_id, (argc>=3)?argv[2]:"");
 
   puts("create_apis successfully completed");
-  send_apis_tr();
 
+  send_apis_tr();
   return 0;
 };
 
@@ -395,6 +395,7 @@ bool create_apis_file(int point_id, const string& task_name)
     TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline"));
     string country_dep = Qry.FieldAsString("country");
 
+    TTripInfo operFlt(Qry);
     TTripRoute route;
     route.GetRouteAfter(NoExists,
                         point_id,
@@ -405,7 +406,7 @@ bool create_apis_file(int point_id, const string& task_name)
 
     TQuery RouteQry(&OraSession);
     RouteQry.SQLText=
-      "SELECT airp,scd_in,country "
+      "SELECT airp,scd_in,scd_out,country "
       "FROM points,airps,cities "
       "WHERE points.airp=airps.code AND airps.city=cities.code AND point_id=:point_id";
     RouteQry.DeclareVariable("point_id",otInteger);
@@ -472,6 +473,7 @@ bool create_apis_file(int point_id, const string& task_name)
       //получим информацию по настройке APIS
       ApisSetsQry.SetVariable("country_arv",country_arv.code);
       ApisSetsQry.Execute();
+
       if (!ApisSetsQry.Eof)
       {
         if (airline.code_lat.empty()) throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
@@ -503,7 +505,6 @@ bool create_apis_file(int point_id, const string& task_name)
         for(;!ApisSetsQry.Eof;ApisSetsQry.Next())
         {
           string fmt=ApisSetsQry.FieldAsString("format");
-
           if (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK" && !(fmt=="XML_TR" && country_regul_dep==TR_CUSTOMS_CODE)) continue;
           string airline_name=airline.short_name_lat;
           if (airline_name.empty())
@@ -535,8 +536,6 @@ bool create_apis_file(int point_id, const string& task_name)
             for(int pass=0; pass<2; pass++)
             {
               Paxlst::PaxlstInfo& paxlstInfo=(pass==0?FPM:FCM);
-              if (fmt=="XML_TR")
-                paxlstInfo.MakeFlightLegs(Qry.FieldIsNULL("first_point")?point_id:Qry.FieldAsInteger("first_point"));
               if (fmt=="EDI_CN")
                 paxlstInfo.settings().setRespAgnCode("ZZZ");
               if (fmt=="EDI_UK")
@@ -604,10 +603,43 @@ bool create_apis_file(int point_id, const string& task_name)
               paxlstInfo.setDepDateTime(scd_out_local);
               paxlstInfo.setArrPort(airp_arv.code_lat);
               paxlstInfo.setArrDateTime(scd_in_local);
+              if (fmt=="XML_TR") {
+                //Marketing flights
+                vector<TTripInfo> markFlts;
+                GetMktFlights(operFlt,markFlts);
+                paxlstInfo.setMarkFlts(markFlts);
+                //Flight legs
+                TTripRoute route;
+                route.GetRouteAfter(NoExists,
+                                    Qry.FieldIsNULL("first_point")?point_id:Qry.FieldAsInteger("first_point"),
+                                    trtWithCurrent, trtNotCancelled);
+                FlightLegs legs;
+                for(TTripRoute::const_iterator r=route.begin(); r!=route.end(); r++)
+                {
+                  RouteQry.SetVariable("point_id",r->point_id);
+                  RouteQry.Execute();
+                  if (RouteQry.Eof) continue;
+                  TAirpsRow &airp = (TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
+                  if (airp.code_lat.empty()) throw EXCEPTIONS::Exception("airp.code_lat empty (code=%s)",airp.code.c_str());
+                  std::string tz_region=AirpTZRegion(airp.code);
+                  BASIC::TDateTime scd_in_local,scd_out_local;
+                  scd_in_local = scd_out_local = ASTRA::NoExists;
+                  if (!RouteQry.FieldIsNULL("scd_out"))
+                    scd_out_local	= UTCToLocal(RouteQry.FieldAsDateTime("scd_out"),tz_region);
+                  if (!RouteQry.FieldIsNULL("scd_in"))
+                    scd_in_local = UTCToLocal(RouteQry.FieldAsDateTime("scd_in"),tz_region);
+                  TCountriesRow &countryRow = (TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
+                  if (countryRow.code_iso.empty()) throw EXCEPTIONS::Exception("countryRow.code_iso empty (code=%s)",countryRow.code.c_str());
+                  legs.push_back(FlightLeg(airp.code_lat, countryRow.code_iso, scd_in_local, scd_out_local));
+                  legs.FillLocQualifier();
+                  paxlstInfo.setFltLegs(legs);
+                }
+              }
             };
           };
 
         	int count=0;
+          bool checkorg = true;
       	  ostringstream body;
       	  PaxQry.SetVariable("point_arv",r->point_id);
       	  PaxQry.Execute();
@@ -615,11 +647,12 @@ bool create_apis_file(int point_id, const string& task_name)
       	  {
             int pax_id=PaxQry.FieldAsInteger("pax_id");
             bool boarded=PaxQry.FieldAsInteger("pr_brd")!=0;
+            if (boarded) checkorg = false;
             TPaxStatus status=DecodePaxStatus(PaxQry.FieldAsString("status"));
             if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")) continue;
             if (status!=psCrew && !boarded && final_apis && fmt!="XML_TR") continue;
 
-      	    Paxlst::PassengerInfo paxInfo;
+            Paxlst::PassengerInfo paxInfo;
       	    string airp_final_lat;
       	    if (fmt=="CSV_DE")
         	  {
@@ -758,6 +791,9 @@ bool create_apis_file(int point_id, const string& task_name)
               for(;!SeatsQry.Eof;SeatsQry.Next())
                 seats.push_back(make_pair(SeatsQry.FieldAsInteger("seat_row"), SeatsQry.FieldAsString("seat_column")));
               paxInfo.setSeats(seats);
+              std::vector<CheckIn::TPaxFQTItem> fqts;
+              CheckIn::LoadPaxFQT(pax_id, fqts);
+              paxInfo.setFqts(fqts);
             }
             if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US"
                 || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")
@@ -1015,15 +1051,13 @@ bool create_apis_file(int point_id, const string& task_name)
             int passengers_count = FPM.passengersList().size();
             int crew_count = FCM.passengersList().size();
             int version;
-            if (!Paxlst::get_trip_apis_param(point_id, "XML_TR", "version", version)) version = 0;
+            if (!get_trip_apis_param(point_id, "XML_TR", "version", version)) version = 0;
             else version++;
-            Paxlst::set_trip_apis_param(point_id, "XML_TR", "version", version);
+            set_trip_apis_param(point_id, "XML_TR", "version", version);
             if (passengers_count)
-              FPM.toXMLFormat(apisNode, passengers_count, crew_count, version);
+              FPM.toXMLFormat(apisNode, passengers_count, crew_count, version, checkorg);
             if (crew_count)
-              FCM.toXMLFormat(apisNode, passengers_count, crew_count, version);
-
-            // Paxlst::put_in_queue(soap_reqDoc);
+              FCM.toXMLFormat(apisNode, passengers_count, crew_count, version, checkorg);
 
             std::map<std::string, std::string> file_params;
             TFileQueue::add_sets_params(airp_dep.code, airline.code, IntToString(flt_no), OWN_POINT_ADDR(),
@@ -1039,6 +1073,7 @@ bool create_apis_file(int point_id, const string& task_name)
                     << PrmElem<string>("country_arv", etCountry, country_arv.code)
                     << PrmElem<string>("airp_arv", etAirp, airp_arv.code);
                 TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, point_id);
+                result = true;
             }
           }
       	  else
