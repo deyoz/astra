@@ -38,7 +38,7 @@ void FlightLegs::FillLocQualifier() {
   92: in-transit airport. */
   std::string target_country;
   bool change_flag = false;
-  vector<FlightLeg>::reverse_iterator previos, next;
+  std::vector<FlightLeg>::reverse_iterator previos, next;
   for (previos=rbegin(), (next=rbegin())++; next!=rend(); previos++, next++) {
     if(previos==rbegin()) target_country = previos->Country();
     if(change_flag) next->setLocQualifier(92);

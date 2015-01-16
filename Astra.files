@@ -11,6 +11,8 @@ src/apis.cc
 src/apis.h
 src/apis_edi_file.cc
 src/apis_edi_file.h
+src/apis_tools.cc
+src/apis_tools.h
 src/apis_utils.cc
 src/apis_utils.h
 src/arx_daily.cc
