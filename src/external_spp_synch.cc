@@ -17,9 +17,10 @@ void TParseFlight::add_airline( const std::string &value ) {
     airline.code = ElemToElemId( etAirline, value, airline.fmt, false );
     if ( airline.fmt == efmtUnknown )
       throw EConvertError("");
-      if ( airline.fmt == efmtCodeInter || airline.fmt == efmtCodeICAOInter )
+/*      if ( airline.fmt == efmtCodeInter || airline.fmt == efmtCodeICAOInter )
           trip_type = "м";  //!!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
     else
+    */
       trip_type = "п";
   }
   catch( EConvertError &e ) {
@@ -273,6 +274,7 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     else {
       content[ line_buffer ].msg = " -parse error";
       content[ line_buffer ].rec_no = rec_no;
+      content[ line_buffer ].type = EncodeEventType( ASTRA::evtProgError );
       rec_no++;
       values.clear();
       std::copy (
@@ -330,7 +332,6 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   saveFlights( flights );
   for ( std::map<std::string,map<bool, TParseFlight> >::iterator iflight = flights.begin();
         iflight != flights.end(); iflight ++ ) {
-
     map<bool, TParseFlight>::iterator fl_in = iflight->second.find( true );
 
     if ( fl_in != iflight->second.end() ) {
@@ -410,6 +411,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
     vector<TCode> airps;
     map<bool, TParseFlight>::iterator fl_in = iflight->second.find( true );
     map<bool, TParseFlight>::iterator fl_out = iflight->second.find( false );
+    bool pr_change_dests = false;
     try {
       if ( fl_in != iflight->second.end() && fl_in->second.is_valid() ) {
         airps.clear();
@@ -493,6 +495,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
             dest.suffix = fl_in->second.suffix.code;
             dest.suffix_fmt = fl_in->second.suffix.fmt;
             dest.craft = fl_in->second.craft.code;
+            ProgTrace( TRACE5, "dest.craft=%s", dest.craft.c_str() );
             dest.craft_fmt = fl_in->second.craft.fmt;
             dest.trip_type = fl_in->second.trip_type;
             if ( fl_in->second.status == "ОТМЕНЕН" ) {
@@ -543,16 +546,30 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
         tst();
         dests.items.push_back( dest );
       }
+      if ( dests.items.size() >= 2 ) {
+        dests.items.front().scd_in = ASTRA::NoExists;
+        dests.items.front().est_in = ASTRA::NoExists;
+        dests.items.front().act_in = ASTRA::NoExists;
+        dests.items.back().scd_out = ASTRA::NoExists;
+        dests.items.back().est_out = ASTRA::NoExists;
+        dests.items.back().act_out = ASTRA::NoExists;
+        dests.items.back().airline.clear();
+        dests.items.back().flt_no = ASTRA::NoExists;
+        dests.items.back().craft.clear();
+        dests.items.back().craft_fmt = efmtUnknown;
+        dests.items.back().bort.clear();
+      }
       //синхронизация маршрута, но не уже существующих пунктов???
-      bool pr_change_dests = true;
+      pr_change_dests = true;
       if ( doubleMove_id != ASTRA::NoExists ) {
         //синхронизируем маршрут (удаление/добавление пунктов только для рейсов созданных Уфой
         uQry.SetVariable( "move_id", doubleMove_id );
         uQry.Execute();
-        pr_change_dests = uQry.Eof;
+        ProgTrace( TRACE5, "move_id=%d", doubleMove_id );
+        pr_change_dests = !uQry.Eof; //получен из синхронизации с Уфой
       }
       ProgTrace( TRACE5, "dests.size()=%zu, pr_change_dests=%d", dests.items.size(), pr_change_dests );
-      points.dests.sychDests( dests, pr_change_dests, true );
+      points.dests.sychDests( dests, pr_change_dests, dtSomeLocalSCD );
       ProgTrace( TRACE5, "doubleMove_id=%d", doubleMove_id );
       if ( doubleMove_id != ASTRA::NoExists ) {
         for ( std::vector<TPointsDest>::iterator idest=dests.items.begin(); idest!= dests.items.end(); idest++ ) {
@@ -574,8 +591,10 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
               }
               tst();
               jdest->act_out = idest->act_out;
-              jdest->craft = idest->craft;
-              jdest->craft_fmt = idest->craft_fmt;
+              if ( !idest->craft.empty() ) {
+                jdest->craft = idest->craft;
+                jdest->craft_fmt = idest->craft_fmt;
+              }
               jdest->trip_type = idest->trip_type;
               jdest->pr_del = idest->pr_del;
               break;
@@ -585,7 +604,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
       }
       points.move_id = doubleMove_id;
     }
-    catch( Exception &e ) {
+    catch( std::exception &e ) {
       ProgError( STDLOG, "setFlight: exception=%s", e.what() );
       if ( fl_in != iflight->second.end() && fl_in->second.is_valid() ) {
            fl_in->second.error = string("sets error: ") + e.what();
@@ -619,7 +638,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
           //надо сохранить рейс в aodb_points, чтобы знать, что рейс из СПП Уфа
           for ( std::vector<TPointsDest>::iterator idest=points.dests.items.begin();
                 idest!=points.dests.items.end(); idest++ ) {
-            if ( idest->airp == TReqInfo::Instance()->desk.airp ) {
+            if ( pr_change_dests && idest->airp == TReqInfo::Instance()->desk.airp ) {
               ProgTrace( TRACE5, "aodb_points update point_id=%d", idest->point_id );
               pQry.SetVariable( "point_id", idest->point_id );
               pQry.Execute();
@@ -628,7 +647,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
           }
           OraSession.Commit();
         }
-        catch( Exception &e ) {
+        catch( std::exception &e ) {
           try { OraSession.Rollback(); } catch(...){};
           ProgError( STDLOG, "saveFlights: exception=%s", e.what() );
           if ( fl_in != iflight->second.end() ) {
@@ -650,7 +669,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
         }
       }
     }
-    catch( Exception &e ) {
+    catch( std::exception &e ) {
       tst();
       if ( fl_in != iflight->second.end() ) {
         fl_in->second.error = e.what();
