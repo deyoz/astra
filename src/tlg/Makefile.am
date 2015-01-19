@@ -10,7 +10,7 @@ libtlg_a_SOURCES = edi_handler.cpp edi_msg.cpp edi_msg.h \
         remote_system_context.cpp edi_elements.cpp emd_disp_request.cpp \
         remote_results.cpp tlg_types.cpp tlg_source.cpp tlg_source_edifact.cpp \
         ResponseHandler.cpp EmdDispResponseHandler.cpp EdifactProfile.cc \
-        emd_edifact.cpp AgentWaitsForRemote.cpp CheckinBaseTypes.cc \
+        emd_edifact.cpp AgentWaitsForRemote.cpp CheckinBaseTypes.cpp \
         EdifactRequest.cpp EdiSessionTimeOut.cpp EdiHandlersFactory.cpp \
         emd_system_update_request.cpp emd_request.cpp EmdSysUpdateResponseHandler.cpp \
         emd_cos_request.cpp EmdCosResponseHandler.cpp
