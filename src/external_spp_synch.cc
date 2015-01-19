@@ -591,7 +591,9 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
               }
               tst();
               jdest->act_out = idest->act_out;
-              if ( !idest->craft.empty() ) {
+              tst();
+              if ( !idest->craft.empty() && jdest->craft.empty() ) {
+                ProgTrace( TRACE5, "set craft point_id=%d, craft=%s", idest->point_id,  idest->craft.c_str() );
                 jdest->craft = idest->craft;
                 jdest->craft_fmt = idest->craft_fmt;
               }
