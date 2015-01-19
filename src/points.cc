@@ -2547,7 +2547,7 @@ void TPointDests::Load( int move_id, BitSet<TUseDestData> FUseData )
 }
 
 
-void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, bool pr_compare_date )
+void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, sychDestsType sychType )
 {
   ProgTrace( TRACE5, "TPointDests::sychDests: items.size()=%zu, new_dests.items.size()=%zu",
              items.size(), new_dests.items.size() );
@@ -2557,39 +2557,60 @@ void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, bool 
     for ( ; j!=new_dests.items.end(); j++ ) {
         ProgTrace( TRACE5, "i->point_id=%d, i->airline=%s, i->flt_no=%d, i->airp=%s, j->point_id=%d, j->airline=%s, j->flt_no=%d, j->airp=%s",
                    i->point_id, i->airline.c_str(), i->flt_no, i->airp.c_str(), j->point_id, j->airline.c_str(), j->flt_no, j->airp.c_str() );
-      if ( i->airline == j->airline &&
+      if ( j->point_id == ASTRA::NoExists &&
+           i->airline == j->airline &&
            i->flt_no == j->flt_no &&
            i->suffix == j->suffix &&
            i->airp == j->airp ) {
         ProgTrace( TRACE5, "i->point_id=%d, i->scd_out=%f, j->scd_out=%f, i->scd_in=%f, j->scd_in=%f",
                    i->point_id, i->scd_out, j->scd_out, i->scd_in, j->scd_in );
-        if ( pr_compare_date ) { //сравнение дат надо делать в локальных временах
-          string region = AirpTZRegion( j->airp, true );
-          TDateTime locale_scd_out1 = i->scd_out, locale_scd_out2 = j->scd_out,
-                    locale_scd_in1 = i->scd_in, locale_scd_in2 = j->scd_in;
-          if ( locale_scd_out1 != NoExists )
-            locale_scd_out1 = UTCToLocal( locale_scd_out1, region );
-          if ( locale_scd_out2 != NoExists )
-            locale_scd_out2 = UTCToLocal( locale_scd_out2, region );
-          if ( locale_scd_in1 != NoExists )
-            locale_scd_in1 = UTCToLocal( locale_scd_in1, region );
-          if ( locale_scd_in2 != NoExists )
-            locale_scd_in2 = UTCToLocal( locale_scd_in2, region );
-          double d1, d2, d3, d4;
-          modf( locale_scd_out1, &d1 );
-          modf( locale_scd_out2, &d2 );
-          modf( locale_scd_in1, &d3 );
-          modf( locale_scd_in2, &d4 );
-          if ( d1 == d2 &&
-               d3 == d4 ) {
+        bool pr_compare = false;
+        switch ( sychType ) {
+          case dtSomeLocalSCD: //сравнение дат надо делать в локальных временах
+          {string region = AirpTZRegion( j->airp, true );
+            TDateTime locale_scd_out1 = i->scd_out, locale_scd_out2 = j->scd_out,
+                      locale_scd_in1 = i->scd_in, locale_scd_in2 = j->scd_in;
+            if ( locale_scd_out1 != NoExists )
+              locale_scd_out1 = UTCToLocal( locale_scd_out1, region );
+            if ( locale_scd_out2 != NoExists )
+              locale_scd_out2 = UTCToLocal( locale_scd_out2, region );
+            if ( locale_scd_in1 != NoExists )
+              locale_scd_in1 = UTCToLocal( locale_scd_in1, region );
+            if ( locale_scd_in2 != NoExists )
+              locale_scd_in2 = UTCToLocal( locale_scd_in2, region );
+            double d1, d2, d3, d4;
+            modf( locale_scd_out1, &d1 );
+            modf( locale_scd_out2, &d2 );
+            modf( locale_scd_in1, &d3 );
+            modf( locale_scd_in2, &d4 );
+            pr_compare = ( ( d1 == d2 || d2 == ASTRA::NoExists ) &&
+                           ( d3 == d4 || d4 == ASTRA::NoExists ) );}
             break;
-          }
+          case dtAllLocalSCD: //сравнение дат надо делать в локальных временах
+          {string region = AirpTZRegion( j->airp, true );
+            TDateTime locale_scd_out1 = i->scd_out, locale_scd_out2 = j->scd_out,
+                      locale_scd_in1 = i->scd_in, locale_scd_in2 = j->scd_in;
+            if ( locale_scd_out1 != NoExists )
+              locale_scd_out1 = UTCToLocal( locale_scd_out1, region );
+            if ( locale_scd_out2 != NoExists )
+              locale_scd_out2 = UTCToLocal( locale_scd_out2, region );
+            if ( locale_scd_in1 != NoExists )
+              locale_scd_in1 = UTCToLocal( locale_scd_in1, region );
+            if ( locale_scd_in2 != NoExists )
+              locale_scd_in2 = UTCToLocal( locale_scd_in2, region );
+            double d1, d2, d3, d4;
+            modf( locale_scd_out1, &d1 );
+            modf( locale_scd_out2, &d2 );
+            modf( locale_scd_in1, &d3 );
+            modf( locale_scd_in2, &d4 );
+            pr_compare = ( d1 == d2 && d3 == d4 );}
+            break;
+          case dtAllSCD:
+            pr_compare = ( i->scd_in == j->scd_in && i->scd_out == j->scd_out );
+            break;
         }
-        else {
-          if ( i->scd_in == j->scd_in &&
-               i->scd_out == j->scd_out ) {
-            break;
-          }
+        if ( pr_compare ) {
+          break;
         }
       }
     }

@@ -1323,7 +1323,7 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
       invalid_gates.clear();
       //vector<TPointKey> airps;
       flight_id.clear();
-      TCobraAction flight_action = caUnknown;
+      TCobraAction flight_action;
       string key_airline;
       int key_flt_no;
       string key_suffix;
@@ -1337,7 +1337,7 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
       string flight_trip_type;
       string flight_litera;
       int flight_pr_cancel;
-      bool flight_pr_cobra = false;
+      bool flight_pr_cobra;
       string flight_key;
 
       try {
@@ -1583,7 +1583,7 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
         if ( flight_key.empty() )
           throw EXCEPTIONS::Exception( "airp %s not in routes", local_airp.c_str() );
         tst();
-        old_dests.sychDests( new_dests, flight_pr_cobra, true );
+        old_dests.sychDests( new_dests, flight_pr_cobra, dtAllSCD );
         tst();
         //int point_num = 0;
         vector<TPointsDest>::iterator own_dest=old_dests.items.end();

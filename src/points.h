@@ -354,13 +354,15 @@ public:
   void DoEvents( int move_id, const TPointsDest &dest );
 };
 
+enum sychDestsType { dtSomeLocalSCD, dtAllLocalSCD, dtAllSCD };
+
 class TPointDests {
   private:
   public:
     std::vector<TPointsDest> items;
     void Load( int move_id, BitSet<TUseDestData> FUseData );
     //возвращаем new_dests с заданными point_id
-    void sychDests( TPointDests &new_dests, bool pr_change_dests, bool pr_compare_date ); // возвращаем изменение в объекте, но не синхронизируем по существующим строкам. Надо делать отдельно
+    void sychDests( TPointDests &new_dests, bool pr_change_dests, sychDestsType sychType ); // возвращаем изменение в объекте, но не синхронизируем по существующим строкам. Надо делать отдельно
 };
 
 template <typename T> class KeyTrip {
