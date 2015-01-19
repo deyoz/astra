@@ -1583,7 +1583,7 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
         if ( flight_key.empty() )
           throw EXCEPTIONS::Exception( "airp %s not in routes", local_airp.c_str() );
         tst();
-        old_dests.sychDests( new_dests, flight_pr_cobra, true );
+        old_dests.sychDests( new_dests, flight_pr_cobra, dtAllSCD );
         tst();
         //int point_num = 0;
         vector<TPointsDest>::iterator own_dest=old_dests.items.end();
