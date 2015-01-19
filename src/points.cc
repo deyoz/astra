@@ -374,8 +374,10 @@ void TPointsDest::getEvents( const TPointsDest &vdest )
   if ( status != tdDelete && status != tdInsert ) {
     if ( ElemIdToElemCtxt(ecDisp,etCraft,craft,craft_fmt) != ElemIdToElemCtxt(ecDisp,etCraft,vdest.craft,vdest.craft_fmt) ) { // изменение типа ВС
       ProgTrace( TRACE5, "newcraft=%s ,oldcraft=%s", craft.c_str(), vdest.craft.c_str() );
-      if ( !craft.empty() && vdest.craft.empty() )
+      if ( !craft.empty() && vdest.craft.empty() ) {
         events.setFlag( dmSetCraft );
+        tst();
+      }
       else
         events.setFlag( dmChangeCraft );
       if ( !craft.empty() && pr_reg && !events.isFlag( dmInitStages ) ) // есть регистрация и не будет выполнения шагов тех. графика
@@ -423,7 +425,7 @@ void TPointsDest::getEvents( const TPointsDest &vdest )
     airp_fmt = vdest.airp_fmt;
   }
   if ( status != tdDelete && status != tdInsert &&
-       !events.isFlag( dmChangeCraft ) ) {
+       !events.isFlag( dmChangeCraft ) && !events.isFlag( dmSetCraft ) ) {
     craft = vdest.craft;
     craft_fmt = vdest.craft_fmt;
   }
@@ -819,8 +821,8 @@ void TPoints::WriteDest( TPointsDest &dest )
   	Qry.CreateVariable( "craft", otString, dest.craft );
   	Qry.CreateVariable( "craft_fmt", otInteger, (int)dest.craft_fmt );
   }
-	Qry.CreateVariable( "bort", otString, dest.bort );
-	ProgTrace( TRACE5, "dest.bort=%s", dest.bort.c_str() );
+  Qry.CreateVariable( "bort", otString, dest.bort );
+  ProgTrace( TRACE5, "dest.craft=%s, dest.bort=%s", dest.craft.c_str(), dest.bort.c_str() );
   if ( dest.scd_in == NoExists )
   	Qry.CreateVariable( "scd_in", otDate, FNull );
   else
@@ -1800,12 +1802,14 @@ void TPoints::Save( bool isShowMsg )
   //проверка на то, что пункт можно отменить или удалить
   map<int,TPointsDest> olddests;
   for( vector<TPointsDest>::iterator id=dests.items.begin(); id!=dests.items.end(); id++ ) {
-    ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d", id->airp.c_str(), id->pr_del );
+    ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d, id->craft=%s", id->airp.c_str(), id->pr_del, id->craft.c_str() );
     if ( id->status != tdInsert ) {
       ProgTrace( TRACE5, "load: point_id=%d", id->point_id );
       olddests[ id->point_id ].Load( id->point_id, id->UseData );
     }
+    ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d, id->craft=%s", id->airp.c_str(), id->pr_del, id->craft.c_str() );
     id->getEvents( olddests[ id->point_id ] );
+    ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d, id->craft=%s", id->airp.c_str(), id->pr_del, id->craft.c_str() );
 /*    if ( id->status != tdInsert ) { // работая в лат. терминале - возвращаем лат. коды, но при этом не должны коды портиться у других
       if ( !olddests[ id->point_id ].airline.empty() && !id->events.isFlag( dmChangeAirline ) )
         id->airline_fmt = olddests[ id->point_id ].airline_fmt;
@@ -1842,7 +1846,7 @@ void TPoints::Save( bool isShowMsg )
         }
       }
     }
-    ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d", id->airp.c_str(), id->pr_del );
+    ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d, id->craft=%s", id->airp.c_str(), id->pr_del, id->craft.c_str() );
     if ( id->events.isFlag( dmTranzit ) && !id->pr_tranzit ) {
       if ( existsTranzitPassengers( id->point_id ) )
         throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_CHANGE_PR_TRANZIT",
@@ -1850,13 +1854,13 @@ void TPoints::Save( bool isShowMsg )
     }
     ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d", id->airp.c_str(), id->pr_del );
     id->setRemark( olddests[ id->point_id ] );
-    ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d", id->airp.c_str(), id->pr_del );
+    ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d, id->remark=%s", id->airp.c_str(), id->pr_del, id->remark.c_str() );
   }
   //сохранение маршрута
   tst();
   for( vector<TPointsDest>::iterator id=dests.items.begin(); id!=dests.items.end(); id++ ) {
-    ProgTrace( TRACE5, "id->point_id=%d,point_id->num=%d, id->airp=%s, id->bort=%s, id->est_out=%f",
-                id->point_id, id->point_num, id->airp.c_str(), id->bort.c_str(), id->est_out );
+    ProgTrace( TRACE5, "id->point_id=%d,point_id->num=%d, id->airp=%s, id->bort=%s, id->craft=%s, id->est_out=%f",
+                id->point_id, id->point_num, id->airp.c_str(), id->bort.c_str(), id->craft.c_str(), id->est_out );
     WriteDest( *id );
   }
   string lexema_id;
