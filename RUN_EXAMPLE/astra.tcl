@@ -176,6 +176,7 @@ if { ! [info exists monitor2(UDP_FILE)] } {
 }
 
 set MONITOR_LOG monitor.log
+set MONITOR_PORT_FILE "./monitor.port"
 
 execute
 
