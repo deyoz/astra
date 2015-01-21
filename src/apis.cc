@@ -505,7 +505,7 @@ bool create_apis_file(int point_id, const string& task_name)
         for(;!ApisSetsQry.Eof;ApisSetsQry.Next())
         {
           string fmt=ApisSetsQry.FieldAsString("format");
-          if (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK" && !(fmt=="XML_TR" && country_regul_dep==TR_CUSTOMS_CODE)) continue;
+          if (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK") continue;
           string airline_name=airline.short_name_lat;
           if (airline_name.empty())
             airline_name=airline.name_lat;
@@ -604,15 +604,9 @@ bool create_apis_file(int point_id, const string& task_name)
               paxlstInfo.setArrPort(airp_arv.code_lat);
               paxlstInfo.setArrDateTime(scd_in_local);
               if (fmt=="XML_TR") {
-                //Marketing flights
-                vector<TTripInfo> markFlts;
-                GetMktFlights(operFlt,markFlts);
-                paxlstInfo.setMarkFlts(markFlts);
                 //Flight legs
                 TTripRoute route;
-                route.GetRouteAfter(NoExists,
-                                    Qry.FieldIsNULL("first_point")?point_id:Qry.FieldAsInteger("first_point"),
-                                    trtWithCurrent, trtNotCancelled);
+                route.GetTotalRoute(NoExists, point_id, trtNotCancelled);
                 FlightLegs legs;
                 for(TTripRoute::const_iterator r=route.begin(); r!=route.end(); r++)
                 {
@@ -639,7 +633,6 @@ bool create_apis_file(int point_id, const string& task_name)
           };
 
         	int count=0;
-          bool checkorg = true;
       	  ostringstream body;
       	  PaxQry.SetVariable("point_arv",r->point_id);
       	  PaxQry.Execute();
@@ -647,7 +640,6 @@ bool create_apis_file(int point_id, const string& task_name)
       	  {
             int pax_id=PaxQry.FieldAsInteger("pax_id");
             bool boarded=PaxQry.FieldAsInteger("pr_brd")!=0;
-            if (boarded) checkorg = false;
             TPaxStatus status=DecodePaxStatus(PaxQry.FieldAsString("status"));
             if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")) continue;
             if (status!=psCrew && !boarded && final_apis && fmt!="XML_TR") continue;
@@ -794,6 +786,23 @@ bool create_apis_file(int point_id, const string& task_name)
               std::vector<CheckIn::TPaxFQTItem> fqts;
               CheckIn::LoadPaxFQT(pax_id, fqts);
               paxInfo.setFqts(fqts);
+              //Marketing flights
+              TMktFlight mktflt;
+              mktflt.getByPaxId(pax_id);
+              if (!mktflt.empty()) {
+                TAirlinesRow &mkt_airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",mktflt.airline);
+                if (mkt_airline.code_lat.empty()) throw Exception("mkt_airline.code_lat empty (code=%s)",mkt_airline.code.c_str());
+                std::string mkt_flt = IntToString(mktflt.flt_no);
+                if (!mktflt.suffix.empty()) {
+                  TTripSuffixesRow &mkt_suffix = (TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code",mktflt.suffix);
+                  if (mkt_suffix.code_lat.empty()) throw Exception("mkt_suffix.code_lat empty (code=%s)",mkt_suffix.code.c_str());
+                  mkt_flt = mkt_flt + mkt_suffix.code_lat;
+                }
+                if (status!=psCrew && (mkt_airline.code_lat != FPM.carrier() || mkt_flt != FPM.flight()))
+                  FPM.addMarkFlt(mkt_airline.code_lat, mkt_flt);
+                else if (mkt_airline.code_lat != FCM.carrier() || mkt_flt != FCM.flight())
+                  FCM.addMarkFlt(mkt_airline.code_lat, mkt_flt);
+              }
             }
             if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US"
                 || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")
@@ -1055,9 +1064,9 @@ bool create_apis_file(int point_id, const string& task_name)
             else version++;
             set_trip_apis_param(point_id, "XML_TR", "version", version);
             if (passengers_count)
-              FPM.toXMLFormat(apisNode, passengers_count, crew_count, version, checkorg);
+              FPM.toXMLFormat(apisNode, passengers_count, crew_count, version);
             if (crew_count)
-              FCM.toXMLFormat(apisNode, passengers_count, crew_count, version, checkorg);
+              FCM.toXMLFormat(apisNode, passengers_count, crew_count, version);
 
             std::map<std::string, std::string> file_params;
             TFileQueue::add_sets_params(airp_dep.code, airline.code, IntToString(flt_no), OWN_POINT_ADDR(),

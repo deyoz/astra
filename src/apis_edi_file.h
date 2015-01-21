@@ -129,7 +129,7 @@ class FlightInfo
     BASIC::TDateTime m_arrDateTime;
 
     // Marketing flights
-    std::vector<TTripInfo> mktFlts;
+    std::map<std::string, std::string> mktFlts;
     // Flight legs
     FlightLegs legs;
     
@@ -186,10 +186,10 @@ public:
         return m_arrDateTime;
     }
     // marketing flights
-    void setMarkFlts( const std::vector<TTripInfo>& mkt ) {
-        mktFlts = mkt;
+    void addMarkFlt( const std::string& airline, const std::string& flight ) {
+        mktFlts.insert(std::pair<std::string, std::string>(airline, flight));
     }
-    const std::vector<TTripInfo>& markFlts() const {
+    const std::map<std::string, std::string>& markFlts() const {
         return mktFlts;
     }
     // flight legs
@@ -646,7 +646,7 @@ public:
     std::string docId() const { return m_docId; }
 
     std::string toEdiString() const;
-    void toXMLFormat(xmlNodePtr emulApisNode, const int psg_num, const int crew_num, const int version, bool checkorg) const;
+    void toXMLFormat(xmlNodePtr emulApisNode, const int psg_num, const int crew_num, const int version) const;
     std::vector< std::string > toEdiStrings( unsigned maxPaxPerString ) const;
     
 protected:

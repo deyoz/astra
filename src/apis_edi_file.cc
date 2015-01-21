@@ -402,7 +402,7 @@ std::vector< std::string > PaxlstInfo::toEdiStrings( unsigned maxPaxPerString ) 
     return res;
 }
 
-void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const int crew_num, const int version, bool checkorg) const
+void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const int crew_num, const int version) const
 {
   // Make segment "Message"
   if(GetNode("Message", emulApisNode) == NULL) {
@@ -419,47 +419,69 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
                  BASIC::DateTimeToStr(nowUtc, "yyyy-mm-dd'T'hh:nn:00"));
     NewTextChild(messageNode, "SentDateTime",
                  BASIC::DateTimeToStr(nowUtc, "yyyy-mm-dd"));
-    NewTextChild(messageNode, "EnvelopeID",
-                 generate_envelope_id(senderCarrierCode()));
+    if (senderCarrierCode().empty())
+      throw Exception("senderCarrierCode is empty");
+    std::string envelope_id = generate_envelope_id(senderCarrierCode());
+    if (envelope_id.empty())
+      throw Exception("EnvelopeID is empty");
+    else
+      NewTextChild(messageNode, "EnvelopeID", envelope_id);
     NewTextChild(messageNode, "Owner", "DCS ASTRA");
-    NewTextChild(messageNode, "Identifier", get_msg_identifier());
+    std::string msg_identifier = get_msg_identifier();
+    if (!msg_identifier.empty()) NewTextChild(messageNode, "Identifier", msg_identifier);
     NewTextChild(messageNode, "Version", version);
-    std::string context;
-    if (checkorg) context = "CHECKORG";
-    else context = version?"UPDATE":"ORIGINAL";
-    NewTextChild(messageNode, "Context", context);
+    NewTextChild(messageNode, "Context", "CHECKORG");
   }
   // Make segment "Flight"
   if(GetNode("Flight", emulApisNode) == NULL) {
     xmlNodePtr flightNode = NewTextChild(emulApisNode, "Flight");
     SetProp(flightNode, "AllCrewFlag", pax_num?"false":"true");
-    SetProp(flightNode, "CAR", iataCode());
+    if (!iataCode().empty()) SetProp(flightNode, "CAR", iataCode());
     SetProp(flightNode, "PassengerCount", pax_num);
     SetProp(flightNode, "CrewCount", crew_num);
     SetProp(flightNode, "TotalCount", pax_num + crew_num);
     xmlNodePtr opfltidNode = NewTextChild(flightNode, "OperatingFlightId");
     xmlNodePtr carrierNode = NewTextChild(opfltidNode, "Carrier");
-    SetProp(carrierNode, "CodeType", settings().mesAssCode());
-    NewTextChild(carrierNode, "CarrierCode",carrier());
-    NewTextChild(opfltidNode, "FlightNumber",flight());
+    if (settings().mesAssCode().empty())
+      throw Exception("CodeType is empty");
+    else
+      SetProp(carrierNode, "CodeType", settings().mesAssCode());
+    if (settings().mesAssCode().empty())
+      throw Exception("CarrierCode is empty");
+    else
+      NewTextChild(carrierNode, "CarrierCode", carrier());
+    if (flight().empty())
+      throw Exception("FlightNumber is empty");
+    else
+      NewTextChild(opfltidNode, "FlightNumber", flight());
     if(!markFlts().empty()) {
-      for(vector<TTripInfo>::const_iterator i=markFlts().begin();i!=markFlts().end();i++)
+      for(std::map<std::string, std::string>::const_iterator i=markFlts().begin();i!=markFlts().end();i++)
       {
         xmlNodePtr codeshareNode = NewTextChild(flightNode, "CodeShareFlightId");
         xmlNodePtr carrierNode = NewTextChild(codeshareNode, "Carrier");
         SetProp(carrierNode, "CodeType", settings().mesAssCode());
-        TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",i->airline);
-        if (airline.code_lat.empty()) throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
-        NewTextChild(carrierNode, "CarrierCode", airline.code_lat);
-        NewTextChild(codeshareNode, "FlightNumber", IntToString(i->flt_no));
+        NewTextChild(carrierNode, "CarrierCode", i->first);
+        NewTextChild(codeshareNode, "FlightNumber", i->second);
       }
     }
-    NewTextChild(flightNode, "ScheduledDepartureDateTime",
+    if (depDateTime() == ASTRA::NoExists)
+      throw Exception("ScheduledDepartureDateTime is empty");
+    else
+      NewTextChild(flightNode, "ScheduledDepartureDateTime",
                  BASIC::DateTimeToStr(depDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
-    NewTextChild(flightNode, "DepartureAirport",depPort());
-    NewTextChild(flightNode, "EstimatedArrivalDateTime",
+    if (depPort().empty())
+      throw Exception("DepartureAirport is empty");
+    else
+      NewTextChild(flightNode, "DepartureAirport", depPort());
+    if (arrDateTime() == ASTRA::NoExists)
+      throw Exception("EstimatedArrivalDateTime is empty");
+    else
+      NewTextChild(flightNode, "EstimatedArrivalDateTime",
                  BASIC::DateTimeToStr(arrDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
-    NewTextChild(flightNode, "ArrivalAirport",arrPort());
+    if (arrPort().empty())
+      throw Exception("ArrivalAirport is empty");
+    else
+      NewTextChild(flightNode, "ArrivalAirport", arrPort());
     xmlNodePtr FlightLegsNode = NewTextChild(flightNode, "FlightLegs");
     fltLegs().FlightLegstoXML(FlightLegsNode);
   }
@@ -477,9 +499,9 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     xmlNodePtr flyerNode,checkInNode,boardingNode;
     if (!it->prBrd()) {
       checkInNode = NewTextChild(travellerNode, "CheckIn");
-      SetProp(checkInNode, "CheckInStatus", it->prBrd()?"B":"C");
+      SetProp(checkInNode, "CheckInStatus", "C");
       flyerNode = NewTextChild(checkInNode, "DCS_Traveller");
-      SetProp(flyerNode, "Type", it->persType());
+      if (!it->persType().empty()) SetProp(flyerNode, "Type", it->persType());
       if (!it->seats().empty()) {
         for(vector< pair<int, string> >::const_iterator i=it->seats().begin();i!=it->seats().end();i++)
         {
@@ -500,9 +522,11 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
           NewTextChild(memberNode, "Sponsor", airline.code_lat);
         }
       }
-      xmlNodePtr TicketsNode = NewTextChild(checkInNode, "Tickets");
-      xmlNodePtr TicketNode = NewTextChild(TicketsNode, "Ticket");
-      NewTextChild(TicketNode, "TicketNumber", it->ticketNumber());
+      if(!it->ticketNumber().empty()) {
+        xmlNodePtr TicketsNode = NewTextChild(checkInNode, "Tickets");
+        xmlNodePtr TicketNode = NewTextChild(TicketsNode, "Ticket");
+        NewTextChild(TicketNode, "TicketNumber", it->ticketNumber());
+      }
     }
     else
     {
@@ -510,8 +534,8 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
       flyerNode = NewTextChild(boardingNode, "Flyer");
       SetProp(flyerNode, "Type", type()?"FM":"FL");
       xmlNodePtr itineraryNode = NewTextChild(boardingNode, "FlyerItinerary");
-      SetProp(itineraryNode, "JourneyCommence", it->depPort());
-      SetProp(itineraryNode, "JourneyConclude", it->arrPort());
+      if (!it->depPort().empty()) SetProp(itineraryNode, "JourneyCommence", it->depPort());
+      if (!it->arrPort().empty()) SetProp(itineraryNode, "JourneyConclude", it->arrPort());
       for(vector< pair<int, string> >::const_iterator i=it->seats().begin();i!=it->seats().end();i++)
       {
         xmlNodePtr referenceNode = NewTextChild(boardingNode, "Reference");
@@ -533,23 +557,50 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
           NewTextChild(addressNode, "PostalZipCode", it->postalCode());
       }
     }
-    SetProp(flyerNode, "InfantIndicator", (it->persType()=="Infant")?"true":"false");
+    if (!it->persType().empty())
+      SetProp(flyerNode, "InfantIndicator", (it->persType()=="Infant")?"true":"false");
     xmlNodePtr nameNode = NewTextChild(flyerNode, "Name");
-    NewTextChild(nameNode, "Surname", it->surname());
-    NewTextChild(nameNode, "FirstName", it->first_name());
-    if (!it->second_name().empty()) NewTextChild(nameNode, "MiddleName", it->second_name());
-
-    NewTextChild(flyerNode, "DateOfBirth", BASIC::DateTimeToStr(it->birthDate(), "yyyy-mm-dd"));
-    NewTextChild(flyerNode, "Gender", it->sex());
-    NewTextChild(flyerNode, "Nationality", it->nationality());
-    if (!it->residCountry().empty()) NewTextChild(flyerNode, "CountryOfResidence", it->residCountry());
-    if (!it->birthCountry().empty()) NewTextChild(flyerNode, "CountryOfBirth", it->birthCountry());
+    if (it->surname().empty())
+      throw Exception("Surname is empty");
+    else
+      NewTextChild(nameNode, "Surname", it->surname());
+    if (it->first_name().empty())
+      throw Exception("FirstName is empty");
+    else
+      NewTextChild(nameNode, "FirstName", it->first_name());
+    if (!it->second_name().empty())
+      NewTextChild(nameNode, "MiddleName", it->second_name());
+    if (it->birthDate() == ASTRA::NoExists)
+      throw Exception("DateOfBirth is empty");
+    else
+       NewTextChild(flyerNode, "DateOfBirth", BASIC::DateTimeToStr(it->birthDate(), "yyyy-mm-dd"));
+    if (it->sex().empty())
+      throw Exception("Gender is empty");
+    else
+      NewTextChild(flyerNode, "Gender", it->sex());
+    if (it->nationality().empty())
+      throw Exception("Nationality is empty");
+    else
+      NewTextChild(flyerNode, "Nationality", it->nationality());
+    if (!it->residCountry().empty())
+      NewTextChild(flyerNode, "CountryOfResidence", it->residCountry());
+    if (!it->birthCountry().empty())
+      NewTextChild(flyerNode, "CountryOfBirth", it->birthCountry());
 
     xmlNodePtr docNode = NewTextChild(flyerNode, "TravelDocument");
-    SetProp(docNode, "TypeCode", it->docType());
-    NewTextChild(docNode, "Number", it->docNumber());
-    NewTextChild(docNode, "IssueCountry", it->docCountry());
-    NewTextChild(docNode, "ExpiryDate", BASIC::DateTimeToStr(it->docExpirateDate(), "yyyy-mm-dd"));
+    if (it->docType().empty())
+      throw Exception("TypeCode is empty");
+    else
+      SetProp(docNode, "TypeCode", it->docType());
+    if (it->docNumber().empty())
+      throw Exception("Number of document is empty");
+    else
+      NewTextChild(docNode, "Number", it->docNumber());
+    if (it->docCountry().empty())
+      throw Exception("IssueCountry is empty");
+    else
+      NewTextChild(docNode, "IssueCountry", it->docCountry());
+    if (it->docExpirateDate()!=ASTRA::NoExists) NewTextChild(docNode, "ExpiryDate", BASIC::DateTimeToStr(it->docExpirateDate(), "yyyy-mm-dd"));
   }
 }
 

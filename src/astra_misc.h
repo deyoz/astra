@@ -407,6 +407,17 @@ class TTripRoute : public std::vector<TTripRouteItem>
                         TTripRouteType1 route_type1,
                         TTripRouteType2 route_type2);
 
+    //полный маршрут
+    bool GetTotalRoute(BASIC::TDateTime part_key,
+                        int point_id,
+                        TTripRouteType2 route_type2);
+    void GetTotalRoute(BASIC::TDateTime part_key,
+                        int point_id,
+                        int point_num,
+                        int first_point,
+                        bool pr_tranzit,
+                        TTripRouteType2 route_type2);
+
     //возвращает следующий пункт маршрута
     void GetNextAirp(BASIC::TDateTime part_key,
                      int point_id,
