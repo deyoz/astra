@@ -89,7 +89,7 @@ struct  TParseFlight {
     return error.empty();
   }
   std::string key() const {
-    std::string res = airline.code + IntToString( flt_no ) + suffix.code + BASIC::DateTimeToStr( scd, "dd" );
+    std::string res = airline.code + IntToString( flt_no ) + suffix.code + BASIC::DateTimeToStr( UTCToLocal( scd, own_region ), "dd" );
     return res;
   }
 };

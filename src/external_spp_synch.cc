@@ -307,11 +307,12 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       }
     }
     if ( flight.is_valid() ) {
-      ProgTrace( TRACE5, "flights Add airline=%s, flt_no=%d, scd=%f, pr_landing=%d",
+      ProgTrace( TRACE5, "flights Add airline=%s, flt_no=%d, scd=%f, pr_landing=%d, key=%s",
                  flight.airline.code.c_str(),
                  flight.flt_no,
                  flight.scd,
-                 flight.pr_landing );
+                 flight.pr_landing,
+                 flight.key().c_str() );
 
       try {
         flights[ flight.key() ].insert( make_pair( flight.pr_landing, flight ) );
@@ -411,9 +412,15 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
     vector<TCode> airps;
     map<bool, TParseFlight>::iterator fl_in = iflight->second.find( true );
     map<bool, TParseFlight>::iterator fl_out = iflight->second.find( false );
+    ProgTrace( TRACE5, "fl_in=%d,valid=%d, fl_out=%d,valid=%d",
+               fl_in != iflight->second.end(),
+               fl_in != iflight->second.end() && fl_in->second.is_valid(),
+               fl_out != iflight->second.end(),
+               fl_out != iflight->second.end() && fl_out->second.is_valid() );
     bool pr_change_dests = false;
     try {
       if ( fl_in != iflight->second.end() && fl_in->second.is_valid() ) {
+        tst();
         airps.clear();
         airline = fl_in->second.airline.code;
         flt_no = fl_in->second.flt_no;
@@ -436,6 +443,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
         }*/
       }
       if ( fl_out != iflight->second.end() && fl_out->second.is_valid() ) {
+        tst();
         airps.clear();
         airline = fl_out->second.airline.code;
         flt_no = fl_out->second.flt_no;
@@ -590,8 +598,10 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
                 jdest->est_out = idest->est_out;
               }
               tst();
-              jdest->act_out = idest->act_out;
-              tst();
+              if ( jdest->act_out == ASTRA::NoExists ) {
+                jdest->act_out = idest->act_out;
+                tst();
+              }
               if ( !idest->craft.empty() && jdest->craft.empty() ) {
                 ProgTrace( TRACE5, "set craft point_id=%d, craft=%s", idest->point_id,  idest->craft.c_str() );
                 jdest->craft = idest->craft;
