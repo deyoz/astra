@@ -4,6 +4,7 @@
 #include "oralib.h"
 #include "serverlib/query_runner.h"
 #include "astra_consts.h"
+#include "EdifactRequest.h"
 
 /* константы задающие максимальные значения для телеграмм */
 #define MAX_TLG_LEN       65536
@@ -54,7 +55,9 @@ typedef struct H2H_MSG
 	char qri6;
 } H2H_MSG;
 
+namespace edifact {
 int init_edifact();
+}//namespace edifact
 
 int main_http_snd_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_snd_tcl(int supervisorSocket, int argc, char *argv[]);

@@ -16,6 +16,7 @@
 #include "baggage.h"
 #include "passenger.h"
 #include "points.h"
+#include "emdoc.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -615,9 +616,9 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
     xmlNodePtr node=NewTextChild(dataNode,"prepayment");
 
     //квитанции EMD
-    list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
-    GetBoundPaidBagEMD(id, emd);
-    for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+    CheckIn::PaidBagEMDList emd;
+    PaxASVCList::GetBoundPaidBagEMD(id, emd);
+    for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
     {
       xmlNodePtr receiptNode=NewTextChild(node,"receipt");
       NewTextChild(receiptNode,"id",EMD_RCPT_ID);
@@ -1518,9 +1519,9 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
       if (NodeIsNULL("no",rcptNode) && !rcpt.prev_no.empty())
       {
         //проверим что это не номер EMD
-        list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> > emd;
-        GetBoundPaidBagEMD(grp_id, emd);
-        for(list< pair<CheckIn::TPaxASVCItem, CheckIn::TPaidBagEMDItem> >::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+        CheckIn::PaidBagEMDList emd;
+        PaxASVCList::GetBoundPaidBagEMD(grp_id, emd);
+        for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
           if (rcpt.prev_no==i->first.no_str())
           {
             rcpt.prev_no.clear();

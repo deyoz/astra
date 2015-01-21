@@ -1,0 +1,78 @@
+#!/bin/sh 
+
+if [ "$1" = "" ]
+then
+	cat << EOF
+usage:		sqlldr_exp un/pw [tables|views]
+
+example:	sqlldr_exp scott/tiger emp dept
+
+description:	Select over standard out all rows of table or view with 
+		columns delimited by tabs.
+EOF
+	exit
+fi
+
+PW=$1
+shift
+
+for X in $*
+do
+sqlplus -s $PW << EOF > ./flat$$.sql
+set	wrap off
+set	feedback off
+set	pagesize 0
+set	verify off
+set tab off
+set linesize 1000
+
+
+prompt prompt LOAD DATA
+prompt prompt INFILE * 
+prompt prompt INTO TABLE $X	
+prompt prompt APPEND
+prompt prompt FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+prompt prompt TRAILING NULLCOLS
+prompt prompt (
+select	'prompt ' || decode(column_id,1,'',',') || lower(column_name)
+from	user_tab_columns
+where	table_name = upper('$X') 
+order by column_id
+/
+prompt prompt )
+prompt prompt BEGINDATA
+
+prompt	select
+select  DECODE(DATA_TYPE,'VARCHAR2','NVL2(TRIM(REPLACE('||lower(column_name)||',CHR(0),'' '')),''"''||TRIM(REPLACE(REPLACE('||lower(column_name)||',CHR(0),'' ''),''"'',''""''))||''"'',null)',lower(column_name))||'||chr(124)||'
+from	user_tab_columns
+where	table_name = upper('$X') and
+	column_id != (select max(column_id) from user_tab_columns where
+			 table_name = upper('$X'))
+order by column_id
+/
+
+select  DECODE(DATA_TYPE,'VARCHAR2','NVL2(TRIM(REPLACE('||lower(column_name)||',CHR(0),'' '')),''"''||TRIM(REPLACE(REPLACE('||lower(column_name)||',CHR(0),'' ''),''"'',''""''))||''"'',null)',lower(column_name))
+from	user_tab_columns
+where	table_name = upper('$X') and
+	column_id = (select max(column_id) from user_tab_columns where
+			 table_name = upper('$X'))
+order by column_id
+/
+prompt  from  $X
+prompt	/
+prompt	exit
+exit
+EOF
+NLS_DATE_FORMAT=YYYYMMDDHH24MISS sqlplus -s $PW << EOF
+set	wrap off
+set	feedback off
+set	pagesize 0
+set	verify off
+set tab off
+set trimspool on
+set linesize 5000
+start ./flat$$.sql
+exit
+EOF
+rm ./flat$$.sql
+done

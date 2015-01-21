@@ -36,6 +36,7 @@
 #include "trip_tasks.h"
 
 #include "aodb.h"
+#include "emdoc.h"
 #include "serverlib/perfom.h"
 
 #define NICKNAME "DJEK"
@@ -984,7 +985,7 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
   int move_id = NoExists;
   string ref;
   int col_move_id = PointsQry.FieldIndex( "move_id" );
-  int col_ref;
+  int col_ref = 0;
   if ( module == tISG )
   	col_ref = PointsQry.FieldIndex( "ref" );
   int col_point_id = PointsQry.FieldIndex( "point_id" );
@@ -1395,7 +1396,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   int move_id = NoExists;
   string ref;
   int col_move_id = PointsQry.FieldIndex( "move_id" );
-  int col_ref;
+  int col_ref = 0;
   if ( module == tISG )
   	col_ref = PointsQry.FieldIndex( "ref" );
   int col_point_id = PointsQry.FieldIndex( "point_id" );
@@ -2367,10 +2368,11 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
     {
       std::string lexema_id;
       lexema_id = (status!=psCrew)?"EVT.PASSENGER_CANCEL_CHECKIN":"EVT.CREW_MEMBER_CANCEL_CHECKIN";
-      TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << PrmSmpl<std::string>("surname", surname)
-                                        << PrmSmpl<std::string>("name", (name.empty()?"":" ") + name)
-                                        << PrmElem<std::string>("pers_type", etPersType, pers_type)
-                                        << PrmSmpl<std::string>("reason", refuseAgentError),
+      TReqInfo::Instance()->LocaleToLog(lexema_id,
+                                        LEvntPrms() << PrmSmpl<std::string>("surname", surname)
+                                                    << PrmSmpl<std::string>("name", (name.empty()?"":" ") + name)
+                                                    << PrmElem<std::string>("pers_type", etPersType, pers_type)
+                                                    << PrmSmpl<std::string>("reason", refuseAgentError),
                                         ASTRA::evtPax, point_id, reg_no, grp_id);
     };
   };
@@ -2607,7 +2609,7 @@ void DeletePassengersAnswer( map<int,TAdvTripInfo> &segs, xmlNodePtr resNode )
 	xmlNodePtr segsNode=NewTextChild(resNode,"segments");
 	for(map<int,TAdvTripInfo>::const_iterator i=segs.begin();i!=segs.end();++i)
   {
-    bool pr_etl_only=GetTripSets(tsETLOnly,i->second);
+    bool pr_etl_only=GetTripSets(tsETSNoInteract,i->second);
     Qry.SetVariable("point_id",i->first);
     Qry.Execute();
     int pr_etstatus=-1;
@@ -2864,7 +2866,7 @@ void GetEMD( int point_id, xmlNodePtr dataNode )
 {
   xmlNodePtr node = NewTextChild( dataNode, "emd" );
   std::multiset<CheckIn::TPaxASVCItem> asvc;
-  CheckIn::GetUnboundEMD(point_id, asvc);
+  PaxASVCList::GetUnboundEMD(point_id, asvc);
 
   ostringstream s;
   for(multiset<CheckIn::TPaxASVCItem>::const_iterator i=asvc.begin(); i!=asvc.end(); ++i)
@@ -3601,19 +3603,19 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     Qry.Execute();
   }
   bool ch_dests = false;
-  int new_tid;
-  bool init_trip_stages;
+  int new_tid = 0;
+  bool init_trip_stages = false;
   //bool set_act_out;
-  bool set_pr_del;
+  bool set_pr_del = false;
   int point_num = 0;
-  int first_point;
-  bool insert_point;
+  int first_point = 0;
+  bool insert_point = false;
   bool pr_begin = true;
-  bool change_stages_out;
-  bool pr_change_tripinfo;
+  bool change_stages_out = false;
+  bool pr_change_tripinfo = false;
   vector<int> setcraft_points;
-  bool reSetCraft;
-  bool reSetWeights;
+  bool reSetCraft = false;
+  bool reSetWeights = false;
   string lexema_id;
   PrmEnum prmenum("flt", "");
   TBaseTable &baseairps = base_tables.get( "airps" );
@@ -5655,7 +5657,7 @@ bool trip_calc_data( int point_id, BitSet<TTrip_Calc_Data> &whatcalc,
     gates = Qry.FieldAsString( "gates" );
   }
 
-  bool new_trfer_exists;
+  bool new_trfer_exists = false;
   string new_ckin_desks;
   string new_gates;
   Qry.Clear();
@@ -6152,6 +6154,13 @@ void update_trip_sets(int point_id, const map<TTripSetType, bool> &sets, bool fi
                                  "EVT.SET_MODE_REG_WITHOUT_DOC_PERMISSION");
         Qry.CreateVariable("pr_reg_with_doc", otInteger, (int)s->second);
         break;
+      case tsRegWithoutTKNA:
+        fields.push_back("pr_reg_without_tkna=:pr_reg_without_tkna");
+        if (!first_init || s->second)
+          msgs.push_back(s->second?"EVT.SET_MODE_REG_WITHOUT_TKNA":
+                                   "EVT.CANCEL_MODE_REG_WITHOUT_TKNA");
+        Qry.CreateVariable("pr_reg_without_tkna", otInteger, (int)s->second);
+        break;
       case tsAutoWeighing:
         fields.push_back("auto_weighing=:auto_weighing");
         msgs.push_back(s->second?"EVT.SET_AUTO_WEIGHING":
@@ -6345,9 +6354,9 @@ void set_flight_sets(int point_id, int f, int c, int y)
     "INSERT INTO trip_sets "
     " (point_id,f,c,y,max_commerce,pr_etstatus,pr_stat, "
     "  pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay, "
-    "  pr_exam_check_pay,pr_reg_with_tkn,pr_reg_with_doc,crc_comp, "
+    "  pr_exam_check_pay,pr_reg_with_tkn,pr_reg_with_doc,pr_reg_without_tkna,crc_comp, "
 		"  pr_basel_stat,auto_weighing,pr_free_seating,apis_control,apis_manual_input) "
-    "VALUES(:point_id,:f,:c,:y, NULL, 0, 0, NULL, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0) ";
+    "VALUES(:point_id,:f,:c,:y, NULL, 0, 0, NULL, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0) ";
   Qry.CreateVariable("point_id", otInteger, point_id);
   f!=NoExists?Qry.CreateVariable("f", otInteger, f):
               Qry.CreateVariable("f", otInteger, FNull);

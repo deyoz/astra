@@ -1,0 +1,15 @@
+#!/bin/bash
+rm -f ok
+
+function rundir {
+for f in `ls *.sql` ; do
+    rm -f log
+    echo "running $f" && sqlplus $1 @$f </dev/null 2>&1 | tee -a log
+    grep "[A-Z0-9]\+-[0-9]\+" log > /dev/null && echo "error in $f" && exit 1
+done
+}
+
+rundir $1
+[ -d ets ] && (cd ets && rundir $1)
+
+exit 0

@@ -11,6 +11,7 @@
 #include "astra_elems.h"
 #include "base_tables.h"
 #include "term_version.h"
+#include "qrys.h"
 #include "serverlib/tcl_utils.h"
 #include "serverlib/monitor_ctl.h"
 #include "serverlib/sirena_queue.h"
@@ -593,66 +594,93 @@ void TReqInfo::LocaleToLog(const string &vlexema, const LEvntPrms &prms, TEventT
 
 void TReqInfo::LocaleToLog(TLogLocale &msg)
 {
-    TQuery Qry(&OraSession);    
-    Qry.DeclareVariable("type", otString);
-    Qry.DeclareVariable("msg", otString);
-    Qry.DeclareVariable("screen", otString);
-    Qry.DeclareVariable("ev_user", otString);
-    Qry.DeclareVariable("station", otString);
-    Qry.DeclareVariable("id1", otInteger);
-    Qry.DeclareVariable("id2", otInteger);
-    Qry.DeclareVariable("id3", otInteger);
-    Qry.CreateVariable("ev_time", otDate, FNull);
-    Qry.CreateVariable("ev_order", otInteger, FNull);
-    Qry.CreateVariable("part_num", otInteger, FNull);
-    Qry.SetVariable("type", EncodeEventType(msg.ev_type));
-    Qry.SetVariable("screen", screen.name);
-    Qry.SetVariable("ev_user", user.descr);
-    Qry.SetVariable("station", desk.code);
-    if(msg.id1!=0 && msg.id1!=NoExists)
-        Qry.SetVariable("id1", msg.id1);
-    else
-        Qry.SetVariable("id1", FNull);
-    if(msg.id2!=0 && msg.id2!=NoExists)
-        Qry.SetVariable("id2", msg.id2);
-    else
-        Qry.SetVariable("id2", FNull);
-    if(msg.id3!=0 && msg.id3!=NoExists)
-        Qry.SetVariable("id3", msg.id3);
-    else
-        Qry.SetVariable("id3", FNull);
-    Qry.DeclareVariable("lang", otString);
-    for (std::vector<std::string>::iterator lang = msg.vlangs.begin(); lang != msg.vlangs.end(); lang++) {
-        Qry.SetVariable("part_num", FNull);
-        Qry.SQLText =
-            "BEGIN "
-            "  IF :ev_time IS NULL OR :ev_order IS NULL THEN"
-            "    SELECT system.UTCSYSDATE, events__seq.nextval INTO :ev_time, :ev_order FROM dual; "
-            "  END IF; "
-            "  IF :part_num IS NULL THEN :part_num:=1; ELSE :part_num:=:part_num+1; END IF; "
-            "  INSERT INTO events_bilingual(type,time,ev_order,part_num,msg,screen,ev_user,station,id1,id2,id3,lang) "
-            "  VALUES(:type,:ev_time,:ev_order,:part_num,"
-            "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang); "            
-            "END;";
-        (*lang == AstraLocale::LANG_RU)?Qry.SetVariable("lang", AstraLocale::LANG_RU):
-                                        Qry.SetVariable("lang", AstraLocale::LANG_EN);
-        std::string message;
-        message = AstraLocale::getLocaleText(msg.lexema_id, msg.prms.GetParams(*lang), *lang);
-        vector<string> strs;
-        SeparateString(message.c_str(), 250, strs);
-        for (vector<string>::iterator i=strs.begin(); i!=strs.end(); i++) {
-            Qry.SetVariable("msg", *i);
-            Qry.Execute();
-        }
-        if (!Qry.VariableIsNULL("ev_time"))
-            msg.ev_time=Qry.GetVariableAsDateTime("ev_time");
-        else
-            msg.ev_time=ASTRA::NoExists;
-        if (!Qry.VariableIsNULL("ev_order"))
-            msg.ev_order=Qry.GetVariableAsInteger("ev_order");
-        else
-            msg.ev_order=ASTRA::NoExists;
+  msg.toDB(screen.name, user.descr, desk.code);
+}
+
+void TLogLocale::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return;
+  xmlNodePtr eventNode=NewTextChild(node, "event");
+  LocaleToXML(eventNode, lexema_id, prms);
+  if (ev_time!=ASTRA::NoExists)
+    NewTextChild(eventNode, "ev_time", DateTimeToStr(ev_time, ServerFormatDateTimeAsString));
+  if (ev_order!=ASTRA::NoExists)
+    NewTextChild(eventNode, "ev_order", ev_order);
+}
+
+void TLogLocale::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return;
+  xmlNodePtr eventNode=NodeAsNode("event", node);
+  LocaleFromXML(eventNode, lexema_id, prms);
+  xmlNodePtr node2=eventNode->children;
+  ev_time=NodeAsDateTimeFast("ev_time", node2, ASTRA::NoExists);
+  ev_order=NodeAsIntegerFast("ev_order", node2, ASTRA::NoExists);
+}
+
+void TLogLocale::toDB(const string &screen, const string &user_descr, const string &desk_code)
+{
+  QParams QryParams;
+  QryParams << QParam("type", otString, EncodeEventType(ev_type))
+            << QParam("screen", otString, screen)
+            << QParam("ev_user", otString, user_descr)
+            << QParam("station", otString, desk_code)
+            << QParam("msg", otString)
+            << QParam("lang", otString)
+            << QParam("part_num", otInteger)
+            << QParam("ev_time", otDate, FNull)
+            << QParam("ev_order", otInteger, FNull);
+
+  if(id1!=0 && id1!=NoExists)
+    QryParams << QParam("id1", otInteger, id1);
+  else
+    QryParams << QParam("id1", otInteger, FNull);
+
+  if(id2!=0 && id2!=NoExists)
+    QryParams << QParam("id2", otInteger, id2);
+  else
+    QryParams << QParam("id2", otInteger, FNull);
+
+  if(id3!=0 && id3!=NoExists)
+    QryParams << QParam("id3", otInteger, id3);
+  else
+    QryParams << QParam("id3", otInteger, FNull);
+
+  TCachedQuery CachedQry(
+        "BEGIN "
+        "  IF :ev_time IS NULL OR :ev_order IS NULL THEN"
+        "    SELECT system.UTCSYSDATE, events__seq.nextval INTO :ev_time, :ev_order FROM dual; "
+        "  END IF; "
+        "  IF :part_num IS NULL THEN :part_num:=1; ELSE :part_num:=:part_num+1; END IF; "
+        "  INSERT INTO events_bilingual(type,time,ev_order,part_num,msg,screen,ev_user,station,id1,id2,id3,lang) "
+        "  VALUES(:type,:ev_time,:ev_order,:part_num,"
+        "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang); "
+        "END;", QryParams);
+
+  TQuery &Qry=CachedQry.get();
+
+  for (std::vector<std::string>::iterator lang = vlangs.begin(); lang != vlangs.end(); lang++) {
+    Qry.SetVariable("part_num", FNull);
+    (*lang == AstraLocale::LANG_RU)?Qry.SetVariable("lang", AstraLocale::LANG_RU):
+                                    Qry.SetVariable("lang", AstraLocale::LANG_EN);
+    std::string message;
+    message = AstraLocale::getLocaleText(lexema_id, prms.GetParams(*lang), *lang);
+    vector<string> strs;
+    SeparateString(message.c_str(), 250, strs);
+    for (vector<string>::iterator i=strs.begin(); i!=strs.end(); i++) {
+      Qry.SetVariable("msg", *i);
+      Qry.Execute();
     }
+  }
+  if (!Qry.VariableIsNULL("ev_time"))
+    ev_time=Qry.GetVariableAsDateTime("ev_time");
+  else
+    ev_time=ASTRA::NoExists;
+  if (!Qry.VariableIsNULL("ev_order"))
+    ev_order=Qry.GetVariableAsInteger("ev_order");
+  else
+    ev_order=ASTRA::NoExists;
 }
 
 /***************************************************************************************/
@@ -1695,12 +1723,16 @@ namespace ASTRA
 
 void commit()
 {
-  inTestMode()?commit():OraSession.Commit();
-};
+    //inTestMode()?commit():OraSession.Commit();
+    if(!inTestMode())
+        OraSession.Commit();
+}
 
 void rollback()
 {
-  inTestMode()?rollback():OraSession.Rollback();
-};
+    //inTestMode()?rollback():OraSession.Rollback();
+    if(!inTestMode())
+        OraSession.Rollback();
+}
 
-};
+}// namespace ASTRA

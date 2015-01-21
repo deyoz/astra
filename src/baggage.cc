@@ -322,8 +322,8 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
   //получим последний использованный диапазон (+лочка):
   int last_range=Qry.GetVariableAsInteger("range");
 
-  int range;
-  int no;
+  int range = 0;
+  int no = 0;
   bool use_new_range=false;
   while (tag_count>0)
   {

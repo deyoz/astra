@@ -1,15 +1,18 @@
 #ifndef _CHECKINBASETYPES_H_
 #define _CHECKINBASETYPES_H_
 
-#include "serverlib/int_parameters.h"
+#include <serverlib/int_parameters.h>
+#include "exceptions.h"
 
-namespace ASTRA
+namespace Ticketing
 {
-    MakeIntParamType(Airline_t, std::string);
     MakeIntParamType(FlightNum_t, unsigned);
-    MakeIntParamType(RouterId_t, std::string);
     MakeIntParamType(SystemAddrs_t, int);
     MakeIntParamType(EdifactProfile_t, int);
-} //namespace ASTRA
+    MakeIntParamType(Point_t, int);
+
+    FlightNum_t getFlightNum(const std::string &s);
+
+} //namespace Ticketing
 
 #endif /*_CHECKINBASETYPES_H_*/

@@ -5,7 +5,6 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "baggage.h"
-#include "remarks.h"
 
 const long int NO_FIELDS=0x0000;
 
@@ -310,6 +309,7 @@ class TPaxItem
     const TPaxItem& toDB(TQuery &Qry) const;
     TPaxItem& fromDB(TQuery &Qry);
     int is_female() const;
+    std::string full_name() const;
 };
 
 class TAPISItem
@@ -413,8 +413,6 @@ bool LoadPaxNorms(int pax_id, std::vector< std::pair<TPaxNormItem, TNormItem> > 
 bool LoadGrpNorms(int grp_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms);
 void LoadNorms(xmlNodePtr node, bool pr_unaccomp);
 void SaveNorms(xmlNodePtr node, bool pr_unaccomp);
-
-void GetBoundPaidBagEMD(int grp_id, std::list< std::pair<TPaxASVCItem, TPaidBagEMDItem> > &emd);
 
 }; //namespace CheckIn
 

@@ -36,6 +36,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "serverlib/helpcpp.h"
 #include "tlg/tlg.h"
 #include "flt_binding.h"
+#include "astra_main.h"
 #include "astra_misc.h"
 #include "trip_tasks.h"
 
@@ -1805,7 +1806,7 @@ try {
 	err++;
 	// расчитаем время окончания посадки
 	if ( old_est != fl.est ) { // изменение расчетного времени вылета
-    fl.boarding_end = trip_stages.time_scd( sCloseBoarding );
+    fl.boarding_end = trip_stages.getStageTimes( sCloseBoarding ).scd;
     if ( fl.est != NoExists && fl.scd != fl.est ) { // задержка != 0
       fl.boarding_end += fl.est - fl.scd; // добавляем к плановому времени окончания посадки задержку по вылету
     }
@@ -2223,7 +2224,7 @@ int main_aodb_handler_tcl(int supervisorSocket, int argc, char *argv[])
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
-    if (init_edifact()<0) throw Exception("'init_edifact' error");
+    init_locale();
 
     TReqInfo::Instance()->clear();
     char buf[10];

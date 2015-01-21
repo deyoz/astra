@@ -1132,7 +1132,7 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
         cond1 << "18";
         // Passenger Description
         TPerson pers_type = DecodePerson((char *)paxInfo.pers_type.c_str());
-        int result_pers_type;
+        int result_pers_type = 0;
         switch(pers_type) {
             case adult:
                 result_pers_type = 0;

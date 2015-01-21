@@ -8,6 +8,11 @@
 *
 */
 #include "EdiHandlersFactory.h"
+#include "edi_tlg.h"
+
+// handlers
+#include "EmdDispResponseHandler.h"
+#include "EmdSysUpdateResponseHandler.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -16,21 +21,21 @@
 namespace Ticketing
 {
 
-edifact::EdifactResponse * EdiResHandlersFactory(edi_msg_types_t msgid,
-                                            const std::string &func_code,
-                                            boost::shared_ptr<edifact::EdiSessRD> psess)
+TlgHandling::AstraEdiResponseHandler* EdiResHandlersFactory(edi_msg_types_t msgid,
+                                                            const std::string &func_code,
+                                                            boost::shared_ptr<AstraEdiSessRD> psess)
 {
     switch (msgid)
     {
         case TKCRES:
         {
-            if(func_code == CosRequest::MsgCode()) // 142
+            if(func_code == "791") // 791
             {
-                return new HandleTypeACosResponse(0, psess);
+                return new TlgHandling::EmdDispResponseHandler(0, psess.get());
             }
-            else if(func_code == RemoteDisplayRequest::MsgCode()) // 131
+            else if(func_code == "794") // 794
             {
-                return new HandleTypeADispResponse(0, psess);
+                return new TlgHandling::EmdSysUpdateResponseHandler(0, psess.get());
             }
         }
         default:;

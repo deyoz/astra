@@ -508,12 +508,12 @@ void TSeatPlaces::Add( TSeatPlace &seatplace )
   Возвращаем кол-во использованных мест */
 int TSeatPlaces::Put_Find_Places( SALONS2::TPoint FP, SALONS2::TPoint EP, int foundCount, TSeatStep Step )
 {
-  int p_RCount, p_RCount2, p_RCount3; /* необходимое кол-во 3-х, 2-х, 1-х мест */
-  int pp_Count, pp_Count2, pp_Count3; /* имеющееся кол-во 3-х, 2-х, 1-х мест */
-  int NTrunc_Count, Trunc_Count; /* кол-во выделенных из общего числа данных мест */
-  int p_Prior, p_Next; /* Кол-во мест до FP и после него */
-  int p_Step; /* направление рассадки. Определяется в зависимости от кол-ва p_Prior и p_Next */
-  int Need;
+  int p_RCount = 0, p_RCount2 = 0, p_RCount3 = 0; /* необходимое кол-во 3-х, 2-х, 1-х мест */
+  int pp_Count = 0, pp_Count2 = 0, pp_Count3 = 0; /* имеющееся кол-во 3-х, 2-х, 1-х мест */
+  int NTrunc_Count = 0, Trunc_Count = 0; /* кол-во выделенных из общего числа данных мест */
+  int p_Prior = 0, p_Next = 0; /* Кол-во мест до FP и после него */
+  int p_Step = 0; /* направление рассадки. Определяется в зависимости от кол-ва p_Prior и p_Next */
+  int Need = 0;
   SALONS2::TPlaceList *placeList;
   int Result = 0; /* общее кол-во задействованных мест */
   if ( foundCount == 0 )
@@ -2469,7 +2469,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   GetUseLayers( UseLayers );
   TUseLayers preseat_layers, curr_preseat_layers;
 
-  int param1,param2,param4,param5,param6,param7,param9,param10,param11;
+  int param1=0,param2=0,param4=0,param5=0,param6=0,param7=0,param9=0,param10=0,param11=0;
   string param3,param8,param12;
 
   FSeatAlgoParams = ASeatAlgoParams;

@@ -1,0 +1,81 @@
+
+SQL*Loader: Release 11.2.0.2.0 - Production on Mon Jan 20 19:10:39 2014
+
+Copyright (c) 1982, 2009, Oracle and/or its affiliates.  All rights reserved.
+
+Control File:   points.ldr
+Data File:      points.ldr
+  Bad File:     points.bad
+  Discard File:  none specified
+ 
+ (Allow all discards)
+
+Number to load: ALL
+Number to skip: 0
+Errors allowed: 50
+Bind array:     64 rows, maximum of 256000 bytes
+Continuation:    none specified
+Path used:      Conventional
+
+Table POINTS, loaded from every logical record.
+Insert option in effect for this table: APPEND
+TRAILING NULLCOLS option in effect
+
+   Column Name                  Position   Len  Term Encl Datatype
+------------------------------ ---------- ----- ---- ---- ---------------------
+POINT_ID                            FIRST     *   |  O(") CHARACTER            
+MOVE_ID                              NEXT     *   |  O(") CHARACTER            
+POINT_NUM                            NEXT     *   |  O(") CHARACTER            
+AIRP                                 NEXT     *   |  O(") CHARACTER            
+PR_TRANZIT                           NEXT     *   |  O(") CHARACTER            
+FIRST_POINT                          NEXT     *   |  O(") CHARACTER            
+AIRLINE                              NEXT     *   |  O(") CHARACTER            
+FLT_NO                               NEXT     *   |  O(") CHARACTER            
+SUFFIX                               NEXT     *   |  O(") CHARACTER            
+CRAFT                                NEXT     *   |  O(") CHARACTER            
+BORT                                 NEXT     *   |  O(") CHARACTER            
+SCD_IN                               NEXT     *   |  O(") CHARACTER            
+EST_IN                               NEXT     *   |  O(") CHARACTER            
+ACT_IN                               NEXT     *   |  O(") CHARACTER            
+SCD_OUT                              NEXT     *   |  O(") CHARACTER            
+EST_OUT                              NEXT     *   |  O(") CHARACTER            
+ACT_OUT                              NEXT     *   |  O(") CHARACTER            
+TRIP_TYPE                            NEXT     *   |  O(") CHARACTER            
+LITERA                               NEXT     *   |  O(") CHARACTER            
+PARK_IN                              NEXT     *   |  O(") CHARACTER            
+PARK_OUT                             NEXT     *   |  O(") CHARACTER            
+REMARK                               NEXT     *   |  O(") CHARACTER            
+PR_REG                               NEXT     *   |  O(") CHARACTER            
+PR_DEL                               NEXT     *   |  O(") CHARACTER            
+TID                                  NEXT     *   |  O(") CHARACTER            
+AIRP_FMT                             NEXT     *   |  O(") CHARACTER            
+AIRLINE_FMT                          NEXT     *   |  O(") CHARACTER            
+SUFFIX_FMT                           NEXT     *   |  O(") CHARACTER            
+CRAFT_FMT                            NEXT     *   |  O(") CHARACTER            
+TIME_IN                              NEXT     *   |  O(") CHARACTER            
+TIME_OUT                             NEXT     *   |  O(") CHARACTER            
+
+value used for ROWS parameter changed from 64 to 32
+Record 144637: Rejected - Error on table POINTS, column BORT.
+second enclosure string not present
+
+Table POINTS:
+  218392 Rows successfully loaded.
+  1 Row not loaded due to data errors.
+  0 Rows not loaded because all WHEN clauses were failed.
+  0 Rows not loaded because all fields were null.
+
+
+Space allocated for bind array:                 255936 bytes(32 rows)
+Read   buffer bytes: 1048576
+
+Total logical records skipped:          0
+Total logical records read:        218393
+Total logical records rejected:         1
+Total logical records discarded:        0
+
+Run began on Mon Jan 20 19:10:39 2014
+Run ended on Mon Jan 20 19:13:22 2014
+
+Elapsed time was:     00:02:42.44
+CPU time was:         00:00:02.83

@@ -808,7 +808,7 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
     TQuery Qry(&OraSession);
     TReqInfo *reqInfo = TReqInfo::Instance();
     //std::map<TStage, BASIC::TDateTime> stages
-    stages.clear();
+    stage_times.clear();
     TStagesRules *sr = TStagesRules::Instance();
   	TCkinClients ckin_clients;
   	TTripStages::ReadCkinClients( point_dep, ckin_clients );
@@ -866,10 +866,14 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
         };
       };
 
-      if ( sr->isClientStage( (int)stage ) && !sr->canClientStage( ckin_clients, (int)stage ) )
-      	stages.insert( make_pair(stage, NoExists) );
-      else
-      	stages.insert( make_pair(stage, UTCToLocal( tripStages.time(stage), AirpTZRegion(oper.airp) ) ) );
+      if (!( sr->isClientStage( (int)stage ) && !sr->canClientStage( ckin_clients, (int)stage ) ))
+      {
+        TTripStageTimes local_times=tripStages.getStageTimes(stage);
+        if (local_times.scd!=NoExists) local_times.scd = UTCToLocal( local_times.scd, AirpTZRegion(oper.airp) );
+        if (local_times.est!=NoExists) local_times.est = UTCToLocal( local_times.est, AirpTZRegion(oper.airp) );
+        if (local_times.act!=NoExists) local_times.act = UTCToLocal( local_times.act, AirpTZRegion(oper.airp) );
+        stage_times.insert( make_pair(stage, local_times ) );
+      };
   	};
 
     Qry.Clear();
@@ -1092,12 +1096,16 @@ void TFlightInfo::toXML(xmlNodePtr node, bool old_style) const
               break;
     };
 
-    map<TStage, TDateTime>::const_iterator iStage=stages.find(stage);
-    if (iStage!=stages.end() && iStage->second!=NoExists)
-      stageNode = NewTextChild( stagesNode, "stage", DateTimeToStr( iStage->second, ServerFormatDateTimeAsString ) );
-    else
-    	stageNode = NewTextChild( stagesNode, "stage" );
+    TTripStageTimes t;
+    map<TStage, TTripStageTimes>::const_iterator iStage=stage_times.find(stage);
+    if (iStage!=stage_times.end()) t=iStage->second;
+
+    stageNode = NewTextChild( stagesNode, "stage", (t.time()!=NoExists?DateTimeToStr( t.time(), ServerFormatDateTimeAsString ):"") );
+
     SetProp( stageNode, "type", stage_name );
+    SetProp( stageNode, "scd", (t.scd!=NoExists?DateTimeToStr( t.scd, ServerFormatDateTimeAsString ):"") );
+    SetProp( stageNode, "est", (t.est!=NoExists?DateTimeToStr( t.est, ServerFormatDateTimeAsString ):"") );
+    SetProp( stageNode, "act", (t.act!=NoExists?DateTimeToStr( t.act, ServerFormatDateTimeAsString ):"") );
   };
 
   xmlNodePtr semNode = NewTextChild( node, "semaphors" );
@@ -2022,15 +2030,15 @@ void getTCkinData( const TPnrData &first,
 
         if (reqInfo->client_type==ctKiosk)
         {
-          if ( pnrData.flt.stages[ sOpenKIOSKCheckIn ] == NoExists ||
-               pnrData.flt.stages[ sCloseKIOSKCheckIn ] == NoExists )
+          if ( pnrData.flt.stage_times.find( sOpenKIOSKCheckIn ) == pnrData.flt.stage_times.end() ||
+               pnrData.flt.stage_times.find( sCloseKIOSKCheckIn ) == pnrData.flt.stage_times.end() )
             throw "Stage of kiosk check-in not found";
         }
         else
         {
-          if ( pnrData.flt.stages[ sOpenWEBCheckIn ] == NoExists ||
-               pnrData.flt.stages[ sCloseWEBCheckIn ] == NoExists ||
-               pnrData.flt.stages[ sCloseWEBCancel ] == NoExists)
+          if ( pnrData.flt.stage_times.find( sOpenWEBCheckIn ) == pnrData.flt.stage_times.end() ||
+               pnrData.flt.stage_times.find( sCloseWEBCheckIn ) == pnrData.flt.stage_times.end() ||
+               pnrData.flt.stage_times.find( sCloseWEBCancel ) == pnrData.flt.stage_times.end())
             throw "Stage of web check-in not found";
         };
 

@@ -36,29 +36,52 @@ enum TStage_Type { stCheckIn = 1,
                    stWEBCancel = 6 };
 enum TStageStep { stPrior, stNext };
 
-struct TTripStage {
-  TStage stage;
-  BASIC::TDateTime scd;
-  BASIC::TDateTime est;
-  BASIC::TDateTime act;
-  BASIC::TDateTime old_est;
-  BASIC::TDateTime old_act;
-  int pr_auto;
-  void fromDB(TQuery &Qry);
-  TTripStage() {
-    scd = ASTRA::NoExists;
-    est = ASTRA::NoExists;
-    act = ASTRA::NoExists;
-    old_est = ASTRA::NoExists;
-    old_act = ASTRA::NoExists;
-    pr_auto = 0;
-  }
-  bool equal( TTripStage stage ) {
-    return ( scd == stage.scd &&
-             est == stage.est &&
-             act == stage.act &&
-             pr_auto == stage.pr_auto );
-  }
+class TTripStageTimes
+{
+  public:
+    BASIC::TDateTime scd;
+    BASIC::TDateTime est;
+    BASIC::TDateTime act;
+
+    TTripStageTimes()
+    {
+      scd = ASTRA::NoExists;
+      est = ASTRA::NoExists;
+      act = ASTRA::NoExists;
+    };
+
+    BASIC::TDateTime time() const
+    {
+      if ( act != ASTRA::NoExists )
+        return act;
+      else
+        if ( est != ASTRA::NoExists )
+          return est;
+        else
+          return scd;
+    };
+};
+
+class TTripStage : public TTripStageTimes
+{
+  public:
+    TStage stage;
+    BASIC::TDateTime old_est;
+    BASIC::TDateTime old_act;
+    int pr_auto;
+    void fromDB(TQuery &Qry);
+    TTripStage() {
+      old_est = ASTRA::NoExists;
+      old_act = ASTRA::NoExists;
+      pr_auto = 0;
+    }
+    bool equal( const TTripStage &stage ) const
+    {
+      return ( scd == stage.scd &&
+               est == stage.est &&
+               act == stage.act &&
+               pr_auto == stage.pr_auto );
+    }
 };
 
 typedef std::map<TStage, TTripStage> TMapTripStages;
@@ -79,8 +102,8 @@ class TTripStages {
     static void WriteStages( int point_id, TMapTripStages &t );
     static void WriteStagesUTC( int point_id, TMapTripStages &ts );
     static void ReadCkinClients( int point_id, TCkinClients &ckin_clients );
-    BASIC::TDateTime time( TStage stage );
-    BASIC::TDateTime time_scd( TStage stage );
+    BASIC::TDateTime time( TStage stage ) const;
+    TTripStageTimes getStageTimes( TStage stage ) const;
     TStage getStage( TStage_Type stage_type );
 };
 

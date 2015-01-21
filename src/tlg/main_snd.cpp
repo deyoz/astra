@@ -101,10 +101,10 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
       bool sendOutAStepByStep=receivedCmdTlgSndStepByStep ||
                               lastSendOutAStepByStep==NoExists ||
                               (lastSendOutAStepByStep<NowUTC()-((double)TLG_STEP_BY_STEP_TIMEOUT())/BASIC::MSecsPerDay);
-                              
+
       bool queue_not_empty=scan_tlg(sendOutAStepByStep);
       if (sendOutAStepByStep) lastSendOutAStepByStep=NowUTC();
-      
+
       *buf=0;
       waitCmd("CMD_TLG_SND",queue_not_empty?PROC_INTERVAL():WAIT_INTERVAL(),buf,sizeof(buf));
       receivedCmdTlgSndStepByStep=(strchr(buf,'S')!=NULL); //true только тогда когда пришел ответ на предыдущую OutAStepByStep
@@ -155,7 +155,7 @@ bool scan_tlg(bool sendOutAStepByStep)
       "ORDER BY tlg_queue.priority, tlg_queue.time_msec, tlg_queue.tlg_num";
     TlgQry.CreateVariable("sender",otString,OWN_CANON_NAME());
   };
-  
+
   static TQuery TlgUpdQry(&OraSession);
   if (TlgUpdQry.SQLText.IsEmpty())
   {
@@ -236,9 +236,9 @@ bool scan_tlg(bool sendOutAStepByStep)
         if (!TlgQry.FieldIsNULL("ttl"))
           ttl=TlgQry.FieldAsInteger("ttl")-
               (int)((NowUTC()-TlgQry.FieldAsDateTime("time"))*BASIC::SecsPerDay);
-        if (!TlgQry.FieldIsNULL("ttl")&&ttl<=0)
+        if (!TlgQry.FieldIsNULL("ttl") && ttl<=0 && priority!=(int)qpOutAStepByStep)
         {
-        	errorTlg(tlg_id,"TTL");
+            errorTlg(tlg_id,"TTL");
         }
         else
         {
@@ -284,7 +284,7 @@ bool scan_tlg(bool sendOutAStepByStep)
                              (unsigned long)ntohl(tlg_out.num),
                              nowUTC,
                              priority);
-              
+
             if (priority==(int)qpOutAStepByStep) alreadySendedOutAStepByStep=true;
           };
         };
@@ -324,14 +324,14 @@ int h2h_out(H2H_MSG *h2h_msg)
   int i=0, head_len, data_len;
   char h2h_head[MAX_H2H_HEAD_SIZE];
 
-	if ( !h2h_msg->sndr	||	strlen(h2h_msg->sndr) > 10	||
-		 !h2h_msg->rcvr	||	strlen(h2h_msg->rcvr) > 10	||
-		 !h2h_msg->tpr	||	strlen(h2h_msg->tpr) > 19	||
-							strlen(h2h_msg->err) > 2 )
-	{
-		ProgError(STDLOG, "h2h_out(): Can't forming H2H header");
-	  return FALSE;
-	}
+    if ( !h2h_msg->sndr	||	strlen(h2h_msg->sndr) > 10	||
+         !h2h_msg->rcvr	||	strlen(h2h_msg->rcvr) > 10	||
+         !h2h_msg->tpr	||	strlen(h2h_msg->tpr) > 19	||
+                            strlen(h2h_msg->err) > 2 )
+    {
+        ProgError(STDLOG, "h2h_out(): Can't forming H2H header");
+      return FALSE;
+    }
 
   strcpy(h2h_head, H2H_BEG_STR);	/*	V.\rV	*/
   i += strlen(H2H_BEG_STR);
@@ -354,18 +354,18 @@ int h2h_out(H2H_MSG *h2h_msg)
 
 /*
   if ( h2h_msg->part == 1 )				8opt	QRI5 'V' First seg
-	h2h_head[i++] = 0x56;
+    h2h_head[i++] = 0x56;
   else
   if ( h2h_msg->part && !h2h_msg->end )	8opt	QRI5 'T' Intermediate seg
-	h2h_head[i++] = 0x54;
+    h2h_head[i++] = 0x54;
   else
   if ( h2h_msg->part && h2h_msg->end )	8opt	QRI5 'U' End seg
-	h2h_head[i++] = 0x55;
+    h2h_head[i++] = 0x55;
   else									8opt	QRI5 'W' Only segment
     h2h_head[i++] = 0x57;
 
   if ( h2h_msg->part )					9opt	QRI6 'A'-'Z' seg
-	h2h_head[i++] = (char)(h2h_msg->part + 64);
+    h2h_head[i++] = (char)(h2h_msg->part + 64);
 */
 
   h2h_head[i++] = 0x2F;					/*10'/'								*/
@@ -389,9 +389,9 @@ int h2h_out(H2H_MSG *h2h_msg)
   i += strlen(h2h_msg->tpr);			/*									*/
   if ( *h2h_msg->err )					/*									*/
   {										/*									*/
-	h2h_head[i++] = 0x2F;				/*	'/'								*/
-	strcpy(&h2h_head[i],h2h_msg->err);	/*									*/
-	i += strlen(h2h_msg->err);			/*									*/
+    h2h_head[i++] = 0x2F;				/*	'/'								*/
+    strcpy(&h2h_head[i],h2h_msg->err);	/*									*/
+    i += strlen(h2h_msg->err);			/*									*/
   }										/*									*/
   h2h_head[i++] = 0x0D;					/*	'\r'*****************************/
 
@@ -415,12 +415,12 @@ int h2h_out(H2H_MSG *h2h_msg)
 //ProgTrace(1, STDLOG, "strlen(h2h_head)=%d, head_len=%d", strlen(h2h_head), i);
   if ( head_len + data_len > MAX_TLG_LEN - 1 )
   {
-		ProgError(STDLOG, "h2h_out(): Too much size of H2H tlg");
-	return FALSE;
+        ProgError(STDLOG, "h2h_out(): Too much size of H2H tlg");
+    return FALSE;
   }
 
   for ( i = data_len; i >= 0; i-- )
-	h2h_msg->data[i+head_len] = h2h_msg->data[i];
+    h2h_msg->data[i+head_len] = h2h_msg->data[i];
 
   memcpy(h2h_msg->data, h2h_head, head_len);
 

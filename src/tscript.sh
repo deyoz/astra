@@ -6,4 +6,6 @@ fi;
 rm -f sirena_run_time.txt;
 rm -rf Cores/*;
 
-./run -nosir -tscript $@
+#./run -nosir -tscript $@
+XP_TESTING=1 ./nosir.tcl -tscript $@
+mv nosir.log tclmon.log

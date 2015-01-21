@@ -363,28 +363,27 @@ void TTripStages::LoadStages( int vpoint_id )
   TTripStages::LoadStages( vpoint_id, tripstages );
 }
 
-TDateTime TTripStages::time( TStage stage )
+TDateTime TTripStages::time( TStage stage ) const
 {
   if ( tripstages.empty() )
     throw Exception( "tripstages is empty" );
-  TTripStage tripStage = tripstages[ stage ];
-  if ( tripStage.act > NoExists )
-    return tripStage.act;
+  TMapTripStages::const_iterator tripStage = tripstages.find( stage );
+  if (tripStage==tripstages.end())
+    return NoExists;
   else
-    if ( tripStage.est > NoExists )
-      return tripStage.est;
-    else
-      return tripStage.scd;
+    return tripStage->second.time();
 }
 
-BASIC::TDateTime TTripStages::time_scd( TStage stage )
+TTripStageTimes TTripStages::getStageTimes( TStage stage ) const
 {
   if ( tripstages.empty() )
     throw Exception( "tripstages is empty" );
-  TTripStage tripStage = tripstages[ stage ];
-  return tripStage.scd;
+  TMapTripStages::const_iterator tripStage = tripstages.find( stage );
+  if (tripStage==tripstages.end())
+    return TTripStageTimes();
+  else
+    return tripStage->second;
 }
-
 
 void TTripStages::ReadCkinClients( int point_id, TCkinClients &ckin_clients )
 {
@@ -1023,6 +1022,8 @@ void CloseBoarding( int point_id )
 
 void Takeoff( int point_id )
 {
+  add_trip_task(point_id, EMD_SYS_UPDATE, "");
+
   time_t time_start,time_end;
 
   time_start=time(NULL);

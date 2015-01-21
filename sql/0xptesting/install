@@ -1,0 +1,12 @@
+#!/bin/sh
+
+ rm -f ok
+ rm -f log
+(
+sqlplus $1 <<EOF
+begin execute immediate 'drop table xp_testing'; exception when others then null; end;
+/
+create table xp_testing ( kek number(1) );
+EOF
+) 2>&1 | tee log
+

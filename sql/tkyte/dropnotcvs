@@ -1,0 +1,12 @@
+if [ -f $2-notcvs.tar ] ; then
+echo $2-notcvs.tar exists
+exit 1
+fi
+
+
+tar cvf $2-notcvs.tar `awk '/^\? / { print $2 }' $1 |grep sql`
+
+tar tvf $2-notcvs.tar |sed -e 's/\(.*\).sql$''/drop '$2' \1;/'  > $3
+
+#rm `tar tvf $2-notcvs.tar`
+

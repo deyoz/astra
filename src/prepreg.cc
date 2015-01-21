@@ -184,7 +184,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.DeclareVariable( "priority", otInteger );
   Qry.Execute();
   bool empty_priority = Qry.VariableIsNULL( "priority" );
-  int priority;
+  int priority = 0;
   if ( !empty_priority )
     priority = Qry.GetVariableAsInteger( "priority" );
   ProgTrace( TRACE5, "airline=%s, flt_no=%d, airp=%s, empty_priority=%d, priority=%d",
@@ -411,27 +411,29 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     SetsQry.SQLText =
       "SELECT pr_tranz_reg,pr_block_trzt,pr_check_load,pr_overload_reg,pr_exam, "
       "       pr_check_pay,pr_exam_check_pay, "
-      "       pr_reg_with_tkn,pr_reg_with_doc,auto_weighing,pr_free_seating, "
+      "       pr_reg_with_tkn, pr_reg_with_doc, pr_reg_without_tkna, "
+      "       auto_weighing,pr_free_seating, "
       "       apis_control, apis_manual_input "
       "FROM trip_sets WHERE point_id=:point_id";
     SetsQry.CreateVariable("point_id",otInteger,point_id);
     SetsQry.Execute();
     if (SetsQry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
 
-    bool new_pr_tranzit,old_pr_tranzit,
-         new_pr_tranz_reg,      old_pr_tranz_reg,
-         new_pr_block_trzt,			old_pr_block_trzt,
-         new_pr_check_load,     old_pr_check_load,
-         new_pr_overload_reg,   old_pr_overload_reg,
-         new_pr_exam,           old_pr_exam,
-         new_pr_check_pay,      old_pr_check_pay,
-         new_pr_exam_check_pay, old_pr_exam_check_pay,
-         new_pr_reg_with_tkn,   old_pr_reg_with_tkn,
-         new_pr_reg_with_doc,   old_pr_reg_with_doc,
-         new_auto_weighing,     old_auto_weighing,
-         new_pr_free_seating,   old_pr_free_seating,
-         new_apis_control,      old_apis_control,
-         new_apis_manual_input, old_apis_manual_input;
+    bool new_pr_tranzit,          old_pr_tranzit,
+         new_pr_tranz_reg,        old_pr_tranz_reg,
+         new_pr_block_trzt,		  old_pr_block_trzt,
+         new_pr_check_load,       old_pr_check_load,
+         new_pr_overload_reg,     old_pr_overload_reg,
+         new_pr_exam,             old_pr_exam,
+         new_pr_check_pay,        old_pr_check_pay,
+         new_pr_exam_check_pay,   old_pr_exam_check_pay,
+         new_pr_reg_with_tkn,     old_pr_reg_with_tkn,
+         new_pr_reg_with_doc,     old_pr_reg_with_doc,
+         new_pr_reg_without_tkna, old_pr_reg_without_tkna,
+         new_auto_weighing,       old_auto_weighing,
+         new_pr_free_seating,     old_pr_free_seating,
+         new_apis_control,        old_apis_control,
+         new_apis_manual_input,   old_apis_manual_input;
 
     old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
     old_pr_tranz_reg=SetsQry.FieldAsInteger("pr_tranz_reg")!=0;
@@ -443,11 +445,13 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     old_pr_exam_check_pay=SetsQry.FieldAsInteger("pr_exam_check_pay")!=0;
     old_pr_reg_with_tkn=SetsQry.FieldAsInteger("pr_reg_with_tkn")!=0;
     old_pr_reg_with_doc=SetsQry.FieldAsInteger("pr_reg_with_doc")!=0;
+    old_pr_reg_without_tkna=SetsQry.FieldAsInteger("pr_reg_without_tkna")!=0;
     old_auto_weighing=SetsQry.FieldAsInteger("auto_weighing")!=0;
     old_pr_free_seating=SetsQry.FieldAsInteger("pr_free_seating")!=0;
     old_apis_control=SetsQry.FieldAsInteger("apis_control")!=0;
     old_apis_manual_input=SetsQry.FieldAsInteger("apis_manual_input")!=0;
 
+    xmlNodePtr node2=node->children;
     new_pr_tranzit=NodeAsInteger("pr_tranzit",node)!=0;
     new_pr_tranz_reg=NodeAsInteger("pr_tranz_reg",node)!=0;
     new_pr_block_trzt=NodeAsInteger("pr_block_trzt",node,1)!=0;
@@ -458,6 +462,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     new_pr_check_pay=NodeAsInteger("pr_check_pay",node)!=0;
     new_pr_reg_with_tkn=NodeAsInteger("pr_reg_with_tkn",node)!=0;
     new_pr_reg_with_doc=NodeAsInteger("pr_reg_with_doc",node)!=0;
+    new_pr_reg_without_tkna=NodeAsIntegerFast("pr_reg_without_tkna",node2,(int)old_pr_reg_without_tkna)!=0;
     if (TReqInfo::Instance()->desk.compatible(USING_SCALES_VERSION))
       new_auto_weighing=NodeAsInteger("auto_weighing",node)!=0;
     else
@@ -465,13 +470,12 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     if (TReqInfo::Instance()->desk.compatible(FREE_SEATING_VERSION))
       new_pr_free_seating=NodeAsInteger("pr_free_seating",node)!=0;
     else
-      new_pr_free_seating=old_pr_free_seating;
-    xmlNodePtr node2=node->children;
+      new_pr_free_seating=old_pr_free_seating;    
     new_apis_control=NodeAsIntegerFast("apis_control",node2,(int)old_apis_control)!=0;
     new_apis_manual_input=NodeAsIntegerFast("apis_manual_input",node2,(int)old_apis_manual_input)!=0;
       
     vector<int> check_waitlist_alarms, check_diffcomp_alarms;
-    bool pr_isTranzitSalons;
+    bool pr_isTranzitSalons = false;
     if (old_pr_tranzit!=new_pr_tranzit ||
         old_pr_tranz_reg!=new_pr_tranz_reg ||
         old_pr_block_trzt!=new_pr_block_trzt ||
@@ -571,6 +575,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         old_pr_exam_check_pay!=new_pr_exam_check_pay ||
         old_pr_reg_with_tkn!=new_pr_reg_with_tkn ||
         old_pr_reg_with_doc!=new_pr_reg_with_doc ||
+        old_pr_reg_without_tkna!=new_pr_reg_without_tkna ||
         old_auto_weighing!=new_auto_weighing ||
         old_pr_free_seating!=new_pr_free_seating ||
         old_apis_control!=new_apis_control ||
@@ -604,6 +609,10 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       if (old_pr_reg_with_doc!=new_pr_reg_with_doc)
       {
         sets.insert(make_pair(tsRegWithDoc, new_pr_reg_with_doc));
+      };
+      if (old_pr_reg_without_tkna!=new_pr_reg_without_tkna)
+      {
+        sets.insert(make_pair(tsRegWithoutTKNA, new_pr_reg_without_tkna));
       };
       if (old_auto_weighing!=new_auto_weighing)
       {

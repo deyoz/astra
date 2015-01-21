@@ -1018,6 +1018,14 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           {
             return pax_id!=NoExists;
           };
+          string full_name() const
+          {
+            ostringstream s;
+            s << surname;
+            if (!name.empty())
+              s << " " << name;
+            return s.str();
+          };
       };
 
       TPaxItem paxWithSeat, paxWithoutSeat;
@@ -1056,7 +1064,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           {
             TPaxItem &pax=paxWithSeat.exists()?paxWithSeat:paxWithoutSeat;
             throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
-                                             AstraLocale::LParams() << AstraLocale::LParam("surname", pax.surname+(pax.name.empty()?"":" ")+pax.name));
+                                             AstraLocale::LParams() << AstraLocale::LParam("surname", pax.full_name()));
           };
         };
 
@@ -1293,7 +1301,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
           if (!PaxUpdate(point_id,pax.pax_id,pax.tid,set_mark,pr_exam_with_brd))
             throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
-                                             LParams() << LParam("surname", pax.surname+(pax.name.empty()?"":" ")+pax.name));
+                                             LParams() << LParam("surname", pax.full_name()));
           pax.updated=true;
         };
 
@@ -1321,7 +1329,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         {
           TTripInfo info(FltQry);
           xmlNodePtr node=NewTextChild(dataNode,"trip_sets");
-          NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
+          NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETSNoInteract,info) );
           NewTextChild( node, "pr_etstatus", pr_etstatus );
         }
         else

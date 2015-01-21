@@ -7,22 +7,50 @@
 // Author: Komtech-N <rom@sirena2000.ru>, (C) 2007
 //
 //
-#ifndef _EDIFACTREQUEST_H_
-#define _EDIFACTREQUEST_H_
+#pragma once
+
 #include <string>
-#include "edilib/edi_types.h"
-#include "edilib/edi_request.h"
+
+#include <edilib/edi_types.h>
+#include <edilib/edi_request.h>
+
+#include "astra_consts.h"
 
 struct _edi_mes_head_;
 struct _EDI_REAL_MES_STRUCT_;
 
+class AstraEdiSessWR;
+namespace Ticketing {
 namespace RemoteSystemContext{
     class SystemContext;
-}
+}//namespace RemoteSystemContext
+}//namespace Ticketing
+
+namespace TlgHandling{
+    class TlgSourceEdifact;
+}//namespace TlgHandling
+
 
 namespace edifact
 {
-    class AstraEdiSessWR;
+
+struct KickInfo
+{
+  int reqCtxtId;
+  std::string iface;
+  std::string handle;
+public:
+  KickInfo() : reqCtxtId(ASTRA::NoExists) {};
+  KickInfo(const int v_reqCtxtId,
+           const std::string &v_iface)
+    : reqCtxtId(v_reqCtxtId),
+      iface(v_iface),
+      handle("0") {};
+  bool empty() const
+  {
+    return iface.empty();
+  }
+};
 
 /**
  * @class EdifactRequest
@@ -30,34 +58,32 @@ namespace edifact
  */
 class EdifactRequest : public edilib::EdifactRequest
 {
-   std::string *TlgOut;
+   TlgHandling::TlgSourceEdifact *TlgOut;
+   std::string ediSessCtxt;
+   KickInfo m_kickInfo;
 public:
     /**
      * @brief EdifactRequest
      * @param msg_type тип сообщения
      */
     EdifactRequest(const std::string &pult,
-                   const RemoteSystemContext::SystemContext *SCont,
-                   edi_msg_types_t msg_type);
+                   const std::string& ctxt,
+                   const KickInfo &v_kickInfo,                   
+                   edi_msg_types_t msg_type,
+                   const Ticketing::RemoteSystemContext::SystemContext* sysCont);
 
-    /**
-     * @brief remote system context
-     * @return
-     */
-    const RemoteSystemContext::SystemContext *sysCont();
 
-    /**
-     * @brief Послать телеграмму, используя данные из pMes()
-     */
+    virtual void collectMessage() = 0;
+
     virtual void sendTlg();
 
-    /**
-     * Последняя посланная телеграмма
-     * @return
-     */
+    const std::string & context() const { return ediSessCtxt; }
+    const KickInfo &kickInfo() const { return m_kickInfo; }
+
     const TlgHandling::TlgSourceEdifact *tlgOut() const;
+
+    const Ticketing::RemoteSystemContext::SystemContext *sysCont();
 
     virtual ~EdifactRequest();
 };
 } // namespace edifact
-#endif /*_EDIFACTREQUEST_H_*/

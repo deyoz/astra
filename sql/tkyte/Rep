@@ -1,0 +1,165 @@
+#!/bin/ksh 
+
+USRPASS=$1
+ODIRTAB=./tab
+ODIRIND=./ind
+TABNAME=`echo "$2"|tr [a-z] [A-Z]`
+
+if [ -z "$USRPASS" ]; then
+	echo "Usage: $0 user/password [table]"
+	echo "Table & Index sqls will be palaced into $ODIRTAB & $ODIRIND" 
+	exit 1;
+fi
+
+WhereString="table_name='$TABNAME'";
+if [ -z "$TABNAME" ]; then
+	echo "Selecting all tables from $USRPASS schema";
+	WhereString="1<>5";
+	rm -rf $ODIRTAB 
+	rm -rf $ODIRIND
+fi
+
+mkdir $ODIRTAB $ODIRIND > /dev/null 2>&1
+ 
+(sqlplus -s ${1} <<__EOS__
+set trims on pages
+select table_name||' TaBlEnAmE' from user_tables
+where $WhereString
+order by table_name;
+exit;
+__EOS__
+)| grep "TaBlEnAmE"| awk '{print $1}'| \
+while read Tname; do
+
+############################ Tables #################################
+unset k
+#echo "DROP TABLE $Tname ;" | tee  $ODIRTAB/$Tname.sql;
+echo "CREATE TABLE $Tname(" | tee -a $ODIRTAB/$Tname.sql;
+(sqlplus -s ${USRPASS}  <<__EOF__
+column data_default format a40;
+set long 40 ;
+set head off;
+set trims on;
+set trim on;
+set pages;
+set tab off;
+set timing off;
+set colsep '|';
+set tab off;
+set echo off;
+set lin 400;
+select  column_name,  
+        data_type,
+        data_length,
+        data_precision,
+        data_scale,
+        nullable,
+        default_length,
+        data_default,
+        low_value, 
+        high_value
+from user_tab_columns where table_name='$Tname' order by column_name;
+__EOF__
+)| sed -e 's/  \/\*.*//g'|grep "|" | sed -e 's/\ *\ |/|/g'| \
+while read Tfield; do
+        if [ ! -z "$k" ] ; then
+            echo "," | tee -a $ODIRTAB/$Tname.sql
+        fi
+	print -n "   " `echo $Tfield|awk 'BEGIN {FS="|"} {print $1}'` | tee -a $ODIRTAB/$Tname.sql;
+	k=`echo $Tfield| awk 'BEGIN {FS="|"} {print $2}'`;
+        print -n "   \t $k" | tee -a $ODIRTAB/$Tname.sql;
+        case $k in
+        "NUMBER")
+            print -n "("`echo $Tfield|awk 'BEGIN {FS="|"} {print $4}'|sed -e 's/\ *//'`") "|tee -a $ODIRTAB/$Tname.sql
+            ;;
+        "VARCHAR2")
+            print -n "("`echo $Tfield|awk 'BEGIN {FS="|"} {print $3}'|sed -e 's/\ *//'`") "|tee -a $ODIRTAB/$Tname.sql
+            ;;
+        "VARCHAR")
+            print -n "("`echo $Tfield|awk 'BEGIN {FS="|"} {print $3}'|sed -e 's/\ *//'`") "|tee -a $ODIRTAB/$Tname.sql
+            ;;
+        "CHAR")
+            print -n "("`echo $Tfield|awk 'BEGIN {FS="|"} {print $3}'|sed -e 's/\ *//'`") "|tee -a $ODIRTAB/$Tname.sql
+            ;;
+        "DATE") print -n " " | tee -a $ODIRTAB/$Tname.sql ;;
+        "LONG") print -n " " | tee -a $ODIRTAB/$Tname.sql ;;
+        esac
+ 
+        def=`echo $Tfield|awk 'BEGIN {FS="|"} {print $8}'`
+        if [ ! -z "$def" ]; then
+              print -n DEFAULT "$def" | tee -a $ODIRTAB/$Tname.sql
+        fi
+
+        nul=`echo $Tfield|awk 'BEGIN {FS="|"} {print $6}'|grep "N"`
+        if [ ! -z "$nul" ]; then
+              print -n " NOT NULL" | tee -a $ODIRTAB/$Tname.sql
+        fi
+done # Table
+
+echo  "   )" | tee -a $ODIRTAB/$Tname.sql
+echo ";" | tee -a $ODIRTAB/$Tname.sql
+
+############################ Indexes #################################
+
+( sqlplus  -s ${USRPASS}  <<__EOF__
+column index_name format a25;
+column uniqueness format a9;
+column tablespace_name format a10;
+column initial_extent format 9999999999;
+column next_extent format 9999999999;
+set long 1000;
+set head off;
+set trims on;
+set trim on;
+set pages;
+set tab off;
+set timing off;
+set colsep '|';
+set tab off;
+set echo off;
+set lin 400;
+spool JOPA1
+select  index_name,
+        uniqueness,
+        tablespace_name,
+        initial_extent,
+        next_extent
+from user_indexes where table_name='$Tname';
+__EOF__
+)| grep "|" |  sed -e 's/ //g' | \
+while read IndNames; do
+	Iname=`echo "$IndNames"| nawk 'BEGIN {FS="|"} {print $1}'`
+#	echo "DROP INDEX $Iname ;" |tee  ind/$Tname.$Iname.sql
+	u=`echo "$IndNames"| nawk 'BEGIN {FS="|"} {print $2}'`;
+        case $u in
+         "NONUNIQUE")
+             print -n "CREATE INDEX $Iname " |tee -a ind/$Tname.$Iname.sql
+             ;;
+         "UNIQUE")
+             print -n "CREATE UNIQUE INDEX $Iname " |tee -a ind/$Tname.$Iname.sql
+             ;;
+        esac
+	print -n "ON $Tname " |tee -a ind/$Tname.$Iname.sql
+	Ifields=`(sqlplus -s  ${USRPASS}  <<__EOF__
+		set trims on;
+		set trim on;
+		set pages;
+		set tab off;
+		set timing off;
+		set tab off;
+		set echo off;
+		set lin 400;
+   		set head off;
+   		column column_name format a30;
+   		select column_name||'|'
+   		from user_ind_columns
+		where index_name='$Iname' order by column_position;
+__EOF__
+) | grep "|" | sed -e 's/ //g' |tr '|' ',' `
+	print -n "(" |tee -a ind/$Tname.$Iname.sql
+	echo `basename "$Ifields" ","` ")" |tee -a ind/$Tname.$Iname.sql
+	echo ";" |tee -a ind/$Tname.$Iname.sql
+done # Index
+
+done # Tables
+

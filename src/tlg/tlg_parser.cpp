@@ -2026,8 +2026,8 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
   const char *p, *line_p;
   TTlgParser tlg;
   TTlgElement e;
-  TIndicator Indicator;
-  int e_part;
+  TIndicator Indicator = None;
+  int e_part = 0;
   bool pr_prev_rem;
 
   line_p=body.p;

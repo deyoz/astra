@@ -228,10 +228,10 @@ void logPaxName(const string &status, const string &surname,
     params << PrmLexema("pax_name", "EVT.UNACCOMPANIED_LUGGAGE");
   else {
     PrmLexema lexema("pax_name", "EVT.PASSENGER");
-  if (status == EncodePaxStatus(psCrew)) lexema.ChangeLexemaId("EVT.CREW_MEMBER");
+    if (status == EncodePaxStatus(psCrew)) lexema.ChangeLexemaId("EVT.CREW_MEMBER");
     lexema.prms << PrmSmpl<std::string>("surname", surname)
-           << PrmSmpl<std::string>("name", (name.empty()?"":" ") + name)
-           << PrmElem<std::string>("pers_type", etPersType, pers_type);
+                << PrmSmpl<std::string>("name", (name.empty()?"":" ") + name)
+                << PrmElem<std::string>("pers_type", etPersType, pers_type);
     params << lexema;
   }
 }
@@ -241,41 +241,6 @@ void TPaxToLogInfo::getPaxName(LEvntPrms& params) const
   logPaxName(status, surname, name, pers_type, params);
 };
 
-std::string logPaxNameStr(const string &status,
-                          const string &surname,
-                          const string &name,
-                          const string &pers_type)
-{
-  std::ostringstream msg;
-  if (pers_type.empty())
-    msg << "Багаж без сопровождения";
-  else
-    msg << (status!=EncodePaxStatus(psCrew)?"Пассажир ":"Член экипажа ")
-        << surname
-        << (name.empty()?"":" ") << name
-        << " (" << pers_type << ")";
-  return msg.str();
-};
-
-std::string TPaxToLogInfo::getPaxNameStr() const
-{
-  return logPaxNameStr(status, surname, name, pers_type);
-};
-
-std::string TPaxToLogInfo::getNormStr(const std::string& lang) const
-{
-  std::ostringstream msg;
-  if (norms.empty()) return getLocaleText("нет", lang);
-  std::map< int/*bag_type*/, CheckIn::TNormItem>::const_iterator n=norms.begin();
-  for(;n!=norms.end();++n)
-  {
-    if (n!=norms.begin()) msg << ", ";
-    if (n->first!=-1) msg << ElemIdToPrefferedElem(etBagType, n->first, efmtNameLong, lang) << "("
-                             << setw(2) << setfill('0') << n->first << ")" << ": ";
-    msg << n->second.str();
-  };
-  return msg.str();
-};
 void TPaxToLogInfo::getNorm(PrmEnum& param) const
 {
   if (norms.empty()) {
@@ -466,8 +431,8 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
         << apisAfter.doc.surname << "/"
         << apisAfter.doc.first_name << "/"
         << apisAfter.doc.second_name << ".";
-        id = (manualInputAfter?"EVT.APIS_LOG_MANUAL_INPUT":"EVT.APIS_LOG_SCANNING");
-     msgs.push_back(make_pair(id, msg.str()));
+    id = (manualInputAfter?"EVT.APIS_LOG_MANUAL_INPUT":"EVT.APIS_LOG_SCANNING");
+    msgs.push_back(make_pair(id, msg.str()));
   };
 
   manualInputBefore=(apisBefore.doco.scanned_attrs & apisBefore.doco.getNotEmptyFieldsMask()) != apisBefore.doco.getNotEmptyFieldsMask();
@@ -629,7 +594,7 @@ void SaveGrpToLog(int point_id,
             {
               LEvntPrms params;
               aPax->second.getPaxName(params);
-              reqInfo->LocaleToLog((*m).first, params << PrmSmpl<string>("params", (*m).second),
+              reqInfo->LocaleToLog(m->first, params << PrmSmpl<string>("params", m->second),
                                                ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
               changed=true;
             };
@@ -692,7 +657,7 @@ void SaveGrpToLog(int point_id,
             {
               LEvntPrms params;
               aPax->second.getPaxName(params);
-              reqInfo->LocaleToLog((*m).first, params << PrmSmpl<string>("params", (*m).second),
+              reqInfo->LocaleToLog(m->first, params << PrmSmpl<string>("params", m->second),
                                                ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
             };
           };
