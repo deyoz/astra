@@ -430,7 +430,7 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     std::string msg_identifier = get_msg_identifier();
     if (!msg_identifier.empty()) NewTextChild(messageNode, "Identifier", msg_identifier);
     NewTextChild(messageNode, "Version", version);
-    NewTextChild(messageNode, "Context", "CHECKORG");
+    NewTextChild(messageNode, "Context", version?"UPDATE":"ORIGINAL");
   }
   // Make segment "Flight"
   if(GetNode("Flight", emulApisNode) == NULL) {
@@ -497,9 +497,9 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     SetProp(travellerNode, "GoShow", it->goShow()?"true":"false");
     SetProp(travellerNode, "NoShow", "false");
     xmlNodePtr flyerNode,checkInNode,boardingNode;
-    if (!it->prBrd()) {
+    if (!version) {
       checkInNode = NewTextChild(travellerNode, "CheckIn");
-      SetProp(checkInNode, "CheckInStatus", "C");
+      SetProp(checkInNode, "CheckInStatus", it->prBrd()?"B":"C");
       flyerNode = NewTextChild(checkInNode, "DCS_Traveller");
       if (!it->persType().empty()) SetProp(flyerNode, "Type", it->persType());
       if (!it->seats().empty()) {

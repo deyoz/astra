@@ -505,7 +505,7 @@ bool create_apis_file(int point_id, const string& task_name)
         for(;!ApisSetsQry.Eof;ApisSetsQry.Next())
         {
           string fmt=ApisSetsQry.FieldAsString("format");
-          if (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK") continue;
+          if (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK" && fmt!="XML_TR") continue;
           string airline_name=airline.short_name_lat;
           if (airline_name.empty())
             airline_name=airline.name_lat;
@@ -642,7 +642,7 @@ bool create_apis_file(int point_id, const string& task_name)
             bool boarded=PaxQry.FieldAsInteger("pr_brd")!=0;
             TPaxStatus status=DecodePaxStatus(PaxQry.FieldAsString("status"));
             if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")) continue;
-            if (status!=psCrew && !boarded && final_apis && fmt!="XML_TR") continue;
+            if (status!=psCrew && !boarded && final_apis) continue;
 
             Paxlst::PassengerInfo paxInfo;
       	    string airp_final_lat;
