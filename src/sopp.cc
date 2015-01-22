@@ -2719,18 +2719,36 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 xmlNodePtr x = GetNode( "@mode", ddddNode );
                 string work_mode = NodeAsString( x );
                 Qry.Clear();
+                Qry.SQLText =
+                   "SELECT name,start_time FROM trip_stations t, stations s, points p "
+                   " WHERE p.point_id=:point_id AND "
+                   "       t.point_id=p.point_id AND "
+                   "       t.work_mode=:work_mode AND "
+                   "       p.airp=s.airp AND "
+                   "       s.work_mode=t.work_mode AND "
+                   "       s.desk=t.desk AND "
+                   "       start_time IS NOT NULL";
+                Qry.CreateVariable( "point_id", otInteger, point_id );
+                Qry.CreateVariable( "work_mode", otString, work_mode );
+                Qry.Execute();
+                map<string,TDateTime> trs;
+                for ( ;!Qry.Eof; Qry.Next() ) {
+                  trs.insert( make_pair( Qry.FieldAsString( "name" ), Qry.FieldAsDateTime( "start_time" ) ) );
+                }
+                Qry.Clear();
                 Qry.SQLText = "DELETE trip_stations	WHERE point_id=:point_id AND work_mode=:work_mode";
                 Qry.CreateVariable( "point_id", otInteger, point_id );
                 Qry.CreateVariable( "work_mode", otString, work_mode );
                 Qry.Execute();
                 Qry.Clear();
-                Qry.SQLText = "INSERT INTO trip_stations(point_id,desk,work_mode,pr_main) "\
-                               " SELECT :point_id,desk,:work_mode,:pr_main FROM stations,points "\
+                Qry.SQLText = "INSERT INTO trip_stations(point_id,desk,work_mode,pr_main,start_time) "
+                               " SELECT :point_id,desk,:work_mode,:pr_main,:start_time FROM stations,points "
                                "  WHERE points.point_id=:point_id AND stations.airp=points.airp AND name=:name";
                 Qry.CreateVariable( "point_id", otInteger, point_id );
                 Qry.DeclareVariable( "name", otString );
                 Qry.DeclareVariable( "pr_main", otInteger );
                 Qry.CreateVariable( "work_mode", otString, work_mode );
+                Qry.DeclareVariable( "start_time", otDate );
                 stnode = ddddNode->children; //tag name
                 string tolog;
                 string name;
@@ -2745,6 +2763,12 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                         Qry.SetVariable( "name", name );
                         pr_main = GetNode( "pr_main", stnode );
                         Qry.SetVariable( "pr_main", pr_main );
+                        if ( trs.find( name ) != trs.end() ) {
+                          Qry.SetVariable( "start_time", trs[name] );
+                        }
+                        else {
+                          Qry.SetVariable( "start_time", FNull );
+                        }
                         Qry.Execute();
                         if (pr_main) {
                           PrmLexema prmlexema("", "EVT.DESK_MAIN");
