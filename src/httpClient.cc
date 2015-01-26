@@ -24,22 +24,25 @@ const std::string PARAM_PASSWORD = "PASSWORD";
 void Client::handle_connect(const boost::system::error_code& error,
                     boost::asio::ip::tcp::resolver::iterator endpoint_iterator)
 {
-  if (!error)
-  {
-    socket_.async_handshake(boost::asio::ssl::stream_base::client,
-        boost::bind(&Client::handle_handshake, this,
-          boost::asio::placeholders::error));
+  if (req_info_.using_ssl) {
+    if (!error)
+    {
+      ssl_socket_.async_handshake(boost::asio::ssl::stream_base::client,
+          boost::bind(&Client::handle_handshake, this,
+            boost::asio::placeholders::error));
+    }
+    else if (endpoint_iterator != boost::asio::ip::tcp::resolver::iterator())
+    {
+      ssl_socket_.lowest_layer().close();
+      boost::asio::ip::tcp::endpoint endpoint = *endpoint_iterator;
+      ssl_socket_.lowest_layer().async_connect(endpoint,
+          boost::bind(&Client::handle_connect, this,
+            boost::asio::placeholders::error, ++endpoint_iterator));
+    }
+    else
+      throw Exception("Connect failed: %s", error.message().c_str());
   }
-  else if (endpoint_iterator != boost::asio::ip::tcp::resolver::iterator())
-  {
-    socket_.lowest_layer().close();
-    boost::asio::ip::tcp::endpoint endpoint = *endpoint_iterator;
-    socket_.lowest_layer().async_connect(endpoint,
-        boost::bind(&Client::handle_connect, this,
-          boost::asio::placeholders::error, ++endpoint_iterator));
-  }
-  else
-    throw Exception("Connect failed: %s", error.message().c_str());
+  else handle_handshake(error);
 }
 
 void Client::handle_handshake(const boost::system::error_code& error)
@@ -57,8 +60,14 @@ void Client::handle_handshake(const boost::system::error_code& error)
     ns_str << req_info_.content;
 
     request_ = ns_str.str();
-    boost::asio::async_write(socket_, boost::asio::buffer(request_),
+    if (req_info_.using_ssl) {
+    boost::asio::async_write(ssl_socket_, boost::asio::buffer(request_),
       boost::bind(&Client::handle_write, this, boost::asio::placeholders::error));
+    }
+    else {
+      boost::asio::async_write(socket_, boost::asio::buffer(request_),
+        boost::bind(&Client::handle_write, this, boost::asio::placeholders::error));
+    }
   }
   else
     throw Exception("Handshake failed: %s", error.message().c_str());
@@ -68,10 +77,18 @@ void Client::handle_write(const boost::system::error_code& error)
 {
   if (!error)
   {
-    boost::asio::async_read_until(socket_, reply_, "<?xml",
-      boost::bind(&Client::handle_read_header, this,
-        boost::asio::placeholders::error,
-        boost::asio::placeholders::bytes_transferred));
+    if (req_info_.using_ssl) {
+      boost::asio::async_read_until(ssl_socket_, reply_, "<?xml",
+        boost::bind(&Client::handle_read_header, this,
+          boost::asio::placeholders::error,
+          boost::asio::placeholders::bytes_transferred));
+    }
+    else {
+      boost::asio::async_read_until(socket_, reply_, "<?xml",
+        boost::bind(&Client::handle_read_header, this,
+          boost::asio::placeholders::error,
+          boost::asio::placeholders::bytes_transferred));
+    }
   }
   else
     throw Exception("Write failed: %s", error.message().c_str());
@@ -95,9 +112,16 @@ void Client::handle_read_header(const boost::system::error_code& error, size_t b
       throw Exception("Response returned with status code %d", status_code);
 
     reply_.consume(bytes_transferred - 2*http_version.size() - status_message.size() - 2);
-    boost::asio::async_read(socket_, reply_, boost::asio::transfer_at_least(1),
-      boost::bind(&Client::handle_read_body, this,
-        boost::asio::placeholders::error));
+    if(req_info_.using_ssl) {
+      boost::asio::async_read(ssl_socket_, reply_, boost::asio::transfer_at_least(1),
+        boost::bind(&Client::handle_read_body, this,
+          boost::asio::placeholders::error));
+    }
+    else {
+      boost::asio::async_read(socket_, reply_, boost::asio::transfer_at_least(1),
+        boost::bind(&Client::handle_read_body, this,
+          boost::asio::placeholders::error));
+    }
   }
   else
     throw Exception("Read failed: %s", error.message().c_str());
@@ -168,6 +192,7 @@ void send_apis_tr()
       request.login = item->params[PARAM_LOGIN];
       request.pswd = item->params[PARAM_PASSWORD];
       request.content = item->data;
+      request.using_ssl = (proto=="https")?true:false;
       TFileQueue::sendFile(item->id);
       httpClient_main(request);
       TFileQueue::doneFile(item->id);
