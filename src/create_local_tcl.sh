@@ -5,7 +5,13 @@ rm -f sirena_run_time.txt
 
 if [ ! -f "astra.tcl" ]; then
     cp ../RUN_EXAMPLE/astra.tcl astra.tcl
+fi
+
+if [ ! -f "nosir.tcl" ]; then
     cp ../RUN_EXAMPLE/nosir.tcl nosir.tcl
+fi
+
+if [ ! -f "date_time_zonespec.csv" ]; then
     cp ../RUN_EXAMPLE/date_time_zonespec.csv date_time_zonespec.csv
 fi
 
