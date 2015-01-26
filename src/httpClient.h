@@ -19,6 +19,7 @@ struct RequestInfo
   std::string content;
   std::string login;
   std::string pswd;
+  bool using_ssl;
 };
 
 class TApisTRFilter {
@@ -39,12 +40,20 @@ class Client
 public:
   Client(boost::asio::io_service& io_service, boost::asio::ssl::context& context,
       boost::asio::ip::tcp::resolver::iterator endpoint_iterator, RequestInfo& request)
-    : socket_(io_service, context), req_info_(request)
+    : req_info_(request), ssl_socket_(io_service, context), socket_(io_service)
   {
     boost::asio::ip::tcp::endpoint endpoint = *endpoint_iterator;
-    socket_.lowest_layer().async_connect(endpoint,
-        boost::bind(&Client::handle_connect, this,
-          boost::asio::placeholders::error, ++endpoint_iterator));
+    if (req_info_.using_ssl) {
+      ssl_socket_.lowest_layer().async_connect(endpoint,
+          boost::bind(&Client::handle_connect, this,
+            boost::asio::placeholders::error, ++endpoint_iterator));
+    }
+    else {
+      (void) context;
+      socket_.lowest_layer().async_connect(endpoint,
+                boost::bind(&Client::handle_connect, this,
+                  boost::asio::placeholders::error, ++endpoint_iterator));
+    }
   }
 
   void handle_connect(const boost::system::error_code& error,
@@ -59,10 +68,11 @@ public:
   void handle_read_body(const boost::system::error_code& error);
 
 private:
-  boost::asio::ssl::stream<boost::asio::ip::tcp::socket> socket_;
+  RequestInfo req_info_;
+  boost::asio::ssl::stream<boost::asio::ip::tcp::socket> ssl_socket_;
+  boost::asio::ip::tcp::socket socket_;
   std::string request_;
   boost::asio::streambuf reply_;
-  RequestInfo req_info_;
 };
 
 int httpClient_main(RequestInfo& request);

@@ -572,17 +572,24 @@ bool create_apis_file(int point_id, const string& task_name)
                 };
               };
 
-              vector<string> strs;
-              vector<string>::const_iterator i;
-              SeparateString(string(ApisSetsQry.FieldAsString("edi_own_addr")), ':', strs);
-              i=strs.begin();
-              if (i!=strs.end()) paxlstInfo.setSenderName(*i++);
-              if (i!=strs.end()) paxlstInfo.setSenderCarrierCode(*i++);
+              if (fmt!="XML_TR")
+              {
+                vector<string> strs;
+                vector<string>::const_iterator i;
+                SeparateString(string(ApisSetsQry.FieldAsString("edi_own_addr")), ':', strs);
+                i=strs.begin();
+                if (i!=strs.end()) paxlstInfo.setSenderName(*i++);
+                if (i!=strs.end()) paxlstInfo.setSenderCarrierCode(*i++);
 
-              SeparateString(string(ApisSetsQry.FieldAsString("edi_addr")), ':', strs);
-              i=strs.begin();
-              if (i!=strs.end()) paxlstInfo.setRecipientName(*i++);
-              if (i!=strs.end()) paxlstInfo.setRecipientCarrierCode(*i++);
+                SeparateString(string(ApisSetsQry.FieldAsString("edi_addr")), ':', strs);
+                i=strs.begin();
+                if (i!=strs.end()) paxlstInfo.setRecipientName(*i++);
+                if (i!=strs.end()) paxlstInfo.setRecipientCarrierCode(*i++);
+              }
+              else
+              {
+                paxlstInfo.setSenderCarrierCode(airline.code_lat);
+              };
 
               ostringstream flight;
               if (fmt!="XML_TR") flight << airline.code_lat;
