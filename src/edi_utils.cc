@@ -1,5 +1,7 @@
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
 #include "edi_utils.h"
-
 #include "misc.h"
 #include "tlg/tlg.h"
 #include "astra_context.h"
@@ -7,6 +9,7 @@
 #include <serverlib/ehelpsig.h>
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/xml_stuff.h>
+#include <serverlib/testmode.h>
 #include <edilib/EdiSessionTimeOut.h>
 #include <edilib/edi_session.h>
 

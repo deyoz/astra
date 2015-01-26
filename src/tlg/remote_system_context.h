@@ -41,7 +41,7 @@ namespace RemoteSystemContext
       std::string m_airline;
       Ticketing::FlightNum_t m_flNum;
       public:
-        system_not_found(const std::string &v_airline, const Ticketing::FlightNum_t &v_flNum) : m_airline(v_airline), m_flNum(v_flNum) {};
+        system_not_found(const std::string &v_airline, const Ticketing::FlightNum_t &v_flNum) : m_airline(v_airline), m_flNum(v_flNum) {}
         const std::string &airline() const { return m_airline; }
         const Ticketing::FlightNum_t &flNum() const { return m_flNum; }
     };

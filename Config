@@ -1,15 +1,38 @@
-#!/bin/bash 
+#!/bin/sh 
 
 if [ "$LOCALCC" = "" ] ; then
-	LOCALCC=gcc
+        LOCALCC=gcc
 fi
-export LOCALCC
+
 if [ "$LOCALCXX" = "" ] ; then
-	LOCALCXX=g++
+        LOCALCXX=g++
 fi
-export LOCALCXX
+
 CC=$LOCALCC
 CXX=$LOCALCXX
-echo "make -f Makefile.cvs && ./configure CC=$CC CXX=$CXX $@"
-make -f Makefile.cvs && ./configure CC="$CC" CXX="$CXX" $@
+CFLAGS=$LOCALCFLAGS
 
+if [ "$1" = "-f" ] ; then
+     echo "skip -f option"
+     shift
+fi
+if [ "$1" = "-shared" ] ; then
+     shift
+     shared_mode="--enable-shared --disable-static"
+fi
+if [ -n "$BOOST" ]; then
+      WITH_PARAMS="$WITH_PARAMS --with-boost=$BOOST"
+fi
+if [ -n "$BOOST_LIB" ]; then
+      WITH_PARAMS="$WITH_PARAMS --with-boost-libdir=$BOOST_LIB"
+fi
+if [ "$BUILD_TESTS" = "1" ]; then
+      WITH_PARAMS="$WITH_PARAMS --enable-xp-testing"
+fi
+if [ -n "$PION_LIB" ]; then
+      WITH_PARAMS="$WITH_PARAMS --with-pion=$PION_LIB"
+fi
+
+set -x
+pwd
+autoreconf --force --install && ./configure --silent CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS CC="$CC" CXX="$CXX" $WITH_PARAMS $shared_mode $@

@@ -1,4 +1,7 @@
-#include "config.h"
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "astra_context.h"
 #include "astra_ticket.h"
 #include "remote_results.h"
@@ -45,12 +48,17 @@ std::string EmdDispRequestByNum::mesFuncCode() const
 
 
 #ifdef XP_TESTING
+#include "edi_tlg.h"
 #include <serverlib/func_placeholders.h>
+#include <serverlib/cursctl.h>
 
 void runEdiTimer_4testsOnly();
 
 static std::string FP_init_eds(const std::vector<std::string> &p)
 {
+  OciCpp::mainSession().set7();
+  OraSession.Initialize(OciCpp::mainSession().getLd() );
+
     using namespace Ticketing::RemoteSystemContext;
 
     ASSERT(p.size() == 3);

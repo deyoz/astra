@@ -114,8 +114,7 @@ static std::string FP_init_jxt_pult(const std::vector<std::string> &args)
         puts("Error retrieving site information");
         return "";
     }
-    edifact::init_edifact();
-
+    
     ASSERT(args.size() == 1 && args[0].length() == 6)
     GetTestContext()->vars["JXT_PULT"] = args[0];
     return "";

@@ -14,6 +14,9 @@ SysTarg:
 
 astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@
 
+install-edimessages:
+	./nosir.tcl -ediinsert -i ${EDILIB_PATH}/edi_messages
+
 
 clean-xp-tests:
 	@if [ ! -d ./Cores ]; then \
@@ -135,7 +138,7 @@ astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
   tests/libtests.a \
 	@ETICKLIB_LIBS@ \
-	@ORACLE_LIBS@ @EDILIB_LIBS@ @EDILIB_LIBLOADING@ \
+	@ORACLE_LIBS@ @EDILIB_LIBS@ \
 	@JXTLIB_LIBS@ @SHARED_LIBS@ \
 	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
 	$(XML_LIBS) @CHECK_LIBS@\

@@ -150,8 +150,9 @@ void EmdCosResponseHandler::handle()
         remoteResults()->setTlgSource(getTlgSrc());
       }
       break;
-    case edilib::EdiRespStatus::partial:
-    case edilib::EdiRespStatus::unsuccessfully:
+    case edilib::EdiRespStatus::partial:        
+    case edilib::EdiRespStatus::notProcessed:
+    case edilib::EdiRespStatus::rejected:
       break;
     }
 */

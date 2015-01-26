@@ -1,3 +1,7 @@
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "tlg.h"
 #include <string>
 #include "basic.h"
