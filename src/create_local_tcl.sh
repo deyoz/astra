@@ -4,7 +4,9 @@ rm -f sirena_run_time.txt
 (cd "$LIBROOT/serverlib/scripts" && echo "pkg_mkIndex -verbose . sirena_mail.tcl" | tclsh)
 
 if [ ! -f "astra.tcl" ]; then
-    cp astra.example.tcl astra.tcl
+    cp ../RUN_EXAMPLE/astra.tcl astra.tcl
+    cp ../RUN_EXAMPLE/nosir.tcl nosir.tcl
+    cp ../RUN_EXAMPLE/date_time_zonespec.csv date_time_zonespec.csv
 fi
 
 cat >local_before.tcl <<EOF
