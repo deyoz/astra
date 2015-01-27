@@ -350,6 +350,7 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
 
     unsigned numTKT=0;
     numTKT = GetNumSegGr(pMes, 4, "INV_TUCKNUM");
+    unsigned numNewTickets = 0;
     for(unsigned short itick=0; itick<numTKT; itick++)
     {
         edilib::EdiPointHolder ph(pMes);
@@ -385,19 +386,19 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
             cpnRead(Data, lCpn);
 
             ltick.push_back(Ticket(ticknum, tick_act_code, itick+1, lCpn));
+            numNewTickets++;
         } else if(tick_act_code == TickStatAction::inConnectionWith)  {
             ASSERT(tkt->m_inConnectionTicketNum);
-            Ticket ticket(tkt->m_ticketNum.get(), *tkt->m_tickStatAction,
+            Ticket ticket(tkt->m_ticketNum.get(), tick_act_code,
                           *tkt->m_nBooklets, getConnectedCoupons(pMes, Data.currTicket().first));
             ticket.setConnectedDocNum(*tkt->m_inConnectionTicketNum);
             ltick.push_back(ticket);
-
         }
     }
 
-    if(ltick.size() > 4 || ltick.size() == 0)
+    if(numNewTickets > 4 || ltick.size() == 0)
     {
-        ProgError(STDLOG, "Invalid number of conjunction tickets (%zu), 4 maximum", ltick.size());
+        ProgError(STDLOG, "Invalid number of conjunction tickets (%zu), 4 maximum", numNewTickets);
         throw Exception("Invalid number of conjunction tickets, 4 maximum");
     }
 
