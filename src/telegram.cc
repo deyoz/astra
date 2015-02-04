@@ -1264,7 +1264,7 @@ void TelegramInterface::SendTlg(int tlg_id)
       //формируем телеграмму
       for(list< list<TypeB::IataAddrOwnerItem> >::const_iterator i=recvs.begin();i!=recvs.end();++i)
       {
-        if (i->empty()) continue;
+        if (i->empty()) throw Exception("%s: i->empty()", __FUNCTION__);
 
         string addrs;
         for(list<TypeB::IataAddrOwnerItem>::const_iterator j=i->begin(); j!=i->end(); ++j)
@@ -1272,7 +1272,27 @@ void TelegramInterface::SendTlg(int tlg_id)
           if (!addrs.empty()) addrs+=" ";
           addrs+=j->addr;
         };
-        addrs=TypeB::format_addr_line(addrs);
+/*
+        //трассировка маршрутизации
+        if (i == recvs.begin())
+        {
+          LogTrace(TRACE5) << __FUNCTION__ << ": "
+                           << std::left << setw(15) << "transport_type"
+                           << std::left << setw(15) << "transport_addr"
+                           << std::left << setw(10) << "iata_addr";
+        };
+
+        string transport_type_str;
+        if (i->begin()->transport_type==TypeB::ttSirena) transport_type_str="ttSirena";
+        if (i->begin()->transport_type==TypeB::ttBagMessage) transport_type_str="ttBagMessage";
+        if (i->begin()->transport_type==TypeB::ttHttp) transport_type_str="ttHttp";
+
+        LogTrace(TRACE5) << __FUNCTION__ << ": "
+                         << std::left << setw(15) << transport_type_str
+                         << std::left << setw(15) << i->begin()->transport_addr
+                         << std::left << setw(10) << addrs;
+*/
+        addrs=TypeB::format_addr_line(addrs);        
 
         if (i->begin()->transport_type==TypeB::ttSirena)
         {
@@ -1333,7 +1353,7 @@ void TelegramInterface::SendTlg(int tlg_id)
         };
 
         if (i == recvs.begin()) // ignore same tlg for different receivers
-            putUTG(tlg_id, tlg.num, tlg_basic_type, fltInfo, tlg.heading+tlg.body+tlg.ending, tlg.extra);
+          putUTG(tlg_id, tlg.num, tlg_basic_type, fltInfo, tlg.heading+tlg.body+tlg.ending, tlg.extra);
       };
     };
 
@@ -1934,15 +1954,6 @@ bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs )
     creator << "BSM";
     creator.getInfo(addrs.createInfo);
 
-    TFileQueue::add_sets_params(
-                                 fltInfo.airp,
-                                 fltInfo.airline,
-                                 IntToString(fltInfo.flt_no),
-                                 OWN_POINT_ADDR(),
-                                 FILE_HTTP_TYPEB_TYPE,
-                                 1,
-                                 addrs.HTTP_TYPEBparams );
-
     return !addrs.empty();
 };
 
@@ -1975,27 +1986,8 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
         CreateTlgBody(*i, *j, p);
         TelegramInterface::SaveTlgOutPart(p, true, false);
         TelegramInterface::SendTlg(p.id);
-      };
-      /* !!!vlad
-      if(not addrs.HTTP_TYPEBparams.empty()) {
-          map<string, string> params = addrs.HTTP_TYPEBparams;
-          TypeB::TCreateInfo createInfo("BSM", TypeB::TCreatePoint());
-          ((TypeB::TBSMOptions*)createInfo.optionsAs<TypeB::TBSMOptions>())->is_lat=true;  //!!! а надо бы читать из настроечной таблицы:
-                                                                                           //!!! как, например, быть с class_of_travel?
-          CreateTlgBody(*i, createInfo, p);
-          p.addToFileParams(params);
-
-          TFileQueue::putFile(OWN_POINT_ADDR(),
-                              OWN_POINT_ADDR(),
-                              FILE_HTTP_TYPEB_TYPE,
-                              params,
-                              p.body);
-      }*/
+      };  
     };
-    /* !!!vlad
-    if(not addrs.HTTP_TYPEBparams.empty())
-        registerHookAfter(sendCmdTlgHttpSnd);
-    */
 
     check_tlg_out_alarm(point_dep);
 };
