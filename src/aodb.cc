@@ -175,7 +175,7 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
 string getRegion( const string &airp )
 {
   string city =((TAirpsRow&)base_tables.get("airps").get_row( "code", airp, true )).city;
-  return ((TCitiesRow&)base_tables.get("cities").get_row( "code", city, true )).region;
+  return ((TCitiesRow&)base_tables.get("cities").get_row( "code", city, true )).tz_region;
 }
 
 // привязка к новому рейсу

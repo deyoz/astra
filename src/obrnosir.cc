@@ -280,13 +280,11 @@ int points_dst_format(int argc,char **argv)
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "select point_id,airp,scd_in,scd_out,est_in,est_out,act_in,act_out, t.region from airps a, cities c, tz_regions t, "
+    "select point_id,airp,scd_in,scd_out,est_in,est_out,act_in,act_out, c.tz_region AS region from airps a, cities c, "
     " ( select point_id,airp,scd_in,scd_out,est_in,est_out,act_in,act_out from points p "
     " where (scd_in >= to_date('24.10.14','DD.MM.YY') or scd_out >= to_date('24.10.14','DD.MM.YY')) AND pr_del <> -1 ) p "
     " WHERE "
-    " p.airp=a.code AND a.city=c.code AND c.country='êî' "
-    " AND c.country=t.COUNTRY AND "
-    " t.tz=c.tz ";
+    " p.airp=a.code AND a.city=c.code AND c.country='êî' AND c.tz_region IS NOT NULL ";
   Qry.Execute();
   TQuery UQry(&OraSession);
   UQry.SQLText =

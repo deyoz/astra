@@ -82,7 +82,7 @@ struct  TParseFlight {
   void clear();
   TParseFlight( const std::string &airp ) {
     std::string city =((TAirpsRow&)base_tables.get("airps").get_row( "code", airp, true )).city;
-    own_region = ((TCitiesRow&)base_tables.get("cities").get_row( "code", city, true )).region;
+    own_region = ((TCitiesRow&)base_tables.get("cities").get_row( "code", city, true )).tz_region;
     own_airp = airp;
   }
   bool is_valid() {
