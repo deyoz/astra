@@ -1834,9 +1834,9 @@ enum TStatType {
     statFull,
     statShort,
     statDetail,
-    statKioskFull,
-    statKioskShort,
-    statKioskDetail,
+    statSelfCkinFull,
+    statSelfCkinShort,
+    statSelfCkinDetail,
     statAgentFull,
     statAgentShort,
     statAgentTotal,
@@ -2187,11 +2187,11 @@ void TStatParams::get(xmlNodePtr reqNode)
             )
             ) {
         if(name == "Подробная")
-            statType=statKioskFull;
+            statType=statSelfCkinFull;
         else if(name == "Общая")
-            statType=statKioskShort;
+            statType=statSelfCkinShort;
         else if(name == "Детализированная")
-            statType=statKioskDetail;
+            statType=statSelfCkinDetail;
         else
             throw Exception("Unknown stat mode " + name);
     } else if(type == "По агентам") {
@@ -2372,25 +2372,7 @@ struct TInetStat {
         kiosk_bag += item.kiosk_bag;
         mobile_bp += item.mobile_bp;
         mobile_bag += item.mobile_bag;
-    }
-
-    string mobile_str() const {
-        ostringstream buf;
-        buf << mobile << "/" << mobile_bag << "/" << mobile_bp;
-        return buf.str();
-    }
-
-    string kiosk_str() const {
-        ostringstream buf;
-        buf << kiosk << "/" << kiosk_bag << "/" << kiosk_bp;
-        return buf.str();
-    }
-
-    string web_str() const {
-        ostringstream buf;
-        buf << web << "/" << web_bag << "/" << web_bp;
-        return buf.str();
-    }
+    }    
 
     void toXML(xmlNodePtr headerNode, xmlNodePtr rowNode) {
         //Web
@@ -3598,65 +3580,63 @@ void RunFullStat(const TStatParams &params,
 
 
 
-struct TKioskStatRow {
+struct TSelfCkinStatRow {
     int pax_amount;
     int term_bp;
     int term_bag;
+    int term_ckin_service;
     int adult;
     int child;
     int baby;
     int tckin;
     set<int> flts;
-    TKioskStatRow():
+    TSelfCkinStatRow():
         pax_amount(0),
         term_bp(0),
         term_bag(0),
+        term_ckin_service(0),
         adult(0),
         child(0),
         baby(0),
         tckin(0)
     {};
-    bool operator == (const TKioskStatRow &item) const
+    bool operator == (const TSelfCkinStatRow &item) const
     {
         return pax_amount == item.pax_amount &&
                term_bp == item.term_bp &&
                term_bag == item.term_bag &&
+               term_ckin_service == item.term_ckin_service &&
                adult == item.adult &&
                child == item.child &&
                baby == item.baby &&
                tckin == item.tckin &&
                flts.size() == item.flts.size();
     };
-    void operator += (const TKioskStatRow &item)
+    void operator += (const TSelfCkinStatRow &item)
     {
         pax_amount += item.pax_amount;
         term_bp += item.term_bp;
         term_bag += item.term_bag;
+        term_ckin_service += item.term_ckin_service;
         adult += item.adult;
         child += item.child;
         baby += item.baby;
         tckin += item.tckin;
         flts.insert(item.flts.begin(),item.flts.end());
-    };
-    string pax_amount_str() const
-    {
-        ostringstream result;
-        result << pax_amount << "/" << term_bag << "/" << term_bp;
-        return result.str();
-    }
+    };  
 };
 
-struct TKioskStatKey {
+struct TSelfCkinStatKey {
     string client_type, kiosk, descr, ak, ap;
     int flt_no;
     int point_id;
     TStatPlaces places;
     TDateTime scd_out;
-    TKioskStatKey(): flt_no(NoExists) {};
+    TSelfCkinStatKey(): flt_no(NoExists) {};
 };
 
 struct TKioskCmp {
-    bool operator() (const TKioskStatKey &lr, const TKioskStatKey &rr) const
+    bool operator() (const TSelfCkinStatKey &lr, const TSelfCkinStatKey &rr) const
     {
         if(lr.client_type == rr.client_type)
             if(lr.kiosk == rr.kiosk)
@@ -3683,10 +3663,10 @@ struct TKioskCmp {
     }
 };
 
-typedef map<TKioskStatKey, TKioskStatRow, TKioskCmp> TKioskStat;
+typedef map<TSelfCkinStatKey, TSelfCkinStatRow, TKioskCmp> TSelfCkinStat;
 
-void RunKioskStat(const TStatParams &params,
-                  TKioskStat &KioskStat, TKioskStatRow &KioskStatTotal,
+void RunSelfCkinStat(const TStatParams &params,
+                  TSelfCkinStat &SelfCkinStat, TSelfCkinStatRow &SelfCkinStatTotal,
                   TPrintAirline &prn_airline)
 {
     TQuery Qry(&OraSession);
@@ -3697,8 +3677,8 @@ void RunKioskStat(const TStatParams &params,
             "    points.airp, "
             "    points.scd_out, "
             "    points.flt_no, "
-            "    kiosk_stat.point_id, "
-            "    kiosk_stat.client_type, "
+            "    self_ckin_stat.point_id, "
+            "    self_ckin_stat.client_type, "
             "    desk, "
             "    desk_airp, "
             "    descr, "
@@ -3707,12 +3687,13 @@ void RunKioskStat(const TStatParams &params,
             "    baby, "
             "    term_bp, "
             "    term_bag, "
+            "    term_ckin_service, "
             "    tckin "
             "from ";
         if(pass != 0) {
             SQLText +=
                 " arx_points points, "
-                " arx_kiosk_stat kiosk_stat ";
+                " arx_self_ckin_stat self_ckin_stat ";
             if(pass == 2)
                 SQLText +=
                     ",(SELECT part_key, move_id FROM move_arx_ext \n"
@@ -3720,7 +3701,7 @@ void RunKioskStat(const TStatParams &params,
         } else {
             SQLText +=
                 " points, "
-                " kiosk_stat ";
+                " self_ckin_stat ";
         }
         SQLText += "where ";
         if (pass==1)
@@ -3728,19 +3709,19 @@ void RunKioskStat(const TStatParams &params,
         if (pass==2)
             SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
         if (pass!=0)
-            SQLText += " kiosk_stat.part_key = points.part_key AND \n";
+            SQLText += " self_ckin_stat.part_key = points.part_key AND \n";
         SQLText +=
-            "    kiosk_stat.point_id = points.point_id and "
+            "    self_ckin_stat.point_id = points.point_id and "
             "    points.pr_del >= 0 and "
             "    points.scd_out >= :FirstDate and "
             "    points.scd_out < :LastDate ";
         if(TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) {
             if(not params.reg_type.empty()) {
-                SQLText += " and kiosk_stat.client_type = :reg_type ";
+                SQLText += " and self_ckin_stat.client_type = :reg_type ";
                 Qry.CreateVariable("reg_type", otString, params.reg_type);
             }
         } else {
-            SQLText += " and kiosk_stat.client_type = :reg_type ";
+            SQLText += " and self_ckin_stat.client_type = :reg_type ";
             Qry.CreateVariable("reg_type", otString, EncodeClientType(ctKiosk));
         }
         if(params.flt_no != NoExists) {
@@ -3760,7 +3741,7 @@ void RunKioskStat(const TStatParams &params,
                 SQLText += " AND points.airline NOT IN " + GetSQLEnum(params.airlines) + "\n";
         };
         if(!params.desk.empty()) {
-            SQLText += "and kiosk_stat.desk = :desk ";
+            SQLText += "and self_ckin_stat.desk = :desk ";
             Qry.CreateVariable("desk", otString, params.desk);
         }
         Qry.SQLText = SQLText;
@@ -3783,6 +3764,7 @@ void RunKioskStat(const TStatParams &params,
             int col_child = Qry.FieldIndex("child");
             int col_term_bp = Qry.FieldIndex("term_bp");
             int col_term_bag = Qry.FieldIndex("term_bag");
+            int col_term_ckin_service = Qry.FieldIndex("term_ckin_service");
             int col_baby = Qry.FieldIndex("baby");
             int col_tckin = Qry.FieldIndex("tckin");
             for(; not Qry.Eof; Qry.Next())
@@ -3790,7 +3772,7 @@ void RunKioskStat(const TStatParams &params,
               string airline = Qry.FieldAsString(col_airline);
               prn_airline.check(airline);
 
-              TKioskStatRow row;
+              TSelfCkinStatRow row;
               row.adult = Qry.FieldAsInteger(col_adult);
               row.child = Qry.FieldAsInteger(col_child);
               row.baby = Qry.FieldAsInteger(col_baby);
@@ -3798,6 +3780,7 @@ void RunKioskStat(const TStatParams &params,
               row.pax_amount = row.adult + row.child + row.baby;
               row.term_bp = Qry.FieldAsInteger(col_term_bp);
               row.term_bag = Qry.FieldAsInteger(col_term_bag);
+              row.term_ckin_service = Qry.FieldAsInteger(col_term_ckin_service);
               int point_id=Qry.FieldAsInteger(col_point_id);
               row.flts.insert(point_id);
               if (!params.skip_rows)
@@ -3810,7 +3793,7 @@ void RunKioskStat(const TStatParams &params,
                 string desk_airp = Qry.FieldAsString(col_desk_airp);
                 string descr = Qry.FieldAsString(col_descr);
 
-                TKioskStatKey key;
+                TSelfCkinStatKey key;
                 key.client_type = client_type;
                 key.kiosk = desk;
                 if(not desk_airp.empty())
@@ -3818,33 +3801,33 @@ void RunKioskStat(const TStatParams &params,
                 key.descr = descr;
                 key.ak = ElemIdToCodeNative(etAirline, airline);
                 if(
-                        params.statType == statKioskDetail or
-                        params.statType == statKioskFull
+                        params.statType == statSelfCkinDetail or
+                        params.statType == statSelfCkinFull
                   )
                     key.ap = airp;
-                if(params.statType == statKioskFull) {
+                if(params.statType == statSelfCkinFull) {
                     key.flt_no = flt_no;
                     key.scd_out = scd_out;
                     key.point_id = point_id;
                     key.places.set(GetRouteAfterStr( NoExists, point_id, trtNotCurrent, trtNotCancelled), false);
                 }
                 
-                AddStatRow(key, row, KioskStat);
+                AddStatRow(key, row, SelfCkinStat);
               }
               else
               {
-                KioskStatTotal+=row;
+                SelfCkinStatTotal+=row;
               };
             }
         }
     }
 }
 
-void createXMLKioskStat(const TStatParams &params,
-                        const TKioskStat &KioskStat, const TKioskStatRow &KioskStatTotal,
+void createXMLSelfCkinStat(const TStatParams &params,
+                        const TSelfCkinStat &SelfCkinStat, const TSelfCkinStatRow &SelfCkinStatTotal,
                         const TPrintAirline &airline, xmlNodePtr resNode)
 {
-    if(KioskStat.empty() && KioskStatTotal==TKioskStatRow())
+    if(SelfCkinStat.empty() && SelfCkinStatTotal==TSelfCkinStatRow())
       throw AstraLocale::UserException("MSG.NOT_DATA");
 
     NewTextChild(resNode, "airline", airline.get(), "");
@@ -3852,12 +3835,12 @@ void createXMLKioskStat(const TStatParams &params,
     xmlNodePtr headerNode = NewTextChild(grdNode, "header");
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
-    TKioskStatRow total;
+    TSelfCkinStatRow total;
     bool showTotal=true;
     if (!params.skip_rows)
     {
       int rows = 0;
-      for(TKioskStat::const_iterator im = KioskStat.begin(); im != KioskStat.end(); ++im, rows++)
+      for(TSelfCkinStat::const_iterator im = SelfCkinStat.begin(); im != SelfCkinStat.end(); ++im, rows++)
       {
           if(rows >= MAX_STAT_ROWS) {
               AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
@@ -3867,7 +3850,7 @@ void createXMLKioskStat(const TStatParams &params,
           }
           //region обязательно в начале цикла, иначе будет испорчен xml
           string region;
-          if(params.statType == statKioskFull)
+          if(params.statType == statSelfCkinFull)
           {
             try
             {
@@ -3887,23 +3870,23 @@ void createXMLKioskStat(const TStatParams &params,
           // № киоска
           NewTextChild(rowNode, "col", im->first.kiosk);
           // примечание
-          if(params.statType == statKioskFull)
+          if(params.statType == statSelfCkinFull)
               NewTextChild(rowNode, "col", im->first.descr);
           // код а/к
           NewTextChild(rowNode, "col", im->first.ak);
           if(
-                  params.statType == statKioskDetail or
-                  params.statType == statKioskFull
+                  params.statType == statSelfCkinDetail or
+                  params.statType == statSelfCkinFull
             )
               // код а/п
               NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, im->first.ap));
           if(
-                  params.statType == statKioskShort or
-                  params.statType == statKioskDetail
+                  params.statType == statSelfCkinShort or
+                  params.statType == statSelfCkinDetail
             )
               // Кол-во рейсов
               NewTextChild(rowNode, "col", (int)im->second.flts.size());
-          if(params.statType == statKioskFull) {
+          if(params.statType == statSelfCkinFull) {
               // номер рейса
               ostringstream buf;
               buf << setw(3) << setfill('0') << im->first.flt_no;
@@ -3919,8 +3902,9 @@ void createXMLKioskStat(const TStatParams &params,
           NewTextChild(rowNode, "col", im->second.pax_amount);
           NewTextChild(rowNode, "col", im->second.term_bag);
           NewTextChild(rowNode, "col", im->second.term_bp);
+          NewTextChild(rowNode, "col", im->second.pax_amount - im->second.term_ckin_service);
 
-          if(params.statType == statKioskFull) {
+          if(params.statType == statSelfCkinFull) {
               // ВЗ
               NewTextChild(rowNode, "col", im->second.adult);
               // РБ
@@ -3929,14 +3913,14 @@ void createXMLKioskStat(const TStatParams &params,
               NewTextChild(rowNode, "col", im->second.baby);
           }
           if(
-                  params.statType == statKioskDetail or
-                  params.statType == statKioskFull
+                  params.statType == statSelfCkinDetail or
+                  params.statType == statSelfCkinFull
             )
               // Сквоз. рег.
               NewTextChild(rowNode, "col", im->second.tckin);
           if(
-                  params.statType == statKioskShort or
-                  params.statType == statKioskDetail
+                  params.statType == statSelfCkinShort or
+                  params.statType == statSelfCkinDetail
             )
               // Примечание
               NewTextChild(rowNode, "col", im->first.descr);
@@ -3944,7 +3928,7 @@ void createXMLKioskStat(const TStatParams &params,
           total += im->second;
       };
     }
-    else total=KioskStatTotal;
+    else total=SelfCkinStatTotal;
     
     rowNode = NewTextChild(rowsNode, "row");
 
@@ -3959,7 +3943,7 @@ void createXMLKioskStat(const TStatParams &params,
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col");
-    if(params.statType == statKioskFull) {
+    if(params.statType == statSelfCkinFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
         SetProp(colNode, "width", 280);
         SetProp(colNode, "align", taLeftJustify);
@@ -3972,8 +3956,8 @@ void createXMLKioskStat(const TStatParams &params,
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col");
     if(
-            params.statType == statKioskDetail or
-            params.statType == statKioskFull
+            params.statType == statSelfCkinDetail or
+            params.statType == statSelfCkinFull
       ) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
         SetProp(colNode, "width", 50);
@@ -3982,8 +3966,8 @@ void createXMLKioskStat(const TStatParams &params,
         NewTextChild(rowNode, "col");
     }
     if(
-            params.statType == statKioskShort or
-            params.statType == statKioskDetail
+            params.statType == statSelfCkinShort or
+            params.statType == statSelfCkinDetail
       ) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
         SetProp(colNode, "width", 85);
@@ -3991,7 +3975,7 @@ void createXMLKioskStat(const TStatParams &params,
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", (int)total.flts.size());
     }
-    if(params.statType == statKioskFull) {
+    if(params.statType == statSelfCkinFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
         SetProp(colNode, "width", 75);
         SetProp(colNode, "align", taRightJustify);
@@ -4029,7 +4013,13 @@ void createXMLKioskStat(const TStatParams &params,
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.term_bp);
 
-    if(params.statType == statKioskFull) {
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Всё сами"));
+    SetProp(colNode, "width", 45);
+    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "sort", sortInteger);
+    NewTextChild(rowNode, "col", total.pax_amount-total.term_ckin_service);
+
+    if(params.statType == statSelfCkinFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
@@ -4047,8 +4037,8 @@ void createXMLKioskStat(const TStatParams &params,
         NewTextChild(rowNode, "col", total.baby);
     }
     if(
-            params.statType == statKioskDetail or
-            params.statType == statKioskFull
+            params.statType == statSelfCkinDetail or
+            params.statType == statSelfCkinFull
       ) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз."));
         SetProp(colNode, "width", 45);
@@ -4057,8 +4047,8 @@ void createXMLKioskStat(const TStatParams &params,
         NewTextChild(rowNode, "col", total.tckin);
     }
     if(
-            params.statType == statKioskShort or
-            params.statType == statKioskDetail
+            params.statType == statSelfCkinShort or
+            params.statType == statSelfCkinDetail
       ) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
         SetProp(colNode, "width", 280);
@@ -4083,17 +4073,17 @@ void createXMLKioskStat(const TStatParams &params,
                 ));
     string buf;
     switch(params.statType) {
-        case statKioskShort:
+        case statSelfCkinShort:
             buf = getLocaleText("Общая");
             break;
-        case statKioskDetail:
+        case statSelfCkinDetail:
             buf = getLocaleText("Детализированная");
             break;
-        case statKioskFull:
+        case statSelfCkinFull:
             buf = getLocaleText("Подробная");
             break;
         default:
-            throw Exception("createXMLKioskStat: unexpected statType %d", params.statType);
+            throw Exception("createXMLSelfCkinStat: unexpected statType %d", params.statType);
             break;
     }
     NewTextChild(variablesNode, "stat_type_caption", buf);
@@ -5074,7 +5064,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     if (
             params.statType==statFull ||
             params.statType==statTrferFull ||
-            params.statType==statKioskFull ||
+            params.statType==statSelfCkinFull ||
             params.statType==statAgentFull ||
             params.statType==statAgentShort ||
             params.statType==statAgentTotal ||
@@ -5104,9 +5094,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
       case statDetail:
         get_compatible_report_form("DetailStat", reqNode, resNode);
         break;
-      case statKioskFull:
-      case statKioskShort:
-      case statKioskDetail:
+      case statSelfCkinFull:
+      case statSelfCkinShort:
+      case statSelfCkinDetail:
       case statAgentFull:
       case statAgentShort:
       case statAgentTotal:
@@ -5154,15 +5144,15 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
           createXMLFullStat(params, FullStat, FullStatTotal, airline, resNode);
         };
         if(
-                params.statType == statKioskShort or
-                params.statType == statKioskDetail or
-                params.statType == statKioskFull
+                params.statType == statSelfCkinShort or
+                params.statType == statSelfCkinDetail or
+                params.statType == statSelfCkinFull
                 ) {
-            TKioskStat KioskStat;
-            TKioskStatRow KioskStatTotal;
+            TSelfCkinStat SelfCkinStat;
+            TSelfCkinStatRow SelfCkinStatTotal;
             TPrintAirline airline;
-            RunKioskStat(params, KioskStat, KioskStatTotal, airline);
-            createXMLKioskStat(params, KioskStat, KioskStatTotal, airline, resNode);
+            RunSelfCkinStat(params, SelfCkinStat, SelfCkinStatTotal, airline);
+            createXMLSelfCkinStat(params, SelfCkinStat, SelfCkinStatTotal, airline, resNode);
         }
         if(
                 params.statType == statAgentShort or
@@ -5558,7 +5548,7 @@ void get_flight_stat(int point_id, bool final_collection)
      TCachedQuery Qry("BEGIN "
                       "  statist.get_stat(:point_id); "
                       "  statist.get_trfer_stat(:point_id); "
-                      "  statist.get_kiosk_stat(:point_id); "
+                      "  statist.get_self_ckin_stat(:point_id); "
                       "END;",
                       QryParams);
      Qry.get().Execute();
