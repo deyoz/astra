@@ -155,6 +155,11 @@ struct TAllowedAttributesSeat {
 
   bool isWorkINFT( int vpoint_id ) {
     point_id = vpoint_id;
+    if ( TReqInfo::Instance()->client_type == ctTerm ||
+         TReqInfo::Instance()->client_type == ctPNL ) {
+      pr_isWorkINFT = false;
+      return pr_isWorkINFT;
+    }
     TQuery Qry(&OraSession);
     Qry.SQLText =
       "SELECT airline FROM points WHERE point_id=:point_id";
@@ -3520,6 +3525,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     }
     //INFT
     bool pr_INFT = ( TReqInfo::Instance()->client_type != ctTerm &&
+                     TReqInfo::Instance()->client_type != ctPNL &&
                      AllowedAttrsSeat.isWorkINFT( point_id ) &&
                      isINFT( point_id, pax_id ) ); //расчитаем prINFT
     if ( pr_INFT || !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересдка INFT запрещена
@@ -4104,6 +4110,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       	coord.x++;
     }
     bool pr_INFT = ( TReqInfo::Instance()->client_type != ctTerm &&
+                     TReqInfo::Instance()->client_type != ctPNL &&
                      AllowedAttrsSeat.isWorkINFT( point_id ) &&
                      isINFT( point_id, pax_id ) );
     if ( pr_INFT || !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересадка INFT запрещена

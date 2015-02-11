@@ -4569,7 +4569,8 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
                                            const std::vector<AstraWeb::TWebPax> &pnr,
                                            TDropLayersFlags &dropLayersFlags )
 {
-  bool pr_web_terminal = TReqInfo::Instance()->client_type != ASTRA::ctTerm;
+  bool pr_web_terminal = ( TReqInfo::Instance()->client_type != ASTRA::ctTerm &&
+                           TReqInfo::Instance()->client_type != ASTRA::ctPNL );
 
   salons.Clear();
   if ( filterRoutes.point_arv == filterRoutes.point_dep ) {
