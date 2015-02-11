@@ -438,6 +438,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
       };
 
       bool isTranzitSalonsVersion = isTranzitSalons( iPnrData->flt.point_dep );
+      BitSet<SEATS2::TChangeLayerFlags> change_layer_flags;
       //пассажиры для изменения
       for(list<TWebPaxForChng>::const_iterator iPaxForChng=currPnr.paxForChng.begin();iPaxForChng!=currPnr.paxForChng.end();iPaxForChng++)
       {
@@ -470,8 +471,8 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
                                   pax_tid,
                                   curr_xname, curr_yname,
                                   SEATS2::stReseat,
-                                    cltUnknown,
-                                  false, false,
+                                  cltUnknown,
+                                  change_layer_flags,
                                   NULL );
               }
               else {
@@ -479,9 +480,9 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
                                 iPaxForChng->crs_pax_id,
                                 pax_tid,
                                 curr_xname, curr_yname,
-                                  SEATS2::stReseat,
-                                  cltUnknown,
-                                false, false,
+                                SEATS2::stReseat,
+                                cltUnknown,
+                                change_layer_flags,
                                 NULL );
               }
             };

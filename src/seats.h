@@ -15,6 +15,8 @@ using namespace SALONS2;
 enum TSeatStep { sLeft, sRight, sUp, sDown };
 enum TWhere { sLeftRight, sUpDown, sEveryWhere };
 enum TSeatsType { stSeat, stReseat, stDropseat };
+enum TChangeLayerFlags { flWaitList, flQuestionReseat, flSetPayLayer, flCheckPayLayer };
+enum TChangeLayerProcFlag { clNotPaySeat, clPaySeatSet, clPaySeatCheck };
 
 /* алгоритм рассадки пассажиров
 	   sdUpDown_Row - сверху вниз в ряд
@@ -174,7 +176,7 @@ class TPassengers {
     void Add( const SALONS2::TSalonList &salonList, TPassenger &pass );
     void Add( SALONS2::TSalons &Salons, TPassenger &pass );
     void Add( TPassenger &pass );
-    int getCount();
+    int getCount() const;
     TPassenger &Get( int Idx );
     void copyTo( VPassengers &npass );
     void copyFrom( VPassengers &npass );
@@ -182,6 +184,7 @@ class TPassengers {
     bool existsNoSeats();
     void Build( xmlNodePtr passNode );
     void sortByIndex();
+    void operator = (TPassengers &items);
 };
 
 struct TSeatPlace {
@@ -226,6 +229,8 @@ class TSeatPlaces {
     bool SeatsGrp( );
     bool SeatsPassengers( bool pr_autoreseats = false );
     void PlacesToPassengers();
+    void operator = ( VSeatPlaces &items );
+    void operator >> ( VSeatPlaces &items );
 };
 
 struct TSublsRem {
@@ -259,10 +264,11 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                       TSeatAlgoParams ASeatAlgoParams /* sdUpDown_Line - умолчание */,
                       ASTRA::TClientType client_type,
                       TPassengers &passengers );
-void ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
-                  std::string first_xname, std::string first_yname, TSeatsType seat_type );
-void ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
-                   std::string first_xname, std::string first_yname, TSeatsType seat_type, bool pr_lat_seat );
+bool ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
+                  std::string first_xname, std::string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag );
+bool ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
+                  std::string first_xname, std::string first_yname, TSeatsType seat_type,
+                  bool pr_lat_seat, TChangeLayerProcFlag seatFlag );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats,
 	                       int pax_id, int point_dep, int point_arv, BASIC::TDateTime time_create );
 bool GetPassengersForWaitList( int point_id, TPassengers &p );

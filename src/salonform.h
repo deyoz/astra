@@ -71,17 +71,17 @@ void ZoneLoads(int point_id,
                std::vector<TZoneOccupiedSeats> &zones,
                std::vector<SALONS2::TCompSectionLayers> &CompSectionsLayers,
                std::vector<SALONS2::TCompSection> &compSections );
-void IntChangeSeats( int point_id, int pax_id,
+bool IntChangeSeats( int point_id, int pax_id,
                      int &tid, std::string xname, std::string yname,
-	                   SEATS2::TSeatsType seat_type,
-	                   ASTRA::TCompLayerType layer_type,
-                     bool pr_waitlist, bool pr_question_reseat,
+                     SEATS2::TSeatsType seat_type,
+                     ASTRA::TCompLayerType layer_type,
+                     const BitSet<SEATS2::TChangeLayerFlags> &flags,
                      xmlNodePtr resNode );
-void IntChangeSeatsN( int point_id, int pax_id, int &tid,
+bool IntChangeSeatsN( int point_id, int pax_id, int &tid,
                       std::string xname, std::string yname,
                       SEATS2::TSeatsType seat_type,
                       ASTRA::TCompLayerType layer_type,
-                      bool pr_waitlist, bool pr_question_reseat,
+                      const BitSet<SEATS2::TChangeLayerFlags> &flags,
                       xmlNodePtr resNode );
 void trace( int pax_id, int grp_id, int parent_pax_id, int crs_pax_id, const std::string &pers_type, int seats );
 template <class T1>
