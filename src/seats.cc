@@ -168,7 +168,7 @@ struct TAllowedAttributesSeat {
     if ( Qry.Eof ) {
       ProgError( STDLOG, "isWorkINFT: flight not found!!!, point_id=%d", point_id );
     }
-    pr_isWorkINFT = ( !Qry.Eof && string("РГ") == Qry.FieldAsString( "airline") );
+    pr_isWorkINFT = ( !Qry.Eof && (string("РГ") == Qry.FieldAsString( "airline") /*|| string("ЮТ") == Qry.FieldAsString( "airline")*/));
     return pr_isWorkINFT;
   }
 
@@ -2095,11 +2095,16 @@ void TPassengers::operator = (TPassengers &items)
   Clear();
   for ( int i=0; i<items.getCount(); i++ ) {
     TPassenger &pass = items.Get( i );
-    Add( pass );
+    Add( pass, pass.index );
   }
 }
 
 void TPassengers::Add( TPassenger &pass )
+{
+  Add( pass, (int)FPassengers.size() );
+}
+
+void TPassengers::Add( TPassenger &pass, int index )
 {
   bool Pr_PLC = false;
   if ( pass.countPlace > 1 && pass.isRemark( string( "STCR" ) )	 ) {
@@ -2139,7 +2144,8 @@ void TPassengers::Add( TPassenger &pass )
     if ( pass.priority > ipass->priority )
       break;
   }
-  pass.index = (int)FPassengers.size();
+  pass.index = index;
+//  ProgTrace( TRACE5, "pass.index=%d, pass.paxId=%d", pass.index, pass.paxId );
   if ( ipass == FPassengers.end() )
     FPassengers.push_back( pass );
   else
@@ -2592,7 +2598,7 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
         TPassenger &pass = passengers.Get( i );
         if ( (j==0 && pass.isRemark( "INFT" )) ||
              (j==1 && !pass.isRemark( "INFT" )) ) {
-          v.Add( pass );
+          v.Add( pass, pass.index );
 //          ProgTrace( TRACE5, "dividePassengersToGrps: j=%d, i=%d, pass.idx=%d, pass.pax_id=%d, INFT=%d", j,i, pass.paxId, pass.index, pass.isRemark( "INFT") );
         }
       }
@@ -2640,7 +2646,6 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
   // passengers - скорее всего это глобальная переменная, надо ее запомнить, использовать, а потом восстановить
   //в последнем элементе вектора - вся группа до разбивки
   VSeatPlaces seatsGrps;
-  int ipasscount=0;
   for ( std::vector<TPassengers>::iterator ipassGrp=passGrps.begin(); ipassGrp!=passGrps.end(); ) {
     passengers = *ipassGrp;
     try {
@@ -2661,13 +2666,22 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
         if ( ipassGrp != passGrps.end() ) {
           std::vector<TPassengers>::iterator jpassGrp = passGrps.end() - 1;
           for ( int i=0; i<passengers.getCount(); i++ ) {
-            TPassenger &pass = passengers.Get( i );
+            TPassenger &pass0 = passengers.Get( i );
+            for ( int j=0; j<jpassGrp->getCount(); j++ ) {
+              TPassenger &pass1 = jpassGrp->Get( j );
+              if ( pass0.index == pass1.index ) {
+                pass1 = pass0;
+                ProgTrace( TRACE5, "i=%d, j=%d, paxId1=%d,paxId2=%d,indedx=%d, seat_no=(%d,%d)", i, j, pass0.paxId, pass1.paxId, pass1.index, pass1.Pos.x, pass1.Pos.y );
+                break;
+              }
+            }
+/*            TPassenger &pass = passengers.Get( i );
             TPassenger &pass1 = jpassGrp->Get( ipasscount );
             int idx = pass1.index;
             pass1 = pass;
             pass1.index = idx;
             ProgTrace( TRACE5, "ipasscount=%d, i=%d, indedx=%d, seat_no=(%d,%d)", ipasscount, i, idx, pass1.Pos.x, pass1.Pos.y );
-            ipasscount++;
+            ipasscount++;*/
           }
           if ( ipassGrp == jpassGrp ) {
             passengers = *jpassGrp;
@@ -2700,6 +2714,7 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
   ProgTrace( TRACE5, "seatsGrps.size()=%zu", seatsGrps.size() );
   SeatPlaces = seatsGrps; //достаем места
   SeatPlaces.RollBack(); //откатываем
+  passengers.sortByIndex();
   tst();
 }
 

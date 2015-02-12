@@ -176,6 +176,7 @@ class TPassengers {
     void Add( const SALONS2::TSalonList &salonList, TPassenger &pass );
     void Add( SALONS2::TSalons &Salons, TPassenger &pass );
     void Add( TPassenger &pass );
+    void Add( TPassenger &pass, int index );
     int getCount() const;
     TPassenger &Get( int Idx );
     void copyTo( VPassengers &npass );
