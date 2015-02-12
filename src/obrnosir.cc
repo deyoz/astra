@@ -280,11 +280,11 @@ int points_dst_format(int argc,char **argv)
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "select point_id,airp,scd_in,scd_out,est_in,est_out,act_in,act_out, c.tz_region AS region from airps a, cities c, "
+    "select point_id,airp,scd_in,scd_out,est_in,est_out,act_in,act_out, c.tz_region region from airps a, cities c,"
     " ( select point_id,airp,scd_in,scd_out,est_in,est_out,act_in,act_out from points p "
     " where (scd_in >= to_date('24.10.14','DD.MM.YY') or scd_out >= to_date('24.10.14','DD.MM.YY')) AND pr_del <> -1 ) p "
     " WHERE "
-    " p.airp=a.code AND a.city=c.code AND c.country='êî' AND c.tz_region IS NOT NULL ";
+    " p.airp=a.code AND a.city=c.code AND c.country='êî' ";
   Qry.Execute();
   TQuery UQry(&OraSession);
   UQry.SQLText =
@@ -674,8 +674,8 @@ int seasons_dst_format(int argc,char **argv)
   //1 - ß®¨†
   Qry.Clear();
   Qry.SQLText =
-    "SELECT trip_id,move_id,num,first_day,last_day,days,sched_days.tz,sched_days.region FROM sched_days, seasons "
-    "WHERE seasons.hours = 1 AND seasons.tz=sched_days.tz AND "
+    "SELECT trip_id,move_id,num,first_day,last_day,days,sched_days.region FROM sched_days, seasons "
+    "WHERE seasons.hours = 1 AND seasons.region=sched_days.region AND "
     "      first_day BETWEEN seasons.first AND seasons.last "
     "ORDER BY trip_id,move_id,num";
   Qry.Execute();
@@ -904,7 +904,7 @@ int seasons_dst_format(int argc,char **argv)
       " FROM ROUTES,SCHED_DAYS, SEASONS "
       " WHERE "
       " ROUTES.MOVE_ID=SCHED_DAYS.MOVE_ID AND "
-      " SEASONS.HOURS = 1 AND SEASONS.TZ=SCHED_DAYS.TZ AND SCD_IN IS NOT NULL AND "
+      " SEASONS.HOURS = 1 AND SEASONS.REGION=SCHED_DAYS.REGION AND SCD_IN IS NOT NULL AND "
       " TRUNC(FIRST_DAY)+DELTA_IN+(SCD_IN-TRUNC(SCD_IN)) NOT BETWEEN SEASONS.FIRST AND SEASONS.LAST AND "
       " FIRST_DAY BETWEEN SEASONS.FIRST AND SEASONS.LAST "
       " UNION "
@@ -912,7 +912,7 @@ int seasons_dst_format(int argc,char **argv)
       " FROM ROUTES,SCHED_DAYS, SEASONS "
       " WHERE "
       " ROUTES.MOVE_ID=SCHED_DAYS.MOVE_ID AND "
-      " SEASONS.HOURS = 1 AND SEASONS.TZ=SCHED_DAYS.TZ AND SCD_OUT IS NOT NULL AND "
+      " SEASONS.HOURS = 1 AND SEASONS.REGION=SCHED_DAYS.REGION AND SCD_OUT IS NOT NULL AND "
       " TRUNC(FIRST_DAY)+DELTA_OUT+(SCD_OUT-TRUNC(SCD_OUT)) NOT BETWEEN SEASONS.FIRST AND SEASONS.LAST AND "
       " FIRST_DAY BETWEEN SEASONS.FIRST AND SEASONS.LAST "
       " order by first_day ";
