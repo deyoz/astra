@@ -4569,7 +4569,8 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
                                            const std::vector<AstraWeb::TWebPax> &pnr,
                                            TDropLayersFlags &dropLayersFlags )
 {
-  bool pr_web_terminal = TReqInfo::Instance()->client_type != ASTRA::ctTerm;
+  bool pr_web_terminal = ( TReqInfo::Instance()->client_type != ASTRA::ctTerm &&
+                           TReqInfo::Instance()->client_type != ASTRA::ctPNL );
 
   salons.Clear();
   if ( filterRoutes.point_arv == filterRoutes.point_dep ) {
@@ -5454,12 +5455,12 @@ void TSalons::Read( bool drop_not_used_pax_layers )
           }
         }
       }
-    	if ( PaxQry.FieldAsInteger( idx_seats ) >= 1 &&
+      if ( PaxQry.FieldAsInteger( idx_seats ) >= 1 &&
            pax_layers.find( PaxQry.FieldAsInteger( idx_pax_id ) ) == pax_layers.end() ) {
-    	  pax_layers[ PaxQry.FieldAsInteger( idx_pax_id ) ].seats = PaxQry.FieldAsInteger( idx_seats );
-    	  pax_layers[ PaxQry.FieldAsInteger( idx_pax_id ) ].cl = PaxQry.FieldAsString( idx_class );
-    	}
-    	PaxQry.Next();
+        pax_layers[ PaxQry.FieldAsInteger( idx_pax_id ) ].seats = PaxQry.FieldAsInteger( idx_seats );
+        pax_layers[ PaxQry.FieldAsInteger( idx_pax_id ) ].cl = PaxQry.FieldAsString( idx_class );
+      }
+      PaxQry.Next();
     }
     //привязали детей к взрослым
     //!logProgTrace( TRACE5, "SetInfantsToAdults: InfItems.size()=%zu, AdultItems.size()=%zu", InfItems.size(), AdultItems.size() );
