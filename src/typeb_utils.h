@@ -654,22 +654,8 @@ class TPRLOptions : public TMarkInfoOptions
         virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
         {
             TMarkInfoOptions::fromDB(Qry, OptionsQry);
-
-            std::string basic_type;
-            std::string tlg_type = Qry.FieldAsString("tlg_type");
-            try
-            {
-                const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
-                basic_type=row.basic_type;
-            }
-            catch(EBaseTableError)
-            {
-                throw EXCEPTIONS::Exception("TPRLOptions::fromDB: unknown telegram type %s", tlg_type.c_str());
-            };
-
-
             OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
-            OptionsQry.SetVariable("tlg_type", basic_type);
+            OptionsQry.SetVariable("tlg_type", Qry.FieldAsString("tlg_type"));
             OptionsQry.Execute();
             for(;!OptionsQry.Eof;OptionsQry.Next())
             {
@@ -1108,6 +1094,123 @@ class TBSMOptions : public TCreateOptions
       {
         const TBSMOptions &opt = dynamic_cast<const TBSMOptions&>(item);
         class_of_travel=opt.class_of_travel;
+      }
+      catch(std::bad_cast) {};
+    };
+};
+
+class TPNLADLOptions : public TMarkInfoOptions
+{
+  private:
+    void init()
+    {
+      forwarding=false;
+      typeb_in_id=ASTRA::NoExists;
+      typeb_in_num=ASTRA::NoExists;
+    };
+  public:
+    bool forwarding;
+    int typeb_in_id, typeb_in_num;
+    TPNLADLOptions() {init();};
+    virtual ~TPNLADLOptions() {};
+    virtual void clear()
+    {
+      TMarkInfoOptions::clear();
+      init();
+    };
+    virtual void fromXML(xmlNodePtr node)
+    {
+      TMarkInfoOptions::fromXML(node);
+      if (node==NULL) return;
+      xmlNodePtr node2=node->children;
+      forwarding=NodeAsIntegerFast("forwarding", node2, (int)forwarding) != 0;
+    };
+    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    {
+      TMarkInfoOptions::fromDB(Qry, OptionsQry);
+
+      std::string basic_type;
+      std::string tlg_type = Qry.FieldAsString("tlg_type");
+      try
+      {
+          const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
+          basic_type=row.basic_type;
+      }
+      catch(EBaseTableError)
+      {
+          throw EXCEPTIONS::Exception("%s::fromDB: unknown telegram type %s", typeName().c_str(), tlg_type.c_str());
+      };
+
+      OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
+      OptionsQry.SetVariable("tlg_type", basic_type);
+      OptionsQry.Execute();
+      for(;!OptionsQry.Eof;OptionsQry.Next())
+      {
+        std::string cat=OptionsQry.FieldAsString("category");
+        if (cat=="FORWARDING")
+        {
+          forwarding=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
+      };
+    };
+    virtual localizedstream& logStr(localizedstream &s) const
+    {
+      TMarkInfoOptions::logStr(s);
+      s << ", "
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.PNLADL.FORWARDING") << ": "
+        << (forwarding ? s.getLocaleText("да"):
+                         s.getLocaleText("нет"));
+      return s;
+    };
+    virtual localizedstream& extraStr(localizedstream &s) const
+    {
+      TMarkInfoOptions::extraStr(s);
+      s << s.getLocaleText("CAP.TYPEB_OPTIONS.PNLADL.FORWARDING") << ": "
+        << (forwarding ? s.getLocaleText("да"):
+                         s.getLocaleText("нет"))
+        << endl;
+      return s;
+    };
+    virtual std::string typeName() const
+    {
+      return "TPNLADLOptions";
+    };
+    virtual bool similar(const TCreateOptions &item) const
+    {
+      if (!TMarkInfoOptions::similar(item)) return false;
+      try
+      {
+        const TPNLADLOptions &opt = dynamic_cast<const TPNLADLOptions&>(item);
+        return forwarding==opt.forwarding;
+      }
+      catch(std::bad_cast)
+      {
+        return false;
+      };
+    };
+    virtual bool equal(const TCreateOptions &item) const
+    {
+      if (!TMarkInfoOptions::equal(item)) return false;
+      try
+      {
+        const TPNLADLOptions &opt = dynamic_cast<const TPNLADLOptions&>(item);
+        return forwarding==opt.forwarding;
+      }
+      catch(std::bad_cast)
+      {
+        return false;
+      };
+    };
+    virtual void copy(const TCreateOptions &item)
+    {
+      TMarkInfoOptions::copy(item);
+      try
+      {
+        const TPNLADLOptions &opt = dynamic_cast<const TPNLADLOptions&>(item);
+        forwarding=opt.forwarding;
+        typeb_in_id=opt.typeb_in_id;
+        typeb_in_num=opt.typeb_in_num;
       }
       catch(std::bad_cast) {};
     };
@@ -1654,6 +1757,22 @@ class TCreator
 
     virtual bool validInfo(const TCreateInfo &info) const {return true;};
 
+};
+
+class TForwarder : public TCreator
+{
+  private:
+    int typeb_in_id, typeb_in_num;
+  public:
+    TForwarder(int point_id, int tlg_id, int tlg_num)
+      : TCreator(point_id, TCreatePoint())
+      , typeb_in_id(tlg_id)
+      , typeb_in_num(tlg_num) {};
+    virtual ~TForwarder() {};
+
+    void getInfo(std::vector<TCreateInfo> &info);
+
+    virtual bool validInfo(const TCreateInfo &info) const;
 };
 
 class TCloseCheckInCreator : public TCreator

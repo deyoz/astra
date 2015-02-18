@@ -11,7 +11,8 @@
 #include "tlg.h"
 #include "tlg_parser.h"
 #include "lci_parser.h"
-//#include "ssm_parser.h"
+#include "typeb_utils.h"
+#include "telegram.h"
 #include "memory_manager.h"
 #include "qrys.h"
 #include "serverlib/ourtime.h"
@@ -250,6 +251,26 @@ void bindTypeB(int typeb_tlg_id, const TFlightsForBind &flts, const std::excepti
     bindTypeB(typeb_tlg_id, flts, tlgeYesMonitorYesAlarm);
 };
 
+void forwardTypeB(const int typeb_tlg_id,
+                  const int typeb_tlg_num,
+                  const string &typeb_tlg_type)
+{
+  if (typeb_tlg_type!="PNL" && typeb_tlg_type!="ADL") return;
+  TCachedQuery Qry("SELECT tlg_binding.point_id_spp "
+                   "FROM tlg_binding, tlg_source "
+                   "WHERE tlg_binding.point_id_tlg=tlg_source.point_id_tlg AND tlg_source.tlg_id=:tlg_id",
+                   QParams() << QParam("tlg_id", otInteger, typeb_tlg_id));
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+  {
+    TForwarder forwarder(Qry.get().FieldAsInteger("point_id_spp"), typeb_tlg_id, typeb_tlg_num);
+    forwarder << typeb_tlg_type << "PNLADL";
+    vector<TypeB::TCreateInfo> createInfo;
+    forwarder.getInfo(createInfo);
+    TelegramInterface::SendTlg(createInfo);
+  };
+};
+
 bool handle_tlg(void)
 {
   bool queue_not_empty=false;
@@ -374,7 +395,7 @@ bool handle_tlg(void)
       if (!TlgQry.FieldIsNULL("ttl")&&
            (NowUTC()-TlgQry.FieldAsDateTime("time"))*BASIC::SecsPerDay>=TlgQry.FieldAsInteger("ttl"))
       {
-      	errorTlg(tlg_id,"TTL");
+        errorTlg(tlg_id,"TTL");
       }
       else
       if (TlgQry.FieldAsInteger("proc_attempt")>=HANDLER_PROC_ATTEMPTS())
@@ -427,7 +448,7 @@ bool handle_tlg(void)
               merge_key << " " << info.flt.airline << setw(3) << setfill('0') << info.flt.flt_no
                                << info.flt.suffix << "/" << DateTimeToStr(info.flt.scd,"ddmmm") << " "
                                << info.flt.airp_dep << info.flt.airp_arv;
-              if (info.association_number>0)
+              if (info.association_number!=NoExists)
                 merge_key << " " << setw(6) << setfill('0') << info.association_number;
 
               TTripInfo fltInfo;
@@ -564,6 +585,7 @@ bool handle_tlg(void)
             typeb_tlg_id=InsQry.get().VariableIsNULL("id")?NoExists:InsQry.get().GetVariableAsInteger("id");
             if (typeb_tlg_id==NoExists) throw Exception("handle_tlg: strange situation");
             typeb_tlg_num=InsQry.get().GetVariableAsInteger("part_no");
+            string typeb_tlg_type=InsQry.get().GetVariableAsString("tlg_type");
             putTypeBBody(typeb_tlg_id, typeb_tlg_num, parts.body);
 
             if (!errors.empty())
@@ -577,7 +599,12 @@ bool handle_tlg(void)
               errorTlg(tlg_id,"PARS");
               parseTypeB(typeb_tlg_id);
               bindTypeB(typeb_tlg_id, bind_flts, etype);
+            }
+            else
+            {
+              bindTypeB(typeb_tlg_id, bind_flts, tlgeNotError); //привязываем чтобы потом возможно сделать forwarding
             };
+            forwardTypeB(typeb_tlg_id, typeb_tlg_num, typeb_tlg_type);
           };
         };
       }
@@ -587,8 +614,8 @@ bool handle_tlg(void)
         try
         {
           EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-      	  if (orae!=NULL&&
-      	      (orae->Code==4061||orae->Code==4068)) continue;
+          if (orae!=NULL&&
+              (orae->Code==4061||orae->Code==4068)) continue;
           progError(tlg_id, NoExists, error_no, E, "", bind_flts);  //хорошо бы доделать, чтобы передавался tlg_type
           errorTlg(tlg_id,"PARS",E.what());
         }
@@ -733,8 +760,8 @@ bool parse_tlg(void)
       {
         count++;
         EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-      	if (orae!=NULL&&
-      	    (orae->Code==4061||orae->Code==4068)) continue;
+        if (orae!=NULL&&
+            (orae->Code==4061||orae->Code==4068)) continue;
         progError(tlg_id, tlg_num, error_no, E, tlg_type, bind_flts);
         parseTypeB(tlg_id);
         bindTypeB(tlg_id, bind_flts, E);
@@ -807,7 +834,7 @@ bool parse_tlg(void)
               {
                 OraSession.Rollback();
                 if (forcibly&& /*info.flt.scd<=utc_date-10*/
-                	  (utc_date-time_receive) > PARSING_MAX_TIMEOUT)
+                      (utc_date-time_receive) > PARSING_MAX_TIMEOUT)
                   //если телеграммы не хотят принудительно разбираться
                   //по истечении некоторого времени - записать в просроченные
                   throw ETlgError(tlgeNotMonitorYesAlarm, "Time limit reached");
@@ -878,7 +905,7 @@ bool parse_tlg(void)
                 string buf = part.p;
                 ostringstream out_buf;
                 for(string::iterator si = buf.begin(); si != buf.end(); si++) {
-                    out_buf << *si << " " << hex << (int)*si << endl;
+                    out_buf << *si << " " << hex << (int)*si << std::endl;
                 }
                 ProgTrace(TRACE5, "out_buf: %s", out_buf.str().c_str());
             }
@@ -925,9 +952,9 @@ bool parse_tlg(void)
       catch(std::exception &E)
       {
         count++;
-      	OraSession.Rollback();
-      	try
-      	{
+        OraSession.Rollback();
+        try
+        {
           EOracleError *orae=dynamic_cast<EOracleError*>(&E);
           if (orae!=NULL&&
              (orae->Code==4061||orae->Code==4068)) continue;

@@ -1292,7 +1292,7 @@ void TelegramInterface::SendTlg(int tlg_id)
                          << std::left << setw(15) << i->begin()->transport_addr
                          << std::left << setw(10) << addrs;
 */
-        addrs=TypeB::format_addr_line(addrs);        
+        addrs=TypeB::format_addr_line(addrs);
 
         if (i->begin()->transport_type==TypeB::ttSirena)
         {
@@ -1323,9 +1323,9 @@ void TelegramInterface::SendTlg(int tlg_id)
           };
         }
         else if (i->begin()->transport_type==TypeB::ttBagMessage)
-        {          
+        {
           //это передача телеграмм в BagMessage
-          //без addr и origin          
+          //без addr и origin
           map<string, string> params;
           params=i->begin()->transport_params;
           params[ PARAM_CANON_NAME ] = i->begin()->transport_addr;
@@ -1446,9 +1446,13 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
                         i->get_tlg_type().c_str(),
                         i->point_id);
 
-            lexema_id = "EVT.TLG.CREATED";
-            params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
-                   << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", i->get_options().is_lat);
+            if (tlg_id!=NoExists) //телеграмма создалась
+            {
+              lexema_id = "EVT.TLG.CREATED";
+              params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
+                     << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", i->get_options().is_lat);
+              TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, tlg_id);
+            };
         }
         catch(AstraLocale::UserException &E)
         {
@@ -1459,9 +1463,8 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
 
             params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
                    << PrmBool("lat", i->get_options().is_lat) << PrmLexema("what", err_id, err_prms);
+            TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, tlg_id);
         }
-
-        TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, tlg_id);
 
         if (tlg_id!=NoExists)
         {
@@ -1986,7 +1989,7 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
         CreateTlgBody(*i, *j, p);
         TelegramInterface::SaveTlgOutPart(p, true, false);
         TelegramInterface::SendTlg(p.id);
-      };  
+      };
     };
 
     check_tlg_out_alarm(point_dep);
