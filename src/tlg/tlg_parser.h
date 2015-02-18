@@ -204,12 +204,12 @@ class TDCSHeadingInfo : public THeadingInfo
     TDCSHeadingInfo() : THeadingInfo()
     {
       part_no=0;
-      association_number=0;
+      association_number=ASTRA::NoExists;
     };
     TDCSHeadingInfo(THeadingInfo &info) : THeadingInfo(info)
     {
       part_no=0;
-      association_number=0;
+      association_number=ASTRA::NoExists;
     };
 };
 

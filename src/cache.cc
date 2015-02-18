@@ -61,9 +61,12 @@ const
                          {"TYPEB_PRL_CREATE_POINT",  etTypeBOptionValue},
                          {"TYPEB_PRL_PAX_STATE",     etTypeBOptionValue},
                          {"TYPEB_TYPES",             etTypeBType},
+                         {"TYPEB_TYPES_ALL",         etTypeBType},
                          {"TYPEB_TYPES_MARK",        etTypeBType},
+                         {"TYPEB_TYPES_BSM",         etTypeBType},
                          {"TYPEB_TYPES_LDM",         etTypeBType},
                          {"TYPEB_TYPES_LCI",         etTypeBType},
+                         {"TYPEB_TYPES_PNL",         etTypeBType},
                          {"TYPEB_TYPES_PRL",         etTypeBType},
                          {"USER_TYPES",              etUserType},
                          {"VALIDATOR_TYPES",         etValidatorType}
@@ -186,7 +189,7 @@ bool TCacheTable::refreshInterface()
 
 bool lf( const TCacheField2 &item1, const TCacheField2 &item2 )
 {
-	return item1.num<item2.num;
+    return item1.num<item2.num;
 }
 
 
@@ -264,11 +267,11 @@ void TCacheTable::initFields()
     string prior_name;
     while(!Qry->Eof) {
 
-    	  if ( !prior_name.empty() && prior_name == Qry->FieldAsString("name") ) { // повторение поля с более низким приоритетом
-    	  	Qry->Next();
-    	  	continue;
-    	  }
-    	  prior_name = Qry->FieldAsString("name");
+          if ( !prior_name.empty() && prior_name == Qry->FieldAsString("name") ) { // повторение поля с более низким приоритетом
+            Qry->Next();
+            continue;
+          }
+          prior_name = Qry->FieldAsString("name");
 
         TCacheField2 FField;
 
@@ -397,7 +400,7 @@ void TCacheTable::initFields()
           if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
             FField.ReferName="NAME";
         };
-        
+
         if (FField.ReferName == "SHORT_NAME/SHORT_NAME_LAT" ||
             FField.ReferName == "SHORT_NAME_LAT/SHORT_NAME" )
         {
@@ -413,19 +416,19 @@ void TCacheTable::initFields()
           if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
             FField.ReferName="DESCR";
         };
-        
+
         if ((code == "ROLES" && FField.Name == "ROLE_NAME") ||
             (FField.ReferCode == "ROLES" && FField.ReferName == "ROLE_NAME"))
         {
           FField.ElemCategory=cecRoleName;
         };
-        
+
         if ((code == "USERS" && FField.Name == "USER_NAME") ||
             (FField.ReferCode == "USERS" && FField.ReferName == "USER_NAME"))
         {
           FField.ElemCategory=cecUserName;
         };
-        
+
         if (code == "USERS" && FField.Name == "USER_PERMS")
         {
           FField.ElemCategory=cecUserPerms;
@@ -454,7 +457,7 @@ void TCacheTable::initFields()
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirp;
         };
-        
+
         if (FField.ReferCode == "SALE_POINTS" && FField.ReferName == "VALIDATOR_VIEW" )
         {
           FField.ElemCategory=cecCode;
@@ -466,7 +469,7 @@ void TCacheTable::initFields()
     }
     sort(FFields.begin(),FFields.end(),lf);
     for (vector<TCacheField2>::iterator i=FFields.begin(); i!=FFields.end(); i++ ) {
-    	ProgTrace( TRACE5, "cache field: name=%s, num=%d, read_only=%d", i->Name.c_str(), i->num, i->ReadOnly );
+        ProgTrace( TRACE5, "cache field: name=%s, num=%d, read_only=%d", i->Name.c_str(), i->num, i->ReadOnly );
     }
 }
 
@@ -557,7 +560,7 @@ string get_user_airlines_airps(int user_id, TUserType user_type,
                                TQuery &Qry1, TQuery &Qry2)
 {
   ostringstream res;
-  
+
   const char* sql1="SELECT airline FROM aro_airlines WHERE aro_id=:user_id";
   if (strcmp(Qry1.SQLText.SQLText(),sql1)!=0)
   {
@@ -571,7 +574,7 @@ string get_user_airlines_airps(int user_id, TUserType user_type,
   for(;!Qry1.Eof;Qry1.Next())
     airlines.push_back(ElemIdToCodeNative(etAirline, Qry1.FieldAsString("airline")));
   sort(airlines.begin(), airlines.end());
-  
+
   vector<string>::iterator a;
   string airlines_str;
   a=airlines.begin();
@@ -597,7 +600,7 @@ string get_user_airlines_airps(int user_id, TUserType user_type,
   for(;!Qry2.Eof;Qry2.Next())
     airps.push_back(ElemIdToCodeNative(etAirp, Qry2.FieldAsString("airp")));
   sort(airps.begin(), airps.end());
-  
+
   string airps_str;
   a=airps.begin();
   for(int i=0;a!=airps.end();a++,i++)
@@ -608,7 +611,7 @@ string get_user_airlines_airps(int user_id, TUserType user_type,
   };
   if (a!=airps.end()) airps_str+="...";
   if (airps_str.empty() && user_type==utAirport) airps_str='?';
-  
+
   if (user_type==utSupport || user_type==utAirline)
   {
     res << airlines_str;
@@ -641,7 +644,7 @@ string get_user_descr(int user_id,
 
   string user_access=get_user_airlines_airps(user_id, (TUserType)Qry.FieldAsInteger("type"),
                                              Qry1, Qry2);
-  
+
   ostringstream res;
   if (!only_airlines_airps)
   {
@@ -651,7 +654,7 @@ string get_user_descr(int user_id,
   }
   else
     res << user_access;
-    
+
   return res.str();
 };
 
@@ -699,23 +702,23 @@ TUpdateDataType TCacheTable::refreshData()
     /* пробег по переменным в запросе, лишние переменные, которые пришли не учитываем */
     for(vector<string>::iterator v = vars.begin(); v != vars.end(); v++ )
     {
-    	otFieldType vtype;
-    	switch( SQLParams[ *v ].DataType ) {
-    	  case ctInteger: vtype = otInteger;
-    	                  break;
-    	  case ctDouble: vtype = otFloat;
-    	  		 break;
-    	  case ctDateTime: vtype = otDate;
-    	                   break;
-    	  default: vtype = otString;
-    	}
-    	Qry->DeclareVariable( *v, vtype );
-    	if ( !SQLParams[ *v ].Value.empty() )
-    	  Qry->SetVariable( *v, SQLParams[ *v ].Value );
-    	else
-    	  Qry->SetVariable( *v, FNull );
-    	ProgTrace( TRACE5, "variable %s = %s, type=%i", v->c_str(),
-    	           SQLParams[ *v ].Value.c_str(), vtype );
+        otFieldType vtype;
+        switch( SQLParams[ *v ].DataType ) {
+          case ctInteger: vtype = otInteger;
+                          break;
+          case ctDouble: vtype = otFloat;
+                 break;
+          case ctDateTime: vtype = otDate;
+                           break;
+          default: vtype = otString;
+        }
+        Qry->DeclareVariable( *v, vtype );
+        if ( !SQLParams[ *v ].Value.empty() )
+          Qry->SetVariable( *v, SQLParams[ *v ].Value );
+        else
+          Qry->SetVariable( *v, FNull );
+        ProgTrace( TRACE5, "variable %s = %s, type=%i", v->c_str(),
+                   SQLParams[ *v ].Value.c_str(), vtype );
     }
 
     if(OnBeforeRefresh)
@@ -760,7 +763,7 @@ TUpdateDataType TCacheTable::refreshData()
     int delIdx = Qry->GetFieldIndex("PR_DEL");
     if ( clientVerData >= 0 && delIdx < 0 )
         throw Exception( "Field '" + code +".PR_DEL' not found");
-        
+
     TQuery TempQry1(&OraSession);
     TQuery TempQry2(&OraSession);
     TQuery TempQry3(&OraSession);
@@ -848,12 +851,12 @@ TUpdateDataType TCacheTable::refreshData()
     }
     ProgTrace( TRACE5, "Server version data: %d", clientVerData );
     if ( !table.empty() ) // начитали изменения
-    	return upExists;
+        return upExists;
     else
-    	if ( clientVerData >= 0 ) // нет изменений
-    		return upNone;
-    	else
-    		return upClearAll; // все удалили
+        if ( clientVerData >= 0 ) // нет изменений
+            return upNone;
+        else
+            return upClearAll; // все удалили
 }
 
 void TCacheTable::refresh()
@@ -866,8 +869,8 @@ void TCacheTable::refresh()
     else
         pr_irefresh = false;
     if ( (Params.find(TAG_REFRESH_DATA) != Params.end() &&
-    	    (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION) || !pr_dconst)) ||
-    	   pr_irefresh ) {
+            (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION) || !pr_dconst)) ||
+           pr_irefresh ) {
         if ( pr_irefresh )
           clientVerData = -1;
         refresh_data_type = refreshData();
@@ -907,12 +910,12 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
         XMLInterface(dataNode);
 
     if ( TReqInfo::Instance()->desk.compatible(LATIN_VERSION) ) {
-    	if ( refresh_data_type != upNone || pr_irefresh )
-    		XMLData(dataNode);
+        if ( refresh_data_type != upNone || pr_irefresh )
+            XMLData(dataNode);
     }
     else {
-    	if ( refresh_data_type == upExists )
-    		XMLData(dataNode);
+        if ( refresh_data_type == upExists )
+            XMLData(dataNode);
     }
 }
 
@@ -1007,8 +1010,8 @@ void TCacheTable::parse_updates(xmlNodePtr rowsNode)
         throw Exception("wrong message format");
     xmlNodePtr rowNode = rowsNode->children;
     while(rowNode) {
-    	TRow row;
-    	getParams( GetNode( "sqlparams", rowNode ), row.params ); /* переменные sql запроса */
+        TRow row;
+        getParams( GetNode( "sqlparams", rowNode ), row.params ); /* переменные sql запроса */
         xmlNodePtr statusNode = GetNode("@status", rowNode);
         string status;
         if(statusNode != NULL)
@@ -1616,7 +1619,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
     curVerIface = Qry->FieldAsInteger( "tid" );
   }
   if ( pr_dconst && TReqInfo::Instance()->desk.compatible(LATIN_VERSION) ) {
-  	Params[ TAG_REFRESH_INTERFACE ].Value.clear();
+    Params[ TAG_REFRESH_INTERFACE ].Value.clear();
     Params[ TAG_REFRESH_DATA ].Value.clear();
   }
 }
@@ -1793,10 +1796,10 @@ static int lci_typeb_addrs_id;
 void BeforeApplyAll(TCacheTable &cache)
 {
   if (cache.code() == "TYPEB_ADDRS_LCI")
-    lci_point_ids.clear();  
+    lci_point_ids.clear();
   if (cache.code() == "TYPEB_CREATE_POINTS")
       lci_typeb_addrs_id = NoExists;
-};    
+};
 
 void AfterApplyAll(TCacheTable &cache)
 {
@@ -1805,8 +1808,8 @@ void AfterApplyAll(TCacheTable &cache)
         for(set<int>::const_iterator i=lci_point_ids.begin(); i!=lci_point_ids.end(); ++i)
             sync_lci_trip_tasks(*i);
         lci_point_ids.clear();
-    };    
-    if (cache.code() == "TYPEB_CREATE_POINTS") 
+    };
+    if (cache.code() == "TYPEB_CREATE_POINTS")
     {
         if(lci_typeb_addrs_id != NoExists) {
             set<int> point_ids;
@@ -1815,8 +1818,8 @@ void AfterApplyAll(TCacheTable &cache)
                 sync_lci_trip_tasks(*i);
             lci_typeb_addrs_id = NoExists;
         }
-    };    
-};    
+    };
+};
 
 void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
@@ -1854,8 +1857,8 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
           calc_lci_point_ids(flt, point_ids);
       }
       lci_point_ids.insert(point_ids.begin(), point_ids.end());
-  };    
-      
+  };
+
 
   if (cache.code() == "TYPEB_CREATE_POINTS") {
       int tmp_id;
@@ -1878,7 +1881,7 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
         point_id=ToInt(cache.FieldValue( "point_id", row ));
       else
         point_id=ToInt(cache.FieldOldValue( "point_id", row ));
-    
+
       TPointIdsForCheck point_ids_spp;
       if ((qryType == cqtInsert || qryType == cqtUpdate) &&
           ToInt(cache.FieldValue( "pr_permit", row )) != 0)
@@ -1898,7 +1901,7 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
       check_layer_change( point_ids_spp );
     };
   };
-  
+
   if (cache.code() == "CODESHARE_SETS")
   {
     TDateTime now=NowLocal();
