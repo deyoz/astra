@@ -6342,7 +6342,7 @@ int PNL(TypeB::TDetailCreateInfo &info)
     tlg_row.body = getTypeBBody(forwarderOptions->typeb_in_id,
                                 forwarderOptions->typeb_in_num,
                                 Qry.get());
-    if (tlg_row.body.size()>4000) throw UserException("Too long telegram body for forwarding"); //!!!vlad изменить на UserException
+    if (tlg_row.body.size()>4000) throw UserException("MSG.TLG.VERY_BIG_FOR_FORWARDING");
     tlg_row.ending = Qry.get().FieldAsString("ending");
 
     mem.destroy(HeadingInfo, STDLOG);
