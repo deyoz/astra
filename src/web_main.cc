@@ -2500,6 +2500,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
       };
     };
     
+
     vector< pair<TWebPlace, LexemaData> > pax_seats;
     if (!pnr.empty())
     {
@@ -2511,52 +2512,37 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
         LayerQry.SQLText=
           "DECLARE "
           "  vrange_id    tlg_comp_layers.range_id%TYPE; "
-          "  vpoint_id    tlg_comp_layers.point_id%TYPE; "
-          "  vairp_arv    tlg_comp_layers.airp_arv%TYPE; "
-          "  vfirst_xname tlg_comp_layers.first_xname%TYPE; "
-          "  vfirst_yname tlg_comp_layers.first_yname%TYPE; "
-          "  vlast_xname  tlg_comp_layers.last_xname%TYPE; "
-          "  vlast_yname  tlg_comp_layers.last_yname%TYPE; "
-          "  vrem_code    tlg_comp_layers.rem_code%TYPE; "
           "BEGIN "
-          "  :delete_seat_ranges:=1; "
           "  BEGIN "
-          "    SELECT range_id, point_id, airp_arv, "
-          "           first_xname, first_yname, last_xname, last_yname, rem_code "
-          "    INTO vrange_id, vpoint_id, vairp_arv, "
-          "         vfirst_xname, vfirst_yname, vlast_xname, vlast_yname, vrem_code "
+          "    SELECT range_id "
+          "    INTO vrange_id "
           "    FROM tlg_comp_layers "
           "    WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type FOR UPDATE; "
-          "    IF :point_id=vpoint_id AND :airp_arv=vairp_arv AND "
-          "       :first_xname=vfirst_xname AND :first_yname=vfirst_yname AND "
-          "       :last_xname=vlast_xname AND :last_yname=vlast_yname THEN "
-          "      :delete_seat_ranges:=0; "
           "      UPDATE tlg_comp_layers "
           "      SET time_remove=SYSTEM.UTCSYSDATE+:timeout/1440 "
           "      WHERE range_id=vrange_id; "
+          "    IF :tid IS NULL THEN "
+          "     SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
           "    END IF; "
+          "    UPDATE crs_pax SET tid=:tid WHERE pax_id=:crs_pax_id; "
           "  EXCEPTION "
           "    WHEN NO_DATA_FOUND THEN NULL; "
           "    WHEN TOO_MANY_ROWS THEN NULL; "
           "  END; "
           "END; ";
-        LayerQry.DeclareVariable("delete_seat_ranges", otInteger);
-        LayerQry.DeclareVariable("point_id", otInteger);
-        LayerQry.DeclareVariable("airp_arv", otString);
         LayerQry.DeclareVariable("layer_type", otString);
-        LayerQry.DeclareVariable("first_xname", otString);
-        LayerQry.DeclareVariable("last_xname", otString);
-        LayerQry.DeclareVariable("first_yname", otString);
-        LayerQry.DeclareVariable("last_yname", otString);
         LayerQry.DeclareVariable("crs_pax_id", otInteger);
         if (time_limit!=NoExists)
           LayerQry.CreateVariable("timeout", otInteger, time_limit);
         else
           LayerQry.CreateVariable("timeout", otInteger, FNull);
-
+        LayerQry.DeclareVariable( "tid", otInteger );
         VerifyPNRByPnrId(point_id, pnr_id);
         GetCrsPaxSeats(point_id, pnr, pax_seats );
-        bool UsePriorContext=false;
+        //bool UsePriorContext=false;
+        bool isTranzitSalonsVersion = isTranzitSalons( point_id );
+        BitSet<TChangeLayerFlags> change_layer_flags;
+        change_layer_flags.setFlag(flSetPayLayer);
         for(vector<TWebPax>::const_iterator iPax=pnr.begin();iPax!=pnr.end();iPax++)
         {
           try
@@ -2575,6 +2561,47 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
               throw UserException("MSG.SEATS.NOT_SET_RATE");*/
             
             if (isTestPaxId(iPax->crs_pax_id)) continue;
+
+            //проверки + запись!!!
+            int tid = iPax->crs_pax_tid;
+            bool res;
+            if ( isTranzitSalonsVersion ) {
+              res = IntChangeSeatsN( point_id,
+                                     iPax->crs_pax_id,
+                                     tid,
+                                     iSeat->first.xname,
+                                     iSeat->first.yname,
+                                     stSeat,
+                                     cltProtBeforePay,
+                                     change_layer_flags,
+                                     NULL );
+            }
+            else {
+              res = IntChangeSeats( point_id,
+                                    iPax->crs_pax_id,
+                                    tid,
+                                    iSeat->first.xname,
+                                    iSeat->first.yname,
+                                    stSeat,
+                                    cltProtBeforePay,
+                                    change_layer_flags,
+                                    NULL );
+            }
+            if ( res ) { //вернулся признак того, что слои остались прежние
+              tst();
+              LayerQry.SetVariable("layer_type", EncodeCompLayerType(cltProtBeforePay));
+              LayerQry.SetVariable("crs_pax_id", iPax->crs_pax_id);
+              if (curr_tid!=NoExists)
+                LayerQry.SetVariable("tid", curr_tid);
+              else
+                LayerQry.SetVariable("tid", FNull);
+              LayerQry.Execute();
+              curr_tid=(LayerQry.VariableIsNULL("tid")?NoExists:LayerQry.GetVariableAsInteger("tid"));
+              ProgTrace( TRACE5, "curr_tid=%d", curr_tid );
+            }
+            //UsePriorContext=true; //!!!vlad
+            /*
+
 
             vector<TSeatRange> ranges(1,TSeatRange(TSeat(iSeat->first.yname,
                                                          iSeat->first.xname),
@@ -2605,7 +2632,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                                   curr_tid,
                                   point_ids_spp);
               UsePriorContext=true;
-            };
+            };*/
           }
           catch(UserException &e)
           {
@@ -2630,8 +2657,8 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
             error_exists=true;
           };
         };
-      };
-      check_layer_change(point_ids_spp);
+        check_layer_change(point_ids_spp);
+      };      
     }; //!pnr.empty()
     if (error_exists) return; //если есть ошибки, выйти из обработки сегмента
     
