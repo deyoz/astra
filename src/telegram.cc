@@ -311,7 +311,7 @@ void TTlgSearchParams::get(xmlNodePtr reqNode)
     pr_time_receive = NodeAsIntegerFast("pr_time_receive", currNode, 0) != 0;
     if (!pr_time_create && !pr_time_receive && tlg_id==NoExists && tlg_num==NoExists)
       throw AstraLocale::UserException("MSG.NOT_SET_RANGE_OR_TLG_ID");
-    
+
     if(pr_time_create) {
         TimeCreateFrom = NodeAsDateTimeFast("TimeCreateFrom", currNode);
         TimeCreateTo = NodeAsDateTimeFast("TimeCreateTo", currNode);
@@ -360,13 +360,13 @@ void set_tlgs_in_search_params(const TTlgSearchParams &search_params, ostringstr
         Qry.CreateVariable("TimeReceiveTo", otDate, search_params.TimeReceiveTo);
         filtered=true;
     }
-    
+
     if(!search_params.tlg_type.empty()) {
         sql << " AND tlgs_in.type = :tlg_type \n";
         Qry.CreateVariable("tlg_type", otString, search_params.tlg_type);
         filtered=true;
     }
-    
+
     if (!search_params.typeb_in_ids.empty())
     {
         sql << " AND tlgs_in.id IN (";
@@ -623,7 +623,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       ProgTrace(TRACE5, "sql: %s", sql.str().c_str());
       Qry.SQLText=sql.str();
       Qry.Execute();
-    
+
       if(!Qry.Eof) {
           int col_type = Qry.FieldIndex("type");
           int col_id = Qry.FieldIndex("id");
@@ -1069,47 +1069,78 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   AstraLocale::showMessage("MSG.TLG.SAVED");
 };
 
-void IataAddrToCanonName(const string &iata_addr, string &canon_name, string &country)
+namespace TypeB
 {
-  canon_name.clear();
-  country.clear();
+enum TTransportType { ttBagMessage, ttHttp, ttSirena, ttNone };
 
-  if (iata_addr.size()!=7)
-    throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", iata_addr));
-  for(string::const_iterator p=iata_addr.begin(); p!=iata_addr.end(); ++p)
-    if (!((IsUpperLetter(*p)&&IsAscii7(*p))||IsDigit(*p)))
-      throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", iata_addr));
-
-  QParams QryParams;
-  QryParams << QParam("addr", otString, iata_addr);
-  TCachedQuery Qry("SELECT canon_name, country FROM addrs WHERE addr=:addr", QryParams);
-  Qry.get().Execute();
-  if (!Qry.get().Eof)
-  {
-    canon_name=Qry.get().FieldAsString("canon_name");
-    country=Qry.get().FieldAsString("country");
-  }
-  else
-  {
-    Qry.get().SetVariable("addr",iata_addr.substr(0,5)); //обрезаем до 5-ти символов - а надо ли это? Де-факто не работает
-    Qry.get().Execute();
-    if (!Qry.get().Eof)
+class IataAddrOwnerItem
+{
+  public:
+    string addr;
+    TTransportType transport_type;
+    string transport_addr;
+    string country;
+    map<string, string> transport_params;
+    IataAddrOwnerItem()
     {
-      canon_name=Qry.get().FieldAsString("canon_name");
-      country=Qry.get().FieldAsString("country");
+      clear();
     }
-    else
+    void clear()
     {
-      if (*(DEF_CANON_NAME())!=0)
+      addr.clear();
+      transport_type=ttNone;
+      transport_addr.clear();
+      country.clear();
+      transport_params.clear();
+    }
+    void fromDB(const string &iata_addr)
+    {
+      clear();
+
+      if (iata_addr.size()!=7)
+        throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", iata_addr));
+      for(string::const_iterator p=iata_addr.begin(); p!=iata_addr.end(); ++p)
+        if (!((IsUpperLetter(*p)&&IsAscii7(*p))||IsDigit(*p)))
+          throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", iata_addr));
+
+      QParams QryParams;
+      QryParams << QParam("addr", otString, iata_addr);
+      TCachedQuery Qry("SELECT * FROM typeb_addr_owners WHERE addr=:addr", QryParams);
+      Qry.get().Execute();
+      if (Qry.get().Eof) throw AstraLocale::UserException("MSG.TLG.SITA.CANON_ADDR_UNDEFINED", LParams() << LParam("addr", iata_addr));
+
+      string transport=Qry.get().FieldAsString("transport_type");
+      if (transport=="BAG_MESSAGE") transport_type=ttBagMessage;
+      else if (transport=="HTTP_TYPEB") transport_type=ttHttp;
+      else if (transport=="SIRENA_TYPEB") transport_type=ttSirena;
+
+      if (transport_type==ttNone)
+        throw Exception("Unknown transport type %s for %s", transport.c_str(), iata_addr.c_str());
+
+      addr=Qry.get().FieldAsString("addr");
+      transport_addr=Qry.get().FieldAsString("transport_addr");
+      country=Qry.get().FieldAsString("country");
+
+      QParams PQryParams;
+      PQryParams << QParam("addr", otString, iata_addr);
+      TCachedQuery PQry("SELECT param_name, param_value FROM typeb_addr_trans_params WHERE addr=:addr", PQryParams);
+      PQry.get().Execute();
+      for(; !PQry.get().Eof; PQry.get().Next())
+        transport_params.insert(make_pair(PQry.get().FieldAsString("param_name"), PQry.get().FieldAsString("param_value")));
+    }
+    bool operator == ( const IataAddrOwnerItem& item ) const
+    {
+      if (transport_type!=item.transport_type) return false;
+      if (transport_addr!=item.transport_addr) return false;
+      if (transport_type!=ttSirena)
       {
-        canon_name=DEF_CANON_NAME();
-        country="";
-      }
-      else
-        throw AstraLocale::UserException("MSG.TLG.SITA.CANON_ADDR_UNDEFINED", LParams() << LParam("addr", iata_addr));
-    };
-  };
+        if (transport_params!=item.transport_params) return false;
+      };
+      return true;
+    }
 };
+
+}
 
 string GetOutputGateway(const string &orig_canon_name,
                         const string &dest_canon_name)
@@ -1151,13 +1182,8 @@ void TelegramInterface::SendTlg(int tlg_id)
     TypeB::TOriginatorInfo originator;
     originator.fromDB(Qry);
 
-    TTlgStatPoint sender(originator.addr,
-                         OWN_CANON_NAME(),
-                         OWN_CANON_NAME(),
-                         "");
-
-    string orig_canon_name, orig_country;
-    IataAddrToCanonName(originator.addr, orig_canon_name, orig_country);
+    TypeB::IataAddrOwnerItem orig;
+    orig.fromDB(originator.addr);
 
     string tlg_basic_type;
     try
@@ -1182,7 +1208,8 @@ void TelegramInterface::SendTlg(int tlg_id)
     };
 
     string old_addrs;
-    map<string, vector<TTlgStatPoint> > recvs;
+    list< list<TypeB::IataAddrOwnerItem> > recvs;
+    set<string> iata_addrs;
     TypeB::TTlgParser parser;
     const char *addrs,*line_p;
 
@@ -1200,14 +1227,27 @@ void TelegramInterface::SendTlg(int tlg_id)
             addrs=parser.GetLexeme(line_p);
             while (addrs!=NULL)
             {
-              string dest_canon_name, dest_country;
-              IataAddrToCanonName(parser.lex, dest_canon_name, dest_country);
-              string out_canon_name=GetOutputGateway(orig_canon_name, dest_canon_name);
+              if (iata_addrs.insert(parser.lex).second)  //проверим на уникальность адреса IATA
+              {
+                TypeB::IataAddrOwnerItem dest;
+                dest.fromDB(parser.lex);
+                if (orig.transport_type==TypeB::ttSirena &&
+                    dest.transport_type==TypeB::ttSirena)
+                {
+                  dest.transport_addr=GetOutputGateway(orig.transport_addr, dest.transport_addr);
+                };
 
-              recvs[out_canon_name].push_back(TTlgStatPoint(parser.lex,
-                                                            out_canon_name,
-                                                            out_canon_name,
-                                                            dest_country));
+                list< list<TypeB::IataAddrOwnerItem> >::iterator r=recvs.begin();
+                for(; r!=recvs.end(); ++r)
+                {
+                  if (r->empty()) continue;
+                  if (*(r->begin())==dest) break;
+                };
+                if (r==recvs.end()) r=recvs.insert(recvs.end(), list<TypeB::IataAddrOwnerItem>());
+                if (r==recvs.end()) throw Exception("%s: r==recvs.end()", __FUNCTION__);
+
+                r->push_back(dest);
+              };
               addrs=parser.GetLexeme(addrs);
             };
           }
@@ -1222,58 +1262,98 @@ void TelegramInterface::SendTlg(int tlg_id)
       if (recvs.empty()) throw AstraLocale::UserException("MSG.TLG.DST_ADDRS_NOT_SET");
 
       //формируем телеграмму
-      for(map<string, vector<TTlgStatPoint> >::const_iterator i=recvs.begin();i!=recvs.end();++i)
+      for(list< list<TypeB::IataAddrOwnerItem> >::const_iterator i=recvs.begin();i!=recvs.end();++i)
       {
+        if (i->empty()) throw Exception("%s: i->empty()", __FUNCTION__);
+
         string addrs;
-        for(vector<TTlgStatPoint>::const_iterator j=i->second.begin(); j!=i->second.end(); ++j)
+        for(list<TypeB::IataAddrOwnerItem>::const_iterator j=i->begin(); j!=i->end(); ++j)
         {
           if (!addrs.empty()) addrs+=" ";
-          addrs+=j->sita_addr;
+          addrs+=j->addr;
         };
-      
-        addrs=TypeB::format_addr_line(addrs);
-        string tlg_text=addrs+tlg.origin+tlg.heading+tlg.body+tlg.ending;
-      	if (i->first.size()<=5)
-      	{
-          if (OWN_CANON_NAME()==i->first)
+/*
+        //трассировка маршрутизации
+        if (i == recvs.begin())
+        {
+          LogTrace(TRACE5) << __FUNCTION__ << ": "
+                           << std::left << setw(15) << "transport_type"
+                           << std::left << setw(15) << "transport_addr"
+                           << std::left << setw(10) << "iata_addr";
+        };
+
+        string transport_type_str;
+        if (i->begin()->transport_type==TypeB::ttSirena) transport_type_str="ttSirena";
+        if (i->begin()->transport_type==TypeB::ttBagMessage) transport_type_str="ttBagMessage";
+        if (i->begin()->transport_type==TypeB::ttHttp) transport_type_str="ttHttp";
+
+        LogTrace(TRACE5) << __FUNCTION__ << ": "
+                         << std::left << setw(15) << transport_type_str
+                         << std::left << setw(15) << i->begin()->transport_addr
+                         << std::left << setw(10) << addrs;
+*/
+        addrs=TypeB::format_addr_line(addrs);        
+
+        if (i->begin()->transport_type==TypeB::ttSirena)
+        {
+          string tlg_text=addrs+tlg.origin+tlg.heading+tlg.body+tlg.ending;
+          if (OWN_CANON_NAME()==i->begin()->transport_addr)
           {
-            /* сразу помещаем во входную очередь */
+            // сразу помещаем во входную очередь
             loadTlg(tlg_text);
             registerHookAfter(sendCmdTypeBHandler);
           }
           else
           {
-            int queue_tlg_id=sendTlg(i->first.c_str(),OWN_CANON_NAME(),qpOutB,0,tlg_text,tlg_id,tlg.num);
-            for(vector<TTlgStatPoint>::const_iterator j=i->second.begin(); j!=i->second.end(); ++j)
+            int queue_tlg_id=sendTlg(i->begin()->transport_addr.c_str(),OWN_CANON_NAME(),qpOutB,0,tlg_text,tlg_id,tlg.num);
+            for(list<TypeB::IataAddrOwnerItem>::const_iterator j=i->begin(); j!=i->end(); ++j)
             {
               TTlgStat().putTypeBOut(queue_tlg_id,
                                      tlg_id,
                                      tlg.num,
-                                     sender,
-                                     *j,
+                                     TTlgStatPoint(originator.addr, OWN_CANON_NAME(), OWN_CANON_NAME(), ""),
+                                     TTlgStatPoint(j->addr, j->transport_addr, j->transport_addr, j->country),
                                      tlg.time_create,
                                      tlg_basic_type,
                                      tlg_text.size(),
                                      fltInfo,
                                      tlg.airline_mark,
                                      originator.descr);
-            };            
+            };
           };
         }
-        else
-        {
-          //это передача файлов
-          //без addr и origin
-          map<string,string> params;
-          params[PARAM_CANON_NAME] = i->first;
+        else if (i->begin()->transport_type==TypeB::ttBagMessage)
+        {          
+          //это передача телеграмм в BagMessage
+          //без addr и origin          
+          map<string, string> params;
+          params=i->begin()->transport_params;
+          params[ PARAM_CANON_NAME ] = i->begin()->transport_addr;
           params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtTlg );
           params[ NS_PARAM_EVENT_ID1 ] = IntToString( tlg.point_id );
           params[ NS_PARAM_EVENT_ID2 ] = IntToString( tlg_id );
-
-          TFileQueue::putFile(i->first,OWN_POINT_ADDR(),tlg.tlg_type,params,tlg.heading+tlg.body+tlg.ending);
+          TFileQueue::putFile(i->begin()->transport_addr,
+                              OWN_POINT_ADDR(),
+                              FILE_BAG_MESSAGE_TYPE,
+                              params,
+                              tlg.heading+tlg.body+tlg.ending);
+        }
+        else if (i->begin()->transport_type==TypeB::ttHttp)
+        {
+          //это передача телеграмм по HTTP
+          map<string, string> params;
+          params=i->begin()->transport_params;
+          tlg.addToFileParams(params);
+          TFileQueue::putFile(i->begin()->transport_addr,
+                              OWN_POINT_ADDR(),
+                              FILE_HTTP_TYPEB_TYPE,
+                              params,
+                              tlg.body);
+          registerHookAfter(sendCmdTlgHttpSnd);
         };
+
         if (i == recvs.begin()) // ignore same tlg for different receivers
-            putUTG(tlg_id, tlg.num, tlg_basic_type, fltInfo, tlg.heading+tlg.body+tlg.ending, tlg.extra);
+          putUTG(tlg_id, tlg.num, tlg_basic_type, fltInfo, tlg.heading+tlg.body+tlg.ending, tlg.extra);
       };
     };
 
@@ -1439,7 +1519,7 @@ bool TTlgContent::addTag(double no, const TTlgContent& src)
     TPaxItem tmpPax=srcPax->second;
     tmpPax.bag_amount=0;
     tmpPax.bag_weight=0;
-      
+
     pax[tmpPax.bag_pool_num]=tmpPax;
   };
 
@@ -1506,7 +1586,7 @@ void LoadContent(int grp_id, TTlgContent& con)
   bool pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
 
   bool pr_unaccomp=con.OutCls.empty();
-  
+
   //читаем OutFlt и OnwardFlt
   if (!con.OnwardFlt.GetRoute(grp_id, trtWithFirstSeg)) return;
   if (con.OnwardFlt.empty()) return;
@@ -1541,7 +1621,7 @@ void LoadContent(int grp_id, TTlgContent& con)
       };
       con.OnwardCls.back().push_back(Qry.FieldAsString("code"));
     };
-  
+
     Qry.Clear();
     Qry.SQLText=
       "SELECT pax_id, bag_pool_num, reg_no, surname, name,  "
@@ -1573,7 +1653,7 @@ void LoadContent(int grp_id, TTlgContent& con)
     pax.bag_pool_num=1;
     con.pax[pax.bag_pool_num]=pax;
   };
-  
+
   Qry.Clear();
   Qry.SQLText=
     "SELECT * FROM bag2 WHERE grp_id=:grp_id";
@@ -1581,7 +1661,7 @@ void LoadContent(int grp_id, TTlgContent& con)
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
     con.addBag(CheckIn::TBagItem().fromDB(Qry));
-  
+
   Qry.Clear();
   Qry.SQLText=
     "SELECT * FROM bag_tags WHERE grp_id=:grp_id";
@@ -1753,7 +1833,7 @@ void CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
     if (iBag==con.bags.end()) continue;
     map<int, TPaxItem>::const_iterator iPax=con.pax.find(iBag->second.bag_pool_num);
     if (iPax==con.pax.end()) continue;
-    
+
     map<int, pair<TPaxItem, vector<CheckIn::TTagItem> > >::iterator p=tmpPax.find(iPax->second.reg_no);
     if (p==tmpPax.end())
       tmpPax[iPax->second.reg_no]=make_pair(iPax->second, vector<CheckIn::TTagItem>(1,iTag->second));
@@ -1761,7 +1841,7 @@ void CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
       p->second.second.push_back(iTag->second);
   };
   if (tmpPax.empty()) throw Exception("BSM::CreateTlgBody: tmpPax empty");
-  
+
 
   ostringstream heading;
   heading << "BSM" << ENDL;
@@ -1815,7 +1895,7 @@ void CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
     };
     body << ENDL;
   };
-  
+
   map<int, pair<TPaxItem, vector<CheckIn::TTagItem> > >::const_iterator p=tmpPax.begin();
   for(;p!=tmpPax.end();++p)
   {
@@ -1855,12 +1935,12 @@ void CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
 /*    if (p->second.first.rk_weight!=0)
       body << '/' << p->second.first.rk_weight;*/
     body << ENDL;
-    
+
     body << ".P/" << transliter(p->second.first.surname,1,options.is_lat);
     if (!p->second.first.name.empty())
       body << '/' << transliter(p->second.first.name,1,options.is_lat);
     body  << ENDL;
-    
+
     if (!p->second.first.pnr_addr.empty())
       body << ".L/" << convert_pnr_addr(p->second.first.pnr_addr,options.is_lat) << ENDL;
   };
@@ -1876,15 +1956,6 @@ bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs )
     TypeB::TCreator creator(fltInfo);
     creator << "BSM";
     creator.getInfo(addrs.createInfo);
-
-    TFileQueue::add_sets_params(
-                                 fltInfo.airp,
-                                 fltInfo.airline,
-                                 IntToString(fltInfo.flt_no),
-                                 OWN_POINT_ADDR(),
-                                 FILE_HTTP_TYPEB_TYPE,
-                                 1,
-                                 addrs.HTTP_TYPEBparams );
 
     return !addrs.empty();
 };
@@ -1918,24 +1989,8 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
         CreateTlgBody(*i, *j, p);
         TelegramInterface::SaveTlgOutPart(p, true, false);
         TelegramInterface::SendTlg(p.id);
-      };
-      if(not addrs.HTTP_TYPEBparams.empty()) {
-          map<string, string> params = addrs.HTTP_TYPEBparams;
-          TypeB::TCreateInfo createInfo("BSM", TypeB::TCreatePoint());
-          ((TypeB::TBSMOptions*)createInfo.optionsAs<TypeB::TBSMOptions>())->is_lat=true;  //!!! а надо бы читать из настроечной таблицы:
-                                                                                           //!!! как, например, быть с class_of_travel?
-          CreateTlgBody(*i, createInfo, p);
-          p.addToFileParams(params);
-
-          TFileQueue::putFile(OWN_POINT_ADDR(),
-                              OWN_POINT_ADDR(),
-                              FILE_HTTP_TYPEB_TYPE,
-                              params,
-                              p.body);
-      }
+      };  
     };
-    if(not addrs.HTTP_TYPEBparams.empty())
-        registerHookAfter(sendCmdTlgHttpSnd);
 
     check_tlg_out_alarm(point_dep);
 };

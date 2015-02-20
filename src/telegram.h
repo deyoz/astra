@@ -245,9 +245,8 @@ void LoadContent(int grp_id, TTlgContent& con);
 void CompareContent(const TTlgContent& con1, const TTlgContent& con2, std::vector<TTlgContent>& bsms);
 
 struct TBSMAddrs {
-    std::vector<TypeB::TCreateInfo> createInfo;
-    std::map<std::string, std::string> HTTP_TYPEBparams;
-    bool empty() const { return createInfo.empty() and HTTP_TYPEBparams.empty(); }
+    std::vector<TypeB::TCreateInfo> createInfo;    
+    bool empty() const { return createInfo.empty(); }
 };
 bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs );
 void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &addrs );
