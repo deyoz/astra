@@ -281,6 +281,8 @@ public:
      AddEvent("DeleteTlg",evHandle);
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::LCI_srv);
      AddEvent("LCI_srv",evHandle);
+     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::kick);
+     AddEvent("kick",evHandle);
 
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::TestSeatRanges);
      AddEvent("TestSeatRanges",evHandle);
@@ -297,6 +299,7 @@ public:
   void SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void LCI_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
@@ -307,7 +310,7 @@ public:
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void SendTlg( int tlg_id );
-  static void SendTlg(const std::vector<TypeB::TCreateInfo> &info);
+  static void SendTlg(const std::vector<TypeB::TCreateInfo> &info, int tlg_id = ASTRA::NoExists);
 
   static void SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, bool has_errors );
 };
@@ -318,6 +321,7 @@ int send_tlg(int argc,char **argv);
 bool check_delay_code(int delay_code);
 bool check_delay_code(const std::string &delay_code);
 bool check_delay_value(BASIC::TDateTime delay_time);
+void markTlgAsSent(int tlg_id);
 
 
 #endif /*_TELEGRAM_H_*/

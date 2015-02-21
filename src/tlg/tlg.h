@@ -108,8 +108,8 @@ int sendTlg(const char* receiver,
             const std::string &text,
             int typeb_tlg_id,
             int typeb_tlg_num);
-void loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_error);
-void loadTlg(const std::string &text);
+int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_error);
+int loadTlg(const std::string &text);
 void procTypeB(int tlg_id, int inc);
 bool procTlg(int tlg_id);
 

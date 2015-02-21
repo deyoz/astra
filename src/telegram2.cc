@@ -22,6 +22,7 @@
 #include "serverlib/test.h"
 
 #include "alarms.h"
+#include "TypeBHelpMng.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -7542,6 +7543,28 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( resNode, "tlg_id", tlg_id);
 };
 
+void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int tlg_id =  NodeAsInteger("content", reqNode);
+    QParams QryParams;
+    QryParams << QParam("id", otInteger, tlg_id);
+    TCachedQuery Qry(
+            "SELECT heading, body, ending FROM tlg_out WHERE id=:id ORDER BY num",
+            QryParams
+            );
+    Qry.get().Execute();
+    string res;
+    string heading, ending;
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        if(heading.empty()) heading = Qry.get().FieldAsString("heading");
+        if(ending.empty()) ending = Qry.get().FieldAsString("ending");
+        res += Qry.get().FieldAsString("body");
+    }
+    res = heading + res + ending;
+    NewTextChild(resNode, "content", res);
+    markTlgAsSent(tlg_id);
+}
+
 void TelegramInterface::LCI_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     ProgTrace(TRACE5, "%s", __FUNCTION__);
@@ -7549,9 +7572,18 @@ void TelegramInterface::LCI_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     if ( contentNode == NULL ) {
         return;
     }
-    string buffer = NodeAsString( contentNode );
-    NewTextChild(resNode, "content", "Success");
-
+    string content = NodeAsString( contentNode );
+    TrimString(content);
+    TypeB::TOriginatorInfo orig = TypeB::getOriginator(
+            string(),
+            string(),
+            string(),
+            NowUTC(),
+            true
+            );
+    content = orig.addr + "\xa." + orig.addr + "\n" + content;
+    TypeBHelpMng::configForPerespros(loadTlg(content));
+    NewTextChild(resNode, "content", "Fail");
 }
 
 void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_type )

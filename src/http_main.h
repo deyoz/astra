@@ -39,6 +39,7 @@ struct HTTPClient
     jxt_interface["SaveSPP"] = JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID, NULL);
     jxt_interface["CrewCheckin"] = JxtInfo(CHECKIN_JXT_INTERFACE_ID, HTTPPostProcessXMLAnswer);
     jxt_interface["LCI_srv"] = JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
+    jxt_interface["kick"] = JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
   }
 };
 
