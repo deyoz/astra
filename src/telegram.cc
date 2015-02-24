@@ -1366,9 +1366,13 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
                         i->get_tlg_type().c_str(),
                         i->point_id);
 
-            lexema_id = "EVT.TLG.CREATED";
-            params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
-                   << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", i->get_options().is_lat);
+            if (tlg_id!=NoExists) //телеграмма создалась
+            {
+              lexema_id = "EVT.TLG.CREATED";
+              params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
+                     << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", i->get_options().is_lat);
+              TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, tlg_id);
+            };
         }
         catch(AstraLocale::UserException &E)
         {
@@ -1379,9 +1383,8 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info)
 
             params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
                    << PrmBool("lat", i->get_options().is_lat) << PrmLexema("what", err_id, err_prms);
+            TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, tlg_id);
         }
-
-        TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, tlg_id);
 
         if (tlg_id!=NoExists)
         {
