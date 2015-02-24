@@ -7583,7 +7583,7 @@ void TelegramInterface::LCI_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             );
     content = orig.addr + "\xa." + orig.addr + "\n" + content;
     TypeBHelpMng::configForPerespros(loadTlg(content));
-    NewTextChild(resNode, "content", "Fail");
+    NewTextChild(resNode, "content", "Timeout occurred");
 }
 
 void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_type )

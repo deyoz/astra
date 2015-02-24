@@ -969,8 +969,7 @@ bool parse_tlg(void)
 
       // This block added specially for TypeBHelpMng::notify(typeb_in_id)
       // notify func registers hook(setHAfter) which need to be handled here.
-      callPostHooksBefore();
-      OraSession.Commit();
+      // callPostHooksAfter() - calls after all possible commits
       callPostHooksAfter();
       emptyHookTables();
       //

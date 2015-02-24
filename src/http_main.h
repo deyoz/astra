@@ -14,6 +14,7 @@ namespace AstraHTTP
 #define TELEGRAM_JXT_INTERFACE_ID "Telegram"
 
 void HTTPPostProcessXMLAnswer();
+void LCIPostProcessXMLAnswer();
 
 struct JxtInfo {
   std::string interface;
@@ -38,8 +39,8 @@ struct HTTPClient
     jxt_format = false;
     jxt_interface["SaveSPP"] = JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID, NULL);
     jxt_interface["CrewCheckin"] = JxtInfo(CHECKIN_JXT_INTERFACE_ID, HTTPPostProcessXMLAnswer);
-    jxt_interface["LCI_srv"] = JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
-    jxt_interface["kick"] = JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
+    jxt_interface["LCI_srv"] = JxtInfo(TELEGRAM_JXT_INTERFACE_ID, LCIPostProcessXMLAnswer);
+    jxt_interface["kick"] = JxtInfo(TELEGRAM_JXT_INTERFACE_ID, LCIPostProcessXMLAnswer);
   }
 };
 

@@ -154,4 +154,10 @@ bool notify(int typeb_in_id, int typeb_out_id)
     return result;
 }
 
+void clean_typeb_help()
+{
+    TCachedQuery Qry("delete from typeb_help where timeout < system.utcsysdate");
+    Qry.get().Execute();
+}
+
 }
