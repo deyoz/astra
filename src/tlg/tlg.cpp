@@ -464,6 +464,7 @@ int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_erro
         };
 
         Qry.Close();
+        registerHookAfter(sendCmdTypeBHandler);
         return tlg_id;
     }
     catch( std::exception &e)

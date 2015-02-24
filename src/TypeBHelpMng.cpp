@@ -98,7 +98,7 @@ string IntMsgIdAsString(const int msg_id[])
 
 void configForPerespros(int tlgs_id)
 {
-    int timeout = 70;
+    int timeout = 40;
     set_msg_type_and_timeout(MSG_ANSW_STORE_WAIT_SIG, timeout);
 
     Tcl_Obj *obj;

@@ -1010,7 +1010,6 @@ void TelegramInterface::SaveInTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   loadTlg(text, tlg_id, hist_uniq_error);
   if (hist_uniq_error)
       throw UserException("MSG.TLG.CHANGED.REFRESH_DATA");
-  registerHookAfter(sendCmdTypeBHandler);
   AstraLocale::showMessage("MSG.TLG.LOADED");
 }
 
@@ -1019,7 +1018,6 @@ void TelegramInterface::LoadTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   string text = NodeAsString("tlg_text",reqNode);
   if (text.empty()) throw AstraLocale::UserException("MSG.TLG.EMPTY");
   loadTlg(text);
-  registerHookAfter(sendCmdTypeBHandler);
   AstraLocale::showMessage("MSG.TLG.LOADED");
 };
 
@@ -1302,7 +1300,6 @@ void TelegramInterface::SendTlg(int tlg_id)
           {
             // сразу помещаем во входную очередь
             loadTlg(tlg_text);
-            registerHookAfter(sendCmdTypeBHandler);
           }
           else
           {
