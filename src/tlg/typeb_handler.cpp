@@ -268,7 +268,7 @@ void forwardTypeB(const int typeb_tlg_id,
     forwarder << typeb_tlg_type << "PNLADL";
     vector<TypeB::TCreateInfo> createInfo;
     forwarder.getInfo(createInfo);
-    TelegramInterface::SendTlg(createInfo);
+    TelegramInterface::SendTlg(createInfo, NoExists, true);
   };
 };
 
