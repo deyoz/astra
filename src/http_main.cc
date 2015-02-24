@@ -218,6 +218,25 @@ void http_main(reply& rep, const request& req)
   return;
 }
 
+void LCIPostProcessXMLAnswer()
+{
+    ProgTrace(TRACE5, "%s started", __FUNCTION__);
+
+    XMLRequestCtxt *xmlRC = getXmlCtxt();
+    xmlNodePtr resNode = NodeAsNode("/term/answer",xmlRC->resDoc);
+    const char* operation = (const char*)xmlRC->reqDoc->children->children->children->name;
+
+    std::string error_code, error_message;
+    xmlNodePtr errNode = AstraLocale::selectPriorityMessage(resNode, error_code, error_message);
+
+    if (errNode!=NULL)
+    {
+        xmlFreeNode(errNode);
+        ProgError(STDLOG, "LCI_srv err: '%s'", error_message.c_str());
+        NewTextChild( resNode, "content", "Internal Server Error" );
+    }
+}
+
 void HTTPPostProcessXMLAnswer()
 {
   ProgTrace(TRACE5, "%s started", __FUNCTION__);

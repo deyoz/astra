@@ -34,6 +34,7 @@
 #include "edi_utils.h"
 #include "http_io.h"
 #include "httpClient.h"
+#include "TypeBHelpMng.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -162,6 +163,8 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       if ( name == "cobra" ) cobra();*/
       else
       if ( name == "send_apis_tr" ) send_apis_tr();
+      else
+      if ( name == "clean_typeb_help" ) TypeBHelpMng::clean_typeb_help();
 
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )

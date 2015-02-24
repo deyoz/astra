@@ -1,0 +1,36 @@
+#!/bin/bash
+
+AstraSrc=$HOME/Astra2007/src/astra
+
+if [ ! -x $AstraSrc ] ; then 
+	echo No new astra found. Exiting.
+	exit 2 
+fi
+
+#aDIR=`dirname $PWD`
+aDIR=$PWD
+
+if [ $aDIR != $HOME/RUN ] ; then
+	echo $PWD - Wrong directory. Exiting.
+	exit 1
+fi
+
+if [ ! -x astra ] ; then 
+	echo No previous astra found. Exiting.
+	exit 2 
+fi
+
+
+cmp  -s astra $AstraSrc
+a=$?
+if [ $a -eq 1 ] ; then
+	mv astra astra.old
+	cp -p $AstraSrc ./astra
+else
+	echo $AstraSrc and ./astra are the same.
+fi
+
+if [[ ( ! -z $1 ) && ( "$1" == "-r" )]]; then 
+	./Restart
+fi
+

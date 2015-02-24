@@ -58,6 +58,8 @@ exit 1
 }
 
 namespace import tclmon::*
+#set COMMON_SOCKDIR /usr/local/Sockets
+#set REQUEST_DUP_SOCKDIR /usr/local/Sockets
 set COMMON_SOCKDIR ./Sockets
 set REQUEST_DUP_SOCKDIR ./Sockets
 
@@ -81,7 +83,6 @@ set grp3_Jxt(BOUT) $SOCKDIR/sirena-BOUT3
 set grp3_Jxt(SIGNAL) $SOCKDIR/sirena-BSIG3
 set grp3_Jxt(HEADTYPE) 3
 set grp3_Jxt(REDISPLAY) 1 ;#any value is equivalent to 1 !!! Don't set to 0 or NO
-set grp3_Jxt(MAX_CONNECTIONS) 2500
 
 set grp8_Http(BIN) $SOCKDIR/sirena-BIN8
 set grp8_Http(SIGNAL) $SOCKDIR/sirena-BSIG8
