@@ -1153,7 +1153,7 @@ string GetOutputGateway(const string &orig_canon_name,
   return Qry.get().FieldAsString("out_canon_name");
 };
 
-void TelegramInterface::SendTlg(int tlg_id)
+void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
 {
   try
   {
@@ -1212,6 +1212,7 @@ void TelegramInterface::SendTlg(int tlg_id)
     TypeB::TTlgParser parser;
     const char *addrs,*line_p;
 
+    bool sended=false;
     for(;!TlgQry.Eof;TlgQry.Next())
     {
       tlg.fromDB(TlgQry);
@@ -1261,6 +1262,7 @@ void TelegramInterface::SendTlg(int tlg_id)
       if (recvs.empty()) throw AstraLocale::UserException("MSG.TLG.DST_ADDRS_NOT_SET");
 
       //формируем телеграмму
+      bool doPutUTG=true;
       for(list< list<TypeB::IataAddrOwnerItem> >::const_iterator i=recvs.begin();i!=recvs.end();++i)
       {
         if (i->empty()) throw Exception("%s: i->empty()", __FUNCTION__);
@@ -1297,9 +1299,18 @@ void TelegramInterface::SendTlg(int tlg_id)
         {
           string tlg_text=addrs+tlg.origin+tlg.heading+tlg.body+tlg.ending;
           if (OWN_CANON_NAME()==i->begin()->transport_addr)
-          {
+          {            
+            if (forwarded)
+            {
+              //если forwarded, то делаем защиту от зацикливания пересылки
+              ProgError(STDLOG,
+                        "%s: not allowed repeatedly load of forwarded telegram (typeb_out_id=%d, addrs=%s)",
+                        __FUNCTION__, tlg_id, addrs.c_str());
+              continue;
+            };
             // сразу помещаем во входную очередь
             loadTlg(tlg_text);
+            sended=true;
           }
           else
           {
@@ -1318,6 +1329,7 @@ void TelegramInterface::SendTlg(int tlg_id)
                                      tlg.airline_mark,
                                      originator.descr);
             };
+            sended=true;
           };
         }
         else if (i->begin()->transport_type==TypeB::ttBagMessage)
@@ -1335,6 +1347,7 @@ void TelegramInterface::SendTlg(int tlg_id)
                               FILE_BAG_MESSAGE_TYPE,
                               params,
                               tlg.heading+tlg.body+tlg.ending);
+          sended=true;
         }
         else if (i->begin()->transport_type==TypeB::ttHttp)
         {
@@ -1348,13 +1361,18 @@ void TelegramInterface::SendTlg(int tlg_id)
                               params,
                               tlg.body);
           registerHookAfter(sendCmdTlgHttpSnd);
+          sended=true;
         };
 
-        if (i == recvs.begin()) // ignore same tlg for different receivers
+
+        if (doPutUTG) // ignore same tlg for different receivers
+        {
           putUTG(tlg_id, tlg.num, tlg_basic_type, fltInfo, tlg.heading+tlg.body+tlg.ending, tlg.extra);
+          doPutUTG=false;
+        };
       };
     };
-    markTlgAsSent(tlg_id);
+    if (sended) markTlgAsSent(tlg_id);
   }
   catch(EOracleError &E)
   {
@@ -1393,7 +1411,7 @@ void markTlgAsSent(int tlg_id)
 
 void TelegramInterface::SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  SendTlg(NodeAsInteger( "tlg_id", reqNode ));
+  SendTlg(NodeAsInteger( "tlg_id", reqNode ), false);
   AstraLocale::showMessage("MSG.TLG.SEND");
   GetTlgOut(ctxt,reqNode,resNode);
 }
@@ -1437,7 +1455,7 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     GetTlgOut(ctxt,reqNode,resNode);
 };
 
-void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int typeb_in_id) 
+void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int typeb_in_id, bool forwarded)
 {
   for(vector<TypeB::TCreateInfo>::const_iterator i=info.begin(); i!=info.end(); ++i)
   {
@@ -1485,7 +1503,7 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int type
             if(not TypeBHelpMng::notify(typeb_in_id, typeb_out_id)) // Если небыло процесса для отвисания, действуем как обычно
                 try
                 {
-                    SendTlg(typeb_out_id);
+                    SendTlg(typeb_out_id, forwarded);
                 }
             catch(AstraLocale::UserException &E)
             {
@@ -2002,7 +2020,7 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
         p.addr=TypeB::format_addr_line(j->get_addrs());
         CreateTlgBody(*i, *j, p);
         TelegramInterface::SaveTlgOutPart(p, true, false);
-        TelegramInterface::SendTlg(p.id);
+        TelegramInterface::SendTlg(p.id, false);
       };  
     };
 
@@ -2156,7 +2174,7 @@ int send_tlg(int argc,char **argv)
         int tlg_id;
         if(StrToInt(argv[1], tlg_id) == EOF)
             throw Exception("tlg_id must be number");
-        TelegramInterface::SendTlg(tlg_id);
+        TelegramInterface::SendTlg(tlg_id, false);
     } catch (Exception &E) {
         printf("Error: %s\n", E.what());
         puts("Usage:");
