@@ -3780,7 +3780,10 @@ void RunSelfCkinStat(const TStatParams &params,
               row.pax_amount = row.adult + row.child + row.baby;
               row.term_bp = Qry.FieldAsInteger(col_term_bp);
               row.term_bag = Qry.FieldAsInteger(col_term_bag);
-              row.term_ckin_service = Qry.FieldAsInteger(col_term_ckin_service);
+              if (Qry.FieldIsNULL(col_term_ckin_service))
+                row.term_ckin_service = row.pax_amount;
+              else
+                row.term_ckin_service = Qry.FieldAsInteger(col_term_ckin_service);
               int point_id=Qry.FieldAsInteger(col_point_id);
               row.flts.insert(point_id);
               if (!params.skip_rows)
