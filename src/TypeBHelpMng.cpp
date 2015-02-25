@@ -66,7 +66,10 @@ void TypeBHelp::fromDB(int typeb_in_id)
     addr = Qry.get().GetVariableAsString("address");
     intmsgid = Qry.get().GetVariableAsString("intmsgid");
     text = Qry.get().GetVariableAsString("text");
-    tlgs_id = Qry.get().GetVariableAsInteger("tlgs_id");
+    if(Qry.get().VariableIsNULL("tlgs_id"))
+        tlgs_id = ASTRA::NoExists;
+    else
+        tlgs_id = Qry.get().GetVariableAsInteger("tlgs_id");
     timeout = ASTRA::NoExists;
 }
 

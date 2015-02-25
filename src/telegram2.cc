@@ -7549,20 +7549,26 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     QParams QryParams;
     QryParams << QParam("id", otInteger, tlg_id);
     TCachedQuery Qry(
-            "SELECT heading, body, ending FROM tlg_out WHERE id=:id ORDER BY num",
+            "SELECT heading, body, ending, has_errors FROM tlg_out WHERE id=:id ORDER BY num",
             QryParams
             );
     Qry.get().Execute();
     string res;
     string heading, ending;
+    bool has_errors = false;
     for(; not Qry.get().Eof; Qry.get().Next()) {
+        has_errors |= Qry.get().FieldAsString("has_errors") != 0;
         if(heading.empty()) heading = Qry.get().FieldAsString("heading");
         if(ending.empty()) ending = Qry.get().FieldAsString("ending");
         res += Qry.get().FieldAsString("body");
     }
-    res = heading + res + ending;
+    if(has_errors)
+        res = INTERNAL_SERVER_ERROR;
+    else {
+        res = heading + res + ending;
+        markTlgAsSent(tlg_id);
+    }
     NewTextChild(resNode, "content", res);
-    markTlgAsSent(tlg_id);
 }
 
 void TelegramInterface::LCI_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -7583,7 +7589,7 @@ void TelegramInterface::LCI_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             );
     content = orig.addr + "\xa." + orig.addr + "\n" + content;
     TypeBHelpMng::configForPerespros(loadTlg(content));
-    NewTextChild(resNode, "content", "Timeout occurred");
+    NewTextChild(resNode, "content", TIMEOUT_OCCURRED);
 }
 
 void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_type )
