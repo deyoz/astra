@@ -3339,9 +3339,7 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
     }
   }
  if ( !err_tz_region.empty() ) {
-    ProgError( STDLOG, "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE.NOT_ALL_FLIGHTS_ARE_SHOWN: region=%s", err_tz_region.c_str() );
-    AstraLocale::showErrorMessage( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE.NOT_ALL_FLIGHTS_ARE_SHOWN",
-                                     LParams() << LParam("country", /*ElemIdToCodeNative(etCountry,"”"))*/ err_tz_region)<< LParam("zone", 0)); //!!!
+    ProgError( STDLOG, "%s: err_tz_region=%s!", __FUNCTION__, err_tz_region.c_str() );
  }
  if ( !err_city.empty() )
     showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN",
@@ -3511,7 +3509,6 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
   bool canRange = false;
   bool canTrips = false;
   bool DestsExists = false;
-  int zone_error = NoExists;
   while ( !SQry.Eof ) {
     TDateTime first = SQry.FieldAsDateTime( idx_first_day );
     TDateTime last = SQry.FieldAsDateTime( idx_last_day );
@@ -3673,10 +3670,6 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
       NewTextChild( tripNode, "trip_id", t->trip_id );
       NewTextChild( tripNode, "name", t->name );
     }
-  }
-  if ( zone_error != NoExists ) {
-    AstraLocale::showErrorMessage( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE",
-                                       LParams() << LParam("country", ElemIdToCodeNative(etCountry,"”")) << LParam("zone", zone_error));
   }
 }
 
