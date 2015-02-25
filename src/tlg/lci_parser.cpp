@@ -1284,7 +1284,7 @@ void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con)
     // !!! приведение константной ссылки к неконстантной. Не хорошо.
     TypeB::TLCIOptions &options = (TypeB::TLCIOptions&)(*createInfo.optionsAs<TypeB::TLCIOptions>());
 
-    options.is_lat = true;
+    options.is_lat = false;
     options.equipment=false;
     options.weight_avail="N";
     options.seating=false;
