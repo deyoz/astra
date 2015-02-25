@@ -22,6 +22,7 @@
 #include "serverlib/test.h"
 
 #include "alarms.h"
+#include "TypeBHelpMng.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -7541,6 +7542,55 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
                                       evtTlg, createInfo.point_id, tlg_id);
     NewTextChild( resNode, "tlg_id", tlg_id);
 };
+
+void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int tlg_id =  NodeAsInteger("content", reqNode);
+    QParams QryParams;
+    QryParams << QParam("id", otInteger, tlg_id);
+    TCachedQuery Qry(
+            "SELECT heading, body, ending, has_errors FROM tlg_out WHERE id=:id ORDER BY num",
+            QryParams
+            );
+    Qry.get().Execute();
+    string res;
+    string heading, ending;
+    bool has_errors = false;
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        has_errors |= Qry.get().FieldAsString("has_errors") != 0;
+        if(heading.empty()) heading = Qry.get().FieldAsString("heading");
+        if(ending.empty()) ending = Qry.get().FieldAsString("ending");
+        res += Qry.get().FieldAsString("body");
+    }
+    if(has_errors)
+        res = INTERNAL_SERVER_ERROR;
+    else {
+        res = heading + res + ending;
+        markTlgAsSent(tlg_id);
+    }
+    NewTextChild(resNode, "content", res);
+}
+
+void TelegramInterface::LCI_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    ProgTrace(TRACE5, "%s", __FUNCTION__);
+    xmlNodePtr contentNode = GetNode( "content", reqNode );
+    if ( contentNode == NULL ) {
+        return;
+    }
+    string content = NodeAsString( contentNode );
+    TrimString(content);
+    TypeB::TOriginatorInfo orig = TypeB::getOriginator(
+            string(),
+            string(),
+            string(),
+            NowUTC(),
+            true
+            );
+    content = orig.addr + "\xa." + orig.addr + "\n" + content;
+    TypeBHelpMng::configForPerespros(loadTlg(content));
+    NewTextChild(resNode, "content", TIMEOUT_OCCURRED);
+}
 
 void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_type )
 {

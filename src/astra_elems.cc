@@ -91,6 +91,7 @@ const
                          {etHall,                  "etHall",                  ""},
                          {etLangType,              "etLangType",              "lang_types"},
                          {etMiscSetType,           "etMiscSetType",           "misc_set_types"},
+                         {etMsgTransport,          "etMsgTransport",          "msg_transports"},
                          {etPaxDocCountry,         "etPaxDocCountry",         "pax_doc_countries"},
                          {etPaxDocType,            "etPaxDocType",            "pax_doc_types"},
                          {etPayType,               "etPayType",               "pay_types"},

@@ -195,7 +195,7 @@ static void scan_tlg(void)
               p.num=1;
               p.addr=TypeB::format_addr_line(im->second);
               TelegramInterface::SaveTlgOutPart(p, true, false);
-              TelegramInterface::SendTlg(p.id);
+              TelegramInterface::SendTlg(p.id, false);
               TFileQueue::deleteFile(item->id);
               break;
             }
