@@ -12,8 +12,9 @@ proc set_hidden { varname value} {
     uplevel #0 set $varname [list $value]
 }
 
-set grp2_Inet(OBRZAP_NUM) 1
-set grp3_Jxt(OBRZAP_NUM) 3
+set grp2_Inet(OBRZAP_NUM) 5
+set grp3_Jxt(OBRZAP_NUM) 15
 set grp8_Http(OBRZAP_NUM) 1
 set grp9_HttpSSL(OBRZAP_NUM) 0
 set SOCKDIR ./Sockets
+

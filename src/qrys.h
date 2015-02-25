@@ -88,7 +88,6 @@ class TCachedQuery {
     public:
         TQuery &get();
         TCachedQuery(const std::string &SQLText, const QParams &p);
-        TCachedQuery(const std::string &SQLText);
         ~TCachedQuery();
 };
 

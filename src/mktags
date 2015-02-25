@@ -1,5 +1,0 @@
-ctags -R .
-ctags -R -a ../locallibs/edilib/src
-ctags -R -a ../locallibs/serverlib/src
-ctags -R -a ../locallibs/jxtlib/src
-ctags -R -a ../locallibs/shared/src

@@ -77,6 +77,20 @@ proc astra_init8 {} {
     create_proc_grp $::grp8_Http(OBRZAP_NUM) [ list obrzap grp8_Http ] 2
 }
 
+proc astra_init_other {} {
+
+    for {set i 1} {$i<=$::TIMER_NUM} {incr i} {
+      create_process 1 [ list timer $i ] 3
+    }
+    create_process 1 [ list tlg_http_snd ] 3
+    create_process 1 [ list tlg_snd ] 3
+    create_process 1 [ list tlg_srv ] 3
+    create_process 1 [ list typeb_handler ] 3
+    create_process 1 [ list typeb_parser ] 3
+    create_process 1 [ list edi_handler ] 3
+    create_process 1 [ list aodb_handler ] 3
+}
+
 proc epilogue {} {
     rename exec {}
     rename auto_execok {}
@@ -127,20 +141,10 @@ proc astra_init {} {
         astra_init8;
     }
 
-
-    #for {set i 1} {$i<=$::TIMER_NUM} {incr i} {
-    #  create_process 1 [ list timer $i ] 3
-    #}
-    create_process 1 [ list timer den ] 3
-    #create_process 1 [ list tlg_http_snd ] 3
-
-#create_process 1 [ list tlg_snd ] 3
-#create_process 1 [ list tlg_srv ] 3
-#create_process 1 [ list typeb_handler ] 3
-#create_process 1 [ list typeb_parser ] 3
-#create_process 1 [ list edi_handler ] 3
-
-    #create_process 1 [ list aodb_handler ] 3
+    #   group other
+    if { [lsearch -exact $::GROUPS_TO_RUN astra_init_other ] != -1 } {
+        astra_init_other;
+    }
 
     epilogue
 }

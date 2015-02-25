@@ -389,13 +389,13 @@ int sendTlg(const char* receiver,
     };
 }
 
-int loadTlg(const std::string &text)
+void loadTlg(const std::string &text)
 {
     bool hist_uniq_error;
-    return loadTlg(text, ASTRA::NoExists, hist_uniq_error);
+    loadTlg(text, ASTRA::NoExists, hist_uniq_error);
 }
 
-int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_error)
+void loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_error)
 {
     try
     {
@@ -460,8 +460,6 @@ int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_erro
         };
 
         Qry.Close();
-        registerHookAfter(sendCmdTypeBHandler);
-        return tlg_id;
     }
     catch( std::exception &e)
     {

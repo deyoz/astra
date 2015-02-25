@@ -245,8 +245,9 @@ void LoadContent(int grp_id, TTlgContent& con);
 void CompareContent(const TTlgContent& con1, const TTlgContent& con2, std::vector<TTlgContent>& bsms);
 
 struct TBSMAddrs {
-    std::vector<TypeB::TCreateInfo> createInfo;    
-    bool empty() const { return createInfo.empty(); }
+    std::vector<TypeB::TCreateInfo> createInfo;
+    std::map<std::string, std::string> HTTP_TYPEBparams;
+    bool empty() const { return createInfo.empty() and HTTP_TYPEBparams.empty(); }
 };
 bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs );
 void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &addrs );
@@ -279,10 +280,6 @@ public:
      AddEvent("SendTlg",evHandle);
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::DeleteTlg);
      AddEvent("DeleteTlg",evHandle);
-     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::LCI_srv);
-     AddEvent("LCI_srv",evHandle);
-     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::kick);
-     AddEvent("kick",evHandle);
 
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::TestSeatRanges);
      AddEvent("TestSeatRanges",evHandle);
@@ -298,8 +295,6 @@ public:
   void SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void LCI_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
@@ -309,10 +304,8 @@ public:
                         bool manual_creation);
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
-  static void SendTlg(int tlg_id, bool forwarded);
-  static void SendTlg(const std::vector<TypeB::TCreateInfo> &info,
-                      int tlg_id = ASTRA::NoExists,
-                      bool forwarded = false);
+  static void SendTlg( int tlg_id );
+  static void SendTlg(const std::vector<TypeB::TCreateInfo> &info);
 
   static void SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, bool has_errors );
 };
@@ -323,7 +316,6 @@ int send_tlg(int argc,char **argv);
 bool check_delay_code(int delay_code);
 bool check_delay_code(const std::string &delay_code);
 bool check_delay_value(BASIC::TDateTime delay_time);
-void markTlgAsSent(int tlg_id);
 
 
 #endif /*_TELEGRAM_H_*/

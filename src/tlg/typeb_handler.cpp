@@ -22,7 +22,6 @@
 #include "serverlib/test.h"
 
 #include "astra_service.h"
-#include "serverlib/posthooks.h"
 
 using namespace ASTRA;
 using namespace BASIC;
@@ -268,7 +267,7 @@ void forwardTypeB(const int typeb_tlg_id,
     forwarder << typeb_tlg_type << "PNLADL";
     vector<TypeB::TCreateInfo> createInfo;
     forwarder.getInfo(createInfo);
-    TelegramInterface::SendTlg(createInfo, NoExists, true);
+    TelegramInterface::SendTlg(createInfo);
   };
 };
 
@@ -966,13 +965,6 @@ bool parse_tlg(void)
         }
         catch(...) {};
       };
-
-      // This block added specially for TypeBHelpMng::notify(typeb_in_id)
-      // notify func registers hook(setHAfter) which need to be handled here.
-      // callPostHooksAfter() - calls after all possible commits
-      callPostHooksAfter();
-      emptyHookTables();
-      //
     };
     queue_not_empty=!TlgIdQry.Eof;
     mem.destroy(HeadingInfo, STDLOG);

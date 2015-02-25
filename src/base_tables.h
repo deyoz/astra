@@ -1145,22 +1145,6 @@ class TCkinRemTypesRow: public TTIDBaseTableRow {
     }
 };
 
-class TMsgTransportsRow: public TCodeBaseTableRow {
-    public:
-        const char *get_row_name() const { return "TMsgTransportsRow"; };
-};
-
-class TMsgTransports: public TCodeBaseTable {
-    protected:
-        const char *get_table_name() { return "TMsgTransports"; };
-        void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
-        void Invalidate() {}; //всегда актуальна
-    public:
-        TMsgTransports() {
-            Init( "msg_transports" );
-        }
-};
-
 class TCkinRemTypes: public TTIDBaseTable {
   private:
     const char *get_select_sql_text()

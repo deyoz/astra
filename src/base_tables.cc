@@ -122,8 +122,6 @@ TBaseTable &TBaseTables::get(string name)
         	  base_tables[name] = new TCkinRemTypes();
         else if(name == "RCPT_DOC_TYPES")
         	  base_tables[name] = new TRcptDocTypes();
-        else if(name == "MSG_TRANSPORTS")
-            base_tables[name] = new TMsgTransports();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
         mem.create(base_tables[name], STDLOG);
@@ -952,12 +950,5 @@ void TCkinRemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
   ((TCkinRemTypesRow*)*row)->priority=Qry.FieldIsNULL("priority")?ASTRA::NoExists:Qry.FieldAsInteger("priority");
 	TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
-
-void TMsgTransports::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
-  *row = new TMsgTransportsRow;
-  mem.create(*row, STDLOG);
-  TCodeBaseTable::create_row(Qry, row, replaced_row);
-};
-
 
 TBaseTables base_tables;

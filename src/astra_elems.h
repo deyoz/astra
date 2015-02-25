@@ -37,7 +37,6 @@ enum TElemType {
                  etHall,                     //залы регистрации и посадки
                  etLangType,                 //языки
                  etMiscSetType,              //типы настроек для рейсов
-                 etMsgTransport,             //типы транспортов для сообщений
                  etPaxDocCountry,            //коды государств в документах пассажиров
                  etPaxDocType,               //типы документов пассажиров
                  etPayType,                  //код типа оплаты

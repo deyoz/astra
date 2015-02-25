@@ -50,11 +50,6 @@ TQuery &TCachedQuery::get()
     return Qry->Qry;
 }
 
-TCachedQuery::TCachedQuery(const string &SQLText) {
-    QParams p;
-    Qry = TQrys::Instance()->get(SQLText, p);
-}
-
 TCachedQuery::TCachedQuery(const string &SQLText, const QParams &p) {
     Qry = TQrys::Instance()->get(SQLText, p);
 }
