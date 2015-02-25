@@ -48,7 +48,7 @@ const
     const char *description;
   } obrnosirnick []={
     {"-test",                   nosir_test,             nosir_test_help,            NULL},
-    {"-ediinsert",              edi_load_messages_main, NULL,                       "loading edifact templates"},
+//    {"-ediinsert",              edi_load_messages_main, NULL,                       "loading edifact templates"},
     {"-testbm",                 testbm,                 NULL,                       NULL},
     {"-load_fr",                load_fr,                NULL,                       "loading FR files to database"},
     {"-get_fr",                 get_fr,                 NULL,                       "getting FR files from database to local path"},

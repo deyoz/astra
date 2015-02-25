@@ -42,8 +42,7 @@ void EmdDispResponseHandler::handle()
         }
         break;
     case edilib::EdiRespStatus::partial:        
-    case edilib::EdiRespStatus::notProcessed:  
-    case edilib::EdiRespStatus::rejected:
+    case edilib::EdiRespStatus::unsuccessfully:
         break;
     }
 }

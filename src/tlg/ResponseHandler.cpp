@@ -34,9 +34,8 @@ void AstraEdiResponseHandler::setRemoteResultStatus()
         case EdiRespStatus::successfully:
             stat = RemoteStatus::Success;
             break;
+        case EdiRespStatus::unsuccessfully:
         case EdiRespStatus::partial:
-        case EdiRespStatus::notProcessed:
-        case EdiRespStatus::rejected:
             stat = RemoteStatus::CommonError;
             break;
     }

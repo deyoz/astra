@@ -398,7 +398,7 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
 
     if(numNewTickets > 4 || ltick.size() == 0)
     {
-        ProgError(STDLOG, "Invalid number of conjunction tickets (%zu), 4 maximum", numNewTickets);
+        ProgError(STDLOG, "Invalid number of conjunction tickets (%d), 4 maximum", numNewTickets);
         throw Exception("Invalid number of conjunction tickets, 4 maximum");
     }
 

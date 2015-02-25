@@ -274,7 +274,7 @@ int edifact::init_edifact()
 {
     InitEdiLogger(ProgError,WriteLog,ProgTrace);
 
-    if(CreateTemplateMessages()) {
+    if(CreateTemplateMessages(get_connect_string(),NULL)) {
         return -1;
     }
 
