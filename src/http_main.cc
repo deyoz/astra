@@ -233,7 +233,7 @@ void LCIPostProcessXMLAnswer()
     {
         xmlFreeNode(errNode);
         ProgError(STDLOG, "LCI_srv err: '%s'", error_message.c_str());
-        NewTextChild( resNode, "content", "Internal Server Error" );
+        NewTextChild( resNode, "content", INTERNAL_SERVER_ERROR);
     }
 }
 

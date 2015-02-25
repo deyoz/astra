@@ -96,5 +96,8 @@ enum TIdType {idFlt, idGrp, idPax};
 
 };
 
+const std::string INTERNAL_SERVER_ERROR = "Internal Server Error";
+const std::string TIMEOUT_OCCURRED = "Timeout occurred";
+
 #endif
 
