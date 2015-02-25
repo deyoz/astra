@@ -7557,7 +7557,7 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     string heading, ending;
     bool has_errors = false;
     for(; not Qry.get().Eof; Qry.get().Next()) {
-        has_errors |= Qry.get().FieldAsString("has_errors") != 0;
+        has_errors |= Qry.get().FieldAsInteger("has_errors") != 0;
         if(heading.empty()) heading = Qry.get().FieldAsString("heading");
         if(ending.empty()) ending = Qry.get().FieldAsString("ending");
         res += Qry.get().FieldAsString("body");
