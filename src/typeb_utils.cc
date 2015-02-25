@@ -930,7 +930,7 @@ void add_filtered_item(const TSendInfo &sendInfo, TQuery &Qry, set<TCreatePoint>
 {
     QParams QryParams;
     QryParams << QParam("id", otInteger, Qry.FieldAsInteger("id"));
-    TCachedQuery paramsQry("select stage_id, time_offset from typeb_create_points where id = :id", QryParams);
+    TCachedQuery paramsQry("select stage_id, time_offset from typeb_create_points where typeb_addrs_id = :id", QryParams);
     paramsQry.get().Execute();
     for(; not paramsQry.get().Eof; paramsQry.get().Next())
         result.insert(TCreatePoint(
@@ -1100,7 +1100,7 @@ bool TCreatePoint::exists(int typeb_addrs_id, const string &tlg_type) const
             QryParams << QParam("time_offset", otInteger, time_offset);
             TCachedQuery Qry(
                     "select * from typeb_create_points where "
-                    "id = :id and stage_id = :stage_id and "
+                    "typeb_addrs_id = :id and stage_id = :stage_id and "
                     "time_offset = :time_offset ", QryParams);
             Qry.get().Execute();
             return not Qry.get().Eof;

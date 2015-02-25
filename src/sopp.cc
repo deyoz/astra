@@ -1127,7 +1127,7 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
     d.pr_reg = PointsQry.FieldAsInteger( col_pr_reg );
     d.pr_del = PointsQry.FieldAsInteger( col_pr_del );
     d.tid = PointsQry.FieldAsInteger( col_tid );
-    d.region = ((TCitiesRow&)cities.get_row( "code", d.city, true )).region;
+    d.region = ((TCitiesRow&)cities.get_row( "code", d.city, true )).tz_region;
     if ( arx )
     	d.part_key = PointsQry.FieldAsDateTime( col_part_key );
     else
@@ -1538,7 +1538,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     d.pr_reg = PointsQry.FieldAsInteger( col_pr_reg );
     d.pr_del = PointsQry.FieldAsInteger( col_pr_del );
     d.tid = PointsQry.FieldAsInteger( col_tid );
-    d.region = ((TCitiesRow&)cities.get_row( "code", d.city, true )).region;
+    d.region = ((TCitiesRow&)cities.get_row( "code", d.city, true )).tz_region;
     if ( arx )
     	d.part_key = PointsQry.FieldAsDateTime( col_part_key );
     else

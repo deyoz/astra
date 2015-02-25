@@ -662,8 +662,7 @@ void TCities::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
   *row = new TCitiesRow;
   mem.create(*row, STDLOG);
   ((TCitiesRow*)*row)->country=Qry.FieldAsString("country");
-  ((TCitiesRow*)*row)->region=Qry.FieldAsString("region");
-  ((TCitiesRow*)*row)->tz=Qry.FieldAsInteger("tz");
+  ((TCitiesRow*)*row)->tz_region=Qry.FieldAsString("tz_region");
   TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 

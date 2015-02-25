@@ -72,7 +72,7 @@ class TCreateOptions
 
       const char* sql=
         "SELECT category, value FROM typeb_addr_options "
-        "WHERE id=:id AND tlg_type=:tlg_type";
+        "WHERE typeb_addrs_id=:id AND tlg_type=:tlg_type";
       if (strcmp(OptionsQry.SQLText.SQLText(),sql)!=0)
       {
         OptionsQry.Clear();
