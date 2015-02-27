@@ -279,8 +279,8 @@ public:
      AddEvent("SendTlg",evHandle);
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::DeleteTlg);
      AddEvent("DeleteTlg",evHandle);
-     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::LCI_srv);
-     AddEvent("LCI_srv",evHandle);
+     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::tlg_srv);
+     AddEvent("tlg_srv",evHandle);
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::kick);
      AddEvent("kick",evHandle);
 
@@ -298,13 +298,14 @@ public:
   void SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void LCI_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   static int create_tlg(const TypeB::TCreateInfo &createInfo,
+                        int typeb_in_id,
                         TTypeBTypesRow &tlgTypeInfo,
                         bool manual_creation);
 

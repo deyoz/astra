@@ -744,6 +744,18 @@ string TOriginatorInfo::originSection(TDateTime time_create, const string &endli
   return result.str();
 };
 
+TOriginatorInfo getOriginator(int originator_id)
+{
+    QParams QryParams;
+    QryParams << QParam("originator_id", otInteger, originator_id);
+    TCachedQuery Qry("select * from typeb_originators where id = :originator_id", QryParams);
+    Qry.get().Execute();
+
+    TOriginatorInfo originator;
+    if(not Qry.get().Eof) originator.fromDB(Qry.get());
+    return originator;
+}
+
 TOriginatorInfo getOriginator(const string &airline,
                               const string &airp_dep,
                               const string &tlg_type,

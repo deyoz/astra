@@ -21,6 +21,45 @@ namespace TypeBHelpMng {
 using namespace std;
 using namespace EXCEPTIONS;
 
+struct TypeBHelp {
+    std::string addr, intmsgid, text;
+    int tlgs_id;
+    int originator_id;
+    int timeout; // seconds
+    void Clear() {
+        addr.clear();
+        intmsgid.clear();
+        text.clear();
+        tlgs_id = ASTRA::NoExists;
+        originator_id = ASTRA::NoExists;
+        timeout = ASTRA::NoExists;
+    }
+    TypeBHelp(
+            const std::string &aaddr,
+            int aoriginator_id,
+            const std::string &aintmsgid,
+            const std::string &atext,
+            int atlgs_id,
+            int atimeout
+            ):
+        addr(aaddr),
+        intmsgid(aintmsgid),
+        text(atext),
+        tlgs_id(atlgs_id),
+        originator_id(aoriginator_id),
+        timeout(atimeout)
+    {};
+    TypeBHelp() { Clear(); }
+    TypeBHelp(int typeb_in_id)
+    {
+        fromDB(typeb_in_id);
+    }
+    void toDB();
+    void fromDB(int typeb_in_id);
+    void get(int typeb_in_id);
+};
+
+
 void set_http_header(ServerFramework::HTTP::request &rq, const string &name, const string &value)
 {
     const ServerFramework::HTTP::request::Headers::iterator cl = std::find(rq.headers.begin(),
@@ -28,6 +67,35 @@ void set_http_header(ServerFramework::HTTP::request &rq, const string &name, con
             name);
     if (rq.headers.end() != cl) {
         cl->value = value;
+    }
+}
+
+int getOriginatorId(int typeb_in_id)
+{
+    int result = ASTRA::NoExists;
+    if(typeb_in_id != ASTRA::NoExists) {
+        TypeBHelp tbh;
+        tbh.get(typeb_in_id);
+        result = tbh.originator_id;
+    }
+    return result;
+}
+
+void TypeBHelp::get(int typeb_in_id)
+{
+    QParams QryParams;
+    QryParams << QParam("typeb_in_id", otInteger, typeb_in_id);
+    TCachedQuery Qry(
+            "select * from typeb_help where "
+            "   tlgs_id = (select id from tlgs where typeb_tlg_id = :typeb_in_id)", QryParams);
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        tlgs_id = Qry.get().FieldAsInteger("tlgs_id");
+        addr = Qry.get().FieldAsString("address");
+        originator_id = Qry.get().FieldAsInteger("originator_id");
+        intmsgid = Qry.get().FieldAsString("intmsgid");
+        text = Qry.get().FieldAsString("text");
+        timeout = ASTRA::NoExists;
     }
 }
 
@@ -40,6 +108,7 @@ void TypeBHelp::fromDB(int typeb_in_id)
         << QParam("typeb_in_id", otInteger, typeb_in_id)
         << QParam("tlgs_id", otInteger)
         << QParam("address", otString)
+        << QParam("originator_id", otInteger)
         << QParam("intmsgid", otString)
         << QParam("text", otString)
         << QParam("timeout", otDate)
@@ -51,12 +120,14 @@ void TypeBHelp::fromDB(int typeb_in_id)
             "returning "
             "   tlgs_id, "
             "   address, "
+            "   originator_id, "
             "   intmsgid, "
             "   text, "
             "   timeout "
             "into "
             "   :tlgs_id, "
             "   :address, "
+            "   :originator_id, "
             "   :intmsgid, "
             "   :text, "
             "   :timeout; "
@@ -64,6 +135,7 @@ void TypeBHelp::fromDB(int typeb_in_id)
             QryParams);
     Qry.get().Execute();
     addr = Qry.get().GetVariableAsString("address");
+    originator_id = Qry.get().GetVariableAsInteger("originator_id");
     intmsgid = Qry.get().GetVariableAsString("intmsgid");
     text = Qry.get().GetVariableAsString("text");
     if(Qry.get().VariableIsNULL("tlgs_id"))
@@ -78,13 +150,14 @@ void TypeBHelp::toDB()
     QParams QryParams;
     QryParams
         << QParam("address", otString, addr)
+        << QParam("originator_id", otInteger, originator_id)
         << QParam("intmsgid", otString, intmsgid)
         << QParam("text", otString, text)
         << QParam("tlgs_id", otInteger, tlgs_id)
         << QParam("timeout", otInteger, timeout);
     TCachedQuery Qry(
-            "insert into typeb_help(address, intmsgid, text, tlgs_id, timeout) "
-            "values(:address, :intmsgid, :text, :tlgs_id, system.utcsysdate + :timeout/(24*60*60))", QryParams);
+            "insert into typeb_help(address, originator_id, intmsgid, text, tlgs_id, timeout) "
+            "values(:address, :originator_id, :intmsgid, :text, :tlgs_id, system.utcsysdate + :timeout/(24*60*60))", QryParams);
     Qry.get().Execute();
 }
 
@@ -99,10 +172,9 @@ string IntMsgIdAsString(const int msg_id[])
     return upperc(res.str());
 }
 
-void configForPerespros(int tlgs_id)
+void configForPerespros(int tlgs_id, int originator_id)
 {
     int timeout = 40;
-    set_msg_type_and_timeout(MSG_ANSW_STORE_WAIT_SIG, timeout);
 
     Tcl_Obj *obj;
     static string addr;
@@ -122,12 +194,15 @@ void configForPerespros(int tlgs_id)
     }
     TypeBHelp typeb_help(
             addr,
+            originator_id,
             IntMsgIdAsString(get_internal_msgid()),
             ServerFramework::HTTP::get_cur_http_request().to_string(),
             tlgs_id,
             timeout
             );
     typeb_help.toDB();
+
+    set_msg_type_and_timeout(MSG_ANSW_STORE_WAIT_SIG, timeout);
 }
 
 void make_notify_msg(string &msg, int typeb_out_id)
