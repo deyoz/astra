@@ -14,6 +14,7 @@ const std::string PARAM_CANON_NAME = "CANON_NAME";
 const std::string PARAM_FILE_NAME = "FileName";
 
 const std::string FILE_HTTP_TYPEB_TYPE = "HTTP_TYPEB";
+const std::string FILE_BAG_MESSAGE_TYPE = "BSM";
 
 struct TFilterQueue {
   std::string receiver;
