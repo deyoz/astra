@@ -15,6 +15,7 @@
 #include "telegram.h"
 #include "memory_manager.h"
 #include "qrys.h"
+#include "TypeBHelpMng.h"
 #include "serverlib/ourtime.h"
 
 #define NICKNAME "VLAD"
@@ -98,6 +99,9 @@ int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[])
       base_tables.Invalidate();
       bool queue_not_empty=handle_tlg();
 
+      callPostHooksAfter();
+      emptyHookTables();
+
       waitCmd("CMD_TYPEB_HANDLER",queue_not_empty?HANDLER_PROC_INTERVAL():HANDLER_WAIT_INTERVAL(),buf,sizeof(buf));
     }; // end of loop
   }
@@ -141,6 +145,13 @@ int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
       InitLogTime(argc>0?argv[0]:NULL);
       base_tables.Invalidate();
       bool queue_not_empty=parse_tlg();
+
+      // This block added specially for TypeBHelpMng::notify(typeb_in_id)
+      // notify func registers hook(setHAfter) which need to be handled here.
+      // callPostHooksAfter() - calls after all possible commits
+      callPostHooksAfter();
+      emptyHookTables();
+      //
 
       waitCmd("CMD_TYPEB_PARSER",queue_not_empty?PARSER_PROC_INTERVAL():PARSER_WAIT_INTERVAL(),buf,sizeof(buf));
     }; // end of loop
@@ -600,6 +611,7 @@ bool handle_tlg(void)
               errorTlg(tlg_id,"PARS");
               parseTypeB(typeb_tlg_id);
               bindTypeB(typeb_tlg_id, bind_flts, etype);
+              TypeBHelpMng::notify(typeb_tlg_id, ASTRA::NoExists); // Отвешиваем процесс, если есть.
             }
             else
             {
@@ -962,17 +974,11 @@ bool parse_tlg(void)
           progError(tlg_id, NoExists, error_no, E, tlg_type, bind_flts);
           parseTypeB(tlg_id);
           bindTypeB(tlg_id, bind_flts, E);
+          TypeBHelpMng::notify(tlg_id, ASTRA::NoExists); // Отвешиваем процесс, если есть.
           OraSession.Commit();
         }
         catch(...) {};
       };
-
-      // This block added specially for TypeBHelpMng::notify(typeb_in_id)
-      // notify func registers hook(setHAfter) which need to be handled here.
-      // callPostHooksAfter() - calls after all possible commits
-      callPostHooksAfter();
-      emptyHookTables();
-      //
     };
     queue_not_empty=!TlgIdQry.Eof;
     mem.destroy(HeadingInfo, STDLOG);

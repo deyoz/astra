@@ -1468,7 +1468,7 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int type
         try
         {
             time_t time_start=time(NULL);
-            typeb_out_id = create_tlg( *i, tlgTypeInfo, false);
+            typeb_out_id = create_tlg( *i, typeb_in_id, tlgTypeInfo, false);
 
             time_t time_end=time(NULL);
             if (time_end-time_start>1)
@@ -1495,6 +1495,7 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int type
             params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
                    << PrmBool("lat", i->get_options().is_lat) << PrmLexema("what", err_id, err_prms);
             TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, typeb_out_id);
+            TypeBHelpMng::notify(typeb_in_id, NoExists);
         }
 
         if (typeb_out_id!=NoExists)
@@ -1525,10 +1526,12 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int type
     catch( Exception &E )
     {
       ProgError(STDLOG,"SendTlg (point_id=%d, type=%s): %s",i->point_id,i->get_tlg_type().c_str(),E.what());
+      TypeBHelpMng::notify(typeb_in_id, NoExists);
     }
     catch(...)
     {
       ProgError(STDLOG,"SendTlg (point_id=%d, type=%s): unknown error",i->point_id,i->get_tlg_type().c_str());
+      TypeBHelpMng::notify(typeb_in_id, NoExists);
     };
   };
 };
