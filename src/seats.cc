@@ -1715,7 +1715,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
 
   try {
     for ( int FCanUseINFT=AllowedAttrsSeat.pr_isWorkINFT; FCanUseINFT>=0; FCanUseINFT-- ) {
-      for ( int ik=0; ik<=2; ik++ )   { //0 -группа с детьми, 1-группа без детей, 2-группа без детей без учета мест
+      for ( int ik=0; ik<=AllowedAttrsSeat.pr_isWorkINFT*2; ik++ )   { //0 -группа с детьми, 1-группа без детей, 2-группа без детей без учета мест
         for ( int FCanUseElem_Type=1; FCanUseElem_Type>=0; FCanUseElem_Type-- ) { // вслучае автомат. рассадки 2 прохода: с учетом типа места и без учета типа места
           for ( /*int i=(int)!pr_autoreseats; i<=1+(int)pr_autoreseats; i++*/ int i=0; i<=2; i++ ) {
             for ( VPassengers::iterator ipass=npass.begin(); ipass!=npass.end(); ipass++ ) {
@@ -1726,16 +1726,14 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
                 continue;
               if ( SALONS2::isUserProtectLayer( PlaceLayer ) && !CanUseLayer( PlaceLayer, UseLayers ) &&
                    ( ipass->preseat_layer != PlaceLayer ) )
-                continue;
-              //ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d", ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ) );
-              if (!( (ik == 0 && FCanUseINFT == 1 && ipass->countPlace > 0 && ipass->isRemark( "INFT" )) ||
+                continue;              
+              if (!( (ik == 0 && ((!AllowedAttrsSeat.pr_isWorkINFT) || (FCanUseINFT == 1 && ipass->countPlace > 0 && ipass->isRemark( "INFT" )))) ||
                      (ik == 1 && FCanUseINFT == 1 && !(ipass->countPlace > 0 && ipass->isRemark( "INFT" ))) ||
                      (ik == 2 && FCanUseINFT == 0 && !(ipass->countPlace > 0 && ipass->isRemark( "INFT" ))) )) {
-                //tst();
+//                tst();
                 continue;
               }
-
-
+//              ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d", ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ) );
               /*???31.03.11        if ( ipass->InUse || PlaceLayer == cltProtCkin && !CanUseLayer( cltProtCkin, UseLayers ) && //!!!
                                ( ipass->layer != PlaceLayer || ipass->preseat.empty() || ipass->preseat != ipass->placeName ) )
           continue;*/
@@ -1784,7 +1782,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
               }
               Passengers.Add( *ipass );
               ipass->index = old_index;
-              ProgTrace( TRACE5, "Passengers.Count=%d - go seats", Passengers.getCount() );
+              //ProgTrace( TRACE5, "Passengers.Count=%d - go seats", Passengers.getCount() );
               if ( SeatGrpOnBasePlace( ) ||
                    ( ( CanUseRems == sNotUse_NotUseDenial ||
                        CanUseRems == sNotUse ||
@@ -2801,7 +2799,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   bool SeatOnlyBasePlace=true;
   for ( int i=0; i<passengers.getCount(); i++ ) {
   	TPassenger &pass = passengers.Get( i );
-  	if ( pass.preseat_no.empty() ) {
+    if ( pass.preseat_no.empty() ) {
   		SeatOnlyBasePlace=false;
   		break;
   	}
@@ -3327,6 +3325,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                   bool pr_lat_seat, TChangeLayerProcFlag seatFlag )
 {
   bool res = false;
+  /* разметка и проверка возможна только для платных слоев */
   if ( seatFlag != clNotPaySeat &&
        ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay ) ) ) {
     throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL"); //!!!vlad
