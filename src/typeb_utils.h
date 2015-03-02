@@ -1618,7 +1618,6 @@ std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt, std::s
 std::string fetch_addr(std::string &addr, TDetailCreateInfo *info = NULL);
 std::string format_addr_line(std::string vaddrs, TDetailCreateInfo *info = NULL);
 
-TOriginatorInfo getOriginator(int originator_id);
 TOriginatorInfo getOriginator(const std::string &airline,
                               const std::string &airp_dep,
                               const std::string &tlg_type,

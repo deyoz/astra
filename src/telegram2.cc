@@ -7449,7 +7449,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     //Если телеграмма создается в ответ на входную (typeb_in_id != NoExists),
     //то оригинатор вычисляем иначе, чем при герерации автономной тлг.
     if(typeb_in_id != NoExists)
-        info.originator = TypeB::getOriginator(TypeBHelpMng::getOriginatorId(typeb_in_id));
+        info.originator = TypeB::getOriginator(string(), string(), string(), NowUTC(), true);
     else {
         string orig_airline=info.airline;
         /* возможно понадобится в будущем
@@ -7602,7 +7602,7 @@ void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     string sender = "0" + ctxt->GetPult();
     int tlgs_id = loadTlg( orig.addr + "\xa." + sender + "\n" + content);
     if(content.substr(0, 4) == "LCI\xa") { // Для LCI подвешиваем процесс, для остальных - возвр. пустой ответ.
-        TypeBHelpMng::configForPerespros(tlgs_id, orig.id);
+        TypeBHelpMng::configForPerespros(tlgs_id);
         NewTextChild(resNode, "content", TIMEOUT_OCCURRED);
     }
 }
