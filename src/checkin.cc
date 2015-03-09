@@ -4647,10 +4647,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             Qry.CreateVariable("hall",otInteger,grp.hall);
             Qry.DeclareVariable("type",otInteger);
 
-            Qry.SetVariable("type",1);
+            Qry.SetVariable("type",(int)tsBrdWithReg);
             Qry.Execute();
             if (!Qry.Eof) pr_brd_with_reg=Qry.FieldAsInteger("pr_misc")!=0;
-            Qry.SetVariable("type",2);
+            Qry.SetVariable("type",(int)tsExamWithBrd);
             Qry.Execute();
             if (!Qry.Eof) pr_exam_with_brd=Qry.FieldAsInteger("pr_misc")!=0;
           };

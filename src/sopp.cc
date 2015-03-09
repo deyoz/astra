@@ -5975,14 +5975,14 @@ void set_trip_sets(const TAdvTripInfo &flt)
       InsQry.SetVariable("pr_misc", (int)pr_misc);
       InsQry.Execute();
 
-      if (type==1 || type==2)
+      if (type==tsBrdWithReg || type==tsExamWithBrd)
       {
         string lexema_id;
         LEvntPrms params;
         params << PrmLexema("action", "EVT.MODE_INSERTED");
-        if (type==1)
+        if (type==tsBrdWithReg)
           lexema_id = (pr_misc?"EVT.TRIP_BRD_AND_REG":"EVT.TRIP_SEPARATE_BRD_AND_REG");
-        if (type==2)
+        if (type==tsExamWithBrd)
           lexema_id = (pr_misc?"EVT.TRIP_EXAM_AND_BRD":"EVT.TRIP_SEPARATE_EXAM_AND_BRD");
 
         if (hall!=NoExists)
