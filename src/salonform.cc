@@ -1136,10 +1136,10 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
                       const BitSet<TChangeLayerFlags> &flags,
                       xmlNodePtr resNode )
 {
-  bool res = false;
+  bool changedOrNotPay = true;
   if ( flags.isFlag( flSetPayLayer ) &&
        ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay ) ) ) {
-    throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL"); //!!!vlad
+    throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
   }
   TFlights flights;
   flights.Get( point_id, ftTranzit );
@@ -1175,7 +1175,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
   	layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
   	point_arv  = Qry.FieldAsInteger( "point_arv" );
     if ( flags.isFlag( flSetPayLayer ) ) {
-      throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL"); //!!!vlad
+      throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
     }
   }
   else {
@@ -1240,7 +1240,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
             NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT") );
           else
             NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PAID_SEATS.RESEAT"));
-          return res;
+          return changedOrNotPay;
         }
       }
     }
@@ -1256,9 +1256,9 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
       layerFlag = clPaySeatCheck;
     }
   try {
-    res = SEATS2::ChangeLayer( salonList, layer_type, point_id, pax_id, tid, xname, yname, seat_type, layerFlag );
+    changedOrNotPay = SEATS2::ChangeLayer( salonList, layer_type, point_id, pax_id, tid, xname, yname, seat_type, layerFlag );
     if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL || layerFlag == clPaySeatCheck )
-        return res; // web-регистрация
+        return changedOrNotPay; // web-регистрация
     salonList.JumpToLeg( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ) );
     SALONS2::TSalonList NewSalonList;
     NewSalonList.ReadFlight( salonList.getFilterRoutes(), SALONS2::rfTranzitVersion, salonList.getFilterClass() );
@@ -1323,7 +1323,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     }
   	showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
-  return res;
+  return changedOrNotPay;
 }
 
 bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yname,
@@ -1332,10 +1332,10 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
                      const BitSet<SEATS2::TChangeLayerFlags> &flags,
                      xmlNodePtr resNode )
 {
-  bool res = false;
+  bool changedOrNotPay = true;
   if ( flags.isFlag( flSetPayLayer ) &&
        ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay ) ) ) {
-    throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL"); //!!!vlad
+    throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
   }
   if ( SALONS2::isFreeSeating( point_id ) ) {
     throw UserException( "MSG.SALONS.FREE_SEATING" );
@@ -1369,7 +1369,7 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
       throw UserException("MSG.CREW.IMPOSSIBLE_CHANGE_SEAT");
   	layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
     if ( flags.isFlag( flSetPayLayer ) ) {
-      throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL"); //!!!vlad
+      throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
     }
   }
 
@@ -1433,7 +1433,7 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
             NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT") );
           else
             NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PAID_SEATS.RESEAT"));
-          return res;
+          return changedOrNotPay;
         }
       }
     }
@@ -1449,9 +1449,9 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
       layerFlag = clPaySeatCheck;
     }
   try {
-    res = SEATS2::ChangeLayer( layer_type, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat, layerFlag );
+    changedOrNotPay = SEATS2::ChangeLayer( layer_type, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat, layerFlag );
     if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL || layerFlag == clPaySeatCheck )
-        return res; // web-регистрация
+        return changedOrNotPay; // web-регистрация
   	SALONS2::getSalonChanges( Salons, seats );
   	ProgTrace( TRACE5, "salon changes seats.size()=%zu", seats.size() );
   	string seat_no, slayer_type;
@@ -1502,7 +1502,7 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     }
   	showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
-  return res;
+  return changedOrNotPay;
 }
 
 void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType seat_type )

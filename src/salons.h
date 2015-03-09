@@ -127,9 +127,17 @@ struct TPlaceWebTariff {
 	std::string color;
 	double value;
 	std::string currency_id;
-	TPlaceWebTariff() {
-		value = 0.0;
-	};
+    TPlaceWebTariff() {
+      value = 0.0;
+    };
+    bool empty() const {
+      return value == 0.0;
+    };
+    std::string valueStr() const {
+      std::ostringstream buf;
+      buf << std::fixed << std::setprecision(2) << value;
+      return buf.str();
+    }
 };
 
 struct TSeatTariff {
