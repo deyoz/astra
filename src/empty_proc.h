@@ -22,6 +22,7 @@ int test_sopp_sql(int argc,char **argv);
 int test_file_queue(int argc,char **argv);
 int rollback096(int argc,char **argv);
 int mobile_stat(int argc,char **argv);
+int fill_counters_by_subcls(int argc,char **argv);
 
 class TestInterface : public JxtInterface
 {

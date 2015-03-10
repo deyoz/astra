@@ -56,6 +56,7 @@ class TPaxToLogInfo
     std::string airp_arv, cl, status;
     bool pr_mark_norms;
     std::string surname, name, pers_type, refuse, subcl, seat_no;
+    int is_female;
     bool pr_brd, pr_exam;
     CheckIn::TPaxTknItem tkn;
     CheckIn::TAPISItem apis;
@@ -79,6 +80,7 @@ class TPaxToLogInfo
       refuse.clear();
       subcl.clear();
       seat_no.clear();
+      is_female=ASTRA::NoExists;
       pr_brd=false;
       pr_exam=false;
       tkn.clear();
@@ -90,10 +92,10 @@ class TPaxToLogInfo
       tags.clear();
       norms.clear();
       rems.clear();
-    };    
+    };
     std::string getBagStr() const;
     void getBag(PrmEnum& param) const;
-    void getPaxName(LEvntPrms& params) const;    
+    void getPaxName(LEvntPrms& params) const;
     void getNorm(PrmEnum& param) const;
 };
 

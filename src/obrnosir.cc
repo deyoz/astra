@@ -19,6 +19,7 @@
 #include "salons.h"
 #include "file_queue.h"
 #include "empty_proc.h"
+#include "pers_weights.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/testmode.h"
@@ -78,7 +79,9 @@ const
     {"-test_astra_locale_adv",  test_astra_locale_adv,  NULL,                       NULL},
     {"-insert_locales",         insert_locales,         NULL,                       NULL},
     {"-file_by_id",             file_by_id,             NULL,                       NULL},
-    {"-dst_points",             points_dst_format,      NULL,                       NULL}
+    {"-dst_points",             points_dst_format,      NULL,                       NULL},
+    {"-fill_counters_by_subcls",fill_counters_by_subcls,NULL,                       NULL},
+    {"-check_counters_by_subcls",check_counters_by_subcls,NULL,                     NULL}
   };
 
 int nosir_test(int argc,char **argv)
@@ -749,7 +752,7 @@ int seasons_dst_format(int argc,char **argv)
       move_id = Qry.FieldAsInteger( "move_id" );
       RQry.SetVariable( "move_id", move_id );
       RQry.Execute();
-      TDateTime scd_in = ASTRA::NoExists, prior_scd_in = ASTRA::NoExists, 
+      TDateTime scd_in = ASTRA::NoExists, prior_scd_in = ASTRA::NoExists,
                 scd_out = ASTRA::NoExists, prior_scd_out = ASTRA::NoExists;
       int delta_in = 0, prior_delta_in = 0, delta_out = 0, prior_delta_out = 0;
       bool pr_dest_flight_time = false;
@@ -933,7 +936,7 @@ int seasons_dst_format(int argc,char **argv)
         TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
         string city_region = CityTZRegion( city );
         if ( row.country == "êî" ) {
-            TDateTime trunc_f = ASTRA::NoExists, scd_in = ASTRA::NoExists, prior_scd_in = ASTRA::NoExists, 
+            TDateTime trunc_f = ASTRA::NoExists, scd_in = ASTRA::NoExists, prior_scd_in = ASTRA::NoExists,
                       scd_out = ASTRA::NoExists, prior_scd_out = ASTRA::NoExists;
             modf( Qry.FieldAsDateTime( "first_day" ), &trunc_f );
             int delta_in = 0, prior_delta_in = 0, delta_out = 0, prior_delta_out = 0;

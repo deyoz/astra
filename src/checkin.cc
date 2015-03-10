@@ -5466,6 +5466,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         GetGrpToLogInfo(grp.id, grpInfoAfter);
         TAgentStatInfo agentStat;
         SaveGrpToLog(grp.point_dep, fltInfo, markFltInfo, grpInfoBefore, grpInfoAfter, agentStat);
+        recountBySubcls(grp.point_dep, grpInfoBefore, grpInfoAfter);
         if (grp.status!=psCrew &&
             reqInfo->client_type==ctTerm &&
             reqInfo->desk.compatible(AGENT_STAT_VERSION))

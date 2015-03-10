@@ -34,6 +34,7 @@
 #include "transfer.h"
 #include "apis.h"
 #include "trip_tasks.h"
+#include "pers_weights.h"
 
 #include "aodb.h"
 #include "emdoc.h"
@@ -2561,6 +2562,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     check_unattached_trfer_alarm( i->first );
     check_conflict_trfer_alarm( i->first );
     check_apis_alarms( i->first );
+    recountBySubcls( i->first );
   };
 
   for ( std::vector<int>::iterator i=points_check_wait_alarm.begin();
