@@ -170,8 +170,7 @@ void putTypeBBody(int tlg_id, int tlg_num, const string &tlg_body)
   };
 };
 
-string getTypeBBody(int tlg_id, int tlg_num,
-                    TQuery &Qry)  //передаем tlgs_in.body, потом убрать столбец и код!!!
+string getTypeBBody(int tlg_id, int tlg_num)
 {
   string result;
 
@@ -183,29 +182,7 @@ string getTypeBBody(int tlg_id, int tlg_num,
   TCachedQuery TextQry(sql, QryParams);
   TextQry.get().Execute();
   for(;!TextQry.get().Eof;TextQry.get().Next())
-    result+=TextQry.get().FieldAsString("text");
-  if (result.empty() && !Qry.Eof) //потом убрать код!!!
-  {
-    static int bufLen=0;
-    static char *buf=NULL;
-
-    int len=Qry.GetSizeLongField("body")+1;
-    if (len>bufLen)
-    {
-      char *ph;
-      if (buf==NULL)
-        ph=(char*)malloc(len);
-      else
-        ph=(char*)realloc(buf,len);
-      if (ph==NULL) throw EMemoryError("Out of memory");
-      buf=ph;
-      bufLen=len;
-    };
-    Qry.FieldAsLong("body",buf);
-    buf[len-1]=0;
-
-    result.assign(buf,len-1);
-  };
+    result+=TextQry.get().FieldAsString("text");  
   return result;
 };
 
@@ -237,8 +214,7 @@ void putTlgText(int tlg_id, const string &tlg_text)
   };
 };
 
-string getTlgText(int tlg_id,
-                  TQuery &Qry)  //передаем tlgs.tlg_text, потом убрать столбец и код!!!
+string getTlgText(int tlg_id)
 {
   string result;
 
@@ -249,29 +225,7 @@ string getTlgText(int tlg_id,
   TCachedQuery TextQry(sql, QryParams);
   TextQry.get().Execute();
   for(;!TextQry.get().Eof;TextQry.get().Next())
-    result+=TextQry.get().FieldAsString("text");
-  if (result.empty() && !Qry.Eof) //потом убрать код!!!
-  {
-    static int bufLen=0;
-    static char *buf=NULL;
-
-    int len=Qry.GetSizeLongField("tlg_text")+1;
-    if (len>bufLen)
-    {
-      char *ph;
-      if (buf==NULL)
-        ph=(char*)malloc(len);
-      else
-        ph=(char*)realloc(buf,len);
-      if (ph==NULL) throw EMemoryError("Out of memory");
-      buf=ph;
-      bufLen=len;
-    };
-    Qry.FieldAsLong("tlg_text",buf);
-    buf[len-1]=0;
-
-    result.assign(buf,len-1);
-  };
+    result+=TextQry.get().FieldAsString("text");  
   return result;
 };
 

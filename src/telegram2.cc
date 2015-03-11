@@ -6293,7 +6293,7 @@ int PNL(TypeB::TDetailCreateInfo &info)
   if (forwarderOptions->typeb_in_id==NoExists ||
       forwarderOptions->typeb_in_num==NoExists) throw Exception("%s: forwarderOptions not defined", __FUNCTION__);
 
-  TCachedQuery Qry("SELECT heading, body, ending FROM tlgs_in WHERE id=:tlg_id AND num=:tlg_num",
+  TCachedQuery Qry("SELECT heading, ending FROM tlgs_in WHERE id=:tlg_id AND num=:tlg_num",
                    QParams() << QParam("tlg_id", otInteger, forwarderOptions->typeb_in_id)
                              << QParam("tlg_num", otInteger, forwarderOptions->typeb_in_num));
   Qry.get().Execute();
@@ -6341,8 +6341,7 @@ int PNL(TypeB::TDetailCreateInfo &info)
       heading << "ANA/" << DCSHeadingInfo->association_number << TypeB::endl;
     tlg_row.heading = heading.str();
     tlg_row.body = getTypeBBody(forwarderOptions->typeb_in_id,
-                                forwarderOptions->typeb_in_num,
-                                Qry.get());
+                                forwarderOptions->typeb_in_num);
     if (tlg_row.body.size()>4000) throw UserException("MSG.TLG.VERY_BIG_FOR_FORWARDING");
     tlg_row.ending = Qry.get().FieldAsString("ending");
 

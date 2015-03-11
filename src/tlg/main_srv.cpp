@@ -213,13 +213,13 @@ void process_tlg(void)
         {
           TQuery TlgQry(&OraSession);
           TlgQry.SQLText=
-            "SELECT id, tlg_text FROM tlgs WHERE tlg_num= :tlg_num AND sender= :sender ";
+            "SELECT id FROM tlgs WHERE tlg_num= :tlg_num AND sender= :sender ";
           TlgQry.CreateVariable("sender",otString,tlg_in.Sender);
           TlgQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
           TlgQry.Execute();
           for(;!TlgQry.Eof;TlgQry.Next())
           {
-            string text=getTlgText(TlgQry.FieldAsInteger("id"), TlgQry);
+            string text=getTlgText(TlgQry.FieldAsInteger("id"));
             if ((int)text.size()==tlg_len)
             {
               if (memcmp(tlg_body,text.c_str(),tlg_len)==0) break;
