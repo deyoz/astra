@@ -106,21 +106,16 @@ void TReqInfo::Initialize( const std::string &city )
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT region FROM cities,tz_regions "
-    "WHERE cities.country=tz_regions.country(+) AND "
-    "      cities.tz=tz_regions.tz(+) AND "
-    "      cities.code=:city AND "
-    "      cities.pr_del=0 AND "
-    "      tz_regions.pr_del(+)=0";
+    "SELECT tz_region FROM cities WHERE cities.code=:city AND cities.pr_del=0";
   Qry.DeclareVariable( "city", otString );
   Qry.SetVariable( "city", city );
   Qry.Execute();
   if (Qry.Eof)
     throw EXCEPTIONS::Exception("TReqInfo::Initialize: city %s not found",city.c_str());
-  if (Qry.FieldIsNULL("region"))
-      throw AstraLocale::UserException((string)"TReqInfo::Initialize: region nod defined (city=" + city + ")");
+  if (Qry.FieldIsNULL("tz_region"))
+      throw AstraLocale::UserException((string)"TReqInfo::Initialize: tz_region not defined (city=" + city + ")");
   desk.city = city;
-  desk.tz_region = Qry.FieldAsString( "region" );
+  desk.tz_region = Qry.FieldAsString( "tz_region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
   user.access.airlines_permit=false;
   user.access.airps_permit=false;
@@ -207,20 +202,15 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT region FROM cities,tz_regions "
-    "WHERE cities.country=tz_regions.country(+) AND "
-    "      cities.tz=tz_regions.tz(+) AND "
-    "      cities.code=:city AND "
-    "      cities.pr_del=0 AND "
-    "      tz_regions.pr_del(+)=0";
+    "SELECT tz_region FROM cities WHERE cities.code=:city AND cities.pr_del=0";
   Qry.DeclareVariable( "city", otString );
   Qry.SetVariable( "city", desk.city );
   Qry.Execute();
   if (Qry.Eof)
     throw AstraLocale::UserException("MSG.DESK_CITY_NOT_DEFINED");
-  if (Qry.FieldIsNULL("region"))
+  if (Qry.FieldIsNULL("tz_region"))
     throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED", LParams() << LParam("city", ElemIdToCodeNative(etCity,desk.city)));
-  desk.tz_region = Qry.FieldAsString( "region" );
+  desk.tz_region = Qry.FieldAsString( "tz_region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
   if ( !screen.pr_logon ||
        (!InitData.pr_web && !InitData.checkUserLogon) )
@@ -1476,9 +1466,9 @@ string& CityTZRegion(string city, bool with_exception)
 {
   if (city.empty()) throw EXCEPTIONS::Exception("City not specified");
   TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
-  if (row.region.empty() && with_exception)
+  if (row.tz_region.empty() && with_exception)
     throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED",LParams() << LParam("city", city));
-  return row.region;
+  return row.tz_region;
 };
 
 string DeskCity(string desk, bool with_exception)

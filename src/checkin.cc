@@ -616,10 +616,9 @@ void CheckTrferPermit(const pair<CheckIn::TTransferItem, TCkinSegFlts> &in,
     "SELECT trfer_sets.trfer_permit, trfer_sets.trfer_outboard, "
     "       trfer_sets.tckin_permit, trfer_sets.tckin_waitlist, trfer_sets.tckin_norec, "
     "       trfer_sets.min_interval, trfer_sets.max_interval "
-    "FROM trfer_sets,trfer_set_airps,trfer_set_flts flts_in,trfer_set_flts flts_out "
-    "WHERE trfer_sets.id=trfer_set_airps.id AND "
-    "      trfer_set_airps.id=flts_in.id(+) AND flts_in.pr_onward(+)=0 AND "
-    "      trfer_set_airps.id=flts_out.id(+) AND flts_out.pr_onward(+)=1 AND "
+    "FROM trfer_sets,trfer_set_flts flts_in,trfer_set_flts flts_out "
+    "WHERE trfer_sets.id=flts_in.trfer_set_id(+) AND flts_in.pr_onward(+)=0 AND "
+    "      trfer_sets.id=flts_out.trfer_set_id(+) AND flts_out.pr_onward(+)=1 AND "
     "      airline_in=:airline_in AND airp=:airp AND airline_out=:airline_out AND "
     "      (flts_in.flt_no IS NULL OR flts_in.flt_no=:flt_no_in) AND "
     "      (flts_out.flt_no IS NULL OR flts_out.flt_no=:flt_no_out) "
@@ -634,7 +633,7 @@ void CheckTrferPermit(const pair<CheckIn::TTransferItem, TCkinSegFlts> &in,
   {
     Qry.Clear();
     Qry.SQLText=
-      "SELECT id FROM trfer_set_airps "
+      "SELECT id FROM trfer_sets "
       "WHERE (airline_in=:airline_in AND airline_out=:airline_out OR "
       "       airline_in=:airline_out AND airline_out=:airline_in) AND rownum<2";
     Qry.CreateVariable("airline_in",otString,in.first.operFlt.airline);

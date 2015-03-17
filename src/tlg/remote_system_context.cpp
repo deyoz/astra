@@ -17,6 +17,7 @@
 #include "CheckinBaseTypesOci.h"
 #include "exceptions.h"
 #include "edi_utils.h"
+#include "astra_utils.h"
 #include "astra_consts.h"
 
 #include <serverlib/posthooks.h>
@@ -116,23 +117,31 @@ SystemContext SystemContext::readByAirlineAndFlight(const std::string& airl,
 void SystemContext::deleteDb()
 {
     std::string sql =
-"delete from ET_ADDR_SET "
-"where ID = :id";
+"begin "
+"  delete from ET_ADDR_SET "
+"  where ID = :id; "
+"  hist.synchronize_history('et_addr_set',:id,:SYS_user_descr,:SYS_desk_code); "
+"end; ";
 
     int systemId = ida().get();
 
     OciCpp::CursCtl cur = make_curs(sql);
     cur.bind(":id", systemId)
+       .bind(":SYS_user_descr", TReqInfo::Instance()->user.descr)
+       .bind(":SYS_desk_code", TReqInfo::Instance()->desk.code)
        .exec();
 }
 
 void SystemContext::addDb()
 {
     std::string sql =
-"insert into ET_ADDR_SET "
-"(AIRLINE, EDI_ADDR, EDI_OWN_ADDR, ID) "
-"values "
-"(:airline, :edi_addr, :edi_own_addr, :id)";
+"begin "
+"  insert into ET_ADDR_SET "
+"  (AIRLINE, EDI_ADDR, EDI_OWN_ADDR, ID) "
+"  values "
+"  (:airline, :edi_addr, :edi_own_addr, :id); "
+"  hist.synchronize_history('et_addr_set',:id,:SYS_user_descr,:SYS_desk_code); "
+"end; ";
 
     int systemId = getNextId().get();
     std::string airl = airline();
@@ -144,6 +153,8 @@ void SystemContext::addDb()
        .bind(":edi_addr", ediAddr)
        .bind(":edi_own_addr", ourEdiAddr)
        .bind(":id", systemId)
+       .bind(":SYS_user_descr", TReqInfo::Instance()->user.descr)
+       .bind(":SYS_desk_code", TReqInfo::Instance()->desk.code)
        .exec();
 
     if(cur.err() == CERR_DUPK)
@@ -155,11 +166,14 @@ void SystemContext::addDb()
 void SystemContext::updateDb()
 {
     std::string sql =
-"update ET_ADDR_SET set "
-"AIRLINE = :airline, "
-"EDI_ADDR = :edi_addr, "
-"EDI_OWN_ADDR = :edi_own_addr, "
-"where ID = :id";
+"begin "
+"  update ET_ADDR_SET set "
+"  AIRLINE = :airline, "
+"  EDI_ADDR = :edi_addr, "
+"  EDI_OWN_ADDR = :edi_own_addr "
+"  where ID = :id; "
+"  hist.synchronize_history('et_addr_set',:id,:SYS_user_descr,:SYS_desk_code); "
+"end; ";
 
     int systemId = ida().get();
     std::string airl = airline();
@@ -171,6 +185,8 @@ void SystemContext::updateDb()
        .bind(":edi_addr", ediAddr)
        .bind(":edi_own_addr", ourEdiAddr)
        .bind(":id", systemId)
+       .bind(":SYS_user_descr", TReqInfo::Instance()->user.descr)
+       .bind(":SYS_desk_code", TReqInfo::Instance()->desk.code)
        .exec();
 
     if(cur.rowcount() != 1)

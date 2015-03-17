@@ -449,59 +449,24 @@ class TTypeBTypes: public TCodeBaseTable {
 
 class TCitiesRow: public TTIDBaseTableRow {
   public:
-    std::string country,region;
-    int tz;
+    std::string country,tz_region;
     const char *get_row_name() const { return "TCitiesRow"; };
     std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
       if (lowerc(field)=="country") return country;
-      if (lowerc(field)=="region") return region;
+      if (lowerc(field)=="tz_region") return tz_region;
       return TTIDBaseTableRow::AsString(field,lang);
-    };
-    int AsInteger(std::string field) const
-    {
-      if (lowerc(field)=="tz") return tz;
-      return TTIDBaseTableRow::AsInteger(field);
-    };
+    };    
 };
 
 class TCities: public TTIDBaseTable {
-  private:
-    const char *get_select_sql_text()
-    {
-      return
-        "SELECT id,code,code_lat,name,name_lat, "
-        "       cities.country,cities.tz, "
-        "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
-        "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
-        "FROM cities,tz_regions "
-        "WHERE cities.country=tz_regions.country(+) AND "
-        "      cities.tz=tz_regions.tz(+)";
-    };
-    const char *get_refresh_sql_text()
-    {
-      return
-      	"SELECT id,code,code_lat,name,name_lat, "
-      	"       cities.country,cities.tz, "
-        "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
-        "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
-      	"FROM cities,tz_regions "
-      	"WHERE cities.tid>:tid AND "
-      	"      cities.country=tz_regions.country(+) AND "
-        "      cities.tz=tz_regions.tz(+) "
-        "UNION "
-        "SELECT id,code,code_lat,name,name_lat, "
-      	"       cities.country,cities.tz, "
-        "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
-        "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
-      	"FROM cities,tz_regions "
-      	"WHERE tz_regions.tid>:tid AND "
-      	"      cities.country=tz_regions.country AND "
-        "      cities.tz=tz_regions.tz ";
-    };
   protected:
     const char *get_table_name() { return "TCities"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+  public:
+    TCities() {
+        Init( "cities" );
+    }
 };
 
 class TAirlinesRow: public TICAOBaseTableRow {

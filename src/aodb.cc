@@ -1,7 +1,7 @@
 /*
 create table aodb_pax( point_id NUMBER(9), pax_id NUMBER(9), record VARCHAR2(2000) );
 create table aodb_bag( pax_id NUMBER(9), num NUMBAR(3), record VARCHAR2(2000) );
-INSERT INTO file_types(code,name,in_order) VALUES( "AODB", "AODB", 1 );
+INSERT INTO file_types(code,name,in_order,id) VALUES( "AODB", "AODB", 1, id__seq.nextval );
 INSERT INTO file_param_sets
 alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 */
@@ -175,7 +175,7 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
 string getRegion( const string &airp )
 {
   string city =((TAirpsRow&)base_tables.get("airps").get_row( "code", airp, true )).city;
-  return ((TCitiesRow&)base_tables.get("cities").get_row( "code", city, true )).region;
+  return ((TCitiesRow&)base_tables.get("cities").get_row( "code", city, true )).tz_region;
 }
 
 // привязка к новому рейсу

@@ -76,7 +76,7 @@ bool get_trip_apis_param (const int point_id, const std::string& format, const s
 {
   TQuery Qry(&OraSession);
   Qry.SQLText=
-    "SELECT param_value "
+    "SELECT TO_NUMBER(param_value) AS param_value "
     "FROM trip_apis_params "
     "WHERE point_id=:point_id AND format=:format "
     "AND param_name=:param_name ";
@@ -94,12 +94,12 @@ void set_trip_apis_param(const int point_id, const std::string& format, const st
   TQuery Qry(&OraSession);
   Qry.SQLText=
     "BEGIN "
-    "  UPDATE trip_apis_params SET param_value=:param_value "
+    "  UPDATE trip_apis_params SET param_value=TO_CHAR(:param_value) "
     "  WHERE point_id=:point_id AND format=:format "
     "  AND param_name=:param_name; "
     "  IF SQL%ROWCOUNT=0 THEN "
     "    INSERT INTO trip_apis_params(point_id, format, param_name, param_value)"
-    "    VALUES (:point_id, :format, :param_name, :param_value);"
+    "    VALUES (:point_id, :format, :param_name, TO_CHAR(:param_value));"
     "  END IF; "
     "END;";
   Qry.CreateVariable("point_id", otInteger, point_id);
