@@ -36,6 +36,66 @@ string EncodeDevFmtType(TDevFmtType s)
   return TDevFmtTypeS[s];
 };
 
+ASTRA::TDevClassType getDevClass(const TOperMode desk_mode,
+                                 const std::string &env_name)
+{
+  switch(desk_mode)
+  {
+    case omCUSE: if (env_name == "ATB") return dctATB;
+                 if (env_name == "BTP") return dctBTP;
+                 if (env_name == "BGR") return dctBGR;
+                 if (env_name == "DCP") return dctDCP;
+                 if (env_name == "SCN") return dctSCN;
+                 if (env_name == "OCR") return dctOCR;
+                 if (env_name == "MSR") return dctMSR;
+                 if (env_name == "WGE") return dctWGE;
+                 return dctUnknown;
+    case omMUSE: if (env_name == "ATB") return dctATB;
+                 if (env_name == "BTP") return dctBTP;
+                 if (env_name == "BGR") return dctBGR;
+                 if (env_name == "DCP") return dctDCP;
+                 if (env_name == "BCR") return dctSCN;
+                 if (env_name == "OCR") return dctOCR;
+                 if (env_name == "MSR") return dctMSR;
+                 return dctUnknown;
+        default: return dctUnknown;
+  };
+};
+
+std::string getDefaultDevModel(const TOperMode desk_mode,
+                               const ASTRA::TDevClassType dev_class)
+{
+  switch(desk_mode)
+  {
+    case omCUSE:
+      switch(dev_class)
+      {
+        case dctATB: return "ATB CUSE";
+        case dctBTP: return "BTP CUSE";
+        case dctBGR: return "BCR CUSE";
+        case dctDCP: return "DCP CUSE";
+        case dctSCN: return "SCN CUSE";
+        case dctOCR: return "OCR CUSE";
+        case dctMSR: return "MSR CUSE";
+        case dctWGE: return "WGE CUSE";
+        default: return "";
+      };
+    case omMUSE:
+       switch(dev_class)
+       {
+        case dctATB: return "ATB MUSE";
+        case dctBTP: return "BTP MUSE";
+        case dctBGR: return "BCR MUSE";
+        case dctDCP: return "DCP MUSE";
+        case dctSCN: return "SCN MUSE";
+        case dctOCR: return "OCR MUSE";
+        case dctMSR: return "MSR MUSE";
+            default: return "";
+      };
+    default: return "";
+  };
+};
+
 //bcbp_begin_idx - позиция первого байта штрих-кода
 //airline_use_begin_idx - позиция первого байта <For individual airline use> первого сегмента
 //airline_use_end_idx - позиция, следующая за последним байтом <For individual airline use> первого сегмента
