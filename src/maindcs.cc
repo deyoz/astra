@@ -583,9 +583,18 @@ struct TDevModelDefaults
   };
 };
 
+struct TPlatformParams
+{
+  string dev_model, addr, pool_key;
+  TPlatformParams() {};
+  TPlatformParams(const string& p1,
+                  const string& p2,
+                  const string& p3) : dev_model(p1), addr(p2), pool_key(p3) {};
+};
+
 void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
                        xmlNodePtr reqNode,
-                       map<TDevOperType, pair<string, string> > &opers,
+                       map<TDevOperType, TPlatformParams > &opers,
                        map<string, vector<string> > &addrs )
 {
   opers.clear();
@@ -625,7 +634,8 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
   for ( int pass=0; pass<3; pass++ ) {
    xmlNodePtr node = n->children;
     while ( node != NULL ) {      
-      ASTRA::TDevClassType dev_class=getDevClass(desk_mode, (char*)node->name);
+      string env_name=(char*)node->name;
+      ASTRA::TDevClassType dev_class=getDevClass(desk_mode, env_name);
       string dev_model=getDefaultDevModel(desk_mode, dev_class);
       if ( (dev_class == dctATB && pass==0) ||
            (dev_class == dctBTP && pass==0) ||
@@ -636,7 +646,7 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
            (dev_class == dctMSR && pass==1) ||
            (dev_class == dctWGE && pass==2) ) {
         vector<string> dev_addrs;
-        SeparateString((string)NodeAsString( node ), ',', dev_addrs);
+        SeparateString((string)NodeAsString( node ), ',', dev_addrs);        
 
         if ( dev_addrs.empty() ) {
           node = node->next;
@@ -644,27 +654,33 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
         }
         if ( pass == 0 ) {
           if ( dev_class == dctATB ) {
-            opers.insert( make_pair( dotPrnBP, make_pair(dev_model, *dev_addrs.begin() ) ) );
+            opers.insert( make_pair( dotPrnBP, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
             addrs[ dev_model ] = dev_addrs;
           }
           if ( dev_class == dctBTP ) {
-            opers.insert( make_pair( dotPrnBT, make_pair(dev_model, *dev_addrs.begin()) ) );
+            opers.insert( make_pair( dotPrnBT, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
             addrs[ dev_model ] = dev_addrs;
           }
           if ( dev_class == dctDCP ) {
-            opers.insert( make_pair( dotPrnFlt, make_pair(dev_model, *dev_addrs.begin()) ) );
-            opers.insert( make_pair( dotPrnArch, make_pair(dev_model, *dev_addrs.begin()) ) );
-            opers.insert( make_pair( dotPrnDisp, make_pair(dev_model, *dev_addrs.begin()) ) );
-            opers.insert( make_pair( dotPrnTlg, make_pair(dev_model, *dev_addrs.begin()) ) );
+            opers.insert( make_pair( dotPrnFlt, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
+            opers.insert( make_pair( dotPrnArch, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
+            opers.insert( make_pair( dotPrnDisp, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
+            opers.insert( make_pair( dotPrnTlg, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
             addrs[ dev_model ] = dev_addrs;
           }
-          if ( dev_class == dctBGR ) {
-            opers.insert( make_pair( dotScnBP1,  make_pair(dev_model, *dev_addrs.begin()) ) );
+          if ( dev_class == dctBGR ) {            
             vector<string>::const_iterator idev_addr = dev_addrs.begin();
-            idev_addr++;
-            if ( idev_addr != dev_addrs.end() ) {
-              opers.insert( make_pair( dotScnBP2,  make_pair(dev_model, *idev_addr) ) );
-            }
+            for(; idev_addr != dev_addrs.end(); ++idev_addr)
+            {
+              if (idev_addr==dev_addrs.begin()) continue;
+              if (*idev_addr==*dev_addrs.begin()) continue;
+              opers.insert( make_pair( dotScnBP1,  TPlatformParams(dev_model, *dev_addrs.begin(), env_name+"1") ) );
+              opers.insert( make_pair( dotScnBP2,  TPlatformParams(dev_model, *idev_addr, env_name+"2") ) );
+              break;
+            };
+            if (idev_addr == dev_addrs.end())
+              opers.insert( make_pair( dotScnBP1,  TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
+
             addrs[ dev_model ] = dev_addrs;
           }
         }
@@ -672,26 +688,26 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
           if ( dev_class == dctSCN )
           {
             if ( opers.find( dotScnBP1 ) == opers.end() )
-              opers.insert( make_pair( dotScnBP1, make_pair(dev_model, *dev_addrs.begin()) ) );
+              opers.insert( make_pair( dotScnBP1, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
             addrs[ dev_model ] = dev_addrs;
           }
           if ( dev_class == dctOCR ) {
-            opers.insert( make_pair( dotScnDoc, make_pair(dev_model, *dev_addrs.begin()) ) );
+            opers.insert( make_pair( dotScnDoc, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
             addrs[ dev_model ] = dev_addrs;
           }
           if ( dev_class == dctMSR ) {
-            opers.insert( make_pair( dotScnCard, make_pair(dev_model, *dev_addrs.begin()) ) );
+            opers.insert( make_pair( dotScnCard, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
             addrs[ dev_model ] = dev_addrs;
           }
         }
         if ( pass == 2 ) {
           if ( dev_class == dctWGE ) {
             if ( opers.find( dotScnBP1 ) == opers.end() )
-              opers.insert( make_pair( dotScnBP1, make_pair(dev_model, *dev_addrs.begin()) ) );
+              opers.insert( make_pair( dotScnBP1, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
             if ( opers.find( dotScnDoc ) == opers.end() )
-              opers.insert( make_pair( dotScnDoc, make_pair(dev_model, *dev_addrs.begin()) ) );
+              opers.insert( make_pair( dotScnDoc, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
             if ( opers.find( dotScnCard ) == opers.end() )
-              opers.insert( make_pair( dotScnCard, make_pair(dev_model, *dev_addrs.begin()) ) );
+              opers.insert( make_pair( dotScnCard, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
              addrs[ dev_model ] = dev_addrs;
           }
         }
@@ -1187,7 +1203,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
                                                    DefQry.FieldAsString( "fmt_type" ) ) );
   }
 
-  map<TDevOperType, pair<string, string> > opers; //операция, dev_model, addr
+  map<TDevOperType, TPlatformParams > opers;
   map<string, vector<string> > valid_addrs;
   if ( reqInfo->desk.mode==omRESA ||
        reqInfo->desk.mode==omCUSE ||
@@ -1232,35 +1248,35 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 
         if (devName=="BPP" || devName=="ATB")
         {
-           if (opers[dotPrnBP].second.empty()) opers[dotPrnBP]=make_pair("ATB RESA",*addr);
+           if (opers[dotPrnBP].addr.empty()) opers[dotPrnBP]=TPlatformParams("ATB RESA",*addr,*addr);
            continue;
         };
         if (devName=="BTP")
         {
-           if (opers[dotPrnBT].second.empty()) opers[dotPrnBT]=make_pair("BTP RESA",*addr);
+           if (opers[dotPrnBT].addr.empty()) opers[dotPrnBT]=TPlatformParams("BTP RESA",*addr,*addr);
            continue;
         };
         if (devName=="BCD" || devName=="BGR" || devName=="RTE")
         {
           if (devName=="RTE")
           {
-            if (opers[dotScnDoc].second.empty()) opers[dotScnDoc]=make_pair("WGE RESA",*addr);
-            if (opers[dotScnCard].second.empty()) opers[dotScnCard]=make_pair("WGE RESA",*addr);
+            if (opers[dotScnDoc].addr.empty()) opers[dotScnDoc]=TPlatformParams("WGE RESA",*addr,*addr);
+            if (opers[dotScnCard].addr.empty()) opers[dotScnCard]=TPlatformParams("WGE RESA",*addr,*addr);
           };
 
-          if (opers[dotScnBP1].second==*addr || opers[dotScnBP2].second==*addr) continue;
+          if (opers[dotScnBP1].addr==*addr || opers[dotScnBP2].addr==*addr) continue;
 
-          if (opers[dotScnBP1].second.empty()) opers[dotScnBP1]=make_pair(devName=="RTE"?"WGE RESA":"BCR RESA",*addr);
+          if (opers[dotScnBP1].addr.empty()) opers[dotScnBP1]=TPlatformParams(devName=="RTE"?"WGE RESA":"BCR RESA",*addr,*addr);
           else
-            if (opers[dotScnBP2].second.empty()) opers[dotScnBP2]=make_pair(devName=="RTE"?"WGE RESA":"BCR RESA",*addr);
+            if (opers[dotScnBP2].addr.empty()) opers[dotScnBP2]=TPlatformParams(devName=="RTE"?"WGE RESA":"BCR RESA",*addr,*addr);
           continue;
         };
         if (devName=="DCP" || devName=="MSG")
         {
-          if (opers[dotPrnFlt].second.empty()) opers[dotPrnFlt]=make_pair("DCP RESA",*addr);
-          if (opers[dotPrnArch].second.empty()) opers[dotPrnArch]=make_pair("DCP RESA",*addr);
-          if (opers[dotPrnDisp].second.empty()) opers[dotPrnDisp]=make_pair("DCP RESA",*addr);
-          if (opers[dotPrnTlg].second.empty()) opers[dotPrnTlg]=make_pair("DCP RESA",*addr);
+          if (opers[dotPrnFlt].addr.empty()) opers[dotPrnFlt]=TPlatformParams("DCP RESA",*addr,*addr);
+          if (opers[dotPrnArch].addr.empty()) opers[dotPrnArch]=TPlatformParams("DCP RESA",*addr,*addr);
+          if (opers[dotPrnDisp].addr.empty()) opers[dotPrnDisp]=TPlatformParams("DCP RESA",*addr,*addr);
+          if (opers[dotPrnTlg].addr.empty()) opers[dotPrnTlg]=TPlatformParams("DCP RESA",*addr,*addr);
           continue;
         };
       };
@@ -1287,10 +1303,10 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
         def->sess_type.clear();
         def->fmt_type.clear();
         TDevOperType oper=DecodeDevOperType(def->op_type);
-        if (!opers[oper].second.empty())
+        if (!opers[oper].addr.empty())
         {
           DefQry.SetVariable( "op_type", def->op_type );
-          DefQry.SetVariable( "dev_model", opers[oper].first );
+          DefQry.SetVariable( "dev_model", opers[oper].dev_model );
           DefQry.Execute();
           if (!DefQry.Eof)
           {
@@ -1430,10 +1446,13 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
            (reqInfo->desk.mode==omMUSE && reqInfo->desk.compatible(MUSE_DEV_VARIABLES)) )
       {
         TDevOperType oper=DecodeDevOperType(operation);
-        if (!opers[oper].first.empty() && opers[oper].first==dev_model)
+        if (!opers[oper].dev_model.empty() && opers[oper].dev_model==dev_model)
         {
           for(TCategoryDevParams::iterator p=params.begin();p!=params.end();++p)
-            if (p->param_name=="addr") p->param_value=opers[oper].second;
+          {
+            if (p->param_name=="addr") p->param_value=opers[oper].addr;
+            if (p->param_name=="pool_key") p->param_value=opers[oper].pool_key;
+          };
         };
       };
       //ProgTrace( TRACE5, "pr_parse_client_params=%d, k=%d", pr_parse_client_params, k );
