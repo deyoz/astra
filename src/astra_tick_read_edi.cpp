@@ -391,7 +391,8 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
             ASSERT(tkt->m_inConnectionTicketNum);
             Ticket ticket(tkt->m_ticketNum.get(), tick_act_code,
                           *tkt->m_nBooklets, getConnectedCoupons(pMes, Data.currTicket().first));
-            ticket.setConnectedDocNum(*tkt->m_inConnectionTicketNum);
+            if(tkt->m_inConnectionTicketNum)
+                ticket.setConnectedDocNum(*tkt->m_inConnectionTicketNum);
             ltick.push_back(ticket);
         }
     }

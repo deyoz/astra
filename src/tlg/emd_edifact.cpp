@@ -165,7 +165,7 @@ std::list<EmdTicket> EmdEdifact::makeTkt() const
         if(doctype == DocType::EmdS) {
             // Тикет EMD-S с привязкой к ЭБ через TickNumConnect
             lticket.push_back(EmdTicket::makeEmdSTicket(tkt.tkt_->m_ticketNum,
-                                                        *tkt.tkt_->m_inConnectionTicketNum,
+                                                        tkt.tkt_->m_inConnectionTicketNum,
                                                         tickAct));
         } else {
             // Для тикетов EMD-A в TickNumConnect нет необходимости, т.к. ассоциации с ЭБ на уровне купонов
@@ -318,8 +318,8 @@ void EmdEdifact::applyConnections4EmdS()
     BOOST_FOREACH(TktEdifact& tkt, lTkt_) {
         size_t numTicketsConnected = inconnTickets.count(tkt.tkt_->m_ticketNum);
         LogTrace(TRACE3) << "EmdS NUM[" << tkt.tkt_->m_ticketNum << "] has " << numTicketsConnected << " ET connected (max 1)";
-        ASSERT(numTicketsConnected == 1);
-        tkt.tkt_->m_inConnectionTicketNum = inconnTickets.at(tkt.tkt_->m_ticketNum);
+        if(numTicketsConnected == 1)
+            tkt.tkt_->m_inConnectionTicketNum = inconnTickets.at(tkt.tkt_->m_ticketNum);
     }
 }
 
