@@ -539,13 +539,13 @@ public:
     void setBirthRegion( const std::string& s ) {
         m_birthRegion = upperc( s.substr( 0, 70 ) );
     }
-    const bool prBrd() const {
+    bool prBrd() const {
         return pr_brd;
     }
     void setPrBrd(bool boarded) {
       pr_brd = boarded;
     }
-    const bool goShow() const {
+    bool goShow() const {
         return go_show;
     }
     void setGoShow(bool goshow) {
@@ -609,7 +609,7 @@ public:
     const std::string& respAgnCode() const { return m_respAgnCode; }
     void setRespAgnCode( const std::string& respAgnCode ) { m_respAgnCode = respAgnCode; }
 
-    const bool viewUNGandUNE() const { return m_viewUNGandUNE; }
+    bool viewUNGandUNE() const { return m_viewUNGandUNE; }
     void setViewUNGandUNE( const bool& viewUNGandUNE ) { m_viewUNGandUNE = viewUNGandUNE; }
 };
 
