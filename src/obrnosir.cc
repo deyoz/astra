@@ -267,6 +267,92 @@ update points set pr_del=-1 WHERE move_id in
 where (scd_in >= to_date('24.10.14','DD.MM.YY') or scd_out >= to_date('24.10.14','DD.MM.YY')) AND pr_del <> -1 )
 */
 
+
+const int SEASON_PERIOD_COUNT = 16;
+const int SEASON_PRIOR_PERIOD = 13;
+
+struct P {
+    ptime b;
+    ptime s;
+    boolean summer;
+    int dst;
+};
+
+void getPeriods( string filter_tz_region, vector<P> &periods ) {
+  ptime utcd = second_clock::universal_time();
+  int year = utcd.date().year();
+  tz_database &tz_db = get_tz_database();
+  time_zone_ptr tz = tz_db.time_zone_from_region( filter_tz_region );
+  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",filter_tz_region.c_str());
+  local_date_time ld( utcd, tz ); /* определяем текущее время локальное */
+  bool summer = true;
+  /* устанавливаем первый год и признак периода */
+  for ( int i=0; i<SEASON_PRIOR_PERIOD; i++ ) {
+    if ( tz->has_dst() ) {  // если есть переход на зимнее/летнее расписание
+        if ( i == 0 ) {
+        //dst_offset = tz->dst_offset().hours();
+        if ( ld.is_dst() ) {  // если сейчас лето
+          year--;
+          summer = false;
+        }
+        else {  // если сейчас зима
+          ptime start_time = tz->dst_local_start_time( year );
+          ProgTrace( TRACE5, "start_time=%s", DateTimeToStr( BoostToDateTime(start_time),"dd.mm.yy hh:nn:ss" ).c_str() );
+          if ( ld.local_time() < start_time ) {
+            tst();
+            year--;
+          }
+          summer = true;
+        }
+      }
+      else {
+        summer = !summer;
+        if ( !summer ) {  // если сейчас лето
+          year--;
+        }
+      }
+    }
+    else {
+     year--;
+     //dst_offset = 0;
+    }
+
+  }
+  for ( int i=0; i<SEASON_PERIOD_COUNT; i++ ) {
+    ptime s_time, e_time;
+    string name;
+    if ( tz->has_dst() ) {
+      if ( summer ) {
+        s_time = tz->dst_local_start_time( year ) - tz->base_utc_offset();
+        e_time = tz->dst_local_end_time( year ) - tz->base_utc_offset() - seconds(1);
+      }
+      else {
+        s_time = tz->dst_local_end_time( year ) - tz->base_utc_offset() - tz->dst_offset();
+        year++;
+        e_time = tz->dst_local_start_time( year ) - tz->base_utc_offset() - seconds(1);
+      }
+      summer = !summer;
+    }
+    else {
+     /* период - это целый год */
+     s_time = ptime( boost::gregorian::date(year,1,1) );
+     year++;
+     e_time = ptime( boost::gregorian::date(year,1,1) );
+    }
+    ProgTrace( TRACE5, "s_time=%s, e_time=%s, summer=%d, i=%d, dst=%i",
+               DateTimeToStr( UTCToLocal( BoostToDateTime(s_time), filter_tz_region ),"dd.mm.yy hh:nn:ss" ).c_str(),
+               DateTimeToStr( UTCToLocal( BoostToDateTime(e_time), filter_tz_region ), "dd.mm.yy hh:nn:ss" ).c_str(), !summer, i,
+               tz->dst_offset().hours());
+    P p;
+    p.b = s_time;
+    p.s = e_time;
+    p.summer = !summer;
+    p.dst =  tz->dst_offset().hours();
+    periods.push_back( p );
+  }
+}
+
+
 int points_dst_format(int argc,char **argv)
 {
   bool prior = false;
@@ -278,9 +364,91 @@ int points_dst_format(int argc,char **argv)
       tst();
       break;
     }
-  }
+  }  
 
   TQuery Qry(&OraSession);
+  if ( prior ) {
+    Qry.Clear();
+    Qry.SQLText = "select distinct s.region region from seasons s, DATE_TIME_ZONESPEC d where s.region=d.id AND id IN ("
+        "'Europe/Kaliningrad',"
+        "'Europe/Moscow',"
+        "'Europe/Samara',"
+        "'Asia/Yekaterinburg',"
+        "'Asia/Novosibirsk',"
+        "'Asia/Krasnoyarsk',"
+        "'Asia/Irkutsk',"
+        "'Asia/Yakutsk',"
+        "'Asia/Sakhalin',"
+        "'Asia/Srednekolymsk',"
+        "'Asia/Anadyr',"
+        "'Asia/Novokuznetsk',"
+        "'Asia/Chita',"
+        "'Asia/Magadan' )";
+  tst();
+    Qry.Execute();
+    tst();
+    vector<string> regions;
+    for ( ; !Qry.Eof; Qry.Next() ) {
+      regions.push_back( Qry.FieldAsString("region") );
+    }
+    Qry.SQLText = "DELETE FROM seasons where region in (  "
+        "select distinct s.region from seasons s, DATE_TIME_ZONESPEC d "
+        " where s.region=d.id AND d.id IN ( "
+                  "'Europe/Kaliningrad',"
+                  "'Europe/Moscow',"
+                  "'Europe/Samara',"
+                  "'Asia/Yekaterinburg',"
+                  "'Asia/Yekaterinburg',"
+                  "'Asia/Novosibirsk',"
+                  "'Asia/Krasnoyarsk',"
+                  "'Asia/Irkutsk',"
+                  "'Asia/Yakutsk',"
+                  "'Asia/Sakhalin',"
+                  "'Asia/Srednekolymsk',"
+                  "'Asia/Anadyr',"
+                  "'Asia/Novokuznetsk',"
+                  "'Asia/Chita',"
+                  "'Asia/Magadan' )"
+        ")";
+    tst();
+    Qry.Execute();
+    tst();
+    Qry.Clear();
+
+    TQuery GQry( &OraSession );
+    GQry.Clear();
+    GQry.SQLText =
+    "DECLARE i NUMBER;"
+    "BEGIN "
+    "SELECT COUNT(*) INTO i FROM seasons "
+    " WHERE region=:region AND :first=first AND :last=last; "
+    "IF i = 0 THEN "
+    " INSERT INTO seasons(region,first,last,hours) VALUES(:region,:first,:last,:hours); "
+    "END IF; "
+    "END;";
+    GQry.DeclareVariable( "region", otString );
+    GQry.DeclareVariable( "first", otDate );
+    GQry.DeclareVariable( "last", otDate );
+    GQry.DeclareVariable( "hours", otInteger );
+
+    for ( vector<string>::iterator ireg=regions.begin(); ireg!=regions.end(); ireg++) {
+      vector<P> periods;
+      getPeriods( *ireg, periods );
+      GQry.SetVariable( "region", *ireg );
+      for ( vector<P>::iterator p=periods.begin(); p!=periods.end(); p++ ) {
+        int hours;
+         if ( p->summer )
+           hours = p->dst;
+         else
+           hours = 0;
+         GQry.SetVariable( "first", BoostToDateTime( p->b ) );
+         GQry.SetVariable( "last", BoostToDateTime( p->s) );
+         GQry.SetVariable( "hours", hours );
+         GQry.Execute();
+       }
+    }
+  }
+  Qry.Clear();
   Qry.SQLText =
     "select point_id,airp,scd_in,scd_out,est_in,est_out,act_in,act_out, c.tz_region region from airps a, cities c,"
     " ( select point_id,airp,scd_in,scd_out,est_in,est_out,act_in,act_out from points p "
@@ -668,147 +836,38 @@ int tz2db(int argc,char **argv)
     return 0;
 }
 
-
-const int SEASON_PERIOD_COUNT = 16;
-const int SEASON_PRIOR_PERIOD = 13;
-
-struct P {
-    ptime b;
-    ptime s;
-    boolean summer;
-    int dst;
-};
-
-void getPeriods( string filter_tz_region, vector<P> &periods ) {
-  ptime utcd = second_clock::universal_time();
-  int year = utcd.date().year();
-  tz_database &tz_db = get_tz_database();
-  time_zone_ptr tz = tz_db.time_zone_from_region( filter_tz_region );
-  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",filter_tz_region.c_str());
-  local_date_time ld( utcd, tz ); /* определяем текущее время локальное */
-  bool summer = true;
-  /* устанавливаем первый год и признак периода */
-  for ( int i=0; i<SEASON_PRIOR_PERIOD; i++ ) {
-    if ( tz->has_dst() ) {  // если есть переход на зимнее/летнее расписание
-        if ( i == 0 ) {
-        //dst_offset = tz->dst_offset().hours();
-        if ( ld.is_dst() ) {  // если сейчас лето
-          year--;
-          summer = false;
-        }
-        else {  // если сейчас зима
-          ptime start_time = tz->dst_local_start_time( year );
-          ProgTrace( TRACE5, "start_time=%s", DateTimeToStr( BoostToDateTime(start_time),"dd.mm.yy hh:nn:ss" ).c_str() );
-          if ( ld.local_time() < start_time ) {
-            tst();
-            year--;
-          }
-          summer = true;
-        }
-      }
-      else {
-        summer = !summer;
-        if ( !summer ) {  // если сейчас лето
-          year--;
-        }
-      }
-    }
-    else {
-     year--;
-     //dst_offset = 0;
-    }
-
-  }
-  for ( int i=0; i<SEASON_PERIOD_COUNT; i++ ) {
-    ptime s_time, e_time;
-    string name;
-    if ( tz->has_dst() ) {
-      if ( summer ) {
-        s_time = tz->dst_local_start_time( year ) - tz->base_utc_offset();
-        e_time = tz->dst_local_end_time( year ) - tz->base_utc_offset() - seconds(1);
-      }
-      else {
-        s_time = tz->dst_local_end_time( year ) - tz->base_utc_offset() - tz->dst_offset();
-        year++;
-        e_time = tz->dst_local_start_time( year ) - tz->base_utc_offset() - seconds(1);
-      }
-      summer = !summer;
-    }
-    else {
-     /* период - это целый год */
-     s_time = ptime( boost::gregorian::date(year,1,1) );
-     year++;
-     e_time = ptime( boost::gregorian::date(year,1,1) );
-    }
-    ProgTrace( TRACE5, "s_time=%s, e_time=%s, summer=%d, i=%d, dst=%i",
-               DateTimeToStr( UTCToLocal( BoostToDateTime(s_time), filter_tz_region ),"dd.mm.yy hh:nn:ss" ).c_str(),
-               DateTimeToStr( UTCToLocal( BoostToDateTime(e_time), filter_tz_region ), "dd.mm.yy hh:nn:ss" ).c_str(), !summer, i,
-               tz->dst_offset().hours());
-    P p;
-    p.b = s_time;
-    p.s = e_time;
-    p.summer = !summer;
-    p.dst =  tz->dst_offset().hours();
-    periods.push_back( p );
-  }
-}
-
 int seasons_dst_format(int argc,char **argv)
 {
+  tst();
   vector<TSTrip> trips;
   try{
   TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText = "select distinct s.region region from seasons s, DATE_TIME_ZONESPEC d where country='РФ' and s.region=d.id";
-  Qry.Execute();
-  vector<string> regions;
-  for ( ; !Qry.Eof; Qry.Next() ) {
-    regions.push_back( Qry.FieldAsString("region") );
-  }
-  Qry.SQLText = "DELETE FROM seasons where region in (  select distinct s.region from seasons s, DATE_TIME_ZONESPEC d where country='РФ' and s.region=d.id )";
-  Qry.Execute();
-  Qry.Clear();
-
-  TQuery GQry( &OraSession );
-  GQry.Clear();
-  GQry.SQLText =
-  "DECLARE i NUMBER;"
-  "BEGIN "
-  "SELECT COUNT(*) INTO i FROM seasons "
-  " WHERE region=:region AND :first=first AND :last=last; "
-  "IF i = 0 THEN "
-  " INSERT INTO seasons(region,first,last,hours) VALUES(:region,:first,:last,:hours); "
-  "END IF; "
-  "END;";
-  GQry.DeclareVariable( "region", otString );
-  GQry.DeclareVariable( "first", otDate );
-  GQry.DeclareVariable( "last", otDate );
-  GQry.DeclareVariable( "hours", otInteger );
-
-  for ( vector<string>::iterator ireg=regions.begin(); ireg!=regions.end(); ireg++) {
-    vector<P> periods;
-    getPeriods( *ireg, periods );
-    GQry.SetVariable( "region", *ireg );
-    for ( vector<P>::iterator p=periods.begin(); p!=periods.end(); p++ ) {
-      int hours;
-       if ( p->summer )
-         hours = p->dst;
-       else
-         hours = 0;
-       GQry.SetVariable( "first", BoostToDateTime( p->b ) );
-       GQry.SetVariable( "last", BoostToDateTime( p->s) );
-       GQry.SetVariable( "hours", hours );
-       GQry.Execute();
-     }
-  }
   //1 - зима
   Qry.Clear();
   Qry.SQLText =
-    "SELECT trip_id,move_id,num,first_day,last_day,days,sched_days.region FROM sched_days, seasons, DATE_TIME_ZONESPEC d "
-    "WHERE seasons.region=sched_days.region AND d.country='РФ' and seasons.region=d.id AND seasons.hours=1 AND "
+    "SELECT trip_id,move_id,num,first_day,last_day,days,sched_days.region FROM sched_days, seasons,"
+    "( SELECT id region FROM DATE_TIME_ZONESPEC "
+    " WHERE id IN ("
+    "'Europe/Kaliningrad',"
+    "'Europe/Moscow',"
+    "'Europe/Samara',"
+    "'Asia/Yekaterinburg',"
+    "'Asia/Novosibirsk',"
+    "'Asia/Krasnoyarsk',"
+    "'Asia/Irkutsk',"
+    "'Asia/Yakutsk',"
+    "'Asia/Sakhalin',"
+    "'Asia/Srednekolymsk',"
+    "'Asia/Anadyr',"
+    "'Asia/Novokuznetsk',"
+    "'Asia/Chita',"
+    "'Asia/Magadan' ) ) d "
+    "WHERE seasons.region=sched_days.region AND seasons.region=d.region AND seasons.hours=1 AND "
     "      first_day BETWEEN seasons.first AND seasons.last "
     "ORDER BY trip_id,move_id,num";
+  tst();
   Qry.Execute();
+  tst();
 
   TQuery VQry(&OraSession);
   VQry.SQLText = "SELECT move_id FROM routes where move_id=:move_id AND airline='7К' AND rownum<2";
@@ -1054,22 +1113,56 @@ int seasons_dst_format(int argc,char **argv)
     Qry.Clear();
     Qry.SQLText =
       "SELECT SCHED_DAYS.TRIP_ID,SCHED_DAYS.MOVE_ID,SCHED_DAYS.NUM,SCHED_DAYS.FIRST_DAY, airp,scd_in,delta_in,scd_out,delta_out,routes.num route_num "
-      " FROM ROUTES,SCHED_DAYS, SEASONS, DATE_TIME_ZONESPEC d "
+      " FROM ROUTES,SCHED_DAYS, SEASONS, "
+      "( SELECT id region FROM DATE_TIME_ZONESPEC "
+      " WHERE id IN ("
+      "'Europe/Kaliningrad',"
+      "'Europe/Moscow',"
+      "'Europe/Samara',"
+      "'Asia/Yekaterinburg',"
+      "'Asia/Novosibirsk',"
+      "'Asia/Krasnoyarsk',"
+      "'Asia/Irkutsk',"
+      "'Asia/Yakutsk',"
+      "'Asia/Sakhalin',"
+      "'Asia/Srednekolymsk',"
+      "'Asia/Anadyr',"
+      "'Asia/Novokuznetsk',"
+      "'Asia/Chita',"
+      "'Asia/Magadan' ) ) d "
       " WHERE "
       " ROUTES.MOVE_ID=SCHED_DAYS.MOVE_ID AND "
-      " d.country='РФ' and seasons.region=d.id AND seasons.hours=1 AND SEASONS.REGION=SCHED_DAYS.REGION AND SCD_IN IS NOT NULL AND "
+      " seasons.region=d.region AND seasons.hours=1 AND SEASONS.REGION=SCHED_DAYS.REGION AND SCD_IN IS NOT NULL AND "
       " TRUNC(FIRST_DAY)+DELTA_IN+(SCD_IN-TRUNC(SCD_IN)) NOT BETWEEN SEASONS.FIRST AND SEASONS.LAST AND "
       " FIRST_DAY BETWEEN SEASONS.FIRST AND SEASONS.LAST "
       " UNION "
       " SELECT SCHED_DAYS.TRIP_ID,SCHED_DAYS.MOVE_ID,SCHED_DAYS.NUM,SCHED_DAYS.FIRST_DAY, airp,scd_in,delta_in,scd_out,delta_out,routes.num route_num "
-      " FROM ROUTES,SCHED_DAYS, SEASONS, DATE_TIME_ZONESPEC d "
+      " FROM ROUTES,SCHED_DAYS, SEASONS, "
+      "( SELECT id region FROM DATE_TIME_ZONESPEC "
+      " WHERE id IN ("
+      "'Europe/Kaliningrad',"
+      "'Europe/Moscow',"
+      "'Europe/Samara',"
+      "'Asia/Yekaterinburg',"
+      "'Asia/Novosibirsk',"
+      "'Asia/Krasnoyarsk',"
+      "'Asia/Irkutsk',"
+      "'Asia/Yakutsk',"
+      "'Asia/Sakhalin',"
+      "'Asia/Srednekolymsk',"
+      "'Asia/Anadyr',"
+      "'Asia/Novokuznetsk',"
+      "'Asia/Chita',"
+      "'Asia/Magadan' ) ) d "
       " WHERE "
       " ROUTES.MOVE_ID=SCHED_DAYS.MOVE_ID AND "
-      " d.country='РФ' and seasons.region=d.id AND seasons.hours=1 AND SEASONS.REGION=SCHED_DAYS.REGION AND SCD_OUT IS NOT NULL AND "
+      " seasons.region=d.region AND seasons.hours=1 AND SEASONS.REGION=SCHED_DAYS.REGION AND SCD_OUT IS NOT NULL AND "
       " TRUNC(FIRST_DAY)+DELTA_OUT+(SCD_OUT-TRUNC(SCD_OUT)) NOT BETWEEN SEASONS.FIRST AND SEASONS.LAST AND "
       " FIRST_DAY BETWEEN SEASONS.FIRST AND SEASONS.LAST "
       " order by first_day ";
+    tst();
     Qry.Execute();
+    tst();
     while ( !Qry.Eof ) {
       vector<TSTrip>::iterator i=trips.end();
       for ( vector<TSTrip>::iterator i=trips.begin(); i!=trips.end(); i++ ) {
