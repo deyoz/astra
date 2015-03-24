@@ -210,7 +210,7 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
 		ProgTrace( TRACE5, "Attention execute all tasks time > 1 min !!!, time=%s", DateTimeToStr( NowUTC() - execTasks, "nn:ss" ).c_str() );
 };
 
-const int CREATE_SPP_DAYS()
+int CREATE_SPP_DAYS()
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
