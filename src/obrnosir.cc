@@ -19,7 +19,6 @@
 #include "salons.h"
 #include "file_queue.h"
 #include "empty_proc.h"
-#include "pers_weights.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/testmode.h"
@@ -73,14 +72,12 @@ const
     {"-compare_apis",           compare_apis,           NULL,                       NULL},
     {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
     {"-test_file_queue",        test_file_queue,        NULL,                       NULL},
-    {"-tscript",                nosir_tscript,          NULL,                       NULL},    
+    {"-tscript",                nosir_tscript,          NULL,                       NULL},
+    {"-rollback096",            rollback096,            NULL,                       NULL},
     {"-mobile_stat",            mobile_stat,            NULL,                       NULL},
     {"-test_astra_locale_adv",  test_astra_locale_adv,  NULL,                       NULL},
     {"-insert_locales",         insert_locales,         NULL,                       NULL},
-    {"-file_by_id",             file_by_id,             NULL,                       NULL},
-    {"-dst_points",             points_dst_format,      NULL,                       NULL},
-    {"-fill_counters_by_subcls",fill_counters_by_subcls,NULL,                       NULL},
-    {"-check_counters_by_subcls",check_counters_by_subcls,NULL,                     NULL}
+    {"-dst_points",             points_dst_format,         NULL,                       NULL}
   };
 
 int nosir_test(int argc,char **argv)
@@ -364,7 +361,7 @@ int points_dst_format(int argc,char **argv)
       tst();
       break;
     }
-  }  
+  }
 
   TQuery Qry(&OraSession);
   if ( prior ) {
@@ -976,8 +973,16 @@ int seasons_dst_format(int argc,char **argv)
         int route_num = RQry.FieldAsInteger( "num" );
         string city = ((TAirpsRow&)baseairps.get_row( "code", RQry.FieldAsString( "airp" )  , true )).city;
         TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
-        string city_region = CityTZRegion( city );
-
+        string city_region;
+        try {
+          city_region = CityTZRegion( city );
+          if ( city_region.empty() )
+            throw EXCEPTIONS::Exception("region empty");
+        }
+        catch(...) {
+         ProgError(STDLOG,"city=%s, region empty move_id=%d", city.c_str(), move_id );
+         break;
+        }
         if (  prior_scd_in != NoExists ) {
           ProgTrace( TRACE5, "before convert move_id=%d, route.num=%d, scd_in=%s, delta_in=%d, airp=%s",
                      move_id, route_num, DateTimeToStr( prior_scd_in, "dd.mm.yyyy hh:nn" ).c_str(),
@@ -1176,7 +1181,17 @@ int seasons_dst_format(int argc,char **argv)
         ProgTrace( TRACE5, "trip convert: trip_id=%d, move_id=%d, num=%d", Qry.FieldAsInteger( "trip_id" ), Qry.FieldAsInteger( "move_id" ), Qry.FieldAsInteger( "num" ) );
         string city = ((TAirpsRow&)baseairps.get_row( "code", Qry.FieldAsString( "airp" )  , true )).city;
         TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
-        string city_region = CityTZRegion( city );
+        string city_region;
+        try {
+           city_region = CityTZRegion( city );
+           if ( city_region.empty() )
+             throw EXCEPTIONS::Exception("region empty");
+        }
+        catch(...) {
+          ProgError(STDLOG,"city=%s, region empty move_id=%d", city.c_str(), move_id );
+          Qry.Next();
+          continue;
+       }
         if ( row.country == "êî" ) {
             TDateTime trunc_f = ASTRA::NoExists, scd_in = ASTRA::NoExists, prior_scd_in = ASTRA::NoExists,
                       scd_out = ASTRA::NoExists, prior_scd_out = ASTRA::NoExists;
