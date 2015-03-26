@@ -57,7 +57,7 @@ void DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         rpt_type = rtPTM;
     else if(name == BM or name == BMTrfer)
         rpt_type = rtBTM;
-    else if(name == ref)
+    else if(name == ::ref)
         rpt_type = rtREFUSE;
     else if(name == notpres)
         rpt_type = rtNOTPRES;
