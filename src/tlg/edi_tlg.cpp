@@ -16,6 +16,7 @@
 #include "emd_disp_request.h"
 #include "tlg_source_edifact.h"
 #include "remote_system_context.h"
+#include "astra_tick_read_edi.h"
 
 // handlers
 #include "EmdDispResponseHandler.h"
@@ -46,6 +47,7 @@ using namespace BASIC;
 using namespace edilib;
 using namespace Ticketing;
 using namespace Ticketing::ChangeStatus;
+using namespace Ticketing::TickMng;
 using namespace AstraLocale;
 using namespace TlgHandling;
 using namespace AstraEdifact;
@@ -801,7 +803,7 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
                              udata.sessData()->ediSession()->ida().get(),
                              TickD.context());
 
-    if (!TickD.kickInfo().empty())
+    if (!TickD.kickInfo().msgId.empty())
     {
         ServerFramework::getQueryRunner().getEdiHelpManager().
                 configForPerespros(STDLOG,
@@ -928,7 +930,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
       "    UPDATE etickets "
       "    SET point_id=:point_id, airp_dep=:airp_dep, airp_arv=:airp_arv, "
       "        coupon_status=:coupon_status, error=:error "
-      "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "      
+      "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
       "  ELSE "
       "    UPDATE etickets "
       "    SET error=:error "
@@ -1197,7 +1199,7 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
                              udata.sessData()->ediSession()->ida().get(),
                              TickD.context());
 
-    if (!TickD.kickInfo().empty())
+    if (!TickD.kickInfo().msgId.empty())
     {
       ServerFramework::getQueryRunner().getEdiHelpManager().
               configForPerespros(STDLOG,
@@ -1212,9 +1214,8 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
     string ctxt;
     AstraContext::GetContext("EDI_SESSION",
                              udata.sessData()->ediSession()->ida().get(),
-                             ctxt);
-    ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
-
+                             ctxt);    
+    ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");    
 
     XMLDoc ediSessCtxt(ctxt);
     if (ediSessCtxt.docPtr()!=NULL)
@@ -1222,8 +1223,9 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
       //для нормальной работы надо все дерево перевести в CP866:
       xml_decode_nodelist(ediSessCtxt.docPtr()->children);
       xmlNodePtr rootNode=NodeAsNode("/context",ediSessCtxt.docPtr());
+      int req_ctxt_id=NodeAsInteger("@req_ctxt_id",rootNode);
+      int point_id=NodeAsInteger("point_id",rootNode);      
 
-      int point_id=NodeAsInteger("point_id",rootNode);
       TQuery Qry(&OraSession);
       Qry.SQLText=
         "UPDATE trip_sets SET pr_etstatus=0 "
@@ -1236,9 +1238,45 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
         TReqInfo::Instance()->LocaleToLog("EVT.RETURNED_INTERACTIVE_WITH_ETC", ASTRA::evtFlt, point_id );
       };
 
-      if (GetNode("@req_ctxt_id",rootNode))
+      string purpose=NodeAsString("@purpose",rootNode);
+
+      if (purpose=="EMDDisplay")
       {
-        int req_ctxt_id=NodeAsInteger("@req_ctxt_id",rootNode);
+        XMLDoc ediResCtxt("context");
+        if (ediResCtxt.docPtr()==NULL)
+          throw EXCEPTIONS::Exception("%s: CreateXMLDoc failed", __FUNCTION__);
+        xmlNodePtr ediResCtxtNode=NodeAsNode("/context",ediResCtxt.docPtr());
+
+        try
+        {
+          edi_udata_rd &udata_rd = dynamic_cast<edi_udata_rd &>(udata);
+          Pnr pnr = readPnr(udata_rd.tlgText());
+          edifact::KickInfo kickInfo;
+          kickInfo.fromXML(rootNode);
+          kickInfo.parentSessId=udata.sessData()->ediSession()->ida().get();
+          OrigOfRequest org("");
+          Ticketing::FlightNum_t flNum;
+          OrigOfRequest::fromXML(rootNode, org, flNum);
+          list<Ticketing::TicketNum_t> emds;
+          for(list<Ticket>::const_iterator i=pnr.ltick().begin(); i!=pnr.ltick().end(); ++i)
+            if (i->actCode() == TickStatAction::inConnectionWith)
+            {
+              emds.push_back(i->connectedDocNum());
+              //ProgTrace(TRACE5, "%s: %s", __FUNCTION__, i->connectedDocNum().get().c_str());
+            };
+          Ticket::Trace(TRACE5, pnr.ltick());          
+          SearchEMDsByTickNo(emds, kickInfo, org, flNum);
+        }
+        catch(AstraLocale::UserException &e)
+        {
+          //для остальных ошибок падаем          
+          ProcEdiError(e.getLexemaData(), ediResCtxtNode, true);
+        };
+        AstraContext::SetContext("EDI_RESPONSE",req_ctxt_id,XMLTreeToText(ediResCtxt.docPtr()));
+      };
+
+      if (purpose=="ETDisplay")
+      {        
         edi_udata_rd &udata_rd = dynamic_cast<edi_udata_rd &>(udata);
         AstraContext::SetContext("EDI_RESPONSE",req_ctxt_id,udata_rd.tlgText());
       };
@@ -1343,4 +1381,5 @@ int CreateCONTRL (edi_mes_head *pHead, void *udata, void *data, int *err)
 {
     return 0;
 }
+
 

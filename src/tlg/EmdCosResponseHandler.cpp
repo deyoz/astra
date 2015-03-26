@@ -122,7 +122,7 @@ void EmdCosResponseHandler::handle()
            error.lparams << LParam("emd", EMDocItem.emd_no_str())
                          << LParam("error", EMDocItem.change_status_error);
 
-           ProcEdiError(error, node, isGlobal);
+           AstraEdifact::ProcEdiError(error, node, isGlobal);
 
            //записываем в контекст для вывода в журнал операций
            event.lexema_id="EVT.EMD_CHANGE_STATUS_MISTAKE";

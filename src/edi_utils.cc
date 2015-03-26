@@ -6,6 +6,7 @@
 #include "tlg/tlg.h"
 #include "astra_context.h"
 #include "tlg/remote_results.h"
+#include <serverlib/internal_msgid.h>
 #include <serverlib/ehelpsig.h>
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/xml_stuff.h>
@@ -222,6 +223,28 @@ std::string get_canon_name(const std::string& edi_addr)
     return ETS_CANON_NAME();
   return Qry.FieldAsString("canon_name");
 }
+void copy_notify_levb(const int src_edi_sess_id,
+                      const int dest_edi_sess_id,
+                      const bool err_if_not_found)
+{
+  ProgTrace(TRACE2,"copy_notify_levb: called with src_edi_sess_id=%d dest_edi_sess_id=%d",
+                   src_edi_sess_id, dest_edi_sess_id);
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO edi_help(address, date1, intmsgid, pult, text, timeout, session_id, instance) "
+    "SELECT address, date1, intmsgid, pult, text, timeout, :dest_sess_id, instance "
+    "FROM edi_help "
+    "WHERE session_id=:src_sess_id";
+  Qry.CreateVariable("src_sess_id", otInteger, src_edi_sess_id);
+  Qry.CreateVariable("dest_sess_id", otInteger, dest_edi_sess_id);
+  Qry.Execute();
+  if (Qry.RowsProcessed()==0)
+  {
+    if (err_if_not_found)
+      throw EXCEPTIONS::Exception("copy_notify_levb: nothing in edi_help for session_id=%d", src_edi_sess_id);
+  };
+}
 
 void confirm_notify_levb(const int edi_sess_id, const bool err_if_not_found)
 {
@@ -295,6 +318,15 @@ string make_xml_kick(const edifact::KickInfo &kickInfo)
   return ConvertCodepage(XMLTreeToText(kickDoc.docPtr()),"CP866","UTF-8");
 };
 
+edifact::KickInfo createKickInfo(const int v_reqCtxtId,
+                                 const std::string &v_iface)
+{
+  return edifact::KickInfo(v_reqCtxtId,
+                           v_iface,
+                           v_iface.empty()?"":ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString(),
+                           v_iface.empty()?"":TReqInfo::Instance()->desk.code);
+}
+
 void addToEdiResponseCtxt(const int ctxtId,
                           const xmlNodePtr srcNode,
                           const string &destNodeName)
@@ -334,6 +366,57 @@ void addToEdiResponseCtxt(const int ctxtId,
   };
 };
 
+void getEdiResponseCtxt(const int ctxtId,
+                        const bool clear,
+                        const string &where,
+                        string &context)
+{
+  AstraContext::GetContext("EDI_RESPONSE",
+                           ctxtId,
+                           context);
+
+  if (clear) AstraContext::ClearContext("EDI_RESPONSE", ctxtId);
+
+  if (context.empty())
+    throw EXCEPTIONS::Exception("%s: context EDI_RESPONSE empty", where.c_str());
+};
+
+void getEdiResponseCtxt(const int ctxtId,
+                        const bool clear,
+                        const string &where,
+                        XMLDoc &xmlCtxt)
+{
+  string context;
+  getEdiResponseCtxt(ctxtId, clear, where, context);
+  xmlCtxt.set(ConvertCodepage(context,"CP866","UTF-8"));
+  if (xmlCtxt.docPtr()==NULL)
+    throw EXCEPTIONS::Exception("%s: context EDI_RESPONSE wrong XML format", where.c_str());
+
+  xml_decode_nodelist(xmlCtxt.docPtr()->children);
+};
+
+void getTermRequestCtxt(const int ctxtId,
+                        const bool clear,
+                        const string &where,
+                        XMLDoc &xmlCtxt)
+{
+  string context;
+  AstraContext::GetContext("TERM_REQUEST",
+                           ctxtId,
+                           context);
+
+  if (clear) AstraContext::ClearContext("TERM_REQUEST", ctxtId);
+
+  if (context.empty())
+    throw EXCEPTIONS::Exception("%s: context TERM_REQUEST empty", where.c_str());
+
+  xmlCtxt.set(ConvertCodepage(context,"CP866","UTF-8"));
+  if (xmlCtxt.docPtr()==NULL)
+    throw EXCEPTIONS::Exception("%s: context TERM_REQUEST wrong XML format", where.c_str());
+
+  xml_decode_nodelist(xmlCtxt.docPtr()->children);
+};
+
 void cleanOldRecords(const int min_ago)
 {
   if (min_ago<1)
@@ -359,6 +442,29 @@ void cleanOldRecords(const int min_ago)
   };
 
   edifact::RemoteResults::cleanOldRecords(min_ago);
+};
+
+void ProcEdiError(const AstraLocale::LexemaData &error,
+                  const xmlNodePtr errorCtxtNode,
+                  const bool isGlobal)
+{
+  if (errorCtxtNode==NULL) return;
+  xmlNodePtr errorNode=NewTextChild(errorCtxtNode, "error");
+  LexemeDataToXML(error, errorNode);
+  SetProp(errorNode, "global", (int)isGlobal);
+}
+
+void GetEdiError(const xmlNodePtr errorCtxtNode,
+                 EdiErrorList &errors)
+{
+  errors.clear();
+  for(xmlNodePtr node=errorCtxtNode->children; node!=NULL; node=node->next)
+  {
+    if (strcmp((const char*)node->name,"error")!=0) continue;
+    EdiErrorList::iterator i=errors.insert(errors.end(), make_pair(AstraLocale::LexemaData(), false));
+    LexemeDataFromXML(node, i->first);
+    i->second=NodeAsInteger("@global", node)!=0;
+  }
 };
 
 } //namespace AstraEdifact

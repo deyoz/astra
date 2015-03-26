@@ -62,7 +62,8 @@ class RemoteResults
     RemoteResults():Status(RemoteStatus::RequestSent){}
     //void removeOld() const;
 private:
-    RemoteResults(const std::string &pult,
+    RemoteResults(const std::string &msgId,
+                  const std::string &pult,
                   const edilib::EdiSessionId_t &edisess,
                   const Ticketing::SystemAddrs_t &remoteId);
 public:
@@ -72,14 +73,17 @@ public:
      * @param edisess
      * @param remoteId
      */
-    static void add(const std::string &pult,
+    static void add(const std::string &msgId,
+                    const std::string &pult,
                     const edilib::EdiSessionId_t &edisess,
-                    const Ticketing::SystemAddrs_t &remoteId);
+                    const Ticketing::SystemAddrs_t &remoteId);    
 
     /**
      * @brief to whom
      * @return
      */
+    const std::string &msgId() const { return MsgId; }
+
     const std::string &pult() const { return Pult; }
 
     const RemoteStatus &status() const { return Status; }
@@ -140,7 +144,7 @@ public:
      */
     void writeDb();
 
-    void updateDb() const;
+    void updateDb() const;    
 
     void deleteDb(const edilib::EdiSessionId_t &Id);
 
@@ -164,6 +168,7 @@ public:
     }
 private:
     friend struct defsupport;
+    std::string MsgId;
     std::string Pult;
     std::string EdiErrCode;
     std::string Remark;

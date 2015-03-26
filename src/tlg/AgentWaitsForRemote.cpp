@@ -38,9 +38,12 @@ static void ConfigAgentToWait_(const std::string& pult,
 {
   //std::string iface = JxtContext::getSysContext()->read("CUR_IFACE", ""); Не использовать эту конструкцию, так как от имени одного пульта м.б. множество разных параллельных запросов
 
-  ServerFramework::getQueryRunner().
-      getEdiHelpManager().
-      configForPerespros(STDLOG, make_xml_kick(kickInfo).c_str(), sida.get(), 15 /*seconds to wait*/);
+  if (kickInfo.parentSessId!=ASTRA::NoExists)
+    copy_notify_levb(kickInfo.parentSessId, sida.get(), true);
+  else
+    ServerFramework::getQueryRunner().
+        getEdiHelpManager().
+        configForPerespros(STDLOG, make_xml_kick(kickInfo).c_str(), sida.get(), 15 /*seconds to wait*/);
 
   //edifact::RemoteResults::add(pult, sida, rida); здесь не надо, потому что это логически не связано с AgentToWait
 
@@ -52,7 +55,7 @@ void ConfigAgentToWait(const Ticketing::SystemAddrs_t& rida,
                        const edifact::KickInfo &kickInfo)
 {
     //if(Environment::Environ::Instance().handlerType() == Environment::HumanHandler)    
-    if (!kickInfo.empty())
+    if (!kickInfo.msgId.empty())
     {
         LogTrace(TRACE3) << "ConfigAgentToWait for pult " << pult;
         ConfigAgentToWait_(pult.c_str(), rida, sida, kickInfo);
