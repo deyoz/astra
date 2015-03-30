@@ -16,12 +16,10 @@
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace boost;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace BASIC;
 using namespace ASTRA;
-using namespace boost;
 
 void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {

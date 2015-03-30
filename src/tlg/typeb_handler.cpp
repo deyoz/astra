@@ -31,7 +31,7 @@ using namespace EXCEPTIONS;
 using namespace std;
 using namespace TypeB;
 
-static const int HANDLER_WAIT_INTERVAL()       //миллисекунды
+static int HANDLER_WAIT_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -39,7 +39,7 @@ static const int HANDLER_WAIT_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-static const int HANDLER_PROC_INTERVAL()       //миллисекунды
+static int HANDLER_PROC_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -47,7 +47,7 @@ static const int HANDLER_PROC_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-static const int HANDLER_PROC_COUNT()          //кол-во обрабатываемых частей телеграмм за одну итерацию
+static int HANDLER_PROC_COUNT()          //кол-во обрабатываемых частей телеграмм за одну итерацию
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -55,7 +55,7 @@ static const int HANDLER_PROC_COUNT()          //кол-во обрабатываемых частей те
   return VAR;
 };
 
-static const int PARSER_WAIT_INTERVAL()       //миллисекунды
+static int PARSER_WAIT_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -63,7 +63,7 @@ static const int PARSER_WAIT_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-static const int PARSER_PROC_INTERVAL()       //миллисекунды
+static int PARSER_PROC_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -71,7 +71,7 @@ static const int PARSER_PROC_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-static const int PARSER_PROC_COUNT()          //кол-во разбираемых телеграмм за одну итерацию
+static int PARSER_PROC_COUNT()          //кол-во разбираемых телеграмм за одну итерацию
 {
   static int VAR=NoExists;
   if (VAR==NoExists)

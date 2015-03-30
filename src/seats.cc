@@ -168,7 +168,7 @@ struct TAllowedAttributesSeat {
     if ( Qry.Eof ) {
       ProgError( STDLOG, "isWorkINFT: flight not found!!!, point_id=%d", point_id );
     }
-    pr_isWorkINFT = ( !Qry.Eof && (string("êÉ") == Qry.FieldAsString( "airline") || string("ûí") == Qry.FieldAsString( "airline")));
+    pr_isWorkINFT = ( !Qry.Eof && (string("êÉ") == Qry.FieldAsString( "airline") /*|| string("ûí") == Qry.FieldAsString( "airline")*/));
     return pr_isWorkINFT;
   }
 

@@ -1246,7 +1246,7 @@ const char* SERVER_ID()
   return VAR.c_str();
 };
 
-const bool USE_SEANCES()
+bool USE_SEANCES()
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -1254,7 +1254,7 @@ const bool USE_SEANCES()
   return VAR!=0;
 };
 
-const int ARX_TRIP_DATE_RANGE()
+int ARX_TRIP_DATE_RANGE()
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -1262,7 +1262,7 @@ const int ARX_TRIP_DATE_RANGE()
   return VAR;
 };
 
-const int ARX_EVENTS_DISABLED()
+int ARX_EVENTS_DISABLED()
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
