@@ -16,7 +16,7 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
-int ARX_MIN_DAYS()
+const int ARX_MIN_DAYS()
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -24,7 +24,7 @@ int ARX_MIN_DAYS()
   return VAR;
 };
 
-int ARX_MAX_DAYS()
+const int ARX_MAX_DAYS()
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -32,7 +32,7 @@ int ARX_MAX_DAYS()
   return VAR;
 };
 
-int ARX_DURATION()
+const int ARX_DURATION()
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -40,7 +40,7 @@ int ARX_DURATION()
   return VAR;
 };
 
-int ARX_SLEEP()
+const int ARX_SLEEP()
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -48,7 +48,7 @@ int ARX_SLEEP()
   return VAR;
 };
 
-int ARX_MAX_ROWS()
+const int ARX_MAX_ROWS()
 {
   static int VAR=NoExists;
   if (VAR==NoExists)

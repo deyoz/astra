@@ -219,7 +219,7 @@ SystemContext * SystemContext::initDummyContext()
 
 bool SystemContext::initialized()
 {
-    return SystemContext::SysCtxt.get();
+    return SystemContext::SysCtxt;
 }
 
 void SystemContext::free()

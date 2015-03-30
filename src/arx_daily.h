@@ -5,11 +5,11 @@
 #include "basic.h"
 #include "oralib.h"
 
-int ARX_MIN_DAYS();
-int ARX_MAX_DAYS();
-int ARX_DURATION();
-int ARX_SLEEP();
-int ARX_MAX_ROWS();
+const int ARX_MIN_DAYS();
+const int ARX_MAX_DAYS();
+const int ARX_DURATION();
+const int ARX_SLEEP();
+const int ARX_MAX_ROWS();
 
 bool arx_daily( BASIC::TDateTime utcdate );
 

@@ -15,6 +15,6 @@ void sync_mvd(void);
 void createSPP( BASIC::TDateTime utcdate );
 void get_full_stat( BASIC::TDateTime utcdate );
 void sync_sirena_codes( void );
-int CREATE_SPP_DAYS();
+const int CREATE_SPP_DAYS();
 
 #endif

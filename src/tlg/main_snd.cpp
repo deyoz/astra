@@ -21,7 +21,7 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
-static int WAIT_INTERVAL()       //миллисекунды
+static const int WAIT_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -29,7 +29,7 @@ static int WAIT_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-static int PROC_INTERVAL()       //миллисекунды
+static const int PROC_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -37,7 +37,7 @@ static int PROC_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-static int TLG_ACK_TIMEOUT()     //миллисекунды
+static const int TLG_ACK_TIMEOUT()     //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -45,7 +45,7 @@ static int TLG_ACK_TIMEOUT()     //миллисекунды
   return VAR;
 };
 
-static int PROC_COUNT()          //кол-во посылаемых телеграмм за одно сканирование по каждому шлюзу
+static const int PROC_COUNT()          //кол-во посылаемых телеграмм за одно сканирование по каждому шлюзу
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -53,7 +53,7 @@ static int PROC_COUNT()          //кол-во посылаемых телеграмм за одно сканирова
   return VAR;
 };
 
-static int TLG_STEP_BY_STEP_TIMEOUT()       //миллисекунды
+static const int TLG_STEP_BY_STEP_TIMEOUT()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)

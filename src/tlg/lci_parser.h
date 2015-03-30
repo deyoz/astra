@@ -168,8 +168,6 @@ struct TSubTypeHolder {
 //        weight(ASTRA::NoExists),
         measur(mUnknown)
     {}
-
-    virtual ~TSubTypeHolder() {};
 };
 
 struct TGenderCount:public TSubTypeHolder {

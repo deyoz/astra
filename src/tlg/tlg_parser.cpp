@@ -3159,7 +3159,8 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
   int res,k;
   string::size_type pos;
   bool pr_parse;
-  string strh;  
+  string strh;
+  const char *p;
   char rem_code[7],numh[4];
   int num;
   vector<TRemItem>::iterator iRemItem;
@@ -3169,7 +3170,7 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
   {
     TrimString(iRemItem->text);
     if (iRemItem->text.empty()) continue;
-    tlg.GetWord(iRemItem->text.c_str());
+    p=tlg.GetWord(iRemItem->text.c_str());
     c=0;
     res=sscanf(tlg.lex,"%6[A-Z€-Ÿð0-9]%c",rem_code,&c);
     if (c!=0||res!=1) continue;

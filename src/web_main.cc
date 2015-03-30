@@ -2548,28 +2548,29 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
             if (isTestPaxId(iPax->crs_pax_id)) continue;
 
             //проверки + запись!!!
-            int tid = iPax->crs_pax_tid;            
+            int tid = iPax->crs_pax_tid;
+            bool changedOrNotPay;
             if ( isTranzitSalonsVersion ) {
-              IntChangeSeatsN( point_id,
-                               iPax->crs_pax_id,
-                               tid,
-                               iSeat->first.xname,
-                               iSeat->first.yname,
-                               stSeat,
-                               cltProtBeforePay,
-                               change_layer_flags,
-                               NULL );
+              changedOrNotPay = IntChangeSeatsN( point_id,
+                                                 iPax->crs_pax_id,
+                                                 tid,
+                                                 iSeat->first.xname,
+                                                 iSeat->first.yname,
+                                                 stSeat,
+                                                 cltProtBeforePay,
+                                                 change_layer_flags,
+                                                 NULL );
             }
             else {
-              IntChangeSeats( point_id,
-                              iPax->crs_pax_id,
-                              tid,
-                              iSeat->first.xname,
-                              iSeat->first.yname,
-                              stSeat,
-                              cltProtBeforePay,
-                              change_layer_flags,
-                              NULL );
+              changedOrNotPay = IntChangeSeats( point_id,
+                                                iPax->crs_pax_id,
+                                                tid,
+                                                iSeat->first.xname,
+                                                iSeat->first.yname,
+                                                stSeat,
+                                                cltProtBeforePay,
+                                                change_layer_flags,
+                                                NULL );
             }
             //в любом случае устанавливаем tlg_comp_layers.time_remove
             LayerQry.SetVariable("layer_type", EncodeCompLayerType(cltProtBeforePay));

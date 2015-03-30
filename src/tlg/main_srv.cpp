@@ -22,7 +22,7 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
-static int WAIT_INTERVAL()       //миллисекунды
+static const int WAIT_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)

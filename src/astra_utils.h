@@ -419,9 +419,9 @@ int getTCLParam(const char* name, int min, int max, int def);
 std::string getTCLParam(const char* name, const char* def);
 const char* OWN_POINT_ADDR();
 const char* SERVER_ID();
-bool USE_SEANCES();
-int ARX_TRIP_DATE_RANGE();
-int ARX_EVENTS_DISABLED();
+const bool USE_SEANCES();
+const int ARX_TRIP_DATE_RANGE();
+const int ARX_EVENTS_DISABLED();
 bool get_test_server();
 
 std::string& EOracleError2UserException(std::string& msg);

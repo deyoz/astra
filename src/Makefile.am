@@ -113,7 +113,7 @@ astra_SOURCES = \
   spp_cek.cc \
   stages.cc \
   stat.cc \
-  qrys.cpp \
+  qrys.cc \
   telegram.cc \
   telegram2.cc \
   timer.cpp \

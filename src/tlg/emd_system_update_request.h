@@ -28,7 +28,7 @@ public:
 
     const Ticketing::TicketCpn_t& etTickCpn() const { return m_etTickCpn; }
     const Ticketing::TicketCpn_t& emdTickCpn() const { return m_emdTickCpn; }
-    Ticketing::CpnStatAction::CpnStatAction_t emdStatAction() const { return m_statAction; }
+    const Ticketing::CpnStatAction::CpnStatAction_t emdStatAction() const { return m_statAction; }
 };
 
 //-----------------------------------------------------------------------------
