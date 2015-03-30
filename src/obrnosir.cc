@@ -973,7 +973,17 @@ int seasons_dst_format(int argc,char **argv)
         int route_num = RQry.FieldAsInteger( "num" );
         string city = ((TAirpsRow&)baseairps.get_row( "code", RQry.FieldAsString( "airp" )  , true )).city;
         TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
-        string city_region = CityTZRegion( city );
+        string city_region;
+        try {
+          city_region = CityTZRegion( city );
+          if ( city_region.empty() ) {
+            throw EXCEPTIONS::Exception( "region empty" );
+          }
+        }
+        catch(...) {
+          ProgError( STDLOG, "city=%s, region empty, move_id=%d", city.c_str(), move_id );
+          break;
+        }  
 
         if (  prior_scd_in != NoExists ) {
           ProgTrace( TRACE5, "before convert move_id=%d, route.num=%d, scd_in=%s, delta_in=%d, airp=%s",

@@ -16,6 +16,7 @@
 #include "serverlib/test.h"
 
 using namespace std;
+using namespace boost;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace BASIC;

@@ -2368,10 +2368,15 @@ string TPrnTagStore::RATE(TFieldParams fp)
 string TPrnTagStore::REMARKS1(TFieldParams fp)
 {
     ostringstream result;
+    ProgTrace(TRACE5, "REMARKS1: %s", (remarksInfo.exists() ? "true" : "false"));
+    ProgTrace(TRACE5, "rcpt.form_type: %s", rcpt.form_type.c_str());
     if(remarksInfo.exists()) {
         result << remarksInfo.rem_at(1);
     } else {
-        if(rcpt.form_type == FT_M61) {
+        if(
+                rcpt.form_type == FT_M61 or
+                rcpt.form_type == FT_298_401
+                ) {
             if(rcpt.service_type == 1 || rcpt.service_type == 2) {
                 result << getLocaleText("MSG.BR.RATE_PER_KG", tag_lang.GetLang()) << RATE(fp);
                 if(rcpt.pr_exchange())
@@ -2399,7 +2404,10 @@ string TPrnTagStore::REMARKS2(TFieldParams fp)
     if(remarksInfo.exists()) {
         result << remarksInfo.rem_at(2);
     } else {
-        if(rcpt.form_type == FT_M61) {
+        if(
+                rcpt.form_type == FT_M61 or
+                rcpt.form_type == FT_298_401
+                ) {
             if(rcpt.service_type == 1 || rcpt.service_type == 2)
                 result
                     << rcpt.ex_weight
