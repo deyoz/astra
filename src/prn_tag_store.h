@@ -12,6 +12,7 @@
 #include "remarks.h"
 
 const std::string FT_M61 = "M61"; // form type
+const std::string FT_298_401 = "298 401";
 const std::string FT_298_451 = "298 451";
 
 namespace TAG {
