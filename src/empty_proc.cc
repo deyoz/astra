@@ -2563,3 +2563,63 @@ int mobile_stat(int argc,char **argv)
 
   return 0;
 };
+
+int convert_codeshare(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT * FROM codeshare_sets "
+    "WHERE (last_date IS NULL OR last_date>=TO_DATE('01.04.15','DD.MM.YY')) AND "
+    "      first_date<TO_DATE('01.04.15','DD.MM.YY') AND pr_mark_norms=0 AND pr_del=0";
+  Qry.Execute();
+
+  TQuery UpdQry(&OraSession);
+  UpdQry.Clear();
+  UpdQry.SQLText=
+    "BEGIN "
+    "  adm.add_codeshare_set(:id,:airline_oper,:flt_no_oper,:airp_dep,:airline_mark,:flt_no_mark, "
+    "                        1,:pr_mark_bp,:pr_mark_rpt,:days,TO_DATE('01.04.15','DD.MM.YY'),:last_date, "
+    "                        :now_local,NULL,0,'—ˆ—…Ž‚ ‚.‚.','ŒŽ‚‚‹€'); "
+    "END; ";
+  UpdQry.DeclareVariable("id", otInteger);
+  UpdQry.DeclareVariable("airline_oper", otString);
+  UpdQry.DeclareVariable("flt_no_oper", otInteger);
+  UpdQry.DeclareVariable("airp_dep", otString);
+  UpdQry.DeclareVariable("airline_mark", otString);
+  UpdQry.DeclareVariable("flt_no_mark", otInteger);
+  UpdQry.DeclareVariable("pr_mark_bp", otInteger);
+  UpdQry.DeclareVariable("pr_mark_rpt", otInteger);
+  UpdQry.DeclareVariable("days", otString);
+  UpdQry.DeclareVariable("last_date", otDate);
+  UpdQry.DeclareVariable("now_local", otDate);
+
+  for(;!Qry.Eof;Qry.Next())
+  {
+    UpdQry.SetVariable("id", FNull);
+    UpdQry.SetVariable("airline_oper", Qry.FieldAsString("airline_oper"));
+    UpdQry.SetVariable("flt_no_oper", Qry.FieldAsInteger("flt_no_oper"));
+    UpdQry.SetVariable("airp_dep", Qry.FieldAsString("airp_dep"));
+    UpdQry.SetVariable("airline_mark", Qry.FieldAsString("airline_mark"));
+    UpdQry.SetVariable("flt_no_mark", Qry.FieldAsInteger("flt_no_mark"));
+    UpdQry.SetVariable("pr_mark_bp", Qry.FieldAsInteger("pr_mark_bp"));
+    UpdQry.SetVariable("pr_mark_rpt", Qry.FieldAsInteger("pr_mark_rpt"));
+    UpdQry.SetVariable("days", Qry.FieldAsString("days"));
+    if (!Qry.FieldIsNULL("last_date"))
+      UpdQry.SetVariable("last_date", Qry.FieldAsDateTime("last_date"));
+    else
+      UpdQry.SetVariable("last_date", FNull);
+
+
+    string airp=Qry.FieldAsString("airp_dep");
+    TDateTime now_local= UTCToLocal( NowUTC(), AirpTZRegion(airp) );
+    modf(now_local,&now_local);
+    UpdQry.SetVariable("now_local", now_local);
+
+    UpdQry.Execute();
+
+  };
+  OraSession.Commit();
+  return 0;
+};
+
