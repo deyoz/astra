@@ -2368,8 +2368,6 @@ string TPrnTagStore::RATE(TFieldParams fp)
 string TPrnTagStore::REMARKS1(TFieldParams fp)
 {
     ostringstream result;
-    ProgTrace(TRACE5, "REMARKS1: %s", (remarksInfo.exists() ? "true" : "false"));
-    ProgTrace(TRACE5, "rcpt.form_type: %s", rcpt.form_type.c_str());
     if(remarksInfo.exists()) {
         result << remarksInfo.rem_at(1);
     } else {
@@ -2392,7 +2390,10 @@ string TPrnTagStore::REMARKS1(TFieldParams fp)
                     << getLocaleText("MSG.BR.RATE_OF", tag_lang.GetLang())
                     << RateToString(rcpt.rate, rcpt.rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
             }
-        } else if(rcpt.form_type == FT_298_451)
+        } else if(
+                rcpt.form_type == FT_298_451 or
+                rcpt.form_type == FT_823_451
+                )
             result << get_tag_no_err(TAG::EXCHANGE_RATE);
     }
     return result.str();
@@ -2412,7 +2413,10 @@ string TPrnTagStore::REMARKS2(TFieldParams fp)
                 result
                     << rcpt.ex_weight
                     << getLocaleText("MSG.BR.KG", tag_lang.GetLang());
-        } else if(rcpt.form_type == FT_298_451)
+        } else if(
+                rcpt.form_type == FT_298_451 or
+                rcpt.form_type == FT_823_451
+                )
             result << get_tag_no_err(TAG::NDS);
     }
     return result.str();
