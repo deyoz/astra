@@ -30,7 +30,7 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 //using namespace tlg_process;
 
-static const int WAIT_INTERVAL()       //миллисекунды
+static int WAIT_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -38,7 +38,7 @@ static const int WAIT_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-static const int PROC_INTERVAL()       //миллисекунды
+static int PROC_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -46,7 +46,7 @@ static const int PROC_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-static const int PROC_COUNT()          //кол-во разбираемых телеграмм за одну итерацию
+static int PROC_COUNT()          //кол-во разбираемых телеграмм за одну итерацию
 {
   static int VAR=NoExists;
   if (VAR==NoExists)

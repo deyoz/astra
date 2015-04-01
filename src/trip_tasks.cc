@@ -461,6 +461,7 @@ struct TTripTask {
                 name == task.name;
 
         }
+        virtual ~TTripTask() {};
 };
 
 struct TCreatePointTripTask:public TTripTask {

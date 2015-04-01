@@ -257,7 +257,7 @@ TSeatingMethod DecodeSeatingMethod(const char s)
         return smUnknown;
 };
 
-const char EncodeSeatingMethod(TSeatingMethod p)
+char EncodeSeatingMethod(TSeatingMethod p)
 {
     return TSeatingMethodS[p];
 };
@@ -279,7 +279,7 @@ TOriginator DecodeOriginator(const char s)
         return oUnknown;
 };
 
-const char EncodeOriginator(TOriginator p)
+char EncodeOriginator(TOriginator p)
 {
     return TOriginatorS[p];
 };
@@ -306,7 +306,7 @@ TAction DecodeAction(const char s)
         return aUnknown;
 };
 
-const char EncodeAction(TAction p)
+char EncodeAction(TAction p)
 {
     return TActionS[p];
 };

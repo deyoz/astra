@@ -50,7 +50,7 @@ const char* DEF_CANON_NAME()
   return VAR.c_str();
 }
 
-const int HANDLER_PROC_ATTEMPTS()
+int HANDLER_PROC_ATTEMPTS()
 {
   static int VAR=ASTRA::NoExists;
   if (VAR==ASTRA::NoExists)

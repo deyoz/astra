@@ -213,7 +213,7 @@ public:
     const std::list<Ticketing::Ticket> & ltick() const { return lTick; }
     bool isGlobItin() const
     {
-        return Itin_;
+        return Itin_.get();
     }
     const Ticketing::Itin & itin() const
     {

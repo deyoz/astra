@@ -77,7 +77,8 @@ const
     {"-mobile_stat",            mobile_stat,            NULL,                       NULL},
     {"-test_astra_locale_adv",  test_astra_locale_adv,  NULL,                       NULL},
     {"-insert_locales",         insert_locales,         NULL,                       NULL},
-    {"-dst_points",             points_dst_format,         NULL,                       NULL}
+    {"-dst_points",             points_dst_format,         NULL,                       NULL},
+    {"-convert_codeshare",             convert_codeshare,         NULL,                       NULL}
   };
 
 int nosir_test(int argc,char **argv)

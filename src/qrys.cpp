@@ -11,7 +11,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
-const size_t MAX_QRYS()
+size_t MAX_QRYS()
 {
   static int VAR=ASTRA::NoExists;
   if (VAR==ASTRA::NoExists)

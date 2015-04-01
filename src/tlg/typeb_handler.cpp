@@ -29,7 +29,7 @@ using namespace EXCEPTIONS;
 using namespace std;
 using namespace TypeB;
 
-static const int HANDLER_WAIT_INTERVAL()       //миллисекунды
+static int HANDLER_WAIT_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -37,7 +37,7 @@ static const int HANDLER_WAIT_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-static const int HANDLER_PROC_INTERVAL()       //миллисекунды
+static int HANDLER_PROC_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -45,7 +45,7 @@ static const int HANDLER_PROC_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-static const int HANDLER_PROC_COUNT()          //кол-во обрабатываемых частей телеграмм за одну итерацию
+static int HANDLER_PROC_COUNT()          //кол-во обрабатываемых частей телеграмм за одну итерацию
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -53,7 +53,7 @@ static const int HANDLER_PROC_COUNT()          //кол-во обрабатываемых частей те
   return VAR;
 };
 
-static const int PARSER_WAIT_INTERVAL()       //миллисекунды
+static int PARSER_WAIT_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -61,7 +61,7 @@ static const int PARSER_WAIT_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-static const int PARSER_PROC_INTERVAL()       //миллисекунды
+static int PARSER_PROC_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -69,7 +69,7 @@ static const int PARSER_PROC_INTERVAL()       //миллисекунды
   return VAR;
 };
 
-static const int PARSER_PROC_COUNT()          //кол-во разбираемых телеграмм за одну итерацию
+static int PARSER_PROC_COUNT()          //кол-во разбираемых телеграмм за одну итерацию
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
@@ -441,6 +441,7 @@ bool handle_tlg(void)
               HeadingInfo->time_create!=0)
           {
             merge_key << "." << HeadingInfo->sender;
+            bool association_number_exists=false;
             if (HeadingInfo->tlg_cat==tcDCS)
             {
               TDCSHeadingInfo &info = *dynamic_cast<TDCSHeadingInfo*>(HeadingInfo);
@@ -449,7 +450,10 @@ bool handle_tlg(void)
                                << info.flt.suffix << "/" << DateTimeToStr(info.flt.scd,"ddmmm") << " "
                                << info.flt.airp_dep << info.flt.airp_arv;
               if (info.association_number!=NoExists)
-                merge_key << " " << setw(6) << setfill('0') << info.association_number;
+              {
+                association_number_exists=true;
+                merge_key << " " << setw(6) << setfill('0') << info.association_number;                
+              };
 
               TTripInfo fltInfo;
               TElemFmt fmt;
@@ -481,8 +485,16 @@ bool handle_tlg(void)
             }
             else
             {
-              TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create);
-              TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create);
+              if (strcmp(HeadingInfo->tlg_type,"ADL")==0 && association_number_exists)
+              {
+                TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create-5.0/1440);
+                TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create+5.0/1440);
+              }
+              else
+              {
+                TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create);
+                TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create);
+              };
             };
             TlgIdQry.Execute();
             if (!TlgIdQry.VariableIsNULL("id"))
