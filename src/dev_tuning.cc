@@ -1497,16 +1497,16 @@ void TBTModels::add(string type)
 void DevTuningInterface::Export(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string op_type = NodeAsString("op_type", reqNode);
-    shared_ptr<TPrnFormTypes> form_types;
+    boost::shared_ptr<TPrnFormTypes> form_types;
     switch(DecodeDevOperType(op_type)) {
         case dotPrnBP:
-            form_types = shared_ptr<TBPTypes>(new TBPTypes);
+            form_types = boost::shared_ptr<TBPTypes>(new TBPTypes);
             break;
         case dotPrnBT:
-            form_types = shared_ptr<TTagTypes>(new TTagTypes);
+            form_types = boost::shared_ptr<TTagTypes>(new TTagTypes);
             break;
         case dotPrnBR:
-            form_types = shared_ptr<TBRTypes>(new TBRTypes);
+            form_types = boost::shared_ptr<TBRTypes>(new TBRTypes);
             break;
         default:
             throw Exception("Unknown type: %s", op_type.c_str());
@@ -1530,20 +1530,20 @@ struct TVersionType {
     string form, data, fmt_type, name;
     TDevOperType op_type;
     int id, version;
-    map<string, shared_ptr<TPrnFormType> > forms;
-    void get_typed_forms(string form_type, vector<shared_ptr<TPrnFormType> > &typed_forms);
-    void duplicate_forms(string dst_type, vector<shared_ptr<TPrnFormType> > &typed_forms, bool pr_dup);
+    map<string, boost::shared_ptr<TPrnFormType> > forms;
+    void get_typed_forms(string form_type, vector<boost::shared_ptr<TPrnFormType> > &typed_forms);
+    void duplicate_forms(string dst_type, vector<boost::shared_ptr<TPrnFormType> > &typed_forms, bool pr_dup);
     string str();
     void insert();
     void update();
     void del();
     void delete_blank(TPrnFormType &form);
     void delete_dst_vers();
-    shared_ptr<TVersionType> find_dst_vers();
+    boost::shared_ptr<TVersionType> find_dst_vers();
     string find_form(TVersionType &vers);
     void delete_blanks(TVersionType &vers);
     TVersionType *get_forms_vers(bool pr_dst = false);
-    void get_form_list(vector<shared_ptr<TPrnFormType> > &form_list);
+    void get_form_list(vector<boost::shared_ptr<TPrnFormType> > &form_list);
     TVersionType(): action(vaNone), op_type(dotUnknown), id(0), version(0) {};
 };
 
@@ -1571,12 +1571,12 @@ struct TPrnFormType {
     virtual void insert(TVersionType &vers) = 0;
     virtual void del() = 0;
     virtual void get_version(TVersionType &ver) = 0;
-    virtual shared_ptr<TPrnFormType> Copy() = 0;
+    virtual boost::shared_ptr<TPrnFormType> Copy() = 0;
     TPrnFormType(): num(0) {};
     virtual ~TPrnFormType() {};
 };
 
-shared_ptr<TVersionType> TVersionType::find_dst_vers()
+boost::shared_ptr<TVersionType> TVersionType::find_dst_vers()
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1597,9 +1597,9 @@ shared_ptr<TVersionType> TVersionType::find_dst_vers()
     Qry.CreateVariable("form", otString, form);
     Qry.CreateVariable("data", otString, data);
     Qry.Execute();
-    shared_ptr<TVersionType> result;
+    boost::shared_ptr<TVersionType> result;
     if(not Qry.Eof) {
-        result = shared_ptr<TVersionType>(new TVersionType);
+        result = boost::shared_ptr<TVersionType>(new TVersionType);
         result->form = form;
         result->data = data;
         result->fmt_type = fmt_type;
@@ -1610,11 +1610,11 @@ shared_ptr<TVersionType> TVersionType::find_dst_vers()
     return result;
 }
 
-void TVersionType::duplicate_forms(string dst_type, vector<shared_ptr<TPrnFormType> > &typed_forms, bool pr_dup)
+void TVersionType::duplicate_forms(string dst_type, vector<boost::shared_ptr<TPrnFormType> > &typed_forms, bool pr_dup)
 {
-    for(vector<shared_ptr<TPrnFormType> >::iterator tf_i = typed_forms.begin(); tf_i != typed_forms.end(); tf_i++) {
+    for(vector<boost::shared_ptr<TPrnFormType> >::iterator tf_i = typed_forms.begin(); tf_i != typed_forms.end(); tf_i++) {
         if(pr_dup) {
-            shared_ptr<TPrnFormType> new_form = (*tf_i)->Copy();
+            boost::shared_ptr<TPrnFormType> new_form = (*tf_i)->Copy();
             new_form->form_type = dst_type;
             if(forms.find(new_form->str()) != forms.end())
                 throw Exception("TVersionType::duplicate_forms: form %s already exists for vers %s", new_form->str().c_str(), name.c_str());
@@ -1624,9 +1624,9 @@ void TVersionType::duplicate_forms(string dst_type, vector<shared_ptr<TPrnFormTy
     }
 }
 
-void TVersionType::get_typed_forms(string form_type, vector<shared_ptr<TPrnFormType> > &typed_forms)
+void TVersionType::get_typed_forms(string form_type, vector<boost::shared_ptr<TPrnFormType> > &typed_forms)
 {
-    for(map<string, shared_ptr<TPrnFormType> >::iterator forms_i = forms.begin(); forms_i != forms.end(); forms_i++)
+    for(map<string, boost::shared_ptr<TPrnFormType> >::iterator forms_i = forms.begin(); forms_i != forms.end(); forms_i++)
         if(forms_i->second->form_type == form_type)
             typed_forms.push_back(forms_i->second);
 }
@@ -1634,7 +1634,7 @@ void TVersionType::get_typed_forms(string form_type, vector<shared_ptr<TPrnFormT
 void TVersionType::update()
 {
     TVersionType *dst_vers = NULL;
-    for(map<string, shared_ptr<TPrnFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
+    for(map<string, boost::shared_ptr<TPrnFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
         if(i_form->second->dest_version.list != NULL) {
             dst_vers = i_form->second->dest_version.get_vers();
             break;
@@ -1687,7 +1687,7 @@ void TVersionType::update()
             throw Exception("Не могу сапдейтить версию %s: %s", name.c_str(), E.what());
         }
     }
-    for(map<string, shared_ptr<TPrnFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
+    for(map<string, boost::shared_ptr<TPrnFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
         if(i_form->second->dest_version.list == NULL)
             i_form->second->insert(*dst_vers);
 }
@@ -1727,7 +1727,7 @@ void TVersionType::delete_blank(TPrnFormType &form)
 
 void TVersionType::delete_dst_vers()
 {
-    for(map<string, shared_ptr<TPrnFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
+    for(map<string, boost::shared_ptr<TPrnFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
         if(i_form->second->dest_version.list != NULL) {
             i_form->second->dest_version.get_vers()->delete_blank(*i_form->second);
             i_form->second->dest_version.list = NULL;
@@ -1750,7 +1750,7 @@ void TVersionType::delete_blanks(TVersionType &vers)
 string TVersionType::find_form(TVersionType &vers)
 {
     string result;
-    for(map<string, shared_ptr<TPrnFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
+    for(map<string, boost::shared_ptr<TPrnFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
         TPrnFormType &form = *i_form->second;
         if(form.dest_version.get_vers() == &vers) {
             result = form.str();
@@ -1763,7 +1763,7 @@ string TVersionType::find_form(TVersionType &vers)
 TVersionType *TVersionType::get_forms_vers(bool pr_dst)
 {
     TVersionType *result = NULL;
-    for(map<string, shared_ptr<TPrnFormType> >::iterator i_forms = forms.begin(); i_forms != forms.end(); i_forms++) {
+    for(map<string, boost::shared_ptr<TPrnFormType> >::iterator i_forms = forms.begin(); i_forms != forms.end(); i_forms++) {
         TPrnFormType &form = *i_forms->second;
         if(form.dest_version.list == NULL) {
             if(pr_dst) {
@@ -1795,14 +1795,14 @@ struct TBRPrnFormType:TPrnFormType {
     void insert(TVersionType &vers);
     void del();
     void get_version(TVersionType &ver);
-    shared_ptr<TPrnFormType> Copy();
+    boost::shared_ptr<TPrnFormType> Copy();
 };
 
 struct TBPPrnFormType:TPrnFormType {
     void insert(TVersionType &vers);
     void del();
     void get_version(TVersionType &ver);
-    shared_ptr<TPrnFormType> Copy();
+    boost::shared_ptr<TPrnFormType> Copy();
 };
 
 struct TBTPrnFormType:TPrnFormType {
@@ -1810,7 +1810,7 @@ struct TBTPrnFormType:TPrnFormType {
     string str();
     void del();
     void get_version(TVersionType &ver);
-    shared_ptr<TPrnFormType> Copy();
+    boost::shared_ptr<TPrnFormType> Copy();
 };
 
 void TBPPrnFormType::insert(TVersionType &vers)
@@ -1969,7 +1969,7 @@ void TBTPrnFormType::del()
     }
 }
 
-void TVersionType::get_form_list(vector<shared_ptr<TPrnFormType> > &form_list)
+void TVersionType::get_form_list(vector<boost::shared_ptr<TPrnFormType> > &form_list)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1986,7 +1986,7 @@ void TVersionType::get_form_list(vector<shared_ptr<TPrnFormType> > &form_list)
     Qry.CreateVariable("version", otInteger, version);
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) {
-        shared_ptr<TPrnFormType> form = shared_ptr<TBPPrnFormType>(new TBPPrnFormType);
+        boost::shared_ptr<TPrnFormType> form = boost::shared_ptr<TBPPrnFormType>(new TBPPrnFormType);
         form->form_type = Qry.FieldAsString("form_type");
         form->dev_model = Qry.FieldAsString("dev_model");
         form->fmt_type = Qry.FieldAsString("fmt_type");
@@ -2005,7 +2005,7 @@ void TVersionType::get_form_list(vector<shared_ptr<TPrnFormType> > &form_list)
         "  version = :version ";
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) {
-        shared_ptr<TPrnFormType> form = shared_ptr<TBTPrnFormType>(new TBTPrnFormType);
+        boost::shared_ptr<TPrnFormType> form = boost::shared_ptr<TBTPrnFormType>(new TBTPrnFormType);
         form->form_type = Qry.FieldAsString("form_type");
         form->dev_model = Qry.FieldAsString("dev_model");
         form->fmt_type = Qry.FieldAsString("fmt_type");
@@ -2026,7 +2026,7 @@ void TVersionType::get_form_list(vector<shared_ptr<TPrnFormType> > &form_list)
     Qry.CreateVariable("version", otInteger, version);
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) {
-        shared_ptr<TPrnFormType> form = shared_ptr<TBRPrnFormType>(new TBRPrnFormType);
+        boost::shared_ptr<TPrnFormType> form = boost::shared_ptr<TBRPrnFormType>(new TBRPrnFormType);
         form->form_type = Qry.FieldAsString("form_type");
         form->dev_model = Qry.FieldAsString("dev_model");
         form->fmt_type = Qry.FieldAsString("fmt_type");
@@ -2034,23 +2034,23 @@ void TVersionType::get_form_list(vector<shared_ptr<TPrnFormType> > &form_list)
     }
 }
 
-shared_ptr<TPrnFormType> TBTPrnFormType::Copy()
+boost::shared_ptr<TPrnFormType> TBTPrnFormType::Copy()
 {
-    shared_ptr<TPrnFormType> result = shared_ptr<TBTPrnFormType>(new TBTPrnFormType);
+    boost::shared_ptr<TPrnFormType> result = boost::shared_ptr<TBTPrnFormType>(new TBTPrnFormType);
     result->init(this);
     return result;
 }
 
-shared_ptr<TPrnFormType> TBPPrnFormType::Copy()
+boost::shared_ptr<TPrnFormType> TBPPrnFormType::Copy()
 {
-    shared_ptr<TPrnFormType> result = shared_ptr<TBPPrnFormType>(new TBPPrnFormType);
+    boost::shared_ptr<TPrnFormType> result = boost::shared_ptr<TBPPrnFormType>(new TBPPrnFormType);
     result->init(this);
     return result;
 }
 
-shared_ptr<TPrnFormType> TBRPrnFormType::Copy()
+boost::shared_ptr<TPrnFormType> TBRPrnFormType::Copy()
 {
-    shared_ptr<TPrnFormType> result = shared_ptr<TBRPrnFormType>(new TBRPrnFormType);
+    boost::shared_ptr<TPrnFormType> result = boost::shared_ptr<TBRPrnFormType>(new TBRPrnFormType);
     result->init(this);
     return result;
 }
@@ -2195,13 +2195,13 @@ struct TVersList {
 
 void TVersionType::insert()
 {
-    shared_ptr<TVersionType> dst_vers = find_dst_vers();
+    boost::shared_ptr<TVersionType> dst_vers = find_dst_vers();
     if(dst_vers != NULL) {
         // добавим в список форм исходника фальшивую форму для связи с целью
         // чтобы прошел апдейт
         TVersList tmp_vers_list;
         tmp_vers_list.items[dst_vers->str()] = *dst_vers;
-        shared_ptr<TPrnFormType> fake_form = forms.begin()->second->Copy();
+        boost::shared_ptr<TPrnFormType> fake_form = forms.begin()->second->Copy();
         fake_form->dest_version.assign(&tmp_vers_list, dst_vers->str());
         fake_form->form_type.erase();
         forms[fake_form->str()] = fake_form;
@@ -2245,7 +2245,7 @@ void TVersionType::insert()
     }
     id = Qry.GetVariableAsInteger("id");
     version = 0;
-    for(map<string, shared_ptr<TPrnFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
+    for(map<string, boost::shared_ptr<TPrnFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
         i_form->second->insert(*this);
 }
 
@@ -2254,7 +2254,7 @@ void TVersList::apply_mapping(map<string, set<string> > &mapping)
     for( map<string, TVersionType>::iterator i_items = items.begin(); i_items != items.end(); i_items++) {
         TVersionType &vers = i_items->second;
         for(map<string, set<string> >::iterator i_mapping = mapping.begin(); i_mapping != mapping.end(); i_mapping++) {
-            vector<shared_ptr<TPrnFormType> > typed_forms;
+            vector<boost::shared_ptr<TPrnFormType> > typed_forms;
             vers.get_typed_forms(i_mapping->first, typed_forms);
 
             // признак того, что тип бланка из исходника копируется в себя в целевую базу.
@@ -2342,7 +2342,7 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
 {
     for(map<string, TVersionType>::iterator i_vers = items.begin(); i_vers != items.end(); i_vers++) {
         TVersionType &version = i_vers->second;
-        for(map<string, shared_ptr<TPrnFormType> >::iterator i_forms = version.forms.begin(); i_forms != version.forms.end(); i_forms++) {
+        for(map<string, boost::shared_ptr<TPrnFormType> >::iterator i_forms = version.forms.begin(); i_forms != version.forms.end(); i_forms++) {
             TPrnFormType &form_type = *i_forms->second;
             TVersionType dst_vers;
             form_type.get_version(dst_vers);
@@ -2352,7 +2352,7 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
                 dst_vers.fmt_type = form_type.fmt_type;
                 dst_vers_list.items[dst_vers.str()] = dst_vers;
             }
-            shared_ptr<TPrnFormType> dest_form_type = form_type.Copy();
+            boost::shared_ptr<TPrnFormType> dest_form_type = form_type.Copy();
             dest_form_type->dest_version.assign(this, version.str()); // ссылка на версию исходника
             form_type.dest_version.assign(&dst_vers_list, dst_vers.str()); // ссылка на версию цели
             dst_vers_list.items[dst_vers.str()].forms[dest_form_type->str()] = dest_form_type;
@@ -2363,11 +2363,11 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
     // в случае надобности.
     for(map<string, TVersionType>::iterator i_vers = dst_vers_list.items.begin(); i_vers != dst_vers_list.items.end(); i_vers++) {
         TVersionType &version = i_vers->second;
-        vector<shared_ptr<TPrnFormType> > form_list;
+        vector<boost::shared_ptr<TPrnFormType> > form_list;
         version.get_form_list(form_list);
         ProgTrace(TRACE5, "version: %s; form_list.count: %zu", version.name.c_str(), form_list.size());
         TVersionType *same_src_vers = find_same(version);
-        for(vector<shared_ptr<TPrnFormType> >::iterator i_list = form_list.begin(); i_list != form_list.end(); i_list++) {
+        for(vector<boost::shared_ptr<TPrnFormType> >::iterator i_list = form_list.begin(); i_list != form_list.end(); i_list++) {
             ProgTrace(TRACE5, "    form: %s", (*i_list)->str().c_str());
             if(version.forms.find((*i_list)->str()) == version.forms.end()) {
                 // в списке бланков цели обнаружен бланк, которого нет в
@@ -2382,7 +2382,7 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
                     ProgTrace(TRACE5, "    adding form to src vers");
                     if(same_src_vers->forms.find((*i_list)->str()) != same_src_vers->forms.end())
                         throw Exception("TVersList::fill_dest_list: unexpected form find %s", (*i_list)->str().c_str());
-                    shared_ptr<TPrnFormType> src_form = (*i_list)->Copy();
+                    boost::shared_ptr<TPrnFormType> src_form = (*i_list)->Copy();
                     tst();
                     src_form->dest_version.assign(&dst_vers_list, version.str());
                     tst();
@@ -2401,8 +2401,8 @@ void TVersList::dump()
     ProgTrace(TRACE5, "-----------TVersList::dump()-----------");
     for(map<string, TVersionType>::iterator i_items = items.begin(); i_items != items.end(); i_items++) {
         ProgTrace(TRACE5, "%s %s", i_items->second.name.c_str(), i_items->second.str().c_str());
-        map<string, shared_ptr<TPrnFormType>  > &forms = i_items->second.forms;
-        for(map<string, shared_ptr<TPrnFormType>  >::iterator forms_i = forms.begin(); forms_i != forms.end(); forms_i++) {
+        map<string, boost::shared_ptr<TPrnFormType>  > &forms = i_items->second.forms;
+        for(map<string, boost::shared_ptr<TPrnFormType>  >::iterator forms_i = forms.begin(); forms_i != forms.end(); forms_i++) {
             string buf;
             if(forms_i->second->dest_version.list != NULL)
                 buf = forms_i->second->dest_version.get_vers()->name + " " + forms_i->second->dest_version.get_vers()->str();
@@ -2414,16 +2414,16 @@ void TVersList::dump()
 
 string TVersList::add_to_vers(string vers_i, TPectabItem &pectab)
 {
-    shared_ptr<TPrnFormType> form;
+    boost::shared_ptr<TPrnFormType> form;
     switch(pectab.op_type) {
         case dotPrnBP:
-            form = shared_ptr<TBPPrnFormType>(new TBPPrnFormType);
+            form = boost::shared_ptr<TBPPrnFormType>(new TBPPrnFormType);
             break;
         case dotPrnBT:
-            form = shared_ptr<TBTPrnFormType>(new TBTPrnFormType);
+            form = boost::shared_ptr<TBTPrnFormType>(new TBTPrnFormType);
             break;
         case dotPrnBR:
-            form = shared_ptr<TBRPrnFormType>(new TBRPrnFormType);
+            form = boost::shared_ptr<TBRPrnFormType>(new TBRPrnFormType);
             break;
         default:
             throw Exception("TVersList::add_to_vers: unknown op_type %d", pectab.op_type);
