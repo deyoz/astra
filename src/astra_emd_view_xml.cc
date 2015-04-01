@@ -1,5 +1,7 @@
 #include "astra_emd_view_xml.h"
-
+#include "xml_unit.h"
+#include "exceptions.h"
+#include "astra_locale.h"
 #include <serverlib/dates_io.h>
 
 #define NICKNAME "ANTON"
@@ -191,6 +193,129 @@ void EmdXmlView::viewEmdTicketCoupons(const std::list<EmdCoupon>& lCpn) const
         xmlSetProp(xmlNewTextChild(rowNode, NULL, "coup_status", cpn.couponInfo().status()->dispCode()),
                    "index", colNum++);
     }
+}
+
+using namespace AstraLocale;
+
+string EmdXmlViewToText(const Emd &emd)
+{
+  XMLDoc doc("emd");
+  xmlNodePtr node=NodeAsNode("/emd", doc.docPtr());
+  EmdDisp::doDisplay(EmdXmlView(node, emd));
+  ostringstream res;
+  xmlNodePtr node2;
+  //PNR
+  node2=NodeAsNode("recloc",node)->children;
+  res << "PNR" << ": "
+      << NodeAsStringFast("regnum",node2) << "/" << NodeAsStringFast("awk",node2) << endl;
+  //Продажа
+  node2=NodeAsNode("origin",node)->children;
+  res << getLocaleText("Продажа") << ": " << endl
+      << "  " << getLocaleText("Дата") << ": " << NodeAsStringFast("date_of_issue",node2) << endl
+      << "  " << getLocaleText("Адрес системы") << ": " << NodeAsStringFast("sys_addr",node2) << endl
+      << "  " << getLocaleText("Агентство") << ": " << NodeAsStringFast("agn",node2) << " " << NodeAsStringFast("agency_name",node2,"") << endl
+      << "  " << getLocaleText("Пункт продажи") << ": " << NodeAsStringFast("ppr",node2) << endl
+      << "  " << getLocaleText("Город") << ": " << NodeAsStringFast("opr_flpoint",node2) << " " << NodeAsStringFast("city_name",node2,"") << endl
+      << "  " << getLocaleText("Оператор") << ": " << NodeAsStringFast("authcode",node2) << endl
+      << "  " << getLocaleText("Пульт") << ": " << NodeAsStringFast("pult",node2) << endl;
+  //Пассажир
+  node2=NodeAsNode("passenger",node)->children;
+  res << getLocaleText("Пассажир") << ": " << endl
+      << "  " << getLocaleText("Фамилия") << ": " << NodeAsStringFast("surname",node2) << endl
+      << "  " << getLocaleText("Имя") << ": " << NodeAsStringFast("name",node2) << endl
+      << "  " << getLocaleText("Категория") << ": " << NodeAsStringFast("kkp",node2) << endl
+      << "  " << getLocaleText("Возр.") << ": " << NodeAsStringFast("age",node2) << endl;
+
+  res << getLocaleText("Тип EMD") << ": " << NodeAsString("emd_type",node) << endl
+      << "RFIC" << ": " << NodeAsString("rfic",node) << endl
+      << getLocaleText("Купоны") << ": " << endl;
+
+  const char* titles[] =
+  {
+    "№ куп.",
+    "Дата",
+    "Время",
+    "Отпр.",
+    "Назн.",
+    "А/к",
+    "Рейс",
+    "Сумма",
+    "RFISC",
+    "Название услуги",
+    "СтКуп.",
+    "Ассоц.",
+    "СтАссоц."
+  };
+
+  map<int, list<string> > coupons;
+  map<int, list<string> >::iterator i=coupons.insert(make_pair(0, list<string>())).first;
+  if (i==coupons.end()) throw EXCEPTIONS::Exception("%s: i==coupons.end()", __FUNCTION__);
+  for(unsigned t=0; t<sizeof(titles)/sizeof(titles[0]); t++)
+    i->second.push_back(getLocaleText(titles[t]));
+  list<size_t> widths;
+  for(list<string>::const_iterator f=i->second.begin(); f!=i->second.end(); ++f)
+    widths.push_back(f->size());
+
+  for(xmlNodePtr cNode=NodeAsNode("emd1/coupon", node)->children; cNode!=NULL; cNode=cNode->next)
+  {
+    node2=cNode->children;
+    int num=NodeAsIntegerFast("num", node2);
+    map<int, list<string> >::iterator i=coupons.insert(make_pair(num, list<string>())).first;
+    if (i==coupons.end()) throw EXCEPTIONS::Exception("%s: i==coupons.end()", __FUNCTION__);
+    i->second.push_back(NodeAsStringFast("num", node2));
+    i->second.push_back(NodeAsStringFast("dep_date", node2));
+    i->second.push_back(NodeAsStringFast("dep_time", node2));
+    i->second.push_back(NodeAsStringFast("dep", node2));
+    i->second.push_back(NodeAsStringFast("arr", node2));
+    i->second.push_back(NodeAsStringFast("codea", node2));
+    i->second.push_back(NodeAsStringFast("flight", node2));
+    i->second.push_back(NodeAsStringFast("amount", node2));
+    i->second.push_back(NodeAsStringFast("rfisc_code", node2));
+    i->second.push_back(NodeAsStringFast("rfisc_desc", node2));
+    i->second.push_back(NodeAsStringFast("coup_status", node2));
+    string assoc=NodeAsStringFast("associated_doc_num", node2);
+    RTrimString(assoc);
+    assoc+="/";
+    assoc+=NodeAsStringFast("associated_num", node2);
+    i->second.push_back(assoc);
+    i->second.push_back(NodeAsStringFast("association_status", node2));
+  };
+
+  for(map<int, list<string> >::const_iterator r=coupons.begin(); r!=coupons.end(); ++r)
+  {
+    list<string>::const_iterator f=r->second.begin();
+    list<size_t>::iterator w=widths.begin();
+    for(; f!=r->second.end() && w!=widths.end(); ++f, ++w)
+      if (f->size()>*w) *w=f->size();
+  };
+
+  for(map<int, list<string> >::const_iterator r=coupons.begin(); r!=coupons.end(); ++r)
+  {
+    res << "  ";
+    list<string>::const_iterator f=r->second.begin();
+    list<size_t>::const_iterator w=widths.begin();
+    for(; f!=r->second.end(); ++f)
+    {
+      if (w!=widths.end())
+      {
+        res << setw(*w) << left;
+        ++w;
+      };
+      res << *f << " ";
+    };
+    res << endl;
+  };
+
+  //оплата
+  node2=NodeAsNode("payment",node)->children;
+  res << getLocaleText("Оплата") << ": " << endl
+      << "  " << getLocaleText("Тариф") << ": " << NodeAsStringFast("fare",node2) << endl
+      << "  " << getLocaleText("Сборы") << ": " << NodeAsStringFast("tax",node2) << endl
+      << "  " << getLocaleText("Всего") << ": " << NodeAsStringFast("total",node2) << endl
+      << "  " << getLocaleText("Оплата") << ": " << NodeAsStringFast("payment",node2) << endl;
+
+  return res.str();
+  //return XMLTreeToText(doc.docPtr());
 }
 
 }//namespace TickView

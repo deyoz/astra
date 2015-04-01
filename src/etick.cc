@@ -5,6 +5,7 @@
 #include "astra_ticket.h"
 #include "etick_change_status.h"
 #include "astra_tick_view_xml.h"
+#include "astra_emd_view_xml.h"
 #include "astra_tick_read_edi.h"
 #include "basic.h"
 #include "exceptions.h"
@@ -260,14 +261,14 @@ void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
 //----------------------------------------------------------------------------------------------------------------
 
-void SearchEMDsByTickNo(const list<Ticketing::TicketNum_t> &emds,
+void SearchEMDsByTickNo(const set<Ticketing::TicketNum_t> &emds,
                         const edifact::KickInfo& kickInfo,
                         const OrigOfRequest &org,
                         const Ticketing::FlightNum_t &flNum)
 {
   try
   {
-    for(list<Ticketing::TicketNum_t>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
+    for(set<Ticketing::TicketNum_t>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
     {
       edifact::EmdDispByNum emdDispParams(org,
                                           e->get(),
@@ -290,16 +291,8 @@ void EMDSearchInterface::SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 {
     LogTrace(TRACE3) << "SearchEMDByDocNo";
 
-    list<Ticketing::TicketNum_t> emds;
-    xmlNodePtr emdNode=GetNode("EmdNoEdit", reqNode);
-    if (emdNode!=NULL)
-      emds.push_back(Ticketing::TicketNum_t(NodeAsString(emdNode)));
-    else
-    {
-      emdNode=NodeAsNode("emdocs", reqNode);
-      for(emdNode=emdNode->children; emdNode!=NULL; emdNode=emdNode->next)
-        emds.push_back(Ticketing::TicketNum_t(NodeAsString(emdNode)));
-    };
+    set<Ticketing::TicketNum_t> emds;
+    emds.insert(Ticketing::TicketNum_t(NodeAsString("EmdNoEdit", reqNode)));
 
     int pointId = NodeAsInteger("point_id",reqNode);
     TTripInfo info;
@@ -413,11 +406,9 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
   {
     text << "EMD#" << e->first << endl;
 
-    XMLDoc doc("emd");
-    EmdDisp::doDisplay(EmdXmlView(NodeAsNode("/emd", doc.docPtr()), e->second));
-    text << XMLTreeToText(doc.docPtr()) << endl;
+    text << Ticketing::TickView::EmdXmlViewToText(e->second);
 
-    text << string(100,'-') << endl;
+    text << string(100,'=') << endl;
   };
 
   NewTextChild(resNode, "text", text.str());

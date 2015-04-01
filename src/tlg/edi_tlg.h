@@ -273,7 +273,7 @@ void proc_edifact(const std::string &tlg);
 void proc_new_edifact(const std::string &tlg);
 
 Ticketing::Pnr readPnr(const std::string &tlg_text);
-void SearchEMDsByTickNo(const std::list<Ticketing::TicketNum_t> &emds,
+void SearchEMDsByTickNo(const std::set<Ticketing::TicketNum_t> &emds,
                         const edifact::KickInfo& kickInfo,
                         const Ticketing::OrigOfRequest &org,
                         const Ticketing::FlightNum_t &flNum);

@@ -1257,11 +1257,11 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
           OrigOfRequest org("");
           Ticketing::FlightNum_t flNum;
           OrigOfRequest::fromXML(rootNode, org, flNum);
-          list<Ticketing::TicketNum_t> emds;
+          set<Ticketing::TicketNum_t> emds;
           for(list<Ticket>::const_iterator i=pnr.ltick().begin(); i!=pnr.ltick().end(); ++i)
             if (i->actCode() == TickStatAction::inConnectionWith)
             {
-              emds.push_back(i->connectedDocNum());
+              emds.insert(i->connectedDocNum());
               //ProgTrace(TRACE5, "%s: %s", __FUNCTION__, i->connectedDocNum().get().c_str());
             };
           Ticket::Trace(TRACE5, pnr.ltick());          

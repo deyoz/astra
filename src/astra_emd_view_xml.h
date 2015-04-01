@@ -70,5 +70,7 @@ struct EmdDisp
     }
 };
 
+std::string EmdXmlViewToText(const Emd &emd);
+
 }//namespace TickView
 }//namespace Ticketing
