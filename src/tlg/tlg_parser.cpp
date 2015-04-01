@@ -4305,7 +4305,13 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocIt
     {
       try
       {
-        p=tlg.GetSlashedLexeme(p);
+        if (k==0)
+        {
+          p=tlg.GetWord(p);       //это не соответствует стандарту, но некоторые другие(не Сирена) так формирует :(
+          if (*p=='/') p++;
+        }
+        else
+          p=tlg.GetSlashedLexeme(p);
         if (p==NULL && k>=10) break;
         if (p==NULL) throw ETlgError("Lexeme not found");
         if (*tlg.lex==0) continue;
@@ -5932,7 +5938,7 @@ bool SaveCHKDRem(int pax_id, const vector<TCHKDItem> &chkd)
   Qry.DeclareVariable("reg_no",otInteger);
   for(vector<TCHKDItem>::const_iterator i=chkd.begin();i!=chkd.end();++i)
   {
-    if (i->Empty()) continue;
+    if (i->Empty() || string(i->rem_status).empty()) continue;
     Qry.SetVariable("rem_status",i->rem_status);
     Qry.SetVariable("reg_no",(int)i->reg_no);
     Qry.Execute();
@@ -5970,7 +5976,7 @@ void SaveASVCRem(int pax_id, const vector<TASVCItem> &asvc, bool &sync_pax_asvc)
   Qry.DeclareVariable("emd_coupon",otInteger);
   for(vector<TASVCItem>::const_iterator i=asvc.begin();i!=asvc.end();++i)
   {
-    if (i->Empty()) continue;
+    if (i->Empty() || string(i->rem_status).empty()) continue;
     Qry.SetVariable("rem_status",i->rem_status);
     Qry.SetVariable("rfic",i->RFIC);
     Qry.SetVariable("rfisc",i->RFISC);
