@@ -4305,7 +4305,13 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocIt
     {
       try
       {
-        p=tlg.GetSlashedLexeme(p);
+        if (k==0)
+        {
+          p=tlg.GetWord(p);       //это не соответствует стандарту, но некоторые другие(не Сирена) так формирует :(
+          if (*p=='/') p++;
+        }
+        else
+          p=tlg.GetSlashedLexeme(p);
         if (p==NULL && k>=10) break;
         if (p==NULL) throw ETlgError("Lexeme not found");
         if (*tlg.lex==0) continue;
