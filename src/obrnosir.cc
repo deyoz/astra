@@ -19,6 +19,7 @@
 #include "salons.h"
 #include "file_queue.h"
 #include "empty_proc.h"
+#include "pers_weights.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/testmode.h"
@@ -76,8 +77,11 @@ const
     {"-mobile_stat",            mobile_stat,            NULL,                       NULL},
     {"-test_astra_locale_adv",  test_astra_locale_adv,  NULL,                       NULL},
     {"-insert_locales",         insert_locales,         NULL,                       NULL},
-    {"-dst_points",             points_dst_format,         NULL,                       NULL},
-    {"-convert_codeshare",             convert_codeshare,         NULL,                       NULL}
+    {"-file_by_id",             file_by_id,             NULL,                       NULL},
+    {"-dst_points",             points_dst_format,      NULL,                       NULL},
+    {"-fill_counters_by_subcls",fill_counters_by_subcls,NULL,                       NULL},
+    {"-check_counters_by_subcls",check_counters_by_subcls,NULL,                     NULL},
+    {"-convert_codeshare",      convert_codeshare,      NULL,                       NULL}
   };
 
 int nosir_test(int argc,char **argv)
