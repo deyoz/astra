@@ -5,6 +5,7 @@
 #include "astra_ticket.h"
 #include "etick_change_status.h"
 #include "astra_tick_view_xml.h"
+#include "astra_emd_view_xml.h"
 #include "astra_tick_read_edi.h"
 #include "basic.h"
 #include "exceptions.h"
@@ -57,51 +58,71 @@ using namespace AstraEdifact;
 
 #define MAX_TICKETS_IN_TLG 5
 
-void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
+                                 const SearchPurpose searchPurpose,
+                                 edifact::KickInfo& kickInfo)
 {
-  string tick_no=NodeAsString("TickNoEdit",reqNode);
-  checkDocNum(tick_no);
+  const ETSearchByTickNoParams& params = dynamic_cast<const ETSearchByTickNoParams&>(searchParams);
+  if (params.tick_no.empty())
+    throw UserException("MSG.TICK.NOT_SET_NUMBER");
+  checkDocNum(params.tick_no);
 
-  int point_id=NodeAsInteger("point_id",reqNode);
   TTripInfo info;
-  checkETSInteract(point_id, true, info);
+  checkETSInteract(params.point_id, true, info);
+  if (searchPurpose==spEMDDisplay)
+    checkEDSInteract(params.point_id, true, info);
 
   if(!inTestMode())
   {
     pair<string,string> edi_addrs;
     if (!get_et_addr_set(info.airline,info.flt_no,edi_addrs))
         throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT",
-                                       LParams() << LParam("flight", ElemIdToCodeNative(etAirline,info.airline) + IntToString(info.flt_no)));
+                                         LParams() << LParam("flight", ElemIdToCodeNative(etAirline,info.airline) + IntToString(info.flt_no)));
 
     set_edi_addrs(edi_addrs);
   }
 
-  string oper_carrier=info.airline;
-  /*
-  try
-  {
-    TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",oper_carrier);
-    if (!row.code_lat.empty()) oper_carrier=row.code_lat;
-  }
-  catch(EBaseTableError) {}
-  */
   ProgTrace(TRACE5,"ETSearch: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
-                   oper_carrier.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
+                   info.airline.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
 
-  OrigOfRequest org(oper_carrier,*TReqInfo::Instance());
-
-  edifact::KickInfo kickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
-                             "ETSearchForm");
+  OrigOfRequest org(info.airline, *TReqInfo::Instance());
 
   XMLDoc xmlCtxt("context");
   if (xmlCtxt.docPtr()==NULL)
     throw EXCEPTIONS::Exception("SearchETByTickNo: CreateXMLDoc failed");
   xmlNodePtr rootNode=NodeAsNode("/context",xmlCtxt.docPtr());
-  NewTextChild(rootNode,"point_id",point_id);
+  NewTextChild(rootNode,"point_id",params.point_id);
+  kickInfo.toXML(rootNode);
+  OrigOfRequest::toXML(org, getTripFlightNum(info), rootNode);
   SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
+  switch(searchPurpose)
+  {
+    case spETDisplay:
+      SetProp(rootNode,"purpose","ETDisplay");
+      break;
+    case spEMDDisplay:
+      SetProp(rootNode,"purpose","EMDDisplay");
+      break;
+    default:
+      SetProp(rootNode,"purpose","unknown");
+      break;
+  };
 
-  TickDispByNum tickDisp(org, XMLTreeToText(xmlCtxt.docPtr()), kickInfo, tick_no);
+  TickDispByNum tickDisp(org, XMLTreeToText(xmlCtxt.docPtr()), kickInfo, params.tick_no);
   SendEdiTlgTKCREQ_Disp( tickDisp );
+}
+
+void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ETSearchByTickNoParams params;
+  params.point_id=NodeAsInteger("point_id",reqNode);
+  params.tick_no=NodeAsString("TickNoEdit",reqNode);
+
+  edifact::KickInfo kickInfo=createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
+                                            "ETSearchForm");
+
+  SearchET(params, ETSearchInterface::spETDisplay, kickInfo);
+
   //в лог отсутствие связи
   if (TReqInfo::Instance()->desk.compatible(DEFER_ETSTATUS_VERSION))
   {
@@ -111,17 +132,86 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   }
   else
   {
-    if ( strcmp((char *)reqNode->name, "SearchETByTickNo") == 0 )
-    {
-      if (!TReqInfo::Instance()->desk.compatible(WEB_CHECKIN_VERSION))
-        NewTextChild(resNode,"connect_error");
-      else
-        AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR"); //это из-за упущения в терминале!
-    }
-    else
-      AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
-  }
+    AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
+  };
 }
+
+void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+/*
+  <term>
+    <query handle="0" id="EMDSearch" ver="1" opr="VLAD" screen="AIR.EXE" mode="STAND" lang="EN" term_id="2051148234">
+      <EMDTextView>
+        <point_id>2626213</point_id>
+        <pax_id>26980490</pax_id>
+        <ticket_no>2982408009963</ticket_no>
+        <coupon_no>1</coupon_no>
+        <ticket_rem>TKNE</ticket_rem>
+      </EMDTextView>
+    </query>
+  </term>
+*/
+
+  ETSearchByTickNoParams params;
+  params.point_id=NodeAsInteger("point_id",reqNode);
+  params.tick_no=NodeAsString("ticket_no",reqNode);
+
+  edifact::KickInfo kickInfo=createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
+                                            "EMDDisplay");
+
+  ETSearchInterface::SearchET(params, ETSearchInterface::spEMDDisplay, kickInfo);
+
+  AstraLocale::showProgError("MSG.ETS_EDS_CONNECT_ERROR");
+}
+
+Pnr readPnr(const string &tlg_text)
+{
+  int ret = ReadEdiMessage(tlg_text.c_str());
+  if(ret == EDI_MES_STRUCT_ERR){
+    throw EXCEPTIONS::Exception("Error in message structure: %s",EdiErrGetString());
+  } else if( ret == EDI_MES_NOT_FND){
+    throw EXCEPTIONS::Exception("No message found in template: %s",EdiErrGetString());
+  } else if( ret == EDI_MES_ERR) {
+    throw EXCEPTIONS::Exception("Edifact error ");
+  }
+
+  EDI_REAL_MES_STRUCT *pMes= GetEdiMesStruct();
+  int num = GetNumSegGr(pMes, 3);
+  if(!num){
+    if(GetNumSegment(pMes, "ERC")){
+      const char *errc = GetDBFName(pMes, DataElement(9321),
+                                    "ET_NEG",
+                                    CompElement("C901"),
+                                    SegmElement("ERC"));
+      ProgTrace(TRACE1, "ETS: ERROR %s", errc);
+      const char * err_msg = GetDBFName(pMes,
+                                        DataElement(4440),
+                                        SegmElement("IFT"));
+      if (*err_msg==0)
+      {
+        throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", errc));
+      }
+      else
+      {
+        ProgTrace(TRACE1, "ETS: %s", err_msg);
+        throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", err_msg));
+      }
+    }
+    throw EXCEPTIONS::Exception("ETS error");
+  } else if(num==1){
+    try{
+      Pnr pnr = PnrRdr::doRead<Pnr>(PnrEdiRead(GetEdiMesStruct()));
+      Pnr::Trace(TRACE2, pnr);
+      return pnr;
+    }
+    catch(edilib::EdiExcept &e)
+    {
+      throw EXCEPTIONS::Exception("edilib: %s", e.what());
+    }
+  } else {
+    throw AstraLocale::UserException("MSG.ETICK.ET_LIST_VIEW_UNSUPPORTED"); //пока не поддерживается
+  }
+};
 
 void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
                                     xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -131,63 +221,16 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
 
     AstraContext::ClearContext("TERM_REQUEST", req_ctxt_id);
 
-    AstraContext::GetContext("EDI_RESPONSE",
-                             req_ctxt_id,
-                             context);
-    AstraContext::ClearContext("EDI_RESPONSE", req_ctxt_id);
+    getEdiResponseCtxt(req_ctxt_id, true, "ETSearchInterface::KickHandler", context);
 
-    XMLDoc ediResCtxt;
-    if (context.empty())
-      throw EXCEPTIONS::Exception("ETSearchInterface::KickHandler: context EDI_RESPONSE empty");
-
-    int ret = ReadEdiMessage(context.c_str());
-    if(ret == EDI_MES_STRUCT_ERR){
-      throw EXCEPTIONS::Exception("Error in message structure: %s",EdiErrGetString());
-    } else if( ret == EDI_MES_NOT_FND){
-        throw EXCEPTIONS::Exception("No message found in template: %s",EdiErrGetString());
-    } else if( ret == EDI_MES_ERR) {
-        throw EXCEPTIONS::Exception("Edifact error ");
+    try{
+      Pnr pnr=readPnr(context);
+      xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
+      PnrDisp::doDisplay(PnrXmlView(dataNode), pnr);
     }
-
-    EDI_REAL_MES_STRUCT *pMes= GetEdiMesStruct();
-    int num = GetNumSegGr(pMes, 3);
-    if(!num){
-        if(GetNumSegment(pMes, "ERC")){
-            const char *errc = GetDBFName(pMes, DataElement(9321),
-                                          "ET_NEG",
-                                          CompElement("C901"),
-                                          SegmElement("ERC"));
-            ProgTrace(TRACE1, "ETS: ERROR %s", errc);
-            const char * err_msg = GetDBFName(pMes,
-                                              DataElement(4440),
-                                              SegmElement("IFT"));
-            if (*err_msg==0)
-            {
-              throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", errc));
-            }
-            else
-            {
-              ProgTrace(TRACE1, "ETS: %s", err_msg);
-              throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", err_msg));
-            }
-        }
-        throw EXCEPTIONS::Exception("ETS error");
-    } else if(num==1){
-        try{
-            xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
-            Pnr pnr = PnrRdr::doRead<Pnr>
-                    (PnrEdiRead(GetEdiMesStruct()));
-            Pnr::Trace(TRACE2, pnr);
-
-            PnrDisp::doDisplay
-                    (PnrXmlView(dataNode), pnr);
-        }
-        catch(edilib::EdiExcept &e)
-        {
-            throw EXCEPTIONS::Exception("edilib: %s", e.what());
-        }
-    } else {
-        throw AstraLocale::UserException("MSG.ETICK.ET_LIST_VIEW_UNSUPPORTED"); //пока не поддерживается
+    catch(edilib::EdiExcept &e)
+    {
+      throw EXCEPTIONS::Exception("edilib: %s", e.what());
     }
 }
 
@@ -218,10 +261,38 @@ void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
 //----------------------------------------------------------------------------------------------------------------
 
+void SearchEMDsByTickNo(const set<Ticketing::TicketNum_t> &emds,
+                        const edifact::KickInfo& kickInfo,
+                        const OrigOfRequest &org,
+                        const Ticketing::FlightNum_t &flNum)
+{
+  try
+  {
+    for(set<Ticketing::TicketNum_t>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
+    {
+      edifact::EmdDispByNum emdDispParams(org,
+                                          e->get(),
+                                          kickInfo,
+                                          org.airlineCode(),
+                                          flNum,
+                                          *e);
+      edifact::EmdDispRequestByNum ediReq(emdDispParams);
+      ediReq.sendTlg();
+    };
+  }
+  catch(RemoteSystemContext::system_not_found &e)
+  {
+    throw AstraLocale::UserException("MSG.EMD.EDS_ADDR_NOT_DEFINED_FOR_FLIGHT",
+                                     LEvntPrms() << PrmFlight("flight", e.airline(), e.flNum()?e.flNum().get():ASTRA::NoExists, "") );
+  };
+}
+
 void EMDSearchInterface::SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     LogTrace(TRACE3) << "SearchEMDByDocNo";
-    Ticketing::TicketNum_t emdNum(NodeAsString("EmdNoEdit",reqNode));
+
+    set<Ticketing::TicketNum_t> emds;
+    emds.insert(Ticketing::TicketNum_t(NodeAsString("EmdNoEdit", reqNode)));
 
     int pointId = NodeAsInteger("point_id",reqNode);
     TTripInfo info;
@@ -232,24 +303,9 @@ void EMDSearchInterface::SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 
     OrigOfRequest org(airline, *TReqInfo::Instance());
 
-    edifact::KickInfo kickInfo(ASTRA::NoExists,"EMDSearch");
+    edifact::KickInfo kickInfo=createKickInfo(ASTRA::NoExists,"EMDSearch");
 
-    try
-    {
-      edifact::EmdDispByNum emdDispParams(org,
-                                          "",
-                                          kickInfo,
-                                          airline,
-                                          flNum,
-                                          emdNum);
-      edifact::EmdDispRequestByNum ediReq(emdDispParams);
-      ediReq.sendTlg();
-    }
-    catch(RemoteSystemContext::system_not_found)
-    {
-      throw AstraLocale::UserException("MSG.EMD.EDS_ADDR_NOT_DEFINED_FOR_FLIGHT",
-                                       LEvntPrms() << PrmFlight("flight", info.airline, info.flt_no, info.suffix) );
-    };
+    SearchEMDsByTickNo(emds, kickInfo, org, flNum);
 }
 
 void EMDSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
@@ -283,6 +339,82 @@ void EMDSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
     FuncOut(KickHandler);
 }
 
+void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
+                                      xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
+  XMLDoc ediResCtxt;
+  getEdiResponseCtxt(req_ctxt_id, true, "EMDDisplayInterface::KickHandler", ediResCtxt);
+  EdiErrorList errList;
+  GetEdiError(NodeAsNode("/context",ediResCtxt.docPtr()), errList);
+  if (!errList.empty())
+    throw AstraLocale::UserException(errList.front().first.lexema_id,
+                                     errList.front().first.lparams);
+
+  list<edifact::RemoteResults> lres;
+  edifact::RemoteResults::readDb(lres);
+
+  map<string, Emd> emds;
+  map<string, LexemaData> errors;
+  for(list<edifact::RemoteResults>::const_iterator r=lres.begin(); r!=lres.end(); ++r)
+  {
+    string emd_no;
+    AstraContext::GetContext("EDI_SESSION", r->ediSession().get(), emd_no);
+    if (emd_no.empty())
+    {
+      LogError(STDLOG) << "EMDDisplayInterface::KickHandler: strange situation - empty EDI_SESSION context";
+      continue;
+    };
+    if (r->status() == edifact::RemoteStatus::Success)
+    {
+      std::list<Emd> emdList = EmdEdifactReader::readList(r->tlgSource());
+      if (emdList.empty())
+      {
+        LogError(STDLOG) << "EMDDisplayInterface::KickHandler: strange situation - emdList.empty() for " << emd_no;
+        continue;
+      };
+      if(emdList.size() == 1)
+      {
+        if (!emds.insert(make_pair(emd_no, emdList.front())).second)
+          LogError(STDLOG) << "EMDDisplayInterface::KickHandler: duplicate EDI_SESSION context for " << emd_no;
+      }
+      else
+      {
+        LogError(STDLOG) << "Unable to display " << emdList.size() << " EMDs for " << emd_no;
+        continue;
+      };
+    };
+    if (r->status() == edifact::RemoteStatus::CommonError)
+    {           
+      string msg=r->remark().empty()?r->ediErrCode():r->remark();
+      if (!errors.insert(make_pair(emd_no, LexemaData("MSG.EMD.EDS_ERROR", LParams() << LParam("msg", msg)))).second)
+        LogError(STDLOG) << "EMDDisplayInterface::KickHandler: duplicate EDI_SESSION context for " << emd_no;
+    };
+  };
+
+  ostringstream text;
+  for(map<string, LexemaData>::const_iterator e=errors.begin(); e!=errors.end(); ++e)
+  {
+    string err, master_lexema_id;
+    getLexemaText( e->second, err, master_lexema_id );
+    text << "EMD#" << e->first << endl
+         << err << endl
+         << string(100,'-') << endl;
+  };
+
+  for(map<string, Emd>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
+  {
+    text << "EMD#" << e->first << endl;
+
+    text << Ticketing::TickView::EmdXmlViewToText(e->second);
+
+    text << string(100,'=') << endl;
+  };
+
+  NewTextChild(resNode, "text", text.str());
+
+}
+
 //----------------------------------------------------------------------------------------------------------------
 
 void EMDSystemUpdateInterface::SysUpdateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -307,7 +439,7 @@ void EMDSystemUpdateInterface::SysUpdateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodeP
 
     OrigOfRequest org(airline, *TReqInfo::Instance());
 
-    edifact::KickInfo kickInfo(ASTRA::NoExists, "EMDSystemUpdate");
+    edifact::KickInfo kickInfo=createKickInfo(ASTRA::NoExists, "EMDSystemUpdate");
 
     edifact::EmdDisassociateRequestParams disassocParams(org,
                                                          "",
@@ -1244,7 +1376,7 @@ bool ETStatusInterface::ETChangeStatus(const xmlNodePtr reqNode,
   if (!mtick.empty())
   {
     const edifact::KickInfo &kickInfo=
-        reqNode!=NULL?edifact::KickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)), "ChangeStatus"):
+        reqNode!=NULL?createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)), "ChangeStatus"):
                       edifact::KickInfo();
     result=ETChangeStatus(kickInfo, mtick);
   }
@@ -1313,13 +1445,6 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
   return result;
 }
 
-void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  throw UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
-  //NewTextChild(resNode,"text","...");
-}
-
-
 void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     LogTrace(TRACE3) << __FUNCTION__;
@@ -1335,7 +1460,7 @@ void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     std::string airline = getTripAirline(info);
     Ticketing::FlightNum_t flNum = getTripFlightNum(info);
     OrigOfRequest org(airline, *TReqInfo::Instance());
-    edifact::KickInfo kickInfo(ASTRA::NoExists, "EMDStatus");
+    edifact::KickInfo kickInfo=createKickInfo(ASTRA::NoExists, "EMDStatus");
 
     edifact::EmdCOSParams cosParams(org, "", kickInfo, airline, flNum, emdDocNum, emdCpnNum, emdCpnStatus);
     edifact::EmdCOSRequest ediReq(cosParams);
@@ -1361,7 +1486,7 @@ void ChangeStatusInterface::ChangeStatus(const xmlNodePtr reqNode,
   if (!info.empty())
   {
     const edifact::KickInfo &kickInfo=
-        reqNode!=NULL?edifact::KickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)), "ChangeStatus"):
+        reqNode!=NULL?createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)), "ChangeStatus"):
                       edifact::KickInfo();
     existsET=ETStatusInterface::ETChangeStatus(kickInfo,info.ET);
     existsEMD=EMDStatusInterface::EMDChangeStatus(kickInfo,info.EMD);
@@ -1389,35 +1514,12 @@ void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     if (GetNode("@req_ctxt_id",reqNode)!=NULL)  //req_ctxt_id отсутствует, если телеграмма сформирована не от пульта
     {
       int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
-      AstraContext::GetContext("TERM_REQUEST",
-                               req_ctxt_id,
-                               context);
-      AstraContext::ClearContext("TERM_REQUEST", req_ctxt_id);
+
       XMLDoc termReqCtxt;
-      if (context.empty())
-        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST empty");
+      getTermRequestCtxt(req_ctxt_id, true, "ChangeStatusInterface::KickHandler", termReqCtxt);
 
-      context=ConvertCodepage(context,"CP866","UTF-8");
-      termReqCtxt.set(context);
-      if (termReqCtxt.docPtr()==NULL)
-        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST wrong XML format");;
-
-      xml_decode_nodelist(termReqCtxt.docPtr()->children);
-
-      AstraContext::GetContext("EDI_RESPONSE",
-                               req_ctxt_id,
-                               context);
-      AstraContext::ClearContext("EDI_RESPONSE", req_ctxt_id);
       XMLDoc ediResCtxt;
-      if (context.empty())
-        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context EDI_RESPONSE empty");
-
-      context=ConvertCodepage(context,"CP866","UTF-8");
-      ediResCtxt.set(context);
-      if (ediResCtxt.docPtr()==NULL)
-        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context EDI_RESPONSE wrong XML format");;
-
-      xml_decode_nodelist(ediResCtxt.docPtr()->children);
+      getEdiResponseCtxt(req_ctxt_id, true, "ChangeStatusInterface::KickHandler", ediResCtxt);
 
       xmlNodePtr termReqNode=NodeAsNode("/term/query",termReqCtxt.docPtr())->children;
       if (termReqNode==NULL)

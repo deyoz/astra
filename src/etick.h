@@ -16,22 +16,41 @@ namespace edifact{
 }//namespace edifact
 
 
+class ETSearchParams
+{
+  public:
+    int point_id;
+    ETSearchParams(): point_id(ASTRA::NoExists) {};
+    virtual ~ETSearchParams() {};
+};
+
+class ETSearchByTickNoParams : public ETSearchParams
+{
+  public:
+    std::string tick_no;
+};
+
 class ETSearchInterface : public JxtInterface
 {
 public:
+  enum SearchPurpose {spETDisplay, spEMDDisplay};
+
   ETSearchInterface() : JxtInterface("ETSearchForm","ETSearchForm")
   {
      Handler *evHandle;
      evHandle=JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::SearchETByTickNo);
-     AddEvent("SearchETByTickNo",evHandle);
-     AddEvent("TickPanel",evHandle);
+     AddEvent("SearchETByTickNo",evHandle);     
      AddEvent("kick", JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::KickHandler));
   }
 
   void SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void ETChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
+
+  static void SearchET(const ETSearchParams& searchParams,
+                       const SearchPurpose searchPurpose,
+                       edifact::KickInfo &kickInfo);
+
 };
 
 class EMDSearchInterface : public JxtInterface
@@ -46,6 +65,18 @@ public:
 
     void EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
     void SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
+};
+
+class EMDDisplayInterface : public JxtInterface
+{
+public:
+    EMDDisplayInterface() : JxtInterface("", "EMDDisplay")
+    {
+        AddEvent("kick",             JXT_HANDLER(EMDDisplayInterface, KickHandler));
+    }
+
     void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
     virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 };

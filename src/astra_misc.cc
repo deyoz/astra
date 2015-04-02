@@ -123,8 +123,12 @@ string TLastTrferInfo::str()
   return trip.str();
 };
 
-bool GetTripSets( const TTripSetType setType, const TTripInfo &info )
+bool GetTripSets( const TTripSetType setType,
+                  const TTripInfo &info )
 {
+  if (!(setType>=0 && setType<100))
+    throw Exception("%s: wrong setType=%d", __FUNCTION__, (int)setType);
+
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText=
@@ -150,10 +154,51 @@ bool GetTripSets( const TTripSetType setType, const TTripInfo &info )
       //запрет интерактива с СЭБом
       case tsETSNoInteract: return false;
       case tsEDSNoInteract: return false;
-              default: return false;
+      default: return false;
     };
   };
   return Qry.FieldAsInteger("pr_misc")!=0;
+};
+
+bool GetSelfCkinSets( const TTripSetType setType,
+                      const TTripInfo &info,
+                      const ASTRA::TClientType client_type )
+{
+  if (!(setType>=200 && setType<300))
+    throw Exception("%s: wrong setType=%d", __FUNCTION__, (int)setType);
+  if (!(client_type==ctWeb ||
+        client_type==ctKiosk ||
+        client_type==ctMobile))
+    throw Exception("%s: wrong client_type=%s", __FUNCTION__, EncodeClientType(client_type));
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT value, "
+    "    DECODE(client_type,NULL,0,1)+ "
+    "    DECODE(airline,NULL,0,8)+ "
+    "    DECODE(flt_no,NULL,0,2)+ "
+    "    DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM self_ckin_set "
+    "WHERE type=:type AND "
+    "      (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) AND "
+    "      (client_type IS NULL OR client_type=:client_type) "
+    "ORDER BY priority DESC";
+  Qry.CreateVariable("type",otInteger,(int)setType);
+  Qry.CreateVariable("airline",otString,info.airline);
+  Qry.CreateVariable("flt_no",otInteger,info.flt_no);
+  Qry.CreateVariable("airp_dep",otString,info.airp);
+  Qry.CreateVariable("client_type",otString,EncodeClientType(client_type));
+  Qry.Execute();
+  if (Qry.Eof)
+  {
+    switch(setType)
+    {
+      default: return false;
+    };
+  };
+  return Qry.FieldAsInteger("value")!=0;
 };
 
 std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs)

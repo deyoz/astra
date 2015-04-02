@@ -46,27 +46,27 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         };
       };
     };
-    
+
     int move_id = NoExists;
     if ( disp_event )
     {
       Qry.Clear();
-    	if ( part_key != NoExists ) {
-    		Qry.SQLText=
+        if ( part_key != NoExists ) {
+            Qry.SQLText=
           "SELECT move_id FROM arx_points "
           "WHERE part_key=:part_key AND point_id=:point_id AND pr_del>=0";
-    	  Qry.CreateVariable( "part_key", otDate, part_key );
-    	}
-  	  else {
+          Qry.CreateVariable( "part_key", otDate, part_key );
+        }
+      else {
         Qry.SQLText=
           "SELECT move_id FROM points "
           "WHERE point_id=:point_id AND pr_del>=0";
-  	  }
+      }
       Qry.CreateVariable( "point_id", otInteger, point_id );
       Qry.Execute();
       if ( !Qry.Eof ) move_id = Qry.FieldAsInteger( "move_id" );
     };
-    
+
     xmlNodePtr logNode = NewTextChild(resNode, "events_log");
 
     if(part_key != NoExists && ARX_EVENTS_DISABLED())
@@ -92,9 +92,9 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
         Qry.CreateVariable("move_id",otInteger,move_id);
       };
-      
+
       if (move_id != NoExists && !eventTypes.empty()) sql << "UNION \n";
-      
+
       if (!eventTypes.empty())
       {
         sql << "SELECT msg, time, id1 AS point_id, \n"
@@ -270,7 +270,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
     "       pax_grp.airp_arv, pax_grp.class, pax_grp.status, "
     "       pax_grp.pr_mark_norms, pax_grp.bag_refuse, "
     "       pax.pax_id, pax.reg_no, "
-    "       pax.surname, pax.name, pax.pers_type, pax.refuse, pax.subclass, "
+    "       pax.surname, pax.name, pax.pers_type, pax.refuse, pax.subclass, pax.is_female, "
     "       salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
     "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, 0 AS ticket_confirm, "
     "       pax.pr_brd, pax.pr_exam, "
@@ -300,7 +300,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
       paxInfo.cl=Qry.FieldAsString("class");
       paxInfo.status=Qry.FieldAsString("status");
       paxInfo.pr_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
-      
+
       if (paxInfoKey.pax_id!=NoExists)
       {
         paxInfo.surname=Qry.FieldAsString("surname");
@@ -309,6 +309,10 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paxInfo.refuse=Qry.FieldAsString("refuse");
         paxInfo.subcl=Qry.FieldAsString("subclass");
         paxInfo.seat_no=Qry.FieldAsString("seat_no");
+        if (!Qry.FieldIsNULL("is_female"))
+          paxInfo.is_female=(int)(Qry.FieldAsInteger("is_female")!=0);
+        else
+          paxInfo.is_female=ASTRA::NoExists;
         paxInfo.tkn.fromDB(Qry);
         paxInfo.pr_brd=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
         paxInfo.pr_exam=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_exam") && Qry.FieldAsInteger("pr_exam")!=0;
@@ -320,7 +324,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
       {
         paxInfo.refuse=Qry.FieldAsInteger("bag_refuse")!=0?refuseAgentError:"";
       };
-      
+
       paxInfo.bag_amount=Qry.FieldAsInteger("bag_amount");
       paxInfo.bag_weight=Qry.FieldAsInteger("bag_weight");
       paxInfo.rk_amount=Qry.FieldAsInteger("rk_amount");
@@ -497,10 +501,10 @@ void SaveGrpToLog(int point_id,
                   TAgentStatInfo &agentStat)
 {
   bool SyncPaxs=is_sync_paxs(point_id);
-  
+
   bool auto_weighing=GetAutoWeighing(point_id, "Р");
   bool apis_control=GetAPISControl(point_id);
-  
+
   agentStat.clear();
 
   int grp_id=grpInfoAfter.grp_id==NoExists?grpInfoBefore.grp_id:grpInfoAfter.grp_id;
@@ -513,7 +517,7 @@ void SaveGrpToLog(int point_id,
   {
     map< TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator aPax=grpInfoAfter.pax.end();
     map< TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator bPax=grpInfoBefore.pax.end();
-  
+
     if (a==grpInfoAfter.pax.end() ||
         (a!=grpInfoAfter.pax.end() && b!=grpInfoBefore.pax.end() && b->first < a->first))
     {
@@ -533,9 +537,9 @@ void SaveGrpToLog(int point_id,
       ++a;
       ++b;
     };
-    
+
     if (aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError) allGrpAgentError=false;
-    
+
     bool changed=false;
     if (aPax!=grpInfoAfter.pax.end())
     {
@@ -722,7 +726,7 @@ void SaveGrpToLog(int point_id,
       reqInfo->LocaleToLog("EVT.PASSENGER_DELETED", params, ASTRA::evtPax, point_id, bPax->first.reg_no, grp_id);
       changed=true;
     };
-    
+
     string bagStrAfter, bagStrBefore;
     int d=0;
     if (aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError)
@@ -746,7 +750,7 @@ void SaveGrpToLog(int point_id,
       LEvntPrms params;
       PrmEnum prmenum("bag", "");
       (aPax!=grpInfoAfter.pax.end()?aPax->second.getPaxName(params):bPax->second.getPaxName(params));
-      
+
       if (bagStrAfter.empty()) {
         lexema_id = "EVT.LUGGAGE_DELETED";
         bPax->second.getBag(prmenum);
@@ -782,7 +786,7 @@ void SaveGrpToLog(int point_id,
       {
         if (changed) //были изменения по регистрации
           update_pax_change( point_id, aodb_pax_id, aodb_reg_no, "Р" );
-        
+
         bool boardedAfter=false, boardedBefore=false;
         if (aPax!=grpInfoAfter.pax.end())
           boardedAfter=aPax->second.pr_brd;

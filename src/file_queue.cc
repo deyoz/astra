@@ -458,4 +458,33 @@ int TFileQueue::putFile( const std::string &receiver,
   return file_id;
 };
 
+int file_by_id(int argc,char **argv)
+{
+    if(argc < 2 or argc > 2) {
+        cout << "only file id allowed" << endl;
+        return 1;
+    }
 
+    int id = ASTRA::NoExists;
+    try {
+        id = ToInt(argv[1]);
+    } catch(Exception &e) {
+        cout << e.what() << endl;
+        return 1;
+    }
+
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select data from files where id = :id";
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.Execute();
+    for(; not Qry.Eof; Qry.Next()) {
+        int len = Qry.GetSizeLongField( "data" );
+        char *pdata = (char*)malloc( len );
+        if ( !pdata )
+            throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
+        Qry.FieldAsLong( "data", pdata );
+        cout << string(pdata, len).c_str();
+        free( pdata );
+    }
+    return 1;
+}

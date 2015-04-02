@@ -151,7 +151,7 @@ int main_empty_proc_tcl(int supervisorSocket, int argc, char *argv[])
   try {
     sleep(5);
     InitLogTime(argc>0?argv[0]:NULL);
-    
+
     int handle_grp2 = init_socket_grp( "DUB_ADDR_GRP2", "DUB_PORT_GRP2" );
     int handle_grp3 = init_socket_grp( "DUB_ADDR_GRP3", "DUB_PORT_GRP3" );
 
@@ -380,7 +380,7 @@ int get_sirena_rozysk_stat(int argc,char **argv)
   string country="’„";
 
   TQuery Qry(&OraSession);
-  
+
   const char* filename="TJ.txt";
   ofstream f;
   f.open(filename);
@@ -397,7 +397,7 @@ int get_sirena_rozysk_stat(int argc,char **argv)
       Qry.Execute();
       if (Qry.Eof || Qry.FieldIsNULL("min_date")) return 0;
       TDateTime min_date=Qry.FieldAsDateTime("min_date");
-    
+
       Qry.Clear();
       if (pass==1)
         Qry.SQLText="SELECT MAX(part_key) /*TO_DATE('02.01.2012','DD.MM.YYYY')*/ AS max_date FROM /*dual*/arx_points";
@@ -648,16 +648,16 @@ int get_sirena_rozysk_stat(int argc,char **argv)
                 f << city_dep << ";" << city_arv << ";"
                   << r1->airp << ";" << r2->airp << ";";
                 switch( DecodeClass( PaxQry.FieldAsString( "class" ) ) ) {
-              		case F: f << ";";
-              			break;
-              		case C: f << "¨§­¥á-ª« áá;";
-              			break;
-              		case Y: f << "ª®­®¬-ª« áá;";
-              			break;
-              		default: f << ";";
-              	};
+                    case F: f << ";";
+                        break;
+                    case C: f << "¨§­¥á-ª« áá;";
+                        break;
+                    case Y: f << "ª®­®¬-ª« áá;";
+                        break;
+                    default: f << ";";
+                };
 
-              	f << ";;;";
+                f << ";;;";
 
                 int pax_id=PaxQry.FieldAsInteger("pax_id");
 
@@ -757,7 +757,7 @@ int get_sirena_rozysk_stat(int argc,char **argv)
     catch( ... ) { };
     throw;
   };
-  
+
   return 0;
 };
 
@@ -770,7 +770,7 @@ int get_basel_aero_stat(int argc,char **argv)
   airps.push_back("€€");
   airps.push_back("ƒ„†");
   airps.push_back("Š€");
-  
+
   TQuery Qry(&OraSession);
 
   Qry.Clear();
@@ -784,7 +784,7 @@ int get_basel_aero_stat(int argc,char **argv)
   Qry.Execute();
   if (Qry.Eof || Qry.FieldIsNULL("max_date")) return 0;
   TDateTime max_date=Qry.FieldAsDateTime("max_date");
-  
+
   for(TDateTime curr_date=min_date; curr_date<max_date; curr_date=IncMonth(curr_date, 1))
   {
     for(vector<string>::const_iterator a=airps.begin(); a!=airps.end(); ++a)
@@ -830,17 +830,17 @@ int get_basel_aero_stat(int argc,char **argv)
 
           sql << " AND pr_del = 0 AND pr_reg<>0 \n"
               << " AND airp=:airp \n";
-          
+
           Qry.Clear();
           Qry.SQLText = sql.str().c_str();
-          
+
           if (pass!=0)
             Qry.CreateVariable("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
 
           //ProgTrace(TRACE5, "get_basel_aero_stat: pass=%d SQL=\n%s", pass, sql.str().c_str());
           TDateTime low_date=curr_date;
           TDateTime high_date=IncMonth(curr_date, 1);
-          
+
           Qry.CreateVariable("FirstDate", otDate, low_date-1.0);
           Qry.CreateVariable("LastDate", otDate, high_date+1.0);
           Qry.CreateVariable("airp", otString, *a);
@@ -925,7 +925,7 @@ int create_tlg(int argc,char **argv)
 int test_trfer_exists(int argc,char **argv)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-	reqInfo->Initialize("ŒŽ‚");
+    reqInfo->Initialize("ŒŽ‚");
 
   TDateTime first_date, last_date;
   StrToDateTime("26.05.2013 00:00:00","dd.mm.yyyy hh:nn:ss",first_date);
@@ -2352,7 +2352,7 @@ int test_file_queue(int argc,char **argv)
    filter2.first_id = ASTRA::NoExists;
    filter2.pr_first_order = true;
    filter2.timeout_sec = 5;
-   
+
    file_queue.get( TFilterQueue(filter2) );
    if ( file_queue.empty() ||
         file_queue.begin()->id != id1||
@@ -2441,43 +2441,6 @@ int test_file_queue(int argc,char **argv)
    return res;
 }
 
-int rollback096(int argc,char **argv)
-{
-  TQuery Qryh(&OraSession);
-
-  TQuery InsQry(&OraSession);
-  InsQry.SQLText = "UPDATE tlgs_in SET body=:body WHERE id=:id AND num=:num AND body IS NULL";
-  InsQry.DeclareVariable("id",otInteger);
-  InsQry.DeclareVariable("num",otInteger);
-  InsQry.DeclareVariable("body",otLong);
-
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT id, num FROM typeb_in_body ORDER BY id, num";
-  int id=NoExists;
-  int num=NoExists;
-  Qry.Execute();
-  int count=0;
-  for(;!Qry.Eof;Qry.Next())
-  {
-    if (id==Qry.FieldAsInteger("id") && num==Qry.FieldAsInteger("num")) continue;
-    id=Qry.FieldAsInteger("id");
-    num=Qry.FieldAsInteger("num");
-    string text=getTypeBBody(id, num, Qryh);
-
-    InsQry.SetVariable("id", id);
-    InsQry.SetVariable("num", num);
-    InsQry.SetLongVariable("body", (void*)text.c_str(), text.size());
-    InsQry.Execute();
-    OraSession.Commit();
-    count++;
-
-    ProgTrace(TRACE5, "rollback096: id=%d num=%d", id, num);
-  };
-  ProgTrace(TRACE5, "rollback096: count=%d", count);
-
-  return 1;
-}
-
 int mobile_stat(int argc,char **argv)
 {
   TQuery Qry(&OraSession);
@@ -2559,6 +2522,89 @@ int mobile_stat(int argc,char **argv)
     }
     catch( ... ) { };
     throw;
+  };
+
+  return 0;
+};
+
+#include "points.h"
+#include "pers_weights.h"
+
+/*
+CREATE TABLE last_processed_point_id(point_id NUMBER(9));
+INSERT INTO last_processed_point_id VALUES(NULL);
+ */
+
+int fill_counters_by_subcls(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT point_id AS max_point_id FROM last_processed_point_id";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("max_point_id"))
+  {
+    Qry.Clear();
+    Qry.SQLText="SELECT max(point_id) AS max_point_id FROM points";
+    Qry.Execute();
+    if (Qry.Eof || Qry.FieldIsNULL("max_point_id")) return 0;
+  };
+  int max_point_id=Qry.FieldAsInteger("max_point_id");
+
+  Qry.Clear();
+  Qry.SQLText="SELECT min(point_id) AS min_point_id FROM points";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("min_point_id")) return 0;
+  int min_point_id=Qry.FieldAsInteger("min_point_id");
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT point_id FROM points "
+    "WHERE point_id>:low_point_id AND point_id<=:high_point_id AND "
+    "      pr_reg<>0 AND pr_del>=0 ";
+  Qry.DeclareVariable("low_point_id", otInteger);
+  Qry.DeclareVariable("high_point_id", otInteger);
+
+  TQuery UpdQry(&OraSession);
+  UpdQry.Clear();
+  UpdQry.SQLText="UPDATE last_processed_point_id SET point_id=:point_id";
+  UpdQry.DeclareVariable("point_id", otInteger);
+
+  int processed=0;
+  for(int curr_point_id=max_point_id; curr_point_id>=min_point_id; curr_point_id-=50000)
+  {
+    Qry.SetVariable("low_point_id", curr_point_id-50000);
+    Qry.SetVariable("high_point_id", curr_point_id);
+    Qry.Execute();
+    list<int> point_ids;
+    for(;!Qry.Eof;Qry.Next()) point_ids.push_back(Qry.FieldAsInteger("point_id"));
+    Qry.Close();
+
+    printf("processed range: (%d; %d] count=%zu\n", curr_point_id-50000, curr_point_id, point_ids.size());
+
+    for(list<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
+    {
+      try
+      {
+        TFlights fligths;
+        fligths.Get( *i, ftTranzit );
+        fligths.Lock();
+
+        recountBySubcls(*i);
+        UpdQry.SetVariable("point_id", *i);
+        UpdQry.Execute();
+        OraSession.Commit();
+
+        alter_wait(processed++/*, false, 9, 1*/);
+      }
+      catch(...)
+      {
+        OraSession.Rollback();
+        printf("error! point_id=%d\n", *i);
+        ProgError(STDLOG, "error! point_id=%d", *i);
+        throw;
+      };
+    };
+
   };
 
   return 0;

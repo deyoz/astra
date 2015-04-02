@@ -512,31 +512,6 @@ TEMDocItem& TEMDocItem::fromDB(const string &v_emd_no,
   return *this;
 };
 
-void ProcEdiError(const AstraLocale::LexemaData &error,
-                  const xmlNodePtr errorCtxtNode,
-                  const bool isGlobal)
-{
-  if (errorCtxtNode==NULL) return;
-  xmlNodePtr errorNode=NewTextChild(errorCtxtNode, "error");
-  LexemeDataToXML(error, errorNode);
-  SetProp(errorNode, "global", (int)isGlobal);
-}
-
-void GetEdiError(const xmlNodePtr errorCtxtNode,
-                 EdiErrorList &errors)
-{
-  errors.clear();
-  for(xmlNodePtr node=errorCtxtNode->children; node!=NULL; node=node->next)
-  {
-    if (strcmp((const char*)node->name,"error")!=0) continue;
-    EdiErrorList::iterator i=errors.insert(errors.end(), make_pair(AstraLocale::LexemaData(), false));
-    LexemeDataFromXML(node, i->first);
-    i->second=NodeAsInteger("@global", node)!=0;
-  }
-};
-
-
-
 void ProcEdiEvent(const TLogLocale &event,
                   const TEdiCtxtItem &ctxt,
                   const xmlNodePtr eventCtxtNode,

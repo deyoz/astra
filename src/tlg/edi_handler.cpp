@@ -201,11 +201,11 @@ bool handle_tlg(void)
     //внимание порядок объединения таблиц важен!
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlg_queue.id,tlgs.tlg_text,tlg_queue.time,ttl, "
+      "SELECT tlg_queue.id,tlg_queue.time,ttl, "
       "       tlg_queue.tlg_num,tlg_queue.sender, "
       "       NVL(tlg_queue.proc_attempt,0) AS proc_attempt "
-      "FROM tlgs,tlg_queue "
-      "WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND "
+      "FROM tlg_queue "
+      "WHERE tlg_queue.receiver=:receiver AND "
       "      tlg_queue.type='INA' AND tlg_queue.status='PUT' "
       "ORDER BY tlg_queue.time,tlg_queue.id";
     TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
@@ -223,7 +223,7 @@ bool handle_tlg(void)
         tlg_info tlgi = {};
         tlgi.id = TlgQry.FieldAsInteger("id");
 
-        tlgi.text = getTlgText(tlgi.id, TlgQry);
+        tlgi.text = getTlgText(tlgi.id);
         ProgTrace(TRACE5,"TLG_IN: <%s>", tlgi.text.c_str());
         tlgi.sender = TlgQry.FieldAsString("sender");
         tlgi.proc_attempt = TlgQry.FieldAsInteger("proc_attempt");

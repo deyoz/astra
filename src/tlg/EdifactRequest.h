@@ -15,6 +15,7 @@
 #include <edilib/edi_request.h>
 
 #include "astra_consts.h"
+#include "xml_unit.h"
 
 struct _edi_mes_head_;
 struct _EDI_REAL_MES_STRUCT_;
@@ -36,20 +37,37 @@ namespace edifact
 
 struct KickInfo
 {
-  int reqCtxtId;
-  std::string iface;
-  std::string handle;
-public:
-  KickInfo() : reqCtxtId(ASTRA::NoExists) {};
-  KickInfo(const int v_reqCtxtId,
-           const std::string &v_iface)
-    : reqCtxtId(v_reqCtxtId),
-      iface(v_iface),
-      handle("0") {};
-  bool empty() const
-  {
-    return iface.empty();
-  }
+    int reqCtxtId;
+    std::string iface;
+    std::string handle;
+    int parentSessId;
+    std::string msgId;
+    std::string desk;
+  public:
+    KickInfo() : reqCtxtId(ASTRA::NoExists),
+                 parentSessId(ASTRA::NoExists) {};
+    KickInfo(const int v_reqCtxtId,
+             const std::string &v_iface,
+             const std::string &v_msgid,
+             const std::string &v_desk)
+      : reqCtxtId(v_reqCtxtId),
+        iface(v_iface),
+        handle("0"),
+        parentSessId(ASTRA::NoExists),
+        msgId(v_msgid),
+        desk(v_desk)
+    {};
+    void clear()
+    {
+      reqCtxtId=ASTRA::NoExists;
+      iface.clear();
+      handle.clear();
+      parentSessId=ASTRA::NoExists;
+      msgId.clear();
+      desk.clear();
+    };    
+    const KickInfo& toXML(xmlNodePtr node) const;
+    KickInfo& fromXML(xmlNodePtr node);
 };
 
 /**
@@ -68,7 +86,7 @@ public:
      */
     EdifactRequest(const std::string &pult,
                    const std::string& ctxt,
-                   const KickInfo &v_kickInfo,                   
+                   const KickInfo &v_kickInfo,
                    edi_msg_types_t msg_type,
                    const Ticketing::RemoteSystemContext::SystemContext* sysCont);
 

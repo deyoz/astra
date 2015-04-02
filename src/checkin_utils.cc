@@ -40,10 +40,62 @@ void CheckSeatNoFromReq(int point_id,
     getXYName( point_id, prior_seat_no, prior_xname, prior_yname );
 
     if ( prior_xname + prior_yname != curr_xname + curr_yname )
-    {
+    {      
       TQuery Qry(&OraSession);
       Qry.Clear();
       Qry.SQLText=
+/*      все бы хорошо в закомментированном методе, но IntChangeSeatsN и IntChangeSeats не работают  с cltPNLBeforePay и cltPNLAfterPay
+ *      возможно, потом докрутим
+        "SELECT tlg_comp_layers.layer_type "
+        "FROM tlg_comp_layers, comp_layer_types "
+        "WHERE tlg_comp_layers.layer_type=comp_layer_types.code AND "
+        "      crs_pax_id=:crs_pax_id AND "
+        "      tlg_comp_layers.layer_type IN (:cltPNLBeforePay, "
+        "                                     :cltPNLAfterPay, "
+        "                                     :cltProtBeforePay, "
+        "                                     :cltProtAfterPay) "
+        "ORDER BY comp_layer_types.priority ";
+      Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
+      Qry.CreateVariable("cltPNLBeforePay", otString, EncodeCompLayerType(cltPNLBeforePay));
+      Qry.CreateVariable("cltPNLAfterPay", otString, EncodeCompLayerType(cltPNLAfterPay));
+      Qry.CreateVariable("cltProtBeforePay", otString, EncodeCompLayerType(cltProtBeforePay));
+      Qry.CreateVariable("cltProtAfterPay", otString, EncodeCompLayerType(cltProtAfterPay));
+      Qry.Execute();
+      if (!Qry.Eof)
+      {
+        TCompLayerType layer_type=DecodeCompLayerType(Qry.FieldAsString("layer_type"));
+        bool isTranzitSalonsVersion = isTranzitSalons( point_id );
+        BitSet<SEATS2::TChangeLayerFlags> change_layer_flags;
+        change_layer_flags.setFlag(SEATS2::flCheckPayLayer);
+
+        bool changedOrNotPay;
+        int tid=NoExists;
+        if ( isTranzitSalonsVersion ) {
+          changedOrNotPay = IntChangeSeatsN( point_id,
+                                             crs_pax_id,
+                                             tid,
+                                             curr_xname,
+                                             curr_yname,
+                                             SEATS2::stSeat,
+                                             layer_type,
+                                             change_layer_flags,
+                                             NULL );
+        }
+        else {
+          changedOrNotPay = IntChangeSeats( point_id,
+                                            crs_pax_id,
+                                            tid,
+                                            curr_xname,
+                                            curr_yname,
+                                            SEATS2::stSeat,
+                                            layer_type,
+                                            change_layer_flags,
+                                            NULL );
+        };
+
+      };
+
+*/
         "DECLARE "
         "vseat_xname crs_pax.seat_xname%TYPE; "
         "vseat_yname crs_pax.seat_yname%TYPE; "
@@ -245,6 +297,8 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
                     const XMLDoc &emulDocHeader,
                     XMLDoc &emulCkinDoc, map<int,XMLDoc> &emulChngDocs)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
   const char* PaxRemQrySQL=
       "SELECT rem_code,rem FROM pax_rem "
       "WHERE pax_id=:pax_id AND rem_code NOT IN ('FQTV')";
@@ -313,6 +367,13 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
         NewTextChild(node,"airp_dep",pnrMarkFlt.airp);
         NewTextChild(node,"pr_mark_norms",(int)codeshareSets.pr_mark_norms);
 
+        //признак запрета саморегистрации без выбора места
+        bool with_seat_choice=false;
+        if (reqInfo->client_type==ctWeb ||
+            reqInfo->client_type==ctKiosk ||
+            reqInfo->client_type==ctMobile )
+          with_seat_choice=GetSelfCkinSets(tsRegWithSeatChoice, iPnrData->flt.oper, reqInfo->client_type);
+
         xmlNodePtr paxsNode=NewTextChild(segNode,"passengers");
         for(list<TWebPaxForCkin>::const_iterator iPaxForCkin=currPnr.paxForCkin.begin();iPaxForCkin!=currPnr.paxForCkin.end();iPaxForCkin++)
         {
@@ -335,6 +396,11 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
                                  curr_xname,
                                  curr_yname,
                                  changed);
+            }
+            else
+            {
+              if (iPaxForCkin->seats>0 && with_seat_choice)
+                throw UserException("MSG.CHECKIN.NEED_TO_SELECT_SEAT_NO");
             };
 
             xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
@@ -467,13 +533,13 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             {
               if ( isTranzitSalonsVersion ) {
                 IntChangeSeatsN( iPnrData->flt.point_dep,
-                                  iPaxForChng->crs_pax_id,
-                                  pax_tid,
-                                  curr_xname, curr_yname,
-                                  SEATS2::stReseat,
-                                  cltUnknown,
-                                  change_layer_flags,
-                                  NULL );
+                                 iPaxForChng->crs_pax_id,
+                                 pax_tid,
+                                 curr_xname, curr_yname,
+                                 SEATS2::stReseat,
+                                 cltUnknown,
+                                 change_layer_flags,
+                                 NULL );
               }
               else {
                 IntChangeSeats( iPnrData->flt.point_dep,

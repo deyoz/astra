@@ -54,12 +54,13 @@ using namespace OciCpp;
 namespace
 {
     const std::string select =
-            "select PULT, STATUS, DATE_CR, EDISESSION_ID, REMOTE_ID, "
+            "select INTMSGID, PULT, STATUS, DATE_CR, EDISESSION_ID, REMOTE_ID, "
             "REMARK, EDIERRCODE, TLG_TEXT from REMOTE_RESULTS";
 }
 
 struct defsupport
 {
+    std::string MsgId;
     std::string Pult;
     std::string Status;
     edilib::EdiSessionId_t EdiSession;
@@ -75,6 +76,7 @@ struct defsupport
         RemoteResults rr;
         rr.DateCr = from_oracle_time(odt);
         rr.Status = RemoteStatus(Status);
+        rr.MsgId = MsgId;
         rr.Pult = Pult;
         rr.EdiSession = EdiSession;
         rr.RemoteSystem = RemoteSystem;
@@ -89,6 +91,7 @@ struct defsupport
 inline void OciDef(CursCtl &ctl, defsupport &def)
 {
     ctl.
+            defNull(def.MsgId, "").
             defNull(def.Pult, "").
             def(def.Status).
             def(def.odt).
@@ -99,24 +102,28 @@ inline void OciDef(CursCtl &ctl, defsupport &def)
             defNull(def.TlgSource, "");
 }
 
-RemoteResults::RemoteResults(const std::string &pult,
+RemoteResults::RemoteResults(const std::string &msgId,
+                             const std::string &pult,
                              const edilib::EdiSessionId_t &edisess,
                              const Ticketing::SystemAddrs_t &remoteId)
-    : Pult(pult),
+    : MsgId(msgId),
+           Pult(pult),
            EdiSession(edisess),
            Status(RemoteStatus::RequestSent),
            RemoteSystem(remoteId)
 {
 }
 
-void RemoteResults::add(const std::string &pult,
+void RemoteResults::add(const std::string &msgId,
+                        const std::string &pult,
                         const edilib::EdiSessionId_t &edisess,
                         const Ticketing::SystemAddrs_t &remoteId)
 {
-    RemoteResults tmp(pult, edisess, remoteId);
+    RemoteResults tmp(msgId, pult, edisess, remoteId);
     //tmp.removeOld(); неприемлемо
     tmp.writeDb();
 }
+
 /*
 для Астры неприемлемо завязываться на пульт, только на msgid либо на ид. edifact сессии
 из-за того что от имени одного пульта могут одновременно работать много независимых edifact запросов!
@@ -196,7 +203,7 @@ void RemoteResults::writeDb()
 
     cur.
             stb().
-            bind(":INTMSGID", pult().empty()?"":ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString()).
+            bind(":INTMSGID", msgId()).
             bind(":PULT", pult()).
             bind(":STATUS", status()->code()).
             bind(":LOCAL_TIME", OciCpp::to_oracle_datetime(Dates::second_clock::local_time())).
@@ -223,6 +230,7 @@ void RemoteResults::updateDb() const
             bind(":EDISESSION_ID", ediSession()).
             exec();
 }
+
 /*
 для Астры неприемлемо завязываться на пульт, только на msgid либо на ид. edifact сессии
 из-за того что от имени одного пульта могут одновременно работать много независимых edifact запросов!

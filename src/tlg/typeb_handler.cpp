@@ -297,11 +297,11 @@ bool handle_tlg(void)
     //внимание порядок объединения таблиц важен!
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlg_queue.id,tlgs.tlg_text,tlg_queue.time,ttl, "
+      "SELECT tlg_queue.id,tlg_queue.time,ttl, "
       "       tlg_queue.tlg_num,tlg_queue.sender, "
       "       NVL(tlg_queue.proc_attempt,0) AS proc_attempt "
-      "FROM tlgs,tlg_queue "
-      "WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND "
+      "FROM tlg_queue "
+      "WHERE tlg_queue.receiver=:receiver AND "
       "      tlg_queue.type='INB' AND tlg_queue.status='PUT' "
       "ORDER BY tlg_queue.time,tlg_queue.id";
     TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
@@ -421,7 +421,7 @@ bool handle_tlg(void)
         procTlg(tlg_id);
         OraSession.Commit();
 
-        string tlgs_text=getTlgText(tlg_id, TlgQry);
+        string tlgs_text=getTlgText(tlg_id);
         int typeb_tlg_id=NoExists;
         int typeb_tlg_num=1;
         ostringstream merge_key;
@@ -572,7 +572,7 @@ bool handle_tlg(void)
 
               Qry.Clear();
               Qry.SQLText=
-                "SELECT addr,heading,body,ending FROM tlgs_in WHERE id=:id AND num=:num";
+                "SELECT addr,heading,ending FROM tlgs_in WHERE id=:id AND num=:num";
               Qry.CreateVariable("id",otInteger,typeb_tlg_id);
               Qry.CreateVariable("num",otInteger,typeb_tlg_num);
               Qry.Execute();
@@ -581,7 +581,7 @@ bool handle_tlg(void)
               if (!Qry.Eof)
                 typeb_in_text << Qry.FieldAsString("addr")
                               << Qry.FieldAsString("heading")
-                              << getTypeBBody(typeb_tlg_id, typeb_tlg_num, Qry)
+                              << getTypeBBody(typeb_tlg_id, typeb_tlg_num)
                               << Qry.FieldAsString("ending");
 
               InsQry.get().SetVariable("id",FNull);
@@ -713,7 +713,7 @@ bool parse_tlg(void)
   {
     TlgInQry.Clear();
     TlgInQry.SQLText=
-      "SELECT id,num,type,addr,heading,body,ending "
+      "SELECT id,num,type,addr,heading,ending "
       "FROM tlgs_in "
       "WHERE id=:id "
       "ORDER BY num DESC";
@@ -763,7 +763,7 @@ bool parse_tlg(void)
       TTlgPartsText parts;
       parts.addr=TlgInQry.FieldAsString("addr");
       parts.heading=TlgInQry.FieldAsString("heading");
-      parts.body=getTypeBBody(tlg_id, tlg_num, TlgInQry);
+      parts.body=getTypeBBody(tlg_id, tlg_num);
       parts.ending=TlgInQry.FieldAsString("ending");
 
       TFlightsForBind bind_flts;
@@ -815,7 +815,7 @@ bool parse_tlg(void)
           if (tlg_num!=TlgInQry.FieldAsInteger("num")) break; //не все части собраны
 
           parts.heading=TlgInQry.FieldAsString("heading");
-          parts.body=getTypeBBody(tlg_id, tlg_num, TlgInQry) + parts.body;
+          parts.body=getTypeBBody(tlg_id, tlg_num) + parts.body;
         };
         if (tlg_num<0) throw ETlgError("Strange part found");
 

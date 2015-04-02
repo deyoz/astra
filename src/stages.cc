@@ -78,7 +78,7 @@ bool CompatibleStage( TStage stage )
        stage == sOpenKIOSKCheckIn ||
        stage == sCloseWEBCheckIn ||
        stage == sCloseKIOSKCheckIn )
-    return TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION );
+    return true;
     
   if ( stage == sCloseWEBCancel )
     return TReqInfo::Instance()->desk.compatible( WEB_CANCEL_VERSION );
@@ -95,7 +95,7 @@ bool CompatibleStageType( TStage_Type stage_type )
   	
   if ( stage_type == stWEBCheckIn ||
   		 stage_type == stKIOSKCheckIn )
-    return TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION );
+    return true;
     
   if ( stage_type == stWEBCancel )
     return TReqInfo::Instance()->desk.compatible( WEB_CANCEL_VERSION );

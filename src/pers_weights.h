@@ -6,6 +6,7 @@
 #include "basic.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "events.h"
 
 struct ClassesPersWeight {
   int id;
@@ -123,7 +124,12 @@ class TFlightWeights
 };
 
 int getCommerceWeight( int point_id, TTypeFlightWeight weight_type, TTypeCalcCommerceWeight calc_type );
+void recountBySubcls(int point_id,
+                     const TGrpToLogInfo &grpInfoBefore,
+                     const TGrpToLogInfo &grpInfoAfter);
+void recountBySubcls(int point_id);
 
+int check_counters_by_subcls(int argc,char **argv);
 
 #endif /*_PERS_WEIGHTS_H_*/
 
