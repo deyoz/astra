@@ -4850,6 +4850,8 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
             pax.grp_id = Qry.FieldAsInteger(col_grp_id);
             pax.pnrs.get(pax.pnr_id);
             pax.rems.get(info, pax);
+            if(pax.rems.items.empty())
+                continue;
             PaxList.push_back(pax);
         }
     }
