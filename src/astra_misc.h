@@ -306,11 +306,15 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsBrdWithReg=101,               //Посадка при регистрации
                     tsExamWithBrd=102,              //Досмотр при посадке
                     /*не привязанные к рейсу для саморегистрации*/
-                    tsRegWithSeatChoice=201         //Запрет регистрации без выбора места
+                    tsRegWithSeatChoice=201,        //Запрет регистрации без выбора места
+                    tsRegRUSNationOnly=203          //Запрет регистрации нерезидентов РФ
                   };
 
 bool GetTripSets( const TTripSetType setType,
                   const TTripInfo &info );
+bool GetSelfCkinSets( const TTripSetType setType,
+                      const int point_id,
+                      const ASTRA::TClientType client_type );
 bool GetSelfCkinSets( const TTripSetType setType,
                       const TTripInfo &info,
                       const ASTRA::TClientType client_type );
