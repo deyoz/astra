@@ -813,6 +813,7 @@ tr1::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
     return tr1::shared_ptr<TCreateOptions>(new TAirpTrferOptions);
   else if (basic_type=="PFS" ||
            basic_type=="ETL" ||
+           basic_type=="ASL" ||
            basic_type=="FTL")
     return tr1::shared_ptr<TCreateOptions>(new TMarkInfoOptions);
   else if (basic_type=="PRL")

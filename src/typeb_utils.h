@@ -1836,6 +1836,7 @@ class TTakeoffCreator : public TCreator
             << "SOM"
         //    << "ETL" формируем по прилету в конечные пункт если не было интерактива с СЭБ
             << "ETLD"
+            << "ASL"
             << "LDM"
             << "CPM";
     };

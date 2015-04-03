@@ -72,6 +72,7 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxTknItem &tkn, 
 bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocItem &doc, bool inf_indicator, CheckIn::TPaxRemItem &rem);
 bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocoItem &doco, bool inf_indicator, CheckIn::TPaxRemItem &rem);
 bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocaItem &doca, bool inf_indicator, CheckIn::TPaxRemItem &rem);
+void getPaxRem(TypeB::TDetailCreateInfo &info, const std::vector<CheckIn::TPaxASVCItem> &asvc, std::vector<std::string> &items);
 
 // stuff used to form seat ranges in tlgs
 struct TTlgPlace {
