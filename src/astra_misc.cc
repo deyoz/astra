@@ -161,8 +161,22 @@ bool GetTripSets( const TTripSetType setType,
 };
 
 bool GetSelfCkinSets( const TTripSetType setType,
-                      const TTripInfo &info,
+                      const int point_id,
                       const ASTRA::TClientType client_type )
+{
+  if (point_id==ASTRA::NoExists)
+    throw Exception("%s: wrong point_id=NoExists", __FUNCTION__);
+  TCachedQuery Qry("SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id AND pr_del>=0",
+                   QParams() << QParam("point_id", otInteger, point_id));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return false;
+  TTripInfo info(Qry.get());
+  return GetSelfCkinSets(setType, info, client_type);
+};
+
+bool GetSelfCkinSets(const TTripSetType setType,
+                     const TTripInfo &info,
+                     const ASTRA::TClientType client_type )
 {
   if (!(setType>=200 && setType<300))
     throw Exception("%s: wrong setType=%d", __FUNCTION__, (int)setType);
