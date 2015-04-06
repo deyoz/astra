@@ -399,7 +399,7 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
     getLexemaText( e->second, err, master_lexema_id );
     text << "EMD#" << e->first << endl
          << err << endl
-         << string(100,'-') << endl;
+         << string(100,'=') << endl;
   };
 
   for(map<string, Emd>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
