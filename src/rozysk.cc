@@ -44,27 +44,27 @@ enum TRowType {rowMagistral, rowMintrans};
 struct TRow {
     //дополнительно
     TDateTime time;
-    string term;
-    string user_descr;
+    string term;    
     //рейс
     string airline;
     int flt_no;
     string suffix;
     TDateTime takeoff_utc;
-    TDateTime takeoff_local;
+    TDateTime takeoff_local;    
     string airp_dep;
     //пассажир
+    TDateTime landing_utc;
+    TDateTime landing_local;
     string airp_arv;
     string surname;
     string name;
-    string seat_no;
-    int bag_amount;
+    string seat_no;    
     int bag_weight;
     int rk_weight;
     string tags;
     string pnr;
     string operation;
-    int transit_route;
+    int next_route_not_rus;
     bool transfer_route;
     int reg_no;
     int pax_id;
@@ -80,10 +80,7 @@ struct TRow {
     string visa_no;
     string visa_issue_place;
     TDateTime visa_issue_date;
-    string visa_applic_country;
-    string visa_birth_place;
-    //билет
-    string ticket_no;
+    string visa_applic_country;        
 
     TRow()
     {
@@ -91,10 +88,11 @@ struct TRow {
       flt_no=NoExists;
       takeoff_utc=NoExists;
       takeoff_local=NoExists;
-      bag_amount=NoExists;
+      landing_utc=NoExists;
+      landing_local=NoExists;
       bag_weight=NoExists;
       rk_weight=NoExists;
-      transit_route=NoExists;
+      next_route_not_rus=NoExists;
       transfer_route=false;
       reg_no=NoExists;
       pax_id=NoExists;
@@ -105,8 +103,7 @@ struct TRow {
     TRow& paxFromDB(TQuery &Qry);
     TRow& setPnr(const vector<TPnrAddrItem> &pnrs);
     TRow& setDoc(const CheckIn::TPaxDocItem &doc);
-    TRow& setVisa(const CheckIn::TPaxDocoItem &doc);
-    TRow& setTkn(const CheckIn::TPaxTknItem &tkn);
+    TRow& setVisa(const CheckIn::TPaxDocoItem &doc);    
     const TRow& toDB(TRowType type, TQuery &Qry, bool check_sql=true) const;
 };
 
@@ -116,7 +113,7 @@ TRow& TRow::fltFromDB(TQuery &Qry)
   flt_no=Qry.FieldIsNULL("flt_no")?NoExists:Qry.FieldAsInteger("flt_no");
   suffix=Qry.FieldAsString("suffix");
   airp_dep=Qry.FieldAsString("airp_dep");
-  TDateTime takeoff=Qry.FieldIsNULL("takeoff")?NoExists:Qry.FieldAsDateTime("takeoff");
+  TDateTime takeoff=Qry.FieldIsNULL("takeoff")?NoExists:Qry.FieldAsDateTime("takeoff");  
   bool is_utc=Qry.FieldAsInteger("is_utc")!=0;
   takeoff_utc=NoExists;
   takeoff_local=NoExists;
@@ -132,17 +129,35 @@ TRow& TRow::fltFromDB(TQuery &Qry)
       takeoff_utc=NoExists;
       takeoff_local=takeoff;
     };
-  };
+  };  
   return *this;
 };
 
 TRow& TRow::paxFromDB(TQuery &Qry)
 {
   airp_arv=Qry.FieldAsString("airp_arv");
+  TDateTime landing=Qry.FieldIsNULL("landing")?NoExists:Qry.FieldAsDateTime("landing");
+  bool is_utc=Qry.FieldAsInteger("is_utc")!=0;
+
+  landing_utc=NoExists;
+  landing_local=NoExists;
+  if (landing!=NoExists)
+  {
+    if (is_utc)
+    {
+      landing_utc=landing;
+      landing_local=UTCToLocal(landing, AirpTZRegion(airp_arv));
+    }
+    else
+    {
+      landing_utc=NoExists;
+      landing_local=landing;
+    };
+  };
+
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
-  seat_no=Qry.FieldAsString("seat_no");
-  bag_amount=Qry.FieldIsNULL("bag_amount")?NoExists:Qry.FieldAsInteger("bag_amount");
+  seat_no=Qry.FieldAsString("seat_no");  
   bag_weight=Qry.FieldIsNULL("bag_weight")?NoExists:Qry.FieldAsInteger("bag_weight");
   rk_weight=Qry.FieldIsNULL("rk_weight")?NoExists:Qry.FieldAsInteger("rk_weight");
   tags=Qry.FieldAsString("tags");
@@ -179,23 +194,15 @@ TRow& TRow::setVisa(const CheckIn::TPaxDocoItem &visa)
     visa_no=visa.no;
     visa_issue_place=visa.issue_place;
     visa_issue_date=visa.issue_date;
-    visa_applic_country=visa.applic_country;
-    visa_birth_place=visa.birth_place;
+    visa_applic_country=visa.applic_country;    
   }
   else
   {
     visa_no.clear();
     visa_issue_place.clear();
     visa_issue_date=NoExists;
-    visa_applic_country.clear();
-    visa_birth_place.clear();
+    visa_applic_country.clear();    
   };
-  return *this;
-};
-
-TRow& TRow::setTkn(const CheckIn::TPaxTknItem &tkn)
-{
-  ticket_no=tkn.no;
   return *this;
 };
 
@@ -209,24 +216,24 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
     "    IF :pax_id IS NOT NULL THEN "
     "      UPDATE rozysk "
     "      SET time=:time, "
-    "          term=:term, "
-    "          user_descr=:user_descr, "
+    "          term=:term, "    
     "          airline=:airline, "
     "          flt_no=:flt_no, "
     "          suffix=:suffix, "
     "          takeoff=:takeoff, "
+    "          landing=:landing, "
     "          airp_dep=:airp_dep, "
     "          airp_arv=:airp_arv, "
     "          surname=:surname, "
     "          name=:name, "
-    "          seat_no=:seat_no, "
-    "          bag_amount=:bag_amount, "
+    "          seat_no=:seat_no, "    
     "          bag_weight=:bag_weight, "
     "          rk_weight=:rk_weight, "
     "          tags=:tags, "
     "          pnr=:pnr, "
     "          operation=:operation, "
     "          route_type=:route_type, "
+    "          route_type2=:route_type2, "
     "          reg_no=:reg_no, "
     "          doc_type=:doc_type, "
     "          doc_issue_country=:doc_issue_country, "
@@ -238,29 +245,25 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
     "          visa_no=:visa_no, "
     "          visa_issue_place=:visa_issue_place, "
     "          visa_issue_date=:visa_issue_date, "
-    "          visa_applic_country=:visa_applic_country, "
-    "          visa_birth_place=:visa_birth_place, "
-    "          ticket_no=:ticket_no "
+    "          visa_applic_country=:visa_applic_country "
     "      WHERE pax_id=:pax_id; "
     "      IF SQL%FOUND THEN EXIT; END IF;"
     "    END IF; "
     "    BEGIN "
     "      INSERT INTO rozysk "
-    "        (time, term, user_descr, "
-    "         airline, flt_no, suffix, takeoff, airp_dep, "
-    "         airp_arv, surname, name, seat_no, bag_amount, bag_weight, rk_weight, "
-    "         tags, pnr, operation, route_type, reg_no, pax_id, "
+    "        (time, term, "
+    "         airline, flt_no, suffix, takeoff, landing, airp_dep, "
+    "         airp_arv, surname, name, seat_no, bag_weight, rk_weight, "
+    "         tags, pnr, operation, route_type, route_type2, reg_no, pax_id, "
     "         doc_type, doc_issue_country, doc_no, doc_nationality, doc_gender, doc_birth_date, doc_type_rcpt, "
-    "         visa_no, visa_issue_place, visa_issue_date, visa_applic_country, visa_birth_place, "
-    "         ticket_no) "
+    "         visa_no, visa_issue_place, visa_issue_date, visa_applic_country) "
     "      VALUES "
-    "        (:time, :term, :user_descr, "
-    "         :airline, :flt_no, :suffix, :takeoff, :airp_dep, "
-    "         :airp_arv, :surname, :name, :seat_no, :bag_amount, :bag_weight, :rk_weight, "
-    "         :tags, :pnr, :operation, :route_type, :reg_no, :pax_id, "
+    "        (:time, :term, "
+    "         :airline, :flt_no, :suffix, :takeoff, :landing, :airp_dep, "
+    "         :airp_arv, :surname, :name, :seat_no, :bag_weight, :rk_weight, "
+    "         :tags, :pnr, :operation, :route_type, :route_type2, :reg_no, :pax_id, "
     "         :doc_type, :doc_issue_country, :doc_no, :doc_nationality, :doc_gender, :doc_birth_date, :doc_type_rcpt, "
-    "         :visa_no, :visa_issue_place, :visa_issue_date, :visa_applic_country, :visa_birth_place, "
-    "         :ticket_no); "
+    "         :visa_no, :visa_issue_place, :visa_issue_date, :visa_applic_country); "
     "      EXIT; "
     "    EXCEPTION "
     "      WHEN DUP_VAL_ON_INDEX THEN "
@@ -276,8 +279,7 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
       Qry.SQLText=sql;
       //дополнительно
       Qry.DeclareVariable("time", otDate);
-      Qry.DeclareVariable("term", otString);
-      Qry.DeclareVariable("user_descr", otString);
+      Qry.DeclareVariable("term", otString);      
       //рейс
       Qry.DeclareVariable("airline", otString);
       Qry.DeclareVariable("flt_no", otInteger);
@@ -285,17 +287,18 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
       Qry.DeclareVariable("takeoff", otDate);
       Qry.DeclareVariable("airp_dep", otString);
       //пассажир
+      Qry.DeclareVariable("landing", otDate);
       Qry.DeclareVariable("airp_arv", otString);
       Qry.DeclareVariable("surname", otString);
       Qry.DeclareVariable("name", otString);
-      Qry.DeclareVariable("seat_no", otString);
-      Qry.DeclareVariable("bag_amount", otInteger);
+      Qry.DeclareVariable("seat_no", otString);      
       Qry.DeclareVariable("bag_weight", otInteger);
       Qry.DeclareVariable("rk_weight", otInteger);
       Qry.DeclareVariable("tags", otString);
       Qry.DeclareVariable("pnr", otString);
       Qry.DeclareVariable("operation", otString);
       Qry.DeclareVariable("route_type", otInteger);
+      Qry.DeclareVariable("route_type2", otInteger);
       Qry.DeclareVariable("reg_no", otInteger);
       Qry.DeclareVariable("pax_id", otInteger);
       //документ
@@ -310,17 +313,13 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
       Qry.DeclareVariable("visa_no", otString);
       Qry.DeclareVariable("visa_issue_place", otString);
       Qry.DeclareVariable("visa_issue_date", otDate);
-      Qry.DeclareVariable("visa_applic_country", otString);
-      Qry.DeclareVariable("visa_birth_place", otString);
-      //билет
-      Qry.DeclareVariable("ticket_no", otString);
+      Qry.DeclareVariable("visa_applic_country", otString);            
     };
   };
   //дополнительно
   time!=NoExists?Qry.SetVariable("time", time):
                  Qry.SetVariable("time", FNull);
-  Qry.SetVariable("term", term);
-  Qry.SetVariable("user_descr", user_descr);
+  Qry.SetVariable("term", term);  
   //рейс
   Qry.SetVariable("airline", airline);
   flt_no!=NoExists?Qry.SetVariable("flt_no", flt_no):
@@ -328,20 +327,26 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
   Qry.SetVariable("suffix", suffix);
 
   if (type==rowMagistral)
+  {
     takeoff_local!=NoExists?Qry.SetVariable("takeoff", takeoff_local):
                             Qry.SetVariable("takeoff", FNull);
+    landing_local!=NoExists?Qry.SetVariable("landing", landing_local):
+                            Qry.SetVariable("landing", FNull);
+  };
   if (type==rowMintrans)
+  {
     takeoff_utc!=NoExists?Qry.SetVariable("takeoff", takeoff_utc):
                           Qry.SetVariable("takeoff", FNull);
+    landing_utc!=NoExists?Qry.SetVariable("landing", landing_utc):
+                          Qry.SetVariable("landing", FNull);
+  };
 
   Qry.SetVariable("airp_dep", airp_dep);
   //пассажир
   Qry.SetVariable("airp_arv", airp_arv);
   Qry.SetVariable("surname", surname);
   Qry.SetVariable("name", name);
-  Qry.SetVariable("seat_no", seat_no);
-  bag_amount!=NoExists?Qry.SetVariable("bag_amount", bag_amount):
-                       Qry.SetVariable("bag_amount", FNull);
+  Qry.SetVariable("seat_no", seat_no);  
   bag_weight!=NoExists?Qry.SetVariable("bag_weight", bag_weight):
                        Qry.SetVariable("bag_weight", FNull);
   rk_weight!=NoExists?Qry.SetVariable("rk_weight", rk_weight):
@@ -362,14 +367,15 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
       Qry.SetVariable("operation", "16");
     else return *this;
   };
-  if (transit_route==NoExists)
-    Qry.SetVariable("route_type", FNull);
-  else if (transit_route)
-    Qry.SetVariable("route_type", 1);
-  else if (transfer_route)
+  if (transfer_route)
     Qry.SetVariable("route_type", 2);
   else
     Qry.SetVariable("route_type", 0);
+
+  if (next_route_not_rus==NoExists)
+    Qry.SetVariable("route_type2", FNull);
+  else
+    Qry.SetVariable("route_type2", next_route_not_rus);
 
   reg_no!=NoExists?Qry.SetVariable("reg_no", reg_no):
                    Qry.SetVariable("reg_no", FNull);
@@ -393,13 +399,7 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
   Qry.SetVariable("visa_issue_place", visa_issue_place);
   visa_issue_date!=NoExists?Qry.SetVariable("visa_issue_date", visa_issue_date):
                             Qry.SetVariable("visa_issue_date", FNull);
-  Qry.SetVariable("visa_applic_country", visa_applic_country);
-  Qry.SetVariable("visa_birth_place", visa_birth_place);
-  //билет
-  if (ticket_no.size()<=15)
-    Qry.SetVariable("ticket_no", ticket_no);
-  else
-    Qry.SetVariable("ticket_no", FNull);
+  Qry.SetVariable("visa_applic_country", visa_applic_country);    
   Qry.Execute();
   return *this;
 };
@@ -441,17 +441,28 @@ void get_crs_flight(int point_id, TRow &r)
   r.fltFromDB(Qry);
 };
 
-void get_transit_route(int point_dep, int point_arv, TRow &r)
+void get_route_not_rus(int point_dep, int point_arv, TRow &r)
 {
   TTripRoute route;
   route.GetRouteAfter(NoExists, point_dep, trtNotCurrent, trtNotCancelled);
-  r.transit_route=NoExists;
-  for(TTripRoute::const_iterator i=route.begin(); i!=route.end(); ++i)
-    if (point_arv==i->point_id)
+  r.next_route_not_rus=NoExists;
+  bool rus_exists=false;
+  TTripRoute::const_iterator i=route.begin();
+  for(; i!=route.end(); ++i)
+  {
+    try
     {
-      r.transit_route=(i==route.begin()?0:1);
-      break;
-    };
+      string city = base_tables.get("AIRPS").get_row("code", i->airp).AsString("city");
+      if (base_tables.get("CITIES").get_row("code", city).AsString("country") == "РФ") rus_exists=true;
+    }
+    catch(EBaseTableError) {};
+    if (point_arv==i->point_id) break;
+  };
+  if (i!=route.end())
+  {
+    //нашли конечный пункт
+    r.next_route_not_rus=rus_exists?0:1;
+  };
 };
 
 void get_transfer_route(int grp_id, TRow &r)
@@ -480,23 +491,24 @@ const char* pax_sql=
   "SELECT "
   "  pax_grp.point_dep AS point_id, pax_grp.point_arv, pax_grp.airp_arv, pax_grp.grp_id, "
   "  pax.pax_id, pax.surname, pax.name, pax.reg_no, "
-  "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
-  "  NVL(ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
+  "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "  
   "  NVL(ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
   "  NVL(ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
   "  ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num) AS tags, "
-  "  DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,DECODE(pax.pr_exam,0,'K1','K2'),'K3'),'K0') AS operation "
-  "FROM pax_grp, pax "
-  "WHERE pax_grp.grp_id=pax.grp_id";
+  "  DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,DECODE(pax.pr_exam,0,'K1','K2'),'K3'),'K0') AS operation, "
+  "  NVL(scd_in,NVL(est_in,act_in)) AS landing, 1 AS is_utc "
+  "FROM pax_grp, pax, points "
+  "WHERE pax_grp.grp_id=pax.grp_id AND pax_grp.point_arv=points.point_id ";
   
 const char* crs_pax_sql=
   "SELECT "
   "  crs_pnr.point_id, crs_pnr.airp_arv, crs_pnr.pnr_id, "
   "  crs_pax.pax_id, crs_pax.surname, crs_pax.name, NULL AS reg_no, "
   "  salons.get_crs_seat_no(seat_xname,seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
-  "  NULL AS bag_amount, NULL AS bag_weight, NULL AS rk_weight, "
+  "  NULL AS bag_weight, NULL AS rk_weight, "
   "  NULL AS tags, "
-  "  'K0' AS operation "
+  "  'K0' AS operation, "
+  "  NULL AS landing, 0 AS is_utc "
   "FROM crs_pnr,crs_pax,pax "
   "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pr_del=0 AND "
   "      crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL";
@@ -538,8 +550,7 @@ void sync_pax_internal(int id,
   TRow row;
   //дополнительно
   row.time=NowUTC();
-  row.term=term;
-  row.user_descr=user_descr;
+  row.term=term;  
   //рейс
   int point_id=Qry.FieldAsInteger("point_id");
   get_flight(point_id, row);
@@ -547,7 +558,7 @@ void sync_pax_internal(int id,
   bool check_sql=true;
   if (!Qry.Eof)
   {
-    get_transit_route(point_id, Qry.FieldAsInteger("point_arv"), row);
+    get_route_not_rus(point_id, Qry.FieldAsInteger("point_arv"), row);
     get_transfer_route(Qry.FieldAsInteger("grp_id"), row);
     for(;!Qry.Eof;Qry.Next())
     {
@@ -566,11 +577,7 @@ void sync_pax_internal(int id,
       //виза
       CheckIn::TPaxDocoItem doco;
       LoadPaxDoco(pax_id, doco);
-      row.setVisa(doco);
-      //билет
-      CheckIn::TPaxTknItem tkn;
-      LoadPaxTkn(pax_id, tkn);
-      row.setTkn(tkn);
+      row.setVisa(doco);      
 
       for(int pass=0; pass<2; pass++)
       {
@@ -638,8 +645,7 @@ void sync_crs_pax_internal(int id,
   TRow row;
   //дополнительно
   row.time=NowUTC();
-  row.term=term;
-  row.user_descr=user_descr;
+  row.term=term;  
   //рейс
   int point_id=Qry.FieldAsInteger("point_id");
   get_crs_flight(point_id, row);
@@ -662,11 +668,7 @@ void sync_crs_pax_internal(int id,
     //виза
     CheckIn::TPaxDocoItem doco;
     LoadCrsPaxVisa(pax_id, doco);
-    row.setVisa(doco);
-    //билет
-    CheckIn::TPaxTknItem tkn;
-    LoadCrsPaxTkn(pax_id, tkn);
-    row.setTkn(tkn);
+    row.setVisa(doco);    
 
     row.toDB(rowMagistral, InsQry, check_sql);
     check_sql=false;
@@ -944,17 +946,19 @@ namespace mintrans
     string surname;            //фамилия
     string name;               //имя
     string patronymic;         //отчество
-    TDateTime birthDate;       //дата рождения
-    string birthPlace;         //место рождения
+    TDateTime birthDate;       //дата рождения    
     string docType;            //тип документа
     string docNumber;          //номер документа
     string departPlace;        //лат. код а/п вылета
     string arrivePlace;        //лат. код а/п прилета
-    int rtType;                //вид маршрута
-    TDateTime departDateTime;  //время вылета UTC
-    string typePDP;            //тип ПДП (член экипажа, пассажир)
+    int transfer;              //вид маршрута
+    int overFlight;            //признак беспосадочного рейса а РФ
+    TDateTime departDateTime;  //время отправления UTC
+    TDateTime arriveDateTime;  //время прибытия UTC
+    string typePDP;            //тип персональных данных (член экипажа, пассажир)
+    string crewRoleCode;       //код категории члена экипажа
     string gender;             //пол
-    string nationalities;      //национальность
+    string citizenship;        //национальность
     //Данные о регистрируемой операции
     string operationType;      //тип операции
     TDateTime registerTimeIS;  //время операции UTC
@@ -962,15 +966,7 @@ namespace mintrans
     int flightNum;             //номер рейса
     string operSuff;           //суффикс рейса
     string actLoc;             //номер места в салоне
-    string pnrId;              //номер PNR
-    string ticket;             //номер билета
-    string agentRegId;         //агент регистрации
-    int baggageCnt;            //кол-во мест багажа
-    int baggageHWeight;        //вес р/к
-    int baggageWeight;         //вес багажа
-    string gateReg;            //стойка регистрации
-    int regControlNum;         //рег. номер
-    string baggageLabel;       //номера баг. бирок
+    string pnrId;              //номер PNR                    
     //string selfRegID;          //киоск саморегистрации
 };
 
@@ -984,15 +980,13 @@ void get_pax_list(int point_id,
   TQuery Qry(&OraSession);
   Qry.Clear();
   ostringstream sql;
-  sql << "SELECT r.time, r.term, "
-         "       TRIM(REPLACE(r.user_descr,';',' ')) AS user_descr, "
+  sql << "SELECT r.time, "
          "       r.airline, r.flt_no, r.suffix, r.takeoff, r.airp_dep, "
-         "       r.airp_arv, r.surname, r.name, "
-         "       r.seat_no, r.bag_amount, r.bag_weight, r.rk_weight, r.tags, r.pnr, r.operation, "
-         "       r.route_type, r.reg_no, "
+         "       r.landing, r.airp_arv, r.surname, r.name, "
+         "       r.seat_no, r.pnr, r.operation, "
+         "       r.route_type, r.route_type2, r.reg_no, "
          "       r.doc_type, r.doc_issue_country, r.doc_no, r.doc_nationality, r.doc_gender, "
-         "       r.doc_birth_date, r.doc_type_rcpt, "
-         "       r.visa_birth_place, r.ticket_no "
+         "       r.doc_birth_date, r.doc_type_rcpt "
          "FROM pax_grp, pax, rozysk r "
          "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=r.pax_id AND "
          "      pax_grp.point_dep=:point_id AND "
@@ -1003,9 +997,7 @@ void get_pax_list(int point_id,
   Qry.Execute();
   if (!Qry.Eof)
   {
-    int idx_time = Qry.FieldIndex( "time" );
-    int idx_term = Qry.FieldIndex( "term" );
-    int idx_user_descr = Qry.FieldIndex( "user_descr" );
+    int idx_time = Qry.FieldIndex( "time" );        
 
     int idx_airline = Qry.FieldIndex( "airline" );
     int idx_flt_no = Qry.FieldIndex( "flt_no" );
@@ -1013,17 +1005,15 @@ void get_pax_list(int point_id,
     int idx_takeoff = Qry.FieldIndex( "takeoff" );
     int idx_airp_dep = Qry.FieldIndex( "airp_dep" );
 
+    int idx_landing = Qry.FieldIndex( "landing" );
     int idx_airp_arv = Qry.FieldIndex( "airp_arv" );
     int idx_surname = Qry.FieldIndex( "surname" );
     int idx_name = Qry.FieldIndex( "name" );
-    int idx_seat_no = Qry.FieldIndex( "seat_no" );
-    int idx_bag_amount = Qry.FieldIndex( "bag_amount" );
-    int idx_bag_weight = Qry.FieldIndex( "bag_weight" );
-    int idx_rk_weight = Qry.FieldIndex( "rk_weight" );
-    int idx_tags = Qry.FieldIndex( "tags" );
+    int idx_seat_no = Qry.FieldIndex( "seat_no" );            
     int idx_pnr = Qry.FieldIndex( "pnr" );
     int idx_operation = Qry.FieldIndex( "operation" );
     int idx_route_type = Qry.FieldIndex( "route_type" );
+    int idx_route_type2 = Qry.FieldIndex( "route_type2" );
     int idx_reg_no = Qry.FieldIndex( "reg_no" );
 
     int idx_doc_type = Qry.FieldIndex( "doc_type" );
@@ -1032,11 +1022,7 @@ void get_pax_list(int point_id,
     int idx_doc_nationality = Qry.FieldIndex( "doc_nationality" );
     int idx_doc_gender = Qry.FieldIndex( "doc_gender" );
     int idx_doc_birth_date = Qry.FieldIndex( "doc_birth_date" );
-    int idx_doc_type_rcpt = Qry.FieldIndex( "doc_type_rcpt" );
-
-    int idx_visa_birth_place = Qry.FieldIndex( "visa_birth_place" );
-
-    int idx_ticket_no = Qry.FieldIndex( "ticket_no" );
+    int idx_doc_type_rcpt = Qry.FieldIndex( "doc_type_rcpt" );    
 
     for ( ;!Qry.Eof; Qry.Next() )
     {
@@ -1049,8 +1035,7 @@ void get_pax_list(int point_id,
       if ( Qry.FieldIsNULL( idx_doc_birth_date ) )
         pax.birthDate = ASTRA::NoExists;
       else
-        pax.birthDate = Qry.FieldAsDateTime( idx_doc_birth_date );
-      pax.birthPlace = Qry.FieldAsString( idx_visa_birth_place );
+        pax.birthDate = Qry.FieldAsDateTime( idx_doc_birth_date );      
       if (!Qry.FieldIsNULL( idx_doc_type_rcpt ))
       {
         try
@@ -1087,18 +1072,27 @@ void get_pax_list(int point_id,
       pax.arrivePlace = ElemIdToPrefferedElem(etAirp, Qry.FieldAsString( idx_airp_arv ), efmtCodeNative, AstraLocale::LANG_EN);
       if (pax.arrivePlace.empty()) pax.arrivePlace = Qry.FieldAsString( idx_airp_arv );
       if ( Qry.FieldIsNULL( idx_route_type ) )
-        pax.rtType = ASTRA::NoExists;
+        pax.transfer = ASTRA::NoExists;
       else
-        pax.rtType = Qry.FieldAsInteger( idx_route_type );
+        pax.transfer = Qry.FieldAsInteger( idx_route_type );
+      if ( Qry.FieldIsNULL( idx_route_type2 ) )
+        pax.overFlight = ASTRA::NoExists;
+      else
+        pax.overFlight = Qry.FieldAsInteger( idx_route_type2 );
       if ( Qry.FieldIsNULL( idx_takeoff ) )
         pax.departDateTime = ASTRA::NoExists;
       else
         pax.departDateTime = Qry.FieldAsDateTime( idx_takeoff );
+      if ( Qry.FieldIsNULL( idx_landing ) )
+        pax.arriveDateTime = ASTRA::NoExists;
+      else
+        pax.arriveDateTime = Qry.FieldAsDateTime( idx_landing );
       pax.typePDP = (Qry.FieldIsNULL( idx_reg_no ) || Qry.FieldAsInteger( idx_reg_no )>0)?"1":"0";
+      pax.crewRoleCode = (Qry.FieldIsNULL( idx_reg_no ) || Qry.FieldAsInteger( idx_reg_no )>0)?"":"1"; //всегда 1, так как не храним, где член экипажа находится
       int is_female=CheckIn::is_female(Qry.FieldAsString( idx_doc_gender ),
                                        Qry.FieldAsString( idx_name ));
       pax.gender = (is_female==ASTRA::NoExists?"":(is_female==0?"M":"F"));
-      pax.nationalities = Qry.FieldAsString( idx_doc_nationality );
+      pax.citizenship = Qry.FieldAsString( idx_doc_nationality );
       //Данные о регистрируемой операции
       pax.operationType = Qry.FieldAsString( idx_operation );
       pax.registerTimeIS = Qry.FieldAsDateTime( idx_time );
@@ -1108,27 +1102,7 @@ void get_pax_list(int point_id,
       pax.operSuff = ElemIdToPrefferedElem(etSuffix, Qry.FieldAsString( idx_suffix ), efmtCodeNative, AstraLocale::LANG_EN);
       if (pax.operSuff.empty()) pax.operSuff = Qry.FieldAsString( idx_suffix );
       pax.actLoc = Qry.FieldAsString( idx_seat_no );
-      pax.pnrId = Qry.FieldAsString( idx_pnr );
-      pax.ticket = Qry.FieldAsString( idx_ticket_no );
-      pax.agentRegId = Qry.FieldAsString( idx_user_descr );
-      if ( Qry.FieldIsNULL( idx_bag_amount ) )
-        pax.baggageCnt = ASTRA::NoExists;
-      else
-        pax.baggageCnt = Qry.FieldAsInteger( idx_bag_amount );
-      if ( Qry.FieldIsNULL( idx_rk_weight ) )
-        pax.baggageHWeight = ASTRA::NoExists;
-      else
-        pax.baggageHWeight = Qry.FieldAsInteger( idx_rk_weight );
-      if ( Qry.FieldIsNULL( idx_bag_weight ) )
-        pax.baggageWeight = ASTRA::NoExists;
-      else
-        pax.baggageWeight = Qry.FieldAsInteger( idx_bag_weight );
-      pax.gateReg = Qry.FieldAsString( idx_term );
-      if ( Qry.FieldIsNULL( idx_reg_no ) || Qry.FieldAsInteger( idx_reg_no )<0 )
-        pax.regControlNum = ASTRA::NoExists;
-      else
-        pax.regControlNum = Qry.FieldAsInteger( idx_reg_no );
-      pax.baggageLabel = Qry.FieldAsString( idx_tags );
+      pax.pnrId = Qry.FieldAsString( idx_pnr );                              
       paxs.push_back( pax );;
     }
   };
@@ -1214,7 +1188,7 @@ void sync_sirena_rozysk( TDateTime utcdate )
 }
 
 void create_mintrans_file(int point_id)
-{
+{  
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
@@ -1231,7 +1205,7 @@ void create_mintrans_file(int point_id)
   bool departure=!Qry.FieldIsNULL("act_out");
 
   TTripInfo fltInfo(Qry);
-  if (!GetTripSets(tsMintransFile, fltInfo)) return;
+  if (!GetTripSets(tsMintransFile, fltInfo)) return;  
 
   map<string, string> fileparams;
   TFileQueue::add_sets_params( Qry.FieldAsString("airp"),
@@ -1242,7 +1216,7 @@ void create_mintrans_file(int point_id)
                                true,
                                fileparams );
 
-  if (fileparams[PARAM_WORK_DIR].empty()) return;
+  if (fileparams[PARAM_WORK_DIR].empty()) return;  
 
   string encoding=TFileQueue::getEncoding(FILE_MINTRANS_TYPE, OWN_POINT_ADDR(), true);
   if (encoding.empty()) encoding="UTF-8";
@@ -1250,70 +1224,58 @@ void create_mintrans_file(int point_id)
   vector<mintrans::TPax> paxs;
   mintrans::get_pax_list(point_id, paxs);
 
-  if (paxs.empty()) return;
+  if (paxs.empty()) return;  
 
   ostringstream f;
   f  << "surname" << ";"
      << "name" << ";"
      << "patronymic" << ";"
-     << "birthDate" << ";"
-     << "birthPlace" << ";"
+     << "birthDate" << ";"     
      << "docType" << ";"
      << "docNumber" << ";"
      << "departPlace" << ";"
      << "arrivePlace" << ";"
-     << "rtType" << ";"
+     << "transfer" << ";"
+     << "overFlight" << ";"
      << "departDateTime" << ";"
+     << "arriveDateTime" << ";"
      << "typePDP" << ";"
+     << "crewRoleCode" << ";"
      << "gender" << ";"
-     << "nationalities" << ";"
+     << "citizenship" << ";"
      << "operationType" << ";"
      << "registerTimeIS" << ";"
      << "airlineCode" << ";"
      << "flightNum" << ";"
      << "operSuff" << ";"
      << "actLoc" << ";"
-     << "pnrId" << ";"
-     << "ticket" << ";"
-     << "agentRegId" << ";"
-     << "baggageCnt" << ";"
-     << "baggageHWeight" << ";"
-     << "baggageWeight" << ";"
-     << "gateReg" << ";"
-     << "regControlNum" << ";"
-     << "baggageLabel"
+     << "pnrId"
      << endl;
   for(vector<mintrans::TPax>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
   {
     f << p->surname << ";"
       << p->name << ";"
       << p->patronymic << ";"
-      << (p->birthDate==NoExists?"":DateTimeToStr(p->birthDate, "dd.mm.yyyy")) << ";"
-      << p->birthPlace << ";"
+      << (p->birthDate==NoExists?"":DateTimeToStr(p->birthDate, "dd.mm.yyyy")) << ";"      
       << p->docType << ";"
       << p->docNumber << ";"
       << p->departPlace << ";"
       << p->arrivePlace << ";"
-      << (p->rtType==NoExists?"":IntToString(p->rtType)) << ";"
-      << (p->departDateTime==NoExists?"":DateTimeToStr(p->departDateTime, "dd.mm.yyyy hh:nn:ss")) << ";"
+      << (p->transfer==NoExists?"":IntToString(p->transfer)) << ";"
+      << (p->overFlight==NoExists?"":IntToString(p->overFlight)) << ";"
+      << (p->departDateTime==NoExists?"":DateTimeToStr(p->departDateTime, "yyyy-mm-ddThh:nnZ")) << ";"
+      << (p->arriveDateTime==NoExists?"":DateTimeToStr(p->arriveDateTime, "yyyy-mm-ddThh:nnZ")) << ";"
       << p->typePDP << ";"
+      << p->crewRoleCode << ";"
       << p->gender << ";"
-      << p->nationalities << ";"
+      << p->citizenship << ";"
       << (departure && p->operationType=="06"?"14":p->operationType) << ";"
-      << (p->registerTimeIS==NoExists?"":DateTimeToStr(p->registerTimeIS, "dd.mm.yyyy hh:nn:ss")) << ";"
+      << (p->registerTimeIS==NoExists?"":DateTimeToStr(p->registerTimeIS, "yyyy-mm-ddThh:nnZ")) << ";"
       << p->airlineCode << ";"
       << setw(3) << setfill('0') << p->flightNum << ";"
       << p->operSuff << ";"
       << p->actLoc << ";"
-      << p->pnrId << ";"
-      << p->ticket << ";"
-      << p->agentRegId << ";"
-      << (p->baggageCnt==NoExists?"":IntToString(p->baggageCnt)) << ";"
-      << (p->baggageHWeight==NoExists?"":IntToString(p->baggageHWeight)) << ";"
-      << (p->baggageWeight==NoExists?"":IntToString(p->baggageWeight)) << ";"
-      << p->gateReg << ";"
-      << (p->regControlNum==NoExists?"":IntToString(p->regControlNum)) << ";"
-      << p->baggageLabel
+      << p->pnrId
       << endl;
   };
 
