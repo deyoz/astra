@@ -181,3 +181,115 @@ $(run_daemon edi_timeout)
 
 #!! capture=on err=ignore
 #$(lastRedisplay)
+
+
+%%
+#########################################################################################
+
+$(init_jxt_pult åéÇêéå)
+$(login)
+$(init_eds ûí UTET UTDC)
+
+
+{<?xml version='1.0' encoding='UTF-8'?>
+ <term>
+   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+     <SearchEMDByDocNo>
+       <point_id>2276899</point_id>
+       <EmdNoEdit>2988200000386</EmdNoEdit>
+     </SearchEMDByDocNo>
+   </query>
+ </term>}
+
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:791"
+ORG+ûí:åéÇ++++Y+::RU+åéÇêéå"
+TKT+2988200000386"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+UTET+UTDC+150323:1342+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
+MSG+:791+3"
+TIF+IVANO+VIA"
+TAI+2984+99Éêë:B"
+RCI+1H:09SKR6:1"
+MON+B:500.00:RUB+T:500.00:RUB"
+FOP+CA:3:500.00"
+PTK+++230315"
+ORG+1H:MOW+00117165:01TCH+MOW++N+RU+7+TCH08"
+EQN+1:TD"
+IFT+4:15:1"
+IFT+4:41+01åÄâ76"
+IFT+4:733:0"
+PTS+++++A"
+TKT+2988200000386:Y:1"
+CPN+1:I:500.00:E"
+PTS++++++0BW"
+IFT+4:47+REGISTRATION"
+UNT+19+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>> lines=auto
+    <kick...
+
+
+!! capture=on
+$(lastRedisplay)
+
+>> lines=auto
+    <passenger>
+      <surname>IVANO</surname>
+      <kkp/>
+      <age/>
+      <name>VIA</name>
+    </passenger>
+    <recloc>
+      <awk>1H</awk>
+      <regnum/>
+    </recloc>
+    <origin>
+      <date_of_issue>...
+      <sys_addr>MOW 1H</sys_addr>
+      <ppr>00117165</ppr>
+      <agn>01TCH</agn>
+      <opr_flpoint>MOW</opr_flpoint>
+      <authcode>7</authcode>
+      <pult>TCH08</pult>
+    </origin>
+    <foid/>
+    <payment>
+      <fare>0.00</fare>
+      <total>0.00</total>
+      <payment>500.00 CA</payment>
+      <tax/>
+      <fare_calc/>
+    </payment>
+    <rfic>A</rfic>
+    <emd_type>S</emd_type>
+    <emd1>
+      <emd_num>2988200000386</emd_num>
+      <coupon refresh='true'>
+        <row index='0'>
+          <num index='0'>1</num>
+          <dep_date index='1'> </dep_date>
+          <dep_time index='2'> </dep_time>
+          <dep index='3'> </dep>
+          <arr index='4'> </arr>
+          <codea index='5'> </codea>
+          <flight index='6'> </flight>
+          <amount index='7'>500.00</amount>
+          <rfisc_code index='8'>0BW</rfisc_code>
+          <rfisc_desc index='9'>REGISTRATION</rfisc_desc>
+          <sac index='10'/>
+          <coup_status index='11'>O</coup_status>
+        </row>
+      </coupon>
+    </emd1>
+  </answer>
+</term>

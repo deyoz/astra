@@ -273,7 +273,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   TQuery PaxQry(&OraSession);
 
   get_new_tid(point_id, PaxQry);
-  
+
   ostringstream sql;
   PaxQry.Clear();
   sql.str("");
@@ -436,7 +436,7 @@ bool CheckSeat(int pax_id, string& curr_seat_no)
     if (!Qry.Eof)
     {
       curr_seat_no=Qry.FieldAsString("curr_seat_no");
-      
+
       if (!Qry.FieldIsNULL("bp_seat_no_lat") &&
           strcmp(Qry.FieldAsString("curr_seat_no_lat"), Qry.FieldAsString("bp_seat_no_lat"))!=0)
         return false;
@@ -1135,7 +1135,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                 "ORDER BY DECODE(hall,NULL,1,0)";
             Qry.CreateVariable("point_id",otInteger,point_id);
             Qry.CreateVariable("hall",otInteger,hall);
-            Qry.CreateVariable("type",otInteger,2);
+            Qry.CreateVariable("type",otInteger,(int)tsExamWithBrd);
             Qry.Execute();
             if (!Qry.Eof) pr_exam_with_brd=Qry.FieldAsInteger("pr_misc")!=0;
         };

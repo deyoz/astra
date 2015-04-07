@@ -82,7 +82,8 @@ class EmdTicket
     std::list<EmdCoupon>             lCpn_;
 
 public:
-    static EmdTicket makeEmdSTicket(const TicketNum_t& tickNum, const TicketNum_t& tickNumConnect,
+    static EmdTicket makeEmdSTicket(const TicketNum_t& tickNum,
+                                    const boost::optional<TicketNum_t>& tickNumConnect,
                                     TickStatAction::TickStatAction_t tac = TickStatAction::newtick);
     static EmdTicket makeEmdATicket(const TicketNum_t& tickNum,
                                     TickStatAction::TickStatAction_t tac = TickStatAction::newtick);

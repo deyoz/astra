@@ -49,6 +49,7 @@ const
                          {"RIGHTS",                  etRight},
                          {"SEASON_TYPES",            etSeasonType},
                          {"SEAT_ALGO_TYPES",         etSeatAlgoType},
+                         {"SELF_CKIN_SET_TYPES",     etMiscSetType},
                          {"SELF_CKIN_TYPES",         etClientType},
                          {"STATION_MODES",           etStationMode},
                          {"SUBCLS",                  etSubcls},

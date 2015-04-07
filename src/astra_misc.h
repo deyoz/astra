@@ -300,10 +300,19 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsAutoWeighing=20,              //Контроль автоматического взвешивания багажа
                     tsFreeSeating=23,               //Свободная рассадка
                     tsAPISControl=24,               //Контроль данных APIS
-                    tsAPISManualInput=25            //Ручной ввод данных APIS
+                    tsAPISManualInput=25,           //Ручной ввод данных APIS
+                    /*привязанные к рейсу по залам*/
+                    tsBrdWithReg=101,               //Посадка при регистрации
+                    tsExamWithBrd=102,              //Досмотр при посадке
+                    /*не привязанные к рейсу для саморегистрации*/
+                    tsRegWithSeatChoice=201         //Запрет регистрации без выбора места
                   };
 
-bool GetTripSets( const TTripSetType setType, const TTripInfo &info );
+bool GetTripSets( const TTripSetType setType,
+                  const TTripInfo &info );
+bool GetSelfCkinSets( const TTripSetType setType,
+                      const TTripInfo &info,
+                      const ASTRA::TClientType client_type );
 
 class TPnrAddrItem
 {

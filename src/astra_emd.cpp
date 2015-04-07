@@ -87,11 +87,11 @@ EmdTicket::EmdTicket(DocType docType, const TicketNum_t &tickNum, TickStatAction
 {
 }
 
-EmdTicket EmdTicket::makeEmdSTicket(const TicketNum_t& tickNum, const TicketNum_t& tickNumConnect,
+EmdTicket EmdTicket::makeEmdSTicket(const TicketNum_t& tickNum,
+                                    const boost::optional<TicketNum_t>& tickNumConnect,
                                     TickStatAction::TickStatAction_t tac)
 {
     EmdTicket tick(DocType::EmdS, tickNum, tac);
-    ASSERT(!tickNumConnect.empty());
     tick.tickNumConnect_ = tickNumConnect;
     return tick;
 }

@@ -56,13 +56,42 @@ bool get_et_addr_set(const std::string &airline,
 
 std::string get_canon_name(const std::string& edi_addr);
 
+void copy_notify_levb(const int src_edi_sess_id,
+                      const int dest_edi_sess_id,
+                      const bool err_if_not_found);
 void confirm_notify_levb(const int edi_sess_id, const bool err_if_not_found);
 std::string make_xml_kick(const edifact::KickInfo &kickInfo);
+edifact::KickInfo createKickInfo(const int v_reqCtxtId,
+                                 const std::string &v_iface);
+
 void addToEdiResponseCtxt(const int ctxtId,
                           const xmlNodePtr srcNode,
                           const std::string &destNodeName);
 
+void getEdiResponseCtxt(const int ctxtId,
+                        const bool clear,
+                        const std::string &where,
+                        std::string &context);
+
+void getEdiResponseCtxt(const int ctxtId,
+                        const bool clear,
+                        const std::string &where,
+                        XMLDoc &xmlCtxt);
+
+void getTermRequestCtxt(const int ctxtId,
+                        const bool clear,
+                        const std::string &where,
+                        XMLDoc &xmlCtxt);
+
 void cleanOldRecords(const int min_ago);
+
+void ProcEdiError(const AstraLocale::LexemaData &error,
+                  const xmlNodePtr errorCtxtNode,
+                  const bool isGlobal);
+typedef std::list< std::pair<AstraLocale::LexemaData, bool> > EdiErrorList;
+
+void GetEdiError(const xmlNodePtr errorCtxtNode,
+                 EdiErrorList &errors);
 
 } //namespace AstraEdifact
 

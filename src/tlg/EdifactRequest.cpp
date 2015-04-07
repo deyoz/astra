@@ -33,6 +33,39 @@ using namespace EXCEPTIONS;
 using namespace TlgHandling;
 using namespace Ticketing;
 
+const KickInfo& KickInfo::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+
+  xmlNodePtr kickInfoNode=NewTextChild(node,"kick_info");
+  reqCtxtId==ASTRA::NoExists?NewTextChild(kickInfoNode, "req_ctxt_id"):
+                             NewTextChild(kickInfoNode, "req_ctxt_id", reqCtxtId);
+  NewTextChild(kickInfoNode, "iface", iface);
+  NewTextChild(kickInfoNode, "handle", handle);
+  parentSessId==ASTRA::NoExists?NewTextChild(kickInfoNode, "parent_sess_id"):
+                                NewTextChild(kickInfoNode, "parent_sess_id", parentSessId);
+  NewTextChild(kickInfoNode, "int_msg_id", msgId);
+  NewTextChild(kickInfoNode, "desk", desk);
+  return *this;
+}
+
+KickInfo& KickInfo::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr kickInfoNode=GetNode("kick_info",node);
+  if (kickInfoNode==NULL) return *this;
+  if (!NodeIsNULL("req_ctxt_id", kickInfoNode))
+    reqCtxtId=NodeAsInteger("req_ctxt_id", kickInfoNode);
+  iface=NodeAsString("iface", kickInfoNode);
+  handle=NodeAsString("handle", kickInfoNode);
+  if (!NodeIsNULL("parent_sess_id", kickInfoNode))
+    parentSessId=NodeAsInteger("parent_sess_id", kickInfoNode);
+  msgId=NodeAsString("int_msg_id", kickInfoNode);
+  desk=NodeAsString("desk", kickInfoNode);
+  return *this;
+}
+
 EdifactRequest::EdifactRequest(const std::string &pult,
                                const std::string& ctxt,
                                const KickInfo &v_kickInfo,
@@ -82,7 +115,8 @@ void EdifactRequest::sendTlg()
                                    ediSessId(),
                                    sysCont()->edifactResponseTimeOut());
 
-    RemoteResults::add(kickInfo().empty()?"":ediSess()->ediSession()->pult(), //правильно ли закладываться на kickInfo().empty() ?
+    RemoteResults::add(kickInfo().msgId,
+                       kickInfo().desk,
                        ediSess()->ediSession()->ida(),
                        sysCont()->ida());
 

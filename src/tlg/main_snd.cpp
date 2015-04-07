@@ -146,10 +146,9 @@ bool scan_tlg(bool sendOutAStepByStep)
     TlgQry.Clear();
     TlgQry.SQLText=
       "SELECT tlg_queue.id,tlg_queue.tlg_num,tlg_queue.receiver,tlg_queue.priority, "
-      "       tlg_queue.time,tlg_queue.last_send,ttl,tlgs.tlg_text,ip_address,ip_port "
-      "FROM tlgs,tlg_queue,rot "
-      "WHERE tlg_queue.id=tlgs.id AND "
-      "      tlg_queue.receiver=rot.canon_name(+) AND tlg_queue.sender=rot.own_canon_name(+) AND "
+      "       tlg_queue.time,tlg_queue.last_send,ttl,ip_address,ip_port "
+      "FROM tlg_queue,rot "
+      "WHERE tlg_queue.receiver=rot.canon_name(+) AND tlg_queue.sender=rot.own_canon_name(+) AND "
       "      tlg_queue.sender=:sender AND "
       "      tlg_queue.type IN ('OUTA','OUTB') AND tlg_queue.status='PUT' "
       "ORDER BY tlg_queue.priority, tlg_queue.time_msec, tlg_queue.tlg_num";
@@ -226,7 +225,7 @@ bool scan_tlg(bool sendOutAStepByStep)
         tlg_out.Receiver[5]=0;
         strncpy(tlg_out.Sender,OWN_CANON_NAME(),5);
         strncpy(tlg_out.Receiver,TlgQry.FieldAsString("receiver"),5);
-        string text=getTlgText(tlg_id, TlgQry);
+        string text=getTlgText(tlg_id);
         if (text.size()>sizeof(tlg_out.body)) throw Exception("Telegram too long");
         memcpy(tlg_out.body, text.c_str(), text.size());
         len=text.size();

@@ -739,6 +739,7 @@ void TMItem::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 
 struct TFTLPax;
 struct TETLPax;
+struct TASLPax;
 
 struct TName {
     string surname;
@@ -996,6 +997,7 @@ namespace PRL_SPACE {
             vector<string> items;
             void get(TypeB::TDetailCreateInfo &info, TFTLPax &pax);
             void get(TypeB::TDetailCreateInfo &info, TETLPax &pax);
+            void get(TypeB::TDetailCreateInfo &info, TASLPax &pax);
             void get(TypeB::TDetailCreateInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers);
             void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
             TRemList(TInfants *ainfants): infants(ainfants) {};
@@ -4215,6 +4217,27 @@ void TName::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, string p
     body.push_back(result);
 }
 
+struct TASLPax {
+    string target;
+    int cls_grp_id;
+    TName name;
+    int pnr_id;
+    string crs;
+    int pax_id;
+    string ticket_no;
+    int coupon_no;
+    int grp_id;
+    TPNRListAddressee pnrs;
+    TMItem M;
+    TRemList rems;
+    TASLPax(TInfants *ainfants): rems(ainfants) {
+        cls_grp_id = NoExists;
+        pnr_id = NoExists;
+        pax_id = NoExists;
+        grp_id = NoExists;
+    }
+};
+
 struct TETLPax {
     string target;
     int cls_grp_id;
@@ -4237,6 +4260,27 @@ struct TETLPax {
         bag_pool_num = NoExists;
     }
 };
+
+void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
+{
+    CheckIn::TPaxRemItem rem;
+
+    vector<CheckIn::TPaxASVCItem> asvc;
+    LoadPaxASVC(pax.pax_id, asvc);
+    if(not asvc.empty()) {
+        //билет
+        CheckIn::TPaxTknItem tkn;
+        LoadPaxTkn(pax.pax_id, tkn);
+        if (tkn.rem == "TKNE" and getPaxRem(info, tkn, false, rem)) items.push_back(rem.text);
+        for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
+            if(infRow->grp_id == pax.grp_id and infRow->parent_pax_id == pax.pax_id) {
+                LoadPaxTkn(infRow->pax_id, tkn);
+                if (tkn.rem == "TKNE" and getPaxRem(info, tkn, true, rem)) items.push_back(rem.text);
+            }
+        }
+        getPaxRem(info, asvc, items);
+    }
+}
 
 void TRemList::get(TypeB::TDetailCreateInfo &info, TETLPax &pax)
 {
@@ -4291,6 +4335,22 @@ bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxTknItem &tkn, 
   rem.text=text.str();
   rem.calcPriority();
   return true;
+};
+
+void getPaxRem(TypeB::TDetailCreateInfo &info, const vector<CheckIn::TPaxASVCItem> &asvc, vector<string> &items)
+{
+    for(vector<CheckIn::TPaxASVCItem>::const_iterator iv = asvc.begin(); iv != asvc.end(); iv++) {
+        ostringstream text;
+        text << "ASVC HI1 "; // Вообще говоря, возможно надо выводить все статусы, но в данный момент в pax_asvc только ремарки со статусом HI
+        text << iv->RFIC << "/" << iv->RFISC << "/";
+        if(IsAscii7(iv->ssr_code)) text << iv->ssr_code << "/"; // лат
+        text
+            << transliter(iv->service_name, 1, info.is_lat()) << "/"
+            << iv->emd_type << "/" // Вообще говоря, возможно надо выводить тип S, но в данный момент в pax_asvc только статус A
+            << iv->emd_no
+            << "C" << iv->emd_coupon;
+        items.push_back(text.str());
+    }
 };
 
 bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocItem &doc, bool inf_indicator, CheckIn::TPaxRemItem &rem)
@@ -4681,6 +4741,20 @@ void TFTLBody::get(TypeB::TDetailCreateInfo &info)
     }
 };
 
+struct TASLDest {
+    string airp;
+    string cls;
+    vector<TASLPax> PaxList;
+    TGRPMap *grp_map;
+    TInfants *infants;
+    TASLDest(TGRPMap *agrp_map, TInfants *ainfants) {
+        grp_map = agrp_map;
+        infants = ainfants;
+    }
+    void GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> &complayers);
+    void PaxListToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
+};
+
 struct TETLDest {
     string airp;
     string cls;
@@ -4694,6 +4768,93 @@ struct TETLDest {
     void GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> &complayers);
     void PaxListToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
+
+void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers)
+{
+    const TypeB::TMarkInfoOptions &markOptions=*(info.optionsAs<TypeB::TMarkInfoOptions>());
+
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "    pax_grp.airp_arv target, "
+        "    cls_grp.id cls, "
+        "    system.transliter(pax.surname, 1, :pr_lat) surname, "
+        "    system.transliter(pax.name, 1, :pr_lat) name, "
+        "    crs_pnr.pnr_id, "
+        "    crs_pnr.sender crs, "
+        "    pax.pax_id, "
+        "    pax.ticket_no, "
+        "    pax.coupon_no, "
+        "    pax.grp_id, "
+        "    pax.bag_pool_num "
+        "from "
+        "    pax, "
+        "    pax_grp, "
+        "    cls_grp, "
+        "    crs_pax, "
+        "    crs_pnr "
+        "WHERE "
+        "    pax_grp.point_dep = :point_id and "
+        "    pax_grp.status NOT IN ('E') AND "
+        "    pax_grp.airp_arv = :airp and "
+        "    pax_grp.grp_id=pax.grp_id AND "
+        "    pax_grp.class_grp = cls_grp.id(+) AND "
+        "    cls_grp.code = :class and "
+        "    pax.pr_brd = 1 and "
+        "    pax.seats>0 and "
+        "    pax.pax_id = crs_pax.pax_id(+) and "
+        "    crs_pax.pr_del(+)=0 and "
+        "    crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+        "    pax.ticket_rem = 'TKNE' "
+        "order by "
+        "    target, "
+        "    cls, "
+        "    surname, "
+        "    name nulls first, "
+        "    pax.pax_id ";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.CreateVariable("airp", otString, airp);
+    Qry.CreateVariable("class", otString, cls);
+    Qry.CreateVariable("pr_lat", otInteger, info.is_lat());
+    Qry.Execute();
+    if(!Qry.Eof) {
+        int col_target = Qry.FieldIndex("target");
+        int col_cls = Qry.FieldIndex("cls");
+        int col_surname = Qry.FieldIndex("surname");
+        int col_name = Qry.FieldIndex("name");
+        int col_pnr_id = Qry.FieldIndex("pnr_id");
+        int col_crs = Qry.FieldIndex("crs");
+        int col_pax_id = Qry.FieldIndex("pax_id");
+        int col_ticket_no = Qry.FieldIndex("ticket_no");
+        int col_coupon_no = Qry.FieldIndex("coupon_no");
+        int col_grp_id = Qry.FieldIndex("grp_id");
+        for(; !Qry.Eof; Qry.Next()) {
+            TASLPax pax(infants);
+            pax.target = Qry.FieldAsString(col_target);
+            if(!Qry.FieldIsNULL(col_cls))
+                pax.cls_grp_id = Qry.FieldAsInteger(col_cls);
+            pax.name.surname = Qry.FieldAsString(col_surname);
+            pax.name.name = Qry.FieldAsString(col_name);
+            if(!Qry.FieldIsNULL(col_pnr_id))
+                pax.pnr_id = Qry.FieldAsInteger(col_pnr_id);
+            pax.crs = Qry.FieldAsString(col_crs);
+            if(not markOptions.crs.empty() and markOptions.crs != pax.crs)
+                continue;
+            pax.pax_id = Qry.FieldAsInteger(col_pax_id);
+            pax.M.get(info, pax.pax_id);
+            if(not markOptions.mark_info.empty() and not(pax.M.m_flight == markOptions.mark_info))
+                continue;
+            pax.ticket_no = Qry.FieldAsString(col_ticket_no);
+            pax.coupon_no = Qry.FieldAsInteger(col_coupon_no);
+            pax.grp_id = Qry.FieldAsInteger(col_grp_id);
+            pax.pnrs.get(pax.pnr_id);
+            pax.rems.get(info, pax);
+            if(pax.rems.items.empty())
+                continue;
+            PaxList.push_back(pax);
+        }
+    }
+}
 
 void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers)
 {
@@ -4781,6 +4942,15 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
             grp_map->get(pax.grp_id, pax.bag_pool_num);
             PaxList.push_back(pax);
         }
+    }
+}
+
+void TASLDest::PaxListToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
+{
+    for(vector<TASLPax>::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
+        iv->name.ToTlg(info, body);
+        iv->pnrs.ToTlg(info, body);
+        iv->rems.ToTlg(info, body);
     }
 }
 
@@ -6282,6 +6452,41 @@ int ETL(TypeB::TDetailCreateInfo &info)
     return tlg_row.id;
 }
 
+int ASL(TypeB::TDetailCreateInfo &info)
+{
+    TTlgDraft tlg_draft(info);
+    TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
+    ostringstream heading;
+    heading << "ASL" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
+    tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
+    tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
+    size_t part_len = tlg_row.textSize();
+    vector<string> body;
+    try {
+        TETLCFG cfg;
+        cfg.get(info.point_id);
+        cfg.ToTlg(info, body);
+        if(info.act_local != NoExists) {
+            body.push_back("ATD/" + DateTimeToStr(info.act_local, "ddhhnn"));
+        }
+
+        vector<TTlgCompLayer> complayers;
+        TDestList<TASLDest> dests;
+        dests.get(info,complayers);
+        dests.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
+    split_n_save(heading, part_len, tlg_draft, tlg_row, body);
+    tlg_row.ending = "ENDASL" + TypeB::endl;
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
+    return tlg_row.id;
+}
+
 int PNL(TypeB::TDetailCreateInfo &info)
 {
   TypeB::TPNLADLOptions *forwarderOptions=NULL;
@@ -6292,7 +6497,7 @@ int PNL(TypeB::TDetailCreateInfo &info)
   if (forwarderOptions->typeb_in_id==NoExists ||
       forwarderOptions->typeb_in_num==NoExists) throw Exception("%s: forwarderOptions not defined", __FUNCTION__);
 
-  TCachedQuery Qry("SELECT heading, body, ending FROM tlgs_in WHERE id=:tlg_id AND num=:tlg_num",
+  TCachedQuery Qry("SELECT heading, ending FROM tlgs_in WHERE id=:tlg_id AND num=:tlg_num",
                    QParams() << QParam("tlg_id", otInteger, forwarderOptions->typeb_in_id)
                              << QParam("tlg_num", otInteger, forwarderOptions->typeb_in_num));
   Qry.get().Execute();
@@ -6340,8 +6545,7 @@ int PNL(TypeB::TDetailCreateInfo &info)
       heading << "ANA/" << DCSHeadingInfo->association_number << TypeB::endl;
     tlg_row.heading = heading.str();
     tlg_row.body = getTypeBBody(forwarderOptions->typeb_in_id,
-                                forwarderOptions->typeb_in_num,
-                                Qry.get());
+                                forwarderOptions->typeb_in_num);
     if (tlg_row.body.size()>4000) throw UserException("MSG.TLG.VERY_BIG_FOR_FORWARDING");
     tlg_row.ending = Qry.get().FieldAsString("ending");
 
@@ -7492,6 +7696,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     else if(tlgTypeInfo.basic_type == "PIL") vid = PIL(info);
     else if(tlgTypeInfo.basic_type == "PFS") vid = PFS(info);
     else if(tlgTypeInfo.basic_type == "ETL") vid = ETL(info);
+    else if(tlgTypeInfo.basic_type == "ASL") vid = ASL(info);
     else if(tlgTypeInfo.basic_type == "FTL") vid = FTL(info);
     else if(tlgTypeInfo.basic_type == "COM") vid = COM(info);
     else if(tlgTypeInfo.basic_type == "SOM") vid = SOM(info);

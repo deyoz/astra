@@ -1,4 +1,6 @@
 src/EdiTimeOutsDaemon.cc
+src/TypeBHelpMng.cpp
+src/TypeBHelpMng.h
 src/access.cc
 src/access.h
 src/adm.cc

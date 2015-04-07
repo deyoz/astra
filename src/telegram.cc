@@ -526,8 +526,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
                "   tlgs_in.num, \n"
                "   tlgs_in.type, \n"
                "   tlgs_in.addr, \n"
-               "   tlgs_in.heading, \n"
-               "   tlgs_in.body, \n"
+               "   tlgs_in.heading, \n"               
                "   tlgs_in.ending, \n"
                "   tlgs_in.time_receive, \n"
                "   tlgs_in.is_final_part, \n"
@@ -607,8 +606,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
                  "   1 AS num, \n"
                  "   NULL AS type, \n"
                  "   NULL AS addr, \n"
-                 "   NULL AS heading, \n"
-                 "   tlg_text, \n"
+                 "   NULL AS heading, \n"                 
                  "   NULL AS ending, \n"
                  "   time AS time_receive \n"
                  "FROM tlgs \n"
@@ -646,13 +644,13 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
               {
                 tlg.is_final_part = Qry.FieldAsInteger("is_final_part")!=0;
                 tlg.is_history = not Qry.FieldIsNULL("prev_tlg_id");
-                tlg.draft.body = getTypeBBody(tlg.id, tlg.num, Qry);
+                tlg.draft.body = getTypeBBody(tlg.id, tlg.num);
               }
               else
               {
                 tlg.is_final_part = false;
                 tlg.is_history = false;
-                tlg.draft.body = getTlgText(tlg.id, Qry);
+                tlg.draft.body = getTlgText(tlg.id);
               };
               tlgs.push_back(tlg);
           };
@@ -721,8 +719,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     " tlgs_in.num, "
     " tlgs_in.type, "
     " tlgs_in.addr, "
-    " tlgs_in.heading, "
-    " tlgs_in.body, "
+    " tlgs_in.heading, "    
     " tlgs_in.ending, "
     " tlgs_in.time_receive, "
     " tlgs_in.is_final_part, "
@@ -749,7 +746,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       tlg.time_receive = UTCToClient( Qry.FieldAsDateTime("time_receive"), tz_region );
       tlg.is_final_part = Qry.FieldAsInteger("is_final_part")!=0;
       tlg.is_history = not Qry.FieldIsNULL("prev_tlg_id");
-      tlg.draft.body = getTypeBBody(tlg.id, tlg.num, Qry);
+      tlg.draft.body = getTypeBBody(tlg.id, tlg.num);
       tlgs.push_back(tlg);
   };
 

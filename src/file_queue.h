@@ -151,4 +151,6 @@ class TFileQueue: public std::vector<TQueueItem> {
     }
 };
 
+int file_by_id(int argc,char **argv);
+
 #endif /*_FILE_QUEUE_H_*/

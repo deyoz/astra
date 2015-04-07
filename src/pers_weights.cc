@@ -9,6 +9,8 @@
 #include "term_version.h"
 #include "pers_weights.h"
 #include "points.h"
+#include "events.h"
+#include "qrys.h"
 
 #include "serverlib/perfom.h"
 
@@ -130,7 +132,7 @@ void TPersWeights::getRules( const BASIC::TDateTime &scd_utc, const std::string 
             ( p->craft.empty() || p->craft == craft ) ) )
       continue;
     ProgTrace( TRACE5, "id=%d", p->id );
-    
+
     int priority = 0;
     priority += ( !bort.empty() && p->bort == bort )*equal_bort;
     priority += ( !airline.empty() && p->airline == airline )*equal_airline;
@@ -388,7 +390,7 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
   Qry.SQLText =
     "SELECT NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) unnacomp_bag "
     " FROM pax_grp "
-	  " WHERE point_dep=:point_dep AND class IS NULL AND pax_grp.status NOT IN ('E')";
+      " WHERE point_dep=:point_dep AND class IS NULL AND pax_grp.status NOT IN ('E')";
   Qry.CreateVariable( "point_dep", otInteger, point_id );
   Qry.Execute();
   if ( !Qry.Eof )
@@ -400,14 +402,14 @@ int getCommerceWeight( int point_id, TTypeFlightWeight weight_type, TTypeCalcCom
   PersWeightRules r;
   ClassesPersWeight weight;
   r.read( point_id );
-	TFlightWeights w;
-	w.read( point_id, weight_type, true );
-	TPointsDest dest;
-	BitSet<TUseDestData> UseData;
-	UseData.setFlag( udCargo );
-	if ( calc_type == CWResidual )
-	  UseData.setFlag( udMaxCommerce );
-	dest.Load( point_id, UseData );
+    TFlightWeights w;
+    w.read( point_id, weight_type, true );
+    TPointsDest dest;
+    BitSet<TUseDestData> UseData;
+    UseData.setFlag( udCargo );
+    if ( calc_type == CWResidual )
+      UseData.setFlag( udMaxCommerce );
+    dest.Load( point_id, UseData );
   TFlightCargos cargos;
   //cargos.Load( point_id, dest.pr_tranzit, dest.first_point, dest.point_num, dest.pr_del ); //  dest.pr_del == 1 ???
   std::vector<TPointsDestCargo> cargs;
@@ -432,4 +434,280 @@ int getCommerceWeight( int point_id, TTypeFlightWeight weight_type, TTypeCalcCom
   else
     return dest.max_commerce.GetValue() - weight_cargos;
 }
+
+struct TStatBySubclsKey
+{
+  string subcl, cl;
+  TStatBySubclsKey(const string &p1,
+                   const string &p2): subcl(p1), cl(p2) {};
+  bool operator < (const TStatBySubclsKey &item) const
+  {
+    if (subcl!=item.subcl)
+      return subcl<item.subcl;
+    return cl<item.cl;
+  };
+  bool operator == (const TStatBySubclsKey &item) const
+  {
+    return subcl==item.subcl &&
+           cl==item.cl;
+  };
+};
+struct TStatBySubclsItem
+{
+  int male, female, child, infant, bag_weight, rk_weight;
+  TStatBySubclsItem(): male(0), female(0), child(0), infant(0), bag_weight(0), rk_weight(0) {};
+  bool operator == (const TStatBySubclsItem &item) const
+  {
+    return male==item.male &&
+           female==item.female &&
+           child==item.child &&
+           infant==item.infant &&
+           bag_weight==item.bag_weight &&
+           rk_weight==item.rk_weight;
+  };
+};
+
+void recountBySubcls(int point_id,
+                     const TGrpToLogInfo &grpInfoBefore,
+                     const TGrpToLogInfo &grpInfoAfter)
+{
+  map<TStatBySubclsKey, TStatBySubclsItem> stat;
+  for(int pass=0; pass<2; pass++)
+  {
+    map<TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator p=(pass==0?grpInfoBefore.pax.begin():
+                                                                    grpInfoAfter.pax.begin());
+    int sign=pass==0?-1:+1;
+    for(;p!=(pass==0?grpInfoBefore.pax.end():grpInfoAfter.pax.end()); ++p)
+    {
+      const TPaxToLogInfo &pax=p->second;
+      if (!pax.refuse.empty()) continue;
+      if (DecodePaxStatus(pax.status.c_str())==psCrew) continue;
+      map<TStatBySubclsKey, TStatBySubclsItem>::iterator i=
+        stat.insert(make_pair(TStatBySubclsKey(pax.subcl, pax.cl), TStatBySubclsItem())).first;
+      if (i==stat.end()) throw Exception("%s: i==stat.end()", __FUNCTION__);
+      switch(DecodePerson(pax.pers_type.c_str()))
+      {
+        case adult:
+          if (pax.is_female==NoExists || pax.is_female==0)
+            i->second.male+=sign;
+          else
+            i->second.female+=sign;
+          break;
+        case child:
+          i->second.child+=sign;
+          break;
+        case baby:
+          i->second.infant+=sign;
+          break;
+        default:
+          break;
+      };
+      i->second.bag_weight+=sign*pax.bag_weight;
+      i->second.rk_weight+=sign*pax.rk_weight;
+    };
+  };
+
+  TCachedQuery Qry("BEGIN "
+                   "  UPDATE counters_by_subcls "
+                   "  SET male=male+:male, female=female+:female, "
+                   "      child=child+:child, infant=infant+:infant, "
+                   "      bag_weight=bag_weight+:bag_weight, rk_weight=rk_weight+:rk_weight "
+                   "  WHERE point_id=:point_id AND "
+                   "        (subclass IS NULL AND :subclass IS NULL OR subclass=:subclass) AND "
+                   "        (class IS NULL AND :class IS NULL OR class=:class); "
+                   "  IF SQL%NOTFOUND THEN "
+                   "    INSERT INTO counters_by_subcls(point_id, subclass, class, male, female, child, infant, bag_weight, rk_weight) "
+                   "    VALUES(:point_id, :subclass, :class, :male, :female, :child, :infant, :bag_weight, :rk_weight); "
+                   "  END IF; "
+                   "END; ",
+                   QParams() << QParam("point_id", otInteger, point_id)
+                             << QParam("subclass", otString)
+                             << QParam("class", otString)
+                             << QParam("male", otInteger)
+                             << QParam("female", otInteger)
+                             << QParam("child", otInteger)
+                             << QParam("infant", otInteger)
+                             << QParam("bag_weight", otInteger)
+                             << QParam("rk_weight", otInteger));
+
+
+  for(map<TStatBySubclsKey, TStatBySubclsItem>::const_iterator i=stat.begin(); i!=stat.end(); ++i)
+  {
+    Qry.get().SetVariable("subclass", i->first.subcl);
+    Qry.get().SetVariable("class", i->first.cl);
+    Qry.get().SetVariable("male", i->second.male);
+    Qry.get().SetVariable("female", i->second.female);
+    Qry.get().SetVariable("child", i->second.child);
+    Qry.get().SetVariable("infant", i->second.infant);
+    Qry.get().SetVariable("bag_weight", i->second.bag_weight);
+    Qry.get().SetVariable("rk_weight", i->second.rk_weight);
+    Qry.get().Execute();
+  };
+}
+
+void recountBySubcls(int point_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  DELETE FROM counters_by_subcls WHERE point_id=:point_id; "
+    "  INSERT INTO counters_by_subcls(point_id, class, subclass, male, female, child, infant, rk_weight, bag_weight)"
+    "  SELECT :point_id, class, subclass, "
+    "         NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS male, "
+    "         NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS female, "
+    "         NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS child, "
+    "         NVL(SUM(DECODE(pax.pers_type,:inf,1,0)),0) AS infant, "
+    "         NVL(SUM(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) rk_weight,"
+    "         NVL(SUM(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) bag_weight"
+    "  FROM pax_grp, pax "
+    "  WHERE pax_grp.grp_id=pax.grp_id AND "
+    "        pr_brd IS NOT NULL AND "
+    "        point_dep=:point_id AND "
+    "        pax_grp.status NOT IN ('E') "
+    "  GROUP BY class, subclass "
+    "  UNION "
+    "  SELECT :point_id, class, NULL, 0, 0, 0, 0, "
+    "         NVL(SUM(ckin.get_rkWeight2(grp_id,NULL,NULL,rownum)),0) rk_weight, "
+    "         NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) bag_weight "
+    "  FROM pax_grp "
+    "  WHERE point_dep=:point_id AND class IS NULL AND pax_grp.status NOT IN ('E') AND bag_refuse=0 "
+    "  GROUP BY class; "
+    "END;";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "adl", otString, string(EncodePerson( ASTRA::adult )) );
+  Qry.CreateVariable( "chd", otString, string(EncodePerson( ASTRA::child )) );
+  Qry.CreateVariable( "inf", otString, string(EncodePerson( ASTRA::baby )) );
+  Qry.Execute();
+}
+
+//!!! потом удалить check_counters_by_subcls и alter_wait2
+
+void alter_wait2(int processed, bool commit_before_sleep=false, int work_secs=5, int sleep_secs=5)
+{
+  static time_t start_time=time(NULL);
+  if (time(NULL)-start_time>=work_secs)
+  {
+    if (commit_before_sleep) OraSession.Commit();
+    printf("%d iterations processed. sleep...", processed);
+    fflush(stdout);
+    sleep(sleep_secs);
+    printf("go!\n");
+    start_time=time(NULL);
+  };
+};
+
+int check_counters_by_subcls(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT point_id AS max_point_id FROM last_processed_point_id";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("max_point_id"))
+  {
+    Qry.Clear();
+    Qry.SQLText="SELECT max(point_id) AS max_point_id FROM points";
+    Qry.Execute();
+    if (Qry.Eof || Qry.FieldIsNULL("max_point_id")) return 0;
+  };
+  int max_point_id=Qry.FieldAsInteger("max_point_id");
+
+  Qry.Clear();
+  Qry.SQLText="SELECT min(point_id) AS min_point_id FROM points";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("min_point_id")) return 0;
+  int min_point_id=Qry.FieldAsInteger("min_point_id");
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT point_id FROM points "
+    "WHERE point_id>:low_point_id AND point_id<=:high_point_id AND "
+    "      pr_reg<>0 AND pr_del>=0 ";
+  Qry.DeclareVariable("low_point_id", otInteger);
+  Qry.DeclareVariable("high_point_id", otInteger);
+
+  TQuery UpdQry(&OraSession);
+  UpdQry.Clear();
+  UpdQry.SQLText="UPDATE last_processed_point_id SET point_id=:point_id";
+  UpdQry.DeclareVariable("point_id", otInteger);
+
+  TQuery CountersQry(&OraSession);
+  CountersQry.Clear();
+  CountersQry.SQLText="SELECT * FROM counters_by_subcls WHERE point_id=:point_id";
+  CountersQry.DeclareVariable("point_id", otInteger);
+
+
+  int processed=0;
+  for(int curr_point_id=max_point_id; curr_point_id>=min_point_id; curr_point_id-=50000)
+  {
+    Qry.SetVariable("low_point_id", curr_point_id-50000);
+    Qry.SetVariable("high_point_id", curr_point_id);
+    Qry.Execute();
+    list<int> point_ids;
+    for(;!Qry.Eof;Qry.Next()) point_ids.push_back(Qry.FieldAsInteger("point_id"));
+    Qry.Close();
+
+    printf("processed range: (%d; %d] count=%zu\n", curr_point_id-50000, curr_point_id, point_ids.size());
+
+    for(list<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
+    {
+      try
+      {
+        TFlights fligths;
+        fligths.Get( *i, ftTranzit );
+        fligths.Lock();
+
+        map<TStatBySubclsKey, TStatBySubclsItem> stat0;
+        map<TStatBySubclsKey, TStatBySubclsItem> stat1;
+        for(int pass=0; pass<2; pass++)
+        {
+          if (pass==1) recountBySubcls(*i);
+          CountersQry.SetVariable("point_id", *i);
+          CountersQry.Execute();
+          for(; !CountersQry.Eof; CountersQry.Next())
+          {
+            TStatBySubclsKey key(CountersQry.FieldAsString("subclass"),
+                                 CountersQry.FieldAsString("class"));
+            TStatBySubclsItem item;
+            item.male=CountersQry.FieldAsInteger("male");
+            item.female=CountersQry.FieldAsInteger("female");
+            item.child=CountersQry.FieldAsInteger("child");
+            item.infant=CountersQry.FieldAsInteger("infant");
+            item.bag_weight=CountersQry.FieldAsInteger("bag_weight");
+            item.rk_weight=CountersQry.FieldAsInteger("rk_weight");
+            if (item==TStatBySubclsItem()) continue;
+            if (pass==0)
+              stat0.insert(make_pair(key, item));
+            else
+              stat1.insert(make_pair(key, item));
+          };
+        };
+        OraSession.Rollback();
+
+        if (!(stat0==stat1))
+        {
+          printf("wrong counters! point_id=%d\n", *i);
+          ProgError(STDLOG, "wrong counters! point_id=%d", *i);
+        };
+
+        UpdQry.SetVariable("point_id", *i);
+        UpdQry.Execute();
+        OraSession.Commit();
+
+        alter_wait2(processed++/*, false, 9, 1*/);
+      }
+      catch(...)
+      {
+        OraSession.Rollback();
+        printf("error! point_id=%d\n", *i);
+        ProgError(STDLOG, "error! point_id=%d", *i);
+        throw;
+      };
+    };
+
+  };
+  return 0;
+}
+
+
 

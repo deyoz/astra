@@ -76,12 +76,10 @@ enum TTlgQueuePriority { qpOutA=1, qpOutAStepByStep=3, qpOutB=2 };
 
 int getNextTlgNum();
 void putTypeBBody(int tlg_id, int tlg_num, const std::string &tlg_body);
-std::string getTypeBBody(int tlg_id, int tlg_num,
-                         TQuery &Qry); //!!! потом Qry убрать
+std::string getTypeBBody(int tlg_id, int tlg_num);
 
 void putTlgText(int tlg_id, const std::string &tlg_text);
-std::string getTlgText(int tlg_id,
-                       TQuery &Qry); //!!! потом Qry убрать
+std::string getTlgText(int tlg_id);
 
 bool deleteTlg(int tlg_id);
 bool errorTlg(int tlg_id, const std::string &type, const std::string &msg="");

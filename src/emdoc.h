@@ -160,14 +160,6 @@ class TEMDocItem
                        const bool lock);
 };
 
-void ProcEdiError(const AstraLocale::LexemaData &error,
-                  const xmlNodePtr errorCtxtNode,
-                  const bool isGlobal);
-typedef std::list< std::pair<AstraLocale::LexemaData, bool> > EdiErrorList;
-
-void GetEdiError(const xmlNodePtr errorCtxtNode,
-                 EdiErrorList &errors);
-
 void ProcEdiEvent(const TLogLocale &event,
                   const TEdiCtxtItem &ctxt,
                   const xmlNodePtr eventCtxtNode,
