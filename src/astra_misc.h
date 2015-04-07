@@ -301,6 +301,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsFreeSeating=23,               //Свободная рассадка
                     tsAPISControl=24,               //Контроль данных APIS
                     tsAPISManualInput=25,           //Ручной ввод данных APIS
+                    tsAODBCreateFlight=26,           //Создание рейсов из AODB
                     /*привязанные к рейсу по залам*/
                     tsBrdWithReg=101,               //Посадка при регистрации
                     tsExamWithBrd=102,              //Досмотр при посадке

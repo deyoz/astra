@@ -1454,7 +1454,11 @@ try {
   TFndFlts pflts;
   int move_id, point_id;
   bool pr_insert = !findFlt( fl.airline, fl.flt_no, fl.suffix, local_scd_out, airp, false, pflts );
-  if ( pr_insert ) {
+  TTripInfo info;
+  info.airline =  fl.airline;
+  info.airp = airp;
+  info.flt_no = fl.flt_no;
+  if ( pr_insert && !GetTripSets( tsAODBCreateFlight, info ) ) {
     ProgTrace( TRACE5, "ParseFlight: new flight - return" );
     return;
   }
