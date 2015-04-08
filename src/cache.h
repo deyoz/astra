@@ -41,6 +41,61 @@ enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
 enum TCacheElemCategory {cecNone, cecCode, cecNameShort, cecName, cecRoleName, cecUserName, cecUserPerms};
 
+extern const char * CacheFieldTypeS[NumFieldType];
+
+const
+  struct
+  {
+    const char* CacheCode;
+    TElemType ElemType;
+  } ReferCacheTable[] = {
+                         {"AIRLINES",                etAirline},
+                         {"AIRPS",                   etAirp},
+                         {"BAG_NORM_TYPES",          etBagNormType},
+                         {"BAG_TYPES",               etBagType},
+                         {"CITIES",                  etCity},
+                         {"CKIN_REM_TYPES",          etCkinRemType},
+                         {"CLASSES",                 etClass},
+                         {"CODE4_FMT",               etUserSetType},
+                         {"COUNTRIES",               etCountry},
+                         {"CRAFTS",                  etCraft},
+                         {"CURRENCY",                etCurrency},
+                         {"DESK_GRP",                etDeskGrp},
+                         {"ENCODING_FMT",            etUserSetType},
+                         {"GRAPH_STAGES",            etGraphStage},
+                         {"GRAPH_STAGES_WO_INACTIVE",etGraphStageWOInactive},
+                         {"HALLS",                   etHall},
+                         {"KIOSK_CKIN_DESK_GRP",     etDeskGrp},
+                         {"MISC_SET_TYPES",          etMiscSetType},
+                         {"REM_GRP",                 etRemGrp},
+                         {"RIGHTS",                  etRight},
+                         {"SEASON_TYPES",            etSeasonType},
+                         {"SEAT_ALGO_TYPES",         etSeatAlgoType},
+                         {"SELF_CKIN_SET_TYPES",     etMiscSetType},
+                         {"SELF_CKIN_TYPES",         etClientType},
+                         {"STATION_MODES",           etStationMode},
+                         {"SUBCLS",                  etSubcls},
+                         {"TIME_FMT",                etUserSetType},
+                         {"TRIP_TYPES",              etTripType},
+                         {"TYPEB_LCI_ACTION_CODE",   etTypeBOptionValue},
+                         {"TYPEB_LCI_SEAT_RESTRICT", etTypeBOptionValue},
+                         {"TYPEB_LCI_WEIGHT_AVAIL",  etTypeBOptionValue},
+                         {"TYPEB_LDM_VERSION",       etTypeBOptionValue},
+                         {"TYPEB_PRL_CREATE_POINT",  etTypeBOptionValue},
+                         {"TYPEB_PRL_PAX_STATE",     etTypeBOptionValue},
+                         {"TYPEB_TRANSPORTS_OTHERS", etMsgTransport},
+                         {"TYPEB_TYPES",             etTypeBType},
+                         {"TYPEB_TYPES_ALL",         etTypeBType},
+                         {"TYPEB_TYPES_MARK",        etTypeBType},
+                         {"TYPEB_TYPES_BSM",         etTypeBType},
+                         {"TYPEB_TYPES_LDM",         etTypeBType},
+                         {"TYPEB_TYPES_LCI",         etTypeBType},
+                         {"TYPEB_TYPES_PNL",         etTypeBType},
+                         {"TYPEB_TYPES_PRL",         etTypeBType},
+                         {"USER_TYPES",              etUserType},
+                         {"VALIDATOR_TYPES",         etValidatorType}
+                        };
+
 struct TCacheChildField {
     std::string field_parent, field_child;
     std::string select_var, insert_var, update_var, delete_var;
@@ -180,6 +235,7 @@ class TCacheTable {
         void ApplyUpdates(xmlNodePtr reqNode);
         bool changeIfaceVer();
         std::string code();
+        std::string getSelectSql() { return SelectSQL; }
         int FieldIndex( const std::string name );
         std::string FieldValue( const std::string name, const TRow &row );
         std::string FieldOldValue( const std::string name, const TRow &row );
@@ -196,6 +252,14 @@ class TCacheTable {
 };
 
 std::string get_role_name(int role_id, TQuery &Qry);
+std::string get_user_descr(int user_id,
+                      TQuery &Qry, TQuery &Qry1, TQuery &Qry2,
+                      bool only_airlines_airps);
+
+inline bool lf( const TCacheField2 &item1, const TCacheField2 &item2 )
+{
+    return item1.num<item2.num;
+}
 
 #endif /*_CACHE_H_*/
 

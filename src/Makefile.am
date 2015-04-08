@@ -87,6 +87,7 @@ astra_SOURCES = \
   external_spp_synch.cc \
   flt_binding.cc \
   file_queue.cc \
+  hist.cc \
   http_io.cpp \
   http_main.cc \
   httpClient.cc \
@@ -210,6 +211,8 @@ noinst_HEADERS = \
   external_spp_synch.h \
   flt_binding.h \
   file_queue.h \
+  hist.h \
+  hist_interface.h \
   http_io.h \
   http_main.h \
   httpClient.h \

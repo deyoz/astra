@@ -15,64 +15,12 @@
 #include "timer.h"
 #include "qrys.h"
 #include "trip_tasks.h"
+#include "jxtlib/xml_stuff.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
 const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL",""};
-
-const
-  struct
-  {
-    const char* CacheCode;
-    TElemType ElemType;
-  } ReferCacheTable[] = {
-                         {"AIRLINES",                etAirline},
-                         {"AIRPS",                   etAirp},
-                         {"BAG_NORM_TYPES",          etBagNormType},
-                         {"BAG_TYPES",               etBagType},
-                         {"CITIES",                  etCity},
-                         {"CKIN_REM_TYPES",          etCkinRemType},
-                         {"CLASSES",                 etClass},
-                         {"CODE4_FMT",               etUserSetType},
-                         {"COUNTRIES",               etCountry},
-                         {"CRAFTS",                  etCraft},
-                         {"CURRENCY",                etCurrency},
-                         {"DESK_GRP",                etDeskGrp},
-                         {"ENCODING_FMT",            etUserSetType},
-                         {"GRAPH_STAGES",            etGraphStage},
-                         {"GRAPH_STAGES_WO_INACTIVE",etGraphStageWOInactive},
-                         {"HALLS",                   etHall},
-                         {"KIOSK_CKIN_DESK_GRP",     etDeskGrp},
-                         {"MISC_SET_TYPES",          etMiscSetType},
-                         {"REM_GRP",                 etRemGrp},
-                         {"RIGHTS",                  etRight},
-                         {"SEASON_TYPES",            etSeasonType},
-                         {"SEAT_ALGO_TYPES",         etSeatAlgoType},
-                         {"SELF_CKIN_SET_TYPES",     etMiscSetType},
-                         {"SELF_CKIN_TYPES",         etClientType},
-                         {"STATION_MODES",           etStationMode},
-                         {"SUBCLS",                  etSubcls},
-                         {"TIME_FMT",                etUserSetType},
-                         {"TRIP_TYPES",              etTripType},
-                         {"TYPEB_LCI_ACTION_CODE",   etTypeBOptionValue},
-                         {"TYPEB_LCI_SEAT_RESTRICT", etTypeBOptionValue},
-                         {"TYPEB_LCI_WEIGHT_AVAIL",  etTypeBOptionValue},
-                         {"TYPEB_LDM_VERSION",       etTypeBOptionValue},
-                         {"TYPEB_PRL_CREATE_POINT",  etTypeBOptionValue},
-                         {"TYPEB_PRL_PAX_STATE",     etTypeBOptionValue},
-                         {"TYPEB_TRANSPORTS_OTHERS", etMsgTransport},
-                         {"TYPEB_TYPES",             etTypeBType},
-                         {"TYPEB_TYPES_ALL",         etTypeBType},
-                         {"TYPEB_TYPES_MARK",        etTypeBType},
-                         {"TYPEB_TYPES_BSM",         etTypeBType},
-                         {"TYPEB_TYPES_LDM",         etTypeBType},
-                         {"TYPEB_TYPES_LCI",         etTypeBType},
-                         {"TYPEB_TYPES_PNL",         etTypeBType},
-                         {"TYPEB_TYPES_PRL",         etTypeBType},
-                         {"USER_TYPES",              etUserType},
-                         {"VALIDATOR_TYPES",         etValidatorType}
-                        };
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -187,13 +135,6 @@ bool TCacheTable::refreshInterface()
   ProgTrace( TRACE5, "must refresh interface" );
   return true;
 }
-
-
-bool lf( const TCacheField2 &item1, const TCacheField2 &item2 )
-{
-    return item1.num<item2.num;
-}
-
 
 void TCacheTable::initChildTables()
 {
@@ -478,7 +419,6 @@ void TCacheTable::initFields()
 void TCacheTable::DeclareSysVariables(std::vector<string> &vars, TQuery *Qry)
 {
     vector<string>::iterator f;
-
     // задание переменной SYS_user_id
     f = find( vars.begin(), vars.end(), "SYS_USER_ID" );
     if ( f != vars.end() ) {
@@ -738,7 +678,6 @@ TUpdateDataType TCacheTable::refreshData()
 
     ProgTrace(TRACE5, "SQLText=%s", Qry->SQLText.SQLText());
     Qry->Execute();
-
     // ищем, чтобы все поля, которые описаны в кэше были в запросе
     vector<int> vecFieldIdx;
     for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++)
