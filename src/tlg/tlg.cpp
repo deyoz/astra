@@ -16,6 +16,7 @@
 #include <serverlib/testmode.h>
 #include <serverlib/TlgLogger.h>
 #include <serverlib/posthooks.h>
+#include <serverlib/cursctl.h>
 #include <edilib/edi_user_func.h>
 #include <libtlg/tlg_outbox.h>
 #include "xp_testing.h"
@@ -99,7 +100,6 @@ int getNextTlgNum()
 int saveTlg(const char * receiver,
             const char * sender,
             const char * type,
-            int ttl,
             const std::string &text,
             int typeb_tlg_id, int typeb_tlg_num)
 {
@@ -227,7 +227,13 @@ string getTlgText(int tlg_id)
   for(;!TextQry.get().Eof;TextQry.get().Next())
     result+=TextQry.get().FieldAsString("text");  
   return result;
-};
+}
+
+std::string getTlgText2(const tlgnum_t& tnum)
+{
+    const int tlg_id = boost::lexical_cast<int>(tnum.num);
+    return getTlgText(tlg_id);
+}
 
 static void logTlgTypeA(const std::string& text)
 {
@@ -325,7 +331,7 @@ int sendTlg(const char* receiver,
             break;
         };
 
-        int tlg_num = saveTlg(receiver, sender, type.c_str(), ttl, text,
+        int tlg_num = saveTlg(receiver, sender, type.c_str(), text,
                               typeb_tlg_id, typeb_tlg_num);
 
         // кладём тлг в очередь на отправку
@@ -345,6 +351,17 @@ int sendTlg(const char* receiver,
         ProgError(STDLOG, "sendTlg: Unknown error");
         throw;
     };
+}
+
+void sendEdiTlg(const TlgHandling::TlgSourceEdifact& tlg)
+{
+    ::sendTlg(tlg.toRot().c_str(),
+              tlg.fromRot().c_str(),
+              qpOutA,
+              20,
+              tlg.text(),
+              ASTRA::NoExists,
+              ASTRA::NoExists);
 }
 
 int loadTlg(const std::string &text)
@@ -435,6 +452,7 @@ int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_erro
 
 bool deleteTlg(int tlg_id)
 {
+    LogTrace(TRACE3) << "del tlg by num: " << tlg_id;
   try
   {
     TQuery TlgQry(&OraSession);

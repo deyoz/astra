@@ -86,6 +86,14 @@ namespace RemoteSystemContext
 
 //---------------------------------------------------------------------------------------
 
+    class DcsSystemNotFound : public EXCEPTIONS::Exception
+    {
+    public:
+        DcsSystemNotFound():Exception("DcsSystemContext: Record not found"){}
+    };
+
+//---------------------------------------------------------------------------------------
+
     class EdsSystemContext;
 
     class InboundTlgInfo
@@ -139,8 +147,11 @@ namespace RemoteSystemContext
         SystemSettings CommonSettings;
 
     private:
-        static Ticketing::SystemAddrs_t getNextId();
         void checkContinuity() const;
+
+    protected:
+        static Ticketing::SystemAddrs_t getNextId();
+
 
         static boost::shared_ptr<SystemContext> SysCtxt;
     public:
@@ -172,7 +183,6 @@ namespace RemoteSystemContext
         static void free();
 
         static SystemContext readById(Ticketing::SystemAddrs_t Id);
-        static SystemContext readByAirlineAndFlight(const std::string& airl, const Ticketing::FlightNum_t& flNum);
 
         static const SystemContext& Instance(const char *nick, const char *file, unsigned line);
 
@@ -207,7 +217,7 @@ namespace RemoteSystemContext
         {
         }
 
-        virtual ~EdsSystemSettings(){}
+        virtual ~EdsSystemSettings() {}
     };
 
 //---------------------------------------------------------------------------------------
@@ -243,7 +253,31 @@ namespace RemoteSystemContext
         virtual void addDb();
         virtual void updateDb();
 
-        virtual ~EdsSystemContext(){}
+        virtual ~EdsSystemContext() {}
+    };
+
+//---------------------------------------------------------------------------------------
+
+    /// @class DcsSystemContext
+    /// @brief Система регистрации (в случае iacti)
+    class DcsSystemContext : public SystemContext
+    {
+    public:
+        DcsSystemContext(const SystemContext& baseCnt);
+        static DcsSystemContext* read(const std::string& airl,
+                                      const Ticketing::FlightNum_t& flNum = Ticketing::FlightNum_t());
+
+#ifdef XP_TESTING
+        static DcsSystemContext* create4TestsOnly(const std::string& airline,
+                                                  const std::string& ediAddr,
+                                                  const std::string& ourEdiAddr);
+#endif /*XP_TESTING*/
+
+        virtual void deleteDb();
+        virtual void addDb();
+        virtual void updateDb();
+
+        virtual ~DcsSystemContext() {}
     };
 
 //---------------------------------------------------------------------------------------

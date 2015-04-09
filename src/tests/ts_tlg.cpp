@@ -27,12 +27,12 @@ namespace tscript {
 
         if(IsEdifactText(tlg.c_str(), tlg.length())) {
 
-            int tlg_num = saveTlg("LOOPB", "LOOPB", "OUTA", 0, tlg);
+            int tlg_num = saveTlg("LOOPB", "LOOPB", "OUTA", tlg);
 
             tlg_info tlgi = {};
             tlgi.id = tlg_num;
             tlgi.sender = "LOOPB";
-            tlgi.text = tlg;
+            tlgi.text = edilib::ChangeEdiCharset(tlg, "IATA");
             handle_edi_tlg(tlgi);
         } else {
             throw EXCEPTIONS::Exception("Unsopported tlg type");

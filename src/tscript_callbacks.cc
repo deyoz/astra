@@ -4,10 +4,12 @@
 #include <serverlib/tscript.h>
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/str_utils.h>
+#include <serverlib/cursctl.h>
 #include <libtlg/tlg_outbox.h>
 #include <jxtlib/xml_tools.h>
 #include <jxtlib/utf2cp866.h>
 #include <edilib/edi_func_cpp.h>
+#include "oralib.h"
 
 // #include "tlg_source_edifact.h"
 #include "xp_testing.h"
@@ -29,7 +31,15 @@ namespace xp_testing { namespace tscript {
         for (size_t i = 0; i < outList.size(); ++i) {
             LogTrace(TRACE5) << __FUNCTION__ << ": out[" << i << "] = \n" << outList[i].text();
 
-            const std::string edifact_sire = edilib::ChangeEdiCharset(outList[i].text(), "SIRE");
+            char *buff=0;
+            size_t len;
+            std::string edifact_sire = outList[i].text();
+            if(!outList[i].text().empty()) {
+                if(!ChangeEdiCharSet(outList[i].text().c_str(), outList[i].text().length(), "SIRE", &buff, &len) && buff) {
+                    edifact_sire = std::string(buff,len);
+                    free(buff);
+                }
+            }
 
             outq.push(edifact_sire);
         }
@@ -44,6 +54,8 @@ namespace xp_testing { namespace tscript {
 
         virtual void beforeFunctionCall()
         {
+            OciCpp::mainSession().set7();
+            OraSession.Initialize(OciCpp::mainSession().getLd());
             tlgAccumulator_.clear();
             ServerFramework::listenRedisplay();
         }

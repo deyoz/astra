@@ -15,9 +15,9 @@ namespace TlgHandling
 using namespace edilib;
 
 
-AstraEdiResponseHandler::AstraEdiResponseHandler(_EDI_REAL_MES_STRUCT_ * pmes,
+AstraEdiResponseHandler::AstraEdiResponseHandler(_EDI_REAL_MES_STRUCT_ * pMes,
                                          const edilib::EdiSessRdData *edisess)
-    : EdiResponseHandler(pmes, edisess)
+    : EdiResponseHandler(pMes, edisess)
 {
 }
 
@@ -69,7 +69,7 @@ edifact::pRemoteResults AstraEdiResponseHandler::remoteResults() const
 
 AstraEdiResponseHandler::~AstraEdiResponseHandler()
 {
-    LogTrace(TRACE3) << "destruct ~AstraEdiResponseHandler";
+    tst();
     if(RemoteResults)
     {
         LogTrace(TRACE3) << "next MeetAgentExpectations";
@@ -79,7 +79,7 @@ AstraEdiResponseHandler::~AstraEdiResponseHandler()
 
 void AstraEdiResponseHandler::fillFuncCodeRespStatus()
 {
-    LogTrace(TRACE3) << "fillFuncCodeRespStatus called";
+    tst();
     readRemoteResults();
     if(pMes())
     {

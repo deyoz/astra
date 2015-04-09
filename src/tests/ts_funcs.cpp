@@ -3,6 +3,13 @@
 #endif
 
 #ifdef XP_TESTING
+
+#include "xml_unit.h"
+#include "astra_main.h"
+#include "tlg/tlg.h"
+#include "tlg/remote_system_context.h"
+#include "tlg/edi_tlg.h"
+
 #include <queue>
 #include <fstream>
 #include <boost/regex.hpp>
@@ -15,16 +22,14 @@
 #include <serverlib/func_placeholders.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/str_utils.h>
-
 #include <jxtlib/jxtlib.h>
-#include "xml_unit.h"
-#include "astra_main.h"
-#include "tlg/tlg.h"
 
 #define NICKNAME "ROMAN"
 #include <serverlib/slogger.h>
 
 void tests_init() {}
+
+void runEdiTimer_4testsOnly();
 
 using namespace xp_testing::tscript;
 
@@ -111,12 +116,22 @@ static std::string FP_req(const std::vector<tok::Param>& params)
 static std::string FP_init_jxt_pult(const std::vector<std::string> &args)
 {
     if(init_locale() < 0) {
-        puts("Error retrieving site information");
+        puts("Init locale failed");
         return "";
     }
     
     ASSERT(args.size() == 1 && args[0].length() == 6)
     GetTestContext()->vars["JXT_PULT"] = args[0];
+    return "";
+}
+
+static std::string FP_init(const std::vector<std::string> &args)
+{
+    if(init_locale() < 0) {
+        puts("Init locale failed");
+        return "";
+    }
+
     return "";
 }
 
@@ -168,6 +183,41 @@ static std::string FP_tlg_in(const std::vector<tok::Param>& params)
     return std::string();
 }
 
+static std::string FP_init_eds(const std::vector<std::string> &p)
+{
+    using namespace Ticketing::RemoteSystemContext;
+
+    ASSERT(p.size() == 3);
+    EdsSystemContext::create4TestsOnly(p.at(0) /*airline*/,
+                                       p.at(1) /*remote edi address - to*/,
+                                       p.at(2) /*our edi address - from*/);
+
+    // for compatibility
+    set_edi_addrs(std::make_pair(p.at(2) /*from*/, p.at(1) /*to*/));
+    return "";
+}
+
+static std::string FP_init_dcs(const std::vector<std::string> &p)
+{
+    using namespace Ticketing::RemoteSystemContext;
+
+    ASSERT(p.size() == 3);
+    DcsSystemContext::create4TestsOnly(p.at(0) /*airline*/,
+                                       p.at(1) /*remote edi address*/,
+                                       p.at(2) /*our edi address*/);
+
+    return "";
+}
+
+std::string FP_run_daemon(const std::vector<std::string> &params) {
+    assert(params.size() > 0);
+    if(params.at(0) == "edi_timeout") {
+        runEdiTimer_4testsOnly();
+    }
+    return "";
+}
+
+
 FP_REGISTER("<<", FP_tlg_in);
 
 
@@ -175,7 +225,10 @@ FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
 FP_REGISTER("last_edifact_ref", FP_last_edifact_ref);
 FP_REGISTER("init_jxt_pult", FP_init_jxt_pult);
+FP_REGISTER("init", FP_init);
 FP_REGISTER("lastRedisplay", FP_lastRedisplay);
-
+FP_REGISTER("init_eds",   FP_init_eds);
+FP_REGISTER("init_dcs",   FP_init_dcs);
+FP_REGISTER("run_daemon", FP_run_daemon);
 
 #endif /* XP_TESTING */

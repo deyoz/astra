@@ -6,16 +6,14 @@
 *
 */
 
-
+#include "tlg_source.h"
 #include "astra_dates.h"
 #include "astra_dates_oci.h"
-#include "tlg_source.h"
 #include "exceptions.h"
-//#include "exceptions.h"
-//#include "tlg_msg.h"
-//#include "TicketBaseTypesOci.h"
+#include "tlg.h"
 
 #include <serverlib/dates.h>
+#include <serverlib/dates_oci.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/int_parameters_oci.h>
 
@@ -128,87 +126,13 @@ TlgSource TlgSource::readFromDb(const tlgnum_t& tlg_num)
 
 void TlgSource::writeToDb(TlgSource & tlg)
 {
-//    oracle_datetime insDate;
-//    unsigned num_part = tlg.text().size()/DbPartLen +
-//            ((tlg.text().size()%DbPartLen)>0?1:0);
+    LogTrace(TRACE3) << __FUNCTION__ << " called!";
+    saveTlg(tlg.fromRot().c_str(),
+            tlg.toRot().c_str(),
+            "TPA", // TODO
+            tlg.text().c_str());
 
-//    short null=-1, nnull=0;
-
-//    LogTrace(TRACE2) << "tlg_len=" << tlg.text().size() << ", num_part=" << num_part;
-//    if(tlg.text().empty())
-//        throw EXCEPTIONS::Exception("tlg text is null");
-
-//    if((tlg.fromRot() && tlg.toRot()) || (!tlg.fromRot() && !tlg.toRot()))
-//    {
-//        LogError(STDLOG) << "tlg.fromRot()=" << tlg.fromRot() <<
-//                ", tlg.toRot()=" << tlg.toRot();
-//        throw EXCEPTIONS::Exception("Invalid from/to router values");
-//    }
-
-//    unsigned tlgnumtry = 0;
-//    while(tlgnumtry < 10)
-//    {
-//        tlg.setTlgNum(genNextTlgNum());
-
-//        LogTrace(TRACE2) << "New tlg_num was generated: " << tlg.tlgNum();
-
-//        CursCtl ins_tlg =
-//                make_curs(
-//                          "begin\n"
-//                "INSERT INTO text_tlg_new"
-//                "(msg_id, text, date1, multy_part, from_addr, to_addr, postponed, airline, hand_made) "
-//                "VALUES(:tlg_id, :cur_frag, :local_time, :multi, :from_rot, :to_rot, :pp, :airl, :hm) "
-//                "returning date1 into :d1;\n"
-//                "end;");
-//        ins_tlg.stb().
-//                noThrowError(CERR_DUPK).
-//                bind(":tlg_id", tlg.tlgNum().num).
-//                bind(":cur_frag",num_part>1?string(tlg.text(),0,DbPartLen):tlg.text()).
-//                bind(":local_time", OciCpp::to_oracle_datetime(Dates::second_clock::local_time())).
-//                bind(":multi", num_part>1?1:0).
-//                bind(":from_rot", tlg.fromRot(), tlg.fromRot()?&nnull:&null).
-//                bind(":to_rot", tlg.toRot(),     tlg.toRot()?&nnull:&null).
-//                bind(":pp", tlg.postponed()?1:0).
-//                bind(":airl", tlg.airline(),     tlg.airline()?&nnull:&null).
-//                bind(":hm",   tlg.handMade()).
-//                bindOut(":d1", insDate).
-//                exec();
-//        if(ins_tlg.err() == CERR_DUPK)
-//        {
-//            LogWarning(STDLOG) << "tlgnumtry = " << tlgnumtry << " tlgnum " << tlg.tlgNum() <<
-//                    " already in use";
-//            tlgnumtry ++;
-//            continue;
-//        }
-//        break;
-//    }
-//    if(tlgnumtry >= 10)
-//    {
-//        throw tick_fatal_except(STDLOG, Ticketing::EtErr::ProgErr, "uniq tlg num");
-//    }
-
-//    tlg.setReceiveDate(OciCpp::from_oracle_time(insDate));
-
-//    if ( num_part>1 )
-//    {
-//        for (unsigned i=2;i<=num_part;i++)
-//        {
-//            tst();
-//            CursCtl ins_part = make_curs(
-//                    "INSERT INTO text_tlg_part(msg_id, text, part) "
-//                    "VALUES(:tlg_id, :cur_frag, :frag_part)");
-//            ins_part.
-//                    bind(":tlg_id", tlg.tlgNum().num).
-//                    bind(":cur_frag",string(tlg.text(),((i-1)*DbPartLen), DbPartLen)).
-//                    bind(":frag_part",i).
-//                    exec();
-//        }
-//    }
-
-//    LogTrace(TRACE2) << "Tlg "<< tlg.tlgNum() <<
-//                        " fragmented in " << num_part << " parts";
-
-    throw EXCEPTIONS::Exception("Unimplimented method called!");
+    tlg.setReceiveDate(Dates::second_clock::local_time());
 }
 
 std::ostream & operator <<(std::ostream & os, const TlgSource &tlg)

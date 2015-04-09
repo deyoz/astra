@@ -1,17 +1,20 @@
-#include <boost/regex.hpp>
-#include <boost/foreach.hpp>
-#include <boost/optional.hpp>
-#include <etick/edi_cast.h>
-#include <numeric>
+#include "read_edi_elements.h"
+#include "edi_elements.h"
+#include "astra_ticket.h"
+
 #include <serverlib/isdigit.h>
 #include <serverlib/dates.h>
 #include <edilib/edi_func_cpp.h>
-#include "astra_ticket.h"
-#include "edi_elements.h"
-#include "read_edi_elements.h"
+#include <etick/edi_cast.h>
+
+#include <numeric>
+#include <boost/regex.hpp>
+#include <boost/foreach.hpp>
+#include <boost/optional.hpp>
 
 #define NICKNAME "ROMAN"
 #include <serverlib/slogger.h>
+
 
 namespace Ticketing {
 namespace TickReader{
@@ -20,8 +23,8 @@ namespace TickReader{
 
 boost::optional<TktElem> readEdiTkt(_EDI_REAL_MES_STRUCT_ *pMes)
 {
-    edilib::EdiPointHolder tkt_holder(pMes);
-    if(!edilib::SetEdiPointToSegmentG(pMes, "TKT"))
+    EdiPointHolder tkt_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "TKT"))
         return boost::optional<TktElem>();
 
     TktElem res;
@@ -57,7 +60,7 @@ boost::optional<TktElem> readEdiTkt(_EDI_REAL_MES_STRUCT_ *pMes)
 
 boost::optional<CpnElem> readEdiCpn(_EDI_REAL_MES_STRUCT_ *pMes, int numCpn)
 {
-    edilib::EdiPointHolder cpn_holder(pMes); (void) cpn_holder;
+    EdiPointHolder cpn_holder(pMes); (void) cpn_holder;
     boost::optional<CpnElem> res;
 
     if(!SetEdiPointToSegmentG(pMes, "CPN", numCpn))
@@ -119,16 +122,16 @@ boost::optional<CpnElem> readEdiCpn(_EDI_REAL_MES_STRUCT_ *pMes, int numCpn)
 
 boost::optional<PtsElem> readEdiPts(_EDI_REAL_MES_STRUCT_ *pMes)
 {
-    edilib::EdiPointHolder pts_holder(pMes);
-    if(!edilib::SetEdiPointToSegmentG(pMes, "PTS"))
+    EdiPointHolder pts_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "PTS"))
         return boost::optional<PtsElem>();
 
     PtsElem res;
 
-    res.m_itemNumber = edilib::GetDBNumCast<int>(EdiCast::EdiDigitCast<int>("EtsErr::EDI_PROC_ERR", "-1"), pMes, 7140);
-    res.m_fareBasis  = edilib::GetDBFName(pMes, DataElement(5242), CompElement("C643"));
-    res.m_rfic       = edilib::GetDBNum  (pMes, DataElement(4183, 0, 0));
-    res.m_rfisc      = edilib::GetDBNum  (pMes, DataElement(4183, 0, 1));
+    res.m_itemNumber = GetDBNumCast<int>(EdiCast::EdiDigitCast<int>("EtsErr::EDI_PROC_ERR", "-1"), pMes, 7140);
+    res.m_fareBasis  = GetDBFName(pMes, DataElement(5242), CompElement("C643"));
+    res.m_rfic       = GetDBNum  (pMes, DataElement(4183, 0, 0));
+    res.m_rfisc      = GetDBNum  (pMes, DataElement(4183, 0, 1));
 
     //LogTrace(TRACE3) << res;
 
@@ -137,8 +140,8 @@ boost::optional<PtsElem> readEdiPts(_EDI_REAL_MES_STRUCT_ *pMes)
 
 boost::optional<EbdElem> readEdiEbd(_EDI_REAL_MES_STRUCT_ *pMes)
 {
-    edilib::EdiPointHolder ebd_holer(pMes);
-    if(!edilib::SetEdiPointToSegmentG(pMes, "EBD") || !edilib::SetEdiPointToCompositeG(pMes, "C675"))
+    EdiPointHolder ebd_holer(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "EBD") || !SetEdiPointToCompositeG(pMes, "C675"))
         return boost::optional<EbdElem>();
 
     int quantity       = GetDBNumCast<int>(EdiDigitCast<int>("EtErr::ETS_INV_LUGGAGE", "0"), pMes, 6060, 0);
@@ -152,8 +155,8 @@ boost::optional<EbdElem> readEdiEbd(_EDI_REAL_MES_STRUCT_ *pMes)
 
 boost::optional<TvlElem> readEdiTvl(_EDI_REAL_MES_STRUCT_ *pMes)
 {
-    edilib::EdiPointHolder tvl_holder(pMes);
-    if(!edilib::SetEdiPointToSegmentG(pMes, "TVL"))
+    EdiPointHolder tvl_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "TVL"))
         return boost::optional<TvlElem>();
 
     const std::string depDate  = GetDBFName(pMes, DataElement(9916,0), CompElement("C310",0));
@@ -266,7 +269,7 @@ static void readSingleTxd(_EDI_REAL_MES_STRUCT_ *pMes, std::list<TaxDetails> &lt
 
     unsigned tax_num = GetNumComposite(pMes, "C668", "EtErr::INV_TAX_AMOUNT");
 
-    edilib::EdiPointHolder c668_holder(pMes);
+    EdiPointHolder c668_holder(pMes);
 
     for (unsigned i = 0; i < tax_num; i++)
     {
@@ -295,7 +298,7 @@ static void readSingleTxd(_EDI_REAL_MES_STRUCT_ *pMes, std::list<TaxDetails> &lt
 TxdElements readEdiTxd(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     TxdElements result;
-    edilib::EdiPointHolder txd_holder(pMes);
+    EdiPointHolder txd_holder(pMes);
 
     unsigned tax_mnum = GetNumSegment(pMes, "TXD");
     for(unsigned t = 0; t < tax_mnum; t++) {
@@ -322,13 +325,13 @@ TxdElements readEdiTxdCurrAnd0(_EDI_REAL_MES_STRUCT_ *pMes)
 MonElements readEdiMon(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     MonElements result;
-    edilib::EdiPointHolder mon_holder(pMes);
+    EdiPointHolder mon_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "MON",0))
         return result;
 
     unsigned MonNum = GetNumComposite(pMes, "C663", "EtErr::MISS_MONETARY_INF");
 
-    edilib::EdiPointHolder C663_holder(pMes);
+    EdiPointHolder C663_holder(pMes);
     for(unsigned i=0; i < MonNum; i++)
     {
         MonElem mon;
@@ -384,7 +387,7 @@ FopElements readEdiFopCurrAnd0(_EDI_REAL_MES_STRUCT_ *pMes)
 FopElements readEdiFop(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     FopElements result;
-    edilib::EdiPointHolder fop_holder(pMes);
+    EdiPointHolder fop_holder(pMes);
 
     if(!SetEdiPointToSegmentG(pMes, SegmElement("FOP"))) {
         tst();
@@ -393,7 +396,7 @@ FopElements readEdiFop(_EDI_REAL_MES_STRUCT_ *pMes)
 
     unsigned Num = GetNumComposite(pMes, "C641", "EtsErr::INV_FOP");
 
-    edilib::EdiPointHolder C641_holder(pMes);
+    EdiPointHolder C641_holder(pMes);
     for(unsigned i=0; i < Num; i++) {
         SetEdiPointToCompositeG(pMes, "C641", i, "EtErr::ProgErr");
 
@@ -451,7 +454,7 @@ FreeTextInfo readSingleIft(_EDI_REAL_MES_STRUCT_ *pMes, unsigned num, unsigned l
                            /*,TicketNum_t currTicket, CouponNum_t currCoupon*/)
 {
     boost::optional<FreeTextInfo> ift;
-    edilib::EdiPointHolder inside_ift(pMes);
+    EdiPointHolder inside_ift(pMes);
 
     SetEdiPointToCompositeG(pMes, "C346",0, "EtErr::INV_IFT_QUALIFIER");
     std::string Qualifier   = GetDBNum(pMes, 4451,0, "EtErr::INV_IFT_QUALIFIER");
@@ -485,7 +488,7 @@ IftElements readEdiIft(_EDI_REAL_MES_STRUCT_ *pMes, unsigned level
 {
     IftElements result;
 
-    edilib::EdiPointHolder ift_holder(pMes);
+    EdiPointHolder ift_holder(pMes);
 
     unsigned num = GetNumSegment(pMes, "IFT");
     if(!num) {
@@ -575,6 +578,295 @@ boost::optional<TicketingAgentInfo_t> readEdiTicketAgnInfo(EDI_REAL_MES_STRUCT *
 
 
     return TicketingAgentInfo_t(systemId, agentId, agentType);
+}
+
+
+// IATCI
+boost::optional<LorElem> readEdiLor(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder lor_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "LOR")) {
+        return boost::optional<LorElem>();
+    }
+
+    LorElem lor;
+    lor.m_airline = GetDBFName(pMes, DataElement(3127), CompElement("C059"));
+    lor.m_port    = GetDBFName(pMes, DataElement(3800), CompElement("C059"));
+
+    LogTrace(TRACE3) << lor;
+
+    return lor;
+}
+
+boost::optional<FdqElem> readEdiFdq(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder fdq_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "FDQ")) {
+        return boost::optional<FdqElem>();
+    }
+
+    std::string outbAirl  = GetDBFName(pMes, DataElement(3127), CompElement("C013"));
+    std::string outbFlNum = GetDBFName(pMes, DataElement(3802), CompElement("C014"));
+    std::string outbDepDateTime = GetDBFName(pMes, DataElement(2281, 0, 0), CompElement());
+    std::string outbDepPoint = GetDBFName(pMes, DataElement(3215, 0, 0), CompElement());
+    std::string outbArrPoint = GetDBFName(pMes, DataElement(3259, 0, 0), CompElement());
+    std::string inbAirl = GetDBFName(pMes, DataElement(3127), CompElement("C015"));
+    std::string inbFlNum = GetDBFName(pMes, DataElement(3802), CompElement("C016"));
+    std::string inbDepDateTime = GetDBFName(pMes, DataElement(2281, 0, 1), CompElement());
+    std::string inbArrDateTime = GetDBFName(pMes, DataElement(2107), CompElement());
+    std::string inbDepPoint = GetDBFName(pMes, DataElement(3215, 0, 1), CompElement());
+    std::string inbArrPoint = GetDBFName(pMes, DataElement(3259, 0, 1), CompElement());
+
+    FdqElem fdq;
+    fdq.m_outbAirl = outbAirl;
+    if(!outbFlNum.empty()) {
+        fdq.m_outbFlNum = getFlightNum(outbFlNum);
+    }
+    if(outbDepDateTime.length() == 6) {
+        fdq.m_outbDepDateTime = Dates::DateTime_t(Dates::rrmmdd(outbDepDateTime));
+    } else if(outbDepDateTime.length() == 10) {
+        fdq.m_outbDepDateTime = Dates::DateTime_t(Dates::rrmmdd(outbDepDateTime.substr(0, 6)),
+                                                  Dates::hh24mi(outbDepDateTime.substr(6, 4)));
+    }
+    fdq.m_outbDepPoint = outbDepPoint;
+    fdq.m_outbArrPoint = outbArrPoint;
+    fdq.m_inbAirl = inbAirl;
+    if(!inbFlNum.empty()) {
+        fdq.m_inbFlNum = getFlightNum(inbFlNum);
+    }
+    if(inbDepDateTime.length() == 6) {
+        fdq.m_inbDepDateTime = Dates::DateTime_t(Dates::rrmmdd(inbDepDateTime));
+    } else if(inbDepDateTime.length() == 10) {
+        fdq.m_inbDepDateTime = Dates::DateTime_t(Dates::rrmmdd(inbDepDateTime.substr(0, 6)),
+                                                 Dates::hh24mi(inbDepDateTime.substr(6, 4)));
+    }
+    if(inbArrDateTime.length() == 6) {
+        fdq.m_inbArrDateTime = Dates::DateTime_t(Dates::rrmmdd(inbArrDateTime));
+    } else if(inbArrDateTime.length() == 10) {
+        fdq.m_inbArrDateTime = Dates::DateTime_t(Dates::rrmmdd(inbArrDateTime.substr(0, 6)),
+                                                 Dates::hh24mi(inbArrDateTime.substr(6, 4)));
+    }
+    fdq.m_inbDepPoint = inbDepPoint;
+    fdq.m_inbArrPoint = inbArrPoint;
+
+    LogTrace(TRACE3) << fdq;
+
+    return fdq;
+}
+
+boost::optional<PpdElem> readEdiPpd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder ppd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "PPD")) {
+        return boost::optional<PpdElem>();
+    }
+
+    PpdElem ppd;
+    ppd.m_passSurname = GetDBFName(pMes, DataElement(3808), CompElement());
+    ppd.m_passType    = GetDBFName(pMes, DataElement(9819), CompElement("C017"));
+    ppd.m_passName    = GetDBFName(pMes, DataElement(3809), CompElement());
+    ppd.m_passRespRef = GetDBFName(pMes, DataElement(9821), CompElement("C692"));
+    ppd.m_passQryRef  = GetDBFName(pMes, DataElement(9821), CompElement("C690"));
+
+    LogTrace(TRACE3) << ppd;
+
+    return ppd;
+}
+
+boost::optional<PrdElem> readEdiPrd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder prd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "PRD")) {
+        return boost::optional<PrdElem>();
+    }
+
+    PrdElem prd;
+    prd.m_rbd = GetDBFName(pMes, DataElement(9800), CompElement("C023"));
+
+    LogTrace(TRACE3) << prd;
+
+    return prd;
+}
+
+boost::optional<PsdElem> readEdiPsd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder psd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "PSD")) {
+        return boost::optional<PsdElem>();
+    }
+
+    PsdElem psd;
+    psd.m_noSmokingInd   = GetDBFName(pMes, DataElement(9807), CompElement("C024"));
+    psd.m_characteristic = GetDBFName(pMes, DataElement(9825), CompElement("C024"));
+
+    LogTrace(TRACE3) << psd;
+
+    return psd;
+}
+
+boost::optional<PbdElem> readEdiPbd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder pbd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "PBD")) {
+        return boost::optional<PbdElem>();
+    }
+
+    PbdElem pbd;
+    pbd.m_numOfPieces = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
+                                                 DataElement(6806), "", CompElement("C027"));
+    pbd.m_weight = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
+                                            DataElement(6803), "", CompElement("C027"));
+
+    LogTrace(TRACE3) << pbd;
+
+    return pbd;
+}
+
+boost::optional<edifact::FdrElem> readEdiFdr(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder fdr_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "FDR")) {
+        return boost::optional<FdrElem>();
+    }
+
+    std::string airl  = GetDBFName(pMes, DataElement(3127), CompElement("C013"));
+    std::string flNum = GetDBFName(pMes, DataElement(3802), CompElement("C014"));
+    std::string depDateTime = GetDBFName(pMes, DataElement(2281, 0, 0), CompElement());
+    std::string arrDateTime = GetDBFName(pMes, DataElement(2107, 0, 0), CompElement());
+    std::string depPoint = GetDBFName(pMes, DataElement(3215, 0, 0), CompElement());
+    std::string arrPoint = GetDBFName(pMes, DataElement(3259, 0, 0), CompElement());
+
+    FdrElem fdr;
+    fdr.m_airl = airl;
+    if(!flNum.empty()) {
+        fdr.m_flNum = getFlightNum(flNum);
+    }
+    if(depDateTime.length() == 6) {
+        fdr.m_depDateTime = Dates::DateTime_t(Dates::rrmmdd(depDateTime));
+    } else if(depDateTime.length() == 10) {
+        fdr.m_depDateTime = Dates::DateTime_t(Dates::rrmmdd(depDateTime.substr(0, 6)),
+                                              Dates::hh24mi(depDateTime.substr(6, 4)));
+    }
+    fdr.m_depPoint = depPoint;
+    fdr.m_arrPoint = arrPoint;
+    if(arrDateTime.length() == 6) {
+        fdr.m_arrDateTime = Dates::DateTime_t(Dates::rrmmdd(arrDateTime));
+    } else if(arrDateTime.length() == 10) {
+        fdr.m_arrDateTime = Dates::DateTime_t(Dates::rrmmdd(arrDateTime.substr(0, 6)),
+                                              Dates::hh24mi(arrDateTime.substr(6, 4)));
+    }
+
+    LogTrace(TRACE3) << fdr;
+
+    return fdr;
+}
+
+boost::optional<edifact::RadElem> readEdiRad(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder rad_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "RAD")) {
+        return boost::optional<RadElem>();
+    }
+
+    RadElem rad;
+    rad.m_respType = GetDBFName(pMes, DataElement(9868), CompElement());
+    rad.m_status   = GetDBFName(pMes, DataElement(9869), CompElement());
+
+    LogTrace(TRACE3) << rad;
+
+    return rad;
+}
+
+boost::optional<edifact::PfdElem> readEdiPfd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder pfd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "PFD")) {
+        return boost::optional<PfdElem>();
+    }
+
+    PfdElem pfd;
+    pfd.m_seat = GetDBFName(pMes, DataElement(9809), CompElement("C043"));
+    pfd.m_noSmokingInd = GetDBFName(pMes, DataElement(9807), CompElement("C044"));
+    pfd.m_cabinClass = GetDBFName(pMes, DataElement(9854), CompElement("C044"));
+    pfd.m_securityId = GetDBFName(pMes, DataElement(9874), CompElement("C045"));
+
+    LogTrace(TRACE3) << pfd;
+
+    return pfd;
+}
+
+boost::optional<edifact::ChdElem> readEdiChd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder pfd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "CHD")) {
+        return boost::optional<ChdElem>();
+    }
+
+    ChdElem chd;
+    chd.m_origAirline = GetDBFName(pMes, DataElement(3127), CompElement("C059"));
+    chd.m_origPoint = GetDBFName(pMes, DataElement(3800), CompElement("C059"));
+
+    unsigned num_hosts = GetNumComposite(pMes, "C696");
+
+    EdiPointHolder c696_holder(pMes);
+
+    for (unsigned i = 0; i < num_hosts; i++)
+    {
+        SetEdiPointToCompositeG(pMes, "C696", i, "EtErr::INV_HOST_DEFINITION");
+
+        std::string hostAirline = GetDBNum(pMes, 3127);
+        chd.m_hostAirlines.push_back(hostAirline);
+
+        PopEdiPoint_wdG(pMes);
+    }
+
+    LogTrace(TRACE3) << chd;
+
+    return chd;
+}
+
+boost::optional<edifact::FsdElem> readEdiFsd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder fsd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "FSD")) {
+        return boost::optional<FsdElem>();
+    }
+
+    std::string boardingTime = GetDBFName(pMes, DataElement(2804), CompElement());
+    if(boardingTime.empty()) {
+        return boost::optional<FsdElem>();
+    }
+
+    FsdElem fsd;
+    if(boardingTime.length() == 4) {
+        fsd.m_boardingTime = Dates::hh24mi(boardingTime);
+    } else {
+        LogError(STDLOG) << "Invalid boarding time string [" << boardingTime << "]";
+    }
+
+
+    LogTrace(TRACE3) << fsd;
+
+    return fsd;
+}
+
+boost::optional<edifact::ErdElem> readEdiErd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder erd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "ERD")) {
+        return boost::optional<ErdElem>();
+    }
+
+    ErdElem erd;
+    erd.m_level = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
+                                           DataElement(9876), "", CompElement("C056"));
+    erd.m_messageNumber = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
+                                                   DataElement(9845), "", CompElement("C056"));
+    erd.m_messageText = GetDBFName(pMes, DataElement(4440), CompElement("C056"));
+
+    LogTrace(TRACE3) << erd;
+
+    return erd;
 }
 
 } // namespace TickReader

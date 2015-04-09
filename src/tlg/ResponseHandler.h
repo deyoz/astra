@@ -17,7 +17,7 @@ class AstraEdiResponseHandler : public edilib::EdiResponseHandler
 {
     edifact::pRemoteResults RemoteResults;
 protected:
-    AstraEdiResponseHandler(_EDI_REAL_MES_STRUCT_ *PMes,
+    AstraEdiResponseHandler(_EDI_REAL_MES_STRUCT_* pMes,
                             const edilib::EdiSessRdData *edisess);
     void setRemoteResultStatus();
 public:
@@ -25,7 +25,7 @@ public:
 
     edifact::pRemoteResults remoteResults() const;
 
-    void fillFuncCodeRespStatus();
+    virtual void fillFuncCodeRespStatus();
     virtual void fillErrorDetails();
 
     virtual ~AstraEdiResponseHandler();

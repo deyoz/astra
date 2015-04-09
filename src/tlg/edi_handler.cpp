@@ -13,7 +13,9 @@
 #include "edi_tlg.h"
 #include "edi_msg.h"
 #include "edi_handler.h"
+#include "postpone_edifact.h"
 #include "tlg_source_edifact.h"
+#include "remote_system_context.h"
 
 #include <serverlib/query_runner.h>
 #include <serverlib/posthooks.h>
@@ -105,16 +107,40 @@ int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[])
 static bool isNewEdifact(const std::string& ediText)
 {
     EDI_REAL_MES_STRUCT *pMes = edilib::ReadEdifactMessage(ediText.c_str());
-    const std::string func_code = edilib::GetDBFName(pMes,
-                                                     edilib::DataElement(1225), "",
-                                                     edilib::CompElement("C302"),
-                                                     edilib::SegmElement("MSG"));
-    if(func_code == "791"
-    || func_code == "793"
-    || func_code == "794") {
-        return true;
+    std::string msg_type_str = edilib::GetDBFName(pMes,
+                                                  edilib::DataElement(65),
+                                                  edilib::CompElement("S009"),
+                                                  edilib::SegmElement("UNH"));
+
+    std::string func_code = edilib::GetDBFName(pMes,
+                                               edilib::DataElement(9868), "",
+                                               edilib::CompElement(),
+                                               edilib::SegmElement("RAD"),
+                                               edilib::SegGrElement(1));
+    if(func_code.empty()) {
+        func_code = edilib::GetDBFName(pMes,
+                                       edilib::DataElement(1225), "",
+                                       edilib::CompElement("C302"),
+                                       edilib::SegmElement("MSG"));
     }
 
+    LogTrace(TRACE3) << "edi func_code=" << func_code << " for msg " << msg_type_str;
+
+    // warning: temporary hardcode !!!
+    if(msg_type_str     == "DCQCKI"
+        || msg_type_str == "DCQCKU"
+        || msg_type_str == "DCQCKX"
+        || func_code == "791"
+        || func_code == "793"
+        || func_code == "794"
+        || func_code == "I"
+        || func_code == "X"
+        || func_code == "U") {
+            LogTrace(TRACE3) << "It's a New Edifact!";
+            return true;
+    }
+
+    LogTrace(TRACE3) << "It's an Old Edifact!";
     return false;
 }
 
@@ -139,14 +165,46 @@ void handle_edi_tlg(const tlg_info &tlg)
     else
     try
     {
+        boost::optional<TlgHandling::TlgSourceEdifact> answTlg;
         procTlg(tlg_id);
         ASTRA::commit();
-        isNewEdifact(tlg.text) ? proc_new_edifact(tlg.text) : proc_edifact(tlg.text);
+        if(isNewEdifact(tlg.text)) {
+            boost::shared_ptr<TlgHandling::TlgSourceEdifact> tlgSrc;
+            tlgSrc.reset(new TlgHandling::TlgSourceEdifact(tlg.text));
+            tlgSrc->setTlgNum(tlgnum_t(boost::lexical_cast<std::string>(tlg_id)));
+            answTlg = proc_new_edifact(tlgSrc);
+        }
+        else {
+            proc_edifact(tlg.text);
+        }
+
+        // если сформировался ответ, отправим его
+        if(answTlg) {
+            answTlg->setToRot(tlg.sender);
+            answTlg->setFromRot(OWN_CANON_NAME());
+            sendEdiTlg(*answTlg);
+        }
         deleteTlg(tlg_id);
         callPostHooksBefore();
         ASTRA::commit();
         callPostHooksAfter();
         emptyHookTables();
+    }
+    catch(TlgHandling::TlgToBePostponed& e)
+    {
+        if(tlg.id && e.sessionId())
+        {
+            ProgTrace(TRACE1, "Tlg %d to be postponed for session %d", tlg.id, e.sessionId().get());
+            TlgHandling::PostponeEdiHandling::postpone(tlg.id, e.sessionId());
+            callPostHooksBefore();
+            ASTRA::commit();
+            callPostHooksAfter();
+            emptyHookTables();
+        }
+        else
+        {
+            ProgError(STDLOG, "bad data!");
+        }
     }
     catch(edi_exception &e)
     {
@@ -166,6 +224,17 @@ void handle_edi_tlg(const tlg_info &tlg)
         {
           ProgError(STDLOG, "std::exception: %s", e.what());
           errorTlg(tlg_id,"PARS",e.what());
+          ASTRA::commit();
+        }
+        catch(...) {};
+    }
+    catch(Ticketing::RemoteSystemContext::system_not_found &e)
+    {
+        ASTRA::rollback();
+        try
+        {
+          ProgError(STDLOG, "system_not_found");
+          errorTlg(tlg_id,"PARS", "bad system");
           ASTRA::commit();
         }
         catch(...) {};

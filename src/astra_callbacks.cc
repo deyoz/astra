@@ -7,6 +7,7 @@
 #include "brd.h"
 #include "season.h"
 #include "etick.h"
+#include "iatci.h"
 #include "images.h"
 #include "tripinfo.h"
 #include "cent.h"
@@ -66,6 +67,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new EMDDisplayInterface();
     new EMDSystemUpdateInterface();
     new EMDStatusInterface();    
+    new IactiInterface();
     new ChangeStatusInterface();
     new ImagesInterface();
     new CheckInInterface();

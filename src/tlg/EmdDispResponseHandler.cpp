@@ -18,9 +18,9 @@ namespace
 }//namespace
 
 
-EmdDispResponseHandler::EmdDispResponseHandler(_EDI_REAL_MES_STRUCT_ *pmes,
+EmdDispResponseHandler::EmdDispResponseHandler(_EDI_REAL_MES_STRUCT_ *pMes,
                                                const edilib::EdiSessRdData *edisess)
-    : AstraEdiResponseHandler(pmes, edisess)
+    : AstraEdiResponseHandler(pMes, edisess)
 {
 }
 

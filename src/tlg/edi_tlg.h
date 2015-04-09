@@ -270,7 +270,7 @@ public:
 
 // Обработка EDIFACT
 void proc_edifact(const std::string &tlg);
-void proc_new_edifact(const std::string &tlg);
+boost::optional<TlgHandling::TlgSourceEdifact> proc_new_edifact(boost::shared_ptr<TlgHandling::TlgSourceEdifact> tlg);
 
 Ticketing::Pnr readPnr(const std::string &tlg_text);
 void SearchEMDsByTickNo(const std::set<Ticketing::TicketNum_t> &emds,

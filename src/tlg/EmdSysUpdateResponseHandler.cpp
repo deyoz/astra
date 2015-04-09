@@ -16,9 +16,9 @@ using namespace std;
 namespace TlgHandling
 {
 
-EmdSysUpdateResponseHandler::EmdSysUpdateResponseHandler(_EDI_REAL_MES_STRUCT_ *pmes,
-                                                         const edilib::EdiSessRdData *edisess)
-    : AstraEdiResponseHandler(pmes, edisess)
+EmdSysUpdateResponseHandler::EmdSysUpdateResponseHandler(_EDI_REAL_MES_STRUCT_* pMes,
+                                                         const edilib::EdiSessRdData* edisess)
+    : AstraEdiResponseHandler(pMes, edisess)
 {
 }
 

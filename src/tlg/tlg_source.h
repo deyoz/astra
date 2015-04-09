@@ -142,6 +142,7 @@ public:
      */
     int handMade() const { return HandMade; }
 
+
     /**
      * Установить текст ошибки
      * @param txt Текст ошибки

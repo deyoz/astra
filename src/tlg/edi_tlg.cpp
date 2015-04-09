@@ -14,14 +14,23 @@
 #include "stl_utils.h"
 #include "astra_context.h"
 #include "emd_disp_request.h"
+#include "postpone_edifact.h"
 #include "tlg_source_edifact.h"
 #include "remote_system_context.h"
 #include "astra_tick_read_edi.h"
 
-// handlers
+// response handlers
 #include "EmdDispResponseHandler.h"
 #include "EmdSysUpdateResponseHandler.h"
 #include "EmdCosResponseHandler.h"
+
+#include "IatciCkiResponseHandler.h"
+#include "IatciCkuResponseHandler.h"
+#include "IatciCkxResponseHandler.h"
+// request handlers
+#include "IatciCkiRequestHandler.h"
+#include "IatciCkuRequestHandler.h"
+#include "IatciCkxRequestHandler.h"
 
 #include <etick/lang.h>
 #include <jxtlib/cont_tools.h>
@@ -38,6 +47,8 @@
 #include <edilib/edi_astra_msg_types.h>
 #include <edilib/edi_handler.h>
 #include <edilib/EdiSessionTimeOut.h>
+
+#include <boost/scoped_ptr.hpp>
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -110,6 +121,7 @@ static int edi_proc_sz = sizeof(edi_msg_proc)/sizeof(edi_msg_proc[0]);
 
 int FuncAfterEdiParseErr(int parse_ret, void *udata, int *err)
 {
+    LogTrace(TRACE3) << __FUNCTION__;
     if(parse_ret==EDI_MES_STRUCT_ERR)
     {
         //SendEdiTlgErrCONTRL(get_tlg_context()->rot_num, 0, *err);
@@ -122,6 +134,7 @@ int FuncAfterEdiParseErr(int parse_ret, void *udata, int *err)
 
 int FuncBeforeEdiProc(edi_mes_head *pHead, void *udata, int *err)
 {
+    LogTrace(TRACE3) << __FUNCTION__;
     edi_udata * data = ((edi_udata *)udata);
     int ret=0;
     try{
@@ -182,14 +195,13 @@ int FuncAfterEdiProcErr(edi_mes_head *pHead, int ret, void *udata, int *err)
 
 int FuncBeforeEdiSend(edi_mes_head *pHead, void *udata, int *err)
 {
-
-    tst();
+    LogTrace(TRACE3) << __FUNCTION__;
     return 0;
 }
 
 int FuncAfterEdiSendErr(edi_mes_head *pHead, int ret, void *udata, int *err)
 {
-    tst();
+    LogTrace(TRACE3) << __FUNCTION__;
     if(*err == 0) {
         *err = 1;//EDI_PROC_ERR;
     }
@@ -199,6 +211,7 @@ int FuncAfterEdiSendErr(edi_mes_head *pHead, int ret, void *udata, int *err)
 
 int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
 {
+    LogTrace(TRACE3) << __FUNCTION__;
     int ret=0;
     edi_udata *ed=(edi_udata *) udata;
 
@@ -308,6 +321,7 @@ int edifact::init_edifact()
 // Обработка EDIFACT
 void proc_edifact(const std::string &tlg)
 {
+    ProgTrace(TRACE4, "proc_edifact");
     edi_udata_rd udata(new AstraEdiSessRD(), tlg);
     int err=0, ret;
 
@@ -364,10 +378,10 @@ public:
       * @brief interface method to get edifact request handler
       * @overload
     */
-    virtual edilib::EdiResponseHandler * makeHandler (EDI_REAL_MES_STRUCT *pMes,
-                                                      edi_msg_types_t msgid,
-                                                      const hth::HthInfo *hth,
-                                                      const edilib::EdiSessRdData *) const;
+    virtual AstraEdiResponseHandler * makeHandler (EDI_REAL_MES_STRUCT *pMes,
+                                                   edi_msg_types_t msgid,
+                                                   const hth::HthInfo *hth,
+                                                   const edilib::EdiSessRdData *) const;
 
     static const AstraEdifactResponseHandlerFactory *instance();
 
@@ -391,6 +405,9 @@ edilib::EdiRequestHandler *
                                                      edilib::CompElement("C302"),
                                                      edilib::SegmElement("MSG"));
     // здесь будут регистрироваться обработчики edifact-запросов
+    __DECLARE_HANDLER__(IatciCkiRequestHandler,     DCQCKI, "");
+    __DECLARE_HANDLER__(IatciCkuRequestHandler,     DCQCKU, "");
+    __DECLARE_HANDLER__(IatciCkxRequestHandler,     DCQCKX, "");
     return 0;
 }
 
@@ -412,41 +429,52 @@ const AstraEdifactResponseHandlerFactory *AstraEdifactResponseHandlerFactory::in
     return Instance;
 }
 
-edilib::EdiResponseHandler *
+AstraEdiResponseHandler *
     AstraEdifactResponseHandlerFactory::makeHandler(EDI_REAL_MES_STRUCT *pMes,
                                                     edi_msg_types_t msgid,
                                                     const hth::HthInfo *hth,
                                                     const edilib::EdiSessRdData *sessionHandler) const
 {
-    tst();
-    const std::string func_code = edilib::GetDBFName(pMes,
-                                                     edilib::DataElement(1225), "",
-                                                     edilib::CompElement("C302"),
-                                                     edilib::SegmElement("MSG"));
+    std::string func_code = edilib::GetDBFName(pMes,
+                                               edilib::DataElement(1225), "",
+                                               edilib::CompElement("C302"),
+                                               edilib::SegmElement("MSG"));
 
-    LogTrace(TRACE3) << "find response handler for msg with func_code: " << func_code;
+    // надеемся на то, что RAD всех сегментных групп Sg1(flg) одинаковы
+    if(msgid == DCRCKA) {
+        func_code = edilib::GetDBFName(pMes,
+                                       edilib::DataElement(9868), "",
+                                       edilib::CompElement(),
+                                       edilib::SegmElement("RAD"),
+                                       edilib::SegGrElement(1));
+    }
+
+    LogTrace(TRACE3) << "find response handler for msg " << msgid << " with func_code: " << func_code;
     // здесь будут регистрироваться обработчики edifact-ответов
     __DECLARE_HANDLER__(EmdDispResponseHandler,             TKCRES, "791");
     __DECLARE_HANDLER__(EmdCosResponseHandler,              TKCRES, "793");
     __DECLARE_HANDLER__(EmdSysUpdateResponseHandler,        TKCRES, "794");
+    // IACTI
+    __DECLARE_HANDLER__(IatciCkiResponseHandler,            DCRCKA, "I");
+    __DECLARE_HANDLER__(IatciCkuResponseHandler,            DCRCKA, "U");
+    __DECLARE_HANDLER__(IatciCkxResponseHandler,            DCRCKA, "X");
 
     return 0;
 }
 
 class AstraEdiHandlerManager : public edilib::EdiHandlerManager
 {
-    TlgSourceEdifact *TlgSrc;
+    boost::shared_ptr<TlgSourceEdifact> TlgSrc;
     boost::optional<TlgSourceEdifact> AnswerTlg;
-    AstraEdiSessRD *astraSessionHandler;
     bool NeedNoAnswer;
     bool ProcSavePoint;
 
     void put2queue(const std::exception * e);
     void detectLang();
 public:
-    AstraEdiHandlerManager(TlgSourceEdifact *tlg) :
+    AstraEdiHandlerManager(boost::shared_ptr<TlgSourceEdifact> tlg) :
         edilib::EdiHandlerManager(tlg->h2h(), tlg->text().c_str()),
-        TlgSrc(tlg), astraSessionHandler(0), NeedNoAnswer(false), ProcSavePoint(false)
+        TlgSrc(tlg), NeedNoAnswer(false), ProcSavePoint(false)
     {
     }
 
@@ -468,7 +496,7 @@ public:
     virtual edilib::EdiSessRdData * makeSessionHandler(const hth::HthInfo *hth,
                                                        const edi_mes_head &Head)
     {
-        return astraSessionHandler = new AstraEdiSessRD(hth, Head);
+        return new AstraEdiSessRD(hth, Head);
     }
 
     bool needNoAnswer() const { return NeedNoAnswer; }
@@ -545,20 +573,24 @@ void AstraEdiHandlerManager::detectLang()
 
 void AstraEdiHandlerManager::beforeProc()
 {
-//    if(sessionHandler()->edih()->msg_type_req == QUERY)
-//    {
+    if(sessionHandler()->edih()->msg_type_req == QUERY)
+    {
 //        Ticketing::RemoteSystemContext::SystemContext::initEdifact(
 //                    sessionHandler()->edih()->from,
 //                    sessionHandler()->edih()->to);
-//    }
-//    else
-//    {
+    }
+    else
+    {
 //        Ticketing::RemoteSystemContext::SystemContext::initEdifactByAnswer(
 //                    sessionHandler()->edih()->from,
 //                    sessionHandler()->edih()->to);
-//    }
+    }
     RemoteSystemContext::SystemContext::initDummyContext();
     RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().setTlgSrc(TlgSrc->text());
+    RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().setTlgNum(TlgSrc->tlgNum());
+    if(TlgHandling::isTlgPostponed(TlgSrc->tlgNum())) {
+        RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().setRepeatedlyProcessed();
+    }
 
 //    etsSessionHandler->setSysCont(&RemoteSystemContext::SystemContext::Instance(STDLOG));
 
@@ -583,12 +615,12 @@ void AstraEdiHandlerManager::beforeProc()
 
 void AstraEdiHandlerManager::afterProc()
 {
-//    if(sessionHandler()->edih()->msg_type_req == RESPONSE) {
-//        /* Если обрабатываем ответ */
-//        if(sessionHandler()->ediSession()->mustBeDeleted()) {
-//            PostponedTlgHandling::deleteWaiting(sessionHandler()->ediSession()->ida());
-//        }
-//    }
+    if(sessionHandler()->edih()->msg_type_req == RESPONSE) {
+        /* Если обрабатываем ответ */
+        if(sessionHandler()->ediSession()->mustBeDeleted()) {
+            TlgHandling::PostponeEdiHandling::deleteWaiting(sessionHandler()->ediSession()->ida());
+        }
+    }
 }
 
 void AstraEdiHandlerManager::afterProcFailed(const std::exception *e, const edilib::EdiRequestHandler *rh)
@@ -635,22 +667,21 @@ void AstraEdiHandlerManager::afterMakeAnswerFailed(const std::exception *e, cons
 //                                              Tr(EtsErr::EDI_PROC_ERR));
 }
 
-void proc_new_edifact(const std::string& tlg)
+boost::optional<TlgSourceEdifact> proc_new_edifact(boost::shared_ptr<TlgHandling::TlgSourceEdifact> tlg)
 {
+    ProgTrace(TRACE4, "proc_new_edifact");
+    boost::optional<TlgSourceEdifact> answTlg;
     try
     {
-        AstraEdiHandlerManager megaHandler(new TlgSourceEdifact(tlg));
+        AstraEdiHandlerManager megaHandler(tlg);
         megaHandler.handle();
 
-//        if(!megaHandler.needNoAnswer() && megaHandler.answer()) {
-//            TlgSourceEdifact *tlg;
-//            tlg_info.setTlg(tlg = new TlgSourceEdifact(megaHandler.answer()->MessageText));
-//            if(megaHandler.answer()->hth) {
-//                tlg->setH2h(*megaHandler.answer()->hth);
-//            }
-//            tlg->setHandMade(tlgSrc()->handMade());
-//            LogTrace(TRACE1) << "tlgout: " << *tlg;
-//        }
+        if(megaHandler.answer()) {
+            answTlg = TlgSourceEdifact(megaHandler.answer()->MessageText);
+            if(megaHandler.answer()->hth)
+                answTlg->setH2h(*megaHandler.answer()->hth);
+            LogTrace(TRACE1) << "tlgout: " << *answTlg;
+        }
     }
     catch(std::exception &e)
     {
@@ -662,6 +693,8 @@ void proc_new_edifact(const std::string& tlg)
     }
 
     ProgTrace(TRACE2, "New Edifact done.");
+
+    return answTlg;
 }
 
 
@@ -1331,7 +1364,7 @@ int ProcEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
 
 int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
 {
-
+    ProgTrace(TRACE4, "CreateEDIREQ");
     try{
         EDI_REAL_MES_STRUCT *pMes = GetEdiMesStructW();
         edi_udata_wr *ed=(edi_udata_wr *) udata;
@@ -1382,4 +1415,9 @@ int CreateCONTRL (edi_mes_head *pHead, void *udata, void *data, int *err)
     return 0;
 }
 
-
+int ProcEDIRES (edi_mes_head *pHead, void *udata, void *data, int *err)
+{
+    ProgTrace(TRACE4, "Proc EDIRES");
+    int ret = 0;
+    return ret;
+}

@@ -65,13 +65,12 @@ void ConfigAgentToWait(const Ticketing::SystemAddrs_t& rida,
 void MeetAgentExpectations(const edifact::RemoteResults & res)
 {
     res.updateDb();
-    LogTrace(TRACE1) << res;
-
+    LogTrace(TRACE1) << __FUNCTION__ << " " << res;
     if (!res.pult().empty())
     {
-      LogTrace(TRACE3) << "confirm_notify_levb for edisession: " << res.ediSession();
-      confirm_notify_levb(res.ediSession().get(), true);
-    };
+        LogTrace(TRACE3) << "confirm_notify_levb for edisession: " << res.ediSession();
+        confirm_notify_levb(res.ediSession().get(), true);
+    }
 }
 
 bool isDoomedToWait()

@@ -39,6 +39,10 @@ typedef struct AIRSRV_MSG
     char body[MAX_TLG_SIZE];
 }AIRSRV_MSG;
 
+namespace TlgHandling{
+    class TlgSourceEdifact;
+}//namespace TlgHandling
+
 #define H2H_BEG_STR		"V.\rV"
 
 typedef struct H2H_MSG
@@ -81,6 +85,8 @@ std::string getTypeBBody(int tlg_id, int tlg_num);
 void putTlgText(int tlg_id, const std::string &tlg_text);
 std::string getTlgText(int tlg_id);
 
+std::string getTlgText2(const tlgnum_t& tnum);
+
 bool deleteTlg(int tlg_id);
 bool errorTlg(int tlg_id, const std::string &type, const std::string &msg="");
 void parseTypeB(int tlg_id);
@@ -94,7 +100,6 @@ void errorTypeB(int tlg_id,
 int saveTlg(const char * receiver,
             const char * sender,
             const char * type,
-            int ttl,
             const std::string &text,
             int typeb_tlg_id = ASTRA::NoExists,
             int typeb_tlg_num = ASTRA::NoExists);
@@ -106,8 +111,13 @@ int sendTlg(const char* receiver,
             const std::string &text,
             int typeb_tlg_id,
             int typeb_tlg_num);
+
+
+void sendEdiTlg(const TlgHandling::TlgSourceEdifact& tlg);
+
 int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_error);
 int loadTlg(const std::string &text);
+
 void procTypeB(int tlg_id, int inc);
 bool procTlg(int tlg_id);
 

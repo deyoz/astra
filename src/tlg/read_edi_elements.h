@@ -4,6 +4,7 @@
 #include <boost/optional.hpp>
 #include "edi_elements.h"
 
+
 struct _EDI_REAL_MES_STRUCT_;
 
 namespace Ticketing{
@@ -79,6 +80,19 @@ boost::optional<edifact::TktElem> readEdiTkt(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::CpnElem> readEdiCpn(_EDI_REAL_MES_STRUCT_ *pMes, int n = 0);
 boost::optional<edifact::TvlElem> readEdiTvl(_EDI_REAL_MES_STRUCT_ *pMes);
 
+// IATCI
+boost::optional<edifact::LorElem> readEdiLor(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::FdqElem> readEdiFdq(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::PpdElem> readEdiPpd(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::PrdElem> readEdiPrd(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::PsdElem> readEdiPsd(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::PbdElem> readEdiPbd(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::FdrElem> readEdiFdr(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::RadElem> readEdiRad(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::PfdElem> readEdiPfd(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::ChdElem> readEdiChd(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::FsdElem> readEdiFsd(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::ErdElem> readEdiErd(_EDI_REAL_MES_STRUCT_ *pMes);
 
 } // namespace Ticketing
 } // namespace TickReader

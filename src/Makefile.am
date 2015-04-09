@@ -133,6 +133,9 @@ astra_SOURCES = \
   ticket_types.cpp \
   astra_emd.cpp \
   EdiTimeOutsDaemon.cc \
+  iatci.cc \
+  iatci_types.cc \
+  iatci_api.cc \
   TypeBHelpMng.cpp
 
 
@@ -254,4 +257,8 @@ noinst_HEADERS = \
   astra_dates.h \
   astra_dates_oci.h \
   astra_emd.h \
+  iatci_types.h \
+  iatci_serialization.h \
+  iatci_api.h \
+  iatci.h \
   TypeBHelpMng.h

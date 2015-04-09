@@ -1,5 +1,14 @@
 #include "edi_elements.h"
-#include "etick/tick_data.h"
+
+#include <etick/tick_data.h>
+#include <serverlib/dates.h>
+
+#include <boost/foreach.hpp>
+
+#define NICKNAME "ANTON"
+#define NICK_TRACE ANTON_TRACE
+#include <serverlib/slogger.h>
+
 
 namespace edifact
 {
@@ -99,6 +108,123 @@ std::ostream& operator<<(std::ostream &os, const CpnElem& cpn)
     os << "; "
        << "action request:" << (!cpn.m_action.empty() ? cpn.m_action : "NO") << "; "
        << "SAC:" << (!cpn.m_sac.empty() ? cpn.m_sac : "NO") << "; ";
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const LorElem &lor)
+{
+    os << "LOR: ";
+    os << "airline: " << lor.m_airline << "; ";
+    os << "port: " << lor.m_port;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const FdqElem &fdq)
+{
+    os << "FDQ: ";
+    os << "outb airline: " << fdq.m_outbAirl << "; ";
+    os << "outb flight: " << fdq.m_outbFlNum << "; ";
+    os << "outb depdt: " << Dates::hh24mi_ddmmyyyy(fdq.m_outbDepDateTime) << "; ";
+    os << "outb deppoint: " << fdq.m_outbDepPoint << "; ";
+    os << "outb arrpoint: " << fdq.m_outbArrPoint << "\n";
+    os << "inb airline: " << fdq.m_inbAirl << "; ";
+    os << "inb flight: " << fdq.m_inbFlNum << "; ";
+    os << "inb depdt: " << Dates::hh24mi_ddmmyyyy(fdq.m_inbDepDateTime) << "; ";
+    os << "inb arrdt: " << Dates::hh24mi_ddmmyyyy(fdq.m_inbArrDateTime) << "; ";
+    os << "inb deppoint: " << fdq.m_inbDepPoint << "; ";
+    os << "inb arrpoint: " << fdq.m_outbArrPoint;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const PpdElem &ppd)
+{
+    os << "PPD: ";
+    os << "surname: " << ppd.m_passSurname << "; ";
+    os << "name: " << ppd.m_passName << "; ";
+    os << "type: " << ppd.m_passType << "; ";
+    os << "resp ref: " << ppd.m_passRespRef << "; ";
+    os << "qry ref: " << ppd.m_passQryRef;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const PrdElem &prd)
+{
+    os << "PRD: ";
+    os << "rbd: " << prd.m_rbd;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const PsdElem &psd)
+{
+    os << "PSD: ";
+    os << "nosmoking: " << psd.m_noSmokingInd << "; ";
+    os << "characterstic: " << psd.m_characteristic;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const PbdElem &pbd)
+{
+    os << "PBD: ";
+    os << "num of pieces: " << pbd.m_numOfPieces << "; ";
+    os << "weight: " << pbd.m_weight;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const FdrElem &fdr)
+{
+    os << "FDR: ";
+    os << "airline: " << fdr.m_airl << "; ";
+    os << "flight: " << fdr.m_flNum << "; ";
+    os << "depdt: " << Dates::hh24mi_ddmmyyyy(fdr.m_depDateTime) << "; ";
+    os << "arrdt: " << Dates::hh24mi_ddmmyyyy(fdr.m_arrDateTime) << "; ";
+    os << "deppoint: " << fdr.m_depPoint << "; ";
+    os << "arrpoint: " << fdr.m_arrPoint;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const RadElem &rad)
+{
+    os << "RAD: ";
+    os << "resp type: " << rad.m_respType << "; ";
+    os << "status: " << rad.m_status;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const PfdElem &pfd)
+{
+    os << "PFD: ";
+    os << "seat: " << pfd.m_seat << "; ";
+    os << "nosmoking: " << pfd.m_noSmokingInd << "; ";
+    os << "cabin class: " << pfd.m_cabinClass << "; ";
+    os << "security id: " << pfd.m_securityId;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const ChdElem &chd)
+{
+    os << "CHD: ";
+    os << "airline: " << chd.m_origAirline << "; ";
+    os << "point: " << chd.m_origPoint << "; ";
+    os << "host airlines: ";
+    BOOST_FOREACH(const std::string& hostAirline, chd.m_hostAirlines) {
+        os << hostAirline << ", ";
+    }
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const FsdElem &fsd)
+{
+    os << "FSD: ";
+    os << "boarding time: " << Dates::hh24mi(fsd.m_boardingTime);
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const ErdElem &erd)
+{
+    os << "ERD: ";
+    os << "level: " << erd.m_level << "; ";
+    os << "message number: " << erd.m_messageNumber << "; ";
+    os << "message text: " << erd.m_messageText;
     return os;
 }
 

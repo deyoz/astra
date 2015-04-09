@@ -13,6 +13,7 @@
 
 #include <edilib/edi_types.h>
 #include <edilib/edi_request.h>
+#include <edilib/edi_astra_msg_types.h>
 
 #include "astra_consts.h"
 #include "xml_unit.h"
@@ -45,7 +46,8 @@ struct KickInfo
     std::string desk;
   public:
     KickInfo() : reqCtxtId(ASTRA::NoExists),
-                 parentSessId(ASTRA::NoExists) {};
+                 parentSessId(ASTRA::NoExists)
+    {}
     KickInfo(const int v_reqCtxtId,
              const std::string &v_iface,
              const std::string &v_msgid,
@@ -56,7 +58,7 @@ struct KickInfo
         parentSessId(ASTRA::NoExists),
         msgId(v_msgid),
         desk(v_desk)
-    {};
+    {}
     void clear()
     {
       reqCtxtId=ASTRA::NoExists;
@@ -65,7 +67,7 @@ struct KickInfo
       parentSessId=ASTRA::NoExists;
       msgId.clear();
       desk.clear();
-    };    
+    }
     const KickInfo& toXML(xmlNodePtr node) const;
     KickInfo& fromXML(xmlNodePtr node);
 };
