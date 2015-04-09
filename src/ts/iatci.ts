@@ -253,8 +253,6 @@ PBD+1:20"
 UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
-$(dump_table EDISESSION_TIMEOUTS)
-
 
 $(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
 $(run_daemon edi_timeout)

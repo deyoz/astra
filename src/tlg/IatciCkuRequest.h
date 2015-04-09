@@ -11,7 +11,10 @@ class CkuRequest: public EdifactRequest
 {
     iatci::CkuParams m_params;
 public:
-    CkuRequest(const iatci::CkuParams& params, const KickInfo& kick);
+    CkuRequest(const iatci::CkuParams& params,
+               const std::string& pult,
+               const std::string& ctxt,
+               const KickInfo& kick);
 
     virtual std::string mesFuncCode() const;
     virtual std::string funcCode() const;
@@ -23,6 +26,8 @@ public:
 //-----------------------------------------------------------------------------
 
 edilib::EdiSessionId_t SendCkuRequest(const iatci::CkuParams& params,
+                                      const std::string& pult = "SYSTEM",
+                                      const std::string& ctxt = "",
                                       const KickInfo& kick = KickInfo());
 
 }//namespace edifact

@@ -325,10 +325,10 @@ public:
               const FlightDetails& flight,
               const FlightDetails& flightFromPrevHost,
               const PaxDetails& pax,
-              boost::optional<ReservationDetails> reserv,
-              boost::optional<SeatDetails> seat,
-              boost::optional<BaggageDetails> baggage,
-              boost::optional<CascadeHostDetails> cascadeDetails)
+              boost::optional<ReservationDetails> reserv = boost::none,
+              boost::optional<SeatDetails> seat = boost::none,
+              boost::optional<BaggageDetails> baggage = boost::none,
+              boost::optional<CascadeHostDetails> cascadeDetails = boost::none)
         : m_origin(origin),
           m_flight(flight),
           m_flightFromPrevHost(flightFromPrevHost),

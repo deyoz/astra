@@ -80,16 +80,28 @@ static iatci::CkxParams getDebugCkxParams()
     return ckxParams;
 }
 
+static std::string getIatciContext(xmlNodePtr reqNode)
+{
+    return XMLTreeToText(reqNode->doc);
+}
+
+static std::string getIatciPult()
+{
+    return TReqInfo::Instance()->desk.code;
+}
+
 //---------------------------------------------------------------------------------------
 
 void IactiInterface::InitialRequest(XMLRequestCtxt* ctxt,
                                     xmlNodePtr reqNode,
                                     xmlNodePtr resNode)
 {
-    iatci::CkiParams ckiParams = getDebugCkiParams();
-    edifact::KickInfo kickInfo = AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface");
+    const iatci::CkiParams ckiParams = getDebugCkiParams();
+    const std::string pult = getIatciPult();
+    const std::string context = getIatciContext(reqNode);
+    const edifact::KickInfo kickInfo = AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface");
     // send edifact DCQCKI request
-    edifact::SendCkiRequest(ckiParams, kickInfo);
+    edifact::SendCkiRequest(ckiParams, pult, context, kickInfo);
 }
 
 void IactiInterface::UpdateRequest(XMLRequestCtxt* ctxt,
@@ -102,10 +114,12 @@ void IactiInterface::CancelRequest(XMLRequestCtxt* ctxt,
                                    xmlNodePtr reqNode,
                                    xmlNodePtr resNode)
 {
-    iatci::CkxParams ckxParams = getDebugCkxParams();
-    edifact::KickInfo kickInfo = AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface");
+    const iatci::CkxParams ckxParams = getDebugCkxParams();
+    const std::string pult = getIatciPult();
+    const std::string context = getIatciContext(reqNode);
+    const edifact::KickInfo kickInfo = AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface");
     // send edifact DCQCKX request
-    edifact::SendCkxRequest(ckxParams, kickInfo);
+    edifact::SendCkxRequest(ckxParams, pult, context, kickInfo);
 }
 
 void IactiInterface::ReprintRequest(XMLRequestCtxt* ctxt,

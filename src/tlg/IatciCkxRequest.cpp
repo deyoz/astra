@@ -11,8 +11,11 @@
 
 namespace edifact {
 
-CkxRequest::CkxRequest(const iatci::CkxParams& params, const KickInfo& kick)
-    : EdifactRequest("pult", "ctxt", kick, DCQCKX,
+CkxRequest::CkxRequest(const iatci::CkxParams& params,
+                       const std::string& pult,
+                       const std::string& ctxt,
+                       const KickInfo& kick)
+    : EdifactRequest(pult, ctxt, kick, DCQCKX,
                      Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline())),
       m_params(params)
 {
@@ -46,9 +49,13 @@ void CkxRequest::collectMessage()
 //-----------------------------------------------------------------------------
 
 edilib::EdiSessionId_t SendCkxRequest(const iatci::CkxParams& params,
+                                      const std::string& pult,
+                                      const std::string& ctxt,
                                       const KickInfo& kick)
 {
-    CkxRequest ckxReq(params, kick);
+    LogTrace(TRACE3) << "SendCkxRequest from pult[" << pult << "] "
+                     << "with context length[" << ctxt.length() << "]";
+    CkxRequest ckxReq(params, pult, ctxt, kick);
     ckxReq.sendTlg();
     return ckxReq.ediSessId();
 }

@@ -18,6 +18,8 @@
 namespace iatci
 {
 
+static const int MaxSerializedDataLen = 1024;
+
 static std::string serialize(const std::list<iatci::Result>& lRes)
 {
     std::ostringstream os;
@@ -111,12 +113,19 @@ std::list<Result> loadDeferredCkiData(tlgnum_t msgId)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by msgId: " << msgId;
 
-    std::string serialized;
+    char data[MaxSerializedDataLen + 1] = {};
+
     OciCpp::CursCtl cur = make_curs(
-"select DATA from DEFERRED_CKI_DATA where MSG_ID=:msg_id");
+"begin\n"
+":data:=NULL;\n"
+"delete from DEFERRED_CKI_DATA where MSG_ID=:msg_id "
+"returning DATA into :data; \n"
+"end;");
     cur.bind(":msg_id", msgId.num)
-       .def(serialized)
-       .EXfet();
+       .bindOutNull(":data", data, "")
+       .exec();
+
+    std::string serialized(data);
 
     if(serialized.empty()) {
         tst();
@@ -149,13 +158,20 @@ std::list<Result> loadCkiData(edilib::EdiSessionId_t sessId)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by sessId: " << sessId;
 
-    std::string serialized;
-    OciCpp::CursCtl cur = make_curs(
-"select DATA from CKI_DATA where EDISESSION_ID=:sessid");
-    cur.bind(":sessid", sessId)
-       .def(serialized)
-       .EXfet();
+    char data[MaxSerializedDataLen + 1] = {};
 
+    OciCpp::CursCtl cur = make_curs(
+"begin\n"
+":data:=NULL;\n"
+"delete from CKI_DATA where EDISESSION_ID=:sessid "
+"returning DATA into :data; \n"
+"end;");
+
+    cur.bind(":sessid", sessId)
+       .bindOutNull(":data", data, "")
+       .exec();
+
+    std::string serialized(data);
     if(serialized.empty()) {
         tst();
         return std::list<Result>();
