@@ -48,12 +48,11 @@ struct TypeBHelp {
     TypeBHelp() { Clear(); }
     TypeBHelp(int typeb_in_id)
     {
-        Clear();
         fromDB(typeb_in_id);
     }
     void toDB();
     void fromDB(int typeb_in_id);
-    void get(int typeb_in_id);
+    int getTlgsId(int typeb_in_id);
 };
 
 
@@ -67,31 +66,38 @@ void set_http_header(ServerFramework::HTTP::request &rq, const string &name, con
     }
 }
 
-void TypeBHelp::get(int typeb_in_id)
+int TypeBHelp::getTlgsId(int typeb_in_id)
 {
+    int result = ASTRA::NoExists;
     QParams QryParams;
     QryParams << QParam("typeb_in_id", otInteger, typeb_in_id);
-    TCachedQuery Qry(
-            "select * from typeb_help where "
-            "   tlgs_id = (select id from tlgs where typeb_tlg_id = :typeb_in_id)", QryParams);
+    TCachedQuery Qry("select id from tlgs where typeb_tlg_id = :typeb_in_id", QryParams);
     Qry.get().Execute();
-    if(not Qry.get().Eof) {
-        tlgs_id = Qry.get().FieldAsInteger("tlgs_id");
-        addr = Qry.get().FieldAsString("address");
-        intmsgid = Qry.get().FieldAsString("intmsgid");
-        text = Qry.get().FieldAsString("text");
-        timeout = ASTRA::NoExists;
+    for(; Qry.get().Eof; Qry.get().Next()) {
+        if(result == ASTRA::NoExists)
+            result = Qry.get().FieldAsInteger("id");
+        else {
+            // Смысл такой. Если запрос вернул более 1 строки,
+            // то тлг состоит из нескольких частей,
+            // чего по HTTP быть не может.
+            // В этом случае результат не определен.
+            result = ASTRA::NoExists;
+            break;
+        }
     }
+    return result;
 }
 
 void TypeBHelp::fromDB(int typeb_in_id)
 {
+    Clear();
     if(typeb_in_id == ASTRA::NoExists) return;
+    tlgs_id = getTlgsId(typeb_in_id);
+    if(tlgs_id == ASTRA::NoExists) return;
 
     QParams QryParams;
     QryParams
-        << QParam("typeb_in_id", otInteger, typeb_in_id)
-        << QParam("tlgs_id", otInteger)
+        << QParam("tlgs_id", otInteger, tlgs_id)
         << QParam("address", otString)
         << QParam("intmsgid", otString)
         << QParam("text", otString)
@@ -99,8 +105,7 @@ void TypeBHelp::fromDB(int typeb_in_id)
         ;
     TCachedQuery Qry(
             "begin "
-            "delete from typeb_help where tlgs_id = "
-            "   (select id from tlgs where typeb_tlg_id = :typeb_in_id) "
+            "delete from typeb_help where tlgs_id = :tlgs_id "
             "returning "
             "   tlgs_id, "
             "   address, "
@@ -116,13 +121,13 @@ void TypeBHelp::fromDB(int typeb_in_id)
             "end; ",
             QryParams);
     Qry.get().Execute();
-    addr = Qry.get().GetVariableAsString("address");
-    intmsgid = Qry.get().GetVariableAsString("intmsgid");
-    text = Qry.get().GetVariableAsString("text");
     if(Qry.get().VariableIsNULL("tlgs_id"))
         tlgs_id = ASTRA::NoExists;
-    else
-        tlgs_id = Qry.get().GetVariableAsInteger("tlgs_id");
+    else {
+        addr = Qry.get().GetVariableAsString("address");
+        intmsgid = Qry.get().GetVariableAsString("intmsgid");
+        text = Qry.get().GetVariableAsString("text");
+    }
     timeout = ASTRA::NoExists;
 }
 

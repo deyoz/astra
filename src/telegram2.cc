@@ -7791,6 +7791,8 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     ProgTrace(TRACE5, "%s", __FUNCTION__);
+    ProgTrace(TRACE5, "ctxt->GetOpr: %s", ctxt->GetOpr().c_str());
+    ProgTrace(TRACE5, "ctxt->GetPult: %s", ctxt->GetPult().c_str());
     xmlNodePtr contentNode = GetNode( "content", reqNode );
     if ( contentNode == NULL ) {
         return;
