@@ -10,9 +10,13 @@
 #include "EdiHandlersFactory.h"
 #include "edi_tlg.h"
 
-// handlers
+// emd handlers
 #include "EmdDispResponseHandler.h"
 #include "EmdSysUpdateResponseHandler.h"
+// iatci handlers
+#include "IatciCkiResponseHandler.h"
+#include "IatciCkuResponseHandler.h"
+#include "IatciCkxResponseHandler.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -36,6 +40,21 @@ TlgHandling::AstraEdiResponseHandler* EdiResHandlersFactory(edi_msg_types_t msgi
             else if(func_code == "794") // 794
             {
                 return new TlgHandling::EmdSysUpdateResponseHandler(0, psess.get());
+            }
+        }
+        case DCRCKA:
+        {
+            if(func_code == "I") // CKI
+            {
+                return new TlgHandling::IatciCkiResponseHandler(0, psess.get());
+            }
+            else if(func_code == "U") // CKU
+            {
+                return new TlgHandling::IatciCkuResponseHandler(0, psess.get());
+            }
+            else if(func_code == "X") // CKX
+            {
+                return new TlgHandling::IatciCkxResponseHandler(0, psess.get());
             }
         }
         default:;

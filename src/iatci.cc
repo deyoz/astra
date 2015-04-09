@@ -146,6 +146,12 @@ void IactiInterface::CancelKickHandler(xmlNodePtr resNode,
     tst();
 }
 
+void IactiInterface::TimeoutKickHandler(xmlNodePtr resNode)
+{
+    FuncIn(TimeoutKickHandler);
+    FuncOut(TimeoutKickHandler);
+}
+
 void IactiInterface::KickHandler(XMLRequestCtxt* ctxt,
                                  xmlNodePtr reqNode,
                                  xmlNodePtr resNode)
@@ -155,20 +161,28 @@ void IactiInterface::KickHandler(XMLRequestCtxt* ctxt,
     pRemoteResults res = RemoteResults::readSingle();
     if(res) {
         LogTrace(TRACE3) << *res;
-        std::list<iatci::Result> lRes = iatci::loadCkiData(res->ediSession());
-        ASSERT(!lRes.empty());
-        iatci::Result::Action_e action = lRes.front().action();
-        switch(action)
+
+        if(res->status() == RemoteStatus::Timeout)
         {
-        case iatci::Result::Checkin:
-            CheckinKickHandler(resNode, lRes);
-            break;
-        case iatci::Result::Cancel:
-            CancelKickHandler(resNode, lRes);
-            break;
-        case iatci::Result::Update:
-            tst();
-        // TODO
+            TimeoutKickHandler(resNode);
+        }
+        else
+        {
+            std::list<iatci::Result> lRes = iatci::loadCkiData(res->ediSession());
+            ASSERT(!lRes.empty());
+            iatci::Result::Action_e action = lRes.front().action();
+            switch(action)
+            {
+            case iatci::Result::Checkin:
+                CheckinKickHandler(resNode, lRes);
+                break;
+            case iatci::Result::Cancel:
+                CancelKickHandler(resNode, lRes);
+                break;
+            case iatci::Result::Update:
+                tst();
+            // TODO
+            }
         }
     }
     FuncOut(KickHandler);

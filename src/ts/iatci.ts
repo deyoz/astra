@@ -224,3 +224,44 @@ UNZ+1+$(last_edifact_ref)0001"
     <kick...
 
 $(lastRedisplay)
+
+%%
+#########################################################################################
+
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_dcs SU TA OA)
+
+
+{<?xml version='1.0' encoding='UTF-8'?>
+ <term>
+   <query handle='0' id='IactiInterface' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+     <InitialRequest/>
+   </query>
+ </term>}
+
+
+>>
+UNB+SIRE:1+xx+xx+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+LOR+UT:SVO"
+FDQ+SU+200+150221+LED+AER++UT+100+1502200530+1502201140+SVO+LED"
+PPD+PETROV+M++ALEX++UT100"
+PRD+Y"
+PSD+N"
+PBD+1:20"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(dump_table EDISESSION_TIMEOUTS)
+
+
+$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(run_daemon edi_timeout)
+
+# пришёл пинок от обработчика таймаута edifact
+>> lines=auto
+    <kick...
+
+!!
+$(lastRedisplay)

@@ -97,6 +97,9 @@ public:
 
     virtual void sendTlg();
 
+    // Обобщённый код сообщения - совпадает с mesFuncCode всегда, кроме iatci сообщений
+    virtual std::string funcCode() const;
+
     const std::string & context() const { return ediSessCtxt; }
     const KickInfo &kickInfo() const { return m_kickInfo; }
 

@@ -23,6 +23,11 @@ std::string CkxRequest::mesFuncCode() const
     return ""; // no MSG
 }
 
+std::string CkxRequest::funcCode() const
+{
+    return "X";
+}
+
 void CkxRequest::collectMessage()
 {
     viewLorElement(pMes(), m_params.origin());

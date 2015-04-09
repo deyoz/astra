@@ -111,7 +111,7 @@ void EdifactRequest::sendTlg()
 
     // Записать информацию о timeout отправленной телеграммы
     edilib::EdiSessionTimeOut::add(ediSess()->edih()->msg_type,
-                                   mesFuncCode(),
+                                   funcCode(),
                                    ediSessId(),
                                    sysCont()->edifactResponseTimeOut());
 
@@ -125,6 +125,11 @@ void EdifactRequest::sendTlg()
                                  ediSess()->ediSession()->ida(),
                                  kickInfo());
 
+}
+
+std::string EdifactRequest::funcCode() const
+{
+    return mesFuncCode();
 }
 
 const TlgSourceEdifact * EdifactRequest::tlgOut() const

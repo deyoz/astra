@@ -23,6 +23,11 @@ std::string CkuRequest::mesFuncCode() const
     return ""; // no MSG
 }
 
+std::string CkuRequest::funcCode() const
+{
+    return "U";
+}
+
 void CkuRequest::collectMessage()
 {
 //    viewLorElement(pMes(), m_params.m_origin);

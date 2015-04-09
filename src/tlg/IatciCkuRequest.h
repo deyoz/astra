@@ -14,6 +14,7 @@ public:
     CkuRequest(const iatci::CkuParams& params, const KickInfo& kick);
 
     virtual std::string mesFuncCode() const;
+    virtual std::string funcCode() const;
     virtual void collectMessage();
 
     virtual ~CkuRequest() {}

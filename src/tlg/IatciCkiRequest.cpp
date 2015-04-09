@@ -23,6 +23,11 @@ std::string CkiRequest::mesFuncCode() const
     return ""; // no MSG
 }
 
+std::string CkiRequest::funcCode() const
+{
+    return "I";
+}
+
 void CkiRequest::collectMessage()
 {
     viewLorElement(pMes(), m_params.origin());

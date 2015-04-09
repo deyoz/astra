@@ -14,6 +14,7 @@ public:
     CkxRequest(const iatci::CkxParams& params, const KickInfo& kick);
 
     virtual std::string mesFuncCode() const;
+    virtual std::string funcCode() const;
     virtual void collectMessage();
 
     virtual ~CkxRequest() {}
