@@ -29,6 +29,7 @@
 #include "astra_service.h"
 #include "astra_callbacks.h"
 #include "tlg/tlg.h"
+#include "qrys.h"
 #include "serverlib/perfom.h"
 #include "serverlib/ourtime.h"
 #include "serverlib/query_runner.h"
@@ -413,22 +414,31 @@ bool is_valid_pnr_status(const string &pnr_status)
                pnr_status=="WL");
 };
 
-bool is_valid_pax_status(int pax_id, TQuery& PaxQry)
+bool is_web_cancel(int pax_id)
 {
-  const char* sql=
-    "SELECT time FROM crs_pax_refuse "
-    "WHERE pax_id=:pax_id AND client_type=:client_type AND rownum<2";
-  if (strcmp(PaxQry.SQLText.SQLText(),sql)!=0)
-  {
-    PaxQry.Clear();
-    PaxQry.SQLText=sql;
-    PaxQry.DeclareVariable("pax_id", otInteger);
-    PaxQry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
-  };
-  PaxQry.SetVariable("pax_id", pax_id);
-  PaxQry.Execute();
-  if (!PaxQry.Eof) return false;
-  return true;
+  TCachedQuery Qry("SELECT time FROM crs_pax_refuse "
+                   "WHERE pax_id=:pax_id AND client_type=:client_type AND rownum<2",
+                   QParams() << QParam("pax_id", otInteger, pax_id)
+                             << QParam("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type)));
+  Qry.get().Execute();
+  if (!Qry.get().Eof) return true;
+  return false;
+};
+
+bool is_valid_pax_nationality(int point_id,
+                              int pax_id)
+{
+  if (!GetSelfCkinSets(tsRegRUSNationOnly, point_id, TReqInfo::Instance()->client_type)) return true;
+  CheckIn::TPaxDocItem doc;
+  CheckIn::LoadCrsPaxDoc(pax_id, doc);
+  if (doc.nationality=="RUS") return true;
+  return false;
+};
+
+bool is_valid_pax_status(int point_id, int pax_id)
+{
+  return !is_web_cancel(pax_id) &&
+         is_valid_pax_nationality(point_id, pax_id);
 };
 
 bool is_valid_doc_info(const TCheckDocInfo &checkDocInfo,
@@ -616,9 +626,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
     pnr.clear();
 
     if (!isTestPaxId(pnr_id))
-    {
-      TQuery PaxStatusQry(&OraSession);
-
+    {      
       TQuery CrsTKNQry(&OraSession);
       CrsTKNQry.SQLText =
         "SELECT rem_code AS ticket_rem, "
@@ -772,8 +780,10 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
 
                 if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")))
                   pax.agent_checkin_reasons.insert("pnr_status");
-                if (!is_valid_pax_status(pax.crs_pax_id, PaxStatusQry))
+                if (is_web_cancel(pax.crs_pax_id))
                   pax.agent_checkin_reasons.insert("web_cancel");
+                if (!is_valid_pax_nationality(point_id, pax.crs_pax_id))
+                  pax.agent_checkin_reasons.insert("pax_nationality");
                 if (!is_valid_doc_info(pnr.checkDocInfo, pax.doc))
                   pax.agent_checkin_reasons.insert("incomplete_doc");
                 if (!is_valid_doco_info(pnr.checkDocInfo, pax.doco))
@@ -1627,7 +1637,6 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
       "WHERE id=:crs_pax_id";
 
   TQuery Qry(&OraSession);
-  TQuery PaxStatusQry(&OraSession);
 
   seg_no=1;
   for(vector< pair<int, TWebPnrForSave > >::iterator s=segs.begin(); s!=segs.end(); s++, seg_no++)
@@ -1672,7 +1681,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
                   throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
 
                 if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")) ||
-                    !is_valid_pax_status(iPax->crs_pax_id, PaxStatusQry))
+                    !is_valid_pax_status(point_id, iPax->crs_pax_id))
                   throw UserException("MSG.PASSENGER.CHECKIN_DENIAL");
               }
               else
@@ -2419,9 +2428,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
       "FROM test_pax, subcls "
       "WHERE test_pax.subclass=subcls.code AND test_pax.id=:crs_pax_id";
 
-    TQuery PaxStatusQry(&OraSession);
-    int pnr_id=NoExists, point_id_tlg=NoExists;
-    string airp_arv;
+    int pnr_id=NoExists;
     vector<TWebPax> pnr;
     xmlNodePtr node=NodeAsNode("passengers", reqNode)->children;
     for(;node!=NULL;node=node->next)
@@ -2468,17 +2475,12 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
           throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
 
         if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")) ||
-            !is_valid_pax_status(pax.crs_pax_id, PaxStatusQry))
+            !is_valid_pax_status(point_id, pax.crs_pax_id))
           throw UserException("MSG.PASSENGER.CHECKIN_DENIAL");
 
         if (pnr_id==NoExists)
         {
-          pnr_id=Qry.FieldAsInteger("pnr_id");
-          if (!isTestPaxId(pax.crs_pax_id))
-          {
-            point_id_tlg=Qry.FieldAsInteger("point_id");
-            airp_arv=Qry.FieldAsString("airp_arv");
-          };
+          pnr_id=Qry.FieldAsInteger("pnr_id");          
         }
         else
         {

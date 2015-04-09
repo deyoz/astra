@@ -1543,7 +1543,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "  UPDATE users2 SET desk = NULL WHERE desk = :desk; "
       "  UPDATE users2 SET desk = :desk WHERE user_id = :user_id; "
       "  UPDATE desks "
-      "  SET version = :version, last_logon = system.UTCSYSDATE, term_id=:term_id "
+      "  SET version = :version, last_logon = system.UTCSYSDATE, term_id=:term_id, term_mode=:term_mode "
       "  WHERE code = :desk; "
       "END;";
     Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
@@ -1556,6 +1556,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       Qry.CreateVariable("term_id", otFloat, NodeAsFloat(propNode));
     else
       Qry.CreateVariable("term_id", otFloat, FNull);
+    Qry.CreateVariable("term_mode", otString, EncodeOperMode(reqInfo->desk.mode));
     Qry.Execute();
 
     vector<string> run_params;
