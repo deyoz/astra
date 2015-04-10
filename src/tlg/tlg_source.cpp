@@ -29,99 +29,49 @@
 
 namespace TlgHandling
 {
-using namespace OciCpp;
-using namespace std;
-//using namespace Ticketing::TickExceptions;
 
 TlgSource TlgSource::readFromDb(const tlgnum_t& tlg_num)
 {
-//    std::string full_text, errtext;
-//    Ticketing::RouterId_t from_rot, to_rot;
-//    oracle_datetime tlg_date, proc_date;
-//    tlgnum_t answ_tnum;
-//    Ticketing::Airline_t airline;
-//    std::string type,subtype;
-//    int postp, hmade;
+    std::string full_text = getTlgText2(tlg_num);
+    std::string err_text;
+    std::string from_rot, to_rot;
+    std::string type;
+    bool postponed = false;
+    Dates::ptime date1;
+    int gateway_num = 0;
 
-//    short multi;
-//    CursCtl tcur = make_curs("SELECT "
-//            "TEXT, MULTY_PART, FROM_ADDR, TO_ADDR, DATE1, ERRTEXT, "
-//            "ANSWER_MSG_ID, PROCESS_DATE, AIRLINE, TYPE, SUBTYPE, "
-//            "POSTPONED, HAND_MADE "
-//            "FROM TEXT_TLG_NEW WHERE MSG_ID = :ID");
-//    tcur.
-//            bind(":ID",tlg_num.num).
-//            def(full_text).
-//            def(multi).
-//            defNull(from_rot, Ticketing::RouterId_t()).
-//            defNull(to_rot, Ticketing::RouterId_t()).
-//            def(tlg_date).
-//            defNull(errtext, "").
-//            defNull(answ_tnum.num, tlgnum_t().num).
-//            defNull(proc_date, oracle_datetime()).
-//            defNull(airline, Ticketing::Airline_t()).
-//            defNull(type,"").
-//            defNull(subtype,"").
-//            defNull(postp, 0).
-//            defNull(hmade, 0).
-//            EXfet();
+    OciCpp::CursCtl tcur = make_curs("select "
+            "TLG_NUM, SENDER, RECEIVER, ERROR, TYPE, TIME, POSTPONED "
+            "from TLGS where ID = :ID");
 
-//    if(tcur.err() == NO_DATA_FOUND)
-//    {
-//        throw tick_soft_except(STDLOG, TlgErr::NoSuchTlg, "No such tlg: %s", HelpCpp::string_cast(tlg_num).c_str());
-//    }
+    tcur.bind(":ID", tlg_num.num)
+        .def(gateway_num)
+        .def(from_rot)
+        .def(to_rot)
+        .defNull(err_text, "")
+        .def(type)
+        .def(date1)
+        .defNull(postponed, false)
+        .EXfet();
 
-//    if(from_rot && from_rot.get() == 0)
-//    {
-//        from_rot = Ticketing::RouterId_t();
-//    }
-//    if(to_rot && to_rot.get() == 0)
-//    {
-//        to_rot = Ticketing::RouterId_t();
-//    }
+    if(tcur.err() == NO_DATA_FOUND)
+    {
+        throw EXCEPTIONS::Exception("No such tlg: %s", HelpCpp::string_cast(tlg_num).c_str());
+    }
 
-//    if(multi)
-//    {
-//        std::string cur_frag;
-//        CursCtl pcur = make_curs(
-//                "SELECT text FROM text_tlg_part WHERE msg_id=:id ORDER BY part"
-//                                );
-//        pcur.
-//                bind(":id", tlg_num.num).
-//                def(cur_frag).
-//                exec();
-//        unsigned num = 1;
-//        while(!pcur.fen())
-//        {
-//            num++;
-//            full_text += cur_frag;
-//        }
-//        LogTrace(TRACE3) << "TlgSource::readFromDb(): fetched " << num <<
-//                " parts, total length is " << full_text.size();
+    LogTrace(TRACE2) << "Tlg " << tlg_num <<
+            " has been successfully read from DB."
+            " Length is " << full_text.size();
 
-//    }
+    TlgSource tsrc(full_text, from_rot, to_rot);
+    tsrc.setErrorText(err_text);
+    tsrc.setPostponed(postponed);
+    tsrc.setTlgNum(tlg_num);
+    tsrc.setGatewayNum(gateway_num);
+    tsrc.setTypeStr(type);
+    tsrc.setReceiveDate(date1);
 
-//    LogTrace(TRACE2) << "Tlg " << tlg_num <<
-//            " has been successfully read from DB."
-//            " Length is " << full_text.size();
-
-//    TlgSource tsrc( full_text, from_rot, to_rot );
-//    tsrc.setReceiveDate(OciCpp::from_oracle_time(tlg_date));
-//    tsrc.setProcessDate(OciCpp::from_oracle_time(proc_date));
-//    tsrc.setTlgNum(tlg_num);
-//    tsrc.setErrorText(errtext);
-//    tsrc.setAnswerTlgNum(answ_tnum);
-//    tsrc.setAirline(airline);
-//    tsrc.setTypeStr(type);
-//    tsrc.setSubtypeStr(subtype);
-//    tsrc.setPostponed(postp!=0);
-//    tsrc.setHandMade(hmade);
-
-//    Ticketing::RouterId_t rot = tsrc.fromRot()?tsrc.fromRot():tsrc.toRot();
-
-//    return tsrc;
-
-    throw EXCEPTIONS::Exception("Unimplimented method called!");
+    return tsrc;
 }
 
 void TlgSource::writeToDb(TlgSource & tlg)
@@ -157,7 +107,8 @@ void TlgSource::swapRouters()
 TlgSource::TlgSource(const std::string& txt,
                      const std::string& fRot,
                      const std::string& tRot)
-    : Text(txt), FromRot(fRot), ToRot(tRot), Postponed(false), HandMade(Net)
+    : Text(txt), FromRot(fRot), ToRot(tRot), Postponed(false),
+      HandMade(Net), GatewayNum(0)
 {
 }
 

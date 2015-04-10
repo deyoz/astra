@@ -30,7 +30,7 @@ protected:
 public:
     TlgSourceEdifact(const char * tlgText):TlgSourceTypified(TlgSource(tlgText)){}
     TlgSourceEdifact(const std::string & tlgText):TlgSourceTypified(TlgSource(tlgText)){}
-    TlgSourceEdifact(const TlgSource &src):TlgSourceTypified(src){ readH2H(); }
+    TlgSourceEdifact(const TlgSource &src):TlgSourceTypified(src){ /*readH2H();*/ }
     TlgSourceEdifact(const TlgSource &src,
                      const hth::HthInfo *h2h_):
             TlgSourceTypified(src)

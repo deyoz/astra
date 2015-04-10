@@ -4,6 +4,7 @@
 #include "postpone_edifact.h"
 #include "edi_handler.h" // TODO
 #include "remote_system_context.h" // TODO
+#include "tlg_source_edifact.h"
 
 #include "tlg.h"
 
@@ -55,31 +56,28 @@ tlgnum_t PostponeEdiHandling::deleteDb(edilib::EdiSessionId_t sessId)
 
 void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
 {
-    /*OciCpp::CursCtl cur = make_curs(
-"INSERT INTO tlg_queue(id, sender, tlg_num, receiver, type, priority, status, time, ttl, time_msec, last_send) "
-"VALUES(:id, :sender, :tlg_num, :receiver, :type, 1, 'PUT', :time, :ttl, :time_msec, NULL)");
+    TlgHandling::TlgSourceEdifact tlg = TlgSource::readFromDb(tnum);
+
+    OciCpp::CursCtl cur = make_curs(
+"INSERT INTO tlg_queue(id, sender, tlg_num, receiver, type, priority, status, time, ttl, time_msec) "
+"VALUES(:id, :sender, :tlg_num, :receiver, 'INA', 1, 'PUT', :time, 10, 0)");
 
     cur.bind(":id", tnum.num)
-       .bind(":sender", "LOOPB")
-       .bind(":tlg_num", tnum.num)
-       .bind(":receiver", "LOOPB")
-       .bind(":type", "INA")
+       .bind(":sender", tlg.fromRot())
+       .bind(":tlg_num", tlg.gatewayNum())
+       .bind(":receiver", tlg.toRot())
        .bind(":time", Dates::currentDate())
-       .bind(":ttl", 10)
-       .bind(":time_msec", 0)
-       .exec();*/
-
-
-    std::string text = getTlgText2(tnum);
-
-    tlg_info tlgi = {};
-    tlgi.id = boost::lexical_cast<int>(tnum.num);
-    tlgi.sender = "LOOPB";
-    tlgi.text = text;
+       .exec();
 
 #ifdef XP_TESTING
-    if(inTestMode()) {
+    if(inTestMode())
+    {
         Ticketing::RemoteSystemContext::SystemContext::free();
+
+        tlg_info tlgi = {};
+        tlgi.id = boost::lexical_cast<int>(tlg.tlgNum().num);
+        tlgi.sender = tlg.fromRot();
+        tlgi.text = tlg.text();
         handle_edi_tlg(tlgi);
     }
 #endif//XP_TESTING

@@ -39,6 +39,7 @@ private:
     tlgnum_t AnswerTlgNum; // Номер ответной телеграммы
     bool Postponed;
     int HandMade;
+    int GatewayNum;
 
     std::string TypeStr;
     std::string SubtypeStr;
@@ -142,6 +143,8 @@ public:
      */
     int handMade() const { return HandMade; }
 
+    int gatewayNum() const { return GatewayNum; }
+
 
     /**
      * Установить текст ошибки
@@ -227,6 +230,11 @@ public:
     void setTlgNum(const tlgnum_t& tnum)
     {
         TlgNum = tnum;
+    }
+
+    void setGatewayNum(int gwNum)
+    {
+        GatewayNum = gwNum;
     }
 
     /**
