@@ -3,6 +3,7 @@
 #endif
 #include "postpone_edifact.h"
 #include "edi_handler.h" // TODO
+#include "remote_system_context.h" // TODO
 
 #include "tlg.h"
 
@@ -78,6 +79,7 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
 
 #ifdef XP_TESTING
     if(inTestMode()) {
+        Ticketing::RemoteSystemContext::SystemContext::free();
         handle_edi_tlg(tlgi);
     }
 #endif//XP_TESTING

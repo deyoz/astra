@@ -144,12 +144,21 @@ static bool isNewEdifact(const std::string& ediText)
     return false;
 }
 
+static bool isTlgPostponed(const tlg_info& tlg)
+{
+    // в идеале признак postponed должен уже храниться в структуре (tlg_info, tlg_source...)
+    tlgnum_t tnum(boost::lexical_cast<std::string>(tlg.id));
+    return TlgHandling::isTlgPostponed(tnum);
+}
+
+
 void handle_edi_tlg(const tlg_info &tlg)
 {    
     LogTlg() << "| TNUM: " << tlg.id
              << " | DIR: " << "IN"
              << " | ROUTER: " << tlg.sender
-             << " | TSTAMP: " << boost::posix_time::second_clock::local_time();
+             << " | TSTAMP: " << boost::posix_time::second_clock::local_time()
+             << (isTlgPostponed(tlg) ? " | POSTPONED" : "");
     LogTlg() << TlgHandling::TlgSourceEdifact(tlg.text).text2view();
 
     const int tlg_id = tlg.id;
