@@ -6,7 +6,7 @@
 #include "timer.h"
 #include "cobra.h"
 #include "aodb.h"
-#include "empty_proc.h"
+#include "request_dup.h"
 #include "crypt.h"
 #include "web_main.h"
 #include "http_main.h"
@@ -91,7 +91,7 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
                 ->add("cobra_handler", "logdaemon", main_cobra_handler_tcl)
                 ->add("wb_garantserv", "logdaemon", main_tcp_wb_garant_tcl)
                 ->add("wb_garant_handler", "logdaemon", main_wb_garant_handler_tcl)
-                ->add("empty_proc", "logdaemon", main_empty_proc_tcl)
+                ->add("request_dup", "logdaemon", main_request_dup_tcl)
                 ->add("edi_timer", "logdaemon", main_edi_timer_tcl);
     }
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,

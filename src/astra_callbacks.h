@@ -44,7 +44,6 @@ class AstraLocaleCallbacks : public loclib::LocaleLibCallbacks
 */
 };
 
-bool ENABLE_REQUEST_DUP();
 bool BuildMsgForTermRequestDup(const std::string &pult,
                                const std::string &opr,
                                const std::string &body,

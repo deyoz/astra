@@ -22,7 +22,6 @@
 #include "arx_daily.h"
 #include "base_tables.h"
 #include "stl_utils.h"
-#include "empty_proc.h"
 #include "basel_aero.h"
 #include "rozysk.h"
 #include "serverlib/posthooks.h"
