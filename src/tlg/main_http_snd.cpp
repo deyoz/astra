@@ -224,7 +224,7 @@ static void scan_tlg(void)
               FILE_HTTP_TYPEB_TYPE.c_str(), time_end-time_start,trace_count);
 }
 
-static const int WAIT_HTTP_TYPEB_INTERVAL()       //миллисекунды
+static int WAIT_HTTP_TYPEB_INTERVAL()       //миллисекунды
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
