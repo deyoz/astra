@@ -2474,9 +2474,12 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
             pax.crs_pax_tid!=Qry.FieldAsInteger("crs_pax_tid"))
           throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
 
-        if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")) ||
-            !is_valid_pax_status(point_id, pax.crs_pax_id))
-          throw UserException("MSG.PASSENGER.CHECKIN_DENIAL");
+        if (!pr_del)
+        {
+          if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")) ||
+              !is_valid_pax_status(point_id, pax.crs_pax_id))
+            throw UserException("MSG.PASSENGER.CHECKIN_DENIAL");
+        };
 
         if (pnr_id==NoExists)
         {
