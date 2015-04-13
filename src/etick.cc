@@ -19,6 +19,7 @@
 #include "term_version.h"
 #include "misc.h"
 #include "qrys.h"
+#include "request_dup.h"
 #include <jxtlib/jxtlib.h>
 #include <jxtlib/xml_stuff.h>
 #include <serverlib/query_runner.h>
@@ -419,6 +420,8 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
 
 void EMDSystemUpdateInterface::SysUpdateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    if (TReqInfo::Instance()->duplicate) return;
+
     LogTrace(TRACE3) << __FUNCTION__;
     Ticketing::TicketNum_t etTickNum(NodeAsString("TickNoEdit", reqNode));
     CouponNum_t etCpnNum(NodeAsInteger("TickCpnNo", reqNode));
@@ -450,6 +453,7 @@ void EMDSystemUpdateInterface::SysUpdateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodeP
                                                          Ticketing::TicketCpn_t(emdDocNum, emdCpnNum),
                                                          cpnStatAction);
     edifact::EmdDisassociateRequest ediReq(disassocParams);
+    //throw_if_request_dup("EMDSystemUpdateInterface::SysUpdateEmdCoupon");
     ediReq.sendTlg();
 }
 
@@ -484,6 +488,8 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
                                                       TEMDSystemUpdateList &emdList)
 {
   emdList.clear();
+
+  if (TReqInfo::Instance()->duplicate) return;
 
   AstraEdifact::TFltParams fltParams;
   if (!fltParams.get(point_id)) return;
@@ -593,6 +599,7 @@ bool EMDSystemUpdateInterface::EMDChangeDisassociation(const edifact::KickInfo &
                                                            i->first.emd,
                                                            i->first.action);
       edifact::EmdDisassociateRequest ediReq(disassocParams);
+      //throw_if_request_dup("EMDSystemUpdateInterface::EMDChangeDisassociation");
       ediReq.sendTlg();
 
       LogTrace(TRACE5) << __FUNCTION__ << ": " << i->first.traceStr();
@@ -1074,6 +1081,7 @@ bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
                                         i->first.coupon_status);
 
         edifact::EmdCOSRequest ediReq(cosParams);
+        //throw_if_request_dup("EMDStatusInterface::EMDChangeStatus");
         ediReq.sendTlg();
 
         LogTrace(TRACE5) << __FUNCTION__ << ": " << i->first.traceStr() << " " << j->traceStr();
@@ -1426,6 +1434,7 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
 
         string ediCtxt=XMLTreeToText(j->second.docPtr());
 
+        //throw_if_request_dup("ETStatusInterface::ETChangeStatus");
         if (reqInfo.desk.code.empty())
         {
           //не запрос
@@ -1447,6 +1456,8 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
 
 void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    if (TReqInfo::Instance()->duplicate) return;
+
     LogTrace(TRACE3) << __FUNCTION__;
 
     Ticketing::TicketNum_t emdDocNum(NodeAsString("EmdNoEdit", reqNode));
@@ -1464,6 +1475,7 @@ void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
     edifact::EmdCOSParams cosParams(org, "", kickInfo, airline, flNum, emdDocNum, emdCpnNum, emdCpnStatus);
     edifact::EmdCOSRequest ediReq(cosParams);
+    //throw_if_request_dup("EMDStatusInterface::ChangeStatus");
     ediReq.sendTlg();
 }
 

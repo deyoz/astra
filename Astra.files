@@ -138,6 +138,8 @@ src/qrys.cpp
 src/qrys.h
 src/remarks.cc
 src/remarks.h
+src/request_dup.cc
+src/request_dup.h
 src/rozysk.cc
 src/rozysk.h
 src/salonform.cc

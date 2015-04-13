@@ -27,9 +27,9 @@
 #include "points.h"
 #include "stages.h"
 #include "astra_service.h"
-#include "astra_callbacks.h"
 #include "tlg/tlg.h"
 #include "qrys.h"
+#include "request_dup.h"
 #include "serverlib/perfom.h"
 #include "serverlib/ourtime.h"
 #include "serverlib/query_runner.h"
@@ -95,7 +95,7 @@ int internet_main(const char *body, int blen, const char *head,
 
   try
   {
-    if (ENABLE_REQUEST_DUP() &&
+    if (SEND_REQUEST_DUP() &&
         hlen>0 && *head==char(2))
     {
       std::string b(body,blen);
