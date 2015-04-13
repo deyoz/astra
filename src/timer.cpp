@@ -26,6 +26,7 @@
 #include "rozysk.h"
 #include "serverlib/posthooks.h"
 #include "serverlib/perfom.h"
+#include "serverlib/EdiHelpManager.h"
 #include "qrys.h"
 #include "points.h"
 #include "trip_tasks.h"
@@ -283,6 +284,7 @@ void ETCheckStatusFlt(void)
   TQuery Qry(&OraSession);
   try
   {
+    ServerFramework::EdiHelpManager::cleanOldRecords();
     AstraEdifact::cleanOldRecords(30);
     OraSession.Commit();
 
