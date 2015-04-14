@@ -35,7 +35,7 @@ TIF+TESTOVA:F+ANNA"
 TAI+5235+6VT:B"
 RCI+1H:00D5LW:1+UT:045PCC:1"
 MON+B:150:TWD+T:165:TWD"
-FOP+CA:3"
+FOP+CA:3:165"
 PTK+++$(ddmmyy)"
 ORG+1H:MOW+00117165:01TCH+MOW++N+RU+7+TCH08"
 EQN+1:TD"
@@ -95,9 +95,9 @@ $(lastRedisplay)
     </origin>
     <foid/>
     <payment>
-      <fare>0.00</fare>
-      <total>0.00</total>
-      <payment>0.00 CA</payment>
+      <fare>150TWD</fare>
+      <total>165TWD</total>
+      <payment>165 CA</payment>
       <tax>TW15</tax>
       <fare_calc>KHH UT X/BKI KUL 150 END</fare_calc>
     </payment>
@@ -264,8 +264,8 @@ $(lastRedisplay)
     </origin>
     <foid/>
     <payment>
-      <fare>0.00</fare>
-      <total>0.00</total>
+      <fare>500.00RUB</fare>
+      <total>500.00RUB</total>
       <payment>500.00 CA</payment>
       <tax/>
       <fare_calc/>

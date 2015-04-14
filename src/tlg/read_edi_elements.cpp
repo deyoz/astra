@@ -9,6 +9,7 @@
 #include "astra_ticket.h"
 #include "edi_elements.h"
 #include "read_edi_elements.h"
+#include <etick/tick_data.h>
 
 #define NICKNAME "ROMAN"
 #include <serverlib/slogger.h>
@@ -323,7 +324,7 @@ MonElements readEdiMon(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     MonElements result;
     edilib::EdiPointHolder mon_holder(pMes);
-    if(!SetEdiPointToSegmentG(pMes, "MON",0))
+    if(!SetEdiPointToSegmentG(pMes, "MON", 0))
         return result;
 
     unsigned MonNum = GetNumComposite(pMes, "C663", "EtErr::MISS_MONETARY_INF");
@@ -366,7 +367,7 @@ MonElements readEdiMonCurrAnd0(_EDI_REAL_MES_STRUCT_ *pMes)
 void readEdiMonetaryInfo(const std::list<MonElem> &mons, std::list<MonetaryInfo> &lmon)
 {
     BOOST_FOREACH(const MonElem &mon, mons) {
-        lmon.push_back(MonetaryInfo(mon.m_code, MonetaryType(mon.m_value)));
+        lmon.push_back(MonetaryInfo(mon.m_code, TaxAmount::Amount(mon.m_value), mon.m_currency));
     }
 }
 
