@@ -772,11 +772,17 @@ namespace PRL_SPACE {
 
     void TPNRListAddressee::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     {
-        for(vector<TPNRItem>::iterator iv = items.begin(); iv != items.end(); iv++)
-            if(info.airline == iv->airline) {
-                iv->ToTlg(info, body);
-                break;
-            }
+        if(items.size() == 1)
+            items.back().ToTlg(info, body);
+        else {
+            string airline = info.airline_mark();
+            if(airline.empty()) airline = info.airline;
+            for(vector<TPNRItem>::iterator iv = items.begin(); iv != items.end(); iv++)
+                if(airline == iv->airline) {
+                    iv->ToTlg(info, body);
+                    break;
+                }
+        }
     }
 
     void TPNRList::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
@@ -4495,9 +4501,12 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TFTLPax &pax)
 
 void TFTLDest::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
+    const TypeB::TMarkInfoOptions &markOptions=*(info.optionsAs<TypeB::TMarkInfoOptions>());
     for(vector<TFTLPax>::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
         iv->name.ToTlg(info, body);
         iv->pnrs.ToTlg(info, body);
+        if(markOptions.mark_info.empty())
+            iv->M.ToTlg(info, body);
         iv->rems.ToTlg(info, body);
     }
 }
