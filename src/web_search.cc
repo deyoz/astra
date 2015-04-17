@@ -1580,16 +1580,16 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
     throw EXCEPTIONS::Exception("findPNRs: filter.flt_no not defined");
   if (filter.surname.empty())
     throw EXCEPTIONS::Exception("findPNRs: filter.surname not defined");
-    
+
   TReqInfo *reqInfo = TReqInfo::Instance();
   
   TQuery PointsQry(&OraSession);
   TQuery PaxQry(&OraSession);
-	if (pass==1 || pass==2)
-	{
-	  ostringstream sql;
-	  sql.str("");
-	  sql << "SELECT points.point_id, points.point_num, points.first_point, points.pr_tranzit, "
+  if (pass==1 || pass==2)
+  {
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT points.point_id, points.point_num, points.first_point, points.pr_tranzit, "
            "       points.airline, points.flt_no, points.suffix, points.airp, "
            "       points.scd_out, points.est_out, points.act_out, points.craft, "
            "       points.airline_fmt, points.suffix_fmt, points.airp_fmt, points.craft_fmt ";
@@ -1597,14 +1597,14 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
     {
       //ищем фактический рейс
       sql << "FROM points "
-        	   "WHERE ";
+             "WHERE ";
       if (!filter.airlines.empty())
         sql << "      points.airline IN " << GetSQLEnum(filter.airlines) << " AND ";
       sql << "      points.flt_no=:flt_no AND "
-          	 "      ( :suffix IS NULL OR points.suffix=:suffix ) AND "
-          	 "      ( :airp_dep IS NULL OR points.airp=:airp_dep ) AND "
-          	 "      points.scd_out >= :first_date AND points.scd_out < :last_date AND "
-          	 "      points.pr_del=0 AND points.pr_reg<>0";
+             "      ( :suffix IS NULL OR points.suffix=:suffix ) AND "
+             "      ( :airp_dep IS NULL OR points.airp=:airp_dep ) AND "
+             "      points.scd_out >= :first_date AND points.scd_out < :last_date AND "
+             "      points.pr_del=0 AND points.pr_reg<>0";
     };
     if (pass==2)
     {
@@ -1618,29 +1618,29 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
       if (!filter.airlines.empty())
         sql << "      tlg_trips.airline IN " << GetSQLEnum(filter.airlines) << " AND ";
       sql << "      tlg_trips.flt_no=:flt_no AND "
-          	 "      ( :suffix IS NULL OR tlg_trips.suffix=:suffix ) AND "
-          	 "      ( :airp_dep IS NULL OR tlg_trips.airp_dep=:airp_dep ) AND "
+             "      ( :suffix IS NULL OR tlg_trips.suffix=:suffix ) AND "
+             "      ( :airp_dep IS NULL OR tlg_trips.airp_dep=:airp_dep ) AND "
              "      points.pr_del=0 AND points.pr_reg<>0 ";
     };
 
     PointsQry.Clear();
-	  PointsQry.SQLText= sql.str().c_str();
-  	PointsQry.CreateVariable("flt_no", otInteger, filter.flt_no);
-  	PointsQry.CreateVariable("suffix", otString, filter.suffix);
-  	PointsQry.CreateVariable("airp_dep", otString, filter.airp_dep);
-  	PointsQry.DeclareVariable("first_date", otDate);
-  	PointsQry.DeclareVariable("last_date", otDate);
-  	
-  	
+    PointsQry.SQLText= sql.str().c_str();
+    PointsQry.CreateVariable("flt_no", otInteger, filter.flt_no);
+    PointsQry.CreateVariable("suffix", otString, filter.suffix);
+    PointsQry.CreateVariable("airp_dep", otString, filter.airp_dep);
+    PointsQry.DeclareVariable("first_date", otDate);
+    PointsQry.DeclareVariable("last_date", otDate);
+
+
     PaxQry.Clear();
     sql.str("");
     sql << "SELECT crs_pnr.pnr_id, "
-     	     "       crs_pnr.airp_arv, "
-      	   "       crs_pnr.class, "
-      	   "       crs_pnr.subclass, "
-      	   "       crs_pax.pax_id, "
-      	   "       crs_pax.surname, "
-      	   "       crs_pax.name ";
+           "       crs_pnr.airp_arv, "
+           "       crs_pnr.class, "
+           "       crs_pnr.subclass, "
+           "       crs_pax.pax_id, "
+           "       crs_pax.surname, "
+           "       crs_pax.name ";
     if (pass==1)
     {
       sql << "FROM tlg_binding,crs_pnr,crs_pax "
@@ -1651,9 +1651,9 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
     if (pass==2)
     {
       sql << "FROM crs_pnr,crs_pax,pnr_market_flt "
-           	 "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-           	 "      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
-           	 "      crs_pnr.point_id=:point_id AND "
+             "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+             "      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
+             "      crs_pnr.point_id=:point_id AND "
              "      pnr_market_flt.pnr_id IS NULL AND ";
     };
     
@@ -1666,17 +1666,17 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
     PaxQry.SQLText= sql.str().c_str();
     PaxQry.DeclareVariable("point_id", otInteger);
     PaxQry.CreateVariable("airp_arv", otString, filter.airp_arv);
-  	
+
     map< TFlightInfo, map<int, string> > flights;
     for(int range_pass=0; range_pass<2; range_pass++)
     {
       const vector< pair<TDateTime, TDateTime> > &scd_out_ranges=range_pass==0?
-                                                                 filter.scd_out_local_ranges:
-                                                                 filter.scd_out_utc_ranges;
+            filter.scd_out_local_ranges:
+            filter.scd_out_utc_ranges;
 
-    	//цикл по диапазонам дат
+      //цикл по диапазонам дат
       for(vector< pair<TDateTime, TDateTime> >::const_iterator r=scd_out_ranges.begin();
-                                                               r!=scd_out_ranges.end(); ++r )
+          r!=scd_out_ranges.end(); ++r )
       {
         pair<TDateTime, TDateTime> date_range;
         if (pass==1)
@@ -1713,7 +1713,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
         for(;!PointsQry.Eof;PointsQry.Next())
         {
           TFlightInfo flt;
-  	      if (!flt.fromDB(PointsQry)) continue;
+          if (!flt.fromDB(PointsQry)) continue;
           if ( !reqInfo->CheckAirline(flt.oper.airline) ||
                !reqInfo->CheckAirp(flt.oper.airp) ||
                (range_pass==0?flt.scd_out_local:flt.oper.scd_out)==NoExists ||
@@ -1753,7 +1753,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
             bool pnr_filter=false;
             TPNRSegInfo seg;
             for(;!PaxQry.Eof;PaxQry.Next())
-      	    {
+            {
               if (pnr_id==NoExists || pnr_id!=PaxQry.FieldAsInteger("pnr_id"))
               {
                 pnr_id=PaxQry.FieldAsInteger("pnr_id");
@@ -1764,14 +1764,14 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
               TPaxInfo pax;
               if (!pax.filterFromDB(filter, PaxQry)) continue;
               PNRs.add(iFlt->first, seg, pax, false);
-      	    };
-      	  };
+            };
+          };
         };
       }
       else
       {
         for(vector<TTestPaxInfo>::const_iterator p=filter.test_paxs.begin();
-                                                 p!=filter.test_paxs.end(); ++p)
+            p!=filter.test_paxs.end(); ++p)
         {
           if (!p->airline.empty())
           {
@@ -1790,53 +1790,53 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
       };
     };
 
-	}; //pass==1 || pass==2
-	
+  }; //pass==1 || pass==2
+
   if (pass==3 && filter.test_paxs.empty())
-	{
+  {
     //ищем среди эл-тов .M из PNL
-  	PointsQry.Clear();
-  	PointsQry.SQLText=
-  	  "SELECT points.point_id, points.point_num, points.first_point, points.pr_tranzit, "
-      "       points.airline, points.flt_no, points.suffix, points.airp, "
-      "       points.scd_out, points.est_out, points.act_out, points.craft, "
-      "       points.airline_fmt, points.suffix_fmt, points.airp_fmt, points.craft_fmt "
-  	  "FROM points,tlg_binding "
-  	  "WHERE points.point_id=tlg_binding.point_id_spp AND "
-  	  "      tlg_binding.point_id_tlg=:point_id_tlg AND "
-  	  "      points.pr_del=0 AND points.pr_reg<>0 ";
-  	PointsQry.DeclareVariable("point_id_tlg", otInteger);
+    PointsQry.Clear();
+    PointsQry.SQLText=
+        "SELECT points.point_id, points.point_num, points.first_point, points.pr_tranzit, "
+        "       points.airline, points.flt_no, points.suffix, points.airp, "
+        "       points.scd_out, points.est_out, points.act_out, points.craft, "
+        "       points.airline_fmt, points.suffix_fmt, points.airp_fmt, points.craft_fmt "
+        "FROM points,tlg_binding "
+        "WHERE points.point_id=tlg_binding.point_id_spp AND "
+        "      tlg_binding.point_id_tlg=:point_id_tlg AND "
+        "      points.pr_del=0 AND points.pr_reg<>0 ";
+    PointsQry.DeclareVariable("point_id_tlg", otInteger);
 
     PaxQry.Clear();
     ostringstream sql;
-	  sql.str("");
-	  sql <<
-	    "SELECT tlg_trips.point_id AS point_id_tlg, "
-	    "       tlg_trips.scd, "
-	    "       crs_pnr.pnr_id, "
-	    "       crs_pnr.airp_arv, "
-	    "       crs_pnr.class, "
-	    "       crs_pnr.subclass, "
-	    "       crs_pax.pax_id, "
-      "       crs_pax.surname, "
-  	  "       crs_pax.name "
- 	    "FROM tlg_trips,crs_pnr,crs_pax,pnr_market_flt "
- 	    "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
- 	    "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
- 	    "      crs_pnr.pnr_id=pnr_market_flt.pnr_id AND "
- 	    "      pnr_market_flt.local_date>=:first_day AND pnr_market_flt.local_date<=:last_day AND ";
+    sql.str("");
+    sql <<
+           "SELECT tlg_trips.point_id AS point_id_tlg, "
+           "       tlg_trips.scd, "
+           "       crs_pnr.pnr_id, "
+           "       crs_pnr.airp_arv, "
+           "       crs_pnr.class, "
+           "       crs_pnr.subclass, "
+           "       crs_pax.pax_id, "
+           "       crs_pax.surname, "
+           "       crs_pax.name "
+           "FROM tlg_trips,crs_pnr,crs_pax,pnr_market_flt "
+           "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
+           "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+           "      crs_pnr.pnr_id=pnr_market_flt.pnr_id AND "
+           "      pnr_market_flt.local_date>=:first_day AND pnr_market_flt.local_date<=:last_day AND ";
     if (!filter.airlines.empty())
       sql << "      pnr_market_flt.airline IN " << GetSQLEnum(filter.airlines) << " AND ";
     sql << "      pnr_market_flt.flt_no=:flt_no AND "
-     	     "      (:suffix IS NULL OR pnr_market_flt.suffix=:suffix) AND "
-     	     "      (:airp_dep IS NULL OR tlg_trips.airp_dep=:airp_dep) AND " // tlg_trips.airp_dep - это не ошибка
-     	     "      crs_pnr.system='CRS' AND "
-     	     "      (:airp_arv IS NULL OR crs_pnr.airp_arv=:airp_arv) AND "
+           "      (:suffix IS NULL OR pnr_market_flt.suffix=:suffix) AND "
+           "      (:airp_dep IS NULL OR tlg_trips.airp_dep=:airp_dep) AND " // tlg_trips.airp_dep - это не ошибка
+           "      crs_pnr.system='CRS' AND "
+           "      (:airp_arv IS NULL OR crs_pnr.airp_arv=:airp_arv) AND "
         << filter.getSurnameSQLFilter("crs_pax.surname", PaxQry) << " AND "
         << "      crs_pax.pr_del=0 "
            "ORDER BY tlg_trips.point_id, crs_pnr.pnr_id ";
 
-	  PaxQry.SQLText= sql.str().c_str();
+    PaxQry.SQLText= sql.str().c_str();
     PaxQry.DeclareVariable("first_day", otInteger);
     PaxQry.DeclareVariable("last_day", otInteger);
     PaxQry.CreateVariable("flt_no", otInteger, filter.flt_no);
@@ -1848,12 +1848,12 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
     for(int range_pass=0; range_pass<2; range_pass++)
     {
       const vector< pair<TDateTime, TDateTime> > &scd_out_ranges=range_pass==0?
-                                                                 filter.scd_out_local_ranges:
-                                                                 filter.scd_out_utc_ranges;
+            filter.scd_out_local_ranges:
+            filter.scd_out_utc_ranges;
 
       //цикл по диапазонам дат
       for(vector< pair<TDateTime, TDateTime> >::const_iterator r=scd_out_ranges.begin();
-                                                               r!=scd_out_ranges.end(); ++r )
+          r!=scd_out_ranges.end(); ++r )
       {
         pair<int, int> day_range;
         int year,month;
@@ -1886,7 +1886,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
             for(;!PointsQry.Eof;PointsQry.Next())
             {
               TFlightInfo flt;
-        	    flt.fromDB(PointsQry);
+              flt.fromDB(PointsQry);
               if ( !reqInfo->CheckAirline(flt.oper.airline) ||
                    !reqInfo->CheckAirp(flt.oper.airp) ||
                    (range_pass==0?flt.scd_out_local:flt.oper.scd_out)==NoExists ||
@@ -1958,15 +1958,16 @@ void getTCkinData( const TPnrData &first,
         "SELECT pr_tckin FROM trip_ckin_client "
         "WHERE point_id=:point_id AND client_type=:client_type AND desk_grp_id=:desk_grp_id";
       Qry.CreateVariable("desk_grp_id", otInteger, reqInfo->desk.grp_id);
+      Qry.CreateVariable("client_type", otString, EncodeClientType(reqInfo->client_type));
     }
     else
     {
       Qry.SQLText=
         "SELECT pr_tckin FROM trip_ckin_client "
         "WHERE point_id=:point_id AND client_type=:client_type AND desk_grp_id IS NULL";
+      Qry.CreateVariable("client_type", otString, EncodeClientType(ctWeb)); //!!!ctMobile
     };
-    Qry.CreateVariable("point_id", otInteger, first.flt.point_dep);
-    Qry.CreateVariable("client_type", otString, EncodeClientType(reqInfo->client_type));
+    Qry.CreateVariable("point_id", otInteger, first.flt.point_dep);    
     Qry.Execute();
     if (Qry.Eof || Qry.FieldAsInteger("pr_tckin")==0)
     {
