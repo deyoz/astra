@@ -26,7 +26,6 @@
 #include <edilib/edi_func_cpp.h>
 #include <serverlib/testmode.h>
 
-// TODO emd
 #include "emdoc.h"
 #include "astra_emd.h"
 #include "astra_emd_view_xml.h"

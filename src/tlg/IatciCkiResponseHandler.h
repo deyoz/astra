@@ -13,6 +13,7 @@ public:
                             const edilib::EdiSessRdData* edisess);
 
     virtual void parse();
+    virtual void onTimeOut();
 
     virtual ~IatciCkiResponseHandler() {}
 };

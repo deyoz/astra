@@ -624,10 +624,10 @@ boost::optional<FdqElem> readEdiFdq(_EDI_REAL_MES_STRUCT_ *pMes)
         fdq.m_outbFlNum = getFlightNum(outbFlNum);
     }
     if(outbDepDateTime.length() == 6) {
-        fdq.m_outbDepDateTime = Dates::DateTime_t(Dates::rrmmdd(outbDepDateTime));
+        fdq.m_outbDepDate = Dates::rrmmdd(outbDepDateTime);
     } else if(outbDepDateTime.length() == 10) {
-        fdq.m_outbDepDateTime = Dates::DateTime_t(Dates::rrmmdd(outbDepDateTime.substr(0, 6)),
-                                                  Dates::hh24mi(outbDepDateTime.substr(6, 4)));
+        fdq.m_outbDepDate = Dates::rrmmdd(outbDepDateTime.substr(0, 6));
+        fdq.m_outbDepTime = Dates::hh24mi(outbDepDateTime.substr(6, 4));
     }
     fdq.m_outbDepPoint = outbDepPoint;
     fdq.m_outbArrPoint = outbArrPoint;
@@ -636,16 +636,16 @@ boost::optional<FdqElem> readEdiFdq(_EDI_REAL_MES_STRUCT_ *pMes)
         fdq.m_inbFlNum = getFlightNum(inbFlNum);
     }
     if(inbDepDateTime.length() == 6) {
-        fdq.m_inbDepDateTime = Dates::DateTime_t(Dates::rrmmdd(inbDepDateTime));
+        fdq.m_inbDepDate = Dates::rrmmdd(inbDepDateTime);
     } else if(inbDepDateTime.length() == 10) {
-        fdq.m_inbDepDateTime = Dates::DateTime_t(Dates::rrmmdd(inbDepDateTime.substr(0, 6)),
-                                                 Dates::hh24mi(inbDepDateTime.substr(6, 4)));
+        fdq.m_inbDepDate = Dates::rrmmdd(inbDepDateTime.substr(0, 6));
+        fdq.m_inbDepTime = Dates::hh24mi(inbDepDateTime.substr(6, 4));
     }
     if(inbArrDateTime.length() == 6) {
-        fdq.m_inbArrDateTime = Dates::DateTime_t(Dates::rrmmdd(inbArrDateTime));
+        fdq.m_inbArrDate = Dates::rrmmdd(inbArrDateTime);
     } else if(inbArrDateTime.length() == 10) {
-        fdq.m_inbArrDateTime = Dates::DateTime_t(Dates::rrmmdd(inbArrDateTime.substr(0, 6)),
-                                                 Dates::hh24mi(inbArrDateTime.substr(6, 4)));
+        fdq.m_inbArrDate = Dates::rrmmdd(inbArrDateTime.substr(0, 6));
+        fdq.m_inbArrTime = Dates::hh24mi(inbArrDateTime.substr(6, 4));
     }
     fdq.m_inbDepPoint = inbDepPoint;
     fdq.m_inbArrPoint = inbArrPoint;
@@ -743,18 +743,18 @@ boost::optional<edifact::FdrElem> readEdiFdr(_EDI_REAL_MES_STRUCT_ *pMes)
         fdr.m_flNum = getFlightNum(flNum);
     }
     if(depDateTime.length() == 6) {
-        fdr.m_depDateTime = Dates::DateTime_t(Dates::rrmmdd(depDateTime));
+        fdr.m_depDate = Dates::rrmmdd(depDateTime);
     } else if(depDateTime.length() == 10) {
-        fdr.m_depDateTime = Dates::DateTime_t(Dates::rrmmdd(depDateTime.substr(0, 6)),
-                                              Dates::hh24mi(depDateTime.substr(6, 4)));
+        fdr.m_depDate = Dates::rrmmdd(depDateTime.substr(0, 6));
+        fdr.m_depTime = Dates::hh24mi(depDateTime.substr(6, 4));
     }
     fdr.m_depPoint = depPoint;
     fdr.m_arrPoint = arrPoint;
     if(arrDateTime.length() == 6) {
-        fdr.m_arrDateTime = Dates::DateTime_t(Dates::rrmmdd(arrDateTime));
+        fdr.m_arrDate = Dates::rrmmdd(arrDateTime);
     } else if(arrDateTime.length() == 10) {
-        fdr.m_arrDateTime = Dates::DateTime_t(Dates::rrmmdd(arrDateTime.substr(0, 6)),
-                                              Dates::hh24mi(arrDateTime.substr(6, 4)));
+        fdr.m_arrDate = Dates::rrmmdd(arrDateTime.substr(0, 6));
+        fdr.m_arrTime = Dates::hh24mi(arrDateTime.substr(6, 4));
     }
 
     LogTrace(TRACE3) << fdr;
@@ -859,10 +859,8 @@ boost::optional<edifact::ErdElem> readEdiErd(_EDI_REAL_MES_STRUCT_ *pMes)
     }
 
     ErdElem erd;
-    erd.m_level = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
-                                           DataElement(9876), "", CompElement("C056"));
-    erd.m_messageNumber = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
-                                                   DataElement(9845), "", CompElement("C056"));
+    erd.m_level = GetDBFName(pMes, DataElement(9876), CompElement("C056"));
+    erd.m_messageNumber = GetDBFName(pMes, DataElement(9845), CompElement("C056"));
     erd.m_messageText = GetDBFName(pMes, DataElement(4440), CompElement("C056"));
 
     LogTrace(TRACE3) << erd;

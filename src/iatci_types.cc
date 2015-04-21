@@ -225,12 +225,34 @@ void CascadeHostDetails::addHostAirline(const std::string& hostAirline)
 
 //-----------------------------------------------------------------------------
 
-const std::string& ErrorDetails::errText() const
+const Ticketing::ErrMsg_t& ErrorDetails::errCode() const
 {
-    return m_errText;
+    return m_errCode;
+}
+
+const std::string& ErrorDetails::errDesc() const
+{
+    return m_errDesc;
 }
 
 //-----------------------------------------------------------------------------
+
+Result Result::makeResult(Action_e action,
+                          Status_e status,
+                          const FlightDetails& flight,
+                          boost::optional<PaxDetails> pax,
+                          boost::optional<FlightSeatDetails> seat,
+                          boost::optional<CascadeHostDetails> cascadeDetails,
+                          boost::optional<ErrorDetails> errorDetails)
+{
+    return Result(action,
+                  status,
+                  flight,
+                  pax,
+                  seat,
+                  cascadeDetails,
+                  errorDetails);
+}
 
 Result Result::makeCheckinResult(Status_e status,
                                  const FlightDetails& flight,
@@ -264,6 +286,18 @@ Result Result::makeCancelResult(Status_e status,
                   errorDetails);
 }
 
+Result Result::makeFailResult(Action_e action,
+                              const ErrorDetails& errorDetails)
+{
+    return Result(action,
+                  Failed,
+                  boost::none,
+                  boost::none,
+                  boost::none,
+                  boost::none,
+                  errorDetails);
+}
+
 Result::Action_e Result::action() const
 {
     return m_action;
@@ -276,7 +310,8 @@ Result::Status_e Result::status() const
 
 const iatci::FlightDetails& Result::flight() const
 {
-    return m_flight;
+    ASSERT(m_flight);
+    return m_flight.get();
 }
 
 boost::optional<iatci::PaxDetails> Result::pax() const
@@ -337,8 +372,10 @@ std::string Result::statusAsString() const
     {
     case Ok:           return "O";
     case OkWithNoData: return "P";
-    default:           return "X";
+    case Failed:       return "X";
     }
+
+    throw EXCEPTIONS::Exception("Unknown status value: %d", m_status);
 }
 
 //-----------------------------------------------------------------------------

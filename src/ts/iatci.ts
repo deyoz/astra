@@ -76,7 +76,8 @@ UNZ+1+ASTRA000660001"
 #########################################################################################
 
 $(init)
-$(init_dcs UT DCS2 DCS3)
+$(init_dcs UT DCS3 DCS2)
+
 
 # запрос_1
 <<
@@ -94,11 +95,11 @@ UNZ+1+ASTRA000660001"
 
 # подзапрос_1
 >>
-UNB+SIRE:1+DCS3+DCS2+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNB+SIRE:1+DCS2+DCS3+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
 LOR+SU"
 CHD+U6:SVO++++++++H::SU+H::U6"
-FDQ+UT+300+150222+AER+SVO++SU+200+1502171000+1502171330+LED+AER"
+FDQ+UT+300+150222+AER+SVO++SU+200+150217++LED+AER"
 PPD+PETROV+M++ALEX++SU200"
 PRD+Y"
 PSD+N"
@@ -108,7 +109,7 @@ UNZ+1+$(last_edifact_ref)0001"
 
 # ответ на подзапрос_1
 <<
-UNB+SIRE:1+DCS2+DCS3+150217:0747+$(last_edifact_ref)0001+++T"
+UNB+SIRE:1+DCS3+DCS2+150217:0747+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+UT+300+1502221500+AER+SVO+1502221945+T"
 RAD+I+O"
@@ -263,3 +264,51 @@ $(run_daemon edi_timeout)
 
 !!
 $(lastRedisplay)
+
+
+%%
+#########################################################################################
+
+$(init)
+$(init_dcs UT DCS3 DCS2)
+
+
+# запрос_1
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:96:2:IA+ASTRA00066"
+LOR+U6:SVO"
+FDQ+SU+200+150217+LED+AER++U6+100+1502170530+1502171140+SVO+LED"
+PPD+PETROV+M++ALEX++U6100"
+PRD+Y"
+PSD+N"
+PBD+1:20"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+
+# подзапрос_1
+>>
+UNB+SIRE:1+DCS2+DCS3+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+LOR+SU"
+CHD+U6:SVO++++++++H::SU+H::U6"
+FDQ+UT+300+150222+AER+SVO++SU+200+150217++LED+AER"
+PPD+PETROV+M++ALEX++SU200"
+PRD+Y"
+PSD+N"
+PBD+1:20"
+UNT+9+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(run_daemon edi_timeout)
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:96:2:IA+ASTRA00066"
+FDR+SU+200+150217+LED+AER++T"
+RAD+I+F"
+ERD+1:196"
+UNT+5+1"
+UNZ+1+ASTRA000660001"

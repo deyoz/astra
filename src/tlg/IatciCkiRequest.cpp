@@ -63,6 +63,7 @@ edilib::EdiSessionId_t SendCkiRequest(const iatci::CkiParams& params,
                      << "with context length[" << ctxt.length() << "]";
     CkiRequest ckiReq(params, pult, ctxt, kick);
     ckiReq.sendTlg();
+    LogTrace(TRACE3) << "Created edisession with id " << ckiReq.ediSessId();
     return ckiReq.ediSessId();
 }
 

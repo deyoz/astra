@@ -20,7 +20,7 @@ public:
     virtual void fillFuncCodeRespStatus();
     virtual void fillErrorDetails();
     virtual void handle();
-    virtual void onTimeOut() {}
+    virtual void onTimeOut();
     virtual void onCONTRL() {}
 
     virtual ~IatciResponseHandler() {}

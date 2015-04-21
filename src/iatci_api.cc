@@ -75,6 +75,13 @@ Result checkinPax(const CkiParams& ckiParams)
                                      cascadeDetails);
 }
 
+Result cancelCheckin(const CkxParams& ckxParams)
+{
+    // TODO вызов функций Астры
+    return Result::makeCancelResult(Result::Ok,
+                                    ckxParams.flight());
+}
+
 boost::optional<FlightDetails> findCascadeFlight(const CkiParams& ckiParams)
 {
     // TODO вызов функций Астры

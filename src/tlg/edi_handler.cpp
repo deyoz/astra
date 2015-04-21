@@ -215,7 +215,7 @@ void handle_edi_tlg(const tlg_info &tlg)
             ProgError(STDLOG, "bad data!");
         }
     }
-    catch(edi_exception &e)
+    catch(edifact::edi_exception &e)
     {
         ASTRA::rollback();
         try

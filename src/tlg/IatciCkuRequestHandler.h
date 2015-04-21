@@ -12,6 +12,7 @@ public:
                            const edilib::EdiSessRdData *edisess);
     virtual void parse();
     virtual void handle();
+    virtual void makeAnAnswer() {}
     virtual std::string respType() const;
 
     virtual ~IatciCkuRequestHandler() {}

@@ -1,5 +1,6 @@
 #include "IatciCkiResponseHandler.h"
 #include "read_edi_elements.h"
+#include "astra_msg.h"
 
 #include <edilib/edi_func_cpp.h>
 
@@ -12,6 +13,7 @@ namespace TlgHandling {
 
 using namespace edilib;
 using namespace edifact;
+using namespace Ticketing;
 using namespace Ticketing::TickReader;
 
 
@@ -47,6 +49,13 @@ void IatciCkiResponseHandler::parse()
 
         m_lRes.push_back(ckiResultMaker.makeResult());
     }
+}
+
+void IatciCkiResponseHandler::onTimeOut()
+{
+    m_lRes.push_back(iatci::Result::makeFailResult(iatci::Result::Checkin,
+                                                   iatci::ErrorDetails(AstraErr::TIMEOUT_ON_HOST_3)));
+    IatciResponseHandler::onTimeOut();
 }
 
 }//namespace TlgHandling

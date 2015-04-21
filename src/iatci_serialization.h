@@ -455,7 +455,8 @@ public:
 
     iatci::ErrorDetails& get() { return *this; }
 
-    using iatci::ErrorDetails::m_errText;
+    using iatci::ErrorDetails::m_errCode;
+    using iatci::ErrorDetails::m_errDesc;
 };
 
 }//namespace
@@ -467,14 +468,14 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::ErrorDetails& par, const unsigned int version)
 {
     ErrorDetailsAccessor acc(par);
-    ar & acc.m_errText;
+    ar & acc.m_errCode & acc.m_errDesc;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::ErrorDetails& par, const unsigned int version)
 {
     ErrorDetailsAccessor acc;
-    ar & acc.m_errText;
+    ar & acc.m_errCode & acc.m_errDesc;
     par = acc.get();
 }
 

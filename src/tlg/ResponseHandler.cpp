@@ -23,7 +23,6 @@ AstraEdiResponseHandler::AstraEdiResponseHandler(_EDI_REAL_MES_STRUCT_ * pMes,
 
 void AstraEdiResponseHandler::setRemoteResultStatus()
 {
-    tst();
     if(!remoteResults())
         return;
 
@@ -45,12 +44,10 @@ void AstraEdiResponseHandler::setRemoteResultStatus()
 
 void AstraEdiResponseHandler::readRemoteResults()
 {
-    tst();
     RemoteResults = edifact::RemoteResults::readDb(ediSessId());
 
     if(RemoteResults)
     {
-        tst();
         if(ediErrCode().empty())
             RemoteResults->setStatus(edifact::RemoteStatus::Success);
         else
@@ -69,7 +66,6 @@ edifact::pRemoteResults AstraEdiResponseHandler::remoteResults() const
 
 AstraEdiResponseHandler::~AstraEdiResponseHandler()
 {
-    tst();
     if(RemoteResults)
     {
         LogTrace(TRACE3) << "next MeetAgentExpectations";
@@ -79,7 +75,6 @@ AstraEdiResponseHandler::~AstraEdiResponseHandler()
 
 void AstraEdiResponseHandler::fillFuncCodeRespStatus()
 {
-    tst();
     readRemoteResults();
     if(pMes())
     {
@@ -98,10 +93,8 @@ void AstraEdiResponseHandler::fillFuncCodeRespStatus()
 
 void AstraEdiResponseHandler::fillErrorDetails()
 {
-    tst();
     if(pMes())
     {
-        tst();
         edilib::EdiPointHolder ph(pMes());
         edilib::SetEdiPointToSegGrG(pMes(), 1);
         edilib::EdiResponseHandler::fillErrorDetails();

@@ -72,7 +72,7 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
 #ifdef XP_TESTING
     if(inTestMode())
     {
-        Ticketing::RemoteSystemContext::SystemContext::free();
+        //Ticketing::RemoteSystemContext::SystemContext::free();
 
         tlg_info tlgi = {};
         tlgi.id = boost::lexical_cast<int>(tlg.tlgNum().num);

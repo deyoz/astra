@@ -11,6 +11,7 @@
 #include "web_main.h"
 #include "http_main.h"
 #include "obrnosir.h"
+#include "config.h"
 
 #include "jxtlib/jxtlib.h"
 #include "jxtlib/xml_stuff.h"
@@ -178,9 +179,17 @@ int AstraApplication::nosir_proc(int argc, char ** argv)
   return main_nosir_user(argc,argv);
 }
 
+static void init_foreign_tests()
+{
+    void init_edi_msg_tests();
+    init_edi_msg_tests();
+}
 
 int main(int argc,char **argv)
 {
+#ifdef XP_TESTING
+    init_foreign_tests();
+#endif/*XP_TESTING*/
     ServerFramework::setApplicationCallbacks<AstraApplication>();
     return ServerFramework::applicationCallbacks()->run(argc,argv);
 }

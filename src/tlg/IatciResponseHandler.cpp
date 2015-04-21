@@ -2,6 +2,7 @@
 #include "read_edi_elements.h"
 #include "postpone_edifact.h"
 #include "iatci_api.h"
+#include "edi_msg.h"
 
 #include <edilib/edi_func_cpp.h>
 
@@ -88,6 +89,15 @@ void IatciResponseHandler::handle()
     }
 }
 
+void IatciResponseHandler::onTimeOut()
+{
+    tlgnum_t postponeTlg = PostponeEdiHandling::findPostponeTlg(ediSessId());
+    if(postponeTlg.num.valid()) {
+        // в списке m_lRes должен лежать один элемент, информирующий о таймауте
+        iatci::saveDeferredCkiData(postponeTlg, m_lRes);
+    }
+}
+
 //---------------------------------------------------------------------------------------
 
 void IatciResultMaker::setFdr(const boost::optional<edifact::FdrElem>& fdr)
@@ -143,10 +153,10 @@ iatci::Result IatciResultMaker::makeResult() const
                                        m_fdr.m_flNum,
                                        m_fdr.m_depPoint,
                                        m_fdr.m_arrPoint,
-                                       m_fdr.m_depDateTime.date(),
-                                       m_fdr.m_arrDateTime.date(),
-                                       m_fdr.m_depDateTime.time_of_day(),
-                                       m_fdr.m_arrDateTime.time_of_day(),
+                                       m_fdr.m_depDate,
+                                       m_fdr.m_arrDate,
+                                       m_fdr.m_depTime,
+                                       m_fdr.m_arrTime,
                                        m_fsd ? m_fsd->m_boardingTime : Dates::not_a_date_time);
 
     boost::optional<iatci::PaxDetails> paxDetails;
@@ -177,23 +187,17 @@ iatci::Result IatciResultMaker::makeResult() const
 
     boost::optional<iatci::ErrorDetails> errorDetails;
     if(m_erd) {
-        if(m_erd->m_messageText.empty()) {
-            // temporarily
-            std::ostringstream err;
-            err << m_erd->m_level << ":" << m_erd->m_messageNumber;
-            errorDetails = iatci::ErrorDetails(err.str());
-        } else {
-            errorDetails = iatci::ErrorDetails(m_erd->m_messageText);
-        }
+        errorDetails = iatci::ErrorDetails(edifact::getInnerErrByErd(m_erd->m_messageNumber),
+                                           m_erd->m_messageText);
     }
 
-    return iatci::Result(iatci::Result::strToAction(m_rad.m_respType),
-                         iatci::Result::strToStatus(m_rad.m_status),
-                         flightDetails,
-                         paxDetails,
-                         seatDetails,
-                         cascadeDetails,
-                         errorDetails);
+    return iatci::Result::makeResult(iatci::Result::strToAction(m_rad.m_respType),
+                                     iatci::Result::strToStatus(m_rad.m_status),
+                                     flightDetails,
+                                     paxDetails,
+                                     seatDetails,
+                                     cascadeDetails,
+                                     errorDetails);
 }
 
 }//namespace TlgHandling

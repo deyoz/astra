@@ -51,18 +51,17 @@ void HandleEdiSessTimeOut(const EdiSessionTimeOut & to)
     boost::scoped_ptr<TlgHandling::AstraEdiResponseHandler> handler
             (Ticketing::EdiResHandlersFactory(to.answerMsgType(), to.funcCode(), psess));
 
-    if(!handler)
+    if(handler)
     {
-        LogTrace(TRACE1) << "Nothing to do";
+        handler->onTimeOut();
+        handler->readRemoteResults();
+        if(handler->remoteResults())
+            handler->remoteResults()->setStatus(RemoteStatus::Timeout);
     }
     else
     {
-        handler->onTimeOut();
+        LogTrace(TRACE1) << "Nothing to do";
     }
-
-    handler->readRemoteResults();
-    if(handler->remoteResults())
-        handler->remoteResults()->setStatus(RemoteStatus::Timeout);
 }
 
 //void HandleEdiSessCONTRL(EdiSessionId_t Id)

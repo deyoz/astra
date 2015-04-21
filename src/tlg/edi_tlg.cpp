@@ -2,6 +2,7 @@
 #include "edi_tlg.h"
 #include "edi_utils.h"
 #include "edi_msg.h"
+#include "astra_msg.h"
 #include "etick_change_status.h"
 #include "tlg.h"
 #include "basic.h"
@@ -56,6 +57,7 @@
 
 using namespace BASIC;
 using namespace edilib;
+using namespace edifact;
 using namespace Ticketing;
 using namespace Ticketing::ChangeStatus;
 using namespace Ticketing::TickMng;
@@ -339,7 +341,7 @@ void proc_edifact(const std::string &tlg)
         ret = -1;
     }
     if(ret){
-         throw edi_fatal_except(STDLOG, EdiErr::EDI_PROC_ERR, "Ошибка обработки");
+         throw edi_fatal_except(STDLOG, AstraErr::EDI_PROC_ERR, "Ошибка обработки");
     }
     ProgTrace(TRACE2, "Edifact done.");
 }
@@ -705,21 +707,21 @@ const message_funcs_type &EdiMesFuncs::GetEdiFunc(
     messages_map_t::const_iterator iter = get_map()->find(mes_type);
     if(iter == get_map()->end())
     {
-        throw edi_fatal_except(STDLOG,EdiErr::EDI_PROC_ERR,
-                                "No such message type %d in message function array",
-                                mes_type);
+        throw edi_fatal_except(STDLOG, AstraErr::EDI_PROC_ERR,
+                               "No such message type %d in message function array",
+                               mes_type);
     }
     const types_map_t &tmap = iter->second;
     types_map_t::const_iterator iter2 = tmap.find(msg_code);
     if(iter2 == tmap.end()){
         //err
-        throw edi_soft_except (STDLOG, EdiErr::EDI_INV_MESSAGE_F,
-                                "UnknERR message function for message %d, code=%s",
-                                mes_type, msg_code.c_str());
+        throw edi_soft_except (STDLOG, AstraErr::EDI_INV_MESSAGE_F,
+                               "UnknERR message function for message %d, code=%s",
+                               mes_type, msg_code.c_str());
     }
     if(!iter2->second.parse || !iter2->second.proc || !iter2->second.collect_req)
     {
-        throw edi_soft_except (STDLOG, EdiErr::EDI_NS_MESSAGE_F,
+        throw edi_soft_except (STDLOG, AstraErr::EDI_NS_MESSAGE_F,
                                 "Message function %s not supported", msg_code.c_str());
     }
     return iter2->second;
@@ -1334,7 +1336,7 @@ int ProcEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
             EdiMesFuncs::GetEdiFunc(pHead->msg_type,
                                     edilib::GetDBFName(GetEdiMesStruct(),
                                     edilib::DataElement(1225),
-                                    EdiErr::EDI_PROC_ERR,
+                                    AstraErr::EDI_PROC_ERR,
                                     edilib::CompElement("C302"),
                                     edilib::SegmElement("MSG")));
 

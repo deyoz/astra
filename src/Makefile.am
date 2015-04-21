@@ -137,7 +137,8 @@ astra_SOURCES = \
   iatci.cc \
   iatci_types.cc \
   iatci_api.cc \
-  TypeBHelpMng.cpp
+  TypeBHelpMng.cpp \
+  astra_msg.cc
 
 
 astra_LDADD = $(all_libraries) \
@@ -263,4 +264,6 @@ noinst_HEADERS = \
   iatci_serialization.h \
   iatci_api.h \
   iatci.h \
-  TypeBHelpMng.h
+  TypeBHelpMng.h \
+  astra_msg.h
+  

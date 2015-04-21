@@ -203,8 +203,8 @@ static std::string FP_init_dcs(const std::vector<std::string> &p)
 
     ASSERT(p.size() == 3);
     DcsSystemContext::create4TestsOnly(p.at(0) /*airline*/,
-                                       p.at(1) /*remote edi address*/,
-                                       p.at(2) /*our edi address*/);
+                                       p.at(1) /*remote edi address - to*/,
+                                       p.at(2) /*our edi address - from*/);
 
     return "";
 }

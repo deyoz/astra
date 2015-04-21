@@ -588,21 +588,27 @@ struct FdqElem
 {
     std::string m_outbAirl;
     Ticketing::FlightNum_t m_outbFlNum;
-    Dates::DateTime_t m_outbDepDateTime;
+    Dates::Date_t m_outbDepDate;
+    Dates::time_duration m_outbDepTime;
     std::string m_outbDepPoint;
     std::string m_outbArrPoint;
 
     std::string m_inbAirl;
     Ticketing::FlightNum_t m_inbFlNum;
-    Dates::DateTime_t m_inbDepDateTime;
-    Dates::DateTime_t m_inbArrDateTime;
+    Dates::Date_t m_inbDepDate;
+    Dates::time_duration m_inbDepTime;
+    Dates::Date_t m_inbArrDate;
+    Dates::time_duration m_inbArrTime;
     std::string m_inbDepPoint;
     std::string m_inbArrPoint;
 
     FdqElem()
-        : m_outbDepDateTime(Dates::not_a_date_time),
-          m_inbDepDateTime(Dates::not_a_date_time),
-          m_inbArrDateTime(Dates::not_a_date_time)
+        : m_outbDepDate(Dates::not_a_date_time),
+          m_outbDepTime(Dates::not_a_date_time),
+          m_inbDepDate(Dates::not_a_date_time),
+          m_inbDepTime(Dates::not_a_date_time),
+          m_inbArrDate(Dates::not_a_date_time),
+          m_inbArrTime(Dates::not_a_date_time)
     {}
 };
 
@@ -655,14 +661,18 @@ struct FdrElem
 {
     std::string m_airl;
     Ticketing::FlightNum_t m_flNum;
-    Dates::DateTime_t m_depDateTime;
-    Dates::DateTime_t m_arrDateTime;
+    Dates::Date_t m_depDate;
+    Dates::time_duration m_depTime;
+    Dates::Date_t m_arrDate;
+    Dates::time_duration m_arrTime;
     std::string m_depPoint;
     std::string m_arrPoint;
 
     FdrElem()
-        : m_depDateTime(Dates::not_a_date_time),
-          m_arrDateTime(Dates::not_a_date_time)
+        : m_depDate(Dates::not_a_date_time),
+          m_depTime(Dates::not_a_date_time),
+          m_arrDate(Dates::not_a_date_time),
+          m_arrTime(Dates::not_a_date_time)
     {}
 };
 
@@ -715,14 +725,13 @@ struct FsdElem
 ///@class ErdElem - Error information
 struct ErdElem
 {
-    unsigned m_level;
-    unsigned m_messageNumber;
+    std::string m_level;
+    std::string m_messageNumber;
     std::string m_messageText;
 
     ErdElem()
-        : m_level(0), m_messageNumber(0)
     {}
-    ErdElem(unsigned level, unsigned msgNum,
+    ErdElem(const std::string level, const std::string msgNum,
             const std::string& msgText = "")
         : m_level(level), m_messageNumber(msgNum),
           m_messageText(msgText)

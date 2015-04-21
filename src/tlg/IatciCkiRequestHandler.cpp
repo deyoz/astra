@@ -6,8 +6,10 @@
 #include "remote_system_context.h"
 #include "iatci_types.h"
 #include "iatci_api.h"
+#include "astra_msg.h"
 
 #include <edilib/edi_func_cpp.h>
+#include <etick/exceptions.h>
 
 #include <boost/optional.hpp>
 #include <boost/foreach.hpp>
@@ -21,8 +23,11 @@ namespace TlgHandling {
 
 using namespace edilib;
 using namespace edifact;
+using namespace Ticketing;
 using namespace Ticketing::TickReader;
+using namespace Ticketing::TickExceptions;
 using namespace Ticketing::RemoteSystemContext;
+
 
 class IatciCkiParamsMaker
 {
@@ -79,25 +84,23 @@ void IatciCkiRequestHandler::parse()
 
 void IatciCkiRequestHandler::handle()
 {
-    iatci::Result ckiRes = iatci::checkinPax(ckiParams());
-
-    if(!SystemContext::Instance(STDLOG).inbTlgInfo().repeatedlyProcessed()) {
-        // если надо, пошлём запрос в другую DCS
-        boost::optional<iatci::CkiParams> cascadingCkiParams = nextCkiParams(ckiRes.flight());
-        if(cascadingCkiParams) {
-            EdiSessionId_t sessId = SendCkiRequest(*cascadingCkiParams);
-            LogTrace(TRACE3) << "Create edisession with id " << sessId;
-            throw TlgHandling::TlgToBePostponed(sessId);
+    boost::optional<iatci::CkiParams> cascadingCkiParams = nextCkiParams(ckiParams().flight());
+    if(cascadingCkiParams)
+    {
+        if(!SystemContext::Instance(STDLOG).inbTlgInfo().repeatedlyProcessed()) {
+            // если надо, пошлём запрос в другую DCS
+            if(cascadingCkiParams) {
+                EdiSessionId_t sessId = SendCkiRequest(*cascadingCkiParams);
+                throw TlgHandling::TlgToBePostponed(sessId);
+            }
+        } else {
+            // достаём данные, которые получили от другой DCS
+            loadDeferredData();
         }
-    } else {
-        // достаём данные, которые получили от другой DCS
-        tlgnum_t msgId = SystemContext::Instance(STDLOG).inbTlgInfo().tlgNum();
-        LogTrace(TRACE3) << "Read cki data by msgId: " << msgId;
-        m_lRes = iatci::loadDeferredCkiData(msgId);
     }
 
-    // докинем регистрацию в нашей DCS
-    m_lRes.push_front(ckiRes);
+    // собственно регистрация "у нас"
+    checkin();
 }
 
 void IatciCkiRequestHandler::makeAnAnswer()
@@ -107,7 +110,7 @@ void IatciCkiRequestHandler::makeAnAnswer()
     {
         PushEdiPointW(pMesW());
         SetEdiSegGr(pMesW(), SegGrElement(1, curSg1));
-        SetEdiPointToSegGrW(pMesW(), SegGrElement(1, curSg1), "SegGr1(flg) not found" );
+        SetEdiPointToSegGrW(pMesW(), SegGrElement(1, curSg1), "SegGr1(flg) not found");
 
         viewFdrElement(pMesW(), res.flight());
         viewRadElement(pMesW(), respType(), res.statusAsString());
@@ -129,6 +132,19 @@ void IatciCkiRequestHandler::makeAnAnswer()
 
         curSg1++;
     }
+}
+
+void IatciCkiRequestHandler::makeAnAnswerErr()
+{
+    PushEdiPointW(pMesW());
+    SetEdiSegGr(pMesW(), SegGrElement(1));
+    SetEdiPointToSegGrW(pMesW(), SegGrElement(1), "SegGr1(flg) not found");
+
+    viewFdrElement(pMesW(), ckiParams().flight());
+    viewRadElement(pMesW(), respType(), "F");
+    viewErdElement(pMesW(), ediErrorLevel(), ediErrorCode(), ediErrorText());
+
+    PopEdiPointW(pMesW());
 }
 
 std::string IatciCkiRequestHandler::respType() const
@@ -169,6 +185,11 @@ boost::optional<iatci::CkiParams> IatciCkiRequestHandler::nextCkiParams(const ia
                             ckiParams().seat(),
                             ckiParams().baggage(),
                             cascadeDetails);
+}
+
+void IatciCkiRequestHandler::checkin()
+{
+    m_lRes.push_front(iatci::checkinPax(ckiParams()));
 }
 
 //---------------------------------------------------------------------------------------
@@ -224,22 +245,22 @@ iatci::CkiParams IatciCkiParamsMaker::makeParams() const
     iatci::OriginatorDetails origDetails(m_lor.m_airline,
                                          m_lor.m_port);
 
-    iatci::FlightDetails currFlight(m_fdq.m_outbAirl,
-                                    m_fdq.m_outbFlNum,
-                                    m_fdq.m_outbDepPoint,
-                                    m_fdq.m_outbArrPoint,
-                                    m_fdq.m_outbDepDateTime.date(),
-                                    Dates::Date_t(),
-                                    m_fdq.m_outbDepDateTime.time_of_day());
+    iatci::FlightDetails flight(m_fdq.m_outbAirl,
+                                m_fdq.m_outbFlNum,
+                                m_fdq.m_outbDepPoint,
+                                m_fdq.m_outbArrPoint,
+                                m_fdq.m_outbDepDate,
+                                Dates::Date_t(),
+                                m_fdq.m_outbDepTime);
 
     iatci::FlightDetails prevFlight(m_fdq.m_inbAirl,
                                     m_fdq.m_inbFlNum,
                                     m_fdq.m_inbDepPoint,
                                     m_fdq.m_inbArrPoint,
-                                    m_fdq.m_inbDepDateTime.date(),
-                                    m_fdq.m_inbArrDateTime.date(),
-                                    m_fdq.m_inbDepDateTime.time_of_day(),
-                                    m_fdq.m_inbArrDateTime.time_of_day());
+                                    m_fdq.m_inbDepDate,
+                                    m_fdq.m_inbArrDate,
+                                    m_fdq.m_inbDepTime,
+                                    m_fdq.m_inbArrTime);
 
     iatci::PaxDetails paxDetails(m_ppd.m_passSurname,
                                  m_ppd.m_passName,
@@ -274,7 +295,7 @@ iatci::CkiParams IatciCkiParamsMaker::makeParams() const
     }
 
     return iatci::CkiParams(origDetails,
-                            currFlight,
+                            flight,
                             prevFlight,
                             paxDetails,
                             reservDetails,

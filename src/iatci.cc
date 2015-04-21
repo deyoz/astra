@@ -148,7 +148,7 @@ void IactiInterface::CheckinKickHandler(xmlNodePtr resNode,
 {
     FuncIn(CheckinKickHandler);
     BOOST_FOREACH(const iatci::Result& res, lRes) {
-        LogTrace(TRACE3) << "error: " << (res.errorDetails() ? res.errorDetails()->errText() : "None");
+        LogTrace(TRACE3) << "error: " << (res.errorDetails() ? res.errorDetails()->errCode() : "None");
     }
     FuncOut(CheckinKickHandler);
 }

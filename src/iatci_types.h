@@ -2,6 +2,8 @@
 
 #include "tlg/CheckinBaseTypes.h"
 
+#include <etick/etick_msg_types.h>
+
 #include <list>
 #include <boost/optional.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
@@ -293,14 +295,17 @@ struct ErrorDetails
     friend class boost::serialization::access;
 
 protected:
-    std::string m_errText;
+    Ticketing::ErrMsg_t m_errCode;
+    std::string m_errDesc;
 
 public:
-    ErrorDetails(const std::string& errText)
-        : m_errText(errText)
+    ErrorDetails(const Ticketing::ErrMsg_t& errCode,
+                 const std::string& errDesc = "")
+        : m_errCode(errCode), m_errDesc(errDesc)
     {}
 
-    const std::string& errText() const;
+    const Ticketing::ErrMsg_t& errCode() const;
+    const std::string& errDesc() const;
 
 protected:
     ErrorDetails() {} // only for boost serialization
@@ -428,16 +433,15 @@ struct Result
 protected:
     Action_e      m_action;
     Status_e      m_status;
-    FlightDetails m_flight;
+    boost::optional<FlightDetails> m_flight;
     boost::optional<PaxDetails> m_pax;
     boost::optional<FlightSeatDetails> m_seat;
     boost::optional<CascadeHostDetails> m_cascadeDetails;
     boost::optional<ErrorDetails> m_errorDetails;
 
-public:
     Result(Action_e action,
            Status_e status,
-           const FlightDetails& flight,
+           boost::optional<FlightDetails> flight,
            boost::optional<PaxDetails> pax,
            boost::optional<FlightSeatDetails> seat,
            boost::optional<CascadeHostDetails> cascadeDetails,
@@ -450,6 +454,15 @@ public:
           m_cascadeDetails(cascadeDetails),
           m_errorDetails(errorDetails)
     {}
+
+public:
+    static Result makeResult(Action_e action,
+                             Status_e status,
+                             const FlightDetails& flight,
+                             boost::optional<PaxDetails> pax,
+                             boost::optional<FlightSeatDetails> seat,
+                             boost::optional<CascadeHostDetails> cascadeDetails,
+                             boost::optional<ErrorDetails> errorDetails);
 
     static Result makeCheckinResult(Status_e status,
                                     const FlightDetails& flight,
@@ -464,6 +477,9 @@ public:
                                    boost::optional<FlightSeatDetails> seat = boost::none,
                                    boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
                                    boost::optional<ErrorDetails> errorDetails = boost::none);
+
+    static Result makeFailResult(Action_e action,
+                                 const ErrorDetails& errorDetails);
 
     Action_e action() const;
     Status_e status() const;

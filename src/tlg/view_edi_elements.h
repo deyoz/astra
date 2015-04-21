@@ -172,6 +172,13 @@ void viewFsdElement(_EDI_REAL_MES_STRUCT_* pMes, const FsdElem& elem);
 void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightSeatDetails& seat);
 void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const PfdElem& elem);
 
+/**
+ * @brief makes an ERD element
+*/
+void viewErdElement(_EDI_REAL_MES_STRUCT_* pMes, const std::string& errLevel,
+                                                 const std::string& errCode,
+                                                 const std::string& errText);
+
 }//namespace edifact
 
 #endif/*_VIEW_EDI_ELEMENTS_H_*/

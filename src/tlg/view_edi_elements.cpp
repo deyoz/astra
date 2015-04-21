@@ -510,4 +510,13 @@ void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const PfdElem& elem)
     SetEdiFullSegment(pMes, SegmElement("PFD"), pfd.str());
 }
 
+void viewErdElement(_EDI_REAL_MES_STRUCT_* pMes, const std::string& errLevel,
+                                                 const std::string& errCode,
+                                                 const std::string& errText)
+{
+    std::ostringstream erd;
+    erd << errLevel << ":" << errCode << ":" << errText;
+    SetEdiFullSegment(pMes, SegmElement("ERD"), erd.str());
+}
+
 }//namespace edifact
