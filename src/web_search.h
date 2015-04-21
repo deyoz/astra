@@ -91,15 +91,28 @@ class TPNRFilter
       surname_equal_len=ASTRA::NoExists;
       name_equal_len=ASTRA::NoExists;
       airp_dep.clear();
-      airp_arv.clear();
+      airp_arv.clear();      
     };
 
-    TPNRFilter& fromXML(xmlNodePtr node);
-    TPNRFilter& fromBCBP_M(const std::string bcbp);
+    TPNRFilter& fromXML(xmlNodePtr node);    
     TPNRFilter& testPaxFromDB();
     void trace( TRACE_SIGNATURE ) const;
     std::string getSurnameSQLFilter(const std::string &field_name, TQuery &Qry) const;
     bool isNameEqual(const std::string &pax_name) const;
+};
+
+class TPNRFilters
+{
+  public:
+    std::list<TPNRFilter> segs;
+
+    void clear()
+    {
+      segs.clear();
+    };
+
+    TPNRFilters& fromBCBP_M(const std::string &bcbp);
+    TPNRFilters& fromXML(xmlNodePtr node);
 };
 
 struct TDestInfo
@@ -241,7 +254,7 @@ struct TPaxInfo
     return pax_id < item.pax_id;
   };
     
-  bool filterFromDB(const TPNRFilter &filter, TQuery &Qry);
+  bool filterFromDB(const TPNRFilter &filter, TQuery &Qry, bool ignore_reg_no);
   bool fromTestPax(const TTestPaxInfo &pax);
   void toXML(xmlNodePtr node) const;
 };
@@ -266,10 +279,10 @@ struct TPNRs
   std::map< int/*pnr_id*/, TPNRInfo > pnrs;
   
   bool add(const TFlightInfo &flt, const TPNRSegInfo &seg, const TPaxInfo &pax, bool is_test);
-  void toXML(xmlNodePtr node) const;
+  void toXML(xmlNodePtr node) const;  
 };
 
-void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass);
+void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_no=false);
 
 struct TPnrData
 {

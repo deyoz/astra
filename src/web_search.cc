@@ -140,198 +140,6 @@ TDateTime date_fromXML(string str)
     return date;
 }
 
-TPNRFilter& TPNRFilter::fromBCBP_M(const std::string bcbp)
-{
-  clear();
-  if (bcbp.empty())
-  {
-    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: empty bcbp");
-    throw UserException("MSG.SCAN_CODE.NOT_SET");
-  };
-
-  try
-  {
-    string::size_type airline_use_begin_idx, airline_use_end_idx;
-    checkBCBP_M(bcbp, 0, airline_use_begin_idx, airline_use_end_idx);
-  }
-  catch(EXCEPTIONS::EConvertError &e)
-  {
-    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: %s", e.what());
-    throw UserException("MSG.SCAN_CODE.UNKNOWN_FORMAT");
-  };
-    
-  try
-  {
-    string str;
-    TElemFmt fmt;
-
-    //фамилия/имя пассажира
-    surname=upperc(bcbp.substr(2,20));
-    TrimString(surname);
-    if (surname.empty())
-    {
-      throw EXCEPTIONS::EConvertError("empty <Passenger Name>");
-    };
-    string::size_type pos=surname.find('/');
-    if (pos != string::npos)
-    {
-      name=surname.substr(pos+1);
-      surname=surname.substr(0,pos);
-    };
-    TrimString(surname);
-    if (surname.empty())
-    {
-      throw EXCEPTIONS::EConvertError("invalid <Passenger Name>");
-    };
-
-    TrimString(name);
-    
-    if (surname.size()+name.size()+1 >= 20)
-    {
-      surname_equal_len=surname.size();
-      if (!name.empty())
-        name_equal_len=name.size();
-    };
-    
-    name.erase(find(name.begin(), name.end(), ' '), name.end()); //оставляем часть до пробела
-
-    str=bcbp.substr(23,7);
-    TrimString(str);
-    pnr_addr_normal=convert_pnr_addr(upperc(str) , true);
-
-    str=bcbp.substr(30,3);
-    TrimString(str);
-    if (!str.empty())
-    {
-      airp_dep = ElemToElemId( etAirp, upperc(str), fmt );
-      if (fmt==efmtUnknown)
-      {
-        throw EXCEPTIONS::EConvertError("unknown <From City Airport Code> %s", str.c_str());
-    	};
-    }
-    else
-    {
-      throw EXCEPTIONS::EConvertError("empty <From City Airport Code>");
-    };
-
-    str=bcbp.substr(33,3);
-    TrimString(str);
-    if (!str.empty())
-    {
-      airp_arv = ElemToElemId( etAirp, upperc(str), fmt );
-      if (fmt==efmtUnknown)
-      {
-        throw EXCEPTIONS::EConvertError("unknown <To City Airport Code> %s", str.c_str());
-    	};
-    }
-    else
-    {
-      throw EXCEPTIONS::EConvertError("empty <To City Airport Code>");
-    };
-
-    str=bcbp.substr(36,3);
-    TrimString(str);
-    if (!str.empty())
-    {
-      string airline = ElemToElemId( etAirline, upperc(str), fmt );
-      if (fmt==efmtUnknown)
-      {
-        throw EXCEPTIONS::EConvertError("unknown <Operating carrier Designator> %s", str.c_str());
-      };
-      airlines.insert(airline);
-    }
-    else
-    {
-      throw EXCEPTIONS::EConvertError("empty <Operating carrier Designator>");
-    };
-
-    str=bcbp.substr(39,5);
-    TrimString(str);
-    if (!str.empty())
-    {
-      char last_char=str[str.size()-1];
-      if (IsLetter(last_char))
-      {
-        //проверяем суффикс
-        suffix = ElemToElemId( etSuffix, upperc(string(1,last_char)), fmt );
-        if (fmt==efmtUnknown)
-        {
-          throw EXCEPTIONS::EConvertError("unknown <Flight Number> suffix %c", last_char);
-      	};
-      	str.erase(str.size()-1);
-      };
-    };
-
-  	if (!str.empty())
-    {
-      if ( StrToInt( str.c_str(), flt_no ) == EOF ||
-  		     flt_no > 99999 || flt_no <= 0 )
-      {
-        throw EXCEPTIONS::EConvertError("invalid <Flight Number> %s", str.c_str());
-      };
-  	}
-    else
-    {
-      throw EXCEPTIONS::EConvertError("empty <Flight Number>");
-    };
-
-    str=bcbp.substr(44,3);
-    TrimString(str);
-    if (!str.empty())
-    {
-      int julian_date;
-      if ( StrToInt( str.c_str(), julian_date ) == EOF ||
-  		     julian_date > 366 || julian_date <= 0 )
-      {
-        throw EXCEPTIONS::EConvertError("invalid <Date of Flight> %s", str.c_str());
-      };
-
-      int Year, Month, Day;
-      TDateTime utc_date=NowUTC(), scd_out_local=NoExists;
-      DecodeDate(utc_date, Year, Month, Day);
-      for(int y=Year-1; y<=Year+1; y++)
-      {
-        try
-        {
-          TDateTime d=JulianDateToDateTime(julian_date, y);
-          if (scd_out_local==NoExists ||
-              fabs(scd_out_local-utc_date)>fabs(d-utc_date))
-            scd_out_local=d;
-        }
-        catch(EXCEPTIONS::EConvertError) {};
-      };
-      if (scd_out_local==NoExists)
-      {
-        throw EXCEPTIONS::EConvertError("invalid <Date of Flight> %s", str.c_str());
-      };
-
-      MergeSortedRanges(scd_out_local_ranges, make_pair(scd_out_local, scd_out_local+1.0));
-    }
-    else
-    {
-      throw EXCEPTIONS::EConvertError("empty <Date of Flight>");
-    };
-
-    str=bcbp.substr(52,5);
-    TrimString(str);
-    if (!str.empty())
-    {
-      if ( StrToInt( str.c_str(), reg_no ) == EOF ||
-  		     reg_no > 999 || reg_no <= 0 )
-  		{
-    	  throw EXCEPTIONS::EConvertError("invalid <Check-In Sequence Number> %s", str.c_str());
-    	};
-  	};
-  }
-  catch(EXCEPTIONS::EConvertError &e)
-  {
-    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: %s", e.what());
-    throw UserException("MSG.SCAN_CODE.UNKNOWN_DATA");
-  };
-
-  return *this;
-};
-
 TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
 {
   clear();
@@ -641,6 +449,125 @@ void TPNRFilter::trace( TRACE_SIGNATURE ) const
   ProgTrace(TRACE_PARAMS, "surname_equal_len: %s", surname_equal_len==NoExists?"":IntToString(surname_equal_len).c_str());
   ProgTrace(TRACE_PARAMS, "name_equal_len: %s", name_equal_len==NoExists?"":IntToString(name_equal_len).c_str());
   ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ TPNRFilter ^^^^^^^^^^^^");
+};
+
+TPNRFilters& TPNRFilters::fromBCBP_M(const std::string &bcbp)
+{
+  clear();
+  if (bcbp.empty())
+  {
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: empty bcbp");
+    throw UserException("MSG.SCAN_CODE.NOT_SET");
+  };
+
+  BCBPSections sections;
+  try
+  {
+    BCBPSections::get(bcbp, 0, sections, true);    
+  }
+  catch(EXCEPTIONS::EConvertError &e)
+  {
+    LogTrace(TRACE5) << '\n' << sections;
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: %s", e.what());
+    throw UserException("MSG.SCAN_CODE.UNKNOWN_FORMAT");
+  };
+
+  try
+  {    
+    TElemFmt fmt;
+
+    //фамилия/имя пассажира
+    pair<string, string> name_pair=sections.unique.passengerName();
+
+    for(list<BCBPRepeatedSections>::const_iterator s=sections.repeated.begin(); s!=sections.repeated.end(); ++s)
+    {
+      TPNRFilter filter;
+
+      filter.surname=name_pair.first;
+      filter.name=name_pair.second;
+
+      if (filter.surname.size()+filter.name.size()+1 >= 20)
+      {
+        filter.surname_equal_len=filter.surname.size();
+        if (!filter.name.empty())
+          filter.name_equal_len=filter.name.size();
+      };
+      filter.name.erase(find(filter.name.begin(), filter.name.end(), ' '), filter.name.end()); //оставляем часть до пробела
+
+      //номер PNR
+      const BCBPRepeatedSections &repeated=*s;
+      filter.pnr_addr_normal=convert_pnr_addr(repeated.operatingCarrierPNRCode(), true);
+
+      //аэропорт вылета, а надо бы еще и город анализировать!!!
+      filter.airp_dep = ElemToElemId( etAirp, repeated.fromCityAirpCode() , fmt );
+      if (fmt==efmtUnknown)
+        throw EXCEPTIONS::EConvertError("unknown item 26 <From City Airport Code> %s", repeated.fromCityAirpCode().c_str());
+
+      //аэропорт прилета, а надо бы еще и город анализировать!!!
+      filter.airp_arv = ElemToElemId( etAirp, repeated.toCityAirpCode(), fmt );
+      if (fmt==efmtUnknown)
+        throw EXCEPTIONS::EConvertError("unknown item 38 <To City Airport Code> %s", repeated.toCityAirpCode().c_str());
+
+      //авиакомпания
+      string airline = ElemToElemId( etAirline, repeated.operatingCarrierDesignator(), fmt );
+      if (fmt==efmtUnknown)
+        throw EXCEPTIONS::EConvertError("unknown item 42 <Operating carrier Designator> %s", repeated.operatingCarrierDesignator().c_str());
+      filter.airlines.insert(airline);
+
+      //номер рейса + суффих
+      pair<int, string> flt_no_pair=repeated.flightNumber();
+      if (!flt_no_pair.second.empty())
+      {
+        filter.suffix = ElemToElemId( etSuffix, flt_no_pair.second, fmt );
+        if (fmt==efmtUnknown)
+          throw EXCEPTIONS::EConvertError("unknown item 43 <Flight Number> suffix %s", flt_no_pair.second.c_str());
+      };
+
+      filter.flt_no=flt_no_pair.first;
+
+      //дата рейса (julian format)
+      int julian_date=repeated.dateOfFlight();
+      int Year, Month, Day;
+      TDateTime utc_date=NowUTC(), scd_out_local=NoExists;
+      DecodeDate(utc_date, Year, Month, Day);
+      for(int y=Year-1; y<=Year+1; y++)
+      {
+        try
+        {
+          TDateTime d=JulianDateToDateTime(julian_date, y);
+          if (scd_out_local==NoExists ||
+              fabs(scd_out_local-utc_date)>fabs(d-utc_date))
+            scd_out_local=d;
+        }
+        catch(EXCEPTIONS::EConvertError) {};
+      };
+
+      if (scd_out_local==NoExists)
+        throw EXCEPTIONS::EConvertError("unknown item 46 <Date of Flight (Julian Date)> %d", julian_date);
+
+      MergeSortedRanges(filter.scd_out_local_ranges, make_pair(scd_out_local, scd_out_local+1.0));
+
+      //рег. номер
+      filter.reg_no=repeated.checkinSeqNumber().first;      
+
+      segs.push_back(filter);
+    };
+  }
+  catch(EXCEPTIONS::EConvertError &e)
+  {
+    LogTrace(TRACE5) << '\n' << sections;
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: %s", e.what());
+    throw UserException("MSG.SCAN_CODE.UNKNOWN_DATA");
+  };
+
+  return *this;
+};
+
+TPNRFilters& TPNRFilters::fromXML(xmlNodePtr node)
+{
+  clear();
+  segs.push_back(TPNRFilter().fromXML(node));
+  return *this;
 };
 
 bool TDestInfo::fromDB(int point_id, bool pr_throw)
@@ -1267,7 +1194,7 @@ bool TPaxInfo::fromTestPax(const TTestPaxInfo &pax)
   return true;
 };
 
-bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry)
+bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry, bool ignore_reg_no)
 {
   clear();
   if (Qry.Eof) return false;
@@ -1305,7 +1232,7 @@ bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry)
   Qry1.Execute();
   if (!Qry1.Eof) reg_no=Qry1.FieldAsInteger("reg_no");
   
-  if (filter.reg_no!=NoExists)
+  if (filter.reg_no!=NoExists && !ignore_reg_no)
   {
     //проверим совпадение рег. номера
     if (reg_no!=filter.reg_no) return false;
@@ -1574,7 +1501,7 @@ void TPNRs::toXML(xmlNodePtr node) const
     i->second.toXML(NewTextChild(pnrsNode, "pnr"));
 };
 
-void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
+void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_no)
 {
   if (filter.flt_no==NoExists)
     throw EXCEPTIONS::Exception("findPNRs: filter.flt_no not defined");
@@ -1762,7 +1689,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
               };
               if (!pnr_filter) continue;
               TPaxInfo pax;
-              if (!pax.filterFromDB(filter, PaxQry)) continue;
+              if (!pax.filterFromDB(filter, PaxQry, ignore_reg_no)) continue;
               PNRs.add(iFlt->first, seg, pax, false);
             };
           };
@@ -1922,7 +1849,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass)
           };
           if (segs.empty()) continue;
           TPaxInfo pax;
-          if (!pax.filterFromDB(filter, PaxQry)) continue;
+          if (!pax.filterFromDB(filter, PaxQry, ignore_reg_no)) continue;
           for(vector< pair<TFlightInfo, TPNRSegInfo> >::const_iterator i=segs.begin(); i!=segs.end(); ++i)
             PNRs.add(i->first, i->second, pax, false);
 

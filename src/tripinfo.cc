@@ -2714,10 +2714,13 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
   }
   else
     bcbp=NodeAsString("scan_data", reqNode);
-  WebSearch::TPNRFilter filter;
-  filter.fromBCBP_M(bcbp);
+  WebSearch::TPNRFilters filters;
+  filters.fromBCBP_M(bcbp);
+  if (filters.segs.empty())
+    throw EXCEPTIONS::EConvertError("%s: filters.segs.empty()", __FUNCTION__);
+  const WebSearch::TPNRFilter &filter=*(filters.segs.begin());
   try
-  {
+  {    
     if (filter.airlines.size()!=1)
       throw EXCEPTIONS::EConvertError("airlines.size()!=1");
     if (filter.scd_out_local_ranges.size()!=1)
