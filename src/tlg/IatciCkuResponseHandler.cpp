@@ -13,6 +13,11 @@ IatciCkuResponseHandler::IatciCkuResponseHandler(_EDI_REAL_MES_STRUCT_ *pMes,
 {
 }
 
+iatci::Result::Action_e IatciCkuResponseHandler::action() const
+{
+    return iatci::Result::Update;
+}
+
 void IatciCkuResponseHandler::parse()
 {
     tst();

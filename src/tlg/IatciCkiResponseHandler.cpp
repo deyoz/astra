@@ -23,6 +23,11 @@ IatciCkiResponseHandler::IatciCkiResponseHandler(_EDI_REAL_MES_STRUCT_* pMes,
 {
 }
 
+iatci::Result::Action_e IatciCkiResponseHandler::action() const
+{
+    return iatci::Result::Checkin;
+}
+
 void IatciCkiResponseHandler::parse()
 {
     int flightsCount = GetNumSegGr(pMes(), 1); // Сколько рейсов в ответе
@@ -49,13 +54,6 @@ void IatciCkiResponseHandler::parse()
 
         m_lRes.push_back(ckiResultMaker.makeResult());
     }
-}
-
-void IatciCkiResponseHandler::onTimeOut()
-{
-    m_lRes.push_back(iatci::Result::makeFailResult(iatci::Result::Checkin,
-                                                   iatci::ErrorDetails(AstraErr::TIMEOUT_ON_HOST_3)));
-    IatciResponseHandler::onTimeOut();
 }
 
 }//namespace TlgHandling

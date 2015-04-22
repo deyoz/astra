@@ -130,12 +130,14 @@ static bool isNewEdifact(const std::string& ediText)
     if(msg_type_str     == "DCQCKI"
         || msg_type_str == "DCQCKU"
         || msg_type_str == "DCQCKX"
+        || msg_type_str == "DCQPLF"
         || func_code == "791"
         || func_code == "793"
         || func_code == "794"
         || func_code == "I"
         || func_code == "X"
-        || func_code == "U") {
+        || func_code == "U"
+        || func_code == "P") {
             LogTrace(TRACE3) << "It's a New Edifact!";
             return true;
     }

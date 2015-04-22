@@ -22,6 +22,11 @@ IatciCkxResponseHandler::IatciCkxResponseHandler(_EDI_REAL_MES_STRUCT_ *pMes,
 {
 }
 
+iatci::Result::Action_e IatciCkxResponseHandler::action() const
+{
+    return iatci::Result::Cancel;
+}
+
 void IatciCkxResponseHandler::parse()
 {
     int flightsCount = GetNumSegGr(pMes(), 1); // Сколько рейсов в ответе

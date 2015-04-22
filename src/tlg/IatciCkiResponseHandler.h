@@ -12,8 +12,8 @@ public:
     IatciCkiResponseHandler(_EDI_REAL_MES_STRUCT_* pMes,
                             const edilib::EdiSessRdData* edisess);
 
+    virtual iatci::Result::Action_e action() const;
     virtual void parse();
-    virtual void onTimeOut();
 
     virtual ~IatciCkiResponseHandler() {}
 };

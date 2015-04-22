@@ -17,6 +17,7 @@ public:
     IatciResponseHandler(_EDI_REAL_MES_STRUCT_ *PMes,
                          const edilib::EdiSessRdData *edisess);
 
+    virtual iatci::Result::Action_e action() const = 0;
     virtual void fillFuncCodeRespStatus();
     virtual void fillErrorDetails();
     virtual void handle();

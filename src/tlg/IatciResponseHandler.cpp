@@ -18,6 +18,7 @@ namespace TlgHandling
 
 using namespace edilib;
 using namespace edifact;
+using namespace Ticketing;
 using namespace Ticketing::TickReader;
 
 
@@ -91,9 +92,11 @@ void IatciResponseHandler::handle()
 
 void IatciResponseHandler::onTimeOut()
 {
+    // в список m_lRes положим один элемент, информирующий о таймауте
+    m_lRes.push_back(iatci::Result::makeFailResult(action(),
+                                                   iatci::ErrorDetails(AstraErr::TIMEOUT_ON_HOST_3)));
     tlgnum_t postponeTlg = PostponeEdiHandling::findPostponeTlg(ediSessId());
     if(postponeTlg.num.valid()) {
-        // в списке m_lRes должен лежать один элемент, информирующий о таймауте
         iatci::saveDeferredCkiData(postponeTlg, m_lRes);
     }
 }
