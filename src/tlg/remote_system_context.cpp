@@ -286,8 +286,8 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketin
     if(cur.err() == NO_DATA_FOUND)
     {
         LogTrace(TRACE0) << "DCS system not found by airline "
-                         << airline << " and flight " << flNum;
-        throw system_not_found(airline, flNum);
+                         << airl << " and flight " << flNum;
+        throw system_not_found(airl, flNum);
     }
 
     SystemContextMaker ctxtMaker;

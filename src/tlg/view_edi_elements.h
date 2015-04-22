@@ -130,6 +130,11 @@ void viewFdqElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& nex
 void viewPpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails& pax);
 
 /**
+ * @brief makes a PSD element
+*/
+void viewSpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxSeatDetails& pax);
+
+/**
  * @brief makes a PRD element
 */
 void viewPrdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ReservationDetails& reserv);

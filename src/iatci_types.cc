@@ -11,6 +11,11 @@
 
 namespace iatci {
 
+OriginatorDetails::OriginatorDetails(const std::string& airl, const std::string& point)
+    : m_airline(airl),
+      m_point(point)
+{}
+
 const std::string& OriginatorDetails::airline() const
 {
     return m_airline;
@@ -22,6 +27,26 @@ const std::string& OriginatorDetails::point() const
 }
 
 //-----------------------------------------------------------------------------
+
+FlightDetails::FlightDetails(const std::string& airl,
+                             const Ticketing::FlightNum_t& flNum,
+                             const std::string& depPoint,
+                             const std::string& arrPoint,
+                             const boost::gregorian::date& depDate,
+                             const boost::gregorian::date& arrDate,
+                             const boost::posix_time::time_duration& depTime,
+                             const boost::posix_time::time_duration& arrTime,
+                             const boost::posix_time::time_duration& brdTime)
+    : m_airline(airl),
+      m_flightNum(flNum),
+      m_depPoint(depPoint),
+      m_arrPoint(arrPoint),
+      m_depDate(depDate),
+      m_arrDate(arrDate),
+      m_depTime(depTime),
+      m_arrTime(arrTime),
+      m_boardingTime(brdTime)
+{}
 
 const std::string& FlightDetails::airline() const
 {
@@ -77,6 +102,18 @@ std::string FlightDetails::toShortKeyString() const
 
 //-----------------------------------------------------------------------------
 
+PaxDetails::PaxDetails(const std::string& surname,
+                       const std::string& name,
+                       PaxType_e type,
+                       const std::string& qryRef,
+                       const std::string& respRef)
+    : m_surname(surname),
+      m_name(name),
+      m_type(type),
+      m_qryRef(qryRef),
+      m_respRef(respRef)
+{}
+
 const std::string& PaxDetails::surname() const
 {
     return m_surname;
@@ -126,12 +163,20 @@ PaxDetails::PaxType_e PaxDetails::strToType(const std::string& s)
 
 //-----------------------------------------------------------------------------
 
+ReservationDetails::ReservationDetails(const std::string& rbd)
+    : m_rbd(rbd)
+{}
+
 const std::string& ReservationDetails::rbd() const
 {
     return m_rbd;
 }
 
 //-----------------------------------------------------------------------------
+
+SeatDetails::SeatDetails(SmokeIndicator_e smokeInd)
+    : m_smokeInd(smokeInd)
+{}
 
 SeatDetails::SmokeIndicator_e SeatDetails::smokeInd() const
 {
@@ -174,6 +219,14 @@ SeatDetails::SmokeIndicator_e SeatDetails::strToSmokeInd(const std::string& s)
 
 //-----------------------------------------------------------------------------
 
+FlightSeatDetails::FlightSeatDetails(const std::string& seat,
+                                     const std::string& cabinClass,
+                                     const std::string& securityId,
+                                     SmokeIndicator_e smokeInd)
+    : SeatDetails(smokeInd),
+      m_seat(seat), m_cabinClass(cabinClass), m_securityId(securityId)
+{}
+
 const std::string& FlightSeatDetails::seat() const
 {
     return m_seat;
@@ -191,6 +244,53 @@ const std::string& FlightSeatDetails::securityId() const
 
 //-----------------------------------------------------------------------------
 
+PaxSeatDetails::PaxSeatDetails(const std::string& surname,
+                               const std::string& name,
+                               const std::string& rbd,
+                               const std::string& seat,
+                               const std::string& securityId,
+                               const std::string& recloc,
+                               const std::string& tickNum,
+                               const std::string& qryRef,
+                               const std::string& respRef)
+    : PaxDetails(surname, name, Adult, qryRef, respRef),
+      m_rbd(rbd), m_seat(seat), m_securityId(securityId),
+      m_recloc(recloc), m_tickNum(tickNum)
+{
+}
+
+const std::string& PaxSeatDetails::rbd() const
+{
+    return m_rbd;
+}
+
+const std::string& PaxSeatDetails::seat() const
+{
+    return m_seat;
+}
+
+const std::string& PaxSeatDetails::securityId() const
+{
+    return m_securityId;
+}
+
+const std::string& PaxSeatDetails::recloc() const
+{
+    return m_recloc;
+}
+
+const std::string& PaxSeatDetails::tickNum() const
+{
+    return m_tickNum;
+}
+
+//-----------------------------------------------------------------------------
+
+BaggageDetails::BaggageDetails(unsigned numOfPieces, unsigned weight)
+    : m_numOfPieces(numOfPieces),
+      m_weight(weight)
+{}
+
 unsigned BaggageDetails::numOfPieces() const
 {
     return m_numOfPieces;
@@ -202,6 +302,17 @@ unsigned BaggageDetails::weight() const
 }
 
 //-----------------------------------------------------------------------------
+
+CascadeHostDetails::CascadeHostDetails(const std::string& host)
+{
+    m_hostAirlines.push_back(host);
+}
+
+CascadeHostDetails::CascadeHostDetails(const std::string& origAirl,
+                                       const std::string& origPoint)
+    : m_originAirline(origAirl),
+      m_originPoint(origPoint)
+{}
 
 const std::string& CascadeHostDetails::originAirline() const
 {
@@ -225,6 +336,12 @@ void CascadeHostDetails::addHostAirline(const std::string& hostAirline)
 
 //-----------------------------------------------------------------------------
 
+ErrorDetails::ErrorDetails(const Ticketing::ErrMsg_t& errCode,
+                           const std::string& errDesc)
+    : m_errCode(errCode),
+      m_errDesc(errDesc)
+{}
+
 const Ticketing::ErrMsg_t& ErrorDetails::errCode() const
 {
     return m_errCode;
@@ -236,6 +353,22 @@ const std::string& ErrorDetails::errDesc() const
 }
 
 //-----------------------------------------------------------------------------
+
+Result::Result(Action_e action,
+               Status_e status,
+               boost::optional<FlightDetails> flight,
+               boost::optional<PaxDetails> pax,
+               boost::optional<FlightSeatDetails> seat,
+               boost::optional<CascadeHostDetails> cascadeDetails,
+               boost::optional<ErrorDetails> errorDetails)
+    : m_action(action),
+      m_status(status),
+      m_flight(flight),
+      m_pax(pax),
+      m_seat(seat),
+      m_cascadeDetails(cascadeDetails),
+      m_errorDetails(errorDetails)
+{}
 
 Result Result::makeResult(Action_e action,
                           Status_e status,
@@ -339,6 +472,7 @@ Result::Action_e Result::strToAction(const std::string& a)
     if(a == "I") return Checkin;
     else if(a == "X") return Cancel;
     else if(a == "U") return Update;
+    else if(a == "P") return Passlist;
     else {
         throw EXCEPTIONS::Exception("Unknown iatci action code: %s", a.c_str());
     }
@@ -361,6 +495,7 @@ std::string Result::actionAsString() const
     case Checkin:   return "I";
     case Cancel:    return "X";
     case Update:    return "U";
+    case Passlist:  return "P";
     }
 
     throw EXCEPTIONS::Exception("Unknown iatci action code value: %d", m_action);
@@ -379,6 +514,25 @@ std::string Result::statusAsString() const
 }
 
 //-----------------------------------------------------------------------------
+
+CkiParams::CkiParams(const OriginatorDetails& origin,
+                     const FlightDetails& flight,
+                     const FlightDetails& flightFromPrevHost,
+                     const PaxDetails& pax,
+                     boost::optional<ReservationDetails> reserv,
+                     boost::optional<SeatDetails> seat,
+                     boost::optional<BaggageDetails> baggage,
+                     boost::optional<CascadeHostDetails> cascadeDetails)
+    : m_origin(origin),
+      m_flight(flight),
+      m_flightFromPrevHost(flightFromPrevHost),
+      m_pax(pax),
+      m_reserv(reserv),
+      m_seat(seat),
+      m_baggage(baggage),
+      m_cascadeDetails(cascadeDetails)
+{}
+
 
 const iatci::OriginatorDetails& CkiParams::origin() const
 {
@@ -422,6 +576,18 @@ boost::optional<iatci::CascadeHostDetails> CkiParams::cascadeDetails() const
 
 //-----------------------------------------------------------------------------
 
+
+CkxParams::CkxParams(const OriginatorDetails& origin,
+                     const FlightDetails& flight,
+                     const PaxDetails& pax,
+                     boost::optional<CascadeHostDetails> cascadeDetails)
+    : m_origin(origin),
+      m_flight(flight),
+      m_pax(pax),
+      m_cascadeDetails(cascadeDetails)
+{}
+
+
 const iatci::OriginatorDetails& CkxParams::origin() const
 {
     return m_origin;
@@ -438,6 +604,38 @@ const iatci::PaxDetails& CkxParams::pax() const
 }
 
 boost::optional<iatci::CascadeHostDetails> CkxParams::cascadeDetails() const
+{
+    return m_cascadeDetails;
+}
+
+//-----------------------------------------------------------------------------
+
+PlfParams::PlfParams(const OriginatorDetails& origin,
+                     const FlightDetails& flight,
+                     const PaxSeatDetails& pax,
+                     boost::optional<CascadeHostDetails> cascadeDetails)
+    : m_origin(origin),
+      m_flight(flight),
+      m_pax(pax),
+      m_cascadeDetails(cascadeDetails)
+{}
+
+const iatci::OriginatorDetails& PlfParams::origin() const
+{
+    return m_origin;
+}
+
+const iatci::FlightDetails& PlfParams::flight() const
+{
+    return m_flight;
+}
+
+const iatci::PaxSeatDetails& PlfParams::pax() const
+{
+    return m_pax;
+}
+
+boost::optional<iatci::CascadeHostDetails> PlfParams::cascadeDetails() const
 {
     return m_cascadeDetails;
 }

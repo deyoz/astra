@@ -4,6 +4,7 @@
 #include "tlg/IatciCkiRequest.h"
 #include "tlg/IatciCkuRequest.h"
 #include "tlg/IatciCkxRequest.h"
+#include "tlg/IatciPlfRequest.h"
 #include "tlg/remote_results.h"
 #include "tlg/remote_system_context.h"
 
@@ -80,6 +81,32 @@ static iatci::CkxParams getDebugCkxParams()
     return ckxParams;
 }
 
+static iatci::PlfParams getDebugPlfParams()
+{
+    iatci::OriginatorDetails origin("UT", "SVO");
+
+    iatci::FlightDetails flight("SU",
+                                Ticketing::FlightNum_t(200),
+                                "LED",
+                                "AER",
+                                Dates::rrmmdd("150221"),
+                                Dates::rrmmdd("150221"));
+
+    iatci::PaxSeatDetails pax("IVANOV",
+                              "SERGEI",
+                              "Y",
+                              "05A",
+                              "21",
+                              "RECLOC",
+                              "2982145646345");
+
+    iatci::PlfParams plfParams(origin,
+                               flight,
+                               pax);
+
+    return plfParams;
+}
+
 static std::string getIatciContext(xmlNodePtr reqNode)
 {
     return XMLTreeToText(reqNode->doc);
@@ -96,12 +123,11 @@ void IactiInterface::InitialRequest(XMLRequestCtxt* ctxt,
                                     xmlNodePtr reqNode,
                                     xmlNodePtr resNode)
 {
-    const iatci::CkiParams ckiParams = getDebugCkiParams();
-    const std::string pult = getIatciPult();
-    const std::string context = getIatciContext(reqNode);
-    const edifact::KickInfo kickInfo = AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface");
     // send edifact DCQCKI request
-    edifact::SendCkiRequest(ckiParams, pult, context, kickInfo);
+    edifact::SendCkiRequest(getDebugCkiParams(),
+                            getIatciPult(),
+                            getIatciContext(reqNode),
+                            AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface"));
 }
 
 void IactiInterface::UpdateRequest(XMLRequestCtxt* ctxt,
@@ -114,12 +140,11 @@ void IactiInterface::CancelRequest(XMLRequestCtxt* ctxt,
                                    xmlNodePtr reqNode,
                                    xmlNodePtr resNode)
 {
-    const iatci::CkxParams ckxParams = getDebugCkxParams();
-    const std::string pult = getIatciPult();
-    const std::string context = getIatciContext(reqNode);
-    const edifact::KickInfo kickInfo = AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface");
     // send edifact DCQCKX request
-    edifact::SendCkxRequest(ckxParams, pult, context, kickInfo);
+    edifact::SendCkxRequest(getDebugCkxParams(),
+                            getIatciPult(),
+                            getIatciContext(reqNode),
+                            AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface"));
 }
 
 void IactiInterface::ReprintRequest(XMLRequestCtxt* ctxt,
@@ -133,7 +158,11 @@ void IactiInterface::PasslistRequest(XMLRequestCtxt* ctxt,
                                      xmlNodePtr reqNode,
                                      xmlNodePtr resNode)
 {
-
+    // send edifact DCQPLF request
+    edifact::SendPlfRequest(getDebugPlfParams(),
+                            getIatciPult(),
+                            getIatciContext(reqNode),
+                            AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface"));
 }
 
 void IactiInterface::SeatmapRequest(XMLRequestCtxt* ctxt,
@@ -158,6 +187,13 @@ void IactiInterface::CancelKickHandler(xmlNodePtr resNode,
                                        const std::list<iatci::Result>& lRes)
 {
     tst();
+}
+
+void IactiInterface::PasslistKickHandler(xmlNodePtr resNode,
+                                         const std::list<iatci::Result>& lRes)
+{
+    FuncIn(PasslistKickHandler);
+    FuncOut(PasslistKickHandler);
 }
 
 void IactiInterface::TimeoutKickHandler(xmlNodePtr resNode)
@@ -194,7 +230,11 @@ void IactiInterface::KickHandler(XMLRequestCtxt* ctxt,
                 CancelKickHandler(resNode, lRes);
                 break;
             case iatci::Result::Update:
-                tst();
+                tst(); // TODO
+                break;
+            case iatci::Result::Passlist:
+                PasslistKickHandler(resNode, lRes);
+                break;
             // TODO
             }
         }

@@ -16,6 +16,7 @@ libtlg_a_SOURCES = edi_handler.cpp edi_msg.cpp edi_tlg.cpp main_snd.cpp \
         IatciCkuRequest.cpp IatciCkxRequest.cpp IatciResponseHandler.cpp IatciRequestHandler.cpp \
         IatciCkiResponseHandler.cpp IatciCkuResponseHandler.cpp IatciCkxResponseHandler.cpp \
         IatciCkiRequestHandler.cpp IatciCkuRequestHandler.cpp IatciCkxRequestHandler.cpp \
+        IatciPlfRequest.cpp IatciPlfResponseHandler.cpp IatciPlfRequestHandler.cpp \
         postpone_edifact.cpp
         
 
@@ -30,6 +31,7 @@ noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_msg.h edi_elements.h \
    	IatciCkuRequest.h IatciCkxRequest.h IatciResponseHandler.h IatciRequestHandler.h \
    	IatciCkiResponseHandler.h IatciCkuResponseHandler.h IatciCkxResponseHandler.h \
    	IatciCkiRequestHandler.h IatciCkuRequestHandler.h IatciCkxRequestHandler.h \
+   	IatciPlfRequest.h IatciPlfResponseHandler.h IatciPlfRequestHandler.h \
    	postpone_edifact.h
    	
    	

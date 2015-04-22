@@ -312,3 +312,32 @@ RAD+I+F"
 ERD+1:196"
 UNT+5+1"
 UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+
+%%
+#########################################################################################
+
+$(init_jxt_pult åéÇêéå)
+$(login)
+$(init_dcs SU TA OA)
+
+
+{<?xml version='1.0' encoding='UTF-8'?>
+ <term>
+   <query handle='0' id='IactiInterface' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+     <PasslistRequest/>
+   </query>
+ </term>}
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQPLF:96:2:IA+$(last_edifact_ref)"
+LOR+UT:SVO"
+FDQ+SU+200+150221+LED+AER"
+SPD+IVANOV:SERGEI:Y:1+05A+++21+RECLOC++++2982145646345"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"

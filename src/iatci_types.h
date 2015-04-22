@@ -24,10 +24,7 @@ protected:
     std::string m_point;
 
 public:
-    OriginatorDetails(const std::string& airl, const std::string& point = "")
-        : m_airline(airl),
-          m_point(point)
-    {}
+    OriginatorDetails(const std::string& airl, const std::string& point = "");
 
     const std::string& airline() const;
     const std::string& point() const;
@@ -63,17 +60,7 @@ public:
                   const boost::gregorian::date& arrDate,
                   const boost::posix_time::time_duration& depTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                   const boost::posix_time::time_duration& arrTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
-                  const boost::posix_time::time_duration& brdTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time))
-        : m_airline(airl),
-          m_flightNum(flNum),
-          m_depPoint(depPoint),
-          m_arrPoint(arrPoint),
-          m_depDate(depDate),
-          m_arrDate(arrDate),
-          m_depTime(depTime),
-          m_arrTime(arrTime),
-          m_boardingTime(brdTime)
-    {}
+                  const boost::posix_time::time_duration& brdTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time));
 
     const std::string& airline() const;
     Ticketing::FlightNum_t flightNum() const;
@@ -117,13 +104,7 @@ public:
                const std::string& name,
                PaxType_e type,
                const std::string& qryRef = "",
-               const std::string& respRef = "")
-        : m_surname(surname),
-          m_name(name),
-          m_type(type),
-          m_qryRef(qryRef),
-          m_respRef(respRef)
-    {}
+               const std::string& respRef = "");
 
     const std::string& surname() const;
     const std::string& name() const;
@@ -151,9 +132,7 @@ protected:
     std::string m_rbd;
 
 public:
-    ReservationDetails(const std::string& rbd)
-        : m_rbd(rbd)
-    {}
+    ReservationDetails(const std::string& rbd);
 
     const std::string& rbd() const;
 
@@ -182,9 +161,7 @@ protected:
     std::list<std::string> m_characteristics;
 
 public:
-    SeatDetails(SmokeIndicator_e smokeInd = Unknown)
-        : m_smokeInd(smokeInd)
-    {}
+    SeatDetails(SmokeIndicator_e smokeInd = Unknown);
 
     SmokeIndicator_e smokeInd() const;
     std::string smokeIndAsString() const;
@@ -212,10 +189,7 @@ public:
     FlightSeatDetails(const std::string& seat,
                       const std::string& cabinClass,
                       const std::string& securityId,
-                      SmokeIndicator_e smokeInd = Unknown)
-        : SeatDetails(smokeInd),
-          m_seat(seat), m_cabinClass(cabinClass), m_securityId(securityId)
-    {}
+                      SmokeIndicator_e smokeInd = Unknown);
 
     const std::string& seat() const;
     const std::string& cabinClass() const;
@@ -224,6 +198,42 @@ public:
 protected:
     FlightSeatDetails(SmokeIndicator_e smokeInd = Unknown)
         : SeatDetails(smokeInd)
+    {} // only for boost serialization
+};
+
+//-----------------------------------------------------------------------------
+
+struct PaxSeatDetails: public PaxDetails
+{
+    friend class Result;
+    friend class boost::serialization::access;
+
+protected:
+    std::string m_rbd;
+    std::string m_seat;
+    std::string m_securityId;
+    std::string m_recloc;
+    std::string m_tickNum;
+
+public:
+    PaxSeatDetails(const std::string& surname,
+                   const std::string& name,
+                   const std::string& rbd = "",
+                   const std::string& seat = "",
+                   const std::string& securityId = "",
+                   const std::string& recloc = "",
+                   const std::string& tickNum = "",
+                   const std::string& qryRef = "",
+                   const std::string& respRef = "");
+
+    const std::string& rbd() const;
+    const std::string& seat() const;
+    const std::string& securityId() const;
+    const std::string& recloc() const;
+    const std::string& tickNum() const;
+
+protected:
+    PaxSeatDetails()
     {} // only for boost serialization
 };
 
@@ -239,10 +249,7 @@ protected:
     unsigned m_weight;
 
 public:
-    BaggageDetails(unsigned numOfPieces, unsigned weight)
-        : m_numOfPieces(numOfPieces),
-          m_weight(weight)
-    {}
+    BaggageDetails(unsigned numOfPieces, unsigned weight);
 
     unsigned numOfPieces() const;
     unsigned weight() const;
@@ -266,16 +273,9 @@ protected:
     std::list<std::string> m_hostAirlines;
 
 public:
-    CascadeHostDetails(const std::string& host)
-    {
-        m_hostAirlines.push_back(host);
-    }
-
+    CascadeHostDetails(const std::string& host);
     CascadeHostDetails(const std::string& origAirl,
-                       const std::string& origPoint)
-        : m_originAirline(origAirl),
-          m_originPoint(origPoint)
-    {}
+                       const std::string& origPoint);
 
     const std::string& originAirline() const;
     const std::string& originPoint() const;
@@ -300,9 +300,7 @@ protected:
 
 public:
     ErrorDetails(const Ticketing::ErrMsg_t& errCode,
-                 const std::string& errDesc = "")
-        : m_errCode(errCode), m_errDesc(errDesc)
-    {}
+                 const std::string& errDesc = "");
 
     const Ticketing::ErrMsg_t& errCode() const;
     const std::string& errDesc() const;
@@ -333,16 +331,7 @@ public:
               boost::optional<ReservationDetails> reserv = boost::none,
               boost::optional<SeatDetails> seat = boost::none,
               boost::optional<BaggageDetails> baggage = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none)
-        : m_origin(origin),
-          m_flight(flight),
-          m_flightFromPrevHost(flightFromPrevHost),
-          m_pax(pax),
-          m_reserv(reserv),
-          m_seat(seat),
-          m_baggage(baggage),
-          m_cascadeDetails(cascadeDetails)
-    {}
+              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
     const OriginatorDetails& origin() const;
     const FlightDetails& flight() const;
@@ -397,16 +386,33 @@ public:
     CkxParams(const OriginatorDetails& origin,
               const FlightDetails& flight,
               const PaxDetails& pax,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none)
-        : m_origin(origin),
-          m_flight(flight),
-          m_pax(pax),
-          m_cascadeDetails(cascadeDetails)
-    {}
+              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
     const OriginatorDetails& origin() const;
     const FlightDetails& flight() const;
     const PaxDetails& pax() const;
+    boost::optional<CascadeHostDetails> cascadeDetails() const;
+};
+
+//-----------------------------------------------------------------------------
+
+struct PlfParams
+{
+protected:
+    OriginatorDetails m_origin;
+    FlightDetails     m_flight;
+    PaxSeatDetails    m_pax;
+    boost::optional<CascadeHostDetails> m_cascadeDetails;
+
+public:
+    PlfParams(const OriginatorDetails& origin,
+              const FlightDetails& flight,
+              const PaxSeatDetails& pax,
+              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+
+    const OriginatorDetails& origin() const;
+    const FlightDetails& flight() const;
+    const PaxSeatDetails& pax() const;
     boost::optional<CascadeHostDetails> cascadeDetails() const;
 };
 
@@ -420,7 +426,8 @@ struct Result
     {
         Checkin,
         Cancel,
-        Update
+        Update,
+        Passlist
     };
 
     enum Status_e
@@ -445,15 +452,7 @@ protected:
            boost::optional<PaxDetails> pax,
            boost::optional<FlightSeatDetails> seat,
            boost::optional<CascadeHostDetails> cascadeDetails,
-           boost::optional<ErrorDetails> errorDetails)
-        : m_action(action),
-          m_status(status),
-          m_flight(flight),
-          m_pax(pax),
-          m_seat(seat),
-          m_cascadeDetails(cascadeDetails),
-          m_errorDetails(errorDetails)
-    {}
+           boost::optional<ErrorDetails> errorDetails);
 
 public:
     static Result makeResult(Action_e action,

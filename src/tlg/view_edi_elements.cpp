@@ -431,6 +431,19 @@ void viewPpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails& pax)
     SetEdiFullSegment(pMes, SegmElement("PPD"), ppd.str());
 }
 
+void viewSpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxSeatDetails& pax)
+{
+    std::ostringstream spd;
+    spd << pax.surname() << ":" << pax.name() << ":" << pax.rbd() << ":1"
+        << "+" << pax.seat()
+        << "+" << pax.respRef()
+        << "+" << pax.qryRef()
+        << "+" << pax.securityId()
+        << "+" << pax.recloc()
+        << "++++" << pax.tickNum();
+    SetEdiFullSegment(pMes, SegmElement("SPD"), spd.str());
+}
+
 void viewPrdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ReservationDetails& reserv)
 {
     std::ostringstream prd;

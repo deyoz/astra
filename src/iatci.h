@@ -50,6 +50,9 @@ public:
     // Cancel Kick
     void CancelKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
 
+    // Passlist Kick
+    void PasslistKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
+
     // Timeout Kick
     void TimeoutKickHandler(xmlNodePtr resNode);
 };

@@ -293,6 +293,62 @@ inline void serialize(Archive& ar, iatci::SeatDetails& par, const unsigned int v
 
 namespace {
 
+class PaxSeatDetailsAccessor: private iatci::PaxSeatDetails
+{
+public:
+    // for save
+    explicit PaxSeatDetailsAccessor(const iatci::PaxSeatDetails& p)
+        : iatci::PaxSeatDetails(p)
+    {}
+
+    // for load
+    PaxSeatDetailsAccessor()
+    {}
+
+    iatci::PaxSeatDetails& get() { return *this; }
+
+    using iatci::PaxSeatDetails::m_rbd;
+    using iatci::PaxSeatDetails::m_seat;
+    using iatci::PaxSeatDetails::m_securityId;
+    using iatci::PaxSeatDetails::m_recloc;
+    using iatci::PaxSeatDetails::m_tickNum;
+};
+
+}//namespace
+
+/*****
+ * PaxSeatDetails
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::PaxSeatDetails& par, const unsigned int version)
+{
+    PaxSeatDetailsAccessor acc(par);
+    ar & boost::serialization::base_object<iatci::PaxDetails>(acc.get());
+    ar & acc.m_rbd & acc.m_seat & acc.m_securityId;
+    ar & acc.m_recloc & acc.m_tickNum;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::PaxSeatDetails& par, const unsigned int version)
+{
+    PaxSeatDetailsAccessor acc;
+    ar & boost::serialization::base_object<iatci::PaxDetails>(acc.get());
+    ar & acc.m_rbd & acc.m_seat & acc.m_securityId;
+    ar & acc.m_recloc & acc.m_tickNum;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::PaxSeatDetails& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
 class FlightSeatDetailsAccessor: private iatci::FlightSeatDetails
 {
 public:
