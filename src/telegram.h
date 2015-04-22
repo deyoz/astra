@@ -326,6 +326,11 @@ bool check_delay_code(int delay_code);
 bool check_delay_code(const std::string &delay_code);
 bool check_delay_value(BASIC::TDateTime delay_time);
 void markTlgAsSent(int tlg_id);
+void get_tlg_info(
+        const std::string &tlg_text,
+        std::string &tlg_type,
+        std::string &airline,
+        std::string &airp);
 
 
 #endif /*_TELEGRAM_H_*/

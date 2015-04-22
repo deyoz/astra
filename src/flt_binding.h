@@ -68,7 +68,6 @@ class TFltBinding
     void unbind_flt(int point_id, int point_id_spp);
     bool bind_flt(TQuery &Qry);
     bool bind_check(TQuery &Qry, int point_id_spp);
-    void bind_flt(TFltInfo &flt, TBindType bind_type, std::vector<int> &spp_point_ids);
     bool bind_flt_or_bind_check(TQuery &Qry, int point_id_spp);
     void bind_or_unbind_flt(const std::vector<TTripInfo> &flts, bool unbind, bool use_scd_utc);
     void bind_or_unbind_flt_oper(const std::vector<TTripInfo> &operFlts, bool unbind);
@@ -81,6 +80,7 @@ class TFltBinding
     virtual std::string unbind_flt_sql()=0;
 
   public:
+    void bind_flt(TFltInfo &flt, TBindType bind_type, std::vector<int> &spp_point_ids);
     bool bind_flt(int point_id);
     void bind_flt_oper(const std::vector<TTripInfo> &operFlts);
     void bind_flt(const std::vector<TTripInfo> &flts, bool use_scd_utc);

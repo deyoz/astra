@@ -73,7 +73,7 @@ int TypeBHelp::getTlgsId(int typeb_in_id)
     QryParams << QParam("typeb_in_id", otInteger, typeb_in_id);
     TCachedQuery Qry("select id from tlgs where typeb_tlg_id = :typeb_in_id", QryParams);
     Qry.get().Execute();
-    for(; Qry.get().Eof; Qry.get().Next()) {
+    for(; not Qry.get().Eof; Qry.get().Next()) {
         if(result == ASTRA::NoExists)
             result = Qry.get().FieldAsInteger("id");
         else {
