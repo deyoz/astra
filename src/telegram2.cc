@@ -7816,10 +7816,22 @@ void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             true
             );
     string sender = "0" + ctxt->GetPult();
-    int tlgs_id = loadTlg( orig.addr + "\xa." + sender + "\n" + content);
-    if(content.substr(0, 4) == "LCI\xa") { // Для LCI подвешиваем процесс, для остальных - возвр. пустой ответ.
-        TypeBHelpMng::configForPerespros(tlgs_id);
-        NewTextChild(resNode, "content", TIMEOUT_OCCURRED);
+    string tlg_text = orig.addr + "\xa." + sender + "\n" + content;
+
+    string tlg_type, airline, airp;
+    get_tlg_info(tlg_text, tlg_type, airline, airp);
+
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if (not reqInfo->CheckAirline(airline) or
+            not reqInfo->CheckAirp(airp) ) {
+//    if(false) {
+        NewTextChild(resNode, "content", ACCESS_DENIED);
+    } else {
+        int tlgs_id = loadTlg(tlg_text);
+        if(tlg_type == "LCI") { // Для LCI подвешиваем процесс, для остальных - возвр. пустой ответ.
+            TypeBHelpMng::configForPerespros(tlgs_id);
+            NewTextChild(resNode, "content", TIMEOUT_OCCURRED);
+        }
     }
 }
 

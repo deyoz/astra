@@ -916,6 +916,7 @@ bool parse_tlg(void)
             TFltInfo flt;
             TBindType bind_type;
             ParseAHMFltInfo(part,info,flt,bind_type);
+
             SaveFlt(tlg_id,flt,bind_type);
             parseTypeB(tlg_id);
             OraSession.Commit();
@@ -1015,6 +1016,72 @@ bool parse_tlg(void)
   return queue_not_empty;
 };
 
+void get_tlg_info(
+        const string &tlg_text,
+        string &tlg_type,
+        string &airline,
+        string &airp)
+{
+    tlg_type.clear();
+    airline.clear();
+    airp.clear();
+    TypeB::TTlgPartsText parts;
+    TypeB::THeadingInfo *HeadingInfo = NULL;
+    TypeB::TFlightsForBind bind_flts;
+    TMemoryManager mem(STDLOG);
 
+    GetParts(tlg_text.c_str(), parts, HeadingInfo, bind_flts, mem);
+    TypeB::TTlgPartInfo part;
+    part.p = parts.heading.c_str();
+    part.EOL_count = TypeB::CalcEOLCount(parts.addr.c_str());
+    part.offset = parts.addr.size();
+    ParseHeading(part, HeadingInfo, bind_flts, mem);
 
+    tlg_type = HeadingInfo->tlg_type;
 
+    part.p=parts.body.c_str();
+    part.EOL_count=CalcEOLCount(parts.addr.c_str())+
+        CalcEOLCount(parts.heading.c_str());
+    part.offset=parts.addr.size()+
+        parts.heading.size();
+
+    switch (HeadingInfo->tlg_cat)
+    {
+        case tcLCI:
+            {
+                TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
+                airline = info.flt_info.flt.airline.c_str();
+                airp = info.flt_info.airp;
+                break;
+            }
+        case tcAHM:
+            {
+                TAHMHeadingInfo &info = *(dynamic_cast<TAHMHeadingInfo*>(HeadingInfo));
+                TFltInfo flt;
+                TBindType bind_type;
+                ParseAHMFltInfo(part,info,flt,bind_type);
+                vector<int> spp_point_ids;
+                TTlgBinding(false).bind_flt(flt,bind_type,spp_point_ids);
+                set<int> s(spp_point_ids.begin(), spp_point_ids.end()); // remove duplicates
+                if(s.size() == 1) {
+                    TCachedQuery Qry("select airp from points where point_id = :id",
+                            QParams() << QParam("id", otInteger, *s.begin()));
+                    Qry.get().Execute();
+                    if(not Qry.get().Eof) {
+                        airline = flt.airline;
+                        airp = Qry.get().FieldAsString("airp");
+                    }
+                }
+                break;
+            }
+        default:
+            ;
+    }
+
+    if (HeadingInfo != NULL)
+    {
+        mem.destroy(HeadingInfo, STDLOG);
+        delete HeadingInfo;
+        HeadingInfo = NULL;
+    };
+}

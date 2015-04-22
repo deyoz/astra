@@ -170,6 +170,24 @@ void TFltBinding::bind_flt(TFltInfo &flt, TBindType bind_type, vector<int> &spp_
   list<TAdvTripInfo> flts;
   SearchFlt(filter, flts);
 
+  // Влад !!!
+  // Пусть есть рейс с 4 пунктами ДМД-ВРН-МХЛ-ПЛК-СОЧ
+  //
+  // В Астру пришла след. тлг:
+  //
+  // LDM
+  // UT002/21.DKE.12/116.2/5
+  // -MCX.0/0/0.T0.PAX/0/0.PAD/0/0
+  // -LED.0/0/0.T0.PAX/0/0.PAD/0/0
+  // -AER.0/0/0.T0.PAX/0/0.PAD/0/0
+  // SI: EXB0KG
+  // SI: BNIL.CNIL.MNIL.DAANIL
+  // PART 1 END
+  //
+  // В этом сл-е bind_flt заполнит вектор spp_point_ids 2-я одинаковыми point_id,
+  // (которые соответствуют пункту ВРН).
+  // Может имеет смысл выкидывать повторения?
+
   for(list<TAdvTripInfo>::const_iterator f=flts.begin(); f!=flts.end(); ++f)
   {
     switch (bind_type)
