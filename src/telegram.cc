@@ -1476,7 +1476,7 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int type
 
             if (typeb_out_id!=NoExists) //телеграмма создалась
             {
-              lexema_id = "EVT.TLG.CREATED";
+              lexema_id = "EVT.TLG.CREATED_AUTOMATICALLY";
               params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
                      << PrmSmpl<int>("id", typeb_out_id) << PrmBool("lat", i->get_options().is_lat);
               TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, typeb_out_id);
