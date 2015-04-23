@@ -7758,7 +7758,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
     if (tlg_id == NoExists) throw Exception("TelegramInterface::CreateTlg: create_tlg without result");
 
-    TReqInfo::Instance()->LocaleToLog("EVT.TLG.CREATED", LEvntPrms()
+    TReqInfo::Instance()->LocaleToLog("EVT.TLG.CREATED_MANUALLY", LEvntPrms()
                                       << PrmElem<std::string>("name", etTypeBType, createInfo.get_tlg_type(), efmtNameShort)
                                       << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", createInfo.get_options().is_lat),
                                       evtTlg, createInfo.point_id, tlg_id);
