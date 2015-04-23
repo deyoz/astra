@@ -100,6 +100,7 @@ class BCBPSections
                               const EXCEPTIONS::EConvertError &e);
     static void get(const std::string &bcbp,
                     const std::string::size_type bcbp_begin_idx,
+                    const std::string::size_type bcbp_end_idx,
                     BCBPSections &sections,
                     bool only_mandatory=false);
 };

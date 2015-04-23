@@ -292,23 +292,27 @@ string BCBPSections::substr(const std::string &bcbp,
                             const string::size_type &idx,
                             const string::size_type &len,
                             const EXCEPTIONS::EConvertError &e)
-{  
+{    
   if (idx+len>bcbp.size()) throw e;
   return bcbp.substr(idx, len);
 }
 
 void BCBPSections::get(const std::string &bcbp,
                        const string::size_type bcbp_begin_idx,
+                       const string::size_type bcbp_end_idx,
                        BCBPSections &sections,
                        bool only_mandatory)
 {
   sections.clear();
   if (bcbp.empty()) throw Exception("%s: empty bcbp", __FUNCTION__);
 
-  if (bcbp.size()-bcbp_begin_idx<1)
+  if (bcbp_begin_idx==string::npos || bcbp.size()-bcbp_begin_idx<1)
     throw Exception("%s: wrong bcbp_begin_idx", __FUNCTION__);
   if (bcbp[bcbp_begin_idx]!='M')
     throw EConvertError("unknown item 1 <Format Code>");
+
+  if (bcbp_end_idx!=string::npos && bcbp.size()<bcbp_end_idx)
+    throw Exception("%s: wrong bcbp_end_idx", __FUNCTION__);
 
   sections.unique.mandatory=substr(bcbp, bcbp_begin_idx, 23,
                                    EConvertError("invalid size of mandatory unique section"));
@@ -358,11 +362,13 @@ void BCBPSections::get(const std::string &bcbp,
     //есть секция secrity
     sections.unique.security=substr_plus(bcbp, security_idx, 4,
                                          EConvertError("invalid size of security section"));
-    sections.unique.security+=substr(bcbp,
-                                     security_idx,
-                                     sections.unique.securitySize(),
-                                     EConvertError("invalid size of security section"));
+    sections.unique.security+=substr_plus(bcbp,
+                                          security_idx,
+                                          sections.unique.securitySize(),
+                                          EConvertError("invalid size of security section"));
   };
+  if (bcbp_end_idx!=string::npos && security_idx!=bcbp_end_idx)
+    throw EConvertError("invalid size of bcbp");
 
 }
 

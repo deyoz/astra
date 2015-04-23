@@ -5,6 +5,7 @@
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "stages.h"
+#include <boost/optional.hpp>
 
 namespace WebSearch
 {
@@ -204,6 +205,7 @@ struct TFlightInfo
   bool fromDBadditional(bool first_segment, bool pr_throw);
   void add(const TDestInfo &dest);
   void toXML(xmlNodePtr node, bool old_style=false) const;
+  boost::optional<TStage> stage() const;
 };
 
 struct TPNRSegInfo

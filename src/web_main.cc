@@ -300,6 +300,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     filters.fromXML(reqNode);
 
   list<AstraLocale::LexemaData> errors;
+  list<WebSearch::TPNRs> PNRsList;
   for(list<WebSearch::TPNRFilter>::iterator f=filters.segs.begin(); f!=filters.segs.end(); ++f)
   {
     WebSearch::TPNRFilter &filter=*f;
@@ -318,9 +319,10 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     filter.testPaxFromDB();
     filter.trace(TRACE5);
 
-    WebSearch::TPNRs PNRs;
+    PNRsList.push_back(WebSearch::TPNRs());
     try
     {
+      WebSearch::TPNRs &PNRs=PNRsList.back();
       if (scanCodeNode==NULL)
       {
         //это не сканирование штрих-кода
@@ -350,31 +352,76 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     }
     catch(UserException &e)
     {
-      errors.push_back(e.getLexemaData());
-      continue;
-    };
+      PNRsList.pop_back();
+      errors.push_back(e.getLexemaData());        
+      ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
+    };   
+  };
 
-    xmlNodePtr segsNode=NewTextChild(resNode, "segments");
+  xmlNodePtr segsNode=NewTextChild(resNode, "segments");
 
-    const map< int/*num*/, WebSearch::TPNRSegInfo > &segs=PNRs.pnrs.begin()->second.segs;
-    for(map< int/*num*/, WebSearch::TPNRSegInfo >::const_iterator iSeg=segs.begin(); iSeg!=segs.end(); ++iSeg)
+  class nextPNR{};
+
+  for(int pass=1; pass<=5; pass++)
+  {
+    for(list<WebSearch::TPNRs>::const_iterator iPNRs=PNRsList.begin(); iPNRs!=PNRsList.end(); ++iPNRs)
+    try
     {
-      const set<WebSearch::TFlightInfo>::const_iterator &iFlt=PNRs.flights.find(WebSearch::TFlightInfo(iSeg->second.point_dep));
-      if (iFlt==PNRs.flights.end())
-        throw EXCEPTIONS::Exception("WebRequestsIface::SearchFlt: flight not found in PNRs (point_dep=%d)", iSeg->second.point_dep);
-      const set<WebSearch::TDestInfo>::const_iterator &iDest=iFlt->dests.find(WebSearch::TDestInfo(iSeg->second.point_arv));
-      if (iDest==iFlt->dests.end())
-        throw EXCEPTIONS::Exception("WebRequestsIface::SearchFlt: dest not found in PNRs (point_arv=%d)", iSeg->second.point_arv);
+      const WebSearch::TPNRs &PNRs=*iPNRs;
+      if (PNRs.pnrs.empty()) continue; //на всякий случай
 
-      xmlNodePtr segNode=NewTextChild(segsNode, "segment");
-      iFlt->toXML(segNode, true);
-      iDest->toXML(segNode, true);
-      iSeg->second.toXML(segNode, true);
-      if (iSeg==segs.begin())
-        PNRs.pnrs.begin()->second.toXML(segNode, true);
-    };
-    return;
-  }
+      const map< int/*num*/, WebSearch::TPNRSegInfo > &segs=PNRs.pnrs.begin()->second.segs;
+      for(map< int/*num*/, WebSearch::TPNRSegInfo >::const_iterator iSeg=segs.begin(); iSeg!=segs.end(); ++iSeg)
+      {
+        const set<WebSearch::TFlightInfo>::const_iterator &iFlt=PNRs.flights.find(WebSearch::TFlightInfo(iSeg->second.point_dep));
+        if (iFlt==PNRs.flights.end())
+          throw EXCEPTIONS::Exception("WebRequestsIface::SearchFlt: flight not found in PNRs (point_dep=%d)", iSeg->second.point_dep);
+
+        if (PNRsList.size()>1 && iSeg==segs.begin())
+        {
+          int priority=5;
+          if (boost::optional<TStage> opt_stage=iFlt->stage())
+          {
+            switch ( opt_stage.get() ) {
+              case sNoActive:
+                priority=2;
+                break;
+              case sOpenWEBCheckIn:
+              case sOpenKIOSKCheckIn:
+                priority=1;
+                break;
+              case sCloseWEBCheckIn:
+              case sCloseKIOSKCheckIn:
+                priority=3;
+                break;
+              case sTakeoff:
+                priority=4;
+                break;
+              default:
+                break;
+            };
+            ProgTrace(TRACE5, "%s: pass=%d priority=%d stage=%d ",
+                              __FUNCTION__, pass, priority, opt_stage?opt_stage.get():-1);
+          };          
+
+          if (pass!=priority) throw nextPNR();
+        };
+
+        const set<WebSearch::TDestInfo>::const_iterator &iDest=iFlt->dests.find(WebSearch::TDestInfo(iSeg->second.point_arv));
+        if (iDest==iFlt->dests.end())
+          throw EXCEPTIONS::Exception("WebRequestsIface::SearchFlt: dest not found in PNRs (point_arv=%d)", iSeg->second.point_arv);
+
+        xmlNodePtr segNode=NewTextChild(segsNode, "segment");
+        iFlt->toXML(segNode, true);
+        iDest->toXML(segNode, true);
+        iSeg->second.toXML(segNode, true);
+        if (iSeg==segs.begin())
+          PNRs.pnrs.begin()->second.toXML(segNode, true);
+      };
+      return; //выходим из поиска, так как записали в XML сквозные сегменты с самым подходящим 1-м сегментом
+    }
+    catch(nextPNR) {};
+  };
 
   //если сюда дошли, то выводим первый UserException
   if (errors.empty()) throw EXCEPTIONS::Exception("%s: errors.empty()", __FUNCTION__);

@@ -463,7 +463,7 @@ TPNRFilters& TPNRFilters::fromBCBP_M(const std::string &bcbp)
   BCBPSections sections;
   try
   {
-    BCBPSections::get(bcbp, 0, sections, true);    
+    BCBPSections::get(bcbp, 0, bcbp.size(), sections, true);
   }
   catch(EXCEPTIONS::EConvertError &e)
   {
@@ -854,6 +854,26 @@ void TFlightInfo::add(const TDestInfo &dest)
   dests.insert(dest);
 };
 
+boost::optional<TStage> TFlightInfo::stage() const
+{
+  boost::optional<TStage> result;
+
+  if ( act_out_local != NoExists )
+    result=sTakeoff;
+  else
+  {
+    map<TStage_Type, TStage>::const_iterator iStatus;
+    if ( TReqInfo::Instance()->client_type == ctKiosk )
+      iStatus=stage_statuses.find(stKIOSKCheckIn);
+    else
+      iStatus=stage_statuses.find(stWEBCheckIn);
+    if (iStatus!=stage_statuses.end())
+      result=iStatus->second;
+  };
+
+  return result;
+};
+
 void TFlightInfo::toXML(xmlNodePtr node, bool old_style) const
 {
 /*
@@ -931,46 +951,35 @@ void TFlightInfo::toXML(xmlNodePtr node, bool old_style) const
       i->toXML(NewTextChild(destsNode, "dest"));
   };
 
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  map<TStage_Type, TStage>::const_iterator iStatus;
-  if ( act_out_local != NoExists )
-  	NewTextChild( node, "status", "sTakeoff" );
-  else
+  if (boost::optional<TStage> opt_stage=stage())
   {
-    if ( reqInfo->client_type == ctKiosk )
-      iStatus=stage_statuses.find(stKIOSKCheckIn);
-    else
-      iStatus=stage_statuses.find(stWEBCheckIn);
-    if (iStatus!=stage_statuses.end())
-    {
-      switch ( iStatus->second ) {
-      	case sNoActive:
-      		NewTextChild( node, "status", "sNoActive" );
-      		break;
-      	case sOpenWEBCheckIn:
-      	  NewTextChild( node, "status", "sOpenWEBCheckIn" );
-      		break;
-      	case sOpenKIOSKCheckIn:
-      		NewTextChild( node, "status", "sOpenKIOSKCheckIn" );
-      		break;
-      	case sCloseWEBCheckIn:
-      	  NewTextChild( node, "status", "sCloseWEBCheckIn" );
-      		break;
-        case sCloseKIOSKCheckIn:
-      		NewTextChild( node, "status", "sCloseKIOSKCheckIn" );
-      		break;
-      	case sTakeoff:
-      		NewTextChild( node, "status", "sTakeoff" );
-      		break;
-   	  	default:
-          NewTextChild( node, "status" );
-          break;
-      };
-    }
-    else
-      NewTextChild( node, "status" );
-  };
+    switch ( opt_stage.get() ) {
+      case sNoActive:
+        NewTextChild( node, "status", "sNoActive" );
+        break;
+      case sOpenWEBCheckIn:
+        NewTextChild( node, "status", "sOpenWEBCheckIn" );
+        break;
+      case sOpenKIOSKCheckIn:
+        NewTextChild( node, "status", "sOpenKIOSKCheckIn" );
+        break;
+      case sCloseWEBCheckIn:
+        NewTextChild( node, "status", "sCloseWEBCheckIn" );
+        break;
+      case sCloseKIOSKCheckIn:
+        NewTextChild( node, "status", "sCloseKIOSKCheckIn" );
+        break;
+      case sTakeoff:
+        NewTextChild( node, "status", "sTakeoff" );
+        break;
+      default:
+        NewTextChild( node, "status" );
+        break;
+    };
+  }
+  else NewTextChild( node, "status" );
 
+  TReqInfo *reqInfo = TReqInfo::Instance();
   xmlNodePtr stagesNode = NewTextChild( node, "stages" );
   xmlNodePtr stageNode;
   TStage stage;
@@ -1073,7 +1082,7 @@ void TFlightInfo::toXML(xmlNodePtr node, bool old_style) const
               sem_name="term_brd";
               break;
     };
-    iStatus=stage_statuses.find(stage_type);
+    map<TStage_Type, TStage>::const_iterator iStatus=stage_statuses.find(stage_type);
     bool sem= act_out_local==NoExists &&
               iStatus!=stage_statuses.end() &&
               iStatus->second==stage;
