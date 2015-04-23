@@ -21,6 +21,7 @@
 #include "qrys.h"
 #include "serverlib/logger.h"
 #include "serverlib/posthooks.h"
+#include "TypeBHelpMng.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1006,7 +1007,6 @@ void TelegramInterface::SaveInTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   loadTlg(text, tlg_id, hist_uniq_error);
   if (hist_uniq_error)
       throw UserException("MSG.TLG.CHANGED.REFRESH_DATA");
-  registerHookAfter(sendCmdTypeBHandler);
   AstraLocale::showMessage("MSG.TLG.LOADED");
 }
 
@@ -1015,7 +1015,6 @@ void TelegramInterface::LoadTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   string text = NodeAsString("tlg_text",reqNode);
   if (text.empty()) throw AstraLocale::UserException("MSG.TLG.EMPTY");
   loadTlg(text);
-  registerHookAfter(sendCmdTypeBHandler);
   AstraLocale::showMessage("MSG.TLG.LOADED");
 };
 
@@ -1308,7 +1307,6 @@ void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
             };
             // сразу помещаем во входную очередь
             loadTlg(tlg_text);
-            registerHookAfter(sendCmdTypeBHandler);
             sended=true;
           }
           else
@@ -1371,17 +1369,7 @@ void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
         };
       };
     };
-    if (sended)
-    {
-      TlgQry.Clear();
-      TlgQry.SQLText=
-        "UPDATE tlg_out SET time_send_act=system.UTCSYSDATE WHERE id=:id";
-      TlgQry.CreateVariable( "id", otInteger, tlg_id);
-      TlgQry.Execute();
-      TReqInfo::Instance()->LocaleToLog("EVT.TLG.SENT", LEvntPrms()
-                                        << PrmElem<std::string>("tlg_name", etTypeBType, tlg.tlg_type, efmtNameShort)
-                                        << PrmSmpl<int>("tlg_id", tlg_id), evtTlg, tlg.point_id, tlg_id);
-    };
+    if (sended) markTlgAsSent(tlg_id);
   }
   catch(EOracleError &E)
   {
@@ -1394,6 +1382,29 @@ void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
       throw;
   };
 };
+
+void markTlgAsSent(int tlg_id)
+{
+    QParams QryParams;
+    QryParams
+        << QParam("tlg_type", otString)
+        << QParam("point_id", otInteger)
+        << QParam("id", otInteger, tlg_id);
+    TCachedQuery Qry(
+            "declare "
+            "  curRow tlg_out%rowtype; "
+            "begin "
+            "  select * into curRow from tlg_out where id = :id and rownum < 2; "
+            "  :tlg_type := curRow.type; "
+            "  :point_id := curRow.point_id; "
+            "  UPDATE tlg_out SET time_send_act=system.UTCSYSDATE WHERE id=:id; "
+            "end; ",
+            QryParams);
+    Qry.get().Execute();
+    TReqInfo::Instance()->LocaleToLog("EVT.TLG.SENT", LEvntPrms()
+            << PrmElem<std::string>("tlg_name", etTypeBType, Qry.get().GetVariableAsString("tlg_type"), efmtNameShort)
+            << PrmSmpl<int>("tlg_id", tlg_id), evtTlg, Qry.get().GetVariableAsInteger("point_id"), tlg_id);
+}
 
 void TelegramInterface::SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1441,20 +1452,20 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     GetTlgOut(ctxt,reqNode,resNode);
 };
 
-void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, bool forwarded)
+void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int typeb_in_id, bool forwarded)
 {
   for(vector<TypeB::TCreateInfo>::const_iterator i=info.begin(); i!=info.end(); ++i)
   {
     try
     {
-        int tlg_id=NoExists;
+        int typeb_out_id=NoExists;
         TTypeBTypesRow tlgTypeInfo;
         string lexema_id;
         LEvntPrms params;
         try
         {
             time_t time_start=time(NULL);
-            tlg_id = create_tlg( *i, tlgTypeInfo, false);
+            typeb_out_id = create_tlg( *i, typeb_in_id, tlgTypeInfo, false);
 
             time_t time_end=time(NULL);
             if (time_end-time_start>1)
@@ -1463,12 +1474,12 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, bool for
                         i->get_tlg_type().c_str(),
                         i->point_id);
 
-            if (tlg_id!=NoExists) //телеграмма создалась
+            if (typeb_out_id!=NoExists) //телеграмма создалась
             {
               lexema_id = "EVT.TLG.CREATED";
               params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
-                     << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", i->get_options().is_lat);
-              TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, tlg_id);
+                     << PrmSmpl<int>("id", typeb_out_id) << PrmBool("lat", i->get_options().is_lat);
+              TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, typeb_out_id);
             };
         }
         catch(AstraLocale::UserException &E)
@@ -1480,16 +1491,18 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, bool for
 
             params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
                    << PrmBool("lat", i->get_options().is_lat) << PrmLexema("what", err_id, err_prms);
-            TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, tlg_id);
+            TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, typeb_out_id);
+            TypeBHelpMng::notify(typeb_in_id, NoExists);
         }
 
-        if (tlg_id!=NoExists)
+        if (typeb_out_id!=NoExists)
         {
             time_t time_start=time(NULL);
-            try
-            {
-                SendTlg(tlg_id, forwarded);
-            }
+            if(not TypeBHelpMng::notify(typeb_in_id, typeb_out_id)) // Если небыло процесса для отвисания, действуем как обычно
+                try
+                {
+                    SendTlg(typeb_out_id, forwarded);
+                }
             catch(AstraLocale::UserException &E)
             {
                 string err_id;
@@ -1497,23 +1510,25 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, bool for
                 E.getAdvParams(err_id, err_prms);
 
                 params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
-                       << PrmSmpl<int>("id", tlg_id) << PrmLexema("what", err_id, err_prms);
+                    << PrmSmpl<int>("id", typeb_out_id) << PrmLexema("what", err_id, err_prms);
 
-                TReqInfo::Instance()->LocaleToLog("EVT.TLG.SEND_ERROR", params, evtTlg, i->point_id, tlg_id);
+                TReqInfo::Instance()->LocaleToLog("EVT.TLG.SEND_ERROR", params, evtTlg, i->point_id, typeb_out_id);
             };
             time_t time_end=time(NULL);
             if (time_end-time_start>1)
-                ProgTrace(TRACE5,"Attention! SendTlg execute time: %ld secs, tlg_id=%d",
-                        time_end-time_start,tlg_id);
+                ProgTrace(TRACE5,"Attention! SendTlg execute time: %ld secs, typeb_out_id=%d",
+                        time_end-time_start,typeb_out_id);
         };
     }
     catch( Exception &E )
     {
       ProgError(STDLOG,"SendTlg (point_id=%d, type=%s): %s",i->point_id,i->get_tlg_type().c_str(),E.what());
+      TypeBHelpMng::notify(typeb_in_id, NoExists);
     }
     catch(...)
     {
       ProgError(STDLOG,"SendTlg (point_id=%d, type=%s): unknown error",i->point_id,i->get_tlg_type().c_str());
+      TypeBHelpMng::notify(typeb_in_id, NoExists);
     };
   };
 };

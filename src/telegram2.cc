@@ -22,6 +22,7 @@
 #include "serverlib/test.h"
 
 #include "alarms.h"
+#include "TypeBHelpMng.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -7556,6 +7557,7 @@ int Unknown(TypeB::TDetailCreateInfo &info)
 }
 
 int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
+                                  int typeb_in_id,
                                   TTypeBTypesRow &tlgTypeInfo,
                                   bool manual_creation)
 {
@@ -7657,20 +7659,27 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     };
 
     //вычисление отправителя
-    string orig_airline=info.airline;
-    /* возможно понадобится в будущем
-    if (info.optionsIs<TypeB::TMarkInfoOptions>())
-    {
-      const TypeB::TMarkInfoOptions &options=*(info.optionsAs<TypeB::TMarkInfoOptions>());
-      if (!options.mark_info.airline.empty())
-        orig_airline=options.mark_info.airline;
-    };
-    */
-    info.originator = TypeB::getOriginator( orig_airline,
-                                            info.airp_dep,
-                                            info.get_tlg_type(),
-                                            info.time_create,
-                                            true);
+    //Если телеграмма создается в ответ на входную (typeb_in_id != NoExists),
+    //то оригинатор вычисляем иначе, чем при генерации автономной тлг.
+    if(typeb_in_id != NoExists)
+        info.originator = TypeB::getOriginator(string(), string(), string(), NowUTC(), true);
+    else {
+        string orig_airline=info.airline;
+        /* возможно понадобится в будущем
+           if (info.optionsIs<TypeB::TMarkInfoOptions>())
+           {
+           const TypeB::TMarkInfoOptions &options=*(info.optionsAs<TypeB::TMarkInfoOptions>());
+           if (!options.mark_info.airline.empty())
+           orig_airline=options.mark_info.airline;
+           };
+           */
+        info.originator = TypeB::getOriginator( orig_airline,
+                info.airp_dep,
+                info.get_tlg_type(),
+                info.time_create,
+                true);
+    }
+
     if (tlgTypeInfo.basic_type == "CPM" ||
         (tlgTypeInfo.basic_type == "MVT" && info.get_tlg_type() == "MVTB"))
     {
@@ -7742,7 +7751,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     int tlg_id = NoExists;
     TTypeBTypesRow tlgTypeInfo;
     try {
-        tlg_id = create_tlg(createInfo, tlgTypeInfo, true);
+        tlg_id = create_tlg(createInfo, NoExists, tlgTypeInfo, true);
     } catch(AstraLocale::UserException &E) {
         throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", getLocaleText(E.getLexemaData())));
     }
@@ -7755,6 +7764,76 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
                                       evtTlg, createInfo.point_id, tlg_id);
     NewTextChild( resNode, "tlg_id", tlg_id);
 };
+
+void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int tlg_id =  NodeAsInteger("content", reqNode);
+    string res;
+    if(tlg_id == ASTRA::NoExists)
+        res = INTERNAL_SERVER_ERROR;
+    else {
+        QParams QryParams;
+        QryParams << QParam("id", otInteger, tlg_id);
+        TCachedQuery Qry(
+                "SELECT heading, body, ending, has_errors FROM tlg_out WHERE id=:id ORDER BY num",
+                QryParams
+                );
+        Qry.get().Execute();
+        string heading, ending;
+        bool has_errors = false;
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            has_errors |= Qry.get().FieldAsInteger("has_errors") != 0;
+            if(heading.empty()) heading = Qry.get().FieldAsString("heading");
+            if(ending.empty()) ending = Qry.get().FieldAsString("ending");
+            res += Qry.get().FieldAsString("body");
+        }
+        if(has_errors)
+            res = INTERNAL_SERVER_ERROR;
+        else {
+            res = heading + res + ending;
+            markTlgAsSent(tlg_id);
+        }
+    }
+    NewTextChild(resNode, "content", res);
+}
+
+void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    ProgTrace(TRACE5, "%s", __FUNCTION__);
+    ProgTrace(TRACE5, "ctxt->GetOpr: %s", ctxt->GetOpr().c_str());
+    ProgTrace(TRACE5, "ctxt->GetPult: %s", ctxt->GetPult().c_str());
+    xmlNodePtr contentNode = GetNode( "content", reqNode );
+    if ( contentNode == NULL ) {
+        return;
+    }
+    string content = NodeAsString( contentNode );
+    TrimString(content);
+    TypeB::TOriginatorInfo orig = TypeB::getOriginator(
+            string(),
+            string(),
+            string(),
+            NowUTC(),
+            true
+            );
+    string sender = "0" + ctxt->GetPult();
+    string tlg_text = orig.addr + "\xa." + sender + "\n" + content;
+
+    string tlg_type, airline, airp;
+    get_tlg_info(tlg_text, tlg_type, airline, airp);
+
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if (not reqInfo->CheckAirline(airline) or
+            not reqInfo->CheckAirp(airp) ) {
+//    if(false) {
+        NewTextChild(resNode, "content", ACCESS_DENIED);
+    } else {
+        int tlgs_id = loadTlg(tlg_text);
+        if(tlg_type == "LCI") { // Для LCI подвешиваем процесс, для остальных - возвр. пустой ответ.
+            TypeBHelpMng::configForPerespros(tlgs_id);
+            NewTextChild(resNode, "content", TIMEOUT_OCCURRED);
+        }
+    }
+}
 
 void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_type )
 {

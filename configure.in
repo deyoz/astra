@@ -53,18 +53,32 @@ fi
 AC_PROG_LIBTOOL
 AC_PROG_RANLIB
 
+AC_DEFUN([AX_CXX_FLAG_CHECK_IFELSE],
+         [
+          AC_LANG_PUSH([C++])
+          CXXFLAGS_SAVE=$CXXFLAGS
+          CXXFLAGS=[$1]
+          AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[])], [$2],[$3])
+          CXXFLAGS=$CXXFLAGS_SAVE
+          AC_LANG_POP([C++])
+          ])
+
+# Функция ниже проверяет, поддерживается ли флаг заданный в FORMAT_SECURITY
+# текущей версией компилятора.
+# Если нет, то переменная FORMAT_SECURITY обнуляется
+FORMAT_SECURITY="-Wno-error=format-security"
+AX_CXX_FLAG_CHECK_IFELSE(["$FORMAT_SECURITY"],
+                         [],
+                         [FORMAT_SECURITY=""])
+
+
 CFLAGS="-Wall -g -O0 $TCH_ETC_FLAGS $ORACLE_CXXFLAGS $EDILIB_CXXFLAGS $JXTLIB_CXXFLAGS $SERVERLIB_CXXFLAGS \
  $ETICKLIB_CXXFLAGS $SHARED_CXXFLAGS $LIBTLG_CXXFLAGS $TCLMON_CXXFLAGS $XML_CPPFLAGS $CHECK_CFLAGSS\
+ $FORMAT_SECURITY\
  -I\$(top_builddir)/src -D ASTRA2007"
 CXXFLAGS="$CFLAGS $BOOST_CPPFLAGS"
 AC_OUTPUT(Makefile src/Makefile src/tlg/Makefile src/tests/Makefile)
 
-if ! test -f $srcdir/src/local_after.tcl ; then
-	cp $srcdir/src/local_after.example.tcl $srcdir/src/local_after.tcl
-fi
-if ! test -f $srcdir/src/local_before.tcl ; then
-	cp $srcdir/src/local_before.example.tcl $srcdir/src/local_before.tcl
-fi
 ln -s $LIBROOT/tscriptc/tscriptc ${srcdir}/src/tscriptc
 
 echo "================================="

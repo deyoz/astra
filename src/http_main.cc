@@ -153,9 +153,13 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
     string::size_type pos = res.find( "<content" );
     if ( pos != string::npos) {
       string::size_type pos1 = res.find( ">", pos) + 1;
-      string::size_type pos2 = res.find( "</content>", pos );
-      if ( pos1 != string::npos && pos2 != string::npos )
-        res = res.substr( pos1, pos2-pos1 );
+      if(res[pos1 - 2] == '/') // если встретился <content/>
+          res.erase();
+      else {
+          string::size_type pos2 = res.find( "</content>", pos );
+          if ( pos1 != string::npos && pos2 != string::npos )
+            res = res.substr( pos1, pos2-pos1 );
+      }
     }
   }
   rep.status = reply::ok;
@@ -216,6 +220,27 @@ void http_main(reply& rep, const request& req)
   }
   InitLogTime(NULL);
   return;
+}
+
+void TlgPostProcessXMLAnswer()
+{
+    ProgTrace(TRACE5, "%s started", __FUNCTION__);
+
+    XMLRequestCtxt *xmlRC = getXmlCtxt();
+    xmlNodePtr resNode = NodeAsNode("/term/answer",xmlRC->resDoc);
+    if(resNode->children == NULL) {
+        NewTextChild( resNode, "content");
+    } else {
+        std::string error_code, error_message;
+        xmlNodePtr errNode = AstraLocale::selectPriorityMessage(resNode, error_code, error_message);
+
+        if (errNode!=NULL)
+        {
+            xmlFreeNode(errNode);
+            ProgError(STDLOG, "tlg_srv err: '%s'", error_message.c_str());
+            NewTextChild( resNode, "content", INTERNAL_SERVER_ERROR);
+        }
+    }
 }
 
 void HTTPPostProcessXMLAnswer()

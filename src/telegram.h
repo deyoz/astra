@@ -280,6 +280,10 @@ public:
      AddEvent("SendTlg",evHandle);
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::DeleteTlg);
      AddEvent("DeleteTlg",evHandle);
+     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::tlg_srv);
+     AddEvent("tlg_srv",evHandle);
+     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::kick);
+     AddEvent("kick",evHandle);
 
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::TestSeatRanges);
      AddEvent("TestSeatRanges",evHandle);
@@ -295,17 +299,21 @@ public:
   void SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   static int create_tlg(const TypeB::TCreateInfo &createInfo,
+                        int typeb_in_id,
                         TTypeBTypesRow &tlgTypeInfo,
                         bool manual_creation);
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
-  static void SendTlg(int tlg_id, bool forwarded);
+  static void SendTlg( int tlg_id, bool forwarded );
   static void SendTlg(const std::vector<TypeB::TCreateInfo> &info,
+                      int tlg_id = ASTRA::NoExists,
                       bool forwarded = false);
 
   static void SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, bool has_errors );
@@ -317,6 +325,12 @@ int send_tlg(int argc,char **argv);
 bool check_delay_code(int delay_code);
 bool check_delay_code(const std::string &delay_code);
 bool check_delay_value(BASIC::TDateTime delay_time);
+void markTlgAsSent(int tlg_id);
+void get_tlg_info(
+        const std::string &tlg_text,
+        std::string &tlg_type,
+        std::string &airline,
+        std::string &airp);
 
 
 #endif /*_TELEGRAM_H_*/
