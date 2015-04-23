@@ -1209,6 +1209,7 @@ TPaxSeats::~TPaxSeats()
 void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo, bool return_scd_utc)
 {
   markFltInfo.clear();
+  if (operFltInfo.scd_out==NoExists) return;
   TDateTime scd_local=UTCToLocal(operFltInfo.scd_out, AirpTZRegion(operFltInfo.airp));
 
   TQuery Qry(&OraSession);
