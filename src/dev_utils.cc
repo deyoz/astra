@@ -186,9 +186,9 @@ std::pair<int, std::string> BCBPRepeatedSections::flightNumber() const
   TrimString(str);
   if (str.empty()) throw EConvertError("empty item 43 <Flight Number>");
 
-  if (IsLetter(str.back()))
+  if (IsLetter(*str.rbegin()))
   {
-    result.second=string(1,str.back());
+    result.second=string(1,*str.rbegin());
     str.erase(str.size()-1);
     TrimString(str);
     if (str.empty()) throw EConvertError("invalid item 43 <Flight Number>");
@@ -218,9 +218,9 @@ std::pair<int, std::string> BCBPRepeatedSections::checkinSeqNumber() const
   TrimString(str);
   if (!str.empty())
   {
-    if (IsLetter(str.back()))
+    if (IsLetter(*str.rbegin()))
     {
-      result.second=string(1,str.back());
+      result.second=string(1,*str.rbegin());
       str.erase(str.size()-1);
       TrimString(str);
       if (str.empty()) throw EConvertError("invalid item 107 <Check-In Sequence Number>");
