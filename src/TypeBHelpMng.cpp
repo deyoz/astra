@@ -121,7 +121,7 @@ void TypeBHelp::fromDB(int typeb_in_id)
             "end; ",
             QryParams);
     Qry.get().Execute();
-    if(Qry.get().VariableIsNULL("tlgs_id"))
+    if(Qry.get().VariableIsNULL("intmsgid"))
         tlgs_id = ASTRA::NoExists;
     else {
         addr = Qry.get().GetVariableAsString("address");
