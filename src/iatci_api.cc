@@ -78,7 +78,7 @@ Result checkinPax(const CkiParams& ckiParams)
 Result cancelCheckin(const CkxParams& ckxParams)
 {
     // TODO вызов функций Астры
-    return Result::makeCancelResult(Result::Ok,
+    return Result::makeCancelResult(Result::OkWithNoData,
                                     ckxParams.flight());
 }
 

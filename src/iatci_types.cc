@@ -600,7 +600,6 @@ boost::optional<iatci::BaggageDetails> CkiParams::baggage() const
 
 //-----------------------------------------------------------------------------
 
-
 CkxParams::CkxParams(const OriginatorDetails& origin,
                      const FlightDetails& flight,
                      const PaxDetails& pax,

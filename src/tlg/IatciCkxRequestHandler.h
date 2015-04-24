@@ -13,6 +13,7 @@ public:
     IatciCkxRequestHandler(_EDI_REAL_MES_STRUCT_ *pMes,
                            const edilib::EdiSessRdData *edisess);
 
+    virtual bool fullAnswer() const;
     virtual void parse();
     virtual std::string respType() const;
 

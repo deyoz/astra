@@ -36,6 +36,11 @@ std::string IatciRequestHandler::mesFuncCode() const
     return ""; // No MSG segment at IATCI
 }
 
+bool IatciRequestHandler::fullAnswer() const
+{
+    return true;
+}
+
 void IatciRequestHandler::handle()
 {
     if(nextParams())
@@ -66,18 +71,22 @@ void IatciRequestHandler::makeAnAnswer()
         viewRadElement(pMesW(), respType(), res.statusAsString());
         if(res.cascadeDetails())
             viewChdElement(pMesW(), *res.cascadeDetails());
-        viewFsdElement(pMesW(), res.flight());
 
-        PushEdiPointW(pMesW());
-        SetEdiSegGr(pMesW(), SegGrElement(2));
-        SetEdiPointToSegGrW(pMesW(), SegGrElement(2), "SegGr2(pxg) not found" );
+        if(fullAnswer())
+        {
+            viewFsdElement(pMesW(), res.flight());
 
-        ASSERT(res.pax());
-        viewPpdElement(pMesW(), *res.pax());
-        if(res.seat())
-            viewPfdElement(pMesW(), *res.seat());
+            PushEdiPointW(pMesW());
+            SetEdiSegGr(pMesW(), SegGrElement(2));
+            SetEdiPointToSegGrW(pMesW(), SegGrElement(2), "SegGr2(pxg) not found" );
 
-        PopEdiPointW(pMesW());
+            ASSERT(res.pax());
+            viewPpdElement(pMesW(), *res.pax());
+            if(res.seat())
+                viewPfdElement(pMesW(), *res.seat());
+
+            PopEdiPointW(pMesW());
+        }
         PopEdiPointW(pMesW());
 
         curSg1++;

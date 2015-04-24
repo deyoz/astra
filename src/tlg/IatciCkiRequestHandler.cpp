@@ -62,21 +62,24 @@ void IatciCkiRequestHandler::parse()
 {
     IatciCkiParamsMaker ckiParamsMaker;
     ckiParamsMaker.setLor(readEdiLor(pMes())); /* LOR должен быть обязательно */
+    ckiParamsMaker.setChd(readEdiChd(pMes()));
+
     SetEdiPointToSegGrG(pMes(), SegGrElement(1), "PROG_ERR");
     ckiParamsMaker.setFdq(readEdiFdq(pMes())); /* FDQ должен быть обязательно */
 
     int paxCount = GetNumSegGr(pMes(), 2); // Сколько пассажиров регистрируется
     ASSERT(paxCount > 0); // Пассажиры должны быть обязательно
 
-    EdiPointHolder grp_holder(pMes());
-    for(int currPax = 0; currPax < paxCount; ++currPax)
-    {
-        SetEdiPointToSegGrG(pMes(), 2, currPax, "PROG_ERR");
-        ckiParamsMaker.setPpd(readEdiPpd(pMes())); /* PPD должен быть обязательно в Sg2 */
-        ckiParamsMaker.setPrd(readEdiPrd(pMes()));
-        ckiParamsMaker.setPsd(readEdiPsd(pMes()));
-        ckiParamsMaker.setPbd(readEdiPbd(pMes()));
+    if(paxCount > 1) {
+        LogError(STDLOG) << "Warning: cki request for several passengers!";
     }
+
+    EdiPointHolder grp_holder(pMes());
+    SetEdiPointToSegGrG(pMes(), 2, 0, "PROG_ERR");
+    ckiParamsMaker.setPpd(readEdiPpd(pMes())); /* PPD должен быть обязательно в Sg2 */
+    ckiParamsMaker.setPrd(readEdiPrd(pMes()));
+    ckiParamsMaker.setPsd(readEdiPsd(pMes()));
+    ckiParamsMaker.setPbd(readEdiPbd(pMes()));
 
     m_ckiParams = ckiParamsMaker.makeParams();
 }

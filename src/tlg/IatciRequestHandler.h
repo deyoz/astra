@@ -20,6 +20,7 @@ public:
                         const edilib::EdiSessRdData *edisess);
 
     virtual std::string mesFuncCode() const;
+    virtual bool fullAnswer() const;
     virtual void handle();
     virtual void makeAnAnswer();
     virtual void makeAnAnswerErr();

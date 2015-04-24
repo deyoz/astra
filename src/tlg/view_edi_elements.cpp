@@ -396,7 +396,8 @@ void viewFdqElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& nex
     PopEdiPointW(pMes);
 }
 
-void viewFdrElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& flight)
+void viewFdrElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& flight,
+                    const std::string& fcIndicator)
 {
     SetEdiSegment(pMes, SegmElement("FDR"));
     PushEdiPointW(pMes);
@@ -418,7 +419,7 @@ void viewFdrElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& fli
     SetEdiDataElem(pMes, DataElement(3215, 0), flight.depPoint());
     SetEdiDataElem(pMes, DataElement(3259, 0), flight.arrPoint());
     SetEdiDataElem(pMes, DataElement(2107, 0), fullDateTimeString(flight.arrDate(), flight.arrTime()));
-    SetEdiDataElem(pMes, DataElement(9856, 0), "T"); // This particular flight only
+    SetEdiDataElem(pMes, DataElement(9856, 0), fcIndicator);
 
     PopEdiPointW(pMes);
 }

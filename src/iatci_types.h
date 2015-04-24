@@ -390,11 +390,17 @@ struct CkuParams
 
 struct CkxParams: public Params
 {
+protected:
+    boost::optional<ReservationDetails> m_reserv;
+    boost::optional<SeatDetails>        m_seat;
+    boost::optional<BaggageDetails>     m_baggage;
+
 public:
     CkxParams(const OriginatorDetails& origin,
               const FlightDetails& flight,
               const PaxDetails& pax,
               boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+
 };
 
 //-----------------------------------------------------------------------------
