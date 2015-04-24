@@ -311,17 +311,35 @@ protected:
 
 //-----------------------------------------------------------------------------
 
-struct CkiParams
+struct Params
 {
 protected:
-    OriginatorDetails  m_origin;
-    FlightDetails      m_flight;
+    OriginatorDetails m_origin;
+    FlightDetails     m_flight;
+    PaxDetails        m_pax;
+    boost::optional<CascadeHostDetails> m_cascadeDetails;
+
+public:
+    Params(const OriginatorDetails& origin,
+           const FlightDetails& flight,
+           const PaxDetails& pax,
+           boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+
+    const OriginatorDetails& origin() const;
+    const FlightDetails& flight() const;
+    const PaxDetails& pax() const;
+    boost::optional<CascadeHostDetails> cascadeDetails() const;
+};
+
+//-----------------------------------------------------------------------------
+
+struct CkiParams: public Params
+{
+protected:
     FlightDetails      m_flightFromPrevHost;
-    PaxDetails         m_pax;
     boost::optional<ReservationDetails> m_reserv;
     boost::optional<SeatDetails>        m_seat;
     boost::optional<BaggageDetails>     m_baggage;
-    boost::optional<CascadeHostDetails> m_cascadeDetails;
 
 public:
     CkiParams(const OriginatorDetails& origin,
@@ -333,14 +351,10 @@ public:
               boost::optional<BaggageDetails> baggage = boost::none,
               boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
-    const OriginatorDetails& origin() const;
-    const FlightDetails& flight() const;
     const FlightDetails& flightFromPrevHost() const;
-    const PaxDetails& pax() const;
     boost::optional<ReservationDetails> reserv() const;
     boost::optional<SeatDetails> seat() const;
     boost::optional<BaggageDetails> baggage() const;
-    boost::optional<CascadeHostDetails> cascadeDetails() const;
 };
 
 //-----------------------------------------------------------------------------
@@ -374,35 +388,21 @@ struct CkuParams
 
 //-----------------------------------------------------------------------------
 
-struct CkxParams
+struct CkxParams: public Params
 {
-protected:
-    OriginatorDetails m_origin;
-    FlightDetails     m_flight;
-    PaxDetails        m_pax;
-    boost::optional<CascadeHostDetails> m_cascadeDetails;
-
 public:
     CkxParams(const OriginatorDetails& origin,
               const FlightDetails& flight,
               const PaxDetails& pax,
               boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
-
-    const OriginatorDetails& origin() const;
-    const FlightDetails& flight() const;
-    const PaxDetails& pax() const;
-    boost::optional<CascadeHostDetails> cascadeDetails() const;
 };
 
 //-----------------------------------------------------------------------------
 
-struct PlfParams
+struct PlfParams: public Params
 {
 protected:
-    OriginatorDetails m_origin;
-    FlightDetails     m_flight;
-    PaxSeatDetails    m_pax;
-    boost::optional<CascadeHostDetails> m_cascadeDetails;
+    PaxSeatDetails    m_paxEx;
 
 public:
     PlfParams(const OriginatorDetails& origin,
@@ -410,10 +410,7 @@ public:
               const PaxSeatDetails& pax,
               boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
-    const OriginatorDetails& origin() const;
-    const FlightDetails& flight() const;
-    const PaxSeatDetails& pax() const;
-    boost::optional<CascadeHostDetails> cascadeDetails() const;
+    const PaxSeatDetails& paxEx() const;
 };
 
 //-----------------------------------------------------------------------------
@@ -476,6 +473,13 @@ public:
                                    boost::optional<FlightSeatDetails> seat = boost::none,
                                    boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
                                    boost::optional<ErrorDetails> errorDetails = boost::none);
+
+    static Result makePasslistResult(Status_e status,
+                                     const FlightDetails& flight,
+                                     boost::optional<PaxDetails> pax = boost::none,
+                                     boost::optional<FlightSeatDetails> seat = boost::none,
+                                     boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
+                                     boost::optional<ErrorDetails> errorDetails = boost::none);
 
     static Result makeFailResult(Action_e action,
                                  const ErrorDetails& errorDetails);

@@ -40,7 +40,7 @@ void PlfRequest::collectMessage()
 {
     viewLorElement(pMes(), m_params.origin());
     viewFdqElement(pMes(), m_params.flight());
-    viewSpdElement(pMes(), m_params.pax());
+    viewSpdElement(pMes(), m_params.paxEx());
     if(m_params.cascadeDetails())
         viewChdElement(pMes(), *m_params.cascadeDetails());
 }

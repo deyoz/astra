@@ -2,7 +2,6 @@
 #include "IatciCkiRequest.h"
 #include "read_edi_elements.h"
 #include "view_edi_elements.h"
-#include "postpone_edifact.h"
 #include "remote_system_context.h"
 #include "iatci_types.h"
 #include "iatci_api.h"
@@ -82,86 +81,46 @@ void IatciCkiRequestHandler::parse()
     m_ckiParams = ckiParamsMaker.makeParams();
 }
 
-void IatciCkiRequestHandler::handle()
-{
-    boost::optional<iatci::CkiParams> cascadingCkiParams = nextCkiParams(ckiParams().flight());
-    if(cascadingCkiParams)
-    {
-        if(!SystemContext::Instance(STDLOG).inbTlgInfo().repeatedlyProcessed()) {
-            // если надо, пошлём запрос в другую DCS
-            if(cascadingCkiParams) {
-                EdiSessionId_t sessId = SendCkiRequest(*cascadingCkiParams);
-                throw TlgHandling::TlgToBePostponed(sessId);
-            }
-        } else {
-            // достаём данные, которые получили от другой DCS
-            loadDeferredData();
-        }
-    }
-
-    // собственно регистрация "у нас"
-    checkin();
-}
-
-void IatciCkiRequestHandler::makeAnAnswer()
-{
-    int curSg1 = 0;
-    BOOST_FOREACH(const iatci::Result& res, m_lRes)
-    {
-        PushEdiPointW(pMesW());
-        SetEdiSegGr(pMesW(), SegGrElement(1, curSg1));
-        SetEdiPointToSegGrW(pMesW(), SegGrElement(1, curSg1), "SegGr1(flg) not found");
-
-        viewFdrElement(pMesW(), res.flight());
-        viewRadElement(pMesW(), respType(), res.statusAsString());
-        if(res.cascadeDetails())
-            viewChdElement(pMesW(), *res.cascadeDetails());
-        viewFsdElement(pMesW(), res.flight());
-
-        PushEdiPointW(pMesW());
-        SetEdiSegGr(pMesW(), SegGrElement(2));
-        SetEdiPointToSegGrW(pMesW(), SegGrElement(2), "SegGr2(pxg) not found" );
-
-        ASSERT(res.pax());
-        viewPpdElement(pMesW(), *res.pax());
-        if(res.seat())
-            viewPfdElement(pMesW(), *res.seat());
-
-        PopEdiPointW(pMesW());
-        PopEdiPointW(pMesW());
-
-        curSg1++;
-    }
-}
-
-void IatciCkiRequestHandler::makeAnAnswerErr()
-{
-    PushEdiPointW(pMesW());
-    SetEdiSegGr(pMesW(), SegGrElement(1));
-    SetEdiPointToSegGrW(pMesW(), SegGrElement(1), "SegGr1(flg) not found");
-
-    viewFdrElement(pMesW(), ckiParams().flight());
-    viewRadElement(pMesW(), respType(), "F");
-    viewErdElement(pMesW(), ediErrorLevel(), ediErrorCode(), ediErrorText());
-
-    PopEdiPointW(pMesW());
-}
-
 std::string IatciCkiRequestHandler::respType() const
 {
     return "I";
 }
 
-iatci::CkiParams IatciCkiRequestHandler::ckiParams() const
+iatci::Result IatciCkiRequestHandler::handleRequest() const
 {
-    ASSERT(m_ckiParams);
-    return *m_ckiParams;
+    return iatci::checkinPax(ckiParams());
 }
 
-boost::optional<iatci::CkiParams> IatciCkiRequestHandler::nextCkiParams(const iatci::FlightDetails& flightFromCurrHost) const
+edilib::EdiSessionId_t IatciCkiRequestHandler::sendCascadeRequest() const
+{
+    ASSERT(nextCkiParams());
+    return edifact::SendCkiRequest(*nextCkiParams());
+}
+
+boost::optional<iatci::Params> IatciCkiRequestHandler::params() const
+{
+    return ckiParams();
+}
+
+boost::optional<iatci::Params> IatciCkiRequestHandler::nextParams() const
+{
+    if(nextCkiParams()) {
+        return *nextCkiParams();
+    }
+
+    return boost::none;
+}
+
+const iatci::CkiParams& IatciCkiRequestHandler::ckiParams() const
+{
+    ASSERT(m_ckiParams);
+    return m_ckiParams.get();
+}
+
+boost::optional<iatci::CkiParams> IatciCkiRequestHandler::nextCkiParams() const
 {
     boost::optional<iatci::FlightDetails> flightForNextHost;
-    flightForNextHost = iatci::findCascadeFlight(ckiParams());
+    flightForNextHost = iatci::findCascadeFlight(ckiParams().flight());
     if(!flightForNextHost) {
         tst();
         return boost::none;
@@ -179,17 +138,12 @@ boost::optional<iatci::CkiParams> IatciCkiRequestHandler::nextCkiParams(const ia
 
     return iatci::CkiParams(iatci::OriginatorDetails(ckiParams().flight().airline()),
                             *flightForNextHost,
-                            flightFromCurrHost,
-                            pax,
-                            ckiParams().reserv(),
-                            ckiParams().seat(),
-                            ckiParams().baggage(),
-                            cascadeDetails);
-}
-
-void IatciCkiRequestHandler::checkin()
-{
-    m_lRes.push_front(iatci::checkinPax(ckiParams()));
+                             ckiParams().flight(),
+                             pax,
+                             ckiParams().reserv(),
+                             ckiParams().seat(),
+                             ckiParams().baggage(),
+                             cascadeDetails);
 }
 
 //---------------------------------------------------------------------------------------

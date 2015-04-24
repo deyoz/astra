@@ -419,6 +419,22 @@ Result Result::makeCancelResult(Status_e status,
                   errorDetails);
 }
 
+Result Result::makePasslistResult(Status_e status,
+                                  const FlightDetails& flight,
+                                  boost::optional<PaxDetails> pax,
+                                  boost::optional<FlightSeatDetails> seat,
+                                  boost::optional<CascadeHostDetails> cascadeDetails,
+                                  boost::optional<ErrorDetails> errorDetails)
+{
+    return Result(Passlist,
+                  status,
+                  flight,
+                  pax,
+                  seat,
+                  cascadeDetails,
+                  errorDetails);
+}
+
 Result Result::makeFailResult(Action_e action,
                               const ErrorDetails& errorDetails)
 {
@@ -515,6 +531,38 @@ std::string Result::statusAsString() const
 
 //-----------------------------------------------------------------------------
 
+Params::Params(const OriginatorDetails& origin,
+               const FlightDetails& flight,
+               const PaxDetails& pax,
+               boost::optional<CascadeHostDetails> cascadeDetails)
+    : m_origin(origin), m_flight(flight),
+      m_pax(pax), m_cascadeDetails(cascadeDetails)
+{
+}
+
+const iatci::OriginatorDetails& Params::origin() const
+{
+    return m_origin;
+}
+
+const iatci::FlightDetails& Params::flight() const
+{
+    return m_flight;
+}
+
+const iatci::PaxDetails& Params::pax() const
+{
+    return m_pax;
+}
+
+boost::optional<iatci::CascadeHostDetails> Params::cascadeDetails() const
+{
+    return m_cascadeDetails;
+}
+
+
+//-----------------------------------------------------------------------------
+
 CkiParams::CkiParams(const OriginatorDetails& origin,
                      const FlightDetails& flight,
                      const FlightDetails& flightFromPrevHost,
@@ -523,35 +571,16 @@ CkiParams::CkiParams(const OriginatorDetails& origin,
                      boost::optional<SeatDetails> seat,
                      boost::optional<BaggageDetails> baggage,
                      boost::optional<CascadeHostDetails> cascadeDetails)
-    : m_origin(origin),
-      m_flight(flight),
+    : Params(origin, flight, pax, cascadeDetails),
       m_flightFromPrevHost(flightFromPrevHost),
-      m_pax(pax),
       m_reserv(reserv),
       m_seat(seat),
-      m_baggage(baggage),
-      m_cascadeDetails(cascadeDetails)
+      m_baggage(baggage)
 {}
-
-
-const iatci::OriginatorDetails& CkiParams::origin() const
-{
-    return m_origin;
-}
-
-const iatci::FlightDetails& CkiParams::flight() const
-{
-    return m_flight;
-}
 
 const iatci::FlightDetails& CkiParams::flightFromPrevHost() const
 {
     return m_flightFromPrevHost;
-}
-
-const iatci::PaxDetails& CkiParams::pax() const
-{
-    return m_pax;
 }
 
 boost::optional<iatci::ReservationDetails> CkiParams::reserv() const
@@ -569,11 +598,6 @@ boost::optional<iatci::BaggageDetails> CkiParams::baggage() const
     return m_baggage;
 }
 
-boost::optional<iatci::CascadeHostDetails> CkiParams::cascadeDetails() const
-{
-    return m_cascadeDetails;
-}
-
 //-----------------------------------------------------------------------------
 
 
@@ -581,32 +605,8 @@ CkxParams::CkxParams(const OriginatorDetails& origin,
                      const FlightDetails& flight,
                      const PaxDetails& pax,
                      boost::optional<CascadeHostDetails> cascadeDetails)
-    : m_origin(origin),
-      m_flight(flight),
-      m_pax(pax),
-      m_cascadeDetails(cascadeDetails)
+    : Params(origin, flight, pax, cascadeDetails)
 {}
-
-
-const iatci::OriginatorDetails& CkxParams::origin() const
-{
-    return m_origin;
-}
-
-const iatci::FlightDetails& CkxParams::flight() const
-{
-    return m_flight;
-}
-
-const iatci::PaxDetails& CkxParams::pax() const
-{
-    return m_pax;
-}
-
-boost::optional<iatci::CascadeHostDetails> CkxParams::cascadeDetails() const
-{
-    return m_cascadeDetails;
-}
 
 //-----------------------------------------------------------------------------
 
@@ -614,30 +614,13 @@ PlfParams::PlfParams(const OriginatorDetails& origin,
                      const FlightDetails& flight,
                      const PaxSeatDetails& pax,
                      boost::optional<CascadeHostDetails> cascadeDetails)
-    : m_origin(origin),
-      m_flight(flight),
-      m_pax(pax),
-      m_cascadeDetails(cascadeDetails)
+    : Params(origin, flight, pax, cascadeDetails),
+      m_paxEx(pax)
 {}
 
-const iatci::OriginatorDetails& PlfParams::origin() const
+const PaxSeatDetails& PlfParams::paxEx() const
 {
-    return m_origin;
-}
-
-const iatci::FlightDetails& PlfParams::flight() const
-{
-    return m_flight;
-}
-
-const iatci::PaxSeatDetails& PlfParams::pax() const
-{
-    return m_pax;
-}
-
-boost::optional<iatci::CascadeHostDetails> PlfParams::cascadeDetails() const
-{
-    return m_cascadeDetails;
+    return m_paxEx;
 }
 
 }//namespace iatci

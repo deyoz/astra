@@ -93,6 +93,7 @@ boost::optional<edifact::PfdElem> readEdiPfd(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::ChdElem> readEdiChd(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::FsdElem> readEdiFsd(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::ErdElem> readEdiErd(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::SpdElem> readEdiSpd(_EDI_REAL_MES_STRUCT_ *pMes);
 
 } // namespace Ticketing
 } // namespace TickReader

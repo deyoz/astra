@@ -65,7 +65,7 @@ Result checkinPax(const CkiParams& ckiParams)
                                    SeatDetails::NonSmoking);
 
     boost::optional<CascadeHostDetails> cascadeDetails;
-    if(findCascadeFlight(ckiParams))
+    if(findCascadeFlight(ckiParams.flight()))
         cascadeDetails = CascadeHostDetails(flight4Checkin.airline());
 
     return Result::makeCheckinResult(Result::Ok,
@@ -82,11 +82,20 @@ Result cancelCheckin(const CkxParams& ckxParams)
                                     ckxParams.flight());
 }
 
-boost::optional<FlightDetails> findCascadeFlight(const CkiParams& ckiParams)
+Result fillPasslist(const PlfParams& plfParams)
 {
     // TODO вызов функций Астры
-    if(ckiParams.flight().airline() == "SU"
-       && ckiParams.flight().flightNum() == Ticketing::FlightNum_t(200))
+    return Result::makePasslistResult(Result::Ok,
+                                      plfParams.flight(),
+                                      iatci::PaxDetails(plfParams.pax().surname(),
+                                                        plfParams.pax().name(),
+                                                        iatci::PaxDetails::Adult));
+}
+
+boost::optional<FlightDetails> findCascadeFlight(const FlightDetails& flight)
+{
+    // TODO вызов функций Астры
+    if(flight.airline() == "SU" && flight.flightNum() == Ticketing::FlightNum_t(200))
     {
         return FlightDetails("UT",
                              Ticketing::FlightNum_t(300),

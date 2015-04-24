@@ -233,4 +233,19 @@ std::ostream& operator<<(std::ostream &os, const ErdElem &erd)
     return os;
 }
 
+std::ostream& operator<<(std::ostream &os, const SpdElem &spd)
+{
+    os << "SPD: ";
+    os << "surname: " << spd.m_passSurname << "; ";
+    os << "name: " << spd.m_passName << "; ";
+    os << "rbd: " << spd.m_rbd << "; ";
+    os << "seat: " << spd.m_passSeat;
+    os << "resp ref: " << spd.m_passRespRef << "; ";
+    os << "qry ref: " << spd.m_passQryRef << "; ";
+    os << "security id: " << spd.m_securityId << "; ";
+    os << "recloc: " << spd.m_recloc << "; ";
+    os << "ticknum: " << spd.m_tickNum;
+    return os;
+}
+
 }//namespace edifact

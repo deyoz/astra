@@ -731,11 +731,27 @@ struct ErdElem
 
     ErdElem()
     {}
-    ErdElem(const std::string level, const std::string msgNum,
+    ErdElem(const std::string& level, const std::string& msgNum,
             const std::string& msgText = "")
         : m_level(level), m_messageNumber(msgNum),
           m_messageText(msgText)
     {}
+};
+
+//-----------------------------------------------------------------------------
+
+///@class SpdElem - Select personal details
+struct SpdElem
+{
+    std::string m_passSurname;
+    std::string m_passName;
+    std::string m_rbd;
+    std::string m_passSeat;
+    std::string m_passRespRef;
+    std::string m_passQryRef;
+    std::string m_securityId;
+    std::string m_recloc;
+    std::string m_tickNum;
 };
 
 //-----------------------------------------------------------------------------
@@ -752,6 +768,7 @@ std::ostream& operator<<(std::ostream &os, const PfdElem &pfd);
 std::ostream& operator<<(std::ostream &os, const ChdElem &chd);
 std::ostream& operator<<(std::ostream &os, const FsdElem &fsd);
 std::ostream& operator<<(std::ostream &os, const ErdElem &erd);
+std::ostream& operator<<(std::ostream &os, const SpdElem &spd);
 
 }//namespace edifact
 

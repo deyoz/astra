@@ -388,3 +388,29 @@ $(run_daemon edi_timeout)
 
 !!
 $(lastRedisplay)
+
+
+%%
+#########################################################################################
+
+$(init)
+$(init_dcs UT TA OA)
+
+
+<<
+UNB+SIRE:1+OA+TA+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQPLF:96:2:IA+ASTRA00066"
+LOR+UT:SVO"
+FDQ+SU+200+150221+LED+AER"
+SPD+IVANOV:SERGEI:Y:1+05A+++21+RECLOC++++2982145646345"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+TA+OA+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:96:2:IA+ASTRA00066"
+FDR+SU+200+150221+LED+AER++T"
+RAD+P+O"
+PPD+IVANOV+A++SERGEI"
+UNT+5+1"
+UNZ+1+ASTRA000660001"

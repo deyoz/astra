@@ -868,5 +868,28 @@ boost::optional<edifact::ErdElem> readEdiErd(_EDI_REAL_MES_STRUCT_ *pMes)
     return erd;
 }
 
+boost::optional<edifact::SpdElem> readEdiSpd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder spd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "SPD")) {
+        return boost::optional<SpdElem>();
+    }
+
+    SpdElem spd;
+    spd.m_passSurname = GetDBFName(pMes, DataElement(3808), CompElement("C046"));
+    spd.m_passName = GetDBFName(pMes, DataElement(3809), CompElement("C046"));
+    spd.m_rbd = GetDBFName(pMes, DataElement(9800), CompElement("C046"));
+    spd.m_passSeat = GetDBFName(pMes, DataElement(9809), CompElement("C043"));
+    spd.m_passRespRef = GetDBFName(pMes, DataElement(9821), CompElement("C692"));
+    spd.m_passQryRef = GetDBFName(pMes, DataElement(9821), CompElement("C690"));
+    spd.m_securityId = GetDBFName(pMes, DataElement(9874), CompElement("C045"));
+    spd.m_recloc = GetDBFName(pMes, DataElement(9832), CompElement());
+    spd.m_tickNum = GetDBFName(pMes, DataElement(9811), CompElement());
+
+    LogTrace(TRACE3) << spd;
+
+    return spd;
+}
+
 } // namespace TickReader
 } // namespace Ticketing

@@ -186,7 +186,8 @@ void IactiInterface::CheckinKickHandler(xmlNodePtr resNode,
 void IactiInterface::CancelKickHandler(xmlNodePtr resNode,
                                        const std::list<iatci::Result>& lRes)
 {
-    tst();
+    FuncIn(CancelKickHandler);
+    FuncOut(CancelKickHandler);
 }
 
 void IactiInterface::PasslistKickHandler(xmlNodePtr resNode,
