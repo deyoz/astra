@@ -21,7 +21,7 @@ struct JxtInfo {
   void (*post_proc)();
   JxtInfo(const std::string& name, void (*proc)()):
     interface(name), post_proc(proc) {}
-  JxtInfo() {}
+  JxtInfo() : post_proc(NULL) {}
 };
 
 struct HTTPClient
