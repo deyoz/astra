@@ -1,4 +1,4 @@
-#include <stdlib.h>
+  #include <stdlib.h>
 #include "points.h"
 #include "pers_weights.h"
 #include "stages.h"
@@ -1568,7 +1568,6 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
         this->events.isFlag( teChangeFlightAttrLand ) ) {
     if ( this->key.scd_out != ASTRA::NoExists ) {
       try {
-        ProgTrace( TRACE5, "this->key.airp=%s,this->key.scd_out=%f", this->key.airp.c_str(), this->key.scd_out );
         string region = AirpTZRegion( this->key.airp, true );
         TDateTime locale_scd_out = UTCToLocal( this->key.scd_out, region );
         bindingAODBFlt( this->key.airline, this->key.flt_no, this->key.suffix,

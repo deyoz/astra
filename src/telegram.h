@@ -311,7 +311,7 @@ public:
                         bool manual_creation);
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
-  static void SendTlg( int tlg_id, bool forwarded );
+  static void SendTlg(int tlg_id, bool forwarded);
   static void SendTlg(const std::vector<TypeB::TCreateInfo> &info,
                       int tlg_id = ASTRA::NoExists,
                       bool forwarded = false);

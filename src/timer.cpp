@@ -59,12 +59,12 @@ int main_timer_tcl(int supervisorSocket, int argc, char *argv[])
 
     string num;
     if ( argc != 2 ) {
-        ProgError( STDLOG,
+    	ProgError( STDLOG,
                  "ERROR:main_timer_tcl wrong number of parameters:%d",
                  argc );
     }
     else {
-         num = argv[1];
+    	 num = argv[1];
     }
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
@@ -90,58 +90,58 @@ int main_timer_tcl(int supervisorSocket, int argc, char *argv[])
 
 void exec_tasks( const char *proc_name, int argc, char *argv[] )
 {
-    TDateTime VTime = 0.0, utcdate = NowUTC();
-    int Hour, Min, Sec;
-    DecodeTime( utcdate, Hour, Min, Sec );
-    modf( (double)utcdate, &utcdate );
-    EncodeTime( Hour, Min, 0, VTime );
-    utcdate += VTime;
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-     "SELECT name,last_exec,next_exec,interval FROM tasks "\
-     " WHERE pr_denial=0 AND NVL(next_exec,:utcdate) <= :utcdate AND proc_name=:proc_name ";
-    Qry.CreateVariable( "utcdate", otDate, utcdate );
-    Qry.CreateVariable( "proc_name", otString, proc_name );
-    Qry.Execute();
-    TQuery UQry(&OraSession);
-    UQry.SQLText =
-     "UPDATE tasks SET last_exec=:utcdate,next_exec=:next_exec WHERE name=:name";
-    UQry.CreateVariable( "utcdate", otDate, utcdate );
-    UQry.DeclareVariable( "next_exec", otDate );
-    UQry.DeclareVariable( "name", otString );
-    string name;
-    TDateTime execTasks = NowUTC();
-    while ( !Qry.Eof )
-    {
-      InitLogTime(argc>0?argv[0]:NULL);
-      bool Result=true;
+	TDateTime VTime = 0.0, utcdate = NowUTC();
+	int Hour, Min, Sec;
+	DecodeTime( utcdate, Hour, Min, Sec );
+	modf( (double)utcdate, &utcdate );
+	EncodeTime( Hour, Min, 0, VTime );
+	utcdate += VTime;
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	 "SELECT name,last_exec,next_exec,interval FROM tasks "\
+	 " WHERE pr_denial=0 AND NVL(next_exec,:utcdate) <= :utcdate AND proc_name=:proc_name ";
+	Qry.CreateVariable( "utcdate", otDate, utcdate );
+	Qry.CreateVariable( "proc_name", otString, proc_name );
+	Qry.Execute();
+	TQuery UQry(&OraSession);
+	UQry.SQLText =
+	 "UPDATE tasks SET last_exec=:utcdate,next_exec=:next_exec WHERE name=:name";
+	UQry.CreateVariable( "utcdate", otDate, utcdate );
+	UQry.DeclareVariable( "next_exec", otDate );
+	UQry.DeclareVariable( "name", otString );
+	string name;
+	TDateTime execTasks = NowUTC();
+	while ( !Qry.Eof )
+	{
+	  InitLogTime(argc>0?argv[0]:NULL);
+	  bool Result=true;
 
-      TReqInfo::Instance()->clear();
-      emptyHookTables();
+	  TReqInfo::Instance()->clear();
+	  emptyHookTables();
 
-      try {
-        TDateTime execTask = NowUTC();
-        name = Qry.FieldAsString( "name" );
-        if ( name == "astra_timer" ) astra_timer( utcdate );
-        else
-        if ( name == "createSPP" ) createSPP( utcdate );
-        else
-        if ( name == "ETCheckStatusFlt" ) ETCheckStatusFlt();
-        else
-        if ( name == "sync_mvd" ) sync_mvd();
-        else
-        if ( name == "arx_daily" ) Result = arx_daily( utcdate );
-        else
-        if ( name == "sync_aodb" ) sync_aodb( );
-        else
-        if ( name == "sync_sirena_codes" ) sync_sirena_codes( );
-        else
-        if ( name == "sync_sppcek" ) sync_sppcek( );
-        else
-        if ( name == "get_full_stat" ) get_full_stat( utcdate );
-        else
-        if ( name == "sync_1ccek" ) sync_1ccek();
-        else
+	  try {
+	  	TDateTime execTask = NowUTC();
+	    name = Qry.FieldAsString( "name" );
+	    if ( name == "astra_timer" ) astra_timer( utcdate );
+	    else
+	    if ( name == "createSPP" ) createSPP( utcdate );
+	    else
+	    if ( name == "ETCheckStatusFlt" ) ETCheckStatusFlt();
+	    else
+	    if ( name == "sync_mvd" ) sync_mvd();
+	    else
+	    if ( name == "arx_daily" ) Result = arx_daily( utcdate );
+	    else
+	    if ( name == "sync_aodb" ) sync_aodb( );
+	    else
+	    if ( name == "sync_sirena_codes" ) sync_sirena_codes( );
+	    else
+	    if ( name == "sync_sppcek" ) sync_sppcek( );
+	    else
+	    if ( name == "get_full_stat" ) get_full_stat( utcdate );
+	    else
+	    if ( name == "sync_1ccek" ) sync_1ccek();
+	    else
       if ( name == "sync_checkin_data" ) sync_checkin_data( );
       else
       if ( name == "sych_basel_aero_stat" ) sych_basel_aero_stat( utcdate );
@@ -168,25 +168,25 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
 
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
-        next_exec = utcdate;
+      	next_exec = utcdate;
       else
-        next_exec = Qry.FieldAsDateTime( "next_exec" );
+      	next_exec = Qry.FieldAsDateTime( "next_exec" );
       while ( next_exec <= utcdate ) {
        next_exec += (double)Qry.FieldAsInteger( "interval" )/1440.0;
       }
       if ( NowUTC() - execTask > 5.0/(1440.0*60.0) )
-        ProgTrace( TRACE5, "Attention execute task time!!!, name=%s, time=%s", name.c_str(), DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
+      	ProgTrace( TRACE5, "Attention execute task time!!!, name=%s, time=%s", name.c_str(), DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
       if (Result)
       {
         //если ф-ция возвратила true то вычислить время следующего выполнения
         UQry.SetVariable( "next_exec", next_exec );
-        UQry.SetVariable( "name", name );
-        UQry.Execute();
-      };
-        OraSession.Commit();
-        callPostHooksAfter();
-      }
-      catch( EOracleError &E )
+  	    UQry.SetVariable( "name", name );
+  	    UQry.Execute();
+  	  };
+	    OraSession.Commit();
+	    callPostHooksAfter();
+	  }
+	  catch( EOracleError &E )
     {
       try { OraSession.Rollback(); } catch(...) {};
       ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
@@ -204,10 +204,10 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       ProgError( STDLOG, "Unknown error, task name=%s", name.c_str() );
     };
     callPostHooksAlways();
-      Qry.Next();
-    };
-    if ( NowUTC() - execTasks > 1.0/1440.0 )
-        ProgTrace( TRACE5, "Attention execute all tasks time > 1 min !!!, time=%s", DateTimeToStr( NowUTC() - execTasks, "nn:ss" ).c_str() );
+	  Qry.Next();
+	};
+	if ( NowUTC() - execTasks > 1.0/1440.0 )
+		ProgTrace( TRACE5, "Attention execute all tasks time > 1 min !!!, time=%s", DateTimeToStr( NowUTC() - execTasks, "nn:ss" ).c_str() );
 };
 
 int CREATE_SPP_DAYS()
@@ -220,12 +220,12 @@ int CREATE_SPP_DAYS()
 
 void createSPP( TDateTime utcdate )
 {
-    utcdate += CREATE_SPP_DAYS(); //  на следующий день
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    reqInfo->Initialize("МОВ");
-    reqInfo->user.sets.time = ustTimeUTC;
-    CreateSPP( utcdate );
-    ProgTrace( TRACE5, "СПП получен за %s", DateTimeToStr( utcdate, "dd.mm.yy" ).c_str() );
+	utcdate += CREATE_SPP_DAYS(); //  на следующий день
+	TReqInfo *reqInfo = TReqInfo::Instance();
+	reqInfo->Initialize("МОВ");
+	reqInfo->user.sets.time = ustTimeUTC;
+	CreateSPP( utcdate );
+	ProgTrace( TRACE5, "СПП получен за %s", DateTimeToStr( utcdate, "dd.mm.yy" ).c_str() );
 }
 
 #include <boost/filesystem.hpp>
@@ -289,9 +289,9 @@ void ETCheckStatusFlt(void)
   {
     ServerFramework::EdiHelpManager::cleanOldRecords();
     AstraEdifact::cleanOldRecords(30);
-    OraSession.Commit();
+    OraSession.Commit();    
 
-    TDateTime now=NowUTC();
+    TDateTime now=NowUTC();    
 
     TQuery UpdQry(&OraSession);
     UpdQry.SQLText=
@@ -315,7 +315,7 @@ void ETCheckStatusFlt(void)
       "FROM points,trip_sets "
       "WHERE points.point_id=trip_sets.point_id AND points.pr_del>=0 AND "
       "      (act_out IS NOT NULL AND pr_etstatus=0 OR pr_etstatus<0)";
-
+      
 
     Qry.Clear();
     Qry.SQLText=
@@ -329,7 +329,7 @@ void ETCheckStatusFlt(void)
     Qry.DeclareVariable("point_num", otInteger);
     Qry.DeclareVariable("pr_etstatus", otInteger);
     Qry.CreateVariable("now",otDate,now);
-
+    
     ETQry.Execute();
     for(;!ETQry.Eof;ETQry.Next(),OraSession.Rollback())
     {
@@ -374,7 +374,7 @@ void ETCheckStatusFlt(void)
           //отправим интерактивно статусы
           try
           {
-            ProgTrace(TRACE5,"ETCheckStatusFlt.ETCheckStatus: point_id=%d",point_id);
+          	ProgTrace(TRACE5,"ETCheckStatusFlt.ETCheckStatus: point_id=%d",point_id);
             TETChangeStatusList mtick;
             ETStatusInterface::ETCheckStatus(point_id,csaFlt,point_id,true,mtick);
             if (!ETStatusInterface::ETChangeStatus(NULL,mtick))
@@ -420,10 +420,10 @@ void ETCheckStatusFlt(void)
 
 void get_full_stat(TDateTime utcdate)
 {
-    //соберем статистику по истечении двух дней от вылета,
-    //если не проставлен признак окончательного сбора статистики pr_stat
+	//соберем статистику по истечении двух дней от вылета,
+	//если не проставлен признак окончательного сбора статистики pr_stat
 
-    TQuery PointsQry(&OraSession);
+	TQuery PointsQry(&OraSession);
   PointsQry.Clear();
   PointsQry.SQLText =
     "SELECT points.point_id FROM points,trip_sets "
@@ -435,7 +435,7 @@ void get_full_stat(TDateTime utcdate)
   for(;!PointsQry.Eof;PointsQry.Next())
   {
     get_flight_stat(PointsQry.FieldAsInteger("point_id"), true);
-    OraSession.Commit();
+  	OraSession.Commit();
   };
 };
 
@@ -445,11 +445,11 @@ using namespace boost::local_time;
 
 void sync_sirena_codes( void )
 {
-    ProgTrace(TRACE5,"sync_sirena_codes started");
+	ProgTrace(TRACE5,"sync_sirena_codes started");
 
-    //вычисляем признак летней/зимней навигации
-    bool pr_summer=false;
-    string tz_region=CityTZRegion("МОВ");
+	//вычисляем признак летней/зимней навигации
+	bool pr_summer=false;
+	string tz_region=CityTZRegion("МОВ");
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( tz_region );
   if (tz==NULL) throw Exception("Region '%s' not found",tz_region.c_str());
@@ -459,8 +459,8 @@ void sync_sirena_codes( void )
     pr_summer=ld.is_dst();
   };
 
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+	TQuery Qry(&OraSession);
+	Qry.Clear();
   Qry.SQLText= //04068
     "BEGIN "
     "  utils.sync_sirena_codes(:pr_summer); "
@@ -469,6 +469,6 @@ void sync_sirena_codes( void )
   Qry.Execute();
 
   OraSession.Commit();
-    ProgTrace(TRACE5,"sync_sirena_codes stopped");
+	ProgTrace(TRACE5,"sync_sirena_codes stopped");
 };
 

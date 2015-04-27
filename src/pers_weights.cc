@@ -321,49 +321,54 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
      TPersWeights persWeights;
      persWeights.getRules( point_id, r );
      r.write( point_id );
-  }
-  TQuery Qry(&OraSession);
+  }  
 
-  string str;
-  bool pr_female = r.isFemale();
-  if ( pr_female ) // надо учитывать отдельно веса мужчин и женщин
-    str =
-      "SELECT class, subclass, "
-      "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS male, "
-      "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS female, "
-      "       NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS child, "
-      "       NVL(SUM(DECODE(pax.pers_type,:inf,1,0)),0) AS infant, "
-      "       NVL(SUM(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) rkweight,"
-      "       NVL(SUM(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) bagweight"
-      " FROM pax_grp, pax "
-      " WHERE pax_grp.grp_id=pax.grp_id";
+  bool use_counters_by_subcls = weight_type != withBrd && include_wait_list;
+
+  TQuery Qry(&OraSession);
+  ostringstream sql;
+  if (use_counters_by_subcls)
+  {
+    sql << "SELECT class, subclass, "
+           "       male, female, child, infant, rk_weight, bag_weight "
+           "FROM counters_by_subcls "
+           "WHERE point_id=:point_id";        
+  }
   else
-    str =
-      "SELECT class, subclass, "
-      "       NVL(SUM(DECODE(pax.pers_type,:adl,1,0)),0) AS male, "
-      "       0 AS female, "
-      "       NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS child, "
-      "       NVL(SUM(DECODE(pax.pers_type,:inf,1,0)),0) AS infant, "
-      "       NVL(SUM(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) rkweight,"
-      "       NVL(SUM(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) bagweight"
-      " FROM pax_grp, pax"
-      " WHERE pax_grp.grp_id=pax.grp_id";
-  if ( weight_type == withBrd )
-    str += " AND pr_brd=1 ";
-  else
-    str += " AND pr_brd IS NOT NULL ";
-  if(not include_wait_list)
-      str += " and salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)=0 ";
-  str +=
-    " AND point_dep=:point_dep "
-    " AND pax_grp.status NOT IN ('E') "
-    " GROUP BY class, subclass";
-  ProgTrace( TRACE5, "str=%s", str.c_str() );
-  Qry.SQLText = str.c_str();
-  Qry.CreateVariable( "point_dep", otInteger, point_id );
-  Qry.CreateVariable( "adl", otString, string(EncodePerson( ASTRA::adult )) );
-  Qry.CreateVariable( "chd", otString, string(EncodePerson( ASTRA::child )) );
-  Qry.CreateVariable( "inf", otString, string(EncodePerson( ASTRA::baby )) );
+  {
+    sql << "SELECT class, subclass, "
+           "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS male, "
+           "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS female, "
+           "       NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS child, "
+           "       NVL(SUM(DECODE(pax.pers_type,:inf,1,0)),0) AS infant, "
+           "       NVL(SUM(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) rk_weight, "
+           "       NVL(SUM(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) bag_weight "
+           "FROM pax_grp, pax "
+           "WHERE pax_grp.grp_id=pax.grp_id";
+    if ( weight_type == withBrd )
+      sql << " AND pr_brd=1 ";
+    else
+      sql << " AND pr_brd IS NOT NULL ";
+    if(not include_wait_list)
+      sql << " and salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)=0 ";
+    sql << " AND point_dep=:point_id "
+           " AND pax_grp.status NOT IN ('E') "
+           "GROUP BY class, subclass "
+           "UNION "
+           "SELECT class, NULL AS subclass, "
+           "       0 AS male, 0 AS female, 0 AS child, 0 AS infant, "
+           "       NVL(SUM(ckin.get_rkWeight2(grp_id,NULL,NULL,rownum)),0) rk_weight, "
+           "       NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) bag_weight "
+           "FROM pax_grp "
+           "WHERE point_dep=:point_id AND class IS NULL AND pax_grp.status NOT IN ('E') AND bag_refuse=0 "
+           "GROUP BY class ";
+    Qry.CreateVariable( "adl", otString, string(EncodePerson( ASTRA::adult )) );
+    Qry.CreateVariable( "chd", otString, string(EncodePerson( ASTRA::child )) );
+    Qry.CreateVariable( "inf", otString, string(EncodePerson( ASTRA::baby )) );    
+  };
+  //ProgTrace( TRACE5, "TFlightWeights::read: sql=%s", sql.str().c_str() );  
+  Qry.SQLText = sql.str().c_str();
+  Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   int m,f,c,i;
   while ( !Qry.Eof ) {
@@ -371,30 +376,34 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
     f = Qry.FieldAsInteger( "female" );
     c = Qry.FieldAsInteger( "child" );
     i = Qry.FieldAsInteger( "infant" );
+    if (!r.isFemale())
+    {
+      m+=f;
+      f=0;
+    };
     male += m;
     female += f;
     child += c;
     infant += i;
-    ClassesPersWeight weight;
-    if ( r.weight( Qry.FieldAsString( "class" ), Qry.FieldAsString( "subclass" ), weight ) ) {
-      weight_male += m*weight.male;
-      weight_female += f*weight.female;
-      weight_child += c*weight.child;
-      weight_infant += i*weight.infant;
-      weight_cabin_bag += Qry.FieldAsInteger( "rkweight" );
-      weight_bag += Qry.FieldAsInteger( "bagweight" );
+    if (!Qry.FieldIsNULL( "class" ))
+    {
+      ClassesPersWeight weight;
+      if ( r.weight( Qry.FieldAsString( "class" ), Qry.FieldAsString( "subclass" ), weight ) ) {
+        weight_male += m*weight.male;
+        weight_female += f*weight.female;
+        weight_child += c*weight.child;
+        weight_infant += i*weight.infant;
+        weight_cabin_bag += Qry.FieldAsInteger( "rk_weight" );
+        weight_bag += Qry.FieldAsInteger( "bag_weight" );
+      }
     }
+    else
+    {
+      weight_cabin_bag += Qry.FieldAsInteger( "rk_weight" );
+      weight_bag += Qry.FieldAsInteger( "bag_weight" );
+    };
     Qry.Next();
-  }
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) unnacomp_bag "
-    " FROM pax_grp "
-      " WHERE point_dep=:point_dep AND class IS NULL AND pax_grp.status NOT IN ('E')";
-  Qry.CreateVariable( "point_dep", otInteger, point_id );
-  Qry.Execute();
-  if ( !Qry.Eof )
-    weight_bag += Qry.FieldAsInteger( "unnacomp_bag" );
+  }  
 }
 
 int getCommerceWeight( int point_id, TTypeFlightWeight weight_type, TTypeCalcCommerceWeight calc_type )
@@ -558,8 +567,8 @@ void recountBySubcls(int point_id)
     "         NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS female, "
     "         NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS child, "
     "         NVL(SUM(DECODE(pax.pers_type,:inf,1,0)),0) AS infant, "
-    "         NVL(SUM(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) rk_weight,"
-    "         NVL(SUM(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) bag_weight"
+    "         NVL(SUM(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) rk_weight, "
+    "         NVL(SUM(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum)),0) bag_weight "
     "  FROM pax_grp, pax "
     "  WHERE pax_grp.grp_id=pax.grp_id AND "
     "        pr_brd IS NOT NULL AND "
@@ -567,7 +576,8 @@ void recountBySubcls(int point_id)
     "        pax_grp.status NOT IN ('E') "
     "  GROUP BY class, subclass "
     "  UNION "
-    "  SELECT :point_id, class, NULL, 0, 0, 0, 0, "
+    "  SELECT :point_id, class, NULL AS subclass, "
+    "         0 AS male, 0 AS female, 0 AS child, 0 AS infant, "
     "         NVL(SUM(ckin.get_rkWeight2(grp_id,NULL,NULL,rownum)),0) rk_weight, "
     "         NVL(SUM(ckin.get_bagWeight2(grp_id,NULL,NULL,rownum)),0) bag_weight "
     "  FROM pax_grp "

@@ -1323,7 +1323,7 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
       invalid_gates.clear();
       //vector<TPointKey> airps;
       flight_id.clear();
-      TCobraAction flight_action = caUnknown;
+      TCobraAction flight_action;
       string key_airline;
       int key_flt_no;
       string key_suffix;
@@ -1337,7 +1337,7 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
       string flight_trip_type;
       string flight_litera;
       int flight_pr_cancel;
-      bool flight_pr_cobra = false;
+      bool flight_pr_cobra;
       string flight_key;
 
       try {
