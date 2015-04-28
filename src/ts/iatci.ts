@@ -439,3 +439,31 @@ FDR+SU+200+150221+LED+AER++T"
 RAD+X+P"
 UNT+4+1"
 UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+
+$(init_jxt_pult åéÇêéå)
+$(login)
+$(init_dcs SU TA OA)
+
+
+{<?xml version='1.0' encoding='UTF-8'?>
+ <term>
+   <query handle='0' id='IactiInterface' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+     <UpdateRequest/>
+   </query>
+ </term>}
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:96:2:IA+$(last_edifact_ref)"
+LOR+UT:SVO"
+FDQ+SU+200+150221+LED+AER"
+PPD+IVANOV+M++SERGEI++UT100"
+URD+O"
+USD+N"
+UBD+R:1:20"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"

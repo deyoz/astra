@@ -180,8 +180,9 @@ iatci::CkxParams IatciCkxParamsMaker::makeParams() const
     }
 
     return iatci::CkxParams(origDetails,
-                            flight,
                             paxDetails,
+                            flight,
+                            boost::none, // TODO
                             cascadeHostDetails);
 }
 

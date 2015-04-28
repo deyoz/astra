@@ -137,16 +137,18 @@ boost::optional<iatci::CkiParams> IatciCkiRequestHandler::nextCkiParams() const
     iatci::CascadeHostDetails cascadeDetails(ckiParams().origin().airline(),
                                              ckiParams().origin().point());
     cascadeDetails.addHostAirline(ckiParams().flight().airline());
-    cascadeDetails.addHostAirline(ckiParams().flightFromPrevHost().airline());
+    if(ckiParams().flightFromPrevHost()) {
+        cascadeDetails.addHostAirline(ckiParams().flightFromPrevHost()->airline());
+    }
 
     return iatci::CkiParams(iatci::OriginatorDetails(ckiParams().flight().airline()),
+                            pax,
                             *flightForNextHost,
-                             ckiParams().flight(),
-                             pax,
-                             ckiParams().reserv(),
-                             ckiParams().seat(),
-                             ckiParams().baggage(),
-                             cascadeDetails);
+                            ckiParams().flight(),
+                            ckiParams().seat(),
+                            ckiParams().baggage(),
+                            ckiParams().reserv(),
+                            cascadeDetails);
 }
 
 //---------------------------------------------------------------------------------------
@@ -252,12 +254,12 @@ iatci::CkiParams IatciCkiParamsMaker::makeParams() const
     }
 
     return iatci::CkiParams(origDetails,
+                            paxDetails,
                             flight,
                             prevFlight,
-                            paxDetails,
-                            reservDetails,
                             seatDetails,
                             baggageDetails,
+                            reservDetails,
                             cascadeHostDetails);
 }
 

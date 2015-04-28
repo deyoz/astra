@@ -533,4 +533,37 @@ void viewErdElement(_EDI_REAL_MES_STRUCT_* pMes, const std::string& errLevel,
     SetEdiFullSegment(pMes, SegmElement("ERD"), erd.str());
 }
 
+void viewUpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails& updPax)
+{
+    std::ostringstream upd;
+    upd << "R" << ":" << updPax.surname(); // TODO Update action code
+    upd << "::" << updPax.name();
+    SetEdiFullSegment(pMes, SegmElement("UPD"), upd.str());
+}
+
+void viewUrdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ReservationDetails& updReserv)
+{
+    std::ostringstream urd;
+    urd << updReserv.rbd();
+    SetEdiFullSegment(pMes, SegmElement("URD"), urd.str());
+}
+
+void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatDetails& updSeat)
+{
+    std::ostringstream usd;
+    usd << updSeat.smokeIndAsString();
+    BOOST_FOREACH(const std::string& seatCharactesistic, updSeat.characteristics()) {
+        usd << ":" << seatCharactesistic;
+    }
+
+    SetEdiFullSegment(pMes, SegmElement("USD"), usd.str());
+}
+
+void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& updBaggage)
+{
+    std::ostringstream ubd;
+    ubd << "R" << ":" << updBaggage.numOfPieces() << ":" << updBaggage.weight(); // TODO Update action code
+    SetEdiFullSegment(pMes, SegmElement("UBD"), ubd.str());
+}
+
 }//namespace edifact

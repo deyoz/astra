@@ -15,8 +15,8 @@ CkuRequest::CkuRequest(const iatci::CkuParams& params,
                        const std::string& pult,
                        const std::string& ctxt,
                        const KickInfo& kick)
-    : EdifactRequest(pult, ctxt, kick, DCQCKI,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(/*params.m_nextFlight.m_airline*/"")),
+    : EdifactRequest(pult, ctxt, kick, DCQCKU,
+                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline())),
       m_params(params)
 {
 }
@@ -33,21 +33,25 @@ std::string CkuRequest::funcCode() const
 
 void CkuRequest::collectMessage()
 {
-//    viewLorElement(pMes(), m_params.m_origin);
+    viewLorElement(pMes(), m_params.origin());
+    if(m_params.cascadeDetails())
+        viewChdElement(pMes(), *m_params.cascadeDetails());
 
-//    edilib::SetEdiSegGr(pMes(), 1);
-//    edilib::SetEdiPointToSegGrW(pMes(), 1);
-//    viewFdqElement(pMes(), m_params.m_nextFlight, m_params.m_currFlight);
+    edilib::SetEdiSegGr(pMes(), 1);
+    edilib::SetEdiPointToSegGrW(pMes(), 1);
+    viewFdqElement(pMes(), m_params.flight(), m_params.flightFromPrevHost());
 
-//    edilib::SetEdiSegGr(pMes(), 2);
-//    edilib::SetEdiPointToSegGrW(pMes(), 2);
-//    viewPpdElement(pMes(), m_params.m_pax);
-//    if(m_params.m_reserv)
-//        viewPrdElement(pMes(), m_params.m_reserv.get());
-//    if(m_params.m_seat)
-//        viewPsdElement(pMes(), m_params.m_seat.get());
-//    if(m_params.m_baggage)
-//        viewPbdElement(pMes(), m_params.m_baggage.get());
+    edilib::SetEdiSegGr(pMes(), 2);
+    edilib::SetEdiPointToSegGrW(pMes(), 2);
+    viewPpdElement(pMes(), m_params.pax());
+    if(m_params.updPax())
+        viewUpdElement(pMes(), *m_params.updPax());
+    if(m_params.updReserv())
+        viewUrdElement(pMes(), *m_params.updReserv());
+    if(m_params.updSeat())
+        viewUsdElement(pMes(), *m_params.updSeat());
+    if(m_params.updBaggage())
+        viewUbdElement(pMes(), *m_params.updBaggage());
 }
 
 //-----------------------------------------------------------------------------

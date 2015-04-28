@@ -47,12 +47,12 @@ static iatci::CkiParams getDebugCkiParams()
     boost::optional<iatci::CascadeHostDetails> cascadeDetails;
 
     iatci::CkiParams ckiParams(origin,
+                               pax,
                                flight,
                                prevFlight,
-                               pax,
-                               reserv,
                                seat,
                                baggage,
+                               reserv,
                                cascadeDetails);
 
     return ckiParams;
@@ -75,10 +75,42 @@ static iatci::CkxParams getDebugCkxParams()
                           "UT100");
 
     iatci::CkxParams ckxParams(origin,
-                               flight,
-                               pax);
+                               pax,
+                               flight);
 
     return ckxParams;
+}
+
+static iatci::CkuParams getDebugCkuParams()
+{
+    iatci::OriginatorDetails origin("UT", "SVO");
+
+    iatci::FlightDetails flight("SU",
+                                Ticketing::FlightNum_t(200),
+                                "LED",
+                                "AER",
+                                Dates::rrmmdd("150221"),
+                                Dates::rrmmdd("150221"));
+
+    iatci::PaxDetails pax("IVANOV",
+                          "SERGEI",
+                          iatci::PaxDetails::Male,
+                          "UT100");
+
+    iatci::SeatDetails seat(iatci::SeatDetails::NonSmoking);
+
+    iatci::ReservationDetails reserv("O");
+
+    iatci::BaggageDetails baggage(1, 20);
+
+    return iatci::CkuParams(origin,
+                            pax,
+                            flight,
+                            boost::none,
+                            boost::none,
+                            seat,
+                            baggage,
+                            reserv);
 }
 
 static iatci::PlfParams getDebugPlfParams()
@@ -101,8 +133,8 @@ static iatci::PlfParams getDebugPlfParams()
                               "2982145646345");
 
     iatci::PlfParams plfParams(origin,
-                               flight,
-                               pax);
+                               pax,
+                               flight);
 
     return plfParams;
 }
@@ -134,6 +166,11 @@ void IactiInterface::UpdateRequest(XMLRequestCtxt* ctxt,
                                    xmlNodePtr reqNode,
                                    xmlNodePtr resNode)
 {
+    // send edifact DCQCKU request
+    edifact::SendCkuRequest(getDebugCkuParams(),
+                            getIatciPult(),
+                            getIatciContext(reqNode),
+                            AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface"));
 }
 
 void IactiInterface::CancelRequest(XMLRequestCtxt* ctxt,

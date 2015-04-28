@@ -164,8 +164,9 @@ iatci::PlfParams IatciPlfParamsMaker::makeParams() const
     }
 
     return iatci::PlfParams(origDetails,
-                            flight,
                             paxSeatDetails,
+                            flight,
+                            boost::none, // TODO
                             cascadeHostDetails);
 }
 
