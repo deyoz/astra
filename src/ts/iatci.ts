@@ -467,3 +467,37 @@ USD+N"
 UBD+R:1:20"
 UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+150215:2222+$(last_edifact_ref)0001+++O"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+SU+200+1502211300+LED+AER+1502211500+T"
+RAD+U+O"
+PPD+PETROV+M+SU200+ALEX++UT100"
+PFD+05A+N:C:2:::::Y:W+0040"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+>> lines=auto
+    <kick...
+
+$(lastRedisplay)
+
+
+%%
+#########################################################################################
+
+$(init)
+$(init_dcs UT TA OA)
+
+<<
+UNB+SIRE:1+OA+TA+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:96:2:IA+ASTRA00066"
+LOR+UT:SVO"
+FDQ+SU+200+150221+LED+AER"
+PPD+IVANOV+M++SERGEI++UT100"
+URD+O"
+USD+N"
+UBD+R:1:20"
+UNT+8+1"
+UNZ+1+ASTRA000660001"

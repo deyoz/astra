@@ -78,6 +78,34 @@ void IatciResponseHandler::fillErrorDetails()
 {
 }
 
+void IatciResponseHandler::parse()
+{
+    int flightsCount = GetNumSegGr(pMes(), 1); // Сколько рейсов в ответе
+    ASSERT(flightsCount > 0); // Рейсы должны быть обязательно
+
+    for(int currFlight = 0; currFlight < flightsCount; ++currFlight)
+    {
+        EdiPointHolder flt_holder(pMes());
+        IatciResultMaker resultMaker;
+        SetEdiPointToSegGrG(pMes(), SegGrElement(1, currFlight), "PROG_ERR");
+        resultMaker.setFdr(readEdiFdr(pMes()));
+        resultMaker.setRad(readEdiRad(pMes()));
+        resultMaker.setChd(readEdiChd(pMes()));
+        resultMaker.setFsd(readEdiFsd(pMes()));
+        resultMaker.setErd(readEdiErd(pMes()));
+
+        if(GetNumSegGr(pMes(), 2) > 0)
+        {
+            EdiPointHolder pax_holder(pMes());
+            SetEdiPointToSegGrG(pMes(), SegGrElement(2), "PROG_ERR");
+            resultMaker.setPpd(readEdiPpd(pMes()), true /*required*/);
+            resultMaker.setPfd(readEdiPfd(pMes()));
+        }
+
+        m_lRes.push_back(resultMaker.makeResult());
+    }
+}
+
 void IatciResponseHandler::handle()
 {
     tlgnum_t postponeTlg = PostponeEdiHandling::findPostponeTlg(ediSessId());

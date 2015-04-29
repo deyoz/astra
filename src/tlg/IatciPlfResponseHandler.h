@@ -12,7 +12,6 @@ public:
                             const edilib::EdiSessRdData *edisess);
 
     virtual iatci::Result::Action_e action() const;
-    virtual void parse();
 
     virtual ~IatciPlfResponseHandler() {}
 };

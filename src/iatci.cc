@@ -219,6 +219,12 @@ void IactiInterface::CheckinKickHandler(xmlNodePtr resNode,
     FuncOut(CheckinKickHandler);
 }
 
+void IactiInterface::UpdateKickHandler(xmlNodePtr resNode,
+                                       const std::list<iatci::Result>& lRes)
+{
+    FuncIn(UpdateKickHandler);
+    FuncOut(UpdateKickHandler);
+}
 
 void IactiInterface::CancelKickHandler(xmlNodePtr resNode,
                                        const std::list<iatci::Result>& lRes)
@@ -264,11 +270,11 @@ void IactiInterface::KickHandler(XMLRequestCtxt* ctxt,
             case iatci::Result::Checkin:
                 CheckinKickHandler(resNode, lRes);
                 break;
+            case iatci::Result::Update:
+                UpdateKickHandler(resNode, lRes);
+                break;
             case iatci::Result::Cancel:
                 CancelKickHandler(resNode, lRes);
-                break;
-            case iatci::Result::Update:
-                tst(); // TODO
                 break;
             case iatci::Result::Passlist:
                 PasslistKickHandler(resNode, lRes);

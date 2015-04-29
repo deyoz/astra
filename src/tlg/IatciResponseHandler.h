@@ -20,6 +20,7 @@ public:
     virtual iatci::Result::Action_e action() const = 0;
     virtual void fillFuncCodeRespStatus();
     virtual void fillErrorDetails();
+    virtual void parse();
     virtual void handle();
     virtual void onTimeOut();
     virtual void onCONTRL() {}

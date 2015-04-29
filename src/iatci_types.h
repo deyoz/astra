@@ -477,6 +477,13 @@ public:
                                     boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
                                     boost::optional<ErrorDetails> errorDetails = boost::none);
 
+    static Result makeUpdateResult(Status_e status,
+                                   const FlightDetails& flight,
+                                   boost::optional<PaxDetails> pax = boost::none,
+                                   boost::optional<FlightSeatDetails> seat = boost::none,
+                                   boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
+                                   boost::optional<ErrorDetails> errorDetails = boost::none);
+
     static Result makeCancelResult(Status_e status,
                                    const FlightDetails& flight,
                                    boost::optional<PaxDetails> pax = boost::none,

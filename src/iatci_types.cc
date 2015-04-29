@@ -409,6 +409,22 @@ Result Result::makeCheckinResult(Status_e status,
                   errorDetails);
 }
 
+Result Result::makeUpdateResult(Status_e status,
+                                const FlightDetails& flight,
+                                boost::optional<PaxDetails> pax,
+                                boost::optional<FlightSeatDetails> seat,
+                                boost::optional<CascadeHostDetails> cascadeDetails,
+                                boost::optional<ErrorDetails> errorDetails)
+{
+    return Result(Update,
+                  status,
+                  flight,
+                  pax,
+                  seat,
+                  cascadeDetails,
+                  errorDetails);
+}
+
 Result Result::makeCancelResult(Status_e status,
                                 const FlightDetails& flight,
                                 boost::optional<PaxDetails> pax,

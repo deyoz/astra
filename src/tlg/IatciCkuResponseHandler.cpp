@@ -18,9 +18,4 @@ iatci::Result::Action_e IatciCkuResponseHandler::action() const
     return iatci::Result::Update;
 }
 
-void IatciCkuResponseHandler::parse()
-{
-    tst();
-}
-
 }//namespace TlgHandling

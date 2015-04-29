@@ -41,11 +41,15 @@ public:
     // Seat Map Function Interchange
     void SeatmapRequest(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
+    //
     // Kick Entry
     void KickHandler(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
     // Checkin Kick
     void CheckinKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
+
+    // Update Kick
+    void UpdateKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
 
     // Cancel Kick
     void CancelKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);

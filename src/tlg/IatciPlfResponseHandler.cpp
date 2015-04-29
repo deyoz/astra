@@ -27,23 +27,4 @@ iatci::Result::Action_e IatciPlfResponseHandler::action() const
     return iatci::Result::Passlist;
 }
 
-void IatciPlfResponseHandler::parse()
-{
-    int flightsCount = GetNumSegGr(pMes(), 1); // Сколько рейсов в ответе
-    ASSERT(flightsCount > 0); // Рейсы должны быть обязательно
-
-    EdiPointHolder flt_holder(pMes());
-    for(int currFlight = 0; currFlight < flightsCount; ++currFlight)
-    {
-        IatciResultMaker ckiResultMaker;
-        SetEdiPointToSegGrG(pMes(), SegGrElement(1, currFlight), "PROG_ERR");
-        ckiResultMaker.setFdr(readEdiFdr(pMes()));
-        ckiResultMaker.setRad(readEdiRad(pMes()));
-        ckiResultMaker.setChd(readEdiChd(pMes()));
-        ckiResultMaker.setErd(readEdiErd(pMes()));
-
-        m_lRes.push_back(ckiResultMaker.makeResult());
-    }
-}
-
 }//namespace TlgHandling
