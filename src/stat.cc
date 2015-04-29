@@ -5050,6 +5050,63 @@ void createXMLAgentStat(const TStatParams &params,
 
 /****************** end of AgentStat ******************/
 
+
+// Отображение параметров Сирены-трэвел в параметры Астры.
+
+/* !!! Если бы это был С++11
+const map<string, string> m =
+{
+{"Short",       "Общая"},
+{"Detail",      "Детализированная"},
+{"Full",        "Подробная"},
+{"Transfer",    "Трансфер"},
+{"Pact",        "Договор"},
+{"SelfCkin",    "Саморегистрация"},
+{"Agent",       "По агентам"},
+{"Tlg",         "Отпр. телеграммы"}
+};
+*/
+
+#include <boost/assign/list_of.hpp>
+
+const map<string, string> ST_to_Astra = boost::assign::map_list_of
+("Short",       "Общая")
+("Detail",      "Детализированная")
+("Full",        "Подробная")
+("Transfer",    "Трансфер")
+("Pact",        "Договор")
+("SelfCkin",    "Саморегистрация")
+("Agent",       "По агентам")
+("Tlg",         "Отпр. телеграммы");
+
+void convertStatParam(xmlNodePtr paramNode)
+{
+    string val = NodeAsString(paramNode);
+    map<string, string>::const_iterator idx = ST_to_Astra.find(val);
+    if(idx == ST_to_Astra.end())
+        throw Exception("wrong param value '%s'", val.c_str());
+    xmlNodeSetContent(paramNode, idx->second.c_str());
+}
+
+void StatInterface::stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr curNode = reqNode->children;
+    curNode = NodeAsNodeFast( "content", curNode );
+    if (not curNode) return;
+    curNode = curNode->children;
+    curNode = NodeAsNodeFast("run_stat", curNode);
+    if(not curNode)
+        throw Exception("wrong format");
+    xmlNodePtr statModeNode = NodeAsNode("stat_mode", curNode);
+    xmlNodePtr statTypeNode = NodeAsNode("stat_type", curNode);
+    if(not statModeNode or not statTypeNode)
+        throw Exception("wrong param format");
+    convertStatParam(statModeNode);
+    convertStatParam(statTypeNode);
+    RunStat(ctxt, curNode, resNode);
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); // !!!
+}
+
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
