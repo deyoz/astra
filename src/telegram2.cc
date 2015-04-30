@@ -6018,13 +6018,15 @@ struct TSR_S {
         for(TPassSeats::iterator i_seat = layerSeats.begin(); i_seat != layerSeats.end(); i_seat++) {
             string seat =
                 denorm_iata_row(i_seat->row, NULL) + // denorm - чтобы избавиться от нулей: 002 -> 2
-                i_seat->line + "/";
-            if(buf.size() + seat.size() > LINE_SIZE) {
+                i_seat->line;
+            if(buf.size() + seat.size() + 1 > LINE_SIZE) {
                 body.push_back(buf);
                 buf = PREFIX;
             }
             if(buf == PREFIX)
                 buf += ".";
+            else
+                buf += "/";
             buf += seat;
         }
         if(buf != PREFIX)
