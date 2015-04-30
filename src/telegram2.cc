@@ -6292,14 +6292,16 @@ void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
         for(TTripRoute::iterator i = route.begin(); i != route.end(); i++) {
             map<int, vector<string> >::iterator idx = wb_seats.find(i->point_id);
             if(idx != wb_seats.end()) {
-                string buf = "-" + info.TlgElemIdToElem(etAirp, i->airp) + ".SP.WB";
+                string sp_header = "-" + info.TlgElemIdToElem(etAirp, i->airp) + ".SP.WB";
+                string buf = sp_header;
                 for(vector<string>::iterator seat_i = idx->second.begin(); seat_i != idx->second.end(); ++seat_i) {
                     if(buf.size() + seat_i->size() > LINE_SIZE) {
                         body.push_back(buf);
-                        buf = "-" + info.TlgElemIdToElem(etAirp, i->airp) + ".SP.WB";
+                        buf = sp_header;
                     }
                     buf += *seat_i;
                 }
+                if(buf != sp_header) body.push_back(buf);
             }
         }
     }
