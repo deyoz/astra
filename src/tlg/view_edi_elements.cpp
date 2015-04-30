@@ -459,6 +459,7 @@ void viewPsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatDetails& seat)
     BOOST_FOREACH(const std::string& seatCharactesistic, seat.characteristics()) {
         psd << ":" << seatCharactesistic;
     }
+    psd << "+" << seat.seat();
 
     SetEdiFullSegment(pMes, SegmElement("PSD"), psd.str());
 }
@@ -533,36 +534,32 @@ void viewErdElement(_EDI_REAL_MES_STRUCT_* pMes, const std::string& errLevel,
     SetEdiFullSegment(pMes, SegmElement("ERD"), erd.str());
 }
 
-void viewUpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails& updPax)
+void viewUpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdatePaxDetails &updPax)
 {
     std::ostringstream upd;
-    upd << "R" << ":" << updPax.surname(); // TODO Update action code
-    upd << "::" << updPax.name();
+    upd << updPax.actionCodeAsString() << "+";
+    upd << updPax.surname() << "++" << updPax.name();
     SetEdiFullSegment(pMes, SegmElement("UPD"), upd.str());
 }
 
-void viewUrdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ReservationDetails& updReserv)
-{
-    std::ostringstream urd;
-    urd << updReserv.rbd();
-    SetEdiFullSegment(pMes, SegmElement("URD"), urd.str());
-}
-
-void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatDetails& updSeat)
+void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateSeatDetails& updSeat)
 {
     std::ostringstream usd;
     usd << updSeat.smokeIndAsString();
     BOOST_FOREACH(const std::string& seatCharactesistic, updSeat.characteristics()) {
         usd << ":" << seatCharactesistic;
     }
+    usd << "+" << updSeat.seat();
+    //usd << "++++" << updSeat.actionCodeAsString(); TODO
 
     SetEdiFullSegment(pMes, SegmElement("USD"), usd.str());
 }
 
-void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& updBaggage)
+void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetails &updBaggage)
 {
     std::ostringstream ubd;
-    ubd << "R" << ":" << updBaggage.numOfPieces() << ":" << updBaggage.weight(); // TODO Update action code
+    ubd << updBaggage.actionCodeAsString() << ":";
+    ubd << updBaggage.numOfPieces() << ":" << updBaggage.weight();
     SetEdiFullSegment(pMes, SegmElement("UBD"), ubd.str());
 }
 

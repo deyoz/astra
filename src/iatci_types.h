@@ -123,6 +123,51 @@ protected:
 
 //-----------------------------------------------------------------------------
 
+struct UpdateDetails
+{
+    enum UpdateActionCode_e
+    {
+        Add,
+        Cancel,
+        Replace
+    };
+
+protected:
+    UpdateActionCode_e m_actionCode;
+
+public:
+    UpdateDetails(UpdateActionCode_e actionCode = Replace);
+
+    UpdateActionCode_e actionCode() const;
+    std::string        actionCodeAsString() const;
+
+    static UpdateActionCode_e strToActionCode(const std::string& s);
+
+};
+
+//-----------------------------------------------------------------------------
+
+struct UpdatePaxDetails: public UpdateDetails
+{
+protected:
+    std::string m_surname;
+    std::string m_name;
+    std::string m_qryRef;
+
+public:
+    UpdatePaxDetails(UpdateActionCode_e actionCode,
+                     const std::string& surname,
+                     const std::string& name,
+                     const std::string& qryRef = "");
+
+    const std::string& surname() const;
+    const std::string& name() const;
+    const std::string& qryRef() const;
+
+};
+
+//-----------------------------------------------------------------------------
+
 struct ReservationDetails
 {
     friend class Result;
@@ -153,7 +198,8 @@ struct SeatDetails
         PartySeating,
         Smoking,
         Unknown,
-        Indifferent
+        Indifferent,
+        None
     };
 
 protected:
@@ -162,8 +208,9 @@ protected:
     std::list<std::string> m_characteristics;
 
 public:
-    SeatDetails(SmokeIndicator_e smokeInd = Unknown,
-                const std::string& seat = "");
+    SeatDetails(SmokeIndicator_e smokeInd);
+    SeatDetails(const std::string& seat = "",
+                SmokeIndicator_e smokeInd = None);
 
     SmokeIndicator_e              smokeInd() const;
     std::string                   smokeIndAsString() const;
@@ -178,13 +225,22 @@ public:
 
 //-----------------------------------------------------------------------------
 
+struct UpdateSeatDetails: public UpdateDetails, public SeatDetails
+{
+public:
+    UpdateSeatDetails(UpdateActionCode_e actionCode,
+                      const std::string& seat,
+                      const SmokeIndicator_e smokeInd = None);
+};
+
+//-----------------------------------------------------------------------------
+
 struct FlightSeatDetails: public SeatDetails
 {
     friend class Result;
     friend class boost::serialization::access;
 
 protected:
-    std::string m_seat;
     std::string m_cabinClass;
     std::string m_securityId;
 
@@ -194,7 +250,6 @@ public:
                       const std::string& securityId,
                       SmokeIndicator_e smokeInd = Unknown);
 
-    const std::string& seat() const;
     const std::string& cabinClass() const;
     const std::string& securityId() const;
 
@@ -261,6 +316,15 @@ protected:
     BaggageDetails()
         : m_numOfPieces(0), m_weight(0)
     {} // only for boost serialization
+};
+
+//-----------------------------------------------------------------------------
+
+struct UpdateBaggageDetails: public UpdateDetails, public BaggageDetails
+{
+public:
+    UpdateBaggageDetails(UpdateActionCode_e actionCode,
+                         unsigned numOfPieces, unsigned weight);
 };
 
 //-----------------------------------------------------------------------------
@@ -366,26 +430,23 @@ public:
 struct CkuParams: public Params
 {
 protected:
-    boost::optional<PaxDetails>         m_updPax;
-    boost::optional<SeatDetails>        m_updSeat;
-    boost::optional<BaggageDetails>     m_updBaggage;
-    boost::optional<ReservationDetails> m_updReserv;
+    boost::optional<UpdatePaxDetails>     m_updPax;
+    boost::optional<UpdateSeatDetails>    m_updSeat;
+    boost::optional<UpdateBaggageDetails> m_updBaggage;
 
 public:
     CkuParams(const OriginatorDetails& origin,
               const PaxDetails& pax,
               const FlightDetails& flight,
               boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-              boost::optional<PaxDetails> updPax = boost::none,
-              boost::optional<SeatDetails> updSeat = boost::none,
-              boost::optional<BaggageDetails> updBaggage = boost::none,
-              boost::optional<ReservationDetails> updReserv = boost::none,
+              boost::optional<UpdatePaxDetails> updPax = boost::none,
+              boost::optional<UpdateSeatDetails> updSeat = boost::none,
+              boost::optional<UpdateBaggageDetails> updBaggage = boost::none,
               boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
-    boost::optional<PaxDetails>         updPax() const;
-    boost::optional<SeatDetails>        updSeat() const;
-    boost::optional<ReservationDetails> updReserv() const;
-    boost::optional<BaggageDetails>     updBaggage() const;
+    boost::optional<UpdatePaxDetails>     updPax() const;
+    boost::optional<UpdateSeatDetails>    updSeat() const;
+    boost::optional<UpdateBaggageDetails> updBaggage() const;
 };
 
 //-----------------------------------------------------------------------------

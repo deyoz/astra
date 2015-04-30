@@ -46,8 +46,6 @@ void CkuRequest::collectMessage()
     viewPpdElement(pMes(), m_params.pax());
     if(m_params.updPax())
         viewUpdElement(pMes(), *m_params.updPax());
-    if(m_params.updReserv())
-        viewUrdElement(pMes(), *m_params.updReserv());
     if(m_params.updSeat())
         viewUsdElement(pMes(), *m_params.updSeat());
     if(m_params.updBaggage())

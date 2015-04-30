@@ -188,22 +188,17 @@ void viewErdElement(_EDI_REAL_MES_STRUCT_* pMes, const std::string& errLevel,
 /**
  * @brief makes an UPD element
 */
-void viewUpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails& updPax);
-
-/**
- * @brief makes an URD element
-*/
-void viewUrdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ReservationDetails& updReserv);
+void viewUpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdatePaxDetails& updPax);
 
 /**
  * @brief makes an USD element
 */
-void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatDetails& updSeat);
+void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateSeatDetails& updSeat);
 
 /**
  * @brief makes an UBD element
 */
-void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& updBaggage);
+void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetails& updBaggage);
 
 }//namespace edifact
 

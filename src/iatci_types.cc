@@ -153,12 +153,74 @@ const std::string& PaxDetails::respRef() const
 
 PaxDetails::PaxType_e PaxDetails::strToType(const std::string& s)
 {
-    if(s == "C") return Child;
+    if(s == "C")      return Child;
     else if(s == "F") return Female;
     else if(s == "M") return Male;
     else if(s == "A") return Adult;
-    else
+    else {
+        LogError(STDLOG) << "Unknown pax type string: " << s;
         return Adult;
+    }
+}
+
+//-----------------------------------------------------------------------------
+
+UpdateDetails::UpdateDetails(UpdateActionCode_e actionCode)
+    : m_actionCode(actionCode)
+{
+}
+
+UpdateDetails::UpdateActionCode_e UpdateDetails::actionCode() const
+{
+    return m_actionCode;
+}
+
+std::string UpdateDetails::actionCodeAsString() const
+{
+    switch(m_actionCode)
+    {
+    case Add:     return "A";
+    case Replace: return "R";
+    case Cancel:  return "C";
+    default:      return "R";
+    }
+}
+
+UpdateDetails::UpdateActionCode_e UpdateDetails::strToActionCode(const std::string& s)
+{
+    if(s == "A")      return Add;
+    else if(s == "R") return Replace;
+    else if(s == "C") return Cancel;
+    else {
+        LogError(STDLOG) << "Unknown update action code string: " << s;
+        return Replace;
+    }
+}
+
+//-----------------------------------------------------------------------------
+
+UpdatePaxDetails::UpdatePaxDetails(UpdateActionCode_e actionCode,
+                                   const std::string& surname,
+                                   const std::string& name,
+                                   const std::string& qryRef)
+    : UpdateDetails(actionCode),
+      m_surname(surname), m_name(name), m_qryRef(qryRef)
+{
+}
+
+const std::string& UpdatePaxDetails::surname() const
+{
+    return m_surname;
+}
+
+const std::string& UpdatePaxDetails::name() const
+{
+    return m_name;
+}
+
+const std::string& UpdatePaxDetails::qryRef() const
+{
+    return m_qryRef;
 }
 
 //-----------------------------------------------------------------------------
@@ -174,8 +236,12 @@ const std::string& ReservationDetails::rbd() const
 
 //-----------------------------------------------------------------------------
 
-SeatDetails::SeatDetails(SmokeIndicator_e smokeInd,
-                         const std::string& seat)
+SeatDetails::SeatDetails(SmokeIndicator_e smokeInd)
+    : m_smokeInd(smokeInd)
+{
+}
+
+SeatDetails::SeatDetails(const std::string& seat, SmokeIndicator_e smokeInd)
     : m_smokeInd(smokeInd), m_seat(seat)
 {}
 
@@ -193,7 +259,8 @@ std::string SeatDetails::smokeIndAsString() const
     case Smoking:       return "S";
     case Indifferent:   return "X";
     case Unknown:       return "U";
-    default:            return "U";
+    case None:          return "";
+    default:            return "";
     }
 }
 
@@ -214,13 +281,25 @@ void SeatDetails::addCharacteristic(const std::string& characteristic)
 
 SeatDetails::SmokeIndicator_e SeatDetails::strToSmokeInd(const std::string& s)
 {
-    if(s == "N") return NonSmoking;
+    if(s == "N")      return NonSmoking;
     else if(s == "P") return PartySeating;
     else if(s == "S") return Smoking;
     else if(s == "X") return Indifferent;
     else if(s == "U") return Unknown;
-    else
+    else if(s == "")  return None;
+    else {
+        LogError(STDLOG) << "Unknown smoke indicator string: " << s;
         return Unknown;
+    }
+}
+
+//-----------------------------------------------------------------------------
+
+UpdateSeatDetails::UpdateSeatDetails(UpdateActionCode_e actionCode,
+                                     const std::string& seat,
+                                     const SmokeIndicator_e smokeInd)
+    : UpdateDetails(actionCode), SeatDetails(seat, smokeInd)
+{
 }
 
 //-----------------------------------------------------------------------------
@@ -229,14 +308,9 @@ FlightSeatDetails::FlightSeatDetails(const std::string& seat,
                                      const std::string& cabinClass,
                                      const std::string& securityId,
                                      SmokeIndicator_e smokeInd)
-    : SeatDetails(smokeInd),
-      m_seat(seat), m_cabinClass(cabinClass), m_securityId(securityId)
+    : SeatDetails(seat, smokeInd),
+      m_cabinClass(cabinClass), m_securityId(securityId)
 {}
-
-const std::string& FlightSeatDetails::seat() const
-{
-    return m_seat;
-}
 
 const std::string& FlightSeatDetails::cabinClass() const
 {
@@ -305,6 +379,14 @@ unsigned BaggageDetails::numOfPieces() const
 unsigned BaggageDetails::weight() const
 {
     return m_weight;
+}
+
+//-----------------------------------------------------------------------------
+
+UpdateBaggageDetails::UpdateBaggageDetails(UpdateActionCode_e actionCode,
+                                           unsigned numOfPieces, unsigned weight)
+    : UpdateDetails(actionCode), BaggageDetails(numOfPieces, weight)
+{
 }
 
 //-----------------------------------------------------------------------------
@@ -507,7 +589,7 @@ boost::optional<ErrorDetails> Result::errorDetails() const
 
 Result::Action_e Result::strToAction(const std::string& a)
 {
-    if(a == "I") return Checkin;
+    if(a == "I")      return Checkin;
     else if(a == "X") return Cancel;
     else if(a == "U") return Update;
     else if(a == "P") return Passlist;
@@ -519,9 +601,10 @@ Result::Action_e Result::strToAction(const std::string& a)
 
 Result::Status_e Result::strToStatus(const std::string& s)
 {
-    if(s == "O") return Ok;
+    if(s == "O")      return Ok;
     else if(s == "P") return OkWithNoData;
     else {
+        LogError(STDLOG) << "Unknown status string: " << s;
         return Failed;
     }
 }
@@ -623,35 +706,29 @@ CkuParams::CkuParams(const OriginatorDetails& origin,
                      const PaxDetails& pax,
                      const FlightDetails& flight,
                      boost::optional<FlightDetails> flightFromPrevHost,
-                     boost::optional<PaxDetails> updPax,
-                     boost::optional<SeatDetails> updSeat,
-                     boost::optional<BaggageDetails> updBaggage,
-                     boost::optional<ReservationDetails> updReserv,
+                     boost::optional<UpdatePaxDetails> updPax,
+                     boost::optional<UpdateSeatDetails> updSeat,
+                     boost::optional<UpdateBaggageDetails> updBaggage,
                      boost::optional<CascadeHostDetails> cascadeDetails)
     : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails),
-      m_updPax(updPax), m_updSeat(updSeat), m_updBaggage(updBaggage), m_updReserv(updReserv)
+      m_updPax(updPax), m_updSeat(updSeat), m_updBaggage(updBaggage)
 {
-    if(!m_updPax && !m_updSeat && !m_updBaggage && !m_updReserv) {
+    if(!m_updPax && !m_updSeat && !m_updBaggage) {
         LogError(STDLOG) << "CkuParams without update information!";
     }
 }
 
-boost::optional<PaxDetails> CkuParams::updPax() const
+boost::optional<UpdatePaxDetails> CkuParams::updPax() const
 {
     return m_updPax;
 }
 
-boost::optional<SeatDetails> CkuParams::updSeat() const
+boost::optional<UpdateSeatDetails> CkuParams::updSeat() const
 {
     return m_updSeat;
 }
 
-boost::optional<ReservationDetails> CkuParams::updReserv() const
-{
-    return m_updReserv;
-}
-
-boost::optional<BaggageDetails> CkuParams::updBaggage() const
+boost::optional<UpdateBaggageDetails> CkuParams::updBaggage() const
 {
     return m_updBaggage;
 }

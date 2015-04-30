@@ -92,25 +92,25 @@ static iatci::CkuParams getDebugCkuParams()
                                 Dates::rrmmdd("150221"),
                                 Dates::rrmmdd("150221"));
 
-    iatci::PaxDetails pax("IVANOV",
-                          "SERGEI",
-                          iatci::PaxDetails::Male,
-                          "UT100");
+    iatci::PaxDetails pax("IVANOV", "SERG", iatci::PaxDetails::Adult);
 
-    iatci::SeatDetails seat(iatci::SeatDetails::NonSmoking);
+    iatci::UpdatePaxDetails updPax(iatci::UpdateDetails::Replace,
+                                   "IVANOV",
+                                   "SERGEI");
 
-    iatci::ReservationDetails reserv("O");
+    iatci::UpdateSeatDetails updSeat(iatci::UpdateDetails::Replace,
+                                     "15B");
 
-    iatci::BaggageDetails baggage(1, 20);
+    iatci::UpdateBaggageDetails baggage(iatci::UpdateDetails::Replace,
+                                        1, 20);
 
     return iatci::CkuParams(origin,
                             pax,
                             flight,
                             boost::none,
-                            boost::none,
-                            seat,
-                            baggage,
-                            reserv);
+                            updPax,
+                            updSeat,
+                            baggage);
 }
 
 static iatci::PlfParams getDebugPlfParams()
