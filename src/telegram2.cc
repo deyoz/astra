@@ -6247,7 +6247,7 @@ struct TSeatPlan {
 void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
-    if(options.seat_plan) {
+    if(options.seat_plan != "0") {
         if(isFreeSeating(info.point_id))
             throw UserException("MSG.SALONS.FREE_SEATING");
         if(isEmptySalons(info.point_id))
@@ -6258,22 +6258,51 @@ void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
 
 void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
-    string buf = "SP";
-    for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
-        for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
-            string seat =
-                "." + denorm_iata_row(is->yname, NULL) +
-                denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
-                "/" + im->second.gender;
-            if(buf.size() + seat.size() > LINE_SIZE) {
-                body.push_back(buf);
-                buf = "SP";
+    const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
+    if(options.seat_plan == "AHM") {
+        string buf = "SP";
+        for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
+            for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
+                string seat =
+                    "." + denorm_iata_row(is->yname, NULL) +
+                    denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
+                    "/" + im->second.gender;
+                if(buf.size() + seat.size() > LINE_SIZE) {
+                    body.push_back(buf);
+                    buf = "SP";
+                }
+                buf += seat;
             }
-            buf += seat;
+        }
+        if(buf != "SP")
+            body.push_back(buf);
+    } else if(options.seat_plan == "WB") {
+        map<int, vector<string> > wb_seats;
+        for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
+            for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
+                string seat =
+                    "." + denorm_iata_row(is->yname, NULL) +
+                    denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
+                    "/" + im->second.gender;
+                wb_seats[is->point_arv].push_back(seat);
+            }
+        }
+        TTripRoute route;
+        route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
+        for(TTripRoute::iterator i = route.begin(); i != route.end(); i++) {
+            map<int, vector<string> >::iterator idx = wb_seats.find(i->point_id);
+            if(idx != wb_seats.end()) {
+                string buf = "-" + info.TlgElemIdToElem(etAirp, i->airp) + ".SP.WB";
+                for(vector<string>::iterator seat_i = idx->second.begin(); seat_i != idx->second.end(); ++seat_i) {
+                    if(buf.size() + seat_i->size() > LINE_SIZE) {
+                        body.push_back(buf);
+                        buf = "-" + info.TlgElemIdToElem(etAirp, i->airp) + ".SP.WB";
+                    }
+                    buf += *seat_i;
+                }
+            }
         }
     }
-    if(buf != "SP")
-        body.push_back(buf);
 }
 
 struct TLCI {

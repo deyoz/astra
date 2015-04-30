@@ -772,12 +772,13 @@ class TLCIOptions : public TCreateOptions
       pas_totals = true;
       bag_totals = true;
       pas_distrib = true;
-      seat_plan = true;
+      seat_plan = "AHM";
     };
   public:
     bool equipment, seating, weight_mode;
     std::string weight_avail, seat_restrict;
-    bool pas_totals, bag_totals, pas_distrib, seat_plan;
+    bool pas_totals, bag_totals, pas_distrib;
+    std::string seat_plan;
     TLCIOptions() {init();};
     virtual ~TLCIOptions() {};
     virtual void clear()
@@ -798,7 +799,7 @@ class TLCIOptions : public TCreateOptions
       pas_totals=NodeAsIntegerFast("pas_totals", node2, (int)pas_totals) != 0;
       bag_totals=NodeAsIntegerFast("bag_totals", node2, (int)bag_totals) != 0;
       pas_distrib=NodeAsIntegerFast("pas_distrib", node2, (int)pas_distrib) != 0;
-      seat_plan=NodeAsIntegerFast("seat_plan", node2, (int)seat_plan) != 0;
+      seat_plan=NodeAsStringFast("seat_plan", node2, seat_plan.c_str());
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -851,7 +852,7 @@ class TLCIOptions : public TCreateOptions
         };
         if (cat=="SEAT_PLAN")
         {
-          seat_plan=OptionsQry.FieldAsInteger("value")!=0;
+          seat_plan=OptionsQry.FieldAsString("value");
           continue;
         };
       };
@@ -891,8 +892,7 @@ class TLCIOptions : public TCreateOptions
                           s.getLocaleText("нет"))
         << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEAT_PLAN") << ": "
-        << (seat_plan ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"));
+        << s.ElemIdToNameShort(etTypeBOptionValue, "LCI+SEAT_PLAN+"+seat_plan);
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
@@ -929,8 +929,7 @@ class TLCIOptions : public TCreateOptions
                           s.getLocaleText("нет"))
         << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEAT_PLAN") << ": "
-        << (seat_plan ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
+        << s.ElemIdToNameShort(etTypeBOptionValue, "LCI+SEAT_PLAN+"+seat_plan)
         << endl;
       return s;
     };

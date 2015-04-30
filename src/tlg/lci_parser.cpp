@@ -7,7 +7,7 @@
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "DEN"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -34,6 +34,7 @@ const char *TReqTypeS[] =
     "BT",
     "SR",
     "WM",
+    "WB",
     ""
 };
 
@@ -58,6 +59,7 @@ const char *TDestInfoTypeS[] =
     "C",
     "G",
     "J",
+    "WB",
     ""
 };
 
@@ -81,6 +83,7 @@ const char *TDestInfoKeyS[] =
     "PT",
     "BT",
     "H",
+    "SP",
     ""
 };
 
@@ -1080,12 +1083,16 @@ void TDest::parse(const char *val)
     if(key == dkUnknown)
         throw ETlgError("Unknown TDest key %s", items[1].c_str());
     string id = "Dest[" + airp + "][" + EncodeDestInfoKey(key) + "]";
-    if(find_item(airp, key))
-        throw ETlgError("%s already exists", id.c_str());
+    TDestInfoType dst_type = DecodeDestInfoType(items[2]);
+    if(dst_type != dtWB) {
+        if(find_item(airp, key))
+            throw ETlgError("%s already exists", id.c_str());
+    }
 
     enum TState {
         sStart,
         sType,
+        sWBSeat,
         sParseType,
         sParseJ,
         sEnd
@@ -1096,6 +1103,9 @@ void TDest::parse(const char *val)
     TDestInfoType type = dtUnknown;
     for(vector<string>::iterator iv = items.begin() + 2; iv != items.end(); iv++) {
         switch(s) {
+            case sWBSeat:
+                // nothing to do for now
+                break;
             case sStart:
                 {
                     type = DecodeDestInfoType(*iv);
@@ -1130,19 +1140,24 @@ void TDest::parse(const char *val)
                 switch(type) {
                     case dtA:
                         dest_info.actual_total.parse(*iv);
+                        s = sType;
                     case dtC:
                         dest_info.cls_total.parse(*iv);
+                        s = sType;
                         break;
                     case dtG:
                         dest_info.gender_total.parse(*iv);
+                        s = sType;
                         break;
                     case dtJ:
                         s = sParseJ;
                         break;
+                    case dtWB:
+                        s = sWBSeat;
+                        break;
                     case dtUnknown:
                         throw ETlgError("unknown type");
                 }
-                s = sType;
                 break;
             case sParseJ:
                 dest_info.j = ToInt(*iv);
@@ -1166,6 +1181,18 @@ void TRequest::parse(const char *val)
     if(req_info.req_type == rtUnknown)
         throw ETlgError("Unknown request type '%s'", buf.c_str());
     switch(req_info.req_type) {
+        case rtWB:
+            {
+                vector<string> items = split(val, '.');
+                if(items[1] != "LANG") throw ETlgError("Unknown lexeme: '%s'", items[1].c_str());
+                if(
+                        items[2] != AstraLocale::LANG_RU and
+                        items[2] != AstraLocale::LANG_EN
+                  )
+                    throw ETlgError("Unknown LANG '%s'", items[2].c_str());
+                req_info.lang = items[2];
+                break;
+            }
         case rtSR:
             buf = string(val).substr(3);
             req_info.sr.parse(buf.c_str());
@@ -1173,6 +1200,17 @@ void TRequest::parse(const char *val)
         case rtWM:
             req_info.wm_type = DecodeWMType(string(val).substr(6));
             break;
+        case rtSP:
+            {
+                buf = string(val).substr(5); // get ".WB"
+                if(buf.empty())
+                    req_info.sp_type = spStd;
+                else if(buf == ".WB")
+                    req_info.sp_type = spWB;
+                else
+                    throw ETlgError("Unknown Seat Plan type '%s'", buf.c_str());
+                break;
+            }
         default:
             break;
     }
@@ -1293,7 +1331,7 @@ void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con)
     options.pas_totals = false;
     options.bag_totals = false;
     options.pas_distrib = false;
-    options.seat_plan = false;
+    options.seat_plan = "0";
 
     if(con.action_code.action == aRequest) {
 
@@ -1310,7 +1348,13 @@ void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con)
                     SALONS2::resetLayers( point_id_spp, cltProtect, seatRanges, "EVT.LAYOUT_MODIFIED_LCI.SEAT_PLAN" );
                     break;
                 case rtSP:
-                    options.seat_plan = true;
+                    if(i->second.sp_type == spWB)
+                        options.seat_plan = "WB";
+                    else
+                        options.seat_plan = "AHM";
+                    break;
+                case rtWB:
+                    options.is_lat = i->second.lang == AstraLocale::LANG_EN;
                     break;
                 case rtBT:
                     options.bag_totals = true;
@@ -1326,7 +1370,7 @@ void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con)
         createInfo.set_addrs(info.sender);
         TelegramInterface::SendTlg(vector<TCreateInfo>(1, createInfo), tlg_id);
     } else if(con.action_code.action == aOpen) {
-        options.seat_plan = true;
+        options.seat_plan = "AHM";
         createInfo.point_id = point_id_spp;
         createInfo.set_addrs(info.sender);
         TelegramInterface::SendTlg(vector<TCreateInfo>(1, createInfo));

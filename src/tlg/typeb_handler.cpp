@@ -1030,58 +1030,67 @@ void get_tlg_info(
     TypeB::TFlightsForBind bind_flts;
     TMemoryManager mem(STDLOG);
 
-    GetParts(tlg_text.c_str(), parts, HeadingInfo, bind_flts, mem);
-    TypeB::TTlgPartInfo part;
-    part.p = parts.heading.c_str();
-    part.EOL_count = TypeB::CalcEOLCount(parts.addr.c_str());
-    part.offset = parts.addr.size();
-    ParseHeading(part, HeadingInfo, bind_flts, mem);
-
-    tlg_type = HeadingInfo->tlg_type;
-
-    part.p=parts.body.c_str();
-    part.EOL_count=CalcEOLCount(parts.addr.c_str())+
-        CalcEOLCount(parts.heading.c_str());
-    part.offset=parts.addr.size()+
-        parts.heading.size();
-
-    switch (HeadingInfo->tlg_cat)
+    try
     {
-        case tcLCI:
-            {
-                TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
-                airline = info.flt_info.flt.airline.c_str();
-                airp = info.flt_info.airp;
-                break;
-            }
-        case tcAHM:
-            {
-                TAHMHeadingInfo &info = *(dynamic_cast<TAHMHeadingInfo*>(HeadingInfo));
-                TFltInfo flt;
-                TBindType bind_type;
-                ParseAHMFltInfo(part,info,flt,bind_type);
-                vector<int> spp_point_ids;
-                TTlgBinding(false).bind_flt(flt,bind_type,spp_point_ids);
-                set<int> s(spp_point_ids.begin(), spp_point_ids.end()); // remove duplicates
-                if(s.size() == 1) {
-                    TCachedQuery Qry("select airp from points where point_id = :id",
-                            QParams() << QParam("id", otInteger, *s.begin()));
-                    Qry.get().Execute();
-                    if(not Qry.get().Eof) {
-                        airline = flt.airline;
-                        airp = Qry.get().FieldAsString("airp");
-                    }
-                }
-                break;
-            }
-        default:
-            ;
-    }
+        GetParts(tlg_text.c_str(), parts, HeadingInfo, bind_flts, mem);
+        TypeB::TTlgPartInfo part;
+        part.p = parts.heading.c_str();
+        part.EOL_count = TypeB::CalcEOLCount(parts.addr.c_str());
+        part.offset = parts.addr.size();
+        ParseHeading(part, HeadingInfo, bind_flts, mem);
 
-    if (HeadingInfo != NULL)
+        tlg_type = HeadingInfo->tlg_type;
+
+        part.p=parts.body.c_str();
+        part.EOL_count=CalcEOLCount(parts.addr.c_str())+
+            CalcEOLCount(parts.heading.c_str());
+        part.offset=parts.addr.size()+
+            parts.heading.size();
+
+        switch (HeadingInfo->tlg_cat)
+        {
+            case tcLCI:
+                {
+                    TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
+                    airline = info.flt_info.flt.airline.c_str();
+                    airp = info.flt_info.airp;
+                    break;
+                }
+            case tcAHM:
+                {
+                    TAHMHeadingInfo &info = *(dynamic_cast<TAHMHeadingInfo*>(HeadingInfo));
+                    TFltInfo flt;
+                    TBindType bind_type;
+                    ParseAHMFltInfo(part,info,flt,bind_type);
+                    vector<int> spp_point_ids;
+                    TTlgBinding(false).bind_flt(flt,bind_type,spp_point_ids);
+                    set<int> s(spp_point_ids.begin(), spp_point_ids.end()); // remove duplicates
+                    if(s.size() == 1) {
+                        TCachedQuery Qry("select airp from points where point_id = :id",
+                                QParams() << QParam("id", otInteger, *s.begin()));
+                        Qry.get().Execute();
+                        if(not Qry.get().Eof) {
+                            airline = flt.airline;
+                            airp = Qry.get().FieldAsString("airp");
+                        }
+                    }
+                    break;
+                }
+            default:
+                ;
+        }
+
+        if (HeadingInfo != NULL)
+        {
+            mem.destroy(HeadingInfo, STDLOG);
+            delete HeadingInfo;
+            HeadingInfo = NULL;
+        };
+    }
+    catch(...)
     {
         mem.destroy(HeadingInfo, STDLOG);
-        delete HeadingInfo;
-        HeadingInfo = NULL;
+        if (HeadingInfo!=NULL) delete HeadingInfo;
+        throw;
     };
 }
