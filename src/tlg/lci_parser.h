@@ -273,6 +273,7 @@ enum TDestInfoKey {
     dkPT,
     dkBT,
     dkH,
+    dkSP,
     dkUnknown
 };
 
@@ -281,6 +282,7 @@ enum TReqType {
     rtBT,
     rtSR,
     rtWM,
+    rtWB,
     rtUnknown
 };
 
@@ -289,6 +291,7 @@ enum TDestInfoType {
     dtC,
     dtG,
     dtJ,
+    dtWB,
     dtUnknown
 };
 
@@ -338,10 +341,18 @@ struct TDest:public std::map<std::string, TDestInfoMap> {
     void dump();
 };
 
+enum TSPType {
+    spStd,      // Поле SP соотв. стандарту AHM
+    spWB,       // SP по просьбе WB-гарантии
+    spUnknown
+};
+
 struct TLCIReqInfo {
     TReqType req_type;
+    std::string lang;
     TSR sr;             // filled if SR type
     TWMType wm_type;    // filled if WM type;
+    TSPType sp_type;
 };
 
 struct TRequest:public std::map<TReqType, TLCIReqInfo> {
