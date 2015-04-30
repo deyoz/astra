@@ -6277,7 +6277,7 @@ void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
         if(buf != "SP")
             body.push_back(buf);
     } else if(options.seat_plan == "WB") {
-        map<int, vector<string>> wb_seats;
+        map<int, vector<string> > wb_seats;
         for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
             for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
                 string seat =
@@ -6290,7 +6290,7 @@ void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
         TTripRoute route;
         route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
         for(TTripRoute::iterator i = route.begin(); i != route.end(); i++) {
-            map<int, vector<string>>::iterator idx = wb_seats.find(i->point_id);
+            map<int, vector<string> >::iterator idx = wb_seats.find(i->point_id);
             if(idx != wb_seats.end()) {
                 string buf = "-" + info.TlgElemIdToElem(etAirp, i->airp) + ".SP.WB";
                 for(vector<string>::iterator seat_i = idx->second.begin(); seat_i != idx->second.end(); ++seat_i) {
