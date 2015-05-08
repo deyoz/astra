@@ -7800,6 +7800,24 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
 void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    {
+        ProgTrace(TRACE5, "%s", GetXMLDocText(reqNode->doc).c_str());
+        xmlNodePtr curNode = reqNode->children;
+        curNode = NodeAsNodeFast("content", curNode);
+        int typeb_in_id = NoExists;
+        int typeb_out_id = NoExists;
+        if(curNode) {
+            LogTrace(TRACE5) << "currNode->name: " << curNode->name;
+            curNode = curNode->children;
+            typeb_in_id = NodeAsIntegerFast("typeb_in_id", curNode);
+            typeb_out_id = NodeAsIntegerFast("typeb_out_id", curNode);
+        } else
+            throw Exception("node content not found");
+        return;
+    }
+
+    xmlNodePtr curNode = reqNode->children;
+    curNode = NodeAsNodeFast("content", curNode);
     int tlg_id =  NodeAsInteger("content", reqNode);
     string res;
     if(tlg_id == ASTRA::NoExists)
