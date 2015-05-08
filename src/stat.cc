@@ -5073,6 +5073,7 @@ const map<string, string> ST_to_Astra = boost::assign::map_list_of
 ("Short",       "Общая")
 ("Detail",      "Детализированная")
 ("Full",        "Подробная")
+("Total",       "Итого")
 ("Transfer",    "Трансфер")
 ("Pact",        "Договор")
 ("SelfCkin",    "Саморегистрация")
@@ -5103,6 +5104,8 @@ void StatInterface::stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
         throw Exception("wrong param format");
     convertStatParam(statModeNode);
     convertStatParam(statTypeNode);
+    // Чтобы не падал тип сводки 'Саморегистрация'
+    TReqInfo::Instance()->desk.version = SELF_CKIN_STAT_VERSION;
     RunStat(ctxt, curNode, resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); // !!!
 }
