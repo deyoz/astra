@@ -134,8 +134,10 @@ class TPaxDocItem
     long int getEqualAttrsFieldsMask(const TPaxDocItem &item) const;
 };
 
+const std::string DOCO_PSEUDO_TYPE="-";
+
 class TPaxDocoItem
-{
+{  
   public:
     std::string birth_place;
     std::string type;
@@ -145,6 +147,7 @@ class TPaxDocoItem
     BASIC::TDateTime expiry_date;
     std::string applic_country;
     long int scanned_attrs;
+    bool doco_confirm;
     TPaxDocoItem()
     {
       clear();
@@ -159,6 +162,7 @@ class TPaxDocoItem
       expiry_date=ASTRA::NoExists;
       applic_country.clear();
       scanned_attrs=NO_FIELDS;
+      doco_confirm=false;
     };
     bool empty() const
     {
@@ -189,6 +193,8 @@ class TPaxDocoItem
     TPaxDocoItem& fromXML(xmlNodePtr node);
     const TPaxDocoItem& toDB(TQuery &Qry) const;
     TPaxDocoItem& fromDB(TQuery &Qry);
+
+    bool needPseudoType() const;
     
     long int getNotEmptyFieldsMask() const;
     long int getEqualAttrsFieldsMask(const TPaxDocoItem &item) const;
@@ -271,7 +277,7 @@ class TPaxItem
     bool TknExists;
     bool DocExists;
     bool DocoExists;
-    bool DocaExists;
+    bool DocaExists;    
     TPaxItem()
     {
       clear();
@@ -301,7 +307,7 @@ class TPaxItem
       TknExists=false;
       DocExists=false;
       DocoExists=false;
-      DocaExists=false;
+      DocaExists=false;      
     };
 
     const TPaxItem& toXML(xmlNodePtr node) const;
