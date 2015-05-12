@@ -237,7 +237,7 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   if (node==NULL) return *this;
   xmlNodePtr node2=node->children;
   if (node2==NULL) return *this;
-  
+
   type=NodeAsStringFast("type",node2,"");
   issue_country=PaxDocCountryFromTerm(NodeAsStringFast("issue_country",node2,""));
   no=NodeAsStringFast("no",node2,"");
@@ -309,7 +309,7 @@ TPaxDocItem& TPaxDocItem::fromDB(TQuery &Qry)
 long int TPaxDocItem::getNotEmptyFieldsMask() const
 {
   long int result=NO_FIELDS;
-  
+
   if (!type.empty())                result|=DOC_TYPE_FIELD;
   if (!issue_country.empty())       result|=DOC_ISSUE_COUNTRY_FIELD;
   if (!no.empty())                  result|=DOC_NO_FIELD;
@@ -340,12 +340,22 @@ long int TPaxDocItem::getEqualAttrsFieldsMask(const TPaxDocItem &item) const
   return result;
 };
 
+bool TPaxDocoItem::needPseudoType() const
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  return (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_CONFIRM_VERSION) &&
+          doco_confirm && getNotEmptyFieldsMask()==NO_FIELDS);
+}
+
 const TPaxDocoItem& TPaxDocoItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
   xmlNodePtr docNode=NewTextChild(node,"doco");
   NewTextChild(docNode, "birth_place", birth_place, "");
-  NewTextChild(docNode, "type", type, "");
+  if (needPseudoType())
+    NewTextChild(docNode, "type", DOCO_PSEUDO_TYPE, "");
+  else
+    NewTextChild(docNode, "type", type, "");
   NewTextChild(docNode, "no", no, "");
   NewTextChild(docNode, "issue_place", issue_place, "");
   if (issue_date!=ASTRA::NoExists)
@@ -360,6 +370,9 @@ const TPaxDocoItem& TPaxDocoItem::toXML(xmlNodePtr node) const
 TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
 {
   clear();
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (!(reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_CONFIRM_VERSION)))
+    doco_confirm=true;
   if (node==NULL) return *this;
   xmlNodePtr node2=node->children;
   if (node2==NULL) return *this;
@@ -374,6 +387,15 @@ TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
     expiry_date=WebSearch::date_fromXML(NodeAsStringFast("expiry_date",node2,""));
   applic_country=PaxDocCountryFromTerm(NodeAsStringFast("applic_country",node2,""));
   scanned_attrs=NodeAsIntegerFast("scanned_attrs",node2,NO_FIELDS);
+  if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_CONFIRM_VERSION))
+  {
+    if (type==DOCO_PSEUDO_TYPE && getNotEmptyFieldsMask()==DOCO_TYPE_FIELD)
+      doco_confirm=true;
+    else
+      doco_confirm=(getNotEmptyFieldsMask()!=NO_FIELDS);
+    if (type==DOCO_PSEUDO_TYPE) type.clear();
+  }
+  else doco_confirm=true;
   return *this;
 };
 
@@ -586,7 +608,7 @@ std::string GetPaxDocStr(TDateTime part_key,
                          const string &lang)
 {
   ostringstream result;
-  
+
   TPaxDocItem doc;
   if (LoadPaxDoc(part_key, pax_id, doc) && !doc.no.empty())
   {
@@ -645,21 +667,24 @@ bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc)
 bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc)
 {
   doc.clear();
-  const char* sql=
-    "SELECT * FROM pax_doco WHERE pax_id=:pax_id";
-  const char* sql_arx=
-    "SELECT * FROM arx_pax_doco WHERE part_key=:part_key AND pax_id=:pax_id";
-  const char *sql_result = NULL;
   QParams QryParams;
   if (part_key!=ASTRA::NoExists)
-  {
-      QryParams << QParam("part_key", otDate, part_key);
-      sql_result = sql_arx;
-  }
-  else
-      sql_result = sql;
+    QryParams << QParam("part_key", otDate, part_key);
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxDocQry(sql_result, QryParams);
+  TCachedQuery PaxQry(part_key!=ASTRA::NoExists?
+                      "SELECT doco_confirm FROM arx_pax WHERE part_key=:part_key AND pax_id=:pax_id":
+                      "SELECT doco_confirm FROM pax WHERE pax_id=:pax_id",
+                      QryParams);
+  doc.doco_confirm=false;
+  PaxQry.get().Execute();
+  if (!PaxQry.get().Eof)
+    doc.doco_confirm=PaxQry.get().FieldIsNULL("doco_confirm") ||
+                 PaxQry.get().FieldAsInteger("doco_confirm")!=0;
+
+  TCachedQuery PaxDocQry(part_key!=ASTRA::NoExists?
+                         "SELECT * FROM arx_pax_doco WHERE part_key=:part_key AND pax_id=:pax_id":
+                         "SELECT * FROM pax_doco WHERE pax_id=:pax_id",
+                         QryParams);
   PaxDocQry.get().Execute();
   if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   return !doc.empty();
@@ -846,6 +871,11 @@ void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry)
   PaxDocQry.SetVariable("pax_id",pax_id);
   PaxDocQry.SetVariable("only_delete",(int)doc.empty());
   PaxDocQry.Execute();
+
+  TCachedQuery PaxQry("UPDATE pax SET doco_confirm=:doco_confirm WHERE pax_id=:pax_id",
+                      QParams() << QParam("pax_id", otInteger, pax_id)
+                                << QParam("doco_confirm", otInteger, (int)doc.doco_confirm));
+  PaxQry.get().Execute();
 };
 
 void SavePaxDoca(int pax_id, const list<TPaxDocaItem> &doca, TQuery& PaxDocaQry, bool new_checkin)
@@ -981,7 +1011,7 @@ void LoadNorms(xmlNodePtr node, bool pr_unaccomp)
     int grp_id=NodeAsIntegerFast("grp_id",node2);
     LoadGrpNorms(grp_id, norms);
   };
-  
+
   xmlNodePtr normsNode=NewTextChild(node,"norms");
   vector< pair<TPaxNormItem, TNormItem> >::const_iterator i=norms.begin();
   for(;i!=norms.end();++i)
@@ -1067,7 +1097,7 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
   if (reqInfo->desk.compatible(DOCS_VERSION))
   {
     if (DocExists) doc.toXML(paxNode);
-    if (DocoExists) doco.toXML(paxNode);
+    if (DocoExists || doco.needPseudoType()) doco.toXML(paxNode);
   }
   else
   {
@@ -1160,9 +1190,9 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
     {
       //киоски и веб
       xmlNodePtr docNode=GetNodeFast("document",node2);
-      if (docNode!=NULL) doc.fromXML(docNode);
+      doc.fromXML(docNode);
       xmlNodePtr docoNode=GetNodeFast("doco",node2);
-      if (docoNode!=NULL) doco.fromXML(docoNode);
+      doco.fromXML(docoNode);
       xmlNodePtr docaNode=GetNodeFast("addresses",node2);
       if (docaNode!=NULL)
       {

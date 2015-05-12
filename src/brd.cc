@@ -655,7 +655,7 @@ void GetAPISAlarms(bool isCBBG,
       alarms.insert(APIS::atIncomplete);
     else
     {
-      if (apis.doco.getNotEmptyFieldsMask()!=NO_FIELDS && //пришла непустая информация о визе
+      if (!(apis.doco.getNotEmptyFieldsMask()==NO_FIELDS && apis.doco.doco_confirm) && //пришла непустая информация о визе
           (apis.doco.getNotEmptyFieldsMask() & check_info.doco.required_fields)!=check_info.doco.required_fields)
         alarms.insert(APIS::atIncomplete);
       else

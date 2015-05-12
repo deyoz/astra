@@ -4038,9 +4038,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             {
               if (pax.refuse.empty() && pax.name!="CBBG")
               {
-                if (pax.doco.getNotEmptyFieldsMask()!=NO_FIELDS && //пришла непустая информация о визе
-                    (pax.doco.getNotEmptyFieldsMask()&checkDocInfo.doco.required_fields)!=checkDocInfo.doco.required_fields)
-                  throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCO_INFO_NOT_SET"); //WEB
+                if (!(pax.doco.getNotEmptyFieldsMask()==NO_FIELDS && pax.doco.doco_confirm)) //пришла непустая информация о визе
+                {
+                  NormalizeDoco(pax.doco);
+                  CheckDoco(pax.doco, checkDocInfo.doco, UTCToLocal(NowUTC(),AirpTZRegion(fltInfo.airp)));
+
+                  if ((pax.doco.getNotEmptyFieldsMask()&checkDocInfo.doco.required_fields)!=checkDocInfo.doco.required_fields)
+                    throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCO_INFO_NOT_SET"); //WEB
+                };
               };
             };
 
@@ -4662,10 +4667,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
             "  END IF; "
             "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,is_female,seat_type,seats,pr_brd, "
-            "                  wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm, "
+            "                  wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm, "
             "                  pr_exam,subclass,bag_pool_num,tid) "
             "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:is_female,:seat_type,:seats,:pr_brd, "
-            "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm, "
+            "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm,0, "
             "         :pr_exam,:subclass,:bag_pool_num,cycle_tid__seq.currval); "
             "END;";
           Qry.DeclareVariable("pax_id",otInteger);
@@ -6829,9 +6834,9 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
       }
       else
       {
-        checkDocInfo.pass.doc.toXML(NewTextChild( itemNode, "check_doc_info" ));
-        checkDocInfo.pass.doco.toXML(NewTextChild( itemNode, "check_doco_info" ));
-        checkTknInfo.pass.tkn.toXML(NewTextChild( itemNode, "check_tkn_info" ));
+        checkDocInfo.pass.doc.toXML(NewTextChild( itemNode, "check_doc_info" ), ciDoc);
+        checkDocInfo.pass.doco.toXML(NewTextChild( itemNode, "check_doco_info" ), ciDoco);
+        checkTknInfo.pass.tkn.toXML(NewTextChild( itemNode, "check_tkn_info" ), ciTkn);
       };
       airps.push_back(airpsRow.code);
     }
