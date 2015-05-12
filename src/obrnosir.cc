@@ -24,6 +24,7 @@
 #include "serverlib/ocilocal.h"
 #include "serverlib/testmode.h"
 #include "edilib/edi_loading.h"
+#include "app_interaction.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -81,7 +82,8 @@ const
     {"-dst_points",             points_dst_format,      NULL,                       NULL},
     {"-fill_counters_by_subcls",fill_counters_by_subcls,NULL,                       NULL},
     {"-check_counters_by_subcls",check_counters_by_subcls,NULL,                     NULL},
-    {"-convert_codeshare",      convert_codeshare,      NULL,                       NULL}
+    {"-convert_codeshare",      convert_codeshare,      NULL,                       NULL},
+    {"-test_app_interaction",   test_app_interaction,   NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
