@@ -79,7 +79,16 @@ Result cancelCheckin(const CkxParams& ckxParams)
 {
     // TODO вызов функций Астры
     return Result::makeCancelResult(Result::OkWithNoData,
-                                    ckxParams.flight());
+                                    ckxParams.flight(),
+                                    ckxParams.pax());
+}
+
+Result updateCheckin(const CkuParams& ckuParams)
+{
+    // TODO вызов функций Астры
+    return Result::makeUpdateResult(Result::Ok,
+                                    ckuParams.flight(),
+                                    ckuParams.pax());
 }
 
 Result fillPasslist(const PlfParams& plfParams)

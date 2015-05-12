@@ -723,7 +723,7 @@ boost::optional<PbdElem> readEdiPbd(_EDI_REAL_MES_STRUCT_ *pMes)
     return pbd;
 }
 
-boost::optional<edifact::FdrElem> readEdiFdr(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<FdrElem> readEdiFdr(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder fdr_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "FDR")) {
@@ -762,7 +762,7 @@ boost::optional<edifact::FdrElem> readEdiFdr(_EDI_REAL_MES_STRUCT_ *pMes)
     return fdr;
 }
 
-boost::optional<edifact::RadElem> readEdiRad(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<RadElem> readEdiRad(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder rad_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "RAD")) {
@@ -778,7 +778,7 @@ boost::optional<edifact::RadElem> readEdiRad(_EDI_REAL_MES_STRUCT_ *pMes)
     return rad;
 }
 
-boost::optional<edifact::PfdElem> readEdiPfd(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<PfdElem> readEdiPfd(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder pfd_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "PFD")) {
@@ -796,7 +796,7 @@ boost::optional<edifact::PfdElem> readEdiPfd(_EDI_REAL_MES_STRUCT_ *pMes)
     return pfd;
 }
 
-boost::optional<edifact::ChdElem> readEdiChd(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<ChdElem> readEdiChd(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder pfd_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "CHD")) {
@@ -826,7 +826,7 @@ boost::optional<edifact::ChdElem> readEdiChd(_EDI_REAL_MES_STRUCT_ *pMes)
     return chd;
 }
 
-boost::optional<edifact::FsdElem> readEdiFsd(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<FsdElem> readEdiFsd(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder fsd_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "FSD")) {
@@ -851,7 +851,7 @@ boost::optional<edifact::FsdElem> readEdiFsd(_EDI_REAL_MES_STRUCT_ *pMes)
     return fsd;
 }
 
-boost::optional<edifact::ErdElem> readEdiErd(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<ErdElem> readEdiErd(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder erd_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "ERD")) {
@@ -868,7 +868,7 @@ boost::optional<edifact::ErdElem> readEdiErd(_EDI_REAL_MES_STRUCT_ *pMes)
     return erd;
 }
 
-boost::optional<edifact::SpdElem> readEdiSpd(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<SpdElem> readEdiSpd(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder spd_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "SPD")) {
@@ -889,6 +889,60 @@ boost::optional<edifact::SpdElem> readEdiSpd(_EDI_REAL_MES_STRUCT_ *pMes)
     LogTrace(TRACE3) << spd;
 
     return spd;
+}
+
+boost::optional<UpdElem> readEdiUpd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder upd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "UPD")) {
+        return boost::optional<UpdElem>();
+    }
+
+    UpdElem upd;
+    upd.m_actionCode = GetDBFName(pMes, DataElement(9858), CompElement());
+    upd.m_surname = GetDBFName(pMes, DataElement(3808), CompElement());
+    upd.m_name = GetDBFName(pMes, DataElement(3809), CompElement());
+    upd.m_passQryRef = GetDBFName(pMes, DataElement(9821), CompElement("C690"));
+
+    LogTrace(TRACE3) << upd;
+
+    return upd;
+}
+
+boost::optional<UsdElem> readEdiUsd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder usd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "USD")) {
+        return boost::optional<UsdElem>();
+    }
+
+    UsdElem usd;
+    usd.m_actionCode = GetDBFName(pMes, DataElement(9858), CompElement("C034"));
+    usd.m_seat = GetDBFName(pMes, DataElement(9809), CompElement());
+    usd.m_noSmokingInd = GetDBFName(pMes, DataElement(9807), CompElement("C024"));
+
+    LogTrace(TRACE3) << usd;
+
+    return usd;
+}
+
+boost::optional<UbdElem> readEdiUbd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder ubd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "UBD")) {
+        return boost::optional<UbdElem>();
+    }
+
+    UbdElem ubd;
+    ubd.m_actionCode = GetDBFName(pMes, DataElement(9858), CompElement("C035"));
+    ubd.m_numOfPieces = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
+                                                 DataElement(6806), "", CompElement("C035"));
+    ubd.m_weight = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
+                                            DataElement(6803), "", CompElement("C035"));
+
+    LogTrace(TRACE3) << ubd;
+
+    return ubd;
 }
 
 } // namespace TickReader

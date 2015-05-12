@@ -192,7 +192,11 @@ UpdateDetails::UpdateActionCode_e UpdateDetails::strToActionCode(const std::stri
     else if(s == "R") return Replace;
     else if(s == "C") return Cancel;
     else {
-        LogError(STDLOG) << "Unknown update action code string: " << s;
+        if(!s.empty()) {
+            LogError(STDLOG) << "Unknown update action code string: " << s;
+        } else {
+            LogTrace(TRACE0) << "Empty update action code string!";
+        }
         return Replace;
     }
 }
@@ -477,7 +481,7 @@ Result Result::makeResult(Action_e action,
 
 Result Result::makeCheckinResult(Status_e status,
                                  const FlightDetails& flight,
-                                 boost::optional<PaxDetails> pax,
+                                 const PaxDetails& pax,
                                  boost::optional<FlightSeatDetails> seat,
                                  boost::optional<CascadeHostDetails> cascadeDetails,
                                  boost::optional<ErrorDetails> errorDetails)
@@ -493,7 +497,7 @@ Result Result::makeCheckinResult(Status_e status,
 
 Result Result::makeUpdateResult(Status_e status,
                                 const FlightDetails& flight,
-                                boost::optional<PaxDetails> pax,
+                                const PaxDetails& pax,
                                 boost::optional<FlightSeatDetails> seat,
                                 boost::optional<CascadeHostDetails> cascadeDetails,
                                 boost::optional<ErrorDetails> errorDetails)
@@ -509,7 +513,7 @@ Result Result::makeUpdateResult(Status_e status,
 
 Result Result::makeCancelResult(Status_e status,
                                 const FlightDetails& flight,
-                                boost::optional<PaxDetails> pax,
+                                const PaxDetails& pax,
                                 boost::optional<FlightSeatDetails> seat,
                                 boost::optional<CascadeHostDetails> cascadeDetails,
                                 boost::optional<ErrorDetails> errorDetails)
@@ -525,7 +529,7 @@ Result Result::makeCancelResult(Status_e status,
 
 Result Result::makePasslistResult(Status_e status,
                                   const FlightDetails& flight,
-                                  boost::optional<PaxDetails> pax,
+                                  const PaxDetails& pax,
                                   boost::optional<FlightSeatDetails> seat,
                                   boost::optional<CascadeHostDetails> cascadeDetails,
                                   boost::optional<ErrorDetails> errorDetails)

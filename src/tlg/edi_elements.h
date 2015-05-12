@@ -756,6 +756,41 @@ struct SpdElem
 
 //-----------------------------------------------------------------------------
 
+///@class UpdElem - Update personal details
+struct UpdElem
+{
+    std::string m_actionCode;
+    std::string m_surname;
+    std::string m_name;
+    std::string m_passQryRef;
+};
+
+//-----------------------------------------------------------------------------
+
+///@class UsdElem - Update seat request details
+struct UsdElem
+{
+    std::string m_actionCode;
+    std::string m_seat;
+    std::string m_noSmokingInd;
+};
+
+//-----------------------------------------------------------------------------
+
+///@class UbdElem - Update baggage details
+struct UbdElem
+{
+    std::string m_actionCode;
+    unsigned    m_numOfPieces;
+    unsigned    m_weight;
+
+    UbdElem()
+        : m_numOfPieces(0), m_weight(0)
+    {}
+};
+
+//-----------------------------------------------------------------------------
+
 std::ostream& operator<<(std::ostream &os, const LorElem &lor);
 std::ostream& operator<<(std::ostream &os, const FdqElem &fdq);
 std::ostream& operator<<(std::ostream &os, const PpdElem &ppd);
@@ -769,6 +804,9 @@ std::ostream& operator<<(std::ostream &os, const ChdElem &chd);
 std::ostream& operator<<(std::ostream &os, const FsdElem &fsd);
 std::ostream& operator<<(std::ostream &os, const ErdElem &erd);
 std::ostream& operator<<(std::ostream &os, const SpdElem &spd);
+std::ostream& operator<<(std::ostream &os, const UpdElem &upd);
+std::ostream& operator<<(std::ostream &os, const UsdElem &usd);
+std::ostream& operator<<(std::ostream &os, const UbdElem &ubd);
 
 }//namespace edifact
 

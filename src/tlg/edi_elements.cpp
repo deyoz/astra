@@ -248,4 +248,32 @@ std::ostream& operator<<(std::ostream &os, const SpdElem &spd)
     return os;
 }
 
+std::ostream& operator<<(std::ostream &os, const UpdElem &upd)
+{
+    os << "UPD: ";
+    os << "action code: " << upd.m_actionCode << "; ";
+    os << "surname: " << upd.m_surname << "; ";
+    os << "name: " << upd.m_name << "; ";
+    os << "qry ref: " << upd.m_passQryRef;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const UsdElem &usd)
+{
+    os << "USD: ";
+    os << "action code: " << usd.m_actionCode << "; ";
+    os << "seat: " << usd.m_seat << "; ";
+    os << "nosmoking: " << usd.m_noSmokingInd;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const UbdElem &ubd)
+{
+    os << "UBD: ";
+    os << "action code: " << ubd.m_actionCode << "; ";
+    os << "num of pieces: " << ubd.m_numOfPieces << "; ";
+    os << "weight: " << ubd.m_weight;
+    return os;
+}
+
 }//namespace edifact

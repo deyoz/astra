@@ -11,6 +11,7 @@ namespace iatci
 
 Result checkinPax(const CkiParams& ckiParams);
 Result cancelCheckin(const CkxParams& ckxParams);
+Result updateCheckin(const CkuParams& ckuParams);
 Result fillPasslist(const PlfParams& plfParams);
 boost::optional<FlightDetails> findCascadeFlight(const FlightDetails& flight);
 
