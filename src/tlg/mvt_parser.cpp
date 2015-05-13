@@ -97,20 +97,22 @@ namespace TypeB
     }
 
     void SaveMVTContent(int tlg_id, TAHMHeadingInfo& info, TMVTContent& con) {
-        tst();
         int point_id_tlg=SaveFlt(tlg_id,info.flt,info.bind_type);
-        tst();
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-          "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id";
-        Qry.CreateVariable("point_id", otInteger, point_id_tlg);
-        Qry.Execute();
-        if ( Qry.Eof ) {
-          throw EXCEPTIONS::Exception( "Flight not found, point_id_tlg=%d", point_id_tlg );
+        TTripInfo t;
+        t.airline = info.flt.airline;
+        t.flt_no = info.flt.flt_no;
+        t.airp = info.flt.airp_dep;
+        if(GetTripSets(tsSetDepTimeByMVT, t)) {
+            TQuery Qry(&OraSession);
+            Qry.SQLText =
+                "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id";
+            Qry.CreateVariable("point_id", otInteger, point_id_tlg);
+            Qry.Execute();
+            if ( Qry.Eof ) {
+                throw EXCEPTIONS::Exception( "Flight not found, point_id_tlg=%d", point_id_tlg );
+            }
+            int point_id_spp = Qry.FieldAsInteger( "point_id_spp" );
+            SetFlightFact(point_id_spp, con.ad.airborne_time);  //UTC???s
         }
-        tst();
-        int point_id_spp = Qry.FieldAsInteger( "point_id_spp" );
-        SetFlightFact(point_id_spp, con.ad.airborne_time);  //UTC???s
-
     }
 }
