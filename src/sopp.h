@@ -339,5 +339,7 @@ void update_trip_sets(int point_id, const std::map<TTripSetType, bool> &sets, bo
 void set_flight_sets(int point_id, int f=0, int c=0, int y=0);
 void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tranzit);
 
+void SetFlightFact(int point_id, BASIC::TDateTime utc_act_out);
+
 #endif /*_SOPP_H_*/
 
