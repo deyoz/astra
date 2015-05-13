@@ -3,6 +3,7 @@
 
 #include "passenger.h"
 #include "astra_misc.h"
+#include "term_version.h"
 
 const long int DOC_TYPE_FIELD=0x0001;
 const long int DOC_ISSUE_COUNTRY_FIELD=0x0002;
@@ -190,6 +191,8 @@ const long int DOC_XML_TR_FIELDS=DOC_TYPE_FIELD|
 
 //==============================================================================
 
+enum TCheckInfoType { ciDoc, ciDoco, ciDocaB, ciDocaR, ciDocaD, ciTkn };
+
 class TCheckDocTknInfo
 {
   public:
@@ -201,11 +204,17 @@ class TCheckDocTknInfo
     {
       clear();
     }
-    void toXML(xmlNodePtr node) const
+    void toXML(xmlNodePtr node, TCheckInfoType ciType) const
     {
       if (node==NULL) return;
       NewTextChild(node, "is_inter", (int)is_inter, (int)false);
-      NewTextChild(node, "required_fields", required_fields, (int)NO_FIELDS);
+      TReqInfo *reqInfo = TReqInfo::Instance();
+      if (ciType!=ciDoco ||
+          !(reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_CONFIRM_VERSION)) ||
+          required_fields==NO_FIELDS)
+        NewTextChild(node, "required_fields", required_fields, (int)NO_FIELDS);
+      else
+        NewTextChild(node, "required_fields", (int)DOCO_TYPE_FIELD, (int)NO_FIELDS);
       NewTextChild(node, "readonly_fields", readonly_fields, (int)NO_FIELDS);
     }
     void clear()
@@ -227,7 +236,7 @@ class TCheckTknInfo
     }
     void toXML(xmlNodePtr node) const
     {
-      tkn.toXML(NewTextChild(node, "tkn"));
+      tkn.toXML(NewTextChild(node, "tkn"), ciTkn);
     }
 };
 
@@ -245,11 +254,11 @@ class TCheckDocInfo
     }
     void toXML(xmlNodePtr node) const
     {
-      doc.toXML(NewTextChild(node, "doc"));
-      doco.toXML(NewTextChild(node, "doco"));
-      docaB.toXML(NewTextChild(node, "doca_b"));
-      docaR.toXML(NewTextChild(node, "doca_r"));
-      docaD.toXML(NewTextChild(node, "doca_d"));
+      doc.toXML(NewTextChild(node, "doc"), ciDoc);
+      doco.toXML(NewTextChild(node, "doco"), ciDoco);
+      docaB.toXML(NewTextChild(node, "doca_b"), ciDocaB);
+      docaR.toXML(NewTextChild(node, "doca_r"), ciDocaR);
+      docaD.toXML(NewTextChild(node, "doca_d"), ciDocaD);
     }
 };
 
@@ -276,8 +285,6 @@ class TCompleteCheckDocInfo
       crew.clear();
     }
 };
-
-enum TCheckInfoType { ciDoc, ciDoco, ciDocaB, ciDocaR, ciDocaD, ciTkn };
 
 TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv);
 TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv,

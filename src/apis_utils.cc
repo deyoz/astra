@@ -261,6 +261,21 @@ string ElemToPaxDocCountryId(const string &elem, TElemFmt &fmt)
   return result;
 }
 
+void throwInvalidSymbol(const string &fieldname,
+                        const TCheckDocTknInfo &checkDocInfo,
+                        const string &symbol)
+{
+  (symbol.size()!=1?
+    throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText(fieldname))):
+    (checkDocInfo.is_inter && IsLetter(symbol[0]) && !IsAscii7(symbol[0])?
+      throw UserException("WRAP.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText(fieldname))
+                                                               <<LParam("text", LexemaData("MSG.FIELD_CONSIST_LAT_CHARS"))):
+      throw UserException("WRAP.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText(fieldname))
+                                                               <<LParam("text", LexemaData("MSG.INVALID_SYMBOL", LParams()<<LParam("symbol", symbol))))
+    )
+  );
+}
+
 void CheckDoc(const CheckIn::TPaxDocItem &doc,
               const TCheckDocTknInfo &checkDocInfo,
               TDateTime nowLocal)
@@ -373,84 +388,173 @@ void CheckDoco(const CheckIn::TPaxDocoItem &doc,
                const TCheckDocTknInfo &checkDocInfo,
                TDateTime nowLocal)
 {
-  string::size_type errorIdx;
-
-  modf(nowLocal, &nowLocal);
-
-  if (doc.issue_date!=NoExists && doc.issue_date>nowLocal)
-    throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_DATE", LParams()<<LParam("fieldname", "doco/issue_date" ));
-
-  if (doc.expiry_date!=NoExists && doc.expiry_date<nowLocal)
-    throw UserException("MSG.CHECK_DOCO.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "doco/expiry_date" ));
-
-  if (!CheckLetDigSpaceDash(doc.birth_place, checkDocInfo, errorIdx))
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  try
   {
-    ProgTrace(TRACE5, ">>>> doco/birth_place: %s", doc.birth_place.c_str());
-    throw UserException("MSG.CHECK_DOCO.INVALID_BIRTH_PLACE", LParams()<<LParam("fieldname", "doco/birth_place" ));
-  };
+    string::size_type errorIdx;
 
-  if (!CheckLetDigSpace(doc.no, checkDocInfo, errorIdx))
-  {
-    ProgTrace(TRACE5, ">>>> doco/no: %s", doc.no.c_str());
-    throw UserException("MSG.CHECK_DOCO.INVALID_NO", LParams()<<LParam("fieldname", "doco/no" ));
-  };
+    modf(nowLocal, &nowLocal);
 
-  if (!CheckLetDigSpaceDash(doc.issue_place, checkDocInfo, errorIdx))
+    if (doc.issue_date!=NoExists && doc.issue_date>nowLocal)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_DATE", LParams()<<LParam("fieldname", "doco/issue_date" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.ISSUE_DATE")));
+
+    if (doc.expiry_date!=NoExists && doc.expiry_date<nowLocal)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCO.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "doco/expiry_date" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.EXPIRY_DATE")));
+
+    if (!CheckLetDigSpaceDash(doc.birth_place, checkDocInfo, errorIdx))
+    {
+      ProgTrace(TRACE5, ">>>> doco/birth_place: %s", doc.birth_place.c_str());
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCO.INVALID_BIRTH_PLACE", LParams()<<LParam("fieldname", "doco/birth_place" )):
+        throwInvalidSymbol("CAP.PAX_DOCO.BIRTH_PLACE", checkDocInfo, (errorIdx==string::npos?"":doc.birth_place.substr(errorIdx, 1)));
+    };
+
+    if (!CheckLetDigSpace(doc.no, checkDocInfo, errorIdx))
+    {
+      ProgTrace(TRACE5, ">>>> doco/no: %s", doc.no.c_str());
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCO.INVALID_NO", LParams()<<LParam("fieldname", "doco/no" )):
+        throwInvalidSymbol("CAP.PAX_DOCO.NO", checkDocInfo, (errorIdx==string::npos?"":doc.no.substr(errorIdx, 1)));
+    };
+
+    if (!CheckLetDigSpaceDash(doc.issue_place, checkDocInfo, errorIdx))
+    {
+      ProgTrace(TRACE5, ">>>> doco/issue_place: %s", doc.issue_place.c_str());
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" )):
+        throwInvalidSymbol("CAP.PAX_DOCO.ISSUE_PLACE", checkDocInfo, (errorIdx==string::npos?"":doc.issue_place.substr(errorIdx, 1)));
+    };
+
+    //проверяем пустоту
+    if (reqInfo->client_type==ctTerm)
+    {
+      long int mask=doc.getNotEmptyFieldsMask();
+
+      for(int pass=0; pass<7; pass++)
+      {
+        long int FIELD=NO_FIELDS;
+        string CAP;
+        switch(pass)
+        {
+          case 0:
+            FIELD=DOCO_BIRTH_PLACE_FIELD;
+            CAP="CAP.PAX_DOCO.BIRTH_PLACE";
+            break;
+          case 1:
+            FIELD=DOCO_TYPE_FIELD;
+            CAP="CAP.PAX_DOCO.TYPE";
+            break;
+          case 2:
+            FIELD=DOCO_NO_FIELD;
+            CAP="CAP.PAX_DOCO.NO";
+            break;
+          case 3:
+            FIELD=DOCO_ISSUE_PLACE_FIELD;
+            CAP="CAP.PAX_DOCO.ISSUE_PLACE";
+            break;
+          case 4:
+            FIELD=DOCO_ISSUE_DATE_FIELD;
+            CAP="CAP.PAX_DOCO.ISSUE_DATE";
+            break;
+          case 5:
+            FIELD=DOCO_APPLIC_COUNTRY_FIELD;
+            CAP="CAP.PAX_DOCO.APPLIC_COUNTRY";
+            break;
+          case 6:
+            FIELD=DOCO_EXPIRY_DATE_FIELD;
+            CAP="CAP.PAX_DOCO.EXPIRY_DATE";
+            break;
+        };
+        if ((mask & FIELD) == 0 && (checkDocInfo.required_fields & FIELD) != 0)
+          throw UserException("MSG.TABLE.NOT_SET_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText(CAP)));
+      };
+    };
+  }
+  catch(UserException &e)
   {
-    ProgTrace(TRACE5, ">>>> doco/issue_place: %s", doc.issue_place.c_str());
-    throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" ));
+    if (reqInfo->client_type==ctTerm)
+      throw UserException("WRAP.PAX_DOCO.DETAILS", LParams()<<LParam("text" ,e.getLexemaData()));
+    else
+      throw;
   };
 }
 
 CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  CheckIn::TPaxDocoItem result;
-  TElemFmt fmt;
-
-  result.birth_place = upperc(doc.birth_place);
-  result.birth_place = TrimString(result.birth_place);
-  if (result.birth_place.size()>35)
-    throw UserException("MSG.CHECK_DOCO.INVALID_BIRTH_PLACE", LParams()<<LParam("fieldname", "doco/birth_place" ));
-
-  result.type = doc.type;
-  result.type = TrimString(result.type);
-  if (!result.type.empty())
+  try
   {
-    result.type=ElemToElemId(etPaxDocType, upperc(result.type), fmt);
-    if (fmt==efmtUnknown || result.type!="V")
-      throw UserException("MSG.CHECK_DOCO.INVALID_TYPE", LParams()<<LParam("fieldname", "doco/type" ));
-  };
+    CheckIn::TPaxDocoItem result;
+    TElemFmt fmt;
 
-  result.no = upperc(doc.no);
-  result.no = TrimString(result.no);
-  if (result.no.size()>25)
-    throw UserException("MSG.CHECK_DOCO.INVALID_NO", LParams()<<LParam("fieldname", "doco/no" ));
+    result.birth_place = upperc(doc.birth_place);
+    result.birth_place = TrimString(result.birth_place);
+    if (result.birth_place.size()>35)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCO.INVALID_BIRTH_PLACE", LParams()<<LParam("fieldname", "doco/birth_place" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.BIRTH_PLACE")));
 
-  result.issue_place = upperc(doc.issue_place);
-  result.issue_place = TrimString(result.issue_place);
-  if (result.issue_place.size()>35)
-    throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" ));
+    result.type = doc.type;
+    result.type = TrimString(result.type);
+    if (!result.type.empty())
+    {
+      result.type=ElemToElemId(etPaxDocType, upperc(result.type), fmt);
+      if (fmt==efmtUnknown ||
+          ((reqInfo->client_type == ctWeb ||
+            reqInfo->client_type == ctKiosk ||
+            reqInfo->client_type == ctMobile) && result.type!="V"))
+        reqInfo->client_type!=ctTerm?
+              throw UserException("MSG.CHECK_DOCO.INVALID_TYPE", LParams()<<LParam("fieldname", "doco/type" )):
+              throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.TYPE")));
+    };
 
-  if (doc.issue_date!=NoExists)
-    modf(doc.issue_date, &result.issue_date);
+    result.no = upperc(doc.no);
+    result.no = TrimString(result.no);
+    if (result.no.size()>25)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCO.INVALID_NO", LParams()<<LParam("fieldname", "doco/no" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.NO")));
 
-  if (doc.expiry_date!=NoExists)
-    modf(doc.expiry_date, &result.expiry_date);
+    result.issue_place = upperc(doc.issue_place);
+    result.issue_place = TrimString(result.issue_place);
+    if (result.issue_place.size()>35)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.ISSUE_PLACE")));
 
-  result.applic_country = doc.applic_country;
-  result.applic_country = TrimString(result.applic_country);
-  if (!result.applic_country.empty())
+    if (doc.issue_date!=NoExists)
+      modf(doc.issue_date, &result.issue_date);
+
+    if (doc.expiry_date!=NoExists)
+      modf(doc.expiry_date, &result.expiry_date);
+
+    result.applic_country = doc.applic_country;
+    result.applic_country = TrimString(result.applic_country);
+    if (!result.applic_country.empty())
+    {
+      result.applic_country=ElemToPaxDocCountryId(upperc(result.applic_country), fmt);
+      if (fmt==efmtUnknown)
+        reqInfo->client_type!=ctTerm?
+              throw UserException("MSG.CHECK_DOCO.INVALID_APPLIC_COUNTRY", LParams()<<LParam("fieldname", "doco/applic_country" )):
+              throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.APPLIC_COUNTRY")));
+    };
+
+    if (reqInfo->client_type == ctHTTP)
+      result.ReplacePunctSymbols();
+
+    return result;
+  }
+  catch(UserException &e)
   {
-    result.applic_country=ElemToPaxDocCountryId(upperc(result.applic_country), fmt);
-    if (fmt==efmtUnknown)
-      throw UserException("MSG.CHECK_DOCO.INVALID_APPLIC_COUNTRY", LParams()<<LParam("fieldname", "doco/applic_country" ));
+    if (reqInfo->client_type==ctTerm)
+      throw UserException("WRAP.PAX_DOCO.DETAILS", LParams()<<LParam("text" ,e.getLexemaData()));
+    else
+      throw;
   };
-
-  if (reqInfo->client_type == ctHTTP)
-    result.ReplacePunctSymbols();
-
-  return result;
 }
 
 void CheckDoca(const CheckIn::TPaxDocaItem &doc,
