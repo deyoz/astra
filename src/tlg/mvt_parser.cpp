@@ -1,5 +1,4 @@
 #include "mvt_parser.h"
-#include <boost/regex.hpp>
 
 #define NICKNAME "DEN"
 #include <serverlib/slogger.h>
@@ -7,6 +6,7 @@
 
 using namespace std;
 using namespace BASIC;
+using namespace ASTRA;
 
 namespace TypeB
 {
@@ -28,40 +28,61 @@ namespace TypeB
         LogTrace(TRACE5) << "-----------------------------------------";
     }
 
+    TDateTime TAD::fetch_time(const string &val)
+    {
+        TDateTime result = NoExists;
+        int year, mon, day;
+        DecodeDate( NowUTC(), year, mon, day );
+        TDateTime day_create, time_create;
+        if(val.size() == 6) {
+            EncodeDate(year,mon,ToInt(val.substr(0, 2)),day_create);
+            EncodeTime(
+                    ToInt(val.substr(2, 2)),
+                    ToInt(val.substr(3, 2)),
+                    0,
+                    time_create);
+            result = day_create + time_create;
+        } else if(val.size() == 4) {
+            EncodeDate(year,mon,day,day_create);
+            EncodeTime(
+                    ToInt(val.substr(0, 2)),
+                    ToInt(val.substr(3, 2)),
+                    0,
+                    time_create);
+            result = day_create + time_create;
+        } else
+            throw ETlgError("wrong date format: '%s'", val.c_str());
+        return result;
+    }
+
     void TAD::parse(const string &val)
     {
-        boost::regex pattern("^AD(\\d{2})(\\d{2})/(\\d{2})(\\d{2}) EA(\\d{2})(\\d{2}) (\\w{3})$");
-//        boost::regex pattern("^AD(\\d{4})/(\\d{4}) EA(\\d{4}) (\\w{3})$");
-        boost::smatch result;
-        if(boost::regex_search(val, result, pattern)) {
-            int year, mon, day;
-            DecodeDate( NowUTC(), year, mon, day );
-            TDateTime day_create, time_create;
-            EncodeDate(year,mon,day,day_create);
-
-            EncodeTime(
-                    ToInt(result[1]),
-                    ToInt(result[2]),
-                    0,
-                    time_create);
-            off_block_time = day_create + time_create;
-
-            EncodeTime(
-                    ToInt(result[3]),
-                    ToInt(result[4]),
-                    0,
-                    time_create);
-            airborne_time = day_create + time_create;
-
-            EncodeTime(
-                    ToInt(result[5]),
-                    ToInt(result[6]),
-                    0,
-                    time_create);
-            ea = day_create + time_create;
-
-            TElemFmt fmt;
-            airp_arv = ElemToElemId(etAirp, result[7], fmt);
+        if(val.substr(0, 2) == "AD") {
+            vector<string> items;
+            split(items, val.substr(2), ' ');
+            if(items.size() == 3 or items.size() == 1) {
+                vector<string> ad_times;
+                split(ad_times, items[0], '/');
+                if(ad_times.size() == 2) {
+                    off_block_time = fetch_time(ad_times[0]);
+                    airborne_time = fetch_time(ad_times[1]);
+                } else if(ad_times.size() == 1) {
+                    off_block_time = fetch_time(ad_times[0]);
+                } else
+                    throw ETlgError("wrong AD times format: '%s'", val.c_str());
+                if(items.size() == 3) {
+                    if(items[1].substr(0, 2) == "EA") {
+                        string ea_time = items[1].substr(2);
+                        if(ea_time.size() != 4)
+                            throw ETlgError("wrong EA time size: '%s'", ea_time.c_str());
+                        ea = fetch_time(ea_time);
+                    } else
+                        throw ETlgError("wrong EA format: '%s'", items[1].c_str());
+                    TElemFmt fmt;
+                    airp_arv = ElemToElemId(etAirp, items[2], fmt);
+                }
+            } else
+                throw ETlgError("wrong AD format");
         }
     }
 
@@ -81,7 +102,9 @@ namespace TypeB
                         e = mvtADElement;
                         break;
                     case mvtADElement:
+                        LogTrace(TRACE5) << "'" << tlg.lex << "'";
                         con.ad.parse(tlg.lex);
+                        con.ad.dump();
                         e = mvtOthers;
                         break;
                     default:
@@ -112,7 +135,7 @@ namespace TypeB
                 throw EXCEPTIONS::Exception( "Flight not found, point_id_tlg=%d", point_id_tlg );
             }
             int point_id_spp = Qry.FieldAsInteger( "point_id_spp" );
-            SetFlightFact(point_id_spp, con.ad.airborne_time);  //UTC???s
+            SetFlightFact(point_id_spp, (con.ad.airborne_time == NoExists ? con.ad.off_block_time : con.ad.airborne_time));  //UTC???s
         }
     }
 }

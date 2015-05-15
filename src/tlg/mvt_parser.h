@@ -12,6 +12,7 @@ namespace TypeB
         BASIC::TDateTime ea; // Estimated Arrival
         std::string airp_arv;
         void dump();
+        BASIC::TDateTime fetch_time(const std::string &val);
         void parse(const std::string &val);
         TAD():
             off_block_time(ASTRA::NoExists),

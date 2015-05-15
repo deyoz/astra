@@ -929,6 +929,7 @@ struct TFlightIdentifier {
 
 TTlgPartInfo nextPart(const TTlgPartInfo &curr, const char* line_p);
 void throwTlgError(const char* msg, const TTlgPartInfo &curr, const char* line_p);
+void split(std::vector<std::string> &result, const std::string val, char c);
 
 } //namespace TypeB
 
