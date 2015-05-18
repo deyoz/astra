@@ -13,7 +13,7 @@ libtlg_a_SOURCES = edi_handler.cpp edi_msg.cpp edi_msg.h \
         emd_edifact.cpp AgentWaitsForRemote.cpp CheckinBaseTypes.cpp \
         EdifactRequest.cpp EdiSessionTimeOut.cpp EdiHandlersFactory.cpp \
         emd_system_update_request.cpp emd_request.cpp EmdSysUpdateResponseHandler.cpp \
-        emd_cos_request.cpp EmdCosResponseHandler.cpp mvt_parser.cpp
+        emd_cos_request.cpp EmdCosResponseHandler.cpp
         
 
 noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_elements.h \
@@ -23,6 +23,5 @@ noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_elements.h \
    	EdifactProfile.h emd_edifact.h AgentWaitsForRemote.h CheckinBaseTypes.h \
    	EdiSessionTimeOut.h EdiHandlersFactory.h CheckinBaseTypesOci.h \
    	emd_system_update_request.h emd_request.h EmdSysUpdateResponseHandler.h \
-   	emd_cos_request.h EmdCosResponseHandler.h mvt_parser.h
-   	
+   	emd_cos_request.h EmdCosResponseHandler.h
    	

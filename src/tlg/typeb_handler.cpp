@@ -11,7 +11,6 @@
 #include "tlg.h"
 #include "tlg_parser.h"
 #include "lci_parser.h"
-#include "mvt_parser.h"
 #include "typeb_utils.h"
 #include "telegram.h"
 #include "memory_manager.h"
@@ -914,15 +913,11 @@ bool parse_tlg(void)
           case tcAHM:
           {
             TAHMHeadingInfo &info = *(dynamic_cast<TAHMHeadingInfo*>(HeadingInfo));
-            ParseAHMFltInfo(part,info,info.flt,info.bind_type);
+            TFltInfo flt;
+            TBindType bind_type;
+            ParseAHMFltInfo(part,info,flt,bind_type);
 
-            if((string)info.tlg_type == "MVT") {
-                TMVTContent con;
-                ParseMVTContent(part, info, con, mem);
-                SaveMVTContent(tlg_id, info, con);
-            } else {
-                SaveFlt(tlg_id,info.flt,info.bind_type);
-            }
+            SaveFlt(tlg_id,flt,bind_type);
             parseTypeB(tlg_id);
             OraSession.Commit();
             count++;

@@ -235,8 +235,6 @@ class TBSMHeadingInfo : public THeadingInfo
 class TAHMHeadingInfo : public THeadingInfo
 {
   public:
-    TFltInfo flt;
-    TBindType bind_type;
     TAHMHeadingInfo() : THeadingInfo() {};
     TAHMHeadingInfo(THeadingInfo &info) : THeadingInfo(info)  {};
 };
