@@ -235,6 +235,8 @@ class TBSMHeadingInfo : public THeadingInfo
 class TAHMHeadingInfo : public THeadingInfo
 {
   public:
+    TFltInfo flt;
+    TBindType bind_type;
     TAHMHeadingInfo() : THeadingInfo() {};
     TAHMHeadingInfo(THeadingInfo &info) : THeadingInfo(info)  {};
 };
@@ -927,6 +929,7 @@ struct TFlightIdentifier {
 
 TTlgPartInfo nextPart(const TTlgPartInfo &curr, const char* line_p);
 void throwTlgError(const char* msg, const TTlgPartInfo &curr, const char* line_p);
+void split(std::vector<std::string> &result, const std::string val, char c);
 
 } //namespace TypeB
 

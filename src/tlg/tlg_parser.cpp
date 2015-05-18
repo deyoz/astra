@@ -7098,5 +7098,20 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   };
 };
 
+void split(vector<string> &result, const string val, char c)
+{
+    result.clear();
+    size_t idx = val.find(c);
+    if(idx != string::npos) {
+        size_t idx1 = 0;
+        while(idx != string::npos) {
+            result.push_back(val.substr(idx1, idx - idx1));
+            idx1 = idx + 1;
+            idx = val.find(c, idx1);
+        }
+        result.push_back(val.substr(idx1, idx - idx1));
+    }
+}
+
 }
 
