@@ -3758,7 +3758,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	 Qry.SQLText =
   	  "SELECT point_num,airp,pr_tranzit,first_point,airline,flt_no,suffix, "
   	  "       craft,bort,scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,"
-  	  "       pr_del,pr_reg,remark "\
+      "       pr_del,pr_reg,remark,airp_fmt,airline_fmt,suffix_fmt,craft_fmt"
   	  " FROM points WHERE point_id=:point_id ";
   	  Qry.CreateVariable( "point_id", otInteger, id->point_id );
   	  Qry.Execute();
@@ -3767,6 +3767,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  else
   	  	old_dest.point_num = Qry.FieldAsInteger( "point_num" );
   	  old_dest.airp = Qry.FieldAsString( "airp" );
+      old_dest.airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );
   	  old_dest.pr_tranzit = Qry.FieldAsInteger( "pr_tranzit" );
   	  if ( Qry.FieldIsNULL( "first_point" ) )
   	  	old_dest.first_point = NoExists;
@@ -3774,17 +3775,22 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  	old_dest.first_point = Qry.FieldAsInteger( "first_point" );
   	  if ( Qry.FieldIsNULL( "airline" ) )
   	  	old_dest.airline.clear();
-  	  else
+      else {
   	  	old_dest.airline = Qry.FieldAsString( "airline" );
+        old_dest.airline_fmt = (TElemFmt)Qry.FieldAsInteger( "airline_fmt" );
+      }
   	  if ( Qry.FieldIsNULL( "flt_no" ) )
   	  	old_dest.flt_no = NoExists;
   	  else
   	  	old_dest.flt_no = Qry.FieldAsInteger( "flt_no" );
   	  if ( Qry.FieldIsNULL( "suffix" ) )
   	  	old_dest.suffix.clear();
-  	  else
+      else {
   	  	old_dest.suffix = Qry.FieldAsString( "suffix" );
+        old_dest.suffix_fmt = (TElemFmt)Qry.FieldAsInteger( "suffix_fmt" );
+      }
   	  old_dest.craft = Qry.FieldAsString( "craft" );
+      old_dest.craft_fmt = (TElemFmt)Qry.FieldAsInteger( "craft_fmt" );
   	  old_dest.bort = Qry.FieldAsString( "bort" );
   	  if ( Qry.FieldIsNULL( "scd_in" ) )
   	  	old_dest.scd_in = NoExists;
@@ -4004,16 +4010,29 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     		vchangeAct.push_back( A );
     	}
     	if ( id->pr_del != -1 && old_dest.pr_del != -1 && id->pr_tranzit != old_dest.pr_tranzit ) {
-        if ( id->pr_tranzit )
-          reqInfo->LocaleToLog("EVT.SET_TRANSIT_FLAG", LEvntPrms() << PrmElem<std::string>("airp", etAirp, id->airp),
-                            evtDisp, move_id, id->point_id);
-        else
-          reqInfo->LocaleToLog("EVT.CANCEL_TRANSIT_FLAG", LEvntPrms() << PrmElem<std::string>("airp", etAirp, id->airp),
-                            evtDisp, move_id, id->point_id);
-        pr_check_wait_list_alarm = true;
-        pr_check_diffcomp_alarm = true;
-        conditions_check_apis_usa = true;
+          if ( id->pr_tranzit )
+            reqInfo->LocaleToLog("EVT.SET_TRANSIT_FLAG", LEvntPrms() << PrmElem<std::string>("airp", etAirp, id->airp),
+                                 evtDisp, move_id, id->point_id);
+          else
+            reqInfo->LocaleToLog("EVT.CANCEL_TRANSIT_FLAG", LEvntPrms() << PrmElem<std::string>("airp", etAirp, id->airp),
+                                 evtDisp, move_id, id->point_id);
+          pr_check_wait_list_alarm = true;
+          pr_check_diffcomp_alarm = true;
+          conditions_check_apis_usa = true;
     	}
+      //формат не зависит от настроек пользователя, если не изменяется само значение
+      if ( old_dest.airline == id->airline ) {
+        id->airline_fmt = old_dest.airline_fmt;
+      }
+      if ( old_dest.suffix == id->suffix ) {
+        id->suffix_fmt = old_dest.suffix_fmt;
+      }
+      if ( old_dest.airp == id->airp ) {
+        id->airp_fmt = old_dest.airp_fmt;
+      }
+      if ( old_dest.craft == id->craft ) {
+        id->craft_fmt = old_dest.craft_fmt;
+      }
   	  Qry.Clear();
       Qry.SQLText =
        "UPDATE points "
