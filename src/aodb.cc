@@ -1094,26 +1094,28 @@ try {
     catch( EConvertError &e ) {
     	throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
     }
-  }
+    }
+    string tmp_airline = fl.airline;
  	try {
-    fl.airline = ElemToElemId( etAirline, fl.airline, fmt, false );
-    if ( fmt == efmtUnknown )
-      throw EConvertError("");
-	  if ( fmt == efmtCodeInter || fmt == efmtCodeICAOInter )
-		  fl.trip_type = "м";  //!!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
-    else
-  	  fl.trip_type = "п";
-  }
-  catch( EConvertError &e ) {
-  	Qry.Clear();
-  	Qry.SQLText =
-  	 "SELECT airline as code FROM aodb_airlines WHERE aodb_code=:code";
-	  Qry.CreateVariable( "code", otString, fl.airline );
-	  err++;
+      fl.airline = ElemToElemId( etAirline, fl.airline, fmt, false );
+      ProgTrace( TRACE5, "fl.airline=%s", fl.airline.c_str() );
+      if ( fmt == efmtUnknown )
+        throw EConvertError("");
+        if ( fmt == efmtCodeInter || fmt == efmtCodeICAOInter )
+          fl.trip_type = "м";  //!!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
+      else
+        fl.trip_type = "п";
+    }
+    catch( EConvertError &e ) {
+      Qry.Clear();
+      Qry.SQLText =
+      "SELECT airline as code FROM aodb_airlines WHERE aodb_code=:code";
+      Qry.CreateVariable( "code", otString, tmp_airline );
+      err++;
 	  Qry.Execute();
 	  err++;
 	  if ( !Qry.RowCount() )
-	  	throw Exception( "Неизвестная авиакомпания, значение=%s", fl.airline.c_str() );
+        throw Exception( "Неизвестная авиакомпания, значение=%s", tmp_airline.c_str() );
 	  fl.airline = Qry.FieldAsString( "code" );
 	  fl.trip_type = "п"; //???
   }
