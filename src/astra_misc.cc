@@ -286,7 +286,7 @@ string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs, string &airline)
 
 TDateTime DayToDate(int day, TDateTime base_date, bool back)
 {
-  if (day<1 || day>31) throw EConvertError("DayToDate: wrong day");
+  if (day<1 || day>31) throw EConvertError("DayToDate: wrong day: %d", day);
   modf(base_date,&base_date);
   int iDay,iMonth,iYear;
   DecodeDate(base_date,iYear,iMonth,iDay);

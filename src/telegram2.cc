@@ -3,6 +3,7 @@
 #include "telegram.h"
 #include "xml_unit.h"
 #include "tlg/tlg.h"
+#include "tlg/mvt_parser.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "convert.h"
@@ -5709,23 +5710,37 @@ void TMVTBBody::ToTlg(bool &vcompleted, vector<string> &body)
     body.push_back(buf.str());
 }
 
+#define get_fmt(x, y) (x != y ? "ddhhnn" : "hhnn")
+
+bool CheckTimeToken(TDateTime scd_utc, TDateTime val, const string &token)
+{
+    TDateTime parsed = TypeB::MVTParser::TAD::fetch_time(scd_utc, token);
+    return parsed == val;
+}
+
 void TMVTABody::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     ostringstream buf;
     if(act != NoExists) {
-        int year, month, day1, day2;
-        string fmt;
-        DecodeDate(act, year, month, day1);
-        DecodeDate(AD, year, month, day2);
-        if(day1 != day2)
-            fmt = "ddhhnn";
-        else
-            fmt = "hhnn";
+        int year, month, act_day, ad_day, utc_day;
+        DecodeDate(act, year, month, act_day);
+        DecodeDate(AD, year, month, ad_day);
+        DecodeDate(info.scd_utc, year, month, utc_day);
+
+        string str_ad =  DateTimeToStr(AD, get_fmt(ad_day, utc_day));
+        string str_act = DateTimeToStr(act, get_fmt(act_day, utc_day));
+
+        if(not CheckTimeToken(info.scd_utc, AD, str_ad))
+            throw Exception("cannot set off-block time for %s", DateTimeToStr(AD).c_str());
+
+        if(not CheckTimeToken(info.scd_utc, act, str_act))
+            throw Exception("cannot set airborne time for %s", DateTimeToStr(act).c_str());
+
         buf
             << "AD"
-            << DateTimeToStr(AD, fmt)
+            << DateTimeToStr(AD, get_fmt(ad_day, utc_day))
             << "/"
-            << DateTimeToStr(act, fmt);
+            << DateTimeToStr(act, get_fmt(act_day, utc_day));
     } else {
         info.vcompleted = false;
         buf << "AD\?\?\?\?/\?\?\?\?";
@@ -7811,6 +7826,14 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
             curNode = curNode->children;
             typeb_in_id = NodeAsIntegerFast("typeb_in_id", curNode);
             typeb_out_id = NodeAsIntegerFast("typeb_out_id", curNode);
+            TypeB::TErrLst err_lst(TypeB::tioIn, typeb_in_id);
+            if(not err_lst.empty()) {
+                ostringstream res;
+                for(TypeB::TErrLst::iterator i = err_lst.begin(); i != err_lst.end(); i++) {
+                    res << i->first << ": " << i->second.msg[AstraLocale::LANG_EN] << endl;
+                }
+                NewTextChild(resNode, "content", res.str());
+            }
         } else
             throw Exception("node content not found");
         return;

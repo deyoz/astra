@@ -917,9 +917,9 @@ bool parse_tlg(void)
             ParseAHMFltInfo(part,info,info.flt,info.bind_type);
 
             if((string)info.tlg_type == "MVT") {
-                TMVTContent con;
-                ParseMVTContent(part, info, con, mem);
-                SaveMVTContent(tlg_id, info, con);
+                MVTParser::TMVTContent con;
+                MVTParser::ParseMVTContent(part, info, con, mem);
+                MVTParser::SaveMVTContent(tlg_id, info, con);
             } else {
                 SaveFlt(tlg_id,info.flt,info.bind_type);
             }
