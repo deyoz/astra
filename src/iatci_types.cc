@@ -390,7 +390,19 @@ unsigned BaggageDetails::weight() const
 UpdateBaggageDetails::UpdateBaggageDetails(UpdateActionCode_e actionCode,
                                            unsigned numOfPieces, unsigned weight)
     : UpdateDetails(actionCode), BaggageDetails(numOfPieces, weight)
+{}
+
+//-----------------------------------------------------------------------------
+
+SeatRequestDetails::SeatRequestDetails(const std::string& cabinClass,
+                                       const SmokeIndicator_e smokeInd)
+    : SeatDetails(smokeInd),
+      m_cabinClass(cabinClass)
+{}
+
+const std::string& SeatRequestDetails::cabinClass() const
 {
+    return m_cabinClass;
 }
 
 //-----------------------------------------------------------------------------
@@ -640,39 +652,49 @@ std::string Result::statusAsString() const
 
 //-----------------------------------------------------------------------------
 
+BaseParams::BaseParams(const OriginatorDetails& origin,
+                       const FlightDetails& flight,
+                       boost::optional<FlightDetails> flightFromPrevHost,
+                       boost::optional<CascadeHostDetails> cascadeDetails)
+    : m_origin(origin), m_flight(flight),
+      m_flightFromPrevHost(flightFromPrevHost), m_cascadeDetails(cascadeDetails)
+{}
+
+const iatci::OriginatorDetails& BaseParams::origin() const
+{
+    return m_origin;
+}
+
+const iatci::FlightDetails& BaseParams::flight() const
+{
+    return m_flight;
+}
+
+boost::optional<FlightDetails> BaseParams::flightFromPrevHost() const
+{
+    return m_flightFromPrevHost;
+}
+
+boost::optional<iatci::CascadeHostDetails> BaseParams::cascadeDetails() const
+{
+    return m_cascadeDetails;
+}
+
+//-----------------------------------------------------------------------------
+
 Params::Params(const OriginatorDetails& origin,
                const PaxDetails& pax,
                const FlightDetails& flight,
                boost::optional<FlightDetails> flightFromPrevHost,
                boost::optional<CascadeHostDetails> cascadeDetails)
-    : m_origin(origin), m_pax(pax), m_flight(flight),
-      m_flightFromPrevHost(flightFromPrevHost), m_cascadeDetails(cascadeDetails)
+    : BaseParams(origin, flight, flightFromPrevHost, cascadeDetails),
+      m_pax(pax)
 {
-}
-
-const iatci::OriginatorDetails& Params::origin() const
-{
-    return m_origin;
 }
 
 const iatci::PaxDetails& Params::pax() const
 {
     return m_pax;
-}
-
-const iatci::FlightDetails& Params::flight() const
-{
-    return m_flight;
-}
-
-boost::optional<FlightDetails> Params::flightFromPrevHost() const
-{
-    return m_flightFromPrevHost;
-}
-
-boost::optional<iatci::CascadeHostDetails> Params::cascadeDetails() const
-{
-    return m_cascadeDetails;
 }
 
 //-----------------------------------------------------------------------------
@@ -761,6 +783,22 @@ PlfParams::PlfParams(const OriginatorDetails& origin,
 const PaxSeatDetails& PlfParams::paxEx() const
 {
     return m_paxEx;
+}
+
+//-----------------------------------------------------------------------------
+
+SmfParams::SmfParams(const OriginatorDetails& origin,
+                     const FlightDetails& flight,
+                     boost::optional<SeatRequestDetails> seatReqDetails,
+                     boost::optional<FlightDetails> flightFromPrevHost,
+                     boost::optional<CascadeHostDetails> cascadeDetails)
+    : BaseParams(origin, flight, flightFromPrevHost, cascadeDetails),
+      m_seatReqDetails(seatReqDetails)
+{}
+
+boost::optional<SeatRequestDetails> SmfParams::seatRequestDetails() const
+{
+    return m_seatReqDetails;
 }
 
 }//namespace iatci

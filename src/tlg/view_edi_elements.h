@@ -200,6 +200,11 @@ void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateSeatDetails&
 */
 void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetails& updBaggage);
 
+/**
+ * @brief makes a SRP element
+*/
+void viewSrpElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatRequestDetails& seatReqDetails);
+
 }//namespace edifact
 
 #endif/*_VIEW_EDI_ELEMENTS_H_*/

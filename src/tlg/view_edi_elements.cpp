@@ -563,4 +563,12 @@ void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetai
     SetEdiFullSegment(pMes, SegmElement("UBD"), ubd.str());
 }
 
+void viewSrpElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatRequestDetails& seatReqDetails)
+{
+    std::ostringstream srp;
+    srp << seatReqDetails.cabinClass() << ":";
+    srp << seatReqDetails.smokeIndAsString();
+    SetEdiFullSegment(pMes, SegmElement("SRP"), srp.str());
+}
+
 }//namespace edifact

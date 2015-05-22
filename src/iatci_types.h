@@ -329,6 +329,22 @@ public:
 
 //-----------------------------------------------------------------------------
 
+struct SeatRequestDetails: public SeatDetails
+{
+    std::string m_cabinClass;
+
+public:
+    SeatRequestDetails(const std::string& cabinClass = "",
+                       const SmokeIndicator_e smokeInd = None);
+
+    const std::string& cabinClass() const;
+
+protected:
+    using SeatDetails::seat; // hide method from base class
+};
+
+//-----------------------------------------------------------------------------
+
 struct CascadeHostDetails
 {
     friend class Result;
@@ -378,14 +394,32 @@ protected:
 
 //-----------------------------------------------------------------------------
 
-struct Params
+struct BaseParams
 {
 protected:
     OriginatorDetails                   m_origin;
-    PaxDetails                          m_pax;
     FlightDetails                       m_flight;
     boost::optional<FlightDetails>      m_flightFromPrevHost;
     boost::optional<CascadeHostDetails> m_cascadeDetails;
+
+public:
+    BaseParams(const OriginatorDetails& origin,
+               const FlightDetails& flight,
+               boost::optional<FlightDetails> flightFromPrevHost = boost::none,
+               boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+
+    const OriginatorDetails&            origin() const;
+    const FlightDetails&                flight() const;
+    boost::optional<FlightDetails>      flightFromPrevHost() const;
+    boost::optional<CascadeHostDetails> cascadeDetails() const;
+};
+
+//-----------------------------------------------------------------------------
+
+struct Params: public BaseParams
+{
+protected:
+    PaxDetails m_pax;
 
 public:
     Params(const OriginatorDetails& origin,
@@ -394,11 +428,7 @@ public:
            boost::optional<FlightDetails> flightFromPrevHost = boost::none,
            boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
-    const OriginatorDetails&            origin() const;
-    const PaxDetails&                   pax() const;
-    const FlightDetails&                flight() const;
-    boost::optional<FlightDetails>      flightFromPrevHost() const;
-    boost::optional<CascadeHostDetails> cascadeDetails() const;
+    const PaxDetails& pax() const;
 };
 
 //-----------------------------------------------------------------------------
@@ -472,7 +502,7 @@ public:
 struct PlfParams: public Params
 {
 protected:
-    PaxSeatDetails    m_paxEx;
+    PaxSeatDetails m_paxEx;
 
 public:
     PlfParams(const OriginatorDetails& origin,
@@ -482,6 +512,22 @@ public:
               boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
     const PaxSeatDetails& paxEx() const;
+};
+
+//-----------------------------------------------------------------------------
+
+struct SmfParams: public BaseParams
+{
+    boost::optional<SeatRequestDetails> m_seatReqDetails;
+
+public:
+    SmfParams(const OriginatorDetails& origin,
+              const FlightDetails& flight,
+              boost::optional<SeatRequestDetails> seatReqDetails = boost::none,
+              boost::optional<FlightDetails> flightFromPrevHost = boost::none,
+              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+
+    boost::optional<SeatRequestDetails> seatRequestDetails() const;
 };
 
 //-----------------------------------------------------------------------------

@@ -5,6 +5,7 @@
 #include "tlg/IatciCkuRequest.h"
 #include "tlg/IatciCkxRequest.h"
 #include "tlg/IatciPlfRequest.h"
+#include "tlg/IatciSmfRequest.h"
 #include "tlg/remote_results.h"
 #include "tlg/remote_system_context.h"
 
@@ -139,6 +140,22 @@ static iatci::PlfParams getDebugPlfParams()
     return plfParams;
 }
 
+static iatci::SmfParams getDebugSmfParams()
+{
+    iatci::OriginatorDetails origin("UT", "SVO");
+
+    iatci::FlightDetails flight("SU",
+                                Ticketing::FlightNum_t(200),
+                                "LED",
+                                "AER",
+                                Dates::rrmmdd("150221"),
+                                Dates::rrmmdd("150221"));
+
+    iatci::SeatRequestDetails seatReq("F", iatci::SeatRequestDetails::NonSmoking);
+
+    return iatci::SmfParams(origin, flight, seatReq);
+}
+
 static std::string getIatciContext(xmlNodePtr reqNode)
 {
     return XMLTreeToText(reqNode->doc);
@@ -206,7 +223,11 @@ void IactiInterface::SeatmapRequest(XMLRequestCtxt* ctxt,
                                     xmlNodePtr reqNode,
                                     xmlNodePtr resNode)
 {
-
+    // send edifact DCQSMF request
+    edifact::SendSmfRequest(getDebugSmfParams(),
+                            getIatciPult(),
+                            getIatciContext(reqNode),
+                            AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface"));
 }
 
 void IactiInterface::CheckinKickHandler(xmlNodePtr resNode,

@@ -1,4 +1,4 @@
-#include "IatciPlfRequest.h"
+#include "IatciSmfRequest.h"
 
 #include "view_edi_elements.h"
 #include "remote_system_context.h"
@@ -12,51 +12,49 @@
 
 namespace edifact {
 
-
-PlfRequest::PlfRequest(const iatci::PlfParams& params,
+SmfRequest::SmfRequest(const iatci::SmfParams& params,
                        const std::string& pult,
                        const std::string& ctxt,
                        const KickInfo& kick)
-    : EdifactRequest(pult, ctxt, kick, DCQPLF,
+    : EdifactRequest(pult, ctxt, kick, DCQSMF,
                      Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline())),
       m_params(params)
 {
 }
 
-std::string PlfRequest::mesFuncCode() const
+std::string SmfRequest::mesFuncCode() const
 {
     return ""; // no MSG
 }
 
-std::string PlfRequest::funcCode() const
+std::string SmfRequest::funcCode() const
 {
-    return "P";
+    return "S";
 }
 
-
-void PlfRequest::collectMessage()
+void SmfRequest::collectMessage()
 {
     viewLorElement(pMes(), m_params.origin());
     viewFdqElement(pMes(), m_params.flight());
-    viewSpdElement(pMes(), m_params.paxEx());
+    if(m_params.seatRequestDetails())
+        viewSrpElement(pMes(), *m_params.seatRequestDetails());
     if(m_params.cascadeDetails())
         viewChdElement(pMes(), *m_params.cascadeDetails());
 }
 
-
 //-----------------------------------------------------------------------------
 
-edilib::EdiSessionId_t SendPlfRequest(const iatci::PlfParams& params,
+edilib::EdiSessionId_t SendSmfRequest(const iatci::SmfParams& params,
                                       const std::string& pult,
                                       const std::string& ctxt,
                                       const KickInfo& kick)
 {
-    LogTrace(TRACE3) << "SendPlfRequest from pult[" << pult << "] "
+    LogTrace(TRACE3) << "SendSmfRequest from pult[" << pult << "] "
                      << "with context length[" << ctxt.length() << "]";
-    PlfRequest plfReq(params, pult, ctxt, kick);
-    plfReq.sendTlg();
-    LogTrace(TRACE3) << "Created edisession with id " << plfReq.ediSessId();
-    return plfReq.ediSessId();
+    SmfRequest smfReq(params, pult, ctxt, kick);
+    smfReq.sendTlg();
+    LogTrace(TRACE3) << "Created edisession with id " << smfReq.ediSessId();
+    return smfReq.ediSessId();
 }
 
 }//namespace edifact
