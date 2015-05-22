@@ -28,7 +28,7 @@ class TApisTRFilter {
         static TFilterQueue *Instance() {
             static TFilterQueue *_instance = 0;
             if ( !_instance ) {
-                _instance = new TFilterQueue( OWN_POINT_ADDR(), APIS_TR, ASTRA::NoExists, ASTRA::NoExists, true, 10 );
+                _instance = new TFilterQueue( OWN_POINT_ADDR(), APIS_TR, ASTRA::NoExists, ASTRA::NoExists, false, 10 );
             }
             return _instance;
         }
