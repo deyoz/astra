@@ -9,6 +9,7 @@
 #include "astra_utils.h"
 
 const std::string APIS_TR = "APIS_TR";
+const boost::posix_time::minutes timeout(2);
 
 struct RequestInfo
 {
@@ -34,14 +35,16 @@ class TApisTRFilter {
         }
 };
 
-
 class Client
 {
 public:
   Client(boost::asio::io_service& io_service, boost::asio::ssl::context& context,
       boost::asio::ip::tcp::resolver::iterator endpoint_iterator, RequestInfo& request)
-    : req_info_(request), ssl_socket_(io_service, context), socket_(io_service)
+    : req_info_(request), ssl_socket_(io_service, context), socket_(io_service),
+      deadline_(io_service), timeout_(timeout), would_block_(true)
   {
+    deadline_.expires_at(boost::posix_time::pos_infin);
+    check_deadline();
     boost::asio::ip::tcp::endpoint endpoint = *endpoint_iterator;
     if (req_info_.using_ssl) {
       ssl_socket_.lowest_layer().async_connect(endpoint,
@@ -67,12 +70,18 @@ public:
 
   void handle_read_body(const boost::system::error_code& error);
 
+  inline bool would_block() { return would_block_; }
+
 private:
   RequestInfo req_info_;
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> ssl_socket_;
   boost::asio::ip::tcp::socket socket_;
   std::string request_;
   boost::asio::streambuf reply_;
+  boost::asio::deadline_timer deadline_;
+  boost::posix_time::time_duration timeout_;
+  bool would_block_;
+  void check_deadline();
 };
 
 int httpClient_main(RequestInfo& request);

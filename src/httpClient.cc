@@ -24,6 +24,8 @@ const std::string PARAM_PASSWORD = "PASSWORD";
 void Client::handle_connect(const boost::system::error_code& error,
                     boost::asio::ip::tcp::resolver::iterator endpoint_iterator)
 {
+  deadline_.expires_from_now(timeout_);
+  ProgTrace(TRACE5, "Client::handle_connect");
   if (req_info_.using_ssl) {
     if (!error)
     {
@@ -47,8 +49,10 @@ void Client::handle_connect(const boost::system::error_code& error,
 
 void Client::handle_handshake(const boost::system::error_code& error)
 {
+  deadline_.expires_from_now(timeout_);
   if (!error)
   {
+    ProgTrace(TRACE5, "Client::handle_handshake: Conection established");
     std::ostringstream ns_str;
     ns_str << "POST " << req_info_.path << " HTTP/1.1\r\n";
     ns_str << "Authorization: Basic " << StrUtils::b64_encode(req_info_.login + ":" + req_info_.pswd) << "\r\n";
@@ -75,8 +79,10 @@ void Client::handle_handshake(const boost::system::error_code& error)
 
 void Client::handle_write(const boost::system::error_code& error)
 {
+  deadline_.expires_from_now(timeout_);
   if (!error)
   {
+    ProgTrace(TRACE5, "Client::handle_write: async_write successful");
     if (req_info_.using_ssl) {
       boost::asio::async_read_until(ssl_socket_, reply_, "<?xml",
         boost::bind(&Client::handle_read_header, this,
@@ -96,8 +102,10 @@ void Client::handle_write(const boost::system::error_code& error)
 
 void Client::handle_read_header(const boost::system::error_code& error, size_t bytes_transferred)
 {
+  deadline_.expires_from_now(timeout_);
   if (!error)
   {
+    ProgTrace(TRACE5, "Client::handle_read_header: async_read successful");
     std::istream response_stream(&reply_);
     std::string http_version;
     response_stream >> http_version;
@@ -131,10 +139,12 @@ void Client::handle_read_body(const boost::system::error_code& error)
 {
   if (!error)
   {
+    ProgTrace(TRACE5, "Client::handle_read_body: async_read successful");
     std::stringstream ss;
     ss << &reply_;
     std::string result = ss.str();
-    process_reply(result);    
+    would_block_ = false;
+    process_reply(result);
   }
   else {
     throw Exception("Read failed: %s", error.message().c_str());
@@ -157,7 +167,8 @@ int httpClient_main(RequestInfo& request)
 
     Client c(io_service, ctx, iterator, request);
 
-    io_service.run();
+    // Block until the asynchronous operation has completed.
+    do io_service.run_one(); while (c.would_block());
   }
   catch (std::exception& e)
   {
@@ -170,6 +181,7 @@ void send_apis_tr()
 {
   TFileQueue file_queue;
   file_queue.get( *TApisTRFilter::Instance() );
+  ProgTrace(TRACE5, "send_apis_tr: Num of items in queue: %lu \n", file_queue.size());
   for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++) {
       if ( item->params.find( PARAM_URL ) == item->params.end() ||
               item->params[ PARAM_URL ].empty() )
@@ -202,6 +214,7 @@ void send_apis_tr()
 
 void process_reply(const std::string& result)
 {
+  ProgTrace(TRACE5, "process_reply: %s", result.c_str());
   if(!result.empty()) {
     xmlDocPtr doc = NULL;
     try {
@@ -242,4 +255,23 @@ void process_reply(const std::string& result)
       throw Exception("wrong answer XML");
   } else
     throw Exception("result is empty");
+}
+
+void Client::check_deadline()
+{
+  // Check whether the deadline has passed.
+  if (deadline_.expires_at() <= boost::asio::deadline_timer::traits_type::now())
+  {
+    // The deadline has passed. The socket is closed so that any outstanding
+    // asynchronous operations are cancelled.
+    boost::system::error_code ignored_ec;
+
+    throw Exception("Deadline has passed");
+
+    // There is no longer an active deadline.
+    deadline_.expires_at(boost::posix_time::pos_infin);
+  }
+
+  // Put the actor back to sleep.
+  deadline_.async_wait(boost::bind(&Client::check_deadline, this));
 }
