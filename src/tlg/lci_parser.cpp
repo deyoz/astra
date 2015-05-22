@@ -415,19 +415,6 @@ TTlgPartInfo ParseLCIHeading(TTlgPartInfo heading, TLCIHeadingInfo &info, TFligh
     return nextPart(heading, line_p);
 };
 
-vector<string> split(string val, char c)
-{
-    vector<string> result;
-    size_t idx = val.find(c);
-    while(idx != string::npos) {
-        result.push_back(val.substr(0, idx));
-        val.erase(0, idx + 1);
-        idx = val.find(c);
-    }
-    result.push_back(val);
-    return result;
-}
-
 void TCFG::dump()
 {
     ProgTrace(TRACE5, "---TCFG::dump---");
@@ -474,7 +461,8 @@ void TEQT::parse(const char *val)
 {
     if(not cfg.empty()) throw ETlgError("multiple EQT found");
     string acraft;
-    vector<string> items = split(val, '.');
+    vector<string> items;
+    split(items, val, '.');
     if(items.size() == 4) {
         bort = items[1];
         acraft = items[2];
@@ -508,7 +496,8 @@ void TWA::dump()
 
 void TWA::parse(const char *val)
 {
-    vector<string> items = split(val, '.');
+    vector<string> items;
+    split(items, val, '.');
     if(items.size() != 4)
         throw ETlgError("wrong WA %s", val);
     if(items[1] == "P") {
@@ -539,7 +528,8 @@ void TSM::dump()
 void TSM::parse(const char *val)
 {
     if(value != smUnknown) throw ETlgError("multiple SM found");
-    vector<string> items = split(val, '.');
+    vector<string> items;
+    split(items, val, '.');
     if(items.size() != 2) throw ETlgError("wrong SM %s", val);
     if(items[1].size() != 1) throw ETlgError("wrong SM %s", val);
     value = DecodeSeatingMethod(items[1][0]);
@@ -558,7 +548,8 @@ void TSRZones::parse(const string &val)
 {
     if(not empty())
         throw ETlgError("SR zones already exists");
-    vector<string> items = split(val, '/');
+    vector<string> items;
+    split(items, val, '/');
     for(vector<string>::iterator iv = items.begin(); iv != items.end(); iv++) {
         if(iv->size() < 3) throw ETlgError("SR wrong zone format %s", iv->c_str());
         insert(make_pair(iv->substr(0, 2), ToInt(iv->substr(2))));
@@ -587,7 +578,8 @@ void TSRItems::dump()
 
 void TSRItems::parse(const string &val)
 {
-    vector<string> result = split(val, '/');
+    vector<string> result;
+    split(result, val, '/');
     for(vector<string>::iterator iv = result.begin(); iv != result.end(); iv++)
         if(not iv->empty())
             push_back(*iv);
@@ -608,15 +600,17 @@ void TSRJump::parse(const char *val)
 {
     if(amount != NoExists)
         throw ETlgError("SR.J already exists");
-    vector<string> items = split(val, '/');
+    vector<string> items;
+    split(items, val, '/');
     if(items.size() > 2)
         throw ETlgError("SR.J: too manu '/' %s", val);
-    vector<string> buf = split(items[0], '.');
+    vector<string> buf;
+    split(buf, items[0], '.');
     if(buf.size() != 3)
         throw ETlgError("Wrong SR.J %s", val);
     amount = ToInt(buf[2]);
     if(items.size() > 1) {
-        buf = split(items[1], '.');
+        split(buf, items[1], '.');
         if(buf.size() < 2)
             throw ETlgError("Wrong SR.J %s", val);
         if(buf[0].size() != 1)
@@ -655,7 +649,8 @@ void TSRJump::parse(const char *val)
 
 void TSR::parse(const char *val)
 {
-    vector<string> items = split(val, '.');
+    vector<string> items;
+    split(items, val, '.');
     string data;
     if(items.size() > 3)
         throw ETlgError("wrong item count within SR %s", val);
@@ -734,7 +729,8 @@ void TClsWeight::parse(const std::vector<std::string> &val)
         copy(val.begin(), val.end(), ostream_iterator<string>(buf, "."));
         throw ETlgError("WM wrong cls weight %s", buf.str().c_str());
     }
-    vector<string> items = split(val[0], '/');
+    vector<string> items;
+    split(items, val[0], '/');
     if(items.size() != 3)
         throw ETlgError("WM wrong cls weight amount %s", val[0].c_str());
     f = ToInt(items[0]);
@@ -776,7 +772,8 @@ void TGenderCount::parse(const std::vector<std::string> &val)
         copy(val.begin(), val.end(), ostream_iterator<string>(buf, "."));
         throw ETlgError("WM wrong gender weight %s", buf.str().c_str());
     }
-    vector<string> items = split(val[0], '/');
+    vector<string> items;
+    split(items, val[0], '/');
     if(items.size() != 4)
         throw ETlgError("WM wrong gender weight items count %s", val[0].c_str());
     m = ToInt(items[0]);
@@ -823,7 +820,8 @@ void TWM::dump()
 
 void TWM::parse(const char *val)
 {
-    vector<string> items = split(val, '.');
+    vector<string> items;
+    split(items, val, '.');
     if(items.size() < 4)
         throw ETlgError("WM wrong fomrat %s", val);
     TWMDesignator desig = DecodeWMDesignator(items[1]);
@@ -931,7 +929,8 @@ void TPDParser::parse(TPDType atype, const vector<string> &val)
         // using actual weights
         for(vector<string>::const_iterator iv = val.begin() + 2; iv != val.end() - 1; iv++) // skip PD.C, KG
         {
-            vector <string> items = split(*iv, '/');
+            vector <string> items;
+            split(items, *iv, '/');
             if(items.size() != 2)
                 throw ETlgError("wrong PD actual weight format %s", iv->c_str());
             TPDItem item;
@@ -954,7 +953,8 @@ void TPD::dump()
 
 void TPD::parse(const char *val)
 {
-    vector<string> items = split(val, '.');
+    vector<string> items;
+    split(items, val, '.');
     if(items.size() < 3) throw ETlgError("wrong item count within PD %s", val);
     TPDType type = DecodePDType(items[1]);
     if(type == pdtUnknown)
@@ -983,9 +983,11 @@ void TSP::parse(const char *val)
     if(not empty())
         throw ETlgError("duplicate SP found");
         */
-    vector<string> items = split(val, '.');
+    vector<string> items;
+    split(items, val, '.');
     for(vector<string>::iterator iv = items.begin() + 1; iv != items.end(); iv++) {
-        vector<string> sp_item = split(*iv, '/');
+        vector<string> sp_item;
+        split(sp_item, *iv, '/');
         if(sp_item.size() != 2)
             throw ETlgError("SP wrong seat format %s", iv->c_str());
         TSPItem sp_i;
@@ -1020,7 +1022,8 @@ void TClsTotal::dump(const string &caption)
 
 void TClsTotal::parse(const string &val)
 {
-    vector<string> items = split(val, '/');
+    vector<string> items;
+    split(items, val, '/');
     if(items.size() != 3)
         throw ETlgError("wrong class count %uz", items.size());
     f = ToInt(items[0]);
@@ -1037,7 +1040,8 @@ void TGenderTotal::dump()
 
 void TGenderTotal::parse(const string &val)
 {
-    vector<string> items = split(val, '/');
+    vector<string> items;
+    split(items, val, '/');
     if(items.size() != 4)
         throw ETlgError("wrong gender count %uz", items.size());
     m = ToInt(items[0]);
@@ -1073,7 +1077,8 @@ void TDest::dump()
 
 void TDest::parse(const char *val)
 {
-    vector<string> items = split(val, '.');
+    vector<string> items;
+    split(items, val, '.');
     if(items.size() < 3)
         throw ETlgError("Wrong TDest format");
     string airp = getElemId(items[0].substr(1), etAirp);
@@ -1110,7 +1115,8 @@ void TDest::parse(const char *val)
                 {
                     type = DecodeDestInfoType(*iv);
                     if(type == dtUnknown) {
-                        vector<string> parts = split(*iv, '/');
+                        vector<string> parts;
+                        split(parts, *iv, '/');
                         if(parts.size() == 1) {
                             // указан просто тотал
                             dest_info.total = ToInt(parts[0]);
@@ -1183,7 +1189,8 @@ void TRequest::parse(const char *val)
     switch(req_info.req_type) {
         case rtWB:
             {
-                vector<string> items = split(val, '.');
+                vector<string> items;
+                split(items, val, '.');
                 if(items[1] != "LANG") throw ETlgError("Unknown lexeme: '%s'", items[1].c_str());
                 if(
                         items[2] != AstraLocale::LANG_RU and

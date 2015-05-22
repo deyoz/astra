@@ -53,6 +53,7 @@ using namespace boost::local_time;
 #define NOT_CHANGE_AIRLINE_FLT_NO_SCD_
 
 enum TModule { tSOPP, tISG, tSPPCEK };
+enum TSoppWriteOwner { ownerDisp, ownerMVT };
 
 /*const char* points_SOPP_SQL_N =
       "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
@@ -3382,7 +3383,7 @@ void check_trip_tasks( const TSOPPDests &dests )
 }
 
 void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &reference, bool canExcept,
-                          XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+                          xmlNodePtr resNode, TSoppWriteOwner owner )
 {
   TPersWeights persWeights;
   vector<change_act> vchangeAct;
@@ -3637,8 +3638,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   int first_point = 0;
   bool insert_point = false;
   bool pr_begin = true;
-  bool change_stages_out = false;
-  bool pr_change_tripinfo = false;
   vector<int> setcraft_points;
   bool reSetCraft = false;
   bool reSetWeights = false;
@@ -3656,6 +3655,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	if ( ch_point_num )
   	  id->point_num = point_num;
   	if ( id->modify ) {
+      tst();
   	  Qry.Clear();
   	  Qry.SQLText =
   	   "SELECT cycle_tid__seq.nextval n FROM dual ";
@@ -3706,10 +3706,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     	point_num++;
     	continue;
     }
-  	change_stages_out = false;
   	reSetCraft = false;
   	reSetWeights = false;
-  	pr_change_tripinfo = false;
     bool pr_check_wait_list_alarm = ch_point_num;
     bool pr_check_diffcomp_alarm = false;
     TSOPPDest old_dest;
@@ -3755,6 +3753,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        pr_check_diffcomp_alarm = true;
   	}
   	else { //update
+      tst();
   	 Qry.Clear();
   	 Qry.SQLText =
   	  "SELECT point_num,airp,pr_tranzit,first_point,airline,flt_no,suffix, "
@@ -3826,8 +3825,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  old_dest.region = CityTZRegion( ((TAirpsRow&)baseairps.get_row( "code", old_dest.airp, true )).city );
   	  voldDests.push_back( old_dest );
 
-  	  change_stages_out = ( !insert_point && ( id->est_out != old_dest.est_out ||
-                                               (id->scd_out != old_dest.scd_out && old_dest.scd_out > NoExists) ) );
 
   	  if ( !old_dest.pr_reg && id->pr_reg && id->pr_del != -1 ) {
   	    Qry.Clear();
@@ -3937,15 +3934,16 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  }
   	  else
   	    if ( !id->pr_del && id->act_out != old_dest.act_out && old_dest.act_out > NoExists ) {
-            reqInfo->LocaleToLog("EVT.DISP.MODIFY_TAKEOFF_ACT", LEvntPrms() << PrmDate("time", id->act_out, "hh:nn dd.mm.yy (UTC)")
+          reqInfo->LocaleToLog("EVT.DISP.MODIFY_TAKEOFF_ACT", LEvntPrms() <<  PrmLexema("owner",owner==ownerMVT?string("EVT.TLG.MVT"):string(""))
+                                 << PrmDate("time", id->act_out, "hh:nn dd.mm.yy (UTC)")
                                  << PrmElem<std::string>("airp", etAirp, id->airp), evtDisp, move_id, id->point_id );
-   		    change_act A;
-  		    A.point_id = id->point_id;
-  		    A.old_act = old_dest.act_out;
-  		    A.act = id->act_out;
-  		    A.pr_land = false;
-  		    vchangeAct.push_back( A );
-  		    conditions_check_apis_usa = true;
+          change_act A;
+          A.point_id = id->point_id;
+          A.old_act = old_dest.act_out;
+          A.act = id->act_out;
+          A.pr_land = false;
+          vchangeAct.push_back( A );
+          conditions_check_apis_usa = true;
   	    }
      if ( (!id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline) ||
           (!id->airline.empty() && !old_dest.airline.empty() && id->flt_no != old_dest.flt_no) ||
@@ -3980,15 +3978,16 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  //set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );
       if ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists ) { //проставление факта вылета
         pr_check_wait_list_alarm = true;
-        reqInfo->LocaleToLog("EVT.DISP.SET_TAKEOFF_ACT",  LEvntPrms() << PrmDate("time", id->act_out, "hh:nn dd.mm.yy (UTC)")
+        reqInfo->LocaleToLog("EVT.DISP.SET_TAKEOFF_ACT",  LEvntPrms() <<  PrmLexema("owner",owner==ownerMVT?string("EVT.TLG.MVT"):string(""))
+                             << PrmDate("time", id->act_out, "hh:nn dd.mm.yy (UTC)")
                              << PrmElem<std::string>("airp", etAirp, id->airp), evtDisp, move_id, id->point_id );
-    		change_act A;
-    		A.point_id = id->point_id;
+        change_act A;
+        A.point_id = id->point_id;
   	  	A.old_act = old_dest.act_out;
-  		  A.act = id->act_out;
-  		  A.pr_land = false;
-  		  vchangeAct.push_back( A );
-  		  conditions_check_apis_usa = true;
+        A.act = id->act_out;
+        A.pr_land = false;
+        vchangeAct.push_back( A );
+        conditions_check_apis_usa = true;
       }
     	if ( !id->pr_del && old_dest.act_in == NoExists && id->act_in > NoExists ) {
             reqInfo->LocaleToLog("EVT.DISP.SET_LANDING_ACT", LEvntPrms() << PrmDate("time", id->act_in, "hh:nn dd.mm.yy (UTC)")
@@ -4753,12 +4752,57 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 		dests.push_back( d );
 		node = node->next;
   } // end while
-  internal_WriteDests( move_id, dests, reference, canExcept, ctxt, reqNode, resNode );
+  internal_WriteDests( move_id, dests, reference, canExcept, resNode, ownerDisp );
   if ( GetNode( "data/notvalid", resNode ) ) {
   	return;
   }
   NewTextChild( reqNode, "move_id", move_id );
   ReadDests( ctxt, reqNode, resNode );
+}
+
+void SetFlightFact(int point_id, TDateTime utc_act_out)
+{
+  ProgTrace( TRACE5, "SetFlightFact: point_id=%d, utc_act_out=%f", point_id, utc_act_out );
+  TFlights flights;
+  flights.Get( point_id, ftAll );  //весь маршрут
+  flights.Lock();
+  TQuery Qry(&OraSession);
+    Qry.SQLText=
+    "SELECT move_id,airline,flt_no,suffix,act_out,airp,point_num,pr_del "
+    "FROM points "
+    "WHERE point_id=:point_id AND pr_del!=-1";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  if ( Qry.Eof || !Qry.FieldIsNULL("act_out") ) {
+    return;
+  }
+  int move_id = Qry.FieldAsInteger( "move_id" );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT reference FROM move_ref WHERE move_id=:move_id";
+  Qry.CreateVariable( "move_id", otInteger, move_id );
+  Qry.Execute();
+  string reference = Qry.FieldAsString( "reference" );
+  TSOPPDests dests;
+  internal_ReadDests( move_id, dests, reference, NoExists );
+  if ( dests.size() > 1 ) {
+    for( TSOPPDests::iterator d=dests.begin(); d!=dests.end(); d++ ) {
+       if ( d->point_id == point_id ) {
+         d->modify = true;
+         ProgTrace( TRACE5, "d->act_out=%f", d->act_out );
+         d->act_out = utc_act_out;         
+         try {
+           tst();
+           internal_WriteDests( move_id, dests, reference, false, NULL, ownerMVT );
+         }
+         catch( ... ) {
+           ProgError( STDLOG, "SetFlightFact error" );
+           throw;
+         }
+         break;
+       }
+    }
+  }
 }
 
 void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -5321,7 +5365,7 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	    				snode = snode->next;
 	    			}
 	    		}
-   			  internal_WriteDests( move_id, dests, reference, canExcept, ctxt, reqNode, resNode );
+              internal_WriteDests( move_id, dests, reference, canExcept, resNode, ownerDisp );
 	      }
 	    }
 	  }

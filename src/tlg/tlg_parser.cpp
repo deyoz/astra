@@ -1174,26 +1174,10 @@ void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& f
             GetAirline(flt.airline);
             GetSuffix(flt.suffix[0]);
             //переведем day в TDateTime
-            int year,mon,currday;
-            DecodeDate(NowUTC()+1,year,mon,currday); //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
-            if (currday<day)
-            {
-              if (mon==1)
-              {
-                mon=12;
-                year--;
-              }
-              else mon--;
-            };
-            try
-            {
-              EncodeDate(year,mon,day,flt.scd);
-              flt.pr_utc=true;
-            }
-            catch(EConvertError)
-            {
-              throw ETlgError("Can't convert UTC date");
-            };
+            //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
+            flt.scd = DayToDate(day, NowUTC() + 1, true);
+            flt.pr_utc=true;
+
             if (strcmp(info.tlg_type,"MVT")==0)
             {
               c=0;
@@ -7097,6 +7081,21 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
     return false;
   };
 };
+
+void split(vector<string> &result, const string val, char c)
+{
+    result.clear();
+    size_t idx = val.find(c);
+    if(idx != string::npos) {
+        size_t idx1 = 0;
+        while(idx != string::npos) {
+            result.push_back(val.substr(idx1, idx - idx1));
+            idx1 = idx + 1;
+            idx = val.find(c, idx1);
+        }
+        result.push_back(val.substr(idx1, idx - idx1));
+    }
+}
 
 }
 
