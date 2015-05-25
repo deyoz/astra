@@ -271,7 +271,7 @@ class TPrnTagStore {
                 act(ASTRA::NoExists),
                 point_id(ASTRA::NoExists)
             {};
-            void Init(int apoint_id, int grp_id);
+            void Init(ASTRA::TDevOperType op, int apoint_id, int grp_id);
         };
         TPointInfo pointInfo;
 
