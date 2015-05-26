@@ -460,7 +460,7 @@ string TPrnTagStore::get_real_field(std::string name, size_t len, std::string da
     if(im == tag_list.end())
         throw Exception("TPrnTagStore::get_field: tag '%s' not implemented", name.c_str());
     if((im->second.info_type & POINT_INFO) == POINT_INFO)
-        pointInfo.Init(grpInfo.point_dep, grpInfo.grp_id);
+        pointInfo.Init(prn_tag_props.op, grpInfo.point_dep, grpInfo.grp_id);
     if((im->second.info_type & PAX_INFO) == PAX_INFO)
         paxInfo.Init(pax_id, tag_lang);
     if((im->second.info_type & BRD_INFO) == BRD_INFO)
@@ -986,7 +986,7 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
     }
 }
 
-void TPrnTagStore::TPointInfo::Init(int apoint_id, int agrp_id)
+void TPrnTagStore::TPointInfo::Init(TDevOperType op, int apoint_id, int agrp_id)
 {
     if(point_id == NoExists) {
         point_id = apoint_id;
@@ -1034,7 +1034,7 @@ void TPrnTagStore::TPointInfo::Init(int apoint_id, int agrp_id)
               TTripInfo markFlt(Qry);
               TCodeShareSets codeshareSets;
               codeshareSets.get(operFlt,markFlt);
-              if ( codeshareSets.pr_mark_bp )
+              if ( op == dotPrnBP and codeshareSets.pr_mark_bp )
               {
                   airline = markFlt.airline;
                   flt_no = markFlt.flt_no;
