@@ -95,10 +95,7 @@ namespace TypeB
                         throw ETlgError("wrong AD times format: '%s'", val.c_str());
                     if(items.size() == 3) {
                         if(items[1].substr(0, 2) == "EA") {
-                            string ea_time = items[1].substr(2);
-                            if(ea_time.size() != 4)
-                                throw ETlgError("wrong EA time size: '%s'", ea_time.c_str());
-                            ea = fetch_time(scd, ea_time);
+                            ea = fetch_time(scd, items[1].substr(2));
                         } else
                             throw ETlgError("wrong EA format: '%s'", items[1].c_str());
                         TElemFmt fmt;
