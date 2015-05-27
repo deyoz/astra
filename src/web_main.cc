@@ -2564,16 +2564,16 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
           if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")) ||
               !is_valid_pax_status(point_id, pax.crs_pax_id))
             throw UserException("MSG.PASSENGER.CHECKIN_DENIAL");
-        };
-
-        if (pnr_id==NoExists)
-        {
-          pnr_id=Qry.FieldAsInteger("pnr_id");          
-        }
-        else
-        {
-          if (pnr_id!=Qry.FieldAsInteger("pnr_id"))
-            throw EXCEPTIONS::Exception("ChangeProtPaidLayer: passengers from different PNR (crs_pax_id=%d)", pax.crs_pax_id);
+               
+          if (pnr_id==NoExists)
+          {
+            pnr_id=Qry.FieldAsInteger("pnr_id");          
+          }
+          else
+          {
+            if (pnr_id!=Qry.FieldAsInteger("pnr_id"))
+              throw EXCEPTIONS::Exception("ChangeProtPaidLayer: passengers from different PNR (crs_pax_id=%d)", pax.crs_pax_id);
+          };
         };
         pax.pass_class=Qry.FieldAsString("class");
         pax.pass_subclass=Qry.FieldAsString("subclass");
