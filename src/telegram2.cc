@@ -6905,6 +6905,24 @@ struct TCKINPaxInfo {
         TPaxStatus status;
         TPNLPaxInfo crs_pax;
         void dump();
+        bool APIPX_cmp()
+        {
+            CheckIn::TPaxDocItem docs, crs_docs;
+            LoadPaxDoc(pax_id, docs);
+            LoadCrsPaxDoc(pax_id, crs_docs);
+
+            list<CheckIn::TPaxDocaItem> doca, crs_doca;
+            LoadPaxDoca(pax_id, doca);
+            LoadCrsPaxDoca(pax_id, crs_doca);
+
+            CheckIn::TPaxDocoItem doco, crs_doco;
+            LoadPaxDoco(pax_id, doco);
+            LoadCrsPaxVisa(pax_id, crs_doco);
+            return
+                docs.equal(crs_docs) and
+                compareLists(doca, crs_doca) and
+                doco.equal(crs_doco);
+        }
         bool PAXLST_cmp()
         {
             return
@@ -7349,8 +7367,8 @@ void TPFSBody::get(TypeB::TDetailCreateInfo &info)
                         category = "INVOL";
                     else if(ckin_pax.target != ckin_pax.crs_pax.target)
                         category = "CHGSG";
-                    else if(not ckin_pax.PAXLST_cmp())
-                        category = "PXLST";
+                    else if(not ckin_pax.APIPX_cmp())
+                        category = "APIPX";
                 } else { // Не прошел посадку
                     if(ckin_pax.OK_status())
                         category = "OFFLK";
@@ -7380,6 +7398,7 @@ void TPFSBody::get(TypeB::TDetailCreateInfo &info)
             continue;
         if(item.pax_id != NoExists) // для зарегистрированных пассажиров собираем инфу для цифровой PFS
             pfsn[ckin_pax.target].add(ckin_pax.cls, ckin_pax.seats);
+
         if(category.empty())
             continue;
         PFSPax.pnrs.get(PFSPax.pnr_id);

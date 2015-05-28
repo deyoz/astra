@@ -782,6 +782,22 @@ class TSearchFltInfo
 
 void SearchFlt(const TSearchFltInfo &filter, std::list<TAdvTripInfo> &flts);
 
+// Функции сравнивают елементы неупорядоченного list или vector
+
+template <class T>
+bool compareVectors(std::vector<T> a, std::vector<T> b)
+{
+    sort(a.begin(), a.end());
+    sort(b.begin(), b.end());
+    return a == b;
+}
+
+template <class T>
+bool compareLists(const std::list<T> &a, const std::list<T> &b)
+{
+    return compareVectors(std::vector<T>(a.begin(), a.end()), std::vector<T>(b.begin(), b.end()));
+}
+
 
 #endif /*_ASTRA_MISC_H_*/
 
