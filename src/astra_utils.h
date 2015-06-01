@@ -477,6 +477,16 @@ void MergeSortedRanges(std::vector< std::pair<T,T> > &ranges, const std::pair<T,
     ranges.push_back( range );
 };
 
+std::string quote_str(const std::string &);
+
+template<typename T>
+std::string to_string(const T& value)
+{
+    std::ostringstream oss;
+    oss << value;
+    return oss.str();
+}
+
 namespace ASTRA
 {
 void commit();
