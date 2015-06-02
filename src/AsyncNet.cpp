@@ -9,42 +9,68 @@
     #include <boost/thread/mutex.hpp>
 #endif
 
-#include <string.h>
-#include <stdio.h>
-
-
 #include "AsyncNet.hpp"
+#include "serverlib/exception.h"
 
 
 
 namespace asyncnet {
 
-AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io, const std::string &desc_,
-                           const Dest &d, const bool infininty_, const int heart,
-                           const bool keepconn_, std::size_t rxmax,
+AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
+                           const std::string &desc_,
+                           const Dest &d,
+                           const bool infininty_, /* if i should try to connect forever */
+                           const int heart,
+                           const bool keepconn_,
+                           std::size_t rxmax,
                            std::size_t txmax)
-    : strand(io), sock(io), resolver(io), timer(io), dest(1, d),
-      infinite(infininty_), heartbeat(heart), cur_dest(0), keepconn(keepconn_),
-      desc(desc_), rx(rxmax, desc), tx(txmax, desc), connected(false)
+    : strand(io),
+      sock(io),
+      resolver(io),
+      timer(io),
+      dest(1, d),
+      infinite(infininty_),
+      heartbeat(heart),
+      cur_dest(0),
+      keepconn(keepconn_),
+      desc(desc_),
+      rx(rxmax),
+      tx(txmax)
 {
     /*
-     * Since rx is constructed with const size and can not be changed,
-     * the maximum size of processed data at a time will equal to rxmax.
+     * Since rx and tx are constructed with const size and can not be changed,
+     * the maximum size of processed data at a time will be limited.
      */
+
+    set_disconnected();
 }
 
-AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io, const std::string &desc_,
-                           const std::vector<Dest> &d, const bool infininty_,
-                           const int heart, const bool keepconn_,
-                           std::size_t rxmax, std::size_t txmax)
-    : strand(io), sock(io), resolver(io), timer(io), dest(d),
-      infinite(infininty_), heartbeat(heart), cur_dest(0), keepconn(keepconn_),
-      desc(desc_), rx(rxmax, desc), tx(txmax, desc), connected(false)
+AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
+                           const std::string &desc_,
+                           const std::vector<Dest> &d,
+                           const bool infininty_, /* if i should try to connect forever */
+                           const int heart,
+                           const bool keepconn_,
+                           std::size_t rxmax,
+                           std::size_t txmax)
+    : strand(io),
+      sock(io),
+      resolver(io),
+      timer(io),
+      dest(d),
+      infinite(infininty_),
+      heartbeat(heart),
+      cur_dest(0),
+      keepconn(keepconn_),
+      desc(desc_),
+      rx(rxmax),
+      tx(txmax)
 {
     /*
-     * Since rx is constructed with const size and can not be changed,
-     * the maximum size of processed data at a time will equal to rxmax.
+     * Since rx and tx are constructed with const size and can not be changed,
+     * the maximum size of processed data at a time will be limited.
      */
+    set_disconnected();
 }
 
 void AsyncTcpSock::start_connecting()
@@ -84,7 +110,6 @@ void AsyncTcpSock::resolve()
 void AsyncTcpSock::resolve_handler(const boost::system::error_code &err,
                                    boost::asio::ip::tcp::resolver::iterator iterator)
 {
-//    printf("%s resolve_handler(): %s\n", desc.c_str(), err.message().c_str());
     if (!err) {
         if (iterator == boost::asio::ip::tcp::resolver::iterator()) {
             printf("%s: resolve has failed\n", desc.c_str());
@@ -122,55 +147,46 @@ void AsyncTcpSock::set_infinity(const bool infin)
 {
     strand.post(boost::bind(&AsyncTcpSock::do_set_infinity, this, infin));
 }
-/*
-int AsyncTcpSock::send(const void *d, const std::size_t n)
+
+void AsyncTcpSock::send(const void *d, const std::size_t n)
 {
     if (!is_connected()) {
-        return -1;
+        throw ServerFramework::Exception("UWAGA",
+                                         __FILE__,
+                                         __LINE__,
+                                         __FUNCTION__,
+                                         desc + "AsyncTcpSock::send() "
+                                         "the socket is not connected");
+        return;
     }
-    Txbuf buf(d, n);
-    return push_in_tx(buf);
-}
+
+/*    if (!is_connected()) {
+        printf("%s AsyncTcpSock::send() the socket is not connected\n",
+               desc.c_str());
+
+        return;
+    }
 */
-int AsyncTcpSock::send(const void *d, const std::size_t n)
+    Sharedbuf buf(d, n);
+    strand.post(boost::bind(&AsyncTcpSock::push_into_tx, this, buf));
+}
+
+void AsyncTcpSock::push_into_tx(Sharedbuf buf)
 {
-    std::size_t sz = tx.size();
-
-    if (sz + n >= tx.max_size())
-        throw;
-
-    tx.sputn(d, n);
-
-    if (sz == 0) {
-        /*
-         * if sz was equal to 0 that means that
-         * there weren't active write-handlers
-         */
-        write();
+    try
+    {
+        tx.sputn(buf.get(), buf.size());
+    }
+    catch (const std::length_error &err)
+    {
+        printf("%s push_into_tx() no free space in tx\n", desc.c_str());
+        return;
     }
 
+    if (!is_write_act())
+        return write();
 }
 
-/*int AsyncTcpSock::send(const Buf &b)
-{
-    if (!is_connected()) {
-        return -1;
-    }
-    Txbuf buf(b.get_data(), b.get_length());
-    return push_in_tx(buf);
-}
-*/
-int AsyncTcpSock::push_in_tx(const Txbuf &buf)
-{
-    tx.lock();
-    bool empty = tx.empty();
-    tx.push(buf);
-//    tx.unlock();
-    if (empty)
-        write();
-    else
-        tx.unlock();
-}
 
 void AsyncTcpSock::close()
 {
@@ -192,7 +208,6 @@ void AsyncTcpSock::connect()
 void AsyncTcpSock::connect_handler(const boost::system::error_code &err)
 {
     stop_connect_timer();
-//    printf("%s boost::asio::ip::tcp::endpoint ep = *resolv_iter\n", desc.c_str());
     const boost::asio::ip::tcp::endpoint ep = *resolv_iter;
     if (!err) {
         cur_dest = 0;
@@ -201,8 +216,11 @@ void AsyncTcpSock::connect_handler(const boost::system::error_code &err)
                ep.address().to_string().c_str(),
                ep.port());
 
-        read();
+        write_unset_act();
+        read_unset_act();
         set_connected();
+        set_nodelay(true);
+        read();
         usr_connect_handler();
 
     } else {
@@ -233,16 +251,17 @@ void AsyncTcpSock::connect_timeout_handler(const boost::system::error_code &err)
 
 void AsyncTcpSock::write()
 {
-//    tx.lock();
     boost::asio::async_write(sock, tx.data(),
                              strand.wrap(boost::bind(&AsyncTcpSock::write_handler, this, _1, _2)));
+    write_set_act();
+
     /* if we have written smth then we should defer the next heartbeat */
-//    tx.unlock();
     restart_heartbeat();
 }
 
 void AsyncTcpSock::write_handler(const boost::system::error_code &err, std::size_t n)
 {
+    write_unset_act();
     if (!err && is_connected()) {
         tx.consume(n);
         if (tx.size() > 0)
@@ -256,12 +275,14 @@ void AsyncTcpSock::write_handler(const boost::system::error_code &err, std::size
 
 void AsyncTcpSock::read()
 {
-    std::size_t free_space = rx.max_size() - tx.size();
+    std::size_t free_space = rx.max_size() - rx.size();
     sock.async_receive(rx.prepare(free_space), strand.wrap(boost::bind(&AsyncTcpSock::read_handler, this, _1, _2)));
+    read_set_act();
 }
 
 void AsyncTcpSock::read_handler(const boost::system::error_code &err, std::size_t n)
 {
+    read_unset_act();
     if (err && n) {
         printf("read_handler() %s\n", err.message().c_str());
         printf("GOD DAMN STRANGE ERROR! CHECK IT\n");
@@ -270,21 +291,24 @@ void AsyncTcpSock::read_handler(const boost::system::error_code &err, std::size_
 
 
     if (!err) {
-        std::istream is(&rx); //
-        std::ostream os(&rx); //     all this are ugly.
-        std::string  str;     //
-
+        std::istream in(&rx);
+        std::ostream out(&rx);
+        std::string str;
+        std::size_t consumed;
 
         rx.commit(n);
-
-        std::size_t consumed = usr_read_handler(rx.(), rx.get_usr_data_size());
-        rx.consume(consumed);
-        if (rx.is_space_left()) {
+        in >> str;
+        consumed = usr_read_handler(str.c_str(), str.size());
+        str.erase(0, consumed);
+        out << str; /* we are taking back that which user didn't consume */
+        if (rx.size() < rx.max_size()) {
             return read();
         } else {
             printf("%s: rx buffer reached its limit. async_receive() won't be called until bytes are consumed from the rx buffer.\n",
                    desc.c_str());
         }
+
+
     } else if (err != boost::asio::error::operation_aborted) {
         printf("%s: reading from the socket failed: %s\n",
                desc.c_str(),
@@ -306,7 +330,7 @@ void AsyncTcpSock::do_start_heartbeat()
 
 void AsyncTcpSock::restart_heartbeat()
 {
-    /* if heartbeat has not been strarted by user or its interval is 0 then we do nothing*/
+    /* if heartbeat has not been started by user or its interval is 0 then we do nothing*/
     if (timer.cancel() && heartbeat != 0)
         do_start_heartbeat();
 }
@@ -327,16 +351,20 @@ void AsyncTcpSock::stop_heartbeat()
 
 void AsyncTcpSock::conn_broken_handler()
 {
-    if (!is_connected())
+    set_disconnected();
+
+    if (is_read_act() || is_write_act())
         return;
-    printf("%s: connection is broken\n", desc.c_str());
-    do_close();
-    printf("%s: calling usr_conn_broken_handler()\n", desc.c_str());
+
+    tx.consume(tx.size());
+    rx.consume(rx.size());
+    stop_heartbeat();
+    cur_dest = 0;
+    sock.close();
     usr_conn_broken_handler();
     if (keepconn) {
         printf("%s: keepconn is set. Auto reconnecting...\n", desc.c_str());
-        connect();
-//        strand.post(boost::bind(&AsyncTcpSock::connect, this));
+        return connect();
     } else {
         printf("%s: keepconn is not set. I have nothing to do\n", desc.c_str());
     }
@@ -380,16 +408,25 @@ void AsyncTcpSock::do_close()
 {
     set_disconnected();
     sock.close();
+
     /*
-     * heartbeat and connect_timer actually work with common timer
+     * heartbeat and connect_timer actually work with common timer,
+     * so let's call only stop_heartbeat()
      */
     stop_heartbeat();
 //    stop_connect_timer();
     resolver.cancel();
-//    rx.reset();
     cur_dest = 0;
-    tx.clean();
+    tx.consume(tx.size());
+    rx.consume(rx.size());
 }
+
+void AsyncTcpSock::set_nodelay(bool val)
+{
+    boost::asio::ip::tcp::no_delay option(val);
+    sock.set_option(option);
+}
+
 
 void AsyncTcpSock::set_connected()
 {
@@ -411,6 +448,36 @@ bool AsyncTcpSock::is_connected()
     bool r = connected;
     unlock();
     return r;
+}
+
+void AsyncTcpSock::read_set_act()
+{
+    read_act = true;
+}
+
+void AsyncTcpSock::read_unset_act()
+{
+    read_act = false;
+}
+
+bool AsyncTcpSock::is_read_act()
+{
+    return read_act;
+}
+
+void AsyncTcpSock::write_set_act()
+{
+    write_act = 1;
+}
+
+void AsyncTcpSock::write_unset_act()
+{
+    write_act = 0;
+}
+
+bool AsyncTcpSock::is_write_act()
+{
+    return write_act;
 }
 
 #ifdef USE_THREADS
