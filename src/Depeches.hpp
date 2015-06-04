@@ -4,9 +4,11 @@
 #include "AsyncNet.hpp"
 
 #include <boost/shared_ptr.hpp>
+#include <boost/function.hpp>
 #include <map>
 #include <list>
 #include <string>
+#include <bitset>
 
 
 namespace depeches {
@@ -35,10 +37,6 @@ struct Clock {
         return *this < clk;
     }
 
-    void print()
-    {
-        printf("sec is %lu", tp.tv_sec);
-    }
 
 private:
     void current()
@@ -69,7 +67,11 @@ struct DepecheSettings {
 typedef int depeche_id_t;
 
 struct Depeche {
-    typedef enum { OK = 0, EXPIRED } depeche_status;
+    typedef enum { OK = 0, EXPIRED, NO_FREE_SLOT } depeche_status_t;
+
+    Depeche()
+    {
+    }
 
     Depeche(const std::string &tlg_,
             const DepecheSettings &s,
@@ -83,54 +85,55 @@ struct Depeche {
     }
 
 
-    const std::string                       tlg;
+    std::string                       tlg;
     boost::shared_ptr<DepecheSettings>      settings;
-    const depeche_id_t                      id; /* external id */
-    const Clock                             clk; /* it is a moment when it might be considered as expired */
+    depeche_id_t                      id; /* external id */
+    Clock                             clk; /* it is a moment when it might be considered as expired */
 };
 
 
 
 
-struct BagmessageSetting : DepecheSettings {
-    BagmessageSetting() {}
-    BagmessageSetting(const std::string &ip,
+struct BagmessageSettings : DepecheSettings {
+    BagmessageSettings() {}
+    BagmessageSettings(const std::string &ip,
                       int port,
                       const std::string &appid_,
                       const std::string &passwd_,
                       bool keepconn,
                       int heartbeat)
         : dest(ip, port),
-          appid_max(8),
-          appid(appid_, 0, appid_max),
+          appid(appid_),
           passwd(passwd_),
           keep_connection(keepconn),
           heartbeat_interval(heartbeat)
     {
+        if (appid.size() > 8)
+            throw;
     }
 
-    BagmessageSetting(const asyncnet::Dest &d,
+    BagmessageSettings(const asyncnet::Dest &d,
                       const std::string &appid_,
                       const std::string &passwd_,
                       bool keepconn,
                       int heartbeat)
         : dest(d),
-          appid_max(8),
-          appid(appid_, 0, appid_max),
+          appid(appid_),
           passwd(passwd_),
           keep_connection(keepconn),
           heartbeat_interval(heartbeat)
     {
+        if (appid.size() > 8)
+            throw;
     }
 
-    virtual BagmessageSetting *get_copy()
+    virtual BagmessageSettings *get_copy()
     {
-        return new BagmessageSetting(*this);
+        return new BagmessageSettings(*this);
     }
 
 
     asyncnet::Dest      dest;
-    const int           appid_max;
     std::string         appid;
     std::string         passwd;
     bool                keep_connection;
@@ -144,10 +147,14 @@ struct BagmessageSetting : DepecheSettings {
 class Bagmessage : asyncnet::AsyncTcpSock {
 public:
     Bagmessage(boost::asio::io_service &io,
-               const BagmessageSetting &,
-               boost::function<void(depeche_id_t, Depeche::depeche_status)>);
+               const BagmessageSettings &,
+               boost::function<void(depeche_id_t, Depeche::depeche_status_t)>,
+               const std::string &desc_);
 
-    send_depeche(const Depeche &);
+    void send_depeche(const std::string &tlg,
+                      const BagmessageSettings &set,
+                      depeche_id_t,
+                      int timeout);
 
 
 private:
@@ -176,27 +183,50 @@ private:
         LOG_OFF
     };
 
-    typedef enum { PARSER_HEADER, PARSER_BODY, PARSER_ERR } parser_state;
+    typedef enum {
+        PARSER_HEADER,
+        PAR_BODY,
+        PARSER_ERR
 
+    } parsing_state_t;
 
-    BagmessageSetting           settings;
-    parser_state                state;
+    parsing_state_t             state;
+    bool                        logged_on;
+    const std::string           desc; /* description */
+    boost::asio::strand         strand;
+    BagmessageSettings          settings;
     std::bitset<65536>          bitset;
-    std::map<int, >
+    std::map<int, Depeche>      deps;
 
-    void bitset_reset();
-    int bitset_get_fz(); /* get first zero */
-    void bitset_return_bit(const int i);
+    boost::function<void(depeche_id_t, Depeche::depeche_status_t)>    usrcallback;
 
-    void header_build(net::Buf &buf, const enum msg_type, const int mes_number, const int data_length);
-    void message_build(net::Buf &buf, const enum msg_type, const int mes_number, const std::string &data);
-    void message_build(net::Buf &buf, const enum msg_type, const int mes_number);
+    void do_send_depeche(Depeche );
+    void save_depeche(int mess_id, const Depeche &);
+    void real_send(int, const Depeche &);
+
+    void bitset_init();
+    int bitset_get_fz(); /* gives the first zero bit */
+    void bitset_return_bit(int i); /* frees bit */
+
+    bool is_logged_on();
+    void set_log_on();
+    void set_log_off();
+
+
+    void header_build(asyncnet::Netbuf &buf, enum msg_type, int mes_number, int data_length);
+    void message_build(asyncnet::Netbuf &buf, enum msg_type, int mes_number, const std::string &data);
+    void message_build(asyncnet::Netbuf &buf, enum msg_type, int mes_number);
     void login();
 
 
+    virtual void usr_connect_handler();
+    virtual std::size_t usr_read_handler(const char *, std::size_t);
+    virtual void usr_heartbeat_handler();
+    std::size_t expected_size();
 
-    enum parser_state header_parser(const void *data);
-    const std::size_t expected_size();
+
+    parsing_state_t header_parser(const char *data);
+    std::size_t expected_size();
 
 };
 
