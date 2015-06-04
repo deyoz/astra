@@ -20,7 +20,7 @@ struct Clock {
         current();
     }
 
-    Clock(const int sec)
+    Clock(int sec)
     {
         current();
         add_sec(sec);
@@ -46,7 +46,7 @@ private:
         } else {
         }
     }
-    void add_sec(const int sec)
+    void add_sec(int sec)
     {
         tp.tv_sec += sec;
     }
@@ -59,6 +59,9 @@ struct DepecheSettings {
     virtual DepecheSettings *get_copy() const
     {
         return new DepecheSettings(*this);
+    }
+    virtual ~DepecheSettings()
+    {
     }
 };
 
@@ -77,18 +80,18 @@ struct Depeche {
             const DepecheSettings &s,
             const depeche_id_t id_,
             const int timeout)
-        : clk(timeout),
+        : tlg(tlg_),
           id(id_),
-          tlg(tlg_)
+          clk(timeout)
     {
         settings.reset(s.get_copy());
     }
 
 
-    std::string                       tlg;
+    std::string                             tlg;
     boost::shared_ptr<DepecheSettings>      settings;
-    depeche_id_t                      id; /* external id */
-    Clock                             clk; /* it is a moment when it might be considered as expired */
+    depeche_id_t                            id; /* external id */
+    Clock                                   clk; /* it is a moment when it might be considered as expired */
 };
 
 
@@ -169,7 +172,7 @@ private:
  *    };
  */
 
-    enum msg_type {
+    enum msg_type_t {
         LOGIN_RQST = 1,
         LOGIN_ACCEPT,
         LOGIN_REJECT,
@@ -192,13 +195,18 @@ private:
 
     parsing_state_t             state;
     bool                        logged_on;
-    const std::string           desc; /* description */
     boost::asio::strand         strand;
     BagmessageSettings          settings;
     std::bitset<65536>          bitset;
     std::map<int, Depeche>      deps;
 
     boost::function<void(depeche_id_t, Depeche::depeche_status_t)>    usrcallback;
+
+    const std::string           desc; /* description */
+
+
+
+
 
     void do_send_depeche(Depeche );
     void save_depeche(int mess_id, const Depeche &);
@@ -213,9 +221,9 @@ private:
     void set_log_off();
 
 
-    void header_build(asyncnet::Netbuf &buf, enum msg_type, int mes_number, int data_length);
-    void message_build(asyncnet::Netbuf &buf, enum msg_type, int mes_number, const std::string &data);
-    void message_build(asyncnet::Netbuf &buf, enum msg_type, int mes_number);
+    void header_build(asyncnet::Netbuf &buf, enum msg_type_t, int mes_number, int data_length);
+    void message_build(asyncnet::Netbuf &buf, enum msg_type_t, int mes_number, const std::string &data);
+    void message_build(asyncnet::Netbuf &buf, enum msg_type_t, int mes_number);
     void login();
 
 

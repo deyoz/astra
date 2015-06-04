@@ -131,6 +131,12 @@ Bagmessage::parsing_state_t Bagmessage::header_parser(const char *header)
         bitset_return_bit(mess_id);
         break;
 
+    case NAK_MSG:
+        usrcallback(deps[mess_id].id, Depeche::FAIL);
+        deps.erase(mess_id);
+        bitset_return_bit(mess_id);
+        break;
+
     case STATUS:
 //        printf("success %d\tbad %d\n", success, fail);
         printf("heartbeat message has been received\n");
@@ -173,6 +179,8 @@ std::size_t Bagmessage::expected_size()
     switch (state) {
     case PARSER_HEADER:
         return 20;
+    default:
+        return 0;
     }
 
 }
@@ -207,7 +215,7 @@ void Bagmessage::usr_heartbeat_handler()
     send(buf.data(), buf.size());
 }
 
-void Bagmessage::header_build(asyncnet::Netbuf &buf, enum msg_type type, int mess_id, int data_length)
+void Bagmessage::header_build(asyncnet::Netbuf &buf, msg_type_t type, int mess_id, int data_length)
 {
     static const u_int16_t version = 2;
 
@@ -223,13 +231,13 @@ void Bagmessage::header_build(asyncnet::Netbuf &buf, enum msg_type type, int mes
     buf.fillwith(0, 4); /* reserved */
 }
 
-void Bagmessage::message_build(asyncnet::Netbuf &buf, enum msg_type type, int mess_id, const std::string &data)
+void Bagmessage::message_build(asyncnet::Netbuf &buf, msg_type_t type, int mess_id, const std::string &data)
 {
     header_build(buf, type, mess_id, data.size());
     buf << data;
 }
 
-void Bagmessage::message_build(asyncnet::Netbuf &buf, enum msg_type type, int mess_id)
+void Bagmessage::message_build(asyncnet::Netbuf &buf, msg_type_t type, int mess_id)
 {
     header_build(buf, type, mess_id, 0);
 }

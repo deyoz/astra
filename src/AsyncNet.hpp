@@ -23,8 +23,7 @@ namespace asyncnet {
 /* ---------------------- */
 
 struct RxBuffer {
-    RxBuffer(const std::size_t sz) : size(sz), offset(0), buf(new char[sz]) {}
-    RxBuffer() {}
+    RxBuffer(std::size_t sz) : size(sz), offset(0), buf(new char[sz]) {}
 
     boost::asio::mutable_buffers_1 get_free_space()
     {
@@ -69,18 +68,10 @@ struct RxBuffer {
         }
     }
 
-    void init(const std::size_t sz)
-    {
-        size = sz;
-        offset = 0;
-        buf.reset(new char[sz]);
-
-    }
-
 private:
-    boost::shared_array<char> buf;
     std::size_t size;
     std::size_t offset;
+    boost::shared_array<char> buf;
 };
 
 struct Txbuf {
@@ -89,11 +80,11 @@ struct Txbuf {
     {
         memcpy(arr.get(), d, n);
     }
-    boost::asio::const_buffers_1 get() const
+    boost::asio::const_buffers_1 get()
     {
         return (boost::asio::const_buffers_1) boost::asio::buffer(arr.get(), size);
     }
-    const std::size_t get_size() const
+    std::size_t get_size()
     {
         return size;
     }
@@ -104,10 +95,10 @@ private:
 
 struct TxQueue {
     /* If max is 0 then Txqueue has no limit */
-    TxQueue(const std::size_t max, const std::string &d) : size(0), max_size(max), desc("TxQueue " + d)
+    TxQueue(const std::size_t max, const std::string &d) : desc("TxQueue " + d), max_size(max), size(0)
     {
     }
-    void push(const Txbuf &buf)
+    void push(Txbuf &buf)
     {
         if ( (max_size != 0) && (size + buf.get_size() > max_size) ) {
             printf("%s: exceeded the limit of %lu bytes\n", desc.c_str(), size);
@@ -117,15 +108,14 @@ struct TxQueue {
         queue.push(buf);
         size += buf.get_size();
     }
-    boost::asio::const_buffers_1 get() const
+    boost::asio::const_buffers_1 get()
     {
         if (queue.empty()) {
             printf("%s: attempt to take a buffer from the empty queue. Check your code!\n", desc.c_str());
             printf("AN EXCEPTION SHOULD BE HERE\n");
             abort();
         }
-        boost::asio::const_buffers_1 buf = queue.front().get();
-        return buf;
+        return queue.front().get();
     }
     bool empty() const
     {
@@ -313,7 +303,7 @@ private:
     std::vector<char>   arr;
     std::size_t         used;
     std::size_t         rcursor;
-    long                rcursor_threshold;
+    std::size_t         rcursor_threshold;
     endianness_t        byteorder;
 
     void init()
@@ -451,23 +441,25 @@ protected:
 
 private:
     const std::string                           desc; /* description */
+    std::vector<Dest>                           dest;
+    bool                                        infinite;   // try to connect until it succeeds
+    int                                         heartbeat;
+    bool                                        keepconn;
     boost::asio::strand                         strand;
     boost::asio::ip::tcp::socket                sock;
     boost::asio::ip::tcp::endpoint              current;
     boost::asio::ip::tcp::resolver              resolver;
     boost::asio::ip::tcp::resolver::iterator    resolv_iter;
-    int                                         heartbeat;
     boost::asio::deadline_timer                 timer;
-    std::vector<Dest>                           dest;
+
     int                                         cur_dest;
-    bool                                        infinite;   // try to connect until it succeeds
-    bool                                        keepconn;
+
 
 //    boost::asio::streambuf                      tx;
 //    boost::asio::streambuf                      rx;
-
-    TxQueue                                     tx;
     RxBuffer                                    rx;
+    TxQueue                                     tx;
+
 
     bool                                        connected; /* don't know how to avoid using of this */
     bool                                        read_act;
@@ -500,7 +492,7 @@ private:
     void write_handler(const boost::system::error_code &, std::size_t);
     virtual void read();
     void read_handler(const boost::system::error_code &, std::size_t);
-    virtual std::size_t usr_read_handler(const char *, std::size_t) {}
+    virtual std::size_t usr_read_handler(const char *, std::size_t);
     void conn_broken_handler();
     virtual void usr_conn_broken_handler() {}
     void do_start_heartbeat();
