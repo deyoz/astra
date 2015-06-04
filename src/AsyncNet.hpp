@@ -492,7 +492,7 @@ private:
     void write_handler(const boost::system::error_code &, std::size_t);
     virtual void read();
     void read_handler(const boost::system::error_code &, std::size_t);
-    virtual std::size_t usr_read_handler(const char *, std::size_t);
+    virtual std::size_t usr_read_handler(const char *, std::size_t) = 0;
     void conn_broken_handler();
     virtual void usr_conn_broken_handler() {}
     void do_start_heartbeat();
