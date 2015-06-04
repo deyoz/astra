@@ -67,7 +67,7 @@ struct DepecheSettings {
 typedef int depeche_id_t;
 
 struct Depeche {
-    typedef enum { OK = 0, EXPIRED, NO_FREE_SLOT } depeche_status_t;
+    typedef enum { OK = 0, EXPIRED, NO_FREE_SLOT, FAIL } depeche_status_t;
 
     Depeche()
     {
@@ -222,7 +222,6 @@ private:
     virtual void usr_connect_handler();
     virtual std::size_t usr_read_handler(const char *, std::size_t);
     virtual void usr_heartbeat_handler();
-    std::size_t expected_size();
 
 
     parsing_state_t header_parser(const char *data);
