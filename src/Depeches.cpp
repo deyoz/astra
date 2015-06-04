@@ -155,7 +155,7 @@ std::size_t Bagmessage::usr_read_handler(const char *data, std::size_t data_len)
     std::size_t total_consumed = 0;
     std::size_t n;
 
-    while ( (n = expected_size()) >= (data_len - total_consumed) ) {
+    while ( (n = expected_size()) <= (data_len - total_consumed) ) {
 
         switch (state) {
         case PARSER_HEADER:
