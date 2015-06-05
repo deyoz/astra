@@ -5,8 +5,7 @@
 
 #include "serverlib/exception.h"
 
-#define NICKNAME "AZVEREV"
-#define NICKTRACE VLAD_TRACE
+#define NICKNAME "SYD"
 #include "serverlib/slogger.h"
 
 
@@ -244,10 +243,10 @@ void Bagmessage::message_build(asyncnet::Netbuf &buf, msg_type_t type, int mess_
 
 int Bagmessage::bitset_get_fz()
 {
-    for (int i = 0; i < 65536; ++i)
-        if (!bitset.test(i)) {
-            bitset.set(i, 1);
-            return i;
+    for (int bit = 0; bit < 65536; ++bit)
+        if (!bitset.test(bit)) {
+            bitset.set(bit, 1);
+            return bit;
         }
 
     return -1;

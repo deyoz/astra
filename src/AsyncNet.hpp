@@ -20,158 +20,6 @@
 namespace asyncnet {
 
 
-/* ---------------------- */
-
-struct RxBuffer {
-    RxBuffer(std::size_t sz) : size(sz), offset(0), buf(new char[sz]) {}
-
-    boost::asio::mutable_buffers_1 get_free_space()
-    {
-        return (boost::asio::mutable_buffers_1) boost::asio::buffer(buf.get() + offset, size - offset);
-    }
-
-    char *get_data()
-    {
-        return buf.get();
-    }
-
-    std::size_t get_data_size()
-    {
-        return offset;
-    }
-
-    bool is_space_left()
-    {
-        return !(size == offset);
-    }
-
-    bool is_filled()
-    {
-        return size == offset;
-    }
-
-    void fill(std::size_t n)
-    {
-        offset += n;
-    }
-
-    void consume(const std::size_t n)
-    {
-        if (n == offset) {
-            offset = 0;
-        } else if (n < offset) {
-            char *p = buf.get();
-            memmove(p, p + n, offset - n);
-            offset -= n;
-        } else {
-
-        }
-    }
-
-private:
-    std::size_t size;
-    std::size_t offset;
-    boost::shared_array<char> buf;
-};
-
-struct Txbuf {
-    Txbuf(const void *d, const std::size_t n)
-        : arr(new char[n]), size(n)
-    {
-        memcpy(arr.get(), d, n);
-    }
-    boost::asio::const_buffers_1 get()
-    {
-        return (boost::asio::const_buffers_1) boost::asio::buffer(arr.get(), size);
-    }
-    std::size_t get_size()
-    {
-        return size;
-    }
-private:
-    boost::shared_array<char>   arr;
-    std::size_t                 size;
-};
-
-struct TxQueue {
-    /* If max is 0 then Txqueue has no limit */
-    TxQueue(const std::size_t max, const std::string &d) : desc("TxQueue " + d), max_size(max), size(0)
-    {
-    }
-    void push(Txbuf &buf)
-    {
-        if ( (max_size != 0) && (size + buf.get_size() > max_size) ) {
-            printf("%s: exceeded the limit of %lu bytes\n", desc.c_str(), size);
-            printf("AN EXCEPTION SHOULD BE HERE\n");
-            throw;
-        }
-        queue.push(buf);
-        size += buf.get_size();
-    }
-    boost::asio::const_buffers_1 get()
-    {
-        if (queue.empty()) {
-            printf("%s: attempt to take a buffer from the empty queue. Check your code!\n", desc.c_str());
-            printf("AN EXCEPTION SHOULD BE HERE\n");
-            abort();
-        }
-        return queue.front().get();
-    }
-    bool empty() const
-    {
-        return queue.empty();
-    }
-
-    void pop()
-    {
-        if (queue.empty()) {
-            printf("%s: attempt to remove a buffer from the empty queue. Check your code!\n", desc.c_str());
-            printf("AN EXCEPTION SHOULD BE HERE\n");
-            abort();
-        }
-        size -= queue.front().get_size();
-        queue.pop();
-    }
-    void clean()
-    {
-        while (!queue.empty())
-            queue.pop();
-    }
-
-
-#ifdef USE_THREADS
-    inline void lock()
-    {
-        return mutex.lock();
-    }
-    inline void unlock()
-    {
-        return mutex.unlock();
-    }
-#else
-    inline void lock()
-    {
-    }
-    inline void unlock()
-    {
-    }
-#endif
-private:
-#ifdef USE_THREADS
-    boost::mutex                mutex;
-#endif
-    const std::string           desc;
-    std::queue<Txbuf>           queue;
-    const std::size_t           max_size;
-    std::size_t                 size;
-};
-
-/* ---------------------- */
-
-
-
-
-
 struct Sharedbuf {
     Sharedbuf(const char *d, std::size_t len_) : arr(new char[len_]), len(len_)
     {
@@ -452,13 +300,13 @@ private:
     boost::asio::ip::tcp::resolver::iterator    resolv_iter;
     boost::asio::deadline_timer                 timer;
 
-    int                                         cur_dest;
+    unsigned int                                cur_dest;
 
+    boost::asio::streambuf                      rx;
+    boost::asio::streambuf                      tx;
 
-//    boost::asio::streambuf                      tx;
-//    boost::asio::streambuf                      rx;
-    RxBuffer                                    rx;
-    TxQueue                                     tx;
+//    RxBuffer                                    rx;
+//    TxQueue                                     tx;
 
 
     bool                                        connected; /* don't know how to avoid using of this */
@@ -486,15 +334,15 @@ private:
     void connect_handler(const boost::system::error_code &);
     virtual void usr_connect_handler() {}
     void connect_timeout_handler(const boost::system::error_code &);
-    virtual void usr_connect_failed_handler() {} /* when all the attempts are failed */
-    void push_into_tx(Sharedbuf);
+    virtual void usr_connect_failed_handler(); /* when all the attempts are failed */
+    void do_send(Sharedbuf);
     virtual void write();
     void write_handler(const boost::system::error_code &, std::size_t);
     virtual void read();
     void read_handler(const boost::system::error_code &, std::size_t);
     virtual std::size_t usr_read_handler(const char *, std::size_t) = 0;
     void conn_broken_handler();
-    virtual void usr_conn_broken_handler() {}
+    virtual void usr_conn_broken_handler();
     void do_start_heartbeat();
     void restart_heartbeat();
     void heartbeat_handler(const boost::system::error_code &);
