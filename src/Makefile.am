@@ -139,7 +139,9 @@ astra_SOURCES = \
   iatci_types.cc \
   iatci_api.cc \
   TypeBHelpMng.cpp \
-  astra_msg.cc
+  astra_msg.cc \
+  Depeches.cpp \
+  AsyncNet.cpp
 
 
 astra_LDADD = $(all_libraries) \
@@ -268,5 +270,7 @@ noinst_HEADERS = \
   iatci_api.h \
   iatci.h \
   TypeBHelpMng.h \
-  astra_msg.h
+  astra_msg.h \
+  Depeches.hpp \
+  AsyncNet.hpp
   
