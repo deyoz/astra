@@ -866,6 +866,7 @@ Result::Action_e Result::strToAction(const std::string& a)
     if(a == "I")      return Checkin;
     else if(a == "X") return Cancel;
     else if(a == "U") return Update;
+    else if(a == "B") return Reprint;
     else if(a == "P") return Passlist;
     else if(a == "S") return Seatmap;
     else if(a == "T") return SeatmapForPassenger;
@@ -891,6 +892,7 @@ std::string Result::actionAsString() const
     case Checkin:             return "I";
     case Cancel:              return "X";
     case Update:              return "U";
+    case Reprint:             return "B";
     case Passlist:            return "P";
     case Seatmap:             return "S";
     case SeatmapForPassenger: return "T";

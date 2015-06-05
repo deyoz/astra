@@ -760,6 +760,7 @@ struct Result
         Checkin,
         Cancel,
         Update,
+        Reprint,
         Passlist,
         Seatmap,
         SeatmapForPassenger

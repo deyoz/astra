@@ -49,6 +49,7 @@ public:
     void CheckinKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
     void UpdateKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
     void CancelKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
+    void ReprintKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
     void PasslistKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
     void SeatmapKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
     void SeatmapForPassengerKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);

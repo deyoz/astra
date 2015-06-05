@@ -139,6 +139,7 @@ static bool isNewEdifact(const std::string& ediText)
         || func_code == "I"
         || func_code == "X"
         || func_code == "U"
+        || func_code == "B"
         || func_code == "P"
         || func_code == "S"
         || func_code == "T") {

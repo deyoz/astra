@@ -17,6 +17,7 @@
 #include "IatciCkiResponseHandler.h"
 #include "IatciCkuResponseHandler.h"
 #include "IatciCkxResponseHandler.h"
+#include "IatciBprResponseHandler.h"
 #include "IatciPlfResponseHandler.h"
 #include "IatciSmfResponseHandler.h"
 
@@ -35,11 +36,11 @@ TlgHandling::AstraEdiResponseHandler* EdiResHandlersFactory(edi_msg_types_t msgi
     {
         case TKCRES:
         {
-            if(func_code == "791") // 791
+            if(func_code == "791") // Disp
             {
                 return new TlgHandling::EmdDispResponseHandler(0, psess.get());
             }
-            else if(func_code == "794") // 794
+            else if(func_code == "794") // Sys Upd
             {
                 return new TlgHandling::EmdSysUpdateResponseHandler(0, psess.get());
             }
@@ -57,6 +58,10 @@ TlgHandling::AstraEdiResponseHandler* EdiResHandlersFactory(edi_msg_types_t msgi
             else if(func_code == "X") // CKX
             {
                 return new TlgHandling::IatciCkxResponseHandler(0, psess.get());
+            }
+            else if(func_code == "B") // BPR
+            {
+                return new TlgHandling::IatciBprResponseHandler(0, psess.get());
             }
             else if(func_code == "P") // PLF
             {

@@ -28,6 +28,7 @@
 #include "IatciCkiResponseHandler.h"
 #include "IatciCkuResponseHandler.h"
 #include "IatciCkxResponseHandler.h"
+#include "IatciBprResponseHandler.h"
 #include "IatciPlfResponseHandler.h"
 #include "IatciSmfResponseHandler.h"
 
@@ -465,6 +466,7 @@ AstraEdiResponseHandler *
     __DECLARE_HANDLER__(IatciCkiResponseHandler,            DCRCKA, "I");
     __DECLARE_HANDLER__(IatciCkuResponseHandler,            DCRCKA, "U");
     __DECLARE_HANDLER__(IatciCkxResponseHandler,            DCRCKA, "X");
+    __DECLARE_HANDLER__(IatciBprResponseHandler,            DCRCKA, "B");
     __DECLARE_HANDLER__(IatciPlfResponseHandler,            DCRCKA, "P");
     __DECLARE_HANDLER__(IatciSmfResponseHandler,            DCRSMF, "S");
 
