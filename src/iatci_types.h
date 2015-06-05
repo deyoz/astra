@@ -721,6 +721,7 @@ public:
 
 struct SmfParams: public BaseParams
 {
+protected:
     boost::optional<SeatRequestDetails> m_seatReqDetails;
 
 public:
@@ -731,6 +732,21 @@ public:
               boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
     boost::optional<SeatRequestDetails> seatRequestDetails() const;
+};
+
+//-----------------------------------------------------------------------------
+
+struct BprParams: public CkiParams
+{
+public:
+    BprParams(const OriginatorDetails& origin,
+              const PaxDetails& pax,
+              const FlightDetails& flight,
+              boost::optional<FlightDetails> flightFromPrevHost = boost::none,
+              boost::optional<SeatDetails> seat = boost::none,
+              boost::optional<BaggageDetails> baggage = boost::none,
+              boost::optional<ReservationDetails> reserv = boost::none,
+              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 };
 
 //-----------------------------------------------------------------------------

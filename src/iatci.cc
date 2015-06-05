@@ -5,6 +5,7 @@
 #include "tlg/IatciCkuRequest.h"
 #include "tlg/IatciCkxRequest.h"
 #include "tlg/IatciPlfRequest.h"
+#include "tlg/IatciBprRequest.h"
 #include "tlg/IatciSmfRequest.h"
 #include "tlg/remote_results.h"
 #include "tlg/remote_system_context.h"
@@ -140,6 +141,47 @@ static iatci::PlfParams getDebugPlfParams()
     return plfParams;
 }
 
+static iatci::BprParams getDebugBprParams()
+{
+    iatci::OriginatorDetails origin("UT", "SVO");
+
+    iatci::FlightDetails prevFlight("UT",
+                                    Ticketing::FlightNum_t(100),
+                                    "SVO",
+                                    "LED",
+                                    Dates::rrmmdd("150220"),
+                                    Dates::rrmmdd("150220"),
+                                    Dates::hh24mi("0530"),
+                                    Dates::hh24mi("1140"));
+
+    iatci::FlightDetails flight("SU",
+                                Ticketing::FlightNum_t(200),
+                                "LED",
+                                "AER",
+                                Dates::rrmmdd("150221"),
+                                Dates::rrmmdd("150221"));
+
+    iatci::PaxDetails pax("PETROV",
+                          "ALEX",
+                          iatci::PaxDetails::Male,
+                          "UT100");
+    iatci::ReservationDetails reserv("Y");
+    iatci::SeatDetails seat(iatci::SeatDetails::NonSmoking);
+    iatci::BaggageDetails baggage(1, 20);
+    boost::optional<iatci::CascadeHostDetails> cascadeDetails;
+
+    iatci::BprParams ckiParams(origin,
+                               pax,
+                               flight,
+                               prevFlight,
+                               seat,
+                               baggage,
+                               reserv,
+                               cascadeDetails);
+
+    return ckiParams;
+}
+
 static iatci::SmfParams getDebugSmfParams()
 {
     iatci::OriginatorDetails origin("UT", "SVO");
@@ -205,7 +247,11 @@ void IactiInterface::ReprintRequest(XMLRequestCtxt* ctxt,
                                     xmlNodePtr reqNode,
                                     xmlNodePtr resNode)
 {
-
+    // send edifact DCQBPR request
+    edifact::SendBprRequest(getDebugBprParams(),
+                            getIatciPult(),
+                            getIatciContext(reqNode),
+                            AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface"));
 }
 
 void IactiInterface::PasslistRequest(XMLRequestCtxt* ctxt,

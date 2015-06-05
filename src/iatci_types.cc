@@ -1062,4 +1062,17 @@ boost::optional<SeatRequestDetails> SmfParams::seatRequestDetails() const
     return m_seatReqDetails;
 }
 
+//-----------------------------------------------------------------------------
+
+BprParams::BprParams(const OriginatorDetails& origin,
+                     const PaxDetails& pax,
+                     const FlightDetails& flight,
+                     boost::optional<FlightDetails> flightFromPrevHost,
+                     boost::optional<SeatDetails> seat,
+                     boost::optional<BaggageDetails> baggage,
+                     boost::optional<ReservationDetails> reserv,
+                     boost::optional<CascadeHostDetails> cascadeDetails)
+    : CkiParams(origin, pax, flight, flightFromPrevHost, seat, baggage, reserv, cascadeDetails)
+{}
+
 }//namespace iatci
