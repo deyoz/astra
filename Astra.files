@@ -52,6 +52,8 @@ src/astra_tick_view_xml.h
 src/astra_ticket.h
 src/astra_utils.cc
 src/astra_utils.h
+src/AsyncNet.cpp
+src/AsyncNet.hpp
 src/baggage.cc
 src/baggage.h
 src/base_tables.cc
@@ -76,6 +78,8 @@ src/convert.cc
 src/convert.h
 src/crypt.cc
 src/crypt.h
+src/Depeches.cpp
+src/Depeches.hpp
 src/dev_consts.cc
 src/dev_consts.h
 src/dev_tuning.cc
@@ -118,6 +122,9 @@ src/load_fr.h
 src/locale.cc
 src/maindcs.cc
 src/maindcs.h
+src/msg_handler.cc
+src/msg_queue.cc
+src/msg_queue.h
 src/obrnosir.cc
 src/obrnosir.h
 src/passenger.cc

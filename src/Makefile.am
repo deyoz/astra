@@ -96,6 +96,8 @@ astra_SOURCES = \
   load_fr.cc \
   locale.cc \
   maindcs.cc \
+  msg_handler.cc \
+  msg_queue.cc \
   obrnosir.cc \
   passenger.cc \
   payment.cc \
@@ -211,7 +213,7 @@ noinst_HEADERS = \
   dev_tuning.h \
   dev_utils.h \
   develop_dbf.h \
-  docs.h \
+  docs.h \  
   edi_utils.h \
   emdoc.h \
   empty_proc.h \
@@ -229,6 +231,7 @@ noinst_HEADERS = \
   images.h \
   load_fr.h \
   maindcs.h \
+  msg_queue.h \
   obrnosir.h \
   passenger.h \
   payment.h \

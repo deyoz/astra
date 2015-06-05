@@ -47,16 +47,16 @@ namespace TlgHandling{
 
 typedef struct H2H_MSG
 {
-	char data[MAX_TLG_LEN];
-	char type;
-	char sndr[21];
-	char rcvr[21];
-	char tpr[21];
-	char err[3];
-	char part;
-	char end;
-	char qri5;
-	char qri6;
+    char data[MAX_TLG_LEN];
+    char type;
+    char sndr[21];
+    char rcvr[21];
+    char tpr[21];
+    char err[3];
+    char part;
+    char end;
+    char qri5;
+    char qri6;
 } H2H_MSG;
 
 namespace edifact {
@@ -124,6 +124,7 @@ bool procTlg(int tlg_id);
 #define MAX_CMD_LEN 50000
 void sendCmd(const char* receiver, const char* cmd);
 void sendCmd(const char* receiver, const char* cmd, int cmd_len);
+int bindLocalSocket(const std::string &sun_path);
 int waitCmd(const char* receiver, int msecs, const char* buf, int buflen);
 
 void sendCmdTlgHttpSnd();

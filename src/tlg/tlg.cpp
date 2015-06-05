@@ -8,6 +8,7 @@
 #include "exceptions.h"
 #include "oralib.h"
 #include "astra_consts.h"
+#include "astra_context.h"
 #include "astra_utils.h"
 #include "tlg_source_edifact.h"
 #include "qrys.h"
@@ -157,17 +158,7 @@ void putTypeBBody(int tlg_id, int tlg_num, const string &tlg_body)
   QryParams << QParam("text", otString);
   TCachedQuery TextQry(sql, QryParams);
 
-  std::string::const_iterator ib,ie;
-  ib=tlg_body.begin();
-  for(int page_no=1;ib<tlg_body.end();page_no++)
-  {
-    ie=ib+4000;
-    if (ie>tlg_body.end()) ie=tlg_body.end();
-    TextQry.get().SetVariable("page_no", page_no);
-    TextQry.get().SetVariable("text", std::string(ib,ie));
-    TextQry.get().Execute();
-    ib=ie;
-  };
+  longToDB(TextQry.get(), "text", tlg_body);
 };
 
 string getTypeBBody(int tlg_id, int tlg_num)
@@ -182,7 +173,7 @@ string getTypeBBody(int tlg_id, int tlg_num)
   TCachedQuery TextQry(sql, QryParams);
   TextQry.get().Execute();
   for(;!TextQry.get().Eof;TextQry.get().Next())
-    result+=TextQry.get().FieldAsString("text");  
+    result+=TextQry.get().FieldAsString("text");
   return result;
 };
 
@@ -201,17 +192,7 @@ void putTlgText(int tlg_id, const string &tlg_text)
   QryParams << QParam("text", otString);
   TCachedQuery TextQry(sql, QryParams);
 
-  std::string::const_iterator ib,ie;
-  ib=tlg_text.begin();
-  for(int page_no=1;ib<tlg_text.end();page_no++)
-  {
-    ie=ib+4000;
-    if (ie>tlg_text.end()) ie=tlg_text.end();
-    TextQry.get().SetVariable("page_no", page_no);
-    TextQry.get().SetVariable("text", std::string(ib,ie));
-    TextQry.get().Execute();
-    ib=ie;
-  };
+  longToDB(TextQry.get(), "text", tlg_text);
 };
 
 string getTlgText(int tlg_id)
@@ -225,7 +206,7 @@ string getTlgText(int tlg_id)
   TCachedQuery TextQry(sql, QryParams);
   TextQry.get().Execute();
   for(;!TextQry.get().Eof;TextQry.get().Next())
-    result+=TextQry.get().FieldAsString("text");  
+    result+=TextQry.get().FieldAsString("text");
   return result;
 }
 
@@ -695,6 +676,32 @@ void sendCmd(const char* receiver, const char* cmd, int cmd_len)
   };
 };
 
+int bindLocalSocket(const string &sun_path)
+{
+  int sockfd=socket(AF_UNIX,SOCK_DGRAM,0);
+  if ((sockfd)==-1)
+    throw EXCEPTIONS::Exception("%s: 'socket' error %d: %s",__FUNCTION__,errno,strerror(errno));
+  try
+  {
+    ProgTrace(TRACE5, "%s: sun_path=%s sockfd=%d", __FUNCTION__, sun_path.c_str(), sockfd);
+    struct sockaddr_un sock_addr;
+    memset(&sock_addr,0,sizeof(sock_addr));
+    sock_addr.sun_family=AF_UNIX;
+    if (sun_path.empty() || sun_path.size()>sizeof (sock_addr.sun_path) - 1)
+      throw EXCEPTIONS::Exception( "%s: wrong sun_path '%s'", __FUNCTION__, sun_path.c_str() );
+    unlink(sun_path.c_str());
+    strcpy(sock_addr.sun_path,sun_path.c_str());
+    if (bind(sockfd,(struct sockaddr*)&sock_addr,sizeof(sock_addr))==-1)
+      throw EXCEPTIONS::Exception("%s: 'bind' error %d: %s", __FUNCTION__, errno, strerror(errno));
+  }
+  catch(...)
+  {
+    close(sockfd);
+    throw;
+  };
+  return sockfd;
+}
+
 int waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
 {
   if (receiver==NULL || *receiver==0)
@@ -706,28 +713,7 @@ int waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
   int sockfd;
   if (sockfds.find(receiver)==sockfds.end())
   {
-    if ((sockfd=socket(AF_UNIX,SOCK_DGRAM,0))==-1)
-      throw EXCEPTIONS::Exception("waitCmd: 'socket' error %d: %s",errno,strerror(errno));
-    try
-    {
-      ProgTrace(TRACE5, "waitCmd: receiver=%s sockfd=%d",receiver,sockfd);
-      struct sockaddr_un sock_addr;
-      memset(&sock_addr,0,sizeof(sock_addr));
-      sock_addr.sun_family=AF_UNIX;
-      string sun_path=readStringFromTcl( receiver, "");
-      if (sun_path.empty() || sun_path.size()>sizeof (sock_addr.sun_path) - 1)
-        throw EXCEPTIONS::Exception( "waitCmd: can't read parameter '%s'", receiver );
-      unlink(sun_path.c_str());
-      strcpy(sock_addr.sun_path,sun_path.c_str());
-      if (bind(sockfd,(struct sockaddr*)&sock_addr,sizeof(sock_addr))==-1)
-        throw EXCEPTIONS::Exception("waitCmd: 'bind' error %d: %s",errno,strerror(errno));
-      sockfds[receiver]=sockfd;
-    }
-    catch(...)
-    {
-      close(sockfd);
-      throw;
-    };
+    sockfds[receiver]=bindLocalSocket(readStringFromTcl( receiver, ""));
     ProgTrace(TRACE5,"waitCmd: receiver %s added",receiver);
   };
   sockfd=sockfds[receiver];

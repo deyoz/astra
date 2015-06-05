@@ -25,6 +25,7 @@
 #include "serverlib/test.h"
 
 int main_edi_timer_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_msg_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 
 int astraMsgControl(int type /* 0 - request, 1 - answer */,
                      const char *head, int hlen, const char *body, int blen)
@@ -93,7 +94,8 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
                 ->add("wb_garantserv", "logdaemon", main_tcp_wb_garant_tcl)
                 ->add("wb_garant_handler", "logdaemon", main_wb_garant_handler_tcl)
                 ->add("request_dup", "logdaemon", main_request_dup_tcl)
-                ->add("edi_timer", "logdaemon", main_edi_timer_tcl);
+                ->add("edi_timer", "logdaemon", main_edi_timer_tcl)
+                ->add("msg_handler", "logdaemon", main_msg_handler_tcl);
     }
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,
                  char **res, int len)
@@ -104,12 +106,12 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
       int i= jxtlib::JXTLib::Instance()->GetCallbacks()->Main(body,blen,head,hlen,res,len);
       return i;
     }
-    virtual void http_handle(ServerFramework::HTTP::reply& rep, const ServerFramework::HTTP::request& req) 
+    virtual void http_handle(ServerFramework::HTTP::reply& rep, const ServerFramework::HTTP::request& req)
     {
       OciCpp::mainSession().set7(); //это очень плохо что где-то в serverlib постоянно идет переключение на OCI8 !
       AstraHTTP::http_main(rep, req);
     }
-    
+
     virtual int internet_proc(const char *body, int blen,
                               const char *head, int hlen, char **res, int len)
     {
@@ -126,9 +128,9 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
     }
     virtual void connect_db()
     {
-    	 ApplicationCallbacks::connect_db();
+         ApplicationCallbacks::connect_db();
       OciCpp::mainSession().set7();
-    	 OraSession.Initialize(OciCpp::mainSession().getLd() );
+         OraSession.Initialize(OciCpp::mainSession().getLd() );
     }
     virtual void on_exit(void)
     {
