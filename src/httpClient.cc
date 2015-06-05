@@ -181,7 +181,7 @@ void send_apis_tr()
 {
   TFileQueue file_queue;
   file_queue.get( *TApisTRFilter::Instance() );
-  ProgTrace(TRACE5, "send_apis_tr: Num of items in queue: %lu \n", file_queue.size());
+  ProgTrace(TRACE5, "send_apis_tr: Num of items in queue: %zu \n", file_queue.size());
   for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++) {
       if ( item->params.find( PARAM_URL ) == item->params.end() ||
               item->params[ PARAM_URL ].empty() )

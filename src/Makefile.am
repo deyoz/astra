@@ -153,6 +153,7 @@ astra_LDADD = $(all_libraries) \
 	@BOOST_SYSTEM_LIB@\
 	@BOOST_FILESYSTEM_LIB@\
 	@BOOST_REGEX_LIB@\
+        @BOOST_THREAD_LIB@\
         @PION_LDFLAGS@
 
 
