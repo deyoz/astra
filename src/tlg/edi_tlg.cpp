@@ -29,6 +29,8 @@
 #include "IatciCkuResponseHandler.h"
 #include "IatciCkxResponseHandler.h"
 #include "IatciPlfResponseHandler.h"
+#include "IatciSmfResponseHandler.h"
+
 // request handlers
 #include "IatciCkiRequestHandler.h"
 #include "IatciCkuRequestHandler.h"
@@ -446,7 +448,7 @@ AstraEdiResponseHandler *
                                                edilib::SegmElement("MSG"));
 
     // надеемся на то, что RAD всех сегментных групп Sg1(flg) одинаковы
-    if(msgid == DCRCKA) {
+    if(msgid == DCRCKA || msgid == DCRSMF) {
         func_code = edilib::GetDBFName(pMes,
                                        edilib::DataElement(9868), "",
                                        edilib::CompElement(),
@@ -459,11 +461,12 @@ AstraEdiResponseHandler *
     __DECLARE_HANDLER__(EmdDispResponseHandler,             TKCRES, "791");
     __DECLARE_HANDLER__(EmdCosResponseHandler,              TKCRES, "793");
     __DECLARE_HANDLER__(EmdSysUpdateResponseHandler,        TKCRES, "794");
-    // IACTI
+    // IATCI
     __DECLARE_HANDLER__(IatciCkiResponseHandler,            DCRCKA, "I");
     __DECLARE_HANDLER__(IatciCkuResponseHandler,            DCRCKA, "U");
     __DECLARE_HANDLER__(IatciCkxResponseHandler,            DCRCKA, "X");
     __DECLARE_HANDLER__(IatciPlfResponseHandler,            DCRCKA, "P");
+    __DECLARE_HANDLER__(IatciSmfResponseHandler,            DCRSMF, "S");
 
     return 0;
 }

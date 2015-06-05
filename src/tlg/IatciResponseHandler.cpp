@@ -22,6 +22,34 @@ using namespace Ticketing;
 using namespace Ticketing::TickReader;
 
 
+class IatciResultMaker
+{
+private:
+    edifact::FdrElem m_fdr;
+    edifact::RadElem m_rad;
+    boost::optional<edifact::PpdElem> m_ppd;
+    boost::optional<edifact::ChdElem> m_chd;
+    boost::optional<edifact::PfdElem> m_pfd;
+    boost::optional<edifact::FsdElem> m_fsd;
+    boost::optional<edifact::ErdElem> m_erd;
+    boost::optional<edifact::WadElem> m_wad;
+    boost::optional<edifact::EqdElem> m_eqd;
+
+public:
+    void setFdr(const boost::optional<edifact::FdrElem>& fdr);
+    void setRad(const boost::optional<edifact::RadElem>& rad);
+    void setPpd(const boost::optional<edifact::PpdElem>& ppd, bool required = false);
+    void setPfd(const boost::optional<edifact::PfdElem>& pfd, bool required = false);
+    void setFsd(const boost::optional<edifact::FsdElem>& fsd, bool required = false);
+    void setChd(const boost::optional<edifact::ChdElem>& chd, bool required = false);
+    void setErd(const boost::optional<edifact::ErdElem>& erd, bool required = false);
+    void setWad(const boost::optional<edifact::WadElem>& wad, bool required = false);
+    void setEqd(const boost::optional<edifact::EqdElem>& eqd, bool required = false);
+    iatci::Result makeResult() const;
+};
+
+//---------------------------------------------------------------------------------------
+
 IatciResponseHandler::IatciResponseHandler(_EDI_REAL_MES_STRUCT_ *PMes,
                                            const edilib::EdiSessRdData *edisess)
     : AstraEdiResponseHandler(PMes, edisess)
@@ -86,8 +114,8 @@ void IatciResponseHandler::parse()
     for(int currFlight = 0; currFlight < flightsCount; ++currFlight)
     {
         EdiPointHolder flt_holder(pMes());
-        IatciResultMaker resultMaker;
         SetEdiPointToSegGrG(pMes(), SegGrElement(1, currFlight), "PROG_ERR");
+        IatciResultMaker resultMaker;
         resultMaker.setFdr(readEdiFdr(pMes()));
         resultMaker.setRad(readEdiRad(pMes()));
         resultMaker.setChd(readEdiChd(pMes()));
@@ -178,6 +206,20 @@ void IatciResultMaker::setErd(const boost::optional<edifact::ErdElem>& erd, bool
     m_erd = erd;
 }
 
+void IatciResultMaker::setWad(const boost::optional<edifact::WadElem>& wad, bool required)
+{
+    if(required)
+        ASSERT(wad);
+    m_wad = wad;
+}
+
+void IatciResultMaker::setEqd(const boost::optional<edifact::EqdElem>& eqd, bool required)
+{
+    if(required)
+        ASSERT(eqd);
+    m_eqd = eqd;
+}
+
 iatci::Result IatciResultMaker::makeResult() const
 {
     iatci::FlightDetails flightDetails(m_fdr.m_airl,
@@ -222,13 +264,27 @@ iatci::Result IatciResultMaker::makeResult() const
                                            m_erd->m_messageText);
     }
 
+    boost::optional<iatci::WarningDetails> warningDetails;
+    if(m_wad) {
+        warningDetails = iatci::WarningDetails(edifact::getInnerErrByErd(m_wad->m_messageNumber),
+                                               m_wad->m_messageText);
+    }
+
+    boost::optional<iatci::EquipmentDetails> equipmentDetails;
+    if(m_eqd) {
+        equipmentDetails = iatci::EquipmentDetails(m_eqd->m_equipment);
+    }
+
     return iatci::Result::makeResult(iatci::Result::strToAction(m_rad.m_respType),
                                      iatci::Result::strToStatus(m_rad.m_status),
                                      flightDetails,
                                      paxDetails,
                                      seatDetails,
+                                     boost::none,
                                      cascadeDetails,
-                                     errorDetails);
+                                     errorDetails,
+                                     warningDetails,
+                                     equipmentDetails);
 }
 
 }//namespace TlgHandling

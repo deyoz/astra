@@ -945,5 +945,142 @@ boost::optional<UbdElem> readEdiUbd(_EDI_REAL_MES_STRUCT_ *pMes)
     return ubd;
 }
 
+boost::optional<edifact::WadElem> readEdiWad(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder wad_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "WAD")) {
+        return boost::optional<WadElem>();
+    }
+
+    WadElem wad;
+    wad.m_level = GetDBFName(pMes, DataElement(9876), CompElement("C055"));
+    wad.m_messageNumber = GetDBFName(pMes, DataElement(9845), CompElement("C055"));
+    wad.m_messageText = GetDBFName(pMes, DataElement(4440), CompElement("C055"));
+
+    LogTrace(TRACE3) << wad;
+
+    return wad;
+}
+
+boost::optional<edifact::SrpElem> readEdiSrp(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder srp_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "SRP")) {
+        return boost::optional<SrpElem>();
+    }
+
+    SrpElem srp;
+    srp.m_cabinClass = GetDBFName(pMes, DataElement(9854), CompElement("C344"));
+    srp.m_noSmokingInd = GetDBFName(pMes, DataElement(9807), CompElement("C344"));
+
+    LogTrace(TRACE3) << srp;
+
+    return srp;
+}
+
+boost::optional<edifact::EqdElem> readEdiEqd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder eqd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "EQD")) {
+        return boost::optional<EqdElem>();
+    }
+
+    EqdElem eqd;
+    eqd.m_equipment = GetDBFName(pMes, DataElement(4440, 1), CompElement());
+
+    LogTrace(TRACE3) << eqd;
+
+    return eqd;
+}
+
+boost::optional<edifact::CbdElem> readEdiCbd(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n)
+{
+    EdiPointHolder cbd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "CBD", n)) {
+        return boost::optional<CbdElem>();
+    }
+
+    CbdElem cbd;
+    cbd.m_cabinClass = GetDBFName(pMes, DataElement(9854), CompElement("C342"));
+
+    cbd.m_firstClassRow = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
+                                                   DataElement(9830, 0), "", CompElement("C052"));
+    cbd.m_lastClassRow = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
+                                                  DataElement(9830, 1), "", CompElement("C052"));
+
+    cbd.m_deck = GetDBFName(pMes, DataElement(9863), CompElement());
+
+    if(GetNumComposite(pMes, "C053"))
+    {
+        cbd.m_firstSmokingRow = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
+                                                         DataElement(9830, 0), "", CompElement("C053"));
+        cbd.m_lastSmokingRow = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
+                                                        DataElement(9830, 1), "", CompElement("C053"));
+    }
+
+    cbd.m_seatOccupDefIndic = GetDBFName(pMes, DataElement(9883), CompElement());
+
+    if(GetNumComposite(pMes, "C058"))
+    {
+        cbd.m_firstOverwingRow = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
+                                                          DataElement(9830, 0), "", CompElement("C058"));
+        cbd.m_lastOverwingRow = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
+                                                         DataElement(9830, 1), "", CompElement("C058"));
+    }
+
+    EdiPointHolder c054_holder(pMes);
+    unsigned numSeatColumns = GetNumComposite(pMes, "C054");
+    for(unsigned i = 0; i < numSeatColumns; ++i)
+    {
+        SetEdiPointToCompositeG(pMes, "C054", i, "EtErr::ProgErr");
+
+        CbdElem::SeatColumn seatColumn;
+        seatColumn.m_col = GetDBNum(pMes, DataElement(9831));
+        seatColumn.m_desc1 = GetDBNum(pMes, DataElement(9882, 0));
+        seatColumn.m_desc2 = GetDBNum(pMes, DataElement(9882, 1));
+        cbd.m_lSeatColumns.push_back(seatColumn);
+
+        PopEdiPoint_wdG(pMes);
+    }
+
+    LogTrace(TRACE3) << cbd;
+
+    return cbd;
+}
+
+boost::optional<edifact::RodElem> readEdiRod(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n)
+{
+    EdiPointHolder rod_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "ROD", n)) {
+        return boost::optional<RodElem>();
+    }
+
+    RodElem rod;
+    rod.m_row = GetDBFName(pMes, DataElement(9830), CompElement());
+    rod.m_characteristic = GetDBFName(pMes, DataElement(9864), CompElement("C049"));
+
+    EdiPointHolder c051_holder(pMes);
+    unsigned numSeatOccupations = GetNumComposite(pMes, "C051");
+    for(unsigned i = 0; i < numSeatOccupations; ++i)
+    {
+        SetEdiPointToCompositeG(pMes, "C051", i, "EtErr::ProgErr");
+
+        RodElem::SeatOccupation seatOccup;
+        seatOccup.m_col = GetDBNum(pMes, 9831);
+        seatOccup.m_occup = GetDBNum(pMes, 9865);
+        unsigned numSeatCharacteristics = GetNumDataElem(pMes, 9825);
+        for(unsigned j = 0; j < numSeatCharacteristics; ++j) {
+            seatOccup.m_lCharacteristics.push_back(GetDBNum(pMes, 9825, j));
+        }
+        rod.m_lSeatOccupations.push_back(seatOccup);
+
+        PopEdiPoint_wdG(pMes);
+    }
+
+    LogTrace(TRACE3) << rod;
+
+    return rod;
+}
+
 } // namespace TickReader
 } // namespace Ticketing

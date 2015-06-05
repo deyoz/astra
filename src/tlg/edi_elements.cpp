@@ -276,4 +276,59 @@ std::ostream& operator<<(std::ostream &os, const UbdElem &ubd)
     return os;
 }
 
+std::ostream& operator<<(std::ostream &os, const WadElem &wad)
+{
+    os << "WAD: ";
+    os << "level: " << wad.m_level << "; ";
+    os << "message number: " << wad.m_messageNumber << "; ";
+    os << "message text: " << wad.m_messageText;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const SrpElem &srp)
+{
+    os << "SRP: ";
+    os << "cabin class: " << srp.m_cabinClass << "; ";
+    os << "nosmoking: " << srp.m_noSmokingInd;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const EqdElem &eqd)
+{
+    os << "EQD: ";
+    os << "equipment: " << eqd.m_equipment;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const CbdElem &cbd)
+{
+    os << "CBD: ";
+    os << "cabin class: " << cbd.m_cabinClass << "; ";
+    os << "first class row: " << cbd.m_firstClassRow << "; last class row: " << cbd.m_lastClassRow << "; ";
+    os << "deck: " << cbd.m_deck << "; ";
+    os << "first smoking row: " << cbd.m_firstSmokingRow << "; last smoking row: " << cbd.m_lastSmokingRow << "; ";
+    os << "seat occupation default indicator: " << cbd.m_seatOccupDefIndic << "; ";
+    os << "first overwing row: " << cbd.m_firstOverwingRow << "; last overwing row: " << cbd.m_lastOverwingRow << "\n";
+    os << "seat columns:\n";
+    BOOST_FOREACH(const CbdElem::SeatColumn& seatColumn, cbd.m_lSeatColumns) {
+        os << seatColumn.m_col << ":" << seatColumn.m_desc1 << ":" << seatColumn.m_desc2 << ", ";
+    }
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const RodElem &rod)
+{
+    os << "ROD: ";
+    os << "row: " << rod.m_row << "; ";
+    os << "row áharacteristic: " << rod.m_characteristic << "; ";
+    os << "\nseat occupations:";
+    BOOST_FOREACH(const RodElem::SeatOccupation& seatOccup, rod.m_lSeatOccupations) {
+        os << "\n" << seatOccup.m_col << ":[" << seatOccup.m_occup << "] -> ";
+        BOOST_FOREACH(const std::string& c, seatOccup.m_lCharacteristics) {
+            os << c << ",";
+        }
+    }
+    return os;
+}
+
 }//namespace edifact

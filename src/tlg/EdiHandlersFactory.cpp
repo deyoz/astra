@@ -18,6 +18,7 @@
 #include "IatciCkuResponseHandler.h"
 #include "IatciCkxResponseHandler.h"
 #include "IatciPlfResponseHandler.h"
+#include "IatciSmfResponseHandler.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -60,6 +61,17 @@ TlgHandling::AstraEdiResponseHandler* EdiResHandlersFactory(edi_msg_types_t msgi
             else if(func_code == "P") // PLF
             {
                 return new TlgHandling::IatciPlfResponseHandler(0, psess.get());
+            }
+        }
+        case DCRSMF:
+        {
+            if(func_code == "S") // SMF
+            {
+                return new TlgHandling::IatciSmfResponseHandler(0, psess.get());
+            }
+            else if(func_code == "T") // SMP
+            {
+                // TODO
             }
         }
         default:;

@@ -42,21 +42,17 @@ public:
     void SeatmapRequest(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
     //
-    // Kick Entry
+    // Kick
     void KickHandler(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
-    // Checkin Kick
+    // Kick handlers
     void CheckinKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
-
-    // Update Kick
     void UpdateKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
-
-    // Cancel Kick
     void CancelKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
-
-    // Passlist Kick
     void PasslistKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
+    void SeatmapKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
+    void SeatmapForPassengerKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
 
-    // Timeout Kick
+    // Timeout Kick handler
     void TimeoutKickHandler(xmlNodePtr resNode);
 };

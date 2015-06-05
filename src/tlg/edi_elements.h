@@ -791,6 +791,97 @@ struct UbdElem
 
 //-----------------------------------------------------------------------------
 
+///@class WadElem - Warning information
+struct WadElem
+{
+    std::string m_level;
+    std::string m_messageNumber;
+    std::string m_messageText;
+};
+
+//-----------------------------------------------------------------------------
+
+///@class SrpElem - Seat request parameters
+struct SrpElem
+{
+    std::string m_cabinClass;
+    std::string m_noSmokingInd;
+};
+
+//-----------------------------------------------------------------------------
+
+///@class EqdElem - Equipment information
+struct EqdElem
+{
+    std::string m_equipment;
+};
+
+//-----------------------------------------------------------------------------
+
+///@class CbdElem - Cabin details
+struct CbdElem
+{
+    struct SeatColumn
+    {
+        std::string m_col;
+        std::string m_desc1;
+        std::string m_desc2;
+
+        SeatColumn()
+        {}
+        SeatColumn(const std::string& column,
+                   const std::string& desc1,
+                   const std::string& desc2 = "")
+            : m_col(column), m_desc1(desc1), m_desc2(desc2)
+        {}
+    };
+
+    std::string m_cabinClass;
+    unsigned m_firstClassRow;
+    unsigned m_lastClassRow;
+    std::string m_deck;
+    unsigned m_firstSmokingRow;
+    unsigned m_lastSmokingRow;
+    std::string m_seatOccupDefIndic;
+    unsigned m_firstOverwingRow;
+    unsigned m_lastOverwingRow;
+    std::list<SeatColumn> m_lSeatColumns;
+
+    CbdElem()
+        : m_firstClassRow(0), m_lastClassRow(0),
+          m_firstSmokingRow(0), m_lastSmokingRow(0),
+          m_firstOverwingRow(0), m_lastOverwingRow(0)
+    {}
+};
+
+//-----------------------------------------------------------------------------
+
+///@class RodElem - Row details
+struct RodElem
+{
+    struct SeatOccupation
+    {
+        std::string m_col;
+        std::string m_occup;
+        std::list<std::string> m_lCharacteristics;
+
+        SeatOccupation()
+        {}
+        SeatOccupation(const std::string& col,
+                       const std::string& occup,
+                       const std::list<std::string>& lCharacteristics = std::list<std::string>())
+            : m_col(col), m_occup(occup),
+              m_lCharacteristics(lCharacteristics)
+        {}
+    };
+
+    std::string m_row;
+    std::string m_characteristic;
+    std::list<SeatOccupation> m_lSeatOccupations;
+};
+
+//-----------------------------------------------------------------------------
+
 std::ostream& operator<<(std::ostream &os, const LorElem &lor);
 std::ostream& operator<<(std::ostream &os, const FdqElem &fdq);
 std::ostream& operator<<(std::ostream &os, const PpdElem &ppd);
@@ -807,6 +898,11 @@ std::ostream& operator<<(std::ostream &os, const SpdElem &spd);
 std::ostream& operator<<(std::ostream &os, const UpdElem &upd);
 std::ostream& operator<<(std::ostream &os, const UsdElem &usd);
 std::ostream& operator<<(std::ostream &os, const UbdElem &ubd);
+std::ostream& operator<<(std::ostream &os, const WadElem &wad);
+std::ostream& operator<<(std::ostream &os, const SrpElem &srp);
+std::ostream& operator<<(std::ostream &os, const EqdElem &eqd);
+std::ostream& operator<<(std::ostream &os, const CbdElem &cbd);
+std::ostream& operator<<(std::ostream &os, const RodElem &rod);
 
 }//namespace edifact
 

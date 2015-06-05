@@ -261,6 +261,20 @@ void IactiInterface::PasslistKickHandler(xmlNodePtr resNode,
     FuncOut(PasslistKickHandler);
 }
 
+void IactiInterface::SeatmapKickHandler(xmlNodePtr resNode,
+                                        const std::list<iatci::Result>& lRes)
+{
+    FuncIn(SeatmapKickHandler);
+    FuncOut(SeatmapKickHandler);
+}
+
+void IactiInterface::SeatmapForPassengerKickHandler(xmlNodePtr resNode,
+                                                    const std::list<iatci::Result>& lRes)
+{
+    FuncIn(SeatmapForPassengerKickHandler);
+    FuncOut(SeatmapForPassengerKickHandler);
+}
+
 void IactiInterface::TimeoutKickHandler(xmlNodePtr resNode)
 {
     FuncIn(TimeoutKickHandler);
@@ -300,7 +314,12 @@ void IactiInterface::KickHandler(XMLRequestCtxt* ctxt,
             case iatci::Result::Passlist:
                 PasslistKickHandler(resNode, lRes);
                 break;
-            // TODO
+            case iatci::Result::Seatmap:
+                SeatmapKickHandler(resNode, lRes);
+                break;
+            case iatci::Result::SeatmapForPassenger:
+                SeatmapForPassengerKickHandler(resNode, lRes);
+                break;
             }
         }
     }

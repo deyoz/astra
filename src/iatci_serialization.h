@@ -16,54 +16,6 @@ namespace serialization
 
 namespace {
 
-class OriginatorDetailsAccessor: private iatci::OriginatorDetails
-{
-public:
-    // for save
-    explicit OriginatorDetailsAccessor(const iatci::OriginatorDetails& o)
-        : iatci::OriginatorDetails(o)
-    {}
-
-    // for load
-    OriginatorDetailsAccessor()
-    {}
-
-    iatci::OriginatorDetails& get() { return *this; }
-
-    using iatci::OriginatorDetails::m_airline;
-    using iatci::OriginatorDetails::m_point;
-};
-
-}//namespace
-
-/*****
- * OriginatorDetails
- *****/
-template<class Archive>
-inline void save(Archive& ar, const iatci::OriginatorDetails& par, const unsigned int version)
-{
-    OriginatorDetailsAccessor acc(par);
-    ar & acc.m_airline & acc.m_point;
-}
-
-template<class Archive>
-inline void load(Archive& ar, iatci::OriginatorDetails& par, const unsigned int version)
-{
-    OriginatorDetailsAccessor acc;
-    ar & acc.m_airline & acc.m_point;
-    par = acc.get();
-}
-
-template<class Archive>
-inline void serialize(Archive& ar, iatci::OriginatorDetails& par, const unsigned int version)
-{
-    boost::serialization::split_free(ar, par, version);
-}
-
-//---------------------------------------------------------------------------------------
-
-namespace {
-
 class FlightDetailsAccessor: private iatci::FlightDetails
 {
 public:
@@ -198,53 +150,6 @@ inline void serialize(Archive& ar, iatci::PaxDetails& par, const unsigned int ve
 
 namespace {
 
-class ReservationDetailsAccessor: private iatci::ReservationDetails
-{
-public:
-    // for save
-    explicit ReservationDetailsAccessor(const iatci::ReservationDetails& r)
-        : iatci::ReservationDetails(r)
-    {}
-
-    // for load
-    ReservationDetailsAccessor()
-    {}
-
-    iatci::ReservationDetails& get() { return *this; }
-
-    using iatci::ReservationDetails::m_rbd;
-};
-
-}//namespace
-
-/*****
- * ReservationDetails
- *****/
-template<class Archive>
-inline void save(Archive& ar, const iatci::ReservationDetails& par, const unsigned int version)
-{
-    ReservationDetailsAccessor acc(par);
-    ar & acc.m_rbd;
-}
-
-template<class Archive>
-inline void load(Archive& ar, iatci::ReservationDetails& par, const unsigned int version)
-{
-    ReservationDetailsAccessor acc;
-    ar & acc.m_rbd;
-    par = acc.get();
-}
-
-template<class Archive>
-inline void serialize(Archive& ar, iatci::ReservationDetails& par, const unsigned int version)
-{
-    boost::serialization::split_free(ar, par, version);
-}
-
-//---------------------------------------------------------------------------------------
-
-namespace {
-
 class SeatDetailsAccessor: private iatci::SeatDetails
 {
 public:
@@ -288,62 +193,6 @@ inline void serialize(Archive& ar, iatci::SeatDetails& par, const unsigned int v
 {
     boost::serialization::split_free(ar, par, version);
 }
-
-//---------------------------------------------------------------------------------------
-
-namespace {
-
-class PaxSeatDetailsAccessor: private iatci::PaxSeatDetails
-{
-public:
-    // for save
-    explicit PaxSeatDetailsAccessor(const iatci::PaxSeatDetails& p)
-        : iatci::PaxSeatDetails(p)
-    {}
-
-    // for load
-    PaxSeatDetailsAccessor()
-    {}
-
-    iatci::PaxSeatDetails& get() { return *this; }
-
-    using iatci::PaxSeatDetails::m_rbd;
-    using iatci::PaxSeatDetails::m_seat;
-    using iatci::PaxSeatDetails::m_securityId;
-    using iatci::PaxSeatDetails::m_recloc;
-    using iatci::PaxSeatDetails::m_tickNum;
-};
-
-}//namespace
-
-/*****
- * PaxSeatDetails
- *****/
-template<class Archive>
-inline void save(Archive& ar, const iatci::PaxSeatDetails& par, const unsigned int version)
-{
-    PaxSeatDetailsAccessor acc(par);
-    ar & boost::serialization::base_object<iatci::PaxDetails>(acc.get());
-    ar & acc.m_rbd & acc.m_seat & acc.m_securityId;
-    ar & acc.m_recloc & acc.m_tickNum;
-}
-
-template<class Archive>
-inline void load(Archive& ar, iatci::PaxSeatDetails& par, const unsigned int version)
-{
-    PaxSeatDetailsAccessor acc;
-    ar & boost::serialization::base_object<iatci::PaxDetails>(acc.get());
-    ar & acc.m_rbd & acc.m_seat & acc.m_securityId;
-    ar & acc.m_recloc & acc.m_tickNum;
-    par = acc.get();
-}
-
-template<class Archive>
-inline void serialize(Archive& ar, iatci::PaxSeatDetails& par, const unsigned int version)
-{
-    boost::serialization::split_free(ar, par, version);
-}
-
 
 //---------------------------------------------------------------------------------------
 
@@ -400,46 +249,349 @@ inline void serialize(Archive& ar, iatci::FlightSeatDetails& par, const unsigned
 
 namespace {
 
-class BaggageDetailsAccessor: private iatci::BaggageDetails
+class RowRangeAccessor: private iatci::RowRange
 {
 public:
     // for save
-    explicit BaggageDetailsAccessor(const iatci::BaggageDetails& b)
-        : iatci::BaggageDetails(b)
+    explicit RowRangeAccessor(const iatci::RowRange& r)
+        : iatci::RowRange(r)
     {}
 
     // for load
-    BaggageDetailsAccessor()
+    RowRangeAccessor()
     {}
 
-    iatci::BaggageDetails& get() { return *this; }
+    iatci::RowRange& get() { return *this; }
 
-    using iatci::BaggageDetails::m_numOfPieces;
-    using iatci::BaggageDetails::m_weight;
+    using iatci::RowRange::m_firstRow;
+    using iatci::RowRange::m_lastRow;
 };
 
 }//namespace
 
 /*****
- * BaggageDetails
+ * RowRange
  *****/
 template<class Archive>
-inline void save(Archive& ar, const iatci::BaggageDetails& par, const unsigned int version)
+inline void save(Archive& ar, const iatci::RowRange& par, const unsigned int version)
 {
-    BaggageDetailsAccessor acc(par);
-    ar & acc.m_numOfPieces & acc.m_weight;
+    RowRangeAccessor acc(par);
+    ar & acc.m_firstRow & acc.m_lastRow;
 }
 
 template<class Archive>
-inline void load(Archive& ar, iatci::BaggageDetails& par, const unsigned int version)
+inline void load(Archive& ar, iatci::RowRange& par, const unsigned int version)
 {
-    BaggageDetailsAccessor acc;
-    ar & acc.m_numOfPieces & acc.m_weight;
+    RowRangeAccessor acc;
+    ar & acc.m_firstRow & acc.m_lastRow;
     par = acc.get();
 }
 
 template<class Archive>
-inline void serialize(Archive& ar, iatci::BaggageDetails& par, const unsigned int version)
+inline void serialize(Archive& ar, iatci::RowRange& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
+class SeatColumnDetailsAccessor: private iatci::SeatColumnDetails
+{
+public:
+    // for save
+    explicit SeatColumnDetailsAccessor(const iatci::SeatColumnDetails& s)
+        : iatci::SeatColumnDetails(s)
+    {}
+
+    // for load
+    SeatColumnDetailsAccessor()
+    {}
+
+    iatci::SeatColumnDetails& get() { return *this; }
+
+    using iatci::SeatColumnDetails::m_column;
+    using iatci::SeatColumnDetails::m_desc1;
+    using iatci::SeatColumnDetails::m_desc2;
+};
+
+}//namespace
+
+/*****
+ * SeatColumnDetails
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::SeatColumnDetails& par, const unsigned int version)
+{
+    SeatColumnDetailsAccessor acc(par);
+    ar & acc.m_column & acc.m_desc1 & acc.m_desc2;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::SeatColumnDetails& par, const unsigned int version)
+{
+    SeatColumnDetailsAccessor acc;
+    ar & acc.m_column & acc.m_desc1 & acc.m_desc2;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::SeatColumnDetails& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
+class RowDetailsAccessor: private iatci::RowDetails
+{
+public:
+    // for save
+    explicit RowDetailsAccessor(const iatci::RowDetails& r)
+        : iatci::RowDetails(r)
+    {}
+
+    // for load
+    RowDetailsAccessor()
+    {}
+
+    iatci::RowDetails& get() { return *this; }
+
+    using iatci::RowDetails::m_row;
+    using iatci::RowDetails::m_characteristic;
+    using iatci::RowDetails::m_lOccupationDetails;
+};
+
+}//namespace
+
+/*****
+ * RowDetails
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::RowDetails& par, const unsigned int version)
+{
+    RowDetailsAccessor acc(par);
+    ar & acc.m_row & acc.m_characteristic & acc.m_lOccupationDetails;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::RowDetails& par, const unsigned int version)
+{
+    RowDetailsAccessor acc;
+    ar & acc.m_row & acc.m_characteristic & acc.m_lOccupationDetails;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::RowDetails& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
+class CabinDetailsAccessor: private iatci::CabinDetails
+{
+public:
+    // for save
+    explicit CabinDetailsAccessor(const iatci::CabinDetails& c)
+        : iatci::CabinDetails(c)
+    {}
+
+    // for load
+    CabinDetailsAccessor()
+    {}
+
+    iatci::CabinDetails& get() { return *this; }
+
+    using iatci::CabinDetails::m_classDesignator;
+    using iatci::CabinDetails::m_rowRange;
+    using iatci::CabinDetails::m_deck;
+    using iatci::CabinDetails::m_defSeatOccupation;
+    using iatci::CabinDetails::m_overwingArea;
+    using iatci::CabinDetails::m_seatColumns;
+    using iatci::CabinDetails::m_smokingArea;
+};
+
+}//namespace
+
+/*****
+ * CabinDetails
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::CabinDetails& par, const unsigned int version)
+{
+    CabinDetailsAccessor acc(par);
+    ar & acc.m_classDesignator & acc.m_rowRange & acc.m_deck;
+    ar & acc.m_defSeatOccupation & acc.m_overwingArea & acc.m_seatColumns;
+    ar & acc.m_smokingArea;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::CabinDetails& par, const unsigned int version)
+{
+    CabinDetailsAccessor acc;
+    ar & acc.m_classDesignator & acc.m_rowRange & acc.m_deck;
+    ar & acc.m_defSeatOccupation & acc.m_overwingArea & acc.m_seatColumns;
+    ar & acc.m_smokingArea;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::CabinDetails& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
+class SeatOccupationDetailsAccessor: private iatci::SeatOccupationDetails
+{
+public:
+    // for save
+    explicit SeatOccupationDetailsAccessor(const iatci::SeatOccupationDetails& o)
+        : iatci::SeatOccupationDetails(o)
+    {}
+
+    // for load
+    SeatOccupationDetailsAccessor()
+    {}
+
+    iatci::SeatOccupationDetails& get() { return *this; }
+
+    using iatci::SeatOccupationDetails::m_column;
+    using iatci::SeatOccupationDetails::m_occupation;
+    using iatci::SeatOccupationDetails::m_lCharacteristics;
+};
+
+}//namespace
+
+/*****
+ * SeatOccupationDetails
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::SeatOccupationDetails& par, const unsigned int version)
+{
+    SeatOccupationDetailsAccessor acc(par);
+    ar & acc.m_column & acc.m_occupation & acc.m_lCharacteristics;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::SeatOccupationDetails& par, const unsigned int version)
+{
+    SeatOccupationDetailsAccessor acc;
+    ar & acc.m_column & acc.m_occupation & acc.m_lCharacteristics;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::SeatOccupationDetails& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
+
+class SeatRequestDetailsAccessor: private iatci::SeatRequestDetails
+{
+public:
+    // for save
+    explicit SeatRequestDetailsAccessor(const iatci::SeatRequestDetails& s)
+        : iatci::SeatRequestDetails(s)
+    {}
+
+    // for load
+    SeatRequestDetailsAccessor()
+    {}
+
+    iatci::SeatRequestDetails& get() { return *this; }
+
+    using iatci::SeatRequestDetails::m_cabinClass;
+};
+
+}//namespace
+
+/*****
+ * SeatRequestDetails
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::SeatRequestDetails& par, const unsigned int version)
+{
+    SeatRequestDetailsAccessor acc(par);
+    ar & boost::serialization::base_object<iatci::SeatDetails>(acc.get());
+    ar & acc.m_cabinClass;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::SeatRequestDetails& par, const unsigned int version)
+{
+    SeatRequestDetailsAccessor acc;
+    ar & boost::serialization::base_object<iatci::SeatDetails>(acc.get());
+    ar & acc.m_cabinClass;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::SeatRequestDetails& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
+class SeatmapDetailsAccessor: private iatci::SeatmapDetails
+{
+public:
+    // for save
+    explicit SeatmapDetailsAccessor(const iatci::SeatmapDetails& s)
+        : iatci::SeatmapDetails(s)
+    {}
+
+    // for load
+    SeatmapDetailsAccessor()
+    {}
+
+    iatci::SeatmapDetails& get() { return *this; }
+
+    using iatci::SeatmapDetails::m_lCabinDetails;
+    using iatci::SeatmapDetails::m_lRowDetails;
+    using iatci::SeatmapDetails::m_seatRequestDetails;
+};
+
+}//namespace
+
+/*****
+ * SeatmapDetails
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::SeatmapDetails& par, const unsigned int version)
+{
+    SeatmapDetailsAccessor acc(par);
+    ar & acc.m_lCabinDetails & acc.m_lRowDetails & acc.m_seatRequestDetails;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::SeatmapDetails& par, const unsigned int version)
+{
+    SeatmapDetailsAccessor acc;
+    ar & acc.m_lCabinDetails & acc.m_lRowDetails & acc.m_seatRequestDetails;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::SeatmapDetails& par, const unsigned int version)
 {
     boost::serialization::split_free(ar, par, version);
 }
@@ -518,7 +670,7 @@ public:
 }//namespace
 
 /*****
- * ErrorDetails
+ * WarningDetails
  *****/
 template<class Archive>
 inline void save(Archive& ar, const iatci::ErrorDetails& par, const unsigned int version)
@@ -545,6 +697,101 @@ inline void serialize(Archive& ar, iatci::ErrorDetails& par, const unsigned int 
 
 namespace {
 
+class WarningDetailsAccessor: private iatci::WarningDetails
+{
+public:
+    // for save
+    explicit WarningDetailsAccessor(const iatci::WarningDetails& e)
+        : iatci::WarningDetails(e)
+    {}
+
+    // for load
+    WarningDetailsAccessor()
+    {}
+
+    iatci::WarningDetails& get() { return *this; }
+
+    using iatci::WarningDetails::m_warningCode;
+    using iatci::WarningDetails::m_warningDesc;
+};
+
+}//namespace
+
+/*****
+ * WarningDetails
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::WarningDetails& par, const unsigned int version)
+{
+    WarningDetailsAccessor acc(par);
+    ar & acc.m_warningCode & acc.m_warningDesc;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::WarningDetails& par, const unsigned int version)
+{
+    WarningDetailsAccessor acc;
+    ar & acc.m_warningCode & acc.m_warningDesc;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::WarningDetails& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
+class EquipmentDetailsAccessor: private iatci::EquipmentDetails
+{
+public:
+    // for save
+    explicit EquipmentDetailsAccessor(const iatci::EquipmentDetails& e)
+        : iatci::EquipmentDetails(e)
+    {}
+
+    // for load
+    EquipmentDetailsAccessor()
+    {}
+
+    iatci::EquipmentDetails& get() { return *this; }
+
+    using iatci::EquipmentDetails::m_equipment;
+};
+
+}//namespace
+
+/*****
+ * WarningDetails
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::EquipmentDetails& par, const unsigned int version)
+{
+    EquipmentDetailsAccessor acc(par);
+    ar & acc.m_equipment;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::EquipmentDetails& par, const unsigned int version)
+{
+    EquipmentDetailsAccessor acc;
+    ar & acc.m_equipment;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::EquipmentDetails& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
 class CkiResultAccessor: private iatci::Result
 {
 public:
@@ -562,10 +809,13 @@ public:
     using iatci::Result::m_action;
     using iatci::Result::m_status;
     using iatci::Result::m_flight;
-    using iatci::Result::m_pax;
+    using iatci::Result::m_pax;    
     using iatci::Result::m_seat;
+    using iatci::Result::m_seatmap;
     using iatci::Result::m_cascadeDetails;
     using iatci::Result::m_errorDetails;
+    using iatci::Result::m_warningDetails;
+    using iatci::Result::m_equipmentDetails;
 };
 
 }//namespace
@@ -577,16 +827,18 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::Result& par, const unsigned int version)
 {
     CkiResultAccessor acc(par);
-    ar & acc.m_action & acc.m_status & acc.m_flight & acc.m_pax;
-    ar & acc.m_seat & acc.m_cascadeDetails & acc.m_errorDetails;
+    ar & acc.m_action & acc.m_status & acc.m_flight & acc.m_pax & acc.m_seat;
+    ar & acc.m_seatmap & acc.m_cascadeDetails & acc.m_errorDetails;
+    ar & acc.m_warningDetails & acc.m_equipmentDetails;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::Result& par, const unsigned int version)
 {
     CkiResultAccessor acc;
-    ar & acc.m_action & acc.m_status & acc.m_flight & acc.m_pax;
-    ar & acc.m_seat & acc.m_cascadeDetails & acc.m_errorDetails;
+    ar & acc.m_action & acc.m_status & acc.m_flight & acc.m_pax & acc.m_seat;
+    ar & acc.m_seatmap & acc.m_cascadeDetails & acc.m_errorDetails;
+    ar & acc.m_warningDetails & acc.m_equipmentDetails;
     par = acc.get();
 }
 

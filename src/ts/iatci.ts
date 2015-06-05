@@ -534,3 +534,22 @@ FDQ+SU+200+150221+LED+AER"
 SRP+F:N"
 UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+RCV+SND+150217:0747+$(last_edifact_ref)0001+++T"
+UNH+1+DCRSMF:96:2:IA+$(last_edifact_ref)"
+FDR+SU+200+150221+LED+AER++T"
+RAD+S+O"
+SRP+F"
+EQD++++++D09"
+CBD+F+3:6+++F++A:W+B:A+E:A+F:W"
+ROD+3++A::K+B::K+E::K+F::K"
+ROD+6++A+B:O+E+F"
+UNT+9+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>> lines=auto
+    <kick...
+
+$(lastRedisplay)

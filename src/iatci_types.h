@@ -30,7 +30,7 @@ public:
     const std::string& point() const;
 
 protected:
-    OriginatorDetails() {} // only for boost serialization
+    OriginatorDetails() {} // for boost serialization only
 };
 
 //-----------------------------------------------------------------------------
@@ -74,7 +74,7 @@ public:
     std::string                             toShortKeyString() const;
 
 protected:
-    FlightDetails() {} // only for boost serialization
+    FlightDetails() {} // for boost serialization only
 };
 
 //-----------------------------------------------------------------------------
@@ -118,7 +118,7 @@ public:
 protected:
     PaxDetails()
         : m_type(Adult)
-    {} // only for boost serialization
+    {} // for boost serialization only
 };
 
 //-----------------------------------------------------------------------------
@@ -182,7 +182,7 @@ public:
     const std::string& rbd() const;
 
 protected:
-    ReservationDetails() {} // only for boost serialization
+    ReservationDetails() {} // for boost serialization only
 };
 
 //-----------------------------------------------------------------------------
@@ -256,7 +256,7 @@ public:
 protected:
     FlightSeatDetails(SmokeIndicator_e smokeInd = Unknown)
         : SeatDetails(smokeInd)
-    {} // only for boost serialization
+    {} // for boost serialization only
 };
 
 //-----------------------------------------------------------------------------
@@ -292,7 +292,7 @@ public:
 
 protected:
     PaxSeatDetails()
-    {} // only for boost serialization
+    {} // for boost serialization only
 };
 
 //-----------------------------------------------------------------------------
@@ -315,7 +315,7 @@ public:
 protected:
     BaggageDetails()
         : m_numOfPieces(0), m_weight(0)
-    {} // only for boost serialization
+    {} // for boost serialization only
 };
 
 //-----------------------------------------------------------------------------
@@ -331,6 +331,9 @@ public:
 
 struct SeatRequestDetails: public SeatDetails
 {
+    friend class Result;
+    friend class boost::serialization::access;
+protected:
     std::string m_cabinClass;
 
 public:
@@ -340,7 +343,166 @@ public:
     const std::string& cabinClass() const;
 
 protected:
-    using SeatDetails::seat; // hide method from base class
+    using SeatDetails::seat; // hide method from the base class
+};
+
+//-----------------------------------------------------------------------------
+
+struct RowRange
+{
+    friend class CabinDetails;
+    friend class boost::serialization::access;
+
+protected:
+    unsigned m_firstRow;
+    unsigned m_lastRow;
+
+public:
+    RowRange(unsigned firstRow, unsigned lastRow);
+
+    unsigned firstRow() const;
+    unsigned lastRow() const;
+
+protected:
+    RowRange()
+        : m_firstRow(0), m_lastRow(0)
+    {} // for boost serialization only
+};
+
+//-----------------------------------------------------------------------------
+
+struct SeatColumnDetails
+{
+    friend class Result;
+    friend class boost::serialization::access;
+
+protected:
+    std::string m_column;
+    std::string m_desc1;
+    std::string m_desc2;
+
+public:
+    SeatColumnDetails(const std::string& column, const std::string& desc1,
+                      const std::string& desc2 = "");
+
+    const std::string& column() const;
+    const std::string& desc1() const;
+    const std::string& desc2() const;
+
+protected:
+    SeatColumnDetails() {} // for boost serialization only
+};
+
+//-----------------------------------------------------------------------------
+
+struct CabinDetails
+{
+    friend class Result;
+    friend class boost::serialization::access;
+
+protected:
+    std::string                  m_classDesignator;
+    RowRange                     m_rowRange;
+    std::string                  m_defSeatOccupation;
+    std::list<SeatColumnDetails> m_seatColumns;
+    std::string                  m_deck;
+    boost::optional<RowRange>    m_smokingArea;
+    boost::optional<RowRange>    m_overwingArea;
+
+public:
+    CabinDetails(const std::string& classDesignator,
+                 const RowRange& rowRange,
+                 const std::string& defaultSeatOccupation = "",
+                 const std::list<SeatColumnDetails>& seatColumns = std::list<SeatColumnDetails>(),
+                 const std::string& deck = "",
+                 boost::optional<RowRange> smokingArea = boost::none,
+                 boost::optional<RowRange> overwingArea = boost::none);
+
+    const std::string&                  classDesignator() const;
+    const RowRange&                     rowRange() const;
+    const std::string&                  defaultSeatOccupation() const;
+    const std::list<SeatColumnDetails>& seatColumns() const;
+    const std::string&                  deck() const;
+    boost::optional<RowRange>           smokingArea() const;
+    boost::optional<RowRange>           overwingArea() const;
+
+protected:
+    CabinDetails() {} // for boost serialization only
+};
+
+//-----------------------------------------------------------------------------
+
+struct SeatOccupationDetails
+{
+    friend class Result;
+    friend class boost::serialization::access;
+
+protected:
+    std::string            m_column;
+    std::string            m_occupation;
+    std::list<std::string> m_lCharacteristics;
+
+public:
+    SeatOccupationDetails(const std::string& column,
+                          const std::string& occupation,
+                          const std::list<std::string>& lCharacteristics = std::list<std::string>());
+
+    const std::string&            column() const;
+    const std::string&            occupation() const;
+    const std::list<std::string>& lCharacteristics() const;
+
+protected:
+    SeatOccupationDetails() {} // for boost serialization only
+};
+
+//-----------------------------------------------------------------------------
+
+struct RowDetails
+{
+    friend class Result;
+    friend class boost::serialization::access;
+
+protected:
+    std::string                      m_row;
+    std::string                      m_characteristic;
+    std::list<SeatOccupationDetails> m_lOccupationDetails;
+
+public:
+    RowDetails(const std::string& row,
+               const std::string& characteristic,
+               const std::list<SeatOccupationDetails>& lOccupationDetails = std::list<SeatOccupationDetails>());
+
+    const std::string&                      row() const;
+    const std::string&                      characteristic() const;
+    const std::list<SeatOccupationDetails>& lOccupationDetails() const;
+
+protected:
+    RowDetails() {} // for boost serialization only
+};
+
+//-----------------------------------------------------------------------------
+
+struct SeatmapDetails
+{
+    friend class Result;
+    friend class boost::serialization::access;
+
+protected:
+    std::list<CabinDetails>             m_lCabinDetails;
+    std::list<RowDetails>               m_lRowDetails;
+    boost::optional<SeatRequestDetails> m_seatRequestDetails;
+
+public:
+    SeatmapDetails(const std::list<CabinDetails>& lCabinDetails,
+                   const std::list<RowDetails>& lRowDetails,
+                   boost::optional<SeatRequestDetails> seatRequestDetails = boost::none);
+
+    const std::list<CabinDetails>&      lCabinDetails() const;
+    const std::list<RowDetails>&        lRowDetails() const;
+    boost::optional<SeatRequestDetails> seatRequestDetails() const;
+
+protected:
+    SeatmapDetails() {} // for boost serialization only
 };
 
 //-----------------------------------------------------------------------------
@@ -351,8 +513,8 @@ struct CascadeHostDetails
     friend class boost::serialization::access;
 
 protected:
-    std::string m_originAirline;
-    std::string m_originPoint;
+    std::string            m_originAirline;
+    std::string            m_originPoint;
     std::list<std::string> m_hostAirlines;
 
 public:
@@ -367,7 +529,7 @@ public:
     void addHostAirline(const std::string& hostAirline);
 
 protected:
-    CascadeHostDetails() {} // only for boost serialization
+    CascadeHostDetails() {} // for boost serialization only
 };
 
 //-----------------------------------------------------------------------------
@@ -389,7 +551,48 @@ public:
     const std::string&         errDesc() const;
 
 protected:
-    ErrorDetails() {} // only for boost serialization
+    ErrorDetails() {} // for boost serialization only
+};
+
+//-----------------------------------------------------------------------------
+
+struct EquipmentDetails
+{
+    friend class Result;
+    friend class boost::serialization::access;
+
+protected:
+    std::string m_equipment;
+
+public:
+    EquipmentDetails(const std::string& equipment);
+
+    const std::string equipment() const;
+
+protected:
+    EquipmentDetails() {} // for boost serialization only
+};
+
+//-----------------------------------------------------------------------------
+
+struct WarningDetails
+{
+    friend class Result;
+    friend class boost::serialization::access;
+
+protected:
+    Ticketing::ErrMsg_t m_warningCode;
+    std::string         m_warningDesc;
+
+public:
+    WarningDetails(const Ticketing::ErrMsg_t& warningCode,
+                   const std::string& warningDesc = "");
+
+    const Ticketing::ErrMsg_t& warningCode() const;
+    const std::string&         warningDesc() const;
+
+protected:
+    WarningDetails() {} // for boost serialization only
 };
 
 //-----------------------------------------------------------------------------
@@ -541,7 +744,9 @@ struct Result
         Checkin,
         Cancel,
         Update,
-        Passlist
+        Passlist,
+        Seatmap,
+        SeatmapForPassenger
     };
 
     enum Status_e
@@ -557,16 +762,22 @@ protected:
     boost::optional<FlightDetails>      m_flight;
     boost::optional<PaxDetails>         m_pax;
     boost::optional<FlightSeatDetails>  m_seat;
+    boost::optional<SeatmapDetails>     m_seatmap;
     boost::optional<CascadeHostDetails> m_cascadeDetails;
     boost::optional<ErrorDetails>       m_errorDetails;
+    boost::optional<WarningDetails>     m_warningDetails;
+    boost::optional<EquipmentDetails>   m_equipmentDetails;
 
     Result(Action_e action,
            Status_e status,
            boost::optional<FlightDetails> flight,
            boost::optional<PaxDetails> pax,
            boost::optional<FlightSeatDetails> seat,
+           boost::optional<SeatmapDetails> seatmap,
            boost::optional<CascadeHostDetails> cascadeDetails,
-           boost::optional<ErrorDetails> errorDetails);
+           boost::optional<ErrorDetails> errorDetails,
+           boost::optional<WarningDetails> warningDetails,
+           boost::optional<EquipmentDetails> equipmentDetails);
 
 public:
     static Result makeResult(Action_e action,
@@ -574,36 +785,55 @@ public:
                              const FlightDetails& flight,
                              boost::optional<PaxDetails> pax,
                              boost::optional<FlightSeatDetails> seat,
+                             boost::optional<SeatmapDetails> seatmap,
                              boost::optional<CascadeHostDetails> cascadeDetails,
-                             boost::optional<ErrorDetails> errorDetails);
+                             boost::optional<ErrorDetails> errorDetails,
+                             boost::optional<WarningDetails> warningDetails,
+                             boost::optional<EquipmentDetails> equipmentDetails);
 
     static Result makeCheckinResult(Status_e status,
                                     const FlightDetails& flight,
                                     const PaxDetails& pax,
                                     boost::optional<FlightSeatDetails> seat = boost::none,
                                     boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                                    boost::optional<ErrorDetails> errorDetails = boost::none);
+                                    boost::optional<ErrorDetails> errorDetails = boost::none,
+                                    boost::optional<WarningDetails> warningDetails = boost::none,
+                                    boost::optional<EquipmentDetails> equipmentDetails = boost::none);
 
     static Result makeUpdateResult(Status_e status,
                                    const FlightDetails& flight,
                                    const PaxDetails& pax,
                                    boost::optional<FlightSeatDetails> seat = boost::none,
                                    boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                                   boost::optional<ErrorDetails> errorDetails = boost::none);
+                                   boost::optional<ErrorDetails> errorDetails = boost::none,
+                                   boost::optional<WarningDetails> warningDetails = boost::none,
+                                   boost::optional<EquipmentDetails> equipmentDetails = boost::none);
 
     static Result makeCancelResult(Status_e status,
                                    const FlightDetails& flight,
                                    const PaxDetails& pax,
                                    boost::optional<FlightSeatDetails> seat = boost::none,
                                    boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                                   boost::optional<ErrorDetails> errorDetails = boost::none);
+                                   boost::optional<ErrorDetails> errorDetails = boost::none,
+                                   boost::optional<WarningDetails> warningDetails = boost::none,
+                                   boost::optional<EquipmentDetails> equipmentDetails = boost::none);
 
     static Result makePasslistResult(Status_e status,
                                      const FlightDetails& flight,
                                      const PaxDetails& pax,
                                      boost::optional<FlightSeatDetails> seat = boost::none,
                                      boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                                     boost::optional<ErrorDetails> errorDetails = boost::none);
+                                     boost::optional<ErrorDetails> errorDetails = boost::none,
+                                     boost::optional<WarningDetails> warningDetails = boost::none,
+                                     boost::optional<EquipmentDetails> equipmentDetails = boost::none);
+
+    static Result makeSeatmapResult(Status_e status,
+                                    const FlightDetails& flight,
+                                    const SeatmapDetails& seatmap,
+                                    boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
+                                    boost::optional<ErrorDetails> errorDetails = boost::none,
+                                    boost::optional<WarningDetails> warningDetails = boost::none,
+                                    boost::optional<EquipmentDetails> equipmentDetails = boost::none);
 
     static Result makeFailResult(Action_e action,
                                  const ErrorDetails& errorDetails);
@@ -613,8 +843,12 @@ public:
     const FlightDetails&                flight() const;
     boost::optional<PaxDetails>         pax() const;
     boost::optional<FlightSeatDetails>  seat() const;
+    boost::optional<SeatmapDetails>     seatmap() const;
     boost::optional<CascadeHostDetails> cascadeDetails() const;
     boost::optional<ErrorDetails>       errorDetails() const;
+    boost::optional<WarningDetails>     warningDetails() const;
+    boost::optional<EquipmentDetails>   equipmentDetails() const;
+
     std::string                         actionAsString() const;
     std::string                         statusAsString() const;
 
@@ -624,7 +858,7 @@ public:
 protected:
     Result()
         : m_status(Failed)
-    {} // only for boost serialization
+    {} // for boost serialization only
 };
 
 }//namespace iatci

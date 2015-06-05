@@ -407,6 +407,176 @@ const std::string& SeatRequestDetails::cabinClass() const
 
 //-----------------------------------------------------------------------------
 
+RowRange::RowRange(unsigned firstRow, unsigned lastRow)
+    : m_firstRow(firstRow), m_lastRow(lastRow)
+{}
+
+unsigned RowRange::firstRow() const
+{
+    return m_firstRow;
+}
+
+unsigned RowRange::lastRow() const
+{
+    return m_lastRow;
+}
+
+//-----------------------------------------------------------------------------
+
+SeatColumnDetails::SeatColumnDetails(const std::string& column, const std::string& desc1,
+                             const std::string& desc2)
+    : m_column(column), m_desc1(desc1), m_desc2(desc2)
+{}
+
+const std::string& SeatColumnDetails::column() const
+{
+    return m_column;
+}
+
+const std::string& SeatColumnDetails::desc1() const
+{
+    return m_desc1;
+}
+
+const std::string& SeatColumnDetails::desc2() const
+{
+    return m_desc2;
+}
+
+//-----------------------------------------------------------------------------
+
+CabinDetails::CabinDetails(const std::string& classDesignator,
+                           const RowRange& rowRange,
+                           const std::string& defaultSeatOccupation,
+                           const std::list<SeatColumnDetails>& seatColumns,
+                           const std::string& deck,
+                           boost::optional<RowRange> smokingArea,
+                           boost::optional<RowRange> overwingArea)
+    : m_classDesignator(classDesignator), m_rowRange(rowRange),
+      m_defSeatOccupation(defaultSeatOccupation), m_seatColumns(seatColumns),
+      m_deck(deck), m_smokingArea(smokingArea), m_overwingArea(overwingArea)
+{}
+
+const std::string& CabinDetails::classDesignator() const
+{
+    return m_classDesignator;
+}
+
+const RowRange& CabinDetails::rowRange() const
+{
+    return m_rowRange;
+}
+
+const std::string& CabinDetails::defaultSeatOccupation() const
+{
+    return m_defSeatOccupation;
+}
+
+const std::list<SeatColumnDetails>& CabinDetails::seatColumns() const
+{
+    return m_seatColumns;
+}
+
+const std::string& CabinDetails::deck() const
+{
+    return m_deck;
+}
+
+boost::optional<RowRange> CabinDetails::smokingArea() const
+{
+    return m_smokingArea;
+}
+
+boost::optional<RowRange> CabinDetails::overwingArea() const
+{
+    return m_overwingArea;
+}
+
+//-----------------------------------------------------------------------------
+
+SeatOccupationDetails::SeatOccupationDetails(const std::string& column,
+                                             const std::string& occupation,
+                                             const std::list<std::string>& lCharacteristics)
+    : m_column(column), m_occupation(occupation),
+      m_lCharacteristics(lCharacteristics)
+{}
+
+const std::string& SeatOccupationDetails::column() const
+{
+    return m_column;
+}
+
+const std::string& SeatOccupationDetails::occupation() const
+{
+    return m_occupation;
+}
+
+const std::list<std::string>& SeatOccupationDetails::lCharacteristics() const
+{
+    return m_lCharacteristics;
+}
+
+//-----------------------------------------------------------------------------
+
+RowDetails::RowDetails(const std::string& row,
+                       const std::string& characteristic,
+                       const std::list<SeatOccupationDetails>& lOccupationDetails)
+    : m_row(row), m_characteristic(characteristic),
+      m_lOccupationDetails(lOccupationDetails)
+{}
+
+const std::string& RowDetails::row() const
+{
+    return m_row;
+}
+
+const std::string& RowDetails::characteristic() const
+{
+    return m_characteristic;
+}
+
+const std::list<SeatOccupationDetails>& RowDetails::lOccupationDetails() const
+{
+    return m_lOccupationDetails;
+}
+
+//-----------------------------------------------------------------------------
+
+EquipmentDetails::EquipmentDetails(const std::string& equipment)
+    : m_equipment(equipment)
+{}
+
+const std::string EquipmentDetails::equipment() const
+{
+    return m_equipment;
+}
+
+//-----------------------------------------------------------------------------
+
+SeatmapDetails::SeatmapDetails(const std::list<CabinDetails>& lCabinDetails,
+                               const std::list<RowDetails>& lRowDetails,
+                               boost::optional<SeatRequestDetails> seatRequestDetails)
+    : m_lCabinDetails(lCabinDetails), m_lRowDetails(lRowDetails),
+      m_seatRequestDetails(seatRequestDetails)
+{}
+
+boost::optional<SeatRequestDetails> SeatmapDetails::seatRequestDetails() const
+{
+    return m_seatRequestDetails;
+}
+
+const std::list<CabinDetails>& SeatmapDetails::lCabinDetails() const
+{
+    return m_lCabinDetails;
+}
+
+const std::list<RowDetails>& SeatmapDetails::lRowDetails() const
+{
+    return m_lRowDetails;
+}
+
+//-----------------------------------------------------------------------------
+
 CascadeHostDetails::CascadeHostDetails(const std::string& host)
 {
     m_hostAirlines.push_back(host);
@@ -458,20 +628,44 @@ const std::string& ErrorDetails::errDesc() const
 
 //-----------------------------------------------------------------------------
 
+WarningDetails::WarningDetails(const Ticketing::ErrMsg_t& warningCode,
+                               const std::string& warningDesc)
+    : m_warningCode(warningCode),
+      m_warningDesc(warningDesc)
+{}
+
+const Ticketing::ErrMsg_t& WarningDetails::warningCode() const
+{
+    return m_warningCode;
+}
+
+const std::string& WarningDetails::warningDesc() const
+{
+    return m_warningDesc;
+}
+
+//-----------------------------------------------------------------------------
+
 Result::Result(Action_e action,
                Status_e status,
                boost::optional<FlightDetails> flight,
                boost::optional<PaxDetails> pax,
                boost::optional<FlightSeatDetails> seat,
+               boost::optional<SeatmapDetails> seatmap,
                boost::optional<CascadeHostDetails> cascadeDetails,
-               boost::optional<ErrorDetails> errorDetails)
+               boost::optional<ErrorDetails> errorDetails,
+               boost::optional<WarningDetails> warningDetails,
+               boost::optional<EquipmentDetails> equipmentDetails)
     : m_action(action),
       m_status(status),
       m_flight(flight),
       m_pax(pax),
       m_seat(seat),
+      m_seatmap(seatmap),
       m_cascadeDetails(cascadeDetails),
-      m_errorDetails(errorDetails)
+      m_errorDetails(errorDetails),
+      m_warningDetails(warningDetails),
+      m_equipmentDetails(equipmentDetails)
 {}
 
 Result Result::makeResult(Action_e action,
@@ -479,16 +673,22 @@ Result Result::makeResult(Action_e action,
                           const FlightDetails& flight,
                           boost::optional<PaxDetails> pax,
                           boost::optional<FlightSeatDetails> seat,
+                          boost::optional<SeatmapDetails> seatmap,
                           boost::optional<CascadeHostDetails> cascadeDetails,
-                          boost::optional<ErrorDetails> errorDetails)
+                          boost::optional<ErrorDetails> errorDetails,
+                          boost::optional<WarningDetails> warningDetails,
+                          boost::optional<EquipmentDetails> equipmentDetails)
 {
     return Result(action,
                   status,
                   flight,
                   pax,
                   seat,
+                  seatmap,
                   cascadeDetails,
-                  errorDetails);
+                  errorDetails,
+                  warningDetails,
+                  equipmentDetails);
 }
 
 Result Result::makeCheckinResult(Status_e status,
@@ -496,15 +696,20 @@ Result Result::makeCheckinResult(Status_e status,
                                  const PaxDetails& pax,
                                  boost::optional<FlightSeatDetails> seat,
                                  boost::optional<CascadeHostDetails> cascadeDetails,
-                                 boost::optional<ErrorDetails> errorDetails)
+                                 boost::optional<ErrorDetails> errorDetails,
+                                 boost::optional<WarningDetails> warningDetails,
+                                 boost::optional<EquipmentDetails> equipmentDetails)
 {
     return Result(Checkin,
                   status,
                   flight,
                   pax,
                   seat,
+                  boost::none,
                   cascadeDetails,
-                  errorDetails);
+                  errorDetails,
+                  warningDetails,
+                  equipmentDetails);
 }
 
 Result Result::makeUpdateResult(Status_e status,
@@ -512,15 +717,20 @@ Result Result::makeUpdateResult(Status_e status,
                                 const PaxDetails& pax,
                                 boost::optional<FlightSeatDetails> seat,
                                 boost::optional<CascadeHostDetails> cascadeDetails,
-                                boost::optional<ErrorDetails> errorDetails)
+                                boost::optional<ErrorDetails> errorDetails,
+                                boost::optional<WarningDetails> warningDetails,
+                                boost::optional<EquipmentDetails> equipmentDetails)
 {
     return Result(Update,
                   status,
                   flight,
                   pax,
                   seat,
+                  boost::none,
                   cascadeDetails,
-                  errorDetails);
+                  errorDetails,
+                  warningDetails,
+                  equipmentDetails);
 }
 
 Result Result::makeCancelResult(Status_e status,
@@ -528,15 +738,20 @@ Result Result::makeCancelResult(Status_e status,
                                 const PaxDetails& pax,
                                 boost::optional<FlightSeatDetails> seat,
                                 boost::optional<CascadeHostDetails> cascadeDetails,
-                                boost::optional<ErrorDetails> errorDetails)
+                                boost::optional<ErrorDetails> errorDetails,
+                                boost::optional<WarningDetails> warningDetails,
+                                boost::optional<EquipmentDetails> equipmentDetails)
 {
     return Result(Cancel,
                   status,
                   flight,
                   pax,
                   seat,
+                  boost::none,
                   cascadeDetails,
-                  errorDetails);
+                  errorDetails,
+                  warningDetails,
+                  equipmentDetails);
 }
 
 Result Result::makePasslistResult(Status_e status,
@@ -544,15 +759,40 @@ Result Result::makePasslistResult(Status_e status,
                                   const PaxDetails& pax,
                                   boost::optional<FlightSeatDetails> seat,
                                   boost::optional<CascadeHostDetails> cascadeDetails,
-                                  boost::optional<ErrorDetails> errorDetails)
+                                  boost::optional<ErrorDetails> errorDetails,
+                                  boost::optional<WarningDetails> warningDetails,
+                                  boost::optional<EquipmentDetails> equipmentDetails)
 {
     return Result(Passlist,
                   status,
                   flight,
                   pax,
                   seat,
+                  boost::none,
                   cascadeDetails,
-                  errorDetails);
+                  errorDetails,
+                  warningDetails,
+                  equipmentDetails);
+}
+
+Result Result::makeSeatmapResult(Status_e status,
+                                 const FlightDetails& flight,
+                                 const SeatmapDetails& seatmap,
+                                 boost::optional<CascadeHostDetails> cascadeDetails,
+                                 boost::optional<ErrorDetails> errorDetails,
+                                 boost::optional<WarningDetails> warningDetails,
+                                 boost::optional<EquipmentDetails> equipmentDetails)
+{
+    return Result(Seatmap,
+                  status,
+                  flight,
+                  boost::none,
+                  boost::none,
+                  seatmap,
+                  cascadeDetails,
+                  errorDetails,
+                  warningDetails,
+                  equipmentDetails);
 }
 
 Result Result::makeFailResult(Action_e action,
@@ -564,7 +804,10 @@ Result Result::makeFailResult(Action_e action,
                   boost::none,
                   boost::none,
                   boost::none,
-                  errorDetails);
+                  boost::none,
+                  errorDetails,
+                  boost::none,
+                  boost::none);
 }
 
 Result::Action_e Result::action() const
@@ -593,6 +836,11 @@ boost::optional<FlightSeatDetails> Result::seat() const
     return m_seat;
 }
 
+boost::optional<SeatmapDetails> Result::seatmap() const
+{
+    return m_seatmap;
+}
+
 boost::optional<CascadeHostDetails> Result::cascadeDetails() const
 {
     return m_cascadeDetails;
@@ -603,16 +851,27 @@ boost::optional<ErrorDetails> Result::errorDetails() const
     return m_errorDetails;
 }
 
+boost::optional<WarningDetails> Result::warningDetails() const
+{
+    return m_warningDetails;
+}
+
+boost::optional<EquipmentDetails> Result::equipmentDetails() const
+{
+    return m_equipmentDetails;
+}
+
 Result::Action_e Result::strToAction(const std::string& a)
 {
     if(a == "I")      return Checkin;
     else if(a == "X") return Cancel;
     else if(a == "U") return Update;
     else if(a == "P") return Passlist;
+    else if(a == "S") return Seatmap;
+    else if(a == "T") return SeatmapForPassenger;
     else {
         throw EXCEPTIONS::Exception("Unknown iatci action code: %s", a.c_str());
     }
-
 }
 
 Result::Status_e Result::strToStatus(const std::string& s)
@@ -629,10 +888,12 @@ std::string Result::actionAsString() const
 {
     switch(m_action)
     {
-    case Checkin:   return "I";
-    case Cancel:    return "X";
-    case Update:    return "U";
-    case Passlist:  return "P";
+    case Checkin:             return "I";
+    case Cancel:              return "X";
+    case Update:              return "U";
+    case Passlist:            return "P";
+    case Seatmap:             return "S";
+    case SeatmapForPassenger: return "T";
     }
 
     throw EXCEPTIONS::Exception("Unknown iatci action code value: %d", m_action);
