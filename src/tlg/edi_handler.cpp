@@ -130,6 +130,7 @@ static bool isNewEdifact(const std::string& ediText)
     if(msg_type_str     == "DCQCKI"
         || msg_type_str == "DCQCKU"
         || msg_type_str == "DCQCKX"
+        || msg_type_str == "DCQBPR"
         || msg_type_str == "DCQPLF"
         || msg_type_str == "DCQSMF"
         || msg_type_str == "DCQSMP"

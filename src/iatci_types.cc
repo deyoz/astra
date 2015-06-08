@@ -754,6 +754,27 @@ Result Result::makeCancelResult(Status_e status,
                   equipmentDetails);
 }
 
+Result Result::makeReprintResult(Status_e status,
+                                 const FlightDetails& flight,
+                                 const PaxDetails& pax,
+                                 boost::optional<FlightSeatDetails> seat,
+                                 boost::optional<CascadeHostDetails> cascadeDetails,
+                                 boost::optional<ErrorDetails> errorDetails,
+                                 boost::optional<WarningDetails> warningDetails,
+                                 boost::optional<EquipmentDetails> equipmentDetails)
+{
+    return Result(Reprint,
+                  status,
+                  flight,
+                  pax,
+                  seat,
+                  boost::none,
+                  cascadeDetails,
+                  errorDetails,
+                  warningDetails,
+                  equipmentDetails);
+}
+
 Result Result::makePasslistResult(Status_e status,
                                   const FlightDetails& flight,
                                   const PaxDetails& pax,

@@ -835,6 +835,15 @@ public:
                                    boost::optional<WarningDetails> warningDetails = boost::none,
                                    boost::optional<EquipmentDetails> equipmentDetails = boost::none);
 
+    static Result makeReprintResult(Status_e status,
+                                    const FlightDetails& flight,
+                                    const PaxDetails& pax,
+                                    boost::optional<FlightSeatDetails> seat = boost::none,
+                                    boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
+                                    boost::optional<ErrorDetails> errorDetails = boost::none,
+                                    boost::optional<WarningDetails> warningDetails = boost::none,
+                                    boost::optional<EquipmentDetails> equipmentDetails = boost::none);
+
     static Result makePasslistResult(Status_e status,
                                      const FlightDetails& flight,
                                      const PaxDetails& pax,
