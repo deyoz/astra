@@ -303,6 +303,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsAPISManualInput=25,           //Ручной ввод данных APIS
                     tsAODBCreateFlight=26,           //Создание рейсов из AODB
                     tsSetDepTimeByMVT=27,           // Проставление вылета рейса по телеграмме MVT
+                    tsSyncMeridian=28,              // Синхронизация с меридианом
                     /*привязанные к рейсу по залам*/
                     tsBrdWithReg=101,               //Посадка при регистрации
                     tsExamWithBrd=102,              //Досмотр при посадке
