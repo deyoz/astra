@@ -19,11 +19,13 @@ Bagmessage::Bagmessage(boost::asio::io_service &io,
                        boost::function<void(depeche_id_t, Depeche::depeche_status_t)> callback,
                        const std::string &desc_)
     : AsyncTcpSock(io,
-                   "bagmessage socket " + desc_,
+                   "Bagmessage's AsyncTcpSock " + desc_,
                    set.dest,
                    true,
                    set.heartbeat_interval,
-                   set.keep_connection),
+                   set.keep_connection,
+                   1024*512,
+                   1024*512), /* 640 K ought to be enough for anybody */
       strand(io),
       settings(set),
       usrcallback(callback),
@@ -46,6 +48,10 @@ void Bagmessage::send_depeche(const std::string &tlg,
 
 void Bagmessage::do_send_depeche(Depeche dep)
 {
+//    BagmessageSettings *set = dep.settings;
+
+
+
     int mess_id;
 
     mess_id = bitset_get_fz();
@@ -141,6 +147,10 @@ Bagmessage::parsing_state_t Bagmessage::header_parser(const char *header)
         printf("heartbeat message has been received\n");
         break;
 
+    case LOG_OFF:
+        set_log_off();
+        break;
+
     default:
         printf("undefined type of message\n");
         return PARSER_ERR;
@@ -182,6 +192,12 @@ std::size_t Bagmessage::expected_size()
         return 0;
     }
 
+}
+
+void Bagmessage::usr_conn_broken_handler()
+{
+    set_log_off();
+    LogError(STDLOG) << desc << " Bagmessage::usr_conn_broken_handler() the connection has been broken";
 }
 
 void Bagmessage::login()
@@ -243,6 +259,9 @@ void Bagmessage::message_build(asyncnet::Netbuf &buf, msg_type_t type, int mess_
 
 int Bagmessage::bitset_get_fz()
 {
+    if (bitset.count() == bitset.size())
+        return -1;
+
     for (int bit = 0; bit < 65536; ++bit)
         if (!bitset.test(bit)) {
             bitset.set(bit, 1);
@@ -250,6 +269,7 @@ int Bagmessage::bitset_get_fz()
         }
 
     return -1;
+    /* not reached */
 }
 
 void Bagmessage::bitset_return_bit(int bit)

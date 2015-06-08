@@ -79,7 +79,7 @@ AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
 
 void AsyncTcpSock::start_connecting()
 {
-    close();
+    stop_working();
     strand.post(boost::bind(&AsyncTcpSock::resolve, this));
 }
 
@@ -187,7 +187,7 @@ void AsyncTcpSock::do_send(Sharedbuf buf)
 }
 
 
-void AsyncTcpSock::close()
+void AsyncTcpSock::stop_working()
 {
     strand.post(boost::bind(&AsyncTcpSock::do_close, this));
 }
@@ -427,6 +427,16 @@ void AsyncTcpSock::stop_connect_timer()
 void AsyncTcpSock::set_heartbeat(int t)
 {
     strand.post(boost::bind(&AsyncTcpSock::do_set_heartbeat, this, t));
+}
+
+void AsyncTcpSock::set_keepconn(bool k)
+{
+    strand.post(boost::bind(&AsyncTcpSock::do_set_keepconn, this, k));
+}
+
+void AsyncTcpSock::do_set_keepconn(bool k)
+{
+    keepconn = k;
 }
 
 void AsyncTcpSock::do_set_heartbeat(int t)
