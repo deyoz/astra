@@ -10,6 +10,7 @@
 #include <string>
 #include <bitset>
 
+#include "serverlib/exception.h"
 
 namespace depeches {
 
@@ -63,6 +64,12 @@ struct DepecheSettings {
     virtual ~DepecheSettings()
     {
     }
+private:
+/*    virtual bool equalsto(const DepecheSettings &)
+    {
+        return true;
+    }
+*/
 };
 
 /* ========================================================================== */
@@ -86,6 +93,7 @@ struct Depeche {
     {
         settings.reset(s.get_copy());
     }
+
 
 
     std::string                             tlg;
@@ -112,7 +120,7 @@ struct BagmessageSettings : DepecheSettings {
           heartbeat_interval(heartbeat)
     {
         if (appid.size() > 8)
-            throw;
+            throw ServerFramework::Exception("too long appid. According to Bagmessage docs it should be not greater than 8 bytes");
     }
 
     BagmessageSettings(const asyncnet::Dest &d,
@@ -127,15 +135,23 @@ struct BagmessageSettings : DepecheSettings {
           heartbeat_interval(heartbeat)
     {
         if (appid.size() > 8)
-            throw;
+            throw ServerFramework::Exception("too long appid. According to Bagmessage docs it should be not greater than 8 bytes");
     }
 
-    virtual BagmessageSettings *get_copy()
+    virtual BagmessageSettings *get_copy() const
     {
         return new BagmessageSettings(*this);
     }
 
-
+/*    virtual bool equalsto(const BagmessageSettings &o)
+    {
+        return  o.dest == dest &&
+                o.appid == appid &&
+                o.passwd == passwd &&
+                o.keep_connection == keep_connection &&
+                o.heartbeat_interval == heartbeat_interval;
+    }
+*/
     asyncnet::Dest      dest;
     std::string         appid;
     std::string         passwd;
@@ -199,6 +215,7 @@ private:
     BagmessageSettings          settings;
     std::bitset<65536>          bitset;
     std::map<int, Depeche>      deps;
+    std::map<BagmessageSettings, std::map<int, Depeche> >           deps2;
 
     boost::function<void(depeche_id_t, Depeche::depeche_status_t)>    usrcallback;
 
@@ -230,6 +247,7 @@ private:
     virtual void usr_connect_handler();
     virtual std::size_t usr_read_handler(const char *, std::size_t);
     virtual void usr_heartbeat_handler();
+    virtual void usr_conn_broken_handler();
 
 
     parsing_state_t header_parser(const char *data);
