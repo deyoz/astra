@@ -6,7 +6,7 @@
 #include <string>
 #include <queue>
 #include <vector>
-#include "astra_utils.h"
+#include "stl_utils.h"
 
 #ifdef USE_THREADS
     #include <boost/thread/mutex.hpp>
@@ -258,6 +258,17 @@ public:
     {
     }
 
+    void start_connecting();
+    void start_heartbeat();
+    void stop_working();
+    void stop_heartbeat();
+    void set_dest(const Dest &);
+    void set_dest(const std::vector<Dest> &);
+    void set_heartbeat(int);
+    void set_infinity(bool);
+    void set_keepconn(bool);
+    void send(const char *, const std::size_t);
+
 protected:
     AsyncTcpSock(boost::asio::io_service &io,
                  const std::string &desc_,
@@ -277,15 +288,8 @@ protected:
                  std::size_t rxmax = 1024 * 4,
                  std::size_t txmax = 1024 * 4);
 
-    void start_connecting();
-    void start_heartbeat();
-    void set_dest(const Dest &);
-    void set_dest(const std::vector<Dest> &);
-    void set_heartbeat(const int);
-    void set_infinity(const bool);
-    void send(const char *, const std::size_t);
-    void close();
-    bool is_connected();
+
+
 
 private:
     const std::string                           desc; /* description */
@@ -295,7 +299,7 @@ private:
     bool                                        keepconn;
     boost::asio::strand                         strand;
     boost::asio::ip::tcp::socket                sock;
-    boost::asio::ip::tcp::endpoint              current;
+//    boost::asio::ip::tcp::endpoint              current;
     boost::asio::ip::tcp::resolver              resolver;
     boost::asio::ip::tcp::resolver::iterator    resolv_iter;
     boost::asio::deadline_timer                 timer;
@@ -347,14 +351,15 @@ private:
     void restart_heartbeat();
     void heartbeat_handler(const boost::system::error_code &);
     virtual void usr_heartbeat_handler() {}
-    void stop_heartbeat();
     void do_set_infinity(bool);
+    void do_set_keepconn(bool);
     void do_set_dest(std::vector<Dest>);
     void do_close();
     void start_connect_timer();
     void stop_connect_timer();
     void do_set_heartbeat(int);
     void set_nodelay(bool);
+    bool is_connected();
 };
 
 
