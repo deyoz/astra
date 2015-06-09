@@ -677,28 +677,21 @@ int TTlgDraft::find_duplicate(TTlgOutPartInfo &tlg_row)
         for(; j != i->second.end() and iv != parts.end(); j++, iv++) {
             TTlgOutPartInfo &part = j->second;
             curr_time_create = part.time_create;
-            if(part.extra[LANG_RU] == tlg_row.extra[LANG_RU]) {
-                if(latest_time_create == NoExists or latest_time_create < curr_time_create) {
-                    latest_time_create = curr_time_create;
-                }
-                if( not (
-                            part.heading == iv->heading and
-                            part.body == iv->body and
-                            part.ending == iv->ending
-                        )
-                  ) {
-                    break;
-                }
-                // Если телеграмма отправлена, то помечаем текущую как различающуюся
-                // (т.е. дубликат не найден, требуется отправка)
-                // differ == true - дубликат не найден, требуется отправка
-                // differ == false - найден дубликат, отправка не требуется.
-                //
-                // Если нет ошибок и телеграмма не отправлена
-                // то помечаем, как различающуюся
-                // (т.е. дубликат не найден, требуется отправка)
-                differ = not (part.has_errors or not part.completed) and part.time_send_act == NoExists;
+            if(latest_time_create == NoExists or latest_time_create < curr_time_create) {
+                latest_time_create = curr_time_create;
             }
+            if( not (
+                        part.heading == iv->heading and
+                        part.body == iv->body and
+                        part.ending == iv->ending
+                    )
+              ) {
+                break;
+            }
+            // Если нет ошибок или не требуется руч. корр. и при этом телеграмма не отправлена
+            // то помечаем, как различающуюся
+            // (т.е. дубликат не найден, требуется отправка)
+            differ = not (part.has_errors or not part.completed) and part.time_send_act == NoExists;
         }
         if(not differ) // найден дубликат
         {
