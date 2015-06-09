@@ -149,7 +149,12 @@ struct TTlgOutPartInfo
   int id,num,point_id;
   std::string tlg_type,addr,origin,heading,body,ending;
   bool pr_lat;
-  BASIC::TDateTime time_create,time_send_scd;
+  BASIC::TDateTime
+      time_create,
+      time_send_scd,
+      time_send_act;
+  bool has_errors;
+  bool completed;
   int originator_id;
   std::string airline_mark;
   bool manual_creation;
@@ -172,6 +177,9 @@ struct TTlgOutPartInfo
     pr_lat=false;
     time_create=ASTRA::NoExists;
     time_send_scd=ASTRA::NoExists;
+    time_send_act=ASTRA::NoExists;
+    has_errors = false;
+    completed = true;
     originator_id=ASTRA::NoExists;
     airline_mark.clear();
     extra.clear();
