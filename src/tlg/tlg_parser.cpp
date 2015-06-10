@@ -7082,6 +7082,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   };
 };
 
+// Если нет разделителя, в result кладется весь val;
 void split(vector<string> &result, const string val, char c)
 {
     result.clear();
@@ -7094,7 +7095,8 @@ void split(vector<string> &result, const string val, char c)
             idx = val.find(c, idx1);
         }
         result.push_back(val.substr(idx1, idx - idx1));
-    }
+    } else
+        result.push_back(val);
 }
 
 }
