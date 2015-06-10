@@ -154,7 +154,11 @@ namespace TypeB
                 }
                 int point_id_spp = Qry.FieldAsInteger( "point_id_spp" );
                 TDateTime utc_act_out = (con.ad.airborne_time == NoExists ? con.ad.off_block_time : con.ad.airborne_time);
-                SetFlightFact(point_id_spp, utc_act_out);  //UTC???s
+                if(utc_act_out != NoExists) {
+                    // forcibly set time to be used as UTC
+                    TReqInfo::Instance()->user.sets.time = ustTimeUTC;
+                    SetFlightFact(point_id_spp, utc_act_out);
+                }
             }
         }
     }
