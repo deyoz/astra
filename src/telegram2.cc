@@ -593,7 +593,6 @@ void ReadSalons(int point_id,
 struct TTlgDraft {
     private:
         TypeB::TDetailCreateInfo &tlg_info;
-        int find_duplicate(TTlgOutPartInfo &tlg_row);
     public:
         vector<TypeB::TDraftPart> parts;
         void Save(TTlgOutPartInfo &info);
@@ -629,93 +628,6 @@ void TTlgDraft::check(string &value)
     value = result;
 }
 
-int TTlgDraft::find_duplicate(TTlgOutPartInfo &tlg_row)
-{
-    QParams QryParams;
-    QryParams
-        << QParam("point_id", otInteger, tlg_row.point_id)
-        << QParam("type", otString, tlg_row.tlg_type)
-        << QParam("addr", otString, tlg_row.addr)
-        << QParam("pr_lat", otInteger, tlg_row.pr_lat);
-
-    TCachedQuery Qry(
-            "SELECT * from "
-            "    tlg_out "
-            "where "
-            "   point_id = :point_id and "
-            "   type = :type and "
-            "   addr = :addr and "
-            "   pr_lat = :pr_lat ",
-            QryParams
-            );
-
-    Qry.get().Execute();
-
-    typedef map<int, TTlgOutPartInfo> t_db_tlg;
-
-    typedef map<int, t_db_tlg> t_db_tlgs;
-
-    t_db_tlgs db_tlgs;
-
-    // закачаем в память
-    for(; not Qry.get().Eof; Qry.get().Next()) {
-        TTlgOutPartInfo part;
-        part.fromDB(Qry.get());
-        db_tlgs[part.id][part.num] = part;
-    }
-
-    int result = NoExists;
-    TDateTime time_create = NoExists;
-    TDateTime latest_time_create = NoExists;
-    // пробег по телеграммам
-    for(t_db_tlgs::iterator i = db_tlgs.begin(); i != db_tlgs.end(); i++) {
-        // пробег по частям телеграммы и сравнение
-        vector<TypeB::TDraftPart>::const_iterator iv = parts.begin();
-        t_db_tlg::iterator j = i->second.begin();
-        bool differ = true;
-        TDateTime curr_time_create = NoExists;
-        for(; j != i->second.end() and iv != parts.end(); j++, iv++) {
-            TTlgOutPartInfo &part = j->second;
-            curr_time_create = part.time_create;
-            if(part.extra[LANG_RU] == tlg_row.extra[LANG_RU]) {
-                if(latest_time_create == NoExists or latest_time_create < curr_time_create) {
-                    latest_time_create = curr_time_create;
-                }
-                if( not (
-                            part.heading == iv->heading and
-                            part.body == iv->body and
-                            part.ending == iv->ending
-                        )
-                  ) {
-                    break;
-                }
-                // Если телеграмма отправлена, то помечаем текущую как различающуюся
-                // (т.е. дубликат не найден, требуется отправка)
-                // differ == true - дубликат не найден, требуется отправка
-                // differ == false - найден дубликат, отправка не требуется.
-                //
-                // Если нет ошибок и телеграмма не отправлена
-                // то помечаем, как различающуюся
-                // (т.е. дубликат не найден, требуется отправка)
-                differ = not (part.has_errors or not part.completed) and part.time_send_act == NoExists;
-            }
-        }
-        if(not differ) // найден дубликат
-        {
-            if(time_create == NoExists or time_create < curr_time_create) {
-                time_create = curr_time_create;
-                result = i->first;
-            }
-        }
-
-    }
-
-    if(result != NoExists and time_create < latest_time_create)
-        result = NoExists;
-
-    return result;
-}
-
 void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
 {
     // В процессе создания телеграммы части, содержащие ошибки, могли не
@@ -723,8 +635,7 @@ void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
     // с текстом телеграммы. Т.е. удалить из списка отсутствующие в тексте ошибки.
     tlg_info.err_lst.fix(parts);
     bool no_errors = tlg_info.err_lst.empty();
-
-    // Проверка на лат/не лат.
+    tlg_row.num = 1;
     for(vector<TypeB::TDraftPart>::iterator iv = parts.begin(); iv != parts.end(); iv++){
         if(tlg_info.is_lat() and no_errors) {
             check(iv->addr);
@@ -736,27 +647,12 @@ void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
         bool heading_visible = iv == parts.begin();
         bool ending_visible = iv + 1 == parts.end();
         tlg_info.err_lst.pack(*iv, heading_visible, ending_visible);
-    }
-
-    int tlg_out_id = NoExists;
-    if(not tlg_info.manual_creation)
-        tlg_out_id = find_duplicate(tlg_row);
-    if(tlg_out_id != NoExists) {
-        TReqInfo::Instance()->LocaleToLog("EVT.TLG.OUT.DUPLICATED", LEvntPrms()
-                << PrmElem<std::string>("name", etTypeBType, tlg_row.tlg_type, efmtNameShort)
-                << PrmSmpl<int>("id", tlg_out_id),
-                evtTlg, tlg_row.point_id, tlg_out_id);
-    } else {
-        // Непосредственно запись в базу.
-        tlg_row.num = 1;
-        for(vector<TypeB::TDraftPart>::iterator iv = parts.begin(); iv != parts.end(); iv++){
-            tlg_row.addr = iv->addr;
-            tlg_row.origin = iv->origin;
-            tlg_row.heading = iv->heading;
-            tlg_row.body = iv->body;
-            tlg_row.ending = iv->ending;
-            TelegramInterface::SaveTlgOutPart(tlg_row, false, false);
-        }
+        tlg_row.addr = iv->addr;
+        tlg_row.origin = iv->origin;
+        tlg_row.heading = iv->heading;
+        tlg_row.body = iv->body;
+        tlg_row.ending = iv->ending;
+        TelegramInterface::SaveTlgOutPart(tlg_row, false, false);
     }
 }
 
@@ -8015,11 +7911,12 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", getLocaleText(E.getLexemaData())));
     }
 
-    if (tlg_id != NoExists)
-        TReqInfo::Instance()->LocaleToLog("EVT.TLG.CREATED_MANUALLY", LEvntPrms()
-                << PrmElem<std::string>("name", etTypeBType, createInfo.get_tlg_type(), efmtNameShort)
-                << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", createInfo.get_options().is_lat),
-                evtTlg, createInfo.point_id, tlg_id);
+    if (tlg_id == NoExists) throw Exception("TelegramInterface::CreateTlg: create_tlg without result");
+
+    TReqInfo::Instance()->LocaleToLog("EVT.TLG.CREATED_MANUALLY", LEvntPrms()
+                                      << PrmElem<std::string>("name", etTypeBType, createInfo.get_tlg_type(), efmtNameShort)
+                                      << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", createInfo.get_options().is_lat),
+                                      evtTlg, createInfo.point_id, tlg_id);
     NewTextChild( resNode, "tlg_id", tlg_id);
 };
 
