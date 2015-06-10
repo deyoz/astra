@@ -84,14 +84,14 @@ namespace TypeB
                 string buf =  val.substr(2);
                 vector<string> items;
                 split(items, buf, ' ');
-                if(items.size() == 3 or items.size() == 0) {
-                    string str_ad = (items.size() == 0 ? buf : items[0]);
+                if(items.size() == 3 or items.size() == 1) {
+                    string str_ad = (items.size() == 1 ? buf : items[0]);
                     vector<string> ad_times;
                     split(ad_times, str_ad, '/');
                     if(ad_times.size() == 2) {
                         off_block_time = fetch_time(scd, ad_times[0]);
                         airborne_time = fetch_time(scd, ad_times[1]);
-                    } else if(ad_times.size() == 0) {
+                    } else if(ad_times.size() == 1) {
                         off_block_time = fetch_time(scd, str_ad);
                     } else
                         throw ETlgError("wrong AD times format: '%s'", val.c_str());
