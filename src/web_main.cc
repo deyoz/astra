@@ -3075,6 +3075,14 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   if ( node == NULL )
     throw AstraLocale::UserException( "Tag '@airline' not found" );
   string airline = NodeAsString( node );
+  TElemFmt fmt;
+  airline = ElemToElemId( etAirline, airline, fmt );
+  if ( fmt == efmtUnknown ) {
+    throw AstraLocale::UserException( "Tag '@airline' unknown airline" );
+  }
+  if ( !TReqInfo::Instance()->CheckAirline( airline ) ) {
+    throw AstraLocale::UserException( "Airline is not permit for user" );
+  }
   TDateTime vdate, vpriordate;
   if ( BASIC::StrToDateTime( str_date.c_str(), "dd.mm.yyyy hh:nn:ss", vdate ) == EOF )
         throw UserException( "Invalid tag value '@time'" );
@@ -3173,7 +3181,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     FltQry.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
     FltQry.Execute();
     if ( FltQry.Eof )
-      throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );
+      throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );    
     TTripInfo tripInfo( FltQry );
     if ( TReqInfo::Instance()->client_type != ctWeb || //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
          !is_sync_meridian( tripInfo ) || //но описывается в таблице web_clients как веб-регистрация!
