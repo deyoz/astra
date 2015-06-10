@@ -742,6 +742,7 @@ void TMItem::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 struct TFTLPax;
 struct TETLPax;
 struct TASLPax;
+struct TPFSPax;
 
 struct TName {
     string surname;
@@ -1009,7 +1010,14 @@ namespace PRL_SPACE {
             void get(TypeB::TDetailCreateInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers);
             void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
             TRemList(TInfants *ainfants): infants(ainfants) {};
+            void operator = (const TRemList &rems);
     };
+
+    void TRemList::operator = (const TRemList &rems)
+    {
+        infants = rems.infants;
+        items = rems.items;
+    }
 
     struct TTagItem {
         string tag_type;
@@ -6878,10 +6886,79 @@ struct TPFSInfoItem {
     {}
 };
 
+void doca_list2vector(const list<CheckIn::TPaxDocaItem> &lst, vector<CheckIn::TPaxDocaItem> &v)
+{
+    for(list<CheckIn::TPaxDocaItem>::const_iterator d=lst.begin(); d!=lst.end(); ++d)
+    {
+        if (d->type!="D" && d->type!="R") continue;
+        v.push_back(*d);
+    };
+    sort(v.begin(), v.end());
+}
+
+template<class T>
+void get_docX_rem(const T &doc, const T &crs_doc, TypeB::TDetailCreateInfo &info, bool inf_indicator, CheckIn::TPaxRemItem &rem, TRemList &rems) // getting doc* remarks
+{
+    if(doc.empty() and not crs_doc.empty()) {
+        if (getPaxRem(info, crs_doc, inf_indicator, rem)) rems.items.push_back(rem.text);
+    } else if(not doc.empty() and crs_doc.empty()) {
+        if (getPaxRem(info, doc, inf_indicator, rem)) rems.items.push_back(rem.text);
+    } else if(not doc.equal(crs_doc)) {
+        if (getPaxRem(info, doc, inf_indicator, rem)) rems.items.push_back(rem.text);
+    }
+}
+
+bool APIPX_cmp_internal(TypeB::TDetailCreateInfo &info, int pax_id, bool inf_indicator, TRemList &rems)
+{
+    CheckIn::TPaxRemItem rem;
+
+    CheckIn::TPaxDocItem docs, crs_docs;
+    LoadPaxDoc(pax_id, docs);
+    LoadCrsPaxDoc(pax_id, crs_docs);
+    get_docX_rem(docs, crs_docs, info, inf_indicator, rem, rems);
+
+    list<CheckIn::TPaxDocaItem> doca, crs_doca;
+    vector<CheckIn::TPaxDocaItem> vdoca, vcrs_doca;
+    LoadPaxDoca(pax_id, doca);
+    LoadCrsPaxDoca(pax_id, crs_doca);
+
+    doca_list2vector(doca, vdoca);
+    doca_list2vector(crs_doca, vcrs_doca);
+
+    vector<CheckIn::TPaxDocaItem>::const_iterator vdoca_i = vdoca.begin();
+    vector<CheckIn::TPaxDocaItem>::const_iterator vcrs_doca_i = vcrs_doca.begin();
+    for(; vdoca_i != vdoca.end() || vcrs_doca_i != vcrs_doca.end(); ) {
+        if(vdoca_i == vdoca.end()) {
+            if (getPaxRem(info, *vcrs_doca_i, inf_indicator, rem)) rems.items.push_back(rem.text);
+            vcrs_doca_i++;
+        } else if(vcrs_doca_i == vcrs_doca.end()) {
+            if (getPaxRem(info, *vdoca_i, inf_indicator, rem)) rems.items.push_back(rem.text);
+            vdoca_i++;
+        } else if(*vcrs_doca_i == *vdoca_i) {
+            vcrs_doca_i++;
+            vdoca_i++;
+        } else if(*vcrs_doca_i < *vdoca_i) {
+            if (getPaxRem(info, *vdoca_i, inf_indicator, rem)) rems.items.push_back(rem.text);
+            vdoca_i++;
+        } else {
+            if (getPaxRem(info, *vcrs_doca_i, inf_indicator, rem)) rems.items.push_back(rem.text);
+            vcrs_doca_i++;
+        }
+    }
+
+    CheckIn::TPaxDocoItem doco, crs_doco;
+    LoadPaxDoco(pax_id, doco);
+    LoadCrsPaxVisa(pax_id, crs_doco);
+    get_docX_rem(doco, crs_doco, info, inf_indicator, rem, rems);
+
+    return rem.code.empty();
+};
+
 struct TCKINPaxInfo {
     private:
         TQuery Qry;
         int col_pax_id;
+        int col_grp_id;
         int col_surname;
         int col_name;
         int col_seats;
@@ -6893,6 +6970,7 @@ struct TCKINPaxInfo {
         int col_status;
     public:
         int pax_id;
+        int grp_id;
         string surname;
         string name;
         string exst_name;
@@ -6904,7 +6982,23 @@ struct TCKINPaxInfo {
         int pr_brd;
         TPaxStatus status;
         TPNLPaxInfo crs_pax;
+        TRemList rems;
         void dump();
+        bool APIPX_cmp(TypeB::TDetailCreateInfo &info)
+        {
+            vector<int> infants;
+            for(vector<TInfantsItem>::iterator infRow = rems.infants->items.begin(); infRow != rems.infants->items.end(); infRow++) {
+                if(infRow->grp_id == grp_id and infRow->parent_pax_id == pax_id) {
+                    infants.push_back(infRow->pax_id);
+                }
+            }
+
+            bool result = APIPX_cmp_internal(info, pax_id, false, rems);
+            for(vector<int>::iterator i = infants.begin(); i != infants.end(); i++)
+                result &= APIPX_cmp_internal(info, *i, true, rems);
+
+            return result;
+        }
         bool PAXLST_cmp()
         {
             return
@@ -6915,6 +7009,7 @@ struct TCKINPaxInfo {
         void Clear()
         {
             pax_id = NoExists;
+            grp_id = NoExists;
             surname.erase();
             name.erase();
             exst_name.erase();
@@ -6926,6 +7021,7 @@ struct TCKINPaxInfo {
             pr_brd = NoExists;
             status = psCheckin;
             crs_pax.Clear();
+            rems.items.clear();
         }
         bool OK_status()
         {
@@ -6940,6 +7036,7 @@ struct TCKINPaxInfo {
                 if(!Qry.Eof) {
                     if(col_pax_id == NoExists) {
                         col_pax_id = Qry.FieldIndex("pax_id");
+                        col_grp_id = Qry.FieldIndex("grp_id");
                         col_surname = Qry.FieldIndex("surname");
                         col_name = Qry.FieldIndex("name");
                         col_seats = Qry.FieldIndex("seats");
@@ -6951,6 +7048,7 @@ struct TCKINPaxInfo {
                         col_status = Qry.FieldIndex("status");
                     }
                     pax_id = Qry.FieldAsInteger(col_pax_id);
+                    grp_id = Qry.FieldAsInteger(col_grp_id);
                     surname = Qry.FieldAsString(col_surname);
                     name = Qry.FieldAsString(col_name);
                     TExtraSeatName exst;
@@ -6968,7 +7066,7 @@ struct TCKINPaxInfo {
             if(item.pnl_pax_id != NoExists)
                 crs_pax.get(item.pnl_pax_id);
         }
-        TCKINPaxInfo():
+        TCKINPaxInfo(TInfants *ainfants):
             Qry(&OraSession),
             col_pax_id(NoExists),
             col_surname(NoExists),
@@ -6982,11 +7080,13 @@ struct TCKINPaxInfo {
             col_status(NoExists),
             pax_id(NoExists),
             pr_brd(NoExists),
-            status(psCheckin)
+            status(psCheckin),
+            rems(ainfants)
         {
             Qry.SQLText =
                 "select "
                 "    pax.pax_id, "
+                "    pax.grp_id, "
                 "    pax.surname, "
                 "    pax.name, "
                 "    pax.seats, "
@@ -7049,13 +7149,14 @@ struct TPFSPax {
     string crs;
     TMItem M;
     TPNRList pnrs;
-    TPFSPax(): pax_id(NoExists), pnr_id(NoExists) {};
-    TPFSPax(const TCKINPaxInfo &ckin_pax);
+    TRemList rems;
+    TPFSPax(TInfants *ainfants): pax_id(NoExists), pnr_id(NoExists), rems(ainfants) {};
+    TPFSPax(const TCKINPaxInfo &ckin_pax, TInfants *ainfants);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
     void operator = (const TCKINPaxInfo &ckin_pax);
 };
 
-TPFSPax::TPFSPax(const TCKINPaxInfo &ckin_pax): pax_id(NoExists)
+TPFSPax::TPFSPax(const TCKINPaxInfo &ckin_pax, TInfants *ainfants): pax_id(NoExists), rems(ainfants)
 {
     *this = ckin_pax;
 }
@@ -7085,6 +7186,7 @@ void TPFSPax::operator = (const TCKINPaxInfo &ckin_pax)
         }
         crs = ckin_pax.crs_pax.crs;
         pnr_id = ckin_pax.crs_pax.pnr_id;
+        rems = ckin_pax.rems;
 }
 
 void nameToTlg(const string &name, const string &asurname, int seats, const string &exst_name, vector<string> &body)
@@ -7133,6 +7235,7 @@ void TPFSPax::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     nameToTlg(name, surname, seats, exst_name, body);
     pnrs.ToTlg(info, body);
     M.ToTlg(info, body);
+    rems.ToTlg(info, body);
 }
 
 struct TSubClsCmp {
@@ -7165,6 +7268,7 @@ typedef map<string, TPFSClsList> TPFSCtgryList;
 typedef map<string, TPFSCtgryList> TPFSItems;
 
 struct TPFSBody {
+    TInfants infants;
     map<string, TNumByDestItem> pfsn;
     TPFSItems items;
     void get(TypeB::TDetailCreateInfo &info);
@@ -7318,9 +7422,11 @@ void TPFSBody::get(TypeB::TDetailCreateInfo &info)
 {
     const TypeB::TMarkInfoOptions &markOptions=*(info.optionsAs<TypeB::TMarkInfoOptions>());
 
+    infants.get(info);
+
     TPFSInfo PFSInfo;
     PFSInfo.get(info.point_id);
-    TCKINPaxInfo ckin_pax;
+    TCKINPaxInfo ckin_pax(&infants);
     for(map<int, TPFSInfoItem>::iterator im = PFSInfo.items.begin(); im != PFSInfo.items.end(); im++) {
         string category;
         const TPFSInfoItem &item = im->second;
@@ -7349,8 +7455,8 @@ void TPFSBody::get(TypeB::TDetailCreateInfo &info)
                         category = "INVOL";
                     else if(ckin_pax.target != ckin_pax.crs_pax.target)
                         category = "CHGSG";
-                    else if(not ckin_pax.PAXLST_cmp())
-                        category = "PXLST";
+                    else if(not ckin_pax.APIPX_cmp(info))
+                        category = "APIPX";
                 } else { // Не прошел посадку
                     if(ckin_pax.OK_status())
                         category = "OFFLK";
@@ -7371,15 +7477,16 @@ void TPFSBody::get(TypeB::TDetailCreateInfo &info)
                 }
             }
         }
-        ProgTrace(TRACE5, "category: %s", category.c_str());
 
-        TPFSPax PFSPax = ckin_pax; // PFSPax.M inits within assignment
+        TPFSPax PFSPax(NULL);
+        PFSPax = ckin_pax; // PFSPax.M inits within assignment
         if(not markOptions.crs.empty() and markOptions.crs != PFSPax.crs)
             continue;
         if(not markOptions.mark_info.empty() and not(PFSPax.M.m_flight == markOptions.mark_info))
             continue;
         if(item.pax_id != NoExists) // для зарегистрированных пассажиров собираем инфу для цифровой PFS
             pfsn[ckin_pax.target].add(ckin_pax.cls, ckin_pax.seats);
+
         if(category.empty())
             continue;
         PFSPax.pnrs.get(PFSPax.pnr_id);
