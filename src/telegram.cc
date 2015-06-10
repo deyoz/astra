@@ -154,6 +154,9 @@ TTlgOutPartInfo& TTlgOutPartInfo::fromDB(TQuery &Qry)
   pr_lat=Qry.FieldAsInteger("pr_lat")!=0;
   time_create=Qry.FieldAsDateTime("time_create");
   time_send_scd=Qry.FieldIsNULL("time_send_scd")?NoExists:Qry.FieldAsDateTime("time_send_scd");
+  time_send_act=Qry.FieldIsNULL("time_send_act")?NoExists:Qry.FieldAsDateTime("time_send_act");
+  has_errors = Qry.FieldAsInteger("has_errors") != 0;
+  completed = Qry.FieldAsInteger("completed") != 0;
   originator_id=Qry.FieldAsInteger("originator_id");
   airline_mark=Qry.FieldAsString("airline_mark");
   manual_creation=Qry.FieldAsInteger("manual_creation")!=0;
