@@ -1638,6 +1638,7 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
     info.point_id = point_id;
     TTypeBTypesRow tlgTypeInfo;
     int tlg_id = TelegramInterface::create_tlg(info, ASTRA::NoExists, tlgTypeInfo, true);
+    if (tlg_id == NoExists) throw Exception("createUTGDataFiles: create_tlg without result");
     TlgQry.get().SetVariable("id", tlg_id);
     TlgQry.get().Execute();
 
