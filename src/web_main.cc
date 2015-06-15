@@ -3047,24 +3047,42 @@ struct Tids {
   };
 };
 
-const char * SyncMeridian_airlines[] =
-    {"ЮТ", "ЮР", "QU" };
+/*const char * SyncMeridian_airlines[] =
+    {"ЮТ", "ЮР", "QU" };*/
 
 bool is_sync_meridian( const TTripInfo &tripInfo )
 {
-  for( unsigned int i=0;i<sizeof(SyncMeridian_airlines)/sizeof(SyncMeridian_airlines[0]);i+=1) {
-   if ( strcmp(tripInfo.airline.c_str(),SyncMeridian_airlines[i])==0 )
+  return GetTripSets( tsSyncMeridian, tripInfo );
+/*  for( unsigned int i=0;i<sizeof(SyncMeridian_airlines)/sizeof(SyncMeridian_airlines[0]);i+=1) {
+   if ( strcmp(airline.c_str(),SyncMeridian_airlines[i])==0 )
      return true;
   }
-  return false;
+  return false;*/
+}
+
+string getMeridianContextName( const string airline ) {
+  string ret = airline + "_meridian_sync";
+  return ret;
 }
 
 void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr node = GetNode( "@time", reqNode );
   if ( node == NULL )
-    throw AstraLocale::UserException( "Tag '@time' not found" );
+    throw AstraLocale::UserException( "Tag '@time' not found" );  
   string str_date = NodeAsString( node );
+  node = GetNode( "@airline", reqNode );
+  if ( node == NULL )
+    throw AstraLocale::UserException( "Tag '@airline' not found" );
+  string airline = NodeAsString( node );
+  TElemFmt fmt;
+  airline = ElemToElemId( etAirline, airline, fmt );
+  if ( fmt == efmtUnknown ) {
+    throw AstraLocale::UserException( "Tag '@airline' unknown airline" );
+  }
+  if ( !TReqInfo::Instance()->CheckAirline( airline ) ) {
+    throw AstraLocale::UserException( "Airline is not permit for user" );
+  }
   TDateTime vdate, vpriordate;
   if ( BASIC::StrToDateTime( str_date.c_str(), "dd.mm.yyyy hh:nn:ss", vdate ) == EOF )
         throw UserException( "Invalid tag value '@time'" );
@@ -3072,7 +3090,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   string prior_paxs;
   map<int,Tids> Paxs; // pax_id, <pax_tid, grp_tid> список пассажиров переданных ранее
   xmlDocPtr paxsDoc;
-  if ( !pr_reset && AstraContext::GetContext( "meridian_sync", 0, prior_paxs ) != NoExists ) {
+  if ( !pr_reset && AstraContext::GetContext( getMeridianContextName( airline ), 0, prior_paxs ) != NoExists ) {
     paxsDoc = TextToXMLTree( prior_paxs );
     try {
       xmlNodePtr nodePax = paxsDoc->children;
@@ -3163,10 +3181,11 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     FltQry.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
     FltQry.Execute();
     if ( FltQry.Eof )
-      throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );
+      throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );    
     TTripInfo tripInfo( FltQry );
     if ( TReqInfo::Instance()->client_type != ctWeb || //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
-         !is_sync_meridian( tripInfo ) ) {             //но описывается в таблице web_clients как веб-регистрация!
+         !is_sync_meridian( tripInfo ) || //но описывается в таблице web_clients как веб-регистрация!
+         airline != tripInfo.airline ) { // в запросе появилась авиакомпания
       continue;
     }
 
@@ -3261,7 +3280,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   if ( max_time == NoExists )
     max_time = vdate; // не выбрано ни одного пассажира - передаем время, которые пришло с терминала
   SetProp( resNode, "time", DateTimeToStr( max_time, ServerFormatDateTimeAsString ) );
-  AstraContext::ClearContext( "meridian_sync", 0 );
+  AstraContext::ClearContext( getMeridianContextName( airline ), 0 );
   if ( !Paxs.empty() ) { // есть пассажиры - сохраняем всех переданных
     paxsDoc = CreateXMLDoc( "paxs" );
     try {
@@ -3273,7 +3292,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         SetProp( n, "pax_tid", p->second.pax_tid );
         SetProp( n, "grp_tid", p->second.grp_tid );
       }
-      AstraContext::SetContext( "meridian_sync", 0, XMLTreeToText( paxsDoc ) );
+      AstraContext::SetContext( getMeridianContextName( airline ), 0, XMLTreeToText( paxsDoc ) );
       ProgTrace( TRACE5, "xmltreetotext=%s", XMLTreeToText( paxsDoc ).c_str() );
     }
     catch( ... ) {
