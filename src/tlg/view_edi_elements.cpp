@@ -571,4 +571,45 @@ void viewSrpElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatRequestDetails
     SetEdiFullSegment(pMes, SegmElement("SRP"), srp.str());
 }
 
+void viewCbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CabinDetails& cabinDetails, int num)
+{
+    std::ostringstream cbd;
+    cbd << cabinDetails.classDesignator() << "+";
+    cbd << cabinDetails.rowRange().firstRow() << ":"
+        << cabinDetails.rowRange().lastRow() << "+";
+    cbd << cabinDetails.deck() << "+";
+    if(cabinDetails.smokingArea()) {
+        cbd << cabinDetails.smokingArea()->firstRow() << ":"
+            << cabinDetails.smokingArea()->lastRow();
+    }
+    cbd << "+";
+    cbd << cabinDetails.defaultSeatOccupation() << "+";
+    if(cabinDetails.overwingArea()) {
+        cbd << cabinDetails.overwingArea()->firstRow() << ":"
+            << cabinDetails.overwingArea()->lastRow();
+    }
+    cbd << "+";
+    BOOST_FOREACH(const iatci::SeatColumnDetails& seatColumn, cabinDetails.seatColumns()) {
+        cbd << seatColumn.column() << ":"
+            << seatColumn.desc1() << ":"
+            << seatColumn.desc2() << "+";
+    }
+    SetEdiFullSegment(pMes, SegmElement("CBD", num), cbd.str());
+}
+
+void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDetails, int num)
+{
+    std::ostringstream rod;
+    rod << rowDetails.row() << "+";
+    rod << rowDetails.characteristic() << "+";
+    BOOST_FOREACH(const iatci::SeatOccupationDetails& seatOccup, rowDetails.lOccupationDetails()) {
+        rod << seatOccup.column() << ":" << seatOccup.occupation();
+        BOOST_FOREACH(const std::string& seatCharstc, seatOccup.lCharacteristics()) {
+            rod << ":" << seatCharstc;
+        }
+        rod << "+";
+    }
+    SetEdiFullSegment(pMes, SegmElement("ROD", num), rod.str());
+}
+
 }//namespace edifact

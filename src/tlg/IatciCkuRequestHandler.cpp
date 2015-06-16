@@ -89,12 +89,12 @@ std::string IatciCkuRequestHandler::respType() const
     return "U";
 }
 
-boost::optional<iatci::Params> IatciCkuRequestHandler::params() const
+boost::optional<iatci::BaseParams> IatciCkuRequestHandler::params() const
 {
     return ckuParams();
 }
 
-boost::optional<iatci::Params> IatciCkuRequestHandler::nextParams() const
+boost::optional<iatci::BaseParams> IatciCkuRequestHandler::nextParams() const
 {
     if(nextCkuParams()) {
         return *nextCkuParams();

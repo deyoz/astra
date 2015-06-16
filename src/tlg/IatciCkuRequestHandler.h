@@ -17,8 +17,8 @@ public:
     virtual ~IatciCkuRequestHandler() {}
 
 protected:
-    virtual boost::optional<iatci::Params> params() const;
-    virtual boost::optional<iatci::Params> nextParams() const;
+    virtual boost::optional<iatci::BaseParams> params() const;
+    virtual boost::optional<iatci::BaseParams> nextParams() const;
     virtual iatci::Result handleRequest() const;
     virtual edilib::EdiSessionId_t sendCascadeRequest() const;
 

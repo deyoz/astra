@@ -100,12 +100,12 @@ edilib::EdiSessionId_t IatciBprRequestHandler::sendCascadeRequest() const
     return edifact::SendBprRequest(*nextBprParams());
 }
 
-boost::optional<iatci::Params> IatciBprRequestHandler::params() const
+boost::optional<iatci::BaseParams> IatciBprRequestHandler::params() const
 {
     return bprParams();
 }
 
-boost::optional<iatci::Params> IatciBprRequestHandler::nextParams() const
+boost::optional<iatci::BaseParams> IatciBprRequestHandler::nextParams() const
 {
     if(nextBprParams()) {
         return *nextBprParams();

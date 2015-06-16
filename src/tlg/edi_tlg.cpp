@@ -38,6 +38,7 @@
 #include "IatciCkxRequestHandler.h"
 #include "IatciBprRequestHandler.h"
 #include "IatciPlfRequestHandler.h"
+#include "IatciSmfRequestHandler.h"
 
 #include <etick/lang.h>
 #include <jxtlib/cont_tools.h>
@@ -418,6 +419,7 @@ edilib::EdiRequestHandler *
     __DECLARE_HANDLER__(IatciCkxRequestHandler,     DCQCKX, "");
     __DECLARE_HANDLER__(IatciBprRequestHandler,     DCQBPR, "");
     __DECLARE_HANDLER__(IatciPlfRequestHandler,     DCQPLF, "");
+    __DECLARE_HANDLER__(IatciSmfRequestHandler,     DCQSMF, "");
     return 0;
 }
 

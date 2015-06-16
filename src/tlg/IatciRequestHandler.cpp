@@ -139,7 +139,7 @@ void IatciRequestHandler::loadDeferredData()
     }
 }
 
-iatci::Params IatciRequestHandler::requestParams() const
+iatci::BaseParams IatciRequestHandler::requestParams() const
 {
     ASSERT(params());
     return *params();

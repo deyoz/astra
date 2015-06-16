@@ -301,7 +301,7 @@ SeatDetails::SmokeIndicator_e SeatDetails::strToSmokeInd(const std::string& s)
 
 UpdateSeatDetails::UpdateSeatDetails(UpdateActionCode_e actionCode,
                                      const std::string& seat,
-                                     const SmokeIndicator_e smokeInd)
+                                     SmokeIndicator_e smokeInd)
     : UpdateDetails(actionCode), SeatDetails(seat, smokeInd)
 {
 }
@@ -395,7 +395,7 @@ UpdateBaggageDetails::UpdateBaggageDetails(UpdateActionCode_e actionCode,
 //-----------------------------------------------------------------------------
 
 SeatRequestDetails::SeatRequestDetails(const std::string& cabinClass,
-                                       const SmokeIndicator_e smokeInd)
+                                       SmokeIndicator_e smokeInd)
     : SeatDetails(smokeInd),
       m_cabinClass(cabinClass)
 {}
@@ -482,12 +482,12 @@ const std::string& CabinDetails::deck() const
     return m_deck;
 }
 
-boost::optional<RowRange> CabinDetails::smokingArea() const
+const boost::optional<RowRange>& CabinDetails::smokingArea() const
 {
     return m_smokingArea;
 }
 
-boost::optional<RowRange> CabinDetails::overwingArea() const
+const boost::optional<RowRange>& CabinDetails::overwingArea() const
 {
     return m_overwingArea;
 }
@@ -519,10 +519,10 @@ const std::list<std::string>& SeatOccupationDetails::lCharacteristics() const
 //-----------------------------------------------------------------------------
 
 RowDetails::RowDetails(const std::string& row,
-                       const std::string& characteristic,
-                       const std::list<SeatOccupationDetails>& lOccupationDetails)
-    : m_row(row), m_characteristic(characteristic),
-      m_lOccupationDetails(lOccupationDetails)
+                       const std::list<SeatOccupationDetails>& lOccupationDetails,
+                       const std::string& characteristic)
+    : m_row(row), m_lOccupationDetails(lOccupationDetails),
+      m_characteristic(characteristic)
 {}
 
 const std::string& RowDetails::row() const
@@ -530,14 +530,14 @@ const std::string& RowDetails::row() const
     return m_row;
 }
 
-const std::string& RowDetails::characteristic() const
-{
-    return m_characteristic;
-}
-
 const std::list<SeatOccupationDetails>& RowDetails::lOccupationDetails() const
 {
     return m_lOccupationDetails;
+}
+
+const std::string& RowDetails::characteristic() const
+{
+    return m_characteristic;
 }
 
 //-----------------------------------------------------------------------------
@@ -546,7 +546,7 @@ EquipmentDetails::EquipmentDetails(const std::string& equipment)
     : m_equipment(equipment)
 {}
 
-const std::string EquipmentDetails::equipment() const
+const std::string& EquipmentDetails::equipment() const
 {
     return m_equipment;
 }
@@ -560,7 +560,7 @@ SeatmapDetails::SeatmapDetails(const std::list<CabinDetails>& lCabinDetails,
       m_seatRequestDetails(seatRequestDetails)
 {}
 
-boost::optional<SeatRequestDetails> SeatmapDetails::seatRequestDetails() const
+const boost::optional<SeatRequestDetails>& SeatmapDetails::seatRequestDetails() const
 {
     return m_seatRequestDetails;
 }
@@ -847,37 +847,37 @@ const iatci::FlightDetails& Result::flight() const
     return m_flight.get();
 }
 
-boost::optional<iatci::PaxDetails> Result::pax() const
+const boost::optional<iatci::PaxDetails>& Result::pax() const
 {
     return m_pax;
 }
 
-boost::optional<FlightSeatDetails> Result::seat() const
+const boost::optional<FlightSeatDetails>& Result::seat() const
 {
     return m_seat;
 }
 
-boost::optional<SeatmapDetails> Result::seatmap() const
+const boost::optional<SeatmapDetails>& Result::seatmap() const
 {
     return m_seatmap;
 }
 
-boost::optional<CascadeHostDetails> Result::cascadeDetails() const
+const boost::optional<CascadeHostDetails>& Result::cascadeDetails() const
 {
     return m_cascadeDetails;
 }
 
-boost::optional<ErrorDetails> Result::errorDetails() const
+const boost::optional<ErrorDetails>& Result::errorDetails() const
 {
     return m_errorDetails;
 }
 
-boost::optional<WarningDetails> Result::warningDetails() const
+const boost::optional<WarningDetails>& Result::warningDetails() const
 {
     return m_warningDetails;
 }
 
-boost::optional<EquipmentDetails> Result::equipmentDetails() const
+const boost::optional<EquipmentDetails>& Result::equipmentDetails() const
 {
     return m_equipmentDetails;
 }
@@ -954,12 +954,12 @@ const iatci::FlightDetails& BaseParams::flight() const
     return m_flight;
 }
 
-boost::optional<FlightDetails> BaseParams::flightFromPrevHost() const
+const boost::optional<FlightDetails>& BaseParams::flightFromPrevHost() const
 {
     return m_flightFromPrevHost;
 }
 
-boost::optional<iatci::CascadeHostDetails> BaseParams::cascadeDetails() const
+const boost::optional<iatci::CascadeHostDetails>& BaseParams::cascadeDetails() const
 {
     return m_cascadeDetails;
 }
@@ -995,17 +995,17 @@ CkiParams::CkiParams(const OriginatorDetails& origin,
       m_seat(seat), m_baggage(baggage), m_reserv(reserv)
 {}
 
-boost::optional<iatci::SeatDetails> CkiParams::seat() const
+const boost::optional<iatci::SeatDetails>& CkiParams::seat() const
 {
     return m_seat;
 }
 
-boost::optional<iatci::BaggageDetails> CkiParams::baggage() const
+const boost::optional<iatci::BaggageDetails>& CkiParams::baggage() const
 {
     return m_baggage;
 }
 
-boost::optional<iatci::ReservationDetails> CkiParams::reserv() const
+const boost::optional<ReservationDetails>& CkiParams::reserv() const
 {
     return m_reserv;
 }
@@ -1028,17 +1028,17 @@ CkuParams::CkuParams(const OriginatorDetails& origin,
     }
 }
 
-boost::optional<UpdatePaxDetails> CkuParams::updPax() const
+const boost::optional<UpdatePaxDetails>& CkuParams::updPax() const
 {
     return m_updPax;
 }
 
-boost::optional<UpdateSeatDetails> CkuParams::updSeat() const
+const boost::optional<UpdateSeatDetails>& CkuParams::updSeat() const
 {
     return m_updSeat;
 }
 
-boost::optional<UpdateBaggageDetails> CkuParams::updBaggage() const
+const boost::optional<UpdateBaggageDetails>& CkuParams::updBaggage() const
 {
     return m_updBaggage;
 }
@@ -1080,7 +1080,7 @@ SmfParams::SmfParams(const OriginatorDetails& origin,
       m_seatReqDetails(seatReqDetails)
 {}
 
-boost::optional<SeatRequestDetails> SmfParams::seatRequestDetails() const
+const boost::optional<SeatRequestDetails>& SmfParams::seatRequestDetails() const
 {
     return m_seatReqDetails;
 }

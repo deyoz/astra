@@ -87,12 +87,12 @@ std::string IatciCkxRequestHandler::respType() const
     return "X";
 }
 
-boost::optional<iatci::Params> IatciCkxRequestHandler::params() const
+boost::optional<iatci::BaseParams> IatciCkxRequestHandler::params() const
 {
     return ckxParams();
 }
 
-boost::optional<iatci::Params> IatciCkxRequestHandler::nextParams() const
+boost::optional<iatci::BaseParams> IatciCkxRequestHandler::nextParams() const
 {
     if(nextCkxParams()) {
         return *nextCkxParams();

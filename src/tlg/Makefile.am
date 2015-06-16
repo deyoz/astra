@@ -19,6 +19,7 @@ libtlg_a_SOURCES = edi_handler.cpp edi_msg.cpp edi_tlg.cpp main_snd.cpp \
         IatciPlfRequest.cpp IatciPlfResponseHandler.cpp IatciPlfRequestHandler.cpp \
         IatciSeatmapResponseHandler.cpp IatciSmfRequest.cpp IatciSmfResponseHandler.cpp \
         IatciBprRequest.cpp IatciBprResponseHandler.cpp IatciBprRequestHandler.cpp \
+        IatciSeatmapRequestHandler.cpp IatciSmfRequestHandler.cpp \
         postpone_edifact.cpp mvt_parser.cpp
         
 
@@ -36,6 +37,7 @@ noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_msg.h edi_elements.h \
    	IatciPlfRequest.h IatciPlfResponseHandler.h IatciPlfRequestHandler.h \
    	IatciSeatmapResponseHandler.h IatciSmfRequest.h IatciSmfResponseHandler.h \
    	IatciBprRequest.h IatciBprResponseHandler.h IatciBprRequestHandler.h \
+   	IatciSeatmapRequestHandler.h IatciSmfRequestHandler.h \
    	postpone_edifact.h mvt_parser.h
    	
    	

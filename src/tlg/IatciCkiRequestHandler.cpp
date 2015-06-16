@@ -100,12 +100,12 @@ edilib::EdiSessionId_t IatciCkiRequestHandler::sendCascadeRequest() const
     return edifact::SendCkiRequest(*nextCkiParams());
 }
 
-boost::optional<iatci::Params> IatciCkiRequestHandler::params() const
+boost::optional<iatci::BaseParams> IatciCkiRequestHandler::params() const
 {
     return ckiParams();
 }
 
-boost::optional<iatci::Params> IatciCkiRequestHandler::nextParams() const
+boost::optional<iatci::BaseParams> IatciCkiRequestHandler::nextParams() const
 {
     if(nextCkiParams()) {
         return *nextCkiParams();

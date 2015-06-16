@@ -248,8 +248,8 @@ iatci::Result IatciSeatmapResultMaker::makeResult() const
         std::list<iatci::RowDetails> lRowDetails;
         BOOST_FOREACH(const RodElem& rod, m_lRod) {
             lRowDetails.push_back(iatci::RowDetails(rod.m_row,
-                                                    rod.m_characteristic,
-                                                    makeSeatOccupations(rod)));
+                                                    makeSeatOccupations(rod),
+                                                    rod.m_characteristic));
         }
 
         seatmapDetails = iatci::SeatmapDetails(lCabinDetails,

@@ -361,8 +361,8 @@ public:
     iatci::RowDetails& get() { return *this; }
 
     using iatci::RowDetails::m_row;
-    using iatci::RowDetails::m_characteristic;
     using iatci::RowDetails::m_lOccupationDetails;
+    using iatci::RowDetails::m_characteristic;
 };
 
 }//namespace
@@ -374,14 +374,14 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::RowDetails& par, const unsigned int version)
 {
     RowDetailsAccessor acc(par);
-    ar & acc.m_row & acc.m_characteristic & acc.m_lOccupationDetails;
+    ar & acc.m_row & acc.m_lOccupationDetails & acc.m_characteristic;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::RowDetails& par, const unsigned int version)
 {
     RowDetailsAccessor acc;
-    ar & acc.m_row & acc.m_characteristic & acc.m_lOccupationDetails;
+    ar & acc.m_row & acc.m_lOccupationDetails & acc.m_characteristic;
     par = acc.get();
 }
 

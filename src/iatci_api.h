@@ -14,6 +14,7 @@ Result cancelCheckin(const CkxParams& ckxParams);
 Result updateCheckin(const CkuParams& ckuParams);
 Result reprint(const BprParams& bprParams);
 Result fillPasslist(const PlfParams& plfParams);
+Result fillSeatmap(const SmfParams& smfParams);
 boost::optional<FlightDetails> findCascadeFlight(const FlightDetails& flight);
 
 //---------------------------------------------------------------------------------------

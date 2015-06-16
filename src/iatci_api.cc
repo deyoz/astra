@@ -136,6 +136,49 @@ Result fillPasslist(const PlfParams& plfParams)
                                                         iatci::PaxDetails::Adult));
 }
 
+Result fillSeatmap(const SmfParams& smfParams)
+{
+    // TODO вызов функци Астры
+    std::list<SeatColumnDetails> cabinFColumns;
+    cabinFColumns.push_back(SeatColumnDetails("A", "W"));
+    cabinFColumns.push_back(SeatColumnDetails("B", "A"));
+    iatci::CabinDetails cabinF("F", RowRange(1, 9), "F", cabinFColumns);
+
+    std::list<SeatColumnDetails> cabinYColumns;
+    cabinYColumns.push_back(SeatColumnDetails("A", "W"));
+    cabinYColumns.push_back(SeatColumnDetails("B", "A"));
+    cabinYColumns.push_back(SeatColumnDetails("C", "A"));
+    cabinYColumns.push_back(SeatColumnDetails("D", "W"));
+    iatci::CabinDetails cabinY("Y", RowRange(9, 29), "F", cabinYColumns, "",
+                               RowRange(10,11), RowRange(15,20));
+
+
+    std::list<iatci::CabinDetails> lCabin;
+    lCabin.push_back(cabinF);
+    lCabin.push_back(cabinY);
+
+    std::list<iatci::SeatOccupationDetails> lRowSeatOccup;
+    lRowSeatOccup.push_back(iatci::SeatOccupationDetails("A", "O"));
+    lRowSeatOccup.push_back(iatci::SeatOccupationDetails("B", "F"));
+    lRowSeatOccup.push_back(iatci::SeatOccupationDetails("C", "F"));
+
+    std::list<iatci::RowDetails> lRow;
+    lRow.push_back(iatci::RowDetails("1", lRowSeatOccup));
+    lRow.push_back(iatci::RowDetails("2", lRowSeatOccup));
+    lRow.push_back(iatci::RowDetails("5", lRowSeatOccup));
+
+    iatci::SeatmapDetails seatmap(lCabin,
+                                  lRow,
+                                  smfParams.seatRequestDetails());
+    return Result::makeSeatmapResult(Result::Ok,
+                                     smfParams.flight(),
+                                     seatmap,
+                                     boost::none,
+                                     boost::none,
+                                     boost::none,
+                                     boost::none);
+}
+
 boost::optional<FlightDetails> findCascadeFlight(const FlightDetails& flight)
 {
     // TODO вызов функций Астры

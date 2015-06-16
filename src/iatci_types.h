@@ -230,7 +230,7 @@ struct UpdateSeatDetails: public UpdateDetails, public SeatDetails
 public:
     UpdateSeatDetails(UpdateActionCode_e actionCode,
                       const std::string& seat,
-                      const SmokeIndicator_e smokeInd = None);
+                      SmokeIndicator_e smokeInd = None);
 };
 
 //-----------------------------------------------------------------------------
@@ -338,7 +338,7 @@ protected:
 
 public:
     SeatRequestDetails(const std::string& cabinClass = "",
-                       const SmokeIndicator_e smokeInd = None);
+                       SmokeIndicator_e smokeInd = None);
 
     const std::string& cabinClass() const;
 
@@ -423,8 +423,8 @@ public:
     const std::string&                  defaultSeatOccupation() const;
     const std::list<SeatColumnDetails>& seatColumns() const;
     const std::string&                  deck() const;
-    boost::optional<RowRange>           smokingArea() const;
-    boost::optional<RowRange>           overwingArea() const;
+    const boost::optional<RowRange>&    smokingArea() const;
+    const boost::optional<RowRange>&    overwingArea() const;
 
 protected:
     CabinDetails() {} // for boost serialization only
@@ -464,17 +464,17 @@ struct RowDetails
 
 protected:
     std::string                      m_row;
-    std::string                      m_characteristic;
     std::list<SeatOccupationDetails> m_lOccupationDetails;
+    std::string                      m_characteristic;
 
 public:
     RowDetails(const std::string& row,
-               const std::string& characteristic,
-               const std::list<SeatOccupationDetails>& lOccupationDetails = std::list<SeatOccupationDetails>());
+               const std::list<SeatOccupationDetails>& lOccupationDetails,
+               const std::string& characteristic = "");
 
     const std::string&                      row() const;
-    const std::string&                      characteristic() const;
     const std::list<SeatOccupationDetails>& lOccupationDetails() const;
+    const std::string&                      characteristic() const;
 
 protected:
     RowDetails() {} // for boost serialization only
@@ -497,9 +497,9 @@ public:
                    const std::list<RowDetails>& lRowDetails,
                    boost::optional<SeatRequestDetails> seatRequestDetails = boost::none);
 
-    const std::list<CabinDetails>&      lCabinDetails() const;
-    const std::list<RowDetails>&        lRowDetails() const;
-    boost::optional<SeatRequestDetails> seatRequestDetails() const;
+    const std::list<CabinDetails>&             lCabinDetails() const;
+    const std::list<RowDetails>&               lRowDetails() const;
+    const boost::optional<SeatRequestDetails>& seatRequestDetails() const;
 
 protected:
     SeatmapDetails() {} // for boost serialization only
@@ -567,7 +567,7 @@ protected:
 public:
     EquipmentDetails(const std::string& equipment);
 
-    const std::string equipment() const;
+    const std::string& equipment() const;
 
 protected:
     EquipmentDetails() {} // for boost serialization only
@@ -611,10 +611,10 @@ public:
                boost::optional<FlightDetails> flightFromPrevHost = boost::none,
                boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
-    const OriginatorDetails&            origin() const;
-    const FlightDetails&                flight() const;
-    boost::optional<FlightDetails>      flightFromPrevHost() const;
-    boost::optional<CascadeHostDetails> cascadeDetails() const;
+    const OriginatorDetails&                   origin() const;
+    const FlightDetails&                       flight() const;
+    const boost::optional<FlightDetails>&      flightFromPrevHost() const;
+    const boost::optional<CascadeHostDetails>& cascadeDetails() const;
 };
 
 //-----------------------------------------------------------------------------
@@ -653,9 +653,9 @@ public:
               boost::optional<ReservationDetails> reserv = boost::none,
               boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
-    boost::optional<SeatDetails>        seat() const;
-    boost::optional<BaggageDetails>     baggage() const;
-    boost::optional<ReservationDetails> reserv() const;
+    const boost::optional<SeatDetails>&        seat() const;
+    const boost::optional<BaggageDetails>&     baggage() const;
+    const boost::optional<ReservationDetails>& reserv() const;
 };
 
 //-----------------------------------------------------------------------------
@@ -677,9 +677,9 @@ public:
               boost::optional<UpdateBaggageDetails> updBaggage = boost::none,
               boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
-    boost::optional<UpdatePaxDetails>     updPax() const;
-    boost::optional<UpdateSeatDetails>    updSeat() const;
-    boost::optional<UpdateBaggageDetails> updBaggage() const;
+    const boost::optional<UpdatePaxDetails>&     updPax() const;
+    const boost::optional<UpdateSeatDetails>&    updSeat() const;
+    const boost::optional<UpdateBaggageDetails>& updBaggage() const;
 };
 
 //-----------------------------------------------------------------------------
@@ -731,7 +731,7 @@ public:
               boost::optional<FlightDetails> flightFromPrevHost = boost::none,
               boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
-    boost::optional<SeatRequestDetails> seatRequestDetails() const;
+    const boost::optional<SeatRequestDetails>& seatRequestDetails() const;
 };
 
 //-----------------------------------------------------------------------------
@@ -864,19 +864,19 @@ public:
     static Result makeFailResult(Action_e action,
                                  const ErrorDetails& errorDetails);
 
-    Action_e                            action() const;
-    Status_e                            status() const;
-    const FlightDetails&                flight() const;
-    boost::optional<PaxDetails>         pax() const;
-    boost::optional<FlightSeatDetails>  seat() const;
-    boost::optional<SeatmapDetails>     seatmap() const;
-    boost::optional<CascadeHostDetails> cascadeDetails() const;
-    boost::optional<ErrorDetails>       errorDetails() const;
-    boost::optional<WarningDetails>     warningDetails() const;
-    boost::optional<EquipmentDetails>   equipmentDetails() const;
+    Action_e                                   action() const;
+    Status_e                                   status() const;
+    const FlightDetails&                       flight() const;
+    const boost::optional<PaxDetails>&         pax() const;
+    const boost::optional<FlightSeatDetails>&  seat() const;
+    const boost::optional<SeatmapDetails>&     seatmap() const;
+    const boost::optional<CascadeHostDetails>& cascadeDetails() const;
+    const boost::optional<ErrorDetails>&       errorDetails() const;
+    const boost::optional<WarningDetails>&     warningDetails() const;
+    const boost::optional<EquipmentDetails>&   equipmentDetails() const;
 
-    std::string                         actionAsString() const;
-    std::string                         statusAsString() const;
+    std::string                                actionAsString() const;
+    std::string                                statusAsString() const;
 
     static Action_e strToAction(const std::string& a);
     static Status_e strToStatus(const std::string& s);

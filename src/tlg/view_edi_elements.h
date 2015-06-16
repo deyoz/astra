@@ -205,6 +205,16 @@ void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetai
 */
 void viewSrpElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatRequestDetails& seatReqDetails);
 
+/**
+ * @brief makes a CBD element
+*/
+void viewCbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CabinDetails& cabinDetails, int num = 0);
+
+/**
+ * @brief makes a ROD element
+*/
+void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDetails, int num = 0);
+
 }//namespace edifact
 
 #endif/*_VIEW_EDI_ELEMENTS_H_*/

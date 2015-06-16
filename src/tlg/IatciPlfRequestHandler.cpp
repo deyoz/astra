@@ -67,12 +67,12 @@ std::string IatciPlfRequestHandler::respType() const
     return "P";
 }
 
-boost::optional<iatci::Params> IatciPlfRequestHandler::params() const
+boost::optional<iatci::BaseParams> IatciPlfRequestHandler::params() const
 {
     return plfParams();
 }
 
-boost::optional<iatci::Params> IatciPlfRequestHandler::nextParams() const
+boost::optional<iatci::BaseParams> IatciPlfRequestHandler::nextParams() const
 {
     if(nextPlfParams()) {
         return *nextPlfParams();
