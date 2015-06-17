@@ -593,6 +593,7 @@ void ReadSalons(int point_id,
 struct TTlgDraft {
     private:
         TypeB::TDetailCreateInfo &tlg_info;
+        int find_duplicate(TTlgOutPartInfo &tlg_row);
     public:
         vector<TypeB::TDraftPart> parts;
         void Save(TTlgOutPartInfo &info);
@@ -628,6 +629,86 @@ void TTlgDraft::check(string &value)
     value = result;
 }
 
+int TTlgDraft::find_duplicate(TTlgOutPartInfo &tlg_row)
+{
+    QParams QryParams;
+    QryParams
+        << QParam("point_id", otInteger, tlg_row.point_id)
+        << QParam("type", otString, tlg_row.tlg_type)
+        << QParam("addr", otString, tlg_row.addr)
+        << QParam("pr_lat", otInteger, tlg_row.pr_lat);
+
+    TCachedQuery Qry(
+            "SELECT * from "
+            "    tlg_out "
+            "where "
+            "   point_id = :point_id and "
+            "   type = :type and "
+            "   addr = :addr and "
+            "   pr_lat = :pr_lat ",
+            QryParams
+            );
+
+    Qry.get().Execute();
+
+    typedef map<int, TTlgOutPartInfo> t_db_tlg;
+
+    typedef map<int, t_db_tlg> t_db_tlgs;
+
+    t_db_tlgs db_tlgs;
+
+    // закачаем в память
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        TTlgOutPartInfo part;
+        part.fromDB(Qry.get());
+        db_tlgs[part.id][part.num] = part;
+    }
+
+    int result = NoExists;
+    TDateTime time_create = NoExists;
+    TDateTime latest_time_create = NoExists;
+    // пробег по телеграммам
+    for(t_db_tlgs::iterator i = db_tlgs.begin(); i != db_tlgs.end(); i++) {
+        // пробег по частям телеграммы и сравнение
+        vector<TypeB::TDraftPart>::const_iterator iv = parts.begin();
+        t_db_tlg::iterator j = i->second.begin();
+        bool differ = true;
+        TDateTime curr_time_create = NoExists;
+        for(; j != i->second.end() and iv != parts.end(); j++, iv++) {
+            TTlgOutPartInfo &part = j->second;
+            curr_time_create = part.time_create;
+            if(latest_time_create == NoExists or latest_time_create < curr_time_create) {
+                latest_time_create = curr_time_create;
+            }
+            if( not (
+                        part.heading == iv->heading and
+                        part.body == iv->body and
+                        part.ending == iv->ending
+                    )
+              ) {
+                break;
+            }
+            // Если нет ошибок или не требуется руч. корр. и при этом телеграмма не отправлена
+            // то помечаем, как различающуюся
+            // (т.е. дубликат не найден, требуется отправка)
+            differ = not (part.has_errors or not part.completed) and part.time_send_act == NoExists;
+        }
+        if(not differ) // найден дубликат
+        {
+            if(time_create == NoExists or time_create < curr_time_create) {
+                time_create = curr_time_create;
+                result = i->first;
+            }
+        }
+
+    }
+
+    if(result != NoExists and time_create < latest_time_create)
+        result = NoExists;
+
+    return result;
+}
+
 void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
 {
     // В процессе создания телеграммы части, содержащие ошибки, могли не
@@ -635,7 +716,8 @@ void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
     // с текстом телеграммы. Т.е. удалить из списка отсутствующие в тексте ошибки.
     tlg_info.err_lst.fix(parts);
     bool no_errors = tlg_info.err_lst.empty();
-    tlg_row.num = 1;
+
+    // Проверка на лат/не лат.
     for(vector<TypeB::TDraftPart>::iterator iv = parts.begin(); iv != parts.end(); iv++){
         if(tlg_info.is_lat() and no_errors) {
             check(iv->addr);
@@ -647,12 +729,27 @@ void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
         bool heading_visible = iv == parts.begin();
         bool ending_visible = iv + 1 == parts.end();
         tlg_info.err_lst.pack(*iv, heading_visible, ending_visible);
-        tlg_row.addr = iv->addr;
-        tlg_row.origin = iv->origin;
-        tlg_row.heading = iv->heading;
-        tlg_row.body = iv->body;
-        tlg_row.ending = iv->ending;
-        TelegramInterface::SaveTlgOutPart(tlg_row, false, false);
+    }
+
+    int tlg_out_id = NoExists;
+    if(not tlg_info.manual_creation)
+        tlg_out_id = find_duplicate(tlg_row);
+    if(tlg_out_id != NoExists) {
+        TReqInfo::Instance()->LocaleToLog("EVT.TLG.OUT.DUPLICATED", LEvntPrms()
+                << PrmElem<std::string>("name", etTypeBType, tlg_row.tlg_type, efmtNameShort)
+                << PrmSmpl<int>("id", tlg_out_id),
+                evtTlg, tlg_row.point_id, tlg_out_id);
+    } else {
+        // Непосредственно запись в базу.
+        tlg_row.num = 1;
+        for(vector<TypeB::TDraftPart>::iterator iv = parts.begin(); iv != parts.end(); iv++){
+            tlg_row.addr = iv->addr;
+            tlg_row.origin = iv->origin;
+            tlg_row.heading = iv->heading;
+            tlg_row.body = iv->body;
+            tlg_row.ending = iv->ending;
+            TelegramInterface::SaveTlgOutPart(tlg_row, false, false);
+        }
     }
 }
 
@@ -742,6 +839,7 @@ void TMItem::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 struct TFTLPax;
 struct TETLPax;
 struct TASLPax;
+struct TPFSPax;
 
 struct TName {
     string surname;
@@ -1009,7 +1107,14 @@ namespace PRL_SPACE {
             void get(TypeB::TDetailCreateInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers);
             void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
             TRemList(TInfants *ainfants): infants(ainfants) {};
+            void operator = (const TRemList &rems);
     };
+
+    void TRemList::operator = (const TRemList &rems)
+    {
+        infants = rems.infants;
+        items = rems.items;
+    }
 
     struct TTagItem {
         string tag_type;
@@ -6878,10 +6983,79 @@ struct TPFSInfoItem {
     {}
 };
 
+void doca_list2vector(const list<CheckIn::TPaxDocaItem> &lst, vector<CheckIn::TPaxDocaItem> &v)
+{
+    for(list<CheckIn::TPaxDocaItem>::const_iterator d=lst.begin(); d!=lst.end(); ++d)
+    {
+        if (d->type!="D" && d->type!="R") continue;
+        v.push_back(*d);
+    };
+    sort(v.begin(), v.end());
+}
+
+template<class T>
+void get_docX_rem(const T &doc, const T &crs_doc, TypeB::TDetailCreateInfo &info, bool inf_indicator, CheckIn::TPaxRemItem &rem, TRemList &rems) // getting doc* remarks
+{
+    if(doc.empty() and not crs_doc.empty()) {
+        if (getPaxRem(info, crs_doc, inf_indicator, rem)) rems.items.push_back(rem.text);
+    } else if(not doc.empty() and crs_doc.empty()) {
+        if (getPaxRem(info, doc, inf_indicator, rem)) rems.items.push_back(rem.text);
+    } else if(not doc.equal(crs_doc)) {
+        if (getPaxRem(info, doc, inf_indicator, rem)) rems.items.push_back(rem.text);
+    }
+}
+
+bool APIPX_cmp_internal(TypeB::TDetailCreateInfo &info, int pax_id, bool inf_indicator, TRemList &rems)
+{
+    CheckIn::TPaxRemItem rem;
+
+    CheckIn::TPaxDocItem docs, crs_docs;
+    LoadPaxDoc(pax_id, docs);
+    LoadCrsPaxDoc(pax_id, crs_docs);
+    get_docX_rem(docs, crs_docs, info, inf_indicator, rem, rems);
+
+    list<CheckIn::TPaxDocaItem> doca, crs_doca;
+    vector<CheckIn::TPaxDocaItem> vdoca, vcrs_doca;
+    LoadPaxDoca(pax_id, doca);
+    LoadCrsPaxDoca(pax_id, crs_doca);
+
+    doca_list2vector(doca, vdoca);
+    doca_list2vector(crs_doca, vcrs_doca);
+
+    vector<CheckIn::TPaxDocaItem>::const_iterator vdoca_i = vdoca.begin();
+    vector<CheckIn::TPaxDocaItem>::const_iterator vcrs_doca_i = vcrs_doca.begin();
+    for(; vdoca_i != vdoca.end() || vcrs_doca_i != vcrs_doca.end(); ) {
+        if(vdoca_i == vdoca.end()) {
+            if (getPaxRem(info, *vcrs_doca_i, inf_indicator, rem)) rems.items.push_back(rem.text);
+            vcrs_doca_i++;
+        } else if(vcrs_doca_i == vcrs_doca.end()) {
+            if (getPaxRem(info, *vdoca_i, inf_indicator, rem)) rems.items.push_back(rem.text);
+            vdoca_i++;
+        } else if(*vcrs_doca_i == *vdoca_i) {
+            vcrs_doca_i++;
+            vdoca_i++;
+        } else if(*vcrs_doca_i < *vdoca_i) {
+            if (getPaxRem(info, *vdoca_i, inf_indicator, rem)) rems.items.push_back(rem.text);
+            vdoca_i++;
+        } else {
+            if (getPaxRem(info, *vcrs_doca_i, inf_indicator, rem)) rems.items.push_back(rem.text);
+            vcrs_doca_i++;
+        }
+    }
+
+    CheckIn::TPaxDocoItem doco, crs_doco;
+    LoadPaxDoco(pax_id, doco);
+    LoadCrsPaxVisa(pax_id, crs_doco);
+    get_docX_rem(doco, crs_doco, info, inf_indicator, rem, rems);
+
+    return rem.code.empty();
+};
+
 struct TCKINPaxInfo {
     private:
         TQuery Qry;
         int col_pax_id;
+        int col_grp_id;
         int col_surname;
         int col_name;
         int col_seats;
@@ -6893,6 +7067,7 @@ struct TCKINPaxInfo {
         int col_status;
     public:
         int pax_id;
+        int grp_id;
         string surname;
         string name;
         string exst_name;
@@ -6904,7 +7079,23 @@ struct TCKINPaxInfo {
         int pr_brd;
         TPaxStatus status;
         TPNLPaxInfo crs_pax;
+        TRemList rems;
         void dump();
+        bool APIPX_cmp(TypeB::TDetailCreateInfo &info)
+        {
+            vector<int> infants;
+            for(vector<TInfantsItem>::iterator infRow = rems.infants->items.begin(); infRow != rems.infants->items.end(); infRow++) {
+                if(infRow->grp_id == grp_id and infRow->parent_pax_id == pax_id) {
+                    infants.push_back(infRow->pax_id);
+                }
+            }
+
+            bool result = APIPX_cmp_internal(info, pax_id, false, rems);
+            for(vector<int>::iterator i = infants.begin(); i != infants.end(); i++)
+                result &= APIPX_cmp_internal(info, *i, true, rems);
+
+            return result;
+        }
         bool PAXLST_cmp()
         {
             return
@@ -6915,6 +7106,7 @@ struct TCKINPaxInfo {
         void Clear()
         {
             pax_id = NoExists;
+            grp_id = NoExists;
             surname.erase();
             name.erase();
             exst_name.erase();
@@ -6926,6 +7118,7 @@ struct TCKINPaxInfo {
             pr_brd = NoExists;
             status = psCheckin;
             crs_pax.Clear();
+            rems.items.clear();
         }
         bool OK_status()
         {
@@ -6940,6 +7133,7 @@ struct TCKINPaxInfo {
                 if(!Qry.Eof) {
                     if(col_pax_id == NoExists) {
                         col_pax_id = Qry.FieldIndex("pax_id");
+                        col_grp_id = Qry.FieldIndex("grp_id");
                         col_surname = Qry.FieldIndex("surname");
                         col_name = Qry.FieldIndex("name");
                         col_seats = Qry.FieldIndex("seats");
@@ -6951,6 +7145,7 @@ struct TCKINPaxInfo {
                         col_status = Qry.FieldIndex("status");
                     }
                     pax_id = Qry.FieldAsInteger(col_pax_id);
+                    grp_id = Qry.FieldAsInteger(col_grp_id);
                     surname = Qry.FieldAsString(col_surname);
                     name = Qry.FieldAsString(col_name);
                     TExtraSeatName exst;
@@ -6968,7 +7163,7 @@ struct TCKINPaxInfo {
             if(item.pnl_pax_id != NoExists)
                 crs_pax.get(item.pnl_pax_id);
         }
-        TCKINPaxInfo():
+        TCKINPaxInfo(TInfants *ainfants):
             Qry(&OraSession),
             col_pax_id(NoExists),
             col_surname(NoExists),
@@ -6982,11 +7177,13 @@ struct TCKINPaxInfo {
             col_status(NoExists),
             pax_id(NoExists),
             pr_brd(NoExists),
-            status(psCheckin)
+            status(psCheckin),
+            rems(ainfants)
         {
             Qry.SQLText =
                 "select "
                 "    pax.pax_id, "
+                "    pax.grp_id, "
                 "    pax.surname, "
                 "    pax.name, "
                 "    pax.seats, "
@@ -7049,13 +7246,14 @@ struct TPFSPax {
     string crs;
     TMItem M;
     TPNRList pnrs;
-    TPFSPax(): pax_id(NoExists), pnr_id(NoExists) {};
-    TPFSPax(const TCKINPaxInfo &ckin_pax);
+    TRemList rems;
+    TPFSPax(TInfants *ainfants): pax_id(NoExists), pnr_id(NoExists), rems(ainfants) {};
+    TPFSPax(const TCKINPaxInfo &ckin_pax, TInfants *ainfants);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
     void operator = (const TCKINPaxInfo &ckin_pax);
 };
 
-TPFSPax::TPFSPax(const TCKINPaxInfo &ckin_pax): pax_id(NoExists)
+TPFSPax::TPFSPax(const TCKINPaxInfo &ckin_pax, TInfants *ainfants): pax_id(NoExists), rems(ainfants)
 {
     *this = ckin_pax;
 }
@@ -7085,6 +7283,7 @@ void TPFSPax::operator = (const TCKINPaxInfo &ckin_pax)
         }
         crs = ckin_pax.crs_pax.crs;
         pnr_id = ckin_pax.crs_pax.pnr_id;
+        rems = ckin_pax.rems;
 }
 
 void nameToTlg(const string &name, const string &asurname, int seats, const string &exst_name, vector<string> &body)
@@ -7133,6 +7332,7 @@ void TPFSPax::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     nameToTlg(name, surname, seats, exst_name, body);
     pnrs.ToTlg(info, body);
     M.ToTlg(info, body);
+    rems.ToTlg(info, body);
 }
 
 struct TSubClsCmp {
@@ -7165,6 +7365,7 @@ typedef map<string, TPFSClsList> TPFSCtgryList;
 typedef map<string, TPFSCtgryList> TPFSItems;
 
 struct TPFSBody {
+    TInfants infants;
     map<string, TNumByDestItem> pfsn;
     TPFSItems items;
     void get(TypeB::TDetailCreateInfo &info);
@@ -7318,9 +7519,11 @@ void TPFSBody::get(TypeB::TDetailCreateInfo &info)
 {
     const TypeB::TMarkInfoOptions &markOptions=*(info.optionsAs<TypeB::TMarkInfoOptions>());
 
+    infants.get(info);
+
     TPFSInfo PFSInfo;
     PFSInfo.get(info.point_id);
-    TCKINPaxInfo ckin_pax;
+    TCKINPaxInfo ckin_pax(&infants);
     for(map<int, TPFSInfoItem>::iterator im = PFSInfo.items.begin(); im != PFSInfo.items.end(); im++) {
         string category;
         const TPFSInfoItem &item = im->second;
@@ -7349,8 +7552,8 @@ void TPFSBody::get(TypeB::TDetailCreateInfo &info)
                         category = "INVOL";
                     else if(ckin_pax.target != ckin_pax.crs_pax.target)
                         category = "CHGSG";
-                    else if(not ckin_pax.PAXLST_cmp())
-                        category = "PXLST";
+                    else if(not ckin_pax.APIPX_cmp(info))
+                        category = "APIPX";
                 } else { // Не прошел посадку
                     if(ckin_pax.OK_status())
                         category = "OFFLK";
@@ -7371,15 +7574,16 @@ void TPFSBody::get(TypeB::TDetailCreateInfo &info)
                 }
             }
         }
-        ProgTrace(TRACE5, "category: %s", category.c_str());
 
-        TPFSPax PFSPax = ckin_pax; // PFSPax.M inits within assignment
+        TPFSPax PFSPax(NULL);
+        PFSPax = ckin_pax; // PFSPax.M inits within assignment
         if(not markOptions.crs.empty() and markOptions.crs != PFSPax.crs)
             continue;
         if(not markOptions.mark_info.empty() and not(PFSPax.M.m_flight == markOptions.mark_info))
             continue;
         if(item.pax_id != NoExists) // для зарегистрированных пассажиров собираем инфу для цифровой PFS
             pfsn[ckin_pax.target].add(ckin_pax.cls, ckin_pax.seats);
+
         if(category.empty())
             continue;
         PFSPax.pnrs.get(PFSPax.pnr_id);
@@ -7804,12 +8008,11 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", getLocaleText(E.getLexemaData())));
     }
 
-    if (tlg_id == NoExists) throw Exception("TelegramInterface::CreateTlg: create_tlg without result");
-
-    TReqInfo::Instance()->LocaleToLog("EVT.TLG.CREATED_MANUALLY", LEvntPrms()
-                                      << PrmElem<std::string>("name", etTypeBType, createInfo.get_tlg_type(), efmtNameShort)
-                                      << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", createInfo.get_options().is_lat),
-                                      evtTlg, createInfo.point_id, tlg_id);
+    if (tlg_id != NoExists)
+        TReqInfo::Instance()->LocaleToLog("EVT.TLG.CREATED_MANUALLY", LEvntPrms()
+                << PrmElem<std::string>("name", etTypeBType, createInfo.get_tlg_type(), efmtNameShort)
+                << PrmSmpl<int>("id", tlg_id) << PrmBool("lat", createInfo.get_options().is_lat),
+                evtTlg, createInfo.point_id, tlg_id);
     NewTextChild( resNode, "tlg_id", tlg_id);
 };
 

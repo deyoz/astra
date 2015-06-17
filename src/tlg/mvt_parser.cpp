@@ -81,16 +81,18 @@ namespace TypeB
         void TAD::parse(TDateTime scd, const string &val)
         {
             if(val.substr(0, 2) == "AD") {
+                string buf =  val.substr(2);
                 vector<string> items;
-                split(items, val.substr(2), ' ');
+                split(items, buf, ' ');
                 if(items.size() == 3 or items.size() == 1) {
+                    string str_ad = (items.size() == 1 ? buf : items[0]);
                     vector<string> ad_times;
-                    split(ad_times, items[0], '/');
+                    split(ad_times, str_ad, '/');
                     if(ad_times.size() == 2) {
                         off_block_time = fetch_time(scd, ad_times[0]);
                         airborne_time = fetch_time(scd, ad_times[1]);
                     } else if(ad_times.size() == 1) {
-                        off_block_time = fetch_time(scd, ad_times[0]);
+                        off_block_time = fetch_time(scd, str_ad);
                     } else
                         throw ETlgError("wrong AD times format: '%s'", val.c_str());
                     if(items.size() == 3) {
@@ -154,7 +156,11 @@ namespace TypeB
                 }
                 int point_id_spp = Qry.FieldAsInteger( "point_id_spp" );
                 TDateTime utc_act_out = (con.ad.airborne_time == NoExists ? con.ad.off_block_time : con.ad.airborne_time);
-                SetFlightFact(point_id_spp, utc_act_out);  //UTC???s
+                if(utc_act_out != NoExists) {
+                    // forcibly set time to be used as UTC
+                    TReqInfo::Instance()->user.sets.time = ustTimeUTC;
+                    SetFlightFact(point_id_spp, utc_act_out);
+                }
             }
         }
     }

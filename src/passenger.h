@@ -232,6 +232,21 @@ class TPaxDocaItem
              region.empty() &&
              postal_code.empty();
     };
+    bool operator < (const TPaxDocaItem &item) const
+    {
+        if(type != item.type)
+            return type < item.type;
+        if(country != item.country)
+            return country < item.country;
+        if(address != item.address)
+            return address < item.address;
+        if(city != item.city)
+            return city < item.city;
+        if(region != item.region)
+            return region < item.region;
+        return postal_code < item.postal_code;
+    }
+
     bool operator == (const TPaxDocaItem &item) const
     {
       return type == item.type &&

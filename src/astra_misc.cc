@@ -1990,7 +1990,3 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
   };
 
 };
-
-
-
-
