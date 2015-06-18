@@ -81,7 +81,9 @@ struct TCompareCompLayers {
 
 struct TCheckinPaxSeats {
   std::string gender;
+  int pr_infant;
   std::set<TTlgCompLayer,TCompareCompLayers> seats;
+  TCheckinPaxSeats(): pr_infant(NoExists) {}
 };
 
 string getDefaultSex()
@@ -250,6 +252,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
           compLayer.xname = iseat->line;
           compLayer.yname = iseat->row;
         checkinPaxsSeats[ ilayer->first.getPaxId() ].gender = gender;
+        checkinPaxsSeats[ ilayer->first.getPaxId() ].pr_infant = paxs[ ilayer->first.getPaxId() ].pr_infant;
         checkinPaxsSeats[ ilayer->first.getPaxId() ].seats.insert( compLayer );
       }
     }
@@ -6384,16 +6387,30 @@ void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     if(options.seat_plan == "AHM") {
         string buf = "SP";
         for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
-            for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
-                string seat =
-                    "." + denorm_iata_row(is->yname, NULL) +
-                    denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
-                    "/" + im->second.gender;
-                if(buf.size() + seat.size() > LINE_SIZE) {
-                    body.push_back(buf);
-                    buf = "SP";
+            // g stands for 'gender'; First iteration - seats for adult, second iteration - one seat for infant
+            for(int g = 0; g <=1; g++) {
+                string gender;
+                if(g == 0)
+                    gender = im->second.gender;
+                else {
+                    if(im->second.pr_infant == NoExists)
+                        break;
+                    else
+                        gender = 'I';
                 }
-                buf += seat;
+                // цикл по местам текущего паса
+                for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
+                    string seat =
+                        "." + denorm_iata_row(is->yname, NULL) +
+                        denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
+                        "/" + gender;
+                    if(buf.size() + seat.size() > LINE_SIZE) {
+                        body.push_back(buf);
+                        buf = "SP";
+                    }
+                    buf += seat;
+                    if(g == 1) break; // Для инфанта печатаем только первое место
+                }
             }
         }
         if(buf != "SP")
