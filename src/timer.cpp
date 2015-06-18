@@ -173,6 +173,8 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       if ( name == "send_apis_tr" ) send_apis_tr();
       else
       if ( name == "clean_typeb_help" ) TypeBHelpMng::clean_typeb_help();
+      else
+      if ( name == "test_watch_dog" ) sleep(keep_alive_minuts * 60 + 1);
 
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
