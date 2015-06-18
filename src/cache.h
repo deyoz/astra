@@ -78,6 +78,7 @@ const
                          {"TIME_FMT",                etUserSetType},
                          {"TRIP_TYPES",              etTripType},
                          {"TYPEB_LCI_ACTION_CODE",   etTypeBOptionValue},
+                         {"TYPEB_LCI_SEAT_PLAN",     etTypeBOptionValue},
                          {"TYPEB_LCI_SEAT_RESTRICT", etTypeBOptionValue},
                          {"TYPEB_LCI_WEIGHT_AVAIL",  etTypeBOptionValue},
                          {"TYPEB_LDM_VERSION",       etTypeBOptionValue},
