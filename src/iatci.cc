@@ -47,6 +47,9 @@ static iatci::CkiParams getDebugCkiParams()
     iatci::SeatDetails seat(iatci::SeatDetails::NonSmoking);
     iatci::BaggageDetails baggage(1, 20);
     boost::optional<iatci::CascadeHostDetails> cascadeDetails;
+    iatci::ServiceDetails serviceDetails;
+    serviceDetails.addSsrTkne("2981212121212", 1, false);
+    serviceDetails.addSsr(iatci::ServiceDetails::SsrInfo("FQTV", "121313454", false, "I", "UT", 1));
 
     iatci::CkiParams ckiParams(origin,
                                pax,
@@ -55,7 +58,8 @@ static iatci::CkiParams getDebugCkiParams()
                                seat,
                                baggage,
                                reserv,
-                               cascadeDetails);
+                               cascadeDetails,
+                               serviceDetails);
 
     return ckiParams;
 }
@@ -281,6 +285,13 @@ void IactiInterface::CheckinKickHandler(xmlNodePtr resNode,
 {
     FuncIn(CheckinKickHandler);
     BOOST_FOREACH(const iatci::Result& res, lRes) {
+        if(res.serviceDetails()) {
+            BOOST_FOREACH(const iatci::ServiceDetails::SsrInfo& ssr, res.serviceDetails()->lSsr()) {
+                LogTrace(TRACE3) << "ssr.code: " << ssr.ssrCode() << "; "
+                                 << "ssr.text: " << ssr.ssrText();
+            }
+
+        }
         LogTrace(TRACE3) << "error: " << (res.errorDetails() ? res.errorDetails()->errCode() : "None");
     }
     FuncOut(CheckinKickHandler);

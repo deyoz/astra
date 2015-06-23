@@ -445,6 +445,25 @@ void viewSpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxSeatDetails& pa
     SetEdiFullSegment(pMes, SegmElement("SPD"), spd.str());
 }
 
+void viewPsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ServiceDetails& service)
+{
+    std::ostringstream psi;
+    psi << service.osi();
+    BOOST_FOREACH(const iatci::ServiceDetails::SsrInfo& ssr, service.lSsr())
+    {
+        psi << "+" << ssr.ssrCode() << ":" << ssr.airline();
+        psi << ":" << ssr.ssrText() << "::";
+        if(ssr.quantity())
+            psi << ssr.quantity();
+        psi << "::" << ssr.freeText();
+        if(ssr.isInfantTicket())
+            psi << ":INF";
+    }
+
+    if(!psi.str().empty())
+        SetEdiFullSegment(pMes, SegmElement("PSI"), psi.str());
+}
+
 void viewPrdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ReservationDetails& reserv)
 {
     std::ostringstream prd;

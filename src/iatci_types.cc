@@ -394,6 +394,90 @@ UpdateBaggageDetails::UpdateBaggageDetails(UpdateActionCode_e actionCode,
 
 //-----------------------------------------------------------------------------
 
+ServiceDetails::SsrInfo::SsrInfo(const std::string& ssrCode, const std::string& ssrText,
+                                 bool isInftTicket, const std::string& freeText,
+                                 const std::string& airline, unsigned quantity)
+    : m_ssrCode(ssrCode), m_ssrText(ssrText),
+      m_isInfantTicket(isInftTicket), m_freeText(freeText),
+      m_airline(airline), m_quantity(quantity)
+{}
+
+const std::string& ServiceDetails::SsrInfo::ssrCode() const
+{
+    return m_ssrCode;
+}
+
+const std::string& ServiceDetails::SsrInfo::ssrText() const
+{
+    return m_ssrText;
+}
+
+bool ServiceDetails::SsrInfo::isInfantTicket() const
+{
+    return m_isInfantTicket;
+}
+
+const std::string& ServiceDetails::SsrInfo::freeText() const
+{
+    return m_freeText;
+}
+
+const std::string& ServiceDetails::SsrInfo::airline() const
+{
+    return m_airline;
+}
+
+unsigned ServiceDetails::SsrInfo::quantity() const
+{
+    return m_quantity;
+}
+
+//
+
+ServiceDetails::ServiceDetails(const std::string& osi)
+    : m_osi(osi)
+{}
+
+ServiceDetails::ServiceDetails(const std::list<SsrInfo>& lSsr,
+                               const std::string& osi)
+    : m_lSsr(lSsr),
+      m_osi(osi)
+{}
+
+const std::list<ServiceDetails::SsrInfo>& ServiceDetails::lSsr() const
+{
+    return m_lSsr;
+}
+
+const std::string& ServiceDetails::osi() const
+{
+    return m_osi;
+}
+
+void ServiceDetails::addSsr(const ServiceDetails::SsrInfo& ssr)
+{
+    m_lSsr.push_back(ssr);
+}
+
+void ServiceDetails::addSsr(const std::string& ssrCode, const std::string& ssrText)
+{
+    m_lSsr.push_back(ServiceDetails::SsrInfo(ssrCode, ssrText));
+}
+
+void ServiceDetails::addSsrTkne(const std::string& tickNum, bool isInftTicket)
+{
+    m_lSsr.push_back(ServiceDetails::SsrInfo("TKNE", tickNum, isInftTicket));
+}
+
+void ServiceDetails::addSsrTkne(const std::string& tickNum, unsigned couponNum, bool inftTicket)
+{
+    std::ostringstream tkne;
+    tkne << tickNum << couponNum;
+    addSsrTkne(tkne.str(), inftTicket);
+}
+
+//-----------------------------------------------------------------------------
+
 SeatRequestDetails::SeatRequestDetails(const std::string& cabinClass,
                                        SmokeIndicator_e smokeInd)
     : SeatDetails(smokeInd),
@@ -655,7 +739,8 @@ Result::Result(Action_e action,
                boost::optional<CascadeHostDetails> cascadeDetails,
                boost::optional<ErrorDetails> errorDetails,
                boost::optional<WarningDetails> warningDetails,
-               boost::optional<EquipmentDetails> equipmentDetails)
+               boost::optional<EquipmentDetails> equipmentDetails,
+               boost::optional<ServiceDetails> serviceDetails)
     : m_action(action),
       m_status(status),
       m_flight(flight),
@@ -665,7 +750,8 @@ Result::Result(Action_e action,
       m_cascadeDetails(cascadeDetails),
       m_errorDetails(errorDetails),
       m_warningDetails(warningDetails),
-      m_equipmentDetails(equipmentDetails)
+      m_equipmentDetails(equipmentDetails),
+      m_serviceDetails(serviceDetails)
 {}
 
 Result Result::makeResult(Action_e action,
@@ -677,7 +763,8 @@ Result Result::makeResult(Action_e action,
                           boost::optional<CascadeHostDetails> cascadeDetails,
                           boost::optional<ErrorDetails> errorDetails,
                           boost::optional<WarningDetails> warningDetails,
-                          boost::optional<EquipmentDetails> equipmentDetails)
+                          boost::optional<EquipmentDetails> equipmentDetails,
+                          boost::optional<ServiceDetails> serviceDetails)
 {
     return Result(action,
                   status,
@@ -688,7 +775,8 @@ Result Result::makeResult(Action_e action,
                   cascadeDetails,
                   errorDetails,
                   warningDetails,
-                  equipmentDetails);
+                  equipmentDetails,
+                  serviceDetails);
 }
 
 Result Result::makeCheckinResult(Status_e status,
@@ -698,7 +786,8 @@ Result Result::makeCheckinResult(Status_e status,
                                  boost::optional<CascadeHostDetails> cascadeDetails,
                                  boost::optional<ErrorDetails> errorDetails,
                                  boost::optional<WarningDetails> warningDetails,
-                                 boost::optional<EquipmentDetails> equipmentDetails)
+                                 boost::optional<EquipmentDetails> equipmentDetails,
+                                 boost::optional<ServiceDetails> serviceDetails)
 {
     return Result(Checkin,
                   status,
@@ -709,7 +798,8 @@ Result Result::makeCheckinResult(Status_e status,
                   cascadeDetails,
                   errorDetails,
                   warningDetails,
-                  equipmentDetails);
+                  equipmentDetails,
+                  serviceDetails);
 }
 
 Result Result::makeUpdateResult(Status_e status,
@@ -719,7 +809,8 @@ Result Result::makeUpdateResult(Status_e status,
                                 boost::optional<CascadeHostDetails> cascadeDetails,
                                 boost::optional<ErrorDetails> errorDetails,
                                 boost::optional<WarningDetails> warningDetails,
-                                boost::optional<EquipmentDetails> equipmentDetails)
+                                boost::optional<EquipmentDetails> equipmentDetails,
+                                boost::optional<ServiceDetails> serviceDetails)
 {
     return Result(Update,
                   status,
@@ -730,7 +821,8 @@ Result Result::makeUpdateResult(Status_e status,
                   cascadeDetails,
                   errorDetails,
                   warningDetails,
-                  equipmentDetails);
+                  equipmentDetails,
+                  serviceDetails);
 }
 
 Result Result::makeCancelResult(Status_e status,
@@ -740,7 +832,8 @@ Result Result::makeCancelResult(Status_e status,
                                 boost::optional<CascadeHostDetails> cascadeDetails,
                                 boost::optional<ErrorDetails> errorDetails,
                                 boost::optional<WarningDetails> warningDetails,
-                                boost::optional<EquipmentDetails> equipmentDetails)
+                                boost::optional<EquipmentDetails> equipmentDetails,
+                                boost::optional<ServiceDetails> serviceDetails)
 {
     return Result(Cancel,
                   status,
@@ -751,7 +844,8 @@ Result Result::makeCancelResult(Status_e status,
                   cascadeDetails,
                   errorDetails,
                   warningDetails,
-                  equipmentDetails);
+                  equipmentDetails,
+                  serviceDetails);
 }
 
 Result Result::makeReprintResult(Status_e status,
@@ -761,7 +855,8 @@ Result Result::makeReprintResult(Status_e status,
                                  boost::optional<CascadeHostDetails> cascadeDetails,
                                  boost::optional<ErrorDetails> errorDetails,
                                  boost::optional<WarningDetails> warningDetails,
-                                 boost::optional<EquipmentDetails> equipmentDetails)
+                                 boost::optional<EquipmentDetails> equipmentDetails,
+                                 boost::optional<ServiceDetails> serviceDetails)
 {
     return Result(Reprint,
                   status,
@@ -772,7 +867,8 @@ Result Result::makeReprintResult(Status_e status,
                   cascadeDetails,
                   errorDetails,
                   warningDetails,
-                  equipmentDetails);
+                  equipmentDetails,
+                  serviceDetails);
 }
 
 Result Result::makePasslistResult(Status_e status,
@@ -782,7 +878,8 @@ Result Result::makePasslistResult(Status_e status,
                                   boost::optional<CascadeHostDetails> cascadeDetails,
                                   boost::optional<ErrorDetails> errorDetails,
                                   boost::optional<WarningDetails> warningDetails,
-                                  boost::optional<EquipmentDetails> equipmentDetails)
+                                  boost::optional<EquipmentDetails> equipmentDetails,
+                                  boost::optional<ServiceDetails> serviceDetails)
 {
     return Result(Passlist,
                   status,
@@ -793,7 +890,8 @@ Result Result::makePasslistResult(Status_e status,
                   cascadeDetails,
                   errorDetails,
                   warningDetails,
-                  equipmentDetails);
+                  equipmentDetails,
+                  serviceDetails);
 }
 
 Result Result::makeSeatmapResult(Status_e status,
@@ -813,7 +911,8 @@ Result Result::makeSeatmapResult(Status_e status,
                   cascadeDetails,
                   errorDetails,
                   warningDetails,
-                  equipmentDetails);
+                  equipmentDetails,
+                  boost::none);
 }
 
 Result Result::makeFailResult(Action_e action,
@@ -827,6 +926,7 @@ Result Result::makeFailResult(Action_e action,
                   boost::none,
                   boost::none,
                   errorDetails,
+                  boost::none,
                   boost::none,
                   boost::none);
 }
@@ -880,6 +980,11 @@ const boost::optional<WarningDetails>& Result::warningDetails() const
 const boost::optional<EquipmentDetails>& Result::equipmentDetails() const
 {
     return m_equipmentDetails;
+}
+
+const boost::optional<ServiceDetails>& Result::serviceDetails() const
+{
+    return m_serviceDetails;
 }
 
 Result::Action_e Result::strToAction(const std::string& a)
@@ -970,15 +1075,20 @@ Params::Params(const OriginatorDetails& origin,
                const PaxDetails& pax,
                const FlightDetails& flight,
                boost::optional<FlightDetails> flightFromPrevHost,
-               boost::optional<CascadeHostDetails> cascadeDetails)
+               boost::optional<CascadeHostDetails> cascadeDetails,
+               boost::optional<ServiceDetails> serviceDetails)
     : BaseParams(origin, flight, flightFromPrevHost, cascadeDetails),
-      m_pax(pax)
-{
-}
+      m_pax(pax), m_service(serviceDetails)
+{}
 
 const iatci::PaxDetails& Params::pax() const
 {
     return m_pax;
+}
+
+const boost::optional<ServiceDetails>& Params::service() const
+{
+    return m_service;
 }
 
 //-----------------------------------------------------------------------------
@@ -990,8 +1100,9 @@ CkiParams::CkiParams(const OriginatorDetails& origin,
                      boost::optional<SeatDetails> seat,
                      boost::optional<BaggageDetails> baggage,
                      boost::optional<ReservationDetails> reserv,
-                     boost::optional<CascadeHostDetails> cascadeDetails)
-    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails),
+                     boost::optional<CascadeHostDetails> cascadeDetails,
+                     boost::optional<ServiceDetails> serviceDetails)
+    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails, serviceDetails),
       m_seat(seat), m_baggage(baggage), m_reserv(reserv)
 {}
 
@@ -1019,8 +1130,9 @@ CkuParams::CkuParams(const OriginatorDetails& origin,
                      boost::optional<UpdatePaxDetails> updPax,
                      boost::optional<UpdateSeatDetails> updSeat,
                      boost::optional<UpdateBaggageDetails> updBaggage,
-                     boost::optional<CascadeHostDetails> cascadeDetails)
-    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails),
+                     boost::optional<CascadeHostDetails> cascadeDetails,
+                     boost::optional<ServiceDetails> serviceDetails)
+    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails, serviceDetails),
       m_updPax(updPax), m_updSeat(updSeat), m_updBaggage(updBaggage)
 {
     if(!m_updPax && !m_updSeat && !m_updBaggage) {
@@ -1049,8 +1161,9 @@ CkxParams::CkxParams(const OriginatorDetails& origin,
                      const PaxDetails& pax,
                      const FlightDetails& flight,
                      boost::optional<FlightDetails> flightFromPrevHost,
-                     boost::optional<CascadeHostDetails> cascadeDetails)
-    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails)
+                     boost::optional<CascadeHostDetails> cascadeDetails,
+                     boost::optional<ServiceDetails> serviceDetails)
+    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails, serviceDetails)
 {}
 
 //-----------------------------------------------------------------------------
@@ -1094,8 +1207,10 @@ BprParams::BprParams(const OriginatorDetails& origin,
                      boost::optional<SeatDetails> seat,
                      boost::optional<BaggageDetails> baggage,
                      boost::optional<ReservationDetails> reserv,
-                     boost::optional<CascadeHostDetails> cascadeDetails)
-    : CkiParams(origin, pax, flight, flightFromPrevHost, seat, baggage, reserv, cascadeDetails)
+                     boost::optional<CascadeHostDetails> cascadeDetails,
+                     boost::optional<ServiceDetails> serviceDetails)
+    : CkiParams(origin, pax, flight, flightFromPrevHost, seat,
+                baggage, reserv, cascadeDetails, serviceDetails)
 {}
 
 }//namespace iatci

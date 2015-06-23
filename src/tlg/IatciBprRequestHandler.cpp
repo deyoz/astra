@@ -91,7 +91,7 @@ std::string IatciBprRequestHandler::respType() const
 
 iatci::Result IatciBprRequestHandler::handleRequest() const
 {
-    return iatci::reprint(bprParams());
+    return iatci::reprintBoardingPass(bprParams());
 }
 
 edilib::EdiSessionId_t IatciBprRequestHandler::sendCascadeRequest() const

@@ -329,6 +329,57 @@ public:
 
 //-----------------------------------------------------------------------------
 
+struct ServiceDetails
+{
+    struct SsrInfo
+    {
+        friend class boost::serialization::access;
+
+    protected:
+        std::string m_ssrCode;
+        std::string m_ssrText;
+        bool        m_isInfantTicket;
+        std::string m_freeText;
+        std::string m_airline;
+        unsigned    m_quantity;
+
+    public:
+        SsrInfo(const std::string& ssrCode, const std::string& ssrText,
+                bool isInftTicket = false, const std::string& freeText = "",
+                const std::string& airline = "", unsigned quantity = 0);
+
+        const std::string& ssrCode() const;
+        const std::string& ssrText() const;
+        bool               isInfantTicket() const;
+        const std::string& freeText() const;
+        const std::string& airline() const;
+        unsigned           quantity() const;
+
+    protected:
+        SsrInfo()
+        {} // for boost serialization only
+    };
+
+protected:
+    std::list<SsrInfo> m_lSsr;
+    std::string        m_osi;
+
+public:
+    ServiceDetails(const std::string& osi = "");
+    ServiceDetails(const std::list<SsrInfo>& lSsr,
+                   const std::string& osi = "");
+
+    const std::list<SsrInfo>& lSsr() const;
+    const std::string&        osi() const;
+
+    void addSsr(const ServiceDetails::SsrInfo& ssr);
+    void addSsr(const std::string& ssrCode, const std::string& ssrText);
+    void addSsrTkne(const std::string& tickNum, bool isInftTicket = false);
+    void addSsrTkne(const std::string& tickNum, unsigned couponNum, bool inftTicket);
+};
+
+//-----------------------------------------------------------------------------
+
 struct SeatRequestDetails: public SeatDetails
 {
     friend class Result;
@@ -622,16 +673,19 @@ public:
 struct Params: public BaseParams
 {
 protected:
-    PaxDetails m_pax;
+    PaxDetails                      m_pax;
+    boost::optional<ServiceDetails> m_service;
 
 public:
     Params(const OriginatorDetails& origin,
            const PaxDetails& pax,
            const FlightDetails& flight,
            boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-           boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+           boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
+           boost::optional<ServiceDetails> serviceDetails = boost::none);
 
-    const PaxDetails& pax() const;
+    const PaxDetails&                      pax() const;
+    const boost::optional<ServiceDetails>& service() const;
 };
 
 //-----------------------------------------------------------------------------
@@ -651,7 +705,8 @@ public:
               boost::optional<SeatDetails> seat = boost::none,
               boost::optional<BaggageDetails> baggage = boost::none,
               boost::optional<ReservationDetails> reserv = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+              boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
+              boost::optional<ServiceDetails> serviceDetails = boost::none);
 
     const boost::optional<SeatDetails>&        seat() const;
     const boost::optional<BaggageDetails>&     baggage() const;
@@ -675,7 +730,8 @@ public:
               boost::optional<UpdatePaxDetails> updPax = boost::none,
               boost::optional<UpdateSeatDetails> updSeat = boost::none,
               boost::optional<UpdateBaggageDetails> updBaggage = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+              boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
+              boost::optional<ServiceDetails> serviceDetails = boost::none);
 
     const boost::optional<UpdatePaxDetails>&     updPax() const;
     const boost::optional<UpdateSeatDetails>&    updSeat() const;
@@ -696,7 +752,8 @@ public:
               const PaxDetails& pax,
               const FlightDetails& flight,
               boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+              boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
+              boost::optional<ServiceDetails> serviceDetails = boost::none);
 
 };
 
@@ -746,7 +803,8 @@ public:
               boost::optional<SeatDetails> seat = boost::none,
               boost::optional<BaggageDetails> baggage = boost::none,
               boost::optional<ReservationDetails> reserv = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+              boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
+              boost::optional<ServiceDetails> serviceDetails = boost::none);
 };
 
 //-----------------------------------------------------------------------------
@@ -784,6 +842,7 @@ protected:
     boost::optional<ErrorDetails>       m_errorDetails;
     boost::optional<WarningDetails>     m_warningDetails;
     boost::optional<EquipmentDetails>   m_equipmentDetails;
+    boost::optional<ServiceDetails>     m_serviceDetails;
 
     Result(Action_e action,
            Status_e status,
@@ -794,7 +853,8 @@ protected:
            boost::optional<CascadeHostDetails> cascadeDetails,
            boost::optional<ErrorDetails> errorDetails,
            boost::optional<WarningDetails> warningDetails,
-           boost::optional<EquipmentDetails> equipmentDetails);
+           boost::optional<EquipmentDetails> equipmentDetails,
+           boost::optional<ServiceDetails> serviceDetails);
 
 public:
     static Result makeResult(Action_e action,
@@ -806,7 +866,8 @@ public:
                              boost::optional<CascadeHostDetails> cascadeDetails,
                              boost::optional<ErrorDetails> errorDetails,
                              boost::optional<WarningDetails> warningDetails,
-                             boost::optional<EquipmentDetails> equipmentDetails);
+                             boost::optional<EquipmentDetails> equipmentDetails,
+                             boost::optional<ServiceDetails> serviceDetails);
 
     static Result makeCheckinResult(Status_e status,
                                     const FlightDetails& flight,
@@ -815,7 +876,8 @@ public:
                                     boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
                                     boost::optional<ErrorDetails> errorDetails = boost::none,
                                     boost::optional<WarningDetails> warningDetails = boost::none,
-                                    boost::optional<EquipmentDetails> equipmentDetails = boost::none);
+                                    boost::optional<EquipmentDetails> equipmentDetails = boost::none,
+                                    boost::optional<ServiceDetails> serviceDetails = boost::none);
 
     static Result makeUpdateResult(Status_e status,
                                    const FlightDetails& flight,
@@ -824,7 +886,8 @@ public:
                                    boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
                                    boost::optional<ErrorDetails> errorDetails = boost::none,
                                    boost::optional<WarningDetails> warningDetails = boost::none,
-                                   boost::optional<EquipmentDetails> equipmentDetails = boost::none);
+                                   boost::optional<EquipmentDetails> equipmentDetails = boost::none,
+                                   boost::optional<ServiceDetails> serviceDetails = boost::none);
 
     static Result makeCancelResult(Status_e status,
                                    const FlightDetails& flight,
@@ -833,7 +896,8 @@ public:
                                    boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
                                    boost::optional<ErrorDetails> errorDetails = boost::none,
                                    boost::optional<WarningDetails> warningDetails = boost::none,
-                                   boost::optional<EquipmentDetails> equipmentDetails = boost::none);
+                                   boost::optional<EquipmentDetails> equipmentDetails = boost::none,
+                                   boost::optional<ServiceDetails> serviceDetails = boost::none);
 
     static Result makeReprintResult(Status_e status,
                                     const FlightDetails& flight,
@@ -842,7 +906,8 @@ public:
                                     boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
                                     boost::optional<ErrorDetails> errorDetails = boost::none,
                                     boost::optional<WarningDetails> warningDetails = boost::none,
-                                    boost::optional<EquipmentDetails> equipmentDetails = boost::none);
+                                    boost::optional<EquipmentDetails> equipmentDetails = boost::none,
+                                    boost::optional<ServiceDetails> serviceDetails = boost::none);
 
     static Result makePasslistResult(Status_e status,
                                      const FlightDetails& flight,
@@ -851,7 +916,8 @@ public:
                                      boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
                                      boost::optional<ErrorDetails> errorDetails = boost::none,
                                      boost::optional<WarningDetails> warningDetails = boost::none,
-                                     boost::optional<EquipmentDetails> equipmentDetails = boost::none);
+                                     boost::optional<EquipmentDetails> equipmentDetails = boost::none,
+                                     boost::optional<ServiceDetails> serviceDetails = boost::none);
 
     static Result makeSeatmapResult(Status_e status,
                                     const FlightDetails& flight,
@@ -874,6 +940,7 @@ public:
     const boost::optional<ErrorDetails>&       errorDetails() const;
     const boost::optional<WarningDetails>&     warningDetails() const;
     const boost::optional<EquipmentDetails>&   equipmentDetails() const;
+    const boost::optional<ServiceDetails>&     serviceDetails() const;
 
     std::string                                actionAsString() const;
     std::string                                statusAsString() const;

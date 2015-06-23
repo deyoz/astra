@@ -87,6 +87,7 @@ boost::optional<edifact::PpdElem> readEdiPpd(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::PrdElem> readEdiPrd(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::PsdElem> readEdiPsd(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::PbdElem> readEdiPbd(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::PsiElem> readEdiPsi(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::FdrElem> readEdiFdr(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::RadElem> readEdiRad(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::PfdElem> readEdiPfd(_EDI_REAL_MES_STRUCT_ *pMes);

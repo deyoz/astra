@@ -94,8 +94,24 @@ void EdiErrMsg::init()
     EdiErrMsgDataElem* el_9845 = new EdiErrMsgDataElem(9845, EdiErrMsgERD::DefaultEdiErr);
 #define ADD_MSG2(s, e) ADD_MSG(9845, AstraErr::s, e)
 
-    ADD_MSG2(EDI_PROC_ERR,                  "102");
-    ADD_MSG2(TIMEOUT_ON_HOST_3,             "196");
+    ADD_MSG2(PAX_SURNAME_NF,                  "1");
+    ADD_MSG2(INV_FLIGHT_DATE,                 "5");
+    ADD_MSG2(TOO_MANY_PAX_WITH_SAME_SURNAME,  "6");
+    ADD_MSG2(FLIGHT_NOT_FOR_THROUGH_CHECK_IN, "9");
+    ADD_MSG2(BAGGAGE_WEIGHT_REQUIRED,         "19");
+    ADD_MSG2(NO_SEAT_SELCTN_ON_FLIGHT,        "26");
+    ADD_MSG2(TOO_MANY_PAXES,                  "44");
+    ADD_MSG2(TOO_MANY_INFANTS,                "61");
+    ADD_MSG2(SMOKING_ZONE_UNAVAILABLE,        "62");
+    ADD_MSG2(NON_SMOKING_ZONE_UNAVAILABLE,    "63");
+    ADD_MSG2(PAX_ALREADY_CHECKED_IN,          "17");
+    ADD_MSG2(EDI_PROC_ERR,                    "102");
+    ADD_MSG2(PAX_SURNAME_NOT_CHECKED_IN,      "193");
+    ADD_MSG2(TIMEOUT_ON_HOST_3,               "196");
+    ADD_MSG2(CHECK_IN_SEPARATELY,             "199");
+    ADD_MSG2(UPDATE_SEPARATELY,               "208");
+    ADD_MSG2(CASCADED_QUERY_TIMEOUT,          "254");
+    ADD_MSG2(ID_CARD_REQUIRED,                "259");
 
 #undef ADD_MSG2
     (*m_ediErrMsgMap)[9845] = el_9845;

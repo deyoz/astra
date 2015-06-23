@@ -173,6 +173,28 @@ std::ostream& operator<<(std::ostream &os, const PbdElem &pbd)
     return os;
 }
 
+std::ostream& operator<<(std::ostream &os, const PsiElem &psi)
+{
+    os << "PSI: ";
+    os << "osi: " << psi.m_osi << ";";
+    os << "\nssrs:";
+    BOOST_FOREACH(const PsiElem::SsrDetails& ssr, psi.m_lSsr) {
+        os << "\ncode: " << ssr.m_ssrCode << "; ";
+        os << "airline: " << ssr.m_airline << "; ";
+        os << "text: " << ssr.m_ssrText << "; ";
+        if(ssr.m_age)
+            os << "age: " << ssr.m_age << "; ";
+        if(ssr.m_numOfPieces)
+            os << "num of pieces: " << ssr.m_numOfPieces << "; ";
+        if(ssr.m_weight)
+            os << "weight: " << ssr.m_weight << "; ";
+        os << "free text: " << ssr.m_freeText << "; ";
+        os << "numeric of units qualifier: " << ssr.m_qualifier;
+    }
+
+    return os;
+}
+
 std::ostream& operator<<(std::ostream &os, const FdrElem &fdr)
 {
     os << "FDR: ";

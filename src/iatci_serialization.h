@@ -670,7 +670,7 @@ public:
 }//namespace
 
 /*****
- * WarningDetails
+ * ErrorDetails
  *****/
 template<class Archive>
 inline void save(Archive& ar, const iatci::ErrorDetails& par, const unsigned int version)
@@ -765,7 +765,7 @@ public:
 }//namespace
 
 /*****
- * WarningDetails
+ * EquipmentDetails
  *****/
 template<class Archive>
 inline void save(Archive& ar, const iatci::EquipmentDetails& par, const unsigned int version)
@@ -784,6 +784,108 @@ inline void load(Archive& ar, iatci::EquipmentDetails& par, const unsigned int v
 
 template<class Archive>
 inline void serialize(Archive& ar, iatci::EquipmentDetails& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
+class SsrInfoAccessor: private iatci::ServiceDetails::SsrInfo
+{
+public:
+    // for save
+    explicit SsrInfoAccessor(const iatci::ServiceDetails::SsrInfo& par)
+        : iatci::ServiceDetails::SsrInfo(par)
+    {}
+
+    SsrInfoAccessor()
+    {}
+
+    iatci::ServiceDetails::SsrInfo& get() { return *this; }
+
+    using iatci::ServiceDetails::SsrInfo::m_ssrCode;
+    using iatci::ServiceDetails::SsrInfo::m_airline;
+    using iatci::ServiceDetails::SsrInfo::m_ssrText;
+    using iatci::ServiceDetails::SsrInfo::m_isInfantTicket;
+    using iatci::ServiceDetails::SsrInfo::m_quantity;
+    using iatci::ServiceDetails::SsrInfo::m_freeText;
+};
+
+}//namespace
+
+/*****
+ * SsrInfo
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::ServiceDetails::SsrInfo& par, const unsigned int version)
+{
+    SsrInfoAccessor acc(par);
+    ar & acc.m_ssrCode & acc.m_airline & acc.m_ssrText;
+    ar & acc.m_quantity & acc.m_isInfantTicket & acc.m_freeText;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::ServiceDetails::SsrInfo& par, const unsigned int version)
+{
+    SsrInfoAccessor acc;
+    ar & acc.m_ssrCode & acc.m_airline & acc.m_ssrText;
+    ar & acc.m_quantity & acc.m_isInfantTicket & acc.m_freeText;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::ServiceDetails::SsrInfo& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
+class ServiceDetailsAccessor: private iatci::ServiceDetails
+{
+public:
+    // for save
+    explicit ServiceDetailsAccessor(const iatci::ServiceDetails& par)
+        : iatci::ServiceDetails(par)
+    {}
+
+    // for load
+    ServiceDetailsAccessor()
+    {}
+
+    iatci::ServiceDetails& get() { return *this; }
+
+    using iatci::ServiceDetails::m_osi;
+    using iatci::ServiceDetails::m_lSsr;
+};
+
+}//namespace
+
+/*****
+ * ServiceDetails
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::ServiceDetails& par, const unsigned int version)
+{
+    ServiceDetailsAccessor acc(par);
+    ar & acc.m_osi & acc.m_lSsr;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::ServiceDetails& par, const unsigned int version)
+{
+    ServiceDetailsAccessor acc;
+    ar & acc.m_osi & acc.m_lSsr;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::ServiceDetails& par, const unsigned int version)
 {
     boost::serialization::split_free(ar, par, version);
 }
@@ -816,6 +918,7 @@ public:
     using iatci::Result::m_errorDetails;
     using iatci::Result::m_warningDetails;
     using iatci::Result::m_equipmentDetails;
+    using iatci::Result::m_serviceDetails;
 };
 
 }//namespace
@@ -829,7 +932,7 @@ inline void save(Archive& ar, const iatci::Result& par, const unsigned int versi
     CkiResultAccessor acc(par);
     ar & acc.m_action & acc.m_status & acc.m_flight & acc.m_pax & acc.m_seat;
     ar & acc.m_seatmap & acc.m_cascadeDetails & acc.m_errorDetails;
-    ar & acc.m_warningDetails & acc.m_equipmentDetails;
+    ar & acc.m_warningDetails & acc.m_equipmentDetails & acc.m_serviceDetails;
 }
 
 template<class Archive>
@@ -838,7 +941,7 @@ inline void load(Archive& ar, iatci::Result& par, const unsigned int version)
     CkiResultAccessor acc;
     ar & acc.m_action & acc.m_status & acc.m_flight & acc.m_pax & acc.m_seat;
     ar & acc.m_seatmap & acc.m_cascadeDetails & acc.m_errorDetails;
-    ar & acc.m_warningDetails & acc.m_equipmentDetails;
+    ar & acc.m_warningDetails & acc.m_equipmentDetails & acc.m_serviceDetails;
     par = acc.get();
 }
 

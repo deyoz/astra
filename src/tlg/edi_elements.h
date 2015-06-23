@@ -643,7 +643,7 @@ struct PsdElem
 
 //-----------------------------------------------------------------------------
 
-///@class PbdElem - Passenger baggage information
+///@class PbdElem - Passenger baggage information --PBD
 struct PbdElem
 {
     unsigned m_numOfPieces;
@@ -656,7 +656,33 @@ struct PbdElem
 
 //-----------------------------------------------------------------------------
 
-///@class FdrElem - Flight details response
+///@class PsiElem - Passenger service information --PSI
+struct PsiElem
+{
+    struct SsrDetails
+    {
+        std::string m_ssrCode;
+        std::string m_airline;
+        std::string m_ssrText;
+        unsigned    m_age;
+        unsigned    m_numOfPieces;
+        unsigned    m_weight;
+        std::string m_freeText;
+        std::string m_qualifier;
+
+        SsrDetails()
+            : m_age(0), m_numOfPieces(0), m_weight(0)
+        {}
+    };
+
+    std::string           m_osi;
+    std::list<SsrDetails> m_lSsr;
+};
+
+
+//-----------------------------------------------------------------------------
+
+///@class FdrElem - Flight details response --FDR
 struct FdrElem
 {
     std::string m_airl;
@@ -678,7 +704,7 @@ struct FdrElem
 
 //-----------------------------------------------------------------------------
 
-///@class RadElem - Response analysis details
+///@class RadElem - Response analysis details --RAD
 struct RadElem
 {
     std::string m_respType;
@@ -687,7 +713,7 @@ struct RadElem
 
 //-----------------------------------------------------------------------------
 
-///@class PfdElem - Passenger flight details
+///@class PfdElem - Passenger flight details --PFD
 struct PfdElem
 {
     std::string m_seat;
@@ -698,7 +724,7 @@ struct PfdElem
 
 //-----------------------------------------------------------------------------
 
-///@class ChdElem - Cascading host details
+///@class ChdElem - Cascading host details --CHD
 struct ChdElem
 {
     std::string m_origAirline;
@@ -708,7 +734,7 @@ struct ChdElem
 
 //-----------------------------------------------------------------------------
 
-///@class FsdElem - Flight segment details
+///@class FsdElem - Flight segment details --FSD
 struct FsdElem
 {
     boost::posix_time::time_duration m_boardingTime;
@@ -722,7 +748,7 @@ struct FsdElem
 
 //-----------------------------------------------------------------------------
 
-///@class ErdElem - Error information
+///@class ErdElem - Error information --ERD
 struct ErdElem
 {
     std::string m_level;
@@ -740,7 +766,7 @@ struct ErdElem
 
 //-----------------------------------------------------------------------------
 
-///@class SpdElem - Select personal details
+///@class SpdElem - Select personal details --SPD
 struct SpdElem
 {
     std::string m_passSurname;
@@ -756,7 +782,7 @@ struct SpdElem
 
 //-----------------------------------------------------------------------------
 
-///@class UpdElem - Update personal details
+///@class UpdElem - Update personal details --UPD
 struct UpdElem
 {
     std::string m_actionCode;
@@ -767,7 +793,7 @@ struct UpdElem
 
 //-----------------------------------------------------------------------------
 
-///@class UsdElem - Update seat request details
+///@class UsdElem - Update seat request details --USD
 struct UsdElem
 {
     std::string m_actionCode;
@@ -777,7 +803,7 @@ struct UsdElem
 
 //-----------------------------------------------------------------------------
 
-///@class UbdElem - Update baggage details
+///@class UbdElem - Update baggage details --UBD
 struct UbdElem
 {
     std::string m_actionCode;
@@ -791,7 +817,7 @@ struct UbdElem
 
 //-----------------------------------------------------------------------------
 
-///@class WadElem - Warning information
+///@class WadElem - Warning information --WAD
 struct WadElem
 {
     std::string m_level;
@@ -801,7 +827,7 @@ struct WadElem
 
 //-----------------------------------------------------------------------------
 
-///@class SrpElem - Seat request parameters
+///@class SrpElem - Seat request parameters --SRP
 struct SrpElem
 {
     std::string m_cabinClass;
@@ -810,7 +836,7 @@ struct SrpElem
 
 //-----------------------------------------------------------------------------
 
-///@class EqdElem - Equipment information
+///@class EqdElem - Equipment information --EQD
 struct EqdElem
 {
     std::string m_equipment;
@@ -818,7 +844,7 @@ struct EqdElem
 
 //-----------------------------------------------------------------------------
 
-///@class CbdElem - Cabin details
+///@class CbdElem - Cabin details --CBD
 struct CbdElem
 {
     struct SeatColumn
@@ -856,7 +882,7 @@ struct CbdElem
 
 //-----------------------------------------------------------------------------
 
-///@class RodElem - Row details
+///@class RodElem - Row details --ROD
 struct RodElem
 {
     struct SeatOccupation
@@ -888,6 +914,7 @@ std::ostream& operator<<(std::ostream &os, const PpdElem &ppd);
 std::ostream& operator<<(std::ostream &os, const PrdElem &prd);
 std::ostream& operator<<(std::ostream &os, const PsdElem &psd);
 std::ostream& operator<<(std::ostream &os, const PbdElem &pbd);
+std::ostream& operator<<(std::ostream &os, const PsiElem &psi);
 std::ostream& operator<<(std::ostream &os, const FdrElem &fdr);
 std::ostream& operator<<(std::ostream &os, const RadElem &rad);
 std::ostream& operator<<(std::ostream &os, const PfdElem &pfd);

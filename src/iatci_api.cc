@@ -91,7 +91,7 @@ Result updateCheckin(const CkuParams& ckuParams)
                                     ckuParams.pax());
 }
 
-Result reprint(const BprParams& bprParams)
+Result reprintBoardingPass(const BprParams& bprParams)
 {
     // TODO вызов функций Астры
     FlightDetails flight4Checkin(bprParams.flight().airline(),

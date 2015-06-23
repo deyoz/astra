@@ -50,6 +50,8 @@ void CkiRequest::collectMessage()
         viewPsdElement(pMes(), *m_params.seat());
     if(m_params.baggage())
         viewPbdElement(pMes(), *m_params.baggage());
+    if(m_params.service())
+        viewPsiElement(pMes(), *m_params.service());
 }
 
 //-----------------------------------------------------------------------------

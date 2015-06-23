@@ -30,6 +30,7 @@ private:
     boost::optional<edifact::PpdElem> m_ppd;
     boost::optional<edifact::ChdElem> m_chd;
     boost::optional<edifact::PfdElem> m_pfd;
+    boost::optional<edifact::PsiElem> m_psi;
     boost::optional<edifact::FsdElem> m_fsd;
     boost::optional<edifact::ErdElem> m_erd;
     boost::optional<edifact::WadElem> m_wad;
@@ -40,6 +41,7 @@ public:
     void setRad(const boost::optional<edifact::RadElem>& rad);
     void setPpd(const boost::optional<edifact::PpdElem>& ppd, bool required = false);
     void setPfd(const boost::optional<edifact::PfdElem>& pfd, bool required = false);
+    void setPsi(const boost::optional<edifact::PsiElem>& psi, bool required = false);
     void setFsd(const boost::optional<edifact::FsdElem>& fsd, bool required = false);
     void setChd(const boost::optional<edifact::ChdElem>& chd, bool required = false);
     void setErd(const boost::optional<edifact::ErdElem>& erd, bool required = false);
@@ -128,6 +130,7 @@ void IatciResponseHandler::parse()
             SetEdiPointToSegGrG(pMes(), SegGrElement(2), "PROG_ERR");
             resultMaker.setPpd(readEdiPpd(pMes()), true /*required*/);
             resultMaker.setPfd(readEdiPfd(pMes()));
+            resultMaker.setPsi(readEdiPsi(pMes()));
         }
 
         m_lRes.push_back(resultMaker.makeResult());
@@ -183,6 +186,13 @@ void IatciResultMaker::setPfd(const boost::optional<edifact::PfdElem>& pfd, bool
     if(required)
         ASSERT(pfd);
     m_pfd = pfd;
+}
+
+void IatciResultMaker::setPsi(const boost::optional<edifact::PsiElem>& psi, bool required)
+{
+    if(required)
+        ASSERT(psi);
+    m_psi = psi;
 }
 
 void IatciResultMaker::setFsd(const boost::optional<edifact::FsdElem>& fsd, bool required)
@@ -275,6 +285,19 @@ iatci::Result IatciResultMaker::makeResult() const
         equipmentDetails = iatci::EquipmentDetails(m_eqd->m_equipment);
     }
 
+    boost::optional<iatci::ServiceDetails> serviceDetails;
+    if(m_psi) {
+        serviceDetails = iatci::ServiceDetails(m_psi->m_osi);
+        BOOST_FOREACH(const PsiElem::SsrDetails& ssr, m_psi->m_lSsr) {
+            serviceDetails->addSsr(iatci::ServiceDetails::SsrInfo(ssr.m_ssrCode,
+                                                                  ssr.m_ssrText,
+                                                                  ssr.m_qualifier == "INF",
+                                                                  ssr.m_freeText,
+                                                                  ssr.m_airline,
+                                                                  ssr.m_numOfPieces));
+        }
+    }
+
     return iatci::Result::makeResult(iatci::Result::strToAction(m_rad.m_respType),
                                      iatci::Result::strToStatus(m_rad.m_status),
                                      flightDetails,
@@ -284,7 +307,8 @@ iatci::Result IatciResultMaker::makeResult() const
                                      cascadeDetails,
                                      errorDetails,
                                      warningDetails,
-                                     equipmentDetails);
+                                     equipmentDetails,
+                                     serviceDetails);
 }
 
 }//namespace TlgHandling

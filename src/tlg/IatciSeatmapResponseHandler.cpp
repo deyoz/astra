@@ -257,16 +257,14 @@ iatci::Result IatciSeatmapResultMaker::makeResult() const
                                                seatRequestDetails);
     }
 
-    return iatci::Result::makeResult(iatci::Result::strToAction(m_rad.m_respType),
-                                     iatci::Result::strToStatus(m_rad.m_status),
-                                     flightDetails,
-                                     boost::none,
-                                     boost::none,
-                                     seatmapDetails,
-                                     cascadeDetails,
-                                     errorDetails,
-                                     warningDetails,
-                                     equipmentDetails);
+    ASSERT(seatmapDetails);
+    return iatci::Result::makeSeatmapResult(iatci::Result::strToStatus(m_rad.m_status),
+                                            flightDetails,
+                                            *seatmapDetails,
+                                            cascadeDetails,
+                                            errorDetails,
+                                            warningDetails,
+                                            equipmentDetails);
 }
 
 }//namespace TlgHandling
