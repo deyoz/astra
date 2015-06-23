@@ -243,6 +243,7 @@ bool canUseOneRow=true; // использовать при рассадке только один ряд - определяе
 struct TCondRate {
   bool pr_web; //признак того, что регистрируется платный пассажир
   bool use_rate; // использовать платные места для пассажиров без оплаченных мест
+  bool ignore_rate; // игнорируем тариф
   map<int, TPlaceWebTariff> rates;
   map<int, TPlaceWebTariff>::iterator current_rate;
   TCondRate( ) {
@@ -256,6 +257,7 @@ struct TCondRate {
     use_rate = ( client_type == ctTerm || client_type == ctPNL );
     ProgTrace( TRACE5, "use_rate=%d", use_rate);
     rates.clear();
+    ignore_rate = false;
     rates[ 0 ].value = 0.0; // всегда задаем - означает, что надо использовать места без тарифа
     if ( pr_web ) // не учитываем платные места
       return;
@@ -294,7 +296,7 @@ struct TCondRate {
     }
   }
   bool CanUseRate( TPlace *place ) { /* если все возможные тарифы попробовали при рассадке и не смогли рассадить или нет тарифов на рейсе или место без тарифа, то можно использовать */
-    bool res = ( pr_web || current_rate == rates.end() || place->WebTariff.value == 0.0 );
+    bool res = ( pr_web || current_rate == rates.end() || place->WebTariff.value == 0.0 || ignore_rate );
     if ( !res ) {
       if ( !use_rate ) {
         return res;
@@ -314,7 +316,7 @@ struct TCondRate {
     map<int, TPlaceWebTariff>::iterator i = rates.end();
     if ( !rates.empty() )
       i--;
-    return ( (current_rate == rates.end() && use_rate) || i == current_rate );
+    return ( (current_rate == rates.end() && use_rate) || i == current_rate || ignore_rate);
   }
 };
 
@@ -2876,13 +2878,21 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                    continue;
                  break;
              }
-
-             /* использование платных мест */
+             /* использование платных мест */             
+             bool ignore_rate = condRates.ignore_rate;
              for ( condRates.current_rate = condRates.rates.begin(); condRates.current_rate != condRates.rates.end(); condRates.current_rate++ ) {
-               if ( condRates.current_rate != condRates.rates.begin() && SeatAlg != sSeatPassengers ) { //???
+               if ( ( condRates.current_rate != condRates.rates.begin() && SeatAlg != sSeatPassengers ) ) { //???
                  //               ProgTrace( TRACE5, "condRates.current_rate->first=%d", condRates.current_rate->first );
                  continue;
                }
+               if ( use_preseat_layer && SeatAlg == sSeatPassengers ) { // если предварительно размеченный слой, то игнорируем платные места
+
+                 condRates.ignore_rate = true;
+               }
+               else {
+                 condRates.ignore_rate = ignore_rate;
+               }
+               ProgTrace( TRACE5, "condRates.ignore_rate=%d, SeatAlg=%d", condRates.ignore_rate, SeatAlg );
                //ProgTrace( TRACE5, "SeatAlg == %d, condRates.current_rate.first=%d, condRates.current_rate->second.value=%f",
                //                        SeatAlg, condRates.current_rate->first, condRates.current_rate->second.value );
                /* использование статусов мест */
@@ -2892,7 +2902,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                  if ( ( !KeyLayers && ( SeatAlg == sSeatGrpOnBasePlace || SeatAlg == sSeatGrp ) ) ||
                       ( KeyLayers < -1 && ( SeatAlg != sSeatPassengers || !condRates.isIgnoreRates( ) ) ) ) { // если можно использовать платные слои, то только при рассадке пассажиров по одному
                    continue;
-                 }
+                 }                 
                  curr_preseat_layers.clear();
                  curr_preseat_layers.insert( preseat_layers.begin(), preseat_layers.end() );
                  if ( KeyLayers == -2 ) {
@@ -2994,6 +3004,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                    } /* end for FCanUseAlone */
                  } /* end for use SeatsLayers */
                } /* end for KeyLayer */
+
              } /* end for condRates */
            } /* end for CanUseRem */
          } /* end for FSeatAlg */
