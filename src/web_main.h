@@ -68,7 +68,7 @@ public:
      // Сообщение о любой ошибке в Астру (например, после неудачной печати)
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::ClientError);
      AddEvent("ClientError",evHandle);
-     
+
      //Система Меридиан
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::GetFlightInfo);
      AddEvent("GetFlightInfo",evHandle);
@@ -92,7 +92,7 @@ public:
   void RemoveProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
-  
+
   void GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -107,51 +107,51 @@ public:
 */
 
 struct TWebPax {
-  int pax_no; //виртуальный ид. для связи одного и того же пассажира разных сегментов
-	int crs_pax_id;
-	int crs_pax_id_parent;
-  int reg_no;
-	std::string surname;
-	std::string name;
-	std::string pers_type_extended; //может содержать БГ (CBBG)
-	ASTRA::TCompLayerType crs_seat_layer;
-	std::string crs_seat_no;
-  std::string seat_no;
-  std::string pass_class;
-  std::string pass_subclass;
-	int seats;
-	int pax_id;
-	int crs_pnr_tid;
-	int crs_pax_tid;
-	int pax_grp_tid;
-	int pax_tid;
-	std::string checkin_status;
-  std::set<std::string> agent_checkin_reasons;
-  CheckIn::TPaxTknItem tkn;
-  CheckIn::TPaxDocItem doc;
-  CheckIn::TPaxDocoItem doco;
-  std::list<CheckIn::TPaxDocaItem> doca;
-	std::vector<TypeB::TFQTItem> fqt_rems;
-	TWebPax() {
-	  pax_no = ASTRA::NoExists;
-		crs_pax_id = ASTRA::NoExists;
-		crs_pax_id_parent = ASTRA::NoExists;
-    reg_no = ASTRA::NoExists;
-		seats = 0;
-		pax_id = ASTRA::NoExists;
-		crs_pnr_tid = ASTRA::NoExists;
-		crs_pax_tid	= ASTRA::NoExists;
-		pax_grp_tid = ASTRA::NoExists;
-		pax_tid = ASTRA::NoExists;
-	};
+    int pax_no; //виртуальный ид. для связи одного и того же пассажира разных сегментов
+    int crs_pax_id;
+    int crs_pax_id_parent;
+    int reg_no;
+    std::string surname;
+    std::string name;
+    std::string pers_type_extended; //может содержать БГ (CBBG)
+    ASTRA::TCompLayerType crs_seat_layer;
+    std::string crs_seat_no;
+    std::string seat_no;
+    std::string pass_class;
+    std::string pass_subclass;
+    int seats;
+    int pax_id;
+    int crs_pnr_tid;
+    int crs_pax_tid;
+    int pax_grp_tid;
+    int pax_tid;
+    std::string checkin_status;
+    std::set<std::string> agent_checkin_reasons;
+    CheckIn::TPaxTknItem tkn;
+    CheckIn::TPaxDocItem doc;
+    CheckIn::TPaxDocoItem doco;
+    std::list<CheckIn::TPaxDocaItem> doca;
+    std::vector<TypeB::TFQTItem> fqt_rems;
+    TWebPax() {
+      pax_no = ASTRA::NoExists;
+      crs_pax_id = ASTRA::NoExists;
+      crs_pax_id_parent = ASTRA::NoExists;
+      reg_no = ASTRA::NoExists;
+      seats = 0;
+      pax_id = ASTRA::NoExists;
+      crs_pnr_tid = ASTRA::NoExists;
+      crs_pax_tid	= ASTRA::NoExists;
+      pax_grp_tid = ASTRA::NoExists;
+      pax_tid = ASTRA::NoExists;
+    };
 
-	bool operator == (const TWebPax &pax) const
-	{
-  	return transliter_equal(surname,pax.surname) &&
-           transliter_equal(name,pax.name) &&
-           pers_type_extended==pax.pers_type_extended &&
-           ((seats==0 && pax.seats==0) || (seats!=0 && pax.seats!=0));
-  };
+    bool operator == (const TWebPax &pax) const
+    {
+      return transliter_equal(surname,pax.surname) &&
+             transliter_equal(name,pax.name) &&
+             pers_type_extended==pax.pers_type_extended &&
+             ((seats==0 && pax.seats==0) || (seats!=0 && pax.seats!=0));
+    };
 };
 bool isOwnerFreePlace( int pax_id, const std::vector<TWebPax> &pnr );
 

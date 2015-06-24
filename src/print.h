@@ -67,21 +67,22 @@ class PrintInterface: public JxtInterface
           {
             clear();
             grp_id=vgrp_id;
-        	  pax_id=vpax_id;
-        	  reg_no=vreg_no;
-        	};
-        	void clear()
-        	{
-        	  point_dep=ASTRA::NoExists;
-            grp_id=ASTRA::NoExists;
-        	  pax_id=ASTRA::NoExists;
-        	  reg_no=ASTRA::NoExists;
-        	  full_name.clear();
-        	  gate=std::make_pair("", false);
-        	  time_print=ASTRA::NoExists;
-        	  prn_form.clear();
-        	  hex=false;
+            pax_id=vpax_id;
+            reg_no=vreg_no;
           };
+          void clear()
+          {
+            point_dep=ASTRA::NoExists;
+            grp_id=ASTRA::NoExists;
+            pax_id=ASTRA::NoExists;
+            reg_no=ASTRA::NoExists;
+            full_name.clear();
+            gate=std::make_pair("", false);
+            time_print=ASTRA::NoExists;
+            prn_form.clear();
+            hex=false;
+          };
+          bool fromDB(int vpax_id, int test_point_dep);
         };
 
         struct BPParams {
@@ -91,7 +92,7 @@ class PrintInterface: public JxtInterface
           TPrnParams prnParams;
           xmlNodePtr clientDataNode;
         };
-    
+
         PrintInterface(): JxtInterface("123", "print")
         {
             Handler *evHandle;
@@ -120,7 +121,7 @@ class PrintInterface: public JxtInterface
                 std::string &Print, bool &hex, xmlNodePtr reqNode
                 );
         virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-        
+
         static void GetPrintDataBP(const BPParams &params,
                                    std::string &pectab,
                                    std::vector<BPPax> &paxs);
