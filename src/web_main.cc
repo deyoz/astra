@@ -328,7 +328,9 @@ void GetPNRsList(WebSearch::TPNRFilters &filters,
       if (PNRs.pnrs.empty())
         throw UserException( "MSG.PASSENGERS.NOT_FOUND" );
       if (filter.test_paxs.empty() && PNRs.pnrs.size()>1)
-        throw UserException( "MSG.PASSENGERS.FOUND_MORE" );
+        filter.from_scan_code?
+          throw UserException( "MSG.PASSENGERS.FOUND_MORE" ):
+          throw UserException( "MSG.PASSENGERS.FOUND_MORE.ADJUST_SEARCH_PARAMS" );
     }
     catch(UserException &e)
     {
@@ -2296,7 +2298,7 @@ void GetBPPaxFromScanCode(const string &scanCode, PrintInterface::BPPax &pax)
   if (PNRs.pnrs.empty())
     throw UserException( "MSG.PASSENGERS.NOT_FOUND" );
   if (!is_test && (PNRs.pnrs.size()>1 || PNRs.pnrs.begin()->second.paxs.size()>1))
-    throw UserException( "MSG.PASSENGERS.FOUND_MORE" ); //!!!vlad неправильное сообщение "Найдено более одного пассажира. Измените критерии поиска"
+    throw UserException( "MSG.PASSENGERS.FOUND_MORE" );
   if (PNRs.pnrs.begin()->second.segs.empty()) throw EXCEPTIONS::Exception("%s: PNRs.pnrs.begin()->second.segs.empty()", __FUNCTION__);
   int point_dep=PNRs.pnrs.begin()->second.segs.begin()->second.point_dep;
   if (PNRs.pnrs.begin()->second.paxs.empty()) throw EXCEPTIONS::Exception("%s: PNRs.pnrs.begin()->second.paxs.empty()", __FUNCTION__);
@@ -3102,7 +3104,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 {
   xmlNodePtr node = GetNode( "@time", reqNode );
   if ( node == NULL )
-    throw AstraLocale::UserException( "Tag '@time' not found" );  
+    throw AstraLocale::UserException( "Tag '@time' not found" );
   string str_date = NodeAsString( node );
   node = GetNode( "@airline", reqNode );
   if ( node == NULL )
@@ -3214,7 +3216,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     FltQry.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
     FltQry.Execute();
     if ( FltQry.Eof )
-      throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );    
+      throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );
     TTripInfo tripInfo( FltQry );
     if ( TReqInfo::Instance()->client_type != ctWeb || //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
          !is_sync_meridian( tripInfo ) || //но описывается в таблице web_clients как веб-регистрация!
