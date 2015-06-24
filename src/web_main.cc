@@ -277,35 +277,15 @@ void WebRequestsIface::SearchPNRs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   PNRs.toXML(resNode);
 };
 
-void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void GetPNRsList(WebSearch::TPNRFilters &filters,
+             list<WebSearch::TPNRs> &PNRsList,
+             list<AstraLocale::LexemaData> &errors)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
-
-  xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
-
-  resNode=NewTextChild(resNode,"SearchFlt");
-
-  if ((reqInfo->user.access.airps_permit && reqInfo->user.access.airps.empty()) ||
-      (reqInfo->user.access.airlines_permit && reqInfo->user.access.airlines.empty()))
-  {
-    ProgError(STDLOG, "WebRequestsIface::SearchFlt: empty user's access (user.descr=%s)", reqInfo->user.descr.c_str());
-    return;
-  };
-
-  WebSearch::TPNRFilters filters;
-  if (scanCodeNode!=NULL)
-    filters.fromBCBP_M(NodeAsString(scanCodeNode));
-  else  
-    filters.fromXML(reqNode);
-
-  list<AstraLocale::LexemaData> errors;
-  list<WebSearch::TPNRs> PNRsList;
   for(list<WebSearch::TPNRFilter>::iterator f=filters.segs.begin(); f!=filters.segs.end(); ++f)
   {
     WebSearch::TPNRFilter &filter=*f;
 
-    if (scanCodeNode==NULL)
+    if (!filter.from_scan_code)
     {
       if (filter.document.empty() &&
           filter.ticket_no.empty() &&
@@ -323,7 +303,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     try
     {
       WebSearch::TPNRs &PNRs=PNRsList.back();
-      if (scanCodeNode==NULL)
+      if (!filter.from_scan_code)
       {
         //это не сканирование штрих-кода
         WebSearch::findPNRs(filter, PNRs, 1);
@@ -353,10 +333,37 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     catch(UserException &e)
     {
       PNRsList.pop_back();
-      errors.push_back(e.getLexemaData());        
+      errors.push_back(e.getLexemaData());
       ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
-    };   
+    };
   };
+};
+
+void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+
+  resNode=NewTextChild(resNode,"SearchFlt");
+
+  if ((reqInfo->user.access.airps_permit && reqInfo->user.access.airps.empty()) ||
+      (reqInfo->user.access.airlines_permit && reqInfo->user.access.airlines.empty()))
+  {
+    ProgError(STDLOG, "WebRequestsIface::SearchFlt: empty user's access (user.descr=%s)", reqInfo->user.descr.c_str());
+    return;
+  };
+
+  xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
+  WebSearch::TPNRFilters filters;
+  if (scanCodeNode!=NULL)
+    filters.fromBCBP_M(NodeAsString(scanCodeNode));
+  else
+    filters.fromXML(reqNode);
+
+  list<AstraLocale::LexemaData> errors;
+  list<WebSearch::TPNRs> PNRsList;
+
+  GetPNRsList(filters, PNRsList, errors);
 
   xmlNodePtr segsNode=NewTextChild(resNode, "segments");
 
@@ -401,8 +408,10 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 break;
             };
             ProgTrace(TRACE5, "%s: pass=%d priority=%d stage=%d ",
-                              __FUNCTION__, pass, priority, opt_stage?opt_stage.get():-1);
-          };          
+                              __FUNCTION__, pass, priority, opt_stage.get());
+          }
+          else ProgTrace(TRACE5, "%s: pass=%d priority=%d stage=unknown ",
+                                 __FUNCTION__, pass, priority);
 
           if (pass!=priority) throw nextPNR();
         };
@@ -779,7 +788,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
           "      crs_pax.pax_id=crs_inf.inf_id(+) AND "
           "      crs_pnr.pnr_id=:pnr_id AND "
           "      crs_pax.pr_del=0";
-      Qry.CreateVariable( "pnr_id", otInteger, pnr_id );      
+      Qry.CreateVariable( "pnr_id", otInteger, pnr_id );
       Qry.Execute();
       SeatQry.SetVariable("crs_row", 1);
       SeatQry.SetVariable("layer_type", FNull);
@@ -2226,78 +2235,73 @@ void BPTags::getFields( vector<string> &atags )
     atags = tags;
 }
 
+void GetBPPax(int point_dep, int pax_id, bool is_test, PrintInterface::BPPax &pax)
+{
+  pax.clear();
+  int test_point_dep=NoExists;
+  if (is_test)
+  {
+    if (point_dep==NoExists) throw UserException( "MSG.FLIGHT.NOT_FOUND" );
+    test_point_dep=point_dep;
+  };
+  if (!pax.fromDB(pax_id, test_point_dep))
+  {
+    if (pax.pax_id==NoExists)
+      throw UserException( "MSG.PASSENGER.NOT_FOUND" );
+    else
+      throw UserException( "MSG.FLIGHT.NOT_FOUND" );
+  };
+}
+
 void GetBPPax(xmlNodePtr paxNode, bool is_test, bool check_tids, PrintInterface::BPPax &pax)
 {
   pax.clear();
   if (paxNode==NULL) throw EXCEPTIONS::Exception("GetBPPax: paxNode==NULL");
   xmlNodePtr node2=paxNode->children;
-  pax.point_dep = NodeIsNULLFast( "point_id", node2, true)?
-                    NoExists:
-                    NodeAsIntegerFast( "point_id", node2 );
-  pax.pax_id = NodeAsIntegerFast( "pax_id", node2 );
-    xmlNodePtr node = NodeAsNodeFast( "tids", node2 );
+  int point_dep = NodeIsNULLFast( "point_id", node2, true)?
+        NoExists:
+        NodeAsIntegerFast( "point_id", node2 );
+  int pax_id = NodeAsIntegerFast( "pax_id", node2 );
+  xmlNodePtr node = NodeAsNodeFast( "tids", node2 );
   node2=node->children;
-    int crs_pnr_tid = NodeAsIntegerFast( "crs_pnr_tid", node2 );
-    int crs_pax_tid = NodeAsIntegerFast( "crs_pax_tid", node2 );
+  int crs_pnr_tid = NodeAsIntegerFast( "crs_pnr_tid", node2 );
+  int crs_pax_tid = NodeAsIntegerFast( "crs_pax_tid", node2 );
   int pax_grp_tid = NodeIsNULLFast( "pax_grp_tid", node2, true )?
-                      NoExists:
-                      NodeAsIntegerFast( "pax_grp_tid", node2 );
+        NoExists:
+        NodeAsIntegerFast( "pax_grp_tid", node2 );
   int pax_tid =     NodeIsNULLFast( "pax_tid", node2, true )?
-                      NoExists:
-                      NodeAsIntegerFast( "pax_tid", node2 ) ;
-    if (check_tids) verifyPaxTids( pax.pax_id, crs_pnr_tid, crs_pax_tid, pax_grp_tid, pax_tid );
-    TQuery Qry(&OraSession);
-    if (!is_test)
-    {
-      Qry.Clear();
-    Qry.SQLText =
-     "SELECT pax_grp.grp_id, pax_grp.point_dep, "
-     "       pax.reg_no, pax.surname||' '||pax.name full_name "
-     "FROM pax_grp, pax "
-     "WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND "
-     "      pax_grp.status NOT IN ('E')";
-    Qry.CreateVariable( "pax_id", otInteger, pax.pax_id );
-    Qry.Execute();
-    if ( Qry.Eof )
-        throw UserException( "MSG.PASSENGER.NOT_FOUND" );
-    pax.reg_no = Qry.FieldAsInteger( "reg_no" );
-    pax.full_name = Qry.FieldAsString( "full_name" );
-  }
-  else
-  {
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT reg_no, surname||' '||name full_name "
-      "FROM test_pax WHERE id=:pax_id";
-    Qry.CreateVariable( "pax_id", otInteger, pax.pax_id );
-    Qry.Execute();
-    if ( Qry.Eof )
-        throw UserException( "MSG.PASSENGER.NOT_FOUND" );
-    pax.reg_no = Qry.FieldAsInteger( "reg_no" );
-    pax.full_name = Qry.FieldAsString( "full_name" );
+        NoExists:
+        NodeAsIntegerFast( "pax_tid", node2 ) ;
+  if (check_tids) verifyPaxTids( pax_id, crs_pnr_tid, crs_pax_tid, pax_grp_tid, pax_tid );
 
-    Qry.Clear();
-    Qry.SQLText =
-     "SELECT :grp_id AS grp_id, point_id AS point_dep "
-     "FROM points "
-     "WHERE point_id=:point_id AND pr_del>=0";
-    if (pax.point_dep!=NoExists)
-    {
-      Qry.CreateVariable( "grp_id", otInteger, pax.point_dep + TEST_ID_BASE );
-      Qry.CreateVariable( "point_id", otInteger, pax.point_dep );
-    }
-    else
-    {
-      if (pax_grp_tid==NoExists) throw UserException( "MSG.FLIGHT.NOT_FOUND" );
-      Qry.CreateVariable( "grp_id", otInteger, pax_grp_tid + TEST_ID_BASE );
-      Qry.CreateVariable( "point_id", otInteger, pax_grp_tid );
-    };
-    Qry.Execute();
-    if ( Qry.Eof )
-      throw UserException( "MSG.FLIGHT.NOT_FOUND" );
-  };
-    pax.point_dep = Qry.FieldAsInteger( "point_dep" );
-    pax.grp_id = Qry.FieldAsInteger( "grp_id" );
+  GetBPPax(is_test && point_dep==NoExists?pax_grp_tid:point_dep, pax_id, is_test, pax);
+};
+
+void GetBPPaxFromScanCode(const string &scanCode, PrintInterface::BPPax &pax)
+{
+  WebSearch::TPNRFilters filters;
+  filters.fromBCBP_M(scanCode);
+
+  list<AstraLocale::LexemaData> errors;
+  list<WebSearch::TPNRs> PNRsList;
+
+  GetPNRsList(filters, PNRsList, errors);
+  //проверим что это посадочный талон и что пассажир тестовый
+  if (filters.segs.empty()) throw EXCEPTIONS::Exception("%s: filters.segs.empty()", __FUNCTION__);
+  bool is_test=!filters.segs.front().test_paxs.empty();
+
+  if (PNRsList.empty()) throw UserException( "MSG.PASSENGER.NOT_FOUND" );
+  const WebSearch::TPNRs &PNRs=PNRsList.front();
+
+  if (PNRs.pnrs.empty())
+    throw UserException( "MSG.PASSENGERS.NOT_FOUND" );
+  if (!is_test && (PNRs.pnrs.size()>1 || PNRs.pnrs.begin()->second.paxs.size()>1))
+    throw UserException( "MSG.PASSENGERS.FOUND_MORE" ); //!!!vlad неправильное сообщение "Найдено более одного пассажира. Измените критерии поиска"
+  if (PNRs.pnrs.begin()->second.segs.empty()) throw EXCEPTIONS::Exception("%s: PNRs.pnrs.begin()->second.segs.empty()", __FUNCTION__);
+  int point_dep=PNRs.pnrs.begin()->second.segs.begin()->second.point_dep;
+  if (PNRs.pnrs.begin()->second.paxs.empty()) throw EXCEPTIONS::Exception("%s: PNRs.pnrs.begin()->second.paxs.empty()", __FUNCTION__);
+  int pax_id=PNRs.pnrs.begin()->second.paxs.begin()->pax_id;
+  GetBPPax( point_dep, pax_id, is_test, pax );
 };
 
 string GetBPGate(int point_id)
@@ -2389,14 +2393,14 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   CheckIn::UserException ue;
   vector<PrintInterface::BPPax> paxs;
   map<int/*point_dep*/, string/*gate*/> gates;
-  bool is_test=isTestPaxId(NodeAsInteger("passengers/pax/pax_id", reqNode));
-  xmlNodePtr paxNode = NodeAsNode("passengers", reqNode)->children;
-  for(;paxNode!=NULL;paxNode=paxNode->next)
+
+  xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
+  if (scanCodeNode!=NULL)
   {
     PrintInterface::BPPax pax;
     try
     {
-      GetBPPax( paxNode, is_test, true, pax );
+      GetBPPaxFromScanCode(NodeAsString(scanCodeNode), pax);
       if (gates.find(pax.point_dep)==gates.end()) gates[pax.point_dep]=GetBPGate(pax.point_dep);
       pax.gate=make_pair(gates[pax.point_dep], true);
       paxs.push_back(pax);
@@ -2404,6 +2408,26 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     catch(UserException &e)
     {
       ue.addError(e.getLexemaData(), pax.point_dep, pax.pax_id);
+    };
+  }
+  else
+  {
+    bool is_test=isTestPaxId(NodeAsInteger("passengers/pax/pax_id", reqNode));
+    xmlNodePtr paxNode = NodeAsNode("passengers", reqNode)->children;
+    for(;paxNode!=NULL;paxNode=paxNode->next)
+    {
+      PrintInterface::BPPax pax;
+      try
+      {
+        GetBPPax( paxNode, is_test, true, pax );
+        if (gates.find(pax.point_dep)==gates.end()) gates[pax.point_dep]=GetBPGate(pax.point_dep);
+        pax.gate=make_pair(gates[pax.point_dep], true);
+        paxs.push_back(pax);
+      }
+      catch(UserException &e)
+      {
+        ue.addError(e.getLexemaData(), pax.point_dep, pax.pax_id);
+      };
     };
   };
 
@@ -2435,21 +2459,30 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
 
-    ProgTrace(TRACE1,"WebRequestsIface::GetBPTags");
-    PrintInterface::BPPax pax;
+  ProgTrace(TRACE1,"WebRequestsIface::GetBPTags");
+
+  PrintInterface::BPPax pax;
+  xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
+  if (scanCodeNode!=NULL)
+  {
+    GetBPPaxFromScanCode(NodeAsString(scanCodeNode), pax);
+  }
+  else
+  {
     bool is_test=isTestPaxId(NodeAsInteger("pax_id", reqNode));
     GetBPPax( reqNode, is_test, true, pax );
-    PrintDataParser parser( pax.grp_id, pax.pax_id, 0, NULL );
-    vector<string> tags;
-    BPTags::Instance()->getFields( tags );
-    xmlNodePtr node = NewTextChild( resNode, "GetBPTags" );
-    for ( vector<string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
-        for(int j = 0; j < 2; j++) {
-            string value = parser.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
-            NewTextChild( node, (*i + (j == 0 ? "" : "_lat")), value );
-            ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
-        }
+  };
+  PrintDataParser parser( pax.grp_id, pax.pax_id, 0, NULL );
+  vector<string> tags;
+  BPTags::Instance()->getFields( tags );
+  xmlNodePtr node = NewTextChild( resNode, "GetBPTags" );
+  for ( vector<string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
+    for(int j = 0; j < 2; j++) {
+      string value = parser.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
+      NewTextChild( node, (*i + (j == 0 ? "" : "_lat")), value );
+      ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
     }
+  }
   parser.pts.save_bp_print(true);
 
   string gate=GetBPGate(pax.point_dep);
@@ -2564,10 +2597,10 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
           if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")) ||
               !is_valid_pax_status(point_id, pax.crs_pax_id))
             throw UserException("MSG.PASSENGER.CHECKIN_DENIAL");
-               
+
           if (pnr_id==NoExists)
           {
-            pnr_id=Qry.FieldAsInteger("pnr_id");          
+            pnr_id=Qry.FieldAsInteger("pnr_id");
           }
           else
           {
@@ -2638,7 +2671,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
             if (isTestPaxId(iPax->crs_pax_id)) continue;
 
             //проверки + запись!!!
-            int tid = iPax->crs_pax_tid;            
+            int tid = iPax->crs_pax_tid;
             if ( isTranzitSalonsVersion ) {
               IntChangeSeatsN( point_id,
                                iPax->crs_pax_id,

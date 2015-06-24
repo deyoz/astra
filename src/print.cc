@@ -467,7 +467,6 @@ string PrintDataParser::parse_field1(int offset, string field)
     string FieldHeight = "1";
     string FieldAlign = "L";
     string DateFormat = ServerFormatDateTimeAsString;
-    int FieldLat = -1;
     string tag_lang;
 
     string buf;
@@ -538,10 +537,8 @@ string PrintDataParser::parse_field1(int offset, string field)
                     if(IsDelim(curr_char, Mode)) {
                         buf = field.substr(VarPos + 1, i - VarPos - 1);
                         if(buf == "e") {
-                            FieldLat = 1;
                             tag_lang = "E";
                         } else {
-                            FieldLat = 0;
                             tag_lang = "R";
                         }
                         VarPos = i;
@@ -580,7 +577,6 @@ string PrintDataParser::parse_field0(int offset, string field)
     int FieldLen = 0;
     string FieldAlign = "L";
     string DateFormat = ServerFormatDateTimeAsString;
-    int FieldLat = -1;
     string tag_lang;
 
     string buf;
@@ -633,11 +629,9 @@ string PrintDataParser::parse_field0(int offset, string field)
                             char lat_code = buf[buf.size() - 1];
                             switch(lat_code) {
                                 case 'E':
-                                    FieldLat = 1;
                                     tag_lang = "E";
                                     break;
                                 case 'R':
-                                    FieldLat = 0;
                                     tag_lang = "R";
                                     break;
                                 default:
@@ -1290,6 +1284,46 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
     }
 }
 
+bool PrintInterface::BPPax::fromDB(int vpax_id, int test_point_dep)
+{
+  clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  if (test_point_dep==NoExists)
+    Qry.SQLText =
+        "SELECT pax_grp.grp_id, pax_grp.point_dep, "
+        "       pax.reg_no, pax.surname||' '||pax.name full_name "
+        "FROM pax_grp, pax "
+        "WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND "
+        "      pax_grp.status NOT IN ('E')";
+  else
+    Qry.SQLText =
+        "SELECT reg_no, surname||' '||name full_name "
+        "FROM test_pax WHERE id=:pax_id";
+
+  Qry.CreateVariable( "pax_id", otInteger, vpax_id );
+  Qry.Execute();
+  if ( Qry.Eof ) return false;
+  pax_id = vpax_id;
+  reg_no = Qry.FieldAsInteger( "reg_no" );
+  full_name = Qry.FieldAsString( "full_name" );
+  if (test_point_dep!=NoExists)
+  {
+    Qry.Clear();
+    Qry.SQLText =
+        "SELECT :grp_id AS grp_id, point_id AS point_dep "
+        "FROM points "
+        "WHERE point_id=:point_id AND pr_del>=0";
+    Qry.CreateVariable( "grp_id", otInteger, test_point_dep + TEST_ID_BASE );
+    Qry.CreateVariable( "point_id", otInteger, test_point_dep );
+    Qry.Execute();
+    if ( Qry.Eof ) return false;
+  };
+  point_dep = Qry.FieldAsInteger( "point_dep" );
+  grp_id = Qry.FieldAsInteger( "grp_id" );
+  return true;
+}
+
 void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
@@ -1377,7 +1411,7 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         BPPax pax;
         pax.pax_id=NodeAsInteger("@pax_id", curNode);
         pax.time_print=NodeAsDateTime("@time_print", curNode);
-        
+
         PaxQry.SetVariable("pax_id", pax.pax_id);
         PaxQry.Execute();
         if(PaxQry.Eof) continue;
@@ -1453,8 +1487,8 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
       to_esc::TConvertParams ConvertParams;
       ConvertParams.init(dev_model);
       to_esc::convert(mso_form, ConvertParams, prnParams);
-     	StringToHex( string(mso_form), mso_form );
-    	hex=true;
+        StringToHex( string(mso_form), mso_form );
+        hex=true;
     };
     Print=mso_form;
 }
@@ -1465,7 +1499,7 @@ string get_validator(const TBagReceipt &rcpt, bool pr_lat)
     ostringstream validator;
     string agency, sale_point_city, sale_point;
     int private_num;
-    
+
     TTagLang tag_lang;
     tag_lang.Init(rcpt, pr_lat);
 
@@ -1703,7 +1737,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     if(Qry.Eof) throw AstraLocale::UserException("MSG.BP_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
     params.form_type = Qry.FieldAsString("bp_type");
     ProgTrace(TRACE5, "bp_type: %s", params.form_type.c_str());
-    
+
     vector<int> grps;
     vector<BPPax> paxs;
     Qry.Clear();
@@ -1762,10 +1796,10 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                                Qry.FieldAsInteger("pax_id"),
                                Qry.FieldAsInteger("reg_no") ) );
     };
-    
+
     for (vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
       if(first_seg_grp_id != iPax->grp_id) iPax->gate=make_pair("", true);
-    
+
     string pectab;
     GetPrintDataBP(params, pectab, paxs);
 
