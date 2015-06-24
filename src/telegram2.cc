@@ -1883,10 +1883,11 @@ namespace PRL_SPACE {
 
     void TCOMStats::ToTlg(TypeB::TDetailCreateInfo &info, ostringstream &body)
     {
+        const TypeB::TCOMOptions &options = *info.optionsAs<TypeB::TCOMOptions>();
         TCOMStatsItem sum;
         sum.target = "TTL";
         for(vector<TCOMStatsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-            if(info.get_tlg_type() == "COM")
+            if(options.version == "DME")
                 body
                     << iv->target       << ' '
                     << iv->adult        << '/'

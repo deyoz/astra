@@ -1502,6 +1502,8 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 
         SetVariables( *iv, vars );
         try {
+            for(int i = 0; i < Qry->VariablesCount(); i++)
+                LogTrace(TRACE5) << Qry->VariableName(i) << " = " << Qry->GetVariableAsString(i);
           Qry->Execute();
           if ( Logging ) /* логирование */
             OnLogging( *iv, status );
@@ -1731,33 +1733,37 @@ void BeforeRefresh(TCacheTable &cache, TQuery &refreshQry, const TCacheQueryType
   };
 };
 
-static set<int> lci_point_ids;
-static int lci_typeb_addrs_id;
+static set<int> tlg_out_point_ids;
+static int tlg_out_typeb_addrs_id;
 
 void BeforeApplyAll(TCacheTable &cache)
 {
-  if (cache.code() == "TYPEB_ADDRS_LCI")
-    lci_point_ids.clear();
+  if (
+          cache.code() == "TYPEB_ADDRS_LCI" or
+          cache.code() == "TYPEB_ADDRS_COM"
+          )
+    tlg_out_point_ids.clear();
   if (cache.code() == "TYPEB_CREATE_POINTS")
-      lci_typeb_addrs_id = NoExists;
+      tlg_out_typeb_addrs_id = NoExists;
 };
 
 void AfterApplyAll(TCacheTable &cache)
 {
-    if (cache.code() == "TYPEB_ADDRS_LCI")
+    if (cache.code() == "TYPEB_ADDRS_LCI" or
+        cache.code() == "TYPEB_ADDRS_COM")
     {
-        for(set<int>::const_iterator i=lci_point_ids.begin(); i!=lci_point_ids.end(); ++i)
-            sync_lci_trip_tasks(*i);
-        lci_point_ids.clear();
+        for(set<int>::const_iterator i=tlg_out_point_ids.begin(); i!=tlg_out_point_ids.end(); ++i)
+            sync_tlg_out_trip_tasks(*i);
+        tlg_out_point_ids.clear();
     };
     if (cache.code() == "TYPEB_CREATE_POINTS")
     {
-        if(lci_typeb_addrs_id != NoExists) {
+        if(tlg_out_typeb_addrs_id != NoExists) {
             set<int> point_ids;
-            calc_lci_point_ids(lci_typeb_addrs_id, point_ids);
+            calc_tlg_out_point_ids(tlg_out_typeb_addrs_id, point_ids);
             for(set<int>::const_iterator i = point_ids.begin(); i != point_ids.end(); i++)
-                sync_lci_trip_tasks(*i);
-            lci_typeb_addrs_id = NoExists;
+                sync_tlg_out_trip_tasks(*i);
+            tlg_out_typeb_addrs_id = NoExists;
         }
     };
 };
@@ -1779,7 +1785,10 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
 
 void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
-  if (cache.code() == "TYPEB_ADDRS_LCI")
+  if (
+          cache.code() == "TYPEB_ADDRS_LCI" or
+          cache.code() == "TYPEB_ADDRS_COM"
+          )
   {
       set<int> point_ids;
       TSimpleFltInfo flt;
@@ -1788,16 +1797,16 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
           flt.airp_dep = cache.FieldOldValue("airp_dep", row);
           flt.airp_arv = cache.FieldOldValue("airp_arv", row);
           flt.flt_no = ToInt(cache.FieldOldValue("flt_no", row));
-          calc_lci_point_ids(flt, point_ids);
+          calc_tlg_out_point_ids(flt, point_ids);
       }
       if(qryType == cqtInsert or qryType == cqtUpdate) {
           flt.airline = cache.FieldValue("airline", row);
           flt.airp_dep = cache.FieldValue("airp_dep", row);
           flt.airp_arv = cache.FieldValue("airp_arv", row);
           flt.flt_no = ToInt(cache.FieldValue("flt_no", row));
-          calc_lci_point_ids(flt, point_ids);
+          calc_tlg_out_point_ids(flt, point_ids);
       }
-      lci_point_ids.insert(point_ids.begin(), point_ids.end());
+      tlg_out_point_ids.insert(point_ids.begin(), point_ids.end());
   };
 
 
@@ -1807,9 +1816,9 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
           tmp_id=ToInt(cache.FieldValue( "id", row ));
       else
           tmp_id=ToInt(cache.FieldOldValue( "id", row ));
-      if(lci_typeb_addrs_id != NoExists and lci_typeb_addrs_id != tmp_id)
+      if(tlg_out_typeb_addrs_id != NoExists and tlg_out_typeb_addrs_id != tmp_id)
           throw Exception("typeb_create_points after apply: id must be same");
-      lci_typeb_addrs_id = tmp_id;
+      tlg_out_typeb_addrs_id = tmp_id;
   }
 
   if (cache.code() == "TRIP_PAID_CKIN")

@@ -17,7 +17,7 @@ using namespace std;
 using namespace BASIC;
 
 namespace TypeB {
-    void check_lci(int point_id, const std::string &task_name, const std::string &params);
+    void check_tlg_out(int point_id, const std::string &task_name, const std::string &params);
 }
 
 void emd_sys_update(int point_id, const string &task_name, const string &params);
@@ -30,7 +30,8 @@ const
     {BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL, create_apis_task},
     {BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL, create_apis_task},
     {BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL, check_crew_alarms},
-    {LCI, TypeB::check_lci},
+    {LCI, TypeB::check_tlg_out},
+    {COM, TypeB::check_tlg_out},
     {SYNC_NEW_CHKD, TypeB::SyncNewCHKD },
     {SYNC_ALL_CHKD, TypeB::SyncAllCHKD },
     {EMD_SYS_UPDATE, emd_sys_update }
@@ -44,7 +45,7 @@ void sync_trip_task(int point_id, const string& task_name, const string &params,
     add_trip_task(point_id, task_name, params, next_exec);
 }
 
-void LCIparamsToLog(LEvntPrms& prms, const string &params)
+void TlgOutParamsToLog(LEvntPrms& prms, const string &params)
 {
     TypeB::TCreatePoint cp(params);
     ostringstream result;
@@ -59,8 +60,11 @@ void LCIparamsToLog(LEvntPrms& prms, const string &params)
 
 void paramsToLog(LEvntPrms& prms, const string &task_name, const string &params)
 {
-    if(task_name == LCI)
-        LCIparamsToLog(prms, params);
+    if(
+            task_name == LCI or
+            task_name == COM
+            )
+        TlgOutParamsToLog(prms, params);
     else
         prms << PrmSmpl<std::string>("params", params);
 }
@@ -383,7 +387,7 @@ void get_flt_period(pair<TDateTime, TDateTime> &val)
     val.second = now + CREATE_SPP_DAYS() + 1;
 }
 
-void calc_lci_point_ids(const TSimpleFltInfo &flt, set<int> &lci_point_ids)
+void calc_tlg_out_point_ids(const TSimpleFltInfo &flt, set<int> &tlg_out_point_ids)
 {
     QParams QryParams;
     ostringstream sql;
@@ -419,14 +423,14 @@ void calc_lci_point_ids(const TSimpleFltInfo &flt, set<int> &lci_point_ids)
             if (route.empty() or route.begin()->airp != flt.airp_arv)
                 continue;
         }
-        lci_point_ids.insert(Qry.get().FieldAsInteger("point_id"));
+        tlg_out_point_ids.insert(Qry.get().FieldAsInteger("point_id"));
     }
 }
 
-void calc_lci_point_ids(int lci_typeb_addrs_id, set<int> &lci_point_ids)
+void calc_tlg_out_point_ids(int tlg_out_typeb_addrs_id, set<int> &tlg_out_point_ids)
 {
     QParams QryParams;
-    QryParams << QParam("id", otInteger, lci_typeb_addrs_id);
+    QryParams << QParam("id", otInteger, tlg_out_typeb_addrs_id);
     TCachedQuery Qry("select airline, flt_no, airp_dep, airp_arv from typeb_addrs where id = :id", QryParams);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
@@ -435,7 +439,7 @@ void calc_lci_point_ids(int lci_typeb_addrs_id, set<int> &lci_point_ids)
         flt.airp_dep = Qry.get().FieldAsString("airp_dep");
         flt.airp_arv = Qry.get().FieldAsString("airp_arv");
         flt.flt_no = Qry.get().FieldAsInteger("flt_no");
-        calc_lci_point_ids(flt, lci_point_ids);
+        calc_tlg_out_point_ids(flt, tlg_out_point_ids);
     }
 }
 
@@ -485,22 +489,22 @@ struct TCreatePointTripTask:public TTripTask {
         }
 };
 
-struct TLCITripTask:public TCreatePointTripTask {
+struct TTlgOutTripTask:public TCreatePointTripTask {
     public:
-        TLCITripTask(int vpoint_id): TCreatePointTripTask(vpoint_id, LCI) {}
+        TTlgOutTripTask(int vpoint_id, const string &vtype): TCreatePointTripTask(vpoint_id, vtype) {}
         TDateTime actual_next_exec(TDateTime curr_next_exec) const;
-        bool operator < (const TLCITripTask &task) const
+        bool operator < (const TTlgOutTripTask &task) const
         {
             return dynamic_cast<const TCreatePointTripTask&>(*this) < dynamic_cast<const TCreatePointTripTask&>(task);
         }
-        bool operator == (const TLCITripTask &task) const
+        bool operator == (const TTlgOutTripTask &task) const
         {
             return
                 dynamic_cast<const TCreatePointTripTask&>(*this) == dynamic_cast<const TCreatePointTripTask&>(task);
         }
 };
 
-TDateTime TLCITripTask::actual_next_exec(TDateTime curr_next_exec) const
+TDateTime TTlgOutTripTask::actual_next_exec(TDateTime curr_next_exec) const
 {
     TTripStage ts;
     TTripStages::LoadStage(point_id, (TStage)create_point.stage_id, ts);
@@ -527,6 +531,14 @@ TDateTime TLCITripTask::actual_next_exec(TDateTime curr_next_exec) const
         result = result + create_point.time_offset / 1440.;
     return result;
 }
+
+struct TCOMTripTask:public TTlgOutTripTask {
+    TCOMTripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, COM) {}
+};
+
+struct TLCITripTask:public TTlgOutTripTask {
+    TLCITripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, LCI) {}
+};
 
 TDateTime TCreatePointTripTask::actual_next_exec(TDateTime curr_next_exec) const
 {
@@ -602,11 +614,11 @@ void get_curr_trip_tasks(const T &pattern, map<T, TTripTaskTimes> &tasks)
 
 namespace TypeB {
 
-void check_lci(int point_id, const string &task_name, const string &params)
+void check_tlg_out(int point_id, const string &task_name, const string &params)
 {
     vector<TCreateInfo> createInfo;
     TCreator creator(point_id, TCreatePoint(params));
-    creator << "LCI";
+    creator << task_name;
     creator.getInfo(createInfo);
     TelegramInterface::SendTlg(createInfo);
 }
@@ -693,16 +705,17 @@ void sync_trip_tasks(int point_id)
     }
 }
 
-void sync_lci_trip_tasks(int point_id)
+void sync_tlg_out_trip_tasks(int point_id)
 {
     sync_trip_tasks<TLCITripTask>(point_id);
+    sync_trip_tasks<TCOMTripTask>(point_id);
 }
 
 void on_change_trip(const string &descr, int point_id)
 {
     ProgTrace(TRACE5, "%s: %s; point_id: %d", __FUNCTION__, descr.c_str(), point_id);
     try {
-        sync_lci_trip_tasks(point_id);
+        sync_tlg_out_trip_tasks(point_id);
     } catch(std::exception &E) {
         ProgError(STDLOG,"%s: %s (point_id=%d): %s", __FUNCTION__, descr.c_str(), point_id,E.what());
     };
