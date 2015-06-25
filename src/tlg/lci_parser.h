@@ -264,9 +264,22 @@ struct TSPItem {
     TSPItem(): actual(ASTRA::NoExists) {};
 };
 
-struct TSP:public std::map<std::string, TSPItem> {
-    void parse(const char *val);
-    void dump();
+// vector<TSPItem> - содержит место ВЗ (F или M) и, если есть, РМ (I)
+// Т.е. кол-во элементов может быть максимум 2. Минимум 1.
+// Причем, в случае передачи пола пассажира, один из них обязательно ВЗ, другой РМ:
+// 5А/M.5Б/M.5В/M.5А/I - В этом сл-е в TSP по ключу 5A будет вектор из 2-х эл-тов: 5A/M, 5A/I
+//
+// При передаче факт. весов пассажиров, для одного места не более 2-х пасов
+// (проверка пола, очевидно, не делается)
+// 5А/75.5Б/75.5В/75.5А/20 - В этом сл-е в TSP по ключу 5A будет вектор из 2-х эл-тов: 5A/75, 5A/20
+
+struct TSP:public std::map<std::string, std::vector<TSPItem> > {
+    private:
+        int pr_weight; // true - используются факт. веса пассажиров; false - пол;
+    public:
+        void parse(const char *val);
+        void dump();
+        TSP(): pr_weight(ASTRA::NoExists) {}
 };
 
 enum TDestInfoKey {
