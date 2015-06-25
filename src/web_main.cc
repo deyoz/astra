@@ -278,8 +278,8 @@ void WebRequestsIface::SearchPNRs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 };
 
 void GetPNRsList(WebSearch::TPNRFilters &filters,
-             list<WebSearch::TPNRs> &PNRsList,
-             list<AstraLocale::LexemaData> &errors)
+                 list<WebSearch::TPNRs> &PNRsList,
+                 list<AstraLocale::LexemaData> &errors)
 {
   for(list<WebSearch::TPNRFilter>::iterator f=filters.segs.begin(); f!=filters.segs.end(); ++f)
   {
@@ -2288,8 +2288,13 @@ void GetBPPaxFromScanCode(const string &scanCode, PrintInterface::BPPax &pax)
   list<WebSearch::TPNRs> PNRsList;
 
   GetPNRsList(filters, PNRsList, errors);
+  if (!errors.empty())
+    throw UserException(errors.begin()->lexema_id, errors.begin()->lparams);
   //проверим что это посадочный талон и что пассажир тестовый
   if (filters.segs.empty()) throw EXCEPTIONS::Exception("%s: filters.segs.empty()", __FUNCTION__);
+  if (filters.segs.front().reg_no==NoExists) //это не посадочный талон, потому что рег. номер не известен
+    throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
+
   bool is_test=!filters.segs.front().test_paxs.empty();
 
   if (PNRsList.empty()) throw UserException( "MSG.PASSENGER.NOT_FOUND" );
