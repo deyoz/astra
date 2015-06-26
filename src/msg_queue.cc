@@ -26,6 +26,7 @@ const string TYPE_IN="IN";
 const string TYPE_OUT="OUT";
 const string STATUS_PUT="PUT";
 const string STATUS_PROC="PROC";
+const int RELEASE_PROCESS_ATTEMPTS=3;
 
 void TSetDetails::fromDB(const int &id)
 {
@@ -156,9 +157,9 @@ boost::optional<TQueueId> TProcess::nextMsg()
       {
         if (!next || nextForHandler->put_order < next->put_order)
         {
+          next=nextForHandler;
           next->id=nextForHandler->id;
           next->put_order=nextForHandler->put_order;
-          next=nextForHandler;
         }
       }
     };
@@ -175,23 +176,29 @@ boost::optional<TQueueId> TProcess::nextMsg()
 
 void TQueue::releaseProcess(int id)
 {
-  TCachedQuery Qry("UPDATE msg_queue "
-                   "SET status=:status_put, proc_time_msec=NULL, process=NULL, "
-                   "    proc_attempt=proc_attempt+1 " //!!!vlad
-                   "WHERE id=:id",
+  TCachedQuery Qry("BEGIN "
+                   "  UPDATE msg_queue "
+                   "  SET status=:status_put, proc_time_msec=NULL, process=NULL, "
+                   "      release_attempt=release_attempt-1 "
+                   "  WHERE id=:id RETURNING release_attempt INTO :release_attempt; "
+                   "END;",
                    QParams() << QParam("id", otInteger, id)
                              << QParam("status_put", otString, STATUS_PUT)
+                             << QParam("release_attempt", otInteger, FNull)
                   );
   Qry.get().Execute();
-  if (Qry.get().RowsProcessed()==0)
+  if (Qry.get().VariableIsNULL("release_attempt"))
     ProgError(STDLOG, "%s: msg %d not found in MSG_QUEUE", __FUNCTION__, id);
+  else
+    if (Qry.get().GetVariableAsInteger("release_attempt")<=0)
+      complete_attempt(id, "Release attempt by process reached the limit");
+
 }
 
 void TQueue::assignProcess(int id, const string &process)
 {
   TCachedQuery Qry("UPDATE msg_queue "
-                   "SET status=:status_proc, proc_time_msec=:proc_time_msec, process=:process, "
-                   "    proc_attempt=proc_attempt-1 "
+                   "SET status=:status_proc, proc_time_msec=:proc_time_msec, process=:process "
                    "WHERE id=:id",
                    QParams() << QParam("id", otInteger, id)
                              << QParam("status_proc", otString, STATUS_PROC)
@@ -218,9 +225,9 @@ void TQueue::put(const TSetDetails &setDetails, const std::string &conseq_key, c
                              << QParam("binary_data", otInteger)
                              << QParam("id", otInteger));
   TCachedQuery QueueQry("INSERT INTO msg_queue(id, type, status, handler, format, conseq_crc, dup_key, priority, time, "
-                        "  put_time_msec, put_order, proc_time_msec, proc_attempt, process) "
+                        "  put_time_msec, put_order, proc_time_msec, proc_attempt, process, release_attempt) "
                         "SELECT id, type, :status, :handler, :format, :conseq_crc, :dup_key, 1, time, "
-                        "  :put_time_msec, events__seq.nextval, NULL, :proc_attempt, NULL "
+                        "  :put_time_msec, events__seq.nextval, NULL, :proc_attempt, NULL, :release_attempt "
                         "FROM msgs "
                         "WHERE id=:id",
                         QParams() << QParam("status", otString, STATUS_PUT)
@@ -230,7 +237,8 @@ void TQueue::put(const TSetDetails &setDetails, const std::string &conseq_key, c
                                   << QParam("dup_key", otInteger)
                                   << QParam("put_time_msec", otFloat)
                                   << QParam("proc_attempt", otInteger)
-                                  << QParam("id", otInteger));
+                                  << QParam("id", otInteger)
+                                  << QParam("release_attempt", otInteger, RELEASE_PROCESS_ATTEMPTS));
   TCachedQuery ContentQry("INSERT INTO msg_content(id, page_no, data) VALUES(:id, :page_no, :data)",
                           QParams() << QParam("id", otInteger)
                                     << QParam("page_no", otInteger)
@@ -340,8 +348,8 @@ void TQueue::complete_attempt(int id, const std::string &error)
 {
 
   TCachedQuery UpdQry("UPDATE msgs SET error=:error WHERE id=:id",
-                   QParams() << QParam("id", otInteger, id)
-                   << QParam("error", otInteger, error.substr(0,100)));
+                      QParams() << QParam("id", otInteger, id)
+                                << QParam("error", otInteger, error.substr(0,100)));
   UpdQry.get().Execute();
   if (UpdQry.get().RowsProcessed()==0)
   {
@@ -349,10 +357,21 @@ void TQueue::complete_attempt(int id, const std::string &error)
     return;
   };
 
-  TCachedQuery DelQry("DELETE FROM msg_queue "
-                      "WHERE id=:id AND (proc_attempt IS NOT NULL AND proc_attempt<=0 OR proc_attempt IS NULL AND :error IS NULL)",
+  TCachedQuery DelQry("BEGIN "
+                      "  IF :error IS NOT NULL THEN "
+                      "    UPDATE msg_queue SET proc_attempt=proc_attempt-1 WHERE id=:id RETURNING proc_attempt INTO :proc_attempt; "
+                      "    IF :proc_attempt IS NOT NULL AND :proc_attempt<=0 THEN "
+                      "      DELETE FROM msg_queue WHERE id=:id; "
+                      "    END IF; "
+                      "  ELSE "
+                      "    DELETE FROM msg_queue WHERE id=:id RETURNING dup_key INTO :dup_key; "
+                      "    DELETE FROM msg_queue WHERE dup_key=:dup_key; "
+                      "  END IF; "
+                      "END;",
                       QParams() << QParam("id", otInteger, id)
-                                << QParam("error", otString, error));
+                                << QParam("error", otString, error)
+                                << QParam("dup_key", otInteger, FNull)
+                                << QParam("proc_attempt", otInteger, FNull));
   DelQry.get().Execute();
 }
 
