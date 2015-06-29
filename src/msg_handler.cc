@@ -30,7 +30,10 @@ BagmessageSettings createBagmessageSettings(const AstraMessages::THandler &handl
                             paramValue(handler, "application_id"),
                             paramValue(handler, "passwd"),
                             true,
-                            ToInt(paramValue(handler, "heartbeat")));
+                            ToInt(paramValue(handler, "heartbeat")),
+                            0,
+                            0,
+                            true);
 }
 
 typedef shared_ptr<Bagmessage> BagmessagePtr;
@@ -52,7 +55,9 @@ class BagmessageProcess : public AstraMessages::TProcess
           BMHandlers[h->getCode()]=BagmessagePtr(new Bagmessage(io,
                                                                 createBagmessageSettings(*h),
                                                                 boost::bind(&BagmessageProcess::finish_depeche, this, _1, _2),
-                                                                ""));  //!!!vlad "" заменить на msg_handlers.name_lat
+                                                                "",
+                                                                9999999,
+                                                                9999999));  //!!!vlad "" заменить на msg_handlers.name_lat
         };
     }
     void check_and_send_depeche()
@@ -81,15 +86,15 @@ class BagmessageProcess : public AstraMessages::TProcess
       }
     }
 
-    void finish_depeche(depeche_id_t id, Depeche::depeche_status_t status)
+    void finish_depeche(depeche_id_t id, depeches::depeche_status_t status)
     {
       using namespace AstraMessages;
       switch(status)
       {
-        case Depeche::OK: TQueue::complete_attempt(id); break;
-        case Depeche::FAIL: TQueue::complete_attempt(id, "FAIL!"); break;
-        case Depeche::EXPIRED: TQueue::complete_attempt(id, "EXPIRED!"); break;
-        case Depeche::NO_FREE_SLOT: TQueue::complete_attempt(id, "NO_FREE_SLOT!"); break;
+        case depeches::OK: TQueue::complete_attempt(id); break;
+        case depeches::FAIL: TQueue::complete_attempt(id, "FAIL!"); break;
+        case depeches::EXPIRED: TQueue::complete_attempt(id, "EXPIRED!"); break;
+//        case depeches::NO_FREE_SLOT: TQueue::complete_attempt(id, "NO_FREE_SLOT!"); break;
       };
 
       monitor_idle_zapr_type(1, QUEPOT_NULL);
@@ -133,7 +138,7 @@ void put_test_msg()
     ostringstream s;
     s << "test telegram " << i;
     i++;
-    AstraMessages::TQueue::put(setDetails, "BSM;point_id=1234565", s.str());
+    AstraMessages::TQueue::put(setDetails, /*"BSM;point_id=1234565"*/"", s.str());
     OraSession.Commit();
     monitor_idle_zapr_type(1, QUEPOT_NULL);
   }

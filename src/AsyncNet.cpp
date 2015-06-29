@@ -12,10 +12,10 @@
 #include "AsyncNet.hpp"
 #include "serverlib/exception.h"
 
-#define NICKNAME "SYD"
+#define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
 
-#define printf(...)
+
 
 
 namespace asyncnet {
@@ -23,20 +23,17 @@ namespace asyncnet {
 AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
                            const std::string &desc_,
                            const Dest &d,
-                           const bool infininty_, /* if i should try to connect forever */
-                           const int heart,
-                           const bool keepconn_,
+                           int heart,
                            std::size_t rxmax,
                            std::size_t txmax)
     : desc(desc_),
       dest(1, d),
-      infinite(infininty_),
       heartbeat(heart),
-      keepconn(keepconn_),
       strand(io),
       sock(io),
       resolver(io),
-      timer(io),
+      timerbeat(io),
+      timerconn(io),
       cur_dest(0),
       rx(rxmax),
       tx(txmax)
@@ -45,27 +42,23 @@ AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
      * Since rx and tx are constructed with const size and can not be changed,
      * the maximum size of processed data at a time will be limited.
      */
-
-    set_disconnected();
+    init();
 }
 
 AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
                            const std::string &desc_,
                            const std::vector<Dest> &d,
-                           const bool infininty_, /* if i should try to connect forever */
-                           const int heart,
-                           const bool keepconn_,
+                           int heart,
                            std::size_t rxmax,
                            std::size_t txmax)
     : desc(desc_),
       dest(d),
-      infinite(infininty_),
       heartbeat(heart),
-      keepconn(keepconn_),
       strand(io),
       sock(io),
       resolver(io),
-      timer(io),
+      timerbeat(io),
+      timerconn(io),
       cur_dest(0),
       rx(rxmax),
       tx(txmax)
@@ -74,70 +67,156 @@ AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
      * Since rx and tx are constructed with const size and can not be changed,
      * the maximum size of processed data at a time will be limited.
      */
+    init();
+}
+
+AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
+             const std::string &desc_,     /* description. used in LogTraces, and Exception's messages */
+             std::size_t rxmax,
+             std::size_t txmax)
+    : desc(desc_),
+      heartbeat(0),
+      strand(io),
+      sock(io),
+      resolver(io),
+      timerbeat(io),
+      timerconn(io),
+      cur_dest(0),
+      rx(rxmax),
+      tx(txmax)
+{
+    /*
+     * Since rx and tx are constructed with const size and can not be changed,
+     * the maximum size of processed data at a time will be limited.
+     */
+    init();
+}
+
+
+//AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
+//                           const std::string &desc_,
+//                           const Dest &d,
+//                           int heart)
+//    : desc(desc_),
+//      dest(1, d),
+//      heartbeat(heart),
+//      strand(io),
+//      sock(io),
+//      resolver(io),
+//      timerbeat(io),
+//      timerconn(io),
+//      cur_dest(0)
+//{
+//    /*
+//     * Since rx and tx are constructed with const size and can not be changed,
+//     * the maximum size of processed data at a time will be limited.
+//     */
+//    init();
+//}
+
+//AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
+//                           const std::string &desc_,
+//                           const std::vector<Dest> &d,
+//                           int heart)
+//    : desc(desc_),
+//      dest(d),
+//      heartbeat(heart),
+//      strand(io),
+//      sock(io),
+//      resolver(io),
+//      timerbeat(io),
+//      timerconn(io),
+//      cur_dest(0)
+//{
+//    /*
+//     * Since rx and tx are constructed with const size and can not be changed,
+//     * the maximum size of processed data at a time will be limited.
+//     */
+//    init();
+//}
+
+//AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
+//             const std::string &desc_)     /* description. used in LogTraces, and Exception's messages */
+//    : desc(desc_),
+//      heartbeat(0),
+//      strand(io),
+//      sock(io),
+//      resolver(io),
+//      timerbeat(io),
+//      timerconn(io),
+//      cur_dest(0)
+//{
+//    /*
+//     * Since rx and tx are constructed with const size and can not be changed,
+//     * the maximum size of processed data at a time will be limited.
+//     */
+//    init();
+//}
+
+
+
+void AsyncTcpSock::init()
+{
+    LogTrace(TRACE5) << desc
+                     << " AsyncTcpSock has been constructed. Its rx and tx buffers' max sizes respectively are "
+                     << rx.max_size() << " and "
+                     << tx.max_size();
     set_disconnected();
+    set_notworking();
+    write_unset_act();
+    read_unset_act();
 }
 
 void AsyncTcpSock::start_connecting()
 {
-    stop_working();
+    if (is_working())
+        stop_working();
     strand.post(boost::bind(&AsyncTcpSock::resolve, this));
 }
 
 void AsyncTcpSock::resolve()
 {
     if (cur_dest == dest.size()) {
-        printf("%s: There are no more destinations to try to connect to\n",
-               desc.c_str());
+        LogTrace(TRACE5) << desc << " There are no more destinations to try to connect to";
         cur_dest = 0;
-        printf("%s: calling usr_connect_failed_handler()\n", desc.c_str());
-        usr_connect_failed_handler();
-        if (infinite) {
-            printf("%s: infinite flag is set. Let's try to connect until it succeeds\n",
-                   desc.c_str());
-        } else {
-            printf("%s: infinite flag is not set. I have nothing to do\n",
-                   desc.c_str());
-            return;
-        }
+        set_notworking();
+        LogTrace(TRACE5) << desc << " calling usr_connect_failed_handler()";
+        return usr_connect_failed_handler();
     }
 
+    set_working();
     const Dest &d = dest[cur_dest++];
     boost::asio::ip::tcp::resolver::query query(d.host, d.port);
-    printf("%s: trying to resolve host from \"%s\"\n", desc.c_str(), d.host.c_str());
-    resolver.async_resolve(query,
-                           strand.wrap(boost::bind(&AsyncTcpSock::resolve_handler,
-                                                   this,
-                                                   _1,
-                                                   _2)));
+    LogTrace(TRACE5) << desc << " trying to resolve host from " << d.host;
+    resolver.async_resolve(query, strand.wrap(boost::bind(&AsyncTcpSock::resolve_handler,
+                                                          this,
+                                                           _1,
+                                                           _2)));
 }
 
 void AsyncTcpSock::usr_connect_failed_handler()
 {
     std::string txt;
-
-    if (infinite)
-        txt = " usr_connect_failed_handler() connecting to all the resolved addresses was failed. I will start connecting again. You might want to redefine this function";
-    else
-        txt = " usr_connect_failed_handler() connecting to all the resolved addresses was failed. You might want to redefine this function";
-
-    LogTrace(TRACE5) << desc << txt;
+    txt = " connecting to all the resolved addresses was failed. I will stop working. You might want to redefine this function";
+    LogError(STDLOG) << desc << txt;
 }
+
 
 void AsyncTcpSock::resolve_handler(const boost::system::error_code &err,
                                    boost::asio::ip::tcp::resolver::iterator iterator)
 {
     if (!err) {
         if (iterator == boost::asio::ip::tcp::resolver::iterator()) {
-            printf("%s: resolve has failed\n", desc.c_str());
+            LogError(STDLOG) << desc << " resolve has failed";
             return resolve();
         } else {
             resolv_iter = iterator;
-            printf("%s: resolve has succeeded. Trying to connect()\n", desc.c_str());
+            LogTrace(TRACE5) << desc << " resolve has succeeded. Trying to connect";
             return connect();
         }
 
     } else if (err != boost::asio::error::operation_aborted) {
-        printf("%s: resolve error: %s\n", desc.c_str(), err.message().c_str());
+        LogError(STDLOG) << desc << " resolve error: " << err.message();
         return resolve();
     }
 }
@@ -159,9 +238,23 @@ void AsyncTcpSock::set_dest(const std::vector<Dest> &d)
     strand.post(boost::bind(&AsyncTcpSock::do_set_dest, this, tmp));
 }
 
-void AsyncTcpSock::set_infinity(const bool infin)
+void AsyncTcpSock::send_with_excep(const char *d, const std::size_t n)
 {
-    strand.post(boost::bind(&AsyncTcpSock::do_set_infinity, this, infin));
+    /*
+     * if we write to the socket when it is not connected, eventually
+     * we will come to conn_broken_handler(). but it won't be good -
+     * the connection wasn't broken - it just hadn't been established before.
+     * so, better let's check it here
+     */
+    if (!is_connected()) {
+        throw ServerFramework::Exception("",
+                                         __FILE__,
+                                         __LINE__,
+                                         __FUNCTION__,
+                                         desc + " AsyncTcpSock::send_with_excep() the socket is not connected)");
+    }
+
+    send(d, n);
 }
 
 void AsyncTcpSock::send(const char *d, const std::size_t n)
@@ -172,14 +265,22 @@ void AsyncTcpSock::send(const char *d, const std::size_t n)
 
 void AsyncTcpSock::do_send(Sharedbuf buf)
 {
+    if (!is_connected()) {
+        LogError(STDLOG) << desc << " AsyncTcpSock::do_send() writting to the socket when it is not connected";
+        return;
+    }
+
     try
     {
         tx.sputn(buf.get(), buf.size());
     }
     catch (const std::length_error &err)
     {
-        throw ServerFramework::Exception(desc + " do_send() there is no free space in the tx buffer");
-        return;
+        throw ServerFramework::Exception("",
+                                         __FILE__,
+                                         __LINE__,
+                                         __FUNCTION__,
+                                         desc + " AsyncTcpSock::do_send() there is no free space in the tx buffer. Its max size is " + tostring(tx.max_size()));
     }
 
     if (!is_write_act())
@@ -195,10 +296,11 @@ void AsyncTcpSock::stop_working()
 void AsyncTcpSock::connect()
 {
     const boost::asio::ip::tcp::endpoint ep = *resolv_iter;
-    printf("%s: trying to connect to %s:%d\n",
-           desc.c_str(),
-           ep.address().to_string().c_str(),
-           ep.port());
+    LogTrace(TRACE5) << desc
+                     << " trying to connect to "
+                     << ep.address().to_string()
+                     << ":"
+                     << tostring(ep.port());
 
     sock.async_connect(ep, strand.wrap(boost::bind(&AsyncTcpSock::connect_handler, this, _1)));
     start_connect_timer();
@@ -207,13 +309,16 @@ void AsyncTcpSock::connect()
 void AsyncTcpSock::connect_handler(const boost::system::error_code &err)
 {
     stop_connect_timer();
+
     const boost::asio::ip::tcp::endpoint ep = *resolv_iter;
+    const std::string deststr = ep.address().to_string() + ":" + tostring(ep.port());
+
     if (!err) {
         cur_dest = 0;
-        printf("%s: connection to %s:%d has been successfully established\n",
-               desc.c_str(),
-               ep.address().to_string().c_str(),
-               ep.port());
+        LogTrace(TRACE5) << desc
+                         << " connection to "
+                         << deststr
+                         << " has been successfully established";
 
         write_unset_act();
         read_unset_act();
@@ -224,11 +329,11 @@ void AsyncTcpSock::connect_handler(const boost::system::error_code &err)
 
     } else {
         sock.close();
-        printf("%s: connection to %s:%d has been failed: %s\n",
-               desc.c_str(),
-               ep.address().to_string().c_str(),
-               ep.port(),
-               err.message().c_str());
+        LogError(STDLOG) << desc
+                         << " connection to "
+                         << deststr
+                         << " has been failed: "
+                         << err.message();
 
         if (++resolv_iter != boost::asio::ip::tcp::resolver::iterator()) {
             return connect();
@@ -243,18 +348,20 @@ void AsyncTcpSock::connect_timeout_handler(const boost::system::error_code &err)
     if (!err) {
         sock.close();
         const boost::asio::ip::tcp::endpoint ep = *resolv_iter;
-        printf("%s: connection to %s:%d has been failed: timeout passed\n", desc.c_str(), ep.address().to_string().c_str(), ep.port());
+        const std::string deststr = ep.address().to_string() + ":" + tostring(ep.port());
+        LogTrace(TRACE5) << desc << " connection to " << deststr << " has been failed: timeout passed. Cancelling..";
     }
 }
 
 
 void AsyncTcpSock::write()
 {
-    boost::asio::async_write(sock, tx.data(),
+    tmp_tx.assign(boost::asio::buffers_begin(tx.data()),
+                  boost::asio::buffers_begin(tx.data()) + tx.size());
+
+    boost::asio::async_write(sock, boost::asio::buffer(tmp_tx),
                              strand.wrap(boost::bind(&AsyncTcpSock::write_handler, this, _1, _2)));
 
-//    boost::asio::async_write(sock, tx.get(),
-//                             strand.wrap(boost::bind(&AsyncTcpSock::write_handler, this, _1, _2)));
     write_set_act();
 
     /* if we have written smth then we should defer the next heartbeat */
@@ -264,17 +371,13 @@ void AsyncTcpSock::write()
 void AsyncTcpSock::write_handler(const boost::system::error_code &err, std::size_t n)
 {
     write_unset_act();
-    if (!err && is_connected()) {
+    if (!err) {
         tx.consume(n);
         if (tx.size() > 0)
-            write();
-
-//        tx.pop();
-//        if (!tx.empty())
-//            return write();
+            return write();
 
     } else if (err != boost::asio::error::operation_aborted) {
-        printf("%s: writing to socket failed: %s\n", desc.c_str(), err.message().c_str());
+        LogError(STDLOG) << desc << " writing to socket failed: " << err.message();
         conn_broken_handler();
     }
 }
@@ -283,53 +386,74 @@ void AsyncTcpSock::read()
 {
     std::size_t free_space = rx.max_size() - rx.size();
     sock.async_receive(rx.prepare(free_space), strand.wrap(boost::bind(&AsyncTcpSock::read_handler, this, _1, _2)));
-//    sock.async_receive(rx.get_free_space(), strand.wrap(boost::bind(&AsyncTcpSock::read_handler, this, _1, _2)));
     read_set_act();
 }
 
 void AsyncTcpSock::read_handler(const boost::system::error_code &err, std::size_t n)
 {
+    /*
+     * Even if a connection is broken it is possible
+     * that data might be read from the socket.
+     * Thus err could be 0 even if connection is already broken.
+     */
     read_unset_act();
     if (err && n) {
-        printf("read_handler() %s\n", err.message().c_str());
-        printf("GOD DAMN STRANGE ERROR! CHECK IT\n");
-        abort();
-    }
-
-
-    if (!err) {
-//        std::istream in(&rx);
-//        std::ostream out(&rx);
-//        std::string str;
+        /*
+         * GOD DAMN STRANGE ERROR!
+         * I've never run into this problem, so, probably this IF section should
+         * be completely removed!
+         */
+        LogError(STDLOG) << desc
+                         << "Despite the error has occurred on socket we have read some bytes from it: "
+                         << err.message();
         std::size_t consumed;
         const char *data_ptr;
         std::size_t data_sz;
 
         rx.commit(n);
-//        in >> str;
-//        consumed = usr_read_handler(str.c_str(), str.size());
-
         data_ptr = boost::asio::buffer_cast<const char*>(rx.data());
         data_sz = boost::asio::buffer_size(rx.data());
-//        consumed = usr_read_handler(rx.get_data(), rx.get_data_size());
         consumed = usr_read_handler(data_ptr, data_sz);
         rx.consume(consumed);
-//        str.erase(0, consumed);
-//        out << str; /* we are taking back that which user didn't consume */
-//        if (rx.is_space_left()) {
         if (rx.size() < rx.max_size()) {
             return read();
         } else {
-            printf("%s: rx buffer reached its limit. async_receive() won't be called until bytes are consumed from the rx buffer.\n",
-                   desc.c_str());
+            do_close();
+            const std::string txt = " AsyncTcpSock::read_handler() BAD ERROR. There is no free space in the rxbuffer. reading from socket is not more possible. Check the derived class!";
+            throw ServerFramework::Exception("",
+                                             __FILE__,
+                                             __LINE__,
+                                             __FUNCTION__,
+                                             desc + txt);
+        }
+    }
+
+
+    if (!err) {
+        std::size_t consumed;
+        const char *data_ptr;
+        std::size_t data_sz;
+
+        rx.commit(n);
+        data_ptr = boost::asio::buffer_cast<const char*>(rx.data());
+        data_sz = boost::asio::buffer_size(rx.data());
+        consumed = usr_read_handler(data_ptr, data_sz);
+        rx.consume(consumed);
+        if (rx.size() < rx.max_size()) {
+            return read();
+        } else {
+            do_close();
+            const std::string txt = " AsyncTcpSock::read_handler() BAD ERROR. There is no free space in the rxbuffer. reading from socket is not more possible. Check the derived class!";
+            throw ServerFramework::Exception("",
+                                             __FILE__,
+                                             __LINE__,
+                                             __FUNCTION__,
+                                             desc + txt);
         }
 
 
     } else if (err != boost::asio::error::operation_aborted) {
-        printf("%s: reading from the socket failed: %s\n",
-               desc.c_str(),
-               err.message().c_str());
-
+        LogError(STDLOG) << desc << " reading from the socket failed: " << err.message();
         return conn_broken_handler();
     }
 }
@@ -339,15 +463,14 @@ void AsyncTcpSock::do_start_heartbeat()
     if (!heartbeat)
         return;
 
-    printf("%s do_start_heartbeat()\n", desc.c_str());
-    timer.expires_from_now(boost::posix_time::seconds(heartbeat));
-    timer.async_wait(strand.wrap(boost::bind(&AsyncTcpSock::heartbeat_handler, this, _1)));
+    timerbeat.expires_from_now(boost::posix_time::milliseconds(heartbeat));
+    timerbeat.async_wait(strand.wrap(boost::bind(&AsyncTcpSock::heartbeat_handler, this, _1)));
 }
 
 void AsyncTcpSock::restart_heartbeat()
 {
     /* if heartbeat has not been started by user or its interval is 0 then we do nothing*/
-    if (timer.cancel() && heartbeat != 0)
+    if (timerbeat.cancel() && heartbeat != 0)
         do_start_heartbeat();
 }
 
@@ -361,51 +484,49 @@ void AsyncTcpSock::heartbeat_handler(const boost::system::error_code &err)
 
 void AsyncTcpSock::stop_heartbeat()
 {
-    timer.cancel();
+    strand.post(boost::bind(&AsyncTcpSock::do_stop_heartbeat, this));
+}
+
+void AsyncTcpSock::do_stop_heartbeat()
+{
+    timerbeat.cancel();
 }
 
 
 void AsyncTcpSock::conn_broken_handler()
 {
-    set_disconnected();
+    /*
+     * If anything error occurs and connection gets broken
+     * but socket has still data in its rx buffer,
+     * there is likelihood writing handler will call this function.
+     * In order not to lose data we use is_read_act() which
+     * returns true until socket has data
+     */
+    set_disconnected();    
 
     if (is_read_act() || is_write_act())
         return;
 
     tx.consume(tx.size());
     rx.consume(rx.size());
-//    tx.clean();
-//    rx.consume(rx.get_data_size());
     stop_heartbeat();
     cur_dest = 0;
     sock.close();
-    usr_conn_broken_handler();
-    if (keepconn) {
-        printf("%s: keepconn is set. Auto reconnecting...\n", desc.c_str());
-        return connect();
-    } else {
-        printf("%s: keepconn is not set. I have nothing to do\n", desc.c_str());
-    }
+    set_notworking();
+    return usr_conn_broken_handler();
 }
 
 void AsyncTcpSock::usr_conn_broken_handler()
 {
     std::string txt;
     /*
-     * i am assigning here the whole text of message in each branch
-     * in order for user may grep this
+     * i don't use line break here
+     * so that user may grep this
      */
-    if (keepconn)
-        txt = " usr_conn_broken_handler() the connection is broken. It will try to connect again. If you don't like exception is thrown you might want to redefine this function";
-    else
-        txt = " usr_conn_broken_handler() the connection is broken. If you don't like exception is thrown you might want to redefine this function";
-    throw ServerFramework::Exception(desc + txt);
+    txt = " usr_conn_broken_handler() the connection is broken. I will stop working. You might want to redefine this function";
+    LogError(STDLOG) << desc << txt;
 }
 
-void AsyncTcpSock::do_set_infinity(bool b)
-{
-    infinite = b;
-}
 
 void AsyncTcpSock::do_set_dest(std::vector<Dest> v)
 {
@@ -415,28 +536,21 @@ void AsyncTcpSock::do_set_dest(std::vector<Dest> v)
 
 void AsyncTcpSock::start_connect_timer()
 {
-    timer.expires_from_now(boost::posix_time::seconds(5));
-    timer.async_wait(strand.wrap(boost::bind(&AsyncTcpSock::connect_timeout_handler, this, _1)));
+    /*
+     * Probably, it is better to make this parameter also configurable! now it's 10 SECONDS!!!
+     */
+    timerconn.expires_from_now(boost::posix_time::seconds(10));
+    timerconn.async_wait(strand.wrap(boost::bind(&AsyncTcpSock::connect_timeout_handler, this, _1)));
 }
 
 void AsyncTcpSock::stop_connect_timer()
 {
-    timer.cancel();
+    timerconn.cancel();
 }
 
 void AsyncTcpSock::set_heartbeat(int t)
 {
     strand.post(boost::bind(&AsyncTcpSock::do_set_heartbeat, this, t));
-}
-
-void AsyncTcpSock::set_keepconn(bool k)
-{
-    strand.post(boost::bind(&AsyncTcpSock::do_set_keepconn, this, k));
-}
-
-void AsyncTcpSock::do_set_keepconn(bool k)
-{
-    keepconn = k;
 }
 
 void AsyncTcpSock::do_set_heartbeat(int t)
@@ -449,20 +563,14 @@ void AsyncTcpSock::do_set_heartbeat(int t)
 void AsyncTcpSock::do_close()
 {
     set_disconnected();
+    set_notworking();
     sock.close();
-
-    /*
-     * heartbeat and connect_timer actually work with common timer,
-     * so let's call only stop_heartbeat()
-     */
-    stop_heartbeat();
-//    stop_connect_timer();
+    stop_connect_timer();
+    do_stop_heartbeat();
     resolver.cancel();
     cur_dest = 0;
     tx.consume(tx.size());
     rx.consume(rx.size());
-//    tx.clean();
-//    rx.consume(rx.get_data_size());
 }
 
 void AsyncTcpSock::set_nodelay(bool val)
@@ -474,23 +582,45 @@ void AsyncTcpSock::set_nodelay(bool val)
 
 void AsyncTcpSock::set_connected()
 {
-    lock();
+    lock_mutex_connected();
     connected = true;
-    unlock();
+    unlock_mutex_connected();
 }
 
 void AsyncTcpSock::set_disconnected()
 {
-    lock();
+    lock_mutex_connected();
     connected = false;
-    unlock();
+    unlock_mutex_connected();
 }
 
 bool AsyncTcpSock::is_connected()
 {
-    lock();
+    lock_mutex_connected();
     bool r = connected;
-    unlock();
+    unlock_mutex_connected();
+    return r;
+}
+
+void AsyncTcpSock::set_working()
+{
+    lock_mutex_working();
+    working = true;
+    unlock_mutex_working();
+}
+
+void AsyncTcpSock::set_notworking()
+{
+    lock_mutex_working();
+    working = false;
+    unlock_mutex_working();
+}
+
+bool AsyncTcpSock::is_working()
+{
+    lock_mutex_working();
+    bool r = working;
+    unlock_mutex_working();
     return r;
 }
 
@@ -525,24 +655,42 @@ bool AsyncTcpSock::is_write_act()
 }
 
 #ifdef USE_THREADS
-inline void AsyncTcpSock::lock()
+void AsyncTcpSock::lock_mutex_connected()
 {
     return mutex_connected.lock();
 }
 
-inline void AsyncTcpSock::unlock()
+void AsyncTcpSock::unlock_mutex_connected()
 {
     return mutex_connected.unlock();
 }
+
+void AsyncTcpSock::lock_mutex_working()
+{
+    return mutex_working.lock();
+}
+
+void AsyncTcpSock::unlock_mutex_working()
+{
+    return mutex_working.unlock();
+}
 #else
-inline void AsyncTcpSock::lock()
+void AsyncTcpSock::lock_mutex_connected()
 {
 }
 
-inline void AsyncTcpSock::unlock()
+void AsyncTcpSock::unlock_mutex_connected()
+{
+}
+
+void AsyncTcpSock::lock_mutex_working()
+{
+}
+
+void AsyncTcpSock::unlock_mutex_working()
 {
 }
 #endif
 
-#undef printf
+
 } // namespace asyncnet

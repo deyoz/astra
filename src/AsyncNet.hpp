@@ -7,14 +7,17 @@
 #include <queue>
 #include <vector>
 #include "stl_utils.h"
+#include "serverlib/exception.h"
 
 #ifdef USE_THREADS
     #include <boost/thread/mutex.hpp>
 #endif
 
 #include <unistd.h> /* for sysconf() */
-#define _BSD_SOURCE
-#include <endian.h>
+#ifndef _BSD_SOURCE
+ #define _BSD_SOURCE
+#endif
+#include <endian.h> /* for htole16(), htobe16(), le16toh(), be16toh() */
 
 
 namespace asyncnet {
@@ -59,7 +62,7 @@ struct Netbuf {
         : byteorder(e)
     {
         init();
-        arr.reserve(sz);
+        prepare(sz);
     }
 
     Netbuf(const void *data, std::size_t n, endianness_t e)
@@ -88,9 +91,10 @@ struct Netbuf {
 
     void fillwith(const int c, const std::size_t n)
     {
-        resize(used + n);
-        memset(addr() + used, c, n);
-        used += n;
+        prepare(n);
+        memset(waddr(), c, n);
+        wcursor += n;
+        data_sz += n;
     }
 
     void append(const void *data, std::size_t n)
@@ -100,12 +104,12 @@ struct Netbuf {
 
     const char *data()
     {
-        return addr();
+        return raddr();
     }
 
     std::size_t size()
     {
-        return used;
+        return data_sz;
     }
 
     void skip(std::size_t n)
@@ -119,7 +123,7 @@ struct Netbuf {
         check(sizeof(nu));
 
         uint16_t us;
-        us = *(uint16_t *)addr();
+        us = *(uint16_t *)raddr();
 
         if (byteorder == LITTLEENDIAN)
             us = le16toh(us);
@@ -133,8 +137,8 @@ struct Netbuf {
 
     Netbuf &operator>>(std::string &str)
     {
-        str.append(addr(), used);
-        consume(used);
+        str.append(raddr(), data_sz);
+        consume(data_sz);
         return *this;
     }
 
@@ -142,22 +146,24 @@ struct Netbuf {
     {
         check(n);
 
-        std::string str(addr(), n);
+        std::string str(raddr(), n);
         consume(n);
         return str;
     }
 
 private:
     std::vector<char>   arr;
-    std::size_t         used;
+    std::size_t         wcursor;
     std::size_t         rcursor;
+    std::size_t         data_sz;
     std::size_t         rcursor_threshold;
     endianness_t        byteorder;
 
     void init()
     {
         rcursor = 0;
-        used = 0;
+        wcursor = 0;
+        data_sz = 0;
         init_rcursor_threshold();
     }
 
@@ -168,52 +174,66 @@ private:
          * Some processor architectures use the huge page size.
          * We aren't gonna deal with this and just will use 4096
          */
-//        printf("pagesize = %ld\n", pagesize);
         if (pagesize > 8192 || pagesize == -1)
-            rcursor_threshold = 4096;
+            rcursor_threshold = 4096 * 100;
         else
-            rcursor_threshold = pagesize;
-//        perror("sysconf");
-//        printf("rcursor_threshold = %ld\n", rcursor_threshold);
+            rcursor_threshold = pagesize * 100;
     }
 
-    void resize(std::size_t n)
+    void prepare(std::size_t n)
     {
-        arr.resize(n);
+        arr.resize(wcursor + n);
     }
 
-    char *addr()
+    char *raddr()
     {
         return &arr[0] + rcursor;
     }
 
+    char *waddr()
+    {
+        return &arr[0] + wcursor;
+    }
+
     void copy(const void *data, std::size_t n)
     {
-        resize(used + n);
-        memcpy(addr() + used, data, n);
-        used += n;
+        if (rcursor >= rcursor_threshold) {
+            arr.erase(arr.begin(), arr.begin() + rcursor);
+            wcursor -= rcursor;
+            rcursor = 0;
+        }
+
+        prepare(n);
+        memcpy(waddr(), data, n);
+        wcursor += n;
+        data_sz += n;
     }
 
     void consume(std::size_t n)
     {
-        if (n > used)
-            throw;
-
-        used -= n;
-        rcursor += n;
-        /*
-         * To avoid often copying to the beginning of the array
-         */
-        if (rcursor >= used && rcursor >= rcursor_threshold) {
-            arr.erase(arr.begin(), arr.begin() + rcursor);
-            rcursor = 0;
+        if (n > data_sz) {
+            std::string str = "conume: " + tostring(n) + ", consists: " + tostring(data_sz);
+            throw ServerFramework::Exception("",
+                                             __FILE__,
+                                             __LINE__,
+                                             __FUNCTION__,
+                                             " Netbuf::consume() trying to consume more than it consists: " + str);
         }
+
+        rcursor += n;
+        data_sz -= n;
     }
 
     void check(std::size_t n)
     {
-        if (n > used)
-            throw;
+        if (n > data_sz) {
+            std::string str = "conume: " + tostring(n) + ", consists: " + tostring(data_sz);
+            throw ServerFramework::Exception("",
+                                             __FILE__,
+                                             __LINE__,
+                                             __FUNCTION__,
+                                             " Netbuf::check() trying to consume more than it consists: " + str);
+        }
     }
 
 /*    template<class T>
@@ -238,11 +258,16 @@ struct Dest {
     }
     Dest(const std::string &h, const int p) : host(h)
     {
-        port = to_string(p);
+        port = tostring(p);
     }
     Dest()
     {
     }
+    bool operator!=(const Dest &o) const
+    {
+        return host != o.host || port != o.port;
+    }
+
     std::string   host;
     std::string   port;
 };
@@ -258,6 +283,11 @@ public:
     {
     }
 
+    /*
+     * Probably it will be better to hide these ones.
+     * Also i recommend  you to wrap all actions on the strand or to use mutex.
+     */
+
     void start_connecting();
     void start_heartbeat();
     void stop_working();
@@ -265,61 +295,76 @@ public:
     void set_dest(const Dest &);
     void set_dest(const std::vector<Dest> &);
     void set_heartbeat(int);
-    void set_infinity(bool);
-    void set_keepconn(bool);
+    void send_with_excep(const char *, const std::size_t);
     void send(const char *, const std::size_t);
-
+    bool is_working();
+    bool is_connected();
 protected:
+    /*
+     * IMPORTANT!
+     * Since rx and tx are constructed with const size and can not be changed,
+     * the maximum size of processed data at a time will be limited.
+     * Choose the sizes that fit your needs!
+     */
     AsyncTcpSock(boost::asio::io_service &io,
-                 const std::string &desc_,
+                 const std::string &desc_,     /* description. used in LogTraces, and Exception's messages */
                  const Dest &d,
-                 const bool infinity_, /* if i should try to connect forever */
-                 const int heartbeat_,
-                 const bool keepconn_,
-                 std::size_t rxmax = 1024 * 4,
-                 std::size_t txmax = 1024 * 4);
+                 int heartbeat_,
+                 std::size_t rxmax,
+                 std::size_t txmax);
 
     AsyncTcpSock(boost::asio::io_service &io,
-                 const std::string &desc,
+                 const std::string &desc,     /* description. used in LogTraces, and Exception's messages */
                  const std::vector<Dest> &,
-                 const bool infinity_, /* if i should try to connect forever */
-                 const int heartbeat_,
-                 const bool keepconn_,
-                 std::size_t rxmax = 1024 * 4,
-                 std::size_t txmax = 1024 * 4);
+                 int heartbeat_,
+                 std::size_t rxmax,
+                 std::size_t txmax);
 
+    AsyncTcpSock(boost::asio::io_service &io,
+                 const std::string &desc,     /* description. used in LogTraces, and Exception's messages */
+                 std::size_t rxmax,
+                 std::size_t txmax);
 
+//    AsyncTcpSock(boost::asio::io_service &io,
+//                 const std::string &desc_,     /* description. used in LogTraces, and Exception's messages */
+//                 const Dest &d,
+//                 int heartbeat_);
 
+//    AsyncTcpSock(boost::asio::io_service &io,
+//                 const std::string &desc,     /* description. used in LogTraces, and Exception's messages */
+//                 const std::vector<Dest> &,
+//                 int heartbeat_);
 
+//    AsyncTcpSock(boost::asio::io_service &io,
+//                 const std::string &desc);     /* description. used in LogTraces, and Exception's messages */
 private:
     const std::string                           desc; /* description */
     std::vector<Dest>                           dest;
-    bool                                        infinite;   // try to connect until it succeeds
-    int                                         heartbeat;
-    bool                                        keepconn;
+    int                                         heartbeat; /* heartbeat interval in milliseconds */
     boost::asio::strand                         strand;
     boost::asio::ip::tcp::socket                sock;
-//    boost::asio::ip::tcp::endpoint              current;
     boost::asio::ip::tcp::resolver              resolver;
     boost::asio::ip::tcp::resolver::iterator    resolv_iter;
-    boost::asio::deadline_timer                 timer;
+    boost::asio::deadline_timer                 timerbeat;
+    boost::asio::deadline_timer                 timerconn;
 
-    unsigned int                                cur_dest;
+    unsigned int                                cur_dest; /* index of next destination to which we will try to connect */
 
     boost::asio::streambuf                      rx;
     boost::asio::streambuf                      tx;
 
-//    RxBuffer                                    rx;
-//    TxQueue                                     tx;
-
-
+    /*
+     * can't assure u whether tmp_tx is necessary
+     */
+    std::string                                 tmp_tx;
     bool                                        connected; /* don't know how to avoid using of this */
-    bool                                        read_act;
-    bool                                        write_act;
+    bool                                        working; /*  */
+    bool                                        read_act; /* true if read_handler is put into boost handlers queue till it is called */
+    bool                                        write_act; /* true if write_handler is put into boost handlers queue till it is called */
 #ifdef USE_THREADS
     boost::mutex                                mutex_connected;
+    boost::mutex                                mutex_working;
 #endif
-
 
     void read_set_act();
     void read_unset_act();
@@ -327,12 +372,15 @@ private:
     void write_set_act();
     void write_unset_act();
     bool is_write_act();
-
     void set_connected();
     void set_disconnected();
+    void set_working();
+    void set_notworking();
     void connect();
-    inline void lock();
-    inline void unlock();
+    inline void lock_mutex_connected();
+    inline void unlock_mutex_connected();
+    inline void lock_mutex_working();
+    inline void unlock_mutex_working();
     void resolve();
     void resolve_handler(const boost::system::error_code &, boost::asio::ip::tcp::resolver::iterator);
     void connect_handler(const boost::system::error_code &);
@@ -344,22 +392,31 @@ private:
     void write_handler(const boost::system::error_code &, std::size_t);
     virtual void read();
     void read_handler(const boost::system::error_code &, std::size_t);
+    /*
+     * usr_read_handler():
+     * If received chunk is not enough to be processed -
+     * just use return 0 or copy it and return its size.
+     *
+     * If you no longer need some chunk of data - return its size.
+     *
+     * The pointer to data is guaranteed to be valid only until the moments this function returns,
+     * so, in order to use it at any other moment you like then you should copy the data pointed by the pointer to your buffers (e.g. memcpy).
+     */
     virtual std::size_t usr_read_handler(const char *, std::size_t) = 0;
     void conn_broken_handler();
     virtual void usr_conn_broken_handler();
     void do_start_heartbeat();
+    void do_stop_heartbeat();
     void restart_heartbeat();
     void heartbeat_handler(const boost::system::error_code &);
     virtual void usr_heartbeat_handler() {}
-    void do_set_infinity(bool);
-    void do_set_keepconn(bool);
     void do_set_dest(std::vector<Dest>);
     void do_close();
     void start_connect_timer();
     void stop_connect_timer();
     void do_set_heartbeat(int);
     void set_nodelay(bool);
-    bool is_connected();
+    void init();
 };
 
 
