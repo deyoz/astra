@@ -373,14 +373,14 @@ Bagmessage::parsing_state_t Bagmessage::header_parser(const char *header)
     unsigned short mess_id;
     unsigned short len;
 
-    appid = buf.take_string(8);
-    if (appid != settings.appid) {
-//        throw "incoming appid is wrong";
-    }
+//    appid = buf.take_string(8);
+    buf.skip(8); /* to skip appid */
+
 
     buf >> version;
     if (version != 2) {
 //        throw "incoming version is wrong";
+        return PARSER_ERR;
     }
 
     buf >> mes_type;
