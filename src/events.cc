@@ -207,8 +207,8 @@ void TPaxToLogInfo::getBag(PrmEnum& param) const
   {
     if (!empty) param.prms << PrmSmpl<string>("", ", ");
     param.prms << PrmLexema("", "EVT.CABIN_LUGGAGE") << PrmSmpl<string>("", " ")
-               << PrmSmpl<int>("", bag_amount) << PrmSmpl<string>("", "/")
-               << PrmSmpl<int>("", bag_weight);
+               << PrmSmpl<int>("", rk_amount) << PrmSmpl<string>("", "/")
+               << PrmSmpl<int>("", rk_weight);
     empty = false;
   };
 
