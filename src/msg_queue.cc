@@ -349,7 +349,7 @@ void TQueue::complete_attempt(int id, const std::string &error)
 
   TCachedQuery UpdQry("UPDATE msgs SET error=:error WHERE id=:id",
                       QParams() << QParam("id", otInteger, id)
-                                << QParam("error", otInteger, error.substr(0,100)));
+                                << QParam("error", otString, error.substr(0,100)));
   UpdQry.get().Execute();
   if (UpdQry.get().RowsProcessed()==0)
   {
@@ -359,7 +359,7 @@ void TQueue::complete_attempt(int id, const std::string &error)
 
   TCachedQuery DelQry("BEGIN "
                       "  IF :error IS NOT NULL THEN "
-                      "    UPDATE msg_queue SET proc_attempt=proc_attempt-1 WHERE id=:id RETURNING proc_attempt INTO :proc_attempt; "
+                      "    UPDATE msg_queue SET proc_attempt=proc_attempt-1, process=NULL WHERE id=:id RETURNING proc_attempt INTO :proc_attempt; "
                       "    IF :proc_attempt IS NOT NULL AND :proc_attempt<=0 THEN "
                       "      DELETE FROM msg_queue WHERE id=:id; "
                       "    END IF; "

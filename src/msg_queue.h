@@ -284,7 +284,7 @@ class THandler
     {
       clear();
       code=Qry.FieldAsString("handler");
-      if (Qry.GetVariableIndex("proc_attempt")>=0)
+      if (Qry.GetFieldIndex("proc_attempt")>=0)
       {
         if (!Qry.FieldIsNULL("proc_attempt"))
           proc_attempt=Qry.FieldAsInteger("proc_attempt");

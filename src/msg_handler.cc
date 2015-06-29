@@ -33,7 +33,7 @@ BagmessageSettings createBagmessageSettings(const AstraMessages::THandler &handl
                             ToInt(paramValue(handler, "heartbeat")),
                             0,
                             0,
-                            true);
+                            false);
 }
 
 typedef shared_ptr<Bagmessage> BagmessagePtr;
@@ -55,7 +55,7 @@ class BagmessageProcess : public AstraMessages::TProcess
           BMHandlers[h->getCode()]=BagmessagePtr(new Bagmessage(io,
                                                                 createBagmessageSettings(*h),
                                                                 boost::bind(&BagmessageProcess::finish_depeche, this, _1, _2),
-                                                                "",
+                                                                (h->getCode()=="BAG_MESSAGE"?"VLAD_BM1":"VLAD_BM2"),
                                                                 9999999,
                                                                 9999999));  //!!!vlad "" заменить на msg_handlers.name_lat
         };
@@ -73,16 +73,28 @@ class BagmessageProcess : public AstraMessages::TProcess
         map< string, BagmessagePtr >::const_iterator BMH=BMHandlers.find(msg->handler.getCode());
         if (BMH==BMHandlers.end()) throw Exception("strange situation!!!");
 
-        BMH->second->send_depeche(msg->content,
-                                  createBagmessageSettings(msg->handler),
-                                  next->id,
-                                  ToInt(paramValue(msg->handler, "timeout_secs", string("10"))));
+        ProgError(STDLOG, "BagmessageProcess: before send_depeche id=%d", next->id);
+        if (msg->handler.getCode()=="BAG_MESSAGE")
+          BMH->second->send_depeche(msg->content,
+                                    createBagmessageSettings(msg->handler),
+                                    next->id,
+                                    ToInt(paramValue(msg->handler, "timeout_secs", string("10")))); //!!!vlad
+        else
+          BMH->second->send_depeche(msg->content,
+                                    createBagmessageSettings(msg->handler),
+                                    next->id,
+                                    ToInt(paramValue(msg->handler, "timeout_secs", string("10000")))); //!!!vlad
+        ProgError(STDLOG, "BagmessageProcess: after send_depeche id=%d", next->id);
         use_timer=false;
       }
       if (use_timer)
       {
         timer_.expires_from_now(boost::posix_time::seconds(5)); //!!!vlad 5?
         timer_.async_wait(boost::bind(&BagmessageProcess::finish_timer, this, _1));
+      }
+      else
+      {
+        timer_.cancel();
       }
     }
 
@@ -91,11 +103,12 @@ class BagmessageProcess : public AstraMessages::TProcess
       using namespace AstraMessages;
       switch(status)
       {
-        case depeches::OK: TQueue::complete_attempt(id); break;
-        case depeches::FAIL: TQueue::complete_attempt(id, "FAIL!"); break;
-        case depeches::EXPIRED: TQueue::complete_attempt(id, "EXPIRED!"); break;
+        case depeches::OK: TQueue::complete_attempt(id); ProgError(STDLOG, "BagmessageProcess: finish_depeche id=%d", id); break;
+        case depeches::FAIL: TQueue::complete_attempt(id, "FAIL!"); ProgError(STDLOG, "BagmessageProcess: finish_depeche FAIL id=%d", id); break;
+        case depeches::EXPIRED: TQueue::complete_attempt(id, "EXPIRED!"); ProgError(STDLOG, "BagmessageProcess: finish_depeche EXPIRED id=%d", id); break;
 //        case depeches::NO_FREE_SLOT: TQueue::complete_attempt(id, "NO_FREE_SLOT!"); break;
       };
+      OraSession.Commit();
 
       monitor_idle_zapr_type(1, QUEPOT_NULL);
 
@@ -127,7 +140,7 @@ void put_test_msg()
   int i=1;
   for(;;)
   {
-    if (i>500)
+    if (i>1)
     {
       sleep(5);
       continue;
