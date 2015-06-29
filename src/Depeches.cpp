@@ -245,6 +245,7 @@ void Bagmessage::real_send(const BagmessageDepeche &dep)
     message_build(buf, ACK_DATA, mess_id, dep.tlg);
     send(buf.data(), buf.size());
     save_pending(mess_id, dep.id);
+    insert_to_clocks_pending(dep, mess_id);
     set_next_send_permitted_time();
 }
 
@@ -374,12 +375,12 @@ Bagmessage::parsing_state_t Bagmessage::header_parser(const char *header)
 
     appid = buf.take_string(8);
     if (appid != settings.appid) {
-        throw "incoming appid is wrong";
+//        throw "incoming appid is wrong";
     }
 
     buf >> version;
     if (version != 2) {
-        throw "incoming version is wrong";
+//        throw "incoming version is wrong";
     }
 
     buf >> mes_type;
@@ -452,11 +453,10 @@ void Bagmessage::handle_login(msg_type_t type)
 
 void Bagmessage::do_handle_message(msg_type_t type, int mess_id)
 {
-    bitset_return_bit(mess_id);
     depeche_id_t id = find_pending_id(mess_id);
 
     if (type == ACK_MSG) {
-        LogTrace(TRACE5) << desc << "positive reply received to depeche with internal id "
+        LogTrace(TRACE5) << desc << " positive reply received to depeche with internal id "
                          << tostring(id);
         forget_depeche(id, OK);
     } else {
@@ -679,7 +679,7 @@ void Bagmessage::check_expired_depeches()
     while (it != clocks.end()) {
         if (it->clk < now) {
             forget_depeche(it->id, EXPIRED);
-            clocks.erase(it++);
+            it = clocks.erase(it);
         } else {
             break;
         }
@@ -696,7 +696,7 @@ void Bagmessage::check_expired_pending()
     while (it != clocks_pending.end()) {
         if (it->clk < now) {
             remove_pending(it->mess_id);
-            clocks_pending.erase(it++);
+            it = clocks_pending.erase(it);
         } else {
             break;
         }
@@ -708,13 +708,22 @@ void Bagmessage::dog()
     check_expired_depeches();
     check_expired_pending();
 
-
-
-    if (!have_depeches())
+    if (!have_depeches()) {
         return;
+    } else {
+        /*
+         * have_depeches shows us that we have depeches in std::map saved_depeche.
+         * That means we have some work.
+         */
+        dog_wakeup();
+    }
 
     if (!is_connected()) {
-        LogError(STDLOG) << desc << " Can't send anything. No connection";
+        if (settings.keep_connection) {
+            LogError(STDLOG) << desc << " Can't send anything right now. No connection";
+        }
+        if (!is_working())
+            start_connecting();
         return;
     }
 
@@ -722,21 +731,15 @@ void Bagmessage::dog()
         /*
          * it's really god damn strange situation
          */
-        LogError(STDLOG) << desc << " The connection seems to be established, but i am not logged on";
+        LogError(STDLOG) << desc << " The connection seems to be established, but i am not logged on. I'll reconnect";
+        stop_working();
+        start_connecting();
         return;
     }
 
-    /*
-     * If we have no free bits in the bitset let's check
-     * whether there are too long pending depeches.
-     */
-    if (bitset_have_free_bit() == false) {
-        LogError(STDLOG) << desc << " We shouldn't be in this branch! Invent something to avoid this!";
-        throw "FUCK!";
-    }
-
-
     /***************************************/
+
+
 
     const std::string key = settings.get_key();
     std::set<depeche_id_t> &ids = depeche_grps[key];
@@ -854,7 +857,7 @@ void Bagmessage::remove_pending(int mess_id)
 //                                         __FUNCTION__,
 //                                         desc + " Bagmessage::remove_pending() removing not existing pending depeche");
 //    }
-
+    bitset_return_bit(mess_id);
     pending_depeches.erase(mess_id);
 }
 
