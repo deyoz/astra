@@ -34,6 +34,7 @@ AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
       resolver(io),
       timerbeat(io),
       timerconn(io),
+      timerreconn(io),
       cur_dest(0),
       rx(rxmax),
       tx(txmax)
@@ -59,6 +60,7 @@ AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
       resolver(io),
       timerbeat(io),
       timerconn(io),
+      timerreconn(io),
       cur_dest(0),
       rx(rxmax),
       tx(txmax)
@@ -81,6 +83,7 @@ AsyncTcpSock::AsyncTcpSock(boost::asio::io_service &io,
       resolver(io),
       timerbeat(io),
       timerconn(io),
+      timerreconn(io),
       cur_dest(0),
       rx(rxmax),
       tx(txmax)
@@ -174,13 +177,20 @@ void AsyncTcpSock::start_connecting()
     strand.post(boost::bind(&AsyncTcpSock::resolve, this));
 }
 
+void AsyncTcpSock::reconnect(const boost::system::error_code &err)
+{
+    if (!err) {
+        return resolve();
+    }
+}
+
 void AsyncTcpSock::resolve()
 {
     if (cur_dest == dest.size()) {
         LogTrace(TRACE5) << desc << " There are no more destinations to try to connect to";
         cur_dest = 0;
         set_notworking();
-        LogTrace(TRACE5) << desc << " calling usr_connect_failed_handler()";
+//        LogTrace(TRACE5) << desc << " calling usr_connect_failed_handler()";
         return usr_connect_failed_handler();
     }
 
@@ -197,8 +207,9 @@ void AsyncTcpSock::resolve()
 void AsyncTcpSock::usr_connect_failed_handler()
 {
     std::string txt;
-    txt = " connecting to all the resolved addresses was failed. I will stop working. You might want to redefine this function";
+    txt = " connecting to all the resolved addresses was failed. i will try to connect in 5 secs. You might want to redefine this function";
     LogError(STDLOG) << desc << txt;
+    do_start_reconnect_timer(5);
 }
 
 
@@ -397,6 +408,8 @@ void AsyncTcpSock::read_handler(const boost::system::error_code &err, std::size_
      * Thus err could be 0 even if connection is already broken.
      */
     read_unset_act();
+
+
     if (err && n) {
         /*
          * GOD DAMN STRANGE ERROR!
@@ -523,8 +536,9 @@ void AsyncTcpSock::usr_conn_broken_handler()
      * i don't use line break here
      * so that user may grep this
      */
-    txt = " usr_conn_broken_handler() the connection is broken. I will stop working. You might want to redefine this function";
+    txt = " usr_conn_broken_handler() the connection is broken. I will try to reconnect in 5 secs. You might want to redefine this function";
     LogError(STDLOG) << desc << txt;
+    do_start_reconnect_timer(5);
 }
 
 
@@ -543,9 +557,25 @@ void AsyncTcpSock::start_connect_timer()
     timerconn.async_wait(strand.wrap(boost::bind(&AsyncTcpSock::connect_timeout_handler, this, _1)));
 }
 
+void AsyncTcpSock::start_reconnect_timer(int delay)
+{
+    strand.post(boost::bind(&AsyncTcpSock::do_start_reconnect_timer, this, delay));
+}
+
+void AsyncTcpSock::do_start_reconnect_timer(int delay)
+{
+    timerreconn.expires_from_now(boost::posix_time::seconds(delay));
+    timerreconn.async_wait(strand.wrap(boost::bind(&AsyncTcpSock::reconnect, this, _1)));
+}
+
 void AsyncTcpSock::stop_connect_timer()
 {
     timerconn.cancel();
+}
+
+void AsyncTcpSock::stop_reconnect_timer()
+{
+    timerreconn.cancel();
 }
 
 void AsyncTcpSock::set_heartbeat(int t)
@@ -567,6 +597,7 @@ void AsyncTcpSock::do_close()
     sock.close();
     stop_connect_timer();
     do_stop_heartbeat();
+    stop_reconnect_timer();
     resolver.cancel();
     cur_dest = 0;
     tx.consume(tx.size());

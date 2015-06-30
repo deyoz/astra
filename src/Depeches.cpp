@@ -530,10 +530,13 @@ void Bagmessage::usr_conn_broken_handler()
 
 void Bagmessage::do_usr_conn_broken_handler()
 {
-    LogError(STDLOG) << desc << " the connection was broken";
+    LogError(STDLOG) << desc << " the connection was broken.";
     if (settings.keep_connection) {
-        LogError(STDLOG) << desc << " keep_connection is set to TRUE. So, I will try to reconnect";
-        start_connecting();
+        LogError(STDLOG) << desc << " keep_connection is set to TRUE. So, I will try to reconnect in 5 secs";
+        start_reconnect_timer(5);
+    } else if (have_depeches()) {
+        LogError(STDLOG) << desc << " i have some depeches to send. So, I will try to reconnect in 5 secs";
+        start_reconnect_timer(5);
     }
 }
 
@@ -663,9 +666,12 @@ void Bagmessage::usr_connect_failed_handler()
 void Bagmessage::do_usr_connect_failed_handler()
 {
     LogError(STDLOG) << desc << " can't connect to the server";
-    if (settings.infinity) {
-        LogError(STDLOG) << desc << " infinity flag is set. i will try to connect";
-        start_connecting();
+    if (settings.keep_connection) {
+        LogError(STDLOG) << desc << " keep_connection is set to TRUE. i will try to connect in 5 secs";
+        start_reconnect_timer(5);
+    } else if (have_depeches()) {
+        LogError(STDLOG) << desc << " I have some depeches to send. i will try to connect in 5 secs";
+        start_reconnect_timer(5);
     }
 }
 
@@ -713,7 +719,8 @@ void Bagmessage::dog()
     } else {
         /*
          * have_depeches shows us that we have depeches in std::map saved_depeche.
-         * That means we have some work.
+         * That means we have some work, so let's post this function to execute
+         * in advance!
          */
         dog_wakeup();
     }
@@ -721,9 +728,9 @@ void Bagmessage::dog()
     if (!is_connected()) {
         if (settings.keep_connection) {
             LogError(STDLOG) << desc << " Can't send anything right now. No connection";
-        }
-        if (!is_working())
+        } else if (!is_working()) {
             start_connecting();
+        }
         return;
     }
 
@@ -731,9 +738,9 @@ void Bagmessage::dog()
         /*
          * it's really god damn strange situation
          */
-        LogError(STDLOG) << desc << " The connection seems to be established, but i am not logged on. I'll reconnect";
+        LogError(STDLOG) << desc << " The connection seems to be established, but i am not logged on. I'll reconnect in 5 secs";
         stop_working();
-        start_connecting();
+        start_reconnect_timer(5);
         return;
     }
 
@@ -743,16 +750,14 @@ void Bagmessage::dog()
 
     const std::string key = settings.get_key();
     std::set<depeche_id_t> &ids = depeche_grps[key];
-    std::set<depeche_id_t>::iterator it2 = ids.begin();
-    for ( ; it2 != ids.end(); ++it2) {
+    std::set<depeche_id_t>::iterator it = ids.begin();
+    for ( ; it != ids.end(); it = ids.begin()) {
         if (!is_send_permitted())
             break;
-        BagmessageDepeche &dep = take_saved_depeche(*it2);
+        BagmessageDepeche &dep = take_saved_depeche(*it);
         real_send(dep);
+        ids.erase(it);
     }
-
-    if (have_depeches())
-        dog_wakeup();
 }
 
 
@@ -790,14 +795,6 @@ void Bagmessage::forget_depeche(depeche_id_t id, depeche_status_t status)
          */
         return;
     }
-
-//    if (status == EXPIRED) {
-//        std::map<int, depeche_id_t>::iterator it = pending_depeches.begin();
-//        for ( ; it != pending_depeches.end(); ++it) {
-
-//        }
-//    }
-
     usrcallback(id, status);
     BagmessageDepeche &dep = take_saved_depeche(id);
     remove_depeche_from_group(dep);
@@ -875,6 +872,21 @@ bool Bagmessage::have_pending()
 unsigned int Bagmessage::pending_count()
 {
     return pending_depeches.size();
+}
+
+void Bagmessage::clear_all()
+{
+    strand.post(boost::bind(&Bagmessage::do_clear_all, this));
+}
+
+void Bagmessage::do_clear_all()
+{
+    pending_depeches.clear();
+    depeche_grps.clear();
+    saved_depeches.clear();
+    clocks.clear();
+    clocks_pending.clear();
+    bitset_init();
 }
 
 

@@ -173,7 +173,7 @@ struct BagmessageSettings {
      * the following params are considered as minor params! that means changing them
      * doesn't require reconnection
      */
-    bool    keep_connection;
+    bool            keep_connection;
     unsigned int     heartbeat_interval; /* milliseconds */
 
     /*
@@ -239,6 +239,7 @@ public:
     void set_params(const BagmessageSettings &);
     void set_minor_params(const BagmessageSettings &);
     void set_major_params(const BagmessageSettings &);
+    void clear_all();
 private:
 /*
  *      struct __attribute__ ((__packed__)) header {
@@ -296,6 +297,7 @@ private:
 
 
     void init();
+    void do_clear_all();
 
     void check_state();
 
@@ -339,7 +341,6 @@ private:
     virtual void usr_connect_failed_handler();
     void do_usr_conn_broken_handler();
     void do_usr_connect_failed_handler();
-
     void dog();
     void dog_wakeup();
     void check_expired_depeches();

@@ -290,6 +290,7 @@ public:
 
     void start_connecting();
     void start_heartbeat();
+    void start_reconnect_timer(int);
     void stop_working();
     void stop_heartbeat();
     void set_dest(const Dest &);
@@ -347,6 +348,7 @@ private:
     boost::asio::ip::tcp::resolver::iterator    resolv_iter;
     boost::asio::deadline_timer                 timerbeat;
     boost::asio::deadline_timer                 timerconn;
+    boost::asio::deadline_timer                 timerreconn;  /* e.g. to delay between reconnection */
 
     unsigned int                                cur_dest; /* index of next destination to which we will try to connect */
 
@@ -382,6 +384,7 @@ private:
     inline void lock_mutex_working();
     inline void unlock_mutex_working();
     void resolve();
+    void reconnect(const boost::system::error_code &);
     void resolve_handler(const boost::system::error_code &, boost::asio::ip::tcp::resolver::iterator);
     void connect_handler(const boost::system::error_code &);
     virtual void usr_connect_handler() {}
@@ -413,7 +416,9 @@ private:
     void do_set_dest(std::vector<Dest>);
     void do_close();
     void start_connect_timer();
+    void do_start_reconnect_timer(int);
     void stop_connect_timer();
+    void stop_reconnect_timer();
     void do_set_heartbeat(int);
     void set_nodelay(bool);
     void init();
