@@ -113,36 +113,16 @@ void Bagmessage::check_state()
 
 void Bagmessage::do_send_depeche(BagmessageDepeche dep)
 {
-    if (!have_depeches())
-        dog_wakeup();
+    bool no_work = true;
+
+    if (have_depeches())
+        no_work = false;
 
     save_depeche(dep);
     insert_to_clocks(dep);
 
-
-//    if (settings.max_pending != 0) {
-//        if (pending_depeches.size() >= settings.max_pending) {
-            /*
-             * too many of the depeches remain without reply.
-             */
-//            return;
-//        }
-//    }
-
-//    const std::string curkey = settings.get_key();
-//    if (curkey != dep.settings.get_key()) {
-//        if (pending_depeches.size() != 0) {
-            /*
-             * if we are here that means currently we're working
-             * with depeches with other settings and can't handle
-             * them right now.
-             * We just saved them, so we will handle them later.
-             */
-//            return;
-//        }
-//    }
-
-//    real_send(dep);
+    if (no_work == true)
+        dog();
 }
 
 void Bagmessage::change_minor_params(const BagmessageSettings &depset)
@@ -165,7 +145,7 @@ void Bagmessage::change_minor_params(const BagmessageSettings &depset)
         settings.infinity = depset.infinity;
 }
 
-void Bagmessage::change_major_params(const BagmessageSettings &depset)
+bool Bagmessage::change_major_params(const BagmessageSettings &depset)
 {
     /*
      * this function leads to reconnection
@@ -198,9 +178,10 @@ void Bagmessage::change_major_params(const BagmessageSettings &depset)
 
         set_dest(settings.dest);
         logoff();
-        stop_working();
         start_connecting();
+        return true;
     }
+    return false;
 }
 
 void Bagmessage::set_params(const BagmessageSettings &set)
@@ -237,7 +218,6 @@ void Bagmessage::do_set_major_params(const BagmessageSettings set)
 
 void Bagmessage::real_send(const BagmessageDepeche &dep)
 {
-    change_major_params(dep.settings);
     change_minor_params(dep.settings);
 
     int mess_id = bitset_get_fz();
@@ -299,6 +279,8 @@ void Bagmessage::remove_depeche_from_group(const BagmessageDepeche &dep)
     std::set<depeche_id_t> &ids = depeche_grps[key];
 
     ids.erase(dep.id);
+    if (ids.empty())
+        depeche_grps.erase(key);
 }
 
 void Bagmessage::insert_to_clocks(const BagmessageDepeche &dep)
@@ -401,7 +383,7 @@ Bagmessage::parsing_state_t Bagmessage::header_parser(const char *header)
         break;
 
     case STATUS:
-        LogTrace(TRACE5) << desc << " received heartbeat message";
+//        LogTrace(TRACE5) << desc << " received heartbeat message";
         break;
 
     case LOG_OFF:
@@ -437,7 +419,7 @@ void Bagmessage::do_handle_logoff()
     stop_working();
     if (settings.keep_connection) {
         LogError(STDLOG) << desc << " keep_connection is set to TRUE. So, I will try to reconnect";
-        start_connecting();
+        start_reconnect_timer(5);
     }
 }
 
@@ -459,18 +441,18 @@ void Bagmessage::do_handle_message(msg_type_t type, int mess_id)
          * timer of sent (pending depeche) has passed
          */
     }
+
     depeche_id_t id = find_pending_id(mess_id);
 
     if (type == ACK_MSG) {
-        LogTrace(TRACE5) << desc << " positive reply received to depeche with internal id "
-                         << tostring(id);
+//        LogTrace(TRACE5) << desc << " positive reply received to depeche with internal id "
+//                         << tostring(id);
         forget_depeche(id, OK);
     } else {
         LogError(STDLOG) << desc << " negative reply received to depeche with internal id"
                          << tostring(id);
         forget_depeche(id, FAIL);
     }
-
     remove_pending(mess_id);
 }
 
@@ -483,8 +465,8 @@ void Bagmessage::do_handle_login(msg_type_t type)
         set_log_on();
         next_send.reset();
         clear_all_pending();
-        if (have_depeches())
-            dog_wakeup();
+//        if (have_depeches())
+//            dog_start_timer();
     } else {
         LogError(STDLOG) << desc << " login rejected";
     }
@@ -565,6 +547,7 @@ void Bagmessage::logoff()
     message_build(buf, LOG_OFF, 0);
     send(buf.data(), buf.size());
     set_log_off();
+    stop_working();
 }
 
 bool Bagmessage::is_logged_on()
@@ -595,7 +578,7 @@ void Bagmessage::header_build(asyncnet::Netbuf &buf, msg_type_t type, int mess_i
 
 
     buf << settings.appid;
-    buf.fillwith(0, 8 - settings.appid.size());
+    buf.fillwith(0, 8 - settings.appid.size()); /* fillwith 0 if appid is shorter that 8 bytes */
 
     buf << version
         << (u_int16_t) type
@@ -654,14 +637,20 @@ void Bagmessage::bitset_init()
     bitset.reset();
 }
 
-void Bagmessage::dog_wakeup()
+void Bagmessage::dog_start_timer()
 {
     if (settings.delay == 0 || settings.delay > 1000)
         timerdog.expires_from_now(boost::posix_time::seconds(1));
     else
         timerdog.expires_from_now(boost::posix_time::milliseconds(settings.delay));
 
-    timerdog.async_wait(strand.wrap(boost::bind(&Bagmessage::dog, this)));
+    timerdog.async_wait(strand.wrap(boost::bind(&Bagmessage::dog_wakeup, this, _1)));
+}
+
+void Bagmessage::dog_wakeup(const boost::system::error_code &err)
+{
+    if (!err)
+        return dog();
 }
 
 void Bagmessage::usr_connect_failed_handler()
@@ -721,22 +710,18 @@ void Bagmessage::dog()
     check_expired_pending();
 
     if (!have_depeches()) {
+        if (!settings.keep_connection) {
+            logoff();
+            stop_working();
+        }
         return;
-    } else {
-        /*
-         * have_depeches shows us that we have depeches in std::map saved_depeche.
-         * That means we have some work, so let's post this function to execute
-         * in advance!
-         */
-        dog_wakeup();
     }
 
     if (!is_connected()) {
-        if (settings.keep_connection) {
-            LogError(STDLOG) << desc << " Can't send anything right now. No connection";
-        } else if (!is_working()) {
+//        LogError(STDLOG) << desc << " Can't send anything right now. No connection";
+        if (!is_working())
             start_connecting();
-        }
+        dog_start_timer();
         return;
     }
 
@@ -744,26 +729,98 @@ void Bagmessage::dog()
         /*
          * it's really god damn strange situation
          */
-        LogError(STDLOG) << desc << " The connection seems to be established, but i am not logged on. I'll reconnect in 5 secs";
+        LogError(STDLOG) << desc << " The connection seems to be established, but i am not logged on. This is very strange!. I'll reconnect in 5 secs";
         stop_working();
-        start_reconnect_timer(5);
+        start_connecting();
+        dog_start_timer();
         return;
     }
 
     /***************************************/
 
-
-
-    const std::string key = settings.get_key();
-    std::set<depeche_id_t> &ids = depeche_grps[key];
-    std::set<depeche_id_t>::iterator it = ids.begin();
-    for ( ; it != ids.end(); it = ids.begin()) {
-        if (!is_send_permitted())
+    while (get_next_depid_permitted() && is_send_permitted()) {
+        depeche_id_t id = get_next_depid_to_send();
+        BagmessageDepeche &dep = take_saved_depeche(id);
+        if (change_major_params(dep.settings) == true) {
+            /*
+             * important params had been changed and logged off.
+             * So we should reconnect.
+             */
             break;
-        BagmessageDepeche &dep = take_saved_depeche(*it);
+        }
         real_send(dep);
-        ids.erase(it);
+        remove_depeche_from_group(dep);
     }
+
+    /***************************************/
+//    const std::string key = settings.get_key();
+//    std::set<depeche_id_t> &ids = depeche_grps[key];
+//    std::set<depeche_id_t>::iterator it = ids.begin();
+//    for ( ; it != ids.end(); it = ids.begin()) {
+//        if (!is_send_permitted())
+//            break;
+//        depeche_id_t id = *it;
+//        BagmessageDepeche &dep = take_saved_depeche(id);
+//        real_send(dep);
+//        remove_depeche_from_group(dep);
+//    }
+
+    if (have_depeches()) {
+        dog_start_timer();
+    }
+}
+
+depeche_id_t Bagmessage::get_next_depid_to_send()
+{
+    if (!have_groups()) {
+        throw ServerFramework::Exception("",
+                                         __FILE__,
+                                         __LINE__,
+                                         __FUNCTION__,
+                                         desc + " Bagmessage::get_next_depid_to_send() taking depid while even no groups. Check the code!");
+    }
+
+
+    depeche_id_t depid;
+    if (have_depeches_with_current_settings() == true) {
+        const std::string key = settings.get_key();
+        std::set<depeche_id_t> &ids = depeche_grps[key];
+        depid = *ids.begin();
+    } else {
+        std::set<depeche_id_t> &ids = depeche_grps.begin()->second;
+        depid = *ids.begin();
+    }
+
+    return depid;
+}
+
+bool Bagmessage::get_next_depid_permitted()
+{
+    if (have_groups() == false)
+        return false;
+
+    if (have_depeches_with_current_settings() == false &&
+            have_pending() == true) {
+
+        return false;
+    }
+    return true;
+}
+
+bool Bagmessage::have_groups()
+{
+    return !depeche_grps.empty();
+}
+
+bool Bagmessage::have_depeches_with_current_settings()
+{
+    const std::string key = settings.get_key();
+    if (depeche_grps.end() == depeche_grps.find(key)) {
+        return false;
+    }
+
+    std::set<depeche_id_t> &ids = depeche_grps[key];
+    return !ids.empty();
 }
 
 

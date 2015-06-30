@@ -89,7 +89,7 @@ struct Netbuf {
         return *this;
     }
 
-    void fillwith(const int c, const std::size_t n)
+    void fillwith(int c, const std::size_t n)
     {
         prepare(n);
         memset(waddr(), c, n);

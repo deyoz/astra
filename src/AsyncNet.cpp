@@ -187,7 +187,7 @@ void AsyncTcpSock::reconnect(const boost::system::error_code &err)
 void AsyncTcpSock::resolve()
 {
     if (cur_dest == dest.size()) {
-        LogTrace(TRACE5) << desc << " There are no more destinations to try to connect to";
+//        LogTrace(TRACE5) << desc << " There are no more destinations to try to connect to";
         cur_dest = 0;
         set_notworking();
 //        LogTrace(TRACE5) << desc << " calling usr_connect_failed_handler()";
@@ -222,7 +222,7 @@ void AsyncTcpSock::resolve_handler(const boost::system::error_code &err,
             return resolve();
         } else {
             resolv_iter = iterator;
-            LogTrace(TRACE5) << desc << " resolve has succeeded. Trying to connect";
+//            LogTrace(TRACE5) << desc << " resolve has succeeded. Trying to connect";
             return connect();
         }
 
@@ -307,11 +307,11 @@ void AsyncTcpSock::stop_working()
 void AsyncTcpSock::connect()
 {
     const boost::asio::ip::tcp::endpoint ep = *resolv_iter;
-    LogTrace(TRACE5) << desc
-                     << " trying to connect to "
-                     << ep.address().to_string()
-                     << ":"
-                     << tostring(ep.port());
+//    LogTrace(TRACE5) << desc
+//                     << " trying to connect to "
+//                     << ep.address().to_string()
+//                     << ":"
+//                     << tostring(ep.port());
 
     sock.async_connect(ep, strand.wrap(boost::bind(&AsyncTcpSock::connect_handler, this, _1)));
     start_connect_timer();
@@ -360,7 +360,7 @@ void AsyncTcpSock::connect_timeout_handler(const boost::system::error_code &err)
         sock.close();
         const boost::asio::ip::tcp::endpoint ep = *resolv_iter;
         const std::string deststr = ep.address().to_string() + ":" + tostring(ep.port());
-        LogTrace(TRACE5) << desc << " connection to " << deststr << " has been failed: timeout passed. Cancelling..";
+//        LogTrace(TRACE5) << desc << " connection to " << deststr << " has been failed: timeout passed. Cancelling..";
     }
 }
 

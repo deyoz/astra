@@ -309,7 +309,7 @@ private:
     void insert_to_clocks_pending(const BagmessageDepeche &, int);
     void real_send(const BagmessageDepeche &);
     void change_minor_params(const BagmessageSettings &);
-    void change_major_params(const BagmessageSettings &);
+    bool change_major_params(const BagmessageSettings &);
     void bitset_init();
     int bitset_get_fz(); /* gives the first zero bit */
     bool bitset_have_free_bit();
@@ -342,7 +342,8 @@ private:
     void do_usr_conn_broken_handler();
     void do_usr_connect_failed_handler();
     void dog();
-    void dog_wakeup();
+    void dog_wakeup(const boost::system::error_code &);
+    void dog_start_timer();
     void check_expired_depeches();
     void check_expired_pending();
     bool depeche_exists(depeche_id_t);
@@ -358,6 +359,10 @@ private:
     bool pending_exists(int);
     void clear_all_pending();
     bool have_pending();
+    bool have_depeches_with_current_settings();
+    bool have_groups();
+    depeche_id_t get_next_depid_to_send();
+    bool get_next_depid_permitted();
     unsigned int pending_count();
     parsing_state_t header_parser(const char *data);
     std::size_t expected_size();
