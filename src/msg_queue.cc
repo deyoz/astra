@@ -108,6 +108,8 @@ TProcess::TProcess(const string &p) : code(p), locked(false)
     TQueue::releaseProcess(Qry.FieldAsInteger("id"));
 
   getHandlers(handlers);
+
+  OraSession.Commit();
 }
 
 void TProcess::getHandlers(std::set<THandler> &handlers)
@@ -191,8 +193,12 @@ void TQueue::releaseProcess(int id)
     ProgError(STDLOG, "%s: msg %d not found in MSG_QUEUE", __FUNCTION__, id);
   else
     if (Qry.get().GetVariableAsInteger("release_attempt")<=0)
-      complete_attempt(id, "Release attempt by process reached the limit");
-
+    {
+      if (!set_error(id, "Release attempt by process reached the limit")) return;
+      TCachedQuery DelQry("DELETE FROM msg_queue WHERE id=:id",
+                          QParams() << QParam("id", otInteger, id));
+      DelQry.get().Execute();
+    };
 }
 
 void TQueue::assignProcess(int id, const string &process)
@@ -344,9 +350,8 @@ boost::optional<TQueueId> TQueue::next(const string &handler)
   return result;
 }
 
-void TQueue::complete_attempt(int id, const std::string &error)
+bool TQueue::set_error(int id, const std::string &error)
 {
-
   TCachedQuery UpdQry("UPDATE msgs SET error=:error WHERE id=:id",
                       QParams() << QParam("id", otInteger, id)
                                 << QParam("error", otString, error.substr(0,100)));
@@ -354,8 +359,14 @@ void TQueue::complete_attempt(int id, const std::string &error)
   if (UpdQry.get().RowsProcessed()==0)
   {
     ProgError(STDLOG, "%s: msg %d not found in MSGS", __FUNCTION__, id);
-    return;
+    return false;
   };
+  return true;
+}
+
+void TQueue::complete_attempt(int id, const std::string &error)
+{
+  if (!set_error(id, error)) return;
 
   TCachedQuery DelQry("BEGIN "
                       "  IF :error IS NOT NULL THEN "

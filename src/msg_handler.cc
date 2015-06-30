@@ -55,7 +55,7 @@ class BagmessageProcess : public AstraMessages::TProcess
           BMHandlers[h->getCode()]=BagmessagePtr(new Bagmessage(io,
                                                                 createBagmessageSettings(*h),
                                                                 boost::bind(&BagmessageProcess::finish_depeche, this, _1, _2),
-                                                                (h->getCode()=="BAG_MESSAGE"?"VLAD_BM1":"VLAD_BM2"),
+                                                                (h->getCode()=="BAG_MESSAGE"?(p=="bag_message1"?"VLAD_BM1_1":"VLAD_BM1_2"):(p=="bag_message1"?"VLAD_BM2_1":"VLAD_BM2_2")),
                                                                 9999999,
                                                                 9999999));  //!!!vlad "" заменить на msg_handlers.name_lat
         };
@@ -78,7 +78,7 @@ class BagmessageProcess : public AstraMessages::TProcess
           BMH->second->send_depeche(msg->content,
                                     createBagmessageSettings(msg->handler),
                                     next->id,
-                                    ToInt(paramValue(msg->handler, "timeout_secs", string("10")))); //!!!vlad
+                                    ToInt(paramValue(msg->handler, "timeout_secs", string("10000")))); //!!!vlad
         else
           BMH->second->send_depeche(msg->content,
                                     createBagmessageSettings(msg->handler),
@@ -140,7 +140,7 @@ void put_test_msg()
   int i=1;
   for(;;)
   {
-    if (i>1)
+    if (i>50)
     {
       sleep(5);
       continue;

@@ -438,6 +438,7 @@ class TQueue
     static void get(int id, boost::optional<TQueueMsg> &msg);
     static boost::optional<TQueueId> next(const std::string &handler);
     static void complete_attempt(int id, const std::string &error="");
+    static bool set_error(int id, const std::string &error);
 };
 
 std::string paramValue(const THandler &handler, const std::string &name, const boost::optional<std::string> &defaultValue=boost::none);
