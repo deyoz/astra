@@ -453,6 +453,12 @@ void Bagmessage::handle_login(msg_type_t type)
 
 void Bagmessage::do_handle_message(msg_type_t type, int mess_id)
 {
+    if (!pending_exists(mess_id)) {
+        return;
+        /*
+         * timer of sent (pending depeche) has passed
+         */
+    }
     depeche_id_t id = find_pending_id(mess_id);
 
     if (type == ACK_MSG) {
