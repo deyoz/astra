@@ -35,6 +35,7 @@
 #include "http_io.h"
 #include "httpClient.h"
 #include "TypeBHelpMng.h"
+#include <boost/thread/thread.hpp>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -42,6 +43,7 @@
 #include "serverlib/ourtime.h"
 
 const int sleepsec = 25;
+static const int keep_alive_minuts = 30;
 
 using namespace ASTRA;
 using namespace BASIC;
@@ -49,6 +51,8 @@ using namespace EXCEPTIONS;
 using namespace std;
 
 void exec_tasks( const char *proc_name, int argc, char *argv[] );
+
+static void * watchDog(void * arg);
 
 int main_timer_tcl(int supervisorSocket, int argc, char *argv[])
 {
@@ -70,12 +74,16 @@ int main_timer_tcl(int supervisorSocket, int argc, char *argv[])
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
         ->connect_db();
     init_locale();
+    TDateTime watchdog_timer;
+    boost::thread watchdog_thread(&watchDog, (void *)&watchdog_timer);
     for( ;; )
     {
       InitLogTime(argc>0?argv[0]:NULL);
       PerfomInit();
       base_tables.Invalidate();
+      watchdog_timer = NowUTC();
       exec_tasks( num.c_str(), argc, argv );
+      watchdog_timer = 0.0;
       sleep( sleepsec );
     };
   }
@@ -165,6 +173,8 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       if ( name == "send_apis_tr" ) send_apis_tr();
       else
       if ( name == "clean_typeb_help" ) TypeBHelpMng::clean_typeb_help();
+      else
+      if ( name == "test_watch_dog" ) sleep(keep_alive_minuts * 60 + 1);
 
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
@@ -472,3 +482,17 @@ void sync_sirena_codes( void )
 	ProgTrace(TRACE5,"sync_sirena_codes stopped");
 };
 
+static void * watchDog(void * arg)
+{
+  TDateTime * ptimer = static_cast<TDateTime *>(arg);
+  while (true) {
+  sleep(keep_alive_minuts * 60);
+  if (*ptimer == 0.0) continue;
+  double minutes = (NowUTC() - *ptimer)/1440.0;
+  if(minutes > keep_alive_minuts)
+    ProgError( STDLOG, "Timer aborted" );
+    abort();
+  }
+
+  return NULL;
+}
