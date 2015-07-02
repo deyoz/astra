@@ -427,18 +427,22 @@ void calc_tlg_out_point_ids(const TSimpleFltInfo &flt, set<int> &tlg_out_point_i
     }
 }
 
-void calc_tlg_out_point_ids(int tlg_out_typeb_addrs_id, set<int> &tlg_out_point_ids)
+void calc_tlg_out_point_ids(int tlg_out_typeb_addrs_id, set<int> &tlg_out_point_ids, string &tlg_type)
 {
     QParams QryParams;
     QryParams << QParam("id", otInteger, tlg_out_typeb_addrs_id);
-    TCachedQuery Qry("select airline, flt_no, airp_dep, airp_arv from typeb_addrs where id = :id", QryParams);
+    TCachedQuery Qry("select tlg_type, airline, flt_no, airp_dep, airp_arv from typeb_addrs where id = :id", QryParams);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         TSimpleFltInfo flt;
+        tlg_type = Qry.get().FieldAsString("tlg_type");
         flt.airline = Qry.get().FieldAsString("airline");
         flt.airp_dep = Qry.get().FieldAsString("airp_dep");
         flt.airp_arv = Qry.get().FieldAsString("airp_arv");
-        flt.flt_no = Qry.get().FieldAsInteger("flt_no");
+        if(Qry.get().FieldIsNULL("flt_no"))
+            flt.flt_no = ASTRA::NoExists;
+        else
+            flt.flt_no = Qry.get().FieldAsInteger("flt_no");
         calc_tlg_out_point_ids(flt, tlg_out_point_ids);
     }
 }
@@ -614,6 +618,7 @@ void get_curr_trip_tasks(const T &pattern, map<T, TTripTaskTimes> &tasks)
 
 namespace TypeB {
 
+// task_name обязан быть типом телеграммы
 void check_tlg_out(int point_id, const string &task_name, const string &params)
 {
     vector<TCreateInfo> createInfo;
@@ -705,17 +710,11 @@ void sync_trip_tasks(int point_id)
     }
 }
 
-void sync_tlg_out_trip_tasks(int point_id)
-{
-    sync_trip_tasks<TLCITripTask>(point_id);
-    sync_trip_tasks<TCOMTripTask>(point_id);
-}
-
 void on_change_trip(const string &descr, int point_id)
 {
     ProgTrace(TRACE5, "%s: %s; point_id: %d", __FUNCTION__, descr.c_str(), point_id);
     try {
-        sync_tlg_out_trip_tasks(point_id);
+        TSyncTlgOutMng::Instance()->sync_all(point_id);
     } catch(std::exception &E) {
         ProgError(STDLOG,"%s: %s (point_id=%d): %s", __FUNCTION__, descr.c_str(), point_id,E.what());
     };
@@ -743,4 +742,56 @@ void emd_sys_update(int point_id, const string &task_name, const string &params)
                          ASTRA::evtPay,
                          point_id);
   };
+}
+
+const string TSyncTlgOutMng::cache_prefix = "TYPEB_ADDRS_";
+
+TSyncTlgOutMng *TSyncTlgOutMng::Instance()
+{
+  static TSyncTlgOutMng *instance_ = 0;
+  if ( !instance_ )
+    instance_ = new TSyncTlgOutMng();
+  return instance_;
+};
+
+void TSyncTlgOutMng::sync_all(int point_id)
+{
+    for(std::map<std::string, void (*)(int)>::iterator i = items.begin(); i != items.end(); i++) i->second(point_id);
+}
+
+void TSyncTlgOutMng::sync_by_type(const string &type, int point_id)
+{
+    std::map<std::string, void (*)(int)>::iterator i = items.find(type);
+    if(i == items.end())
+        throw EXCEPTIONS::Exception("sync_by_type: wrong type %s", type.c_str());
+    i->second(point_id);
+}
+
+void TSyncTlgOutMng::sync_by_cache(const string &cache_name, int point_id)
+{
+    if(cache_name.substr(0, cache_prefix.size()) != cache_prefix)
+        throw EXCEPTIONS::Exception("sync_by_cache: wrong cache %s", cache_name.c_str());
+    try {
+        sync_by_type(cache_name.substr(cache_prefix.size(), cache_prefix.size() + 3), point_id);
+    } catch(EXCEPTIONS::Exception &E) {
+        throw EXCEPTIONS::Exception("sync_by_cache: %s, msg: %s", cache_name.c_str(), E.what());
+    }
+}
+
+bool TSyncTlgOutMng::IsCacheToSync(const string &cache_name)
+{
+    bool result = false;
+    for(std::map<std::string, void (*)(int)>::iterator i = items.begin(); i != items.end(); i++) {
+        if(cache_prefix + i->first == cache_name) {
+            result = true;
+            break;
+        }
+    }
+    return result;
+}
+
+TSyncTlgOutMng::TSyncTlgOutMng()
+{
+    items.insert(make_pair(LCI, sync_trip_tasks<TLCITripTask>));
+    items.insert(make_pair(COM, sync_trip_tasks<TCOMTripTask>));
 }

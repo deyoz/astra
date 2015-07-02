@@ -1925,7 +1925,6 @@ class TTakeoffCreator : public TCreator
             << "FTL"
             << "PRL"
             << "PIM"
-            << "SOM"
         //    << "ETL" формируем по прилету в конечные пункт если не было интерактива с СЭБ
             << "ETLD"
             << "ASL"

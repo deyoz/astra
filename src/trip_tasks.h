@@ -32,8 +32,6 @@ void check_trip_tasks();
 #define CALL_POINT (string)__FILE__ + ":" +  IntToString(__LINE__)
 void on_change_trip(const std::string &descr, int point_id);
 
-void sync_tlg_out_trip_tasks(int point_id);
-
 struct TSimpleFltInfo {
     std::string airline;
     std::string airp_dep;
@@ -43,7 +41,26 @@ struct TSimpleFltInfo {
 };
 
 void calc_tlg_out_point_ids(const TSimpleFltInfo &flt, std::set<int> &point_ids);
-void calc_tlg_out_point_ids(int tlg_out_typeb_addrs_id, std::set<int> &point_ids);
+void calc_tlg_out_point_ids(int typeb_addrs_id, std::set<int> &point_ids, std::string &tlg_type);
+
+class TSyncTlgOutMng {
+    private:
+        static const std::string cache_prefix;
+        std::map<std::string, void (*)(int)> items;
+    public:
+        static TSyncTlgOutMng *Instance();
+        TSyncTlgOutMng();
+
+        void sync_all(int point_id);
+
+        bool IsCacheToSync(const std::string &cache_name);
+
+        // Из названия кэша достается тип телеграммы, напр. TYPEB_ADDRS_LCI -> LCI
+        // и синхронизируется только этот тип.
+        void sync_by_cache(const std::string &cache_name, int point_id);
+
+        void sync_by_type(const std::string &type, int point_id);
+};
 
 #endif
 

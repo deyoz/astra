@@ -1734,36 +1734,30 @@ void BeforeRefresh(TCacheTable &cache, TQuery &refreshQry, const TCacheQueryType
 };
 
 static set<int> tlg_out_point_ids;
-static int tlg_out_typeb_addrs_id;
+static int typeb_addrs_id;
 
 void BeforeApplyAll(TCacheTable &cache)
 {
-  if (
-          cache.code() == "TYPEB_ADDRS_LCI" or
-          cache.code() == "TYPEB_ADDRS_COM"
-          )
+  if (TSyncTlgOutMng::Instance()->IsCacheToSync(cache.code()))
     tlg_out_point_ids.clear();
   if (cache.code() == "TYPEB_CREATE_POINTS")
-      tlg_out_typeb_addrs_id = NoExists;
+      typeb_addrs_id = NoExists;
 };
 
 void AfterApplyAll(TCacheTable &cache)
 {
-    if (cache.code() == "TYPEB_ADDRS_LCI" or
-        cache.code() == "TYPEB_ADDRS_COM")
-    {
-        for(set<int>::const_iterator i=tlg_out_point_ids.begin(); i!=tlg_out_point_ids.end(); ++i)
-            sync_tlg_out_trip_tasks(*i);
-        tlg_out_point_ids.clear();
-    };
+    for(set<int>::const_iterator i=tlg_out_point_ids.begin(); i!=tlg_out_point_ids.end(); ++i)
+        TSyncTlgOutMng::Instance()->sync_by_cache(cache.code(), *i);
+    tlg_out_point_ids.clear();
     if (cache.code() == "TYPEB_CREATE_POINTS")
     {
-        if(tlg_out_typeb_addrs_id != NoExists) {
+        if(typeb_addrs_id != NoExists) {
             set<int> point_ids;
-            calc_tlg_out_point_ids(tlg_out_typeb_addrs_id, point_ids);
+            string tlg_type;
+            calc_tlg_out_point_ids(typeb_addrs_id, point_ids, tlg_type);
             for(set<int>::const_iterator i = point_ids.begin(); i != point_ids.end(); i++)
-                sync_tlg_out_trip_tasks(*i);
-            tlg_out_typeb_addrs_id = NoExists;
+                TSyncTlgOutMng::Instance()->sync_by_type(tlg_type, *i);
+            typeb_addrs_id = NoExists;
         }
     };
 };
@@ -1785,108 +1779,107 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
 
 void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
-  if (
-          cache.code() == "TYPEB_ADDRS_LCI" or
-          cache.code() == "TYPEB_ADDRS_COM"
-          )
-  {
-      set<int> point_ids;
-      TSimpleFltInfo flt;
-      if(qryType == cqtDelete or qryType == cqtUpdate) {
-          flt.airline = cache.FieldOldValue("airline", row);
-          flt.airp_dep = cache.FieldOldValue("airp_dep", row);
-          flt.airp_arv = cache.FieldOldValue("airp_arv", row);
-          flt.flt_no = ToInt(cache.FieldOldValue("flt_no", row));
-          calc_tlg_out_point_ids(flt, point_ids);
-      }
-      if(qryType == cqtInsert or qryType == cqtUpdate) {
-          flt.airline = cache.FieldValue("airline", row);
-          flt.airp_dep = cache.FieldValue("airp_dep", row);
-          flt.airp_arv = cache.FieldValue("airp_arv", row);
-          flt.flt_no = ToInt(cache.FieldValue("flt_no", row));
-          calc_tlg_out_point_ids(flt, point_ids);
-      }
-      tlg_out_point_ids.insert(point_ids.begin(), point_ids.end());
-  };
-
-
-  if (cache.code() == "TYPEB_CREATE_POINTS") {
-      int tmp_id;
-      if (qryType == cqtInsert || qryType == cqtUpdate)
-          tmp_id=ToInt(cache.FieldValue( "id", row ));
-      else
-          tmp_id=ToInt(cache.FieldOldValue( "id", row ));
-      if(tlg_out_typeb_addrs_id != NoExists and tlg_out_typeb_addrs_id != tmp_id)
-          throw Exception("typeb_create_points after apply: id must be same");
-      tlg_out_typeb_addrs_id = tmp_id;
-  }
-
-  if (cache.code() == "TRIP_PAID_CKIN")
-  {
-    if (!( (qryType == cqtDelete || ToInt(cache.FieldValue( "pr_permit", row )) == 0) &&
-           (qryType == cqtInsert || ToInt(cache.FieldOldValue( "pr_permit", row )) == 0) ) )
+    if (TSyncTlgOutMng::Instance()->IsCacheToSync(cache.code()))
     {
-      int point_id;
-      if (qryType == cqtInsert || qryType == cqtUpdate)
-        point_id=ToInt(cache.FieldValue( "point_id", row ));
-      else
-        point_id=ToInt(cache.FieldOldValue( "point_id", row ));
-
-      TPointIdsForCheck point_ids_spp;
-      if ((qryType == cqtInsert || qryType == cqtUpdate) &&
-          ToInt(cache.FieldValue( "pr_permit", row )) != 0)
-      {
-        SyncTripCompLayers(NoExists, point_id, cltPNLBeforePay, point_ids_spp);
-        SyncTripCompLayers(NoExists, point_id, cltPNLAfterPay, point_ids_spp);
-        SyncTripCompLayers(NoExists, point_id, cltProtBeforePay, point_ids_spp);
-        SyncTripCompLayers(NoExists, point_id, cltProtAfterPay, point_ids_spp);
-      }
-      else
-      {
-        DeleteTripCompLayers(NoExists, point_id, cltPNLBeforePay, point_ids_spp);
-        DeleteTripCompLayers(NoExists, point_id, cltPNLAfterPay, point_ids_spp);
-        DeleteTripCompLayers(NoExists, point_id, cltProtBeforePay, point_ids_spp);
-        DeleteTripCompLayers(NoExists, point_id, cltProtAfterPay, point_ids_spp);
-      };
-      check_layer_change( point_ids_spp );
+        set<int> point_ids;
+        TSimpleFltInfo flt;
+        if(qryType == cqtDelete or qryType == cqtUpdate) {
+            flt.airline = cache.FieldOldValue("airline", row);
+            flt.airp_dep = cache.FieldOldValue("airp_dep", row);
+            flt.airp_arv = cache.FieldOldValue("airp_arv", row);
+            flt.flt_no = ToInt(cache.FieldOldValue("flt_no", row));
+            if(flt.flt_no == 0) flt.flt_no = ASTRA::NoExists;
+            calc_tlg_out_point_ids(flt, point_ids);
+        }
+        if(qryType == cqtInsert or qryType == cqtUpdate) {
+            flt.airline = cache.FieldValue("airline", row);
+            flt.airp_dep = cache.FieldValue("airp_dep", row);
+            flt.airp_arv = cache.FieldValue("airp_arv", row);
+            flt.flt_no = ToInt(cache.FieldValue("flt_no", row));
+            if(flt.flt_no == 0) flt.flt_no = ASTRA::NoExists;
+            calc_tlg_out_point_ids(flt, point_ids);
+        }
+        tlg_out_point_ids.insert(point_ids.begin(), point_ids.end());
     };
-  };
 
-  if (cache.code() == "CODESHARE_SETS")
-  {
-    TDateTime now=NowLocal();
-    modf(now,&now);
-    //два вектора: до и после изменений
-    vector<TTripInfo> flts;
-    TTripInfo markFlt;
-    if (row.status != usDeleted)
-    {
-      markFlt.airline=cache.FieldValue( "airline_mark", row );
-      markFlt.flt_no=ToInt(cache.FieldValue( "flt_no_mark", row ));
-      markFlt.airp=cache.FieldValue( "airp_dep", row );
+
+    if (cache.code() == "TYPEB_CREATE_POINTS") {
+        int tmp_id;
+        if (qryType == cqtInsert || qryType == cqtUpdate)
+            tmp_id=ToInt(cache.FieldValue( "typeb_addrs_id", row ));
+        else
+            tmp_id=ToInt(cache.FieldOldValue( "typeb_addrs_id", row ));
+        if(typeb_addrs_id != NoExists and typeb_addrs_id != tmp_id)
+            throw Exception("typeb_create_points after apply: id must be same");
+        typeb_addrs_id = tmp_id;
     }
-    else
+
+    if (cache.code() == "TRIP_PAID_CKIN")
     {
-      markFlt.airline=cache.FieldOldValue( "airline_mark", row );
-      markFlt.flt_no=ToInt(cache.FieldOldValue( "flt_no_mark", row ));
-      markFlt.airp=cache.FieldOldValue( "airp_dep", row );
+        if (!( (qryType == cqtDelete || ToInt(cache.FieldValue( "pr_permit", row )) == 0) &&
+                    (qryType == cqtInsert || ToInt(cache.FieldOldValue( "pr_permit", row )) == 0) ) )
+        {
+            int point_id;
+            if (qryType == cqtInsert || qryType == cqtUpdate)
+                point_id=ToInt(cache.FieldValue( "point_id", row ));
+            else
+                point_id=ToInt(cache.FieldOldValue( "point_id", row ));
+
+            TPointIdsForCheck point_ids_spp;
+            if ((qryType == cqtInsert || qryType == cqtUpdate) &&
+                    ToInt(cache.FieldValue( "pr_permit", row )) != 0)
+            {
+                SyncTripCompLayers(NoExists, point_id, cltPNLBeforePay, point_ids_spp);
+                SyncTripCompLayers(NoExists, point_id, cltPNLAfterPay, point_ids_spp);
+                SyncTripCompLayers(NoExists, point_id, cltProtBeforePay, point_ids_spp);
+                SyncTripCompLayers(NoExists, point_id, cltProtAfterPay, point_ids_spp);
+            }
+            else
+            {
+                DeleteTripCompLayers(NoExists, point_id, cltPNLBeforePay, point_ids_spp);
+                DeleteTripCompLayers(NoExists, point_id, cltPNLAfterPay, point_ids_spp);
+                DeleteTripCompLayers(NoExists, point_id, cltProtBeforePay, point_ids_spp);
+                DeleteTripCompLayers(NoExists, point_id, cltProtAfterPay, point_ids_spp);
+            };
+            check_layer_change( point_ids_spp );
+        };
     };
-    for(markFlt.scd_out=now-5;markFlt.scd_out<=now+CREATE_SPP_DAYS()+1;markFlt.scd_out+=1.0) flts.push_back(markFlt);
 
-    //отвязка/привязка рейсов
-    TTlgBinding tlgBinding(true);
-    TTrferBinding trferBinding;
-
-    tlgBinding.trace_for_bind(flts, "codeshare_sets: flts");
-
-    tlgBinding.unbind_flt(flts, false);
-    trferBinding.unbind_flt(flts, false);
-    if (row.status != usDeleted)
+    if (cache.code() == "CODESHARE_SETS")
     {
-      tlgBinding.bind_flt(flts, false);
-      trferBinding.bind_flt(flts, false);
+        TDateTime now=NowLocal();
+        modf(now,&now);
+        //два вектора: до и после изменений
+        vector<TTripInfo> flts;
+        TTripInfo markFlt;
+        if (row.status != usDeleted)
+        {
+            markFlt.airline=cache.FieldValue( "airline_mark", row );
+            markFlt.flt_no=ToInt(cache.FieldValue( "flt_no_mark", row ));
+            markFlt.airp=cache.FieldValue( "airp_dep", row );
+        }
+        else
+        {
+            markFlt.airline=cache.FieldOldValue( "airline_mark", row );
+            markFlt.flt_no=ToInt(cache.FieldOldValue( "flt_no_mark", row ));
+            markFlt.airp=cache.FieldOldValue( "airp_dep", row );
+        };
+        for(markFlt.scd_out=now-5;markFlt.scd_out<=now+CREATE_SPP_DAYS()+1;markFlt.scd_out+=1.0) flts.push_back(markFlt);
+
+        //отвязка/привязка рейсов
+        TTlgBinding tlgBinding(true);
+        TTrferBinding trferBinding;
+
+        tlgBinding.trace_for_bind(flts, "codeshare_sets: flts");
+
+        tlgBinding.unbind_flt(flts, false);
+        trferBinding.unbind_flt(flts, false);
+        if (row.status != usDeleted)
+        {
+            tlgBinding.bind_flt(flts, false);
+            trferBinding.bind_flt(flts, false);
+        };
     };
-  };
 };
 
 /*//////////////////////////////////////////////////////////////////////////////*/
