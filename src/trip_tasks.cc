@@ -32,6 +32,7 @@ const
     {BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL, check_crew_alarms},
     {LCI, TypeB::check_tlg_out},
     {COM, TypeB::check_tlg_out},
+    {SOM, TypeB::check_tlg_out},
     {SYNC_NEW_CHKD, TypeB::SyncNewCHKD },
     {SYNC_ALL_CHKD, TypeB::SyncAllCHKD },
     {EMD_SYS_UPDATE, emd_sys_update }
