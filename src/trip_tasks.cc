@@ -536,6 +536,10 @@ TDateTime TTlgOutTripTask::actual_next_exec(TDateTime curr_next_exec) const
     return result;
 }
 
+struct TSOMTripTask:public TTlgOutTripTask {
+    TSOMTripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, SOM) {}
+};
+
 struct TCOMTripTask:public TTlgOutTripTask {
     TCOMTripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, COM) {}
 };
@@ -794,4 +798,5 @@ TSyncTlgOutMng::TSyncTlgOutMng()
 {
     items.insert(make_pair(LCI, sync_trip_tasks<TLCITripTask>));
     items.insert(make_pair(COM, sync_trip_tasks<TCOMTripTask>));
+    items.insert(make_pair(SOM, sync_trip_tasks<TSOMTripTask>));
 }

@@ -15,6 +15,7 @@ const std::string ON_CLOSE_CHECKIN="ON_CLOSE_CHECKIN";
 const std::string ON_TAKEOFF="ON_TAKEOFF";
 const std::string LCI = "LCI";
 const std::string COM = "COM";
+const std::string SOM = "SOM";
 
 const std::string SYNC_NEW_CHKD="SYNC_NEW_CHKD";
 const std::string SYNC_ALL_CHKD="SYNC_ALL_CHKD";
