@@ -22,21 +22,30 @@ namespace TypeB {
 
 void emd_sys_update(int point_id, const string &task_name, const string &params);
 
-const
-  struct {
-    string task_name;
-    void (*p)(int point_id, const string& task_name, const string &params);
-  } trip_tasks []={
-    {BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL, create_apis_task},
-    {BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL, create_apis_task},
-    {BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL, check_crew_alarms},
-    {LCI, TypeB::check_tlg_out},
-    {COM, TypeB::check_tlg_out},
-    {SOM, TypeB::check_tlg_out},
-    {SYNC_NEW_CHKD, TypeB::SyncNewCHKD },
-    {SYNC_ALL_CHKD, TypeB::SyncAllCHKD },
-    {EMD_SYS_UPDATE, emd_sys_update }
-  };
+struct TTripTasks {
+    map<string, void (*)(int, const std::string &, const std::string &)> items;
+    TTripTasks();
+    static TTripTasks *Instance();
+};
+
+TTripTasks::TTripTasks()
+{
+    items.insert(make_pair(BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL, create_apis_task));
+    items.insert(make_pair(BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL, create_apis_task));
+    items.insert(make_pair(BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL, check_crew_alarms_task));
+    items.insert(make_pair(SYNC_NEW_CHKD, TypeB::SyncNewCHKD ));
+    items.insert(make_pair(SYNC_ALL_CHKD, TypeB::SyncAllCHKD ));
+    items.insert(make_pair(EMD_SYS_UPDATE, emd_sys_update ));
+    TSyncTlgOutMng::Instance()->add_tasks(items);
+}
+
+TTripTasks *TTripTasks::Instance()
+{
+    static TTripTasks *instance_ = 0;
+    if ( !instance_ )
+        instance_ = new TTripTasks();
+    return instance_;
+}
 
 void sync_trip_task(int point_id, const string& task_name, const string &params, TDateTime next_exec)
 {
@@ -61,10 +70,7 @@ void TlgOutParamsToLog(LEvntPrms& prms, const string &params)
 
 void paramsToLog(LEvntPrms& prms, const string &task_name, const string &params)
 {
-    if(
-            task_name == LCI or
-            task_name == COM
-            )
+    if(TSyncTlgOutMng::Instance()->IsTlgToSync(task_name))
         TlgOutParamsToLog(prms, params);
     else
         prms << PrmSmpl<std::string>("params", params);
@@ -318,17 +324,17 @@ void check_trip_tasks()
             if (SelQry.Eof) continue;
             TDateTime next_exec=SelQry.FieldAsDateTime("next_exec");
             TDateTime last_exec=SelQry.FieldIsNULL("last_exec")?ASTRA::NoExists:SelQry.FieldAsDateTime("last_exec");
-            bool task_processed=false;
-            for(int i=sizeof(trip_tasks)/sizeof(trip_tasks[0])-1;i>=0;i--)
-            {
-                if (trip_tasks[i].task_name!=task_name) continue;
-                task_processed=true;
+
+            map<string, void (*)(int, const std::string &, const std::string &)>::iterator task = TTripTasks::Instance()->items.find(task_name);
+            if(task == TTripTasks::Instance()->items.end())
+                throw EXCEPTIONS::Exception("task %s not found", task_name.c_str());
+            else {
                 if (last_exec==ASTRA::NoExists || last_exec<next_exec)
                 {
                     ProgTrace(TRACE5, "%s: task %s started (point_id=%d, params=%s)",
-                                      __FUNCTION__, task_name.c_str(), point_id, params.c_str());
+                            __FUNCTION__, task_name.c_str(), point_id, params.c_str());
 
-                    trip_tasks[i].p(point_id, task_name, params);
+                    task->second(point_id, task_name, params);
 
                     TLogLocale tlocale;
                     tlocale.ev_type=ASTRA::evtFltTask;
@@ -336,16 +342,13 @@ void check_trip_tasks()
                     taskToLog(tlocale, task_name, params, tsDone, next_exec);
                     TReqInfo::Instance()->LocaleToLog(tlocale);
                     ProgTrace(TRACE5, "%s: task %s finished (point_id=%d, params=%s)",
-                                      __FUNCTION__, task_name.c_str(), point_id, params.c_str());
+                            __FUNCTION__, task_name.c_str(), point_id, params.c_str());
                 };
-            };
-            if (task_processed)
-            {
                 UpdQry.SetVariable("id", task_id);
                 UpdQry.SetVariable("next_exec", next_exec);
                 UpdQry.SetVariable("last_exec", nowUTC);
                 UpdQry.Execute();
-            };
+            }
             OraSession.Commit();
         }
         catch( EOracleError &E )
@@ -781,6 +784,24 @@ void TSyncTlgOutMng::sync_by_cache(const string &cache_name, int point_id)
     } catch(EXCEPTIONS::Exception &E) {
         throw EXCEPTIONS::Exception("sync_by_cache: %s, msg: %s", cache_name.c_str(), E.what());
     }
+}
+
+bool TSyncTlgOutMng::IsTlgToSync(const string &tlg_type)
+{
+    bool result = false;
+    for(std::map<std::string, void (*)(int)>::iterator i = items.begin(); i != items.end(); i++) {
+        if(i->first == tlg_type) {
+            result = true;
+            break;
+        }
+    }
+    return result;
+}
+
+void TSyncTlgOutMng::add_tasks(map<string, void (*)(int, const std::string &, const std::string &)> &tasks)
+{
+    for(std::map<std::string, void (*)(int)>::iterator i = items.begin(); i != items.end(); i++)
+        tasks.insert(make_pair(i->first, TypeB::check_tlg_out));
 }
 
 bool TSyncTlgOutMng::IsCacheToSync(const string &cache_name)

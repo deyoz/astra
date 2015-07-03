@@ -54,6 +54,7 @@ class TSyncTlgOutMng {
 
         void sync_all(int point_id);
 
+        bool IsTlgToSync(const std::string &tlg_type);
         bool IsCacheToSync(const std::string &cache_name);
 
         // Из названия кэша достается тип телеграммы, напр. TYPEB_ADDRS_LCI -> LCI
@@ -61,6 +62,7 @@ class TSyncTlgOutMng {
         void sync_by_cache(const std::string &cache_name, int point_id);
 
         void sync_by_type(const std::string &type, int point_id);
+        void add_tasks(std::map<std::string, void (*)(int, const std::string &, const std::string &)> &items);
 };
 
 #endif
