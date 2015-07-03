@@ -174,7 +174,7 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       else
       if ( name == "clean_typeb_help" ) TypeBHelpMng::clean_typeb_help();
       else
-      if ( name == "test_watch_dog" ) sleep(keep_alive_minuts * 60 + 1);
+      if ( name == "test_watch_dog" ) sleep(keep_alive_minuts * 60 * 2);
 
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
@@ -486,13 +486,13 @@ static void * watchDog(void * arg)
 {
   TDateTime * ptimer = static_cast<TDateTime *>(arg);
   while (true) {
-  sleep(keep_alive_minuts * 60);
-  if (*ptimer == 0.0) continue;
-  double minutes = (NowUTC() - *ptimer)/1440.0;
-  if(minutes > keep_alive_minuts)
-    ProgError( STDLOG, "Timer aborted" );
-    abort();
+    sleep(keep_alive_minuts * 60);
+    if (*ptimer == 0.0) continue;
+    double minutes = (NowUTC() - *ptimer)*1440.0;
+    if(minutes > keep_alive_minuts) {
+      ProgError( STDLOG, "Timer aborted" );
+      abort();
+    }
   }
-
   return NULL;
 }
