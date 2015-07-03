@@ -488,6 +488,103 @@ class TMarkInfoOptions : public TCrsOptions
     };
 };
 
+class TCOMOptions : public TCreateOptions
+{
+  private:
+    void init()
+    {
+      version = "7.4";
+    };
+  public:
+    std::string version;
+    TCOMOptions() {init();};
+    virtual ~TCOMOptions() {};
+    virtual void clear()
+    {
+      TCreateOptions::clear();
+      init();
+    };
+    virtual void fromXML(xmlNodePtr node)
+    {
+      TCreateOptions::fromXML(node);
+      if (node==NULL) return;
+      xmlNodePtr node2=node->children;
+      version=NodeAsStringFast("version", node2, version.c_str());
+    };
+    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    {
+      TCreateOptions::fromDB(Qry, OptionsQry);
+      OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
+      OptionsQry.SetVariable("tlg_type", Qry.FieldAsString("tlg_type"));
+      OptionsQry.Execute();
+      for(;!OptionsQry.Eof;OptionsQry.Next())
+      {
+        std::string cat=OptionsQry.FieldAsString("category");
+        if (cat=="VERSION")
+        {
+          version=OptionsQry.FieldAsString("value");
+          continue;
+        };
+      };
+    };
+    virtual localizedstream& logStr(localizedstream &s) const
+    {
+      TCreateOptions::logStr(s);
+      s << ", "
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
+        << s.ElemIdToNameShort(etTypeBOptionValue, "COM+VERSION+"+version);
+      return s;
+    };
+    virtual localizedstream& extraStr(localizedstream &s) const
+    {
+      TCreateOptions::extraStr(s);
+      s << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
+        << s.ElemIdToNameShort(etTypeBOptionValue, "COM+VERSION+"+version)
+        << endl;
+      return s;
+    };
+    virtual std::string typeName() const
+    {
+      return "TCOMOptions";
+    };
+    virtual bool similar(const TCreateOptions &item) const
+    {
+      if (!TCreateOptions::similar(item)) return false;
+      try
+      {
+        const TCOMOptions &opt = dynamic_cast<const TCOMOptions&>(item);
+        return version == opt.version;
+      }
+      catch(std::bad_cast)
+      {
+        return false;
+      };
+    };
+    virtual bool equal(const TCreateOptions &item) const
+    {
+      if (!TCreateOptions::equal(item)) return false;
+      try
+      {
+        const TCOMOptions &opt = dynamic_cast<const TCOMOptions&>(item);
+        return version == opt.version;
+      }
+      catch(std::bad_cast)
+      {
+        return false;
+      };
+    };
+    virtual void copy(const TCreateOptions &item)
+    {
+      TCreateOptions::copy(item);
+      try
+      {
+        const TCOMOptions &opt = dynamic_cast<const TCOMOptions&>(item);
+        version = opt.version;
+      }
+      catch(std::bad_cast) {};
+    };
+};
+
 class TLDMOptions : public TCreateOptions
 {
   private:
@@ -546,7 +643,7 @@ class TLDMOptions : public TCreateOptions
     {
       TCreateOptions::logStr(s);
       s << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.VERSION") << ": "
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LDM+VERSION+"+version)
         << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
@@ -561,7 +658,7 @@ class TLDMOptions : public TCreateOptions
     virtual localizedstream& extraStr(localizedstream &s) const
     {
       TCreateOptions::extraStr(s);
-      s << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.VERSION") << ": "
+      s << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LDM+VERSION+"+version)
         << endl
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
@@ -1779,9 +1876,7 @@ class TCloseCheckInCreator : public TCreator
   public:
     TCloseCheckInCreator(int point_id) : TCreator(point_id, TCreatePoint(sCloseCheckIn, 0))
     {
-      *this << "COM"
-            << "COM2"
-            << "PRL";
+      *this << "PRL";
     };
 
     virtual bool validInfo(const TCreateInfo &info) const {
@@ -1801,9 +1896,7 @@ class TCloseBoardingCreator : public TCreator
   public:
     TCloseBoardingCreator(int point_id) : TCreator(point_id, TCreatePoint(sCloseBoarding, 0))
     {
-      *this << "COM"
-            << "COM2"
-            << "PRL";
+      *this << "PRL";
     };
     virtual bool validInfo(const TCreateInfo &info) const {
         if (!TCreator::validInfo(info)) return false;
@@ -1832,7 +1925,6 @@ class TTakeoffCreator : public TCreator
             << "FTL"
             << "PRL"
             << "PIM"
-            << "SOM"
         //    << "ETL" формируем по прилету в конечные пункт если не было интерактива с СЭБ
             << "ETLD"
             << "ASL"

@@ -1042,9 +1042,9 @@ void Takeoff( int point_id )
 
   time_start=time(NULL);
   try {
-      sync_lci_trip_tasks(point_id);
+      TSyncTlgOutMng::Instance()->sync_all(point_id);
   } catch(std::exception &E) {
-      ProgError(STDLOG,"%s.sync_lci_trip_tasks (point_id=%d): %s",__FUNCTION__, point_id,E.what());
+      ProgError(STDLOG,"%s.TSyncTlgOutMng::sync_all (point_id=%d): %s",__FUNCTION__, point_id,E.what());
   }
   try
   {

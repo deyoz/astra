@@ -818,6 +818,8 @@ tr1::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
     return tr1::shared_ptr<TCreateOptions>(new TMarkInfoOptions);
   else if (basic_type=="PRL")
     return tr1::shared_ptr<TCreateOptions>(new TPRLOptions);
+  else if (basic_type=="COM")
+    return tr1::shared_ptr<TCreateOptions>(new TCOMOptions);
   else if (basic_type=="LDM")
     return tr1::shared_ptr<TCreateOptions>(new TLDMOptions);
   else if (basic_type=="LCI")
