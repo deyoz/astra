@@ -112,12 +112,11 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
       AstraHTTP::http_main(rep, req);
     }
 
-    virtual int internet_proc(const char *body, int blen,
-                              const char *head, int hlen, char **res, int len)
+    virtual std::tuple<std::vector<uint8_t>, std::vector<uint8_t>> internet_proc(const std::vector<uint8_t>& body, const char *head, size_t hlen) override
     {
       //ProgError(STDLOG, "OciCpp::mainSession()=%d", OciCpp::mainSession().mode());
       OciCpp::mainSession().set7(); //это очень плохо что где-то в serverlib постоянно идет переключение на OCI8 !
-      return AstraWeb::internet_main(body,blen,head,hlen,res,len);
+      return AstraWeb::internet_main(body,head,hlen);
     }
 
     virtual int message_control(int type /* 0 - request, 1 - answer */,

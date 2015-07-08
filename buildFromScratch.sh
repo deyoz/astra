@@ -24,7 +24,7 @@ if [ -z "$LOCALCXX" ]; then
     fi
     if which ccache; then
         if [ -z "$CCACHE_DIR" ]; then
-            export CCACHE_DIR='/tmp/ccache_astra_trunk'
+            export CCACHE_DIR="/tmp/$(pwd | tr \/ _)"
         fi
         CXX="ccache $CXX"
         CC="ccache $CC"

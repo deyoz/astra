@@ -1,6 +1,8 @@
-export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib64/pkgconfig #this paths required in Oracle Linux 7
-export BOOST=
-export LIBXML2=
+#export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib64/pkgconfig #this paths required in Oracle Linux 7
+export BOOST=~/out/sirena/externallibs/boost
+#export LIBXML2=
 export ENABLE_SHARED=1
 export BUILD_TESTS=0
-./buildFromScratch.sh xren --configlibs --buildlibs
+export MAKE_J=4
+./buildFromScratch.sh xren --configlibs --buildlibs --configastra --buildastra
+#./buildFromScratch.sh xren --configastra --buildastra

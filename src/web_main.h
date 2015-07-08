@@ -8,6 +8,9 @@
 #include "tlg/tlg_parser.h"
 #include "web_search.h"
 #include "checkin_utils.h"
+#include <tuple>
+#include <vector>
+#include <cstdint>
 
 #define WEB_JXT_IFACE_ID "WEB"
 #define EMUL_CLIENT_TYPE ctWeb
@@ -26,8 +29,7 @@ namespace AstraWeb
 {
 bool is_sync_meridian( const TTripInfo &tripInfo );
 
-int internet_main(const char *body, int blen, const char *head,
-                  int hlen, char **res, int len);
+std::tuple<std::vector<uint8_t>, std::vector<uint8_t>> internet_main(const std::vector<uint8_t>& body, const char *head, size_t hlen);
 
 class WebRequestsIface : public JxtInterface
 {

@@ -85,8 +85,7 @@ int readInetClientId(const char *head)
 
 void RevertWebResDoc();
 
-int internet_main(const char *body, int blen, const char *head,
-                  int hlen, char **res, int len)
+std::tuple<std::vector<uint8_t>, std::vector<uint8_t>> internet_main(const std::vector<uint8_t>& body, const char *head, size_t hlen)
 {
   InitLogTime(NULL);
   PerfomInit();
@@ -98,7 +97,7 @@ int internet_main(const char *body, int blen, const char *head,
     if (SEND_REQUEST_DUP() &&
         hlen>0 && *head==char(2))
     {
-      std::string b(body,blen);
+      const std::string b(body.begin(),body.end());
       if ( b.find("<kick") == string::npos )
       {
         std::string msg;
@@ -114,15 +113,12 @@ int internet_main(const char *body, int blen, const char *head,
   }
   catch(...) {};
 
-  string answer;
-  int newlen=0;
-
   try
   {
     InetClient client=getInetClient(IntToString(client_id));
     string new_header=(string(head,45)+client.pult+"  "+client.opr+string(100,0)).substr(0,100)+string(head+100,hlen-100);
 
-    string new_body(body,blen);
+    string new_body(body.begin(),body.end());
     string sss("<query");
     string::size_type pos=new_body.find(sss);
     if(pos!=string::npos)
@@ -141,33 +137,18 @@ int internet_main(const char *body, int blen, const char *head,
     AstraJxtCallbacks* astra_cb_ptr = dynamic_cast<AstraJxtCallbacks*>(jxtlib::JXTLib::Instance()->GetCallbacks());
     astra_cb_ptr->SetPostProcessXMLAnswerCallback(RevertWebResDoc);
 
-    newlen=ac->jxt_proc((const char *)new_body.data(),new_body.size(),(const char *)new_header.data(),new_header.size(),res,len);
+    char* res = nullptr;
+    auto newlen=ac->jxt_proc(new_body.data(),new_body.size(),new_header.data(),new_header.size(),&res,0);
+    std::unique_ptr<char, void (*)(void*)> res_holder(res,free);
     ProgTrace(TRACE1,"newlen=%i",newlen);
-
-    memcpy(*res,head,hlen);
-
-
+    return std::make_tuple(std::vector<uint8_t>(head,head+hlen), std::vector<uint8_t>(res,res+newlen));
   }
   catch(...)
   {
-    answer="<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<error/>";
-    newlen=answer.size()+hlen; // размер ответа (с заголовком)
-    ProgTrace(TRACE1,"Outgoing message is %zu bytes long",answer.size());
-    if(newlen>len)
-    {
-      *res=(char *)malloc(newlen*sizeof(char));
-      if(*res==NULL)
-      {
-        ProgError(STDLOG,"malloc failed to allocate %i bytes",newlen);
-        return 0;
-      }
-    }
-    memcpy(*res,head,hlen);
-    memcpy(*res+hlen,answer.data(),answer.size());
+      constexpr unsigned char err_xml[] = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<error/>";
+      return std::make_tuple(std::vector<uint8_t>(head,head+hlen), std::vector<uint8_t>(err_xml, err_xml + sizeof err_xml));
   }
-
-  InitLogTime(NULL);
-  return newlen;
+  //InitLogTime(NULL); -- why??
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
