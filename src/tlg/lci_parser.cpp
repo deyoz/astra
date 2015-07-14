@@ -965,16 +965,23 @@ void TPD::parse(const char *val)
 void TSP::dump()
 {
     ProgTrace(TRACE5, "---TSP::dump---");
-    for(map<string, TSPItem>::iterator im = begin(); im != end(); im++) {
+    for(map<string, vector<TSPItem> >::iterator im = begin(); im != end(); im++) {
         ostringstream buf;
         buf << "SP[" << im->first << "] = ";
-        if(im->second.actual != NoExists)
-            buf << im->second.actual;
-        else
-            buf << EncodeGender(im->second.gender);
-        ProgTrace(TRACE5, "%s", buf.str().c_str());
+        for(vector<TSPItem>::iterator iv = im->second.begin(); iv != im->second.end(); iv++) {
+            if(iv->actual != NoExists)
+                buf << iv->actual;
+            else
+                buf << EncodeGender(iv->gender);
+            ProgTrace(TRACE5, "%s", buf.str().c_str());
+        }
     }
     ProgTrace(TRACE5, "---------------");
+}
+
+bool adult(TGender g)
+{
+    return g == gM or g == gF;
 }
 
 void TSP::parse(const char *val)
@@ -992,12 +999,41 @@ void TSP::parse(const char *val)
             throw ETlgError("SP wrong seat format %s", iv->c_str());
         TSPItem sp_i;
         string seat = sp_item[0];
-        if(find(seat) != end())
-            throw ETlgError("SP seat already exists %s", seat.c_str());
         sp_i.gender = DecodeGender(sp_item[1]);
-        if(sp_i.gender == gUnknown)
-            sp_i.actual = ToInt(sp_item[1]);
-        insert(make_pair(seat, sp_i));
+        // Weight mode (actual weight or gender) определяется по формату первого места.
+        if(pr_weight == NoExists)
+            pr_weight = sp_i.gender == gUnknown;
+
+        if(pr_weight)
+            try {
+                sp_i.actual = ToInt(sp_item[1]);
+            } catch(EConvertError &E) {
+                throw ETlgError("SP: wrong format of actual weight: %s", iv->c_str());
+            }
+        else if(sp_i.gender == gUnknown)
+            throw ETlgError("SP: unknown gender in gender mode: %s", iv->c_str());
+
+        vector<TSPItem> &seat_elem = (*this)[seat];
+        if(seat_elem.size() > 1)
+            throw ETlgError("SP: cannot add more than 2 persons on one seat");
+
+        // Если в тлг использутеся пол пассажира и для данного места уже добавлен 1.
+        if(not pr_weight and seat_elem.size() == 1) {
+            if(
+                    not (
+                        (sp_i.gender == gI and adult(seat_elem[0].gender)) or
+                        (adult(sp_i.gender) and seat_elem[0].gender == gI)
+                        )
+              ) {
+                throw ETlgError("SP: Infant must be accompanied with adult. seat: %s, pax1: %s, pax2: %s",
+                        seat.c_str(),
+                        EncodeGender(sp_i.gender),
+                        EncodeGender(seat_elem[0].gender)
+                        );
+            }
+        }
+
+        seat_elem.push_back(sp_i);
     }
 }
 
