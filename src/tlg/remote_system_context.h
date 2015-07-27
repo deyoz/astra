@@ -19,16 +19,17 @@
 #include "CheckinBaseTypes.h"
 #include "EdifactProfile.h"
 
+#include <etick/lang.h>
+#include <etick/tick_data.h>
+#include <etick/exceptions.h>
+#include <libtlg/tlgnum.h>
+
 #include <string>
 #include <map>
 #include <list>
 #include <time.h>
 #include <boost/shared_ptr.hpp>
-
-#include <etick/lang.h>
-#include <etick/tick_data.h>
-#include <etick/exceptions.h>
-#include <libtlg/tlgnum.h>
+#include <boost/optional.hpp>
 
 
 namespace Ticketing
@@ -100,7 +101,7 @@ namespace RemoteSystemContext
     {
         bool ToBePostponed;
         bool RepeatedlyProcessed;
-        tlgnum_t TlgNum;
+        boost::optional<tlgnum_t> TlgNum;
         std::string TlgSrc;
     public:
         InboundTlgInfo()
@@ -109,7 +110,7 @@ namespace RemoteSystemContext
         void setToBePostponed() { ToBePostponed=true; }
         bool toBePostponed() const { return ToBePostponed; }
 
-        const tlgnum_t& tlgNum() const { return TlgNum; }
+        boost::optional<tlgnum_t> tlgNum() const { return TlgNum; }
         void setTlgNum(const tlgnum_t& tnum) { TlgNum = tnum; }
 
         const std::string& tlgSrc() const { return TlgSrc; }

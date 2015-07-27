@@ -4,6 +4,7 @@
 #include <serverlib/dates.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/int_parameters_oci.h>
+#include <serverlib/rip_oci.h>
 
 #include <sstream>
 #include <boost/lexical_cast.hpp>

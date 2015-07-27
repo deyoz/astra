@@ -602,8 +602,10 @@ void AstraEdiHandlerManager::beforeProc()
     }
     RemoteSystemContext::SystemContext::initDummyContext();
     RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().setTlgSrc(TlgSrc->text());
-    RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().setTlgNum(TlgSrc->tlgNum());
-    if(TlgHandling::isTlgPostponed(TlgSrc->tlgNum())) {
+    boost::optional<tlgnum_t> tlgNum = TlgSrc->tlgNum();
+    ASSERT(tlgNum);
+    RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().setTlgNum(*tlgNum);
+    if(TlgHandling::isTlgPostponed(*tlgNum)) {
         RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().setRepeatedlyProcessed();
     }
 

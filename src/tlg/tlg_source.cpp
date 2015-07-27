@@ -12,10 +12,11 @@
 #include "exceptions.h"
 #include "tlg.h"
 
-#include <serverlib/dates.h>
-#include <serverlib/dates_oci.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/int_parameters_oci.h>
+#include <serverlib/dates_oci.h>
+#include <serverlib/rip_oci.h>
+#include <serverlib/cursctl.h>
+#include <serverlib/dates.h>
 
 #include <etick/exceptions.h>
 #include <etick/etick_msg.h>
@@ -119,9 +120,9 @@ void TlgSource::setTypeStr(const std::string & t)
 
 tlgnum_t TlgSource::genNextTlgNum()
 {
-    tlgnum_t num;
-    make_curs("SELECT TLGS_ID.NEXTVAL FROM DUAL").def(num.num).EXfet();
-    return num;
+    std::string num;
+    make_curs("SELECT TLGS_ID.NEXTVAL FROM DUAL").def(num).EXfet();
+    return tlgnum_t(num);
 }
 
 boost::posix_time::ptime TlgSource::receiveDate(const tlgnum_t& tnum)

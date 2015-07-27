@@ -34,9 +34,9 @@ private:
     std::string ToRot;
     boost::posix_time::ptime ReceiveDate; // AutoGen
     boost::posix_time::ptime ProcessDate; // AutoGen
-    tlgnum_t TlgNum; // AutoGen
+    boost::optional<tlgnum_t> TlgNum; // AutoGen
     std::string ErrorText;
-    tlgnum_t AnswerTlgNum; // Номер ответной телеграммы
+    boost::optional<tlgnum_t> AnswerTlgNum; // Номер ответной телеграммы
     bool Postponed;
     int HandMade;
     int GatewayNum;
@@ -122,7 +122,7 @@ public:
      * Номер телеграммы
      * @return tlgnum_t
      */
-    virtual const tlgnum_t &tlgNum() const { return TlgNum; }
+    virtual const boost::optional<tlgnum_t> &tlgNum() const { return TlgNum; }
 
     /**
      * Если телеграмма обработана или принята из сети с ошибкой,
@@ -186,7 +186,7 @@ public:
     /**
      * Номер ответной телеграммы
      */
-    virtual const tlgnum_t& answerTlgNum() const
+    virtual const boost::optional<tlgnum_t>& answerTlgNum() const
     {
         return AnswerTlgNum;
     }

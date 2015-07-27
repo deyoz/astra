@@ -139,10 +139,10 @@ void IatciResponseHandler::parse()
 
 void IatciResponseHandler::handle()
 {
-    tlgnum_t postponeTlg = PostponeEdiHandling::findPostponeTlg(ediSessId());
-    if(postponeTlg.num.valid()) {
+    boost::optional<tlgnum_t> postponeTlg = PostponeEdiHandling::findPostponeTlg(ediSessId());
+    if(postponeTlg) {
         // сохранение данных для последующей обработки отложенной телеграммы
-        iatci::saveDeferredCkiData(postponeTlg, m_lRes);
+        iatci::saveDeferredCkiData(*postponeTlg, m_lRes);
     } else {
         // сохранение данных для obrzap
         iatci::saveCkiData(ediSessId(), m_lRes);
@@ -154,9 +154,9 @@ void IatciResponseHandler::onTimeOut()
     // в список m_lRes положим один элемент, информирующий о таймауте
     m_lRes.push_back(iatci::Result::makeFailResult(action(),
                                                    iatci::ErrorDetails(AstraErr::TIMEOUT_ON_HOST_3)));
-    tlgnum_t postponeTlg = PostponeEdiHandling::findPostponeTlg(ediSessId());
-    if(postponeTlg.num.valid()) {
-        iatci::saveDeferredCkiData(postponeTlg, m_lRes);
+    boost::optional<tlgnum_t> postponeTlg = PostponeEdiHandling::findPostponeTlg(ediSessId());
+    if(postponeTlg) {
+        iatci::saveDeferredCkiData(*postponeTlg, m_lRes);
     }
 }
 

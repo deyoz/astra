@@ -125,7 +125,9 @@ const std::string& IatciRequestHandler::ediErrorLevel() const
 
 void IatciRequestHandler::loadDeferredData()
 {
-    m_lRes = iatci::loadDeferredCkiData(SystemContext::Instance(STDLOG).inbTlgInfo().tlgNum());
+    boost::optional<tlgnum_t> inbTlgNum = SystemContext::Instance(STDLOG).inbTlgInfo().tlgNum();
+    ASSERT(inbTlgNum);
+    m_lRes = iatci::loadDeferredCkiData(*inbTlgNum);
     if(m_lRes.empty()) {
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Empty result list!");
     } else if(m_lRes.size() == 1 && m_lRes.front().status() == iatci::Result::Failed) {

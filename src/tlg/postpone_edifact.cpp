@@ -12,6 +12,7 @@
 #include <serverlib/dates_oci.h>
 #include <serverlib/int_parameters_oci.h>
 #include <serverlib/testmode.h>
+#include <serverlib/rip_oci.h>
 
 #include <boost/lexical_cast.hpp>
 
@@ -34,7 +35,7 @@ void PostponeEdiHandling::insertDb(const tlgnum_t& tnum, edilib::EdiSessionId_t 
     LogTrace(TRACE1) << "insert into POSTPONED_TLG for edisess=" << sessId << "; msg_id=" << tnum;
 }
 
-tlgnum_t PostponeEdiHandling::deleteDb(edilib::EdiSessionId_t sessId)
+boost::optional<tlgnum_t> PostponeEdiHandling::deleteDb(edilib::EdiSessionId_t sessId)
 {
     char tnum[tlgnum_t::TLG_NUM_LENGTH + 1] = {};
     OciCpp::CursCtl cur = make_curs(
@@ -51,7 +52,11 @@ tlgnum_t PostponeEdiHandling::deleteDb(edilib::EdiSessionId_t sessId)
     LogTrace(TRACE1) << "delete from POSTPONED_TLG for edisess=" << sessId
                      << "; got msg_id=" << tnum;
 
-    return tlgnum_t(tnum);
+    std::string tmpNum(tnum);
+    if(!tmpNum.empty())
+        return tlgnum_t(tnum);
+
+    return boost::none;
 }
 
 void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
@@ -75,7 +80,7 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
         //Ticketing::RemoteSystemContext::SystemContext::free();
 
         tlg_info tlgi = {};
-        tlgi.id = boost::lexical_cast<int>(tlg.tlgNum().num);
+        tlgi.id = boost::lexical_cast<int>(tlg.tlgNum()->num);
         tlgi.sender = tlg.fromRot();
         tlgi.text = tlg.text();
         handle_edi_tlg(tlgi);
@@ -95,19 +100,19 @@ void PostponeEdiHandling::postpone(int tnum, edilib::EdiSessionId_t sessId)
     postpone(tlgNum, sessId);
 }
 
-tlgnum_t PostponeEdiHandling::deleteWaiting(edilib::EdiSessionId_t sessId)
+boost::optional<tlgnum_t> PostponeEdiHandling::deleteWaiting(edilib::EdiSessionId_t sessId)
 {
     LogTrace(TRACE3) << "try to find postponed tlg for session: " << sessId;
-    tlgnum_t tnum = deleteDb(sessId);
-    if(tnum.num.valid())
+    boost::optional<tlgnum_t> tnum = deleteDb(sessId);
+    if(tnum)
     {
         LogTrace(TRACE1) << "putTlg2InputQueue postponed tlg with num: " << tnum;
-        addToQueue(tnum);
+        addToQueue(*tnum);
     }
     return tnum;
 }
 
-tlgnum_t PostponeEdiHandling::findPostponeTlg(edilib::EdiSessionId_t sessId)
+boost::optional<tlgnum_t> PostponeEdiHandling::findPostponeTlg(edilib::EdiSessionId_t sessId)
 {
     char tnum[tlgnum_t::TLG_NUM_LENGTH + 1] = {};
     OciCpp::CursCtl cur = make_curs(
@@ -120,7 +125,7 @@ tlgnum_t PostponeEdiHandling::findPostponeTlg(edilib::EdiSessionId_t sessId)
         return tlgnum_t(tnum);
     }
 
-    return tlgnum_t();
+    return boost::none;
 }
 
 //---------------------------------------------------------------------------------------

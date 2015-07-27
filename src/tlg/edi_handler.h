@@ -4,6 +4,7 @@
 
 struct tlg_info
 {
+#warning tlg id is not integer!
   int id;
   std::string text;
   std::string sender;
