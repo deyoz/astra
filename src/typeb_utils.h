@@ -1666,6 +1666,7 @@ class TDetailCreateInfo : public TOptionsInfo
     std::string lang;
     // список ошибок телеграммы
     TErrLst err_lst;
+    int typeb_in_id; // Если определена, то текущая телеграмма есть ответ на входную.
 
     std::string TlgElemIdToElem(TElemType type, int id, TElemFmt fmt = efmtUnknown);
     std::string TlgElemIdToElem(TElemType type, std::string id, TElemFmt fmt = efmtUnknown);
@@ -1699,6 +1700,7 @@ class TDetailCreateInfo : public TOptionsInfo
         vcompleted = false;
         manual_creation = false;
         elem_fmt = efmtUnknown;
+        typeb_in_id = ASTRA::NoExists;
     };
     virtual ~TDetailCreateInfo() {};
 

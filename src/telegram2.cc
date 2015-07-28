@@ -735,7 +735,12 @@ void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
     }
 
     int tlg_out_id = NoExists;
-    if(not tlg_info.manual_creation)
+    // Если телеграмма автоматическая и автономная
+    // (т.е. не является ответом на тлг-запрос) - проверка на дублирование
+    if(
+            not tlg_info.manual_creation and
+            tlg_info.typeb_in_id == NoExists
+      )
         tlg_out_id = find_duplicate(tlg_row);
     if(tlg_out_id != NoExists) {
         TReqInfo::Instance()->LocaleToLog("EVT.TLG.OUT.DUPLICATED", LEvntPrms()
@@ -7854,6 +7859,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     info.time_create = NowUTC();
     info.vcompleted = !tlgTypeInfo.editable;
     info.manual_creation = manual_creation;
+    info.typeb_in_id = typeb_in_id;
 
     if (info.optionsIs<TypeB::TAirpTrferOptions>())
     {
