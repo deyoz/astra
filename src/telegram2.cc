@@ -6370,9 +6370,13 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
 }
 
 struct TSeatPlan {
-    map<int,TCheckinPaxSeats> checkinPaxsSeats;
-    void get(TypeB::TDetailCreateInfo &info);
-    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
+    private:
+        template <typename T>
+            void fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter);
+    public:
+        map<int,TCheckinPaxSeats> checkinPaxsSeats;
+        void get(TypeB::TDetailCreateInfo &info);
+        void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
 
 void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
@@ -6387,51 +6391,73 @@ void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
     }
 }
 
+template <typename T>
+void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
+{
+    for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
+        // g stands for 'gender'; First iteration - seats for adult, second iteration - one seat for infant
+        for(int g = 0; g <=1; g++) {
+            string gender;
+            if(g == 0)
+                gender = im->second.gender;
+            else {
+                if(im->second.pr_infant == NoExists)
+                    break;
+                else
+                    gender = 'I';
+            }
+            // цикл по местам текущего паса
+            for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
+                string seat =
+                    "." + denorm_iata_row(is->yname, NULL) +
+                    denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
+                    "/" + gender;
+                inserter.do_insert(seat, is->point_arv);
+                if(g == 1) break; // Для инфанта печатаем только первое место
+            }
+        }
+    }
+}
+
+struct TAHMInserter {
+    string &buf;
+    vector<string> &body;
+    void do_insert(const string &seat, int point_arv) const // point_arv not used
+    {
+        if(buf.size() + seat.size() > LINE_SIZE) {
+            body.push_back(buf);
+            buf = "SP";
+        }
+        buf += seat;
+    }
+    TAHMInserter(string &abuf, vector<string> &abody):
+        buf(abuf),
+        body(abody)
+    {}
+};
+
+struct TWBInserter {
+    map<int, vector<string> > &wb_seats;
+    void do_insert(const string &seat, int point_arv) const
+    {
+        wb_seats[point_arv].push_back(seat);
+    }
+    TWBInserter(map<int, vector<string> > &awb_seats):
+        wb_seats(awb_seats)
+    {}
+};
+
 void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
     if(options.seat_plan == "AHM") {
         string buf = "SP";
-        for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
-            // g stands for 'gender'; First iteration - seats for adult, second iteration - one seat for infant
-            for(int g = 0; g <=1; g++) {
-                string gender;
-                if(g == 0)
-                    gender = im->second.gender;
-                else {
-                    if(im->second.pr_infant == NoExists)
-                        break;
-                    else
-                        gender = 'I';
-                }
-                // цикл по местам текущего паса
-                for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
-                    string seat =
-                        "." + denorm_iata_row(is->yname, NULL) +
-                        denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
-                        "/" + gender;
-                    if(buf.size() + seat.size() > LINE_SIZE) {
-                        body.push_back(buf);
-                        buf = "SP";
-                    }
-                    buf += seat;
-                    if(g == 1) break; // Для инфанта печатаем только первое место
-                }
-            }
-        }
+        fill_seats<TAHMInserter>(info, TAHMInserter(buf, body));
         if(buf != "SP")
             body.push_back(buf);
     } else if(options.seat_plan == "WB") {
         map<int, vector<string> > wb_seats;
-        for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
-            for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
-                string seat =
-                    "." + denorm_iata_row(is->yname, NULL) +
-                    denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
-                    "/" + im->second.gender;
-                wb_seats[is->point_arv].push_back(seat);
-            }
-        }
+        fill_seats<TWBInserter>(info, TWBInserter(wb_seats));
         TTripRoute route;
         route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
         for(TTripRoute::iterator i = route.begin(); i != route.end(); i++) {
