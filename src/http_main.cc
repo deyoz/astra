@@ -26,7 +26,7 @@ using namespace EXCEPTIONS;
 #include "serverlib/query_runner.h"
 
 #define NICKNAME "DJEK"
-#include "serverlib/slogger.h"
+#include "serverlib/test.h"
 
 using namespace std;
 //using namespace ASTRA;
@@ -104,8 +104,6 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
 
   //reqInfoData.pr_web = (head[0]==2); //чтобы pr_web установился в  true
   header = (string(1,2) + string(44,0) + client_info.pult + "  " + client_info.client_id + string(100,0)).substr(0,100);
-
-  LogTrace(TRACE5) << "request content: " << req.content;
 
   if (!jxt_format) //параметр http запроса
   {
@@ -194,8 +192,6 @@ void http_main(reply& rep, const request& req)
 
       AstraJxtCallbacks* astra_cb_ptr = dynamic_cast<AstraJxtCallbacks*>(jxtlib::JXTLib::Instance()->GetCallbacks());
       astra_cb_ptr->SetPostProcessXMLAnswerCallback(client.jxt_interface[client.operation].post_proc);
-
-      LogTrace(TRACE5) << "body: '" << body << "'";
 
       int newlen=ac->jxt_proc((const char *)body.data(),body.size(),(const char *)header.data(),header.size(), &res, len);
       ProgTrace( TRACE5, "newlen=%d, len=%d, header.size()=%zu", newlen, len, header.size() );
