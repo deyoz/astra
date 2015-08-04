@@ -1103,12 +1103,12 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
   {
     if (UpdateStatus == usDeleted )
     {
-      tlocale.lexema_id = "EVT.BT_FORM_INSERTED";
+      tlocale.lexema_id = "EVT.BT_FORM_DELETED";
       tlocale.prms << PrmSmpl<string>("name", cache.FieldOldValue("bt_name", row));
     }
     else if ( UpdateStatus == usInserted)
     {
-      tlocale.lexema_id = "EVT.BT_FORM_DELETED";
+      tlocale.lexema_id = "EVT.BT_FORM_INSERTED";
       tlocale.prms << PrmSmpl<string>("name", cache.FieldValue("bt_name", row));
     }
     else if ( UpdateStatus == usModified)
