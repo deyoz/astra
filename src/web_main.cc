@@ -141,12 +141,14 @@ std::tuple<std::vector<uint8_t>, std::vector<uint8_t>> internet_main(const std::
     auto newlen=ac->jxt_proc(new_body.data(),new_body.size(),new_header.data(),new_header.size(),&res,0);
     std::unique_ptr<char, void (*)(void*)> res_holder(res,free);
     ProgTrace(TRACE1,"newlen=%i",newlen);
-    return std::make_tuple(std::vector<uint8_t>(head,head+hlen), std::vector<uint8_t>(res,res+newlen));
+//    if(newlen < hlen)
+//        throw 
+    return std::make_tuple(std::vector<uint8_t>(head,head+hlen), std::vector<uint8_t>(res+hlen,res+newlen));
   }
   catch(...)
   {
       constexpr unsigned char err_xml[] = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<error/>";
-      return std::make_tuple(std::vector<uint8_t>(head,head+hlen), std::vector<uint8_t>(err_xml, err_xml + sizeof err_xml));
+      return std::make_tuple(std::vector<uint8_t>(head,head+hlen), std::vector<uint8_t>(err_xml, err_xml -1 + sizeof err_xml));
   }
   //InitLogTime(NULL); -- why??
 }
