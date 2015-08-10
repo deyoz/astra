@@ -612,8 +612,10 @@ bool create_apis_file(int point_id, const string& task_name)
               paxlstInfo.setArrDateTime(scd_in_local);
               if (fmt=="XML_TR") {
                 //Flight legs
-                TTripRoute route;
-                route.GetTotalRoute(NoExists, point_id, trtNotCancelled);
+                TTripRoute route, tmp;
+                route.GetRouteBefore(NoExists, point_id, trtWithCurrent, trtNotCancelled);
+                tmp.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
+                route.insert(route.end(), tmp.begin(), tmp.end());
                 FlightLegs legs;
                 for(TTripRoute::const_iterator r=route.begin(); r!=route.end(); r++)
                 {
@@ -778,7 +780,6 @@ bool create_apis_file(int point_id, const string& task_name)
                 case baby:
                   paxInfo.setPersType("Infant");
                   break;
-                break;
               default:
                   throw Exception("DecodePerson failed");
               }

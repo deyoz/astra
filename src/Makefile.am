@@ -45,7 +45,7 @@ astra_SOURCES = \
   apis_edi_file.cc \
   apis_tools.cc \
   apis_utils.cc \
-  app_interaction.cc \
+  apps_interaction.cc \
   arx_daily.cc \
   astra_callbacks.cc \
   astra_consts.cc \
@@ -177,7 +177,7 @@ noinst_HEADERS = \
   apis.h \
   apis_edi_file.h \
   apis_tools.h \
-  app_interaction.h \
+  apps_interaction.h \
   arx_daily.h \
   astra_callbacks.h \
   astra_consts.h \

@@ -21,6 +21,7 @@
 #include "salons.h"
 #include "term_version.h"
 #include "events.h"
+#include "apps_interaction.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -974,7 +975,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       Qry.Clear();
       Qry.SQLText=
-        "SELECT pax_grp.grp_id, pax_grp.airp_arv, pax_grp.status, "
+        "SELECT pax_grp.grp_id, pax_grp.point_arv, pax_grp.airp_arv, pax_grp.status, "
         "       pax.pax_id, pax.surname, pax.name, pax.seats, "
         "       pax.pr_brd, pax.pr_exam, pax.wl_type, pax.ticket_rem, pax.tid "
         "FROM pax_grp, pax "
@@ -987,6 +988,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       if (Qry.Eof)
         throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
       int grp_id=Qry.FieldAsInteger("grp_id");
+      int point_arv=Qry.FieldAsInteger("point_arv");
       string airp_arv=Qry.FieldAsString("airp_arv");
       TPaxStatus grp_status=DecodePaxStatus(Qry.FieldAsString("status"));
 
@@ -1222,6 +1224,19 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             };
           };
         };
+
+        //============================ проверка APPS статуса пассажира ============================
+        if (isNeedAPPSReq(point_id, point_arv)) {
+          TReqPaxData apps_pax;
+          for(int pass=0;pass<2;pass++)
+          {
+            TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
+            if (!pax.exists()) continue;
+            apps_pax.fromDB(pax.pax_id);
+            if( apps_pax.status != "B" )
+              throw AstraLocale::UserException("MSG.PASSENGER.APPS_PROBLEM");
+          }
+        }
 
         if (!without_monitor)
         {

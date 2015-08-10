@@ -40,6 +40,7 @@
 #include "jxtlib/jxt_cont.h"
 #include "apis_utils.h"
 #include "astra_callbacks.h"
+#include "apps_interaction.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -3579,6 +3580,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   bool new_checkin=false;
   bool save_trfer=false;
   vector<CheckIn::TTransferItem> trfer;
+  TSegmentsList segs_for_apps;
+  TPaxDocList paxs_for_apps;
   for(bool first_segment=true;
       segNode!=NULL;
       segNode=segNode->next,first_segment=false)
@@ -3672,6 +3675,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     };
 
     segList.back().flt=s->second.fltInfo;
+
+    TSegment segment;
+    segment.init(segList.back().grp.point_dep, segList.back().grp.point_arv,
+                 segList.back().grp.airp_dep, segList.back().grp.airp_arv,
+                 segList.back().flt);
+    segs_for_apps.push_back(segment);
   };
 
   //проверим, регистрация ли это экипажа
@@ -4876,6 +4885,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 };
                 //запись норм
                 if (first_segment) CheckIn::SaveNorms(p->node,pr_unaccomp);
+
+                //сохраним пассажира для APPS
+                paxs_for_apps.push_back(TPaxData(pax_id, false, pax.doc));
               }
               catch(CheckIn::UserException)
               {
@@ -5148,6 +5160,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               };
               //запись норм
               if (first_segment) CheckIn::SaveNorms(p->node,pr_unaccomp);
+              //сохраним пассажира для APPS
+              paxs_for_apps.push_back(TPaxData(pax.id, pax.PaxUpdatesPending?true:false, pax.doc));
             }
             catch(CheckIn::UserException)
             {
@@ -5724,6 +5738,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         Qry.CreateVariable("point_id", otInteger, grp.point_dep);
         Qry.Execute();
       };
+      composeAPPSReq(segs_for_apps, grp.point_dep, paxs_for_apps, (grp.status == psCrew));
+      paxs_for_apps.clear();
     }
     catch(UserException &e)
     {

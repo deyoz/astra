@@ -306,6 +306,10 @@ int sendTlg(const char* receiver,
             type = "OUTA";
             priority = qpOutAStepByStep;
             break;
+          case qpOutApp:
+            type = "OAPP";
+            priority = qpOutApp;
+          break;
           default:
             type = "OUTB";
             priority = qpOutB;

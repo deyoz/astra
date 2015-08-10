@@ -1,5 +1,6 @@
 #include "apis_utils.h"
 #include "misc.h"
+#include "apps_interaction.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -45,6 +46,12 @@ TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_ar
         result.pass.doc.required_fields|=DOC_MINTRANS_FIELDS;
         result.crew.doc.required_fields|=DOC_MINTRANS_FIELDS;
     };
+
+    if(isNeedAPPSReq(point_dep, airp_arv)) {
+      apis_formats.insert("APPS_SITA");
+      result.pass.doc.required_fields|=DOC_APPS_SITA_FIELDS;
+      result.crew.doc.required_fields|=DOC_APPS_SITA_FIELDS;
+    }
 
     try
     {

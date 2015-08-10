@@ -69,6 +69,8 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_apps_handler_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_apps_answer_emul_tcl(int supervisorSocket, int argc, char *argv[]);
 
 const char* ETS_CANON_NAME();
 const char* OWN_CANON_NAME();
@@ -76,7 +78,7 @@ const char* ERR_CANON_NAME();
 const char* DEF_CANON_NAME();
 int HANDLER_PROC_ATTEMPTS();
 
-enum TTlgQueuePriority { qpOutA=1, qpOutAStepByStep=3, qpOutB=2 };
+enum TTlgQueuePriority { qpOutA=1, qpOutAStepByStep=4, qpOutB=3, qpOutApp=2 };
 
 int getNextTlgNum();
 void putTypeBBody(int tlg_id, int tlg_num, const std::string &tlg_body);

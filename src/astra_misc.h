@@ -364,6 +364,26 @@ struct TTripRouteItem
   }
 };
 
+struct TAdvTripRouteItem : TTripRouteItem
+{
+  BASIC::TDateTime scd_in, scd_out;
+  std::string airline, suffix;
+  int flt_num;
+
+  TAdvTripRouteItem() : TTripRouteItem()
+  {
+    Clear();
+  }
+  void Clear()
+  {
+    scd_in = ASTRA::NoExists;
+    scd_out = ASTRA::NoExists;
+    airline.clear();
+    suffix.clear();
+    flt_num = ASTRA::NoExists;
+  }
+};
+
 //несколько общих моментов для пользования функций работы с маршрутом:
 //point_id = points.point_id
 //first_point = points.first_point
@@ -379,10 +399,55 @@ enum TTripRouteType1 { trtNotCurrent,
 enum TTripRouteType2 { trtNotCancelled,
                        trtWithCancelled };
 
-class TTripRoute : public std::vector<TTripRouteItem>
+class TTripBase
+{
+private:
+  virtual void GetRoute(BASIC::TDateTime part_key,
+                int point_id,
+                int point_num,
+                int first_point,
+                bool pr_tranzit,
+                bool after_current,
+                TTripRouteType1 route_type1,
+                TTripRouteType2 route_type2,
+                TQuery& Qry) = 0;
+  virtual bool GetRoute(BASIC::TDateTime part_key,
+                int point_id,
+                bool after_current,
+                TTripRouteType1 route_type1,
+                TTripRouteType2 route_type2) = 0;
+public:
+  //маршрут после пункта point_id
+  bool GetRouteAfter(BASIC::TDateTime part_key,
+                     int point_id,
+                     TTripRouteType1 route_type1,
+                     TTripRouteType2 route_type2);
+  void GetRouteAfter(BASIC::TDateTime part_key,
+                     int point_id,
+                     int point_num,
+                     int first_point,
+                     bool pr_tranzit,
+                     TTripRouteType1 route_type1,
+                     TTripRouteType2 route_type2);
+  //маршрут до пункта point_id
+  bool GetRouteBefore(BASIC::TDateTime part_key,
+                      int point_id,
+                      TTripRouteType1 route_type1,
+                      TTripRouteType2 route_type2);
+  void GetRouteBefore(BASIC::TDateTime part_key,
+                      int point_id,
+                      int point_num,
+                      int first_point,
+                      bool pr_tranzit,
+                      TTripRouteType1 route_type1,
+                      TTripRouteType2 route_type2);
+  virtual ~TTripBase() {}
+};
+
+class TTripRoute : public TTripBase, public std::vector<TTripRouteItem>
 {
   private:
-    void GetRoute(BASIC::TDateTime part_key,
+    virtual void GetRoute(BASIC::TDateTime part_key,
                   int point_id,
                   int point_num,
                   int first_point,
@@ -391,49 +456,12 @@ class TTripRoute : public std::vector<TTripRouteItem>
                   TTripRouteType1 route_type1,
                   TTripRouteType2 route_type2,
                   TQuery& Qry);
-    bool GetRoute(BASIC::TDateTime part_key,
-                  int point_id,
-                  bool after_current,
-                  TTripRouteType1 route_type1,
-                  TTripRouteType2 route_type2);
-
+    virtual bool GetRoute(BASIC::TDateTime part_key,
+                int point_id,
+                bool after_current,
+                TTripRouteType1 route_type1,
+                TTripRouteType2 route_type2);
   public:
-    //маршрут после пункта point_id
-    bool GetRouteAfter(BASIC::TDateTime part_key,
-                       int point_id,
-                       TTripRouteType1 route_type1,
-                       TTripRouteType2 route_type2);
-    void GetRouteAfter(BASIC::TDateTime part_key,
-                       int point_id,
-                       int point_num,
-                       int first_point,
-                       bool pr_tranzit,
-                       TTripRouteType1 route_type1,
-                       TTripRouteType2 route_type2);
-    //маршрут до пункта point_id
-    bool GetRouteBefore(BASIC::TDateTime part_key,
-                        int point_id,
-                        TTripRouteType1 route_type1,
-                        TTripRouteType2 route_type2);
-    void GetRouteBefore(BASIC::TDateTime part_key,
-                        int point_id,
-                        int point_num,
-                        int first_point,
-                        bool pr_tranzit,
-                        TTripRouteType1 route_type1,
-                        TTripRouteType2 route_type2);
-
-    //полный маршрут
-    bool GetTotalRoute(BASIC::TDateTime part_key,
-                        int point_id,
-                        TTripRouteType2 route_type2);
-    void GetTotalRoute(BASIC::TDateTime part_key,
-                        int point_id,
-                        int point_num,
-                        int first_point,
-                        bool pr_tranzit,
-                        TTripRouteType2 route_type2);
-
     //возвращает следующий пункт маршрута
     void GetNextAirp(BASIC::TDateTime part_key,
                      int point_id,
@@ -460,6 +488,28 @@ class TTripRoute : public std::vector<TTripRouteItem>
                       TTripRouteType2 route_type2,
                       TTripRouteItem& item);
     std::string GetStr() const;
+    virtual ~TTripRoute() {}
+};
+
+class TAdvTripRoute : public TTripBase, public std::vector<TAdvTripRouteItem>
+{
+  private:
+    virtual void GetRoute(BASIC::TDateTime part_key,
+                  int point_id,
+                  int point_num,
+                  int first_point,
+                  bool pr_tranzit,
+                  bool after_current,
+                  TTripRouteType1 route_type1,
+                  TTripRouteType2 route_type2,
+                  TQuery& Qry);
+    virtual bool GetRoute(BASIC::TDateTime part_key,
+                int point_id,
+                bool after_current,
+                TTripRouteType1 route_type1,
+                TTripRouteType2 route_type2);
+  public:
+    virtual ~TAdvTripRoute() {}
 };
 
 class TPaxSeats {
