@@ -7125,17 +7125,12 @@ struct TFQT {
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     {
         for(vector<CheckIn::TPaxFQTItem>::iterator i = items.begin(); i != items.end(); i++) {
-            if(
-                    i->rem == "FQTV" or
-                    i->rem == "FQTU" or
-                    i->rem == "FQTR"
-              )
-                body.push_back((string)
-                        ".F/" +
-                        info.TlgElemIdToElem(etAirline, i->airline) +
-                        " " +
-                        transliter(i->no, 1, info.is_lat())
-                        );
+            body.push_back((string)
+                    ".F/" +
+                    info.TlgElemIdToElem(etAirline, i->airline) +
+                    " " +
+                    transliter(i->no, 1, info.is_lat())
+                    );
         }
     }
 };
@@ -7199,7 +7194,12 @@ struct TCKINPaxInfo {
                     EqualFqts(*i_ckin_fqt, *i_crs_fqt);
 
                 if(process_ckin_fqt)
-                    fqt.items.push_back(*i_ckin_fqt);
+                    if(
+                            i_ckin_fqt->rem == "FQTV" or
+                            i_ckin_fqt->rem == "FQTU" or
+                            i_ckin_fqt->rem == "FQTR"
+                      )
+                        fqt.items.push_back(*i_ckin_fqt);
 
                 if(process_ckin_crs or process_ckin_fqt) i_ckin_fqt++;
                 if(process_ckin_crs or process_crs_fqt) i_crs_fqt++;
