@@ -1,4 +1,4 @@
-create or replace TYPE "MIGR_REPORT_SUM_ROW"                                                                          AS OBJECT
+create or replace TYPE        "MIGR_REPORT_SUM_ROW"                                          AS OBJECT
        (LABEL           VARCHAR2(50),
 	    SCHEMA_SUM      NUMBER,
         TABLE_SUM       NUMBER,

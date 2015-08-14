@@ -1,4 +1,4 @@
-create or replace TYPE "MIGR_REPORT_DETAIL_ROW"                                                                          AS OBJECT
+create or replace TYPE        "MIGR_REPORT_DETAIL_ROW"                                          AS OBJECT
  (CAPTURED_ID            NUMBER(38),
   CAPTURED_NAME          VARCHAR2(4000),
   CONVERTED_NAME          VARCHAR2(4000),

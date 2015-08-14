@@ -10,9 +10,13 @@ PROCEDURE modify_originator(
        vid              typeb_originators.id%TYPE,
        vlast_date       typeb_originators.last_date%TYPE,
        vlang            lang_types.code%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             typeb_originators.tid%TYPE DEFAULT NULL);
 PROCEDURE delete_originator(
        vid              typeb_originators.id%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             typeb_originators.tid%TYPE DEFAULT NULL);
 PROCEDURE add_originator(
        vid       IN OUT typeb_originators.id%TYPE,
@@ -25,7 +29,9 @@ PROCEDURE add_originator(
        vdouble_sign     typeb_originators.double_sign%TYPE,
        vdescr           typeb_originators.descr%TYPE,
        vtid             typeb_originators.tid%TYPE,
-       vlang            lang_types.code%TYPE);
+       vlang            lang_types.code%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE);
 
 procedure insert_pact(vid             in pacts.id%type,
                       vsys_user_id    in users2.user_id%TYPE,
@@ -35,7 +41,9 @@ procedure insert_pact(vid             in pacts.id%type,
                       vairline_view   in VARCHAR2,
                       vairp           in pacts.airp%type,
                       vairp_view      in VARCHAR2,
-                      vdescr          in pacts.descr%type default null);
+                      vdescr          in pacts.descr%TYPE,
+                      vsetting_user   in history_events.open_user%TYPE,
+                      vstation        in history_events.open_desk%TYPE);
 
 PROCEDURE check_hall_airp(vhall_id       IN halls2.id%TYPE,
                           vpoint_id      IN points.point_id%TYPE);
@@ -168,30 +176,36 @@ FUNCTION check_misc_set_access(vtype IN misc_set.type%TYPE,
                                vuser_id IN users2.user_id%TYPE,
                                vexception IN NUMBER) RETURN misc_set.type%TYPE;
 
-PROCEDURE insert_user(vlogin     IN users2.login%TYPE,
-                      vdescr     IN users2.descr%TYPE,
-                      vtype      IN users2.type%TYPE,
-                      vpr_denial IN users2.pr_denial%TYPE,
-                      vsys_user_id IN users2.user_id%TYPE,
+PROCEDURE insert_user(vlogin             IN users2.login%TYPE,
+                      vdescr             IN users2.descr%TYPE,
+                      vtype              IN users2.type%TYPE,
+                      vpr_denial         IN users2.pr_denial%TYPE,
+                      vsys_user_id       IN users2.user_id%TYPE,
                       vtime_fmt  	 IN user_sets.time%TYPE,
                       vdisp_airline_fmt  IN user_sets.disp_airline%TYPE,
                       vdisp_airp_fmt  	 IN user_sets.disp_airp%TYPE,
                       vdisp_craft_fmt  	 IN user_sets.disp_craft%TYPE,
-                      vdisp_suffix_fmt   IN user_sets.disp_suffix%TYPE);
+                      vdisp_suffix_fmt   IN user_sets.disp_suffix%TYPE,
+                      vsetting_user      IN history_events.open_user%TYPE,
+                      vstation           IN history_events.open_desk%TYPE);
 
-PROCEDURE update_user(vold_user_id IN users2.user_id%TYPE,
-                      vlogin     IN users2.login%TYPE,
-                      vtype      IN users2.type%TYPE,
-                      vpr_denial IN users2.pr_denial%TYPE,
-                      vsys_user_id IN users2.user_id%TYPE,
+PROCEDURE update_user(vold_user_id       IN users2.user_id%TYPE,
+                      vlogin             IN users2.login%TYPE,
+                      vtype              IN users2.type%TYPE,
+                      vpr_denial         IN users2.pr_denial%TYPE,
+                      vsys_user_id       IN users2.user_id%TYPE,
                       vtime_fmt  	 IN user_sets.time%TYPE,
                       vdisp_airline_fmt  IN user_sets.disp_airline%TYPE,
                       vdisp_airp_fmt  	 IN user_sets.disp_airp%TYPE,
                       vdisp_craft_fmt  	 IN user_sets.disp_craft%TYPE,
-                      vdisp_suffix_fmt   IN user_sets.disp_suffix%TYPE);
+                      vdisp_suffix_fmt   IN user_sets.disp_suffix%TYPE,
+                      vsetting_user      IN history_events.open_user%TYPE,
+                      vstation           IN history_events.open_desk%TYPE);
 
-PROCEDURE delete_user(vold_user_id IN users2.user_id%TYPE,
-                      vsys_user_id IN users2.user_id%TYPE);
+PROCEDURE delete_user(vold_user_id  IN users2.user_id%TYPE,
+                      vsys_user_id  IN users2.user_id%TYPE,
+                      vsetting_user IN history_events.open_user%TYPE,
+                      vstation      IN history_events.open_desk%TYPE);
 
 PROCEDURE check_airline_codes(vid               IN airlines.id%TYPE,
                               vcode             IN airlines.code%TYPE,
@@ -236,19 +250,24 @@ TYPE TCacheInfo IS RECORD
 
 FUNCTION get_cache_info(vcode	cache_tables.code%TYPE) RETURN TCacheInfo;
 
+FUNCTION check_trfer_sets_interval(str         IN VARCHAR2,
+                                   cache_table IN cache_tables.code%TYPE,
+                                   cache_field IN cache_fields.name%TYPE,
+                                   vlang       IN lang_types.code%TYPE) RETURN trfer_sets.min_interval%TYPE;
+
 FUNCTION get_locale_text(vid   IN locale_messages.id%TYPE,
                         vlang IN locale_messages.lang%TYPE) RETURN locale_messages.text%TYPE;
 
-FUNCTION get_trfer_set_flts(vid 	 trfer_set_flts.id%TYPE,
-                            vpr_onward   trfer_set_flts.pr_onward%TYPE) RETURN VARCHAR2;
+FUNCTION get_trfer_set_flts(vtrfer_set_id trfer_set_flts.trfer_set_id%TYPE,
+                            vpr_onward    trfer_set_flts.pr_onward%TYPE) RETURN VARCHAR2;
 
-PROCEDURE insert_trfer_sets(vid		      IN trfer_set_airps.id%TYPE,
-                            vairline_in       IN trfer_set_airps.airline_in%TYPE,
+PROCEDURE insert_trfer_sets(vid		      IN trfer_sets.id%TYPE,
+                            vairline_in       IN trfer_sets.airline_in%TYPE,
                             vairline_in_view  IN VARCHAR2,
                             vflt_no_in 	      IN VARCHAR2,
-                            vairp 	      IN trfer_set_airps.airp%TYPE,
+                            vairp 	      IN trfer_sets.airp%TYPE,
                             vairp_view        IN VARCHAR2,
-                            vairline_out      IN trfer_set_airps.airline_out%TYPE,
+                            vairline_out      IN trfer_sets.airline_out%TYPE,
                             vairline_out_view IN VARCHAR2,
                             vflt_no_out       IN VARCHAR2,
                             vtrfer_permit     IN trfer_sets.trfer_permit%TYPE,
@@ -259,7 +278,13 @@ PROCEDURE insert_trfer_sets(vid		      IN trfer_set_airps.id%TYPE,
                             vmin_interval     IN VARCHAR2,
                             vmax_interval     IN VARCHAR2,
                             vsys_user_id      IN users2.user_id%TYPE,
-                            vlang             IN lang_types.code%TYPE);
+                            vlang             IN lang_types.code%TYPE,
+                            vsetting_user     IN history_events.open_user%TYPE,
+                            vstation          IN history_events.open_desk%TYPE);
+
+PROCEDURE delete_trfer_sets(vid		      IN trfer_sets.id%TYPE,
+                            vsetting_user     IN history_events.open_user%TYPE,
+                            vstation          IN history_events.open_desk%TYPE);
 
 PROCEDURE add_codeshare_set(
        vid       IN OUT codeshare_sets.id%TYPE,
@@ -276,17 +301,23 @@ PROCEDURE add_codeshare_set(
        vlast_date       codeshare_sets.last_date%TYPE,
        vnow             DATE,
        vtid             codeshare_sets.tid%TYPE,
-       vpr_denial       NUMBER);
+       vpr_denial       NUMBER,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE);
 
 PROCEDURE modify_codeshare_set(
        vid              codeshare_sets.id%TYPE,
        vlast_date       codeshare_sets.last_date%TYPE,
        vnow             DATE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             codeshare_sets.tid%TYPE DEFAULT NULL);
 
 PROCEDURE delete_codeshare_set(
        vid              codeshare_sets.id%TYPE,
        vnow             DATE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             codeshare_sets.tid%TYPE DEFAULT NULL);
 
 PROCEDURE check_pers_weights(vid            IN pers_weights.id%TYPE,
@@ -305,22 +336,23 @@ PROCEDURE check_pers_weights(vid            IN pers_weights.id%TYPE,
 PROCEDURE check_not_airp_user(vuser_id   IN users2.user_id%TYPE,
                               vexception IN NUMBER);
 
-PROCEDURE modify_rem_event_sets(old_airline  rem_event_sets.airline%TYPE,
-                                old_rem_code rem_event_sets.rem_code%TYPE,
-                                vairline     rem_event_sets.airline%TYPE,
-                                vrem_code    rem_event_sets.rem_code%TYPE,
-                                alarm_ss     rem_event_sets.event_value%TYPE,
-                                pnl_sel      rem_event_sets.event_value%TYPE,
-                                brd_view     rem_event_sets.event_value%TYPE,
-                                brd_warn     rem_event_sets.event_value%TYPE,
-                                rpt_ss       rem_event_sets.event_value%TYPE,
-                                rpt_pm       rem_event_sets.event_value%TYPE,
-                                ckin_view    rem_event_sets.event_value%TYPE,
-                                typeb_psm    rem_event_sets.event_value%TYPE,
-                                typeb_pil    rem_event_sets.event_value%TYPE);
-
-PROCEDURE delete_rem_event_sets(old_airline  rem_event_sets.airline%TYPE,
-                                old_rem_code rem_event_sets.rem_code%TYPE);
+PROCEDURE modify_rem_event_sets(old_set_id    rem_event_sets.set_id%TYPE,
+                                old_airline   rem_event_sets.airline%TYPE,
+                                old_rem_code  rem_event_sets.rem_code%TYPE,
+                                vairline      rem_event_sets.airline%TYPE,
+                                vrem_code     rem_event_sets.rem_code%TYPE,
+                                bp            rem_event_sets.event_value%TYPE,
+                                alarm_ss      rem_event_sets.event_value%TYPE,
+                                pnl_sel       rem_event_sets.event_value%TYPE,
+                                brd_view      rem_event_sets.event_value%TYPE,
+                                brd_warn      rem_event_sets.event_value%TYPE,
+                                rpt_ss        rem_event_sets.event_value%TYPE,
+                                rpt_pm        rem_event_sets.event_value%TYPE,
+                                ckin_view     rem_event_sets.event_value%TYPE,
+                                typeb_psm     rem_event_sets.event_value%TYPE,
+                                typeb_pil     rem_event_sets.event_value%TYPE,
+                                vsetting_user history_events.open_user%TYPE,
+                                vstation      history_events.open_desk%TYPE);
 
 PROCEDURE check_stage_access(vstage_id     IN graph_stages.stage_id%TYPE,
                              vairline      IN airlines.code%TYPE,
@@ -339,22 +371,33 @@ PROCEDURE check_canon_name(str         IN VARCHAR2,
                            cache_field IN cache_fields.name%TYPE,
                            vlang       IN lang_types.code%TYPE);
 
-FUNCTION get_typeb_option(vid         typeb_addr_options.id%TYPE,
+PROCEDURE delete_create_points(vid            typeb_addrs.id%TYPE,
+                               vsetting_user  history_events.open_user%TYPE,
+                               vstation       history_events.open_desk%TYPE);
+
+FUNCTION get_typeb_option(vid         typeb_addrs.id%TYPE,
                           vbasic_type typeb_addr_options.tlg_type%TYPE,
                           vcategory   typeb_addr_options.category%TYPE) RETURN typeb_addr_options.value%TYPE;
 
-PROCEDURE sync_typeb_options(vid            typeb_addr_options.id%TYPE,
-                             new_basic_type typeb_addr_options.tlg_type%TYPE,
-                             old_basic_type typeb_addr_options.tlg_type%TYPE);
+PROCEDURE delete_typeb_options(vid            typeb_addrs.id%TYPE,
+                               vsetting_user  history_events.open_user%TYPE,
+                               vstation       history_events.open_desk%TYPE);
 
-PROCEDURE sync_LDM_options(vid            typeb_addr_options.id%TYPE,
-                           vbasic_type    typeb_addr_options.tlg_type%TYPE,
-                           vversion typeb_addr_options.value%TYPE,
-                           vcabin_baggage typeb_addr_options.value%TYPE);
+PROCEDURE sync_typeb_options(vid            typeb_addrs.id%TYPE,
+                             vbasic_type    typeb_addr_options.tlg_type%TYPE,
+                             vsetting_user  history_events.open_user%TYPE,
+                             vstation       history_events.open_desk%TYPE);
 
-PROCEDURE sync_LCI_options(vid            typeb_addr_options.id%TYPE,
+PROCEDURE sync_LDM_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
-                           vaction_code   typeb_addr_options.value%TYPE,
+                           vversion       typeb_addr_options.value%TYPE,
+                           vcabin_baggage typeb_addr_options.value%TYPE,
+                           vgender        typeb_addr_options.value%TYPE,
+                           vsetting_user  history_events.open_user%TYPE,
+                           vstation       history_events.open_desk%TYPE);
+
+PROCEDURE sync_LCI_options(vid            typeb_addrs.id%TYPE,
+                           vbasic_type    typeb_addr_options.tlg_type%TYPE,
                            vequipment     typeb_addr_options.value%TYPE,
                            vweignt_avail  typeb_addr_options.value%TYPE,
                            vseating       typeb_addr_options.value%TYPE,
@@ -363,12 +406,29 @@ PROCEDURE sync_LCI_options(vid            typeb_addr_options.id%TYPE,
                            vpas_totals    typeb_addr_options.value%TYPE,
                            vbag_totals    typeb_addr_options.value%TYPE,
                            vpas_distrib   typeb_addr_options.value%TYPE,
-                           vseat_plan     typeb_addr_options.value%TYPE);
+                           vseat_plan     typeb_addr_options.value%TYPE,
+                           vsetting_user  history_events.open_user%TYPE,
+                           vstation       history_events.open_desk%TYPE);
 
-PROCEDURE sync_PRL_options(vid            typeb_addr_options.id%TYPE,
+PROCEDURE sync_PRL_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
                            vcreate_point  typeb_addr_options.value%TYPE,
-                           vpax_state     typeb_addr_options.value%TYPE);
+                           vpax_state     typeb_addr_options.value%TYPE,
+                           vrbd           typeb_addr_options.value%TYPE,
+                           vsetting_user  history_events.open_user%TYPE,
+                           vstation       history_events.open_desk%TYPE);
+
+PROCEDURE sync_BSM_options(vid              typeb_addrs.id%TYPE,
+                           vbasic_type      typeb_addr_options.tlg_type%TYPE,
+                           vclass_of_travel typeb_addr_options.value%TYPE,
+                           vsetting_user    history_events.open_user%TYPE,
+                           vstation         history_events.open_desk%TYPE);
+
+PROCEDURE sync_PNL_options(vid              typeb_addrs.id%TYPE,
+                           vbasic_type      typeb_addr_options.tlg_type%TYPE,
+                           vforwarding      typeb_addr_options.value%TYPE,
+                           vsetting_user    history_events.open_user%TYPE,
+                           vstation         history_events.open_desk%TYPE);
 
 PROCEDURE modify_airline_offices(vid           airline_offices.id%TYPE,
                                  vairline      airline_offices.airline%TYPE,
@@ -378,7 +438,26 @@ PROCEDURE modify_airline_offices(vid           airline_offices.id%TYPE,
                                  vphone        airline_offices.phone%TYPE,
                                  vfax          airline_offices.fax%TYPE,
                                  vto_apis      airline_offices.to_apis%TYPE,
-                                 vlang         lang_types.code%TYPE);
+                                 vlang         lang_types.code%TYPE,
+                                 vsetting_user history_events.open_user%TYPE,
+                                 vstation      history_events.open_desk%TYPE);
+
+PROCEDURE insert_roles(vname          roles.name%TYPE,
+                       vairline       airlines.code%TYPE,
+                       vairp          airps.code%TYPE,
+                       vsetting_user  history_events.open_user%TYPE,
+                       vstation       history_events.open_desk%TYPE);
+
+PROCEDURE modify_roles(vrole_id       roles.role_id%TYPE,
+                       vname          roles.name%TYPE,
+                       vairline       airlines.code%TYPE,
+                       vairp          airps.code%TYPE,
+                       vsetting_user  history_events.open_user%TYPE,
+                       vstation       history_events.open_desk%TYPE);
+
+PROCEDURE delete_roles(vrole_id       roles.role_id%TYPE,
+                       vsetting_user  history_events.open_user%TYPE,
+                       vstation       history_events.open_desk%TYPE);
 
 END adm;
 /

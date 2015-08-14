@@ -1,106 +1,6 @@
 create or replace PACKAGE BODY ckin
 AS
 
-FUNCTION get_pnr_addr(vpnr_id 	IN crs_pnr.pnr_id%TYPE,
-                      vairline 	IN airlines.code%TYPE DEFAULT NULL,
-                      pr_all	IN NUMBER DEFAULT 0) RETURN VARCHAR2
-IS
-  CURSOR cur(vpnr_id  crs_pnr.pnr_id%TYPE,
-           vairline tlg_trips.airline%TYPE) IS
-    SELECT airline,addr FROM pnr_addrs
-    WHERE pnr_id=vpnr_id ORDER BY DECODE(airline,vairline,0,1),airline;
-vpoint_id 	crs_pnr.point_id%TYPE;
-vcarrier	airlines.code%TYPE;
-res		VARCHAR2(2000);
-curRow		cur%ROWTYPE;
-firstRow	cur%ROWTYPE;
-BEGIN
-  SELECT airline INTO vcarrier
-  FROM crs_pnr,tlg_trips
-  WHERE crs_pnr.point_id=tlg_trips.point_id AND pnr_id=vpnr_id;
-
-  res:=NULL;
-  OPEN cur(vpnr_id,NVL(vairline,vcarrier));
-  FETCH cur INTO firstRow;
-  IF cur%FOUND THEN
-    IF pr_all=0 THEN
-      IF NVL(vairline,vcarrier)=firstRow.airline THEN
-        IF firstRow.airline=vcarrier THEN
-          res:=firstRow.addr;
-        ELSE
-          res:=firstRow.addr||'/'||firstRow.airline;
-        END IF;
-      END IF;
-    ELSE
-      FETCH cur INTO curRow;
-      WHILE cur%FOUND LOOP
-        res:=res||' '||curRow.addr||'/'||curRow.airline;
-        FETCH cur INTO curRow;
-      END LOOP;
-      IF res IS NULL AND firstRow.airline=vcarrier THEN
-        res:=firstRow.addr;
-      ELSE
-        res:=firstRow.addr||'/'||firstRow.airline||res;
-      END IF;
-    END IF;
-  END IF;
-  CLOSE cur;
-  RETURN res;
-EXCEPTION
-    WHEN NO_DATA_FOUND THEN RETURN NULL;
-END get_pnr_addr;
-
-FUNCTION get_pax_pnr_addr(vpax_id 	IN crs_pax.pax_id%TYPE,
-                          vairline 	IN airlines.code%TYPE DEFAULT NULL,
-                          pr_all	IN NUMBER DEFAULT 0) RETURN VARCHAR2
-IS
-vpnr_id		crs_pnr.pnr_id%TYPE;
-BEGIN
-  SELECT pnr_id INTO vpnr_id FROM crs_pax WHERE pax_id=vpax_id;
-  RETURN get_pnr_addr(vpnr_id,vairline,pr_all);
-EXCEPTION
-    WHEN NO_DATA_FOUND THEN RETURN NULL;
-END get_pax_pnr_addr;
-
-FUNCTION get_pnr(vpax_id in crs_pax.pax_id%TYPE) RETURN VARCHAR2
-IS
-vpoint_id 	crs_pnr.point_id%TYPE;
-vpnr_id  	crs_pnr.pnr_id%TYPE;
-vairline 	tlg_trips.airline%TYPE;
-CURSOR cur(vpnr_id  crs_pnr.pnr_id%TYPE,
-           vairline tlg_trips.airline%TYPE) IS
-    SELECT airline,addr FROM pnr_addrs
-    WHERE pnr_id=vpnr_id ORDER BY DECODE(airline,vairline,0,1),airline;
-BEGIN
-    SELECT crs_pnr.point_id, crs_pnr.pnr_id
-    INTO vpoint_id, vpnr_id
-    FROM
-        crs_pnr,
-        crs_pax
-    WHERE
-        crs_pax.pax_id = vpax_id and
-        crs_pax.pnr_id = crs_pnr.pnr_id;
-
-    SELECT
-        airline INTO vairline
-    FROM
-        tlg_trips
-    WHERE
-        point_id = vpoint_id;
-
-    FOR curRow IN cur(vpnr_id,vairline) LOOP
-      IF curRow.airline=vairline THEN
-        RETURN curRow.addr;
-      ELSE
-        RETURN curRow.addr||'/'||curRow.airline;
-      END IF;
-    END LOOP;
-
-    RETURN NULL;
-EXCEPTION
-    WHEN NO_DATA_FOUND THEN RETURN NULL;
-END;
-
 FUNCTION next_airp(vfirst_point 	IN points.first_point%TYPE,
                    vpoint_num        	IN points.point_num%TYPE) RETURN points.airp%TYPE
 AS
@@ -172,16 +72,6 @@ BEGIN
 EXCEPTION
   WHEN NO_DATA_FOUND THEN RETURN 0;
 END get_pr_tranz_reg;
-
-FUNCTION get_comp_id(vpoint_id	IN points.point_id%TYPE) RETURN trip_sets.comp_id%TYPE
-IS
-res             trip_sets.comp_id%TYPE;
-BEGIN
-  SELECT comp_id INTO res FROM trip_sets WHERE point_id=vpoint_id;
-  RETURN res;
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN RETURN NULL;
-END get_comp_id;
 
 FUNCTION build_birks_str(cur birks_cursor_ref) RETURN VARCHAR2
 IS
@@ -840,6 +730,8 @@ CURSOR bagCur(vgrp_id       IN pax_grp.grp_id%TYPE) IS
   SELECT num,bag_type FROM bag2 WHERE grp_id=vgrp_id ORDER BY num;
 CURSOR tagCur(vgrp_id       IN pax_grp.grp_id%TYPE) IS
   SELECT num FROM bag_tags WHERE grp_id=vgrp_id ORDER BY num;
+CURSOR langCur IS
+  SELECT code AS lang FROM lang_types;
 
 vclass        pax_grp.class%TYPE;
 vstatus       pax_grp.status%TYPE;
@@ -875,6 +767,7 @@ BEGIN
         DELETE FROM pax_doco WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_doca WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_fqt WHERE pax_id=curRow.pax_id;
+        DELETE FROM pax_asvc WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_norms WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_rem WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_seats WHERE pax_id=curRow.pax_id;
@@ -882,9 +775,11 @@ BEGIN
         DELETE FROM transfer_subcls WHERE pax_id=curRow.pax_id;
         DELETE FROM trip_comp_layers WHERE pax_id=curRow.pax_id;
         DELETE FROM pax WHERE pax_id=curRow.pax_id;
-        UPDATE events SET id2=NULL
-        WHERE type=system.evtPax AND id1=vpoint_dep AND id2=curRow.reg_no AND id3=vgrp_id AND
-              NOT EXISTS(SELECT reg_no FROM pax WHERE grp_id=vgrp_id AND reg_no=curRow.reg_no);  --из-за возможного дублирования reg_no
+        FOR langCurRow IN langCur LOOP
+          UPDATE events_bilingual SET id2=NULL
+          WHERE lang=langCurRow.lang AND type IN (system.evtPax, system.evtPay) AND id1=vpoint_dep AND id2=curRow.reg_no AND id3=vgrp_id AND
+                NOT EXISTS(SELECT reg_no FROM pax WHERE grp_id=vgrp_id AND reg_no=curRow.reg_no);  --из-за возможного дублирования reg_no
+        END LOOP;
       ELSE
         IF curRow.bag_pool_num IS NOT NULL THEN
           del_pools(curRow.bag_pool_num):=FALSE;
@@ -959,395 +854,21 @@ BEGIN
     DELETE FROM bag2 WHERE grp_id=vgrp_id;
     DELETE FROM grp_norms WHERE grp_id=vgrp_id;
     DELETE FROM paid_bag WHERE grp_id=vgrp_id;
+    DELETE FROM paid_bag_emd WHERE grp_id=vgrp_id;
     DELETE FROM tckin_pax_grp WHERE grp_id=vgrp_id;
     i:=delete_grp_trfer(vgrp_id);
     i:=delete_grp_tckin_segs(vgrp_id);
     DELETE FROM value_bag WHERE grp_id=vgrp_id;
     DELETE FROM pax_grp WHERE grp_id=vgrp_id;
     --не чистим mark_trips потому что будет слишком долгая проверка pax_grp.point_id_mark
-    UPDATE events SET id2=NULL
-    WHERE type=system.evtPax AND id1=vpoint_dep AND id3=vgrp_id;
+    FOR langCurRow IN langCur LOOP
+        UPDATE events_bilingual SET id2=NULL
+        WHERE lang=langCurRow.lang AND type=system.evtPax AND id1=vpoint_dep AND id3=vgrp_id;
+    END LOOP;
   END IF;
 EXCEPTION
   WHEN NO_DATA_FOUND THEN NULL;
 END check_grp;
-
-PROCEDURE set_trip_sets(vpoint_id        IN points.point_id%TYPE,
-                        use_seances      IN NUMBER)
-IS
-vairline        points.airline%TYPE;
-vflt_no         points.flt_no%TYPE;
-vairp_dep       points.airp%TYPE;
-vscd_out        points.scd_out%TYPE;
-vmove_id        points.move_id%TYPE;
-vpoint_num      points.point_num%TYPE;
-vfirst_point    points.first_point%TYPE;
-vpr_tranzit     points.pr_tranzit%TYPE;
-CURSOR BPCur(vairline        points.airline%TYPE,
-             vflt_no         points.flt_no%TYPE,
-             vairp_dep       points.airp%TYPE) IS
-  SELECT class,bp_type,
-         DECODE(airline,NULL,0,8)+
-         DECODE(flt_no,NULL,0,2)+
-         DECODE(airp_dep,NULL,0,4) AS priority
-  FROM bp_set
-  WHERE (airline IS NULL OR airline=vairline) AND
-        (flt_no IS NULL OR flt_no=vflt_no) AND
-        (airp_dep IS NULL OR airp_dep=vairp_dep)
-  ORDER BY class,priority DESC;
-BPCurRow        BPCur%ROWTYPE;
-CURSOR BTCur(vairline        points.airline%TYPE,
-             vflt_no         points.flt_no%TYPE,
-             vairp_dep       points.airp%TYPE) IS
-  SELECT tag_type,
-         DECODE(airline,NULL,0,8)+
-         DECODE(flt_no,NULL,0,2)+
-         DECODE(airp_dep,NULL,0,4) AS priority
-  FROM bt_set
-  WHERE (airline IS NULL OR airline=vairline) AND
-        (flt_no IS NULL OR flt_no=vflt_no) AND
-        (airp_dep IS NULL OR airp_dep=vairp_dep)
-  ORDER BY priority DESC;
-BTCurRow        BTCur%ROWTYPE;
-CURSOR HallCur(vairline        points.airline%TYPE,
-               vflt_no         points.flt_no%TYPE,
-               vairp_dep       points.airp%TYPE) IS
-  SELECT type,hall,pr_misc,
-         DECODE(airline,NULL,0,8)+
-         DECODE(flt_no,NULL,0,2)+
-         DECODE(airp_dep,NULL,0,4) AS priority
-  FROM hall_set
-  WHERE (airline IS NULL OR airline=vairline) AND
-        (flt_no IS NULL OR flt_no=vflt_no) AND
-        (airp_dep IS NULL OR airp_dep=vairp_dep)
-  ORDER BY type,hall,priority DESC;
-HallCurRow        HallCur%ROWTYPE;
-CURSOR TranzitCur(vairline        points.airline%TYPE,
-                  vflt_no         points.flt_no%TYPE,
-                  vairp_dep       points.airp%TYPE) IS
-  SELECT pr_tranzit,pr_reg,
-         DECODE(airline,NULL,0,8)+
-         DECODE(flt_no,NULL,0,2)+
-         DECODE(airp_dep,NULL,0,4) AS priority
-  FROM tranzit_set
-  WHERE (airline IS NULL OR airline=vairline) AND
-        (flt_no IS NULL OR flt_no=vflt_no) AND
-        (airp_dep IS NULL OR airp_dep=vairp_dep)
-  ORDER BY priority DESC;
-TranzitCurRow        TranzitCur%ROWTYPE;
-
-CURSOR MiscCur(vairline        points.airline%TYPE,
-               vflt_no         points.flt_no%TYPE,
-               vairp_dep       points.airp%TYPE) IS
-  SELECT type,pr_misc,
-         DECODE(airline,NULL,0,8)+
-         DECODE(flt_no,NULL,0,2)+
-         DECODE(airp_dep,NULL,0,4) AS priority
-  FROM misc_set
-  WHERE (airline IS NULL OR airline=vairline) AND
-        (flt_no IS NULL OR flt_no=vflt_no) AND
-        (airp_dep IS NULL OR airp_dep=vairp_dep)
-  ORDER BY type,priority DESC;
-MiscCurRow	MiscCur%ROWTYPE;
-
-CURSOR SeanceCur(vairline        points.airline%TYPE,
-                 vairp           points.airline%TYPE,
-                 vscd_out        points.scd_out%TYPE) IS
-  SELECT DECODE(airline,NULL,1,0) AS pr_airp_seance
-  FROM pacts
-  WHERE airp=vairp AND
-        (airline=vairline OR airline IS NULL) AND
-        vscd_out>=first_date AND
-        (vscd_out<last_date OR last_date IS NULL)
-  ORDER BY airline NULLS LAST;
-SeanceCurRow	SeanceCur%ROWTYPE;
-
-CURSOR PaidCkinCur(vairline        points.airline%TYPE,
-                   vflt_no         points.flt_no%TYPE,
-                   vairp_dep       points.airp%TYPE) IS
-  SELECT pr_permit,prot_timeout,
-         DECODE(airline,NULL,0,8)+
-         DECODE(flt_no,NULL,0,2)+
-         DECODE(airp_dep,NULL,0,4) AS priority
-  FROM paid_ckin_sets
-  WHERE (airline IS NULL OR airline=vairline) AND
-        (flt_no IS NULL OR flt_no=vflt_no) AND
-        (airp_dep IS NULL OR airp_dep=vairp_dep)
-  ORDER BY priority DESC;
-PaidCkinCurRow        PaidCkinCur%ROWTYPE;
-
-prevBPCurRow    BPCur%ROWTYPE;
-prev_type	misc_set.type%TYPE;
-prev_hall       hall_set.hall%TYPE;
-pr_first        BOOLEAN;
-vbp_name        bp_types.name%TYPE;
-vtag_name       tag_types.name%TYPE;
-vhall_name      halls2.name%TYPE;
-msg             VARCHAR2(4000);
-vpr_airp_seance trip_sets.pr_airp_seance%TYPE;
-BEGIN
-  BEGIN
-    SELECT airline,flt_no,airp,scd_out,
-           move_id,point_num,first_point,pr_tranzit
-    INTO vairline,vflt_no,vairp_dep,vscd_out,
-         vmove_id,vpoint_num,vfirst_point,vpr_tranzit
-    FROM points WHERE point_id=vpoint_id AND pr_del>=0 FOR UPDATE;
-  EXCEPTION
-    WHEN NO_DATA_FOUND THEN RETURN;
-  END;
-/*очистка настроек рейса*/
-  DELETE FROM trip_bp WHERE point_id=vpoint_id;
-  DELETE FROM trip_bt WHERE point_id=vpoint_id;
-  DELETE FROM trip_hall WHERE point_id=vpoint_id;
-
-  pr_first:=true;
-  FOR BPCurRow IN BPCur(vairline,vflt_no,vairp_dep) LOOP
-    IF NOT(pr_first) AND
-       (prevBPCurRow.class IS NULL AND BPCurRow.class IS NULL OR prevBPCurRow.class=BPCurRow.class) THEN
-      NULL;
-    ELSE
-      INSERT INTO trip_bp(point_id,class,bp_type)
-      VALUES(vpoint_id,BPCurRow.class,BPCurRow.bp_type);
-      msg:=NULL;
-      IF BPCurRow.class IS NOT NULL THEN
-        IF msg IS NULL THEN msg:=msg||' для '; ELSE msg:=msg||', '; END IF;
-        msg:=msg||'класса '||BPCurRow.class;
-      END IF;
-      SELECT bp_types.name INTO vbp_name FROM bp_types
-      WHERE bp_types.code=BPCurRow.bp_type;
-      msg:='Установлен бланк пос. талона '''||vbp_name||''''||msg||'.';
-      system.MsgToLog(msg,system.evtFlt,vpoint_id);
-      pr_first:=false;
-      prevBPCurRow:=BPCurRow;
-    END IF;
-  END LOOP;
-
-  OPEN BTCur(vairline,vflt_no,vairp_dep);
-  FETCH BTCur INTO BTCurRow;
-  IF BTCur%FOUND THEN
-    INSERT INTO trip_bt(point_id,tag_type)
-    VALUES(vpoint_id,BTCurRow.tag_type);
-    SELECT tag_types.name INTO vtag_name FROM tag_types
-    WHERE tag_types.code=BTCurRow.tag_type;
-    SELECT 'Установлен бланк баг. бирки '''||vtag_name||'''.'
-    INTO msg FROM dual;
-    system.MsgToLog(msg,system.evtFlt,vpoint_id);
-  END IF;
-  CLOSE BTCur;
-
-  pr_first:=true;
-  FOR HallCurRow IN HallCur(vairline,vflt_no,vairp_dep) LOOP
-    IF NOT(pr_first) AND
-       (prev_type=HallCurRow.type) AND
-       (prev_hall IS NULL AND HallCurRow.hall IS NULL OR prev_hall=HallCurRow.hall) THEN
-      NULL;
-    ELSE
-      INSERT INTO trip_hall(point_id,type,hall,pr_misc)
-      VALUES(vpoint_id,HallCurRow.type,HallCurRow.hall,HallCurRow.pr_misc);
-      IF HallCurRow.hall IS NOT NULL THEN
-        SELECT name INTO vhall_name FROM halls2 WHERE id=HallCurRow.hall;
-      ELSE
-        vhall_name:=NULL;
-      END IF;
-      IF HallCurRow.type=1 THEN
-        SELECT 'Установлен режим'||
-               DECODE(HallCurRow.pr_misc,0,' раздельной регистрации и посадки',' посадки при регистрации')||
-               DECODE(HallCurRow.hall,NULL,'',' для зала '''||vhall_name||'''')||'.'
-        INTO msg FROM dual;
-        system.MsgToLog(msg,system.evtFlt,vpoint_id,HallCurRow.hall);
-      END IF;
-      IF HallCurRow.type=2 THEN
-        SELECT 'Установлен режим'||
-               DECODE(HallCurRow.pr_misc,0,' раздельной посадки и досмотра',' досмотра при посадке')||
-               DECODE(HallCurRow.hall,NULL,'',' для зала '''||vhall_name||'''')||'.'
-        INTO msg FROM dual;
-        system.MsgToLog(msg,system.evtFlt,vpoint_id,HallCurRow.hall);
-      END IF;
-      pr_first:=false;
-      prev_type:=HallCurRow.type;
-      prev_hall:=HallCurRow.hall;
-    END IF;
-  END LOOP;
-
-  IF vfirst_point IS NOT NULL THEN
-    OPEN TranzitCur(vairline,vflt_no,vairp_dep);
-    FETCH TranzitCur INTO TranzitCurRow;
-    IF TranzitCur%FOUND THEN
-      UPDATE trip_sets SET pr_tranz_reg=TranzitCurRow.pr_reg WHERE point_id=vpoint_id;
-      IF vpr_tranzit<>TranzitCurRow.pr_tranzit THEN
-        UPDATE points SET pr_tranzit=TranzitCurRow.pr_tranzit WHERE point_id=vpoint_id;
-        IF TranzitCurRow.pr_tranzit=0 THEN
-          UPDATE points SET first_point=vpoint_id
-          WHERE first_point=vfirst_point AND point_num>vpoint_num;
-        ELSE
-          UPDATE points SET first_point=vfirst_point
-          WHERE first_point=vpoint_id AND point_num>vpoint_num;
-        END IF;
-      END IF;
-      SELECT 'Установлен режим'||
-             DECODE(TranzitCurRow.pr_reg,0,' без','')||' перерегистрации транзита для'||
-             DECODE(TranzitCurRow.pr_tranzit,0,' нетранзитного рейса',' транзитного рейса')||'.'
-      INTO msg FROM dual;
-      system.MsgToLog(msg,system.evtFlt,vpoint_id);
-    END IF;
-    CLOSE TranzitCur;
-  END IF;
-
-  vpr_airp_seance:=NULL;
-  pr_first:=true;
-  FOR MiscCurRow IN MiscCur(vairline,vflt_no,vairp_dep) LOOP
-    IF NOT(pr_first) AND
-       (prev_type=MiscCurRow.type) THEN
-      NULL;
-    ELSE
-      IF MiscCurRow.type=2 THEN
-        UPDATE trip_sets SET pr_check_load=MiscCurRow.pr_misc WHERE point_id=vpoint_id;
-        IF SQL%FOUND THEN
-          SELECT 'Установлен режим'||
-                 DECODE(MiscCurRow.pr_misc,0,' без','')||
-                 ' контроля загрузки при регистрации'
-          INTO msg FROM dual;
-          system.MsgToLog(msg,system.evtFlt,vpoint_id);
-        END IF;
-      END IF;
-      IF MiscCurRow.type=3 THEN
-        UPDATE trip_sets SET pr_overload_reg=MiscCurRow.pr_misc WHERE point_id=vpoint_id;
-        IF SQL%FOUND THEN
-          SELECT 'Установлен режим'||
-                 DECODE(MiscCurRow.pr_misc,0,' запрета',' разрешения')||
-                 ' регистрации при превышении загрузки'
-          INTO msg FROM dual;
-          system.MsgToLog(msg,system.evtFlt,vpoint_id);
-        END IF;
-      END IF;
-      IF MiscCurRow.type=4 THEN
-        UPDATE trip_sets SET pr_exam=MiscCurRow.pr_misc WHERE point_id=vpoint_id;
-        IF SQL%FOUND THEN
-          SELECT 'Установлен режим'||
-                 DECODE(MiscCurRow.pr_misc,0,' без','')||
-                 ' досмотрового контроля перед посадкой'
-          INTO msg FROM dual;
-          system.MsgToLog(msg,system.evtFlt,vpoint_id);
-        END IF;
-      END IF;
-      IF MiscCurRow.type=5 THEN
-        UPDATE trip_sets SET pr_check_pay=MiscCurRow.pr_misc WHERE point_id=vpoint_id;
-        IF SQL%FOUND THEN
-          SELECT 'Установлен режим'||
-                 DECODE(MiscCurRow.pr_misc,0,' без','')||
-                 ' контроля оплаты багажа при посадке'
-          INTO msg FROM dual;
-          system.MsgToLog(msg,system.evtFlt,vpoint_id);
-        END IF;
-      END IF;
-      IF MiscCurRow.type=7 THEN
-        UPDATE trip_sets SET pr_exam_check_pay=MiscCurRow.pr_misc WHERE point_id=vpoint_id;
-        IF SQL%FOUND THEN
-          SELECT 'Установлен режим'||
-                 DECODE(MiscCurRow.pr_misc,0,' без','')||
-                 ' контроля оплаты багажа при досмотре'
-          INTO msg FROM dual;
-          system.MsgToLog(msg,system.evtFlt,vpoint_id);
-        END IF;
-      END IF;
-      IF MiscCurRow.type=8 THEN
-        UPDATE trip_sets SET pr_reg_with_tkn=MiscCurRow.pr_misc WHERE point_id=vpoint_id;
-        IF SQL%FOUND THEN
-          SELECT 'Установлен режим'||
-                 DECODE(MiscCurRow.pr_misc,0,' разрешения',' запрета')||
-                 ' регистрации без номеров билетов'
-          INTO msg FROM dual;
-          system.MsgToLog(msg,system.evtFlt,vpoint_id);
-        END IF;
-      END IF;
-      IF MiscCurRow.type=9 THEN
-        UPDATE trip_sets SET pr_reg_with_doc=MiscCurRow.pr_misc WHERE point_id=vpoint_id;
-        IF SQL%FOUND THEN
-          SELECT 'Установлен режим'||
-                 DECODE(MiscCurRow.pr_misc,0,' разрешения',' запрета')||
-                 ' регистрации без номеров документов'
-          INTO msg FROM dual;
-          system.MsgToLog(msg,system.evtFlt,vpoint_id);
-        END IF;
-      END IF;
-      IF MiscCurRow.type=20 THEN
-        UPDATE trip_sets SET auto_weighing=MiscCurRow.pr_misc WHERE point_id=vpoint_id;
-        IF SQL%FOUND THEN
-          SELECT DECODE(MiscCurRow.pr_misc,0,'Отменен ','Установлен ')||
-                 'контроль автоматического взвешивания багажа для стоек с весами'
-          INTO msg FROM dual;
-          system.MsgToLog(msg,system.evtFlt,vpoint_id);
-        END IF;
-      END IF;
-      IF use_seances<>0 THEN
-        IF MiscCurRow.type=14 THEN
-          UPDATE trip_sets SET pr_airp_seance=MiscCurRow.pr_misc WHERE point_id=vpoint_id;
-          IF SQL%FOUND THEN
-            vpr_airp_seance:=MiscCurRow.pr_misc;
-            SELECT 'Установлен режим регистрации в сеансе'||
-                   DECODE(MiscCurRow.pr_misc,0,' авиакомпании',' аэропорта')
-            INTO msg FROM dual;
-            system.MsgToLog(msg,system.evtFlt,vpoint_id);
-          END IF;
-        END IF;
-      END IF;
-      IF MiscCurRow.type=23 THEN
-        UPDATE trip_sets SET pr_free_seating=MiscCurRow.pr_misc WHERE point_id=vpoint_id;
-          IF SQL%FOUND AND MiscCurRow.pr_misc<>0 THEN
-            SELECT 'Установлен режим свободной рассадки'
-            INTO msg FROM dual;
-            system.MsgToLog(msg,system.evtFlt,vpoint_id);
-          END IF;
-      END IF;
-      pr_first:=false;
-      prev_type:=MiscCurRow.type;
-    END IF;
-  END LOOP;
-
-  IF use_seances<>0 THEN
-    /* если trip_sets.pr_airp_seance не установлен вычислим на основе договоров */
-    IF vpr_airp_seance IS NULL THEN
-      OPEN SeanceCur(vairline,vairp_dep,vscd_out);
-      FETCH SeanceCur INTO SeanceCurRow;
-      IF SeanceCur%FOUND THEN
-        UPDATE trip_sets SET pr_airp_seance=SeanceCurRow.pr_airp_seance WHERE point_id=vpoint_id;
-        IF SQL%FOUND THEN
-          vpr_airp_seance:=SeanceCurRow.pr_airp_seance;
-          SELECT 'Установлен режим регистрации в сеансе'||
-                 DECODE(SeanceCurRow.pr_airp_seance,0,' авиакомпании',' аэропорта')
-          INTO msg FROM dual;
-          system.MsgToLog(msg,system.evtFlt,vpoint_id);
-        END IF;
-      END IF;
-      CLOSE SeanceCur;
-    END IF;
-    IF vpr_airp_seance IS NULL THEN
-      SELECT 'Установлен режим регистрации в неопределенном сеансе'
-      INTO msg FROM dual;
-      system.MsgToLog(msg,system.evtFlt,vpoint_id);
-    END IF;
-  END IF;
-
-  OPEN PaidCkinCur(vairline,vflt_no,vairp_dep);
-  FETCH PaidCkinCur INTO PaidCkinCurRow;
-  IF PaidCkinCur%FOUND THEN
-    NULL;
-  ELSE
-    PaidCkinCurRow.pr_permit:=0;
-    PaidCkinCurRow.prot_timeout:=NULL;
-  END IF;
-  INSERT INTO trip_paid_ckin(point_id,pr_permit,prot_timeout)
-  VALUES(vpoint_id,PaidCkinCurRow.pr_permit,PaidCkinCurRow.prot_timeout);
-
-  SELECT 'На рейсе'||
-         DECODE(PaidCkinCurRow.pr_permit,0,' не','')||' производится платная регистрация'||
-         DECODE(PaidCkinCurRow.pr_permit,0,'',
-         '. Таймаут резервирования до оплаты'||
-         DECODE(PaidCkinCurRow.prot_timeout,NULL,' не определен',' '||PaidCkinCurRow.prot_timeout||' мин.'))
-  INTO msg FROM dual;
-  system.MsgToLog(msg,system.evtFlt,vpoint_id);
-  CLOSE PaidCkinCur;
-END set_trip_sets;
 
 FUNCTION get_main_pax_id(vgrp_id IN pax_grp.grp_id%TYPE,
                          include_refused IN NUMBER DEFAULT 1) RETURN pax.pax_id%TYPE
@@ -1517,6 +1038,8 @@ BEGIN
   FORALL i IN 1..paxids.COUNT
     DELETE FROM crs_pax_chkd WHERE pax_id=paxids(i);
   FORALL i IN 1..paxids.COUNT
+    DELETE FROM crs_pax_asvc WHERE pax_id=paxids(i);
+  FORALL i IN 1..paxids.COUNT
     DELETE FROM crs_pax_refuse WHERE pax_id=paxids(i);
   FORALL i IN 1..paxids.COUNT
     DELETE FROM dcs_bag WHERE pax_id=paxids(i);
@@ -1547,6 +1070,10 @@ BEGIN
   WHERE point_id=vpoint_id AND
         (vsystem IS NULL OR system=vsystem) AND
         (vsender IS NULL OR sender=vsender);
+  DELETE FROM crs_rbd
+  WHERE point_id=vpoint_id AND
+        (vsystem IS NULL OR system=vsystem) AND
+        (vsender IS NULL OR sender=vsender);
 END delete_typeb_data;
 
 PROCEDURE save_pax_docs(vpax_id     IN pax.pax_id%TYPE,
@@ -1562,7 +1089,7 @@ IS
     ORDER BY DECODE(type,'P',0,NULL,2,1), DECODE(rem_code,'DOCS',0,1), no;
   row1 cur1%ROWTYPE;
   CURSOR cur2 IS
-    SELECT birth_place,type,no,issue_place,issue_date,applic_country,pr_inf
+    SELECT birth_place,type,no,issue_place,issue_date,applic_country
     FROM crs_pax_doco
     WHERE pax_id=vpax_id AND rem_code='DOCO' AND type='V'
     ORDER BY no;
@@ -1579,16 +1106,16 @@ BEGIN
         INSERT INTO pax_doc
           (pax_id,type,issue_country,no,nationality,
            birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi,
-           type_rcpt)
+           type_rcpt,scanned_attrs)
         VALUES
           (vpax_id,row1.type,row1.issue_country,row1.no,row1.nationality,
            row1.birth_date,row1.gender,row1.expiry_date,row1.surname,row1.first_name,row1.second_name,row1.pr_multi,
-           row1.type_rcpt);
+           row1.type_rcpt,0);
       ELSE
         INSERT INTO pax_doc
-          (pax_id,no,pr_multi)
+          (pax_id,no,pr_multi,scanned_attrs)
         VALUES
-          (vpax_id,vdocument,0);
+          (vpax_id,vdocument,0,0);
       END IF;
       CLOSE cur1;
     END IF;
@@ -1596,9 +1123,9 @@ BEGIN
     FETCH cur2 INTO row2;
     IF cur2%FOUND THEN
       INSERT INTO pax_doco
-        (pax_id,birth_place,type,no,issue_place,issue_date,applic_country,pr_inf)
+        (pax_id,birth_place,type,no,issue_place,issue_date,applic_country,scanned_attrs)
       VALUES
-        (vpax_id,row2.birth_place,row2.type,row2.no,row2.issue_place,row2.issue_date,row2.applic_country,row2.pr_inf);
+        (vpax_id,row2.birth_place,row2.type,row2.no,row2.issue_place,row2.issue_date,row2.applic_country,0);
     END IF;
     CLOSE cur2;
   ELSE

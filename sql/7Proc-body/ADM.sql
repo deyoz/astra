@@ -4,11 +4,15 @@ AS
 TYPE TFltList IS TABLE OF trfer_set_flts.flt_no%TYPE INDEX BY BINARY_INTEGER;
 /*TYPE TRemList IS TABLE OF rem_grp_list.rem_code%TYPE INDEX BY BINARY_INTEGER;*/
 
+TYPE sync_typeb_options_cur IS REF CURSOR;
+
 PROCEDURE modify_originator(
        vid              typeb_originators.id%TYPE,
        vlast_date       typeb_originators.last_date%TYPE,
        vlang            lang_types.code%TYPE,
-       vtid             typeb_originators.tid%TYPE)
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
+       vtid             typeb_originators.tid%TYPE DEFAULT NULL)
 IS
 r typeb_originators%ROWTYPE;
 BEGIN
@@ -16,14 +20,16 @@ BEGIN
   INTO   r.id,r.airline,r.airp_dep,r.tlg_type,r.first_date,r.addr,r.double_sign,r.descr
   FROM typeb_originators WHERE id=vid AND pr_del=0 FOR UPDATE;
   add_originator(r.id,r.airline,r.airp_dep,r.tlg_type,
-                 r.first_date,vlast_date,r.addr,r.double_sign,r.descr,vtid,vlang);
+                 r.first_date,vlast_date,r.addr,r.double_sign,r.descr,vtid,vlang,vsetting_user,vstation);
 EXCEPTION
   WHEN NO_DATA_FOUND THEN NULL;
 END modify_originator;
 
 PROCEDURE delete_originator(
        vid              typeb_originators.id%TYPE,
-       vtid             typeb_originators.tid%TYPE)
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
+       vtid             typeb_originators.tid%TYPE DEFAULT NULL)
 IS
 now             DATE;
 vfirst_date     DATE;
@@ -37,8 +43,10 @@ BEGIN
   IF vlast_date IS NULL OR vlast_date>now THEN
     IF vfirst_date<now THEN
       UPDATE typeb_originators SET last_date=now,tid=tidh WHERE id=vid;
+      hist.synchronize_history('typeb_originators',vid,vsetting_user,vstation);
     ELSE
       UPDATE typeb_originators SET pr_del=1,tid=tidh WHERE id=vid;
+      hist.synchronize_history('typeb_originators',vid,vsetting_user,vstation);
     END IF;
   ELSE
     /* специально чтобы в кэше появилась неизмененная строка */
@@ -59,7 +67,9 @@ PROCEDURE add_originator(
        vdouble_sign     typeb_originators.double_sign%TYPE,
        vdescr           typeb_originators.descr%TYPE,
        vtid             typeb_originators.tid%TYPE,
-       vlang            lang_types.code%TYPE)
+       vlang            lang_types.code%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE)
 IS
 first   DATE;
 last    DATE;
@@ -116,13 +126,17 @@ BEGIN
         /* отрезок [first_date,first) */
         IF idh IS NOT NULL THEN
           UPDATE typeb_originators SET first_date=curRow.first_date,last_date=first,tid=tidh WHERE id=curRow.id;
+          hist.synchronize_history('typeb_originators',curRow.id,vsetting_user,vstation);
           idh:=NULL;
         ELSE
+          SELECT id__seq.nextval INTO idh FROM dual;
           INSERT INTO typeb_originators(id,airline,airp_dep,tlg_type,
                                         first_date,last_date,addr,double_sign,descr,pr_del,tid)
-          SELECT id__seq.nextval,airline,airp_dep,tlg_type,
+          SELECT idh,airline,airp_dep,tlg_type,
                  curRow.first_date,first,addr,double_sign,descr,0,tidh
           FROM typeb_originators WHERE id=curRow.id;
+          hist.synchronize_history('typeb_originators',idh,vsetting_user,vstation);
+          idh:=NULL;
         END IF;
       END IF;
       IF last IS NOT NULL AND
@@ -130,18 +144,23 @@ BEGIN
         /* отрезок [last,last_date)  */
         IF idh IS NOT NULL THEN
           UPDATE typeb_originators SET first_date=last,last_date=curRow.last_date,tid=tidh WHERE id=curRow.id;
+          hist.synchronize_history('typeb_originators',curRow.id,vsetting_user,vstation);
           idh:=NULL;
         ELSE
+          SELECT id__seq.nextval INTO idh FROM dual;
           INSERT INTO typeb_originators(id,airline,airp_dep,tlg_type,
                                 first_date,last_date,addr,double_sign,descr,pr_del,tid)
-          SELECT id__seq.nextval,airline,airp_dep,tlg_type,
+          SELECT idh,airline,airp_dep,tlg_type,
                  last,curRow.last_date,addr,double_sign,descr,0,tidh
           FROM typeb_originators WHERE id=curRow.id;
+          hist.synchronize_history('typeb_originators',idh,vsetting_user,vstation);
+          idh:=NULL;
         END IF;
       END IF;
 
       IF idh IS NOT NULL THEN
         UPDATE typeb_originators SET pr_del=1,tid=tidh WHERE id=curRow.id;
+        hist.synchronize_history('typeb_originators',curRow.id,vsetting_user,vstation);
       END IF;
     END IF;
   END LOOP;
@@ -152,11 +171,13 @@ BEGIN
       INSERT INTO typeb_originators(id,airline,airp_dep,tlg_type,
                             first_date,last_date,addr,double_sign,descr,pr_del,tid)
       VALUES(vid,vairline,vairp_dep,vtlg_type,
-             first,last,vaddr,vdouble_sign,vdescr,0,tidh);
+             first,last,vaddr,vdouble_sign,vdescr,0,tidh) RETURNING id INTO vid;
+      hist.synchronize_history('typeb_originators',vid,vsetting_user,vstation);
     END IF;
   ELSE
     /* при редактировании апдейтим строку */
     UPDATE typeb_originators SET last_date=last,tid=tidh WHERE id=vid;
+    hist.synchronize_history('typeb_originators',vid,vsetting_user,vstation);
   END IF;
 END add_originator;
 
@@ -169,10 +190,13 @@ procedure insert_pact(
                       vairline_view   in VARCHAR2,
                       vairp           in pacts.airp%type,
                       vairp_view      in VARCHAR2,
-                      vdescr          in pacts.descr%type default null)
+                      vdescr          in pacts.descr%TYPE,
+                      vsetting_user   in history_events.open_user%TYPE,
+                      vstation        in history_events.open_desk%TYPE)
 is
 vairlineh       airlines.code%TYPE;
 vairph          airps.code%TYPE;
+id              pacts.id%type;
 cursor cur is
   select id, first_date, last_date from pacts where
     nvl(airline, ' ') = nvl(vairline, ' ') and
@@ -205,10 +229,13 @@ begin
       end if;
     end loop;
     if vid is null then
+      SELECT id__seq.nextval INTO id FROM dual;
       insert into pacts(id, airline, airp, first_date, last_date, descr)
-        values(id__seq.nextval, vairline, vairp, vfirst_date, vlast_date + 1, vdescr);
+        values(id, vairline, vairp, vfirst_date, vlast_date + 1, vdescr);
+      hist.synchronize_history('pacts',id,vsetting_user,vstation);
     else
-        update pacts set first_date = vfirst_date, last_date = vlast_date + 1 where id = vid;
+      update pacts set first_date = vfirst_date, last_date = vlast_date + 1 where id = vid;
+      hist.synchronize_history('pacts',vid,vsetting_user,vstation);
     end if;
 end;
 
@@ -1133,7 +1160,7 @@ BEGIN
     RETURN vdesk_grp;
   END IF;
 
-  SELECT grp_id INTO vdesk_grp2 FROM desks WHERE code=vdesk;
+  SELECT grp_id INTO vdesk_grp2 FROM desks WHERE code=vdesk;	
 
   IF vdesk_grp IS NOT NULL AND vdesk_grp<>vdesk_grp2 THEN
     system.raise_user_exception('MSG.DESK_GRP_DOES_NOT_MEET_DESK');
@@ -1392,6 +1419,7 @@ BEGIN
   vright_id:=NULL;
   IF vtype IN (11,12,13,15) THEN vright_id:=0761; END IF; /*Специальные настройки (эксклюзивный доступ): Просмотр, ввод, изменение*/
   IF vtype IN (22)          THEN vright_id:=0577; END IF; /*Взаимодействие систем: Настройки: Просмотр, ввод, изменение*/
+  IF vtype IN (24,25)       THEN vright_id:=0252; END IF; /*Подготовка регистрации: Контроль APIS: Ввод, изменение*/
   IF vright_id IS NOT NULL THEN
     SELECT COUNT(*) INTO n
     FROM user_roles,role_rights
@@ -1692,31 +1720,38 @@ BEGIN
   END LOOP;
 END check_craft_codes;
 
-PROCEDURE insert_user(vlogin     IN users2.login%TYPE,
-                      vdescr     IN users2.descr%TYPE,
-                      vtype      IN users2.type%TYPE,
-                      vpr_denial IN users2.pr_denial%TYPE,
-                      vsys_user_id IN users2.user_id%TYPE,
+PROCEDURE insert_user(vlogin             IN users2.login%TYPE,
+                      vdescr             IN users2.descr%TYPE,
+                      vtype              IN users2.type%TYPE,
+                      vpr_denial         IN users2.pr_denial%TYPE,
+                      vsys_user_id       IN users2.user_id%TYPE,
                       vtime_fmt  	 IN user_sets.time%TYPE,
                       vdisp_airline_fmt  IN user_sets.disp_airline%TYPE,
                       vdisp_airp_fmt  	 IN user_sets.disp_airp%TYPE,
                       vdisp_craft_fmt  	 IN user_sets.disp_craft%TYPE,
-                      vdisp_suffix_fmt   IN user_sets.disp_suffix%TYPE)
+                      vdisp_suffix_fmt   IN user_sets.disp_suffix%TYPE,
+                      vsetting_user      IN history_events.open_user%TYPE,
+                      vstation           IN history_events.open_desk%TYPE)
 IS
 vuser_id        users2.user_id%TYPE;
+vid             NUMBER(9);
 BEGIN
   BEGIN
+    SELECT id__seq.nextval INTO vuser_id FROM dual;
     INSERT INTO users2(user_id,login,passwd,descr,type,pr_denial)
-    VALUES(id__seq.nextval,vlogin,vlogin,vdescr,vtype,vpr_denial);
+    VALUES(vuser_id,vlogin,vlogin,vdescr,vtype,vpr_denial);
+    hist.synchronize_history('users2', vuser_id, vsetting_user, vstation);
   EXCEPTION
     WHEN DUP_VAL_ON_INDEX THEN
       system.raise_user_exception('MSG.ACCESS.USERNAME_ALREADY_IN_SYSTEM');
   END;
-  SELECT id__seq.currval INTO vuser_id FROM dual;
-  INSERT INTO aro_airlines(aro_id,airline)
-  SELECT vuser_id,airline FROM aro_airlines WHERE aro_id=vsys_user_id;
-  INSERT INTO aro_airps(aro_id,airp)
-  SELECT vuser_id,airp FROM aro_airps WHERE aro_id=vsys_user_id;
+  SELECT id__seq.nextval INTO vid FROM dual;
+  INSERT INTO aro_airlines(aro_id,airline,id)
+  SELECT vuser_id,airline,id__seq.nextval FROM aro_airlines WHERE aro_id=vsys_user_id;
+  hist.synchronize_history('aro_airlines', vid, vsetting_user, vstation);
+  INSERT INTO aro_airps(aro_id,airp,id)
+  SELECT vuser_id,airp,id__seq.nextval FROM aro_airps WHERE aro_id=vsys_user_id;
+  hist.synchronize_history('aro_airps', vid, vsetting_user, vstation);
   IF check_user_access(vuser_id,vsys_user_id,FALSE)=0 THEN
     system.raise_user_exception('MSG.ACCESS.NO_PERM_ENTER_USER_TYPE');
   END IF;
@@ -1730,19 +1765,22 @@ BEGIN
   ELSE
     INSERT INTO user_sets(user_id,time,disp_airline,disp_airp,disp_craft,disp_suffix)
     VALUES(vuser_id,vtime_fmt,vdisp_airline_fmt,vdisp_airp_fmt,vdisp_craft_fmt,vdisp_suffix_fmt);
+    hist.synchronize_history('user_sets', vuser_id, vsetting_user, vstation);
   END IF;
 END insert_user;
 
-PROCEDURE update_user(vold_user_id IN users2.user_id%TYPE,
-                      vlogin     IN users2.login%TYPE,
-                      vtype      IN users2.type%TYPE,
-                      vpr_denial IN users2.pr_denial%TYPE,
-                      vsys_user_id IN users2.user_id%TYPE,
+PROCEDURE update_user(vold_user_id       IN users2.user_id%TYPE,
+                      vlogin             IN users2.login%TYPE,
+                      vtype              IN users2.type%TYPE,
+                      vpr_denial         IN users2.pr_denial%TYPE,
+                      vsys_user_id       IN users2.user_id%TYPE,
                       vtime_fmt  	 IN user_sets.time%TYPE,
                       vdisp_airline_fmt  IN user_sets.disp_airline%TYPE,
                       vdisp_airp_fmt  	 IN user_sets.disp_airp%TYPE,
                       vdisp_craft_fmt  	 IN user_sets.disp_craft%TYPE,
-                      vdisp_suffix_fmt   IN user_sets.disp_suffix%TYPE)
+                      vdisp_suffix_fmt   IN user_sets.disp_suffix%TYPE,
+                      vsetting_user      IN history_events.open_user%TYPE,
+                      vstation           IN history_events.open_desk%TYPE)
 IS
 vuser_id        users2.user_id%TYPE;
 BEGIN
@@ -1751,6 +1789,7 @@ BEGIN
     UPDATE users2
     SET login=vlogin,type=vtype,pr_denial=vpr_denial
     WHERE user_id=vold_user_id;
+    hist.synchronize_history('users2', vold_user_id, vsetting_user, vstation);
   EXCEPTION
     WHEN DUP_VAL_ON_INDEX THEN
       system.raise_user_exception('MSG.ACCESS.USERNAME_ALREADY_IN_SYSTEM');
@@ -1766,6 +1805,7 @@ BEGIN
      NVL(vdisp_craft_fmt,09)=09 AND
      NVL(vdisp_suffix_fmt,17)=17 THEN
     DELETE FROM user_sets WHERE user_id=vold_user_id;
+    hist.synchronize_history('user_sets', vold_user_id, vsetting_user, vstation);
   ELSE
     UPDATE user_sets
     SET time=vtime_fmt,
@@ -1778,22 +1818,40 @@ BEGIN
       INSERT INTO user_sets(user_id,time,disp_airline,disp_airp,disp_craft,disp_suffix)
       VALUES(vold_user_id,vtime_fmt,vdisp_airline_fmt,vdisp_airp_fmt,vdisp_craft_fmt,vdisp_suffix_fmt);
     END IF;
+    hist.synchronize_history('user_sets', vold_user_id, vsetting_user, vstation);
   END IF;
 END update_user;
 
-PROCEDURE delete_user(vold_user_id IN users2.user_id%TYPE,
-                      vsys_user_id IN users2.user_id%TYPE)
+PROCEDURE delete_user(vold_user_id  IN users2.user_id%TYPE,
+                      vsys_user_id  IN users2.user_id%TYPE,
+                      vsetting_user IN history_events.open_user%TYPE,
+                      vstation      IN history_events.open_desk%TYPE)
 IS
-vuser_id        users2.user_id%TYPE;
+vuser_id          users2.user_id%TYPE;
+vid               NUMBER(9);
+TYPE TIdsTable IS TABLE OF NUMBER(9);
+ids            TIdsTable;
+i                 BINARY_INTEGER;
 BEGIN
   vuser_id:=check_user_access(vold_user_id,vsys_user_id,2);
-  DELETE FROM web_clients WHERE user_id=vold_user_id;
+  DELETE FROM web_clients WHERE user_id=vold_user_id RETURNING id INTO vid;
+  IF SQL%ROWCOUNT>0 THEN
+    hist.synchronize_history('web_clients',vid,vsetting_user,vstation);
+  END IF;
   DELETE FROM form_packs WHERE user_id=vold_user_id;
-  DELETE FROM user_roles WHERE user_id=vold_user_id;
+  DELETE FROM user_roles WHERE user_id=vold_user_id RETURNING id BULK COLLECT INTO ids;
+  IF SQL%ROWCOUNT>0 THEN
+    FOR i IN ids.FIRST..ids.LAST
+    LOOP
+      hist.synchronize_history('user_roles',ids(i),vsetting_user,vstation);
+    END LOOP;
+  END IF;
   DELETE FROM user_sets WHERE user_id=vold_user_id;
+  hist.synchronize_history('user_sets', vold_user_id, vsetting_user, vstation);
   UPDATE users2
   SET login=NULL,passwd=NULL,pr_denial=-1,desk=NULL
   WHERE user_id=vold_user_id;
+  hist.synchronize_history('users2', vold_user_id, vsetting_user, vstation);
 END delete_user;
 
 FUNCTION get_cache_info(vcode	cache_tables.code%TYPE) RETURN TCacheInfo
@@ -1823,12 +1881,12 @@ EXCEPTION
   WHEN NO_DATA_FOUND THEN RETURN vid;
 END;
 
-FUNCTION get_trfer_set_flts(vid 	 trfer_set_flts.id%TYPE,
-                            vpr_onward   trfer_set_flts.pr_onward%TYPE) RETURN VARCHAR2
+FUNCTION get_trfer_set_flts(vtrfer_set_id trfer_set_flts.trfer_set_id%TYPE,
+                            vpr_onward    trfer_set_flts.pr_onward%TYPE) RETURN VARCHAR2
 IS
 CURSOR cur IS
   SELECT flt_no FROM trfer_set_flts
-  WHERE id=vid AND pr_onward=vpr_onward
+  WHERE trfer_set_id=vtrfer_set_id AND pr_onward=vpr_onward
   ORDER BY flt_no;
 res VARCHAR2(2000);
 BEGIN
@@ -1892,7 +1950,7 @@ mins  VARCHAR2(2);
 i     BINARY_INTEGER;
 h     NUMBER(2);
 m     NUMBER(2);
-BEGIN
+BEGIN  	
   IF str IS NULL THEN RETURN NULL; END IF;
   i:=INSTR(str,'-');
   IF i=0 THEN RAISE VALUE_ERROR; END IF;
@@ -1911,13 +1969,13 @@ EXCEPTION
     system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
 END check_trfer_sets_interval;
 
-PROCEDURE insert_trfer_sets(vid		      IN trfer_set_airps.id%TYPE,
-                            vairline_in       IN trfer_set_airps.airline_in%TYPE,
+PROCEDURE insert_trfer_sets(vid		      IN trfer_sets.id%TYPE,
+                            vairline_in       IN trfer_sets.airline_in%TYPE,
                             vairline_in_view  IN VARCHAR2,
                             vflt_no_in 	      IN VARCHAR2,
-                            vairp 	      IN trfer_set_airps.airp%TYPE,
+                            vairp 	      IN trfer_sets.airp%TYPE,
                             vairp_view        IN VARCHAR2,
-                            vairline_out      IN trfer_set_airps.airline_out%TYPE,
+                            vairline_out      IN trfer_sets.airline_out%TYPE,
                             vairline_out_view IN VARCHAR2,
                             vflt_no_out       IN VARCHAR2,
                             vtrfer_permit     IN trfer_sets.trfer_permit%TYPE,
@@ -1928,9 +1986,11 @@ PROCEDURE insert_trfer_sets(vid		      IN trfer_set_airps.id%TYPE,
                             vmin_interval     IN VARCHAR2,
                             vmax_interval     IN VARCHAR2,
                             vsys_user_id      IN users2.user_id%TYPE,
-                            vlang             IN lang_types.code%TYPE)
+                            vlang             IN lang_types.code%TYPE,
+                            vsetting_user     IN history_events.open_user%TYPE,
+                            vstation          IN history_events.open_desk%TYPE)
 IS
-vidh		trfer_set_airps.id%TYPE;
+vidh		trfer_sets.id%TYPE;
 vairph          airps.code%TYPE;
 flts_in		TFltList;
 flts_out        TFltList;
@@ -1939,14 +1999,17 @@ i		BINARY_INTEGER;
 k1		BINARY_INTEGER;
 k2		BINARY_INTEGER;
 flts_str        VARCHAR2(40);
-TYPE trfer_set_airps_cur IS REF CURSOR;
-cur             trfer_set_airps_cur;
-trfer_sets_cur_row trfer_sets%ROWTYPE;
-cur_id		trfer_set_airps.id%TYPE;
+TYPE trfer_sets_cur IS REF CURSOR;
+cur             trfer_sets_cur;
+cur_row         trfer_sets%ROWTYPE;
+cur_id		trfer_sets.id%TYPE;
 info	        adm.TCacheInfo;
 lparams         system.TLexemeParams;
 min_intervalh   trfer_sets.min_interval%TYPE;
 max_intervalh   trfer_sets.max_interval%TYPE;
+TYPE TIdsTable  IS TABLE OF NUMBER(9);
+fltids          TIdsTable;
+vflts_id        trfer_set_flts.id%TYPE;
 BEGIN
   IF check_airline_access(vairline_in,vsys_user_id)=0 AND
      check_airline_access(vairline_out,vsys_user_id)=0 THEN
@@ -1983,18 +2046,25 @@ BEGIN
   --собственно запись в базу
   IF vid IS NULL THEN
     SELECT id__seq.nextval INTO vidh FROM dual;
-    INSERT INTO trfer_set_airps(id,airline_in,airp,airline_out)
-    VALUES(vidh,vairline_in,vairp,vairline_out);
-    INSERT INTO trfer_sets(id,trfer_permit,trfer_outboard,tckin_permit,tckin_waitlist,tckin_norec,min_interval,max_interval)
-    VALUES(vidh,vtrfer_permit,vtrfer_outboard,vtckin_permit,vtckin_waitlist,vtckin_norec,min_intervalh,max_intervalh);
+    INSERT INTO trfer_sets(id,airline_in,airp,airline_out,
+      trfer_permit,trfer_outboard,tckin_permit,tckin_waitlist,tckin_norec,min_interval,max_interval)
+    VALUES(vidh,vairline_in,vairp,vairline_out,
+      vtrfer_permit,vtrfer_outboard,vtckin_permit,vtckin_waitlist,vtckin_norec,min_intervalh,max_intervalh);
+    hist.synchronize_history('trfer_sets',vidh,vsetting_user,vstation);
   ELSE
     vidh:=vid;
-    DELETE FROM trfer_set_flts WHERE id=vidh;
-    UPDATE trfer_set_airps
-    SET airline_in=vairline_in,airp=vairp,airline_out=vairline_out
-    WHERE id=vidh;
+    DELETE FROM trfer_set_flts WHERE trfer_set_id=vidh RETURNING id BULK COLLECT INTO fltids;
+    IF SQL%ROWCOUNT>0 THEN
+      FOR i IN fltids.FIRST..fltids.LAST
+      LOOP
+        hist.synchronize_history('trfer_set_flts',fltids(i),vsetting_user,vstation);
+      END LOOP;
+    END IF;
     UPDATE trfer_sets
-    SET trfer_permit=vtrfer_permit,
+    SET airline_in=vairline_in,
+        airp=vairp,
+        airline_out=vairline_out,
+        trfer_permit=vtrfer_permit,
         trfer_outboard=vtrfer_outboard,
         tckin_permit=vtckin_permit,
         tckin_waitlist=vtckin_waitlist,
@@ -2002,14 +2072,17 @@ BEGIN
         min_interval=min_intervalh,
         max_interval=max_intervalh
     WHERE id=vidh;
+    hist.synchronize_history('trfer_sets',vidh,vsetting_user,vstation);
   END IF;
   FOR i IN 0..flts_in.count-1 LOOP
-    INSERT INTO trfer_set_flts(id,pr_onward,flt_no)
-    VALUES(vidh,0,flts_in(i));
+    INSERT INTO trfer_set_flts(trfer_set_id,pr_onward,flt_no,id)
+    VALUES(vidh,0,flts_in(i),id__seq.nextval) RETURNING id INTO vflts_id;
+    hist.synchronize_history('trfer_set_flts',vflts_id,vsetting_user,vstation);
   END LOOP;
   FOR i IN 0..flts_out.count-1 LOOP
-    INSERT INTO trfer_set_flts(id,pr_onward,flt_no)
-    VALUES(vidh,1,flts_out(i));
+    INSERT INTO trfer_set_flts(trfer_set_id,pr_onward,flt_no,id)
+    VALUES(vidh,1,flts_out(i),id__seq.nextval) RETURNING id INTO vflts_id;
+    hist.synchronize_history('trfer_set_flts',vflts_id,vsetting_user,vstation);
   END LOOP;
 
   BEGIN
@@ -2026,42 +2099,53 @@ BEGIN
   END;
 
   OPEN cur FOR
-    SELECT DISTINCT trfer_sets.id,trfer_sets.trfer_permit,trfer_sets.trfer_outboard,
-                    trfer_sets.tckin_permit,trfer_sets.tckin_waitlist,trfer_sets.tckin_norec,
-                    trfer_sets.min_interval,trfer_sets.max_interval
-    FROM trfer_sets,trfer_set_airps,
+    SELECT DISTINCT trfer_sets.id,
+                    trfer_sets.trfer_permit,
+                    trfer_sets.trfer_outboard,
+                    trfer_sets.tckin_permit,
+                    trfer_sets.tckin_waitlist,
+                    trfer_sets.tckin_norec,
+                    trfer_sets.min_interval,
+                    trfer_sets.max_interval
+    FROM trfer_sets,
          trfer_set_flts flts_in,trfer_set_flts flts_out,
-         trfer_sets curr_tckin_set,trfer_set_airps curr_trfer_set_airps,
+         trfer_sets curr_trfer_sets,
          trfer_set_flts curr_flts_in,trfer_set_flts curr_flts_out
-    WHERE trfer_sets.id=trfer_set_airps.id AND
-          trfer_set_airps.id=flts_in.id(+) AND flts_in.pr_onward(+)=0 AND
-          trfer_set_airps.id=flts_out.id(+) AND flts_out.pr_onward(+)=1 AND
-          trfer_set_airps.id<>vidh AND
-          curr_tckin_set.id=curr_trfer_set_airps.id AND
-          curr_trfer_set_airps.id=curr_flts_in.id(+) AND curr_flts_in.pr_onward(+)=0 AND
-          curr_trfer_set_airps.id=curr_flts_out.id(+) AND curr_flts_out.pr_onward(+)=1 AND
-          curr_trfer_set_airps.id=vidh AND
-          trfer_set_airps.airline_in=curr_trfer_set_airps.airline_in AND
-          trfer_set_airps.airline_out=curr_trfer_set_airps.airline_out AND
-          trfer_set_airps.airp=curr_trfer_set_airps.airp AND
+    WHERE trfer_sets.id=flts_in.trfer_set_id(+) AND flts_in.pr_onward(+)=0 AND
+          trfer_sets.id=flts_out.trfer_set_id(+) AND flts_out.pr_onward(+)=1 AND
+          trfer_sets.id<>vidh AND
+          curr_trfer_sets.id=curr_trfer_sets.id AND
+          curr_trfer_sets.id=curr_flts_in.trfer_set_id(+) AND curr_flts_in.pr_onward(+)=0 AND
+          curr_trfer_sets.id=curr_flts_out.trfer_set_id(+) AND curr_flts_out.pr_onward(+)=1 AND
+          curr_trfer_sets.id=vidh AND
+          trfer_sets.airline_in=curr_trfer_sets.airline_in AND
+          trfer_sets.airline_out=curr_trfer_sets.airline_out AND
+          trfer_sets.airp=curr_trfer_sets.airp AND
           NVL(curr_flts_in.flt_no,-1)=NVL(flts_in.flt_no,-1) AND
           NVL(curr_flts_out.flt_no,-1)=NVL(flts_out.flt_no,-1);
 
   --проанализируем и уберем прежде введенные совпадающие данные
-  FETCH cur INTO trfer_sets_cur_row;
+  FETCH cur INTO cur_row.id,
+                 cur_row.trfer_permit,
+                 cur_row.trfer_outboard,
+                 cur_row.tckin_permit,
+                 cur_row.tckin_waitlist,
+                 cur_row.tckin_norec,
+                 cur_row.min_interval,
+                 cur_row.max_interval;
 
   WHILE cur%FOUND LOOP
 --  FOR curRow IN cur(vidh) LOOP
 
-    cur_id:=trfer_sets_cur_row.id;
+    cur_id:=cur_row.id;
 
     IF flts_in.count>0 THEN
       SELECT COUNT(*)
       INTO k1
       FROM
-        (SELECT flt_no FROM trfer_set_flts WHERE id=cur_id AND pr_onward=0
+        (SELECT flt_no FROM trfer_set_flts WHERE trfer_set_id=cur_id AND pr_onward=0
          MINUS
-         SELECT flt_no FROM trfer_set_flts WHERE id=vidh AND pr_onward=0);
+         SELECT flt_no FROM trfer_set_flts WHERE trfer_set_id=vidh AND pr_onward=0);
     ELSE
       k1:=0;
     END IF;
@@ -2069,46 +2153,77 @@ BEGIN
       SELECT COUNT(*)
       INTO k2
       FROM
-        (SELECT flt_no FROM trfer_set_flts WHERE id=cur_id AND pr_onward=1
+        (SELECT flt_no FROM trfer_set_flts WHERE trfer_set_id=cur_id AND pr_onward=1
          MINUS
-         SELECT flt_no FROM trfer_set_flts WHERE id=vidh AND pr_onward=1);
+         SELECT flt_no FROM trfer_set_flts WHERE trfer_set_id=vidh AND pr_onward=1);
     ELSE
       k2:=0;
     END IF;
 
     IF k1>0 THEN
       IF k2>0 THEN
-        IF vtrfer_permit   <> trfer_sets_cur_row.trfer_permit OR
-           vtrfer_outboard <> trfer_sets_cur_row.trfer_outboard OR
-           vtckin_permit   <> trfer_sets_cur_row.tckin_permit OR
-           vtckin_waitlist <> trfer_sets_cur_row.tckin_waitlist OR
-           vtckin_norec    <> trfer_sets_cur_row.tckin_norec OR
-           NVL(min_intervalh,1E10) <> NVL(trfer_sets_cur_row.min_interval,1E10) OR
-           NVL(max_intervalh,1E10) <> NVL(trfer_sets_cur_row.max_interval,1E10) THEN
+        IF vtrfer_permit   <> cur_row.trfer_permit OR
+           vtrfer_outboard <> cur_row.trfer_outboard OR
+           vtckin_permit   <> cur_row.tckin_permit OR
+           vtckin_waitlist <> cur_row.tckin_waitlist OR
+           vtckin_norec    <> cur_row.tckin_norec OR
+           NVL(min_intervalh,1E10) <> NVL(cur_row.min_interval,1E10) OR
+           NVL(max_intervalh,1E10) <> NVL(cur_row.max_interval,1E10) THEN
           system.raise_user_exception('MSG.CONFLICT_WITH_EARLIER_SETTINGS');
         END IF;
       ELSE
         --убрать из trfer_set_flts с id=cur_id те рейсы на прилет, которые в vidh
         FOR i IN 0..flts_in.count-1 LOOP
-          DELETE FROM trfer_set_flts WHERE id=cur_id AND pr_onward=0 AND flt_no=flts_in(i);
+          DELETE FROM trfer_set_flts WHERE trfer_set_id=cur_id AND pr_onward=0 AND flt_no=flts_in(i) RETURNING id INTO vflts_id;
+          IF SQL%ROWCOUNT>0 THEN
+            hist.synchronize_history('trfer_set_flts',vflts_id,vsetting_user,vstation);
+          END IF;
         END LOOP;
       END IF;
     ELSE
       IF k2>0 THEN
         --убрать из trfer_set_flts с id=cur_id те рейсы на вылет, которые в vidh
         FOR i IN 0..flts_out.count-1 LOOP
-          DELETE FROM trfer_set_flts WHERE id=cur_id AND pr_onward=1 AND flt_no=flts_out(i);
+          DELETE FROM trfer_set_flts WHERE trfer_set_id=cur_id AND pr_onward=1 AND flt_no=flts_out(i) RETURNING id INTO vflts_id;
+          IF SQL%ROWCOUNT>0 THEN
+            hist.synchronize_history('trfer_set_flts',vflts_id,vsetting_user,vstation);
+          END IF;
         END LOOP;
       ELSE
-        DELETE FROM trfer_set_flts WHERE id=cur_id;
-        DELETE FROM trfer_sets WHERE id=cur_id;
-        DELETE FROM trfer_set_airps WHERE id=cur_id;
+        delete_trfer_sets(cur_id,vsetting_user,vstation);
       END IF;
     END IF;
 
-    FETCH cur INTO trfer_sets_cur_row;
+    FETCH cur INTO cur_row.id,
+                   cur_row.trfer_permit,
+                   cur_row.trfer_outboard,
+                   cur_row.tckin_permit,
+                   cur_row.tckin_waitlist,
+                   cur_row.tckin_norec,
+                   cur_row.min_interval,
+                   cur_row.max_interval;
   END LOOP;
+  CLOSE cur;
 END insert_trfer_sets;
+
+PROCEDURE delete_trfer_sets(vid		      IN trfer_sets.id%TYPE,
+                            vsetting_user     IN history_events.open_user%TYPE,
+                            vstation          IN history_events.open_desk%TYPE)
+IS
+TYPE TIdsTable IS TABLE OF NUMBER(9);
+fltids            TIdsTable;
+i                 BINARY_INTEGER;
+BEGIN
+  DELETE FROM trfer_set_flts WHERE trfer_set_id=vid RETURNING id BULK COLLECT INTO fltids;
+  IF SQL%ROWCOUNT>0 THEN
+    FOR i IN fltids.FIRST..fltids.LAST
+    LOOP
+      hist.synchronize_history('trfer_set_flts',fltids(i),vsetting_user,vstation);
+    END LOOP;
+  END IF;
+  DELETE FROM trfer_sets WHERE id=vid;
+  hist.synchronize_history('trfer_sets',vid,vsetting_user,vstation);
+END delete_trfer_sets;
 
 FUNCTION normalize_days(days IN OUT VARCHAR2) RETURN BOOLEAN
 IS
@@ -2174,7 +2289,9 @@ PROCEDURE add_codeshare_set(
        vlast_date       codeshare_sets.last_date%TYPE,
        vnow             DATE,
        vtid             codeshare_sets.tid%TYPE,
-       vpr_denial       NUMBER)
+       vpr_denial       NUMBER,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE)
 IS
 first   DATE;
 last    DATE;
@@ -2231,13 +2348,17 @@ BEGIN
         /* отрезок [first_date,first) */
         IF idh IS NOT NULL THEN
           UPDATE codeshare_sets SET first_date=curRow.first_date,last_date=first,tid=tidh WHERE id=curRow.id;
+          hist.synchronize_history('codeshare_sets',curRow.id,vsetting_user,vstation);
           idh:=NULL;
         ELSE
+          SELECT id__seq.nextval INTO idh FROM dual;
           INSERT INTO codeshare_sets(id,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
                                      pr_mark_norms,pr_mark_bp,pr_mark_rpt,days,first_date,last_date,pr_del,tid)
-          SELECT id__seq.nextval,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
+          SELECT idh,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
                                      pr_mark_norms,pr_mark_bp,pr_mark_rpt,days,curRow.first_date,first,0,tidh
           FROM codeshare_sets WHERE id=curRow.id;
+          hist.synchronize_history('codeshare_sets',idh,vsetting_user,vstation);
+          idh:=NULL;
         END IF;
         first2:=first;
       ELSE
@@ -2248,13 +2369,17 @@ BEGIN
         /* отрезок [last,last_date)  */
         IF idh IS NOT NULL THEN
           UPDATE codeshare_sets SET first_date=last,last_date=curRow.last_date,tid=tidh WHERE id=curRow.id;
+          hist.synchronize_history('codeshare_sets',curRow.id,vsetting_user,vstation);
           idh:=NULL;
         ELSE
+          SELECT id__seq.nextval INTO idh FROM dual;
           INSERT INTO codeshare_sets(id,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
                                      pr_mark_norms,pr_mark_bp,pr_mark_rpt,days,first_date,last_date,pr_del,tid)
-          SELECT id__seq.nextval,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
+          SELECT idh,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
                                      pr_mark_norms,pr_mark_bp,pr_mark_rpt,days,last,curRow.last_date,0,tidh
           FROM codeshare_sets WHERE id=curRow.id;
+          hist.synchronize_history('codeshare_sets',idh,vsetting_user,vstation);
+          idh:=NULL;
         END IF;
         last2:=last;
       ELSE
@@ -2266,17 +2391,22 @@ BEGIN
           UPDATE codeshare_sets
           SET first_date=first2,last_date=last2,days=vdays_rest,tid=tidh
           WHERE id=curRow.id;
+          hist.synchronize_history('codeshare_sets',curRow.id,vsetting_user,vstation);
         ELSE
           UPDATE codeshare_sets SET pr_del=1,tid=tidh WHERE id=curRow.id;
+          hist.synchronize_history('codeshare_sets',curRow.id,vsetting_user,vstation);
         END IF;
       ELSE
         IF vdays_rest IS NOT NULL THEN /*что-то из дней осталось*/
           /* вставим новую строку */
+          SELECT id__seq.nextval INTO idh FROM dual;
           INSERT INTO codeshare_sets(id,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
                                      pr_mark_norms,pr_mark_bp,pr_mark_rpt,days,first_date,last_date,pr_del,tid)
-          SELECT id__seq.nextval,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
+          SELECT idh,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
                                      pr_mark_norms,pr_mark_bp,pr_mark_rpt,vdays_rest,first2,last2,0,tidh
           FROM codeshare_sets WHERE id=curRow.id;
+          hist.synchronize_history('codeshare_sets',idh,vsetting_user,vstation);
+          idh:=NULL;
         END IF;
       END IF;
     END IF;
@@ -2289,10 +2419,12 @@ BEGIN
                                  pr_mark_norms,pr_mark_bp,pr_mark_rpt,days,first_date,last_date,pr_del,tid)
       VALUES(vid,vairline_oper,vflt_no_oper,vairp_dep,vairline_mark,vflt_no_mark,
                                  vpr_mark_norms,vpr_mark_bp,vpr_mark_rpt,vdaysh,first,last,0,tidh);
+      hist.synchronize_history('codeshare_sets',vid,vsetting_user,vstation);
     END IF;
   ELSE
     /* при редактировании апдейтим строку */
     UPDATE codeshare_sets SET last_date=last,tid=tidh WHERE id=vid;
+    hist.synchronize_history('codeshare_sets',vid,vsetting_user,vstation);
   END IF;
 END add_codeshare_set;
 
@@ -2300,6 +2432,8 @@ PROCEDURE modify_codeshare_set(
        vid              codeshare_sets.id%TYPE,
        vlast_date       codeshare_sets.last_date%TYPE,
        vnow             DATE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             codeshare_sets.tid%TYPE DEFAULT NULL)
 IS
 r codeshare_sets%ROWTYPE;
@@ -2310,7 +2444,7 @@ BEGIN
          r.pr_mark_norms,r.pr_mark_bp,r.pr_mark_rpt,r.days,r.first_date
   FROM codeshare_sets WHERE id=vid AND pr_del=0 FOR UPDATE;
   add_codeshare_set(r.id,r.airline_oper,r.flt_no_oper,r.airp_dep,r.airline_mark,r.flt_no_mark,
-                    r.pr_mark_norms,r.pr_mark_bp,r.pr_mark_rpt,r.days,r.first_date,vlast_date,vnow,vtid,0);
+                    r.pr_mark_norms,r.pr_mark_bp,r.pr_mark_rpt,r.days,r.first_date,vlast_date,vnow,vtid,0,vsetting_user,vstation);
 EXCEPTION
   WHEN NO_DATA_FOUND THEN NULL;
 END modify_codeshare_set;
@@ -2318,6 +2452,8 @@ END modify_codeshare_set;
 PROCEDURE delete_codeshare_set(
        vid              codeshare_sets.id%TYPE,
        vnow             DATE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             codeshare_sets.tid%TYPE DEFAULT NULL)
 IS
 vfirst_date     DATE;
@@ -2330,8 +2466,10 @@ BEGIN
   IF vlast_date IS NULL OR vlast_date>vnow THEN
     IF vfirst_date<vnow THEN
       UPDATE codeshare_sets SET last_date=vnow,tid=tidh WHERE id=vid;
+      hist.synchronize_history('codeshare_sets',vid,vsetting_user,vstation);
     ELSE
       UPDATE codeshare_sets SET pr_del=1,tid=tidh WHERE id=vid;
+      hist.synchronize_history('codeshare_sets',vid,vsetting_user,vstation);
     END IF;
   ELSE
     /* специально чтобы в кэше появилась неизмененная строка */
@@ -2348,7 +2486,7 @@ FUNCTION check_date_wo_year(str         IN VARCHAR2,
 IS
 info	 adm.TCacheInfo;
 lparams   system.TLexemeParams;
-BEGIN
+BEGIN  	
   RETURN TO_DATE(str||'.2000','DD.MM.YYYY');
 EXCEPTION
   WHEN OTHERS THEN
@@ -2426,7 +2564,7 @@ BEGIN
     info:=adm.get_cache_info('AIRLINE_PERS_WEIGHTS');
     lparams('fieldname'):=get_locale_text(info.field_title('FIRST_DATE'), vlang);
     system.raise_user_exception('MSG.TABLE.NOT_SET_FIELD_VALUE', lparams);
-  END IF;
+  END IF; 	
   IF vfirst_date IS NOT NULL AND vlast_date IS NULL THEN
     info:=adm.get_cache_info('AIRLINE_PERS_WEIGHTS');
     lparams('fieldname'):=get_locale_text(info.field_title('LAST_DATE'), vlang);
@@ -2443,7 +2581,7 @@ BEGIN
           (subclass IS NULL AND vsubclass IS NULL OR subclass=vsubclass) AND
           pr_summer=vpr_summer AND
           rownum<2;
-  ELSE
+  ELSE	
     SELECT COUNT(*) INTO n
     FROM pers_weights
     WHERE (vid IS NULL OR id<>vid) AND
@@ -2482,67 +2620,74 @@ EXCEPTION
   WHEN NO_DATA_FOUND THEN NULL;
 END check_not_airp_user;
 
-PROCEDURE modify_rem_event_sets(old_airline  rem_event_sets.airline%TYPE,
-                                old_rem_code rem_event_sets.rem_code%TYPE,
-                                vairline     rem_event_sets.airline%TYPE,
-                                vrem_code    rem_event_sets.rem_code%TYPE,
-                                alarm_ss     rem_event_sets.event_value%TYPE,
-                                pnl_sel      rem_event_sets.event_value%TYPE,
-                                brd_view     rem_event_sets.event_value%TYPE,
-                                brd_warn     rem_event_sets.event_value%TYPE,
-                                rpt_ss       rem_event_sets.event_value%TYPE,
-                                rpt_pm       rem_event_sets.event_value%TYPE,
-                                ckin_view    rem_event_sets.event_value%TYPE,
-                                typeb_psm    rem_event_sets.event_value%TYPE,
-                                typeb_pil    rem_event_sets.event_value%TYPE)
+PROCEDURE modify_rem_event_sets(old_set_id    rem_event_sets.set_id%TYPE,
+                                old_airline   rem_event_sets.airline%TYPE,
+                                old_rem_code  rem_event_sets.rem_code%TYPE,
+                                vairline      rem_event_sets.airline%TYPE,
+                                vrem_code     rem_event_sets.rem_code%TYPE,
+                                bp            rem_event_sets.event_value%TYPE,
+                                alarm_ss      rem_event_sets.event_value%TYPE,
+                                pnl_sel       rem_event_sets.event_value%TYPE,
+                                brd_view      rem_event_sets.event_value%TYPE,
+                                brd_warn      rem_event_sets.event_value%TYPE,
+                                rpt_ss        rem_event_sets.event_value%TYPE,
+                                rpt_pm        rem_event_sets.event_value%TYPE,
+                                ckin_view     rem_event_sets.event_value%TYPE,
+                                typeb_psm     rem_event_sets.event_value%TYPE,
+                                typeb_pil     rem_event_sets.event_value%TYPE,
+                                vsetting_user history_events.open_user%TYPE,
+                                vstation      history_events.open_desk%TYPE)
 IS
 i BINARY_INTEGER;
 vevent_type  rem_event_sets.event_type%TYPE;
 vevent_value rem_event_sets.event_value%TYPE;
+vid          rem_event_sets.id%TYPE;
+vset_id      rem_event_sets.set_id%TYPE;
 BEGIN
-  IF old_rem_code IS NOT NULL THEN
-    DELETE FROM rem_event_sets
-    WHERE rem_code=old_rem_code AND
-          (airline=old_airline OR airline IS NULL AND old_airline IS NULL);
-  END IF;
-  FOR i IN 1..9 LOOP
+  SELECT id__seq.nextval INTO vset_id FROM dual;
+  FOR i IN 1..10 LOOP
     vevent_type:= CASE i
-                    WHEN 1 THEN 'ALARM_SS'
-                    WHEN 2 THEN 'PNL_SEL'
-                    WHEN 3 THEN 'BRD_VIEW'
-                    WHEN 4 THEN 'BRD_WARN'
-                    WHEN 5 THEN 'RPT_SS'
-                    WHEN 6 THEN 'RPT_PM'
-                    WHEN 7 THEN 'CKIN_VIEW'
-                    WHEN 8 THEN 'TYPEB_PSM'
-                    WHEN 9 THEN 'TYPEB_PIL'
+                    WHEN 1  THEN 'BP'
+                    WHEN 2  THEN 'ALARM_SS'
+                    WHEN 3  THEN 'PNL_SEL'
+                    WHEN 4  THEN 'BRD_VIEW'
+                    WHEN 5  THEN 'BRD_WARN'
+                    WHEN 6  THEN 'RPT_SS'
+                    WHEN 7  THEN 'RPT_PM'
+                    WHEN 8  THEN 'CKIN_VIEW'
+                    WHEN 9  THEN 'TYPEB_PSM'
+                    WHEN 10 THEN 'TYPEB_PIL'
                   END;
     vevent_value:=CASE i
-                    WHEN 1 THEN alarm_ss
-                    WHEN 2 THEN pnl_sel
-                    WHEN 3 THEN brd_view
-                    WHEN 4 THEN brd_warn
-                    WHEN 5 THEN rpt_ss
-                    WHEN 6 THEN rpt_pm
-                    WHEN 7 THEN ckin_view
-                    WHEN 8 THEN typeb_psm
-                    WHEN 9 THEN typeb_pil
+                    WHEN 1  THEN bp
+                    WHEN 2  THEN alarm_ss
+                    WHEN 3  THEN pnl_sel
+                    WHEN 4  THEN brd_view
+                    WHEN 5  THEN brd_warn
+                    WHEN 6  THEN rpt_ss
+                    WHEN 7  THEN rpt_pm
+                    WHEN 8  THEN ckin_view
+                    WHEN 9  THEN typeb_psm
+                    WHEN 10 THEN typeb_pil
                   END;
-    IF vevent_value IS NOT NULL THEN
-      INSERT INTO rem_event_sets(airline,rem_code,event_type,event_value)
-      VALUES(vairline,vrem_code,vevent_type,vevent_value);
+    IF old_set_id IS NOT NULL THEN
+      IF vrem_code IS NULL THEN
+        DELETE FROM rem_event_sets WHERE set_id=old_set_id AND event_type = vevent_type RETURNING id INTO vid;
+      ELSE
+        UPDATE rem_event_sets
+        SET airline = vairline, rem_code = vrem_code, event_value = vevent_value
+        WHERE set_id=old_set_id AND event_type = vevent_type RETURNING id INTO vid;
+      END IF;
+      IF SQL%ROWCOUNT>0 THEN
+        hist.synchronize_history('rem_event_sets',vid,vsetting_user,vstation);
+      END IF;
+    ELSE
+      INSERT INTO rem_event_sets(id, set_id, airline, rem_code, event_type, event_value)
+      VALUES(id__seq.nextval, vset_id, vairline, vrem_code, vevent_type, vevent_value) RETURNING id INTO vid;
+      hist.synchronize_history('rem_event_sets',vid,vsetting_user,vstation);
     END IF;
   END LOOP;
 END modify_rem_event_sets;
-
-PROCEDURE delete_rem_event_sets(old_airline  rem_event_sets.airline%TYPE,
-                                old_rem_code rem_event_sets.rem_code%TYPE)
-IS
-BEGIN
-  DELETE FROM rem_event_sets
-  WHERE rem_code=old_rem_code AND
-        (airline=old_airline OR airline IS NULL AND old_airline IS NULL);
-END delete_rem_event_sets;
 
 PROCEDURE check_stage_access(vstage_id     IN graph_stages.stage_id%TYPE,
                              vairline      IN airlines.code%TYPE,
@@ -2581,59 +2726,134 @@ EXCEPTION
   WHEN NO_DATA_FOUND THEN NULL;
 END check_stage_access;
 
-FUNCTION get_typeb_option(vid         typeb_addr_options.id%TYPE,
+PROCEDURE delete_create_points(vid            typeb_addrs.id%TYPE,
+                               vsetting_user  history_events.open_user%TYPE,
+                               vstation       history_events.open_desk%TYPE)
+IS
+TYPE TIdsTable IS TABLE OF NUMBER(9);
+ids               TIdsTable;
+i                 BINARY_INTEGER;
+BEGIN
+  DELETE FROM typeb_create_points WHERE typeb_addrs_id=vid RETURNING id BULK COLLECT INTO ids;
+  IF SQL%ROWCOUNT>0 THEN
+    FOR i IN ids.FIRST..ids.LAST LOOP
+      hist.synchronize_history('typeb_create_points',ids(i),vsetting_user,vstation);
+    END LOOP;
+  END IF;
+END delete_create_points;
+
+FUNCTION get_typeb_option(vid         typeb_addrs.id%TYPE,
                           vbasic_type typeb_addr_options.tlg_type%TYPE,
                           vcategory   typeb_addr_options.category%TYPE) RETURN typeb_addr_options.value%TYPE
 IS
 result typeb_addr_options.value%TYPE;
 BEGIN
   SELECT value INTO result FROM typeb_addr_options
-  WHERE id=vid AND tlg_type=vbasic_type AND category=vcategory;
+  WHERE typeb_addrs_id=vid AND tlg_type=vbasic_type AND category=vcategory;
   RETURN result;
 EXCEPTION
   WHEN NO_DATA_FOUND THEN RETURN NULL;
 END get_typeb_option;
 
-PROCEDURE sync_typeb_options(vid            typeb_addr_options.id%TYPE,
-                             new_basic_type typeb_addr_options.tlg_type%TYPE,
-                             old_basic_type typeb_addr_options.tlg_type%TYPE)
+PROCEDURE delete_typeb_options(vid            typeb_addrs.id%TYPE,
+                               vsetting_user  history_events.open_user%TYPE,
+                               vstation       history_events.open_desk%TYPE)
 IS
+TYPE TIdsTable IS TABLE OF NUMBER(9);
+ids               TIdsTable;
+i                 BINARY_INTEGER;
 BEGIN
-  IF new_basic_type IS NOT NULL AND
-     old_basic_type IS NOT NULL AND
-     new_basic_type=old_basic_type THEN
-    RETURN;
+  DELETE FROM typeb_addr_options WHERE typeb_addrs_id=vid RETURNING id BULK COLLECT INTO ids;
+  IF SQL%ROWCOUNT>0 THEN
+    FOR i IN ids.FIRST..ids.LAST LOOP
+      hist.synchronize_history('typeb_addr_options',ids(i),vsetting_user,vstation);
+    END LOOP;
   END IF;
-  DELETE FROM typeb_addr_options WHERE id=vid;
-  IF new_basic_type IS NOT NULL THEN
-    INSERT INTO typeb_addr_options(id, tlg_type, category, value)
-    SELECT vid, tlg_type, category, default_value
-    FROM typeb_options
-    WHERE tlg_type=new_basic_type;
-  END IF;
+END delete_typeb_options;
+
+PROCEDURE sync_typeb_options(cur sync_typeb_options_cur,
+                             vsetting_user  history_events.open_user%TYPE,
+                             vstation       history_events.open_desk%TYPE)
+IS
+curRow typeb_addr_options%ROWTYPE;
+BEGIN
+  LOOP
+    FETCH cur
+    INTO curRow.typeb_addrs_id,
+         curRow.tlg_type,
+         curRow.category,
+         curRow.id,
+         curRow.value;
+    EXIT WHEN not(cur%FOUND);
+    IF curRow.id IS NOT NULL THEN
+      IF curRow.category IS NULL THEN
+        --удаляем строку из dest
+        DELETE FROM typeb_addr_options WHERE id=curRow.id;
+      ELSE
+        UPDATE typeb_addr_options
+        SET value=curRow.value
+        WHERE id=curRow.id AND ' '||value<>' '||curRow.value;
+      END IF;
+      IF SQL%ROWCOUNT>0 THEN
+        hist.synchronize_history('typeb_addr_options',curRow.id,vsetting_user,vstation);
+      END IF;
+    ELSE
+      --добавляем строку в dest
+      INSERT INTO typeb_addr_options(typeb_addrs_id, tlg_type, category, value, id)
+      VALUES(curRow.typeb_addrs_id, curRow.tlg_type, curRow.category, curRow.value, id__seq.nextval);
+      hist.synchronize_history('typeb_addr_options',id__seq.currval,vsetting_user,vstation);
+    END IF;
+  END LOOP;
 END sync_typeb_options;
 
-PROCEDURE sync_LDM_options(vid            typeb_addr_options.id%TYPE,
+PROCEDURE sync_typeb_options(vid            typeb_addrs.id%TYPE,
+                             vbasic_type    typeb_addr_options.tlg_type%TYPE,
+                             vsetting_user  history_events.open_user%TYPE,
+                             vstation       history_events.open_desk%TYPE)
+IS
+cur sync_typeb_options_cur;
+BEGIN
+  --лочим настройку
+  UPDATE typeb_addrs SET id=id WHERE id=vid;
+  OPEN cur FOR
+    SELECT vid AS typeb_addrs_id, src.tlg_type, src.category, dest.id,
+           DECODE(dest.id, NULL, default_value, dest.value) AS value
+    FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest
+         FULL OUTER JOIN
+         (SELECT * FROM typeb_options WHERE tlg_type=vbasic_type) src
+    ON (dest.tlg_type=src.tlg_type AND dest.category=src.category);
+  sync_typeb_options(cur, vsetting_user, vstation);
+  CLOSE cur;
+END sync_typeb_options;
+
+PROCEDURE sync_LDM_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
                            vversion       typeb_addr_options.value%TYPE,
-                           vcabin_baggage typeb_addr_options.value%TYPE)
+                           vcabin_baggage typeb_addr_options.value%TYPE,
+                           vgender        typeb_addr_options.value%TYPE,
+                           vsetting_user  history_events.open_user%TYPE,
+                           vstation       history_events.open_desk%TYPE)
 IS
+cur sync_typeb_options_cur;
 BEGIN
-  DELETE FROM typeb_addr_options WHERE id=vid;
-  IF vbasic_type IS NOT NULL THEN
-    INSERT INTO typeb_addr_options(id, tlg_type, category, value)
-    SELECT vid, tlg_type, category,
-           DECODE(category,'VERSION',       vversion,
-                           'CABIN_BAGGAGE', vcabin_baggage,
-                                            default_value)
-    FROM typeb_options
-    WHERE tlg_type=vbasic_type;
-  END IF;
+  --лочим настройку
+  UPDATE typeb_addrs SET id=id WHERE id=vid;
+  OPEN cur FOR
+    SELECT vid AS typeb_addrs_id, src.tlg_type, src.category, dest.id,
+           DECODE(src.category, 'VERSION',       vversion,
+                                'CABIN_BAGGAGE', vcabin_baggage,
+                                'GENDER',        vgender,
+                                                 default_value) AS value
+    FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest
+         FULL OUTER JOIN
+         (SELECT * FROM typeb_options WHERE tlg_type=vbasic_type) src
+    ON (dest.tlg_type=src.tlg_type AND dest.category=src.category);
+  sync_typeb_options(cur, vsetting_user, vstation);
+  CLOSE cur;
 END sync_LDM_options;
 
-PROCEDURE sync_LCI_options(vid            typeb_addr_options.id%TYPE,
+PROCEDURE sync_LCI_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
-                           vaction_code   typeb_addr_options.value%TYPE,
                            vequipment     typeb_addr_options.value%TYPE,
                            vweignt_avail  typeb_addr_options.value%TYPE,
                            vseating       typeb_addr_options.value%TYPE,
@@ -2642,46 +2862,103 @@ PROCEDURE sync_LCI_options(vid            typeb_addr_options.id%TYPE,
                            vpas_totals    typeb_addr_options.value%TYPE,
                            vbag_totals    typeb_addr_options.value%TYPE,
                            vpas_distrib   typeb_addr_options.value%TYPE,
-                           vseat_plan     typeb_addr_options.value%TYPE)
+                           vseat_plan     typeb_addr_options.value%TYPE,
+                           vsetting_user  history_events.open_user%TYPE,
+                           vstation       history_events.open_desk%TYPE)
 IS
+cur sync_typeb_options_cur;
 BEGIN
-  DELETE FROM typeb_addr_options WHERE id=vid;
-  IF vbasic_type IS NOT NULL THEN
-    INSERT INTO typeb_addr_options(id, tlg_type, category, value)
-    SELECT vid, tlg_type, category,
-           DECODE(category,'ACTION_CODE',  vaction_code,
-                           'EQUIPMENT',    vequipment,
-                           'WEIGHT_AVAIL', vweignt_avail,
-                           'SEATING',      vseating,
-                           'WEIGHT_MODE',  vweight_mode,
-                           'SEAT_RESTRICT',vseat_restrict,
-                           'PAS_TOTALS',   vpas_totals,
-                           'BAG_TOTALS',   vbag_totals,
-                           'PAS_DISTRIB',  vpas_distrib,
-                           'SEAT_PLAN',    vseat_plan,
-                                           default_value)
-    FROM typeb_options
-    WHERE tlg_type=vbasic_type;
-  END IF;
+  --лочим настройку
+  UPDATE typeb_addrs SET id=id WHERE id=vid;
+  OPEN cur FOR
+    SELECT vid AS typeb_addrs_id, src.tlg_type, src.category, dest.id,
+           DECODE(src.category, 'EQUIPMENT',    vequipment,
+                                'WEIGHT_AVAIL', vweignt_avail,
+                                'SEATING',      vseating,
+                                'WEIGHT_MODE',  vweight_mode,
+                                'SEAT_RESTRICT',vseat_restrict,
+                                'PAS_TOTALS',   vpas_totals,
+                                'BAG_TOTALS',   vbag_totals,
+                                'PAS_DISTRIB',  vpas_distrib,
+                                'SEAT_PLAN',    vseat_plan,
+                                                default_value) AS value
+    FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest
+         FULL OUTER JOIN
+         (SELECT * FROM typeb_options WHERE tlg_type=vbasic_type) src
+    ON (dest.tlg_type=src.tlg_type AND dest.category=src.category);
+  sync_typeb_options(cur, vsetting_user, vstation);
+  CLOSE cur;
 END sync_LCI_options;
 
-PROCEDURE sync_PRL_options(vid            typeb_addr_options.id%TYPE,
+PROCEDURE sync_PRL_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
                            vcreate_point  typeb_addr_options.value%TYPE,
-                           vpax_state     typeb_addr_options.value%TYPE)
+                           vpax_state     typeb_addr_options.value%TYPE,
+                           vrbd           typeb_addr_options.value%TYPE,
+                           vsetting_user  history_events.open_user%TYPE,
+                           vstation       history_events.open_desk%TYPE)
 IS
+cur sync_typeb_options_cur;
 BEGIN
-  DELETE FROM typeb_addr_options WHERE id=vid;
-  IF vbasic_type IS NOT NULL THEN
-    INSERT INTO typeb_addr_options(id, tlg_type, category, value)
-    SELECT vid, tlg_type, category,
-           DECODE(category,'CREATE_POINT', vcreate_point,
-                           'PAX_STATE',    vpax_state,
-                                           default_value)
-    FROM typeb_options
-    WHERE tlg_type=vbasic_type;
-  END IF;
+  --лочим настройку
+  UPDATE typeb_addrs SET id=id WHERE id=vid;
+  OPEN cur FOR
+    SELECT vid AS typeb_addrs_id, src.tlg_type, src.category, dest.id,
+           DECODE(src.category, 'CREATE_POINT', vcreate_point,
+                                'PAX_STATE',    vpax_state,
+                                'RBD',          vrbd,
+                                                default_value) AS value
+    FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest
+         FULL OUTER JOIN
+         (SELECT * FROM typeb_options WHERE tlg_type=vbasic_type) src
+    ON (dest.tlg_type=src.tlg_type AND dest.category=src.category);
+  sync_typeb_options(cur, vsetting_user, vstation);
+  CLOSE cur;
 END sync_PRL_options;
+
+PROCEDURE sync_BSM_options(vid              typeb_addrs.id%TYPE,
+                           vbasic_type      typeb_addr_options.tlg_type%TYPE,
+                           vclass_of_travel typeb_addr_options.value%TYPE,
+                           vsetting_user    history_events.open_user%TYPE,
+                           vstation         history_events.open_desk%TYPE)
+IS
+cur sync_typeb_options_cur;
+BEGIN
+  --лочим настройку
+  UPDATE typeb_addrs SET id=id WHERE id=vid;
+  OPEN cur FOR
+    SELECT vid AS typeb_addrs_id, src.tlg_type, src.category, dest.id,
+           DECODE(src.category, 'CLASS_OF_TRAVEL', vclass_of_travel,
+                                                   default_value) AS value
+    FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest
+         FULL OUTER JOIN
+         (SELECT * FROM typeb_options WHERE tlg_type=vbasic_type) src
+    ON (dest.tlg_type=src.tlg_type AND dest.category=src.category);
+  sync_typeb_options(cur, vsetting_user, vstation);
+  CLOSE cur;
+END sync_BSM_options;
+
+PROCEDURE sync_PNL_options(vid              typeb_addrs.id%TYPE,
+                           vbasic_type      typeb_addr_options.tlg_type%TYPE,
+                           vforwarding      typeb_addr_options.value%TYPE,
+                           vsetting_user    history_events.open_user%TYPE,
+                           vstation         history_events.open_desk%TYPE)
+IS
+cur sync_typeb_options_cur;
+BEGIN
+  --лочим настройку
+  UPDATE typeb_addrs SET id=id WHERE id=vid;
+  OPEN cur FOR
+    SELECT vid AS typeb_addrs_id, src.tlg_type, src.category, dest.id,
+           DECODE(src.category, 'FORWARDING', vforwarding,
+                                              default_value) AS value
+    FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest
+         FULL OUTER JOIN
+         (SELECT * FROM typeb_options WHERE tlg_type=vbasic_type) src
+    ON (dest.tlg_type=src.tlg_type AND dest.category=src.category);
+  sync_typeb_options(cur, vsetting_user, vstation);
+  CLOSE cur;
+END sync_PNL_options;
 
 PROCEDURE modify_airline_offices(vid           airline_offices.id%TYPE,
                                  vairline      airline_offices.airline%TYPE,
@@ -2691,12 +2968,15 @@ PROCEDURE modify_airline_offices(vid           airline_offices.id%TYPE,
                                  vphone        airline_offices.phone%TYPE,
                                  vfax          airline_offices.fax%TYPE,
                                  vto_apis      airline_offices.to_apis%TYPE,
-                                 vlang         lang_types.code%TYPE)
+                                 vlang         lang_types.code%TYPE,
+                                 vsetting_user history_events.open_user%TYPE,
+                                 vstation      history_events.open_desk%TYPE)
 IS
 i BINARY_INTEGER;
 c CHAR(1);
 info	 adm.TCacheInfo;
 lparams  system.TLexemeParams;
+vidh     airline_offices.id%TYPE;
 BEGIN
   IF vairp IS NOT NULL THEN
     SELECT COUNT(*)
@@ -2728,14 +3008,94 @@ BEGIN
   END IF;
   IF vid IS NULL THEN
     INSERT INTO airline_offices(id, airline, country, airp, contact_name, phone, fax, to_apis)
-    VALUES(id__seq.nextval, vairline, vcountry, vairp, vcontact_name, vphone, vfax, vto_apis);
+    VALUES(id__seq.nextval, vairline, vcountry, vairp, vcontact_name, vphone, vfax, vto_apis)
+    RETURNING id INTO vidh;
+    hist.synchronize_history('airline_offices',vid,vsetting_user,vstation);
   ELSE
     UPDATE airline_offices
     SET airline=vairline, country=vcountry, airp=vairp, contact_name=vcontact_name,
         phone=vphone, fax=vfax, to_apis=vto_apis
     WHERE id=vid;
+    hist.synchronize_history('airline_offices',vid,vsetting_user,vstation);
   END IF;
 END modify_airline_offices;
+
+PROCEDURE insert_roles(vname          roles.name%TYPE,
+                       vairline       airlines.code%TYPE,
+                       vairp          airps.code%TYPE,
+                       vsetting_user  history_events.open_user%TYPE,
+                       vstation       history_events.open_desk%TYPE)
+IS
+vrole_id roles.role_id%TYPE;
+BEGIN
+  SELECT id__seq.nextval INTO vrole_id FROM dual;
+  INSERT INTO roles(role_id,name,airline,airp)
+  VALUES(vrole_id,vname,vairline,vairp);
+  hist.synchronize_history('roles',vrole_id,vsetting_user,vstation);
+  INSERT INTO trip_list_days(id, role_id, shift_down, shift_up)
+  SELECT vrole_id, vrole_id, -1, 1
+  FROM dual
+  WHERE lower(vname) like 'агент по%' OR
+        lower(vname) like 'кассир%' OR
+        lower(vname) like 'паспортный контроль%' OR
+        lower(vname) like 'досмотр%';
+  hist.synchronize_history('trip_list_days',vrole_id,vsetting_user,vstation);
+END insert_roles;
+
+PROCEDURE modify_roles(vrole_id       roles.role_id%TYPE,
+                       vname          roles.name%TYPE,
+                       vairline       airlines.code%TYPE,
+                       vairp          airps.code%TYPE,
+                       vsetting_user  history_events.open_user%TYPE,
+                       vstation       history_events.open_desk%TYPE)
+IS
+BEGIN
+  DELETE FROM trip_list_days WHERE role_id=vrole_id;
+  hist.synchronize_history('trip_list_days',vrole_id,vsetting_user,vstation);
+  UPDATE roles SET name=vname,airline=vairline,airp=vairp
+  WHERE role_id=vrole_id;
+  hist.synchronize_history('roles',vrole_id,vsetting_user,vstation);
+  INSERT INTO trip_list_days(id, role_id, shift_down, shift_up)
+  SELECT vrole_id, vrole_id, -1, 1
+  FROM dual
+  WHERE lower(vname) like 'агент по%' OR
+        lower(vname) like 'кассир%' OR
+        lower(vname) like 'паспортный контроль%' OR
+        lower(vname) like 'досмотр%';
+  hist.synchronize_history('trip_list_days',vrole_id,vsetting_user,vstation);
+END modify_roles;
+
+PROCEDURE delete_roles(vrole_id       roles.role_id%TYPE,
+                       vsetting_user  history_events.open_user%TYPE,
+                       vstation       history_events.open_desk%TYPE)
+IS
+TYPE TIdsTable IS TABLE OF NUMBER(9);
+ids               TIdsTable;
+i                 BINARY_INTEGER;
+BEGIN
+
+  DELETE FROM trip_list_days WHERE role_id=vrole_id;
+  hist.synchronize_history('trip_list_days',vrole_id,vsetting_user,vstation);
+
+  DELETE FROM role_rights WHERE role_id=vrole_id RETURNING id BULK COLLECT INTO ids;
+  IF SQL%ROWCOUNT>0 THEN
+    FOR i IN ids.FIRST..ids.LAST
+    LOOP
+      hist.synchronize_history('role_rights',ids(i),vsetting_user,vstation);
+    END LOOP;
+  END IF;
+
+  DELETE FROM role_assign_rights WHERE role_id=vrole_id RETURNING id BULK COLLECT INTO ids;
+  IF SQL%ROWCOUNT>0 THEN
+    FOR i IN ids.FIRST..ids.LAST
+    LOOP
+      hist.synchronize_history('role_assign_rights',ids(i),vsetting_user,vstation);
+    END LOOP;
+  END IF;
+
+  DELETE FROM roles WHERE role_id=vrole_id;
+  hist.synchronize_history('roles',vrole_id,vsetting_user,vstation);
+END delete_roles;
 
 END adm;
 /

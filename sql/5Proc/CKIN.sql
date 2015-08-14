@@ -12,17 +12,6 @@ rkWeight	NUMBER(6)
 
 bagInfo		TBagInfo;
 
-FUNCTION get_pnr_addr(vpnr_id 	IN crs_pnr.pnr_id%TYPE,
-                      vairline 	IN airlines.code%TYPE DEFAULT NULL,
-                      pr_all	IN NUMBER DEFAULT 0) RETURN VARCHAR2;
-
-FUNCTION get_pax_pnr_addr(vpax_id 	IN crs_pax.pax_id%TYPE,
-                          vairline 	IN airlines.code%TYPE DEFAULT NULL,
-                          pr_all	IN NUMBER DEFAULT 0) RETURN VARCHAR2;
-
-FUNCTION get_pnr(vpax_id in crs_pax.pax_id%type) return varchar2;
-PRAGMA RESTRICT_REFERENCES (get_pnr, WNDS, WNPS, RNPS);
-
 FUNCTION next_airp(vfirst_point 	IN points.first_point%TYPE,
                    vpoint_num        	IN points.point_num%TYPE) RETURN points.airp%TYPE;
 
@@ -31,8 +20,6 @@ FUNCTION tranzitable(vpoint_id	IN points.point_id%TYPE) RETURN points.pr_tranzit
 FUNCTION get_pr_tranzit(vpoint_id	IN points.point_id%TYPE) RETURN points.pr_tranzit%TYPE;
 
 FUNCTION get_pr_tranz_reg(vpoint_id	IN points.point_id%TYPE) RETURN trip_sets.pr_tranz_reg%TYPE;
-
-FUNCTION get_comp_id(vpoint_id	IN points.point_id%TYPE) RETURN trip_sets.comp_id%TYPE;
 
 FUNCTION get_birks2(vgrp_id       IN pax.grp_id%TYPE,
                     vpax_id 	    IN pax.pax_id%TYPE,
@@ -84,9 +71,6 @@ PROCEDURE recount(vpoint_id	IN points.point_id%TYPE);
 FUNCTION delete_grp_trfer(vgrp_id     pax_grp.grp_id%TYPE) RETURN NUMBER;
 FUNCTION delete_grp_tckin_segs(vgrp_id     pax_grp.grp_id%TYPE) RETURN NUMBER;
 PROCEDURE check_grp(vgrp_id     pax_grp.grp_id%TYPE);
-
-PROCEDURE set_trip_sets(vpoint_id	  IN points.point_id%TYPE,
-                        use_seances IN NUMBER);
 
 FUNCTION get_main_pax_id(vgrp_id IN pax_grp.grp_id%TYPE,
                          include_refused IN NUMBER DEFAULT 1) RETURN pax.pax_id%TYPE;

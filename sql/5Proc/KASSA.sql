@@ -12,13 +12,19 @@ PROCEDURE check_period(pr_new           BOOLEAN,
 PROCEDURE modify_bag_norm(
        vid              bag_norms.id%TYPE,
        vlast_date       bag_norms.last_date%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             bag_norms.tid%TYPE DEFAULT NULL);
 
 PROCEDURE delete_bag_norm(
        vid              bag_norms.id%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             bag_norms.tid%TYPE DEFAULT NULL);
 
-PROCEDURE copy_basic_bag_norm(vairline         bag_norms.airline%TYPE);
+PROCEDURE copy_basic_bag_norm(vairline         bag_norms.airline%TYPE,
+                              vsetting_user    history_events.open_user%TYPE,
+                              vstation         history_events.open_desk%TYPE);
 
 PROCEDURE add_bag_norm(
        vid       IN OUT bag_norms.id%TYPE,
@@ -40,18 +46,25 @@ PROCEDURE add_bag_norm(
        vper_unit        bag_norms.per_unit%TYPE,
        vnorm_type       bag_norms.norm_type%TYPE,
        vextra           bag_norms.extra%TYPE,
-       vtid             bag_norms.tid%TYPE);
+       vtid             bag_norms.tid%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE);
 
 PROCEDURE modify_bag_rate(
        vid              bag_rates.id%TYPE,
        vlast_date       bag_rates.last_date%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             bag_rates.tid%TYPE DEFAULT NULL);
-
 PROCEDURE delete_bag_rate(
        vid              bag_rates.id%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             bag_rates.tid%TYPE DEFAULT NULL);
 
-PROCEDURE copy_basic_bag_rate(vairline         bag_rates.airline%TYPE);
+PROCEDURE copy_basic_bag_rate(vairline         bag_rates.airline%TYPE,
+                              vsetting_user    history_events.open_user%TYPE,
+                              vstation         history_events.open_desk%TYPE);
 
 PROCEDURE add_bag_rate(
        vid       IN OUT bag_rates.id%TYPE,
@@ -72,18 +85,26 @@ PROCEDURE add_bag_rate(
        vrate_cur        bag_rates.rate_cur%TYPE,
        vmin_weight      bag_rates.min_weight%TYPE,
        vextra           bag_rates.extra%TYPE,
-       vtid             bag_rates.tid%TYPE);
+       vtid             bag_rates.tid%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE);
 
 PROCEDURE modify_value_bag_tax(
        vid              value_bag_taxes.id%TYPE,
        vlast_date       value_bag_taxes.last_date%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             value_bag_taxes.tid%TYPE DEFAULT NULL);
 
 PROCEDURE delete_value_bag_tax(
        vid              value_bag_taxes.id%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             value_bag_taxes.tid%TYPE DEFAULT NULL);
 
-PROCEDURE copy_basic_value_bag_tax(vairline         value_bag_taxes.airline%TYPE);
+PROCEDURE copy_basic_value_bag_tax(vairline         value_bag_taxes.airline%TYPE,
+                                   vsetting_user    history_events.open_user%TYPE,
+                                   vstation         history_events.open_desk%TYPE);
 
 PROCEDURE add_value_bag_tax(
        vid       IN OUT value_bag_taxes.id%TYPE,
@@ -97,18 +118,26 @@ PROCEDURE add_value_bag_tax(
        vmin_value       value_bag_taxes.min_value%TYPE,
        vmin_value_cur   value_bag_taxes.min_value_cur%TYPE,
        vextra           value_bag_taxes.extra%TYPE,
-       vtid             value_bag_taxes.tid%TYPE);
+       vtid             value_bag_taxes.tid%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE);
 
 PROCEDURE modify_exchange_rate(
        vid              exchange_rates.id%TYPE,
        vlast_date       exchange_rates.last_date%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             exchange_rates.tid%TYPE DEFAULT NULL);
 
 PROCEDURE delete_exchange_rate(
        vid              exchange_rates.id%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE,
        vtid             exchange_rates.tid%TYPE DEFAULT NULL);
 
-PROCEDURE copy_basic_exchange_rate(vairline         exchange_rates.airline%TYPE);
+PROCEDURE copy_basic_exchange_rate(vairline         exchange_rates.airline%TYPE,
+                                   vsetting_user    history_events.open_user%TYPE,
+                                   vstation         history_events.open_desk%TYPE);
 
 PROCEDURE add_exchange_rate(
        vid       IN OUT exchange_rates.id%TYPE,
@@ -120,7 +149,9 @@ PROCEDURE add_exchange_rate(
        vfirst_date      exchange_rates.first_date%TYPE,
        vlast_date       exchange_rates.last_date%TYPE,
        vextra           exchange_rates.extra%TYPE,
-       vtid             exchange_rates.tid%TYPE);
+       vtid             exchange_rates.tid%TYPE,
+       vsetting_user    history_events.open_user%TYPE,
+       vstation         history_events.open_desk%TYPE);
 
 END kassa;
 /

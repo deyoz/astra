@@ -151,26 +151,6 @@ BEGIN
   RETURN vdate;
 END LOCALSYSDATE;
 
-PROCEDURE MsgToLog(vmsg         VARCHAR2,
-                   vtype        TEventType,
-                   vid1         events.id1%TYPE DEFAULT NULL,
-                   vid2         events.id2%TYPE DEFAULT NULL,
-                   vid3         events.id3%TYPE DEFAULT NULL)
-IS
-BEGIN
-  INSERT INTO events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3)
-  VALUES(vtype,system.UTCSYSDATE,events__seq.nextval,SUBSTR(vmsg,1,250),NULL,NULL,NULL,vid1,vid2,vid3);
-END MsgToLog;
-
-PROCEDURE ErrorToLog(vmsg       VARCHAR2,
-                   vid1         events.id1%TYPE DEFAULT NULL,
-                   vid2         events.id2%TYPE DEFAULT NULL,
-                   vid3         events.id3%TYPE DEFAULT NULL)
-IS
-BEGIN
-  MsgToLog(vmsg,evtProgError,vid1,vid2,vid3);
-END ErrorToLog;
-
 FUNCTION transliter(str	IN VARCHAR2, fmt IN INTEGER) RETURN VARCHAR2
 IS
 CURSOR cur IS

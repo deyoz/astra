@@ -290,8 +290,8 @@ FUNCTION get_PSPT(vpax_id IN crs_pax.pax_id%TYPE,
 IS
 CURSOR DocCur IS
   SELECT issue_country,no FROM crs_pax_doc
-  WHERE pax_id=vpax_id AND no IS NOT NULL
-  ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no;
+  WHERE pax_id=vpax_id
+  ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no NULLS LAST;
 DocCurRow DocCur%ROWTYPE;
 result          crs_pax_rem.rem%TYPE;
 BEGIN

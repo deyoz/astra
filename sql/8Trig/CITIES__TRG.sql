@@ -39,13 +39,6 @@ DECLARE
         vfield_title:='NAME_LAT';
         raise_application_error(-20001,'');
       END IF;
-
-      IF :new.tz BETWEEN -12 AND 12 THEN
-        NULL;
-      ELSE
-        vfield_title:='TZ';
-        raise_application_error(-20000,'');
-      END IF;
     EXCEPTION
       WHEN OTHERS THEN
         lparams('field'):=info.field_title(vfield_title);

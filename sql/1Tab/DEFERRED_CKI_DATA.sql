@@ -1,5 +1,4 @@
-create table DEFERRED_CKI_DATA
-(
-MSG_ID number(9) not null,
-DATA VARCHAR2(1024) not null                             
+CREATE TABLE DEFERRED_CKI_DATA (
+DATA VARCHAR2(1024) NOT NULL,
+MSG_ID NUMBER(9) NOT NULL
 );
