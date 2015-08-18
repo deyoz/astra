@@ -386,22 +386,22 @@ void set_tlg_trips_search_params(const TTlgSearchParams &search_params, ostrings
 {
     TReqInfo &info = *(TReqInfo::Instance());
 
-    if (!info.user.access.airlines.empty()) {
-        if (info.user.access.airlines_permit)
-            sql << " AND tlg_trips.airline IN " << GetSQLEnum(info.user.access.airlines) << " \n";
+    if (!info.user.access.airlines().elems().empty()) {
+        if (info.user.access.airlines().elems_permit())
+            sql << " AND tlg_trips.airline IN " << GetSQLEnum(info.user.access.airlines().elems()) << " \n";
         else
-            sql << " AND tlg_trips.airline NOT IN " << GetSQLEnum(info.user.access.airlines) << " \n";
+            sql << " AND tlg_trips.airline NOT IN " << GetSQLEnum(info.user.access.airlines().elems()) << " \n";
     }
 
-    if (!info.user.access.airps.empty()) {
-        if (info.user.access.airps_permit)
+    if (!info.user.access.airps().elems().empty()) {
+        if (info.user.access.airps().elems_permit())
             sql << " AND (tlg_trips.airp_dep IS NULL AND tlg_trips.airp_arv IS NULL OR \n"
-                << "      tlg_trips.airp_dep IN " << GetSQLEnum(info.user.access.airps) << " OR \n"
-                << "      tlg_trips.airp_arv IN " << GetSQLEnum(info.user.access.airps) << ") \n" ;
+                << "      tlg_trips.airp_dep IN " << GetSQLEnum(info.user.access.airps().elems()) << " OR \n"
+                << "      tlg_trips.airp_arv IN " << GetSQLEnum(info.user.access.airps().elems()) << ") \n" ;
         else
             sql << " AND (tlg_trips.airp_dep IS NULL AND tlg_trips.airp_arv IS NULL OR \n"
-                << "      tlg_trips.airp_dep NOT IN " << GetSQLEnum(info.user.access.airps) << " OR \n"
-                << "      tlg_trips.airp_arv NOT IN " << GetSQLEnum(info.user.access.airps) << ") \n" ;
+                << "      tlg_trips.airp_dep NOT IN " << GetSQLEnum(info.user.access.airps().elems()) << " OR \n"
+                << "      tlg_trips.airp_arv NOT IN " << GetSQLEnum(info.user.access.airps().elems()) << ") \n" ;
     }
 
     if(!search_params.airline.empty()) {
@@ -461,8 +461,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 {
     TReqInfo &info = *(TReqInfo::Instance());
     xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
-    if ((info.user.access.airps_permit && info.user.access.airps.empty()) ||
-        (info.user.access.airlines_permit && info.user.access.airlines.empty()) ) return;
+    if (info.user.access.totally_not_permitted()) return;
 
     TTlgSearchParams search_params;
     search_params.get(reqNode);
@@ -500,14 +499,14 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     };
 
 
-    bool limited_access=!info.user.access.airlines.empty() ||
-                        !info.user.access.airps.empty();
+    bool limited_access=!info.user.access.airlines().elems().empty() ||
+                        !info.user.access.airps().elems().empty();
 
     bool need_check_tlg_trips = !search_params.airline.empty() ||
                                 !search_params.airp.empty() ||
                                 search_params.flt_no != NoExists ||
-                                !info.user.access.airlines.empty() ||
-                                !info.user.access.airps.empty();
+                                !info.user.access.airlines().elems().empty() ||
+                                !info.user.access.airps().elems().empty();
 
 
     string tz_region =  info.desk.tz_region;
@@ -530,7 +529,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
                "   tlgs_in.num, \n"
                "   tlgs_in.type, \n"
                "   tlgs_in.addr, \n"
-               "   tlgs_in.heading, \n"               
+               "   tlgs_in.heading, \n"
                "   tlgs_in.ending, \n"
                "   tlgs_in.time_receive, \n"
                "   tlgs_in.is_final_part, \n"
@@ -610,7 +609,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
                  "   1 AS num, \n"
                  "   NULL AS type, \n"
                  "   NULL AS addr, \n"
-                 "   NULL AS heading, \n"                 
+                 "   NULL AS heading, \n"
                  "   NULL AS ending, \n"
                  "   time AS time_receive \n"
                  "FROM tlgs \n"
@@ -704,8 +703,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 {
   TReqInfo &info = *(TReqInfo::Instance());
   xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
-  if ((info.user.access.airps_permit && info.user.access.airps.empty()) ||
-      (info.user.access.airlines_permit && info.user.access.airlines.empty()) ) return;
+  if (info.user.access.totally_not_permitted()) return;
 
   int point_id = NodeAsInteger( "point_id", reqNode );
 
@@ -723,7 +721,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     " tlgs_in.num, "
     " tlgs_in.type, "
     " tlgs_in.addr, "
-    " tlgs_in.heading, "    
+    " tlgs_in.heading, "
     " tlgs_in.ending, "
     " tlgs_in.time_receive, "
     " tlgs_in.is_final_part, "
@@ -1299,7 +1297,7 @@ void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
         {
           string tlg_text=addrs+tlg.origin+tlg.heading+tlg.body+tlg.ending;
           if (OWN_CANON_NAME()==i->begin()->transport_addr)
-          {            
+          {
             if (forwarded)
             {
               //если forwarded, то делаем защиту от зацикливания пересылки

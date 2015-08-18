@@ -195,7 +195,7 @@ void TPoints::Verify( bool ignoreException, LexemaData &lexemaData )
     for( vector<TPointsDest>::iterator id=dests.items.begin(); id!=dests.items.end(); id++ ) {
         if ( id->pr_del == -1 )
             continue;
-      if ( reqInfo->CheckAirp( id->airp ) ) {
+      if ( reqInfo->user.access.airps().permitted( id->airp ) ) {
         pr_permit = true;
       }
       pr_last = true;
@@ -206,7 +206,7 @@ void TPoints::Verify( bool ignoreException, LexemaData &lexemaData )
         }
       }
       if ( !pr_last &&
-           !reqInfo->CheckAirline( id->airline ) ) {
+           !reqInfo->user.access.airlines().permitted( id->airline ) ) {
         if ( !id->airline.empty() )
           throw AstraLocale::UserException( "MSG.AIRLINE.ACCESS_DENIED",
                                             LParams() << LParam("airline", ElemIdToElemCtxt(ecDisp,etAirline,id->airline,id->airline_fmt)) );
@@ -215,13 +215,13 @@ void TPoints::Verify( bool ignoreException, LexemaData &lexemaData )
       }
     } // end for
     if ( !pr_permit ) {
-        if ( reqInfo->user.access.airps_permit ) {
-          if ( reqInfo->user.access.airps.size() == 1 )
+        if ( reqInfo->user.access.airps().elems_permit() ) {
+          if ( reqInfo->user.access.airps().elems().size() == 1 )
             throw AstraLocale::UserException( "MSG.ROUTE.MUST_CONTAIN_AIRP",
-                                                LParams() << LParam("airp", ElemIdToCodeNative(etAirp,*reqInfo->user.access.airps.begin())));
+                                                LParams() << LParam("airp", ElemIdToCodeNative(etAirp,*reqInfo->user.access.airps().elems().begin())));
           else {
               string airps;
-              for ( vector<string>::iterator s=reqInfo->user.access.airps.begin(); s!=reqInfo->user.access.airps.end(); s++ ) {
+              for ( set<string>::const_iterator s=reqInfo->user.access.airps().elems().begin(); s!=reqInfo->user.access.airps().elems().end(); s++ ) {
                 if ( !airps.empty() )
                   airps += " ";
                 airps += ElemIdToCodeNative(etAirp,*s);
@@ -234,7 +234,7 @@ void TPoints::Verify( bool ignoreException, LexemaData &lexemaData )
         }
         else { // список запрещенных аэропортов
             string airps;
-            for ( vector<string>::iterator s=reqInfo->user.access.airps.begin(); s!=reqInfo->user.access.airps.end(); s++ ) {
+            for ( set<string>::const_iterator s=reqInfo->user.access.airps().elems().begin(); s!=reqInfo->user.access.airps().elems().end(); s++ ) {
               if ( !airps.empty() )
                 airps += " ";
               airps += ElemIdToCodeNative(etAirp,*s);

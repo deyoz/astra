@@ -241,8 +241,7 @@ void WebRequestsIface::SearchPNRs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
   resNode=NewTextChild(resNode,"SearchPNRs");
 
-  if ((reqInfo->user.access.airps_permit && reqInfo->user.access.airps.empty()) ||
-      (reqInfo->user.access.airlines_permit && reqInfo->user.access.airlines.empty()))
+  if (reqInfo->user.access.totally_not_permitted())
   {
     ProgError(STDLOG, "WebRequestsIface::SearchPNRs: empty user's access (user.descr=%s)", reqInfo->user.descr.c_str());
     return;
@@ -331,8 +330,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   resNode=NewTextChild(resNode,"SearchFlt");
 
-  if ((reqInfo->user.access.airps_permit && reqInfo->user.access.airps.empty()) ||
-      (reqInfo->user.access.airlines_permit && reqInfo->user.access.airlines.empty()))
+  if (reqInfo->user.access.totally_not_permitted())
   {
     ProgError(STDLOG, "WebRequestsIface::SearchFlt: empty user's access (user.descr=%s)", reqInfo->user.descr.c_str());
     return;
@@ -2948,8 +2946,8 @@ void WebRequestsIface::GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   region = AirpTZRegion( airp_dep );
   scd_out = LocalToUTC( scd_out, region );
   ProgTrace( TRACE5, "scd_out=%f", scd_out );
-  if ( !reqInfo->CheckAirline( airline ) ||
-       !reqInfo->CheckAirp( airp_dep ) )
+  if ( !reqInfo->user.access.airlines().permitted( airline ) ||
+       !reqInfo->user.access.airps().permitted( airp_dep ) )
     throw UserException( "MSG.FLIGHT.ACCESS_DENIED" );
 
   int findMove_id, point_id;
@@ -3103,7 +3101,7 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   if ( fmt == efmtUnknown ) {
     throw AstraLocale::UserException( "Tag '@airline' unknown airline" );
   }
-  if ( !TReqInfo::Instance()->CheckAirline( airline ) ) {
+  if ( !TReqInfo::Instance()->user.access.airlines().permitted( airline ) ) {
     throw AstraLocale::UserException( "Airline is not permit for user" );
   }
   TDateTime vdate, vpriordate;
@@ -3342,11 +3340,7 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
   {
     reqInfo->client_type=ctPNL;
     reqInfo->user.user_type=utSupport;
-    reqInfo->user.access.airlines.clear();
-    reqInfo->user.access.airps.clear();
-    reqInfo->user.access.airlines_permit=false;
-    reqInfo->user.access.airps_permit=false;
-
+    reqInfo->user.access.set_total_permit();
 
     TQuery SavePointQry(&OraSession);
 

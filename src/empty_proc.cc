@@ -1534,74 +1534,78 @@ int test_sopp_sql(int argc,char **argv)
             reqInfo->user.user_type = utAirport;
             break;
         }
+        TAccessElems<string> airps, airlines;
         switch( icond ) {
           case 0:
-            reqInfo->user.access.airps_permit = true;
-            reqInfo->user.access.airlines_permit = true;
+            airps.set_elems_permit(true);
+            airlines.set_elems_permit(true);
             break;
           case 1:
-            reqInfo->user.access.airps.push_back( "„Œ„" );
-            reqInfo->user.access.airps_permit = true;
+            airps.add_elem( "„Œ„" );
+            airps.set_elems_permit(true);
             break;
           case 2:
-            reqInfo->user.access.airps.push_back( "„Œ„" );
-            reqInfo->user.access.airps_permit = false;
+            airps.add_elem( "„Œ„" );
+            airps.set_elems_permit(false);
             break;
           case 3:
-            reqInfo->user.access.airlines.push_back( "ž’" );
-            reqInfo->user.access.airlines_permit = true;
+            airlines.add_elem( "ž’" );
+            airlines.set_elems_permit(true);
             break;
           case 4:
-            reqInfo->user.access.airlines.push_back( "ž’" );
-            reqInfo->user.access.airlines_permit = false;
+            airlines.add_elem( "ž’" );
+            airlines.set_elems_permit(false);
             break;
           case 5:
-            reqInfo->user.access.airps.push_back( "„Œ„" );
-            reqInfo->user.access.airps_permit = true;
-            reqInfo->user.access.airlines.push_back( "ž’" );
-            reqInfo->user.access.airlines_permit = true;
+            airps.add_elem( "„Œ„" );
+            airps.set_elems_permit(true);
+            airlines.add_elem( "ž’" );
+            airlines.set_elems_permit(true);
             break;
           case 6:
-            reqInfo->user.access.airps.push_back( "„Œ„" );
-            reqInfo->user.access.airps_permit = false;
-            reqInfo->user.access.airlines.push_back( "ž’" );
-            reqInfo->user.access.airlines_permit = true;
+            airps.add_elem( "„Œ„" );
+            airps.set_elems_permit(false);
+            airlines.add_elem( "ž’" );
+            airlines.set_elems_permit(true);
             break;
           case 7:
-            reqInfo->user.access.airps.push_back( "„Œ„" );
-            reqInfo->user.access.airps_permit = true;
-            reqInfo->user.access.airlines.push_back( "ž’" );
-            reqInfo->user.access.airlines_permit = false;
+            airps.add_elem( "„Œ„" );
+            airps.set_elems_permit(true);
+            airlines.add_elem( "ž’" );
+            airlines.set_elems_permit(false);
             break;
           case 8:
-            reqInfo->user.access.airps.push_back( "„Œ„" );
-            reqInfo->user.access.airps_permit = false;
-            reqInfo->user.access.airlines.push_back( "ž’" );
-            reqInfo->user.access.airlines_permit = false;
+            airps.add_elem( "„Œ„" );
+            airps.set_elems_permit(false);
+            airlines.add_elem( "ž’" );
+            airlines.set_elems_permit(false);
             break;
           case 9:
-            reqInfo->user.access.airps.push_back( "‚Š" );
-            reqInfo->user.access.airps.push_back( "‘Ž—" );
-            reqInfo->user.access.airps.push_back( "BBU" );
-            reqInfo->user.access.airps_permit = true;
+            airps.add_elem( "‚Š" );
+            airps.add_elem( "‘Ž—" );
+            airps.add_elem( "BBU" );
+            airps.set_elems_permit(true);
             break;
           case 10:
-            reqInfo->user.access.airlines.push_back( "ž’" );
-            reqInfo->user.access.airlines.push_back( "Ž" );
-            reqInfo->user.access.airlines.push_back( "" );
-            reqInfo->user.access.airlines_permit = true;
+            airlines.add_elem( "ž’" );
+            airlines.add_elem( "Ž" );
+            airlines.add_elem( "" );
+            airlines.set_elems_permit(true);
             break;
           case 11:
-            reqInfo->user.access.airps.push_back( "‚Š" );
-            reqInfo->user.access.airps.push_back( "‘Ž—" );
-            reqInfo->user.access.airps.push_back( "BBU" );
-            reqInfo->user.access.airps_permit = true;
-            reqInfo->user.access.airlines.push_back( "ž’" );
-            reqInfo->user.access.airlines.push_back( "Ž" );
-            reqInfo->user.access.airlines.push_back( "" );
-            reqInfo->user.access.airlines_permit = true;
+            airps.add_elem( "‚Š" );
+            airps.add_elem( "‘Ž—" );
+            airps.add_elem( "BBU" );
+            airps.set_elems_permit(true);
+            airlines.add_elem( "ž’" );
+            airlines.add_elem( "Ž" );
+            airlines.add_elem( "" );
+            airlines.set_elems_permit(true);
             break;
         }
+        reqInfo->user.access.merge_airlines(airlines);
+        reqInfo->user.access.merge_airps(airps);
+
           ProgTrace( TRACE5, "user_type=%d, time_type=%d, icond=%d, day=%s, step=%d",
                      iuser_type, itime_type, icond, DateTimeToStr( day, ServerFormatDateTimeAsString ).c_str(), step );
           string strNew, strOld;
@@ -2355,7 +2359,7 @@ INSERT INTO last_processed_point_id VALUES(NULL);
  */
 
 int fill_counters_by_subcls(int argc,char **argv)
-{  
+{
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText="SELECT point_id AS max_point_id FROM last_processed_point_id";
@@ -2487,3 +2491,372 @@ int convert_codeshare(int argc,char **argv)
   OraSession.Commit();
   return 0;
 };
+
+#include "salons.h"
+#include "salonform2.h"
+
+bool show_airline()
+{
+  TReqInfo *r = TReqInfo::Instance();
+  return
+     ( (r->user.user_type == utAirline &&
+        r->user.access.airlines().elems().size() > 1) ||
+       (r->user.user_type != utAirline &&
+        ( r->user.access.airlines().elems().empty() || r->user.access.airlines().elems().size() > 1 )) ||
+       (r->user.user_type == utSupport && r->user.access.airlines().elems().size() >= 1 && r->user.access.airps().elems().size() >= 1) );
+}
+
+bool show_airp()
+{
+  TReqInfo *r = TReqInfo::Instance();
+  return
+   ( (r->user.user_type == utAirport && r->user.access.airps().elems().size() > 1) ||
+     (r->user.user_type == utSupport &&
+      ( r->user.access.airps().elems().empty() || r->user.access.airps().elems().size() > 1 ||
+        (r->user.access.airlines().elems().size() >= 1 && r->user.access.airps().elems().size() >= 1) ) ) );
+}
+
+bool filterCompons( const string &airline, const string &airp )
+{
+    TReqInfo *r = TReqInfo::Instance();
+  return
+       ( (int)airline.empty() + (int)airp.empty() == 1 &&
+           ((
+             r->user.user_type == utAirline &&
+             find( r->user.access.airlines().elems().begin(),
+                   r->user.access.airlines().elems().end(), airline ) != r->user.access.airlines().elems().end()
+          )
+          ||
+          (
+            r->user.user_type == utAirport &&
+            ( ( airp.empty() && ( r->user.access.airlines().elems().empty() ||
+                                  find( r->user.access.airlines().elems().begin(),
+                                        r->user.access.airlines().elems().end(), airline ) != r->user.access.airlines().elems().end() ) ) ||
+                find( r->user.access.airps().elems().begin(),
+                      r->user.access.airps().elems().end(), airp ) != r->user.access.airps().elems().end() )
+           )
+           ||
+           (
+             r->user.user_type == utSupport &&
+             ( airp.empty() ||
+               r->user.access.airps().elems().empty() ||
+               find( r->user.access.airps().elems().begin(),
+                     r->user.access.airps().elems().end(), airp ) != r->user.access.airps().elems().end() ) &&
+             ( airline.empty() ||
+               r->user.access.airlines().elems().empty() ||
+               find( r->user.access.airlines().elems().begin(),
+                     r->user.access.airlines().elems().end(), airline ) != r->user.access.airlines().elems().end() )
+           ))
+         );
+}
+
+int test_access(int argc,char **argv)
+{
+  TAccessElems<string> airlines1, airlines2, airlines3, airlines4;
+  TAccessElems<string> airps;
+//  for(int i=0x0000; i<0x0010; i++)
+//  {
+//    for(int j=0x0000; j<0x0010; j++)
+//    {
+//      airlines1.build_test(i, "UT", "YQ", "SU");
+//      airlines2.build_test(j, "UN", "UT", "YQ");
+//      ostringstream s;
+//      s << airlines1 << " MERGED WITH " << airlines2 << "\n";
+//      airlines1.merge(airlines2);
+//      s << "RESULT: " << airlines1
+//        << "              totally_not_permitted: " << (airlines1.totally_not_permitted()?"TRUE!":"false")
+//        << " only_single_permit: " << (airlines1.only_single_permit()?"TRUE!":"false")
+//        << "\n";
+//      printf("%s", s.str().c_str());
+
+
+//      airlines1.build_test(i, "UT", "YQ", "SU");
+//      airlines2.build_test(j, "UN", "UT", "YQ");
+//      airlines3.build_test(i, "UT", "YQ", "SU");
+//      airlines4.build_test(j, "UN", "UT", "YQ");
+//      airlines1.merge(airlines2);
+//      airlines4.merge(airlines3);
+//      if (!(airlines1==airlines4)) throw EXCEPTIONS::Exception("BAD!!!");
+
+//      airlines1.build_test(i, "UT", "YQ", "SU");
+//      airps.build_test(j, "DME", "CEK", "AER");
+//      TAccess access1, access2;
+//      access1.set_total_permit();
+//      access1.merge_airlines(airlines1);
+//      access1.merge_airps(airps);
+//      XMLDoc doc("access");
+//      access1.toXML(NodeAsNode("/access", doc.docPtr()));
+//      string s=XMLTreeToText(doc.docPtr());
+//      XMLDoc doc2(s);
+//      access2.fromXML(NodeAsNode("/access", doc2.docPtr()));
+//      if (!(access1==access2)) throw EXCEPTIONS::Exception("BAD!!! %s", s.c_str());
+//      printf("%s\n", s.c_str());
+//    }
+//  }
+
+  for(int i=0x0000; i<0x0008; i++)
+  {
+    for(int j=0x0000; j<0x0008; j++)
+    {
+      for(int k1=0; k1<3; k1++)
+      {
+        for(int k2=0; k2<3; k2++)
+        {
+          string airline;
+          switch (k1)
+          {
+            case 1: airline="ž’";
+                    break;
+            case 2: airline="‘“";
+                    break;
+          }
+
+          string airp;
+          switch (k2)
+          {
+            case 1: airp="‚Š";
+                    break;
+            case 2: airp="—‹";
+                    break;
+          }
+
+          TReqInfo &reqInfo = *(TReqInfo::Instance());
+          reqInfo.user.access.set_total_permit();
+          airlines1.build_test(i, "ž’", "Ž", "Ž");
+          airps.build_test(j, "„Œ„", "‚Š", "‚Š");
+          reqInfo.user.access.merge_airlines(airlines1);
+          reqInfo.user.access.merge_airps(airps);
+          reqInfo.user.user_type=utSupport;
+
+          bool filter=filterCompons(airline, airp);
+
+          if (reqInfo.user.access.airlines().totally_not_permitted() ||
+              reqInfo.user.access.airps().totally_not_permitted()) continue;
+
+          if ((!reqInfo.user.access.airlines().elems().empty() && !reqInfo.user.access.airlines().elems_permit()) ||
+              (!reqInfo.user.access.airps().elems().empty() && !reqInfo.user.access.airps().elems_permit())) continue;
+
+//          if (!airp.empty() && (!airline.empty()) ||
+//              airp.empty() && airline.empty())
+//          {
+//            if (filter) throw EXCEPTIONS::Exception("BAD!!!");
+//            continue;
+//          }
+
+
+          ostringstream s;
+          s << "AIRLINES: " << reqInfo.user.access.airlines()
+            << " AIRPS: " << reqInfo.user.access.airps()
+            << " filterCompons('" << airline << "', '" << airp << "')"
+            << " utSupport=" << (filter?"true":"false");
+
+          reqInfo.user.user_type=utAirport;
+          if (!reqInfo.user.access.airps().elems().empty())
+            if (filter!=filterCompons(airline, airp)) s << " utAirport=" << (filterCompons(airline, airp)?"true":"false");
+          reqInfo.user.user_type=utAirline;
+          if (!reqInfo.user.access.airlines().elems().empty())
+            if (filter!=filterCompons(airline, airp)) s << " utAirline=" << (filterCompons(airline, airp)?"true":"false");
+
+
+          ostringstream s1;
+          ostringstream s2;
+          reqInfo.user.user_type=utSupport;
+          if (filterCompons(airline, airp)!=SALONS2::filterComponsForView(airline, airp)) s2 << " utSUPPORT=" << (SALONS2::filterComponsForView(airline, airp)?"true":"false");
+          reqInfo.user.user_type=utAirport;
+          if (filterCompons(airline, airp)!=SALONS2::filterComponsForView(airline, airp)) s2 << " utAIRPORT=" << (SALONS2::filterComponsForView(airline, airp)?"true":"false");
+          reqInfo.user.user_type=utAirline;
+          if (filterCompons(airline, airp)!=SALONS2::filterComponsForView(airline, airp)) s2 << " utAIRLINE=" << (SALONS2::filterComponsForView(airline, airp)?"true":"false");
+
+          if (!s2.str().empty())
+          {
+            printf("%s %s\n", s.str().c_str(), s2.str().c_str());
+          };
+        }
+      }
+    }
+  };
+
+  printf("\n");
+
+  for(int k=0; k<3; k++)
+  {
+    for(int i=0x0000; i<0x0008; i++)
+    {
+      for(int j=0x0000; j<0x0008; j++)
+      {
+        TReqInfo &reqInfo = *(TReqInfo::Instance());
+        reqInfo.desk.version = ADD_FORM_VERSION; /*BASE_COMP_BUGFIX_VERSION*/;
+        reqInfo.user.access.set_total_permit();
+        if (k==0 || k==1)
+        {
+          airlines1.build_test(i, "ž’", "Ž", "Ž");
+          airps.build_test(j, "„Œ„", "‚Š", "‚Š");
+        }
+        else
+        {
+          airlines1.build_test(j, "ž’", "Ž", "Ž");
+          airps.build_test(i, "„Œ„", "‚Š", "‚Š");
+        }
+        reqInfo.user.access.merge_airlines(airlines1);
+        reqInfo.user.access.merge_airps(airps);
+
+        if (reqInfo.user.access.airlines().totally_not_permitted() ||
+            reqInfo.user.access.airps().totally_not_permitted()) continue;
+
+        if ((!reqInfo.user.access.airlines().elems().empty() && !reqInfo.user.access.airlines().elems_permit()) ||
+            (!reqInfo.user.access.airps().elems().empty() && !reqInfo.user.access.airps().elems_permit())) continue;
+
+        ostringstream s1;
+        ostringstream s2;
+        if (k==0)
+        {
+          reqInfo.user.user_type=utSupport;
+          s1 << " " << (show_airline()?"true":"false");
+          s1 << "/" << (showComponAirlineColumn()?"true":"false");
+          s2 << " " << (show_airp()?"true":"false");
+          s2 << "/" << (showComponAirpColumn()?"true":"false");
+        };
+        if (k==1)
+        {
+          reqInfo.user.user_type=utAirline;
+          if (!reqInfo.user.access.airlines().elems().empty())
+          {
+            s1 << " " << (show_airline()?"true":"false");
+            s1 << "/" << (showComponAirlineColumn()?"true":"false");
+            s2 << " " << (show_airp()?"true":"false");
+            s2 << "/" << (showComponAirpColumn()?"true":"false");
+          }
+          else
+          {
+            s1 << " *";
+            s1 << "/" << (showComponAirlineColumn()?"true":"false");
+            s2 << " *";
+            s2 << "/" << (showComponAirpColumn()?"true":"false");
+          };
+        };
+        if (k==2)
+        {
+          reqInfo.user.user_type=utAirport;
+          if (!reqInfo.user.access.airps().elems().empty())
+          {
+            s1 << " " << (show_airline()?"true":"false");
+            s1 << "/" << (showComponAirlineColumn()?"true":"false");
+            s2 << " " << (show_airp()?"true":"false");
+            s2 << "/" << (showComponAirpColumn()?"true":"false");
+          }
+          else
+          {
+            s1 << " *";
+            s1 << "/" << (showComponAirlineColumn()?"true":"false");
+            s2 << " *";
+            s2 << "/" << (showComponAirpColumn()?"true":"false");
+          };
+        };
+
+        ostringstream s;
+        if (!(show_airline()==showComponAirlineColumn() && show_airp()==showComponAirpColumn())) s << "!!!";
+        if (k==0 || k==1)
+        {
+          s << "AIRLINES: " << reqInfo.user.access.airlines()
+            << " AIRPS: " << reqInfo.user.access.airps();
+        }
+        else
+        {
+          s << "AIRPS: " << reqInfo.user.access.airps()
+            << " AIRLINES: " << reqInfo.user.access.airlines();
+        }
+        s << " show_airline:" << s1.str()
+          << "    show_airp:" << s2.str();
+        printf("%s\n", s.str().c_str());
+      }
+
+    }
+    printf("\n");
+  }
+
+  printf("\n");
+
+  for(int k=0; k<3; k++)
+  {
+    TReqInfo &reqInfo = *(TReqInfo::Instance());
+    reqInfo.desk.lang="RU";
+    if (k==0) reqInfo.user.user_type=utSupport;
+    if (k==1) reqInfo.user.user_type=utAirline;
+    if (k==2) reqInfo.user.user_type=utAirport;
+
+    for(int i=0x0000; i<0x0008; i++)
+    {
+      for(int j=0x0000; j<0x0008; j++)
+      {
+        reqInfo.user.access.set_total_permit();
+        if (k==0 || k==1)
+        {
+          airlines1.build_test(i, "ž’", "Ž", "Ž");
+          airps.build_test(j, "„Œ„", "‚Š", "‚Š");
+        }
+        else
+        {
+          airlines1.build_test(j, "ž’", "Ž", "Ž");
+          airps.build_test(i, "„Œ„", "‚Š", "‚Š");
+        }
+        reqInfo.user.access.merge_airlines(airlines1);
+        reqInfo.user.access.merge_airps(airps);
+
+        string airline, airp;
+        for(int al=0; al<4; al++)
+        {
+          if (al==0) airline="";
+          if (al==1) airline="Ž";
+          if (al==2) airline="“6";
+          if (al==3) airline="**";
+          for(int ap=0; ap<4; ap++)
+          {
+            if (ap==0) airp="";
+            if (ap==1) airp="„Œ„";
+            if (ap==2) airp="‘Ž—";
+            if (ap==3) airp="***";
+
+            XMLDoc doc("query");
+            if (!airline.empty())
+              NewTextChild(NodeAsNode("/query", doc.docPtr()), "airline", airline);
+            if (!airp.empty())
+              NewTextChild(NodeAsNode("/query", doc.docPtr()), "airp", airp);
+
+
+            ostringstream s;
+            if (k==0 || k==1)
+            {
+              s << "AIRLINES: " << reqInfo.user.access.airlines()
+                << " AIRPS: " << reqInfo.user.access.airps()
+                << " AIRLINE: '" << airline << "'"
+                << " AIRP: '" << airp << "'";
+            }
+            else
+            {
+              s << "AIRPS: " << reqInfo.user.access.airps()
+                << " AIRLINES: " << reqInfo.user.access.airlines()
+                << " AIRP: '" << airp << "'"
+                << " AIRLINE: '" << airline << "'";
+            }
+
+            try
+            {
+              string resal, resak;
+              SALONS2::TComponSets::CheckAirlAirp( NodeAsNode("/query", doc.docPtr()), resal, resak );
+              s << " RESULT: airline='" << resal << "' airp='" << resak <<"'";
+              printf("%s\n", s.str().c_str());
+            }
+            catch(AstraLocale::UserException &e)
+            {
+              //s << " RESULT: " << e.what();
+            };
+
+          }
+        }
+      }
+    }
+    printf("\n");
+  }
+
+  return 0;
+}

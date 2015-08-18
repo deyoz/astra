@@ -694,8 +694,8 @@ bool TFlightInfo::fromDB(int point_id, bool first_segment, bool pr_throw)
     if (first_segment)
     {
       //необходимо соблюдать доступ только к первому сегменту
-      if ( !reqInfo->CheckAirline(oper.airline) ||
-           !reqInfo->CheckAirp(oper.airp) )
+      if ( !reqInfo->user.access.airlines().permitted(oper.airline) ||
+           !reqInfo->user.access.airps().permitted(oper.airp) )
         throw UserException( "MSG.FLIGHT.ACCESS_DENIED" );
     };
 
@@ -1652,8 +1652,8 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
         {
           TFlightInfo flt;
           if (!flt.fromDB(PointsQry)) continue;
-          if ( !reqInfo->CheckAirline(flt.oper.airline) ||
-               !reqInfo->CheckAirp(flt.oper.airp) ||
+          if ( !reqInfo->user.access.airlines().permitted(flt.oper.airline) ||
+               !reqInfo->user.access.airps().permitted(flt.oper.airp) ||
                (range_pass==0?flt.scd_out_local:flt.oper.scd_out)==NoExists ||
                (range_pass==0?flt.scd_out_local:flt.oper.scd_out)<r->first ||
                (range_pass==0?flt.scd_out_local:flt.oper.scd_out)>=r->second) continue;
@@ -1825,8 +1825,8 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
             {
               TFlightInfo flt;
               flt.fromDB(PointsQry);
-              if ( !reqInfo->CheckAirline(flt.oper.airline) ||
-                   !reqInfo->CheckAirp(flt.oper.airp) ||
+              if ( !reqInfo->user.access.airlines().permitted(flt.oper.airline) ||
+                   !reqInfo->user.access.airps().permitted(flt.oper.airp) ||
                    (range_pass==0?flt.scd_out_local:flt.oper.scd_out)==NoExists ||
                    (range_pass==0?flt.scd_out_local:flt.oper.scd_out)<r->first ||
                    (range_pass==0?flt.scd_out_local:flt.oper.scd_out)>=r->second) continue;

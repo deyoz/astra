@@ -206,8 +206,7 @@ void GetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date,
     TPerfTimer tm;
     tm.Init();
     int count = 0;
-    if (!((reqInfo.user.access.airlines.empty() && reqInfo.user.access.airlines_permit) ||
-                (reqInfo.user.access.airps.empty() && reqInfo.user.access.airps_permit)))
+    if (!reqInfo.user.access.totally_not_permitted())
     {
         for(int pass=0; pass<=2; pass++)
         {
@@ -244,30 +243,30 @@ void GetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date,
                 sql << " AND pr_del = 0 \n";
             if((scr == ssFltLog or scr == ssFltTaskLog) and !pr_show_del)
                 sql << " AND pr_del >= 0 \n";
-            if (!reqInfo.user.access.airlines.empty()) {
-                if (reqInfo.user.access.airlines_permit)
-                    sql << " AND airline IN " << GetSQLEnum(reqInfo.user.access.airlines) << "\n";
+            if (!reqInfo.user.access.airlines().elems().empty()) {
+                if (reqInfo.user.access.airlines().elems_permit())
+                    sql << " AND airline IN " << GetSQLEnum(reqInfo.user.access.airlines().elems()) << "\n";
                 else
-                    sql << " AND airline NOT IN " << GetSQLEnum(reqInfo.user.access.airlines) << "\n";
+                    sql << " AND airline NOT IN " << GetSQLEnum(reqInfo.user.access.airlines().elems()) << "\n";
             }
-            if (!reqInfo.user.access.airps.empty()) {
-                if (reqInfo.user.access.airps_permit)
+            if (!reqInfo.user.access.airps().elems().empty()) {
+                if (reqInfo.user.access.airps().elems_permit())
                 {
-                    sql << "AND (airp IN " << GetSQLEnum(reqInfo.user.access.airps) << " OR \n";
+                    sql << "AND (airp IN " << GetSQLEnum(reqInfo.user.access.airps().elems()) << " OR \n";
                     if (pass==0)
                         sql << "ckin.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num) IN \n";
                     else
                         sql << "arch.next_airp(arx_points.part_key, DECODE(pr_tranzit,0,point_id,first_point), point_num) IN \n";
-                    sql << GetSQLEnum(reqInfo.user.access.airps) << ") \n";
+                    sql << GetSQLEnum(reqInfo.user.access.airps().elems()) << ") \n";
                 }
                 else
                 {
-                    sql << "AND (airp NOT IN " << GetSQLEnum(reqInfo.user.access.airps) << " OR \n";
+                    sql << "AND (airp NOT IN " << GetSQLEnum(reqInfo.user.access.airps().elems()) << " OR \n";
                     if (pass==0)
                         sql << "ckin.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num) NOT IN \n";
                     else
                         sql << "arch.next_airp(arx_points.part_key, DECODE(pr_tranzit,0,point_id,first_point), point_num) NOT IN \n";
-                    sql << GetSQLEnum(reqInfo.user.access.airps) << ") \n";
+                    sql << GetSQLEnum(reqInfo.user.access.airps().elems()) << ") \n";
                 };
             };
 
@@ -411,7 +410,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TDateTime last_date=NodeAsDateTime("LastDate", reqNode);
     vector<TPointsRow> points;
     GetFltCBoxList(scr, first_date, last_date, pr_show_del, points);
-    
+
     TPerfTimer tm;
     tm.Init();
     xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
@@ -463,8 +462,7 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if(find( reqInfo->user.access.rights.begin(),
-                reqInfo->user.access.rights.end(), 651 ) == reqInfo->user.access.rights.end())
+    if (!reqInfo->user.access.rights().permitted(651))
         throw AstraLocale::UserException("MSG.FLT_TASK_LOG.VIEW_DENIED");
     xmlNodePtr paramNode = reqNode->children;
     int point_id = NodeAsIntegerFast("point_id", paramNode);
@@ -620,8 +618,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if(find( reqInfo->user.access.rights.begin(),
-                reqInfo->user.access.rights.end(), 650 ) == reqInfo->user.access.rights.end())
+    if (!reqInfo->user.access.rights().permitted(650))
         throw AstraLocale::UserException("MSG.FLT_LOG.VIEW_DENIED");
     xmlNodePtr paramNode = reqNode->children;
     int point_id = NodeAsIntegerFast("point_id", paramNode);
@@ -980,13 +977,12 @@ typedef struct {
 void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if(find( reqInfo->user.access.rights.begin(),
-                reqInfo->user.access.rights.end(), 655 ) == reqInfo->user.access.rights.end())
+    if (!reqInfo->user.access.rights().permitted(655))
         throw AstraLocale::UserException("MSG.SYS_LOG.VIEW_DENIED");
-        
+
     if(NodeAsDateTime("FirstDate", reqNode)+1 < NodeAsDateTime("LastDate", reqNode))
       throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_DAY");
-        
+
     xmlNodePtr client_with_trip_col_in_SysLogNode = GetNode("client_with_trip_col_in_SysLog", reqNode);
     if(client_with_trip_col_in_SysLogNode == NULL)
         get_compatible_report_form("ArxPaxLog", reqNode, resNode);
@@ -1534,11 +1530,9 @@ void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pass, i
 void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
-    if(find( info.user.access.rights.begin(),
-                info.user.access.rights.end(), 630 ) == info.user.access.rights.end())
+    if (!info.user.access.rights().permitted(630))
         throw AstraLocale::UserException("MSG.PAX_LIST.VIEW_DENIED");
-    if ((info.user.access.airlines.empty() && info.user.access.airlines_permit) ||
-           (info.user.access.airps.empty() && info.user.access.airps_permit))
+    if (info.user.access.totally_not_permitted())
         throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
     xmlNodePtr paramNode = reqNode->children;
 
@@ -1589,17 +1583,17 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   points.point_id = :point_id and points.pr_del>=0 and "
                 "   points.point_id = pax_grp.point_dep and "
                 "   pax_grp.grp_id=pax.grp_id ";
-            if (!info.user.access.airps.empty()) {
-                if (info.user.access.airps_permit)
-                    SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
+            if (!info.user.access.airps().elems().empty()) {
+                if (info.user.access.airps().elems_permit())
+                    SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps().elems());
                 else
-                    SQLText += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+                    SQLText += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps().elems());
             }
-            if (!info.user.access.airlines.empty()) {
-                if (info.user.access.airlines_permit)
-                    SQLText += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
+            if (!info.user.access.airlines().elems().empty()) {
+                if (info.user.access.airlines().elems_permit())
+                    SQLText += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines().elems());
                 else
-                    SQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+                    SQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
             }
         } else {
             SQLText =
@@ -1642,17 +1636,17 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
                 "   arx_points.part_key = :part_key and "
                 "   pr_brd IS NOT NULL  ";
-            if (!info.user.access.airps.empty()) {
-                if (info.user.access.airps_permit)
-                    SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
+            if (!info.user.access.airps().elems().empty()) {
+                if (info.user.access.airps().elems_permit())
+                    SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps().elems());
                 else
-                    SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+                    SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps().elems());
             }
-            if (!info.user.access.airlines.empty()) {
-                if (info.user.access.airlines_permit)
-                    SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
+            if (!info.user.access.airlines().elems().empty()) {
+                if (info.user.access.airlines().elems_permit())
+                    SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines().elems());
                 else
-                    SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+                    SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
             }
             Qry.CreateVariable("part_key", otDate, part_key);
         }
@@ -1701,17 +1695,17 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax_grp.class IS NULL and "
                 "   pax_grp.status NOT IN ('E') AND "
                 "   pax_grp.point_dep = points.point_id and points.pr_del>=0 ";
-            if (!info.user.access.airps.empty()) {
-                if (info.user.access.airps_permit)
-                    SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
+            if (!info.user.access.airps().elems().empty()) {
+                if (info.user.access.airps().elems_permit())
+                    SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps().elems());
                 else
-                    SQLText += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+                    SQLText += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps().elems());
             }
-            if (!info.user.access.airlines.empty()) {
-                if (info.user.access.airlines_permit)
-                    SQLText += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
+            if (!info.user.access.airlines().elems().empty()) {
+                if (info.user.access.airlines().elems_permit())
+                    SQLText += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines().elems());
                 else
-                    SQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+                    SQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
             }
         } else {
             Qry.SQLText=
@@ -1741,17 +1735,17 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   arx_pax_grp.part_key = arx_points.part_key and "
                 "   arx_pax_grp.point_dep = arx_points.point_id and arx_points.pr_del>=0 and "
                 "   arx_pax_grp.part_key = :part_key ";
-            if (!info.user.access.airps.empty()) {
-                if (info.user.access.airps_permit)
-                    SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
+            if (!info.user.access.airps().elems().empty()) {
+                if (info.user.access.airps().elems_permit())
+                    SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps().elems());
                 else
-                    SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+                    SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps().elems());
             }
-            if (!info.user.access.airlines.empty()) {
-                if (info.user.access.airlines_permit)
-                    SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
+            if (!info.user.access.airlines().elems().empty()) {
+                if (info.user.access.airlines().elems_permit())
+                    SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines().elems());
                 else
-                    SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+                    SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
             }
             Qry.CreateVariable("part_key", otDate, part_key);
         }
@@ -1850,8 +1844,7 @@ enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
 
 struct TStatParams {
     TStatType statType;
-    vector<string> airlines,airps;
-    bool airlines_permit,airps_permit;
+    TAccessElems<string> airlines, airps;
     bool airp_column_first;
     TSeanceType seance;
     TDateTime FirstDate, LastDate;
@@ -2011,7 +2004,7 @@ string GetStatSQLText(const TStatParams &params, int pass)
                "   WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
     };
   };
-  
+
   sql << "WHERE \n";
   if(params.flt_no != NoExists)
     sql << " points.flt_no = :flt_no AND \n";
@@ -2073,11 +2066,11 @@ string GetStatSQLText(const TStatParams &params, int pass)
   }
   else
   {
-    if (!params.airps.empty()) {
-      if (params.airps_permit)
-        sql << " AND points.airp IN " << GetSQLEnum(params.airps) << "\n";
+    if (!params.airps.elems().empty()) {
+      if (params.airps.elems_permit())
+        sql << " AND points.airp IN " << GetSQLEnum(params.airps.elems()) << "\n";
       else
-        sql << " AND points.airp NOT IN " << GetSQLEnum(params.airps) << "\n";
+        sql << " AND points.airp NOT IN " << GetSQLEnum(params.airps.elems()) << "\n";
     };
   };
 
@@ -2087,11 +2080,11 @@ string GetStatSQLText(const TStatParams &params, int pass)
   }
   else
   {
-    if (!params.airlines.empty()) {
-      if (params.airlines_permit)
-        sql << " AND points.airline IN " << GetSQLEnum(params.airlines) << "\n";
+    if (!params.airlines.elems().empty()) {
+      if (params.airlines.elems_permit())
+        sql << " AND points.airline IN " << GetSQLEnum(params.airlines.elems()) << "\n";
       else
-        sql << " AND points.airline NOT IN " << GetSQLEnum(params.airlines) << "\n";
+        sql << " AND points.airline NOT IN " << GetSQLEnum(params.airlines.elems()) << "\n";
     }
   };
 
@@ -2181,7 +2174,8 @@ void TStatParams::get(xmlNodePtr reqNode)
                     if(name == "Трансфер") statType=statTrferFull;
                     else throw Exception("Unknown stat mode " + name);
     } else if(type ==
-            (TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION) ?
+            ((TReqInfo::Instance()->client_type==ctHTTP ||
+              TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) ?
              "Саморегистрация" :
              "По киоскам"
             )
@@ -2246,43 +2240,16 @@ void TStatParams::get(xmlNodePtr reqNode)
     ProgTrace(TRACE5, "ak: %s", ak.c_str());
     ProgTrace(TRACE5, "ap: %s", ap.c_str());
 
-    //составим вектор доступных компаний
-    if (ak.empty())
-    {
-        //не указан фильтр по компании
-        airlines.assign(info.user.access.airlines.begin(),info.user.access.airlines.end());
-        airlines_permit=info.user.access.airlines_permit;
-    }
-    else
-    {
-        //проверим среди запрещенных/разрешенных
-        bool found=find( info.user.access.airlines.begin(),
-                info.user.access.airlines.end(), ak ) != info.user.access.airlines.end();
-        if (( info.user.access.airlines_permit &&  found) ||
-            (!info.user.access.airlines_permit && !found)) airlines.push_back(ak);
-        airlines_permit=true;
-    };
+    airlines=info.user.access.airlines();
+    if (!ak.empty())
+      airlines.merge(TAccessElems<string>(ak, true));
+    airps=info.user.access.airps();
+    if (!ap.empty())
+      airps.merge(TAccessElems<string>(ap, true));
 
-    //составим вектор доступных портов
-    if (ap.empty())
-    {
-        //не указан фильтр по компании
-        airps.assign(info.user.access.airps.begin(),info.user.access.airps.end());
-        airps_permit=info.user.access.airps_permit;
-    }
-    else
-    {
-        //проверим среди запрещенных/разрешенных
-        bool found=find( info.user.access.airps.begin(),
-                info.user.access.airps.end(), ap ) != info.user.access.airps.end();
-        if (( info.user.access.airps_permit &&  found) ||
-            (!info.user.access.airps_permit && !found)) airps.push_back(ap);
-        airps_permit=true;
-    };
-
-    if ((airlines.empty() && airlines_permit) ||
-           (airps.empty() && airps_permit))
-        throw AstraLocale::UserException("MSG.NO_ACCESS");
+    if (airlines.totally_not_permitted() ||
+        airps.totally_not_permitted())
+      throw AstraLocale::UserException("MSG.NO_ACCESS");
 
     airp_column_first = (info.user.user_type == utAirport);
 
@@ -2292,8 +2259,7 @@ void TStatParams::get(xmlNodePtr reqNode)
     if (seance_str=="АК") seance=seanceAirline;
     if (seance_str=="АП") seance=seanceAirport;
 
-    bool all_seances_permit = find( info.user.access.rights.begin(),
-            info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
+    bool all_seances_permit = info.user.access.rights().permitted(615);
 
     if (USE_SEANCES() || info.desk.compatible(AIRL_AIRP_STAT_VERSION))
     {
@@ -2313,12 +2279,12 @@ void TStatParams::get(xmlNodePtr reqNode)
 
     if (!USE_SEANCES() && seance==seanceAirline)
     {
-        if (!airlines_permit) throw UserException("MSG.NEED_SET_CODE_AIRLINE");
+        if (!airlines.elems_permit()) throw UserException("MSG.NEED_SET_CODE_AIRLINE");
     };
 
     if (!USE_SEANCES() && seance==seanceAirport)
     {
-        if (!airps_permit) throw UserException("MSG.NEED_SET_CODE_AIRP");
+        if (!airps.elems_permit()) throw UserException("MSG.NEED_SET_CODE_AIRP");
     };
 
     skip_rows =
@@ -2372,7 +2338,7 @@ struct TInetStat {
         kiosk_bag += item.kiosk_bag;
         mobile_bp += item.mobile_bp;
         mobile_bag += item.mobile_bag;
-    }    
+    }
 
     void toXML(xmlNodePtr headerNode, xmlNodePtr rowNode) {
         //Web
@@ -2670,7 +2636,7 @@ void GetDetailStat(const TStatParams &params, TQuery &Qry,
           };
           airline.check(key.col1);
       }
-      
+
       AddStatRow(key, row, DetailStat);
     }
     else
@@ -2939,7 +2905,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
       };
     }
     else total=DetailStatTotal;
-    
+
     rowNode = NewTextChild(rowsNode, "row");
 
     xmlNodePtr colNode;
@@ -3119,7 +3085,7 @@ void createXMLFullStat(const TStatParams &params,
       };
     }
     else total=FullStatTotal;
-      
+
     rowNode = NewTextChild(rowsNode, "row");
 
     xmlNodePtr colNode;
@@ -3351,17 +3317,17 @@ void RunPactDetailStat(const TStatParams &params,
             sql << " AND points.flt_no = :flt_no \n";
             Qry.CreateVariable("flt_no", otInteger, params.flt_no);
         }
-        if (!params.airps.empty()) {
-            if (params.airps_permit)
-                sql << " AND points.airp IN " << GetSQLEnum(params.airps) << "\n";
+        if (!params.airps.elems().empty()) {
+            if (params.airps.elems_permit())
+                sql << " AND points.airp IN " << GetSQLEnum(params.airps.elems()) << "\n";
             else
-                sql << " AND points.airp NOT IN " << GetSQLEnum(params.airps) << "\n";
+                sql << " AND points.airp NOT IN " << GetSQLEnum(params.airps.elems()) << "\n";
         };
-        if (!params.airlines.empty()) {
-            if (params.airlines_permit)
-                sql << " AND points.airline IN " << GetSQLEnum(params.airlines) << "\n";
+        if (!params.airlines.elems().empty()) {
+            if (params.airlines.elems_permit())
+                sql << " AND points.airline IN " << GetSQLEnum(params.airlines.elems()) << "\n";
             else
-                sql << " AND points.airline NOT IN " << GetSQLEnum(params.airlines) << "\n";
+                sql << " AND points.airline NOT IN " << GetSQLEnum(params.airlines.elems()) << "\n";
         };
 
         //ProgTrace(TRACE5, "RunPactDetailStat: pass=%d SQL=\n%s", pass, sql.str().c_str());
@@ -3489,10 +3455,10 @@ void RunDetailStat(const TStatParams &params,
         if (!USE_SEANCES() && params.seance==seanceAirline)
         {
           //цикл по компаниям
-          if (params.airlines_permit)
+          if (params.airlines.elems_permit())
           {
-            for(vector<string>::const_iterator i=params.airlines.begin();
-                                               i!=params.airlines.end(); i++)
+            for(set<string>::const_iterator i=params.airlines.elems().begin();
+                                            i!=params.airlines.elems().end(); i++)
             {
               Qry.SetVariable("ak",*i);
               GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline);
@@ -3504,10 +3470,10 @@ void RunDetailStat(const TStatParams &params,
         if (!USE_SEANCES() && params.seance==seanceAirport)
         {
           //цикл по портам
-          if (params.airps_permit)
+          if (params.airps.elems_permit())
           {
-            for(vector<string>::const_iterator i=params.airps.begin();
-                                               i!=params.airps.end(); i++)
+            for(set<string>::const_iterator i=params.airps.elems().begin();
+                                            i!=params.airps.elems().end(); i++)
             {
               Qry.SetVariable("ap",*i);
               GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline);
@@ -3548,10 +3514,10 @@ void RunFullStat(const TStatParams &params,
         if (!USE_SEANCES() && params.seance==seanceAirline)
         {
           //цикл по компаниям
-          if (params.airlines_permit)
+          if (params.airlines.elems_permit())
           {
-            for(vector<string>::const_iterator i=params.airlines.begin();
-                                               i!=params.airlines.end(); i++)
+            for(set<string>::const_iterator i=params.airlines.elems().begin();
+                                            i!=params.airlines.elems().end(); i++)
             {
               Qry.SetVariable("ak",*i);
               GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
@@ -3563,10 +3529,10 @@ void RunFullStat(const TStatParams &params,
         if (!USE_SEANCES() && params.seance==seanceAirport)
         {
           //цикл по портам
-          if (params.airps_permit)
+          if (params.airps.elems_permit())
           {
-            for(vector<string>::const_iterator i=params.airps.begin();
-                                               i!=params.airps.end(); i++)
+            for(set<string>::const_iterator i=params.airps.elems().begin();
+                                            i!=params.airps.elems().end(); i++)
             {
               Qry.SetVariable("ap",*i);
               GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
@@ -3623,7 +3589,7 @@ struct TSelfCkinStatRow {
         baby += item.baby;
         tckin += item.tckin;
         flts.insert(item.flts.begin(),item.flts.end());
-    };  
+    };
 };
 
 struct TSelfCkinStatKey {
@@ -3715,7 +3681,8 @@ void RunSelfCkinStat(const TStatParams &params,
             "    points.pr_del >= 0 and "
             "    points.scd_out >= :FirstDate and "
             "    points.scd_out < :LastDate ";
-        if(TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) {
+        if(TReqInfo::Instance()->client_type==ctHTTP ||
+           TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) {
             if(not params.reg_type.empty()) {
                 SQLText += " and self_ckin_stat.client_type = :reg_type ";
                 Qry.CreateVariable("reg_type", otString, params.reg_type);
@@ -3728,17 +3695,17 @@ void RunSelfCkinStat(const TStatParams &params,
             SQLText += " and points.flt_no = :flt_no ";
             Qry.CreateVariable("flt_no", otInteger, params.flt_no);
         }
-        if (!params.airps.empty()) {
-            if (params.airps_permit)
-                SQLText += " AND points.airp IN " + GetSQLEnum(params.airps) + "\n";
+        if (!params.airps.elems().empty()) {
+            if (params.airps.elems_permit())
+                SQLText += " AND points.airp IN " + GetSQLEnum(params.airps.elems()) + "\n";
             else
-                SQLText += " AND points.airp NOT IN " + GetSQLEnum(params.airps) + "\n";
+                SQLText += " AND points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "\n";
         };
-        if (!params.airlines.empty()) {
-            if (params.airlines_permit)
-                SQLText += " AND points.airline IN " + GetSQLEnum(params.airlines) + "\n";
+        if (!params.airlines.elems().empty()) {
+            if (params.airlines.elems_permit())
+                SQLText += " AND points.airline IN " + GetSQLEnum(params.airlines.elems()) + "\n";
             else
-                SQLText += " AND points.airline NOT IN " + GetSQLEnum(params.airlines) + "\n";
+                SQLText += " AND points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "\n";
         };
         if(!params.desk.empty()) {
             SQLText += "and self_ckin_stat.desk = :desk ";
@@ -3814,7 +3781,7 @@ void RunSelfCkinStat(const TStatParams &params,
                     key.point_id = point_id;
                     key.places.set(GetRouteAfterStr( NoExists, point_id, trtNotCurrent, trtNotCancelled), false);
                 }
-                
+
                 AddStatRow(key, row, SelfCkinStat);
               }
               else
@@ -3866,7 +3833,7 @@ void createXMLSelfCkinStat(const TStatParams &params,
                 continue;
             };
           };
-      
+
           rowNode = NewTextChild(rowsNode, "row");
           // Тип рег.
           NewTextChild(rowNode, "col", im->first.client_type);
@@ -3927,12 +3894,12 @@ void createXMLSelfCkinStat(const TStatParams &params,
             )
               // Примечание
               NewTextChild(rowNode, "col", im->first.descr);
-              
+
           total += im->second;
       };
     }
     else total=SelfCkinStatTotal;
-    
+
     rowNode = NewTextChild(rowsNode, "row");
 
     xmlNodePtr colNode;
@@ -4069,7 +4036,8 @@ void createXMLSelfCkinStat(const TStatParams &params,
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
     NewTextChild(variablesNode, "stat_type", params.statType);
     NewTextChild(variablesNode, "stat_mode", getLocaleText(
-                (TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION) ?
+                ((TReqInfo::Instance()->client_type==ctHTTP ||
+                  TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) ?
                  "Саморегистрация" :
                  "Киоски саморегистрации"
                 )
@@ -4199,17 +4167,17 @@ void RunTlgOutStat(const TStatParams &params,
         else
           SQLText +=
             "    tlg_stat.time_send >= :FirstDate AND tlg_stat.time_send < :LastDate \n";
-        if (!params.airps.empty()) {
-            if (params.airps_permit)
-                SQLText += " AND tlg_stat.airp_dep IN " + GetSQLEnum(params.airps) + "\n";
+        if (!params.airps.elems().empty()) {
+            if (params.airps.elems_permit())
+                SQLText += " AND tlg_stat.airp_dep IN " + GetSQLEnum(params.airps.elems()) + "\n";
             else
-                SQLText += " AND tlg_stat.airp_dep NOT IN " + GetSQLEnum(params.airps) + "\n";
+                SQLText += " AND tlg_stat.airp_dep NOT IN " + GetSQLEnum(params.airps.elems()) + "\n";
         };
-        if (!params.airlines.empty()) {
-            if (params.airlines_permit)
-                SQLText += " AND tlg_stat.airline IN " + GetSQLEnum(params.airlines) + "\n";
+        if (!params.airlines.elems().empty()) {
+            if (params.airlines.elems_permit())
+                SQLText += " AND tlg_stat.airline IN " + GetSQLEnum(params.airlines.elems()) + "\n";
             else
-                SQLText += " AND tlg_stat.airline NOT IN " + GetSQLEnum(params.airlines) + "\n";
+                SQLText += " AND tlg_stat.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "\n";
         };
         if(!params.typeb_type.empty()) {
             SQLText += " AND tlg_stat.tlg_type = :tlg_type \n";
@@ -4377,7 +4345,7 @@ void createXMLTlgOutStat(const TStatParams &params,
       };
     }
     else total=TlgOutStatTotal;
-    
+
     rowNode = NewTextChild(rowsNode, "row");
 
     xmlNodePtr colNode;
@@ -4652,17 +4620,17 @@ void RunAgentStat(const TStatParams &params,
             SQLText += " AND points.flt_no = :flt_no \n";
             Qry.CreateVariable("flt_no", otInteger, params.flt_no);
         }
-        if (!params.airps.empty()) {
-            if (params.airps_permit)
-                SQLText += " AND points.airp IN " + GetSQLEnum(params.airps) + "\n";
+        if (!params.airps.elems().empty()) {
+            if (params.airps.elems_permit())
+                SQLText += " AND points.airp IN " + GetSQLEnum(params.airps.elems()) + "\n";
             else
-                SQLText += " AND points.airp NOT IN " + GetSQLEnum(params.airps) + "\n";
+                SQLText += " AND points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "\n";
         };
-        if (!params.airlines.empty()) {
-            if (params.airlines_permit)
-                SQLText += " AND points.airline IN " + GetSQLEnum(params.airlines) + "\n";
+        if (!params.airlines.elems().empty()) {
+            if (params.airlines.elems_permit())
+                SQLText += " AND points.airline IN " + GetSQLEnum(params.airlines.elems()) + "\n";
             else
-                SQLText += " AND points.airline NOT IN " + GetSQLEnum(params.airlines) + "\n";
+                SQLText += " AND points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "\n";
         };
         if(!params.desk.empty()) {
             SQLText += " AND ags.desk = :desk \n";
@@ -5098,32 +5066,41 @@ void StatInterface::stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     curNode = NodeAsNodeFast("run_stat", curNode);
     if(not curNode)
         throw Exception("wrong format");
+
+    TAccess access;
+    access.fromXML(NodeAsNode("access", curNode));
+    TReqInfo &reqInfo = *(TReqInfo::Instance());
+    reqInfo.user.access.merge_airlines(access.airlines());
+    reqInfo.user.access.merge_airps(access.airps());
+
     xmlNodePtr statModeNode = NodeAsNode("stat_mode", curNode);
     xmlNodePtr statTypeNode = NodeAsNode("stat_type", curNode);
     if(not statModeNode or not statTypeNode)
         throw Exception("wrong param format");
     convertStatParam(statModeNode);
     convertStatParam(statTypeNode);
-    // Чтобы не падал тип сводки 'Саморегистрация'
-    TReqInfo::Instance()->desk.version = SELF_CKIN_STAT_VERSION;
     RunStat(ctxt, curNode, resNode);
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); // !!!
+    xmlNodePtr formDataNode = GetNode("form_data", resNode);
+    if (formDataNode!=NULL)
+    {
+      xmlUnlinkNode(formDataNode);
+      xmlFreeNode(formDataNode);
+    };
+    //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if(find( reqInfo->user.access.rights.begin(),
-             reqInfo->user.access.rights.end(), 600 ) == reqInfo->user.access.rights.end())
+    if (!reqInfo->user.access.rights().permitted(600))
       throw AstraLocale::UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
-      
-    if ((reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit) ||
-        (reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit))
+
+    if (reqInfo->user.access.totally_not_permitted())
       throw AstraLocale::UserException("MSG.NOT_DATA");
-          
+
     TStatParams params;
     params.get(reqNode);
-    
+
     if (
             params.statType==statFull ||
             params.statType==statTrferFull ||
@@ -5172,19 +5149,19 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
       default:
         throw Exception("unexpected stat type %d", params.statType);
     };
-        
+
 
     try
     {
         if (params.statType==statShort || params.statType==statDetail || params.statType == statPactShort)
         {
           bool pr_pacts =
-            find( reqInfo->user.access.rights.begin(), reqInfo->user.access.rights.end(), 605 ) != reqInfo->user.access.rights.end() and
+            reqInfo->user.access.rights().permitted(605) and
             params.seance == seanceAll and not USE_SEANCES();
 
           if(not pr_pacts and params.statType == statPactShort)
               throw UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
-        
+
           TDetailStat DetailStat;
           TDetailStatRow DetailStatTotal;
           TPrintAirline airline;
@@ -5252,11 +5229,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
-    if(find( info.user.access.rights.begin(),
-                info.user.access.rights.end(), 620 ) == info.user.access.rights.end())
+    if (!info.user.access.rights().permitted(620))
         throw AstraLocale::UserException("MSG.PAX_SRC.ACCESS_DENIED");
-    if ((info.user.access.airlines.empty() && info.user.access.airlines_permit) ||
-           (info.user.access.airps.empty() && info.user.access.airps_permit))
+    if (info.user.access.totally_not_permitted())
         throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
     TDateTime FirstDate = NodeAsDateTime("FirstDate", reqNode);
     TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
@@ -5390,17 +5365,17 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
           sql << " AND pax_grp.grp_id = bag_tags.grp_id \n"
                  " AND bag_tags.no like '%'||:tag_no \n";
         };
-        if (!info.user.access.airps.empty()) {
-          if (info.user.access.airps_permit)
-            sql << " AND points.airp IN " << GetSQLEnum(info.user.access.airps) << "\n";
+        if (!info.user.access.airps().elems().empty()) {
+          if (info.user.access.airps().elems_permit())
+            sql << " AND points.airp IN " << GetSQLEnum(info.user.access.airps().elems()) << "\n";
           else
-            sql << " AND points.airp NOT IN " << GetSQLEnum(info.user.access.airps) << "\n";
+            sql << " AND points.airp NOT IN " << GetSQLEnum(info.user.access.airps().elems()) << "\n";
         }
-        if (!info.user.access.airlines.empty()) {
-          if (info.user.access.airlines_permit)
-            sql << " AND points.airline IN " << GetSQLEnum(info.user.access.airlines) << "\n";
+        if (!info.user.access.airlines().elems().empty()) {
+          if (info.user.access.airlines().elems_permit())
+            sql << " AND points.airline IN " << GetSQLEnum(info.user.access.airlines().elems()) << "\n";
           else
-            sql << " AND points.airline NOT IN " << GetSQLEnum(info.user.access.airlines) << "\n";
+            sql << " AND points.airline NOT IN " << GetSQLEnum(info.user.access.airlines().elems()) << "\n";
         }
         if(!airline.empty())
           sql << " AND points.airline = :airline \n";

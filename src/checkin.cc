@@ -3457,7 +3457,7 @@ void GetInboundTransferForWeb(TSegList &segList,
 void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TGroupBagItem &curr)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->user.access.checkRight(347)) return;
+  if (reqInfo->user.access.rights().permitted(347)) return;
   //проверим, удалялся ли входящицй трансфер
   map< int/*id*/, TBagToLogInfo> curr2;
   for(map<int /*num*/, CheckIn::TBagItem>::const_iterator b=curr.bags.begin(); b!=curr.bags.end(); ++b)
