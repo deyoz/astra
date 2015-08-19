@@ -394,6 +394,21 @@ bool LoadCrsPaxRem(int pax_id, vector<TPaxRemItem> &rems)
   return !rems.empty();
 };
 
+bool LoadCrsPaxFQT(int pax_id, vector<TPaxFQTItem> &fqts)
+{
+  fqts.clear();
+  const char* sql=
+    "SELECT * FROM crs_pax_fqt WHERE pax_id=:pax_id";
+
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TCachedQuery PaxFQTQry(sql, QryParams);
+  PaxFQTQry.get().Execute();
+  for(;!PaxFQTQry.get().Eof;PaxFQTQry.get().Next())
+    fqts.push_back(TPaxFQTItem().fromDB(PaxFQTQry.get()));
+  return !fqts.empty();
+};
+
 bool LoadPaxFQT(int pax_id, vector<TPaxFQTItem> &fqts)
 {
   fqts.clear();
