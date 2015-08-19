@@ -7531,22 +7531,6 @@ void TPFSBody::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 }
 
 
-bool fqt_compare(int pax_id)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "(select airline, no, extra, rem_code from pax_fqt where pax_id = :pax_id "
-        "minus "
-        "select airline, no, extra, rem_code from crs_pax_fqt where pax_id = :pax_id) "
-        "union "
-        "(select airline, no, extra, rem_code from crs_pax_fqt where pax_id = :pax_id "
-        "minus "
-        "select airline, no, extra, rem_code from pax_fqt where pax_id = :pax_id) ";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.Execute();
-    return Qry.Eof;
-}
-
 struct TPFSInfo {
     map<int, TPFSInfoItem> items;
     void get(int point_id);
@@ -7659,6 +7643,7 @@ void TPFSBody::get(TypeB::TDetailCreateInfo &info)
         const TPFSInfoItem &item = im->second;
         ckin_pax.get(item);
         if(item.pnl_pax_id != NoExists) { // Пассажир присутствует в PNL/ADL рейса
+            ckin_pax.fqt_diff(); // get changed FQT
             if(ckin_pax.crs_pax.status == "WL") {
                 if(ckin_pax.pr_brd != NoExists and ckin_pax.pr_brd != 0)
                     category = "CFMWL";
@@ -7676,8 +7661,7 @@ void TPFSBody::get(TypeB::TDetailCreateInfo &info)
                     category = "NOSHO";
             } else { // Зарегистрирован
                 if(ckin_pax.pr_brd != 0) { // Прошел посадку
-                    if(ckin_pax.fqt_diff())
-//                    if(not fqt_compare(item.pax_id))
+                    if(not ckin_pax.fqt.items.empty())
                         category = "FQTVN";
                     else if(ckin_pax.subclass != ckin_pax.crs_pax.subclass)
                         category = "INVOL";
@@ -7691,6 +7675,7 @@ void TPFSBody::get(TypeB::TDetailCreateInfo &info)
                 }
             }
         } else { // Пассажир НЕ присутствует в PNL/ADL рейса
+            LoadPaxFQT(item.pax_id, ckin_pax.fqt.items); // get FQT if any
             if(item.pax_id != NoExists) { // Зарегистрирован
                 if(ckin_pax.OK_status()) { // Пассажир имеет статус "бронь" или "сквозная регистрация"
                     if(ckin_pax.pr_brd != 0)
