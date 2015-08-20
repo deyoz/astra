@@ -1,15 +1,2050 @@
 LOAD DATA
 INFILE *
-INTO TABLE CACHE_FILEDS
+INTO TABLE CACHE_FIELDS
 APPEND
 FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
 TRAILING NULLCOLS
 (
+code
+,num
+,name
+,title
+,width
+,char_case
+,align
+,data_type
+,data_size
+,scale
+,nullable
+,pr_ident
+,read_only
+,refer_code
+,refer_name
+,refer_level
+,lang
+,refer_ident
 )
 BEGINDATA
-from  CACHE_FILEDS
-*
-ERROR at line 2:
-ORA-00936: missing expression
-
-
+"PAX_DOC_COUNTRIES"|1|"CODE"|"Код"||"U"||"S"|3||0|0|1|||||
+"PAX_DOC_COUNTRIES"|1|"CODE"|"Код"||"U"||"S"|3||0|0|0||||"RU"|
+"PAX_DOC_COUNTRIES"|2|"CODE_LAT"||0|"U"||"S"|3||1|0|0|||||
+"PAX_DOC_COUNTRIES"|3|"COUNTRY"||0|||"S"|2||1|0|0|"COUNTRIES"|"CODE"|1||1
+"PAX_DOC_COUNTRIES"|4|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||1|0|0|"COUNTRIES"|"CODE_LAT/CODE"|1||
+"PAX_DOC_COUNTRIES"|4|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||1|0|0|"COUNTRIES"|"CODE/CODE_LAT"|1|"RU"|
+"PAX_DOC_COUNTRIES"|5|"NAME"|"Описание"|50|||"S"|250||0|0|1|||||
+"PAX_DOC_COUNTRIES"|5|"NAME"|"Описание"|50|||"S"|250||0|0|0||||"RU"|
+"PAX_DOC_COUNTRIES"|6|"NAME_LAT"|"Описание (лат.)"|50|||"S"|250||1|0|0|||||
+"PAX_DOC_COUNTRIES"|7|"ID"||0|||"NU"|9||0|1|1|||||
+"BALANCE_TYPES"|1|"CODE"|"Код"||"U"||"S"|10||0|1|1|||||
+"BALANCE_TYPES"|2|"NAME"|"Описание"||||"S"|50||0|0|1|||||
+"BALANCE_TYPES"|3|"NAME_LAT"|"Описание (лат.)"||||"S"|50||1|0|1|||||
+"BALANCE_SETS"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"BALANCE_SETS"|2|"AIRP"||0|||"S"|3||0|0|0|"AIRPS"|"CODE"|1||1
+"BALANCE_SETS"|3|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE_LAT/CODE"|1||
+"BALANCE_SETS"|3|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE/CODE_LAT"|1|"RU"|
+"BALANCE_SETS"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"BALANCE_SETS"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"BALANCE_SETS"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"BALANCE_SETS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"BALANCE_SETS"|7|"BORT"|"Борт"||"U"||"S"|10||1|0|0|||||
+"BALANCE_SETS"|8|"BALANCE_TYPE"|"Тип"||||"S"|5||0|0|0|"BALANCE_TYPES"|"CODE"|||
+"BALANCE_SETS"|9|"PR_DENIAL"|"Откл."||||"B"|1||0|0|0|||||
+"REMARKS"|1|"CODE"|"Код"||"U"||"S"|4||0|1|1|||||
+"REMARKS"|2|"CODE_LAT"|"Код лат."||"U"||"S"|4||0|0|1|||||
+"REMARKS"|3|"GRP_ID"||0|||"NU"|9||1|0|1|"REM_GRP"|"ID"|1||1
+"REMARKS"|4|"GRP_VIEW"|"Группа ремарок"|20|||"S"|50||1|0|1|"REM_GRP"|"NAME_LAT/NAME"|1||
+"REMARKS"|4|"GRP_VIEW"|"Группа ремарок"|20|||"S"|50||1|0|1|"REM_GRP"|"NAME/NAME_LAT"|1|"RU"|
+"REMARKS"|5|"NAME"|"Ремарка"|60|||"S"|200||0|0|1|||||
+"REMARKS"|6|"NAME_LAT"|"Ремарка (лат.)"|60|||"S"|200||1|0|1|||||
+"REMARKS"|7|"PR_COMP"||0|||"NU"|2||1|0|1|||||
+"REM_GRP"|1|"ID"||0|||"NU"|2||0|1|1|||||
+"REM_GRP"|2|"NAME"|"Название"||||"S"|50||0|0|1|||||
+"REM_GRP"|3|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
+"CKIN_REM_TYPES"|1|"CODE"|"Код"||"U"||"S"|4||0|0|1|||||
+"CKIN_REM_TYPES"|1|"CODE"|"Код"||"U"||"S"|4||0|0|0||||"RU"|
+"CKIN_REM_TYPES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|4||0|0|0|||||
+"CKIN_REM_TYPES"|3|"GRP_ID"||0|||"NU"|9||0|1|0|"REM_GRP"|"ID"|2||1
+"CKIN_REM_TYPES"|4|"GRP_VIEW"|"Группа ремарок"|20|||"S"|50||0|0|0|"REM_GRP"|"NAME_LAT/NAME"|2||
+"CKIN_REM_TYPES"|4|"GRP_VIEW"|"Группа ремарок"|20|||"S"|50||0|0|0|"REM_GRP"|"NAME/NAME_LAT"|2|"RU"|
+"CKIN_REM_TYPES"|5|"NAME"|"Ремарка"|60|||"S"|200||0|0|1|||||
+"CKIN_REM_TYPES"|5|"NAME"|"Ремарка"|60|||"S"|200||0|0|0||||"RU"|
+"CKIN_REM_TYPES"|6|"NAME_LAT"|"Ремарка (лат.)"|60|||"S"|200||1|0|0|||||
+"CKIN_REM_TYPES"|7|"IS_IATA"|"IATA"||||"B"|1||0|0|0|||||
+"CKIN_REM_TYPES"|8|"ID"||0|||"NU"|9||0|1|1|||||
+"COMP_REM_TYPES"|1|"CODE"|"Код"||"U"||"S"|4||0|0|1|||||
+"COMP_REM_TYPES"|1|"CODE"|"Код"||"U"||"S"|4||0|0|0||||"RU"|
+"COMP_REM_TYPES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|4||0|0|0|||||
+"COMP_REM_TYPES"|3|"NAME"|"Ремарка"||||"S"|50||0|0|1|||||
+"COMP_REM_TYPES"|3|"NAME"|"Ремарка"||||"S"|50||0|0|0||||"RU"|
+"COMP_REM_TYPES"|4|"NAME_LAT"|"Ремарка (лат.)"||||"S"|50||1|0|0|||||
+"COMP_REM_TYPES"|5|"PRIORITY"|"Приоритет"||||"NU"|2||0|0|0|||||
+"COMP_REM_TYPES"|6|"ID"||0|||"NU"|9||0|1|1|||||
+"SEASON_TYPES"|1|"ID"||0|||"NU"|1||0|1|1|||||
+"SEASON_TYPES"|2|"NAME"|"Сезон"||||"S"|10||0|0|1|||||
+"SEASON_TYPES"|3|"NAME_LAT"|"Сезон (лат.)"||||"S"|10||0|0|1|||||
+"AIRLINE_PERS_WEIGHTS"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"AIRLINE_PERS_WEIGHTS"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"AIRLINE_PERS_WEIGHTS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_PERS_WEIGHTS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"TRIP_LIST_DAYS"|5|"ID"||0|||"NU"|9||0|0|1|||||
+"AIRLINE_PERS_WEIGHTS"|4|"CRAFT"||0|||"S"|3||1|0|0|"CRAFTS"|"CODE"|2||1
+"AIRLINE_PERS_WEIGHTS"|5|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|0|"CRAFTS"|"CODE_LAT/CODE"|2||
+"AIRLINE_PERS_WEIGHTS"|5|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|0|"CRAFTS"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_PERS_WEIGHTS"|6|"BORT"|"Борт"||"U"||"S"|10||1|0|0|||||
+"AIRLINE_PERS_WEIGHTS"|7|"CLASS"||0|||"S"|1||1|0|0|"CLASSES"|"CODE"|3||1
+"AIRLINE_PERS_WEIGHTS"|8|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|0|"CLASSES"|"CODE_LAT/CODE"|3||
+"AIRLINE_PERS_WEIGHTS"|8|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|0|"CLASSES"|"CODE/CODE_LAT"|3|"RU"|
+"AIRLINE_PERS_WEIGHTS"|9|"SUBCLASS"||0|||"S"|1||1|0|0|"SUBCLS"|"CODE"|4||1
+"AIRLINE_PERS_WEIGHTS"|10|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|0|"SUBCLS"|"CODE_LAT/CODE"|4||
+"AIRLINE_PERS_WEIGHTS"|10|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|0|"SUBCLS"|"CODE/CODE_LAT"|4|"RU"|
+"AIRLINE_PERS_WEIGHTS"|11|"SEASON_ID"||0|||"NU"|1||1|0|0|"SEASON_TYPES"|"ID"|5||1
+"AIRLINE_PERS_WEIGHTS"|12|"SEASON_NAME"|"Сезон"||||"S"|10||1|0|0|"SEASON_TYPES"|"NAME_LAT/NAME"|5||
+"AIRLINE_PERS_WEIGHTS"|12|"SEASON_NAME"|"Сезон"||||"S"|10||1|0|0|"SEASON_TYPES"|"NAME/NAME_LAT"|5|"RU"|
+"AIRLINE_PERS_WEIGHTS"|13|"FIRST_DATE"|"С"||"U"||"S"|5||1|0|0|||||
+"AIRLINE_PERS_WEIGHTS"|14|"LAST_DATE"|"По"||"U"||"S"|5||1|0|0|||||
+"AIRLINE_PERS_WEIGHTS"|15|"MALE"|"ВЗ/М"||||"NU"|3||0|0|0|||||
+"AIRLINE_PERS_WEIGHTS"|16|"FEMALE"|"ВЗ/Ж"||||"NU"|3||1|0|0|||||
+"AIRLINE_PERS_WEIGHTS"|17|"CHILD"|"РБ"||||"NU"|2||0|0|0|||||
+"AIRLINE_PERS_WEIGHTS"|18|"INFANT"|"РМ"||||"NU"|2||0|0|0|||||
+"BASIC_PERS_WEIGHTS"|17|"CHILD"|"РБ"||||"NU"|2||0|0|0|||||
+"BASIC_PERS_WEIGHTS"|16|"FEMALE"|"ВЗ/Ж"||||"NU"|3||1|0|0|||||
+"BASIC_PERS_WEIGHTS"|18|"INFANT"|"РМ"||||"NU"|2||0|0|0|||||
+"BASIC_PERS_WEIGHTS"|15|"MALE"|"ВЗ/М"||||"NU"|3||0|0|0|||||
+"BASIC_PERS_WEIGHTS"|11|"SEASON_ID"||0|||"NU"|1||1|0|0|"SEASON_TYPES"|"ID"|5||1
+"BASIC_PERS_WEIGHTS"|12|"SEASON_NAME"|"Сезон"||||"S"|10||1|0|0|"SEASON_TYPES"|"NAME/NAME_LAT"|5|"RU"|
+"BASIC_PERS_WEIGHTS"|12|"SEASON_NAME"|"Сезон"||||"S"|10||1|0|0|"SEASON_TYPES"|"NAME_LAT/NAME"|5||
+"ALARM_TYPES"|1|"CODE"|"Код"||"U"||"S"|30||0|1|1|||||
+"ALARM_TYPES"|2|"NAME"|"Описание"|50|||"S"|100||0|0|1|||||
+"ALARM_TYPES"|3|"NAME_LAT"|"Описание (лат.)"|50|||"S"|100||0|0|1|||||
+"TYPEB_ADDR_OWNERS_SIRENA"|1|"ADDR"|"IATA-адрес"||"U"||"S"|7||0|1|0|||||
+"TYPEB_ADDR_OWNERS_SIRENA"|2|"TRANSPORT_ADDR"|"Канон. имя"||"U"||"S"|5||0|0|0|"CANON_NAMES"|"CODE"|||
+"TYPEB_ADDR_OWNERS_SIRENA"|3|"COUNTRY"||0|||"S"|2||1|0|0|"COUNTRIES"|"CODE"|1||1
+"TYPEB_ADDR_OWNERS_SIRENA"|4|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||1|0|0|"COUNTRIES"|"CODE_LAT/CODE"|1||
+"TYPEB_ADDR_OWNERS_SIRENA"|4|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||1|0|0|"COUNTRIES"|"CODE/CODE_LAT"|1|"RU"|
+"TYPEB_ADDR_OWNERS_SIRENA"|5|"ID"||0|||"NU"|9||0|0|1|||||
+"TYPEB_TRANSPORTS_OTHERS"|1|"CODE"||0|"U"||"S"|20||0|1|1|||||
+"TYPEB_TRANSPORTS_OTHERS"|2|"NAME"|"Название"|30|||"S"|50||0|0|1|||||
+"TYPEB_TRANSPORTS_OTHERS"|3|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||0|0|1|||||
+"CITIES"|1|"CODE"|"Код города"||"U"||"S"|3||0|0|1|||||
+"CITIES"|1|"CODE"|"Код города"||"U"||"S"|3||0|0|0||||"RU"|
+"CITIES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|3||1|0|0|||||
+"CITIES"|3|"COUNTRY"||0|||"S"|2||0|0|0|"COUNTRIES"|"CODE"|1||1
+"TYPEB_ADDR_OWNERS_OTHERS"|1|"ADDR"|"IATA-адрес"||"U"||"S"|7||0|1|0|||||
+"TYPEB_ADDR_OWNERS_OTHERS"|2|"TRANSPORT_TYPE"||0|"U"||"S"|20||0|0|0|"TYPEB_TRANSPORTS_OTHERS"|"CODE"|1||1
+"TYPEB_ADDR_OWNERS_OTHERS"|3|"TRANSPORT_TYPE_VIEW"|"Тип транспорта"|30|||"S"|50||0|0|0|"TYPEB_TRANSPORTS_OTHERS"|"NAME_LAT/NAME"|1||
+"TYPEB_ADDR_OWNERS_OTHERS"|3|"TRANSPORT_TYPE_VIEW"|"Тип транспорта"|30|||"S"|50||0|0|0|"TYPEB_TRANSPORTS_OTHERS"|"NAME/NAME_LAT"|1|"RU"|
+"TYPEB_ADDR_OWNERS_OTHERS"|4|"TRANSPORT_ADDR"|"Пульт"||"U"||"S"|6||0|0|0|"DESKS"|"CODE"|||
+"TYPEB_ADDR_OWNERS_OTHERS"|5|"ID"||0|||"NU"|9||0|0|1|||||
+"TYPEB_CREATE_POINTS"|1|"TYPEB_ADDRS_ID"||0|||"NU"|9||0|1|1|||||
+"TYPEB_CREATE_POINTS"|2|"STAGE_ID"||0|||"NU"|2||0|1|0|"GRAPH_STAGES_WO_INACTIVE"|"STAGE_ID"|1||1
+"TYPEB_CREATE_POINTS"|3|"STAGE_NAME_VIEW"|"Название этапа"|25|||"S"|40||0|0|0|"GRAPH_STAGES_WO_INACTIVE"|"NAME_LAT/NAME"|1||
+"TYPEB_CREATE_POINTS"|3|"STAGE_NAME_VIEW"|"Название этапа"|25|||"S"|40||0|0|0|"GRAPH_STAGES_WO_INACTIVE"|"NAME/NAME_LAT"|1|"RU"|
+"TYPEB_CREATE_POINTS"|4|"TIME_OFFSET"|"Время до (чч-мм)"||"U"|"R"|"S"|5||1|0|0|||||
+"TYPEB_CREATE_POINTS"|5|"ID"||0|||"NU"|9||0|0|1|||||
+"CITIES"|4|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE_LAT/CODE"|1||
+"CITIES"|4|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE/CODE_LAT"|1|"RU"|
+"CITIES"|5|"NAME"|"Название города"|15|"U"||"S"|50||0|0|1|||||
+"CITIES"|5|"NAME"|"Название города"|15|"U"||"S"|50||0|0|0||||"RU"|
+"CITIES"|6|"NAME_LAT"|"Название города (лат.)"|15|"U"||"S"|50||1|0|0|||||
+"CITIES"|7|"TZ_REGION"|"Часовой регион"|25|||"S"|50||1|0|0|"DATE_TIME_ZONESPEC"|"ID"|2||
+"CITIES"|8|"GMT_OFFSET"|"Часовой пояс"||||"S"|9||1|0|0|"DATE_TIME_ZONESPEC"|"GMT_OFFSET"|2||
+"CITIES"|9|"ID"||0|||"NU"|9||0|1|1|||||
+"TYPEB_TYPES_ALL"|4|"SHORT_NAME_LAT"|"Тип (лат.)"|15|||"S"|20||1|0|0|||||
+"TYPEB_TYPES_ALL"|5|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
+"TYPEB_TYPES_ALL"|6|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
+"TYPEB_TYPES_ALL"|7|"PR_DEP"||0|||"B"|1||1|0|0|||||
+"TYPEB_TYPES_ALL"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_PNL_MARK"|11|"ADDR"|"Адреса IATA"|25|"U"||"S"|100||0|0|0|||||
+"TYPEB_ADDRS_PNL_MARK"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"TYPEB_ADDRS_PNL_MARK"|5|"AIRLINE_VIEW"|"А/к комм."||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_ADDRS_PNL_MARK"|5|"AIRLINE_VIEW"|"А/к комм."||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"TYPEB_ADDRS_PNL_MARK"|9|"AIRP_ARV"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|4||1
+"TYPEB_ADDRS_PNL_MARK"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|4|"RU"|
+"BRD_WITH_REG_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"BRD_WITH_REG_SET"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"BRD_WITH_REG_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"TYPEB_ADDR_TRANS_PARAMS"|1|"ADDR"|"IATA-адрес"||"U"||"S"|7||0|1|0|||||
+"TYPEB_ADDR_TRANS_PARAMS"|2|"PARAM_NAME"|"Параметр"||"U"||"S"|20||0|1|0|||||
+"TYPEB_ADDR_TRANS_PARAMS"|3|"PARAM_VALUE"|"Значение"||||"S"|100||1|0|0|||||
+"TYPEB_ADDR_TRANS_PARAMS"|4|"ID"||0|||"NU"|9||0|0|1|||||
+"CANON_NAMES"|1|"CODE"|"Канон. имя"||"U"||"S"|6||0|1|1|||||
+"BRD_WITH_REG_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"BRD_WITH_REG_SET"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"BRD_WITH_REG_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"BRD_WITH_REG_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"BRD_WITH_REG_SET"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"BRD_WITH_REG_SET"|7|"HALL"||0|||"NU"|9||1|0|0|"HALLS"|"ID"|3||1
+"BRD_WITH_REG_SET"|8|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME_LAT/NAME"|3||
+"BRD_WITH_REG_SET"|8|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME/NAME_LAT"|3|"RU"|
+"BRD_WITH_REG_SET"|9|"PR_MISC"|"Посадка при рег."||||"B"|1||0|0|0|||||
+"AIRLINE_BRD_WITH_REG_SET"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"AIRLINE_BRD_WITH_REG_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_BRD_WITH_REG_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_BRD_WITH_REG_SET"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"TYPEB_ADDRS_PNL_MARK"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|4||
+"AIRLINE_BRD_WITH_REG_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_ADDRS_PNL_MARK"|7|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"TYPEB_ADDRS_PNL_MARK"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"TYPEB_ADDRS_PNL_MARK"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"TYPEB_ADDRS_PNL_MARK"|15|"BASIC_TYPE"||0|||"S"|3||0|0|0|"TYPEB_TYPES_PNL"|"BASIC_TYPE"|1||
+"TYPEB_ADDRS_PNL_MARK"|14|"CRS"|"Центр"||"U"||"S"|7||1|0|0|"CRS"|"CODE"|||
+"TYPEB_ADDRS_PNL_MARK"|6|"FLT_NO"|"Рейс комм."||||"NU"|5||1|0|0|||||
+"TYPEB_ADDRS_PNL_MARK"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"TYPEB_ADDRS_PNL_MARK"|13|"PR_LAT"|"Лат."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_PNL_MARK"|12|"PR_MARK_HEADER"|"Заголовок комм."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_PNL_MARK"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_PNL"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
+"TYPEB_ADDRS_PNL_MARK"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_PNL"|"SHORT_NAME_LAT/SHORT_NAME"|1||
+"TYPEB_ADDRS_PNL_MARK"|2|"TLG_TYPE"||0|||"S"|6||0|0|0|"TYPEB_TYPES_PNL"|"CODE"|1||1
+"TYPEB_ADDRS_PNL_MARK"|20|"FORWARDING"|"Пересылка"||||"B"|1||0|0|0|||||
+"AIRLINE_BRD_WITH_REG_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"AIRLINE_BRD_WITH_REG_SET"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"AIRLINE_BRD_WITH_REG_SET"|7|"HALL"||0|||"NU"|9||1|0|0|"HALLS"|"ID"|3||1
+"TYPEB_SEND"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"TYPEB_SEND"|2|"TLG_TYPE"||0|||"S"|6||0|0|0|"TYPEB_TYPES_ALL"|"CODE"|1||1
+"TYPEB_SEND"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_ALL"|"SHORT_NAME_LAT/SHORT_NAME"|1||
+"TYPEB_SEND"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_ALL"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
+"TYPEB_SEND"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"TYPEB_SEND"|5|"AIRLINE_VIEW"|"А/к факт."||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"TYPEB_SEND"|5|"AIRLINE_VIEW"|"А/к факт."||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_SEND"|6|"FLT_NO"|"Рейс факт."||||"NU"|5||1|0|0|||||
+"TYPEB_SEND"|7|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"TYPEB_SEND"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"TYPEB_SEND"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"TYPEB_SEND"|9|"AIRP_ARV"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|4||1
+"TYPEB_SEND"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|4||
+"TYPEB_SEND"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|4|"RU"|
+"TYPEB_SEND"|11|"PR_DENIAL"|"Откл."||||"B"|1||0|0|0|||||
+"TYPEB_ORIGINATORS"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"AIRLINE_BRD_WITH_REG_SET"|8|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME/NAME_LAT"|3|"RU"|
+"AIRLINE_BRD_WITH_REG_SET"|8|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME_LAT/NAME"|3||
+"AIRLINE_BRD_WITH_REG_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"AIRLINE_BRD_WITH_REG_SET"|9|"PR_MISC"|"Посадка при рег."||||"B"|1||0|0|0|||||
+"TRIP_BRD_WITH_REG"|1|"POINT_ID"||0|||"NU"|9||0|1|1|||||
+"TRIP_BRD_WITH_REG"|2|"HALL"||0|||"NU"|9||1|1|0|"HALLS"|"ID"|1||1
+"TRIP_BRD_WITH_REG"|3|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME_LAT/NAME"|1||
+"TRIP_BRD_WITH_REG"|3|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME/NAME_LAT"|1|"RU"|
+"TRIP_BRD_WITH_REG"|4|"PR_MISC"|"Посадка при рег."||||"B"|1||0|0|0|||||
+"EXAM_WITH_BRD_SET"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"EXAM_WITH_BRD_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"EXAM_WITH_BRD_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"TYPEB_ORIGINATORS"|2|"AIRLINE"||0|||"S"|3||1|0|1|"AIRLINES"|"CODE"|1||1
+"EXAM_WITH_BRD_SET"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"EXAM_WITH_BRD_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"EXAM_WITH_BRD_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"EXAM_WITH_BRD_SET"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"EXAM_WITH_BRD_SET"|7|"HALL"||0|||"NU"|9||1|0|0|"HALLS"|"ID"|3||1
+"EXAM_WITH_BRD_SET"|8|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME/NAME_LAT"|3|"RU"|
+"EXAM_WITH_BRD_SET"|8|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME_LAT/NAME"|3||
+"EXAM_WITH_BRD_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"EXAM_WITH_BRD_SET"|9|"PR_MISC"|"Досмотр при пос."||||"B"|1||0|0|0|||||
+"AIRLINE_EXAM_WITH_BRD_SET"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"AIRLINE_EXAM_WITH_BRD_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_EXAM_WITH_BRD_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_EXAM_WITH_BRD_SET"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"AIRLINE_EXAM_WITH_BRD_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_EXAM_WITH_BRD_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"AIRLINE_EXAM_WITH_BRD_SET"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"AIRLINE_EXAM_WITH_BRD_SET"|7|"HALL"||0|||"NU"|9||1|0|0|"HALLS"|"ID"|3||1
+"AIRLINE_EXAM_WITH_BRD_SET"|8|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME/NAME_LAT"|3|"RU"|
+"AIRLINE_EXAM_WITH_BRD_SET"|8|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME_LAT/NAME"|3||
+"AIRLINE_EXAM_WITH_BRD_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"AIRLINE_EXAM_WITH_BRD_SET"|9|"PR_MISC"|"Досмотр при пос."||||"B"|1||0|0|0|||||
+"TRIP_EXAM_WITH_BRD"|2|"HALL"||0|||"NU"|9||1|1|0|"HALLS"|"ID"|1||1
+"TRIP_EXAM_WITH_BRD"|3|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME/NAME_LAT"|1|"RU"|
+"TRIP_EXAM_WITH_BRD"|3|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME_LAT/NAME"|1||
+"TRIP_EXAM_WITH_BRD"|1|"POINT_ID"||0|||"NU"|9||0|1|1|||||
+"TRIP_EXAM_WITH_BRD"|4|"PR_MISC"|"Досмотр при пос."||||"B"|1||0|0|0|||||
+"MISC_SET_TYPES"|1|"CODE"||0|||"NU"|3||0|1|1|||||
+"MISC_SET_TYPES"|2|"NAME"|"Настройка"||||"S"|50||0|0|1|||||
+"MISC_SET_TYPES"|3|"NAME_LAT"|"Настройка (лат.)"||||"S"|50||1|0|1|||||
+"MISC_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"MISC_SET"|2|"TYPE_CODE"||0|||"NU"|3||0|0|1|"MISC_SET_TYPES"|"CODE"|1||1
+"MISC_SET"|3|"TYPE_NAME_VIEW"|"Настройка"||||"S"|50||0|0|1|"MISC_SET_TYPES"|"NAME_LAT/NAME"|1||
+"MISC_SET"|3|"TYPE_NAME_VIEW"|"Настройка"||||"S"|50||0|0|1|"MISC_SET_TYPES"|"NAME/NAME_LAT"|1|"RU"|
+"MISC_SET"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"MISC_SET"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"MISC_SET"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"MISC_SET"|6|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"MISC_SET"|7|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"MISC_SET"|7|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"MISC_SET"|8|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"MISC_SET"|9|"PR_MISC"|"Значение"||||"B"|1||0|0|0|||||
+"AIRLINE_MISC_SET"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"AIRLINE_MISC_SET"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_MISC_SET"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"AIRLINE_MISC_SET"|6|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"AIRLINE_MISC_SET"|7|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"AIRLINE_MISC_SET"|7|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"AIRLINE_MISC_SET"|8|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"AIRLINE_MISC_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"AIRLINE_MISC_SET"|9|"PR_MISC"|"Значение"||||"B"|1||0|0|0|||||
+"AIRLINE_MISC_SET"|2|"TYPE_CODE"||0|||"NU"|3||0|0|1|"MISC_SET_TYPES"|"CODE"|1||1
+"AIRLINE_MISC_SET"|3|"TYPE_NAME_VIEW"|"Настройка"||||"S"|50||0|0|1|"MISC_SET_TYPES"|"NAME/NAME_LAT"|1|"RU"|
+"AIRLINE_MISC_SET"|3|"TYPE_NAME_VIEW"|"Настройка"||||"S"|50||0|0|1|"MISC_SET_TYPES"|"NAME_LAT/NAME"|1||
+"SELF_CKIN_SET_TYPES"|1|"CODE"||0|||"NU"|3||0|1|1|||||
+"SELF_CKIN_SET_TYPES"|2|"NAME"|"Настройка"||||"S"|50||0|0|1|||||
+"SELF_CKIN_SET_TYPES"|3|"NAME_LAT"|"Настройка (лат.)"||||"S"|50||1|0|1|||||
+"IN_FILE_ENCODING"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"IN_FILE_ENCODING"|2|"TYPE"|"Тип"||"U"||"S"|10||0|0|0|"FILE_TYPES"|"CODE"|||
+"IN_FILE_ENCODING"|3|"POINT_ADDR"|"Пульт"||"U"||"S"|6||0|0|0|"DESKS"|"CODE"|||
+"IN_FILE_ENCODING"|4|"ENCODING"|"Кодовая страница"||||"S"|40||0|0|0|"ENCODINGS"|"CODE"|||
+"OUT_FILE_ENCODING"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"SELF_CKIN_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"SELF_CKIN_SET"|2|"TYPE_CODE"||0|||"NU"|3||0|0|1|"SELF_CKIN_SET_TYPES"|"CODE"|1||1
+"SELF_CKIN_SET"|3|"TYPE_NAME_VIEW"|"Настройка"||||"S"|50||0|0|1|"SELF_CKIN_SET_TYPES"|"NAME_LAT/NAME"|1||
+"SELF_CKIN_SET"|3|"TYPE_NAME_VIEW"|"Настройка"||||"S"|50||0|0|1|"SELF_CKIN_SET_TYPES"|"NAME/NAME_LAT"|1|"RU"|
+"SELF_CKIN_SET"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"SELF_CKIN_SET"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"SELF_CKIN_SET"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"SELF_CKIN_SET"|6|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"SELF_CKIN_SET"|7|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"SELF_CKIN_SET"|7|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"SELF_CKIN_SET"|8|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"SELF_CKIN_SET"|9|"CLIENT_TYPE"||0|||"S"|5||1|0|0|"SELF_CKIN_TYPES"|"CODE"|1||1
+"SELF_CKIN_SET"|10|"CLIENT_TYPE_VIEW"|"Тип рег."|20|||"S"|50||1|0|0|"SELF_CKIN_TYPES"|"NAME_LAT/NAME"|1||
+"SELF_CKIN_SET"|10|"CLIENT_TYPE_VIEW"|"Тип рег."|20|||"S"|50||1|0|0|"SELF_CKIN_TYPES"|"NAME/NAME_LAT"|1|"RU"|
+"SELF_CKIN_SET"|11|"VALUE"|"Значение"||||"B"|1||0|0|0|||||
+"OUT_FILE_ENCODING"|2|"TYPE"|"Тип"||"U"||"S"|10||0|0|0|"FILE_TYPES"|"CODE"|||
+"OUT_FILE_ENCODING"|3|"POINT_ADDR"|"Пульт"||"U"||"S"|6||0|0|0|"DESKS"|"CODE"|||
+"OUT_FILE_ENCODING"|4|"ENCODING"|"Кодовая страница"||||"S"|40||0|0|0|"ENCODINGS"|"CODE"|||
+"OUT_FILE_PARAM_SETS"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"OUT_FILE_PARAM_SETS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"OUT_FILE_PARAM_SETS"|7|"AIRP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"OUT_FILE_PARAM_SETS"|8|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"OUT_FILE_PARAM_SETS"|8|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"OUT_FILE_PARAM_SETS"|9|"PARAM_NAME"|"Параметр"|10|"U"||"S"|20||0|0|0|||||
+"OUT_FILE_PARAM_SETS"|10|"PARAM_VALUE"|"Значение"|200|||"S"|1000||1|0|0|||||
+"TRFER_SETS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"TRFER_SETS"|2|"AIRLINE_IN"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"TRFER_SETS"|3|"AIRLINE_IN_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"TRFER_SETS"|3|"AIRLINE_IN_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"TRFER_SETS"|4|"FLT_NO_IN"|"Рейс(ы) на прилет"|20|"U"||"S"|40||1|0|0|||||
+"TRFER_SETS"|5|"AIRP"||0|||"S"|3||0|0|0|"AIRPS"|"CODE"|2||1
+"TRFER_SETS"|6|"AIRP_VIEW"|"А/п трансфера"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"TRFER_SETS"|6|"AIRP_VIEW"|"А/п трансфера"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"TRFER_SETS"|7|"AIRLINE_OUT"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|3||1
+"TRFER_SETS"|8|"AIRLINE_OUT_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|3||
+"TRFER_SETS"|8|"AIRLINE_OUT_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|3|"RU"|
+"TRFER_SETS"|9|"FLT_NO_OUT"|"Рейс(ы) на вылет"|20|"U"||"S"|40||1|0|0|||||
+"TRFER_SETS"|10|"TCKIN_PERMIT"|"Сквоз. рег."||||"B"|1||0|0|0|||||
+"TRFER_SETS"|11|"TCKIN_WAITLIST"|"ЛО"||||"B"|1||0|0|0|||||
+"TRFER_SETS"|12|"TCKIN_NOREC"|"NOREC"||||"B"|1||0|0|0|||||
+"TRFER_SETS"|13|"TRFER_PERMIT"|"Трансф. багаж"||||"B"|1||0|0|0|||||
+"TRFER_SETS"|14|"TRFER_OUTBOARD"|"Внесист. трфр далее"||||"B"|1||0|0|0|||||
+"TRFER_SETS"|15|"MIN_INTERVAL"|"Мин. стыковка"||"U"|"R"|"S"|5||1|0|0|||||
+"TRFER_SETS"|16|"MAX_INTERVAL"|"Макс. стыковка"||"U"|"R"|"S"|5||1|0|0|||||
+"TRANZIT_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"TRANZIT_SET"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"TRANZIT_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"TRANZIT_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"TRANZIT_SET"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"TRANZIT_SET"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"TRANZIT_SET"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"TRANZIT_SET"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"TRANZIT_SET"|7|"PR_TRANZIT"|"Транзит"||||"B"|1||0|0|0|||||
+"TRANZIT_SET"|8|"PR_REG"|"Перерегистрация"||||"B"|1||0|0|0|||||
+"AIRLINE_TRANZIT_SET"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"AIRLINE_TRANZIT_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_TRANZIT_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_TRANZIT_SET"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"AIRLINE_TRANZIT_SET"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_TRANZIT_SET"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"AIRLINE_TRANZIT_SET"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"AIRLINE_TRANZIT_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"AIRLINE_TRANZIT_SET"|8|"PR_REG"|"Перерегистрация"||||"B"|1||0|0|0|||||
+"AIRLINE_TRANZIT_SET"|7|"PR_TRANZIT"|"Транзит"||||"B"|1||0|0|0|||||
+"CRS"|1|"CODE"|"Код"||"U"||"S"|7||0|1|1|||||
+"CRS"|2|"NAME"|"Название"||||"S"|50||0|0|1|||||
+"CRS"|2|"NAME"|"Название"||||"S"|50||0|0|0||||"RU"|
+"CRS"|3|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|0|||||
+"PAX_CATS"|1|"CODE"|"Код"||"U"||"S"|3||0|1|0|||||
+"PAX_CATS"|2|"NAME"|"Описание"|100|||"S"|150||0|0|1|||||
+"PAX_CATS"|2|"NAME"|"Описание"|100|||"S"|150||0|0|0||||"RU"|
+"PAX_CATS"|3|"NAME_LAT"|"Описание (лат.)"|100|||"S"|150||1|0|0|||||
+"PAX_CATS"|4|"ID"||0|||"NU"|9||0|0|1|||||
+"CRS_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"CRS_SET"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"CRS_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"CRS_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"CRS_SET"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"CRS_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"CRS_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"CRS_SET"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"CRS_SET"|7|"CRS"|"Центр"||"U"||"S"|7||0|0|0|"CRS"|"CODE"|||
+"CRS_SET"|8|"PRIORITY"|"Приоритет (0<9)"||||"NU"|1||0|0|0|||||
+"CRS_SET"|9|"PR_NUMERIC_PNL"|"Цифр. PNL"||||"B"|1||0|0|0|||||
+"USER_TYPES"|1|"ID"||0|||"NU"|1||0|1|1|||||
+"USER_TYPES"|2|"NAME"|"Тип"|25|||"S"|50||0|0|1|||||
+"USER_TYPES"|3|"NAME_LAT"|"Тип (лат.)"|25|||"S"|50||1|0|1|||||
+"TIME_FMT"|1|"ID"||0|||"NU"|2||0|1|1|||||
+"TIME_FMT"|2|"SHORT_NAME"|"Код"||||"S"|20||0|0|1|||||
+"TIME_FMT"|3|"SHORT_NAME_LAT"|"Код лат."||||"S"|20||1|0|1|||||
+"TIME_FMT"|4|"NAME"|"Вид представления"||||"S"|50||0|0|1|||||
+"TIME_FMT"|5|"NAME_LAT"|"Вид представления (лат.)"||||"S"|50||1|0|1|||||
+"CODE4_FMT"|1|"ID"||0|||"NU"|2||0|1|1|||||
+"CODE4_FMT"|4|"NAME"|"Вид представления"||||"S"|50||0|0|1|||||
+"CODE4_FMT"|5|"NAME_LAT"|"Вид представления (лат.)"||||"S"|50||1|0|1|||||
+"CODE4_FMT"|2|"SHORT_NAME"|"Код"||||"S"|20||0|0|1|||||
+"CODE4_FMT"|3|"SHORT_NAME_LAT"|"Код лат."||||"S"|20||1|0|1|||||
+"ENCODING_FMT"|1|"ID"||0|||"NU"|2||0|1|1|||||
+"ENCODING_FMT"|4|"NAME"|"Вид представления"||||"S"|50||0|0|1|||||
+"ENCODING_FMT"|5|"NAME_LAT"|"Вид представления (лат.)"||||"S"|50||1|0|1|||||
+"ENCODING_FMT"|2|"SHORT_NAME"|"Код"||||"S"|20||0|0|1|||||
+"ENCODING_FMT"|3|"SHORT_NAME_LAT"|"Код лат."||||"S"|20||1|0|1|||||
+"USERS"|1|"USER_ID"||0|||"NU"|9||0|1|1|||||
+"USERS"|2|"DESCR"|"Ф.И.О."|15|"U"||"S"|20||0|0|1|||||
+"USERS"|3|"LOGIN"|"Логин"|10|"U"||"S"|20||0|0|0|||||
+"USERS"|4|"TYPE_CODE"||0|||"NU"|1||0|0|0|"USER_TYPES"|"ID"|1||1
+"USERS"|5|"TYPE_NAME"|"Тип"|22|||"S"|50||0|0|0|"USER_TYPES"|"NAME_LAT/NAME"|1||
+"USERS"|5|"TYPE_NAME"|"Тип"|22|||"S"|50||0|0|0|"USER_TYPES"|"NAME/NAME_LAT"|1|"RU"|
+"USERS"|6|"USER_PERMS"|"Доступ к а/к,а/п"|10|"U"||"S"|1||1|0|1|||||
+"USERS"|7|"PR_DENIAL"|"Откл."||||"B"|1||0|0|0|||||
+"USERS"|8|"TIME_FMT"||0|||"NU"|2||1|0|0|"TIME_FMT"|"ID"|2||1
+"USERS"|9|"TIME_FMT_VIEW"|"Времена"|10|||"S"|20||1|0|0|"TIME_FMT"|"SHORT_NAME_LAT/SHORT_NAME"|2||
+"USERS"|9|"TIME_FMT_VIEW"|"Времена"|10|||"S"|20||1|0|0|"TIME_FMT"|"SHORT_NAME/SHORT_NAME_LAT"|2|"RU"|
+"USERS"|10|"DISP_AIRLINE_FMT"||0|||"NU"|2||1|0|0|"CODE4_FMT"|"ID"|3||1
+"USERS"|11|"DISP_AIRLINE_FMT_VIEW"|"А/к (дисп)"|10|||"S"|20||1|0|0|"CODE4_FMT"|"SHORT_NAME_LAT/SHORT_NAME"|3||
+"USERS"|11|"DISP_AIRLINE_FMT_VIEW"|"А/к (дисп)"|10|||"S"|20||1|0|0|"CODE4_FMT"|"SHORT_NAME/SHORT_NAME_LAT"|3|"RU"|
+"USERS"|12|"DISP_AIRP_FMT"||0|||"NU"|2||1|0|0|"CODE4_FMT"|"ID"|4||1
+"USERS"|13|"DISP_AIRP_FMT_VIEW"|"А/п (дисп)"|10|||"S"|20||1|0|0|"CODE4_FMT"|"SHORT_NAME_LAT/SHORT_NAME"|4||
+"USERS"|13|"DISP_AIRP_FMT_VIEW"|"А/п (дисп)"|10|||"S"|20||1|0|0|"CODE4_FMT"|"SHORT_NAME/SHORT_NAME_LAT"|4|"RU"|
+"USERS"|14|"DISP_CRAFT_FMT"||0|||"NU"|2||1|0|0|"CODE4_FMT"|"ID"|5||1
+"USERS"|15|"DISP_CRAFT_FMT_VIEW"|"ВС (дисп)"|10|||"S"|20||1|0|0|"CODE4_FMT"|"SHORT_NAME_LAT/SHORT_NAME"|5||
+"USERS"|15|"DISP_CRAFT_FMT_VIEW"|"ВС (дисп)"|10|||"S"|20||1|0|0|"CODE4_FMT"|"SHORT_NAME/SHORT_NAME_LAT"|5|"RU"|
+"USERS"|16|"DISP_SUFFIX_FMT"||0|||"NU"|2||1|0|0|"ENCODING_FMT"|"ID"|6||1
+"USERS"|17|"DISP_SUFFIX_FMT_VIEW"|"Суфф.(дисп)"|10|||"S"|20||1|0|0|"ENCODING_FMT"|"SHORT_NAME_LAT/SHORT_NAME"|6||
+"USERS"|17|"DISP_SUFFIX_FMT_VIEW"|"Суфф.(дисп)"|10|||"S"|20||1|0|0|"ENCODING_FMT"|"SHORT_NAME/SHORT_NAME_LAT"|6|"RU"|
+"USERS"|18|"USER_NAME"||0|||"S"|100||0|0|1|||||
+"RIGHTS"|1|"RIGHT_ID"||0|||"NU"|4||0|1|1|||||
+"RIGHTS"|2|"NAME"|"Операция"|75|||"S"|150||0|0|1|||||
+"RIGHTS"|3|"NAME_LAT"|"Операция (лат.)"|75|||"S"|150||1|0|1|||||
+"DESK_GRP"|1|"GRP_ID"||0|||"NU"|9||0|1|1|||||
+"DESK_GRP"|2|"NAME"|"Описание группы"|30|||"S"|50||0|0|1|||||
+"DESK_GRP"|2|"NAME"|"Описание группы"|30|||"S"|50||0|0|0||||"RU"|
+"DESK_GRP"|3|"NAME_LAT"|"Описание группы (лат.)"|30|||"S"|50||1|0|0|||||
+"DESK_GRP"|4|"CITY"||0|||"S"|3||0|0|0|"CITIES"|"CODE"|1||1
+"DESK_GRP"|5|"CITY_VIEW"|"Город"||"U"||"S"|3||0|0|0|"CITIES"|"CODE_LAT/CODE"|1||
+"DESK_GRP"|5|"CITY_VIEW"|"Город"||"U"||"S"|3||0|0|0|"CITIES"|"CODE/CODE_LAT"|1|"RU"|
+"DESK_GRP"|6|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"DESK_GRP"|7|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"DESK_GRP"|7|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"DESK_GRP"|8|"AIRP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"DESK_GRP"|9|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"DESK_GRP"|9|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"DESK_OWNERS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"DESK_OWNERS"|2|"DESK"|"Пульт"||"U"||"S"|6||0|0|0|"DESKS"|"CODE"|||
+"DESK_OWNERS"|3|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"DESK_OWNERS"|4|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"DESK_OWNERS"|4|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"DESK_LOGGING"|2|"FILE_SIZE"|"Размер файла (байт)"||||"NU"|9||0|0|0|||||
+"DESK_LOGGING"|3|"BACKUP_NUM"|"Кол-во бэкапов"||||"NU"|2||0|0|0|||||
+"DESK_LOGGING"|4|"SEND_SIZE"|"Размер памяти (байт)"||||"NU"|7||0|0|0|||||
+"DESK_LOGGING"|5|"SEND_PORTION"|"Размер порции (байт)"||||"NU"|7||0|0|0|||||
+"DESK_TRACES"|1|"ID"||0|||"NU"|9||0|1|0|||||
+"DESK_TRACES"|2|"DESK"|"Пульт"||"U"||"S"|6||0|0|0|"DESKS"|"CODE"|||
+"DESK_TRACES"|3|"FIRST_TRACE"|"Нижняя граница"||||"NU"|3||0|0|0|||||
+"DESK_TRACES"|4|"LAST_TRACE"|"Верхняя граница"||||"NU"|3||0|0|0|||||
+"ROLES"|1|"ROLE_ID"||0|||"NU"|9||0|1|1|||||
+"ROLES"|2|"NAME"|"Название категории"||||"S"|50||0|0|0|||||
+"ROLES"|3|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"ROLES"|4|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"ROLES"|4|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"ROLES"|5|"AIRP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"ROLES"|6|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"ROLES"|6|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"ROLES"|7|"ROLE_NAME"||0|||"S"|100||0|0|1|||||
+"ROLE_RIGHTS"|1|"ROLE_ID"||0|||"NU"|9||0|1|0|"ROLES"|"ROLE_ID"|1||1
+"ROLE_RIGHTS"|2|"ROLE_NAME"|"Категория"|30|||"S"|100||0|0|0|"ROLES"|"ROLE_NAME"|1||
+"ROLE_RIGHTS"|3|"RIGHT_ID"||0|||"NU"|4||0|1|0|"RIGHTS"|"RIGHT_ID"|2||1
+"ROLE_RIGHTS"|4|"RIGHT_NAME_VIEW"|"Операция"|70|||"S"|150||0|0|0|"RIGHTS"|"NAME_LAT/NAME"|2||
+"ROLE_RIGHTS"|4|"RIGHT_NAME_VIEW"|"Операция"|70|||"S"|150||0|0|0|"RIGHTS"|"NAME/NAME_LAT"|2|"RU"|
+"ROLE_RIGHTS"|5|"ID"||0|||"NU"|9||0|0|1|||||
+"ROLE_ASSIGN_RIGHTS"|5|"ID"||0|||"NU"|9||0|0|1|||||
+"ROLE_ASSIGN_RIGHTS"|3|"RIGHT_ID"||0|||"NU"|4||0|1|0|"RIGHTS"|"RIGHT_ID"|2||1
+"DESK_OWNERS"|5|"PR_DENIAL"|"Откл."||||"B"|1||0|0|0|||||
+"DESK_LOGGING"|1|"DESK"|"Пульт"||"U"||"S"|6||0|1|0|"DESKS"|"CODE"|||
+"ROLE_ASSIGN_RIGHTS"|4|"RIGHT_NAME_VIEW"|"Операция"|70|||"S"|150||0|0|0|"RIGHTS"|"NAME/NAME_LAT"|2|"RU"|
+"ROLE_ASSIGN_RIGHTS"|4|"RIGHT_NAME_VIEW"|"Операция"|70|||"S"|150||0|0|0|"RIGHTS"|"NAME_LAT/NAME"|2||
+"ROLE_ASSIGN_RIGHTS"|1|"ROLE_ID"||0|||"NU"|9||0|1|0|"ROLES"|"ROLE_ID"|1||1
+"ROLE_ASSIGN_RIGHTS"|2|"ROLE_NAME"|"Категория"|30|||"S"|100||0|0|0|"ROLES"|"ROLE_NAME"|1||
+"USER_ROLES"|1|"USER_ID"||0|||"NU"|9||0|1|1|"USERS"|"USER_ID"|2||1
+"USER_ROLES"|2|"USER_NAME"|"Пользователь"|50|||"S"|100||0|0|1|"USERS"|"USER_NAME"|2||
+"USER_ROLES"|3|"ROLE_ID"||0|||"NU"|9||0|1|0|"ROLES"|"ROLE_ID"|1||1
+"USER_ROLES"|4|"ROLE_NAME"|"Категория"|50|||"S"|100||0|0|0|"ROLES"|"ROLE_NAME"|1||
+"USER_ROLES"|5|"ID"||0|||"NU"|9||0|0|1|||||
+"USER_AIRLINES"|1|"USER_ID"||0|||"NU"|9||0|1|1|"USERS"|"USER_ID"|2||1
+"USER_AIRLINES"|2|"USER_NAME"|"Пользователь"|50|||"S"|100||0|0|1|"USERS"|"USER_NAME"|2||
+"USER_AIRLINES"|3|"AIRLINE"||0|||"S"|3||0|1|0|"AIRLINES"|"CODE"|1||1
+"USER_AIRLINES"|4|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|1|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"USER_AIRLINES"|4|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|1|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"USER_AIRLINES"|5|"ID"||0|||"NU"|9||0|0|1|||||
+"USER_AIRPS"|1|"USER_ID"||0|||"NU"|9||0|1|1|"USERS"|"USER_ID"|2||1
+"USER_AIRPS"|2|"USER_NAME"|"Пользователь"|50|||"S"|100||0|0|1|"USERS"|"USER_NAME"|2||
+"USER_AIRPS"|3|"AIRP"||0|||"S"|3||0|1|0|"AIRPS"|"CODE"|1||1
+"USER_AIRPS"|4|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|1|0|"AIRPS"|"CODE_LAT/CODE"|1||
+"USER_AIRPS"|4|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|1|0|"AIRPS"|"CODE/CODE_LAT"|1|"RU"|
+"USER_AIRPS"|5|"ID"||0|||"NU"|9||0|0|1|||||
+"EXTRA_ROLE_ACCESS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"EXTRA_ROLE_ACCESS"|2|"AIRLINE_FROM"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"EXTRA_ROLE_ACCESS"|3|"AIRLINE_FROM_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"EXTRA_ROLE_ACCESS"|3|"AIRLINE_FROM_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"EXTRA_ROLE_ACCESS"|4|"AIRP_FROM"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"EXTRA_ROLE_ACCESS"|5|"AIRP_FROM_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"EXTRA_ROLE_ACCESS"|5|"AIRP_FROM_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"EXTRA_ROLE_ACCESS"|6|"AIRLINE_TO"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|3||1
+"EXTRA_ROLE_ACCESS"|7|"AIRLINE_TO_VIEW"|"Доступ к: А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|3||
+"EXTRA_ROLE_ACCESS"|7|"AIRLINE_TO_VIEW"|"Доступ к: А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|3|"RU"|
+"EXTRA_ROLE_ACCESS"|8|"AIRP_TO"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|4||1
+"EXTRA_ROLE_ACCESS"|9|"AIRP_TO_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|4||
+"EXTRA_ROLE_ACCESS"|9|"AIRP_TO_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|4|"RU"|
+"EXTRA_ROLE_ACCESS"|10|"FULL_ACCESS"|"Полный доступ"||||"B"|1||0|0|0|||||
+"EXTRA_USER_ACCESS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"EXTRA_USER_ACCESS"|2|"TYPE_CODE_FROM"||0|||"NU"|1||0|0|0|"USER_TYPES"|"ID"|1||1
+"EXTRA_USER_ACCESS"|3|"TYPE_NAME_FROM"|"Тип"|22|||"S"|50||0|0|0|"USER_TYPES"|"NAME_LAT/NAME"|1||
+"EXTRA_USER_ACCESS"|3|"TYPE_NAME_FROM"|"Тип"|22|||"S"|50||0|0|0|"USER_TYPES"|"NAME/NAME_LAT"|1|"RU"|
+"EXTRA_USER_ACCESS"|4|"AIRLINE_FROM"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"EXTRA_USER_ACCESS"|5|"AIRLINE_FROM_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"EXTRA_USER_ACCESS"|5|"AIRLINE_FROM_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"EXTRA_USER_ACCESS"|6|"AIRP_FROM"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"EXTRA_USER_ACCESS"|7|"AIRP_FROM_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"EXTRA_USER_ACCESS"|7|"AIRP_FROM_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"EXTRA_USER_ACCESS"|8|"TYPE_CODE_TO"||0|||"NU"|1||0|0|0|"USER_TYPES"|"ID"|4||1
+"EXTRA_USER_ACCESS"|9|"TYPE_NAME_TO"|"Доступ к: Тип"|22|||"S"|50||0|0|0|"USER_TYPES"|"NAME_LAT/NAME"|4||
+"EXTRA_USER_ACCESS"|9|"TYPE_NAME_TO"|"Доступ к: Тип"|22|||"S"|50||0|0|0|"USER_TYPES"|"NAME/NAME_LAT"|4|"RU"|
+"EXTRA_USER_ACCESS"|10|"AIRLINE_TO"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|5||1
+"EXTRA_USER_ACCESS"|11|"AIRLINE_TO_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|5||
+"EXTRA_USER_ACCESS"|11|"AIRLINE_TO_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|5|"RU"|
+"EXTRA_USER_ACCESS"|12|"AIRP_TO"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|6||1
+"EXTRA_USER_ACCESS"|13|"AIRP_TO_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|6||
+"EXTRA_USER_ACCESS"|13|"AIRP_TO_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|6|"RU"|
+"EXTRA_USER_ACCESS"|14|"FULL_ACCESS"|"Полный доступ"||||"B"|1||0|0|0|||||
+"TRIP_SUFFIXES"|1|"CODE"|"Код"||"U"||"S"|1||0|1|1|||||
+"TRIP_SUFFIXES"|1|"CODE"|"Код"||"U"||"S"|1||0|0|1||||"RU"|
+"TRIP_SUFFIXES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|1||0|0|1|||||
+"TRIP_TYPES"|1|"CODE"|"Код"||"L"||"S"|1||0|0|1|||||
+"TRIP_TYPES"|1|"CODE"|"Код"||"L"||"S"|1||0|0|0||||"RU"|
+"TRIP_TYPES"|1|"CODE_LAT"|"Код лат."||"L"||"S"|1||1|0|0|||||
+"TRIP_TYPES"|2|"NAME"|"Название"||||"S"|50||0|0|1|||||
+"TRIP_TYPES"|2|"NAME"|"Название"||||"S"|50||0|0|0||||"RU"|
+"TRIP_TYPES"|2|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|0|||||
+"TRIP_TYPES"|3|"PR_REG"|"Рег."||||"B"|1||0|0|0|||||
+"TRIP_TYPES"|4|"ID"||0|||"NU"|9||0|1|1|||||
+"TRIP_LITERS"|1|"CODE"|"Код"||"U"||"S"|3||0|0|1|||||
+"TRIP_LITERS"|1|"CODE"|"Код"||"U"||"S"|3||0|0|0||||"RU"|
+"TRIP_LITERS"|2|"CODE_LAT"|"Код лат."||"U"||"S"|3||1|0|0|||||
+"TRIP_LITERS"|3|"NAME"|"Название"||||"S"|50||1|0|1|||||
+"TRIP_LITERS"|3|"NAME"|"Название"||||"S"|50||1|0|0||||"RU"|
+"TRIP_LITERS"|4|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|0|||||
+"TRIP_LITERS"|5|"ID"||0|||"NU"|9||0|1|1|||||
+"DELAYS"|1|"CODE"|"Код"||"U"||"S"|3||0|1|1|||||
+"DELAYS"|1|"CODE"|"Код"||"U"||"S"|3||0|1|0||||"RU"|
+"DELAYS"|2|"CODE_LAT"|"Код лат."||"U"||"S"|3||1|1|0|||||
+"DELAYS"|3|"NUM"|"Числ. код"||||"NU"|3||0|0|0|||||
+"DELAYS"|4|"NAME"|"Причина задержки"|100|||"S"|300||0|0|1|||||
+"DELAYS"|4|"NAME"|"Причина задержки"|100|||"S"|300||0|0|0||||"RU"|
+"DELAYS"|5|"NAME_LAT"|"Причина задержки (лат.)"|100|||"S"|300||1|0|0|||||
+"DELAYS"|6|"ID"||0|||"NU"|9||0|0|1|||||
+"GRAPH_STAGES"|1|"STAGE_ID"||0|||"NU"|2||0|1|1|||||
+"GRAPH_STAGES"|2|"NAME"|"Название этапа"|50|||"S"|50||0|0|1|||||
+"GRAPH_STAGES"|2|"NAME"|"Название этапа"|50|||"S"|50||0|0|0||||"RU"|
+"GRAPH_STAGES"|3|"NAME_LAT"|"Название этапа (лат.)"|50|||"S"|50||1|0|0|||||
+"GRAPH_STAGES"|4|"TIME"|"Мин. до вылета"||||"NU"|4||0|0|0|||||
+"GRAPH_STAGES"|5|"PR_AUTO"|"Авто"||||"B"|1||0|0|0|||||
+"GRAPH_STAGES_WO_INACTIVE"|1|"STAGE_ID"||0|||"NU"|2||0|1|1|||||
+"GRAPH_STAGES_WO_INACTIVE"|2|"NAME"|"Название этапа"|50|||"S"|50||0|0|1|||||
+"GRAPH_STAGES_WO_INACTIVE"|2|"NAME"|"Название этапа"|50|||"S"|50||0|0|0||||"RU"|
+"GRAPH_STAGES_WO_INACTIVE"|3|"NAME_LAT"|"Название этапа (лат.)"|50|||"S"|50||1|0|0|||||
+"STAGE_SETS"|1|"STAGE_ID"||0|||"NU"|2||0|1|0|"GRAPH_STAGES"|"STAGE_ID"|1||1
+"STAGE_SETS"|2|"STAGE_NAME_VIEW"|"Название этапа"|25|||"S"|40||0|0|0|"GRAPH_STAGES"|"NAME_LAT/NAME"|1||
+"STAGE_SETS"|2|"STAGE_NAME_VIEW"|"Название этапа"|25|||"S"|40||0|0|0|"GRAPH_STAGES"|"NAME/NAME_LAT"|1|"RU"|
+"STAGE_SETS"|3|"AIRP"||0|||"S"|3||0|1|0|"AIRPS"|"CODE"|2||1
+"STAGE_SETS"|4|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"STAGE_SETS"|4|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"STAGE_SETS"|5|"PR_AUTO"|"Авто"||||"B"|1||0|0|0|||||
+"STAGE_SETS"|6|"ID"||0|||"NU"|9||0|0|1|||||
+"STAGE_NAMES"|1|"STAGE_ID"||0|||"NU"|2||0|1|0|"GRAPH_STAGES"|"STAGE_ID"|1||1
+"STAGE_NAMES"|2|"STAGE_NAME_VIEW"|"Название этапа"|25|||"S"|40||0|0|0|"GRAPH_STAGES"|"NAME_LAT/NAME"|1||
+"STAGE_NAMES"|2|"STAGE_NAME_VIEW"|"Название этапа"|25|||"S"|40||0|0|0|"GRAPH_STAGES"|"NAME/NAME_LAT"|1|"RU"|
+"STAGE_NAMES"|3|"AIRP"||0|||"S"|3||0|1|0|"AIRPS"|"CODE"|2||1
+"STAGE_NAMES"|4|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"STAGE_NAMES"|4|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"STAGE_NAMES"|5|"NAME"|"Название этапа для отображения"|50|||"S"|50||0|0|1|||||
+"STAGE_NAMES"|5|"NAME"|"Название этапа для отображения"|50|||"S"|50||0|0|0||||"RU"|
+"STAGE_NAMES"|6|"NAME_LAT"|"Название этапа для отображения (лат.)"|50|||"S"|50||1|0|0|||||
+"STAGE_NAMES"|7|"ID"||0|||"NU"|9||0|0|1|||||
+"GRAPH_TIMES"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"GRAPH_TIMES"|2|"STAGE_ID"||0|||"NU"|2||0|0|0|"GRAPH_STAGES"|"STAGE_ID"|1||1
+"GRAPH_TIMES"|3|"STAGE_NAME_VIEW"|"Название этапа"|25|||"S"|40||0|0|0|"GRAPH_STAGES"|"NAME_LAT/NAME"|1||
+"GRAPH_TIMES"|3|"STAGE_NAME_VIEW"|"Название этапа"|25|||"S"|40||0|0|0|"GRAPH_STAGES"|"NAME/NAME_LAT"|1|"RU"|
+"GRAPH_TIMES"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"GRAPH_TIMES"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"GRAPH_TIMES"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"GRAPH_TIMES"|6|"AIRP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"GRAPH_TIMES"|7|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"GRAPH_TIMES"|7|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"GRAPH_TIMES"|8|"CRAFT"||0|||"S"|3||1|0|0|"CRAFTS"|"CODE"|4||1
+"GRAPH_TIMES"|9|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|0|"CRAFTS"|"CODE_LAT/CODE"|4||
+"GRAPH_TIMES"|9|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|0|"CRAFTS"|"CODE/CODE_LAT"|4|"RU"|
+"GRAPH_TIMES"|10|"TRIP_TYPE"||0|||"S"|1||1|0|0|"TRIP_TYPES"|"CODE"|5||1
+"GRAPH_TIMES"|11|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|0|"TRIP_TYPES"|"CODE_LAT/CODE"|5||
+"GRAPH_TIMES"|11|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|0|"TRIP_TYPES"|"CODE/CODE_LAT"|5|"RU"|
+"GRAPH_TIMES"|12|"TIME"|"Мин. до вылета"||||"NU"|4||0|0|0|||||
+"SOPP_STAGE_STATUSES"|1|"STAGE_ID"||0|||"NU"|2||0|1|1|||||
+"SOPP_STAGE_STATUSES"|2|"STAGE_TYPE"||0|||"NU"|2||0|1|1|||||
+"SOPP_STAGE_STATUSES"|3|"STATUS"|"Статус"||||"S"|20||0|0|1|||||
+"GRP_STATUS_TYPES"|1|"CODE"|"Код статуса"||"U"||"S"|1||0|1|0|||||
+"GRP_STATUS_TYPES"|2|"LAYER_TYPE"|||"U"||"S"|1||0|0|0|||||
+"GRP_STATUS_TYPES"|3|"NAME"|"Название статуса"|10|"U"||"S"|20||0|0|0|||||
+"GRP_STATUS_TYPES"|4|"NAME_LAT"|"Название статуса (лат.)"|15|"U"||"S"|20||1|0|0|||||
+"GRP_STATUS_TYPES"|5|"PRIORITY"|||"U"||"S"|20||1|0|0|||||
+"PERSONS"|1|"CODE"|"Код"||"U"||"S"|2||0|1|1|||||
+"PERSONS"|2|"CODE_LAT"|"Код (лат.)"||"U"||"S"|3||0|0|1|||||
+"PERSONS"|3|"NAME"|"Тип пассажира"||||"S"|15||0|0|1|||||
+"PERSONS"|4|"NAME_LAT"|"Тип пассажира (лат.)"||||"S"|15||1|0|1|||||
+"SOPP_STATIONS"|1|"NAME"|"Название"||"U"||"S"|15||0|1|0|||||
+"SOPP_STATIONS"|2|"WORK_MODE"|"Режим работы"||"U"||"S"|1||0|1|0|||||
+"STATION_MODES"|1|"CODE"||0|"U"||"S"|1||0|1|1|||||
+"STATION_MODES"|2|"NAME"|"Режим"||||"S"|20||0|0|1|||||
+"STATION_MODES"|3|"NAME_LAT"|"Режим (лат.)"||||"S"|20||0|0|1|||||
+"STATIONS"|1|"AIRP"||0|||"S"|3||0|1|0|"AIRPS"|"CODE"|1||1
+"STATIONS"|2|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE_LAT/CODE"|1||
+"STATIONS"|2|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE/CODE_LAT"|1|"RU"|
+"STATIONS"|3|"NAME"|"Название"||"U"||"S"|6||0|1|0|||||
+"STATIONS"|4|"DESK"|"Пульт"||"U"||"S"|6||0|0|0|"DESKS"|"CODE"|||
+"STATIONS"|5|"MODE_CODE"||0|"U"||"S"|1||0|0|0|"STATION_MODES"|"CODE"|2||1
+"STATIONS"|6|"MODE_NAME"|"Режим работы"||||"S"|20||0|0|0|"STATION_MODES"|"NAME_LAT/NAME"|2||
+"STATIONS"|6|"MODE_NAME"|"Режим работы"||||"S"|20||0|0|0|"STATION_MODES"|"NAME/NAME_LAT"|2|"RU"|
+"STATIONS"|7|"USING_SCALES"|"Весы"||||"B"|1||0|0|0|||||
+"STATIONS"|8|"WITHOUT_MONITOR"|"Без монитора"||||"B"|1||0|0|0|||||
+"STATIONS"|9|"ID"||0|||"NU"|9||0|0|1|||||
+"STATION_HALLS"|1|"AIRP"||0|||"S"|3||0|1|0|"STATIONS"|"AIRP"|1||1
+"STATION_HALLS"|2|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"STATIONS"|"AIRP_VIEW"|1||
+"STATION_HALLS"|3|"STATION"|"Стойка/выход"||"U"||"S"|6||0|1|0|"STATIONS"|"NAME"|1||1
+"STATION_HALLS"|4|"HALL"||0|||"NU"|9||0|1|0|"HALLS"|"ID"|2||1
+"STATION_HALLS"|5|"HALL_VIEW"|"Название зала"||||"S"|20||0|0|0|"HALLS"|"NAME_LAT/NAME"|2||
+"STATION_HALLS"|5|"HALL_VIEW"|"Название зала"||||"S"|20||0|0|0|"HALLS"|"NAME/NAME_LAT"|2|"RU"|
+"STATION_HALLS"|6|"ID"||0|||"NU"|9||0|0|1|||||
+"PLACE_CALC"|1|"AIRP_DEP"||0|||"S"|3||0|1|0|"AIRPS"|"CODE"|1||1
+"PLACE_CALC"|2|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE_LAT/CODE"|1||
+"PLACE_CALC"|2|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE/CODE_LAT"|1|"RU"|
+"PLACE_CALC"|3|"AIRP_ARV"||0|||"S"|3||0|1|0|"AIRPS"|"CODE"|2||1
+"PLACE_CALC"|4|"AIRP_ARV_VIEW"|"А/п прилета"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"PLACE_CALC"|4|"AIRP_ARV_VIEW"|"А/п прилета"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"PLACE_CALC"|5|"CRAFT"||0|||"S"|3||0|1|0|"CRAFTS"|"CODE"|3||1
+"PLACE_CALC"|6|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||0|0|0|"CRAFTS"|"CODE_LAT/CODE"|3||
+"PLACE_CALC"|6|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||0|0|0|"CRAFTS"|"CODE/CODE_LAT"|3|"RU"|
+"PLACE_CALC"|7|"TIME"|"Время (чч:мм)"||||"T"|5||1|0|0|||||
+"PLACE_CALC"|8|"ID"||0|||"NU"|9||0|0|1|||||
+"TLGS_IN_TYPES"|1|"CODE"|"Тип"|6|||"S"|6||0|0|1|||||
+"TYPEB_ADDRS_MARK"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"TYPEB_ADDRS_MARK"|2|"TLG_TYPE"||0|||"S"|6||0|0|0|"TYPEB_TYPES_MARK"|"CODE"|1||1
+"TYPEB_ADDRS_MARK"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_MARK"|"SHORT_NAME_LAT/SHORT_NAME"|1||
+"TYPEB_ADDRS_MARK"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_MARK"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
+"TYPEB_ADDRS_MARK"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"TYPEB_ADDRS_MARK"|5|"AIRLINE_VIEW"|"А/к комм."||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"TYPEB_ADDRS_MARK"|5|"AIRLINE_VIEW"|"А/к комм."||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_ADDRS_MARK"|6|"FLT_NO"|"Рейс комм."||||"NU"|5||1|0|0|||||
+"TYPEB_ADDRS_MARK"|7|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"TYPEB_ADDRS_MARK"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"TYPEB_ADDRS_MARK"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"TYPEB_ADDRS_MARK"|9|"AIRP_ARV"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|4||1
+"TYPEB_ADDRS_MARK"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|4||
+"TYPEB_ADDRS_MARK"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|4|"RU"|
+"TYPEB_ADDRS_MARK"|11|"ADDR"|"Адреса IATA"|25|"U"||"S"|100||0|0|0|||||
+"TYPEB_ADDRS_MARK"|12|"PR_MARK_HEADER"|"Заголовок комм."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_MARK"|13|"PR_LAT"|"Лат."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_MARK"|14|"CRS"|"Центр"||"U"||"S"|7||1|0|0|"CRS"|"CODE"|||
+"TYPEB_ADDRS_MARK"|15|"BASIC_TYPE"||0|||"S"|3||0|0|0|"TYPEB_TYPES_MARK"|"BASIC_TYPE"|1||
+"TYPEB_LDM_VERSION"|1|"CODE"||0|||"S"|10||0|0|1|||||
+"TYPEB_LDM_VERSION"|2|"CODE_EXT"||0|||"S"|50||0|1|1|||||
+"TYPEB_LDM_VERSION"|3|"SHORT_NAME"|"Тип"||||"S"|20||0|0|1|||||
+"TYPEB_LDM_VERSION"|4|"SHORT_NAME_LAT"|"Тип (лат.)"||||"S"|20||1|0|1|||||
+"TYPEB_LDM_VERSION"|5|"NAME"|"Название"||||"S"|50||0|0|1|||||
+"TYPEB_LDM_VERSION"|6|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
+"TYPEB_TYPES_LDM"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
+"TYPEB_TYPES_LDM"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
+"TYPEB_TYPES_LDM"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
+"TYPEB_TYPES_LDM"|5|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
+"TYPEB_TYPES_LDM"|6|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
+"TYPEB_TYPES_LDM"|7|"PR_DEP"||0|||"B"|1||1|0|0|||||
+"TYPEB_TYPES_LDM"|3|"SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|||||
+"TYPEB_TYPES_LDM"|4|"SHORT_NAME_LAT"|"Тип (лат.)"|15|||"S"|20||1|0|0|||||
+"TYPEB_ADDRS_LDM"|11|"ADDR"|"Адреса IATA"|25|"U"||"S"|100||0|0|0|||||
+"TYPEB_ADDRS_LDM"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"TYPEB_ADDRS_LDM"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_ADDRS_LDM"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"TYPEB_ADDRS_LDM"|9|"AIRP_ARV"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|4||1
+"TYPEB_ADDRS_LDM"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|4|"RU"|
+"TYPEB_ADDRS_LDM"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|4||
+"TYPEB_ADDRS_LDM"|7|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"TYPEB_ADDRS_LDM"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"TYPEB_ADDRS_LDM"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"TYPEB_ADDRS_LDM"|14|"BASIC_TYPE"||0|||"S"|3||0|0|0|"TYPEB_TYPES_LDM"|"BASIC_TYPE"|1||
+"TYPEB_ADDRS_LDM"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"TYPEB_ADDRS_LDM"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"TYPEB_ADDRS_LDM"|12|"PR_LAT"|"Лат."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_LDM"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_LDM"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
+"TYPEB_ADDRS_LDM"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_LDM"|"SHORT_NAME_LAT/SHORT_NAME"|1||
+"TYPEB_ADDRS_LDM"|2|"TLG_TYPE"||0|||"S"|6||0|0|0|"TYPEB_TYPES_LDM"|"CODE"|1||1
+"TYPEB_ADDRS_LDM"|20|"VERSION"||0|||"S"|10||0|0|0|"TYPEB_LDM_VERSION"|"CODE"|10||
+"TYPEB_ADDRS_LDM"|21|"VERSION_EXT"||0|||"S"|50||0|0|0|"TYPEB_LDM_VERSION"|"CODE_EXT"|10||1
+"TYPEB_ADDRS_LDM"|22|"VERSION_EXT_VIEW"|"Вер."|10|||"S"|20||0|0|0|"TYPEB_LDM_VERSION"|"SHORT_NAME_LAT/SHORT_NAME"|10||
+"TYPEB_ADDRS_LDM"|22|"VERSION_EXT_VIEW"|"Вер."|10|||"S"|20||0|0|0|"TYPEB_LDM_VERSION"|"SHORT_NAME/SHORT_NAME_LAT"|10|"RU"|
+"TYPEB_ADDRS_LDM"|23|"CABIN_BAGGAGE"|"Р/к"||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_LDM"|24|"GENDER"|"М/Ж"||||"B"|1||0|0|0|||||
+"TYPEB_TYPES_BSM"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
+"TYPEB_TYPES_BSM"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
+"TYPEB_TYPES_BSM"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
+"TYPEB_TYPES_BSM"|5|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
+"TYPEB_TYPES_BSM"|6|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
+"TYPEB_TYPES_BSM"|7|"PR_DEP"||0|||"B"|1||1|0|0|||||
+"TYPEB_TYPES_BSM"|3|"SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|||||
+"TYPEB_TYPES_BSM"|4|"SHORT_NAME_LAT"|"Тип (лат.)"|15|||"S"|20||1|0|0|||||
+"TYPEB_ADDRS_BSM"|11|"ADDR"|"Адреса IATA"|25|"U"||"S"|100||0|0|0|||||
+"TYPEB_ADDRS_BSM"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"TYPEB_ADDRS_BSM"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_ADDRS_BSM"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"TYPEB_ADDRS_BSM"|9|"AIRP_ARV"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|4||1
+"TYPEB_ADDRS_BSM"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|4|"RU"|
+"TYPEB_ADDRS_BSM"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|4||
+"TYPEB_ADDRS_BSM"|7|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"TYPEB_ADDRS_BSM"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"TYPEB_ADDRS_BSM"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"TYPEB_ADDRS_BSM"|14|"BASIC_TYPE"||0|||"S"|3||0|0|0|"TYPEB_TYPES_BSM"|"BASIC_TYPE"|1||
+"TYPEB_ADDRS_BSM"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"TYPEB_ADDRS_BSM"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"TYPEB_ADDRS_BSM"|12|"PR_LAT"|"Лат."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_BSM"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_BSM"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
+"TYPEB_ADDRS_BSM"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_BSM"|"SHORT_NAME_LAT/SHORT_NAME"|1||
+"TYPEB_ADDRS_BSM"|2|"TLG_TYPE"||0|||"S"|6||0|0|0|"TYPEB_TYPES_BSM"|"CODE"|1||1
+"TYPEB_ADDRS_BSM"|20|"CLASS_OF_TRAVEL"|"Кл."||||"B"|1||0|0|0|||||
+"TYPEB_LCI_ACTION_CODE"|1|"CODE"||0|||"S"|10||0|0|1|||||
+"TYPEB_LCI_ACTION_CODE"|2|"CODE_EXT"||0|||"S"|50||0|1|1|||||
+"TYPEB_LCI_ACTION_CODE"|5|"NAME"|"Название"||||"S"|50||0|0|1|||||
+"TYPEB_LCI_ACTION_CODE"|6|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
+"TYPEB_LCI_ACTION_CODE"|3|"SHORT_NAME"|"Тип"||||"S"|20||0|0|1|||||
+"TYPEB_LCI_ACTION_CODE"|4|"SHORT_NAME_LAT"|"Тип (лат.)"||||"S"|20||1|0|1|||||
+"TYPEB_LCI_WEIGHT_AVAIL"|1|"CODE"||0|||"S"|10||0|0|1|||||
+"TYPEB_LCI_WEIGHT_AVAIL"|2|"CODE_EXT"||0|||"S"|50||0|1|1|||||
+"TYPEB_LCI_WEIGHT_AVAIL"|5|"NAME"|"Название"||||"S"|50||0|0|1|||||
+"TYPEB_LCI_WEIGHT_AVAIL"|6|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
+"TYPEB_LCI_WEIGHT_AVAIL"|3|"SHORT_NAME"|"Тип"||||"S"|20||0|0|1|||||
+"TYPEB_LCI_WEIGHT_AVAIL"|4|"SHORT_NAME_LAT"|"Тип (лат.)"||||"S"|20||1|0|1|||||
+"TYPEB_LCI_SEAT_RESTRICT"|1|"CODE"||0|||"S"|10||0|0|1|||||
+"TYPEB_LCI_SEAT_RESTRICT"|2|"CODE_EXT"||0|||"S"|50||0|1|1|||||
+"TYPEB_LCI_SEAT_RESTRICT"|5|"NAME"|"Название"||||"S"|50||0|0|1|||||
+"TYPEB_LCI_SEAT_RESTRICT"|6|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
+"TYPEB_LCI_SEAT_RESTRICT"|3|"SHORT_NAME"|"Тип"||||"S"|20||0|0|1|||||
+"TYPEB_LCI_SEAT_RESTRICT"|4|"SHORT_NAME_LAT"|"Тип (лат.)"||||"S"|20||1|0|1|||||
+"TYPEB_TYPES_LCI"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
+"TYPEB_TYPES_LCI"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
+"TYPEB_TYPES_LCI"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
+"TYPEB_TYPES_LCI"|5|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
+"TYPEB_TYPES_LCI"|6|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
+"TYPEB_TYPES_LCI"|7|"PR_DEP"||0|||"B"|1||1|0|0|||||
+"TYPEB_TYPES_LCI"|3|"SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|||||
+"TYPEB_TYPES_LCI"|4|"SHORT_NAME_LAT"|"Тип (лат.)"|15|||"S"|20||1|0|0|||||
+"DESKS"|1|"CODE"|"Название"||"U"||"S"|6||0|1|0|||||
+"DESKS"|2|"GRP_ID"||0|||"NU"|9||0|0|0|"DESK_GRP"|"GRP_ID"|1||1
+"DESKS"|3|"DESCR_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"DESK_GRP"|"NAME_LAT/NAME"|1||
+"DESKS"|3|"DESCR_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"DESK_GRP"|"NAME/NAME_LAT"|1|"RU"|
+"DESKS"|4|"VERSION"|"Версия терминала"|20|||"S"|1||1|0|1|||||
+"DESKS"|5|"TERM_MODE"|"Платформа"|4|"U"||"S"|1||1|0|1|||||
+"DESKS"|6|"LAST_LOGON"|"Посл. вход"||||"D"|8||1|0|1|||||
+"DESKS"|7|"PR_CRYPT"|"Шифр."||||"B"|1||1|0|1|||||
+"DESKS"|8|"ID"||0|||"NU"|9||0|0|1|||||
+"TYPEB_PRL_CREATE_POINT"|1|"CODE"||0|||"S"|10||0|0|1|||||
+"TYPEB_PRL_CREATE_POINT"|2|"CODE_EXT"||0|||"S"|50||0|1|1|||||
+"TYPEB_PRL_CREATE_POINT"|5|"NAME"|"Название"||||"S"|50||0|0|1|||||
+"TYPEB_PRL_CREATE_POINT"|6|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
+"TYPEB_PRL_CREATE_POINT"|3|"SHORT_NAME"|"Тип"||||"S"|20||0|0|1|||||
+"TYPEB_PRL_CREATE_POINT"|4|"SHORT_NAME_LAT"|"Тип (лат.)"||||"S"|20||1|0|1|||||
+"TYPEB_PRL_PAX_STATE"|1|"CODE"||0|||"S"|10||0|0|1|||||
+"TYPEB_PRL_PAX_STATE"|2|"CODE_EXT"||0|||"S"|50||0|1|1|||||
+"TYPEB_PRL_PAX_STATE"|5|"NAME"|"Название"||||"S"|50||0|0|1|||||
+"TYPEB_PRL_PAX_STATE"|6|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
+"TYPEB_PRL_PAX_STATE"|3|"SHORT_NAME"|"Тип"||||"S"|20||0|0|1|||||
+"TYPEB_PRL_PAX_STATE"|4|"SHORT_NAME_LAT"|"Тип (лат.)"||||"S"|20||1|0|1|||||
+"TYPEB_TYPES_PRL"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
+"TYPEB_TYPES_PRL"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
+"TYPEB_TYPES_PRL"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
+"TYPEB_TYPES_PRL"|5|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
+"TYPEB_TYPES_PRL"|6|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
+"TYPEB_TYPES_PRL"|7|"PR_DEP"||0|||"B"|1||1|0|0|||||
+"TYPEB_TYPES_PRL"|3|"SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|||||
+"TYPEB_TYPES_PRL"|4|"SHORT_NAME_LAT"|"Тип (лат.)"|15|||"S"|20||1|0|0|||||
+"TYPEB_ADDRS_PRL"|11|"ADDR"|"Адреса IATA"|25|"U"||"S"|100||0|0|0|||||
+"TYPEB_ADDRS_PRL"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"TYPEB_ADDRS_PRL"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_ADDRS_PRL"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"TYPEB_ADDRS_PRL"|9|"AIRP_ARV"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|4||1
+"TYPEB_ADDRS_PRL"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|4|"RU"|
+"TYPEB_ADDRS_PRL"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|4||
+"TYPEB_ADDRS_PRL"|7|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"TYPEB_ADDRS_PRL"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"TYPEB_ADDRS_PRL"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"TYPEB_ADDRS_PRL"|14|"BASIC_TYPE"||0|||"S"|3||0|0|0|"TYPEB_TYPES_PRL"|"BASIC_TYPE"|1||
+"TYPEB_ADDRS_PRL"|13|"CRS"|"Центр"||"U"||"S"|7||1|0|0|"CRS"|"CODE"|||
+"TYPEB_ADDRS_PRL"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"TYPEB_ADDRS_PRL"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"TYPEB_ADDRS_PRL"|12|"PR_LAT"|"Лат."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_PRL"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_PRL"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
+"TYPEB_ADDRS_PRL"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_PRL"|"SHORT_NAME_LAT/SHORT_NAME"|1||
+"TYPEB_ADDRS_PRL"|2|"TLG_TYPE"||0|||"S"|6||0|0|0|"TYPEB_TYPES_PRL"|"CODE"|1||1
+"TYPEB_ADDRS_PRL"|20|"CREATE_POINT"||0|||"S"|10||0|0|0|"TYPEB_PRL_CREATE_POINT"|"CODE"|10||
+"TYPEB_ADDRS_PRL"|21|"CREATE_POINT_EXT"||0|||"S"|50||0|0|0|"TYPEB_PRL_CREATE_POINT"|"CODE_EXT"|10||1
+"TYPEB_ADDRS_PRL"|22|"CREATE_POINT_EXT_VIEW"|"Время создания"|10|||"S"|20||0|0|0|"TYPEB_PRL_CREATE_POINT"|"SHORT_NAME_LAT/SHORT_NAME"|10||
+"TYPEB_ADDRS_PRL"|22|"CREATE_POINT_EXT_VIEW"|"Время создания"|10|||"S"|20||0|0|0|"TYPEB_PRL_CREATE_POINT"|"SHORT_NAME/SHORT_NAME_LAT"|10|"RU"|
+"TYPEB_ADDRS_PRL"|23|"PAX_STATE"||0|||"S"|10||0|0|0|"TYPEB_PRL_PAX_STATE"|"CODE"|11||
+"TYPEB_ADDRS_PRL"|24|"PAX_STATE_EXT"||0|||"S"|50||0|0|0|"TYPEB_PRL_PAX_STATE"|"CODE_EXT"|11||1
+"TYPEB_ADDRS_PRL"|25|"PAX_STATE_EXT_VIEW"|"Статус пас."|10|||"S"|20||0|0|0|"TYPEB_PRL_PAX_STATE"|"SHORT_NAME_LAT/SHORT_NAME"|11||
+"TYPEB_ADDRS_PRL"|25|"PAX_STATE_EXT_VIEW"|"Статус пас."|10|||"S"|20||0|0|0|"TYPEB_PRL_PAX_STATE"|"SHORT_NAME/SHORT_NAME_LAT"|11|"RU"|
+"TYPEB_ADDRS_PRL"|26|"RBD"|"RBD"||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_PRL_MARK"|11|"ADDR"|"Адреса IATA"|25|"U"||"S"|100||0|0|0|||||
+"TYPEB_ADDRS_PRL_MARK"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"TYPEB_ADDRS_PRL_MARK"|5|"AIRLINE_VIEW"|"А/к комм."||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_ADDRS_PRL_MARK"|5|"AIRLINE_VIEW"|"А/к комм."||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"TYPEB_ADDRS_PRL_MARK"|9|"AIRP_ARV"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|4||1
+"TYPEB_ADDRS_PRL_MARK"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|4|"RU"|
+"TYPEB_ADDRS_PRL_MARK"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|4||
+"TYPEB_ADDRS_PRL_MARK"|7|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"TYPEB_ADDRS_PRL_MARK"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"TYPEB_ADDRS_PRL_MARK"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"TYPEB_ADDRS_PRL_MARK"|15|"BASIC_TYPE"||0|||"S"|3||0|0|0|"TYPEB_TYPES_PRL"|"BASIC_TYPE"|1||
+"TYPEB_ADDRS_PRL_MARK"|14|"CRS"|"Центр"||"U"||"S"|7||1|0|0|"CRS"|"CODE"|||
+"TYPEB_ADDRS_PRL_MARK"|6|"FLT_NO"|"Рейс комм."||||"NU"|5||1|0|0|||||
+"TYPEB_ADDRS_PRL_MARK"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"TYPEB_ADDRS_PRL_MARK"|13|"PR_LAT"|"Лат."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_PRL_MARK"|12|"PR_MARK_HEADER"|"Заголовок комм."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_PRL_MARK"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_PRL"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
+"TYPEB_ADDRS_PRL_MARK"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_PRL"|"SHORT_NAME_LAT/SHORT_NAME"|1||
+"TYPEB_ADDRS_PRL_MARK"|2|"TLG_TYPE"||0|||"S"|6||0|0|0|"TYPEB_TYPES_PRL"|"CODE"|1||1
+"TYPEB_ADDRS_PRL_MARK"|20|"CREATE_POINT"||0|||"S"|10||0|0|0|"TYPEB_PRL_CREATE_POINT"|"CODE"|10||
+"TYPEB_ADDRS_PRL_MARK"|21|"CREATE_POINT_EXT"||0|||"S"|50||0|0|0|"TYPEB_PRL_CREATE_POINT"|"CODE_EXT"|10||1
+"TYPEB_ADDRS_PRL_MARK"|22|"CREATE_POINT_EXT_VIEW"|"Время создания"|10|||"S"|20||0|0|0|"TYPEB_PRL_CREATE_POINT"|"SHORT_NAME/SHORT_NAME_LAT"|10|"RU"|
+"TYPEB_ADDRS_PRL_MARK"|22|"CREATE_POINT_EXT_VIEW"|"Время создания"|10|||"S"|20||0|0|0|"TYPEB_PRL_CREATE_POINT"|"SHORT_NAME_LAT/SHORT_NAME"|10||
+"TYPEB_ADDRS_PRL_MARK"|23|"PAX_STATE"||0|||"S"|10||0|0|0|"TYPEB_PRL_PAX_STATE"|"CODE"|11||
+"TYPEB_ADDRS_PRL_MARK"|24|"PAX_STATE_EXT"||0|||"S"|50||0|0|0|"TYPEB_PRL_PAX_STATE"|"CODE_EXT"|11||1
+"TYPEB_ADDRS_PRL_MARK"|25|"PAX_STATE_EXT_VIEW"|"Статус пас."|10|||"S"|20||0|0|0|"TYPEB_PRL_PAX_STATE"|"SHORT_NAME/SHORT_NAME_LAT"|11|"RU"|
+"TYPEB_ADDRS_PRL_MARK"|25|"PAX_STATE_EXT_VIEW"|"Статус пас."|10|||"S"|20||0|0|0|"TYPEB_PRL_PAX_STATE"|"SHORT_NAME_LAT/SHORT_NAME"|11||
+"TYPEB_ADDRS_PRL_MARK"|26|"RBD"|"RBD"||||"B"|1||0|0|0|||||
+"TYPEB_TYPES_PNL"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
+"TYPEB_TYPES_PNL"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
+"TYPEB_TYPES_PNL"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
+"TYPEB_TYPES_PNL"|5|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
+"TYPEB_TYPES_PNL"|6|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
+"TYPEB_TYPES_PNL"|7|"PR_DEP"||0|||"B"|1||1|0|0|||||
+"TYPEB_TYPES_PNL"|3|"SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|||||
+"TYPEB_TYPES_PNL"|4|"SHORT_NAME_LAT"|"Тип (лат.)"|15|||"S"|20||1|0|0|||||
+"TYPEB_TYPES_ALL"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
+"TYPEB_TYPES_ALL"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
+"TYPEB_TYPES_ALL"|3|"SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|||||
+"IN_FILE_PARAM_SETS"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"IN_FILE_PARAM_SETS"|2|"TYPE"|"Тип"||"U"||"S"|10||0|0|0|"FILE_TYPES"|"CODE"|||
+"IN_FILE_PARAM_SETS"|3|"POINT_ADDR"|"Пульт"||"U"||"S"|6||0|0|0|"DESKS"|"CODE"|||
+"IN_FILE_PARAM_SETS"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"IN_FILE_PARAM_SETS"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"IN_FILE_PARAM_SETS"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"IN_FILE_PARAM_SETS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"IN_FILE_PARAM_SETS"|7|"AIRP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"IN_FILE_PARAM_SETS"|8|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"IN_FILE_PARAM_SETS"|8|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"IN_FILE_PARAM_SETS"|9|"PARAM_NAME"|"Параметр"|10|"U"||"S"|20||0|0|0|||||
+"IN_FILE_PARAM_SETS"|10|"PARAM_VALUE"|"Значение"|200|||"S"|1000||1|0|0|||||
+"OUT_FILE_PARAM_SETS"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"OUT_FILE_PARAM_SETS"|2|"TYPE"|"Тип"||"U"||"S"|10||0|0|0|"FILE_TYPES"|"CODE"|||
+"OUT_FILE_PARAM_SETS"|3|"POINT_ADDR"|"Пульт"||"U"||"S"|6||0|0|0|"DESKS"|"CODE"|||
+"ROT"|1|"CANON_NAME"|"Канон. имя"||"U"||"S"|5||0|1|0|||||
+"ROT"|2|"IP_ADDRESS"|"IP-адрес"||||"S"|15||0|0|0|||||
+"ROT"|3|"IP_PORT"|"IP-порт"||||"NU"|5||0|0|0|||||
+"ROT"|4|"ID"||0|||"NU"|9||0|0|1|||||
+"TYPEB_ORIGINATORS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
+"OUT_FILE_PARAM_SETS"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"OUT_FILE_PARAM_SETS"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"TYPEB_ORIGINATORS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|1|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"TYPEB_ORIGINATORS"|4|"AIRP_DEP"||0|||"S"|3||1|0|1|"AIRPS"|"CODE"|2||1
+"TYPEB_ORIGINATORS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|1|"AIRPS"|"CODE_LAT/CODE"|2||
+"TYPEB_ORIGINATORS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|1|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_ORIGINATORS"|6|"ADDR"|"IATA-адрес"||"U"||"S"|7||1|0|1|"TYPEB_ADDR_OWNERS_SIRENA"|"ADDR"|||
+"TYPEB_ORIGINATORS"|7|"DOUBLE_SIGN"|"Двойная подпись"||"U"||"S"|2||1|0|1|||||
+"TYPEB_ORIGINATORS"|8|"TLG_TYPE"||0|||"S"|6||1|0|1|"TYPEB_TYPES_ALL"|"CODE"|3||1
+"TYPEB_ORIGINATORS"|9|"TLG_SHORT_NAME"|"Тип телеграммы"|15|||"S"|20||1|0|1|"TYPEB_TYPES_ALL"|"SHORT_NAME_LAT/SHORT_NAME"|3||
+"TYPEB_ORIGINATORS"|9|"TLG_SHORT_NAME"|"Тип телеграммы"|15|||"S"|20||1|0|1|"TYPEB_TYPES_ALL"|"SHORT_NAME/SHORT_NAME_LAT"|3|"RU"|
+"TYPEB_ORIGINATORS"|10|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"TYPEB_ORIGINATORS"|11|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"TYPEB_ORIGINATORS"|12|"DESCR"|"№ договора"||||"S"|50||1|0|1|||||
+"ET_ADDR_SET"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"ET_ADDR_SET"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"ET_ADDR_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"ET_ADDR_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"ET_ADDR_SET"|4|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"ET_ADDR_SET"|5|"EDI_ADDR"|"Адрес СЭБ/СЭД"|20|"U"||"S"|20||0|0|0|||||
+"ET_ADDR_SET"|6|"EDI_OWN_ADDR"|"Адрес DCS Астра"|20|"U"||"S"|20||0|0|0|||||
+"DCS_ADDR_SET"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"DCS_ADDR_SET"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"DCS_ADDR_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"DCS_ADDR_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"DCS_ADDR_SET"|4|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"DCS_ADDR_SET"|5|"EDI_ADDR"|"Адрес сторонней DCS"|20|"U"||"S"|20||0|0|0|||||
+"DCS_ADDR_SET"|6|"EDI_OWN_ADDR"|"Адрес DCS Астра"|20|"U"||"S"|20||0|0|0|||||
+"FILE_TYPES"|1|"CODE"|"Тип"||"U"||"S"|10||0|1|0|||||
+"FILE_TYPES"|2|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
+"AGENCIES"|1|"CODE"|"Код"||"U"||"S"|5||0|1|0|||||
+"AGENCIES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|5||0|0|0|||||
+"AGENCIES"|3|"NAME"|"Название"|20|"U"||"S"|100||0|0|1|||||
+"AGENCIES"|3|"NAME"|"Название"|20|"U"||"S"|100||0|0|0||||"RU"|
+"AGENCIES"|4|"NAME_LAT"|"Название (лат.)"|20|"U"||"S"|100||1|0|0|||||
+"AGENCIES"|5|"DESCR"|"Описание"|30|||"S"|100||1|0|1|||||
+"AGENCIES"|5|"DESCR"|"Описание"|30|||"S"|100||1|0|0||||"RU"|
+"AGENCIES"|6|"DESCR_LAT"|"Описание (лат.)"|30|||"S"|100||1|0|0|||||
+"AGENCIES"|7|"ID"||0|||"NU"|9||0|0|1|||||
+"SALE_POINTS"|1|"CODE"|"Код"||"U"||"S"|8||0|1|0|||||
+"SALE_POINTS"|2|"VALIDATOR"||0|||"S"|4||0|0|0|"VALIDATOR_TYPES"|"CODE"|1||1
+"SALE_POINTS"|3|"VALIDATOR_VIEW"|"Валидатор"||"U"||"S"|4||0|0|0|"VALIDATOR_TYPES"|"CODE_LAT/CODE"|1||
+"SALE_POINTS"|3|"VALIDATOR_VIEW"|"Валидатор"||"U"||"S"|4||0|0|0|"VALIDATOR_TYPES"|"CODE/CODE_LAT"|1|"RU"|
+"SALE_POINTS"|4|"AGENCY"|"Агентство"||"U"||"S"|5||0|0|0|"AGENCIES"|"CODE"|||
+"SALE_POINTS"|5|"CITY"||0|||"S"|3||0|0|0|"CITIES"|"CODE"|2||1
+"SALE_POINTS"|6|"CITY_VIEW"|"Город"||"U"||"S"|3||0|0|0|"CITIES"|"CODE_LAT/CODE"|2||
+"SALE_POINTS"|6|"CITY_VIEW"|"Город"||"U"||"S"|3||0|0|0|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"SALE_POINTS"|7|"DESCR"|"Описание"|20|"U"||"S"|30||0|0|1|||||
+"SALE_POINTS"|7|"DESCR"|"Описание"|20|"U"||"S"|30||0|0|0||||"RU"|
+"SALE_POINTS"|8|"DESCR_LAT"|"Описание (лат.)"|20|"U"||"S"|30||1|0|0|||||
+"SALE_POINTS"|9|"PHONE"|"Контактная инф."||||"S"|20||1|0|0|||||
+"SALE_POINTS"|10|"ID"||0|||"NU"|9||0|0|1|||||
+"SALE_DESKS"|1|"CODE"|"Название"||"U"||"S"|6||0|1|0|||||
+"SALE_DESKS"|2|"SALE_POINT"|"Пункт продаж"||"U"||"S"|8||0|1|0|"SALE_POINTS"|"CODE"|1||1
+"SALE_DESKS"|3|"VALIDATOR"||0|||"S"|4||0|1|0|"SALE_POINTS"|"VALIDATOR"|1||1
+"SALE_DESKS"|4|"VALIDATOR_VIEW"|"Валидатор"||"U"||"S"|4||0|1|0|"SALE_POINTS"|"VALIDATOR_VIEW"|1||
+"SALE_DESKS"|5|"CURRENCY"||0|||"S"|3||0|0|0|"CURRENCY"|"CODE"|2||1
+"SALE_DESKS"|6|"CURRENCY_VIEW"|"Валюта"||"U"||"S"|3||0|0|0|"CURRENCY"|"CODE_LAT/CODE"|2||
+"SALE_DESKS"|6|"CURRENCY_VIEW"|"Валюта"||"U"||"S"|3||0|0|0|"CURRENCY"|"CODE/CODE_LAT"|2|"RU"|
+"SALE_DESKS"|7|"PR_DENIAL"|"Откл."||||"B"|1||0|0|0|||||
+"SALE_DESKS"|8|"DESKS_ID"||0|||"NU"|9||0|0|1|||||
+"SALE_DESKS"|9|"SALE_DESKS_ID"||0|||"NU"|9||0|0|1|||||
+"OPERATORS"|1|"LOGIN"|"Логин"||"U"||"S"|12||0|1|0|||||
+"OPERATORS"|2|"VALIDATOR"||0|||"S"|4||0|0|0|"VALIDATOR_TYPES"|"CODE"|1||1
+"OPERATORS"|3|"VALIDATOR_VIEW"|"Валидатор"||"U"||"S"|4||0|0|0|"VALIDATOR_TYPES"|"CODE_LAT/CODE"|1||
+"OPERATORS"|3|"VALIDATOR_VIEW"|"Валидатор"||"U"||"S"|4||0|0|0|"VALIDATOR_TYPES"|"CODE/CODE_LAT"|1|"RU"|
+"OPERATORS"|4|"PRIVATE_NUM"|"Личный номер"||||"NU"|4||0|0|0|||||
+"OPERATORS"|5|"AGENCY"|"Агентство"||"U"||"S"|5||0|0|0|"AGENCIES"|"CODE"|||
+"OPERATORS"|6|"DESCR"|"Описание"|20|"U"||"S"|100||0|0|0|||||
+"OPERATORS"|7|"PR_DENIAL"|"Откл."||||"B"|1||0|0|0|||||
+"OPERATORS"|8|"ID"||0|||"NU"|9||0|0|1|||||
+"VALIDATOR_TYPES"|1|"CODE"|"Код"||||"S"|4||0|1|1|||||
+"VALIDATOR_TYPES"|2|"CODE_LAT"|"Код (лат.)"||||"S"|4||1|0|1|||||
+"VALIDATOR_TYPES"|3|"NAME"|"Название"||||"S"|50||0|0|1|||||
+"VALIDATOR_TYPES"|4|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
+"ENCODINGS"|1|"CODE"|"Кодировка"||||"S"|40||0|1|1|||||
+"DATE_TIME_ZONESPEC"|1|"ID"|"Название"||||"S"|40||0|1|1|||||
+"DATE_TIME_ZONESPEC"|2|"COUNTRY"||0|||"S"|2||1|0|0|"COUNTRIES"|"CODE"|1||1
+"DATE_TIME_ZONESPEC"|3|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||1|0|0|"COUNTRIES"|"CODE_LAT/CODE"|1||
+"DATE_TIME_ZONESPEC"|3|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||1|0|0|"COUNTRIES"|"CODE/CODE_LAT"|1|"RU"|
+"DATE_TIME_ZONESPEC"|4|"GMT_OFFSET"|"Часовой пояс"||||"S"|9||1|0|1|||||
+"DATE_TIME_ZONESPEC"|5|"DST_ADJUSTMENT"|"Лок. корректировка"||||"S"|9||1|0|1|||||
+"DATE_TIME_ZONESPEC"|6|"STD_ABBR"|"Станд. аббрев."||||"S"|5||1|0|1|||||
+"DATE_TIME_ZONESPEC"|7|"STD_NAME"|"Станд. время"|25|||"S"|50||1|0|1|||||
+"DATE_TIME_ZONESPEC"|8|"DST_ABBR"|"Лок. аббрев."||||"S"|5||1|0|1|||||
+"DATE_TIME_ZONESPEC"|9|"DST_NAME"|"Лок. время"|25|||"S"|50||1|0|1|||||
+"DATE_TIME_ZONESPEC"|10|"DST_START_DATE_RULE"|"Нач. дата перехода"||||"S"|10||1|0|1|||||
+"DATE_TIME_ZONESPEC"|11|"START_TIME"|"Нач. время перехода"||||"S"|9||1|0|1|||||
+"DATE_TIME_ZONESPEC"|12|"DST_END_DATE_RULE"|"Кон. дата перехода"||||"S"|10||1|0|1|||||
+"DATE_TIME_ZONESPEC"|13|"END_TIME"|"Кон. время перехода"||||"S"|9||1|0|1|||||
+"CODESHARE_SETS"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"CODESHARE_SETS"|2|"AIRLINE_OPER"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
+"CODESHARE_SETS"|3|"AIRLINE_OPER_VIEW"|"А/к факт."||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
+"CODESHARE_SETS"|3|"AIRLINE_OPER_VIEW"|"А/к факт."||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"CODESHARE_SETS"|4|"FLT_NO_OPER"|"Рейс факт."||||"NU"|5||0|0|1|||||
+"CODESHARE_SETS"|5|"AIRP_DEP"||0|||"S"|3||0|0|1|"AIRPS"|"CODE"|2||1
+"CODESHARE_SETS"|6|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||0|0|1|"AIRPS"|"CODE_LAT/CODE"|2||
+"CODESHARE_SETS"|6|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||0|0|1|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"CODESHARE_SETS"|7|"AIRLINE_MARK"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|3||1
+"CODESHARE_SETS"|8|"AIRLINE_MARK_VIEW"|"А/к комм."||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|3||
+"CODESHARE_SETS"|8|"AIRLINE_MARK_VIEW"|"А/к комм."||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE/CODE_LAT"|3|"RU"|
+"CODESHARE_SETS"|9|"FLT_NO_MARK"|"Рейс комм."||||"NU"|5||0|0|1|||||
+"CODESHARE_SETS"|10|"PR_MARK_NORMS"|"Нормы,тарифы комм."||||"B"|1||0|0|1|||||
+"CODESHARE_SETS"|11|"PR_MARK_BP"|"Пос.талон комм."||||"B"|1||0|0|1|||||
+"CODESHARE_SETS"|12|"PR_MARK_RPT"|"Док. комм."||||"B"|1||0|0|1|||||
+"CODESHARE_SETS"|13|"DAYS"|"Дни"||"U"||"S"|7||1|0|1|||||
+"CODESHARE_SETS"|14|"FIRST_DATE"|"С"||||"D"|8||0|0|1|||||
+"CODESHARE_SETS"|15|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"CODESHARE_SETS"|16|"PR_DENIAL"|"Отмена"||||"B"|1||0|0|1|||||
+"CRYPT_SETS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"CRYPT_SETS"|2|"DESK_GRP_ID"||0|||"NU"|9||1|1|0|"DESK_GRP"|"GRP_ID"|1||1
+"CRYPT_SETS"|3|"DESCR"|"Группа пультов"|30|||"S"|50||1|0|0|"DESK_GRP"|"NAME_LAT/NAME"|1||
+"CRYPT_SETS"|3|"DESCR"|"Группа пультов"|30|||"S"|50||1|0|0|"DESK_GRP"|"NAME/NAME_LAT"|1|"RU"|
+"CRYPT_SETS"|4|"DESK"|"Пульт"||"U"||"S"|6||1|0|0|"DESKS"|"CODE"|||
+"CRYPT_SETS"|5|"PR_CRYPT"|"Вкл. шифрование"||||"B"|1||0|0|0|||||
+"CRYPT_REQ_DATA"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"CRYPT_REQ_DATA"|2|"DESK_GRP_ID"||0|||"NU"|9||1|1|0|"DESK_GRP"|"GRP_ID"|1||1
+"CRYPT_REQ_DATA"|3|"DESCR"|"Группа пультов"|30|||"S"|50||1|0|0|"DESK_GRP"|"NAME_LAT/NAME"|1||
+"CRYPT_REQ_DATA"|3|"DESCR"|"Группа пультов"|30|||"S"|50||1|0|0|"DESK_GRP"|"NAME/NAME_LAT"|1|"RU"|
+"CRYPT_REQ_DATA"|4|"DESK"|"Пульт"||"U"||"S"|6||1|0|0|"DESKS"|"CODE"|||
+"CRYPT_REQ_DATA"|5|"COUNTRY"|"Гос-во"|2|"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE_LAT"|||
+"CRYPT_REQ_DATA"|6|"STATE"|"Регион"|10|||"S"|128||1|0|0|||||
+"CRYPT_REQ_DATA"|7|"CITY"|"Город"|10|||"S"|128||1|0|0|||||
+"CRYPT_REQ_DATA"|8|"ORGANIZATION"|"Организация"|25|||"S"|64||1|0|0|||||
+"CRYPT_REQ_DATA"|9|"ORGANIZATIONAL_UNIT"|"Подразделение"|25|||"S"|64||1|0|0|||||
+"CRYPT_REQ_DATA"|10|"TITLE"|"Должность"|25|||"S"|64||1|0|0|||||
+"CRYPT_REQ_DATA"|11|"USER_NAME"|"Пользователь"|25|||"S"|64||1|0|0|||||
+"CRYPT_REQ_DATA"|12|"EMAIL"|"E-Mail"|20|||"S"|40||1|0|0|||||
+"CRYPT_REQ_DATA"|13|"PR_DENIAL"|"Откл."||||"B"|1||0|0|0|||||
+"COMP_SUBCLS_SETS"|1|"AIRLINE"||0|||"S"|3||0|1|0|"AIRLINES"|"CODE"|1||1
+"COMP_SUBCLS_SETS"|2|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"COMP_SUBCLS_SETS"|2|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"COMP_SUBCLS_SETS"|3|"SUBCLASS"||0|||"S"|1||0|1|0|"SUBCLS"|"CODE"|2||1
+"COMP_SUBCLS_SETS"|4|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||0|0|0|"SUBCLS"|"CODE_LAT/CODE"|2||
+"COMP_SUBCLS_SETS"|4|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||0|0|0|"SUBCLS"|"CODE/CODE_LAT"|2|"RU"|
+"COMP_SUBCLS_SETS"|5|"REM"|"Ремарка"||"U"||"S"|4||0|0|0|||||
+"COMP_SUBCLS_SETS"|6|"ID"||0|||"NU"|9||0|0|1|||||
+"SELF_CKIN_TYPES"|1|"CODE"||0|||"S"|5||0|1|1|||||
+"SELF_CKIN_TYPES"|2|"NAME"|"Тип саморегистрации"|20|||"S"|50||0|0|1|||||
+"SELF_CKIN_TYPES"|3|"NAME_LAT"|"Тип саморегистрации (лат.)"|20|||"S"|50||1|0|1|||||
+"WEB_CLIENTS"|1|"CLIENT_ID"|"Ид. интернет-клиента"||||"NU"|9||0|1|0|||||
+"WEB_CLIENTS"|2|"CLIENT_TYPE"||0|||"S"|5||0|0|0|"SELF_CKIN_TYPES"|"CODE"|1||1
+"WEB_CLIENTS"|3|"CLIENT_TYPE_VIEW"|"Тип рег."|20|||"S"|50||0|0|0|"SELF_CKIN_TYPES"|"NAME_LAT/NAME"|1||
+"WEB_CLIENTS"|3|"CLIENT_TYPE_VIEW"|"Тип рег."|20|||"S"|50||0|0|0|"SELF_CKIN_TYPES"|"NAME/NAME_LAT"|1|"RU"|
+"WEB_CLIENTS"|4|"DESCR"|"Описание"|20|"U"||"S"|100||0|0|0|||||
+"WEB_CLIENTS"|5|"DESK"|"Пульт"||"U"||"S"|6||0|0|0|"DESKS"|"CODE"|||
+"WEB_CLIENTS"|6|"USER_ID"|"Пользователь"|0|||"NU"|9||0|0|0|"USERS"|"USER_ID"|2||1
+"WEB_CLIENTS"|7|"USER_NAME"|"Пользователь"|50|||"S"|100||0|0|0|"USERS"|"USER_NAME"|2||
+"WEB_CLIENTS"|8|"ID"||0|||"NU"|9||0|0|1|||||
+"WEB_CKIN_SETS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"WEB_CKIN_SETS"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"WEB_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"WEB_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"WEB_CKIN_SETS"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"WEB_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"WEB_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"WEB_CKIN_SETS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"WEB_CKIN_SETS"|7|"PR_PERMIT"|"Разрешить"||||"B"|1||0|0|0|||||
+"WEB_CKIN_SETS"|8|"PR_WAITLIST"||0|||"B"|1||0|0|0|||||
+"WEB_CKIN_SETS"|9|"PR_TCKIN"|"Сквоз. рег."||||"B"|1||0|0|0|||||
+"WEB_CKIN_SETS"|10|"PR_UPD_STAGE"|"Перерасч. времен"||||"B"|1||0|0|0|||||
+"AIRLINE_WEB_CKIN_SETS"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"AIRLINE_WEB_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_WEB_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_WEB_CKIN_SETS"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"AIRLINE_WEB_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_WEB_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"AIRLINE_WEB_CKIN_SETS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"AIRLINE_WEB_CKIN_SETS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"AIRLINE_WEB_CKIN_SETS"|7|"PR_PERMIT"|"Разрешить"||||"B"|1||0|0|0|||||
+"AIRLINE_WEB_CKIN_SETS"|9|"PR_TCKIN"|"Сквоз. рег."||||"B"|1||0|0|0|||||
+"AIRLINE_WEB_CKIN_SETS"|10|"PR_UPD_STAGE"|"Перерасч. времен"||||"B"|1||0|0|0|||||
+"AIRLINE_WEB_CKIN_SETS"|8|"PR_WAITLIST"||0|||"B"|1||0|0|0|||||
+"TRIP_WEB_CKIN"|1|"POINT_ID"||0|||"NU"|9||0|1|1|||||
+"TRIP_WEB_CKIN"|2|"PR_PERMIT"|"Разрешить"||||"B"|1||0|0|0|||||
+"TRIP_WEB_CKIN"|3|"PR_WAITLIST"||0|||"B"|1||0|0|0|||||
+"TRIP_WEB_CKIN"|4|"PR_TCKIN"|"Сквоз. рег."||||"B"|1||0|0|0|||||
+"TRIP_WEB_CKIN"|5|"PR_UPD_STAGE"|"Перерасч. времен"||||"B"|1||0|0|0|||||
+"KIOSK_CKIN_DESK_GRP"|6|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||
+"KIOSK_CKIN_DESK_GRP"|7|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"KIOSK_CKIN_DESK_GRP"|7|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"KIOSK_CKIN_DESK_GRP"|8|"AIRP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||
+"KIOSK_CKIN_DESK_GRP"|9|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"KIOSK_CKIN_DESK_GRP"|9|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"KIOSK_CKIN_DESK_GRP"|4|"CITY"||0|||"S"|3||0|0|0|"CITIES"|"CODE"|1||
+"KIOSK_CKIN_DESK_GRP"|5|"CITY_VIEW"|"Город"||"U"||"S"|3||0|0|0|"CITIES"|"CODE/CODE_LAT"|1|"RU"|
+"KIOSK_CKIN_DESK_GRP"|5|"CITY_VIEW"|"Город"||"U"||"S"|3||0|0|0|"CITIES"|"CODE_LAT/CODE"|1||
+"KIOSK_CKIN_DESK_GRP"|1|"GRP_ID"||0|||"NU"|9||0|1|1|||||
+"KIOSK_CKIN_DESK_GRP"|2|"NAME"|"Описание группы"|30|||"S"|50||0|0|0||||"RU"|
+"KIOSK_CKIN_DESK_GRP"|2|"NAME"|"Описание группы"|30|||"S"|50||0|0|1|||||
+"KIOSK_CKIN_DESK_GRP"|3|"NAME_LAT"|"Описание группы (лат.)"|30|||"S"|50||1|0|0|||||
+"KIOSK_CKIN_DESKS"|1|"CODE"|"Название"||"U"||"S"|6||0|1|0|||||
+"KIOSK_CKIN_DESKS"|3|"DESCR_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"DESK_GRP"|"NAME/NAME_LAT"|1|"RU"|
+"KIOSK_CKIN_DESKS"|3|"DESCR_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"DESK_GRP"|"NAME_LAT/NAME"|1||
+"KIOSK_CKIN_DESKS"|2|"GRP_ID"||0|||"NU"|9||0|0|0|"DESK_GRP"|"GRP_ID"|1||
+"KIOSK_CKIN_DESKS"|7|"ID"||0|||"NU"|9||0|0|1|||||
+"KIOSK_CKIN_DESKS"|5|"LAST_LOGON"|"Посл. вход"||||"D"|8||1|0|1|||||
+"KIOSK_CKIN_DESKS"|6|"PR_CRYPT"|"Шифр."||||"B"|1||1|0|1|||||
+"KIOSK_CKIN_DESKS"|4|"VERSION"|"Версия терминала"|20|||"S"|1||1|0|1|||||
+"KIOSK_CKIN_SETS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"KIOSK_CKIN_SETS"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"KIOSK_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"KIOSK_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"KIOSK_CKIN_SETS"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"KIOSK_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"KIOSK_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"KIOSK_CKIN_SETS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"KIOSK_CKIN_SETS"|7|"DESK_GRP_ID"||0|||"NU"|9||0|0|0|"KIOSK_CKIN_DESK_GRP"|"GRP_ID"|3||1
+"KIOSK_CKIN_SETS"|8|"DESK_GRP_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"KIOSK_CKIN_DESK_GRP"|"NAME_LAT/NAME"|3||
+"KIOSK_CKIN_SETS"|8|"DESK_GRP_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"KIOSK_CKIN_DESK_GRP"|"NAME/NAME_LAT"|3|"RU"|
+"KIOSK_CKIN_SETS"|9|"PR_PERMIT"|"Разрешить"||||"B"|1||0|0|0|||||
+"KIOSK_CKIN_SETS"|10|"PR_WAITLIST"||0|||"B"|1||0|0|0|||||
+"KIOSK_CKIN_SETS"|11|"PR_TCKIN"|"Сквоз. рег."||||"B"|1||0|0|0|||||
+"KIOSK_CKIN_SETS"|12|"PR_UPD_STAGE"|"Перерасч. времен"||||"B"|1||0|0|0|||||
+"AIRLINE_KIOSK_CKIN_SETS"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||
+"AIRLINE_KIOSK_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_KIOSK_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_KIOSK_CKIN_SETS"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||
+"AIRLINE_KIOSK_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_KIOSK_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"AIRLINE_KIOSK_CKIN_SETS"|7|"DESK_GRP_ID"||0|||"NU"|9||0|0|0|"KIOSK_CKIN_DESK_GRP"|"GRP_ID"|3||
+"AIRLINE_KIOSK_CKIN_SETS"|8|"DESK_GRP_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"KIOSK_CKIN_DESK_GRP"|"NAME/NAME_LAT"|3|"RU"|
+"AIRLINE_KIOSK_CKIN_SETS"|8|"DESK_GRP_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"KIOSK_CKIN_DESK_GRP"|"NAME_LAT/NAME"|3||
+"AIRLINE_KIOSK_CKIN_SETS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"AIRLINE_KIOSK_CKIN_SETS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"AIRLINE_KIOSK_CKIN_SETS"|9|"PR_PERMIT"|"Разрешить"||||"B"|1||0|0|0|||||
+"AIRLINE_KIOSK_CKIN_SETS"|11|"PR_TCKIN"|"Сквоз. рег."||||"B"|1||0|0|0|||||
+"AIRLINE_KIOSK_CKIN_SETS"|12|"PR_UPD_STAGE"|"Перерасч. времен"||||"B"|1||0|0|0|||||
+"AIRLINE_KIOSK_CKIN_SETS"|10|"PR_WAITLIST"||0|||"B"|1||0|0|0|||||
+"TRIP_KIOSK_CKIN"|1|"POINT_ID"||0|||"NU"|9||0|1|1|||||
+"TRIP_KIOSK_CKIN"|2|"DESK_GRP_ID"||0|||"NU"|9||0|1|1|"KIOSK_CKIN_DESK_GRP"|"GRP_ID"|1||1
+"TRIP_KIOSK_CKIN"|3|"DESK_GRP_VIEW"|"Группа пультов"|30|||"S"|50||0|0|1|"KIOSK_CKIN_DESK_GRP"|"NAME_LAT/NAME"|1||
+"TRIP_KIOSK_CKIN"|3|"DESK_GRP_VIEW"|"Группа пультов"|30|||"S"|50||0|0|1|"KIOSK_CKIN_DESK_GRP"|"NAME/NAME_LAT"|1|"RU"|
+"TRIP_KIOSK_CKIN"|4|"PR_PERMIT"|"Разрешить"||||"B"|1||0|0|0|||||
+"TRIP_KIOSK_CKIN"|5|"PR_WAITLIST"||0|||"B"|1||0|0|0|||||
+"TRIP_KIOSK_CKIN"|6|"PR_TCKIN"|"Сквоз. рег."||||"B"|1||0|0|0|||||
+"TRIP_KIOSK_CKIN"|7|"PR_UPD_STAGE"|"Перерасч. времен"||||"B"|1||0|0|0|||||
+"APIS_FORMATS"|1|"CODE"|"Код"||"U"||"S"|10||0|1|1|||||
+"APIS_FORMATS"|2|"NAME"|"Описание"|75|||"S"|100||0|0|1|||||
+"APIS_FORMATS"|3|"NAME_LAT"|"Описание (лат.)"|75|||"S"|100||0|0|1|||||
+"APIS_SETS"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"APIS_SETS"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"APIS_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"APIS_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"APIS_SETS"|4|"COUNTRY_DEP"||0|||"S"|2||0|0|0|"COUNTRIES"|"CODE"|2||1
+"APIS_SETS"|5|"COUNTRY_DEP_VIEW"|"Из гос-ва"||"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE_LAT/CODE"|2||
+"APIS_SETS"|5|"COUNTRY_DEP_VIEW"|"Из гос-ва"||"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE/CODE_LAT"|2|"RU"|
+"APIS_SETS"|6|"COUNTRY_ARV"||0|||"S"|2||0|0|0|"COUNTRIES"|"CODE"|3||1
+"APIS_SETS"|7|"COUNTRY_ARV_VIEW"|"В гос-во"||"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE_LAT/CODE"|3||
+"APIS_SETS"|7|"COUNTRY_ARV_VIEW"|"В гос-во"||"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE/CODE_LAT"|3|"RU"|
+"APIS_SETS"|8|"FORMAT"|"Формат"||"U"||"S"|10||0|0|0|"APIS_FORMATS"|"CODE"|||
+"APIS_SETS"|9|"DIR"|"Директория"|30|||"S"|50||0|0|0|||||
+"APIS_SETS"|10|"EDI_ADDR"|"Адрес получателя"|20|"U"||"S"|40||1|0|0|||||
+"APIS_SETS"|11|"EDI_OWN_ADDR"|"Адрес DCS Астра"|20|"U"||"S"|40||1|0|0|||||
+"APIS_SETS"|12|"PR_DENIAL"|"Откл."||||"B"|1||0|0|0|||||
+"AIRLINE_OFFICES"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"AIRLINE_OFFICES"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"AIRLINE_OFFICES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_OFFICES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_OFFICES"|4|"COUNTRY"||0|||"S"|2||0|0|0|"COUNTRIES"|"CODE"|1||1
+"AIRLINE_OFFICES"|5|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE_LAT/CODE"|1||
+"AIRLINE_OFFICES"|5|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_OFFICES"|6|"AIRP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"AIRLINE_OFFICES"|7|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"AIRLINE_OFFICES"|7|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_OFFICES"|8|"CONTACT_NAME"|"Имя контакта"|20|"U"||"S"|35||0|0|0|||||
+"AIRLINE_OFFICES"|9|"PHONE"|"Телефон"|10|"U"||"S"|20||0|0|0|||||
+"AIRLINE_OFFICES"|10|"FAX"|"Факс"|10|"U"||"S"|20||0|0|0|||||
+"AIRLINE_OFFICES"|11|"TO_APIS"|"APIS"||||"B"|1||0|0|0|||||
+"PAID_CKIN_SETS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"PAID_CKIN_SETS"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"PAID_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"PAID_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"PAID_CKIN_SETS"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"PAID_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"PAID_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"PAID_CKIN_SETS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"PAID_CKIN_SETS"|7|"PR_PERMIT"|"Разрешить"||||"B"|1||0|0|0|||||
+"PAID_CKIN_SETS"|8|"PROT_TIMEOUT"|"Таймаут резервирования (мин)"||||"NU"|3||1|0|0|||||
+"AIRLINE_PAID_CKIN_SETS"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"AIRLINE_PAID_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_PAID_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_PAID_CKIN_SETS"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"AIRLINE_PAID_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_PAID_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"AIRLINE_PAID_CKIN_SETS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"AIRLINE_PAID_CKIN_SETS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"AIRLINE_PAID_CKIN_SETS"|8|"PROT_TIMEOUT"|"Таймаут резервирования (мин)"||||"NU"|3||1|0|0|||||
+"AIRLINE_PAID_CKIN_SETS"|7|"PR_PERMIT"|"Разрешить"||||"B"|1||0|0|0|||||
+"TRIP_PAID_CKIN"|1|"POINT_ID"||0|||"NU"|9||0|1|1|||||
+"TRIP_PAID_CKIN"|2|"PR_PERMIT"|"Разрешить"||||"B"|1||0|0|0|||||
+"TRIP_PAID_CKIN"|3|"PROT_TIMEOUT"|"Таймаут резервирования (мин)"||||"NU"|3||1|0|0|||||
+"GENDER_TYPES"|1|"CODE"|"Код"||"U"||"S"|2||0|1|1|||||
+"GENDER_TYPES"|1|"CODE"|"Код"||"U"||"S"|2||0|1|0||||"RU"|
+"GENDER_TYPES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|2||1|0|0|||||
+"GENDER_TYPES"|3|"NAME"|"Название"|25|||"S"|50||0|0|1|||||
+"GENDER_TYPES"|3|"NAME"|"Название"|25|||"S"|50||0|0|0||||"RU"|
+"GENDER_TYPES"|4|"NAME_LAT"|"Название (лат.)"|25|||"S"|50||1|0|0|||||
+"TRIP_LIST_DAYS"|1|"ROLE_ID"||0|||"NU"|9||0|1|0|"ROLES"|"ROLE_ID"|1||1
+"TRIP_LIST_DAYS"|2|"ROLE_NAME"|"Категория"|30|||"S"|100||0|0|0|"ROLES"|"ROLE_NAME"|1||
+"TRIP_LIST_DAYS"|3|"SHIFT_DOWN"|"Нижнее смещение (дней)"||||"NS"|2||0|0|0|||||
+"TRIP_LIST_DAYS"|4|"SHIFT_UP"|"Верхнее смещение (дней)"||||"NS"|2||0|0|0|||||
+"PAY_TYPES"|2|"CODE_LAT"|"Код (лат.)"||"U"||"S"|4||0|0|0|||||
+"PAY_TYPES"|3|"NAME"|"Форма оплаты"|50|||"S"|50||0|0|0|||||
+"PAY_TYPES"|4|"NAME_LAT"|"Форма оплаты (лат.)"|50|||"S"|50||1|0|0|||||
+"PAY_TYPES"|5|"ID"||0|||"NU"|9||0|1|1|||||
+"RCPT_DOC_TYPES"|1|"CODE"|"Код"||"U"||"S"|3||0|1|0|||||
+"RCPT_DOC_TYPES"|2|"CODE_LAT"|"Код (лат.)"||"U"||"S"|3||0|0|0|||||
+"RCPT_DOC_TYPES"|3|"NAME"|"Название"|100|||"S"|250||0|0|0|||||
+"RCPT_DOC_TYPES"|4|"NAME_LAT"|"Название (лат.)"|100|||"S"|250||1|0|0|||||
+"RCPT_DOC_TYPES"|5|"ID"||0|||"NU"|9||0|1|1|||||
+"SEAT_ALGO_TYPES"|1|"ID"||0|||"NU"|2||0|1|1|||||
+"SEAT_ALGO_TYPES"|2|"NAME"|"Алгоритм"||||"S"|50||0|0|1|||||
+"SEAT_ALGO_TYPES"|3|"NAME_LAT"|"Алгоритм (лат.)"||||"S"|50||1|0|1|||||
+"SEAT_ALGO_SETS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"SEAT_ALGO_SETS"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"SEAT_ALGO_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"SEAT_ALGO_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"SEAT_ALGO_SETS"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"SEAT_ALGO_SETS"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"SEAT_ALGO_SETS"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"SEAT_ALGO_SETS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"SEAT_ALGO_SETS"|7|"ALGO_TYPE"||0|||"NU"|1||0|0|0|"SEAT_ALGO_TYPES"|"ID"|3||1
+"SEAT_ALGO_SETS"|8|"ALGO_TYPE_VIEW"|"Тип алгоритма"||||"S"|50||0|0|0|"SEAT_ALGO_TYPES"|"NAME_LAT/NAME"|3||
+"SEAT_ALGO_SETS"|8|"ALGO_TYPE_VIEW"|"Тип алгоритма"||||"S"|50||0|0|0|"SEAT_ALGO_TYPES"|"NAME/NAME_LAT"|3|"RU"|
+"SEAT_ALGO_SETS"|9|"PR_SEAT_IN_ROW"|"В ряд"||||"B"|1||0|0|0|||||
+"KIOSK_BP_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"KIOSK_BP_SET"|2|"DESK_GRP_ID"||0|||"NU"|9||1|0|0|"KIOSK_CKIN_DESK_GRP"|"GRP_ID"|1||1
+"KIOSK_BP_SET"|3|"DESCR"|"Группа пультов"|30|||"S"|50||1|0|0|"KIOSK_CKIN_DESK_GRP"|"NAME_LAT/NAME"|1||
+"KIOSK_BP_SET"|3|"DESCR"|"Группа пультов"|30|||"S"|50||1|0|0|"KIOSK_CKIN_DESK_GRP"|"NAME/NAME_LAT"|1|"RU"|
+"KIOSK_BP_SET"|4|"DESK"|"Пульт"||"U"||"S"|6||1|0|0|"KIOSK_CKIN_DESKS"|"CODE"|||
+"KIOSK_BP_SET"|5|"BP_CODE"||0|||"S"|5||0|0|0|"BP_TYPES"|"CODE"|2||
+"KIOSK_BP_SET"|6|"BP_NAME"|"Название бланка"|25|||"S"|50||0|0|0|"BP_TYPES"|"NAME"|2||
+"BP_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"BP_SET"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"BP_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"BP_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"BP_SET"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"BP_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"BP_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"FORM_PACKS"|3|"BASIC_TYPE"|"Форма"||"U"||"S"|3||0|0|1|||||
+"FORM_PACKS"|4|"CURR_NO"|"Текущий номер"||"U"||"S"|15||1|0|0|||||
+"FORM_PACKS"|5|"SERIES_LEN"||0|||"NU"|1||0|0|1|||||
+"FORM_PACKS"|6|"NO_LEN"||0|||"NU"|2||0|0|1|||||
+"FORM_PACKS"|7|"PR_CHECK_BIT"||0|||"B"|1||0|0|1|||||
+"PAY_TYPES"|1|"CODE"|"Код"||"U"||"S"|4||0|1|0|||||
+"BP_SET"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"BP_SET"|7|"CLASS"||0|||"S"|1||1|0|0|"CLASSES"|"CODE"|3||1
+"BP_SET"|8|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|0|"CLASSES"|"CODE_LAT/CODE"|3||
+"BP_SET"|8|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|0|"CLASSES"|"CODE/CODE_LAT"|3|"RU"|
+"BP_SET"|9|"BP_CODE"||0|||"S"|5||0|0|0|"BP_TYPES"|"CODE"|4||
+"BP_SET"|10|"BP_NAME"|"Название бланка"|25|||"S"|50||0|0|0|"BP_TYPES"|"NAME"|4||
+"AIRLINE_BP_SET"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"AIRLINE_BP_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_BP_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_BP_SET"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"AIRLINE_BP_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_BP_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"AIRLINE_BP_SET"|9|"BP_CODE"||0|||"S"|5||0|0|0|"BP_TYPES"|"CODE"|4||
+"AIRLINE_BP_SET"|10|"BP_NAME"|"Название бланка"|25|||"S"|50||0|0|0|"BP_TYPES"|"NAME"|4||
+"AIRLINE_BP_SET"|7|"CLASS"||0|||"S"|1||1|0|0|"CLASSES"|"CODE"|3||1
+"AIRLINE_BP_SET"|8|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|0|"CLASSES"|"CODE/CODE_LAT"|3|"RU"|
+"AIRLINE_BP_SET"|8|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|0|"CLASSES"|"CODE_LAT/CODE"|3||
+"AIRLINE_BP_SET"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"AIRLINE_BP_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"BT_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"BT_SET"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"BT_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"BT_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"BT_SET"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"BT_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"BT_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"BT_SET"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"BT_SET"|7|"BT_CODE"||0|||"S"|5||0|0|0|"TAG_TYPES_PRINTABLE"|"CODE"|3||
+"BT_SET"|8|"BT_NAME"|"Название бланка"|25|||"S"|50||0|0|0|"TAG_TYPES_PRINTABLE"|"NAME"|3||
+"AIRLINE_BT_SET"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"AIRLINE_BT_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_BT_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_BT_SET"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"AIRLINE_BT_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_BT_SET"|5|"AIRP_DEP_VIEW"|"А/п вылета"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"AIRLINE_BT_SET"|7|"BT_CODE"||0|||"S"|5||0|0|0|"TAG_TYPES_PRINTABLE"|"CODE"|3||
+"AIRLINE_BT_SET"|8|"BT_NAME"|"Название бланка"|25|||"S"|50||0|0|0|"TAG_TYPES_PRINTABLE"|"NAME"|3||
+"AIRLINE_BT_SET"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"AIRLINE_BT_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"TRIP_BP"|1|"POINT_ID"||0|||"NU"|9||0|1|1|||||
+"TRIP_BP"|2|"CLASS"||0|||"S"|1||1|1|0|"CLASSES"|"CODE"|1||1
+"TRIP_BP"|3|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|1|0|"CLASSES"|"CODE_LAT/CODE"|1||
+"TRIP_BP"|3|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|1|0|"CLASSES"|"CODE/CODE_LAT"|1|"RU"|
+"TRIP_BP"|4|"BP_CODE"||0|||"S"|5||0|0|0|"BP_TYPES"|"CODE"|2||
+"TRIP_BP"|5|"BP_NAME"|"Название бланка"|25|||"S"|50||0|0|0|"BP_TYPES"|"NAME"|2||
+"TRIP_BT"|1|"POINT_ID"||0|||"NU"|9||0|1|1|||||
+"TRIP_BT"|3|"BT_CODE"||0|||"S"|5||0|0|0|"TAG_TYPES_PRINTABLE"|"CODE"|1||
+"TRIP_BT"|4|"BT_NAME"|"Название бланка"|25|||"S"|50||0|0|0|"TAG_TYPES_PRINTABLE"|"NAME"|1||
+"REPORT_TYPES"|2|"NAME"|"Название отчета"|60|||"S"|100||0|0|1|||||
+"REPORT_TYPES"|3|"NAME_LAT"|"Название отчета (лат.)"|60|||"S"|100||1|0|1|||||
+"REPORT_TYPES"|4|"PARAMS"||0|||"NU"|9||0|0|1|||||
+"NO_TXT_REPORT_TYPES"|1|"CODE"|"Код"|10|||"S"|10||0|1|1|||||
+"NO_TXT_REPORT_TYPES"|2|"NAME"|"Название отчета"|60|||"S"|100||0|0|1|||||
+"NO_TXT_REPORT_TYPES"|3|"NAME_LAT"|"Название отчета (лат.)"|60|||"S"|100||1|0|1|||||
+"NO_TXT_REPORT_TYPES"|4|"PARAMS"||0|||"NU"|9||0|0|1|||||
+"DEV_FMT_OPERS"|1|"OP_TYPE"|"Тип операции"|10|||"S"|10||0|1|1|||||
+"DEV_FMT_OPERS"|2|"FMT_TYPE"|"Формат устройства"|10|||"S"|10||0|1|1|||||
+"DEV_MODELS"|1|"CODE"|"Код"|7|"U"||"S"|10||0|1|1|||||
+"DEV_MODELS"|2|"NAME"|"Название"|26|||"S"|50||0|0|0|||||
+"DEV_MODELS"|3|"FMT_TYPE"|"Формат"|4|"U"||"S"|10||0|0|0|"DEV_FMT_TYPES"|"CODE"|||
+"DEV_MODELS"|4|"OP_TYPE"||0|||"S"|10||0|0|1|||||
+"DEV_TYPES"|1|"CODE"|"Код"||"U"||"S"|3||0|1|1|||||
+"DEV_TYPES"|2|"NAME"|"Название"||||"S"|50||1|0|0|||||
+"DEV_FMT_TYPES"|1|"CODE"|"Код"|5|"U"||"S"|10||0|1|1|||||
+"DEV_FMT_TYPES"|2|"NAME"|"Название"|27|||"S"|50||1|0|0|||||
+"BT_MODELS"|0|"CODE"||0|||"S"|5||0|1|1|||||
+"BT_MODELS"|1|"DEV_MODEL"|"Принтер"|10||"L"|"S"|10||0|1|1|"DEV_MODELS"|"CODE"|0||
+"BT_MODELS"|2|"FMT_TYPE"|"Формат"|10||"L"|"S"|10||0|1|1|"DEV_MODELS"|"FMT_TYPE"|0||
+"BT_MODELS"|3|"NUM"|"Сег."|3||"L"|"NU"|1||0|0|0|||||
+"BT_MODELS"|4|"FORM_NAME"|"Форма"|25||"L"|"S"|50||0|0|0|"TUNE::PRINT_BT"|"NAME"|2||
+"BT_MODELS"|5|"ID"||0|||"NU"|9||0|0|0|"TUNE::PRINT_BT"|"ID"|2||
+"BT_MODELS"|6|"VERSION"|"Вер."|5|||"NU"|9||0|0|0|"TUNE::PRINT_BT"|"VERSION"|2||
+"BT_MODELS"|7|"DESCR"|"Описание"|55||"L"|"S"|100||0|0|0|"TUNE::PRINT_BT"|"DESCR"|2||
+"BR_MODELS"|0|"CODE"||0|||"S"|7||0|1|1|||||
+"BR_MODELS"|1|"DEV_MODEL"|"Принтер"|10||"L"|"S"|10||0|1|1|"DEV_MODELS"|"CODE"|0||
+"BR_MODELS"|2|"FMT_TYPE"|"Формат"|10||"L"|"S"|10||0|1|1|"DEV_MODELS"|"FMT_TYPE"|0||
+"BR_MODELS"|3|"FORM_NAME"|"Форма"|25||"L"|"S"|50||0|0|0|"TUNE::PRINT_BR"|"NAME"|2||
+"BR_MODELS"|4|"ID"||0|||"NU"|9||0|0|0|"TUNE::PRINT_BR"|"ID"|2||
+"BR_MODELS"|5|"VERSION"|"Вер."|5|||"NU"|9||0|0|0|"TUNE::PRINT_BR"|"VERSION"|2||
+"BR_MODELS"|6|"DESCR"|"Описание"|55||"L"|"S"|100||0|0|0|"TUNE::PRINT_BR"|"DESCR"|2||
+"BP_MODELS"|0|"CODE"||0|||"S"|5||0|1|1|||||
+"BP_MODELS"|1|"DEV_MODEL"|"Принтер"|10||"L"|"S"|10||0|1|1|"DEV_MODELS"|"CODE"|0||
+"BP_MODELS"|2|"FMT_TYPE"|"Формат"|10||"L"|"S"|10||0|1|1|"DEV_MODELS"|"FMT_TYPE"|0||
+"BP_MODELS"|3|"FORM_NAME"|"Форма"|25||"L"|"S"|50||0|0|0|"TUNE::PRINT_BP"|"NAME"|2||
+"BP_MODELS"|4|"ID"||0|||"NU"|9||0|0|0|"TUNE::PRINT_BP"|"ID"|2||
+"BP_MODELS"|5|"VERSION"|"Вер."|5|||"NU"|9||0|0|0|"TUNE::PRINT_BP"|"VERSION"|2||
+"BP_MODELS"|6|"DESCR"|"Описание"|55||"L"|"S"|100||0|0|0|"TUNE::PRINT_BP"|"DESCR"|2||
+"BT_BLANK_LIST"|0|"ID"||0|||"NU"|9||0|1|1|||||
+"BT_BLANK_LIST"|1|"VERSION"||0|||"NU"|9||0|1|1|||||
+"BT_BLANK_LIST"|2|"FORM_TYPE"|"Тип бланка"|5||"L"|"S"|5||0|0|0|"TAG_TYPES_PRINTABLE"|"CODE"|||
+"BT_BLANK_LIST"|3|"DEV_MODEL"|"Принтер"|10||"L"|"S"|10||0|0|0|"DEV_MODELS"|"CODE"|0||
+"BT_BLANK_LIST"|4|"FMT_TYPE"|"Формат"|10||"L"|"S"|10||0|0|0|"DEV_MODELS"|"FMT_TYPE"|0||
+"BT_BLANK_LIST"|5|"NUM"|"Сегмент"|5|||"NU"|1||0|1|0|||||
+"DEV_OPER_TYPES"|0|"CODE"||0|||"S"|10||0|1|1|||||
+"DEV_OPER_TYPES"|1|"NAME"|"Тип операции"|25||"L"|"S"|50||0|0|1|||||
+"PRN_FORM_VERS"|0|"ID"||0|||"NU"|9||0|1|1|||||
+"PRN_FORM_VERS"|1|"VERSION"|"Вер."|5||"L"|"NU"|9||0|1|1|||||
+"PRN_FORM_VERS"|2|"DESCR"|"Описание"|95||"L"|"S"|100||0|0|0|||||
+"PRN_FORM_VERS"|3|"READ_ONLY"|"Ред."|1|||"B"|1||0|0|0|||||
+"PRN_FORMS"|0|"ID"||0|||"NU"|9||0|1|1|||||
+"PRN_FORMS"|1|"OP_TYPE"||0|||"S"|10||0|0|1|||||
+"PRN_FORMS"|2|"NAME"|"Форма"|25||"L"|"S"|50||0|0|1|||||
+"PRN_FORMS"|3|"FMT_TYPE"|"Формат"|10|"U"|"L"|"S"|10||0|0|1|"DEV_FMT_OPERS"|"FMT_TYPE"|||
+"BR_BLANK_LIST"|0|"ID"||0|||"NU"|9||0|1|1|||||
+"BR_BLANK_LIST"|1|"VERSION"||0|||"NU"|9||0|1|1|||||
+"BR_BLANK_LIST"|2|"FORM_TYPE"|"Тип бланка"|5|"U"|"L"|"S"|5||0|0|0|"FORM_TYPES"|"CODE"|||
+"BR_BLANK_LIST"|3|"DEV_MODEL"|"Принтер"|10|"U"|"L"|"S"|10||0|0|0|"DEV_MODELS"|"CODE"|0||
+"BR_BLANK_LIST"|4|"FMT_TYPE"|"Формат"|10|"U"|"L"|"S"|10||0|0|0|"DEV_MODELS"|"FMT_TYPE"|0||
+"BP_BLANK_LIST"|0|"ID"||0|||"NU"|9||0|1|1|||||
+"BP_BLANK_LIST"|1|"VERSION"||0|||"NU"|9||0|1|1|||||
+"BP_BLANK_LIST"|2|"FORM_TYPE"|"Тип бланка"|5|"U"|"L"|"S"|5||0|0|0|"BP_TYPES"|"CODE"|||
+"BP_BLANK_LIST"|3|"DEV_MODEL"|"Принтер"|10|"U"|"L"|"S"|10||0|0|0|"DEV_MODELS"|"CODE"|0||
+"BP_BLANK_LIST"|4|"FMT_TYPE"|"Формат"|10|"U"|"L"|"S"|10||0|0|0|"DEV_MODELS"|"FMT_TYPE"|0||
+"BAG_NORM_TYPES"|1|"CODE"|"Код"||"U"||"S"|5||0|1|1|||||
+"BAG_NORM_TYPES"|1|"CODE"|"Код"||"U"||"S"|5||0|1|0||||"RU"|
+"BAG_NORM_TYPES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|5||1|0|0|||||
+"BAG_NORM_TYPES"|3|"NAME"|"Тип нормы"|50|||"S"|100||0|0|1|||||
+"BAG_NORM_TYPES"|3|"NAME"|"Тип нормы"|50|||"S"|100||0|0|0||||"RU"|
+"BAG_NORM_TYPES"|4|"NAME_LAT"|"Тип нормы (лат.)"|50|||"S"|100||1|0|0|||||
+"BAG_NORMS"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"BAG_NORMS"|2|"AIRLINE"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
+"BAG_NORMS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
+"BAG_NORMS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"BAG_NORMS"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|1|||||
+"BAG_NORMS"|5|"CITY_DEP"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|2||1
+"BAG_NORMS"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|2||
+"BAG_NORMS"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"BAG_NORMS"|7|"CITY_ARV"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|3||1
+"BAG_NORMS"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|3||
+"BAG_NORMS"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
+"BAG_NORMS"|9|"PAX_CAT"|"Кат."||"U"||"S"|3||1|0|1|"PAX_CATS"|"CODE"|||
+"BAG_NORMS"|10|"SUBCLASS"||0|||"S"|1||1|0|1|"SUBCLS"|"CODE"|4||1
+"BAG_NORMS"|11|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|1|"SUBCLS"|"CODE_LAT/CODE"|4||
+"BAG_NORMS"|11|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|1|"SUBCLS"|"CODE/CODE_LAT"|4|"RU"|
+"BAG_NORMS"|12|"CLASS"||0|||"S"|1||1|0|1|"CLASSES"|"CODE"|5||1
+"BAG_NORMS"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE_LAT/CODE"|5||
+"BAG_NORMS"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE/CODE_LAT"|5|"RU"|
+"BAG_NORMS"|14|"FLT_NO"|"Рейс"||||"NU"|5||1|0|1|||||
+"BAG_NORMS"|15|"CRAFT"||0|||"S"|3||1|0|1|"CRAFTS"|"CODE"|6||1
+"BAG_NORMS"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|1|"CRAFTS"|"CODE_LAT/CODE"|6||
+"BAG_NORMS"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|1|"CRAFTS"|"CODE/CODE_LAT"|6|"RU"|
+"BAG_NORMS"|17|"TRIP_TYPE"||0|||"S"|1||1|0|1|"TRIP_TYPES"|"CODE"|7||1
+"BAG_NORMS"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|1|"TRIP_TYPES"|"CODE_LAT/CODE"|7||
+"BAG_NORMS"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|1|"TRIP_TYPES"|"CODE/CODE_LAT"|7|"RU"|
+"BAG_NORMS"|19|"BAG_TYPE"|"Багаж"||||"NU"|2||1|0|1|"BAG_TYPES"|"CODE"|||
+"BAG_NORMS"|20|"NORM_TYPE"||0|||"S"|5||1|0|1|"BAG_NORM_TYPES"|"CODE"|8||1
+"BAG_NORMS"|21|"NORM_TYPE_VIEW"|"Норма"||"U"||"S"|5||1|0|1|"BAG_NORM_TYPES"|"CODE_LAT/CODE"|8||
+"REPORT_TYPES"|1|"CODE"|"Код"|10|||"S"|10||0|1|1|||||
+"BAG_NORMS"|21|"NORM_TYPE_VIEW"|"Норма"||"U"||"S"|5||1|0|1|"BAG_NORM_TYPES"|"CODE/CODE_LAT"|8|"RU"|
+"BAG_NORMS"|22|"AMOUNT"|"Мест"||||"NU"|2||1|0|1|||||
+"BAG_NORMS"|23|"WEIGHT"|"Вес"||||"NU"|3||1|0|1|||||
+"BAG_NORMS"|24|"PER_UNIT"|"1 место"||||"B"|1||1|0|1|||||
+"BAG_NORMS"|25|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"BAG_NORMS"|26|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"BAG_NORMS"|27|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|1|||||
+"AIRLINE_BAG_NORMS"|2|"AIRLINE"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
+"AIRLINE_BAG_NORMS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_BAG_NORMS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_BAG_NORMS"|22|"AMOUNT"|"Мест"||||"NU"|2||1|0|1|||||
+"AIRLINE_BAG_NORMS"|19|"BAG_TYPE"|"Багаж"||||"NU"|2||1|0|1|"BAG_TYPES"|"CODE"|||
+"AIRLINE_BAG_NORMS"|7|"CITY_ARV"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|3||1
+"AIRLINE_BAG_NORMS"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|3||
+"AIRLINE_BAG_NORMS"|5|"CITY_DEP"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|2||1
+"AIRLINE_BAG_NORMS"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_BAG_NORMS"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|2||
+"AIRLINE_BAG_NORMS"|12|"CLASS"||0|||"S"|1||1|0|1|"CLASSES"|"CODE"|5||1
+"AIRLINE_BAG_NORMS"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE/CODE_LAT"|5|"RU"|
+"AIRLINE_BAG_NORMS"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE_LAT/CODE"|5||
+"AIRLINE_BAG_NORMS"|15|"CRAFT"||0|||"S"|3||1|0|1|"CRAFTS"|"CODE"|6||1
+"AIRLINE_BAG_NORMS"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|1|"CRAFTS"|"CODE/CODE_LAT"|6|"RU"|
+"AIRLINE_BAG_NORMS"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|1|"CRAFTS"|"CODE_LAT/CODE"|6||
+"AIRLINE_BAG_NORMS"|27|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|1|||||
+"AIRLINE_BAG_NORMS"|25|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"AIRLINE_BAG_NORMS"|14|"FLT_NO"|"Рейс"||||"NU"|5||1|0|1|||||
+"AIRLINE_BAG_NORMS"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"AIRLINE_BAG_NORMS"|26|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"AIRLINE_BAG_NORMS"|20|"NORM_TYPE"||0|||"S"|5||1|0|1|"BAG_NORM_TYPES"|"CODE"|8||1
+"AIRLINE_BAG_NORMS"|21|"NORM_TYPE_VIEW"|"Норма"||"U"||"S"|5||1|0|1|"BAG_NORM_TYPES"|"CODE/CODE_LAT"|8|"RU"|
+"AIRLINE_BAG_NORMS"|21|"NORM_TYPE_VIEW"|"Норма"||"U"||"S"|5||1|0|1|"BAG_NORM_TYPES"|"CODE_LAT/CODE"|8||
+"AIRLINE_BAG_NORMS"|9|"PAX_CAT"|"Кат."||"U"||"S"|3||1|0|1|"PAX_CATS"|"CODE"|||
+"AIRLINE_BAG_NORMS"|24|"PER_UNIT"|"1 место"||||"B"|1||1|0|1|||||
+"AIRLINE_BAG_NORMS"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|1|||||
+"AIRLINE_BAG_NORMS"|10|"SUBCLASS"||0|||"S"|1||1|0|1|"SUBCLS"|"CODE"|4||1
+"AIRLINE_BAG_NORMS"|11|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|1|"SUBCLS"|"CODE/CODE_LAT"|4|"RU"|
+"AIRLINE_BAG_NORMS"|11|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|1|"SUBCLS"|"CODE_LAT/CODE"|4||
+"AIRLINE_BAG_NORMS"|17|"TRIP_TYPE"||0|||"S"|1||1|0|1|"TRIP_TYPES"|"CODE"|7||1
+"AIRLINE_BAG_NORMS"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|1|"TRIP_TYPES"|"CODE/CODE_LAT"|7|"RU"|
+"AIRLINE_BAG_NORMS"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|1|"TRIP_TYPES"|"CODE_LAT/CODE"|7||
+"AIRLINE_BAG_NORMS"|23|"WEIGHT"|"Вес"||||"NU"|3||1|0|1|||||
+"BASIC_BAG_NORMS"|22|"AMOUNT"|"Мест"||||"NU"|2||1|0|1|||||
+"BASIC_BAG_NORMS"|19|"BAG_TYPE"|"Багаж"||||"NU"|2||1|0|1|"BAG_TYPES"|"CODE"|||
+"BASIC_BAG_NORMS"|7|"CITY_ARV"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|3||1
+"BASIC_BAG_NORMS"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
+"BASIC_BAG_NORMS"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|3||
+"BASIC_BAG_NORMS"|5|"CITY_DEP"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|2||1
+"BASIC_BAG_NORMS"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"BASIC_BAG_NORMS"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|2||
+"BASIC_BAG_NORMS"|12|"CLASS"||0|||"S"|1||1|0|1|"CLASSES"|"CODE"|5||1
+"BASIC_BAG_NORMS"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE/CODE_LAT"|5|"RU"|
+"BASIC_BAG_NORMS"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE_LAT/CODE"|5||
+"BASIC_BAG_NORMS"|15|"CRAFT"||0|||"S"|3||1|0|1|"CRAFTS"|"CODE"|6||1
+"BASIC_BAG_NORMS"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|1|"CRAFTS"|"CODE/CODE_LAT"|6|"RU"|
+"BASIC_BAG_NORMS"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|1|"CRAFTS"|"CODE_LAT/CODE"|6||
+"BASIC_BAG_NORMS"|27|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|1|||||
+"BASIC_BAG_NORMS"|25|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"BASIC_BAG_NORMS"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"BASIC_BAG_NORMS"|26|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"BASIC_BAG_NORMS"|20|"NORM_TYPE"||0|||"S"|5||1|0|1|"BAG_NORM_TYPES"|"CODE"|8||1
+"BASIC_BAG_NORMS"|21|"NORM_TYPE_VIEW"|"Норма"||"U"||"S"|5||1|0|1|"BAG_NORM_TYPES"|"CODE/CODE_LAT"|8|"RU"|
+"BASIC_BAG_NORMS"|21|"NORM_TYPE_VIEW"|"Норма"||"U"||"S"|5||1|0|1|"BAG_NORM_TYPES"|"CODE_LAT/CODE"|8||
+"BASIC_BAG_NORMS"|9|"PAX_CAT"|"Кат."||"U"||"S"|3||1|0|1|"PAX_CATS"|"CODE"|||
+"BASIC_BAG_NORMS"|24|"PER_UNIT"|"1 место"||||"B"|1||1|0|1|||||
+"BASIC_BAG_NORMS"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|1|||||
+"BASIC_BAG_NORMS"|17|"TRIP_TYPE"||0|||"S"|1||1|0|1|"TRIP_TYPES"|"CODE"|7||1
+"BASIC_BAG_NORMS"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|1|"TRIP_TYPES"|"CODE/CODE_LAT"|7|"RU"|
+"BASIC_BAG_NORMS"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|1|"TRIP_TYPES"|"CODE_LAT/CODE"|7||
+"BASIC_BAG_NORMS"|23|"WEIGHT"|"Вес"||||"NU"|3||1|0|1|||||
+"TRIP_BAG_NORMS"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"TRIP_BAG_NORMS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"TRIP_BAG_NORMS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_BAG_NORMS"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
+"TRIP_BAG_NORMS"|22|"AMOUNT"|"Мест"||||"NU"|2||1|0|0|||||
+"TRIP_BAG_NORMS"|19|"BAG_TYPE"|"Багаж"||||"NU"|2||1|0|0|"BAG_TYPES"|"CODE"|||
+"TRIP_BAG_NORMS"|7|"CITY_ARV"||0|||"S"|3||1|0|0|"CITIES"|"CODE"|3||1
+"TRIP_BAG_NORMS"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
+"TRIP_BAG_NORMS"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"CITIES"|"CODE_LAT/CODE"|3||
+"TRIP_BAG_NORMS"|5|"CITY_DEP"||0|||"S"|3||1|0|0|"CITIES"|"CODE"|2||1
+"TRIP_BAG_NORMS"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"TRIP_BAG_NORMS"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"CITIES"|"CODE_LAT/CODE"|2||
+"TRIP_BAG_NORMS"|12|"CLASS"||0|||"S"|1||1|0|0|"CLASSES"|"CODE"|5||1
+"TRIP_BAG_NORMS"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|0|"CLASSES"|"CODE/CODE_LAT"|5|"RU"|
+"TRIP_BAG_NORMS"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|0|"CLASSES"|"CODE_LAT/CODE"|5||
+"TRIP_BAG_NORMS"|15|"CRAFT"||0|||"S"|3||1|0|0|"CRAFTS"|"CODE"|6||1
+"TRIP_BAG_NORMS"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|0|"CRAFTS"|"CODE/CODE_LAT"|6|"RU"|
+"TRIP_BAG_NORMS"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|0|"CRAFTS"|"CODE_LAT/CODE"|6||
+"TRIP_BAG_NORMS"|27|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|0|||||
+"TRIP_BAG_NORMS"|25|"FIRST_DATE"|"С"||||"D"|8||1|0|0|||||
+"TRIP_BAG_NORMS"|14|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"TRIP_BAG_NORMS"|1|"ID"||0|||"NU"|9||1|1|0|||||
+"TRIP_BAG_NORMS"|26|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"TRIP_BAG_NORMS"|20|"NORM_TYPE"||0|||"S"|5||1|0|0|"BAG_NORM_TYPES"|"CODE"|8||1
+"TRIP_BAG_NORMS"|21|"NORM_TYPE_VIEW"|"Норма"||"U"||"S"|5||1|0|0|"BAG_NORM_TYPES"|"CODE/CODE_LAT"|8|"RU"|
+"TRIP_BAG_NORMS"|21|"NORM_TYPE_VIEW"|"Норма"||"U"||"S"|5||1|0|0|"BAG_NORM_TYPES"|"CODE_LAT/CODE"|8||
+"TRIP_BAG_NORMS"|9|"PAX_CAT"|"Кат."||"U"||"S"|3||1|0|0|"PAX_CATS"|"CODE"|||
+"TRIP_BAG_NORMS"|24|"PER_UNIT"|"1 место"||||"B"|1||1|0|0|||||
+"TRIP_BAG_NORMS"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|0|||||
+"TRIP_BAG_NORMS"|10|"SUBCLASS"||0|||"S"|1||1|0|0|"SUBCLS"|"CODE"|4||1
+"TRIP_BAG_NORMS"|11|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|0|"SUBCLS"|"CODE/CODE_LAT"|4|"RU"|
+"TRIP_BAG_NORMS"|11|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|0|"SUBCLS"|"CODE_LAT/CODE"|4||
+"TRIP_BAG_NORMS"|17|"TRIP_TYPE"||0|||"S"|1||1|0|0|"TRIP_TYPES"|"CODE"|7||1
+"TRIP_BAG_NORMS"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|0|"TRIP_TYPES"|"CODE/CODE_LAT"|7|"RU"|
+"TRIP_BAG_NORMS"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|0|"TRIP_TYPES"|"CODE_LAT/CODE"|7||
+"TRIP_BAG_NORMS"|23|"WEIGHT"|"Вес"||||"NU"|3||1|0|0|||||
+"TRIP_BAG_NORMS"|50|"POINT_ID"||0|||"NU"|9||0|0|0|||||
+"TRIP_BAG_NORMS"|51|"USE_MARK_FLT"||0|||"B"|1||0|0|0|||||
+"TRIP_BAG_NORMS"|52|"AIRLINE_MARK"||0|||"S"|3||0|0|0|||||
+"TRIP_BAG_NORMS"|53|"FLT_NO_MARK"||0|||"NU"|5||0|0|0|||||
+"BAG_RATES"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"BAG_RATES"|2|"AIRLINE"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
+"BAG_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
+"BAG_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"BAG_RATES"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|1|||||
+"BAG_RATES"|5|"CITY_DEP"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|2||1
+"BAG_RATES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|2||
+"BAG_RATES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"BAG_RATES"|7|"CITY_ARV"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|3||1
+"BAG_RATES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|3||
+"BAG_RATES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
+"BAG_RATES"|9|"PAX_CAT"|"Кат."||"U"||"S"|3||1|0|1|"PAX_CATS"|"CODE"|||
+"BAG_RATES"|10|"SUBCLASS"||0|||"S"|1||1|0|1|"SUBCLS"|"CODE"|4||1
+"BAG_RATES"|11|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|1|"SUBCLS"|"CODE_LAT/CODE"|4||
+"BAG_RATES"|11|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|1|"SUBCLS"|"CODE/CODE_LAT"|4|"RU"|
+"BAG_RATES"|12|"CLASS"||0|||"S"|1||1|0|1|"CLASSES"|"CODE"|5||1
+"BAG_RATES"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE_LAT/CODE"|5||
+"BAG_RATES"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE/CODE_LAT"|5|"RU"|
+"BAG_RATES"|14|"FLT_NO"|"Рейс"||||"NU"|5||1|0|1|||||
+"BAG_RATES"|15|"CRAFT"||0|||"S"|3||1|0|1|"CRAFTS"|"CODE"|6||1
+"BAG_RATES"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|1|"CRAFTS"|"CODE_LAT/CODE"|6||
+"BAG_RATES"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|1|"CRAFTS"|"CODE/CODE_LAT"|6|"RU"|
+"BAG_RATES"|17|"TRIP_TYPE"||0|||"S"|1||1|0|1|"TRIP_TYPES"|"CODE"|7||1
+"BAG_RATES"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|1|"TRIP_TYPES"|"CODE_LAT/CODE"|7||
+"BAG_RATES"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|1|"TRIP_TYPES"|"CODE/CODE_LAT"|7|"RU"|
+"BAG_RATES"|19|"BAG_TYPE"|"Багаж"||||"NU"|2||1|0|1|"BAG_TYPES"|"CODE"|||
+"BAG_RATES"|20|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"BAG_RATES"|21|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"BAG_RATES"|22|"RATE"|"Тариф"||||"NU"|8|2|1|0|1|||||
+"BAG_RATES"|23|"RATE_CUR"||0|||"S"|3||1|0|1|"CURRENCY"|"CODE"|8||1
+"BAG_RATES"|24|"RATE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|1|"CURRENCY"|"CODE_LAT/CODE"|8||
+"BAG_RATES"|24|"RATE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|1|"CURRENCY"|"CODE/CODE_LAT"|8|"RU"|
+"BAG_RATES"|25|"MIN_WEIGHT"|"Мин. вес"||||"NU"|4||1|0|1|||||
+"BAG_RATES"|26|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|1|||||
+"AIRLINE_BAG_RATES"|2|"AIRLINE"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
+"AIRLINE_BAG_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_BAG_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_BAG_RATES"|19|"BAG_TYPE"|"Багаж"||||"NU"|2||1|0|1|"BAG_TYPES"|"CODE"|||
+"AIRLINE_BAG_RATES"|7|"CITY_ARV"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|3||1
+"AIRLINE_BAG_RATES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
+"AIRLINE_BAG_RATES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|3||
+"AIRLINE_BAG_RATES"|5|"CITY_DEP"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|2||1
+"AIRLINE_BAG_RATES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_BAG_RATES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|2||
+"AIRLINE_BAG_RATES"|12|"CLASS"||0|||"S"|1||1|0|1|"CLASSES"|"CODE"|5||1
+"AIRLINE_BAG_RATES"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE/CODE_LAT"|5|"RU"|
+"AIRLINE_BAG_RATES"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE_LAT/CODE"|5||
+"AIRLINE_BAG_RATES"|15|"CRAFT"||0|||"S"|3||1|0|1|"CRAFTS"|"CODE"|6||1
+"AIRLINE_BAG_RATES"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|1|"CRAFTS"|"CODE/CODE_LAT"|6|"RU"|
+"AIRLINE_BAG_RATES"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|1|"CRAFTS"|"CODE_LAT/CODE"|6||
+"AIRLINE_BAG_RATES"|26|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|1|||||
+"AIRLINE_BAG_RATES"|20|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"AIRLINE_BAG_RATES"|14|"FLT_NO"|"Рейс"||||"NU"|5||1|0|1|||||
+"AIRLINE_BAG_RATES"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"AIRLINE_BAG_RATES"|21|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"AIRLINE_BAG_RATES"|25|"MIN_WEIGHT"|"Мин. вес"||||"NU"|4||1|0|1|||||
+"AIRLINE_BAG_RATES"|9|"PAX_CAT"|"Кат."||"U"||"S"|3||1|0|1|"PAX_CATS"|"CODE"|||
+"AIRLINE_BAG_RATES"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|1|||||
+"AIRLINE_BAG_RATES"|22|"RATE"|"Тариф"||||"NU"|8|2|1|0|1|||||
+"AIRLINE_BAG_RATES"|23|"RATE_CUR"||0|||"S"|3||1|0|1|"CURRENCY"|"CODE"|8||1
+"AIRLINE_BAG_RATES"|24|"RATE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|1|"CURRENCY"|"CODE/CODE_LAT"|8|"RU"|
+"AIRLINE_BAG_RATES"|24|"RATE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|1|"CURRENCY"|"CODE_LAT/CODE"|8||
+"AIRLINE_BAG_RATES"|10|"SUBCLASS"||0|||"S"|1||1|0|1|"SUBCLS"|"CODE"|4||1
+"AIRLINE_BAG_RATES"|11|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|1|"SUBCLS"|"CODE/CODE_LAT"|4|"RU"|
+"AIRLINE_BAG_RATES"|11|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|1|"SUBCLS"|"CODE_LAT/CODE"|4||
+"AIRLINE_BAG_RATES"|17|"TRIP_TYPE"||0|||"S"|1||1|0|1|"TRIP_TYPES"|"CODE"|7||1
+"AIRLINE_BAG_RATES"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|1|"TRIP_TYPES"|"CODE/CODE_LAT"|7|"RU"|
+"AIRLINE_BAG_RATES"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|1|"TRIP_TYPES"|"CODE_LAT/CODE"|7||
+"BASIC_BAG_RATES"|19|"BAG_TYPE"|"Багаж"||||"NU"|2||1|0|1|"BAG_TYPES"|"CODE"|||
+"BASIC_BAG_RATES"|7|"CITY_ARV"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|3||1
+"BASIC_BAG_RATES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
+"BASIC_BAG_RATES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|3||
+"BASIC_BAG_RATES"|5|"CITY_DEP"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|2||1
+"BASIC_BAG_RATES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"BASIC_BAG_RATES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|2||
+"BASIC_BAG_RATES"|12|"CLASS"||0|||"S"|1||1|0|1|"CLASSES"|"CODE"|5||1
+"BASIC_BAG_RATES"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE/CODE_LAT"|5|"RU"|
+"BASIC_BAG_RATES"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE_LAT/CODE"|5||
+"BASIC_BAG_RATES"|15|"CRAFT"||0|||"S"|3||1|0|1|"CRAFTS"|"CODE"|6||1
+"BASIC_BAG_RATES"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|1|"CRAFTS"|"CODE/CODE_LAT"|6|"RU"|
+"BASIC_BAG_RATES"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|1|"CRAFTS"|"CODE_LAT/CODE"|6||
+"BASIC_BAG_RATES"|26|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|1|||||
+"BASIC_BAG_RATES"|20|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"BASIC_BAG_RATES"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"BASIC_BAG_RATES"|21|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"BASIC_BAG_RATES"|25|"MIN_WEIGHT"|"Мин. вес"||||"NU"|4||1|0|1|||||
+"BASIC_BAG_RATES"|9|"PAX_CAT"|"Кат."||"U"||"S"|3||1|0|1|"PAX_CATS"|"CODE"|||
+"BASIC_BAG_RATES"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|1|||||
+"BASIC_BAG_RATES"|22|"RATE"|"Тариф"||||"NU"|8|2|1|0|1|||||
+"BASIC_BAG_RATES"|23|"RATE_CUR"||0|||"S"|3||1|0|1|"CURRENCY"|"CODE"|8||1
+"BASIC_BAG_RATES"|24|"RATE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|1|"CURRENCY"|"CODE/CODE_LAT"|8|"RU"|
+"BASIC_BAG_RATES"|24|"RATE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|1|"CURRENCY"|"CODE_LAT/CODE"|8||
+"BASIC_BAG_RATES"|17|"TRIP_TYPE"||0|||"S"|1||1|0|1|"TRIP_TYPES"|"CODE"|7||1
+"BASIC_BAG_RATES"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|1|"TRIP_TYPES"|"CODE/CODE_LAT"|7|"RU"|
+"BASIC_BAG_RATES"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|1|"TRIP_TYPES"|"CODE_LAT/CODE"|7||
+"TRIP_BAG_RATES"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"TRIP_BAG_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"TRIP_BAG_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"TRIP_BAG_RATES"|19|"BAG_TYPE"|"Багаж"||||"NU"|2||1|0|0|"BAG_TYPES"|"CODE"|||
+"TRIP_BAG_RATES"|7|"CITY_ARV"||0|||"S"|3||1|0|0|"CITIES"|"CODE"|3||1
+"TRIP_BAG_RATES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
+"TRIP_BAG_RATES"|53|"FLT_NO_MARK"||0|||"NU"|5||0|0|0|||||
+"VALUE_BAG_TAXES"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"VALUE_BAG_TAXES"|2|"AIRLINE"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
+"VALUE_BAG_TAXES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
+"VALUE_BAG_TAXES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"VALUE_BAG_TAXES"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|1|||||
+"VALUE_BAG_TAXES"|5|"CITY_DEP"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|2||1
+"VALUE_BAG_TAXES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|2||
+"VALUE_BAG_TAXES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"VALUE_BAG_TAXES"|7|"CITY_ARV"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|3||1
+"VALUE_BAG_TAXES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|3||
+"VALUE_BAG_TAXES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
+"VALUE_BAG_TAXES"|9|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"VALUE_BAG_TAXES"|10|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"VALUE_BAG_TAXES"|11|"TAX"|"Сбор"||||"NU"|4|1|1|0|1|||||
+"VALUE_BAG_TAXES"|12|"MIN_VALUE"|"Мин. ценость"||||"NU"|8|2|1|0|1|||||
+"TRIP_BAG_RATES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"CITIES"|"CODE_LAT/CODE"|3||
+"TRIP_BAG_RATES"|5|"CITY_DEP"||0|||"S"|3||1|0|0|"CITIES"|"CODE"|2||1
+"TRIP_BAG_RATES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"TRIP_BAG_RATES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"CITIES"|"CODE_LAT/CODE"|2||
+"TRIP_BAG_RATES"|12|"CLASS"||0|||"S"|1||1|0|0|"CLASSES"|"CODE"|5||1
+"TRIP_BAG_RATES"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|0|"CLASSES"|"CODE/CODE_LAT"|5|"RU"|
+"TRIP_BAG_RATES"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|0|"CLASSES"|"CODE_LAT/CODE"|5||
+"TRIP_BAG_RATES"|15|"CRAFT"||0|||"S"|3||1|0|0|"CRAFTS"|"CODE"|6||1
+"TRIP_BAG_RATES"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|0|"CRAFTS"|"CODE/CODE_LAT"|6|"RU"|
+"VALUE_BAG_TAXES"|13|"MIN_VALUE_CUR"||0|||"S"|3||1|0|1|"CURRENCY"|"CODE"|4||1
+"VALUE_BAG_TAXES"|14|"MIN_VALUE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|1|"CURRENCY"|"CODE_LAT/CODE"|4||
+"VALUE_BAG_TAXES"|14|"MIN_VALUE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|1|"CURRENCY"|"CODE/CODE_LAT"|4|"RU"|
+"VALUE_BAG_TAXES"|15|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|1|||||
+"AIRLINE_VALUE_BAG_TAXES"|2|"AIRLINE"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
+"AIRLINE_VALUE_BAG_TAXES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"TRIP_BAG_RATES"|16|"CRAFT_VIEW"|"ВС"||"U"||"S"|3||1|0|0|"CRAFTS"|"CODE_LAT/CODE"|6||
+"TRIP_BAG_RATES"|26|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|0|||||
+"TRIP_BAG_RATES"|20|"FIRST_DATE"|"С"||||"D"|8||1|0|0|||||
+"TRIP_BAG_RATES"|14|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"TRIP_BAG_RATES"|1|"ID"||0|||"NU"|9||1|1|0|||||
+"TRIP_BAG_RATES"|21|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"TRIP_BAG_RATES"|25|"MIN_WEIGHT"|"Мин. вес"||||"NU"|4||1|0|0|||||
+"TRIP_BAG_RATES"|9|"PAX_CAT"|"Кат."||"U"||"S"|3||1|0|0|"PAX_CATS"|"CODE"|||
+"TRIP_BAG_RATES"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|0|||||
+"TRIP_BAG_RATES"|22|"RATE"|"Тариф"||||"NU"|8|2|1|0|0|||||
+"TRIP_BAG_RATES"|23|"RATE_CUR"||0|||"S"|3||1|0|0|"CURRENCY"|"CODE"|8||1
+"TRIP_BAG_RATES"|24|"RATE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|0|"CURRENCY"|"CODE/CODE_LAT"|8|"RU"|
+"TRIP_BAG_RATES"|24|"RATE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|0|"CURRENCY"|"CODE_LAT/CODE"|8||
+"TRIP_BAG_RATES"|10|"SUBCLASS"||0|||"S"|1||1|0|0|"SUBCLS"|"CODE"|4||1
+"AIRLINE_VALUE_BAG_TAXES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_VALUE_BAG_TAXES"|7|"CITY_ARV"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|3||1
+"AIRLINE_VALUE_BAG_TAXES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
+"AIRLINE_VALUE_BAG_TAXES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|3||
+"AIRLINE_VALUE_BAG_TAXES"|5|"CITY_DEP"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|2||1
+"AIRLINE_VALUE_BAG_TAXES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_VALUE_BAG_TAXES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|2||
+"AIRLINE_VALUE_BAG_TAXES"|15|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|1|||||
+"AIRLINE_VALUE_BAG_TAXES"|9|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"AIRLINE_VALUE_BAG_TAXES"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"AIRLINE_VALUE_BAG_TAXES"|10|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"AIRLINE_VALUE_BAG_TAXES"|12|"MIN_VALUE"|"Мин. ценость"||||"NU"|8|2|1|0|1|||||
+"AIRLINE_VALUE_BAG_TAXES"|13|"MIN_VALUE_CUR"||0|||"S"|3||1|0|1|"CURRENCY"|"CODE"|4||1
+"AIRLINE_VALUE_BAG_TAXES"|14|"MIN_VALUE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|1|"CURRENCY"|"CODE/CODE_LAT"|4|"RU"|
+"AIRLINE_VALUE_BAG_TAXES"|14|"MIN_VALUE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|1|"CURRENCY"|"CODE_LAT/CODE"|4||
+"AIRLINE_VALUE_BAG_TAXES"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|1|||||
+"AIRLINE_VALUE_BAG_TAXES"|11|"TAX"|"Сбор"||||"NU"|4|1|1|0|1|||||
+"BASIC_VALUE_BAG_TAXES"|7|"CITY_ARV"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|3||1
+"BASIC_VALUE_BAG_TAXES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
+"BASIC_VALUE_BAG_TAXES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|3||
+"BASIC_VALUE_BAG_TAXES"|5|"CITY_DEP"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|2||1
+"BASIC_VALUE_BAG_TAXES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"BASIC_VALUE_BAG_TAXES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|1|"CITIES"|"CODE_LAT/CODE"|2||
+"BASIC_VALUE_BAG_TAXES"|15|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|1|||||
+"BASIC_VALUE_BAG_TAXES"|9|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"BASIC_VALUE_BAG_TAXES"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"BASIC_VALUE_BAG_TAXES"|10|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"BASIC_VALUE_BAG_TAXES"|12|"MIN_VALUE"|"Мин. ценость"||||"NU"|8|2|1|0|1|||||
+"BASIC_VALUE_BAG_TAXES"|13|"MIN_VALUE_CUR"||0|||"S"|3||1|0|1|"CURRENCY"|"CODE"|4||1
+"BASIC_VALUE_BAG_TAXES"|14|"MIN_VALUE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|1|"CURRENCY"|"CODE/CODE_LAT"|4|"RU"|
+"TRIP_BAG_RATES"|11|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|0|"SUBCLS"|"CODE/CODE_LAT"|4|"RU"|
+"TRIP_BAG_RATES"|11|"SUBCLASS_VIEW"|"ПКл."||"U"||"S"|1||1|0|0|"SUBCLS"|"CODE_LAT/CODE"|4||
+"TRIP_BAG_RATES"|17|"TRIP_TYPE"||0|||"S"|1||1|0|0|"TRIP_TYPES"|"CODE"|7||1
+"TRIP_BAG_RATES"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|0|"TRIP_TYPES"|"CODE/CODE_LAT"|7|"RU"|
+"BASIC_VALUE_BAG_TAXES"|14|"MIN_VALUE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|1|"CURRENCY"|"CODE_LAT/CODE"|4||
+"BASIC_VALUE_BAG_TAXES"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|1|||||
+"BASIC_VALUE_BAG_TAXES"|11|"TAX"|"Сбор"||||"NU"|4|1|1|0|1|||||
+"TRIP_VALUE_BAG_TAXES"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"TRIP_VALUE_BAG_TAXES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"TRIP_VALUE_BAG_TAXES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"TRIP_VALUE_BAG_TAXES"|7|"CITY_ARV"||0|||"S"|3||1|0|0|"CITIES"|"CODE"|3||1
+"TRIP_VALUE_BAG_TAXES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
+"TRIP_VALUE_BAG_TAXES"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"CITIES"|"CODE_LAT/CODE"|3||
+"TRIP_VALUE_BAG_TAXES"|5|"CITY_DEP"||0|||"S"|3||1|0|0|"CITIES"|"CODE"|2||1
+"TRIP_VALUE_BAG_TAXES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"CITIES"|"CODE/CODE_LAT"|2|"RU"|
+"TRIP_VALUE_BAG_TAXES"|6|"CITY_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"CITIES"|"CODE_LAT/CODE"|2||
+"TRIP_BAG_RATES"|18|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|0|"TRIP_TYPES"|"CODE_LAT/CODE"|7||
+"TRIP_VALUE_BAG_TAXES"|15|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|0|||||
+"TRIP_BAG_RATES"|50|"POINT_ID"||0|||"NU"|9||0|0|0|||||
+"TRIP_BAG_RATES"|51|"USE_MARK_FLT"||0|||"B"|1||0|0|0|||||
+"TRIP_BAG_RATES"|52|"AIRLINE_MARK"||0|||"S"|3||0|0|0|||||
+"TRIP_VALUE_BAG_TAXES"|10|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"TRIP_VALUE_BAG_TAXES"|12|"MIN_VALUE"|"Мин. ценость"||||"NU"|8|2|1|0|0|||||
+"TRIP_VALUE_BAG_TAXES"|13|"MIN_VALUE_CUR"||0|||"S"|3||1|0|0|"CURRENCY"|"CODE"|4||1
+"TRIP_VALUE_BAG_TAXES"|14|"MIN_VALUE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|0|"CURRENCY"|"CODE/CODE_LAT"|4|"RU"|
+"TRIP_VALUE_BAG_TAXES"|14|"MIN_VALUE_CUR_VIEW"|"Валюта"||"U"||"S"|3||1|0|0|"CURRENCY"|"CODE_LAT/CODE"|4||
+"TRIP_VALUE_BAG_TAXES"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|0|||||
+"TRIP_VALUE_BAG_TAXES"|11|"TAX"|"Сбор"||||"NU"|4|1|1|0|0|||||
+"TRIP_VALUE_BAG_TAXES"|50|"POINT_ID"||0|||"NU"|9||0|0|0|||||
+"TRIP_VALUE_BAG_TAXES"|51|"USE_MARK_FLT"||0|||"B"|1||0|0|0|||||
+"TRIP_VALUE_BAG_TAXES"|9|"FIRST_DATE"|"С"||||"D"|8||1|0|0|||||
+"TRIP_VALUE_BAG_TAXES"|1|"ID"||0|||"NU"|9||1|1|0|||||
+"TRIP_VALUE_BAG_TAXES"|52|"AIRLINE_MARK"||0|||"S"|3||0|0|0|||||
+"EXCHANGE_RATES"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"EXCHANGE_RATES"|2|"AIRLINE"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
+"EXCHANGE_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
+"EXCHANGE_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"EXCHANGE_RATES"|4|"RATE1"|"1-я валюта"||||"NU"|6||1|0|1|||||
+"EXCHANGE_RATES"|5|"CUR1"||0|||"S"|3||0|0|1|"CURRENCY"|"CODE"|2||1
+"EXCHANGE_RATES"|6|"CUR1_VIEW"|"Код"||"U"||"S"|3||0|0|1|"CURRENCY"|"CODE_LAT/CODE"|2||
+"EXCHANGE_RATES"|6|"CUR1_VIEW"|"Код"||"U"||"S"|3||0|0|1|"CURRENCY"|"CODE/CODE_LAT"|2|"RU"|
+"EXCHANGE_RATES"|7|"RATE2"|"2-я валюта"||||"NU"|10|4|1|0|1|||||
+"EXCHANGE_RATES"|8|"CUR2"||0|||"S"|3||0|0|1|"CURRENCY"|"CODE"|3||1
+"EXCHANGE_RATES"|9|"CUR2_VIEW"|"Код"||"U"||"S"|3||0|0|1|"CURRENCY"|"CODE_LAT/CODE"|3||
+"EXCHANGE_RATES"|9|"CUR2_VIEW"|"Код"||"U"||"S"|3||0|0|1|"CURRENCY"|"CODE/CODE_LAT"|3|"RU"|
+"EXCHANGE_RATES"|10|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"EXCHANGE_RATES"|11|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"EXCHANGE_RATES"|12|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|1|||||
+"AIRLINE_EXCHANGE_RATES"|2|"AIRLINE"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
+"AIRLINE_EXCHANGE_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINE_EXCHANGE_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
+"AIRLINE_EXCHANGE_RATES"|5|"CUR1"||0|||"S"|3||0|0|1|"CURRENCY"|"CODE"|2||1
+"AIRLINE_EXCHANGE_RATES"|6|"CUR1_VIEW"|"Код"||"U"||"S"|3||0|0|1|"CURRENCY"|"CODE/CODE_LAT"|2|"RU"|
+"AIRLINE_EXCHANGE_RATES"|6|"CUR1_VIEW"|"Код"||"U"||"S"|3||0|0|1|"CURRENCY"|"CODE_LAT/CODE"|2||
+"AIRLINE_EXCHANGE_RATES"|8|"CUR2"||0|||"S"|3||0|0|1|"CURRENCY"|"CODE"|3||1
+"AIRLINE_EXCHANGE_RATES"|9|"CUR2_VIEW"|"Код"||"U"||"S"|3||0|0|1|"CURRENCY"|"CODE/CODE_LAT"|3|"RU"|
+"AIRLINE_EXCHANGE_RATES"|9|"CUR2_VIEW"|"Код"||"U"||"S"|3||0|0|1|"CURRENCY"|"CODE_LAT/CODE"|3||
+"AIRLINE_EXCHANGE_RATES"|12|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|1|||||
+"AIRLINE_EXCHANGE_RATES"|10|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"AIRLINE_EXCHANGE_RATES"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"AIRLINE_EXCHANGE_RATES"|11|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"AIRLINE_EXCHANGE_RATES"|4|"RATE1"|"1-я валюта"||||"NU"|6||1|0|1|||||
+"AIRLINE_EXCHANGE_RATES"|7|"RATE2"|"2-я валюта"||||"NU"|10|4|1|0|1|||||
+"BASIC_EXCHANGE_RATES"|5|"CUR1"||0|||"S"|3||0|0|1|"CURRENCY"|"CODE"|2||1
+"BASIC_EXCHANGE_RATES"|6|"CUR1_VIEW"|"Код"||"U"||"S"|3||0|0|1|"CURRENCY"|"CODE/CODE_LAT"|2|"RU"|
+"BASIC_EXCHANGE_RATES"|6|"CUR1_VIEW"|"Код"||"U"||"S"|3||0|0|1|"CURRENCY"|"CODE_LAT/CODE"|2||
+"BASIC_EXCHANGE_RATES"|8|"CUR2"||0|||"S"|3||0|0|1|"CURRENCY"|"CODE"|3||1
+"BASIC_EXCHANGE_RATES"|9|"CUR2_VIEW"|"Код"||"U"||"S"|3||0|0|1|"CURRENCY"|"CODE/CODE_LAT"|3|"RU"|
+"BASIC_EXCHANGE_RATES"|9|"CUR2_VIEW"|"Код"||"U"||"S"|3||0|0|1|"CURRENCY"|"CODE_LAT/CODE"|3||
+"BASIC_EXCHANGE_RATES"|12|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|1|||||
+"BASIC_EXCHANGE_RATES"|10|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
+"BASIC_EXCHANGE_RATES"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"BASIC_EXCHANGE_RATES"|11|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"BASIC_EXCHANGE_RATES"|4|"RATE1"|"1-я валюта"||||"NU"|6||1|0|1|||||
+"BASIC_EXCHANGE_RATES"|7|"RATE2"|"2-я валюта"||||"NU"|10|4|1|0|1|||||
+"TRIP_EXCHANGE_RATES"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"TRIP_EXCHANGE_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"TRIP_EXCHANGE_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"TRIP_EXCHANGE_RATES"|5|"CUR1"||0|||"S"|3||0|0|0|"CURRENCY"|"CODE"|2||1
+"TRIP_EXCHANGE_RATES"|6|"CUR1_VIEW"|"Код"||"U"||"S"|3||0|0|0|"CURRENCY"|"CODE/CODE_LAT"|2|"RU"|
+"TRIP_EXCHANGE_RATES"|6|"CUR1_VIEW"|"Код"||"U"||"S"|3||0|0|0|"CURRENCY"|"CODE_LAT/CODE"|2||
+"TRIP_EXCHANGE_RATES"|8|"CUR2"||0|||"S"|3||0|0|0|"CURRENCY"|"CODE"|3||1
+"TRIP_EXCHANGE_RATES"|9|"CUR2_VIEW"|"Код"||"U"||"S"|3||0|0|0|"CURRENCY"|"CODE/CODE_LAT"|3|"RU"|
+"TRIP_EXCHANGE_RATES"|9|"CUR2_VIEW"|"Код"||"U"||"S"|3||0|0|0|"CURRENCY"|"CODE_LAT/CODE"|3||
+"TRIP_EXCHANGE_RATES"|12|"EXTRA"|"Дополнительно"|50|||"S"|2000||1|0|0|||||
+"TRIP_EXCHANGE_RATES"|10|"FIRST_DATE"|"С"||||"D"|8||1|0|0|||||
+"TRIP_EXCHANGE_RATES"|1|"ID"||0|||"NU"|9||1|1|0|||||
+"TRIP_EXCHANGE_RATES"|11|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"TRIP_EXCHANGE_RATES"|4|"RATE1"|"1-я валюта"||||"NU"|6||1|0|0|||||
+"TRIP_EXCHANGE_RATES"|7|"RATE2"|"2-я валюта"||||"NU"|10|4|1|0|0|||||
+"TRIP_EXCHANGE_RATES"|50|"POINT_ID"||0|||"NU"|9||0|0|0|||||
+"TRIP_EXCHANGE_RATES"|51|"USE_MARK_FLT"||0|||"B"|1||0|0|0|||||
+"TRIP_EXCHANGE_RATES"|52|"AIRLINE_MARK"||0|||"S"|3||0|0|0|||||
+"AIRLINES"|1|"CODE"|"Код а/к"||"U"||"S"|3||0|0|1|||||
+"AIRLINES"|1|"CODE"|"Код а/к"||"U"||"S"|3||0|0|0||||"RU"|
+"AIRLINES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|3||1|0|0|||||
+"AIRLINES"|3|"CODE_ICAO"|"Код ИКАО"||"U"||"S"|3||1|0|1|||||
+"AIRLINES"|3|"CODE_ICAO"|"Код ИКАО"||"U"||"S"|3||1|0|0||||"RU"|
+"AIRLINES"|4|"CODE_ICAO_LAT"|"Код ИКАО лат."||"U"||"S"|3||1|0|0|||||
+"AIRLINES"|5|"AIRCODE"|"Расч. код"||"U"||"S"|3||1|0|0|||||
+"AIRLINES"|6|"SHORT_NAME"|"Сокр. название"|10|"U"||"S"|50||1|0|1|||||
+"AIRLINES"|6|"SHORT_NAME"|"Сокр. название"|10|"U"||"S"|50||1|0|0||||"RU"|
+"AIRLINES"|7|"SHORT_NAME_LAT"|"Сокр. название (лат.)"|10|"U"||"S"|50||1|0|0|||||
+"AIRLINES"|8|"NAME"|"Название а/к"|25|"U"||"S"|50||0|0|1|||||
+"AIRLINES"|8|"NAME"|"Название а/к"|25|"U"||"S"|50||0|0|0||||"RU"|
+"AIRLINES"|9|"NAME_LAT"|"Название а/к (лат.)"|25|"U"||"S"|50||1|0|0|||||
+"AIRLINES"|10|"CITY"||0|||"S"|3||1|0|0|"CITIES"|"CODE"|1||1
+"AIRLINES"|11|"CITY_VIEW"|"Код города"||"U"||"S"|3||1|0|0|"CITIES"|"CODE_LAT/CODE"|1||
+"AIRLINES"|11|"CITY_VIEW"|"Код города"||"U"||"S"|3||1|0|0|"CITIES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRLINES"|12|"ID"||0|||"NU"|9||0|1|1|||||
+"COUNTRIES"|1|"CODE"|"Код гос-ва"||"U"||"S"|2||0|0|1|||||
+"COUNTRIES"|1|"CODE"|"Код гос-ва"||"U"||"S"|2||0|0|0||||"RU"|
+"COUNTRIES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|2||1|0|0|||||
+"COUNTRIES"|3|"CODE_ISO"|"Код ISO"||"U"||"S"|3||1|0|0|||||
+"COUNTRIES"|4|"NAME"|"Название гос-ва"|15|"U"||"S"|50||0|0|1|||||
+"COUNTRIES"|4|"NAME"|"Название гос-ва"|15|"U"||"S"|50||0|0|0||||"RU"|
+"COUNTRIES"|5|"NAME_LAT"|"Название гос-ва (лат.)"|15|"U"||"S"|50||1|0|0|||||
+"COUNTRIES"|6|"ID"||0|||"NU"|9||0|1|1|||||
+"PACTS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"PACTS"|2|"AIRLINE"||0|||"S"|3||1|0|1|"AIRLINES"|"CODE"|1||1
+"PACTS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
+"PACTS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|1|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"PACTS"|4|"AIRP"||0|||"S"|3||0|0|1|"AIRPS"|"CODE"|2||1
+"PACTS"|5|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|1|"AIRPS"|"CODE_LAT/CODE"|2||
+"PACTS"|5|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|1|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"PACTS"|6|"FIRST_DATE"|"С"||||"D"|8||0|0|0|||||
+"PACTS"|7|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
+"PACTS"|8|"DESCR"|"№ договора"|50|||"S"|50||0|0|1|||||
+"AIRPS"|1|"CODE"|"Код а/п"||"U"||"S"|3||0|0|1|||||
+"AIRPS"|1|"CODE"|"Код а/п"||"U"||"S"|3||0|0|0||||"RU"|
+"AIRPS"|2|"CODE_LAT"|"Код лат."||"U"||"S"|3||1|0|0|||||
+"AIRPS"|3|"CODE_ICAO"|"Код ИКАО"||"U"||"S"|4||1|0|1|||||
+"AIRPS"|3|"CODE_ICAO"|"Код ИКАО"||"U"||"S"|4||1|0|0||||"RU"|
+"AIRPS"|4|"CODE_ICAO_LAT"|"Код ИКАО лат."||"U"||"S"|4||1|0|0|||||
+"AIRPS"|5|"CITY"||0|||"S"|3||0|0|0|"CITIES"|"CODE"|1||1
+"AIRPS"|6|"CITY_VIEW"|"Код города"||"U"||"S"|3||0|0|0|"CITIES"|"CODE_LAT/CODE"|1||
+"AIRPS"|6|"CITY_VIEW"|"Код города"||"U"||"S"|3||0|0|0|"CITIES"|"CODE/CODE_LAT"|1|"RU"|
+"AIRPS"|7|"CITY_NAME_VIEW"|"Название города"|15|"U"||"S"|50||0|0|0|"CITIES"|"NAME_LAT/NAME"|1||
+"AIRPS"|7|"CITY_NAME_VIEW"|"Название города"|15|"U"||"S"|50||0|0|0|"CITIES"|"NAME/NAME_LAT"|1|"RU"|
+"AIRPS"|8|"NAME"|"Название а/п"|15|"U"||"S"|50||0|0|1|||||
+"AIRPS"|8|"NAME"|"Название а/п"|15|"U"||"S"|50||0|0|0||||"RU"|
+"AIRPS"|9|"NAME_LAT"|"Название а/п (лат.)"|15|"U"||"S"|50||1|0|0|||||
+"AIRPS"|10|"ID"||0|||"NU"|9||0|1|1|||||
+"SUBCLS"|1|"CODE"|"Код подкласса"||"U"||"S"|1||0|1|0|||||
+"SUBCLS"|2|"CODE_LAT"|"Код подкласса (лат.)"||"U"||"S"|1||1|0|0|||||
+"SUBCLS"|3|"CLASS"||0|||"S"|1||1|0|0|"CLASSES"|"CODE"|1||1
+"SUBCLS"|4|"CLASS_VIEW"|"Код класса"||"U"||"S"|1||1|0|0|"CLASSES"|"CODE_LAT/CODE"|1||
+"SUBCLS"|4|"CLASS_VIEW"|"Код класса"||"U"||"S"|1||1|0|0|"CLASSES"|"CODE/CODE_LAT"|1|"RU"|
+"CLASSES"|1|"CODE"|"Код класса"||"U"||"S"|1||0|1|0|||||
+"CLASSES"|2|"CODE_LAT"|"Код класса (лат.)"||"U"||"S"|1||0|0|0|||||
+"CLASSES"|3|"NAME"|"Название класса"|10|"U"||"S"|20||0|0|0|||||
+"CLASSES"|4|"NAME_LAT"|"Название класса (лат.)"|15|"U"||"S"|20||1|0|0|||||
+"CRAFTS"|1|"CODE"|"Код BC"||"U"||"S"|3||0|0|1|||||
+"CRAFTS"|1|"CODE"|"Код BC"||"U"||"S"|3||0|0|0||||"RU"|
+"CRAFTS"|2|"CODE_LAT"|"Код лат."||"U"||"S"|3||1|0|0|||||
+"CRAFTS"|3|"CODE_ICAO"|"Код ИКАО"||"U"||"S"|4||1|0|1|||||
+"CRAFTS"|3|"CODE_ICAO"|"Код ИКАО"||"U"||"S"|4||1|0|0||||"RU"|
+"CRAFTS"|4|"CODE_ICAO_LAT"|"Код ИКАО лат."||"U"||"S"|4||1|0|0|||||
+"CRAFTS"|5|"NAME"|"Название BC"|10|"U"||"S"|20||0|0|1|||||
+"CRAFTS"|5|"NAME"|"Название BC"|10|"U"||"S"|20||0|0|0||||"RU"|
+"CRAFTS"|6|"NAME_LAT"|"Название BC (лат.)"|10|"U"||"S"|20||1|0|0|||||
+"CRAFTS"|7|"ID"||0|||"NU"|9||0|1|1|||||
+"SEAT_TYPES"|1|"CODE"|"Код"||"U"||"S"|4||0|1|0|||||
+"SEAT_TYPES"|2|"NAME"|"Тип места"||||"S"|50||0|0|0|||||
+"SEAT_TYPES"|3|"NAME_LAT"|"Тип места (лат.)"||||"S"|50||1|0|0|||||
+"BAG_TYPES"|1|"ID"||0|||"NU"|2||0|1|1|||||
+"BAG_TYPES"|2|"CODE"|"Код"||||"NU"|2||0|0|0|||||
+"BAG_TYPES"|3|"NAME"|"Название"|30|||"S"|50||0|0|1|||||
+"BAG_TYPES"|3|"NAME"|"Название"|30|||"S"|50||0|0|0||||"RU"|
+"BAG_TYPES"|4|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
+"BAG_TYPES"|5|"DESCR"|"Описание"|50|||"S"|2000||1|0|1|||||
+"BAG_TYPES"|5|"DESCR"|"Описание"|50|||"S"|2000||1|0|0||||"RU"|
+"BAG_TYPES"|6|"DESCR_LAT"|"Описание (лат.)"|50|||"S"|2000||1|0|0|||||
+"TAG_COLORS"|1|"CODE"|"Код цвета"||"U"||"S"|2||0|1|1|||||
+"TAG_COLORS"|1|"CODE"|"Код цвета"||"U"||"S"|2||0|1|0||||"RU"|
+"TAG_COLORS"|2|"CODE_LAT"|"Код цвета (лат.)"||"U"||"S"|2||1|0|0|||||
+"TAG_COLORS"|3|"NAME"|"Название цвета"|20|||"S"|20||0|0|1|||||
+"TAG_COLORS"|3|"NAME"|"Название цвета"|20|||"S"|20||0|0|0||||"RU"|
+"TAG_COLORS"|4|"NAME_LAT"|"Название цвета (лат.)"|20|||"S"|20||1|0|0|||||
+"TAG_COLORS"|5|"ID"||0|||"NU"|9||0|0|1|||||
+"BP_TYPES"|1|"CODE"|"Тип"||"U"||"S"|5||0|1|0|||||
+"BP_TYPES"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"BP_TYPES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"BP_TYPES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"BP_TYPES"|4|"AIRP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"BP_TYPES"|5|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"BP_TYPES"|5|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"BP_TYPES"|6|"NAME"|"Название"|25|||"S"|50||0|0|0|||||
+"BP_TYPES"|7|"ID"||0|||"NU"|9||0|0|1|||||
+"TAG_TYPES"|1|"CODE"|"Тип"||"U"||"S"|5||0|1|0|||||
+"TAG_TYPES"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"TAG_TYPES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"TAG_TYPES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"TAG_TYPES"|4|"AIRP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"TAG_TYPES"|5|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"TAG_TYPES"|5|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"TAG_TYPES"|6|"NAME"|"Название"|25|||"S"|50||0|0|0|||||
+"TAG_TYPES"|7|"NO_LEN"|"Длина номера"||||"NU"|2||0|0|0|||||
+"TAG_TYPES"|8|"ID"||0|||"NU"|9||0|0|1|||||
+"TAG_TYPES_PRINTABLE"|1|"CODE"|"Тип"||"U"||"S"|5||0|1|0|||||
+"TAG_TYPES_PRINTABLE"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"TAG_TYPES_PRINTABLE"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"TAG_TYPES_PRINTABLE"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"TAG_TYPES_PRINTABLE"|4|"AIRP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
+"TAG_TYPES_PRINTABLE"|5|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
+"TAG_TYPES_PRINTABLE"|5|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
+"TAG_TYPES_PRINTABLE"|6|"NAME"|"Название"|25|||"S"|50||0|0|0|||||
+"TAG_TYPES_PRINTABLE"|7|"ID"||0|||"NU"|9||0|0|1|||||
+"REFUSE"|1|"CODE"|"Код"||"U"||"S"|1||0|0|1|||||
+"REFUSE"|1|"CODE"|"Код"||"U"||"S"|1||0|0|0||||"RU"|
+"REFUSE"|2|"CODE_LAT"|"Код (лат.)"||"U"||"S"|1||1|0|0|||||
+"REFUSE"|3|"NAME"|"Причина"|25|||"S"|50||0|0|1|||||
+"REFUSE"|3|"NAME"|"Причина"|25|||"S"|50||0|0|1||||"RU"|
+"REFUSE"|4|"NAME_LAT"|"Причина (лат.)"|25|"U"||"S"|50||1|0|0|||||
+"REFUSE"|5|"ID"||0|||"NU"|9||0|1|1|||||
+"HALLS"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"HALLS"|2|"AIRP"||0|||"S"|3||0|0|1|"AIRPS"|"CODE"|1||1
+"HALLS"|3|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|1|"AIRPS"|"CODE_LAT/CODE"|1||
+"HALLS"|3|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|1|"AIRPS"|"CODE/CODE_LAT"|1|"RU"|
+"HALLS"|4|"NAME"|"Название зала"|20|||"S"|20||0|0|1|||||
+"HALLS"|5|"NAME_LAT"|"Название зала (лат.)"|20|||"S"|20||1|0|0|||||
+"HALLS"|6|"RPT_GRP"|"Группа"|10|||"S"|10||1|0|0|||||
+"HALLS"|7|"PR_VIP"|"VIP-зал"||||"B"|1||0|0|0|||||
+"CURRENCY"|1|"CODE"|"Код валюты"||"U"||"S"|3||0|1|0|||||
+"CURRENCY"|2|"CODE_LAT"|"Код валюты (лат.)"||"U"||"S"|3||1|0|0|||||
+"CURRENCY"|3|"NAME"|"Название валюты"|20|"U"||"S"|30||0|0|0|||||
+"CURRENCY"|4|"NAME_LAT"|"Название валюты (лат.)"|20|"U"||"S"|30||1|0|0|||||
+"CURRENCY"|5|"ID"||0|||"NU"|9||0|1|1|||||
+"FORM_TYPES"|1|"CODE"|"Тип бланка"||"U"||"S"|7||0|1|0|||||
+"FORM_TYPES"|2|"BASIC_TYPE"|"Базовый тип"||"U"||"S"|3||0|0|0|||||
+"FORM_TYPES"|3|"SERIES_LEN"|"Длина серии"||||"NU"|1||0|0|0|||||
+"FORM_TYPES"|4|"NO_LEN"|"Длина номера"||||"NU"|2||0|0|0|||||
+"FORM_TYPES"|5|"PR_CHECK_BIT"|"кр"|3|||"B"|1||0|0|0|||||
+"FORM_TYPES"|6|"VALIDATOR"||0|||"S"|4||0|0|0|"VALIDATOR_TYPES"|"CODE"|1||1
+"FORM_TYPES"|7|"VALIDATOR_VIEW"|"Валидатор"||"U"||"S"|4||0|0|0|"VALIDATOR_TYPES"|"CODE_LAT/CODE"|1||
+"FORM_TYPES"|7|"VALIDATOR_VIEW"|"Валидатор"||"U"||"S"|4||0|0|0|"VALIDATOR_TYPES"|"CODE/CODE_LAT"|1|"RU"|
+"FORM_TYPES"|8|"NAME"|"Описание"|50|||"S"|100||0|0|1|||||
+"FORM_TYPES"|8|"NAME"|"Описание"|50|||"S"|100||0|0|0||||"RU"|
+"FORM_TYPES"|9|"NAME_LAT"|"Описание (лат.)"|50|||"S"|100||1|0|0|||||
+"FORM_TYPES"|10|"ID"||0|||"NU"|9||0|0|1|||||
+"FORM_PACKS"|1|"USER_ID"||0|||"NU"|9||0|1|1|||||
+"FORM_PACKS"|2|"TYPE"|"Бланк"||"U"||"S"|7||0|1|1|"FORM_TYPES"|"CODE"|||
+"DESK_GRP_SETS"|1|"GRP_ID"||0|||"NU"|9||0|1|1|"DESK_GRP"|"GRP_ID"|1||1
+"DESK_GRP_SETS"|2|"DESCR_VIEW"|"Группа пультов"|30|||"S"|50||0|0|1|"DESK_GRP"|"NAME_LAT/NAME"|1||
+"DESK_GRP_SETS"|2|"DESCR_VIEW"|"Группа пультов"|30|||"S"|50||0|0|1|"DESK_GRP"|"NAME/NAME_LAT"|1|"RU"|
+"DESK_GRP_SETS"|3|"PERS_COUNT_FMT"|"Формат кол-ва пас."||||"NU"|1||1|0|0|||||
+"DESK_GRP_SETS"|4|"INF_SEATS_FMT"|"Формат РМ"||||"NU"|1||1|0|0|||||
+"DESK_GRP_SETS"|5|"DEFER_ETSTATUS"|"Отлож. подтв. ЭБ"||||"B"|1||0|0|0|||||
+"REM_EVENT_SETS"|2|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
+"REM_EVENT_SETS"|2|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
+"REM_EVENT_SETS"|3|"REM_CODE"||0|||"S"|4||0|1|0|"CKIN_REM_TYPES"|"CODE"|2||1
+"REM_EVENT_SETS"|4|"REM_CODE_VIEW"|"Ремарка"||"U"||"S"|4||0|0|0|"CKIN_REM_TYPES"|"CODE_LAT/CODE"|2||
+"REM_EVENT_SETS"|4|"REM_CODE_VIEW"|"Ремарка"||"U"||"S"|4||0|0|0|"CKIN_REM_TYPES"|"CODE/CODE_LAT"|2|"RU"|
+"REM_EVENT_SETS"|5|"SET_ID"||0|||"NU"|9||0|0|1|||||
+"REM_EVENT_SETS"|6|"BP"|"ПТ"|3|||"B"|1||0|0|0|||||
+"REM_EVENT_SETS"|7|"ALARM_SS"|"Тревога"||||"B"|1||0|0|0|||||
+"REM_EVENT_SETS"|8|"PNL_SEL"|"PNL"||||"B"|1||0|0|0|||||
+"REM_EVENT_SETS"|8|"CKIN_VIEW"|"Список зарег."||||"B"|1||0|0|0|||||
+"REM_EVENT_SETS"|9|"BRD_VIEW"|"Список на посадке"||||"B"|1||0|0|0|||||
+"REM_EVENT_SETS"|10|"BRD_WARN"|"Сообщ. на посадке"||||"B"|1||0|0|0|||||
+"REM_EVENT_SETS"|11|"RPT_PM"|"Пас. ведомость"||||"B"|1||0|0|0|||||
+"REM_EVENT_SETS"|12|"RPT_SS"|"Пас. спецобслуживания"||||"B"|1||0|0|0|||||
+"REM_EVENT_SETS"|13|"TYPEB_PSM"|"PSM"||||"B"|1||0|0|0|||||
+"REM_EVENT_SETS"|14|"TYPEB_PIL"|"PIL"||||"B"|1||0|0|0|||||
+"REM_EVENT_SETS"|1|"AIRLINE"||0|||"S"|3||1|1|0|"AIRLINES"|"CODE"|1||1
+"TYPEB_TYPES"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
+"TYPEB_TYPES"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
+"TYPEB_TYPES"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
+"TYPEB_TYPES"|5|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
+"TYPEB_TYPES"|6|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
+"TYPEB_TYPES"|7|"PR_DEP"||0|||"B"|1||1|0|0|||||
+"TYPEB_TYPES"|3|"SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|||||
+"TYPEB_TYPES"|4|"SHORT_NAME_LAT"|"Тип (лат.)"|15|||"S"|20||1|0|0|||||
+"TYPEB_TYPES"|9|"EXTRA_AIRP_ARV"||0|||"B"|1||0|0|0|||||
+"TYPEB_TYPES"|10|"EXTRA_CRS"||0|||"B"|1||0|0|0|||||
+"TYPEB_TYPES"|11|"EXTRA_REMARK"||0|||"B"|1||0|0|0|||||
+"TYPEB_TYPES"|12|"EXTRA_MARK_FLT"||0|||"B"|1||0|0|0|||||
+"TYPEB_TYPES_MARK"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
+"TYPEB_TYPES_MARK"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
+"TYPEB_TYPES_MARK"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
+"TYPEB_TYPES_MARK"|5|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
+"TYPEB_TYPES_MARK"|6|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
+"TYPEB_TYPES_MARK"|7|"PR_DEP"||0|||"B"|1||1|0|0|||||
+"TYPEB_TYPES_MARK"|3|"SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|||||
+"TYPEB_TYPES_MARK"|4|"SHORT_NAME_LAT"|"Тип (лат.)"|15|||"S"|20||1|0|0|||||
+"PAX_DOCO_TYPES"|1|"CODE"|"Код"||"U"||"S"|2||0|1|1|||||
+"PAX_DOCO_TYPES"|1|"CODE"|"Код"||"U"||"S"|2||0|1|0||||"RU"|
+"PAX_DOCO_TYPES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|2||1|0|0|||||
+"PAX_DOCO_TYPES"|3|"NAME"|"Название"|50|||"S"|100||0|0|1|||||
+"PAX_DOCO_TYPES"|3|"NAME"|"Название"|50|||"S"|100||0|0|0||||"RU"|
+"PAX_DOCO_TYPES"|4|"NAME_LAT"|"Название (лат.)"|50|||"S"|100||1|0|0|||||
+"PAX_DOC_TYPES"|1|"CODE"|"Код"||"U"||"S"|2||0|1|1|||||
+"PAX_DOC_TYPES"|1|"CODE"|"Код"||"U"||"S"|2||0|1|0||||"RU"|
+"PAX_DOC_TYPES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|2||1|0|0|||||
+"PAX_DOC_TYPES"|3|"NAME"|"Название"|50|||"S"|100||0|0|1|||||
+"PAX_DOC_TYPES"|3|"NAME"|"Название"|50|||"S"|100||0|0|0||||"RU"|
+"PAX_DOC_TYPES"|4|"NAME_LAT"|"Название (лат.)"|50|||"S"|100||1|0|0|||||
+"TYPEB_COM_VERSION"|1|"CODE"|"Код"||||"S"|10||0|1|1|||||
+"TYPEB_COM_VERSION"|2|"NAME"|"Название"||||"S"|50||0|0|1|||||
+"TYPEB_COM_VERSION"|3|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
+"TYPEB_TYPES_COM"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
+"TYPEB_TYPES_COM"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
+"TYPEB_TYPES_COM"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
+"TYPEB_TYPES_COM"|5|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
+"TYPEB_TYPES_COM"|6|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
+"TYPEB_TYPES_COM"|7|"PR_DEP"||0|||"B"|1||1|0|0|||||
+"TYPEB_TYPES_COM"|3|"SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|||||
+"TYPEB_TYPES_COM"|4|"SHORT_NAME_LAT"|"Тип (лат.)"|15|||"S"|20||1|0|0|||||
+"TYPEB_ADDRS_COM"|11|"ADDR"|"Адреса IATA"|25|"U"||"S"|100||0|0|0|||||
+"TYPEB_ADDRS"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"TYPEB_ADDRS"|2|"TLG_TYPE"||0|||"S"|6||0|0|0|"TYPEB_TYPES"|"CODE"|1||1
+"TYPEB_ADDRS"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES"|"SHORT_NAME_LAT/SHORT_NAME"|1||
+"TYPEB_ADDRS"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
+"TYPEB_ADDRS"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"TYPEB_ADDRS"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"TYPEB_ADDRS"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_ADDRS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"TYPEB_ADDRS"|7|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"TYPEB_ADDRS"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"TYPEB_ADDRS"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"TYPEB_ADDRS"|9|"AIRP_ARV"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|4||1
+"TYPEB_ADDRS"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|4||
+"TYPEB_ADDRS"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|4|"RU"|
+"TYPEB_ADDRS"|11|"ADDR"|"Адреса IATA"|25|"U"||"S"|100||0|0|0|||||
+"TYPEB_ADDRS"|12|"PR_LAT"|"Лат."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS"|13|"CRS"|"Центр"||"U"||"S"|7||1|0|0|"CRS"|"CODE"|||
+"TYPEB_ADDRS"|14|"BASIC_TYPE"||0|||"S"|3||0|0|0|"TYPEB_TYPES"|"BASIC_TYPE"|1||
+"TYPEB_ADDRS_COM"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"TYPEB_ADDRS_COM"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_ADDRS_COM"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"TYPEB_ADDRS_COM"|9|"AIRP_ARV"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|4||1
+"TYPEB_ADDRS_COM"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|4|"RU"|
+"TYPEB_ADDRS_COM"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|4||
+"TYPEB_ADDRS_COM"|7|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"TYPEB_ADDRS_COM"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"TYPEB_ADDRS_COM"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"TYPEB_ADDRS_COM"|14|"BASIC_TYPE"||0|||"S"|3||0|0|0|"TYPEB_TYPES_COM"|"BASIC_TYPE"|1||
+"TYPEB_ADDRS_COM"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"TYPEB_ADDRS_COM"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"TYPEB_ADDRS_COM"|12|"PR_LAT"|"Лат."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_COM"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_COM"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
+"TYPEB_ADDRS_COM"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_COM"|"SHORT_NAME_LAT/SHORT_NAME"|1||
+"TYPEB_ADDRS_COM"|2|"TLG_TYPE"||0|||"S"|6||0|0|0|"TYPEB_TYPES_COM"|"CODE"|1||1
+"TYPEB_ADDRS_COM"|20|"VERSION"|"Вер."|10|||"S"|10||0|0|0|"TYPEB_COM_VERSION"|"CODE"|||
+"TYPEB_TYPES_SOM"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
+"TYPEB_TYPES_SOM"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
+"TYPEB_TYPES_SOM"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
+"TYPEB_TYPES_SOM"|5|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
+"TYPEB_TYPES_SOM"|6|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
+"TYPEB_TYPES_SOM"|7|"PR_DEP"||0|||"B"|1||1|0|0|||||
+"TYPEB_TYPES_SOM"|3|"SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|||||
+"TYPEB_TYPES_SOM"|4|"SHORT_NAME_LAT"|"Тип (лат.)"|15|||"S"|20||1|0|0|||||
+"TYPEB_ADDRS_SOM"|11|"ADDR"|"Адреса IATA"|25|"U"||"S"|100||0|0|0|||||
+"TYPEB_ADDRS_SOM"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"TYPEB_ADDRS_SOM"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_ADDRS_SOM"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"TYPEB_ADDRS_SOM"|9|"AIRP_ARV"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|4||1
+"TYPEB_ADDRS_SOM"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|4|"RU"|
+"TYPEB_ADDRS_SOM"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|4||
+"TYPEB_ADDRS_SOM"|7|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"TYPEB_ADDRS_SOM"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"TYPEB_ADDRS_SOM"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"TYPEB_ADDRS_SOM"|14|"BASIC_TYPE"||0|||"S"|3||0|0|0|"TYPEB_TYPES_SOM"|"BASIC_TYPE"|1||
+"TYPEB_ADDRS_SOM"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"TYPEB_ADDRS_SOM"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"TYPEB_ADDRS_SOM"|12|"PR_LAT"|"Лат."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_SOM"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_SOM"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
+"TYPEB_ADDRS_SOM"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_SOM"|"SHORT_NAME_LAT/SHORT_NAME"|1||
+"TYPEB_ADDRS_SOM"|2|"TLG_TYPE"||0|||"S"|6||0|0|0|"TYPEB_TYPES_SOM"|"CODE"|1||1
+"TYPEB_LCI_SEAT_PLAN"|1|"CODE"||0|||"S"|10||0|0|1|||||
+"TYPEB_LCI_SEAT_PLAN"|2|"CODE_EXT"||0|||"S"|50||0|1|1|||||
+"TYPEB_LCI_SEAT_PLAN"|5|"NAME"|"Название"||||"S"|50||0|0|1|||||
+"TYPEB_LCI_SEAT_PLAN"|6|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
+"TYPEB_LCI_SEAT_PLAN"|3|"SHORT_NAME"|"Тип"||||"S"|20||0|0|1|||||
+"TYPEB_LCI_SEAT_PLAN"|4|"SHORT_NAME_LAT"|"Тип (лат.)"||||"S"|20||1|0|1|||||
+"TYPEB_ADDRS_LCI"|11|"ADDR"|"Адреса IATA"|25|"U"||"S"|100||0|0|0|||||
+"TYPEB_ADDRS_LCI"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
+"TYPEB_ADDRS_LCI"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
+"TYPEB_ADDRS_LCI"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|2||
+"TYPEB_ADDRS_LCI"|9|"AIRP_ARV"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|4||1
+"TYPEB_ADDRS_LCI"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|4|"RU"|
+"TYPEB_ADDRS_LCI"|10|"AIRP_ARV_VIEW"|"До"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|4||
+"TYPEB_ADDRS_LCI"|7|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|3||1
+"TYPEB_ADDRS_LCI"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|3|"RU"|
+"TYPEB_ADDRS_LCI"|8|"AIRP_DEP_VIEW"|"От"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|3||
+"TYPEB_ADDRS_LCI"|14|"BASIC_TYPE"||0|||"S"|3||0|0|0|"TYPEB_TYPES_LCI"|"BASIC_TYPE"|1||
+"TYPEB_ADDRS_LCI"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
+"TYPEB_ADDRS_LCI"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"TYPEB_ADDRS_LCI"|12|"PR_LAT"|"Лат."||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_LCI"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_LCI"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
+"TYPEB_ADDRS_LCI"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_LCI"|"SHORT_NAME_LAT/SHORT_NAME"|1||
+"TYPEB_ADDRS_LCI"|2|"TLG_TYPE"||0|||"S"|6||0|0|0|"TYPEB_TYPES_LCI"|"CODE"|1||1
+"TYPEB_ADDRS_LCI"|20|"EQUIPMENT"|"EQT"||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_LCI"|21|"WEIGHT_AVAIL"||0|||"S"|10||0|0|0|"TYPEB_LCI_WEIGHT_AVAIL"|"CODE"|11||
+"TYPEB_ADDRS_LCI"|22|"WEIGHT_AVAIL_EXT"||0|||"S"|50||0|0|0|"TYPEB_LCI_WEIGHT_AVAIL"|"CODE_EXT"|11||1
+"TYPEB_ADDRS_LCI"|23|"WEIGHT_AVAIL_EXT_VIEW"|"WA"|15|||"S"|20||0|0|0|"TYPEB_LCI_WEIGHT_AVAIL"|"SHORT_NAME_LAT/SHORT_NAME"|11||
+"TYPEB_ADDRS_LCI"|23|"WEIGHT_AVAIL_EXT_VIEW"|"WA"|15|||"S"|20||0|0|0|"TYPEB_LCI_WEIGHT_AVAIL"|"SHORT_NAME/SHORT_NAME_LAT"|11|"RU"|
+"TYPEB_ADDRS_LCI"|24|"SEATING"|"SM"||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_LCI"|25|"WEIGHT_MODE"|"WM"||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_LCI"|26|"SEAT_RESTRICT"||0|||"S"|10||0|0|0|"TYPEB_LCI_SEAT_RESTRICT"|"CODE"|12||
+"TYPEB_ADDRS_LCI"|27|"SEAT_RESTRICT_EXT"||0|||"S"|50||0|0|0|"TYPEB_LCI_SEAT_RESTRICT"|"CODE_EXT"|12||1
+"TYPEB_ADDRS_LCI"|28|"SEAT_RESTRICT_EXT_VIEW"|"SR"|15|||"S"|20||0|0|0|"TYPEB_LCI_SEAT_RESTRICT"|"SHORT_NAME_LAT/SHORT_NAME"|12||
+"TYPEB_ADDRS_LCI"|28|"SEAT_RESTRICT_EXT_VIEW"|"SR"|15|||"S"|20||0|0|0|"TYPEB_LCI_SEAT_RESTRICT"|"SHORT_NAME/SHORT_NAME_LAT"|12|"RU"|
+"TYPEB_ADDRS_LCI"|29|"PAS_TOTALS"|"PT"||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_LCI"|30|"BAG_TOTALS"|"BT"||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_LCI"|31|"PAS_DISTRIB"|"PD"||||"B"|1||0|0|0|||||
+"TYPEB_ADDRS_LCI"|32|"SEAT_PLAN"||0|||"S"|10||0|0|0|"TYPEB_LCI_SEAT_PLAN"|"CODE"|13||
+"TYPEB_ADDRS_LCI"|33|"SEAT_PLAN_EXT"||0|||"S"|50||0|0|0|"TYPEB_LCI_SEAT_PLAN"|"CODE_EXT"|13||1
+"TYPEB_ADDRS_LCI"|34|"SEAT_PLAN_EXT_VIEW"|"SP"|5|||"S"|20||0|0|0|"TYPEB_LCI_SEAT_PLAN"|"SHORT_NAME_LAT/SHORT_NAME"|13||
+"TYPEB_ADDRS_LCI"|34|"SEAT_PLAN_EXT_VIEW"|"SP"|5|||"S"|20||0|0|0|"TYPEB_LCI_SEAT_PLAN"|"SHORT_NAME/SHORT_NAME_LAT"|13|"RU"|
