@@ -171,7 +171,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
 
   flt_no = flt_no_fromXML(NodeAsStringFast("flt_no", node2, ""));
   suffix = suffix_fromXML(NodeAsStringFast("suffix", node2, ""));
-  
+
   for(int pass=0; pass<3; pass++)
   {
     pair<TDateTime, TDateTime> scd_out_range(NoExists, NoExists);
@@ -184,21 +184,21 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
         if ( StrToDateTime( str.c_str(), "dd.mm.yyyy hh:nn:ss", scd_out_range.first ) == EOF )
         {
           TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out_min> %s", str.c_str());
-  			  throw UserException( "MSG.FLIGHT_DATE.INVALID",
-  				                     LParams()<<LParam("scd_out", str) );
-  			};
-  		};
-			str=NodeAsStringFast("scd_out_max", node2, "");
+              throw UserException( "MSG.FLIGHT_DATE.INVALID",
+                                     LParams()<<LParam("scd_out", str) );
+            };
+        };
+            str=NodeAsStringFast("scd_out_max", node2, "");
       TrimString(str);
       if (!str.empty())
       {
         if ( StrToDateTime( str.c_str(), "dd.mm.yyyy hh:nn:ss", scd_out_range.second ) == EOF )
         {
           TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out_max> %s", str.c_str());
-  			  throw UserException( "MSG.FLIGHT_DATE.INVALID",
-  				                     LParams()<<LParam("scd_out", str) );
-  			};
-  	  };
+              throw UserException( "MSG.FLIGHT_DATE.INVALID",
+                                     LParams()<<LParam("scd_out", str) );
+            };
+      };
       if (scd_out_range.first==NoExists && scd_out_range.second!=NoExists)
       {
         TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: <scd_out_min> not defined");
@@ -227,7 +227,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
           TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <scd_out_shift> %s", str.c_str());
           throw UserException("MSG.INVALID_RANGE");
         };
-      	scd_out_range.first=NowUTC();
+        scd_out_range.first=NowUTC();
         scd_out_range.second=scd_out_range.first+(double)scd_out_shift/1440.0;
       };
     };
@@ -244,7 +244,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
         MergeSortedRanges(scd_out_utc_ranges, scd_out_range);
     };
   };
-  
+
   double local_days=0;
   for(vector< pair<TDateTime, TDateTime> >::const_iterator r=scd_out_local_ranges.begin();
                                                            r!=scd_out_local_ranges.end(); ++r )
@@ -263,7 +263,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: search period too large");
     throw UserException("MSG.SEARCH_PERIOD_MAX_N_DAYS", LParams()<<LParam("days", 5));
   };
-  
+
   if (local_days<=0 && utc_days<=0)
   {
     TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: empty search period");
@@ -278,34 +278,34 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     throw UserException("MSG.PASSENGER.NOT_SET.SURNAME");
   };
   surname=upperc(surname);
-  
+
   name=NodeAsStringFast("name", node2, "");
   TrimString(name);
   name=upperc(name);
   name.erase(find(name.begin(), name.end(), ' '), name.end()); //оставляем часть до пробела
-  
+
   str=NodeAsStringFast("pnr_addr", node2, "");
   TrimString(str);
   pnr_addr_normal=convert_pnr_addr(upperc(str) , true);
-  
+
   ticket_no=NodeAsStringFast("ticket_no", node2, "");
   TrimString(ticket_no);
   ticket_no=upperc(ticket_no);
-  
+
   document=NodeAsStringFast("document", node2, "");
   TrimString(document);
   document=upperc(document);
-  
+
   str=NodeAsStringFast("reg_no", node2, "");
   TrimString(str);
   if (!str.empty())
   {
     if ( StrToInt( str.c_str(), reg_no ) == EOF ||
-		     reg_no > 999 || reg_no <= 0 )
-		{
+             reg_no > 999 || reg_no <= 0 )
+        {
       TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromXML: invalid <reg_no> %s", str.c_str());
       throw UserException("MSG.INVALID_REG_NO");
-  	};
+    };
   };
 
   return *this;
@@ -366,7 +366,7 @@ TPNRFilter& TPNRFilter::testPaxFromDB()
   if (!airlines.empty())
     sql << " AND (airline IN " << GetSQLEnum(airlines) << " OR airline IS NULL) ";
 
-	Qry.SQLText=sql.str().c_str();
+    Qry.SQLText=sql.str().c_str();
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
@@ -448,6 +448,7 @@ void TPNRFilter::trace( TRACE_SIGNATURE ) const
   ProgTrace(TRACE_PARAMS, "airp_arv: %s", airp_arv.c_str());
   ProgTrace(TRACE_PARAMS, "surname_equal_len: %s", surname_equal_len==NoExists?"":IntToString(surname_equal_len).c_str());
   ProgTrace(TRACE_PARAMS, "name_equal_len: %s", name_equal_len==NoExists?"":IntToString(name_equal_len).c_str());
+  ProgTrace(TRACE_PARAMS, "from_scan_code: %s", from_scan_code?"true":"false");
   ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ TPNRFilter ^^^^^^^^^^^^");
 };
 
@@ -473,7 +474,7 @@ TPNRFilters& TPNRFilters::fromBCBP_M(const std::string &bcbp)
   };
 
   try
-  {    
+  {
     TElemFmt fmt;
 
     //фамилия/имя пассажира
@@ -483,6 +484,7 @@ TPNRFilters& TPNRFilters::fromBCBP_M(const std::string &bcbp)
     {
       TPNRFilter filter;
 
+      filter.from_scan_code=true;
       filter.surname=name_pair.first;
       filter.name=name_pair.second;
 
@@ -548,7 +550,7 @@ TPNRFilters& TPNRFilters::fromBCBP_M(const std::string &bcbp)
       MergeSortedRanges(filter.scd_out_local_ranges, make_pair(scd_out_local, scd_out_local+1.0));
 
       //рег. номер
-      filter.reg_no=repeated.checkinSeqNumber().first;      
+      filter.reg_no=repeated.checkinSeqNumber().first;
 
       segs.push_back(filter);
     };
@@ -669,7 +671,7 @@ bool TFlightInfo::fromDB(int point_id, bool first_segment, bool pr_throw)
   try
   {
     TReqInfo *reqInfo = TReqInfo::Instance();
-  
+
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
@@ -683,27 +685,27 @@ bool TFlightInfo::fromDB(int point_id, bool first_segment, bool pr_throw)
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     if (Qry.Eof) throw UserException( "MSG.FLIGHT.NOT_FOUND" );
-    
-  	if (!fromDB(Qry)) throw UserException( "MSG.FLIGHT.NOT_FOUND" );
-  	
-  	if ( Qry.FieldAsInteger( "pr_del" ) < 0 )
-  		throw UserException( "MSG.FLIGHT.DELETED" );
-  	  
-  	if (first_segment)
+
+    if (!fromDB(Qry)) throw UserException( "MSG.FLIGHT.NOT_FOUND" );
+
+    if ( Qry.FieldAsInteger( "pr_del" ) < 0 )
+        throw UserException( "MSG.FLIGHT.DELETED" );
+
+    if (first_segment)
     {
       //необходимо соблюдать доступ только к первому сегменту
       if ( !reqInfo->CheckAirline(oper.airline) ||
            !reqInfo->CheckAirp(oper.airp) )
         throw UserException( "MSG.FLIGHT.ACCESS_DENIED" );
     };
-    
+
     if ( Qry.FieldAsInteger( "pr_del" ) > 0 )
-  		throw UserException( "MSG.FLIGHT.CANCELED" );
-    
+        throw UserException( "MSG.FLIGHT.CANCELED" );
+
     if ( Qry.FieldAsInteger( "pr_reg" ) == 0 )
-  		throw UserException( "MSG.FLIGHT.CHECKIN_CANCELED" );
-  		
-  	if (oper.scd_out==NoExists) throw UserException( "MSG.FLIGHT_DATE.NOT_SET" );
+        throw UserException( "MSG.FLIGHT.CHECKIN_CANCELED" );
+
+    if (oper.scd_out==NoExists) throw UserException( "MSG.FLIGHT_DATE.NOT_SET" );
   }
   catch(UserException &E)
   {
@@ -713,7 +715,7 @@ bool TFlightInfo::fromDB(int point_id, bool first_segment, bool pr_throw)
     else
       return false;
   };
-	return true;
+    return true;
 };
 
 bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
@@ -737,9 +739,9 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
     //std::map<TStage, BASIC::TDateTime> stages
     stage_times.clear();
     TStagesRules *sr = TStagesRules::Instance();
-  	TCkinClients ckin_clients;
-  	TTripStages::ReadCkinClients( point_dep, ckin_clients );
-  	TStage stage;
+    TCkinClients ckin_clients;
+    TTripStages::ReadCkinClients( point_dep, ckin_clients );
+    TStage stage;
     for(int pass=0; pass<7; pass++)
     {
       switch(pass)
@@ -801,7 +803,7 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
         if (local_times.act!=NoExists) local_times.act = UTCToLocal( local_times.act, AirpTZRegion(oper.airp) );
         stage_times.insert( make_pair(stage, local_times ) );
       };
-  	};
+    };
 
     Qry.Clear();
     Qry.SQLText =
@@ -830,7 +832,7 @@ bool TPNRSegInfo::fromTestPax(int point_id, const TTripRoute &route, const TTest
   clear();
   TTripRoute::const_iterator r=route.begin();
   if (r==route.end()) return false;
-  
+
   point_dep=point_id;
   point_arv=r->point_id;
   pnr_id=pax.pax_id;
@@ -1111,13 +1113,13 @@ bool TPNRSegInfo::fromDB(int point_id, const TTripRoute &route, TQuery &Qry)
   for(; r!=route.end(); ++r)
     if (r->airp == airp_arv) break;
   if (r==route.end()) return false;
-  
+
   point_dep=point_id;
   point_arv=r->point_id;
   pnr_id=Qry.FieldAsInteger("pnr_id");
   cls=Qry.FieldAsString("class");
   subcls=Qry.FieldAsString("subclass");
-  
+
   TQuery AddrQry(&OraSession);
   AddrQry.Clear();
   AddrQry.SQLText="SELECT airline, addr FROM pnr_addrs WHERE pnr_id=:pnr_id";
@@ -1130,7 +1132,7 @@ bool TPNRSegInfo::fromDB(int point_id, const TTripRoute &route, TQuery &Qry)
     pnr_addr.addr=AddrQry.FieldAsString("addr");
     pnr_addrs.push_back(pnr_addr);
   };
-  
+
   return true;
 };
 
@@ -1225,7 +1227,7 @@ bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry, bool ignore_r
        if (ticket_no!=filter.ticket_no.substr(0,13)) return false;
     };
   };
-        	
+
   CheckIn::TPaxDocItem doc;
   LoadCrsPaxDoc(pax_id, doc);
   document=doc.no;
@@ -1234,19 +1236,19 @@ bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry, bool ignore_r
     //проверим совпадение документа
     if (document!=filter.document) return false;
   };
-  
+
   Qry1.Clear();
   Qry1.SQLText="SELECT reg_no FROM pax WHERE pax_id=:pax_id";
   Qry1.CreateVariable("pax_id", otInteger, pax_id);
   Qry1.Execute();
   if (!Qry1.Eof) reg_no=Qry1.FieldAsInteger("reg_no");
-  
+
   if (filter.reg_no!=NoExists && !ignore_reg_no)
   {
     //проверим совпадение рег. номера
     if (reg_no!=filter.reg_no) return false;
   };
-  
+
   return true;
 };
 
@@ -1305,7 +1307,7 @@ void TPNRSegInfo::getMarkFlt(const TFlightInfo &flt, bool is_test, TTripInfo &ma
     mark.airp=flt.oper.airp;
     mark.scd_out=UTCToLocal(flt.oper.scd_out, AirpTZRegion(flt.oper.airp));
   };
-  
+
 };
 
 bool TPNRInfo::fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest, bool is_test)
@@ -1368,7 +1370,7 @@ bool TPNRInfo::fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest, b
 
   BagPayment::GetPaxBagNorm(BagNormsQry, use_mixed_norms, pax, false, norm);
   bag_norm = norm.second.weight; //NoExists, если не найдена
-  
+
   return true;
 };
 
@@ -1501,7 +1503,7 @@ void TPNRs::toXML(xmlNodePtr node) const
 */
   if (node==NULL) return;
   if (flights.empty() && pnrs.empty()) return;
-  
+
   xmlNodePtr fltsNode=NewTextChild(node, "oper_flights");
   for(set<TFlightInfo>::const_iterator i=flights.begin(); i!=flights.end(); ++i)
     i->toXML(NewTextChild(fltsNode, "flight"));
@@ -1518,7 +1520,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
     throw EXCEPTIONS::Exception("findPNRs: filter.surname not defined");
 
   TReqInfo *reqInfo = TReqInfo::Instance();
-  
+
   TQuery PointsQry(&OraSession);
   TQuery PaxQry(&OraSession);
   if (pass==1 || pass==2)
@@ -1592,7 +1594,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
              "      crs_pnr.point_id=:point_id AND "
              "      pnr_market_flt.pnr_id IS NULL AND ";
     };
-    
+
     sql << "      crs_pnr.system='CRS' AND "
            "      (:airp_arv IS NULL OR crs_pnr.airp_arv=:airp_arv) AND "
         << filter.getSurnameSQLFilter("crs_pax.surname", PaxQry) << " AND "
@@ -1874,7 +1876,7 @@ void getTCkinData( const TPnrData &first,
 {
   other.clear();
   checkPnrData(first.flt, first.dest, first.seg, "getTCkinData");
-  
+
   if (is_test) return;
 
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1903,7 +1905,7 @@ void getTCkinData( const TPnrData &first,
         "WHERE point_id=:point_id AND client_type=:client_type AND desk_grp_id IS NULL";
       Qry.CreateVariable("client_type", otString, EncodeClientType(ctWeb)); //!!!ctMobile
     };
-    Qry.CreateVariable("point_id", otInteger, first.flt.point_dep);    
+    Qry.CreateVariable("point_id", otInteger, first.flt.point_dep);
     Qry.Execute();
     if (Qry.Eof || Qry.FieldAsInteger("pr_tckin")==0)
     {
@@ -1958,7 +1960,7 @@ void getTCkinData( const TPnrData &first,
 
         if (TCFG(currSeg.point_dep).empty())
           throw "Configuration of the flight not assigned";
-          
+
         TPnrData pnrData;
         if (!pnrData.flt.fromDB(currSeg.point_dep, false, false))
           throw "Error in TFlightInfo::fromDB";
