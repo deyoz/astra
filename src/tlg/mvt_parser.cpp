@@ -13,6 +13,7 @@ namespace TypeB
     namespace MVTParser
     {
         enum TMVTElem {
+            mvtCaptionElement,
             mvtFlightElement,
             mvtADElement,
             mvtOthers
@@ -112,7 +113,7 @@ namespace TypeB
             con.Clear();
             TTlgParser tlg;
             const char *line_p=body.p;
-            TMVTElem e = mvtFlightElement;
+            TMVTElem e = mvtCaptionElement;
             try
             {
                 do {
@@ -120,8 +121,17 @@ namespace TypeB
                     if(not *tlg.lex)
                         throw ETlgError("blank line not allowed");
                     switch(e) {
+                        case mvtCaptionElement: // Not AHM standard. Used by Cobra.
+                            e = mvtFlightElement;
+                            if(strcmp(tlg.lex, "MVT") == 0)
+                                break;
                         case mvtFlightElement:
-                            e = mvtADElement;
+                            {
+                                TTlgPartInfo tmp_body;
+                                tmp_body.p = line_p;
+                                ParseAHMFltInfo(tmp_body,info,info.flt,info.bind_type);
+                                e = mvtADElement;
+                            }
                             break;
                         case mvtADElement:
                             con.ad.parse(info.flt.scd, tlg.lex);
