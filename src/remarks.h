@@ -159,6 +159,7 @@ class TPaxASVCItem
 bool LoadPaxRem(int pax_id, bool withFQTcat, std::vector<TPaxRemItem> &rems);
 bool LoadCrsPaxRem(int pax_id, std::vector<TPaxRemItem> &rems);
 bool LoadPaxFQT(int pax_id, std::vector<TPaxFQTItem> &fqts);
+bool LoadCrsPaxFQT(int pax_id, std::vector<TPaxFQTItem> &fqts);
 bool LoadPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 bool LoadCrsPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 
