@@ -241,7 +241,8 @@ void WebRequestsIface::SearchPNRs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
   resNode=NewTextChild(resNode,"SearchPNRs");
 
-  if (reqInfo->user.access.totally_not_permitted())
+  if (reqInfo->user.access.airlines().totally_not_permitted() ||
+      reqInfo->user.access.airps().totally_not_permitted() )
   {
     ProgError(STDLOG, "WebRequestsIface::SearchPNRs: empty user's access (user.descr=%s)", reqInfo->user.descr.c_str());
     return;
@@ -330,7 +331,8 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   resNode=NewTextChild(resNode,"SearchFlt");
 
-  if (reqInfo->user.access.totally_not_permitted())
+  if (reqInfo->user.access.airlines().totally_not_permitted() ||
+      reqInfo->user.access.airps().totally_not_permitted())
   {
     ProgError(STDLOG, "WebRequestsIface::SearchFlt: empty user's access (user.descr=%s)", reqInfo->user.descr.c_str());
     return;
