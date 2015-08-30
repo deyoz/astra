@@ -27,6 +27,8 @@ src/astra_context.cc
 src/astra_context.h
 src/astra_dates.h
 src/astra_dates_oci.h
+src/astra_elem_utils.cc
+src/astra_elem_utils.h
 src/astra_elems.cc
 src/astra_elems.h
 src/astra_emd.cpp

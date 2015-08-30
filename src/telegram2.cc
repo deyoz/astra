@@ -8190,8 +8190,8 @@ void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     get_tlg_info(tlg_text, tlg_type, airline, airp);
 
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if (not reqInfo->CheckAirline(airline) or
-            not reqInfo->CheckAirp(airp) ) {
+    if (not reqInfo->user.access.airlines().permitted(airline) or
+        not reqInfo->user.access.airps().permitted(airp) ) {
 //    if(false) {
         NewTextChild(resNode, "content", ACCESS_DENIED);
     } else {

@@ -7,7 +7,7 @@
 #include "qrys.h"
 #include "exceptions.h"
 #include "jxtlib/jxt_cont.h"
-#include "web_search.h"
+#include "astra_elem_utils.h"
 #include "apis_utils.h"
 
 #define NICKNAME "VLAD"
@@ -243,10 +243,10 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   no=NodeAsStringFast("no",node2,"");
   nationality=PaxDocCountryFromTerm(NodeAsStringFast("nationality",node2,""));
   if (!NodeIsNULLFast("birth_date",node2,true))
-    birth_date = WebSearch::date_fromXML(NodeAsStringFast("birth_date",node2,""));
+    birth_date = date_fromXML(NodeAsStringFast("birth_date",node2,""));
   gender=PaxDocGenderNormalize(NodeAsStringFast("gender",node2,""));
   if (!NodeIsNULLFast("expiry_date",node2,true))
-    expiry_date = WebSearch::date_fromXML(NodeAsStringFast("expiry_date",node2,""));
+    expiry_date = date_fromXML(NodeAsStringFast("expiry_date",node2,""));
   surname=NodeAsStringFast("surname",node2,"");
   first_name=NodeAsStringFast("first_name",node2,"");
   second_name=NodeAsStringFast("second_name",node2,"");
@@ -382,9 +382,9 @@ TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
   no=NodeAsStringFast("no",node2,"");
   issue_place=NodeAsStringFast("issue_place",node2,"");
   if (!NodeIsNULLFast("issue_date",node2,true))
-    issue_date = WebSearch::date_fromXML(NodeAsStringFast("issue_date",node2,""));
+    issue_date = date_fromXML(NodeAsStringFast("issue_date",node2,""));
   if (!NodeIsNULLFast("expiry_date",node2,true))
-    expiry_date=WebSearch::date_fromXML(NodeAsStringFast("expiry_date",node2,""));
+    expiry_date=date_fromXML(NodeAsStringFast("expiry_date",node2,""));
   applic_country=PaxDocCountryFromTerm(NodeAsStringFast("applic_country",node2,""));
   scanned_attrs=NodeAsIntegerFast("scanned_attrs",node2,NO_FIELDS);
   if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_CONFIRM_VERSION))

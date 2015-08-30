@@ -59,7 +59,6 @@ struct TZoneOccupiedSeats {
   TZoneOccupiedSeats(): total_seats(0) {};
 };
 
-bool filterCompons( const std::string &airline, const std::string &airp );
 void SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 void ZoneLoads(int point_id, std::map<std::string, int> &zones, bool occupied);
 void ZoneLoads(int point_id,

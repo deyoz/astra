@@ -204,33 +204,33 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
     Qry.CreateVariable( "work_mode", otString, filter.station.second);
   };
 
-  if (!filter.access.airlines.empty())
+  if (!filter.access.airlines().elems().empty())
   {
-    if (filter.access.airlines_permit)
-      sql << "AND points.airline IN " << GetSQLEnum(filter.access.airlines) << " ";
+    if (filter.access.airlines().elems_permit())
+      sql << "AND points.airline IN " << GetSQLEnum(filter.access.airlines().elems()) << " ";
     else
-      sql << "AND points.airline NOT IN " << GetSQLEnum(filter.access.airlines) << " ";
+      sql << "AND points.airline NOT IN " << GetSQLEnum(filter.access.airlines().elems()) << " ";
   };
 
-  if (!filter.access.airps.empty())
+  if (!filter.access.airps().elems().empty())
   {
     if ( !filter.use_arrival_permit )
     {
-      if (filter.access.airps_permit)
-        sql << "AND points.airp IN " << GetSQLEnum(filter.access.airps) << " ";
+      if (filter.access.airps().elems_permit())
+        sql << "AND points.airp IN " << GetSQLEnum(filter.access.airps().elems()) << " ";
       else
-        sql << "AND points.airp NOT IN " << GetSQLEnum(filter.access.airps) << " ";
+        sql << "AND points.airp NOT IN " << GetSQLEnum(filter.access.airps().elems()) << " ";
     }
     else
     {
-      if (filter.access.airps_permit)
-        sql << "AND (points.airp IN " << GetSQLEnum(filter.access.airps) << " OR "
+      if (filter.access.airps().elems_permit())
+        sql << "AND (points.airp IN " << GetSQLEnum(filter.access.airps().elems()) << " OR "
             << "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "
-            << GetSQLEnum(filter.access.airps) << ") ";
+            << GetSQLEnum(filter.access.airps().elems()) << ") ";
       else
-        sql << "AND (points.airp NOT IN " << GetSQLEnum(filter.access.airps) << " OR "
+        sql << "AND (points.airp NOT IN " << GetSQLEnum(filter.access.airps().elems()) << " OR "
             << "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) NOT IN "
-            << GetSQLEnum(filter.access.airps) << ") ";
+            << GetSQLEnum(filter.access.airps().elems()) << ") ";
     };
   };
 
@@ -390,13 +390,13 @@ void TTripListSQLFilter::set(void)
              reqInfo->screen.name!="KASSA.EXE" &&
              reqInfo->screen.name!="CENT.EXE" &&
              !(reqInfo->screen.name=="AIR.EXE" &&
-               find(access.rights.begin(),access.rights.end(),320)==access.rights.end() &&
-               find(access.rights.begin(),access.rights.end(),330)==access.rights.end() &&
-               find(access.rights.begin(),access.rights.end(),335)==access.rights.end());
+               !access.rights().permitted(320) &&
+               !access.rights().permitted(330) &&
+               !access.rights().permitted(335));
 
   if ((reqInfo->screen.name == "BRDBUS.EXE" || reqInfo->screen.name == "AIR.EXE") &&
       reqInfo->user.user_type==utAirport &&
-      find(access.rights.begin(),access.rights.end(),335)==access.rights.end())
+      !access.rights().permitted(335))
   {
     station.first=reqInfo->desk.code;
     if (reqInfo->screen.name == "BRDBUS.EXE")
@@ -434,15 +434,13 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   TTripListSQLParams SQLfilter;
   SQLfilter.set();
   if (!listInfo.filter.airline.empty())
-    MergeAccess(SQLfilter.access.airlines, SQLfilter.access.airlines_permit,
-                vector<string>(1,listInfo.filter.airline), true);
+    SQLfilter.access.merge_airlines(TAccessElems<string>(listInfo.filter.airline, true));
 
   SQLfilter.flt_no=listInfo.filter.flt_no;
   SQLfilter.suffix=listInfo.filter.suffix;
 
   if (!listInfo.filter.airp_dep.empty())
-    MergeAccess(SQLfilter.access.airps, SQLfilter.access.airps_permit,
-                vector<string>(1,listInfo.filter.airp_dep), true);
+    SQLfilter.access.merge_airps(TAccessElems<string>(listInfo.filter.airp_dep, true));
 
   if (listInfo.view.codes_fmt==ustCodeNative ||
       listInfo.view.codes_fmt==ustCodeInter ||
@@ -472,8 +470,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   vector<TTripListItem> list;
 
-  if (!((SQLfilter.access.airlines.empty() && SQLfilter.access.airlines_permit) ||
-        (SQLfilter.access.airps.empty() && SQLfilter.access.airps_permit)))
+  if (!SQLfilter.access.totally_not_permitted())
   {
     TDateTime utc_date=NowUTC();
     //вычислим client_date
@@ -566,8 +563,8 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       ProgTrace(TRACE5, "iShift=[%d, %d)", iShift->first, iShift->second);
       for(int i=iShift->first; i<iShift->second; i++)
       {
-        bool use_single_day= ((!SQLfilter.access.airlines.empty() && SQLfilter.access.airlines_permit) ||
-                              (!SQLfilter.access.airps.empty() && SQLfilter.access.airps_permit && !SQLfilter.use_arrival_permit)) &&
+        bool use_single_day= ((!SQLfilter.access.airlines().elems().empty() && SQLfilter.access.airlines().elems_permit()) ||
+                              (!SQLfilter.access.airps().elems().empty() && SQLfilter.access.airps().elems_permit() && !SQLfilter.use_arrival_permit)) &&
                              iShift->second-1-iShift->first<=5;
 
         if (use_single_day)
@@ -919,8 +916,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     return true;
   };
 
-  if ((reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit) ||
-      (reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit))
+  if (reqInfo->user.access.totally_not_permitted())
     return false;
 
   TTripInfoSQLParams filter;
@@ -2720,7 +2716,7 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
     throw EXCEPTIONS::EConvertError("%s: filters.segs.empty()", __FUNCTION__);
   const WebSearch::TPNRFilter &filter=*(filters.segs.begin());
   try
-  {    
+  {
     if (filter.airlines.size()!=1)
       throw EXCEPTIONS::EConvertError("airlines.size()!=1");
     if (filter.scd_out_local_ranges.size()!=1)
