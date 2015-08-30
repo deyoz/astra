@@ -15,6 +15,7 @@
 #include "points.h"
 #include "qrys.h"
 #include "tlg/tlg.h"
+#include "astra_elem_utils.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -5069,9 +5070,21 @@ void StatInterface::stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 
     TAccess access;
     access.fromXML(NodeAsNode("access", curNode));
+    TAccessElems<string> norm_airlines, norm_airps;
+    //нормализуем компании
+    norm_airlines.set_elems_permit(access.airlines().elems_permit());
+    for(set<string>::iterator i=access.airlines().elems().begin();
+                              i!=access.airlines().elems().end(); ++i)
+      norm_airlines.add_elem(airl_fromXML(*i, cfErrorIfEmpty, __FUNCTION__, "airline"));
+    //нормализуем порты
+    norm_airps.set_elems_permit(access.airps().elems_permit());
+    for(set<string>::iterator i=access.airps().elems().begin();
+                              i!=access.airps().elems().end(); ++i)
+      norm_airps.add_elem(airp_fromXML(*i, cfErrorIfEmpty, __FUNCTION__, "airp"));
+
     TReqInfo &reqInfo = *(TReqInfo::Instance());
-    reqInfo.user.access.merge_airlines(access.airlines());
-    reqInfo.user.access.merge_airps(access.airps());
+    reqInfo.user.access.merge_airlines(norm_airlines);
+    reqInfo.user.access.merge_airps(norm_airps);
 
     xmlNodePtr statModeNode = NodeAsNode("stat_mode", curNode);
     xmlNodePtr statTypeNode = NodeAsNode("stat_type", curNode);

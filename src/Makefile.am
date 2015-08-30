@@ -50,6 +50,7 @@ astra_SOURCES = \
   astra_callbacks.cc \
   astra_consts.cc \
   astra_context.cc \
+  astra_elem_utils.cc \
   astra_elems.cc \
   astra_locale.cc \
   astra_locale_adv.cc \
@@ -106,7 +107,7 @@ astra_SOURCES = \
   prepreg.cc \
   print.cc \
   prn_tag_store.cc \
-  remarks.cc \  
+  remarks.cc \
   request_dup.cc \
   rozysk.cc \
   salonform.cc \
@@ -182,6 +183,7 @@ noinst_HEADERS = \
   astra_callbacks.h \
   astra_consts.h \
   astra_context.h \
+  astra_elem_utils.h \
   astra_elems.h \
   astra_locale.h \
   astra_locale_adv.h \
@@ -212,7 +214,7 @@ noinst_HEADERS = \
   dev_tuning.h \
   dev_utils.h \
   develop_dbf.h \
-  docs.h \  
+  docs.h \
   edi_utils.h \
   emdoc.h \
   empty_proc.h \

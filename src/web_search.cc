@@ -8,6 +8,7 @@
 #include "xml_unit.h"
 #include "misc.h"
 #include "dev_utils.h"
+#include "astra_elem_utils.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -19,126 +20,6 @@ using namespace AstraLocale;
 
 namespace WebSearch
 {
-
-string airl_fromXML(string str, bool err_msg)
-{
-    string airline;
-    TElemFmt fmt;
-    TrimString(str);
-    if (!str.empty())
-    {
-        airline = ElemToElemId( etAirline, upperc(str), fmt );
-        if (fmt==efmtUnknown)
-        {
-            TReqInfo::Instance()->traceToMonitor(TRACE5, "airl_fromXML: unknown <airline> %s", str.c_str());
-            throw UserException( "MSG.AIRLINE.INVALID",
-                                 LEvntPrms() << PrmSmpl<string>("airline", str ) );
-        };
-    }
-    else
-    {
-        if (err_msg)
-            TReqInfo::Instance()->traceToMonitor(TRACE5, "airl_fromXML: empty <airline>");
-    };
-    return airline;
-}
-
-string airp_fromXML(string str, bool err_msg)
-{
-    string airp;
-    TElemFmt fmt;
-    TrimString(str);
-    if (!str.empty())
-    {
-        airp = ElemToElemId( etAirp, upperc(str), fmt );
-        if (fmt==efmtUnknown)
-        {
-            TReqInfo::Instance()->traceToMonitor(TRACE5, "airp_fromXML: unknown <airport> %s", str.c_str());
-            throw UserException( "MSG.AIRPORT.INVALID",
-                                 LEvntPrms() << PrmSmpl<string>("airp", str ) );
-        };
-    }
-    else
-    {
-        if (err_msg)
-            TReqInfo::Instance()->traceToMonitor(TRACE5, "airp_fromXML: empty <airport>");
-    };
-    return airp;
-}
-
-int flt_no_fromXML(string str)
-{
-    int flt_no;
-    TrimString(str);
-    if (!str.empty())
-    {
-        if ( StrToInt( str.c_str(), flt_no ) == EOF ||
-             flt_no > 99999 || flt_no <= 0 )
-        {
-            TReqInfo::Instance()->traceToMonitor(TRACE5, "flt_no_fromXML: invalid <flt_no> %s", str.c_str());
-            throw UserException( "MSG.FLT_NO.INVALID",
-                                 LEvntPrms() << PrmSmpl<string>("flt_no", str) );
-        };
-    }
-    else
-    {
-        TReqInfo::Instance()->traceToMonitor(TRACE5, "flt_no_fromXML: <flt_no> not defined");
-        throw UserException( "MSG.CHECK_FLIGHT.NOT_SET_FLT_NO" );
-    };
-    return flt_no;
-}
-
-string suffix_fromXML(string str)
-{
-    string suffix;
-    TElemFmt fmt;
-    TrimString(str);
-    if (!str.empty())
-    {
-        suffix = ElemToElemId( etSuffix, upperc(str), fmt );
-        if (fmt==efmtUnknown)
-        {
-            TReqInfo::Instance()->traceToMonitor(TRACE5, "suffix_fromXML: unknown <suffix> %s", str.c_str());
-            throw UserException( "MSG.SUFFIX.INVALID",
-                                 LEvntPrms() << PrmSmpl<string>("suffix", str) );
-        };
-    };
-    return suffix;
-}
-
-TDateTime scd_out_fromXML(string str, const char* fmt)
-{
-    TDateTime scd_out;
-    TrimString(str);
-    if (!str.empty())
-    {
-        if ( StrToDateTime( str.c_str(), fmt, scd_out ) == EOF )
-        {
-            TReqInfo::Instance()->traceToMonitor(TRACE5, "scd_out_fromXML: invalid <scd_out> %s", str.c_str());
-            throw UserException( "MSG.FLIGHT_DATE.INVALID",
-                                 LEvntPrms() << PrmSmpl<string>("scd_out", str) );
-        };
-    };
-    return scd_out;
-}
-
-TDateTime date_fromXML(string str)
-{
-    TDateTime date;
-    TrimString(str);
-    if (!str.empty())
-    {
-        if ( StrToDateTime( str.c_str(), "dd.mm.yyyy hh:nn:ss", date ) == EOF )
-        {
-            if ( StrToDateTime( str.c_str(), "dd.mm.yyyy", date ) == EOF )
-            {
-                TReqInfo::Instance()->traceToMonitor(TRACE5, "date_fromXML: invalid <date> %s", str.c_str());
-                throw UserException( "Date is invalid" );
-            }
-        };
-    };
-    return date;
-}
 
 TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
 {
@@ -163,7 +44,7 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
 
     for(; alNode!=NULL; alNode=alNode->next)
     {
-      airline = airl_fromXML(NodeAsString(alNode), pass==0);
+      airline = airl_fromXML(alNode, (pass==0?cfTraceIfEmpty:cfNothingIfEmpty), __FUNCTION__);
       airlines.insert(airline);
       if (pass==1) break;
     };

@@ -10,13 +10,6 @@
 namespace WebSearch
 {
 
-std::string airl_fromXML(std::string str, bool err_msg);
-std::string  airp_fromXML(std::string str, bool err_msg);
-int flt_no_fromXML(std::string str);
-std::string  suffix_fromXML(std::string str);
-BASIC::TDateTime scd_out_fromXML(std::string str, const char* fmt);
-BASIC::TDateTime date_fromXML(std::string str);
-
 struct TPNRAddrInfo
 {
   std::string airline, addr;

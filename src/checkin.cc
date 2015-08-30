@@ -41,6 +41,7 @@
 #include "apis_utils.h"
 #include "astra_callbacks.h"
 #include "apps_interaction.h"
+#include "astra_elem_utils.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -7722,11 +7723,11 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 {
     xmlNodePtr flightNode = NodeAsNode("flight", reqNode);
     TSearchFltInfo filter;
-    filter.airline = WebSearch::airl_fromXML(NodeAsString("airline", flightNode), true);
-    filter.flt_no = WebSearch::flt_no_fromXML(NodeAsString("flt_no", flightNode));
-    filter.suffix = WebSearch::suffix_fromXML(NodeAsString("suffix", flightNode,""));
-    filter.airp_dep = WebSearch::airp_fromXML(NodeAsString("airp_dep", flightNode), true);
-    filter.scd_out = WebSearch::scd_out_fromXML(NodeAsString("scd", flightNode), "dd.mm.yyyy");
+    filter.airline = airl_fromXML(NodeAsNode("airline", flightNode), cfErrorIfEmpty, __FUNCTION__);
+    filter.flt_no = flt_no_fromXML(NodeAsString("flt_no", flightNode));
+    filter.suffix = suffix_fromXML(NodeAsString("suffix", flightNode,""));
+    filter.airp_dep = airp_fromXML(NodeAsNode("airp_dep", flightNode), cfErrorIfEmpty, __FUNCTION__);
+    filter.scd_out = scd_out_fromXML(NodeAsString("scd", flightNode), "dd.mm.yyyy");
     filter.scd_out_in_utc = false;
     filter.only_with_reg = true;
 
@@ -7837,7 +7838,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
             }
 
             WebSearch::TPnrData &pnrData=*(PNRs.begin());
-            string airp_arv = WebSearch::airp_fromXML(NodeAsString("airp_arv", crew_group), true);
+            string airp_arv = airp_fromXML(NodeAsNode("airp_arv", crew_group), cfErrorIfEmpty, __FUNCTION__);
             CompletePnrDataForCrew(airp_arv, pnrData);
             XMLDoc emulDocHeader;
             CreateEmulXMLDoc(emulDocHeader);

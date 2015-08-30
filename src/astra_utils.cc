@@ -493,16 +493,16 @@ void TAccess::fromXML(xmlNodePtr accessNode)
   //права доступа к операциям
   _rights.set_total_permit();
   //права доступа к авиакомпаниям
-  xmlNodePtr node = NodeAsNodeFast("airlines", node2)->children;
-  for(;node!=NULL;node=node->next)
+  xmlNodePtr node = NodeAsNodeFast("airlines", node2);
+  for(node=GetNode("airline", node);node!=NULL;node=node->next)
     _airlines.add_elem(NodeAsString(node));
   if (!NodeIsNULLFast("airlines_permit", node2))
     _airlines.set_elems_permit((bool)(NodeAsIntegerFast("airlines_permit", node2)!=0));
   else
     _airlines.set_elems_permit(true);
   //права доступа к аэропортам
-  node = NodeAsNodeFast("airps", node2)->children;
-  for(;node!=NULL;node=node->next)
+  node = NodeAsNodeFast("airps", node2);
+  for(node=GetNode("airp", node);node!=NULL;node=node->next)
     _airps.add_elem(NodeAsString(node));
   if (!NodeIsNULLFast("airps_permit", node2))
     _airps.set_elems_permit((bool)(NodeAsIntegerFast("airps_permit", node2)!=0));
