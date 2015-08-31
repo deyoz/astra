@@ -52,6 +52,8 @@ const char *RptTypeS[] = {
     "BDOCS",
     "SPEC",
     "SPECTXT",
+    "EMD",
+    "EMDTXT",
     "?"
 };
 
