@@ -83,6 +83,8 @@ enum TRptType {
     rtBDOCS,
     rtSPEC,
     rtSPECTXT,
+    rtEMD,
+    rtEMDTXT,
     rtUnknown,
     rtTypeNum
 };

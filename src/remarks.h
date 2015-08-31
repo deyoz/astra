@@ -148,6 +148,13 @@ class TPaxASVCItem
                 (emd_coupon!=ASTRA::NoExists && emd_coupon<item.emd_coupon));
       return emd_type<item.emd_type;
     };
+    bool operator == (const TPaxASVCItem &item)
+    {
+        return
+            emd_no == item.emd_no and
+            emd_coupon == item.emd_coupon and
+            emd_type == item.emd_type;
+    }
     const TPaxASVCItem& toXML(xmlNodePtr node) const;
     const TPaxASVCItem& toDB(TQuery &Qry) const;
     TPaxASVCItem& fromDB(TQuery &Qry);
