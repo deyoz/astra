@@ -5607,3 +5607,127 @@ void get_flight_stat(int point_id, bool final_collection)
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
 };
+
+string getCountry(int point_id, TDateTime part_key)
+{
+    QParams QryParams;
+    QryParams
+        << QParam("point_id", otInteger, point_id)
+        << QParam("part_key", otDate, part_key);
+    TCachedQuery Qry(
+            "select cities.country from "
+            "   arx_points, "
+            "   airps, "
+            "   cities "
+            "where "
+            "   arx_points.point_id = :point_id and "
+            "   arx_points.part_key = :part_key and "
+            "   arx_points.airp = airps.code and "
+            "   airps.city = cities.code ",
+            QryParams);
+    Qry.get().Execute();
+    if(Qry.get().Eof)
+        throw Exception("coutry code not found for point_id = %d", point_id);
+    return Qry.get().FieldAsString(0);
+}
+
+void collect(map<string, int> &result, TDateTime from, TDateTime to)
+{
+    QParams QryParams;
+    QryParams
+        << QParam("from_date", otDate, from)
+        << QParam("to_date", otDate, to)
+        << QParam("airp", otString, "ТЛЧ");
+    TCachedQuery Qry(
+            "select point_id, part_key from arx_points where "
+            "   scd_out > :from_date and "
+            "   scd_out <= :to_date and "
+            "   airp = :airp",
+            QryParams);
+    Qry.get().Execute();
+    int flights = 0;
+    int pax_count = 0;
+    for(; not Qry.get().Eof; Qry.get().Next(), flights++) {
+        int point_id = Qry.get().FieldAsInteger("point_id");
+        TDateTime part_key = Qry.get().FieldAsDateTime("part_key");
+        QParams grpParams;
+        grpParams
+            << QParam("point_id", otInteger, point_id)
+            << QParam("part_key", otDate, part_key);
+        TCachedQuery grpQry(
+                "select grp_id, point_dep, point_arv from arx_pax_grp where "
+                "   (point_dep = :point_id or point_arv = :point_id) and "
+                "   status not in ('E') and "
+                "   part_key = :part_key",
+                grpParams);
+        grpQry.get().Execute();
+        for(; not grpQry.get().Eof; grpQry.get().Next()) {
+            int grp_id = grpQry.get().FieldAsInteger("grp_id");
+            int point_dep = grpQry.get().FieldAsInteger("point_dep");
+            int point_arv = grpQry.get().FieldAsInteger("point_arv");
+            if(point_dep != point_id and getCountry(point_dep, part_key) != "РФ")
+                continue;
+            if(point_arv != point_id and getCountry(point_arv, part_key) != "РФ")
+                continue;
+            TCachedQuery paxQry(
+                    "select pax_id from arx_pax where "
+                    "   grp_id = :grp_id and "
+                    "   refuse is null and "
+                    "   part_key = :part_key",
+                    QParams()
+                    << QParam("grp_id", otInteger, grp_id)
+                    << QParam("part_key", otDate, part_key)
+                    );
+            paxQry.get().Execute();
+            for(; not paxQry.get().Eof; paxQry.get().Next()) {
+                int pax_id = paxQry.get().FieldAsInteger("pax_id");
+                CheckIn::TPaxDocItem doc;
+                LoadPaxDoc(part_key, pax_id, doc);
+                if(doc.type != "P") continue;
+                string no_begin = doc.no.substr(0, 2);
+                if(
+                        no_begin == "52" or
+                        no_begin == "04" or
+                        no_begin == "69" or
+                        no_begin == "32" or
+                        no_begin == "01"
+                  ) {
+                    cout << pax_id << " " << doc.no << endl;
+                    result[no_begin]++;
+                    pax_count++;
+                    if(pax_count % 10 == 0) cout << pax_count << " pax processed" << endl;
+                }
+            }
+        }
+    }
+    if(pax_count % 10 != 0) cout << pax_count << " pax processed" << endl;
+    cout << "flights: " << flights << endl;
+}
+
+int STAT::ovb(int argc,char **argv)
+{
+    TDateTime from, to;
+    StrToDateTime("01.01.2015 00:00:00","dd.mm.yyyy hh:nn:ss",from);
+
+    QParams QryParams;
+    QryParams << QParam("from_date", otDate, from);
+    TCachedQuery Qry("select last_day(:from_date) from dual", QryParams);
+    map<string, int> result;
+    for(int i = 0; i < 6; i++) {
+        cout << "------ loop " << i << " ------" << endl;
+        Qry.get().Execute();
+        from -= 1;
+        to = Qry.get().FieldAsDateTime(0);
+        cout << "from: " << DateTimeToStr(from, ServerFormatDateTimeAsString) << endl;
+        cout << "to: " << DateTimeToStr(to, ServerFormatDateTimeAsString) << endl;
+        collect(result, from, to);
+        from = to + 1;
+        Qry.get().SetVariable("from_date", from);
+    }
+    for(map<string, int>::iterator i = result.begin(); i != result.end(); i++) {
+        cout << "'" << i->first << "' -> " << i->second << endl;
+    }
+
+
+    return 1; // 0 - изменения коммитятся, 1 - rollback
+}

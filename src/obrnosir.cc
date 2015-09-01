@@ -82,6 +82,7 @@ const
     {"-fill_counters_by_subcls",fill_counters_by_subcls,NULL,                       NULL},
     {"-check_counters_by_subcls",check_counters_by_subcls,NULL,                     NULL},
     {"-convert_codeshare",      convert_codeshare,      NULL,                       NULL},
+    {"-ovb",                    STAT::ovb,              NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
