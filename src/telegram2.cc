@@ -16,6 +16,7 @@
 #include "misc.h"
 #include "qrys.h"
 #include "typeb_utils.h"
+#include "emdoc.h"
 #include "serverlib/logger.h"
 
 #define NICKNAME "DEN"
@@ -4339,6 +4340,8 @@ void TName::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, string p
     body.push_back(result);
 }
 
+typedef map<int, CheckIn::PaidBagEMDList> TGrpEmds;
+
 struct TASLPax {
     string target;
     int cls_grp_id;
@@ -4346,16 +4349,27 @@ struct TASLPax {
     int pnr_id;
     string crs;
     int pax_id;
+    int reg_no; // used in EMD report
     string ticket_no;
     int coupon_no;
     int grp_id;
     TPNRListAddressee pnrs;
     TMItem M;
     TRemList rems;
-    TASLPax(TInfants *ainfants): rems(ainfants) {
+    TGrpEmds *grpEmds;
+
+    // Следующие 2 поля заполняются в rems.get()
+    // причем если в результате used_asvc пустой,
+    // то tkn тоже будет пустой.
+    // Надо для EMDReport
+    vector<CheckIn::TPaxASVCItem> used_asvc;
+    CheckIn::TPaxTknItem tkn;
+
+    TASLPax(TInfants *ainfants, TGrpEmds *agrpEmds): rems(ainfants), grpEmds(agrpEmds) {
         cls_grp_id = NoExists;
         pnr_id = NoExists;
         pax_id = NoExists;
+        reg_no = NoExists;
         grp_id = NoExists;
     }
 };
@@ -4389,18 +4403,29 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
 
     vector<CheckIn::TPaxASVCItem> asvc;
     LoadPaxASVC(pax.pax_id, asvc);
-    if(not asvc.empty()) {
+    CheckIn::PaidBagEMDList &emdList = (*pax.grpEmds)[pax.grp_id];
+
+    for(CheckIn::PaidBagEMDList::iterator emdItem = emdList.begin(); emdItem != emdList.end(); emdItem++) {
+        for(vector<CheckIn::TPaxASVCItem>::iterator AsvcItem = asvc.begin(); AsvcItem != asvc.end(); AsvcItem++) {
+            if(emdItem->first == *AsvcItem) pax.used_asvc.push_back(*AsvcItem);
+        }
+    }
+
+    if(not pax.used_asvc.empty()) {
         //билет
         CheckIn::TPaxTknItem tkn;
         LoadPaxTkn(pax.pax_id, tkn);
-        if (tkn.rem == "TKNE" and getPaxRem(info, tkn, false, rem)) items.push_back(rem.text);
+        if (tkn.rem == "TKNE" and getPaxRem(info, tkn, false, rem)) {
+            pax.tkn = tkn;
+            items.push_back(rem.text);
+        }
         for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
             if(infRow->grp_id == pax.grp_id and infRow->parent_pax_id == pax.pax_id) {
                 LoadPaxTkn(infRow->pax_id, tkn);
                 if (tkn.rem == "TKNE" and getPaxRem(info, tkn, true, rem)) items.push_back(rem.text);
             }
         }
-        getPaxRem(info, asvc, items);
+        getPaxRem(info, pax.used_asvc, items);
     }
 }
 
@@ -4869,6 +4894,7 @@ void TFTLBody::get(TypeB::TDetailCreateInfo &info)
 struct TASLDest {
     string airp;
     string cls;
+    TGrpEmds grpEmds; // grouped by gpr_id
     vector<TASLPax> PaxList;
     TGRPMap *grp_map;
     TInfants *infants;
@@ -4908,6 +4934,7 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    crs_pnr.pnr_id, "
         "    crs_pnr.sender crs, "
         "    pax.pax_id, "
+        "    pax.reg_no, " // Used in EMD report only
         "    pax.ticket_no, "
         "    pax.coupon_no, "
         "    pax.grp_id, "
@@ -4950,11 +4977,12 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         int col_pnr_id = Qry.FieldIndex("pnr_id");
         int col_crs = Qry.FieldIndex("crs");
         int col_pax_id = Qry.FieldIndex("pax_id");
+        int col_reg_no = Qry.FieldIndex("reg_no");
         int col_ticket_no = Qry.FieldIndex("ticket_no");
         int col_coupon_no = Qry.FieldIndex("coupon_no");
         int col_grp_id = Qry.FieldIndex("grp_id");
         for(; !Qry.Eof; Qry.Next()) {
-            TASLPax pax(infants);
+            TASLPax pax(infants, &grpEmds);
             pax.target = Qry.FieldAsString(col_target);
             if(!Qry.FieldIsNULL(col_cls))
                 pax.cls_grp_id = Qry.FieldAsInteger(col_cls);
@@ -4966,12 +4994,20 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
             if(not markOptions.crs.empty() and markOptions.crs != pax.crs)
                 continue;
             pax.pax_id = Qry.FieldAsInteger(col_pax_id);
+            pax.reg_no = Qry.FieldAsInteger(col_reg_no);
             pax.M.get(info, pax.pax_id);
             if(not markOptions.mark_info.empty() and not(pax.M.m_flight == markOptions.mark_info))
                 continue;
             pax.ticket_no = Qry.FieldAsString(col_ticket_no);
             pax.coupon_no = Qry.FieldAsInteger(col_coupon_no);
             pax.grp_id = Qry.FieldAsInteger(col_grp_id);
+
+            TGrpEmds::iterator idx = grpEmds.find(pax.grp_id);
+            if(idx == grpEmds.end()) {
+                CheckIn::PaidBagEMDList &emds = grpEmds[pax.grp_id];
+                PaxASVCList::GetBoundPaidBagEMD(pax.grp_id, emds);
+            }
+
             pax.pnrs.get(pax.pnr_id);
             pax.rems.get(info, pax);
             if(pax.rems.items.empty())
@@ -7924,6 +7960,66 @@ int Unknown(TypeB::TDetailCreateInfo &info)
     return tlg_row.id;
 }
 
+void fillFltDetails(TypeB::TDetailCreateInfo &info)
+{
+
+    QParams QryParams;
+    QryParams << QParam("vpoint_id", otInteger, info.point_id);
+    TCachedQuery Qry(
+            "SELECT "
+            "   points.airline, "
+            "   points.flt_no, "
+            "   points.suffix, "
+            "   points.scd_out, "
+            "   points.est_out, "
+            "   points.act_out, "
+            "   points.bort, "
+            "   points.craft, "
+            "   points.airp, "
+            "   points.point_num, "
+            "   points.first_point, "
+            "   points.pr_tranzit, "
+            "   nvl(trip_sets.pr_lat_seat, 1) pr_lat_seat "
+            "from "
+            "   points, "
+            "   trip_sets "
+            "where "
+            "   points.point_id = :vpoint_id AND points.pr_del>=0 and "
+            "   points.point_id = trip_sets.point_id(+) ",
+        QryParams);
+    Qry.get().Execute();
+    if(Qry.get().Eof)
+        throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
+    if (Qry.get().FieldIsNULL("scd_out"))
+        throw AstraLocale::UserException("MSG.FLIGHT_DATE.NOT_SET");
+    info.airline = Qry.get().FieldAsString("airline");
+    if (!Qry.get().FieldIsNULL("flt_no"))
+        info.flt_no = Qry.get().FieldAsInteger("flt_no");
+    info.suffix = Qry.get().FieldAsString("suffix");
+    info.bort = Qry.get().FieldAsString("bort");
+    info.craft = Qry.get().FieldAsString("craft");
+    info.airp_dep = Qry.get().FieldAsString("airp");
+    info.point_num = Qry.get().FieldAsInteger("point_num");
+    info.first_point = Qry.get().FieldIsNULL("first_point")?NoExists:Qry.get().FieldAsInteger("first_point");
+    info.pr_tranzit = Qry.get().FieldAsInteger("pr_tranzit")!=0;
+    info.pr_lat_seat = Qry.get().FieldAsInteger("pr_lat_seat") != 0;
+
+    string tz_region=AirpTZRegion(info.airp_dep);
+    if (!Qry.get().FieldIsNULL("scd_out"))
+    {
+        info.scd_utc = Qry.get().FieldAsDateTime("scd_out");
+        info.scd_local = UTCToLocal( info.scd_utc, tz_region );
+        int Year, Month, Day;
+        DecodeDate(info.scd_local, Year, Month, Day);
+        info.scd_local_day = Day;
+    };
+
+    if(!Qry.get().FieldIsNULL("est_out"))
+        info.est_utc = Qry.get().FieldAsDateTime("est_out");
+    if(!Qry.get().FieldIsNULL("act_out"))
+        info.act_local = UTCToLocal( Qry.get().FieldAsDateTime("act_out"), tz_region );
+}
+
 int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
                                   int typeb_in_id,
                                   TTypeBTypesRow &tlgTypeInfo,
@@ -7963,62 +8059,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
 
     if(info.point_id != NoExists)
     {
-
-        QParams QryParams;
-        QryParams << QParam("vpoint_id", otInteger, info.point_id);
-        TCachedQuery Qry(
-                "SELECT "
-                "   points.airline, "
-                "   points.flt_no, "
-                "   points.suffix, "
-                "   points.scd_out, "
-                "   points.est_out, "
-                "   points.act_out, "
-                "   points.bort, "
-                "   points.craft, "
-                "   points.airp, "
-                "   points.point_num, "
-                "   points.first_point, "
-                "   points.pr_tranzit, "
-                "   nvl(trip_sets.pr_lat_seat, 1) pr_lat_seat "
-                "from "
-                "   points, "
-                "   trip_sets "
-                "where "
-                "   points.point_id = :vpoint_id AND points.pr_del>=0 and "
-                "   points.point_id = trip_sets.point_id(+) ",
-            QryParams);
-        Qry.get().Execute();
-        if(Qry.get().Eof)
-            throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
-        if (Qry.get().FieldIsNULL("scd_out"))
-            throw AstraLocale::UserException("MSG.FLIGHT_DATE.NOT_SET");
-        info.airline = Qry.get().FieldAsString("airline");
-        if (!Qry.get().FieldIsNULL("flt_no"))
-            info.flt_no = Qry.get().FieldAsInteger("flt_no");
-        info.suffix = Qry.get().FieldAsString("suffix");
-        info.bort = Qry.get().FieldAsString("bort");
-        info.craft = Qry.get().FieldAsString("craft");
-        info.airp_dep = Qry.get().FieldAsString("airp");
-        info.point_num = Qry.get().FieldAsInteger("point_num");
-        info.first_point = Qry.get().FieldIsNULL("first_point")?NoExists:Qry.get().FieldAsInteger("first_point");
-        info.pr_tranzit = Qry.get().FieldAsInteger("pr_tranzit")!=0;
-        info.pr_lat_seat = Qry.get().FieldAsInteger("pr_lat_seat") != 0;
-
-        string tz_region=AirpTZRegion(info.airp_dep);
-        if (!Qry.get().FieldIsNULL("scd_out"))
-        {
-            info.scd_utc = Qry.get().FieldAsDateTime("scd_out");
-            info.scd_local = UTCToLocal( info.scd_utc, tz_region );
-            int Year, Month, Day;
-            DecodeDate(info.scd_local, Year, Month, Day);
-            info.scd_local_day = Day;
-        };
-
-        if(!Qry.get().FieldIsNULL("est_out"))
-            info.est_utc = Qry.get().FieldAsDateTime("est_out");
-        if(!Qry.get().FieldIsNULL("act_out"))
-            info.act_local = UTCToLocal( Qry.get().FieldAsDateTime("act_out"), tz_region );
+        fillFltDetails(info);
     }
     else
     {
@@ -8110,6 +8151,32 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
 
     ProgTrace(TRACE5, "END OF CREATE %s", createInfo.get_tlg_type().c_str());
     return vid;
+}
+
+void EMDReport(int point_id, map<int, vector<string> > &tab)
+{
+
+    TypeB::TCreateInfo createInfo("ASL", TypeB::TCreatePoint());
+
+    TypeB::TDetailCreateInfo info;
+    info.create_point = createInfo.create_point;
+    info.copy(createInfo);
+    info.point_id = point_id;
+    vector<TTlgCompLayer> complayers;
+    TDestList<TASLDest> dests;
+    dests.get(info,complayers);
+    for(vector<TASLDest>::iterator i = dests.items.begin(); i != dests.items.end(); i++) {
+        for(vector<TASLPax>::iterator pax = i->PaxList.begin(); pax != i->PaxList.end(); pax++) {
+            vector<string> &row = tab[pax->reg_no];
+            row.push_back(pax->name.surname + " " + pax->name.name);
+            row.push_back(pax->tkn.no + "/" + IntToString(pax->tkn.coupon));
+            ostringstream buf;
+            for(vector<CheckIn::TPaxASVCItem>::iterator i = pax->used_asvc.begin(); i != pax->used_asvc.end(); i++) {
+                buf << i->emd_no << "/" << i->emd_coupon << ' ';
+            }
+            row.push_back(buf.str());
+        }
+    }
 }
 
 void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
