@@ -10,6 +10,7 @@
 #include "dev_utils.h"
 #include "payment.h"
 #include "remarks.h"
+#include "passenger.h"
 
 const std::string FT_M61 = "M61"; // form type
 const std::string FT_298_401 = "298 401";
@@ -73,6 +74,7 @@ namespace TAG {
     const std::string SURNAME = "SURNAME";
     const std::string TEST_SERVER = "TEST_SERVER";
     const std::string TIME_PRINT = "TIME_PRINT";
+    const std::string PAX_TITLE = "PAX_TITLE";
 
     // specific for bag tags
     const std::string AIRCODE = "AIRCODE";
@@ -315,6 +317,7 @@ class TPrnTagStore {
             std::string tags;
             std::string subcls;
             bool pr_bp_print;
+            CheckIn::TPaxDocItem doc;
             TPaxInfo():
                 pax_id(ASTRA::NoExists),
                 coupon_no(ASTRA::NoExists),
@@ -446,6 +449,7 @@ class TPrnTagStore {
         std::string SURNAME(TFieldParams fp);
         std::string TEST_SERVER(TFieldParams fp);
         std::string TIME_PRINT(TFieldParams fp);
+        std::string PAX_TITLE(TFieldParams fp);
 
         // specific for bag tags
         std::string AIRCODE(TFieldParams fp);

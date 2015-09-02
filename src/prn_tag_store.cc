@@ -356,6 +356,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::SURNAME,         TTagListItem(&TPrnTagStore::SURNAME, PAX_INFO)));
     tag_list.insert(make_pair(TAG::TEST_SERVER,     TTagListItem(&TPrnTagStore::TEST_SERVER)));
     tag_list.insert(make_pair(TAG::TIME_PRINT,      TTagListItem(&TPrnTagStore::TIME_PRINT)));
+    tag_list.insert(make_pair(TAG::PAX_TITLE,       TTagListItem(&TPrnTagStore::PAX_TITLE, PAX_INFO)));
 
     // specific for bag tags
     tag_list.insert(make_pair(TAG::AIRCODE,         TTagListItem(&TPrnTagStore::AIRCODE)));
@@ -823,7 +824,6 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
     if(pax_id == NoExists) {
         pax_id = apax_id;
         TQuery Qry(&OraSession);
-        CheckIn::TPaxDocItem doc;
         if (!isTestPaxId(pax_id))
         {
           LoadPaxDoc(pax_id, doc);
@@ -1727,6 +1727,33 @@ string TPrnTagStore::SURNAME(TFieldParams fp)
             throw Exception("TPrnTagStore::SURNAME: unexpected TagInfo type");
     }
     return result.substr(0, fp.len > 8 ? fp.len : fp.len == 0 ? string::npos : 8);
+}
+
+string TPrnTagStore::PAX_TITLE(TFieldParams fp)
+{
+    TPerson pers_type = DecodePerson((char *)paxInfo.pers_type.c_str());
+    string result;
+    switch(pers_type) {
+        case adult:
+            {
+                int is_female = CheckIn::is_female(paxInfo.doc.gender, "");
+                if(is_female == NoExists) // по умолчанию
+                    result = "Г-Н";
+                else {
+                    result = (is_female != 0 ? "Г-ЖА" : "Г-Н");
+                }
+            }
+            break;
+        case child:
+            result = "РБ";
+            break;
+        case baby:
+            result = "РМ";
+            break;
+        case NoPerson:
+            throw Exception("PAX_TITLE: something wrong with pers_type");
+    }
+    return getLocaleText(result, tag_lang.GetLang());
 }
 
 string TPrnTagStore::TIME_PRINT(TFieldParams fp)
