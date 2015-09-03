@@ -1563,7 +1563,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
     };
     // çÑë
     if(rcpt.service_type == 1 and rcpt.route_country == "êî") {
-        rcpt.nds = rcpt.rate_sum() / 118. * 18.;
+        rcpt.nds = rcpt.rate_sum() / 110. * 10.;
         rcpt.nds_cur = rcpt.rate_cur;
     } else {
         rcpt.nds = NoExists;
