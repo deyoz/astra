@@ -2847,6 +2847,14 @@ void correct_airp_pacts(vector<TPact> &airp_pacts, TPact &airline_pact)
     }
 }
 
+void setClientTypeCaps(xmlNodePtr variablesNode)
+{
+    NewTextChild(variablesNode, "kiosks", getLocaleText("CAP.KIOSKS"));
+    NewTextChild(variablesNode, "pax", getLocaleText("CAP.PAX"));
+    NewTextChild(variablesNode, "mob", getLocaleText("CAP.MOB"));
+    NewTextChild(variablesNode, "mobile_devices", getLocaleText("CAP.MOBILE_DEVICES"));
+}
+
 void createXMLDetailStat(const TStatParams &params, bool pr_pact,
                          const TDetailStat &DetailStat, const TDetailStatRow &DetailStatTotal,
                          const TPrintAirline &airline, xmlNodePtr resNode)
@@ -2992,8 +3000,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     };
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
-    NewTextChild(variablesNode, "kiosks", getLocaleText("CAP.KIOSKS"));
-    NewTextChild(variablesNode, "mobile_devices", getLocaleText("CAP.MOBILE_DEVICES"));
+    setClientTypeCaps(variablesNode);
     NewTextChild(variablesNode, "pr_pact", pr_pact);
     if(params.statType == statPactShort) {
         NewTextChild(variablesNode, "stat_type", params.statType);
@@ -3194,6 +3201,7 @@ void createXMLFullStat(const TStatParams &params,
     };
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    setClientTypeCaps(variablesNode);
     if (params.statType==statFull)
       NewTextChild(variablesNode, "caption", getLocaleText("Подробная сводка"));
     else
