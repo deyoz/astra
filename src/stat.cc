@@ -2847,6 +2847,14 @@ void correct_airp_pacts(vector<TPact> &airp_pacts, TPact &airline_pact)
     }
 }
 
+void setClientTypeCaps(xmlNodePtr variablesNode)
+{
+    NewTextChild(variablesNode, "kiosks", getLocaleText("CAP.KIOSKS"));
+    NewTextChild(variablesNode, "pax", getLocaleText("CAP.PAX"));
+    NewTextChild(variablesNode, "mob", getLocaleText("CAP.MOB"));
+    NewTextChild(variablesNode, "mobile_devices", getLocaleText("CAP.MOBILE_DEVICES"));
+}
+
 void createXMLDetailStat(const TStatParams &params, bool pr_pact,
                          const TDetailStat &DetailStat, const TDetailStatRow &DetailStatTotal,
                          const TPrintAirline &airline, xmlNodePtr resNode)
@@ -2992,8 +3000,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     };
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
-    NewTextChild(variablesNode, "kiosks", getLocaleText("CAP.KIOSKS"));
-    NewTextChild(variablesNode, "mobile_devices", getLocaleText("CAP.MOBILE_DEVICES"));
+    setClientTypeCaps(variablesNode);
     NewTextChild(variablesNode, "pr_pact", pr_pact);
     if(params.statType == statPactShort) {
         NewTextChild(variablesNode, "stat_type", params.statType);
@@ -3077,7 +3084,10 @@ void createXMLFullStat(const TStatParams &params,
           NewTextChild(rowNode, "col", im->second.child);
           NewTextChild(rowNode, "col", im->second.baby);
           NewTextChild(rowNode, "col", im->second.rk_weight);
-          NewTextChild(rowNode, "col", IntToString(im->second.bag_amount) + "/" + IntToString(im->second.bag_weight));
+
+          NewTextChild(rowNode, "col", im->second.bag_amount);
+          NewTextChild(rowNode, "col", im->second.bag_weight);
+
           NewTextChild(rowNode, "col", im->second.excess);
           if (params.statType==statTrferFull)
               NewTextChild(rowNode, "col", im->first.point_id);
@@ -3175,11 +3185,17 @@ void createXMLFullStat(const TStatParams &params,
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.rk_weight);
 
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Багаж (мест/вес)"));
-    SetProp(colNode, "width", 100);
-    SetProp(colNode, "align", taCenter);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("БГ мест"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taRightJustify);
     SetProp(colNode, "sort", sortIntegerSlashInteger);
-    NewTextChild(rowNode, "col", IntToString(total.bag_amount) + "/" + IntToString(total.bag_weight));
+    NewTextChild(rowNode, "col", total.bag_amount);
+
+    colNode = NewTextChild(headerNode, "col", getLocaleText("БГ вес"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "sort", sortIntegerSlashInteger);
+    NewTextChild(rowNode, "col", total.bag_weight);
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Платн. (вес)"));
     SetProp(colNode, "width", 70);
@@ -3194,6 +3210,7 @@ void createXMLFullStat(const TStatParams &params,
     };
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    setClientTypeCaps(variablesNode);
     if (params.statType==statFull)
       NewTextChild(variablesNode, "caption", getLocaleText("Подробная сводка"));
     else
@@ -3594,7 +3611,8 @@ struct TSelfCkinStatRow {
 };
 
 struct TSelfCkinStatKey {
-    string client_type, kiosk, descr, ak, ap;
+    string client_type, descr, ak, ap;
+    string desk, desk_airp;
     int flt_no;
     int point_id;
     TStatPlaces places;
@@ -3606,25 +3624,28 @@ struct TKioskCmp {
     bool operator() (const TSelfCkinStatKey &lr, const TSelfCkinStatKey &rr) const
     {
         if(lr.client_type == rr.client_type)
-            if(lr.kiosk == rr.kiosk)
-                if(lr.ak == rr.ak)
-                    if(lr.ap == rr.ap)
-                        if(lr.flt_no == rr.flt_no)
-                            if(lr.scd_out == rr.scd_out)
-                                if(lr.point_id == rr.point_id)
-                                    return lr.places.get() < rr.places.get();
+            if(lr.desk == rr.desk)
+                if(lr.desk_airp == rr.desk_airp)
+                    if(lr.ak == rr.ak)
+                        if(lr.ap == rr.ap)
+                            if(lr.flt_no == rr.flt_no)
+                                if(lr.scd_out == rr.scd_out)
+                                    if(lr.point_id == rr.point_id)
+                                        return lr.places.get() < rr.places.get();
+                                    else
+                                        return lr.point_id < rr.point_id;
                                 else
-                                    return lr.point_id < rr.point_id;
+                                    return lr.scd_out < rr.scd_out;
                             else
-                                return lr.scd_out < rr.scd_out;
+                                return lr.flt_no < rr.flt_no;
                         else
-                            return lr.flt_no < rr.flt_no;
+                            return lr.ap < rr.ap;
                     else
-                        return lr.ap < rr.ap;
+                        return lr.ak < rr.ak;
                 else
-                    return lr.ak < rr.ak;
+                    return lr.desk_airp < rr.desk_airp;
             else
-                return lr.kiosk < rr.kiosk;
+                return lr.desk < rr.desk;
         else
             return lr.client_type < rr.client_type;
     }
@@ -3759,17 +3780,12 @@ void RunSelfCkinStat(const TStatParams &params,
                 string airp = Qry.FieldAsString(col_airp);
                 TDateTime scd_out = Qry.FieldAsDateTime(col_scd_out);
                 int flt_no = Qry.FieldAsInteger(col_flt_no);
-                string client_type = Qry.FieldAsString(col_client_type);
-                string desk = Qry.FieldAsString(col_desk);
-                string desk_airp = Qry.FieldAsString(col_desk_airp);
-                string descr = Qry.FieldAsString(col_descr);
-
                 TSelfCkinStatKey key;
-                key.client_type = client_type;
-                key.kiosk = desk;
-                if(not desk_airp.empty())
-                    key.kiosk += "/" + ElemIdToCodeNative(etAirp, desk_airp);
-                key.descr = descr;
+                key.client_type = Qry.FieldAsString(col_client_type);
+                key.desk = Qry.FieldAsString(col_desk);
+                key.desk_airp = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_desk_airp));
+                key.descr = Qry.FieldAsString(col_descr);
+
                 key.ak = ElemIdToCodeNative(etAirline, airline);
                 if(
                         params.statType == statSelfCkinDetail or
@@ -3838,8 +3854,10 @@ void createXMLSelfCkinStat(const TStatParams &params,
           rowNode = NewTextChild(rowsNode, "row");
           // Тип рег.
           NewTextChild(rowNode, "col", im->first.client_type);
-          // № киоска
-          NewTextChild(rowNode, "col", im->first.kiosk);
+          // Пульт
+          NewTextChild(rowNode, "col", im->first.desk);
+          // А/П пульта
+          NewTextChild(rowNode, "col", im->first.desk_airp);
           // примечание
           if(params.statType == statSelfCkinFull)
               NewTextChild(rowNode, "col", im->first.descr);
@@ -3910,7 +3928,11 @@ void createXMLSelfCkinStat(const TStatParams &params,
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col", getLocaleText("Итого:"));
     colNode = NewTextChild(headerNode, "col", getLocaleText("Пульт"));
-    SetProp(colNode, "width", 75);
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АП пульта"));
+    SetProp(colNode, "width", 60);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col");
