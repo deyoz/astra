@@ -957,7 +957,7 @@ void SavePaxDoca(int pax_id, const list<TPaxDocaItem> &doca, TQuery& PaxDocaQry,
 
 };
 
-bool LoadPaxNorms(int pax_id, vector< pair<TPaxNormItem, TNormItem> > &norms)
+bool PaxNormsFromDB(int pax_id, list< pair<TPaxNormItem, TNormItem> > &norms)
 {
   norms.clear();
   const char* sql=
@@ -976,7 +976,7 @@ bool LoadPaxNorms(int pax_id, vector< pair<TPaxNormItem, TNormItem> > &norms)
   return !norms.empty();
 };
 
-bool LoadGrpNorms(int grp_id, vector< pair<TPaxNormItem, TNormItem> > &norms)
+bool GrpNormsFromDB(int grp_id, list< pair<TPaxNormItem, TNormItem> > &norms)
 {
   norms.clear();
   const char* sql=
@@ -995,26 +995,12 @@ bool LoadGrpNorms(int grp_id, vector< pair<TPaxNormItem, TNormItem> > &norms)
   return !norms.empty();
 };
 
-void LoadNorms(xmlNodePtr node, bool pr_unaccomp)
+void NormsToXML(const list< pair<TPaxNormItem, TNormItem> > &norms, xmlNodePtr node)
 {
   if (node==NULL) return;
-  xmlNodePtr node2=node->children;
-
-  vector< pair<TPaxNormItem, TNormItem> > norms;
-  if (!pr_unaccomp)
-  {
-    int pax_id=NodeAsIntegerFast("pax_id",node2);
-    LoadPaxNorms(pax_id, norms);
-  }
-  else
-  {
-    int grp_id=NodeAsIntegerFast("grp_id",node2);
-    LoadGrpNorms(grp_id, norms);
-  };
 
   xmlNodePtr normsNode=NewTextChild(node,"norms");
-  vector< pair<TPaxNormItem, TNormItem> >::const_iterator i=norms.begin();
-  for(;i!=norms.end();++i)
+  for(list< pair<TPaxNormItem, TNormItem> >::const_iterator i=norms.begin();i!=norms.end();++i)
   {
     xmlNodePtr normNode=NewTextChild(normsNode,"norm");
     i->first.toXML(normNode);
@@ -1022,50 +1008,44 @@ void LoadNorms(xmlNodePtr node, bool pr_unaccomp)
   };
 };
 
-void SaveNorms(xmlNodePtr node, bool pr_unaccomp)
+void PaxNormsToDB(int pax_id, const boost::optional< list<TPaxNormItem> > &norms)
 {
-  if (node==NULL) return;
-  xmlNodePtr node2=node->children;
-
-  xmlNodePtr normNode=GetNodeFast("norms",node2);
-  if (normNode==NULL) return;
-
+  if (!norms) return;
   TQuery NormQry(&OraSession);
   NormQry.Clear();
-  if (!pr_unaccomp)
-  {
-    int pax_id;
-    if (GetNodeFast("generated_pax_id",node2)!=NULL)
-      pax_id=NodeAsIntegerFast("generated_pax_id",node2);
-    else
-      pax_id=NodeAsIntegerFast("pax_id",node2);
-    NormQry.SQLText="DELETE FROM pax_norms WHERE pax_id=:pax_id";
-    NormQry.CreateVariable("pax_id",otInteger,pax_id);
-    NormQry.Execute();
-    NormQry.SQLText=
-      "INSERT INTO pax_norms(pax_id,bag_type,norm_id,norm_trfer) "
-      "VALUES(:pax_id,:bag_type,:norm_id,:norm_trfer)";
-  }
-  else
-  {
-    int grp_id;
-    if (GetNodeFast("generated_grp_id",node2)!=NULL)
-      grp_id=NodeAsIntegerFast("generated_grp_id",node2);
-    else
-      grp_id=NodeAsIntegerFast("grp_id",node2);
-    NormQry.SQLText="DELETE FROM grp_norms WHERE grp_id=:grp_id";
-    NormQry.CreateVariable("grp_id",otInteger,grp_id);
-    NormQry.Execute();
-    NormQry.SQLText=
-      "INSERT INTO grp_norms(grp_id,bag_type,norm_id,norm_trfer) "
-      "VALUES(:grp_id,:bag_type,:norm_id,:norm_trfer)";
-  };
+  NormQry.SQLText="DELETE FROM pax_norms WHERE pax_id=:pax_id";
+  NormQry.CreateVariable("pax_id",otInteger,pax_id);
+  NormQry.Execute();
+  NormQry.SQLText=
+    "INSERT INTO pax_norms(pax_id,bag_type,norm_id,norm_trfer) "
+    "VALUES(:pax_id,:bag_type,:norm_id,:norm_trfer)";
   NormQry.DeclareVariable("bag_type",otInteger);
   NormQry.DeclareVariable("norm_id",otInteger);
   NormQry.DeclareVariable("norm_trfer",otInteger);
-  for(normNode=normNode->children;normNode!=NULL;normNode=normNode->next)
+  for(list<TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
   {
-    TPaxNormItem().fromXML(normNode).toDB(NormQry);
+    n->toDB(NormQry);
+    NormQry.Execute();
+  };
+};
+
+void GrpNormsToDB(int grp_id, const boost::optional< list<TPaxNormItem> > &norms)
+{
+  if (!norms) return;
+  TQuery NormQry(&OraSession);
+  NormQry.Clear();
+  NormQry.SQLText="DELETE FROM grp_norms WHERE grp_id=:grp_id";
+  NormQry.CreateVariable("grp_id",otInteger,grp_id);
+  NormQry.Execute();
+  NormQry.SQLText=
+    "INSERT INTO grp_norms(grp_id,bag_type,norm_id,norm_trfer) "
+    "VALUES(:grp_id,:bag_type,:norm_id,:norm_trfer)";
+  NormQry.DeclareVariable("bag_type",otInteger);
+  NormQry.DeclareVariable("norm_id",otInteger);
+  NormQry.DeclareVariable("norm_trfer",otInteger);
+  for(list<TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
+  {
+    n->toDB(NormQry);
     NormQry.Execute();
   };
 };
@@ -1341,6 +1321,40 @@ const TAPISItem& TAPISItem::toXML(xmlNodePtr node) const
   return *this;
 };
 
+TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
+{
+  clear();
+  if (paxNode==NULL) return *this;
+  xmlNodePtr node2=paxNode->children;
+
+  node=paxNode;
+  pax.fromXML(paxNode);
+  //ремарки
+  xmlNodePtr remNode=GetNodeFast("rems",node2);
+  if (remNode!=NULL)
+  {
+    remsExists=true;
+    for(remNode=remNode->children; remNode!=NULL; remNode=remNode->next)
+    {
+      CheckIn::TPaxRemItem rem;
+      rem.fromXML(remNode);
+      TRemCategory cat=getRemCategory(rem.code, rem.text);
+      if (cat==remASVC) continue; //пропускаем переданные ASVC
+      rems.push_back(rem);
+    };
+  };
+  //нормы
+  xmlNodePtr normNode=GetNodeFast("norms",node2);
+  if (normNode!=NULL)
+  {
+    norms=list<TPaxNormItem>();
+    for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
+      norms.get().push_back(TPaxNormItem().fromXML(normNode));
+  };
+
+  return *this;
+};
+
 const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -1385,19 +1399,27 @@ TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
   }
   else status=DecodePaxStatus(NodeAsStringFast("status",node2));
   tid=NodeAsIntegerFast("tid",node2,ASTRA::NoExists);
+
+  xmlNodePtr normNode=GetNodeFast("norms",node2);
+  if (normNode!=NULL)
+  {
+    norms=list<TPaxNormItem>();
+    for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
+      norms.get().push_back(TPaxNormItem().fromXML(normNode));
+  };
   return *this;
 };
 
 TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node)
 {
-  excess=ASTRA::NoExists;
   hall=ASTRA::NoExists;
   bag_refuse.clear();
 
   if (node==NULL) return *this;
   xmlNodePtr node2=node->children;
 
-  excess=NodeAsIntegerFast("excess",node2);
+  TReqInfo *reqInfo=TReqInfo::Instance();
+
   if (tid!=ASTRA::NoExists)
   {
     //запись изменений
@@ -1405,7 +1427,6 @@ TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node)
   };
 
   //зал
-  TReqInfo *reqInfo=TReqInfo::Instance();
   if (reqInfo->client_type == ASTRA::ctTerm)
   {
     if (reqInfo->desk.compatible(BAG_WITH_HALL_VERSION))
@@ -1460,6 +1481,10 @@ TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node)
     };
   };
 
+  PaidBagFromXML(node, paid);
+
+  group_bag=TGroupBagItem();
+  if (!group_bag.get().fromXML(node)) group_bag=boost::none;
 
   return *this;
 };
@@ -1480,7 +1505,6 @@ const TPaxGrpItem& TPaxGrpItem::toDB(TQuery &Qry) const
     Qry.SetVariable("class", cl);
   if (Qry.GetVariableIndex("status")>=0)
     Qry.SetVariable("status", EncodePaxStatus(status));
-  Qry.SetVariable("excess", excess);
   if (Qry.GetVariableIndex("hall")>=0)
     hall!=ASTRA::NoExists?Qry.SetVariable("hall", hall):
                           Qry.SetVariable("hall", FNull);
@@ -1501,7 +1525,6 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
   airp_arv=Qry.FieldAsString("airp_arv");
   cl=Qry.FieldAsString("class");
   status=DecodePaxStatus(Qry.FieldAsString("status"));
-  excess=Qry.FieldAsInteger("excess");
   if (!Qry.FieldIsNULL("hall"))
     hall=Qry.FieldAsInteger("hall");
   if (Qry.FieldAsInteger("bag_refuse")!=0)
@@ -1509,6 +1532,7 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
   tid=Qry.FieldAsInteger("tid");
   return *this;
 };
+
 
 }; //namespace CheckIn
 

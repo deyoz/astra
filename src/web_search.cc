@@ -5,6 +5,7 @@
 #include "checkin.h"
 #include "passenger.h"
 #include "baggage.h"
+#include "baggage_calc.h"
 #include "xml_unit.h"
 #include "misc.h"
 #include "dev_utils.h"
@@ -1202,55 +1203,25 @@ bool TPNRInfo::fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest, b
   TCodeShareSets codeshareSets;
   codeshareSets.get(flt.oper,pnrMarkFlt);
 
-  TQuery BagNormsQry(&OraSession);
-  BagNormsQry.Clear();
-  BagNormsQry.SQLText=
-   "SELECT point_id, :use_mark_flt AS use_mark_flt, "
-   "       :airline_mark AS airline_mark, :flt_no_mark AS flt_no_mark, "
-   "       id,bag_norms.airline,pr_trfer,city_dep,city_arv,pax_cat, "
-   "       subclass,class,bag_norms.flt_no,bag_norms.craft,bag_norms.trip_type, "
-   "       first_date,last_date-1/86400 AS last_date,"
-   "       bag_type,amount,weight,per_unit,norm_type,extra,bag_norms.tid "
-   "FROM bag_norms, "
-   "     (SELECT point_id,airps.city, "
-   "             DECODE(:use_mark_flt,0,airline,:airline_mark) AS airline, "
-   "             DECODE(:use_mark_flt,0,flt_no,:flt_no_mark) AS flt_no, "
-   "             craft,NVL(est_out,scd_out) AS scd, "
-   "             trip_type, point_num, DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
-   "      FROM points,airps WHERE points.airp=airps.code AND point_id=:point_id) p "
-   "WHERE (bag_norms.airline IS NULL OR bag_norms.airline=p.airline) AND "
-   "      (bag_norms.city_dep IS NULL OR bag_norms.city_dep=p.city) AND "
-   "      (bag_norms.city_arv IS NULL OR "
-   "       bag_norms.pr_trfer IS NULL OR bag_norms.pr_trfer<>0 OR "
-   "       bag_norms.city_arv IN "
-   "        (SELECT city FROM points p2,airps "
-   "         WHERE p2.first_point=p.first_point AND p2.point_num>p.point_num AND p2.pr_del=0 AND "
-   "               p2.airp=airps.code)) AND "
-   "      (bag_norms.flt_no IS NULL OR bag_norms.flt_no=p.flt_no) AND "
-   "      (bag_norms.craft IS NULL OR bag_norms.craft=p.craft) AND "
-   "      (bag_norms.trip_type IS NULL OR bag_norms.trip_type=p.trip_type) AND "
-   "      first_date<=scd AND (last_date IS NULL OR last_date>scd) AND "
-   "      bag_norms.pr_del=0 AND "
-   "      bag_norms.norm_type=:norm_type "
-   "ORDER BY airline,DECODE(pr_trfer,0,0,NULL,0,1),id";
-  BagNormsQry.CreateVariable("use_mark_flt",otInteger,codeshareSets.pr_mark_norms);
-  BagNormsQry.CreateVariable("airline_mark",otString,pnrMarkFlt.airline);
-  BagNormsQry.CreateVariable("flt_no_mark",otInteger,pnrMarkFlt.flt_no);
-  BagNormsQry.CreateVariable("point_id",otInteger,flt.point_dep);
-  BagNormsQry.CreateVariable("norm_type",otString,EncodeBagNormType(bntFreeExcess));
-  BagNormsQry.Execute();
+  BagPayment::TNormFltInfo fltInfo;
+  fltInfo.point_id=flt.point_dep;
+  fltInfo.use_mark_flt=codeshareSets.pr_mark_norms;
+  fltInfo.airline_mark=pnrMarkFlt.airline;
+  fltInfo.flt_no_mark=pnrMarkFlt.flt_no;
+  fltInfo.use_mixed_norms=GetTripSets(tsMixedNorms,flt.oper);
+  BagPayment::TPaxInfo paxInfo;
+  paxInfo.pax_cat="";
+  paxInfo.target=dest.city_arv;
+  paxInfo.final_target=""; //трансфер пока не анализируем
+  paxInfo.subcl=segs.begin()->second.subcls;
+  paxInfo.cl=segs.begin()->second.cls;
 
-  bool use_mixed_norms=GetTripSets(tsMixedNorms,flt.oper);
-  BagPayment::TPaxInfo pax;
-  pax.pax_cat="";
-  pax.target=dest.city_arv;
-  pax.final_target=""; //трансфер пока не анализируем
-  pax.subcl=segs.begin()->second.subcls;
-  pax.cl=segs.begin()->second.cls;
-  pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> norm;
-
-  BagPayment::GetPaxBagNorm(BagNormsQry, use_mixed_norms, pax, false, norm);
-  bag_norm = norm.second.weight; //NoExists, если не найдена
+  BagPayment::TBagNormInfo norm;
+  BagPayment::CheckOrGetPaxBagNorm(fltInfo, paxInfo, false, NoExists, CheckIn::TPaxNormItem(), norm); //обычный багаж
+  if (!norm.empty())
+    bag_norm=norm.weight;
+  else
+    bag_norm = NoExists; //NoExists, если не найдена
 
   return true;
 };

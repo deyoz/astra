@@ -5,6 +5,8 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "baggage.h"
+#include "remarks.h"
+#include <boost/optional.hpp>
 
 const long int NO_FIELDS=0x0000;
 
@@ -46,7 +48,7 @@ class TPaxTknItem
     TPaxTknItem& fromXML(xmlNodePtr node);
     const TPaxTknItem& toDB(TQuery &Qry) const;
     TPaxTknItem& fromDB(TQuery &Qry);
-    
+
     long int getNotEmptyFieldsMask() const;
 };
 
@@ -129,7 +131,7 @@ class TPaxDocItem
     TPaxDocItem& fromXML(xmlNodePtr node);
     const TPaxDocItem& toDB(TQuery &Qry) const;
     TPaxDocItem& fromDB(TQuery &Qry);
-    
+
     long int getNotEmptyFieldsMask() const;
     long int getEqualAttrsFieldsMask(const TPaxDocItem &item) const;
 };
@@ -137,7 +139,7 @@ class TPaxDocItem
 const std::string DOCO_PSEUDO_TYPE="-";
 
 class TPaxDocoItem
-{  
+{
   public:
     std::string birth_place;
     std::string type;
@@ -195,7 +197,7 @@ class TPaxDocoItem
     TPaxDocoItem& fromDB(TQuery &Qry);
 
     bool needPseudoType() const;
-    
+
     long int getNotEmptyFieldsMask() const;
     long int getEqualAttrsFieldsMask(const TPaxDocoItem &item) const;
     void ReplacePunctSymbols();
@@ -292,7 +294,7 @@ class TPaxItem
     bool TknExists;
     bool DocExists;
     bool DocoExists;
-    bool DocaExists;    
+    bool DocaExists;
     TPaxItem()
     {
       clear();
@@ -322,7 +324,7 @@ class TPaxItem
       TknExists=false;
       DocExists=false;
       DocoExists=false;
-      DocaExists=false;      
+      DocaExists=false;
     };
 
     const TPaxItem& toXML(xmlNodePtr node) const;
@@ -356,6 +358,42 @@ class TAPISItem
 
 int is_female(const std::string &pax_doc_gender, const std::string &pax_name);
 
+class TPaxListItem
+{
+  public:
+    CheckIn::TPaxItem pax;
+    int generated_pax_id; //заполняется только при первоначальной регистрации (new_checkin) и только для NOREC
+    bool remsExists;
+    std::vector<CheckIn::TPaxRemItem> rems;
+    std::vector<CheckIn::TPaxFQTItem> fqts;
+    boost::optional< std::list<TPaxNormItem> > norms;
+    xmlNodePtr node;
+
+    TPaxListItem() { clear(); }
+
+    void clear()
+    {
+      pax.clear();
+      generated_pax_id=ASTRA::NoExists;
+      remsExists=false;
+      rems.clear();
+      fqts.clear();
+      norms=boost::none;
+      node=NULL;
+    }
+
+    bool trferAttachable() const
+    {
+      return pax.seats!=ASTRA::NoExists && pax.seats>0 &&
+          (pax.pers_type==ASTRA::adult || pax.pers_type==ASTRA::child) &&
+          pax.refuse!=ASTRA::refuseAgentError;
+    }
+
+    TPaxListItem& fromXML(xmlNodePtr paxNode);
+};
+
+typedef std::list<CheckIn::TPaxListItem> TPaxList;
+
 class TPaxGrpItem
 {
   public:
@@ -366,10 +404,12 @@ class TPaxGrpItem
     std::string airp_arv;
     std::string cl;
     ASTRA::TPaxStatus status;
-    int excess;
     int hall;
     std::string bag_refuse;
     int tid;
+    boost::optional< std::list<TPaxNormItem> > norms;
+    boost::optional< std::list<TPaidBagItem> > paid;
+    boost::optional< TGroupBagItem > group_bag;
     TPaxGrpItem()
     {
       clear();
@@ -383,10 +423,12 @@ class TPaxGrpItem
       airp_arv.clear();
       cl.clear();
       status=ASTRA::psCheckin;
-      excess=ASTRA::NoExists;
       hall=ASTRA::NoExists;
       bag_refuse.clear();
       tid=ASTRA::NoExists;
+      norms=boost::none;
+      paid=boost::none;
+      group_bag=boost::none;
     };
 
     const TPaxGrpItem& toXML(xmlNodePtr node) const;
@@ -430,10 +472,11 @@ void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
 void SavePaxDoca(int pax_id, const std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry, bool new_checkin);
 
-bool LoadPaxNorms(int pax_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms);
-bool LoadGrpNorms(int grp_id, std::vector< std::pair<TPaxNormItem, TNormItem> > &norms);
-void LoadNorms(xmlNodePtr node, bool pr_unaccomp);
-void SaveNorms(xmlNodePtr node, bool pr_unaccomp);
+bool PaxNormsFromDB(int pax_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
+bool GrpNormsFromDB(int grp_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
+void NormsToXML(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms, xmlNodePtr node);
+void PaxNormsToDB(int pax_id, const boost::optional< std::list<TPaxNormItem> > &norms);
+void GrpNormsToDB(int grp_id, const boost::optional< std::list<TPaxNormItem> > &norms);
 
 }; //namespace CheckIn
 

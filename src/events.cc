@@ -243,15 +243,15 @@ void TPaxToLogInfo::getPaxName(LEvntPrms& params) const
 
 void TPaxToLogInfo::getNorm(PrmEnum& param) const
 {
-  if (norms.empty()) {
+  if (norms_normal.empty()) {
     param.prms << PrmBool("", false);
     return;
   }
-  std::map< int/*bag_type*/, CheckIn::TNormItem>::const_iterator n=norms.begin();
-  for(;n!=norms.end();++n)
+  std::map< int/*bag_type*/, CheckIn::TNormItem>::const_iterator n=norms_normal.begin();
+  for(;n!=norms_normal.end();++n)
   {
     std::ostringstream msg;
-    if (n!=norms.begin()) param.prms << PrmSmpl<string>("", ", ");
+    if (n!=norms_normal.begin()) param.prms << PrmSmpl<string>("", ", ");
     if (n->first!=-1) {
       msg << setw(2) << setfill('0') << n->first << ": ";
       param.prms << PrmSmpl<string>("", msg.str());
@@ -259,6 +259,35 @@ void TPaxToLogInfo::getNorm(PrmEnum& param) const
     n->second.GetNorms(param);
   };
 };
+
+void GetBagToLogInfo(int grp_id, map<int/*id*/, TBagToLogInfo> &bag)
+{
+  bag.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT id, bag_type, pr_cabin, amount, weight, using_scales, is_trfer, "
+    "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) AS refused "
+    "FROM pax_grp,bag2 "
+    "WHERE pax_grp.grp_id=bag2.grp_id AND "
+    "      pax_grp.grp_id=:grp_id";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  //багаж есть
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TBagToLogInfo bagInfo;
+    bagInfo.id=Qry.FieldAsInteger("id");
+    bagInfo.pr_cabin=Qry.FieldAsInteger("pr_cabin")!=0;
+    bagInfo.amount=Qry.FieldAsInteger("amount");
+    bagInfo.weight=Qry.FieldAsInteger("weight");
+    bagInfo.bag_type=Qry.FieldIsNULL("bag_type")?ASTRA::NoExists:Qry.FieldAsInteger("bag_type");
+    bagInfo.using_scales=Qry.FieldAsInteger("using_scales")!=0;
+    bagInfo.is_trfer=Qry.FieldAsInteger("is_trfer")!=0;
+    bagInfo.refused=Qry.FieldAsInteger("refused")!=0;
+    bag[bagInfo.id]=bagInfo;
+  };
+}
 
 void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 {
@@ -270,7 +299,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
     "       pax_grp.airp_arv, pax_grp.class, pax_grp.status, "
     "       pax_grp.pr_mark_norms, pax_grp.bag_refuse, "
     "       pax.pax_id, pax.reg_no, "
-    "       pax.surname, pax.name, pax.pers_type, pax.refuse, pax.subclass, pax.is_female, "
+    "       pax.surname, pax.name, pax.pers_type, pax.refuse, pax.subclass, pax.is_female, pax.seats, "
     "       salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
     "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, 0 AS ticket_confirm, "
     "       pax.pr_brd, pax.pr_exam, "
@@ -309,6 +338,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paxInfo.refuse=Qry.FieldAsString("refuse");
         paxInfo.subcl=Qry.FieldAsString("subclass");
         paxInfo.seat_no=Qry.FieldAsString("seat_no");
+        paxInfo.seats=Qry.FieldAsInteger("seats");
         if (!Qry.FieldIsNULL("is_female"))
           paxInfo.is_female=(int)(Qry.FieldAsInteger("is_female")!=0);
         else
@@ -331,47 +361,30 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
       paxInfo.rk_weight=Qry.FieldAsInteger("rk_weight");
       paxInfo.tags=Qry.FieldAsString("tags");
 
-      std::vector< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
       if (paxInfoKey.pax_id!=NoExists)
-        CheckIn::LoadPaxNorms(paxInfoKey.pax_id, norms);
+        CheckIn::PaxNormsFromDB(paxInfoKey.pax_id, paxInfo.norms);
       else
-        CheckIn::LoadGrpNorms(grp_id, norms);
-      paxInfo.norms.clear();
-      std::vector< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> >::const_iterator i=norms.begin();
-      for(; i!=norms.end(); ++i)
+        CheckIn::GrpNormsFromDB(grp_id, paxInfo.norms);
+      paxInfo.norms_normal.clear();
+      std::list< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> >::const_iterator i=paxInfo.norms.begin();
+      for(; i!=paxInfo.norms.end(); ++i)
       {
         if (i->second.empty()) continue;
         int bag_type=i->first.bag_type==NoExists?-1:i->first.bag_type;
-        paxInfo.norms[bag_type]=i->second;
+        paxInfo.norms_normal[bag_type]=i->second;
       };
     };
 
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT id, bag_type, pr_cabin, amount, weight, using_scales, is_trfer, "
-      "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) AS refused "
-      "FROM pax_grp,bag2 "
-      "WHERE pax_grp.grp_id=bag2.grp_id AND "
-      "      pax_grp.grp_id=:grp_id";
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.Execute();
-    if (!Qry.Eof)
+    GetBagToLogInfo(grp_id, grpInfo.bag);
+    if (!grpInfo.bag.empty())
     {
       //багаж есть
-      for(;!Qry.Eof;Qry.Next())
+      for(map<int/*id*/, TBagToLogInfo>::const_iterator b=grpInfo.bag.begin(); b!=grpInfo.bag.end(); ++b)
       {
-        int bag_type=Qry.FieldIsNULL("bag_type")?-1:Qry.FieldAsInteger("bag_type");
-        TBagToLogInfo bagInfo;
-        bagInfo.id=Qry.FieldAsInteger("id");
-        bagInfo.pr_cabin=Qry.FieldAsInteger("pr_cabin")!=0;
-        bagInfo.amount=Qry.FieldAsInteger("amount");
-        bagInfo.weight=Qry.FieldAsInteger("weight");
-        bagInfo.bag_type=Qry.FieldIsNULL("bag_type")?ASTRA::NoExists:Qry.FieldAsInteger("bag_type");
-        bagInfo.using_scales=Qry.FieldAsInteger("using_scales")!=0;
-        bagInfo.is_trfer=Qry.FieldAsInteger("is_trfer")!=0;
-        grpInfo.bag[bagInfo.id]=bagInfo;
+        const TBagToLogInfo &bagInfo=b->second;
+        int bag_type=bagInfo.bag_type==ASTRA::NoExists?-1:bagInfo.bag_type;
 
-        if (Qry.FieldAsInteger("refused")!=0) continue;
+        if (bagInfo.refused) continue;
 
         std::map< int/*bag_type*/, TPaidToLogInfo>::iterator i=grpInfo.paid.find(bag_type);
         if (i!=grpInfo.paid.end())
@@ -400,7 +413,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paidInfo.bag_type=bag_type;
         paidInfo.paid_weight=Qry.FieldAsInteger("weight");
       };
-    };
+    }
 
     Qry.Clear();
     Qry.SQLText="SELECT * FROM paid_bag_emd WHERE grp_id=:grp_id";
@@ -572,7 +585,7 @@ void SaveGrpToLog(int point_id,
             reqInfo->LocaleToLog(lexema_id, params, ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
             changed=true;
           };
-          if (!(aPax->second.norms==bPax->second.norms))
+          if (!(aPax->second.norms_normal==bPax->second.norms_normal))
           {
             LEvntPrms params;
             aPax->second.getPaxName(params);

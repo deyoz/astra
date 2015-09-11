@@ -56,13 +56,15 @@ class TPaxToLogInfo
     std::string airp_arv, cl, status;
     bool pr_mark_norms;
     std::string surname, name, pers_type, refuse, subcl, seat_no;
+    int seats;
     int is_female;
     bool pr_brd, pr_exam;
     CheckIn::TPaxTknItem tkn;
     CheckIn::TAPISItem apis;
     int bag_amount, bag_weight, rk_amount, rk_weight;
     std::string tags;
-    std::map< int/*bag_type*/, CheckIn::TNormItem> norms;
+    std::list< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
+    std::map< int/*bag_type*/, CheckIn::TNormItem> norms_normal;
     std::vector<CheckIn::TPaxRemItem> rems;
     TPaxToLogInfo()
     {
@@ -80,6 +82,7 @@ class TPaxToLogInfo
       refuse.clear();
       subcl.clear();
       seat_no.clear();
+      seats=ASTRA::NoExists;
       is_female=ASTRA::NoExists;
       pr_brd=false;
       pr_exam=false;
@@ -91,6 +94,7 @@ class TPaxToLogInfo
       rk_weight=0;
       tags.clear();
       norms.clear();
+      norms_normal.clear();
       rems.clear();
     };
     std::string getBagStr() const;
@@ -105,6 +109,8 @@ class TBagToLogInfo
     int id, pr_cabin, amount, weight;
     int bag_type;
     bool using_scales, is_trfer;
+    bool refused; //дополнительный признак, символизирующий что багаж принадлежит разрег. пассажирам
+                  //не относится непосредственно к информации по багажу
     void clear()
     {
       id=ASTRA::NoExists;
@@ -114,6 +120,7 @@ class TBagToLogInfo
       bag_type=ASTRA::NoExists;
       using_scales=false;
       is_trfer=false;
+      refused=false;
     };
     bool operator == (const TBagToLogInfo &item) const
     {
@@ -138,6 +145,7 @@ class TBagToLogInfo
       bag_type = bagItem.bag_type;
       using_scales = bagItem.using_scales;
       is_trfer = bagItem.is_trfer;
+      refused=false;
     };
 };
 
@@ -249,6 +257,7 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
                     const CheckIn::TAPISItem &apisAfter,
                     std::list<std::pair<std::string, std::string> > &msgs);
 
+void GetBagToLogInfo(int grp_id, std::map<int/*id*/, TBagToLogInfo> &bag);
 void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo);
 void SaveGrpToLog(int point_id,
                   const TTripInfo &operFlt,

@@ -8,6 +8,7 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "transfer.h"
+#include <boost/optional.hpp>
 
 namespace CheckIn
 {
@@ -133,6 +134,7 @@ class TGroupBagItem
     std::map<int /*num*/, TValueBagItem> vals;
     std::map<int /*num*/, TBagItem> bags;
     std::map<int /*num*/, TTagItem> tags;
+    bool pr_tag_print;
     TGroupBagItem()
     {
       clear();
@@ -142,6 +144,7 @@ class TGroupBagItem
       vals.clear();
       bags.clear();
       tags.clear();
+      pr_tag_print=false;
     };
     bool empty() const
     {
@@ -149,8 +152,8 @@ class TGroupBagItem
              bags.empty() &&
              tags.empty();
     };
-    bool fromXML(xmlNodePtr bagtagNode, bool &pr_tag_print);
-    void fromXMLadditional(int point_id, int grp_id, int hall, bool pr_tag_print);
+    bool fromXML(xmlNodePtr bagtagNode);
+    void fromXMLadditional(int point_id, int grp_id, int hall);
     void toDB(int grp_id) const;
     void fromDB(int grp_id, int bag_pool_num, bool without_refused);
     void toXML(xmlNodePtr bagtagNode) const;
@@ -165,7 +168,7 @@ void LoadBag(int grp_id, xmlNodePtr bagtagNode);
 class TNormItem
 {
   public:
-    std::string norm_type;
+    ASTRA::TBagNormType norm_type;
     int amount;
     int weight;
     int per_unit;
@@ -175,7 +178,7 @@ class TNormItem
   };
   void clear()
   {
-    norm_type.clear();
+    norm_type=ASTRA::bntUnknown;
     amount=ASTRA::NoExists;
     weight=ASTRA::NoExists;
     per_unit=ASTRA::NoExists;
@@ -189,7 +192,7 @@ class TNormItem
   };
   bool empty() const
   {
-    return norm_type.empty() &&
+    return norm_type==ASTRA::bntUnknown &&
            amount==ASTRA::NoExists &&
            weight==ASTRA::NoExists &&
            per_unit==ASTRA::NoExists;
@@ -222,6 +225,12 @@ class TPaxNormItem
            norm_id==ASTRA::NoExists &&
            norm_trfer==false;
   };
+  bool operator == (const TPaxNormItem &item) const
+  {
+    return bag_type==item.bag_type &&
+           norm_id==item.norm_id &&
+           norm_trfer==item.norm_trfer;
+  };
   const TPaxNormItem& toXML(xmlNodePtr node) const;
   TPaxNormItem& fromXML(xmlNodePtr node);
   const TPaxNormItem& toDB(TQuery &Qry) const;
@@ -244,7 +253,7 @@ class TPaidBagItem
   void clear()
   {
     bag_type=ASTRA::NoExists;
-    weight=ASTRA::NoExists;
+    weight=0;
     rate_id=ASTRA::NoExists;
     rate=ASTRA::NoExists;
     rate_cur.clear();
@@ -254,12 +263,16 @@ class TPaidBagItem
   TPaidBagItem& fromXML(xmlNodePtr node);
   const TPaidBagItem& toDB(TQuery &Qry) const;
   TPaidBagItem& fromDB(TQuery &Qry);
+  std::string bag_type_str() const;
 };
 
-bool PaidBagFromXML(xmlNodePtr paidbagNode,
-                    std::list<TPaidBagItem> &paid);
+void PaidBagFromXML(xmlNodePtr paidbagNode,
+                    boost::optional< std::list<TPaidBagItem> > &paid);
 void PaidBagToDB(int grp_id,
-                 const std::list<TPaidBagItem> &paid);
+                 const boost::optional< std::list<TPaidBagItem> > &paid);
+void PaidBagFromDB(int grp_id, std::list<TPaidBagItem> &paid);
+void PaidBagToXML(const std::list<TPaidBagItem> &paid, xmlNodePtr paidbagNode);
+
 void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
 void LoadPaidBag(int grp_id, xmlNodePtr paidbagNode);
 
@@ -292,39 +305,16 @@ bool PaidBagEMDFromXML(xmlNodePtr emdNode,
                        std::list<TPaidBagEMDItem> &emd);
 void PaidBagEMDToDB(int grp_id,
                     const std::list<TPaidBagEMDItem> &emd);
+
+void PaidBagEMDFromDB(int grp_id,
+                      std::list<TPaidBagEMDItem> &emd);
+void PaidBagEMDToXML(const std::list<TPaidBagEMDItem> &emd,
+                     xmlNodePtr emdNode);
+
 void SavePaidBagEMD(int grp_id, xmlNodePtr emdNode);
 void LoadPaidBagEMD(int grp_id, xmlNodePtr emdNode);
 
 }; //namespace CheckIn
-
-namespace BagPayment
-{
-  class TPaxInfo
-  {
-    public:
-      std::string pax_cat;
-      std::string target;
-      std::string final_target;
-      std::string subcl;
-      std::string cl;
-    TPaxInfo() {clear();};
-    void clear()
-    {
-      pax_cat.clear();
-      target.clear();
-      final_target.clear();
-      subcl.clear();
-      cl.clear();
-    };
-  };
-
-  void GetPaxBagNorm(TQuery &Qry,
-                     const bool use_mixed_norms,
-                     const TPaxInfo &pax,
-                     const bool onlyCategory,
-                     std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> &norm);
-
-}; //namespace BagPayment
 
 #endif
 
