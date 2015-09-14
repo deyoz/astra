@@ -131,6 +131,8 @@ namespace BagPayment
                      const CheckIn::TPaxList &curr_paxs,
                      bool pr_unaccomp);
 
+  void PaidBagViewToXMLTest(xmlNodePtr node);
+
 }; //namespace BagPayment
 
 #endif

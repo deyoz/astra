@@ -1368,6 +1368,7 @@ const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
   NewTextChild(grpNode, "class", cl);
   NewTextChild(grpNode, "status", EncodePaxStatus(status));
   NewTextChild(grpNode, "bag_refuse", bag_refuse);
+  NewTextChild(grpNode, "piece_concept", (int)piece_concept);
   NewTextChild(grpNode, "tid", tid);
   return *this;
 };
@@ -1384,20 +1385,29 @@ TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
   point_arv=NodeAsIntegerFast("point_arv",node2);
   airp_arv=NodeAsStringFast("airp_arv",node2);
   cl=NodeAsStringFast("class",node2);
-  if (NodeIsNULLFast("status",node2,true))
+  if (id!=ASTRA::NoExists)
   {
-    if (id!=ASTRA::NoExists)
+    //запись изменений
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText="SELECT status, 0 AS piece_concept FROM pax_grp WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id", otInteger, id);
+    Qry.Execute();
+    if (!Qry.Eof)
     {
-      TQuery Qry(&OraSession);
-      Qry.Clear();
-      Qry.SQLText="SELECT status FROM pax_grp WHERE grp_id=:grp_id";
-      Qry.CreateVariable("grp_id", otInteger, id);
-      Qry.Execute();
-      if (!Qry.Eof && !Qry.FieldIsNULL("status"))
-        status=DecodePaxStatus(Qry.FieldAsString("status"));
+      status=DecodePaxStatus(Qry.FieldAsString("status"));
+      piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
     };
   }
-  else status=DecodePaxStatus(NodeAsStringFast("status",node2));
+  else
+  {
+    status=DecodePaxStatus(NodeAsStringFast("status",node2));
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
+      piece_concept=NodeAsIntegerFast("piece_concept",node2)!=0;
+    else
+      piece_concept=false;
+  };
   tid=NodeAsIntegerFast("tid",node2,ASTRA::NoExists);
 
   xmlNodePtr normNode=GetNodeFast("norms",node2);
@@ -1529,6 +1539,7 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
     hall=Qry.FieldAsInteger("hall");
   if (Qry.FieldAsInteger("bag_refuse")!=0)
     bag_refuse=ASTRA::refuseAgentError;
+  piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
   tid=Qry.FieldAsInteger("tid");
   return *this;
 };

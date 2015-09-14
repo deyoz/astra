@@ -97,7 +97,11 @@ const TBagItem& TBagItem::toXML(xmlNodePtr node) const
   NewTextChild(node,"id",id);
   NewTextChild(node,"num",num);
   if (bag_type!=ASTRA::NoExists)
-    NewTextChild(node,"bag_type",bag_type);
+  {
+    ostringstream s;
+    s << setw(2) << setfill('0') << bag_type;
+    NewTextChild(node,"bag_type",s.str());
+  }
   else
     NewTextChild(node,"bag_type");
   NewTextChild(node,"pr_cabin",(int)pr_cabin);
@@ -1305,7 +1309,11 @@ const TPaxNormItem& TPaxNormItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
   if (bag_type!=ASTRA::NoExists)
-    NewTextChild(node,"bag_type",bag_type);
+  {
+    ostringstream s;
+    s << setw(2) << setfill('0') << bag_type;
+    NewTextChild(node,"bag_type",s.str());
+  }
   else
     NewTextChild(node,"bag_type");
   if (norm_id!=ASTRA::NoExists)
@@ -1371,10 +1379,7 @@ TPaxNormItem& TPaxNormItem::fromDB(TQuery &Qry)
 const TPaidBagItem& TPaidBagItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
-  if (bag_type!=ASTRA::NoExists)
-    NewTextChild(node,"bag_type",bag_type);
-  else
-    NewTextChild(node,"bag_type");
+  NewTextChild(node,"bag_type",bag_type_str());
   NewTextChild(node,"weight",weight);
   if (rate_id!=ASTRA::NoExists)
   {
@@ -1545,10 +1550,7 @@ void LoadPaidBag(int grp_id, xmlNodePtr paidbagNode)
 const TPaidBagEMDItem& TPaidBagEMDItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
-  if (bag_type!=ASTRA::NoExists)
-    NewTextChild(node,"bag_type",bag_type);
-  else
-    NewTextChild(node,"bag_type");
+  NewTextChild(node,"bag_type",bag_type_str());
   NewTextChild(node,"emd_no",emd_no);
   NewTextChild(node,"emd_coupon",emd_coupon);
   NewTextChild(node,"weight",weight);
@@ -1597,6 +1599,14 @@ std::string TPaidBagEMDItem::no_str() const
   s << emd_no;
   if (emd_coupon!=ASTRA::NoExists)
     s << "/" << emd_coupon;
+  return s.str();
+};
+
+std::string TPaidBagEMDItem::bag_type_str() const
+{
+  ostringstream s;
+  if (bag_type!=ASTRA::NoExists)
+    s << setw(2) << setfill('0') << bag_type;
   return s.str();
 };
 

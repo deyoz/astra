@@ -1935,6 +1935,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
 
   xmlNodePtr inquiryNode=NewTextChild(resNode,"inquiry_summary");
+  NewTextChild(inquiryNode,"piece_concept",(int)false);
   NewTextChild(inquiryNode,"count",sum.nPax);
   NewTextChild(inquiryNode,"seats",sum.nPaxWithPlace);
   NewTextChild(inquiryNode,"adult",sum.n[adult]);
@@ -5935,7 +5936,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       "SELECT points.airline,points.flt_no,points.suffix,points.airp,points.scd_out, "
       "       pax_grp.grp_id,pax_grp.point_dep,pax_grp.airp_dep,pax_grp.point_arv,pax_grp.airp_arv, "
       "       pax_grp.class,pax_grp.status,pax_grp.hall,pax_grp.bag_refuse,pax_grp.excess, "
-      "       pax_grp.trfer_confirm,pax_grp.tid "
+      "       pax_grp.trfer_confirm, 0 AS piece_concept, pax_grp.tid "
       "FROM pax_grp,points "
       "WHERE pax_grp.point_dep=points.point_id AND grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,*grp_id);
@@ -6074,11 +6075,14 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         LoadPaxRem(paxNode);
         if (grp_id==grp_ids.begin())
         {
-          list< pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
-          CheckIn::PaxNormsFromDB(pax.id, norms);
-          CheckIn::NormsToXML(norms, paxNode);
-          if (pax.refuse.empty())
-            all_norms.insert(all_norms.end(), norms.begin(), norms.end());
+          if (!grp.piece_concept)
+          {
+            list< pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
+            CheckIn::PaxNormsFromDB(pax.id, norms);
+            CheckIn::NormsToXML(norms, paxNode);
+            if (pax.refuse.empty())
+              all_norms.insert(all_norms.end(), norms.begin(), norms.end());
+          };
 
           pax_cat_airline=seg.operFlt.airline;
           AddPaxCategory(pax, pax_cats);
@@ -6093,30 +6097,49 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         TTrferRoute trfer;
         trfer.GetRoute(grp.id, trtNotFirstSeg);
         BuildTransfer(trfer,resNode);
-
-        list< pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
-        CheckIn::GrpNormsFromDB(grp.id, norms);
-        CheckIn::NormsToXML(norms, segNode);
-        all_norms.insert(all_norms.end(), norms.begin(), norms.end());
+        if (!grp.piece_concept)
+        {
+          list< pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
+          CheckIn::GrpNormsFromDB(grp.id, norms);
+          CheckIn::NormsToXML(norms, segNode);
+          all_norms.insert(all_norms.end(), norms.begin(), norms.end());
+        };
       };
     };
     if (grp_id==grp_ids.begin())
     {
+
+
       CheckIn::TGroupBagItem group_bag;
       group_bag.fromDB(grp.id, ASTRA::NoExists, !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS));
       group_bag.toXML(resNode);
-      list<CheckIn::TPaidBagItem> paid;
-      CheckIn::PaidBagFromDB(grp.id, paid);
-      if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-        CheckIn::PaidBagToXML(paid, resNode);
-      list<CheckIn::TPaidBagEMDItem> emd;
-      CheckIn::PaidBagEMDFromDB(grp.id, emd);
-      CheckIn::PaidBagEMDToXML(emd, segNode);
-      if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
+      if (!grp.piece_concept)
       {
-        map<int/*id*/, TBagToLogInfo> tmp_bag;
-        GetBagToLogInfo(grp.id, tmp_bag);
-        BagPayment::PaidBagViewToXML(tmp_bag, all_norms, paid, emd, used_norms_airline_mark, resNode);
+        list<CheckIn::TPaidBagItem> paid;
+        CheckIn::PaidBagFromDB(grp.id, paid);
+        if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
+          CheckIn::PaidBagToXML(paid, resNode);
+        list<CheckIn::TPaidBagEMDItem> emd;
+        CheckIn::PaidBagEMDFromDB(grp.id, emd);
+        CheckIn::PaidBagEMDToXML(emd, segNode);
+        if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
+        {
+          map<int/*id*/, TBagToLogInfo> tmp_bag;
+          GetBagToLogInfo(grp.id, tmp_bag);
+          BagPayment::PaidBagViewToXML(tmp_bag, all_norms, paid, emd, used_norms_airline_mark, resNode);
+        };
+      }
+      else
+      {
+        ostringstream s;
+        s << "€„Ž › Ž •ŽŽ˜…Œ“" << endl
+          << "Ž‹“—€’œ ˆ •€ˆ’œ ŽŒ› Ž’ ‘€˜Šˆ € „‚“• Ÿ‡›Š€•" << endl
+          << "€ ‡€’…Œ ‚›‚Ž„ˆ’œ € ’ŽŒ Ÿ‡›Š…, € ŠŽ’ŽŽŒ €Ž’€…’ ’…Œˆ€‹"  << endl
+          << "’€Šˆ… „…‹€...." << endl;
+
+        NewTextChild(resNode, "norms_view", s.str());
+
+        BagPayment::PaidBagViewToXMLTest(resNode);
       };
 
       readTripCounters(grp.point_dep, segNode);

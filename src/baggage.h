@@ -299,6 +299,7 @@ class TPaidBagEMDItem
   const TPaidBagEMDItem& toDB(TQuery &Qry) const;
   TPaidBagEMDItem& fromDB(TQuery &Qry);
   std::string no_str() const;
+  std::string bag_type_str() const;
 };
 
 bool PaidBagEMDFromXML(xmlNodePtr emdNode,

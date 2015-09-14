@@ -379,7 +379,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.SQLText=
         "SELECT pax_grp.grp_id, pax.pax_id, "
         "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
-        "       class,bag_refuse,pax_grp.tid, "
+        "       class, bag_refuse, 0 AS piece_concept, pax_grp.tid, "
         "       pax.reg_no, "
         "       pax.surname, "
         "       pax.name, "
@@ -399,7 +399,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.SQLText=
         "SELECT pax_grp.grp_id, NULL AS pax_id, "
         "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
-        "       class,bag_refuse,pax_grp.tid, "
+        "       class, bag_refuse, 0 AS piece_concept, pax_grp.tid, "
         "       NULL AS reg_no, "
         "       NULL AS surname, "
         "       NULL AS name, "
@@ -464,6 +464,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(dataNode,"city_arv",Qry.FieldAsString("city_arv"));
   NewTextChild(dataNode,"class",Qry.FieldAsString("class"));
   NewTextChild(dataNode,"pr_refuse",(int)(Qry.FieldAsInteger("bag_refuse")!=0));
+  NewTextChild(dataNode, "piece_concept", (int)(Qry.FieldAsInteger("piece_concept")!=0));
   NewTextChild(dataNode,"reg_no",Qry.FieldAsInteger("reg_no"));
   NewTextChild(dataNode,"pax_name", RCPT_PAX_NAME::get_pax_name(Qry));
   if (!Qry.FieldIsNULL("pax_id"))
@@ -646,10 +647,7 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
       NewTextChild(receiptNode,"no",i->first.no_str());
       NewTextChild(receiptNode,"aircode","");
       NewTextChild(receiptNode,"ex_weight",i->second.weight);
-      if (i->second.bag_type!=ASTRA::NoExists)
-        NewTextChild(receiptNode,"bag_type",i->second.bag_type);
-      else
-        NewTextChild(receiptNode,"bag_type");
+      NewTextChild(receiptNode,"bag_type",i->second.bag_type_str());
     };
 
     //квитанции предоплаты
@@ -666,7 +664,11 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
       if (!Qry.FieldIsNULL("ex_weight"))
         NewTextChild(receiptNode,"ex_weight",Qry.FieldAsInteger("ex_weight"));
       if (!Qry.FieldIsNULL("bag_type"))
-        NewTextChild(receiptNode,"bag_type",Qry.FieldAsInteger("bag_type"));
+      {
+        ostringstream s;
+        s << setw(2) << setfill('0') << Qry.FieldAsInteger("bag_type");
+        NewTextChild(receiptNode,"bag_type",s.str());
+      }
       else
         NewTextChild(receiptNode,"bag_type");
       if (!Qry.FieldIsNULL("value"))
@@ -1185,7 +1187,13 @@ void PaymentInterface::PutReceiptToXML(const TBagReceipt &rcpt, int rcpt_id, boo
   NewTextChild(rcptNode,"pax_doc",rcpt.pax_doc);
   NewTextChild(rcptNode,"service_type",rcpt.service_type);
   if (rcpt.bag_type!=-1)
-    NewTextChild(rcptNode,"bag_type",rcpt.bag_type);
+  {
+    ostringstream s;
+    s << setw(2) << setfill('0') << rcpt.bag_type;
+    NewTextChild(rcptNode,"bag_type",s.str());
+    s << ": " << ElemIdToNameLong(etBagType, rcpt.bag_type);
+    NewTextChild(rcptNode,"bag_type_view",s.str());
+  }
   else
     NewTextChild(rcptNode,"bag_type");
   NewTextChild(rcptNode,"bag_name",rcpt.bag_name,"");

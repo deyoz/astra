@@ -406,6 +406,7 @@ class TPaxGrpItem
     ASTRA::TPaxStatus status;
     int hall;
     std::string bag_refuse;
+    bool piece_concept;
     int tid;
     boost::optional< std::list<TPaxNormItem> > norms;
     boost::optional< std::list<TPaidBagItem> > paid;
@@ -425,6 +426,7 @@ class TPaxGrpItem
       status=ASTRA::psCheckin;
       hall=ASTRA::NoExists;
       bag_refuse.clear();
+      piece_concept=false;
       tid=ASTRA::NoExists;
       norms=boost::none;
       paid=boost::none;

@@ -1517,103 +1517,109 @@ void PaidBagViewToXML(const std::map<int/*id*/, TBagToLogInfo> &bag,
 
   };
 
-
-//  const string taLeftJustify="taLeftJustify";  //!!!vlad в astra_consts
-//  const string taRightJustify="taRightJustify";
-//  const string taCenter="taCenter";
-
-//  node=NewTextChild(node, "paid_bag_view");
-//  //описание заголовка
-//  xmlNodePtr headerNode=NewTextChild(node, "header");
-//  xmlNodePtr colNode;
-//  colNode=NewTextChild(headerNode, "col", getLocaleText("Тип багажа"));
-//  SetProp(colNode, "width", 130);
-//  SetProp(colNode, "align", taLeftJustify);
-//  colNode=NewTextChild(headerNode, "col", getLocaleText("Кол."));
-//  SetProp(colNode, "width", 35);
-//  SetProp(colNode, "align", taCenter);
-//  colNode=NewTextChild(headerNode, "col", getLocaleText("Норма"));
-//  SetProp(colNode, "width", 80);
-//  SetProp(colNode, "align", taLeftJustify);
-//  colNode=NewTextChild(headerNode, "col", getLocaleText("Трфр"));
-//  SetProp(colNode, "width", 25);
-//  SetProp(colNode, "align", taCenter);
-//  colNode=NewTextChild(headerNode, "col", getLocaleText("Опл."));
-//  SetProp(colNode, "width", 30);
-//  SetProp(colNode, "align", taRightJustify);
-//  colNode=NewTextChild(headerNode, "col", getLocaleText("EMD"));
-//  SetProp(colNode, "width", 30);
-//  SetProp(colNode, "align", taRightJustify);
-
-
-//  xmlNodePtr rowsNode = NewTextChild(node, "rows");
-//  for(int pass=0; pass<2; pass++)
-//  {
-//    for(map<int/*bag_type*/, TPaidBagWideItem>::const_iterator i=paid_wide.begin(); i!=paid_wide.end(); ++i)
-//    {
-//      const TPaidBagWideItem &item=i->second;
-//      if ((pass==0 && item.bag_type!=NoExists) ||
-//          (pass!=0 && item.bag_type==NoExists)) continue; //обычный багаж всегда первой строкой
-
-//      xmlNodePtr rowNode=NewTextChild(rowsNode, "row");
-//      ostringstream s;
-//      if (item.bag_type!=NoExists)
-//        s << item.bag_type_str() << ": " << ElemIdToNameLong(etBagType, item.bag_type);
-//      else
-//        s << getLocaleText("Обычный багаж или р/кладь");
-//      NewTextChild(rowNode, "col", s.str());
-
-//      s.str("");
-//      if (item.bag_amount!=0 || item.bag_weight!=0)
-//        s << item.bag_amount << "/" << item.bag_weight;
-//      else
-//        s << "-";
-//      NewTextChild(rowNode, "col", s.str());
-
-//      s.str("");
-//      if (item.norms.size()==1)
-//        s << item.norms.front().str(TReqInfo::Instance()->desk.lang);
-//      else
-//        getLocaleText("см. подробно");
-//      NewTextChild(rowNode, "col", s.str());
-
-//      s.str("");
-//      switch(item.norms_trfer)
-//      {
-//        case nttNone: break;
-//        case nttNotTransfer: s << getLocaleText("НЕТ"); break;
-//        case nttTransfer: s << getLocaleText("ДА"); break;
-//        case nttMixed: s << getLocaleText("СМЕШ"); break;
-//      };
-//      NewTextChild(rowNode, "col", s.str());
-
-//      s.str("");
-//      if (item.weight!=NoExists)
-//        s << item.weight;
-//      else
-//        s << "?";
-//      NewTextChild(rowNode, "col", s.str());
-
-//      int emd_weight=0;
-//      for(list<CheckIn::TPaidBagEMDItem>::const_iterator e=emd.begin(); e!=emd.end(); ++e)
-//        if (i->second.bag_type==e->bag_type)
-//        {
-//          if (e->bag_type==NoExists)
-//          {
-//            emd_weight=NoExists;
-//            break;
-//          }
-//          emd_weight+=e->weight;
-//        };
-
-//      s.str("");
-//      if (emd_weight!=NoExists)
-//        s << emd_weight;
-//      else
-//        s << "?";
-//      NewTextChild(rowNode, "col", s.str());
-//    };
-//  };
 };
+
+
+//<... color=... color_selected=... font_color=... font_color_selected=... font_style=... font_size=... align=...> //секция таблицы
+//  <cols>  //секция описания столбцов
+//    </col width=... color=... color_selected=... font_color=... font_color_selected=... font_style=... font_size=... align=...>
+//    ...
+//    ...
+//  </cols>
+//  <header height=... color=... color_selected=... font_color=... font_color_selected=... font_style=... font_size=... align=...>  //секция заголовка
+//    <col color=... color_selected=... font_color=... font_color_selected=... font_style=... font_size=... align=...>текст</col>
+//    ...
+//    ...
+//  </header>
+//  <rows>  //секция данных
+//    <row height=... color=... color_selected=... font_color=... font_color_selected=... font_style=... font_size=... align=...> //секция строки
+//      <col color=... color_selected=... font_color=... font_color_selected=... font_style=... font_size=... align=...>текст</col> //секция ячейки
+//      ...
+//      ...
+//    </row>
+//    ...
+//    ...
+//  </rows>
+//</...>
+
+void PaidBagViewToXMLTest(xmlNodePtr node)
+{
+  const string taLeftJustify="taLeftJustify";  //!!!vlad в astra_consts
+  const string taRightJustify="taRightJustify";
+  const string taCenter="taCenter";
+  const string fsBold="fsBold";
+
+  node=NewTextChild(node, "paid_bag_view");
+  SetProp(node, "font_size", 8);
+
+  xmlNodePtr colNode, rowNode;
+  //секция описывающая столбцы
+  xmlNodePtr colsNode=NewTextChild(node, "cols");
+  colNode=NewTextChild(colsNode, "col");
+  SetProp(colNode, "width", 130);
+  SetProp(colNode, "align", taLeftJustify);
+  colNode=NewTextChild(colsNode, "col");
+  SetProp(colNode, "width", 35);
+  SetProp(colNode, "align", taCenter);
+  colNode=NewTextChild(colsNode, "col");
+  SetProp(colNode, "width", 85);
+  SetProp(colNode, "align", taLeftJustify);
+  colNode=NewTextChild(colsNode, "col");
+  SetProp(colNode, "width", 40);
+  SetProp(colNode, "align", taRightJustify);
+  SetProp(colNode, "font_style", "fsBold");
+  colNode=NewTextChild(colsNode, "col");
+  SetProp(colNode, "width", 40);
+  SetProp(colNode, "align", taRightJustify);
+  SetProp(colNode, "font_style", "fsBold");
+
+  //секция описывающая заголовок
+  xmlNodePtr headerNode=NewTextChild(node, "header");
+  SetProp(headerNode, "font_size", 10);
+  SetProp(headerNode, "font_style", "");
+  SetProp(headerNode, "align", taLeftJustify);
+  NewTextChild(headerNode, "col", getLocaleText("RFISC"));
+  NewTextChild(headerNode, "col", getLocaleText("Кол."));
+  NewTextChild(headerNode, "col", getLocaleText("Сегмент"));
+  NewTextChild(headerNode, "col", getLocaleText("К опл."));
+  NewTextChild(headerNode, "col", getLocaleText("Оплачено"));
+
+  xmlNodePtr rowsNode = NewTextChild(node, "rows");
+  rowNode=NewTextChild(rowsNode, "row");
+  colNode=NewTextChild(rowNode, "col", "AAA: КАТЕГОРИЯ AAA");
+  colNode=NewTextChild(rowNode, "col", 2);
+  colNode=NewTextChild(rowNode, "col", "ПО111 ДМД");
+  colNode=NewTextChild(rowNode, "col", 2);
+  SetProp(colNode, "font_color", "clInactiveAlarm");
+  SetProp(colNode, "font_color_selected", "clInactiveAlarm");
+  colNode=NewTextChild(rowNode, "col", 0);
+
+  rowNode=NewTextChild(rowsNode, "row");
+  colNode=NewTextChild(rowNode, "col", "AAA: КАТЕГОРИЯ AAA");
+  colNode=NewTextChild(rowNode, "col", 2);
+  colNode=NewTextChild(rowNode, "col", "ПО222 ВРН");
+  colNode=NewTextChild(rowNode, "col", 2);
+  SetProp(colNode, "font_color", "clInactiveBright");
+  SetProp(colNode, "font_color_selected", "clInactiveBright");
+  colNode=NewTextChild(rowNode, "col", 2);
+
+  rowNode=NewTextChild(rowsNode, "row");
+  colNode=NewTextChild(rowNode, "col", "BBB: КАТЕГОРИЯ BBB");
+  colNode=NewTextChild(rowNode, "col", 2);
+  colNode=NewTextChild(rowNode, "col", "ПО111 ДМД");
+  colNode=NewTextChild(rowNode, "col", 1);
+  SetProp(colNode, "font_color", "clInactiveAlarm");
+  SetProp(colNode, "font_color_selected", "clInactiveAlarm");
+  colNode=NewTextChild(rowNode, "col", 0);
+
+  rowNode=NewTextChild(rowsNode, "row");
+  colNode=NewTextChild(rowNode, "col", "BBB: КАТЕГОРИЯ BBB");
+  colNode=NewTextChild(rowNode, "col", 2);
+  colNode=NewTextChild(rowNode, "col", "ПО222 ВРН");
+  colNode=NewTextChild(rowNode, "col", 1);
+  SetProp(colNode, "font_color", "clInactiveAlarm");
+  SetProp(colNode, "font_color_selected", "clInactiveBright");
+  colNode=NewTextChild(rowNode, "col", 0);
+}
 
 }; //namespace BagPayment
