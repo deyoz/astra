@@ -6131,14 +6131,9 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       }
       else
       {
-        ostringstream s;
-        s << "€„Ž › Ž •ŽŽ˜…Œ“" << endl
-          << "Ž‹“—€’œ ˆ •€ˆ’œ ŽŒ› Ž’ ‘€˜Šˆ € „‚“• Ÿ‡›Š€•" << endl
-          << "€ ‡€’…Œ ‚›‚Ž„ˆ’œ € ’ŽŒ Ÿ‡›Š…, € ŠŽ’ŽŽŒ €Ž’€…’ ’…Œˆ€‹"  << endl
-          << "’€Šˆ… „…‹€...." << endl;
-
-        NewTextChild(resNode, "norms_view", s.str());
-
+        list<CheckIn::TPaidBagEMDItem> emd;
+        CheckIn::PaidBagEMDFromDB(grp.id, emd);
+        CheckIn::PaidBagEMDToXML(emd, segNode);
         BagPayment::PaidBagViewToXMLTest(resNode);
       };
 

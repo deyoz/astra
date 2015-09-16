@@ -1551,6 +1551,7 @@ const TPaidBagEMDItem& TPaidBagEMDItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
   NewTextChild(node,"bag_type",bag_type_str());
+  NewTextChild(node,"transfer_num",trfer_num);
   NewTextChild(node,"emd_no",emd_no);
   NewTextChild(node,"emd_coupon",emd_coupon);
   NewTextChild(node,"weight",weight);
@@ -1564,6 +1565,10 @@ TPaidBagEMDItem& TPaidBagEMDItem::fromXML(xmlNodePtr node)
   xmlNodePtr node2=node->children;
   if (!NodeIsNULLFast("bag_type",node2))
     bag_type=NodeAsIntegerFast("bag_type",node2);
+  if (TReqInfo::Instance()->client_type==ASTRA::ctTerm && TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
+    trfer_num=NodeAsIntegerFast("transfer_num",node2);
+  else
+    trfer_num=0;
   emd_no=NodeAsStringFast("emd_no",node2);
   emd_coupon=NodeAsIntegerFast("emd_coupon",node2);
   weight=NodeAsIntegerFast("weight",node2);
@@ -1576,6 +1581,7 @@ const TPaidBagEMDItem& TPaidBagEMDItem::toDB(TQuery &Qry) const
     Qry.SetVariable("bag_type",bag_type);
   else
     Qry.SetVariable("bag_type",FNull);
+  //Qry.SetVariable("transfer_num",trfer_num);
   Qry.SetVariable("emd_no",emd_no);
   Qry.SetVariable("emd_coupon",emd_coupon);
   Qry.SetVariable("weight",weight);
@@ -1587,6 +1593,8 @@ TPaidBagEMDItem& TPaidBagEMDItem::fromDB(TQuery &Qry)
   clear();
   if (!Qry.FieldIsNULL("bag_type"))
     bag_type=Qry.FieldAsInteger("bag_type");
+  //trfer_num=Qry.FieldAsInteger("transfer_num");
+  trfer_num=0;
   emd_no=Qry.FieldAsString("emd_no");
   emd_coupon=Qry.FieldAsInteger("emd_coupon");
   weight=Qry.FieldAsInteger("weight");
@@ -1642,6 +1650,7 @@ void PaidBagEMDToDB(int grp_id,
   BagQry.DeclareVariable("weight",otInteger);
   for(list<TPaidBagEMDItem>::const_iterator i=emd.begin(); i!=emd.end(); ++i)
   {
+    if (i->trfer_num!=0) continue;
     i->toDB(BagQry);
     try
     {

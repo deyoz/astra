@@ -280,6 +280,7 @@ class TPaidBagEMDItem
 {
   public:
     int bag_type;
+    int trfer_num;
     std::string emd_no;
     int emd_coupon;
     int weight;
@@ -290,6 +291,7 @@ class TPaidBagEMDItem
   void clear()
   {
     bag_type=ASTRA::NoExists;
+    trfer_num=ASTRA::NoExists;
     emd_no.clear();
     emd_coupon=ASTRA::NoExists;
     weight=ASTRA::NoExists;

@@ -1544,17 +1544,77 @@ void PaidBagViewToXML(const std::map<int/*id*/, TBagToLogInfo> &bag,
 
 void PaidBagViewToXMLTest(xmlNodePtr node)
 {
+  ostringstream s;
+  s << "€„Ž › Ž •ŽŽ˜…Œ“" << endl
+    << "Ž‹“—€’œ ˆ •€ˆ’œ ŽŒ› Ž’ ‘€˜Šˆ € „‚“• Ÿ‡›Š€•" << endl
+    << "€ ‡€’…Œ ‚›‚Ž„ˆ’œ € ’ŽŒ Ÿ‡›Š…, € ŠŽ’ŽŽŒ €Ž’€…’ ’…Œˆ€‹"  << endl
+    << "’€Šˆ… „…‹€...." << endl;
+
+  NewTextChild(node, "norms_view", s.str());
+
+  {
+  xmlNodePtr paidNode=NewTextChild(node, "paid_bags");
+
+  xmlNodePtr rowNode;
+
+  rowNode=NewTextChild(paidNode,"paid_bag");
+
+  NewTextChild(rowNode,"bag_type","0AA");
+  NewTextChild(rowNode,"weight","2");
+  NewTextChild(rowNode,"weight_calc","2");
+  NewTextChild(rowNode,"rate_id");
+  NewTextChild(rowNode,"rate");
+  NewTextChild(rowNode,"rate_cur");
+  NewTextChild(rowNode,"rate_trfer");
+
+  NewTextChild(rowNode,"bag_type_view","0AA");
+  NewTextChild(rowNode,"bag_number_view","4");
+  NewTextChild(rowNode,"weight_view","2");
+  NewTextChild(rowNode,"weight_calc_view","2");
+
+  rowNode=NewTextChild(paidNode,"paid_bag");
+
+  NewTextChild(rowNode,"bag_type","C12");
+  NewTextChild(rowNode,"weight","3");
+  NewTextChild(rowNode,"weight_calc","3");
+  NewTextChild(rowNode,"rate_id");
+  NewTextChild(rowNode,"rate");
+  NewTextChild(rowNode,"rate_cur");
+  NewTextChild(rowNode,"rate_trfer");
+
+  NewTextChild(rowNode,"bag_type_view","C12");
+  NewTextChild(rowNode,"bag_number_view","5");
+  NewTextChild(rowNode,"weight_view","3");
+  NewTextChild(rowNode,"weight_calc_view","3");
+
+  rowNode=NewTextChild(paidNode,"paid_bag");
+
+  NewTextChild(rowNode,"bag_type","C23");
+  NewTextChild(rowNode,"weight","1");
+  NewTextChild(rowNode,"weight_calc","1");
+  NewTextChild(rowNode,"rate_id");
+  NewTextChild(rowNode,"rate");
+  NewTextChild(rowNode,"rate_cur");
+  NewTextChild(rowNode,"rate_trfer");
+
+  NewTextChild(rowNode,"bag_type_view","C23");
+  NewTextChild(rowNode,"bag_number_view","4");
+  NewTextChild(rowNode,"weight_view","1");
+  NewTextChild(rowNode,"weight_calc_view","1");
+  }
+
+
   const string taLeftJustify="taLeftJustify";  //!!!vlad ¢ astra_consts
   const string taRightJustify="taRightJustify";
   const string taCenter="taCenter";
   const string fsBold="fsBold";
 
-  node=NewTextChild(node, "paid_bag_view");
-  SetProp(node, "font_size", 8);
+  xmlNodePtr paidNode=NewTextChild(node, "paid_bag_view");
+  SetProp(paidNode, "font_size", 8);
 
   xmlNodePtr colNode, rowNode;
   //á¥ªæ¨ï ®¯¨áë¢ îé ï áâ®«¡æë
-  xmlNodePtr colsNode=NewTextChild(node, "cols");
+  xmlNodePtr colsNode=NewTextChild(paidNode, "cols");
   colNode=NewTextChild(colsNode, "col");
   SetProp(colNode, "width", 130);
   SetProp(colNode, "align", taLeftJustify);
@@ -1574,7 +1634,7 @@ void PaidBagViewToXMLTest(xmlNodePtr node)
   SetProp(colNode, "font_style", "fsBold");
 
   //á¥ªæ¨ï ®¯¨áë¢ îé ï § £®«®¢®ª
-  xmlNodePtr headerNode=NewTextChild(node, "header");
+  xmlNodePtr headerNode=NewTextChild(paidNode, "header");
   SetProp(headerNode, "font_size", 10);
   SetProp(headerNode, "font_style", "");
   SetProp(headerNode, "align", taLeftJustify);
@@ -1584,7 +1644,7 @@ void PaidBagViewToXMLTest(xmlNodePtr node)
   NewTextChild(headerNode, "col", getLocaleText("Š ®¯«."));
   NewTextChild(headerNode, "col", getLocaleText("Ž¯« ç¥­®"));
 
-  xmlNodePtr rowsNode = NewTextChild(node, "rows");
+  xmlNodePtr rowsNode = NewTextChild(paidNode, "rows");
   rowNode=NewTextChild(rowsNode, "row");
   colNode=NewTextChild(rowNode, "col", "AAA: Š€’…ƒŽˆŸ AAA");
   colNode=NewTextChild(rowNode, "col", 2);
