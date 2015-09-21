@@ -1402,6 +1402,9 @@ int get_seat_status( TWebPlace &wp, bool pr_find_free_subcls_place )
   if ( status == 0 && wp.pr_CHIN ) {
     status = 2;
   }
+  if ( TReqInfo::Instance()->client_type == ctKiosk && status != 1 && !wp.WebTariff.empty() ) {
+    status = 1;
+  }
   return status;
 }
 
