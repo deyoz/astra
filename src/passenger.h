@@ -275,6 +275,7 @@ class TPaxItem
     std::string surname;
     std::string name;
     ASTRA::TPerson pers_type;
+    ASTRA::TCrewType crew_type;
     std::string seat_no;
     std::string seat_type;
     int seats;
@@ -305,6 +306,7 @@ class TPaxItem
       surname.clear();
       name.clear();
       pers_type=ASTRA::NoPerson;
+      crew_type=ASTRA::ctUnknown;
       seat_no.clear();
       seat_type.clear();
       seats=ASTRA::NoExists;
@@ -479,6 +481,9 @@ bool GrpNormsFromDB(int grp_id, std::list< std::pair<TPaxNormItem, TNormItem> > 
 void NormsToXML(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms, xmlNodePtr node);
 void PaxNormsToDB(int pax_id, const boost::optional< std::list<TPaxNormItem> > &norms);
 void GrpNormsToDB(int grp_id, const boost::optional< std::list<TPaxNormItem> > &norms);
+
+std::string PaxDocCountryFromTerm(const std::string &doc_code);
+std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);
 
 }; //namespace CheckIn
 
