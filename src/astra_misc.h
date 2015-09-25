@@ -366,7 +366,7 @@ struct TTripRouteItem
 
 struct TAdvTripRouteItem : TTripRouteItem
 {
-  BASIC::TDateTime scd_in, scd_out;
+  BASIC::TDateTime scd_in, scd_out, act_out;
   std::string airline, suffix;
   int flt_num;
 
@@ -378,6 +378,7 @@ struct TAdvTripRouteItem : TTripRouteItem
   {
     scd_in = ASTRA::NoExists;
     scd_out = ASTRA::NoExists;
+    act_out = ASTRA::NoExists;
     airline.clear();
     suffix.clear();
     flt_num = ASTRA::NoExists;

@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <tcl.h>
 #include "astra_main.h"
+#include "astra_misc.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "base_tables.h"
@@ -137,7 +138,7 @@ bool handle_tlg(void)
       if (ans.init(text))
         ans.processReply();
       else
-        ProgTrace(TRACE5, "Message has already been processed");
+        ProgTrace(TRACE5, "Message was not found");
       deleteTlg(id);
       callPostHooksBefore();
       ASTRA::commit();
@@ -178,9 +179,15 @@ void resend_tlg(void)
       int send_attempts = Qry.FieldAsInteger("send_attempts");
       bool apps_down = get_alarm(point_id, atAPPSOutage);
       BASIC::TDateTime send_time = Qry.FieldAsDateTime("send_time");
+      string msg_id = Qry.FieldAsString("msg_id");
+      if (!checkTime(point_id)) {
+        // More than 2 days has passed after flight scheduled departure time. It is useless to continue send.
+        deleteMsg(msg_id);
+      }
       // maximum time to wait for a response from APPS is 4 sec
+      BASIC::TDateTime now = BASIC::NowUTC();
       double ttw_sec = apps_down?600.0:4.0;
-      if (BASIC::NowUTC() - send_time < ttw_sec/(24.0*60.0*60.0)) {
+      if (now - send_time < ttw_sec/(24.0*60.0*60.0)) {
         continue;
       }
       if( ( send_attempts >= MaxSendAttempts ) && !apps_down ) {
@@ -188,7 +195,7 @@ void resend_tlg(void)
         set_alarm(point_id, atAPPSOutage, true);
       }
       ProgTrace(TRACE5, "resend_tlg: elapsed time %s", BASIC::DateTimeToStr( (BASIC::NowUTC() - send_time), "hh:nn:ss" ).c_str());
-      reSendMsg(send_attempts, Qry.FieldAsString("msg_text"), Qry.FieldAsString("msg_id"));
+      reSendMsg(send_attempts, Qry.FieldAsString("msg_text"), msg_id);
       callPostHooksBefore();
       ASTRA::commit();
       callPostHooksAfter();

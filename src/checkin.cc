@@ -3566,6 +3566,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   TSegList segList;
   bool new_checkin=false;
   bool save_trfer=false;
+  bool need_apps=false;
   vector<CheckIn::TTransferItem> trfer;
   TSegmentsList segs_for_apps;
   TPaxDocList paxs_for_apps;
@@ -3645,11 +3646,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     segList.back().flt=s->second.fltInfo;
 
-    TSegment segment;
-    segment.init(segList.back().grp.point_dep, segList.back().grp.point_arv,
-                 segList.back().grp.airp_dep, segList.back().grp.airp_arv,
-                 segList.back().flt);
-    segs_for_apps.push_back(segment);
+    if (!pr_unaccomp) {
+      if (isNeedAPPSReq(segList.back().grp.point_dep, segList.back().grp.point_arv))
+        need_apps = true;
+      TSegment segment;
+      segment.init(segList.back().grp.point_dep, segList.back().grp.point_arv,
+                   segList.back().grp.airp_dep, segList.back().grp.airp_arv,
+                   segList.back().flt);
+      segs_for_apps.push_back(segment);
+    }
   };
 
   //проверим, регистрация ли это экипажа
@@ -3845,6 +3850,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     markFltInfo.scd_out=UTCToLocal(markFltInfo.scd_out,AirpTZRegion(markFltInfo.airp));
     modf(markFltInfo.scd_out,&markFltInfo.scd_out);
     bool pr_mark_norms=false;
+
+    if ( need_apps ) {
+      TAdvTripRoute route;
+      route.GetRouteAfter(NoExists, grp.point_dep, trtWithCurrent, trtNotCancelled);
+      if ( route.front().act_out != NoExists ) {
+        ProgTrace(TRACE5, "route.front().act_out: %f, grp.point_dep %d", route.front().act_out, grp.point_dep);
+        throw UserException( "MSG.PASSENGER.CHANGES_NOT_PERMITTED" );
+      }
+    }
 
     try
     {
@@ -4883,8 +4897,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                     !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
                   CheckIn::PaxNormsToDB(pax_id, p->norms);
 
-                //сохраним пассажира для APPS
-                paxs_for_apps.push_back(TPaxData(pax_id, false, pax.doc));
+                if (need_apps) {
+                  //сохраним пассажира для APPS
+                  TPaxData apps_pax(pax_id, false, pax.surname, pax.name, pax.doc);
+                  paxs_for_apps.push_back(apps_pax);
+                }
               }
               catch(CheckIn::UserException)
               {
@@ -5162,9 +5179,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
                 CheckIn::PaxNormsToDB(pax.id, p->norms);
 
-              //сохраним пассажира для APPS
-              paxs_for_apps.push_back(TPaxData(pax.id, pax.PaxUpdatesPending?true:false, pax.doc));
-            }
+              if (need_apps) {
+                //сохраним пассажира для APPS
+                TPaxData apps_pax(pax.id, !pax.refuse.empty(), pax.surname, pax.name, pax.doc);
+                paxs_for_apps.push_back(apps_pax);
+              }            }
             catch(CheckIn::UserException)
             {
               throw;
@@ -5706,11 +5725,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           SALONS2::setManualCompChg( grp.point_dep );
         }
         check_apis_alarms( grp.point_dep );
+        check_apps_alarm( grp.point_dep );
       };
       if (!pr_unaccomp && grp.status==psCrew)
       {
         check_crew_alarms( grp.point_dep );
         check_apis_alarms( grp.point_dep );
+        check_apps_alarm( grp.point_dep );
       };
 
       check_TrferExists( grp.point_dep );
@@ -5737,7 +5758,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         Qry.CreateVariable("point_id", otInteger, grp.point_dep);
         Qry.Execute();
       };
-      composeAPPSReq(segs_for_apps, grp.point_dep, paxs_for_apps, (grp.status == psCrew));
+      if (need_apps)
+        composeAPPSReq(segs_for_apps, grp.point_dep, paxs_for_apps, (grp.status == psCrew));
       paxs_for_apps.clear();
     }
     catch(UserException &e)

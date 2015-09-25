@@ -420,11 +420,11 @@ void TAdvTripRoute::GetRoute(TDateTime part_key,
   ostringstream sql;
   if (part_key!=NoExists)
     sql << "SELECT part_key,point_id,point_num,airp,pr_del, "
-           "airline,suffix,flt_num,scd_in,scd_out "
+           "airline,suffix,flt_num,scd_in,scd_out, act_out "
            "FROM arx_points ";
   else
     sql << "SELECT point_id,point_num,airp,pr_del, "
-           "airline,suffix,flt_no,scd_in,scd_out "
+           "airline,suffix,flt_no,scd_in,scd_out, act_out "
         << "FROM points ";
 
   if (after_current)
@@ -489,6 +489,8 @@ void TAdvTripRoute::GetRoute(TDateTime part_key,
       item.scd_in=Qry.FieldAsDateTime("scd_in");
     if (!Qry.FieldIsNULL("scd_out"))
       item.scd_out=Qry.FieldAsDateTime("scd_out");
+    if (!Qry.FieldIsNULL("act_out"))
+      item.act_out=Qry.FieldAsDateTime("act_out");
     push_back(item);
   };
 }

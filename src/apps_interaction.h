@@ -27,10 +27,14 @@ struct TPaxData
 {
   int pax_id;
   bool is_cancel;
+  std::string surname;
+  std::string name;
   CheckIn::TPaxDocItem doc;
 
-  TPaxData(const int pax_id, const bool is_cancel, const CheckIn::TPaxDocItem& doc)
-    :pax_id(pax_id), is_cancel(is_cancel), doc(doc) {}
+  TPaxData() : pax_id(ASTRA::NoExists), is_cancel(false) {}
+  TPaxData(const int pax_id, const bool is_cancel, const std::string& surname,
+           const std::string& name, const CheckIn::TPaxDocItem& doc)
+    :pax_id(pax_id), is_cancel(is_cancel), surname(surname), name(name), doc(doc) {}
 };
 
 typedef std::vector<TSegment> TSegmentsList;
@@ -44,7 +48,7 @@ struct TReqTrans
   std::string  type; // '' = Check-in Transaction. "P" = Pre-Check-in Vetting
   int ver; // для Арабских Эмиратов версия 21
 
-  TReqTrans() : ver(0) {}
+  TReqTrans() : ver(ASTRA::NoExists) {}
   TReqTrans ( const std::string& trans_type, const std::string& id );
   void check_data() const;
   std::string msg( const std::string& msg_id ) const;
@@ -65,7 +69,7 @@ struct TFlightData
   std::string arr_date; // CCYYMMDD
   std::string arr_time; // HHMMSS
 
-  TFlightData() : flds_count(0) {}
+  TFlightData() : flds_count(ASTRA::NoExists) {}
   TFlightData(const std::pair<std::string, int>& id, const std::string& flt, const std::string& airp_dep,
               const BASIC::TDateTime dep, const std::string& airp_arv, const BASIC::TDateTime arr);
   void init(const std::pair<std::string, int>& id, const int point_id);
@@ -109,10 +113,14 @@ struct TReqPaxData //repeating
   std::string pnr_locator; // conditional
   std::string status;
 
-  TReqPaxData () : pax_id(0), flds_count(0), apps_pax_id(0) {}
-  TReqPaxData( const bool is_crew, const TPaxData& pax_doc, const int transfer,
+  TReqPaxData () : pax_id(ASTRA::NoExists), flds_count(ASTRA::NoExists), apps_pax_id(ASTRA::NoExists) {}
+  void init( const bool is_crew, const TPaxData& data, const int transfer,
                const std::string& override = "" );
+  void init( TQuery &Qry );
   bool fromDB( const int pax_ident );
+  bool fromDB( const std::string& trans_code, const std::string& msg_id, const int seq_no );
+  bool getByPaxId( const int pax_ident );
+  bool getByCrsPaxId( const int pax_ident );
   bool equalAttrs( const TReqPaxData& data ) const
   {
     return pax_crew == data.pax_crew &&
@@ -150,7 +158,7 @@ struct TReqMft
   std::string mft_pax; // The only option supported for UAE will be "C".
   std::string mft_crew; // The only option supported for UAE will be "C".
 
-  TReqMft() : flds_count(0) {}
+  TReqMft() : flds_count(ASTRA::NoExists) {}
   void init(const std::string& state, const std::string& pax_req = "C", const std::string& crew_req ="C");
   void check_data() const;
   std::string msg() const;
@@ -167,7 +175,7 @@ struct APPSRequest
   TFlightData inm_flt;
   TReqMft mft_req;
 
-  APPSRequest() : point_id(0) {}
+  APPSRequest() : point_id(ASTRA::NoExists) {}
   APPSRequest( const std::string& trans_type, const std::string& id, const int point_id )
     : point_id(point_id), trans(trans_type, id) { }
   void sendReq() const;
@@ -219,8 +227,9 @@ struct TAnsPaxData
   int error_code3; // Conditional (on error condition)
   std::string error_text3; // Conditional (on error condition)
 
-  TAnsPaxData() : pax_id(0), flds_count(0), seq_num(0), code(0), apps_pax_id(0),
-                  error_code1(0), error_code2(0), error_code3(0) {}
+  TAnsPaxData() : pax_id(ASTRA::NoExists), flds_count(ASTRA::NoExists), seq_num(ASTRA::NoExists),
+    code(ASTRA::NoExists), apps_pax_id(ASTRA::NoExists), error_code1(ASTRA::NoExists),
+    error_code2(ASTRA::NoExists), error_code3(ASTRA::NoExists) {}
   void getPaxId( const TAnsTrans& trans );
   std::string toString() const;
   void logAPPSPaxStatus( const std::string& trans_code, const int point_id ) const;
@@ -233,7 +242,7 @@ struct TError
   int error_code; // Conditional (on error condition)
   std::string error_text; // Conditional (on error condition)
 
-  TError() : error_code(0) {}
+  TError() : error_code(ASTRA::NoExists) {}
 };
 
 struct TAnsError
@@ -242,7 +251,7 @@ struct TAnsError
   int flds_count; // кол-во полей после текущего
   std::vector<TError> errors;
 
-  TAnsError() : flds_count(0) {}
+  TAnsError() : flds_count(ASTRA::NoExists) {}
   std::string toString() const;
 };
 
@@ -255,7 +264,7 @@ struct TAnsMft
   int error_code; // Conditional (on error condition)
   std::string error_text; // Conditional (on error condition)
 
-  TAnsMft() : flds_count(0), resp_code(0), error_code(0) {}
+  TAnsMft() : flds_count(ASTRA::NoExists), resp_code(ASTRA::NoExists), error_code(ASTRA::NoExists) {}
   std::string toString() const;
 };
 
@@ -272,7 +281,7 @@ struct APPSAnswer
   // Manifest response. Applicable to "CIMA". Conditional (required if ERR data group is not present)
   TAnsMft mft_grp;
 
-  APPSAnswer():point_id(0), send_attempts(0) {}
+  APPSAnswer() : point_id(ASTRA::NoExists), send_attempts(ASTRA::NoExists) {}
   bool init(const std::string& source);
   std::string toString() const;
   void processReply() const;
@@ -285,16 +294,18 @@ bool isNeedAPPSReq( const int point_dep, const int point_arv );
 bool isNeedAPPSReq( const int point_dep, const std::string& airp_arv );
 bool isNeedAPPSReq( const std::set<std::string>& countries );
 void composeAPPSReq( const TSegmentsList& segs, const int point_dep, const TPaxDocList& paxs,
-                     const bool is_crew, const std::string& override_type = "",
-                     const bool is_forced = false );
+                     const bool is_crew, const std::string& override_type = "" );
 bool needFltCloseout( const std::set<std::string>& countries, std::set<std::string>& countries_need_req );
 void APPSFlightCloseout( const int point_id );
-void processPax( const int pax_id, const std::string& override_type, const bool is_cancel );
-void processCrsPax( const int pnr_id, const std::string& override_type, const bool is_cancel );
+void processPax( const int pax_id, const std::string& override_type );
+void processCrsPax( const int pax_id, const std::string& override_type );
+void sendPax( const TReqPaxData& new_pax, const int point_id, const int chkin_point_id, const bool is_cancel );
 bool IsAPPSAnswText( const std::string& tlg_body );
 std::string emulateAnswer( const std::string& request );
 void reSendMsg( const int send_attempts, const std::string& msg_text, const std::string& msg_id );
-void deleteMsg( const std::string& msg_id );
 std::string getAPPSAddr();
+void sendAPPSInfo(const int point_id, const std::string& task_name, const std::string& params);
+void deleteMsg( const std::string& msg_id );
+bool checkTime( const int point_id );
 
 #endif // APPS_INTERACTION_H

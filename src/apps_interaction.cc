@@ -53,8 +53,14 @@ static const int MaxCirqPaxNum = 5;
 static const int MaxCicxPaxNum = 10;
 
 static const std::string APPSAddr = "APPSC";
+static const std::string APPSUser = "ASTRA"; // !!! заполнить
 
 enum { None, Origin, Dest, Both };
+
+static std::string getAPPSUser()
+{
+  return APPSUser;
+}
 
 static std::string getIdent()
 {
@@ -77,58 +83,22 @@ static bool isAPPSCountry (const std::string& country)
   return ( country == "AE" );
 }
 
-static bool checkConflictAlarm( const int pax_id, const int point_id )
+static bool checkConflictAlarm( const int pax_id, const std::string& cicx_msg_id, const int pax_seq_no )
 {
-  TQuery PaxQry(&OraSession);
-  PaxQry.Clear();
-  PaxQry.SQLText="SELECT pax.grp_id, status, point_arv, airp_dep, airp_arv "
-                 "FROM pax_grp, pax "
-                 "WHERE pax_id = :pax_id AND pax_grp.grp_id = pax.grp_id";
-  PaxQry.CreateVariable("pax_id", otInteger, pax_id);
-  PaxQry.Execute();
-
-  TPaxStatus pax_status;
-  pax_status = DecodePaxStatus(PaxQry.FieldAsString("status"));
-  bool is_crew = (pax_status==psCrew);
-
-  int grp_id = PaxQry.FieldAsInteger("grp_id");
-  TCkinRoute tckin_route, tmp;
-  tckin_route.GetRouteBefore(grp_id, crtNotCurrent, crtIgnoreDependent);
-  tmp.GetRouteAfter(grp_id, crtWithCurrent, crtIgnoreDependent);
-  tckin_route.insert(tckin_route.end(), tmp.begin(), tmp.end());
-
-  int transfer = None;
-  if (!tckin_route.empty()) {
-    // сквозная регистрация
-    std::sort (tckin_route.begin(), tckin_route.end(),
-               [](const TCkinRouteItem& val1, const TCkinRouteItem& val2) { return val1.seg_no < val2.seg_no; });
-
-    TCkinRoute::const_iterator it = tckin_route.begin();
-    for(; it < tckin_route.end() && it->point_dep != point_id; it++);
-    if (it == tckin_route.end())
-      throw EXCEPTIONS::Exception("point_id is not found in segs");
-
-    // проверим, есть ли трансфер
-    if ( it != tckin_route.begin() ) {
-      string country_dep = getCountry(it->airp_dep);
-      if ( isAPPSCountry( country_dep ) &&
-         ( getCountry((it - 1)->airp_dep) != country_dep ) )
-      transfer = Origin;
-    }
-    if ( (it + 1) != tckin_route.end() ) {
-      string country_arv = getCountry(it->airp_arv);
-      if ( isAPPSCountry( country_arv ) &&
-         ( country_arv != getCountry((it + 1)->airp_arv ) ) )
-      transfer=( ( transfer == Origin ) ? Both : Dest );
-    }
+  TReqPaxData actual;
+  tst();
+  if ( actual.getByPaxId(pax_id) || actual.getByCrsPaxId(pax_id) ) {
+    TReqPaxData reseived;
+    tst();
+    ProgTrace(TRACE5, "cicx_msg_id %s, pax_seq_no %d", cicx_msg_id.c_str(), pax_seq_no);
+    reseived.fromDB( ReqTypeCirq, cicx_msg_id, pax_seq_no );
+    tst();
+    ProgTrace(TRACE5, "actual: %s", actual.msg(1).c_str());
+    ProgTrace(TRACE5, "reseived: %s", reseived.msg(1).c_str());
+    return !reseived.equalAttrs( actual );
   }
-
-  TReqPaxData reseived;
-  reseived.fromDB( pax_id );
-  CheckIn::TPaxDocItem doc;
-  CheckIn::LoadPaxDoc( pax_id, doc );
-  TReqPaxData actual( is_crew, TPaxData(pax_id, false, doc), transfer );
-  return !reseived.equalAttrs( actual );
+  else
+    throw Exception("Passenger was not found");
 }
 
 static std::string requestResStr()
@@ -174,6 +144,63 @@ static void logErrorCondition( const int code, const std::string& text, LEvntPrm
     params << PrmSmpl<string>( name, text );
 }
 
+static void sendPax( TReqPaxData& new_pax, const int point_id, const int chkin_point_id, const bool is_cancel )
+{
+  TReqPaxData actual_pax;
+  APPSAction action;
+  bool is_exist = actual_pax.fromDB(new_pax.pax_id);
+  if(!is_exist && is_cancel) {
+    action = NoAction;
+  }
+  else if(!is_exist && !is_cancel) {
+    action = NeedNew;
+  }
+  else
+    action = new_pax.typeOfAction(actual_pax.status, new_pax.equalAttrs(actual_pax), is_cancel, true);
+
+  ProgTrace(TRACE5, "action %d", action);
+  if (action == NoAction)
+    return;
+  if ( action == NeedCancel || action == NeedUpdate ) {
+    tst();
+    APPSRequest cancel_req(ReqTypeCicx, getAPPSUser(), point_id);
+    cancel_req.int_flt.init( FltTypeInt, point_id );
+    cancel_req.addPax(actual_pax);
+    cancel_req.sendReq();
+  }
+  if ( action == NeedUpdate || action == NeedNew ) {
+    tst();
+    APPSRequest add_req(ReqTypeCirq, getAPPSUser(), point_id);
+    tst();
+    if ( chkin_point_id != ASTRA::NoExists )
+      add_req.ckin_flt.init( FltTypeChk, chkin_point_id );
+    tst();
+    add_req.int_flt.init( FltTypeInt, point_id );
+    tst();
+    add_req.addPax(new_pax);
+    tst();
+    add_req.sendReq();
+    tst();
+  }
+}
+
+static void deleteAPPSData( const int pax_id )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "DELETE FROM apps_data WHERE pax_id = :pax_id";
+  Qry.CreateVariable("pax_id", otString, pax_id);
+  Qry.Execute();
+}
+
+static void deleteAPPSAlarms( const int pax_id )
+{
+  set_pax_alarm( pax_id, atAPPSNegativeDirective, false );
+  set_crs_pax_alarm( pax_id, atAPPSNegativeDirective, false );
+  set_pax_alarm( pax_id, atAPPSError, false );
+  set_crs_pax_alarm( pax_id, atAPPSError, false );
+  set_pax_alarm( pax_id, atAPPSConflict, false );
+  set_crs_pax_alarm( pax_id, atAPPSConflict, false );
+}
 
 std::string getAPPSAddr()
 {
@@ -344,49 +371,46 @@ std::string TFlightData::msg() const
   return msg.str();
 }
 
-TReqPaxData::TReqPaxData(const bool is_crew, const TPaxData& pax,
-                         const int transfer, const string& override )
+void TReqPaxData::init( const bool is_crew, const TPaxData& pax_data,
+                          const int transfer, const string& override )
 {
-  pax_id = pax.pax_id;
-  flds_count = 0;
-  apps_pax_id = 0;
+  pax_id = pax_data.pax_id;
+  flds_count = ASTRA::NoExists;
+  apps_pax_id = ASTRA::NoExists;
   pax_crew = is_crew?"C":"P";
-  nationality = pax.doc.nationality;
-  issuing_state = pax.doc.issue_country;
-  passport = pax.doc.no.substr(0, 14);
-  doc_type =  (pax.doc.type == "P" || pax.doc.type.empty())?"P":"O";
-  expiry_date = DateTimeToStr( pax.doc.expiry_date, "yyyymmdd" );
-  family_name = pax.doc.surname;
-  given_names = (pax.doc.first_name + pax.doc.second_name).substr(0, 24);
-  birth_date = DateTimeToStr( pax.doc.birth_date, "yyyymmdd" );
-  sex = (pax.doc.gender == "M" || pax.doc.gender == "F")?pax.doc.gender:"U";
+  nationality = pax_data.doc.nationality;
+  issuing_state = pax_data.doc.issue_country;
+  passport = pax_data.doc.no.substr(0, 14);
+  doc_type =  (pax_data.doc.type == "P" || pax_data.doc.type.empty())?"P":"O";
+  if ( pax_data.doc.expiry_date != ASTRA::NoExists )
+    expiry_date = DateTimeToStr( pax_data.doc.expiry_date, "yyyymmdd" );
+  if( !family_name.empty() ) {
+    family_name = transliter(pax_data.doc.surname, 1, 1);
+    if (!pax_data.doc.first_name.empty())
+      given_names = pax_data.doc.first_name;
+    if (!given_names.empty() && !pax_data.doc.second_name.empty())
+      given_names = given_names + " " + pax_data.doc.second_name;
+    given_names = given_names.substr(0, 24);
+    given_names = transliter(given_names, 1, 1);
+  }
+  else {
+    family_name = pax_data.surname;
+    family_name = transliter(family_name, 1, 1);
+    if(!pax_data.name.empty())
+      given_names = (transliter(pax_data.name, 1, 1));
+  }
+  if ( pax_data.doc.birth_date != ASTRA::NoExists )
+    birth_date = DateTimeToStr( pax_data.doc.birth_date, "yyyymmdd" );
+  sex = (pax_data.doc.gender == "M" || pax_data.doc.gender == "F")?pax_data.doc.gender:"U";
   trfer_at_origin = (transfer == Origin || transfer == Both)?"Y":"N";
   trfer_at_dest = (transfer == Dest || transfer == Both)?"Y":"N";
   if(!override.empty())
     override_codes = override;
 }
 
-bool TReqPaxData::fromDB(const int pax_ident)
+void TReqPaxData::init( TQuery &Qry )
 {
-  // попытаемся найти пассажира среди отправленных
-  TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT * FROM "
-                "(SELECT pax_id, apps_pax_id, status, pax_crew, "
-                "nationality, issuing_state, passport, check_char, doc_type, expiry_date, "
-                "sup_check_char, sup_doc_type, sup_passport, family_name, given_names, "
-                "date_of_birth, sex, birth_country, is_endorsee, transfer_at_orgn, "
-                "transfer_at_dest, pnr_source, pnr_locator, send_time "
-                "FROM apps_data "
-                "WHERE pax_id = :pax_id "
-                "ORDER BY send_time DESC) "
-                "WHERE rownum = 1";
-  Qry.CreateVariable( "pax_id", otInteger, pax_ident );
-  Qry.Execute();
-
-  if(Qry.Eof)
-    return false;
-
-  pax_id = pax_ident;
+  pax_id = Qry.FieldAsInteger("pax_id");
   grp_id = PaxReqPrq.first;
   flds_count = PaxReqPrq.second;
   if (!Qry.FieldIsNULL("apps_pax_id"))
@@ -424,12 +448,163 @@ bool TReqPaxData::fromDB(const int pax_ident)
     pnr_locator = Qry.FieldAsString("pnr_locator");
   if (!Qry.FieldIsNULL("status"))
     status = Qry.FieldAsString("status");
+}
+
+bool TReqPaxData::fromDB( const int pax_ident )
+{
+  // попытаемся найти пассажира среди отправленных
+  TQuery Qry( &OraSession );
+  Qry.SQLText = "SELECT * FROM "
+                "(SELECT pax_id, apps_pax_id, status, pax_crew, "
+                "nationality, issuing_state, passport, check_char, doc_type, expiry_date, "
+                "sup_check_char, sup_doc_type, sup_passport, family_name, given_names, "
+                "date_of_birth, sex, birth_country, is_endorsee, transfer_at_orgn, "
+                "transfer_at_dest, pnr_source, pnr_locator, send_time "
+                "FROM apps_data "
+                "WHERE pax_id = :pax_id "
+                "ORDER BY send_time DESC) "
+                "WHERE rownum = 1";
+  Qry.CreateVariable( "pax_id", otInteger, pax_ident );
+  Qry.Execute();
+
+  if(Qry.Eof)
+    return false;
+
+  init(Qry);
+  return true;
+}
+
+bool TReqPaxData::fromDB( const std::string& trans_code, const std::string& msg_id, const int seq_no )
+{
+  // попытаемся найти пассажира среди отправленных
+  TQuery Qry( &OraSession );
+  ostringstream sql;
+  sql << "SELECT pax_id, apps_pax_id, status, pax_crew, "
+         "nationality, issuing_state, passport, check_char, doc_type, expiry_date, "
+         "sup_check_char, sup_doc_type, sup_passport, family_name, given_names, "
+         "date_of_birth, sex, birth_country, is_endorsee, transfer_at_orgn, "
+         "transfer_at_dest, pnr_source, pnr_locator, send_time "
+         "FROM apps_data ";
+  if ( trans_code == ReqTypeCirq )
+    sql << "WHERE cirq_msg_id = :msg_id AND cirq_seq_no = :pax_seq_no";
+  else if ( trans_code == ReqTypeCicx )
+    sql << "WHERE cicx_msg_id = :msg_id AND cicx_seq_no = :pax_seq_no";
+  else
+    throw EXCEPTIONS::Exception( std::string( "TReqPaxData::fromDB: unknown transaction code: " + trans_code ) );
+
+  Qry.SQLText = sql.str();
+  Qry.CreateVariable( "msg_id", otString, msg_id );
+  Qry.CreateVariable( "pax_seq_no", otInteger, seq_no );
+  Qry.Execute();
+
+  if(Qry.Eof)
+    return false;
+
+  init(Qry);
+  return true;
+}
+
+bool TReqPaxData::getByPaxId( const int pax_ident )
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT refuse, surname, name, pax.grp_id, status, airp_dep, airp_arv "
+                 "FROM pax_grp, pax "
+                 "WHERE pax_id = :pax_id AND pax_grp.grp_id = pax.grp_id";
+  Qry.CreateVariable("pax_id", otInteger, pax_ident);
+  Qry.Execute();
+
+  if(Qry.Eof)
+    return false;
+
+  int transfer = None;
+  TCkinRouteItem prior, next;
+  int grp_id = Qry.FieldAsInteger("grp_id");
+  // проверим входящий трансфер
+  if ( TCkinRoute().GetPriorSeg(grp_id, crtIgnoreDependent, prior) && !prior.airp_dep.empty()) {
+    string country_dep = getCountry(Qry.FieldAsString("airp_dep"));
+    if ( isAPPSCountry( country_dep ) &&
+       ( getCountry(prior.airp_dep) != country_dep ) )
+      transfer = Origin;
+  }
+  // проверим исходящий трансфер
+  if ( TCkinRoute().GetNextSeg(grp_id, crtIgnoreDependent, next ) && !next.airp_arv.empty() ) {
+    string country_arv = getCountry(Qry.FieldAsString("airp_arv"));
+    if ( isAPPSCountry( country_arv ) &&
+       ( getCountry( next.airp_arv ) != country_arv ) )
+      transfer = ( ( transfer == Origin ) ? Both : Dest );
+  }
+  TPaxData data;
+  CheckIn::LoadPaxDoc(pax_ident, data.doc);
+  data.pax_id = pax_ident;
+  data.is_cancel = !Qry.FieldIsNULL("refuse");
+  data.surname = Qry.FieldAsString("surname");
+  if(!Qry.FieldIsNULL("name"))
+    data.name = Qry.FieldAsString("name");
+  TPaxStatus pax_status = DecodePaxStatus(Qry.FieldAsString("status"));
+  init( (pax_status==psCrew), data, transfer );
+  return true;
+}
+
+bool TReqPaxData::getByCrsPaxId( const int pax_ident )
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT pr_del, surname, name, point_id_spp, airp_arv, crs_pax.pnr_id "
+              "FROM crs_pax, crs_pnr, tlg_binding "
+              "WHERE pax_id = :pax_id AND crs_pax.pnr_id = crs_pnr.pnr_id AND "
+              "      crs_pnr.point_id = tlg_binding.point_id_tlg";
+  Qry.CreateVariable("pax_id", otInteger, pax_ident);
+  Qry.Execute();
+
+  if (Qry.Eof)
+    return false;
+
+  int pnr_id = Qry.FieldAsInteger("pnr_id");
+  string airp_arv = Qry.FieldAsString("airp_arv");
+
+  TCachedQuery FltQry("SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id AND pr_del>=0",
+                      QParams() << QParam("point_id", otInteger, Qry.FieldAsInteger("point_id_spp")));
+  FltQry.get().Execute();
+
+  if (FltQry.get().Eof)
+    return false;
+
+  TTripInfo operFlt(FltQry.get());
+  TQuery TrferQry(&OraSession);
+  int transfer = None;
+  map<int, CheckIn::TTransferItem> trfer;
+  CheckInInterface::GetOnwardCrsTransfer(pnr_id, TrferQry, operFlt, airp_arv, trfer);
+  if (!trfer[1].airp_arv.empty()) {
+    // сквозная регистрация
+    string country_arv = getCountry(airp_arv);
+    if ( isAPPSCountry( country_arv ) &&
+       ( getCountry( trfer[1].airp_arv ) != country_arv ) )
+      trfer_at_dest = Dest; // исходящий трансфер
+  }
+  TPaxData data;
+  CheckIn::LoadCrsPaxDoc(pax_ident, data.doc);
+  data.pax_id = pax_ident;
+  data.is_cancel = Qry.FieldAsInteger("pr_del");
+  data.surname = Qry.FieldAsString("surname");
+  if(!Qry.FieldIsNULL("name"))
+    data.name = Qry.FieldAsString("name");
+  init( false, data, transfer );
   return true;
 }
 
 APPSAction TReqPaxData::typeOfAction(const std::string& status, const bool is_the_same,
                                      const bool is_cancel, const bool is_forced) const
 {
+  if ( !status.empty() && is_cancel ) {
+    deleteAPPSAlarms( pax_id );
+    if ( status != "B" ) {
+      deleteAPPSData( pax_id );
+      return NoAction;
+    }
+    else
+      return NeedCancel;
+  }
   if ( !status.empty() && !is_the_same ) {
     if(status == "P")
       return NeedNew;
@@ -441,8 +616,6 @@ APPSAction TReqPaxData::typeOfAction(const std::string& status, const bool is_th
       throw Exception("Unknown status");
   }
   else if ( !status.empty() && is_the_same ) {
-    if (status == "B" && is_cancel)
-      return NeedCancel;
     if ( status == "P" && is_forced )
       return NeedNew;
     else
@@ -452,39 +625,41 @@ APPSAction TReqPaxData::typeOfAction(const std::string& status, const bool is_th
     return NoAction;
   }
   else {
-    set_pax_alarm( pax_id, atAPPSConflict, true ); // рассинхронизация
+    // рассинхронизация
+    set_pax_alarm( pax_id, atAPPSConflict, true );
+    set_crs_pax_alarm( pax_id, atAPPSConflict, true );
     return NoAction;
   }
 }
 
 void TReqPaxData::check_data() const
 {
-  if ( pax_id == 0 )
+  if ( pax_id == ASTRA::NoExists )
     throw Exception( "Empty pax_id" );
   if ( grp_id != PaxReqPrq.first && grp_id != PaxReqPcx.first )
     throw Exception("Incorrect grp_id %s", grp_id.c_str() );
   if ( flds_count != PaxReqPrq.second && flds_count != PaxReqPcx.second )
     throw Exception( "Incorrect flds_count %d", flds_count );
-  if ( grp_id == PaxReqPcx.first && apps_pax_id == 0 )
+  if ( grp_id == PaxReqPcx.first && apps_pax_id == ASTRA::NoExists )
     throw Exception( "Empty apps_pax_id" );
   if ( pax_crew != "C" && pax_crew != "P" )
     throw Exception( "Incorrect pax_crew %s", pax_crew.c_str() );
-  if ( nationality.empty() )
+/*  if ( nationality.empty() )
     throw Exception( "Empty nationality" );
   if ( grp_id == PaxReqPrq.first && issuing_state.empty() )
-    throw Exception( "Empty issuing_state" );
-  if( passport.empty() || passport.size() > 14)
+    throw Exception( "Empty issuing_state" ); */
+  if( passport.size() > 14)
     throw Exception( "Empty passport" );
   if( !doc_type.empty() && doc_type != "P" && doc_type != "O" && doc_type != "N" )
     throw Exception( "Incorrect doc_type: %s", doc_type.c_str() );
-  if( expiry_date.empty() || expiry_date == "00000000" )
-    throw Exception( "Empty expiry_date" );
+/*  if( expiry_date.empty() || expiry_date == "00000000" )
+    throw Exception( "Empty expiry_date" ); */
   if( family_name.empty() || family_name.size() < 2 || family_name.size() > 24 )
     throw Exception( "Incorrect family_name: %s", family_name.c_str() );
   if( given_names.size() > 24 )
     throw Exception( "given_names too long: %s", given_names.c_str() );
-  if( birth_date.empty() )
-    throw Exception( "Empty birth_date" );
+/*  if( birth_date.empty() )
+    throw Exception( "Empty birth_date" ); */
   if( !sex.empty() && sex != "M" && sex != "F" && sex != "U" && sex != "X" )
     throw Exception( "Incorrect sex: %s", sex.c_str() );
   if( !endorsee.empty() && endorsee != "S" )
@@ -493,7 +668,7 @@ void TReqPaxData::check_data() const
 
 std::string TReqPaxData::msg( const int seq_num ) const
 {
-  check_data();
+  //check_data();
   std::ostringstream msg;
   msg << grp_id << '/' << flds_count << '/' << seq_num;
   if (grp_id == PaxReqPcx.first)
@@ -510,6 +685,7 @@ std::string TReqPaxData::msg( const int seq_num ) const
 
 void TReqPaxData::savePaxData( const std::string& code, const std::string& msg_id, const int seq_num ) const
 {
+  ProgTrace( TRACE5, "msg_id %s, seq_num %d", msg_id.c_str(), seq_num );
   TQuery Qry(&OraSession);
 
   if( code == ReqTypeCicx ) {
@@ -729,12 +905,12 @@ std::string TAnsPaxData::toString() const
   if(!birth_country.empty()) res << "birth_country: " << birth_country << std::endl;
   if(!endorsee.empty()) res << "endorsee: " << endorsee << std::endl;
   res << "code: " << code << std::endl << "status: " << status << std::endl;
-  if(apps_pax_id != 0) res << "apps_pax_id: " << apps_pax_id << std::endl;
-  if(error_code1 != 0) res << "error_code1: " << error_code1 << std::endl;
+  if(apps_pax_id != ASTRA::NoExists) res << "apps_pax_id: " << apps_pax_id << std::endl;
+  if(error_code1 != ASTRA::NoExists) res << "error_code1: " << error_code1 << std::endl;
   if(!error_text1.empty()) res << "error_text1: " << error_text1 << std::endl;
-  if(error_code2 != 0) res << "error_code2: " << error_code2 << std::endl;
+  if(error_code2 != ASTRA::NoExists) res << "error_code2: " << error_code2 << std::endl;
   if(!error_text2.empty()) res << "error_text2: " << error_text2 << std::endl;
-  if(error_code3 != 0) res << "error_code3: " << error_code3 << std::endl;
+  if(error_code3 != ASTRA::NoExists) res << "error_code3: " << error_code3 << std::endl;
   if(!error_text3.empty()) res << "error_text3: " << error_text3 << std::endl;
   return res.str();
 }
@@ -764,13 +940,13 @@ void TAnsPaxData::logAPPSPaxStatus( const std::string& trans_code, const int poi
   LEvntPrms params;
   PrmLexema lexema("result", lexema_id);
   if (status == "E") {
-    if ( error_code1 == 0 || error_text1.empty() )
+    if ( error_code1 == ASTRA::NoExists || error_text1.empty() )
       throw Exception("logAPPSPaxStatus: error_code1 or error_text1 is empty");
     PrmEnum errors("condition", ". ");
     logErrorCondition(error_code1, error_text1, errors.prms, "condition1");
-    if ( error_code1 != 0 )
+    if ( error_code1 != ASTRA::NoExists )
       logErrorCondition(error_code2, error_text2, errors.prms, "condition2");
-    if ( error_code1 != 0 )
+    if ( error_code1 != ASTRA::NoExists )
       logErrorCondition(error_code3, error_text3, errors.prms, "condition3");
     lexema.prms << errors;
   }
@@ -812,7 +988,7 @@ std::string TAnsMft::toString() const
   std::ostringstream res;
   res << "flds_count: " << flds_count << std::endl << "country: " << country << std::endl <<
          "resp_code: " << resp_code << std::endl;
-  if (error_code != 0)
+  if (error_code != ASTRA::NoExists)
     res << "error_code: " << error_code << std::endl << "error_text: " << error_text << std::endl;
   return res.str();
 }
@@ -915,7 +1091,7 @@ bool APPSAnswer::init(const std::string& source)
   Qry.Execute();
 
   if(Qry.Eof)
-    throw Exception("Passengers are not found");
+    throw Exception("Passengers were not found");
 
   while(!Qry.Eof) {
       TAnsPaxData pax;
@@ -929,6 +1105,7 @@ bool APPSAnswer::init(const std::string& source)
 
 void APPSAnswer::processReply() const
 {
+  tst();
   // выключим тревогу "Нет связи с APPS"
   set_alarm( point_id, atAPPSOutage, false );
 
@@ -948,10 +1125,14 @@ void APPSAnswer::processReply() const
       // запишем в журнал операций присланный статус
       it->logAPPSPaxStatus(trans.code, point_id);
       // включим тревоги
-      if (it->status == "D" || it->status == "X")
+      if (it->status == "D" || it->status == "X") {
         set_pax_alarm( it->pax_id, atAPPSNegativeDirective, true );
-      else if (it->status != "D" && it->status != "X" && it->status != "B")
+        set_crs_pax_alarm( it->pax_id, atAPPSNegativeDirective, true );
+      }
+      else if (it->status != "D" && it->status != "X" && it->status != "B") {
         set_pax_alarm( it->pax_id, atAPPSError, true );
+        set_crs_pax_alarm( it->pax_id, atAPPSError, true );
+      }
 
       /* Каждая страна участник APPS присылает свой статус пассажира, т.е.
        * один пассажир может иметь несколько статусов. Получим по каждому пассажиру
@@ -962,7 +1143,7 @@ void APPSAnswer::processReply() const
         result[it->seq_num].first = (it->status == "B" || it->status == "X")?it->status:"P";
       else if (result[it->seq_num].first == "P" && it->status == "X")
         result[it->seq_num].first = "X";
-      if(it->apps_pax_id != 0 && result[it->seq_num].second == 0)
+      if(it->apps_pax_id != ASTRA::NoExists && result[it->seq_num].second == 0)
         result[it->seq_num].second = it->apps_pax_id;
     }
 
@@ -982,22 +1163,30 @@ void APPSAnswer::processReply() const
     for(map<int, pair<string, int>>::const_iterator it = result.begin(); it != result.end(); it++ ) {
       Qry.SetVariable("cirq_seq_no", it->first);
       Qry.SetVariable("status", it->second.first);
-      Qry.SetVariable("apps_pax_id", (it->second.second != 0)?it->second.second:FNull);
+      if (it->second.second != 0)
+        Qry.SetVariable("apps_pax_id", it->second.second);
+      else
+        Qry.SetVariable("apps_pax_id", FNull);
       Qry.Execute();
 
       // погасим тревоги
       int pax_id = Qry.GetVariableAsInteger("pax_id");
       if (it->second.first == "B") {
         set_pax_alarm( pax_id, atAPPSNegativeDirective, false );
+        set_crs_pax_alarm( pax_id, atAPPSNegativeDirective, false );
         set_pax_alarm( pax_id, atAPPSError, false );
+        set_crs_pax_alarm( pax_id, atAPPSError, false );
       }
       // проверим, нужно ли гасить тревогу "рассинхронизация"
-      if (get_pax_alarm( pax_id, atAPPSConflict )
-          && !checkConflictAlarm( pax_id, point_id ))
+      if ( !checkConflictAlarm( pax_id, trans.msg_ident, it->first ) ) {
+          tst();
           set_pax_alarm( pax_id, atAPPSConflict, false );
+          set_crs_pax_alarm( pax_id, atAPPSConflict, false );
+      }
     }
   }
   else if (trans.code == AnsTypeCicc) {
+    tst();
     map<int, bool> result; // map<seq_num, result> (true - pax отменен или не найден, false - ошибка)
     for ( vector<TAnsPaxData>::const_iterator it = passengers.begin(); it < passengers.end(); it++ ) {
       it->logAPPSPaxStatus(trans.code, point_id);
@@ -1007,15 +1196,22 @@ void APPSAnswer::processReply() const
         result[it->seq_num] = false;
     }
     Qry.Clear();
-    Qry.SQLText = "DELETE FROM apps_data "
-                  "WHERE cicx_seq_no = :cicx_seq_no AND cicx_msg_id = :cicx_msg_id ";
+    Qry.SQLText = "BEGIN "
+                  "SELECT send_time, pax_id INTO :send_time, :pax_id FROM apps_data "
+                  "WHERE cicx_seq_no = :cicx_seq_no AND cicx_msg_id = :cicx_msg_id; "
+                  "DELETE FROM apps_data WHERE send_time <= :send_time AND pax_id =:pax_id; "
+                  "END;";
     Qry.CreateVariable("cicx_msg_id", otString, trans.msg_ident);
     Qry.DeclareVariable("cicx_seq_no", otInteger);
+    Qry.CreateVariable( "send_time", otDate, FNull );
+    Qry.CreateVariable( "pax_id", otInteger, FNull );
 
     for(map<int, bool>::const_iterator it = result.begin(); it != result.end(); it++) {
       if(it->second) {
         Qry.SetVariable("cicx_seq_no", it->first);
+        tst();
         Qry.Execute();
+        tst();
       }
     }
   }
@@ -1028,7 +1224,7 @@ void APPSAnswer::processReply() const
 
     PrmLexema result("result", (mft_grp.resp_code == 8700)?"MSG.APPS_FLT_CLS_PROC":"MSG.APPS_FLT_CLS_REJ");
     if (mft_grp.resp_code != 8700) {
-      if ( mft_grp.error_code == 0 || mft_grp.error_text.empty() )
+      if ( mft_grp.error_code == ASTRA::NoExists || mft_grp.error_text.empty() )
         throw Exception("processReply: mft_grp.error_code or mft_grp.error_text is empty");
       logErrorCondition(mft_grp.error_code, mft_grp.error_text, result.prms, "reason");
     }
@@ -1145,8 +1341,10 @@ void APPSAnswer::processError() const
   if(trans.code != AnsTypeCirs)
     return;
 
-  for ( vector<TAnsPaxData>::const_iterator it = passengers.begin(); it < passengers.end(); it++ )
+  for ( vector<TAnsPaxData>::const_iterator it = passengers.begin(); it < passengers.end(); it++ ) {
     set_pax_alarm( it->pax_id, atAPPSConflict, true ); // рассинхронизация
+    set_crs_pax_alarm( it->pax_id, atAPPSConflict, true ); // рассинхронизация
+  }
 
   // удаляем apps_data cirq_msg_id
   TQuery Qry(&OraSession);
@@ -1221,21 +1419,22 @@ bool needFltCloseout(const set<string>& countries, set<string>& countries_need_r
 }
 
 void composeAPPSReq( const TSegmentsList& segs, const int point_dep, const TPaxDocList& paxs,
-                     const bool is_crew, const string& override_type, const bool is_forced )
+                     const bool is_crew, const string& override_type )
 {
+  processPax(28741089, "");
+    return;
   ProgTrace(TRACE5, "composeAPPSReq: point_dep: %d", point_dep);
   TSegmentsList::const_iterator s = segs.begin();
   for (; s < segs.end() && s->point_dep != point_dep; s++);
   if (s == segs.end())
-    throw EXCEPTIONS::Exception("point_id is not found in map segs");
+    throw Exception("point_id was not found in map segs");
 
   //определим, нужно ли отправлять APPS request
-  if (!isNeedAPPSReq(s->point_dep, s->point_arv))
+  if (!isNeedAPPSReq(s->point_dep, s->point_arv) || !checkTime( s->point_dep ))
     return;
 
-  string user = "BETA"; // !!! заполнить
-  APPSRequest add_req(ReqTypeCirq, user, point_dep);
-  APPSRequest cancel_req(ReqTypeCicx, user, point_dep);
+  APPSRequest add_req(ReqTypeCirq, getAPPSUser(), point_dep);
+  APPSRequest cancel_req(ReqTypeCicx, getAPPSUser(), point_dep);
 
   // здесь заполним все, то касается перелета
   // International flight
@@ -1264,14 +1463,21 @@ void composeAPPSReq( const TSegmentsList& segs, const int point_dep, const TPaxD
   }
   // информация о пассажирах
   for( TPaxDocList::const_iterator it = paxs.begin(); it < paxs.end(); it++ ) {
-    TReqPaxData new_pax( is_crew, *it, transfer, override_type );
+    tst();
+    TReqPaxData new_pax;
+    new_pax.init( is_crew, *it, transfer, override_type );
     TReqPaxData actual_pax;
     APPSAction action;
-    if(!actual_pax.fromDB(it->pax_id)) {
-      action = NeedNew;
+    bool is_exist = actual_pax.fromDB(it->pax_id);
+    if(!is_exist && it->is_cancel) {
+      tst();
+      action = NoAction;
     }
+    else if(!is_exist && !it->is_cancel)
+      action = NeedNew;
     else
-      action = new_pax.typeOfAction(actual_pax.status, new_pax.equalAttrs(actual_pax), it->is_cancel, is_forced);
+      action = new_pax.typeOfAction(actual_pax.status, new_pax.equalAttrs(actual_pax), it->is_cancel, false);
+    ProgTrace(TRACE5, "action %d, it->is_cancel %d", action, it->is_cancel);
     if (action == NoAction)
       continue;
     else if ( action == NeedNew ) {
@@ -1291,89 +1497,139 @@ void composeAPPSReq( const TSegmentsList& segs, const int point_dep, const TPaxD
   add_req.sendReq();
 }
 
-void processPax(const int pax_id, const std::string& override_type, const bool is_cancel )
+void processPax(const int pax_id, const std::string& override_type )
 {
-  TQuery PaxQry(&OraSession);
-  PaxQry.Clear();
-  PaxQry.SQLText="SELECT pax.grp_id, status, point_dep, point_arv, airp_dep, airp_arv "
+  TQuery Qry(&OraSession);
+  Qry.SQLText="SELECT surname, name, pax.grp_id, status, point_dep, "
+                 "       airp_dep, airp_arv, refuse "
                  "FROM pax_grp, pax "
                  "WHERE pax_id = :pax_id AND pax_grp.grp_id = pax.grp_id";
-  PaxQry.CreateVariable("pax_id", otInteger, pax_id);
-  PaxQry.Execute();
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.Execute();
 
-  if(PaxQry.Eof)
-    processCrsPax(pax_id, override_type, is_cancel);
-
-  CheckIn::TPaxDocItem doc;
-  TSegmentsList segs_for_apps;
-  TPaxStatus pax_status;
-
-  CheckIn::LoadPaxDoc(pax_id, doc);
-  pax_status = DecodePaxStatus(PaxQry.FieldAsString("status"));
-  int grp_id = PaxQry.FieldAsInteger("grp_id");
-
-  TCkinRoute tckin_route, tmp;
-  tckin_route.GetRouteBefore(grp_id, crtNotCurrent, crtIgnoreDependent);
-  tmp.GetRouteAfter(grp_id, crtWithCurrent, crtIgnoreDependent);
-  tckin_route.insert(tckin_route.end(), tmp.begin(), tmp.end());
-
-  // заполним segs_for_apps
-  if (!tckin_route.empty()) {
-    // сквозная регистрация
-    std::sort (tckin_route.begin(), tckin_route.end(),
-               [](const TCkinRouteItem& val1, const TCkinRouteItem& val2) { return val1.seg_no < val2.seg_no; });
-
-    for(TCkinRoute::const_iterator it = tckin_route.begin(); it < tckin_route.end(); it++) {
-      TSegment seg;
-      seg.init(it->point_dep, it->point_arv, it->airp_dep, it->airp_arv, it->operFlt);
-      segs_for_apps.push_back(seg);
-    }
-  }
-  else {
-    TSegment seg;
-    int point_dep = PaxQry.FieldAsInteger("point_dep");
-    int point_arv = PaxQry.FieldAsInteger("point_arv");
-    string airp_dep = PaxQry.FieldAsString("airp_dep");
-    string airp_arv = PaxQry.FieldAsString("airp_arv");
-
-    TCachedQuery Qry("SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id AND pr_del>=0",
-                     QParams() << QParam("point_id", otInteger, point_dep));
-    Qry.get().Execute();
-
-    TTripInfo info(Qry.get());
-    seg.init(point_dep, point_arv, airp_dep, airp_arv, info);
-    segs_for_apps.push_back(seg);
+  if(Qry.Eof) {
+    processCrsPax(pax_id, override_type);
+    return;
   }
 
-  TPaxDocList pax_item;
-  pax_item.push_back( TPaxData(pax_id, is_cancel, doc) );
+  int point_id = Qry.FieldAsInteger("point_dep");
+  string airp_arv = Qry.FieldAsString("airp_arv");
 
-  for( TSegmentsList::const_iterator it = segs_for_apps.begin(); it < segs_for_apps.end(); it++ ) {
-    composeAPPSReq( segs_for_apps, it->point_dep, pax_item, (pax_status==psCrew), override_type, true );
+  //определим, нужно ли отправлять APPS request
+  if (!isNeedAPPSReq(point_id, airp_arv))
+    throw AstraLocale::UserException("Passenger does not need to be processed by APPS");
+
+  // Определим, пришло ли время.
+  if ( !checkTime( point_id ) )
+    throw AstraLocale::UserException ( "Time window [- 2 days] TODAY [+ 10 days] was violated" );
+
+  TCkinRoute tckin_route;
+  int grp_id = Qry.FieldAsInteger("grp_id");
+  tckin_route.GetRouteBefore( grp_id, crtNotCurrent, crtIgnoreDependent );
+
+  int chkin_point_id = tckin_route.front().point_dep;
+
+  int transfer = None;
+  TCkinRouteItem prior, next;
+  // проверим входящий трансфер
+  prior = tckin_route.back();
+  if ( !prior.airp_dep.empty() ) {
+    string country_dep = getCountry(Qry.FieldAsString("airp_dep"));
+    if ( isAPPSCountry( country_dep ) &&
+       ( getCountry(prior.airp_dep) != country_dep ) )
+      transfer = Origin;
   }
+  // проверим исходящий трансфер
+  TCkinRoute().GetNextSeg(grp_id, crtIgnoreDependent, next );
+  if ( !next.airp_arv.empty() ) {
+    string country_arv = getCountry(airp_arv);
+    if ( isAPPSCountry( country_arv ) &&
+       ( getCountry( next.airp_arv ) != country_arv ) )
+      transfer = ( ( transfer == Origin ) ? Both : Dest );
+  }
+  TPaxData data;
+  CheckIn::LoadPaxDoc(pax_id, data.doc);
+  data.pax_id = pax_id;
+  data.is_cancel = !Qry.FieldIsNULL("refuse");
+  data.surname = Qry.FieldAsString("surname");
+  if(!Qry.FieldIsNULL("name"))
+    data.name = Qry.FieldAsString("name");
+  TPaxStatus pax_status = DecodePaxStatus(Qry.FieldAsString("status"));
+  TReqPaxData new_pax;
+  new_pax.init( (pax_status==psCrew), data, transfer, override_type );
+  sendPax( new_pax, point_id, chkin_point_id, data.is_cancel );
 }
 
-void processCrsPax( const int pnr_id, const std::string& override_type, const bool is_cancel )
+void processCrsPax( const int pax_id, const std::string& override_type )
 {
-  /* TQuery Qry(&OraSession);
+  ProgTrace(TRACE5, "processCrsPax %d", pax_id);
+  TQuery Qry(&OraSession);
+  Qry.SQLText="SELECT surname, name, point_id_spp, airp_arv, crs_pax.pnr_id, pr_del "
+              "FROM crs_pax, crs_pnr, tlg_binding "
+              "WHERE pax_id = :pax_id AND crs_pax.pnr_id = crs_pnr.pnr_id AND "
+              "      crs_pnr.point_id = tlg_binding.point_id_tlg";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.Execute();
+
   if (Qry.Eof)
-    throw Exception("Passenger is not found");
+    throw AstraLocale::UserException("Passenger was not found");
+
+  tst();
+  int point_id = Qry.FieldAsInteger("point_id_spp");
+  string airp_arv = Qry.FieldAsString("airp_arv");
+
+  //определим, нужно ли отправлять APPS request
+  if (!isNeedAPPSReq(point_id, airp_arv))
+    throw AstraLocale::UserException("Passenger does not need to be processed by APPS");
+
+  // Определим, пришло ли время.
+  if ( !checkTime( point_id ) )
+    throw AstraLocale::UserException( "Time window [- 2 days] TODAY [+ 10 days] was violated" );
+
+  TCachedQuery FltQry("SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id AND pr_del>=0",
+                      QParams() << QParam("point_id", otInteger, point_id));
+  FltQry.get().Execute();
+
+  if (FltQry.get().Eof)
+    throw AstraLocale::UserException("Flight was not found");
+
+  TTripInfo operFlt(FltQry.get());
+  TQuery TrferQry(&OraSession);
   map<int, CheckIn::TTransferItem> trfer;
-  CheckInInterface::GetOnwardCrsTransfer(pnr_id, Qry, operFlt,oper_airp_arv,trfer);
-  LoadCrsPaxDoc(pax_id, doc); */
+  CheckInInterface::GetOnwardCrsTransfer(Qry.FieldAsInteger("pnr_id"), TrferQry, operFlt, airp_arv, trfer);
+
+  int transfer = None;
+  if (!trfer[1].airp_arv.empty()) {
+    // сквозная регистрация
+    string country_arv = getCountry(airp_arv);
+    if ( isAPPSCountry( country_arv ) &&
+       ( getCountry( trfer[1].airp_arv ) != country_arv ) )
+      transfer = Dest; // исходящий трансфер
+  }
+  TPaxData data;
+  CheckIn::LoadCrsPaxDoc(pax_id, data.doc);
+  data.pax_id = pax_id;
+  data.is_cancel = Qry.FieldAsInteger("pr_del");
+  data.surname = Qry.FieldAsString("surname");
+  if(!Qry.FieldIsNULL("name"))
+    data.name = Qry.FieldAsString("name");
+  TReqPaxData new_pax;
+  new_pax.init( false, data, transfer, override_type );
+  sendPax( new_pax, point_id, ASTRA::NoExists, data.is_cancel );
 }
 
 void APPSFlightCloseout( const int point_id )
 {
-  string user = "BETA"; // !!! заполнить
+  if ( !checkTime( point_id ) )
+    return;
 
   TFlightData flt;
   flt.init( FltTypeInt, point_id );
 
-  APPSRequest cancel_pax( ReqTypeCicx, user, point_id );
+  APPSRequest cancel_pax( ReqTypeCicx, getAPPSUser(), point_id );
   cancel_pax.int_flt.init(flt);
 
-  APPSRequest cancel_crew( ReqTypeCicx, user, point_id );
+  APPSRequest cancel_crew( ReqTypeCicx, getAPPSUser(), point_id );
   cancel_crew.int_flt.init( flt );
 
   TTripRoute route;
@@ -1395,7 +1651,7 @@ void APPSFlightCloseout( const int point_id )
      * Для таких пассажиров нужно послать отмену */
     TQuery Qry(&OraSession);
     Qry.Clear();
-    Qry.SQLText="SELECT pax.pax_id, pax_grp.status "
+    Qry.SQLText="SELECT cirq_msg_id, cirq_seq_no, pax_grp.status "
                 "FROM pax_grp, pax, apps_data "
                 "WHERE pax_grp.grp_id=pax.grp_id AND apps_data.pax_id = pax.pax_id AND "
                 "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND "
@@ -1408,7 +1664,8 @@ void APPSFlightCloseout( const int point_id )
     for(; !Qry.Eof; Qry.Next()) {
       bool is_crew = (DecodePaxStatus(Qry.FieldAsString("status")) == psCrew);
       TReqPaxData pax;
-      pax.fromDB(Qry.FieldAsInteger("pax_id"));
+      pax.fromDB(ReqTypeCirq, Qry.FieldAsString("cirq_msg_id"), Qry.FieldAsInteger("cirq_seq_no"));
+      ProgTrace(TRACE5, "pax.family_name %s, pax.apps_pax_id %d", pax.family_name.c_str(), pax.apps_pax_id);
       if(pax.status != "B") {
         continue; // CICX request has already been send
       }
@@ -1423,7 +1680,7 @@ void APPSFlightCloseout( const int point_id )
 
   set<string> countries_need_req;
   needFltCloseout( countries, countries_need_req );
-  APPSRequest close_flt( ReqTypeCimr, user, point_id );
+  APPSRequest close_flt( ReqTypeCimr, getAPPSUser(), point_id );
   close_flt.inm_flt.init( flt );
   for( set<string>::const_iterator it = countries_need_req.begin(); it != countries_need_req.end(); it++ ) {
     close_flt.mft_req.init( *it );
@@ -1447,7 +1704,7 @@ std::string emulateAnswer( const std::string& request )
   boost::regex pattern("(?<=:).*?(?=/)");
   boost::smatch result;
   if (!boost::regex_search(request, result, pattern))
-    throw EXCEPTIONS::Exception( "emulateAnswer: msg_id is not found" );
+    throw EXCEPTIONS::Exception( "emulateAnswer: msg_id was not found" );
   string msg_id = result[0];
 
   string ans_type;
@@ -1489,7 +1746,7 @@ std::string emulateAnswer( const std::string& request )
     boost::sregex_token_iterator i(request.begin(), request.end(), regex, subs);
     boost::sregex_token_iterator j;
     if (i == j)
-      throw EXCEPTIONS::Exception( "emulateAnswer: passengers are not found" );
+      throw EXCEPTIONS::Exception( "emulateAnswer: passengers were not found" );
     while(i != j) {
       string pax(*i++);
 
@@ -1532,10 +1789,45 @@ void reSendMsg( const int send_attempts, const std::string& msg_text, const std:
   ProgTrace(TRACE5, "Message id=%s was re-sent. Send attempts: %d", msg_id.c_str(), send_attempts);
 }
 
-void deleteMsg( const std::string& msg_id ) {
+void sendAPPSInfo( const int point_id, const std::string& task_name, const std::string& params )
+{
+  ProgTrace(TRACE5, "sendAPPSInfo");
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText ="SELECT pax_id "
+               "FROM crs_pax, crs_pnr, tlg_binding "
+               "WHERE need_apps <> 0 AND point_id_spp = :point_id_spp AND "
+               "      crs_pax.pnr_id = crs_pnr.pnr_id AND "
+               "      crs_pnr.point_id = tlg_binding.point_id_tlg";
+  Qry.CreateVariable("point_id_spp", otInteger, point_id);
+  Qry.Execute();
+
+  for( ; !Qry.Eof; Qry.Next() ) {
+    int pax_id = Qry.FieldAsInteger( "pax_id" );
+    ProgTrace(TRACE5, "pax_id %d", pax_id);
+    processCrsPax( pax_id, "" );
+    TCachedQuery Qry( "UPDATE crs_pax SET need_apps=0 WHERE pax_id=:pax_id",
+                      QParams() << QParam( "pax_id", otInteger, pax_id ) );
+    Qry.get().Execute();
+  }
+}
+
+void deleteMsg( const std::string& msg_id )
+{
   TQuery Qry(&OraSession);
   Qry.SQLText = "DELETE FROM apps_messages "
                 "WHERE msg_id = :msg_id ";
   Qry.CreateVariable("msg_id", otString, msg_id);
   Qry.Execute();
+}
+
+bool checkTime( const int point_id )
+{
+  // The APP System only allows transactions on [- 2 days] TODAY [+ 10 days].
+  BASIC::TDateTime now = BASIC::NowUTC();
+  TAdvTripRoute route;
+  route.GetRouteAfter(ASTRA::NoExists, point_id, trtWithCurrent, trtNotCancelled);
+  if (/*now - route.front().scd_out > 2 &&*/ route.front().scd_out - now > 10) // !!! не забыть раскоментировать
+    return false;
+  return true;
 }
