@@ -86,15 +86,9 @@ static bool isAPPSCountry (const std::string& country)
 static bool checkConflictAlarm( const int pax_id, const std::string& cicx_msg_id, const int pax_seq_no )
 {
   TReqPaxData actual;
-  tst();
   if ( actual.getByPaxId(pax_id) || actual.getByCrsPaxId(pax_id) ) {
     TReqPaxData reseived;
-    tst();
-    ProgTrace(TRACE5, "cicx_msg_id %s, pax_seq_no %d", cicx_msg_id.c_str(), pax_seq_no);
     reseived.fromDB( ReqTypeCirq, cicx_msg_id, pax_seq_no );
-    tst();
-    ProgTrace(TRACE5, "actual: %s", actual.msg(1).c_str());
-    ProgTrace(TRACE5, "reseived: %s", reseived.msg(1).c_str());
     return !reseived.equalAttrs( actual );
   }
   else
@@ -158,29 +152,21 @@ static void sendPax( TReqPaxData& new_pax, const int point_id, const int chkin_p
   else
     action = new_pax.typeOfAction(actual_pax.status, new_pax.equalAttrs(actual_pax), is_cancel, true);
 
-  ProgTrace(TRACE5, "action %d", action);
   if (action == NoAction)
     return;
   if ( action == NeedCancel || action == NeedUpdate ) {
-    tst();
     APPSRequest cancel_req(ReqTypeCicx, getAPPSUser(), point_id);
     cancel_req.int_flt.init( FltTypeInt, point_id );
     cancel_req.addPax(actual_pax);
     cancel_req.sendReq();
   }
   if ( action == NeedUpdate || action == NeedNew ) {
-    tst();
     APPSRequest add_req(ReqTypeCirq, getAPPSUser(), point_id);
-    tst();
     if ( chkin_point_id != ASTRA::NoExists )
       add_req.ckin_flt.init( FltTypeChk, chkin_point_id );
-    tst();
     add_req.int_flt.init( FltTypeInt, point_id );
-    tst();
     add_req.addPax(new_pax);
-    tst();
     add_req.sendReq();
-    tst();
   }
 }
 
@@ -668,7 +654,7 @@ void TReqPaxData::check_data() const
 
 std::string TReqPaxData::msg( const int seq_num ) const
 {
-  //check_data();
+  check_data();
   std::ostringstream msg;
   msg << grp_id << '/' << flds_count << '/' << seq_num;
   if (grp_id == PaxReqPcx.first)
@@ -685,7 +671,6 @@ std::string TReqPaxData::msg( const int seq_num ) const
 
 void TReqPaxData::savePaxData( const std::string& code, const std::string& msg_id, const int seq_num ) const
 {
-  ProgTrace( TRACE5, "msg_id %s, seq_num %d", msg_id.c_str(), seq_num );
   TQuery Qry(&OraSession);
 
   if( code == ReqTypeCicx ) {
@@ -1105,7 +1090,6 @@ bool APPSAnswer::init(const std::string& source)
 
 void APPSAnswer::processReply() const
 {
-  tst();
   // выключим тревогу "Нет связи с APPS"
   set_alarm( point_id, atAPPSOutage, false );
 
@@ -1179,14 +1163,12 @@ void APPSAnswer::processReply() const
       }
       // проверим, нужно ли гасить тревогу "рассинхронизация"
       if ( !checkConflictAlarm( pax_id, trans.msg_ident, it->first ) ) {
-          tst();
           set_pax_alarm( pax_id, atAPPSConflict, false );
           set_crs_pax_alarm( pax_id, atAPPSConflict, false );
       }
     }
   }
   else if (trans.code == AnsTypeCicc) {
-    tst();
     map<int, bool> result; // map<seq_num, result> (true - pax отменен или не найден, false - ошибка)
     for ( vector<TAnsPaxData>::const_iterator it = passengers.begin(); it < passengers.end(); it++ ) {
       it->logAPPSPaxStatus(trans.code, point_id);
@@ -1209,9 +1191,7 @@ void APPSAnswer::processReply() const
     for(map<int, bool>::const_iterator it = result.begin(); it != result.end(); it++) {
       if(it->second) {
         Qry.SetVariable("cicx_seq_no", it->first);
-        tst();
         Qry.Execute();
-        tst();
       }
     }
   }
@@ -1421,8 +1401,6 @@ bool needFltCloseout(const set<string>& countries, set<string>& countries_need_r
 void composeAPPSReq( const TSegmentsList& segs, const int point_dep, const TPaxDocList& paxs,
                      const bool is_crew, const string& override_type )
 {
-  processPax(28741089, "");
-    return;
   ProgTrace(TRACE5, "composeAPPSReq: point_dep: %d", point_dep);
   TSegmentsList::const_iterator s = segs.begin();
   for (; s < segs.end() && s->point_dep != point_dep; s++);
@@ -1463,21 +1441,18 @@ void composeAPPSReq( const TSegmentsList& segs, const int point_dep, const TPaxD
   }
   // информация о пассажирах
   for( TPaxDocList::const_iterator it = paxs.begin(); it < paxs.end(); it++ ) {
-    tst();
     TReqPaxData new_pax;
     new_pax.init( is_crew, *it, transfer, override_type );
     TReqPaxData actual_pax;
     APPSAction action;
     bool is_exist = actual_pax.fromDB(it->pax_id);
     if(!is_exist && it->is_cancel) {
-      tst();
       action = NoAction;
     }
     else if(!is_exist && !it->is_cancel)
       action = NeedNew;
     else
       action = new_pax.typeOfAction(actual_pax.status, new_pax.equalAttrs(actual_pax), it->is_cancel, false);
-    ProgTrace(TRACE5, "action %d, it->is_cancel %d", action, it->is_cancel);
     if (action == NoAction)
       continue;
     else if ( action == NeedNew ) {
@@ -1499,6 +1474,7 @@ void composeAPPSReq( const TSegmentsList& segs, const int point_dep, const TPaxD
 
 void processPax(const int pax_id, const std::string& override_type )
 {
+  ProgTrace(TRACE5, "processPax: %d", pax_id);
   TQuery Qry(&OraSession);
   Qry.SQLText="SELECT surname, name, pax.grp_id, status, point_dep, "
                  "       airp_dep, airp_arv, refuse "
@@ -1562,7 +1538,7 @@ void processPax(const int pax_id, const std::string& override_type )
 
 void processCrsPax( const int pax_id, const std::string& override_type )
 {
-  ProgTrace(TRACE5, "processCrsPax %d", pax_id);
+  ProgTrace(TRACE5, "processCrsPax: %d", pax_id);
   TQuery Qry(&OraSession);
   Qry.SQLText="SELECT surname, name, point_id_spp, airp_arv, crs_pax.pnr_id, pr_del "
               "FROM crs_pax, crs_pnr, tlg_binding "
@@ -1574,7 +1550,6 @@ void processCrsPax( const int pax_id, const std::string& override_type )
   if (Qry.Eof)
     throw AstraLocale::UserException("Passenger was not found");
 
-  tst();
   int point_id = Qry.FieldAsInteger("point_id_spp");
   string airp_arv = Qry.FieldAsString("airp_arv");
 
@@ -1644,7 +1619,6 @@ void APPSFlightCloseout( const int point_id )
     if(!isNeedAPPSReq(countries)) {
       continue;
     }
-    ProgTrace(TRACE5, "APPSFlightCloseout: point_dep: %d, point_arv: %d", point_dep, r->point_id );
 
     /* Определим, есть ли пассажиры не прошедшие посадку,
      * информация о которых была отправлена в SITA.
@@ -1665,7 +1639,6 @@ void APPSFlightCloseout( const int point_id )
       bool is_crew = (DecodePaxStatus(Qry.FieldAsString("status")) == psCrew);
       TReqPaxData pax;
       pax.fromDB(ReqTypeCirq, Qry.FieldAsString("cirq_msg_id"), Qry.FieldAsInteger("cirq_seq_no"));
-      ProgTrace(TRACE5, "pax.family_name %s, pax.apps_pax_id %d", pax.family_name.c_str(), pax.apps_pax_id);
       if(pax.status != "B") {
         continue; // CICX request has already been send
       }
@@ -1791,7 +1764,6 @@ void reSendMsg( const int send_attempts, const std::string& msg_text, const std:
 
 void sendAPPSInfo( const int point_id, const std::string& task_name, const std::string& params )
 {
-  ProgTrace(TRACE5, "sendAPPSInfo");
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText ="SELECT pax_id "
@@ -1804,7 +1776,6 @@ void sendAPPSInfo( const int point_id, const std::string& task_name, const std::
 
   for( ; !Qry.Eof; Qry.Next() ) {
     int pax_id = Qry.FieldAsInteger( "pax_id" );
-    ProgTrace(TRACE5, "pax_id %d", pax_id);
     processCrsPax( pax_id, "" );
     TCachedQuery Qry( "UPDATE crs_pax SET need_apps=0 WHERE pax_id=:pax_id",
                       QParams() << QParam( "pax_id", otInteger, pax_id ) );
@@ -1827,7 +1798,7 @@ bool checkTime( const int point_id )
   BASIC::TDateTime now = BASIC::NowUTC();
   TAdvTripRoute route;
   route.GetRouteAfter(ASTRA::NoExists, point_id, trtWithCurrent, trtNotCancelled);
-  if (/*now - route.front().scd_out > 2 &&*/ route.front().scd_out - now > 10) // !!! не забыть раскоментировать
+  if (now - route.front().scd_out > 2 && route.front().scd_out - now > 10)
     return false;
   return true;
 }

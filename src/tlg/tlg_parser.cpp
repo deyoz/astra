@@ -6776,7 +6776,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               CrsPaxQry.SetVariable("seats",1);
               for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
               {
-                ProgTrace(TRACE5, "ne.surname %s", ne.surname.c_str());
                 CrsPaxInsQry.SetVariable("pax_id",FNull);
                 CrsPaxInsQry.SetVariable("surname",ne.surname);
                 if (ne.indicator==ADD||ne.indicator==CHG||ne.indicator==DEL)
@@ -6837,7 +6836,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   CrsPaxInsQry.SetVariable("pr_del",0);
                 CrsPaxInsQry.SetVariable("last_op",info.time_create);
                 if(is_need_apps) {
-                  ProgTrace(TRACE5, "is_need_apps");
                   CrsPaxInsQry.SetVariable("need_apps",1);
                   apps_pax_exists=true;
                 }
@@ -7049,7 +7047,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             add_trip_task(BindingQry.FieldAsInteger("point_id_spp"), SYNC_NEW_CHKD, "");
         };
         if(apps_pax_exists) {
-          ProgTrace(TRACE5, "apps_pax_exists");
           Qry.Clear();
           Qry.SQLText=
             "SELECT airline, flt_no, suffix, airp, scd_out "
@@ -7062,12 +7059,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             TTripInfo operFlt(Qry);
             BASIC::TDateTime now = BASIC::NowUTC();
             BASIC::TDateTime new_exec_time = ASTRA::NoExists;
-            ProgTrace(TRACE5, "operFlt.scd_out: %s", (DateTimeToStr(operFlt.scd_out, "yymmddhhnn")).c_str());
-            ProgTrace(TRACE5, "now: %s", (DateTimeToStr(now, "yymmddhhnn")).c_str());
             if ( operFlt.scd_out > now + 10 ) {
               // отправлять запрос в APPS рано
               new_exec_time = operFlt.scd_out - 10;
-              ProgTrace(TRACE5, "Demasiado temprano! new_exec_time: %s", (DateTimeToStr(new_exec_time, "yymmddhhnn")).c_str());
             }
             add_trip_task(point_id_spp, SEND_APPS_INFO, "", new_exec_time);
           }

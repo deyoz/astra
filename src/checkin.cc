@@ -3848,10 +3848,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     if ( need_apps ) {
       TAdvTripRoute route;
       route.GetRouteAfter(NoExists, grp.point_dep, trtWithCurrent, trtNotCancelled);
-      if ( route.front().act_out != NoExists ) {
-        ProgTrace(TRACE5, "route.front().act_out: %f, grp.point_dep %d", route.front().act_out, grp.point_dep);
+      if ( route.front().act_out != NoExists )
         throw UserException( "MSG.PASSENGER.CHANGES_NOT_PERMITTED" );
-      }
     }
 
     try
