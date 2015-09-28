@@ -103,12 +103,12 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   while ( !Qry.Eof ) {
     xmlNodePtr itemNode = NewTextChild( node, "item" );
     if ( Qry.FieldAsInteger( "num" ) == -100 ) // Всего
-    	NewTextChild( itemNode, "firstcol", getLocaleText( Qry.FieldAsString( "firstcol" ) ) );
+        NewTextChild( itemNode, "firstcol", getLocaleText( Qry.FieldAsString( "firstcol" ) ) );
     else
-    	if ( Qry.FieldAsInteger( "num" ) < 0 ) // классы
+        if ( Qry.FieldAsInteger( "num" ) < 0 ) // классы
         NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etClass,Qry.FieldAsString( "firstcol" )) );
       else // аэропорты
-      	NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etAirp,Qry.FieldAsString( "firstcol" )) );
+        NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etAirp,Qry.FieldAsString( "firstcol" )) );
     if (!Qry.FieldIsNULL( "cfg" ))
       NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
     else
@@ -232,7 +232,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     itemNode = NewTextChild( node, "itemcrs" );
     NewTextChild( itemNode, "code", Qry.FieldAsString( "code" ) );
     if ( Qry.FieldAsInteger( "sort" ) == 0 )
-    	NewTextChild( itemNode, "name", getLocaleText( Qry.FieldAsString( "name" ) ) );
+        NewTextChild( itemNode, "name", getLocaleText( Qry.FieldAsString( "name" ) ) );
     else
       NewTextChild( itemNode, "name", ElemIdToNameLong(etTypeBSender,Qry.FieldAsString("code")) );
     NewTextChild( itemNode, "pr_charge", Qry.FieldAsInteger( "pr_charge" ) );
@@ -394,8 +394,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   {
     //лочим рейс - весь маршрут, т.к. pr_tranzit может поменяться
     TFlights flights;
-		flights.Get( point_id, ftAll );
-		flights.Lock();
+        flights.Get( point_id, ftAll );
+        flights.Lock();
 
     Qry.Clear();
     Qry.SQLText =
@@ -413,7 +413,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       "       pr_check_pay,pr_exam_check_pay, "
       "       pr_reg_with_tkn, pr_reg_with_doc, pr_reg_without_tkna, "
       "       auto_weighing,pr_free_seating, "
-      "       apis_control, apis_manual_input "
+      "       apis_control, apis_manual_input, piece_concept "
       "FROM trip_sets WHERE point_id=:point_id";
     SetsQry.CreateVariable("point_id",otInteger,point_id);
     SetsQry.Execute();
@@ -433,7 +433,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
          new_auto_weighing,       old_auto_weighing,
          new_pr_free_seating,     old_pr_free_seating,
          new_apis_control,        old_apis_control,
-         new_apis_manual_input,   old_apis_manual_input;
+         new_apis_manual_input,   old_apis_manual_input,
+         new_piece_concept,       old_piece_concept;
 
     old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
     old_pr_tranz_reg=SetsQry.FieldAsInteger("pr_tranz_reg")!=0;
@@ -450,6 +451,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     old_pr_free_seating=SetsQry.FieldAsInteger("pr_free_seating")!=0;
     old_apis_control=SetsQry.FieldAsInteger("apis_control")!=0;
     old_apis_manual_input=SetsQry.FieldAsInteger("apis_manual_input")!=0;
+    old_piece_concept=SetsQry.FieldAsInteger("piece_concept")!=0;
 
     xmlNodePtr node2=node->children;
     new_pr_tranzit=NodeAsInteger("pr_tranzit",node)!=0;
@@ -470,10 +472,11 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     if (TReqInfo::Instance()->desk.compatible(FREE_SEATING_VERSION))
       new_pr_free_seating=NodeAsInteger("pr_free_seating",node)!=0;
     else
-      new_pr_free_seating=old_pr_free_seating;    
+      new_pr_free_seating=old_pr_free_seating;
     new_apis_control=NodeAsIntegerFast("apis_control",node2,(int)old_apis_control)!=0;
     new_apis_manual_input=NodeAsIntegerFast("apis_manual_input",node2,(int)old_apis_manual_input)!=0;
-      
+    new_piece_concept=NodeAsIntegerFast("piece_concept",node2,(int)old_piece_concept)!=0;
+
     vector<int> check_waitlist_alarms, check_diffcomp_alarms;
     bool pr_isTranzitSalons = false;
     if (old_pr_tranzit!=new_pr_tranzit ||
@@ -500,28 +503,28 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         else
           pr_block_trzt=false;
         if ( pr_tranz_reg!=old_pr_tranz_reg && !pr_tranz_reg ) { // отмена перерегистрации транзита
-        	TQuery DelQry( &OraSession );
-        	DelQry.SQLText =
-  		      "SELECT grp_id  FROM pax_grp,points "
-  		      " WHERE points.point_id=:point_id AND "
-  		      "       point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
+            TQuery DelQry( &OraSession );
+            DelQry.SQLText =
+              "SELECT grp_id  FROM pax_grp,points "
+              " WHERE points.point_id=:point_id AND "
+              "       point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
             "       bag_refuse=0 AND status=:status AND rownum<2 ";
-  		    DelQry.CreateVariable( "point_id", otInteger, point_id );
-  		    DelQry.CreateVariable( "status", otString, EncodePaxStatus( psTransit ) );
-  		    DelQry.Execute();
-  		    if ( !DelQry.Eof ) {
-  		    	ProgTrace( TRACE5, "question=%d", question );
-  		    	if ( question ) {
-  		    		xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  		    		NewTextChild( dataNode, "question", getLocaleText("QST.TRANZIT_RECHECKIN_CAUTION.CANCEL") );
-  		    		return;
-  		      }
-  		      map<int,TAdvTripInfo> segs; // набор рейсов
+            DelQry.CreateVariable( "point_id", otInteger, point_id );
+            DelQry.CreateVariable( "status", otString, EncodePaxStatus( psTransit ) );
+            DelQry.Execute();
+            if ( !DelQry.Eof ) {
+                ProgTrace( TRACE5, "question=%d", question );
+                if ( question ) {
+                    xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+                    NewTextChild( dataNode, "question", getLocaleText("QST.TRANZIT_RECHECKIN_CAUTION.CANCEL") );
+                    return;
+              }
+              map<int,TAdvTripInfo> segs; // набор рейсов
             TDeletePaxFilter filter;
             filter.status=EncodePaxStatus( psTransit );
-  		      DeletePassengers( point_id, filter, segs );
-  		      DeletePassengersAnswer( segs, resNode );
-  		    }
+              DeletePassengers( point_id, filter, segs );
+              DeletePassengersAnswer( segs, resNode );
+            }
         }
         //есть ли транзитные пассажиры pax_grp.status='T'
 
@@ -558,7 +561,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
           tlocale.id1=point_id;
           TReqInfo::Instance()->LocaleToLog(tlocale);
         }
-        
+
         check_diffcomp_alarms.push_back( point_id );
         if ( !pr_isTranzitSalons ) {
           check_waitlist_alarms.push_back( point_id );
@@ -579,7 +582,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         old_auto_weighing!=new_auto_weighing ||
         old_pr_free_seating!=new_pr_free_seating ||
         old_apis_control!=new_apis_control ||
-        old_apis_manual_input!=new_apis_manual_input)
+        old_apis_manual_input!=new_apis_manual_input ||
+        old_piece_concept!=new_piece_concept)
     {
       map<TTripSetType, bool> sets;
       if (old_pr_check_load!=new_pr_check_load)
@@ -630,6 +634,10 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       {
         sets.insert(make_pair(tsAPISManualInput, new_apis_manual_input));
       };
+      if (old_piece_concept!=new_piece_concept)
+      {
+        sets.insert(make_pair(tsPieceConcept, new_piece_concept));
+      };
       update_trip_sets(point_id, sets, false);
     };
 
@@ -668,7 +676,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       check_apis_alarms(point_id, checked_alarms);
     }
   };
-  
+
 
   Qry.Clear();
   Qry.SQLText =

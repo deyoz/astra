@@ -1080,8 +1080,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
       "       pr_reg_with_tkn,pr_reg_with_doc,pr_reg_without_tkna, "
       "       auto_weighing,pr_etstatus, "
-      "       pr_free_seating, apis_control, apis_manual_input, "
-      "       pr_airp_seance "
+      "       pr_free_seating, apis_control, apis_manual_input, piece_concept "
       "FROM trip_sets WHERE point_id=:point_id ";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
@@ -1115,6 +1114,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "pr_reg_without_tkna", (int)(Qryh.FieldAsInteger("pr_reg_without_tkna")!=0) );
       NewTextChild( node, "auto_weighing", (int)(Qryh.FieldAsInteger("auto_weighing")!=0) );
       NewTextChild( node, "pr_free_seating", (int)(Qryh.FieldAsInteger("pr_free_seating")!=0) );
+      NewTextChild( node, "piece_concept", (int)(Qryh.FieldAsInteger("piece_concept")!=0) );
 
       TAPISMap apis_map;
       set<string> apis_formats;
@@ -1123,9 +1123,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "apis_control", (int)(Qryh.FieldAsInteger("apis_control")!=0) );
       NewTextChild( node, "apis_manual_input", (int)(Qryh.FieldAsInteger("apis_manual_input")!=0) );
 
-      if (!Qryh.FieldIsNULL("pr_airp_seance"))
-        NewTextChild( node, "pr_airp_seance", (int)(Qryh.FieldAsInteger("pr_airp_seance")!=0) );
-      else
+      if (reqInfo->client_type == ctTerm &&
+          !reqInfo->desk.compatible(APIS_CITY_REGION_VERSION))
         NewTextChild( node, "pr_airp_seance" );
     };
 
@@ -1182,10 +1181,6 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
         case atETStatus:
             if (reqInfo->screen.name == "AIR.EXE" ||
                   reqInfo->screen.name == "BRDBUS.EXE")
-            rem = TripAlarmString( alarm );
-          break;
-        case atSeance:
-            if (reqInfo->screen.name == "AIR.EXE")
             rem = TripAlarmString( alarm );
           break;
         case atDiffComps:

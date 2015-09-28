@@ -1807,7 +1807,7 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
             DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss ") + tz);
     NewTextChild(variablesNode, "print_oper", reqInfo->user.login);
     NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
-    NewTextChild(variablesNode, "use_seances", USE_SEANCES());
+    NewTextChild(variablesNode, "use_seances", false); //!!!потом убрать
     NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
     if(bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
@@ -1878,10 +1878,6 @@ string GetStatSQLText(const TStatParams &params, int pass)
 
   ostringstream sql;
   sql << "SELECT \n";
-  if (USE_SEANCES())
-    sql << " DECODE(trip_sets.pr_airp_seance, NULL, '', 1, 'АП', 'АК') seance, \n";
-  else
-    sql << " NULL seance, \n";
 
   if (params.statType==statTrferFull)
   {
@@ -1957,63 +1953,45 @@ string GetStatSQLText(const TStatParams &params, int pass)
       sql << " arx_stat stat \n";
   };
 
-  if (USE_SEANCES())
+  if (params.seance==seanceAirport ||
+      params.seance==seanceAirline)
   {
-    if (pass==0)
-      sql << ", trip_sets \n";
-    else
-      sql << ", arx_trip_sets trip_sets \n";
-    if (pass==2)
-      sql << ", (SELECT part_key, move_id FROM move_arx_ext \n"
-             "   WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
-  }
-  else
-  {
-    if (params.seance==seanceAirport ||
-        params.seance==seanceAirline)
+    if (pass!=2)
     {
-      if (pass!=2)
-      {
-        if(params.seance==seanceAirport)
-          sql << "," << AIRP_PERIODS;
-        if(params.seance==seanceAirline)
-          sql << "," << AIRLINE_PERIODS;
-      }
-      else
-      {
-        sql << ", (SELECT arx_points.part_key, arx_points.point_id \n"
-               "   FROM move_arx_ext, arx_points \n";
-        if(params.seance==seanceAirport)
-          sql << "," << AIRP_PERIODS;
-        if(params.seance==seanceAirline)
-          sql << "," << AIRLINE_PERIODS;
-        sql << "   WHERE move_arx_ext.part_key >= periods.period_last_date + :arx_trip_date_range AND \n"
-               "         move_arx_ext.part_key <= periods.period_last_date + move_arx_ext.date_range AND \n"
-               "         move_arx_ext.part_key = arx_points.part_key AND move_arx_ext.move_id = arx_points.move_id AND \n"
-               "         arx_points.scd_out >= periods.period_first_date AND arx_points.scd_out < periods.period_last_date AND \n";
-        if(params.seance==seanceAirport)
-          sql << "         arx_points.airline NOT IN \n" << AIRLINE_LIST;
-        if(params.seance==seanceAirline)
-          sql << "         arx_points.airp IN \n" << AIRP_LIST;
-        sql << "  ) arx_ext \n";
-      };
+      if(params.seance==seanceAirport)
+        sql << "," << AIRP_PERIODS;
+      if(params.seance==seanceAirline)
+        sql << "," << AIRLINE_PERIODS;
     }
     else
     {
-      if (pass==2)
-        sql << ", (SELECT part_key, move_id FROM move_arx_ext \n"
-               "   WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
+      sql << ", (SELECT arx_points.part_key, arx_points.point_id \n"
+             "   FROM move_arx_ext, arx_points \n";
+      if(params.seance==seanceAirport)
+        sql << "," << AIRP_PERIODS;
+      if(params.seance==seanceAirline)
+        sql << "," << AIRLINE_PERIODS;
+      sql << "   WHERE move_arx_ext.part_key >= periods.period_last_date + :arx_trip_date_range AND \n"
+             "         move_arx_ext.part_key <= periods.period_last_date + move_arx_ext.date_range AND \n"
+             "         move_arx_ext.part_key = arx_points.part_key AND move_arx_ext.move_id = arx_points.move_id AND \n"
+             "         arx_points.scd_out >= periods.period_first_date AND arx_points.scd_out < periods.period_last_date AND \n";
+      if(params.seance==seanceAirport)
+        sql << "         arx_points.airline NOT IN \n" << AIRLINE_LIST;
+      if(params.seance==seanceAirline)
+        sql << "         arx_points.airp IN \n" << AIRP_LIST;
+      sql << "  ) arx_ext \n";
     };
+  }
+  else
+  {
+    if (pass==2)
+      sql << ", (SELECT part_key, move_id FROM move_arx_ext \n"
+             "   WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
   };
 
   sql << "WHERE \n";
   if(params.flt_no != NoExists)
     sql << " points.flt_no = :flt_no AND \n";
-  if (USE_SEANCES())
-  {
-    if (params.seance!=seanceAll)
-      sql << " trip_sets.pr_airp_seance = :pr_airp_seance AND \n";
-  };
   if (params.statType==statTrferFull)
   {
     if (pass!=0)
@@ -2026,42 +2004,30 @@ string GetStatSQLText(const TStatParams &params, int pass)
       sql << " points.part_key = stat.part_key AND \n";
     sql << " points.point_id = stat.point_id AND \n";
   };
-  if (USE_SEANCES())
+
+  if (params.seance==seanceAirport ||
+      params.seance==seanceAirline)
+  {
+    if (pass!=2)
+    {
+      if (pass!=0)
+        sql << " points.part_key >= periods.period_first_date AND points.part_key < periods.period_last_date + :arx_trip_date_range AND \n";
+      sql << " points.scd_out >= periods.period_first_date AND points.scd_out < periods.period_last_date AND \n";
+    }
+    else
+      sql << " points.part_key=arx_ext.part_key AND points.point_id=arx_ext.point_id AND \n";
+  }
+  else
   {
     if (pass==1)
       sql << " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
     if (pass==2)
       sql << " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
     sql << " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND \n";
-    if (pass!=0)
-      sql << " points.part_key = trip_sets.part_key AND \n";
-    sql << " points.point_id = trip_sets.point_id AND \n";
-  }
-  else
-  {
-    if (params.seance==seanceAirport ||
-        params.seance==seanceAirline)
-    {
-      if (pass!=2)
-      {
-        if (pass!=0)
-          sql << " points.part_key >= periods.period_first_date AND points.part_key < periods.period_last_date + :arx_trip_date_range AND \n";
-        sql << " points.scd_out >= periods.period_first_date AND points.scd_out < periods.period_last_date AND \n";
-      }
-      else
-        sql << " points.part_key=arx_ext.part_key AND points.point_id=arx_ext.point_id AND \n";
-    }
-    else
-    {
-      if (pass==1)
-        sql << " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
-      if (pass==2)
-        sql << " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
-      sql << " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND \n";
-    };
   };
+
   sql << " points.pr_del>=0 \n";
-  if (!USE_SEANCES() && params.seance==seanceAirport)
+  if (params.seance==seanceAirport)
   {
     sql << " AND points.airp = :ap \n";
   }
@@ -2075,7 +2041,7 @@ string GetStatSQLText(const TStatParams &params, int pass)
     };
   };
 
-  if (!USE_SEANCES() && params.seance==seanceAirline)
+  if (params.seance==seanceAirline)
   {
     sql << " AND points.airline = :ak \n";
   }
@@ -2089,23 +2055,18 @@ string GetStatSQLText(const TStatParams &params, int pass)
     }
   };
 
-  if (!USE_SEANCES())
+  if (pass!=2)
   {
-    if (pass!=2)
-    {
-      if(params.seance==seanceAirport)
-        sql << " AND points.airline NOT IN \n" << AIRLINE_LIST;
-      if(params.seance==seanceAirline)
-        sql << " AND points.airp IN \n" << AIRP_LIST;
-    };
+    if(params.seance==seanceAirport)
+      sql << " AND points.airline NOT IN \n" << AIRLINE_LIST;
+    if(params.seance==seanceAirline)
+      sql << " AND points.airp IN \n" << AIRP_LIST;
   };
 
   if (params.statType==statFull)
   {
-    sql << "GROUP BY \n";
-    if (USE_SEANCES())
-      sql << " trip_sets.pr_airp_seance, \n";
-    sql << " points.airp, \n"
+    sql << "GROUP BY \n"
+           " points.airp, \n"
            " points.airline, \n"
            " points.flt_no, \n"
            " points.scd_out, \n";
@@ -2116,8 +2077,6 @@ string GetStatSQLText(const TStatParams &params, int pass)
   if (params.statType==statShort)
   {
     sql << "GROUP BY \n";
-    if (USE_SEANCES())
-      sql << " trip_sets.pr_airp_seance, \n";
     if(params.airp_column_first)
       sql << " points.airp \n";
     else
@@ -2125,10 +2084,8 @@ string GetStatSQLText(const TStatParams &params, int pass)
   };
   if (params.statType==statDetail)
   {
-    sql << "GROUP BY \n";
-    if (USE_SEANCES())
-      sql << " trip_sets.pr_airp_seance, \n";
-    sql << " points.airp, \n"
+    sql << "GROUP BY \n"
+           " points.airp, \n"
            " points.airline \n";
   };
   return sql.str();
@@ -2262,7 +2219,7 @@ void TStatParams::get(xmlNodePtr reqNode)
 
     bool all_seances_permit = info.user.access.rights().permitted(615);
 
-    if (USE_SEANCES() || info.desk.compatible(AIRL_AIRP_STAT_VERSION))
+    if (info.desk.compatible(AIRL_AIRP_STAT_VERSION))
     {
         if (info.user.user_type != utSupport && !all_seances_permit)
         {
@@ -2278,12 +2235,12 @@ void TStatParams::get(xmlNodePtr reqNode)
         if (!ap.empty()) seance=seanceAirport;
     };
 
-    if (!USE_SEANCES() && seance==seanceAirline)
+    if (seance==seanceAirline)
     {
         if (!airlines.elems_permit()) throw UserException("MSG.NEED_SET_CODE_AIRLINE");
     };
 
-    if (!USE_SEANCES() && seance==seanceAirport)
+    if (seance==seanceAirport)
     {
         if (!airps.elems_permit()) throw UserException("MSG.NEED_SET_CODE_AIRP");
     };
@@ -2426,11 +2383,10 @@ struct TDetailStatRow {
 };
 
 struct TDetailStatKey {
-    string pact_descr, seance, col1, col2;
+    string pact_descr, col1, col2;
     bool operator == (const TDetailStatKey &item) const
     {
         return pact_descr == item.pact_descr &&
-               seance == item.seance &&
                col1 == item.col1 &&
                col2 == item.col2;
     };
@@ -2438,16 +2394,13 @@ struct TDetailStatKey {
 struct TDetailCmp {
     bool operator() (const TDetailStatKey &lr, const TDetailStatKey &rr) const
     {
-        if(lr.col1 == rr.col1)
-            if(lr.col2 == rr.col2)
-                if(lr.seance == rr.seance)
-                    return lr.pact_descr < rr.pact_descr;
-                else
-                    return lr.seance < rr.seance;
-            else
-                return lr.col2 < rr.col2;
+      if(lr.col1 == rr.col1)
+        if(lr.col2 == rr.col2)
+          return lr.pact_descr < rr.pact_descr;
         else
-            return lr.col1 < rr.col1;
+          return lr.col2 < rr.col2;
+      else
+        return lr.col1 < rr.col1;
     };
 };
 typedef map<TDetailStatKey, TDetailStatRow, TDetailCmp> TDetailStat;
@@ -2531,7 +2484,7 @@ string TStatPlaces::get() const
 }
 
 struct TFullStatKey {
-    string seance, col1, col2;
+    string col1, col2;
     string airp; // в сортировке не участвует, нужен для AirpTZRegion
     int flt_no;
     TDateTime scd_out;
@@ -2544,8 +2497,7 @@ struct TFullStatKey {
     {}
     bool operator == (const TFullStatKey &item) const
     {
-        return seance == item.seance &&
-               col1 == item.col1 &&
+        return col1 == item.col1 &&
                col2 == item.col2 &&
                airp == item.airp &&
                flt_no == item.flt_no &&
@@ -2557,25 +2509,22 @@ struct TFullStatKey {
 struct TFullCmp {
     bool operator() (const TFullStatKey &lr, const TFullStatKey &rr) const
     {
-        if(lr.seance == rr.seance)
-            if(lr.col1 == rr.col1)
-                if(lr.col2 == rr.col2)
-                    if(lr.flt_no == rr.flt_no)
-                        if(lr.scd_out == rr.scd_out)
-                            if(lr.point_id == rr.point_id)
-                                return lr.places.get() < rr.places.get();
-                            else
-                                return lr.point_id < rr.point_id;
-                        else
-                            return lr.scd_out < rr.scd_out;
-                    else
-                        return lr.flt_no < rr.flt_no;
-                else
-                    return lr.col2 < rr.col2;
+      if(lr.col1 == rr.col1)
+        if(lr.col2 == rr.col2)
+          if(lr.flt_no == rr.flt_no)
+            if(lr.scd_out == rr.scd_out)
+              if(lr.point_id == rr.point_id)
+                return lr.places.get() < rr.places.get();
+              else
+                return lr.point_id < rr.point_id;
             else
-                return lr.col1 < rr.col1;
+              return lr.scd_out < rr.scd_out;
+          else
+            return lr.flt_no < rr.flt_no;
         else
-            return lr.seance < rr.seance;
+          return lr.col2 < rr.col2;
+      else
+        return lr.col1 < rr.col1;
     };
 };
 typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
@@ -2620,7 +2569,6 @@ void GetDetailStat(const TStatParams &params, TQuery &Qry,
     if (!params.skip_rows)
     {
       TDetailStatKey key;
-      key.seance = Qry.FieldAsString("seance");
       key.pact_descr = pact_descr;
       if(params.airp_column_first) {
           key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp"));
@@ -2653,7 +2601,6 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
 {
   Qry.Execute();
   if(!Qry.Eof) {
-      int col_seance = Qry.FieldIndex("seance");
       int col_point_id = Qry.FieldIndex("point_id");
       int col_airp = Qry.FieldIndex("airp");
       int col_airline = Qry.FieldIndex("airline");
@@ -2724,7 +2671,6 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
         if (!params.skip_rows)
         {
           TFullStatKey key;
-          key.seance = Qry.FieldAsString(col_seance);
           key.airp = Qry.FieldAsString(col_airp);
           if(params.airp_column_first) {
               key.col1 = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp));
@@ -2887,8 +2833,6 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
           if (params.statType==statDetail)
               NewTextChild(rowNode, "col", si->first.col2);
 
-          if (USE_SEANCES())
-              NewTextChild(rowNode, "col", getLocaleText(si->first.seance));
           if(params.statType != statPactShort)
               NewTextChild(rowNode, "col", (int)(pr_pact?si->second.flts.size():si->second.flt_amount));
           if(params.statType == statPactShort)
@@ -2949,14 +2893,6 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
             };
         }
     }
-    if (USE_SEANCES())
-    {
-        colNode = NewTextChild(headerNode, "col", getLocaleText("Сеанс"));
-        SetProp(colNode, "width", 40);
-        SetProp(colNode, "align", taLeftJustify);
-        SetProp(colNode, "sort", sortString);
-        NewTextChild(rowNode, "col");
-    };
 
     if(params.statType != statPactShort) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
@@ -3063,8 +2999,6 @@ void createXMLFullStat(const TStatParams &params,
                       UTCToClient(im->first.scd_out, region), "dd.mm.yy")
                   );
           NewTextChild(rowNode, "col", im->first.places.get());
-          if (USE_SEANCES())
-              NewTextChild(rowNode, "col", getLocaleText(im->first.seance));
           NewTextChild(rowNode, "col", im->second.pax_amount);
           if (params.statType==statFull)
           {
@@ -3142,15 +3076,6 @@ void createXMLFullStat(const TStatParams &params,
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col");
-
-    if (USE_SEANCES())
-    {
-      colNode = NewTextChild(headerNode, "col", getLocaleText("Сеанс"));
-      SetProp(colNode, "width", 40);
-      SetProp(colNode, "align", taLeftJustify);
-      SetProp(colNode, "sort", sortString);
-      NewTextChild(rowNode, "col");
-    };
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
     SetProp(colNode, "width", 75);
@@ -3458,10 +3383,8 @@ void RunDetailStat(const TStatParams &params,
     Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
     Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
     Qry.CreateVariable("mobile", otString, EncodeClientType(ctMobile));
-    if (!USE_SEANCES() && params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
-    if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
-    if (USE_SEANCES() && params.seance!=seanceAll)
-        Qry.CreateVariable("pr_airp_seance", otInteger, (int)(params.seance==seanceAirport));
+    if (params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
+    if (params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
     if(params.flt_no != NoExists)
         Qry.CreateVariable("flt_no", otString, params.flt_no);
 
@@ -3470,7 +3393,7 @@ void RunDetailStat(const TStatParams &params,
         if (pass!=0)
           Qry.CreateVariable("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
 
-        if (!USE_SEANCES() && params.seance==seanceAirline)
+        if (params.seance==seanceAirline)
         {
           //цикл по компаниям
           if (params.airlines.elems_permit())
@@ -3485,7 +3408,7 @@ void RunDetailStat(const TStatParams &params,
           continue;
         };
 
-        if (!USE_SEANCES() && params.seance==seanceAirport)
+        if (params.seance==seanceAirport)
         {
           //цикл по портам
           if (params.airps.elems_permit())
@@ -3516,10 +3439,8 @@ void RunFullStat(const TStatParams &params,
       Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
       Qry.CreateVariable("mobile", otString, EncodeClientType(ctMobile));
     };
-    if (!USE_SEANCES() && params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
-    if (!USE_SEANCES() && params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
-    if (USE_SEANCES() && params.seance!=seanceAll)
-        Qry.CreateVariable("pr_airp_seance", otInteger, (int)(params.seance==seanceAirport));
+    if (params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
+    if (params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
     if(params.flt_no != NoExists)
         Qry.CreateVariable("flt_no", otString, params.flt_no);
 
@@ -3529,7 +3450,7 @@ void RunFullStat(const TStatParams &params,
           Qry.CreateVariable("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
         //ProgTrace(TRACE5, "RunFullStat: pass=%d SQL=\n%s", pass, Qry.SQLText.SQLText());
 
-        if (!USE_SEANCES() && params.seance==seanceAirline)
+        if (params.seance==seanceAirline)
         {
           //цикл по компаниям
           if (params.airlines.elems_permit())
@@ -3544,7 +3465,7 @@ void RunFullStat(const TStatParams &params,
           continue;
         };
 
-        if (!USE_SEANCES() && params.seance==seanceAirport)
+        if (params.seance==seanceAirport)
         {
           //цикл по портам
           if (params.airps.elems_permit())
@@ -5191,8 +5112,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         if (params.statType==statShort || params.statType==statDetail || params.statType == statPactShort)
         {
           bool pr_pacts =
-            reqInfo->user.access.rights().permitted(605) and
-            params.seance == seanceAll and not USE_SEANCES();
+            reqInfo->user.access.rights().permitted(605) and params.seance == seanceAll;
 
           if(not pr_pacts and params.statType == statPactShort)
               throw UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");

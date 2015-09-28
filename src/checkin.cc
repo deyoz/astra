@@ -1935,7 +1935,6 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
 
   xmlNodePtr inquiryNode=NewTextChild(resNode,"inquiry_summary");
-  NewTextChild(inquiryNode,"piece_concept",(int)false);
   NewTextChild(inquiryNode,"count",sum.nPax);
   NewTextChild(inquiryNode,"seats",sum.nPaxWithPlace);
   NewTextChild(inquiryNode,"adult",sum.n[adult]);
@@ -1950,15 +1949,10 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   xmlNodePtr node;
 
   Qry.Clear();
-  Qry.SQLText="SELECT pr_tranz_reg,pr_airp_seance FROM trip_sets WHERE point_id=:point_id";
+  Qry.SQLText="SELECT pr_tranz_reg FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_dep);
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-  if (USE_SEANCES())
-    {
-    if (Qry.FieldIsNULL("pr_airp_seance"))
-      throw UserException("MSG.FLIGHT.SET_CHECKIN_MODE_IN_SEANCE");
-  };
 
   if (pax_status==psTransit)
   {
@@ -3890,16 +3884,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       Qry.Clear();
       Qry.SQLText=
-        "SELECT pr_tranz_reg,pr_etstatus,pr_airp_seance,pr_free_seating,pr_reg_without_tkna "
+        "SELECT pr_tranz_reg,pr_etstatus,pr_free_seating,pr_reg_without_tkna "
         "FROM trip_sets WHERE point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,grp.point_dep);
       Qry.Execute();
       if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
-      if (USE_SEANCES())
-        {
-        if (Qry.FieldIsNULL("pr_airp_seance"))
-          throw UserException("MSG.FLIGHT.SET_CHECKIN_MODE_IN_SEANCE"); //WEB
-      };
 
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
@@ -4164,7 +4153,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         else
         {
           //заполним trfer из базы
-          LoadTransfer(grp.id, trfer);
+          CheckIn::LoadTransfer(grp.id, trfer);
         };
         iTrfer=trfer.begin();
       }
@@ -5250,7 +5239,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             fltInfo.use_mixed_norms=pr_mixed_norms;
             map<int/*id*/, TBagToLogInfo> curr_bag;
             GetBagToLogInfo(grp.id, curr_bag);
-            BagPayment::RecalcPaidBag(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, pr_unaccomp);
+            list<CheckIn::TPaidBagItem> prior_paid;
+            CheckIn::PaidBagFromDB(grp.id, prior_paid);
+            BagPayment::RecalcPaidBagToDB(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp);
           };
 
           CheckIn::SavePaidBagEMD(grp.id,segNode);
@@ -5962,7 +5953,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       "SELECT points.airline,points.flt_no,points.suffix,points.airp,points.scd_out, "
       "       pax_grp.grp_id,pax_grp.point_dep,pax_grp.airp_dep,pax_grp.point_arv,pax_grp.airp_arv, "
       "       pax_grp.class,pax_grp.status,pax_grp.hall,pax_grp.bag_refuse,pax_grp.excess, "
-      "       pax_grp.trfer_confirm, 0 AS piece_concept, pax_grp.tid "
+      "       pax_grp.trfer_confirm, 0 AS piece_concept, 0 AS bag_types_id, pax_grp.tid "
       "FROM pax_grp,points "
       "WHERE pax_grp.point_dep=points.point_id AND grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,*grp_id);
@@ -6707,21 +6698,6 @@ void CheckInInterface::SaveTransfer(int grp_id,
     flt_no_in=t->operFlt.flt_no;
   };
   tlocale.prms << route;
-};
-
-void CheckInInterface::LoadTransfer(int grp_id, vector<CheckIn::TTransferItem> &trfer)
-{
-  trfer.clear();
-  TTrferRoute route;
-  route.GetRoute(grp_id, trtNotFirstSeg);
-  for(TTrferRoute::const_iterator r=route.begin(); r!=route.end(); ++r)
-  {
-    trfer.push_back(CheckIn::TTransferItem());
-    CheckIn::TTransferItem &t=trfer.back();
-    t.operFlt=r->operFlt;
-    t.airp_arv=r->airp_arv;
-    t.airp_arv_fmt=r->airp_arv_fmt;
-  };
 };
 
 void CheckInInterface::BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transferNode)

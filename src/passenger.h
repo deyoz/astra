@@ -408,6 +408,7 @@ class TPaxGrpItem
     ASTRA::TPaxStatus status;
     int hall;
     std::string bag_refuse;
+    int bag_types_id;
     bool piece_concept;
     int tid;
     boost::optional< std::list<TPaxNormItem> > norms;
@@ -428,6 +429,7 @@ class TPaxGrpItem
       status=ASTRA::psCheckin;
       hall=ASTRA::NoExists;
       bag_refuse.clear();
+      bag_types_id=ASTRA::NoExists;
       piece_concept=false;
       tid=ASTRA::NoExists;
       norms=boost::none;

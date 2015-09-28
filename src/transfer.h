@@ -63,7 +63,9 @@ class TTransferItem
     };
 };
 
-};
+void LoadTransfer(int grp_id, std::vector<TTransferItem> &trfer);
+
+}; //namespace CheckIn
 
 namespace TrferList
 {

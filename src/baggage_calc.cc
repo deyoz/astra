@@ -3,6 +3,9 @@
 #include "exceptions.h"
 #include "astra_locale.h"
 #include "events.h"
+#include "transfer.h"
+#include "events.h"
+#include "astra_misc.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -179,7 +182,7 @@ int TBagNormWideInfo::similarity_cost(const TPaxInfo &pax, const TBagNormFilterS
   };
 
   if (filter.only_category && pax.pax_cat!=pax_cat) return NoExists;
-  if (!pax_cat.empty() && !pax.pax_cat.empty())
+  if (!pax_cat.empty()/* && !pax.pax_cat.empty()*/) //!!!vlad
   {
     if (pax.pax_cat!=pax_cat) return NoExists;
     result+=field_amounts.pax_cat;
@@ -401,30 +404,30 @@ bool TNormWideItem::TryAddNorm(const TNormWideItem &norm)
   return false;
 };
 
-class TSumBagItem
+class TSimpleBagItem
 {
   public:
     int bag_type;
     int amount, weight;
-    TSumBagItem(int _bag_type):
+    TSimpleBagItem(int _bag_type):
       bag_type(_bag_type),
       amount(0),
       weight(0) {}
-    TSumBagItem(const CheckIn::TBagItem &item):
+    TSimpleBagItem(const CheckIn::TBagItem &item):
       bag_type(item.bag_type),
       amount(item.amount),
       weight(item.weight) {}
-    TSumBagItem(const TBagToLogInfo &item):
+    TSimpleBagItem(const TBagToLogInfo &item):
       bag_type(item.bag_type),
       amount(item.amount),
       weight(item.weight) {}
-    bool operator < (const TSumBagItem &item) const
+    bool operator < (const TSimpleBagItem &item) const
     {
       if (weight!=item.weight)
         return weight>item.weight;
       return amount<item.amount;
     }
-    bool operator == (const TSumBagItem &item) const
+    bool operator == (const TSimpleBagItem &item) const
     {
       return amount==item.amount &&
              weight==item.weight;
@@ -483,14 +486,14 @@ bool TPaidBagWideItem::AddNorm(const TBagNormInfo &norm)
 class TPaidBagCalcItem : public TPaidBagWideItem
 {
   public:
-    list<TSumBagItem> bag;
+    list<TSimpleBagItem> bag;
     bool norm_per_unit, norm_ordinary;
     TPaidBagCalcItem(int _bag_type,
-                     const list<TSumBagItem> &_bag) :
+                     const list<TSimpleBagItem> &_bag) :
       TPaidBagWideItem(_bag_type),
       bag(_bag)
     {
-      for(list<TSumBagItem>::const_iterator b=bag.begin(); b!=bag.end(); ++b)
+      for(list<TSimpleBagItem>::const_iterator b=bag.begin(); b!=bag.end(); ++b)
       {
         bag_amount+=b->amount;
         bag_weight+=b->weight;
@@ -530,22 +533,33 @@ bool TPaidBagCalcItem::AddNorm(const TBagNormInfo &norm)
   return true;
 }
 
-void CalcPaidBag(const std::map<int, TBagToLogInfo> &bag,
-                 const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
-                 map<int/*bag_type*/, TPaidBagCalcItem> &paid);
+//декларация расчета багажа - на выходе TPaidBagCalcItem - самая нижняя процедура
+void CalcPaidBagBase(const std::map<int, TBagToLogInfo> &bag,
+                     const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
+                     map<int/*bag_type*/, TPaidBagCalcItem> &paid);
 
-void PrepareNotRefusedSimpleBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
-                                std::map< int/*bag_type*/, std::list<TSumBagItem> > &bag_simple)
+typedef std::map< int/*bag_type*/, std::list<TSimpleBagItem> > TSimpleBagMap;
+
+enum TPrepareSimpleBagType1 { psbtOnlyTrfer, psbtOnlyNotTrfer, psbtTrferAndNotTrfer };
+enum TPrepareSimpleBagType2 { psbtOnlyRefused, psbtOnlyNotRefused, psbtRefusedAndNotRefused };
+
+void PrepareSimpleBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
+                      const TPrepareSimpleBagType1 trfer_type,
+                      const TPrepareSimpleBagType2 refused_type,
+                      TSimpleBagMap &bag_simple)
 {
   bag_simple.clear();
   for(std::map<int/*id*/, TBagToLogInfo>::const_iterator b=bag.begin(); b!=bag.end(); ++b)
   {
-    if (b->second.refused) continue;
-    std::map< int/*bag_type*/, std::list<TSumBagItem> >::iterator i=bag_simple.find(b->second.bag_type);
+    if ((refused_type==psbtOnlyRefused && !b->second.refused) ||
+        (refused_type==psbtOnlyNotRefused && b->second.refused)) continue;
+    if ((trfer_type==psbtOnlyTrfer && !b->second.is_trfer) ||
+        (trfer_type==psbtOnlyNotTrfer && b->second.is_trfer)) continue;
+    TSimpleBagMap::iterator i=bag_simple.find(b->second.bag_type);
     if (i==bag_simple.end())
-      i=bag_simple.insert(make_pair(b->second.bag_type, std::list<TSumBagItem>())).first;
+      i=bag_simple.insert(make_pair(b->second.bag_type, std::list<TSimpleBagItem>())).first;
     if (i==bag_simple.end()) throw Exception("%s: i==bag_simple.end()", __FUNCTION__);
-    i->second.push_back(TSumBagItem(b->second));
+    i->second.push_back(TSimpleBagItem(b->second));
   };
 };
 
@@ -622,6 +636,17 @@ class TWidePaxInfo : public TPaxInfo
     map<int/*bag_type*/, CheckIn::TPaxNormItem > curr_norms;
     map<int/*bag_type*/, CheckIn::TPaxNormItem > result_norms;
 
+    TWidePaxInfo() { clear(); }
+    void clear()
+    {
+      TPaxInfo::clear();
+      refused=false;
+      only_category=false;
+      prior_norms.clear();
+      curr_norms.clear();
+      result_norms.clear();
+    }
+
     std::string traceStr() const
     {
       std::ostringstream s;
@@ -637,15 +662,21 @@ class TWidePaxInfo : public TPaxInfo
 };
 
 
-void ConvertNormsList(const set<int/*bag_type*/> &bag_types,
+void ConvertNormsList(const std::map<int/*id*/, TBagToLogInfo> &bag,
                       const boost::optional< std::list<CheckIn::TPaxNormItem> > &norms,
                       map<int/*bag_type*/, CheckIn::TPaxNormItem > &result)
 {
   result.clear();
   if (!norms) return;
+
+  TSimpleBagMap not_trfer_bag_simple;
+  PrepareSimpleBag(bag, psbtOnlyNotTrfer, psbtRefusedAndNotRefused, not_trfer_bag_simple);
+  //всегда добавляем обычный багаж
+  not_trfer_bag_simple.insert(make_pair(NoExists, std::list<TSimpleBagItem>()));
+
   for(std::list<CheckIn::TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
   {
-    if (bag_types.find(n->bag_type)==bag_types.end()) continue; //отфильтровываем нормы
+    if (not_trfer_bag_simple.find(n->bag_type)==not_trfer_bag_simple.end()) continue; //отфильтровываем нормы
 
     if (!result.insert(make_pair(n->bag_type, *n)).second)
       throw Exception("%s: n->bag_type=%s already exists in result!", __FUNCTION__, (n->bag_type==NoExists?"NoExists":IntToString(n->bag_type).c_str()));
@@ -660,21 +691,24 @@ void ConvertNormsList(const map<int/*bag_type*/, CheckIn::TPaxNormItem > &norms,
     result.push_back(n->second);
 }
 
-void RecalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &prior_bag,
-                   const std::map<int/*id*/, TBagToLogInfo> &curr_bag,
-                   const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
-                   const std::list<CheckIn::TPaidBagItem> &paid,
-                   map<int/*bag_type*/, TPaidBagWideItem> &paid_wide)
+//перерасчет багажа - на выходе TPaidBagWideItem
+//используется в RecalcPaidBagToDB
+void RecalcPaidBagWide(const std::map<int/*id*/, TBagToLogInfo> &prior_bag,
+                       const std::map<int/*id*/, TBagToLogInfo> &curr_bag,
+                       const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
+                       const std::list<CheckIn::TPaidBagItem> &prior_paid,
+                       const std::list<CheckIn::TPaidBagItem> &curr_paid,
+                       map<int/*bag_type*/, TPaidBagWideItem> &paid_wide)
 {
   paid_wide.clear();
 
-  std::map< int/*bag_type*/, std::list<TSumBagItem> > prior_bag_simple;
-  PrepareNotRefusedSimpleBag(prior_bag, prior_bag_simple);
-  std::map< int/*bag_type*/, std::list<TSumBagItem> > curr_bag_simple;
-  PrepareNotRefusedSimpleBag(curr_bag, curr_bag_simple);
+  TSimpleBagMap prior_bag_simple;
+  PrepareSimpleBag(prior_bag, psbtOnlyNotTrfer, psbtOnlyNotRefused, prior_bag_simple);
+  TSimpleBagMap curr_bag_simple;
+  PrepareSimpleBag(curr_bag, psbtOnlyNotTrfer, psbtOnlyNotRefused, curr_bag_simple);
 
   map<int/*bag_type*/, TPaidBagCalcItem> paid_calc;
-  CalcPaidBag(curr_bag, norms, paid_calc);
+  CalcPaidBagBase(curr_bag, norms, paid_calc);
 
   bool ordinaryClearWeight=false;
   map<int/*bag_type*/, TPaidBagCalcItem>::iterator iOrdinary=paid_calc.find(NoExists);
@@ -688,23 +722,30 @@ void RecalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &prior_bag,
       if ((pass==0 && item.bag_type==NoExists) ||
           (pass!=0 && item.bag_type!=NoExists)) continue; //обычный багаж всегда в последней итерации
 
-      multiset<TSumBagItem> prior_bag_sorted;
-      std::map< int/*bag_type*/, std::list<TSumBagItem> >::const_iterator iPriorBag=prior_bag_simple.find(item.bag_type);
+      multiset<TSimpleBagItem> prior_bag_sorted;
+      TSimpleBagMap::const_iterator iPriorBag=prior_bag_simple.find(item.bag_type);
       if (iPriorBag!=prior_bag_simple.end()) prior_bag_sorted.insert(iPriorBag->second.begin(), iPriorBag->second.end());
 
-      multiset<TSumBagItem> curr_bag_sorted;
-      std::map< int/*bag_type*/, std::list<TSumBagItem> >::const_iterator iCurrBag=curr_bag_simple.find(item.bag_type);
+      multiset<TSimpleBagItem> curr_bag_sorted;
+      TSimpleBagMap::const_iterator iCurrBag=curr_bag_simple.find(item.bag_type);
       if (iCurrBag!=curr_bag_simple.end()) curr_bag_sorted.insert(iCurrBag->second.begin(), iCurrBag->second.end());
 
-      //заполним весом платного багажа, введенным вручную
-      item.weight=item.weight_calc;
-      for(std::list<CheckIn::TPaidBagItem>::const_iterator j=paid.begin(); j!=paid.end(); ++j)
+      //заполним информацией о тарифах
+      for(std::list<CheckIn::TPaidBagItem>::const_iterator j=prior_paid.begin(); j!=prior_paid.end(); ++j)
         if (j->bag_type==item.bag_type)
         {
           item.rate_id=j->rate_id;
           item.rate=j->rate;
           item.rate_cur=j->rate_cur;
           item.rate_trfer=j->rate_trfer;
+          break;
+        };
+
+      //заполним весом платного багажа, введенным вручную
+      item.weight=item.weight_calc;
+      for(std::list<CheckIn::TPaidBagItem>::const_iterator j=curr_paid.begin(); j!=curr_paid.end(); ++j)
+        if (j->bag_type==item.bag_type)
+        {
           if (item.bag_type!=NoExists &&
               curr_bag_sorted!=prior_bag_sorted && item.norm_ordinary)
             ordinaryClearWeight=true;
@@ -720,11 +761,11 @@ void RecalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &prior_bag,
       if (item.norm_per_unit || (item.norm_ordinary && itemOrdinary.norm_per_unit))
       {
         //проверим что багаж заводился ровно по одному месту
-        list<TSumBagItem> added_bag;
+        list<TSimpleBagItem> added_bag;
         set_difference(curr_bag_sorted.begin(), curr_bag_sorted.end(),
                        prior_bag_sorted.begin(), prior_bag_sorted.end(),
                        inserter(added_bag, added_bag.end()));
-        for(list<TSumBagItem>::const_iterator b=added_bag.begin(); b!=added_bag.end(); ++b)
+        for(list<TSimpleBagItem>::const_iterator b=added_bag.begin(); b!=added_bag.end(); ++b)
           if (b->amount>1)
           {
             if (item.bag_type!=NoExists)
@@ -740,183 +781,231 @@ void RecalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &prior_bag,
   paid_wide.insert(paid_calc.begin(), paid_calc.end());
 }
 
-void RecalcPaidBag(const map<int/*id*/, TBagToLogInfo> &prior_bag, //TBagToLogInfo а не CheckIn::TBagItem потому что есть refused
-                   const map<int/*id*/, TBagToLogInfo> &curr_bag,
-                   const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
-                   const TNormFltInfo &flt,
-                   const std::vector<CheckIn::TTransferItem> &trfer,
-                   const CheckIn::TPaxGrpItem &grp,
-                   const CheckIn::TPaxList &curr_paxs,
-                   bool pr_unaccomp)
+//формируем массив TWidePaxInfo для дальнейшего вызова CheckOrGetWidePaxNorms
+//используется в test_norms и RecalcpaidBagToDB
+void GetWidePaxInfo(const map<int/*id*/, TBagToLogInfo> &curr_bag,
+                    const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
+                    const std::vector<CheckIn::TTransferItem> &trfer,
+                    const CheckIn::TPaxGrpItem &grp,
+                    const CheckIn::TPaxList &curr_paxs,
+                    bool pr_unaccomp,
+                    bool use_traces,
+                    map<int/*pax_id*/, TWidePaxInfo> &paxs)
+{
+  paxs.clear();
+
+  string target=((TAirpsRow&)base_tables.get("airps").get_row("code",grp.airp_arv,true)).city;
+  string final_target;
+  if (!trfer.empty())
+    final_target=((TAirpsRow&)base_tables.get("airps").get_row("code",trfer.back().airp_arv,true)).city;
+
+  if (!pr_unaccomp)
+  {
+    //регистрация пассажиров
+    if (prior_paxs.empty())
+    {
+      //новая регистрация
+      for(CheckIn::TPaxList::const_iterator pCurr=curr_paxs.begin(); pCurr!=curr_paxs.end(); ++pCurr)
+      {
+        TWidePaxInfo pax;
+        pax.target=target;
+        pax.final_target=final_target;
+        pax.pax_cat=CalcPaxCategory(*pCurr);
+        if (grp.status!=psCrew)
+          pax.cl=grp.cl;
+        else
+          pax.cl=EncodeClass(Y); //!!!vlad
+
+        pax.subcl=pCurr->pax.subcl;
+        pax.refused=!pCurr->pax.refuse.empty();
+        pax.only_category=!pax.pax_cat.empty();
+        ConvertNormsList(curr_bag, pCurr->norms, pax.curr_norms);
+
+        int pax_id=(pCurr->pax.id==NoExists?pCurr->generated_pax_id:pCurr->pax.id);
+        if (pax_id==NoExists) throw Exception("%s: pax_id==NoExists!", __FUNCTION__);
+        if (!paxs.insert(make_pair(pax_id, pax)).second)
+          throw Exception("%s: pax_id=%s already exists in paxs!", __FUNCTION__, pax_id);
+        if (use_traces) ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
+      };
+    }
+    else
+    {
+      //запись изменений
+      for(map<TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator pPrior=prior_paxs.begin(); pPrior!=prior_paxs.end(); ++pPrior)
+      {
+        TWidePaxInfo pax;
+        pax.target=target;
+        pax.final_target=final_target;
+        pax.pax_cat=CalcPaxCategory(pPrior->second);
+        if (grp.status!=psCrew)
+          pax.cl=pPrior->second.cl;
+        else
+          pax.cl=EncodeClass(Y); //!!!vlad
+        pax.subcl=pPrior->second.subcl;
+        pax.refused=!pPrior->second.refuse.empty();
+        pax.only_category=!pax.pax_cat.empty();
+        std::list<CheckIn::TPaxNormItem> tmp_norms;
+        for(std::list< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> >::const_iterator n=pPrior->second.norms.begin();
+                                                                                              n!=pPrior->second.norms.end(); ++n)
+          tmp_norms.push_back(n->first);
+        ConvertNormsList(curr_bag, tmp_norms, pax.prior_norms);
+
+        CheckIn::TPaxList::const_iterator pCurr=curr_paxs.begin();
+        for(; pCurr!=curr_paxs.end(); ++pCurr)
+        {
+          if (pCurr->pax.id==NoExists) throw Exception("%s: pCurr->pax.id==NoExists!", __FUNCTION__);
+          if (pCurr->pax.tid==NoExists) throw Exception("%s: pCurr->pax.tid==NoExists!", __FUNCTION__);
+          if (pCurr->pax.id==pPrior->first.pax_id) break;
+        }
+        if (pCurr!=curr_paxs.end())
+        {
+          //пассажир менялся
+          if (pCurr->pax.PaxUpdatesPending)
+          {
+            pax.pax_cat=CalcPaxCategory(*pCurr);
+            if (grp.status!=psCrew)
+              pax.cl=grp.cl;
+            else
+              pax.cl=EncodeClass(Y); //!!!vlad
+            pax.subcl=pCurr->pax.subcl;
+            pax.refused=!pCurr->pax.refuse.empty();
+            pax.only_category=!pax.pax_cat.empty();
+          };
+          ConvertNormsList(curr_bag, pCurr->norms, pax.curr_norms);
+
+          if (!paxs.insert(make_pair(pCurr->pax.id, pax)).second)
+            throw Exception("%s: pCurr->pax.id=%s already exists in paxs!", __FUNCTION__, pCurr->pax.id);
+          if (use_traces) ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
+
+        }
+        else
+        {
+          //пассажир не менялся
+          if (!paxs.insert(make_pair(pPrior->first.pax_id, pax)).second)
+            throw Exception("%s: pPrior->first.pax_id=%s already exists in paxs!", __FUNCTION__, pCurr->pax.id);
+          if (use_traces) ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
+        }
+      };
+    };
+  }
+  else
+  {
+    //несопровождаемый багаж
+    TWidePaxInfo pax;
+    pax.target=target;
+    pax.final_target=final_target;
+    pax.cl=grp.cl;
+    pax.refused=!grp.bag_refuse.empty();
+    pax.only_category=!pax.pax_cat.empty();
+    ConvertNormsList(curr_bag, grp.norms, pax.curr_norms);
+    if (!prior_paxs.empty())
+    {
+      //запись изменений несопровождаемого багажа
+      if (prior_paxs.size()!=1)
+        throw Exception("%s: prior_paxs.size()!=1!", __FUNCTION__);
+
+      std::list<CheckIn::TPaxNormItem> tmp_norms;
+      for(std::list< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> >::const_iterator n=prior_paxs.begin()->second.norms.begin();
+                                                                                            n!=prior_paxs.begin()->second.norms.end(); ++n)
+        tmp_norms.push_back(n->first);
+      ConvertNormsList(curr_bag, tmp_norms, pax.prior_norms);
+    };
+    paxs.insert(make_pair(grp.id, pax));
+    if (use_traces) ProgTrace(TRACE5, "%s: unaccomp:%s", __FUNCTION__, pax.traceStr().c_str());
+  };
+}
+
+//валидация норм
+//на входе paxs.prior_norms paxs.curr_norms
+//на выходе paxs.result_norms и общий список всех норм неразрегистрированных пассажиров
+//используется в test_norms и RecalcpaidBagToDB
+void CheckOrGetWidePaxNorms(const list<TBagNormWideInfo> &trip_bag_norms,
+                            const map<int/*id*/, TBagToLogInfo> &curr_bag,
+                            const TNormFltInfo &flt,
+                            bool pr_unaccomp,
+                            bool use_traces,
+                            map<int/*pax_id*/, TWidePaxInfo> &paxs,
+                            list<TBagNormInfo> &all_norms)
+{
+  all_norms.clear();
+
+  TSimpleBagMap not_trfer_bag_simple;
+  PrepareSimpleBag(curr_bag, psbtOnlyNotTrfer, psbtRefusedAndNotRefused, not_trfer_bag_simple);
+  //всегда добавляем обычный багаж
+  not_trfer_bag_simple.insert(make_pair(NoExists, std::list<TSimpleBagItem>()));
+
+  for(map<int/*pax_id*/, TWidePaxInfo>::iterator p=paxs.begin(); p!=paxs.end(); ++p)
+  {
+    TWidePaxInfo &pax=p->second;
+    for(TSimpleBagMap::const_iterator i=not_trfer_bag_simple.begin(); i!=not_trfer_bag_simple.end(); ++i)
+    {
+      TBagNormInfo result;
+      int bag_type=i->first;
+      try
+      {
+        map<int/*bag_type*/, CheckIn::TPaxNormItem >::const_iterator n;
+        //1 проход: новые нормы
+        if ((n=pax.curr_norms.find(bag_type))!=pax.curr_norms.end())
+        {
+          if (n->second.norm_id==NoExists) throw 1;
+          CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category, bag_type, n->second, result);
+          if (!result.empty() && n->second==result) throw 1;
+        }
+        //2 проход: старые нормы
+        if ((n=pax.prior_norms.find(bag_type))!=pax.prior_norms.end())
+        {
+          if (n->second.norm_id==NoExists) throw 1;
+          CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category, bag_type, n->second, result);
+          if (!result.empty() && n->second==result) throw 1;
+        }
+        //3 проход: отсутствующие нормы
+        CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category, bag_type, TBagNormInfo(), result);
+      }
+      catch(int) {};
+
+      if (result.empty()) result.bag_type=bag_type;
+      pax.result_norms.insert(make_pair(bag_type, result));
+      //здесь имеем сформированный result
+      if (!pax.refused) all_norms.push_back(result); //добавляем нормы неразрегистрированных пассажиров
+    };
+    if (use_traces)
+    {
+      if (!pr_unaccomp)
+        ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
+      else
+        ProgTrace(TRACE5, "%s: unaccomp:%s", __FUNCTION__, pax.traceStr().c_str());
+    };
+  };
+}
+
+//перерасчет багажа с валидацией норм и записью в таблицы grp_norms, pax_norms и paid_bag
+//применяется при записи изменений по группе пассажиров (SavePax)
+void RecalcPaidBagToDB(const map<int/*id*/, TBagToLogInfo> &prior_bag, //TBagToLogInfo а не CheckIn::TBagItem потому что есть refused
+                       const map<int/*id*/, TBagToLogInfo> &curr_bag,
+                       const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
+                       const TNormFltInfo &flt,
+                       const std::vector<CheckIn::TTransferItem> &trfer,
+                       const CheckIn::TPaxGrpItem &grp,
+                       const CheckIn::TPaxList &curr_paxs,
+                       const std::list<CheckIn::TPaidBagItem> &prior_paid,
+                       bool pr_unaccomp)
 {
    ProgTrace(TRACE5, "%s: flt:%s", __FUNCTION__, flt.traceStr().c_str());
 
    map<int/*pax_id*/, TWidePaxInfo> paxs;
-
-   string target=((TAirpsRow&)base_tables.get("airps").get_row("code",grp.airp_arv,true)).city;
-   string final_target;
-   if (!trfer.empty())
-     final_target=((TAirpsRow&)base_tables.get("airps").get_row("code",trfer.back().airp_arv,true)).city;
-
-   set<int> bag_types;
-   for(map<int/*id*/, TBagToLogInfo>::const_iterator b=curr_bag.begin(); b!=curr_bag.end(); ++b)
-     bag_types.insert(b->second.bag_type);
-   bag_types.insert(NoExists); //всегда добавляем обычный багаж
-
-   if (!pr_unaccomp)
-   {
-     //регистрация пассажиров
-     if (prior_paxs.empty())
-     {
-       //новая регистрация
-       for(CheckIn::TPaxList::const_iterator pCurr=curr_paxs.begin(); pCurr!=curr_paxs.end(); ++pCurr)
-       {
-         TWidePaxInfo pax;
-         pax.target=target;
-         pax.final_target=final_target;
-         pax.pax_cat=CalcPaxCategory(*pCurr);
-         pax.cl=grp.cl;
-         pax.subcl=pCurr->pax.subcl;
-         pax.refused=!pCurr->pax.refuse.empty();
-         pax.only_category=!pax.pax_cat.empty();
-         ConvertNormsList(bag_types, pCurr->norms, pax.curr_norms);
-
-         int pax_id=(pCurr->pax.id==NoExists?pCurr->generated_pax_id:pCurr->pax.id);
-         if (pax_id==NoExists) throw Exception("%s: pax_id==NoExists!", __FUNCTION__);
-         if (!paxs.insert(make_pair(pax_id, pax)).second)
-           throw Exception("%s: pax_id=%s already exists in paxs!", __FUNCTION__, pax_id);
-         ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
-       };
-     }
-     else
-     {
-       //запись изменений
-       for(map<TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator pPrior=prior_paxs.begin(); pPrior!=prior_paxs.end(); ++pPrior)
-       {
-         TWidePaxInfo pax;
-         pax.target=target;
-         pax.final_target=final_target;
-         pax.pax_cat=CalcPaxCategory(pPrior->second);
-         pax.cl=pPrior->second.cl;
-         pax.subcl=pPrior->second.subcl;
-         pax.refused=!pPrior->second.refuse.empty();
-         pax.only_category=!pax.pax_cat.empty();
-         std::list<CheckIn::TPaxNormItem> tmp_norms;
-         for(std::list< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> >::const_iterator n=pPrior->second.norms.begin();
-                                                                                               n!=pPrior->second.norms.end(); ++n)
-           tmp_norms.push_back(n->first);
-         ConvertNormsList(bag_types, tmp_norms, pax.prior_norms);
-
-         CheckIn::TPaxList::const_iterator pCurr=curr_paxs.begin();
-         for(; pCurr!=curr_paxs.end(); ++pCurr)
-         {
-           if (pCurr->pax.id==NoExists) throw Exception("%s: pCurr->pax.id==NoExists!", __FUNCTION__);
-           if (pCurr->pax.tid==NoExists) throw Exception("%s: pCurr->pax.tid==NoExists!", __FUNCTION__);
-           if (pCurr->pax.id==pPrior->first.pax_id) break;
-         }
-         if (pCurr!=curr_paxs.end())
-         {
-           //пассажир менялся
-           if (pCurr->pax.PaxUpdatesPending)
-           {
-             pax.pax_cat=CalcPaxCategory(*pCurr);
-             pax.cl=grp.cl;
-             pax.subcl=pCurr->pax.subcl;
-             pax.refused=!pCurr->pax.refuse.empty();
-             pax.only_category=!pax.pax_cat.empty();
-           };
-           ConvertNormsList(bag_types, pCurr->norms, pax.curr_norms);
-
-           if (!paxs.insert(make_pair(pCurr->pax.id, pax)).second)
-             throw Exception("%s: pCurr->pax.id=%s already exists in paxs!", __FUNCTION__, pCurr->pax.id);
-           ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
-
-         }
-         else
-         {
-           //пассажир не менялся
-           if (!paxs.insert(make_pair(pPrior->first.pax_id, pax)).second)
-             throw Exception("%s: pPrior->first.pax_id=%s already exists in paxs!", __FUNCTION__, pCurr->pax.id);
-           ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
-         }
-       };
-     };
-   }
-   else
-   {
-     //несопровождаемый багаж
-     TWidePaxInfo pax;
-     pax.target=target;
-     pax.final_target=final_target;
-     pax.cl=grp.cl;
-     pax.refused=!grp.bag_refuse.empty();
-     pax.only_category=!pax.pax_cat.empty();
-     ConvertNormsList(bag_types, grp.norms, pax.curr_norms);
-     if (!prior_paxs.empty())
-     {
-       //запись изменений несопровождаемого багажа
-       if (prior_paxs.size()!=1)
-         throw Exception("%s: prior_paxs.size()!=1!", __FUNCTION__);
-
-       std::list<CheckIn::TPaxNormItem> tmp_norms;
-       for(std::list< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> >::const_iterator n=prior_paxs.begin()->second.norms.begin();
-                                                                                             n!=prior_paxs.begin()->second.norms.end(); ++n)
-         tmp_norms.push_back(n->first);
-       ConvertNormsList(bag_types, tmp_norms, pax.prior_norms);
-     };
-     paxs.insert(make_pair(grp.id, pax));
-     ProgTrace(TRACE5, "%s: unaccomp:%s", __FUNCTION__, pax.traceStr().c_str());
-   };
+   GetWidePaxInfo(curr_bag, prior_paxs, trfer, grp, curr_paxs, pr_unaccomp, true, paxs);
 
    //расчет/проверка багажных норм
    list<TBagNormWideInfo> trip_bag_norms;
    LoadTripBagNorms(flt, trip_bag_norms);
 
    std::list<TBagNormInfo> all_norms;
-   for(map<int/*pax_id*/, TWidePaxInfo>::iterator p=paxs.begin(); p!=paxs.end(); ++p)
-   {
-     TWidePaxInfo &pax=p->second;
-     for(set<int>::const_iterator bag_type=bag_types.begin(); bag_type!=bag_types.end(); ++bag_type)
-     {
-       TBagNormInfo result;
-
-       try
-       {
-         map<int/*bag_type*/, CheckIn::TPaxNormItem >::const_iterator n;
-         //1 проход: новые нормы
-         if ((n=pax.curr_norms.find(*bag_type))!=pax.curr_norms.end())
-         {
-           if (n->second.norm_id==NoExists) throw 1;
-           CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category, *bag_type, n->second, result);
-           if (!result.empty() && n->second==result) throw 1;
-         }
-         //2 проход: старые нормы
-         if ((n=pax.prior_norms.find(*bag_type))!=pax.prior_norms.end())
-         {
-           if (n->second.norm_id==NoExists) throw 1;
-           CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category, *bag_type, n->second, result);
-           if (!result.empty() && n->second==result) throw 1;
-         }
-         //3 проход: отсутствующие нормы
-         CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category, *bag_type, TBagNormInfo(), result);
-       }
-       catch(int) {};
-
-       if (result.empty()) result.bag_type=*bag_type;
-       pax.result_norms.insert(make_pair(*bag_type, result));
-       //здесь имеем сформированный result
-       if (!pax.refused) all_norms.push_back(result); //добавляем нормы неразрегистрированных пассажиров
-     };
-     if (!pr_unaccomp)
-       ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
-     else
-       ProgTrace(TRACE5, "%s: unaccomp:%s", __FUNCTION__, pax.traceStr().c_str());
-   };
+   CheckOrGetWidePaxNorms(trip_bag_norms, curr_bag, flt, pr_unaccomp, true, paxs, all_norms);
 
    //собственно расчет платного багажа
    map<int/*bag_type*/, TPaidBagWideItem> paid_wide;
-   const list<CheckIn::TPaidBagItem> &paid=grp.paid?grp.paid.get():list<CheckIn::TPaidBagItem>();
-   RecalcPaidBag(prior_bag, curr_bag, all_norms, paid, paid_wide);
+   const list<CheckIn::TPaidBagItem> &curr_paid=grp.paid?grp.paid.get():list<CheckIn::TPaidBagItem>();
+   RecalcPaidBagWide(prior_bag, curr_bag, all_norms, prior_paid, curr_paid, paid_wide);
 
    std::list<CheckIn::TPaidBagItem> result_paid;
    for(map<int/*bag_type*/, TPaidBagWideItem>::const_iterator i=paid_wide.begin(); i!=paid_wide.end(); ++i)
@@ -949,15 +1038,226 @@ void RecalcPaidBag(const map<int/*id*/, TBagToLogInfo> &prior_bag, //TBagToLogIn
    }
 };
 
-void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
-                 const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
-                 const std::list<CheckIn::TPaidBagItem> &paid,
-                 map<int/*bag_type*/, TPaidBagWideItem> &paid_wide)
+//CREATE TABLE drop_test_norm_processed
+//(
+//  point_id NUMBER(9) NOT NULL
+//);
+
+//CREATE TABLE drop_test_norm_errors
+//(
+//    point_id NUMBER(9) NOT NULL,
+//    grp_id NUMBER(9) NOT NULL,
+//    pax_id NUMBER(9) NULL,
+//    error VARCHAR2(2000) NOT NULL,
+//    trace VARCHAR2(2000) NOT NULL
+//);
+
+//CREATE INDEX drop_test_norm_errors__IDX ON drop_test_norm_errors(point_id);
+
+int test_norms(int argc,char **argv)
+{
+  TReqInfo::Instance()->Initialize("МОВ");
+  TReqInfo::Instance()->desk.lang=LANG_EN;
+
+
+  TQuery GrpQry(&OraSession);
+  GrpQry.Clear();
+  GrpQry.SQLText=
+    "SELECT point_id, grp_id, airp_arv, class, status, bag_refuse, client_type, "
+    "       mark_trips.airline, mark_trips.flt_no, pr_mark_norms "
+    "FROM pax_grp, mark_trips "
+    "WHERE pax_grp.point_id_mark=mark_trips.point_id AND point_id=:point_id "
+    "ORDER BY mark_trips.airline, mark_trips.flt_no, pr_mark_norms"  ;
+  GrpQry.DeclareVariable("point_id", otInteger);
+
+  TQuery Qry(&OraSession);
+
+  set<int> processed_point_ids;
+  Qry.Clear();
+  Qry.SQLText="SELECT point_id FROM drop_test_norm_processed";
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next()) processed_point_ids.insert(Qry.FieldAsInteger("point_id"));
+
+  TQuery Qry2(&OraSession);
+  Qry2.Clear();
+  Qry2.SQLText="INSERT INTO drop_test_norm_processed(point_id) VALUES(:point_id)";
+  Qry2.DeclareVariable("point_id", otInteger);
+
+  TQuery Qry3(&OraSession);
+  Qry3.Clear();
+  Qry3.SQLText="DELETE FROM drop_test_norm_errors WHERE point_id=:point_id";
+  Qry3.DeclareVariable("point_id", otInteger);
+
+  TQuery Qry4(&OraSession);
+  Qry4.Clear();
+  Qry4.SQLText="INSERT INTO drop_test_norm_errors(point_id, grp_id, pax_id, error, trace) "
+               "VALUES(:point_id, :grp_id, :pax_id, :error, :trace)";
+  Qry4.DeclareVariable("point_id", otInteger);
+  Qry4.DeclareVariable("grp_id", otInteger);
+  Qry4.DeclareVariable("pax_id", otInteger);
+  Qry4.DeclareVariable("error", otString);
+  Qry4.DeclareVariable("trace", otString);
+
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT point_id, airline, flt_no, suffix, airp, scd_out "
+    "FROM points "
+    "WHERE scd_out>=TO_DATE('19.09.15','DD.MM.YY') AND scd_out<TO_DATE('22.09.15','DD.MM.YY') AND pr_reg=1";
+  Qry.Execute();
+  list<TBagNormWideInfo> trip_bag_norms;
+  TNormFltInfo prior;
+  int count=0;
+  for(; !Qry.Eof; Qry.Next())
+  {
+    TNormFltInfo flt;
+    flt.point_id=Qry.FieldAsInteger("point_id");
+
+    if (processed_point_ids.find(flt.point_id)!=processed_point_ids.end()) continue;
+
+    TTripInfo fltInfo(Qry);
+
+    flt.use_mixed_norms=GetTripSets(tsMixedNorms,fltInfo);
+
+    GrpQry.SetVariable("point_id", flt.point_id);
+    GrpQry.Execute();
+    if (GrpQry.Eof)
+    {
+      Qry2.SetVariable("point_id", flt.point_id);
+      Qry2.Execute();
+      OraSession.Commit();
+      continue;
+    };
+    Qry3.SetVariable("point_id", flt.point_id);
+    Qry3.Execute();
+    bool error_exists=false;
+    for(; !GrpQry.Eof; GrpQry.Next())
+    {
+      flt.use_mark_flt=GrpQry.FieldAsInteger("pr_mark_norms")!=0;
+      flt.airline_mark=GrpQry.FieldAsString("airline");
+      flt.flt_no_mark=GrpQry.FieldAsInteger("flt_no");
+      if (!(prior==flt))
+      {
+        LoadTripBagNorms(flt, trip_bag_norms);
+        ProgTrace(TRACE5, "%s: LoadTripBagNorms", __FUNCTION__);
+        prior=flt;
+      };
+
+      CheckIn::TPaxGrpItem grp;
+      grp.id=GrpQry.FieldAsInteger("grp_id");
+      grp.airp_arv=GrpQry.FieldAsString("airp_arv");
+      grp.cl=GrpQry.FieldAsString("class");
+      grp.status=DecodePaxStatus(GrpQry.FieldAsString("status"));
+      grp.bag_refuse=GrpQry.FieldAsInteger("bag_refuse")!=0?refuseAgentError:"";
+      TClientType client_type=DecodeClientType(GrpQry.FieldAsString("client_type"));
+      TGrpToLogInfo grpLogInfo;
+      std::vector<CheckIn::TTransferItem> trfer;
+      GetGrpToLogInfo(grp.id, grpLogInfo);
+      CheckIn::LoadTransfer(grp.id, trfer);
+      for(map<int/*id*/, TBagToLogInfo>::iterator i=grpLogInfo.bag.begin(); i!=grpLogInfo.bag.end(); ++i)
+      {
+        if (i->second.bag_type==99) i->second.is_trfer=true;
+      }
+
+
+      bool pr_unaccomp=grp.cl.empty() && grp.status!=psCrew;
+      TSimpleBagMap not_trfer_bag_simple;
+      PrepareSimpleBag(grpLogInfo.bag, psbtOnlyNotTrfer, psbtRefusedAndNotRefused, not_trfer_bag_simple);
+      //всегда добавляем обычный багаж
+      not_trfer_bag_simple.insert(make_pair(NoExists, std::list<TSimpleBagItem>()));
+
+
+      map<int/*pax_id*/, TWidePaxInfo> paxs;
+      GetWidePaxInfo(grpLogInfo.bag, grpLogInfo.pax, trfer, grp, CheckIn::TPaxList(), pr_unaccomp, false, paxs);
+
+      map<int/*pax_id*/, TWidePaxInfo> tmp_paxs=paxs;
+      for(map<int/*pax_id*/, TWidePaxInfo>::iterator p=tmp_paxs.begin(); p!=tmp_paxs.end(); ++p)
+      {
+        p->second.prior_norms.clear();
+        p->second.curr_norms.clear();
+      };
+
+      set<int> error_ids;
+      list<TBagNormInfo> all_norms;
+      for(int pass=0; pass<2; pass++)
+      {
+        //1 проход проверяет что все нормы которые привязаны на реальном сервере разрешены новым алгоритмом
+        //2 проход проверяет что все нормы которые привязаны на реальном сервере автоматически рассчитываются новым алгоритмом
+
+        CheckOrGetWidePaxNorms(trip_bag_norms, grpLogInfo.bag, flt, pr_unaccomp, false, (pass==0?paxs:tmp_paxs), all_norms);
+
+        if (pass==1)
+        {
+          map<int/*pax_id*/, TWidePaxInfo>::iterator p1=paxs.begin();
+          map<int/*pax_id*/, TWidePaxInfo>::iterator p2=tmp_paxs.begin();
+          for(; p1!=paxs.end() && p2!=tmp_paxs.end(); ++p1, ++p2)
+          {
+            if (p1->first!=p2->first) throw Exception("%s: p1->first!=p2->first", __FUNCTION__);
+            TWidePaxInfo &pax1=p1->second;
+            TWidePaxInfo &pax2=p2->second;
+            pax2.prior_norms=pax1.prior_norms;
+            pax2.curr_norms=pax1.curr_norms;
+          };
+          if (p1!=paxs.end() || p2!=tmp_paxs.end()) throw Exception("%s: p1!=paxs.end() || p2!=tmp_paxs.end()", __FUNCTION__);
+        }
+
+        for(map<int/*pax_id*/, TWidePaxInfo>::iterator p=(pass==0?paxs:tmp_paxs).begin(); p!=(pass==0?paxs:tmp_paxs).end(); ++p)
+        {
+          TWidePaxInfo &pax=p->second;
+          if (pax.prior_norms==pax.result_norms) continue;
+          if (/*client_type!=ctTerm &&*/ not_trfer_bag_simple.size()==1 && not_trfer_bag_simple.begin()->first==NoExists &&
+              pax.prior_norms.empty() && pax.result_norms.size()==1 && pax.result_norms.begin()->first==NoExists) continue;
+
+          if (error_ids.find(p->first)!=error_ids.end()) continue;
+
+          error_exists=true;
+          error_ids.insert(p->first);
+
+          ostringstream error;
+          ostringstream trace;
+          error << (pass==0?"forbidden":"mismatched") << " norms flight=" << GetTripName(fltInfo, ecNone, true, false ).c_str()
+                << " grp_id=" << grp.id;
+          if (!pr_unaccomp) error << " pax_id=" << p->first;
+          trace << pax.traceStr();
+          ProgError(STDLOG, "%s: %s", __FUNCTION__, error.str().c_str());
+          ProgError(STDLOG, "%s: %s", __FUNCTION__, trace.str().c_str());
+
+          Qry4.SetVariable("point_id", flt.point_id);
+          Qry4.SetVariable("grp_id", grp.id);
+          if (!pr_unaccomp)
+            Qry4.SetVariable("pax_id", p->first);
+          else
+            Qry4.SetVariable("pax_id", FNull);
+          Qry4.SetVariable("error", error.str());
+          Qry4.SetVariable("trace", trace.str());
+          Qry4.Execute();
+        }
+      }
+      OraSession.Commit();
+    }
+    if (!error_exists)
+    {
+      Qry2.SetVariable("point_id", flt.point_id);
+      Qry2.Execute();
+    };
+    OraSession.Commit();
+    count++;
+  }
+  ProgTrace(TRACE5, "%s: %d flights processed", __FUNCTION__, count);
+  return 1;
+}
+
+//расчет багажа - на выходе TPaidBagWideItem
+//используется в PaidBagViewToXML
+void CalcPaidBagWide(const std::map<int/*id*/, TBagToLogInfo> &bag,
+                     const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
+                     const std::list<CheckIn::TPaidBagItem> &paid,
+                     map<int/*bag_type*/, TPaidBagWideItem> &paid_wide)
 {
   paid_wide.clear();
 
   map<int/*bag_type*/, TPaidBagCalcItem> paid_calc;
-  CalcPaidBag(bag, norms, paid_calc);
+  CalcPaidBagBase(bag, norms, paid_calc);
 
   for(map<int/*bag_type*/, TPaidBagCalcItem>::const_iterator p=paid_calc.begin(); p!=paid_calc.end(); ++p)
   {
@@ -968,6 +1268,10 @@ void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
       if (j->bag_type==item.bag_type)
       {
         item.weight=j->weight;
+        item.rate_id=j->rate_id;
+        item.rate=j->rate;
+        item.rate_cur=j->rate_cur;
+        item.rate_trfer=j->rate_trfer;
         break;
       };
   };
@@ -976,23 +1280,24 @@ void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
   TracePaidBagWide(paid_wide, __FUNCTION__);
 }
 
-void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
-                 const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
-                 map<int/*bag_type*/, TPaidBagCalcItem> &paid)
+//расчет багажа - на выходе TPaidBagCalcItem - самая нижняя процедура
+void CalcPaidBagBase(const std::map<int/*id*/, TBagToLogInfo> &bag,
+                     const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
+                     map<int/*bag_type*/, TPaidBagCalcItem> &paid)
 {
   //в платный багаж не попадает привязанный к разрегистрированным пассажирам
 
   paid.clear();
 
-  std::map< int/*bag_type*/, std::list<TSumBagItem> > bag_simple;
-  PrepareNotRefusedSimpleBag(bag, bag_simple);
+  TSimpleBagMap bag_simple;
+  PrepareSimpleBag(bag, psbtOnlyNotTrfer, psbtOnlyNotRefused, bag_simple);
 
-  for(std::map< int/*bag_type*/, std::list<TSumBagItem> >::const_iterator b=bag_simple.begin(); b!=bag_simple.end(); ++b)
+  for(TSimpleBagMap::const_iterator b=bag_simple.begin(); b!=bag_simple.end(); ++b)
     paid.insert(make_pair(b->first, TPaidBagCalcItem(b->first, b->second)));
 
   //в массиве всегда обычный багаж:
   if (paid.find(NoExists)==paid.end())
-    paid.insert(make_pair(NoExists, TPaidBagCalcItem(NoExists, std::list<TSumBagItem>())));
+    paid.insert(make_pair(NoExists, TPaidBagCalcItem(NoExists, std::list<TSimpleBagItem>())));
 
   //сложим все нормы:
   for(list<TBagNormInfo>::const_iterator k=norms.begin(); k!=norms.end(); ++k)
@@ -1033,7 +1338,7 @@ void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
             //ни одной нормы для обычного багажа не задано
             //считаем обычный багаж платным
             item.weight_calc=0;
-            for(list<TSumBagItem>::const_iterator j=item.bag.begin(); j!=item.bag.end(); ++j) item.weight_calc+=j->weight;
+            for(list<TSimpleBagItem>::const_iterator j=item.bag.begin(); j!=item.bag.end(); ++j) item.weight_calc+=j->weight;
           };
         }
         else
@@ -1050,7 +1355,7 @@ void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
                 norm.weight==NoExists &&
                 norm.per_unit==NoExists)
             {
-              for(list<TSumBagItem>::iterator j=item.bag.begin(); j!=item.bag.end();)
+              for(list<TSimpleBagItem>::iterator j=item.bag.begin(); j!=item.bag.end();)
               {
                 bool inc=true;
                 switch(norm.norm_type)
@@ -1076,7 +1381,7 @@ void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
                 norm.weight!=NoExists && norm.weight>0 &&
                 norm.per_unit!=NoExists && norm.per_unit!=0)
             {
-              for(list<TSumBagItem>::iterator j=item.bag.begin(); j!=item.bag.end();)
+              for(list<TSimpleBagItem>::iterator j=item.bag.begin(); j!=item.bag.end();)
               {
                 bool inc=true;
                 if (j->weight>norm.weight)
@@ -1132,7 +1437,7 @@ void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
                 norm.per_unit==NoExists)
             {
               int k=0;
-              for(list<TSumBagItem>::iterator j=item.bag.begin(); j!=item.bag.end();k++)
+              for(list<TSimpleBagItem>::iterator j=item.bag.begin(); j!=item.bag.end();k++)
               {
                 bool inc=true;
                 if (k>=norm.amount)
@@ -1189,7 +1494,7 @@ void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
                 //обычная норма багажа
                 //считаем общий вес багажа
                 int k=0;
-                for(list<TSumBagItem>::iterator j=item.bag.begin(); j!=item.bag.end(); ++j) k+=j->weight;
+                for(list<TSimpleBagItem>::iterator j=item.bag.begin(); j!=item.bag.end(); ++j) k+=j->weight;
                 if (k>norm.weight)
                 {
                   switch(norm.norm_type)
@@ -1200,7 +1505,7 @@ void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
                     case bntFreeOrdinary:
                       if (item.bag_type!=NoExists)
                       {
-                        TSumBagItem sum(item.bag_type);
+                        TSimpleBagItem sum(item.bag_type);
                         sum.amount=1;
                         sum.weight=k-norm.weight;
                         itemOrdinary.bag.push_back(sum);
@@ -1232,16 +1537,16 @@ void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
                 //2 способа вычисления: минимальное кол-во мест, максимальное кол-во мест
                 //минимальное кол-во мест
                 int k=0;    //вес, который умещается в норму
-                for(list<TSumBagItem>::iterator j=item.bag.begin(); j!=item.bag.end(); ++j)
+                for(list<TSimpleBagItem>::iterator j=item.bag.begin(); j!=item.bag.end(); ++j)
                   if (k+j->weight<=norm.weight) k+=j->weight;
                 //максимальное кол-во мест
                 int l=0;
-                for(list<TSumBagItem>::reverse_iterator j=item.bag.rbegin(); j!=item.bag.rend(); ++j)
+                for(list<TSimpleBagItem>::reverse_iterator j=item.bag.rbegin(); j!=item.bag.rend(); ++j)
                   if (l+j->weight<=norm.weight) l+=j->weight;
                 if (k>l)
                 {
                   k=0;
-                  for(list<TSumBagItem>::iterator j=item.bag.begin(); j!=item.bag.end();)
+                  for(list<TSimpleBagItem>::iterator j=item.bag.begin(); j!=item.bag.end();)
                   {
                     bool inc=true;
                     if (k+j->weight>norm.weight)
@@ -1260,7 +1565,7 @@ void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
                 else
                 {
                   l=0;
-                  for(list<TSumBagItem>::reverse_iterator j=item.bag.rbegin(); j!=item.bag.rend();)
+                  for(list<TSimpleBagItem>::reverse_iterator j=item.bag.rbegin(); j!=item.bag.rend();)
                   {
                     bool inc=true;
                     if (l+j->weight>norm.weight)
@@ -1284,7 +1589,7 @@ void CalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
             {
               list<TNormWideItem>::iterator k=item.norms.begin(); //переменная по нормам
               int l=0; //переменная по кол-ву мест в норме
-              for(list<TSumBagItem>::iterator j=item.bag.begin(); j!=item.bag.end();)
+              for(list<TSimpleBagItem>::iterator j=item.bag.begin(); j!=item.bag.end();)
               {
                 bool inc=true;
                 if (norm.norm_type==bntFreeExcess ||
@@ -1425,7 +1730,7 @@ void PaidBagViewToXML(const std::map<int/*id*/, TBagToLogInfo> &bag,
                       xmlNodePtr node)
 {
   map<int/*bag_type*/, TPaidBagWideItem> paid_wide;
-  CalcPaidBag(bag, norms, paid, paid_wide);
+  CalcPaidBagWide(bag, norms, paid, paid_wide);
 
   if (node==NULL) return;
 
@@ -1466,7 +1771,7 @@ void PaidBagViewToXML(const std::map<int/*id*/, TBagToLogInfo> &bag,
       if (item.norms.size()==1)
         s << lowerc(item.norms.front().str(TReqInfo::Instance()->desk.lang));
       else
-        getLocaleText("см. подробно");
+        s << getLocaleText("см. подробно");
       NewTextChild(rowNode, "norms_view", s.str());
 
       s.str("");

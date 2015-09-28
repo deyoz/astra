@@ -379,7 +379,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.SQLText=
         "SELECT pax_grp.grp_id, pax.pax_id, "
         "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
-        "       class, bag_refuse, 0 AS piece_concept, pax_grp.tid, "
+        "       class, bag_refuse, 0 AS piece_concept, 1 AS bag_types_id, pax_grp.tid, "
         "       pax.reg_no, "
         "       pax.surname, "
         "       pax.name, "
@@ -399,7 +399,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.SQLText=
         "SELECT pax_grp.grp_id, NULL AS pax_id, "
         "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
-        "       class, bag_refuse, 0 AS piece_concept, pax_grp.tid, "
+        "       class, bag_refuse, 0 AS piece_concept, 1 AS bag_types_id, pax_grp.tid, "
         "       NULL AS reg_no, "
         "       NULL AS surname, "
         "       NULL AS name, "
@@ -464,6 +464,10 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(dataNode,"city_arv",Qry.FieldAsString("city_arv"));
   NewTextChild(dataNode,"class",Qry.FieldAsString("class"));
   NewTextChild(dataNode,"pr_refuse",(int)(Qry.FieldAsInteger("bag_refuse")!=0));
+  if (!Qry.FieldIsNULL("bag_types_id"))
+    NewTextChild(dataNode, "bag_types_id", Qry.FieldAsInteger("bag_types_id")!=0);
+  else
+    NewTextChild(dataNode, "bag_types_id");
   NewTextChild(dataNode, "piece_concept", (int)(Qry.FieldAsInteger("piece_concept")!=0));
   NewTextChild(dataNode,"reg_no",Qry.FieldAsInteger("reg_no"));
   NewTextChild(dataNode,"pax_name", RCPT_PAX_NAME::get_pax_name(Qry));

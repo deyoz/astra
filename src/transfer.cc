@@ -15,6 +15,26 @@ using namespace BASIC;
 using namespace ASTRA;
 using namespace EXCEPTIONS;
 
+namespace CheckIn
+{
+
+void LoadTransfer(int grp_id, vector<TTransferItem> &trfer)
+{
+  trfer.clear();
+  TTrferRoute route;
+  route.GetRoute(grp_id, trtNotFirstSeg);
+  for(TTrferRoute::const_iterator r=route.begin(); r!=route.end(); ++r)
+  {
+    trfer.push_back(TTransferItem());
+    TTransferItem &t=trfer.back();
+    t.operFlt=r->operFlt;
+    t.airp_arv=r->airp_arv;
+    t.airp_arv_fmt=r->airp_arv_fmt;
+  };
+};
+
+} //namespace CheckIn
+
 namespace TrferList
 {
 

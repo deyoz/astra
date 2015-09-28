@@ -301,9 +301,10 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsFreeSeating=23,               //Свободная рассадка
                     tsAPISControl=24,               //Контроль данных APIS
                     tsAPISManualInput=25,           //Ручной ввод данных APIS
-                    tsAODBCreateFlight=26,           //Создание рейсов из AODB
-                    tsSetDepTimeByMVT=27,           // Проставление вылета рейса по телеграмме MVT
-                    tsSyncMeridian=28,              // Синхронизация с меридианом
+                    tsAODBCreateFlight=26,          //Создание рейсов из AODB
+                    tsSetDepTimeByMVT=27,           //Проставление вылета рейса по телеграмме MVT
+                    tsSyncMeridian=28,              //Синхронизация с меридианом
+                    tsPieceConcept=30,              //Расчет багажа по кол-ву мест
                     /*привязанные к рейсу по залам*/
                     tsBrdWithReg=101,               //Посадка при регистрации
                     tsExamWithBrd=102,              //Досмотр при посадке
@@ -514,12 +515,12 @@ class TAdvTripRoute : public TTripBase, public std::vector<TAdvTripRouteItem>
 };
 
 class TPaxSeats {
-	private:
-	  int pr_lat_seat;
-	  TQuery *Qry;
-	public:
-		TPaxSeats( int point_id );
-		std::string getSeats( int pax_id, const std::string format );
+    private:
+      int pr_lat_seat;
+      TQuery *Qry;
+    public:
+        TPaxSeats( int point_id );
+        std::string getSeats( int pax_id, const std::string format );
     ~TPaxSeats();
 };
 
@@ -542,7 +543,7 @@ struct TTrferRouteItem
 
 enum TTrferRouteType { trtNotFirstSeg,
                        trtWithFirstSeg };
-                       
+
 class TTrferRoute : public std::vector<TTrferRouteItem>
 {
   public:
@@ -575,7 +576,7 @@ enum TCkinRouteType1 { crtNotCurrent,
                        crtWithCurrent };
 enum TCkinRouteType2 { crtOnlyDependent,
                        crtIgnoreDependent };
-                          
+
 class TCkinRoute : public std::vector<TCkinRouteItem>
 {
   private:
@@ -685,7 +686,7 @@ std::string GetRouteAfterStr(BASIC::TDateTime part_key,  //NoExists если в опера
                              const std::string &lang="",
                              bool show_city_name=false,
                              const std::string &separator="-");
-                         
+
 class TBagTagNumber
 {
   public:

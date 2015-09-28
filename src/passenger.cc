@@ -1379,6 +1379,9 @@ const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
   NewTextChild(grpNode, "class", cl);
   NewTextChild(grpNode, "status", EncodePaxStatus(status));
   NewTextChild(grpNode, "bag_refuse", bag_refuse);
+  bag_types_id!=ASTRA::NoExists?
+    NewTextChild(grpNode, "bag_types_id", bag_types_id):
+    NewTextChild(grpNode, "bag_types_id");
   NewTextChild(grpNode, "piece_concept", (int)piece_concept);
   NewTextChild(grpNode, "tid", tid);
   return *this;
@@ -1401,23 +1404,20 @@ TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
     //запись изменений
     TQuery Qry(&OraSession);
     Qry.Clear();
-    Qry.SQLText="SELECT status, 0 AS piece_concept FROM pax_grp WHERE grp_id=:grp_id";
+    Qry.SQLText="SELECT status, 0 AS piece_concept, 0 AS bag_types_id FROM pax_grp WHERE grp_id=:grp_id";
     Qry.CreateVariable("grp_id", otInteger, id);
     Qry.Execute();
     if (!Qry.Eof)
     {
       status=DecodePaxStatus(Qry.FieldAsString("status"));
+      if (!Qry.FieldIsNULL("bag_types_id"))
+        bag_types_id=Qry.FieldAsInteger("bag_types_id");
       piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
     };
   }
   else
   {
     status=DecodePaxStatus(NodeAsStringFast("status",node2));
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
-      piece_concept=NodeAsIntegerFast("piece_concept",node2)!=0;
-    else
-      piece_concept=false;
   };
   tid=NodeAsIntegerFast("tid",node2,ASTRA::NoExists);
 
@@ -1550,6 +1550,8 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
     hall=Qry.FieldAsInteger("hall");
   if (Qry.FieldAsInteger("bag_refuse")!=0)
     bag_refuse=ASTRA::refuseAgentError;
+  if (!Qry.FieldIsNULL("bag_types_id"))
+    bag_types_id=Qry.FieldAsInteger("bag_types_id");
   piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
   tid=Qry.FieldAsInteger("tid");
   return *this;

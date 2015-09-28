@@ -25,6 +25,13 @@ namespace BagPayment
       flt_no_mark=ASTRA::NoExists;
       use_mark_flt=false;
     }
+    bool operator == (const TFltInfo &info) const
+    {
+      return point_id==info.point_id &&
+             airline_mark==info.airline_mark &&
+             flt_no_mark==info.flt_no_mark &&
+             use_mark_flt==info.use_mark_flt;
+    };
     std::string traceStr() const
     {
       std::ostringstream s;
@@ -44,6 +51,11 @@ namespace BagPayment
       void clear()
       {
         use_mixed_norms=false;
+      }
+      bool operator == (const TNormFltInfo &info) const
+      {
+        return TFltInfo::operator ==(info) &&
+               use_mixed_norms==info.use_mixed_norms;
       }
       std::string traceStr() const
       {
@@ -122,16 +134,19 @@ namespace BagPayment
                         const std::string &used_airline_mark,
                         xmlNodePtr node);
 
-  void RecalcPaidBag(const std::map<int/*id*/, TBagToLogInfo> &prior_bag, //TBagToLogInfo а не CheckIn::TBagItem потому что есть refused
-                     const std::map<int/*id*/, TBagToLogInfo> &curr_bag,
-                     const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
-                     const TNormFltInfo &flt,
-                     const std::vector<CheckIn::TTransferItem> &trfer,
-                     const CheckIn::TPaxGrpItem &grp,
-                     const CheckIn::TPaxList &curr_paxs,
-                     bool pr_unaccomp);
+  void RecalcPaidBagToDB(const std::map<int/*id*/, TBagToLogInfo> &prior_bag, //TBagToLogInfo а не CheckIn::TBagItem потому что есть refused
+                         const std::map<int/*id*/, TBagToLogInfo> &curr_bag,
+                         const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
+                         const TNormFltInfo &flt,
+                         const std::vector<CheckIn::TTransferItem> &trfer,
+                         const CheckIn::TPaxGrpItem &grp,
+                         const CheckIn::TPaxList &curr_paxs,
+                         const std::list<CheckIn::TPaidBagItem> &prior_paid,
+                         bool pr_unaccomp);
 
   void PaidBagViewToXMLTest(xmlNodePtr node);
+
+  int test_norms(int argc,char **argv);
 
 }; //namespace BagPayment
 
