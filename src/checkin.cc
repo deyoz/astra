@@ -7820,10 +7820,10 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                 }
                 TWebPaxForCkin paxForCkin;
                 paxForCkin.crew_type = NodeAsString("CREW_TYPE", crew_member, "");
-                if (paxForCkin.crew_type == string("CR2") || paxForCkin.crew_type == string("CR4") ||
-                    paxForCkin.crew_type == string("CR5") || paxForCkin.crew_type == string("CR3"))
+                if (paxForCkin.crew_type == "CR2" || paxForCkin.crew_type == "CR4" ||
+                    paxForCkin.crew_type == "CR5" || paxForCkin.crew_type == "CR3")
                     cabin++;
-                else if (paxForCkin.crew_type == string("CR1"))
+                else if (paxForCkin.crew_type == "CR1")
                     cockpit++;
                 else throw AstraLocale::UserException("MSG.CHECK_XML_INVALID_CREW_TYPE",
                                                 LEvntPrms() << PrmSmpl<string>("fieldname", "CREW_TYPE"));
