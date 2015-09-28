@@ -1081,6 +1081,7 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
   NewTextChild(paxNode, "surname", surname);
   NewTextChild(paxNode, "name", name);
   NewTextChild(paxNode, "pers_type", EncodePerson(pers_type));
+  NewTextChild(paxNode, "crew_type", EncodeCrewType(crew_type));
   NewTextChild(paxNode, "seat_no", seat_no);
   NewTextChild(paxNode, "seat_type", seat_type);
   NewTextChild(paxNode, "seats", seats);
@@ -1142,6 +1143,8 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
   if (tid==ASTRA::NoExists || PaxUpdatesPending)
   {
     pers_type=DecodePerson(NodeAsStringFast("pers_type",node2));
+    if (!NodeIsNULLFast("crew_type",node2, true))
+      crew_type=DecodeCrewType(NodeAsStringFast("crew_type",node2));
     if (PaxUpdatesPending)
       refuse=NodeAsStringFast("refuse",node2);
 
@@ -1225,6 +1228,8 @@ const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
     Qry.SetVariable("name", name);
   if (Qry.GetVariableIndex("pers_type")>=0)
     Qry.SetVariable("pers_type", EncodePerson(pers_type));
+  if (Qry.GetVariableIndex("crew_type")>=0)
+    Qry.SetVariable("crew_type", EncodeCrewType(crew_type));
   if (Qry.GetVariableIndex("seat_type")>=0)
     Qry.SetVariable("seat_type", seat_type);
   if (Qry.GetVariableIndex("seats")>=0)
@@ -1259,6 +1264,7 @@ TPaxItem& TPaxItem::fromDB(TQuery &Qry)
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
   pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
+  crew_type=Qry.FieldIsNULL("crew_type")?ASTRA::ctUnknown:DecodeCrewType(Qry.FieldAsString("crew_type"));
   seat_no=Qry.FieldAsString("seat_no");
   seat_type=Qry.FieldAsString("seat_type");
   seats=Qry.FieldAsInteger("seats");

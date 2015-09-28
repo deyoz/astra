@@ -328,6 +328,8 @@ ASTRA::TCompLayerType DecodeCompLayerType(const char* s);
 const char* EncodeCompLayerType(ASTRA::TCompLayerType s);
 ASTRA::TBagNormType DecodeBagNormType(const char* s);
 const char* EncodeBagNormType(ASTRA::TBagNormType s);
+ASTRA::TCrewType DecodeCrewType(const char* s);
+const char* EncodeCrewType(ASTRA::TCrewType s);
 
 char DecodeStatus(char* s);
 

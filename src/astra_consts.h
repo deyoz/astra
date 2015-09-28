@@ -90,6 +90,9 @@ enum TRptType {
 };
 extern const char *RptTypeS[rtTypeNum];
 
+enum TCrewType { ctCR1, ctCR2, ctCR3, ctCR4, ctCR5, ctUnknown };
+extern const char* TCrewTypeS[6];
+
 #define TRACE_SIGNATURE int Level, const char *nickname, const char *filename, int line
 #define TRACE_PARAMS Level, nickname, filename, line
 #define ERROR_PARAMS -1, nickname, filename, line
