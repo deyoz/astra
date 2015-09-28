@@ -132,7 +132,7 @@ namespace BagPayment
                         const std::list<CheckIn::TPaidBagItem> &paid,
                         const std::list<CheckIn::TPaidBagEMDItem> &emd,
                         const std::string &used_airline_mark,
-                        xmlNodePtr node);
+                        xmlNodePtr dataNode);
 
   void RecalcPaidBagToDB(const std::map<int/*id*/, TBagToLogInfo> &prior_bag, //TBagToLogInfo а не CheckIn::TBagItem потому что есть refused
                          const std::map<int/*id*/, TBagToLogInfo> &curr_bag,

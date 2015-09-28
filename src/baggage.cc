@@ -138,13 +138,12 @@ TBagItem& TBagItem::fromXML(xmlNodePtr node)
 
   if (TReqInfo::Instance()->desk.compatible(BAG_TO_RAMP_VERSION))
     to_ramp=NodeAsIntegerFast("to_ramp",node2)!=0;
-  else
-    to_ramp=false;
 
   if (TReqInfo::Instance()->desk.compatible(USING_SCALES_VERSION))
     using_scales=NodeAsIntegerFast("using_scales",node2)!=0;
-  else
-    using_scales=false;
+
+  if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+    is_trfer=NodeAsIntegerFast("is_trfer",node2)!=0;
 
   if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
     bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);

@@ -1504,7 +1504,17 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess), 0);
           int value_bag_count;
           bool pr_payment=BagPaymentCompleted(Qry.FieldAsInteger(col_grp_id), &value_bag_count);
-          NewTextChild(paxNode, "value_bag_count", value_bag_count, 0);
+          if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+          {
+            if (value_bag_count!=0)
+            {
+              ostringstream s;
+              s << value_bag_count << getLocaleText("–");
+              NewTextChild(paxNode, "value_bag_count", s.str());
+            };
+          }
+          else
+            NewTextChild(paxNode, "value_bag_count", value_bag_count, 0);
           NewTextChild(paxNode, "pr_payment", (int)pr_payment, (int)false);
           NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount), 0);
           NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight), 0);

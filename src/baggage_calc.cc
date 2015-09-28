@@ -1280,6 +1280,28 @@ void CalcPaidBagWide(const std::map<int/*id*/, TBagToLogInfo> &bag,
   TracePaidBagWide(paid_wide, __FUNCTION__);
 }
 
+void CalcTrferBagWide(const std::map<int/*id*/, TBagToLogInfo> &bag,
+                      map<int/*bag_type*/, TPaidBagWideItem> &paid_wide)
+{
+  paid_wide.clear();
+
+  TSimpleBagMap bag_simple;
+  PrepareSimpleBag(bag, psbtOnlyTrfer, psbtOnlyNotRefused, bag_simple);
+
+  map<int/*bag_type*/, TPaidBagCalcItem> paid_calc;
+  for(TSimpleBagMap::const_iterator b=bag_simple.begin(); b!=bag_simple.end(); ++b)
+    paid_calc.insert(make_pair(b->first, TPaidBagCalcItem(b->first, b->second)));
+
+  for(map<int/*bag_type*/, TPaidBagCalcItem>::const_iterator p=paid_calc.begin(); p!=paid_calc.end(); ++p)
+  {
+    map<int/*bag_type*/, TPaidBagWideItem>::iterator i=paid_wide.insert(*p).first;
+    TPaidBagWideItem &item=i->second;
+    item.weight=item.weight_calc;
+  };
+
+  TracePaidBagWide(paid_wide, __FUNCTION__);
+}
+
 //расчет багажа - на выходе TPaidBagCalcItem - самая нижняя процедура
 void CalcPaidBagBase(const std::map<int/*id*/, TBagToLogInfo> &bag,
                      const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
@@ -1727,101 +1749,119 @@ void PaidBagViewToXML(const std::map<int/*id*/, TBagToLogInfo> &bag,
                       const std::list<CheckIn::TPaidBagItem> &paid,
                       const std::list<CheckIn::TPaidBagEMDItem> &emd,
                       const std::string &used_airline_mark,
-                      xmlNodePtr node)
+                      xmlNodePtr dataNode)
 {
-  map<int/*bag_type*/, TPaidBagWideItem> paid_wide;
-  CalcPaidBagWide(bag, norms, paid, paid_wide);
+  if (dataNode==NULL) return;
 
-  if (node==NULL) return;
-
-  node=NewTextChild(node, "paid_bags");
-
-  for(int pass=0; pass<2; pass++)
+  for(bool is_trfer=false; ;is_trfer=!is_trfer)
   {
-    for(map<int/*bag_type*/, TPaidBagWideItem>::const_iterator i=paid_wide.begin(); i!=paid_wide.end(); ++i)
+    map<int/*bag_type*/, TPaidBagWideItem> paid_wide;
+    if (!is_trfer)
+      CalcPaidBagWide(bag, norms, paid, paid_wide);
+    else
+      CalcTrferBagWide(bag, paid_wide);
+
+    xmlNodePtr node=!is_trfer?NewTextChild(dataNode, "paid_bags"):
+                              NewTextChild(dataNode, "trfer_bags");
+
+    for(int pass=0; pass<2; pass++)
     {
-      const TPaidBagWideItem &item=i->second;
-      if ((pass==0 && item.bag_type!=NoExists) ||
-          (pass!=0 && item.bag_type==NoExists)) continue; //обычный багаж всегда первой строкой
-
-      xmlNodePtr rowNode=NewTextChild(node,"paid_bag");
-      if (item.weight==NoExists)
-        throw Exception("%s: item.weight==NoExists!", __FUNCTION__);
-      item.toXML(rowNode);
-      if (item.weight_calc!=NoExists)
-        NewTextChild(rowNode, "weight_calc", item.weight_calc);
-      else
-        NewTextChild(rowNode, "weight_calc");
-
-      ostringstream s;
-      if (item.bag_type!=NoExists)
-        s << item.bag_type_str() << ": " << ElemIdToNameLong(etBagType, item.bag_type);
-      else
-        s << getLocaleText("Обычный багаж или р/кладь");
-      NewTextChild(rowNode, "bag_type_view", s.str());
-
-      s.str("");
-      if (item.bag_amount!=0 || item.bag_weight!=0)
-        s << item.bag_amount << "/" << item.bag_weight;
-      else
-        s << "-";
-      NewTextChild(rowNode, "bag_number_view", s.str());
-
-      s.str("");
-      if (item.norms.size()==1)
-        s << lowerc(item.norms.front().str(TReqInfo::Instance()->desk.lang));
-      else
-        s << getLocaleText("см. подробно");
-      NewTextChild(rowNode, "norms_view", s.str());
-
-      s.str("");
-      switch(item.norms_trfer)
+      for(map<int/*bag_type*/, TPaidBagWideItem>::const_iterator i=paid_wide.begin(); i!=paid_wide.end(); ++i)
       {
-        case nttNone: break;
-        case nttNotTransfer: s << getLocaleText("НЕТ"); break;
-        case nttTransfer: s << getLocaleText("ДА"); break;
-        case nttMixed: s << getLocaleText("СМЕШ"); break;
-      };
-      NewTextChild(rowNode, "norms_trfer_view", s.str());
+        const TPaidBagWideItem &item=i->second;
+        if ((pass==0 && item.bag_type!=NoExists) ||
+            (pass!=0 && item.bag_type==NoExists)) continue; //обычный багаж всегда первой строкой
 
-      s.str("");
-      if (item.weight!=NoExists)
-        s << item.weight;
-      else
-        s << "?";
-      NewTextChild(rowNode, "weight_view", s.str());
+        xmlNodePtr rowNode=NewTextChild(node,"paid_bag");
+        if (item.weight==NoExists)
+          throw Exception("%s: item.weight==NoExists!", __FUNCTION__);
+        item.toXML(rowNode);
+        if (item.weight_calc!=NoExists)
+          NewTextChild(rowNode, "weight_calc", item.weight_calc);
+        else
+          NewTextChild(rowNode, "weight_calc");
 
-      s.str("");
-      if (item.weight_calc!=NoExists)
-        s << item.weight_calc;
-      else
-        s << "?";
-      NewTextChild(rowNode, "weight_calc_view", s.str());
+        ostringstream s;
+        if (item.bag_type!=NoExists)
+          s << item.bag_type_str() << ": " << ElemIdToNameLong(etBagType, item.bag_type);
+        else
+          s << getLocaleText("Обычный багаж или р/кладь");
+        NewTextChild(rowNode, "bag_type_view", s.str());
 
-      int emd_weight=0;
-      for(list<CheckIn::TPaidBagEMDItem>::const_iterator e=emd.begin(); e!=emd.end(); ++e)
-        if (i->second.bag_type==e->bag_type)
+        s.str("");
+        if (item.bag_amount!=0 || item.bag_weight!=0)
+          s << item.bag_amount << "/" << item.bag_weight;
+        else
+          s << "-";
+        NewTextChild(rowNode, "bag_number_view", s.str());
+
+        s.str("");
+        if (!is_trfer)
         {
-          if (e->weight==NoExists)
+          if (!item.norms.empty())
           {
-            emd_weight=NoExists;
-            break;
+            if (!used_airline_mark.empty())
+              s << ElemIdToCodeNative(etAirline, used_airline_mark) << ":";
+            if (item.norms.size()==1)
+              s << lowerc(item.norms.front().str(TReqInfo::Instance()->desk.lang));
+            else
+              s << getLocaleText("см. подробно");
           }
-          emd_weight+=e->weight;
+          else s << "-";
+        }
+        else s << getLocaleText("Трансфер");
+        NewTextChild(rowNode, "norms_view", s.str());
+
+        s.str("");
+        switch(item.norms_trfer)
+        {
+          case nttNone: break;
+          case nttNotTransfer: s << getLocaleText("НЕТ"); break;
+          case nttTransfer: s << getLocaleText("ДА"); break;
+          case nttMixed: s << getLocaleText("СМЕШ"); break;
         };
+        NewTextChild(rowNode, "norms_trfer_view", s.str());
 
-      s.str("");
-      if (emd_weight!=NoExists)
-        s << emd_weight;
-      else
-        s << "?";
-      NewTextChild(rowNode, "emd_weight_view", s.str());
+        s.str("");
+        if (item.weight!=NoExists)
+          s << item.weight;
+        else
+          s << "?";
+        NewTextChild(rowNode, "weight_view", s.str());
 
+        s.str("");
+        if (item.weight_calc!=NoExists)
+          s << item.weight_calc;
+        else
+          s << "?";
+        NewTextChild(rowNode, "weight_calc_view", s.str());
+
+        s.str("");
+        if (!is_trfer)
+        {
+          int emd_weight=0;
+          for(list<CheckIn::TPaidBagEMDItem>::const_iterator e=emd.begin(); e!=emd.end(); ++e)
+            if (i->second.bag_type==e->bag_type)
+            {
+              if (e->weight==NoExists)
+              {
+                emd_weight=NoExists;
+                break;
+              }
+              emd_weight+=e->weight;
+            };
+
+          if (emd_weight!=NoExists)
+            s << emd_weight;
+          else
+            s << "?";
+        };
+        NewTextChild(rowNode, "emd_weight_view", s.str());
+      };
 
     };
-
+    if (is_trfer) break;
   };
-
 };
 
 
