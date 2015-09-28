@@ -242,14 +242,13 @@ static void process_pax_alarm( const int pax_id, const TTripAlarmsType alarm_typ
 {
   TQuery Qry(&OraSession);
   if (crs_pax)
-    Qry.SQLText = "SELECT point_id_spp AS point_dep, pers_type, surname "
+    Qry.SQLText = "SELECT point_id_spp AS point_dep "
                   "FROM crs_pax, crs_pnr, tlg_binding "
                   "WHERE crs_pax.pnr_id = crs_pnr.pnr_id AND "
                   "      crs_pnr.point_id = tlg_binding.point_id_tlg AND "
                   "      pax_id = :pax_id";
   else
-    Qry.SQLText = "SELECT point_dep, pers_type, surname "
-                  "FROM pax, pax_grp "
+    Qry.SQLText = "SELECT point_dep FROM pax, pax_grp "
                   "WHERE pax.grp_id = pax_grp.grp_id AND pax_id = :pax_id";
   Qry.CreateVariable("pax_id", otInteger, pax_id);
   Qry.Execute();
@@ -257,21 +256,7 @@ static void process_pax_alarm( const int pax_id, const TTripAlarmsType alarm_typ
   if(Qry.Eof)
       throw Exception("process_pax_alarm: passenger info not found");
 
-  int point_id = Qry.FieldAsInteger("point_dep");
-  TLogLocale msg;
-  msg.ev_type = ASTRA::evtPax;
-  msg.id1 = point_id;
-
-  msg.lexema_id = "EVT.PASSENGER_DATA";
-  msg.prms << PrmSmpl<string>("pax_name", Qry.FieldAsString("surname"))
-              << PrmElem<string>("pers_type", etPersType, Qry.FieldAsString("pers_type"));
-
-  PrmLexema lexema("param", alarm_value?"EVT.ALARM_SET":"EVT.ALARM_DELETED");
-  lexema.prms << PrmElem<string>("alarm_type", etAlarmType, EncodeAlarmType(alarm_type), efmtNameLong);
-  msg.prms << lexema;
-  TReqInfo::Instance()->LocaleToLog(msg);
-
-  synch_trip_alarm(point_id, alarm_type);
+  synch_trip_alarm(Qry.FieldAsInteger("point_dep"), alarm_type);
 }
 
 static void set_passenger_alarm( const int pax_id, const TTripAlarmsType alarm_type, const bool alarm_value, const bool is_crs )
@@ -300,7 +285,7 @@ static void set_passenger_alarm( const int pax_id, const TTripAlarmsType alarm_t
             process_pax_alarm(pax_id, alarm_type, alarm_value, is_crs);
         }
     } catch (EOracleError &E) {
-        if(E.Code != 1) throw;
+        if(E.Code != 1 && E.Code != 2291) throw; // parent key not found, unique constraint violated
     }
 }
 
@@ -856,18 +841,35 @@ bool check_apps_alarm( int point_id )
 
 bool calc_apps_alarm( int point_id )
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
+  TQuery PaxQry(&OraSession);
+  PaxQry.Clear();
+  PaxQry.SQLText=
     "SELECT alarm_type FROM pax_alarms, pax, pax_grp "
     "WHERE pax_grp.point_dep = :point_id AND pax_alarms.pax_id = pax.pax_id "
     "       AND pax.grp_id = pax_grp.grp_id AND ( alarm_type = :apps_error OR "
     "       alarm_type = :apps_conflict OR alarm_type = :apps_negative )";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.CreateVariable("apps_error", otString, EncodeAlarmType(atAPPSError));
-  Qry.CreateVariable("apps_conflict", otString, EncodeAlarmType(atAPPSConflict));
-  Qry.CreateVariable("apps_negative", otString, EncodeAlarmType(atAPPSNegativeDirective));
+  PaxQry.CreateVariable("point_id", otInteger, point_id);
+  PaxQry.CreateVariable("apps_error", otString, EncodeAlarmType(atAPPSError));
+  PaxQry.CreateVariable("apps_conflict", otString, EncodeAlarmType(atAPPSConflict));
+  PaxQry.CreateVariable("apps_negative", otString, EncodeAlarmType(atAPPSNegativeDirective));
 
-  Qry.Execute();
-  return !Qry.Eof;
+  PaxQry.Execute();
+
+  TQuery CrsPaxQry(&OraSession);
+  CrsPaxQry.Clear();
+  CrsPaxQry.SQLText=
+    "SELECT alarm_type FROM crs_pax_alarms, crs_pax, crs_pnr, tlg_binding "
+    "WHERE tlg_binding.point_id_spp = :point_id AND "
+    "      tlg_binding.point_id_tlg = crs_pnr.point_id AND "
+    "      crs_pnr.pnr_id = crs_pax.pnr_id AND crs_pax_alarms.pax_id = crs_pax.pax_id AND "
+    "      ( alarm_type = :apps_error OR alarm_type = :apps_conflict OR "
+    "      alarm_type = :apps_negative )";
+  CrsPaxQry.CreateVariable("point_id", otInteger, point_id);
+  CrsPaxQry.CreateVariable("apps_error", otString, EncodeAlarmType(atAPPSError));
+  CrsPaxQry.CreateVariable("apps_conflict", otString, EncodeAlarmType(atAPPSConflict));
+  CrsPaxQry.CreateVariable("apps_negative", otString, EncodeAlarmType(atAPPSNegativeDirective));
+
+  CrsPaxQry.Execute();
+
+  return (!PaxQry.Eof || !CrsPaxQry.Eof);
 }
