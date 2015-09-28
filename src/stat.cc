@@ -2405,6 +2405,48 @@ struct TDetailCmp {
 };
 typedef map<TDetailStatKey, TDetailStatRow, TDetailCmp> TDetailStat;
 
+struct TPaid {
+    int excess;
+    int excess_pcs;
+
+    TPaid(int aexcess, int aexcess_pcs):
+        excess(aexcess),
+        excess_pcs(aexcess_pcs)
+    {}
+
+    string toString() const
+    {
+        ostringstream result;
+        if(excess != 0)
+            result << excess << getLocaleText("ª£");
+        if(excess_pcs != 0) {
+            if(not result.str().empty())
+                result << " + ";
+            result << excess_pcs << getLocaleText("¬");
+        }
+        return result.str();
+    }
+
+    void set(int aexcess, int aexcess_pcs)
+    {
+        excess = aexcess;
+        excess_pcs = aexcess_pcs;
+    }
+
+    bool operator == (const TPaid &val) const
+    {
+        return
+            excess == val.excess and
+            excess_pcs == val.excess_pcs;
+    }
+
+    void operator += (const TPaid &val)
+    {
+        excess += val.excess;
+        excess_pcs += val.excess_pcs;
+    }
+};
+
 struct TFullStatRow {
     int pax_amount;
     TInetStat i_stat;
@@ -2414,7 +2456,7 @@ struct TFullStatRow {
     int rk_weight;
     int bag_amount;
     int bag_weight;
-    int excess;
+    TPaid paid;
     TFullStatRow():
         pax_amount(0),
         adult(0),
@@ -2423,7 +2465,7 @@ struct TFullStatRow {
         rk_weight(0),
         bag_amount(0),
         bag_weight(0),
-        excess(0)
+        paid(0, 0)
     {}
     bool operator == (const TFullStatRow &item) const
     {
@@ -2435,7 +2477,7 @@ struct TFullStatRow {
             rk_weight == item.rk_weight &&
             bag_amount == item.bag_amount &&
             bag_weight == item.bag_weight &&
-            excess == item.excess;
+            paid == item.paid;
     };
     void operator += (const TFullStatRow &item)
     {
@@ -2447,7 +2489,7 @@ struct TFullStatRow {
         rk_weight += item.rk_weight;
         bag_amount += item.bag_amount;
         bag_weight += item.bag_weight;
-        excess += item.excess;
+        paid += item.paid;
     };
 };
 
@@ -2667,7 +2709,7 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
         row.rk_weight = Qry.FieldAsInteger(col_rk_weight);
         row.bag_amount = Qry.FieldAsInteger(col_bag_amount);
         row.bag_weight = Qry.FieldAsInteger(col_bag_weight);
-        row.excess = Qry.FieldAsInteger(col_excess);
+        row.paid.set(Qry.FieldAsInteger(col_excess), 0);
         if (!params.skip_rows)
         {
           TFullStatKey key;
@@ -3022,7 +3064,7 @@ void createXMLFullStat(const TStatParams &params,
           NewTextChild(rowNode, "col", im->second.bag_amount);
           NewTextChild(rowNode, "col", im->second.bag_weight);
 
-          NewTextChild(rowNode, "col", im->second.excess);
+          NewTextChild(rowNode, "col", im->second.paid.toString());
           if (params.statType==statTrferFull)
               NewTextChild(rowNode, "col", im->first.point_id);
 
@@ -3126,7 +3168,7 @@ void createXMLFullStat(const TStatParams &params,
     SetProp(colNode, "width", 70);
     SetProp(colNode, "align", taRightJustify);
     SetProp(colNode, "sort", sortInteger);
-    NewTextChild(rowNode, "col", total.excess);
+    NewTextChild(rowNode, "col",  total.paid.toString());
 
     if (!showTotal)
     {
