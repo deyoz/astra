@@ -3000,7 +3000,8 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   }
   string table_name = NodeAsString( n );
   table_name = lowerc( table_name );
-  if ( table_name != "rcpt_doc_types" ) {
+  if ( table_name != "rcpt_doc_types" &&
+       table_name != "pax_doc_countries" ) {
     throw EXCEPTIONS::Exception( "invalid table_name %s", table_name.c_str() );
   }
   n = GetNode( "tid", reqNode );
@@ -3017,7 +3018,7 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   TQuery Qry(&OraSession);
   if ( tid != ASTRA::NoExists ) {
     Qry.SQLText =
-      "SELECT tid FROM rcpt_doc_types WHERE tid>:tid AND rownum<2";
+      string("SELECT tid FROM ")  + table_name + " WHERE tid>:tid AND rownum<2";
     Qry.CreateVariable( "tid", otInteger, tid );
     Qry.Execute();
     if ( Qry.Eof ) {
@@ -3028,7 +3029,7 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   }
   Qry.Clear();
   Qry.SQLText =
-    "SELECT id,code,code code_lat,name,name_lat,pr_del,tid FROM pax_doc_countries ORDER BY code";
+    string("SELECT id,code,code code_lat,name,name_lat,pr_del,tid FROM ") + table_name + " ORDER BY code";
   Qry.Execute();
   xmlNodePtr node = NewTextChild( n, "data" );
   for ( ; !Qry.Eof; Qry.Next() ) {
