@@ -3004,6 +3004,9 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
        table_name != "pax_doc_countries" ) {
     throw EXCEPTIONS::Exception( "invalid table_name %s", table_name.c_str() );
   }
+  if ( TReqInfo::Instance()->client_type == ctKiosk && table_name == "rcpt_doc_types" ) {
+    table_name = "pax_doc_countries"; //old bug fix
+  }
   n = GetNode( "tid", reqNode );
   int tid;
   if ( n ) {
