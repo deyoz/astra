@@ -3052,6 +3052,10 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     NewTextChild( rowNode, "code_lat", Qry.FieldAsString( "code_lat" ) );
     NewTextChild( rowNode, "name", Qry.FieldAsString( "name" ) );
     NewTextChild( rowNode, "name_lat", Qry.FieldAsString( "name_lat" ) );
+    if ( table_name == "pax_doc_countries_ext" ) {
+      NewTextChild( rowNode, "country", Qry.FieldAsString( "country" ) );
+      NewTextChild( rowNode, "country_lat", Qry.FieldAsString( "country_lat" ) );
+    }
     if ( tid < Qry.FieldAsInteger( "tid" ) ) {
       tid = Qry.FieldAsInteger( "tid" );
     }
