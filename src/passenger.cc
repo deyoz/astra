@@ -961,7 +961,7 @@ bool PaxNormsFromDB(int pax_id, list< pair<TPaxNormItem, TNormItem> > &norms)
 {
   norms.clear();
   const char* sql=
-    "SELECT pax_norms.bag_type, pax_norms.norm_id, pax_norms.norm_trfer, "
+    "SELECT pax_norms.bag_type, pax_norms.norm_id, pax_norms.norm_trfer, pax_norms.handmade, "
     "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
     "FROM pax_norms,bag_norms "
     "WHERE pax_norms.norm_id=bag_norms.id(+) AND pax_norms.pax_id=:pax_id ";
@@ -980,7 +980,7 @@ bool GrpNormsFromDB(int grp_id, list< pair<TPaxNormItem, TNormItem> > &norms)
 {
   norms.clear();
   const char* sql=
-    "SELECT grp_norms.bag_type, grp_norms.norm_id, grp_norms.norm_trfer, "
+    "SELECT grp_norms.bag_type, grp_norms.norm_id, grp_norms.norm_trfer, grp_norms.handmade, "
     "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
     "FROM grp_norms,bag_norms "
     "WHERE grp_norms.norm_id=bag_norms.id(+) AND grp_norms.grp_id=:grp_id ";
@@ -1017,11 +1017,12 @@ void PaxNormsToDB(int pax_id, const boost::optional< list<TPaxNormItem> > &norms
   NormQry.CreateVariable("pax_id",otInteger,pax_id);
   NormQry.Execute();
   NormQry.SQLText=
-    "INSERT INTO pax_norms(pax_id,bag_type,norm_id,norm_trfer) "
-    "VALUES(:pax_id,:bag_type,:norm_id,:norm_trfer)";
+    "INSERT INTO pax_norms(pax_id,bag_type,norm_id,norm_trfer,handmade) "
+    "VALUES(:pax_id,:bag_type,:norm_id,:norm_trfer,:handmade)";
   NormQry.DeclareVariable("bag_type",otInteger);
   NormQry.DeclareVariable("norm_id",otInteger);
   NormQry.DeclareVariable("norm_trfer",otInteger);
+  NormQry.DeclareVariable("handmade",otInteger);
   for(list<TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
   {
     n->toDB(NormQry);
@@ -1038,11 +1039,12 @@ void GrpNormsToDB(int grp_id, const boost::optional< list<TPaxNormItem> > &norms
   NormQry.CreateVariable("grp_id",otInteger,grp_id);
   NormQry.Execute();
   NormQry.SQLText=
-    "INSERT INTO grp_norms(grp_id,bag_type,norm_id,norm_trfer) "
-    "VALUES(:grp_id,:bag_type,:norm_id,:norm_trfer)";
+    "INSERT INTO grp_norms(grp_id,bag_type,norm_id,norm_trfer,handmade) "
+    "VALUES(:grp_id,:bag_type,:norm_id,:norm_trfer,:handmade)";
   NormQry.DeclareVariable("bag_type",otInteger);
   NormQry.DeclareVariable("norm_id",otInteger);
   NormQry.DeclareVariable("norm_trfer",otInteger);
+  NormQry.DeclareVariable("handmade",otInteger);
   for(list<TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
   {
     n->toDB(NormQry);

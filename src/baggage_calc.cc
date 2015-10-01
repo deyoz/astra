@@ -142,6 +142,18 @@ class TBagNormWideInfo : public TBagNormInfo
 
     TBagNormWideInfo& fromDB(TQuery &Qry);
     int similarity_cost(const TPaxInfo &pax, const TBagNormFilterSets &filter, const TBagNormFieldAmounts &field_amounts) const;
+
+    static const set<string>& strictly_limited_cats()
+    {
+      static boost::optional< set<string> > cats;
+      if (!cats)
+      {
+        cats=set<string>();
+        cats.get().insert("CHC");
+        cats.get().insert("INA");
+      };
+      return cats.get();
+    }
 };
 
 TBagNormWideInfo& TBagNormWideInfo::fromDB(TQuery &Qry)
@@ -151,6 +163,7 @@ TBagNormWideInfo& TBagNormWideInfo::fromDB(TQuery &Qry)
     bag_type=Qry.FieldAsInteger("bag_type");
   norm_id=Qry.FieldAsInteger("id");
   //norm_trfer не заполняется на данном этапе!
+  //handmade не заполняется на данном этапе!
   CheckIn::TNormItem::fromDB(Qry);
   airline=Qry.FieldAsString("airline");
   city_arv=Qry.FieldAsString("city_arv");
@@ -182,7 +195,8 @@ int TBagNormWideInfo::similarity_cost(const TPaxInfo &pax, const TBagNormFilterS
   };
 
   if (filter.only_category && pax.pax_cat!=pax_cat) return NoExists;
-  if (!pax_cat.empty()/* && !pax.pax_cat.empty()*/) //!!!vlad
+  if (!pax_cat.empty() &&
+      (!pax.pax_cat.empty() || strictly_limited_cats().find(pax_cat)!=strictly_limited_cats().end()))
   {
     if (pax.pax_cat!=pax_cat) return NoExists;
     result+=field_amounts.pax_cat;
@@ -321,20 +335,6 @@ void CheckOrGetPaxBagNorm(const TNormFltInfo &flt,
   list<TBagNormWideInfo> trip_bag_norms;
   LoadTripBagNorms(flt, trip_bag_norms);
   CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, only_category, bag_type, norm, result);
-}
-
-string CalcPaxCategory(const CheckIn::TPaxListItem &pax)
-{
-  if (pax.pax.pers_type==ASTRA::child && pax.pax.seats==0) return "CHC";
-  if (pax.pax.pers_type==ASTRA::baby && pax.pax.seats==0) return "INA";
-  return "";
-}
-
-string CalcPaxCategory(const TPaxToLogInfo &pax)
-{
-  if (pax.pers_type==EncodePerson(ASTRA::child) && pax.seats==0) return "CHC";
-  if (pax.pers_type==EncodePerson(ASTRA::baby) && pax.seats==0) return "INA";
-  return "";
 }
 
 enum TNormsTrferType { nttNone, nttNotTransfer, nttTransfer, nttMixed };
@@ -539,6 +539,7 @@ void CalcPaidBagBase(const std::map<int, TBagToLogInfo> &bag,
                      map<int/*bag_type*/, TPaidBagCalcItem> &paid);
 
 typedef std::map< int/*bag_type*/, std::list<TSimpleBagItem> > TSimpleBagMap;
+typedef std::map< int/*bag_type*/, CheckIn::TPaxNormItem > TPaxNormMap;
 
 enum TPrepareSimpleBagType1 { psbtOnlyTrfer, psbtOnlyNotTrfer, psbtTrferAndNotTrfer };
 enum TPrepareSimpleBagType2 { psbtOnlyRefused, psbtOnlyNotRefused, psbtRefusedAndNotRefused };
@@ -608,10 +609,10 @@ string NormsTraceStr(const std::list<TBagNormInfo> &norms)
   return s.str();
 }
 
-string NormsTraceStr(const map<int/*bag_type*/, CheckIn::TPaxNormItem > &norms)
+string NormsTraceStr(const TPaxNormMap &norms)
 {
   ostringstream s;
-  for(map<int/*bag_type*/, CheckIn::TPaxNormItem >::const_iterator n=norms.begin(); n!=norms.end(); ++n)
+  for(TPaxNormMap::const_iterator n=norms.begin(); n!=norms.end(); ++n)
   {
     if (n!=norms.begin()) s << "; ";
     if (n->second.bag_type!=ASTRA::NoExists)
@@ -623,6 +624,11 @@ string NormsTraceStr(const map<int/*bag_type*/, CheckIn::TPaxNormItem > &norms)
       s << n->second.norm_id;
     else
       s << "NULL";
+    s << "/" << (int)n->second.norm_trfer;
+    if (n->second.handmade!=0 && n->second.handmade!=NoExists)
+      s << "/hand";
+    if (n->second.handmade==0)
+      s << "/auto";
   }
   return s.str();
 }
@@ -631,20 +637,37 @@ class TWidePaxInfo : public TPaxInfo
 {
   public:
     bool refused;
-    bool only_category;
-    map<int/*bag_type*/, CheckIn::TPaxNormItem > prior_norms;
-    map<int/*bag_type*/, CheckIn::TPaxNormItem > curr_norms;
-    map<int/*bag_type*/, CheckIn::TPaxNormItem > result_norms;
+    TPaxNormMap prior_norms;
+    TPaxNormMap curr_norms;
+    TPaxNormMap result_norms;
 
     TWidePaxInfo() { clear(); }
     void clear()
     {
       TPaxInfo::clear();
       refused=false;
-      only_category=false;
       prior_norms.clear();
       curr_norms.clear();
       result_norms.clear();
+    }
+
+    bool only_category() const
+    {
+      return !pax_cat.empty();
+    }
+
+    void setCategory(const CheckIn::TPaxListItem &pax)
+    {
+      pax_cat.clear();
+      if (pax.pax.pers_type==ASTRA::child && pax.pax.seats==0) pax_cat="CHC";
+      if (pax.pax.pers_type==ASTRA::baby && pax.pax.seats==0) pax_cat="INA";
+    }
+
+    void setCategory(const TPaxToLogInfo &pax)
+    {
+      pax_cat.clear();
+      if (pax.pers_type==EncodePerson(ASTRA::child) && pax.seats==0) pax_cat="CHC";
+      if (pax.pers_type==EncodePerson(ASTRA::baby) && pax.seats==0) pax_cat="INA";
     }
 
     std::string traceStr() const
@@ -652,7 +675,7 @@ class TWidePaxInfo : public TPaxInfo
       std::ostringstream s;
       s << TPaxInfo::traceStr() << ", "
            "refused=" << (refused?"true":"false") << ", "
-           "only_category=" << (only_category?"true":"false");
+           "only_category=" << (only_category()?"true":"false");
       s << endl
         << "prior_norms: " << NormsTraceStr(prior_norms) << endl
         << "curr_norms: " << NormsTraceStr(curr_norms) << endl
@@ -664,7 +687,7 @@ class TWidePaxInfo : public TPaxInfo
 
 void ConvertNormsList(const std::map<int/*id*/, TBagToLogInfo> &bag,
                       const boost::optional< std::list<CheckIn::TPaxNormItem> > &norms,
-                      map<int/*bag_type*/, CheckIn::TPaxNormItem > &result)
+                      TPaxNormMap &result)
 {
   result.clear();
   if (!norms) return;
@@ -683,12 +706,27 @@ void ConvertNormsList(const std::map<int/*id*/, TBagToLogInfo> &bag,
   };
 }
 
-void ConvertNormsList(const map<int/*bag_type*/, CheckIn::TPaxNormItem > &norms,
+void ConvertNormsList(const TPaxNormMap &norms,
                       std::list<CheckIn::TPaxNormItem> &result)
 {
   result.clear();
-  for(map<int/*bag_type*/, CheckIn::TPaxNormItem >::const_iterator n=norms.begin(); n!=norms.end(); ++n)
+  for(TPaxNormMap::const_iterator n=norms.begin(); n!=norms.end(); ++n)
     result.push_back(n->second);
+}
+
+void SyncHandmadeProp(const TPaxNormMap &src,
+                      bool nvl,
+                      TPaxNormMap &dest)
+{
+  for(TPaxNormMap::iterator i=dest.begin(); i!=dest.end(); ++i)
+  {
+    if (i->second.handmade!=NoExists) continue;
+    TPaxNormMap::const_iterator j=src.find(i->first);
+    if (j!=src.end() && i->second==j->second)
+      i->second.handmade=j->second.handmade;
+    else
+      i->second.handmade=(int)nvl;
+  }
 }
 
 //перерасчет багажа - на выходе TPaidBagWideItem
@@ -810,15 +848,10 @@ void GetWidePaxInfo(const map<int/*id*/, TBagToLogInfo> &curr_bag,
         TWidePaxInfo pax;
         pax.target=target;
         pax.final_target=final_target;
-        pax.pax_cat=CalcPaxCategory(*pCurr);
-        if (grp.status!=psCrew)
-          pax.cl=grp.cl;
-        else
-          pax.cl=EncodeClass(Y); //!!!vlad
-
+        pax.setCategory(*pCurr);
+        pax.cl=grp.status!=psCrew?grp.cl:EncodeClass(Y);
         pax.subcl=pCurr->pax.subcl;
         pax.refused=!pCurr->pax.refuse.empty();
-        pax.only_category=!pax.pax_cat.empty();
         ConvertNormsList(curr_bag, pCurr->norms, pax.curr_norms);
 
         int pax_id=(pCurr->pax.id==NoExists?pCurr->generated_pax_id:pCurr->pax.id);
@@ -836,14 +869,10 @@ void GetWidePaxInfo(const map<int/*id*/, TBagToLogInfo> &curr_bag,
         TWidePaxInfo pax;
         pax.target=target;
         pax.final_target=final_target;
-        pax.pax_cat=CalcPaxCategory(pPrior->second);
-        if (grp.status!=psCrew)
-          pax.cl=pPrior->second.cl;
-        else
-          pax.cl=EncodeClass(Y); //!!!vlad
+        pax.setCategory(pPrior->second);
+        pax.cl=grp.status!=psCrew?pPrior->second.cl:EncodeClass(Y);
         pax.subcl=pPrior->second.subcl;
         pax.refused=!pPrior->second.refuse.empty();
-        pax.only_category=!pax.pax_cat.empty();
         std::list<CheckIn::TPaxNormItem> tmp_norms;
         for(std::list< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> >::const_iterator n=pPrior->second.norms.begin();
                                                                                               n!=pPrior->second.norms.end(); ++n)
@@ -862,14 +891,10 @@ void GetWidePaxInfo(const map<int/*id*/, TBagToLogInfo> &curr_bag,
           //пассажир менялся
           if (pCurr->pax.PaxUpdatesPending)
           {
-            pax.pax_cat=CalcPaxCategory(*pCurr);
-            if (grp.status!=psCrew)
-              pax.cl=grp.cl;
-            else
-              pax.cl=EncodeClass(Y); //!!!vlad
+            pax.setCategory(*pCurr);
+            pax.cl=grp.status!=psCrew?grp.cl:EncodeClass(Y);
             pax.subcl=pCurr->pax.subcl;
             pax.refused=!pCurr->pax.refuse.empty();
-            pax.only_category=!pax.pax_cat.empty();
           };
           ConvertNormsList(curr_bag, pCurr->norms, pax.curr_norms);
 
@@ -896,7 +921,6 @@ void GetWidePaxInfo(const map<int/*id*/, TBagToLogInfo> &curr_bag,
     pax.final_target=final_target;
     pax.cl=grp.cl;
     pax.refused=!grp.bag_refuse.empty();
-    pax.only_category=!pax.pax_cat.empty();
     ConvertNormsList(curr_bag, grp.norms, pax.curr_norms);
     if (!prior_paxs.empty())
     {
@@ -937,29 +961,41 @@ void CheckOrGetWidePaxNorms(const list<TBagNormWideInfo> &trip_bag_norms,
   for(map<int/*pax_id*/, TWidePaxInfo>::iterator p=paxs.begin(); p!=paxs.end(); ++p)
   {
     TWidePaxInfo &pax=p->second;
+
+    SyncHandmadeProp(pax.prior_norms, true, pax.curr_norms);
+
     for(TSimpleBagMap::const_iterator i=not_trfer_bag_simple.begin(); i!=not_trfer_bag_simple.end(); ++i)
     {
       TBagNormInfo result;
       int bag_type=i->first;
       try
       {
-        map<int/*bag_type*/, CheckIn::TPaxNormItem >::const_iterator n;
-        //1 проход: новые нормы
-        if ((n=pax.curr_norms.find(bag_type))!=pax.curr_norms.end())
+        for(int pass=0; pass<2; pass++)
         {
-          if (n->second.norm_id==NoExists) throw 1;
-          CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category, bag_type, n->second, result);
-          if (!result.empty() && n->second==result) throw 1;
-        }
-        //2 проход: старые нормы
-        if ((n=pax.prior_norms.find(bag_type))!=pax.prior_norms.end())
-        {
-          if (n->second.norm_id==NoExists) throw 1;
-          CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category, bag_type, n->second, result);
-          if (!result.empty() && n->second==result) throw 1;
-        }
+          //1 проход: новые нормы
+          //2 проход: старые нормы
+          TPaxNormMap &norms=pass==0?pax.curr_norms:pax.prior_norms;
+          TPaxNormMap::const_iterator n=norms.find(bag_type);
+          if (n!=norms.end())
+          {
+            if (n->second.norm_id==NoExists && n->second.handmade!=NoExists && n->second.handmade!=0)
+            {
+              result.handmade=n->second.handmade;
+              throw 1;  //вручную удаленная норма
+            }
+            if (n->second.norm_id!=NoExists)
+            {
+              CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category(), bag_type, n->second, result);
+              if (!result.empty() && n->second==result)
+              {
+                result.handmade=n->second.handmade;
+                throw 1;
+              };
+            };
+          };
+        };
         //3 проход: отсутствующие нормы
-        CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category, bag_type, TBagNormInfo(), result);
+        CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category(), bag_type, TBagNormInfo(), result);
       }
       catch(int) {};
 
@@ -968,6 +1004,9 @@ void CheckOrGetWidePaxNorms(const list<TBagNormWideInfo> &trip_bag_norms,
       //здесь имеем сформированный result
       if (!pax.refused) all_norms.push_back(result); //добавляем нормы неразрегистрированных пассажиров
     };
+
+    SyncHandmadeProp(TPaxNormMap(), false, pax.result_norms);
+
     if (use_traces)
     {
       if (!pr_unaccomp)
@@ -1205,6 +1244,17 @@ int test_norms(int argc,char **argv)
         {
           TWidePaxInfo &pax=p->second;
           if (pax.prior_norms==pax.result_norms) continue;
+
+          TPaxNormMap::const_iterator i1=pax.prior_norms.begin();
+          TPaxNormMap::const_iterator i2=pax.result_norms.begin();
+          for(; i1!=pax.prior_norms.end() && i2!=pax.result_norms.end(); ++i1, ++i2)
+          {
+            if (i1->first!=i2->first ||
+                i1->second.bag_type!=i2->second.bag_type ||
+                i1->second.norm_id!=i2->second.norm_id) break;
+          };
+          if (i1==pax.prior_norms.end() && i2==pax.result_norms.end()) continue;
+
           if (/*client_type!=ctTerm &&*/ not_trfer_bag_simple.size()==1 && not_trfer_bag_simple.begin()->first==NoExists &&
               pax.prior_norms.empty() && pax.result_norms.size()==1 && pax.result_norms.begin()->first==NoExists) continue;
 

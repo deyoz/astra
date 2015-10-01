@@ -3444,12 +3444,12 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TGroupBagItem &cu
   map< int/*id*/, TBagToLogInfo> curr2;
   for(map<int /*num*/, CheckIn::TBagItem>::const_iterator b=curr.bags.begin(); b!=curr.bags.end(); ++b)
   {
-    if (b->second.is_trfer)
+    if (b->second.is_trfer && !b->second.handmade)
       curr2.insert(make_pair(b->second.id, TBagToLogInfo(b->second)));
   };
   for(map< int/*id*/, TBagToLogInfo>::const_iterator b1=prev.bag.begin(); b1!=prev.bag.end(); ++b1)
   {
-    if (b1->second.is_trfer)
+    if (b1->second.is_trfer && !b1->second.handmade)
     {
       map< int/*id*/, TBagToLogInfo>::const_iterator b2=curr2.find(b1->first);
       if (b2==curr2.end() || !(b1->second==b2->second))
@@ -3812,8 +3812,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     for(map<int, CheckIn::TBagItem>::iterator b=inbound_group_bag.bags.begin();
                                               b!=inbound_group_bag.bags.end(); ++b)
     {
-      b->second.bag_type=99;
+      b->second.to_ramp=false;
       b->second.is_trfer=true;
+      b->second.handmade=false;
     };
     for(map<int, CheckIn::TTagItem>::iterator t=inbound_group_bag.tags.begin();
                                               t!=inbound_group_bag.tags.end(); ++t)
@@ -5206,10 +5207,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         if (!inbound_group_bag.empty())
         {
           inbound_group_bag.toDB(grp.id);
-          CheckIn::TPaidBagItem paidBagItem;
-          paidBagItem.bag_type=99;
-          paidBagItem.weight=0;
-          CheckIn::PaidBagToDB(grp.id, list<CheckIn::TPaidBagItem>(1, paidBagItem));
           if (grp.group_bag)
             showErrorMessage("MSG.CHECKIN.BAGGAGE_NOT_REGISTERED_DUE_INBOUND_TRFER");
         }
@@ -5263,14 +5260,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  SELECT :grp_id ,num,value,value_cur,NULL,NULL,NULL "
             "  FROM value_bag WHERE grp_id=:first_grp_id; "
             "  INSERT INTO bag2(grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num, "
-            "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,is_trfer) "
-            "  SELECT :grp_id,num,id,99,pr_cabin,amount,weight,value_bag_num, "
-            "    pr_liab_limit,0,using_scales,bag_pool_num,hall,user_id,1 "
+            "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,is_trfer,handmade) "
+            "  SELECT :grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num, "
+            "    pr_liab_limit,0,using_scales,bag_pool_num,hall,user_id,1,0 "
             "  FROM bag2 WHERE grp_id=:first_grp_id; "
-            "  IF SQL%FOUND THEN "
-            "    INSERT INTO paid_bag(grp_id,bag_type,weight,rate_id,rate_trfer) "
-            "    VALUES(:grp_id,99,0,NULL,NULL); "
-            "  END IF; "
             "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print) "
             "  SELECT :grp_id,num,tag_type,no,color,bag_num,pr_print "
             "  FROM bag_tags WHERE grp_id=:first_grp_id; "
@@ -5951,7 +5944,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       "SELECT points.airline,points.flt_no,points.suffix,points.airp,points.scd_out, "
       "       pax_grp.grp_id,pax_grp.point_dep,pax_grp.airp_dep,pax_grp.point_arv,pax_grp.airp_arv, "
       "       pax_grp.class,pax_grp.status,pax_grp.hall,pax_grp.bag_refuse,pax_grp.excess, "
-      "       pax_grp.trfer_confirm, 0 AS piece_concept, 0 AS bag_types_id, pax_grp.tid "
+      "       pax_grp.trfer_confirm, 0 AS piece_concept, MOD(pax_grp.grp_id,3) AS bag_types_id, pax_grp.tid "
       "FROM pax_grp,points "
       "WHERE pax_grp.point_dep=points.point_id AND grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,*grp_id);

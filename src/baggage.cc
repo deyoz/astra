@@ -114,7 +114,16 @@ const TBagItem& TBagItem::toXML(xmlNodePtr node) const
   NewTextChild(node,"pr_liab_limit",(int)pr_liab_limit);
   NewTextChild(node,"to_ramp",(int)to_ramp);
   NewTextChild(node,"using_scales",(int)using_scales);
-  NewTextChild(node,"is_trfer",(int)is_trfer);
+  if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+  {
+    NewTextChild(node,"is_trfer",(int)is_trfer);
+    NewTextChild(node,"handmade_trfer", (int)(is_trfer && handmade), (int)false);
+  }
+  else
+  {
+    if (is_trfer) ReplaceTextChild(node,"bag_type",99);
+    NewTextChild(node,"is_trfer",(int)(is_trfer && !handmade));
+  };
   if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
     NewTextChild(node,"bag_pool_num",bag_pool_num);
   return *this;
@@ -144,6 +153,11 @@ TBagItem& TBagItem::fromXML(xmlNodePtr node)
 
   if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
     is_trfer=NodeAsIntegerFast("is_trfer",node2)!=0;
+  else
+  {
+    is_trfer=(bag_type==99);
+    if (bag_type==99) bag_type=ASTRA::NoExists;
+  };
 
   if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
     bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
@@ -183,6 +197,7 @@ const TBagItem& TBagItem::toDB(TQuery &Qry) const
   else
     Qry.SetVariable("user_id",FNull);
   Qry.SetVariable("is_trfer",(int)is_trfer);
+  Qry.SetVariable("handmade",(int)handmade);
   return *this;
 };
 
@@ -207,6 +222,19 @@ TBagItem& TBagItem::fromDB(TQuery &Qry)
   if (!Qry.FieldIsNULL("user_id"))
     user_id=Qry.FieldAsInteger("user_id");
   is_trfer=Qry.FieldAsInteger("is_trfer")!=0;
+  if (Qry.FieldIsNULL("handmade"))
+  {
+    //переходный момент  потом удалить!!!vlad
+    if (bag_type==99)
+    {
+      //это трансферный багаж
+      bag_type=ASTRA::NoExists;
+      handmade=!is_trfer;
+      is_trfer=true;
+    }
+    else handmade=true;
+  }
+  else handmade=Qry.FieldAsInteger("handmade")!=0;
   return *this;
 };
 
@@ -764,6 +792,7 @@ void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
         "       bag2.hall, "
         "       bag2.user_id, "
         "       bag2.is_trfer, "
+        "       bag2.handmade, "
         "       ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse) AS refused "
         "FROM pax_grp,bag2 "
         "WHERE pax_grp.grp_id=bag2.grp_id AND bag2.grp_id=:grp_id FOR UPDATE";
@@ -853,7 +882,9 @@ void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
               else
                 nb->second.using_scales=false;
             };
-            nb->second.is_trfer=ob->second.is_trfer;
+            if (!reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
+              nb->second.is_trfer=ob->second.is_trfer;
+            nb->second.handmade=ob->second.handmade;
           }
           else
           {
@@ -885,7 +916,9 @@ void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
           if (!reqInfo->desk.compatible(USING_SCALES_VERSION))
             //так как ob->second.weight==nb->second.weight, то смело сохраняем старый using_scales
             nb->second.using_scales=ob->second.using_scales;
-          nb->second.is_trfer=ob->second.is_trfer;
+          if (!reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
+            nb->second.is_trfer=ob->second.is_trfer;
+          nb->second.handmade=ob->second.handmade;
           ++ob;
         }
         else
@@ -936,9 +969,9 @@ void TGroupBagItem::toDB(int grp_id) const
     "    SELECT cycle_id__seq.nextval INTO :id FROM dual; "
     "  END IF; "
     "  INSERT INTO bag2 (grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num, "
-    "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,is_trfer) "
+    "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,is_trfer,handmade) "
     "  VALUES (:grp_id,:num,:id,:bag_type,:pr_cabin,:amount,:weight,:value_bag_num, "
-    "    :pr_liab_limit,:to_ramp,:using_scales,:bag_pool_num,:hall,:user_id,:is_trfer); "
+    "    :pr_liab_limit,:to_ramp,:using_scales,:bag_pool_num,:hall,:user_id,:is_trfer,:handmade); "
     "END;";
   BagQry.DeclareVariable("num",otInteger);
   BagQry.DeclareVariable("id",otInteger);
@@ -954,6 +987,7 @@ void TGroupBagItem::toDB(int grp_id) const
   BagQry.DeclareVariable("hall",otInteger);
   BagQry.DeclareVariable("user_id",otInteger);
   BagQry.DeclareVariable("is_trfer",otInteger);
+  BagQry.DeclareVariable("handmade",otInteger);
   for(map<int, TBagItem>::const_iterator nb=bags.begin();nb!=bags.end();++nb)
   {
     nb->second.toDB(BagQry);
@@ -1359,6 +1393,10 @@ const TPaxNormItem& TPaxNormItem::toDB(TQuery &Qry) const
     Qry.SetVariable("norm_id",FNull);
     Qry.SetVariable("norm_trfer",FNull);
   };
+  if (handmade!=ASTRA::NoExists)
+    Qry.SetVariable("handmade",handmade);
+  else
+    Qry.SetVariable("handmade",FNull);
   return *this;
 };
 
@@ -1372,6 +1410,7 @@ TPaxNormItem& TPaxNormItem::fromDB(TQuery &Qry)
     norm_id=Qry.FieldAsInteger("norm_id");
     norm_trfer=Qry.FieldAsInteger("norm_trfer")!=0;
   };
+  handmade=(int)(Qry.FieldAsInteger("handmade")!=0);
   return *this;
 };
 

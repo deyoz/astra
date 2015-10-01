@@ -108,7 +108,7 @@ class TBagToLogInfo
   public:
     int id, pr_cabin, amount, weight;
     int bag_type;
-    bool using_scales, is_trfer;
+    bool using_scales, is_trfer, handmade;
     bool refused; //дополнительный признак, символизирующий что багаж принадлежит разрег. пассажирам
                   //не относится непосредственно к информации по багажу
     void clear()
@@ -120,6 +120,7 @@ class TBagToLogInfo
       bag_type=ASTRA::NoExists;
       using_scales=false;
       is_trfer=false;
+      handmade=true;
       refused=false;
     };
     bool operator == (const TBagToLogInfo &item) const
@@ -130,7 +131,8 @@ class TBagToLogInfo
              weight == item.weight &&
              bag_type == item.bag_type &&
              using_scales == item.using_scales &&
-             is_trfer == item.is_trfer;
+             is_trfer == item.is_trfer &&
+             handmade == item.handmade;
     };
     TBagToLogInfo()
     {
@@ -145,6 +147,7 @@ class TBagToLogInfo
       bag_type = bagItem.bag_type;
       using_scales = bagItem.using_scales;
       is_trfer = bagItem.is_trfer;
+      handmade = bagItem.handmade;
       refused=false;
     };
 };

@@ -54,6 +54,7 @@ class TBagItem
     bool pr_liab_limit, to_ramp;  //для new_bag
     bool using_scales;
     bool is_trfer;
+    bool handmade;
     TBagItem()
     {
       clear();
@@ -74,6 +75,7 @@ class TBagItem
       to_ramp=false;
       using_scales=false;
       is_trfer=false;
+      handmade=true;
     };
     const TBagItem& toXML(xmlNodePtr node) const;
     TBagItem& fromXML(xmlNodePtr node);
@@ -209,6 +211,7 @@ class TPaxNormItem
     int bag_type;
     int norm_id;
     bool norm_trfer;
+    int handmade;
   TPaxNormItem()
   {
     clear();
@@ -218,6 +221,7 @@ class TPaxNormItem
     bag_type=ASTRA::NoExists;
     norm_id=ASTRA::NoExists;
     norm_trfer=false;
+    handmade=ASTRA::NoExists;
   };
   bool empty() const
   {

@@ -266,7 +266,7 @@ void GetBagToLogInfo(int grp_id, map<int/*id*/, TBagToLogInfo> &bag)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT id, bag_type, pr_cabin, amount, weight, using_scales, is_trfer, "
+    "SELECT id, bag_type, pr_cabin, amount, weight, using_scales, is_trfer, handmade, "
     "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) AS refused "
     "FROM pax_grp,bag2 "
     "WHERE pax_grp.grp_id=bag2.grp_id AND "
@@ -284,6 +284,19 @@ void GetBagToLogInfo(int grp_id, map<int/*id*/, TBagToLogInfo> &bag)
     bagInfo.bag_type=Qry.FieldIsNULL("bag_type")?ASTRA::NoExists:Qry.FieldAsInteger("bag_type");
     bagInfo.using_scales=Qry.FieldAsInteger("using_scales")!=0;
     bagInfo.is_trfer=Qry.FieldAsInteger("is_trfer")!=0;
+    if (Qry.FieldIsNULL("handmade"))
+    {
+      //переходный момент  потом удалить!!!vlad
+      if (bagInfo.bag_type==99)
+      {
+        //это трансферный багаж
+        bagInfo.bag_type=ASTRA::NoExists;
+        bagInfo.handmade=!bagInfo.is_trfer;
+        bagInfo.is_trfer=true;
+      }
+      else bagInfo.handmade=true;
+    }
+    else bagInfo.handmade=Qry.FieldAsInteger("handmade")!=0;
     bagInfo.refused=Qry.FieldAsInteger("refused")!=0;
     bag[bagInfo.id]=bagInfo;
   };

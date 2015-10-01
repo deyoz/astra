@@ -1852,14 +1852,14 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                                 << (i==0?" AS class":"");
           if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,pax_grp.class_grp)"
                                 << (i==0?" AS class_grp":"");
-          if (pr_hall)        s << ", NVL(bag2.hall, DECODE(bag2.is_trfer, 0, bag2.hall, 1000000000))"
+          if (pr_hall)        s << ", NVL(bag2.hall, DECODE(bag2.is_trfer, 0, bag2.hall, DECODE(NVL(bag2.handmade,0), 0, 1000000000, bag2.hall)))"
                                 << (i==0?" AS hall":"");
           if (pr_airp_arv)    s << ", pax_grp.point_arv";
           if (pr_trfer)       s << ", last_trfer.airline"
                                 << ", last_trfer.flt_no"
                                 << ", last_trfer.suffix"
                                 << ", last_trfer.airp_arv";
-          if (pr_user)        s << ", NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, bag2.user_id, 1000000000))"
+          if (pr_user)        s << ", NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, bag2.user_id, DECODE(NVL(bag2.handmade,0), 0, 1000000000, bag2.user_id))"
                                 << (i==0?" AS user_id":"");
           if (pr_client_type) s << ", pax_grp.client_type";
           if (pr_status)      s << ", pax_grp.status";
@@ -1890,14 +1890,14 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                                 << (i==0?" AS class":"");
           if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,pax_grp.class_grp)"
                                 << (i==0?" AS class_grp":"");
-          if (pr_hall)        s << ", DECODE(bag2.grp_id, NULL, pax_grp.hall, NVL(bag2.hall, DECODE(bag2.is_trfer, 0, pax_grp.hall, 1000000000)))"
+          if (pr_hall)        s << ", DECODE(bag2.grp_id, NULL, pax_grp.hall, NVL(bag2.hall, DECODE(bag2.is_trfer, 0, pax_grp.hall, DECODE(NVL(bag2.handmade,0), 0, 1000000000, pax_grp.hall))))"
                                 << (i==0?" AS hall":"");
           if (pr_airp_arv)    s << ", pax_grp.point_arv";
           if (pr_trfer)       s << ", last_trfer.airline"
                                 << ", last_trfer.flt_no"
                                 << ", last_trfer.suffix"
                                 << ", last_trfer.airp_arv";
-          if (pr_user)        s << ", DECODE(bag2.grp_id, NULL, pax_grp.user_id, NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, pax_grp.user_id, 1000000000)))"
+          if (pr_user)        s << ", DECODE(bag2.grp_id, NULL, pax_grp.user_id, NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, pax_grp.user_id, DECODE(NVL(bag2.handmade,0), 0, 1000000000, pax_grp.user_id))))"
                                 << (i==0?" AS user_id":"");
           if (pr_client_type) s << ", pax_grp.client_type";
           if (pr_status)      s << ", pax_grp.status";
@@ -1911,7 +1911,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                           << last_trfer_sql.str() << endl;
 
         if (pr_hall || pr_user)
-          sql << "    ,(SELECT bag2.grp_id,bag2.hall,bag2.user_id,bag2.is_trfer " << endl
+          sql << "    ,(SELECT bag2.grp_id,bag2.hall,bag2.user_id,bag2.is_trfer,bag2.handmade " << endl
               << "     FROM bag2, " << endl
               << "          (SELECT bag2.grp_id,MAX(bag2.num) AS num " << endl
               << "           FROM pax_grp,bag2 " << endl

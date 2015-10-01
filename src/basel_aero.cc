@@ -67,31 +67,31 @@ bool is_sync_basel_pax( const TTripInfo &tripInfo )
 }
 
 struct TBaselStat {
-	TDateTime viewDate;
-	string viewFlight;
-	string viewName;
-	int viewGroup;
-	int viewPCT;
-	int viewWeight;
-	int viewCarryon;
-	int viewPayWeight;
-	string viewTag;
-	string viewUncheckin;
-	string viewStatus;
-	int viewCheckinNo;
-	string viewStation;
-	string viewClientType;
-	TDateTime viewCheckinTime;
-	TDateTime viewChekinDuration;
+    TDateTime viewDate;
+    string viewFlight;
+    string viewName;
+    int viewGroup;
+    int viewPCT;
+    int viewWeight;
+    int viewCarryon;
+    int viewPayWeight;
+    string viewTag;
+    string viewUncheckin;
+    string viewStatus;
+    int viewCheckinNo;
+    string viewStation;
+    string viewClientType;
+    TDateTime viewCheckinTime;
+    TDateTime viewChekinDuration;
   TDateTime viewBoardingTime;
-	TDateTime viewDeparturePlanTime;
-	TDateTime viewDepartureRealTime;
-	string viewBagNorms;
-	string viewPCTWeightPaidByType;
-	string viewClass;
-	int point_id;
-	string airp;
-	int pax_id;
+    TDateTime viewDeparturePlanTime;
+    TDateTime viewDepartureRealTime;
+    string viewBagNorms;
+    string viewPCTWeightPaidByType;
+    string viewClass;
+    int point_id;
+    string airp;
+    int pax_id;
 };
 
 
@@ -102,7 +102,7 @@ void read_basel_aero_stat( const string &airp, ofstream &f );
 void sych_basel_aero_stat( BASIC::TDateTime utcdate )
 {
   TQuery Qry(&OraSession);
-	Qry.SQLText =
+    Qry.SQLText =
     "SELECT points.point_id, NVL(act_out,NVL(est_out,scd_out)) real_time FROM points, trip_sets "
     "WHERE points.point_id=trip_sets.point_id AND points.time_out<=:vdate AND "
     "      pr_del=0 AND airp=:airp AND trip_sets.pr_basel_stat=0 AND pr_reg<>0";
@@ -163,11 +163,11 @@ void sych_basel_aero_stat( BASIC::TDateTime utcdate )
         continue;
       }
       stats.clear();
-      
-		  TFlights  flights;
-		  flights.Get( Qry.FieldAsInteger( "point_id" ), ftTranzit );
-		  flights.Lock(); //лочим весь транзитный рейс
-		  
+
+          TFlights  flights;
+          flights.Get( Qry.FieldAsInteger( "point_id" ), ftTranzit );
+          flights.Lock(); //лочим весь транзитный рейс
+
       TripSetsQry.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
       TripSetsQry.Execute(); //лочим рейс
       get_basel_aero_flight_stat( ASTRA::NoExists, Qry.FieldAsInteger( "point_id" ), stats );
@@ -245,8 +245,8 @@ void write_basel_aero_stat( BASIC::TDateTime time_create, const std::vector<TBas
   Qry.DeclareVariable( "airp", otString );
   Qry.DeclareVariable( "pax_id", otInteger );
   Qry.CreateVariable( "time_create", otDate, time_create );
-  
-  
+
+
   for ( std::vector<TBaselStat>::const_iterator i=stats.begin(); i!=stats.end(); i++ ) {
     Qry.SetVariable( "viewdate", i->viewDate == NoExists?FNull:i->viewDate );
     Qry.SetVariable( "viewflight", i->viewFlight );
@@ -420,14 +420,14 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
   if (part_key!=NoExists)
   {
     PaxNormQry.SQLText=
-      "SELECT arx_pax_norms.bag_type, arx_pax_norms.norm_id, arx_pax_norms.norm_trfer, "
+      "SELECT arx_pax_norms.bag_type, arx_pax_norms.norm_id, arx_pax_norms.norm_trfer, arx_pax_norms.handmade, "
       "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
       "FROM arx_pax_norms,bag_norms "
       "WHERE arx_pax_norms.norm_id=bag_norms.id(+) AND "
       "      arx_pax_norms.part_key=:part_key AND "
       "      arx_pax_norms.pax_id=:pax_id "
       "UNION "
-      "SELECT arx_pax_norms.bag_type, arx_pax_norms.norm_id, arx_pax_norms.norm_trfer, "
+      "SELECT arx_pax_norms.bag_type, arx_pax_norms.norm_id, arx_pax_norms.norm_trfer, arx_pax_norms.handmade, "
       "       arx_bag_norms.norm_type, arx_bag_norms.amount, arx_bag_norms.weight, arx_bag_norms.per_unit "
       "FROM arx_pax_norms,arx_bag_norms "
       "WHERE arx_pax_norms.norm_id=arx_bag_norms.id(+) AND "
@@ -437,14 +437,14 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
     PaxNormQry.CreateVariable("part_key", otDate, part_key);
 
     GrpNormQry.SQLText=
-      "SELECT arx_grp_norms.bag_type, arx_grp_norms.norm_id, arx_grp_norms.norm_trfer, "
+      "SELECT arx_grp_norms.bag_type, arx_grp_norms.norm_id, arx_grp_norms.norm_trfer, arx_grp_norms.handmade, "
       "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
       "FROM arx_grp_norms,bag_norms "
       "WHERE arx_grp_norms.norm_id=bag_norms.id(+) AND "
       "      arx_grp_norms.part_key=:part_key AND "
       "      arx_grp_norms.grp_id=:grp_id "
       "UNION "
-      "SELECT arx_grp_norms.bag_type, arx_grp_norms.norm_id, arx_grp_norms.norm_trfer, "
+      "SELECT arx_grp_norms.bag_type, arx_grp_norms.norm_id, arx_grp_norms.norm_trfer, arx_grp_norms.handmade, "
       "       arx_bag_norms.norm_type, arx_bag_norms.amount, arx_bag_norms.weight, arx_bag_norms.per_unit "
       "FROM arx_grp_norms,arx_bag_norms "
       "WHERE arx_grp_norms.norm_id=arx_bag_norms.id(+) AND "
@@ -473,13 +473,13 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
   else
   {
     PaxNormQry.SQLText=
-      "SELECT pax_norms.bag_type, pax_norms.norm_id, pax_norms.norm_trfer, "
+      "SELECT pax_norms.bag_type, pax_norms.norm_id, pax_norms.norm_trfer, pax_norms.handmade, "
       "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
       "FROM pax_norms,bag_norms "
       "WHERE pax_norms.norm_id=bag_norms.id(+) AND pax_norms.pax_id=:pax_id ";
 
     GrpNormQry.SQLText=
-      "SELECT grp_norms.bag_type, grp_norms.norm_id, grp_norms.norm_trfer, "
+      "SELECT grp_norms.bag_type, grp_norms.norm_id, grp_norms.norm_trfer, grp_norms.handmade, "
       "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
       "FROM grp_norms,bag_norms "
       "WHERE grp_norms.norm_id=bag_norms.id(+) AND grp_norms.grp_id=:grp_id ";
