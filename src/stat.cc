@@ -1876,6 +1876,11 @@ string GetStatSQLText(const TStatParams &params, int pass)
         " SUM(DECODE(client_type, :mobile, term_bp, 0)) mobile_bp, \n"
         " SUM(DECODE(client_type, :mobile, term_bag, 0)) mobile_bag \n";
 
+    static const string sum_pax_by_class =
+        " sum(f) f, \n"
+        " sum(c) c, \n"
+        " sum(y) y, \n";
+
   ostringstream sql;
   sql << "SELECT \n";
 
@@ -1906,6 +1911,7 @@ string GetStatSQLText(const TStatParams &params, int pass)
       sql << " stat.part_key, \n";
     sql << " stat.point_id, \n"
            " SUM(adult + child + baby) pax_amount, \n" <<
+           sum_pax_by_class <<
            sum_pax_by_client_type <<
            ", SUM(adult) adult, \n"
            " SUM(child) child, \n"
@@ -1923,6 +1929,7 @@ string GetStatSQLText(const TStatParams &params, int pass)
       sql << " points.airline, \n";
     sql << " COUNT(distinct stat.point_id) flt_amount, \n"
            " SUM(adult + child + baby) pax_amount, \n" <<
+           sum_pax_by_class <<
            sum_pax_by_client_type;
   };
   if (params.statType==statDetail)
@@ -1931,6 +1938,7 @@ string GetStatSQLText(const TStatParams &params, int pass)
            " points.airline, \n"
            " COUNT(distinct stat.point_id) flt_amount, \n"
            " SUM(adult + child + baby) pax_amount, \n" <<
+           sum_pax_by_class <<
            sum_pax_by_client_type;
   };
   sql << "FROM \n";
@@ -2360,17 +2368,22 @@ struct TInetStat {
 
 struct TDetailStatRow {
     int flt_amount, pax_amount;
+    int f, c, y;
     TInetStat i_stat;
     set<int> flts;
     TDetailStatRow():
         flt_amount(0),
-        pax_amount(0)
+        pax_amount(0),
+        f(0), c(0), y(0)
     {};
     bool operator == (const TDetailStatRow &item) const
     {
         return flt_amount == item.flt_amount &&
                pax_amount == item.pax_amount &&
                i_stat == item.i_stat &&
+               f == item.f &&
+               c == item.c &&
+               y == item.y &&
                flts.size() == item.flts.size();
     };
     void operator += (const TDetailStatRow &item)
@@ -2378,6 +2391,9 @@ struct TDetailStatRow {
         flt_amount += item.flt_amount;
         pax_amount += item.pax_amount;
         i_stat += item.i_stat;
+        f += item.f;
+        c += item.c;
+        y += item.y;
         flts.insert(item.flts.begin(),item.flts.end());
     };
 };
@@ -2607,6 +2623,9 @@ void GetDetailStat(const TStatParams &params, TQuery &Qry,
     row.i_stat.mobile = Qry.FieldAsInteger("mobile");
     row.i_stat.mobile_bag = Qry.FieldAsInteger("mobile_bag");
     row.i_stat.mobile_bp = Qry.FieldAsInteger("mobile_bp");
+    row.f = Qry.FieldAsInteger("f");
+    row.c = Qry.FieldAsInteger("c");
+    row.y = Qry.FieldAsInteger("y");
 
     if (!params.skip_rows)
     {
@@ -2881,6 +2900,10 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
               NewTextChild(rowNode, "col", si->first.pact_descr);
           NewTextChild(rowNode, "col", si->second.pax_amount);
           if(params.statType != statPactShort) {
+              NewTextChild(rowNode, "col", si->second.f);
+              NewTextChild(rowNode, "col", si->second.c);
+              NewTextChild(rowNode, "col", si->second.y);
+
               NewTextChild(rowNode, "col", si->second.i_stat.web);
               NewTextChild(rowNode, "col", si->second.i_stat.web_bag);
               NewTextChild(rowNode, "col", si->second.i_stat.web_bp);
@@ -2959,8 +2982,27 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.pax_amount);
 
-    if(params.statType != statPactShort)
+    if(params.statType != statPactShort) {
+        colNode = NewTextChild(headerNode, "col", getLocaleText("è"));
+        SetProp(colNode, "width", 30);
+        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
+        NewTextChild(rowNode, "col", total.pax_amount);
+
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Å"));
+        SetProp(colNode, "width", 30);
+        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
+        NewTextChild(rowNode, "col", total.pax_amount);
+
+        colNode = NewTextChild(headerNode, "col", getLocaleText("ù"));
+        SetProp(colNode, "width", 30);
+        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
+        NewTextChild(rowNode, "col", total.pax_amount);
+
         total.i_stat.toXML(headerNode, rowNode);
+    }
 
     if(pr_pact and params.statType != statPactShort)
     {
@@ -3274,6 +3316,7 @@ void RunPactDetailStat(const TStatParams &params,
             " baby, \n"
             " term_bp, \n"
             " term_bag, \n"
+            " f, c, y, \n"
             " client_type \n"
             "FROM \n";
         if (pass!=0)
@@ -3333,6 +3376,9 @@ void RunPactDetailStat(const TStatParams &params,
             int col_baby = Qry.FieldIndex("baby");
             int col_term_bp = Qry.FieldIndex("term_bp");
             int col_term_bag = Qry.FieldIndex("term_bag");
+            int col_f = Qry.FieldIndex("f");
+            int col_c = Qry.FieldIndex("c");
+            int col_y = Qry.FieldIndex("y");
             int col_client_type = Qry.FieldIndex("client_type");
             for(; not Qry.Eof; Qry.Next())
             {
@@ -3348,6 +3394,10 @@ void RunPactDetailStat(const TStatParams &params,
                 row.i_stat.web = (client_type == ctWeb ? pax_amount : 0);
                 row.i_stat.kiosk = (client_type == ctKiosk ? pax_amount : 0);
                 row.i_stat.mobile = (client_type == ctMobile ? pax_amount : 0);
+
+                row.f = Qry.FieldAsInteger(col_f);
+                row.c = Qry.FieldAsInteger(col_c);
+                row.y = Qry.FieldAsInteger(col_y);
 
                 int term_bp = Qry.FieldAsInteger(col_term_bp);
                 int term_bag = Qry.FieldAsInteger(col_term_bag);
