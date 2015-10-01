@@ -3021,38 +3021,27 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   NewTextChild( n, "table_name", table_name );
   TQuery Qry(&OraSession);
   if ( tid != ASTRA::NoExists ) {
-    if ( table_name == "pax_doc_countries_ext" ) {
-      Qry.SQLText =
-        string("SELECT tid FROM pax_doc_countries WHERE tid>:tid AND rownum<2"
-               "UNION "
-               "SELECT c.tid FROM countries c, pax_doc_countries p "
-               " WHERE p.country=c.code AND c.tid>:tid AND rownum<2");
-    }
-    else {
-      Qry.SQLText =
-        string("SELECT tid FROM ")  + table_name + " WHERE tid>:tid AND rownum<2";
-    }
-    Qry.CreateVariable( "tid", otInteger, tid );
-    Qry.Execute();
-    if ( Qry.Eof ) {
-      NewTextChild( n, "tid", tid );
-      return;
-    }
-    tid = ASTRA::NoExists;
+    Qry.SQLText =
+      string("SELECT tid FROM ")  + table_name + " WHERE tid>:tid AND rownum<2";
   }
+  Qry.CreateVariable( "tid", otInteger, tid );
+  Qry.Execute();
+  if ( Qry.Eof ) {
+    NewTextChild( n, "tid", tid );
+    return;
+  }
+  tid = ASTRA::NoExists;
   Qry.Clear();
   string sql;
   if ( table_name == "pax_doc_countries_ext" ) {
     sql =
-      "SELECT code,code code_lat,name,name_lat,pr_del,tid FROM pax_doc_countries "
-      "UNION "
-      "SELECT c.code,c.code_lat,c.name,c.name_lat,c.pr_del,c.tid FROM countries c, pax_doc_countries p"
-      " WHERE p.country=c.code "
+      "SELECT p.code,p.code code_lat,p.name,p.name_lat,p.country,c.code_lat country_lat,p.pr_del,p.tid FROM pax_doc_countries p, countries c "
+      "WHERE p.country=c.code(+) AND p.pr_del=0 "
       "ORDER BY code";
   }
   else {
     sql =
-      "SELECT id,code,code code_lat,name,name_lat,pr_del,tid FROM " + table_name + " ORDER BY code";
+      "SELECT id,code,code code_lat,name,name_lat,pr_del,tid FROM " + table_name + " WHERE p.pr_del=0 ORDER BY code";
   }
   Qry.SQLText = sql;
   Qry.Execute();
