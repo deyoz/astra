@@ -2227,7 +2227,8 @@ void TStatParams::get(xmlNodePtr reqNode)
 
     bool all_seances_permit = info.user.access.rights().permitted(615);
 
-    if (info.desk.compatible(AIRL_AIRP_STAT_VERSION))
+    if (info.desk.compatible(AIRL_AIRP_STAT_VERSION) or
+        info.client_type==ctHTTP)
     {
         if (info.user.user_type != utSupport && !all_seances_permit)
         {
