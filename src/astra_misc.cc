@@ -49,11 +49,11 @@ string GetTripDate( const TTripInfo &info, const string &separator, const bool a
   TReqInfo *reqInfo = TReqInfo::Instance();
   TDateTime scd_out_client, real_out_client, desk_time;
   modf(reqInfo->desk.time,&desk_time);
-  
+
   info.get_client_dates(scd_out_client, real_out_client);
-  
+
   ostringstream date;
-  
+
   if (desk_time!=real_out_client)
   {
     if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(real_out_client,"mm"))
@@ -69,7 +69,7 @@ string GetTripDate( const TTripInfo &info, const string &separator, const bool a
     else
       date << "(" << DateTimeToStr(scd_out_client,"dd.mm") << ")";
   };
-    
+
   return date.str();
 };
 
@@ -96,12 +96,11 @@ string GetTripName( const TTripInfo &info, TElemContext ctxt, bool showAirp, boo
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (!(reqInfo->user.user_type==utAirport &&
-        reqInfo->user.access.airps_permit &&
-        reqInfo->user.access.airps.size()==1)||showAirp) {
+        reqInfo->user.access.airps().only_single_permit())||showAirp) {
    if ( ctxt == ecNone)
      trip << " " << info.airp;
    else
-   	 trip << " " << ElemIdToElemCtxt(ctxt, etAirp, info.airp, info.airp_fmt);
+     trip << " " << ElemIdToElemCtxt(ctxt, etAirp, info.airp, info.airp_fmt);
   }
   if(info.pr_del != ASTRA::NoExists and info.pr_del != 0) {
       trip << " " << (info.pr_del < 0 ? string("(")+AstraLocale::getLocaleText("удл.")+")" : string("(")+AstraLocale::getLocaleText("отм.")+")");
@@ -349,7 +348,7 @@ void TTripRoute::GetRoute(TDateTime part_key,
   else
     sql << "SELECT point_id,point_num,airp,pr_del "
         << "FROM points ";
-    
+
   if (after_current)
   {
     if (route_type1==trtWithCurrent)
@@ -372,7 +371,7 @@ void TTripRoute::GetRoute(TDateTime part_key,
     sql << "AND pr_del>=0 ";
   else
     sql << "AND pr_del=0 ";
-    
+
   if (part_key!=NoExists)
     sql << "AND part_key=:part_key ";
 
@@ -627,7 +626,7 @@ bool TTrferRoute::GetRoute(int grp_id,
     item.operFlt.real_out=UTCToLocal(item.operFlt.real_out, AirpTZRegion(item.operFlt.airp));
     item.airp_arv=Qry.FieldAsString("airp_arv");
   };
-  
+
   Qry.Clear();
   Qry.SQLText=
     "SELECT airline,airline_fmt,flt_no,suffix,suffix_fmt,scd AS scd_out, "
@@ -690,7 +689,7 @@ void TCkinRoute::GetRoute(int tckin_id,
     for(;!Qry.Eof;)
     {
       if (route_type2==crtOnlyDependent && !pr_depend) break;
-    
+
       TCkinRouteItem item;
       item.grp_id=Qry.FieldAsInteger("grp_id");
       item.point_dep=Qry.FieldAsInteger("point_dep");
@@ -699,11 +698,11 @@ void TCkinRoute::GetRoute(int tckin_id,
       item.airp_arv=Qry.FieldAsString("airp_arv");
       item.seg_no=Qry.FieldAsInteger("seg_no");
       item.operFlt.Init(Qry);
-      
+
       if (!after_current) pr_depend=Qry.FieldAsInteger("pr_depend")!=0;
 
       Qry.Next();
-      
+
       if (!Qry.Eof)
       {
         if (after_current) pr_depend=Qry.FieldAsInteger("pr_depend")!=0;
@@ -1083,7 +1082,7 @@ void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
     "WHERE tckin_pax_grp.grp_id=pax.grp_id AND tckin_id=:tckin_id "
     "ORDER BY seg_no ";
   Qry.DeclareVariable("tckin_id", otInteger);
-  
+
   TQuery UpdQry(&OraSession);
   UpdQry.Clear();
   UpdQry.SQLText=
@@ -1098,11 +1097,11 @@ void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
     UpdQry.CreateVariable("tid", otInteger, tid);
   else
     UpdQry.CreateVariable("tid", otInteger, FNull);
-  
+
   for(set<int>::const_iterator tckin_id=tckin_ids.begin(); tckin_id!=tckin_ids.end(); ++tckin_id)
   {
     if (*tckin_id==NoExists) continue;
-  
+
     Qry.SetVariable("tckin_id", *tckin_id);
     Qry.Execute();
     if (Qry.Eof) continue;
@@ -1166,16 +1165,16 @@ void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
 
 TPaxSeats::TPaxSeats( int point_id )
 {
-	pr_lat_seat = 1;
-	Qry = new TQuery( &OraSession );
-	Qry->SQLText =
-	  "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
-	Qry->CreateVariable( "point_id", otInteger, point_id );
-	Qry->Execute();
-	if ( !Qry->Eof )
-		pr_lat_seat = Qry->FieldAsInteger( "pr_lat_seat" );
-	Qry->Clear();
-	Qry->SQLText =
+    pr_lat_seat = 1;
+    Qry = new TQuery( &OraSession );
+    Qry->SQLText =
+      "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
+    Qry->CreateVariable( "point_id", otInteger, point_id );
+    Qry->Execute();
+    if ( !Qry->Eof )
+        pr_lat_seat = Qry->FieldAsInteger( "pr_lat_seat" );
+    Qry->Clear();
+    Qry->SQLText =
     "SELECT first_xname, first_yname, last_xname, last_yname "
     " FROM trip_comp_layers, grp_status_types "
     " WHERE trip_comp_layers.point_id=:point_id AND "
@@ -1189,21 +1188,21 @@ TPaxSeats::TPaxSeats( int point_id )
 std::string TPaxSeats::getSeats( int pax_id, const std::string format )
 {
   Qry->SetVariable( "pax_id", pax_id );
-	Qry->Execute();
-	vector<TSeatRange> ranges;
-	for(;!Qry->Eof;Qry->Next())
-	{
-	  ranges.push_back(TSeatRange(TSeat(Qry->FieldAsString("first_yname"),
+    Qry->Execute();
+    vector<TSeatRange> ranges;
+    for(;!Qry->Eof;Qry->Next())
+    {
+      ranges.push_back(TSeatRange(TSeat(Qry->FieldAsString("first_yname"),
                                       Qry->FieldAsString("first_xname")),
                                 TSeat(Qry->FieldAsString("last_yname"),
                                       Qry->FieldAsString("last_xname"))));
-	};
+    };
   return GetSeatRangeView(ranges, format, pr_lat_seat);
 }
 
 TPaxSeats::~TPaxSeats()
 {
-	delete Qry;
+    delete Qry;
 }
 
 void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo, bool return_scd_utc)
@@ -1354,8 +1353,8 @@ void GetCrsList(int point_id, std::vector<std::string> &crs)
 
 bool IsTrferInter(string airp_dep, string airp_arv, string &country)
 {
-	TBaseTable &baseairps = base_tables.get( "airps" );
-	TBaseTable &basecities = base_tables.get( "cities" );
+    TBaseTable &baseairps = base_tables.get( "airps" );
+    TBaseTable &basecities = base_tables.get( "cities" );
     string country_dep = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp_dep, true )).city)).country;
     string country_arv = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp_arv, true )).city)).country;
     country.clear();
@@ -1396,12 +1395,12 @@ string GetRouteAfterStr(TDateTime part_key,
   ostringstream result;
   TTripRoute route;
   route.GetRouteAfter(part_key, point_id, route_type1, trtWithCancelled);
-  
+
   std::string language = lang;
 
   if (lang.empty())
       language = TReqInfo::Instance()->desk.lang;
-  
+
   for(TTripRoute::iterator r = route.begin(); r != route.end(); r++)
   {
     if (r->point_id!=point_id && route_type2==trtNotCancelled && r->pr_cancel) continue;
@@ -1413,7 +1412,7 @@ string GetRouteAfterStr(TDateTime part_key,
       city=base_tables.get("airps").get_row("code",r->airp).AsString("city");
     }
     catch (EBaseTableError) {};
-      
+
     if (!city.empty())
       result << ElemIdToPrefferedElem(etCity, city, efmtNameLong, language, true)
              << "(" << ElemIdToPrefferedElem(etAirp, r->airp, efmtCodeNative, language, true) << ")";
@@ -1444,7 +1443,7 @@ void GetTagRanges(const multiset<TBagTagNumber> &tags,
       curr_no=fmod(iTag->numeric_part, 1000.0);
       modf(iTag->numeric_part/1000.0,&curr_pack);
     };
-     
+
     if (iTag==tags.end() ||
         first_alpha_part!=curr_alpha_part||
         first_pack!=curr_pack||
@@ -1458,9 +1457,9 @@ void GetTagRanges(const multiset<TBagTagNumber> &tags,
         range << "-"
               << setw(3)  << setfill('0')
               << (first_no+num-1);
-              
+
       ranges.push_back(range.str());
-      
+
       if (iTag==tags.end()) break;
       first_alpha_part=curr_alpha_part;
       first_no=curr_no;
@@ -1475,7 +1474,7 @@ void GetTagRanges(const multiset<TBagTagNumber> &tags,
 string GetTagRangesStr(const multiset<TBagTagNumber> &tags)
 {
   vector<string> ranges;
-  
+
   GetTagRanges(tags, ranges);
 
   ostringstream result;
@@ -1522,7 +1521,7 @@ string GetBagRcptStr(int grp_id, int pax_id)
 {
   TQuery Qry(&OraSession);
   Qry.CreateVariable("grp_id", otInteger, grp_id);
-  
+
   int main_pax_id=NoExists;
   if (pax_id!=NoExists)
   {
@@ -1544,7 +1543,7 @@ string GetBagRcptStr(int grp_id, int pax_id)
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
       rcpts.push_back(Qry.FieldAsString("no"));
-      
+
     Qry.SQLText="SELECT form_type,no FROM bag_receipts WHERE grp_id=:grp_id AND annul_date IS NULL";
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
@@ -1574,7 +1573,7 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
   vector< pair< double, string > > value_bag; //< value, value_cur >
   TQuery Qry(&OraSession);
   Qry.CreateVariable("grp_id", otInteger, grp_id);
-  
+
   Qry.SQLText="SELECT bag_type, weight FROM paid_bag WHERE grp_id=:grp_id AND weight>0";
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
@@ -1582,7 +1581,7 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
     int bag_type=Qry.FieldIsNULL("bag_type")?NoExists:Qry.FieldAsInteger("bag_type");
     paid_bag.push_back( make_pair(bag_type, Qry.FieldAsInteger("weight")) );
   };
-  
+
   Qry.SQLText=
     "SELECT DISTINCT value_bag.num, value_bag.value, value_bag.value_cur "
     "FROM pax_grp, value_bag, bag2 "
@@ -1598,9 +1597,9 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
     value_bag.push_back( make_pair(Qry.FieldAsFloat("value"), Qry.FieldAsString("value_cur")) );
   };
   if (value_bag_count!=NULL) *value_bag_count=value_bag.size();
-  
+
   if (paid_bag.empty() && value_bag.empty()) return true;
-  
+
   TQuery KitQry(&OraSession);
   KitQry.Clear();
   KitQry.SQLText=
@@ -1612,7 +1611,7 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
     "      bag_rcpt_kits.kit_id=:kit_id AND "
     "      bag_receipts.kit_id IS NULL";
   KitQry.DeclareVariable("kit_id", otInteger);
-    
+
   if (!paid_bag.empty())
   {
     map< int, int > rcpt_paid_bag;
@@ -1664,7 +1663,7 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
       else
         rcpt_paid_bag[bag_type]+=i->second.weight;
     };
-    
+
     for(vector< pair< int, int> >::const_iterator i=paid_bag.begin();i!=paid_bag.end();++i)
     {
       map< int, int >::const_iterator j=rcpt_paid_bag.find(i->first);
@@ -1672,7 +1671,7 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
       if (j->second<i->second) return false;
     };
   };
-  
+
   if (!value_bag.empty())
   {
     map< pair< double, string >, int > rcpt_value_bag;
@@ -1722,7 +1721,7 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
       j->second--;
     };
   };
-  
+
   return true;
 };
 

@@ -165,18 +165,18 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
    xmlNodePtr codeNode = GetNode( "codes", reqNode );
    if ( codeNode != NULL ) {
      if ( codeNode && !sendImages ) {
-   	   codeNode = GetNode( "code", codeNode );
+       codeNode = GetNode( "code", codeNode );
        std::vector<std::string> client_elem_codes;
        while ( codeNode && string((char*)codeNode->name) == "code" ) {
-       	 client_elem_codes.push_back( NodeAsString( codeNode ) );
-     	   codeNode = codeNode->next;
+         client_elem_codes.push_back( NodeAsString( codeNode ) );
+           codeNode = codeNode->next;
        }
        // надо убедиться что на клиенте есть все элементы сервера
        for ( std::vector<std::string>::iterator icode=server_elem_types.begin();
              icode!=server_elem_types.end(); icode++ ) {
          if ( find( client_elem_codes.begin(), client_elem_codes.end(), *icode ) == client_elem_codes.end() ) {
            sendImages = true;
-       	   break;
+           break;
          }
        }
      }
@@ -184,24 +184,24 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
    codeNode = GetNode( "files", reqNode );
    if ( codeNode != NULL ) {
      if ( codeNode && !sendImages ) {
-   	   codeNode = GetNode( "filename", codeNode );
+       codeNode = GetNode( "filename", codeNode );
        std::vector<std::string> client_elem_files;
        while ( codeNode && string((char*)codeNode->name) == "filename" ) {
-       	 client_elem_files.push_back( NodeAsString( codeNode ) );
-     	   codeNode = codeNode->next;
+         client_elem_files.push_back( NodeAsString( codeNode ) );
+           codeNode = codeNode->next;
        }
        // надо убедиться что на клиенте есть все элементы сервера
        for ( std::vector<std::string>::iterator icode=server_elem_files.begin();
              icode!=server_elem_files.end(); icode++ ) {
          if ( find( client_elem_files.begin(), client_elem_files.end(), *icode ) == client_elem_files.end() ) {
            sendImages = true;
-       	   break;
+           break;
          }
        }
      }
    }
    if ( sendImages ) {
-   	 SetProp( imagesNode, "sendimages", "true" );
+     SetProp( imagesNode, "sendimages", "true" );
    }
    /* пересылаем все данные */
    TCompElemType elem_type;
@@ -277,14 +277,14 @@ void ImagesInterface::GetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
 void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-	ImagesInterface::GetImages( reqNode, resNode );
-	TQuery Qry(&OraSession);
+    ImagesInterface::GetImages( reqNode, resNode );
+    TQuery Qry(&OraSession);
   Qry.SQLText = "SELECT code,color,figure FROM comp_layer_types";
   Qry.Execute();
   xmlNodePtr imagesNode = GetNode( "data/images", resNode );
   xmlNodePtr layersNode = GetNode( "layers_color", imagesNode );
   if ( !layersNode )
-  	layersNode = NewTextChild( imagesNode, "layers_color" );
+    layersNode = NewTextChild( imagesNode, "layers_color" );
   while ( !Qry.Eof ) {
       ASTRA::TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
       if ( !SALONS2::compatibleLayer( l ) ) {
@@ -292,62 +292,61 @@ void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
         continue;
       }
 
-			xmlNodePtr n = NewTextChild( layersNode, "layer", Qry.FieldAsString( "code" ) );
+            xmlNodePtr n = NewTextChild( layersNode, "layer", Qry.FieldAsString( "code" ) );
       if ( !Qry.FieldIsNULL( "color" ) )
-			  SetProp( n, "color", Qry.FieldAsString( "color" ) );
-			if ( !Qry.FieldIsNULL( "figure" ) )
-			  SetProp( n, "figure", Qry.FieldAsString( "figure" ) );
-  	Qry.Next();
+              SetProp( n, "color", Qry.FieldAsString( "color" ) );
+            if ( !Qry.FieldIsNULL( "figure" ) )
+              SetProp( n, "figure", Qry.FieldAsString( "figure" ) );
+    Qry.Next();
   }
 }
 
 void GetDrawWebTariff( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-	TReqInfo *reqInfo = TReqInfo::Instance();
-  if ( find( reqInfo->user.access.rights.begin(), reqInfo->user.access.rights.end(), 431) == reqInfo->user.access.rights.end() )
-  	return;
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if (!reqInfo->user.access.rights().permitted(431)) return;
 
-	xmlNodePtr tariffsNode = GetNode( "data", resNode );
-	if ( !tariffsNode ) {
-		tariffsNode = NewTextChild( resNode, "data" );
-	}
-	tariffsNode = GetNode( "data/images", resNode );
-	if ( !tariffsNode ) {
-		tariffsNode = NewTextChild( tariffsNode, "images" );
-	}
-	tariffsNode = NewTextChild( tariffsNode, "web_tariff_property" );
-	xmlNodePtr n = NewTextChild( tariffsNode, "tarif" );
-	SetProp( n, "color", "$00CECF00" );
-	SetProp( n, "figure", "rurect" );
+    xmlNodePtr tariffsNode = GetNode( "data", resNode );
+    if ( !tariffsNode ) {
+        tariffsNode = NewTextChild( resNode, "data" );
+    }
+    tariffsNode = GetNode( "data/images", resNode );
+    if ( !tariffsNode ) {
+        tariffsNode = NewTextChild( tariffsNode, "images" );
+    }
+    tariffsNode = NewTextChild( tariffsNode, "web_tariff_property" );
+    xmlNodePtr n = NewTextChild( tariffsNode, "tarif" );
+    SetProp( n, "color", "$00CECF00" );
+    SetProp( n, "figure", "rurect" );
   n = NewTextChild( tariffsNode, "tarif" );
-	SetProp( n, "color", "$004646FF" );
-	SetProp( n, "figure", "rurect" );
+    SetProp( n, "color", "$004646FF" );
+    SetProp( n, "figure", "rurect" );
   n = NewTextChild( tariffsNode, "tarif" );
-	SetProp( n, "color", "$000DCAA4" );
-	SetProp( n, "figure", "rurect" );
+    SetProp( n, "color", "$000DCAA4" );
+    SetProp( n, "figure", "rurect" );
   n = NewTextChild( tariffsNode, "tarif" );
-	SetProp( n, "color", "$00FF64FF" );
-	SetProp( n, "figure", "rurect" );
+    SetProp( n, "color", "$00FF64FF" );
+    SetProp( n, "figure", "rurect" );
   n = NewTextChild( tariffsNode, "tarif" );
-	SetProp( n, "color", "$00000000" );
-	SetProp( n, "figure", "rurect" );
+    SetProp( n, "color", "$00000000" );
+    SetProp( n, "figure", "rurect" );
   n = NewTextChild( tariffsNode, "tarif" );
-	SetProp( n, "color", "$001C66FF" );
-	SetProp( n, "figure", "rurect" );
+    SetProp( n, "color", "$001C66FF" );
+    SetProp( n, "figure", "rurect" );
   n = NewTextChild( tariffsNode, "tarif" );
-	SetProp( n, "color", "$00FD2D71" );
-	SetProp( n, "figure", "rurect" );
+    SetProp( n, "color", "$00FD2D71" );
+    SetProp( n, "figure", "rurect" );
 }
 
 void GetDataForDrawSalon( xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	GetDrawSalonProp( reqNode, resNode );
-	GetDrawWebTariff( reqNode, resNode );
+    GetDrawSalonProp( reqNode, resNode );
+    GetDrawWebTariff( reqNode, resNode );
 }
 
 void ImagesInterface::GetDrawSalonData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	GetDataForDrawSalon( reqNode, resNode );
+    GetDataForDrawSalon( reqNode, resNode );
 }
 
 void ImagesInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

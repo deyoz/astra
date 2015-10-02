@@ -26,7 +26,7 @@ using namespace EXCEPTIONS;
 #include "serverlib/query_runner.h"
 
 #define NICKNAME "DJEK"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 //using namespace ASTRA;

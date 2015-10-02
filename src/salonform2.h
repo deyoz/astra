@@ -19,7 +19,7 @@ public:
      evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::BaseComponFormWrite);//!!old terminal
      AddEvent("BaseComponFormWrite",evHandle);
      evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::BaseComponsRead);
-     AddEvent("BaseComponsRead",evHandle); //!!old terminal
+     AddEvent("BaseComponsRead",evHandle);
   };
   void ExistsRegPassenger(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void BaseComponFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -28,6 +28,9 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
 };
+
+bool showComponAirlineColumn();
+bool showComponAirpColumn();
 
 
 #endif /*_SALONFORM2_H_*/

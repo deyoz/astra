@@ -97,7 +97,7 @@ void TReqInfo::setPerform()
 
 void TReqInfo::clearPerform()
 {
-	execute_time = ptime( not_a_date_time );
+    execute_time = ptime( not_a_date_time );
 }
 
 void TReqInfo::Initialize( const std::string &city )
@@ -117,14 +117,13 @@ void TReqInfo::Initialize( const std::string &city )
   desk.city = city;
   desk.tz_region = Qry.FieldAsString( "tz_region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
-  user.access.airlines_permit=false;
-  user.access.airps_permit=false;
+  user.access.set_total_permit();
 };
 
 void TReqInfo::Initialize( TReqInfoInitData &InitData )
 {
-	if ( execute_time.is_not_a_date_time() )
-		setPerform();
+    if ( execute_time.is_not_a_date_time() )
+        setPerform();
   clear();
 
   duplicate=InitData.duplicate;
@@ -214,7 +213,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
   if ( !screen.pr_logon ||
        (!InitData.pr_web && !InitData.checkUserLogon) )
-  	return;
+    return;
   Qry.Clear();
   if ( InitData.pr_web ) {
     Qry.SQLText =
@@ -244,7 +243,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   };
 
   if ( Qry.FieldAsInteger( "pr_denial" ) == -1 )
-  	throw AstraLocale::UserException( "MSG.USER.DELETED");
+    throw AstraLocale::UserException( "MSG.USER.DELETED");
   if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
     throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED");
   user.user_id = Qry.FieldAsInteger( "user_id" );
@@ -265,7 +264,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
         throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
 
   if ( InitData.pr_web )
-  	client_type = DecodeClientType( Qry.FieldAsString( "client_type" ) );
+    client_type = DecodeClientType( Qry.FieldAsString( "client_type" ) );
   else
     client_type = ctTerm;
 
@@ -285,52 +284,37 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
       throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED_FROM_DESK", LParams() << LParam("desk", desk.code));
   };*/
 
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT DISTINCT role_rights.right_id "
-    "FROM user_roles,role_rights "
-    "WHERE user_roles.role_id=role_rights.role_id AND "
-    "      user_roles.user_id=:user_id ";
-  Qry.DeclareVariable( "user_id",otInteger );
-  Qry.SetVariable( "user_id", user.user_id );
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-    user.access.rights.insert(Qry.FieldAsInteger("right_id"));
-  Qry.Clear();
-  Qry.CreateVariable( "user_id", otInteger, user.user_id );
-  Qry.SQLText="SELECT airline FROM aro_airlines WHERE aro_id=:user_id";
-  for(Qry.Execute();!Qry.Eof;Qry.Next())
-    user.access.airlines.push_back(Qry.FieldAsString("airline"));
-  Qry.SQLText="SELECT airp FROM aro_airps WHERE aro_id=:user_id";
-  for(Qry.Execute();!Qry.Eof;Qry.Next())
-    user.access.airps.push_back(Qry.FieldAsString("airp"));
-  if (user.access.airlines.empty() &&
-      (user.user_type==utSupport||
-       user.user_type==utAirport)) user.access.airlines_permit=false;
-  if (user.access.airps.empty() &&
-      (user.user_type==utSupport||
-       user.user_type==utAirline)) user.access.airps_permit=false;
+  user.access.fromDB(user.user_id, user.user_type);
+
+  TAccessElems<std::string> airlines;
+  TAccessElems<std::string> airps;
+  vector<string> elems;
 
   //проверим ограничение доступа по сессии
-  vector<string> airlines, airps;
-  SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("session_airlines"),'/',airlines);
-
-  if (!airlines.empty())
-    MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,true);
+  SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("session_airlines"),'/',elems);
+  airlines.clear();
+  airlines.set_elems_permit(!elems.empty());
+  for(vector<string>::const_iterator e=elems.begin(); e!=elems.end(); ++e) airlines.add_elem(*e);
+  user.access.merge_airlines(airlines);
 
   //проверим ограничение доступа по фильтрам
-  SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("filter_airlines"),'/',airlines);
-  if (!airlines.empty())
-    MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,true);
-  SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("filter_airps"),'/',airps);
-  if (!airps.empty())
-    MergeAccess(user.access.airps,user.access.airps_permit,airps,true);
+  SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("filter_airlines"),'/',elems);
+  airlines.clear();
+  airlines.set_elems_permit(!elems.empty());
+  for(vector<string>::const_iterator e=elems.begin(); e!=elems.end(); ++e) airlines.add_elem(*e);
+  user.access.merge_airlines(airlines);
+
+  SeparateString(JxtContext::getJxtContHandler()->sysContext()->read("filter_airps"),'/',elems);
+  airps.clear();
+  airps.set_elems_permit(!elems.empty());
+  for(vector<string>::const_iterator e=elems.begin(); e!=elems.end(); ++e) airps.add_elem(*e);
+  user.access.merge_airlines(airlines);
 
   //проверим ограничение доступа по собственникам пульта
   Qry.Clear();
   Qry.SQLText=
     "SELECT airline,pr_denial FROM desk_owners "
-    "WHERE desk=:desk ORDER BY DECODE(airline,NULL,0,1)";
+    "WHERE desk=:desk ORDER BY airline NULLS FIRST";
   Qry.CreateVariable("desk",otString,InitData.pult);
   Qry.Execute();
   bool pr_denial_all=true;
@@ -341,16 +325,17 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   };
 
   airlines.clear();
+  airlines.set_elems_permit(pr_denial_all);
   for(;!Qry.Eof;Qry.Next())
   {
     if (Qry.FieldIsNULL("airline")) continue;
     bool pr_denial=Qry.FieldAsInteger("pr_denial")!=0;
     if ((!pr_denial_all && pr_denial) ||
         (pr_denial_all && !pr_denial))
-      airlines.push_back(Qry.FieldAsString("airline"));
+      airlines.add_elem(Qry.FieldAsString("airline"));
   };
-  MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,pr_denial_all);
-  if (airlines.empty() && pr_denial_all)
+  user.access.merge_airlines(airlines);
+  if (airlines.totally_not_permitted())
     throw AstraLocale::UserException( "MSG.DESK.TURNED_OFF" );
 
   //пользовательские настройки
@@ -409,41 +394,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     };
   };
   if ( InitData.pr_web ) { //web
-  	user.sets.time=ustTimeLocalAirp;
+    user.sets.time=ustTimeLocalAirp;
   }
 }
-
-bool TReqInfo::CheckAirline(const string &airline)
-{
-  if (user.access.airlines_permit)
-  {
-    //список разрешенных
-    return find(user.access.airlines.begin(),
-                user.access.airlines.end(),airline)!=user.access.airlines.end();
-  }
-  else
-  {
-    //список запрещенных
-    return find(user.access.airlines.begin(),
-                user.access.airlines.end(),airline)==user.access.airlines.end();
-  };
-};
-
-bool TReqInfo::CheckAirp(const string &airp)
-{
-  if (user.access.airps_permit)
-  {
-    //список разрешенных
-    return find(user.access.airps.begin(),
-                user.access.airps.end(),airp)!=user.access.airps.end();
-  }
-  else
-  {
-    //список запрещенных
-    return find(user.access.airps.begin(),
-                user.access.airps.end(),airp)==user.access.airps.end();
-  };
-};
 
 bool TReqInfo::tracing()
 {
@@ -470,93 +423,98 @@ void TReqInfo::traceToMonitor( TRACE_SIGNATURE, const char *format,  ...)
   va_end(ap);
 }
 
-void MergeAccess(vector<string> &a, bool &ap,
-                 vector<string> b, bool bp)
+void TAccess::fromDB(int user_id, TUserType user_type)
 {
-  if ((a.empty() && ap) ||
-      (b.empty() && bp))
-  {
-    //все запрещено
-    a.clear();
-    ap=true;
-  }
+  clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.CreateVariable( "user_id", otInteger, user_id );
+
+  //права
+  Qry.SQLText=
+    "SELECT DISTINCT role_rights.right_id "
+    "FROM user_roles,role_rights "
+    "WHERE user_roles.role_id=role_rights.role_id AND "
+    "      user_roles.user_id=:user_id ";
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    _rights.add_elem(Qry.FieldAsInteger("right_id"));
+
+  //доступ к а/к
+  Qry.SQLText="SELECT airline FROM aro_airlines WHERE aro_id=:user_id";
+  Qry.Execute();
+  if (!Qry.Eof)
+    for(;!Qry.Eof;Qry.Next())
+      _airlines.add_elem(Qry.FieldAsString("airline"));
   else
-  {
-    if ((a.empty() && !ap) ||
-        (b.empty() && !bp))
-    {
-      //копируем доступ
-      if (a.empty())
-      {
-        a.swap(b);
-        ap=bp;
-      };
-    }
-    else
-    {
-      //4 случая
-      if (ap)
-      {
-        if (bp)
-        {
-          //a and b
-          for(vector<string>::iterator i=a.begin();i!=a.end();)
-          {
-            if (find(b.begin(),b.end(),*i)!=b.end())
-              i++;
-            else
-              i=a.erase(i);
-          };
-          ap=true;
-        }
-        else
-        {
-          //a minus b
-          for(vector<string>::iterator i=a.begin();i!=a.end();)
-          {
-            if (find(b.begin(),b.end(),*i)!=b.end())
-              i=a.erase(i);
-            else
-              i++;
-          };
-          ap=true;
-        };
-      }
-      else
-      {
-        if (bp)
-        {
-          //b minus a
-          for(vector<string>::iterator i=b.begin();i!=b.end();)
-          {
-            if (find(a.begin(),a.end(),*i)!=a.end())
-              i=b.erase(i);
-            else
-              i++;
-          };
-          a.swap(b);
-          ap=true;
-        }
-        else
-        {
-          //a or b
-          for(vector<string>::iterator i=b.begin();i!=b.end();i++)
-          {
-            if (find(a.begin(),a.end(),*i)==a.end())
-              a.push_back(*i);
-          };
-          ap=false;
-        };
-      };
-    };
-  };
-};
+    if (user_type==utSupport ||
+        user_type==utAirport) _airlines.set_elems_permit(false);
+
+  //доступ к а/п
+  Qry.SQLText="SELECT airp FROM aro_airps WHERE aro_id=:user_id";
+  Qry.Execute();
+  if (!Qry.Eof)
+    for(;!Qry.Eof;Qry.Next())
+      _airps.add_elem(Qry.FieldAsString("airp"));
+  else
+    if (user_type==utSupport ||
+        user_type==utAirline) _airps.set_elems_permit(false);
+}
+
+void TAccess::toXML(xmlNodePtr accessNode)
+{
+  if (accessNode==NULL) return;
+  //права доступа к операциям
+  xmlNodePtr node;
+  node = NewTextChild(accessNode, "rights");
+  for(set<int>::const_iterator i=_rights.elems().begin();
+      i!=_rights.elems().end();++i)
+    NewTextChild(node,"right",*i);
+  //NewTextChild(accessNode, "rights_permit", (int)_rights.elems_permit());
+  //права доступа к авиакомпаниям
+  node = NewTextChild(accessNode, "airlines");
+  for(set<string>::const_iterator i=_airlines.elems().begin();
+      i!=_airlines.elems().end();++i)
+    NewTextChild(node,"airline",*i);
+  NewTextChild(accessNode, "airlines_permit", (int)_airlines.elems_permit());
+  //права доступа к аэропортам
+  node = NewTextChild(accessNode, "airps");
+  for(set<string>::const_iterator i=_airps.elems().begin();
+      i!=_airps.elems().end();++i)
+    NewTextChild(node,"airp",*i);
+  NewTextChild(accessNode, "airps_permit", (int)_airps.elems_permit());
+}
+
+void TAccess::fromXML(xmlNodePtr accessNode)
+{
+  clear();
+  if (accessNode==NULL) return;
+  xmlNodePtr node2=accessNode->children;
+  //права доступа к операциям
+  _rights.set_total_permit();
+  //права доступа к авиакомпаниям
+  xmlNodePtr node = NodeAsNodeFast("airlines", node2);
+  for(node=GetNode("airline", node);node!=NULL;node=node->next)
+    _airlines.add_elem(NodeAsString(node));
+  if (!NodeIsNULLFast("airlines_permit", node2))
+    _airlines.set_elems_permit((bool)(NodeAsIntegerFast("airlines_permit", node2)!=0));
+  else
+    _airlines.set_elems_permit(true);
+  //права доступа к аэропортам
+  node = NodeAsNodeFast("airps", node2);
+  for(node=GetNode("airp", node);node!=NULL;node=node->next)
+    _airps.add_elem(NodeAsString(node));
+  if (!NodeIsNULLFast("airps_permit", node2))
+    _airps.set_elems_permit((bool)(NodeAsIntegerFast("airps_permit", node2)!=0));
+  else
+    _airps.set_elems_permit(true);
+}
 
 long TReqInfo::getExecuteMSec()
 {
-	ptime t( microsec_clock::universal_time() );
-	time_duration pt = t - execute_time;
-	return pt.total_milliseconds();
+    ptime t( microsec_clock::universal_time() );
+    time_duration pt = t - execute_time;
+    return pt.total_milliseconds();
 }
 
 void TReqInfo::LocaleToLog(const string &vlexema, TEventType ev_type, int id1, int id2, int id3)
@@ -873,18 +831,18 @@ void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_i
   text.clear();
   master_lexema_id.clear();
   if ( lexemaData.lexema_id.empty() )
-  	return;
+    return;
   try {
-	  buildMsg( (lang.empty() ? TReqInfo::Instance()->desk.lang : lang), lexemaData, text, master_lexema_id );
-	}
+      buildMsg( (lang.empty() ? TReqInfo::Instance()->desk.lang : lang), lexemaData, text, master_lexema_id );
+    }
   catch( std::exception &e ) {
-   	text = lexemaData.lexema_id;
-   	//ProgError( STDLOG, "showError buildMsg e.what()=%s, id=%s, lang=%s",
-   	           //e.what(), lexemaData.lexema_id.c_str(), TReqInfo::Instance()->desk.lang.c_str() );
+    text = lexemaData.lexema_id;
+    //ProgError( STDLOG, "showError buildMsg e.what()=%s, id=%s, lang=%s",
+               //e.what(), lexemaData.lexema_id.c_str(), TReqInfo::Instance()->desk.lang.c_str() );
   }
   catch( ... ) {
-   	text = lexemaData.lexema_id;
-   	ProgError( STDLOG, "Unknown Exception on buildMsg!!!" );
+    text = lexemaData.lexema_id;
+    ProgError( STDLOG, "Unknown Exception on buildMsg!!!" );
   }
 }
 
@@ -930,16 +888,16 @@ void showError(const LexemaData &lexemaData, int code)
 
 void showError(const std::string &lexema_id, int code)
 {
-	LexemaData lexemaData;
-	lexemaData.lexema_id = lexema_id;
-	showError( lexemaData, code );
+    LexemaData lexemaData;
+    lexemaData.lexema_id = lexema_id;
+    showError( lexemaData, code );
 }
 
 void showError(const std::string &vlexema, const LParams &aparams, int code)
 {
   LexemaData lexemaData;
-	lexemaData.lexema_id = vlexema;
-	lexemaData.lparams = aparams;
+    lexemaData.lexema_id = vlexema;
+    lexemaData.lparams = aparams;
   showError( lexemaData, code );
 }
 
@@ -959,16 +917,16 @@ void showErrorMessage(const LexemaData &lexemaData, int code)
 
 void showErrorMessage(const std::string &lexema_id, int code)
 {
-	LexemaData lexemaData;
-	lexemaData.lexema_id = lexema_id;
-	showErrorMessage( lexemaData, code );
+    LexemaData lexemaData;
+    lexemaData.lexema_id = lexema_id;
+    showErrorMessage( lexemaData, code );
 }
 
 void showErrorMessage( const std::string &vlexema, const LParams &aparams, int code)
 {
-	LexemaData lexemaData;
-	lexemaData.lexema_id = vlexema;
-	lexemaData.lparams = aparams;
+    LexemaData lexemaData;
+    lexemaData.lexema_id = vlexema;
+    lexemaData.lparams = aparams;
   showErrorMessage( lexemaData, code );
 }
 
@@ -988,16 +946,16 @@ void showMessage(const LexemaData &lexemaData, int code)
 
 void showMessage(const std::string &lexema_id, int code)
 {
-	LexemaData lexemaData;
-	lexemaData.lexema_id = lexema_id;
-	showMessage( lexemaData, code );
+    LexemaData lexemaData;
+    lexemaData.lexema_id = lexema_id;
+    showMessage( lexemaData, code );
 }
 
 void showMessage( const std::string &vlexema, const LParams &aparams, int code)
 {
-	LexemaData lexemaData;
-	lexemaData.lexema_id = vlexema;
-	lexemaData.lparams = aparams;
+    LexemaData lexemaData;
+    lexemaData.lexema_id = vlexema;
+    lexemaData.lparams = aparams;
   showMessage( lexemaData, code );
 }
 
@@ -1017,16 +975,16 @@ void showProgError(const LexemaData &lexemaData, int code)
 
 void showProgError(const std::string &lexema_id, int code)
 {
-	LexemaData lexemaData;
-	lexemaData.lexema_id = lexema_id;
-	showProgError( lexemaData, code );
+    LexemaData lexemaData;
+    lexemaData.lexema_id = lexema_id;
+    showProgError( lexemaData, code );
 }
 
 void showProgError(const std::string &vlexema, const LParams &aparams, int code)
 {
   LexemaData lexemaData;
-	lexemaData.lexema_id = vlexema;
-	lexemaData.lparams = aparams;
+    lexemaData.lexema_id = vlexema;
+    lexemaData.lparams = aparams;
   showProgError( lexemaData, code );
 }
 
@@ -1038,16 +996,16 @@ void showErrorMessageAndRollback(const LexemaData &lexemaData, int code)
 
 void showErrorMessageAndRollback(const std::string &lexema_id, int code)
 {
-	LexemaData lexemaData;
-	lexemaData.lexema_id = lexema_id;
-	showErrorMessageAndRollback( lexemaData, code );
+    LexemaData lexemaData;
+    lexemaData.lexema_id = lexema_id;
+    showErrorMessageAndRollback( lexemaData, code );
 }
 
 void showErrorMessageAndRollback(const std::string &vlexema, const LParams &aparams, int code)
 {
   LexemaData lexemaData;
-	lexemaData.lexema_id = vlexema;
-	lexemaData.lparams = aparams;
+    lexemaData.lexema_id = vlexema;
+    lexemaData.lparams = aparams;
   showErrorMessageAndRollback( lexemaData, code );
 }
 
@@ -1304,29 +1262,11 @@ void showBasicInfo(void)
     NewTextChild(setsNode, "disp_craft", reqInfo->user.sets.disp_craft);
     NewTextChild(setsNode, "disp_suffix", reqInfo->user.sets.disp_suffix);
     bool advanced_trip_list=
-           !(reqInfo->user.user_type==utAirport &&
-             find(reqInfo->user.access.rights.begin(),reqInfo->user.access.rights.end(),335)==reqInfo->user.access.rights.end());
+           !(reqInfo->user.user_type==utAirport && !reqInfo->user.access.rights().permitted(335));
     NewTextChild(setsNode, "advanced_trip_list", (int)advanced_trip_list);
-    
+
     //доступ
-    xmlNodePtr accessNode = NewTextChild(node, "access");
-    //права доступа к операциям
-    node = NewTextChild(accessNode, "rights");
-    for(set<int>::const_iterator i=reqInfo->user.access.rights.begin();
-                                 i!=reqInfo->user.access.rights.end();i++)
-      NewTextChild(node,"right",*i);
-    //права доступа к авиакомпаниям
-    node = NewTextChild(accessNode, "airlines");
-    for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
-                                       i!=reqInfo->user.access.airlines.end();i++)
-      NewTextChild(node,"airline",*i);
-    NewTextChild(accessNode, "airlines_permit", (int)reqInfo->user.access.airlines_permit);
-    //права доступа к аэропортам
-    node = NewTextChild(accessNode, "airps");
-    for(vector<string>::const_iterator i=reqInfo->user.access.airps.begin();
-                                       i!=reqInfo->user.access.airps.end();i++)
-      NewTextChild(node,"airp",*i);
-    NewTextChild(accessNode, "airps_permit", (int)reqInfo->user.access.airps_permit);
+    reqInfo->user.access.toXML(NewTextChild(node, "access"));
   };
   if (!reqInfo->desk.code.empty())
   {
@@ -1392,7 +1332,7 @@ void SysReqInterface::ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   if (reqNode==NULL) return;
-  
+
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
@@ -1402,7 +1342,7 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     "      (:text like client_error_list.text OR "
     "       locale_messages.text IS NOT NULL AND :text like '%'||locale_messages.text||'%') ";
   Qry.DeclareVariable("text",otString);
-  
+
   xmlNodePtr node=reqNode->children;
   for(;node!=NULL;node=node->next)
   {
@@ -1415,7 +1355,7 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       if (!Qry.Eof) error_type=Qry.FieldAsString("type");
 
       if (error_type=="IGNORE") continue;
-      
+
       if (error_type=="ERROR")
         ProgError( STDLOG, "Client error (ver. %s): %s.",
                            TReqInfo::Instance()->desk.version.c_str(),
@@ -1514,9 +1454,9 @@ TDateTime LocalToUTC(TDateTime d, string region, int is_dst)
     return BoostToDateTime(ld.utc_time());
   }
   catch( boost::local_time::ambiguous_result ) {
-  	if (is_dst == NoExists) throw;
-  	local_date_time ld(pt.date(),pt.time_of_day(),tz,(bool)is_dst);
-  	return BoostToDateTime(ld.utc_time());
+    if (is_dst == NoExists) throw;
+    local_date_time ld(pt.date(),pt.time_of_day(),tz,(bool)is_dst);
+    return BoostToDateTime(ld.utc_time());
   }
 };
 
@@ -1554,8 +1494,8 @@ TDateTime ClientToUTC(TDateTime d, string region, int is_dst)
 
 bool is_dst(TDateTime d, string region)
 {
-	if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");
-	ptime	utcd = DateTimeToBoost( d );
+    if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");
+    ptime	utcd = DateTimeToBoost( d );
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( region );
   if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",region.c_str());
@@ -1609,7 +1549,7 @@ string transliter(const string &value, int fmt, bool pr_lat)
       };
       ProgTrace(TRACE5, "dicts loaded");
     };
-  
+
     char c;
     string c2;
     for(string::const_iterator i=value.begin();i!=value.end();i++)
@@ -1688,7 +1628,7 @@ string& EOracleError2UserException(string& msg)
       break;
     };
   };
-  
+
   string msgXML=ConvertCodepage(msg,"CP866","UTF-8");
   XMLDoc msgDoc(msgXML);
   if (msgDoc.docPtr()!=NULL)

@@ -621,7 +621,7 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
   }
   catch( boost::local_time::ambiguous_result ) {
     f2 = modf( (double)ClientToUTC( f1 + 1 + firstTime, flight_tz_region ), &f3  );
-  	f3--;
+    f3--;
   }
   catch( boost::local_time::time_label_invalid ) {
     throw AstraLocale::UserException( "MSG.FLIGHT_BEGINNING_TIME_NOT_EXISTS",
@@ -637,7 +637,7 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
   }
   catch( boost::local_time::ambiguous_result ) {
     f2 = modf( (double)ClientToUTC( f1 + 1 + lastTime, flight_tz_region ), &f3 );
-  	f3--;
+    f3--;
   }
   catch( boost::local_time::time_label_invalid ) {
     throw AstraLocale::UserException( "MSG.FLIGHT_ENDING_TIME_NOT_EXISTS",
@@ -1303,9 +1303,9 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
     d.y = Qry.FieldAsInteger( "y" );
     d.suffix = Qry.FieldAsString( "suffix" );
     d.suffix_fmt = (TElemFmt)Qry.FieldAsInteger( "suffix_fmt" );
-    if ( reqInfo->CheckAirp( d.airp ) ) // new
+    if ( reqInfo->user.access.airps().permitted( d.airp ) ) // new
         canUseAirp = true; //new
-    if ( reqInfo->CheckAirline( d.airline ) ) //new
+    if ( reqInfo->user.access.airlines().permitted( d.airline ) ) //new
         canUseAirline = true; //new
     // фильтр по временам прилета/вылета в каждом п.п.
     ds.dests.push_back( d );
@@ -1333,8 +1333,10 @@ void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, 
   }
   else {
     TStageTimes stagetimes( sRemovalGangWay );
-    for ( vector<string>::iterator s=reqInfo->user.access.airps.begin();
-          s!=reqInfo->user.access.airps.end(); s++ ) {
+    if (!reqInfo->user.access.airps().elems_permit())
+      throw Exception("%s: strange situation access.airps().elems_permit()=false for user_type=utAirport", __FUNCTION__);
+    for ( set<string>::iterator s=reqInfo->user.access.airps().elems().begin();
+                                s!=reqInfo->user.access.airps().elems().end(); s++ ) {
       int vcount = (int)ds.trips.size();
       // создаем рейсы относительно разрешенных портов reqInfo->user.access.airps
 
@@ -1925,9 +1927,9 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
               throw AstraLocale::UserException( "MSG.SUFFIX.INVALID.NO_PARAM" );
           }
         }
-        if ( reqInfo->CheckAirp( dest.airp ) ) // new
+        if ( reqInfo->user.access.airps().permitted( dest.airp ) ) // new
             canUseAirp = true; //new
-        if ( reqInfo->CheckAirline( dest.airline ) ) //new
+        if ( reqInfo->user.access.airlines().permitted( dest.airline ) ) //new
             canUseAirline = true; //new
         ds.dests.push_back( dest );
         destNode = destNode->next;
@@ -2640,11 +2642,11 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
          cantrip = true;
 
       if ( cantrip &&
-      	   ( ( UTCFilter &&
-      	      ( filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_in, offset ) ||
-      	        filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_out, offset ) ) ) ||
+           ( ( UTCFilter &&
+              ( filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_in, offset ) ||
+                filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_out, offset ) ) ) ||
              ( !UTCFilter && filter.isFilteredTime( ds.flight_time, OwnDest->scd_in, OwnDest->scd_out, offset, OwnDest->region ) ) )
-      	 ) {
+         ) {
         /* рейс подходит под наши условия */
         ProgTrace( TRACE5, "createAirporttrip trip_id=%d, OwnDest->scd_in=%s, OwnDest.scd_out=%s",
                    trip_id,
@@ -2701,8 +2703,10 @@ bool createAirportTrip( int trip_id, TFilter filter, int offset, TDestList &ds, 
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool res = false;
-  for ( vector<string>::iterator s=reqInfo->user.access.airps.begin();
-        s!=reqInfo->user.access.airps.end(); s++ ) {
+  if (!reqInfo->user.access.airps().elems_permit())
+    throw Exception("%s: strange situation access.airps().elems_permit()=false for user_type=utAirport", __FUNCTION__);
+  for ( set<string>::iterator s=reqInfo->user.access.airps().elems().begin();
+                              s!=reqInfo->user.access.airps().elems().end(); s++ ) {
     res = res || createAirportTrip( *s, trip_id, filter, offset, ds, NoExists, viewOwnPort, false, err_city );
   }
   return res;
@@ -2945,9 +2949,9 @@ bool ConvertPeriodToLocal( TDateTime &first, TDateTime &last, string &days, cons
   }
   catch( Exception &e ) {
     if ( err_tz_region.empty() ) {
-  		err_tz_region = tz_region;
+        err_tz_region = tz_region;
     }
-  	return false;
+    return false;
   }
   int m = (int)f - (int)first;
   first = f;
@@ -3039,9 +3043,9 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
     d.airline = RQry.FieldAsString( idx_airline );
     d.airline_fmt = (TElemFmt)RQry.FieldAsInteger( idx_airline_fmt );
     compKey = compKey  || d.airline == filter.airline;
-    if ( reqInfo->CheckAirp( d.airp ) )
+    if ( reqInfo->user.access.airps().permitted( d.airp ) )
         canUseAirp = true;
-    if ( reqInfo->CheckAirline( d.airline ) )
+    if ( reqInfo->user.access.airlines().permitted( d.airline ) )
         canUseAirline = true;
     d.city = RQry.FieldAsString( idx_city );
     cityKey = cityKey || d.city == filter.city;
@@ -3084,9 +3088,7 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
       /* Когда это представитель одного порта => можно понять времена вылета и прилета в порт
          проверка на времена будет производится непосредственно в процедуре формирования рейса,
          т.к. в маршруте может быть более одного рейса относительно нашего порта */
-       timeKey = timeKey ||
-                 find( reqInfo->user.access.airps.begin(),
-                       reqInfo->user.access.airps.end(), d.airp ) != reqInfo->user.access.airps.end();
+       timeKey = timeKey || reqInfo->user.access.airps().permitted(d.airp);
     }
     else {
       timeKey = true;

@@ -311,14 +311,14 @@ struct TDevParam {
   string param_value;
   int editable;
   TDevParam() {
-  	editable = 0;
+    editable = 0;
   }
   TDevParam( string aparam_name,
              string asubparam_name, string aparam_value, int aeditable ) {
-  	param_name = lowerc(aparam_name);
-  	subparam_name = lowerc(asubparam_name);
-  	param_value = aparam_value;
-  	editable = aeditable;
+    param_name = lowerc(aparam_name);
+    subparam_name = lowerc(asubparam_name);
+    param_value = aparam_value;
+    editable = aeditable;
   }
 };
 
@@ -326,47 +326,47 @@ typedef vector<TDevParam> TCategoryDevParams;
 
 void PutParams( TDevParam local_param, TCategoryDevParams &params )
 {
-	for ( TCategoryDevParams::iterator server_param=params.begin(); server_param!=params.end(); server_param++ ) {
-		if ( server_param->editable &&
-			   server_param->param_name == local_param.param_name &&
-			   server_param->subparam_name == local_param.subparam_name ) {
-			ProgTrace( TRACE5, "server->param_name=%s", server_param->param_name.c_str() );
-			server_param->param_value = local_param.param_value;
-			break;
-		}
-	}
+    for ( TCategoryDevParams::iterator server_param=params.begin(); server_param!=params.end(); server_param++ ) {
+        if ( server_param->editable &&
+               server_param->param_name == local_param.param_name &&
+               server_param->subparam_name == local_param.subparam_name ) {
+            ProgTrace( TRACE5, "server->param_name=%s", server_param->param_name.c_str() );
+            server_param->param_value = local_param.param_value;
+            break;
+        }
+    }
 }
 
 void ParseParams( xmlNodePtr paramsNode, TCategoryDevParams &params )
 {
-	//int editable;
+    //int editable;
   if ( paramsNode == NULL ) return;
 
   for ( xmlNodePtr pNode=paramsNode->children; pNode!=NULL && pNode->type == XML_ELEMENT_NODE; pNode=pNode->next ) { // пробег по параметрам
-  	ProgTrace( TRACE5, "param name=%s", (const char*)pNode->name );
-  	if ( pNode->children == NULL || pNode->children->type != XML_ELEMENT_NODE ) { //нет subparams
-  		//editable = NodeAsInteger( "@editable", pNode, 0 );
+    ProgTrace( TRACE5, "param name=%s", (const char*)pNode->name );
+    if ( pNode->children == NULL || pNode->children->type != XML_ELEMENT_NODE ) { //нет subparams
+        //editable = NodeAsInteger( "@editable", pNode, 0 );
       //if ( editable )
       ProgTrace( TRACE5, "param name=%s,subparam_name=%s,param_value=%s,editable=%d",
                  (const char*)pNode->name,"", NodeAsString( pNode ), /*editable*/true );
-      	PutParams( TDevParam((const char*)pNode->name,
-    	                        "",
-    	                        NodeAsString( pNode ),
-    	                        /*editable*/true),
-    	             params );
-    	continue;
+        PutParams( TDevParam((const char*)pNode->name,
+                                "",
+                                NodeAsString( pNode ),
+                                /*editable*/true),
+                     params );
+        continue;
     }
     for (xmlNodePtr subparamNode=pNode->children; subparamNode!=NULL && subparamNode->type == XML_ELEMENT_NODE; subparamNode=subparamNode->next) { // пробег по subparams
-    	ProgTrace( TRACE5, "subparam name=%s", (const char*)subparamNode->name );
+        ProgTrace( TRACE5, "subparam name=%s", (const char*)subparamNode->name );
     //	editable = NodeAsInteger( "@editable", subparamNode, 0 );
       ProgTrace( TRACE5, "param name=%s,subparam_name=%s,param_value=%s,editable=%d",
                  (const char*)pNode->name,(const char*)subparamNode->name,
                  NodeAsString( subparamNode ), /*editable*/true );
       PutParams( TDevParam((const char*)pNode->name,
-    	                  (const char*)subparamNode->name,
-    	                  NodeAsString( subparamNode ),
-    	                  /*editable*/true),
-    	           params );
+                          (const char*)subparamNode->name,
+                          NodeAsString( subparamNode ),
+                          /*editable*/true),
+                   params );
     }
   }
 }
@@ -509,12 +509,12 @@ void GetEventCmd( const vector<string> &event_names,
 
 void GetParams( TQuery &Qry, TCategoryDevParams &serverParams )
 {
-	serverParams.clear();
+    serverParams.clear();
   string param_name,subparam_name;
   for(;!Qry.Eof;Qry.Next())
   {
-  	string qry_param_name = lowerc(Qry.FieldAsString("param_name"));
-  	string qry_subparam_name = lowerc(Qry.FieldAsString("subparam_name"));
+    string qry_param_name = lowerc(Qry.FieldAsString("param_name"));
+    string qry_subparam_name = lowerc(Qry.FieldAsString("subparam_name"));
     if (param_name==qry_param_name &&
         subparam_name==qry_subparam_name) continue;
     param_name = qry_param_name;
@@ -527,7 +527,7 @@ void GetParams( TQuery &Qry, TCategoryDevParams &serverParams )
 
 void BuildParams( xmlNodePtr paramsNode, TCategoryDevParams &params, bool pr_editable )
 {
-	if ( paramsNode == NULL || params.empty() ) return;
+    if ( paramsNode == NULL || params.empty() ) return;
   string paramType;
   xmlNodePtr paramNode=NULL,subparamNode;
   for (TCategoryDevParams::iterator iparam=params.begin(); iparam!=params.end(); iparam++) {
@@ -633,7 +633,7 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
   }
   for ( int pass=0; pass<3; pass++ ) {
    xmlNodePtr node = n->children;
-    while ( node != NULL ) {      
+    while ( node != NULL ) {
       string env_name=(char*)node->name;
       ASTRA::TDevClassType dev_class=getDevClass(desk_mode, env_name);
       string dev_model=getDefaultDevModel(desk_mode, dev_class);
@@ -646,7 +646,7 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
            (dev_class == dctMSR && pass==1) ||
            (dev_class == dctWGE && pass==2) ) {
         vector<string> dev_addrs;
-        SeparateString((string)NodeAsString( node ), ',', dev_addrs);        
+        SeparateString((string)NodeAsString( node ), ',', dev_addrs);
 
         if ( dev_addrs.empty() ) {
           node = node->next;
@@ -668,7 +668,7 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
             opers.insert( make_pair( dotPrnTlg, TPlatformParams(dev_model, *dev_addrs.begin(), env_name) ) );
             addrs[ dev_model ] = dev_addrs;
           }
-          if ( dev_class == dctBGR ) {            
+          if ( dev_class == dctBGR ) {
             vector<string>::const_iterator idev_addr = dev_addrs.begin();
             for(; idev_addr != dev_addrs.end(); ++idev_addr)
             {
@@ -888,7 +888,7 @@ void GetSessionAirlines(const vector<string> &run_params, TSessionAirlines &airl
     string code=sess.run_params;
     TrimString(code);
     size_t p1 = code.find( " " );
-  	if ( p1 != string::npos ) code.erase( p1 );
+    if ( p1 != string::npos ) code.erase( p1 );
     string airline;
     for(int pass=0; pass<3; pass++)
     {
@@ -915,8 +915,8 @@ void GetSessionAirlines(const vector<string> &run_params, TSessionAirlines &airl
           sess.code_lat=row.code_lat;
           sess.aircode=row.aircode;
           break;
-      	}
-      	catch(EBaseTableError) {};
+        }
+        catch(EBaseTableError) {};
       };
       if (pass==2)
       {
@@ -969,7 +969,7 @@ void PutSessionAirlines(const TSessionAirlines &airlines, xmlNodePtr resNode)
   ProgTrace(TRACE5, "%-10s|%-10s|%-10s|%s", "code", "code_lat", "aircode", "run_params");
   for(TSessionAirlines::const_iterator i=airlines.begin(); i!=airlines.end(); ++i)
   {
-    if (!reqInfo->CheckAirline(i->first)) continue;
+    if (!reqInfo->user.access.airlines().permitted(i->first)) continue;
     TSessionAirline sess=i->second;
     int aircode;
     if (BASIC::StrToInt(sess.aircode.c_str(),aircode)==EOF || sess.aircode.size()!=3)
@@ -988,11 +988,11 @@ void PutSessionAirlines(const TSessionAirlines &airlines, xmlNodePtr resNode)
   //так как он связывает доступ пользователя с инициализацией оборудования напрямую
   //Однозначно поимеем проблемы в тех портах, где в ярлыке запуска не прописаны компании
   //и при этом кто-то захочет сделать доступ пользователю ко всем а/к
-  if (reqInfo->user.access.airlines_permit)
+  if (reqInfo->user.access.airlines().elems_permit())
   {
     ostringstream str;
-    for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
-                                       i!=reqInfo->user.access.airlines.end(); ++i)
+    for(set<string>::const_iterator i=reqInfo->user.access.airlines().elems().begin();
+                                    i!=reqInfo->user.access.airlines().elems().end(); ++i)
     {
       if (airlines.find(*i)!=airlines.end()) continue;
 
@@ -1028,13 +1028,13 @@ void PutSessionAirlines(const TSessionAirlines &airlines, xmlNodePtr resNode)
 
 void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-	/*Ограничение на передачу/прием параметров:
-	  вложенность параметров (subparam_name) возможна только в случае спец. параметров, которые
-	  разбираются на сервере спец. классами. Например param_name="timeouts" subrapam_name="print"
-	  название параметров и подпараметров передаются и хранятся в нижнем регистре
-	*/
-	   /* Формат запроса вариантов типов параметров по операции+утсройству
-	   <devices variants_operation="BP_PRINT" variant_dev_model="BTP CUTE" >*/
+    /*Ограничение на передачу/прием параметров:
+      вложенность параметров (subparam_name) возможна только в случае спец. параметров, которые
+      разбираются на сервере спец. классами. Например param_name="timeouts" subrapam_name="print"
+      название параметров и подпараметров передаются и хранятся в нижнем регистре
+    */
+       /* Формат запроса вариантов типов параметров по операции+утсройству
+       <devices variants_operation="BP_PRINT" variant_dev_model="BTP CUTE" >*/
 /* все параметры, приходящие с клиента - редактируемые */
 
     /* Формат передачи (запроса) данных по устройствам
@@ -1058,9 +1058,9 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
           </sess_params>
           <fmt_params type="">
             ..params...
-	            <timeouts>
-	            ...params...
-	            </timeouts>
+                <timeouts>
+                ...params...
+                </timeouts>
           </fmt_params>
           <model_params type="">
             ..params...
@@ -1102,10 +1102,9 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 
   TReqInfo *reqInfo = TReqInfo::Instance();
 
-  bool pr_editable = ( find( reqInfo->user.access.rights.begin(),
-                             reqInfo->user.access.rights.end(), 840 ) != reqInfo->user.access.rights.end() );
+  bool pr_editable = reqInfo->user.access.rights().permitted(840);
 
-	TQuery SessParamsQry( &OraSession );
+  TQuery SessParamsQry( &OraSession );
   SessParamsQry.SQLText=
     "SELECT dev_model_params.sess_type AS param_type, "
     "       param_name,subparam_name,param_value,editable "
@@ -1127,7 +1126,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   SessParamsQry.DeclareVariable("sess_type",otString);
   SessParamsQry.DeclareVariable("fmt_type",otString);
 
-	TQuery FmtParamsQry( &OraSession );
+    TQuery FmtParamsQry( &OraSession );
   FmtParamsQry.SQLText=
     "SELECT dev_model_params.fmt_type AS param_type, "
     "       param_name,subparam_name,param_value,editable "
@@ -1182,12 +1181,12 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       "WHERE dev_oper_types.code=dev_model_defaults.op_type(+) AND "
       "      dev_model_defaults.term_mode(+)=:term_mode ";
     if ( pr_default_sets ) {
-    	sql += " AND dev_oper_types.code=:op_type";
+        sql += " AND dev_oper_types.code=:op_type";
     }
     DefQry.SQLText=sql;
   }
   else {
-  	DefQry.SQLText=dev_model_sql;
+    DefQry.SQLText=dev_model_sql;
     DefQry.CreateVariable( "dev_model", otString, variant_model );
   }
   DefQry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
@@ -1347,8 +1346,8 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     operation = def->op_type;
 
     for ( operNode=GetNode( "operation", devNode ); operNode!=NULL; operNode=operNode->next ) // пробег по операциям клиента
-    	if ( operation == NodeAsString( "@type", operNode ) )
-    		break;
+        if ( operation == NodeAsString( "@type", operNode ) )
+            break;
     ProgTrace( TRACE5, "operation=%s, is client=%d", operation.c_str(), (int)(operNode!=NULL) );
 
     dev_model.clear();
@@ -1356,9 +1355,9 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     fmt_type.clear();
 
     if ( operNode != NULL ) { // данные с клиента
-    	// имеем ключ dev_model+sess_type+fmt_type. Возможно 2 варианта:
-    	// 1. Начальная инициализация
-    	// 2. Различные варианты работы устройства, клиентские параметры надо разбирать когда ключ совпал
+        // имеем ключ dev_model+sess_type+fmt_type. Возможно 2 варианта:
+        // 1. Начальная инициализация
+        // 2. Различные варианты работы устройства, клиентские параметры надо разбирать когда ключ совпал
       client_dev_model = NodeAsString( "dev_model_code", operNode, "" );
       dev_model = client_dev_model;
       client_sess_type = NodeAsString( "sess_params/@type", operNode, "" );
@@ -1368,17 +1367,17 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     }
     //ProgTrace( TRACE5, "variant_model=%s", variant_model.c_str() );
     for ( int k=!variant_model.empty(); k<=1; k++ ) { // два прохода: 0-параметры с клиента, 1 - c сервера
-    	//ProgTrace( TRACE5, "k=%d", k );
+        //ProgTrace( TRACE5, "k=%d", k );
 
-    	if ( k == 1 ) {
+        if ( k == 1 ) {
         dev_model = def->dev_model;
         sess_type = def->sess_type;
         fmt_type =  def->fmt_type;
-    	}
-    	if ( dev_model.empty() && sess_type.empty() && fmt_type.empty() ) continue;
-    	bool pr_parse_client_params = ( client_dev_model == dev_model && client_sess_type == sess_type && client_fmt_type == fmt_type );
+        }
+        if ( dev_model.empty() && sess_type.empty() && fmt_type.empty() ) continue;
+        bool pr_parse_client_params = ( client_dev_model == dev_model && client_sess_type == sess_type && client_fmt_type == fmt_type );
 
-    	if ( pr_parse_client_params ) {
+        if ( pr_parse_client_params ) {
           if (reqInfo->desk.mode==omCUSE ||
               (reqInfo->desk.mode==omMUSE && reqInfo->desk.compatible(MUSE_DEV_VARIABLES)))
           {
@@ -1395,7 +1394,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
             if ( k == 0 && !pr_parse_client_params )
               continue;
           };
-    	}
+        }
 
       Qry.SetVariable( "dev_model", dev_model );
       Qry.SetVariable( "sess_type", sess_type );
@@ -1406,10 +1405,10 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       if ( Qry.Eof ) continue; // данный ключ dev_model+sess_type+fmt_type не разрешен
 
       try {
-      	base_tables.get("DEV_MODELS").get_row( "code", dev_model );
+        base_tables.get("DEV_MODELS").get_row( "code", dev_model );
       }
       catch(EBaseTableError){
-      	continue;
+        continue;
       };
 
       xmlNodePtr newoperNode=NewTextChild( resNode, "operation" );
@@ -1417,20 +1416,20 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       SetProp( newoperNode, "type", operation );
       string sess_name, fmt_name;
       if ( !variant_model.empty() ) {
-      	sess_name = ElemIdToNameLong( etDevSessType, def->sess_type );
-      	fmt_name = ElemIdToNameLong( etDevFmtType, def->fmt_type );
+        sess_name = ElemIdToNameLong( etDevSessType, def->sess_type );
+        fmt_name = ElemIdToNameLong( etDevFmtType, def->fmt_type );
       }
       if ( !sess_name.empty() && !fmt_name.empty() ) {
         SetProp( newoperNode, "variant_name", sess_name + "/" + fmt_name );
       }
       pNode = NewTextChild( newoperNode, "dev_model_code", dev_model );
       SetProp( pNode, "dev_model_name", ElemIdToNameLong(etDevModel,dev_model) );
-     	sess_name = ElemIdToNameLong( etDevSessType, Qry.FieldAsString("sess_type") );
-     	ProgTrace( TRACE5, "sess_type=%s, sess_name=%s", Qry.FieldAsString("sess_type"), sess_name.c_str() );
-     	fmt_name = ElemIdToNameLong( etDevFmtType, Qry.FieldAsString("fmt_type") );
+        sess_name = ElemIdToNameLong( etDevSessType, Qry.FieldAsString("sess_type") );
+        ProgTrace( TRACE5, "sess_type=%s, sess_name=%s", Qry.FieldAsString("sess_type"), sess_name.c_str() );
+        fmt_name = ElemIdToNameLong( etDevFmtType, Qry.FieldAsString("fmt_type") );
 
       if ( !sess_name.empty() && !fmt_name.empty() ) {
-      	SetProp( pNode, "sess_fmt_name", sess_name + "/" + "fmt_name" );
+        SetProp( pNode, "sess_fmt_name", sess_name + "/" + "fmt_name" );
       }
 
       if (!reqInfo->desk.compatible(OLDEST_SUPPORTED_VERSION))
@@ -1465,7 +1464,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       SetProp( pNode, "type", sess_type );
       BuildParams( pNode, params, pr_editable );
 
-	    FmtParamsQry.SetVariable("op_type",operation);
+        FmtParamsQry.SetVariable("op_type",operation);
       FmtParamsQry.SetVariable("dev_model",dev_model);
       FmtParamsQry.SetVariable("sess_type",sess_type);
       FmtParamsQry.SetVariable("fmt_type",fmt_type);
@@ -1521,7 +1520,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( Qry.RowCount() == 0 )
       throw AstraLocale::UserException("MSG.WRONG_LOGIN_OR_PASSWD");
     if ( Qry.FieldAsInteger( "pr_denial" ) == -1 )
-    	throw AstraLocale::UserException( "MSG.USER_DELETED" );
+        throw AstraLocale::UserException( "MSG.USER_DELETED" );
     if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
       throw AstraLocale::UserException( "MSG.USER_DENIED" );
     reqInfo->user.user_id = Qry.FieldAsInteger("user_id");
@@ -1583,7 +1582,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     reqInfoData.screen = NodeAsString("@screen", node);
     reqInfoData.pult = ctxt->pult;
     reqInfoData.opr = NodeAsString("@opr", node);
-  	reqInfoData.lang = reqInfo->desk.lang; //!определение языка вынесено в astracallbacks.cc::UserBefore т.к. там задается контекст xmlRC->setLang(RUSSIAN) и не требуется делать повторно эту долгую операцию
+    reqInfoData.lang = reqInfo->desk.lang; //!определение языка вынесено в astracallbacks.cc::UserBefore т.к. там задается контекст xmlRC->setLang(RUSSIAN) и не требуется делать повторно эту долгую операцию
     if ((propNode = GetNode("@mode", node))!=NULL)
       reqInfoData.mode = NodeAsString(propNode);
     if ((propNode = GetNode("@term_id", node))!=NULL)
@@ -1601,19 +1600,19 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     GetNotices(resNode);
 
     if ( GetNode("lang",reqNode) ) { //!!!необходимо, чтобы был словарь для языка по умолчанию - здесь нет этой проверки!!!
-    	ProgTrace( TRACE5, "desk.lang=%s, dict.lang=%s", reqInfo->desk.lang.c_str(), NodeAsString( "lang/@dictionary_lang",reqNode) );
+        ProgTrace( TRACE5, "desk.lang=%s, dict.lang=%s", reqInfo->desk.lang.c_str(), NodeAsString( "lang/@dictionary_lang",reqNode) );
       int client_checksum = NodeAsInteger("lang/@dictionary_checksum",reqNode);
       int server_checksum = AstraLocale::TLocaleMessages::Instance()->checksum( reqInfo->desk.lang );
       if ( NodeAsString( "lang/@dictionary_lang",reqNode) != reqInfo->desk.lang ||
-      	   client_checksum == 0 ||
-      	   server_checksum != client_checksum ) {
+           client_checksum == 0 ||
+           server_checksum != client_checksum ) {
         ProgTrace( TRACE5, "Send dictionary: lang=%s, client_checksum=%d, server_checksum=%d",
                    reqInfo->desk.lang.c_str(), client_checksum,
                    AstraLocale::TLocaleMessages::Instance()->checksum( reqInfo->desk.lang ) );
         SetProp(NewTextChild( resNode, "lang", reqInfo->desk.lang ), "dictionary", AstraLocale::TLocaleMessages::Instance()->getDictionary(reqInfo->desk.lang));
       }
       else {
-      	NewTextChild( resNode, "lang", reqInfo->desk.lang );
+        NewTextChild( resNode, "lang", reqInfo->desk.lang );
       }
     }
     showBasicInfo();
@@ -1858,27 +1857,27 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 
   try
   {
-  	vector<TScanParams> ScanParams;
-  	TScanParams params;
-  	TDevOperType op_type=DecodeDevOperType(NodeAsString("operation/@type",reqNode));
-  	if (op_type!=dotScnBP1 &&
+    vector<TScanParams> ScanParams;
+    TScanParams params;
+    TDevOperType op_type=DecodeDevOperType(NodeAsString("operation/@type",reqNode));
+    if (op_type!=dotScnBP1 &&
         op_type!=dotScnBP2 &&
         op_type!=dotScnDoc &&
         op_type!=dotScnCard) throw EConvertError("op_type=%s not supported",EncodeDevOperType(op_type).c_str());
 
-  	TDevFmtType fmt_type;
+    TDevFmtType fmt_type;
     if (TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION))
       fmt_type=DecodeDevFmtType(NodeAsString("operation/fmt_params/@type",reqNode));
     else
       fmt_type=dftSCAN1;
 
-  	if (fmt_type!=dftSCAN1 &&
+    if (fmt_type!=dftSCAN1 &&
         fmt_type!=dftBCR &&
         fmt_type!=dftSCAN2 &&
         fmt_type!=dftSCAN3) throw EConvertError("fmt_type=%s not supported",EncodeDevFmtType(fmt_type).c_str());
-  	xmlNodePtr node;
-  	node=GetNode("operation/fmt_params/encoding",reqNode);
-  	if (node==NULL) throw EConvertError("Node 'encoding' not found");
+    xmlNodePtr node;
+    node=GetNode("operation/fmt_params/encoding",reqNode);
+    if (node==NULL) throw EConvertError("Node 'encoding' not found");
     string encoding = NodeAsString(node);
     node=NodeAsNode("scan_data",reqNode);
     for(node=node->children;node!=NULL;node=node->next)
@@ -1984,13 +1983,13 @@ void MainDCSInterface::GetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
 void MainDCSInterface::RequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	IntRequestCertificateData(ctxt, reqNode, resNode);
+    IntRequestCertificateData(ctxt, reqNode, resNode);
 }
 
 void MainDCSInterface::PutRequestCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   bool pr_grp = GetNode( "pr_grp", reqNode );
-	string request = NodeAsString( "request_certificate", reqNode );
-	IntPutRequestCertificate( request, TReqInfo::Instance()->desk.code, pr_grp, NoExists );
+    string request = NodeAsString( "request_certificate", reqNode );
+    IntPutRequestCertificate( request, TReqInfo::Instance()->desk.code, pr_grp, NoExists );
 }
 

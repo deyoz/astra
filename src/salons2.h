@@ -8,8 +8,6 @@
 #include "astra_utils.h"
 #include "salons.h"
 
-enum TModify { mNone, mDelete, mAdd, mChange };
-
 class TPlace {
   public:
     bool selected;
@@ -73,26 +71,26 @@ class TPlaceList {
 };
 
 struct TLayerPriority {
-	std::string code;
-	std::string layer;
-	int priority;
+    std::string code;
+    std::string layer;
+    int priority;
 };
 
 class TFilterLayers:public BitSet<ASTRA::TCompLayerType> {
-	private:
-	  int point_dep;
-	public:
-		bool CanUseLayer( ASTRA::TCompLayerType layer_type, int point_dep );
-		void getFilterLayers( int point_id );
+    private:
+      int point_dep;
+    public:
+        bool CanUseLayer( ASTRA::TCompLayerType layer_type, int point_dep );
+        void getFilterLayers( int point_id );
 
 };
 
 class TSalons {
   private:
-  	SALONS2::TReadStyle readStyle;
+    SALONS2::TReadStyle readStyle;
     TFilterLayers FilterLayers;
-  	std::map<std::string,int> status_priority;
-  	std::vector<TLayerPriority> layer_priority;
+    std::map<std::string,int> status_priority;
+    std::vector<TLayerPriority> layer_priority;
     TPlaceList* FCurrPlaceList;
     bool pr_lat_seat;
   public:
@@ -104,7 +102,7 @@ class TSalons {
     std::string bort;
     std::string descr;
     std::string classes;
-    TModify modify;
+    SALONS2::TModify modify;
     std::string ClName;
     std::vector<TPlaceList*> placelists;
     ~TSalons( );
@@ -120,11 +118,11 @@ class TSalons {
     void Write( );
     void Parse( xmlNodePtr salonsNode );
     void verifyValidRem( std::string rem_name, std::string class_name );
-}; 
+};
 
 namespace SALONS
 {
-	typedef std::pair<int,TPlace> TSalonSeat;
+    typedef std::pair<int,TPlace> TSalonSeat;
   void GetCompParams( int comp_id, xmlNodePtr dataNode );
   void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
   void ClearLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );

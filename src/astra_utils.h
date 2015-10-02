@@ -50,7 +50,7 @@ struct TLogLocale {
     ASTRA::TEventType ev_type;
     std::string lexema_id;
     LEvntPrms prms;
-    int id1,id2,id3;    
+    int id1,id2,id3;
     TLogLocale()
     {
       clear();
@@ -134,24 +134,184 @@ class BitSet
   }
 };
 
-class TAccess {
+template <class T>
+std::string GetSQLEnum(const T &values)
+{
+  std::ostringstream res;
+  bool first_iteration=true;
+  for(typename T::const_iterator i=values.begin();i!=values.end();++i)
+  {
+    if (i->empty()) continue;
+    if (!first_iteration) res << ", ";
+    res << "'" << *i << "'";
+    first_iteration=false;
+  };
+  if (!first_iteration)
+    return " ("+res.str()+") ";
+  else
+    return "";
+};
+
+template<typename T>
+class TAccessElems
+{
+  private:
+    std::set<T> _elems;
+    bool _elems_permit;
   public:
-    std::set<int> rights;
-    std::vector<std::string> airlines;
-    std::vector<std::string> airps;
-    bool airlines_permit,airps_permit;
+    TAccessElems():_elems_permit(true) {}
+    TAccessElems(const T &elem, bool elems_permit)
+    {
+      _elems.insert(elem);
+      _elems_permit=elems_permit;
+    }
     void clear()
     {
-      rights.clear();
-      airlines.clear();
-      airps.clear();
-      airlines_permit=true;
-      airps_permit=true;
-    };
-    bool checkRight(int r) const
+      //полный запрет
+      _elems.clear();
+      _elems_permit=true;
+    }
+    void add_elem(const T &elem)
     {
-      return rights.find(r)!=rights.end();
-    };
+      _elems.insert(elem);
+    }
+    void set_elems_permit(bool elems_permit)
+    {
+      _elems_permit=elems_permit;
+    }
+    void merge(const TAccessElems &e)
+    {
+      std::set<T> dest;
+      if (_elems_permit)
+      {
+        if (e._elems_permit)
+        {
+          set_intersection(_elems.begin(), _elems.end(),
+                           e._elems.begin(), e._elems.end(),
+                           inserter(dest, dest.begin()));
+        }
+        else
+        {
+          set_difference(_elems.begin(), _elems.end(),
+                         e._elems.begin(), e._elems.end(),
+                         inserter(dest, dest.begin()));
+        }
+      }
+      else
+      {
+        if (e._elems_permit)
+        {
+          set_difference(e._elems.begin(), e._elems.end(),
+                         _elems.begin(), _elems.end(),
+                         inserter(dest, dest.begin()));
+          _elems_permit=true;
+        }
+        else
+        {
+          set_union(_elems.begin(), _elems.end(),
+                    e._elems.begin(), e._elems.end(),
+                    inserter(dest, dest.begin()));
+        }
+      };
+      _elems=dest;
+    }
+    void set_total_permit()
+    {
+      //полный доступ
+      _elems.clear();
+      _elems_permit=false;
+    }
+
+    bool permitted(const T &elem) const
+    {
+      if (_elems_permit)
+        return _elems.find(elem)!=_elems.end();
+      else
+        return _elems.find(elem)==_elems.end();
+    }
+    bool totally_not_permitted() const { return _elems.empty() && _elems_permit; }
+    bool only_single_permit() const { return _elems.size()==1 && _elems_permit; }
+    bool operator==(const TAccessElems<T>& e) const
+    {
+      return _elems==e._elems &&
+             _elems_permit==e._elems_permit;
+    }
+
+    const std::set<T>& elems() const { return _elems; }
+    bool elems_permit() const { return _elems_permit; }
+
+    void build_test(int iter, const T &e1, const T &e2, const T &e3)
+    {
+      clear();
+      if ((iter&0x0001)!=0x0000)
+        set_elems_permit(true);
+      else
+        set_elems_permit(false);
+      if ((iter&0x0002)!=0x0000) add_elem(e1);
+      if ((iter&0x0004)!=0x0000) add_elem(e2);
+      if ((iter&0x0008)!=0x0000) add_elem(e3);
+    }
+};
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const TAccessElems<T>& e)
+{
+  if (!e.elems().empty())
+    os << (e.elems_permit()?"permitted: ":"not permitted: ")
+       << GetSQLEnum(e.elems());
+  else
+    os << (e.elems_permit()?"not permitted all ":"permitted all ");
+  return os;
+}
+
+class TAccess {
+  private:
+    TAccessElems<int> _rights;
+    TAccessElems<std::string> _airlines;
+    TAccessElems<std::string> _airps;
+  public:
+    TAccess() { clear(); }
+    void clear()
+    {
+      _rights.clear();
+      _airlines.clear();
+      _airps.clear();
+    }
+    const TAccessElems<int>& rights() const { return _rights; }
+    const TAccessElems<std::string>& airlines() const { return _airlines; }
+    const TAccessElems<std::string>& airps() const { return _airps; }
+    void merge_airlines(const TAccessElems<std::string> &airlines)
+    {
+      _airlines.merge(airlines);
+    }
+    void merge_airps(const TAccessElems<std::string> &airps)
+    {
+      _airps.merge(airps);
+    }
+    void set_total_permit()
+    {
+      _rights.set_total_permit();
+      _airlines.set_total_permit();
+      _airps.set_total_permit();
+    }
+
+    bool totally_not_permitted() const
+    {
+      return _rights.totally_not_permitted() ||
+             _airlines.totally_not_permitted() ||
+             _airps.totally_not_permitted();
+    }
+
+    bool operator==(const TAccess& access) const
+    {
+      return _rights==access._rights &&
+             _airlines==access._airlines &&
+             _airps==access._airps;
+    }
+
+    void fromDB(int user_id, TUserType user_type);
+    void toXML(xmlNodePtr accessNode);
+    void fromXML(xmlNodePtr accessNode);
 };
 
 class TUserSettings {
@@ -264,17 +424,17 @@ struct TReqInfoInitData {
   bool duplicate;
   TReqInfoInitData() {
     term_id = ASTRA::NoExists;
-  	checkUserLogon = false;
-  	checkCrypt = false;
-  	pr_web = false;
+    checkUserLogon = false;
+    checkCrypt = false;
+    pr_web = false;
     duplicate = false;
   }
 };
 
 class TReqInfo
 {
-	private:
-		boost::posix_time::ptime execute_time;
+    private:
+        boost::posix_time::ptime execute_time;
         bool vtracing, vtracing_init;
         bool tracing();
   public:
@@ -304,13 +464,8 @@ class TReqInfo
     void clearPerform();
     long getExecuteMSec();
 
-    bool CheckAirline(const std::string &airline);
-    bool CheckAirp(const std::string &airp);
     void traceToMonitor( TRACE_SIGNATURE, const char *format,  ...);
 };
-
-void MergeAccess(std::vector<std::string> &a, bool &ap,
-                 std::vector<std::string> b, bool bp);
 
 ASTRA::TRptType DecodeRptType(const std::string s);
 const std::string EncodeRptType(ASTRA::TRptType s);
@@ -427,24 +582,6 @@ bool get_test_server();
 std::string& EOracleError2UserException(std::string& msg);
 
 std::string get_internal_msgid_hex();
-
-template <class T>
-std::string GetSQLEnum(const T &values)
-{
-  std::ostringstream res;
-  bool first_iteration=true;
-  for(typename T::const_iterator i=values.begin();i!=values.end();++i)
-  {
-    if (i->empty()) continue;
-    if (!first_iteration) res << ", ";
-    res << "'" << *i << "'";
-    first_iteration=false;
-  };
-  if (!first_iteration)
-    return " ("+res.str()+") ";
-  else
-    return "";
-};
 
 template <class T>
 void MergeSortedRanges(std::vector< std::pair<T,T> > &ranges, const std::pair<T,T> &range)

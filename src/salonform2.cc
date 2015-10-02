@@ -51,71 +51,26 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   Salons.Parse( GetNode( "salons", reqNode ) );
   string smodify = NodeAsString( "modify", reqNode );
   if ( smodify == "delete" )
-    Salons.modify = mDelete;
+    Salons.modify = SALONS2::mDelete;
   else
     if ( smodify == "add" )
-      Salons.modify = mAdd;
+      Salons.modify = SALONS2::mAdd;
     else
       if ( smodify == "change" )
-        Salons.modify = mChange;
+        Salons.modify = SALONS2::mChange;
       else
         throw Exception( string( "Error in tag modify " ) + smodify );
-  TReqInfo *r = TReqInfo::Instance();
-  TElemFmt fmt;
-  xmlNodePtr a = GetNode( "airline", reqNode );
-  if ( a ) {
-     Salons.airline = ElemToElemId( etAirline, NodeAsString( a ), fmt );
-     if ( fmt == efmtUnknown )
-     	 throw AstraLocale::UserException( "MSG.AIRLINE.INVALID_INPUT" );
-  }
-  else
-  	if ( r->user.access.airlines.size() == 1 )
-  		Salons.airline = *r->user.access.airlines.begin();
- 	a = GetNode( "airp", reqNode );
- 	if ( a ) {
- 		Salons.airp = ElemToElemId( etAirp, NodeAsString( a ), fmt );
- 		if ( fmt == efmtUnknown )
- 			throw AstraLocale::UserException( "MSG.AIRP.INVALID_SET_CODE" );
- 		Salons.airline.clear();
- 	}
- 	else
-  	if ( r->user.user_type != utAirline && r->user.access.airps.size() == 1 && !GetNode( "airline", reqNode ) ) {
-  		Salons.airp = *r->user.access.airps.begin();
-  		Salons.airline.clear();
-    }
-  if ( Salons.modify != mDelete ) {
-    if ( (int)Salons.airline.empty() + (int)Salons.airp.empty() != 1 ) {
-    	if ( Salons.airline.empty() )
-    	  throw AstraLocale::UserException( "MSG.AIRLINE_OR_AIRP_MUST_BE_SET" );
-    	else
-    		throw AstraLocale::UserException( "MSG.NOT_SET_ONE_TIME_AIRLINE_AND_AIRP" ); // птому что компоновка принадлежит или авиакомпании или порту
-    }
 
-    if ( ( r->user.user_type == utAirline ||
-           (r->user.user_type == utSupport && Salons.airp.empty() && !r->user.access.airlines.empty()) ) &&
-    	   find( r->user.access.airlines.begin(),
-    	         r->user.access.airlines.end(), Salons.airline ) == r->user.access.airlines.end() ) {
- 	  	if ( Salons.airline.empty() )
- 		  	throw AstraLocale::UserException( "MSG.AIRLINE.UNDEFINED" );
-  	  else
-    		throw AstraLocale::UserException( "MSG.SALONS.OPER_WRITE_DENIED_FOR_THIS_AIRLINE" );
-    }
-    if ( ( r->user.user_type == utAirport ||
-    	     (r->user.user_type == utSupport && Salons.airline.empty() && !r->user.access.airps.empty()) ) &&
-    	   find( r->user.access.airps.begin(),
-    	         r->user.access.airps.end(), Salons.airp ) == r->user.access.airps.end() ) {
- 	  	if ( Salons.airp.empty() )
- 	  		throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.NOT_SET_AIRP" );
- 	  	else
- 	  	  throw AstraLocale::UserException( "MSG.SALONS.OPER_WRITE_DENIED_FOR_THIS_AIRP" );
-    }
-  }
+  if (Salons.modify != SALONS2::mDelete)
+    SALONS2::TComponSets::CheckAirlAirp(reqNode, Salons.airline, Salons.airp);
+
+  TElemFmt fmt;
   Salons.craft = NodeAsString( "craft", reqNode );
   if ( Salons.craft.empty() )
     throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
   Salons.craft = ElemToElemId( etCraft, Salons.craft, fmt );
   if ( fmt == efmtUnknown )
-  	throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
+    throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
   Salons.bort = NodeAsString( "bort", reqNode );
   Salons.descr = NodeAsString( "descr", reqNode );
   string classes = NodeAsString( "classes", reqNode );
@@ -125,13 +80,13 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   string lexema_id;
   LEvntPrms params;
   switch ( Salons.modify ) {
-    case mDelete:
+    case SALONS2::mDelete:
       lexema_id = "EVT.BASE_LAYOUT_DELETED";
       params << PrmSmpl<int>("id", comp_id);
       Salons.comp_id = -1;
       break;
     default:
-      if ( Salons.modify == mAdd )
+      if ( Salons.modify == SALONS2::mAdd )
         lexema_id = "EVT.BASE_LAYOUT_CREATED";
       else
         lexema_id = "EVT.BASE_LAYOUT_MODIFIED";
@@ -156,6 +111,7 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
         params << PrmSmpl<std::string>("descr", Salons.descr);
       break;
   }
+  TReqInfo *r = TReqInfo::Instance();
   r->LocaleToLog(lexema_id, params, evtComp, comp_id);
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   NewTextChild( dataNode, "comp_id", Salons.comp_id );
@@ -168,13 +124,38 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
 }
 
+bool showComponAirlineColumn()
+{
+  TReqInfo *r = TReqInfo::Instance();
+  return !r->user.access.airlines().only_single_permit() ||
+         (r->user.user_type == utSupport &&
+          r->user.access.airlines().only_single_permit() &&
+          r->user.access.airps().only_single_permit());
+}
+
+bool showComponAirpColumn()
+{
+  TReqInfo *r = TReqInfo::Instance();
+  return r->user.user_type != utAirline &&
+         (!r->user.access.airps().only_single_permit() ||
+          (r->user.user_type == utSupport &&
+           ((r->user.access.airlines().only_single_permit() &&
+             r->user.access.airps().only_single_permit()) ||
+            (!r->desk.compatible(BASE_COMP_BUGFIX_VERSION) &&
+             r->user.access.airps().only_single_permit())
+           )
+          )
+         );
+}
+
 void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo *r = TReqInfo::Instance();
   ProgTrace( TRACE5, "SalonsInterface::BaseComponsRead" );
-  if ( (r->user.user_type == utAirline && r->user.access.airlines.empty()) ||
-  	   (r->user.user_type == utAirport && r->user.access.airps.empty()) )
-  	throw AstraLocale::UserException( "MSG.SALONS.ACCESS_DENIED" );
+  if (r->user.access.airlines().totally_not_permitted() &&
+      r->user.access.airps().totally_not_permitted())
+    throw AstraLocale::UserException( "MSG.SALONS.ACCESS_DENIED" );
+
   TQuery Qry( &OraSession );
   if ( r->user.user_type == utAirport )
     Qry.SQLText = "SELECT airline,airp,comp_id,craft,bort,descr,classes FROM comps "\
@@ -186,28 +167,21 @@ void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   xmlNodePtr node = NewTextChild( resNode, "data" );
   node = NewTextChild( node, "compons" );
   while ( !Qry.Eof ) {
-  	if ( filterCompons( Qry.FieldAsString( "airline" ), Qry.FieldAsString( "airp" ) ) ) {
+    if ( SALONS2::filterComponsForView( Qry.FieldAsString( "airline" ), Qry.FieldAsString( "airp" ) ) ) {
       xmlNodePtr rnode = NewTextChild( node, "compon" );
       NewTextChild( rnode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
-      if ( (r->user.user_type == utAirline &&
-            r->user.access.airlines.size() > 1) ||
-           (r->user.user_type != utAirline &&
-            ( r->user.access.airlines.empty() || r->user.access.airlines.size() > 1 )) ||
-           (r->user.user_type == utSupport && r->user.access.airlines.size() >= 1 && r->user.access.airps.size() >= 1) )
+      if (showComponAirlineColumn())
         NewTextChild( rnode, "airline", ElemIdToCodeNative( etAirline, Qry.FieldAsString( "airline" ) ) );
-      if ( (r->user.user_type == utAirport && r->user.access.airps.size() > 1) ||
-           (r->user.user_type == utSupport &&
-            ( r->user.access.airps.empty() || r->user.access.airps.size() > 1 ||
-              (r->user.access.airlines.size() >= 1 && r->user.access.airps.size() >= 1) ) ) )
-    	  NewTextChild( rnode, "airp", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp" ) ) );
+      if (showComponAirpColumn())
+        NewTextChild( rnode, "airp", ElemIdToCodeNative( etAirp, Qry.FieldAsString( "airp" ) ) );
       NewTextChild( rnode, "craft", ElemIdToCodeNative( etCraft, Qry.FieldAsString( "craft" ) ) );
       NewTextChild( rnode, "bort", Qry.FieldAsString( "bort" ) );
       NewTextChild( rnode, "descr", Qry.FieldAsString( "descr" ) );
       NewTextChild( rnode, "classes", Qry.FieldAsString( "classes" ) );
-      if ( r->user.user_type == utAirport && !Qry.FieldIsNULL( "airline" ) )
+      if ( !SALONS2::filterComponsForEdit( Qry.FieldAsString( "airline" ), Qry.FieldAsString( "airp" ) ) )
         NewTextChild( rnode, "canedit", 0 );
-		}
-  	Qry.Next();
+    }
+    Qry.Next();
   }
 }
 

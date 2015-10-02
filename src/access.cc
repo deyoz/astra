@@ -50,8 +50,7 @@ string get_rights_table(TRightListType rlt)
 void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &reqInfo = *(TReqInfo::Instance());
-    if(find( reqInfo.user.access.rights.begin(),
-                reqInfo.user.access.rights.end(), 771 ) == reqInfo.user.access.rights.end())
+    if (!reqInfo.user.access.rights().permitted(771))
         throw AstraLocale::UserException("MSG.NO_ACCESS");
     TReqInfo &info = *(TReqInfo::Instance());
     int role_id = NodeAsInteger("role_id", reqNode);
@@ -170,8 +169,7 @@ void AccessInterface::CmpRole(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 void AccessInterface::Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &reqInfo = *(TReqInfo::Instance());
-    if(find( reqInfo.user.access.rights.begin(),
-                reqInfo.user.access.rights.end(), 771 ) == reqInfo.user.access.rights.end())
+    if (!reqInfo.user.access.rights().permitted(771))
         throw AstraLocale::UserException("MSG.NO_ACCESS");
     int src_role = NodeAsInteger("src_role", reqNode);
     int dst_role = NodeAsInteger("dst_role", reqNode);
@@ -1135,12 +1133,11 @@ void TUserData::initXML(xmlNodePtr node, bool pr_insert)
                 airps.insert(NodeAsString(node2));
         }
 
-        if(pr_insert and airps.empty() and info.user.access.airps_permit)
-            for(vector<string>::iterator iv = info.user.access.airps.begin(); iv != info.user.access.airps.end(); iv++)
-                airps.insert(*iv);
+        if(pr_insert and airps.empty() and info.user.access.airps().elems_permit())
+            airps=info.user.access.airps().elems();
         else
             for(set<string>::iterator iv = airps.begin(); iv != airps.end(); iv++)
-                if(not info.CheckAirp(*iv))
+                if(not info.user.access.airps().permitted(*iv))
                     throw AstraLocale::UserException( "MSG.AIRP.ACCESS_DENIED",
                             LParams() << LParam("airp", ElemIdToCodeNative(etAirp, *iv)));
 
@@ -1151,12 +1148,11 @@ void TUserData::initXML(xmlNodePtr node, bool pr_insert)
                 airlines.insert(NodeAsString(node2));
         }
 
-        if(pr_insert and airlines.empty() and info.user.access.airlines_permit)
-            for(vector<string>::iterator iv = info.user.access.airlines.begin(); iv != info.user.access.airlines.end(); iv++)
-                airlines.insert(*iv);
+        if(pr_insert and airlines.empty() and info.user.access.airlines().elems_permit())
+            airlines=info.user.access.airlines().elems();
         else
             for(set<string>::iterator iv = airlines.begin(); iv != airlines.end(); iv++)
-                if(not info.CheckAirline(*iv))
+                if(not info.user.access.airlines().permitted(*iv))
                     throw AstraLocale::UserException( "MSG.AIRLINE.ACCESS_DENIED",
                             LParams() << LParam("airline", ElemIdToCodeNative(etAirline, *iv)));
 

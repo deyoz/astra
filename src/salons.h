@@ -54,25 +54,25 @@ struct TSetsCraftPoints: public std::vector<int> {
 };
 
 struct TSalonPoint {
-	int x;
-	int y;
-	int num;
-	TSalonPoint() {
-		x = 0;
-		y = 0;
-		num = 0;
-	};
-	TSalonPoint( int ax, int ay, int anum ) {
-		x = ax;
-		y = ay;
-		num = anum;
-	};
-	bool operator == ( const TSalonPoint &value ) const {
+    int x;
+    int y;
+    int num;
+    TSalonPoint() {
+        x = 0;
+        y = 0;
+        num = 0;
+    };
+    TSalonPoint( int ax, int ay, int anum ) {
+        x = ax;
+        y = ay;
+        num = anum;
+    };
+    bool operator == ( const TSalonPoint &value ) const {
     return ( x == value.x &&
              y == value.y &&
              num == value.num );
-	}
-	bool operator < ( const TSalonPoint &value ) const {
+    }
+    bool operator < ( const TSalonPoint &value ) const {
     if ( num != value.num ) {
       return ( num < value.num );
     }
@@ -83,7 +83,7 @@ struct TSalonPoint {
       return ( x < value.x );
     }
     return false;
-	}
+    }
 };
 
 struct TPoint {
@@ -106,27 +106,27 @@ struct TRem {
 };
 
 struct TPlaceLayer {
-	int pax_id;
-	int point_dep;
-	int point_arv;
-	ASTRA::TCompLayerType layer_type;
-	int priority;
-	BASIC::TDateTime time_create;
+    int pax_id;
+    int point_dep;
+    int point_arv;
+    ASTRA::TCompLayerType layer_type;
+    int priority;
+    BASIC::TDateTime time_create;
   TPlaceLayer( int vpax_id, int vpoint_dep, int vpoint_arv,
                ASTRA::TCompLayerType vlayer_type, BASIC::TDateTime vtime_create, int vpriority ) {
-		pax_id = vpax_id;
-		point_dep = vpoint_dep;
-		point_arv = vpoint_arv;
-		layer_type = vlayer_type;
-		time_create = vtime_create;
-		priority = vpriority;
+        pax_id = vpax_id;
+        point_dep = vpoint_dep;
+        point_arv = vpoint_arv;
+        layer_type = vlayer_type;
+        time_create = vtime_create;
+        priority = vpriority;
   }
 };
 
 struct TPlaceWebTariff {
-	std::string color;
-	double value;
-	std::string currency_id;
+    std::string color;
+    double value;
+    std::string currency_id;
     TPlaceWebTariff() {
       value = 0.0;
     };
@@ -141,13 +141,13 @@ struct TPlaceWebTariff {
 };
 
 struct TSeatTariff {
-	std::string color;
-	double value;
-	std::string currency_id;
-	TSeatTariff() {
-		value = 0.0;
-	};
-	bool equal( const TSeatTariff &seatTarif ) const {
+    std::string color;
+    double value;
+    std::string currency_id;
+    TSeatTariff() {
+        value = 0.0;
+    };
+    bool equal( const TSeatTariff &seatTarif ) const {
     return ( color == seatTarif.color &&
              value == seatTarif.value &&
              currency_id == seatTarif.currency_id );
@@ -186,15 +186,15 @@ class TFilterLayer_SOM_PRL {
     void Clear() {
       point_dep = ASTRA::NoExists;
       layer_type = ASTRA::cltUnknown;
-    }  
+    }
   public:
     TFilterLayer_SOM_PRL() {
       Clear();
-    }     
+    }
     void Read( int point_id );
     void ReadOnTranzitRoutes( int point_id, const std::vector<TTripRouteItem> &routes );
-    void ReadOnTranzitRoutes( int point_id, 
-                              bool pr_tranzit_salons, 
+    void ReadOnTranzitRoutes( int point_id,
+                              bool pr_tranzit_salons,
                               const std::vector<TTripRouteItem> &routes ) {
       IntRead( point_id, pr_tranzit_salons, routes );
     }
@@ -206,26 +206,26 @@ class TFilterLayer_SOM_PRL {
 };
 
 class TFilterLayers:public BitSet<ASTRA::TCompLayerType> {
-	private:
-	  int point_dep;
+    private:
+      int point_dep;
     void getIntFilterLayers( int point_id,
-                             bool pr_tranzit_salons,   
+                             bool pr_tranzit_salons,
                              const std::vector<TTripRouteItem> &routes,
                              bool only_compon_props );
-	public:
+    public:
     TFilterLayers() {
       point_dep = ASTRA::NoExists;
     }
-		bool CanUseLayer( ASTRA::TCompLayerType layer_type,
-		                  int layer_point_dep, // пункт вылета слоя
+        bool CanUseLayer( ASTRA::TCompLayerType layer_type,
+                          int layer_point_dep, // пункт вылета слоя
                       int point_salon_departure, // пункт отображения компоновки
                       bool pr_takeoff /*признак факта вылета*/ );
-		void getFilterLayers( int point_id, bool only_compon_props=false );
+        void getFilterLayers( int point_id, bool only_compon_props=false );
     void getFilterLayersOnTranzitRoutes( int point_id,
-                                         bool pr_tranzit_salons, 
+                                         bool pr_tranzit_salons,
                                          const std::vector<TTripRouteItem> &routes,
                                          bool only_compon_props=false ) {
-      getIntFilterLayers( point_id, pr_tranzit_salons, routes, only_compon_props );                                   
+      getIntFilterLayers( point_id, pr_tranzit_salons, routes, only_compon_props );
     }
     int getSOM_PRL_Dep( ) {
       return point_dep;
@@ -282,7 +282,7 @@ struct TSeatLayer {
 };
 
 inline int SIGND( BASIC::TDateTime a ) {
-	return (a > 0.0) - (a < 0.0);
+    return (a > 0.0) - (a < 0.0);
 };
 
 bool compareSeatLayer( const TSeatLayer &layer1, const TSeatLayer &layer2 );
@@ -322,7 +322,7 @@ class TPassSeats: public std::set<TSeat,CompareSeat> {
     bool operator == (const TPassSeats &seats) const {
       if ( size() != seats.size() ) {
         return false;
-      }                      
+      }
       for ( std::set<TSeat>::const_iterator iseat1=begin(),
             iseat2=seats.begin();
             iseat1!=end(), iseat2!=seats.end(); iseat1++, iseat2++ ) {
@@ -350,11 +350,11 @@ class TLayersSeats:public std::map<TSeatLayer,TPassSeats,SeatLayerCompare > {};
 class TSectionInfo {
   private:
     int firstRowIdx;
-    int lastRowIdx;  
+    int lastRowIdx;
     std::map<ASTRA::TCompLayerType,std::vector<TPlace*> > totalLayerSeats; //слой
     std::map<ASTRA::TCompLayerType,std::vector<std::pair<TSeatLayer,TPassSeats> > > currentLayerSeats;
     std::vector<TSalonPointNames> salonPoints;
-    TLayersSeats layersPaxs; //seatLayer->pax_id список пассажиров с местами          
+    TLayersSeats layersPaxs; //seatLayer->pax_id список пассажиров с местами
     std::map<int,TSalonPax> paxs;
   public:
     TSectionInfo() {
@@ -537,7 +537,7 @@ class FilterRoutesProperty: public std::vector<TTripRouteItem> {
           return true;
         }
       }
-      return false;      
+      return false;
     }
     void Build( xmlNodePtr node );
 };
@@ -607,11 +607,11 @@ class TPlace {
       drop_blocked_layers = pl.drop_blocked_layers;
     }
     bool isLayer( ASTRA::TCompLayerType layer, int pax_id = -1 ) {
-    	for (std::vector<TPlaceLayer>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
-    		if ( i->layer_type == layer && ( pax_id == -1 || i->pax_id == pax_id ) )
-    			return true;
-    	};
-    	return false;
+        for (std::vector<TPlaceLayer>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
+            if ( i->layer_type == layer && ( pax_id == -1 || i->pax_id == pax_id ) )
+                return true;
+        };
+        return false;
     }
     static bool isCleanDoubleLayerType( ASTRA::TCompLayerType layer_type ) {
       return ( layer_type == ASTRA::cltSOMTrzt ||
@@ -647,7 +647,7 @@ class TPlace {
                (!pr_base && layersMode == glBase) ) {
               continue;
           }
-          vlayers[ ilayers->first ].insert( *ilayer );  
+          vlayers[ ilayers->first ].insert( *ilayer );
         }
       }
     }
@@ -688,24 +688,24 @@ class TPlace {
     }
     void AddTariff( const std::string &vcolor,
                     const double &vvalue,
-	                  const std::string &vcurrency_id ) {
+                      const std::string &vcurrency_id ) {
        WebTariff.color = vcolor;
        WebTariff.value = vvalue;
        WebTariff.currency_id = vcurrency_id;
     }
     void AddLayerToPlace( ASTRA::TCompLayerType l, BASIC::TDateTime time_create, int pax_id,
-    	                   int point_dep, int point_arv, int priority ) {
-   		std::vector<TPlaceLayer>::iterator i;
+                           int point_dep, int point_arv, int priority ) {
+        std::vector<TPlaceLayer>::iterator i;
       for (i=layers.begin(); i!=layers.end(); i++) {
-      	if ( priority < i->priority ||
-      		   (priority == i->priority &&
-      		    time_create > i->time_create) )
-      		break;
+        if ( priority < i->priority ||
+               (priority == i->priority &&
+                time_create > i->time_create) )
+            break;
       }
       TPlaceLayer pl( pax_id, point_dep, point_arv, l, time_create, priority );
-    	layers.insert( i, pl );
-    	if ( pax_id > 0 )
-    		isPax = true;
+        layers.insert( i, pl );
+        if ( pax_id > 0 )
+            isPax = true;
     };
     bool isChange( const TPlace &seat, BitSet<TCompareComps> &flags ) const;
     void Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) const;
@@ -822,7 +822,7 @@ struct TPass {
 struct TSalonPax {
   private:
     void int_get_seats( TWaitListReason &waitListReason,
-                        std::vector<TPlace*> &seats ) const; 
+                        std::vector<TPlace*> &seats ) const;
   public:
     int grp_id; //+ sort
     int pax_id; //+
@@ -908,6 +908,9 @@ class TPaxList: public std::map<int,TSalonPax> {
 
 enum TSalonReadVersion { rfNoTranzitVersion, rfTranzitVersion };
 
+bool filterComponsForView( const std::string &airline, const std::string &airp );
+bool filterComponsForEdit( const std::string &airline, const std::string &airp );
+
 struct TFilterSets {
   TSalonReadVersion version;
   std::string filterClass;
@@ -936,17 +939,18 @@ struct TComponSets {
     classes.clear();
   }
   void Parse( xmlNodePtr reqNode );
+  static void CheckAirlAirp(xmlNodePtr reqNode, std::string &airline, std::string &airp );
 };
 
 struct TMenuLayer
 {
-	std::string name_view;
-	std::string func_key;
+    std::string name_view;
+    std::string func_key;
   bool editable;
   bool notfree;
   TMenuLayer() {
-  	editable = false;
-  	notfree = false;
+    editable = false;
+    notfree = false;
   }
 };
 
@@ -985,9 +989,9 @@ class TSalons {
 
     void Clear( );
     bool placeIsFree( TPlace* p ) {
-    	for ( std::vector<TPlaceLayer>::iterator i=p->layers.begin(); i!=p->layers.end(); i++ ) {
-    		if ( menuLayers[ i->layer_type ].notfree )
-    			return false;
+        for ( std::vector<TPlaceLayer>::iterator i=p->layers.begin(); i!=p->layers.end(); i++ ) {
+            if ( menuLayers[ i->layer_type ].notfree )
+                return false;
       }
       return true;
     };
@@ -1042,7 +1046,7 @@ struct CompareClass {
     if ( row1.AsInteger( "priority" ) != row2.AsInteger( "priority" ) ) {
       return ( row1.AsInteger( "priority" ) < row2.AsInteger( "priority" ) );
     }
-  	return false;
+    return false;
   }
 };
 
@@ -1222,8 +1226,8 @@ class TSalonList: public std::vector<TPlaceList*> {
 //typedef std::map<TPlace*, std::vector<TPlaceLayer> > TPlacePaxs; // сортировка по приоритетам слоев
 
 
-	typedef std::pair<int,TPlace> TSalonSeat;
-	bool Checkin( int pax_id );
+    typedef std::pair<int,TPlace> TSalonSeat;
+    bool Checkin( int pax_id );
   bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
   void GetTripParams( int trip_id, xmlNodePtr dataNode );
   void GetCompParams( int comp_id, xmlNodePtr dataNode );
@@ -1271,12 +1275,12 @@ class TSalonList: public std::vector<TPlaceList*> {
   bool isBaseLayer( ASTRA::TCompLayerType layer_type, bool isComponCraft );
   int getCrsPaxPointArv( int crs_pax_id, int point_id_spp );
   void CreateSalonMenu( int point_dep, xmlNodePtr salonsNode );
-  
+
   bool isTranzitSalons( int point_id );
   bool isFreeSeating( int point_id );
   bool isEmptySalons( int point_id );
   void DeleteSalons( int point_id );
-  
+
   bool isUserProtectLayer( ASTRA::TCompLayerType layer_type );
 
   void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,

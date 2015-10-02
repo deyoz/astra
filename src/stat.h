@@ -64,6 +64,8 @@ public:
      AddEvent("CommonCBoxDropDown",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::RunStat);
      AddEvent("run_stat",evHandle);
+     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::stat_srv);
+     AddEvent("stat_srv",evHandle);
   };
 
   void FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -75,6 +77,7 @@ public:
   void PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void TestRunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
