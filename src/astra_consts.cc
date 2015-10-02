@@ -57,5 +57,4 @@ const char *RptTypeS[] = {
     "?"
 };
 
-const char* TCrewTypeS[] = {"CR1","CR2","CR3","CR4","CR5", ""};
 };

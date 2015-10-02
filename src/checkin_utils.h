@@ -61,7 +61,6 @@ struct TWebPaxForCkin
   std::string surname;
   std::string name;
   std::string pers_type;
-  std::string crew_type;
   std::string seat_no;
   std::string seat_type;
   int seats;

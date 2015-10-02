@@ -411,7 +411,6 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             NewTextChild(paxNode,"surname",iPaxForCkin->surname);
             NewTextChild(paxNode,"name",iPaxForCkin->name);
             NewTextChild(paxNode,"pers_type",iPaxForCkin->pers_type);
-            NewTextChild(paxNode,"crew_type",iPaxForCkin->crew_type);
             if (!iPaxFromReq->seat_no.empty())
               NewTextChild(paxNode,"seat_no",iPaxFromReq->seat_no);
             else

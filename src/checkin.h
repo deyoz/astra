@@ -88,7 +88,7 @@ public:
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::ParseScanDocData);
      AddEvent("ParseScanDocData",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::CrewCheckin);
-     AddEvent("CREWCHECKIN",evHandle);
+     AddEvent("CrewCheckin",evHandle);
   };
 
   void LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
