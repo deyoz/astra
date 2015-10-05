@@ -2988,19 +2988,19 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
         SetProp(colNode, "sort", sortInteger);
-        NewTextChild(rowNode, "col", total.pax_amount);
+        NewTextChild(rowNode, "col", total.f);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Å"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
         SetProp(colNode, "sort", sortInteger);
-        NewTextChild(rowNode, "col", total.pax_amount);
+        NewTextChild(rowNode, "col", total.c);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("ù"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
         SetProp(colNode, "sort", sortInteger);
-        NewTextChild(rowNode, "col", total.pax_amount);
+        NewTextChild(rowNode, "col", total.y);
 
         total.i_stat.toXML(headerNode, rowNode);
     }
