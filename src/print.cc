@@ -887,6 +887,7 @@ string PrintDataParser::parse_tag(int offset, string tag)
                 case dftEPL2:
                 case dftDPL:
                 case dftEPSON:
+                case dftGraphics2D:
                     result = place_CR_LF(data);
                     break;
                 case dftSCAN1:
