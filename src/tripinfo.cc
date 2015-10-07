@@ -1859,7 +1859,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                                 << ", last_trfer.flt_no"
                                 << ", last_trfer.suffix"
                                 << ", last_trfer.airp_arv";
-          if (pr_user)        s << ", NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, bag2.user_id, DECODE(NVL(bag2.handmade,0), 0, 1000000000, bag2.user_id))"
+          if (pr_user)        s << ", NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, bag2.user_id, DECODE(NVL(bag2.handmade,0), 0, 1000000000, bag2.user_id)))"
                                 << (i==0?" AS user_id":"");
           if (pr_client_type) s << ", pax_grp.client_type";
           if (pr_status)      s << ", pax_grp.status";
