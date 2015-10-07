@@ -1257,7 +1257,7 @@ int test_norms(int argc,char **argv)
       grp.cl=GrpQry.FieldAsString("class");
       grp.status=DecodePaxStatus(GrpQry.FieldAsString("status"));
       grp.bag_refuse=GrpQry.FieldAsInteger("bag_refuse")!=0?refuseAgentError:"";
-      TClientType client_type=DecodeClientType(GrpQry.FieldAsString("client_type"));
+      //TClientType client_type=DecodeClientType(GrpQry.FieldAsString("client_type"));
       TGrpToLogInfo grpLogInfo;
       std::vector<CheckIn::TTransferItem> trfer;
       GetGrpToLogInfo(grp.id, grpLogInfo);
