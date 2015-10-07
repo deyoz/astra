@@ -1204,14 +1204,6 @@ const char* SERVER_ID()
   return VAR.c_str();
 };
 
-bool USE_SEANCES()
-{
-  static int VAR=NoExists;
-  if (VAR==NoExists)
-    VAR=getTCLParam("USE_SEANCES",0,1,0);
-  return VAR!=0;
-};
-
 int ARX_TRIP_DATE_RANGE()
 {
   static int VAR=NoExists;
@@ -1243,7 +1235,6 @@ void showBasicInfo(void)
   resNode = NewTextChild(resNode,"basic_info");
   NewTextChild(resNode, "enable_fr_design", get_enable_fr_design());
   NewTextChild(resNode, "enable_unload_pectab", get_enable_unload_pectab());
-  NewTextChild(resNode, "use_seances", (int)USE_SEANCES());
 
   NewTextChild(resNode, "server_id", SERVER_ID() );
 

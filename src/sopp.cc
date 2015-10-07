@@ -6273,6 +6273,13 @@ void update_trip_sets(int point_id, const map<TTripSetType, bool> &sets, bool fi
                                    "EVT.NOT_ALLOWED_APIS_DATA_MANUAL_INPUT");
         Qry.CreateVariable("apis_manual_input", otInteger, (int)s->second);
         break;
+      case tsPieceConcept:
+        fields.push_back("piece_concept=:piece_concept");
+        if (!first_init || s->second)
+          msgs.push_back(s->second?"EVT.SET_BAGGAGE_PIECE_CONCEPT":
+                                   "EVT.SET_BAGGAGE_WEIGHT_CONCEPT");
+        Qry.CreateVariable("piece_concept", otInteger, (int)s->second);
+        break;
       default:
         break;
     };
@@ -6440,8 +6447,9 @@ void set_flight_sets(int point_id, int f, int c, int y)
     " (point_id,f,c,y,max_commerce,pr_etstatus,pr_stat, "
     "  pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay, "
     "  pr_exam_check_pay,pr_reg_with_tkn,pr_reg_with_doc,pr_reg_without_tkna,crc_comp, "
-        "  pr_basel_stat,auto_weighing,pr_free_seating,apis_control,apis_manual_input) "
-    "VALUES(:point_id,:f,:c,:y, NULL, 0, 0, NULL, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0) ";
+    "  pr_basel_stat,auto_weighing,pr_free_seating,apis_control,apis_manual_input, "
+    "  piece_concept) "
+    "VALUES(:point_id,:f,:c,:y, NULL, 0, 0, NULL, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0) ";
   Qry.CreateVariable("point_id", otInteger, point_id);
   f!=NoExists?Qry.CreateVariable("f", otInteger, f):
               Qry.CreateVariable("f", otInteger, FNull);

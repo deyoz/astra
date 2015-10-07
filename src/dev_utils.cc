@@ -63,6 +63,15 @@ ASTRA::TDevClassType getDevClass(const TOperMode desk_mode,
                  if (env_name == "OCR") return dctOCR;
                  if (env_name == "MSR") return dctMSR;
                  return dctUnknown;
+    case omRESA: if (env_name == "ATB") return dctATB;
+                 if (env_name == "BPP") return dctATB;
+                 if (env_name == "BTP") return dctBTP;
+                 if (env_name == "BGR") return dctBGR;
+                 if (env_name == "BCD") return dctBGR;
+                 if (env_name == "DCP") return dctDCP;
+                 if (env_name == "MSG") return dctDCP;
+                 if (env_name == "RTE") return dctWGE;
+                 return dctUnknown;
         default: return dctUnknown;
   };
 };
@@ -97,6 +106,16 @@ std::string getDefaultDevModel(const TOperMode desk_mode,
         case dctMSR: return "MSR MUSE";
             default: return "";
       };
+    case omRESA:
+      switch(dev_class)
+      {
+        case dctATB: return "ATB RESA";
+        case dctBTP: return "BTP RESA";
+        case dctBGR: return "BCR RESA";
+        case dctDCP: return "DCP RESA";
+        case dctWGE: return "WGE RESA";
+        default: return "";
+      };
     default: return "";
   };
 };
@@ -115,7 +134,7 @@ int BCBPUniqueSections::numberOfLigs() const
 pair<string, string> BCBPUniqueSections::passengerName() const
 {
   if (mandatory.size()!=23) throw EConvertError("invalid size of unique mandatory section");
-  pair<string, string> result;  
+  pair<string, string> result;
   result.first=mandatory.substr(2,20);
   TrimString(result.first);
   if (result.first.empty()) throw EConvertError("empty item 11 <Passenger Name>");
@@ -292,7 +311,7 @@ string BCBPSections::substr(const std::string &bcbp,
                             const string::size_type &idx,
                             const string::size_type &len,
                             const EXCEPTIONS::EConvertError &e)
-{    
+{
   if (idx+len>bcbp.size()) throw e;
   return bcbp.substr(idx, len);
 }
