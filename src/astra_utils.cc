@@ -308,7 +308,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   airps.clear();
   airps.set_elems_permit(!elems.empty());
   for(vector<string>::const_iterator e=elems.begin(); e!=elems.end(); ++e) airps.add_elem(*e);
-  user.access.merge_airlines(airlines);
+  user.access.merge_airps(airps);
 
   //проверим ограничение доступа по собственникам пульта
   Qry.Clear();
