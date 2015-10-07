@@ -52,7 +52,7 @@ class TTrferSetsInfo
 void traceTrfer( TRACE_SIGNATURE,
                  const std::string &descr,
                  const std::map<int, CheckIn::TTransferItem> &trfer );
-                 
+
 void traceTrfer( TRACE_SIGNATURE,
                  const std::string &descr,
                  const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &segs );
@@ -147,7 +147,6 @@ public:
   static void LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax);
   static void LoadPaxRem(xmlNodePtr paxNode);
   static void LoadPaxTransfer(int pax_id, xmlNodePtr paxNode);
-  static void LoadTransfer(int grp_id, std::vector<CheckIn::TTransferItem> &trfer);
   static void BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transferNode);
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);
 
@@ -165,7 +164,7 @@ public:
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void readTripSets( int point_id, xmlNodePtr dataNode );
   static void readTripSets( int point_id, const TTripInfo &fltInfo, xmlNodePtr tripSetsNode );
-  
+
   static void GetOnwardCrsTransfer(int pnr_id, TQuery &Qry,
                                    const TTripInfo &operFlt,
                                    const std::string &oper_airp_arv,
@@ -176,7 +175,7 @@ public:
                                     xmlNodePtr trferNode);
   static void LoadOnwardCrsTransfer(const std::map<int, std::pair<CheckIn::TTransferItem, TTrferSetsInfo> > &trfer,
                                     xmlNodePtr trferNode);
-                               
+
   static void GetTrferSets(const TTripInfo &operFlt,
                            const std::string &oper_airp_arv,
                            const std::string &tlg_airp_dep,
@@ -197,10 +196,10 @@ class OverloadException: public AstraLocale::UserException
 
 class UserException:public AstraLocale::UserException
 {
-	public:
-	  std::map<int, std::map <int, AstraLocale::LexemaData> > segs;
+    public:
+      std::map<int, std::map <int, AstraLocale::LexemaData> > segs;
 
-	  UserException(const AstraLocale::LexemaData &lexemeData,
+      UserException(const AstraLocale::LexemaData &lexemeData,
                   int point_id,
                   int pax_id = ASTRA::NoExists):AstraLocale::UserException(lexemeData.lexema_id, lexemeData.lparams)
     {
@@ -222,14 +221,14 @@ class UserException:public AstraLocale::UserException
     {
       AstraLocale::LexemaData data;
       data.lexema_id = lexema_id;
-    	data.lparams = lparams;
-    	addError(data, point_id, pax_id);
+        data.lparams = lparams;
+        addError(data, point_id, pax_id);
     };
     void addError(const std::string &lexema_id,
                   int point_id,
                   int pax_id = ASTRA::NoExists)
     {
-    	addError(lexema_id, AstraLocale::LParams(), point_id, pax_id);
+        addError(lexema_id, AstraLocale::LParams(), point_id, pax_id);
     };*/
     bool empty() { return segs.empty(); };
 };

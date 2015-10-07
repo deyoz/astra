@@ -17,6 +17,8 @@
 #include "passenger.h"
 #include "points.h"
 #include "emdoc.h"
+#include "baggage_calc.h"
+#include "events.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -41,14 +43,14 @@ void PaymentInterface::BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transf
     NewTextChild(trferNode,"airline",t->operFlt.airline);
     NewTextChild(trferNode,"aircode",
                  base_tables.get("airlines").get_row("code",t->operFlt.airline).AsString("aircode"));
-    
+
     NewTextChild(trferNode,"flt_no",t->operFlt.flt_no);
     NewTextChild(trferNode,"suffix",t->operFlt.suffix);
-    
+
     //дата
     DecodeDate(t->operFlt.scd_out,iYear,iMonth,iDay);
     NewTextChild(trferNode,"local_date",iDay);
-    
+
     NewTextChild(trferNode,"airp_dep",t->operFlt.airp);
     NewTextChild(trferNode,"airp_arv",t->airp_arv);
 
@@ -242,6 +244,8 @@ namespace RCPT_PAX_NAME {
 
 void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
   enum TSearchType {searchByPaxId,
                     searchByGrpId,
                     searchByRegNo,
@@ -261,7 +265,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           else return;
 
   int point_id=NodeAsInteger("point_id",reqNode);
-  
+
   TPrnParams prnParams(reqNode);
 
   xmlNodePtr dataNode=GetNode("data",resNode);
@@ -375,7 +379,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.SQLText=
         "SELECT pax_grp.grp_id, pax.pax_id, "
         "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
-        "       class,bag_refuse,pax_grp.tid, "
+        "       class, bag_refuse, 0 AS piece_concept, 0 AS bag_types_id, pax_grp.tid, "
         "       pax.reg_no, "
         "       pax.surname, "
         "       pax.name, "
@@ -395,7 +399,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.SQLText=
         "SELECT pax_grp.grp_id, NULL AS pax_id, "
         "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
-        "       class,bag_refuse,pax_grp.tid, "
+        "       class, bag_refuse, 0 AS piece_concept, 0 AS bag_types_id, pax_grp.tid, "
         "       NULL AS reg_no, "
         "       NULL AS surname, "
         "       NULL AS name, "
@@ -460,6 +464,11 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(dataNode,"city_arv",Qry.FieldAsString("city_arv"));
   NewTextChild(dataNode,"class",Qry.FieldAsString("class"));
   NewTextChild(dataNode,"pr_refuse",(int)(Qry.FieldAsInteger("bag_refuse")!=0));
+  if (!Qry.FieldIsNULL("bag_types_id"))
+    NewTextChild(dataNode, "bag_types_id", Qry.FieldAsInteger("bag_types_id")!=0);
+  else
+    NewTextChild(dataNode, "bag_types_id");
+  NewTextChild(dataNode, "piece_concept", (int)(Qry.FieldAsInteger("piece_concept")!=0));
   NewTextChild(dataNode,"reg_no",Qry.FieldAsInteger("reg_no"));
   NewTextChild(dataNode,"pax_name", RCPT_PAX_NAME::get_pax_name(Qry));
   if (!Qry.FieldIsNULL("pax_id"))
@@ -470,7 +479,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   //информация по трансферу багажа
   TTrferRoute trfer;
   trfer.GetRoute(grp_id, trtNotFirstSeg);
-  if (TReqInfo::Instance()->desk.compatible(BAG_RCPT_KITS_VERSION))
+  if (reqInfo->desk.compatible(BAG_RCPT_KITS_VERSION))
   {
     if (!trfer.empty())
       BuildTransfer(trfer, dataNode);
@@ -559,8 +568,8 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   {
     xmlNodePtr markFltNode=NewTextChild(dataNode,"mark_flight");
     NewTextChild(markFltNode,"airline",Qry.FieldAsString("airline"));
-    if (TReqInfo::Instance()->desk.compatible(BAG_RCPT_KITS_VERSION) &&
-        !TReqInfo::Instance()->desk.compatible(AIRCODE_BUGFIX_VERSION))
+    if (reqInfo->desk.compatible(BAG_RCPT_KITS_VERSION) &&
+        !reqInfo->desk.compatible(AIRCODE_BUGFIX_VERSION))
       NewTextChild(markFltNode,"aircode",Qry.FieldAsString("airline"));
     else
       NewTextChild(markFltNode,"aircode",
@@ -572,7 +581,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(markFltNode,"pr_mark_norms",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
     NewTextChild(markFltNode,"pr_mark_rates",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
   };
-  
+
   if (!pr_unaccomp)
   {
     //загрузка главных пассажиров багажных пулов
@@ -598,8 +607,25 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     };
   };
 
-  CheckIn::LoadBag(grp_id,dataNode);
-  CheckIn::LoadPaidBag(grp_id,dataNode);
+  CheckIn::TGroupBagItem group_bag;
+  group_bag.fromDB(grp_id, ASTRA::NoExists, !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS));
+  group_bag.toXML(dataNode);
+  list<CheckIn::TPaidBagItem> paid;
+  CheckIn::PaidBagFromDB(grp_id, paid);
+  if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
+    CheckIn::PaidBagToXML(paid, group_bag, dataNode);
+  else
+  {
+    map<int/*id*/, TBagToLogInfo> tmp_bag;
+    GetBagToLogInfo(grp_id, tmp_bag);
+    BagPayment::PaidBagViewToXML(tmp_bag,
+                                 list<BagPayment::TBagNormInfo>(),
+                                 paid,
+                                 list<CheckIn::TPaidBagEMDItem>(),
+                                 "",
+                                 dataNode);
+  };
+
   LoadReceipts(grp_id,true,prnParams.pr_lat,dataNode);
   //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
@@ -625,17 +651,14 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
       NewTextChild(receiptNode,"no",i->first.no_str());
       NewTextChild(receiptNode,"aircode","");
       NewTextChild(receiptNode,"ex_weight",i->second.weight);
-      if (i->second.bag_type!=ASTRA::NoExists)
-        NewTextChild(receiptNode,"bag_type",i->second.bag_type);
-      else
-        NewTextChild(receiptNode,"bag_type");
+      NewTextChild(receiptNode,"bag_type",i->second.bag_type_str());
     };
 
     //квитанции предоплаты
     Qry.Clear();
     Qry.SQLText="SELECT * FROM bag_prepay WHERE grp_id=:grp_id";
     Qry.CreateVariable("grp_id", otInteger, id);
-    Qry.Execute();    
+    Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
       xmlNodePtr receiptNode=NewTextChild(node,"receipt");
@@ -645,7 +668,11 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
       if (!Qry.FieldIsNULL("ex_weight"))
         NewTextChild(receiptNode,"ex_weight",Qry.FieldAsInteger("ex_weight"));
       if (!Qry.FieldIsNULL("bag_type"))
-        NewTextChild(receiptNode,"bag_type",Qry.FieldAsInteger("bag_type"));
+      {
+        ostringstream s;
+        s << setw(2) << setfill('0') << Qry.FieldAsInteger("bag_type");
+        NewTextChild(receiptNode,"bag_type",s.str());
+      }
       else
         NewTextChild(receiptNode,"bag_type");
       if (!Qry.FieldIsNULL("value"))
@@ -737,7 +764,7 @@ void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     xmlNodePtr node=NodeAsNode("receipt",reqNode)->children;
     bool pr_del=NodeAsIntegerFast("pr_del",node);
-    xmlNodePtr idNode=GetNodeFast("id",node);    
+    xmlNodePtr idNode=GetNodeFast("id",node);
 
     string old_aircode, old_no;
     TQuery Qry(&OraSession);
@@ -920,7 +947,7 @@ bool PaymentInterface::GetReceiptFromDB(TQuery &Qry, TBagReceipt &rcpt)
   else
     rcpt.annul_date=NoExists;
   rcpt.annul_desk=Qry.FieldAsString("annul_desk");
-  
+
   rcpt.is_inter=Qry.FieldAsInteger("is_inter")!=0;
   rcpt.desk_lang=Qry.FieldAsString("desk_lang");
 
@@ -1098,7 +1125,7 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
     Qry.SetVariable("extra",i->extra);
     Qry.Execute();
   };
-  
+
   if (rcpt.kit_id==NoExists && rcpt.kit_num!=NoExists)
   {
     //проверка дублирования номеров квитанций
@@ -1116,7 +1143,7 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
       if (!Qry.Eof)
         throw AstraLocale::UserException("MSG.RECEIPT_BLANK_NO_ALREADY_USED", LParams() << LParam("no", i->no));
     };
-  
+
     //надо добавить комплект в bag_rcpt_kits
     Qry.Clear();
     Qry.SQLText=
@@ -1143,7 +1170,7 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
     Qry.CreateVariable("kit_num", otInteger, rcpt.kit_num);
     Qry.Execute();
   };
-  
+
   return receipt_id;
 };
 
@@ -1164,7 +1191,13 @@ void PaymentInterface::PutReceiptToXML(const TBagReceipt &rcpt, int rcpt_id, boo
   NewTextChild(rcptNode,"pax_doc",rcpt.pax_doc);
   NewTextChild(rcptNode,"service_type",rcpt.service_type);
   if (rcpt.bag_type!=-1)
-    NewTextChild(rcptNode,"bag_type",rcpt.bag_type);
+  {
+    ostringstream s;
+    s << setw(2) << setfill('0') << rcpt.bag_type;
+    NewTextChild(rcptNode,"bag_type",s.str());
+    s << ": " << ElemIdToNameLong(etBagType, rcpt.bag_type);
+    NewTextChild(rcptNode,"bag_type_view",s.str());
+  }
   else
     NewTextChild(rcptNode,"bag_type");
   NewTextChild(rcptNode,"bag_name",rcpt.bag_name,"");
@@ -1201,7 +1234,7 @@ void PaymentInterface::PutReceiptToXML(const TBagReceipt &rcpt, int rcpt_id, boo
     NewTextChild(node,"pay_rate_sum",i->pay_rate_sum);
     NewTextChild(node,"extra",i->extra,"");
   };
-  
+
   NewTextChild(rcptNode,"kit_id",rcpt.kit_id,NoExists);
   NewTextChild(rcptNode,"kit_num",rcpt.kit_num,NoExists);
   if (rcpt.kit_num!=NoExists)
@@ -1351,7 +1384,7 @@ namespace RCPT_TICKETS {
 void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  
+
   TPrnParams prnParams(reqNode);
 
   xmlNodePtr rcptNode=NodeAsNode("receipt",reqNode);
@@ -1398,7 +1431,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
       };
     };
   };
-  
+
   TTrferRoute route;
   if (!route.GetRoute(grp_id, trtWithFirstSeg) || route.empty())
     throw AstraLocale::UserException("MSG.FLT_OR_PAX_INFO_CHANGED.REFRESH_DATA");
@@ -1456,7 +1489,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
     rcpt.airp_arv=item.airp_arv;
     airline_fact = item.operFlt.airline;
   };
-  
+
   if (rcpt.kit_num==NoExists)
   {
     rcpt.aircode=base_tables.get("airlines").get_row("code", rcpt.airline).AsString("aircode");
@@ -1478,7 +1511,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
     rcpt.form_type=item.form_type;
     rcpt.no=item.no;
   };
-  
+
   if (rcpt.kit_id==NoExists)
   {
     TTagLang tag_lang;
@@ -1489,7 +1522,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
     rcpt.is_inter=tag_lang.IsInter();  //важно, что инициализируем вначале
     rcpt.route_country = tag_lang.getRouteCountry();
     rcpt.desk_lang=tag_lang.GetLang();
-    
+
     if (NodeIsNULL("no",rcptNode) )
       //превью с незаданным номером квитанции (в т.ч. первое превью)
       rcpt.pax_name=RCPT_PAX_NAME::transliter_pax_name(tag_lang, NodeAsString("pax_name",rcptNode));
@@ -1529,7 +1562,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
           };
       };
     };
-    
+
     rcpt.service_type=NodeAsInteger("service_type",rcptNode);
     if (!NodeIsNULL("bag_type",rcptNode))
       rcpt.bag_type=NodeAsInteger("bag_type",rcptNode);
@@ -1716,7 +1749,7 @@ void PaymentInterface::PutReceiptFields(int id, bool pr_lat, xmlNodePtr node)
   {
     TDateTime annul_date_local = UTCToLocal(rcpt.annul_date, CityTZRegion(DeskCity(rcpt.annul_desk)));
     ostringstream annul_str;
-    
+
     if (status=="З")
       annul_str << getLocaleText("MSG.RECEIPT.REPLACEMENT") << " "
                 << DateTimeToStr(annul_date_local, (string)"ddmmmyy", TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
@@ -1730,12 +1763,12 @@ void PaymentInterface::PutReceiptFields(int id, bool pr_lat, xmlNodePtr node)
 void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr rcptNode=NewTextChild(resNode,"receipt");
-  
+
   TPrnParams prnParams(reqNode);
 
   if (GetNode("receipt/id",reqNode)==NULL)
   {
-  
+
     if (!TReqInfo::Instance()->desk.compatible(BAG_RCPT_KITS_VERSION) &&
         NodeAsNode("receipt",reqNode)->children==NULL)
       throw UserException("MSG.BEFORE_RECEIPT_PRINT_CLOSE_PAYMENT_FORMS");
@@ -1797,9 +1830,9 @@ void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
     NewTextChild(resNode,"tid",tid);
   };
-  
+
   TPrnParams prnParams(reqNode);
-  
+
   vector<int> rcpt_ids;
   xmlNodePtr rcptsNode;
   string new_status;
@@ -1817,7 +1850,7 @@ void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     rcpt_ids.push_back(NodeAsInteger("receipt/id",reqNode));
     rcptsNode=resNode;
   };
-  
+
   for(vector<int>::const_iterator rcpt_id=rcpt_ids.begin();rcpt_id!=rcpt_ids.end();++rcpt_id)
   {
     if (GetNode("point_dep",reqNode)==NULL)
@@ -1885,7 +1918,7 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     NewTextChild(resNode,"tid",tid);
 
     TQuery Qry(&OraSession);
-    
+
     TPrnParams prnParams(reqNode);
 
     TBagReceipt rcpt;
@@ -1928,7 +1961,7 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
             if (!GetReceiptFromDB(rcpt_id,rcpt))
                 throw AstraLocale::UserException("MSG.RECEIPT_TO_REPLACE_NOT_FOUND.REFRESH_DATA");
-                
+
             if (rcpt.kit_id!=NoExists)
               //не предусмотрена процедура замены бланка для квитанций из комплекта
               throw AstraLocale::UserException("MSG.RECEIPT_REPLACEMENT_DENIAL");

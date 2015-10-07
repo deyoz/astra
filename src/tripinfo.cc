@@ -1080,8 +1080,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
       "       pr_reg_with_tkn,pr_reg_with_doc,pr_reg_without_tkna, "
       "       auto_weighing,pr_etstatus, "
-      "       pr_free_seating, apis_control, apis_manual_input, "
-      "       pr_airp_seance "
+      "       pr_free_seating, apis_control, apis_manual_input, piece_concept "
       "FROM trip_sets WHERE point_id=:point_id ";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
@@ -1115,6 +1114,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "pr_reg_without_tkna", (int)(Qryh.FieldAsInteger("pr_reg_without_tkna")!=0) );
       NewTextChild( node, "auto_weighing", (int)(Qryh.FieldAsInteger("auto_weighing")!=0) );
       NewTextChild( node, "pr_free_seating", (int)(Qryh.FieldAsInteger("pr_free_seating")!=0) );
+      NewTextChild( node, "piece_concept", (int)(Qryh.FieldAsInteger("piece_concept")!=0) );
 
       TAPISMap apis_map;
       set<string> apis_formats;
@@ -1123,9 +1123,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "apis_control", (int)(Qryh.FieldAsInteger("apis_control")!=0) );
       NewTextChild( node, "apis_manual_input", (int)(Qryh.FieldAsInteger("apis_manual_input")!=0) );
 
-      if (!Qryh.FieldIsNULL("pr_airp_seance"))
-        NewTextChild( node, "pr_airp_seance", (int)(Qryh.FieldAsInteger("pr_airp_seance")!=0) );
-      else
+      if (reqInfo->client_type == ctTerm &&
+          !reqInfo->desk.compatible(PAX_LOAD_BY_GENDER))
         NewTextChild( node, "pr_airp_seance" );
     };
 
@@ -1182,10 +1181,6 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
         case atETStatus:
             if (reqInfo->screen.name == "AIR.EXE" ||
                   reqInfo->screen.name == "BRDBUS.EXE")
-            rem = TripAlarmString( alarm );
-          break;
-        case atSeance:
-            if (reqInfo->screen.name == "AIR.EXE")
             rem = TripAlarmString( alarm );
           break;
         case atDiffComps:
@@ -1857,14 +1852,14 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                                 << (i==0?" AS class":"");
           if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,pax_grp.class_grp)"
                                 << (i==0?" AS class_grp":"");
-          if (pr_hall)        s << ", NVL(bag2.hall, DECODE(bag2.is_trfer, 0, bag2.hall, 1000000000))"
+          if (pr_hall)        s << ", NVL(bag2.hall, DECODE(bag2.is_trfer, 0, bag2.hall, DECODE(NVL(bag2.handmade,0), 0, 1000000000, bag2.hall)))"
                                 << (i==0?" AS hall":"");
           if (pr_airp_arv)    s << ", pax_grp.point_arv";
           if (pr_trfer)       s << ", last_trfer.airline"
                                 << ", last_trfer.flt_no"
                                 << ", last_trfer.suffix"
                                 << ", last_trfer.airp_arv";
-          if (pr_user)        s << ", NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, bag2.user_id, 1000000000))"
+          if (pr_user)        s << ", NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, bag2.user_id, DECODE(NVL(bag2.handmade,0), 0, 1000000000, bag2.user_id))"
                                 << (i==0?" AS user_id":"");
           if (pr_client_type) s << ", pax_grp.client_type";
           if (pr_status)      s << ", pax_grp.status";
@@ -1895,14 +1890,14 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                                 << (i==0?" AS class":"");
           if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,pax_grp.class_grp)"
                                 << (i==0?" AS class_grp":"");
-          if (pr_hall)        s << ", DECODE(bag2.grp_id, NULL, pax_grp.hall, NVL(bag2.hall, DECODE(bag2.is_trfer, 0, pax_grp.hall, 1000000000)))"
+          if (pr_hall)        s << ", DECODE(bag2.grp_id, NULL, pax_grp.hall, NVL(bag2.hall, DECODE(bag2.is_trfer, 0, pax_grp.hall, DECODE(NVL(bag2.handmade,0), 0, 1000000000, pax_grp.hall))))"
                                 << (i==0?" AS hall":"");
           if (pr_airp_arv)    s << ", pax_grp.point_arv";
           if (pr_trfer)       s << ", last_trfer.airline"
                                 << ", last_trfer.flt_no"
                                 << ", last_trfer.suffix"
                                 << ", last_trfer.airp_arv";
-          if (pr_user)        s << ", DECODE(bag2.grp_id, NULL, pax_grp.user_id, NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, pax_grp.user_id, 1000000000)))"
+          if (pr_user)        s << ", DECODE(bag2.grp_id, NULL, pax_grp.user_id, NVL(bag2.user_id, DECODE(bag2.is_trfer, 0, pax_grp.user_id, DECODE(NVL(bag2.handmade,0), 0, 1000000000, pax_grp.user_id))))"
                                 << (i==0?" AS user_id":"");
           if (pr_client_type) s << ", pax_grp.client_type";
           if (pr_status)      s << ", pax_grp.status";
@@ -1916,7 +1911,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                           << last_trfer_sql.str() << endl;
 
         if (pr_hall || pr_user)
-          sql << "    ,(SELECT bag2.grp_id,bag2.hall,bag2.user_id,bag2.is_trfer " << endl
+          sql << "    ,(SELECT bag2.grp_id,bag2.hall,bag2.user_id,bag2.is_trfer,bag2.handmade " << endl
               << "     FROM bag2, " << endl
               << "          (SELECT bag2.grp_id,MAX(bag2.num) AS num " << endl
               << "           FROM pax_grp,bag2 " << endl

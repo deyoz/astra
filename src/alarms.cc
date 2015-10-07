@@ -29,7 +29,6 @@ const char *TripAlarmsTypeS[] = {
     "BRD",
     "OVERLOAD",
     "ET_STATUS",
-    "SEANCE",
     "DIFF_COMPS",
     "SPEC_SERVICE",
     "TLG_IN",
@@ -69,7 +68,7 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
     Alarms.clearFlags();
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT pr_etstatus,pr_salon,pr_free_seating,act,pr_airp_seance "
+        "SELECT pr_etstatus,pr_salon,pr_free_seating,act "
         " FROM trip_sets, trip_stages, "
         " ( SELECT COUNT(*) pr_salon FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2 ) a "
         " WHERE trip_sets.point_id=:point_id AND "
@@ -87,12 +86,7 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
     if ( Qry.FieldAsInteger( "pr_etstatus" ) < 0 ) {
         Alarms.setFlag( atETStatus );
     }
-    if (USE_SEANCES())
-    {
-        if ( Qry.FieldIsNULL( "pr_airp_seance" ) ) {
-            Alarms.setFlag( atSeance );
-        }
-    };
+
     Qry.Clear();
     Qry.SQLText = "select alarm_type from trip_alarms where point_id = :point_id";
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -198,7 +192,7 @@ bool calc_overload_alarm( int point_id )
   bool overload_alarm=false;
   if (!Qry.FieldIsNULL("max_commerce"))
   {
-  	int load = getCommerceWeight( point_id, onlyCheckin, CWTotal );
+    int load = getCommerceWeight( point_id, onlyCheckin, CWTotal );
     ProgTrace(TRACE5,"check_overload_alarm: max_commerce=%d load=%d",Qry.FieldAsInteger("max_commerce"),load);
     overload_alarm=(load>Qry.FieldAsInteger("max_commerce"));
   };
@@ -209,7 +203,7 @@ bool check_overload_alarm( int point_id )
 {
   bool overload_alarm=calc_overload_alarm( point_id );
   set_alarm( point_id, atOverload, overload_alarm );
-	return overload_alarm;
+    return overload_alarm;
 };
 
 bool calc_waitlist_alarm( int point_id )
@@ -235,33 +229,33 @@ bool calc_waitlist_alarm( int point_id )
 /* есть пассажиры, которые на листе ожидания */
 bool check_waitlist_alarm( int point_id )
 {
-	bool waitlist_alarm = calc_waitlist_alarm( point_id );
+    bool waitlist_alarm = calc_waitlist_alarm( point_id );
 
   set_alarm( point_id, atWaitlist, waitlist_alarm );
-	return waitlist_alarm;
+    return waitlist_alarm;
 };
 
 /* есть пассажиры, которые зарегистрированы, но не посажены */
 bool check_brd_alarm( int point_id )
 {
-	bool brd_alarm = false;
-	if ( CheckStageACT(point_id, sCloseBoarding) ) {
+    bool brd_alarm = false;
+    if ( CheckStageACT(point_id, sCloseBoarding) ) {
     TQuery Qry(&OraSession);
-	  Qry.Clear();
-	  Qry.SQLText =
-	    "SELECT pax_id FROM pax, pax_grp "
-	    " WHERE pax_grp.point_dep=:point_id AND "
-	    "       pax_grp.grp_id=pax.grp_id AND "
+      Qry.Clear();
+      Qry.SQLText =
+        "SELECT pax_id FROM pax, pax_grp "
+        " WHERE pax_grp.point_dep=:point_id AND "
+        "       pax_grp.grp_id=pax.grp_id AND "
       "       pax_grp.status NOT IN ('E') AND "
-	    "       pax.wl_type IS NULL AND "
-	    "       pax.pr_brd = 0 AND "
-	    "       rownum < 2 ";
-  	Qry.CreateVariable( "point_id", otInteger, point_id );
-  	Qry.Execute();
-	  brd_alarm = !Qry.Eof;
-	}
-	set_alarm( point_id, atBrd, brd_alarm );
-	return brd_alarm;
+        "       pax.wl_type IS NULL AND "
+        "       pax.pr_brd = 0 AND "
+        "       rownum < 2 ";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+      brd_alarm = !Qry.Eof;
+    }
+    set_alarm( point_id, atBrd, brd_alarm );
+    return brd_alarm;
 };
 
 /* есть ошибочные телеграммы, не скорректированные впоследствии */
@@ -342,7 +336,7 @@ bool check_spec_service_alarm(int point_id)
         "  pax_grp.point_dep = :point_id and "
         "  pax_grp.status NOT IN ('E') and "
         "  pax_grp.grp_id = pax.grp_id and "
-        "  pax.refuse is null and "  
+        "  pax.refuse is null and "
         "  pax.pax_id = pax_rem.pax_id ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
@@ -359,13 +353,13 @@ void check_unattached_trfer_alarm( const set<int> &point_ids )
   {
     int point_id=*i;
     bool result=false;
-  	if ( CheckStageACT(point_id, sCloseCheckIn) )
+    if ( CheckStageACT(point_id, sCloseCheckIn) )
     {
       InboundTrfer::TUnattachedTagMap unattached_grps;
       InboundTrfer::GetUnattachedTags(point_id, unattached_grps);
       result = !unattached_grps.empty();
-  	};
-  	set_alarm( point_id, atUnattachedTrfer, result );
+    };
+    set_alarm( point_id, atUnattachedTrfer, result );
   };
 };
 
@@ -418,7 +412,7 @@ bool check_conflict_trfer_alarm(int point_id)
   Qry.Execute();
   conflict_trfer_alarm = !Qry.Eof;
   set_alarm( point_id, atConflictTrfer, conflict_trfer_alarm );
-	return conflict_trfer_alarm;
+    return conflict_trfer_alarm;
 }
 
 bool need_crew_checkin(const TAdvTripInfo &fltInfo)
@@ -485,18 +479,18 @@ void check_crew_alarms(int point_id)
     if (!Qry.Eof) do_check=true;
   };
 
-	if ( do_check )
+    if ( do_check )
   {
     int sopp_num=NoExists;
     int checkin_num=NoExists;
     TQuery Qry(&OraSession);
-	  Qry.Clear();
-	  Qry.SQLText =
+      Qry.Clear();
+      Qry.SQLText =
       "SELECT NVL(cockpit,0)+NVL(cabin,0) AS num "
       "FROM trip_crew "
       "WHERE point_id=:point_id AND (cockpit IS NOT NULL OR cabin IS NOT NULL)";
     Qry.CreateVariable( "point_id", otInteger, point_id );
-  	Qry.Execute();
+    Qry.Execute();
     if (!Qry.Eof) sopp_num=Qry.FieldAsInteger("num");
 
     Qry.SQLText=
@@ -561,10 +555,10 @@ void check_crew_alarms(int point_id)
         };
       };
     };
-	};
+    };
   set_alarm( point_id, atCrewCheckin, crew_checkin );
   set_alarm( point_id, atCrewNumber, crew_number );
-	set_alarm( point_id, atCrewDiff, crew_diff );
+    set_alarm( point_id, atCrewDiff, crew_diff );
 }
 
 void check_apis_alarms(int point_id)
@@ -684,9 +678,9 @@ void check_apis_alarms(int point_id, const set<TTripAlarmsType> &checked_alarms)
 void check_unbound_emd_alarm( int point_id )
 {
   bool emd_alarm = false;
-	if ( CheckStageACT(point_id, sCloseCheckIn) )
+    if ( CheckStageACT(point_id, sCloseCheckIn) )
     emd_alarm=PaxASVCList::ExistsUnboundEMD(point_id);
-	set_alarm( point_id, atUnboundEMD, emd_alarm );
+    set_alarm( point_id, atUnboundEMD, emd_alarm );
 };
 
 void check_unbound_emd_alarm( set<int> &pax_ids )
