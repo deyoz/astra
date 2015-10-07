@@ -207,6 +207,7 @@ class TGrpToLogInfo
       grp_id=ASTRA::NoExists;
       excess=0;
       pax.clear();
+      bag.clear();
       paid.clear();
       emd.clear();
     };

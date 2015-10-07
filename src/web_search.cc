@@ -1210,7 +1210,6 @@ bool TPNRInfo::fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest, b
   fltInfo.flt_no_mark=pnrMarkFlt.flt_no;
   fltInfo.use_mixed_norms=GetTripSets(tsMixedNorms,flt.oper);
   BagPayment::TPaxInfo paxInfo;
-  paxInfo.pax_cat="";
   paxInfo.target=dest.city_arv;
   paxInfo.final_target=""; //трансфер пока не анализируем
   paxInfo.subcl=segs.begin()->second.subcls;

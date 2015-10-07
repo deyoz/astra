@@ -162,6 +162,7 @@ class TGroupBagItem
     void add(const TGroupBagItem &item);
     void setInboundTrfer(const TrferList::TGrpItem &grp);
     void setPoolNum(int bag_pool_num);
+    bool trferExists() const;
 };
 
 void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode);
@@ -250,6 +251,7 @@ class TPaidBagItem
     double rate;
     std::string rate_cur;
     bool rate_trfer;
+    int handmade;
   TPaidBagItem()
   {
     clear();
@@ -262,6 +264,16 @@ class TPaidBagItem
     rate=ASTRA::NoExists;
     rate_cur.clear();
     rate_trfer=false;
+    handmade=ASTRA::NoExists;
+  };
+  bool operator == (const TPaidBagItem &item) const
+  {
+    return bag_type==item.bag_type &&
+           weight==item.weight &&
+           rate_id==item.rate_id &&
+           rate==item.rate &&
+           rate_cur==item.rate_cur &&
+           rate_trfer==item.rate_trfer;
   };
   const TPaidBagItem& toXML(xmlNodePtr node) const;
   TPaidBagItem& fromXML(xmlNodePtr node);
@@ -275,10 +287,9 @@ void PaidBagFromXML(xmlNodePtr paidbagNode,
 void PaidBagToDB(int grp_id,
                  const boost::optional< std::list<TPaidBagItem> > &paid);
 void PaidBagFromDB(int grp_id, std::list<TPaidBagItem> &paid);
-void PaidBagToXML(const std::list<TPaidBagItem> &paid, xmlNodePtr paidbagNode);
+void PaidBagToXML(const std::list<TPaidBagItem> &paid, const TGroupBagItem &group_bag, xmlNodePtr paidbagNode);
 
 void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
-void LoadPaidBag(int grp_id, xmlNodePtr paidbagNode);
 
 class TPaidBagEMDItem
 {

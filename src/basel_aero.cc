@@ -611,6 +611,7 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
       CheckIn::TPaxNormItem paxNormItem;
       CheckIn::TNormItem normItem;
       paxNormItem.fromDB(NormQry);
+      if (paxNormItem.bag_type==99) continue; //!!!vlad потом убрать
       normItem.fromDB(NormQry);
 
       int bag_type=paxNormItem.bag_type==NoExists?-1:paxNormItem.bag_type;

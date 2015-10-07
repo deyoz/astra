@@ -5221,8 +5221,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
           if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
             CheckIn::PaidBagToDB(grp.id, grp.paid);
-
-          if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
+          else
           {
             //расчет и запись норм и платного багажа
 
@@ -5944,7 +5943,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       "SELECT points.airline,points.flt_no,points.suffix,points.airp,points.scd_out, "
       "       pax_grp.grp_id,pax_grp.point_dep,pax_grp.airp_dep,pax_grp.point_arv,pax_grp.airp_arv, "
       "       pax_grp.class,pax_grp.status,pax_grp.hall,pax_grp.bag_refuse,pax_grp.excess, "
-      "       pax_grp.trfer_confirm, 0 AS piece_concept, MOD(pax_grp.grp_id,3) AS bag_types_id, pax_grp.tid "
+      "       pax_grp.trfer_confirm, 0 AS piece_concept, 0 AS bag_types_id, pax_grp.tid "
       "FROM pax_grp,points "
       "WHERE pax_grp.point_dep=points.point_id AND grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,*grp_id);
@@ -5999,6 +5998,11 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     };
 
     bool pr_unaccomp=grp.cl.empty() && grp.status!=psCrew;
+
+    CheckIn::TGroupBagItem group_bag;
+    if (grp_id==grp_ids.begin())
+      group_bag.fromDB(grp.id, ASTRA::NoExists, !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS));
+
     if (!pr_unaccomp)
     {
       Qry.Clear();
@@ -6087,7 +6091,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
           {
             list< pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
             CheckIn::PaxNormsFromDB(pax.id, norms);
-            CheckIn::NormsToXML(norms, paxNode);
+            CheckIn::NormsToXML(norms, group_bag, paxNode);
             if (pax.refuse.empty())
               all_norms.insert(all_norms.end(), norms.begin(), norms.end());
           };
@@ -6109,24 +6113,20 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         {
           list< pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
           CheckIn::GrpNormsFromDB(grp.id, norms);
-          CheckIn::NormsToXML(norms, segNode);
+          CheckIn::NormsToXML(norms, group_bag, segNode);
           all_norms.insert(all_norms.end(), norms.begin(), norms.end());
         };
       };
     };
     if (grp_id==grp_ids.begin())
     {
-
-
-      CheckIn::TGroupBagItem group_bag;
-      group_bag.fromDB(grp.id, ASTRA::NoExists, !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS));
       group_bag.toXML(resNode);
       if (!grp.piece_concept)
       {
         list<CheckIn::TPaidBagItem> paid;
         CheckIn::PaidBagFromDB(grp.id, paid);
         if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-          CheckIn::PaidBagToXML(paid, resNode);
+          CheckIn::PaidBagToXML(paid, group_bag, resNode);
         list<CheckIn::TPaidBagEMDItem> emd;
         CheckIn::PaidBagEMDFromDB(grp.id, emd);
         CheckIn::PaidBagEMDToXML(emd, segNode);

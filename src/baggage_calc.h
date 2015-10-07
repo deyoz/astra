@@ -69,7 +69,7 @@ namespace BagPayment
   class TPaxInfo
   {
     public:
-      std::string pax_cat;
+      std::set<std::string> pax_cats;
       std::string target;
       std::string final_target;
       std::string subcl;
@@ -77,7 +77,7 @@ namespace BagPayment
     TPaxInfo() { clear(); }
     void clear()
     {
-      pax_cat.clear();
+      pax_cats.clear();
       target.clear();
       final_target.clear();
       subcl.clear();
@@ -86,7 +86,13 @@ namespace BagPayment
     std::string traceStr() const
     {
       std::ostringstream s;
-      s << "pax_cat=" << pax_cat << ", "
+      s << "pax_cats=";
+      for(std::set<std::string>::const_iterator i=pax_cats.begin(); i!=pax_cats.end(); ++i)
+      {
+        if (i!=pax_cats.begin()) s << "/";
+        s << *i;
+      };
+      s << ", "
         << "target=" << target << ", "
         << "final_target=" << final_target << ", "
         << "subcl=" << subcl << ", "

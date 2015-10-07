@@ -480,7 +480,7 @@ void SavePaxDoca(int pax_id, const std::list<TPaxDocaItem> &doca, TQuery& PaxDoc
 
 bool PaxNormsFromDB(int pax_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
 bool GrpNormsFromDB(int grp_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
-void NormsToXML(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms, xmlNodePtr node);
+void NormsToXML(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms, const TGroupBagItem &group_bag, xmlNodePtr node);
 void PaxNormsToDB(int pax_id, const boost::optional< std::list<TPaxNormItem> > &norms);
 void GrpNormsToDB(int grp_id, const boost::optional< std::list<TPaxNormItem> > &norms);
 

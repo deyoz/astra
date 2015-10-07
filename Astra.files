@@ -58,6 +58,8 @@ src/AsyncNet.cpp
 src/AsyncNet.hpp
 src/baggage.cc
 src/baggage.h
+src/baggage_calc.cc
+src/baggage_calc.h
 src/base_tables.cc
 src/base_tables.h
 src/basel_aero.cc

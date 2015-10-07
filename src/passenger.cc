@@ -971,8 +971,12 @@ bool PaxNormsFromDB(int pax_id, list< pair<TPaxNormItem, TNormItem> > &norms)
   TCachedQuery NormQry(sql, QryParams);
   NormQry.get().Execute();
   for(;!NormQry.get().Eof;NormQry.get().Next())
+  {
     norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry.get()),
                                TNormItem().fromDB(NormQry.get())) );
+    if (norms.back().first.bag_type==99) norms.pop_back();  //!!!vlad потом удалить
+  };
+
   return !norms.empty();
 };
 
@@ -990,12 +994,16 @@ bool GrpNormsFromDB(int grp_id, list< pair<TPaxNormItem, TNormItem> > &norms)
   TCachedQuery NormQry(sql, QryParams);
   NormQry.get().Execute();
   for(;!NormQry.get().Eof;NormQry.get().Next())
+  {
     norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry.get()),
                                TNormItem().fromDB(NormQry.get())) );
+    if (norms.back().first.bag_type==99) norms.pop_back();  //!!!vlad потом удалить
+  };
+
   return !norms.empty();
 };
 
-void NormsToXML(const list< pair<TPaxNormItem, TNormItem> > &norms, xmlNodePtr node)
+void NormsToXML(const list< pair<TPaxNormItem, TNormItem> > &norms, const TGroupBagItem &group_bag, xmlNodePtr node)
 {
   if (node==NULL) return;
 
@@ -1005,6 +1013,19 @@ void NormsToXML(const list< pair<TPaxNormItem, TNormItem> > &norms, xmlNodePtr n
     xmlNodePtr normNode=NewTextChild(normsNode,"norm");
     i->first.toXML(normNode);
     i->second.toXML(normNode);
+  };
+
+  if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2) && group_bag.trferExists())
+  {
+    //добавим неопределенную норму по 99 багажу для старых терминалов
+    xmlNodePtr normNode=NewTextChild(normsNode,"norm");
+    TPaxNormItem paxNormItem;
+    paxNormItem.bag_type=99;
+    paxNormItem.norm_id=1000000000;
+    paxNormItem.toXML(normNode);
+    TNormItem normItem;
+    normItem.norm_type=ASTRA::bntFree;
+    normItem.toXML(normNode);
   };
 };
 
@@ -1357,7 +1378,13 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
   {
     norms=list<TPaxNormItem>();
     for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
+    {
       norms.get().push_back(TPaxNormItem().fromXML(normNode));
+      if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+      {
+        if (norms.get().back().bag_type==99) norms.get().pop_back();
+      };
+    };
   };
 
   return *this;
@@ -1423,7 +1450,13 @@ TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
   {
     norms=list<TPaxNormItem>();
     for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
+    {
       norms.get().push_back(TPaxNormItem().fromXML(normNode));
+      if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+      {
+        if (norms.get().back().bag_type==99) norms.get().pop_back();
+      };
+    };
   };
   return *this;
 };

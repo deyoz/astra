@@ -1124,7 +1124,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "apis_manual_input", (int)(Qryh.FieldAsInteger("apis_manual_input")!=0) );
 
       if (reqInfo->client_type == ctTerm &&
-          !reqInfo->desk.compatible(APIS_CITY_REGION_VERSION))
+          !reqInfo->desk.compatible(PAX_LOAD_BY_GENDER))
         NewTextChild( node, "pr_airp_seance" );
     };
 

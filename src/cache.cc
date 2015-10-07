@@ -708,13 +708,20 @@ TUpdateDataType TCacheTable::refreshData()
     TQuery TempQry1(&OraSession);
     TQuery TempQry2(&OraSession);
     TQuery TempQry3(&OraSession);
+
+    bool trip_bag_norms=(TCacheTable::code()=="TRIP_BAG_NORMS");
+    TRow tmp_row;
+
     //читаем кэш
-    while( !Qry->Eof ) {
+    for(; !Qry->Eof; Qry->Next())
+    {
       if( tidIdx >= 0 && Qry->FieldAsInteger( tidIdx ) > clientVerData )
         clientVerData = Qry->FieldAsInteger( tidIdx );
-      TRow row;
+      TRow local_row;
+      TRow &row=(trip_bag_norms && Qry->FieldAsInteger("id")==1000000000)?tmp_row:local_row;
       int j=0;
-      for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++,j++) {
+      for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++,j++)
+      {
         if(Qry->FieldIsNULL(vecFieldIdx[ j ] ))
           row.cols.push_back( "" );
         else {
@@ -786,10 +793,22 @@ TUpdateDataType TCacheTable::refreshData()
         row.status = usDeleted;
       else
         row.status = usUnmodified;
-      table.push_back(row);
-
-      Qry->Next();
+      if (!(trip_bag_norms && Qry->FieldAsInteger("id")==1000000000))
+        table.push_back(row);
     }
+
+    if (trip_bag_norms && !table.empty() && !tmp_row.cols.empty())
+    {
+      vector<TCacheField2>::const_iterator i = FFields.begin();
+      std::vector<std::string>::iterator j = tmp_row.cols.begin();
+      std::vector<std::string>::const_iterator k = table.begin()->cols.begin();
+
+      for(; i != FFields.end() && j != tmp_row.cols.end() && k != table.begin()->cols.end(); ++i, ++j, ++k)
+        if (i->Name=="AIRLINE" || i->Name=="AIRLINE_VIEW")
+          *j=*k;
+      table.push_back(tmp_row);
+    }
+
     ProgTrace( TRACE5, "Server version data: %d", clientVerData );
     if ( !table.empty() ) // начитали изменения
         return upExists;
