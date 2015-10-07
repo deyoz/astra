@@ -5235,7 +5235,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             GetBagToLogInfo(grp.id, curr_bag);
             list<CheckIn::TPaidBagItem> prior_paid;
             CheckIn::PaidBagFromDB(grp.id, prior_paid);
-            BagPayment::RecalcPaidBagToDB(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp);
+            BagPayment::RecalcPaidBagToDB(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true);
           };
 
           CheckIn::SavePaidBagEMD(grp.id,segNode);

@@ -148,7 +148,8 @@ namespace BagPayment
                          const CheckIn::TPaxGrpItem &grp,
                          const CheckIn::TPaxList &curr_paxs,
                          const std::list<CheckIn::TPaidBagItem> &prior_paid,
-                         bool pr_unaccomp);
+                         bool pr_unaccomp,
+                         bool use_traces);
 
   void PaidBagViewToXMLTest(xmlNodePtr node);
 

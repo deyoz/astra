@@ -1076,19 +1076,20 @@ void RecalcPaidBagToDB(const map<int/*id*/, TBagToLogInfo> &prior_bag, //TBagToL
                        const CheckIn::TPaxGrpItem &grp,
                        const CheckIn::TPaxList &curr_paxs,
                        const std::list<CheckIn::TPaidBagItem> &prior_paid,
-                       bool pr_unaccomp)
+                       bool pr_unaccomp,
+                       bool use_traces)
 {
-   ProgTrace(TRACE5, "%s: flt:%s", __FUNCTION__, flt.traceStr().c_str());
+   if (use_traces) ProgTrace(TRACE5, "%s: flt:%s", __FUNCTION__, flt.traceStr().c_str());
 
    map<int/*pax_id*/, TWidePaxInfo> paxs;
-   GetWidePaxInfo(curr_bag, prior_paxs, trfer, grp, curr_paxs, pr_unaccomp, true, paxs);
+   GetWidePaxInfo(curr_bag, prior_paxs, trfer, grp, curr_paxs, pr_unaccomp, use_traces, paxs);
 
    //расчет/проверка багажных норм
    list<TBagNormWideInfo> trip_bag_norms;
    LoadTripBagNorms(flt, trip_bag_norms);
 
    std::list<TBagNormInfo> all_norms;
-   CheckOrGetWidePaxNorms(trip_bag_norms, curr_bag, flt, pr_unaccomp, true, paxs, all_norms);
+   CheckOrGetWidePaxNorms(trip_bag_norms, curr_bag, flt, pr_unaccomp, use_traces, paxs, all_norms);
 
    //собственно расчет платного багажа
    map<int/*bag_type*/, TPaidBagWideItem> paid_wide;
