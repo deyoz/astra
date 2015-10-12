@@ -2930,7 +2930,9 @@ bool CheckInInterface::ParseFQTRem(TypeB::TTlgParser &tlg, string &rem_text, Che
         if (!(IsUpperLetter(*i) ||
               IsDigit(*i) ||
               (*i>0 && *i<=' ') ||
-              *i=='/')) throw UserException("MSG.INVALID_SYMBOL",
+              *i=='/' ||
+              *i=='#' ||
+              *i=='!')) throw UserException("MSG.INVALID_SYMBOL",
                                             LParams()<<LParam("symbol",string(1,*i))); //WEB
 
       for(k=0;k<=1;k++)
