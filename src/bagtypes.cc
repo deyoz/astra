@@ -2,11 +2,10 @@
 #include "astra_consts.h"
 #include "astra_locale.h"
 #include "astra_utils.h"
-#include "base_tables.h"
-#include "basic.h"
 #include "term_version.h"
 #include "astra_misc.h"
-#include "oralib.h"
+#include "basic.h"
+#include "httpClient.h"
 #include <boost/crc.hpp>
 
 #define NICKNAME "DJEK"
@@ -16,6 +15,7 @@
 using namespace std;
 using namespace AstraLocale;
 using namespace EXCEPTIONS;
+using namespace BASIC;
 
 
 namespace BagPayment
@@ -219,4 +219,201 @@ bool grpRFISC::fromXML( xmlNodePtr node ) { //à §¡®à node=svc_availability
    return crc_key;
  }
 
+void paxNormsPC::from_BD( int pax_id )
+{
+  free_baggage_norm.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT lang,text FROM  pax_norms_pc "
+    " WHERE pax_id=:pax_id"
+    " ORDER BY lang, page_no";
+  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  Qry.Execute();
+  string text;
+  string lang;
+  for ( ;!Qry.Eof; Qry.Next() ) {
+    if ( lang != Qry.FieldAsString( "lang" ) ) {
+      if ( !text.empty() ) {
+        free_baggage_norm.insert( make_pair( lang, text ) );
+      }
+      lang = Qry.FieldAsString( "lang" );
+      text.clear();
+    }
+    text += Qry.FieldAsString( "text" );
+  }
+}
+
+void paxNormsPC::toDB( int pax_id ) {
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "DELETE pax_norms_pc WHERE pax_id=:pax_id";
+  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  Qry.Execute();
+  if ( free_baggage_norm.empty() ) {
+    return;
+  }
+  Qry.Clear();
+  Qry.SQLText =
+    "INSERT INTO pax_norms_pc(pax_id,lang,page_no,text) "
+    " VALUES(:pax_id,:lang,:page_no,:text) ";
+  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  Qry.DeclareVariable( "lang", otString );
+  Qry.DeclareVariable( "page_no", otInteger );
+  Qry.DeclareVariable( "text", otString );
+  for ( std::map<std::string,std::string>::iterator inorm=free_baggage_norm.begin(); inorm!=free_baggage_norm.end(); inorm++ ) {
+    int i=0;
+    string text = inorm->second;
+    Qry.SetVariable( "lang", inorm->first );
+    while ( !text.empty() ) {
+      Qry.SetVariable( "text", text.substr( 0, page_size ) );
+      Qry.SetVariable( "page_no", i );
+      Qry.Execute();
+      i++;
+      text.erase( 0, page_size );
+    }
+  }
+}
+
+bool paxNormsPC::from_XML( xmlNodePtr node ) //tag free_baggage_norm
+{
+  if ( string( "free_baggage_norm" ) != (char*)node->name ) {
+    throw EXCEPTIONS::Exception("invalid xml: 'free_baggage_norm' tag not found" );
+  }
+  xmlNodePtr n = node->children;
+  while ( n != NULL &&  string( "text" ) == (char*)n->name ) {
+    string text = NodeAsString( n );
+    if ( text.empty() ) {
+      continue;
+    }
+    xmlNodePtr langNode = GetNode( "@lang", n );
+    if ( langNode == NULL ) {
+      throw EXCEPTIONS::Exception("invalid xml: '@lang' tag not founs" );
+    }
+    string lang = NodeAsString( langNode );
+    if ( lang != "en" && lang != "ru" ) {
+      throw EXCEPTIONS::Exception("invalid xml: '@lang' tag  invaliud value '" + lang + "'" );
+    }
+    free_baggage_norm.insert( make_pair( lang, text ));
+    n = n->next;
+  }
+  return !free_baggage_norm.empty(); //???
+}
+
+void requestRFISC::fillTESTDATA()
+{
+  clear();
+  passenger pass;
+  pass.id = 1;
+  pass.ticket = "2986112345678";
+  pass.category = "ADT";
+  StrToDateTime( "1975-07-15", "yyyy-mm-dd", pass.birthdate );
+  pass.sex = "male";
+  addPassenger( pass );
+  pass.id = 2;
+  pass.ticket = "2986112345679";
+  pass.category = "INS";
+  pass.birthdate = ASTRA::NoExists;
+  pass.sex = "";
+  addPassenger( pass );
+  segment seg;
+  seg.id = 1;
+  seg.company = "UT"; //???
+  seg.flight = "123A";
+  seg.departure = "SVO";
+  seg.arrival = "TJM";
+  BASIC::StrToDateTime( "2015-11-25T17:20:00", "yyyy-mm-ddThh:mm:ss", seg.departure_time );
+  seg.equipment = "320";
+  addSegment( seg );
+  seg.id = 2;
+  seg.company = "ž’"; //???
+  seg.flight = "321";
+  seg.departure = "TJM";
+  seg.arrival = "˜Œ";
+  StrToDateTime( "2015-11-26T06:35:00", "yyyy-mm-ddThh:mm:ss", seg.departure_time );
+  seg.equipment = "";
+  addSegment( seg );
+}
+
+xmlDocPtr requestRFISC::createRequest()
+{
+  if ( passengers.empty() || segments.empty() ) {
+    throw EXCEPTIONS::Exception("requestRFISC::createRequest: no data for request" );
+  }
+  xmlDocPtr res = CreateXMLDoc( "query");
+  xmlNodePtr node = NewTextChild( res->children, "svc_availability" );
+  for ( vector<passenger>::iterator ipass=passengers.begin(); ipass!=passengers.end(); ipass++ ) {
+    xmlNodePtr passNode = NewTextChild( node, "passenger" );
+    SetProp( passNode, "id", ipass->id );
+    SetProp( passNode, "ticket_number", ipass->ticket );
+    SetProp( passNode, "category", ipass->category );
+    if ( ipass->birthdate != ASTRA::NoExists ) {
+      SetProp( passNode, "birthdate", BASIC::DateTimeToStr( ipass->birthdate, "yyyy-mm-dd" ) );
+    }
+    if ( !ipass->sex.empty() ) {
+      SetProp( passNode, "sex", ipass->sex );
+    }
+  }
+  for ( vector<segment>::iterator iseg=segments.begin(); iseg!=segments.end(); iseg++ ) {
+    xmlNodePtr segNode = NewTextChild( node, "segment" );
+    SetProp( segNode, "id", iseg->id );
+    SetProp( segNode, "company", iseg->company );
+    SetProp( segNode, "flight", iseg->flight );
+    SetProp( segNode, "departure", iseg->departure );
+    SetProp( segNode, "arrival", iseg->arrival );
+    SetProp( segNode, "departure_time", BASIC::DateTimeToStr( iseg->departure_time, "yyyy-mm-ddThh:mm:ss" ) );
+    if ( !iseg->equipment.empty() ) {
+      SetProp( segNode, "equipment", iseg->equipment );
+    }
+  }
+  return res;
+}
+
+std::string requestRFISC::createRequestStr()
+{
+  string res = XMLTreeToText( createRequest() );
+  res = ConvertCodepage( res, "CP866", "UTF-8" );
+  return res;
+}
+
+
+void sendRequestTESTRFISC()
+{
+  requestRFISC r;
+  r.fillTESTDATA();
+  RequestInfo request;
+  request.action = "";
+  request.login = "";
+  request.pswd = "";
+  request.content = r.createRequestStr();
+  ProgTrace( TRACE5, "sendRequestTESTRFISC: request.content=%s", r.createRequestStr().c_str() );
+  request.using_ssl = false;
+  request.host = "test.sirena-travel.ru";
+  request.port = 9000;
+  request.path = "/astra";
+  request.sirena_exch = true;
+  ResponseInfo response;
+  httpClient_main(request, response);
+  if (response.content.size()>200)
+  {
+    ProgTrace(TRACE5, "%s: %s", __FUNCTION__, response.content.substr(0,200).c_str());
+    ProgTrace(TRACE5, "%s: %s", __FUNCTION__, response.content.substr(response.content.size()-200).c_str());
+  }
+  else
+    ProgTrace(TRACE5, "%s: %s", __FUNCTION__, response.content.c_str());
+  XMLDoc doc(response.content);
+  if (doc.docPtr()==NULL)
+    ProgError(STDLOG, "%s: %s", __FUNCTION__, "Wrong XML!");
+  else
+    ProgTrace(TRACE5, "%s: %s", __FUNCTION__, "Good XML!");
+}
+
 }// end namespace
+
+int test_rfisc(int argc,char **argv)
+{
+  BagPayment::sendRequestTESTRFISC();
+  return 0;
+}
+

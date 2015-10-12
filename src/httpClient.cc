@@ -55,13 +55,23 @@ void Client::handle_handshake(const boost::system::error_code& error)
     ProgTrace(TRACE5, "Client::handle_handshake: Conection established");
     std::ostringstream ns_str;
     ns_str << "POST " << req_info_.path << " HTTP/1.1\r\n";
-    ns_str << "Authorization: Basic " << StrUtils::b64_encode(req_info_.login + ":" + req_info_.pswd) << "\r\n";
-    ns_str << "Content-length: " << req_info_.content.length() << "\r\n";
-    ns_str << "SOAPAction: " << req_info_.action << "\r\n";
-    ns_str << "Host: " << req_info_.host << ":" << req_info_.port << "\r\n";
-    ns_str << "Content-type: text/xml; charset=\"UTF-8\"\r\n";
+    if (req_info_.sirena_exch)
+    {
+      ns_str << "Content-Length: " << req_info_.content.length() << "\r\n";
+      ns_str << "Host: " << req_info_.host << ":" << req_info_.port << "\r\n";
+      ns_str << "Content-Type: text/xml; charset=\"UTF-8\"\r\n";
+    }
+    else
+    {
+      ns_str << "Authorization: Basic " << StrUtils::b64_encode(req_info_.login + ":" + req_info_.pswd) << "\r\n";
+      ns_str << "Content-length: " << req_info_.content.length() << "\r\n";
+      ns_str << "SOAPAction: " << req_info_.action << "\r\n";
+      ns_str << "Host: " << req_info_.host << ":" << req_info_.port << "\r\n";
+      ns_str << "Content-type: text/xml; charset=\"UTF-8\"\r\n";
+    };
     ns_str << "\r\n";
     ns_str << req_info_.content;
+    ProgTrace(TRACE5, "%s: %s", __FUNCTION__, ns_str.str().c_str());  //!!!vlad
 
     request_ = ns_str.str();
     if (req_info_.using_ssl) {
@@ -84,13 +94,13 @@ void Client::handle_write(const boost::system::error_code& error)
   {
     ProgTrace(TRACE5, "Client::handle_write: async_write successful");
     if (req_info_.using_ssl) {
-      boost::asio::async_read_until(ssl_socket_, reply_, "<?xml",
+      boost::asio::async_read_until(ssl_socket_, reply_, req_info_.sirena_exch?"\r\n\r\n":"<?xml",
         boost::bind(&Client::handle_read_header, this,
           boost::asio::placeholders::error,
           boost::asio::placeholders::bytes_transferred));
     }
     else {
-      boost::asio::async_read_until(socket_, reply_, "<?xml",
+      boost::asio::async_read_until(socket_, reply_, req_info_.sirena_exch?"\r\n\r\n":"<?xml",
         boost::bind(&Client::handle_read_header, this,
           boost::asio::placeholders::error,
           boost::asio::placeholders::bytes_transferred));
@@ -117,9 +127,14 @@ void Client::handle_read_header(const boost::system::error_code& error, size_t b
     std::string status_message;
     std::getline(response_stream, status_message);
     if (status_code != 200)    // 200 = status code OK
-      throw Exception("Response returned with status code %d", status_code);
+      throw Exception("Response returned with status code %d:%s", status_code, status_message.c_str());
 
-    reply_.consume(bytes_transferred - 2*http_version.size() - status_message.size() - 2);
+    std::string header;
+    while (std::getline(response_stream, header) && header != "\r")
+      ProgTrace(TRACE5, "%s", header.c_str());
+
+    //reply_.consume(bytes_transferred - 2*http_version.size() - status_message.size() - 2);
+
     if(req_info_.using_ssl) {
       boost::asio::async_read(ssl_socket_, reply_, boost::asio::transfer_at_least(1),
         boost::bind(&Client::handle_read_body, this,
@@ -137,21 +152,38 @@ void Client::handle_read_header(const boost::system::error_code& error, size_t b
 
 void Client::handle_read_body(const boost::system::error_code& error)
 {
+  deadline_.expires_from_now(timeout_);
   if (!error)
   {
     ProgTrace(TRACE5, "Client::handle_read_body: async_read successful");
     std::stringstream ss;
     ss << &reply_;
-    std::string result = ss.str();
-    would_block_ = false;
-    process_reply(result);
+    res_info_.content += ss.str();
+
+    if (req_info_.sirena_exch)
+    {
+      int idx=res_info_.content.size()-3;
+      if (idx>=0 && res_info_.content.substr(idx)=="\n\r\n") would_block_ = false;  //это плохо!!!
+      else
+      {
+        if(req_info_.using_ssl) {
+          boost::asio::async_read(ssl_socket_, reply_, boost::asio::transfer_at_least(1),
+            boost::bind(&Client::handle_read_body, this,
+              boost::asio::placeholders::error));
+        }
+        else {
+          boost::asio::async_read(socket_, reply_, boost::asio::transfer_at_least(1),
+            boost::bind(&Client::handle_read_body, this,
+              boost::asio::placeholders::error));
+        }
+      }
+    }
+    else would_block_ = false;
   }
-  else {
-    throw Exception("Read failed: %s", error.message().c_str());
-  }
+  else throw Exception("Read failed: %s", error.message().c_str());
 }
 
-int httpClient_main(RequestInfo& request)
+void httpClient_main(const RequestInfo& request, ResponseInfo& response)
 {
   try
   {
@@ -169,12 +201,13 @@ int httpClient_main(RequestInfo& request)
 
     // Block until the asynchronous operation has completed.
     do io_service.run_one(); while (c.would_block());
+
+    response=c.response();
   }
   catch (std::exception& e)
   {
     throw Exception("httpClient_main: %s",e.what());
   }
-  return 0;
 }
 
 void send_apis_tr()
@@ -206,7 +239,9 @@ void send_apis_tr()
       request.content = item->data;
       request.using_ssl = (proto=="https")?true:false;
       TFileQueue::sendFile(item->id);
-      httpClient_main(request);
+      ResponseInfo response;
+      httpClient_main(request, response);
+      process_reply(response.content);
       TFileQueue::doneFile(item->id);
       createMsg( *item, evCommit );
   }

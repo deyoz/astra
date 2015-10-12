@@ -3,7 +3,10 @@
 
 #include <map>
 #include <string>
+#include <vector>
 #include "xml_unit.h"
+#include "basic.h"
+#include "astra_utils.h"
 
 
 namespace BagPayment
@@ -44,6 +47,59 @@ class grpRFISC {   //rfisc
       return RFISCList.empty();
     }
 };
+
+class paxNormsPC{   //bag_norms_pc
+  private:
+    std::map<std::string,std::string> free_baggage_norm;
+    const int page_size = 4000;
+  public:
+    void from_BD( int pax_id );
+    void toDB( int pax_id );
+    bool from_XML( xmlNodePtr node );
+};
+
+struct passenger {
+  int id;
+  std::string ticket;
+  std::string category;
+  BASIC::TDateTime birthdate;
+  std::string sex;
+  passenger() {
+    birthdate = ASTRA::NoExists;
+  }
+};
+
+struct segment {
+  int id;
+  std::string company;
+  std::string flight;
+  std::string departure;
+  std::string arrival;
+  BASIC::TDateTime departure_time;
+  std::string equipment;
+};
+
+class requestRFISC {
+  private:
+    std::vector<passenger> passengers;
+    std::vector<segment> segments;
+  public:
+    void fillTESTDATA();
+    xmlDocPtr createRequest();
+    std::string createRequestStr();
+    void clear() {
+      passengers.clear();
+      segments.clear();
+    }
+    void addPassenger( passenger pass ) {
+      passengers.push_back( pass );
+    }
+    void addSegment( segment seg ) {
+      segments.push_back( seg );
+    }
+};
+
+void sendRequestTESTRFISC();
 
 }
 

@@ -21,6 +21,12 @@ struct RequestInfo
   std::string login;
   std::string pswd;
   bool using_ssl;
+  bool sirena_exch;
+};
+
+struct ResponseInfo
+{
+  std::string content;
 };
 
 class TApisTRFilter {
@@ -39,7 +45,7 @@ class Client
 {
 public:
   Client(boost::asio::io_service& io_service, boost::asio::ssl::context& context,
-      boost::asio::ip::tcp::resolver::iterator endpoint_iterator, RequestInfo& request)
+      boost::asio::ip::tcp::resolver::iterator endpoint_iterator, const RequestInfo& request)
     : req_info_(request), ssl_socket_(io_service, context), socket_(io_service),
       deadline_(io_service), timeout_(timeout), would_block_(true)
   {
@@ -72,8 +78,11 @@ public:
 
   inline bool would_block() { return would_block_; }
 
+  const ResponseInfo &response() { return res_info_; }
+
 private:
   RequestInfo req_info_;
+  ResponseInfo res_info_;
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> ssl_socket_;
   boost::asio::ip::tcp::socket socket_;
   std::string request_;
@@ -84,7 +93,7 @@ private:
   void check_deadline();
 };
 
-int httpClient_main(RequestInfo& request);
+void httpClient_main(const RequestInfo& request, ResponseInfo& response);
 void send_apis_tr();
 void process_reply (const std::string& result);
 
