@@ -5864,7 +5864,7 @@ void TMVTBBody::ToTlg(bool &vcompleted, vector<string> &body)
 
 bool CheckTimeToken(TDateTime scd_utc, TDateTime val, const string &token)
 {
-    TDateTime parsed = TypeB::MVTParser::TAD::fetch_time(scd_utc, token);
+    TDateTime parsed = TypeB::MVTParser::fetch_time(scd_utc, token);
     return parsed == val;
 }
 

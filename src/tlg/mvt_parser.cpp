@@ -10,12 +10,33 @@ using namespace ASTRA;
 
 namespace TypeB
 {
+
     namespace MVTParser
     {
+        const string MVTMsgS[] = {
+            "AD",
+            "AA"
+        };
+
+
+        TMVTMsg DecodeMVTMsg(const std::string s)
+        {
+            int i;
+            for( i=0; i<(int)msgNum; i++ )
+                if ( s == MVTMsgS[ i ] )
+                    break;
+            return (TMVTMsg)i;
+        }
+        const std::string EncodeMVTMsg(TMVTMsg s)
+        {
+            return MVTMsgS[s];
+        }
+
         enum TMVTElem {
             mvtCaptionElement,
             mvtFlightElement,
-            mvtADElement,
+            mvtMsg,
+            mvtFLD,
             mvtOthers
         };
 
@@ -31,7 +52,7 @@ namespace TypeB
             LogTrace(TRACE5) << "-----------------------------------------";
         }
 
-        TDateTime TAD::nearest_date(TDateTime time, int day)
+        TDateTime nearest_date(TDateTime time, int day)
         {
             TDateTime result = NoExists;
             TDateTime back_date = DayToDate(day, time, true);
@@ -48,7 +69,7 @@ namespace TypeB
             return result;
         }
 
-        TDateTime TAD::fetch_time(TDateTime scd, const string &val)
+        TDateTime fetch_time(TDateTime scd, const string &val)
         {
             TDateTime result = NoExists;
             TDateTime day_create, time_create;
@@ -77,6 +98,20 @@ namespace TypeB
             } else
                 throw ETlgError("wrong date format: '%s'", val.c_str());
             return result;
+        }
+
+        void TAA::parse(TDateTime scd, const string &val)
+        {
+            vector<string> items;
+            split(items, val, '/');
+            if(items.size() == 1) {
+                touch_down_time = fetch_time(scd, items[0]);
+            } else if(items.size() == 2) {
+                if(not items[0].empty())
+                    touch_down_time = fetch_time(scd, items[0]);
+                on_block_time = fetch_time(scd, items[1]);
+            } else
+                throw ETlgError("wrong AA format");
         }
 
         void TAD::parse(TDateTime scd, const string &val)
@@ -130,13 +165,38 @@ namespace TypeB
                                 TTlgPartInfo tmp_body;
                                 tmp_body.p = line_p;
                                 ParseAHMFltInfo(tmp_body,info,info.flt,info.bind_type);
-                                e = mvtADElement;
+                                e = mvtMsg;
                             }
                             break;
-                        case mvtADElement:
-                            con.ad.parse(info.flt.scd, tlg.lex);
-                            e = mvtOthers;
-                            break;
+                        case mvtMsg:
+                            {
+                                const string &msg_typeS = string(tlg.lex).substr(0, 2);
+                                con.msg_type = DecodeMVTMsg(msg_typeS);
+                                switch(con.msg_type) {
+                                    case msgAD:
+                                        con.ad.parse(info.flt.scd, tlg.lex);
+                                        e = mvtOthers;
+                                        break;
+                                    case msgAA:
+                                        con.aa.parse(info.flt.scd, string(tlg.lex).substr(2));
+                                        e = mvtFLD;
+                                        break;
+                                    default:
+                                        throw ETlgError("unknown MVT message: '%s'", msg_typeS.c_str());
+                                }
+                                break;
+                            }
+                        case mvtFLD:
+                            {
+                                if(string(tlg.lex).substr(0, 3) != "FLD")
+                                    throw ETlgError("unexpected lexeme");
+                                const string &fldS = string(tlg.lex).substr(3);
+                                if(fldS.size() != 2)
+                                    throw ETlgError("wrong fld string length: %s", fldS.c_str());
+                                con.aa.fld_time = nearest_date(info.flt.scd, ToInt(fldS));
+                                e = mvtOthers;
+                                break;
+                            }
                         default:
                             break;
                     }
@@ -155,22 +215,27 @@ namespace TypeB
             t.airline = info.flt.airline;
             t.flt_no = info.flt.flt_no;
             t.airp = info.flt.airp_dep;
-            if(GetTripSets(tsSetDepTimeByMVT, t)) {
-                TQuery Qry(&OraSession);
-                Qry.SQLText =
-                    "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id";
-                Qry.CreateVariable("point_id", otInteger, point_id_tlg);
-                Qry.Execute();
-                if ( Qry.Eof ) {
-                    throw EXCEPTIONS::Exception( "Flight not found, point_id_tlg=%d", point_id_tlg );
+            if(con.msg_type == msgAD) { // Взлет
+                if(GetTripSets(tsSetDepTimeByMVT, t)) {
+                    TQuery Qry(&OraSession);
+                    Qry.SQLText =
+                        "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id";
+                    Qry.CreateVariable("point_id", otInteger, point_id_tlg);
+                    Qry.Execute();
+                    if ( Qry.Eof ) {
+                        throw EXCEPTIONS::Exception( "Flight not found, point_id_tlg=%d", point_id_tlg );
+                    }
+                    int point_id_spp = Qry.FieldAsInteger( "point_id_spp" );
+                    TDateTime utc_act_out = (con.ad.airborne_time == NoExists ? con.ad.off_block_time : con.ad.airborne_time);
+                    if(utc_act_out != NoExists) {
+                        // forcibly set time to be used as UTC
+                        TReqInfo::Instance()->user.sets.time = ustTimeUTC;
+                        SetFlightFact(point_id_spp, utc_act_out);
+                    }
                 }
-                int point_id_spp = Qry.FieldAsInteger( "point_id_spp" );
-                TDateTime utc_act_out = (con.ad.airborne_time == NoExists ? con.ad.off_block_time : con.ad.airborne_time);
-                if(utc_act_out != NoExists) {
-                    // forcibly set time to be used as UTC
-                    TReqInfo::Instance()->user.sets.time = ustTimeUTC;
-                    SetFlightFact(point_id_spp, utc_act_out);
-                }
+            } else if(con.msg_type == msgAA) { // Посадка
+                TDateTime utc_arv = con.aa.touch_down_time == NoExists ? con.aa.on_block_time : con.aa.touch_down_time;
+                LogTrace(TRACE5) << "touch_down_time: " << DateTimeToStr(utc_arv, ServerFormatDateTimeAsString);
             }
         }
     }
