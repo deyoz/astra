@@ -664,18 +664,12 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
           int bag_type=BagQry.FieldIsNULL("bag_type")?-1:BagQry.FieldAsInteger("bag_type");
 
           std::map< int/*bag_type*/, TPaidToLogInfo>::iterator i=paid.find(bag_type);
-          if (i!=paid.end())
-          {
-            i->second.bag_amount+=BagQry.FieldAsInteger("amount");
-            i->second.bag_weight+=BagQry.FieldAsInteger("weight");
-          }
-          else
-          {
-            TPaidToLogInfo &paidInfo=paid[bag_type];
-            paidInfo.bag_type=bag_type;
-            paidInfo.bag_amount=BagQry.FieldAsInteger("amount");
-            paidInfo.bag_weight=BagQry.FieldAsInteger("weight");
-          };
+          if (i==paid.end())
+            i=paid.insert(make_pair(bag_type, TPaidToLogInfo(bag_type))).first;
+          if (i==paid.end())
+            throw Exception("%s: i==paid.end()", __FUNCTION__);
+          i->second.bag_amount+=BagQry.FieldAsInteger("amount");
+          i->second.bag_weight+=BagQry.FieldAsInteger("weight");
         };
 
         PaidQry.SetVariable("grp_id",stat.viewGroup);
@@ -683,9 +677,13 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
         for(;!PaidQry.Eof;PaidQry.Next())
         {
           int bag_type=PaidQry.FieldIsNULL("bag_type")?-1:PaidQry.FieldAsInteger("bag_type");
-          TPaidToLogInfo &paidInfo=paid[bag_type];
-          paidInfo.bag_type=bag_type;
-          paidInfo.paid_weight=PaidQry.FieldAsInteger("weight");
+
+          std::map< int/*bag_type*/, TPaidToLogInfo>::iterator i=paid.find(bag_type);
+          if (i==paid.end())
+            i=paid.insert(make_pair(bag_type, TPaidToLogInfo(bag_type))).first;
+          if (i==paid.end())
+            throw Exception("%s: i==paid.end()", __FUNCTION__);
+          i->second.paid_weight=PaidQry.FieldAsInteger("weight");
         };
 
         map< int, TPaidToLogInfo>::const_iterator p=paid.begin();

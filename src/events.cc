@@ -399,19 +399,14 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 
         if (bagInfo.refused) continue;
 
-        std::map< int/*bag_type*/, TPaidToLogInfo>::iterator i=grpInfo.paid.find(bag_type);
-        if (i!=grpInfo.paid.end())
-        {
-          i->second.bag_amount+=bagInfo.amount;
-          i->second.bag_weight+=bagInfo.weight;
-        }
-        else
-        {
-          TPaidToLogInfo &paidInfo=grpInfo.paid[bag_type];
-          paidInfo.bag_type=bag_type;
-          paidInfo.bag_amount=bagInfo.amount;
-          paidInfo.bag_weight=bagInfo.weight;
-        };
+        std::map< int/*bag_type*/, TPaidToLogInfo> &a=bagInfo.is_trfer?grpInfo.trfer:grpInfo.paid;
+        std::map< int/*bag_type*/, TPaidToLogInfo>::iterator i=a.find(bag_type);
+        if (i==a.end())
+          i=a.insert(make_pair(bag_type,TPaidToLogInfo(bag_type))).first;
+        if (i==a.end())
+          throw Exception("%s: i==a.end()", __FUNCTION__);
+        i->second.bag_amount+=bagInfo.amount;
+        i->second.bag_weight+=bagInfo.weight;
       };
 
       Qry.Clear();
@@ -422,9 +417,14 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
       for(;!Qry.Eof;Qry.Next())
       {
         int bag_type=Qry.FieldIsNULL("bag_type")?-1:Qry.FieldAsInteger("bag_type");
-        TPaidToLogInfo &paidInfo=grpInfo.paid[bag_type];
-        paidInfo.bag_type=bag_type;
-        paidInfo.paid_weight=Qry.FieldAsInteger("weight");
+
+        std::map< int/*bag_type*/, TPaidToLogInfo> &a=grpInfo.paid;
+        std::map< int/*bag_type*/, TPaidToLogInfo>::iterator i=a.find(bag_type);
+        if (i==a.end())
+          i=a.insert(make_pair(bag_type,TPaidToLogInfo(bag_type))).first;
+        if (i==a.end())
+          throw Exception("%s: i==a.end()", __FUNCTION__);
+        i->second.paid_weight=Qry.FieldAsInteger("weight");
       };
     }
 
@@ -907,6 +907,8 @@ void SaveGrpToLog(int point_id,
         ostringstream msg;
         if (j->second.bag_type!=ASTRA::NoExists)
           msg << setw(2) << setfill('0') << j->second.bag_type << ":";
+        if (j->second.is_trfer)
+          msg << "T:";
         msg << j->second.amount << "/" << j->second.weight;
         prmenum.prms << PrmSmpl<std::string>("", msg.str());
       };
@@ -971,21 +973,28 @@ void SaveGrpToLog(int point_id,
   if (allGrpAgentError) return;
 
   if (grpInfoBefore.paid==grpInfoAfter.paid &&
+      grpInfoBefore.trfer==grpInfoAfter.trfer &&
       grpInfoBefore.excess==grpInfoAfter.excess) return;
 
   LEvntPrms lprms;
   lprms << PrmSmpl<int>("weight", grpInfoAfter.excess);
 
-  if (!grpInfoAfter.paid.empty())
+  if (!grpInfoAfter.paid.empty() || !grpInfoAfter.trfer.empty())
   {
     PrmEnum prmenum("bag", ", ");
-    map< int/*bag_type*/, TPaidToLogInfo>::const_iterator p=grpInfoAfter.paid.begin();
-    for(;p!=grpInfoAfter.paid.end();++p)
+    for(int pass=0; pass<2; pass++)
     {
-      ostringstream msg;
-      if (p->second.bag_type!=-1) msg << setw(2) << setfill('0') << p->second.bag_type << ":";
-      msg << p->second.bag_amount << "/" << p->second.bag_weight << "/" << p->second.paid_weight;
-      prmenum.prms << PrmSmpl<std::string>("", msg.str());
+      map< int/*bag_type*/, TPaidToLogInfo>::const_iterator p=(pass==0?grpInfoAfter.paid:grpInfoAfter.trfer).begin();
+      for(;p!=(pass==0?grpInfoAfter.paid:grpInfoAfter.trfer).end();++p)
+      {
+        ostringstream msg;
+        if (p->second.bag_type!=-1)
+          msg << setw(2) << setfill('0') << p->second.bag_type << ":";
+        if (pass!=0)
+          msg << "T:";
+        msg << p->second.bag_amount << "/" << p->second.bag_weight << "/" << p->second.paid_weight;
+        prmenum.prms << PrmSmpl<std::string>("", msg.str());
+      };
     };
     lprms << prmenum;
   }

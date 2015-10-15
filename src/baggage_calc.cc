@@ -682,9 +682,24 @@ class TWidePaxInfo : public TPaxInfo
       result_norms.clear();
     }
 
+    static const set<string>& only_category_cats()
+    {
+      static boost::optional< set<string> > cats;
+      if (!cats)
+      {
+        cats=set<string>();
+        cats.get().insert("CHC");
+        cats.get().insert("INA");
+        cats.get().insert("INF");
+      };
+      return cats.get();
+    }
+
     bool only_category() const
     {
-      return !pax_cats.empty();
+      for(set<string>::const_iterator i=pax_cats.begin(); i!=pax_cats.end(); ++i)
+        if (only_category_cats().find(*i)!=only_category_cats().end()) return true;
+      return false;
     }
 
     void setCategory(bool new_checkin,
@@ -1257,7 +1272,7 @@ int test_norms(int argc,char **argv)
       grp.cl=GrpQry.FieldAsString("class");
       grp.status=DecodePaxStatus(GrpQry.FieldAsString("status"));
       grp.bag_refuse=GrpQry.FieldAsInteger("bag_refuse")!=0?refuseAgentError:"";
-      TClientType client_type=DecodeClientType(GrpQry.FieldAsString("client_type"));
+      //TClientType client_type=DecodeClientType(GrpQry.FieldAsString("client_type"));
       TGrpToLogInfo grpLogInfo;
       std::vector<CheckIn::TTransferItem> trfer;
       GetGrpToLogInfo(grp.id, grpLogInfo);
