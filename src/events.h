@@ -170,9 +170,10 @@ class TPaidToLogInfo
              bag_weight == item.bag_weight &&
              paid_weight == item.paid_weight;
     };
-    TPaidToLogInfo()
+    TPaidToLogInfo(int _bag_type)
     {
       clear();
+      bag_type=_bag_type;
     };
 };
 
@@ -201,6 +202,7 @@ class TGrpToLogInfo
     std::map<TPaxToLogInfoKey, TPaxToLogInfo> pax;
     std::map<int/*id*/, TBagToLogInfo> bag;
     std::map<int/*bag_type*/, TPaidToLogInfo> paid;
+    std::map<int/*bag_type*/, TPaidToLogInfo> trfer;
     std::multiset<CheckIn::TPaidBagEMDItem, TPaidEMDToLogComparator> emd;
     void clear()
     {
@@ -209,6 +211,7 @@ class TGrpToLogInfo
       pax.clear();
       bag.clear();
       paid.clear();
+      trfer.clear();
       emd.clear();
     };
     TGrpToLogInfo()
