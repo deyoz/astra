@@ -444,6 +444,22 @@ class TPaxGrpItem
     TPaxGrpItem& fromDB(TQuery &Qry);
 };
 
+class TPnrAddrItem
+{
+  public:
+    std::string airline, addr;
+    TPnrAddrItem()
+    {
+      clear();
+    }
+    void clear()
+    {
+      airline.clear();
+      addr.clear();
+    }
+    TPnrAddrItem& fromDB(TQuery &Qry);
+};
+
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc);
 bool LoadPaxDoc(BASIC::TDateTime part_key, int pax_id, TPaxDocItem &doc);
 std::string GetPaxDocStr(BASIC::TDateTime part_key,
@@ -486,6 +502,8 @@ void GrpNormsToDB(int grp_id, const boost::optional< std::list<TPaxNormItem> > &
 
 std::string PaxDocCountryFromTerm(const std::string &doc_code);
 std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);
+
+bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs);
 
 }; //namespace CheckIn
 

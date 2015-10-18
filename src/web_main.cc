@@ -142,7 +142,7 @@ std::tuple<std::vector<uint8_t>, std::vector<uint8_t>> internet_main(const std::
     std::unique_ptr<char, void (*)(void*)> res_holder(res,free);
     ProgTrace(TRACE1,"newlen=%i",newlen);
 //    if(newlen < hlen)
-//        throw 
+//        throw
     return std::make_tuple(std::vector<uint8_t>(head,head+hlen), std::vector<uint8_t>(res+hlen,res+newlen));
   }
   catch(...)
@@ -2472,7 +2472,7 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   for ( vector<string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
     for(int j = 0; j < 2; j++) {
       string value = parser.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
-      NewTextChild( node, (*i + (j == 0 ? "" : "_lat")), value );
+      NewTextChild( node, (*i + (j == 0 ? "" : "_lat")).c_str(), value );
       ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
     }
   }

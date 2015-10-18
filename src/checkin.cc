@@ -43,6 +43,7 @@
 #include "astra_callbacks.h"
 #include "apps_interaction.h"
 #include "astra_elem_utils.h"
+#include "baggage_pc.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -3095,6 +3096,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     };
 
     CheckTCkinIntegrity(tckin_ids, NoExists);
+    CheckPieceConcept(first_grp_id);
     LoadPax(first_grp_id, resNode, true);
   };
   return result;
@@ -4411,15 +4413,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             xmlNodePtr markFltNode=GetNode("mark_flight",segNode);
             if (markFltNode!=NULL)
             {
-              xmlNodePtr node2=markFltNode->children;
-
-              markFltInfo.airline=NodeAsStringFast("airline",node2);
-              markFltInfo.flt_no=NodeAsIntegerFast("flt_no",node2);
-              markFltInfo.suffix=NodeAsStringFast("suffix",node2);
-              markFltInfo.scd_out=NodeAsDateTimeFast("scd",node2);
-              modf(markFltInfo.scd_out,&markFltInfo.scd_out);
-              markFltInfo.airp=NodeAsStringFast("airp_dep",node2);
-              pr_mark_norms=NodeAsIntegerFast("pr_mark_norms",node2)!=0;
+              TGrpMktFlight mktFlight;
+              mktFlight.fromXML(markFltNode);
+              markFltInfo.Init(mktFlight);
+              pr_mark_norms=mktFlight.pr_mark_norms;
               //получим локальную дату выполнения фактического рейса
               TDateTime scd_local=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
               modf(scd_local,&scd_local);
@@ -4883,7 +4880,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   CheckIn::SavePaxFQT(pax_id, p->fqts);
                 };
                 //запись норм
-                if (first_segment &&
+                if (!grp.piece_concept &&
+                    first_segment &&
                     !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
                   CheckIn::PaxNormsToDB(pax_id, p->norms);
 
@@ -4913,7 +4911,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         {
           //несопровождаемый багаж
           //запись норм
-          if (first_segment &&
+          if (!grp.piece_concept &&
+              first_segment &&
               !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
             CheckIn::GrpNormsToDB(grp.id, grp.norms);
         };
@@ -5165,7 +5164,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 CheckIn::SavePaxFQT(pax.id, p->fqts);
               };
               //запись норм
-              if (first_segment &&
+              if (!grp.piece_concept &&
+                  first_segment &&
                   !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
                 CheckIn::PaxNormsToDB(pax.id, p->norms);
 
@@ -5187,7 +5187,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         else
         {
           //запись норм
-          if (first_segment &&
+          if (!grp.piece_concept &&
+              first_segment &&
               !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
             CheckIn::GrpNormsToDB(grp.id, grp.norms);
         };
@@ -5221,26 +5222,37 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             grp.group_bag.get().toDB(grp.id);
           };
 
-          if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-            CheckIn::PaidBagToDB(grp.id, grp.paid);
+          boost::optional< list<CheckIn::TPaidBagEMDItem> > emd;
+          PaidBagEMDFromXML(segNode, emd, grp.piece_concept);
+          if (!grp.piece_concept)  //!!!vlad может быть к этому моменту NULL?
+          {
+            if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
+              CheckIn::PaidBagToDB(grp.id, grp.paid);
+            else
+            {
+              //расчет и запись норм и платного багажа
+
+              BagPayment::TNormFltInfo fltInfo;
+              fltInfo.point_id=grp.point_dep;
+              fltInfo.airline_mark=markFltInfo.airline;
+              fltInfo.flt_no_mark=markFltInfo.flt_no;
+              fltInfo.use_mark_flt=pr_mark_norms;
+              fltInfo.use_mixed_norms=pr_mixed_norms;
+              map<int/*id*/, TBagToLogInfo> curr_bag;
+              GetBagToLogInfo(grp.id, curr_bag);
+              list<CheckIn::TPaidBagItem> prior_paid;
+              CheckIn::PaidBagFromDB(grp.id, prior_paid);
+              BagPayment::RecalcPaidBagToDB(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true);
+            };
+
+            PaidBagEMDToDB(grp.id, emd);
+          }
           else
           {
-            //расчет и запись норм и платного багажа
+            //PieceConcept::SyncPaidBagEMDToDB(grp.id, emd); !!!vlad
+            PaidBagEMDToDB(grp.id, emd);
+          }
 
-            BagPayment::TNormFltInfo fltInfo;
-            fltInfo.point_id=grp.point_dep;
-            fltInfo.airline_mark=markFltInfo.airline;
-            fltInfo.flt_no_mark=markFltInfo.flt_no;
-            fltInfo.use_mark_flt=pr_mark_norms;
-            fltInfo.use_mixed_norms=pr_mixed_norms;
-            map<int/*id*/, TBagToLogInfo> curr_bag;
-            GetBagToLogInfo(grp.id, curr_bag);
-            list<CheckIn::TPaidBagItem> prior_paid;
-            CheckIn::PaidBagFromDB(grp.id, prior_paid);
-            BagPayment::RecalcPaidBagToDB(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true);
-          };
-
-          CheckIn::SavePaidBagEMD(grp.id,segNode);
           SaveTagPacks(reqNode);
         };
         first_grp_id=grp.id;
@@ -5260,9 +5272,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
             "  SELECT :grp_id ,num,value,value_cur,NULL,NULL,NULL "
             "  FROM value_bag WHERE grp_id=:first_grp_id; "
-            "  INSERT INTO bag2(grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num, "
+            "  INSERT INTO bag2(grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
             "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,is_trfer,handmade) "
-            "  SELECT :grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num, "
+            "  SELECT :grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
             "    pr_liab_limit,0,using_scales,bag_pool_num,hall,user_id,1,0 "
             "  FROM bag2 WHERE grp_id=:first_grp_id; "
             "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print) "
@@ -5916,6 +5928,180 @@ void ShowPaxCatWarning(const string &airline, const set<string> &cats, TQuery &Q
   if (*i=="INA") showErrorMessage("MSG.NEED_SELECT_BAG_NORMS_MANUALLY.INA");
 };
 
+const char* pax_grp_sql=
+    "SELECT points.airline,points.flt_no,points.suffix,points.airp,points.scd_out, "
+    "       pax_grp.grp_id,pax_grp.point_dep,pax_grp.airp_dep,pax_grp.point_arv,pax_grp.airp_arv, "
+    "       pax_grp.class,pax_grp.status,pax_grp.hall,pax_grp.bag_refuse,pax_grp.excess, "
+    "       pax_grp.trfer_confirm, piece_concept, NVL(bag_types_id, 0) AS bag_types_id, pax_grp.tid "
+    "FROM pax_grp,points "
+    "WHERE pax_grp.point_dep=points.point_id AND grp_id=:grp_id";
+
+const char* pax_sql=
+    "SELECT pax.pax_id,pax.surname,pax.name,pax.pers_type,crew_type,"
+    "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',rownum) AS seat_no, "
+    "       pax.seat_type, "
+    "       pax.seats,pax.refuse,pax.reg_no, "
+    "       pax.ticket_no,pax.coupon_no,pax.ticket_rem,pax.ticket_confirm, "
+    "       pax.subclass,pax.tid,pax.bag_pool_num, "
+    "       crs_pax.pax_id AS crs_pax_id "
+    "FROM pax,crs_pax "
+    "WHERE pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 AND "
+    "      pax.grp_id=:grp_id "
+    "ORDER BY ABS(pax.reg_no), pax.seats DESC";
+
+void CheckInInterface::CheckPieceConcept(int grp_id)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  vector<int> grp_ids;
+  grp_ids.push_back(grp_id);
+
+  TCkinRoute tckin_route;
+  tckin_route.GetRouteAfter(grp_id, crtNotCurrent, crtOnlyDependent);
+  for(TCkinRoute::const_iterator r=tckin_route.begin(); r!=tckin_route.end(); r++)
+    grp_ids.push_back(r->grp_id);
+
+  bool piece_concept=false;
+  int bag_types_id=ASTRA::NoExists;
+
+  if (reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
+  {
+    TCachedQuery Qry(pax_grp_sql, QParams() << QParam("grp_id", otInteger, grp_id));
+    Qry.get().Execute();
+    if (Qry.get().Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
+
+    bool set_piece_concept=Qry.get().FieldIsNULL("piece_concept");
+
+    SirenaExchange::TAvailabilityReq req;
+    SirenaExchange::TPaymentStatusReq req2;
+
+    std::list<SirenaExchange::TPaxItem> &paxs=set_piece_concept?req.paxs:req2.paxs;
+
+    bool pr_unaccomp=false;
+
+    int seg_no=0;
+    for(vector<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++,seg_no++)
+    {
+      if (grp_id!=grp_ids.begin())
+      {
+        Qry.get().SetVariable("grp_id", *grp_id);
+        Qry.get().Execute();
+        if (Qry.get().Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
+      }
+
+      CheckIn::TPaxGrpItem grp;
+      grp.fromDB(Qry.get());
+
+      TTripInfo operFlt(Qry.get());
+
+      TTrferRoute trfer;
+      if (grp_id==grp_ids.begin())
+      {
+        pr_unaccomp=grp.cl.empty() && grp.status!=psCrew;
+        trfer.GetRoute(grp.id, trtNotFirstSeg);
+      };
+
+      if (grp_id==grp_ids.begin() && !set_piece_concept)
+      {
+        list<PieceConcept::TPaidBagItem> paid_bag;
+        PieceConcept::PreparePaidBagInfo(*grp_id, trfer.size()+1, paid_bag);
+        for(list<PieceConcept::TPaidBagItem>::const_iterator i=paid_bag.begin(); i!=paid_bag.end(); ++i)
+          req2.bags.push_back(make_pair(SirenaExchange::TPaxSegKey(i->pax_id,i->trfer_num),
+                                        SirenaExchange::TBagItem(*i)));
+      }
+
+      if (!pr_unaccomp)
+      {
+        TGrpMktFlight mktFlight;
+        mktFlight.getByGrpId(grp.id);
+
+        TCachedQuery PaxQry(pax_sql, QParams() << QParam("grp_id", otInteger, grp.id));
+        PaxQry.get().Execute();
+
+        list<SirenaExchange::TPaxItem>::iterator iReqPax=paxs.begin();
+        for(;!PaxQry.get().Eof; PaxQry.get().Next())
+        {
+          if (grp_id==grp_ids.begin())
+            iReqPax=paxs.insert(paxs.end(), SirenaExchange::TPaxItem());
+          if (iReqPax==paxs.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqPax==paxs.end()");
+          SirenaExchange::TPaxItem &reqPax=*iReqPax;
+
+          CheckIn::TPaxItem pax;
+          pax.fromDB(PaxQry.get());
+
+          if (grp_id==grp_ids.begin())
+          {
+            std::list<CheckIn::TPaxTransferItem> pax_trfer;
+            CheckIn::PaxTransferFromDB(pax.id, pax_trfer);
+
+            reqPax.set(pax);
+            TTrferRoute::const_iterator s=trfer.begin();
+            list<CheckIn::TPaxTransferItem>::const_iterator p=pax_trfer.begin();
+            for(int seg_no=1; s!=trfer.end() && p!=pax_trfer.end(); ++s, ++p, seg_no++)
+            {
+              pair< SirenaExchange::TPaxSegMap::iterator, bool > res=
+                  reqPax.segs.insert(make_pair(seg_no,SirenaExchange::TPaxSegItem()));
+              if (!res.second) continue;
+              SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
+              reqSeg.set(seg_no, *s);
+              reqSeg.subcl=p->subclass;
+            }
+            if (s!=trfer.end()) throw EXCEPTIONS::Exception("%s: strange situation s!=trfer.end()", __FUNCTION__);
+            if (p!=pax_trfer.end()) throw EXCEPTIONS::Exception("%s: strange situation p!=pax_trfer.end()", __FUNCTION__);
+          };
+
+          pair< SirenaExchange::TPaxSegMap::iterator, bool > res=
+              reqPax.segs.insert(make_pair(seg_no,SirenaExchange::TPaxSegItem()));
+          SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
+          reqSeg.set(seg_no, operFlt, grp, mktFlight);
+          reqSeg.subcl=pax.subcl;
+          CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
+          CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
+        };
+      }
+      else break;
+    };
+
+    if (!pr_unaccomp)
+    {
+      if (set_piece_concept)
+      {
+        SirenaExchange::TAvailabilityRes res;
+        SirenaExchange::SendRequest(req, res);
+        if (res.empty()) throw EXCEPTIONS::Exception("%s: strange situation res.empty()", __FUNCTION__);
+        if (!res.identical_piece_concept()) throw UserException("Different piece_concept"); //!!!vlad
+        piece_concept=res.begin()->second.piece_concept;
+        if (piece_concept)
+        {
+          if (!res.identical_rfisc_list()) throw UserException("Different rfisc_list"); //!!!vlad
+          bag_types_id=res.begin()->second.rfisc_list.toDBAdv();
+          res.normsToDB(0); //сохраняем пока только по первому сегменту
+        };
+      }
+      else
+      {
+        SirenaExchange::TPaymentStatusRes res;
+        SirenaExchange::SendRequest(req2, res);
+        //throw UserException("Everything gone be all right!"); //!!!vlad
+        return;
+      };
+    }
+  };
+
+  for(vector<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++)
+  {
+    TCachedQuery Qry("UPDATE pax_grp SET piece_concept=:piece_concept, bag_types_id=:bag_types_id WHERE grp_id=:grp_id",
+                     QParams() << QParam("grp_id", otInteger, *grp_id)
+                     << QParam("piece_concept", otInteger, (int)piece_concept)
+                     << (bag_types_id==ASTRA::NoExists?QParam("bag_types_id", otInteger, FNull):
+                                                       QParam("bag_types_id", otInteger, bag_types_id))
+                     );
+    Qry.get().Execute();
+  };
+
+  //throw UserException("Everything gone be all right!"); //!!!vlad
+}
+
 void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -5938,16 +6124,11 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
   for(vector<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++)
   {
     list<BagPayment::TBagNormInfo> all_norms;
+    ostringstream norms_view;
     string used_norms_airline_mark;
 
     Qry.Clear();
-    Qry.SQLText=
-      "SELECT points.airline,points.flt_no,points.suffix,points.airp,points.scd_out, "
-      "       pax_grp.grp_id,pax_grp.point_dep,pax_grp.airp_dep,pax_grp.point_arv,pax_grp.airp_arv, "
-      "       pax_grp.class,pax_grp.status,pax_grp.hall,pax_grp.bag_refuse,pax_grp.excess, "
-      "       pax_grp.trfer_confirm, 0 AS piece_concept, 0 AS bag_types_id, pax_grp.tid "
-      "FROM pax_grp,points "
-      "WHERE pax_grp.point_dep=points.point_id AND grp_id=:grp_id";
+    Qry.SQLText=pax_grp_sql;
     Qry.CreateVariable("grp_id",otInteger,*grp_id);
     Qry.Execute();
     if (Qry.Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
@@ -6007,28 +6188,12 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
 
     if (!pr_unaccomp)
     {
-      Qry.Clear();
-      Qry.SQLText=
-        "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
-        "       mark_trips.scd AS scd_out,mark_trips.airp_dep AS airp,pr_mark_norms "
-        "FROM pax_grp,mark_trips "
-        "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id";
-      Qry.CreateVariable("grp_id",otInteger,grp.id);
-      Qry.Execute();
-      if (!Qry.Eof)
+      TGrpMktFlight mktFlight;
+      if (mktFlight.getByGrpId(grp.id))
       {
-        TTripInfo markFlt(Qry);
-        bool pr_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
-        if (pr_mark_norms && markFlt.airline!=seg.operFlt.airline)
-          used_norms_airline_mark=markFlt.airline;
-
-        xmlNodePtr markFltNode=NewTextChild(segNode,"mark_flight");
-        NewTextChild(markFltNode,"airline",markFlt.airline);
-        NewTextChild(markFltNode,"flt_no",markFlt.flt_no);
-        NewTextChild(markFltNode,"suffix",markFlt.suffix);
-        NewTextChild(markFltNode,"scd",DateTimeToStr(markFlt.scd_out));
-        NewTextChild(markFltNode,"airp_dep",markFlt.airp);
-        NewTextChild(markFltNode,"pr_mark_norms",(int)pr_mark_norms);
+        mktFlight.toXML(segNode);
+        if (mktFlight.pr_mark_norms && mktFlight.airline!=seg.operFlt.airline)
+          used_norms_airline_mark=mktFlight.airline;
       };
 
       Qry.Clear();
@@ -6036,18 +6201,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       Qry.DeclareVariable("pax_id",otInteger);
       TQuery PaxQry(&OraSession);
       PaxQry.Clear();
-      PaxQry.SQLText=
-        "SELECT pax.pax_id,pax.surname,pax.name,pax.pers_type,crew_type,"
-        "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',rownum) AS seat_no, "
-        "       pax.seat_type, "
-        "       pax.seats,pax.refuse,pax.reg_no, "
-        "       pax.ticket_no,pax.coupon_no,pax.ticket_rem,pax.ticket_confirm, "
-        "       pax.subclass,pax.tid,pax.bag_pool_num, "
-        "       crs_pax.pax_id AS crs_pax_id "
-        "FROM pax,crs_pax "
-        "WHERE pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 AND "
-        "      pax.grp_id=:grp_id "
-        "ORDER BY ABS(pax.reg_no), pax.seats DESC";
+      PaxQry.SQLText=pax_sql;
       PaxQry.CreateVariable("grp_id",otInteger,grp.id);
 
       PaxQry.Execute();
@@ -6065,10 +6219,10 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         CheckIn::TPaxItem pax;
         pax.fromDB(PaxQry);
 
-        CheckIn::TPaxTransferItem paxTrfer;
-        paxTrfer.pax_id=pax.id;
-        paxTrfer.subclass=pax.subcl;
-        seg.pax.push_back(paxTrfer);
+        CheckIn::TPaxTransferItem paxTrferItem;
+        paxTrferItem.pax_id=pax.id;
+        paxTrferItem.subclass=pax.subcl;
+        seg.pax.push_back(paxTrferItem);
 
         xmlNodePtr paxNode=NewTextChild(node, "pax");
         if (grp.status==psCrew)
@@ -6085,7 +6239,11 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         NewTextChild(paxNode,"pr_bp_print",(int)(!Qry.Eof));
 
         if (grp_id==grp_ids.begin())
-          LoadPaxTransfer(pax.id,paxNode);
+        {
+          std::list<CheckIn::TPaxTransferItem> pax_trfer;
+          PaxTransferFromDB(pax.id, pax_trfer);
+          PaxTransferToXML(pax_trfer, paxNode);
+        };
         LoadPaxRem(paxNode);
         if (grp_id==grp_ids.begin())
         {
@@ -6096,6 +6254,10 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
             CheckIn::NormsToXML(norms, group_bag, paxNode);
             if (pax.refuse.empty())
               all_norms.insert(all_norms.end(), norms.begin(), norms.end());
+          }
+          else
+          {
+            PieceConcept::PaxNormsToStream(pax, norms_view);
           };
 
           pax_cat_airline=seg.operFlt.airline;
@@ -6144,6 +6306,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         list<CheckIn::TPaidBagEMDItem> emd;
         CheckIn::PaidBagEMDFromDB(grp.id, emd);
         CheckIn::PaidBagEMDToXML(emd, segNode);
+        NewTextChild(resNode, "norms_view", norms_view.str());
         BagPayment::PaidBagViewToXMLTest(resNode);
       };
 
@@ -6210,32 +6373,6 @@ void CheckInInterface::SavePaxTransfer(int pax_id, int pax_no, const vector<Chec
     TrferQry.SetVariable("subclass",pax.subclass);
     TrferQry.SetVariable("subclass_fmt",(int)pax.subclass_fmt);
     TrferQry.Execute();
-  };
-  TrferQry.Close();
-};
-
-void CheckInInterface::LoadPaxTransfer(int pax_id, xmlNodePtr paxNode)
-{
-  if (paxNode==NULL) return;
-
-  TQuery TrferQry(&OraSession);
-  TrferQry.Clear();
-  TrferQry.SQLText=
-    "SELECT subclass,subclass_fmt FROM transfer_subcls "
-    "WHERE pax_id=:pax_id ORDER BY transfer_num";
-  TrferQry.CreateVariable("pax_id",otInteger,pax_id);
-  TrferQry.Execute();
-  if (!TrferQry.Eof)
-  {
-    xmlNodePtr node=NewTextChild(paxNode,"transfer");
-    string str;
-    for(;!TrferQry.Eof;TrferQry.Next())
-    {
-      xmlNodePtr trferNode=NewTextChild(node,"segment");
-      str=ElemIdToClientElem(etSubcls,TrferQry.FieldAsString("subclass"),
-                                (TElemFmt)TrferQry.FieldAsInteger("subclass_fmt"));
-      NewTextChild(trferNode,"subclass",str);
-    };
   };
   TrferQry.Close();
 };

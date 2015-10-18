@@ -18,6 +18,43 @@ using namespace EXCEPTIONS;
 namespace CheckIn
 {
 
+void PaxTransferFromDB(int pax_id, list<TPaxTransferItem> &trfer)
+{
+  trfer.clear();
+  TCachedQuery Qry("SELECT transfer_num,subclass,subclass_fmt FROM transfer_subcls "
+                   "WHERE pax_id=:pax_id ORDER BY transfer_num",
+                   QParams() << QParam("pax_id", otInteger, pax_id));
+  Qry.get().Execute();
+  int trfer_num=1;
+  for(; !Qry.get().Eof; Qry.get().Next(), trfer_num++)
+  {
+    if (trfer_num!=Qry.get().FieldAsInteger("transfer_num"))
+      throw Exception("PaxTransferFromDB: transfer_subcls.transfer_num=%d not found (pax_id=%d)", trfer_num, pax_id);
+    TPaxTransferItem item;
+    item.pax_id=pax_id;
+    item.subclass=Qry.get().FieldAsString("subclass");
+    item.subclass_fmt=(TElemFmt)Qry.get().FieldAsInteger("subclass_fmt");
+    trfer.push_back(item);
+  };
+};
+
+void PaxTransferToXML(const list<TPaxTransferItem> &trfer, xmlNodePtr paxNode)
+{
+  if (paxNode==NULL) return;
+
+  if (!trfer.empty())
+  {
+    xmlNodePtr node=NewTextChild(paxNode,"transfer");
+    string str;
+    for(list<TPaxTransferItem>::const_iterator i=trfer.begin(); i!=trfer.end(); ++i)
+    {
+      xmlNodePtr trferNode=NewTextChild(node,"segment");
+      str=ElemIdToClientElem(etSubcls, i->subclass, i->subclass_fmt);
+      NewTextChild(trferNode,"subclass",str);
+    };
+  };
+};
+
 void LoadTransfer(int grp_id, vector<TTransferItem> &trfer)
 {
   trfer.clear();

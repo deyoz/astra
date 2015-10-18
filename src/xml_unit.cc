@@ -159,38 +159,6 @@ const char* NodeAsString(const char* expr, xmlDocPtr data, xmlNodePtr cur)
   return NodeContent(node);
 };
 
-const char* NodeAsString(const char* expr, xmlNodePtr cur, const char *nvl)
-{
-    if(xmlNodePtr node = GetNode(expr, cur))
-        return NodeAsString(node);
-    else
-        return nvl;
-};
-
-int NodeAsInteger(const char* expr, xmlNodePtr cur, int nvl)
-{
-    if(xmlNodePtr node = GetNode(expr, cur))
-        return NodeAsInteger(node);
-    else
-        return nvl;
-};
-
-double NodeAsFloat(const char* expr, xmlNodePtr cur, double nvl)
-{
-    if(xmlNodePtr node = GetNode(expr, cur))
-        return NodeAsFloat(node);
-    else
-        return nvl;
-};
-
-TDateTime NodeAsDateTime(const char* expr, xmlNodePtr cur, TDateTime nvl)
-{
-    if(xmlNodePtr node = GetNode(expr, cur))
-        return NodeAsDateTime(node);
-    else
-        return nvl;
-};
-
 const char* NodeAsString(const char* expr, xmlNodePtr cur)
 {
   if (cur==NULL)
@@ -227,6 +195,36 @@ int NodeAsInteger(const char* expr, xmlNodePtr cur)
   else
     return NodeAsInteger(expr,cur->doc,cur);
 };
+
+bool NodeAsBoolean(xmlNodePtr node)
+{
+  bool Value;
+  if (node==NULL) throw EXMLError("Node not defined (NULL)");
+  if ( StrToBool( NodeContent(node), Value ) == EOF )
+    throw EXMLError("Cannot convert node to an Boolean");
+  return Value;
+};
+
+bool NodeAsBoolean(const char* expr, xmlDocPtr data, xmlNodePtr cur)
+{
+  bool Value;
+  xmlNodePtr node;
+  node=find_node(expr,data,cur);
+  if (node==NULL)
+    throw EXMLError(string("Node '") + expr + "' does not exists");
+  if ( StrToBool( NodeContent(node), Value ) == EOF )
+    throw EXMLError(string("Cannot convert node '") + expr + "' to an Boolean");
+  return Value;
+};
+
+bool NodeAsBoolean(const char* expr, xmlNodePtr cur)
+{
+  if (cur==NULL)
+    return NodeAsBoolean(expr,NULL,cur);
+  else
+    return NodeAsBoolean(expr,cur->doc,cur);
+};
+
 
 double NodeAsFloat(xmlNodePtr node)
 {
@@ -346,6 +344,11 @@ int NodeAsIntegerFast(const char *expr, xmlNodePtr &node)
   return NodeAsInteger(NodeAsNodeFast(expr,node));
 }
 
+bool NodeAsBooleanFast(const char *expr, xmlNodePtr &node)
+{
+  return NodeAsBoolean(NodeAsNodeFast(expr,node));
+}
+
 double NodeAsFloatFast(const char *expr, xmlNodePtr &node)
 {
   return NodeAsFloat(NodeAsNodeFast(expr,node));
@@ -359,6 +362,54 @@ BASIC::TDateTime NodeAsDateTimeFast(const char *expr, const char *format, xmlNod
 BASIC::TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node)
 {
   return NodeAsDateTime(NodeAsNodeFast(expr,node),(char*)ServerFormatDateTimeAsString);
+}
+
+bool NodeIsNULL(const char* expr, xmlNodePtr cur, bool nvl)
+{
+    if(xmlNodePtr node = GetNode(expr, cur))
+        return NodeIsNULL(node);
+    else
+        return nvl;
+}
+
+const char* NodeAsString(const char* expr, xmlNodePtr cur, const char *nvl)
+{
+    if(xmlNodePtr node = GetNode(expr, cur))
+        return NodeAsString(node);
+    else
+        return nvl;
+}
+
+int NodeAsInteger(const char* expr, xmlNodePtr cur, int nvl)
+{
+    if(xmlNodePtr node = GetNode(expr, cur))
+        return NodeAsInteger(node);
+    else
+        return nvl;
+}
+
+bool NodeAsBoolean(const char* expr, xmlNodePtr cur, bool nvl)
+{
+    if(xmlNodePtr node = GetNode(expr, cur))
+        return NodeAsBoolean(node);
+    else
+        return nvl;
+}
+
+double NodeAsFloat(const char* expr, xmlNodePtr cur, double nvl)
+{
+    if(xmlNodePtr node = GetNode(expr, cur))
+        return NodeAsFloat(node);
+    else
+        return nvl;
+}
+
+TDateTime NodeAsDateTime(const char* expr, xmlNodePtr cur, TDateTime nvl)
+{
+    if(xmlNodePtr node = GetNode(expr, cur))
+        return NodeAsDateTime(node);
+    else
+        return nvl;
 }
 
 bool NodeIsNULLFast(const char *expr, xmlNodePtr &node, bool nvl)
@@ -385,6 +436,14 @@ int NodeAsIntegerFast(const char *expr, xmlNodePtr &node, int nvl)
         return NodeAsInteger(NodeAsNodeFast(expr,node));
 }
 
+bool NodeAsBooleanFast(const char *expr, xmlNodePtr &node, bool nvl)
+{
+    if(GetNodeFast(expr, node) == NULL)
+        return nvl;
+    else
+        return NodeAsBoolean(NodeAsNodeFast(expr,node));
+}
+
 double NodeAsFloatFast(const char *expr, xmlNodePtr &node, double nvl)
 {
     if(GetNodeFast(expr, node) == NULL)
@@ -401,11 +460,6 @@ TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node, TDateTime nvl)
         return NodeAsDateTime(NodeAsNodeFast(expr,node),(char*)ServerFormatDateTimeAsString);
 }
 
-xmlNodePtr NewTextChild(xmlNodePtr parent, const string &name, const string &content)
-{
-    return NewTextChild(parent, name.c_str(), content);
-}
-
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const char *content)
 {
   if (name==NULL) return NULL;
@@ -413,7 +467,7 @@ xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const char *content
   return xmlNewTextChild(parent,NULL,BAD_CAST name,BAD_CAST content);
 };
 
-xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const string content)
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const std::string &content)
 {
   return NewTextChild(parent, name, content.c_str());
 };
@@ -428,7 +482,7 @@ xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const double conten
   return NewTextChild(parent, name, FloatToString(content).c_str());
 };
 
-xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const string content, const string nvl)
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const string &content, const string &nvl)
 {
     if(content != nvl)
       return NewTextChild(parent, name, content.c_str());
@@ -477,7 +531,7 @@ xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const char *con
   return node;
 };
 
-xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const string content)
+xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const std::string &content)
 {
   return ReplaceTextChild(parent, name, content.c_str());
 };
@@ -494,7 +548,7 @@ xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const char *value)
   return xmlSetProp(node,BAD_CAST name,BAD_CAST value);
 };
 
-xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const string value)
+xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const std::string &value)
 {
   return SetProp(node, name, value.c_str());
 };
@@ -502,6 +556,22 @@ xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const string value)
 xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const int value)
 {
   return SetProp(node, name, IntToString(value).c_str());
+};
+
+xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const std::string &value, const std::string &nvl)
+{
+  if(value != nvl)
+    return SetProp(node, name, value);
+  else
+    return NULL;
+};
+
+xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const int value, const int nvl)
+{
+  if(value != nvl)
+    return SetProp(node, name, value);
+  else
+    return NULL;
 };
 
 //Внимание! Функция с ошибкой libxml2! Не изменяет указатели xmlDocPtr
@@ -616,7 +686,7 @@ void NodeSetContent(xmlNodePtr cur, const char* content)
     };
 }
 
-void NodeSetContent(xmlNodePtr cur, const string content)
+void NodeSetContent(xmlNodePtr cur, const std::string &content)
 {
     NodeSetContent(cur,content.c_str());
 }

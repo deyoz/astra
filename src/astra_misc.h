@@ -50,7 +50,7 @@ class TMktFlight : public TSimpleMktFlight
       scd_date_local = ASTRA::NoExists;
       airp_dep.clear();
       airp_arv.clear();
-    };
+    }
   public:
     std::string subcls;
     int scd_day_local;
@@ -61,12 +61,12 @@ class TMktFlight : public TSimpleMktFlight
     TMktFlight()
     {
       init();
-    };
+    }
     void clear()
     {
       TSimpleMktFlight::clear();
       init();
-    };
+    }
 
     bool empty() const
     {
@@ -76,7 +76,7 @@ class TMktFlight : public TSimpleMktFlight
              scd_date_local == ASTRA::NoExists &&
              airp_dep.empty() &&
              airp_arv.empty();
-    };
+    }
 
     bool operator == (const TSimpleMktFlight &s) const
     {
@@ -89,6 +89,45 @@ class TMktFlight : public TSimpleMktFlight
     void getByCrsPaxId(int pax_id);
     void getByPnrId(int pnr_id);
     void dump() const;
+};
+
+class TGrpMktFlight : public TSimpleMktFlight
+{
+  private:
+    void init()
+    {
+      scd_date_local = ASTRA::NoExists;
+      airp_dep.clear();
+      pr_mark_norms=false;
+    }
+  public:
+    BASIC::TDateTime scd_date_local;
+    std::string airp_dep;
+    bool pr_mark_norms;
+
+    TGrpMktFlight()
+    {
+      init();
+    }
+    void clear()
+    {
+      TSimpleMktFlight::clear();
+      init();
+    }
+
+    bool empty() const
+    {
+      return TSimpleMktFlight::empty() &&
+             scd_date_local == ASTRA::NoExists &&
+             airp_dep.empty() &&
+             pr_mark_norms==false;
+    }
+
+    const TGrpMktFlight& toXML(xmlNodePtr node) const;
+    TGrpMktFlight& fromXML(xmlNodePtr node);
+    const TGrpMktFlight& toDB(TQuery &Qry) const;
+    TGrpMktFlight& fromDB(TQuery &Qry);
+    bool getByGrpId(int grp_id);
 };
 
 class TTripInfo
@@ -132,6 +171,15 @@ class TTripInfo
       if (Qry.GetFieldIndex("airp_fmt")>=0)
           airp_fmt = (TElemFmt)Qry.FieldAsInteger("airp_fmt");
     };
+    void init( const TGrpMktFlight &flt )
+    {
+      init();
+      airline=flt.airline;
+      flt_no=flt.flt_no;
+      suffix=flt.suffix;
+      scd_out=flt.scd_date_local;
+      airp=flt.airp_dep;
+    }
   public:
     std::string airline,suffix,airp;
     int flt_no, pr_del;
@@ -153,6 +201,10 @@ class TTripInfo
     virtual void Init( TQuery &Qry )
     {
       init(Qry);
+    };
+    virtual void Init( const TGrpMktFlight &flt )
+    {
+      init(flt);
     };
 
     void get_client_dates(BASIC::TDateTime &scd_out_client, BASIC::TDateTime &real_out_client, bool trunc_time=true) const;

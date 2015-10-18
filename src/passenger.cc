@@ -1428,7 +1428,7 @@ TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
     //запись изменений
     TQuery Qry(&OraSession);
     Qry.Clear();
-    Qry.SQLText="SELECT status, 0 AS piece_concept, 0 AS bag_types_id FROM pax_grp WHERE grp_id=:grp_id";
+    Qry.SQLText="SELECT status, piece_concept, NVL(bag_types_id, 0) AS bag_types_id FROM pax_grp WHERE grp_id=:grp_id";
     Qry.CreateVariable("grp_id", otInteger, id);
     Qry.Execute();
     if (!Qry.Eof)
@@ -1535,7 +1535,7 @@ TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node)
   PaidBagFromXML(node, paid);
 
   group_bag=TGroupBagItem();
-  if (!group_bag.get().fromXML(node)) group_bag=boost::none;
+  if (!group_bag.get().fromXML(node, piece_concept)) group_bag=boost::none;
 
   return *this;
 };
@@ -1587,6 +1587,29 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
   return *this;
 };
 
+TPnrAddrItem& TPnrAddrItem::fromDB(TQuery &Qry)
+{
+  clear();
+  airline=Qry.FieldAsString("airline");
+  addr=Qry.FieldAsString("addr");
+  return *this;
+};
+
+bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs)
+{
+  pnrs.clear();
+  const char* sql=
+      "SELECT pnr_addrs.airline, pnr_addrs.addr "
+      "FROM crs_pax, pnr_addrs "
+      "WHERE crs_pax.pnr_id=pnr_addrs.pnr_id AND crs_pax.pax_id=:pax_id";
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TCachedQuery Qry(sql, QryParams);
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+    pnrs.push_back(TPnrAddrItem().fromDB(Qry.get()));
+  return !pnrs.empty();
+};
 
 }; //namespace CheckIn
 

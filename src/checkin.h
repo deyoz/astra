@@ -144,9 +144,9 @@ public:
 
   static void SaveTagPacks(xmlNodePtr node);
 
+  static void CheckPieceConcept(int grp_id);
   static void LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax);
   static void LoadPaxRem(xmlNodePtr paxNode);
-  static void LoadPaxTransfer(int pax_id, xmlNodePtr paxNode);
   static void BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transferNode);
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);
 

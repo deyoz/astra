@@ -2153,13 +2153,6 @@ void PaidBagViewToXML(const std::map<int/*id*/, TBagToLogInfo> &bag,
 
 void PaidBagViewToXMLTest(xmlNodePtr node)
 {
-  ostringstream s;
-  s << "€„Ž › Ž •ŽŽ˜…Œ“" << endl
-    << "Ž‹“—€’œ ˆ •€ˆ’œ ŽŒ› Ž’ ‘€˜Šˆ € „‚“• Ÿ‡›Š€•" << endl
-    << "€ ‡€’…Œ ‚›‚Ž„ˆ’œ € ’ŽŒ Ÿ‡›Š…, € ŠŽ’ŽŽŒ €Ž’€…’ ’…Œˆ€‹"  << endl
-    << "’€Šˆ… „…‹€...." << endl;
-
-  NewTextChild(node, "norms_view", s.str());
 
   {
   xmlNodePtr paidNode=NewTextChild(node, "paid_bags");
