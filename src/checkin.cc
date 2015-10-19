@@ -6082,27 +6082,42 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
     {
       if (action==actionCheckPieceConcept)
       {
-        SirenaExchange::TAvailabilityRes res;
-        SirenaExchange::SendRequest(req1, res);
-        if (res.empty()) throw EXCEPTIONS::Exception("%s: strange situation res.empty()", __FUNCTION__);
-        if (!res.identical_piece_concept())
-          throw UserException("Регистрация невозможна. У пассажиров/сегментов разные системы расчета багажа"); //!!!vlad
-        piece_concept=res.begin()->second.piece_concept;
-        if (piece_concept)
+        try
         {
-          if (!res.identical_rfisc_list())
-            throw UserException("Регистрация невозможна. У пассажиров/сегментов разные списки типов багажа (коды RFISC)"); //!!!vlad
-          bag_types_id=res.begin()->second.rfisc_list.toDBAdv();
-          res.normsToDB(0); //сохраняем пока только по первому сегменту
-        };
+          SirenaExchange::TAvailabilityRes res;
+          SirenaExchange::SendRequest(req1, res);
+          if (res.empty()) throw EXCEPTIONS::Exception("%s: strange situation res.empty()", __FUNCTION__);
+          if (!res.identical_piece_concept())
+            throw UserException("Регистрация невозможна. У пассажиров/сегментов разные системы расчета багажа"); //!!!vlad
+          piece_concept=res.begin()->second.piece_concept;
+          if (piece_concept)
+          {
+            if (!res.identical_rfisc_list())
+              throw UserException("Регистрация невозможна. У пассажиров/сегментов разные списки типов багажа (коды RFISC)"); //!!!vlad
+            bag_types_id=res.begin()->second.rfisc_list.toDBAdv();
+            res.normsToDB(0); //сохраняем пока только по первому сегменту
+          };
+        }
+        catch(UserException &e)
+        {
+          throw;
+        }
+        catch(std::exception &e)
+        {
+          ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
+          piece_concept=false;
+          bag_types_id=ASTRA::NoExists;
+        }
       }
       else
       {
         list<PieceConcept::TPaidBagItem> paid;
         if (!req2.bags.empty())
         {
-          SirenaExchange::TPaymentStatusRes res;
-          SirenaExchange::SendRequest(req2, res); //!!!vlad
+          try
+          {
+            SirenaExchange::TPaymentStatusRes res;
+            SirenaExchange::SendRequest(req2, res); //!!!vlad
 //          int j=0;
 //          for(SirenaExchange::TPaymentStatusList::const_iterator i=req2.bags.begin(); i!=req2.bags.end(); ++i, ++j)
 //          {
@@ -6115,8 +6130,17 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
 //              case 3: b->second.status=PieceConcept::bsNeed; break;
 //            };
 //          };
-
-          res.convert(paid);
+            res.convert(paid);
+          }
+          catch(UserException &e)
+          {
+            throw;
+          }
+          catch(std::exception &e)
+          {
+            ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
+            throw UserException("Невозможно произвести расчет оплачиваемого багажа. Если ситуация повторяется, попробуйте перерегистрировать пассажиров"); //!!!vlad
+          }
         };
         PieceConcept::PaidBagToDB(first_grp_id, paid);
       };
