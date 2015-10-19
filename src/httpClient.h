@@ -46,7 +46,7 @@ struct ResponseInfo
     content.clear();
     ready = false;
   }
-  bool isReady() {
+  bool success() {
     return ready;
   }
   std::string toString() {

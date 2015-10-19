@@ -4985,7 +4985,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         grp.toDB(Qry);
         if (reqInfo->client_type==ctTerm)
         {
-          action=actionCheckPieceConcept;
+          if (!grpInfoBefore.trfer_confirm) action=actionCheckPieceConcept;
           Qry.CreateVariable("trfer_confirm",otInteger,(int)true);
           Qry.CreateVariable("trfer_conflict",otInteger,(int)false);
         }
@@ -5254,7 +5254,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           }
           else
           {
-            /*if (action==actionNone)*/ action=actionRefreshPaidBagPC;  //!!!vlad обязательно проверять на actionNone
+            if (action==actionNone) action=actionRefreshPaidBagPC;
             //PieceConcept::SyncPaidBagEMDToDB(grp.id, emd); !!!vlad
             PaidBagEMDToDB(grp.id, emd);
           }
@@ -5965,8 +5965,13 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
   if (action==actionRefreshPaidBagPC)
     ProgTrace(TRACE5, "%s started with actionRefreshPaidBagPC", __FUNCTION__);
 
+  TCachedQuery Qry(pax_grp_sql, QParams() << QParam("grp_id", otInteger, first_grp_id));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
 
-  //TReqInfo *reqInfo = TReqInfo::Instance(); !!!vlad
+  if (action==actionCheckPieceConcept && !Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
+  if (action==actionRefreshPaidBagPC &&
+      (Qry.get().FieldIsNULL("piece_concept") || Qry.get().FieldAsInteger("piece_concept")==0)) return; //не piece_concept
 
   vector<int> grp_ids;
   grp_ids.push_back(first_grp_id);
@@ -5976,17 +5981,10 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
   for(TCkinRoute::const_iterator r=tckin_route.begin(); r!=tckin_route.end(); r++)
     grp_ids.push_back(r->grp_id);
 
-  TCachedQuery Qry(pax_grp_sql, QParams() << QParam("grp_id", otInteger, first_grp_id));
-  Qry.get().Execute();
-  if (Qry.get().Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
-
-  if (action==actionCheckPieceConcept && !Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
-  if (action==actionRefreshPaidBagPC &&
-      (Qry.get().FieldIsNULL("piece_concept") || Qry.get().FieldAsInteger("piece_concept")==0)) return; //не piece_concept
-
   bool piece_concept=false;
   int bag_types_id=ASTRA::NoExists;
-  //if (reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))  !!!vlad не нужно compatible
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))  //!!!vlad не нужно compatible
   {
     SirenaExchange::TAvailabilityReq req1;
     SirenaExchange::TPaymentStatusReq req2;
@@ -5994,10 +5992,11 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
     std::list<SirenaExchange::TPaxItem> &req_paxs=action==actionCheckPieceConcept?req1.paxs:req2.paxs;
 
     bool pr_unaccomp=false;
-
+    TTrferRoute trfer;
     int seg_no=0;
     for(vector<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++,seg_no++)
     {
+      if (seg_no>trfer.size()) break;
       if (grp_id!=grp_ids.begin())
       {
         Qry.get().SetVariable("grp_id", *grp_id);
@@ -6015,7 +6014,6 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
 
       if (!pr_unaccomp)
       {
-        TTrferRoute trfer;
         if (grp_id==grp_ids.begin())
           trfer.GetRoute(grp.id, trtNotFirstSeg);
 
@@ -6053,13 +6051,13 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
             reqPax.set(pax);
             TTrferRoute::const_iterator s=trfer.begin();
             list<CheckIn::TPaxTransferItem>::const_iterator p=pax_trfer.begin();
-            for(int seg_no=1; s!=trfer.end() && p!=pax_trfer.end(); ++s, ++p, seg_no++)
+            for(int trfer_num=1; s!=trfer.end() && p!=pax_trfer.end(); ++s, ++p, trfer_num++)
             {
               pair< SirenaExchange::TPaxSegMap::iterator, bool > res=
-                  reqPax.segs.insert(make_pair(seg_no,SirenaExchange::TPaxSegItem()));
+                  reqPax.segs.insert(make_pair(trfer_num,SirenaExchange::TPaxSegItem()));
               if (!res.second) continue;
               SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
-              reqSeg.set(seg_no, *s);
+              reqSeg.set(trfer_num, *s);
               reqSeg.subcl=p->subclass;
             }
             if (s!=trfer.end()) throw EXCEPTIONS::Exception("%s: strange situation s!=trfer.end()", __FUNCTION__);
@@ -6117,19 +6115,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
           try
           {
             SirenaExchange::TPaymentStatusRes res;
-            SirenaExchange::SendRequest(req2, res); //!!!vlad
-//          int j=0;
-//          for(SirenaExchange::TPaymentStatusList::const_iterator i=req2.bags.begin(); i!=req2.bags.end(); ++i, ++j)
-//          {
-//            SirenaExchange::TPaymentStatusList::iterator b=res.insert(res.end(), *i);
-//            switch(j%4)
-//            {
-//              case 0: b->second.status=PieceConcept::bsFree; break;
-//              case 1: b->second.status=PieceConcept::bsPaid; break;
-//              case 2: b->second.status=PieceConcept::bsUnknown; break;
-//              case 3: b->second.status=PieceConcept::bsNeed; break;
-//            };
-//          };
+            SirenaExchange::SendRequest(req2, res);
             res.convert(paid);
           }
           catch(UserException &e)
@@ -6145,7 +6131,8 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
         PieceConcept::PaidBagToDB(first_grp_id, paid);
       };
     }
-  };
+  }
+  else showErrorMessage("Данная версия терминала не может работать с пассажирами в системе расчета багажа по кол-ву мест");
 
   if (action==actionCheckPieceConcept)
     for(vector<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++)

@@ -356,9 +356,10 @@ void PaidBagToDB(int grp_id, const list<TPaidBagItem> &paid)
   int excess=0;
   for(list<TPaidBagItem>::const_iterator i=paid.begin(); i!=paid.end(); ++i)
   {
-    if (i->status==bsUnknown ||
-        i->status==bsPaid ||
-        i->status==bsNeed) excess++;
+    if (i->trfer_num==0 &&
+        (i->status==bsUnknown ||
+         i->status==bsPaid ||
+         i->status==bsNeed)) excess++;
     i->toDB(BagQry);
     BagQry.Execute();
   };
@@ -670,9 +671,9 @@ class TPiadBagViewKey
     }
     bool operator < (const TPiadBagViewKey &key) const
     {
-      if (RFISC!=key.RFISC)
-        return RFISC<key.RFISC;
-      return trfer_num<key.trfer_num;
+      if (trfer_num!=key.trfer_num)
+        return trfer_num<key.trfer_num;
+      return RFISC<key.RFISC;
     }
 };
 
@@ -1237,7 +1238,13 @@ void SendRequest(const TExchange &request, TExchange &response)
   traceXML(requestInfo.content);
   ResponseInfo responseInfo;
   httpClient_main(requestInfo, responseInfo);
-  traceXML(XMLTreeToText(TextToXMLTree(responseInfo.content)));
+  if (!responseInfo.success() ) throw Exception("%s: responseInfo.success()=false", __FUNCTION__);
+
+  xmlDocPtr doc=TextToXMLTree(responseInfo.content);
+  if (doc!=NULL)
+    traceXML(XMLTreeToText(doc));
+  else
+    traceXML(responseInfo.content);
   response.parse(responseInfo.content);
 }
 
