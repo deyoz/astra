@@ -909,7 +909,7 @@ void SendRequest(const TExchange &request, TExchange &response)
   requestInfo.path = "/astra";
   request.build(requestInfo.content);
   requestInfo.using_ssl = false;
-  requestInfo.sirena_exch = true;
+  requestInfo.timeout = 10000;
   traceXML(requestInfo.content);
   ResponseInfo responseInfo;
   httpClient_main(requestInfo, responseInfo);
@@ -917,4 +917,14 @@ void SendRequest(const TExchange &request, TExchange &response)
   response.parse(responseInfo.content);
 }
 
+
+
 } //namespace SirenaExchange
+
+
+void PieceConceptInterface::requestPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  xmlNodePtr node = GetNode( "content", reqNode);
+  ProgTrace( TRACE5, "requestPieceConcept, %s", (char*)node->children->name );
+  NewTextChild( resNode, "passenger_with_svc" );
+}

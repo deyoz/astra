@@ -354,9 +354,57 @@ class TPaymentStatusRes : public TExchange, public TPaymentStatusResMap
     virtual void fromXML(xmlNodePtr node);
 };
 
+class TGroupInfoReq : public TExchange
+{
+  protected:
+    virtual std::string exchangeId() const { return "group_svc_info"; }
+    virtual bool isRequest() const { return true; };
+};
+
+class TGroupInfoRes : public TExchange
+{
+  protected:
+    virtual std::string exchangeId() const { return "group_svc_info"; }
+    virtual bool isRequest() const { return false; };
+};
+
+class TPassengersReq : public TExchange
+{
+  protected:
+    virtual std::string exchangeId() const { return "passenger_with_svc"; }
+    virtual bool isRequest() const { return true; };
+};
+
+class TPassengersRes : public TExchange
+{
+  protected:
+    virtual std::string exchangeId() const { return "passenger_with_svc"; }
+    virtual bool isRequest() const { return false; };
+};
+
+
+
+
+
+
 void SendRequest(const TExchange &request, TExchange &response);
 
 } //namespace SirenaExchange
+
+class PieceConceptInterface : public JxtInterface
+{
+private:
+public:
+  PieceConceptInterface() : JxtInterface("","PieceConcept")
+  {
+     Handler *evHandle;
+     evHandle=JxtHandler<PieceConceptInterface>::CreateHandler(&PieceConceptInterface::requestPieceConcept);
+     AddEvent("piece_concept",evHandle);
+  };
+  void requestPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+};
+
 
 
 #endif

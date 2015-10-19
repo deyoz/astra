@@ -19,5 +19,6 @@ int test_file_queue(int argc,char **argv);
 int mobile_stat(int argc,char **argv);
 int fill_counters_by_subcls(int argc,char **argv);
 int convert_codeshare(int argc,char **argv);
+int verifyHTTP(int argc,char **argv);
 
 #endif

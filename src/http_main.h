@@ -13,6 +13,7 @@ namespace AstraHTTP
 #define CHECKIN_JXT_INTERFACE_ID "CheckIn"
 #define TELEGRAM_JXT_INTERFACE_ID "Telegram"
 #define STAT_JXT_INTERFACE_ID "stat"
+#define PIECE_CONCEPT_JXT_INTERFACE_ID "PieceConcept"
 
 void HTTPPostProcessXMLAnswer();
 void TlgPostProcessXMLAnswer();
@@ -43,6 +44,7 @@ struct HTTPClient
     jxt_interface["tlg_srv"] =      JxtInfo(TELEGRAM_JXT_INTERFACE_ID, TlgPostProcessXMLAnswer);
     jxt_interface["kick"] =         JxtInfo(TELEGRAM_JXT_INTERFACE_ID, TlgPostProcessXMLAnswer);
     jxt_interface["stat_srv"] =     JxtInfo(STAT_JXT_INTERFACE_ID, NULL);
+    jxt_interface["piece_concept"] =JxtInfo(PIECE_CONCEPT_JXT_INTERFACE_ID, NULL);
   }
 };
 

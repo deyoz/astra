@@ -83,6 +83,7 @@ const
     {"-check_counters_by_subcls",check_counters_by_subcls,NULL,                     NULL},
     {"-convert_codeshare",      convert_codeshare,      NULL,                       NULL},
     {"-ovb",                    STAT::ovb,              NULL,                       NULL},
+    {"-http",                   verifyHTTP,             NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
@@ -1287,4 +1288,3 @@ int seasons_dst_format(int argc,char **argv)
   };
   return 0;
 }
-
