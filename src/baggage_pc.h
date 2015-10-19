@@ -447,7 +447,7 @@ class TGroupInfoRes : public TExchange
     virtual bool isRequest() const { return false; };
   public:
     std::list<TPaxItem> paxs;
-    std::list< std::pair<TPaxSegKey, TBagItem> > bags;
+    TPaymentStatusList bags;
     virtual void toXML(xmlNodePtr node) const;
 };
 

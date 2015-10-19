@@ -5955,25 +5955,16 @@ const char* pax_sql=
     "      pax.grp_id=:grp_id "
     "ORDER BY ABS(pax.reg_no), pax.seats DESC";
 
-void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType action)
+namespace SirenaExchange
 {
-  if (action==actionNone) return;
-  if (action!=actionCheckPieceConcept && action!=actionRefreshPaidBagPC) return;
 
-  if (action==actionCheckPieceConcept)
-    ProgTrace(TRACE5, "%s started with actionCheckPieceConcept", __FUNCTION__);
-  if (action==actionRefreshPaidBagPC)
-    ProgTrace(TRACE5, "%s started with actionRefreshPaidBagPC", __FUNCTION__);
+void fillPaxsBags(int first_grp_id, TExchange &exch, list<int> &grp_ids, bool &pr_unaccomp)
+{
+  TAvailabilityReq  *availabilityReq=dynamic_cast<TAvailabilityReq*>(&exch);
+  TPaymentStatusReq *paymentStatusReq=dynamic_cast<TPaymentStatusReq*>(&exch);
+  TGroupInfoRes     *groupInfoRes=dynamic_cast<TGroupInfoRes*>(&exch);
 
-  TCachedQuery Qry(pax_grp_sql, QParams() << QParam("grp_id", otInteger, first_grp_id));
-  Qry.get().Execute();
-  if (Qry.get().Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
-
-  if (action==actionCheckPieceConcept && !Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
-  if (action==actionRefreshPaidBagPC &&
-      (Qry.get().FieldIsNULL("piece_concept") || Qry.get().FieldAsInteger("piece_concept")==0)) return; //не piece_concept
-
-  vector<int> grp_ids;
+  grp_ids.clear();
   grp_ids.push_back(first_grp_id);
 
   TCkinRoute tckin_route;
@@ -5981,64 +5972,62 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
   for(TCkinRoute::const_iterator r=tckin_route.begin(); r!=tckin_route.end(); r++)
     grp_ids.push_back(r->grp_id);
 
-  bool piece_concept=false;
-  int bag_types_id=ASTRA::NoExists;
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))  //!!!vlad не нужно compatible
+  pr_unaccomp=false;
+  TTrferRoute trfer;
+  int seg_no=0;
+  for(list<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++,seg_no++)
   {
-    SirenaExchange::TAvailabilityReq req1;
-    SirenaExchange::TPaymentStatusReq req2;
-
-    std::list<SirenaExchange::TPaxItem> &req_paxs=action==actionCheckPieceConcept?req1.paxs:req2.paxs;
-
-    bool pr_unaccomp=false;
-    TTrferRoute trfer;
-    int seg_no=0;
-    for(vector<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++,seg_no++)
+    if (seg_no>(int)trfer.size()) break;
+    TCachedQuery Qry(pax_grp_sql, QParams() << QParam("grp_id", otInteger, first_grp_id));
+    Qry.get().SetVariable("grp_id", *grp_id);
+    Qry.get().Execute();
+    if (Qry.get().Eof)
     {
-      if (seg_no>trfer.size()) break;
-      if (grp_id!=grp_ids.begin())
-      {
-        Qry.get().SetVariable("grp_id", *grp_id);
-        Qry.get().Execute();
-        if (Qry.get().Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
-      }
+      grp_ids.clear();
+      return; //это бывает когда разрегистрация всей группы по ошибке агента
+    };
 
-      CheckIn::TPaxGrpItem grp;
-      grp.fromDB(Qry.get());
 
-      TTripInfo operFlt(Qry.get());
+    CheckIn::TPaxGrpItem grp;
+    grp.fromDB(Qry.get());
 
+    TTripInfo operFlt(Qry.get());
+
+    if (grp_id==grp_ids.begin())
+      pr_unaccomp=grp.cl.empty() && grp.status!=psCrew;
+
+    if (!pr_unaccomp)
+    {
       if (grp_id==grp_ids.begin())
-        pr_unaccomp=grp.cl.empty() && grp.status!=psCrew;
+        trfer.GetRoute(grp.id, trtNotFirstSeg);
 
-      if (!pr_unaccomp)
+      if ((paymentStatusReq || groupInfoRes) && grp_id==grp_ids.begin())
       {
-        if (grp_id==grp_ids.begin())
-          trfer.GetRoute(grp.id, trtNotFirstSeg);
+        list<PieceConcept::TPaidBagItem> paid_bag;
+        PieceConcept::PreparePaidBagInfo(*grp_id, trfer.size()+1, paid_bag);
+        TPaymentStatusList &bags_ref=(paymentStatusReq?paymentStatusReq->bags:groupInfoRes->bags);
+        for(list<PieceConcept::TPaidBagItem>::const_iterator i=paid_bag.begin(); i!=paid_bag.end(); ++i)
+          bags_ref.push_back(make_pair(TPaxSegKey(i->pax_id,i->trfer_num), TBagItem(*i)));
+      };
 
-        if (action==actionRefreshPaidBagPC && grp_id==grp_ids.begin())
-        {
-          list<PieceConcept::TPaidBagItem> paid_bag;
-          PieceConcept::PreparePaidBagInfo(*grp_id, trfer.size()+1, paid_bag);
-          for(list<PieceConcept::TPaidBagItem>::const_iterator i=paid_bag.begin(); i!=paid_bag.end(); ++i)
-            req2.bags.push_back(make_pair(SirenaExchange::TPaxSegKey(i->pax_id,i->trfer_num),
-                                          SirenaExchange::TBagItem(*i)));
-        };
+      TGrpMktFlight mktFlight;
+      mktFlight.getByGrpId(grp.id);
 
-        TGrpMktFlight mktFlight;
-        mktFlight.getByGrpId(grp.id);
+      TCachedQuery PaxQry(pax_sql, QParams() << QParam("grp_id", otInteger, grp.id));
+      PaxQry.get().Execute();
 
-        TCachedQuery PaxQry(pax_sql, QParams() << QParam("grp_id", otInteger, grp.id));
-        PaxQry.get().Execute();
 
-        list<SirenaExchange::TPaxItem>::iterator iReqPax=req_paxs.begin();
+      if (availabilityReq || paymentStatusReq || groupInfoRes)
+      {
+        std::list<TPaxItem> &paxs_ref=(availabilityReq?availabilityReq->paxs:(paymentStatusReq?paymentStatusReq->paxs:groupInfoRes->paxs));
+
+        list<TPaxItem>::iterator iReqPax=paxs_ref.begin();
         for(;!PaxQry.get().Eof; PaxQry.get().Next())
         {
           if (grp_id==grp_ids.begin())
-            iReqPax=req_paxs.insert(req_paxs.end(), SirenaExchange::TPaxItem());
-          if (iReqPax==req_paxs.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqPax==paxs.end()");
-          SirenaExchange::TPaxItem &reqPax=*iReqPax;
+            iReqPax=paxs_ref.insert(paxs_ref.end(), TPaxItem());
+          if (iReqPax==paxs_ref.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqPax==paxs.end()");
+          TPaxItem &reqPax=*iReqPax;
 
           CheckIn::TPaxItem pax;
           pax.fromDB(PaxQry.get());
@@ -6072,9 +6061,51 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
           CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
           CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
         };
-      }
-      else break;
-    };
+      };
+    }
+    else break;
+  };
+
+}
+
+}
+
+void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType action)
+{
+  if (action==actionNone) return;
+  if (action!=actionCheckPieceConcept && action!=actionRefreshPaidBagPC) return;
+
+  if (action==actionCheckPieceConcept)
+    ProgTrace(TRACE5, "%s started with actionCheckPieceConcept", __FUNCTION__);
+  if (action==actionRefreshPaidBagPC)
+    ProgTrace(TRACE5, "%s started with actionRefreshPaidBagPC", __FUNCTION__);
+
+  TCachedQuery Qry("SELECT piece_concept FROM pax_grp WHERE grp_id=:grp_id",
+                   QParams() << QParam("grp_id", otInteger, first_grp_id));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
+
+  if (action==actionCheckPieceConcept && !Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
+  if (action==actionRefreshPaidBagPC &&
+      (Qry.get().FieldIsNULL("piece_concept") || Qry.get().FieldAsInteger("piece_concept")==0)) return; //не piece_concept
+
+  bool piece_concept=false;
+  int bag_types_id=ASTRA::NoExists;
+  list<int> grp_ids;
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->client_type!=ASTRA::ctTerm  ||
+      reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
+  {
+    SirenaExchange::TAvailabilityReq req1;
+    SirenaExchange::TPaymentStatusReq req2;
+
+    bool pr_unaccomp;
+    if (action==actionCheckPieceConcept)
+      SirenaExchange::fillPaxsBags(first_grp_id, req1, grp_ids, pr_unaccomp);
+    else
+      SirenaExchange::fillPaxsBags(first_grp_id, req2, grp_ids, pr_unaccomp);
+
+    if (grp_ids.empty()) return;
 
     if (!pr_unaccomp)
     {
@@ -6135,7 +6166,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
   else showErrorMessage("Данная версия терминала не может работать с пассажирами в системе расчета багажа по кол-ву мест");
 
   if (action==actionCheckPieceConcept)
-    for(vector<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++)
+    for(list<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++)
     {
       TCachedQuery Qry("UPDATE pax_grp SET piece_concept=:piece_concept, bag_types_id=:bag_types_id WHERE grp_id=:grp_id",
                        QParams() << QParam("grp_id", otInteger, *grp_id)
