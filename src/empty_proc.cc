@@ -2868,8 +2868,9 @@ int verifyHTTP(int argc,char **argv)
   xmlDocPtr doc = CreateXMLDoc("query");
   xmlNodePtr n = NewTextChild( doc->children, "passenger_with_svc");
   NewTextChild( n, "company", "UT");
-  NewTextChild( n, "flight", "123A");
-  NewTextChild( n, "departure_date", "2015-10-25");
+  NewTextChild( n, "flight", "265");
+  NewTextChild( n, "departure_date", "2015-10-16");
+  NewTextChild( n, "departure", "VKO");
 
   RequestInfo request;
   std::string proto;
