@@ -200,7 +200,7 @@ class TPaxItem
 {
   public:
     int id;
-    std::string name;
+    std::string surname, name;
     ASTRA::TPerson pers_type;
     int seats;
     CheckIn::TPaxTknItem tkn;
@@ -216,6 +216,7 @@ class TPaxItem
     {
       clear();
       id=item.id;
+      surname=item.surname;
       name=item.name;
       pers_type=item.pers_type;
       seats=item.seats;
@@ -226,6 +227,7 @@ class TPaxItem
     void clear()
     {
       id=ASTRA::NoExists;
+      surname.clear();
       name.clear();
       pers_type=ASTRA::NoPerson;
       seats=ASTRA::NoExists;
@@ -238,6 +240,18 @@ class TPaxItem
     std::string category() const;
     std::string sex() const;
 };
+
+/*class TPaxItem2
+{
+  public:
+    surname, name
+    ASTRA::TPerson pers_type;
+    int seats;
+    grp_id
+
+    const TPaxItem& toXML(xmlNodePtr node, const std::string &lang) const;
+    std::string category() const;
+};*/
 
 class TBagItem : public PieceConcept::TSimplePaidBagItem
 {
@@ -354,7 +368,7 @@ class TPaymentStatusRes : public TExchange, public TPaymentStatusResMap
     virtual void fromXML(xmlNodePtr node);
 };
 
-class TGroupInfoReq : public TExchange
+/*class TGroupInfoReq : public TExchange
 {
   protected:
     virtual std::string exchangeId() const { return "group_svc_info"; }
@@ -366,23 +380,27 @@ class TGroupInfoRes : public TExchange
   protected:
     virtual std::string exchangeId() const { return "group_svc_info"; }
     virtual bool isRequest() const { return false; };
+  public:
+    std::list<TPaxItem> paxs;
+    std::list< std::pair<TPaxSegKey, TBagItem> > bags;
+    virtual void toXML(xmlNodePtr node) const;
 };
 
-class TPassengersReq : public TExchange
+class TPassengersReq : public TExchange, public TTripInfo
 {
   protected:
     virtual std::string exchangeId() const { return "passenger_with_svc"; }
     virtual bool isRequest() const { return true; };
 };
 
-class TPassengersRes : public TExchange
+class TPassengersRes : public TExchange, public list<TPaxItem2>
 {
   protected:
     virtual std::string exchangeId() const { return "passenger_with_svc"; }
     virtual bool isRequest() const { return false; };
 };
 
-
+*/
 
 
 
