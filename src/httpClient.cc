@@ -182,7 +182,7 @@ public:
       std::string status_message;
       std::getline(response_stream, status_message);
       if ( res_info_.status_code != 200 ) {    // 200 = status code OK
-        ProgError( STDLOG, "handle_read_status http_version: %s", http_version.c_str() );
+        ProgError( STDLOG, "handle_read_status status_message: %s", status_message.c_str() );
         return;
       }
 
@@ -324,8 +324,13 @@ void httpClient_main(const RequestInfo& request, ResponseInfo& response)
     // Block until the asynchronous operation has completed. c.stop() - stoped client
     //do io_service.run_one(); while (c.would_block());
 
-    response=c.response();
-    ProgTrace( TRACE5, "response return %s", response.toString().c_str() );
+    response=c.response();    
+    if ( !response.isReady() ) {
+      ProgError( STDLOG, "httpClient_main: response return %s", response.toString().c_str() );
+    }
+    else {
+      ProgTrace( TRACE5, "response return %s", response.toString().c_str() );
+    }
   }
   catch (std::exception& e)
   {
