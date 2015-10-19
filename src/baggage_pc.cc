@@ -2,6 +2,9 @@
 #include <boost/crc.hpp>
 #include "astra_context.h"
 #include "httpClient.h"
+#include "points.h"
+#include "basic.h"
+#include "astra_misc.h"
 #include <serverlib/xml_stuff.h>
 
 #define NICKNAME "VLAD"
@@ -925,22 +928,22 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node, const std::string &lang) const
   return *this;
 }
 
-std::string TPaxItem::category() const
-{
-  switch(pers_type)
-  {
-    case ASTRA::adult: return "ADT";
-    case ASTRA::child: return "CNN";
-     case ASTRA::baby: return seats>0?"INS":"INF";
-              default: return "";
-  }
-}
-
 std::string TPaxItem::sex() const
 {
   int f=CheckIn::is_female(doc.gender, name);
   if (f==ASTRA::NoExists) return "";
   return (f==0?"male":"female");
+}
+
+const TPaxItem2& TPaxItem2::toXML(xmlNodePtr node, const std::string &lang) const
+{
+  if (node==NULL) return *this;
+
+  NewTextChild( node, "surname", surname );
+  NewTextChild( node, "name", name );
+  NewTextChild( node, "category", category(), "" );
+  NewTextChild( node, "group_id", grp_id );
+  return *this;
 }
 
 const TBagItem& TBagItem::toXML(xmlNodePtr node) const
@@ -1194,6 +1197,55 @@ void TPaymentStatusRes::convert(list<PieceConcept::TPaidBagItem> &paid) const
   }
 }
 
+void TPassengersRes::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return;
+
+  if (empty()) throw Exception("TPassengersRes::toXML: empty()");
+
+  for(list<TPaxItem2>::const_iterator p=begin(); p!=end(); ++p)
+    p->toXML(NewTextChild(node, "passenger"), LANG_EN);
+}
+
+void TPassengersReq::fromXML(xmlNodePtr node)
+{
+  this->Clear();
+  try {
+    if (node==NULL) throw Exception("node not defined");
+    string value = string(NodeAsString( "company", node )) + NodeAsString( "flight", node );
+    parseFlt( value, airline, flt_no, suffix );
+    airline = ElemToElemId( etAirline, airline, this->airline_fmt );
+    suffix = ElemToElemId( etSuffix, suffix, this->suffix_fmt );
+    if ( BASIC::StrToDateTime( NodeAsString( "departure_date", node ), "yyyy-mm-dd", scd_out) == EOF ) {
+      throw Exception("departure_date node is invalid");
+    }
+    airp = ElemToElemId( etAirp, NodeAsString( "departure", node ), this->airp_fmt ); //!!!договорились, что будет
+  }
+  catch(Exception &e)
+  {
+    throw Exception("TPassengersReq::fromXML: %s", e.what());
+  };
+}
+
+void TGroupInfoReq::fromXML(xmlNodePtr node)
+{
+  clear();
+  try {
+    if (node==NULL) throw Exception("node not defined");
+    regnum = NodeAsInteger( "regnum", node );
+    grp_id = NodeAsInteger( "grp_id", node );
+  }
+  catch(Exception &e)
+  {
+    throw Exception("TGroupInfoReq::fromXML: %s", e.what());
+  };
+}
+
+void TGroupInfoRes::toXML(xmlNodePtr node) const
+{
+
+}
+
 void traceXML(const string& xml)
 {
   size_t len=xml.size();
@@ -1248,14 +1300,102 @@ void SendRequest(const TExchange &request, TExchange &response)
   response.parse(responseInfo.content);
 }
 
+void responsePassengers( const SirenaExchange::TPassengersReq &passengerReq, TPassengersRes &passengerRes )
+{
+  passengerRes.clear();
+
+  TSearchFltInfo fltInfo;
+  fltInfo.airline = passengerReq.airline;
+  fltInfo.airp_dep = passengerReq.airp;
+  fltInfo.flt_no = passengerReq.flt_no;
+  fltInfo.suffix = passengerReq.suffix;
+  fltInfo.scd_out = passengerReq.scd_out;
+  fltInfo.scd_out_in_utc = false;
+  list<TAdvTripInfo> flts;
+  list<int> marketing_point_ids;
+  SearchFlt( fltInfo, flts);
+  SearchMktFlt( fltInfo, marketing_point_ids );
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT pax.pax_id,name,surname, pax_grp.grp_id, pax.pers_type,pax.seats "
+    " FROM pax, pax_grp "
+    " WHERE pax_grp.grp_id=pax.grp_id AND "
+    "       point_dep=:point_id AND "
+    "       pr_brd IS NOT NULL  AND pax_grp.status NOT IN ('E') AND "
+    "       ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, pax_grp.excess)<>0 ";
+  set<int> paxs;
+  for ( list<TAdvTripInfo>::iterator iflt=flts.begin(); iflt!=flts.end(); iflt++ ) {
+    Qry.CreateVariable( "point_id", otInteger, iflt->point_id );
+    Qry.Execute();
+    for ( ; !Qry.Eof; Qry.Next() ) {
+      int pax_id = Qry.FieldAsInteger( "pax_id" );
+      if ( paxs.find( pax_id ) != paxs.end() ) {
+        continue;
+      }
+      TPaxItem2 item;
+      item.grp_id = Qry.FieldAsInteger( "grp_id" );
+      item.name = Qry.FieldAsString( "name" );
+      item.surname = Qry.FieldAsString( "surname" );
+      item.pers_type = DecodePerson( Qry.FieldAsString( "pers_type" ) );
+      item.seats = Qry.FieldAsInteger( "seats" );
+      passengerRes.push_back( item );
+    }
+  }
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT pax.pax_id,name,surname, pax_grp.grp_id, pax.pers_type,pax.seats "
+    " FROM pax, pax_grp "
+    " WHERE pax_grp.grp_id=pax.grp_id AND "
+    "       pax_grp.point_id_mark=:point_id AND"
+    "       pr_brd IS NOT NULL  AND pax_grp.status NOT IN ('E') AND "
+    "       ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, pax_grp.excess)<>0 ";
+  for ( list<int>::iterator iflt=marketing_point_ids.begin(); iflt!=marketing_point_ids.end(); iflt++ ) {
+    Qry.CreateVariable( "point_id", otInteger, *iflt );
+    Qry.Execute();
+    for ( ; !Qry.Eof; Qry.Next() ) {
+      int pax_id = Qry.FieldAsInteger( "pax_id" );
+      if ( paxs.find( pax_id ) != paxs.end() ) {
+        continue;
+      }
+      TPaxItem2 item;
+      item.grp_id = Qry.FieldAsInteger( "grp_id" );
+      item.name = Qry.FieldAsString( "name" );
+      item.surname = Qry.FieldAsString( "surname" );
+      item.pers_type = DecodePerson( Qry.FieldAsString( "pers_type" ) );
+      item.seats = Qry.FieldAsInteger( "seats" );
+      passengerRes.push_back( item );
+    }
+  }
+}
 
 
 } //namespace SirenaExchange
 
 
+
 void PieceConceptInterface::requestPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  xmlNodePtr node = GetNode( "content", reqNode);
-  ProgTrace( TRACE5, "requestPieceConcept, %s", (char*)node->children->name );
-  NewTextChild( resNode, "passenger_with_svc" );
+  xmlNodePtr node = GetNode( "content/query", reqNode);
+  std::string command = (char *)node->children->name;
+  ProgTrace( TRACE5, "requestPieceConcept, %s", command.c_str() );
+  xmlNodePtr resN = NewTextChild( resNode, command.c_str() );
+  SirenaExchange::TPassengersReq req1;
+  SirenaExchange::TPassengersRes res1;
+  SirenaExchange::TGroupInfoReq req2;
+  SirenaExchange::TGroupInfoRes res2;
+  node = node->children;
+  if ( command == req1.exchangeId() ) {
+    tst();
+    req1.fromXML(node);
+    responsePassengers( req1, res1 );
+    res1.toXML(resN);
+  }
+  else
+    if ( command == req2.exchangeId() ) {
+      tst();
+      req2.fromXML(node);
+      res2.toXML(resN);
+    }
+    else
+      throw Exception( "invalid command tag" );
 }

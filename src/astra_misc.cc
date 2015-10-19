@@ -2077,6 +2077,29 @@ void TCFG::get(int point_id, TDateTime part_key)
     }
 }
 
+void SearchMktFlt(const TSearchFltInfo &filter, list<int/*mark_trips.point_id*/> &point_ids)
+{
+  if ( filter.scd_out_in_utc ) {
+    throw Exception("%s: filter.scd_out_in_utc=true not supported", __FUNCTION__);
+  }
+  point_ids.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT point_id FROM mark_trips "
+    " WHERE airline=:airline AND flt_no=:flt_no AND "
+    "       (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+    "       scd=:scd AND airp_dep=:airp_dep";
+  Qry.CreateVariable( "airline", otString, filter.airline );
+  Qry.CreateVariable( "flt_no", otInteger, filter.flt_no );
+  Qry.CreateVariable( "suffix", otString, filter.suffix );
+  Qry.CreateVariable( "scd", otDate, filter.scd_out );
+  Qry.CreateVariable( "airp_dep", otString, filter.airp_dep );
+  Qry.Execute();
+  for ( ; !Qry.Eof; Qry.Next() ) {
+    point_ids.push_back( Qry.FieldAsInteger( "point_id") );
+  }
+}
 
 void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
 {

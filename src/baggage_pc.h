@@ -210,6 +210,19 @@ class TPaxSegItem : public TSegItem
 
 typedef std::map<int, TPaxSegItem> TPaxSegMap;
 
+class category {
+  public:
+    static std::string value( ASTRA::TPerson pers_type, int seats ) {
+      switch(pers_type)
+      {
+        case ASTRA::adult: return "ADT";
+        case ASTRA::child: return "CNN";
+         case ASTRA::baby: return seats>0?"INS":"INF";
+                  default: return "";
+      }
+    }
+};
+
 class TPaxItem
 {
   public:
@@ -251,21 +264,48 @@ class TPaxItem
     }
 
     const TPaxItem& toXML(xmlNodePtr node, const std::string &lang) const;
-    std::string category() const;
+    std::string category() const {
+      return category::value( pers_type, seats );
+    }
     std::string sex() const;
 };
 
-/*class TPaxItem2
+class TPaxItem2
 {
   public:
-    surname, name
+    std::string surname;
+    std::string name;
     ASTRA::TPerson pers_type;
     int seats;
-    grp_id
+    int grp_id;
+    TPaxItem2()
+    {
+      clear();
+    }
+    void set(int _grp_id, const CheckIn::TPaxItem &item)
+    {
+      clear();
+      surname=item.surname;
+      name=item.name;
+      pers_type=item.pers_type;
+      seats=item.seats;
+      grp_id=_grp_id;
+    }
 
-    const TPaxItem& toXML(xmlNodePtr node, const std::string &lang) const;
-    std::string category() const;
-};*/
+    void clear()
+    {
+      surname.clear();
+      name.clear();
+      pers_type=ASTRA::NoPerson;
+      seats=ASTRA::NoExists;
+      grp_id=ASTRA::NoExists;
+    }
+
+    const TPaxItem2& toXML(xmlNodePtr node, const std::string &lang) const;
+    std::string category() const {
+      return category::value( pers_type, seats );
+    }
+};
 
 class TBagItem : public PieceConcept::TSimplePaidBagItem
 {
@@ -383,17 +423,27 @@ class TPaymentStatusRes : public TExchange, public TPaymentStatusList
     void convert(list<PieceConcept::TPaidBagItem> &paid) const;
 };
 
-/*class TGroupInfoReq : public TExchange
+class TGroupInfoReq : public TExchange
 {
-  protected:
+  private:
+    int regnum;
+    int grp_id;
+  public:
+    void clear( ) {
+      this->regnum = ASTRA::NoExists;
+      this->grp_id = ASTRA::NoExists;
+    }
     virtual std::string exchangeId() const { return "group_svc_info"; }
+    virtual void fromXML(xmlNodePtr node); //??? public
+  protected:
     virtual bool isRequest() const { return true; };
 };
 
 class TGroupInfoRes : public TExchange
 {
-  protected:
+  public:
     virtual std::string exchangeId() const { return "group_svc_info"; }
+  protected:
     virtual bool isRequest() const { return false; };
   public:
     std::list<TPaxItem> paxs;
@@ -403,21 +453,21 @@ class TGroupInfoRes : public TExchange
 
 class TPassengersReq : public TExchange, public TTripInfo
 {
-  protected:
+  public:
     virtual std::string exchangeId() const { return "passenger_with_svc"; }
+    virtual void fromXML(xmlNodePtr node);
+  protected:
     virtual bool isRequest() const { return true; };
 };
 
-class TPassengersRes : public TExchange, public list<TPaxItem2>
+class TPassengersRes : public TExchange, public  std::list<TPaxItem2>
 {
-  protected:
+  public:
     virtual std::string exchangeId() const { return "passenger_with_svc"; }
+    virtual void toXML(xmlNodePtr node) const;
+  protected:
     virtual bool isRequest() const { return false; };
 };
-
-*/
-
-
 
 
 void SendRequest(const TExchange &request, TExchange &response);

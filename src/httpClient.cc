@@ -325,7 +325,7 @@ void httpClient_main(const RequestInfo& request, ResponseInfo& response)
     //do io_service.run_one(); while (c.would_block());
 
     response=c.response();    
-    if ( !response.isReady() ) {
+    if ( !response.success() ) {
       ProgError( STDLOG, "httpClient_main: response return %s", response.toString().c_str() );
     }
     else {
