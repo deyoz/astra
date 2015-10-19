@@ -457,7 +457,10 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (search_type==searchByReceiptNo && grp_id==NoExists) return;
 
   grp_id=Qry.FieldAsInteger("grp_id");
-  bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;  //!!!vlad запретить заружать группы с piece_concept
+  bool piece_concept=!Qry.FieldIsNULL("piece_concept") &&
+                     Qry.FieldAsInteger("piece_concept")!=0;  //!!!vlad проверить как грузятся группы с неопределенным piece_concept
+  if (piece_concept)
+    throw UserException("Оплата багажа для пассажиров в системе расчета багажа по кол-ву мест в терминале DCS Астра не производится");  //!!!vlad
   NewTextChild(dataNode,"grp_id",grp_id);
   NewTextChild(dataNode,"point_dep",Qry.FieldAsInteger("point_dep"));
   NewTextChild(dataNode,"airp_dep",Qry.FieldAsString("airp_dep"));

@@ -151,8 +151,6 @@ namespace BagPayment
                          bool pr_unaccomp,
                          bool use_traces);
 
-  void PaidBagViewToXMLTest(xmlNodePtr node);
-
   int test_norms(int argc,char **argv);
 
 }; //namespace BagPayment

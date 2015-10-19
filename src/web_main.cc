@@ -2132,6 +2132,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   int first_grp_id, tckin_id;
   TChangeStatusList ChangeStatusInfo;
   set<int> tckin_ids;
+  CheckInInterface::TAfterSaveActionType action=CheckInInterface::actionNone;
   bool result=true;
   //важно, что сначала вызывается CheckInInterface::SavePax для emulCkinDoc
   //только при веб-регистрации НОВОЙ группы возможен ROLLBACK CHECKIN в SavePax при перегрузке
@@ -2143,7 +2144,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
     if (emulReqNode==NULL)
       throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-    if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id))
+    if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id, action))
     {
       if (tckin_id!=NoExists) tckin_ids.insert(tckin_id);
     }
@@ -2158,7 +2159,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulChngDoc.docPtr())->children;
       if (emulReqNode==NULL)
         throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-      if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id))
+      if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id, action))
       {
         if (tckin_id!=NoExists) tckin_ids.insert(tckin_id);
       }
@@ -2186,6 +2187,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     };
 
     CheckTCkinIntegrity(tckin_ids, NoExists);
+    CheckInInterface::AfterSaveAction(first_grp_id, action);
 
     vector< TWebPnr > pnrs;
     xmlNodePtr segsNode = NewTextChild( NewTextChild( resNode, "SavePax" ), "segments" );
@@ -3442,7 +3444,9 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
 
               int first_grp_id, tckin_id;
               TChangeStatusList ChangeStatusInfo;
-              CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, first_grp_id, ChangeStatusInfo, tckin_id);
+              CheckInInterface::TAfterSaveActionType action=CheckInInterface::actionNone;
+              if (CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, first_grp_id, ChangeStatusInfo, tckin_id, action))
+                CheckInInterface::AfterSaveAction(first_grp_id, action);
             };
           }
           catch(AstraLocale::UserException &e)

@@ -128,7 +128,6 @@ public:
       }
       ns_str << "\r\n";
       ns_str << req_info_.content;
-      ProgTrace(TRACE5, "%s: %s", __FUNCTION__, ns_str.str().c_str());  //!!!vlad
 
       request_ = ns_str.str();
       if ( req_info_.using_ssl ) {

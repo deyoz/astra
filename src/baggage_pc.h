@@ -7,7 +7,7 @@
 namespace PieceConcept
 {
 
-enum TBagStatus { bsUnknown, bsFree, bsPaid, bsNeed };
+enum TBagStatus { bsUnknown, bsFree, bsPaid, bsNeed, bsNone };
 
 class TRFISCListItem
 {
@@ -75,6 +75,9 @@ class TPaxNormItem : public std::map<std::string/*lang*/, TPaxNormTextItem>
 
 void PaxNormsToStream(const CheckIn::TPaxItem &pax, std::ostringstream &s);
 
+TBagStatus DecodeBagStatus(const std::string &s);
+const std::string EncodeBagStatus(const TBagStatus &s);
+
 class TSimplePaidBagItem
 {
   public:
@@ -109,7 +112,13 @@ class TPaidBagItem : public TSimplePaidBagItem
       pax_id=ASTRA::NoExists;
       trfer_num=ASTRA::NoExists;
     }
+
+    const TPaidBagItem& toDB(TQuery &Qry) const;
+    TPaidBagItem& fromDB(TQuery &Qry);
 };
+
+void PaidBagToDB(int grp_id, const std::list<TPaidBagItem> &paid);
+void PaidBagFromDB(int grp_id, std::list<TPaidBagItem> &paid);
 
 void PreparePaidBagInfo(int grp_id,
                         int seg_count,
@@ -117,6 +126,11 @@ void PreparePaidBagInfo(int grp_id,
 
 void SyncPaidBagEMDToDB(int grp_id,
                         const boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emd);
+
+void PaidBagViewToXML(const TTrferRoute &trfer,
+                      const std::list<TPaidBagItem> &paid,
+                      xmlNodePtr node);
+
 
 } //namespace PieceConcept
 
@@ -308,7 +322,7 @@ class TAvailabilityReq : public TExchange
 {
   protected:
     virtual std::string exchangeId() const { return "svc_availability"; }
-    virtual bool isRequest() const { return true; };
+    virtual bool isRequest() const { return true; }
   public:
     std::list<TPaxItem> paxs;
     virtual void toXML(xmlNodePtr node) const;
@@ -338,7 +352,7 @@ class TAvailabilityRes : public TExchange, public TAvailabilityResMap
 {
   protected:
     virtual std::string exchangeId() const { return "svc_availability"; }
-    virtual bool isRequest() const { return false; };
+    virtual bool isRequest() const { return false; }
   public:
     virtual void fromXML(xmlNodePtr node);
     bool identical_piece_concept();
@@ -346,26 +360,27 @@ class TAvailabilityRes : public TExchange, public TAvailabilityResMap
     void normsToDB(int seg_id);
 };
 
+typedef std::list< std::pair<TPaxSegKey, TBagItem> > TPaymentStatusList;
+
 class TPaymentStatusReq : public TExchange
 {
   protected:
     virtual std::string exchangeId() const { return "svc_payment_status"; }
-    virtual bool isRequest() const { return true; };
+    virtual bool isRequest() const { return true; }
   public:
     std::list<TPaxItem> paxs;
-    std::list< std::pair<TPaxSegKey, TBagItem> > bags;
+    TPaymentStatusList bags;
     virtual void toXML(xmlNodePtr node) const;
 };
 
-typedef std::list< std::pair<TPaxSegKey, TBagItem> > TPaymentStatusResMap;
-
-class TPaymentStatusRes : public TExchange, public TPaymentStatusResMap
+class TPaymentStatusRes : public TExchange, public TPaymentStatusList
 {
   protected:
     virtual std::string exchangeId() const { return "svc_payment_status"; }
-    virtual bool isRequest() const { return false; };
+    virtual bool isRequest() const { return false; }
   public:
     virtual void fromXML(xmlNodePtr node);
+    void convert(list<PieceConcept::TPaidBagItem> &paid) const;
 };
 
 /*class TGroupInfoReq : public TExchange
