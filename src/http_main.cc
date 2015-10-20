@@ -158,8 +158,9 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
           res.erase();
       else {
           string::size_type pos2 = res.find( "</content>", pos );
-          if ( pos1 != string::npos && pos2 != string::npos )
+          if ( pos1 != string::npos && pos2 != string::npos ) {
             res = res.substr( pos1, pos2-pos1 );
+          }
       }
     }
   }

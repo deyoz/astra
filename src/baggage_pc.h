@@ -302,6 +302,7 @@ class TPaxItem2
     }
 
     const TPaxItem2& toXML(xmlNodePtr node, const std::string &lang) const;
+    TPaxItem2& fromDB(TQuery &Qry);
     std::string category() const {
       return category::value( pers_type, seats );
     }
@@ -347,24 +348,58 @@ class TPaxSegKey
 
 class TExchange
 {
-  protected:
+  public:
     virtual std::string exchangeId() const=0;
+  protected:
     virtual bool isRequest() const=0;
   public:
     virtual void build(std::string &content) const;
     virtual void parse(const std::string &content);
     virtual void toXML(xmlNodePtr node) const;
     virtual void fromXML(xmlNodePtr node);
+    virtual void clear()=0;
     virtual ~TExchange() {}
 };
 
-class TAvailabilityReq : public TExchange
+//запросы Астры в Сирену
+class TAvailability : public TExchange
+{
+  public:
+    static const std::string id;
+    virtual std::string exchangeId() const { return id; }
+};
+
+class TPaymentStatus : public TExchange
+{
+  public:
+    static const std::string id;
+    virtual std::string exchangeId() const { return id; }
+};
+
+class TGroupInfo : public TExchange
+{
+  public:
+    static const std::string id;
+    virtual std::string exchangeId() const { return id; }
+};
+
+class TPassengers : public TExchange
+{
+  public:
+    static const std::string id;
+    virtual std::string exchangeId() const { return id; }
+};
+
+class TAvailabilityReq : public TAvailability
 {
   protected:
-    virtual std::string exchangeId() const { return "svc_availability"; }
     virtual bool isRequest() const { return true; }
   public:
     std::list<TPaxItem> paxs;
+    virtual void clear()
+    {
+      paxs.clear();
+    }
     virtual void toXML(xmlNodePtr node) const;
 };
 
@@ -388,12 +423,15 @@ class TAvailabilityResItem
 
 typedef std::map<TPaxSegKey, TAvailabilityResItem> TAvailabilityResMap;
 
-class TAvailabilityRes : public TExchange, public TAvailabilityResMap
+class TAvailabilityRes : public TAvailability, public TAvailabilityResMap
 {
   protected:
-    virtual std::string exchangeId() const { return "svc_availability"; }
     virtual bool isRequest() const { return false; }
   public:
+    virtual void clear()
+    {
+      TAvailabilityResMap::clear();
+    }
     virtual void fromXML(xmlNodePtr node);
     bool identical_piece_concept();
     bool identical_rfisc_list();
@@ -402,73 +440,95 @@ class TAvailabilityRes : public TExchange, public TAvailabilityResMap
 
 typedef std::list< std::pair<TPaxSegKey, TBagItem> > TPaymentStatusList;
 
-class TPaymentStatusReq : public TExchange
+class TPaymentStatusReq : public TPaymentStatus
 {
   protected:
-    virtual std::string exchangeId() const { return "svc_payment_status"; }
     virtual bool isRequest() const { return true; }
   public:
     std::list<TPaxItem> paxs;
     TPaymentStatusList bags;
+    virtual void clear()
+    {
+      paxs.clear();
+      bags.clear();
+    }
     virtual void toXML(xmlNodePtr node) const;
 };
 
-class TPaymentStatusRes : public TExchange, public TPaymentStatusList
+class TPaymentStatusRes : public TPaymentStatus, public TPaymentStatusList
 {
   protected:
-    virtual std::string exchangeId() const { return "svc_payment_status"; }
     virtual bool isRequest() const { return false; }
   public:
+    virtual void clear()
+    {
+      TPaymentStatusList::clear();
+    }
     virtual void fromXML(xmlNodePtr node);
     void convert(list<PieceConcept::TPaidBagItem> &paid) const;
 };
 
-class TGroupInfoReq : public TExchange
+//запросы Сирены в Астру
+
+class TPassengersReq : public TPassengers, public TTripInfo
 {
-  private:
-    int regnum;
-    int grp_id;
-  public:
-    void clear( ) {
-      this->regnum = ASTRA::NoExists;
-      this->grp_id = ASTRA::NoExists;
-    }
-    virtual std::string exchangeId() const { return "group_svc_info"; }
-    virtual void fromXML(xmlNodePtr node); //??? public
   protected:
-    virtual bool isRequest() const { return true; };
+    virtual bool isRequest() const { return true; }
+  public:
+    virtual void clear()
+    {
+      TTripInfo::Clear();
+    }
+    virtual void fromXML(xmlNodePtr node);
 };
 
-class TGroupInfoRes : public TExchange
+typedef std::list<TPaxItem2> TPassengerList;
+
+class TPassengersRes : public TPassengers, public TPassengerList
 {
-  public:
-    virtual std::string exchangeId() const { return "group_svc_info"; }
   protected:
-    virtual bool isRequest() const { return false; };
+    virtual bool isRequest() const { return false; }
+  public:
+    virtual void clear()
+    {
+      TPassengerList::clear();
+    }
+    virtual void toXML(xmlNodePtr node) const;
+};
+
+class TGroupInfoReq : public TGroupInfo
+{
+  protected:
+    virtual bool isRequest() const { return true; }
+  public:
+    std::string regnum;
+    int grp_id;
+    TGroupInfoReq()
+    {
+      clear();
+    }
+    void clear()
+    {
+      regnum.clear();
+      grp_id = ASTRA::NoExists;
+    }
+    virtual void fromXML(xmlNodePtr node);
+};
+
+class TGroupInfoRes : public TGroupInfo
+{
+  protected:
+    virtual bool isRequest() const { return false; }
   public:
     std::list<TPaxItem> paxs;
     TPaymentStatusList bags;
+    virtual void clear()
+    {
+      paxs.clear();
+      bags.clear();
+    }
     virtual void toXML(xmlNodePtr node) const;
 };
-
-class TPassengersReq : public TExchange, public TTripInfo
-{
-  public:
-    virtual std::string exchangeId() const { return "passenger_with_svc"; }
-    virtual void fromXML(xmlNodePtr node);
-  protected:
-    virtual bool isRequest() const { return true; };
-};
-
-class TPassengersRes : public TExchange, public  std::list<TPaxItem2>
-{
-  public:
-    virtual std::string exchangeId() const { return "passenger_with_svc"; }
-    virtual void toXML(xmlNodePtr node) const;
-  protected:
-    virtual bool isRequest() const { return false; };
-};
-
 
 void SendRequest(const TExchange &request, TExchange &response);
 
@@ -481,10 +541,12 @@ public:
   PieceConceptInterface() : JxtInterface("","PieceConcept")
   {
      Handler *evHandle;
-     evHandle=JxtHandler<PieceConceptInterface>::CreateHandler(&PieceConceptInterface::requestPieceConcept);
+     evHandle=JxtHandler<PieceConceptInterface>::CreateHandler(&PieceConceptInterface::procPieceConcept);
      AddEvent("piece_concept",evHandle);
   };
-  void requestPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void procPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  static void procPassengers( const SirenaExchange::TPassengersReq &req, SirenaExchange::TPassengersRes &res );
+  static void procGroupInfo( const SirenaExchange::TGroupInfoReq &req, SirenaExchange::TGroupInfoRes &res );
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 

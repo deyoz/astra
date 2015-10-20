@@ -2077,7 +2077,7 @@ void TCFG::get(int point_id, TDateTime part_key)
     }
 }
 
-void SearchMktFlt(const TSearchFltInfo &filter, list<int/*mark_trips.point_id*/> &point_ids)
+void SearchMktFlt(const TSearchFltInfo &filter, set<int/*mark_trips.point_id*/> &point_ids)
 {
   if ( filter.scd_out_in_utc ) {
     throw Exception("%s: filter.scd_out_in_utc=true not supported", __FUNCTION__);
@@ -2086,7 +2086,7 @@ void SearchMktFlt(const TSearchFltInfo &filter, list<int/*mark_trips.point_id*/>
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT point_id FROM mark_trips "
+    "SELECT DISTINCT point_id FROM mark_trips "
     " WHERE airline=:airline AND flt_no=:flt_no AND "
     "       (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
     "       scd=:scd AND airp_dep=:airp_dep";
@@ -2097,7 +2097,7 @@ void SearchMktFlt(const TSearchFltInfo &filter, list<int/*mark_trips.point_id*/>
   Qry.CreateVariable( "airp_dep", otString, filter.airp_dep );
   Qry.Execute();
   for ( ; !Qry.Eof; Qry.Next() ) {
-    point_ids.push_back( Qry.FieldAsInteger( "point_id") );
+    point_ids.insert( Qry.FieldAsInteger( "point_id") );
   }
 }
 

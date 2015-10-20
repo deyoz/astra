@@ -886,7 +886,7 @@ class TSearchFltInfo
 };
 
 void SearchFlt(const TSearchFltInfo &filter, std::list<TAdvTripInfo> &flts);
-void SearchMktFlt(const TSearchFltInfo &filter, std::list<int/*mark_trips.point_id*/> &point_ids);
+void SearchMktFlt(const TSearchFltInfo &filter, std::set<int> &point_ids);
 
 // Функции сравнивают елементы неупорядоченного list или vector
 

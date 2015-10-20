@@ -2862,30 +2862,4 @@ int test_access(int argc,char **argv)
   return 0;
 }
 
-int verifyHTTP(int argc,char **argv)
-{
-  tst();
-  xmlDocPtr doc = CreateXMLDoc("query");
-  xmlNodePtr n = NewTextChild( doc->children, "passenger_with_svc");
-  NewTextChild( n, "company", "UT");
-  NewTextChild( n, "flight", "265");
-  NewTextChild( n, "departure_date", "2015-10-16");
-  NewTextChild( n, "departure", "VKO");
 
-  RequestInfo request;
-  std::string proto;
-  std::string query;
-  request.host = "astrabeta.komtex";
-  request.port = 8780;
-  request.timeout = 2000;
-  request.headers.insert(make_pair("CLIENT-ID", "SPPUFA"));
-  request.headers.insert(make_pair("OPERATION", "piece_concept"));
-
-  request.content = XMLTreeToText(doc);
-  ProgTrace( TRACE5, "request.content=%s", request.content.c_str());
-  request.using_ssl = false;
-  ResponseInfo response;
-  httpClient_main(request, response);
-  ProgTrace( TRACE5, "response=%s", response.toString().c_str());
-  return 0;
-}

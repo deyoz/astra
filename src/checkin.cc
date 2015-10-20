@@ -6024,13 +6024,14 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, list<int> &grp_ids, bool &p
         list<TPaxItem>::iterator iReqPax=paxs_ref.begin();
         for(;!PaxQry.get().Eof; PaxQry.get().Next())
         {
+          CheckIn::TPaxItem pax;
+          pax.fromDB(PaxQry.get());
+          if (!pax.refuse.empty()) continue;
+
           if (grp_id==grp_ids.begin())
             iReqPax=paxs_ref.insert(paxs_ref.end(), TPaxItem());
           if (iReqPax==paxs_ref.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqPax==paxs.end()");
           TPaxItem &reqPax=*iReqPax;
-
-          CheckIn::TPaxItem pax;
-          pax.fromDB(PaxQry.get());
 
           if (grp_id==grp_ids.begin())
           {
@@ -6113,18 +6114,21 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
       {
         try
         {
-          SirenaExchange::TAvailabilityRes res;
-          SirenaExchange::SendRequest(req1, res);
-          if (res.empty()) throw EXCEPTIONS::Exception("%s: strange situation res.empty()", __FUNCTION__);
-          if (!res.identical_piece_concept())
-            throw UserException("Регистрация невозможна. У пассажиров/сегментов разные системы расчета багажа"); //!!!vlad
-          piece_concept=res.begin()->second.piece_concept;
-          if (piece_concept)
+          if (!req1.paxs.empty())
           {
-            if (!res.identical_rfisc_list())
-              throw UserException("Регистрация невозможна. У пассажиров/сегментов разные списки типов багажа (коды RFISC)"); //!!!vlad
-            bag_types_id=res.begin()->second.rfisc_list.toDBAdv();
-            res.normsToDB(0); //сохраняем пока только по первому сегменту
+            SirenaExchange::TAvailabilityRes res;
+            SirenaExchange::SendRequest(req1, res);
+            if (res.empty()) throw EXCEPTIONS::Exception("%s: strange situation res.empty()", __FUNCTION__);
+            if (!res.identical_piece_concept())
+              throw UserException("Регистрация невозможна. У пассажиров/сегментов разные системы расчета багажа"); //!!!vlad
+            piece_concept=res.begin()->second.piece_concept;
+            if (piece_concept)
+            {
+              if (!res.identical_rfisc_list())
+                throw UserException("Регистрация невозможна. У пассажиров/сегментов разные списки типов багажа (коды RFISC)"); //!!!vlad
+              bag_types_id=res.begin()->second.rfisc_list.toDBAdv();
+              res.normsToDB(0); //сохраняем пока только по первому сегменту
+            };
           };
         }
         catch(UserException &e)
@@ -6141,7 +6145,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
       else
       {
         list<PieceConcept::TPaidBagItem> paid;
-        if (!req2.bags.empty())
+        if (!req2.paxs.empty() && !req2.bags.empty())
         {
           try
           {
