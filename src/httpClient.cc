@@ -95,6 +95,7 @@ public:
 
   void deadline_handler( const boost::system::error_code& err ) {
     if ( err == boost::asio::error::operation_aborted ) {  //cancel async_wait - call stop
+      tst();
     }
     else {
       res_info_.error_code = err.value();
@@ -274,7 +275,7 @@ public:
       }
     }
     else {
-      ProgError( STDLOG, "handle_read_status error: %s", err.message().c_str() );
+      ProgError( STDLOG, "handle_read_status error: %d,%s", err.value(), err.message().c_str() );
       stop( err, toStatus );
     }
   }

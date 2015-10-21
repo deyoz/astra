@@ -66,7 +66,7 @@ struct ResponseInfo
   }
   std::string toString() {
     std::ostringstream ss;
-    ss << "status_code=" << status_code << ",what=" << error_message << ",where=" + StrHTTPErrorOperation( error_operation );
+    ss << "status_code=" << status_code << ",error_code=" << error_code << ",what=" << error_message << ",where=" + StrHTTPErrorOperation( error_operation );
     if ( pr_contentLength ) {
       ss << ",content_length=" << content_length;
     }

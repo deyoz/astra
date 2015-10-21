@@ -6,6 +6,7 @@
 #include "basic.h"
 #include "astra_misc.h"
 #include "misc.h"
+#include <boost/asio.hpp>
 #include <serverlib/xml_stuff.h>
 
 #define NICKNAME "VLAD"
@@ -16,6 +17,38 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 using namespace AstraLocale;
+
+const char* SIRENA_HOST()
+{
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam("SIRENA_HOST",NULL);
+  return VAR.c_str();
+}
+
+int SIRENA_PORT()
+{
+  static int VAR=ASTRA::NoExists;
+  if (VAR==ASTRA::NoExists)
+    VAR=getTCLParam("SIRENA_PORT", ASTRA::NoExists, ASTRA::NoExists, ASTRA::NoExists);
+  return VAR;
+};
+
+int SIRENA_REQ_TIMEOUT()
+{
+  static int VAR=ASTRA::NoExists;
+  if (VAR==ASTRA::NoExists)
+    VAR=getTCLParam("SIRENA_REQ_TIMEOUT", 1000, 30000, 10000);
+  return VAR;
+};
+
+int SIRENA_REQ_ATTEMPTS()
+{
+  static int VAR=ASTRA::NoExists;
+  if (VAR==ASTRA::NoExists)
+    VAR=getTCLParam("SIRENA_REQ_ATTEMPTS", 1, 10, 1);
+  return VAR;
+};
 
 namespace PieceConcept
 {
@@ -1319,30 +1352,6 @@ void traceXML(const string& xml)
     ProgTrace(TRACE5, "%s", xml.substr(pos,portion).c_str());
 }
 
-const char* SIRENA_HOST()
-{
-  static string VAR;
-  if ( VAR.empty() )
-    VAR=getTCLParam("SIRENA_HOST",NULL);
-  return VAR.c_str();
-}
-
-int SIRENA_PORT()
-{
-  static int VAR=ASTRA::NoExists;
-  if (VAR==ASTRA::NoExists)
-    VAR=getTCLParam("SIRENA_PORT", ASTRA::NoExists, ASTRA::NoExists, ASTRA::NoExists);
-  return VAR;
-};
-
-int SIRENA_REQ_TIMEOUT()
-{
-  static int VAR=ASTRA::NoExists;
-  if (VAR==ASTRA::NoExists)
-    VAR=getTCLParam("SIRENA_REQ_TIMEOUT", 1000, 30000, 10000);
-  return VAR;
-};
-
 void SendRequest(const TExchange &request, TExchange &response)
 {
   RequestInfo requestInfo;
@@ -1352,9 +1361,16 @@ void SendRequest(const TExchange &request, TExchange &response)
   request.build(requestInfo.content);
   requestInfo.using_ssl = false;
   requestInfo.timeout = SIRENA_REQ_TIMEOUT();
+  int request_count = SIRENA_REQ_ATTEMPTS();
   traceXML(requestInfo.content);
   ResponseInfo responseInfo;
-  httpClient_main(requestInfo, responseInfo);
+  for(int pass=0; pass<request_count; pass++)
+  {
+    httpClient_main(requestInfo, responseInfo);
+    if (!(!responseInfo.completed && responseInfo.error_code==boost::asio::error::eof && responseInfo.error_operation==toStatus))
+      break;
+    ProgTrace( TRACE5, "SIRENA DEADED, next request!" );
+  };
   if (!responseInfo.completed ) throw Exception("%s: responseInfo.completed()=false", __FUNCTION__);
 
   xmlDocPtr doc=TextToXMLTree(responseInfo.content);
@@ -1368,8 +1384,6 @@ void SendRequest(const TExchange &request, TExchange &response)
 void fillPaxsBags(int first_grp_id, TExchange &exch, list<int> &grp_ids, bool &pr_unaccomp);
 
 } //namespace SirenaExchange
-
-
 
 void PieceConceptInterface::procPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1476,9 +1490,9 @@ void SendTestRequest(const string &req)
   RequestInfo request;
   std::string proto;
   std::string query;
-  request.host = "astrabeta.komtex";
-  request.port = 8780;
-  request.timeout = 2000;
+  request.host = SIRENA_HOST();
+  request.port = SIRENA_PORT();
+  request.timeout = SIRENA_REQ_TIMEOUT();
   request.headers.insert(make_pair("CLIENT-ID", "SIRENA"));
   request.headers.insert(make_pair("OPERATION", "piece_concept"));
 
@@ -1486,7 +1500,15 @@ void SendTestRequest(const string &req)
   ProgTrace( TRACE5, "request.content=%s", request.content.c_str());
   request.using_ssl = false;
   ResponseInfo response;
-  httpClient_main(request, response);
+  for(int pass=0; pass<SIRENA_REQ_ATTEMPTS(); pass++)
+  {
+    httpClient_main(request, response);
+    if (!(!response.completed && response.error_code==boost::asio::error::eof && response.error_operation==toStatus))
+      break;
+    ProgTrace( TRACE5, "SIRENA DEADED, next request!" );
+  };
+  if (!response.completed ) throw Exception("%s: responseInfo.completed()=false", __FUNCTION__);
+
   ProgTrace( TRACE5, "response=%s", response.toString().c_str());
 }
 
