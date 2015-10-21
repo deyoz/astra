@@ -1355,7 +1355,7 @@ void SendRequest(const TExchange &request, TExchange &response)
   traceXML(requestInfo.content);
   ResponseInfo responseInfo;
   httpClient_main(requestInfo, responseInfo);
-  if (!responseInfo.success() ) throw Exception("%s: responseInfo.success()=false", __FUNCTION__);
+  if (!responseInfo.completed ) throw Exception("%s: responseInfo.completed()=false", __FUNCTION__);
 
   xmlDocPtr doc=TextToXMLTree(responseInfo.content);
   if (doc!=NULL)
@@ -1479,7 +1479,7 @@ void SendTestRequest(const string &req)
   request.host = "astrabeta.komtex";
   request.port = 8780;
   request.timeout = 2000;
-  request.headers.insert(make_pair("CLIENT-ID", "SPPUFA"));
+  request.headers.insert(make_pair("CLIENT-ID", "SIRENA"));
   request.headers.insert(make_pair("OPERATION", "piece_concept"));
 
   request.content = req;
