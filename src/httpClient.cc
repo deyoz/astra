@@ -25,6 +25,43 @@ const std::string PARAM_LOGIN = "LOGIN";
 const std::string PARAM_PASSWORD = "PASSWORD";
 
 
+std::string StrHTTPErrorOperation( const THTTPErrorOperation &operation ) {
+  std::string res;
+  switch ( operation ) {
+    case toDeadline:
+      res = "Deadline";
+      break;
+    case toResolve:
+      res = "Resolve";
+      break;
+    case toConnect:
+      res = "Connect";
+      break;
+    case toHandshake:
+      res = "Handshake";
+      break;
+    case toWrite:
+      res = "Write";
+      break;
+    case toStatus:
+      res = "Status";
+      break;
+    case toReadHeaders:
+      res = "ReadHeaders";
+      break;
+    case toAnswerReady:
+      res = "AnswerReady";
+      break;
+    case toReadContent:
+      res = "ReadContent";
+      break;
+    default:
+      res = "Unknown";
+  }
+  return res;
+};
+
+
 class Client
 {
 private:
@@ -37,7 +74,6 @@ private:
   boost::asio::ssl::context ctx;
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> ssl_socket_;
   boost::asio::ip::tcp::socket socket_;
-  //bool would_block_;
 
 public:
   Client(boost::asio::io_service& io_service, const RequestInfo& request)
@@ -58,7 +94,12 @@ public:
   }
 
   void deadline_handler( const boost::system::error_code& err ) {
-    if ( err == boost::asio::error::operation_aborted ) {  //cancel async_wait
+    if ( err == boost::asio::error::operation_aborted ) {  //cancel async_wait - call stop
+    }
+    else {
+      res_info_.error_code = err.value();
+      res_info_.error_operation = toDeadline;
+      res_info_.error_message = err.message();
     }
     if ( req_info_.using_ssl ) {
       ssl_socket_.lowest_layer().close();
@@ -68,7 +109,12 @@ public:
     }
   }
 
-  void stop() {
+  void stop( const boost::system::error_code& err, const THTTPErrorOperation &operation_error ) {
+    if ( res_info_.error_operation != toDeadline ) {
+      res_info_.error_code = err.value();
+      res_info_.error_operation = operation_error;
+      res_info_.error_message = err.message();
+    }
     deadline_.cancel();
   }
 
@@ -78,19 +124,26 @@ public:
     if ( !err ) {
       // Attempt a connection to each endpoint in the list until we
       // successfully establish a connection.
-      boost::asio::async_connect(req_info_.using_ssl?ssl_socket_.lowest_layer():socket_, endpoint_iterator,
-                                 boost::bind(&Client::handle_connect, this,
-                                              boost::asio::placeholders::error,
-                                              boost::asio::placeholders::iterator));
+      boost::asio::ip::tcp::endpoint endpoint = *endpoint_iterator;
+      if ( req_info_.using_ssl ) {
+        ssl_socket_.lowest_layer().async_connect(endpoint,
+                                                 boost::bind(&Client::handle_connect, this,
+                                                 boost::asio::placeholders::error, ++endpoint_iterator));
+      }
+      else {
+        socket_.lowest_layer().async_connect(endpoint,
+                                             boost::bind(&Client::handle_connect, this,
+                                             boost::asio::placeholders::error, ++endpoint_iterator));
+      }
     }
     else {
       ProgError( STDLOG, "handle_resolve error: %s", err.message().c_str() );
-      stop();
+      stop( err, toResolve );
     }
   }
 
   void handle_connect(const boost::system::error_code& err,
-                              boost::asio::ip::tcp::resolver::iterator endpoint_iterator)
+                      boost::asio::ip::tcp::resolver::iterator endpoint_iterator)
   {
     ProgTrace(TRACE5, "Client::handle_connect");
     if ( !err ) {
@@ -104,8 +157,25 @@ public:
       }
     }
     else {
-      ProgError( STDLOG, "handle_connect error: %s", err.message().c_str() );
-      stop();
+      if ( endpoint_iterator != boost::asio::ip::tcp::resolver::iterator() ) {
+        boost::asio::ip::tcp::endpoint endpoint = *endpoint_iterator;
+        if ( req_info_.using_ssl ) {
+          ssl_socket_.lowest_layer().close();
+          ssl_socket_.lowest_layer().async_connect(endpoint,
+                                                   boost::bind(&Client::handle_connect, this,
+                                                   boost::asio::placeholders::error, ++endpoint_iterator));
+        }
+        else {
+          socket_.lowest_layer().close();
+          socket_.lowest_layer().async_connect(endpoint,
+                                               boost::bind(&Client::handle_connect, this,
+                                               boost::asio::placeholders::error, ++endpoint_iterator));
+        }
+      }
+      else {
+        ProgError( STDLOG, "handle_connect error: %s", err.message().c_str() );
+        stop( err, toConnect );
+      }
     }
   }
   void handle_handshake(const boost::system::error_code& err) {
@@ -122,6 +192,9 @@ public:
       ns_str << "Content-Type: text/xml; charset=\"UTF-8\"\r\n";
       if ( !req_info_.action.empty() ) {
         ns_str << "SOAPAction: " << req_info_.action << "\r\n";
+      }
+      if ( !req_info_.login.empty() && !req_info_.pswd.empty() ) {
+        ns_str << "Authorization: Basic " << StrUtils::b64_encode(req_info_.login + ":" + req_info_.pswd) << "\r\n";
       }
       for (std::map<std::string,std::string>::iterator iheader=req_info_.headers.begin(); iheader!=req_info_.headers.end(); iheader++) {
         ns_str << iheader->first + ": " + iheader->second + "\r\n";
@@ -141,7 +214,7 @@ public:
     }
     else {
       ProgError( STDLOG, "handle_handshake error: %s", err.message().c_str() );
-      stop();
+      stop( err, toHandshake );
     }
   }
 
@@ -164,7 +237,7 @@ public:
     }
     else {
      ProgError( STDLOG, "handle_write error: %s", err.message().c_str() );
-     stop();
+     stop( err, toWrite );
     }
   }
 
@@ -202,7 +275,7 @@ public:
     }
     else {
       ProgError( STDLOG, "handle_read_status error: %s", err.message().c_str() );
-      stop();
+      stop( err, toStatus );
     }
   }
 
@@ -254,19 +327,19 @@ public:
          }
        }
        else {
-         answerReady( err );
+         answerReady( err, toReadHeaders );
        }
        tst();
      }
      else {
        ProgError( STDLOG, "handle_read_headers error: %s", err.message().c_str() );
-       stop();
+       stop( err, toReadHeaders );
      }
   }
 
-  void answerReady( const boost::system::error_code& err ) {
+  void answerReady( const boost::system::error_code& err, const THTTPErrorOperation &operation_error ) {
     if ( err && err != boost::asio::error::eof ) {
-        ProgError( STDLOG, "answerReady error: %s", err.message().c_str() );
+      ProgError( STDLOG, "answerReady error: %s", err.message().c_str() );
     }
     else {
       ProgTrace( TRACE5, "handle_read_body end file: %s, res_info_.content_length=%d,  res_info_.content.length()=%zu",
@@ -275,9 +348,9 @@ public:
         res_info_.content = res_info_.content.substr( 0, res_info_.content_length - 1 );
       }
       ProgTrace( TRACE5, "handle_read_body end file: %s", res_info_.content.c_str() );
-      res_info_.ready = true;
+      res_info_.completed = true;
     }
-    stop();
+    stop( err, operation_error );
   }
 
   void handle_read_content(const boost::system::error_code& err) {
@@ -300,12 +373,12 @@ public:
         }
       }
       else {
-        answerReady( err );
+        answerReady( err, toReadContent );
       }
     }
     else {
       ProgError( STDLOG, "handle_read_status error: %s", err.message().c_str() );
-      stop();
+      stop( err, toReadContent );
     }
   }
   const ResponseInfo &response() { return res_info_; }
@@ -325,7 +398,7 @@ void httpClient_main(const RequestInfo& request, ResponseInfo& response)
     //do io_service.run_one(); while (c.would_block());
 
     response=c.response();    
-    if ( !response.success() ) {
+    if ( !response.completed ) {
       ProgError( STDLOG, "httpClient_main: response return %s", response.toString().c_str() );
     }
     else {
