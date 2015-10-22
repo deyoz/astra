@@ -53,6 +53,7 @@ const
                          {"AIRPS",                   etAirp},
                          {"BAG_NORM_TYPES",          etBagNormType},
                          {"BAG_TYPES",               etBagType},
+                         {"BI_REG_GROUP",            etBIRegGroup},
                          {"CITIES",                  etCity},
                          {"CKIN_REM_TYPES",          etCkinRemType},
                          {"CLASSES",                 etClass},

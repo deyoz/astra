@@ -48,6 +48,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TReportTypes();
         else if(name == "GENDER_TYPES")
             base_tables[name] = new TGenderTypes();
+        else if(name == "BI_REG_GROUP")
+            base_tables[name] = new TBIRegGroup();
         else if(name == "TAG_COLORS")
             base_tables[name] = new TTagColors();
         else if(name == "PAX_DOC_COUNTRIES")
@@ -575,6 +577,13 @@ void TGenderTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
 void TReportTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TReportTypesRow;
+  mem.create(*row, STDLOG);
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TBIRegGroup::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TBIRegGroupRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };

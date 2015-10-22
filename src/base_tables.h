@@ -497,6 +497,22 @@ class TAirlines: public TICAOBaseTable {
     }
 };
 
+class TBIRegGroupRow: public TCodeBaseTableRow {
+  public:
+    const char *get_row_name() const { return "TBIRegGroupRow"; };
+};
+
+class TBIRegGroup: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TBIRegGroup"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TBIRegGroup() {
+  		Init( "bi_reg_group" );
+  	}
+};
+
 class TClassesRow: public TCodeBaseTableRow {
   public:
     int priority;

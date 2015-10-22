@@ -68,6 +68,7 @@ const
                          {etBagType,               "etBagType",               "bag_types"},
                          {etBPType,                "etBPType",                ""},
                          {etBTType,                "etBTType",                ""},
+                         {etBIRegGroup,            "etBIRegGroup",            "bi_reg_group"},
                          {etCity,                  "etCity",                  "cities"},
                          {etCkinRemType,           "etCkinRemType",           "ckin_rem_types"},
                          {etClass,                 "etClass",                 "classes"},
