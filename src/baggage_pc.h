@@ -7,6 +7,22 @@
 namespace PieceConcept
 {
 
+
+struct TNodeList {
+    enum ConceptType {ctInitial, ctAll, ctSeat, ctWeight} concept;
+    typedef std::vector<std::pair<xmlNodePtr, bool>> TConceptList; // bool: false - weight, true - seat
+    TConceptList items;
+    void set_concept(xmlNodePtr& node, bool val);
+    TNodeList(): concept(ctInitial) {}
+    ~TNodeList()
+    { apply();
+
+    }
+private:
+     void apply();
+};
+
+
 enum TBagStatus { bsUnknown, bsFree, bsPaid, bsNeed, bsNone };
 
 class TRFISCListItem

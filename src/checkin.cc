@@ -2347,38 +2347,8 @@ void CheckInInterface::ArrivalPaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     PaxList(ctxt,reqNode,resNode);
 };
 
-struct TPieceConcept {
-    enum ConceptType {ctInitial, ctAll, ctSeat, ctWeight} concept;
-    typedef vector<pair<xmlNodePtr, bool>> TConceptList;
-    TConceptList items; // bool: false - weight, true - seat
-    void set_concept(xmlNodePtr& node, bool val)
-    {
-        if(node == NULL) return;
-        items.push_back(make_pair(node, val));
-        ConceptType tmp = (val == 0 ? ctWeight : ctSeat);
-        if(concept == ctInitial) {
-            concept = tmp;
-        } else if(concept != ctAll and concept != tmp)
-            concept = ctAll;
-    }
-
-    TPieceConcept(): concept(ctInitial) {}
-
-    void apply()
-    {
-        if(concept == ctAll)
-            for(TConceptList::iterator i = items.begin(); i != items.end(); i++) {
-                if(i->second)
-                    NodeSetContent(i->first, string(NodeAsString(i->first))+getLocaleText("¬"));
-                else
-                    NodeSetContent(i->first, string(NodeAsString(i->first))+getLocaleText("ª£"));
-            }
-    }
-};
-
 void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    bool is_piece_concept;
   TReqInfo *reqInfo = TReqInfo::Instance();
 
   int point_id=NodeAsInteger("point_id",reqNode);
@@ -2473,7 +2443,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
   Qry.Execute();
   xmlNodePtr node=NewTextChild(resNode,"passengers");
-  TPieceConcept piece_concept;
+  PieceConcept::TNodeList piece_concept;
   if (!Qry.Eof)
   {
     createDefaults=true;
@@ -2599,10 +2569,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger(col_bag_amount),0);
       NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger(col_bag_weight),0);
       NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger(col_rk_weight),0);
-      xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
 
-      is_piece_concept = Qry.FieldAsInteger(col_piece_concept);
-      piece_concept.set_concept(excessNode, is_piece_concept);
+      xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
+      piece_concept.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
 
       NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
       NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id),"");
@@ -2764,8 +2733,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
 
       xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger("excess"),0);
-      is_piece_concept = Qry.FieldAsInteger("piece_concept");
-      piece_concept.set_concept(excessNode, is_piece_concept);
+      piece_concept.set_concept(excessNode,  Qry.FieldAsInteger("piece_concept"));
 
       NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"),"");
       if (with_rcpt_info)
@@ -2812,7 +2780,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     };
   };
 
-  piece_concept.apply();
+
 
   Qry.Close();
 

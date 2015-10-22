@@ -16,6 +16,7 @@
 #include "qrys.h"
 #include "tlg/tlg.h"
 #include "astra_elem_utils.h"
+#include "baggage_pc.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -1314,7 +1315,7 @@ struct THallItem {
     string name;
 };
 
-void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pass, int &count)
+void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList &piece_concept, bool isPaxSearch, int pass, int &count)
 {
   if(Qry.Eof) return;
 
@@ -1332,6 +1333,7 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pa
   int col_bag_weight = Qry.FieldIndex("bag_weight");
   int col_rk_weight = Qry.FieldIndex("rk_weight");
   int col_excess = Qry.FieldIndex("excess");
+  int col_piece_concept = Qry.FieldIndex("piece_concept");
   int col_grp_id = Qry.FieldIndex("grp_id");
   int col_airp_arv = Qry.FieldIndex("airp_arv");
   int col_tags = Qry.FieldIndex("tags");
@@ -1339,7 +1341,6 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pa
   int col_part_key=Qry.FieldIndex("part_key");
 
   map<int, TTripItem> TripItems;
-
   TPerfTimer tm;
   tm.Init();
   for(;!Qry.Eof;Qry.Next())
@@ -1380,7 +1381,10 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pa
       NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount));
       NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
       NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
-      NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
+
+      xmlNodePtr excessNode =  NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));;
+      piece_concept.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
+
       NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
       NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
@@ -1407,7 +1411,7 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pa
   ProgTrace(TRACE5, "XML%d: %s", pass, tm.PrintWithMessage().c_str());
 };
 
-void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pass, int &count)
+void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList& piece_concept, bool isPaxSearch, int pass, int &count)
 {
   if(Qry.Eof) return;
 
@@ -1430,6 +1434,7 @@ void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pass, i
   int col_bag_weight = Qry.FieldIndex("bag_weight");
   int col_rk_weight = Qry.FieldIndex("rk_weight");
   int col_excess = Qry.FieldIndex("excess");
+  int col_piece_concept = Qry.FieldIndex("piece_concept");
   int col_grp_id = Qry.FieldIndex("grp_id");
   int col_airp_arv = Qry.FieldIndex("airp_arv");
   int col_tags = Qry.FieldIndex("tags");
@@ -1484,7 +1489,9 @@ void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, bool isPaxSearch, int pass, i
       NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount));
       NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
       NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
-      NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
+      xmlNodePtr excessNode = NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
+      piece_concept.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
+
       NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
       NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
@@ -1569,6 +1576,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, "
                 "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, "
                 "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, "
+                "   pax_grp.piece_concept, "
                 "   pax_grp.grp_id, "
                 "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, "
                 "   pax.refuse, "
@@ -1617,6 +1625,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   NVL(arch.get_bagWeight2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,rownum),0) bag_weight, "
                 "   NVL(arch.get_rkWeight2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,rownum),0) rk_weight, "
                 "   NVL(arch.get_excess(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id),0) excess, "
+                "   pax_grp.piece_concept, "
                 "   arx_pax_grp.grp_id, "
                 "   arch.get_birks2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,:pr_lat) tags, "
                 "   arx_pax.refuse, "
@@ -1663,7 +1672,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         ProgTrace(TRACE5, "Qry.Execute: %s", tm.PrintWithMessage().c_str());
 
         int count=0;
-        PaxListToXML(Qry, resNode, false, 0, count);
+        PieceConcept::TNodeList piece_concept;
+        PaxListToXML(Qry, resNode, piece_concept, false, 0, count);
 
         ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
 
@@ -1687,6 +1697,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
                 "   ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL) AS rk_weight, "
                 "   ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
+                "   pax_grp.piece_concept, "
                 "   ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:pr_lat) AS tags, "
                 "   pax_grp.grp_id, "
                 "   pax_grp.hall "
@@ -1727,6 +1738,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "  arch.get_bagWeight2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL) AS bag_weight, "
                 "  arch.get_rkWeight2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL) AS rk_weight, "
                 "  arch.get_excess(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS excess, "
+                "   pax_grp.piece_concept, "
                 "  arch.get_birks2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL,:pr_lat) AS tags, "
                 "  arx_pax_grp.grp_id, "
                 "  arx_pax_grp.hall "
@@ -1753,7 +1765,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
         Qry.Execute();
 
-        UnaccompListToXML(Qry, resNode, false, 0, count);
+        UnaccompListToXML(Qry, resNode, piece_concept, false, 0, count);
+
 
         xmlNodePtr paxListNode = GetNode("paxList", resNode);
         if(paxListNode!=NULL) { // для совместимости со старой версией терминала
@@ -5347,6 +5360,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                  " NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, \n"
                  " NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, \n"
                  " NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, \n"
+                 "   pax_grp.piece_concept, "
                  " ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, \n"
                  " salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, \n";
         else
@@ -5354,6 +5368,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                  " NVL(arch.get_bagWeight2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, \n"
                  " NVL(arch.get_rkWeight2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, \n"
                  " NVL(arch.get_excess(pax.part_key,pax.grp_id,pax.pax_id),0) excess, \n"
+                 "   pax_grp.piece_concept, "
                  " arch.get_birks2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, \n"
                  " LPAD(seat_no,3,'0')|| \n"
                  "      DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, \n";
@@ -5454,7 +5469,9 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             else
                 throw;
         }
-        PaxListToXML(Qry, resNode, true, pass, count);
+        PieceConcept::TNodeList piece_concept;
+        PaxListToXML(Qry, resNode, piece_concept, true, pass, count);
+
     }
     if(count == 0)
         throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
