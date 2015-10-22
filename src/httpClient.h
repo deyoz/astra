@@ -88,7 +88,5 @@ class TApisTRFilter {
 };
 
 void httpClient_main(const RequestInfo& request, ResponseInfo& response);
-void send_apis_tr();
-void process_reply (const std::string& result);
 
 #endif // HTTPCLIENT_H

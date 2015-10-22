@@ -1,10 +1,8 @@
 #include "httpClient.h"
 #include "file_queue.h"
-#include "astra_service.h"
 #include "astra_utils.h"
 #include "basic.h"
 #include "serverlib/str_utils.h"
-#include <pion/http/parser.hpp>
 #include <fstream>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
@@ -18,12 +16,6 @@
 #include "exceptions.h"
 
 using namespace EXCEPTIONS;
-
-const std::string PARAM_URL = "URL";
-const std::string PARAM_ACTION_CODE = "ACTION_CODE";
-const std::string PARAM_LOGIN = "LOGIN";
-const std::string PARAM_PASSWORD = "PASSWORD";
-
 
 std::string StrHTTPErrorOperation( const THTTPErrorOperation &operation ) {
   std::string res;
@@ -411,87 +403,3 @@ void httpClient_main(const RequestInfo& request, ResponseInfo& response)
     throw Exception("httpClient_main: %s",e.what());
   }
 }
-
-void send_apis_tr()
-{
-  TFileQueue file_queue;
-  file_queue.get( *TApisTRFilter::Instance() );
-  ProgTrace(TRACE5, "send_apis_tr: Num of items in queue: %zu \n", file_queue.size());
-  for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++) {
-      if ( item->params.find( PARAM_URL ) == item->params.end() ||
-              item->params[ PARAM_URL ].empty() )
-          throw Exception("url not specified");
-      if ( item->params.find( PARAM_ACTION_CODE ) == item->params.end() ||
-              item->params[ PARAM_ACTION_CODE ].empty() )
-          throw Exception("action_code not specified");
-      if ( item->params.find( PARAM_LOGIN ) == item->params.end() ||
-              item->params[ PARAM_LOGIN ].empty() )
-          throw Exception("login not specified");
-      if ( item->params.find( PARAM_PASSWORD ) == item->params.end() ||
-              item->params[ PARAM_PASSWORD ].empty() )
-          throw Exception("password not specified");
-      RequestInfo request;
-      std::string proto;
-      std::string query;
-      if(not pion::http::parser::parse_uri(item->params[PARAM_URL], proto, request.host, request.port, request.path, query))
-        throw Exception("parse_uri failed for '%s'", item->params[PARAM_URL].c_str());
-      request.action = item->params[PARAM_ACTION_CODE];
-      request.login = item->params[PARAM_LOGIN];
-      request.pswd = item->params[PARAM_PASSWORD];
-      request.content = item->data;
-      request.using_ssl = (proto=="https")?true:false;
-      request.timeout = 60000;
-      TFileQueue::sendFile(item->id);
-      ResponseInfo response;
-      httpClient_main(request, response);
-      process_reply(response.content);
-      TFileQueue::doneFile(item->id);
-      createMsg( *item, evCommit );
-  }
-}
-
-void process_reply(const std::string& result)
-{
-  ProgTrace(TRACE5, "process_reply: %s", result.c_str());
-  if(!result.empty()) {
-    xmlDocPtr doc = NULL;
-    try {
-      doc = TextToXMLTree(result);
-    }
-    catch(...) { }
-    if(doc != NULL) {
-      try {
-        xmlNodePtr rootNode=xmlDocGetRootElement(doc);
-        xmlNodePtr node = rootNode->children;
-        node = NodeAsNodeFast("Body", node);
-        if(node) {
-          node = node->children;
-          node = NodeAsNodeFast("getFlightMessageResponse", node);
-          if(node) {
-            node = node->children;
-            node = NodeAsNodeFast("Statu", node);
-            if(node) {
-              node = node->children;
-              node = NodeAsNodeFast("explanation", node);
-              std::string status = (node ? NodeAsString(node) : "");
-              if(status != "OK") {
-                ProgTrace(TRACE5, "%s", GetXMLDocText(doc->doc).c_str());
-                  throw Exception("Return status not OK: '%s'", status.c_str());
-              }
-            }
-          } else
-            throw Exception("getFlightMessageResponse tag not found");
-        } else
-          throw Exception("Body tag not found");
-      } catch(...) {
-        xmlFreeDoc(doc);
-        ProgTrace(TRACE5, "Reply: %s", result.c_str());
-        throw;
-      }
-      xmlFreeDoc(doc);
-    } else
-      throw Exception("wrong answer XML");
-  } else
-    throw Exception("result is empty");
-}
-
