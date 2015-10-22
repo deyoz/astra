@@ -2364,7 +2364,7 @@ struct TPieceConcept {
 
     TPieceConcept(): concept(ctInitial) {}
 
-    void apply() 
+    void apply()
     {
         if(concept == ctAll)
             for(TConceptList::iterator i = items.begin(); i != items.end(); i++) {
@@ -6125,10 +6125,11 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
   if (action==actionRefreshPaidBagPC)
     ProgTrace(TRACE5, "%s started with actionRefreshPaidBagPC", __FUNCTION__);
 
-  TCachedQuery Qry("SELECT piece_concept FROM pax_grp WHERE grp_id=:grp_id",
+  TCachedQuery Qry("SELECT point_dep, piece_concept FROM pax_grp WHERE grp_id=:grp_id",
                    QParams() << QParam("grp_id", otInteger, first_grp_id));
   Qry.get().Execute();
   if (Qry.get().Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
+  int point_id=Qry.get().FieldAsInteger("point_dep");
 
   if (action==actionCheckPieceConcept && !Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
   if (action==actionRefreshPaidBagPC &&
@@ -6164,12 +6165,12 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
             SirenaExchange::SendRequest(req1, res);
             if (res.empty()) throw EXCEPTIONS::Exception("%s: strange situation res.empty()", __FUNCTION__);
             if (!res.identical_piece_concept())
-              throw UserException("Регистрация невозможна. У пассажиров/сегментов разные системы расчета багажа"); //!!!vlad
+              throw UserException("MSG.CHECKIN.DIFFERENT_PIECE_CONCEPT_SETTING");
             piece_concept=res.begin()->second.piece_concept;
             if (piece_concept)
             {
               if (!res.identical_rfisc_list())
-                throw UserException("Регистрация невозможна. У пассажиров/сегментов разные списки типов багажа (коды RFISC)"); //!!!vlad
+                throw UserException("MSG.CHECKIN.DIFFERENT_RFISC_LISTS");
               bag_types_id=res.begin()->second.rfisc_list.toDBAdv();
               res.normsToDB(0); //сохраняем пока только по первому сегменту
             };
@@ -6184,17 +6185,23 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
           ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
           piece_concept=false;
           bag_types_id=ASTRA::NoExists;
+          reqInfo->LocaleToLog("EVT.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED", ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
+          //!!!vlad showErrorMsg("");
         }
       }
       else
       {
         list<PieceConcept::TPaidBagItem> paid;
-        if (!req2.paxs.empty() && !req2.bags.empty())
+        if (!req2.bags.empty())
         {
           try
           {
             SirenaExchange::TPaymentStatusRes res;
             SirenaExchange::SendRequest(req2, res);
+            set<string> rfiscs;
+            res.check_unknown_status(rfiscs);
+            if (!rfiscs.empty())
+              throw UserException("MSG.CHECKIN.UNKNOWN_PAYMENT_STATUS_FOR_BAG_TYPE", LParams()<<LParam("bag_type", *rfiscs.begin()));
             res.convert(paid);
           }
           catch(UserException &e)
@@ -6204,14 +6211,14 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
           catch(std::exception &e)
           {
             ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
-            throw UserException("Невозможно произвести расчет оплачиваемого багажа. Если ситуация повторяется, попробуйте перерегистрировать пассажиров"); //!!!vlad
+            throw UserException("MSG.CHECKIN.UNABLE_CALC_PAID_BAG_TRY_RE_CHECKIN");
           }
         };
         PieceConcept::PaidBagToDB(first_grp_id, paid);
       };
     }
   }
-  else showErrorMessage("Данная версия терминала не может работать с пассажирами в системе расчета багажа по кол-ву мест");
+  else showErrorMessage("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
 
   if (action==actionCheckPieceConcept)
     for(list<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++)
@@ -6261,7 +6268,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     grp.fromDB(Qry);
 
     if (grp.piece_concept && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
-      throw UserException("Данная версия терминала не может работать с пассажирами в системе расчета багажа по кол-ву мест");  //!!!vlad
+      throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
 
     if (grp_id==grp_ids.begin())
       trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;

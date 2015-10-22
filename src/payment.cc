@@ -460,7 +460,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   bool piece_concept=!Qry.FieldIsNULL("piece_concept") &&
                      Qry.FieldAsInteger("piece_concept")!=0;  //!!!vlad проверить как грузятся группы с неопределенным piece_concept
   if (piece_concept)
-    throw UserException("Оплата багажа для пассажиров в системе расчета багажа по кол-ву мест в терминале DCS Астра не производится");  //!!!vlad
+    throw UserException("MSG.PIECE_CONCEPT_PAYMENT_NOT_SUPPORTED_BY_DCS");
   NewTextChild(dataNode,"grp_id",grp_id);
   NewTextChild(dataNode,"point_dep",Qry.FieldAsInteger("point_dep"));
   NewTextChild(dataNode,"airp_dep",Qry.FieldAsString("airp_dep"));

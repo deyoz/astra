@@ -75,12 +75,8 @@ TRFISCListItem& TRFISCListItem::fromXML(xmlNodePtr node)
     string xml_emd_type=NodeAsString("@emd_type", node, "");
     if (!xml_emd_type.empty())
     {
-      if ( xml_emd_type == "EMD-A" ) emd_type = "A";
-      else if
-         ( xml_emd_type == "EMD-S" ) emd_type = "S";
-      else if
-         ( xml_emd_type == "OTHR" ) emd_type = "O";
-      else
+      emd_type=DecodeEmdType(xml_emd_type);
+      if (emd_type.empty())
         throw Exception("Wrong @emd_type='%s'", xml_emd_type.c_str());
     };
 
@@ -220,9 +216,10 @@ int TRFISCList::toDBAdv() const
   Qry.SQLText =
     "BEGIN "
     "  SELECT bag_types_lists__seq.nextval INTO :id FROM dual; "
-    "  INSERT INTO bag_types_lists(id, crc) VALUES(:id, :crc); "
+    "  INSERT INTO bag_types_lists(id, airline, crc) VALUES(:id, :airline, :crc); "
     "END;";
   Qry.CreateVariable("id", otInteger, FNull);
+  Qry.CreateVariable("airline", otString, airline);
   Qry.CreateVariable("crc", otInteger, crc());
   Qry.Execute();
   int list_id=Qry.GetVariableAsInteger("id");
@@ -230,7 +227,7 @@ int TRFISCList::toDBAdv() const
   return list_id;
 }
 
-void TPaxNormItem::fromXML(xmlNodePtr node, bool &piece_concept)
+void TPaxNormItem::fromXML(xmlNodePtr node, bool &piece_concept, string &airline)
 {
   clear();
 
@@ -246,6 +243,11 @@ void TPaxNormItem::fromXML(xmlNodePtr node, bool &piece_concept)
       if (NodeIsNULL("@piece_concept", node))
         throw Exception("Empty @piece_concept");
       piece_concept=NodeAsBoolean("@piece_concept", node);
+      string str = NodeAsString("@company", node);
+      TElemFmt fmt;
+      if (str.empty()) throw Exception("Empty @company");
+      airline = ElemToElemId( etAirline, str, fmt );
+      if (fmt==efmtUnknown) throw Exception("Unknown @company='%s'", str.c_str());
 
       xmlNodePtr textNode=node->children;
       for(; textNode!=NULL; textNode=textNode->next)
@@ -327,6 +329,26 @@ void PaxNormsToStream(const CheckIn::TPaxItem &pax, ostringstream &s)
   if (i!=norm.end())
     s << i->second.text << endl
       << string(100,'=') << endl;  //!!!vlad потом докрутить разрегистрированных пассажиров
+}
+
+std::string DecodeEmdType(const std::string &s)
+{
+  if ( s == "EMD-A" ) return "A";
+  else if
+     ( s == "EMD-S" ) return "S";
+  else if
+     ( s == "OTHR" ) return "O";
+  else return "";
+}
+
+std::string EncodeEmdType(const std::string &s)
+{
+  if ( s == "A" ) return "EMD-A";
+  else if
+     ( s == "S" ) return "EMD-S";
+  else if
+     ( s == "O" ) return "OTHR";
+  else return "";
 }
 
 TBagStatus DecodeBagStatus(const std::string &s)
@@ -432,10 +454,14 @@ class TBagKey
   public:
     int pax_id;
     string rfisc;
+    string rfic;
+    string emd_type;
     TBagKey()
     {
       pax_id=ASTRA::NoExists;
       rfisc.clear();
+      rfic.clear();
+      emd_type.clear();
     }
 
     bool operator < (const TBagKey &key) const
@@ -522,10 +548,16 @@ void GetBagAndASVCInfo(int grp_id,
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT rfisc, pr_cabin, amount, "
-    "       ckin.get_bag_pool_pax_id(grp_id,bag_pool_num,0) AS pax_id "
-    "FROM bag2 "
-    "WHERE grp_id=:grp_id AND is_trfer=0 ";
+    "SELECT b.rfisc, b.pr_cabin, b.amount, b.pax_id, "
+    "       grp_rfisc_lists.rfic, grp_rfisc_lists.emd_type "
+    "FROM grp_rfisc_lists, "
+    "  (SELECT bag2.rfisc, bag2.pr_cabin, bag2.amount, pax_grp.bag_types_id, "
+    "          ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num, 0) AS pax_id "
+    "   FROM pax_grp, bag2 "
+    "   WHERE pax_grp.grp_id=bag2.grp_id AND "
+    "         bag2.grp_id=:grp_id AND bag2.is_trfer=0) b "
+    "WHERE b.bag_types_id=grp_rfisc_lists.list_id(+) AND "
+    "      b.rfisc=grp_rfisc_lists.rfisc(+) ";
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
   set<int/*pax_id*/> pax_ids;
@@ -535,6 +567,8 @@ void GetBagAndASVCInfo(int grp_id,
     TBagKey key;
     key.pax_id=Qry.FieldAsInteger("pax_id");
     key.rfisc=Qry.FieldAsString("rfisc");
+    key.rfic=Qry.FieldAsString("rfic");
+    key.emd_type=EncodeEmdType(Qry.FieldAsString("emd_type"));
     TBagMap::iterator b=bag_map.find(key);
     if (b==bag_map.end())
       b=bag_map.insert(make_pair(key, TBagPcs())).first;
@@ -590,6 +624,8 @@ void PreparePaidBagInfo(int grp_id,
         item.pax_id=b->first.pax_id;
         item.trfer_num=trfer_num;
         item.RFISC=b->first.rfisc;
+        item.RFIC=b->first.rfic;
+        item.emd_type=b->first.emd_type;
         item.status=bsNone;
         item.pr_cabin=(b->second.trunk<=0);
         b->second.dec();
@@ -962,9 +998,16 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node, const std::string &lang) const
   //билет
   if (!tkn.no.empty())
     SetProp(NewTextChild(node, "ticket"), "number", tkn.no);
+  if (!doc.type_rcpt.empty() || !doc.no.empty() || !doc.issue_country.empty())
+  {
+    xmlNodePtr docNode=NewTextChild(node, "document");
+    SetProp(docNode, "type", doc.type_rcpt, "");
+    SetProp(docNode, "number", doc.no, "");
+    SetProp(docNode, "country", ElemIdToCodeNative(etPaxDocCountry, doc.issue_country), "");
+  }
 
   for(TPaxSegMap::const_iterator i=segs.begin(); i!=segs.end(); ++i)
-    i->second.toXML(NewTextChild(node, "segment"), LANG_EN);
+    i->second.toXML(NewTextChild(node, "segment"), lang);
 
   return *this;
 }
@@ -1003,6 +1046,8 @@ const TBagItem& TBagItem::toXML(xmlNodePtr node) const
   if (node==NULL) return *this;
 
   SetProp(node, "rfisc", RFISC);
+  SetProp(node, "rfic", RFIC, "");
+  SetProp(node, "emd_type", emd_type, "");
   SetProp(node, "paid", status==PieceConcept::bsPaid?"true":"false", "false");
   SetProp(node, "hand_baggage", pr_cabin?"true":"false", "false");
 
@@ -1141,7 +1186,7 @@ void TAvailabilityRes::fromXML(xmlNodePtr node)
         throw Exception("Duplicate passenger-id=%d segment-id=%d", key.pax_id, key.seg_id);
       TAvailabilityResItem &item=insert(make_pair(key, TAvailabilityResItem())).first->second;
       item.rfisc_list.fromXML(node);
-      item.norm.fromXML(node, item.piece_concept);
+      item.norm.fromXML(node, item.piece_concept, item.rfisc_list.airline);
     };
     if (empty()) throw Exception("empty()");
   }
@@ -1250,6 +1295,16 @@ void TPaymentStatusRes::convert(list<PieceConcept::TPaidBagItem> &paid) const
   }
 }
 
+void TPaymentStatusRes::check_unknown_status(set<string> &rfiscs) const
+{
+  rfiscs.clear();
+  for(TPaymentStatusList::const_iterator i=begin(); i!=end(); ++i)
+  {
+    if (i->second.status==PieceConcept::bsUnknown)
+        rfiscs.insert(i->second.RFISC);
+  }
+}
+
 void TPassengersReq::fromXML(xmlNodePtr node)
 {
   clear();
@@ -1262,7 +1317,7 @@ void TPassengersReq::fromXML(xmlNodePtr node)
     str = NodeAsString("company", node);
     if (str.empty()) throw Exception("Empty <company>");
     airline = ElemToElemId( etAirline, str, airline_fmt );
-    if (airline_fmt==efmtUnknown) throw Exception("Unknown <company>='%s'", str.c_str());
+    if (airline_fmt==efmtUnknown) throw Exception("Unknown <company> '%s'", str.c_str());
 
     string flight=NodeAsString("flight", node);
     str=flight;
@@ -1271,28 +1326,28 @@ void TPassengersReq::fromXML(xmlNodePtr node)
     {
       suffix=string(1,*str.rbegin());
       str.erase(str.size()-1);
-      if (str.empty()) throw Exception("Empty flight number <flight>='%s'", flight.c_str());
+      if (str.empty()) throw Exception("Empty flight number <flight> '%s'", flight.c_str());
     };
 
     if ( BASIC::StrToInt( str.c_str(), flt_no ) == EOF ||
-         flt_no > 99999 || flt_no <= 0 ) throw Exception("Wrong flight number <flight>='%s'", flight.c_str());
+         flt_no > 99999 || flt_no <= 0 ) throw Exception("Wrong flight number <flight> '%s'", flight.c_str());
 
     str=suffix;
     if (!str.empty())
     {
       suffix = ElemToElemId( etSuffix, str, suffix_fmt );
-      if (suffix_fmt==efmtUnknown) throw Exception("Unknown flight suffix <flight>='%s'", flight.c_str());
+      if (suffix_fmt==efmtUnknown) throw Exception("Unknown flight suffix <flight> '%s'", flight.c_str());
     };
 
     str=NodeAsString("departure_date", node);
     if (str.empty()) throw Exception("Empty <departure_date>");
     if ( BASIC::StrToDateTime(str.c_str(), "yyyy-mm-dd", scd_out) == EOF )
-      throw Exception("Wrong <departure_date>='%s'", str.c_str());
+      throw Exception("Wrong <departure_date> '%s'", str.c_str());
 
     str=NodeAsString("departure", node);
     if (str.empty()) throw Exception("Empty <departure>");
     airp = ElemToElemId( etAirp, str, airp_fmt );
-    if (airp_fmt==efmtUnknown) throw Exception("Unknown <departure>='%s'", str.c_str());
+    if (airp_fmt==efmtUnknown) throw Exception("Unknown <departure> '%s'", str.c_str());
   }
   catch(Exception &e)
   {
@@ -1316,7 +1371,7 @@ void TGroupInfoReq::fromXML(xmlNodePtr node)
   {
     if (node==NULL) throw Exception("node not defined");
     regnum = NodeAsString( "regnum", node );
-    if (regnum.size()>20) throw Exception("Wrong <regnum>='%s'", regnum.c_str());
+    if (regnum.size()>20) throw Exception("Wrong <regnum> '%s'", regnum.c_str());
     grp_id = NodeAsInteger( "group_id", node );
   }
   catch(Exception &e)

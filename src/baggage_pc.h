@@ -49,9 +49,22 @@ class TRFISCListItem
     TRFISCListItem& fromDB(TQuery &Qry);
 };
 
-class TRFISCList : public std::map<std::string/*RFISC*/, TRFISCListItem>
+typedef std::map<std::string/*RFISC*/, TRFISCListItem> TRFISCListMap;
+
+class TRFISCList : public TRFISCListMap
 {
   public:
+    std::string airline;
+    TRFISCList()
+    {
+      clear();
+    }
+    void clear()
+    {
+      TRFISCListMap::clear();
+      airline.clear();
+    }
+
     void fromXML(xmlNodePtr node);
     void fromDB(int list_id); // загрузка данных по группе
     void toDB(int list_id) const; // сохранение данных по группе
@@ -68,13 +81,15 @@ class TPaxNormTextItem
 class TPaxNormItem : public std::map<std::string/*lang*/, TPaxNormTextItem>
 {
   public:
-    void fromXML(xmlNodePtr node, bool &piece_concept);
+    void fromXML(xmlNodePtr node, bool &piece_concept, std::string &airline);
     void fromDB(int pax_id); // загрузка данных по пассажиру
     void toDB(int pax_id) const; // сохранение данных по пассажиру
 };
 
 void PaxNormsToStream(const CheckIn::TPaxItem &pax, std::ostringstream &s);
 
+std::string DecodeEmdType(const std::string &s);
+std::string EncodeEmdType(const std::string &s);
 TBagStatus DecodeBagStatus(const std::string &s);
 const std::string EncodeBagStatus(const TBagStatus &s);
 
@@ -82,6 +97,8 @@ class TSimplePaidBagItem
 {
   public:
     std::string RFISC;
+    std::string RFIC;
+    std::string emd_type;
     TBagStatus status;
     bool pr_cabin;
 
@@ -92,6 +109,8 @@ class TSimplePaidBagItem
     void clear()
     {
       RFISC.clear();
+      RFIC.clear();
+      emd_type.clear();
       status=bsUnknown;
       pr_cabin=false;
     }
@@ -407,6 +426,7 @@ class TAvailabilityResItem
 {
   public:
     bool piece_concept;
+    std::string airline;
     PieceConcept::TRFISCList rfisc_list;
     PieceConcept::TPaxNormItem norm;
     TAvailabilityResItem()
@@ -416,6 +436,7 @@ class TAvailabilityResItem
     void clear()
     {
       piece_concept=false;
+      airline.clear();
       rfisc_list.clear();
       norm.clear();
     }
@@ -466,6 +487,7 @@ class TPaymentStatusRes : public TPaymentStatus, public TPaymentStatusList
     }
     virtual void fromXML(xmlNodePtr node);
     void convert(list<PieceConcept::TPaidBagItem> &paid) const;
+    void check_unknown_status(std::set<std::string> &rfiscs) const;
 };
 
 //запросы Сирены в Астру
