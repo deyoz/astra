@@ -1461,7 +1461,7 @@ void SendRequest(const TExchange &request, TExchange &response)
   response.parse(responseInfo.content);
 }
 
-void fillPaxsBags(int first_grp_id, TExchange &exch, list<int> &grp_ids, bool &pr_unaccomp);
+void fillPaxsBags(int first_grp_id, TExchange &exch, TTripInfo &firstOperFlt, bool &pr_unaccomp, list<int> &grp_ids);
 
 } //namespace SirenaExchange
 
@@ -1560,9 +1560,10 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
 void PieceConceptInterface::procGroupInfo( const SirenaExchange::TGroupInfoReq &req, SirenaExchange::TGroupInfoRes &res )
 {
   res.clear();
-  list<int> grp_ids;
+  TTripInfo firstOperFlt;
   bool pr_unaccomp;
-  fillPaxsBags(req.grp_id, res, grp_ids, pr_unaccomp);
+  list<int> grp_ids;
+  SirenaExchange::fillPaxsBags(req.grp_id, res, firstOperFlt, pr_unaccomp, grp_ids);
 }
 
 void SendTestRequest(const string &req)

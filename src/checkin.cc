@@ -5970,12 +5970,13 @@ const char* pax_sql=
 namespace SirenaExchange
 {
 
-void fillPaxsBags(int first_grp_id, TExchange &exch, list<int> &grp_ids, bool &pr_unaccomp)
+void fillPaxsBags(int first_grp_id, TExchange &exch, TTripInfo &firstOperFlt, bool &pr_unaccomp, list<int> &grp_ids)
 {
   TAvailabilityReq  *availabilityReq=dynamic_cast<TAvailabilityReq*>(&exch);
   TPaymentStatusReq *paymentStatusReq=dynamic_cast<TPaymentStatusReq*>(&exch);
   TGroupInfoRes     *groupInfoRes=dynamic_cast<TGroupInfoRes*>(&exch);
 
+  firstOperFlt.Clear();
   grp_ids.clear();
   grp_ids.push_back(first_grp_id);
 
@@ -6006,7 +6007,10 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, list<int> &grp_ids, bool &p
     TTripInfo operFlt(Qry.get());
 
     if (grp_id==grp_ids.begin())
+    {
+      firstOperFlt=operFlt;
       pr_unaccomp=grp.cl.empty() && grp.status!=psCrew;
+    };
 
     if (!pr_unaccomp)
     {
@@ -6113,11 +6117,12 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
     SirenaExchange::TAvailabilityReq req1;
     SirenaExchange::TPaymentStatusReq req2;
 
+    TTripInfo firstOperFlt;
     bool pr_unaccomp;
     if (action==actionCheckPieceConcept)
-      SirenaExchange::fillPaxsBags(first_grp_id, req1, grp_ids, pr_unaccomp);
+      SirenaExchange::fillPaxsBags(first_grp_id, req1, firstOperFlt, pr_unaccomp, grp_ids);
     else
-      SirenaExchange::fillPaxsBags(first_grp_id, req2, grp_ids, pr_unaccomp);
+      SirenaExchange::fillPaxsBags(first_grp_id, req2, firstOperFlt, pr_unaccomp, grp_ids);
 
     if (grp_ids.empty()) return;
 
@@ -6125,6 +6130,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
     {
       if (action==actionCheckPieceConcept)
       {
+        if (GetTripSets(tsPieceConcept, firstOperFlt))
         try
         {
           if (!req1.paxs.empty())
