@@ -53,6 +53,31 @@ int SIRENA_REQ_ATTEMPTS()
 namespace PieceConcept
 {
 
+void TNodeList::apply()
+{
+    if(concept == ctAll) {
+        for(TConceptList::iterator i = items.begin(); i != items.end(); i++) {
+            if(i->second)
+                NodeSetContent(i->first, std::string(NodeAsString(i->first))+AstraLocale::getLocaleText("¬"));
+            else
+                NodeSetContent(i->first, std::string(NodeAsString(i->first))+AstraLocale::getLocaleText("ª£"));
+        }
+    }
+}
+
+void TNodeList::set_concept(xmlNodePtr& node, bool val)
+{
+    if(node) {
+        items.push_back(std::make_pair(node,val));
+    }
+    ConceptType tmp = (val == 0 ? ctWeight : ctSeat);
+    if(concept == ctInitial) {
+        concept = tmp;
+    } else if(concept != ctAll and concept != tmp)
+        concept = ctAll;
+}
+
+
 TRFISCListItem& TRFISCListItem::fromXML(xmlNodePtr node)
 {
   clear();
