@@ -73,7 +73,7 @@ class BagmessageProcess : public AstraMessages::TProcess
         map< string, BagmessagePtr >::const_iterator BMH=BMHandlers.find(msg->handler.getCode());
         if (BMH==BMHandlers.end()) throw Exception("strange situation!!!");
 
-        ProgError(STDLOG, "BagmessageProcess: before send_depeche id=%d", next->id);
+        //ProgError(STDLOG, "BagmessageProcess: before send_depeche id=%d", next->id);
         if (msg->handler.getCode()=="BAG_MESSAGE")
           BMH->second->send_depeche(msg->content,
                                     createBagmessageSettings(msg->handler),
@@ -84,7 +84,7 @@ class BagmessageProcess : public AstraMessages::TProcess
                                     createBagmessageSettings(msg->handler),
                                     next->id,
                                     ToInt(paramValue(msg->handler, "timeout_secs", string("10000")))); //!!!vlad
-        ProgError(STDLOG, "BagmessageProcess: after send_depeche id=%d", next->id);
+        //ProgError(STDLOG, "BagmessageProcess: after send_depeche id=%d", next->id);
         use_timer=false;
       }
       if (use_timer)
@@ -103,7 +103,7 @@ class BagmessageProcess : public AstraMessages::TProcess
       using namespace AstraMessages;
       switch(status)
       {
-        case depeches::OK: TQueue::complete_attempt(id); ProgError(STDLOG, "BagmessageProcess: finish_depeche id=%d", id); break;
+        case depeches::OK: TQueue::complete_attempt(id); /*ProgError(STDLOG, "BagmessageProcess: finish_depeche id=%d", id);*/ break;
         case depeches::FAIL: TQueue::complete_attempt(id, "FAIL!"); ProgError(STDLOG, "BagmessageProcess: finish_depeche FAIL id=%d", id); break;
         case depeches::EXPIRED: TQueue::complete_attempt(id, "EXPIRED!"); ProgError(STDLOG, "BagmessageProcess: finish_depeche EXPIRED id=%d", id); break;
 //        case depeches::NO_FREE_SLOT: TQueue::complete_attempt(id, "NO_FREE_SLOT!"); break;
@@ -140,7 +140,7 @@ void put_test_msg()
   int i=1;
   for(;;)
   {
-    if (i>50)
+    if (i>500)
     {
       sleep(5);
       continue;
@@ -217,33 +217,42 @@ int main_msg_handler_tcl(int supervisorSocket, int argc, char *argv[])
 
 int test_msg_queue(int argc,char **argv)
 {
-  using namespace AstraMessages;
-//  list<string> handlers;
-//  handlers.push_back("BAG_MESSAGE");
-//  handlers.push_back("BAG_MESSAGE2");
-//  TBagMessageSetDetails setDetails(handlers);
-
-//  AstraMessages::TQueue::put(setDetails, "", "’ ’…‹ ’…‹…ƒ€ŒŒ›");
-//  OraSession.Commit();
-
-  boost::optional<TQueueMsg> msg;
-  AstraMessages::TQueue::get(12728411, msg);
-  if (msg)
-  {
-    ProgError(STDLOG,
-              "handler=%s format=%s type=%s content=%s",
-              msg->handler.getCode().c_str(),
-              msg->format.getCode().c_str(),
-              msg->type.c_str(),
-              msg->content.c_str());
-  }
-  else ProgError(STDLOG, "msg=boost::none");
-  AstraMessages::TQueue::complete_attempt(12728411);
-
-
-
- //  AstraMessages::TQueue::put(TSetDetails(), "", "");
-
+  printf("%zu\n", LevenshteinDistance("preterit", "zeitgeist"));
+  printf("%zu\n", LevenshteinDistance("zeitgeist", "preterit"));
+  printf("%zu\n", LevenshteinDistance("€…‘’€’", "„€ƒ…‘’€"));
+  printf("%zu\n", LevenshteinDistance("„€ƒ…‘’€", "€…‘’€’"));
+  printf("%zu\n", LevenshteinDistance("", "fuck"));
+  printf("%zu\n", LevenshteinDistance("fucking", ""));
+  printf("%zu\n", LevenshteinDistance("f", "fffff"));
+  printf("%zu\n", LevenshteinDistance("", ""));
   return 0;
+//  using namespace AstraMessages;
+////  list<string> handlers;
+////  handlers.push_back("BAG_MESSAGE");
+////  handlers.push_back("BAG_MESSAGE2");
+////  TBagMessageSetDetails setDetails(handlers);
+
+////  AstraMessages::TQueue::put(setDetails, "", "’ ’…‹ ’…‹…ƒ€ŒŒ›");
+////  OraSession.Commit();
+
+//  boost::optional<TQueueMsg> msg;
+//  AstraMessages::TQueue::get(12728411, msg);
+//  if (msg)
+//  {
+//    ProgError(STDLOG,
+//              "handler=%s format=%s type=%s content=%s",
+//              msg->handler.getCode().c_str(),
+//              msg->format.getCode().c_str(),
+//              msg->type.c_str(),
+//              msg->content.c_str());
+//  }
+//  else ProgError(STDLOG, "msg=boost::none");
+//  AstraMessages::TQueue::complete_attempt(12728411);
+
+
+
+// //  AstraMessages::TQueue::put(TSetDetails(), "", "");
+
+//  return 0;
 }
 

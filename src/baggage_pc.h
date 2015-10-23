@@ -519,7 +519,7 @@ class TPaymentStatusRes : public TPaymentStatus, public TPaymentStatusList
       TPaymentStatusList::clear();
     }
     virtual void fromXML(xmlNodePtr node);
-    void convert(list<PieceConcept::TPaidBagItem> &paid) const;
+    void convert(std::list<PieceConcept::TPaidBagItem> &paid) const;
     void check_unknown_status(std::set<std::string> &rfiscs) const;
 };
 
