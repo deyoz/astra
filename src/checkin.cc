@@ -2348,7 +2348,7 @@ void CheckInInterface::ArrivalPaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
 struct TPieceConcept {
     enum ConceptType {ctInitial, ctAll, ctSeat, ctWeight} concept;
-    typedef vector<pair<xmlNodePtr, bool>> TConceptList;
+    typedef vector< pair<xmlNodePtr, bool> > TConceptList;
     TConceptList items; // bool: false - weight, true - seat
     void set_concept(xmlNodePtr& node, bool val)
     {
