@@ -174,6 +174,7 @@ void GetBoundPaidBagEMD(int grp_id, CheckIn::PaidBagEMDList &emd)
     Qry.SQLText =
     "SELECT paid_bag_emd.bag_type, "
     "       paid_bag_emd.rfisc, "
+    "       paid_bag_emd.transfer_num, "
     "       paid_bag_emd.emd_no, "
     "       paid_bag_emd.emd_coupon, "
     "       paid_bag_emd.weight, "

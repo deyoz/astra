@@ -458,7 +458,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   grp_id=Qry.FieldAsInteger("grp_id");
   bool piece_concept=!Qry.FieldIsNULL("piece_concept") &&
-                     Qry.FieldAsInteger("piece_concept")!=0;  //!!!vlad проверить как грузятся группы с неопределенным piece_concept
+                     Qry.FieldAsInteger("piece_concept")!=0;
   if (piece_concept)
     throw UserException("MSG.PIECE_CONCEPT_PAYMENT_NOT_SUPPORTED_BY_DCS");
   NewTextChild(dataNode,"grp_id",grp_id);

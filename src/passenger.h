@@ -438,7 +438,7 @@ class TPaxGrpItem
     };
 
     const TPaxGrpItem& toXML(xmlNodePtr node) const;
-    TPaxGrpItem& fromXML(xmlNodePtr node);
+    bool fromXML(xmlNodePtr node);
     TPaxGrpItem& fromXMLadditional(xmlNodePtr node);
     const TPaxGrpItem& toDB(TQuery &Qry) const;
     TPaxGrpItem& fromDB(TQuery &Qry);

@@ -1411,10 +1411,10 @@ const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
   return *this;
 };
 
-TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
+bool TPaxGrpItem::fromXML(xmlNodePtr node)
 {
   clear();
-  if (node==NULL) return *this;
+  if (node==NULL) return true;
   xmlNodePtr node2=node->children;
 
   id=NodeAsIntegerFast("grp_id",node2,ASTRA::NoExists);
@@ -1423,27 +1423,29 @@ TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
   point_arv=NodeAsIntegerFast("point_arv",node2);
   airp_arv=NodeAsStringFast("airp_arv",node2);
   cl=NodeAsStringFast("class",node2);
+  tid=NodeAsIntegerFast("tid",node2,ASTRA::NoExists);
   if (id!=ASTRA::NoExists)
   {
     //запись изменений
     TQuery Qry(&OraSession);
     Qry.Clear();
-    Qry.SQLText="SELECT status, piece_concept, NVL(bag_types_id, 0) AS bag_types_id FROM pax_grp WHERE grp_id=:grp_id";
+    Qry.SQLText=
+      "SELECT status, piece_concept, NVL(bag_types_id, 0) AS bag_types_id "
+      "FROM pax_grp WHERE grp_id=:grp_id AND tid=:tid";
     Qry.CreateVariable("grp_id", otInteger, id);
+    Qry.CreateVariable("tid", otInteger, tid);
     Qry.Execute();
-    if (!Qry.Eof)
-    {
-      status=DecodePaxStatus(Qry.FieldAsString("status"));
-      if (!Qry.FieldIsNULL("bag_types_id"))
-        bag_types_id=Qry.FieldAsInteger("bag_types_id");
-      piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
-    };
+    if (Qry.Eof) return false;
+
+    status=DecodePaxStatus(Qry.FieldAsString("status"));
+    if (!Qry.FieldIsNULL("bag_types_id"))
+      bag_types_id=Qry.FieldAsInteger("bag_types_id");
+    piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
   }
   else
   {
     status=DecodePaxStatus(NodeAsStringFast("status",node2));
   };
-  tid=NodeAsIntegerFast("tid",node2,ASTRA::NoExists);
 
   xmlNodePtr normNode=GetNodeFast("norms",node2);
   if (normNode!=NULL)
@@ -1458,7 +1460,7 @@ TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
       };
     };
   };
-  return *this;
+  return true;
 };
 
 TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node)

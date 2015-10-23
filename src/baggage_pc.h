@@ -86,6 +86,7 @@ class TRFISCList : public TRFISCListMap
     void toDB(int list_id) const; // сохранение данных по группе
     int crc() const;
     int toDBAdv() const; //продвинутое сохранение с анализом существующих справочников
+    void filter_baggage_rfiscs(); //фильтрация только багажных услуг
 };
 
 class TPaxNormTextItem
@@ -240,7 +241,7 @@ class TPaxSegItem : public TSegItem
       pnrs.clear();
       fqts.clear();
     }
-    const TPaxSegItem& toXML(xmlNodePtr node, const std::string &lang) const;
+    const TPaxSegItem& toXML(xmlNodePtr node, const int &ticket_coupon, const std::string &lang) const;
 };
 
 typedef std::map<int, TPaxSegItem> TPaxSegMap;
@@ -388,12 +389,28 @@ class TExchange
   protected:
     virtual bool isRequest() const=0;
   public:
+    std::string error_code, error_message;
     virtual void build(std::string &content) const;
     virtual void parse(const std::string &content);
     virtual void toXML(xmlNodePtr node) const;
     virtual void fromXML(xmlNodePtr node);
+    virtual void errorToXML(xmlNodePtr node) const;
+    virtual void errorFromXML(xmlNodePtr node);
+    bool error() const;
     virtual void clear()=0;
     virtual ~TExchange() {}
+};
+
+class TErrorRes : public TExchange
+{
+  public:
+    virtual std::string exchangeId() const { return id; }
+  protected:
+    virtual bool isRequest() const { return false; }
+  public:
+    std::string id;
+    TErrorRes(const std::string &_id) : id(_id) {}
+    virtual void clear() {}
 };
 
 //запросы Астры в Сирену
@@ -539,7 +556,7 @@ class TGroupInfoReq : public TGroupInfo
   protected:
     virtual bool isRequest() const { return true; }
   public:
-    std::string regnum;
+    std::string pnr_addr;
     int grp_id;
     TGroupInfoReq()
     {
@@ -547,10 +564,11 @@ class TGroupInfoReq : public TGroupInfo
     }
     void clear()
     {
-      regnum.clear();
+      pnr_addr.clear();
       grp_id = ASTRA::NoExists;
     }
     virtual void fromXML(xmlNodePtr node);
+    void toDB(TQuery &Qry);
 };
 
 class TGroupInfoRes : public TGroupInfo

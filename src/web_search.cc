@@ -1203,7 +1203,6 @@ bool TPNRInfo::fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest, b
   TCodeShareSets codeshareSets;
   codeshareSets.get(flt.oper,pnrMarkFlt);
 
-  //!!!vlad что делать для веба? piece_concept еще не определен. отдельный запрос к сирене?
   BagPayment::TNormFltInfo fltInfo;
   fltInfo.point_id=flt.point_dep;
   fltInfo.use_mark_flt=codeshareSets.pr_mark_norms;

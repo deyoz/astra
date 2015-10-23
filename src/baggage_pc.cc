@@ -166,8 +166,9 @@ void TRFISCList::fromXML(xmlNodePtr node)
     TRFISCListItem item;
     item.fromXML(node);
     if (!insert(make_pair(item.RFISC, item)).second)
-      /*throw Exception("TRFISCListItem::fromXML: Duplicate @rfisc='%s'", item.RFISC.c_str())*/;  //!!!vlad service_type могут отличаться
+      ProgTrace(TRACE5, "TRFISCListItem::fromXML: Duplicate @rfisc='%s'", item.RFISC.c_str());
   }
+  //filter_baggage_rfiscs(); !!!vlad
 }
 
 void TRFISCList::fromDB(int list_id)
@@ -250,6 +251,24 @@ int TRFISCList::toDBAdv() const
   int list_id=Qry.GetVariableAsInteger("id");
   toDB(list_id);
   return list_id;
+}
+
+void TRFISCList::filter_baggage_rfiscs()
+{
+  for(TRFISCList::const_iterator i=begin(); i!=end(); )
+  {
+    CheckIn::TPaxASVCItem item;
+    item.RFIC=i->second.RFIC;
+    item.RFISC=i->second.RFISC;
+    item.emd_type=i->second.emd_type;
+    std::set<ASTRA::TRcptServiceType> service_types;
+    item.rcpt_service_types(service_types);
+    if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
+        service_types.find(ASTRA::rstPaid)==service_types.end())
+      i=erase(i);
+    else
+      i++;
+  };
 }
 
 void TPaxNormItem::fromXML(xmlNodePtr node, bool &piece_concept, string &airline)
@@ -353,7 +372,7 @@ void PaxNormsToStream(const CheckIn::TPaxItem &pax, ostringstream &s)
     << pax.full_name() << "(" << ElemIdToCodeNative(etPersType, EncodePerson(pax.pers_type)) << "):" << endl;
   if (i!=norm.end())
     s << i->second.text << endl
-      << string(100,'=') << endl;  //!!!vlad потом докрутить разрегистрированных пассажиров
+      << string(100,'=') << endl;
 }
 
 std::string DecodeEmdType(const std::string &s)
@@ -987,12 +1006,13 @@ const TSegItem& TSegItem::toXML(xmlNodePtr node, const std::string &lang) const
   return *this;
 }
 
-const TPaxSegItem& TPaxSegItem::toXML(xmlNodePtr node, const std::string &lang) const
+const TPaxSegItem& TPaxSegItem::toXML(xmlNodePtr node, const int &ticket_coupon, const std::string &lang) const
 {
   if (node==NULL) return *this;
 
   TSegItem::toXML(node, lang);
   SetProp(node, "subclass", ElemIdToPrefferedElem(etSubcls, subcl, efmtCodeNative, lang));
+  SetProp(node, "coupon_num", ticket_coupon, ASTRA::NoExists);
   for(list<CheckIn::TPnrAddrItem>::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
     SetProp(NewTextChild(node, "recloc", i->addr), "crs", ElemIdToPrefferedElem(etAirline, i->airline, efmtCodeNative, lang));
   for(vector<CheckIn::TPaxFQTItem>::const_iterator i=fqts.begin(); i!=fqts.end(); ++i)
@@ -1032,7 +1052,8 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node, const std::string &lang) const
   }
 
   for(TPaxSegMap::const_iterator i=segs.begin(); i!=segs.end(); ++i)
-    i->second.toXML(NewTextChild(node, "segment"), lang);
+    i->second.toXML(NewTextChild(node, "segment"),
+                    (i==segs.begin()?tkn.coupon:ASTRA::NoExists), lang);
 
   return *this;
 }
@@ -1143,7 +1164,10 @@ void TExchange::build(std::string &content) const
   {
     XMLDoc doc(isRequest()?"query":"answer");
     xmlNodePtr node=NewTextChild(NodeAsNode(isRequest()?"/query":"/answer", doc.docPtr()), exchangeId().c_str());
-    toXML(node);
+    if (error())
+      errorToXML(node);
+    else
+      toXML(node);
     content = ConvertCodepage( XMLTreeToText( doc.docPtr() ), "CP866", "UTF-8" );
   }
   catch(Exception &e)
@@ -1167,7 +1191,9 @@ void TExchange::parse(const std::string &content)
     xml_decode_nodelist(doc.docPtr()->children);
     xmlNodePtr node=NodeAsNode(isRequest()?"/query":"/answer", doc.docPtr());
     node=NodeAsNode(exchangeId().c_str(), node);
-    fromXML(node);
+    errorFromXML(node);
+    if (!error())
+      fromXML(node);
   }
   catch(Exception &e)
   {
@@ -1183,6 +1209,28 @@ void TExchange::toXML(xmlNodePtr node) const
 void TExchange::fromXML(xmlNodePtr node)
 {
   throw Exception("TExchange::fromXML: %s <%s> not implemented", isRequest()?"Request":"Response", exchangeId().c_str());
+}
+
+void TExchange::errorToXML(xmlNodePtr node) const
+{
+  if (node==NULL) return;
+
+  NewTextChild(node, "Error", error_message);
+}
+
+void TExchange::errorFromXML(xmlNodePtr node)
+{
+  error_code.clear();
+  error_message.clear();
+
+  xmlNodePtr errNode=GetNode("Error", node);
+  if (errNode!=NULL)
+    error_message=NodeAsString(errNode);
+}
+
+bool TExchange::error() const
+{
+  return (!error_message.empty());
 }
 
 void TAvailabilityReq::toXML(xmlNodePtr node) const
@@ -1395,14 +1443,20 @@ void TGroupInfoReq::fromXML(xmlNodePtr node)
   try
   {
     if (node==NULL) throw Exception("node not defined");
-    regnum = NodeAsString( "regnum", node );
-    if (regnum.size()>20) throw Exception("Wrong <regnum> '%s'", regnum.c_str());
+    pnr_addr = NodeAsString( "regnum", node );
+    if (pnr_addr.size()>20) throw Exception("Wrong <regnum> '%s'", pnr_addr.c_str());
     grp_id = NodeAsInteger( "group_id", node );
   }
   catch(Exception &e)
   {
     throw Exception("TGroupInfoReq::fromXML: %s", e.what());
   };
+}
+
+void TGroupInfoReq::toDB(TQuery &Qry)
+{
+  Qry.SetVariable("grp_id", grp_id);
+  Qry.SetVariable("pnr_addr", pnr_addr);
 }
 
 void TGroupInfoRes::toXML(xmlNodePtr node) const
@@ -1459,9 +1513,10 @@ void SendRequest(const TExchange &request, TExchange &response)
   else
     traceXML(responseInfo.content);
   response.parse(responseInfo.content);
+  if (response.error()) throw Exception("%s: sirena return error '%s'", __FUNCTION__, response.error_message.c_str());
 }
 
-void fillPaxsBags(int first_grp_id, TExchange &exch, TTripInfo &firstOperFlt, bool &pr_unaccomp, list<int> &grp_ids);
+void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int> &grp_ids);
 
 } //namespace SirenaExchange
 
@@ -1469,16 +1524,17 @@ void PieceConceptInterface::procPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr re
 {
   ProgTrace( TRACE5, "%s: %s", __FUNCTION__, XMLTreeToText(resNode->doc).c_str());
   reqNode=NodeAsNode("content", reqNode);
+
+  reqNode=NodeAsNode("query", reqNode)->children;
+  std::string exchangeId = (char *)reqNode->name;
+  ProgTrace( TRACE5, "%s: exchangeId=<%s>", __FUNCTION__, exchangeId.c_str() );
+
+  resNode=NewTextChild(resNode, "content");
+  resNode=NewTextChild(resNode, "answer");
+  resNode=NewTextChild(resNode, exchangeId.c_str());
+
   try
   {
-    reqNode=NodeAsNode("query", reqNode)->children;
-    std::string exchangeId = (char *)reqNode->name;
-    ProgTrace( TRACE5, "%s: exchangeId=<%s>", __FUNCTION__, exchangeId.c_str() );
-
-    resNode=NewTextChild(resNode, "content");
-    resNode=NewTextChild(resNode, "answer");
-    resNode=NewTextChild(resNode, exchangeId.c_str());
-
     if (exchangeId==SirenaExchange::TPassengers::id)
     {
       SirenaExchange::TPassengersReq req1;
@@ -1495,14 +1551,19 @@ void PieceConceptInterface::procPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr re
       procGroupInfo( req2, res2 );
       res2.toXML(resNode);
     }
-    else throw Exception("%s: Unknown request <%s>", exchangeId.c_str());
+    else throw Exception("%s: Unknown request <%s>", __FUNCTION__, exchangeId.c_str());
   }
-  catch(Exception &e)  //SirenaExchangeException
+  catch(std::exception &e)
   {
-    //здесть отправлеть error
-    throw;
+    if (resNode->children!=NULL)
+    {
+      xmlUnlinkNode(resNode->children);
+      xmlFreeNode(resNode->children);
+    };
+    SirenaExchange::TErrorRes res(exchangeId);
+    res.error_message=e.what();
+    res.errorToXML(resNode);
   }
-
 }
 
 void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq &req, SirenaExchange::TPassengersRes &res )
@@ -1521,6 +1582,7 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
   SearchFlt( fltInfo, flts);
   SearchMktFlt( fltInfo, marketing_point_ids );
   TQuery Qry(&OraSession);
+  Qry.Clear();
   Qry.SQLText =
     "SELECT pax.pax_id, pax.name, pax.surname, pax_grp.grp_id, pax.pers_type, pax.seats "
     " FROM pax, pax_grp "
@@ -1560,10 +1622,29 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
 void PieceConceptInterface::procGroupInfo( const SirenaExchange::TGroupInfoReq &req, SirenaExchange::TGroupInfoRes &res )
 {
   res.clear();
-  TTripInfo firstOperFlt;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT grp_id FROM pax_grp WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id", otInteger, req.grp_id);
+  Qry.Execute();
+  if (Qry.Eof) throw Exception("%s: Unknown <group_id> '%d'", __FUNCTION__, req.grp_id);
+
+  Qry.Clear();
+  Qry.SQLText =
+    "BEGIN "
+    "  UPDATE pnr_addrs_pc SET grp_id=:grp_id WHERE addr=:pnr_addr; "
+    "  IF SQL%NOTFOUND THEN "
+    "    INSERT INTO pnr_addrs_pc(addr, grp_id) VALUES(:pnr_addr, :grp_id); "
+    "  END IF; "
+    "END;";
+  Qry.CreateVariable("pnr_addr", otString, req.pnr_addr);
+  Qry.CreateVariable("grp_id", otInteger, req.grp_id);
+  Qry.Execute();
+
   bool pr_unaccomp;
   list<int> grp_ids;
-  SirenaExchange::fillPaxsBags(req.grp_id, res, firstOperFlt, pr_unaccomp, grp_ids);
+  SirenaExchange::fillPaxsBags(req.grp_id, res, pr_unaccomp, grp_ids);
 }
 
 void SendTestRequest(const string &req)
@@ -1611,12 +1692,12 @@ int verifyHTTP(int argc,char **argv)
       "  </passenger_with_svc>"
       "</query>");
     reqText = ConvertCodepage( reqText, "CP866", "UTF-8" );
+    SendTestRequest(reqText);
     req.parse(reqText);
     PieceConceptInterface::procPassengers(req, res);
     string resText;
     res.build(resText);
     printf("%s\n", resText.c_str());
-    SendTestRequest(reqText);
   }
   catch(std::exception &e)
   {
@@ -1632,17 +1713,17 @@ int verifyHTTP(int argc,char **argv)
       "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
       "<query>"
       "  <group_svc_info>"
-      "    <regnum>SDADSF</regnum>"
+      "    <regnum>SDA12F</regnum>"
       "    <group_id>34877</group_id>"
       "  </group_svc_info>"
       "</query>");
     reqText = ConvertCodepage( reqText, "CP866", "UTF-8" );
+    SendTestRequest(reqText);
     req.parse(reqText);
     PieceConceptInterface::procGroupInfo(req, res);
     string resText;
     res.build(resText);
     printf("%s\n", resText.c_str());
-    SendTestRequest(reqText);
   }
   catch(std::exception &e)
   {

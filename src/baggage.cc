@@ -1693,9 +1693,13 @@ void PaidBagEMDFromXML(xmlNodePtr emdNode,
     emd=list<TPaidBagEMDItem>();
     for(xmlNodePtr node=emdNode->children;node!=NULL;node=node->next)
     {
-      emd.get().push_back(TPaidBagEMDItem().fromXML(node, piece_concept));
-      if (emd.get().back().trfer_num!=0 ||
-          emd.get().back().bag_type==99) emd.get().pop_back();  //!!!vlad потом докрутить
+      TPaidBagEMDItem item;
+      item.fromXML(node, piece_concept);
+      if (/*item.trfer_num!=0 || !!!vlad */
+          item.bag_type==99) continue;  //!!!vlad потом докрутить
+      if (piece_concept && item.rfisc.empty())
+        throw UserException("MSG.EMD_ATTACHED_TO_UNKNOWN_RFISC", LParams()<<LParam("emd_no",item.no_str()));
+      emd.get().push_back(item);
     };
   };
 };
