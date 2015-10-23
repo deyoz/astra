@@ -28,6 +28,9 @@ const char* NodeAsString(const char* expr, xmlNodePtr cur);
 int NodeAsInteger(xmlNodePtr node);
 int NodeAsInteger(const char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
 int NodeAsInteger(const char* expr, xmlNodePtr cur);
+bool NodeAsBoolean(xmlNodePtr node);
+bool NodeAsBoolean(const char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
+bool NodeAsBoolean(const char* expr, xmlNodePtr cur);
 double NodeAsFloat(xmlNodePtr node);
 double NodeAsFloat(const char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
 double NodeAsFloat(const char* expr, xmlNodePtr cur);
@@ -43,6 +46,7 @@ xmlNodePtr NodeAsNodeFast(const char *expr, xmlNodePtr &node);
 bool NodeIsNULLFast(const char *expr, xmlNodePtr &node);
 const char* NodeAsStringFast(const char *expr, xmlNodePtr &node);
 int NodeAsIntegerFast(const char *expr, xmlNodePtr &node);
+bool NodeAsBooleanFast(const char *expr, xmlNodePtr &node);
 double NodeAsFloatFast(const char *expr, xmlNodePtr &node);
 BASIC::TDateTime NodeAsDateTimeFast(const char *expr, const char *format, xmlNodePtr &node);
 BASIC::TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node);
@@ -51,33 +55,41 @@ BASIC::TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node);
 bool NodeIsNULLFast(const char *expr, xmlNodePtr &node, bool nvl);
 const char* NodeAsStringFast(const char *expr, xmlNodePtr &node, const char* nvl);
 int NodeAsIntegerFast(const char *expr, xmlNodePtr &node, int nvl);
+bool NodeAsBooleanFast(const char *expr, xmlNodePtr &node, bool nvl);
 double NodeAsFloatFast(const char *expr, xmlNodePtr &node, double nvl);
 BASIC::TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node, BASIC::TDateTime nvl);
 
+bool NodeIsNULL(const char* expr, xmlNodePtr cur, bool nvl);
 const char* NodeAsString(const char* expr, xmlNodePtr cur, const char *nvl);
 int NodeAsInteger(const char* expr, xmlNodePtr cur, int nvl);
+bool NodeAsBoolean(const char* expr, xmlNodePtr cur, bool nvl);
 double NodeAsFloat(const char* expr, xmlNodePtr cur, double nvl);
 BASIC::TDateTime NodeAsDateTime(const char* expr, xmlNodePtr cur, BASIC::TDateTime nvl);
 
 // Если content == nvl, узел не создается
-xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const std::string content, const std::string nvl);
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const std::string &content, const std::string &nvl);
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const int content, const int nvl);
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const double content, const double nvl);
 
 void NodeSetContent(xmlNodePtr cur, const char* content);
-void NodeSetContent(xmlNodePtr cur, const std::string content);
+void NodeSetContent(xmlNodePtr cur, const std::string &content);
 void NodeSetContent(xmlNodePtr cur, const int content);
+
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const char *content = NULL);
-xmlNodePtr NewTextChild(xmlNodePtr parent, const std::string &name, const std::string &content);
-xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const std::string content);
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const std::string &content);
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const int content);
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const double content);
+
 xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const char *content = NULL);
-xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const std::string content);
+xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const std::string &content);
 xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const int content);
+
 xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const char *value = NULL);
-xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const std::string value);
+xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const std::string &value);
 xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const int value);
+xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const std::string &value, const std::string &nvl);
+xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const int value, const int nvl);
+
 xmlNodePtr CopyNodeList(xmlNodePtr dest, xmlNodePtr src); //Функция с ошибкой libxml2! Не изменяет указатели xmlDocPtr
 xmlNodePtr CopyNode(xmlNodePtr dest, xmlNodePtr src, bool recursive=true);
 

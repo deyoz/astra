@@ -12,6 +12,7 @@
 #include "astra_main.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "apis_utils.h"
 #include "misc.h"
 #include "astra_misc.h"
 #include "astra_context.h"

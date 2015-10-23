@@ -321,4 +321,7 @@ enum TAlarmType { atDiffersFromBooking,
 std::string EncodeAlarmType(const TAlarmType alarm );
 }; //namespace APIS
 
+void send_apis_tr();
+void process_reply( const std::string& result );
+
 #endif // APIS_UTILS_H

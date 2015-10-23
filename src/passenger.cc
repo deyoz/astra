@@ -1411,10 +1411,10 @@ const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
   return *this;
 };
 
-TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
+bool TPaxGrpItem::fromXML(xmlNodePtr node)
 {
   clear();
-  if (node==NULL) return *this;
+  if (node==NULL) return true;
   xmlNodePtr node2=node->children;
 
   id=NodeAsIntegerFast("grp_id",node2,ASTRA::NoExists);
@@ -1423,27 +1423,29 @@ TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
   point_arv=NodeAsIntegerFast("point_arv",node2);
   airp_arv=NodeAsStringFast("airp_arv",node2);
   cl=NodeAsStringFast("class",node2);
+  tid=NodeAsIntegerFast("tid",node2,ASTRA::NoExists);
   if (id!=ASTRA::NoExists)
   {
     //запись изменений
     TQuery Qry(&OraSession);
     Qry.Clear();
-    Qry.SQLText="SELECT status, 0 AS piece_concept, 0 AS bag_types_id FROM pax_grp WHERE grp_id=:grp_id";
+    Qry.SQLText=
+      "SELECT status, piece_concept, NVL(bag_types_id, 0) AS bag_types_id "
+      "FROM pax_grp WHERE grp_id=:grp_id AND tid=:tid";
     Qry.CreateVariable("grp_id", otInteger, id);
+    Qry.CreateVariable("tid", otInteger, tid);
     Qry.Execute();
-    if (!Qry.Eof)
-    {
-      status=DecodePaxStatus(Qry.FieldAsString("status"));
-      if (!Qry.FieldIsNULL("bag_types_id"))
-        bag_types_id=Qry.FieldAsInteger("bag_types_id");
-      piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
-    };
+    if (Qry.Eof) return false;
+
+    status=DecodePaxStatus(Qry.FieldAsString("status"));
+    if (!Qry.FieldIsNULL("bag_types_id"))
+      bag_types_id=Qry.FieldAsInteger("bag_types_id");
+    piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
   }
   else
   {
     status=DecodePaxStatus(NodeAsStringFast("status",node2));
   };
-  tid=NodeAsIntegerFast("tid",node2,ASTRA::NoExists);
 
   xmlNodePtr normNode=GetNodeFast("norms",node2);
   if (normNode!=NULL)
@@ -1458,7 +1460,7 @@ TPaxGrpItem& TPaxGrpItem::fromXML(xmlNodePtr node)
       };
     };
   };
-  return *this;
+  return true;
 };
 
 TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node)
@@ -1535,7 +1537,7 @@ TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node)
   PaidBagFromXML(node, paid);
 
   group_bag=TGroupBagItem();
-  if (!group_bag.get().fromXML(node)) group_bag=boost::none;
+  if (!group_bag.get().fromXML(node, piece_concept)) group_bag=boost::none;
 
   return *this;
 };
@@ -1587,6 +1589,29 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
   return *this;
 };
 
+TPnrAddrItem& TPnrAddrItem::fromDB(TQuery &Qry)
+{
+  clear();
+  airline=Qry.FieldAsString("airline");
+  addr=Qry.FieldAsString("addr");
+  return *this;
+};
+
+bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs)
+{
+  pnrs.clear();
+  const char* sql=
+      "SELECT pnr_addrs.airline, pnr_addrs.addr "
+      "FROM crs_pax, pnr_addrs "
+      "WHERE crs_pax.pnr_id=pnr_addrs.pnr_id AND crs_pax.pax_id=:pax_id";
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TCachedQuery Qry(sql, QryParams);
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+    pnrs.push_back(TPnrAddrItem().fromDB(Qry.get()));
+  return !pnrs.empty();
+};
 
 }; //namespace CheckIn
 

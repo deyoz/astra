@@ -968,6 +968,77 @@ void TMktFlight::getByPnrId(int pnr_id)
     get(Qry, pnr_id);
 }
 
+const TGrpMktFlight& TGrpMktFlight::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  xmlNodePtr markFltNode=NewTextChild(node, "mark_flight");
+  NewTextChild(markFltNode, "airline", airline);
+  NewTextChild(markFltNode, "flt_no", flt_no);
+  NewTextChild(markFltNode, "suffix", suffix);
+  NewTextChild(markFltNode, "scd", DateTimeToStr(scd_date_local));
+  NewTextChild(markFltNode, "airp_dep", airp_dep);
+  NewTextChild(markFltNode, "pr_mark_norms", (int)pr_mark_norms);
+  return *this;
+}
+
+TGrpMktFlight& TGrpMktFlight::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  if (node2==NULL) return *this;
+  airline=NodeAsStringFast("airline",node2);
+  flt_no=NodeAsIntegerFast("flt_no",node2);
+  suffix=NodeAsStringFast("suffix",node2);
+  scd_date_local=NodeAsDateTimeFast("scd",node2);
+  modf(scd_date_local,&scd_date_local);
+  airp_dep=NodeAsStringFast("airp_dep",node2);
+  pr_mark_norms=NodeAsIntegerFast("pr_mark_norms",node2)!=0;
+  return *this;
+}
+
+const TGrpMktFlight& TGrpMktFlight::toDB(TQuery &Qry) const
+{
+  Qry.CreateVariable("mark_airline", otString, airline);
+  Qry.CreateVariable("mark_flt_no", otInteger, flt_no);
+  Qry.CreateVariable("mark_suffix", otString, suffix);
+  Qry.CreateVariable("mark_scd", otDate, scd_date_local);
+  Qry.CreateVariable("mark_airp_dep", otString, airp_dep);
+  Qry.CreateVariable("pr_mark_norms", otInteger,(int)pr_mark_norms);
+  return *this;
+}
+
+TGrpMktFlight& TGrpMktFlight::fromDB(TQuery &Qry)
+{
+  clear();
+  airline=Qry.FieldAsString("mark_airline");
+  flt_no=Qry.FieldAsInteger("mark_flt_no");
+  suffix=Qry.FieldAsString("mark_suffix");
+  scd_date_local=Qry.FieldAsDateTime("mark_scd");
+  airp_dep=Qry.FieldAsString("mark_airp_dep");
+  pr_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
+  return *this;
+}
+
+bool TGrpMktFlight::getByGrpId(int grp_id)
+{
+  QParams QryParams;
+  QryParams << QParam("grp_id", otInteger, grp_id);
+  TCachedQuery Qry(
+    "SELECT mark_trips.airline AS mark_airline, "
+    "       mark_trips.flt_no AS mark_flt_no, "
+    "       mark_trips.suffix AS mark_suffix, "
+    "       mark_trips.scd AS mark_scd, "
+    "       mark_trips.airp_dep AS mark_airp_dep, "
+    "       pax_grp.pr_mark_norms "
+    "FROM pax_grp, mark_trips "
+    "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id", QryParams);
+  Qry.get().Execute();
+  if(Qry.get().Eof) return false;
+  fromDB(Qry.get());
+  return true;
+}
+
 int SeparateTCkin(int grp_id,
                   TCkinSegmentSet upd_depend,
                   TCkinSegmentSet upd_tid,
@@ -1930,6 +2001,29 @@ void TCFG::get(int point_id, TDateTime part_key)
     }
 }
 
+void SearchMktFlt(const TSearchFltInfo &filter, set<int/*mark_trips.point_id*/> &point_ids)
+{
+  if ( filter.scd_out_in_utc ) {
+    throw Exception("%s: filter.scd_out_in_utc=true not supported", __FUNCTION__);
+  }
+  point_ids.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT DISTINCT point_id FROM mark_trips "
+    " WHERE airline=:airline AND flt_no=:flt_no AND "
+    "       (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+    "       scd=:scd AND airp_dep=:airp_dep";
+  Qry.CreateVariable( "airline", otString, filter.airline );
+  Qry.CreateVariable( "flt_no", otInteger, filter.flt_no );
+  Qry.CreateVariable( "suffix", otString, filter.suffix );
+  Qry.CreateVariable( "scd", otDate, filter.scd_out );
+  Qry.CreateVariable( "airp_dep", otString, filter.airp_dep );
+  Qry.Execute();
+  for ( ; !Qry.Eof; Qry.Next() ) {
+    point_ids.insert( Qry.FieldAsInteger( "point_id") );
+  }
+}
 
 void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
 {

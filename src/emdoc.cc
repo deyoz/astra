@@ -173,16 +173,17 @@ void GetBoundPaidBagEMD(int grp_id, CheckIn::PaidBagEMDList &emd)
   Qry.Clear();
     Qry.SQLText =
     "SELECT paid_bag_emd.bag_type, "
+    "       paid_bag_emd.rfisc, "
+    "       paid_bag_emd.transfer_num, "
     "       paid_bag_emd.emd_no, "
     "       paid_bag_emd.emd_coupon, "
     "       paid_bag_emd.weight, "
     "       'C' AS rfic, "
-    "       NULL AS rfisc, "
     "       NULL AS ssr_code, "
     "       NULL AS service_name, "
     "       'A' AS emd_type "
     "FROM paid_bag_emd "
-    "WHERE paid_bag_emd.grp_id=:grp_id";
+    "WHERE paid_bag_emd.grp_id=:grp_id";  //!!!vlad transfer_num=0 ?
  /*
     "SELECT paid_bag_emd.bag_type, "
     "       paid_bag_emd.emd_no, "

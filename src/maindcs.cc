@@ -1075,7 +1075,7 @@ void ResaEquipmentToXML(const vector<string> &paramsList, xmlNodePtr node)
     if (addr->size()!=4) continue;
     if (!IsDigit(*addr->rbegin())) continue;
 
-    NewTextChild(varNode, addr->substr(0,3), *addr);
+    NewTextChild(varNode, addr->substr(0,3).c_str(), *addr);
   };
 }
 

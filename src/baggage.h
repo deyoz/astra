@@ -46,6 +46,7 @@ class TBagItem
   public:
     int id,num;
     int bag_type;
+    std::string rfisc;
     bool pr_cabin;
     int amount;
     int weight;
@@ -64,6 +65,7 @@ class TBagItem
       id=ASTRA::NoExists;
       num=ASTRA::NoExists;
       bag_type=ASTRA::NoExists;
+      rfisc.clear();
       pr_cabin=false;
       amount=ASTRA::NoExists;
       weight=ASTRA::NoExists;
@@ -78,7 +80,7 @@ class TBagItem
       handmade=true;
     };
     const TBagItem& toXML(xmlNodePtr node) const;
-    TBagItem& fromXML(xmlNodePtr node);
+    TBagItem& fromXML(xmlNodePtr node, bool piece_concept);
     const TBagItem& toDB(TQuery &Qry) const;
     TBagItem& fromDB(TQuery &Qry);
 };
@@ -154,7 +156,7 @@ class TGroupBagItem
              bags.empty() &&
              tags.empty();
     };
-    bool fromXML(xmlNodePtr bagtagNode);
+    bool fromXML(xmlNodePtr bagtagNode, bool piece_concept);
     void fromXMLadditional(int point_id, int grp_id, int hall);
     void toDB(int grp_id) const;
     void fromDB(int grp_id, int bag_pool_num, bool without_refused);
@@ -164,9 +166,6 @@ class TGroupBagItem
     void setPoolNum(int bag_pool_num);
     bool trferExists() const;
 };
-
-void SaveBag(int point_id, int grp_id, int hall, xmlNodePtr bagtagNode);
-void LoadBag(int grp_id, xmlNodePtr bagtagNode);
 
 class TNormItem
 {
@@ -289,12 +288,11 @@ void PaidBagToDB(int grp_id,
 void PaidBagFromDB(int grp_id, std::list<TPaidBagItem> &paid);
 void PaidBagToXML(const std::list<TPaidBagItem> &paid, const TGroupBagItem &group_bag, xmlNodePtr paidbagNode);
 
-void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
-
 class TPaidBagEMDItem
 {
   public:
     int bag_type;
+    std::string rfisc;
     int trfer_num;
     std::string emd_no;
     int emd_coupon;
@@ -306,31 +304,29 @@ class TPaidBagEMDItem
   void clear()
   {
     bag_type=ASTRA::NoExists;
+    rfisc.clear();
     trfer_num=ASTRA::NoExists;
     emd_no.clear();
     emd_coupon=ASTRA::NoExists;
     weight=ASTRA::NoExists;
   };
   const TPaidBagEMDItem& toXML(xmlNodePtr node) const;
-  TPaidBagEMDItem& fromXML(xmlNodePtr node);
+  TPaidBagEMDItem& fromXML(xmlNodePtr node, bool piece_concept);
   const TPaidBagEMDItem& toDB(TQuery &Qry) const;
   TPaidBagEMDItem& fromDB(TQuery &Qry);
   std::string no_str() const;
   std::string bag_type_str() const;
 };
 
-bool PaidBagEMDFromXML(xmlNodePtr emdNode,
-                       std::list<TPaidBagEMDItem> &emd);
+void PaidBagEMDFromXML(xmlNodePtr emdNode,
+                       boost::optional<std::list<TPaidBagEMDItem> > &emd, bool piece_concept);
 void PaidBagEMDToDB(int grp_id,
-                    const std::list<TPaidBagEMDItem> &emd);
+                    const boost::optional< std::list<TPaidBagEMDItem> > &emd);
 
 void PaidBagEMDFromDB(int grp_id,
                       std::list<TPaidBagEMDItem> &emd);
 void PaidBagEMDToXML(const std::list<TPaidBagEMDItem> &emd,
                      xmlNodePtr emdNode);
-
-void SavePaidBagEMD(int grp_id, xmlNodePtr emdNode);
-void LoadPaidBagEMD(int grp_id, xmlNodePtr emdNode);
 
 }; //namespace CheckIn
 

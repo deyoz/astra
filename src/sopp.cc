@@ -6275,9 +6275,8 @@ void update_trip_sets(int point_id, const map<TTripSetType, bool> &sets, bool fi
         break;
       case tsPieceConcept:
         fields.push_back("piece_concept=:piece_concept");
-        if (!first_init || s->second)
-          msgs.push_back(s->second?"EVT.SET_BAGGAGE_PIECE_CONCEPT":
-                                   "EVT.SET_BAGGAGE_WEIGHT_CONCEPT");
+        msgs.push_back(s->second?"EVT.SET_BAGGAGE_PIECE_CONCEPT":
+                                 "EVT.SET_BAGGAGE_WEIGHT_CONCEPT");
         Qry.CreateVariable("piece_concept", otInteger, (int)s->second);
         break;
       default:

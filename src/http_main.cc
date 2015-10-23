@@ -143,6 +143,7 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
       }
       else
           ProgTrace(TRACE1,"Unable to find <query> tag!");
+
   }
 }
 
@@ -157,8 +158,9 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
           res.erase();
       else {
           string::size_type pos2 = res.find( "</content>", pos );
-          if ( pos1 != string::npos && pos2 != string::npos )
+          if ( pos1 != string::npos && pos2 != string::npos ) {
             res = res.substr( pos1, pos2-pos1 );
+          }
       }
     }
   }
@@ -189,6 +191,7 @@ void http_main(reply& rep, const request& req)
       string header, body;
       client.toJXT( req, header, body );
       ProgTrace( TRACE5, "body.size()=%zu, header.size()=%zu, len=%d", body.size(), header.size(), len );
+      /*!!!*/ProgTrace( TRACE5, "body=%s", body.c_str() );
 
       AstraJxtCallbacks* astra_cb_ptr = dynamic_cast<AstraJxtCallbacks*>(jxtlib::JXTLib::Instance()->GetCallbacks());
       astra_cb_ptr->SetPostProcessXMLAnswerCallback(client.jxt_interface[client.operation].post_proc);

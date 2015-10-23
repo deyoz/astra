@@ -10,9 +10,9 @@
 #include "passenger.h"
 #include "tlg/tlg.h"
 #include "trip_tasks.h"
-#include "httpClient.h"
 #include "file_queue.h"
 #include "astra_service.h"
+#include "apis_utils.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE

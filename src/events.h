@@ -199,6 +199,7 @@ class TGrpToLogInfo
 {
   public:
     int grp_id, excess;
+    bool trfer_confirm;
     std::map<TPaxToLogInfoKey, TPaxToLogInfo> pax;
     std::map<int/*id*/, TBagToLogInfo> bag;
     std::map<int/*bag_type*/, TPaidToLogInfo> paid;
@@ -208,6 +209,7 @@ class TGrpToLogInfo
     {
       grp_id=ASTRA::NoExists;
       excess=0;
+      trfer_confirm=false;
       pax.clear();
       bag.clear();
       paid.clear();

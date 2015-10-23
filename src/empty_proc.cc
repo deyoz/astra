@@ -22,6 +22,7 @@
 #include "misc.h"
 #include "apis.h"
 #include "oralib.h"
+#include "httpClient.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -2860,4 +2861,5 @@ int test_access(int argc,char **argv)
 
   return 0;
 }
+
 

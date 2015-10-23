@@ -60,6 +60,8 @@ void traceTrfer( TRACE_SIGNATURE,
 class CheckInInterface : public JxtInterface
 {
 public:
+  enum TAfterSaveActionType { actionNone, actionCheckPieceConcept, actionRefreshPaidBagPC };
+
   CheckInInterface() : JxtInterface("","CheckIn")
   {
      Handler *evHandle;
@@ -140,14 +142,15 @@ public:
   static void SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no, TLogLocale& tlocale);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
-                      int &first_grp_id, TChangeStatusList &ChangeStatusInfo, int &tckin_id);
+                      int &first_grp_id, TChangeStatusList &ChangeStatusInfo, int &tckin_id,
+                      TAfterSaveActionType &action);
 
   static void SaveTagPacks(xmlNodePtr node);
 
+  static void AfterSaveAction(int first_grp_id, TAfterSaveActionType action);
   static void LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax);
   static void LoadPaxRem(xmlNodePtr paxNode);
-  static void LoadPaxTransfer(int pax_id, xmlNodePtr paxNode);
-  static void BuildTransfer(const TTrferRoute &trfer, xmlNodePtr transferNode);
+  static void BuildTransfer(const TTrferRoute &trfer, TTrferRouteType route_type, xmlNodePtr transferNode);
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);
 
   static int CheckCounters(int point_dep,

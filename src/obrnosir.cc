@@ -40,6 +40,7 @@ int seasons_dst_format(int argc,char **argv);
 int points_dst_format(int argc,char **argv);
 int nosir_tscript(int argc, char** argv);
 int tz2db(int argc,char **argv);
+int verifyHTTP(int argc,char **argv);
 
 const
   struct {
@@ -73,7 +74,7 @@ const
     {"-compare_apis",           compare_apis,           NULL,                       NULL},
     {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
     {"-test_file_queue",        test_file_queue,        NULL,                       NULL},
-    {"-tscript",                nosir_tscript,          NULL,                       NULL},    
+    {"-tscript",                nosir_tscript,          NULL,                       NULL},
     {"-mobile_stat",            mobile_stat,            NULL,                       NULL},
     {"-test_astra_locale_adv",  test_astra_locale_adv,  NULL,                       NULL},
     {"-insert_locales",         insert_locales,         NULL,                       NULL},
@@ -81,7 +82,8 @@ const
     {"-dst_points",             points_dst_format,      NULL,                       NULL},
     {"-fill_counters_by_subcls",fill_counters_by_subcls,NULL,                       NULL},
     {"-check_counters_by_subcls",check_counters_by_subcls,NULL,                     NULL},
-    {"-convert_codeshare",      convert_codeshare,      NULL,                       NULL}
+    {"-convert_codeshare",      convert_codeshare,      NULL,                       NULL},
+    {"-http",                   verifyHTTP,             NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
@@ -1286,4 +1288,3 @@ int seasons_dst_format(int argc,char **argv)
   };
   return 0;
 }
-

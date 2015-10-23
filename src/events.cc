@@ -321,7 +321,8 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
     "       NVL(ckin.get_rkAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
     "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
     "       ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
-    "       DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess "
+    "       DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess, "
+    "       pax_grp.trfer_confirm "
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id(+) AND pax_grp.grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
@@ -331,6 +332,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
   {
     grpInfo.grp_id=grp_id;
     grpInfo.excess=Qry.FieldAsInteger("excess");
+    grpInfo.trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
     for(;!Qry.Eof;Qry.Next())
     {
       TPaxToLogInfoKey paxInfoKey;

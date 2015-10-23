@@ -3,6 +3,9 @@
 
 #include "basic.h"
 #include "astra_consts.h"
+#include "oralib.h"
+
+void longToDB(TQuery &Qry, const std::string &column_name, const std::string &src, int len=4000);
 
 namespace AstraContext
 {
