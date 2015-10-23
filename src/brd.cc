@@ -22,6 +22,7 @@
 #include "term_version.h"
 #include "events.h"
 #include "apps_interaction.h"
+#include "baggage_pc.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -504,6 +505,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    NVL(ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
         "    NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
         "    DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess, "
+        "    pax_grp.piece_concept, "
         "    ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags ";
     if (used_for_brd_and_exam)
         sql << ", tckin_pax_grp.tckin_id "
@@ -1445,6 +1447,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int col_rk_amount=Qry.FieldIndex("rk_amount");
       int col_rk_weight=Qry.FieldIndex("rk_weight");
       int col_excess=Qry.FieldIndex("excess");
+      int col_piece_concept=Qry.FieldIndex("piece_concept");
       int col_tags=Qry.FieldIndex("tags");
       int col_client_type=Qry.FieldIndex("client_type");
       int col_tckin_id=Qry.FieldIndex("tckin_id");
@@ -1455,6 +1458,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       TPaxSeats priorSeats(point_id);
       TRemGrp rem_grp;
       if(not Qry.Eof) rem_grp.Load(retBRD_VIEW, point_id);
+      PieceConcept::TNodeList piece_concept;
       for(;!Qry.Eof;Qry.Next())
       {
           int pax_id=Qry.FieldAsInteger(col_pax_id);
@@ -1501,7 +1505,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger(col_coupon_no), 0);
           NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax_id, false), "");
           NewTextChild(paxNode, "tid", Qry.FieldAsInteger(col_tid));
-          NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess), 0);
+          xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
+
+          piece_concept.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
+
           int value_bag_count;
           bool pr_payment=BagPaymentCompleted(Qry.FieldAsInteger(col_grp_id), &value_bag_count);
           if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
@@ -1620,6 +1627,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             };
           };
       };//for(;!Qry.Eof;Qry.Next())
+
     };
     TRptParams rpt_params(reqInfo->desk.lang);
     readTripCounters(point_id, rpt_params, dataNode, rtUnknown, "");
