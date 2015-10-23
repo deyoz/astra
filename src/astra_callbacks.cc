@@ -43,6 +43,7 @@
 #include "serverlib/ocilocal.h"
 #include "serverlib/perfom.h"
 #include "external_spp_synch.h"
+#include "baggage_pc.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -90,6 +91,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new AstraWeb::WebRequestsIface();
 
     new HTTPRequestsIface();
+    new PieceConceptInterface();
 
 };
 

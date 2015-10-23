@@ -40,6 +40,9 @@
 #include "stl_utils.h"
 #include "astra_callbacks.h"
 
+
+
+
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
@@ -2146,6 +2149,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   int first_grp_id, tckin_id;
   TChangeStatusList ChangeStatusInfo;
   set<int> tckin_ids;
+  CheckInInterface::TAfterSaveActionType action=CheckInInterface::actionNone;
   bool result=true;
   //важно, что сначала вызывается CheckInInterface::SavePax для emulCkinDoc
   //только при веб-регистрации НОВОЙ группы возможен ROLLBACK CHECKIN в SavePax при перегрузке
@@ -2157,7 +2161,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
     if (emulReqNode==NULL)
       throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-    if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id))
+    if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id, action))
     {
       if (tckin_id!=NoExists) tckin_ids.insert(tckin_id);
     }
@@ -2172,7 +2176,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulChngDoc.docPtr())->children;
       if (emulReqNode==NULL)
         throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-      if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id))
+      if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id, action))
       {
         if (tckin_id!=NoExists) tckin_ids.insert(tckin_id);
       }
@@ -2200,6 +2204,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     };
 
     CheckTCkinIntegrity(tckin_ids, NoExists);
+    CheckInInterface::AfterSaveAction(first_grp_id, action);
 
     vector< TWebPnr > pnrs;
     xmlNodePtr segsNode = NewTextChild( NewTextChild( resNode, "SavePax" ), "segments" );
@@ -2489,7 +2494,7 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   for ( vector<string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
     for(int j = 0; j < 2; j++) {
       string value = parser.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
-      NewTextChild( node, (*i + (j == 0 ? "" : "_lat")), value );
+      NewTextChild( node, (*i + (j == 0 ? "" : "_lat")).c_str(), value );
       ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
     }
   }
@@ -3017,8 +3022,13 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   }
   string table_name = NodeAsString( n );
   table_name = lowerc( table_name );
-  if ( table_name != "rcpt_doc_types" ) {
+  if ( table_name != "rcpt_doc_types" &&
+       table_name != "pax_doc_countries" &&
+       table_name != "pax_doc_countries_ext") {
     throw EXCEPTIONS::Exception( "invalid table_name %s", table_name.c_str() );
+  }
+  if ( TReqInfo::Instance()->client_type == ctKiosk && table_name == "rcpt_doc_types" ) {
+    table_name = "pax_doc_countries"; //old bug fix
   }
   n = GetNode( "tid", reqNode );
   int tid;
@@ -3034,7 +3044,7 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   TQuery Qry(&OraSession);
   if ( tid != ASTRA::NoExists ) {
     Qry.SQLText =
-      "SELECT tid FROM rcpt_doc_types WHERE tid>:tid AND rownum<2";
+      string("SELECT tid FROM ")  + table_name + " WHERE tid>:tid AND rownum<2";
     Qry.CreateVariable( "tid", otInteger, tid );
     Qry.Execute();
     if ( Qry.Eof ) {
@@ -3044,8 +3054,18 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     tid = ASTRA::NoExists;
   }
   Qry.Clear();
-  Qry.SQLText =
-    "SELECT id,code,code code_lat,name,name_lat,pr_del,tid FROM pax_doc_countries ORDER BY code";
+  string sql;
+  if ( table_name == "pax_doc_countries_ext" ) {
+    sql =
+      "SELECT p.code,p.code code_lat,p.name,p.name_lat,p.country,c.code_lat country_lat,p.pr_del,p.tid FROM pax_doc_countries p, countries c "
+      "WHERE p.country=c.code(+) AND p.pr_del=0 "
+      "ORDER BY code";
+  }
+  else {
+    sql =
+      "SELECT id,code,code code_lat,name,name_lat,pr_del,tid FROM " + table_name + " WHERE pr_del=0 ORDER BY code";
+  }
+  Qry.SQLText = sql;
   Qry.Execute();
   xmlNodePtr node = NewTextChild( n, "data" );
   for ( ; !Qry.Eof; Qry.Next() ) {
@@ -3054,6 +3074,10 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     NewTextChild( rowNode, "code_lat", Qry.FieldAsString( "code_lat" ) );
     NewTextChild( rowNode, "name", Qry.FieldAsString( "name" ) );
     NewTextChild( rowNode, "name_lat", Qry.FieldAsString( "name_lat" ) );
+    if ( table_name == "pax_doc_countries_ext" ) {
+      NewTextChild( rowNode, "country", Qry.FieldAsString( "country" ) );
+      NewTextChild( rowNode, "country_lat", Qry.FieldAsString( "country_lat" ) );
+    }
     if ( tid < Qry.FieldAsInteger( "tid" ) ) {
       tid = Qry.FieldAsInteger( "tid" );
     }
@@ -3437,7 +3461,9 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
 
               int first_grp_id, tckin_id;
               TChangeStatusList ChangeStatusInfo;
-              CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, first_grp_id, ChangeStatusInfo, tckin_id);
+              CheckInInterface::TAfterSaveActionType action=CheckInInterface::actionNone;
+              if (CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, first_grp_id, ChangeStatusInfo, tckin_id, action))
+                CheckInInterface::AfterSaveAction(first_grp_id, action);
             };
           }
           catch(AstraLocale::UserException &e)

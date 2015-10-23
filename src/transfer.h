@@ -63,6 +63,8 @@ class TTransferItem
     };
 };
 
+void PaxTransferFromDB(int pax_id, std::list<TPaxTransferItem> &trfer);
+void PaxTransferToXML(const std::list<TPaxTransferItem> &trfer, xmlNodePtr paxNode);
 void LoadTransfer(int grp_id, std::vector<TTransferItem> &trfer);
 
 }; //namespace CheckIn

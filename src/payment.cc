@@ -379,7 +379,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.SQLText=
         "SELECT pax_grp.grp_id, pax.pax_id, "
         "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
-        "       class, bag_refuse, 0 AS piece_concept, 0 AS bag_types_id, pax_grp.tid, "
+        "       class, bag_refuse, piece_concept, NVL(bag_types_id, 0) AS bag_types_id, pax_grp.tid, "
         "       pax.reg_no, "
         "       pax.surname, "
         "       pax.name, "
@@ -399,7 +399,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.SQLText=
         "SELECT pax_grp.grp_id, NULL AS pax_id, "
         "       point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
-        "       class, bag_refuse, 0 AS piece_concept, 0 AS bag_types_id, pax_grp.tid, "
+        "       class, bag_refuse, piece_concept, NVL(bag_types_id, 0) AS bag_types_id, pax_grp.tid, "
         "       NULL AS reg_no, "
         "       NULL AS surname, "
         "       NULL AS name, "
@@ -457,6 +457,10 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (search_type==searchByReceiptNo && grp_id==NoExists) return;
 
   grp_id=Qry.FieldAsInteger("grp_id");
+  bool piece_concept=!Qry.FieldIsNULL("piece_concept") &&
+                     Qry.FieldAsInteger("piece_concept")!=0;
+  if (piece_concept)
+    throw UserException("MSG.PIECE_CONCEPT_PAYMENT_NOT_SUPPORTED_BY_DCS");
   NewTextChild(dataNode,"grp_id",grp_id);
   NewTextChild(dataNode,"point_dep",Qry.FieldAsInteger("point_dep"));
   NewTextChild(dataNode,"airp_dep",Qry.FieldAsString("airp_dep"));
@@ -468,7 +472,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(dataNode, "bag_types_id", Qry.FieldAsInteger("bag_types_id")!=0);
   else
     NewTextChild(dataNode, "bag_types_id");
-  NewTextChild(dataNode, "piece_concept", (int)(Qry.FieldAsInteger("piece_concept")!=0));
+  NewTextChild(dataNode, "piece_concept", (int)piece_concept);
   NewTextChild(dataNode,"reg_no",Qry.FieldAsInteger("reg_no"));
   NewTextChild(dataNode,"pax_name", RCPT_PAX_NAME::get_pax_name(Qry));
   if (!Qry.FieldIsNULL("pax_id"))
@@ -556,31 +560,19 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(dataNode,"tickets");
   };
 
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
-    "       mark_trips.scd,mark_trips.airp_dep,pr_mark_norms "
-    "FROM pax_grp,mark_trips "
-    "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.Execute();
-  if (!Qry.Eof)
+  TGrpMktFlight mktFlight;
+  if (mktFlight.getByGrpId(grp_id))
   {
-    xmlNodePtr markFltNode=NewTextChild(dataNode,"mark_flight");
-    NewTextChild(markFltNode,"airline",Qry.FieldAsString("airline"));
+    mktFlight.toXML(dataNode);
+    xmlNodePtr markFltNode=NodeAsNode("mark_flight", dataNode);
     if (reqInfo->desk.compatible(BAG_RCPT_KITS_VERSION) &&
         !reqInfo->desk.compatible(AIRCODE_BUGFIX_VERSION))
-      NewTextChild(markFltNode,"aircode",Qry.FieldAsString("airline"));
+      NewTextChild(markFltNode,"aircode",mktFlight.airline);
     else
       NewTextChild(markFltNode,"aircode",
-                   base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline")).AsString("aircode"));
-    NewTextChild(markFltNode,"flt_no",Qry.FieldAsInteger("flt_no"));
-    NewTextChild(markFltNode,"suffix",Qry.FieldAsString("suffix"));
-    NewTextChild(markFltNode,"scd",DateTimeToStr(Qry.FieldAsDateTime("scd")));
-    NewTextChild(markFltNode,"airp_dep",Qry.FieldAsString("airp_dep"));
-    NewTextChild(markFltNode,"pr_mark_norms",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
-    NewTextChild(markFltNode,"pr_mark_rates",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
-  };
+                   base_tables.get("airlines").get_row("code",mktFlight.airline).AsString("aircode"));
+    NewTextChild(markFltNode,"pr_mark_rates",(int)mktFlight.pr_mark_norms);
+  }
 
   if (!pr_unaccomp)
   {
@@ -747,8 +739,16 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
     NewTextChild(resNode,"tid",tid);
 
-    CheckIn::SaveBag(point_dep,grp_id,ASTRA::NoExists,reqNode);
-    CheckIn::SavePaidBag(grp_id,reqNode);
+    CheckIn::TGroupBagItem grp;
+    if (grp.fromXML(reqNode, false)) //для кассы piece_concept=false
+    {
+      grp.fromXMLadditional(point_dep, grp_id, ASTRA::NoExists);
+      grp.toDB(grp_id);
+    };
+
+    boost::optional< list<CheckIn::TPaidBagItem> > paid;
+    PaidBagFromXML(reqNode, paid);
+    PaidBagToDB(grp_id, paid);
 
     TReqInfo::Instance()->LocaleToLog("EVT.LUGGAGE.SAVE_DATA", ASTRA::evtPay,point_dep,0,grp_id);
 };

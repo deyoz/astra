@@ -7,6 +7,22 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
+void longToDB(TQuery &Qry, const std::string &column_name, const std::string &src, int len)
+{
+  std::string::const_iterator ib,ie;
+  ib=src.begin();
+  for(int page_no=1;ib<src.end();page_no++)
+  {
+    ie=ib+len;
+    if (ie>src.end()) ie=src.end();
+    Qry.SetVariable("page_no", page_no);
+    Qry.SetVariable(column_name.c_str(), std::string(ib,ie));
+    Qry.Execute();
+    ib=ie;
+  };
+}
+
+
 namespace AstraContext
 {
 

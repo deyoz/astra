@@ -18,6 +18,7 @@
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/str_utils.h"
 #include <boost/shared_array.hpp>
+#include "baggage_pc.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -915,6 +916,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PieceConcept::TNodeList piece_concept;
     string rpt_name;
     if(rpt_params.airp_arv.empty() ||
             rpt_params.rpt_type==rtPTMTXT) {
@@ -971,6 +973,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, \n"
         "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, \n"
         "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) AS excess, \n"
+        "   pax_grp.piece_concept, "
         "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, \n"
         "   reg_no, \n"
         "   pax_grp.grp_id \n"
@@ -1106,7 +1109,9 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         row.rk_weight += Qry.FieldAsInteger("rk_weight");
         row.bag_amount += Qry.FieldAsInteger("bag_amount");
         row.bag_weight += Qry.FieldAsInteger("bag_weight");
-        row.excess += Qry.FieldAsInteger("excess");
+        int col_piece_concept = Qry.FieldAsInteger("excess");
+
+        row.excess += col_piece_concept;
 
 
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
@@ -1133,7 +1138,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
         NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
         NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
+        xmlNodePtr excessNode = NewTextChild(rowNode, "excess", col_piece_concept);
+        piece_concept.set_concept(excessNode, col_piece_concept);
         {
             TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
             string gender;
@@ -1191,7 +1197,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "rk_weight", row.rk_weight);
         NewTextChild(rowNode, "bag_amount", row.bag_amount);
         NewTextChild(rowNode, "bag_weight", row.bag_weight);
-        NewTextChild(rowNode, "excess", row.excess);
+        xmlNodePtr excessNode = NewTextChild(rowNode, "excess", row.excess);
+        piece_concept.set_concept(excessNode, row.excess);
     }
 
     // Теперь переменные отчета

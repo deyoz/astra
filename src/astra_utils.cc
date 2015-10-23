@@ -1024,7 +1024,7 @@ void LexemeDataToXML(const LexemaData &lexemeData, xmlNodePtr lexemeNode)
   xmlNodePtr node=NewTextChild(lexemeNode,"params");
   for(LParams::const_iterator p=lexemeData.lparams.begin();p!=lexemeData.lparams.end();p++)
   {
-    NewTextChild(node,p->first,lexemeData.lparams.StringValue(p->first));
+    NewTextChild(node,p->first.c_str(),lexemeData.lparams.StringValue(p->first));
   };
 }
 

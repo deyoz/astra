@@ -58,6 +58,8 @@ src/baggage.cc
 src/baggage.h
 src/baggage_calc.cc
 src/baggage_calc.h
+src/baggage_pc.cc
+src/baggage_pc.h
 src/base_tables.cc
 src/base_tables.h
 src/basel_aero.cc

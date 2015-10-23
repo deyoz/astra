@@ -436,10 +436,26 @@ class TPaxGrpItem
     };
 
     const TPaxGrpItem& toXML(xmlNodePtr node) const;
-    TPaxGrpItem& fromXML(xmlNodePtr node);
+    bool fromXML(xmlNodePtr node);
     TPaxGrpItem& fromXMLadditional(xmlNodePtr node);
     const TPaxGrpItem& toDB(TQuery &Qry) const;
     TPaxGrpItem& fromDB(TQuery &Qry);
+};
+
+class TPnrAddrItem
+{
+  public:
+    std::string airline, addr;
+    TPnrAddrItem()
+    {
+      clear();
+    }
+    void clear()
+    {
+      airline.clear();
+      addr.clear();
+    }
+    TPnrAddrItem& fromDB(TQuery &Qry);
 };
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc);
@@ -481,6 +497,8 @@ bool GrpNormsFromDB(int grp_id, std::list< std::pair<TPaxNormItem, TNormItem> > 
 void NormsToXML(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms, const TGroupBagItem &group_bag, xmlNodePtr node);
 void PaxNormsToDB(int pax_id, const boost::optional< std::list<TPaxNormItem> > &norms);
 void GrpNormsToDB(int grp_id, const boost::optional< std::list<TPaxNormItem> > &norms);
+
+bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs);
 
 }; //namespace CheckIn
 
