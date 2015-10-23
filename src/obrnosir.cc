@@ -20,7 +20,6 @@
 #include "file_queue.h"
 #include "empty_proc.h"
 #include "pers_weights.h"
-#include "baggage_calc.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/testmode.h"
@@ -41,8 +40,6 @@ int seasons_dst_format(int argc,char **argv);
 int points_dst_format(int argc,char **argv);
 int nosir_tscript(int argc, char** argv);
 int tz2db(int argc,char **argv);
-int test_msg_queue(int argc,char **argv);
-int test_access(int argc,char **argv);
 int verifyHTTP(int argc,char **argv);
 
 const
@@ -87,9 +84,6 @@ const
     {"-check_counters_by_subcls",check_counters_by_subcls,NULL,                     NULL},
     {"-convert_codeshare",      convert_codeshare,      NULL,                       NULL},
     {"-ovb",                    STAT::ovb,              NULL,                       NULL},
-    {"-test_msg_queue",         test_msg_queue,         NULL,                       NULL},
-    {"-test_access",            test_access,            NULL,                       NULL},
-    {"-test_norms",             BagPayment::test_norms, NULL,                       NULL},
     {"-http",                   verifyHTTP,             NULL,                       NULL},
   };
 
