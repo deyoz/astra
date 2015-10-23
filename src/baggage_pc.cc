@@ -255,20 +255,20 @@ int TRFISCList::toDBAdv() const
 
 void TRFISCList::filter_baggage_rfiscs()
 {
-  for(TRFISCList::const_iterator i=begin(); i!=end(); )
-  {
-    CheckIn::TPaxASVCItem item;
-    item.RFIC=i->second.RFIC;
-    item.RFISC=i->second.RFISC;
-    item.emd_type=i->second.emd_type;
-    std::set<ASTRA::TRcptServiceType> service_types;
-    item.rcpt_service_types(service_types);
-    if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
-        service_types.find(ASTRA::rstPaid)==service_types.end())
-      i=erase(i);
-    else
-      i++;
-  };
+//  for(TRFISCList::const_iterator i=begin(); i!=end(); )
+//  {
+//    CheckIn::TPaxASVCItem item;
+//    item.RFIC=i->second.RFIC;
+//    item.RFISC=i->second.RFISC;
+//    item.emd_type=i->second.emd_type;
+//    std::set<ASTRA::TRcptServiceType> service_types;
+//    item.rcpt_service_types(service_types);
+//    if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
+//        service_types.find(ASTRA::rstPaid)==service_types.end())
+//      i=erase(i);
+//    else
+//      i++;
+//  };
 }
 
 void TPaxNormItem::fromXML(xmlNodePtr node, bool &piece_concept, string &airline)
