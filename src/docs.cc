@@ -880,7 +880,7 @@ struct TPMTotalsCmp {
 };
 
 struct TPMTotalsRow {
-    int seats, adl_m, adl_f, chd, inf, rk_weight, bag_amount, bag_weight, excess;
+    int seats, adl_m, adl_f, chd, inf, rk_weight, bag_amount, bag_weight, excess, excess_pc;
     TPMTotalsRow():
         seats(0),
         adl_m(0),
@@ -890,7 +890,8 @@ struct TPMTotalsRow {
         rk_weight(0),
         bag_amount(0),
         bag_weight(0),
-        excess(0)
+        excess(0),
+        excess_pc(0)
     {};
 };
 
@@ -916,7 +917,6 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
-    PieceConcept::TNodeList piece_concept;
     string rpt_name;
     if(rpt_params.airp_arv.empty() ||
             rpt_params.rpt_type==rtPTMTXT) {
@@ -1106,13 +1106,14 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                     throw Exception("DecodePerson failed");
             }
         }
+        bool piece_concept = Qry.FieldAsInteger("piece_concept");
         row.rk_weight += Qry.FieldAsInteger("rk_weight");
         row.bag_amount += Qry.FieldAsInteger("bag_amount");
         row.bag_weight += Qry.FieldAsInteger("bag_weight");
-        int col_piece_concept = Qry.FieldAsInteger("excess");
-
-        row.excess += col_piece_concept;
-
+        if(piece_concept)
+            row.excess_pc += Qry.FieldAsInteger("excess");
+        else
+            row.excess += Qry.FieldAsInteger("excess");
 
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "reg_no", Qry.FieldAsString("reg_no"));
@@ -1138,8 +1139,18 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
         NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
         NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-        xmlNodePtr excessNode = NewTextChild(rowNode, "excess", col_piece_concept);
-        piece_concept.set_concept(excessNode, col_piece_concept);
+        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
+        NewTextChild(rowNode, "piece_concept", piece_concept);
+
+        // для суммы по группе Всего в классе
+        if(piece_concept) {
+            NewTextChild(rowNode, "excess_pc", Qry.FieldAsInteger("excess"));
+            NewTextChild(rowNode, "excess_kg", 0);
+        } else {
+            NewTextChild(rowNode, "excess_pc", 0);
+            NewTextChild(rowNode, "excess_kg", Qry.FieldAsInteger("excess"));
+        }
+
         {
             TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
             string gender;
@@ -1197,8 +1208,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "rk_weight", row.rk_weight);
         NewTextChild(rowNode, "bag_amount", row.bag_amount);
         NewTextChild(rowNode, "bag_weight", row.bag_weight);
-        xmlNodePtr excessNode = NewTextChild(rowNode, "excess", row.excess);
-        piece_concept.set_concept(excessNode, row.excess);
+        NewTextChild(rowNode, "excess", row.excess);
+        NewTextChild(rowNode, "excess_pc", row.excess_pc);
     }
 
     // Теперь переменные отчета
@@ -1280,9 +1291,12 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "pr_brd_pax", getLocaleText(pr_brd_pax_str, rpt_params.dup_lang()));
     NewTextChild(variablesNode, "pr_brd_pax_lat", getLocaleText(pr_brd_pax_str, AstraLocale::LANG_EN));
     NewTextChild(variablesNode, "pr_group", rpt_params.sort == stRegNo); // Если сортировка по рег. но., то выделяем группы пассажиров в fr-отчете
+    NewTextChild(variablesNode, "kg", getLocaleText("кг"));
+    NewTextChild(variablesNode, "pc", getLocaleText("м"));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
     trip_rpt_person(resNode, rpt_params);
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); // !!!
 }
 
 void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
