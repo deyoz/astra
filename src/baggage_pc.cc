@@ -70,7 +70,7 @@ void TNodeList::set_concept(xmlNodePtr& node, bool val)
     if(node) {
         items.push_back(std::make_pair(node,val));
     }
-    ConceptType tmp = (val == false ? ctWeight : ctSeat);
+    ConceptType tmp = (val == false ? ctWeight : ctPiece);
     if(concept == ctInitial) {
         concept = tmp;
     } else if(concept != ctAll and concept != tmp)
