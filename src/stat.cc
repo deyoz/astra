@@ -1913,7 +1913,7 @@ string GetStatSQLText(const TStatParams &params, int pass)
            " pcs bag_amount, \n"
            " weight bag_weight, \n"
            " excess, \n"
-           " excess_pc \n";
+           " nvl(excess_pc,0) excess_pc\n";
   };
   if (params.statType==statFull)
   {
@@ -1934,7 +1934,7 @@ string GetStatSQLText(const TStatParams &params, int pass)
            " SUM(pcs) bag_amount, \n"
            " SUM(weight) bag_weight, \n"
            " SUM(excess) excess, \n"
-           " SUM(excess) excess_pc \n";
+           " SUM(nvl(excess_pc,0)) excess_pc \n";
   };
   if (params.statType==statShort)
   {
