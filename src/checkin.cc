@@ -6085,6 +6085,14 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
   bool piece_concept=false;
   int bag_types_id=ASTRA::NoExists;
   list<int> grp_ids;
+  bool pr_unaccomp;
+  SirenaExchange::TAvailabilityReq req1;
+  SirenaExchange::TPaymentStatusReq req2;
+  if (action==actionCheckPieceConcept)
+    SirenaExchange::fillPaxsBags(first_grp_id, req1, pr_unaccomp, grp_ids);
+  else
+    SirenaExchange::fillPaxsBags(first_grp_id, req2, pr_unaccomp, grp_ids);
+
   TReqInfo *reqInfo = TReqInfo::Instance();
   if ((action==actionCheckPieceConcept && piece_concept_permit) ||
       action==actionRefreshPaidBagPC)
@@ -6092,16 +6100,6 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
     if (reqInfo->client_type!=ASTRA::ctTerm  ||
         reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
     {
-      SirenaExchange::TAvailabilityReq req1;
-      SirenaExchange::TPaymentStatusReq req2;
-
-      TTripInfo firstOperFlt;
-      bool pr_unaccomp;
-      if (action==actionCheckPieceConcept)
-        SirenaExchange::fillPaxsBags(first_grp_id, req1, pr_unaccomp, grp_ids);
-      else
-        SirenaExchange::fillPaxsBags(first_grp_id, req2, pr_unaccomp, grp_ids);
-
       if (grp_ids.empty()) return;
 
       if (!pr_unaccomp)
