@@ -10,7 +10,7 @@ namespace PieceConcept
 
 struct TNodeList {
     enum ConceptType {ctInitial, ctAll, ctSeat, ctWeight} concept;
-    typedef std::vector<std::pair<xmlNodePtr, bool>> TConceptList; // bool: false - weight, true - seat
+    typedef std::vector<std::pair<xmlNodePtr, bool> > TConceptList; // bool: false - weight, true - seat
     TConceptList items;
     bool must_work;
     void set_concept(xmlNodePtr& node, bool val);
