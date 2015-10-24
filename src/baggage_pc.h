@@ -3,19 +3,25 @@
 
 #include "astra_misc.h"
 #include "passenger.h"
-
+#include "term_version.h"
 namespace PieceConcept
 {
 
 
 struct TNodeList {
     enum ConceptType {ctInitial, ctAll, ctSeat, ctWeight} concept;
-    typedef std::vector<std::pair<xmlNodePtr, bool>> TConceptList; // bool: false - weight, true - seat
+    typedef std::vector<std::pair<xmlNodePtr, bool> > TConceptList; // bool: false - weight, true - seat
     TConceptList items;
+    bool must_work;
     void set_concept(xmlNodePtr& node, bool val);
-    TNodeList(): concept(ctInitial) {}
+    TNodeList(): concept(ctInitial) {
+        must_work = true;
+        if (TReqInfo::Instance()->client_type != ASTRA::ctTerm || ! TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+            must_work = false;
+    }
     ~TNodeList()
-    { apply();
+    {  if(must_work) apply();
+        //временно отключено
 
     }
 private:

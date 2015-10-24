@@ -1912,7 +1912,8 @@ string GetStatSQLText(const TStatParams &params, int pass)
            " unchecked rk_weight, \n"
            " pcs bag_amount, \n"
            " weight bag_weight, \n"
-           " excess \n";
+           " excess, \n"
+           " nvl(excess_pc,0) excess_pc\n";
   };
   if (params.statType==statFull)
   {
@@ -1932,7 +1933,8 @@ string GetStatSQLText(const TStatParams &params, int pass)
            " SUM(unchecked) rk_weight, \n"
            " SUM(pcs) bag_amount, \n"
            " SUM(weight) bag_weight, \n"
-           " SUM(excess) excess \n";
+           " SUM(excess) excess, \n"
+           " SUM(nvl(excess_pc,0)) excess_pc \n";
   };
   if (params.statType==statShort)
   {
@@ -2444,18 +2446,24 @@ struct TPaid {
         excess_pcs(aexcess_pcs)
     {}
 
+    /*
     string toString() const
     {
         ostringstream result;
-        if(excess != 0)
-            result << excess << getLocaleText("™£");
-        if(excess_pcs != 0) {
-            if(not result.str().empty())
-                result << " + ";
-            result << excess_pcs << getLocaleText("¨");
+        if(excess == 0 and excess_pcs == 0)
+            result << 0;
+        else {
+            if(excess != 0)
+                result << excess << getLocaleText("™£");
+            if(excess_pcs != 0) {
+                if(not result.str().empty())
+                    result << " + ";
+                result << excess_pcs << getLocaleText("¨");
+            }
         }
         return result.str();
     }
+    */
 
     void set(int aexcess, int aexcess_pcs)
     {
@@ -2714,6 +2722,7 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
       int col_bag_amount = Qry.FieldIndex("bag_amount");
       int col_bag_weight = Qry.FieldIndex("bag_weight");
       int col_excess = Qry.FieldIndex("excess");
+      int col_excess_pc = Qry.FieldIndex("excess_pc");
       int col_flt_no = Qry.FieldIndex("flt_no");
       int col_scd_out = Qry.FieldIndex("scd_out");
       int col_places = Qry.GetFieldIndex("places");
@@ -2742,7 +2751,7 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
         row.rk_weight = Qry.FieldAsInteger(col_rk_weight);
         row.bag_amount = Qry.FieldAsInteger(col_bag_amount);
         row.bag_weight = Qry.FieldAsInteger(col_bag_weight);
-        row.paid.set(Qry.FieldAsInteger(col_excess), 0);
+        row.paid.set(Qry.FieldAsInteger(col_excess), Qry.FieldAsInteger(col_excess_pc));
         if (!params.skip_rows)
         {
           TFullStatKey key;
@@ -3120,7 +3129,8 @@ void createXMLFullStat(const TStatParams &params,
           NewTextChild(rowNode, "col", im->second.bag_amount);
           NewTextChild(rowNode, "col", im->second.bag_weight);
 
-          NewTextChild(rowNode, "col", im->second.paid.toString());
+          NewTextChild(rowNode, "col", im->second.paid.excess_pcs);
+          NewTextChild(rowNode, "col", im->second.paid.excess);
           if (params.statType==statTrferFull)
               NewTextChild(rowNode, "col", im->first.point_id);
 
@@ -3220,11 +3230,17 @@ void createXMLFullStat(const TStatParams &params,
     SetProp(colNode, "sort", sortIntegerSlashInteger);
     NewTextChild(rowNode, "col", total.bag_weight);
 
-    colNode = NewTextChild(headerNode, "col", getLocaleText("è´†‚≠. (¢•·)"));
-    SetProp(colNode, "width", 70);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("è´.¨"));
+    SetProp(colNode, "width", 40);
     SetProp(colNode, "align", taRightJustify);
     SetProp(colNode, "sort", sortInteger);
-    NewTextChild(rowNode, "col",  total.paid.toString());
+    NewTextChild(rowNode, "col",  total.paid.excess_pcs);
+
+    colNode = NewTextChild(headerNode, "col", getLocaleText("è´.¢•·"));
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "sort", sortInteger);
+    NewTextChild(rowNode, "col",  total.paid.excess);
 
     if (!showTotal)
     {
