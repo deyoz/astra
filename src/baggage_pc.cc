@@ -70,7 +70,7 @@ void TNodeList::set_concept(xmlNodePtr& node, bool val)
     if(node) {
         items.push_back(std::make_pair(node,val));
     }
-    ConceptType tmp = (val == false ? ctWeight : ctSeat);
+    ConceptType tmp = (val == false ? ctWeight : ctPiece);
     if(concept == ctInitial) {
         concept = tmp;
     } else if(concept != ctAll and concept != tmp)
@@ -985,6 +985,24 @@ const std::string TPaymentStatus::id="svc_payment_status";
 const std::string TGroupInfo::id="group_svc_info";
 const std::string TPassengers::id="passenger_with_svc";
 
+string airlineToXML(const std::string &code, const std::string &lang)
+{
+  string result;
+  result=ElemIdToPrefferedElem(etAirline, code, efmtCodeNative, lang);
+  if (result.size()==3) //типа ИКАО
+    result=ElemIdToPrefferedElem(etAirline, code, efmtCodeNative, lang==LANG_EN?LANG_RU:LANG_EN);
+  return result;
+}
+
+string airpToXML(const std::string &code, const std::string &lang)
+{
+  string result;
+  result=ElemIdToPrefferedElem(etAirp, code, efmtCodeNative, lang);
+  if (result.size()==4) //типа ИКАО
+    result=ElemIdToPrefferedElem(etAirp, code, efmtCodeNative, lang==LANG_EN?LANG_RU:LANG_EN);
+  return result;
+}
+
 const TSegItem& TSegItem::toXML(xmlNodePtr node, const std::string &lang) const
 {
   if (node==NULL) return *this;
@@ -992,13 +1010,13 @@ const TSegItem& TSegItem::toXML(xmlNodePtr node, const std::string &lang) const
   SetProp(node, "id", id);
   if (markFlt)
   {
-    SetProp(node, "company", ElemIdToPrefferedElem(etAirline, markFlt.get().airline, efmtCodeNative, lang));
+    SetProp(node, "company", airlineToXML(markFlt.get().airline, lang));
     SetProp(node, "flight", flight(markFlt.get(), lang));
   };
-  SetProp(node, "operating_company", ElemIdToPrefferedElem(etAirline, operFlt.airline, efmtCodeNative, lang));
+  SetProp(node, "operating_company", airlineToXML(operFlt.airline, lang));
   SetProp(node, "operating_flight", flight(operFlt, lang));
-  SetProp(node, "departure", ElemIdToPrefferedElem(etAirp, operFlt.airp, efmtCodeNative, lang));
-  SetProp(node, "arrival", ElemIdToPrefferedElem(etAirp, airp_arv, efmtCodeNative, lang));
+  SetProp(node, "departure", airpToXML(operFlt.airp, lang));
+  SetProp(node, "arrival", airpToXML(airp_arv, lang));
   if (operFlt.scd_out!=ASTRA::NoExists)
     SetProp(node, "departure_time", DateTimeToStr(operFlt.scd_out, "yyyy-mm-ddThh:nn:ss")); //локальное время
   SetProp(node, "equipment", craft, "");
@@ -1014,9 +1032,9 @@ const TPaxSegItem& TPaxSegItem::toXML(xmlNodePtr node, const int &ticket_coupon,
   SetProp(node, "subclass", ElemIdToPrefferedElem(etSubcls, subcl, efmtCodeNative, lang));
   SetProp(node, "coupon_num", ticket_coupon, ASTRA::NoExists);
   for(list<CheckIn::TPnrAddrItem>::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
-    SetProp(NewTextChild(node, "recloc", i->addr), "crs", ElemIdToPrefferedElem(etAirline, i->airline, efmtCodeNative, lang));
+    SetProp(NewTextChild(node, "recloc", i->addr), "crs", airlineToXML(i->airline, lang));
   for(vector<CheckIn::TPaxFQTItem>::const_iterator i=fqts.begin(); i!=fqts.end(); ++i)
-    SetProp(NewTextChild(node, "ffp", i->no), "company", ElemIdToPrefferedElem(etAirline, i->airline, efmtCodeNative, lang));
+    SetProp(NewTextChild(node, "ffp", i->no), "company", airlineToXML(i->airline, lang));
 
   return *this;
 }
