@@ -973,7 +973,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, \n"
         "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, \n"
         "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) AS excess, \n"
-        "   pax_grp.piece_concept, "
+        "   nvl(pax_grp.piece_concept,0) piece_concept, "
         "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, \n"
         "   reg_no, \n"
         "   pax_grp.grp_id \n"
@@ -1296,7 +1296,6 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
     trip_rpt_person(resNode, rpt_params);
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); // !!!
 }
 
 void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1914,7 +1913,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       << setw(7) << (getLocaleText("/ª«", rpt_params.GetLang()))
       << setw(7) << (getLocaleText("CAP.DOC.EX_BAG", rpt_params.GetLang()))
       << setw(24) << string(NodeAsString("pts_agent", variablesNode)).substr(0, 24) << endl
-      << "%-6u %-7s %-6u %-6u %-6u %-6u %-6u %-6u" << endl
+      << "%-6u %-7s %-6u %-6u %-6u %-6u %-6u %-6s" << endl
       << (getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
 
     NewTextChild(variablesNode, "page_footer_top", s.str() );
@@ -2024,6 +2023,21 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     {
       ostringstream adl_fem;
       adl_fem << NodeAsInteger("adl", rowNode) << '/' << NodeAsInteger("adl_f", rowNode);
+
+      ostringstream str_excess;
+      int excess = NodeAsInteger("excess",rowNode);
+      int excess_pc = NodeAsInteger("excess_pc",rowNode);
+      if(excess != 0 and excess_pc != 0)
+          str_excess
+              << excess << getLocaleText("ª£")
+              << "/" << excess_pc << getLocaleText("¬");
+      else if(excess != 0)
+          str_excess
+              << excess << getLocaleText("ª£");
+      else if(excess_pc != 0)
+          str_excess
+              << excess_pc << getLocaleText("¬");
+
       s.str("");
       s << setw(rpt_params.pr_trfer?24:20) << NodeAsString("class_name",rowNode)
         << setw(7) << NodeAsInteger("seats",rowNode)
@@ -2033,7 +2047,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         << setw(7) << NodeAsInteger("bag_amount",rowNode)
         << setw(7) << NodeAsInteger("bag_weight",rowNode)
         << setw(7) << NodeAsInteger("rk_weight",rowNode)
-        << setw(7) << NodeAsInteger("excess",rowNode);
+        << setw(7) << str_excess.str();
 
       NewTextChild(rowNode,"str",s.str());
     };
@@ -3063,7 +3077,6 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.CRS",
                     LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
 void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)

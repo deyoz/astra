@@ -1333,7 +1333,7 @@ class TPaxLoadItem
     int crs_ok,crs_tranzit; //данные бронирования
     int seats,adult_m,adult_f,child,baby; //пассажиры
     int rk_weight,bag_amount,bag_weight; //багаж
-    int excess; //платный вес
+    int excess_wt, excess_pc; //платный вес
 
     TPaxLoadItem():
       class_priority(NoExists),
@@ -1350,7 +1350,7 @@ class TPaxLoadItem
       crs_ok(0), crs_tranzit(0),
       seats(0), adult_m(0), adult_f(0), child(0), baby(0),
       rk_weight(0), bag_amount(0), bag_weight(0),
-      excess(0) {};
+      excess_wt(0), excess_pc(0) {};
 
     bool operator == (const TPaxLoadItem &item) const
     {
@@ -1382,7 +1382,8 @@ class TPaxLoadItem
       rk_weight+=item.rk_weight;
       bag_amount+=item.bag_amount;
       bag_weight+=item.bag_weight;
-      excess+=item.excess;
+      excess_wt+=item.excess_wt;
+      excess_pc+=item.excess_pc;
       return *this;
     };
 
@@ -1534,6 +1535,28 @@ class TZonePaxItem
     bool is_female;
 };
 
+string excessStr(int excess_wt, int excess_pc, bool &unit_required)
+{
+  ostringstream s;
+  if (excess_wt!=0 && excess_pc!=0)
+  {
+    s << excess_wt << getLocaleText("кг") << "/"
+      << excess_pc << getLocaleText("м");
+    unit_required=true;
+  }
+  else
+  {
+    if (excess_wt!=0)
+      s << excess_wt << (unit_required?getLocaleText("кг"):"");
+    else if
+       (excess_pc!=0)
+      s << excess_pc << (unit_required?getLocaleText("м"):"");
+    else
+      s << "0";
+  };
+  return s.str();
+}
+
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   reqNode=GetNode("tripcounters",reqNode);
@@ -1589,7 +1612,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     "       b.bag_weight, "
     "       b.rk_weight, "
     "       c.crs_ok,c.crs_tranzit, "
-    "       e.excess,f.cfg "
+    "       e.excess_wt,e.excess_pc,f.cfg "
     "FROM "
     " (SELECT NVL(SUM(seats),0) AS seats, "
     "         NVL(SUM(DECODE(pers_type,:adult,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS adult_m, "
@@ -1610,7 +1633,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     "         NVL(SUM(crs_tranzit),0) AS crs_tranzit "
     "  FROM counters2 "
     "  WHERE point_dep=:point_id) c, "
-    " (SELECT NVL(SUM(excess),0) AS excess "
+    " (SELECT NVL(SUM(DECODE(piece_concept, 0, excess, NULL, excess,      0)),0) AS excess_wt, "
+    "         NVL(SUM(DECODE(piece_concept, 0,      0, NULL,      0, excess)),0) AS excess_pc "
     "  FROM pax_grp "
     "  WHERE point_dep=:point_id AND status NOT IN ('E') AND bag_refuse=0) e, "
     " (SELECT NVL(SUM(cfg),0) AS cfg "
@@ -1643,7 +1667,11 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   NewTextChild(rowNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
   NewTextChild(rowNode,"crs_ok",Qry.FieldAsInteger("crs_ok"),0);
   NewTextChild(rowNode,"crs_tranzit",Qry.FieldAsInteger("crs_tranzit"),0);
-  NewTextChild(rowNode,"excess",Qry.FieldAsInteger("excess"),0);
+
+  bool excess_unit_required=false;
+  NewTextChild(rowNode,"excess",excessStr(Qry.FieldAsInteger("excess_wt"),
+                                          Qry.FieldAsInteger("excess_pc"),
+                                          excess_unit_required),"0");
   NewTextChild(rowNode,"cfg",Qry.FieldAsInteger("cfg"),0);
   NewTextChild(rowNode,"load",getCommerceWeight( point_id, onlyCheckin, CWTotal ),0);
 
@@ -1702,7 +1730,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       //2. Вычисление crs_ok, crs_tranzit
       //3. Вычисление seats, adult_m, adult_f, child, baby
       //4. Вычисление rk_weight, bag_amount, bag_weight
-      //5. Вычисление excess
+      //5. Вычисление excess_wt, excess_pc
       if ((pass==1 && (pr_cl_grp || pr_hall || pr_airp_arv || pr_trfer || pr_user || pr_client_type || pr_status || pr_ticket_rem || pr_rems)) ||
           (pass==2 && (pr_cl_grp || pr_hall || pr_trfer || pr_user || pr_client_type || pr_status || pr_ticket_rem || pr_rems)) ||
           (pass==4 && (pr_ticket_rem || pr_rems)) ||
@@ -1903,7 +1931,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
           if (pr_status)      s << ", pax_grp.status";
         };
 
-        sql << "SELECT SUM(excess) AS excess, " << endl
+        sql << "SELECT SUM(DECODE(piece_concept, 0, excess, NULL, excess,      0)) AS excess_wt, " << endl
+            << "       SUM(DECODE(piece_concept, 0,      0, NULL,      0, excess)) AS excess_pc, " << endl
             << "       " << select.str().erase(0,1) << endl
             << "FROM pax_grp " << endl;
 
@@ -1989,7 +2018,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         };
         if (pass==5)
         {
-          item.excess=Qry.FieldAsInteger("excess");
+          item.excess_wt=Qry.FieldAsInteger("excess_wt");
+          item.excess_pc=Qry.FieldAsInteger("excess_pc");
         };
 
         list<TPaxLoadItem>::iterator i=find(paxLoad.begin(), paxLoad.end(), item);
@@ -2252,7 +2282,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       NewTextChild(rowNode,"rk_weight",i->rk_weight,0);
       if (!pr_section)
       {
-        NewTextChild(rowNode,"excess",i->excess,0);
+        NewTextChild(rowNode,"excess",excessStr(i->excess_wt, i->excess_pc, excess_unit_required),"0");
         if (!pr_cl_grp && !pr_trfer && !pr_client_type && !pr_status && !pr_hall && !pr_user)
         {
           NewTextChild(rowNode,"crs_ok",i->crs_ok,0);
