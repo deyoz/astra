@@ -2037,6 +2037,8 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       else if(excess_pc != 0)
           str_excess
               << excess_pc << getLocaleText("¬");
+      else
+          str_excess << 0;
 
       s.str("");
       s << setw(rpt_params.pr_trfer?24:20) << NodeAsString("class_name",rowNode)
