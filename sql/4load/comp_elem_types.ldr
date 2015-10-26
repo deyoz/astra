@@ -1,0 +1,23 @@
+LOAD DATA
+INFILE *
+INTO TABLE comp_elem_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,pr_seat
+,time_create
+,image
+,pr_del
+,name_lat
+,filename
+)
+BEGINDATA
+image||chr(124)||
+*
+ERROR at line 6:
+ORA-00932: inconsistent datatypes: expected CHAR got LONG BINARY
+
+
