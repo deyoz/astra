@@ -6048,6 +6048,7 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int
           reqSeg.subcl=pax.subcl;
           CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
           CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
+          ++iReqPax;
         };
       };
     }
