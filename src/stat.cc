@@ -1315,7 +1315,7 @@ struct THallItem {
     string name;
 };
 
-void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList &piece_concept, bool isPaxSearch, int pass, int &count)
+void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList &pcNodeList, bool isPaxSearch, int pass, int &count)
 {
   if(Qry.Eof) return;
 
@@ -1383,7 +1383,7 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList 
       NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
 
       xmlNodePtr excessNode =  NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));;
-      piece_concept.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
+      pcNodeList.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
 
       NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
@@ -1411,7 +1411,7 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList 
   ProgTrace(TRACE5, "XML%d: %s", pass, tm.PrintWithMessage().c_str());
 };
 
-void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList& piece_concept, bool isPaxSearch, int pass, int &count)
+void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList& pcNodeList, bool isPaxSearch, int pass, int &count)
 {
   if(Qry.Eof) return;
 
@@ -1490,7 +1490,7 @@ void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList& piec
       NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
       NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
       xmlNodePtr excessNode = NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
-      piece_concept.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
+      pcNodeList.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
 
       NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
@@ -1672,8 +1672,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         ProgTrace(TRACE5, "Qry.Execute: %s", tm.PrintWithMessage().c_str());
 
         int count=0;
-        PieceConcept::TNodeList piece_concept;
-        PaxListToXML(Qry, resNode, piece_concept, false, 0, count);
+        PieceConcept::TNodeList pcNodeList;
+        PaxListToXML(Qry, resNode, pcNodeList, false, 0, count);
 
         ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
 
@@ -1765,7 +1765,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
         Qry.Execute();
 
-        UnaccompListToXML(Qry, resNode, piece_concept, false, 0, count);
+        UnaccompListToXML(Qry, resNode, pcNodeList, false, 0, count);
 
 
         xmlNodePtr paxListNode = GetNode("paxList", resNode);
@@ -5485,8 +5485,8 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             else
                 throw;
         }
-        PieceConcept::TNodeList piece_concept;
-        PaxListToXML(Qry, resNode, piece_concept, true, pass, count);
+        PieceConcept::TNodeList pcNodeList;
+        PaxListToXML(Qry, resNode, pcNodeList, true, pass, count);
 
     }
     if(count == 0)

@@ -1439,6 +1439,18 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
     r->toXML(remsNode);
   };
 
+  list<TPaxEMDItem> emds;
+  if (!from_crs)
+  {
+    LoadPaxEMD(pax_id, emds);
+    if (!emds.empty())
+    {
+      xmlNodePtr asvcNode=NewTextChild(node,"asvc_rems");
+      for(list<TPaxEMDItem>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
+        e->toXML(asvcNode);
+    }
+  };
+
   vector<CheckIn::TPaxASVCItem> asvc;
   if (from_crs)
     CheckIn::LoadCrsPaxASVC(pax_id, asvc);
@@ -1448,7 +1460,7 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
   xmlNodePtr asvcNode=NULL;
   for(vector<CheckIn::TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
   {
-    if (!from_crs)
+    if (!from_crs && emds.empty())
     {
       if (asvcNode==NULL) asvcNode=NewTextChild(node,"asvc_rems");
       r->toXML(asvcNode);
@@ -2443,7 +2455,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
   Qry.Execute();
   xmlNodePtr node=NewTextChild(resNode,"passengers");
-  PieceConcept::TNodeList piece_concept;
+  PieceConcept::TNodeList pcNodeList;
   if (!Qry.Eof)
   {
     createDefaults=true;
@@ -2571,7 +2583,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger(col_rk_weight),0);
 
       xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
-      piece_concept.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
+      bool piece_concept=Qry.FieldAsInteger(col_piece_concept)!=0;
+      pcNodeList.set_concept(excessNode, piece_concept);
 
       NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
       NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id),"");
@@ -2593,13 +2606,14 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
       if (with_rcpt_info)
       {
-        string receipts=GetBagRcptStr(grp_id, pax_id);
+        string receipts=piece_concept?PieceConcept::GetBagRcptStr(grp_id, pax_id):
+                                      WeightConcept::GetBagRcptStr(grp_id, pax_id);
         NewTextChild(paxNode,"rcpt_no_list",receipts,"");
 
         map<int, pair<bool, bool> >::iterator i=rcpt_complete.find(grp_id);
         if (i==rcpt_complete.end())
         {
-          bool pr_payment=BagPaymentCompleted(grp_id);
+          bool pr_payment=WeightConcept::BagPaymentCompleted(grp_id);  //!!!vlad а этот код вообще работает?
           rcpt_complete[grp_id]=make_pair(pr_payment, !receipts.empty());
         }
         else
@@ -2733,19 +2747,22 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
 
       xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger("excess"),0);
-      piece_concept.set_concept(excessNode,  Qry.FieldAsInteger("piece_concept"));
+      bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
+      pcNodeList.set_concept(excessNode, piece_concept);
 
       NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"),"");
       if (with_rcpt_info)
       {
-        string receipts=GetBagRcptStr(grp_id, NoExists);
+        string receipts=piece_concept?PieceConcept::GetBagRcptStr(grp_id, NoExists):
+                                      WeightConcept::GetBagRcptStr(grp_id, NoExists);
         NewTextChild(paxNode,"rcpt_no_list",receipts,"");
         // все ли квитанции распечатаны
         //0 - частично напечатаны
         //1 - все напечатаны
         //2 - нет ни одной квитанции
         int rcpt_complete=2;
-        if (!receipts.empty()) rcpt_complete=(int)BagPaymentCompleted(grp_id);
+        if (!receipts.empty()) rcpt_complete=piece_concept?(int)true:
+                                                           (int)WeightConcept::BagPaymentCompleted(grp_id);
         if (reqInfo->desk.compatible(BAG_RCPT_KITS_VERSION))
           NewTextChild(paxNode,"rcpt_complete",rcpt_complete,2);
         else
@@ -4960,7 +4977,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         GetGrpToLogInfo(grp.id, grpInfoBefore); //для всех сегментов
         if (needCheckUnattachedTrferAlarm)
           InboundTrfer::GetCheckedTags(grp.id, idGrp, grpTagsBefore); //для всех сегментов
-        PaxASVCList::GetBoundPaidBagEMD(grp.id, paidBagEMDBefore);
+        PaxASVCList::GetBoundPaidBagEMD(grp.id, NoExists, paidBagEMDBefore);
         //BSM
         if (BSMsend)
           BSM::LoadContent(grp.id,BSMContentBefore);
@@ -5279,8 +5296,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             else
             {
               if (action==actionNone) action=actionRefreshPaidBagPC;
-              //PieceConcept::SyncPaidBagEMDToDB(grp.id, emd); !!!vlad
-              CheckIn::PaidBagEMDToDB(grp.id, emd);
+              PieceConcept::PaidBagEMDToDB(grp.id, paidBagEMDBefore, emd);
             }
 
             SaveTagPacks(reqNode);
@@ -6190,6 +6206,15 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
             {
               SirenaExchange::TPaymentStatusRes res;
               SirenaExchange::SendRequest(req2, res);
+
+              SirenaExchange::TPaymentStatusList::const_iterator iReq=req2.bags.begin(); //!!!vlad заглушка
+              SirenaExchange::TPaymentStatusList::iterator iRes=res.begin();
+              for(;iReq!=req2.bags.end() && iRes!=res.end(); ++iReq, ++iRes)
+              {
+                iRes->second.pr_cabin=iReq->second.pr_cabin;
+                if (iReq->second.status==PieceConcept::bsPaid) iRes->second.status=PieceConcept::bsPaid;
+              }
+
               set<string> rfiscs;
               res.check_unknown_status(rfiscs);
               if (!rfiscs.empty())
@@ -6431,7 +6456,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       else
       {
         list<PieceConcept::TPaidBagItem> paid;
-        PieceConcept::PaidBagFromDB(grp.id, paid);
+        PieceConcept::PaidBagFromDB(grp.id, true, paid);
         PieceConcept::PaidBagViewToXML(trfer, paid, resNode);
 
         list<CheckIn::TPaidBagEMDItem> emd;

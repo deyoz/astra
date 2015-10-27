@@ -16,8 +16,6 @@ using namespace AstraEdifact;
 namespace PaxASVCList
 {
 
-enum TListType {unboundByPointId, unboundByPaxId, allWithTknByPointId, oneWithTknByGrpId, oneWithTknByPaxId};
-
 string GetSQL(const TListType ltype)
 {
   ostringstream sql;
@@ -48,37 +46,47 @@ string GetSQL(const TListType ltype)
              "       a.refuse, \n"
              "       b.grp_id AS paid_bag_emd_grp_id \n";
     sql << "FROM \n"
-           " (SELECT pax_grp.grp_id, \n"
-           "         pax_asvc.rfic, \n"
-           "         pax_asvc.rfisc, \n"
-           "         pax_asvc.ssr_code, \n"
-           "         pax_asvc.service_name, \n"
-           "         pax_asvc.emd_type, \n"
-           "         pax_asvc.emd_no, \n"
-           "         pax_asvc.emd_coupon \n";
-    if (ltype==allWithTknByPointId)
-      sql << ",        pax.pax_id, \n"
-             "         pax.surname, \n"
-             "         pax.name, \n"
-             "         pax.pers_type, \n"
-             "         pax.reg_no, \n"
-             "         pax.ticket_no, \n"
-             "         pax.coupon_no, \n"
-             "         pax.ticket_rem, \n"
-             "         pax.ticket_confirm, \n"
-             "         pax.pr_brd, \n"
-             "         pax.refuse \n";
-
-    sql << "  FROM pax_grp, pax, pax_asvc \n"
-           "  WHERE pax_grp.grp_id=pax.grp_id AND \n"
-           "        pax.pax_id=pax_asvc.pax_id AND \n";
-    if (ltype==unboundByPointId ||
-        ltype==allWithTknByPointId)
-      sql << "        pax_grp.point_dep=:id AND \n";
-    if (ltype==unboundByPaxId)
-      sql << "        pax.pax_id=:id AND \n";
-    sql << "        pax_grp.status NOT IN ('E') AND \n"
-           "        pax.refuse IS NULL) a, \n"
+           " ( \n";
+    for(int pass=0; pass<2; pass++)
+    {
+      sql << "  SELECT pax_grp.grp_id, \n"
+             "         e.rfic, \n"
+             "         e.rfisc, \n"
+             "         e.ssr_code, \n"
+             "         e.service_name, \n"
+             "         e.emd_type, \n"
+             "         e.emd_no, \n"
+             "         e.emd_coupon \n";
+      if (ltype==allWithTknByPointId)
+        sql << ",        pax.pax_id, \n"
+               "         pax.surname, \n"
+               "         pax.name, \n"
+               "         pax.pers_type, \n"
+               "         pax.reg_no, \n"
+               "         pax.ticket_no, \n"
+               "         pax.coupon_no, \n"
+               "         pax.ticket_rem, \n"
+               "         pax.ticket_confirm, \n"
+               "         pax.pr_brd, \n"
+               "         pax.refuse \n";
+      if (pass==0)
+        sql << "  FROM pax_grp, pax, pax_asvc e \n";
+      else
+        sql << "  FROM pax_grp, pax, pax_emd e \n";
+      sql << "  WHERE pax_grp.grp_id=pax.grp_id AND \n"
+             "        pax.pax_id=e.pax_id AND \n";
+      if (ltype==unboundByPointId ||
+          ltype==allWithTknByPointId)
+        sql << "        pax_grp.point_dep=:id AND \n";
+      if (ltype==unboundByPaxId)
+        sql << "        pax.pax_id=:id AND \n";
+      sql << "        pax_grp.status NOT IN ('E') AND \n"
+             "        pax.refuse IS NULL \n";
+      if (pass==0)
+        sql << "        AND NOT EXISTS(SELECT 0 FROM pax_emd WHERE pax_id=pax.pax_id) \n"
+               "  UNION \n";
+    };
+    sql << " ) a, \n"
            " (SELECT pax_grp.grp_id, paid_bag_emd.emd_no, paid_bag_emd.emd_coupon \n";
     if (ltype==unboundByPointId ||
         ltype==allWithTknByPointId)
@@ -102,29 +110,48 @@ string GetSQL(const TListType ltype)
   if (ltype==oneWithTknByGrpId ||
       ltype==oneWithTknByPaxId)
   {
-    sql << "SELECT pax.grp_id, \n"
-           "       pax.pax_id, \n"
-           "       pax.surname, \n"
-           "       pax.name, \n"
-           "       pax.pers_type, \n"
-           "       pax.reg_no, \n"
-           "       pax.ticket_no, \n"
-           "       pax.coupon_no, \n"
-           "       pax.ticket_rem, \n"
-           "       pax.ticket_confirm, \n"
-           "       pax.pr_brd, \n"
-           "       pax.refuse \n"
-           "FROM pax, pax_asvc \n"
-           "WHERE pax.pax_id=pax_asvc.pax_id AND \n";
-    if (ltype==oneWithTknByGrpId)
-      sql << "      pax.grp_id=:grp_id AND \n";
-    else
-      sql << "      pax.pax_id=:pax_id AND \n";
-    sql << "      pax_asvc.emd_no=:emd_no AND pax_asvc.emd_coupon=:emd_coupon \n"
-           "ORDER BY pax.reg_no \n";
+    for(int pass=0; pass<2; pass++)
+    {
+      sql << "SELECT pax.grp_id, \n"
+             "       pax.pax_id, \n"
+             "       pax.surname, \n"
+             "       pax.name, \n"
+             "       pax.pers_type, \n"
+             "       pax.reg_no, \n"
+             "       pax.ticket_no, \n"
+             "       pax.coupon_no, \n"
+             "       pax.ticket_rem, \n"
+             "       pax.ticket_confirm, \n"
+             "       pax.pr_brd, \n"
+             "       pax.refuse \n";
+      if (pass==0)
+        sql << "FROM pax, pax_asvc e \n";
+      else
+        sql << "FROM pax, pax_emd e \n";
+      sql << "WHERE pax.pax_id=e.pax_id AND \n";
+      if (ltype==oneWithTknByGrpId)
+        sql << "      pax.grp_id=:grp_id AND \n";
+      else
+        sql << "      pax.pax_id=:pax_id AND \n";
+      sql << "      e.emd_no=:emd_no AND e.emd_coupon=:emd_coupon \n";
+      if (pass==0)
+        sql << "      AND NOT EXISTS(SELECT 0 FROM pax_emd WHERE pax_id=pax.pax_id) \n"
+               "UNION \n";
+      else
+        sql << "ORDER BY reg_no \n";
+    }
   }
-  //ProgTrace(TRACE5, "%s: SQL=\n %s", __FUNCTION__, sql.str().c_str());
+  //ProgTrace(TRACE5, "%s: SQL=\n%s", __FUNCTION__, sql.str().c_str());
   return sql.str();
+}
+
+void printSQLs()
+{
+  ProgTrace(TRACE5, "%s: SQL(unboundByPointId)=\n%s", __FUNCTION__, GetSQL(unboundByPointId).c_str());
+  ProgTrace(TRACE5, "%s: SQL(unboundByPaxId)=\n%s", __FUNCTION__, GetSQL(unboundByPaxId).c_str());
+  ProgTrace(TRACE5, "%s: SQL(allWithTknByPointId)=\n%s", __FUNCTION__, GetSQL(allWithTknByPointId).c_str());
+  ProgTrace(TRACE5, "%s: SQL(oneWithTknByGrpId)=\n%s", __FUNCTION__, GetSQL(oneWithTknByGrpId).c_str());
+  ProgTrace(TRACE5, "%s: SQL(oneWithTknByPaxId)=\n%s", __FUNCTION__, GetSQL(oneWithTknByPaxId).c_str());
 }
 
 void GetUnboundEMD(int id, multiset<CheckIn::TPaxASVCItem> &asvc, bool is_pax_id, bool only_one)
@@ -167,41 +194,32 @@ bool ExistsPaxUnboundEMD(int pax_id)
   return !asvc.empty();
 };
 
-void GetBoundPaidBagEMD(int grp_id, CheckIn::PaidBagEMDList &emd)
+void GetBoundPaidBagEMD(int grp_id, int trfer_num, CheckIn::PaidBagEMDList &emd)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
-    Qry.SQLText =
+  Qry.SQLText =
     "SELECT paid_bag_emd.bag_type, "
     "       paid_bag_emd.rfisc, "
     "       paid_bag_emd.transfer_num, "
     "       paid_bag_emd.emd_no, "
     "       paid_bag_emd.emd_coupon, "
     "       paid_bag_emd.weight, "
+    "       paid_bag_emd.pax_id, "
+    "       paid_bag_emd.handmade, "
     "       'C' AS rfic, "
     "       NULL AS ssr_code, "
     "       NULL AS service_name, "
     "       'A' AS emd_type "
     "FROM paid_bag_emd "
-    "WHERE paid_bag_emd.grp_id=:grp_id";  //!!!vlad transfer_num=0 ?
- /*
-    "SELECT paid_bag_emd.bag_type, "
-    "       paid_bag_emd.emd_no, "
-    "       paid_bag_emd.emd_coupon, "
-    "       paid_bag_emd.weight, "
-    "       pax_asvc.rfic, "
-    "       pax_asvc.rfisc, "
-    "       pax_asvc.ssr_code, "
-    "       pax_asvc.service_name, "
-    "       pax_asvc.emd_type "
-    "FROM paid_bag_emd, pax, pax_asvc "
-    "WHERE paid_bag_emd.grp_id=pax.grp_id AND "
-    "      pax.pax_id=pax_asvc.pax_id AND "
-    "      paid_bag_emd.emd_no=pax_asvc.emd_no AND "
-    "      paid_bag_emd.emd_coupon=pax_asvc.emd_coupon AND "
-    "      paid_bag_emd.grp_id=:grp_id AND "
-    "      pax.refuse IS NULL";*/
+    "WHERE paid_bag_emd.grp_id=:grp_id AND "
+    "      (:transfer_num IS NULL OR NVL(transfer_num,0)=:transfer_num)";
+
   Qry.CreateVariable("grp_id", otInteger, grp_id);
+  if (trfer_num!=NoExists)
+    Qry.CreateVariable("transfer_num", otInteger, trfer_num);
+  else
+    Qry.CreateVariable("transfer_num", otInteger, FNull);
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
@@ -374,7 +392,7 @@ void GetBoundEMDStatusList(const int grp_id,
   if (in_final_status) return;
 
   CheckIn::PaidBagEMDList boundEMDs;
-  PaxASVCList::GetBoundPaidBagEMD(grp_id, boundEMDs);
+  PaxASVCList::GetBoundPaidBagEMD(grp_id, NoExists, boundEMDs);
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText= GetSQL(PaxASVCList::oneWithTknByGrpId);
@@ -586,5 +604,199 @@ bool ActualEMDEvent(const TEMDCtxtItem &EMDCtxt,
   event.id3=EMDCtxtActual.grp_id;
   return true;
 };
+
+#include "astra_emd.h"
+#include "tlg/emd_edifact.h"
+
+const TPaxEMDItem& TPaxEMDItem::toDB(TQuery &Qry) const
+{
+  CheckIn::TPaxASVCItem::toDB(Qry);
+  Qry.SetVariable("transfer_num", trfer_num);
+  Qry.SetVariable("et_no", et_no);
+  Qry.SetVariable("et_coupon", et_coupon);
+  return *this;
+}
+
+TPaxEMDItem& TPaxEMDItem::fromDB(TQuery &Qry)
+{
+  clear();
+  CheckIn::TPaxASVCItem::fromDB(Qry);
+  trfer_num=Qry.FieldAsInteger("transfer_num");
+  et_no=Qry.FieldAsString("et_no");
+  et_coupon=Qry.FieldAsInteger("et_coupon");
+  return *this;
+}
+
+std::string TPaxEMDItem::traceStr() const
+{
+  std::ostringstream s;
+  s << RFIC << " | "
+    << RFISC << " | "
+    << service_name << " | "
+    << emd_type << " | "
+    << emd_no;
+  if (emd_coupon!=NoExists)
+    s << "/" << emd_coupon;
+  s << " | " << et_no;
+  if (et_coupon!=NoExists)
+    s << "/" << et_coupon;
+  return s.str();
+}
+
+bool TPaxEMDItem::valid() const
+{
+  return (!RFIC.empty() &&
+          !RFISC.empty() &&
+          !service_name.empty() &&
+          !emd_type.empty() &&
+          !emd_no.empty() &&
+          emd_coupon!=NoExists &&
+          !et_no.empty() &&
+          et_coupon!=NoExists);
+}
+
+bool LoadPaxEMD(int pax_id, list<TPaxEMDItem> &emds)
+{
+  emds.clear();
+  TCachedQuery Qry("SELECT * FROM pax_emd WHERE pax_id=:pax_id AND emd_type='A'",
+                   QParams() << QParam("pax_id", otInteger, pax_id));
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+    emds.push_back(TPaxEMDItem().fromDB(Qry.get()));
+
+  return !emds.empty();
+};
+
+void PaxEMDToDB(int pax_id, const list<TPaxEMDItem> &emds)
+{
+  TCachedQuery Qry(
+    "INSERT INTO pax_emd(pax_id, transfer_num, rfic, rfisc, ssr_code, service_name, emd_type, emd_no, emd_coupon, et_no, et_coupon) "
+    "VALUES(:pax_id, :transfer_num, :rfic, :rfisc, :ssr_code, :service_name, :emd_type, :emd_no, :emd_coupon, :et_no, :et_coupon)",
+    QParams() << QParam("pax_id", otInteger, pax_id)
+              << QParam("transfer_num", otInteger)
+              << QParam("rfic", otString)
+              << QParam("rfisc", otString)
+              << QParam("ssr_code", otString)
+              << QParam("service_name", otString)
+              << QParam("emd_type", otString)
+              << QParam("emd_no", otString)
+              << QParam("emd_coupon", otInteger)
+              << QParam("et_no", otString)
+              << QParam("et_coupon", otInteger));
+  for(list<TPaxEMDItem>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
+  {
+    e->toDB(Qry.get());
+    Qry.get().Execute();
+  };
+};
+
+void SyncPaxEMD(const CheckIn::TTransferItem &trfer, const TPaxEMDItem &emd)
+{
+  if (trfer.operFlt.airp.empty() ||
+      trfer.operFlt.scd_out==NoExists ||
+      trfer.airp_arv.empty()) return;
+  if (!emd.valid()) return;
+
+  list<TPaxEMDItem> emds(1, emd);
+
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="DELETE FROM pax_emd WHERE emd_no=:emd_no AND emd_coupon=:emd_coupon";
+  Qry.CreateVariable("emd_no", otString, emd.emd_no);
+  Qry.CreateVariable("emd_coupon", otInteger, emd.emd_coupon);
+  Qry.Execute();
+
+  Qry.Clear();
+  Qry.SQLText="SELECT grp_id, pax_id FROM pax WHERE ticket_no=:et_no";
+  Qry.CreateVariable("et_no", otString, emd.et_no);
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next())
+  {
+    int grp_id=Qry.FieldAsInteger("grp_id");
+    int pax_id=Qry.FieldAsInteger("pax_id");
+    TTrferRoute route;
+    route.GetRoute(grp_id, trtWithFirstSeg);
+    int trfer_num=0;
+    for(TTrferRoute::iterator t=route.begin(); t!=route.end(); ++t, trfer_num++)
+    {
+      modf(t->operFlt.scd_out, &(t->operFlt.scd_out));
+      if (t->operFlt.airp==trfer.operFlt.airp &&
+          t->operFlt.scd_out==trfer.operFlt.scd_out &&
+          t->airp_arv==trfer.airp_arv)
+      {
+        emds.front().trfer_num=trfer_num;
+        PaxEMDToDB(pax_id, emds);
+        break;
+      };
+    }
+  };
+}
+
+TDateTime BoostToDateTime( const boost::gregorian::date &d1 )
+{
+  TDateTime d2;
+  EncodeDate(d1.year(),d1.month(),d1.day(),d2);
+  return d2;
+};
+
+
+void handleEmdDispResponse(const std::string &tlg)
+{
+  std::list<Emd> emdList = EmdEdifactReader::readList(tlg);
+  for(list<Emd>::const_iterator e=emdList.begin(); e!=emdList.end(); ++e)
+  {
+    const Emd &emd=*e;
+    for(list<EmdTicket>::const_iterator t=emd.lTicket().begin(); t!=emd.lTicket().end(); ++t)
+    {
+      const EmdTicket &emdTick=*t;
+      for(list<EmdCoupon>::const_iterator c=emdTick.lCpn().begin(); c!=emdTick.lCpn().end(); ++c)
+      {
+        const EmdCoupon &emdCpn=*c;
+        if(!emdCpn.haveItin()) continue; //не имеем данных о сегменте
+
+        CheckIn::TTransferItem trferItem;
+        trferItem.operFlt.airline=ElemToElemId(etAirline, emdCpn.itin().airCode(), trferItem.operFlt.airline_fmt);
+        trferItem.operFlt.flt_no=emdCpn.itin().flightnum();
+        trferItem.operFlt.airp=ElemToElemId(etAirp, emdCpn.itin().depPointCode(), trferItem.operFlt.airp_fmt);
+        if (!emdCpn.itin().date1().is_special())
+          trferItem.operFlt.scd_out=BoostToDateTime(emdCpn.itin().date1());
+        trferItem.airp_arv=ElemToElemId(etAirp, emdCpn.itin().arrPointCode(), trferItem.airp_arv_fmt);
+
+        TPaxEMDItem emdItem;
+        emdItem.RFIC=emd.rfic()->code();
+        emdItem.RFISC=emdCpn.rfisc()?emdCpn.rfisc().get().rfisc():"";
+        emdItem.service_name=emdCpn.rfisc()?emdCpn.rfisc().get().description():"";
+        if (emdItem.service_name.empty()) emdItem.service_name=emdItem.RFISC;
+        emdItem.emd_type=(emd.type()==DocType::EmdA ? "A" : "S");  //!!!vlad может как-то по другому
+
+        if(!emdCpn.tickNum().empty())
+        {
+          emdItem.emd_no=emdCpn.tickNum().get();
+          emdItem.emd_coupon=emdCpn.num().get(); //!!!vlad проверка на неопределенность
+        };
+        if(!emdCpn.associatedTickNum().empty())
+        {
+          emdItem.et_no=emdCpn.associatedTickNum().get();
+          emdItem.et_coupon=emdCpn.associatedNum().get(); //!!!vlad проверка на неопределенность
+        };
+
+        //!!!vlad проверка что EMD относятся к багажу
+        //проверить EMD-S
+
+        ProgTrace(TRACE5, "%s: %s %s->%s: %s",
+                          __FUNCTION__,
+                          trferItem.operFlt.scd_out==NoExists?"??.??.??":
+                            DateTimeToStr(trferItem.operFlt.scd_out, "dd.mm.yy").c_str(),
+                          trferItem.operFlt.airp.c_str(),
+                          trferItem.airp_arv.c_str(),
+                          emdItem.traceStr().c_str());
+
+        SyncPaxEMD(trferItem, emdItem);
+
+      }
+    }
+  }
+}
 
 

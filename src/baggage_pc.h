@@ -4,6 +4,7 @@
 #include "astra_misc.h"
 #include "passenger.h"
 #include "term_version.h"
+#include "emdoc.h"
 namespace PieceConcept
 {
 
@@ -160,14 +161,18 @@ class TPaidBagItem : public TSimplePaidBagItem
 };
 
 void PaidBagToDB(int grp_id, const std::list<TPaidBagItem> &paid);
-void PaidBagFromDB(int grp_id, std::list<TPaidBagItem> &paid);
+void PaidBagFromDB(int id, bool is_grp_id, std::list<TPaidBagItem> &paid);
+
+std::string GetBagRcptStr(int grp_id, int pax_id);
+bool BagPaymentCompleted(int pax_id);
 
 void PreparePaidBagInfo(int grp_id,
                         int seg_count,
                         std::list<TPaidBagItem> &paid_bag);
 
-void SyncPaidBagEMDToDB(int grp_id,
-                        const boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emd);
+void PaidBagEMDToDB(int grp_id,
+                    const CheckIn::PaidBagEMDList &prior_emds,
+                    boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds);
 
 void PaidBagViewToXML(const TTrferRoute &trfer,
                       const std::list<TPaidBagItem> &paid,

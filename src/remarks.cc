@@ -111,7 +111,7 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
         default:
             throw Exception("LoadRemGrp: unknown event type %d", rem_set_type);
     }
-    
+
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
@@ -455,7 +455,7 @@ bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
 {
   asvc.clear();
   const char* sql=
-    "SELECT * FROM pax_asvc WHERE pax_id=:pax_id";
+    "SELECT * FROM pax_asvc WHERE pax_id=:pax_id AND emd_type='A'";
   const char* crs_sql=
     "SELECT * FROM crs_pax_asvc "
     "WHERE pax_id=:pax_id AND "
