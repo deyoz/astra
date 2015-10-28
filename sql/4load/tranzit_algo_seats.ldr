@@ -1,0 +1,18 @@
+LOAD DATA
+INFILE *
+INTO TABLE tranzit_algo_seats
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+id
+,airline
+,flt_no
+,airp
+,pr_new
+)
+BEGINDATA
+64908|"5ç"|||0
+65453||||1
+63966|"èé"|||0
+64926|"ûí"|454||1
