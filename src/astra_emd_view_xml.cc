@@ -197,8 +197,10 @@ void EmdXmlView::viewEmdTicketCoupons(const std::list<EmdCoupon>& lCpn) const
 
 using namespace AstraLocale;
 
-string EmdXmlViewToText(const Emd &emd)
+string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists)
 {
+  unknownPnrExists=false;
+
   XMLDoc doc("emd");
   xmlNodePtr node=NodeAsNode("/emd", doc.docPtr());
   EmdDisp::doDisplay(EmdXmlView(node, emd));
@@ -208,6 +210,7 @@ string EmdXmlViewToText(const Emd &emd)
   node2=NodeAsNode("recloc",node)->children;
   res << "PNR" << ": "
       << NodeAsStringFast("regnum",node2) << "/" << NodeAsStringFast("awk",node2) << endl;
+  if (NodeIsNULLFast("regnum",node2)) unknownPnrExists=true;
   //Продажа
   node2=NodeAsNode("origin",node)->children;
   res << getLocaleText("Продажа") << ": " << endl

@@ -697,8 +697,14 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer, const TPaxEMDItem &emd)
       trfer.airp_arv.empty()) return;
   if (!emd.valid()) return;
 
-  list<TPaxEMDItem> emds(1, emd);
+  //проверка что EMD относятся к багажу
+  std::set<ASTRA::TRcptServiceType> service_types;
+  emd.rcpt_service_types(service_types);
+  if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
+      service_types.find(ASTRA::rstPaid)==service_types.end()) return;
 
+
+  list<TPaxEMDItem> emds(1, emd);
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -768,21 +774,20 @@ void handleEmdDispResponse(const std::string &tlg)
         emdItem.RFISC=emdCpn.rfisc()?emdCpn.rfisc().get().rfisc():"";
         emdItem.service_name=emdCpn.rfisc()?emdCpn.rfisc().get().description():"";
         if (emdItem.service_name.empty()) emdItem.service_name=emdItem.RFISC;
-        emdItem.emd_type=(emd.type()==DocType::EmdA ? "A" : "S");  //!!!vlad может как-то по другому
+        emdItem.emd_type=(emd.type()==DocType::EmdA ? "A" : "S");
 
         if(!emdCpn.tickNum().empty())
         {
           emdItem.emd_no=emdCpn.tickNum().get();
-          emdItem.emd_coupon=emdCpn.num().get(); //!!!vlad проверка на неопределенность
+          if (emdCpn.num())
+            emdItem.emd_coupon=emdCpn.num().get();
         };
         if(!emdCpn.associatedTickNum().empty())
         {
           emdItem.et_no=emdCpn.associatedTickNum().get();
-          emdItem.et_coupon=emdCpn.associatedNum().get(); //!!!vlad проверка на неопределенность
+          if (emdCpn.associatedNum())
+            emdItem.et_coupon=emdCpn.associatedNum().get();
         };
-
-        //!!!vlad проверка что EMD относятся к багажу
-        //проверить EMD-S
 
         ProgTrace(TRACE5, "%s: %s %s->%s: %s",
                           __FUNCTION__,

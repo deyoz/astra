@@ -5005,7 +5005,7 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
             TGrpEmds::iterator idx = grpEmds.find(pax.grp_id);
             if(idx == grpEmds.end()) {
                 CheckIn::PaidBagEMDList &emds = grpEmds[pax.grp_id];
-                PaxASVCList::GetBoundPaidBagEMD(pax.grp_id, 0, emds); //!!!vlad текущий сегмент или все?
+                PaxASVCList::GetBoundPaidBagEMD(pax.grp_id, 0, emds); //!!!vlad текущий сегмент или все? только ASVC из PNL или из псевдо PNR тоже?
             }
 
             pax.pnrs.get(pax.pnr_id);

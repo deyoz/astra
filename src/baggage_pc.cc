@@ -170,7 +170,7 @@ void TRFISCList::fromXML(xmlNodePtr node)
     if (!insert(make_pair(item.RFISC, item)).second)
       ProgTrace(TRACE5, "TRFISCListItem::fromXML: Duplicate @rfisc='%s'", item.RFISC.c_str());
   }
-  //filter_baggage_rfiscs(); !!!vlad
+  filter_baggage_rfiscs();
 }
 
 void TRFISCList::fromDB(int list_id)
@@ -257,20 +257,7 @@ int TRFISCList::toDBAdv() const
 
 void TRFISCList::filter_baggage_rfiscs()
 {
-//  for(TRFISCList::const_iterator i=begin(); i!=end(); )
-//  {
-//    CheckIn::TPaxASVCItem item;
-//    item.RFIC=i->second.RFIC;
-//    item.RFISC=i->second.RFISC;
-//    item.emd_type=i->second.emd_type;
-//    std::set<ASTRA::TRcptServiceType> service_types;
-//    item.rcpt_service_types(service_types);
-//    if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
-//        service_types.find(ASTRA::rstPaid)==service_types.end())
-//      i=erase(i);
-//    else
-//      i++;
-//  };
+//  здесь, возможно, надо в будущем сделать фильтрацию RFISC, относящихся только к багажу
 }
 
 void TPaxNormItem::fromXML(xmlNodePtr node, bool &piece_concept, string &airline)
@@ -644,7 +631,7 @@ bool BagPaymentCompleted(int pax_id)
   PaidBagFromDB(pax_id, false, paid);
   for(list<TPaidBagItem>::const_iterator i=paid.begin(); i!=paid.end(); ++i)
     if (i->status==bsUnknown||
-        i->status==bsNeed) return false;  //!!!vlad контролируем оплату на всех сегментах или только на первом?
+        i->status==bsNeed) return false;
   return true;
 }
 
@@ -963,7 +950,21 @@ const TSegItem& TSegItem::toXML(xmlNodePtr node, const std::string &lang) const
   SetProp(node, "departure", airpToXML(operFlt.airp, lang));
   SetProp(node, "arrival", airpToXML(airp_arv, lang));
   if (operFlt.scd_out!=ASTRA::NoExists)
-    SetProp(node, "departure_time", DateTimeToStr(operFlt.scd_out, "yyyy-mm-ddThh:nn:ss")); //локальное время
+  {
+    if (scd_out_contain_time)
+      SetProp(node, "departure_time", DateTimeToStr(operFlt.scd_out, "yyyy-mm-ddThh:nn:ss")); //локальное время
+    else
+      SetProp(node, "departure_date", DateTimeToStr(operFlt.scd_out, "yyyy-mm-dd")); //локальная дата
+
+  }
+  if (scd_in!=ASTRA::NoExists)
+  {
+    if (scd_in_contain_time)
+      SetProp(node, "arrival_time", DateTimeToStr(scd_in, "yyyy-mm-ddThh:nn:ss")); //локальное время
+    else
+      SetProp(node, "arrival_date", DateTimeToStr(scd_in, "yyyy-mm-dd")); //локальная дата
+
+  }
   SetProp(node, "equipment", craft, "");
 
   return *this;
@@ -1011,6 +1012,8 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node, const std::string &lang) const
     xmlNodePtr docNode=NewTextChild(node, "document");
     SetProp(docNode, "type", doc.type_rcpt, "");
     SetProp(docNode, "number", doc.no, "");
+    if (doc.expiry_date!=ASTRA::NoExists)
+      SetProp(docNode, "expiration_date", doc.expiry_date);
     SetProp(docNode, "country", ElemIdToCodeNative(etPaxDocCountry, doc.issue_country), "");
   }
 
