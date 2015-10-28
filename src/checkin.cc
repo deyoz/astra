@@ -6212,14 +6212,6 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
               SirenaExchange::TPaymentStatusRes res;
               SirenaExchange::SendRequest(req2, res);
 
-              SirenaExchange::TPaymentStatusList::const_iterator iReq=req2.bags.begin(); //!!!vlad заглушка
-              SirenaExchange::TPaymentStatusList::iterator iRes=res.begin();
-              for(;iReq!=req2.bags.end() && iRes!=res.end(); ++iReq, ++iRes)
-              {
-                iRes->second.pr_cabin=iReq->second.pr_cabin;
-                if (iReq->second.status==PieceConcept::bsPaid) iRes->second.status=PieceConcept::bsPaid;
-              }
-
               set<string> rfiscs;
               res.check_unknown_status(rfiscs);
               if (!rfiscs.empty())
