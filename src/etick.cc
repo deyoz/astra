@@ -412,9 +412,18 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
     text << string(100,'=') << endl;
   };
 
-  NewTextChild(resNode, "text", text.str());
   if (unknownPnrExists)
+  {
+    ostringstream result;
+    result << string(100,'=') << endl << endl;
+    result << "Для привязки отображенных EMD необходимо перегрузить пассажира по рег. номеру" << endl << endl;
+    result << string(100,'=') << endl;
+    result << text.str();
+    NewTextChild(resNode, "text", result.str());
     showErrorMessage("Для привязки отображенных EMD необходимо перегрузить пассажира по рег. номеру");  //!!!vlad
+  }
+  else
+    NewTextChild(resNode, "text", text.str());
 
 }
 
