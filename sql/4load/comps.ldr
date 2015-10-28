@@ -10,7 +10,7 @@ comp_id
 ,bort
 ,classes
 ,descr
-,time_create
+,time_create DATE 'YYYYMMDDHH24MISS'
 ,airline
 ,airp
 ,pr_lat_seat
