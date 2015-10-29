@@ -4403,12 +4403,21 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
 
     vector<CheckIn::TPaxASVCItem> asvc;
     LoadPaxASVC(pax.pax_id, asvc);
+
+    std::list<TPaxEMDItem> emds;
+    LoadPaxEMD(pax.pax_id, emds);
+
     CheckIn::PaidBagEMDList &emdList = (*pax.grpEmds)[pax.grp_id];
 
     for(CheckIn::PaidBagEMDList::iterator emdItem = emdList.begin(); emdItem != emdList.end(); emdItem++) {
-        for(vector<CheckIn::TPaxASVCItem>::iterator AsvcItem = asvc.begin(); AsvcItem != asvc.end(); AsvcItem++) {
-            if(emdItem->first == *AsvcItem) pax.used_asvc.push_back(*AsvcItem);
-        }
+        if(emds.empty())
+            for(vector<CheckIn::TPaxASVCItem>::iterator AsvcItem = asvc.begin(); AsvcItem != asvc.end(); AsvcItem++) {
+                if(emdItem->first == *AsvcItem) pax.used_asvc.push_back(*AsvcItem);
+            }
+        else
+            for(list<TPaxEMDItem>::iterator EMDItem = emds.begin(); EMDItem != emds.end(); EMDItem++) {
+                if(emdItem->first == *EMDItem) pax.used_asvc.push_back(*EMDItem);
+            }
     }
 
     if(not pax.used_asvc.empty()) {
@@ -4902,8 +4911,17 @@ struct TASLDest {
         grp_map = agrp_map;
         infants = ainfants;
     }
+    virtual ~TASLDest() {}
     void GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> &complayers);
     void PaxListToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
+    virtual bool is_report() { return false; }
+};
+
+struct TASLReportDest:TASLDest {
+    bool is_report() { return true; }
+    TASLReportDest(TGRPMap *agrp_map, TInfants *ainfants):
+        TASLDest(agrp_map, ainfants)
+    {}
 };
 
 struct TETLDest {
@@ -5005,7 +5023,7 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
             TGrpEmds::iterator idx = grpEmds.find(pax.grp_id);
             if(idx == grpEmds.end()) {
                 CheckIn::PaidBagEMDList &emds = grpEmds[pax.grp_id];
-                PaxASVCList::GetBoundPaidBagEMD(pax.grp_id, 0, emds); //!!!vlad текущий сегмент или все? только ASVC из PNL или из псевдо PNR тоже?
+                PaxASVCList::GetBoundPaidBagEMD(pax.grp_id, (is_report() ? NoExists : 0), emds); //!!!vlad текущий сегмент или все? только ASVC из PNL или из псевдо PNR тоже?
             }
 
             pax.pnrs.get(pax.pnr_id);
@@ -8163,9 +8181,9 @@ void EMDReport(int point_id, map<int, vector<string> > &tab)
     info.copy(createInfo);
     info.point_id = point_id;
     vector<TTlgCompLayer> complayers;
-    TDestList<TASLDest> dests;
+    TDestList<TASLReportDest> dests;
     dests.get(info,complayers);
-    for(vector<TASLDest>::iterator i = dests.items.begin(); i != dests.items.end(); i++) {
+    for(vector<TASLReportDest>::iterator i = dests.items.begin(); i != dests.items.end(); i++) {
         for(vector<TASLPax>::iterator pax = i->PaxList.begin(); pax != i->PaxList.end(); pax++) {
             vector<string> &row = tab[pax->reg_no];
             row.push_back(pax->name.surname + " " + pax->name.name);
