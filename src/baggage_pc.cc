@@ -6,6 +6,8 @@
 #include "basic.h"
 #include "astra_misc.h"
 #include "misc.h"
+#include "emdoc.h"
+#include "baggage.h"
 #include <boost/asio.hpp>
 #include <serverlib/xml_stuff.h>
 
@@ -168,7 +170,7 @@ void TRFISCList::fromXML(xmlNodePtr node)
     if (!insert(make_pair(item.RFISC, item)).second)
       ProgTrace(TRACE5, "TRFISCListItem::fromXML: Duplicate @rfisc='%s'", item.RFISC.c_str());
   }
-  //filter_baggage_rfiscs(); !!!vlad
+  filter_baggage_rfiscs();
 }
 
 void TRFISCList::fromDB(int list_id)
@@ -255,20 +257,7 @@ int TRFISCList::toDBAdv() const
 
 void TRFISCList::filter_baggage_rfiscs()
 {
-//  for(TRFISCList::const_iterator i=begin(); i!=end(); )
-//  {
-//    CheckIn::TPaxASVCItem item;
-//    item.RFIC=i->second.RFIC;
-//    item.RFISC=i->second.RFISC;
-//    item.emd_type=i->second.emd_type;
-//    std::set<ASTRA::TRcptServiceType> service_types;
-//    item.rcpt_service_types(service_types);
-//    if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
-//        service_types.find(ASTRA::rstPaid)==service_types.end())
-//      i=erase(i);
-//    else
-//      i++;
-//  };
+//  здесь, возможно, надо в будущем сделать фильтрацию RFISC, относящихся только к багажу
 }
 
 void TPaxNormItem::fromXML(xmlNodePtr node, bool &piece_concept, string &airline)
@@ -474,20 +463,24 @@ void PaidBagToDB(int grp_id, const list<TPaidBagItem> &paid)
   BagQry.Execute();
 };
 
-void PaidBagFromDB(int grp_id, list<TPaidBagItem> &paid)
+void PaidBagFromDB(int id, bool is_grp_id, list<TPaidBagItem> &paid)
 {
   paid.clear();
   TQuery BagQry(&OraSession);
   BagQry.Clear();
-  BagQry.SQLText=
-    "SELECT paid_bag_pc.pax_id, "
-    "       paid_bag_pc.transfer_num, "
-    "       paid_bag_pc.rfisc, "
-    "       paid_bag_pc.status, "
-    "       paid_bag_pc.pr_cabin "
-    "FROM pax, paid_bag_pc "
-    "WHERE pax.pax_id=paid_bag_pc.pax_id AND pax.grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id", otInteger, grp_id);
+  if (is_grp_id)
+    BagQry.SQLText=
+        "SELECT paid_bag_pc.pax_id, "
+        "       paid_bag_pc.transfer_num, "
+        "       paid_bag_pc.rfisc, "
+        "       paid_bag_pc.status, "
+        "       paid_bag_pc.pr_cabin "
+        "FROM pax, paid_bag_pc "
+        "WHERE pax.pax_id=paid_bag_pc.pax_id AND pax.grp_id=:id";
+  else
+    BagQry.SQLText=
+        "SELECT * FROM paid_bag_pc WHERE pax_id=:id";
+  BagQry.CreateVariable("id", otInteger, id);
   BagQry.Execute();
   for(;!BagQry.Eof;BagQry.Next())
     paid.push_back(TPaidBagItem().fromDB(BagQry));
@@ -563,31 +556,10 @@ class TEMDNumber
 };
 
 typedef map<TBagKey, TBagPcs> TBagMap;
-typedef map<TBagKey, map<TEMDNumber, CheckIn::TPaxASVCItem> > TASVCMap;
-typedef map<TEMDNumber, CheckIn::TPaidBagEMDItem> TPaidBagEmdMap;
 
-void ConvertPaidBagEMD(const list<CheckIn::TPaidBagEMDItem> &emd_list,
-                       TPaidBagEmdMap &emd_map)
-{
-  emd_map.clear();
-  for(list<CheckIn::TPaidBagEMDItem>::const_iterator i=emd_list.begin(); i!=emd_list.end(); ++i)
-    emd_map.insert(make_pair(TEMDNumber(*i), *i));
-}
-
-void ConvertPaidBagEMD(const TPaidBagEmdMap &emd_map,
-                       list<CheckIn::TPaidBagEMDItem> &emd_list)
-{
-  emd_list.clear();
-  for(TPaidBagEmdMap::const_iterator i=emd_map.begin(); i!=emd_map.end(); ++i)
-    emd_list.push_back(i->second);
-}
-
-void GetBagAndASVCInfo(int grp_id,
-                       TBagMap &bag_map,
-                       TASVCMap &asvc_map)
+void GetBagInfo(int grp_id, TBagMap &bag_map)
 {
   bag_map.clear();
-  asvc_map.clear();
   //набираем багаж
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -619,27 +591,48 @@ void GetBagAndASVCInfo(int grp_id,
     (Qry.FieldAsInteger("pr_cabin")!=0?b->second.cabin:b->second.trunk)+=Qry.FieldAsInteger("amount");
     pax_ids.insert(key.pax_id);
   };
+}
 
-  //набираем ASVC пассажиров
-  for(set<int>::const_iterator i=pax_ids.begin(); i!=pax_ids.end(); ++i)
+void CalcPaidStatus(list<CheckIn::TPaidBagEMDItem> &paid_bag_emd,
+                    TPaidBagItem &item)
+{
+  for(list<CheckIn::TPaidBagEMDItem>::iterator i=paid_bag_emd.begin(); i!=paid_bag_emd.end(); ++i)
   {
-    vector<CheckIn::TPaxASVCItem> asvc;
-    CheckIn::LoadPaxASVC(*i, asvc);
-    for(vector<CheckIn::TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
+    if (i->pax_id==item.pax_id &&
+        i->trfer_num==item.trfer_num &&
+        i->rfisc==item.RFISC)
     {
-      std::set<ASTRA::TRcptServiceType> service_types;
-      r->rcpt_service_types(service_types);
-      if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
-          service_types.find(ASTRA::rstPaid)==service_types.end()) continue;
-      TBagKey key;
-      key.pax_id=*i;
-      key.rfisc=r->RFISC;
-      TASVCMap::iterator a=asvc_map.find(key);
-      if (a==asvc_map.end())
-        a=asvc_map.insert(make_pair(key, map<TEMDNumber, CheckIn::TPaxASVCItem>())).first;
-      a->second.insert(make_pair(TEMDNumber(*r), *r));
+      item.status=bsPaid;
+      i=paid_bag_emd.erase(i);
+      break;
     }
+  }
+}
+
+string GetBagRcptStr(int grp_id, int pax_id)
+{
+  vector<string> rcpts;
+  CheckIn::PaidBagEMDList emd;
+  PaxASVCList::GetBoundPaidBagEMD(grp_id, 0, emd);
+  for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+    if (i->second.pax_id==ASTRA::NoExists || pax_id==ASTRA::NoExists || i->second.pax_id==pax_id)
+      rcpts.push_back(i->second.emd_no);
+  if (!rcpts.empty())
+  {
+    sort(rcpts.begin(),rcpts.end());
+    return ::GetBagRcptStr(rcpts);
   };
+  return "";
+}
+
+bool BagPaymentCompleted(int pax_id)
+{
+  list<TPaidBagItem> paid;
+  PaidBagFromDB(pax_id, false, paid);
+  for(list<TPaidBagItem>::const_iterator i=paid.begin(); i!=paid.end(); ++i)
+    if (i->status==bsUnknown||
+        i->status==bsNeed) return false;
+  return true;
 }
 
 void PreparePaidBagInfo(int grp_id,
@@ -649,13 +642,10 @@ void PreparePaidBagInfo(int grp_id,
   paid_bag.clear();
 
   TBagMap bag_map;
-  TASVCMap asvc_map;
-  GetBagAndASVCInfo(grp_id, bag_map, asvc_map);
+  GetBagInfo(grp_id, bag_map);
 
-  TPaidBagEmdMap curr_emd_map;
-  list<CheckIn::TPaidBagEMDItem> curr_emd;
-  CheckIn::PaidBagEMDFromDB(grp_id, curr_emd);
-  ConvertPaidBagEMD(curr_emd, curr_emd_map);
+  list<CheckIn::TPaidBagEMDItem> paid_bag_emd;
+  CheckIn::PaidBagEMDFromDB(grp_id, paid_bag_emd);
 
   for(int trfer_num=0; trfer_num<seg_count; trfer_num++)
   {
@@ -672,108 +662,50 @@ void PreparePaidBagInfo(int grp_id,
         item.emd_type=b->first.emd_type;
         item.status=bsNone;
         item.pr_cabin=(b->second.trunk<=0);
+        CalcPaidStatus(paid_bag_emd, item);
         b->second.dec();
         paid_bag.push_back(item);
       };
     };
   }
-
-  //подготовим распределение номеров билетов по pax_id
-//  map<string/*emd_no*/, int/*pax_id*/> emd_owners;
-//  for(TASVCMap::const_iterator a=asvc_map.begin(); a!=asvc_map.end(); ++a)
-//  {
-//    for(map<TEMDNumber, CheckIn::TPaxASVCItem>::const_iterator i=a->second.begin(); i!=a->second.end(); ++i)
-//      emd_owners.insert(make_pair(i->first.no, a->first.pax_id));
-//  }
-
-
-//  for(TBagMap::iterator b=bag_map.begin(); b!=bag_map.end(); ++b)
-//  {
-//    if (b->second.zero()) continue;
-//    TASVCMap::iterator a=asvc_map.find(b->first);
-//    if (a==asvc_map.end()) continue;
-//    for(map<TEMDNumber, CheckIn::TPaxASVCItem>::const_iterator i=a->second.begin(); i!=a->second.end(); ++i)
-//    {
-//      if (b->second.zero()) break;
-//      TPaidBagEmdMap::iterator e=curr_emd_map.find(i->first);
-//      if (e!=curr_emd_map.end())
-//      {
-//        TPaidBagItem item;
-//        item.pax_id=a->first.pax_id;
-//        item.trfer_num=e->second.trfer_num;
-//        item.RFISC=a->first.rfisc;
-//        item.status=bsPaid;
-//        curr_emd_map.erase(e);
-//        b->second.dec();
-//      };
-//    };
-//  };
-
-
-
-
-
 }
 
-void SyncPaidBagEMDToDB(int grp_id,
-                        const boost::optional< list<CheckIn::TPaidBagEMDItem> > &curr_emd)
+//эта процедура проставляет pax_id
+void PaidBagEMDToDB(int grp_id,
+                    const CheckIn::PaidBagEMDList &prior_emds,
+                    boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds)
 {
-  TBagMap bag_map;
-  TASVCMap asvc_map;
-  GetBagAndASVCInfo(grp_id, bag_map, asvc_map);
-
-  TPaidBagEmdMap curr_emd_map, result_emd_map;
-  if (!curr_emd)
+  if (!curr_emds) return;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText= GetSQL(PaxASVCList::oneWithTknByGrpId);
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.DeclareVariable("emd_no", otString);
+  Qry.DeclareVariable("emd_coupon", otInteger);
+  for(list<CheckIn::TPaidBagEMDItem>::iterator i=curr_emds.get().begin(); i!=curr_emds.get().end(); ++i)
   {
-    list<CheckIn::TPaidBagEMDItem> prior_emd;
-    CheckIn::PaidBagEMDFromDB(grp_id, prior_emd);
-    ConvertPaidBagEMD(prior_emd, curr_emd_map);
-  }
-  else
-  {
-    ConvertPaidBagEMD(curr_emd.get(), curr_emd_map);
-  };
-
-  for(TBagMap::iterator b=bag_map.begin(); b!=bag_map.end(); ++b)
-  {
-    if (b->second.zero()) continue;
-    TASVCMap::iterator a=asvc_map.find(b->first);
-    if (a==asvc_map.end()) continue;
-    for(map<TEMDNumber, CheckIn::TPaxASVCItem>::const_iterator i=a->second.begin(); i!=a->second.end(); ++i)
+    CheckIn::PaidBagEMDList::const_iterator j=prior_emds.begin();
+    for(; j!=prior_emds.end(); ++j)
+      if (j->second.emd_no==i->emd_no &&
+          j->second.emd_coupon==i->emd_coupon) break;
+    if (j!=prior_emds.end() && j->second.pax_id!=ASTRA::NoExists)
     {
-      if (b->second.zero()) break;
-      CheckIn::TPaidBagEMDItem item;
-      item.rfisc=i->second.RFISC;
-      item.trfer_num=0;
-      item.emd_no=i->second.emd_no;
-      item.emd_coupon=i->second.emd_coupon;
-      item.weight=0;
-      result_emd_map.insert(make_pair(TEMDNumber(item), item));
-      curr_emd_map.erase(TEMDNumber(item));
-      b->second.dec();
-    };
-  };
-
-  for(TPaidBagEmdMap::const_iterator e=curr_emd_map.begin(); e!=curr_emd_map.end(); ++e)
-  {
-    if (e->second.trfer_num>0)
-    {
-      result_emd_map.insert(*e);
-      continue;
-    };
-    for(TBagMap::iterator b=bag_map.begin(); b!=bag_map.end(); ++b)
-    {
-      if (b->first.rfisc!=e->second.rfisc) continue;
-      if (b->second.zero()) continue;
-      result_emd_map.insert(*e);
-      b->second.dec();
-      break;
+      //EMD уже была раньше
+      i->pax_id=j->second.pax_id;
+      //i->handmade=j->second.handmade; пока не используем
     }
-  }
-
-  list<CheckIn::TPaidBagEMDItem> result_emd;
-  ConvertPaidBagEMD(result_emd_map, result_emd);
-  CheckIn::PaidBagEMDToDB(grp_id, result_emd);
+    else
+    {
+      //EMD новая
+      Qry.SetVariable("emd_no", i->emd_no);
+      Qry.SetVariable("emd_coupon", i->emd_coupon);
+      Qry.Execute();
+      if (Qry.Eof) throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
+                                       LParams() << LParam("emd", i->no_str()));
+      i->pax_id=Qry.FieldAsInteger("pax_id");
+    };
+  };
+  CheckIn::PaidBagEMDToDB(grp_id, curr_emds);
 }
 
 class TPiadBagViewKey
@@ -1018,7 +950,21 @@ const TSegItem& TSegItem::toXML(xmlNodePtr node, const std::string &lang) const
   SetProp(node, "departure", airpToXML(operFlt.airp, lang));
   SetProp(node, "arrival", airpToXML(airp_arv, lang));
   if (operFlt.scd_out!=ASTRA::NoExists)
-    SetProp(node, "departure_time", DateTimeToStr(operFlt.scd_out, "yyyy-mm-ddThh:nn:ss")); //локальное время
+  {
+    if (scd_out_contain_time)
+      SetProp(node, "departure_time", DateTimeToStr(operFlt.scd_out, "yyyy-mm-ddThh:nn:ss")); //локальное время
+    else
+      SetProp(node, "departure_date", DateTimeToStr(operFlt.scd_out, "yyyy-mm-dd")); //локальная дата
+
+  }
+  if (scd_in!=ASTRA::NoExists)
+  {
+    if (scd_in_contain_time)
+      SetProp(node, "arrival_time", DateTimeToStr(scd_in, "yyyy-mm-ddThh:nn:ss")); //локальное время
+    else
+      SetProp(node, "arrival_date", DateTimeToStr(scd_in, "yyyy-mm-dd")); //локальная дата
+
+  }
   SetProp(node, "equipment", craft, "");
 
   return *this;
@@ -1066,6 +1012,8 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node, const std::string &lang) const
     xmlNodePtr docNode=NewTextChild(node, "document");
     SetProp(docNode, "type", doc.type_rcpt, "");
     SetProp(docNode, "number", doc.no, "");
+    if (doc.expiry_date!=ASTRA::NoExists)
+      SetProp(docNode, "expiration_date", doc.expiry_date);
     SetProp(docNode, "country", ElemIdToCodeNative(etPaxDocCountry, doc.issue_country), "");
   }
 

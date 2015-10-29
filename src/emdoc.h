@@ -16,11 +16,14 @@ typedef std::list< std::pair<TPaxASVCItem, TPaidBagEMDItem> > PaidBagEMDList;
 namespace PaxASVCList
 {
 
+enum TListType {unboundByPointId, unboundByPaxId, allWithTknByPointId, oneWithTknByGrpId, oneWithTknByPaxId};
+std::string GetSQL(const TListType ltype);
+void printSQLs();
 void GetUnboundEMD(int point_id, std::multiset<CheckIn::TPaxASVCItem> &asvc);
 bool ExistsUnboundEMD(int point_id);
 bool ExistsPaxUnboundEMD(int pax_id);
 
-void GetBoundPaidBagEMD(int grp_id, CheckIn::PaidBagEMDList &emd);
+void GetBoundPaidBagEMD(int grp_id, int trfer_num, CheckIn::PaidBagEMDList &emd);
 
 }; //namespace PaxASVCList
 
@@ -81,22 +84,22 @@ class TEdiCtxtItem : public TEdiPaxCtxt, public TEdiOriginCtxt {};
 class TEMDCtxtItem : public TEdiCtxtItem
 {
   public:
-    CheckIn::TPaxASVCItem asvc;    
+    CheckIn::TPaxASVCItem asvc;
     Ticketing::CouponStatus status;
-    Ticketing::CpnStatAction::CpnStatAction_t action;    
+    Ticketing::CpnStatAction::CpnStatAction_t action;
     TEMDCtxtItem()
     {
       clear();
-    }    
+    }
 
     void clear()
     {
       TEdiPaxCtxt::clear();
       TEdiOriginCtxt::clear();
-      asvc.clear();      
+      asvc.clear();
       status=Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable);
-      action=Ticketing::CpnStatAction::associate;      
-    }    
+      action=Ticketing::CpnStatAction::associate;
+    }
 
     const TEMDCtxtItem& toXML(xmlNodePtr node) const;
     TEMDCtxtItem& fromXML(xmlNodePtr node, xmlNodePtr originNode=NULL);
@@ -111,7 +114,7 @@ void GetBoundEMDStatusList(const int grp_id,
                            std::list<TEMDCtxtItem> &emds);
 
 class TEMDocItem
-{  
+{
   public:
 
     enum TEdiAction{ChangeOfStatus, SystemUpdate};
@@ -125,7 +128,7 @@ class TEMDocItem
     TEMDocItem()
     {
       clear();
-    };   
+    };
 
     void clear()
     {
@@ -133,7 +136,7 @@ class TEMDocItem
       et_no.clear();
       emd_coupon=ASTRA::NoExists;
       et_coupon=ASTRA::NoExists;
-      status=Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable);      
+      status=Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable);
       action=Ticketing::CpnStatAction::associate;
       change_status_error.clear();
       system_update_error.clear();
@@ -160,6 +163,32 @@ class TEMDocItem
                        const bool lock);
 };
 
+class TPaxEMDItem : public CheckIn::TPaxASVCItem
+{
+  public:
+    std::string et_no;
+    int et_coupon;
+    int trfer_num;
+
+    TPaxEMDItem()
+    {
+      clear();
+    }
+    void clear()
+    {
+      CheckIn::TPaxASVCItem::clear();
+      et_no.clear();
+      et_coupon=ASTRA::NoExists;
+      trfer_num=ASTRA::NoExists;
+    }
+    const TPaxEMDItem& toDB(TQuery &Qry) const;
+    TPaxEMDItem& fromDB(TQuery &Qry);
+    std::string traceStr() const;
+    bool valid() const;
+};
+
+bool LoadPaxEMD(int pax_id, std::list<TPaxEMDItem> &emds);
+
 void ProcEdiEvent(const TLogLocale &event,
                   const TEdiCtxtItem &ctxt,
                   const xmlNodePtr eventCtxtNode,
@@ -168,5 +197,7 @@ void ProcEdiEvent(const TLogLocale &event,
 bool ActualEMDEvent(const TEMDCtxtItem &EMDCtxt,
                     const xmlNodePtr eventCtxtNode,
                     TLogLocale &event);
+
+void handleEmdDispResponse(const std::string &tlg);
 
 #endif

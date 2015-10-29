@@ -4,6 +4,7 @@
 #include "astra_misc.h"
 #include "passenger.h"
 #include "term_version.h"
+#include "emdoc.h"
 namespace PieceConcept
 {
 
@@ -160,14 +161,18 @@ class TPaidBagItem : public TSimplePaidBagItem
 };
 
 void PaidBagToDB(int grp_id, const std::list<TPaidBagItem> &paid);
-void PaidBagFromDB(int grp_id, std::list<TPaidBagItem> &paid);
+void PaidBagFromDB(int id, bool is_grp_id, std::list<TPaidBagItem> &paid);
+
+std::string GetBagRcptStr(int grp_id, int pax_id);
+bool BagPaymentCompleted(int pax_id);
 
 void PreparePaidBagInfo(int grp_id,
                         int seg_count,
                         std::list<TPaidBagItem> &paid_bag);
 
-void SyncPaidBagEMDToDB(int grp_id,
-                        const boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emd);
+void PaidBagEMDToDB(int grp_id,
+                    const CheckIn::PaidBagEMDList &prior_emds,
+                    boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds);
 
 void PaidBagViewToXML(const TTrferRoute &trfer,
                       const std::list<TPaidBagItem> &paid,
@@ -184,8 +189,11 @@ class TSegItem
   public:
     int id;
     TTripInfo operFlt;
+    bool scd_out_contain_time;
     boost::optional<TTripInfo> markFlt;
     std::string airp_arv;
+    BASIC::TDateTime scd_in;
+    bool scd_in_contain_time;
     std::string craft;
     TSegItem()
     {
@@ -200,15 +208,26 @@ class TSegItem
       airp_arv=item.airp_arv;
     }
     void set(int seg_id,
-             const TTripInfo &operFlt_,
+             const TTripInfo &_operFlt,
              const CheckIn::TPaxGrpItem grp,
-             const TGrpMktFlight &mktFlight)
+             const TGrpMktFlight &mktFlight,
+             const BASIC::TDateTime &_scd_in)
     {
       clear();
       id=seg_id;
-      operFlt=operFlt_;
-      operFlt.scd_out=UTCToLocal(operFlt_.scd_out, AirpTZRegion(operFlt_.airp));
+      operFlt=_operFlt;
+      if (operFlt.scd_out!=ASTRA::NoExists)
+      {
+        operFlt.scd_out=UTCToLocal(operFlt.scd_out, AirpTZRegion(operFlt.airp));
+        scd_out_contain_time=true;
+      };
       airp_arv=grp.airp_arv;
+      scd_in=_scd_in;
+      if (scd_in!=ASTRA::NoExists)
+      {
+        scd_in=UTCToLocal(scd_in, AirpTZRegion(airp_arv));
+        scd_in_contain_time=true;
+      };
       markFlt=boost::none;
       if (!mktFlight.empty())
       {
@@ -221,8 +240,11 @@ class TSegItem
     {
       id=ASTRA::NoExists;
       operFlt.Clear();
+      scd_out_contain_time=false;
       markFlt=boost::none;
       airp_arv.clear();
+      scd_in=ASTRA::NoExists;
+      scd_in_contain_time=false;
       craft.clear();
     }
 

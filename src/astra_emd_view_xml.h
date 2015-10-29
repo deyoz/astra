@@ -70,7 +70,7 @@ struct EmdDisp
     }
 };
 
-std::string EmdXmlViewToText(const Emd &emd);
+std::string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists);
 
 }//namespace TickView
 }//namespace Ticketing

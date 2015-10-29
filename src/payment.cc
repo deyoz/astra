@@ -635,7 +635,7 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
 
     //квитанции EMD
     CheckIn::PaidBagEMDList emd;
-    PaxASVCList::GetBoundPaidBagEMD(id, emd);
+    PaxASVCList::GetBoundPaidBagEMD(id, 0, emd);
     for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
     {
       xmlNodePtr receiptNode=NewTextChild(node,"receipt");
@@ -1310,7 +1310,7 @@ string GetKitPrevNoStr(const vector<TBagReceiptKitItem> &items)
     rcpts.push_back(no_str.str());
     if (i==items.begin()) result << i->aircode;
   };
-  result << GetBagRcptStr(rcpts);
+  result << ::GetBagRcptStr(rcpts);
   return result.str();
 };
 
@@ -1553,7 +1553,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
       {
         //проверим что это не номер EMD
         CheckIn::PaidBagEMDList emd;
-        PaxASVCList::GetBoundPaidBagEMD(grp_id, emd);
+        PaxASVCList::GetBoundPaidBagEMD(grp_id, 0, emd);
         for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
           if (rcpt.prev_no==i->first.no_str())
           {

@@ -19,6 +19,7 @@
 #include "serverlib/str_utils.h"
 #include <boost/shared_array.hpp>
 #include "baggage_pc.h"
+#include "baggage_calc.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -237,10 +238,10 @@ string vs_number(int number, bool pr_lat)
        result = "XXXXXX";
        ProgTrace(TRACE5, "vs_number: value too large (>= 1000000): %d", number);
     } else {
-	    int i = number / 1000;
-	    result += (pr_lat ? vsHow_lat(i, 1) : vsHow_ru(i, 1));
-	    i = number % 1000;
-	    result += (pr_lat ? vsHow_lat(i, 0) : vsHow_ru(i, 0));
+        int i = number / 1000;
+        result += (pr_lat ? vsHow_lat(i, 1) : vsHow_ru(i, 1));
+        i = number % 1000;
+        result += (pr_lat ? vsHow_lat(i, 0) : vsHow_ru(i, 0));
     }
     return result;
 }
@@ -255,8 +256,8 @@ void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePt
     NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
     if(bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
-	vector<SEASON::TViewPeriod> viewp;
-	SEASON::ReadTripInfo( trip_id, viewp, GetNode( "seasonvars", reqNode ) );
+    vector<SEASON::TViewPeriod> viewp;
+    SEASON::ReadTripInfo( trip_id, viewp, GetNode( "seasonvars", reqNode ) );
   for ( vector<SEASON::TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
     for ( vector<SEASON::TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
       NewTextChild( variablesNode, "trip", j->name );
@@ -1373,7 +1374,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    pax_grp.point_arv = points.point_id and "
         "    pax_grp.grp_id = bag2.grp_id and "
         "    pax_grp.status NOT IN ('E') and ";
-        
+
     if (rpt_params.pr_brd)
       SQLText +=
           "    ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 and ";
@@ -1923,7 +1924,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     vector<string> rows;
     map< string, vector<string> > fields;
     int row;
-    xmlNodePtr rowNode=dataSetNode->children;    
+    xmlNodePtr rowNode=dataSetNode->children;
     for(;rowNode!=NULL;rowNode=rowNode->next)
     {
       str=NodeAsString("airp_arv_name",rowNode);
@@ -2811,13 +2812,13 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         };
         if (!pr_find) continue;
       };
-      
+
       CheckIn::TPaxRemItem rem;
       //обычные ремарки (обязательно обрабатываем первыми)
       if (!cats[remUnknown]) LoadPaxRem(pax_id, false, rems);
       for(vector<CheckIn::TPaxRemItem>::iterator r=rems.begin();r!=rems.end();r++)
         r->text=transliter(r->text, 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
-      
+
       //билет
       if (!cats[remTKN]) tkn.fromDB(Qry);
       if (getPaxRem(rpt_params, tkn, inf_indicator, rem)) rems.push_back(rem);
@@ -2835,14 +2836,14 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       if (!cats[remFQT]) LoadPaxFQT(pax_id, fqts);
       for(vector<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
         if (getPaxRem(rpt_params, *f, rem)) rems.push_back(rem);
-        
+
       if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT) {
           vector<CheckIn::TPaxRemItem> tmp_rems;
           for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
               if(spec_rems.exists(r->code)) tmp_rems.push_back(*r);
           rems = tmp_rems;
       }
-      
+
       if (rems.empty()) continue;
 
       xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
@@ -3000,7 +3001,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     docsQry.SQLText = "select * from crs_pax_doc where pax_id = :pax_id and rem_code = 'DOCS'";
     docsQry.DeclareVariable("pax_id", otInteger);
     //ремарки пассажиров
-    
+
     TRemGrp rem_grp;
     if(rpt_params.rpt_type != rtBDOCS)
       rem_grp.Load(retPNL_SEL, rpt_params.point_id);
@@ -3218,8 +3219,10 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger("rk_amount"));
         NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
         NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
-        NewTextChild(paxNode, "piece_concept", Qry.FieldAsInteger("piece_concept"));
-        bool pr_payment=BagPaymentCompleted(Qry.FieldAsInteger("grp_id"));
+        bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
+        NewTextChild(paxNode, "piece_concept", (int)piece_concept);
+        bool pr_payment=piece_concept?PieceConcept::BagPaymentCompleted(pax_id):
+                                      WeightConcept::BagPaymentCompleted(Qry.FieldAsInteger("grp_id"));
         NewTextChild(paxNode, "pr_payment", (int)pr_payment);
         NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
         NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id));
@@ -3578,7 +3581,7 @@ void DocsInterface::GetZoneList(int point_id, xmlNodePtr dataNode)
 
 void DocsInterface::GetFonts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	tst();
+    tst();
   NewTextChild(resNode,"fonts","");
   tst();
 }
