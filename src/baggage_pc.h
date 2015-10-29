@@ -341,6 +341,7 @@ class TPaxItem2
     std::string name;
     ASTRA::TPerson pers_type;
     int seats;
+    int reg_no;
     int grp_id;
     TPaxItem2()
     {
@@ -353,6 +354,7 @@ class TPaxItem2
       name=item.name;
       pers_type=item.pers_type;
       seats=item.seats;
+      reg_no=item.reg_no;
       grp_id=_grp_id;
     }
 
@@ -362,6 +364,7 @@ class TPaxItem2
       name.clear();
       pers_type=ASTRA::NoPerson;
       seats=ASTRA::NoExists;
+      reg_no=ASTRA::NoExists;
       grp_id=ASTRA::NoExists;
     }
 
@@ -410,6 +413,34 @@ class TPaxSegKey
     TPaxSegKey& fromXML(xmlNodePtr node);
 };
 
+class TErrorReference
+{
+  public:
+    std::string path, value;
+    int pax_id, seg_id;
+    TErrorReference()
+    {
+      clear();
+    }
+    void clear()
+    {
+      path.clear();
+      value.clear();
+      pax_id=ASTRA::NoExists;
+      seg_id=ASTRA::NoExists;
+    }
+    bool empty() const
+    {
+      return path.empty() &&
+             value.empty() &&
+             pax_id==ASTRA::NoExists &&
+             seg_id==ASTRA::NoExists;
+    }
+    void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
+    std::string traceStr() const;
+};
+
 class TExchange
 {
   public:
@@ -418,6 +449,7 @@ class TExchange
     virtual bool isRequest() const=0;
   public:
     std::string error_code, error_message;
+    TErrorReference error_reference;
     virtual void build(std::string &content) const;
     virtual void parse(const std::string &content);
     virtual void toXML(xmlNodePtr node) const;
@@ -425,6 +457,7 @@ class TExchange
     virtual void errorToXML(xmlNodePtr node) const;
     virtual void errorFromXML(xmlNodePtr node);
     bool error() const;
+    std::string traceError() const;
     virtual void clear()=0;
     virtual ~TExchange() {}
 };

@@ -417,11 +417,11 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
   {
     ostringstream result;
     result << string(100,'=') << endl << endl;
-    result << "Для привязки отображенных EMD необходимо перегрузить пассажира по рег. номеру" << endl << endl;
+    result << getLocaleText("MSG.RELOAD_PASSENGERS_TO_ATTACH_DISPLAYED_EMD") << endl << endl;
     result << string(100,'=') << endl;
     result << text.str();
     NewTextChild(resNode, "text", result.str());
-    showErrorMessage("Для привязки отображенных EMD необходимо перегрузить пассажира по рег. номеру");  //!!!vlad
+    showErrorMessage("MSG.RELOAD_PASSENGERS_TO_ATTACH_DISPLAYED_EMD");
   }
   else
     NewTextChild(resNode, "text", text.str());
