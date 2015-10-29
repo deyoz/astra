@@ -678,31 +678,40 @@ void PaidBagEMDToDB(int grp_id,
   if (!curr_emds) return;
   TQuery Qry(&OraSession);
   Qry.Clear();
-  Qry.SQLText= GetSQL(PaxASVCList::oneWithTknByGrpId);
+  Qry.SQLText= PaxASVCList::GetSQL(PaxASVCList::oneWithTknByGrpId);
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.DeclareVariable("emd_no", otString);
   Qry.DeclareVariable("emd_coupon", otInteger);
   for(list<CheckIn::TPaidBagEMDItem>::iterator i=curr_emds.get().begin(); i!=curr_emds.get().end(); ++i)
   {
+    CheckIn::TPaidBagEMDItem &emd=*i;
     CheckIn::PaidBagEMDList::const_iterator j=prior_emds.begin();
     for(; j!=prior_emds.end(); ++j)
-      if (j->second.emd_no==i->emd_no &&
-          j->second.emd_coupon==i->emd_coupon) break;
+      if (j->second.emd_no==emd.emd_no &&
+          j->second.emd_coupon==emd.emd_coupon) break;
     if (j!=prior_emds.end() && j->second.pax_id!=ASTRA::NoExists)
     {
       //EMD уже была раньше
-      i->pax_id=j->second.pax_id;
-      //i->handmade=j->second.handmade; пока не используем
+      emd.pax_id=j->second.pax_id;
+      //emd.handmade=j->second.handmade; пока не используем
     }
     else
     {
       //EMD новая
-      Qry.SetVariable("emd_no", i->emd_no);
-      Qry.SetVariable("emd_coupon", i->emd_coupon);
+      Qry.SetVariable("emd_no", emd.emd_no);
+      Qry.SetVariable("emd_coupon", emd.emd_coupon);
       Qry.Execute();
-      if (Qry.Eof) throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
-                                       LParams() << LParam("emd", i->no_str()));
-      i->pax_id=Qry.FieldAsInteger("pax_id");
+      if (Qry.Eof)
+        throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
+                            LParams() << LParam("emd", emd.no_str()));
+      emd.pax_id=Qry.FieldAsInteger("pax_id");
+      TPaxEMDItem asvc;
+      asvc.fromDB(Qry);
+      if (emd.trfer_num!=asvc.trfer_num ||
+          emd.rfisc!=asvc.RFISC)
+        throw UserException("MSG.EMD_WRONG_ATTACHMENT_DIFFERENT_SEG_OR_RFISC",
+                            LParams() << LParam("emd", emd.no_str()));
+
     };
   };
   CheckIn::PaidBagEMDToDB(grp_id, curr_emds);
@@ -1039,6 +1048,7 @@ const TPaxItem2& TPaxItem2::toXML(xmlNodePtr node, const std::string &lang) cons
   NewTextChild( node, "name", name );
   NewTextChild( node, "category", category());
   NewTextChild( node, "group_id", grp_id );
+  NewTextChild( node, "reg_no", reg_no );
   return *this;
 }
 
@@ -1049,6 +1059,7 @@ TPaxItem2& TPaxItem2::fromDB(TQuery &Qry)
   name = Qry.FieldAsString( "name" );
   pers_type = DecodePerson( Qry.FieldAsString( "pers_type" ) );
   seats = Qry.FieldAsInteger( "seats" );
+  reg_no = Qry.FieldAsInteger( "reg_no" );
   grp_id = Qry.FieldAsInteger( "grp_id" );
   return *this;
 }
@@ -1177,26 +1188,85 @@ void TExchange::fromXML(xmlNodePtr node)
   throw Exception("TExchange::fromXML: %s <%s> not implemented", isRequest()?"Request":"Response", exchangeId().c_str());
 }
 
+void TErrorReference::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return;
+
+  xmlNodePtr refNode=NewTextChild(node, "reference");
+  SetProp(refNode, "path", path, "");
+  SetProp(refNode, "value", value, "");
+  SetProp(refNode, "passenger_id", pax_id, ASTRA::NoExists);
+  SetProp(refNode, "segment_id", seg_id, ASTRA::NoExists);
+}
+
+void TErrorReference::fromXML(xmlNodePtr node)
+{
+  clear();
+
+  xmlNodePtr refNode=GetNode("reference", node);
+
+  path=NodeAsString("@path", refNode, "");
+  value=NodeAsString("@value", refNode, "");
+  pax_id=NodeAsInteger("@passenger_id", refNode, ASTRA::NoExists);
+  seg_id=NodeAsInteger("@segment_id", refNode, ASTRA::NoExists);
+}
+
+std::string TErrorReference::traceStr() const
+{
+  ostringstream s;
+  if (!path.empty())
+    s << " path=" << path;
+  if (!value.empty())
+    s << " value=" << value;
+  if (pax_id!=ASTRA::NoExists)
+    s << " pax_id=" << pax_id;
+  if (seg_id!=ASTRA::NoExists)
+    s << " seg_id=" << seg_id;
+  return s.str();
+}
+
 void TExchange::errorToXML(xmlNodePtr node) const
 {
   if (node==NULL) return;
 
-  NewTextChild(node, "Error", error_message);
+  xmlNodePtr errNode=NewTextChild(node, "error");
+  SetProp(errNode, "code", error_code);
+  SetProp(errNode, "message", error_message);
+  if (!error_reference.empty())
+    error_reference.toXML(node);
 }
 
 void TExchange::errorFromXML(xmlNodePtr node)
 {
   error_code.clear();
   error_message.clear();
+  error_reference.clear();
 
-  xmlNodePtr errNode=GetNode("Error", node);
-  if (errNode!=NULL)
-    error_message=NodeAsString(errNode);
+  xmlNodePtr errNode=GetNode("error", node);
+  if (errNode==NULL) return;
+
+  error_code=NodeAsString("@code", errNode, "");
+  error_message=NodeAsString("@message", errNode, "");
+  error_reference.fromXML(errNode);
 }
 
 bool TExchange::error() const
 {
-  return (!error_message.empty());
+  return !error_code.empty() ||
+         !error_message.empty() ||
+         !error_reference.empty();
+}
+
+std::string TExchange::traceError() const
+{
+  ostringstream s;
+  if (!error_code.empty())
+    s << " code=" << error_code;
+  if (!error_message.empty())
+    s << " message=" << error_message;
+  if (!error_reference.empty())
+    s << error_reference.traceStr();
+  return s.str();
 }
 
 void TAvailabilityReq::toXML(xmlNodePtr node) const
@@ -1479,7 +1549,7 @@ void SendRequest(const TExchange &request, TExchange &response)
   else
     traceXML(responseInfo.content);
   response.parse(responseInfo.content);
-  if (response.error()) throw Exception("%s: sirena return error '%s'", __FUNCTION__, response.error_message.c_str());
+  if (response.error()) throw Exception("SIRENA ERROR: %s", response.traceError().c_str());
 }
 
 void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int> &grp_ids);
@@ -1527,6 +1597,7 @@ void PieceConceptInterface::procPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr re
       xmlFreeNode(resNode->children);
     };
     SirenaExchange::TErrorRes res(exchangeId);
+    res.error_code="0";
     res.error_message=e.what();
     res.errorToXML(resNode);
   }
@@ -1550,7 +1621,7 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT pax.pax_id, pax.name, pax.surname, pax_grp.grp_id, pax.pers_type, pax.seats "
+    "SELECT pax.pax_id, pax.name, pax.surname, pax_grp.grp_id, pax.pers_type, pax.seats, pax.reg_no "
     " FROM pax, pax_grp "
     " WHERE pax_grp.grp_id=pax.grp_id AND "
     "       point_dep=:point_id AND "
@@ -1568,7 +1639,7 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
   }
   Qry.Clear();
   Qry.SQLText =
-    "SELECT pax.pax_id, pax.name, pax.surname, pax_grp.grp_id, pax.pers_type, pax.seats "
+    "SELECT pax.pax_id, pax.name, pax.surname, pax_grp.grp_id, pax.pers_type, pax.seats, pax.reg_no "
     " FROM pax, pax_grp "
     " WHERE pax_grp.grp_id=pax.grp_id AND "
     "       pax_grp.point_id_mark=:point_id AND"
@@ -1695,6 +1766,7 @@ int verifyHTTP(int argc,char **argv)
   {
     printf("%s\n", e.what());
   }
+  //PaxASVCList::printSQLs();
 
   return 0;
 }

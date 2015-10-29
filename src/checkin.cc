@@ -2494,7 +2494,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int col_user_id=Qry.FieldIndex("user_id");
     int col_client_type=Qry.FieldIndex("client_type");
 
-    map< int/*grp_id*/, pair<bool/*pr_payment*/, bool/*pr_receipts*/> > rcpt_complete;
+    map< pair<int/*grp_id*/, int/*pax_id*/>, pair<bool/*pr_payment*/, bool/*pr_receipts*/> > rcpt_complete_map;
     TPaxSeats priorSeats(point_id);
     TQuery PaxDocQry(&OraSession);
     TRemGrp rem_grp;
@@ -2507,6 +2507,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       string cl = Qry.FieldAsString(col_class);
 
       xmlNodePtr paxNode=NewTextChild(node,"pax");
+      NewTextChild(paxNode,"pax_id",pax_id);
       NewTextChild(paxNode,"reg_no",reg_no);
       NewTextChild(paxNode,"surname",Qry.FieldAsString(col_surname));
 
@@ -2610,11 +2611,13 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                                       WeightConcept::GetBagRcptStr(grp_id, pax_id);
         NewTextChild(paxNode,"rcpt_no_list",receipts,"");
 
-        map<int, pair<bool, bool> >::iterator i=rcpt_complete.find(grp_id);
-        if (i==rcpt_complete.end())
+        pair<int, int> rcpt_complete_key=piece_concept?make_pair(grp_id, pax_id):make_pair(grp_id, NoExists);
+        map< pair<int, int>, pair<bool, bool> >::iterator i=rcpt_complete_map.find(rcpt_complete_key);
+        if (i==rcpt_complete_map.end())
         {
-          bool pr_payment=WeightConcept::BagPaymentCompleted(grp_id);  //!!!vlad а этот код вообще работает?
-          rcpt_complete[grp_id]=make_pair(pr_payment, !receipts.empty());
+          bool pr_payment=piece_concept?PieceConcept::BagPaymentCompleted(pax_id):
+                                        WeightConcept::BagPaymentCompleted(grp_id);
+          rcpt_complete_map[rcpt_complete_key]=make_pair(pr_payment, !receipts.empty());
         }
         else
         {
@@ -2655,8 +2658,12 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       {
         xmlNodePtr node2=paxNode->children;
         int grp_id=NodeAsIntegerFast("grp_id",node2);
-        map<int, pair<bool, bool> >::iterator i=rcpt_complete.find(grp_id);
-        if (i==rcpt_complete.end())
+        int pax_id=NodeAsIntegerFast("pax_id",node2);
+        map< pair<int, int>, pair<bool, bool> >::iterator i;
+        i=rcpt_complete_map.find(make_pair(grp_id, pax_id));
+        if (i==rcpt_complete_map.end())
+          i=rcpt_complete_map.find(make_pair(grp_id, NoExists));
+        if (i==rcpt_complete_map.end())
           throw EXCEPTIONS::Exception("CheckInInterface::PaxList: grp_id=%d not found", grp_id);
         // все ли квитанции распечатаны:
         // 0 - частично напечатаны
@@ -6168,11 +6175,11 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
       {
         if (action==actionCheckPieceConcept)
         {
+          SirenaExchange::TAvailabilityRes res;
           try
           {
             if (!req1.paxs.empty())
             {
-              SirenaExchange::TAvailabilityRes res;
               SirenaExchange::SendRequest(req1, res);
               if (res.empty()) throw EXCEPTIONS::Exception("%s: strange situation res.empty()", __FUNCTION__);
               if (!res.identical_piece_concept())
@@ -6198,8 +6205,22 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
             ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
             piece_concept=false;
             bag_types_id=ASTRA::NoExists;
-            reqInfo->LocaleToLog("EVT.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED", ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
-            showErrorMessage("MSG.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED");
+            if (res.error() &&
+                (res.error_code=="1" || res.error_message=="Incorrect format") &&
+                res.error_reference.path=="passenger/ticket/number" &&
+                !res.error_reference.value.empty())
+            {
+              reqInfo->LocaleToLog("EVT.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED",
+                                   LEvntPrms()<<PrmSmpl<string>("ticket_no", res.error_reference.value),
+                                   ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
+              showErrorMessage("MSG.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED",
+                               LParams()<<LParam("ticket_no", res.error_reference.value));
+            }
+            else
+            {
+              reqInfo->LocaleToLog("EVT.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED", ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
+              showErrorMessage("MSG.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED");
+            };
           }
         }
         else
