@@ -6202,7 +6202,6 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
           }
           catch(std::exception &e)
           {
-            ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
             piece_concept=false;
             bag_types_id=ASTRA::NoExists;
             if (res.error() &&
@@ -6218,6 +6217,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
             }
             else
             {
+              ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
               reqInfo->LocaleToLog("EVT.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED", ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
               showErrorMessage("MSG.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED");
             };

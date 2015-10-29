@@ -1215,9 +1215,9 @@ std::string TErrorReference::traceStr() const
 {
   ostringstream s;
   if (!path.empty())
-    s << " path=" << path;
+    s << " path='" << path << "'";
   if (!value.empty())
-    s << " value=" << value;
+    s << " value='" << value << "'";
   if (pax_id!=ASTRA::NoExists)
     s << " pax_id=" << pax_id;
   if (seg_id!=ASTRA::NoExists)
@@ -1263,7 +1263,7 @@ std::string TExchange::traceError() const
   if (!error_code.empty())
     s << " code=" << error_code;
   if (!error_message.empty())
-    s << " message=" << error_message;
+    s << " message='" << error_message << "'";
   if (!error_reference.empty())
     s << error_reference.traceStr();
   return s.str();
