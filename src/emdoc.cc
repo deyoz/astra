@@ -123,11 +123,29 @@ string GetSQL(const TListType ltype)
              "       pax.ticket_rem, \n"
              "       pax.ticket_confirm, \n"
              "       pax.pr_brd, \n"
-             "       pax.refuse \n";
+             "       pax.refuse, \n"
+             "       e.rfic, \n"
+             "       e.rfisc, \n"
+             "       e.ssr_code, \n"
+             "       e.service_name, \n"
+             "       e.emd_type, \n"
+             "       e.emd_no, \n"
+             "       e.emd_coupon, \n";
+
       if (pass==0)
-        sql << "FROM pax, pax_asvc e \n";
+      {
+        sql << "       0 AS transfer_num, \n"
+               "       NULL AS et_no, \n"
+               "       NULL AS et_coupon \n"
+               "FROM pax, pax_asvc e \n";
+      }
       else
-        sql << "FROM pax, pax_emd e \n";
+      {
+        sql << "       e.transfer_num, \n"
+               "       e.et_no, \n"
+               "       e.et_coupon \n"
+               "FROM pax, pax_emd e \n";
+      };
       sql << "WHERE pax.pax_id=e.pax_id AND \n";
       if (ltype==oneWithTknByGrpId)
         sql << "      pax.grp_id=:grp_id AND \n";
@@ -613,7 +631,10 @@ const TPaxEMDItem& TPaxEMDItem::toDB(TQuery &Qry) const
   CheckIn::TPaxASVCItem::toDB(Qry);
   Qry.SetVariable("transfer_num", trfer_num);
   Qry.SetVariable("et_no", et_no);
-  Qry.SetVariable("et_coupon", et_coupon);
+  if (et_coupon!=ASTRA::NoExists)
+    Qry.SetVariable("et_coupon", et_coupon);
+  else
+    Qry.SetVariable("et_coupon", FNull);
   return *this;
 }
 
@@ -623,7 +644,8 @@ TPaxEMDItem& TPaxEMDItem::fromDB(TQuery &Qry)
   CheckIn::TPaxASVCItem::fromDB(Qry);
   trfer_num=Qry.FieldAsInteger("transfer_num");
   et_no=Qry.FieldAsString("et_no");
-  et_coupon=Qry.FieldAsInteger("et_coupon");
+  if (!Qry.FieldIsNULL("et_coupon"))
+    et_coupon=Qry.FieldAsInteger("et_coupon");
   return *this;
 }
 
