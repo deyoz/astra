@@ -1,5 +1,6 @@
 #include "EmdDispResponseHandler.h"
 #include "remote_system_context.h"
+#include "emdoc.h"
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
@@ -30,6 +31,8 @@ void EmdDispResponseHandler::parse()
 
 void EmdDispResponseHandler::handle()
 {
+  try
+  {
     using namespace edifact;
 
     switch(respStatus().status())
@@ -40,11 +43,18 @@ void EmdDispResponseHandler::handle()
             LogTrace(TRACE3) << "set tlg source: " << getTlgSrc();
             remoteResults()->setTlgSource(getTlgSrc());
         }
+        handleEmdDispResponse(getTlgSrc());
         break;
     case edilib::EdiRespStatus::partial:
     case edilib::EdiRespStatus::unsuccessfully:
         break;
     }
+  }
+  catch(std::exception &e)
+  {
+    ProgError(STDLOG, "EmdDispResponseHandler::handle: %s", e.what());
+  };
+
 }
 
 }//namespace TlgHandling

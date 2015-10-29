@@ -8,6 +8,14 @@
 #include "events.h"
 #include "astra_misc.h"
 
+namespace WeightConcept
+{
+
+std::string GetBagRcptStr(int grp_id, int pax_id);
+bool BagPaymentCompleted(int grp_id, int *value_bag_count=NULL);
+
+}
+
 namespace BagPayment
 {
   class TFltInfo

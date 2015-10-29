@@ -22,6 +22,7 @@
 #include "term_version.h"
 #include "events.h"
 #include "baggage_pc.h"
+#include "baggage_calc.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -504,7 +505,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    NVL(ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
         "    NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
         "    DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess, "
-        "    pax_grp.piece_concept, "
+        "    NVL(pax_grp.piece_concept,0) AS piece_concept, "
         "    ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags ";
     if (used_for_brd_and_exam)
         sql << ", tckin_pax_grp.tckin_id "
@@ -977,6 +978,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       Qry.Clear();
       Qry.SQLText=
         "SELECT pax_grp.grp_id, pax_grp.airp_arv, pax_grp.status, "
+        "       NVL(pax_grp.piece_concept, 0) AS piece_concept, "
         "       pax.pax_id, pax.surname, pax.name, pax.seats, "
         "       pax.pr_brd, pax.pr_exam, pax.wl_type, pax.ticket_rem, pax.tid "
         "FROM pax_grp, pax "
@@ -991,6 +993,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int grp_id=Qry.FieldAsInteger("grp_id");
       string airp_arv=Qry.FieldAsString("airp_arv");
       TPaxStatus grp_status=DecodePaxStatus(Qry.FieldAsString("status"));
+      bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
 
       class TPaxItem
       {
@@ -1178,7 +1181,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         };
 
         //============================ проверка оплаты багажа ============================
-        if (set_mark && pr_check_pay && !BagPaymentCompleted(grp_id))
+        if (set_mark && pr_check_pay &&
+            ((!piece_concept && !WeightConcept::BagPaymentCompleted(grp_id)) ||
+             (piece_concept && (!PieceConcept::BagPaymentCompleted(paxWithSeat.pax_id)||
+                                !PieceConcept::BagPaymentCompleted(paxWithoutSeat.pax_id)))))
         {
             AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BAG_PAID");
             throw 1;
@@ -1443,9 +1449,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       TPaxSeats priorSeats(point_id);
       TRemGrp rem_grp;
       if(not Qry.Eof) rem_grp.Load(retBRD_VIEW, point_id);
-      PieceConcept::TNodeList piece_concept;
+      PieceConcept::TNodeList pcNodeList;
       for(;!Qry.Eof;Qry.Next())
       {
+          int grp_id=Qry.FieldAsInteger(col_grp_id);
           int pax_id=Qry.FieldAsInteger(col_pax_id);
           int crs_pax_id=Qry.FieldIsNULL(col_crs_pax_id)?NoExists:Qry.FieldAsInteger(col_crs_pax_id);
           string surname=Qry.FieldAsString(col_surname);
@@ -1454,7 +1461,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
           xmlNodePtr paxNode = NewTextChild(listNode, "pax");
           NewTextChild(paxNode, "pax_id", pax_id);
-          NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
+          NewTextChild(paxNode, "grp_id", grp_id);
           NewTextChild(paxNode, "pr_brd",  Qry.FieldAsInteger(col_pr_brd)!=0, false);
           NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger(col_pr_exam)!=0, false);
           NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
@@ -1492,10 +1499,14 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "tid", Qry.FieldAsInteger(col_tid));
           xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
 
-          piece_concept.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
+          bool piece_concept=Qry.FieldAsInteger(col_piece_concept)!=0;
+          pcNodeList.set_concept(excessNode, piece_concept);
 
-          int value_bag_count;
-          bool pr_payment=BagPaymentCompleted(Qry.FieldAsInteger(col_grp_id), &value_bag_count);
+
+          int value_bag_count=0;
+          bool pr_payment=piece_concept?PieceConcept::BagPaymentCompleted(pax_id):
+                                        WeightConcept::BagPaymentCompleted(grp_id, &value_bag_count);
+
           if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
           {
             if (value_bag_count!=0)

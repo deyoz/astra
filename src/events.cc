@@ -322,7 +322,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
     "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
     "       ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
     "       DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess, "
-    "       pax_grp.trfer_confirm "
+    "       pax_grp.trfer_confirm, NVL(pax_grp.piece_concept, 0) AS piece_concept "
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id(+) AND pax_grp.grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
@@ -333,6 +333,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
     grpInfo.grp_id=grp_id;
     grpInfo.excess=Qry.FieldAsInteger("excess");
     grpInfo.trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
+    grpInfo.piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
     for(;!Qry.Eof;Qry.Next())
     {
       TPaxToLogInfoKey paxInfoKey;
@@ -435,7 +436,12 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
-      grpInfo.emd.insert(CheckIn::TPaidBagEMDItem().fromDB(Qry));
+    {
+      CheckIn::TPaidBagEMDItem item;
+      item.fromDB(Qry);
+      if (grpInfo.piece_concept) item.weight=ASTRA::NoExists;
+      grpInfo.emd.insert(item);
+    };
   };
 };
 

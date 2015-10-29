@@ -1403,8 +1403,9 @@ void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_c
 
   TQuery Qry(&OraSession);
   double d1, d2, f1, f2, f3, f4;
-  d1 = ClientToUTC( localdate, filter.filter_tz_region );
-  d2 = ClientToUTC( localdate + 1 - 1/1440, filter.filter_tz_region );
+  d1 = ClientToUTC( localdate, filter.filter_tz_region, filter.dst_offset );
+  d2 = ClientToUTC( localdate + 1 - 1/1440, filter.filter_tz_region, filter.dst_offset );
+
   ProgTrace( TRACE5, "spp on local date %s, utc date and time begin=%s, end=%s",
              DateTimeToStr( localdate, "dd.mm.yy" ).c_str(),
              DateTimeToStr( d1, "dd.mm.yy hh:nn" ).c_str(),

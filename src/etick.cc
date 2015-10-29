@@ -386,7 +386,7 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
       };
     };
     if (r->status() == edifact::RemoteStatus::CommonError)
-    {           
+    {
       string msg=r->remark().empty()?r->ediErrCode():r->remark();
       if (!errors.insert(make_pair(emd_no, LexemaData("MSG.EMD.EDS_ERROR", LParams() << LParam("msg", msg)))).second)
         LogError(STDLOG) << "EMDDisplayInterface::KickHandler: duplicate EDI_SESSION context for " << emd_no;
@@ -394,6 +394,7 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
   };
 
   ostringstream text;
+  bool unknownPnrExists=false;
   for(map<string, LexemaData>::const_iterator e=errors.begin(); e!=errors.end(); ++e)
   {
     string err, master_lexema_id;
@@ -407,12 +408,23 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
   {
     text << "EMD#" << e->first << endl;
 
-    text << Ticketing::TickView::EmdXmlViewToText(e->second);
+    text << Ticketing::TickView::EmdXmlViewToText(e->second, unknownPnrExists);
 
     text << string(100,'=') << endl;
   };
 
-  NewTextChild(resNode, "text", text.str());
+  if (unknownPnrExists)
+  {
+    ostringstream result;
+    result << string(100,'=') << endl << endl;
+    result << "Для привязки отображенных EMD необходимо перегрузить пассажира по рег. номеру" << endl << endl;
+    result << string(100,'=') << endl;
+    result << text.str();
+    NewTextChild(resNode, "text", result.str());
+    showErrorMessage("Для привязки отображенных EMD необходимо перегрузить пассажира по рег. номеру");  //!!!vlad
+  }
+  else
+    NewTextChild(resNode, "text", text.str());
 
 }
 
