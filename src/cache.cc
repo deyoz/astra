@@ -400,6 +400,17 @@ void TCacheTable::initFields()
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirp;
         };
+        if (FField.ReferCode == "PRIORITY_CARD_TYPES" && FField.ReferName == "AIRLINE_VIEW" )
+        {
+          FField.ElemCategory=cecCode;
+          FField.ElemType=etAirline;
+        };
+        if (FField.ReferCode == "AIRP_TERMINALS" && FField.ReferName == "AIRP_VIEW" )
+        {
+          FField.ElemCategory=cecCode;
+          FField.ElemType=etAirp;
+        };
+
 
         if (FField.ReferCode == "SALE_POINTS" && FField.ReferName == "VALIDATOR_VIEW" )
         {
