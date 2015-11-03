@@ -474,3 +474,21 @@ void checkBCBP_M(const string &bcbp,
   airline_use_begin_idx=p;
 };
 
+#include <fstream>
+
+int bcbp_test(int argc,char **argv)
+{
+    ifstream ifs("bcbp");
+    std::string bcbp( (std::istreambuf_iterator<char>(ifs) ),
+            (std::istreambuf_iterator<char>()    ) );
+
+    BCBPSections sections;
+    try
+    {
+        BCBPSections::get(bcbp, 0, bcbp.size(), sections, true);
+    }
+    catch(EXCEPTIONS::EConvertError &e)
+    {
+    }
+    return 1;
+}

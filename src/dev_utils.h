@@ -107,5 +107,6 @@ class BCBPSections
 
 std::ostream& operator<<(std::ostream& os, const BCBPSections&);
 
+int bcbp_test(int argc,char **argv);
 
 #endif
