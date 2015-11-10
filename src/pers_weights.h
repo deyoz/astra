@@ -129,7 +129,5 @@ void recountBySubcls(int point_id,
                      const TGrpToLogInfo &grpInfoAfter);
 void recountBySubcls(int point_id);
 
-int check_counters_by_subcls(int argc,char **argv);
-
 #endif /*_PERS_WEIGHTS_H_*/
 
