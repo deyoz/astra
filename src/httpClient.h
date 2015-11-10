@@ -5,10 +5,7 @@
 #include <string>
 #include <vector>
 #include <map>
-#include "file_queue.h"
 #include "astra_utils.h"
-
-const std::string APIS_TR = "APIS_TR";
 
 struct RequestInfo
 {
@@ -73,18 +70,6 @@ struct ResponseInfo
     ss << ",completed=" << completed;
     return ss.str();
   }
-};
-
-class TApisTRFilter {
-    private:
-    public:
-        static TFilterQueue *Instance() {
-            static TFilterQueue *_instance = 0;
-            if ( !_instance ) {
-                _instance = new TFilterQueue( OWN_POINT_ADDR(), APIS_TR, ASTRA::NoExists, ASTRA::NoExists, false, 10 );
-            }
-            return _instance;
-        }
 };
 
 void httpClient_main(const RequestInfo& request, ResponseInfo& response);

@@ -540,6 +540,8 @@ std::string& AirpTZRegion(std::string airp, bool with_exception=true);
 std::string& CityTZRegion(std::string city, bool with_exception=true);
 std::string DeskCity(std::string desk, bool with_exception=true);
 
+TCountriesRow getCountryByAirp( const std::string& airp);
+
 boost::local_time::tz_database &get_tz_database();
 BASIC::TDateTime UTCToLocal(BASIC::TDateTime d, std::string region);
 BASIC::TDateTime LocalToUTC(BASIC::TDateTime d, std::string region, int is_dst=ASTRA::NoExists);
