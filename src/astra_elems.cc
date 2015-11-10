@@ -62,6 +62,7 @@ const
   } ElemBaseTables[] = {
                          {etAgency,                "etAgency",                ""},
                          {etAirline,               "etAirline",               "airlines"},
+                         {etAirpTerminal,          "etAirpTerminal",          ""},
                          {etAirp,                  "etAirp",                  "airps"},
                          {etAlarmType,             "etAlarmType",             "alarm_types"},
                          {etBagNormType,           "etBagNormType",           "bag_norm_types"},
@@ -604,6 +605,7 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
     switch(type)
     {
         case etTypeBSender: Qry.SQLText="SELECT name,name_lat FROM typeb_senders WHERE code=:id"; break;
+    case etAirpTerminal: Qry.SQLText="SELECT id, name, desk, airp FROM airp_terminals WHERE id=:id"; break;
           case etDelayType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM delays WHERE code=:id";break;
           case etTripLiter: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM trip_liters WHERE code=:id";break;
       case etValidatorType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM validator_types WHERE code=:id";break;
@@ -660,6 +662,7 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
     switch(type)
     {
          case etHall: Qry.SQLText="SELECT name,name_lat FROM halls2 WHERE id=:id"; break;
+        case etAirpTerminal: Qry.SQLText="SELECT name FROM airp_terminals WHERE id=:id"; break;
       case etDeskGrp: Qry.SQLText="SELECT descr AS name, descr_lat AS name_lat FROM desk_grp WHERE grp_id=:id"; break;
        case etRemGrp: Qry.SQLText="SELECT name, name_lat FROM rem_grp WHERE id=:id"; break;
         case etUsers: Qry.SQLText="SELECT descr AS name, descr AS name_lat FROM users2 WHERE user_id=:id"; break;

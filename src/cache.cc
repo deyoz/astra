@@ -410,6 +410,11 @@ void TCacheTable::initFields()
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirp;
         };
+        if (FField.ReferCode == "AIRP_TERMINALS" && FField.ReferName == "NAME" )
+        {
+         FField.ElemType=etAirpTerminal;
+         FField.ElemCategory=cecName;
+        }
         if (FField.ReferCode == "HALLS" && FField.ReferName == "AIRP_VIEW" )
         {
           FField.ElemCategory=cecCode;

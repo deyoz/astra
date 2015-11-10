@@ -51,6 +51,7 @@ const
   } ReferCacheTable[] = {
                          {"AIRLINES",                etAirline},
                          {"AIRPS",                   etAirp},
+                         {"AIRP_TERMINALS",          etAirpTerminal},
                          {"BAG_NORM_TYPES",          etBagNormType},
                          {"BAG_TYPES",               etBagType},
                          {"BI_REG_GROUP",            etBIRegGroup},
