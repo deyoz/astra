@@ -405,27 +405,35 @@ void TCacheTable::initFields()
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirline;
         };
-        if (FField.ReferCode == "AIRP_TERMINALS" && FField.ReferName == "AIRP_VIEW" )
-        {
-          FField.ElemCategory=cecCode;
-          FField.ElemType=etAirp;
-        };
-        if (FField.ReferCode == "AIRP_TERMINALS" && FField.ReferName == "NAME" )
-        {
-         FField.ElemType=etAirpTerminal;
-         FField.ElemCategory=cecName;
-        }
         if (FField.ReferCode == "HALLS" && FField.ReferName == "AIRP_VIEW" )
         {
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirp;
         };
-
-
         if (FField.ReferCode == "SALE_POINTS" && FField.ReferName == "VALIDATOR_VIEW" )
         {
           FField.ElemCategory=cecCode;
           FField.ElemType=etValidatorType;
+        };
+        if (FField.ReferCode == "AIRP_TERMINALS" && FField.ReferName == "NAME" )
+        {
+          FField.ElemCategory=cecName;
+          FField.ElemType=etAirpTerminal;
+        };
+        if (FField.ReferCode == "HALLS_AND_TERMINALS" && FField.ReferName == "AIRP_VIEW" )
+        {
+          FField.ElemCategory=cecCode;
+          FField.ElemType=etAirp;
+        };
+        if (FField.ReferCode == "HALLS_AND_TERMINALS" && FField.ReferName == "TERMINAL_VIEW" )
+        {
+          FField.ElemCategory=cecName;
+          FField.ElemType=etAirpTerminal;
+        };
+        if (FField.ReferCode == "HALLS_AND_TERMINALS" && FField.ReferName == "HALL_VIEW" )
+        {
+          FField.ElemCategory=cecName;
+          FField.ElemType=etHall;
         };
 
         FFields.push_back(FField);
