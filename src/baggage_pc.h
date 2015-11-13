@@ -105,7 +105,8 @@ class TPaxNormTextItem
 class TPaxNormItem : public std::map<std::string/*lang*/, TPaxNormTextItem>
 {
   public:
-    void fromXML(xmlNodePtr node, bool &piece_concept, std::string &airline);
+    void fromXML(xmlNodePtr node);
+    void fromXMLAdv(xmlNodePtr node, bool &piece_concept, std::string &airline);
     void fromDB(int pax_id); // загрузка данных по пассажиру
     void toDB(int pax_id) const; // сохранение данных по пассажиру
 };
@@ -553,7 +554,8 @@ class TAvailabilityRes : public TAvailability, public TAvailabilityResMap
     void normsToDB(int seg_id);
 };
 
-typedef std::list< std::pair<TPaxSegKey, TBagItem> > TPaymentStatusList;
+typedef std::list< std::pair<TPaxSegKey, TBagItem> > TBagList;
+typedef std::list< std::pair<TPaxSegKey, PieceConcept::TPaxNormItem> > TPaxNormList;
 
 class TPaymentStatusReq : public TPaymentStatus
 {
@@ -561,7 +563,7 @@ class TPaymentStatusReq : public TPaymentStatus
     virtual bool isRequest() const { return true; }
   public:
     std::list<TPaxItem> paxs;
-    TPaymentStatusList bags;
+    TBagList bags;
     virtual void clear()
     {
       paxs.clear();
@@ -570,16 +572,20 @@ class TPaymentStatusReq : public TPaymentStatus
     virtual void toXML(xmlNodePtr node) const;
 };
 
-class TPaymentStatusRes : public TPaymentStatus, public TPaymentStatusList
+class TPaymentStatusRes : public TPaymentStatus
 {
   protected:
     virtual bool isRequest() const { return false; }
   public:
+    TBagList bags;
+    TPaxNormList norms;
     virtual void clear()
     {
-      TPaymentStatusList::clear();
+      bags.clear();
+      norms.clear();
     }
     virtual void fromXML(xmlNodePtr node);
+    void normsToDB(int seg_id);
     void convert(std::list<PieceConcept::TPaidBagItem> &paid) const;
     void check_unknown_status(std::set<std::string> &rfiscs) const;
 };
@@ -638,7 +644,7 @@ class TGroupInfoRes : public TGroupInfo
     virtual bool isRequest() const { return false; }
   public:
     std::list<TPaxItem> paxs;
-    TPaymentStatusList bags;
+    TBagList bags;
     virtual void clear()
     {
       paxs.clear();

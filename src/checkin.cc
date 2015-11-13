@@ -6060,7 +6060,7 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int
       {
         list<PieceConcept::TPaidBagItem> paid_bag;
         PieceConcept::PreparePaidBagInfo(*grp_id, trfer.size()+1, paid_bag);
-        TPaymentStatusList &bags_ref=(paymentStatusReq?paymentStatusReq->bags:groupInfoRes->bags);
+        TBagList &bags_ref=(paymentStatusReq?paymentStatusReq->bags:groupInfoRes->bags);
         for(list<PieceConcept::TPaidBagItem>::const_iterator i=paid_bag.begin(); i!=paid_bag.end(); ++i)
           bags_ref.push_back(make_pair(TPaxSegKey(i->pax_id,i->trfer_num), TBagItem(*i)));
       };
@@ -6237,6 +6237,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
               res.check_unknown_status(rfiscs);
               if (!rfiscs.empty())
                 throw UserException("MSG.CHECKIN.UNKNOWN_PAYMENT_STATUS_FOR_BAG_TYPE", LParams()<<LParam("bag_type", *rfiscs.begin()));
+              res.normsToDB(0);
               res.convert(paid);
             }
             catch(UserException &e)
