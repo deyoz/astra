@@ -1423,6 +1423,13 @@ string DeskCity(string desk, bool with_exception)
   return Qry.FieldAsString("city");
 };
 
+TCountriesRow getCountryByAirp( const std::string& airp)
+{
+  TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("airps").get_row("code",airp);
+  TCitiesRow &cityRow = (TCitiesRow&)base_tables.get("cities").get_row("code",airpRow.city);
+  return ((TCountriesRow&)base_tables.get("countries").get_row("code",cityRow.country));
+}
+
 TDateTime UTCToLocal(TDateTime d, string region)
 {
   if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");

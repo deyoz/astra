@@ -4,6 +4,7 @@
 #include "passenger.h"
 #include "astra_misc.h"
 #include "term_version.h"
+#include "file_queue.h"
 
 const long int DOC_TYPE_FIELD=0x0001;
 const long int DOC_ISSUE_COUNTRY_FIELD=0x0002;
@@ -191,6 +192,17 @@ const long int DOC_XML_TR_FIELDS=DOC_TYPE_FIELD|
 
 //==============================================================================
 
+const long int DOC_CSV_AE_FIELDS=DOC_TYPE_FIELD|
+                                 DOC_ISSUE_COUNTRY_FIELD|
+                                 DOC_NO_FIELD|
+                                 DOC_NATIONALITY_FIELD|
+                                 DOC_BIRTH_DATE_FIELD|
+                                 DOC_GENDER_FIELD|
+                                 DOC_SURNAME_FIELD|
+                                 DOC_FIRST_NAME_FIELD;
+
+//==============================================================================
+
 enum TCheckInfoType { ciDoc, ciDoco, ciDocaB, ciDocaR, ciDocaD, ciTkn };
 
 class TCheckDocTknInfo
@@ -320,6 +332,20 @@ enum TAlarmType { atDiffersFromBooking,
 
 std::string EncodeAlarmType(const TAlarmType alarm );
 }; //namespace APIS
+
+const std::string APIS_TR = "APIS_TR";
+
+class TApisTRFilter {
+    private:
+    public:
+        static TFilterQueue *Instance() {
+            static TFilterQueue *_instance = 0;
+            if ( !_instance ) {
+                _instance = new TFilterQueue( OWN_POINT_ADDR(), APIS_TR, ASTRA::NoExists, ASTRA::NoExists, false, 10 );
+            }
+            return _instance;
+        }
+};
 
 void send_apis_tr();
 void process_reply( const std::string& result );
