@@ -791,6 +791,21 @@ const char* EncodeBagNormType(TBagNormType s)
   return BagNormTypeS[s];
 };
 
+TCrewType DecodeCrewType(const char* s)
+{
+  unsigned int i;
+  for(i=0;i<sizeof(TCrewTypeS)/sizeof(TCrewTypeS[0]);i+=1) if (strcmp(s,TCrewTypeS[i])==0) break;
+  if (i<sizeof(TCrewTypeS)/sizeof(TCrewTypeS[0]))
+    return (TCrewType)i;
+  else
+    return ctUnknown;
+};
+
+const char* EncodeCrewType(TCrewType s)
+{
+  return TCrewTypeS[s];
+};
+
 TDateTime DecodeTimeFromSignedWord( signed short int Value )
 {
   int Day, Hour;
