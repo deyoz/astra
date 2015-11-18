@@ -556,6 +556,7 @@ struct TBagTagRow {
     double no;
     string tag_range;
     int num;
+    string rfisc;
     TBagTagRow()
     {
         pr_trfer = -1;
@@ -604,8 +605,10 @@ bool lessBagTagRow(const TBagTagRow &p1, const TBagTagRow &p2)
 
 typedef struct {
     int bag_type;
+    string rfisc;
     string class_code;
     string airp;
+    string airline;
     string name;
     string name_lat;
 } TBagNameRow;
@@ -614,7 +617,7 @@ class t_rpt_bm_bag_name {
     private:
         vector<TBagNameRow> bag_names;
     public:
-        void init(string airp);
+        void init(const string &airp, const string &airline);
         void get(string class_code, TBagTagRow &bag_tag_row, TRptParams &rpt_params);
 };
 
@@ -624,7 +627,13 @@ void t_rpt_bm_bag_name::get(string class_code, TBagTagRow &bag_tag_row, TRptPara
 {
     string &result = bag_tag_row.bag_name;
     for(vector<TBagNameRow>::iterator iv = bag_names.begin(); iv != bag_names.end(); iv++)
-        if(iv->class_code == class_code && iv->bag_type == bag_tag_row.bag_type) {
+        if(
+                iv->class_code == class_code and
+                (
+                 (iv->rfisc.empty() and iv->bag_type == bag_tag_row.bag_type) or
+                 (not iv->rfisc.empty() and iv->rfisc == bag_tag_row.rfisc)
+                )
+          ) {
             result = rpt_params.IsInter() ? iv->name_lat : iv->name;
             if(result.empty())
                 result = iv->name;
@@ -634,31 +643,39 @@ void t_rpt_bm_bag_name::get(string class_code, TBagTagRow &bag_tag_row, TRptPara
         bag_tag_row.bag_name_priority = bag_tag_row.bag_type;
 }
 
-void t_rpt_bm_bag_name::init(string airp)
+void t_rpt_bm_bag_name::init(const string &airp, const string &airline)
 {
     bag_names.clear();
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
         "   bag_type, "
+        "   rfisc, "
         "   class, "
         "   airp, "
+        "   airline, "
         "   name, "
         "   name_lat "
         "from "
         "   rpt_bm_bag_names "
         "where "
-        "   airp is null or "
-        "   airp = :airp "
+        "   (airp is null or "
+        "   airp = :airp) and "
+        "   (airline is null or "
+        "   airline = :airline) "
         "order by "
+        "   airline nulls last, "
         "   airp nulls last ";
     Qry.CreateVariable("airp", otString, airp);
+    Qry.CreateVariable("airline", otString, airline);
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
         TBagNameRow bag_name_row;
         bag_name_row.bag_type = Qry.FieldAsInteger("bag_type");
+        bag_name_row.rfisc = Qry.FieldAsString("rfisc");
         bag_name_row.class_code = Qry.FieldAsString("class");
         bag_name_row.airp = Qry.FieldAsString("airp");
+        bag_name_row.airline = Qry.FieldAsString("airline");
         bag_name_row.name = Qry.FieldAsString("name");
         bag_name_row.name_lat = Qry.FieldAsString("name_lat");
         bag_names.push_back(bag_name_row);
@@ -1320,13 +1337,14 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
     t_rpt_bm_bag_name bag_names;
     Qry.Clear();
-    Qry.SQLText = "select airp from points where point_id = :point_id AND pr_del>=0";
+    Qry.SQLText = "select airp, airline from points where point_id = :point_id AND pr_del>=0";
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.Execute();
     if(Qry.Eof)
         throw Exception("RunBMNew: point_id %d not found", rpt_params.point_id);
     string airp = Qry.FieldAsString(0);
-    bag_names.init(airp);
+    string airline = Qry.FieldAsString(1);
+    bag_names.init(airp, airline);
     vector<TBagTagRow> bag_tags;
     Qry.Clear();
     string SQLText =
@@ -1354,6 +1372,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    pax_grp.airp_arv, "
         "    pax_grp.class, "
         "    bag2.bag_type, "
+        "    bag2.rfisc, "
         "    bag2.num bag_num, "
         "    bag2.amount, "
         "    bag2.weight, "
@@ -1428,6 +1447,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             bag_tag_row.to_ramp_str = getLocaleText("ì íêÄèÄ", rpt_params.GetLang());
 
         string class_code = Qry.FieldAsString("class");
+        bag_tag_row.rfisc = Qry.FieldAsString("rfisc");
         bag_names.get(class_code, bag_tag_row, rpt_params);
         if(Qry.FieldIsNULL("class"))
             bag_tag_row.class_priority = 100;
@@ -1697,7 +1717,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TElemFmt suffix_fmt = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
     TElemFmt craft_fmt = (TElemFmt)Qry.FieldAsInteger("craft_fmt");
 
-    string airline, suffix;
+    string suffix;
     int flt_no = NoExists;
     if(rpt_params.mkt_flt.empty()) {
         airline = Qry.FieldAsString("airline");
