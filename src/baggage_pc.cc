@@ -1019,7 +1019,7 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node, const std::string &lang) const
     SetProp(docNode, "type", doc.type_rcpt, "");
     SetProp(docNode, "number", doc.no, "");
     if (doc.expiry_date!=ASTRA::NoExists)
-      SetProp(docNode, "expiration_date", doc.expiry_date);
+      SetProp(docNode, "expiration_date", DateTimeToStr(doc.expiry_date, "yyyy-mm-dd"));
     SetProp(docNode, "country", ElemIdToCodeNative(etPaxDocCountry, doc.issue_country), "");
   }
 
