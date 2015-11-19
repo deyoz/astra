@@ -260,7 +260,40 @@ void TRFISCList::filter_baggage_rfiscs()
 //  здесь, возможно, надо в будущем сделать фильтрацию RFISC, относящихся только к багажу
 }
 
-void TPaxNormItem::fromXML(xmlNodePtr node, bool &piece_concept, string &airline)
+void TPaxNormItem::fromXML(xmlNodePtr node)
+{
+  clear();
+
+  try
+  {
+    if (node==NULL) throw Exception("node not defined");
+
+    xmlNodePtr textNode=node->children;
+    for(; textNode!=NULL; textNode=textNode->next)
+    {
+      if (string((char*)textNode->name)!="text") continue;
+      string lang=NodeAsString("@language", textNode, "");
+      if (lang.empty()) throw Exception("Empty @language");
+      if (lang!="ru" && lang!="en") continue;
+
+      TPaxNormTextItem item;
+      item.lang=(lang=="ru"?LANG_RU:LANG_EN);
+      item.text=NodeAsString(textNode);
+      if (item.text.empty()) throw Exception("Empty <text language='%s'>", item.lang.c_str());
+      if (!insert(make_pair(item.lang, item)).second)
+        throw Exception("Duplicate <text language='%s'>", item.lang.c_str());
+    };
+
+    if (find(LANG_RU)==end()) throw Exception("Not found <text language='%s'>", "ru");
+    if (find(LANG_EN)==end()) throw Exception("Not found <text language='%s'>", "en");
+  }
+  catch(Exception &e)
+  {
+    throw Exception("TPaxNormItem::fromXML: %s", e.what());
+  };
+}
+
+void TPaxNormItem::fromXMLAdv(xmlNodePtr node, bool &piece_concept, string &airline)
 {
   clear();
 
@@ -282,30 +315,13 @@ void TPaxNormItem::fromXML(xmlNodePtr node, bool &piece_concept, string &airline
       airline = ElemToElemId( etAirline, str, fmt );
       if (fmt==efmtUnknown) throw Exception("Unknown @company='%s'", str.c_str());
 
-      xmlNodePtr textNode=node->children;
-      for(; textNode!=NULL; textNode=textNode->next)
-      {
-        if (string((char*)textNode->name)!="text") continue;
-        string lang=NodeAsString("@language", textNode, "");
-        if (lang.empty()) throw Exception("Empty @language");
-        if (lang!="ru" && lang!="en") continue;
-
-        TPaxNormTextItem item;
-        item.lang=(lang=="ru"?LANG_RU:LANG_EN);
-        item.text=NodeAsString(textNode);
-        if (item.text.empty()) throw Exception("Empty <text language='%s'>", item.lang.c_str());
-        if (!insert(make_pair(item.lang, item)).second)
-          throw Exception("Duplicate <text language='%s'>", item.lang.c_str());
-      };
-
-      if (find(LANG_RU)==end()) throw Exception("Not found <text language='%s'>", "ru");
-      if (find(LANG_EN)==end()) throw Exception("Not found <text language='%s'>", "en");
+      fromXML(node);
     };
     if (empty()) throw Exception("<free_baggage_norm> tag not found" );
   }
   catch(Exception &e)
   {
-    throw Exception("TPaxNormItem::fromXML: %s", e.what());
+    throw Exception("TPaxNormItem::fromXMLAdv: %s", e.what());
   };
 }
 
@@ -335,6 +351,12 @@ void TPaxNormItem::fromDB(int pax_id)
 void TPaxNormItem::toDB(int pax_id) const
 {
   TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "DELETE FROM pax_norms_pc WHERE pax_id=:pax_id";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.Execute();
+
   Qry.Clear();
   Qry.SQLText =
     "INSERT INTO pax_norms_pc(pax_id, lang, page_no, text) "
@@ -528,31 +550,6 @@ class TBagPcs
     {
       return cabin==0 && trunk==0;
     }
-};
-
-class TEMDNumber
-{
-  public:
-    string no;
-    int coupon;
-    TEMDNumber(const CheckIn::TPaxASVCItem &item)
-    {
-      no=item.emd_no;
-      coupon=item.emd_coupon;
-    }
-    TEMDNumber(const CheckIn::TPaidBagEMDItem &item)
-    {
-      no=item.emd_no;
-      coupon=item.emd_coupon;
-    }
-
-    bool operator < (const TEMDNumber &emd) const
-    {
-      if (no!=emd.no)
-        return no<emd.no;
-      return coupon<emd.coupon;
-    }
-
 };
 
 typedef map<TBagKey, TBagPcs> TBagMap;
@@ -1022,7 +1019,7 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node, const std::string &lang) const
     SetProp(docNode, "type", doc.type_rcpt, "");
     SetProp(docNode, "number", doc.no, "");
     if (doc.expiry_date!=ASTRA::NoExists)
-      SetProp(docNode, "expiration_date", doc.expiry_date);
+      SetProp(docNode, "expiration_date", DateTimeToStr(doc.expiry_date, "yyyy-mm-dd"));
     SetProp(docNode, "country", ElemIdToCodeNative(etPaxDocCountry, doc.issue_country), "");
   }
 
@@ -1215,9 +1212,9 @@ std::string TErrorReference::traceStr() const
 {
   ostringstream s;
   if (!path.empty())
-    s << " path=" << path;
+    s << " path='" << path << "'";
   if (!value.empty())
-    s << " value=" << value;
+    s << " value='" << value << "'";
   if (pax_id!=ASTRA::NoExists)
     s << " pax_id=" << pax_id;
   if (seg_id!=ASTRA::NoExists)
@@ -1263,7 +1260,7 @@ std::string TExchange::traceError() const
   if (!error_code.empty())
     s << " code=" << error_code;
   if (!error_message.empty())
-    s << " message=" << error_message;
+    s << " message='" << error_message << "'";
   if (!error_reference.empty())
     s << error_reference.traceStr();
   return s.str();
@@ -1295,7 +1292,7 @@ void TAvailabilityRes::fromXML(xmlNodePtr node)
         throw Exception("Duplicate passenger-id=%d segment-id=%d", key.pax_id, key.seg_id);
       TAvailabilityResItem &item=insert(make_pair(key, TAvailabilityResItem())).first->second;
       item.rfisc_list.fromXML(node);
-      item.norm.fromXML(node, item.piece_concept, item.rfisc_list.airline);
+      item.norm.fromXMLAdv(node, item.piece_concept, item.rfisc_list.airline);
     };
     if (empty()) throw Exception("empty()");
   }
@@ -1374,14 +1371,27 @@ void TPaymentStatusRes::fromXML(xmlNodePtr node)
     if (node==NULL) throw Exception("node not defined");
     for(node=node->children; node!=NULL; node=node->next)
     {
-      if (string((char*)node->name)!="svc") continue;
+      if (string((char*)node->name)!="svc" &&
+          string((char*)node->name)!="free_baggage_norm") continue;
       TPaxSegKey key;
       key.fromXML(node);
-      pair<TPaxSegKey, TBagItem> &item=*(insert(end(), make_pair(TPaxSegKey(), TBagItem())));
-      item.first.fromXML(node);
-      item.second.fromXML(node);
+      if (string((char*)node->name)=="svc")
+      {
+        pair<TPaxSegKey, TBagItem> &item=
+          *(bags.insert(bags.end(), make_pair(TPaxSegKey(), TBagItem())));
+        item.first.fromXML(node);
+        item.second.fromXML(node);
+      };
+      if (string((char*)node->name)=="free_baggage_norm")
+      {
+        pair<TPaxSegKey, PieceConcept::TPaxNormItem> &item=
+          *(norms.insert(norms.end(), make_pair(TPaxSegKey(), PieceConcept::TPaxNormItem())));
+        item.first.fromXML(node);
+        item.second.fromXML(node);
+      };
     };
-    if (empty()) throw Exception("empty()");
+    if (bags.empty()) throw Exception("bags.empty()");
+    //if (norms.empty()) throw Exception("norms.empty()"); а надо ли?
   }
   catch(Exception &e)
   {
@@ -1389,10 +1399,19 @@ void TPaymentStatusRes::fromXML(xmlNodePtr node)
   };
 }
 
+void TPaymentStatusRes::normsToDB(int seg_id)
+{
+  for(TPaxNormList::const_iterator i=norms.begin(); i!=norms.end(); ++i)
+  {
+    if (i->first.seg_id!=seg_id) continue;  //!!!vlad потом докрутить возможно сохранение по разным сегментам
+    i->second.toDB(i->first.pax_id);
+  }
+}
+
 void TPaymentStatusRes::convert(list<PieceConcept::TPaidBagItem> &paid) const
 {
   paid.clear();
-  for(TPaymentStatusList::const_iterator i=begin(); i!=end(); ++i)
+  for(TBagList::const_iterator i=bags.begin(); i!=bags.end(); ++i)
   {
     PieceConcept::TPaidBagItem item;
     item.pax_id=i->first.pax_id;
@@ -1407,7 +1426,7 @@ void TPaymentStatusRes::convert(list<PieceConcept::TPaidBagItem> &paid) const
 void TPaymentStatusRes::check_unknown_status(set<string> &rfiscs) const
 {
   rfiscs.clear();
-  for(TPaymentStatusList::const_iterator i=begin(); i!=end(); ++i)
+  for(TBagList::const_iterator i=bags.begin(); i!=bags.end(); ++i)
   {
     if (i->second.status==PieceConcept::bsUnknown)
         rfiscs.insert(i->second.RFISC);
