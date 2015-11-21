@@ -82,7 +82,7 @@ string GetCustomsRegulCountry(const string &depend,
 
 bool isValidGender(const string &fmt, const string &pax_doc_gender, const string &pax_name)
 {
-  if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US" || fmt=="EDI_USBACK")
+  if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US" || fmt=="EDI_USBACK"|| fmt=="EDI_LT")
   {
     int is_female=CheckIn::is_female(pax_doc_gender, pax_name);
     if (is_female==NoExists) return false;
@@ -92,7 +92,7 @@ bool isValidGender(const string &fmt, const string &pax_doc_gender, const string
 
 bool isValidDocType(const string &fmt, const TPaxStatus &status, const string &doc_type)
 {
-  if (fmt=="EDI_CZ")
+  if (fmt=="EDI_CZ" || fmt=="EDI_LT")
   {
     if (!(doc_type=="P" ||
           doc_type=="A" ||
@@ -531,7 +531,8 @@ bool create_apis_file(int point_id, const string& task_name)
           Paxlst::PaxlstInfo FPM(Paxlst::PaxlstInfo::FlightPassengerManifest, lst_type_extra);
         	Paxlst::PaxlstInfo FCM(Paxlst::PaxlstInfo::FlightCrewManifest, lst_type_extra);
 
-          if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")
+          if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" ||
+              fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR")
           {
             for(int pass=0; pass<2; pass++)
             {
@@ -717,7 +718,7 @@ bool create_apis_file(int point_id, const string& task_name)
             }
             else
             {
-              if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US" || fmt=="EDI_USBACK") gender = "M";//gender.clear();
+              if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_LT") gender = "M";//gender.clear();
               if (fmt=="CSV_DE" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR") gender = "U";
               if (fmt=="TXT_EE") gender = "N";
               if (fmt=="CSV_AE") gender = "X";
@@ -770,7 +771,8 @@ bool create_apis_file(int point_id, const string& task_name)
             string doc_no=doc.no;
             if (fmt=="EDI_IN")
               doc_no=NormalizeDocNo(doc.no, true);
-            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES")
+            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_US" || fmt=="EDI_USBACK" ||
+                fmt=="EDI_UK" || fmt=="EDI_ES"|| fmt=="EDI_LT")
               doc_no=NormalizeDocNo(doc.no, false);
 
             if (fmt=="XML_TR") {
@@ -820,7 +822,7 @@ bool create_apis_file(int point_id, const string& task_name)
               }
             }
             if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US"
-                || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")
+                || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR")
             {
               paxInfo.setSurname(doc_surname);
               paxInfo.setFirstName(doc_first_name);
@@ -850,7 +852,7 @@ bool create_apis_file(int point_id, const string& task_name)
 
 
               if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK"
-                                || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")
+                                || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR")
               {
                 if (!doc_type.empty() && !doc_no.empty())
                 {
@@ -1014,7 +1016,8 @@ bool create_apis_file(int point_id, const string& task_name)
             if (fmt=="CSV_CZ" || fmt=="CSV_DE")
               body << ENDL;
 
-            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")
+            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" ||
+                fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR")
             {
               if (status!=psCrew)
       	        FPM.addPassenger( paxInfo );
@@ -1025,7 +1028,8 @@ bool create_apis_file(int point_id, const string& task_name)
 
           vector< pair<string, string> > files;
 
-          if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES")
+          if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" ||
+              fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES")
           {
             for(int pass=0; pass<2; pass++)
             {
@@ -1077,44 +1081,47 @@ bool create_apis_file(int point_id, const string& task_name)
               };
             };
       	  }
-          else if (fmt=="XML_TR") {
-            XMLDoc soap_reqDoc;
-            soap_reqDoc.set("soapenv:Envelope");
-            if (soap_reqDoc.docPtr()==NULL)
-              throw EXCEPTIONS::Exception("create_apis_file: CreateXMLDoc failed");
-            xmlNodePtr soapNode=xmlDocGetRootElement(soap_reqDoc.docPtr());
-            SetProp(soapNode, "xmlns:soapenv", "http://schemas.xmlsoap.org/soap/envelope/");
-            NewTextChild(soapNode, "soapenv:Header");
-            xmlNodePtr bodyNode = NewTextChild(soapNode, "soapenv:Body");
-            xmlNodePtr operationNode = NewTextChild(bodyNode, "voy:getFlightMessageSIN");
-            SetProp(operationNode, "xmlns:voy", "http://www.gtb.gov.tr/voy.xml.webservices");
-            xmlNodePtr apisNode = NewTextChild(operationNode, "FlightMessage");
+          else if ( fmt=="XML_TR" || fmt=="EDI_LT" ) {
+            string text, type;
             int passengers_count = FPM.passengersList().size();
             int crew_count = FCM.passengersList().size();
-            int version;
-            if (!get_trip_apis_param(point_id, "XML_TR", "version", version)) version = 0;
-            else version++;
-            set_trip_apis_param(point_id, "XML_TR", "version", version);
-            if (passengers_count)
+            // сформируем файл
+            if ( fmt=="XML_TR" && ( passengers_count || crew_count )) {
+              XMLDoc doc;
+              doc.set("FlightMessage");
+              if (doc.docPtr()==NULL)
+                throw EXCEPTIONS::Exception("create_apis_file: CreateXMLDoc failed");
+              xmlNodePtr apisNode=xmlDocGetRootElement(doc.docPtr());
+              int version = 0 ;
+              if (get_trip_apis_param(point_id, "XML_TR", "version", version)) version++;
+              set_trip_apis_param(point_id, "XML_TR", "version", version);
               FPM.toXMLFormat(apisNode, passengers_count, crew_count, version);
-            if (crew_count)
               FCM.toXMLFormat(apisNode, passengers_count, crew_count, version);
-
-            std::map<std::string, std::string> file_params;
-            TFileQueue::add_sets_params(airp_dep.code, airline.code, IntToString(flt_no), OWN_POINT_ADDR(),
-                    "APIS_TR", 1, file_params);
-            if(not file_params.empty()) {
-                file_params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
-                file_params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
-                TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
-                        "APIS_TR", file_params, ConvertCodepage(GetXMLDocText(soap_reqDoc.docPtr()), "CP866", "UTF-8"));
-                LEvntPrms params;
-                params << PrmSmpl<string>("fmt", fmt) << PrmElem<string>("country_dep", etCountry, country_dep)
-                    << PrmElem<string>("airp_dep", etAirp, airp_dep.code)
-                    << PrmElem<string>("country_arv", etCountry, country_arv.code)
-                    << PrmElem<string>("airp_arv", etAirp, airp_arv.code);
-                TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, point_id);
-                result = true;
+              text = GetXMLDocText(doc.docPtr());
+              type = APIS_TR;
+            }
+            else if ( fmt == "EDI_LT" && passengers_count ) {
+              type = APIS_LT;
+              text = FPM.toEdiString();
+            }
+            // положим апис в очередь на отправку
+            if ( !text.empty() ) {
+              std::map<std::string, std::string> file_params;
+              TFileQueue::add_sets_params(airp_dep.code, airline.code, IntToString(flt_no), OWN_POINT_ADDR(),
+                      type, 1, file_params);
+              if(not file_params.empty()) {
+                  file_params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+                  file_params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
+                  TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
+                          type, file_params, ConvertCodepage( text, "CP866", "UTF-8"));
+                  LEvntPrms params;
+                  params << PrmSmpl<string>("fmt", fmt) << PrmElem<string>("country_dep", etCountry, country_dep)
+                      << PrmElem<string>("airp_dep", etAirp, airp_dep.code)
+                      << PrmElem<string>("country_arv", etCountry, country_arv.code)
+                      << PrmElem<string>("airp_arv", etAirp, airp_arv.code);
+                  TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, point_id);
+                  result = true;
+              }
             }
           }
       	  else

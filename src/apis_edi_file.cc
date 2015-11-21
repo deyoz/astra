@@ -404,6 +404,10 @@ std::vector< std::string > PaxlstInfo::toEdiStrings( unsigned maxPaxPerString ) 
 
 void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const int crew_num, const int version) const
 {
+  if ( ( ( m_type == FlightPassengerManifest ) && ( pax_num == 0 ) ) ||
+       ( ( m_type == FlightCrewManifest ) && ( crew_num == 0 ) ) )
+      return;
+
   // Make segment "Message"
   if(GetNode("Message", emulApisNode) == NULL) {
     BASIC::TDateTime nowUtc = BASIC::NowUTC();
@@ -424,8 +428,7 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     std::string envelope_id = generate_envelope_id(senderCarrierCode());
     if (envelope_id.empty())
       throw Exception("EnvelopeID is empty");
-    else
-      NewTextChild(messageNode, "EnvelopeID", envelope_id);
+    NewTextChild(messageNode, "EnvelopeID", envelope_id);
     NewTextChild(messageNode, "Owner", "DCS ASTRA");
     std::string msg_identifier = get_msg_identifier();
     if (!msg_identifier.empty()) NewTextChild(messageNode, "Identifier", msg_identifier);
@@ -444,16 +447,13 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     xmlNodePtr carrierNode = NewTextChild(opfltidNode, "Carrier");
     if (settings().mesAssCode().empty())
       throw Exception("CodeType is empty");
-    else
-      SetProp(carrierNode, "CodeType", settings().mesAssCode());
+    SetProp(carrierNode, "CodeType", settings().mesAssCode());
     if (settings().mesAssCode().empty())
       throw Exception("CarrierCode is empty");
-    else
-      NewTextChild(carrierNode, "CarrierCode", carrier());
+    NewTextChild(carrierNode, "CarrierCode", carrier());
     if (flight().empty())
       throw Exception("FlightNumber is empty");
-    else
-      NewTextChild(opfltidNode, "FlightNumber", flight());
+    NewTextChild(opfltidNode, "FlightNumber", flight());
     if(!markFlts().empty()) {
       for(std::map<std::string, std::string>::const_iterator i=markFlts().begin();i!=markFlts().end();i++)
       {
@@ -466,22 +466,18 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     }
     if (depDateTime() == ASTRA::NoExists)
       throw Exception("ScheduledDepartureDateTime is empty");
-    else
-      NewTextChild(flightNode, "ScheduledDepartureDateTime",
+    NewTextChild(flightNode, "ScheduledDepartureDateTime",
                  BASIC::DateTimeToStr(depDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
     if (depPort().empty())
       throw Exception("DepartureAirport is empty");
-    else
-      NewTextChild(flightNode, "DepartureAirport", depPort());
+    NewTextChild(flightNode, "DepartureAirport", depPort());
     if (arrDateTime() == ASTRA::NoExists)
       throw Exception("EstimatedArrivalDateTime is empty");
-    else
-      NewTextChild(flightNode, "EstimatedArrivalDateTime",
+    NewTextChild(flightNode, "EstimatedArrivalDateTime",
                  BASIC::DateTimeToStr(arrDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
     if (arrPort().empty())
       throw Exception("ArrivalAirport is empty");
-    else
-      NewTextChild(flightNode, "ArrivalAirport", arrPort());
+    NewTextChild(flightNode, "ArrivalAirport", arrPort());
     xmlNodePtr FlightLegsNode = NewTextChild(flightNode, "FlightLegs");
     fltLegs().FlightLegstoXML(FlightLegsNode);
   }
@@ -562,26 +558,21 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     xmlNodePtr nameNode = NewTextChild(flyerNode, "Name");
     if (it->surname().empty())
       throw Exception("Surname is empty");
-    else
-      NewTextChild(nameNode, "Surname", it->surname());
+    NewTextChild(nameNode, "Surname", it->surname());
     if (it->first_name().empty())
       throw Exception("FirstName is empty");
-    else
-      NewTextChild(nameNode, "FirstName", it->first_name());
+    NewTextChild(nameNode, "FirstName", it->first_name());
     if (!it->second_name().empty())
       NewTextChild(nameNode, "MiddleName", it->second_name());
     if (it->birthDate() == ASTRA::NoExists)
       throw Exception("DateOfBirth is empty");
-    else
-       NewTextChild(flyerNode, "DateOfBirth", BASIC::DateTimeToStr(it->birthDate(), "yyyy-mm-dd"));
+    NewTextChild(flyerNode, "DateOfBirth", BASIC::DateTimeToStr(it->birthDate(), "yyyy-mm-dd"));
     if (it->sex().empty())
       throw Exception("Gender is empty");
-    else
-      NewTextChild(flyerNode, "Gender", it->sex());
+    NewTextChild(flyerNode, "Gender", it->sex());
     if (it->nationality().empty())
       throw Exception("Nationality is empty");
-    else
-      NewTextChild(flyerNode, "Nationality", it->nationality());
+    NewTextChild(flyerNode, "Nationality", it->nationality());
     if (!it->residCountry().empty())
       NewTextChild(flyerNode, "CountryOfResidence", it->residCountry());
     if (!it->birthCountry().empty())
@@ -590,16 +581,13 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     xmlNodePtr docNode = NewTextChild(flyerNode, "TravelDocument");
     if (it->docType().empty())
       throw Exception("TypeCode is empty");
-    else
-      SetProp(docNode, "TypeCode", it->docType());
+    SetProp(docNode, "TypeCode", it->docType());
     if (it->docNumber().empty())
       throw Exception("Number of document is empty");
-    else
-      NewTextChild(docNode, "Number", it->docNumber());
+    NewTextChild(docNode, "Number", it->docNumber());
     if (it->docCountry().empty())
       throw Exception("IssueCountry is empty");
-    else
-      NewTextChild(docNode, "IssueCountry", it->docCountry());
+    NewTextChild(docNode, "IssueCountry", it->docCountry());
     if (it->docExpirateDate()!=ASTRA::NoExists) NewTextChild(docNode, "ExpiryDate", BASIC::DateTimeToStr(it->docExpirateDate(), "yyyy-mm-dd"));
   }
 }
