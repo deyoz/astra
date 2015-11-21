@@ -151,6 +151,15 @@ TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_ar
             result.pass.doc.required_fields|=DOC_XML_TR_FIELDS;
             result.crew.doc.required_fields|=DOC_XML_TR_FIELDS;
           };
+          if (fmt=="CSV_AE")
+          {
+            result.pass.doc.required_fields|=DOC_CSV_AE_FIELDS;
+            result.crew.doc.required_fields|=DOC_CSV_AE_FIELDS;
+          };
+          if (fmt=="EDI_LT")
+          {
+            result.pass.doc.required_fields|=DOC_EDI_LT_FIELDS;
+          };
         };
       };
       if (apis_formats.empty())
@@ -657,11 +666,82 @@ string EncodeAlarmType(const TAlarmType alarm )
 
 }; //namespace APIS
 
-void send_apis_tr()
+const TFilterQueue& getApisFilter( const std::string& type ) {
+  static std::map<std::string, TFilterQueue> filter;
+  std::map<std::string, TFilterQueue>::const_iterator it = filter.find( type );
+  if ( it == filter.end() ) {
+    it = filter.insert( make_pair( type,
+          TFilterQueue( OWN_POINT_ADDR(), type, ASTRA::NoExists,
+                        ASTRA::NoExists, false, 10 ) ) ).first;
+  }
+  return it->second;
+}
+
+std::string toSoapReq( const std::string& text, const std::string& login, const std::string& pswd, const std::string& type )
+{
+  XMLDoc soap_reqDoc;
+  soap_reqDoc.set("soapenv:Envelope");
+  if (soap_reqDoc.docPtr()==NULL)
+    throw EXCEPTIONS::Exception("toSoapReq: CreateXMLDoc failed");
+  xmlNodePtr soapNode=xmlDocGetRootElement(soap_reqDoc.docPtr());
+  SetProp(soapNode, "xmlns:soapenv", "http://schemas.xmlsoap.org/soap/envelope/");
+  xmlNodePtr headerNode = NewTextChild(soapNode, "soapenv:Header");
+  if ( type == APIS_LT ) {
+    xmlNodePtr securityNode = NewTextChild(headerNode, "Security");
+    SetProp(securityNode, "xmlns", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd");
+    xmlNodePtr tokenNode = NewTextChild(securityNode, "UsernameToken");
+    NewTextChild(tokenNode, "Username", login);
+    xmlNodePtr pswdNode = NewTextChild(tokenNode, "Password", pswd);
+    SetProp(pswdNode, "Type", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText");
+  }
+  xmlNodePtr bodyNode = NewTextChild(soapNode, "soapenv:Body");
+  if ( type == APIS_TR ) {
+    xmlNodePtr operationNode = NewTextChild( bodyNode, "voy:getFlightMessageSIN" );
+    SetProp( operationNode, "xmlns:voy", "http://www.gtb.gov.tr/voy.xml.webservices" );
+    xmlNodePtr apisNode = NewTextChild( operationNode, "FlightMessage" );
+    xmlDocPtr xml_text = NULL;
+    try {
+        xml_text = TextToXMLTree( text );
+        if(xml_text == NULL)
+            throw Exception( "TextToXMLTree failed" );
+        xmlNodePtr srcNode = xmlDocGetRootElement( xml_text );
+        CopyNodeList( apisNode,srcNode );
+        xmlFreeDoc( xml_text );
+    } catch( Exception &E ) {
+        if( xml_text )
+            xmlFreeDoc( xml_text );
+        ProgError( STDLOG, "Ошибка разбора XML. '%s' : %s", text.c_str(), E.what() );
+        throw;
+    } catch(...) {
+        if( xml_text )
+            xmlFreeDoc( xml_text );
+        ProgError( STDLOG, "Ошибка разбора XML. '%s'", text.c_str() );
+        throw;
+    }
+  }
+  else if ( type == APIS_LT ) {
+    xmlNodePtr operationNode = NewTextChild( bodyNode, "Push" );
+    SetProp( operationNode, "xmlns", "https://www.pnr.lt/ns/2014" );
+    NewTextChild( operationNode, "pPnrXml", text );
+  }
+  return GetXMLDocText( soap_reqDoc.docPtr() );
+}
+
+void send_apis_tr ()
+{
+  send_apis( APIS_TR );
+}
+
+void send_apis_lt ()
+{
+  send_apis( APIS_LT );
+}
+
+void send_apis ( const std::string type )
 {
   TFileQueue file_queue;
-  file_queue.get( *TApisTRFilter::Instance() );
-  ProgTrace(TRACE5, "send_apis_tr: Num of items in queue: %zu \n", file_queue.size());
+  file_queue.get( getApisFilter( type ) );
+  ProgTrace(TRACE5, "send_apis: Num of %s items in queue: %zu \n", type.c_str(), file_queue.size());
   for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++) {
       if ( item->params.find( PARAM_URL ) == item->params.end() ||
               item->params[ PARAM_URL ].empty() )
@@ -683,19 +763,19 @@ void send_apis_tr()
       request.action = item->params[PARAM_ACTION_CODE];
       request.login = item->params[PARAM_LOGIN];
       request.pswd = item->params[PARAM_PASSWORD];
-      request.content = item->data;
+      request.content = toSoapReq( item->data, request.login, request.pswd, type );
       request.using_ssl = (proto=="https")?true:false;
       request.timeout = 60000;
       TFileQueue::sendFile(item->id);
       ResponseInfo response;
       httpClient_main(request, response);
-      process_reply(response.content);
+      process_reply(response.content, type);
       TFileQueue::doneFile(item->id);
       createMsg( *item, evCommit );
   }
 }
 
-void process_reply( const std::string& result )
+void process_reply( const std::string& result, const std::string& type )
 {
   if( result.empty() )
     throw Exception( "Result is empty" );
@@ -712,19 +792,22 @@ void process_reply( const std::string& result )
     if( !node )
       throw Exception( "Body tag not found" );
     node = node->children;
-    node = NodeAsNodeFast( "getFlightMessageResponse", node );
+    string name = ( type == APIS_TR )?"getFlightMessageResponse":"PushResponse";
+    node = NodeAsNodeFast( name.c_str(), node );
     if( !node )
-      throw Exception( "getFlightMessageResponse tag not found" );
-    node = node->children;
-    node = NodeAsNodeFast( "Statu", node );
-    if( !node )
-      throw Exception( "Statu tag not found" );
-    node = node->children;
-    node = NodeAsNodeFast( "explanation", node );
-    std::string status = ( node ? NodeAsString(node) : "" );
-    if( status != "OK" )
-      throw Exception( "Return status not OK: '%s'", status.c_str() );
-    ProgTrace(TRACE5, "process_reply: status %s", status.c_str());
+      throw Exception( "%s tag not found", name.c_str() );
+    if ( type == APIS_TR ) {
+      node = node->children;
+      node = NodeAsNodeFast( "Statu", node );
+      if( !node )
+        throw Exception( "Statu tag not found" );
+      node = node->children;
+      node = NodeAsNodeFast( "explanation", node );
+      std::string status = ( node ? NodeAsString(node) : "" );
+      if( status != "OK" )
+        throw Exception( "Return status not OK: '%s'", status.c_str() );
+    }
+    ProgTrace(TRACE5, "process_reply: successful");
   }
   catch(...)
   {
