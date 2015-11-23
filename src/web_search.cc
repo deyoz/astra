@@ -362,7 +362,7 @@ TPNRFilters& TPNRFilters::fromBCBP_M(const std::string &bcbp)
     //фамилия/имя пассажира
     pair<string, string> name_pair=sections.unique.passengerName();
 
-    for(list<BCBPRepeatedSections>::const_iterator s=sections.repeated.begin(); s!=sections.repeated.end(); ++s)
+    for(vector<BCBPRepeatedSections>::const_iterator s=sections.repeated.begin(); s!=sections.repeated.end(); ++s)
     {
       TPNRFilter filter;
 
