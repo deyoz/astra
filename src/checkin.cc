@@ -3482,17 +3482,17 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TGroupBagItem &cu
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (reqInfo->user.access.rights().permitted(347)) return;
   //проверим, удалялся ли входящицй трансфер
-  map< int/*id*/, TBagToLogInfo> curr2;
+  map< int/*id*/, TEventsBagItem> curr2;
   for(map<int /*num*/, CheckIn::TBagItem>::const_iterator b=curr.bags.begin(); b!=curr.bags.end(); ++b)
   {
     if (b->second.is_trfer && !b->second.handmade)
-      curr2.insert(make_pair(b->second.id, TBagToLogInfo(b->second)));
+      curr2.insert(make_pair(b->second.id, TEventsBagItem(b->second, false)));
   };
-  for(map< int/*id*/, TBagToLogInfo>::const_iterator b1=prev.bag.begin(); b1!=prev.bag.end(); ++b1)
+  for(map< int/*id*/, TEventsBagItem>::const_iterator b1=prev.bag.begin(); b1!=prev.bag.end(); ++b1)
   {
     if (b1->second.is_trfer && !b1->second.handmade)
     {
-      map< int/*id*/, TBagToLogInfo>::const_iterator b2=curr2.find(b1->first);
+      map< int/*id*/, TEventsBagItem>::const_iterator b2=curr2.find(b1->first);
       if (b2==curr2.end() || !(b1->second==b2->second))
         throw UserException("MSG.NO_PERM_MODIFY_INBOUND_TRFER");
     };
@@ -4927,7 +4927,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 //запись норм
                 if (first_segment &&
                     !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-                  CheckIn::PaxNormsToDB(pax_id, p->norms);
+                  WeightConcept::PaxNormsToDB(pax_id, p->norms);
 
                 if (need_apps) {
                   //сохраним пассажира для APPS
@@ -4957,7 +4957,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           //запись норм
           if (first_segment &&
               !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-            CheckIn::GrpNormsToDB(grp.id, grp.norms);
+            WeightConcept::GrpNormsToDB(grp.id, grp.norms);
         };
 
         TLogLocale tlocale;
@@ -5210,7 +5210,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               //запись норм
               if (first_segment &&
                   !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-                CheckIn::PaxNormsToDB(pax.id, p->norms);
+                WeightConcept::PaxNormsToDB(pax.id, p->norms);
 
               if (need_apps) {
                 //сохраним пассажира для APPS
@@ -5232,7 +5232,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           //запись норм
           if (first_segment &&
               !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-            CheckIn::GrpNormsToDB(grp.id, grp.norms);
+            WeightConcept::GrpNormsToDB(grp.id, grp.norms);
         };
 
         if (save_trfer)
@@ -5281,21 +5281,21 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
               {
                 //расчет и запись норм и платного багажа
-                BagPayment::TNormFltInfo fltInfo;
+                WeightConcept::TNormFltInfo fltInfo;
                 fltInfo.point_id=grp.point_dep;
                 fltInfo.airline_mark=markFltInfo.airline;
                 fltInfo.flt_no_mark=markFltInfo.flt_no;
                 fltInfo.use_mark_flt=pr_mark_norms;
                 fltInfo.use_mixed_norms=pr_mixed_norms;
-                map<int/*id*/, TBagToLogInfo> curr_bag;
+                map<int/*id*/, TEventsBagItem> curr_bag;
                 GetBagToLogInfo(grp.id, curr_bag);
-                list<CheckIn::TPaidBagItem> prior_paid;
-                CheckIn::PaidBagFromDB(grp.id, prior_paid);
-                BagPayment::RecalcPaidBagToDB(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true);
+                list<WeightConcept::TPaidBagItem> prior_paid;
+                WeightConcept::PaidBagFromDB(NoExists, grp.id, prior_paid);
+                WeightConcept::RecalcPaidBagToDB(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true);
               }
               else
               {
-                CheckIn::PaidBagToDB(grp.id, grp.paid);
+                WeightConcept::PaidBagToDB(grp.id, grp.paid);
               };
 
               CheckIn::PaidBagEMDToDB(grp.id, emd);
@@ -6292,7 +6292,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
   xmlNodePtr segsNode=NewTextChild(resNode,"segments");
   for(vector<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++)
   {
-    list<BagPayment::TBagNormInfo> all_norms;
+    list<WeightConcept::TBagNormInfo> all_norms;
     ostringstream norms_view;
     string used_norms_airline_mark;
 
@@ -6421,9 +6421,9 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         {
           if (!grp.piece_concept)
           {
-            list< pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
-            CheckIn::PaxNormsFromDB(pax.id, norms);
-            CheckIn::NormsToXML(norms, group_bag, paxNode);
+            list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
+            WeightConcept::PaxNormsFromDB(NoExists, pax.id, norms);
+            WeightConcept::NormsToXML(norms, group_bag, paxNode);
             if (pax.refuse.empty())
               all_norms.insert(all_norms.end(), norms.begin(), norms.end());
           }
@@ -6446,9 +6446,9 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         BuildTransfer(trfer, trtNotFirstSeg, resNode);
         if (!grp.piece_concept)
         {
-          list< pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
-          CheckIn::GrpNormsFromDB(grp.id, norms);
-          CheckIn::NormsToXML(norms, group_bag, segNode);
+          list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
+          WeightConcept::GrpNormsFromDB(NoExists, grp.id, norms);
+          WeightConcept::NormsToXML(norms, group_bag, segNode);
           all_norms.insert(all_norms.end(), norms.begin(), norms.end());
         };
       };
@@ -6458,18 +6458,18 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       group_bag.toXML(resNode);
       if (!grp.piece_concept)
       {
-        list<CheckIn::TPaidBagItem> paid;
-        CheckIn::PaidBagFromDB(grp.id, paid);
+        list<WeightConcept::TPaidBagItem> paid;
+        WeightConcept::PaidBagFromDB(NoExists, grp.id, paid);
         if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-          CheckIn::PaidBagToXML(paid, group_bag, resNode);
+          WeightConcept::PaidBagToXML(paid, group_bag, resNode);
         list<CheckIn::TPaidBagEMDItem> emd;
         CheckIn::PaidBagEMDFromDB(grp.id, emd);
         CheckIn::PaidBagEMDToXML(emd, segNode);
         if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
         {
-          map<int/*id*/, TBagToLogInfo> tmp_bag;
+          map<int/*id*/, TEventsBagItem> tmp_bag;
           GetBagToLogInfo(grp.id, tmp_bag);
-          BagPayment::PaidBagViewToXML(tmp_bag, all_norms, paid, emd, used_norms_airline_mark, resNode);
+          WeightConcept::PaidBagViewToXML(tmp_bag, all_norms, paid, emd, used_norms_airline_mark, resNode);
         };
       }
       else

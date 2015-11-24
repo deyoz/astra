@@ -602,20 +602,20 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   CheckIn::TGroupBagItem group_bag;
   group_bag.fromDB(grp_id, ASTRA::NoExists, !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS));
   group_bag.toXML(dataNode);
-  list<CheckIn::TPaidBagItem> paid;
-  CheckIn::PaidBagFromDB(grp_id, paid);
+  list<WeightConcept::TPaidBagItem> paid;
+  WeightConcept::PaidBagFromDB(NoExists, grp_id, paid);
   if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-    CheckIn::PaidBagToXML(paid, group_bag, dataNode);
+    WeightConcept::PaidBagToXML(paid, group_bag, dataNode);
   else
   {
-    map<int/*id*/, TBagToLogInfo> tmp_bag;
+    map<int/*id*/, TEventsBagItem> tmp_bag;
     GetBagToLogInfo(grp_id, tmp_bag);
-    BagPayment::PaidBagViewToXML(tmp_bag,
-                                 list<BagPayment::TBagNormInfo>(),
-                                 paid,
-                                 list<CheckIn::TPaidBagEMDItem>(),
-                                 "",
-                                 dataNode);
+    WeightConcept::PaidBagViewToXML(tmp_bag,
+                                    list<WeightConcept::TBagNormInfo>(),
+                                    paid,
+                                    list<CheckIn::TPaidBagEMDItem>(),
+                                    "",
+                                    dataNode);
   };
 
   LoadReceipts(grp_id,true,prnParams.pr_lat,dataNode);
@@ -746,9 +746,9 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       grp.toDB(grp_id);
     };
 
-    boost::optional< list<CheckIn::TPaidBagItem> > paid;
-    PaidBagFromXML(reqNode, paid);
-    PaidBagToDB(grp_id, paid);
+    boost::optional< list<WeightConcept::TPaidBagItem> > paid;
+    WeightConcept::PaidBagFromXML(reqNode, paid);
+    WeightConcept::PaidBagToDB(grp_id, paid);
 
     TReqInfo::Instance()->LocaleToLog("EVT.LUGGAGE.SAVE_DATA", ASTRA::evtPay,point_dep,0,grp_id);
 };

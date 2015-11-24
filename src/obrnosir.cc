@@ -20,6 +20,7 @@
 #include "file_queue.h"
 #include "empty_proc.h"
 #include "pers_weights.h"
+#include "basel_aero.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/testmode.h"
@@ -69,7 +70,7 @@ const
     {"-tz2db",                  tz2db,                  NULL,                       "reload date_time_zonespec.csv content to db"},
     {"-get_sirena_rozysk_stat", get_sirena_rozysk_stat, NULL,                       NULL},
     {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
-    {"-get_basel_aero_stat",    get_basel_aero_stat,    NULL,                       NULL},
+    {"-basel_stat",             basel_stat,             NULL,                       NULL},
     {"-testsalons",             testsalons,             NULL,                       NULL},
     {"-test_trfer_exists",      test_trfer_exists,      NULL,                       NULL},
     {"-bind_trfer_trips",       bind_trfer_trips,       NULL,                       NULL},

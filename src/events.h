@@ -3,8 +3,10 @@
 #include "astra_consts.h"
 #include "passenger.h"
 #include "baggage.h"
+#include "baggage_pc.h"
 #include "remarks.h"
 #include "astra_misc.h"
+#include "astra_utils.h"
 #include "stat.h"
 
 #include <sstream>
@@ -22,6 +24,150 @@ public:
   };
   void GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+};
+
+class TEventsBagItem : public CheckIn::TBagItem
+{
+  public:
+    bool refused; //дополнительный признак, символизирующий что багаж принадлежит разрег. пассажирам
+                  //не относится непосредственно к информации по багажу
+    int pax_id;   //ид. пассажира, которому принадлежит багаж
+
+    void clear()
+    {
+      CheckIn::TBagItem::clear();
+      refused=false;
+      pax_id=ASTRA::NoExists;
+    }
+
+    bool operator == (const TEventsBagItem &item) const
+    {
+      return id == item.id &&
+             pr_cabin == item.pr_cabin &&
+             amount == item.amount &&
+             weight == item.weight &&
+             bag_type == item.bag_type &&
+             rfisc == item.rfisc &&
+             using_scales == item.using_scales &&
+             is_trfer == item.is_trfer &&
+             handmade == item.handmade;
+    }
+
+    TEventsBagItem()
+    {
+      clear();
+    }
+
+    TEventsBagItem(const CheckIn::TBagItem &bagItem, const bool _refused) : CheckIn::TBagItem(bagItem), refused(_refused), pax_id(ASTRA::NoExists) {}
+
+    TEventsBagItem& fromDB(TQuery &Qry);
+};
+
+class TEventsPaidBagEMDItem : public CheckIn::TPaidBagEMDItem
+{
+  public:
+    std::string bag_type_view;
+
+    void clear()
+    {
+      CheckIn::TPaidBagEMDItem::clear();
+      bag_type_view=bag_type_str();
+    }
+
+    TEventsPaidBagEMDItem()
+    {
+      clear();
+    }
+
+    TEventsPaidBagEMDItem(const CheckIn::TPaidBagEMDItem& item) : CheckIn::TPaidBagEMDItem(item)
+    {
+      bag_type_view=bag_type_str();
+    }
+
+    bool operator < (const TEventsPaidBagEMDItem &item) const
+    {
+      if (bag_type_view!=item.bag_type_view)
+        return bag_type_view<item.bag_type_view;
+      if (emd_no!=item.emd_no)
+        return emd_no<item.emd_no;
+      return (emd_coupon==ASTRA::NoExists ||
+              (item.emd_coupon!=ASTRA::NoExists && emd_coupon<item.emd_coupon));
+    }
+
+    TEventsPaidBagEMDItem& fromDB(TQuery &Qry);
+};
+
+class TEventsSumBagKey
+{
+  public:
+    std::string bag_type_view;
+    bool is_trfer;
+    void clear()
+    {
+      bag_type_view.clear();
+      is_trfer=false;
+    }
+    TEventsSumBagKey()
+    {
+      clear();
+    }
+    bool operator == (const TEventsSumBagKey &item) const
+    {
+      return bag_type_view==item.bag_type_view &&
+             is_trfer==item.is_trfer;
+    }
+    bool operator < (const TEventsSumBagKey &item) const
+    {
+      if (bag_type_view!=item.bag_type_view)
+        return bag_type_view<item.bag_type_view;
+      return (int)is_trfer<(int)item.is_trfer;
+    }
+};
+
+class TEventsSumBagItem
+{
+  public:
+    int amount, weight, paid;
+    void clear()
+    {
+      amount=0;
+      weight=0;
+      paid=0;
+    }
+    bool empty() const
+    {
+      return amount==0 &&
+             weight==0 &&
+             paid==0;
+    }
+    TEventsSumBagItem()
+    {
+      clear();
+    }
+    bool operator == (const TEventsSumBagItem &item) const
+    {
+      return amount==item.amount &&
+             weight==item.weight &&
+             paid==item.paid;
+    }
+};
+
+class TPaidToLogInfo
+{
+  public:
+    int excess;
+    std::map<TEventsSumBagKey, TEventsSumBagItem> bag;
+    std::multiset<TEventsPaidBagEMDItem> emd;
+    void clear()
+    {
+      excess=0;
+      bag.clear();
+      emd.clear();
+    }
+    void add(const TEventsBagItem& item);
+    void add(const WeightConcept::TPaidBagItem& item);
+    void add(const PieceConcept::TPaidBagItem& item);
+    void trace( TRACE_SIGNATURE, const std::string &descr) const;
 };
 
 class TPaxToLogInfoKey
@@ -63,9 +209,10 @@ class TPaxToLogInfo
     CheckIn::TAPISItem apis;
     int bag_amount, bag_weight, rk_amount, rk_weight;
     std::string tags;
-    std::list< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> > norms;
-    std::map< int/*bag_type*/, CheckIn::TNormItem> norms_normal;
+    std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
+    std::map< std::string/*bag_type_view*/, WeightConcept::TNormItem> norms_normal;
     std::vector<CheckIn::TPaxRemItem> rems;
+    TPaidToLogInfo paid;
     TPaxToLogInfo()
     {
       clear();
@@ -96,131 +243,44 @@ class TPaxToLogInfo
       norms.clear();
       norms_normal.clear();
       rems.clear();
+      paid.clear();
     };
+
     std::string getBagStr() const;
     void getBag(PrmEnum& param) const;
     void getPaxName(LEvntPrms& params) const;
     void getNorm(PrmEnum& param) const;
 };
 
-class TBagToLogInfo
-{
-  public:
-    int id, pr_cabin, amount, weight;
-    int bag_type;
-    bool using_scales, is_trfer, handmade;
-    bool refused; //дополнительный признак, символизирующий что багаж принадлежит разрег. пассажирам
-                  //не относится непосредственно к информации по багажу
-    void clear()
-    {
-      id=ASTRA::NoExists;
-      pr_cabin=false;
-      amount=0;
-      weight=0;
-      bag_type=ASTRA::NoExists;
-      using_scales=false;
-      is_trfer=false;
-      handmade=true;
-      refused=false;
-    };
-    bool operator == (const TBagToLogInfo &item) const
-    {
-      return id == item.id &&
-             pr_cabin == item.pr_cabin &&
-             amount == item.amount &&
-             weight == item.weight &&
-             bag_type == item.bag_type &&
-             using_scales == item.using_scales &&
-             is_trfer == item.is_trfer &&
-             handmade == item.handmade;
-    };
-    TBagToLogInfo()
-    {
-      clear();
-    };
-    TBagToLogInfo(const CheckIn::TBagItem &bagItem)
-    {
-      id = bagItem.id;
-      pr_cabin = bagItem.pr_cabin;
-      amount = bagItem.amount;
-      weight = bagItem.weight;
-      bag_type = bagItem.bag_type;
-      using_scales = bagItem.using_scales;
-      is_trfer = bagItem.is_trfer;
-      handmade = bagItem.handmade;
-      refused=false;
-    };
-};
-
-class TPaidToLogInfo
-{
-  public:
-    int bag_type, bag_amount, bag_weight, paid_weight;
-    void clear()
-    {
-      bag_type=ASTRA::NoExists;
-      bag_amount=0;
-      bag_weight=0;
-      paid_weight=0;
-    };
-    bool operator == (const TPaidToLogInfo &item) const
-    {
-      return bag_type == item.bag_type &&
-             bag_amount == item.bag_amount &&
-             bag_weight == item.bag_weight &&
-             paid_weight == item.paid_weight;
-    };
-    TPaidToLogInfo(int _bag_type)
-    {
-      clear();
-      bag_type=_bag_type;
-    };
-};
-
-class TPaidEMDToLogComparator
-{
-  public:
-    bool operator()(const CheckIn::TPaidBagEMDItem &item1,
-                    const CheckIn::TPaidBagEMDItem &item2)
-    {
-      if (item1.bag_type!=item2.bag_type)
-        return (item1.bag_type==ASTRA::NoExists ||
-                (item2.bag_type!=ASTRA::NoExists && item1.bag_type<item2.bag_type));
-      if (item1.emd_no!=item2.emd_no)
-        return item1.emd_no<item2.emd_no;
-      if (item1.emd_coupon!=item2.emd_coupon)
-        return (item1.emd_coupon==ASTRA::NoExists ||
-                (item2.emd_coupon!=ASTRA::NoExists && item1.emd_coupon<item2.emd_coupon));
-      return item1.weight<item2.weight;
-    };
-};
-
 class TGrpToLogInfo
 {
   public:
-    int grp_id, excess;
+    int grp_id;
     bool trfer_confirm, piece_concept;
     std::map<TPaxToLogInfoKey, TPaxToLogInfo> pax;
-    std::map<int/*id*/, TBagToLogInfo> bag;
-    std::map<int/*bag_type*/, TPaidToLogInfo> paid;
-    std::map<int/*bag_type*/, TPaidToLogInfo> trfer;
-    std::multiset<CheckIn::TPaidBagEMDItem, TPaidEMDToLogComparator> emd;
+    std::map<int/*id*/, TEventsBagItem> bag;
+    TPaidToLogInfo paid;
     void clear()
     {
       grp_id=ASTRA::NoExists;
-      excess=0;
       trfer_confirm=false;
       piece_concept=false;
       pax.clear();
       bag.clear();
       paid.clear();
-      trfer.clear();
-      emd.clear();
     };
     TGrpToLogInfo()
     {
       clear();
-    };
+    }
+
+    std::map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator findPax(int pax_id)
+    {
+      std::map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator i=pax.begin();
+      for(; i!=pax.end(); ++i)
+        if (i->first.pax_id==pax_id) break;
+      return i;
+    }
 };
 
 class TAgentStatInfo
@@ -267,7 +327,7 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
                     const CheckIn::TAPISItem &apisAfter,
                     std::list<std::pair<std::string, std::string> > &msgs);
 
-void GetBagToLogInfo(int grp_id, std::map<int/*id*/, TBagToLogInfo> &bag);
+void GetBagToLogInfo(int grp_id, std::map<int/*id*/, TEventsBagItem> &bag);
 void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo);
 void SaveGrpToLog(int point_id,
                   const TTripInfo &operFlt,
@@ -275,6 +335,11 @@ void SaveGrpToLog(int point_id,
                   const TGrpToLogInfo &grpInfoBefore,
                   const TGrpToLogInfo &grpInfoAfter,
                   TAgentStatInfo &agentStat);
+void SavePaidToLog(const TPaidToLogInfo &paidBefore,
+                   const TPaidToLogInfo &paidAfter,
+                   const TLogLocale &msgPattern,
+                   bool piece_concept,
+                   bool onlyEMD);
 //функция не только возвращает auto_weighing для пульта,
 //но и пишет в лог, если для данного пульта изменилась настройка
 bool GetAutoWeighing(int point_id, const std::string &work_mode);
