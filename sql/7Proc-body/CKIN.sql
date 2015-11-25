@@ -271,19 +271,37 @@ FUNCTION get_excess(vgrp_id       IN pax.grp_id%TYPE,
                     vpax_id       IN pax.pax_id%TYPE) RETURN NUMBER
 IS
 vexcess         pax_grp.excess%TYPE;
-main_pax_id    pax.pax_id%TYPE;
+vpiece_concept  pax_grp.piece_concept%TYPE;
+main_pax_id     pax.pax_id%TYPE;
 BEGIN
   vexcess:=0;
-  IF vpax_id IS NOT NULL THEN
-    main_pax_id:=get_main_pax_id2(vgrp_id);
-  END IF;
-  IF vpax_id IS NULL OR
-     main_pax_id IS NOT NULL AND main_pax_id=vpax_id THEN
-   BEGIN
-    SELECT DECODE(bag_refuse,0,excess,0) INTO vexcess FROM pax_grp WHERE grp_id=vgrp_id;
-   EXCEPTION
-     WHEN NO_DATA_FOUND THEN NULL;
-   END;
+  BEGIN
+    SELECT NVL(piece_concept,0), DECODE(bag_refuse,0,excess,0)
+    INTO vpiece_concept, vexcess
+    FROM pax_grp WHERE grp_id=vgrp_id;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN RETURN NULL;
+  END;
+
+  IF vpiece_concept=0 THEN
+    IF vpax_id IS NOT NULL THEN
+      main_pax_id:=get_main_pax_id2(vgrp_id);
+    END IF;
+    IF vpax_id IS NULL OR
+       main_pax_id IS NOT NULL AND main_pax_id=vpax_id THEN
+      NULL;
+    ELSE
+      vexcess:=NULL;
+    END IF;
+  ELSE
+    IF vpax_id IS NOT NULL THEN
+      SELECT COUNT(*)
+      INTO vexcess
+      FROM paid_bag_pc
+      WHERE pax_id=vpax_id AND
+            transfer_num=0 AND
+            status IN ('unknown', 'paid', 'need');
+    END IF;
   END IF;
   IF vexcess=0 THEN vexcess:=NULL; END IF;
   RETURN vexcess;
@@ -768,12 +786,16 @@ BEGIN
         DELETE FROM pax_doca WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_fqt WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_asvc WHERE pax_id=curRow.pax_id;
+        DELETE FROM pax_emd WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_norms WHERE pax_id=curRow.pax_id;
+        DELETE FROM pax_norms_pc WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_rem WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_seats WHERE pax_id=curRow.pax_id;
         DELETE FROM rozysk WHERE pax_id=curRow.pax_id;
         DELETE FROM transfer_subcls WHERE pax_id=curRow.pax_id;
         DELETE FROM trip_comp_layers WHERE pax_id=curRow.pax_id;
+        DELETE FROM paid_bag_pc WHERE pax_id=curRow.pax_id;
+        UPDATE paid_bag_emd SET pax_id=NULL WHERE pax_id=curRow.pax_id;
         DELETE FROM pax WHERE pax_id=curRow.pax_id;
         FOR langCurRow IN langCur LOOP
           UPDATE events_bilingual SET id2=NULL
@@ -859,6 +881,7 @@ BEGIN
     i:=delete_grp_trfer(vgrp_id);
     i:=delete_grp_tckin_segs(vgrp_id);
     DELETE FROM value_bag WHERE grp_id=vgrp_id;
+    DELETE FROM pnr_addrs_pc WHERE grp_id=vgrp_id;
     DELETE FROM pax_grp WHERE grp_id=vgrp_id;
     --не чистим mark_trips потому что будет слишком долгая проверка pax_grp.point_id_mark
     FOR langCurRow IN langCur LOOP

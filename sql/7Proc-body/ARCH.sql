@@ -465,10 +465,12 @@ BEGIN
       FORALL i IN 1..grprowids.COUNT
         INSERT INTO arx_pax_grp
           (grp_id,point_dep,point_arv,airp_dep,airp_arv,class,class_grp,
-           status,excess,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,tid,part_key)
+           status,excess,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
+           piece_concept,bag_types_id,tid,part_key)
         SELECT
            grp_id,point_dep,point_arv,airp_dep,airp_arv,class,class_grp,
-           status,excess,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,tid,vpart_key
+           status,excess,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
+           piece_concept,bag_types_id,tid,vpart_key
         FROM pax_grp
         WHERE rowid=grprowids(i);
     END IF;
@@ -514,10 +516,10 @@ BEGIN
       FORALL i IN 1..rowids.COUNT
         INSERT INTO arx_stat
           (point_id,airp_arv,hall,status,client_type,f,c,y,adult,child,baby,child_wop,baby_wop,
-           pcs,weight,unchecked,excess,term_bp,term_bag,term_ckin_service,part_key)
+           pcs,weight,unchecked,excess,excess_pc,term_bp,term_bag,term_ckin_service,part_key)
         SELECT
            point_id,airp_arv,hall,status,client_type,f,c,y,adult,child,baby,child_wop,baby_wop,
-           pcs,weight,unchecked,excess,term_bp,term_bag,term_ckin_service,vpart_key
+           pcs,weight,unchecked,excess,excess_pc,term_bp,term_bag,term_ckin_service,vpart_key
         FROM stat
         WHERE rowid=rowids(i);
     END IF;
@@ -531,10 +533,10 @@ BEGIN
       FORALL i IN 1..rowids.COUNT
         INSERT INTO arx_trfer_stat
           (point_id,trfer_route,client_type,f,c,y,adult,child,baby,child_wop,baby_wop,
-           pcs,weight,unchecked,excess,part_key)
+           pcs,weight,unchecked,excess,excess_pc,part_key)
         SELECT
            point_id,trfer_route,client_type,f,c,y,adult,child,baby,child_wop,baby_wop,
-           pcs,weight,unchecked,excess,vpart_key
+           pcs,weight,unchecked,excess,excess_pc,vpart_key
         FROM trfer_stat
         WHERE rowid=rowids(i);
     END IF;
@@ -587,9 +589,9 @@ BEGIN
       WHERE point_dep=curRow.point_id;
 
       INSERT INTO arx_trip_sets
-        (point_id,max_commerce,comp_id,pr_etstatus,pr_stat,pr_tranz_reg,f,c,y,pr_airp_seance,part_key)
+        (point_id,max_commerce,comp_id,pr_etstatus,pr_stat,pr_tranz_reg,f,c,y,part_key)
       SELECT
-         point_id,max_commerce,comp_id,pr_etstatus,pr_stat,pr_tranz_reg,f,c,y,pr_airp_seance,vpart_key
+         point_id,max_commerce,comp_id,pr_etstatus,pr_stat,pr_tranz_reg,f,c,y,vpart_key
       FROM trip_sets
       WHERE point_id=curRow.point_id;
 
@@ -669,11 +671,11 @@ BEGIN
       IF use_insert THEN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_bag2
-            (grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,to_ramp,
-             using_scales,bag_pool_num,hall,user_id,is_trfer,part_key)
+            (grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,to_ramp,
+             using_scales,bag_pool_num,hall,user_id,is_trfer,handmade,part_key)
           SELECT
-             grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,to_ramp,
-             using_scales,bag_pool_num,hall,user_id,is_trfer,vpart_key
+             grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,to_ramp,
+             using_scales,bag_pool_num,hall,user_id,is_trfer,handmade,vpart_key
           FROM bag2
           WHERE rowid=rowids(i);
       END IF;
@@ -717,9 +719,9 @@ BEGIN
       IF use_insert THEN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_paid_bag
-            (grp_id,bag_type,weight,rate_id,rate_trfer,part_key)
+            (grp_id,bag_type,weight,rate_id,rate_trfer,handmade,part_key)
           SELECT
-             grp_id,bag_type,weight,rate_id,rate_trfer,vpart_key
+             grp_id,bag_type,weight,rate_id,rate_trfer,handmade,vpart_key
           FROM paid_bag
           WHERE rowid=rowids(i);
       END IF;
@@ -820,9 +822,9 @@ BEGIN
       IF use_insert THEN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_grp_norms
-            (grp_id,bag_type,norm_id,norm_trfer,part_key)
+            (grp_id,bag_type,norm_id,norm_trfer,handmade,part_key)
           SELECT
-             grp_id,bag_type,norm_id,norm_trfer,vpart_key
+             grp_id,bag_type,norm_id,norm_trfer,handmade,vpart_key
           FROM grp_norms
           WHERE rowid=rowids(i);
       END IF;
@@ -837,9 +839,9 @@ BEGIN
         IF use_insert THEN
           FORALL i IN 1..rowids.COUNT
             INSERT INTO arx_pax_norms
-              (pax_id,bag_type,norm_id,norm_trfer,part_key)
+              (pax_id,bag_type,norm_id,norm_trfer,handmade,part_key)
             SELECT
-               pax_id,bag_type,norm_id,norm_trfer,vpart_key
+               pax_id,bag_type,norm_id,norm_trfer,handmade,vpart_key
             FROM pax_norms
             WHERE rowid=rowids(i);
         END IF;
@@ -925,16 +927,21 @@ BEGIN
 
         DELETE FROM pax_fqt WHERE pax_id=paxids(k);
         DELETE FROM pax_asvc WHERE pax_id=paxids(k);
+        DELETE FROM pax_emd WHERE pax_id=paxids(k);
         DELETE FROM bp_print WHERE pax_id=paxids(k);
         DELETE FROM trip_comp_layers WHERE pax_id=paxids(k);
         DELETE FROM rozysk WHERE pax_id=paxids(k);
         DELETE FROM pax_seats WHERE pax_id=paxids(k);
+        DELETE FROM pax_norms_pc WHERE pax_id=paxids(k);
+        DELETE FROM paid_bag_pc WHERE pax_id=paxids(k);
+        UPDATE paid_bag_emd SET pax_id=NULL WHERE pax_id=paxids(k);
         pax_count:=pax_count+1;
       END LOOP;
       FORALL i IN 1..paxrowids.COUNT
         DELETE FROM pax WHERE rowid=paxrowids(i);
       DELETE FROM tckin_pax_grp WHERE grp_id=grpids(j);
       DELETE FROM paid_bag_emd WHERE grp_id=grpids(j);
+      DELETE FROM pnr_addrs_pc WHERE grp_id=grpids(j);
     END LOOP;
     FORALL i IN 1..grprowids.COUNT
       DELETE FROM pax_grp WHERE rowid=grprowids(i);

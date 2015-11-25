@@ -49,6 +49,10 @@ PROCEDURE check_hall_airp(vhall_id       IN halls2.id%TYPE,
                           vpoint_id      IN points.point_id%TYPE);
 FUNCTION check_hall_airp(vhall_id       IN halls2.id%TYPE,
                          vairp          IN airps.code%TYPE) RETURN airps.code%TYPE;
+PROCEDURE check_terminal_airp(vterminal_id   IN airp_terminals.id%TYPE,
+                              vpoint_id      IN points.point_id%TYPE);
+FUNCTION check_terminal_airp(vterminal_id   IN airp_terminals.id%TYPE,
+                             vairp          IN airps.code%TYPE) RETURN airps.code%TYPE;
 
 FUNCTION check_right_access(vright_id IN rights_list.ida%TYPE,
                             vuser_id IN users2.user_id%TYPE,
@@ -387,6 +391,12 @@ PROCEDURE sync_typeb_options(vid            typeb_addrs.id%TYPE,
                              vbasic_type    typeb_addr_options.tlg_type%TYPE,
                              vsetting_user  history_events.open_user%TYPE,
                              vstation       history_events.open_desk%TYPE);
+
+PROCEDURE sync_COM_options(vid            typeb_addrs.id%TYPE,
+                           vbasic_type    typeb_addr_options.tlg_type%TYPE,
+                           vversion       typeb_addr_options.value%TYPE,
+                           vsetting_user  history_events.open_user%TYPE,
+                           vstation       history_events.open_desk%TYPE);
 
 PROCEDURE sync_LDM_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,

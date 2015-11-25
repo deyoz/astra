@@ -44,11 +44,11 @@ BEGIN
   INSERT INTO trfer_stat
    (point_id,trfer_route,client_type,
     f,c,y,adult,child,baby,child_wop,baby_wop,
-    pcs,weight,unchecked,excess)
+    pcs,weight,unchecked,excess,excess_pc)
   SELECT
     vpoint_id,b.trfer_route,b.client_type,
     f,c,y,adult,child,baby,child_wop,baby_wop,
-    NVL(pcs,0),NVL(weight,0),NVL(unchecked,0),NVL(excess,0)
+    NVL(pcs,0),NVL(weight,0),NVL(unchecked,0),NVL(excess,0),NVL(excess_pc,0)
   FROM
    (SELECT
       statist.get_trfer_route(pax_grp.grp_id) trfer_route,
@@ -79,7 +79,8 @@ BEGIN
    (SELECT
       statist.get_trfer_route(pax_grp.grp_id) trfer_route,
       client_type,
-      SUM(DECODE(bag_refuse,0,excess,0)) AS excess
+      SUM(DECODE(bag_refuse,0,decode(piece_concept,0,excess,NULL,excess,0     ),0)) AS excess,
+      SUM(DECODE(bag_refuse,0,decode(piece_concept,0,     0,NULL,     0,excess),0)) AS excess_pc
     FROM pax_grp,transfer
     WHERE point_dep=vpoint_id AND pax_grp.status NOT IN ('E') AND
           pax_grp.grp_id=transfer.grp_id AND transfer_num=1
@@ -137,7 +138,8 @@ begin
       (SELECT 1 FROM bag2
        WHERE bag2.grp_id=pax.grp_id AND pax.bag_pool_num IS NOT NULL AND
              ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num)=pax.pax_id AND
-             bag2.is_trfer=0 AND bag2.hall IS NOT NULL AND rownum<2) AS term_bag,
+             (bag2.is_trfer=0 OR NVL(bag2.handmade,0)<>0) AND
+             bag2.hall IS NOT NULL AND rownum<2) AS term_bag,
       (SELECT 1 FROM events_bilingual, stations
        WHERE events_bilingual.station=stations.desk AND
              stations.work_mode='' AND
@@ -185,7 +187,8 @@ IS
       NVL(bag2.hall,pax_grp.hall) AS hall,
       DECODE(status,'T','T','N') AS status,
       client_type,
-      SUM(DECODE(bag_refuse,0,excess,0)) AS excess
+      SUM(DECODE(bag_refuse,0,decode(piece_concept, 0, excess, NULL, excess, 0     ),0)) AS excess,
+      SUM(DECODE(bag_refuse,0,decode(piece_concept, 0,      0, NULL,      0, excess),0)) AS excess_pc
     FROM pax_grp,
          (SELECT bag2.grp_id,bag2.hall
           FROM bag2,
@@ -202,7 +205,7 @@ BEGIN
   INSERT INTO stat
    (point_id,airp_arv,hall,status,client_type,
     f,c,y,adult,child,baby,child_wop,baby_wop,
-    pcs,weight,unchecked,excess,
+    pcs,weight,unchecked,excess,excess_pc,
     term_bp, term_bag, term_ckin_service)
   SELECT
     vpoint_id,
@@ -218,7 +221,7 @@ BEGIN
     SUM(DECODE(pers_type,'Œ',1,0)) AS baby,
     SUM(DECODE(seats,0,DECODE(pers_type,'',1,0),0)) AS child_wop,
     SUM(DECODE(seats,0,DECODE(pers_type,'Œ',1,0),0)) AS baby_wop,
-    0,0,0,0,
+    0,0,0,0,0,
     SUM(NVL(term_bp,0)) AS term_bp,
     SUM(NVL(term_bag,0)) AS term_bag,
     SUM(NVL(term_ckin_service,0)) AS term_ckin_service
@@ -237,7 +240,8 @@ BEGIN
            (SELECT 1 FROM bag2
             WHERE bag2.grp_id=pax.grp_id AND pax.bag_pool_num IS NOT NULL AND
                   ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num)=pax.pax_id AND
-                  bag2.is_trfer=0 AND bag2.hall IS NOT NULL AND rownum<2) AS term_bag,
+                  (bag2.is_trfer=0 OR NVL(bag2.handmade,0)<>0) AND
+                  bag2.hall IS NOT NULL AND rownum<2) AS term_bag,
            (SELECT 1 FROM events_bilingual, stations
             WHERE events_bilingual.station=stations.desk AND
                   stations.work_mode='' AND
@@ -262,16 +266,16 @@ BEGIN
       INSERT INTO stat
        (point_id,airp_arv,hall,status,client_type,
         f,c,y,adult,child,baby,child_wop,baby_wop,
-        pcs,weight,unchecked,excess)
+        pcs,weight,unchecked,excess,excess_pc)
       VALUES
        (vpoint_id,cur1Row.airp_arv,cur1Row.hall,cur1Row.status,cur1Row.client_type,
         0,0,0,0,0,0,0,0,
-        cur1Row.pcs,cur1Row.weight,cur1Row.unchecked,0);
+        cur1Row.pcs,cur1Row.weight,cur1Row.unchecked,0,0);
     END IF;
   END LOOP;
   FOR cur2Row IN cur2 LOOP
     UPDATE stat
-    SET excess=excess+cur2Row.excess
+    SET excess=excess+cur2Row.excess, excess_pc=excess_pc + cur2Row.excess_pc
     WHERE point_id=vpoint_id AND
           airp_arv=cur2Row.airp_arv AND
           (hall IS NULL AND cur2Row.hall IS NULL OR hall=cur2Row.hall) AND
@@ -281,11 +285,11 @@ BEGIN
       INSERT INTO stat
        (point_id,airp_arv,hall,status,client_type,
         f,c,y,adult,child,baby,child_wop,baby_wop,
-        pcs,weight,unchecked,excess)
+        pcs,weight,unchecked,excess,excess_pc)
       VALUES
        (vpoint_id,cur2Row.airp_arv,cur2Row.hall,cur2Row.status,cur2Row.client_type,
         0,0,0,0,0,0,0,0,
-        0,0,0,cur2Row.excess);
+        0,0,0,cur2Row.excess,cur2Row.excess_pc);
     END IF;
   END LOOP;
 END get_stat;

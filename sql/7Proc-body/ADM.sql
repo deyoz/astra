@@ -269,6 +269,36 @@ EXCEPTION
   WHEN NO_DATA_FOUND THEN RETURN vairp;
 END check_hall_airp;
 
+PROCEDURE check_terminal_airp(vterminal_id   IN airp_terminals.id%TYPE,
+                              vpoint_id      IN points.point_id%TYPE)
+IS
+vairp airps.code%TYPE;
+BEGIN
+  IF vpoint_id IS NOT NULL THEN
+    SELECT airp INTO vairp FROM points WHERE point_id=vpoint_id;
+    vairp:=check_terminal_airp(vterminal_id, vairp);
+  END IF;
+EXCEPTION
+  WHEN NO_DATA_FOUND THEN NULL;
+END check_terminal_airp;
+
+FUNCTION check_terminal_airp(vterminal_id   IN airp_terminals.id%TYPE,
+                             vairp          IN airps.code%TYPE) RETURN airps.code%TYPE
+IS
+vairp2 airps.code%TYPE;
+BEGIN
+  vairp2:=vairp;
+  IF vterminal_id IS NOT NULL THEN
+    SELECT airp INTO vairp2 FROM airp_terminals WHERE id=vterminal_id;
+    IF vairp IS NOT NULL AND vairp<>vairp2 THEN
+        system.raise_user_exception('MSG.TERMINAL_DOES_NOT_MEET_AIRP_DEP');
+    END IF;
+  END IF;
+  RETURN vairp2;
+EXCEPTION
+  WHEN NO_DATA_FOUND THEN RETURN vairp;
+END check_terminal_airp;
+
 FUNCTION check_right_access(vright_id IN rights_list.ida%TYPE,
                             vuser_id IN users2.user_id%TYPE,
                             vexception IN NUMBER) RETURN rights_list.ida%TYPE
@@ -1160,7 +1190,7 @@ BEGIN
     RETURN vdesk_grp;
   END IF;
 
-  SELECT grp_id INTO vdesk_grp2 FROM desks WHERE code=vdesk;	
+  SELECT grp_id INTO vdesk_grp2 FROM desks WHERE code=vdesk;
 
   IF vdesk_grp IS NOT NULL AND vdesk_grp<>vdesk_grp2 THEN
     system.raise_user_exception('MSG.DESK_GRP_DOES_NOT_MEET_DESK');
@@ -1950,7 +1980,7 @@ mins  VARCHAR2(2);
 i     BINARY_INTEGER;
 h     NUMBER(2);
 m     NUMBER(2);
-BEGIN  	
+BEGIN
   IF str IS NULL THEN RETURN NULL; END IF;
   i:=INSTR(str,'-');
   IF i=0 THEN RAISE VALUE_ERROR; END IF;
@@ -2486,7 +2516,7 @@ FUNCTION check_date_wo_year(str         IN VARCHAR2,
 IS
 info	 adm.TCacheInfo;
 lparams   system.TLexemeParams;
-BEGIN  	
+BEGIN
   RETURN TO_DATE(str||'.2000','DD.MM.YYYY');
 EXCEPTION
   WHEN OTHERS THEN
@@ -2564,7 +2594,7 @@ BEGIN
     info:=adm.get_cache_info('AIRLINE_PERS_WEIGHTS');
     lparams('fieldname'):=get_locale_text(info.field_title('FIRST_DATE'), vlang);
     system.raise_user_exception('MSG.TABLE.NOT_SET_FIELD_VALUE', lparams);
-  END IF; 	
+  END IF;
   IF vfirst_date IS NOT NULL AND vlast_date IS NULL THEN
     info:=adm.get_cache_info('AIRLINE_PERS_WEIGHTS');
     lparams('fieldname'):=get_locale_text(info.field_title('LAST_DATE'), vlang);
@@ -2581,7 +2611,7 @@ BEGIN
           (subclass IS NULL AND vsubclass IS NULL OR subclass=vsubclass) AND
           pr_summer=vpr_summer AND
           rownum<2;
-  ELSE	
+  ELSE
     SELECT COUNT(*) INTO n
     FROM pers_weights
     WHERE (vid IS NULL OR id<>vid) AND
@@ -2825,6 +2855,28 @@ BEGIN
   sync_typeb_options(cur, vsetting_user, vstation);
   CLOSE cur;
 END sync_typeb_options;
+
+PROCEDURE sync_COM_options(vid            typeb_addrs.id%TYPE,
+                           vbasic_type    typeb_addr_options.tlg_type%TYPE,
+                           vversion       typeb_addr_options.value%TYPE,
+                           vsetting_user  history_events.open_user%TYPE,
+                           vstation       history_events.open_desk%TYPE)
+IS
+cur sync_typeb_options_cur;
+BEGIN
+  --лочим настройку
+  UPDATE typeb_addrs SET id=id WHERE id=vid;
+  OPEN cur FOR
+    SELECT vid AS typeb_addrs_id, src.tlg_type, src.category, dest.id,
+           DECODE(src.category, 'VERSION',       vversion,
+                                                 default_value) AS value
+    FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest
+         FULL OUTER JOIN
+         (SELECT * FROM typeb_options WHERE tlg_type=vbasic_type) src
+    ON (dest.tlg_type=src.tlg_type AND dest.category=src.category);
+  sync_typeb_options(cur, vsetting_user, vstation);
+  CLOSE cur;
+END sync_COM_options;
 
 PROCEDURE sync_LDM_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
