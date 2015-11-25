@@ -203,6 +203,18 @@ const long int DOC_CSV_AE_FIELDS=DOC_TYPE_FIELD|
 
 //==============================================================================
 
+const long int DOC_EDI_LT_FIELDS=DOC_TYPE_FIELD|
+                                 DOC_ISSUE_COUNTRY_FIELD|
+                                 DOC_NO_FIELD|
+                                 DOC_EXPIRY_DATE_FIELD|
+                                 DOC_NATIONALITY_FIELD|
+                                 DOC_BIRTH_DATE_FIELD|
+                                 DOC_GENDER_FIELD|
+                                 DOC_SURNAME_FIELD|
+                                 DOC_FIRST_NAME_FIELD;
+
+//==============================================================================
+
 enum TCheckInfoType { ciDoc, ciDoco, ciDocaB, ciDocaR, ciDocaD, ciTkn };
 
 class TCheckDocTknInfo
@@ -334,20 +346,13 @@ std::string EncodeAlarmType(const TAlarmType alarm );
 }; //namespace APIS
 
 const std::string APIS_TR = "APIS_TR";
+const std::string APIS_LT = "APIS_LT";
 
-class TApisTRFilter {
-    private:
-    public:
-        static TFilterQueue *Instance() {
-            static TFilterQueue *_instance = 0;
-            if ( !_instance ) {
-                _instance = new TFilterQueue( OWN_POINT_ADDR(), APIS_TR, ASTRA::NoExists, ASTRA::NoExists, false, 10 );
-            }
-            return _instance;
-        }
-};
-
+const TFilterQueue& getApisFilter( const std::string& type );
+std::string toSoapReq( const std::string& text, const std::string& login, const std::string& pswd, const std::string& type );
+void send_apis( const std::string type );
 void send_apis_tr();
-void process_reply( const std::string& result );
+void send_apis_lt();
+void process_reply( const std::string& result, const std::string& type );
 
 #endif // APIS_UTILS_H
