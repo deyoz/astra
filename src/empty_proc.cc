@@ -23,6 +23,7 @@
 #include "apis.h"
 #include "oralib.h"
 #include "httpClient.h"
+#include "web_main.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE

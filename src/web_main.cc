@@ -2452,6 +2452,80 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   };
 };
 
+int den(int argc,char **argv)
+{
+
+    string pectab =
+        "act:                '[<act(40,,)>]'\n"
+        "agent:              '[<agent(40,,)>]'\n"
+        "airline:            '[<airline(40,,)>]'\n"
+        "airline_name:       '[<airline_name(40,,)>]'\n"
+        "airline_short:      '[<airline_short(40,,)>]'\n"
+        "airp_arv:           '[<airp_arv(40,,)>]'\n"
+        "airp_arv_name:      '[<airp_arv_name(40,,)>]'\n"
+        "airp_dep:           '[<airp_dep(40,,)>]'\n"
+        "airp_dep_name:      '[<airp_dep_name(40,,)>]'\n"
+        "bag_amount:         '[<bag_amount(40,,)>]'\n"
+        "baggage:            '[<baggage(40,,)>]'\n"
+        "bag_weight:         '[<bag_weight(40,,)>]'\n"
+        "bcbp_m_2:           '[<bcbp_m_2>]'\n"
+        "brd_from:           '[<brd_from(40,,)>]'\n"
+        "brd_to:             '[<brd_to(40,,)>]'\n"
+        "chd:                '[<chd(40,,)>]'\n"
+        "city_arv_name:      '[<city_arv_name(40,,)>]'\n"
+        "city_dep_name:      '[<city_dep_name(40,,)>]'\n"
+        "class:              '[<class(40,,)>]'\n"
+        "class_name:         '[<class_name(40,,)>]'\n"
+        "desk:               '[<desk(40,,)>]'\n"
+        "document:           '[<document(40,,)>]'\n"
+        "duplicate:          '[<duplicate(40,,)>]'\n"
+        "est:                '[<est(40,,)>]'\n"
+        "eticket_no:         '[<eticket_no(40,,)>]'\n"
+        "etkt:               '[<etkt(40,,)>]'\n"
+        "excess:             '[<excess(40,,)>]'\n"
+        "flt_no:             '[<flt_no(40,,)>]'\n"
+        "fqt:                '[<fqt(40,,)>]'\n"
+        "fullname:           '[<fullname(40,,)>]'\n"
+        "full_place_arv:     '[<full_place_arv(40,,)>]'\n"
+        "full_place_dep:     '[<full_place_dep(40,,)>]'\n"
+        "gate:               '[<gate(40,,)>]'\n"
+        "gates:              '[<gates(40,,)>]'\n"
+        "inf:                '[<inf(40,,)>]'\n"
+        "list_seat_no:       '[<list_seat_no(40,,)>]'\n"
+        "long_arv:           '[<long_arv(40,,)>]'\n"
+        "long_dep:           '[<long_dep(40,,)>]'\n"
+        "name:               '[<name(40,,)>]'\n"
+        "no_smoke:           '[<no_smoke(40,,)>]'\n"
+        "one_seat_no:        '[<one_seat_no(40,,)>]'\n"
+        "pax_id:             '[<pax_id(40,,)>]'\n"
+        "pax_title:          '[<pax_title(40,,)>]'\n"
+        "place_arv:          '[<place_arv(40,,)>]'\n"
+        "place_dep:          '[<place_dep(40,,)>]'\n"
+        "pnr:                '[<pnr(40,,)>]'\n"
+        "reg_no:             '[<reg_no(40,,)>]'\n"
+        "rem:                '[<rem(40,,)>]'\n"
+        "rk_amount:          '[<rk_amount(40,,)>]'\n"
+        "rk_weight:          '[<rk_weight(40,,)>]'\n"
+        "rstation:           '[<rstation(40,,)>]'\n"
+        "scd:                '[<scd(40,,)>]'\n"
+        "seat_no:            '[<seat_no(40,,)>]'\n"
+        "str_seat_no:        '[<str_seat_no(40,,)>]'\n"
+        "subcls:             '[<subcls(40,,)>]'\n"
+        "surname:            '[<surname(40,,)>]'\n"
+        "tags:               '[<tags(40,,)>]'\n"
+        "test_server:        '[<test_server(40,,)>]'\n"
+        "time_print:         '[<time_print(40,,)>]'\n";
+
+    string scan = "M1ZAKHAROV/DENIS YUREV        DMEAER UT0001 264Y005A0001 128>2180OO    B                000028787007";
+    BCBPSections scan_data;
+    BCBPSections::get(scan, 0, scan.size(), scan_data);
+    LogTrace(TRACE5) << scan_data.unique.passengerName().first;
+    LogTrace(TRACE5) << scan_data.unique.passengerName().second;
+    boost::shared_ptr<PrintDataParser> parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scan_data, scan));
+    cout << parser->parse(pectab) << endl;
+    return 1;
+}
+
 void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -2461,27 +2535,31 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   PrintInterface::BPPax pax;
   xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
+  boost::shared_ptr<PrintDataParser> parser;
   if (scanCodeNode!=NULL)
   {
-    GetBPPaxFromScanCode(NodeAsString(scanCodeNode), pax);
+      string scan = NodeAsString(scanCodeNode);
+      BCBPSections scan_data;
+      BCBPSections::get(scan, 0, scan.size(), scan_data);
+      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scan_data, scan));
   }
   else
   {
     bool is_test=isTestPaxId(NodeAsInteger("pax_id", reqNode));
     GetBPPax( reqNode, is_test, true, pax );
+    parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
   };
-  PrintDataParser parser( pax.grp_id, pax.pax_id, 0, NULL );
   vector<string> tags;
   BPTags::Instance()->getFields( tags );
   xmlNodePtr node = NewTextChild( resNode, "GetBPTags" );
   for ( vector<string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
     for(int j = 0; j < 2; j++) {
-      string value = parser.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
+      string value = parser->pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
       NewTextChild( node, (*i + (j == 0 ? "" : "_lat")).c_str(), value );
       ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
     }
   }
-  parser.pts.save_bp_print(true);
+  parser->pts.save_bp_print(true);
 
   string gate=GetBPGate(pax.point_dep);
   if (!gate.empty())

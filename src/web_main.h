@@ -156,6 +156,7 @@ struct TWebPax {
     };
 };
 bool isOwnerFreePlace( int pax_id, const std::vector<TWebPax> &pnr );
+int den(int argc,char **argv);
 
 } // namespace AstraWeb
 
