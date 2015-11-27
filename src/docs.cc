@@ -626,19 +626,24 @@ const int TO_RAMP_PRIORITY = 1000;
 void t_rpt_bm_bag_name::get(string class_code, TBagTagRow &bag_tag_row, TRptParams &rpt_params)
 {
     string &result = bag_tag_row.bag_name;
-    for(vector<TBagNameRow>::iterator iv = bag_names.begin(); iv != bag_names.end(); iv++)
-        if(
-                iv->class_code == class_code and
-                (
-                 (iv->rfisc.empty() and iv->bag_type == bag_tag_row.bag_type) or
-                 (not iv->rfisc.empty() and iv->rfisc == bag_tag_row.rfisc)
-                )
-          ) {
+    for(vector<TBagNameRow>::iterator iv = bag_names.begin(); iv != bag_names.end(); iv++) {
+        bool eval = false;
+        if(class_code == iv->class_code) {
+            if(bag_tag_row.rfisc.empty()) {
+                if(bag_tag_row.bag_type and bag_tag_row.bag_type == iv->bag_type) {
+                    eval = true;
+                }
+            } else if(bag_tag_row.rfisc == iv->rfisc) {
+                eval = true;
+            }
+        }
+        if(eval) {
             result = rpt_params.IsInter() ? iv->name_lat : iv->name;
             if(result.empty())
                 result = iv->name;
             break;
         }
+    }
     if(not result.empty())
         bag_tag_row.bag_name_priority = bag_tag_row.bag_type;
 }
@@ -665,7 +670,8 @@ void t_rpt_bm_bag_name::init(const string &airp, const string &airline)
         "   airline = :airline) "
         "order by "
         "   airline nulls last, "
-        "   airp nulls last ";
+        "   airp nulls last, "
+        "   name, name_lat ";
     Qry.CreateVariable("airp", otString, airp);
     Qry.CreateVariable("airline", otString, airline);
     Qry.Execute();
