@@ -1409,11 +1409,13 @@ void BCBPSections::set_source_of_boarding_pass_issuance(boost::optional<BCBPSect
 
 void BCBPSections::set_date_of_boarding_pass_issuance(boost::optional<BASIC::TDateTime> x)
 {  if(x == boost::none)
-        write_field(unique.conditional, pos_pass_issuance_date, "", "set source of checkin", conditional_str);
-    int year, month, date;
-    //DecodeDate(ret, year, month, date);
-    //BASIC::DateToJulian();
-    write_field(unique.conditional, pos_pass_issuance_date, "", "set source of checkin", conditional_str);
+    {    write_field(unique.conditional, pos_pass_issuance_date, "", "set source of checkin", conditional_str);
+        return;
+    }
+    int julian_date = 0; //DateTimeToJulianDate(*x);
+    if(!julian_date)
+        process_err("date_of_boarding_pass_issuance", conditional_str, "impossible date");
+    write_field(unique.conditional, pos_pass_issuance_date, julian_date, "set source of checkin", conditional_str);
 
 
 }
@@ -1511,16 +1513,23 @@ void BCBPSections::set_id_ad(char x, int i)
 }
 
 void BCBPSections::set_date_of_flight(boost::optional<int> x, int i)
-{  write_field(repeated[i].conditional, pos_version, x, "set date of flight", conditional_str);
+{  write_field(repeated[i].mandatory, pos_version, x, "set date of flight", mandatory_str);
 }
 
+
 void BCBPSections::set_date_of_flight(boost::optional<BASIC::TDateTime> x, int i)
-{
-    //set_date_of_flight( x,  i);
+{       if(x == boost::none)
+       {    write_field(repeated[i].mandatory, pos_date_of_flight, "", "date of flight", mandatory_str);
+            return;
+        }
+        int julian_date = 0; //= DateTimeToJulianDate(*x);
+        if(!julian_date)
+            process_err("date of flight", conditional_str, "impossible date");
+        write_field(repeated[i].mandatory, pos_date_of_flight, julian_date, "date of flight", mandatory_str);
 }
 
 void BCBPSections::set_airline_num_code(boost::optional<int> x, int i)
-{   write_field(repeated[i].conditional, pos_version, x, "set airline numeric code", conditional_str);
+{       write_field(repeated[i].conditional, pos_version, x, "set airline numeric code", conditional_str);
 }
 
 void BCBPSections::set_free_baggage_allowance(boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage> > x, int i)
@@ -1562,8 +1571,7 @@ std::string BCBPSections::security()
 
 
 std::string BCBPSections::test_bcbp_build()
-{
-    BCBPSections x;
+{   BCBPSections x;
     x.add_section();
     x.add_section();
     x.set_passenger_name_surname("ivan", "ivanov");
