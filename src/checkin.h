@@ -13,6 +13,7 @@
 #include "etick.h"
 #include "remarks.h"
 #include "transfer.h"
+#include "events.h"
 #include "tlg/tlg_parser.h"
 
 struct TSegInfo
@@ -57,11 +58,65 @@ void traceTrfer( TRACE_SIGNATURE,
                  const std::string &descr,
                  const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &segs );
 
+namespace CheckIn
+{
+
+enum TAfterSaveActionType { actionNone, actionCheckPieceConcept, actionRefreshPaidBagPC };
+
+class TAfterSaveSegInfo
+{
+  public:
+    int point_dep;
+    TTripInfo operFlt;
+    TTripInfo markFlt;
+    int grp_id;
+    TGrpToLogInfo grpInfoBefore, grpInfoAfter;
+    void clear()
+    {
+      point_dep=ASTRA::NoExists;
+      operFlt.Clear();
+      markFlt.Clear();
+      grp_id=ASTRA::NoExists;
+      grpInfoBefore.clear();
+    }
+    TAfterSaveSegInfo()
+    {
+      clear();
+    }
+};
+
+class TAfterSaveInfo
+{
+  public:
+    std::list<TAfterSaveSegInfo> segs;
+    int tckin_id;
+    CheckIn::TAfterSaveActionType action;
+    int agent_stat_period;
+    void clear()
+    {
+      segs.clear();
+      tckin_id=ASTRA::NoExists;
+      action=actionNone;
+      agent_stat_period=ASTRA::NoExists;
+    }
+    TAfterSaveInfo()
+    {
+      clear();
+    }
+    void toLog(const std::string& where);
+};
+
+class TAfterSaveInfoList : public std::list<TAfterSaveInfo>
+{
+  public:
+    void handle(const std::string& where);
+};
+
+} //namespace CheckIn
+
 class CheckInInterface : public JxtInterface
 {
 public:
-  enum TAfterSaveActionType { actionNone, actionCheckPieceConcept, actionRefreshPaidBagPC };
-
   CheckInInterface() : JxtInterface("","CheckIn")
   {
      Handler *evHandle;
@@ -142,12 +197,12 @@ public:
   static void SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no, TLogLocale& tlocale);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
-                      int &first_grp_id, TChangeStatusList &ChangeStatusInfo, int &tckin_id,
-                      TAfterSaveActionType &action);
+                      TChangeStatusList &ChangeStatusInfo,
+                      CheckIn::TAfterSaveInfoList &AfterSaveInfoList);
 
   static void SaveTagPacks(xmlNodePtr node);
 
-  static void AfterSaveAction(int first_grp_id, TAfterSaveActionType action);
+  static void AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActionType action);
   static void LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax);
   static void LoadPaxRem(xmlNodePtr paxNode);
   static void BuildTransfer(const TTrferRoute &trfer, TTrferRouteType route_type, xmlNodePtr transferNode);

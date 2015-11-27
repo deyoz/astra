@@ -369,6 +369,43 @@ void GetBagToLogInfo(int grp_id, map<int/*id*/, TEventsBagItem> &bag)
   }
 }
 
+void UpdGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT NVL(pax_grp.piece_concept, 0) AS piece_concept FROM pax_grp WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  if (Qry.Eof) return;
+  grpInfo.piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
+
+  if (grpInfo.piece_concept)
+  {
+    grpInfo.paid.clearExcess();
+    for(map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator i=grpInfo.pax.begin(); i!=grpInfo.pax.end(); ++i)
+      i->second.paid.clearExcess();
+
+    list<PieceConcept::TPaidBagItem> paid;
+    PieceConcept::PaidBagFromDB(grp_id, true, paid);
+    for(list<PieceConcept::TPaidBagItem>::const_iterator p=paid.begin(); p!=paid.end(); ++p)
+    {
+      if (p->trfer_num!=0) continue;
+      if (p->pax_id==ASTRA::NoExists)
+      {
+        grpInfo.paid.add(*p);
+      }
+      else
+      {
+        map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator i=grpInfo.findPax(p->pax_id);
+        if (i!=grpInfo.pax.end())
+          i->second.paid.add(*p);
+        else
+          grpInfo.paid.add(*p);
+      };
+    };
+  };
+}
+
 void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 {
   grpInfo.clear();
@@ -510,7 +547,6 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
     PaidBagEMDFromDB(grp_id, emd);
     for(list<CheckIn::TPaidBagEMDItem>::const_iterator e=emd.begin(); e!=emd.end(); ++e)
     {
-      if (e->trfer_num!=0) continue;
       if (!grpInfo.piece_concept || e->pax_id==ASTRA::NoExists)
       {
         grpInfo.paid.emd.insert(*e);
@@ -793,6 +829,8 @@ void SaveGrpToLog(int point_id,
       }
       else
       {
+        int id2=(aPax->second.refuse!=refuseAgentError?aPax->first.reg_no:NoExists);
+
         //пассажир разрегистрирован
         if (!is_unaccomp)
         {
@@ -808,7 +846,7 @@ void SaveGrpToLog(int point_id,
               lexema_id = "EVT.UNREGISTRATION_REFUSE";
               params << PrmElem<std::string>("refuse", etRefusalType, aPax->second.refuse, efmtNameLong);
             }
-            reqInfo->LocaleToLog(lexema_id, params, ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+            reqInfo->LocaleToLog(lexema_id, params, ASTRA::evtPax, point_id, id2, grp_id);
             changed=true;
           }
           else
@@ -825,7 +863,7 @@ void SaveGrpToLog(int point_id,
                   lexema_id = "EVT.REGISTRATION_REFUSE";
                   params << PrmElem<std::string>("refuse", etRefusalType, aPax->second.refuse, efmtNameLong);
                 }
-                reqInfo->LocaleToLog(lexema_id, params, ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+                reqInfo->LocaleToLog(lexema_id, params, ASTRA::evtPax, point_id, id2, grp_id);
               changed=true;
             };
           };
@@ -834,7 +872,7 @@ void SaveGrpToLog(int point_id,
         {
           LEvntPrms params;
           aPax->second.getPaxName(params);
-          reqInfo->LocaleToLog("EVT.PASSENGER_DELETED", params, ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+          reqInfo->LocaleToLog("EVT.PASSENGER_DELETED", params, ASTRA::evtPax, point_id, id2, grp_id);
           changed=true;
         };
       };
@@ -845,7 +883,7 @@ void SaveGrpToLog(int point_id,
       //пассажир удален
       LEvntPrms params;
       bPax->second.getPaxName(params);
-      reqInfo->LocaleToLog("EVT.PASSENGER_DELETED", params, ASTRA::evtPax, point_id, bPax->first.reg_no, grp_id);
+      reqInfo->LocaleToLog("EVT.PASSENGER_DELETED", params, ASTRA::evtPax, point_id, NoExists, grp_id);
       changed=true;
     };
 
@@ -886,7 +924,7 @@ void SaveGrpToLog(int point_id,
       }
       params << prmenum;
       reqInfo->LocaleToLog(lexema_id, params, ASTRA::evtPax, point_id,
-                           aPax!=grpInfoAfter.pax.end()?aPax->first.reg_no:bPax->first.reg_no, grp_id);
+                           (aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError)?aPax->first.reg_no:NoExists, grp_id);
       changed=true;
     };
 
@@ -895,7 +933,7 @@ void SaveGrpToLog(int point_id,
     TLogLocale msgPattern;
     (aPax!=grpInfoAfter.pax.end()?aPax->second.getPaxName(msgPattern.prms):bPax->second.getPaxName(msgPattern.prms));
     msgPattern.id1=point_id;
-    msgPattern.id2=(aPax!=grpInfoAfter.pax.end()?aPax->first.reg_no:bPax->first.reg_no);
+    msgPattern.id2=((aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError)?aPax->first.reg_no:NoExists);
     msgPattern.id3=grp_id;
     SavePaidToLog(paidBefore, paidAfter, msgPattern, piece_concept,
                   !(aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError));

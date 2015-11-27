@@ -167,6 +167,12 @@ class TPaidToLogInfo
     void add(const TEventsBagItem& item);
     void add(const WeightConcept::TPaidBagItem& item);
     void add(const PieceConcept::TPaidBagItem& item);
+    void clearExcess()
+    {
+      excess=0;
+      for(std::map<TEventsSumBagKey, TEventsSumBagItem>::iterator b=bag.begin(); b!=bag.end(); ++b)
+        b->second.paid=0;
+    }
     void trace( TRACE_SIGNATURE, const std::string &descr) const;
 };
 
@@ -329,6 +335,7 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
 
 void GetBagToLogInfo(int grp_id, std::map<int/*id*/, TEventsBagItem> &bag);
 void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo);
+void UpdGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo);
 void SaveGrpToLog(int point_id,
                   const TTripInfo &operFlt,
                   const TTripInfo &markFlt,

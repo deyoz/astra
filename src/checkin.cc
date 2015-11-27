@@ -3106,22 +3106,12 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SavePax(reqNode, NULL, resNode);
 };
 
-
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
-  int first_grp_id, tckin_id;
   TChangeStatusList ChangeStatusInfo;
-  set<int> tckin_ids;
-  TAfterSaveActionType action=actionNone;
-  bool result=true;
-  if (SavePax(reqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id, action))
-  {
-    if (tckin_id!=NoExists) tckin_ids.insert(tckin_id);
-  }
-  else
-    result=false;
-
+  CheckIn::TAfterSaveInfoList AfterSaveInfoList;
+  bool result=SavePax(reqNode, ediResNode, ChangeStatusInfo, AfterSaveInfoList);
   if (result)
   {
     if (ediResNode==NULL && !ChangeStatusInfo.empty())
@@ -3132,12 +3122,67 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       return false;
     };
 
-    CheckTCkinIntegrity(tckin_ids, NoExists);
-    AfterSaveAction(first_grp_id, action);
-    LoadPax(first_grp_id, resNode, true);
+    AfterSaveInfoList.handle(__FUNCTION__);
+
+    if (!AfterSaveInfoList.empty() &&
+        !AfterSaveInfoList.front().segs.empty())
+      LoadPax(AfterSaveInfoList.front().segs.front().grp_id, resNode, true);
   };
   return result;
 };
+
+void CheckIn::TAfterSaveInfo::toLog(const string& where)
+{
+  TDateTime agent_stat_ondate=NowUTC();
+  for(list<TAfterSaveSegInfo>::iterator s=segs.begin(); s!=segs.end(); ++s)
+  {
+    if (s->point_dep==ASTRA::NoExists)
+      throw EXCEPTIONS::Exception("%s: unknown TAfterSaveSegInfo.point_dep!", where.c_str());
+    if (s->grp_id==ASTRA::NoExists)
+      throw EXCEPTIONS::Exception("%s: unknown TAfterSaveSegInfo.grp_id!", where.c_str());
+
+    UpdGrpToLogInfo(s->grp_id, s->grpInfoAfter);
+    TAgentStatInfo agentStat;
+    SaveGrpToLog(s->point_dep, s->operFlt, s->markFlt, s->grpInfoBefore, s->grpInfoAfter, agentStat);
+    recountBySubcls(s->point_dep, s->grpInfoBefore, s->grpInfoAfter);
+
+    if (agent_stat_period==ASTRA::NoExists) continue;
+    bool first_segment=(s==segs.begin());
+
+    //собираем агентскую статистику
+    STAT::agent_stat_delta(segs.front().point_dep,
+                           TReqInfo::Instance()->user.user_id,
+                           TReqInfo::Instance()->desk.code,
+                           agent_stat_ondate,
+                           first_segment?(agent_stat_period<1?1:agent_stat_period):0,
+                           agentStat.pax_amount,
+                           agentStat.dpax_amount,
+                           first_segment?STAT::agent_stat_t(0,0):agentStat.dpax_amount,
+                           first_segment?agentStat.dbag_amount:STAT::agent_stat_t(0,0),
+                           first_segment?agentStat.dbag_weight:STAT::agent_stat_t(0,0),
+                           first_segment?agentStat.drk_amount:STAT::agent_stat_t(0,0),
+                           first_segment?agentStat.drk_weight:STAT::agent_stat_t(0,0));
+  };
+}
+
+void CheckIn::TAfterSaveInfoList::handle(const string& where)
+{
+  if (empty())
+    throw EXCEPTIONS::Exception("%s: empty TAfterSaveInfoList!", where.c_str());
+  set<int> tckin_ids;
+  for(TAfterSaveInfoList::const_iterator i=begin(); i!=end(); ++i)
+    if (i->tckin_id!=ASTRA::NoExists) tckin_ids.insert(i->tckin_id);
+  CheckTCkinIntegrity(tckin_ids, NoExists);
+  for(TAfterSaveInfoList::iterator i=begin(); i!=end(); ++i)
+  {
+    if (i->segs.empty())
+      throw EXCEPTIONS::Exception("%s: empty TAfterSaveInfo.segs!", where.c_str());
+    if (i->segs.front().grp_id==ASTRA::NoExists)
+      throw EXCEPTIONS::Exception("%s: unknown TAfterSaveSegInfo.grp_id!", where.c_str());
+    CheckInInterface::AfterSaveAction(i->segs.front().grp_id, i->action);
+    i->toLog(where);
+  };
+}
 
 struct TSegListItem
 {
@@ -3501,12 +3546,11 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TGroupBagItem &cu
 
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
-                               int &first_grp_id, TChangeStatusList &ChangeStatusInfo, int &tckin_id,
-                               TAfterSaveActionType &action)
+                               TChangeStatusList &ChangeStatusInfo,
+                               CheckIn::TAfterSaveInfoList &AfterSaveInfoList)
 {
-  first_grp_id=NoExists;
-  tckin_id=NoExists;
-  action=actionNone;
+  AfterSaveInfoList.push_back(CheckIn::TAfterSaveInfo());
+  CheckIn::TAfterSaveInfo &AfterSaveInfo=AfterSaveInfoList.back();
 
   TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -3596,8 +3640,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
   //reqInfo->user.check_access(amPartialWrite);
   //определим, открыт ли рейс для регистрации
-  int agent_stat_point_id=NoExists;
-  TDateTime agent_stat_ondate=NowUTC();
 
   segNode=NodeAsNode("segments/segment",reqNode);
   TSegList segList;
@@ -3887,7 +3929,19 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       throw EXCEPTIONS::Exception("CheckInInterface::SavePax: point_id not found in map segs");
 
     const TTripInfo &fltInfo=s->second.fltInfo;
-    TTripInfo markFltInfo=fltInfo;
+
+    if (first_segment &&
+        grp.status!=psCrew &&
+        reqInfo->client_type==ctTerm &&
+        reqInfo->desk.compatible(AGENT_STAT_VERSION))
+      AfterSaveInfo.agent_stat_period=NodeAsInteger("agent_stat_period",reqNode);
+    AfterSaveInfo.segs.push_back(CheckIn::TAfterSaveSegInfo());
+    AfterSaveInfo.segs.back().point_dep=grp.point_dep;
+    AfterSaveInfo.segs.back().operFlt=fltInfo;
+    AfterSaveInfo.segs.back().markFlt=fltInfo;
+    TGrpToLogInfo &grpInfoBefore=AfterSaveInfo.segs.back().grpInfoBefore;
+    TGrpToLogInfo &grpInfoAfter=AfterSaveInfo.segs.back().grpInfoAfter;
+    TTripInfo &markFltInfo=AfterSaveInfo.segs.back().markFlt;
     markFltInfo.scd_out=UTCToLocal(markFltInfo.scd_out,AirpTZRegion(markFltInfo.airp));
     modf(markFltInfo.scd_out,&markFltInfo.scd_out);
     bool pr_mark_norms=false;
@@ -4254,7 +4308,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       if (!trfer.empty() && grp.status==psCrew)
         throw UserException("MSG.CREW.TRANSFER_CHECKIN_NOT_PERFORMED");
 
-      TGrpToLogInfo grpInfoBefore;
       bool needCheckUnattachedTrferAlarm=need_check_u_trfer_alarm_for_grp(grp.point_dep);
       map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> grpTagsBefore;
       CheckIn::PaidBagEMDList paidBagEMDBefore;
@@ -4644,7 +4697,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         if (GetNode("generated_grp_id",segNode)!=NULL)
           Qry.SetVariable("grp_id",NodeAsInteger("generated_grp_id",segNode));
         bool trfer_confirm=(reqInfo->client_type==ctTerm || !inbound_group_bag.empty());
-        if (trfer_confirm) action=actionCheckPieceConcept;
+        if (trfer_confirm) AfterSaveInfo.action=CheckIn::actionCheckPieceConcept;
         Qry.CreateVariable("trfer_confirm",otInteger,(int)trfer_confirm);
         Qry.CreateVariable("trfer_conflict",otInteger,(int)(!inbound_trfer_conflicts.empty() && reqInfo->client_type != ctTerm));  //зажигаем тревогу только для веба и киоска
         Qry.CreateVariable("inbound_confirm",otInteger,(int)inbound_confirm); //устанавливаем только для терминалов compatible(INBOUND_TRFER_VERSION)
@@ -4656,7 +4709,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         if (first_segment)
           Qry.CreateVariable("tckin_id",otInteger,FNull);
         else
-          Qry.CreateVariable("tckin_id",otInteger,tckin_id);
+          Qry.CreateVariable("tckin_id",otInteger,AfterSaveInfo.tckin_id);
         if (only_one) //не сквозная регистрация
           Qry.CreateVariable("seg_no",otInteger,FNull);
         else
@@ -4679,8 +4732,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         Qry.Execute();
         grp.id=Qry.GetVariableAsInteger("grp_id");
-        if (first_segment)
-          tckin_id=Qry.GetVariableAsInteger("tckin_id");
+        if (first_segment && !Qry.VariableIsNULL("tckin_id"))
+          AfterSaveInfo.tckin_id=Qry.GetVariableAsInteger("tckin_id");
 
         ReplaceTextChild(segNode,"generated_grp_id",grp.id);
 
@@ -5000,12 +5053,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           if (reqInfo->client_type == ctTerm)
           {
             //для терминала всегда отвязываем
-            tckin_id=SeparateTCkin(grp.id,cssAllPrevCurr,cssNone,NoExists);
+            AfterSaveInfo.tckin_id=SeparateTCkin(grp.id,cssAllPrevCurr,cssNone,NoExists);
           }
           else
           {
             //для веб и киоска просто получаем tckin_id
-            tckin_id=SeparateTCkin(grp.id,cssNone,cssNone,NoExists); //ctPNL???
+            AfterSaveInfo.tckin_id=SeparateTCkin(grp.id,cssNone,cssNone,NoExists); //ctPNL???
           };
         };
 
@@ -5024,7 +5077,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         grp.toDB(Qry);
         if (reqInfo->client_type==ctTerm)
         {
-          if (!grpInfoBefore.trfer_confirm) action=actionCheckPieceConcept;
+          if (!grpInfoBefore.trfer_confirm) AfterSaveInfo.action=CheckIn::actionCheckPieceConcept;
           Qry.CreateVariable("trfer_confirm",otInteger,(int)true);
           Qry.CreateVariable("trfer_conflict",otInteger,(int)false);
         }
@@ -5247,6 +5300,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         };
       };
 
+      AfterSaveInfo.segs.back().grp_id=grp.id;
+
       if (first_segment)
       {
         if (!inbound_group_bag.empty())
@@ -5258,7 +5313,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         else
         {
           if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2) &&
-              action==actionCheckPieceConcept && piece_concept_permit)
+              AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && piece_concept_permit)
           {
             //не записываем багаж на этом этапе, так как еще не знаем систему расчета
             if (grp.group_bag)
@@ -5302,14 +5357,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             }
             else
             {
-              if (action==actionNone) action=actionRefreshPaidBagPC;
+              if (AfterSaveInfo.action==CheckIn::actionNone)
+                AfterSaveInfo.action=CheckIn::actionRefreshPaidBagPC;
               PieceConcept::PaidBagEMDToDB(grp.id, paidBagEMDBefore, emd);
             }
 
             SaveTagPacks(reqNode);
           }
         };
-        first_grp_id=grp.id;
       }
       else
       {
@@ -5336,7 +5391,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  FROM bag_tags WHERE grp_id=:first_grp_id; "
             "END; ";
           Qry.CreateVariable("grp_id",otInteger,grp.id);
-          Qry.CreateVariable("first_grp_id",otInteger,first_grp_id);
+          Qry.CreateVariable("first_grp_id",otInteger,AfterSaveInfo.segs.front().grp_id);
           Qry.Execute();
         };
       };
@@ -5545,34 +5600,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       if (ChangeStatusInfo.empty())
       {
-        if (agent_stat_point_id==NoExists) agent_stat_point_id=grp.point_dep;
-
         //записываем в лог только если не будет отката транзакции из-за обращения к СЭБ
-        TGrpToLogInfo grpInfoAfter;
         GetGrpToLogInfo(grp.id, grpInfoAfter);
-        TAgentStatInfo agentStat;
-        SaveGrpToLog(grp.point_dep, fltInfo, markFltInfo, grpInfoBefore, grpInfoAfter, agentStat);
-        recountBySubcls(grp.point_dep, grpInfoBefore, grpInfoAfter);
-        if (grp.status!=psCrew &&
-            reqInfo->client_type==ctTerm &&
-            reqInfo->desk.compatible(AGENT_STAT_VERSION))
-        {
-          int agent_stat_period=NodeAsInteger("agent_stat_period",reqNode);
-          if (agent_stat_period<1) agent_stat_period=1;
-          //собираем агентскую статистику
-          STAT::agent_stat_delta(agent_stat_point_id,
-                                 reqInfo->user.user_id,
-                                 reqInfo->desk.code,
-                                 agent_stat_ondate,
-                                 first_segment?agent_stat_period:0,
-                                 agentStat.pax_amount,
-                                 agentStat.dpax_amount,
-                                 first_segment?STAT::agent_stat_t(0,0):agentStat.dpax_amount,
-                                 first_segment?agentStat.dbag_amount:STAT::agent_stat_t(0,0),
-                                 first_segment?agentStat.dbag_weight:STAT::agent_stat_t(0,0),
-                                 first_segment?agentStat.drk_amount:STAT::agent_stat_t(0,0),
-                                 first_segment?agentStat.drk_weight:STAT::agent_stat_t(0,0));
-        };
       };
 
       if (!pr_unaccomp)
@@ -6127,14 +6156,14 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int
 
 }
 
-void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType action)
+void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActionType action)
 {
-  if (action==actionNone) return;
-  if (action!=actionCheckPieceConcept && action!=actionRefreshPaidBagPC) return;
+  if (action==CheckIn::actionNone) return;
+  if (action!=CheckIn::actionCheckPieceConcept && action!=CheckIn::actionRefreshPaidBagPC) return;
 
-  if (action==actionCheckPieceConcept)
+  if (action==CheckIn::actionCheckPieceConcept)
     ProgTrace(TRACE5, "%s started with actionCheckPieceConcept", __FUNCTION__);
-  if (action==actionRefreshPaidBagPC)
+  if (action==CheckIn::actionRefreshPaidBagPC)
     ProgTrace(TRACE5, "%s started with actionRefreshPaidBagPC", __FUNCTION__);
 
   TCachedQuery Qry("SELECT pax_grp.point_dep, pax_grp.piece_concept, "
@@ -6147,8 +6176,8 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
   int point_id=Qry.get().FieldAsInteger("point_dep");
   bool piece_concept_permit=Qry.get().FieldAsInteger("piece_concept_permit")!=0;
 
-  if (action==actionCheckPieceConcept && !Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
-  if (action==actionRefreshPaidBagPC &&
+  if (action==CheckIn::actionCheckPieceConcept && !Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
+  if (action==CheckIn::actionRefreshPaidBagPC &&
       (Qry.get().FieldIsNULL("piece_concept") || Qry.get().FieldAsInteger("piece_concept")==0)) return; //не piece_concept
 
   bool piece_concept=false;
@@ -6157,14 +6186,14 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
   bool pr_unaccomp;
   SirenaExchange::TAvailabilityReq req1;
   SirenaExchange::TPaymentStatusReq req2;
-  if (action==actionCheckPieceConcept)
+  if (action==CheckIn::actionCheckPieceConcept)
     SirenaExchange::fillPaxsBags(first_grp_id, req1, pr_unaccomp, grp_ids);
   else
     SirenaExchange::fillPaxsBags(first_grp_id, req2, pr_unaccomp, grp_ids);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
-  if ((action==actionCheckPieceConcept && piece_concept_permit) ||
-      action==actionRefreshPaidBagPC)
+  if ((action==CheckIn::actionCheckPieceConcept && piece_concept_permit) ||
+      action==CheckIn::actionRefreshPaidBagPC)
   {
     if (reqInfo->client_type!=ASTRA::ctTerm  ||
         reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
@@ -6173,7 +6202,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
 
       if (!pr_unaccomp)
       {
-        if (action==actionCheckPieceConcept)
+        if (action==CheckIn::actionCheckPieceConcept)
         {
           SirenaExchange::TAvailabilityRes res;
           try
@@ -6258,7 +6287,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, TAfterSaveActionType ac
   };
 
 
-  if (action==actionCheckPieceConcept)
+  if (action==CheckIn::actionCheckPieceConcept)
     for(list<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++)
     {
       TCachedQuery Qry("UPDATE pax_grp SET piece_concept=:piece_concept, bag_types_id=:bag_types_id WHERE grp_id=:grp_id",
@@ -8237,20 +8266,18 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
             CreateEmulDocs(vector< pair<int, TWebPnrForSave > >(1, make_pair(pnrData.flt.point_dep, pnr)),
                            PNRs, emulDocHeader, emulCkinDoc, emulChngDocs);
 
-            int first_grp_id, tckin_id;
             TChangeStatusList ChangeStatusInfo;
-            TAfterSaveActionType action=actionNone;
+            CheckIn::TAfterSaveInfoList AfterSaveInfoList;
 
             if (emulCkinDoc.docPtr()!=NULL) //регистрация новой группы
             {
               xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
               if (emulReqNode==NULL)
                 throw EXCEPTIONS::Exception("CheckInInterface::CrewCheckin: emulReqNode=NULL");
-              if (SavePax(emulReqNode, NULL, first_grp_id, ChangeStatusInfo, tckin_id, action))
+              if (SavePax(emulReqNode, NULL, ChangeStatusInfo, AfterSaveInfoList))
               {
                 //сюда попадаем если была реальная регистрация
-                //мы должны вызвать AfterSaveAction
-                AfterSaveAction(first_grp_id, action);
+                AfterSaveInfoList.handle(__FUNCTION__);
               }
             }
         }
