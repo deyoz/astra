@@ -625,9 +625,6 @@ const int TO_RAMP_PRIORITY = 1000;
 
 void t_rpt_bm_bag_name::get(string class_code, TBagTagRow &bag_tag_row, TRptParams &rpt_params)
 {
-    LogTrace(TRACE5) << "class_code: " << class_code;
-    LogTrace(TRACE5) << "bag_type: " << bag_tag_row.bag_type;
-    LogTrace(TRACE5) << "rfisc: " << bag_tag_row.rfisc;
     string &result = bag_tag_row.bag_name;
     for(vector<TBagNameRow>::iterator iv = bag_names.begin(); iv != bag_names.end(); iv++) {
         bool eval = false;
@@ -647,7 +644,6 @@ void t_rpt_bm_bag_name::get(string class_code, TBagTagRow &bag_tag_row, TRptPara
             break;
         }
     }
-    LogTrace(TRACE5) << "result: " << result;
     if(not result.empty())
         bag_tag_row.bag_name_priority = bag_tag_row.bag_type;
 }
@@ -674,7 +670,8 @@ void t_rpt_bm_bag_name::init(const string &airp, const string &airline)
         "   airline = :airline) "
         "order by "
         "   airline nulls last, "
-        "   airp nulls last ";
+        "   airp nulls last, "
+        "   name, name_lat ";
     Qry.CreateVariable("airp", otString, airp);
     Qry.CreateVariable("airline", otString, airline);
     Qry.Execute();
