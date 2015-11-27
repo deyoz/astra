@@ -839,6 +839,10 @@ TDateTime JulianDateToDateTime( int jdate, int year)
   return result;
 };
 
+
+
+
+
 namespace AstraLocale {
 
 void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_id, string lang )

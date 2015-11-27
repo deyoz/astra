@@ -45,22 +45,9 @@ namespace NamesBCBPData
 
 
 
-namespace BCBPPosAndSizes {
 
-struct TConstPos
-{
-    unsigned int begin;
-    unsigned int end;
-    TConstPos(unsigned int _begin,  unsigned int length)
-    { begin = _begin; end = begin + length;
-    }
-    TConstPos(TConstPos x,  unsigned int length)
-    {
-        begin = x.end; end = begin + length;
-    }
-    int size() const;
-};
-}
+
+
 
 namespace  BCBPSectionsEnums {
     enum PassengerDescr{
@@ -190,6 +177,7 @@ public:
     static std::string invalid_format(const std::string& x);
     static std::string invalid_format(const std::string& field, const std::string& what);
 protected:
+    static const int max_supported_size_of_repeated_field;
     inline char get_xdigit(char x)
     {   if(x >= '0' && x <= '9') return x - '0';
         if(x >= 'A' && x <= 'F') return x - 'A' + 10;
@@ -202,15 +190,15 @@ protected:
     template<class T, bool allow_nums = true, bool allow_non_found = true> boost::optional<T>  get_enum_opt(const std::string& x, int start, std::string& err, const std::string& test);
 
     template<bool allow_non_found = true>
-    unsigned int get_int(const std::string& x, BCBPPosAndSizes::TConstPos pos, std::string& err, unsigned int allow_min = 0, unsigned int allow_max = 0xFFFFFFFF);
+    unsigned int get_int(const std::string& x, BASIC::TConstPos pos, std::string& err, unsigned int allow_min = 0, unsigned int allow_max = 0xFFFFFFFF);
 
-    template<class T, bool allow_nums = true, bool allow_non_found = true> boost::optional<T>  get_enum_opt(const std::string& x, BCBPPosAndSizes::TConstPos pos, std::string& err, const std::string& test);
+    template<class T, bool allow_nums = true, bool allow_non_found = true> boost::optional<T>  get_enum_opt(const std::string& x, BASIC::TConstPos pos, std::string& err, const std::string& test);
 
     template<bool allow_nums, bool allow_non_found = true>
-    std::string get_alfa_chars_str(const std::string& x, BCBPPosAndSizes::TConstPos pos, std::string& err, const std::string special_symbols_allowed = "");
+    std::string get_alfa_chars_str(const std::string& x, BASIC::TConstPos pos, std::string& err, const std::string special_symbols_allowed = "");
 
     template<bool allow_non_num_alfa, bool allow_non_found = true>
-    char get_char(const std::string& x, BCBPPosAndSizes::TConstPos pos, std::string& err);
+    char get_char(const std::string& x, BASIC::TConstPos pos, std::string& err);
 
     bool bad_symbol(char x,std::string& err);
 
@@ -237,7 +225,15 @@ protected:
     { found_cyrilic = found_lower_case = false;
     }
 
-
+    std::string  add_zeros(unsigned int x, int num, const std::string& field_name,const  std::string& field_type, unsigned int min = 0, unsigned int max = 0xFFFFFFFF);
+    std::string add_whitespaces(const std::string& x, int num, const std::string& field_name, const std::string& field_type);
+    void extend_section(std::string &section, unsigned int new_size);
+    void raw_write_field(std::string& where,BASIC::TConstPos pos, const  std::string& what, const std::string& field_name, const std::string& field_type);
+    void write_field(std::string& where, BASIC::TConstPos pos, const  std::string& what, const std::string& field_name, const std::string& field_type);
+    void write_field(std::string& where, BASIC::TConstPos pos,  boost::optional<int> what, const std::string& field_name, const std::string& field_type);
+    template<class T>
+    void write_field(std::string& where, BASIC::TConstPos pos,  boost::optional<T> what, const std::string& variants, const std::string& field_name, const std::string& field_type);
+    void write_char(std::string &where, BASIC::TConstPos pos, char what);
 };
 
 /*class BCBPData
@@ -325,6 +321,8 @@ class BCBPSections : public  BCBPInternalWork
       repeated.clear();
     }
     void check_i(int i);
+
+
   public:
 
     struct Baggage_plate_nums
@@ -358,6 +356,7 @@ class BCBPSections : public  BCBPInternalWork
                     bool only_mandatory=false);
 
 
+
    std::string airline_host_code;
    std::string baggage_tags[3];
     int version_number;
@@ -384,9 +383,9 @@ class BCBPSections : public  BCBPInternalWork
 
     std::string operating_carrier_designator(int i);
 
-    std::string flight_number(int i);
+    std::pair<int, char> flight_number(int i);
 
-    boost::optional<BCBPSectionsEnums::PassengerClass> compartment_code(int i);
+    char compartment_code(int i);
 
     std::string seat_number(int i);
 
@@ -425,8 +424,54 @@ class BCBPSections : public  BCBPInternalWork
     std::string airline_specific();
 
     int num_repeated_sections();
+//----------------------------------------
+
+    inline void add_section(unsigned int i = max_supported_size_of_repeated_field + 1, bool allow_non_std_size = false);
+    inline void del_section(unsigned int i = max_supported_size_of_repeated_field + 1);
+    inline std::string build_bcbp_str();
+
+
+
+     inline void set_electronic_ticket_indicator(bool x);
+     inline void set_type_of_security_data(char x);
+     inline void set_security(std::string x);
+     inline void set_passenger_name_surname(std::string name, std::string surname);
+     inline void set_passenger_description(boost::optional<BCBPSectionsEnums::PassengerDescr> x);
+     inline void set_source_of_checkin(boost::optional<BCBPSectionsEnums::SourceOfIssuance> x);
+     void set_doc_type(boost::optional<BCBPSectionsEnums::DocType> x);
+     void set_version( boost::optional<int>  x);
+     void set_source_of_boarding_pass_issuance(boost::optional<BCBPSectionsEnums::SourceOfIssuance> x);
+     void set_date_of_boarding_pass_issuance(boost::optional<BASIC::TDateTime>  x);
+     void set_airline_of_boarding_pass_issuance(std::string x);
+     void set_baggage_plate_nums(std::vector<Baggage_plate_nums> x);
+     void set_baggage_plate_nums_as_str(std::vector<std::string> x);
+
+     inline void set_operatingCarrierPNR(std::string x, int i);
+     inline void set_from_city_airport(std::string x, int i);
+     inline void set_to_city_airport(std::string x, int i);
+     inline void set_operating_carrier_designator(std::string x, int i);
+     inline void set_flight_number(std::string x, int i);
+     inline void set_compartment_code(boost::optional<BCBPSectionsEnums::PassengerClass> x, int i);
+     inline void set_seat_number(std::string x, int i);
+     inline void set_check_in_seq_number(std::string x, int i);
+     inline void set_passenger_status(char x, int i);
+     void set_doc_serial_num(std::string x, int i);
+     void set_marketing_carrier_designator( std::string x, int i);
+     void set_frequent_flyer_airline_designator(std::string x, int i);
+     void set_frequent_flyer_num(std::string x, int i);
+     void set_selectee(boost::optional<bool> x, int i);
+     void set_international_doc_verification(char x, int i);
+     void set_id_ad(char x, int i);
+     void set_date_of_flight(boost::optional<int> x, int i);
+     void set_date_of_flight(boost::optional<BASIC::TDateTime> x, int i);
+     void set_airline_num_code(boost::optional<int> x, int i);
+     void set_free_baggage_allowance(boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage>> x, int i);
+     void set_fast_track(boost::optional<bool> x, int i);
+
+     static std::string test_bcbp_build();
 
 };
+
 
 std::ostream& operator<<(std::ostream& os, const BCBPSections&);
 
@@ -441,7 +486,7 @@ class BCPBPSegment //Содержит поля, которые могут быть "repeated"
     char selectee, international_doc_verification, id_ad;
     int date, airline;
     boost::optional<bool> fast_track;
-   std::string airline_specific;
+    std::string airline_specific;
 };
 
 

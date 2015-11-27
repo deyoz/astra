@@ -12,6 +12,7 @@
 using namespace ASTRA;
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace BASIC;
 
 
 const std::string BCBPInternalWork::meet_null_term_symb = "meet unexpected null (\\0) symbol in str";
@@ -19,9 +20,8 @@ static const string mandatory_str = "mandatory";
 static const string conditional_str = "conditional";
 static const string alfa_in_numeric_field = "got non-number in numeric field";
 static const string non_decimal_str = "non-decimal symbols before last";
-static const int max_supported_size_of_repeated_field = 9;
+const int BCBPInternalWork::max_supported_size_of_repeated_field = 9;
 
-using namespace BCBPPosAndSizes;
 
 static const TConstPos pos_format_code(0,1);
 static const TConstPos pos_number_of_legs_encoded(pos_format_code,1);
@@ -40,6 +40,11 @@ static const TConstPos pos_seat_number(pos_compartment_code,4);
 static const TConstPos pos_checkin_seq_num(pos_seat_number,5);
 static const TConstPos pos_passenger_status(pos_checkin_seq_num,1);
 static const TConstPos pos_field_of_var_sz_field(pos_passenger_status,2);
+
+
+static const TConstPos pos_mandatory_repeated_section(0,pos_field_of_var_sz_field.end);
+static const TConstPos pos_mandatory_1st_section(0, pos_mandatory_repeated_section.end + pos_electronic_ticket_indicator.end);
+
 
 
 
@@ -910,18 +915,17 @@ std::string BCBPSections::operating_carrier_designator(int i)
 
 
 
-std::string BCBPSections::flight_number(int i)
+std::pair<int, char> BCBPSections::flight_number(int i)
 {   check_i(i);
     std::string err;
     string ret = get_alfa_chars_str<true>(repeated[i].mandatory, pos_flight_number, err);
     string field_name = "flight number";
     process_err(field_name, mandatory_str, err, i);
     const TConstPos pos(pos_flight_number.begin, pos_flight_number.size() - 1);
-    get_int(repeated[i].mandatory, pos, err);
+    int int_part = get_int(repeated[i].mandatory, pos, err);
     if(!err.empty()) err = non_decimal_str + " " + err;
     process_err(field_name, mandatory_str, err, i);
-    return delete_ending_blanks(ret);
-
+    return std::make_pair (int_part, ret[4]);
 }
 
 int BCBPSections::date_of_flight(int i)
@@ -933,11 +937,10 @@ int BCBPSections::date_of_flight(int i)
 }
 
 
-boost::optional<BCBPSectionsEnums::PassengerClass> BCBPSections::compartment_code(int i)
+char BCBPSections::compartment_code(int i)
 {    check_i(i);
      std::string err;
-     static string  allowed_symbols = "FJY";
-     boost::optional<BCBPSectionsEnums::PassengerClass> ret = get_enum_opt<BCBPSectionsEnums::PassengerClass>(repeated[i].mandatory, pos_compartment_code, err, allowed_symbols);\
+     char ret = get_char<true>(repeated[i].mandatory, pos_compartment_code, err);
      std::string field_name = "compartment code";
      process_err(field_name, mandatory_str, err, i);
      return ret;
@@ -1205,6 +1208,341 @@ int BCBPSections::num_repeated_sections()
 }
 
 
+
+
+//---------------------------------------------//
+
+
+inline void i_to_hex_char(unsigned int x, std::string& where, unsigned int pos = 0)
+{
+     where[pos] = (x>>4) + ((x>>4) < 10 ? '0' : 'A' - 10);
+     where[pos+1] = (x&0xF)  + ((x&0xF) < 10 ? '0' : 'A' - 10);
+}
+
+void BCBPSections::add_section(unsigned int i, bool allow_non_std_size)
+{   if(i > max_supported_size_of_repeated_field)
+        i = repeated.size();
+    const int max_allowed_sections_nums_by_standard = 4;
+    if(i >= max_allowed_sections_nums_by_standard && !allow_non_std_size)
+        i = repeated.size();
+    if(i >= repeated.size())
+        for(int j = repeated.size(); j < i + 1; j++)
+            repeated.push_back(BCBPRepeatedSections());
+    else
+    repeated.insert(repeated.begin() + i, BCBPRepeatedSections());
+}
+
+void BCBPSections::del_section(unsigned int i)
+{   if(i >  repeated.size() - 1)
+        i = repeated.size() - 1;
+    repeated.erase(repeated.begin() + i);
+}
+
+std::string BCBPSections::build_bcbp_str()
+{   string ret = unique.mandatory;
+    if(unique.mandatory.size() < pos_electronic_ticket_indicator.end)
+        process_err("mandatory unique", "", "passenger name/surname or electronic ticket indicator not found during building bcbp");
+    if(!repeated.size())
+        repeated.insert(repeated.begin(), BCBPRepeatedSections());
+    ret+=repeated[0].mandatory;
+    if(ret.size() < pos_field_of_var_sz_field.end)
+        ret.insert(ret.size(), pos_field_of_var_sz_field.end - ret.size(), ' ');
+    bool found_data_in_first_nullable_sections = false;
+    if(!unique.conditional.size())
+        unique.conditional = ">500"; //start, version, field_size
+    else
+        i_to_hex_char(unique.conditional.size() - sizeof(">500"), unique.conditional, pos_size_following_struct.begin), found_data_in_first_nullable_sections = true;
+    if(repeated[0].conditional.size() > 2)
+         i_to_hex_char(repeated[0].conditional.size(), repeated[0].conditional), found_data_in_first_nullable_sections = true;
+    else
+        repeated[0].conditional = "00";
+    if(found_data_in_first_nullable_sections)
+    {   ret+=repeated[0].conditional;
+        ret+=repeated[0].individual;
+    }
+    ret = add_whitespaces(ret, pos_mandatory_1st_section.size(), "", "mandatory all fields");
+    i_to_hex_char(ret.size() - pos_mandatory_1st_section.size(), ret, pos_mandatory_1st_section.size() - 2);
+    std::cout<<"pos_field_of_var_sz_field:" << ret[ret.size()-2]<<ret[ret.size()-1]<<"\n";
+
+    string section;
+    for(int i = 1; i<repeated.size(); i++)
+    {   if(repeated[i].mandatory.size() < pos_mandatory_repeated_section.end)
+            repeated[i].mandatory.insert(repeated[i].mandatory.size(), pos_mandatory_repeated_section.end - repeated[i].mandatory.size(), ' ');
+        if(repeated[i].conditional.size() > 2)
+            i_to_hex_char(repeated[i].conditional.size(), repeated[i].conditional);
+        else repeated[i].conditional = "00";
+        section =repeated[i].mandatory + repeated[i].conditional + repeated[i].individual;
+        i_to_hex_char(section.size() - pos_mandatory_repeated_section.end, section, pos_field_of_var_sz_field.begin);
+        ret += section;
+    }
+    if(unique.security.empty()) unique.security = "^000";
+    ret+=unique.security;
+    ret[pos_format_code.begin] = 'M';
+    ret[pos_number_of_legs_encoded.begin] = repeated.size() + '0';
+    std::cout<<"Repeated.size: "<<repeated.size()<<std::endl;
+    std::cout<<"Created str: "<<ret<<std::endl;
+    std::cout.flush();
+    return ret;
+}
+
+
+static inline std::string char_err(char x)
+{ string  ret = "x cant be = \" \"";
+  ret[ret.size() - 2] = x;
+  return ret;
+}
+
+
+std::string BCBPInternalWork::add_zeros(unsigned int x, int num, const string& field_name,const  string& field_type, unsigned int min, unsigned int max)
+{ if(x < min)
+      process_err(field_name, field_type, "x is less then allowed for this field");
+  if(x > max)
+      process_err(field_name, field_type, "x is more then allowed for this field");
+  std::string ret = to_string(x);
+  if(ret.size() > num)
+      process_err(field_name, field_type, "x is too long (in string representation) for this field");
+  ret.insert(0, num - ret.size(), '0');
+  return ret;
+}
+
+std::string BCBPInternalWork::add_whitespaces(const string& x, int num, const string& field_name, const string& field_type)
+{ std::string ret = x;
+  if(num == pos_passenger_name.size()) std::cout<<"if(num == pos_passenger_name.size(): "<<ret<<"\n";
+  if(ret.size() > num)
+        process_err(field_name, field_type, "string size is too big for this field");
+  ret.insert(ret.size(), num - ret.size(), ' ');
+  return ret;
+}
+
+void BCBPInternalWork::extend_section(std::string& section, unsigned int new_size)
+{   section.insert(section.size(), new_size - section.size(), ' ');
+}
+
+void BCBPInternalWork::raw_write_field(std::string& where, TConstPos pos, const  std::string& what, const string& field_name, const string& field_type)
+{   if(where.size() < pos.end)
+        extend_section(where, pos.end);
+    for(unsigned int i = pos.begin, j = 0; i<pos.end; i++, j++)
+        where[i] = what[j];
+}
+
+void BCBPInternalWork::write_field(std::string& where, TConstPos pos, const  std::string& what, const string& field_name, const string& field_type)
+{ string str = add_whitespaces(what, pos.size(), field_name, field_type);
+  if(pos.begin == pos_passenger_name.begin) std::cout<<"if(pos == pos_passenger_name) "<<str<<"\n";
+  raw_write_field(where,  pos, str, field_name, field_type);
+  if(pos.begin == pos_passenger_name.begin) std::cout<<"if(pos == pos_passenger_name)2 "<<where<<"\n";
+}
+void BCBPInternalWork::write_field(std::string& where, TConstPos pos,  boost::optional<int> what, const string& field_name, const string& field_type)
+{ if(what == boost::none)
+    { write_field(where, pos, "", field_name, field_type);
+      return;
+    }
+  string str = add_zeros(*what, pos.size(), field_name, field_type);
+  raw_write_field(where, pos, str, field_name, field_type);
+}
+
+template<class T>
+void BCBPInternalWork::write_field(std::string& where, TConstPos pos,  boost::optional<T> what, const string& variants, const string& field_name, const string& field_type)
+{   if(what == boost::none)
+    { raw_write_field(where, pos, " ", field_name, field_type);
+      return;
+    }
+    string str;
+    try{
+        str.push_back(variants.at(*what));
+    }
+    catch(std::out_of_range)
+    {
+        process_err(field_name, field_type, to_string(*what) + "does not allowed");
+    }
+    raw_write_field(where, pos, str, field_name, field_type);
+}
+
+void BCBPInternalWork::write_char(std::string& where, TConstPos pos,  char what)
+{  if(where.size() < pos.end)
+        extend_section(where, pos.end);
+   where[pos.begin] = what;
+}
+
+void BCBPSections::set_electronic_ticket_indicator(bool x)
+{  char c = x ? 'E': ' ';
+   write_char(unique.mandatory, pos_electronic_ticket_indicator, c);
+}
+
+void BCBPSections::set_type_of_security_data(char x)
+{
+
+}
+
+void BCBPSections::set_security(string x)
+{
+
+}
+
+void BCBPSections::set_passenger_name_surname(string name, string surname)
+{   const int max_surname_sz_allowed = 18;
+    if(surname.size() > max_surname_sz_allowed) surname.erase(max_surname_sz_allowed, surname.size());
+    surname+='/' + name;
+    if(surname.size() >  pos_passenger_name.size())
+        surname.erase(pos_passenger_name.size(), surname.size());
+    std::cout<<"Surname: "<<surname<<"\n";
+    write_field(unique.mandatory, pos_passenger_name, surname, "set passenger surname/name", mandatory_str);
+}
+
+
+void BCBPSections::set_version(boost::optional<int> x)
+{  write_field(unique.conditional, pos_version, x, "set version", conditional_str);
+}
+
+void BCBPSections::set_passenger_description(boost::optional<BCBPSectionsEnums::PassengerDescr> x)
+{  write_field(unique.conditional, pos_pass_descr, x, "012345678", "set passenger description", conditional_str);
+}
+
+void BCBPSections::set_source_of_checkin(boost::optional<BCBPSectionsEnums::SourceOfIssuance> x)
+{   if(x != boost::none && *x == BCBPSectionsEnums::SourceOfIssuance::transfer_kiosk)
+        process_err("set source of checkin", conditional_str, "\"transfer_kiosk\" value of enum SourceOfIssuance is not allowed here");
+    write_field(unique.conditional, pos_checkin_source, x, "WKXRMOTV", "set source of checkin", conditional_str);
+}
+
+void BCBPSections::set_source_of_boarding_pass_issuance(boost::optional<BCBPSectionsEnums::SourceOfIssuance> x)
+{  write_field(unique.conditional, pos_checkin_source, x, "WKXRMOTV", "set source of checkin", conditional_str);
+}
+
+void BCBPSections::set_date_of_boarding_pass_issuance(boost::optional<BASIC::TDateTime> x)
+{  if(x == boost::none)
+        write_field(unique.conditional, pos_pass_issuance_date, "", "set source of checkin", conditional_str);
+    int year, month, date;
+    //DecodeDate(ret, year, month, date);
+    //BASIC::DateToJulian();
+    write_field(unique.conditional, pos_pass_issuance_date, "", "set source of checkin", conditional_str);
+
+
+}
+
+
+void BCBPSections::set_doc_type(boost::optional<BCBPSectionsEnums::DocType> x)
+{  write_field(unique.mandatory, pos_doc_type, x, "BI", "set doc type", mandatory_str);
+}
+
+
+
+
+
+
+void BCBPSections::set_airline_of_boarding_pass_issuance(string x)
+{  write_field(unique.conditional, pos_airline_designator, x, "set airline of boarding pass issuance", conditional_str);
+}
+
+
+void BCBPSections::set_baggage_plate_nums_as_str(std::vector<string> x)
+{
+    for(int i = 0; i<x.size(); i++)
+        if(x[i].size() != 13)
+            process_err("set baggage plate nums as str", conditional_str, "size of every field here must be == 10 + 3");
+            //by IATA bcbp std, 10 symbols -- tag number, last 3 --number of consequtive tags
+     for(int i = 0; i<x.size(); i++)
+         write_field(unique.conditional, pos_baggage_plate_nums[i], x[i], string("set baggage plate nums as str[") + std::to_string(i) +"]", conditional_str);
+}
+
+void BCBPSections::set_operatingCarrierPNR(string x, int i)
+{   write_field(repeated[i].mandatory, pos_operating_pnr_code, x, "operating Carrier PNR code", mandatory_str);
+}
+
+void BCBPSections::set_from_city_airport(string x, int i)
+{   write_field(repeated[i].mandatory, pos_from_city_airport_code, x, "from city airport", mandatory_str);
+
+}
+
+void BCBPSections::set_to_city_airport(string x, int i)
+{   write_field(repeated[i].mandatory, pos_to_city_airport_code, x, "to city airport", mandatory_str);
+}
+
+void BCBPSections::set_operating_carrier_designator(string x, int i)
+{   write_field(repeated[i].mandatory, pos_operating_carrier_designator, x, "operating carrier designator", mandatory_str);
+}
+
+void BCBPSections::set_flight_number(string x, int i)
+{   write_field(repeated[i].mandatory, pos_flight_number, x, "flight number", mandatory_str);
+}
+
+void BCBPSections::set_compartment_code(boost::optional<BCBPSectionsEnums::PassengerClass> x, int i)
+{   write_field(repeated[i].mandatory, pos_compartment_code, x, "FJY", "compartment code", mandatory_str);
+}
+
+void BCBPSections::set_seat_number(string x, int i)
+{   write_field(repeated[i].mandatory, pos_seat_number, x, "seat number", mandatory_str);
+}
+
+void BCBPSections::set_check_in_seq_number(string x, int i)
+{   write_field(repeated[i].mandatory, pos_checkin_seq_num, x, "check in seq number", mandatory_str);
+}
+
+void BCBPSections::set_passenger_status(char x, int i)
+{   write_char(repeated[i].mandatory, pos_passenger_status, x);
+}
+
+void BCBPSections::set_doc_serial_num(string x, int i)
+{   write_field(repeated[i].conditional, pos_doc_sn, x, "doc serial num", conditional_str);
+}
+
+void BCBPSections::set_marketing_carrier_designator(string x, int i)
+{   write_field(repeated[i].conditional, pos_doc_sn, x, "marketing carrier designator", conditional_str);
+}
+
+void BCBPSections::set_frequent_flyer_airline_designator(string x, int i)
+{   write_field(repeated[i].conditional, pos_freq_flyer_designator, x, "frequent flyer airline designator", conditional_str);
+
+}
+
+void BCBPSections::set_frequent_flyer_num(string x, int i)
+{   write_field(repeated[i].conditional, pos_freq_flyer_number, x, "frequent flyer num", conditional_str);
+}
+
+void BCBPSections::set_selectee(boost::optional<bool> x, int i)
+{   write_field(repeated[i].conditional, pos_selectee_ind, x, "01", "select ee indicator", conditional_str);
+}
+
+void BCBPSections::set_international_doc_verification(char x, int i)
+{   write_char(repeated[i].conditional, pos_int_doc_verification, x);
+}
+
+void BCBPSections::set_id_ad(char x, int i)
+{   write_char(repeated[i].conditional, pos_id_ad_ind, x);
+
+}
+
+void BCBPSections::set_date_of_flight(boost::optional<int> x, int i)
+{  write_field(repeated[i].conditional, pos_version, x, "set date of flight", conditional_str);
+}
+
+void BCBPSections::set_date_of_flight(boost::optional<BASIC::TDateTime> x, int i)
+{
+    //set_date_of_flight( x,  i);
+}
+
+void BCBPSections::set_airline_num_code(boost::optional<int> x, int i)
+{   write_field(repeated[i].conditional, pos_version, x, "set airline numeric code", conditional_str);
+}
+
+void BCBPSections::set_free_baggage_allowance(boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage> > x, int i)
+{   if(x == boost::none)
+    {   write_field(repeated[i].conditional, pos_free_baggage_allowance, "   ", "free baggage allowance", conditional_str);
+        return;
+    }
+    static const string type[3] = {"K", "L", "PC"};
+    string str_int = std::to_string((*x).first), str_type = type[(int)(*x).second];
+    string str =  str_int +  str_type;
+    if(str.size() > 3)
+        process_err("set free baggage allowance", conditional_str, string("too big int ") + str_int + " for " + str_type, i);
+    if(str.size() == 2)
+        str = string("0") + str;
+    write_field(repeated[i].conditional, pos_free_baggage_allowance, str, "free baggage allowance", conditional_str);
+}
+
+void BCBPSections::set_fast_track(boost::optional<bool> x, int i)
+{   write_field(repeated[i].conditional, pos_selectee_ind, x, "NY", "fast track", conditional_str);
+}
+
+
 char BCBPSections::type_of_security_data()
 {   std::string err;
     static const string security_str = "security";
@@ -1221,3 +1559,41 @@ std::string BCBPSections::security()
     process_err("security data", security_str, err);
     return ret;
 }
+
+
+std::string BCBPSections::test_bcbp_build()
+{
+    BCBPSections x;
+    x.add_section();
+    x.add_section();
+    x.set_passenger_name_surname("ivan", "ivanov");
+    std::cout<<"set_passenger_name_surname"<<x.unique.mandatory<<"\n";
+    x.set_electronic_ticket_indicator(true);
+    std::cout<<"set_electronic_ticket_indicator"<<x.unique.mandatory<<"\n";
+    x.set_operatingCarrierPNR("0847CP", 0);
+    x.set_from_city_airport("YUL", 0);
+    x.set_to_city_airport("VKO", 0);
+    x.set_operating_carrier_designator("AC", 0);
+    x.set_flight_number("0834", 0 );
+    x.set_compartment_code(boost::none, 0);
+    x.set_seat_number("001A", 0);
+    x.set_check_in_seq_number("0025 ", 0);
+    x.set_passenger_status('1', 0);
+    std::cout<<"repeated[0].mandatory.size() "<<x.repeated[0].mandatory.size()<<"\n";
+    std::cout<<"repeated[0] "<<x.repeated[0].mandatory<<"\n";
+    std::cout<<"unique "<<x.unique.mandatory<<"\n";
+    x.del_section(1);
+    x.add_section();
+    x.set_operatingCarrierPNR("0850CP", 1);
+    x.set_from_city_airport("FRA", 1);
+    x.set_to_city_airport("VKO", 1);
+    x.set_operating_carrier_designator("AC", 1);
+    x.set_flight_number("0864", 1 );
+    x.set_compartment_code(boost::none, 1);
+    x.set_seat_number("GGGG", 1);
+    x.set_check_in_seq_number("9000 ", 1);
+    x.set_passenger_status('4', 1);
+    return x.build_bcbp_str();
+}
+
+
