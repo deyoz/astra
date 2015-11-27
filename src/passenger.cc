@@ -957,122 +957,6 @@ void SavePaxDoca(int pax_id, const list<TPaxDocaItem> &doca, TQuery& PaxDocaQry,
 
 };
 
-bool PaxNormsFromDB(int pax_id, list< pair<TPaxNormItem, TNormItem> > &norms)
-{
-  norms.clear();
-  const char* sql=
-    "SELECT pax_norms.bag_type, pax_norms.norm_id, pax_norms.norm_trfer, pax_norms.handmade, "
-    "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
-    "FROM pax_norms,bag_norms "
-    "WHERE pax_norms.norm_id=bag_norms.id(+) AND pax_norms.pax_id=:pax_id ";
-
-  QParams QryParams;
-  QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery NormQry(sql, QryParams);
-  NormQry.get().Execute();
-  for(;!NormQry.get().Eof;NormQry.get().Next())
-  {
-    norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry.get()),
-                               TNormItem().fromDB(NormQry.get())) );
-    if (norms.back().first.bag_type==99) norms.pop_back();  //!!!vlad потом удалить
-  };
-
-  return !norms.empty();
-};
-
-bool GrpNormsFromDB(int grp_id, list< pair<TPaxNormItem, TNormItem> > &norms)
-{
-  norms.clear();
-  const char* sql=
-    "SELECT grp_norms.bag_type, grp_norms.norm_id, grp_norms.norm_trfer, grp_norms.handmade, "
-    "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
-    "FROM grp_norms,bag_norms "
-    "WHERE grp_norms.norm_id=bag_norms.id(+) AND grp_norms.grp_id=:grp_id ";
-
-  QParams QryParams;
-  QryParams << QParam("grp_id", otInteger, grp_id);
-  TCachedQuery NormQry(sql, QryParams);
-  NormQry.get().Execute();
-  for(;!NormQry.get().Eof;NormQry.get().Next())
-  {
-    norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry.get()),
-                               TNormItem().fromDB(NormQry.get())) );
-    if (norms.back().first.bag_type==99) norms.pop_back();  //!!!vlad потом удалить
-  };
-
-  return !norms.empty();
-};
-
-void NormsToXML(const list< pair<TPaxNormItem, TNormItem> > &norms, const TGroupBagItem &group_bag, xmlNodePtr node)
-{
-  if (node==NULL) return;
-
-  xmlNodePtr normsNode=NewTextChild(node,"norms");
-  for(list< pair<TPaxNormItem, TNormItem> >::const_iterator i=norms.begin();i!=norms.end();++i)
-  {
-    xmlNodePtr normNode=NewTextChild(normsNode,"norm");
-    i->first.toXML(normNode);
-    i->second.toXML(normNode);
-  };
-
-  if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2) && group_bag.trferExists())
-  {
-    //добавим неопределенную норму по 99 багажу для старых терминалов
-    xmlNodePtr normNode=NewTextChild(normsNode,"norm");
-    TPaxNormItem paxNormItem;
-    paxNormItem.bag_type=99;
-    paxNormItem.norm_id=1000000000;
-    paxNormItem.toXML(normNode);
-    TNormItem normItem;
-    normItem.norm_type=ASTRA::bntFree;
-    normItem.toXML(normNode);
-  };
-};
-
-void PaxNormsToDB(int pax_id, const boost::optional< list<TPaxNormItem> > &norms)
-{
-  if (!norms) return;
-  TQuery NormQry(&OraSession);
-  NormQry.Clear();
-  NormQry.SQLText="DELETE FROM pax_norms WHERE pax_id=:pax_id";
-  NormQry.CreateVariable("pax_id",otInteger,pax_id);
-  NormQry.Execute();
-  NormQry.SQLText=
-    "INSERT INTO pax_norms(pax_id,bag_type,norm_id,norm_trfer,handmade) "
-    "VALUES(:pax_id,:bag_type,:norm_id,:norm_trfer,:handmade)";
-  NormQry.DeclareVariable("bag_type",otInteger);
-  NormQry.DeclareVariable("norm_id",otInteger);
-  NormQry.DeclareVariable("norm_trfer",otInteger);
-  NormQry.DeclareVariable("handmade",otInteger);
-  for(list<TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
-  {
-    n->toDB(NormQry);
-    NormQry.Execute();
-  };
-};
-
-void GrpNormsToDB(int grp_id, const boost::optional< list<TPaxNormItem> > &norms)
-{
-  if (!norms) return;
-  TQuery NormQry(&OraSession);
-  NormQry.Clear();
-  NormQry.SQLText="DELETE FROM grp_norms WHERE grp_id=:grp_id";
-  NormQry.CreateVariable("grp_id",otInteger,grp_id);
-  NormQry.Execute();
-  NormQry.SQLText=
-    "INSERT INTO grp_norms(grp_id,bag_type,norm_id,norm_trfer,handmade) "
-    "VALUES(:grp_id,:bag_type,:norm_id,:norm_trfer,:handmade)";
-  NormQry.DeclareVariable("bag_type",otInteger);
-  NormQry.DeclareVariable("norm_id",otInteger);
-  NormQry.DeclareVariable("norm_trfer",otInteger);
-  NormQry.DeclareVariable("handmade",otInteger);
-  for(list<TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
-  {
-    n->toDB(NormQry);
-    NormQry.Execute();
-  };
-};
-
 const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -1376,10 +1260,10 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
   xmlNodePtr normNode=GetNodeFast("norms",node2);
   if (normNode!=NULL)
   {
-    norms=list<TPaxNormItem>();
+    norms=list<WeightConcept::TPaxNormItem>();
     for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
     {
-      norms.get().push_back(TPaxNormItem().fromXML(normNode));
+      norms.get().push_back(WeightConcept::TPaxNormItem().fromXML(normNode));
       if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
       {
         if (norms.get().back().bag_type==99) norms.get().pop_back();
@@ -1450,10 +1334,10 @@ bool TPaxGrpItem::fromXML(xmlNodePtr node)
   xmlNodePtr normNode=GetNodeFast("norms",node2);
   if (normNode!=NULL)
   {
-    norms=list<TPaxNormItem>();
+    norms=list<WeightConcept::TPaxNormItem>();
     for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
     {
-      norms.get().push_back(TPaxNormItem().fromXML(normNode));
+      norms.get().push_back(WeightConcept::TPaxNormItem().fromXML(normNode));
       if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
       {
         if (norms.get().back().bag_type==99) norms.get().pop_back();

@@ -368,7 +368,7 @@ class TPaxListItem
     bool remsExists;
     std::vector<CheckIn::TPaxRemItem> rems;
     std::vector<CheckIn::TPaxFQTItem> fqts;
-    boost::optional< std::list<TPaxNormItem> > norms;
+    boost::optional< std::list<WeightConcept::TPaxNormItem> > norms;
     xmlNodePtr node;
 
     TPaxListItem() { clear(); }
@@ -411,8 +411,8 @@ class TPaxGrpItem
     int bag_types_id;
     bool piece_concept;
     int tid;
-    boost::optional< std::list<TPaxNormItem> > norms;
-    boost::optional< std::list<TPaidBagItem> > paid;
+    boost::optional< std::list<WeightConcept::TPaxNormItem> > norms;
+    boost::optional< std::list<WeightConcept::TPaidBagItem> > paid;
     boost::optional< TGroupBagItem > group_bag;
     TPaxGrpItem()
     {
@@ -493,12 +493,6 @@ bool LoadCrsPaxDoca(int pax_id, std::list<TPaxDocaItem> &doca);
 void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
 void SavePaxDoca(int pax_id, const std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry, bool new_checkin);
-
-bool PaxNormsFromDB(int pax_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
-bool GrpNormsFromDB(int grp_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
-void NormsToXML(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms, const TGroupBagItem &group_bag, xmlNodePtr node);
-void PaxNormsToDB(int pax_id, const boost::optional< std::list<TPaxNormItem> > &norms);
-void GrpNormsToDB(int grp_id, const boost::optional< std::list<TPaxNormItem> > &norms);
 
 std::string PaxDocCountryFromTerm(const std::string &doc_code);
 std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);
