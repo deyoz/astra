@@ -30,7 +30,7 @@ class PrintDataParser {
         std::string parse_tag(int offset, std::string tag);
     public:
         TPrnTagStore pts;
-        PrintDataParser(BCBPSections &scan_data, const std::string &scan, bool pr_lat = false): pectab_format(0), pts(scan_data, scan, pr_lat) {};
+        PrintDataParser(const std::string &scan, bool pr_lat = false): pectab_format(0), pts(scan, pr_lat) {};
         PrintDataParser(bool pr_lat = false): pectab_format(0), pts(pr_lat) {};
         PrintDataParser(const TBagReceipt &rcpt, bool pr_lat): pectab_format(0), pts(rcpt, pr_lat) {};
         PrintDataParser(int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, const TTrferRoute &route = TTrferRoute()):

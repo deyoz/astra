@@ -178,7 +178,7 @@ int separate_double(double d, int precision, int *iptr);
 class TPrnTagStore {
     private:
 
-        BCBPSections *scan_data;
+        boost::shared_ptr<BCBPSections> scan_data;
         const std::string scan; // данные 2D баркода
 
         TBagReceipt rcpt;
@@ -187,8 +187,8 @@ class TPrnTagStore {
             std::string date_format;
             boost::any TagInfo;
             size_t len;
-            BCBPSections *scan_data;
-            TFieldParams(std::string adate_format, boost::any aTagInfo, int alen, BCBPSections *ascan_data):
+            boost::shared_ptr<BCBPSections> scan_data;
+            TFieldParams(std::string adate_format, boost::any aTagInfo, int alen, boost::shared_ptr<BCBPSections> ascan_data):
                 date_format(adate_format),
                 TagInfo(aTagInfo),
                 len(alen),
@@ -530,7 +530,7 @@ class TPrnTagStore {
 
         std::string get_test_field(std::string name, size_t len, std::string date_format);
         std::string get_real_field(std::string name, size_t len, std::string date_format);
-        std::string get_field_from_bcbp(std::string name, size_t len, std::string date_format, BCBPSections *scan_data);
+        std::string get_field_from_bcbp(std::string name, size_t len, std::string date_format, boost::shared_ptr<BCBPSections> scan_data);
 
         void init_bp_tags();
 
@@ -538,7 +538,7 @@ class TPrnTagStore {
         TTagProps prn_tag_props;
         TTagLang tag_lang;
         TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute = TTrferRoute());
-        TPrnTagStore(BCBPSections &scan_data, const std::string &scan, bool apr_lat);
+        TPrnTagStore(const std::string &scan, bool apr_lat);
         TPrnTagStore(bool apr_lat);
         TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat);
         void set_tag(std::string name, std::string value);
