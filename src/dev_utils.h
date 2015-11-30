@@ -451,7 +451,7 @@ class BCBPSections : public  BCBPInternalWork
      inline void set_to_city_airport(std::string x, int i);
      inline void set_operating_carrier_designator(std::string x, int i);
      inline void set_flight_number(std::string x, int i);
-     inline void set_compartment_code(boost::optional<BCBPSectionsEnums::PassengerClass> x, int i);
+     inline void set_compartment_code(char x, int i);
      inline void set_seat_number(std::string x, int i);
      inline void set_check_in_seq_number(std::string x, int i);
      inline void set_passenger_status(char x, int i);

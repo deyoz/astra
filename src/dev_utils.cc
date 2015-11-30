@@ -1025,12 +1025,12 @@ boost::optional<BCBPSectionsEnums::SourceOfIssuance> BCBPSections::source_of_boa
 boost::optional<BASIC::TDateTime> BCBPSections::date_of_boarding_pass_issuance()
 {   using namespace BASIC;
     string err;
-    TConstPos pos(pos_pass_issuance_year.begin, pos_pass_issuance_date.end);
-    if(check_none_in_cond_int(unique.conditional, pos)) return boost::none;
+    if(check_none_in_cond_int<true>(unique.conditional, pos_pass_issuance_date))
+        return boost::none;
     unsigned int ret_year = get_int(unique.conditional, pos_pass_issuance_year, err);
     process_err("date of boarding pass issuance (year part)", conditional_str, err);
     unsigned int ret_day = get_int(unique.conditional, pos_pass_issuance_date, err, 1, 366);
-    process_err("date of boarding pass issuance (day part)", conditional_str, err);\
+    process_err("date of boarding pass issuance (day part)", conditional_str, err);
     int curr_year_in_decade, now_year, skip1, skip2;
     BASIC::TDateTime ret = NowUTC();
     DecodeDate(ret, now_year, skip1, skip2);
@@ -1038,7 +1038,7 @@ boost::optional<BASIC::TDateTime> BCBPSections::date_of_boarding_pass_issuance()
     if(curr_year_in_decade > (int)ret_year) ret_year += now_year - curr_year_in_decade; //try to deduce real date of ticket (format of ticket code dont allow enough precission of year keeping)
     else ret_year += now_year - curr_year_in_decade - 10;
     try {ret = JulianDateToDateTime(ret_day, ret_year);}
-    catch(Exception e){process_err("date of boarding pass issuance", conditional_str, e.what());}
+    catch(Exception e){process_err("date of boarding pass issuance",  conditional_str, e.what());}
     return boost::optional<TDateTime>(ret);
 }
 
@@ -1207,6 +1207,22 @@ int BCBPSections::num_repeated_sections()
     return repeated.size();
 }
 
+char BCBPSections::type_of_security_data()
+{   std::string err;
+    static const string security_str = "security";
+    char ret = get_char<true>(unique.security, pos_typeof_sec_data, err);
+    process_err("type of security data", security_str, err);
+    return ret;
+}
+
+std::string BCBPSections::security()
+{   std::string err;
+    static const string security_str = "security";
+    if(pos_sec_data.begin >= unique.security.size()) return ""; //get_alfa_chars_str предполагает, что begin всегда < end
+    std::string ret = get_alfa_chars_str<true>(unique.security, pos_sec_data.begin, unique.security.size(), err);
+    process_err("security data", security_str, err);
+    return ret;
+}
 
 
 
@@ -1363,10 +1379,10 @@ void BCBPInternalWork::write_char(std::string& where, TConstPos pos,  char what)
    where[pos.begin] = what;
 }
 
-void BCBPSections::set_electronic_ticket_indicator(bool x)
-{  char c = x ? 'E': ' ';
-   write_char(unique.mandatory, pos_electronic_ticket_indicator, c);
-}
+
+
+
+
 
 void BCBPSections::set_type_of_security_data(char x)
 {
@@ -1388,6 +1404,9 @@ void BCBPSections::set_passenger_name_surname(string name, string surname)
     write_field(unique.mandatory, pos_passenger_name, surname, "set passenger surname/name", mandatory_str);
 }
 
+void BCBPSections::set_electronic_ticket_indicator(bool x)
+{  write_char(unique.mandatory, pos_electronic_ticket_indicator, (x ? 'E': ' '));
+}
 
 void BCBPSections::set_version(boost::optional<int> x)
 {  write_field(unique.conditional, pos_version, x, "set version", conditional_str);
@@ -1404,29 +1423,27 @@ void BCBPSections::set_source_of_checkin(boost::optional<BCBPSectionsEnums::Sour
 }
 
 void BCBPSections::set_source_of_boarding_pass_issuance(boost::optional<BCBPSectionsEnums::SourceOfIssuance> x)
-{  write_field(unique.conditional, pos_checkin_source, x, "WKXRMOTV", "set source of checkin", conditional_str);
+{  write_field(unique.conditional, pos_pass_issuance_source, x, "WKXRMOTV", "set source of boarding pass issuance", conditional_str);
 }
 
 void BCBPSections::set_date_of_boarding_pass_issuance(boost::optional<BASIC::TDateTime> x)
 {  if(x == boost::none)
-    {    write_field(unique.conditional, pos_pass_issuance_date, "", "set source of checkin", conditional_str);
+    {   write_field(unique.conditional, pos_pass_issuance_date, "", "set date of boarding pass issuance", conditional_str);
         return;
     }
-    int julian_date = 0; //DateTimeToJulianDate(*x);
+    int year, non_use1, non_use2;
+    DecodeDate(*x, year, non_use1, non_use2);
+    int julian_date = DateTimeToJulianDate(*x);
     if(!julian_date)
-        process_err("date_of_boarding_pass_issuance", conditional_str, "impossible date");
-    write_field(unique.conditional, pos_pass_issuance_date, julian_date, "set source of checkin", conditional_str);
-
-
+        process_err("date of boarding pass issuance", conditional_str, "impossible date");
+    julian_date+=(year%10)*1000;
+    write_field(unique.conditional, pos_pass_issuance_date, julian_date, "date of boarding pass issuance", conditional_str);
 }
 
 
 void BCBPSections::set_doc_type(boost::optional<BCBPSectionsEnums::DocType> x)
-{  write_field(unique.mandatory, pos_doc_type, x, "BI", "set doc type", mandatory_str);
+{  write_field(unique.conditional, pos_doc_type, x, "BI", "set doc type", conditional_str);
 }
-
-
-
 
 
 
@@ -1436,13 +1453,12 @@ void BCBPSections::set_airline_of_boarding_pass_issuance(string x)
 
 
 void BCBPSections::set_baggage_plate_nums_as_str(std::vector<string> x)
-{
-    for(int i = 0; i<x.size(); i++)
+{    for(int i = 0; i<x.size(); i++)
         if(x[i].size() != 13)
-            process_err("set baggage plate nums as str", conditional_str, "size of every field here must be == 10 + 3");
+            process_err("baggage plate nums as str", conditional_str, "size of every field here must be == 10 + 3");
             //by IATA bcbp std, 10 symbols -- tag number, last 3 --number of consequtive tags
      for(int i = 0; i<x.size(); i++)
-         write_field(unique.conditional, pos_baggage_plate_nums[i], x[i], string("set baggage plate nums as str[") + std::to_string(i) +"]", conditional_str);
+         write_field(unique.conditional, pos_baggage_plate_nums[i], x[i], string("baggage plate nums as str[") + std::to_string(i) +"]", conditional_str);
 }
 
 void BCBPSections::set_operatingCarrierPNR(string x, int i)
@@ -1451,7 +1467,6 @@ void BCBPSections::set_operatingCarrierPNR(string x, int i)
 
 void BCBPSections::set_from_city_airport(string x, int i)
 {   write_field(repeated[i].mandatory, pos_from_city_airport_code, x, "from city airport", mandatory_str);
-
 }
 
 void BCBPSections::set_to_city_airport(string x, int i)
@@ -1466,8 +1481,28 @@ void BCBPSections::set_flight_number(string x, int i)
 {   write_field(repeated[i].mandatory, pos_flight_number, x, "flight number", mandatory_str);
 }
 
-void BCBPSections::set_compartment_code(boost::optional<BCBPSectionsEnums::PassengerClass> x, int i)
-{   write_field(repeated[i].mandatory, pos_compartment_code, x, "FJY", "compartment code", mandatory_str);
+
+void BCBPSections::set_date_of_flight(boost::optional<int> x, int i)
+{  write_field(repeated[i].mandatory, pos_date_of_flight, x, "set date of flight", mandatory_str);
+}
+
+
+
+void BCBPSections::set_date_of_flight(boost::optional<BASIC::TDateTime> x, int i)
+{       if(x == boost::none)
+       {    write_field(repeated[i].mandatory, pos_date_of_flight, "", "date of flight", mandatory_str);
+            return;
+        }
+        int julian_date =  DateTimeToJulianDate(*x);
+        if(!julian_date)
+            process_err("date of flight", conditional_str, "impossible date");
+        write_field(repeated[i].mandatory, pos_date_of_flight, julian_date, "date of flight", mandatory_str);
+}
+
+
+
+void BCBPSections::set_compartment_code(char x, int i)
+{   write_char(repeated[i].mandatory, pos_compartment_code, x);
 }
 
 void BCBPSections::set_seat_number(string x, int i)
@@ -1478,16 +1513,29 @@ void BCBPSections::set_check_in_seq_number(string x, int i)
 {   write_field(repeated[i].mandatory, pos_checkin_seq_num, x, "check in seq number", mandatory_str);
 }
 
+
 void BCBPSections::set_passenger_status(char x, int i)
 {   write_char(repeated[i].mandatory, pos_passenger_status, x);
+}
+
+void BCBPSections::set_airline_num_code(boost::optional<int> x, int i)
+{       write_field(repeated[i].conditional, pos_airline_num_code, x, "set airline numeric code", conditional_str);
 }
 
 void BCBPSections::set_doc_serial_num(string x, int i)
 {   write_field(repeated[i].conditional, pos_doc_sn, x, "doc serial num", conditional_str);
 }
 
+void BCBPSections::set_selectee(boost::optional<bool> x, int i)
+{   write_field(repeated[i].conditional, pos_selectee_ind, x, "01", "select ee indicator", conditional_str);
+}
+
+void BCBPSections::set_international_doc_verification(char x, int i)
+{   write_char(repeated[i].conditional, pos_int_doc_verification, x);
+}
+
 void BCBPSections::set_marketing_carrier_designator(string x, int i)
-{   write_field(repeated[i].conditional, pos_doc_sn, x, "marketing carrier designator", conditional_str);
+{   write_field(repeated[i].conditional, pos_marketing_designator, x, "marketing carrier designator", conditional_str);
 }
 
 void BCBPSections::set_frequent_flyer_airline_designator(string x, int i)
@@ -1499,37 +1547,9 @@ void BCBPSections::set_frequent_flyer_num(string x, int i)
 {   write_field(repeated[i].conditional, pos_freq_flyer_number, x, "frequent flyer num", conditional_str);
 }
 
-void BCBPSections::set_selectee(boost::optional<bool> x, int i)
-{   write_field(repeated[i].conditional, pos_selectee_ind, x, "01", "select ee indicator", conditional_str);
-}
-
-void BCBPSections::set_international_doc_verification(char x, int i)
-{   write_char(repeated[i].conditional, pos_int_doc_verification, x);
-}
 
 void BCBPSections::set_id_ad(char x, int i)
 {   write_char(repeated[i].conditional, pos_id_ad_ind, x);
-
-}
-
-void BCBPSections::set_date_of_flight(boost::optional<int> x, int i)
-{  write_field(repeated[i].mandatory, pos_version, x, "set date of flight", mandatory_str);
-}
-
-
-void BCBPSections::set_date_of_flight(boost::optional<BASIC::TDateTime> x, int i)
-{       if(x == boost::none)
-       {    write_field(repeated[i].mandatory, pos_date_of_flight, "", "date of flight", mandatory_str);
-            return;
-        }
-        int julian_date = 0; //= DateTimeToJulianDate(*x);
-        if(!julian_date)
-            process_err("date of flight", conditional_str, "impossible date");
-        write_field(repeated[i].mandatory, pos_date_of_flight, julian_date, "date of flight", mandatory_str);
-}
-
-void BCBPSections::set_airline_num_code(boost::optional<int> x, int i)
-{       write_field(repeated[i].conditional, pos_version, x, "set airline numeric code", conditional_str);
 }
 
 void BCBPSections::set_free_baggage_allowance(boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage> > x, int i)
@@ -1541,33 +1561,18 @@ void BCBPSections::set_free_baggage_allowance(boost::optional<std::pair<int, BCB
     string str_int = std::to_string((*x).first), str_type = type[(int)(*x).second];
     string str =  str_int +  str_type;
     if(str.size() > 3)
-        process_err("set free baggage allowance", conditional_str, string("too big int ") + str_int + " for " + str_type, i);
+        process_err("free baggage allowance", conditional_str, string("too big int ") + str_int + " for " + str_type, i);
     if(str.size() == 2)
         str = string("0") + str;
     write_field(repeated[i].conditional, pos_free_baggage_allowance, str, "free baggage allowance", conditional_str);
 }
 
+
 void BCBPSections::set_fast_track(boost::optional<bool> x, int i)
-{   write_field(repeated[i].conditional, pos_selectee_ind, x, "NY", "fast track", conditional_str);
+{   write_field(repeated[i].conditional, pos_fast_track, x, "NY", "fast track", conditional_str);
 }
 
 
-char BCBPSections::type_of_security_data()
-{   std::string err;
-    static const string security_str = "security";
-    char ret = get_char<true>(unique.security, pos_typeof_sec_data, err);
-    process_err("type of security data", security_str, err);
-    return ret;
-}
-
-std::string BCBPSections::security()
-{   std::string err;
-    static const string security_str = "security";
-    if(pos_sec_data.begin >= unique.security.size()) return ""; //get_alfa_chars_str предполагает, что begin всегда < end
-    std::string ret = get_alfa_chars_str<true>(unique.security, pos_sec_data.begin, unique.security.size(), err);
-    process_err("security data", security_str, err);
-    return ret;
-}
 
 
 std::string BCBPSections::test_bcbp_build()
@@ -1583,7 +1588,7 @@ std::string BCBPSections::test_bcbp_build()
     x.set_to_city_airport("VKO", 0);
     x.set_operating_carrier_designator("AC", 0);
     x.set_flight_number("0834", 0 );
-    x.set_compartment_code(boost::none, 0);
+    x.set_compartment_code(' ', 0);
     x.set_seat_number("001A", 0);
     x.set_check_in_seq_number("0025 ", 0);
     x.set_passenger_status('1', 0);
@@ -1597,7 +1602,7 @@ std::string BCBPSections::test_bcbp_build()
     x.set_to_city_airport("VKO", 1);
     x.set_operating_carrier_designator("AC", 1);
     x.set_flight_number("0864", 1 );
-    x.set_compartment_code(boost::none, 1);
+    x.set_compartment_code(' ', 1);
     x.set_seat_number("GGGG", 1);
     x.set_check_in_seq_number("9000 ", 1);
     x.set_passenger_status('4', 1);
