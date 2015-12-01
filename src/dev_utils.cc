@@ -868,6 +868,17 @@ std::string BCBPInternalWork::delete_all_blanks(std::string& x)
 {   return TrimString(x);
 }
 
+void check_num_ending_letter(const string& x, string& err)
+{  unsigned int i = 0;
+   for(i = 0; i<x.size(); i++)
+     if(!isdigit(x[i])) break;
+   if(i == 0)
+   { err = "int value not found";
+     return;
+   }
+   if(i + 1 == x.size()) return;
+   err = "meet letter is not in end of field";
+}
 
 bool BCBPSections::electronic_ticket_indicator()
 {   unique.mandatory_size_check(0);
@@ -951,8 +962,8 @@ std::string BCBPSections::seat_number(int i)
     std::string ret = get_alfa_chars_str<true>(repeated[i].mandatory, pos_seat_number, err);
     process_err(field_name, mandatory_str, err, i);
     const TConstPos pos(pos_seat_number.begin, pos_seat_number.size() - 1);
-    get_int(repeated[i].mandatory, pos, err);
-    if(!err.empty()) err = non_decimal_str + " " + err;
+    ret = delete_all_blanks(ret);
+    check_num_ending_letter(ret, err);
     process_err(field_name, mandatory_str, err, i);
     return delete_ending_blanks(ret);
 
@@ -1579,7 +1590,7 @@ std::string BCBPSections::test_bcbp_build()
 {   BCBPSections x;
     x.add_section();
     x.add_section();
-    x.set_passenger_name_surname("ivan", "ivanov");
+    x.set_passenger_name_surname("Lisa", "A");
     std::cout<<"set_passenger_name_surname"<<x.unique.mandatory<<"\n";
     x.set_electronic_ticket_indicator(true);
     std::cout<<"set_electronic_ticket_indicator"<<x.unique.mandatory<<"\n";
@@ -1592,9 +1603,11 @@ std::string BCBPSections::test_bcbp_build()
     x.set_seat_number("001A", 0);
     x.set_check_in_seq_number("0025 ", 0);
     x.set_passenger_status('1', 0);
-    std::cout<<"repeated[0].mandatory.size() "<<x.repeated[0].mandatory.size()<<"\n";
-    std::cout<<"repeated[0] "<<x.repeated[0].mandatory<<"\n";
-    std::cout<<"unique "<<x.unique.mandatory<<"\n";
+
+    x.set_passenger_description(BCBPSectionsEnums::PassengerDescr::female);
+    x.set_source_of_checkin(BCBPSectionsEnums::town_agent);
+    x.set_source_of_boarding_pass_issuance(BCBPSectionsEnums::kiosk);
+    x.set_date_of_boarding_pass_issuance(boost::none);
     x.del_section(1);
     x.add_section();
     x.set_operatingCarrierPNR("0850CP", 1);

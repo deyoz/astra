@@ -13,6 +13,7 @@
 #include "obrnosir.h"
 #include "config.h"
 
+
 #include "jxtlib/jxtlib.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/msg_const.h"
@@ -23,6 +24,9 @@
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
+#include "exceptions.h"
+#include "dev_utils.h"
+#include <fstream>
 
 int main_edi_timer_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_msg_handler_tcl(int supervisorSocket, int argc, char *argv[]);
@@ -190,9 +194,135 @@ static void init_foreign_tests()
 
 int main(int argc,char **argv)
 {
+    std::cout<<"!!!!"<<std::endl;
+/*
 #ifdef XP_TESTING
     init_foreign_tests();
-#endif/*XP_TESTING*/
-    ServerFramework::setApplicationCallbacks<AstraApplication>();
-    return ServerFramework::applicationCallbacks()->run(argc,argv);
+#endif*//*XP_TESTING*/
+
+    using namespace EXCEPTIONS;
+    BCBPSections bcbp;
+    std::vector<std::string> bcbp_strs =
+    {"M1DESMARAIS/LUC       EABC123 YULFRAAC 0834 226F001A0025 14D>5181WW6225BAC 00851234560032A0141234567890 1AC AC 1234567890123    01KYLX58Z^164GIWVC5EH7JNT684FVNJ9"
+            "1W2QA4DVN5J8K4F0L0GEQ3DF5TGBN8709HKT5D3DW3GBHFCVHMY7J5T6HFR41W2QA4DVN5J8K4F0L0GE",
+     "M1DESMARAIS/LUC       EABC123 YULFRAAC 0834 226F001A0025 100^164GIWVC5EH7JNT684FVNJ9"
+                                          "1W2QA4DVN5J8K4F0L0GEQ3DF5TGBN8709HKT5D3DW3GBHFCVHMY7J5T6HFR41W2QA4DVN5J8K4F0L0GE",
+     "M1GRANDMAIRE/MELANIE  EABC123 GVAGDGAF 0123 228C002FOO25 130>5002A0571234567890                            Y^164GIWVC5EH7JNT684FVNJ9"
+                                          "1W2QA4DVN5J8K4F0L0GEQ3DF5TGBN8709HKT5D3DW3GBHFCVHMY7J5T6HFR41W2QA4DVN5J8K4F0L0GE",
+     "M2DESMARAIS/LUC       EABC123 YULFRAAC 0834 226F001A0025 14D>5181WW6225BAC 00851234560032A0141234567890 1AC AC 1234567890123    20KYLX58ZDEF456 FRAGVALH 3664 227C012C0002 12E2A"
+      "0140987654321 1AC AC 1234567890123    2PCNWQ^164GIWVC5EH7JNT684FVNJ91W2QA4DVN5J8K4F0L0GEQ3DF5TGBN8709HKT5D3DW3GBHFCVHMY7J5T6HFR41W2QA4DVN5J8K4F0L0GE",
+     "M1GRANDMAIRE/MELANIE  EABC123 GVAGDGAF 0123 228C002FOO25 130>5002A0571234567890                         20KYDEF456 CDGDTWNW 0049 228F001A0002 12C2A012098765432101"
+     "                       2PC ^164GIWVC5EH7JNT684FVNJ91W2QA4DVN5J8K4F0L0GEQ3DF5TGBN8709HKT5D3DW3GBHFCVHMY7J5T6HFR41W2QA4DVN5J8K4F0L0GE"
+    };
+    std::string real1 = "M1IVANOV/IVAN         E0847CN TJMVKOUT 969  327Y          49>50000298/2408011237  09TDD8PS7774441110";
+    std::fstream file;
+    char w[1000];
+    file.open("/home/roman/barcode/test", std::ios::in);
+    file.getline(w, sizeof(w));
+    std::cout<<"Got raw string:"<<"\n";
+    std::cout<<w<<"\n";
+    //BCBPSections::test_bcbp_build();
+    std::string bcbp_str = w; //= BCBPSections::test_bcbp_build();
+    std::cout<<"\n"<<"Parsed data:"<<"\n\n";
+    #define TRY(X) try {X} catch(Exception e) {std::cout<<"Exception: "<<e.what()<<"\n";} catch(...){std::cout<<"unknown exception"<<"\n";}
+
+
+
+    try{
+        //char id_ad(int i);
+        //int date(int i);
+        //int airline();
+        /*boost::optional<bool> fast_track(int i);
+        std::string airline_specific();
+        int num_repeated_sections();*/
+       using namespace BCBPSectionsEnums;
+       BCBPSections::get(bcbp_str, 0,  bcbp_str.size(), bcbp, false);
+            TRY(std::cout<<"passenger name: "<<bcbp.unique.passengerName().second<<"\n";)
+              std::cout.flush();
+            TRY(std::cout<<"passenger surname: "<<bcbp.unique.passengerName().first<<"\n";)
+              std::cout.flush();
+             TRY(std::cout<<"electronic ticket indicator "<<bcbp.electronic_ticket_indicator()<<"\n";)
+             std::cout.flush();
+             TRY(std::cout<<"version number "<<to_string(bcbp.version())<<"\n";)
+             std::cout.flush();
+             TRY(std::cout<<"passenger description: "<<to_string(bcbp.passenger_description())<<"\n";)
+             std::cout.flush();
+             TRY(std::cout<<"source of checkin: "<<to_string(bcbp.source_of_checkin())<<"\n";)
+             std::cout.flush();
+             TRY(std::cout<<"source of boarding pass issuance: "<<to_string(bcbp.source_of_boarding_pass_issuance())<<"\n";)
+             std::cout.flush();
+             TRY(std::cout<<"date of boarding pass issuance: "<<to_string(bcbp.date_of_boarding_pass_issuance())<<"\n";)
+             std::cout.flush();
+             TRY(std::cout<<"doc type: "<<to_string(bcbp.doc_type())<<"\n";)
+             std::cout.flush();
+             TRY(std::cout<<"airline of boarding pass issuance: "<<bcbp.airline_of_boarding_pass_issuance()<<"\n";)
+             std::cout.flush();
+             TRY(std::cout<<"baggage plate nums: "<<to_string(bcbp.baggage_plate_nums_as_str())<<"\n";)
+             std::cout.flush();
+             for(int i = 0; i < bcbp.repeated.size(); i++)
+             {   TRY(std::cout<<"Repeated Section N "<<i<<":\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"operating carrier pnr code: "<<bcbp.operatingCarrierPNR(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"from city airport: "<<bcbp.from_city_airport(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"to city airport: "<<bcbp.to_city_airport(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"operating carrier designator: "<<bcbp.operating_carrier_designator(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"flight number num: "<<bcbp.flight_number(i).first<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"flight number letter: "<<bcbp.flight_number(i).second<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"date of flight: "<<std::to_string(bcbp.date_of_flight(i))<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"compartment code: "<<bcbp.compartment_code(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"seat number: "<<bcbp.seat_number(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"check in seq number: "<<bcbp.check_in_seq_number(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"passenger status: "<<bcbp.passenger_status(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"airline num code "<<to_string(bcbp.airline_num_code(i))<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"doc serial num: "<<bcbp.doc_serial_num(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"selectee "<<bcbp.selectee(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"international doc verification: "<<bcbp.international_doc_verification(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"marketing carrier designator: "<<bcbp.marketing_carrier_designator(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"frequent flyer airline designator: "<<bcbp.frequent_flyer_airline_designator(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"frequent flyer num: "<<bcbp.frequent_flyer_num(i)<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"free baggage allowance: "<<to_string(bcbp.free_baggage_allowance(i))<<"\n";)
+                 std::cout.flush();
+                 TRY(std::cout<<"fast track: "<<to_string(bcbp.fast_track(i))<<"\n";)
+                 std::cout.flush();
+             }
+             TRY(std::cout<<"Security data: "<<"\n";)
+             std::cout.flush();
+             TRY(std::cout<<"type of security data: "<<bcbp.type_of_security_data()<<"\n";)
+             std::cout.flush();
+             TRY(std::cout<<"security data: "<<bcbp.security()<<"\n";)
+             std::cout.flush();
+
+          }
+
+    catch(Exception e)
+    {   //std::cout<<bcbp_str.size()<<std::endl;
+        std::cout<<"Exception: ";
+        std::cout<<e.what();
+    }
+    catch(...)
+    {
+        std::cout<<"unknown exception";
+    }
+
+    /*ServerFramework::setApplicationCallbacks<AstraApplication>();
+    return ServerFramework::applicationCallbacks()->run(argc,argv);*/
+    return 0;
 }
