@@ -1235,13 +1235,13 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
         //============================ проверка APPS статуса пассажира ============================
         if (isNeedAPPSReq(point_id, point_arv)) {
-          TReqPaxData apps_pax;
+          TPaxRequest * apps_pax = new TPaxRequest();
           for(int pass=0;pass<2;pass++)
           {
             TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
             if (!pax.exists()) continue;
-            apps_pax.fromDB(pax.pax_id);
-            if( apps_pax.status != "B" )
+            apps_pax->fromDBByPaxId( pax.pax_id );
+            if( apps_pax->getStatus() != "B" )
               throw AstraLocale::UserException("MSG.PASSENGER.APPS_PROBLEM");
           }
         }

@@ -117,46 +117,36 @@ bool handle_tlg(void)
       "       NVL(tlg_queue.proc_attempt,0) AS proc_attempt "
       "FROM tlg_queue "
       "WHERE tlg_queue.receiver=:receiver AND "
+      "      tlg_queue.sender=:sender AND "
       "      tlg_queue.type='OUTB' AND tlg_queue.status='PUT' "
       "ORDER BY tlg_queue.time,tlg_queue.id";
-    TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
-    // !!! Не забыть заменить type='IAPP' (type='OUTB' только для тестирования)
+    TlgQry.CreateVariable( "receiver", otString, OWN_CANON_NAME() );
+    TlgQry.CreateVariable( "sender", otString, getAPPSAddr() );
+    // !!! Не забыть заменить type='IAPP' (type='OUTB' только для тестирования) и убрать sender
   };
 
   int count;
 
   count=0;
   TlgQry.Execute();
-  try
+  for(;!TlgQry.Eof && (count++)<PROC_COUNT(); TlgQry.Next(), ASTRA::rollback())
   {
-    for(;!TlgQry.Eof && (count++)<PROC_COUNT(); TlgQry.Next(), ASTRA::rollback())
-    {
-      int id = TlgQry.FieldAsInteger("id");
-      std::string text = getTlgText(id);
-      ProgTrace(TRACE5,"TLG_IN: <%s>", text.c_str());
-      APPSAnswer ans;
-      if (ans.init(text))
-        ans.processReply();
-      else
-        ProgTrace(TRACE5, "Message was not found");
-      deleteTlg(id);
-      callPostHooksBefore();
-      ASTRA::commit();
-      callPostHooksAfter();
-      emptyHookTables();
-    };
-    queue_not_empty=!TlgQry.Eof;
-  }
-  catch(...)
-  {
-    ProgError(STDLOG, "Unknown error");
-    throw;
+    int id = TlgQry.FieldAsInteger("id");
+    std::string text = getTlgText(id);
+    ProgTrace(TRACE5,"TLG_IN: <%s>", text.c_str());
+    if ( !processReply( text ) )
+      ProgTrace(TRACE5, "Message was not found");
+    deleteTlg(id);
+    callPostHooksBefore();
+    ASTRA::commit();
+    callPostHooksAfter();
+    emptyHookTables();
   };
+  queue_not_empty=!TlgQry.Eof;
   time_t time_end=time(NULL);
   if (time_end-time_start>1)
     ProgTrace(TRACE5,"Attention! handle_tlg execute time: %ld secs, count=%d",
                      time_end-time_start,count);
-
   return queue_not_empty;
 }
 
@@ -164,49 +154,41 @@ void resend_tlg(void)
 {
   time_t time_start=time(NULL);
 
-  // проверим, есть ли сообщения, на которые не получен ответ
+  // проверим, есть ли сообщения без ответа или нуждающиеся в повторной отправке
   TQuery Qry(&OraSession);
   Qry.SQLText = "SELECT send_time, msg_id, send_attempts, msg_text, point_id "
                 "FROM apps_messages ";
   Qry.Execute();
 
   int count = 0;
-  try
+  for(;!Qry.Eof && (count++)<PROC_COUNT(); Qry.Next(), ASTRA::rollback())
   {
-    for(;!Qry.Eof && (count++)<PROC_COUNT(); Qry.Next(), ASTRA::rollback())
-    {
-      int point_id = Qry.FieldAsInteger("point_id");
-      int send_attempts = Qry.FieldAsInteger("send_attempts");
-      bool apps_down = get_alarm(point_id, atAPPSOutage);
-      BASIC::TDateTime send_time = Qry.FieldAsDateTime("send_time");
-      string msg_id = Qry.FieldAsString("msg_id");
-      if (!checkTime(point_id)) {
-        // More than 2 days has passed after flight scheduled departure time. It is useless to continue send.
-        deleteMsg(msg_id);
-      }
-      // maximum time to wait for a response from APPS is 4 sec
-      BASIC::TDateTime now = BASIC::NowUTC();
-      double ttw_sec = apps_down?600.0:4.0;
-      if (now - send_time < ttw_sec/(24.0*60.0*60.0)) {
-        continue;
-      }
-      if( ( send_attempts >= MaxSendAttempts ) && !apps_down ) {
-        // включим тревогу "Нет связи с APPS"
-        set_alarm(point_id, atAPPSOutage, true);
-      }
-      ProgTrace(TRACE5, "resend_tlg: elapsed time %s", BASIC::DateTimeToStr( (BASIC::NowUTC() - send_time), "hh:nn:ss" ).c_str());
-      reSendMsg(send_attempts, Qry.FieldAsString("msg_text"), msg_id);
-      callPostHooksBefore();
-      ASTRA::commit();
-      callPostHooksAfter();
-      emptyHookTables();
+    int point_id = Qry.FieldAsInteger("point_id");
+    int send_attempts = Qry.FieldAsInteger("send_attempts");
+    bool apps_down = get_alarm(point_id, atAPPSOutage);
+    BASIC::TDateTime send_time = Qry.FieldAsDateTime("send_time");
+    int msg_id = Qry.FieldAsInteger("msg_id");
+    if (!checkTime(point_id)) {
+      // More than 2 days has passed after flight scheduled departure time. It is useless to continue send.
+      deleteMsg(msg_id);
     }
+    // maximum time to wait for a response from APPS is 4 sec
+    BASIC::TDateTime now = BASIC::NowUTC();
+    double ttw_sec = apps_down?600.0:4.0;
+    if (now - send_time < ttw_sec/(24.0*60.0*60.0)) {
+      continue;
+    }
+    if( ( send_attempts >= MaxSendAttempts ) && !apps_down ) {
+      // включим тревогу "Нет связи с APPS"
+      set_alarm(point_id, atAPPSOutage, true);
+    }
+    ProgTrace(TRACE5, "resend_tlg: elapsed time %s", BASIC::DateTimeToStr( (BASIC::NowUTC() - send_time), "hh:nn:ss" ).c_str());
+    reSendMsg(send_attempts, Qry.FieldAsString("msg_text"), msg_id);
+    callPostHooksBefore();
+    ASTRA::commit();
+    callPostHooksAfter();
+    emptyHookTables();
   }
-  catch(...)
-  {
-    ProgError(STDLOG, "Unknown error");
-    throw;
-  };
   time_t time_end=time(NULL);
   if (time_end-time_start>1)
     ProgTrace(TRACE5,"Attention! resend_tlg execute time: %ld secs, count=%d",

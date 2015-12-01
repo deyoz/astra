@@ -8,6 +8,7 @@
 #include "lci_parser.h"
 #include "ssm_parser.h"
 #include "astra_consts.h"
+#include "../astra_misc.h"
 #include "astra_utils.h"
 #include "base_tables.h"
 #include "stl_utils.h"
@@ -6607,12 +6608,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         set<int> emd_alarm_pax_ids;
         bool chkd_exists=false;
         bool apps_pax_exists=false;
-        TQuery BindingQry(&OraSession);
-        BindingQry.SQLText =
-          "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id";
-        BindingQry.CreateVariable("point_id", otInteger, point_id);
-        BindingQry.Execute();
-        int point_id_spp = BindingQry.FieldAsInteger("point_id_spp");
+        TAdvTripInfoList trips = getTripsByPointIdTlg(point_id);
+        bool point_id_spp = trips.front().point_id;
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
         {
           CrsPnrQry.SetVariable("airp_arv",iTotals->dest);
@@ -7043,28 +7040,14 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         check_unbound_emd_alarm(emd_alarm_pax_ids);
         if (!isPRL && chkd_exists)
         {
-          for(;!BindingQry.Eof;BindingQry.Next())
-            add_trip_task(BindingQry.FieldAsInteger("point_id_spp"), SYNC_NEW_CHKD, "");
+          for(TAdvTripInfoList::const_iterator it = trips.begin(); it != trips.end(); it++)
+            add_trip_task((*it).point_id, SYNC_NEW_CHKD, "");
         };
         if(apps_pax_exists) {
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT airline, flt_no, suffix, airp, scd_out "
-            "FROM points "
-            "WHERE point_id=:point_id AND pr_del>=0";
-          Qry.CreateVariable("point_id",otInteger,point_id_spp);
-          Qry.Execute();
-
-          if (!Qry.Eof) {
-            TTripInfo operFlt(Qry);
-            BASIC::TDateTime now = BASIC::NowUTC();
-            BASIC::TDateTime new_exec_time = ASTRA::NoExists;
-            if ( operFlt.scd_out > now + 10 ) {
-              // отправлять запрос в APPS рано
-              new_exec_time = operFlt.scd_out - 10;
-            }
-            add_trip_task(point_id_spp, SEND_APPS_INFO, "", new_exec_time);
-          }
+          BASIC::TDateTime start_time;
+          bool result = checkTime( point_id, start_time );
+          if ( result || ( !result && start_time != ASTRA::NoExists ) )
+            add_trip_task( point_id_spp, SEND_NEW_APPS_INFO, "", start_time );
         }
       };
 

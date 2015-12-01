@@ -3647,8 +3647,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   bool save_trfer=false;
   bool need_apps=false;
   vector<CheckIn::TTransferItem> trfer;
-  TSegmentsList segs_for_apps;
-  TPaxDocList paxs_for_apps;
   for(bool first_segment=true;
       segNode!=NULL;
       segNode=segNode->next,first_segment=false)
@@ -3728,15 +3726,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     segList.back().flt=s->second.fltInfo;
 
-    if (!pr_unaccomp) {
-      if (isNeedAPPSReq(segList.back().grp.point_dep, segList.back().grp.point_arv))
+    if (!pr_unaccomp && isNeedAPPSReq(segList.back().grp.point_dep, segList.back().grp.point_arv))
         need_apps = true;
-      TSegment segment;
-      segment.init(segList.back().grp.point_dep, segList.back().grp.point_arv,
-                   segList.back().grp.airp_dep, segList.back().grp.airp_arv,
-                   segList.back().flt);
-      segs_for_apps.push_back(segment);
-    }
   };
 
   //проверим, регистрация ли это экипажа
@@ -4982,11 +4973,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                     !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
                   WeightConcept::PaxNormsToDB(pax_id, p->norms);
 
-                if (need_apps) {
-                  //сохраним пассажира для APPS
-                  TPaxData apps_pax(pax_id, false, pax.surname, pax.name, pax.doc);
-                  paxs_for_apps.push_back(apps_pax);
-                }
+                if ( need_apps )
+                  processPax( pax_id );
               }
               catch(CheckIn::UserException)
               {
@@ -5265,11 +5253,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
                 WeightConcept::PaxNormsToDB(pax.id, p->norms);
 
-              if (need_apps) {
-                //сохраним пассажира для APPS
-                TPaxData apps_pax(pax.id, !pax.refuse.empty(), pax.surname, pax.name, pax.doc);
-                paxs_for_apps.push_back(apps_pax);
-              }            }
+              if ( need_apps )
+                processPax( pax.id );          }
             catch(CheckIn::UserException)
             {
               throw;
@@ -5836,9 +5821,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         Qry.CreateVariable("point_id", otInteger, grp.point_dep);
         Qry.Execute();
       };
-      if (need_apps)
-        composeAPPSReq(segs_for_apps, grp.point_dep, paxs_for_apps, (grp.status == psCrew));
-      paxs_for_apps.clear();
     }
     catch(UserException &e)
     {
