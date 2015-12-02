@@ -21,219 +21,6 @@ using namespace AstraLocale;
 namespace WeightConcept
 {
 
-string GetBagRcptStr(int grp_id, int pax_id)
-{
-  TQuery Qry(&OraSession);
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-
-  int main_pax_id=NoExists;
-  if (pax_id!=NoExists)
-  {
-    Qry.SQLText=
-      "SELECT ckin.get_main_pax_id2(:grp_id) AS main_pax_id FROM dual";
-    Qry.Execute();
-    if (!Qry.Eof && !Qry.FieldIsNULL("main_pax_id")) main_pax_id=Qry.FieldAsInteger("main_pax_id");
-  };
-  if (pax_id==NoExists ||
-      (main_pax_id!=NoExists && main_pax_id==pax_id))
-  {
-    vector<string> rcpts;
-    CheckIn::PaidBagEMDList emd;
-    PaxASVCList::GetBoundPaidBagEMD(grp_id, 0, emd);
-    for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
-      rcpts.push_back(i->first.emd_no);
-
-    Qry.SQLText="SELECT no FROM bag_prepay WHERE grp_id=:grp_id";
-    Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
-      rcpts.push_back(Qry.FieldAsString("no"));
-
-    Qry.SQLText="SELECT form_type,no FROM bag_receipts WHERE grp_id=:grp_id AND annul_date IS NULL";
-    Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
-    {
-      int no_len=10;
-      try
-      {
-        no_len=base_tables.get("form_types").get_row("code",Qry.FieldAsString("form_type")).AsInteger("no_len");
-      }
-      catch(EBaseTableError) {};
-      ostringstream no_str;
-      no_str << fixed << setw(no_len) << setfill('0') << setprecision(0) << Qry.FieldAsFloat("no");
-      rcpts.push_back(no_str.str());
-    };
-    if (!rcpts.empty())
-    {
-      sort(rcpts.begin(),rcpts.end());
-      return ::GetBagRcptStr(rcpts);
-    };
-  };
-  return "";
-};
-
-bool BagPaymentCompleted(int grp_id, int *value_bag_count)
-{
-  vector< pair< int, int> > paid_bag;         //< bag_type, weight >
-  vector< pair< double, string > > value_bag; //< value, value_cur >
-  TQuery Qry(&OraSession);
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-
-  Qry.SQLText="SELECT bag_type, weight FROM paid_bag WHERE grp_id=:grp_id AND weight>0";
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    int bag_type=Qry.FieldIsNULL("bag_type")?NoExists:Qry.FieldAsInteger("bag_type");
-    paid_bag.push_back( make_pair(bag_type, Qry.FieldAsInteger("weight")) );
-  };
-
-  Qry.SQLText=
-    "SELECT DISTINCT value_bag.num, value_bag.value, value_bag.value_cur "
-    "FROM pax_grp, value_bag, bag2 "
-    "WHERE pax_grp.grp_id=value_bag.grp_id AND "
-    "      value_bag.grp_id=bag2.grp_id(+) AND "
-    "      value_bag.num=bag2.value_bag_num(+) AND "
-    "      (bag2.grp_id IS NULL OR "
-    "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0) AND "
-    "      pax_grp.grp_id=:grp_id AND value_bag.value>0";
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    value_bag.push_back( make_pair(Qry.FieldAsFloat("value"), Qry.FieldAsString("value_cur")) );
-  };
-  if (value_bag_count!=NULL) *value_bag_count=value_bag.size();
-
-  if (paid_bag.empty() && value_bag.empty()) return true;
-
-  TQuery KitQry(&OraSession);
-  KitQry.Clear();
-  KitQry.SQLText=
-    "SELECT bag_rcpt_kits.kit_id "
-    "FROM bag_rcpt_kits, bag_receipts "
-    "WHERE bag_rcpt_kits.kit_id=bag_receipts.kit_id(+) AND "
-    "      bag_rcpt_kits.kit_num=bag_receipts.kit_num(+) AND "
-    "      bag_receipts.annul_date(+) IS NULL AND "
-    "      bag_rcpt_kits.kit_id=:kit_id AND "
-    "      bag_receipts.kit_id IS NULL";
-  KitQry.DeclareVariable("kit_id", otInteger);
-
-  if (!paid_bag.empty())
-  {
-    map< int, int > rcpt_paid_bag;
-    for(int pass=0;pass<=2;pass++)
-    {
-      switch (pass)
-      {
-        case 0: Qry.SQLText=
-                  "SELECT bag_type, ex_weight "
-                  "FROM bag_receipts "
-                  "WHERE grp_id=:grp_id AND annul_date IS NULL AND service_type IN (1,2) AND kit_id IS NULL";
-                break;
-        case 1: Qry.SQLText=
-                  "SELECT MIN(bag_type) AS bag_type, MIN(ex_weight) AS ex_weight, kit_id "
-                  "FROM bag_receipts "
-                  "WHERE grp_id=:grp_id AND service_type IN (1,2) AND kit_id IS NOT NULL "
-                  "GROUP BY kit_id";
-                break;
-        case 2: Qry.SQLText=
-                  "SELECT bag_type, ex_weight "
-                  "FROM bag_prepay "
-                  "WHERE grp_id=:grp_id AND value IS NULL";
-                break;
-      };
-      Qry.Execute();
-      for(;!Qry.Eof;Qry.Next())
-      {
-        if (pass==1)
-        {
-          KitQry.SetVariable("kit_id", Qry.FieldAsInteger("kit_id"));
-          KitQry.Execute();
-          if (!KitQry.Eof) continue;
-        };
-        int bag_type=Qry.FieldIsNULL("bag_type")?NoExists:Qry.FieldAsInteger("bag_type");
-        if (rcpt_paid_bag.find(bag_type)==rcpt_paid_bag.end())
-          rcpt_paid_bag[bag_type]=Qry.FieldAsInteger("ex_weight");
-        else
-          rcpt_paid_bag[bag_type]+=Qry.FieldAsInteger("ex_weight");
-      };
-    };
-    //EMD
-    CheckIn::PaidBagEMDList emd;
-    PaxASVCList::GetBoundPaidBagEMD(grp_id, 0, emd);
-    for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
-    {
-      int bag_type=i->second.bag_type;
-      if (rcpt_paid_bag.find(bag_type)==rcpt_paid_bag.end())
-        rcpt_paid_bag[bag_type]=i->second.weight;
-      else
-        rcpt_paid_bag[bag_type]+=i->second.weight;
-    };
-
-    for(vector< pair< int, int> >::const_iterator i=paid_bag.begin();i!=paid_bag.end();++i)
-    {
-      map< int, int >::const_iterator j=rcpt_paid_bag.find(i->first);
-      if (j==rcpt_paid_bag.end()) return false;
-      if (j->second<i->second) return false;
-    };
-  };
-
-  if (!value_bag.empty())
-  {
-    map< pair< double, string >, int > rcpt_value_bag;
-    for(int pass=0;pass<=2;pass++)
-    {
-      switch (pass)
-      {
-        case 0: Qry.SQLText=
-                  "SELECT rate AS value,rate_cur AS value_cur "
-                  "FROM bag_receipts "
-                  "WHERE grp_id=:grp_id AND annul_date IS NULL AND service_type=3 AND kit_id IS NULL";
-                  break;
-        case 1: Qry.SQLText=
-                  "SELECT MIN(rate) AS value, MIN(rate_cur) AS value_cur, kit_id "
-                  "FROM bag_receipts "
-                  "WHERE grp_id=:grp_id AND service_type=3 AND kit_id IS NOT NULL "
-                  "GROUP BY kit_id";
-                  break;
-        case 2: Qry.SQLText=
-                  "SELECT value,value_cur "
-                  "FROM bag_prepay "
-                  "WHERE grp_id=:grp_id AND value IS NOT NULL";
-                  break;
-      };
-      Qry.Execute();
-      for(;!Qry.Eof;Qry.Next())
-      {
-        if (pass==1)
-        {
-          KitQry.SetVariable("kit_id", Qry.FieldAsInteger("kit_id"));
-          KitQry.Execute();
-          if (!KitQry.Eof) continue;
-        };
-        pair< double, string > bag(Qry.FieldAsFloat("value"), Qry.FieldAsString("value_cur"));
-        if (rcpt_value_bag.find(bag)==rcpt_value_bag.end())
-          rcpt_value_bag[bag]=1;
-        else
-          rcpt_value_bag[bag]+=1;
-      };
-    };
-
-    for(vector< pair< double, string > >::const_iterator i=value_bag.begin();i!=value_bag.end();++i)
-    {
-      map< pair< double, string >, int >::iterator j=rcpt_value_bag.find(*i);
-      if (j==rcpt_value_bag.end()) return false;
-      if (j->second<=0) return false;
-      j->second--;
-    };
-  };
-
-  return true;
-};
-
-} //namespace WeightConcept
-
-namespace BagPayment
-{
-
 class TBagNormFieldAmounts
 {
   public:
@@ -382,7 +169,7 @@ TBagNormWideInfo& TBagNormWideInfo::fromDB(TQuery &Qry)
   norm_id=Qry.FieldAsInteger("id");
   //norm_trfer не заполняется на данном этапе!
   //handmade не заполняется на данном этапе!
-  CheckIn::TNormItem::fromDB(Qry);
+  TNormItem::fromDB(Qry);
   airline=Qry.FieldAsString("airline");
   city_arv=Qry.FieldAsString("city_arv");
   pax_cat=Qry.FieldAsString("pax_cat");
@@ -491,7 +278,7 @@ void CheckOrGetPaxBagNorm(const list<TBagNormWideInfo> &trip_bag_norms,
                           const bool use_mixed_norms,
                           const bool only_category,
                           const int bag_type,
-                          const CheckIn::TPaxNormItem &norm,
+                          const TPaxNormItem &norm,
                           TBagNormInfo &result)
 {
   result.clear();
@@ -549,7 +336,7 @@ void CheckOrGetPaxBagNorm(const TNormFltInfo &flt,
                           const TPaxInfo &pax,
                           const bool only_category,
                           const int bag_type,
-                          const CheckIn::TPaxNormItem &norm,
+                          const TPaxNormItem &norm,
                           TBagNormInfo &result)
 {
   list<TBagNormWideInfo> trip_bag_norms;
@@ -559,7 +346,7 @@ void CheckOrGetPaxBagNorm(const TNormFltInfo &flt,
 
 enum TNormsTrferType { nttNone, nttNotTransfer, nttTransfer, nttMixed };
 
-class TNormWideItem : public CheckIn::TNormItem
+class TNormWideItem : public TNormItem
 {
   public:
     int priority;
@@ -637,10 +424,6 @@ class TSimpleBagItem
       bag_type(item.bag_type),
       amount(item.amount),
       weight(item.weight) {}
-    TSimpleBagItem(const TBagToLogInfo &item):
-      bag_type(item.bag_type),
-      amount(item.amount),
-      weight(item.weight) {}
     bool operator < (const TSimpleBagItem &item) const
     {
       if (weight!=item.weight)
@@ -654,7 +437,7 @@ class TSimpleBagItem
     }
 };
 
-class TPaidBagWideItem : public CheckIn::TPaidBagItem
+class TPaidBagWideItem : public TPaidBagItem
 {
   public:
     int bag_amount, bag_weight;
@@ -754,24 +537,24 @@ bool TPaidBagCalcItem::AddNorm(const TBagNormInfo &norm)
 }
 
 //декларация расчета багажа - на выходе TPaidBagCalcItem - самая нижняя процедура
-void CalcPaidBagBase(const std::map<int, TBagToLogInfo> &bag,
+void CalcPaidBagBase(const std::map<int, TEventsBagItem> &bag,
                      const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      map<int/*bag_type*/, TPaidBagCalcItem> &paid);
 
 typedef std::map< int/*bag_type*/, std::list<TSimpleBagItem> > TSimpleBagMap;
-typedef std::map< int/*bag_type*/, CheckIn::TPaxNormItem > TPaxNormMap;
-typedef std::map< int/*bag_type*/, CheckIn::TPaidBagItem > TPaidBagMap;
+typedef std::map< int/*bag_type*/, TPaxNormItem > TPaxNormMap;
+typedef std::map< int/*bag_type*/, TPaidBagItem > TPaidBagMap;
 
 enum TPrepareSimpleBagType1 { psbtOnlyTrfer, psbtOnlyNotTrfer, psbtTrferAndNotTrfer };
 enum TPrepareSimpleBagType2 { psbtOnlyRefused, psbtOnlyNotRefused, psbtRefusedAndNotRefused };
 
-void PrepareSimpleBag(const std::map<int/*id*/, TBagToLogInfo> &bag,
+void PrepareSimpleBag(const std::map<int/*id*/, TEventsBagItem> &bag,
                       const TPrepareSimpleBagType1 trfer_type,
                       const TPrepareSimpleBagType2 refused_type,
                       TSimpleBagMap &bag_simple)
 {
   bag_simple.clear();
-  for(std::map<int/*id*/, TBagToLogInfo>::const_iterator b=bag.begin(); b!=bag.end(); ++b)
+  for(std::map<int/*id*/, TEventsBagItem>::const_iterator b=bag.begin(); b!=bag.end(); ++b)
   {
     if ((refused_type==psbtOnlyRefused && !b->second.refused) ||
         (refused_type==psbtOnlyNotRefused && b->second.refused)) continue;
@@ -923,8 +706,8 @@ class TWidePaxInfo : public TPaxInfo
       pax_cats.clear();
       const TPerson &pers_type=(new_checkin || curr_pax.pax.PaxUpdatesPending)?curr_pax.pax.pers_type:
                                                                                DecodePerson(prior_pax.pers_type.c_str());
-      const int     &seats    =(new_checkin || curr_pax.pax.PaxUpdatesPending)?curr_pax.pax.seats:
-                                                                               prior_pax.seats;
+      const int     &seats    =(new_checkin )?curr_pax.pax.seats:
+                                              prior_pax.seats;
       if (pers_type==ASTRA::child)
       {
         if (seats==0) pax_cats.insert("CHC");
@@ -962,8 +745,8 @@ class TWidePaxInfo : public TPaxInfo
 };
 
 
-void ConvertNormsList(const std::map<int/*id*/, TBagToLogInfo> &bag,
-                      const boost::optional< std::list<CheckIn::TPaxNormItem> > &norms,
+void ConvertNormsList(const std::map<int/*id*/, TEventsBagItem> &bag,
+                      const boost::optional< std::list<TPaxNormItem> > &norms,
                       TPaxNormMap &result)
 {
   result.clear();
@@ -974,7 +757,7 @@ void ConvertNormsList(const std::map<int/*id*/, TBagToLogInfo> &bag,
   //всегда добавляем обычный багаж
   not_trfer_bag_simple.insert(make_pair(NoExists, std::list<TSimpleBagItem>()));
 
-  for(std::list<CheckIn::TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
+  for(std::list<TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
   {
     if (not_trfer_bag_simple.find(n->bag_type)==not_trfer_bag_simple.end()) continue; //отфильтровываем нормы
 
@@ -984,7 +767,7 @@ void ConvertNormsList(const std::map<int/*id*/, TBagToLogInfo> &bag,
 }
 
 void ConvertNormsList(const TPaxNormMap &norms,
-                      std::list<CheckIn::TPaxNormItem> &result)
+                      std::list<TPaxNormItem> &result)
 {
   result.clear();
   for(TPaxNormMap::const_iterator n=norms.begin(); n!=norms.end(); ++n)
@@ -1008,11 +791,11 @@ void SyncHandmadeProp(const TPaxNormMap &src,
 
 //перерасчет багажа - на выходе TPaidBagWideItem
 //используется в RecalcPaidBagToDB
-void RecalcPaidBagWide(const std::map<int/*id*/, TBagToLogInfo> &prior_bag,
-                       const std::map<int/*id*/, TBagToLogInfo> &curr_bag,
+void RecalcPaidBagWide(const std::map<int/*id*/, TEventsBagItem> &prior_bag,
+                       const std::map<int/*id*/, TEventsBagItem> &curr_bag,
                        const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
-                       const std::list<CheckIn::TPaidBagItem> &prior_paid,
-                       const std::list<CheckIn::TPaidBagItem> &curr_paid,
+                       const std::list<TPaidBagItem> &prior_paid,
+                       const std::list<TPaidBagItem> &curr_paid,
                        map<int/*bag_type*/, TPaidBagWideItem> &paid_wide,
                        bool testing=false)
 {
@@ -1046,7 +829,7 @@ void RecalcPaidBagWide(const std::map<int/*id*/, TBagToLogInfo> &prior_bag,
       if (iCurrBag!=curr_bag_simple.end()) curr_bag_sorted.insert(iCurrBag->second.begin(), iCurrBag->second.end());
 
       //заполним информацией о тарифах
-      for(std::list<CheckIn::TPaidBagItem>::const_iterator j=prior_paid.begin(); j!=prior_paid.end(); ++j)
+      for(std::list<TPaidBagItem>::const_iterator j=prior_paid.begin(); j!=prior_paid.end(); ++j)
         if (j->bag_type==item.bag_type)
         {
           item.rate_id=j->rate_id;
@@ -1059,7 +842,7 @@ void RecalcPaidBagWide(const std::map<int/*id*/, TBagToLogInfo> &prior_bag,
       //заполним весом платного багажа, введенным вручную
       item.weight=item.weight_calc;
       item.handmade=false;
-      for(std::list<CheckIn::TPaidBagItem>::const_iterator j=curr_paid.begin(); j!=curr_paid.end(); ++j)
+      for(std::list<TPaidBagItem>::const_iterator j=curr_paid.begin(); j!=curr_paid.end(); ++j)
         if (j->bag_type==item.bag_type)
         {
           if (j->weight!=NoExists &&
@@ -1099,7 +882,7 @@ void RecalcPaidBagWide(const std::map<int/*id*/, TBagToLogInfo> &prior_bag,
 
 //формируем массив TWidePaxInfo для дальнейшего вызова CheckOrGetWidePaxNorms
 //используется в test_norms и RecalcpaidBagToDB
-void GetWidePaxInfo(const map<int/*id*/, TBagToLogInfo> &curr_bag,
+void GetWidePaxInfo(const map<int/*id*/, TEventsBagItem> &curr_bag,
                     const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
                     const std::vector<CheckIn::TTransferItem> &trfer,
                     const CheckIn::TPaxGrpItem &grp,
@@ -1151,8 +934,8 @@ void GetWidePaxInfo(const map<int/*id*/, TBagToLogInfo> &curr_bag,
         pax.cl=grp.status!=psCrew?pPrior->second.cl:EncodeClass(Y);
         pax.subcl=pPrior->second.subcl;
         pax.refused=!pPrior->second.refuse.empty();
-        std::list<CheckIn::TPaxNormItem> tmp_norms;
-        for(std::list< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> >::const_iterator n=pPrior->second.norms.begin();
+        std::list<TPaxNormItem> tmp_norms;
+        for(std::list< std::pair<TPaxNormItem, TNormItem> >::const_iterator n=pPrior->second.norms.begin();
                                                                                               n!=pPrior->second.norms.end(); ++n)
           tmp_norms.push_back(n->first);
         ConvertNormsList(curr_bag, tmp_norms, pax.prior_norms);
@@ -1206,8 +989,8 @@ void GetWidePaxInfo(const map<int/*id*/, TBagToLogInfo> &curr_bag,
       if (prior_paxs.size()!=1)
         throw Exception("%s: prior_paxs.size()!=1!", __FUNCTION__);
 
-      std::list<CheckIn::TPaxNormItem> tmp_norms;
-      for(std::list< std::pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> >::const_iterator n=prior_paxs.begin()->second.norms.begin();
+      std::list<TPaxNormItem> tmp_norms;
+      for(std::list< std::pair<TPaxNormItem, TNormItem> >::const_iterator n=prior_paxs.begin()->second.norms.begin();
                                                                                             n!=prior_paxs.begin()->second.norms.end(); ++n)
         tmp_norms.push_back(n->first);
       ConvertNormsList(curr_bag, tmp_norms, pax.prior_norms);
@@ -1222,7 +1005,7 @@ void GetWidePaxInfo(const map<int/*id*/, TBagToLogInfo> &curr_bag,
 //на выходе paxs.result_norms и общий список всех норм неразрегистрированных пассажиров
 //используется в test_norms и RecalcpaidBagToDB
 void CheckOrGetWidePaxNorms(const list<TBagNormWideInfo> &trip_bag_norms,
-                            const map<int/*id*/, TBagToLogInfo> &curr_bag,
+                            const map<int/*id*/, TEventsBagItem> &curr_bag,
                             const TNormFltInfo &flt,
                             bool pr_unaccomp,
                             bool use_traces,
@@ -1297,14 +1080,14 @@ void CheckOrGetWidePaxNorms(const list<TBagNormWideInfo> &trip_bag_norms,
 
 //перерасчет багажа с валидацией норм и записью в таблицы grp_norms, pax_norms и paid_bag
 //применяется при записи изменений по группе пассажиров (SavePax)
-void RecalcPaidBagToDB(const map<int/*id*/, TBagToLogInfo> &prior_bag, //TBagToLogInfo а не CheckIn::TBagItem потому что есть refused
-                       const map<int/*id*/, TBagToLogInfo> &curr_bag,
+void RecalcPaidBagToDB(const map<int/*id*/, TEventsBagItem> &prior_bag, //TEventsBagItem а не CheckIn::TBagItem потому что есть refused
+                       const map<int/*id*/, TEventsBagItem> &curr_bag,
                        const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
                        const TNormFltInfo &flt,
                        const std::vector<CheckIn::TTransferItem> &trfer,
                        const CheckIn::TPaxGrpItem &grp,
                        const CheckIn::TPaxList &curr_paxs,
-                       const std::list<CheckIn::TPaidBagItem> &prior_paid,
+                       const std::list<TPaidBagItem> &prior_paid,
                        bool pr_unaccomp,
                        bool use_traces)
 {
@@ -1322,10 +1105,10 @@ void RecalcPaidBagToDB(const map<int/*id*/, TBagToLogInfo> &prior_bag, //TBagToL
 
    //собственно расчет платного багажа
    map<int/*bag_type*/, TPaidBagWideItem> paid_wide;
-   const list<CheckIn::TPaidBagItem> &curr_paid=grp.paid?grp.paid.get():list<CheckIn::TPaidBagItem>();
+   const list<TPaidBagItem> &curr_paid=grp.paid?grp.paid.get():list<TPaidBagItem>();
    RecalcPaidBagWide(prior_bag, curr_bag, all_norms, prior_paid, curr_paid, paid_wide);
 
-   std::list<CheckIn::TPaidBagItem> result_paid;
+   std::list<TPaidBagItem> result_paid;
    for(map<int/*bag_type*/, TPaidBagWideItem>::const_iterator i=paid_wide.begin(); i!=paid_wide.end(); ++i)
    {
      const TPaidBagWideItem &item=i->second;
@@ -1340,19 +1123,19 @@ void RecalcPaidBagToDB(const map<int/*id*/, TBagToLogInfo> &prior_bag, //TBagToL
      result_paid.push_back(item);
    };
 
-   CheckIn::PaidBagToDB(grp.id, result_paid);
+   PaidBagToDB(grp.id, result_paid);
 
    for(map<int/*pax_id*/, TWidePaxInfo>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
    {
      const TWidePaxInfo &pax=p->second;
      if (pax.prior_norms==pax.result_norms) continue;//не было изменения норм у пассжира
 
-     std::list<CheckIn::TPaxNormItem> norms;
+     std::list<TPaxNormItem> norms;
      ConvertNormsList(pax.result_norms, norms);
      if (!pr_unaccomp)
-       CheckIn::PaxNormsToDB(p->first, norms);
+       PaxNormsToDB(p->first, norms);
      else
-       CheckIn::GrpNormsToDB(p->first, norms);
+       GrpNormsToDB(p->first, norms);
    }
 };
 
@@ -1491,7 +1274,7 @@ int test_norms(int argc,char **argv)
       std::vector<CheckIn::TTransferItem> trfer;
       GetGrpToLogInfo(grp.id, grpLogInfo);
       CheckIn::LoadTransfer(grp.id, trfer);
-      for(map<int/*id*/, TBagToLogInfo>::iterator i=grpLogInfo.bag.begin(); i!=grpLogInfo.bag.end(); ++i)
+      for(map<int/*id*/, TEventsBagItem>::iterator i=grpLogInfo.bag.begin(); i!=grpLogInfo.bag.end(); ++i)
       {
         if (i->second.bag_type==99) i->second.is_trfer=true;
       }
@@ -1591,8 +1374,8 @@ int test_norms(int argc,char **argv)
         PrepareSimpleBag(grpLogInfo.bag, psbtOnlyNotTrfer, psbtOnlyNotRefused, bag_simple);
         if (!bag_simple.empty())
         {
-          list<CheckIn::TPaidBagItem> prior_paid;
-          CheckIn::PaidBagFromDB(grp.id, prior_paid);
+          list<TPaidBagItem> prior_paid;
+          PaidBagFromDB(NoExists, grp.id, prior_paid);
 
           bool norms_incomplete=false;
           std::list<TBagNormInfo> all_norms;
@@ -1600,7 +1383,7 @@ int test_norms(int argc,char **argv)
           {
             if (!p->second.refuse.empty()) continue;
             TPaxNormMap norms_map;
-            for(list< pair<CheckIn::TPaxNormItem, CheckIn::TNormItem> >::const_iterator n=p->second.norms.begin(); n!=p->second.norms.end(); ++n)
+            for(list< pair<TPaxNormItem, TNormItem> >::const_iterator n=p->second.norms.begin(); n!=p->second.norms.end(); ++n)
             {
               norms_map.insert(make_pair(n->first.bag_type,n->first));
               all_norms.push_back(TBagNormInfo(*n));
@@ -1619,11 +1402,11 @@ int test_norms(int argc,char **argv)
           {
             complete_norms_count++;
             map<int/*bag_type*/, TPaidBagWideItem> paid_wide;
-            RecalcPaidBagWide(grpLogInfo.bag, grpLogInfo.bag, all_norms, prior_paid, list<CheckIn::TPaidBagItem>(), paid_wide, true);
+            RecalcPaidBagWide(grpLogInfo.bag, grpLogInfo.bag, all_norms, prior_paid, list<TPaidBagItem>(), paid_wide, true);
 
             TPaidBagMap sorted_prior_paid;
             TPaidBagMap sorted_calc_paid;
-            for(list<CheckIn::TPaidBagItem>::const_iterator i=prior_paid.begin(); i!=prior_paid.end(); ++i)
+            for(list<TPaidBagItem>::const_iterator i=prior_paid.begin(); i!=prior_paid.end(); ++i)
             {
               if (i->bag_type==99) continue;
               sorted_prior_paid.insert(make_pair(i->bag_type, *i));
@@ -1703,9 +1486,9 @@ int test_norms(int argc,char **argv)
 
 //расчет багажа - на выходе TPaidBagWideItem
 //используется в PaidBagViewToXML
-void CalcPaidBagWide(const std::map<int/*id*/, TBagToLogInfo> &bag,
+void CalcPaidBagWide(const std::map<int/*id*/, TEventsBagItem> &bag,
                      const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
-                     const std::list<CheckIn::TPaidBagItem> &paid,
+                     const std::list<TPaidBagItem> &paid,
                      map<int/*bag_type*/, TPaidBagWideItem> &paid_wide)
 {
   paid_wide.clear();
@@ -1719,7 +1502,7 @@ void CalcPaidBagWide(const std::map<int/*id*/, TBagToLogInfo> &bag,
     TPaidBagWideItem &item=i->second;
     item.weight=item.weight_calc;
     item.handmade=false;
-    for(std::list<CheckIn::TPaidBagItem>::const_iterator j=paid.begin(); j!=paid.end(); ++j)
+    for(std::list<TPaidBagItem>::const_iterator j=paid.begin(); j!=paid.end(); ++j)
       if (j->bag_type==item.bag_type)
       {
         item.weight=j->weight;
@@ -1736,7 +1519,7 @@ void CalcPaidBagWide(const std::map<int/*id*/, TBagToLogInfo> &bag,
   TracePaidBagWide(paid_wide, __FUNCTION__);
 }
 
-void CalcTrferBagWide(const std::map<int/*id*/, TBagToLogInfo> &bag,
+void CalcTrferBagWide(const std::map<int/*id*/, TEventsBagItem> &bag,
                       map<int/*bag_type*/, TPaidBagWideItem> &paid_wide)
 {
   paid_wide.clear();
@@ -1760,7 +1543,7 @@ void CalcTrferBagWide(const std::map<int/*id*/, TBagToLogInfo> &bag,
 }
 
 //расчет багажа - на выходе TPaidBagCalcItem - самая нижняя процедура
-void CalcPaidBagBase(const std::map<int/*id*/, TBagToLogInfo> &bag,
+void CalcPaidBagBase(const std::map<int/*id*/, TEventsBagItem> &bag,
                      const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      map<int/*bag_type*/, TPaidBagCalcItem> &paid)
 {
@@ -2201,9 +1984,9 @@ void CalcPaidBagBase(const std::map<int/*id*/, TBagToLogInfo> &bag,
 
 }
 
-void PaidBagViewToXML(const std::map<int/*id*/, TBagToLogInfo> &bag,
+void PaidBagViewToXML(const std::map<int/*id*/, TEventsBagItem> &bag,
                       const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
-                      const std::list<CheckIn::TPaidBagItem> &paid,
+                      const std::list<TPaidBagItem> &paid,
                       const std::list<CheckIn::TPaidBagEMDItem> &emd,
                       const std::string &used_airline_mark,
                       xmlNodePtr dataNode)
@@ -2342,4 +2125,212 @@ void PaidBagViewToXML(const std::map<int/*id*/, TBagToLogInfo> &bag,
   };
 };
 
-}; //namespace BagPayment
+string GetBagRcptStr(int grp_id, int pax_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+
+  int main_pax_id=NoExists;
+  if (pax_id!=NoExists)
+  {
+    Qry.SQLText=
+      "SELECT ckin.get_main_pax_id2(:grp_id) AS main_pax_id FROM dual";
+    Qry.Execute();
+    if (!Qry.Eof && !Qry.FieldIsNULL("main_pax_id")) main_pax_id=Qry.FieldAsInteger("main_pax_id");
+  };
+  if (pax_id==NoExists ||
+      (main_pax_id!=NoExists && main_pax_id==pax_id))
+  {
+    vector<string> rcpts;
+    CheckIn::PaidBagEMDList emd;
+    PaxASVCList::GetBoundPaidBagEMD(grp_id, 0, emd);
+    for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+      rcpts.push_back(i->first.emd_no);
+
+    Qry.SQLText="SELECT no FROM bag_prepay WHERE grp_id=:grp_id";
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+      rcpts.push_back(Qry.FieldAsString("no"));
+
+    Qry.SQLText="SELECT form_type,no FROM bag_receipts WHERE grp_id=:grp_id AND annul_date IS NULL";
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+    {
+      int no_len=10;
+      try
+      {
+        no_len=base_tables.get("form_types").get_row("code",Qry.FieldAsString("form_type")).AsInteger("no_len");
+      }
+      catch(EBaseTableError) {};
+      ostringstream no_str;
+      no_str << fixed << setw(no_len) << setfill('0') << setprecision(0) << Qry.FieldAsFloat("no");
+      rcpts.push_back(no_str.str());
+    };
+    if (!rcpts.empty())
+    {
+      sort(rcpts.begin(),rcpts.end());
+      return ::GetBagRcptStr(rcpts);
+    };
+  };
+  return "";
+};
+
+bool BagPaymentCompleted(int grp_id, int *value_bag_count)
+{
+  vector< pair< int, int> > paid_bag;         //< bag_type, weight >
+  vector< pair< double, string > > value_bag; //< value, value_cur >
+  TQuery Qry(&OraSession);
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+
+  Qry.SQLText="SELECT bag_type, weight FROM paid_bag WHERE grp_id=:grp_id AND weight>0";
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    int bag_type=Qry.FieldIsNULL("bag_type")?NoExists:Qry.FieldAsInteger("bag_type");
+    paid_bag.push_back( make_pair(bag_type, Qry.FieldAsInteger("weight")) );
+  };
+
+  Qry.SQLText=
+    "SELECT DISTINCT value_bag.num, value_bag.value, value_bag.value_cur "
+    "FROM pax_grp, value_bag, bag2 "
+    "WHERE pax_grp.grp_id=value_bag.grp_id AND "
+    "      value_bag.grp_id=bag2.grp_id(+) AND "
+    "      value_bag.num=bag2.value_bag_num(+) AND "
+    "      (bag2.grp_id IS NULL OR "
+    "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0) AND "
+    "      pax_grp.grp_id=:grp_id AND value_bag.value>0";
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    value_bag.push_back( make_pair(Qry.FieldAsFloat("value"), Qry.FieldAsString("value_cur")) );
+  };
+  if (value_bag_count!=NULL) *value_bag_count=value_bag.size();
+
+  if (paid_bag.empty() && value_bag.empty()) return true;
+
+  TQuery KitQry(&OraSession);
+  KitQry.Clear();
+  KitQry.SQLText=
+    "SELECT bag_rcpt_kits.kit_id "
+    "FROM bag_rcpt_kits, bag_receipts "
+    "WHERE bag_rcpt_kits.kit_id=bag_receipts.kit_id(+) AND "
+    "      bag_rcpt_kits.kit_num=bag_receipts.kit_num(+) AND "
+    "      bag_receipts.annul_date(+) IS NULL AND "
+    "      bag_rcpt_kits.kit_id=:kit_id AND "
+    "      bag_receipts.kit_id IS NULL";
+  KitQry.DeclareVariable("kit_id", otInteger);
+
+  if (!paid_bag.empty())
+  {
+    map< int, int > rcpt_paid_bag;
+    for(int pass=0;pass<=2;pass++)
+    {
+      switch (pass)
+      {
+        case 0: Qry.SQLText=
+                  "SELECT bag_type, ex_weight "
+                  "FROM bag_receipts "
+                  "WHERE grp_id=:grp_id AND annul_date IS NULL AND service_type IN (1,2) AND kit_id IS NULL";
+                break;
+        case 1: Qry.SQLText=
+                  "SELECT MIN(bag_type) AS bag_type, MIN(ex_weight) AS ex_weight, kit_id "
+                  "FROM bag_receipts "
+                  "WHERE grp_id=:grp_id AND service_type IN (1,2) AND kit_id IS NOT NULL "
+                  "GROUP BY kit_id";
+                break;
+        case 2: Qry.SQLText=
+                  "SELECT bag_type, ex_weight "
+                  "FROM bag_prepay "
+                  "WHERE grp_id=:grp_id AND value IS NULL";
+                break;
+      };
+      Qry.Execute();
+      for(;!Qry.Eof;Qry.Next())
+      {
+        if (pass==1)
+        {
+          KitQry.SetVariable("kit_id", Qry.FieldAsInteger("kit_id"));
+          KitQry.Execute();
+          if (!KitQry.Eof) continue;
+        };
+        int bag_type=Qry.FieldIsNULL("bag_type")?NoExists:Qry.FieldAsInteger("bag_type");
+        if (rcpt_paid_bag.find(bag_type)==rcpt_paid_bag.end())
+          rcpt_paid_bag[bag_type]=Qry.FieldAsInteger("ex_weight");
+        else
+          rcpt_paid_bag[bag_type]+=Qry.FieldAsInteger("ex_weight");
+      };
+    };
+    //EMD
+    CheckIn::PaidBagEMDList emd;
+    PaxASVCList::GetBoundPaidBagEMD(grp_id, 0, emd);
+    for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+    {
+      int bag_type=i->second.bag_type;
+      if (rcpt_paid_bag.find(bag_type)==rcpt_paid_bag.end())
+        rcpt_paid_bag[bag_type]=i->second.weight;
+      else
+        rcpt_paid_bag[bag_type]+=i->second.weight;
+    };
+
+    for(vector< pair< int, int> >::const_iterator i=paid_bag.begin();i!=paid_bag.end();++i)
+    {
+      map< int, int >::const_iterator j=rcpt_paid_bag.find(i->first);
+      if (j==rcpt_paid_bag.end()) return false;
+      if (j->second<i->second) return false;
+    };
+  };
+
+  if (!value_bag.empty())
+  {
+    map< pair< double, string >, int > rcpt_value_bag;
+    for(int pass=0;pass<=2;pass++)
+    {
+      switch (pass)
+      {
+        case 0: Qry.SQLText=
+                  "SELECT rate AS value,rate_cur AS value_cur "
+                  "FROM bag_receipts "
+                  "WHERE grp_id=:grp_id AND annul_date IS NULL AND service_type=3 AND kit_id IS NULL";
+                  break;
+        case 1: Qry.SQLText=
+                  "SELECT MIN(rate) AS value, MIN(rate_cur) AS value_cur, kit_id "
+                  "FROM bag_receipts "
+                  "WHERE grp_id=:grp_id AND service_type=3 AND kit_id IS NOT NULL "
+                  "GROUP BY kit_id";
+                  break;
+        case 2: Qry.SQLText=
+                  "SELECT value,value_cur "
+                  "FROM bag_prepay "
+                  "WHERE grp_id=:grp_id AND value IS NOT NULL";
+                  break;
+      };
+      Qry.Execute();
+      for(;!Qry.Eof;Qry.Next())
+      {
+        if (pass==1)
+        {
+          KitQry.SetVariable("kit_id", Qry.FieldAsInteger("kit_id"));
+          KitQry.Execute();
+          if (!KitQry.Eof) continue;
+        };
+        pair< double, string > bag(Qry.FieldAsFloat("value"), Qry.FieldAsString("value_cur"));
+        if (rcpt_value_bag.find(bag)==rcpt_value_bag.end())
+          rcpt_value_bag[bag]=1;
+        else
+          rcpt_value_bag[bag]+=1;
+      };
+    };
+
+    for(vector< pair< double, string > >::const_iterator i=value_bag.begin();i!=value_bag.end();++i)
+    {
+      map< pair< double, string >, int >::iterator j=rcpt_value_bag.find(*i);
+      if (j==rcpt_value_bag.end()) return false;
+      if (j->second<=0) return false;
+      j->second--;
+    };
+  };
+
+  return true;
+};
+
+} //namespace WeightConcept

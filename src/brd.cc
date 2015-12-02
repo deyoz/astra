@@ -504,7 +504,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
         "    NVL(ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
         "    NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
-        "    DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess, "
+        "    DECODE(NVL(pax_grp.piece_concept,0), 0, DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0), ckin.get_excess(pax.grp_id,pax.pax_id)) AS excess, "
         "    NVL(pax_grp.piece_concept,0) AS piece_concept, "
         "    ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags ";
     if (used_for_brd_and_exam)

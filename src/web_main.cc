@@ -2146,10 +2146,8 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   vector<TIdsPnrData> ids;
   VerifyPax(segs, emulDocHeader, emulCkinDoc, emulChngDocs, ids);
 
-  int first_grp_id, tckin_id;
   TChangeStatusList ChangeStatusInfo;
-  set<int> tckin_ids;
-  CheckInInterface::TAfterSaveActionType action=CheckInInterface::actionNone;
+  CheckIn::TAfterSaveInfoList AfterSaveInfoList;
   bool result=true;
   //важно, что сначала вызывается CheckInInterface::SavePax для emulCkinDoc
   //только при веб-регистрации НОВОЙ группы возможен ROLLBACK CHECKIN в SavePax при перегрузке
@@ -2161,12 +2159,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
     if (emulReqNode==NULL)
       throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-    if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id, action))
-    {
-      if (tckin_id!=NoExists) tckin_ids.insert(tckin_id);
-    }
-    else
-      result=false;
+    if (!CheckInInterface::SavePax(emulReqNode, ediResNode, ChangeStatusInfo, AfterSaveInfoList)) result=false;
   };
   if (result)
   {
@@ -2176,20 +2169,13 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulChngDoc.docPtr())->children;
       if (emulReqNode==NULL)
         throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-      if (CheckInInterface::SavePax(emulReqNode, ediResNode, first_grp_id, ChangeStatusInfo, tckin_id, action))
-      {
-        if (tckin_id!=NoExists) tckin_ids.insert(tckin_id);
-      }
-      else
+      if (!CheckInInterface::SavePax(emulReqNode, ediResNode, ChangeStatusInfo, AfterSaveInfoList))
       {
         //по идее сюда мы никогда не должны попадать (см. комментарий выше)
         //для этого никогда не возвращаем false и делаем специальную защиту в SavePax:
         //при записи изменений веб и киосков не откатываемся при перегрузке
         throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: CheckInInterface::SavePax=false");
-        //result=false;
-        //break;
       };
-
     };
   };
 
@@ -2203,8 +2189,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       return false;
     };
 
-    CheckTCkinIntegrity(tckin_ids, NoExists);
-    CheckInInterface::AfterSaveAction(first_grp_id, action);
+    AfterSaveInfoList.handle(__FUNCTION__);
 
     vector< TWebPnr > pnrs;
     xmlNodePtr segsNode = NewTextChild( NewTextChild( resNode, "SavePax" ), "segments" );
@@ -3459,11 +3444,13 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
               if (emulReqNode==NULL)
                 throw EXCEPTIONS::Exception("emulReqNode=NULL");
 
-              int first_grp_id, tckin_id;
               TChangeStatusList ChangeStatusInfo;
-              CheckInInterface::TAfterSaveActionType action=CheckInInterface::actionNone;
-              if (CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, first_grp_id, ChangeStatusInfo, tckin_id, action))
-                CheckInInterface::AfterSaveAction(first_grp_id, action);
+              CheckIn::TAfterSaveInfoList AfterSaveInfoList;
+              if (CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, ChangeStatusInfo, AfterSaveInfoList))
+              {
+                //сюда попадаем если была реальная регистрация
+                AfterSaveInfoList.handle(__FUNCTION__);
+              };
             };
           }
           catch(AstraLocale::UserException &e)
