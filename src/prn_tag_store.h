@@ -53,6 +53,7 @@ namespace TAG {
     const std::string GATE = "GATE";
     const std::string GATES = "GATES";
     const std::string INF = "INF";
+    const std::string IMG = "IMG";
     const std::string LONG_ARV = "LONG_ARV";
     const std::string LONG_DEP = "LONG_DEP";
     const std::string NAME = "NAME";
@@ -431,6 +432,7 @@ class TPrnTagStore {
         std::string FULLNAME(TFieldParams fp);
         std::string GATE(TFieldParams fp);
         std::string GATES(TFieldParams fp);
+        std::string IMG(TFieldParams fp);
         std::string INF(TFieldParams fp);
         std::string LONG_ARV(TFieldParams fp);
         std::string LONG_DEP(TFieldParams fp);

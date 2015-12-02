@@ -339,6 +339,7 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::FULLNAME,        TTagListItem(&TPrnTagStore::FULLNAME, PAX_INFO)));
     tag_list.insert(make_pair(TAG::GATE,            TTagListItem(&TPrnTagStore::GATE)));
     tag_list.insert(make_pair(TAG::GATES,           TTagListItem(&TPrnTagStore::GATES, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::IMG,             TTagListItem(&TPrnTagStore::IMG)));
     tag_list.insert(make_pair(TAG::INF,             TTagListItem(&TPrnTagStore::INF, PAX_INFO)));
     tag_list.insert(make_pair(TAG::LONG_ARV,        TTagListItem(&TPrnTagStore::LONG_ARV)));
     tag_list.insert(make_pair(TAG::LONG_DEP,        TTagListItem(&TPrnTagStore::LONG_DEP)));
@@ -1750,6 +1751,12 @@ string TPrnTagStore::CHD(TFieldParams fp)
     string result;
     if(DecodePerson((char *)paxInfo.pers_type.c_str()) == child)
         result = tag_lang.ElemIdToTagElem(etPersType, paxInfo.pers_type, efmtCodeNative);
+    return result;
+}
+
+string TPrnTagStore::IMG(TFieldParams fp)
+{
+    string result;
     return result;
 }
 

@@ -146,7 +146,8 @@ astra_SOURCES = \
   TypeBHelpMng.cpp \
   astra_msg.cc \
   Depeches.cpp \
-  AsyncNet.cpp
+  AsyncNet.cpp \
+  img.cpp
 
 
 astra_LDADD = $(all_libraries) \
@@ -280,5 +281,6 @@ noinst_HEADERS = \
   TypeBHelpMng.h \
   astra_msg.h \
   Depeches.hpp \
-  AsyncNet.hpp
+  AsyncNet.hpp \
+  img.h
   
