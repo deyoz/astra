@@ -706,8 +706,8 @@ class TWidePaxInfo : public TPaxInfo
       pax_cats.clear();
       const TPerson &pers_type=(new_checkin || curr_pax.pax.PaxUpdatesPending)?curr_pax.pax.pers_type:
                                                                                DecodePerson(prior_pax.pers_type.c_str());
-      const int     &seats    =(new_checkin || curr_pax.pax.PaxUpdatesPending)?curr_pax.pax.seats:
-                                                                               prior_pax.seats;
+      const int     &seats    =(new_checkin )?curr_pax.pax.seats:
+                                              prior_pax.seats;
       if (pers_type==ASTRA::child)
       {
         if (seats==0) pax_cats.insert("CHC");
