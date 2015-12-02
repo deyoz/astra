@@ -206,7 +206,8 @@ class TTripInfo
     {
       init(flt);
     };
-
+    virtual bool getByPointId ( const int point_id );
+    virtual bool getByPointIdTlg ( const int point_id_tlg );
     void get_client_dates(BASIC::TDateTime &scd_out_client, BASIC::TDateTime &real_out_client, bool trunc_time=true) const;
 };
 
@@ -263,7 +264,12 @@ class TAdvTripInfo : public TTripInfo
       TTripInfo::Init(Qry);
       init(Qry);
     };
+    virtual bool getByPointId ( const int point_id );
 };
+
+typedef std::list<TAdvTripInfo> TAdvTripInfoList;
+
+TAdvTripInfoList getTripsByPointIdTlg( const int point_id_tlg );
 
 class TLastTrferInfo
 {

@@ -41,6 +41,7 @@
 #include "jxtlib/jxt_cont.h"
 #include "apis_utils.h"
 #include "astra_callbacks.h"
+#include "apps_interaction.h"
 #include "astra_elem_utils.h"
 #include "baggage_pc.h"
 
@@ -3644,6 +3645,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   TSegList segList;
   bool new_checkin=false;
   bool save_trfer=false;
+  bool need_apps=false;
   vector<CheckIn::TTransferItem> trfer;
   for(bool first_segment=true;
       segNode!=NULL;
@@ -3723,6 +3725,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     };
 
     segList.back().flt=s->second.fltInfo;
+
+    if (!pr_unaccomp && isNeedAPPSReq(segList.back().grp.point_dep, segList.back().grp.point_arv))
+        need_apps = true;
   };
 
   //проверим, регистрация ли это экипажа
@@ -3931,6 +3936,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     markFltInfo.scd_out=UTCToLocal(markFltInfo.scd_out,AirpTZRegion(markFltInfo.airp));
     modf(markFltInfo.scd_out,&markFltInfo.scd_out);
     bool pr_mark_norms=false;
+
+    if ( need_apps ) {
+      TAdvTripRoute route;
+      route.GetRouteAfter(NoExists, grp.point_dep, trtWithCurrent, trtNotCancelled);
+      if ( route.front().act_out != NoExists )
+        throw UserException( "MSG.PASSENGER.CHANGES_NOT_PERMITTED" );
+    }
 
     try
     {
@@ -4960,6 +4972,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (first_segment &&
                     !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
                   WeightConcept::PaxNormsToDB(pax_id, p->norms);
+
+                if ( need_apps )
+                  processPax( pax_id );
               }
               catch(CheckIn::UserException)
               {
@@ -5237,7 +5252,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               if (first_segment &&
                   !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
                 WeightConcept::PaxNormsToDB(pax.id, p->norms);
-            }
+
+              if ( need_apps )
+                processPax( pax.id );          }
             catch(CheckIn::UserException)
             {
               throw;
@@ -5771,11 +5788,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           SALONS2::setManualCompChg( grp.point_dep );
         }
         check_apis_alarms( grp.point_dep );
+        check_apps_alarm( grp.point_dep );
       };
       if (!pr_unaccomp && grp.status==psCrew)
       {
         check_crew_alarms( grp.point_dep );
         check_apis_alarms( grp.point_dep );
+        check_apps_alarm( grp.point_dep );
       };
 
       check_TrferExists( grp.point_dep );

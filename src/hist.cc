@@ -374,6 +374,14 @@ void THistCacheTable::makeSelectQuery(std::string& select_sql)
   eraseFlds();
 
   string code = this->code();
+
+  std::fstream fs;
+  fs.open ("conditions.sql", std::fstream::in | std::fstream::out | std::fstream::app);
+  if (!info.conditions.empty()) {
+    fs << "--" << code << std::endl;
+    fs << info.conditions << std::endl;
+  }
+
   if (code == "TYPEB_ADDRS_LDM" || code == "TYPEB_ADDRS_LCI" || code == "TYPEB_ADDRS_PRL" ||
       code == "TYPEB_ADDRS_PRL_MARK" || code == "TYPEB_ADDRS_BSM" || code == "TYPEB_ADDRS_PNL_MARK" )
     SelectSQL = multipleQry();

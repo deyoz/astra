@@ -4,6 +4,7 @@
 #include "comp_layers.h"
 #include "alarms.h"
 #include "trip_tasks.h"
+#include "apps_interaction.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -69,8 +70,13 @@ void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, b
       SyncTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer, point_ids_spp);
       check_layer_change(point_ids_spp);
     };
-  if (!unbind)
+  if (!unbind) {
     add_trip_task(point_id_spp, SYNC_ALL_CHKD, "");
+    BASIC::TDateTime start_time;
+    bool result = checkTime( point_id_spp, start_time );
+    if ( result || ( !result && start_time != ASTRA::NoExists ) )
+      add_trip_task( point_id_spp, SEND_ALL_APPS_INFO, "", start_time );
+  }
   check_tlg_in_alarm(point_id_tlg, point_id_spp);
 };
 

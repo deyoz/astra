@@ -147,7 +147,7 @@ TDateTime date_fromXML(string str)
             if ( StrToDateTime( str.c_str(), "dd.mm.yyyy", date ) == EOF )
             {
                 TReqInfo::Instance()->traceToMonitor(TRACE5, "date_fromXML: invalid <date> %s", str.c_str());
-                throw UserException( "Date is invalid" );
+                throw UserException( "MSG.FORMAT_DATE_ERROR" );
             }
         };
     };
