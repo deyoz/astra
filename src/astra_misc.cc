@@ -162,8 +162,8 @@ bool TAdvTripInfo::getByPointId ( const int point_id )
 {
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT airline, flt_no, suffix, airp, scd_out, real_out, pr_del, "
-    "       airline_fmt, suffix_fmt, airp_fmt, point_id, "
+    "SELECT airline, flt_no, suffix, airp, scd_out, NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
+    "       pr_del, airline_fmt, suffix_fmt, airp_fmt, point_id, "
     "       point_num, first_point, pr_tranzit "
     "FROM points "
     "WHERE point_id = :point_id";
