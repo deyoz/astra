@@ -772,7 +772,7 @@ void TAnsPaxData::init( std::string source )
   error_code1 = getInt(*(rit++));
   if ( grp_id == PaxAnsPrs.first )
     apps_pax_id = getInt(*(rit++));
-  status = (*(rit++)).front();
+  status = *((*(rit++)).begin()); //front() used only in c++11
   code = getInt(*(rit++));
 }
 
@@ -1148,7 +1148,7 @@ bool processReply( const std::string& source )
 
   string code = source.substr(0, 4);
   string answer = source.substr(5, source.size() - 6); // отрезаем код транзакции и замыкающий '/' (XXXX:text_to_parse/)
-  TAPPSAns * res = nullptr;
+  TAPPSAns * res = NULL; //nullptr used only in c++11
   if ( code == AnsTypeCirs ||  code == AnsTypeCicc )
     res = new TPaxReqAnswer();
   else if ( code == AnsTypeCima ) {
