@@ -13,6 +13,7 @@ using namespace ASTRA;
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
+using namespace BCBPSectionsEnums;
 
 
 const std::string BCBPInternalWork::meet_null_term_symb = "meet unexpected null (\\0) symbol in str";
@@ -80,15 +81,22 @@ static const TConstPos pos_length_sec_data(pos_typeof_sec_data,2);
 static const TConstPos pos_sec_data(pos_length_sec_data,1);
 
 
+
+
+
+
+
+
+
 int TConstPos::size() const
 { return end - begin;
 }
 
 static std::string show_pos(int i)
-{   return std::string(", pos[") + std::to_string(i) + "]";
+{   return std::string(", pos[") + IntToString(i) + "]";
 }
 const std::string BCBPInternalWork::small_data_size(int i)
-{   return std::string("too small size of section (") + std::to_string(i) + ")";
+{   return std::string("too small size of section (") + BCBPSectionsEnums::to_string(i) + ")";
 }
 
 TDevOperType DecodeDevOperType(string s)
@@ -201,25 +209,25 @@ std::string getDefaultDevModel(const TOperMode desk_mode,
 };
 
 
-template<bool allow_non_found>
-unsigned int BCBPInternalWork::get_int(const std::string& x, TConstPos pos, std::string& err, unsigned int allow_min, unsigned int allow_max)
+
+unsigned int BCBPInternalWork::get_int(const std::string& x, TConstPos pos, std::string& err, unsigned int allow_min, unsigned int allow_max, bool allow_non_found)
 {
-    return get_int<allow_non_found>(x, pos.begin, pos.end, err, allow_min, allow_max);
+    return get_int(x, pos.begin, pos.end, err, allow_min, allow_max, allow_non_found);
 }
 
-template<class T, bool allow_nums, bool allow_non_found> boost::optional<T>  BCBPInternalWork::get_enum_opt(const std::string& x, TConstPos pos, std::string& err, const std::string& test)
+template<class T> boost::optional<T>  BCBPInternalWork::get_enum_opt(const std::string& x, TConstPos pos, std::string& err, const std::string& test, bool allow_non_found)
 {
-    return get_enum_opt<T, allow_nums, allow_non_found>(x, pos.begin, err, test);
+    return get_enum_opt<T>(x, pos.begin, err, test, allow_non_found);
 }
 
-template<bool allow_nums, bool allow_non_found>
-std::string BCBPInternalWork::get_alfa_chars_str(const std::string& x, TConstPos pos, std::string& err, const std::string special_symbols_allowed)
+template<bool allow_nums>
+std::string BCBPInternalWork::get_alfa_chars_str(const std::string& x, TConstPos pos, std::string& err, const std::string special_symbols_allowed, bool allow_non_found)
 {
     return get_alfa_chars_str<allow_nums>(x, pos.begin, pos.end, err, special_symbols_allowed);
 }
 
-template<bool allow_non_num_alfa, bool allow_non_found>
-char BCBPInternalWork::get_char(const std::string& x, TConstPos pos, std::string& err){
+template<bool allow_non_num_alfa>
+char BCBPInternalWork::get_char(const std::string& x, TConstPos pos, std::string& err, bool allow_non_found){
     return get_char<allow_non_num_alfa>(x, pos.begin, err);
 }
 
@@ -245,7 +253,7 @@ pair<string, string> BCBPUniqueSections::passengerName() const
   for(unsigned int i = 0; i<res.size(); i++)
   {
       if(!IsLetter(res[i]) && res[i] != ' ' && res[i] != '/' && res[i] != '-')
-          throw EConvertError(string("invalid item 11 <Passenger Name> at ") + std::to_string(i) + "of pos in field");
+          throw EConvertError(string("invalid item 11 <Passenger Name> at ") + BCBPSectionsEnums::to_string(i) + "of pos in field");
   }
   string::size_type pos=result.first.find('/');
   if (pos != string::npos)
@@ -501,7 +509,7 @@ void BCBPSections::get(const std::string &bcbp,
                                           EConvertError("invalid size of security section"));
   };
   if (bcbp_end_idx!=string::npos && security_idx!=bcbp_end_idx)
-  { err = string("invalid size of bcbp, expected ") + std::to_string(bcbp_end_idx) + " got " + std::to_string(security_idx);
+  { err = string("invalid size of bcbp, expected ") + BCBPSectionsEnums::to_string(bcbp_end_idx) + " got " + BCBPSectionsEnums::to_string(security_idx);
     throw EConvertError(err);
   }
 
@@ -559,7 +567,7 @@ void checkBCBP_M(const string &bcbp,
   if (bcbp_size<p+60) throw EConvertError("invalid size of mandatory items");
   if (!HexToString(bcbp.substr(p+58,2),c) || c.size()<1)
     throw EConvertError("invalid item 6 <Field size of variable size field>");
-  item6=(int)c[0]; //item 6
+  item6=static_cast<int>(c[0]); //item 6
   p+=60;
   if (bcbp_size<p+item6) throw EConvertError("invalid size of conditional items + item 4 <For individual airline use>");
   airline_use_end_idx=p+item6;
@@ -571,13 +579,13 @@ void checkBCBP_M(const string &bcbp,
       if (bcbp_size<p+4) throw EConvertError("invalid size of conditional items");
       if (!HexToString(bcbp.substr(p+2,2),c) || c.size()<1)
         throw EConvertError("invalid item 10 <Field size of following structured message - unique>");
-      len_u=(int)c[0]; //item 10
+      len_u=static_cast<int>(c[0]); //item 10
       //ProgTrace(TRACE5,"checkBCBP_M: len_u=%d",len_u);
       p+=4;
       if (bcbp_size<p+len_u+2) throw EConvertError("invalid size of following structured message - unique");
       if (!HexToString(bcbp.substr(p+len_u,2),c) || c.size()<1)
         throw EConvertError("invalid item 17 <Field size of following structured message - repeated>");
-      len_r=(int)c[0]; //item 17
+      len_r=static_cast<int>(c[0]); //item 17
       //ProgTrace(TRACE5,"checkBCBP_M: len_r=%d",len_r);
       p+=len_u+2;
       if (bcbp_size<p+len_r) throw EConvertError("invalid size of following structured message - repeated");
@@ -614,7 +622,7 @@ int bcbp_test(int argc,char **argv)
 void BCBPUniqueSections::mandatory_size_check(int i)
 {   if (mandatory.size()!=23)
     {
-     if(i) throw EConvertError(string("invalid size of unique mandatory section ") + std::to_string(i));
+     if(i) throw EConvertError(string("invalid size of unique mandatory section ") + BCBPSectionsEnums::to_string(i));
      throw EConvertError("invalid size of unique mandatory section");
     }
 
@@ -630,17 +638,15 @@ string BCBPInternalWork::invalid_format(const string& field, const string& what)
     return std::string("invalid format of bcbp field: \"") + field + std::string(" \" , ") + what;
 }
 const bool is_allow_nums = false;
-template<class T, bool allow_nums, bool allow_non_found> boost::optional<T>  BCBPInternalWork::get_enum_opt(const string& x, int start, string& err, const string& test)
-{   char ret = get_char<true, allow_non_found>(x, start, err);
+template<class T> boost::optional<T>  BCBPInternalWork::get_enum_opt(const string& x, int start, string& err, const string& test, bool allow_non_found)
+{   char ret = get_char<true>(x, start, err, allow_non_found);
     if(ret == ' ') return boost::none;
     int  i;
     for(i = 0; i<test.size(); i++)
-        if(test[i] == ret) goto Label_far;
+        if(test[i] == ret) return boost::optional<T>(static_cast<T>(i));
     err = "unexpected data in enum field \" \"";
     err[err.size()-2] = ret;
     return boost::none;
-    Label_far:
-    return boost::optional<T>(static_cast<T>(i));
 }
 
 bool BCBPInternalWork::bad_symbol(char x, string& err)
@@ -663,7 +669,7 @@ std::string BCBPInternalWork::write_section_str(const string& field, const strin
         }
         if(section != -1)
         {   str_section = "rep. section N ";
-            str_section.push_back((char)(section + '0'));
+            str_section.push_back(static_cast<char>(section + '0'));
         }
         else str_section = "unique section";
         return str_section;
@@ -697,8 +703,8 @@ void BCBPInternalWork::process_err(const string& field, const string& field_type
 
 
 
-template<bool allow_nums, bool allow_non_found>
-std::string BCBPInternalWork::get_alfa_chars_str(const string& x, int start, int end, string& err, const std::string special_symbols_allowed)
+template<bool allow_nums>
+std::string BCBPInternalWork::get_alfa_chars_str(const string& x, int start, int end, string& err, const std::string special_symbols_allowed, bool allow_non_found)
 {
     if(x.size() < end)
     {   if(!allow_non_found) err = small_data_size(x.size());
@@ -752,9 +758,9 @@ std::string BCBPInternalWork::get_alfa_chars_str(const string& x, int start, int
 void BCBPSections::check_i(int i)
 {   const int unsupported_size = max_supported_size_of_repeated_field + 1;
     if(i < 0)
-        process_err("", "", "new added field parsing: attemt to access to vector<> repeated[] with negative number " + std::to_string(i), unsupported_size);
-     if(i >= (int)repeated.size())
-        process_err("", "", "new added field parsing: attemt to access to vector<> repeated[] with " + std::to_string(i) + " >= repeated.size()", unsupported_size);
+        process_err("", "", "new added field parsing: attemt to access to vector<> repeated[] with negative number " + BCBPSectionsEnums::to_string(i), unsupported_size);
+     if(i >= static_cast<int>(repeated.size()))
+        process_err("", "", "new added field parsing: attemt to access to vector<> repeated[] with " + BCBPSectionsEnums::to_string(i) + " >= repeated.size()", unsupported_size);
 }
 
 
@@ -768,8 +774,8 @@ bool alfa_num_check(char x, std::string& err)
     return true;
 }
 
-template<bool allow_non_num_alfa, bool allow_non_found>
-char BCBPInternalWork::get_char(const string& x, int pos, string& err)
+template<bool allow_non_num_alfa>
+char BCBPInternalWork::get_char(const string& x, int pos, string& err, bool allow_non_found)
 {
     if(pos >= x.size())
     {   if(!allow_non_found)
@@ -790,8 +796,8 @@ char BCBPInternalWork::get_char(const string& x, int pos, string& err)
 }
 
 
-template<bool allow_non_found>
-unsigned int BCBPInternalWork::get_int(const string& x, unsigned int start, unsigned int end, string& err, unsigned int allow_min, unsigned int allow_max)
+
+unsigned int BCBPInternalWork::get_int(const string& x, unsigned int start, unsigned int end, string& err, unsigned int allow_min, unsigned int allow_max, bool allow_non_found)
 {   if(x.size() < end)
     {   err = small_data_size(x.size());
         return 0;
@@ -822,17 +828,17 @@ unsigned int BCBPInternalWork::get_int(const string& x, unsigned int start, unsi
        got_num = true;
     }
     if(ret < allow_min)
-    {   err  = "got number (" + std::to_string(ret) +  ") less then minimum allowed for this field";
+    {   err  = "got number (" + BCBPSectionsEnums::to_string(ret) +  ") less then minimum allowed for this field";
     }
     if(ret > allow_max)
-    {   err  = "got number (" + std::to_string(ret) + ") exceed maximum allowed for this field";
+    {   err  = "got number (" + BCBPSectionsEnums::to_string(ret) + ") exceed maximum allowed for this field";
         return 0;
     }
     return ret;
 }
 
-template<bool allow_non_found>
-int BCBPInternalWork::get_hex(const string& x, unsigned int start, string& err)
+
+int BCBPInternalWork::get_hex(const string& x, unsigned int start, string& err, bool allow_non_found)
 {
     if(x.size() <= start + 1)
     {   if(!allow_non_found){
@@ -994,12 +1000,12 @@ boost::optional<BCBPSectionsEnums::PassengerDescr> BCBPSections::passenger_descr
     char ret = get_char<true>(unique.conditional, pos_pass_descr, err);
     if(ret == ' ') return boost::none;
     process_err("passenger description", conditional_str, err);
-    if(!(ret >= '0' && ret <= '7')) return BCBPSectionsEnums::PassengerDescr::future_industry_use;
+    if(!(ret >= '0' && ret <= '7')) return future_industry_use;
     return boost::optional<BCBPSectionsEnums::PassengerDescr>(static_cast<BCBPSectionsEnums::PassengerDescr>(ret-'0'));
 }
 
-template<bool allow_non_found = true>
-static inline bool check_none_in_cond_int(const string& str, TConstPos pos)
+
+static inline bool check_none_in_cond_int(const string& str, TConstPos pos, bool allow_non_found = true)
 {
     if(pos.end > str.size()) return allow_non_found;
     for(unsigned int i = pos.begin; i<pos.end; i++)
@@ -1021,7 +1027,7 @@ boost::optional<BCBPSectionsEnums::SourceOfIssuance> BCBPSections::source_of_che
     string err, field_name = "source of check in";
     boost::optional<BCBPSectionsEnums::SourceOfIssuance> ret = get_enum_opt<BCBPSectionsEnums::SourceOfIssuance>(unique.conditional, pos_checkin_source, err, allowed_chars);
     process_err(field_name, conditional_str, err);
-    if(ret == BCBPSectionsEnums::SourceOfIssuance::transfer_kiosk)
+    if(ret == transfer_kiosk)
         process_err(field_name, conditional_str, "X symbol not allowed here");
     return ret;
 }
@@ -1036,7 +1042,7 @@ boost::optional<BCBPSectionsEnums::SourceOfIssuance> BCBPSections::source_of_boa
 boost::optional<BASIC::TDateTime> BCBPSections::date_of_boarding_pass_issuance()
 {   using namespace BASIC;
     string err;
-    if(check_none_in_cond_int<true>(unique.conditional, pos_pass_issuance_date))
+    if(check_none_in_cond_int(unique.conditional, pos_pass_issuance_date, true))
         return boost::none;
     unsigned int ret_year = get_int(unique.conditional, pos_pass_issuance_year, err);
     process_err("date of boarding pass issuance (year part)", conditional_str, err);
@@ -1046,7 +1052,7 @@ boost::optional<BASIC::TDateTime> BCBPSections::date_of_boarding_pass_issuance()
     BASIC::TDateTime ret = NowUTC();
     DecodeDate(ret, now_year, skip1, skip2);
     curr_year_in_decade = now_year%10;
-    if(curr_year_in_decade > (int)ret_year) ret_year += now_year - curr_year_in_decade; //try to deduce real date of ticket (format of ticket code dont allow enough precission of year keeping)
+    if(curr_year_in_decade > static_cast<int>(ret_year)) ret_year += now_year - curr_year_in_decade; //try to deduce real date of ticket (format of ticket code dont allow enough precission of year keeping)
     else ret_year += now_year - curr_year_in_decade - 10;
     try {ret = JulianDateToDateTime(ret_day, ret_year);}
     catch(Exception e){process_err("date of boarding pass issuance",  conditional_str, e.what());}
@@ -1092,10 +1098,10 @@ std::vector<std::string> BCBPSections::baggage_plate_nums_as_str()
     for(unsigned int i = 0; i < sizeof(pos_baggage_plate_nums) / sizeof(pos_baggage_plate_nums[0]); i++)
     {   if(i) if(pos_baggage_plate_nums[i-1].end == unique.conditional.size()) break;
         ret.push_back(get_alfa_chars_str<true>(unique.conditional, pos_baggage_plate_nums[i], err));
-        process_err(string("baggage_plate_nums[") + std::to_string(i) + "]", conditional_str, err);
+        process_err(string("baggage_plate_nums[") + BCBPSectionsEnums::to_string(i) + "]", conditional_str, err);
         for(unsigned int j = 0; j<ret[i].size(); j++)
             if(!isdigit(ret[i][j]))
-                process_err(string("baggage_plate_nums [") + std::to_string(i) + "]", conditional_str, alfa_in_numeric_field + show_pos(j + pos_baggage_plate_nums[i].begin));
+                process_err(string("baggage_plate_nums [") + BCBPSectionsEnums::to_string(i) + "]", conditional_str, alfa_in_numeric_field + show_pos(j + pos_baggage_plate_nums[i].begin));
     }
     return ret;
 }
@@ -1180,7 +1186,7 @@ boost::optional<bool> BCBPSections::fast_track(int i)
     return ret;
 }
 
-boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage>> BCBPSections::free_baggage_allowance(int i)
+boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage> > BCBPSections::free_baggage_allowance(int i)
 {  check_i(i);
    std::string err;
    char got = ' ';
@@ -1201,9 +1207,9 @@ boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage>> BCBPSections::fr
    process_err("free baggage allowance", conditional_str, err, i);
    TrimString(str_type);
    if(!found_num && !str_type.empty()) process_err("free baggage allowance", conditional_str, "num not found", i);
-   if(str_type == "K") return boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage>>(std::make_pair(ret, BCBPSectionsEnums::FreeBaggage::kg));
-   if(str_type == "PC") return boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage>>(std::make_pair(ret, BCBPSectionsEnums::FreeBaggage::pc));
-   if(str_type == "L") return boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage>>(std::make_pair(ret, BCBPSectionsEnums::FreeBaggage::pound));
+   if(str_type == "K") return boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage> >(std::make_pair(ret, kg));
+   if(str_type == "PC") return boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage> >(std::make_pair(ret, pc));
+   if(str_type == "L") return boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage> >(std::make_pair(ret, pound));
    if(got == ' ' && str_type.empty()) return boost::none; //here
    process_err("free baggage allowance", conditional_str, "wrong type", i);
    return boost::none;
@@ -1253,7 +1259,7 @@ void BCBPSections::add_section(unsigned int i, bool allow_non_std_size)
     if(i >= max_allowed_sections_nums_by_standard && !allow_non_std_size)
         i = repeated.size();
     if(i >= repeated.size())
-        for(int j = repeated.size(); j < i + 1; j++)
+        for(unsigned int j = repeated.size(); j < i + 1; j++)
             repeated.push_back(BCBPRepeatedSections());
     else
     repeated.insert(repeated.begin() + i, BCBPRepeatedSections());
@@ -1292,7 +1298,7 @@ std::string BCBPSections::build_bcbp_str()
     std::cout<<"pos_field_of_var_sz_field:" << ret[ret.size()-2]<<ret[ret.size()-1]<<"\n";
 
     string section;
-    for(int i = 1; i<repeated.size(); i++)
+    for(unsigned int i = 1; i<repeated.size(); i++)
     {   if(repeated[i].mandatory.size() < pos_mandatory_repeated_section.end)
             repeated[i].mandatory.insert(repeated[i].mandatory.size(), pos_mandatory_repeated_section.end - repeated[i].mandatory.size(), ' ');
         if(repeated[i].conditional.size() > 2)
@@ -1320,21 +1326,21 @@ static inline std::string char_err(char x)
 }
 
 
-std::string BCBPInternalWork::add_zeros(unsigned int x, int num, const string& field_name,const  string& field_type, unsigned int min, unsigned int max)
+std::string BCBPInternalWork::add_zeros(unsigned int x, unsigned int num, const string& field_name,const  string& field_type, unsigned int min, unsigned int max)
 { if(x < min)
       process_err(field_name, field_type, "x is less then allowed for this field");
   if(x > max)
       process_err(field_name, field_type, "x is more then allowed for this field");
-  std::string ret = to_string(x);
+  std::string ret = BCBPSectionsEnums::to_string(x);
   if(ret.size() > num)
       process_err(field_name, field_type, "x is too long (in string representation) for this field");
   ret.insert(0, num - ret.size(), '0');
   return ret;
 }
 
-std::string BCBPInternalWork::add_whitespaces(const string& x, int num, const string& field_name, const string& field_type)
+std::string BCBPInternalWork::add_whitespaces(const string& x, unsigned int num, const string& field_name, const string& field_type)
 { std::string ret = x;
-  if(num == pos_passenger_name.size()) std::cout<<"if(num == pos_passenger_name.size(): "<<ret<<"\n";
+  if(num == static_cast<unsigned int>(pos_passenger_name.size())) std::cout<<"if(num == pos_passenger_name.size(): "<<ret<<"\n";
   if(ret.size() > num)
         process_err(field_name, field_type, "string size is too big for this field");
   ret.insert(ret.size(), num - ret.size(), ' ');
@@ -1379,7 +1385,7 @@ void BCBPInternalWork::write_field(std::string& where, TConstPos pos,  boost::op
     }
     catch(std::out_of_range)
     {
-        process_err(field_name, field_type, to_string(*what) + "does not allowed");
+        process_err(field_name, field_type, BCBPSectionsEnums::to_string(*what) + "does not allowed");
     }
     raw_write_field(where, pos, str, field_name, field_type);
 }
@@ -1409,7 +1415,7 @@ void BCBPSections::set_passenger_name_surname(string name, string surname)
 {   const int max_surname_sz_allowed = 18;
     if(surname.size() > max_surname_sz_allowed) surname.erase(max_surname_sz_allowed, surname.size());
     surname+='/' + name;
-    if(surname.size() >  pos_passenger_name.size())
+    if(surname.size() >  static_cast<unsigned int>(pos_passenger_name.size()))
         surname.erase(pos_passenger_name.size(), surname.size());
     std::cout<<"Surname: "<<surname<<"\n";
     write_field(unique.mandatory, pos_passenger_name, surname, "set passenger surname/name", mandatory_str);
@@ -1428,7 +1434,7 @@ void BCBPSections::set_passenger_description(boost::optional<BCBPSectionsEnums::
 }
 
 void BCBPSections::set_source_of_checkin(boost::optional<BCBPSectionsEnums::SourceOfIssuance> x)
-{   if(x != boost::none && *x == BCBPSectionsEnums::SourceOfIssuance::transfer_kiosk)
+{   if(x != boost::none && *x == transfer_kiosk)
         process_err("set source of checkin", conditional_str, "\"transfer_kiosk\" value of enum SourceOfIssuance is not allowed here");
     write_field(unique.conditional, pos_checkin_source, x, "WKXRMOTV", "set source of checkin", conditional_str);
 }
@@ -1464,12 +1470,12 @@ void BCBPSections::set_airline_of_boarding_pass_issuance(string x)
 
 
 void BCBPSections::set_baggage_plate_nums_as_str(std::vector<string> x)
-{    for(int i = 0; i<x.size(); i++)
+{    for(unsigned int i = 0; i<x.size(); i++)
         if(x[i].size() != 13)
             process_err("baggage plate nums as str", conditional_str, "size of every field here must be == 10 + 3");
             //by IATA bcbp std, 10 symbols -- tag number, last 3 --number of consequtive tags
-     for(int i = 0; i<x.size(); i++)
-         write_field(unique.conditional, pos_baggage_plate_nums[i], x[i], string("baggage plate nums as str[") + std::to_string(i) +"]", conditional_str);
+     for(unsigned int i = 0; i<x.size(); i++)
+         write_field(unique.conditional, pos_baggage_plate_nums[i], x[i], string("baggage plate nums as str[") + BCBPSectionsEnums::to_string(i) +"]", conditional_str);
 }
 
 void BCBPSections::set_operatingCarrierPNR(string x, int i)
@@ -1569,7 +1575,7 @@ void BCBPSections::set_free_baggage_allowance(boost::optional<std::pair<int, BCB
         return;
     }
     static const string type[3] = {"K", "L", "PC"};
-    string str_int = std::to_string((*x).first), str_type = type[(int)(*x).second];
+    string str_int = BCBPSectionsEnums::to_string((*x).first), str_type = type[static_cast<int>((*x).second)];
     string str =  str_int +  str_type;
     if(str.size() > 3)
         process_err("free baggage allowance", conditional_str, string("too big int ") + str_int + " for " + str_type, i);
@@ -1604,9 +1610,9 @@ std::string BCBPSections::test_bcbp_build()
     x.set_check_in_seq_number("0025 ", 0);
     x.set_passenger_status('1', 0);
 
-    x.set_passenger_description(BCBPSectionsEnums::PassengerDescr::female);
-    x.set_source_of_checkin(BCBPSectionsEnums::town_agent);
-    x.set_source_of_boarding_pass_issuance(BCBPSectionsEnums::kiosk);
+    x.set_passenger_description(female);
+    x.set_source_of_checkin(town_agent);
+    x.set_source_of_boarding_pass_issuance(kiosk);
     x.set_date_of_boarding_pass_issuance(boost::none);
     x.del_section(1);
     x.add_section();
