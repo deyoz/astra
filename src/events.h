@@ -58,8 +58,6 @@ class TEventsBagItem : public CheckIn::TBagItem
       clear();
     }
 
-    TEventsBagItem(const CheckIn::TBagItem &bagItem, const bool _refused) : CheckIn::TBagItem(bagItem), refused(_refused), pax_id(ASTRA::NoExists) {}
-
     TEventsBagItem& fromDB(TQuery &Qry);
 };
 
