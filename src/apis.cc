@@ -468,7 +468,8 @@ bool create_apis_file(int point_id, const string& task_name)
               task_name==BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL)) ||
             (!use_us_customs_tasks &&
              (task_name==ON_TAKEOFF ||
-              task_name==ON_CLOSE_CHECKIN)))) continue;
+              task_name==ON_CLOSE_CHECKIN ||
+              task_name==ON_CLOSE_BOARDING )))) continue;
 
       //получим информацию по настройке APIS
       ApisSetsQry.SetVariable("country_arv",country_arv.code);
@@ -491,7 +492,9 @@ bool create_apis_file(int point_id, const string& task_name)
         if (Qry.FieldIsNULL("scd_out")) throw Exception("scd_out empty (airp_dep=%s)",airp_dep.code.c_str());
         TDateTime scd_out_local	= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
 
-        bool final_apis=(task_name==ON_TAKEOFF || (task_name.empty() && !Qry.FieldIsNULL("act_out")));
+        bool final_apis=( task_name==ON_TAKEOFF ||
+                          task_name==ON_CLOSE_BOARDING ||
+                         (task_name.empty() && !Qry.FieldIsNULL("act_out")) );
 
         TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
       	if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.code.c_str());
@@ -505,7 +508,9 @@ bool create_apis_file(int point_id, const string& task_name)
         for(;!ApisSetsQry.Eof;ApisSetsQry.Next())
         {
           string fmt=ApisSetsQry.FieldAsString("format");
-          if (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK" && fmt!="XML_TR") continue;
+          if ( (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK" && fmt!="XML_TR") ||
+               (task_name==ON_CLOSE_BOARDING && fmt!="EDI_LT") ||
+               (task_name==ON_TAKEOFF && fmt=="EDI_LT") ) continue;
           string airline_name=airline.short_name_lat;
           if (airline_name.empty())
             airline_name=airline.name_lat;
