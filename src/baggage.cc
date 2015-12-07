@@ -1263,6 +1263,13 @@ void TGroupBagItem::toXML(xmlNodePtr bagtagNode) const
     i->second.toXML(NewTextChild(node,"tag"));
 };
 
+void TGroupBagItem::convertBag(std::map<int /*id*/, TBagItem> &result) const
+{
+  result.clear();
+  for(map<int /*num*/, TBagItem>::const_iterator b=bags.begin(); b!=bags.end(); ++b)
+    result.insert(make_pair(b->second.id, b->second));
+}
+
 const TPaidBagEMDItem& TPaidBagEMDItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;

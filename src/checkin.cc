@@ -3522,26 +3522,69 @@ void GetInboundTransferForWeb(TSegList &segList,
   };
 };
 
-void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TGroupBagItem &curr)
+void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
 {
+  if (!grp.group_bag) return;
+
   TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->user.access.rights().permitted(347)) return;
-  //проверим, удалялся ли входящицй трансфер
-  map< int/*id*/, TEventsBagItem> curr2;
-  for(map<int /*num*/, CheckIn::TBagItem>::const_iterator b=curr.bags.begin(); b!=curr.bags.end(); ++b)
+
+  boost::optional<PieceConcept::TRFISCListWithSets> rfisc_list;
+
+  const map< int/*id*/, TEventsBagItem> &bagBefore=prev.bag;
+  map< int/*id*/, CheckIn::TBagItem> bagAfter;
+  grp.group_bag.get().convertBag(bagAfter);
+
+  std::map< int/*id*/, CheckIn::TBagItem>::const_iterator a=bagAfter.begin();
+  std::map< int/*id*/, TEventsBagItem>::const_iterator b=bagBefore.begin();
+  for(;a!=bagAfter.end() || b!=bagBefore.end();)
   {
-    if (b->second.is_trfer && !b->second.handmade)
-      curr2.insert(make_pair(b->second.id, TEventsBagItem(b->second, false)));
-  };
-  for(map< int/*id*/, TEventsBagItem>::const_iterator b1=prev.bag.begin(); b1!=prev.bag.end(); ++b1)
-  {
-    if (b1->second.is_trfer && !b1->second.handmade)
+    std::map< int/*id*/, CheckIn::TBagItem>::const_iterator aBag=bagAfter.end();
+    std::map< int/*id*/, TEventsBagItem>::const_iterator bBag=bagBefore.end();
+    if (a==bagAfter.end() ||
+        (a!=bagAfter.end() && b!=bagBefore.end() && b->first < a->first))
     {
-      map< int/*id*/, TEventsBagItem>::const_iterator b2=curr2.find(b1->first);
-      if (b2==curr2.end() || !(b1->second==b2->second))
-        throw UserException("MSG.NO_PERM_MODIFY_INBOUND_TRFER");
+      //удаленный багаж
+      bBag=b;
+      ++b;
+    } else
+    if (b==bagBefore.end() ||
+        (a!=bagAfter.end() && b!=bagBefore.end() && a->first < b->first))
+    {
+      //добавленный багаж
+      aBag=a;
+      ++a;
+    } else
+    if (a!=bagAfter.end() && b!=bagBefore.end() && a->first==b->first)
+    {
+      if (!a->second.basicallyEqual(b->second))
+      {
+        //измененный багаж
+        aBag=a;
+        bBag=b;
+      };
+      ++a;
+      ++b;
     };
-  };
+
+    if (bBag!=bagBefore.end())
+    {
+      if (bBag->second.is_trfer && !bBag->second.handmade &&
+          !reqInfo->user.access.rights().permitted(347))
+        throw UserException("MSG.NO_PERM_MODIFY_INBOUND_TRFER");
+    }
+    if (aBag!=bagAfter.end())
+    {
+      if (grp.piece_concept)
+      {
+        if (aBag->second.amount!=1)
+          throw UserException("MSG.LUGGAGE.EACH_PIECE_SHOULD_WEIGHTED_SEPARATELY");
+        if (!rfisc_list)
+          rfisc_list=PieceConcept::TRFISCListWithSets();
+        rfisc_list.get().fromDB(grp.bag_types_id);
+        rfisc_list.get().check(aBag->second);
+      };
+    }
+  }
 };
 
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
@@ -5310,7 +5353,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             if (grp.group_bag)
             {
               grp.group_bag.get().fromXMLadditional(grp.point_dep, grp.id, grp.hall);
-              CheckBagChanges(grpInfoBefore, grp.group_bag.get());
+              CheckBagChanges(grpInfoBefore, grp);
               grp.group_bag.get().toDB(grp.id);
             };
 
@@ -6487,7 +6530,9 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       {
         list<PieceConcept::TPaidBagItem> paid;
         PieceConcept::PaidBagFromDB(grp.id, true, paid);
-        PieceConcept::PaidBagViewToXML(trfer, paid, resNode);
+        PieceConcept::TRFISCList rfisc_list;
+        rfisc_list.fromDB(grp.bag_types_id);
+        PieceConcept::PaidBagViewToXML(trfer, paid, rfisc_list, resNode);
 
         list<CheckIn::TPaidBagEMDItem> emd;
         CheckIn::PaidBagEMDFromDB(grp.id, emd);

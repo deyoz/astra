@@ -8,6 +8,7 @@
 #include "misc.h"
 #include "emdoc.h"
 #include "baggage.h"
+#include "astra_locale.h"
 #include <boost/asio.hpp>
 #include <serverlib/xml_stuff.h>
 
@@ -179,9 +180,7 @@ void TRFISCList::fromDB(int list_id)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT service_type, rfic, rfisc, emd_type, name, name_lat "
-    "FROM grp_rfisc_lists "
-    "WHERE list_id=:list_id";
+    "SELECT * FROM grp_rfisc_lists WHERE list_id=:list_id";
   Qry.CreateVariable( "list_id", otInteger, list_id );
   Qry.Execute();
   for ( ;!Qry.Eof; Qry.Next())
@@ -225,6 +224,20 @@ int TRFISCList::crc() const
   return crc32.checksum();
 }
 
+void TRFISCList::fromDBAdv(int list_id)
+{
+  clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT airline FROM bag_types_lists WHERE id=:list_id";
+  Qry.CreateVariable( "list_id", otInteger, list_id );
+  Qry.Execute();
+  if (Qry.Eof) return;
+  fromDB(list_id);
+  airline=Qry.FieldAsString("airline");
+}
+
 int TRFISCList::toDBAdv() const
 {
   TQuery Qry(&OraSession);
@@ -236,8 +249,8 @@ int TRFISCList::toDBAdv() const
   {
     int list_id=Qry.FieldAsInteger("id");
     TRFISCList list;
-    list.fromDB(list_id);
-    if (*this==list) return list_id;
+    list.fromDBAdv(list_id);
+    if (*this==list && airline==list.airline) return list_id;
   };
 
   Qry.Clear();
@@ -258,6 +271,69 @@ int TRFISCList::toDBAdv() const
 void TRFISCList::filter_baggage_rfiscs()
 {
 //  здесь, возможно, надо в будущем сделать фильтрацию RFISC, относящихся только к багажу
+}
+
+std::string TRFISCList::localized_name(const std::string& rfisc, const std::string& lang) const
+{
+  if (rfisc.empty()) return "";
+  TRFISCList::const_iterator i=find(rfisc);
+  if (i==end()) return "";
+  return lang==AstraLocale::LANG_RU?i->second.name:i->second.name_lat;
+}
+
+TRFISCSetting& TRFISCSetting::fromDB(TQuery &Qry)
+{
+  clear();
+  RFISC=Qry.FieldAsString("code");
+  if (!Qry.FieldIsNULL("priority"))
+    priority=Qry.FieldAsInteger("priority");
+  if (!Qry.FieldIsNULL("min_weight"))
+    min_weight=Qry.FieldAsInteger("min_weight");
+  if (!Qry.FieldIsNULL("max_weight"))
+    max_weight=Qry.FieldAsInteger("max_weight");
+  return *this;
+}
+
+void TRFISCSettingList::fromDB(const string& airline)
+{
+  clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT * FROM rfisc_types WHERE airline=:airline";
+  Qry.CreateVariable( "airline", otString, airline );
+  Qry.Execute();
+  for ( ;!Qry.Eof; Qry.Next())
+  {
+    TRFISCSetting setting;
+    setting.fromDB(Qry);
+    insert(make_pair(setting.RFISC, setting));
+  }
+}
+
+void TRFISCSettingList::check(const CheckIn::TBagItem &bag) const
+{
+  if (bag.rfisc.empty()) return;
+  TRFISCSettingList::const_iterator i=find(bag.rfisc);
+  if (i==end()) return;
+  if ((i->second.min_weight!=ASTRA::NoExists &&
+       bag.weight<i->second.min_weight*bag.amount) ||
+      (i->second.max_weight!=ASTRA::NoExists &&
+       bag.weight>i->second.max_weight*bag.amount))
+  {
+    ostringstream s;
+    s << bag.weight << " " << getLocaleText("кг");
+    throw UserException("MSG.LUGGAGE.WRONG_WEIGHT_FOR_BAG_TYPE",
+                        LParams() << LParam("bag_type", bag.rfisc)
+                                  << LParam("weight", s.str()));
+  };
+}
+
+void TRFISCListWithSets::fromDB(int list_id)
+{
+  TRFISCList::fromDBAdv(list_id);
+  if (!airline.empty())
+    TRFISCSettingList::fromDB(airline);
 }
 
 void TPaxNormItem::fromXML(xmlNodePtr node)
@@ -756,7 +832,9 @@ class TPiadBagViewItem : public TPiadBagViewKey
       if (item.status==bsPaid) emd_pieces++;
     }
     const TPiadBagViewItem& toXML(xmlNodePtr node) const;
-    const TPiadBagViewItem& toXML2(xmlNodePtr node, const TTrferRoute &trfer) const;
+    const TPiadBagViewItem& toXML2(xmlNodePtr node,
+                                   const TTrferRoute &trfer,
+                                   const TRFISCList &rfisc_list) const;
 };
 
 const TPiadBagViewItem& TPiadBagViewItem::toXML(xmlNodePtr node) const
@@ -777,16 +855,22 @@ const TPiadBagViewItem& TPiadBagViewItem::toXML(xmlNodePtr node) const
   return *this;
 }
 
-const TPiadBagViewItem& TPiadBagViewItem::toXML2(xmlNodePtr node, const TTrferRoute &trfer) const
+const TPiadBagViewItem& TPiadBagViewItem::toXML2(xmlNodePtr node,
+                                                 const TTrferRoute &trfer,
+                                                 const TRFISCList &rfisc_list) const
 {
   if (node==NULL) return *this;
 
   xmlNodePtr rowNode=NewTextChild(node, "row");
   xmlNodePtr colNode;
-  colNode=NewTextChild(rowNode, "col", RFISC);
+  ostringstream s;
+  //код и название RFISC
+  s.str("");
+  s << RFISC << ": " << lowerc(rfisc_list.localized_name(RFISC, TReqInfo::Instance()->desk.lang));
+  colNode=NewTextChild(rowNode, "col", s.str());
   colNode=NewTextChild(rowNode, "col", bag_number);
   //номер рейса для сегмента
-  ostringstream s;
+  s.str("");
   s << (trfer_num+1) << ": ";
   if (trfer_num<(int)trfer.size())
   {
@@ -823,6 +907,7 @@ const TPiadBagViewItem& TPiadBagViewItem::toXML2(xmlNodePtr node, const TTrferRo
 
 void PaidBagViewToXML(const TTrferRoute &trfer,
                       const std::list<TPaidBagItem> &paid,
+                      const TRFISCList &rfisc_list,
                       xmlNodePtr node)
 {
   if (trfer.empty()) throw Exception("%s: trfer.empty()", __FUNCTION__);
@@ -852,13 +937,13 @@ void PaidBagViewToXML(const TTrferRoute &trfer,
   //секция описывающая столбцы
   xmlNodePtr colsNode=NewTextChild(paidViewNode, "cols");
   colNode=NewTextChild(colsNode, "col");
-  SetProp(colNode, "width", 130);
+  SetProp(colNode, "width", 140);
   SetProp(colNode, "align", taLeftJustify);
   colNode=NewTextChild(colsNode, "col");
-  SetProp(colNode, "width", 35);
+  SetProp(colNode, "width", 30);
   SetProp(colNode, "align", taCenter);
   colNode=NewTextChild(colsNode, "col");
-  SetProp(colNode, "width", 85);
+  SetProp(colNode, "width", 80);
   SetProp(colNode, "align", taLeftJustify);
   colNode=NewTextChild(colsNode, "col");
   SetProp(colNode, "width", 40);
@@ -886,7 +971,7 @@ void PaidBagViewToXML(const TTrferRoute &trfer,
   {
     if (i->second.trfer_num==0)
       i->second.toXML(paidNode);
-    i->second.toXML2(rowsNode, trfer);
+    i->second.toXML2(rowsNode, trfer, rfisc_list);
   };
 }
 

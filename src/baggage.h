@@ -84,6 +84,16 @@ class TBagItem
     const TBagItem& toDB(TQuery &Qry) const;
     TBagItem& fromDB(TQuery &Qry);
     std::string bag_type_str() const;
+    bool basicallyEqual(const TBagItem& item) const
+    {
+      return bag_type==item.bag_type &&
+             rfisc==item.rfisc &&
+             pr_cabin==item.pr_cabin &&
+             amount==item.amount &&
+             weight==item.weight &&
+             is_trfer==item.is_trfer &&
+             handmade==item.handmade;
+    }
 };
 
 class TTagItem
@@ -166,6 +176,7 @@ class TGroupBagItem
     void setInboundTrfer(const TrferList::TGrpItem &grp);
     void setPoolNum(int bag_pool_num);
     bool trferExists() const;
+    void convertBag(std::map<int /*id*/, TBagItem> &result) const;
 };
 
 class TPaidBagEMDItem
