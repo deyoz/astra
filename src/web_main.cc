@@ -2441,7 +2441,9 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   };
 };
 
-int den(int argc,char **argv)
+#include <fstream>
+
+int bcbp_test(int argc,char **argv)
 {
     vector<string> tags;
     BPTags::Instance()->getFields( tags );
@@ -2454,7 +2456,10 @@ int den(int argc,char **argv)
 
         if(upperc(*iv) == TAG::BCBP_M_2) fp.clear();
 
-        if(upperc(*iv) == TAG::SCD) {
+        if(
+                upperc(*iv) == TAG::SCD or
+                upperc(*iv) == TAG::TIME_PRINT
+          ) {
             fp = "(,,dd.mm)";
             pectab += "'[<" + *iv + fp + ">]'\n";
             fp = "(,,hh:nn)";
@@ -2463,9 +2468,16 @@ int den(int argc,char **argv)
         } else
             pectab += "'[<" + *iv + fp + ">]'\n";
     }
-    string scan = "M1ZAKHAROV/DENIS YUREV        DMEAER UT0001 264Y005A0001 128>2180OO    B                000028787007";
+
+    cout << pectab << endl;
+
+    ifstream ifs("bcbp");
+    std::string scan((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+
+    //string scan = "M1ZAKHAROV/DENIS YUREV        DMEAER UT0001 264Y005A0001 128>2180OO    B                000028787007";
     boost::shared_ptr<PrintDataParser> parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scan));
     cout << parser->parse(pectab) << endl;
+
     return 1;
 }
 

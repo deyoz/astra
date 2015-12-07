@@ -296,7 +296,23 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
     prn_tag_props(dotPrnBP)
 {
     scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
-    BCBPSections::get(scan, 0, scan.size(), *scan_data);
+    try {
+        BCBPSections::get(scan, 0, scan.size(), *scan_data);
+    } catch(const Exception &E) {
+        LogError(STDLOG) << "barcode parse error: " << E.what();
+        throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
+    } catch(...) {
+        LogError(STDLOG) << "unknown barcode parse error";
+        throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
+    }
+
+    if(boost::optional<BCBPSectionsEnums::DocType> doc_type = scan_data->doc_type()) {
+        if(*doc_type != BCBPSectionsEnums::boarding_pass) {
+            LogError(STDLOG) << "barcode doc_type is not a boarding pas";
+            throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
+        }
+    }
+
     print_mode = 0;
     tag_lang.Init(apr_lat);
     init_bp_tags();
@@ -1274,6 +1290,17 @@ string TPrnTagStore::AIRLINE(TFieldParams fp)
     return airline;
 }
 
+string get_date_from_bcbp(TDateTime date, const string &date_format, bool pr_lat)
+{
+    string result = DateTimeToStr(date, date_format, pr_lat);
+    string result2 = DateTimeToStr(date + 1./24 + 1./(24*60) + 1./(24*60*60), date_format, pr_lat);
+    // Если в формате тега (date_format) участвуют часы, минуты, секунды, то
+    // данные не выводить, т.к. в julian date нет такого
+    if(result != result2)
+        result.clear();
+    return result;
+}
+
 string get_date_from_bcbp(int julian_date, const string &date_format, bool pr_lat)
 {
     //дата рейса (julian format)
@@ -1291,12 +1318,7 @@ string get_date_from_bcbp(int julian_date, const string &date_format, bool pr_la
         }
         catch(EXCEPTIONS::EConvertError) {};
     };
-    string date = DateTimeToStr(scd_out_local, date_format, pr_lat);
-    TDateTime test_date;
-    StrToDateTime(date.c_str(), date_format.c_str(), test_date);
-    if(scd_out_local != test_date)
-        date.clear();
-    return date;
+    return get_date_from_bcbp(scd_out_local, date_format, pr_lat);
 }
 
 string TPrnTagStore::ACT(TFieldParams fp)
@@ -2099,15 +2121,12 @@ string TPrnTagStore::PAX_TITLE(TFieldParams fp)
 string TPrnTagStore::TIME_PRINT(TFieldParams fp)
 {
     if(fp.scan_data != NULL) {
-        return string();
-        /*
-        // !!! date_of_boarding_pass_issuance падает.
-        // Если там пробелы, падать не должен.
-        if(boost::optional<BASIC::TDateTime> time_print = scan_data->date_of_boarding_pass_issuance())
-            return get_date_from_bcbp(*time_print, fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
-        else
+        boost::optional<BASIC::TDateTime> time_print = scan_data->date_of_boarding_pass_issuance();
+        if(time_print != boost::none) {
+            return get_date_from_bcbp(*time_print, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
+        } else {
             return string();
-        */
+        }
     } else {
         TReqInfo *reqInfo = TReqInfo::Instance();
         return DateTimeToStr(UTCToLocal(time_print.val, reqInfo->desk.tz_region), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);

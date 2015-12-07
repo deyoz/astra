@@ -87,9 +87,8 @@ const
     {"-convert_codeshare",      convert_codeshare,      NULL,                       NULL},
     {"-ovb",                    STAT::ovb,              NULL,                       NULL},
     {"-http",                   verifyHTTP,             NULL,                       NULL},
-    {"-bcbp",                   bcbp_test,              NULL,                       NULL},
+    {"-bcbp",                   AstraWeb::bcbp_test,    NULL,                       NULL},
     {"-nat_stat",               nat_stat,              NULL,                       NULL},
-    {"-den",               AstraWeb::den,              NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

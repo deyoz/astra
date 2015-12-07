@@ -466,7 +466,6 @@ class BCBPSections : public  BCBPInternalWork
 
 std::ostream& operator<<(std::ostream& os, const BCBPSections&);
 
-int bcbp_test(int argc,char **argv);
 
 
 
