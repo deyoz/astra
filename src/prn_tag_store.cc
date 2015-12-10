@@ -1937,7 +1937,7 @@ string TPrnTagStore::ONE_SEAT_NO(TFieldParams fp)
 string TPrnTagStore::PAX_ID(TFieldParams fp)
 {
     if(fp.scan_data != NULL)
-        return string();
+        return "8888888888";
     else {
         ostringstream result;
         result << setw(10) << setfill('0') << paxInfo.pax_id;

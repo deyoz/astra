@@ -59,6 +59,7 @@ class PrintInterface: public JxtInterface
           std::pair<std::string, bool> gate; //bool=true, если делать set_tag, иначе с gate ничего не делаем
           BASIC::TDateTime time_print;
           std::string prn_form;
+          std::string scan;
           bool hex;
           BPPax()
           {
@@ -81,6 +82,7 @@ class PrintInterface: public JxtInterface
             gate=std::make_pair("", false);
             time_print=ASTRA::NoExists;
             prn_form.clear();
+            scan.clear();
             hex=false;
           };
           bool fromDB(int vpax_id, int test_point_dep);

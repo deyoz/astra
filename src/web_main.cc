@@ -2394,7 +2394,8 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     }
     catch(UserException &e)
     {
-      ue.addError(e.getLexemaData(), pax.point_dep, pax.pax_id);
+        pax.scan = NodeAsString(scanCodeNode);
+        paxs.push_back(pax);
     };
   }
   else
