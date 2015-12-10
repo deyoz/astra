@@ -2445,6 +2445,10 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
 int bcbp_test(int argc,char **argv)
 {
+    // Без инициализации reqInfo пас не найдется
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    reqInfo->Initialize("МОВ");
+
     vector<string> tags;
     BPTags::Instance()->getFields( tags );
     string pectab;
@@ -2475,7 +2479,19 @@ int bcbp_test(int argc,char **argv)
     std::string scan((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
 
     //string scan = "M1ZAKHAROV/DENIS YUREV        DMEAER UT0001 264Y005A0001 128>2180OO    B                000028787007";
-    boost::shared_ptr<PrintDataParser> parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scan));
+
+    PrintInterface::BPPax pax;
+    try {
+        GetBPPaxFromScanCode(scan, pax);
+    } catch(...) {}
+
+    boost::shared_ptr<PrintDataParser> parser;
+    if(pax.pax_id == NoExists) {
+        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scan));
+    } else {
+        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
+    }
+
     cout << parser->parse(pectab) << endl;
 
     return 1;
@@ -2493,8 +2509,15 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   boost::shared_ptr<PrintDataParser> parser;
   if (scanCodeNode!=NULL)
   {
-      string scan = NodeAsString(scanCodeNode);
-      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scan));
+      try {
+          GetBPPaxFromScanCode(NodeAsString(scanCodeNode), pax);
+      } catch(...) {}
+
+      if(pax.pax_id == NoExists) {
+          parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser((string)NodeAsString(scanCodeNode)));
+      } else {
+          parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
+      }
   }
   else
   {

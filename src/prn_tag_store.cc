@@ -1293,11 +1293,15 @@ string TPrnTagStore::AIRLINE(TFieldParams fp)
 string get_date_from_bcbp(TDateTime date, const string &date_format, bool pr_lat)
 {
     string result = DateTimeToStr(date, date_format, pr_lat);
-    string result2 = DateTimeToStr(date + 1./24 + 1./(24*60) + 1./(24*60*60), date_format, pr_lat);
-    // Если в формате тега (date_format) участвуют часы, минуты, секунды, то
-    // данные не выводить, т.к. в julian date нет такого
-    if(result != result2)
-        result.clear();
+    if(date_format != ServerFormatDateTimeAsString) {
+        // для формата ServerFormatDateTimeAsString данная проверка не проводится
+        // т.к. даты в этом формате отсылаются в swc и они не должны быть пустыми
+        string result2 = DateTimeToStr(date + 1./24 + 1./(24*60) + 1./(24*60*60), date_format, pr_lat);
+        // Если в формате тега (date_format) участвуют часы, минуты, секунды, то
+        // данные не выводить, т.к. в julian date нет такого
+        if(result != result2)
+            result.clear();
+    }
     return result;
 }
 
