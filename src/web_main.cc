@@ -2149,6 +2149,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   TChangeStatusList ChangeStatusInfo;
   CheckIn::TAfterSaveInfoList AfterSaveInfoList;
   bool result=true;
+  bool handleAfterSave=false;
   //важно, что сначала вызывается CheckInInterface::SavePax для emulCkinDoc
   //только при веб-регистрации НОВОЙ группы возможен ROLLBACK CHECKIN в SavePax при перегрузке
   //и соответственно возвращение result=false
@@ -2160,6 +2161,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     if (emulReqNode==NULL)
       throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
     if (!CheckInInterface::SavePax(emulReqNode, ediResNode, ChangeStatusInfo, AfterSaveInfoList)) result=false;
+    handleAfterSave=true;
   };
   if (result)
   {
@@ -2176,6 +2178,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         //при записи изменений веб и киосков не откатываемся при перегрузке
         throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: CheckInInterface::SavePax=false");
       };
+      handleAfterSave=true;
     };
   };
 
@@ -2189,7 +2192,8 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       return false;
     };
 
-    AfterSaveInfoList.handle(__FUNCTION__);
+    if (handleAfterSave)
+      AfterSaveInfoList.handle(__FUNCTION__); //если только изменение места пассажира, то не вызываем
 
     vector< TWebPnr > pnrs;
     xmlNodePtr segsNode = NewTextChild( NewTextChild( resNode, "SavePax" ), "segments" );

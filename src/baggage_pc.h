@@ -89,11 +89,63 @@ class TRFISCList : public TRFISCListMap
     }
 
     void fromXML(xmlNodePtr node);
-    void fromDB(int list_id); // загрузка данных по группе
-    void toDB(int list_id) const; // сохранение данных по группе
+    void fromDB(int list_id); // загрузка только списка RFISC
+    void toDB(int list_id) const; // сохранение только списка RFISC
     int crc() const;
+    void fromDBAdv(int list_id); //продвинутая загрузка данных по группе
     int toDBAdv() const; //продвинутое сохранение с анализом существующих справочников
     void filter_baggage_rfiscs(); //фильтрация только багажных услуг
+    std::string localized_name(const std::string& rfisc, const std::string& lang) const; //локализованное описание RFISC
+};
+
+class TRFISCSetting
+{
+  public:
+    std::string RFISC;
+    int priority;
+    int min_weight, max_weight;
+
+    TRFISCSetting()
+    {
+      clear();
+    }
+    void clear()
+    {
+      RFISC.clear();
+      priority=ASTRA::NoExists;
+      min_weight=ASTRA::NoExists;
+      max_weight=ASTRA::NoExists;
+    }
+
+    TRFISCSetting& fromDB(TQuery &Qry);
+};
+
+class TRFISCSettingList : public std::map<std::string/*RFISC*/, TRFISCSetting>
+{
+  public:
+    TRFISCSettingList()
+    {
+      clear();
+    }
+
+    void fromDB(const std::string &airline);
+    void check(const CheckIn::TBagItem &bag) const;
+};
+
+class TRFISCListWithSets : public TRFISCList, public TRFISCSettingList
+{
+  public:
+    TRFISCListWithSets()
+    {
+      clear();
+    }
+    void clear()
+    {
+      TRFISCList::clear();
+      TRFISCSettingList::clear();
+    }
+
+    void fromDB(int list_id);
 };
 
 class TPaxNormTextItem
@@ -177,8 +229,8 @@ void PaidBagEMDToDB(int grp_id,
 
 void PaidBagViewToXML(const TTrferRoute &trfer,
                       const std::list<TPaidBagItem> &paid,
+                      const TRFISCList &rfisc_list,
                       xmlNodePtr node);
-
 
 } //namespace PieceConcept
 
