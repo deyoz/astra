@@ -295,6 +295,9 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
     time_print(NowUTC()),
     prn_tag_props(dotPrnBP)
 {
+
+
+
     scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
     try {
         BCBPSections::get(scan, 0, scan.size(), *scan_data);
@@ -313,10 +316,68 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
         }
     }
 
+
     print_mode = 0;
     tag_lang.Init(apr_lat);
     init_bp_tags();
 }
+
+
+bool TPrnTagStore::check_allowed_date(BASIC::TDateTime date_of_flight)
+{   struct Reprint_options
+    {   string desk, airline, airp;
+        unsigned int lower_shift, upper_shift, desk_grp;
+    };
+    TQuery Qry(&OraSession);
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    std::string airline = reqInfo->desk.airline, airp = reqInfo->desk.airp, desk = reqInfo->desk.code;
+    int desk_grp = reqInfo->desk.grp_id;
+    Qry.SQLText =
+        "select "
+        "   desk, desk_grp, airline, airp, lower_shift, upper_shift "
+        "from "
+        "   reprint_options "
+        "where "
+        "   (airline = :airline or airp = :airp) and (desk = :desk or desk_grp = :desk_grp)";
+    Qry.CreateVariable("airline", otString, airline);
+    Qry.CreateVariable("airp", otString, airp);
+    Qry.CreateVariable("web_client", otString, desk);
+    Qry.CreateVariable("web_client_grp", otInteger, desk_grp);
+    Qry.Execute();
+    std::vector<Reprint_options> rep_opts;
+    Reprint_options* found_opt;
+    for(; not Qry.Eof; Qry.Next())
+    {    rep_opts.push_back(Reprint_options());
+         found_opt = &rep_opts[rep_opts.size() - 1];
+         found_opt->desk = Qry.FieldAsString("desk");
+         found_opt->desk_grp = Qry.FieldAsInteger("desk_grp");
+         found_opt->airline = Qry.FieldAsString("airline");
+         found_opt->airp = Qry.FieldAsString("airp");
+         found_opt->lower_shift = Qry.FieldAsInteger("lower_shift");
+         found_opt->upper_shift = Qry.FieldAsInteger("upper_shift");
+    }
+    if(rep_opts.size() > 2) return false;
+    bool a_client =  rep_opts[0].desk.size(), a_grp = rep_opts[0].desk_grp, b_client =  rep_opts[1].desk.size(), b_grp =  rep_opts[1].desk_grp;
+    if(rep_opts.size() == 2)
+    {   if(a_client == b_client) //в таблице не должно существовать разных настроек для одного пульта
+           return false;
+        //в таблице не должно существовать разных настроек для одной группы пультов. но, если у группы есть пульт
+        //значит это отдельная настройка для пульта, поэтому всё нормально, а случай (одинаковый пульт + одинаковая группа) уже отсекли
+        if(a_grp == b_grp && !a_client && !b_client)
+           return false;
+    }
+    found_opt = &rep_opts[0];
+    if(rep_opts[1].desk.size())
+        found_opt = &rep_opts[1];
+    BASIC::TDateTime ret = NowUTC(), date = date_of_flight;
+    int date_diff = ret - date;
+    if(date_diff > 0 && static_cast<u_int>(date_diff) > found_opt->upper_shift)
+            return false;
+    if(date_diff < 0 && static_cast<u_int>(-date_diff) > found_opt->lower_shift)
+            return false;
+    return true;
+}
+
 
 void TPrnTagStore::init_bp_tags()
 {

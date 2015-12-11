@@ -19,8 +19,10 @@ using namespace BCBPSectionsEnums;
 const std::string BCBPInternalWork::meet_null_term_symb = "meet unexpected null (\\0) symbol in str";
 static const string mandatory_str = "mandatory";
 static const string conditional_str = "conditional";
+static const string airline_data_str = "conditional";
 static const string alfa_in_numeric_field = "got non-number in numeric field";
 static const string non_decimal_str = "non-decimal symbols before last";
+static const string komtex_str = "komtex";
 const int BCBPInternalWork::max_supported_size_of_repeated_field = 9;
 
 
@@ -81,7 +83,9 @@ static const TConstPos pos_length_sec_data(pos_typeof_sec_data,2);
 static const TConstPos pos_sec_data(pos_length_sec_data,1);
 
 
-
+static const TConstPos pos_komtex_pax_id(0,9);
+static const TConstPos pos_komtex_version(pos_komtex_pax_id,1);
+static const TConstPos pos_komtex_pax_id_sign(pos_komtex_version, komtex_str.size());
 
 
 
@@ -1064,7 +1068,10 @@ std::vector<BCBPSections::Baggage_plate_nums> BCBPSections::baggage_plate_nums()
     unsigned short temp_consequense;
     for(unsigned int i = 0; i < x.size(); i++)
     {   temp_basic_number = std::atoi(x[i].substr(0,9).c_str());
-        temp_consequense = std::atoi(x[i].substr(9,3).c_str());
+        temp_consequense = std::atoi(x[i].substr(9,4).c_str());
+        const int64_t after_int32 = 1000000000;
+        temp_basic_number +=  (temp_consequense % 10) * after_int32;
+        temp_consequense /= 10;
         ret.push_back(Baggage_plate_nums(temp_basic_number, temp_consequense));
     }
     return ret;
@@ -1222,6 +1229,18 @@ std::string BCBPSections::security()
 
 
 
+
+int BCBPSections::komtech_pax_id(int i)
+{   string err;
+    shure = (get_alfa_chars_str<true>(repeated[i].individual, pos_komtex_version, err) == komtex_str);
+    err = "";
+    int ret = get_int(repeated[i].individual, pos_komtex_pax_id, err);
+    process_err("komtech pax id", airline_data_str, err);
+    return ret;
+}
+
+
+
 //---------------------------------------------//
 
 
@@ -1269,13 +1288,17 @@ std::string BCBPSections::build_bcbp_str()
     else
         repeated[0].conditional = "00";
     if(found_data_in_first_nullable_sections)
-    {   ret+=repeated[0].conditional;
+    {   if(unique.conditional.size() >= 2)
+        {   char& version = unique.conditional[pos_version.begin];
+            if(version < '0' || version > '9')
+                version = 5;
+        }
+        ret+=unique.conditional;
+        ret+=repeated[0].conditional;
         ret+=repeated[0].individual;
     }
     ret = add_whitespaces(ret, pos_mandatory_1st_section.size(), "", "mandatory all fields");
     i_to_hex_char(ret.size() - pos_mandatory_1st_section.size(), ret, pos_mandatory_1st_section.size() - 2);
-    std::cout<<"pos_field_of_var_sz_field:" << ret[ret.size()-2]<<ret[ret.size()-1]<<"\n";
-
     string section;
     for(unsigned int i = 1; i<repeated.size(); i++)
     {   if(repeated[i].mandatory.size() < pos_mandatory_repeated_section.end)
@@ -1291,9 +1314,6 @@ std::string BCBPSections::build_bcbp_str()
     ret+=unique.security;
     ret[pos_format_code.begin] = 'M';
     ret[pos_number_of_legs_encoded.begin] = repeated.size() + '0';
-    std::cout<<"Repeated.size: "<<repeated.size()<<std::endl;
-    std::cout<<"Created str: "<<ret<<std::endl;
-    std::cout.flush();
     return ret;
 }
 
@@ -1319,7 +1339,6 @@ std::string BCBPInternalWork::add_zeros(unsigned int x, unsigned int num, const 
 
 std::string BCBPInternalWork::add_whitespaces(const string& x, unsigned int num, const string& field_name, const string& field_type)
 { std::string ret = x;
-  if(num == static_cast<unsigned int>(pos_passenger_name.size())) std::cout<<"if(num == pos_passenger_name.size(): "<<ret<<"\n";
   if(ret.size() > num)
         process_err(field_name, field_type, "string size is too big for this field");
   ret.insert(ret.size(), num - ret.size(), ' ');
@@ -1339,9 +1358,7 @@ void BCBPInternalWork::raw_write_field(std::string& where, TConstPos pos, const 
 
 void BCBPInternalWork::write_field(std::string& where, TConstPos pos, const  std::string& what, const string& field_name, const string& field_type)
 { string str = add_whitespaces(what, pos.size(), field_name, field_type);
-  if(pos.begin == pos_passenger_name.begin) std::cout<<"if(pos == pos_passenger_name) "<<str<<"\n";
   raw_write_field(where,  pos, str, field_name, field_type);
-  if(pos.begin == pos_passenger_name.begin) std::cout<<"if(pos == pos_passenger_name)2 "<<where<<"\n";
 }
 void BCBPInternalWork::write_field(std::string& where, TConstPos pos,  boost::optional<int> what, const string& field_name, const string& field_type)
 { if(what == boost::none)
@@ -1396,8 +1413,7 @@ void BCBPSections::set_passenger_name_surname(string name, string surname)
     surname+='/' + name;
     if(surname.size() >  static_cast<unsigned int>(pos_passenger_name.size()))
         surname.erase(pos_passenger_name.size(), surname.size());
-    std::cout<<"Surname: "<<surname<<"\n";
-    write_field(unique.mandatory, pos_passenger_name, surname, "set passenger surname/name", mandatory_str);
+    write_field(unique.mandatory, pos_passenger_name, surname, "passenger surname/name", mandatory_str);
 }
 
 void BCBPSections::set_electronic_ticket_indicator(bool x)
@@ -1405,7 +1421,7 @@ void BCBPSections::set_electronic_ticket_indicator(bool x)
 }
 
 void BCBPSections::set_version(boost::optional<int> x)
-{  write_field(unique.conditional, pos_version, x, "set version", conditional_str);
+{  write_field(unique.conditional, pos_version, x, "version", conditional_str);
 }
 
 void BCBPSections::set_passenger_description(boost::optional<BCBPSectionsEnums::PassengerDescr> x)
@@ -1414,17 +1430,17 @@ void BCBPSections::set_passenger_description(boost::optional<BCBPSectionsEnums::
 
 void BCBPSections::set_source_of_checkin(boost::optional<BCBPSectionsEnums::SourceOfIssuance> x)
 {   if(x != boost::none && *x == transfer_kiosk)
-        process_err("set source of checkin", conditional_str, "\"transfer_kiosk\" value of enum SourceOfIssuance is not allowed here");
+        process_err("source of checkin", conditional_str, "\"transfer_kiosk\" value of enum SourceOfIssuance is not allowed here");
     write_field(unique.conditional, pos_checkin_source, x, "WKXRMOTV", "set source of checkin", conditional_str);
 }
 
 void BCBPSections::set_source_of_boarding_pass_issuance(boost::optional<BCBPSectionsEnums::SourceOfIssuance> x)
-{  write_field(unique.conditional, pos_pass_issuance_source, x, "WKXRMOTV", "set source of boarding pass issuance", conditional_str);
+{  write_field(unique.conditional, pos_pass_issuance_source, x, "WKXRMOTV", "source of boarding pass issuance", conditional_str);
 }
 
 void BCBPSections::set_date_of_boarding_pass_issuance(boost::optional<BASIC::TDateTime> x)
 {  if(x == boost::none)
-    {   write_field(unique.conditional, pos_pass_issuance_date, "", "set date of boarding pass issuance", conditional_str);
+    {   write_field(unique.conditional, pos_pass_issuance_date, "", "date of boarding pass issuance", conditional_str);
         return;
     }
     int year, non_use1, non_use2;
@@ -1479,7 +1495,7 @@ void BCBPSections::set_flight_number(string x, int i)
 
 
 void BCBPSections::set_date_of_flight(boost::optional<int> x, int i)
-{  write_field(repeated[i].mandatory, pos_date_of_flight, x, "set date of flight", mandatory_str);
+{  write_field(repeated[i].mandatory, pos_date_of_flight, x, "date of flight", mandatory_str);
 }
 
 
@@ -1536,7 +1552,6 @@ void BCBPSections::set_marketing_carrier_designator(string x, int i)
 
 void BCBPSections::set_frequent_flyer_airline_designator(string x, int i)
 {   write_field(repeated[i].conditional, pos_freq_flyer_designator, x, "frequent flyer airline designator", conditional_str);
-
 }
 
 void BCBPSections::set_frequent_flyer_num(string x, int i)
@@ -1569,7 +1584,13 @@ void BCBPSections::set_fast_track(boost::optional<bool> x, int i)
 }
 
 
-
+void BCBPSections::set_komtech_pax_id(int x, int i, bool shure)
+{   write_field(repeated[i].individual, pos_komtex_pax_id, x, "komtex pax id", airline_data_str);
+    if(shure)
+    {   write_field(repeated[i].individual, pos_komtex_pax_id, 1, "komtex pax id version", airline_data_str);
+        write_field(repeated[i].individual, pos_komtex_pax_id_sign, komtex_str, "komtex pax id sign", airline_data_str);
+    }
+}
 
 std::string BCBPSections::test_bcbp_build()
 {   BCBPSections x;

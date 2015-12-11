@@ -336,7 +336,7 @@ class BCBPSections : public  BCBPInternalWork
                               const std::string::size_type &len,
                               const EXCEPTIONS::EConvertError &e);
 
-
+    bool shure; // в некоторых случаях (pax_id) мы не можем быть уверены, что данные верны, в других (новый формат pax_id) -- можем, эта переменная служит для индикации такой ситуации
     BCBPUniqueSections unique;
     std::vector<BCBPRepeatedSections> repeated;
 
@@ -414,6 +414,7 @@ class BCBPSections : public  BCBPInternalWork
 
 
     std::string airline_specific();
+    int komtech_pax_id(int i);
 
     int num_repeated_sections();
 //----------------------------------------
@@ -460,6 +461,7 @@ class BCBPSections : public  BCBPInternalWork
      void set_free_baggage_allowance(boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage> > x, int i);
      void set_fast_track(boost::optional<bool> x, int i);
      static std::string test_bcbp_build();
+     void set_komtech_pax_id(int x, int i, bool shure = true);
 
 };
 
