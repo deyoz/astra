@@ -397,8 +397,8 @@ class TPrnTagStore {
         TRStationInfo rstationInfo;
 
         std::string get_fmt_seat(std::string fmt, bool english_tag);
-
         std::string BCBP_M_2(TFieldParams fp);
+        std::string BCBP_V_5(TFieldParams fp);
         std::string ACT(TFieldParams fp);
         std::string AGENT(TFieldParams fp);
         std::string AIRLINE(TFieldParams fp);
@@ -560,7 +560,7 @@ class TPrnTagStore {
         void set_print_mode(int val);
         void clear();
         BASIC::TDateTime get_time_print() { return time_print.val; };
-        bool check_allowed_date(BASIC::TDateTime date_of_flight);
+        bool check_reprint_access(BASIC::TDateTime date_of_flight, std::string airp, std::string  airline);
         void tst_get_tag_list(std::vector<std::string> &tag_list);
 };
 

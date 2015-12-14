@@ -455,7 +455,7 @@ class BCBPSections : public  BCBPInternalWork
      void set_selectee(boost::optional<bool> x, int i);
      void set_international_doc_verification(char x, int i);
      void set_id_ad(char x, int i);
-     void set_date_of_flight(boost::optional<int> x, int i);
+     void set_date_of_flight_raw(boost::optional<int> x, int i);
      void set_date_of_flight(boost::optional<BASIC::TDateTime> x, int i);
      void set_airline_num_code(boost::optional<int> x, int i);
      void set_free_baggage_allowance(boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage> > x, int i);

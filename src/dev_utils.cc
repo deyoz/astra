@@ -83,7 +83,7 @@ static const TConstPos pos_length_sec_data(pos_typeof_sec_data,2);
 static const TConstPos pos_sec_data(pos_length_sec_data,1);
 
 
-static const TConstPos pos_komtex_pax_id(0,9);
+static const TConstPos pos_komtex_pax_id(0,10);
 static const TConstPos pos_komtex_version(pos_komtex_pax_id,1);
 static const TConstPos pos_komtex_pax_id_sign(pos_komtex_version, komtex_str.size());
 
@@ -1494,7 +1494,7 @@ void BCBPSections::set_flight_number(string x, int i)
 }
 
 
-void BCBPSections::set_date_of_flight(boost::optional<int> x, int i)
+void BCBPSections::set_date_of_flight_raw(boost::optional<int> x, int i)
 {  write_field(repeated[i].mandatory, pos_date_of_flight, x, "date of flight", mandatory_str);
 }
 

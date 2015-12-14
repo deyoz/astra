@@ -316,21 +316,33 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
         }
     }
 
+    TDateTime date_of_flight = NoExists;
+    int Year, Month, Day;
+    TDateTime utc_date=NowUTC(), scd_out_local=NoExists;
+    DecodeDate(utc_date, Year, Month, Day);
+    for(int y=Year-1; y<=Year+1; y++)
+    {
 
+            TDateTime d=JulianDateToDateTime(scan_data->date_of_flight(0), y);
+            if (date_of_flight==NoExists ||
+                    fabs(date_of_flight-utc_date)>fabs(d-utc_date))
+                date_of_flight=d;
+    };
+    check_reprint_access(date_of_flight, scan_data->from_city_airport(0), scan_data->operating_carrier_designator(0));
     print_mode = 0;
     tag_lang.Init(apr_lat);
     init_bp_tags();
 }
 
 
-bool TPrnTagStore::check_allowed_date(BASIC::TDateTime date_of_flight)
+bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, string airp, string airline)
 {   struct Reprint_options
     {   string desk, airline, airp;
         unsigned int lower_shift, upper_shift, desk_grp;
     };
     TQuery Qry(&OraSession);
     TReqInfo *reqInfo = TReqInfo::Instance();
-    std::string airline = reqInfo->desk.airline, airp = reqInfo->desk.airp, desk = reqInfo->desk.code;
+    std::string desk = reqInfo->desk.code;
     int desk_grp = reqInfo->desk.grp_id;
     Qry.SQLText =
         "select "
@@ -458,7 +470,6 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     pax_id = apax_id;
     if(prn_tag_props.op == dotPrnBP and pax_id == NoExists)
         throw Exception("TPrnTagStore::TPrnTagStore: pax_id not defined for bp mode");
-
     init_bp_tags();
 
     // specific for bag tags
@@ -1171,6 +1182,60 @@ void TPrnTagStore::TPointInfo::Init(TDevOperType op, int apoint_id, int agrp_id)
         };
         TripsInterface::readGates(point_id, gates);
     }
+}
+
+
+string TPrnTagStore::BCBP_V_5(TFieldParams fp)
+{
+    if(fp.scan_data != NULL)
+        return scan;
+        BCBPSections barcode;
+        *fp.scan_data = barcode;
+        string surname = transliter(paxInfo.surname_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+        string name = transliter(paxInfo.name_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+        barcode.add_section();
+        barcode.set_passenger_name_surname(name, surname);
+        barcode.set_electronic_ticket_indicator((ETKT(fp).empty() ? " " : "E"));
+        vector<TPnrAddrItem>::iterator iv = pnrInfo.pnrs.begin();
+            for(; iv != pnrInfo.pnrs.end(); iv++)
+                if(pointInfo.airline == iv->airline) {
+                    ProgTrace(TRACE5, "PNR found: %s", iv->addr);
+                    break;
+                }
+            if(iv != pnrInfo.pnrs.end() && (strlen(iv->addr) <= 7))
+            barcode.set_operatingCarrierPNR(convert_pnr_addr(iv->addr, tag_lang.GetLang() != AstraLocale::LANG_RU), 0);
+
+        barcode.set_from_city_airport(AIRP_DEP(fp), 0);
+        barcode.set_to_city_airport(AIRP_ARV(fp), 0);
+        barcode.set_operating_carrier_designator(AIRLINE(fp), 0);
+        if(pointInfo.flt_no > 0)
+             barcode.set_flight_number(BCBPSectionsEnums::to_string(pointInfo.flt_no), 0 );
+        barcode.set_date_of_flight(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)),0);
+        {
+        std::string cc = CLASS(fp);
+        if(cc.size() == 1)
+            barcode.set_compartment_code(cc[0], 0);
+        }
+        barcode.set_seat_number(ONE_SEAT_NO(fp), 0);
+        barcode.set_check_in_seq_number(0, 0);
+        barcode.set_passenger_status('1', 0);
+
+
+        TPerson pers_type = DecodePerson((char *)paxInfo.pers_type.c_str());
+        if(pers_type == NoPerson) throw Exception("BCBP_M_2: something wrong with pers_type");
+        barcode.set_passenger_description(static_cast<BCBPSectionsEnums::PassengerDescr>(pers_type));
+        barcode.set_doc_type(BCBPSectionsEnums::boarding_pass);
+        barcode.set_komtech_pax_id(paxInfo.reg_no, 0);
+        barcode.set_operatingCarrierPNR("0850CP", 1);
+        barcode.set_from_city_airport("FRA", 1);
+        barcode.set_to_city_airport("VKO", 1);
+        barcode.set_operating_carrier_designator("AC", 1);
+        barcode.set_flight_number("0864", 1 );
+        barcode.set_compartment_code(' ', 1);
+        barcode.set_seat_number("GGGG", 1);
+        barcode.set_check_in_seq_number("9000 ", 1);
+        barcode.set_passenger_status('4', 1);
+        return barcode.build_bcbp_str();
 }
 
 string TPrnTagStore::BCBP_M_2(TFieldParams fp)
