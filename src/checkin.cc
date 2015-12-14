@@ -44,6 +44,7 @@
 #include "apps_interaction.h"
 #include "astra_elem_utils.h"
 #include "baggage_pc.h"
+#include "tlg/AgentWaitsForRemote.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -3126,7 +3127,17 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
     if (!AfterSaveInfoList.empty() &&
         !AfterSaveInfoList.front().segs.empty())
-      LoadPax(AfterSaveInfoList.front().segs.front().grp_id, resNode, true);
+    {
+      int grp_id=AfterSaveInfoList.front().segs.front().grp_id;
+
+      if (AfterSaveInfoList.front().action==CheckIn::actionRefreshPaidBagPC)
+      {
+        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+        if (Ticketing::isDoomedToWait()) return true;
+      };
+
+      LoadPax(grp_id, resNode, true);
+    }
   };
   return result;
 };
@@ -3642,7 +3653,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   TFlights flightsForLock;
   flightsForLock.Get( point_ids, ftTranzit );
   //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
-    flightsForLock.Lock();
+  flightsForLock.Lock();
 
   for(map<int,TSegInfo>::iterator s=segs.begin();s!=segs.end();++s)
   {
@@ -6008,6 +6019,9 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   else grp_id=NodeAsInteger(node);
 
+  EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+  if (Ticketing::isDoomedToWait()) return;
+
   LoadPax(grp_id,resNode,false);
 };
 
@@ -6179,7 +6193,7 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int
 
 }
 
-}
+} //namespace SirenaExchange
 
 void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActionType action)
 {
@@ -6354,7 +6368,12 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     Qry.SQLText=pax_grp_sql;
     Qry.CreateVariable("grp_id",otInteger,*grp_id);
     Qry.Execute();
-    if (Qry.Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
+    if (Qry.Eof)
+    {
+      if (grp_id==grp_ids.begin() && !afterSavePax)
+        throw AstraLocale::UserException("MSG.PAX_GRP_OR_LUGGAGE_NOT_CHECKED_IN");
+      return; //это бывает когда разрегистрация всей группы по ошибке агента
+    };
 
     CheckIn::TPaxGrpItem grp;
     grp.fromDB(Qry);

@@ -67,7 +67,8 @@ void AstraJxtCallbacks::InitInterfaces()
     new EMDSearchInterface();
     new EMDDisplayInterface();
     new EMDSystemUpdateInterface();
-    new EMDStatusInterface();    
+    new EMDStatusInterface();
+    new EMDAutoBoundInterface();
     new IactiInterface();
     new ChangeStatusInterface();
     new ImagesInterface();
@@ -120,8 +121,8 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
     catch(...) {};
 
     TReqInfo *reqInfo = TReqInfo::Instance();
-	  reqInfo->setPerform();
-	  base_tables.Invalidate();
+      reqInfo->setPerform();
+      base_tables.Invalidate();
     OraSession.ClearQuerys();
     XMLRequestCtxt *xmlRC = getXmlCtxt();
     xmlNodePtr node=NodeAsNode("/term/query",xmlRC->reqDoc);
@@ -138,18 +139,18 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
       reqInfoData.term_id = NodeAsFloat(propNode);
     //язык терминала
     if ((propNode = GetNode("@lang", node))!=NULL) {
-    	reqInfoData.lang = NodeAsString(propNode);
-    	ProgTrace( TRACE5, "reqInfoData.lang=%s", reqInfoData.lang.c_str() );
-    	if ( GetNode( "UserLogon", node ) != NULL && reqInfoData.lang != AstraLocale::LANG_DEFAULT ) {
-    		TLangTypes langs = (TLangTypes&)base_tables.get("lang_types");
-    		try {
-      		langs.get_row("code",reqInfoData.lang);
+        reqInfoData.lang = NodeAsString(propNode);
+        ProgTrace( TRACE5, "reqInfoData.lang=%s", reqInfoData.lang.c_str() );
+        if ( GetNode( "UserLogon", node ) != NULL && reqInfoData.lang != AstraLocale::LANG_DEFAULT ) {
+            TLangTypes langs = (TLangTypes&)base_tables.get("lang_types");
+            try {
+            langs.get_row("code",reqInfoData.lang);
           if (AstraLocale::TLocaleMessages::Instance()->checksum( reqInfoData.lang ) == 0) // нет данных для словаря
-          	throw EBaseTableError("");
-      	}
+            throw EBaseTableError("");
+        }
         catch( EBaseTableError ) {
-        	ProgTrace( TRACE5, "Unknown client lang=%s", reqInfoData.lang.c_str() );
-        	reqInfoData.lang = AstraLocale::LANG_DEFAULT;
+            ProgTrace( TRACE5, "Unknown client lang=%s", reqInfoData.lang.c_str() );
+            reqInfoData.lang = AstraLocale::LANG_DEFAULT;
         }
       }
     }
@@ -199,7 +200,7 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
         throw;
     };
     if ( reqInfo->screen.pr_logon && reqInfoData.opr.empty() &&
-    	   ( GetNode( "UserLogon", node ) == NULL &&
+           ( GetNode( "UserLogon", node ) == NULL &&
            GetNode( "GetCertificates", node ) == NULL &&
            GetNode( "RequestCertificateData", node ) == NULL &&
            GetNode( "PutRequestCertificate", node ) == NULL) )
@@ -219,48 +220,48 @@ void CheckTermResDoc()
   SetProp(resNode, "execute_time", TReqInfo::Instance()->getExecuteMSec() );
 
   xmlNodePtr errNode=NULL;
-	int errPriority=ASTRA::NoExists;
-	for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
-	{
+    int errPriority=ASTRA::NoExists;
+    for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
+    {
       if (strcmp((const char*)node->name,"command")==0)
-	  {
-	    for(xmlNodePtr cmdNode=node->children; cmdNode!=NULL; cmdNode=cmdNode->next)
-	    {
-	      int priority=ASTRA::NoExists;
-	      if (strcmp((const char*)cmdNode->name,"error")==0) priority=1;
-	      if (strcmp((const char*)cmdNode->name,"user_error")==0) priority=2;
-	      if (strcmp((const char*)cmdNode->name,"user_error_message")==0) priority=3;
-	      if (strcmp((const char*)cmdNode->name,"message")==0) priority=4;
-	      if (priority!=ASTRA::NoExists &&
+      {
+        for(xmlNodePtr cmdNode=node->children; cmdNode!=NULL; cmdNode=cmdNode->next)
+        {
+          int priority=ASTRA::NoExists;
+          if (strcmp((const char*)cmdNode->name,"error")==0) priority=1;
+          if (strcmp((const char*)cmdNode->name,"user_error")==0) priority=2;
+          if (strcmp((const char*)cmdNode->name,"user_error_message")==0) priority=3;
+          if (strcmp((const char*)cmdNode->name,"message")==0) priority=4;
+          if (priority!=ASTRA::NoExists &&
             (errPriority==ASTRA::NoExists || priority<errPriority))
         {
           errNode=cmdNode;
           errPriority = priority;
         };
       };
-	  };
+      };
   };
 
   if (errNode!=NULL)
   {
     for(xmlNodePtr node=resNode->children; node!=NULL; node=node->next)
-  	{
-  	  if (strcmp((const char*)node->name,"command")==0)
-  	  {
+    {
+      if (strcmp((const char*)node->name,"command")==0)
+      {
         for(xmlNodePtr cmdNode=node->children; cmdNode!=NULL; )
         {
           if (cmdNode!=errNode)
           {
             xmlNodePtr node2=cmdNode->next;
-	          xmlUnlinkNode(cmdNode);
-	          xmlFreeNode(cmdNode);
-	          cmdNode=node2;
-	        }
-	        else
-	          cmdNode=cmdNode->next;
+              xmlUnlinkNode(cmdNode);
+              xmlFreeNode(cmdNode);
+              cmdNode=node2;
+            }
+            else
+              cmdNode=cmdNode->next;
         };
-  	  };
-  	};
+      };
+    };
   };
 };
 
@@ -291,7 +292,7 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
 
       UserException2 *ue2 = dynamic_cast<UserException2*>(e);
       if (ue2) {
-      	throw 1;
+        throw 1;
       }
 
       xmlNodePtr node2;
@@ -311,13 +312,13 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
       if (orae)
       {
           switch( orae->Code ) {
-          	case 4061:
-          	case 4068:
-          		AstraLocale::showError("MSG.SYSTEM_VERS_UPDATED.REPEAT");
-          		break;
-          	default:
-          	  ProgError(STDLOG,"EOracleError %d: %s",orae->Code,orae->what());
-          	  ProgError(STDLOG,"SQL: %s",orae->SQLText());
+            case 4061:
+            case 4068:
+                AstraLocale::showError("MSG.SYSTEM_VERS_UPDATED.REPEAT");
+                break;
+            default:
+              ProgError(STDLOG,"EOracleError %d: %s",orae->Code,orae->what());
+              ProgError(STDLOG,"SQL: %s",orae->SQLText());
               AstraLocale::showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
           }
           throw 1;
@@ -348,7 +349,7 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
       throw 1;
     }
     catch( int ) {
-    	UserAfter();
+        UserAfter();
     }
     catch(ServerFramework::Exception &localException)
     {

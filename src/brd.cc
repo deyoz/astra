@@ -24,6 +24,7 @@
 #include "apps_interaction.h"
 #include "baggage_pc.h"
 #include "baggage_calc.h"
+#include "tlg/AgentWaitsForRemote.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -346,11 +347,6 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   };
 
   GetPax(reqNode,resNode);
-  xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
-  if(variablesNode) SetProp(variablesNode, "update");
-  NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-  if(bad_client_img_version())
-      NewTextChild(variablesNode, "doc_cap_test", " ");
 
   showMessage(lexeme_id);
 };
@@ -450,11 +446,6 @@ bool CheckSeat(int pax_id, string& curr_seat_no)
 void BrdInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   GetPax(reqNode,resNode);
-  xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
-  if(variablesNode) SetProp(variablesNode, "update");
-  NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-  if(bad_client_img_version())
-      NewTextChild(variablesNode, "doc_cap_test", " ");
 };
 
 void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
@@ -975,6 +966,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       TFlights flights;
       flights.Get( point_id, ftTranzit );
       flights.Lock(); //лочим весь транзитный рейс
+
+      if (set_mark && !EMDAutoBoundRegNo::exists(reqNode))
+      {
+        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundRegNo(point_id, reg_no), reqNode);
+        if (Ticketing::isDoomedToWait()) return;
+      };
 
       Qry.Clear();
       Qry.SQLText=
@@ -1642,6 +1639,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     };
     TRptParams rpt_params(reqInfo->desk.lang);
     readTripCounters(point_id, rpt_params, dataNode, rtUnknown, "");
+
+    variablesNode = GetNode("form_data/variables", resNode);
+    if(variablesNode) SetProp(variablesNode, "update");
+    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
+    if(bad_client_img_version())
+        NewTextChild(variablesNode, "doc_cap_test", " ");
 };
 
 void BrdInterface::LoadPaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

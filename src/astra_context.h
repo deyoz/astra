@@ -10,21 +10,21 @@ void longToDB(TQuery &Qry, const std::string &column_name, const std::string &sr
 namespace AstraContext
 {
 
-int SetContext(const std::string name,
+int SetContext(const std::string &name,
                const int id,
                const std::string &value);
 
-int SetContext(const std::string name,
+int SetContext(const std::string &name,
                const std::string &value);
 
-BASIC::TDateTime GetContext(const std::string name,
+BASIC::TDateTime GetContext(const std::string &name,
                             const int id,
                             std::string &value);
 
-void ClearContext(const std::string name,
+void ClearContext(const std::string &name,
                   const BASIC::TDateTime time_create = ASTRA::NoExists);
 
-void ClearContext(const std::string name,
+void ClearContext(const std::string &name,
                   const int id);
 
 }; /* namespace AstraContext */

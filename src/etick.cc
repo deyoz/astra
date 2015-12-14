@@ -30,12 +30,15 @@
 #include "astra_emd.h"
 #include "astra_emd_view_xml.h"
 #include "edi_utils.h"
+#include "points.h"
+#include "brd.h"
 #include "tlg/emd_disp_request.h"
 #include "tlg/emd_system_update_request.h"
 #include "tlg/emd_cos_request.h"
 #include "tlg/emd_edifact.h"
 #include "tlg/remote_results.h"
 #include "tlg/remote_system_context.h"
+#include "tlg/AgentWaitsForRemote.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -69,7 +72,8 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
 
   TTripInfo info;
   checkETSInteract(params.point_id, true, info);
-  if (searchPurpose==spEMDDisplay)
+  if (searchPurpose==spEMDDisplay ||
+      searchPurpose==spEMDRefresh)
     checkEDSInteract(params.point_id, true, info);
 
   if(!inTestMode())
@@ -102,6 +106,9 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
       break;
     case spEMDDisplay:
       SetProp(rootNode,"purpose","EMDDisplay");
+      break;
+    case spEMDRefresh:
+      SetProp(rootNode,"purpose","EMDRefresh");
       break;
     default:
       SetProp(rootNode,"purpose","unknown");
@@ -1546,7 +1553,7 @@ void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
       xmlNodePtr termReqNode=NodeAsNode("/term/query",termReqCtxt.docPtr())->children;
       if (termReqNode==NULL)
-        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
+        throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
       //если эмулируем запрос web-регистрации с терминала - то делаем подмену client_type
       xmlNodePtr ifaceNode=GetNode("/term/query/@id",termReqCtxt.docPtr());
       if (ifaceNode!=NULL && strcmp(NodeAsString(ifaceNode), WEB_JXT_IFACE_ID)==0)
@@ -1773,4 +1780,108 @@ void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       }
     }
 }
+
+bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id)
+{
+  point_id=NoExists;
+  grp_id=NoExists;
+
+  QParams params;
+  id.setSQLParams(params);
+  TCachedQuery Qry(id.grpSQL(), params);
+  Qry.get().Execute();
+  if (Qry.get().Eof) return false; //это бывает когда разрегистрация всей группы по ошибке агента
+  point_id=Qry.get().FieldAsInteger("point_dep");
+  grp_id=Qry.get().FieldAsInteger("grp_id");
+  if (Qry.get().FieldIsNULL("piece_concept") || Qry.get().FieldAsInteger("piece_concept")==0) return false; //не piece_concept
+
+  TFlights flightsForLock;
+  flightsForLock.Get( point_id, ftTranzit );
+  flightsForLock.Lock();
+  return true;
+}
+
+void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode)
+{
+  int point_id=NoExists;
+  int grp_id=NoExists;
+  if (!Lock(id, point_id, grp_id) || point_id==NoExists || grp_id==NoExists) return;
+
+  list<PieceConcept::TPaidBagItem> paid;
+  PieceConcept::PaidBagFromDB(grp_id, true, paid);
+  set<int> pax_ids;
+  for(list<PieceConcept::TPaidBagItem>::const_iterator p=paid.begin(); p!=paid.end(); ++p)
+    if (p->status==PieceConcept::bsNeed) pax_ids.insert(p->pax_id);
+  if (pax_ids.empty()) return;
+
+  boost::optional<edifact::KickInfo> kickInfo;
+
+  QParams params;
+  id.setSQLParams(params);
+  TCachedQuery PaxQry(id.paxSQL(), params);
+  PaxQry.get().Execute();
+  for(;!PaxQry.get().Eof; PaxQry.get().Next())
+  {
+    int pax_id=PaxQry.get().FieldAsInteger("pax_id");
+    string refuse=PaxQry.get().FieldAsString("refuse");
+    if (pax_ids.find(pax_id)==pax_ids.end()) continue;
+    if (!refuse.empty()) continue;
+
+    CheckIn::TPaxTknItem tkn;
+    tkn.fromDB(PaxQry.get());
+    if (tkn.no.empty()) continue;
+    try
+    {
+      ETSearchByTickNoParams params;
+      params.point_id=point_id;
+      params.tick_no=tkn.no;
+
+      if (!kickInfo)
+      {
+        id.toXML(reqNode);
+        kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
+                                              "EMDAutoBound");
+      };
+
+      ETSearchInterface::SearchET(params, ETSearchInterface::spEMDRefresh, kickInfo.get());
+    }
+    catch(UserException) {};
+  }
+
+  if (Ticketing::isDoomedToWait())
+    AstraLocale::showProgError("MSG.ETS_EDS_CONNECT_ERROR"); //потом переделать на MSG.ETS_CONNECT_ERROR, когда дисплей будет возвращать RFISC
+}
+
+void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
+
+  XMLDoc termReqCtxt;
+  AstraEdifact::getTermRequestCtxt(req_ctxt_id, true, "CheckInInterface::KickHandler", termReqCtxt);
+
+  xmlNodePtr termReqNode=NodeAsNode("/term/query",termReqCtxt.docPtr())->children;
+  if (termReqNode==NULL)
+    throw EXCEPTIONS::Exception("CheckInInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
+
+  string termReqName=(char*)(termReqNode->name);
+
+  if (termReqName=="TCkinLoadPax")
+  {
+    CheckInInterface::LoadPax(EMDAutoBoundGrpId(termReqNode).grp_id, resNode, false);
+  }
+  if (termReqName=="TCkinSavePax" ||
+      termReqName=="TCkinSaveUnaccompBag")
+  {
+    CheckInInterface::LoadPax(EMDAutoBoundGrpId(termReqNode).grp_id, resNode, true);
+  }
+  if (termReqName=="PaxByPaxId" ||
+      termReqName=="PaxByRegNo" ||
+      termReqName=="PaxByScanData")
+  {
+    BrdInterface::GetPax(termReqNode, resNode);
+  }
+
+}
+
+
 

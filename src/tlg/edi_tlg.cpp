@@ -1264,8 +1264,8 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
     string ctxt;
     AstraContext::GetContext("EDI_SESSION",
                              udata.sessData()->ediSession()->ida().get(),
-                             ctxt);    
-    ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");    
+                             ctxt);
+    ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
 
     XMLDoc ediSessCtxt(ctxt);
     if (ediSessCtxt.docPtr()!=NULL)
@@ -1274,7 +1274,7 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
       xml_decode_nodelist(ediSessCtxt.docPtr()->children);
       xmlNodePtr rootNode=NodeAsNode("/context",ediSessCtxt.docPtr());
       int req_ctxt_id=NodeAsInteger("@req_ctxt_id",rootNode);
-      int point_id=NodeAsInteger("point_id",rootNode);      
+      int point_id=NodeAsInteger("point_id",rootNode);
 
       TQuery Qry(&OraSession);
       Qry.SQLText=
@@ -1290,7 +1290,8 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
 
       string purpose=NodeAsString("@purpose",rootNode);
 
-      if (purpose=="EMDDisplay")
+      if (purpose=="EMDDisplay" ||
+          purpose=="EMDRefresh")
       {
         XMLDoc ediResCtxt("context");
         if (ediResCtxt.docPtr()==NULL)
@@ -1314,19 +1315,19 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
               emds.insert(i->connectedDocNum());
               //ProgTrace(TRACE5, "%s: %s", __FUNCTION__, i->connectedDocNum().get().c_str());
             };
-          Ticket::Trace(TRACE5, pnr.ltick());          
+          Ticket::Trace(TRACE5, pnr.ltick());
           SearchEMDsByTickNo(emds, kickInfo, org, flNum);
         }
         catch(AstraLocale::UserException &e)
         {
-          //для остальных ошибок падаем          
+          //для остальных ошибок падаем
           ProcEdiError(e.getLexemaData(), ediResCtxtNode, true);
         };
-        AstraContext::SetContext("EDI_RESPONSE",req_ctxt_id,XMLTreeToText(ediResCtxt.docPtr()));
+        addToEdiResponseCtxt(req_ctxt_id, ediResCtxtNode->children, "");
       };
 
       if (purpose=="ETDisplay")
-      {        
+      {
         edi_udata_rd &udata_rd = dynamic_cast<edi_udata_rd &>(udata);
         AstraContext::SetContext("EDI_RESPONSE",req_ctxt_id,udata_rd.tlgText());
       };
