@@ -1226,15 +1226,15 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
         barcode.set_passenger_description(static_cast<BCBPSectionsEnums::PassengerDescr>(pers_type));
         barcode.set_doc_type(BCBPSectionsEnums::boarding_pass);
         barcode.set_komtech_pax_id(paxInfo.reg_no, 0);
-        barcode.set_operatingCarrierPNR("0850CP", 1);
-        barcode.set_from_city_airport("FRA", 1);
-        barcode.set_to_city_airport("VKO", 1);
-        barcode.set_operating_carrier_designator("AC", 1);
-        barcode.set_flight_number("0864", 1 );
-        barcode.set_compartment_code(' ', 1);
-        barcode.set_seat_number("GGGG", 1);
-        barcode.set_check_in_seq_number("9000 ", 1);
-        barcode.set_passenger_status('4', 1);
+        barcode.set_operatingCarrierPNR("0850CP", 0);
+        barcode.set_from_city_airport("FRA", 0);
+        barcode.set_to_city_airport("VKO", 0);
+        barcode.set_operating_carrier_designator("AC", 0);
+        barcode.set_flight_number("0864", 0 );
+        barcode.set_compartment_code(' ', 0);
+        barcode.set_seat_number("GGGG", 0);
+        barcode.set_check_in_seq_number("9000 ", 0);
+        barcode.set_passenger_status('4', 0);
         return barcode.build_bcbp_str();
 }
 
