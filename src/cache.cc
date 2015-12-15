@@ -1550,8 +1550,6 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 
         SetVariables( *iv, vars );
         try {
-            for(int i = 0; i < Qry->VariablesCount(); i++)
-                LogTrace(TRACE5) << Qry->VariableName(i) << " = " << Qry->GetVariableAsString(i);
           Qry->Execute();
           if ( Logging ) /* логирование */
             OnLogging( *iv, status );
