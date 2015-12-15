@@ -1222,7 +1222,7 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
 
 
         TPerson pers_type = DecodePerson((char *)paxInfo.pers_type.c_str());
-        if(pers_type == NoPerson) throw Exception("BCBP_M_2: something wrong with pers_type");
+        if(pers_type == NoPerson) throw Exception("BCBP_V_5: something wrong with pers_type");
         barcode.set_passenger_description(static_cast<BCBPSectionsEnums::PassengerDescr>(pers_type));
         barcode.set_doc_type(BCBPSectionsEnums::boarding_pass);
         barcode.set_komtech_pax_id(paxInfo.reg_no, 0);
