@@ -365,9 +365,9 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
     Qry.CreateVariable("desk_grp", otInteger, desk_grp);
     Qry.Execute();
     std::string temp_airp, temp_airline;
-    std::vector<Reprint_options> rep_opts;
-    Reprint_options* found_opt;
-    int count_wrong_airp = 0, count_wrong_airline = 0, temp_desk_grp;
+    Reprint_options rep_opts;
+    Reprint_options* found_opt = 0;
+    int count_wrong_airp = 0, count_wrong_airline = 0,count_wrong_airp_in_grp_field = 0, count_wrong_airline_in_grp_field = 0, temp_desk_grp;
     bool have_wrong_desk = false;
     std::string temp_desk;
     int counter = 0;
@@ -377,51 +377,40 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
          temp_desk = Qry.FieldAsString("desk");
          temp_desk_grp = Qry.FieldAsInteger("desk_grp");	
          if(temp_airline != airline_id && !temp_airline.empty())
-         {   count_wrong_airline++;
-             if(temp_desk == desk)
-		throw UserException("MSG.REPRINT_WRONG_AIRLINE");
+         {   if(temp_desk_grp == desk_grp)
+		count_wrong_airline_in_grp_field++;
+             else count_wrong_airline++; 
              continue;
          } 
          if(temp_airp != airp_id && !temp_airp.empty())
-         {    count_wrong_airp++;
-              if(temp_desk == desk)
-                 throw UserException("MSG.REPRINT_WRONG_AIRP");
+         {    if(temp_desk_grp == desk_grp)
+                 count_wrong_airp_in_grp_field++;
+              else  count_wrong_airp++;
               continue;
          }
          if(temp_airline.empty()) temp_airline = airline_id;
 	 if(temp_airp.empty()) temp_airp = airp_id;
-         rep_opts.push_back(Reprint_options());
-         found_opt = &rep_opts[rep_opts.size() - 1];
+         if(found_opt)
+         { if(temp_desk.empty()) continue;
+           if(!found_opt->airp.empty() && temp_airp.empty()) continue;
+           if(!found_opt->airline.empty() && temp_airline.empty()) continue;
+         }	
+         found_opt = &rep_opts;
          found_opt->desk = Qry.FieldAsString("desk");
          found_opt->desk_grp = Qry.FieldAsInteger("desk_grp");
-	 found_opt->airp = temp_airp;
+         found_opt->airp = temp_airp;
          found_opt->airline = temp_airline;
          found_opt->lower_shift = Qry.FieldAsInteger("lower_shift");
          found_opt->upper_shift = Qry.FieldAsInteger("upper_shift");
     }
     if(counter == 0) return true;
-    if (have_wrong_desk)
+    if(!found_opt)
     {    if(count_wrong_airline) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
          if(count_wrong_airp) throw UserException("MSG.REPRINT_WRONG_AIRP");
-	 return false;
+         if(count_wrong_airline_in_grp_field) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
+         if(count_wrong_airp_in_grp_field) throw UserException("MSG.REPRINT_WRONG_AIRP");
+         return true; 
     }    
-    if(!rep_opts.size())
-    {    if(count_wrong_airline) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
-         if(count_wrong_airp) throw UserException("MSG.REPRINT_WRONG_AIRP");
-         return false; 
-    }
-    found_opt = &rep_opts[0];
-    if(rep_opts.size() == 2)
-    {   bool a_client =  rep_opts[0].desk.size(), a_grp = rep_opts[0].desk_grp, b_client =  rep_opts[1].desk.size(), 
-			b_grp = rep_opts[1].desk_grp;
-	if(a_client == b_client) //в таблице не должно существовать разных настроек для одного пульта
-           return false;
-        //в таблице не должно существовать разных настроек для одной группы пультов. но, если у группы есть пульт
-        //значит это отдельная настройка для пульта, поэтому всё нормально, а случай (одинаковый пульт + одинаковая группа) уже отсекли
-        if(a_grp == b_grp && !a_client && !b_client)
-           return false;
-        if(b_client)  found_opt = &rep_opts[1];
-    }
     BASIC::TDateTime ret = NowUTC(), date = date_of_flight;
     int date_diff = ret - date;
     if(date_diff > 0 && static_cast<u_int>(date_diff) > found_opt->lower_shift)
