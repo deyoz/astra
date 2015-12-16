@@ -326,15 +326,27 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
                     fabs(date_of_flight-utc_date)>fabs(d-utc_date))
                 date_of_flight=d;
     };
-    check_reprint_access(date_of_flight, scan_data->from_city_airport(0), scan_data->operating_carrier_designator(0));
+
+    if(!check_reprint_access(date_of_flight, scan_data->from_city_airport(0), scan_data->operating_carrier_designator(0)))
+        throw UserException("MSG.REPRINT_ACCESS_ERR");
+
     print_mode = 0;
     tag_lang.Init(apr_lat);
     init_bp_tags();
 }
 
 
-bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, string airp, string airline)
-{   struct Reprint_options
+bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const string &airp, const string &airline)
+{
+    TElemFmt fmt;    
+    string airp_id = ElemToElemId(etAirp, airp, fmt);
+    if(fmt == efmtUnknown)
+	airp_id = airp;
+    string airline_id = ElemToElemId(etAirline, airline, fmt);
+    if (fmt==efmtUnknown)
+	airline_id = airline;
+    if(airp_id.empty() || airline_id.empty()) return false;
+    struct Reprint_options
     {   string desk, airline, airp;
         unsigned int lower_shift, upper_shift, desk_grp;
     };
@@ -348,43 +360,75 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, string 
         "from "
         "   reprint_options "
         "where "
-        "   (airline = :airline or airp = :airp) and (desk = :desk or desk_grp = :desk_grp)";
-    Qry.CreateVariable("airline", otString, airline);
-    Qry.CreateVariable("airp", otString, airp);
-    Qry.CreateVariable("web_client", otString, desk);
-    Qry.CreateVariable("web_client_grp", otInteger, desk_grp);
+        "   (desk = :desk and desk_grp = :desk_grp) or ( desk = :desk and desk_grp is null) or (desk_grp = :desk_grp and desk is null)";
+    Qry.CreateVariable("desk", otString, desk);
+    Qry.CreateVariable("desk_grp", otInteger, desk_grp);
     Qry.Execute();
+    std::string temp_airp, temp_airline;
     std::vector<Reprint_options> rep_opts;
     Reprint_options* found_opt;
-    for(; not Qry.Eof; Qry.Next())
-    {    rep_opts.push_back(Reprint_options());
+    int count_wrong_airp = 0, count_wrong_airline = 0, temp_desk_grp;
+    bool have_wrong_desk = false;
+    std::string temp_desk;
+    int counter = 0;
+    for(; not Qry.Eof; Qry.Next(), counter++)
+    {    temp_airline =  Qry.FieldAsString("airline");
+         temp_airp = Qry.FieldAsString("airp");
+         temp_desk = Qry.FieldAsString("desk");
+         temp_desk_grp = Qry.FieldAsInteger("desk_grp");	
+         if(temp_airline != airline_id && !temp_airline.empty())
+         {   count_wrong_airline++;
+             if(temp_desk == desk)
+		throw UserException("MSG.REPRINT_WRONG_AIRLINE");
+             continue;
+         } 
+         if(temp_airp != airp_id && !temp_airp.empty())
+         {    count_wrong_airp++;
+              if(temp_desk == desk)
+                 throw UserException("MSG.REPRINT_WRONG_AIRP");
+              continue;
+         }
+         if(temp_airline.empty()) temp_airline = airline_id;
+	 if(temp_airp.empty()) temp_airp = airp_id;
+         rep_opts.push_back(Reprint_options());
          found_opt = &rep_opts[rep_opts.size() - 1];
          found_opt->desk = Qry.FieldAsString("desk");
          found_opt->desk_grp = Qry.FieldAsInteger("desk_grp");
-         found_opt->airline = Qry.FieldAsString("airline");
-         found_opt->airp = Qry.FieldAsString("airp");
+	 found_opt->airp = temp_airp;
+         found_opt->airline = temp_airline;
          found_opt->lower_shift = Qry.FieldAsInteger("lower_shift");
          found_opt->upper_shift = Qry.FieldAsInteger("upper_shift");
     }
-    if(rep_opts.size() > 2) return false;
-    bool a_client =  rep_opts[0].desk.size(), a_grp = rep_opts[0].desk_grp, b_client =  rep_opts[1].desk.size(), b_grp =  rep_opts[1].desk_grp;
+    if(counter == 0) return true;
+    if (have_wrong_desk)
+    {    if(count_wrong_airline) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
+         if(count_wrong_airp) throw UserException("MSG.REPRINT_WRONG_AIRP");
+	 return false;
+    }    
+    if(!rep_opts.size())
+    {    if(count_wrong_airline) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
+         if(count_wrong_airp) throw UserException("MSG.REPRINT_WRONG_AIRP");
+         return false; 
+    }
+    found_opt = &rep_opts[0];
     if(rep_opts.size() == 2)
-    {   if(a_client == b_client) //в таблице не должно существовать разных настроек для одного пульта
+    {   bool a_client =  rep_opts[0].desk.size(), a_grp = rep_opts[0].desk_grp, b_client =  rep_opts[1].desk.size(), 
+			b_grp = rep_opts[1].desk_grp;
+	if(a_client == b_client) //в таблице не должно существовать разных настроек для одного пульта
            return false;
         //в таблице не должно существовать разных настроек для одной группы пультов. но, если у группы есть пульт
         //значит это отдельная настройка для пульта, поэтому всё нормально, а случай (одинаковый пульт + одинаковая группа) уже отсекли
         if(a_grp == b_grp && !a_client && !b_client)
            return false;
+        if(b_client)  found_opt = &rep_opts[1];
     }
-    found_opt = &rep_opts[0];
-    if(rep_opts[1].desk.size())
-        found_opt = &rep_opts[1];
     BASIC::TDateTime ret = NowUTC(), date = date_of_flight;
     int date_diff = ret - date;
-    if(date_diff > 0 && static_cast<u_int>(date_diff) > found_opt->upper_shift)
-            return false;
-    if(date_diff < 0 && static_cast<u_int>(-date_diff) > found_opt->lower_shift)
-            return false;
+    if(date_diff > 0 && static_cast<u_int>(date_diff) > found_opt->lower_shift)
+              throw UserException("MSG.REPRINT_WRONG_DATE_BEFORE");
+    if(date_diff < 0 && static_cast<u_int>(-date_diff) > found_opt->upper_shift)
+              throw UserException("MSG.REPRINT_WRONG_DATE_AFTER");
+    ProgTrace(TRACE5, __FUNCTION__);
     return true;
 }
 
