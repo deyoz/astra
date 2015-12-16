@@ -18,6 +18,7 @@ const std::string FT_298_451 = "298 451";
 const std::string FT_823_451 = "823 451";
 
 namespace TAG {
+    const std::string BCBP_V_5 = "BCBP_V_5";
     const std::string BCBP_M_2 = "BCBP_M_2";
     const std::string ACT = "ACT";
     const std::string AGENT = "AGENT";
@@ -188,12 +189,10 @@ class TPrnTagStore {
             std::string date_format;
             boost::any TagInfo;
             size_t len;
-            boost::shared_ptr<BCBPSections> scan_data;
-            TFieldParams(std::string adate_format, boost::any aTagInfo, int alen, boost::shared_ptr<BCBPSections> ascan_data):
+            TFieldParams(std::string adate_format, boost::any aTagInfo, int alen):
                 date_format(adate_format),
                 TagInfo(aTagInfo),
-                len(alen),
-                scan_data(ascan_data)
+                len(alen)
             {};
         };
 
@@ -532,7 +531,7 @@ class TPrnTagStore {
 
         std::string get_test_field(std::string name, size_t len, std::string date_format);
         std::string get_real_field(std::string name, size_t len, std::string date_format);
-        std::string get_field_from_bcbp(std::string name, size_t len, std::string date_format, boost::shared_ptr<BCBPSections> scan_data);
+        std::string get_field_from_bcbp(std::string name, size_t len, std::string date_format);
 
         void init_bp_tags();
 
