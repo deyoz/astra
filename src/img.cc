@@ -3,14 +3,42 @@
 #include <fstream>
 #include "exceptions.h"
 #include "oralib.h"
+#include "serverlib/str_utils.h"
+
+#define NICKNAME "DEN"
+#include "serverlib/slogger.h"
 
 namespace fs = boost::filesystem;
 using namespace std;
 using namespace EXCEPTIONS;
 
-const int PAGE_SIZE = 4000;
+const int PAGE_SIZE = 4000; // last sym reserved for null terminator
 
 namespace img {
+
+    void test(string buffer)
+    {
+        vector<string> img;
+        int page = 0;
+        while(true) {
+            size_t first = page * PAGE_SIZE;
+            size_t last = (page + 1) * PAGE_SIZE;
+            img.push_back(buffer.substr(first, last));
+            if(last >= buffer.size()) break;
+            page++;
+        }
+
+        cout << "img.size(): " << img.size() << endl;
+
+        buffer.clear();
+        for(vector<string>::iterator iv = img.begin(); iv != img.end(); iv++)
+            buffer += *iv;
+
+        ofstream out("utair_dup.bmp");
+        if(out.good()) {
+            out << buffer;
+        }
+    }
 
     // для cp866
     void process(const fs::path &apath)
@@ -22,10 +50,14 @@ namespace img {
         ifstream in(apath.string().c_str(), std::ios::binary);
         if(!in.good())
             throw Exception("Cannot open file %s", fname.str().c_str());
-        string buffer((
-                    std::istreambuf_iterator<char>(in)), 
-                (std::istreambuf_iterator<char>()));
-        cout << "buffer.size(): " << buffer.size() << endl;
+
+        string buffer = StrUtils::b64_encode(
+                string ((
+                        std::istreambuf_iterator<char>(in)), 
+                    (std::istreambuf_iterator<char>()))
+                );
+
+
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "begin "
@@ -45,12 +77,11 @@ namespace img {
         Qry.DeclareVariable("data", otString);
         int page = 0;
         while(true) {
-            size_t first = page * PAGE_SIZE;
-            size_t last = (page + 1) * PAGE_SIZE;
+            size_t idx = page * PAGE_SIZE;
             Qry.SetVariable("page_no", page);
-            Qry.SetVariable("data", buffer.substr(first, last));
+            Qry.SetVariable("data", buffer.substr(idx, PAGE_SIZE));
             Qry.Execute();
-            if(last >= buffer.size()) break;
+            if(idx + PAGE_SIZE >= buffer.size()) break;
             page++;
         }
     }
@@ -75,72 +106,49 @@ namespace img {
 
     int get_img(int argc,char **argv)
     {
-    try {
-        fs::path full_path;
-        if(argc > 1)
-            full_path = fs::system_complete(fs::path(argv[1]));
-        else
-            throw Exception("dir not specified");
-        if ( !fs::exists( full_path ) )
-            throw Exception("path not found: %s", full_path.string().c_str());
-        if ( not fs::is_directory( full_path ) )
-            throw Exception("path is not directory: %s", full_path.string().c_str());
+        try {
+            fs::path full_path;
+            if(argc > 1)
+                full_path = fs::system_complete(fs::path(argv[1]));
+            else
+                throw Exception("dir not specified");
+            if ( !fs::exists( full_path ) )
+                throw Exception("path not found: %s", full_path.string().c_str());
+            if ( not fs::is_directory( full_path ) )
+                throw Exception("path is not a directory: %s", full_path.string().c_str());
 
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "select data from images, images_data "
-            "   where images.name = :name and "
-            "   images.id = images_data.id "
-            "order by "
-            "   page_no";
-        Qry.CreateVariable("name", otString, full_path.string());
-        Qry.Execute();
-        /*
-        for(; not Qry.Eof; Qry.Next()) {
-            string fname = Qry.FieldAsString("name");
-            string version = Qry.FieldAsString("version");
-            string pr_locale = Qry.FieldAsString("pr_locale");
-            if(version != DEF_VERS)
-                fname += "." + version;
-            if(pr_locale == FALSE_LOCALE)
-                fname += "." + pr_locale;
-            fname += ".fr3";
+            cout << full_path.filename().c_str() << endl;
 
-            int len = Qry.GetSizeLongField("form");
-            shared_array<char> data (new char[len]);
-            Qry.FieldAsLong("form", data.get());
-            string form;
-            form.append(data.get(), len);
+            TQuery Qry(&OraSession);
+            Qry.SQLText =
+                "select name, data from images, images_data "
+                "where "
+                "   images.id = images_data.id "
+                "order by "
+                "   name, page_no";
+            Qry.Execute();
 
-            cout << "getting " << fname.c_str() << endl;
-            fs::path apath = full_path / fname;
-            ofstream out(apath.string().c_str());
-            if(!out.good())
-                throw Exception("Cannot open file %s", apath.string().c_str());
-            out << form;
+            map<string, string> images;
+            for(; not Qry.Eof; Qry.Next()) {
+                string &data = images[Qry.FieldAsString("name")];
+                data += Qry.FieldAsString("data");
+            }
+
+            for(map<string, string>::iterator im = images.begin(); im != images.end(); im++) {
+                cout << "getting " << im->first << endl;
+                fs::path apath = full_path / im->first;
+                ofstream out(apath.string().c_str());
+                if(!out.good())
+                    throw Exception("Cannot open file %s", apath.string().c_str());
+                out << StrUtils::b64_decode(im->second);
+            }
+
+            cout << "The images were fetched successfully" << endl;
+        } catch(Exception &E) {
+            usage(argv[0], E.what());
+            return 1;
         }
-        cout << "The templates were fetched successfully" << endl;
-    */
-    } catch(Exception &E) {
-        usage(argv[0], E.what());
-        return 1;
-    }
-    return 0;
-
-
-
-    /*
-
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "select data from images, images_data "
-            "   where images.name = :name and "
-            "   images.id = images_data.id "
-            "order by "
-            "   page_no";
-        Qry.CreateVariable("name", otString, 
         return 0;
-        */
     }
 
     int load_img(int argc,char **argv)

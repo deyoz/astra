@@ -126,7 +126,7 @@ int get_fr(int argc,char **argv)
         if ( !fs::exists( full_path ) )
             throw Exception("path not found: %s", full_path.string().c_str());
         if ( not fs::is_directory( full_path ) )
-            throw Exception("path is not directory: %s", full_path.string().c_str());
+            throw Exception("path is not a directory: %s", full_path.string().c_str());
 
         TQuery Qry(&OraSession);
         Qry.SQLText = "select name, version, form, pr_locale from fr_forms2";

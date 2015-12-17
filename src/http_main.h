@@ -48,6 +48,7 @@ struct HTTPClient
     jxt_interface["piece_concept"] =        JxtInfo(PIECE_CONCEPT_JXT_INTERFACE_ID, NULL);
     jxt_interface["GetPrintDataBP"] =       JxtInfo(PRINT_JXT_INTERFACE_ID, NULL);
     jxt_interface["GetGRPPrintDataBP"] =    JxtInfo(PRINT_JXT_INTERFACE_ID, NULL);
+    jxt_interface["GetImg"] =               JxtInfo(PRINT_JXT_INTERFACE_ID, NULL);
   }
 };
 

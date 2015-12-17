@@ -17,6 +17,7 @@
 #include "term_version.h"
 #include "emdoc.h"
 #include "serverlib/str_utils.h"
+#include "qrys.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -1949,6 +1950,28 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
             }
         }
     }
+}
+
+void PrintInterface::GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string name = NodeAsString("name", reqNode);
+    QParams QryParams;
+    QryParams << QParam("name", otString, name);
+
+    TCachedQuery Qry(
+            "select data from images_data, images where images.name = :name and images.id = images_data.id order by page_no",
+            QryParams
+            );
+
+    Qry.get().Execute();
+
+    string result;
+    for(; not Qry.get().Eof; Qry.get().Next())
+        result += Qry.get().FieldAsString("data");
+    if(result.empty())
+        throw Exception("image %s not found", name.c_str());
+    xmlNodePtr kioskImgNode = NewTextChild(resNode, "kiosk_img");
+    xmlNodePtr dataNode = NewTextChild(kioskImgNode, "data", result);
 }
 
 void PrintInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

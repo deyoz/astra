@@ -180,6 +180,17 @@ int separate_double(double d, int precision, int *iptr);
 class TPrnTagStore {
     private:
 
+        struct TImgMng {
+            static TImgMng *Instance()
+            {
+                static boost::shared_ptr<TImgMng> instance_ = NULL;
+                if ( !instance_ ) {
+                    instance_ = boost::shared_ptr<TImgMng>(new TImgMng);
+                }
+                return instance_.get();
+            }
+        };
+
         boost::shared_ptr<BCBPSections> scan_data;
         const std::string scan; // данные 2D баркода
 
