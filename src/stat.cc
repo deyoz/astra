@@ -3974,6 +3974,7 @@ void createXMLSelfCkinStat(const TStatParams &params,
     SetProp(colNode, "width", 50);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
+    NewTextChild(rowNode, "col");
     colNode = NewTextChild(headerNode, "col", getLocaleText("€ ―γ«μβ "));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", taLeftJustify);
