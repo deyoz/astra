@@ -1018,6 +1018,14 @@ void CloseBoarding( int point_id )
   {
     ProgError(STDLOG,"CloseBoarding.SendTlg (point_id=%d): %s",point_id,E.what());
   };
+  try
+  {
+    create_apis_file(point_id, ON_CLOSE_BOARDING);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"CloseBoarding.create_apis_file (point_id=%d): %s",point_id,E.what());
+  };
 };
 
 void Takeoff( int point_id )
