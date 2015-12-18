@@ -335,16 +335,33 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
     init_bp_tags();
 }
 
+static inline bool if_only_one_non_empty(const std::string& a, const std::string& b)
+{
+    if(a.empty() && !b.empty()) return true;
+    if(!b.empty() && a.empty()) return true;
+    return false;
+}
+
+static inline int check_date_for_reprint(int lower_shift, int upper_shift, BASIC::TDateTime  date_of_flight)
+{     BASIC::TDateTime ret = NowUTC();
+      int date_diff = ret - date_of_flight;
+      if(date_diff > 0 && static_cast<u_int>(date_diff) > lower_shift)
+                return -1;
+      if(date_diff < 0 && static_cast<u_int>(-date_diff) > upper_shift)
+                return 1;
+      return 0;
+}
+
 
 bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const string &airp, const string &airline)
 {
     TElemFmt fmt;    
     string airp_id = ElemToElemId(etAirp, airp, fmt);
     if(fmt == efmtUnknown)
-	airp_id = airp;
+    airp_id = airp;
     string airline_id = ElemToElemId(etAirline, airline, fmt);
     if (fmt==efmtUnknown)
-	airline_id = airline;
+    airline_id = airline;
     if(airp_id.empty() || airline_id.empty()) return false;
     struct Reprint_options
     {   string desk, airline, airp;
@@ -368,6 +385,7 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
     Reprint_options rep_opts;
     Reprint_options* found_opt = 0;
     int count_wrong_airp = 0, count_wrong_airline = 0,count_wrong_airp_in_grp_field = 0, count_wrong_airline_in_grp_field = 0, temp_desk_grp;
+    int temp_upper_shift, temp_lower_shift;
     bool have_wrong_desk = false;
     std::string temp_desk;
     int counter = 0;
@@ -375,10 +393,12 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
     {    temp_airline =  Qry.FieldAsString("airline");
          temp_airp = Qry.FieldAsString("airp");
          temp_desk = Qry.FieldAsString("desk");
-         temp_desk_grp = Qry.FieldAsInteger("desk_grp");	
+         temp_desk_grp = Qry.FieldAsInteger("desk_grp");
+         temp_lower_shift = Qry.FieldAsInteger("lower_shift");
+         temp_upper_shift = Qry.FieldAsInteger("upper_shift");
          if(temp_airline != airline_id && !temp_airline.empty())
          {   if(temp_desk_grp == desk_grp)
-		count_wrong_airline_in_grp_field++;
+              count_wrong_airline_in_grp_field++;
              else count_wrong_airline++; 
              continue;
          } 
@@ -388,18 +408,32 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
               else  count_wrong_airp++;
               continue;
          }
-         if(temp_airline.empty()) temp_airline = airline_id;
-	 if(temp_airp.empty()) temp_airp = airp_id;
+
          if(found_opt)
-         { if(temp_desk.empty()) continue;
-           if(!found_opt->airp.empty() && temp_airp.empty()) continue;
-           if(!found_opt->airline.empty() && temp_airline.empty()) continue;
-         }	
+         { if(temp_desk.empty() && !found_opt->desk.empty()) continue;
+           if(!if_only_one_non_empty(temp_desk, found_opt->desk) && temp_desk_grp != found_opt->desk_grp)
+           { if(if_only_one_non_empty(found_opt->airp, found_opt->airline) &&
+                   if_only_one_non_empty(temp_airp, temp_airline) &&
+                        if_only_one_non_empty(found_opt->airp, temp_airp))
+             {
+                if(check_date_for_reprint(found_opt->lower_shift, found_opt->upper_shift, date_of_flight))
+                   continue;
+             }
+             else
+             {  if(!found_opt->airp.empty() && temp_airp.empty()) continue;
+                if(!found_opt->airline.empty() && temp_airline.empty()) continue;
+             }
+           }
+           else
+           {    if(!found_opt->desk.empty() && !found_opt->desk_grp)
+                  continue;
+           }
+         }
          found_opt = &rep_opts;
          found_opt->desk = Qry.FieldAsString("desk");
          found_opt->desk_grp = Qry.FieldAsInteger("desk_grp");
          found_opt->airp = temp_airp;
-         found_opt->airline = temp_airline;
+         found_opt->airline = temp_airp;
          found_opt->lower_shift = Qry.FieldAsInteger("lower_shift");
          found_opt->upper_shift = Qry.FieldAsInteger("upper_shift");
     }
@@ -1218,14 +1252,16 @@ void TPrnTagStore::TPointInfo::Init(TDevOperType op, int apoint_id, int agrp_id)
 
 string TPrnTagStore::BCBP_V_5(TFieldParams fp)
 {
-    if(scan_data != NULL)
-        return scan;
+        LogTrace(TRACE5) << "Den was here";
+        if(scan_data != NULL)
+            return scan;
         BCBPSections barcode;
         *scan_data = barcode;
         string surname = transliter(paxInfo.surname_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
         string name = transliter(paxInfo.name_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
         barcode.add_section();
         barcode.set_passenger_name_surname(name, surname);
+        barcode.set_version(5);
         barcode.set_electronic_ticket_indicator((ETKT(fp).empty() ? " " : "E"));
         vector<TPnrAddrItem>::iterator iv = pnrInfo.pnrs.begin();
             for(; iv != pnrInfo.pnrs.end(); iv++)
@@ -1257,15 +1293,6 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
         barcode.set_passenger_description(static_cast<BCBPSectionsEnums::PassengerDescr>(pers_type));
         barcode.set_doc_type(BCBPSectionsEnums::boarding_pass);
         barcode.set_komtech_pax_id(paxInfo.reg_no, 0);
-        barcode.set_operatingCarrierPNR("0850CP", 0);
-        barcode.set_from_city_airport("FRA", 0);
-        barcode.set_to_city_airport("VKO", 0);
-        barcode.set_operating_carrier_designator("AC", 0);
-        barcode.set_flight_number("0864", 0 );
-        barcode.set_compartment_code(' ', 0);
-        barcode.set_seat_number("GGGG", 0);
-        barcode.set_check_in_seq_number("9000 ", 0);
-        barcode.set_passenger_status('4', 0);
         return barcode.build_bcbp_str();
 }
 

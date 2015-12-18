@@ -314,7 +314,7 @@ class BCBPSections : public  BCBPInternalWork
     }
     void check_i(int i);
 
-
+    void set_version_raw();
   public:
 
     struct Baggage_plate_nums

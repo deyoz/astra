@@ -19,7 +19,7 @@ using namespace BCBPSectionsEnums;
 const std::string BCBPInternalWork::meet_null_term_symb = "meet unexpected null (\\0) symbol in str";
 static const string mandatory_str = "mandatory";
 static const string conditional_str = "conditional";
-static const string airline_data_str = "conditional";
+static const string airline_data_str = "airline";
 static const string alfa_in_numeric_field = "got non-number in numeric field";
 static const string non_decimal_str = "non-decimal symbols before last";
 static const string komtex_str = "komtex";
@@ -83,7 +83,7 @@ static const TConstPos pos_length_sec_data(pos_typeof_sec_data,2);
 static const TConstPos pos_sec_data(pos_length_sec_data,1);
 
 
-static const TConstPos pos_komtex_pax_id(0,10);
+static const TConstPos pos_komtex_pax_id(0,9);
 static const TConstPos pos_komtex_version(pos_komtex_pax_id,1);
 static const TConstPos pos_komtex_pax_id_sign(pos_komtex_version, komtex_str.size());
 
@@ -1231,11 +1231,10 @@ std::string BCBPSections::security()
 
 
 int BCBPSections::komtech_pax_id(int i)
-{   string err;
-    shure = (get_alfa_chars_str<true>(repeated[i].individual, pos_komtex_version, err) == komtex_str);
-    err = "";
-    int ret = get_int(repeated[i].individual, pos_komtex_pax_id, err);
-    process_err("komtech pax id", airline_data_str, err);
+{   string err, err1;
+    shure = (get_alfa_chars_str<true>(repeated[i].individual, pos_komtex_pax_id_sign, err) == komtex_str);
+    int ret = get_int(repeated[i].individual, pos_komtex_pax_id, err1);
+    process_err("komtech pax id", airline_data_str, err1, i);
     return ret;
 }
 
@@ -1269,51 +1268,59 @@ void BCBPSections::del_section(unsigned int i)
     repeated.erase(repeated.begin() + i);
 }
 
+void BCBPSections::set_version_raw()
+{   const std::string  basic_v_str = ">500";
+    if(unique.conditional.empty() && repeated[0].conditional.empty() && repeated[0].individual.empty() && repeated.size() < 2) return;
+    if(unique.conditional.size() >= pos_version.end)
+    {   char& version = unique.conditional[pos_version.begin];
+        if(version < '0' || version > '9')
+              version = '5';
+        unique.conditional[pos_begining_of_version_num.begin] = '>';
+        if(unique.conditional.size() < pos_size_following_struct.end)
+            unique.conditional.insert(unique.conditional.size(), pos_size_following_struct.end - unique.conditional.size(), '0');
+    }
+    else
+        unique.conditional = basic_v_str; //start, version, field_size
+    i_to_hex_char(unique.conditional.size() - basic_v_str.size(), unique.conditional, pos_size_following_struct.begin);
+    if(repeated[0].conditional.size() <= pos_size_rep_section.end)
+        repeated[0].conditional = "00";
+    else
+        i_to_hex_char(repeated[0].conditional.size() - pos_size_rep_section.end, repeated[0].conditional, pos_size_rep_section.begin);
+}
+
 std::string BCBPSections::build_bcbp_str()
 {   string ret = unique.mandatory;
     if(unique.mandatory.size() < pos_electronic_ticket_indicator.end)
         process_err("mandatory unique", "", "passenger name/surname or electronic ticket indicator not found during building bcbp");
     if(!repeated.size())
         repeated.insert(repeated.begin(), BCBPRepeatedSections());
+    ret[pos_format_code.begin] = 'M';
+    ret[pos_number_of_legs_encoded.begin] = repeated.size() + '0';
     ret+=repeated[0].mandatory;
-    if(ret.size() < pos_field_of_var_sz_field.end)
-        ret.insert(ret.size(), pos_field_of_var_sz_field.end - ret.size(), ' ');
-    bool found_data_in_first_nullable_sections = false;
-    if(!unique.conditional.size())
-        unique.conditional = ">500"; //start, version, field_size
-    else
-        i_to_hex_char(unique.conditional.size() - sizeof(">500"), unique.conditional, pos_size_following_struct.begin), found_data_in_first_nullable_sections = true;
-    if(repeated[0].conditional.size() > 2)
-         i_to_hex_char(repeated[0].conditional.size(), repeated[0].conditional), found_data_in_first_nullable_sections = true;
-    else
-        repeated[0].conditional = "00";
-    if(found_data_in_first_nullable_sections)
-    {   if(unique.conditional.size() >= 2)
-        {   char& version = unique.conditional[pos_version.begin];
-            if(version < '0' || version > '9')
-                version = 5;
-        }
-        ret+=unique.conditional;
-        ret+=repeated[0].conditional;
-        ret+=repeated[0].individual;
-    }
     ret = add_whitespaces(ret, pos_mandatory_1st_section.size(), "", "mandatory all fields");
+    set_version_raw();
+    ret+=unique.conditional;
+    ret+=repeated[0].conditional;
+    ret+=repeated[0].individual;
     i_to_hex_char(ret.size() - pos_mandatory_1st_section.size(), ret, pos_mandatory_1st_section.size() - 2);
     string section;
     for(unsigned int i = 1; i<repeated.size(); i++)
     {   if(repeated[i].mandatory.size() < pos_mandatory_repeated_section.end)
-            repeated[i].mandatory.insert(repeated[i].mandatory.size(), pos_mandatory_repeated_section.end - repeated[i].mandatory.size(), ' ');
-        if(repeated[i].conditional.size() > 2)
-            i_to_hex_char(repeated[i].conditional.size(), repeated[i].conditional);
+            extend_section(repeated[i].mandatory, pos_mandatory_repeated_section.end);
+        if(repeated[i].conditional.size() > pos_size_rep_section.end)
+            i_to_hex_char(repeated[i].conditional.size() - pos_size_rep_section.end, repeated[i].conditional, pos_size_rep_section.begin);
         else repeated[i].conditional = "00";
         section =repeated[i].mandatory + repeated[i].conditional + repeated[i].individual;
         i_to_hex_char(section.size() - pos_mandatory_repeated_section.end, section, pos_field_of_var_sz_field.begin);
         ret += section;
     }
     if(unique.security.empty()) unique.security = "^000";
-    ret+=unique.security;
-    ret[pos_format_code.begin] = 'M';
-    ret[pos_number_of_legs_encoded.begin] = repeated.size() + '0';
+    else
+    {   if(unique.security.size() < pos_sec_data.begin) unique.security.insert(ret.size(), pos_sec_data.begin - ret.size(), ' ');;
+        unique.security[pos_beg_security_data.begin] = '^';
+        i_to_hex_char(unique.security.size() - pos_sec_data.begin, ret, pos_length_sec_data.begin);
+    }
+    ret+=unique.security;    
     return ret;
 }
 
@@ -1507,7 +1514,7 @@ void BCBPSections::set_date_of_flight(boost::optional<BASIC::TDateTime> x, int i
         }
         int julian_date =  DateTimeToJulianDate(*x);
         if(!julian_date)
-            process_err("date of flight", conditional_str, "impossible date");
+            process_err("date of flight", mandatory_str, "impossible date", i);
         write_field(repeated[i].mandatory, pos_date_of_flight, julian_date, "date of flight", mandatory_str);
 }
 
@@ -1587,7 +1594,7 @@ void BCBPSections::set_fast_track(boost::optional<bool> x, int i)
 void BCBPSections::set_komtech_pax_id(int x, int i, bool shure)
 {   write_field(repeated[i].individual, pos_komtex_pax_id, x, "komtex pax id", airline_data_str);
     if(shure)
-    {   write_field(repeated[i].individual, pos_komtex_pax_id, 1, "komtex pax id version", airline_data_str);
+    {   write_field(repeated[i].individual, pos_komtex_version, 1, "komtex pax id version", airline_data_str);
         write_field(repeated[i].individual, pos_komtex_pax_id_sign, komtex_str, "komtex pax id sign", airline_data_str);
     }
 }
@@ -1597,18 +1604,18 @@ std::string BCBPSections::test_bcbp_build()
     x.add_section();
     x.add_section();
     x.set_passenger_name_surname("Lisa", "A");
-    std::cout<<"set_passenger_name_surname"<<x.unique.mandatory<<"\n";
     x.set_electronic_ticket_indicator(true);
-    std::cout<<"set_electronic_ticket_indicator"<<x.unique.mandatory<<"\n";
     x.set_operatingCarrierPNR("0847CP", 0);
     x.set_from_city_airport("YUL", 0);
     x.set_to_city_airport("VKO", 0);
     x.set_operating_carrier_designator("AC", 0);
     x.set_flight_number("0834", 0 );
+    x.set_date_of_flight(JulianDateToDateTime(360, 15), 0);
     x.set_compartment_code(' ', 0);
     x.set_seat_number("001A", 0);
     x.set_check_in_seq_number("0025 ", 0);
     x.set_passenger_status('1', 0);
+    x.set_komtech_pax_id(404303101, 0, true);
 
     x.set_passenger_description(female);
     x.set_source_of_checkin(town_agent);
@@ -1621,11 +1628,27 @@ std::string BCBPSections::test_bcbp_build()
     x.set_to_city_airport("VKO", 1);
     x.set_operating_carrier_designator("AC", 1);
     x.set_flight_number("0864", 1 );
+    x.set_date_of_flight(JulianDateToDateTime(360, 15), 1);
     x.set_compartment_code(' ', 1);
-    x.set_seat_number("GGGG", 1);
+    x.set_seat_number("002G", 1);
     x.set_check_in_seq_number("9000 ", 1);
     x.set_passenger_status('4', 1);
+    x.set_passenger_description(female);
+    x.set_source_of_checkin(third_party_vendor);
+    x.set_source_of_boarding_pass_issuance(third_party_vendor);
+    x.set_date_of_boarding_pass_issuance(boost::none);
+    x.set_airline_num_code(100, 1);
+    x.set_doc_serial_num("1234567890", 1);
+    x.set_selectee(true, 1);
+    x.set_international_doc_verification('2', 1);
+    x.set_marketing_carrier_designator("UT ", 1);
+    x.set_frequent_flyer_airline_designator("UT ", 1);
+    x.set_frequent_flyer_num("12", 1);
+    x.set_free_baggage_allowance(std::make_pair(20, kg), 1);
+    x.set_fast_track(true, 1);
+    x.set_komtech_pax_id(404303101, 1, false);
     return x.build_bcbp_str();
+
 }
 
 
