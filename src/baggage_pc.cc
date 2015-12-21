@@ -1129,13 +1129,19 @@ const TSegItem& TSegItem::toXML(xmlNodePtr node, const std::string &lang) const
   return *this;
 }
 
-const TPaxSegItem& TPaxSegItem::toXML(xmlNodePtr node, const int &ticket_coupon, const std::string &lang) const
+const TPaxSegItem& TPaxSegItem::toXML(xmlNodePtr node, const std::string &lang) const
 {
   if (node==NULL) return *this;
 
   TSegItem::toXML(node, lang);
   SetProp(node, "subclass", ElemIdToPrefferedElem(etSubcls, subcl, efmtCodeNative, lang));
-  SetProp(node, "coupon_num", ticket_coupon, ASTRA::NoExists);
+  SetProp(node, "coupon_num", tkn.coupon, ASTRA::NoExists);
+  if (!tkn.no.empty())
+  {
+    xmlNodePtr tknNode=NewTextChild(node, "ticket");
+    SetProp(tknNode, "number", tkn.no);
+    SetProp(tknNode, "coupon_num", tkn.coupon, ASTRA::NoExists);
+  }
   for(list<CheckIn::TPnrAddrItem>::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
     SetProp(NewTextChild(node, "recloc", i->addr), "crs", airlineToXML(i->airline, lang));
   for(vector<CheckIn::TPaxFQTItem>::const_iterator i=fqts.begin(); i!=fqts.end(); ++i)
@@ -1177,8 +1183,7 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node, const std::string &lang) const
   }
 
   for(TPaxSegMap::const_iterator i=segs.begin(); i!=segs.end(); ++i)
-    i->second.toXML(NewTextChild(node, "segment"),
-                    (i==segs.begin()?tkn.coupon:ASTRA::NoExists), lang);
+    i->second.toXML(NewTextChild(node, "segment"), lang);
 
   return *this;
 }

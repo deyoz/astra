@@ -316,6 +316,7 @@ class TPaxSegItem : public TSegItem
 {
   public:
     std::string subcl;
+    CheckIn::TPaxTknItem tkn;
     std::list<CheckIn::TPnrAddrItem> pnrs;
     std::vector<CheckIn::TPaxFQTItem> fqts;
     TPaxSegItem()
@@ -326,10 +327,11 @@ class TPaxSegItem : public TSegItem
     void clear()
     {
       subcl.clear();
+      tkn.clear();
       pnrs.clear();
       fqts.clear();
     }
-    const TPaxSegItem& toXML(xmlNodePtr node, const int &ticket_coupon, const std::string &lang) const;
+    const TPaxSegItem& toXML(xmlNodePtr node, const std::string &lang) const;
 };
 
 typedef std::map<int, TPaxSegItem> TPaxSegMap;
