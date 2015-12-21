@@ -150,7 +150,12 @@ void RecalcPaidBagToDB(const std::map<int/*id*/, TEventsBagItem> &prior_bag, //T
                        const CheckIn::TPaxList &curr_paxs,
                        const std::list<TPaidBagItem> &prior_paid,
                        bool pr_unaccomp,
-                       bool use_traces);
+                       bool use_traces,
+                       std::list<TPaidBagItem> &result_paid);
+
+void TryDelPaidBagEMD(const std::list<WeightConcept::TPaidBagItem> &curr_paid,
+                      const CheckIn::PaidBagEMDList &prior_emds,
+                      boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds);
 
 int test_norms(int argc,char **argv);
 

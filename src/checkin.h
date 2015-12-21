@@ -67,17 +67,14 @@ class TAfterSaveSegInfo
 {
   public:
     int point_dep;
-    TTripInfo operFlt;
-    TTripInfo markFlt;
     int grp_id;
     TGrpToLogInfo grpInfoBefore, grpInfoAfter;
     void clear()
     {
       point_dep=ASTRA::NoExists;
-      operFlt.Clear();
-      markFlt.Clear();
       grp_id=ASTRA::NoExists;
       grpInfoBefore.clear();
+      grpInfoAfter.clear();
     }
     TAfterSaveSegInfo()
     {
@@ -92,12 +89,14 @@ class TAfterSaveInfo
     int tckin_id;
     CheckIn::TAfterSaveActionType action;
     int agent_stat_period;
+    CheckIn::TPaidBagEMDProps handmadeEMDDiff;
     void clear()
     {
       segs.clear();
       tckin_id=ASTRA::NoExists;
       action=actionNone;
       agent_stat_period=ASTRA::NoExists;
+      handmadeEMDDiff.clear();
     }
     TAfterSaveInfo()
     {

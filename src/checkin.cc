@@ -3154,7 +3154,7 @@ void CheckIn::TAfterSaveInfo::toLog(const string& where)
 
     UpdGrpToLogInfo(s->grp_id, s->grpInfoAfter);
     TAgentStatInfo agentStat;
-    SaveGrpToLog(s->point_dep, s->operFlt, s->markFlt, s->grpInfoBefore, s->grpInfoAfter, agentStat);
+    SaveGrpToLog(s->grpInfoBefore, s->grpInfoAfter, handmadeEMDDiff, agentStat);
     recountBySubcls(s->point_dep, s->grpInfoBefore, s->grpInfoAfter);
 
     if (agent_stat_period==ASTRA::NoExists) continue;
@@ -3982,11 +3982,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       AfterSaveInfo.agent_stat_period=NodeAsInteger("agent_stat_period",reqNode);
     AfterSaveInfo.segs.push_back(CheckIn::TAfterSaveSegInfo());
     AfterSaveInfo.segs.back().point_dep=grp.point_dep;
-    AfterSaveInfo.segs.back().operFlt=fltInfo;
-    AfterSaveInfo.segs.back().markFlt=fltInfo;
     TGrpToLogInfo &grpInfoBefore=AfterSaveInfo.segs.back().grpInfoBefore;
     TGrpToLogInfo &grpInfoAfter=AfterSaveInfo.segs.back().grpInfoAfter;
-    TTripInfo &markFltInfo=AfterSaveInfo.segs.back().markFlt;
+    CheckIn::TPaidBagEMDProps &handmadeEMDDiff=AfterSaveInfo.handmadeEMDDiff;
+    TTripInfo markFltInfo=fltInfo;
     markFltInfo.scd_out=UTCToLocal(markFltInfo.scd_out,AirpTZRegion(markFltInfo.airp));
     modf(markFltInfo.scd_out,&markFltInfo.scd_out);
     bool pr_mark_norms=false;
@@ -5370,6 +5369,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             boost::optional< list<CheckIn::TPaidBagEMDItem> > emd;
             CheckIn::PaidBagEMDFromXML(segNode, emd, grp.piece_concept);
+            CheckIn::TPaidBagEMDProps paid_bag_emd_props;
+            CheckIn::CalcPaidBagEMDProps(paidBagEMDBefore, emd, handmadeEMDDiff, paid_bag_emd_props);
+            CheckIn::PaidBagEMDPropsToDB(grp.id, paid_bag_emd_props);
+
             if (!grp.piece_concept)
             {
               if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
@@ -5385,11 +5388,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 GetBagToLogInfo(grp.id, curr_bag);
                 list<WeightConcept::TPaidBagItem> prior_paid;
                 WeightConcept::PaidBagFromDB(NoExists, grp.id, prior_paid);
-                WeightConcept::RecalcPaidBagToDB(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true);
+                list<WeightConcept::TPaidBagItem> result_paid;
+                WeightConcept::RecalcPaidBagToDB(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true, result_paid);
+                WeightConcept::TryDelPaidBagEMD(result_paid, paidBagEMDBefore, emd);
               }
               else
               {
                 WeightConcept::PaidBagToDB(grp.id, grp.paid);
+                if (grp.paid)
+                  WeightConcept::TryDelPaidBagEMD(grp.paid.get(), paidBagEMDBefore, emd);
               };
 
               CheckIn::PaidBagEMDToDB(grp.id, emd);
@@ -6319,6 +6326,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
             }
           };
           PieceConcept::PaidBagToDB(first_grp_id, paid);
+          PieceConcept::TryDelPaidBagEMD(first_grp_id, paid);
         };
       }
     }

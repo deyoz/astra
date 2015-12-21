@@ -30,7 +30,10 @@ string GetSQL(const TListType ltype)
            "       a.service_name, \n"
            "       a.emd_type, \n"
            "       a.emd_no, \n"
-           "       a.emd_coupon \n";
+           "       a.emd_coupon, \n"
+           "       a.transfer_num, \n"
+           "       a.et_no, \n"
+           "       a.et_coupon \n";
     if (ltype==allWithTknByPointId)
       sql << ",      a.grp_id, \n"
              "       a.pax_id, \n"
@@ -56,9 +59,9 @@ string GetSQL(const TListType ltype)
              "         e.service_name, \n"
              "         e.emd_type, \n"
              "         e.emd_no, \n"
-             "         e.emd_coupon \n";
+             "         e.emd_coupon, \n";
       if (ltype==allWithTknByPointId)
-        sql << ",        pax.pax_id, \n"
+        sql << "         pax.pax_id, \n"
                "         pax.surname, \n"
                "         pax.name, \n"
                "         pax.pers_type, \n"
@@ -68,11 +71,17 @@ string GetSQL(const TListType ltype)
                "         pax.ticket_rem, \n"
                "         pax.ticket_confirm, \n"
                "         pax.pr_brd, \n"
-               "         pax.refuse \n";
+               "         pax.refuse, \n";
       if (pass==0)
-        sql << "  FROM pax_grp, pax, pax_asvc e \n";
+        sql << "         0 AS transfer_num, \n"
+               "         NULL AS et_no, \n"
+               "         NULL AS et_coupon \n"
+               "  FROM pax_grp, pax, pax_asvc e \n";
       else
-        sql << "  FROM pax_grp, pax, pax_emd e \n";
+        sql << "         e.transfer_num, \n"
+               "         e.et_no, \n"
+               "         e.et_coupon \n"
+               "  FROM pax_grp, pax, pax_emd e \n";
       sql << "  WHERE pax_grp.grp_id=pax.grp_id AND \n"
              "        pax.pax_id=e.pax_id AND \n";
       if (ltype==unboundByPointId ||
@@ -677,6 +686,25 @@ bool TPaxEMDItem::valid() const
           et_coupon!=NoExists);
 }
 
+void GetPaxUnboundEMD(int pax_id, std::multiset<TPaxEMDItem> &emds)
+{
+  PaxASVCList::printSQLs(); //!!!vlad
+  emds.clear();
+  TCachedQuery Qry(PaxASVCList::GetSQL(PaxASVCList::unboundByPaxId),
+                   QParams() << QParam("id", otInteger, pax_id));
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+  {
+    TPaxEMDItem item;
+    item.fromDB(Qry.get());
+    std::set<ASTRA::TRcptServiceType> service_types;
+    item.rcpt_service_types(service_types);
+    if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
+        service_types.find(ASTRA::rstPaid)==service_types.end()) continue;
+    emds.insert(item);
+  };
+}
+
 bool LoadPaxEMD(int pax_id, list<TPaxEMDItem> &emds)
 {
   emds.clear();
@@ -684,7 +712,7 @@ bool LoadPaxEMD(int pax_id, list<TPaxEMDItem> &emds)
                    QParams() << QParam("pax_id", otInteger, pax_id));
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
-    emds.push_back(TPaxEMDItem().fromDB(Qry.get()));
+    emds.push_back(TPaxEMDItem().fromDB(Qry.get()));     //!!!vlad service_types?
 
   return !emds.empty();
 };

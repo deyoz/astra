@@ -1089,8 +1089,11 @@ void RecalcPaidBagToDB(const map<int/*id*/, TEventsBagItem> &prior_bag, //TEvent
                        const CheckIn::TPaxList &curr_paxs,
                        const std::list<TPaidBagItem> &prior_paid,
                        bool pr_unaccomp,
-                       bool use_traces)
+                       bool use_traces,
+                       std::list<TPaidBagItem> &result_paid)
 {
+   result_paid.clear();
+
    if (use_traces) ProgTrace(TRACE5, "%s: flt:%s", __FUNCTION__, flt.traceStr().c_str());
 
    map<int/*pax_id*/, TWidePaxInfo> paxs;
@@ -1108,7 +1111,6 @@ void RecalcPaidBagToDB(const map<int/*id*/, TEventsBagItem> &prior_bag, //TEvent
    const list<TPaidBagItem> &curr_paid=grp.paid?grp.paid.get():list<TPaidBagItem>();
    RecalcPaidBagWide(prior_bag, curr_bag, all_norms, prior_paid, curr_paid, paid_wide);
 
-   std::list<TPaidBagItem> result_paid;
    for(map<int/*bag_type*/, TPaidBagWideItem>::const_iterator i=paid_wide.begin(); i!=paid_wide.end(); ++i)
    {
      const TPaidBagWideItem &item=i->second;
@@ -1138,6 +1140,37 @@ void RecalcPaidBagToDB(const map<int/*id*/, TEventsBagItem> &prior_bag, //TEvent
        GrpNormsToDB(p->first, norms);
    }
 };
+
+void TryDelPaidBagEMD(const list<WeightConcept::TPaidBagItem> &curr_paid,
+                      const CheckIn::PaidBagEMDList &prior_emds,
+                      boost::optional< list<CheckIn::TPaidBagEMDItem> > &curr_emds)
+{
+  set<int> bag_types;
+  for(list<WeightConcept::TPaidBagItem>::const_iterator p=curr_paid.begin(); p!=curr_paid.end(); ++p)
+    if (p->weight>0) bag_types.insert(p->bag_type);
+
+  if (curr_emds)
+  {
+    //были изменения EMD с терминала
+    for(list<CheckIn::TPaidBagEMDItem>::iterator e=curr_emds.get().begin(); e!=curr_emds.get().end();)
+      if (e->rfisc.empty() && bag_types.find(e->bag_type)==bag_types.end())
+        e=curr_emds.get().erase(e);
+      else
+        e++;
+  }
+  else
+  {
+    list<CheckIn::TPaidBagEMDItem> emds;
+    bool modified=false;
+    for(CheckIn::PaidBagEMDList::const_iterator e=prior_emds.begin(); e!=prior_emds.end(); ++e)
+      if (e->second.rfisc.empty() && bag_types.find(e->second.bag_type)==bag_types.end())
+        modified=true;
+      else
+        emds.push_back(e->second);
+    if (modified) curr_emds=emds;
+  };
+}
+
 
 //CREATE TABLE drop_test_norm_processed
 //(

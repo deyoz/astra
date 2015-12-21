@@ -369,6 +369,73 @@ void GetBagToLogInfo(int grp_id, map<int/*id*/, TEventsBagItem> &bag)
   }
 }
 
+void TGrpToLogInfo::clearExcess()
+{
+  paid.clearExcess();
+  for(map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator i=pax.begin(); i!=pax.end(); ++i)
+    i->second.paid.clearExcess();
+}
+
+void TGrpToLogInfo::setExcess()
+{
+  if (!piece_concept)
+  {
+    list<WeightConcept::TPaidBagItem> paid_bag;
+    WeightConcept::PaidBagFromDB(NoExists, grp_id, paid_bag);
+    for(list<WeightConcept::TPaidBagItem>::const_iterator p=paid_bag.begin(); p!=paid_bag.end(); ++p)
+      paid.add(*p);
+  }
+  else
+  {
+    list<PieceConcept::TPaidBagItem> paid_bag;
+    PieceConcept::PaidBagFromDB(grp_id, true, paid_bag);
+    for(list<PieceConcept::TPaidBagItem>::const_iterator p=paid_bag.begin(); p!=paid_bag.end(); ++p)
+    {
+      if (p->trfer_num!=0) continue;
+      if (p->pax_id==ASTRA::NoExists)
+      {
+        paid.add(*p);
+      }
+      else
+      {
+        map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator i=findPax(p->pax_id);
+        if (i!=pax.end())
+          i->second.paid.add(*p);
+        else
+          paid.add(*p);
+      };
+    };
+  };
+}
+
+void TGrpToLogInfo::clearEmd()
+{
+  paid.emd.clear();
+  for(map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator i=pax.begin(); i!=pax.end(); ++i)
+    i->second.paid.emd.clear();
+}
+
+void TGrpToLogInfo::setEmd()
+{
+  list<CheckIn::TPaidBagEMDItem> paid_bag_emd;
+  PaidBagEMDFromDB(grp_id, paid_bag_emd);
+  for(list<CheckIn::TPaidBagEMDItem>::const_iterator e=paid_bag_emd.begin(); e!=paid_bag_emd.end(); ++e)
+  {
+    if (!piece_concept || e->pax_id==ASTRA::NoExists)
+    {
+      paid.emd.insert(*e);
+    }
+    else
+    {
+      map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator i=findPax(e->pax_id);
+      if (i!=pax.end())
+        i->second.paid.emd.insert(*e);
+      else
+        paid.emd.insert(*e);
+    };
+  };
+}
+
 void UpdGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 {
   TQuery Qry(&OraSession);
@@ -381,28 +448,10 @@ void UpdGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 
   if (grpInfo.piece_concept)
   {
-    grpInfo.paid.clearExcess();
-    for(map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator i=grpInfo.pax.begin(); i!=grpInfo.pax.end(); ++i)
-      i->second.paid.clearExcess();
-
-    list<PieceConcept::TPaidBagItem> paid;
-    PieceConcept::PaidBagFromDB(grp_id, true, paid);
-    for(list<PieceConcept::TPaidBagItem>::const_iterator p=paid.begin(); p!=paid.end(); ++p)
-    {
-      if (p->trfer_num!=0) continue;
-      if (p->pax_id==ASTRA::NoExists)
-      {
-        grpInfo.paid.add(*p);
-      }
-      else
-      {
-        map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator i=grpInfo.findPax(p->pax_id);
-        if (i!=grpInfo.pax.end())
-          i->second.paid.add(*p);
-        else
-          grpInfo.paid.add(*p);
-      };
-    };
+    grpInfo.clearExcess();
+    grpInfo.setExcess();
+    grpInfo.clearEmd();
+    grpInfo.setEmd();
   };
 }
 
@@ -413,7 +462,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
   Qry.Clear();
   Qry.SQLText=
     "SELECT "
-    "       pax_grp.airp_arv, pax_grp.class, pax_grp.status, "
+    "       pax_grp.point_dep, pax_grp.airp_arv, pax_grp.class, pax_grp.status, "
     "       pax_grp.pr_mark_norms, pax_grp.bag_refuse, "
     "       pax.pax_id, pax.reg_no, "
     "       pax.surname, pax.name, pax.pers_type, pax.refuse, pax.subclass, pax.is_female, pax.seats, "
@@ -435,6 +484,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
   if (!Qry.Eof)
   {
     grpInfo.grp_id=grp_id;
+    grpInfo.point_dep=Qry.FieldAsInteger("point_dep");
     grpInfo.trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
     grpInfo.piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
     for(;!Qry.Eof;Qry.Next())
@@ -513,53 +563,10 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         };
       };
 
-      if (!grpInfo.piece_concept)
-      {
-        list<WeightConcept::TPaidBagItem> paid;
-        WeightConcept::PaidBagFromDB(NoExists, grp_id, paid);
-        for(list<WeightConcept::TPaidBagItem>::const_iterator p=paid.begin(); p!=paid.end(); ++p)
-          grpInfo.paid.add(*p);
-      }
-      else
-      {
-        list<PieceConcept::TPaidBagItem> paid;
-        PieceConcept::PaidBagFromDB(grp_id, true, paid);
-        for(list<PieceConcept::TPaidBagItem>::const_iterator p=paid.begin(); p!=paid.end(); ++p)
-        {
-          if (p->trfer_num!=0) continue;
-          if (p->pax_id==ASTRA::NoExists)
-          {
-            grpInfo.paid.add(*p);
-          }
-          else
-          {
-            map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator i=grpInfo.findPax(p->pax_id);
-            if (i!=grpInfo.pax.end())
-              i->second.paid.add(*p);
-            else
-              grpInfo.paid.add(*p);
-          };
-        };
-      };
+      grpInfo.setExcess();
     };
 
-    list<CheckIn::TPaidBagEMDItem> emd;
-    PaidBagEMDFromDB(grp_id, emd);
-    for(list<CheckIn::TPaidBagEMDItem>::const_iterator e=emd.begin(); e!=emd.end(); ++e)
-    {
-      if (!grpInfo.piece_concept || e->pax_id==ASTRA::NoExists)
-      {
-        grpInfo.paid.emd.insert(*e);
-      }
-      else
-      {
-        map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator i=grpInfo.findPax(e->pax_id);
-        if (i!=grpInfo.pax.end())
-          i->second.paid.emd.insert(*e);
-        else
-          grpInfo.paid.emd.insert(*e);
-      };
-    };
+    grpInfo.setEmd();
   };
 };
 
@@ -645,22 +652,25 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
   };
 };
 
-void SaveGrpToLog(int point_id,
-                  const TTripInfo &operFlt,
-                  const TTripInfo &markFlt,
-                  const TGrpToLogInfo &grpInfoBefore,
+void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
                   const TGrpToLogInfo &grpInfoAfter,
+                  const CheckIn::TPaidBagEMDProps &handmadeEMDDiff,
                   TAgentStatInfo &agentStat)
 {
+  int point_id=       grpInfoAfter.grp_id==NoExists?grpInfoBefore.point_dep:grpInfoAfter.point_dep;
+  int grp_id=         grpInfoAfter.grp_id==NoExists?grpInfoBefore.grp_id:grpInfoAfter.grp_id;
+  bool piece_concept= grpInfoAfter.grp_id==NoExists?grpInfoBefore.piece_concept:grpInfoAfter.piece_concept;
+  TTripInfo operFlt;
+  operFlt.getByPointId(point_id);
+  TGrpMktFlight markFlt;
+  markFlt.getByGrpId(grp_id);
+
   bool SyncPaxs=is_sync_paxs(point_id);
 
   bool auto_weighing=GetAutoWeighing(point_id, "ê");
   bool apis_control=GetAPISControl(point_id);
 
   agentStat.clear();
-
-  int grp_id=grpInfoAfter.grp_id==NoExists?grpInfoBefore.grp_id:grpInfoAfter.grp_id;
-  bool piece_concept=grpInfoAfter.grp_id==NoExists?grpInfoBefore.piece_concept:grpInfoAfter.piece_concept;
 
   TReqInfo* reqInfo = TReqInfo::Instance();
   map< TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator a=grpInfoAfter.pax.begin();
@@ -936,7 +946,8 @@ void SaveGrpToLog(int point_id,
     msgPattern.id2=((aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError)?aPax->first.reg_no:NoExists);
     msgPattern.id3=grp_id;
     SavePaidToLog(paidBefore, paidAfter, msgPattern, piece_concept,
-                  !(aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError));
+                  !(aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError),
+                  handmadeEMDDiff);
 
     if (SyncPaxs)
     {
@@ -1082,14 +1093,15 @@ void SaveGrpToLog(int point_id,
   msg.id1=point_id;
   msg.id2=ASTRA::NoExists;
   msg.id3=grp_id;
-  SavePaidToLog(grpInfoBefore.paid, grpInfoAfter.paid, msg, piece_concept, allGrpAgentError);
+  SavePaidToLog(grpInfoBefore.paid, grpInfoAfter.paid, msg, piece_concept, allGrpAgentError, handmadeEMDDiff);
 };
 
 void SavePaidToLog(const TPaidToLogInfo &paidBefore,
                    const TPaidToLogInfo &paidAfter,
                    const TLogLocale &msgPattern,
                    bool piece_concept,
-                   bool onlyEMD)
+                   bool onlyEMD,
+                   const CheckIn::TPaidBagEMDProps &handmadeEMDDiff)
 {
   //paidBefore.trace(TRACE5, "SavePaidToLog: paidBefore");
   //paidAfter.trace(TRACE5, "SavePaidToLog: paidAfter");
@@ -1106,25 +1118,44 @@ void SavePaidToLog(const TPaidToLogInfo &paidBefore,
       set_difference(paidAfter.emd.begin(), paidAfter.emd.end(),
                      paidBefore.emd.begin(), paidBefore.emd.end(),
                      inserter(emd, emd.end()));
-    if (!emd.empty())
-    {
-      PrmEnum prmenum("emd", "");
-      for(multiset<TEventsPaidBagEMDItem>::const_iterator e=emd.begin(); e!=emd.end(); ++e)
+    multiset<TEventsPaidBagEMDItem> emd_auto;
+    for(multiset<TEventsPaidBagEMDItem>::const_iterator e=emd.begin(); e!=emd.end();)
+      if (handmadeEMDDiff.find(CheckIn::TPaidBagEMDPropsItem(*e))==handmadeEMDDiff.end())
       {
-        std::ostringstream msg;
-        if (e!=emd.begin()) prmenum.prms << PrmSmpl<string>("", ", ");
-        if (!e->bag_type_view.empty())
-          msg << e->bag_type_view << ":";
-        msg << e->no_str();
-        prmenum.prms << PrmSmpl<string>("", msg.str());
-        if (!piece_concept)
-          prmenum.prms << PrmSmpl<string>("", ":") << PrmSmpl<int>("", e->weight) << PrmLexema("", "EVT.KG");
+        emd_auto.insert(*e);
+        e=emd.erase(e);
+      }
+      else ++e;
+
+    for(bool is_auto=false;;is_auto=!is_auto)
+    {
+      multiset<TEventsPaidBagEMDItem> &emdRef=is_auto?emd_auto:emd;
+      if (!emdRef.empty())
+      {
+        PrmEnum prmenum("emd", "");
+        for(multiset<TEventsPaidBagEMDItem>::const_iterator e=emdRef.begin(); e!=emdRef.end(); ++e)
+        {
+          std::ostringstream msg;
+          if (e!=emdRef.begin()) prmenum.prms << PrmSmpl<string>("", ", ");
+          if (!e->bag_type_view.empty())
+            msg << e->bag_type_view << ":";
+          msg << e->no_str();
+          prmenum.prms << PrmSmpl<string>("", msg.str());
+          if (!piece_concept)
+            prmenum.prms << PrmSmpl<string>("", ":") << PrmSmpl<int>("", e->weight) << PrmLexema("", "EVT.KG");
+        };
+        LEvntPrms params(msgPattern.prms);
+        params << prmenum;
+        if (is_auto)
+          reqInfo->LocaleToLog(msgPattern.prms.empty()?(pass==0?"EVT.EMD_DELETED_AUTOMATICALLY":"EVT.EMD_ADDED_AUTOMATICALLY"):
+                                                       (pass==0?"EVT.EMD_DELETED_AUTOMATICALLY_FOR_PASSENGER":"EVT.EMD_ADDED_AUTOMATICALLY_FOR_PASSENGER"),
+                               params, ASTRA::evtPay, msgPattern.id1, msgPattern.id2, msgPattern.id3);
+        else
+          reqInfo->LocaleToLog(msgPattern.prms.empty()?(pass==0?"EVT.EMD_DELETED":"EVT.EMD_ADDED"):
+                                                       (pass==0?"EVT.EMD_DELETED_FOR_PASSENGER":"EVT.EMD_ADDED_FOR_PASSENGER"),
+                               params, ASTRA::evtPay, msgPattern.id1, msgPattern.id2, msgPattern.id3);
       };
-      LEvntPrms params(msgPattern.prms);
-      params << prmenum;
-      reqInfo->LocaleToLog(msgPattern.prms.empty()?(pass==0?"EVT.EMD_DELETED":"EVT.EMD_ADDED"):
-                                                   (pass==0?"EVT.EMD_DELETED_FOR_PASSENGER":"EVT.EMD_ADDED_FOR_PASSENGER"),
-                           params, ASTRA::evtPay, msgPattern.id1, msgPattern.id2, msgPattern.id3);
+      if (is_auto) break;
     };
   };
 

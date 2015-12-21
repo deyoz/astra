@@ -8,11 +8,6 @@
 #include "ticket_types.h"
 #include "etick/tick_data.h"
 
-namespace CheckIn
-{
-typedef std::list< std::pair<TPaxASVCItem, TPaidBagEMDItem> > PaidBagEMDList;
-}; //namespace PaxASVCList
-
 namespace PaxASVCList
 {
 
@@ -187,6 +182,7 @@ class TPaxEMDItem : public CheckIn::TPaxASVCItem
     bool valid() const;
 };
 
+void GetPaxUnboundEMD(int pax_id, std::multiset<TPaxEMDItem> &emds);
 bool LoadPaxEMD(int pax_id, std::list<TPaxEMDItem> &emds);
 
 void ProcEdiEvent(const TLogLocale &event,

@@ -1317,7 +1317,7 @@ const TPaidBagEMDItem& TPaidBagEMDItem::toDB(TQuery &Qry) const
   Qry.SetVariable("weight",weight);
   pax_id!=ASTRA::NoExists?Qry.SetVariable("pax_id",pax_id):
                           Qry.SetVariable("pax_id",FNull);
-  handmade!=ASTRA::NoExists?Qry.SetVariable("handmade",handmade):
+  handmade66!=ASTRA::NoExists?Qry.SetVariable("handmade",handmade66):
                             Qry.SetVariable("handmade",FNull);
   return *this;
 };
@@ -1335,7 +1335,7 @@ TPaidBagEMDItem& TPaidBagEMDItem::fromDB(TQuery &Qry)
   if (!Qry.FieldIsNULL("pax_id"))
     pax_id=Qry.FieldAsInteger("pax_id");
   if (!Qry.FieldIsNULL("handmade"))
-    handmade=(int)(Qry.FieldAsInteger("handmade")!=0);
+    handmade66=(int)(Qry.FieldAsInteger("handmade")!=0);
   return *this;
 };
 
@@ -1442,6 +1442,48 @@ void PaidBagEMDToXML(const std::list<TPaidBagEMDItem> &emd,
   xmlNodePtr node=NewTextChild(emdNode,"paid_bag_emd");
   for(list<TPaidBagEMDItem>::const_iterator i=emd.begin(); i!=emd.end(); ++i)
     i->toXML(NewTextChild(node,"emd"));
+}
+
+void PaidBagEMDPropsFromDB(int grp_id, TPaidBagEMDProps &props)
+{
+  props.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT * FROM paid_bag_emd_props WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next())
+    props.insert(TPaidBagEMDPropsItem(Qry.FieldAsString("emd_no"),
+                                      Qry.FieldAsInteger("emd_coupon"),
+                                      Qry.FieldAsInteger("manual_bind")!=0));
+}
+
+void PaidBagEMDPropsToDB(int grp_id, const TPaidBagEMDProps &props)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  UPDATE paid_bag_emd_props "
+    "  SET grp_id=:grp_id, manual_bind=:manual_bind "
+    "  WHERE emd_no=:emd_no AND emd_coupon=:emd_coupon; "
+    "  IF SQL%NOTFOUND THEN "
+    "    INSERT INTO paid_bag_emd_props(grp_id, emd_no, emd_coupon, manual_bind) "
+    "    VALUES(:grp_id, :emd_no, :emd_coupon, :manual_bind); "
+    "  END IF; "
+    "END;";
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.DeclareVariable("emd_no", otString);
+  Qry.DeclareVariable("emd_coupon", otInteger);
+  Qry.DeclareVariable("manual_bind" ,otInteger);
+  for(TPaidBagEMDProps::const_iterator i=props.begin(); i!=props.end(); ++i)
+  {
+    Qry.SetVariable("emd_no", i->emd_no);
+    Qry.SetVariable("emd_coupon", i->emd_coupon);
+    Qry.SetVariable("manual_bind" ,(int)i->manual_bind);
+    Qry.Execute();
+  };
 }
 
 } //namespace CheckIn

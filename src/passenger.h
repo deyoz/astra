@@ -499,6 +499,14 @@ std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);
 
 bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs);
 
+
+typedef std::list< std::pair<TPaxASVCItem, TPaidBagEMDItem> > PaidBagEMDList;
+
+void CalcPaidBagEMDProps(const CheckIn::PaidBagEMDList &prior_emds,
+                         const boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds,
+                         CheckIn::TPaidBagEMDProps &diff,
+                         CheckIn::TPaidBagEMDProps &props);
+
 }; //namespace CheckIn
 
 #endif

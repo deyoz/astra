@@ -1852,6 +1852,35 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     AstraLocale::showProgError("MSG.ETS_EDS_CONNECT_ERROR"); //потом переделать на MSG.ETS_CONNECT_ERROR, когда дисплей будет возвращать RFISC
 }
 
+void EMDAutoBoundInterface::EMDTryBind(int grp_id)
+{
+  list<PieceConcept::TPaidBagItem> paid_bag;
+  list<CheckIn::TPaidBagEMDItem> paid_bag_emd;
+  CheckIn::TPaidBagEMDProps paid_bag_emd_props;
+  PieceConcept::PaidBagFromDB(grp_id, true, paid_bag);
+  CheckIn::PaidBagEMDFromDB(grp_id, paid_bag_emd);
+  CheckIn::PaidBagEMDPropsFromDB(grp_id, paid_bag_emd_props);
+  if (PieceConcept::TryAddPaidBagEMD(paid_bag, paid_bag_emd, paid_bag_emd_props))
+  {
+    TGrpToLogInfo grpInfoBefore;
+    GetGrpToLogInfo(grp_id, grpInfoBefore);
+
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+      "UPDATE pax_grp SET tid=cycle_tid__seq.nextval WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id", otInteger, grp_id);
+    Qry.Execute();
+
+    PieceConcept::PaidBagToDB(grp_id, paid_bag);
+    CheckIn::PaidBagEMDToDB(grp_id, paid_bag_emd);
+    TGrpToLogInfo grpInfoAfter;
+    GetGrpToLogInfo(grp_id, grpInfoAfter);
+    TAgentStatInfo agentStat;
+    SaveGrpToLog(grpInfoBefore, grpInfoAfter, CheckIn::TPaidBagEMDProps(), agentStat);
+  };
+}
+
 void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
@@ -1865,19 +1894,33 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
   string termReqName=(char*)(termReqNode->name);
 
-  if (termReqName=="TCkinLoadPax")
-  {
-    CheckInInterface::LoadPax(EMDAutoBoundGrpId(termReqNode).grp_id, resNode, false);
-  }
-  if (termReqName=="TCkinSavePax" ||
+  int point_id=NoExists, grp_id=NoExists;
+  if (termReqName=="TCkinLoadPax" ||
+      termReqName=="TCkinSavePax" ||
       termReqName=="TCkinSaveUnaccompBag")
   {
-    CheckInInterface::LoadPax(EMDAutoBoundGrpId(termReqNode).grp_id, resNode, true);
+    bool afterSavePax=termReqName=="TCkinSavePax" ||
+                      termReqName=="TCkinSaveUnaccompBag";
+
+    EMDAutoBoundGrpId id(termReqNode);
+    if (Lock(id, point_id, grp_id) && point_id!=NoExists && grp_id!=NoExists /*&& !afterSavePax !!!vlad afterSavePax убрать*/)
+    {
+      EMDTryBind(grp_id);
+    }
+    else grp_id=id.grp_id;
+
+    CheckInInterface::LoadPax(grp_id, resNode, afterSavePax);
   }
   if (termReqName=="PaxByPaxId" ||
       termReqName=="PaxByRegNo" ||
       termReqName=="PaxByScanData")
   {
+    EMDAutoBoundRegNo id(termReqNode);
+    if (Lock(id, point_id, grp_id) && point_id!=NoExists && grp_id!=NoExists)
+    {
+      EMDTryBind(grp_id);
+    };
+
     BrdInterface::GetPax(termReqNode, resNode);
   }
 

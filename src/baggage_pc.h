@@ -223,6 +223,13 @@ void PreparePaidBagInfo(int grp_id,
                         int seg_count,
                         std::list<TPaidBagItem> &paid_bag);
 
+void TryDelPaidBagEMD(int grp_id,
+                      const std::list<PieceConcept::TPaidBagItem> &curr_paid);
+
+bool TryAddPaidBagEMD(std::list<TPaidBagItem> &paid_bag,
+                      std::list<CheckIn::TPaidBagEMDItem> &paid_bag_emd,
+                      const CheckIn::TPaidBagEMDProps &paid_bag_emd_props);
+
 void PaidBagEMDToDB(int grp_id,
                     const CheckIn::PaidBagEMDList &prior_emds,
                     boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds);

@@ -395,6 +395,7 @@ class EMDAutoBoundInterface: public JxtInterface
 
     static bool Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id);
     static void EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode);
+    static void EMDTryBind(int grp_id);
 };
 
 

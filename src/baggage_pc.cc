@@ -743,6 +743,74 @@ void PreparePaidBagInfo(int grp_id,
   }
 }
 
+void TryDelPaidBagEMD(int grp_id,
+                      const list<PieceConcept::TPaidBagItem> &curr_paid)
+{
+  set< pair<int/*pax_id*/, string/*rfisc*/> > rfiscs;
+  for(list<PieceConcept::TPaidBagItem>::const_iterator p=curr_paid.begin(); p!=curr_paid.end(); ++p)
+    if (p->status==bsUnknown ||
+        p->status==bsPaid ||
+        p->status==bsNeed) rfiscs.insert(make_pair(p->pax_id, p->RFISC));
+
+  list<CheckIn::TPaidBagEMDItem> curr_emds;
+  CheckIn::PaidBagEMDFromDB(grp_id, curr_emds);
+  bool modified=false;
+  for(list<CheckIn::TPaidBagEMDItem>::iterator e=curr_emds.begin(); e!=curr_emds.end();)
+    if (!e->rfisc.empty() && rfiscs.find(make_pair(e->pax_id, e->rfisc))==rfiscs.end())
+    {
+      e=curr_emds.erase(e);
+      modified=true;
+    }
+    else ++e;
+  if (modified) CheckIn::PaidBagEMDToDB(grp_id, curr_emds);
+}
+
+bool TryAddPaidBagEMD(list<TPaidBagItem> &paid_bag,
+                      list<CheckIn::TPaidBagEMDItem> &paid_bag_emd,
+                      const CheckIn::TPaidBagEMDProps &paid_bag_emd_props)
+{
+  bool result=false;
+  map< int/*pax_id*/, multiset<TPaxEMDItem> > unbound;
+
+  for(bool pr_cabin=false; ;pr_cabin=!pr_cabin)
+  {
+    for(list<TPaidBagItem>::iterator p=paid_bag.begin(); p!=paid_bag.end(); ++p)
+    {
+      if (p->pr_cabin!=pr_cabin || p->status!=bsNeed) continue;
+      map< int/*pax_id*/, multiset<TPaxEMDItem> >::iterator u=unbound.find(p->pax_id);
+      if (u==unbound.end())
+      {
+        u=unbound.insert(make_pair(p->pax_id, multiset<TPaxEMDItem>())).first;
+        if (u==unbound.end())
+          throw Exception("%s: u==unbound.end()!", __FUNCTION__);
+        GetPaxUnboundEMD(p->pax_id, u->second); //возвращает emd_type='A' и RFIC для багажа
+      };
+
+      for(multiset<TPaxEMDItem>::iterator e=u->second.begin(); e!=u->second.end(); ++e)
+      {
+        if (e->trfer_num!=p->trfer_num || e->RFISC!=p->RFISC) continue;
+        if (paid_bag_emd_props.get(e->emd_no, e->emd_coupon).manual_bind) continue;
+
+        p->status=bsPaid;
+        CheckIn::TPaidBagEMDItem item;
+        item.rfisc=e->RFISC;
+        item.trfer_num=e->trfer_num;
+        item.emd_no=e->emd_no;
+        item.emd_coupon=e->emd_coupon;
+        item.weight=0;
+        item.pax_id=p->pax_id;
+        item.handmade66=false;
+        paid_bag_emd.push_back(item);
+        u->second.erase(e);
+        result=true;
+        break;
+      };
+    };
+    if (pr_cabin) break;
+  };
+  return result;
+}
+
 //эта процедура проставляет pax_id
 void PaidBagEMDToDB(int grp_id,
                     const CheckIn::PaidBagEMDList &prior_emds,
