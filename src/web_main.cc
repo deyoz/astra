@@ -2488,10 +2488,13 @@ int bcbp_test(int argc,char **argv)
 
     boost::shared_ptr<PrintDataParser> parser;
     if(pax.pax_id == NoExists) {
+        cout << "pax not found." << endl;
         parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scan));
     } else {
+        cout << "pax found, pax_id: " << pax.pax_id << endl;
         parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
     }
+    cout << endl;
 
     cout << parser->parse(pectab) << endl;
 
