@@ -1903,7 +1903,7 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
                       termReqName=="TCkinSaveUnaccompBag";
 
     EMDAutoBoundGrpId id(termReqNode);
-    if (Lock(id, point_id, grp_id) && point_id!=NoExists && grp_id!=NoExists /*&& !afterSavePax !!!vlad afterSavePax убрать*/)
+    if (Lock(id, point_id, grp_id) && point_id!=NoExists && grp_id!=NoExists)
     {
       EMDTryBind(grp_id);
     }

@@ -688,7 +688,6 @@ bool TPaxEMDItem::valid() const
 
 void GetPaxUnboundEMD(int pax_id, std::multiset<TPaxEMDItem> &emds)
 {
-  PaxASVCList::printSQLs(); //!!!vlad
   emds.clear();
   TCachedQuery Qry(PaxASVCList::GetSQL(PaxASVCList::unboundByPaxId),
                    QParams() << QParam("id", otInteger, pax_id));
@@ -712,7 +711,7 @@ bool LoadPaxEMD(int pax_id, list<TPaxEMDItem> &emds)
                    QParams() << QParam("pax_id", otInteger, pax_id));
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
-    emds.push_back(TPaxEMDItem().fromDB(Qry.get()));     //!!!vlad service_types?
+    emds.push_back(TPaxEMDItem().fromDB(Qry.get()));
 
   return !emds.empty();
 };
