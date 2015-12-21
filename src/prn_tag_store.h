@@ -53,6 +53,7 @@ namespace TAG {
     const std::string FULLNAME = "FULLNAME";
     const std::string GATE = "GATE";
     const std::string GATES = "GATES";
+    const std::string HALL = "HALL";
     const std::string INF = "INF";
     const std::string IMG = "IMG";
     const std::string LONG_ARV = "LONG_ARV";
@@ -299,9 +300,11 @@ class TPrnTagStore {
             int point_dep, point_arv;
             int class_grp;
             int excess;
+            int hall;
             TGrpInfo():
                 grp_id(ASTRA::NoExists),
-                class_grp(ASTRA::NoExists)
+                class_grp(ASTRA::NoExists),
+                hall(ASTRA::NoExists)
             {};
             void Init(int agrp_id, int apax_id);
         };
@@ -442,6 +445,7 @@ class TPrnTagStore {
         std::string FULLNAME(TFieldParams fp);
         std::string GATE(TFieldParams fp);
         std::string GATES(TFieldParams fp);
+        std::string HALL(TFieldParams fp);
         std::string IMG(TFieldParams fp);
         std::string INF(TFieldParams fp);
         std::string LONG_ARV(TFieldParams fp);
