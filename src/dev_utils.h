@@ -349,8 +349,8 @@ class BCBPSections : public  BCBPInternalWork
 
 
 
-   std::string airline_host_code;
-   std::string baggage_tags[3];
+    std::string airline_host_code;
+    std::string baggage_tags[3];
     int version_number;
     bool electronic_ticket_indicator();
 
@@ -419,18 +419,18 @@ class BCBPSections : public  BCBPInternalWork
     int num_repeated_sections();
 //----------------------------------------
 
-    inline void add_section(unsigned int i = max_supported_size_of_repeated_field + 1, bool allow_non_std_size = false);
-    inline void del_section(unsigned int i = max_supported_size_of_repeated_field + 1);
-    inline std::string build_bcbp_str();
+    void add_section(unsigned int i = max_supported_size_of_repeated_field + 1, bool allow_non_std_size = false);
+    void del_section(unsigned int i = max_supported_size_of_repeated_field + 1);
+    std::string build_bcbp_str();
 
 
 
-     inline void set_electronic_ticket_indicator(bool x);
-     inline void set_type_of_security_data(char x);
-     inline void set_security(std::string x);
-     inline void set_passenger_name_surname(std::string name, std::string surname);
-     inline void set_passenger_description(boost::optional<BCBPSectionsEnums::PassengerDescr> x);
-     inline void set_source_of_checkin(boost::optional<BCBPSectionsEnums::SourceOfIssuance> x);
+     void set_electronic_ticket_indicator(bool x);
+     void set_type_of_security_data(char x);
+     void set_security(std::string x);
+     void set_passenger_name_surname(std::string name, std::string surname);
+     void set_passenger_description(boost::optional<BCBPSectionsEnums::PassengerDescr> x);
+     void set_source_of_checkin(boost::optional<BCBPSectionsEnums::SourceOfIssuance> x);
      void set_doc_type(boost::optional<BCBPSectionsEnums::DocType> x);
      void set_version( boost::optional<int>  x);
      void set_source_of_boarding_pass_issuance(boost::optional<BCBPSectionsEnums::SourceOfIssuance> x);
@@ -439,15 +439,15 @@ class BCBPSections : public  BCBPInternalWork
      void set_baggage_plate_nums(std::vector<Baggage_plate_nums> x);
      void set_baggage_plate_nums_as_str(std::vector<std::string> x);
 
-     inline void set_operatingCarrierPNR(std::string x, int i);
-     inline void set_from_city_airport(std::string x, int i);
-     inline void set_to_city_airport(std::string x, int i);
-     inline void set_operating_carrier_designator(std::string x, int i);
-     inline void set_flight_number(std::string x, int i);
-     inline void set_compartment_code(char x, int i);
-     inline void set_seat_number(std::string x, int i);
-     inline void set_check_in_seq_number(std::string x, int i);
-     inline void set_passenger_status(char x, int i);
+     void set_operatingCarrierPNR(std::string x, int i);
+     void set_from_city_airport(std::string x, int i);
+     void set_to_city_airport(std::string x, int i);
+     void set_operating_carrier_designator(std::string x, int i);
+     void set_flight_number(std::string x, int i);
+     void set_compartment_code(char x, int i);
+     void set_seat_number(std::string x, int i);
+     void set_check_in_seq_number(std::string x, int i);
+     void set_passenger_status(char x, int i);
      void set_doc_serial_num(std::string x, int i);
      void set_marketing_carrier_designator( std::string x, int i);
      void set_frequent_flyer_airline_designator(std::string x, int i);

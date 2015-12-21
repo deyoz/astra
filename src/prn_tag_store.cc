@@ -97,8 +97,7 @@ bool TTagLang::IsInter() const
 }
 
 string TTagLang::GetLang(TElemFmt &fmt, string firm_lang) const
-{
-  string lang = firm_lang;
+{ string lang = firm_lang;
   if (lang.empty())
   {
      lang = desk_lang;
@@ -345,9 +344,9 @@ static inline bool if_only_one_non_empty(const std::string& a, const std::string
 static inline int check_date_for_reprint(int lower_shift, int upper_shift, BASIC::TDateTime  date_of_flight)
 {     BASIC::TDateTime ret = NowUTC();
       int date_diff = ret - date_of_flight;
-      if(date_diff > 0 && static_cast<u_int>(date_diff) > lower_shift)
+      if(date_diff > 0 && date_diff > lower_shift)
                 return -1;
-      if(date_diff < 0 && static_cast<u_int>(-date_diff) > upper_shift)
+      if(date_diff < 0 && -date_diff > upper_shift)
                 return 1;
       return 0;
 }
@@ -365,7 +364,7 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
     if(airp_id.empty() || airline_id.empty()) return false;
     struct Reprint_options
     {   string desk, airline, airp;
-        unsigned int lower_shift, upper_shift, desk_grp;
+        int lower_shift, upper_shift, desk_grp;
     };
     TQuery Qry(&OraSession);
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -386,7 +385,6 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
     Reprint_options* found_opt = 0;
     int count_wrong_airp = 0, count_wrong_airline = 0,count_wrong_airp_in_grp_field = 0, count_wrong_airline_in_grp_field = 0, temp_desk_grp;
     int temp_upper_shift, temp_lower_shift;
-    bool have_wrong_desk = false;
     std::string temp_desk;
     int counter = 0;
     for(; not Qry.Eof; Qry.Next(), counter++)
@@ -416,7 +414,7 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
                    if_only_one_non_empty(temp_airp, temp_airline) &&
                         if_only_one_non_empty(found_opt->airp, temp_airp))
              {
-                if(check_date_for_reprint(found_opt->lower_shift, found_opt->upper_shift, date_of_flight))
+                if(!check_date_for_reprint(found_opt->lower_shift, found_opt->upper_shift, date_of_flight)) //0 -- репринт можно печатать
                    continue;
              }
              else
@@ -434,8 +432,8 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
          found_opt->desk_grp = Qry.FieldAsInteger("desk_grp");
          found_opt->airp = temp_airp;
          found_opt->airline = temp_airp;
-         found_opt->lower_shift = Qry.FieldAsInteger("lower_shift");
-         found_opt->upper_shift = Qry.FieldAsInteger("upper_shift");
+         found_opt->lower_shift = temp_lower_shift;
+         found_opt->upper_shift = temp_upper_shift;
     }
     if(counter == 0) return true;
     if(!found_opt)
@@ -445,12 +443,11 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
          if(count_wrong_airp_in_grp_field) throw UserException("MSG.REPRINT_WRONG_AIRP");
          return true; 
     }    
-    BASIC::TDateTime ret = NowUTC(), date = date_of_flight;
-    int date_diff = ret - date;
-    if(date_diff > 0 && static_cast<u_int>(date_diff) > found_opt->lower_shift)
-              throw UserException("MSG.REPRINT_WRONG_DATE_BEFORE");
-    if(date_diff < 0 && static_cast<u_int>(-date_diff) > found_opt->upper_shift)
-              throw UserException("MSG.REPRINT_WRONG_DATE_AFTER");
+
+    switch(check_date_for_reprint(found_opt->lower_shift , found_opt->upper_shift, date_of_flight))
+    { case -1:throw UserException("MSG.REPRINT_WRONG_DATE_BEFORE");
+      case 1: throw UserException("MSG.REPRINT_WRONG_DATE_AFTER");
+    }
     ProgTrace(TRACE5, __FUNCTION__);
     return true;
 }
