@@ -6149,6 +6149,7 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int
           SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
           reqSeg.set(seg_no, operFlt, grp, mktFlight, scd_in);
           reqSeg.subcl=pax.subcl;
+          reqSeg.tkn=pax.tkn;
           CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
           CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
           ++iReqPax;
