@@ -2161,7 +2161,7 @@ string TPrnTagStore::PAX_ID(TFieldParams fp)
     if(scan_data != NULL) {
         if(scan_data->komtech_pax_id(0) != 0) {
             ostringstream result;
-            result << setw(10) << setfill('0') << paxInfo.pax_id;
+            result << setw(10) << setfill('0') << scan_data->komtech_pax_id(0);
             return result.str();
         } else
             return "8888888888";
