@@ -1234,7 +1234,7 @@ int BCBPSections::komtech_pax_id(int i)
 {   string err, err1;
     shure = (get_alfa_chars_str<true>(repeated[i].individual, pos_komtex_pax_id_sign, err) == komtex_str);
     int ret = get_int(repeated[i].individual, pos_komtex_pax_id, err1);
-    process_err("komtech pax id", airline_data_str, err1, i);
+    if(!err1.empty()) return 0;
     return ret;
 }
 
