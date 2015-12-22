@@ -1814,7 +1814,7 @@ string TPrnTagStore::DESK(TFieldParams fp)
 string TPrnTagStore::DOCUMENT(TFieldParams fp)
 {
     if(scan_data != NULL)
-        return scan_data->doc_serial_num(0);
+        return string();
     else
         return paxInfo.document;
 }
@@ -1838,9 +1838,14 @@ string TPrnTagStore::EST(TFieldParams fp)
 
 string TPrnTagStore::ETICKET_NO(TFieldParams fp) // !!! lat ???
 {
-    if(scan_data != NULL)
-        return string();
-    else {
+    if(scan_data != NULL) {
+        boost::optional<int> airline_num_code = scan_data->airline_num_code(0);
+        string doc_num = scan_data->doc_serial_num(0);
+        ostringstream result;
+        if(airline_num_code != boost::none and not doc_num.empty())
+            result << doc_num << *airline_num_code;
+        return result.str();
+    } else {
         ostringstream result;
         if(paxInfo.ticket_rem == "TKNE")
             result << paxInfo.ticket_no << "/" << paxInfo.coupon_no;
@@ -2145,9 +2150,14 @@ string TPrnTagStore::ONE_SEAT_NO(TFieldParams fp)
 
 string TPrnTagStore::PAX_ID(TFieldParams fp)
 {
-    if(scan_data != NULL)
-        return "8888888888";
-    else {
+    if(scan_data != NULL) {
+        if(scan_data->komtech_pax_id(0) != 0) {
+            ostringstream result;
+            result << setw(10) << setfill('0') << paxInfo.pax_id;
+            return result.str();
+        } else
+            return "8888888888";
+    } else {
         ostringstream result;
         result << setw(10) << setfill('0') << paxInfo.pax_id;
         return result.str();
