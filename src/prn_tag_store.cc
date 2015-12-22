@@ -334,6 +334,7 @@ TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tag
     tag_list.insert(make_pair(TAG::FULLNAME,        TTagListItem(&TPrnTagStore::FULLNAME, PAX_INFO)));
     tag_list.insert(make_pair(TAG::GATE,            TTagListItem(&TPrnTagStore::GATE)));
     tag_list.insert(make_pair(TAG::GATES,           TTagListItem(&TPrnTagStore::GATES, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::HALL,            TTagListItem(&TPrnTagStore::HALL)));
     tag_list.insert(make_pair(TAG::INF,             TTagListItem(&TPrnTagStore::INF, PAX_INFO)));
     tag_list.insert(make_pair(TAG::LONG_ARV,        TTagListItem(&TPrnTagStore::LONG_ARV)));
     tag_list.insert(make_pair(TAG::LONG_DEP,        TTagListItem(&TPrnTagStore::LONG_DEP)));
@@ -932,6 +933,7 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
               "   airp_dep, "
               "   airp_arv, "
               "   class_grp, "
+              "   hall, "
               "   DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess "
               "from "
               "   pax_grp "
@@ -947,6 +949,8 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
           point_arv = Qry.FieldAsInteger("point_arv");
           if(not Qry.FieldIsNULL("class_grp"))
               class_grp = Qry.FieldAsInteger("class_grp");
+          if(not Qry.FieldIsNULL("hall"))
+              hall = Qry.FieldAsInteger("hall");
           excess = Qry.FieldAsInteger("excess");
         }
         else
@@ -1472,6 +1476,13 @@ string TPrnTagStore::CHD(TFieldParams fp)
     if(DecodePerson((char *)paxInfo.pers_type.c_str()) == child)
         result = tag_lang.ElemIdToTagElem(etPersType, paxInfo.pers_type, efmtCodeNative);
     return result;
+}
+
+string TPrnTagStore::HALL(TFieldParams fp)
+{
+    ostringstream result;
+    result << tag_lang.ElemIdToTagElem(etHall, grpInfo.hall, efmtNameLong);
+    return result.str();
 }
 
 string TPrnTagStore::INF(TFieldParams fp)
