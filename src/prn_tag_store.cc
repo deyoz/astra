@@ -1518,7 +1518,7 @@ string get_date_from_bcbp(int julian_date, const string &date_format, bool pr_la
     else scd_out_local = d[1];
     DecodeDate(scd_out_local, Year, Month, Day);
     ostringstream convert;
-    convert<<Day<<"."<<Year;
+    convert<<Day<<"."<<Month;
     return convert.str();//get_date_from_bcbp(scd_out_local, date_format, pr_lat);
 }
 
