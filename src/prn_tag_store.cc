@@ -619,12 +619,12 @@ string TPrnTagStore::get_field_from_bcbp(std::string name, size_t len, std::stri
         im->second.english_only &= tag_lang.english_tag();
     } catch(EOracleError E) {
         LogError(STDLOG) << "tag " << name << " caused oracle error: " << E.what();
-    } catch(UserException E) {
-        throw;
-    } catch(Exception E) {
-        throw Exception("tag %s failed: %s", name.c_str(), E.what());
-    } catch(boost::bad_any_cast E) {
-        throw Exception("tag %s failed: %s", name.c_str(), E.what());
+    } catch(const Exception &E) {
+        LogError(STDLOG) << "barcode field parse error: " << E.what();
+        throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
+    } catch(...) {
+        LogError(STDLOG) << "unknown barcode field parse error";
+        throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
     }
     return result;
 }
