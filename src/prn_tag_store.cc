@@ -1517,9 +1517,9 @@ string get_date_from_bcbp(int julian_date, const string &date_format, bool pr_la
         scd_out_local = d[0];
     else scd_out_local = d[1];
     DecodeDate(scd_out_local, Year, Month, Day);
-    ostringstream convert;
-    convert<<Day<<"."<<Month;
-    return convert.str();//get_date_from_bcbp(scd_out_local, date_format, pr_lat);
+    //ostringstream convert;
+    //convert<<Day<<"."<<Month;
+    return get_date_from_bcbp(scd_out_local, "dd.mm", pr_lat);
 }
 
 string TPrnTagStore::ACT(TFieldParams fp)
