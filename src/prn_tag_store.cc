@@ -1496,7 +1496,7 @@ string get_date_from_bcbp(int julian_date, const string &date_format, bool pr_la
     int Year, Month, Day;
     TDateTime utc_date=NowUTC(), scd_out_local=NoExists;
     DecodeDate(utc_date, Year, Month, Day);
-    for(int y=Year-1; y<=Year+1; y++)
+    /*for(int y=Year-1; y<=Year+1; y++)
     {
         try
         {
@@ -1506,8 +1506,20 @@ string get_date_from_bcbp(int julian_date, const string &date_format, bool pr_la
                 scd_out_local=d;
         }
         catch(EXCEPTIONS::EConvertError) {};
-    };
-    return get_date_from_bcbp(scd_out_local, date_format, pr_lat);
+    };*/
+    //дата не может быть больше текущей
+    const int arr_sz = 2;
+    TDateTime d[arr_sz] = {0.0, 0.0};
+    for(int i = 0, y = Year - 1; i < arr_sz; i++, y++)
+    {  try{ d[i] = JulianDateToDateTime(julian_date, y); } catch(...){}
+    }
+    if(d[1] > utc_date)
+        scd_out_local = d[0];
+    else scd_out_local = d[1];
+    DecodeDate(scd_out_local, Year, Month, Day);
+    ostringstream convert;
+    convert<<Day<<"."<<Year;
+    return convert.str();//get_date_from_bcbp(scd_out_local, date_format, pr_lat);
 }
 
 string TPrnTagStore::ACT(TFieldParams fp)
@@ -1515,7 +1527,9 @@ string TPrnTagStore::ACT(TFieldParams fp)
     if(scan_data != NULL)
         return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
     else
+    {
         return DateTimeToStr(UTCToLocal(pointInfo.act, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    }
 }
 
 string TPrnTagStore::AIRLINE_SHORT(TFieldParams fp)

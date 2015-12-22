@@ -2459,7 +2459,10 @@ int bcbp_test(int argc,char **argv)
         pectab += *iv + string(pad, ' ');
         string fp = "(40,,)";
 
-        if(upperc(*iv) == TAG::BCBP_M_2) fp.clear();
+        if(
+                upperc(*iv) == TAG::BCBP_M_2 or
+                upperc(*iv) == TAG::BCBP_V_5
+          ) fp.clear();
 
         if(
                 upperc(*iv) == TAG::SCD or
