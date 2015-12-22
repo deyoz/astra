@@ -387,6 +387,7 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
     int temp_upper_shift, temp_lower_shift;
     std::string temp_desk;
     int counter = 0;
+    bool airport_err_in_priority = false;
     for(; not Qry.Eof; Qry.Next(), counter++)
     {    temp_airline =  Qry.FieldAsString("airline");
          temp_airp = Qry.FieldAsString("airp");
@@ -404,6 +405,8 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
          {    if(temp_desk_grp == desk_grp)
                  count_wrong_airp_in_grp_field++;
               else  count_wrong_airp++;
+              if(temp_airline == airline_id || temp_airline.empty())
+                  airport_err_in_priority = true;
               continue;
          }
 
@@ -437,7 +440,7 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
     }
     if(counter == 0) return true;
     if(!found_opt)
-    {    if(count_wrong_airline) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
+    {    if(!airport_err_in_priority && count_wrong_airline) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
          if(count_wrong_airp) throw UserException("MSG.REPRINT_WRONG_AIRP");
          if(count_wrong_airline_in_grp_field) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
          if(count_wrong_airp_in_grp_field) throw UserException("MSG.REPRINT_WRONG_AIRP");
@@ -1254,6 +1257,8 @@ void TPrnTagStore::TPointInfo::Init(TDevOperType op, int apoint_id, int agrp_id)
 string TPrnTagStore::BCBP_V_5(TFieldParams fp)
 {
         LogTrace(TRACE5) << "Den was here";
+        std::cout<<"BCBP_V_5 start\n";
+        std::cout.flush();
         if(scan_data != NULL)
             return scan;
         BCBPSections barcode;
@@ -1293,8 +1298,11 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
         if(pers_type == NoPerson) throw Exception("BCBP_V_5: something wrong with pers_type");
         barcode.set_passenger_description(static_cast<BCBPSectionsEnums::PassengerDescr>(pers_type));
         barcode.set_doc_type(BCBPSectionsEnums::boarding_pass);
-        barcode.set_komtech_pax_id(paxInfo.reg_no, 0);
-        return barcode.build_bcbp_str();
+        barcode.set_komtech_pax_id(paxInfo.pax_id, 0);
+        std::string x  = barcode.build_bcbp_str();
+        std::cout << x <<std::endl;
+        std::cout.flush();
+        return x;
 }
 
 string TPrnTagStore::BCBP_M_2(TFieldParams fp)
