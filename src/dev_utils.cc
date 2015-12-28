@@ -1513,6 +1513,8 @@ void BCBPSections::set_date_of_flight(boost::optional<BASIC::TDateTime> x, int i
             return;
         }
         int julian_date =  DateTimeToJulianDate(*x);
+        int day, month, year;
+        DecodeDate(*x, day, month, year);
         if(!julian_date)
             process_err("date of flight", mandatory_str, "impossible date", i);
         write_field(repeated[i].mandatory, pos_date_of_flight, julian_date, "date of flight", mandatory_str);

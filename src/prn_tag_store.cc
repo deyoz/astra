@@ -1282,11 +1282,15 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
         }
 
         std::cout<<"BCBP_V_5 M1.2\n"; std::cout.flush();
+
         std::string cc = CLASS(fp);
         if(cc.size() == 1)
             barcode.set_compartment_code(cc[0], 0);
+         std::cout<<"BCBP_V_5 M1.3\n"; std::cout.flush();
         barcode.set_seat_number(ONE_SEAT_NO(fp), 0);
-        barcode.set_check_in_seq_number(0, 0);
+         std::cout<<"BCBP_V_5 M1.4\n"; std::cout.flush();
+        barcode.set_check_in_seq_number("0", 0);
+         std::cout<<"BCBP_V_5 M1.5\n"; std::cout.flush();
         barcode.set_passenger_status('1', 0);
         std::cout<<"BCBP_V_5 M2\n";
         std::cout.flush();
@@ -1296,6 +1300,8 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
         barcode.set_passenger_description(static_cast<BCBPSectionsEnums::PassengerDescr>(pers_type));
         barcode.set_doc_type(BCBPSectionsEnums::boarding_pass);
         barcode.set_komtech_pax_id(paxInfo.pax_id, 0);
+
+
         std::string x  = barcode.build_bcbp_str();
         std::cout << x <<std::endl;
         std::cout.flush();
