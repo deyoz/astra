@@ -12,7 +12,7 @@
 #include "astra_elem_utils.h"
 
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace ASTRA;

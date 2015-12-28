@@ -40,9 +40,8 @@
 #include "tlg/remote_system_context.h"
 #include "tlg/AgentWaitsForRemote.h"
 
-#define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace Ticketing;

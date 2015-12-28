@@ -1,6 +1,4 @@
 #include "prn_tag_store.h"
-#define NICKNAME "DENIS"
-#include "serverlib/test.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "stages.h"
@@ -12,6 +10,9 @@
 #include "tripinfo.h"
 #include "passenger.h"
 #include "serverlib/str_utils.h"
+
+#define NICKNAME "DEN"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace EXCEPTIONS;

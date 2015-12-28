@@ -27,7 +27,7 @@
 #include "edilib/edi_loading.h"
 
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 #include "tlg/ssm_parser.h"
 #include "tlg/lci_parser.h"
