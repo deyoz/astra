@@ -1032,33 +1032,43 @@ void EMDStatusInterface::EMDCheckStatus(const int grp_id,
   if (!fltParams.get(point_id)) return;
   if (fltParams.eds_no_interact) return;
 
-  list<TEMDCtxtItem> emds;
-  GetBoundEMDStatusList(grp_id, fltParams.in_final_status, emds);
+  list<TEMDCtxtItem> added_emds, deleted_emds;
+  GetEMDStatusList(grp_id, fltParams.in_final_status, prior_emds, added_emds, deleted_emds);
   string flight=GetTripName(fltParams.fltInfo,ecNone,true,false);
 
-  for(list<TEMDCtxtItem>::iterator e=emds.begin(); e!=emds.end(); ++e)
+  for(int pass=0; pass<2; pass++)
   {
-    CheckIn::PaidBagEMDList::const_iterator pe=prior_emds.begin();
-    for(; pe!=prior_emds.end(); ++pe)
-      if (e->asvc.emd_no==pe->first.emd_no &&
-          e->asvc.emd_coupon==pe->first.emd_coupon) break;
-    if (pe!=prior_emds.end()) continue; //уже был раньше введен EMD
+    list<TEMDCtxtItem> &emds = pass==0?added_emds:deleted_emds;
+    for(list<TEMDCtxtItem>::iterator e=emds.begin(); e!=emds.end(); ++e)
+    {
+      if (e->paxUnknown())
+      {
+        if (pass==0)
+          throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
+                              LParams() << LParam("emd", e->asvc.no_str()));
+        else
+          continue;
+      };
 
-    e->point_id=point_id;
-    e->flight=flight;
-    if (e->paxUnknown()) throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
-                                             LParams() << LParam("emd", e->asvc.no_str()));
+      CouponStatus paxStatus=calcPaxCouponStatus(e->pax.refuse,
+                                                 e->pax.pr_brd,
+                                                 fltParams.in_final_status);
+      if (paxStatus==CouponStatus::Flown) continue; //финальный статус
 
-    if (e->status==CouponStatus::OriginalIssue ||
-        e->status==CouponStatus::Unavailable) continue;  //пассажир разрегистрируется
+      if (paxStatus==CouponStatus::OriginalIssue ||
+          paxStatus==CouponStatus::Unavailable) continue;  //пассажир разрегистрируется
 
+      e->point_id=point_id;
+      e->flight=flight;
+      e->status = pass==0?CouponStatus(paxStatus):CouponStatus(CouponStatus::OriginalIssue);
 
-    TEMDChangeStatusKey key;
-    key.airline_oper=fltParams.fltInfo.airline;
-    key.flt_no_oper=fltParams.fltInfo.flt_no;
-    key.coupon_status=e->status;
+      TEMDChangeStatusKey key;
+      key.airline_oper=fltParams.fltInfo.airline;
+      key.flt_no_oper=fltParams.fltInfo.flt_no;
+      key.coupon_status=e->status;
 
-    emdList.addEMD(key, *e);
+      emdList.addEMD(key, *e);
+    };
   };
 
 }

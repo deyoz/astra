@@ -1699,9 +1699,9 @@ void traceXML(const string& xml)
     ProgTrace(TRACE5, "%s", xml.substr(pos,portion).c_str());
 }
 
-void SendRequest(const TExchange &request, TExchange &response)
+void SendRequest(const TExchange &request, TExchange &response,
+                 RequestInfo &requestInfo, ResponseInfo &responseInfo)
 {
-  RequestInfo requestInfo;
   requestInfo.host = SIRENA_HOST();
   requestInfo.port = SIRENA_PORT();
   requestInfo.path = "/astra";
@@ -1710,7 +1710,6 @@ void SendRequest(const TExchange &request, TExchange &response)
   requestInfo.timeout = SIRENA_REQ_TIMEOUT();
   int request_count = SIRENA_REQ_ATTEMPTS();
   traceXML(requestInfo.content);
-  ResponseInfo responseInfo;
   for(int pass=0; pass<request_count; pass++)
   {
     httpClient_main(requestInfo, responseInfo);
@@ -1729,7 +1728,48 @@ void SendRequest(const TExchange &request, TExchange &response)
   if (response.error()) throw Exception("SIRENA ERROR: %s", response.traceError().c_str());
 }
 
+void SendRequest(const TExchange &request, TExchange &response)
+{
+  RequestInfo requestInfo;
+  ResponseInfo responseInfo;
+  SendRequest(request, response, requestInfo, responseInfo);
+}
+
 void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int> &grp_ids);
+
+void TLastExchangeInfo::toDB()
+{
+  if (grp_id==ASTRA::NoExists) return;
+  AstraContext::ClearContext("pc_payment_req", grp_id);
+  AstraContext::SetContext("pc_payment_req", grp_id, ConvertCodepage(pc_payment_req, "UTF-8", "CP866"));
+  pc_payment_req_created=NowUTC();
+  AstraContext::ClearContext("pc_payment_res", grp_id);
+  AstraContext::SetContext("pc_payment_res", grp_id, ConvertCodepage(pc_payment_res, "UTF-8", "CP866"));
+  pc_payment_res_created=NowUTC();
+}
+
+void TLastExchangeInfo::fromDB(int grp_id)
+{
+  clear();
+  if (grp_id==ASTRA::NoExists) return;
+  pc_payment_req_created=AstraContext::GetContext("pc_payment_req", grp_id, pc_payment_req);
+  pc_payment_res_created=AstraContext::GetContext("pc_payment_res", grp_id, pc_payment_res);
+  pc_payment_req=ConvertCodepage(pc_payment_req, "CP866", "UTF-8");
+  pc_payment_res=ConvertCodepage(pc_payment_res, "CP866", "UTF-8");
+}
+
+void TLastExchangeInfo::cleanOldRecords()
+{
+  TDateTime d=NowUTC()-15/1440.0;
+  AstraContext::ClearContext("pc_payment_req", d);
+  AstraContext::ClearContext("pc_payment_res", d);
+}
+
+void TLastExchangeList::handle(const string& where)
+{
+  for(TLastExchangeList::iterator i=begin(); i!=end(); ++i)
+    i->toDB();
+}
 
 } //namespace SirenaExchange
 

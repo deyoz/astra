@@ -5,6 +5,8 @@
 #include "passenger.h"
 #include "term_version.h"
 #include "emdoc.h"
+#include "httpClient.h"
+
 namespace PieceConcept
 {
 
@@ -714,7 +716,38 @@ class TGroupInfoRes : public TGroupInfo
     virtual void toXML(xmlNodePtr node) const;
 };
 
+void SendRequest(const TExchange &request, TExchange &response,
+                 RequestInfo &requestInfo, ResponseInfo &responseInfo);
 void SendRequest(const TExchange &request, TExchange &response);
+
+class TLastExchangeInfo
+{
+  public:
+    int grp_id;
+    std::string pc_payment_req, pc_payment_res;
+    BASIC::TDateTime pc_payment_req_created, pc_payment_res_created;
+    void clear()
+    {
+      grp_id=ASTRA::NoExists;
+      pc_payment_req.clear();
+      pc_payment_res.clear();
+      pc_payment_req_created=ASTRA::NoExists;
+      pc_payment_res_created=ASTRA::NoExists;
+    }
+    TLastExchangeInfo()
+    {
+      clear();
+    }
+    void toDB();
+    void fromDB(int grp_id);
+    static void cleanOldRecords();
+};
+
+class TLastExchangeList : public std::list<TLastExchangeInfo>
+{
+  public:
+    void handle(const std::string& where);
+};
 
 } //namespace SirenaExchange
 

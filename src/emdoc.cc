@@ -410,43 +410,55 @@ void GetEMDDisassocList(const int point_id,
   };
 };
 
-void GetBoundEMDStatusList(const int grp_id,
-                           const bool in_final_status,
-                           std::list<TEMDCtxtItem> &emds)
+void GetEMDStatusList(const int grp_id,
+                      const bool in_final_status,
+                      const CheckIn::PaidBagEMDList &priorBoundEMDs,
+                      std::list<TEMDCtxtItem> &added_emds,
+                      std::list<TEMDCtxtItem> &deleted_emds)
 {
-  emds.clear();
+  added_emds.clear();
+  deleted_emds.clear();
 
   if (in_final_status) return;
 
-  CheckIn::PaidBagEMDList boundEMDs;
-  PaxASVCList::GetBoundPaidBagEMD(grp_id, NoExists, boundEMDs);
+  CheckIn::PaidBagEMDList currBoundEMDs;
+  PaxASVCList::GetBoundPaidBagEMD(grp_id, NoExists, currBoundEMDs);
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText= GetSQL(PaxASVCList::oneWithTknByGrpId);
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.DeclareVariable("emd_no", otString);
   Qry.DeclareVariable("emd_coupon", otInteger);
-  for(CheckIn::PaidBagEMDList::const_iterator e=boundEMDs.begin(); e!=boundEMDs.end(); ++e)
+  for(int pass=0; pass<2; pass++)
   {
-    TEMDCtxtItem item;
-    item.asvc=e->first;
-    item.grp_id=grp_id;
-
-    Qry.SetVariable("emd_no", e->second.emd_no);
-    Qry.SetVariable("emd_coupon", e->second.emd_coupon);
-    Qry.Execute();
-    if (!Qry.Eof)
+    //1 проход - добавленные EMD
+    //2 проход - удаленные EMD
+    const CheckIn::PaidBagEMDList &boundEMDs1 = pass==0?currBoundEMDs:priorBoundEMDs;
+    const CheckIn::PaidBagEMDList &boundEMDs2 = pass==0?priorBoundEMDs:currBoundEMDs;
+    std::list<TEMDCtxtItem> &emds = pass==0?added_emds:deleted_emds;
+    for(CheckIn::PaidBagEMDList::const_iterator e1=boundEMDs1.begin(); e1!=boundEMDs1.end(); ++e1)
     {
-      //вообще когда одинаковые EMD принадлежат разным пассажиром - это плохо и наверное надо что-то с этим делать
-      //пока выбираем пассажира с более ранним регистрационным номером
-      item.paxFromDB(Qry);
-      item.status=calcPaxCouponStatus(item.pax.refuse,
-                                      item.pax.pr_brd,
-                                      in_final_status);
+      CheckIn::PaidBagEMDList::const_iterator e2=boundEMDs2.begin();
+      for(; e2!=boundEMDs2.end(); ++e2)
+        if (e1->first==e2->first) break;
+      if (e2!=boundEMDs2.end()) continue;
+
+      TEMDCtxtItem item;
+      item.asvc=e1->first;
+      item.grp_id=grp_id;
+
+      Qry.SetVariable("emd_no", e1->second.emd_no);
+      Qry.SetVariable("emd_coupon", e1->second.emd_coupon);
+      Qry.Execute();
+      if (!Qry.Eof)
+      {
+        //вообще когда одинаковые EMD принадлежат разным пассажиром - это плохо и наверное надо что-то с этим делать
+        //пока выбираем пассажира с более ранним регистрационным номером
+        item.paxFromDB(Qry);
+      };
+
       emds.push_back(item);
-    }
-    else
-      emds.push_back(item);
+    };
   };
 };
 

@@ -3111,8 +3111,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
   TChangeStatusList ChangeStatusInfo;
+  SirenaExchange::TLastExchangeList SirenaExchangeList;
   CheckIn::TAfterSaveInfoList AfterSaveInfoList;
-  bool result=SavePax(reqNode, ediResNode, ChangeStatusInfo, AfterSaveInfoList);
+  bool result=SavePax(reqNode, ediResNode, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList);
   if (result)
   {
     if (ediResNode==NULL && !ChangeStatusInfo.empty())
@@ -3120,7 +3121,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       //хотя бы один билет будет обрабатываться
       OraSession.Rollback();  //откат
       ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
+      SirenaExchangeList.handle(__FUNCTION__);
       return false;
+    }
+    else
+    {
+      SirenaExchangeList.handle(__FUNCTION__);
     };
 
     AfterSaveInfoList.handle(__FUNCTION__);
@@ -3598,9 +3604,15 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
   }
 };
 
+namespace SirenaExchange
+{
+void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int> &grp_ids);
+}
+
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                TChangeStatusList &ChangeStatusInfo,
+                               SirenaExchange::TLastExchangeList &SirenaExchangeList,
                                CheckIn::TAfterSaveInfoList &AfterSaveInfoList)
 {
   AfterSaveInfoList.push_back(CheckIn::TAfterSaveInfo());
@@ -5913,6 +5925,81 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
   }; //цикл по сегментам
 
+  if (AfterSaveInfo.action==CheckIn::actionRefreshPaidBagPC)
+  try
+  {
+
+    if (reqInfo->client_type==ASTRA::ctTerm &&
+        !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
+    {
+      showErrorMessage("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
+      throw 1;
+    };
+    if (AfterSaveInfo.segs.empty()) throw 1;
+    int first_grp_id=AfterSaveInfo.segs.front().grp_id;
+    list<int> grp_ids;
+    bool pr_unaccomp;
+
+    SirenaExchange::TPaymentStatusReq req;
+    SirenaExchange::fillPaxsBags(first_grp_id, req, pr_unaccomp, grp_ids);
+
+    if (grp_ids.empty() || pr_unaccomp) throw 1;
+
+    list<PieceConcept::TPaidBagItem> paid;
+    if (!req.bags.empty())
+    {
+      try
+      {
+        SirenaExchange::TPaymentStatusRes res;
+
+        SirenaExchange::TLastExchangeInfo prior, curr;
+        prior.fromDB(first_grp_id);
+        req.build(curr.pc_payment_req);
+        if (prior.pc_payment_req_created==NoExists ||
+            prior.pc_payment_res_created==NoExists ||
+            prior.pc_payment_req.empty() ||
+            prior.pc_payment_res.empty() ||
+            prior.pc_payment_req!=curr.pc_payment_req)
+        {
+          RequestInfo requestInfo;
+          ResponseInfo responseInfo;
+          SirenaExchange::SendRequest(req, res, requestInfo, responseInfo);
+          curr.grp_id=first_grp_id;
+          curr.pc_payment_res=responseInfo.content;
+          SirenaExchangeList.push_back(curr);
+        }
+        else
+          res.parse(prior.pc_payment_res);
+
+        set<string> rfiscs;
+        res.check_unknown_status(rfiscs);
+        if (!rfiscs.empty())
+          throw UserException("MSG.CHECKIN.UNKNOWN_PAYMENT_STATUS_FOR_BAG_TYPE", LParams()<<LParam("bag_type", *rfiscs.begin()));
+        res.normsToDB(0);
+        res.convert(paid);
+      }
+      catch(UserException &e)
+      {
+        throw;
+      }
+      catch(std::exception &e)
+      {
+        ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
+        throw UserException("MSG.CHECKIN.UNABLE_CALC_PAID_BAG_TRY_RE_CHECKIN");
+      }
+    };
+    CheckIn::PaidBagEMDList paidBagEMDBefore;
+    PaxASVCList::GetBoundPaidBagEMD(first_grp_id, NoExists, paidBagEMDBefore);
+    PieceConcept::PaidBagToDB(first_grp_id, paid);
+    PieceConcept::TryDelPaidBagEMD(first_grp_id, paid);
+
+    if (ediResNode==NULL && reqInfo->client_type!=ctPNL)
+    {
+      EMDStatusInterface::EMDCheckStatus(first_grp_id, paidBagEMDBefore, ChangeStatusInfo.EMD);
+    };
+  }
+  catch(int) {};
+
   return true;
 };
 
@@ -6206,7 +6293,7 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int
 void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActionType action)
 {
   if (action==CheckIn::actionNone) return;
-  if (action!=CheckIn::actionCheckPieceConcept && action!=CheckIn::actionRefreshPaidBagPC) return;
+  if (action!=CheckIn::actionCheckPieceConcept/* !!!vlad && action!=CheckIn::actionRefreshPaidBagPC*/) return;
 
   if (action==CheckIn::actionCheckPieceConcept)
     ProgTrace(TRACE5, "%s started with actionCheckPieceConcept", __FUNCTION__);
@@ -8322,6 +8409,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                            PNRs, emulDocHeader, emulCkinDoc, emulChngDocs);
 
             TChangeStatusList ChangeStatusInfo;
+            SirenaExchange::TLastExchangeList SirenaExchangeList;
             CheckIn::TAfterSaveInfoList AfterSaveInfoList;
 
             if (emulCkinDoc.docPtr()!=NULL) //регистрация новой группы
@@ -8329,9 +8417,10 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
               xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
               if (emulReqNode==NULL)
                 throw EXCEPTIONS::Exception("CheckInInterface::CrewCheckin: emulReqNode=NULL");
-              if (SavePax(emulReqNode, NULL, ChangeStatusInfo, AfterSaveInfoList))
+              if (SavePax(emulReqNode, NULL, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList))
               {
                 //сюда попадаем если была реальная регистрация
+                SirenaExchangeList.handle(__FUNCTION__);
                 AfterSaveInfoList.handle(__FUNCTION__);
               }
             }

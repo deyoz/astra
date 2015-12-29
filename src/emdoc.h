@@ -104,9 +104,11 @@ void GetEMDDisassocList(const int point_id,
                         const bool in_final_status,
                         std::list< TEMDCtxtItem > &emds);
 
-void GetBoundEMDStatusList(const int grp_id,
-                           const bool in_final_status,
-                           std::list<TEMDCtxtItem> &emds);
+void GetEMDStatusList(const int grp_id,
+                      const bool in_final_status,
+                      const CheckIn::PaidBagEMDList &priorBoundEMDs,
+                      std::list<TEMDCtxtItem> &added_emds,
+                      std::list<TEMDCtxtItem> &deleted_emds);
 
 class TEMDocItem
 {
