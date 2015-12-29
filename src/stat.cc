@@ -3858,7 +3858,7 @@ void createXMLSelfCkinStat(const TStatParams &params,
                         const TPrintAirline &airline, xmlNodePtr resNode)
 {
     if(SelfCkinStat.empty() && SelfCkinStatTotal==TSelfCkinStatRow())
-      throw AstraLocale::UserException("MSG.NOT_DATA");
+        throw AstraLocale::UserException("MSG.NOT_DATA");
 
     NewTextChild(resNode, "airline", airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
@@ -3867,21 +3867,20 @@ void createXMLSelfCkinStat(const TStatParams &params,
     xmlNodePtr rowNode;
     TSelfCkinStatRow total;
     bool showTotal=true;
-    if (!params.skip_rows)
+    int flts_total = 0;
+    int rows = 0;
+    for(TSelfCkinStat::const_iterator im = SelfCkinStat.begin(); im != SelfCkinStat.end(); ++im, rows++)
     {
-      int rows = 0;
-      for(TSelfCkinStat::const_iterator im = SelfCkinStat.begin(); im != SelfCkinStat.end(); ++im, rows++)
-      {
-          if(rows >= MAX_STAT_ROWS) {
-              AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
-                                            LParams() << LParam("num", MAX_STAT_ROWS));
-              if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-              break;
-          }
-          //region обязательно в начале цикла, иначе будет испорчен xml
-          string region;
-          if(params.statType == statSelfCkinFull)
-          {
+        if(rows >= MAX_STAT_ROWS) {
+            AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
+                    LParams() << LParam("num", MAX_STAT_ROWS));
+            if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
+            break;
+        }
+        //region обязательно в начале цикла, иначе будет испорчен xml
+        string region;
+        if(params.statType == statSelfCkinFull)
+        {
             try
             {
                 region = AirpTZRegion(im->first.ap);
@@ -3892,75 +3891,75 @@ void createXMLSelfCkinStat(const TStatParams &params,
                 if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
                 continue;
             };
-          };
+        };
 
-          rowNode = NewTextChild(rowsNode, "row");
-          // Тип рег.
-          NewTextChild(rowNode, "col", im->first.client_type);
-          // Пульт
-          NewTextChild(rowNode, "col", im->first.desk);
-          // А/П пульта
-          NewTextChild(rowNode, "col", im->first.desk_airp);
-          // примечание
-          if(params.statType == statSelfCkinFull)
-              NewTextChild(rowNode, "col", im->first.descr);
-          // код а/к
-          NewTextChild(rowNode, "col", im->first.ak);
-          if(
-                  params.statType == statSelfCkinDetail or
-                  params.statType == statSelfCkinFull
-            )
-              // код а/п
-              NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, im->first.ap));
-          if(
-                  params.statType == statSelfCkinShort or
-                  params.statType == statSelfCkinDetail
-            )
-              // Кол-во рейсов
-              NewTextChild(rowNode, "col", (int)im->second.flts.size());
-          if(params.statType == statSelfCkinFull) {
-              // номер рейса
-              ostringstream buf;
-              buf << setw(3) << setfill('0') << im->first.flt_no;
-              NewTextChild(rowNode, "col", buf.str().c_str());
-              // Дата
-              NewTextChild(rowNode, "col", DateTimeToStr(
-                          UTCToClient(im->first.scd_out, region), "dd.mm.yy")
-                      );
-              // Направление
-              NewTextChild(rowNode, "col", im->first.places.get());
-          }
-          // Кол-во пасс.
-          NewTextChild(rowNode, "col", im->second.pax_amount);
-          NewTextChild(rowNode, "col", im->second.term_bag);
-          NewTextChild(rowNode, "col", im->second.term_bp);
-          NewTextChild(rowNode, "col", im->second.pax_amount - im->second.term_ckin_service);
+        rowNode = NewTextChild(rowsNode, "row");
+        // Тип рег.
+        NewTextChild(rowNode, "col", im->first.client_type);
+        // Пульт
+        NewTextChild(rowNode, "col", im->first.desk);
+        // А/П пульта
+        NewTextChild(rowNode, "col", im->first.desk_airp);
+        // примечание
+        if(params.statType == statSelfCkinFull)
+            NewTextChild(rowNode, "col", im->first.descr);
+        // код а/к
+        NewTextChild(rowNode, "col", im->first.ak);
+        if(
+                params.statType == statSelfCkinDetail or
+                params.statType == statSelfCkinFull
+          )
+            // код а/п
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, im->first.ap));
+        if(
+                params.statType == statSelfCkinShort or
+                params.statType == statSelfCkinDetail
+          ) {
+            // Кол-во рейсов
+            NewTextChild(rowNode, "col", (int)im->second.flts.size());
+            flts_total += im->second.flts.size();
+        }
+        if(params.statType == statSelfCkinFull) {
+            // номер рейса
+            ostringstream buf;
+            buf << setw(3) << setfill('0') << im->first.flt_no;
+            NewTextChild(rowNode, "col", buf.str().c_str());
+            // Дата
+            NewTextChild(rowNode, "col", DateTimeToStr(
+                        UTCToClient(im->first.scd_out, region), "dd.mm.yy")
+                    );
+            // Направление
+            NewTextChild(rowNode, "col", im->first.places.get());
+        }
+        // Кол-во пасс.
+        NewTextChild(rowNode, "col", im->second.pax_amount);
+        NewTextChild(rowNode, "col", im->second.term_bag);
+        NewTextChild(rowNode, "col", im->second.term_bp);
+        NewTextChild(rowNode, "col", im->second.pax_amount - im->second.term_ckin_service);
 
-          if(params.statType == statSelfCkinFull) {
-              // ВЗ
-              NewTextChild(rowNode, "col", im->second.adult);
-              // РБ
-              NewTextChild(rowNode, "col", im->second.child);
-              // РМ
-              NewTextChild(rowNode, "col", im->second.baby);
-          }
-          if(
-                  params.statType == statSelfCkinDetail or
-                  params.statType == statSelfCkinFull
-            )
-              // Сквоз. рег.
-              NewTextChild(rowNode, "col", im->second.tckin);
-          if(
-                  params.statType == statSelfCkinShort or
-                  params.statType == statSelfCkinDetail
-            )
-              // Примечание
-              NewTextChild(rowNode, "col", im->first.descr);
+        if(params.statType == statSelfCkinFull) {
+            // ВЗ
+            NewTextChild(rowNode, "col", im->second.adult);
+            // РБ
+            NewTextChild(rowNode, "col", im->second.child);
+            // РМ
+            NewTextChild(rowNode, "col", im->second.baby);
+        }
+        if(
+                params.statType == statSelfCkinDetail or
+                params.statType == statSelfCkinFull
+          )
+            // Сквоз. рег.
+            NewTextChild(rowNode, "col", im->second.tckin);
+        if(
+                params.statType == statSelfCkinShort or
+                params.statType == statSelfCkinDetail
+          )
+            // Примечание
+            NewTextChild(rowNode, "col", im->first.descr);
 
-          total += im->second;
-      };
-    }
-    else total=SelfCkinStatTotal;
+        total += im->second;
+    };
 
     rowNode = NewTextChild(rowsNode, "row");
 
@@ -4010,7 +4009,7 @@ void createXMLSelfCkinStat(const TStatParams &params,
         SetProp(colNode, "width", 85);
         SetProp(colNode, "align", taRightJustify);
         SetProp(colNode, "sort", sortInteger);
-        NewTextChild(rowNode, "col", (int)total.flts.size());
+        NewTextChild(rowNode, "col", flts_total);
     }
     if(params.statType == statSelfCkinFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
@@ -4096,8 +4095,8 @@ void createXMLSelfCkinStat(const TStatParams &params,
 
     if (!showTotal)
     {
-      xmlUnlinkNode(rowNode);
-      xmlFreeNode(rowNode);
+        xmlUnlinkNode(rowNode);
+        xmlFreeNode(rowNode);
     };
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
