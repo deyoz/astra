@@ -395,7 +395,6 @@ bool create_apis_file(int point_id, const string& task_name)
     TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline"));
     string country_dep = Qry.FieldAsString("country");
 
-    TTripInfo operFlt(Qry);
     TTripRoute route;
     route.GetRouteAfter(NoExists,
                         point_id,
@@ -423,7 +422,7 @@ bool create_apis_file(int point_id, const string& task_name)
 
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
-      "SELECT pax.pax_id, pax.surname, pax.name, pax.pr_brd, "
+      "SELECT pax.pax_id, pax.surname, pax.name, pax.pr_brd, pax.grp_id, "
       "       tckin_segments.airp_arv AS airp_final, pax_grp.status, pers_type, ticket_no "
       "FROM pax_grp,pax,tckin_segments "
       "WHERE pax_grp.grp_id=pax.grp_id AND "
@@ -532,6 +531,12 @@ bool create_apis_file(int point_id, const string& task_name)
           {
             lst_type_extra=(final_apis?"DC:1.0":"CI:1.0");
           };
+
+          string apis_country, direction;
+          if (fmt=="CSV_AE" || fmt == "CSV_TH") {
+            apis_country = (fmt=="CSV_AE")?"AE":"TH";
+            direction = (country_dep == apis_country)?"O":"I";
+          }
 
           Paxlst::PaxlstInfo FPM(Paxlst::PaxlstInfo::FlightPassengerManifest, lst_type_extra);
         	Paxlst::PaxlstInfo FCM(Paxlst::PaxlstInfo::FlightCrewManifest, lst_type_extra);
@@ -656,7 +661,7 @@ bool create_apis_file(int point_id, const string& task_name)
             int pax_id=PaxQry.FieldAsInteger("pax_id");
             bool boarded=PaxQry.FieldAsInteger("pr_brd")!=0;
             TPaxStatus status=DecodePaxStatus(PaxQry.FieldAsString("status"));
-            if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR" || fmt=="CSV_AE")) continue;
+            if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR" || fmt=="CSV_AE"|| fmt=="CSV_TH")) continue;
             if (status!=psCrew && !boarded && final_apis) continue;
 
             Paxlst::PassengerInfo paxInfo;
@@ -681,7 +686,7 @@ bool create_apis_file(int point_id, const string& task_name)
             bool docaD_exists=false;
             bool docaR_exists=false;
             bool docaB_exists=false;
-            if (fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="XML_TR")
+            if (fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="XML_TR" || fmt=="CSV_AE" || fmt=="CSV_TH")
             {
               docaD_exists=LoadPaxDoca(pax_id, CheckIn::docaDestination, (CheckIn::TPaxDocaItem&)docaD);
               docaR_exists=LoadPaxDoca(pax_id, CheckIn::docaResidence, (CheckIn::TPaxDocaItem&)docaR);
@@ -706,7 +711,7 @@ bool create_apis_file(int point_id, const string& task_name)
               doc_first_name=TruncNameTitles(doc_first_name.c_str());
               doc_second_name=TruncNameTitles(doc_second_name.c_str());
             };
-            if (fmt=="EDI_CN" || fmt=="CSV_DE" || fmt=="TXT_EE" || fmt=="CSV_AE")
+            if (fmt=="EDI_CN" || fmt=="CSV_DE" || fmt=="TXT_EE" || fmt=="CSV_AE"|| fmt=="CSV_TH")
             {
               if (!doc_second_name.empty())
               {
@@ -726,7 +731,7 @@ bool create_apis_file(int point_id, const string& task_name)
               if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_LT") gender = "M";//gender.clear();
               if (fmt=="CSV_DE" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR") gender = "U";
               if (fmt=="TXT_EE") gender = "N";
-              if (fmt=="CSV_AE") gender = "X";
+              if (fmt=="CSV_AE" || fmt=="CSV_TH") gender = "X";
             };
 
     	    	string doc_type;
@@ -746,7 +751,7 @@ bool create_apis_file(int point_id, const string& task_name)
     	    	  {
     	    	    if (doc_type!="P") doc_type.clear(); else doc_type="2";
     	    	  };
-              if (fmt=="CSV_AE")
+              if (fmt=="CSV_AE" || fmt=="CSV_TH")
               {
                 if (doc_type!="P") doc_type="O";
               };
@@ -758,10 +763,12 @@ bool create_apis_file(int point_id, const string& task_name)
     	    	{
               if (fmt=="CSV_CZ")
     	    	    birth_date=DateTimeToStr(doc.birth_date,"ddmmmyy",true);
-              if (fmt=="CSV_DE")
+              else if (fmt=="CSV_DE")
     	    	    birth_date=DateTimeToStr(doc.birth_date,"yymmdd",true);
-              if (fmt=="TXT_EE" || fmt=="CSV_AE")
-    	    	    birth_date=DateTimeToStr(doc.birth_date,"dd.mm.yyyy",true);
+              else if (fmt=="TXT_EE")
+                birth_date=DateTimeToStr(doc.birth_date,"dd.mm.yyyy",true);
+              else if (fmt=="CSV_AE"|| fmt=="CSV_TH")
+                birth_date=DateTimeToStr(doc.birth_date,"dd-mmm-yyyy",true);
     	    	};
 
     	    	string expiry_date;
@@ -769,8 +776,8 @@ bool create_apis_file(int point_id, const string& task_name)
     	    	{
               if (fmt=="CSV_CZ")
     	    	    expiry_date=DateTimeToStr(doc.expiry_date,"ddmmmyy",true);
-              if (fmt=="CSV_AE")
-                expiry_date=DateTimeToStr(doc.expiry_date,"dd.mm.yyyy",true);
+              if (fmt=="CSV_AE" || fmt=="CSV_TH")
+                expiry_date=DateTimeToStr(doc.expiry_date,"dd-mmm-yyyy",true);
     	    	};
 
             string doc_no=doc.no;
@@ -879,6 +886,14 @@ bool create_apis_file(int point_id, const string& task_name)
               paxInfo.setDocCountry(issue_country);
             };
 
+            string birth_country;
+            if (docaB_exists && fmt=="CSV_TH")
+              birth_country = docaB.country;
+
+            string trip_type = "N";
+            if (fmt=="CSV_AE" || fmt == "CSV_TH")
+                trip_type = getTripType(status, PaxQry.FieldAsInteger("grp_id"), direction, apis_country);
+
             if (fmt=="CSV_CZ")
       	    {
       	    	body << doc_surname << ";"
@@ -906,18 +921,35 @@ bool create_apis_file(int point_id, const string& task_name)
     	  		       << convert_char_view(doc_no,true) << ";"
     	  		       << issue_country;
       	    };
-            if (fmt=="CSV_AE")
+            if ( fmt=="CSV_AE" || fmt=="CSV_TH" )
       	    {
               ostringstream data;
-              data << doc_no << ","
-                   << nationality << ","
-                   << doc_type << ","
-                   << issue_country << ","
-                   << doc_surname << ","
-                   << doc_first_name << ","
-                   << birth_date << ","
-                   << gender << ",,"
-                   << expiry_date << ",,,";
+              if ( fmt=="CSV_TH" ) {
+                data << doc_type << ","
+                     << nationality << ","
+                     << doc_no << ","
+                     << expiry_date << ","
+                     << issue_country << ","
+                     << doc_surname << ","
+                     << doc_first_name << ","
+                     << birth_date << ","
+                     << gender << ","
+                     << birth_country << ","
+                     << trip_type << ",,";
+              }
+              else {
+                data << doc_no << ","
+                     << nationality << ","
+                     << doc_type << ","
+                     << issue_country << ","
+                     << doc_surname << ","
+                     << doc_first_name << ","
+                     << birth_date << ","
+                     << gender << ","
+                     << birth_country << ","
+                     << expiry_date << ","
+                     << trip_type << ",,";
+              }
               if (status==psCrew)
                 crew_body << data.str() << ENDL;
               else
@@ -1136,7 +1168,7 @@ bool create_apis_file(int point_id, const string& task_name)
                 task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL)
             {
         	    ostringstream file_name;
-              if (fmt=="CSV_CZ" || fmt=="CSV_DE" || fmt=="CSV_AE")
+              if (fmt=="CSV_CZ" || fmt=="CSV_DE" || fmt=="CSV_AE"|| fmt=="CSV_TH")
               {
                 ostringstream f;
                 f << airline.code_lat << flt_no << suffix;
@@ -1147,7 +1179,7 @@ bool create_apis_file(int point_id, const string& task_name)
               	          << airp_dep.code_lat
               	          << airp_arv.code_lat
                           << DateTimeToStr(scd_out_local,"yyyymmdd");
-                if (fmt!="CSV_AE") file_name << ".CSV";
+                if (fmt!="CSV_AE" && fmt!="CSV_TH") file_name << ".CSV";
               };
 
               if (fmt=="TXT_EE")
@@ -1171,30 +1203,34 @@ bool create_apis_file(int point_id, const string& task_name)
                     	 << airp_dep.code_lat << ";" << DateTimeToStr(scd_out_local,"yymmddhhnn") << ";"
                     	 << airp_arv.code_lat << ";" << DateTimeToStr(scd_in_local,"yymmddhhnn") << ";"
                     	 << count << ENDL;
-              if (fmt=="CSV_AE")
+              if (fmt=="CSV_AE" || fmt=="CSV_TH")
               {
                 string tb_date, tb_time, tb_airp;
-                getTBTripItem( point_id, r->point_id, "AE", tb_date, tb_time, tb_airp );
-                string direction = (country_dep == "€…")?"O":"I";
+                getTBTripItem( point_id, r->point_id, apis_country, tb_date, tb_time, tb_airp );
                 header << "*DIRECTION," << direction << ",,,,,,,,,,," << ENDL
                        << "*FLIGHT," << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ",,,,,,,,,,," << ENDL
                        << "*DEP PORT," << airp_dep.code_lat << ",,,,,,,,,,," << ENDL
-                       << "*DEP DATE," << DateTimeToStr(scd_out_local,"dd.mm.yyyy") << ",,,,,,,,,,," << ENDL
-                       << "*DEP TIME," << DateTimeToStr(scd_out_local,"hh:nn") << ",,,,,,,,,,," << ENDL
+                       << "*DEP DATE," << DateTimeToStr(scd_out_local,"dd-mmm-yyyy", true) << ",,,,,,,,,,," << ENDL
+                       << "*DEP TIME," << DateTimeToStr(scd_out_local,"hhnn") << ",,,,,,,,,,," << ENDL
                        << "*ARR PORT," << airp_arv.code_lat << ",,,,,,,,,,," << ENDL
-                       << "*ARR DATE," << DateTimeToStr(scd_in_local,"dd.mm.yyyy") << ",,,,,,,,,,," << ENDL
-                       << "*ARR TIME," << DateTimeToStr(scd_in_local,"hh:nn") << ",,,,,,,,,,," << ENDL;
+                       << "*ARR DATE," << DateTimeToStr(scd_in_local,"dd-mmm-yyyy", true) << ",,,,,,,,,,," << ENDL
+                       << "*ARR TIME," << DateTimeToStr(scd_in_local,"hhnn") << ",,,,,,,,,,," << ENDL;
                 header << "*TB PORT," << tb_airp << ",,,,,,,,,,," << ENDL;
                 header << "*TB DATE," << tb_date << ",,,,,,,,,,," << ENDL
                        << "*TB TIME," << tb_time << ",,,,,,,,,,," << ENDL;
-                pax_header << "***VERSION 2,,,,,,,,,,,," << ENDL
-                           << "***HEADER,,,,,,,,,,,," << ENDL
-                           << "*TYPE,P,,,,,,,,,,," << ENDL
+                if (fmt=="CSV_TH")
+                  pax_header << "***VERSION 4,,,,,,,,,,,," << ENDL
+                                "***HEADER,,,,,,,,,,,," << ENDL
+                                "***BATCH,APP,,,,,,,,,,," << ENDL;
+                else
+                  pax_header << "***VERSION 2,,,,,,,,,,,," << ENDL
+                                "***HEADER,,,,,,,,,,,," << ENDL;
+                if (!crew_body.str().empty())
+                  crew_header << pax_header.str()
+                              << "*TYPE,C,,,,,,,,,,," << ENDL
+                              << header.str();
+                pax_header << "*TYPE,P,,,,,,,,,,," << ENDL
                            << header.str();
-                crew_header << "***VERSION 2,,,,,,,,,,,," << ENDL
-                            << "***HEADER,,,,,,,,,,,," << ENDL
-                            << "*TYPE,C,,,,,,,,,,," << ENDL
-                            << header.str();
               }
               if (fmt=="TXT_EE")
               {
@@ -1216,20 +1252,22 @@ bool create_apis_file(int point_id, const string& task_name)
                     	 << "2$ " << ENDL
                     	 << "3$ " << count << ENDL;
               };
-              if (fmt=="CSV_AE") {
-                if ( !paxs_body.str().empty() ) {
+              if (fmt=="CSV_AE" || fmt=="CSV_TH") {
+                if ( !paxs_body.str().empty() && !pax_header.str().empty() ) {
                 ostringstream paxs;
                 paxs << pax_header.str() << ENDL << "***START,,,,,,,,,,,,"  << ENDL << paxs_body.str() << "***END,,,,,,,,,,,," << ENDL;
                 files.push_back( make_pair( file_name.str() + string("_P.CSV"), paxs.str() ) );
                 }
-                if ( !crew_body.str().empty() ) {
+                if ( !crew_body.str().empty() && !crew_header.str().empty() ) {
                   ostringstream crew;
                   crew << crew_header.str() << ENDL << "***START,,,,,,,,,,,,"  << ENDL << crew_body.str() << "***END,,,,,,,,,,,," << ENDL;
                   files.push_back( make_pair( file_name.str() + string("_C.CSV"), crew.str() ) );
                 }
               }
-              else
-                files.push_back( make_pair(file_name.str(), string(header.str()).append(body.str())) );
+              else {
+                if(!file_name.str().empty() && header.str().empty() && body.str().empty())
+                  files.push_back( make_pair(file_name.str(), string(header.str()).append(body.str())) );
+              }
             };
       	  };
 

@@ -6,6 +6,7 @@
 #include <basic.h>
 #include "xml_unit.h"
 #include "astra_misc.h"
+#include "astra_consts.h"
 
 class FlightLeg {
 private:
@@ -34,5 +35,7 @@ bool get_trip_apis_param (const int point_id, const std::string& format, const s
 void set_trip_apis_param(const int point_id, const std::string& format, const std::string& param_name, const int param_value);
 void getTBTripItem( const int point_dep, const int point_arv, const std::string& country,
                     std::string& tb_date, std::string& tb_time, std::string& tb_airp );
+std::string getTripType( ASTRA::TPaxStatus status, const int grp_id, const std::string& direction,
+                         const std::string& apis_country );
 
 #endif // APIS_TOOLS_H
