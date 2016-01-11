@@ -156,3 +156,25 @@ void getTBTripItem(const int point_dep, const int point_arv, const std::string& 
     tb_airp = airp_row.code_lat;
   }
 }
+
+std::string getTripType( ASTRA::TPaxStatus status, const int grp_id, const std::string& direction, const std::string& apis_country )
+{
+  if (status == ASTRA::psTransit)
+    return "T";
+
+  if (direction == "O") {
+    // проверим входящий трансфер
+    TCkinRouteItem prior;
+    TCkinRoute().GetPriorSeg(grp_id, crtIgnoreDependent, prior );
+    if ( !prior.airp_dep.empty() && getCountryByAirp( prior.airp_dep ).code_lat != apis_country )
+      return "X";
+  }
+  else {
+    // проверим исходящий трансфер
+    TCkinRouteItem next;
+    TCkinRoute().GetNextSeg(grp_id, crtIgnoreDependent, next );
+    if ( !next.airp_arv.empty() && getCountryByAirp( next.airp_arv ).code_lat != apis_country )
+      return "X";
+  }
+  return "N";
+}

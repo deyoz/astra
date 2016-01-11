@@ -160,6 +160,11 @@ TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_ar
           {
             result.pass.doc.required_fields|=DOC_EDI_LT_FIELDS;
           };
+          if (fmt=="CSV_TH")
+          {
+            result.pass.doc.required_fields|=DOC_CSV_TH_FIELDS;
+            result.crew.doc.required_fields|=DOC_CSV_TH_FIELDS;
+          };
         };
       };
       if (apis_formats.empty())
