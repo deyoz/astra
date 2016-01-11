@@ -227,6 +227,17 @@ const long int DOC_EDI_LT_FIELDS=DOC_TYPE_FIELD|
 
 //==============================================================================
 
+const long int DOC_CSV_TH_FIELDS=DOC_TYPE_FIELD|
+                                 DOC_ISSUE_COUNTRY_FIELD|
+                                 DOC_NO_FIELD|
+                                 DOC_NATIONALITY_FIELD|
+                                 DOC_BIRTH_DATE_FIELD|
+                                 DOC_GENDER_FIELD|
+                                 DOC_SURNAME_FIELD|
+                                 DOC_FIRST_NAME_FIELD;
+
+//==============================================================================
+
 enum TCheckInfoType { ciDoc, ciDoco, ciDocaB, ciDocaR, ciDocaD, ciTkn };
 
 class TCheckDocTknInfo
