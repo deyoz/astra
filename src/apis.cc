@@ -1266,7 +1266,7 @@ bool create_apis_file(int point_id, const string& task_name)
                 }
               }
               else {
-                if(!file_name.str().empty() && header.str().empty() && body.str().empty())
+                if(!file_name.str().empty() && !header.str().empty() && !body.str().empty())
                   files.push_back( make_pair(file_name.str(), string(header.str()).append(body.str())) );
               }
             };
