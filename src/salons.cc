@@ -8065,13 +8065,7 @@ bool isEmptySalons( int point_id )
 
 bool isFreeSeating( int point_id )
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT pr_free_seating FROM trip_sets "
-    " WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  return ( !Qry.Eof && Qry.FieldAsInteger( "pr_free_seating" ) != 0 );
+  return TTripSetList().fromDB(point_id).value(tsFreeSeating, false);
 }
 
 bool isTranzitSalons( int point_id )

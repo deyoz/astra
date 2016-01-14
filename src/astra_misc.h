@@ -346,7 +346,11 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsSendMVTDelays=19,             //Отправка MVT на взлет с задержками
                     tsPrintSCDCloseBoarding=21,     //Отображение планового времени в посадочном талоне
                     tsMintransFile=22,              //Файл для Минтранса
-                    /*привязанные к рейсу*/
+                    tsAODBCreateFlight=26,          //Создание рейсов из AODB
+                    tsSetDepTimeByMVT=27,           //Проставление вылета рейса по телеграмме MVT
+                    tsSyncMeridian=28,              //Синхронизация с меридианом
+
+                    /*привязанные к рейсу (есть соответствующие поля в таблице trip_sets)*/
                     tsCheckLoad=2,                  //Контроль загрузки при регистрации
                     tsOverloadReg=3,                //Разрешение регистрации при превышении загрузки
                     tsExam=4,                       //Досмотровый контроль перед посадкой
@@ -359,18 +363,20 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsFreeSeating=23,               //Свободная рассадка
                     tsAPISControl=24,               //Контроль данных APIS
                     tsAPISManualInput=25,           //Ручной ввод данных APIS
-                    tsAODBCreateFlight=26,          //Создание рейсов из AODB
-                    tsSetDepTimeByMVT=27,           //Проставление вылета рейса по телеграмме MVT
-                    tsSyncMeridian=28,              //Синхронизация с меридианом
                     tsPieceConcept=30,              //Расчет багажа по кол-ву мест
+
+                    //Ден, Женя, не добавляйте в эту секцию настройки, которые не в таблице trip_sets
+
                     /*привязанные к рейсу по залам*/
                     tsBrdWithReg=101,               //Посадка при регистрации
                     tsExamWithBrd=102,              //Досмотр при посадке
+
                     /*не привязанные к рейсу для саморегистрации*/
                     tsRegWithSeatChoice=201,        //Запрет регистрации без выбора места
                     tsRegRUSNationOnly=203          //Запрет регистрации нерезидентов РФ
                   };
 
+bool DefaultTripSets( const TTripSetType setType );
 bool GetTripSets( const TTripSetType setType,
                   const TTripInfo &info );
 bool GetSelfCkinSets( const TTripSetType setType,

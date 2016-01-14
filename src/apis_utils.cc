@@ -30,26 +30,16 @@ TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_ar
 {
   apis_formats.clear();
   TCompleteCheckDocInfo result;
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
-    "       trip_sets.pr_reg_with_doc "
-    "FROM points,trip_sets "
-    "WHERE points.point_id=trip_sets.point_id(+) AND points.point_id=:point_id";
-  Qry.CreateVariable("point_id",otInteger,point_dep);
-  Qry.Execute();
 
-  if (!Qry.Eof)
-  {
-    if (!Qry.FieldIsNULL("pr_reg_with_doc") &&
-        Qry.FieldAsInteger("pr_reg_with_doc")!=0)
+  TTripInfo fltInfo;
+  if (fltInfo.getByPointId(point_dep))
+  {    
+    if (TTripSetList().fromDB(point_dep).value(tsRegWithDoc, false))
     {
       result.pass.doc.required_fields|=DOC_NO_FIELD;
       result.crew.doc.required_fields|=DOC_NO_FIELD;
     };
 
-    TTripInfo fltInfo(Qry);
     if (GetTripSets(tsMintransFile, fltInfo))
     {
         result.pass.doc.required_fields|=DOC_MINTRANS_FIELDS;
@@ -65,12 +55,13 @@ TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_ar
     try
     {
       string airline, country_dep, country_arv, city;
-      airline=Qry.FieldAsString("airline");
-      city=base_tables.get("airps").get_row("code", Qry.FieldAsString("airp") ).AsString("city");
+      airline=fltInfo.airline;
+      city=base_tables.get("airps").get_row("code", fltInfo.airp ).AsString("city");
       country_dep=base_tables.get("cities").get_row("code", city).AsString("country");
       city=base_tables.get("airps").get_row("code", airp_arv ).AsString("city");
       country_arv=base_tables.get("cities").get_row("code", city).AsString("country");
 
+      TQuery Qry( &OraSession );
       Qry.Clear();
       Qry.SQLText=
         "SELECT format FROM apis_sets "
@@ -195,22 +186,13 @@ TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_ar
 TCompleteCheckTknInfo GetCheckTknInfo(const int point_dep)
 {
   TCompleteCheckTknInfo result;
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
-    "       trip_sets.pr_reg_with_tkn "
-    "FROM points,trip_sets "
-    "WHERE points.point_id=trip_sets.point_id(+) AND points.point_id=:point_id";
-  Qry.CreateVariable("point_id",otInteger,point_dep);
-  Qry.Execute();
 
-  if (!Qry.Eof)
+  TTripInfo fltInfo;
+  if (fltInfo.getByPointId(point_dep))
   {
-    if (!Qry.FieldIsNULL("pr_reg_with_tkn") &&
-        Qry.FieldAsInteger("pr_reg_with_tkn")!=0) result.pass.tkn.required_fields|=TKN_TICKET_NO_FIELD;
+    if (TTripSetList().fromDB(point_dep).value(tsRegWithTkn, false))
+      result.pass.tkn.required_fields|=TKN_TICKET_NO_FIELD;
 
-    TTripInfo fltInfo(Qry);
     if (GetTripSets(tsMintransFile, fltInfo)) result.pass.tkn.required_fields|=TKN_MINTRANS_FIELDS;
   };
   return result;

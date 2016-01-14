@@ -35,7 +35,7 @@
 #include "apis.h"
 #include "trip_tasks.h"
 #include "pers_weights.h"
-
+#include "qrys.h"
 #include "aodb.h"
 #include "emdoc.h"
 #include "serverlib/perfom.h"
@@ -6100,34 +6100,14 @@ void set_trip_sets(const TAdvTripInfo &flt)
     };
   };
 
-  //настройки разные
-  Qry.SQLText=
-    "SELECT type,pr_misc, "
-    "       DECODE(airline,NULL,0,8)+ "
-    "       DECODE(flt_no,NULL,0,2)+ "
-    "       DECODE(airp_dep,NULL,0,4) AS priority "
-    "FROM misc_set "
-    "WHERE (airline IS NULL OR airline=:airline) AND "
-    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
-    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
-    "ORDER BY type,priority DESC ";
-  Qry.Execute();
-
-  pr_first=true;
-  prev_type=NoExists;
-  map<TTripSetType, bool> sets;
-  for(;!Qry.Eof;Qry.Next())
-  {
-    int type=Qry.FieldAsInteger("type");
-    bool pr_misc=Qry.FieldAsInteger("pr_misc")!=0;
-    if (pr_first || prev_type!=type)
-    {
-      sets.insert(make_pair((TTripSetType)type, pr_misc));
-    };
-    pr_first=false;
-    prev_type=type;
-  };
-  update_trip_sets(flt.point_id, sets, true);
+  TTripSetList oldSetList, newSetList;
+  oldSetList.fromDB(flt.point_id);
+  newSetList.fromDB(flt);
+  TTripSetList differSetList;
+  set_difference(newSetList.begin(), newSetList.end(),
+                 oldSetList.begin(), oldSetList.end(),
+                 inserter(differSetList, differSetList.end()));
+  differSetList.toDB(flt.point_id);
 
   //платная регистрация
   InsQry.Clear();
@@ -6187,111 +6167,189 @@ void set_trip_sets(const TAdvTripInfo &flt)
   };
 };
 
-void update_trip_sets(int point_id, const map<TTripSetType, bool> &sets, bool first_init)
+TTripSetList::TTripSetList()
+{
+  _setTypes.insert(tsCheckLoad);
+  _setTypes.insert(tsOverloadReg);
+  _setTypes.insert(tsExam);
+  _setTypes.insert(tsCheckPay);
+  _setTypes.insert(tsExamCheckPay);
+  _setTypes.insert(tsRegWithTkn);
+  _setTypes.insert(tsRegWithDoc);
+  _setTypes.insert(tsRegWithoutTKNA);
+  _setTypes.insert(tsAutoWeighing);
+  _setTypes.insert(tsFreeSeating);
+  _setTypes.insert(tsAPISControl);
+  _setTypes.insert(tsAPISManualInput);
+  _setTypes.insert(tsPieceConcept);
+}
+
+const std::set<TTripSetType>& TTripSetList::setTypes()
+{
+  return _setTypes;
+}
+
+std::string TTripSetList::setTypeStr(const TTripSetType setType) const
+{
+  switch(setType)
+  {
+    case tsCheckLoad:
+      return "pr_check_load";
+    case tsOverloadReg:
+      return "pr_overload_reg";
+    case tsExam:
+      return "pr_exam";
+    case tsCheckPay:
+      return "pr_check_pay";
+    case tsExamCheckPay:
+      return "pr_exam_check_pay";
+    case tsRegWithTkn:
+      return "pr_reg_with_tkn";
+    case tsRegWithDoc:
+      return "pr_reg_with_doc";
+    case tsRegWithoutTKNA:
+      return "pr_reg_without_tkna";
+    case tsAutoWeighing:
+      return "auto_weighing";
+    case tsFreeSeating:
+      return "pr_free_seating";
+    case tsAPISControl:
+      return "apis_control";
+    case tsAPISManualInput:
+      return "apis_manual_input";
+    case tsPieceConcept:
+      return "piece_concept";
+    default: throw Exception("%s: wrong setType=%d", __FUNCTION__, (int)setType);
+  }
+}
+
+const TTripSetList& TTripSetList::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  for(TTripSetList::const_iterator i=begin(); i!=end(); ++i)
+    NewTextChild(node, setTypeStr(i->first).c_str(), (int)i->second);
+  return *this;
+}
+
+TTripSetList& TTripSetList::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  for(set<TTripSetType>::const_iterator i=_setTypes.begin(); i!=_setTypes.end(); ++i)
+  {
+    xmlNodePtr n=GetNodeFast(setTypeStr(*i).c_str(), node2);
+    if (n!=NULL)
+      insert(make_pair(*i, NodeAsInteger(n)!=0));
+  }
+  return *this;
+}
+
+const TTripSetList& TTripSetList::initDB(int point_id, int f, int c, int y) const
 {
   TQuery Qry(&OraSession);
 
-  list<string> fields;
-  list<string> msgs;
-  for(map<TTripSetType, bool>::const_iterator s=sets.begin(); s!=sets.end(); ++s)
+  ostringstream sql;
+  sql << "INSERT INTO trip_sets "
+         " (point_id, f, c, y, max_commerce, pr_etstatus, et_final_attempt, "
+         "  pr_stat, pr_basel_stat, crc_comp, auto_comp_chg";
+  for(set<TTripSetType>::const_iterator i=_setTypes.begin(); i!=_setTypes.end(); ++i)
+    sql << ", " << setTypeStr(*i);
+  sql << ") "
+         "VALUES "
+         " (:point_id, :f, :c, :y, NULL, 0, 0, "
+         "  0, 0, 0, 1";
+  for(set<TTripSetType>::const_iterator i=_setTypes.begin(); i!=_setTypes.end(); ++i)
   {
-    switch (s->first)
+    sql << ", :" << setTypeStr(*i);
+    Qry.CreateVariable(setTypeStr(*i), otInteger, (int)DefaultTripSets(*i));
+  };
+  sql << ") ";
+
+  Qry.SQLText=sql.str().c_str();
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  f!=NoExists?Qry.CreateVariable("f", otInteger, f):
+              Qry.CreateVariable("f", otInteger, FNull);
+  c!=NoExists?Qry.CreateVariable("c", otInteger, c):
+              Qry.CreateVariable("c", otInteger, FNull);
+  y!=NoExists?Qry.CreateVariable("y", otInteger, y):
+              Qry.CreateVariable("y", otInteger, FNull);
+  Qry.Execute();
+  return *this;
+}
+
+const TTripSetList& TTripSetList::toDB(int point_id) const
+{
+  if (empty()) return *this;
+
+  TQuery Qry(&OraSession);
+  list<string> msgs;
+
+  ostringstream sql;
+  sql << "UPDATE trip_sets SET ";
+  for(TTripSetList::const_iterator i=begin(); i!=end(); ++i)
+  {
+    if (i!=begin()) sql << ", ";
+    sql << setTypeStr(i->first) << "=:" << setTypeStr(i->first);
+    Qry.CreateVariable(setTypeStr(i->first), otInteger, (int)i->second);
+
+    switch (i->first)
     {
       case tsCheckLoad:
-        fields.push_back("pr_check_load=:pr_check_load");
-        msgs.push_back(s->second?"EVT.SET_MODE_CHECK_LOAD":
+        msgs.push_back(i->second?"EVT.SET_MODE_CHECK_LOAD":
                                  "EVT.SET_MODE_WITHOUT_CHECK_LOAD");
-        Qry.CreateVariable("pr_check_load", otInteger, (int)s->second);
         break;
       case tsOverloadReg:
-        fields.push_back("pr_overload_reg=:pr_overload_reg");
-        msgs.push_back(s->second?"EVT.SET_MODE_OVERLOAD_REG_PERMISSION":
+        msgs.push_back(i->second?"EVT.SET_MODE_OVERLOAD_REG_PERMISSION":
                                  "EVT.SET_MODE_OVERLOAD_REG_PROHIBITION");
-        Qry.CreateVariable("pr_overload_reg", otInteger, (int)s->second);
         break;
       case tsExam:
-        fields.push_back("pr_exam=:pr_exam");
-        msgs.push_back(s->second?"EVT.SET_MODE_EXAM":
+        msgs.push_back(i->second?"EVT.SET_MODE_EXAM":
                                  "EVT.SET_MODE_WITHOUT_EXAM");
-        Qry.CreateVariable("pr_exam", otInteger, (int)s->second);
         break;
       case tsCheckPay:
-        fields.push_back("pr_check_pay=:pr_check_pay");
-        msgs.push_back(s->second?"EVT.SET_MODE_CHECK_PAY":
+        msgs.push_back(i->second?"EVT.SET_MODE_CHECK_PAY":
                                  "EVT.SET_MODE_WITHOUT_CHECK_PAY");
-        Qry.CreateVariable("pr_check_pay", otInteger, (int)s->second);
         break;
       case tsExamCheckPay:
-        fields.push_back("pr_exam_check_pay=:pr_exam_check_pay");
-        msgs.push_back(s->second?"EVT.SET_MODE_EXAM_CHACK_PAY":
+        msgs.push_back(i->second?"EVT.SET_MODE_EXAM_CHACK_PAY":
                                  "EVT.SET_MODE_WITHOUT_EXAM_CHACK_PAY");
-        Qry.CreateVariable("pr_exam_check_pay", otInteger, (int)s->second);
         break;
       case tsRegWithTkn:
-        fields.push_back("pr_reg_with_tkn=:pr_reg_with_tkn");
-        msgs.push_back(s->second?"EVT.SET_MODE_REG_WITHOUT_TKN_PROHIBITION":
+        msgs.push_back(i->second?"EVT.SET_MODE_REG_WITHOUT_TKN_PROHIBITION":
                                  "EVT.SET_MODE_REG_WITHOUT_TKN_PERMISSION");
-        Qry.CreateVariable("pr_reg_with_tkn", otInteger, (int)s->second);
         break;
       case tsRegWithDoc:
-        fields.push_back("pr_reg_with_doc=:pr_reg_with_doc");
-        msgs.push_back(s->second?"EVT.SET_MODE_REG_WITHOUT_DOC_PROHIBITION":
+        msgs.push_back(i->second?"EVT.SET_MODE_REG_WITHOUT_DOC_PROHIBITION":
                                  "EVT.SET_MODE_REG_WITHOUT_DOC_PERMISSION");
-        Qry.CreateVariable("pr_reg_with_doc", otInteger, (int)s->second);
         break;
       case tsRegWithoutTKNA:
-        fields.push_back("pr_reg_without_tkna=:pr_reg_without_tkna");
-        if (!first_init || s->second)
-          msgs.push_back(s->second?"EVT.SET_MODE_REG_WITHOUT_TKNA":
-                                   "EVT.CANCEL_MODE_REG_WITHOUT_TKNA");
-        Qry.CreateVariable("pr_reg_without_tkna", otInteger, (int)s->second);
+        msgs.push_back(i->second?"EVT.SET_MODE_REG_WITHOUT_TKNA":
+                                 "EVT.CANCEL_MODE_REG_WITHOUT_TKNA");
         break;
       case tsAutoWeighing:
-        fields.push_back("auto_weighing=:auto_weighing");
-        msgs.push_back(s->second?"EVT.SET_AUTO_WEIGHING":
+        msgs.push_back(i->second?"EVT.SET_AUTO_WEIGHING":
                                  "EVT.CANCEL_AUTO_WEIGHING");
-        Qry.CreateVariable("auto_weighing", otInteger, (int)s->second);
         break;
       case tsFreeSeating:
-        fields.push_back("pr_free_seating=:pr_free_seating");
-        if (!first_init || s->second)
-          msgs.push_back(s->second?"EVT.SET_FREE_SEATING":
-                                   "EVT.CANCEL_FREE_SEATING");
-        Qry.CreateVariable("pr_free_seating", otInteger, (int)s->second);
+        msgs.push_back(i->second?"EVT.SET_FREE_SEATING":
+                                 "EVT.CANCEL_FREE_SEATING");
         break;
       case tsAPISControl:
-        fields.push_back("apis_control=:apis_control");
-        if (!first_init || !s->second)
-          msgs.push_back(s->second?"EVT.SET_APIS_DATA_CONTROL":
-                                   "EVT.CANCELED_APIS_DATA_CONTROL");
-        Qry.CreateVariable("apis_control", otInteger, (int)s->second);
+        msgs.push_back(i->second?"EVT.SET_APIS_DATA_CONTROL":
+                                 "EVT.CANCELED_APIS_DATA_CONTROL");
         break;
       case tsAPISManualInput:
-        fields.push_back("apis_manual_input=:apis_manual_input");
-        if (!first_init || s->second)
-          msgs.push_back(s->second?"EVT.ALLOWED_APIS_DATA_MANUAL_INPUT":
-                                   "EVT.NOT_ALLOWED_APIS_DATA_MANUAL_INPUT");
-        Qry.CreateVariable("apis_manual_input", otInteger, (int)s->second);
+        msgs.push_back(i->second?"EVT.ALLOWED_APIS_DATA_MANUAL_INPUT":
+                                 "EVT.NOT_ALLOWED_APIS_DATA_MANUAL_INPUT");
         break;
       case tsPieceConcept:
-        fields.push_back("piece_concept=:piece_concept");
-        msgs.push_back(s->second?"EVT.SET_BAGGAGE_PIECE_CONCEPT":
+        msgs.push_back(i->second?"EVT.SET_BAGGAGE_PIECE_CONCEPT":
                                  "EVT.SET_BAGGAGE_WEIGHT_CONCEPT");
-        Qry.CreateVariable("piece_concept", otInteger, (int)s->second);
         break;
       default:
         break;
     };
-  };
-
-  if (fields.empty()) return;
-
-  ostringstream sql;
-  sql << "UPDATE trip_sets SET ";
-  for(list<string>::const_iterator i=fields.begin(); i!=fields.end(); ++i)
-  {
-    if (i!=fields.begin()) sql << ", ";
-    sql << *i;
   };
   sql << " WHERE point_id=:point_id";
 
@@ -6310,7 +6368,61 @@ void update_trip_sets(int point_id, const map<TTripSetType, bool> &sets, bool fi
       TReqInfo::Instance()->LocaleToLog(locale);
     };
   };
-};
+
+  return *this;
+}
+
+TTripSetList& TTripSetList::fromDB(int point_id)
+{
+  clear();
+  ostringstream sql;
+  sql << "SELECT ";
+  for(set<TTripSetType>::const_iterator i=_setTypes.begin(); i!=_setTypes.end(); ++i)
+  {
+    if (i!=_setTypes.begin()) sql << ", ";
+    sql << setTypeStr(*i);
+  };
+  sql << " FROM trip_sets WHERE point_id=:point_id";
+
+  TCachedQuery SetsQry(sql.str(), QParams() << QParam("point_id", otInteger, point_id));
+  SetsQry.get().Execute();
+  if (SetsQry.get().Eof) return *this;
+  for(set<TTripSetType>::const_iterator i=_setTypes.begin(); i!=_setTypes.end(); ++i)
+  {
+    if (!SetsQry.get().FieldIsNULL(setTypeStr(*i)))
+      insert(make_pair(*i, SetsQry.get().FieldAsInteger(setTypeStr(*i))!=0));
+    else
+      insert(make_pair(*i, DefaultTripSets(*i)));
+  };
+  return *this;
+}
+
+TTripSetList& TTripSetList::fromDB(const TTripInfo &info)
+{
+  clear();
+  for(set<TTripSetType>::const_iterator i=_setTypes.begin(); i!=_setTypes.end(); ++i)
+    insert(make_pair(*i, GetTripSets(*i, info)));
+  return *this;
+}
+
+void TTripSetList::append(const TTripSetList &list)
+{
+  for(TTripSetList::const_iterator i=list.begin(); i!=list.end(); ++i) insert(*i);
+}
+
+bool TTripSetList::value(const TTripSetType setType) const
+{
+  TTripSetList::const_iterator i=find(setType);
+  if (i==end()) throw Exception("TTripSetList::%s: setType=%d not found", __FUNCTION__, (int)setType);
+  return i->second;
+}
+
+bool TTripSetList::value(const TTripSetType setType, const bool defValue) const
+{
+  TTripSetList::const_iterator i=find(setType);
+  if (i==end()) return defValue;
+  return i->second;
+}
 
 void puttrip_stages(int point_id)
 {
@@ -6440,23 +6552,7 @@ void set_flight_sets(int point_id, int f, int c, int y)
   if (Qry.Eof) return;
   TAdvTripInfo flt(Qry);
 
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO trip_sets "
-    " (point_id,f,c,y,max_commerce,pr_etstatus,pr_stat, "
-    "  pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay, "
-    "  pr_exam_check_pay,pr_reg_with_tkn,pr_reg_with_doc,pr_reg_without_tkna,crc_comp, "
-    "  pr_basel_stat,auto_weighing,pr_free_seating,apis_control,apis_manual_input, "
-    "  piece_concept) "
-    "VALUES(:point_id,:f,:c,:y, NULL, 0, 0, NULL, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0) ";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  f!=NoExists?Qry.CreateVariable("f", otInteger, f):
-              Qry.CreateVariable("f", otInteger, FNull);
-  c!=NoExists?Qry.CreateVariable("c", otInteger, c):
-              Qry.CreateVariable("c", otInteger, FNull);
-  y!=NoExists?Qry.CreateVariable("y", otInteger, y):
-              Qry.CreateVariable("y", otInteger, FNull);
-  Qry.Execute();
+  TTripSetList().initDB(point_id, f, c, y);
 
   TQuery InsQry(&OraSession);
   InsQry.Clear();
