@@ -10,6 +10,7 @@
 #include "docs.h"
 #include "aodb.h"
 #include "stat.h"
+#include "sopp.h"
 #include "baggage_pc.h"
 
 #define NICKNAME "DJEK"
@@ -1198,17 +1199,15 @@ bool GetAutoWeighing(int point_id, const string &work_mode)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT trip_sets.auto_weighing, stations.using_scales "
-    "FROM trip_sets, stations "
-    "WHERE trip_sets.point_id=:point_id AND "
-    "      stations.desk=:desk AND stations.work_mode=:work_mode";
-  Qry.CreateVariable("point_id", otInteger, point_id);
+    "SELECT stations.using_scales "
+    "FROM stations "
+    "WHERE stations.desk=:desk AND stations.work_mode=:work_mode";
   Qry.CreateVariable("desk", otString, reqInfo->desk.code);
   Qry.CreateVariable("work_mode", otString, work_mode);
   Qry.Execute();
   bool auto_weighing=false;
   if (!Qry.Eof)
-    auto_weighing=Qry.FieldAsInteger("auto_weighing")!=0 &&
+    auto_weighing=TTripSetList().fromDB(point_id).value(tsAutoWeighing, false) &&
                   Qry.FieldAsInteger("using_scales")!=0;
 
   Qry.Clear();
@@ -1245,12 +1244,5 @@ bool GetAutoWeighing(int point_id, const string &work_mode)
 
 bool GetAPISControl(int point_id)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT apis_control FROM trip_sets WHERE point_id=:point_id";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.Execute();
-  if (Qry.Eof) return false;
-  return Qry.FieldAsInteger("apis_control")!=0;
+  return TTripSetList().fromDB(point_id).value(tsAPISControl, false);
 };

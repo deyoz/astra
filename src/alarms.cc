@@ -14,6 +14,7 @@
 #include "qrys.h"
 #include "brd.h"
 #include "emdoc.h"
+#include "sopp.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -73,7 +74,7 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
     Alarms.clearFlags();
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT pr_etstatus,pr_salon,pr_free_seating,act "
+        "SELECT pr_etstatus,pr_salon,act "
         " FROM trip_sets, trip_stages, "
         " ( SELECT COUNT(*) pr_salon FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2 ) a "
         " WHERE trip_sets.point_id=:point_id AND "
@@ -83,9 +84,14 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
     Qry.CreateVariable( "OpenCheckIn", otInteger, sOpenCheckIn );
     Qry.Execute();
     if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+
+    TTripSetList setList;
+    setList.fromDB(point_id);
+    if (setList.empty()) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+
     if ( !Qry.FieldAsInteger( "pr_salon" ) &&
          !Qry.FieldIsNULL( "act" ) &&
-         !Qry.FieldAsInteger( "pr_free_seating" ) ) {
+         !setList.value(tsFreeSeating) ) {
         Alarms.setFlag( atSalon );
     }
     if ( Qry.FieldAsInteger( "pr_etstatus" ) < 0 ) {
@@ -722,18 +728,10 @@ void check_apis_alarms(int point_id, const set<TTripAlarmsType> &checked_alarms)
   if (!apis_formats.empty())
   {
     //хотя бы по одному из направлений настроен APIS
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
-        "SELECT apis_control, apis_manual_input "
-        "FROM trip_sets WHERE point_id=:point_id";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.Execute();
-    if (!Qry.Eof)
-    {
-      apis_control=Qry.FieldAsInteger("apis_control")!=0;
-      apis_manual_input=Qry.FieldAsInteger("apis_manual_input")!=0;
-    };
+    TTripSetList setList;
+    setList.fromDB(point_id);
+    apis_control=setList.value(tsAPISControl, false);
+    apis_manual_input=setList.value(tsAPISManualInput, false);
 
     if (!apis_control) off_alarms.clear();
     if (apis_manual_input) off_alarms.erase(APIS::atManualInput);
@@ -756,6 +754,7 @@ void check_apis_alarms(int point_id, const set<TTripAlarmsType> &checked_alarms)
              "      pax.refuse IS NULL ";
       if (need_crs_pax)
         sql << "      AND pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 ";
+      TQuery Qry(&OraSession);
       Qry.Clear();
       Qry.SQLText=sql.str().c_str();
       Qry.CreateVariable("point_id", otInteger, point_id);

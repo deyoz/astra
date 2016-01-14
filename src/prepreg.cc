@@ -409,11 +409,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     TQuery SetsQry( &OraSession );
     SetsQry.Clear();
     SetsQry.SQLText =
-      "SELECT pr_tranz_reg,pr_block_trzt,pr_check_load,pr_overload_reg,pr_exam, "
-      "       pr_check_pay,pr_exam_check_pay, "
-      "       pr_reg_with_tkn, pr_reg_with_doc, pr_reg_without_tkna, "
-      "       auto_weighing,pr_free_seating, "
-      "       apis_control, apis_manual_input, piece_concept "
+      "SELECT pr_tranz_reg,pr_block_trzt "
       "FROM trip_sets WHERE point_id=:point_id";
     SetsQry.CreateVariable("point_id",otInteger,point_id);
     SetsQry.Execute();
@@ -421,68 +417,28 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 
     bool new_pr_tranzit,          old_pr_tranzit,
          new_pr_tranz_reg,        old_pr_tranz_reg,
-         new_pr_block_trzt,		  old_pr_block_trzt,
-         new_pr_check_load,       old_pr_check_load,
-         new_pr_overload_reg,     old_pr_overload_reg,
-         new_pr_exam,             old_pr_exam,
-         new_pr_check_pay,        old_pr_check_pay,
-         new_pr_exam_check_pay,   old_pr_exam_check_pay,
-         new_pr_reg_with_tkn,     old_pr_reg_with_tkn,
-         new_pr_reg_with_doc,     old_pr_reg_with_doc,
-         new_pr_reg_without_tkna, old_pr_reg_without_tkna,
-         new_auto_weighing,       old_auto_weighing,
-         new_pr_free_seating,     old_pr_free_seating,
-         new_apis_control,        old_apis_control,
-         new_apis_manual_input,   old_apis_manual_input,
-         new_piece_concept,       old_piece_concept;
+         new_pr_block_trzt,		  old_pr_block_trzt;
 
     old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
     old_pr_tranz_reg=SetsQry.FieldAsInteger("pr_tranz_reg")!=0;
     old_pr_block_trzt=SetsQry.FieldAsInteger("pr_block_trzt")!=0;
-    old_pr_check_load=SetsQry.FieldAsInteger("pr_check_load")!=0;
-    old_pr_overload_reg=SetsQry.FieldAsInteger("pr_overload_reg")!=0;
-    old_pr_exam=SetsQry.FieldAsInteger("pr_exam")!=0;
-    old_pr_check_pay=SetsQry.FieldAsInteger("pr_check_pay")!=0;
-    old_pr_exam_check_pay=SetsQry.FieldAsInteger("pr_exam_check_pay")!=0;
-    old_pr_reg_with_tkn=SetsQry.FieldAsInteger("pr_reg_with_tkn")!=0;
-    old_pr_reg_with_doc=SetsQry.FieldAsInteger("pr_reg_with_doc")!=0;
-    old_pr_reg_without_tkna=SetsQry.FieldAsInteger("pr_reg_without_tkna")!=0;
-    old_auto_weighing=SetsQry.FieldAsInteger("auto_weighing")!=0;
-    old_pr_free_seating=SetsQry.FieldAsInteger("pr_free_seating")!=0;
-    old_apis_control=SetsQry.FieldAsInteger("apis_control")!=0;
-    old_apis_manual_input=SetsQry.FieldAsInteger("apis_manual_input")!=0;
-    old_piece_concept=SetsQry.FieldAsInteger("piece_concept")!=0;
-
-    xmlNodePtr node2=node->children;
     new_pr_tranzit=NodeAsInteger("pr_tranzit",node)!=0;
     new_pr_tranz_reg=NodeAsInteger("pr_tranz_reg",node)!=0;
     new_pr_block_trzt=NodeAsInteger("pr_block_trzt",node,1)!=0;
-    new_pr_check_load=NodeAsInteger("pr_check_load",node)!=0;
-    new_pr_overload_reg=NodeAsInteger("pr_overload_reg",node)!=0;
-    new_pr_exam=NodeAsInteger("pr_exam",node)!=0;
-    new_pr_exam_check_pay=NodeAsInteger("pr_exam_check_pay",node)!=0;
-    new_pr_check_pay=NodeAsInteger("pr_check_pay",node)!=0;
-    new_pr_reg_with_tkn=NodeAsInteger("pr_reg_with_tkn",node)!=0;
-    new_pr_reg_with_doc=NodeAsInteger("pr_reg_with_doc",node)!=0;
-    new_pr_reg_without_tkna=NodeAsIntegerFast("pr_reg_without_tkna",node2,(int)old_pr_reg_without_tkna)!=0;
-    if (TReqInfo::Instance()->desk.compatible(USING_SCALES_VERSION))
-      new_auto_weighing=NodeAsInteger("auto_weighing",node)!=0;
-    else
-      new_auto_weighing=old_auto_weighing;
-    if (TReqInfo::Instance()->desk.compatible(FREE_SEATING_VERSION))
-      new_pr_free_seating=NodeAsInteger("pr_free_seating",node)!=0;
-    else
-      new_pr_free_seating=old_pr_free_seating;
-    new_apis_control=NodeAsIntegerFast("apis_control",node2,(int)old_apis_control)!=0;
-    new_apis_manual_input=NodeAsIntegerFast("apis_manual_input",node2,(int)old_apis_manual_input)!=0;
-    new_piece_concept=NodeAsIntegerFast("piece_concept",node2,(int)old_piece_concept)!=0;
+
+    TTripSetList oldSetList, newSetList;
+    oldSetList.fromDB(point_id);
+    if (oldSetList.empty()) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+
+    newSetList.fromXML(node);
+    newSetList.append(oldSetList);
 
     vector<int> check_waitlist_alarms, check_diffcomp_alarms;
     bool pr_isTranzitSalons = false;
     if (old_pr_tranzit!=new_pr_tranzit ||
         old_pr_tranz_reg!=new_pr_tranz_reg ||
         old_pr_block_trzt!=new_pr_block_trzt ||
-        old_pr_free_seating!=new_pr_free_seating) {
+        oldSetList.value(tsFreeSeating)!=newSetList.value(tsFreeSeating)) {
       pr_isTranzitSalons = SALONS2::isTranzitSalons( point_id );
     }
 
@@ -571,79 +527,16 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         check_waitlist_alarms.push_back( point_id );
       }
     };
-    if (old_pr_check_load!=new_pr_check_load ||
-        old_pr_overload_reg!=new_pr_overload_reg ||
-        old_pr_exam!=new_pr_exam ||
-        old_pr_check_pay!=new_pr_check_pay ||
-        old_pr_exam_check_pay!=new_pr_exam_check_pay ||
-        old_pr_reg_with_tkn!=new_pr_reg_with_tkn ||
-        old_pr_reg_with_doc!=new_pr_reg_with_doc ||
-        old_pr_reg_without_tkna!=new_pr_reg_without_tkna ||
-        old_auto_weighing!=new_auto_weighing ||
-        old_pr_free_seating!=new_pr_free_seating ||
-        old_apis_control!=new_apis_control ||
-        old_apis_manual_input!=new_apis_manual_input ||
-        old_piece_concept!=new_piece_concept)
-    {
-      map<TTripSetType, bool> sets;
-      if (old_pr_check_load!=new_pr_check_load)
-      {
-        sets.insert(make_pair(tsCheckLoad, new_pr_check_load));
-      };
-      if (old_pr_overload_reg!=new_pr_overload_reg)
-      {
-        sets.insert(make_pair(tsOverloadReg, new_pr_overload_reg));
-      };
-      if (old_pr_exam!=new_pr_exam)
-      {
-        sets.insert(make_pair(tsExam, new_pr_exam));
-      };
-      if (old_pr_check_pay!=new_pr_check_pay)
-      {
-        sets.insert(make_pair(tsCheckPay, new_pr_check_pay));
-      };
-      if (old_pr_exam_check_pay!=new_pr_exam_check_pay)
-      {
-        sets.insert(make_pair(tsExamCheckPay, new_pr_exam_check_pay));
-      };
-      if (old_pr_reg_with_tkn!=new_pr_reg_with_tkn)
-      {
-        sets.insert(make_pair(tsRegWithTkn, new_pr_reg_with_tkn));
-      };
-      if (old_pr_reg_with_doc!=new_pr_reg_with_doc)
-      {
-        sets.insert(make_pair(tsRegWithDoc, new_pr_reg_with_doc));
-      };
-      if (old_pr_reg_without_tkna!=new_pr_reg_without_tkna)
-      {
-        sets.insert(make_pair(tsRegWithoutTKNA, new_pr_reg_without_tkna));
-      };
-      if (old_auto_weighing!=new_auto_weighing)
-      {
-        sets.insert(make_pair(tsAutoWeighing, new_auto_weighing));
-      };
-      if (old_pr_free_seating!=new_pr_free_seating)
-      {
-        sets.insert(make_pair(tsFreeSeating, new_pr_free_seating));
-      }
-      if (old_apis_control!=new_apis_control)
-      {
-        sets.insert(make_pair(tsAPISControl, new_apis_control));
-      };
-      if (old_apis_manual_input!=new_apis_manual_input)
-      {
-        sets.insert(make_pair(tsAPISManualInput, new_apis_manual_input));
-      };
-      if (old_piece_concept!=new_piece_concept)
-      {
-        sets.insert(make_pair(tsPieceConcept, new_piece_concept));
-      };
-      update_trip_sets(point_id, sets, false);
-    };
 
-    if (old_pr_free_seating!=new_pr_free_seating)
+    TTripSetList differSetList;
+    set_difference(newSetList.begin(), newSetList.end(),
+                   oldSetList.begin(), oldSetList.end(),
+                   inserter(differSetList, differSetList.end()));
+    differSetList.toDB(point_id);
+
+    if (oldSetList.value(tsFreeSeating)!=newSetList.value(tsFreeSeating))
     {
-      if ( new_pr_free_seating ) {
+      if ( newSetList.value(tsFreeSeating) ) {
         SALONS2::DeleteSalons( point_id );
       }
       check_diffcomp_alarms.push_back( point_id );
@@ -665,11 +558,11 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         }
       }
     }
-    if (old_apis_control!=new_apis_control)
+    if (oldSetList.value(tsAPISControl)!=newSetList.value(tsAPISControl))
     {
       check_apis_alarms(point_id);
     }
-    if (old_apis_manual_input!=new_apis_manual_input)
+    if (oldSetList.value(tsAPISManualInput)!=newSetList.value(tsAPISManualInput))
     {
       set<TTripAlarmsType> checked_alarms;
       checked_alarms.insert(atAPISManualInput);

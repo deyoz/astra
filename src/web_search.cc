@@ -10,6 +10,7 @@
 #include "misc.h"
 #include "dev_utils.h"
 #include "astra_elem_utils.h"
+#include "sopp.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -1203,24 +1204,26 @@ bool TPNRInfo::fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest, b
   TCodeShareSets codeshareSets;
   codeshareSets.get(flt.oper,pnrMarkFlt);
 
-  WeightConcept::TNormFltInfo fltInfo;
-  fltInfo.point_id=flt.point_dep;
-  fltInfo.use_mark_flt=codeshareSets.pr_mark_norms;
-  fltInfo.airline_mark=pnrMarkFlt.airline;
-  fltInfo.flt_no_mark=pnrMarkFlt.flt_no;
-  fltInfo.use_mixed_norms=GetTripSets(tsMixedNorms,flt.oper);
-  WeightConcept::TPaxInfo paxInfo;
-  paxInfo.target=dest.city_arv;
-  paxInfo.final_target=""; //трансфер пока не анализируем
-  paxInfo.subcl=segs.begin()->second.subcls;
-  paxInfo.cl=segs.begin()->second.cls;
+  bag_norm = NoExists; //ничего не выводим в качестве нормы
+  if (!TTripSetList().fromDB(flt.point_dep).value(tsPieceConcept, true)) //не разрешаем расчет по кол-ву мест
+  {
+    WeightConcept::TNormFltInfo fltInfo;
+    fltInfo.point_id=flt.point_dep;
+    fltInfo.use_mark_flt=codeshareSets.pr_mark_norms;
+    fltInfo.airline_mark=pnrMarkFlt.airline;
+    fltInfo.flt_no_mark=pnrMarkFlt.flt_no;
+    fltInfo.use_mixed_norms=GetTripSets(tsMixedNorms,flt.oper);
+    WeightConcept::TPaxInfo paxInfo;
+    paxInfo.target=dest.city_arv;
+    paxInfo.final_target=""; //трансфер пока не анализируем
+    paxInfo.subcl=segs.begin()->second.subcls;
+    paxInfo.cl=segs.begin()->second.cls;
 
-  WeightConcept::TBagNormInfo norm;
-  WeightConcept::CheckOrGetPaxBagNorm(fltInfo, paxInfo, false, NoExists, WeightConcept::TPaxNormItem(), norm); //обычный багаж
-  if (!norm.empty())
-    bag_norm=norm.weight;
-  else
-    bag_norm = NoExists; //NoExists, если не найдена
+    WeightConcept::TBagNormInfo norm;
+    WeightConcept::CheckOrGetPaxBagNorm(fltInfo, paxInfo, false, NoExists, WeightConcept::TPaxNormItem(), norm); //обычный багаж
+    if (!norm.empty())
+      bag_norm=norm.weight;
+  };
 
   return true;
 };

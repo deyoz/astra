@@ -189,6 +189,12 @@ string TLastTrferInfo::str()
   return trip.str();
 };
 
+bool DefaultTripSets( const TTripSetType setType )
+{
+  return setType==tsOverloadReg ||
+         setType==tsAPISControl;
+}
+
 bool GetTripSets( const TTripSetType setType,
                   const TTripInfo &info )
 {
@@ -213,16 +219,7 @@ bool GetTripSets( const TTripSetType setType,
   Qry.CreateVariable("flt_no",otInteger,info.flt_no);
   Qry.CreateVariable("airp_dep",otString,info.airp);
   Qry.Execute();
-  if (Qry.Eof)
-  {
-    switch(setType)
-    {
-      //запрет интерактива с СЭБом
-      case tsETSNoInteract: return false;
-      case tsEDSNoInteract: return false;
-      default: return false;
-    };
-  };
+  if (Qry.Eof) return DefaultTripSets(setType);
   return Qry.FieldAsInteger("pr_misc")!=0;
 };
 

@@ -24,6 +24,7 @@
 #include "apps_interaction.h"
 #include "baggage_pc.h"
 #include "baggage_calc.h"
+#include "sopp.h"
 #include "tlg/AgentWaitsForRemote.h"
 
 #define NICKNAME "VLAD"
@@ -945,16 +946,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     GetAPISSets(point_id, apis_map, apis_formats);
 
     //признак контроля данных APIS
-    Qry.Clear();
-    Qry.SQLText=
-        "SELECT apis_control, apis_manual_input "
-        "FROM trip_sets WHERE point_id=:point_id";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.Execute();
-    if (Qry.Eof)
+    TTripSetList setList;
+    setList.fromDB(point_id);
+    if (setList.empty())
       throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-    bool apis_control=Qry.FieldAsInteger("apis_control")!=0;
-    bool apis_manual_input=Qry.FieldAsInteger("apis_manual_input")!=0;
 
     if(search_type==updateByPaxId ||
        search_type==updateByRegNo ||
@@ -1126,10 +1121,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
         //============================ настройки рейса ============================
         bool pr_exam_with_brd=false;
-        bool pr_exam=false;
-        bool pr_check_pay=false;
-        int pr_etstatus=0;
-        bool free_seating=false;
         if (screen==sBoarding)
         {
             Qry.Clear();
@@ -1146,23 +1137,15 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
         Qry.Clear();
         Qry.SQLText=
-            "SELECT pr_exam,pr_check_pay,pr_exam_check_pay,pr_etstatus,pr_free_seating "
-            "FROM trip_sets WHERE point_id=:point_id";
+            "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id";
         Qry.CreateVariable("point_id",otInteger,point_id);
         Qry.Execute();
         if (Qry.Eof)
           throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-
-        pr_exam=Qry.FieldAsInteger("pr_exam")!=0;
-        if (screen==sBoarding)
-          pr_check_pay=Qry.FieldAsInteger("pr_check_pay")!=0;
-        else
-          pr_check_pay=Qry.FieldAsInteger("pr_exam_check_pay")!=0;
-        pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
-        free_seating=Qry.FieldAsInteger("pr_free_seating")!=0;
+        int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");        
 
         //============================ проверка листа ожидания ============================
-        if (set_mark && !free_seating &&
+        if (set_mark && !setList.value(tsFreeSeating) &&
             ((paxWithSeat.exists() && !paxWithSeat.wl_type.empty()) ||
              (paxWithoutSeat.exists() && !paxWithoutSeat.wl_type.empty())))   //!!!vlad младенцы без мест и ЛО?
         {
@@ -1171,7 +1154,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         };
 
         //============================ проверка прохождения досмотра ============================
-        if (screen==sBoarding && set_mark && !pr_exam_with_brd && pr_exam &&
+        if (screen==sBoarding && set_mark && !pr_exam_with_brd && setList.value(tsExam) &&
             ((paxWithSeat.exists() && !paxWithSeat.pr_exam) ||
              (paxWithoutSeat.exists() && !paxWithoutSeat.pr_exam)))
         {
@@ -1180,7 +1163,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         };
 
         //============================ проверка оплаты багажа ============================
-        if (set_mark && pr_check_pay &&
+        if (set_mark &&
+            (screen==sBoarding?setList.value(tsCheckPay):setList.value(tsExamCheckPay)) &&
             ((!piece_concept && !WeightConcept::BagPaymentCompleted(grp_id)) ||
              (piece_concept && (!PieceConcept::BagPaymentCompleted(paxWithSeat.pax_id)||
                                 !PieceConcept::BagPaymentCompleted(paxWithoutSeat.pax_id)))))
@@ -1211,7 +1195,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             CheckIn::TAPISItem apis;
             set<APIS::TAlarmType> alarms;
             bool document_alarm=false;
-            GetAPISAlarms(pax.pax_id, pax.name=="CBBG", airp_arv,  NoExists, apis_control, apis_manual_input, apis_map,
+            GetAPISAlarms(pax.pax_id, pax.name=="CBBG", airp_arv,  NoExists,
+                          setList.value(tsAPISControl), setList.value(tsAPISManualInput), apis_map,
                           check_info, apis, alarms, document_alarm);
             if (document_alarm &&
                 reqInfo->desk.compatible(APIS_CONTROL_VERSION))
@@ -1272,7 +1257,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               case 2: if (screen==sBoarding && set_mark &&
                           GetNode("confirmations/seat_no",reqNode)==NULL)
                       {
-                        if (free_seating) break;
+                        if (setList.value(tsFreeSeating)) break;
                         string curr_seat_no;
                         if (paxWithSeat.exists() && CheckSeat(paxWithSeat.pax_id, curr_seat_no)) break;
                         if (paxWithoutSeat.exists() && CheckSeat(paxWithoutSeat.pax_id, curr_seat_no)) break;
@@ -1548,7 +1533,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         /*  ProgTrace(TRACE5, "pax_id=%d name=%s airp_arv=%s apis_control=%d apis_manual_input=%d apis_map.size()=%zu",
                     pax_id, name.c_str(), airp_arv.c_str(), (int)apis_control, (int)apis_manual_input, apis_map.size());
         */
-          if (GetAPISAlarms(pax_id, name=="CBBG", airp_arv, crs_pax_id, apis_control, apis_manual_input, apis_map,
+          if (GetAPISAlarms(pax_id, name=="CBBG", airp_arv, crs_pax_id,
+                            setList.value(tsAPISControl), setList.value(tsAPISManualInput), apis_map,
                             check_info, apis, alarms, document_alarm))
           {
             if (document_alarm)
