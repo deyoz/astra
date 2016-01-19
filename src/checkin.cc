@@ -2323,19 +2323,15 @@ int CheckInInterface::CheckCounters(int point_dep,
 
 bool CheckFltOverload(int point_id, const TTripInfo &fltInfo, bool overload_alarm )
 {
-    if ( !overload_alarm ) return false;
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT pr_check_load,pr_overload_reg FROM trip_sets WHERE point_id=:point_id";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.Execute();
-  if (Qry.Eof) throw EXCEPTIONS::Exception("Flight not found in trip_sets (point_id=%d)",point_id);
-  bool pr_check_load=Qry.FieldAsInteger("pr_check_load")!=0;
-  bool pr_overload_reg=Qry.FieldAsInteger("pr_overload_reg")!=0;
+  if ( !overload_alarm ) return false;
 
-  if (!pr_check_load && pr_overload_reg) return false;
+  TTripSetList setList;
+  setList.fromDB(point_id);
+  if (setList.empty()) throw EXCEPTIONS::Exception("Flight not found in trip_sets (point_id=%d)",point_id);
 
-  if (pr_overload_reg)
+  if (!setList.value(tsCheckLoad) && setList.value(tsOverloadReg)) return false;
+
+  if (setList.value(tsOverloadReg))
   {
     AstraLocale::showErrorMessage("MSG.FLIGHT.MAX_COMMERCE");
     return true;
@@ -4005,18 +4001,20 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       Qry.Clear();
       Qry.SQLText=
-        "SELECT pr_tranz_reg,pr_etstatus,pr_free_seating,pr_reg_without_tkna, "
-        "       NVL(trip_sets.piece_concept, 0) AS piece_concept_permit "
+        "SELECT pr_tranz_reg, pr_etstatus "
         "FROM trip_sets WHERE point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,grp.point_dep);
       Qry.Execute();
-      if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
+      if (Qry.Eof)
+        throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
+
+      TTripSetList setList;
+      setList.fromDB(grp.point_dep);
+      if (setList.empty())
+        throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
 
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
       int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
-      bool free_seating=Qry.FieldAsInteger("pr_free_seating")!=0;
-      bool pr_reg_without_tkna=Qry.FieldAsInteger("pr_reg_without_tkna")!=0;
-      bool piece_concept_permit=Qry.FieldAsInteger("piece_concept_permit")!=0;
       bool pr_etl_only=GetTripSets(tsETSNoInteract,fltInfo);
       bool pr_mintrans_file=GetTripSets(tsMintransFile,fltInfo);
       bool pr_mixed_norms=GetTripSets(tsMixedNorms,fltInfo);
@@ -4102,7 +4100,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             //билет
             if (pax.TknExists)
             {
-              if (pr_reg_without_tkna && pax.tkn.rem!="TKNE" &&
+              if (setList.value(tsRegWithoutTKNA)&& pax.tkn.rem!="TKNE" &&
                   (pax.tkn.rem    != priorTkn.rem ||
                    pax.tkn.no     != priorTkn.no  ||
                    pax.tkn.coupon != priorTkn.coupon))
@@ -4357,12 +4355,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             int seats_sum=0;
             for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p) seats_sum+=p->pax.seats;
             //проверка наличия свободных мест
-            int free=CheckCounters(grp.point_dep,grp.point_arv,grp.cl,grp.status,TCFG(grp.point_dep),free_seating);
+            int free=CheckCounters(grp.point_dep,grp.point_arv,grp.cl,grp.status,TCFG(grp.point_dep),setList.value(tsFreeSeating));
             if (free!=NoExists && free<seats_sum)
               throw UserException("MSG.CHECKIN.AVAILABLE_SEATS",
                                   LParams()<<LParam("count",free)); //WEB
 
-            if (free_seating) wl_type="F";
+            if (setList.value(tsFreeSeating)) wl_type="F";
           };
 
           if (wl_type.empty() && grp.status!=psCrew)
@@ -5324,7 +5322,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         else
         {
           if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2) &&
-              AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && piece_concept_permit)
+              AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value(tsPieceConcept))
           {
             //не записываем багаж на этом этапе, так как еще не знаем систему расчета
             if (grp.group_bag)
@@ -6172,15 +6170,17 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
   if (action==CheckIn::actionRefreshPaidBagPC)
     ProgTrace(TRACE5, "%s started with actionRefreshPaidBagPC", __FUNCTION__);
 
-  TCachedQuery Qry("SELECT pax_grp.point_dep, pax_grp.piece_concept, "
-                   "       NVL(trip_sets.piece_concept, 0) AS piece_concept_permit "
-                   "FROM pax_grp, trip_sets "
-                   "WHERE pax_grp.point_dep=trip_sets.point_id AND pax_grp.grp_id=:grp_id",
+  TCachedQuery Qry("SELECT point_dep, piece_concept "
+                   "FROM pax_grp "
+                   "WHERE grp_id=:grp_id",
                    QParams() << QParam("grp_id", otInteger, first_grp_id));
   Qry.get().Execute();
   if (Qry.get().Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
   int point_id=Qry.get().FieldAsInteger("point_dep");
-  bool piece_concept_permit=Qry.get().FieldAsInteger("piece_concept_permit")!=0;
+
+  TTripSetList setList;
+  setList.fromDB(point_id);
+  if (setList.empty()) return;
 
   if (action==CheckIn::actionCheckPieceConcept && !Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
   if (action==CheckIn::actionRefreshPaidBagPC &&
@@ -6198,7 +6198,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
     SirenaExchange::fillPaxsBags(first_grp_id, req2, pr_unaccomp, grp_ids);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
-  if ((action==CheckIn::actionCheckPieceConcept && piece_concept_permit) ||
+  if ((action==CheckIn::actionCheckPieceConcept && setList.value(tsPieceConcept)) ||
       action==CheckIn::actionRefreshPaidBagPC)
   {
     if (reqInfo->client_type!=ASTRA::ctTerm  ||

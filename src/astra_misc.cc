@@ -23,6 +23,55 @@ using namespace EXCEPTIONS;
 using namespace std;
 using namespace ASTRA;
 
+bool TTripInfo::getByPointId ( const int point_id )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT airline, flt_no, suffix, airp, scd_out, "
+    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
+    "       airline_fmt, suffix_fmt, airp_fmt  "
+    "FROM points "
+    "WHERE point_id = :point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+
+  if ( Qry.Eof ) return false;
+
+  init( Qry );
+  return true;
+}
+
+bool TTripInfo::getByPointIdTlg ( const int point_id_tlg )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg = :point_id ORDER BY point_id_spp";
+  Qry.CreateVariable("point_id", otInteger, point_id_tlg);
+  Qry.Execute();
+
+  if ( Qry.Eof ) return false;
+
+  return getByPointId( Qry.FieldAsInteger( "point_id_spp" ) );
+}
+
+TAdvTripInfoList getTripsByPointIdTlg( const int point_id_tlg )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg = :point_id ORDER BY point_id_spp";
+  Qry.CreateVariable( "point_id", otInteger, point_id_tlg );
+  Qry.Execute();
+
+  TAdvTripInfoList trips;
+  for( ; !Qry.Eof; Qry.Next() ) {
+    TAdvTripInfo info;
+    info.getByPointId( Qry.FieldAsInteger( "point_id_spp" ) );
+    trips.push_back( info );
+  }
+
+  return trips;
+}
+
 void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client, bool trunc_time) const
 {
   scd_out_client=ASTRA::NoExists;
@@ -109,6 +158,24 @@ string GetTripName( const TTripInfo &info, TElemContext ctxt, bool showAirp, boo
   return trip.str();
 };
 
+bool TAdvTripInfo::getByPointId ( const int point_id )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT airline, flt_no, suffix, airp, scd_out, NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
+    "       pr_del, airline_fmt, suffix_fmt, airp_fmt, point_id, "
+    "       point_num, first_point, pr_tranzit "
+    "FROM points "
+    "WHERE point_id = :point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+
+  if ( Qry.Eof ) return false;
+
+  Init( Qry );
+  return true;
+}
+
 string TLastTrferInfo::str()
 {
   ostringstream trip;
@@ -121,6 +188,12 @@ string TLastTrferInfo::str()
        << ')';
   return trip.str();
 };
+
+bool DefaultTripSets( const TTripSetType setType )
+{
+  return setType==tsOverloadReg ||
+         setType==tsAPISControl;
+}
 
 bool GetTripSets( const TTripSetType setType,
                   const TTripInfo &info )
@@ -146,16 +219,7 @@ bool GetTripSets( const TTripSetType setType,
   Qry.CreateVariable("flt_no",otInteger,info.flt_no);
   Qry.CreateVariable("airp_dep",otString,info.airp);
   Qry.Execute();
-  if (Qry.Eof)
-  {
-    switch(setType)
-    {
-      //запрет интерактива с СЭБом
-      case tsETSNoInteract: return false;
-      case tsEDSNoInteract: return false;
-      default: return false;
-    };
-  };
+  if (Qry.Eof) return DefaultTripSets(setType);
   return Qry.FieldAsInteger("pr_misc")!=0;
 };
 

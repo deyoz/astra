@@ -28,6 +28,7 @@
 #include "alarms.h"
 #include "pers_weights.h"
 #include "web_search.h"
+#include "sopp.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -1077,10 +1078,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     Qryh.SQLText=
       "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg, "
       "       NVL(pr_block_trzt,0) AS pr_block_trzt, "
-      "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
-      "       pr_reg_with_tkn,pr_reg_with_doc,pr_reg_without_tkna, "
-      "       auto_weighing,pr_etstatus, "
-      "       pr_free_seating, apis_control, apis_manual_input, piece_concept "
+      "       pr_etstatus "
       "FROM trip_sets WHERE point_id=:point_id ";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
@@ -1104,24 +1102,16 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     if (reqInfo->screen.name == "PREPREG.EXE")
     {
       NewTextChild( node, "pr_block_trzt", (int)(Qryh.FieldAsInteger("pr_block_trzt")!=0) );
-      NewTextChild( node, "pr_check_load", (int)(Qryh.FieldAsInteger("pr_check_load")!=0) );
-      NewTextChild( node, "pr_overload_reg", (int)(Qryh.FieldAsInteger("pr_overload_reg")!=0) );
-      NewTextChild( node, "pr_exam", (int)(Qryh.FieldAsInteger("pr_exam")!=0) );
-      NewTextChild( node, "pr_check_pay", (int)(Qryh.FieldAsInteger("pr_check_pay")!=0) );
-      NewTextChild( node, "pr_exam_check_pay", (int)(Qryh.FieldAsInteger("pr_exam_check_pay")!=0) );
-      NewTextChild( node, "pr_reg_with_tkn", (int)(Qryh.FieldAsInteger("pr_reg_with_tkn")!=0) );
-      NewTextChild( node, "pr_reg_with_doc", (int)(Qryh.FieldAsInteger("pr_reg_with_doc")!=0) );
-      NewTextChild( node, "pr_reg_without_tkna", (int)(Qryh.FieldAsInteger("pr_reg_without_tkna")!=0) );
-      NewTextChild( node, "auto_weighing", (int)(Qryh.FieldAsInteger("auto_weighing")!=0) );
-      NewTextChild( node, "pr_free_seating", (int)(Qryh.FieldAsInteger("pr_free_seating")!=0) );
-      NewTextChild( node, "piece_concept", (int)(Qryh.FieldAsInteger("piece_concept")!=0) );
+
+      TTripSetList setList;
+      setList.fromDB(point_id);
+      if (setList.empty()) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+      setList.toXML(node);
 
       TAPISMap apis_map;
       set<string> apis_formats;
       GetAPISSets(point_id, apis_map, apis_formats);
       NewTextChild( node, "apis_exists", (int)(!apis_formats.empty()) );
-      NewTextChild( node, "apis_control", (int)(Qryh.FieldAsInteger("apis_control")!=0) );
-      NewTextChild( node, "apis_manual_input", (int)(Qryh.FieldAsInteger("apis_manual_input")!=0) );
 
       if (reqInfo->client_type == ctTerm &&
           !reqInfo->desk.compatible(PAX_LOAD_BY_GENDER))

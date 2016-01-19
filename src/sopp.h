@@ -14,68 +14,68 @@
 enum TTrip_Calc_Data { tDesksGates, tTrferExists };
 
 struct Cargo {
-	int cargo;
-	int mail;
-	int point_arv;
-	std::string airp_arv;
-	TElemFmt airp_arv_fmt;
-	int dosbag_weight;
-	Cargo() {
-		cargo = 0;
-		mail = 0;
-		point_arv = 0;
-	}
+    int cargo;
+    int mail;
+    int point_arv;
+    std::string airp_arv;
+    TElemFmt airp_arv_fmt;
+    int dosbag_weight;
+    Cargo() {
+        cargo = 0;
+        mail = 0;
+        point_arv = 0;
+    }
 };
 
 struct PaxLoad {
-	std::string cl;
-	int point_arv;
-	int seatsadult;
-	int seatschild;
-	int seatsbaby;
-	int bag_weight;
-	int rk_weight;
-	int adult;
-	int child;
-	int baby;
-	int excess;
-	PaxLoad() {
-		point_arv = 0;
-		seatsadult = 0;
-		seatschild = 0;
-		seatsbaby = 0;
-	  bag_weight = 0;
-	  rk_weight = 0;
-	  adult = 0;
-	  child = 0;
-	  baby = 0;
-	  excess = 0;
-	}
+    std::string cl;
+    int point_arv;
+    int seatsadult;
+    int seatschild;
+    int seatsbaby;
+    int bag_weight;
+    int rk_weight;
+    int adult;
+    int child;
+    int baby;
+    int excess;
+    PaxLoad() {
+        point_arv = 0;
+        seatsadult = 0;
+        seatschild = 0;
+        seatsbaby = 0;
+      bag_weight = 0;
+      rk_weight = 0;
+      adult = 0;
+      child = 0;
+      baby = 0;
+      excess = 0;
+    }
 };
 
 struct Luggage {
-	int pr_edit;
-	BASIC::TDateTime scd_out;
-	std::string region;
+    int pr_edit;
+    BASIC::TDateTime scd_out;
+    std::string region;
 
-	std::vector<PaxLoad> vpaxload;
-	int max_commerce;
-	std::vector<Cargo> vcargo;
-	Luggage() {
+    std::vector<PaxLoad> vpaxload;
+    int max_commerce;
+    std::vector<Cargo> vcargo;
+    Luggage() {
     scd_out = ASTRA::NoExists;
-		pr_edit = 0;
-		max_commerce = 0;
-	}
+        pr_edit = 0;
+        max_commerce = 0;
+    }
 };
 
 
 struct TSOPPDelay {
-	std::string code;
-	BASIC::TDateTime time;
+    std::string code;
+    BASIC::TDateTime time;
 };
 
 struct TSOPPDest {
-	bool modify;
+    bool modify;
   int point_id;
   int point_num;
   std::string airp;
@@ -335,7 +335,25 @@ void check_trip_tasks( int move_id );
 bool CheckApis_USA( const std::string &airp );
 void IntReadTrips( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, long int &exec_time );
 
-void update_trip_sets(int point_id, const std::map<TTripSetType, bool> &sets, bool first_init);
+class TTripSetList : public std::map<TTripSetType, bool>
+{
+  private:
+    std::set<TTripSetType> _setTypes;
+    std::string setTypeStr(const TTripSetType setType) const;
+  public:
+    TTripSetList();
+    const std::set<TTripSetType>& setTypes();
+    const TTripSetList& toXML(xmlNodePtr node) const;
+    TTripSetList& fromXML(xmlNodePtr node);
+    const TTripSetList& initDB(int point_id, int f, int c, int y) const;
+    const TTripSetList& toDB(int point_id) const;
+    TTripSetList& fromDB(int point_id);
+    TTripSetList& fromDB(const TTripInfo &info);
+    void append(const TTripSetList &list);
+    bool value(const TTripSetType setType) const;
+    bool value(const TTripSetType setType, const bool defValue) const;
+};
+
 void set_flight_sets(int point_id, int f=0, int c=0, int y=0);
 void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tranzit);
 
