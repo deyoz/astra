@@ -1245,68 +1245,52 @@ void TPrnTagStore::TPointInfo::Init(TDevOperType op, int apoint_id, int agrp_id)
 
 string TPrnTagStore::BCBP_V_5(TFieldParams fp)
 {
-        LogTrace(TRACE5) << "Den was here";
-        std::cout<<"BCBP_V_5 start\n";
-        std::cout.flush();
-        if(scan_data != NULL)
-            return scan;
-        BCBPSections barcode;
-        //scan_data = barcode;
-        string surname = transliter(paxInfo.surname_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-        string name = transliter(paxInfo.name_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-        barcode.add_section();
-        barcode.set_passenger_name_surname(name, surname);
-        barcode.set_version(5);
-        barcode.set_electronic_ticket_indicator((ETKT(fp).empty() ? " " : "E"));
-        vector<TPnrAddrItem>::iterator iv = pnrInfo.pnrs.begin();
-            for(; iv != pnrInfo.pnrs.end(); iv++)
-                if(pointInfo.airline == iv->airline) {
-                    ProgTrace(TRACE5, "PNR found: %s", iv->addr);
-                    break;
-                }
-        if(iv != pnrInfo.pnrs.end() && (strlen(iv->addr) <= 7))
-            barcode.set_operatingCarrierPNR(convert_pnr_addr(iv->addr, tag_lang.GetLang() != AstraLocale::LANG_RU), 0);
-        std::cout<<"BCBP_V_5 M1.0\n";
-        std::cout.flush();
-        barcode.set_from_city_airport(AIRP_DEP(fp), 0);
-        barcode.set_to_city_airport(AIRP_ARV(fp), 0);
-        barcode.set_operating_carrier_designator(AIRLINE(fp), 0);
-        std::cout<<"BCBP_V_5 M1.1\n"; std::cout.flush();
-        try{
+    if(scan_data != NULL)
+        return scan;
+    BCBPSections barcode;
+    //scan_data = barcode;
+    string surname = transliter(paxInfo.surname_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    string name = transliter(paxInfo.name_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    barcode.add_section();
+    barcode.set_passenger_name_surname(name, surname);
+    barcode.set_version(5);
+    barcode.set_electronic_ticket_indicator((ETKT(fp).empty() ? " " : "E"));
+    vector<TPnrAddrItem>::iterator iv = pnrInfo.pnrs.begin();
+    for(; iv != pnrInfo.pnrs.end(); iv++)
+        if(pointInfo.airline == iv->airline) {
+            ProgTrace(TRACE5, "PNR found: %s", iv->addr);
+            break;
+        }
+    if(iv != pnrInfo.pnrs.end() && (strlen(iv->addr) <= 7))
+        barcode.set_operatingCarrierPNR(convert_pnr_addr(iv->addr, tag_lang.GetLang() != AstraLocale::LANG_RU), 0);
+    barcode.set_from_city_airport(AIRP_DEP(fp), 0);
+    barcode.set_to_city_airport(AIRP_ARV(fp), 0);
+    barcode.set_operating_carrier_designator(AIRLINE(fp), 0);
+    try{
         if(pointInfo.flt_no > 0)
-             barcode.set_flight_number(BCBPSectionsEnums::to_string(pointInfo.flt_no), 0 );
-        std::cout<<(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)) -  NowUTC());
+            barcode.set_flight_number(BCBPSectionsEnums::to_string(pointInfo.flt_no), 0 );
         barcode.set_date_of_flight(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)),0);
-        }
-        catch(EConvertError e)
-        { std::cout<<e.what(); std::cout.flush();
-        }
+    }
+    catch(EConvertError e)
+    {
+    }
 
-        std::cout<<"BCBP_V_5 M1.2\n"; std::cout.flush();
+    std::string cc = CLASS(fp);
+    if(cc.size() == 1)
+        barcode.set_compartment_code(cc[0], 0);
+    barcode.set_seat_number(ONE_SEAT_NO(fp), 0);
+    barcode.set_check_in_seq_number("0", 0);
+    barcode.set_passenger_status('1', 0);
 
-        std::string cc = CLASS(fp);
-        if(cc.size() == 1)
-            barcode.set_compartment_code(cc[0], 0);
-         std::cout<<"BCBP_V_5 M1.3\n"; std::cout.flush();
-        barcode.set_seat_number(ONE_SEAT_NO(fp), 0);
-         std::cout<<"BCBP_V_5 M1.4\n"; std::cout.flush();
-        barcode.set_check_in_seq_number("0", 0);
-         std::cout<<"BCBP_V_5 M1.5\n"; std::cout.flush();
-        barcode.set_passenger_status('1', 0);
-        std::cout<<"BCBP_V_5 M2\n";
-        std::cout.flush();
-
-        TPerson pers_type = DecodePerson((char *)paxInfo.pers_type.c_str());
-        if(pers_type == NoPerson) throw Exception("BCBP_V_5: something wrong with pers_type");
-        barcode.set_passenger_description(static_cast<BCBPSectionsEnums::PassengerDescr>(pers_type));
-        barcode.set_doc_type(BCBPSectionsEnums::boarding_pass);
-        barcode.set_komtech_pax_id(paxInfo.pax_id, 0);
+    TPerson pers_type = DecodePerson((char *)paxInfo.pers_type.c_str());
+    if(pers_type == NoPerson) throw Exception("BCBP_V_5: something wrong with pers_type");
+    barcode.set_passenger_description(static_cast<BCBPSectionsEnums::PassengerDescr>(pers_type));
+    barcode.set_doc_type(BCBPSectionsEnums::boarding_pass);
+    barcode.set_komtech_pax_id(paxInfo.pax_id, 0);
 
 
-        std::string x  = barcode.build_bcbp_str();
-        std::cout << x <<std::endl;
-        std::cout.flush();
-        return x;
+    std::string x  = barcode.build_bcbp_str();
+    return x;
 }
 
 string TPrnTagStore::BCBP_M_2(TFieldParams fp)
