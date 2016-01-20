@@ -2102,7 +2102,7 @@ void PaidBagViewToXML(const std::map<int/*id*/, TEventsBagItem> &bag,
         {
           int emd_weight=0;
           for(list<CheckIn::TPaidBagEMDItem>::const_iterator e=emd.begin(); e!=emd.end(); ++e)
-            if (i->second.bag_type==e->bag_type)
+            if (i->second.bag_type==e->bag_type && e->trfer_num==0)
             {
               if (e->weight==NoExists)
               {
