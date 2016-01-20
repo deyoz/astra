@@ -2411,7 +2411,8 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     }
     catch(UserException &e)
     {
-      ue.addError(e.getLexemaData(), pax.point_dep, pax.pax_id);
+        pax.scan = NodeAsString(scanCodeNode);
+        paxs.push_back(pax);
     };
   }
   else
@@ -2458,6 +2459,68 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   };
 };
 
+#include <fstream>
+
+int bcbp_test(int argc,char **argv)
+{
+    // Без инициализации reqInfo пас не найдется
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    reqInfo->Initialize("МОВ");
+
+    vector<string> tags;
+    BPTags::Instance()->getFields( tags );
+    string pectab;
+    for(vector<string>::iterator iv = tags.begin(); iv != tags.end(); iv++) {
+        int pad = 20 - iv->size();
+        if(pad < 0) pad = 0;
+        pectab += *iv + string(pad, ' ');
+        string fp = "(40,,)";
+
+        if(
+                upperc(*iv) == TAG::BCBP_M_2 or
+                upperc(*iv) == TAG::BCBP_V_5
+          ) fp.clear();
+
+        if(
+                upperc(*iv) == TAG::SCD or
+                upperc(*iv) == TAG::TIME_PRINT
+          ) {
+            fp = "(,,dd.mm)";
+            pectab += "'[<" + *iv + fp + ">]'\n";
+            fp = "(,,hh:nn)";
+            pectab += *iv + string(pad, ' ');
+            pectab += "'[<" + *iv + fp + ">]'\n";
+        } else
+            pectab += "'[<" + *iv + fp + ">]'\n";
+    }
+
+    cout << pectab << endl;
+
+    ifstream ifs("bcbp");
+    std::string scan((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+
+    //string scan = "M1ZAKHAROV/DENIS YUREV        DMEAER UT0001 264Y005A0001 128>2180OO    B                000028787007";
+
+    PrintInterface::BPPax pax;
+    try {
+        GetBPPaxFromScanCode(scan, pax);
+    } catch(...) {}
+
+    boost::shared_ptr<PrintDataParser> parser;
+    if(pax.pax_id == NoExists) {
+        cout << "pax not found." << endl;
+        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scan));
+    } else {
+        cout << "pax found, pax_id: " << pax.pax_id << endl;
+        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
+    }
+    cout << endl;
+
+    cout << parser->parse(pectab) << endl;
+
+    return 1;
+}
+
 void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -2467,27 +2530,36 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   PrintInterface::BPPax pax;
   xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
+  boost::shared_ptr<PrintDataParser> parser;
   if (scanCodeNode!=NULL)
   {
-    GetBPPaxFromScanCode(NodeAsString(scanCodeNode), pax);
+      try {
+          GetBPPaxFromScanCode(NodeAsString(scanCodeNode), pax);
+      } catch(...) {}
+
+      if(pax.pax_id == NoExists) {
+          parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser((string)NodeAsString(scanCodeNode)));
+      } else {
+          parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
+      }
   }
   else
   {
     bool is_test=isTestPaxId(NodeAsInteger("pax_id", reqNode));
     GetBPPax( reqNode, is_test, true, pax );
+    parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
   };
-  PrintDataParser parser( pax.grp_id, pax.pax_id, 0, NULL );
   vector<string> tags;
   BPTags::Instance()->getFields( tags );
   xmlNodePtr node = NewTextChild( resNode, "GetBPTags" );
   for ( vector<string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
     for(int j = 0; j < 2; j++) {
-      string value = parser.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
+      string value = parser->pts.get_tag(*i, ServerFormatDateTimeAsString, ((j == 0 and not scanCodeNode) ? "R" : "E"));
       NewTextChild( node, (*i + (j == 0 ? "" : "_lat")).c_str(), value );
       ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
     }
   }
-  parser.pts.save_bp_print(true);
+  parser->pts.save_bp_print(true);
 
   string gate=GetBPGate(pax.point_dep);
   if (!gate.empty())

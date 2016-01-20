@@ -183,6 +183,9 @@ int AstraApplication::nosir_proc(int argc, char ** argv)
 
 int main(int argc,char **argv)
 {
+#ifdef XP_TESTING
+    init_foreign_tests();
+#endif/*XP_TESTING*/
     ServerFramework::setApplicationCallbacks<AstraApplication>();
     return ServerFramework::applicationCallbacks()->run(argc,argv);
 }
