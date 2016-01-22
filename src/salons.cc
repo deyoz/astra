@@ -21,6 +21,8 @@
 #include "points.h"
 #include "rozysk.h"
 
+#include "astra_misc.h"
+
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
@@ -5922,6 +5924,24 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
   NewTextChild( dataNode, "trip", GetTripName( info, ecCkin ) );
   NewTextChild( dataNode, "craft", ElemIdToElemCtxt( ecDisp, etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" ) ) );
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
+  
+  string craft = Qry.FieldAsString( "craft" ), airp = Qry.FieldAsString("airp"), airp_last;
+  TTripRoute route;
+  route.GetRouteAfter(NoExists, trip_id, trtNotCurrent, trtNotCancelled);
+  airp_last = route.back().airp;
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT time_out_in "
+    "FROM place_calc "
+    "WHERE bc=:bc and cod_out=:airp and cod_in=:airp_last ";
+  Qry.CreateVariable( "bc", otString, craft );
+  Qry.CreateVariable( "airp", otString, airp );
+  Qry.CreateVariable( "airp_last", otString, airp_last );
+  Qry.Execute();
+  string travel_time = "00-00";
+  if(!Qry.Eof && !Qry.FieldIsNULL("time_out_in"))
+  	travel_time = DateTimeToStr(Qry.FieldAsDateTime("time_out_in"), "hh:nn", true);
+  NewTextChild( dataNode, "travel_time", travel_time);
 
   Qry.Clear();
   Qry.SQLText = "SELECT "\
