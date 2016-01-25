@@ -108,6 +108,10 @@ TRFISCListItem& TRFISCListItem::fromXML(xmlNodePtr node)
         throw Exception("Wrong @emd_type='%s'", xml_emd_type.c_str());
     };
 
+    if (NodeIsNULL("@carry_on", node))
+      throw Exception("Empty @carry_on");
+    pr_cabin=NodeAsBoolean("@carry_on", node);
+
     xmlNodePtr nameNode=node->children;
     for(; nameNode!=NULL; nameNode=nameNode->next)
     {
@@ -142,6 +146,8 @@ const TRFISCListItem& TRFISCListItem::toDB(TQuery &Qry) const
   Qry.SetVariable("rfisc", RFISC);
   Qry.SetVariable("service_type", service_type);
   Qry.SetVariable("emd_type", emd_type);
+  pr_cabin?Qry.SetVariable("pr_cabin", (int)pr_cabin.get()):
+           Qry.SetVariable("pr_cabin", FNull);
   Qry.SetVariable("name", name);
   Qry.SetVariable("name_lat", name_lat);
   return *this;
@@ -154,6 +160,8 @@ TRFISCListItem& TRFISCListItem::fromDB(TQuery &Qry)
   RFISC=Qry.FieldAsString("rfisc");
   service_type=Qry.FieldAsString("service_type");
   emd_type=Qry.FieldAsString("emd_type");
+  if (!Qry.FieldIsNULL("pr_cabin"))
+    pr_cabin=Qry.FieldAsInteger("pr_cabin")!=0;
   name=Qry.FieldAsString("name");
   name_lat=Qry.FieldAsString("name_lat");
   return *this;
@@ -196,13 +204,14 @@ void TRFISCList::toDB(int list_id) const
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "INSERT INTO grp_rfisc_lists(list_id,rfisc,service_type,rfic,emd_type,name,name_lat) "
-    "VALUES(:list_id,:rfisc,:service_type,:rfic,:emd_type,:name,:name_lat)";
+    "INSERT INTO grp_rfisc_lists(list_id,rfisc,service_type,rfic,emd_type,pr_cabin,name,name_lat) "
+    "VALUES(:list_id,:rfisc,:service_type,:rfic,:emd_type,:pr_cabin,:name,:name_lat)";
   Qry.CreateVariable( "list_id", otInteger, list_id );
   Qry.DeclareVariable( "rfisc", otString );
   Qry.DeclareVariable( "service_type", otString );
   Qry.DeclareVariable( "rfic", otString );
   Qry.DeclareVariable( "emd_type", otString );
+  Qry.DeclareVariable( "pr_cabin", otInteger );
   Qry.DeclareVariable( "name", otString );
   Qry.DeclareVariable( "name_lat", otString );
   for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
@@ -281,6 +290,24 @@ std::string TRFISCList::localized_name(const std::string& rfisc, const std::stri
   return lang==AstraLocale::LANG_RU?i->second.name:i->second.name_lat;
 }
 
+void TRFISCList::check(const CheckIn::TBagItem &bag) const
+{
+  if (bag.rfisc.empty()) return;
+  TRFISCList::const_iterator i=find(bag.rfisc);
+  if (i==end())
+    throw UserException("MSG.LUGGAGE.UNKNOWN_BAG_TYPE",
+                        LParams() << LParam("bag_type", bag.rfisc));
+  if (i->second.pr_cabin && bag.pr_cabin!=i->second.pr_cabin.get())
+  {
+    if (i->second.pr_cabin.get())
+      throw UserException("MSG.LUGGAGE.BAG_TYPE_SHOULD_BE_ADDED_TO_CABIN",
+                          LParams() << LParam("bag_type", bag.rfisc));
+    else
+      throw UserException("MSG.LUGGAGE.BAG_TYPE_SHOULD_BE_ADDED_TO_HOLD",
+                          LParams() << LParam("bag_type", bag.rfisc));
+  };
+}
+
 TRFISCSetting& TRFISCSetting::fromDB(TQuery &Qry)
 {
   clear();
@@ -334,6 +361,12 @@ void TRFISCListWithSets::fromDB(int list_id)
   TRFISCList::fromDBAdv(list_id);
   if (!airline.empty())
     TRFISCSettingList::fromDB(airline);
+}
+
+void TRFISCListWithSets::check(const CheckIn::TBagItem &bag) const
+{
+  TRFISCList::check(bag);
+  TRFISCSettingList::check(bag);
 }
 
 void TPaxNormItem::fromXML(xmlNodePtr node)
