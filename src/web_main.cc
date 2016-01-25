@@ -922,7 +922,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
     {
       TQuery Qry(&OraSession);
         Qry.SQLText =
-        "SELECT surname, subcls.class, subclass, doc_no, tkn_no, "
+        "SELECT surname, name, subcls.class, subclass, doc_no, tkn_no, "
         "       pnr_airline AS fqt_airline, fqt_no, "
         "       seat_xname, seat_yname "
         "FROM test_pax, subcls "
@@ -935,6 +935,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
         TWebPax pax;
         pax.crs_pax_id = pnr_id;
         pax.surname = Qry.FieldAsString("surname");
+        pax.name = Qry.FieldAsString("name");
         pax.pers_type_extended = EncodePerson(adult);
         pax.seats = 1;
         pax.pass_class = Qry.FieldAsString( "class" );
@@ -992,7 +993,11 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
   };
 }
 
-void IntLoadPnr( const vector<TIdsPnrData> &ids, vector< TWebPnr > &pnrs, xmlNodePtr segsNode, bool afterSave )
+void IntLoadPnr( const vector<TIdsPnrData> &ids,
+                 const boost::optional<WebSearch::TPNRFilter> &filter,
+                 vector< TWebPnr > &pnrs,
+                 xmlNodePtr segsNode,
+                 bool afterSave )
 {
   pnrs.clear();
   for(vector<TIdsPnrData>::const_iterator i=ids.begin();i!=ids.end();i++)
@@ -1042,7 +1047,45 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids, vector< TWebPnr > &pnrs, xmlNod
       }
       else
       {
-        //пассажиров первого сегмента проставим pax_no по порядку
+        if (filter)
+        {
+          set<int> suitable_ids;
+          for(int pass=0; pass<2; pass++)
+          {
+            //отфильтруем пассажиров
+            for(vector<TWebPax>::iterator iPax=pnr.paxs.begin();iPax!=pnr.paxs.end();)
+            {
+              if ((pass==0 && iPax->seats==0) || (pass!=0 && iPax->seats!=0))
+              {
+                ++iPax;
+                continue;
+              };
+              if (iPax->seats!=0)
+              {
+                //не младенцы без мест
+                if (iPax->suitable(filter.get()))
+                {
+                  suitable_ids.insert(iPax->crs_pax_id);
+                  ++iPax;
+                }
+                else
+                  iPax=pnr.paxs.erase(iPax);
+              }
+              else
+              {
+                //младенцы без мест
+                //оставляем только младенцев, привязанных к отфильтрованным взрослым
+                if (iPax->crs_pax_id_parent!=NoExists &&
+                    suitable_ids.find(iPax->crs_pax_id_parent)!=suitable_ids.end())
+                  ++iPax;
+                else
+                  iPax=pnr.paxs.erase(iPax);
+              };
+            };
+          };
+        };
+
+        //пассажирам первого сегмента проставим pax_no по порядку
         int pax_no=1;
         for(vector<TWebPax>::iterator iPax=pnr.paxs.begin();iPax!=pnr.paxs.end();iPax++,pax_no++) iPax->pax_no=pax_no;
       };
@@ -1166,9 +1209,21 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     ids.push_back( idsPnrData );
   };
 
+  boost::optional<WebSearch::TPNRFilter> filter;
+  if (!ids.empty() &&
+      GetSelfCkinSets(tsSelfCkinCharterSearch, ids.front().point_id, TReqInfo::Instance()->client_type))
+  {
+    xmlNodePtr searchParamsNode=GetNode("search_params", reqNode);
+    if (searchParamsNode!=NULL)
+    {
+      filter=WebSearch::TPNRFilter();
+      filter.get().fromXML(searchParamsNode);
+    }
+  };
+
   vector< TWebPnr > pnrs;
   segsNode = NewTextChild( NewTextChild( resNode, "LoadPnr" ), "segments" );
-  IntLoadPnr( ids, pnrs, segsNode, false );
+  IntLoadPnr( ids, filter, pnrs, segsNode, false );
 }
 
 bool isOwnerFreePlace( int pax_id, const vector<TWebPax> &pnr )
@@ -2195,9 +2250,10 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     if (handleAfterSave)
       AfterSaveInfoList.handle(__FUNCTION__); //если только изменение места пассажира, то не вызываем
 
+    boost::optional<WebSearch::TPNRFilter> filter;
     vector< TWebPnr > pnrs;
     xmlNodePtr segsNode = NewTextChild( NewTextChild( resNode, "SavePax" ), "segments" );
-    IntLoadPnr( ids, pnrs, segsNode, true );
+    IntLoadPnr( ids, filter, pnrs, segsNode, true );  //!!! хорошо бы сюда тоже передавать filter на основе <search_params>
   };
   return result;
 };
@@ -2970,6 +3026,15 @@ void RevertWebResDoc()
     };
     xmlFreeNode(errNode);
   };
+}
+
+bool TWebPax::suitable(const WebSearch::TPNRFilter &filter) const
+{
+  return filter.isEqualSurname(surname) &&
+         filter.isEqualName(name) &&
+         filter.isEqualTkn(tkn.no) &&
+         filter.isEqualDoc(doc.no) &&
+         filter.isEqualRegNo(reg_no);
 }
 
 ////////////////////////////////////MERIDIAN SYSTEM/////////////////////////////

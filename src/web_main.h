@@ -152,6 +152,8 @@ struct TWebPax {
              pers_type_extended==pax.pers_type_extended &&
              ((seats==0 && pax.seats==0) || (seats!=0 && pax.seats!=0));
     };
+
+    bool suitable(const WebSearch::TPNRFilter &filter) const;
 };
 bool isOwnerFreePlace( int pax_id, const std::vector<TWebPax> &pnr );
 int bcbp_test(int argc,char **argv);
