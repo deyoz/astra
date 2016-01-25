@@ -47,7 +47,8 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     for(; alNode!=NULL; alNode=alNode->next)
     {
       airline = airl_fromXML(alNode, (pass==0?cfTraceIfEmpty:cfNothingIfEmpty), __FUNCTION__);
-      airlines.insert(airline);
+      if (!airline.empty())
+        airlines.insert(airline);
       if (pass==1) break;
     };
   };
@@ -211,7 +212,37 @@ string TPNRFilter::getSurnameSQLFilter(const string &field_name, TQuery &Qry) co
   return sql.str();
 };
 
-bool TPNRFilter::isNameEqual(const string &pax_name) const
+bool TPNRFilter::isEqualPnrAddr(const vector<TPNRAddrInfo> &pnr_addrs) const
+{
+  if (!pnr_addr_normal.empty())
+  {
+    //найдем есть ли среди адресов искомый
+    vector<TPNRAddrInfo>::const_iterator a=pnr_addrs.begin();
+    for(; a!=pnr_addrs.end(); ++a)
+      if (convert_pnr_addr(a->addr, true)==pnr_addr_normal) break;
+    if (a==pnr_addrs.end()) return false;
+  };
+  return true;
+}
+
+bool TPNRFilter::isEqualSurname(const string &pax_surname) const
+{
+  if (!surname.empty())
+  {
+    if (surname_equal_len!=NoExists)
+    {
+      if (!transliter_equal(pax_surname.substr(0, surname_equal_len),
+                                surname.substr(0, surname_equal_len))) return false;
+    }
+    else
+    {
+      if (!transliter_equal(pax_surname, surname)) return false;
+    };
+  }
+  return true;
+}
+
+bool TPNRFilter::isEqualName(const string &pax_name) const
 {
   if (!name.empty())
   {
@@ -228,6 +259,40 @@ bool TPNRFilter::isNameEqual(const string &pax_name) const
     {
       if (!transliter_equal(pax_name_normal, name)) return false;
     };
+  };
+  return true;
+};
+
+bool TPNRFilter::isEqualTkn(const string &pax_ticket_no) const
+{
+  if (!ticket_no.empty())
+  {
+    //проверим совпадение билета
+    if (pax_ticket_no!=ticket_no)
+    {
+      if (ticket_no.size() != 14) return false;
+      if (pax_ticket_no!=ticket_no.substr(0,13)) return false;
+    };
+  };
+  return true;
+};
+
+bool TPNRFilter::isEqualDoc(const string &pax_document) const
+{
+  if (!document.empty())
+  {
+    //проверим совпадение документа
+    if (pax_document!=document) return false;
+  };
+  return true;
+};
+
+bool TPNRFilter::isEqualRegNo(const int &pax_reg_no) const
+{
+  if (reg_no!=NoExists)
+  {
+    //проверим совпадение рег. номера
+    if (pax_reg_no!=reg_no) return false;
   };
   return true;
 };
@@ -272,16 +337,11 @@ TPNRFilter& TPNRFilter::testPaxFromDB()
     pax.reg_no=Qry.FieldAsInteger("reg_no");
 
     if (!isTestPaxId(pax.pax_id)) continue;
-    if (!isNameEqual(pax.name)) continue;
-
-    if (!document.empty() &&
-        document!=pax.document) continue;
-    if (!ticket_no.empty() &&
-        ticket_no!=pax.ticket_no) continue;
-    if (!pnr_addr_normal.empty() &&
-        pnr_addr_normal!=convert_pnr_addr(pax.pnr_addr.addr, true)) continue;
-    if (reg_no!=NoExists &&
-        reg_no!=pax.reg_no) continue;
+    if (!isEqualName(pax.name)) continue;
+    if (!isEqualTkn(pax.ticket_no)) continue;
+    if (!isEqualDoc(pax.document)) continue;
+    if (!isEqualPnrAddr(vector<TPNRAddrInfo>(1, pax.pnr_addr))) continue;
+    if (!isEqualRegNo(pax.reg_no)) continue;
     test_paxs.push_back(pax);
   };
 
@@ -1021,16 +1081,7 @@ bool TPNRSegInfo::fromDB(int point_id, const TTripRoute &route, TQuery &Qry)
 
 bool TPNRSegInfo::filterFromDB(const TPNRFilter &filter)
 {
-  if (!filter.pnr_addr_normal.empty())
-  {
-    //найдем есть ли среди адресов искомый
-    vector<TPNRAddrInfo>::const_iterator a=pnr_addrs.begin();
-    for(; a!=pnr_addrs.end(); ++a)
-      if (convert_pnr_addr(a->addr, true)==filter.pnr_addr_normal) break;
-    if (a==pnr_addrs.end()) return false;
-  };
-
-  return true;
+  return filter.isEqualPnrAddr(pnr_addrs);
 };
 
 bool TPNRSegInfo::filterFromDB(const std::vector<TPNRAddrInfo> &filter)
@@ -1095,42 +1146,26 @@ bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry, bool ignore_r
   pax_id=Qry.FieldAsInteger("pax_id");
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
-  if (!filter.isNameEqual(name)) return false;
+  if (!filter.isEqualName(name)) return false;
 
   TQuery Qry1(&OraSession);
   CheckIn::TPaxTknItem tkn;
   LoadCrsPaxTkn(pax_id, tkn);
   ticket_no=tkn.no;
-  if (!filter.ticket_no.empty())
-  {
-    //проверим совпадение билета
-    if (ticket_no!=filter.ticket_no)
-    {
-       if (filter.ticket_no.size() != 14) return false;
-       if (ticket_no!=filter.ticket_no.substr(0,13)) return false;
-    };
-  };
+  if (!filter.isEqualTkn(ticket_no)) return false;
 
   CheckIn::TPaxDocItem doc;
   LoadCrsPaxDoc(pax_id, doc);
   document=doc.no;
-  if (!filter.document.empty())
-  {
-    //проверим совпадение документа
-    if (document!=filter.document) return false;
-  };
+  if (!filter.isEqualDoc(document)) return false;
 
   Qry1.Clear();
   Qry1.SQLText="SELECT reg_no FROM pax WHERE pax_id=:pax_id";
   Qry1.CreateVariable("pax_id", otInteger, pax_id);
   Qry1.Execute();
   if (!Qry1.Eof) reg_no=Qry1.FieldAsInteger("reg_no");
-
-  if (filter.reg_no!=NoExists && !ignore_reg_no)
-  {
-    //проверим совпадение рег. номера
-    if (reg_no!=filter.reg_no) return false;
-  };
+  if (!ignore_reg_no &&
+      !filter.isEqualRegNo(reg_no)) return false;
 
   return true;
 };
@@ -1576,7 +1611,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
           TPNRSegInfo seg;
           if (!seg.fromTestPax(iFlt->first.point_dep, route, *p)) continue;
           TPaxInfo pax;
-          if (!pax.fromTestPax(*p)) continue;
+          if (!pax.fromTestPax(*p)) continue;          
           PNRs.add(iFlt->first, seg, pax, true);
         };
       };
