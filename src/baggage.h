@@ -176,7 +176,7 @@ class TGroupBagItem
     void setInboundTrfer(const TrferList::TGrpItem &grp);
     void setPoolNum(int bag_pool_num);
     bool trferExists() const;
-    void convertBag(std::map<int /*id*/, TBagItem> &result) const;
+    void convertBag(std::multimap<int, TBagItem> &result) const;
 };
 
 class TPaidBagEMDItem
