@@ -3526,14 +3526,14 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
   boost::optional<PieceConcept::TRFISCListWithSets> rfisc_list;
 
   const map< int/*id*/, TEventsBagItem> &bagBefore=prev.bag;
-  map< int/*id*/, CheckIn::TBagItem> bagAfter;
+  multimap< int/*id*/, CheckIn::TBagItem> bagAfter;  //может модержать множество id=NoExists;
   grp.group_bag.get().convertBag(bagAfter);
 
   std::map< int/*id*/, CheckIn::TBagItem>::const_iterator a=bagAfter.begin();
   std::map< int/*id*/, TEventsBagItem>::const_iterator b=bagBefore.begin();
   for(;a!=bagAfter.end() || b!=bagBefore.end();)
   {
-    std::map< int/*id*/, CheckIn::TBagItem>::const_iterator aBag=bagAfter.end();
+    std::multimap< int/*id*/, CheckIn::TBagItem>::const_iterator aBag=bagAfter.end();
     std::map< int/*id*/, TEventsBagItem>::const_iterator bBag=bagBefore.end();
     if (a==bagAfter.end() ||
         (a!=bagAfter.end() && b!=bagBefore.end() && b->first < a->first))

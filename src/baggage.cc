@@ -1263,10 +1263,11 @@ void TGroupBagItem::toXML(xmlNodePtr bagtagNode) const
     i->second.toXML(NewTextChild(node,"tag"));
 };
 
-void TGroupBagItem::convertBag(std::map<int /*id*/, TBagItem> &result) const
+void TGroupBagItem::convertBag(std::multimap<int /*id*/, TBagItem> &result) const
 {
+  //multimap - потому что м.б. id=NoExists если добавляются сразу несколько мест багажа
   result.clear();
-  for(map<int /*num*/, TBagItem>::const_iterator b=bags.begin(); b!=bags.end(); ++b)
+  for(multimap<int /*num*/, TBagItem>::const_iterator b=bags.begin(); b!=bags.end(); ++b)
     result.insert(make_pair(b->second.id, b->second));
 }
 

@@ -28,7 +28,7 @@ class LEvntPrms: public std::deque<LEvntPrm*>
 {
   public:
     LEvntPrms(): std::deque<LEvntPrm*>() {}
-    LEvntPrms (const LEvntPrms& params) {
+    LEvntPrms (const LEvntPrms& params): std::deque<LEvntPrm*>() {
         for (std::deque<LEvntPrm*>::const_iterator iter=params.begin(); iter != params.end(); iter++)
             push_back((*iter)->MakeCopy());
     }

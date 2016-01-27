@@ -39,6 +39,7 @@ class TRFISCListItem
     std::string RFISC;
     std::string service_type;
     std::string emd_type;
+    boost::optional<bool> pr_cabin;
     std::string name;
     std::string name_lat;
 
@@ -53,6 +54,7 @@ class TRFISCListItem
       RFISC.clear();
       service_type.clear();
       emd_type.clear();
+      pr_cabin=boost::none;
       name.clear();
       name_lat.clear();
     }
@@ -63,6 +65,7 @@ class TRFISCListItem
              RFISC==item.RFISC &&
              service_type==item.service_type &&
              emd_type==item.emd_type &&
+             ((!pr_cabin && !item.pr_cabin) || (pr_cabin && item.pr_cabin && pr_cabin.get()==item.pr_cabin.get())) &&
              name==item.name &&
              name_lat==item.name_lat;
     }
@@ -96,6 +99,7 @@ class TRFISCList : public TRFISCListMap
     int toDBAdv() const; //продвинутое сохранение с анализом существующих справочников
     void filter_baggage_rfiscs(); //фильтрация только багажных услуг
     std::string localized_name(const std::string& rfisc, const std::string& lang) const; //локализованное описание RFISC
+    void check(const CheckIn::TBagItem &bag) const;
 };
 
 class TRFISCSetting
@@ -144,8 +148,8 @@ class TRFISCListWithSets : public TRFISCList, public TRFISCSettingList
       TRFISCList::clear();
       TRFISCSettingList::clear();
     }
-
     void fromDB(int list_id);
+    void check(const CheckIn::TBagItem &bag) const;
 };
 
 class TPaxNormTextItem
