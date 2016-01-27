@@ -94,7 +94,12 @@ class TPNRFilter
     TPNRFilter& testPaxFromDB();
     void trace( TRACE_SIGNATURE ) const;
     std::string getSurnameSQLFilter(const std::string &field_name, TQuery &Qry) const;
-    bool isNameEqual(const std::string &pax_name) const;
+    bool isEqualPnrAddr(const std::vector<TPNRAddrInfo> &pnr_addrs) const;
+    bool isEqualSurname(const std::string &pax_surname) const;
+    bool isEqualName(const std::string &pax_name) const;
+    bool isEqualTkn(const std::string &pax_ticket_no) const;
+    bool isEqualDoc(const std::string &pax_document) const;
+    bool isEqualRegNo(const int &pax_reg_no) const;
 };
 
 class TPNRFilters

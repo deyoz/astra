@@ -2778,7 +2778,7 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
       Qry.Execute();
       for(;!Qry.Eof;Qry.Next())
       {
-        if (!filter.isNameEqual(Qry.FieldAsString("name"))) continue;
+        if (!filter.isEqualName(Qry.FieldAsString("name"))) continue;
         int &pax_id_ref=(Qry.FieldAsInteger("seats")>0?pax_id_with_seats:pax_id_without_seats);
         if (pax_id_ref!=NoExists)
           throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d, reg_no=%d)", f->point_id, filter.reg_no);
