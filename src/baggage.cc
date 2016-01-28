@@ -195,6 +195,11 @@ const TBagItem& TBagItem::toDB(TQuery &Qry) const
     Qry.SetVariable("user_id",user_id);
   else
     Qry.SetVariable("user_id",FNull);
+  Qry.SetVariable("desk",desk);
+  if (time_create!=ASTRA::NoExists)
+    Qry.SetVariable("time_create",time_create);
+  else
+    Qry.SetVariable("time_create",FNull);
   Qry.SetVariable("is_trfer",(int)is_trfer);
   Qry.SetVariable("handmade",(int)handmade);
   return *this;
@@ -221,6 +226,9 @@ TBagItem& TBagItem::fromDB(TQuery &Qry)
     hall=Qry.FieldAsInteger("hall");
   if (!Qry.FieldIsNULL("user_id"))
     user_id=Qry.FieldAsInteger("user_id");
+  desk=Qry.FieldAsString("desk");
+  if (!Qry.FieldIsNULL("time_create"))
+    time_create=Qry.FieldAsDateTime("time_create");
   is_trfer=Qry.FieldAsInteger("is_trfer")!=0;
   if (Qry.FieldIsNULL("handmade"))
   {
@@ -796,23 +804,7 @@ void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
       //перед этим нет изменений в группе пассажиров (пулы могут потерять актуальность)
       //условие соблюдается (все нормально) если запись багажа из модуля "Оплата багажа"
       BagQry.SQLText=
-        "SELECT bag2.grp_id, "
-        "       bag2.num, "
-        "       bag2.bag_type, "
-        "       bag2.rfisc, "
-        "       bag2.pr_cabin, "
-        "       bag2.amount, "
-        "       bag2.weight, "
-        "       bag2.value_bag_num, "
-        "       bag2.pr_liab_limit, "
-        "       bag2.to_ramp, "
-        "       bag2.using_scales, "
-        "       bag2.bag_pool_num, "
-        "       bag2.id, "
-        "       bag2.hall, "
-        "       bag2.user_id, "
-        "       bag2.is_trfer, "
-        "       bag2.handmade, "
+        "SELECT bag2.*, "
         "       ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse) AS refused "
         "FROM pax_grp,bag2 "
         "WHERE pax_grp.grp_id=bag2.grp_id AND bag2.grp_id=:grp_id FOR UPDATE";
@@ -881,6 +873,8 @@ void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
           //вновь введенный багаж
           nb->second.hall=hall;
           nb->second.user_id=reqInfo->user.user_id;
+          nb->second.desk=reqInfo->desk.code;
+          nb->second.time_create=BASIC::NowUTC();
         }
         else
         {
@@ -892,6 +886,8 @@ void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
           {
             nb->second.hall=ob->second.hall;
             nb->second.user_id=ob->second.user_id;
+            nb->second.desk=ob->second.desk;
+            nb->second.time_create=ob->second.time_create;
             if (!reqInfo->desk.compatible(BAG_TO_RAMP_VERSION))
               nb->second.to_ramp=ob->second.to_ramp;
             if (!reqInfo->desk.compatible(USING_SCALES_VERSION))
@@ -914,6 +910,8 @@ void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
           {
             nb->second.hall=hall;
             nb->second.user_id=reqInfo->user.user_id;
+            nb->second.desk=reqInfo->desk.code;
+            nb->second.time_create=BASIC::NowUTC();
           };
         };
       };
@@ -935,6 +933,8 @@ void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
           nb->second.id=ob->second.id;
           nb->second.hall=ob->second.hall;
           nb->second.user_id=ob->second.user_id;
+          nb->second.desk=ob->second.desk;
+          nb->second.time_create=ob->second.time_create;
           if (!reqInfo->desk.compatible(BAG_TO_RAMP_VERSION))
             nb->second.to_ramp=ob->second.to_ramp;
           if (!reqInfo->desk.compatible(USING_SCALES_VERSION))
@@ -951,6 +951,8 @@ void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
             throw Exception("TGroupBagItem::fromXML: unknown hall");
           nb->second.hall=hall;
           nb->second.user_id=reqInfo->user.user_id;
+          nb->second.desk=reqInfo->desk.code;
+          nb->second.time_create=BASIC::NowUTC();
         };
       };
     };
@@ -993,9 +995,9 @@ void TGroupBagItem::toDB(int grp_id) const
     "    SELECT cycle_id__seq.nextval INTO :id FROM dual; "
     "  END IF; "
     "  INSERT INTO bag2 (grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
-    "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,is_trfer,handmade) "
+    "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,desk,time_create,is_trfer,handmade) "
     "  VALUES (:grp_id,:num,:id,:bag_type,:rfisc,:pr_cabin,:amount,:weight,:value_bag_num, "
-    "    :pr_liab_limit,:to_ramp,:using_scales,:bag_pool_num,:hall,:user_id,:is_trfer,:handmade); "
+    "    :pr_liab_limit,:to_ramp,:using_scales,:bag_pool_num,:hall,:user_id,:desk,:time_create,:is_trfer,:handmade); "
     "END;";
   BagQry.DeclareVariable("num",otInteger);
   BagQry.DeclareVariable("id",otInteger);
@@ -1011,6 +1013,8 @@ void TGroupBagItem::toDB(int grp_id) const
   BagQry.DeclareVariable("bag_pool_num",otInteger);
   BagQry.DeclareVariable("hall",otInteger);
   BagQry.DeclareVariable("user_id",otInteger);
+  BagQry.DeclareVariable("desk",otString);
+  BagQry.DeclareVariable("time_create",otDate);
   BagQry.DeclareVariable("is_trfer",otInteger);
   BagQry.DeclareVariable("handmade",otInteger);
   for(map<int, TBagItem>::const_iterator nb=bags.begin();nb!=bags.end();++nb)
