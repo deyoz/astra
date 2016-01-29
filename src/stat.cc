@@ -2464,6 +2464,8 @@ struct TRFISCStatRow {
     string user_descr;
     TDateTime time_create;
     double tag_no;
+    int excess;
+    int paid;
 
     TRFISCStatRow():
         point_id(NoExists),
@@ -2474,7 +2476,9 @@ struct TRFISCStatRow {
         travel_time(NoExists),
         trfer_flt_no(NoExists),
         time_create(NoExists),
-        tag_no(NoExists)
+        tag_no(NoExists),
+        excess(NoExists),
+        paid(NoExists)
     {}
 
     bool operator < (const TRFISCStatRow &val) const
@@ -5254,7 +5258,9 @@ void RunRFISCStat(
         "   rfisc_stat.user_login, "
         "   rfisc_stat.user_descr, "
         "   rfisc_stat.time_create, "
-        "   rfisc_stat.tag_no "
+        "   rfisc_stat.tag_no, "
+        "   rfisc_stat.excess, "
+        "   rfisc_stat.paid "
         "from "
         "   points, "
         "   rfisc_stat "
@@ -5286,6 +5292,8 @@ void RunRFISCStat(
         int col_user_descr = Qry.get().GetFieldIndex("user_descr");
         int col_time_create = Qry.get().GetFieldIndex("time_create");
         int col_tag_no = Qry.get().GetFieldIndex("tag_no");
+        int col_excess = Qry.get().GetFieldIndex("excess");
+        int col_paid = Qry.get().GetFieldIndex("paid");
         for(; not Qry.get().Eof; Qry.get().Next()) {
             prn_airline.check(Qry.get().FieldAsString(col_airline));
             TRFISCStatRow row;
@@ -5310,6 +5318,10 @@ void RunRFISCStat(
             if(not Qry.get().FieldIsNULL(col_time_create))
                 row.time_create = Qry.get().FieldAsDateTime(col_time_create);
             row.tag_no = Qry.get().FieldAsFloat(col_tag_no);
+            if(not Qry.get().FieldIsNULL(col_excess))
+                row.excess = Qry.get().FieldAsInteger(col_excess);
+            if(not Qry.get().FieldIsNULL(col_paid))
+                row.paid = Qry.get().FieldAsInteger(col_paid);
             RFISCStat.insert(row);
         }
     }
@@ -5327,11 +5339,11 @@ void createXMLRFISCStat(const TRFISCStat &RFISCStat, const TPrintAirline &prn_ai
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Признак платности багажа"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Платн."));
     SetProp(colNode, "width", 100);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Признак оплаты"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Опл."));
     SetProp(colNode, "width", 80);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
@@ -5339,11 +5351,11 @@ void createXMLRFISCStat(const TRFISCStat &RFISCStat, const TPrintAirline &prn_ai
     SetProp(colNode, "width", 80);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("SPEQ - признак спец. багажа"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("SPEQ"));
     SetProp(colNode, "width", 100);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Статус или признак FQTV"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("FQTV"));
     SetProp(colNode, "width", 100);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
@@ -5396,7 +5408,7 @@ void createXMLRFISCStat(const TRFISCStat &RFISCStat, const TPrintAirline &prn_ai
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
-    SetProp(colNode, "width", 70);
+    SetProp(colNode, "width", 100);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата оформ."));
@@ -5412,9 +5424,15 @@ void createXMLRFISCStat(const TRFISCStat &RFISCStat, const TPrintAirline &prn_ai
         // RFISC
         NewTextChild(rowNode, "col", i->rfisc);
         // Признак платности багажа
-        NewTextChild(rowNode, "col");
+        if(i->excess == NoExists)
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col", i->excess);
         // Признак оплаты
-        NewTextChild(rowNode, "col");
+        if(i->paid == NoExists)
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col", i->paid);
         // Бирка
         buf.str("");
         buf
@@ -6046,7 +6064,9 @@ void get_rfisc_stat(int point_id)
             "  time_create, "
             "  user_login, "
             "  user_descr, "
-            "  tag_no "
+            "  tag_no, "
+            "  excess, "
+            "  paid "
             ") values ( "
             "  :point_id, "
             "  :pr_trfer, "
@@ -6063,7 +6083,9 @@ void get_rfisc_stat(int point_id)
             "  :time_create, "
             "  :login, "
             "  :descr, "
-            "  :bag_tag "
+            "  :bag_tag, "
+            "  :excess, "
+            "  :paid "
             ") ",
         QParams()
             << QParam("point_id", otInteger)
@@ -6082,6 +6104,8 @@ void get_rfisc_stat(int point_id)
             << QParam("desk", otString)
             << QParam("time_create", otDate)
             << QParam("bag_tag", otFloat)
+            << QParam("excess", otInteger)
+            << QParam("paid", otInteger)
             );
 
     TCachedQuery tagsQry("select no from bag_tags where grp_id = :grp_id and bag_num = :bag_num",
@@ -6120,26 +6144,86 @@ void get_rfisc_stat(int point_id)
             insQry.get().SetVariable("point_id", bagQry.get().FieldAsInteger(col_point_id));
             insQry.get().SetVariable("pr_trfer", bagQry.get().FieldAsInteger(col_pr_trfer));
             insQry.get().SetVariable("trfer_airline", bagQry.get().FieldAsString(col_trfer_airline));
-            insQry.get().SetVariable("trfer_flt_no", bagQry.get().FieldAsInteger(col_trfer_flt_no));
             insQry.get().SetVariable("trfer_suffix", bagQry.get().FieldAsString(col_trfer_suffix));
             insQry.get().SetVariable("trfer_airp_arv", bagQry.get().FieldAsString(col_trfer_airp_arv));
-            insQry.get().SetVariable("trfer_scd", bagQry.get().FieldAsDateTime(col_trfer_scd));
             insQry.get().SetVariable("point_num", bagQry.get().FieldAsInteger(col_point_num));
             insQry.get().SetVariable("airp_arv", bagQry.get().FieldAsString(col_airp_arv));
             insQry.get().SetVariable("rfisc", bagQry.get().FieldAsString(col_rfisc));
-            insQry.get().SetVariable("travel_time", bagQry.get().FieldAsDateTime(col_travel_time));
             insQry.get().SetVariable("desk", bagQry.get().FieldAsString(col_desk));
-            insQry.get().SetVariable("time_create", bagQry.get().FieldAsDateTime(col_time_create));
+
+            if(bagQry.get().FieldIsNULL(col_trfer_flt_no))
+                insQry.get().SetVariable("trfer_flt_no", FNull);
+            else
+                insQry.get().SetVariable("trfer_flt_no", bagQry.get().FieldAsInteger(col_trfer_flt_no));
+
+            if(bagQry.get().FieldIsNULL(col_trfer_scd))
+                insQry.get().SetVariable("trfer_scd", FNull);
+            else
+                insQry.get().SetVariable("trfer_scd", bagQry.get().FieldAsDateTime(col_trfer_scd));
+
+            if(bagQry.get().FieldIsNULL(col_travel_time))
+                insQry.get().SetVariable("travel_time", FNull);
+            else
+                insQry.get().SetVariable("travel_time", bagQry.get().FieldAsDateTime(col_travel_time));
+
+            if(bagQry.get().FieldIsNULL(col_time_create))
+                insQry.get().SetVariable("time_create", FNull);
+            else
+                insQry.get().SetVariable("time_create", bagQry.get().FieldAsDateTime(col_time_create));
+
             insQry.get().SetVariable("login", bagQry.get().FieldAsString(col_login));
             insQry.get().SetVariable("descr", bagQry.get().FieldAsString(col_descr));
 
-            tagsQry.get().SetVariable("grp_id", bagQry.get().FieldAsInteger(col_grp_id));
+            int grp_id = bagQry.get().FieldAsInteger(col_grp_id);
+            list<PieceConcept::TPaidBagItem> paid;
+
+            PaidBagFromDB(grp_id, true, paid);
+
+            set<PieceConcept::TBagStatus> bs_set;
+            for(list<PieceConcept::TPaidBagItem>::iterator i = paid.begin(); i != paid.end(); i++) {
+                if(i->trfer_num == 0 and not i->pr_cabin) {
+                    bs_set.insert(i->status);
+                }
+            }
+
+            tagsQry.get().SetVariable("grp_id", grp_id);
             tagsQry.get().SetVariable("bag_num", bagQry.get().FieldAsInteger(col_bag_num));
-            LogTrace(TRACE5) << "before tagsQry";
             tagsQry.get().Execute();
+            set<PieceConcept::TBagStatus>::iterator bs_idx = bs_set.begin();
             for(; not tagsQry.get().Eof; tagsQry.get().Next()) {
+
+                int excess = NoExists;
+                int paid = NoExists;
+
+                if(bs_idx != bs_set.end()) {
+                    switch(*bs_idx) {
+                        case PieceConcept::bsFree:
+                            excess = 0;
+                            break;
+                        case PieceConcept::bsPaid:
+                        case PieceConcept::bsNeed:
+                            excess = 1;
+                            break;
+                        default:
+                            excess = NoExists;
+                            break;
+                    }
+
+                    paid = (*bs_idx == PieceConcept::bsPaid ? 1 : NoExists);
+                    bs_idx++;
+                }
+
+                if(excess == NoExists)
+                    insQry.get().SetVariable("excess", FNull);
+                else
+                    insQry.get().SetVariable("excess", excess);
+                if(paid == NoExists)
+                    insQry.get().SetVariable("paid", FNull);
+                else
+                    insQry.get().SetVariable("paid", paid);
+
                 insQry.get().SetVariable("bag_tag", tagsQry.get().FieldAsFloat("no"));
-                LogTrace(TRACE5) << "before insQry";
+
                 insQry.get().Execute();
             }
         }
