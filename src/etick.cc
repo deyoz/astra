@@ -1795,6 +1795,10 @@ bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, int &g
   grp_id=Qry.get().FieldAsInteger("grp_id");
   piece_concept=!Qry.get().FieldIsNULL("piece_concept") && Qry.get().FieldAsInteger("piece_concept")!=0;
 
+  TTripInfo info;
+  if (!info.getByPointId(point_id)) return false;
+  if (GetTripSets(tsNoEMDAutoBinding, info)) return false;
+
   TFlights flightsForLock;
   flightsForLock.Get( point_id, ftTranzit );
   flightsForLock.Lock();
