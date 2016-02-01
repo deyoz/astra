@@ -189,7 +189,6 @@ class TPaidBagEMDItem
     int emd_coupon;
     int weight;
     int pax_id;
-    int handmade;
   TPaidBagEMDItem()
   {
     clear();
@@ -203,7 +202,6 @@ class TPaidBagEMDItem
     emd_coupon=ASTRA::NoExists;
     weight=ASTRA::NoExists;
     pax_id=ASTRA::NoExists;
-    handmade=ASTRA::NoExists;
   };
   const TPaidBagEMDItem& toXML(xmlNodePtr node) const;
   TPaidBagEMDItem& fromXML(xmlNodePtr node, bool piece_concept);
@@ -222,6 +220,49 @@ void PaidBagEMDFromDB(int grp_id,
                       std::list<TPaidBagEMDItem> &emd);
 void PaidBagEMDToXML(const std::list<TPaidBagEMDItem> &emd,
                      xmlNodePtr emdNode);
+
+class TPaidBagEMDPropsItem
+{
+  public:
+    std::string emd_no;
+    int emd_coupon;
+    bool manual_bind;
+  TPaidBagEMDPropsItem(const std::string &_emd_no,
+                       const int &_emd_coupon,
+                       bool _manual_bind=false)
+  {
+    emd_no=_emd_no;
+    emd_coupon=_emd_coupon;
+    manual_bind=_manual_bind;
+  }
+  TPaidBagEMDPropsItem(const TPaidBagEMDItem &item, bool _manual_bind=false)
+  {
+    emd_no=item.emd_no;
+    emd_coupon=item.emd_coupon;
+    manual_bind=_manual_bind;
+  }
+  bool operator < (const TPaidBagEMDPropsItem &item) const
+  {
+    if(emd_no != item.emd_no)
+      return emd_no < item.emd_no;
+    return emd_coupon < item.emd_coupon;
+  }
+};
+
+class TPaidBagEMDProps : public std::set<TPaidBagEMDPropsItem>
+{
+  public:
+    TPaidBagEMDPropsItem get(const std::string &_emd_no,
+                             const int &_emd_coupon) const
+    {
+      TPaidBagEMDPropsItem item(_emd_no, _emd_coupon);
+      TPaidBagEMDProps::const_iterator i=find(item);
+      return i!=end()?*i:item;
+    }
+};
+
+void PaidBagEMDPropsFromDB(int grp_id, TPaidBagEMDProps &props);
+void PaidBagEMDPropsToDB(int grp_id, const TPaidBagEMDProps &props);
 
 } //namespace CheckIn
 

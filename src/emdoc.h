@@ -8,15 +8,15 @@
 #include "ticket_types.h"
 #include "etick/tick_data.h"
 
-namespace CheckIn
-{
-typedef std::list< std::pair<TPaxASVCItem, TPaidBagEMDItem> > PaidBagEMDList;
-}; //namespace PaxASVCList
-
 namespace PaxASVCList
 {
 
-enum TListType {unboundByPointId, unboundByPaxId, allWithTknByPointId, oneWithTknByGrpId, oneWithTknByPaxId};
+enum TListType {unboundByPointId,
+                unboundByPaxId,
+                allByPaxId,
+                allWithTknByPointId,
+                oneWithTknByGrpId,
+                oneWithTknByPaxId};
 std::string GetSQL(const TListType ltype);
 void printSQLs();
 void GetUnboundEMD(int point_id, std::multiset<CheckIn::TPaxASVCItem> &asvc);
@@ -109,9 +109,11 @@ void GetEMDDisassocList(const int point_id,
                         const bool in_final_status,
                         std::list< TEMDCtxtItem > &emds);
 
-void GetBoundEMDStatusList(const int grp_id,
-                           const bool in_final_status,
-                           std::list<TEMDCtxtItem> &emds);
+void GetEMDStatusList(const int grp_id,
+                      const bool in_final_status,
+                      const CheckIn::PaidBagEMDList &priorBoundEMDs,
+                      std::list<TEMDCtxtItem> &added_emds,
+                      std::list<TEMDCtxtItem> &deleted_emds);
 
 class TEMDocItem
 {
@@ -169,6 +171,7 @@ class TPaxEMDItem : public CheckIn::TPaxASVCItem
     std::string et_no;
     int et_coupon;
     int trfer_num;
+    std::string emd_no_base;
 
     TPaxEMDItem()
     {
@@ -180,6 +183,7 @@ class TPaxEMDItem : public CheckIn::TPaxASVCItem
       et_no.clear();
       et_coupon=ASTRA::NoExists;
       trfer_num=ASTRA::NoExists;
+      emd_no_base.clear();
     }
     const TPaxEMDItem& toDB(TQuery &Qry) const;
     TPaxEMDItem& fromDB(TQuery &Qry);
@@ -187,7 +191,8 @@ class TPaxEMDItem : public CheckIn::TPaxASVCItem
     bool valid() const;
 };
 
-bool LoadPaxEMD(int pax_id, std::list<TPaxEMDItem> &emds);
+void GetPaxEMD(int pax_id, std::multiset<TPaxEMDItem> &emds);
+bool PaxEMDFromDB(int pax_id, std::list<TPaxEMDItem> &emds);
 
 void ProcEdiEvent(const TLogLocale &event,
                   const TEdiCtxtItem &ctxt,

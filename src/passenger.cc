@@ -1497,6 +1497,32 @@ bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs)
   return !pnrs.empty();
 };
 
+void CalcPaidBagEMDProps(const CheckIn::PaidBagEMDList &prior_emds,
+                         const boost::optional< list<CheckIn::TPaidBagEMDItem> > &curr_emds,
+                         CheckIn::TPaidBagEMDProps &diff,
+                         CheckIn::TPaidBagEMDProps &props)
+{
+  diff.clear();
+  props.clear();
+  if (!curr_emds) return;  //ничего не изменялось
+  CheckIn::TPaidBagEMDProps props1, props2;
+  for(CheckIn::PaidBagEMDList::const_iterator i=prior_emds.begin(); i!=prior_emds.end(); ++i)
+    props1.insert(CheckIn::TPaidBagEMDPropsItem(i->second, true));
+  for(list<CheckIn::TPaidBagEMDItem>::const_iterator i=curr_emds.get().begin(); i!=curr_emds.get().end(); ++i)
+    props2.insert(CheckIn::TPaidBagEMDPropsItem(*i, true));
+  //в различия попадают и добавленные, и удаленные
+  set_difference(props1.begin(), props1.end(),
+                 props2.begin(), props2.end(),
+                 inserter(diff, diff.end()));
+  set_difference(props2.begin(), props2.end(),
+                 props1.begin(), props1.end(),
+                 inserter(diff, diff.end()));
+  //manual_bind=true только для удаленных
+  set_difference(props1.begin(), props1.end(),
+                 props2.begin(), props2.end(),
+                 inserter(props, props.end()));
+}
+
 }; //namespace CheckIn
 
 

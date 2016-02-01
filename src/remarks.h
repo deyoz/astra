@@ -148,7 +148,7 @@ class TPaxASVCItem
                 (emd_coupon!=ASTRA::NoExists && emd_coupon<item.emd_coupon));
       return emd_type<item.emd_type;
     };
-    bool operator == (const TPaxASVCItem &item)
+    bool operator == (const TPaxASVCItem &item) const
     {
         return
             emd_no == item.emd_no and

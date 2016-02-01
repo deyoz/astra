@@ -328,7 +328,7 @@ void addToEdiResponseCtxt(const int ctxtId,
                           const xmlNodePtr srcNode,
                           const string &destNodeName)
 {
-  if (ctxtId==ASTRA::NoExists || srcNode==NULL || destNodeName.empty()) return;
+  if (ctxtId==ASTRA::NoExists) return;
   string ctxt;
   AstraContext::GetContext("EDI_RESPONSE",
                            ctxtId,
@@ -347,12 +347,22 @@ void addToEdiResponseCtxt(const int ctxtId,
   };
   if (ediResCtxt.docPtr()!=NULL)
   {
-    xmlNodePtr rootNode=NodeAsNode("/context",ediResCtxt.docPtr());
-    xmlNodePtr destNode=GetNode(destNodeName.c_str(), rootNode);
-    if (destNode==NULL)
-      destNode=NewTextChild(rootNode, destNodeName.c_str());
+    if (srcNode!=NULL)
+    {
+      xmlNodePtr rootNode=NodeAsNode("/context",ediResCtxt.docPtr());
+      if (!destNodeName.empty())
+      {
+        xmlNodePtr destNode=GetNode(destNodeName.c_str(), rootNode);
+        if (destNode==NULL)
+          destNode=NewTextChild(rootNode, destNodeName.c_str());
 
-    CopyNodeList(destNode,srcNode->parent);
+        CopyNodeList(destNode,srcNode->parent);
+      }
+      else
+      {
+        CopyNodeList(rootNode,srcNode->parent);
+      };
+    };
     ctxt=XMLTreeToText(ediResCtxt.docPtr());
 
     if (!ctxt.empty())

@@ -31,12 +31,15 @@
 #include "astra_emd.h"
 #include "astra_emd_view_xml.h"
 #include "edi_utils.h"
+#include "points.h"
+#include "brd.h"
 #include "tlg/emd_disp_request.h"
 #include "tlg/emd_system_update_request.h"
 #include "tlg/emd_cos_request.h"
 #include "tlg/emd_edifact.h"
 #include "tlg/remote_results.h"
 #include "tlg/remote_system_context.h"
+#include "tlg/AgentWaitsForRemote.h"
 
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/slogger.h"
@@ -69,7 +72,8 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
 
   TTripInfo info;
   checkETSInteract(params.point_id, true, info);
-  if (searchPurpose==spEMDDisplay)
+  if (searchPurpose==spEMDDisplay ||
+      searchPurpose==spEMDRefresh)
     checkEDSInteract(params.point_id, true, info);
 
   if(!inTestMode())
@@ -102,6 +106,9 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
       break;
     case spEMDDisplay:
       SetProp(rootNode,"purpose","EMDDisplay");
+      break;
+    case spEMDRefresh:
+      SetProp(rootNode,"purpose","EMDRefresh");
       break;
     default:
       SetProp(rootNode,"purpose","unknown");
@@ -367,7 +374,7 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
     };
     if (r->status() == edifact::RemoteStatus::Success)
     {
-      std::list<Emd> emdList = EmdEdifactReader::readList(r->tlgSource());
+      std::list<Emd> emdList = EmdEdifactReader::readList(r->tlgSource());      
       if (emdList.empty())
       {
         LogError(STDLOG) << "EMDDisplayInterface::KickHandler: strange situation - emdList.empty() for " << emd_no;
@@ -403,28 +410,17 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
          << string(100,'=') << endl;
   };
 
+  set<string> base_emds;
   for(map<string, Emd>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
-  {
-    text << "EMD#" << e->first << endl;
-
-    text << Ticketing::TickView::EmdXmlViewToText(e->second, unknownPnrExists);
-
-    text << string(100,'=') << endl;
+  {  
+    string base_emd_no;
+    string emd_text=Ticketing::TickView::EmdXmlViewToText(e->second, unknownPnrExists, base_emd_no);
+    if (base_emds.find(base_emd_no)!=base_emds.end()) continue;
+    if (!base_emd_no.empty()) base_emds.insert(base_emd_no);
+    text << emd_text << string(100,'=') << endl;
   };
 
-  if (unknownPnrExists)
-  {
-    ostringstream result;
-    result << string(100,'=') << endl << endl;
-    result << getLocaleText("MSG.RELOAD_PASSENGERS_TO_ATTACH_DISPLAYED_EMD") << endl << endl;
-    result << string(100,'=') << endl;
-    result << text.str();
-    NewTextChild(resNode, "text", result.str());
-    showErrorMessage("MSG.RELOAD_PASSENGERS_TO_ATTACH_DISPLAYED_EMD");
-  }
-  else
-    NewTextChild(resNode, "text", text.str());
-
+  NewTextChild(resNode, "text", text.str());
 }
 
 //----------------------------------------------------------------------------------------------------------------
@@ -1026,33 +1022,43 @@ void EMDStatusInterface::EMDCheckStatus(const int grp_id,
   if (!fltParams.get(point_id)) return;
   if (fltParams.eds_no_interact) return;
 
-  list<TEMDCtxtItem> emds;
-  GetBoundEMDStatusList(grp_id, fltParams.in_final_status, emds);
+  list<TEMDCtxtItem> added_emds, deleted_emds;
+  GetEMDStatusList(grp_id, fltParams.in_final_status, prior_emds, added_emds, deleted_emds);
   string flight=GetTripName(fltParams.fltInfo,ecNone,true,false);
 
-  for(list<TEMDCtxtItem>::iterator e=emds.begin(); e!=emds.end(); ++e)
+  for(int pass=0; pass<2; pass++)
   {
-    CheckIn::PaidBagEMDList::const_iterator pe=prior_emds.begin();
-    for(; pe!=prior_emds.end(); ++pe)
-      if (e->asvc.emd_no==pe->first.emd_no &&
-          e->asvc.emd_coupon==pe->first.emd_coupon) break;
-    if (pe!=prior_emds.end()) continue; //уже был раньше введен EMD
+    list<TEMDCtxtItem> &emds = pass==0?added_emds:deleted_emds;
+    for(list<TEMDCtxtItem>::iterator e=emds.begin(); e!=emds.end(); ++e)
+    {
+      if (e->paxUnknown())
+      {
+        if (pass==0)
+          throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
+                              LParams() << LParam("emd", e->asvc.no_str()));
+        else
+          continue;
+      };
 
-    e->point_id=point_id;
-    e->flight=flight;
-    if (e->paxUnknown()) throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
-                                             LParams() << LParam("emd", e->asvc.no_str()));
+      CouponStatus paxStatus=calcPaxCouponStatus(e->pax.refuse,
+                                                 e->pax.pr_brd,
+                                                 fltParams.in_final_status);
+      if (paxStatus==CouponStatus::Flown) continue; //финальный статус
 
-    if (e->status==CouponStatus::OriginalIssue ||
-        e->status==CouponStatus::Unavailable) continue;  //пассажир разрегистрируется
+      if (paxStatus==CouponStatus::OriginalIssue ||
+          paxStatus==CouponStatus::Unavailable) continue;  //пассажир разрегистрируется
 
+      e->point_id=point_id;
+      e->flight=flight;
+      e->status = pass==0?CouponStatus(paxStatus):CouponStatus(CouponStatus::OriginalIssue);
 
-    TEMDChangeStatusKey key;
-    key.airline_oper=fltParams.fltInfo.airline;
-    key.flt_no_oper=fltParams.fltInfo.flt_no;
-    key.coupon_status=e->status;
+      TEMDChangeStatusKey key;
+      key.airline_oper=fltParams.fltInfo.airline;
+      key.flt_no_oper=fltParams.fltInfo.flt_no;
+      key.coupon_status=e->status;
 
-    emdList.addEMD(key, *e);
+      emdList.addEMD(key, *e);
+    };
   };
 
 }
@@ -1546,7 +1552,7 @@ void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
       xmlNodePtr termReqNode=NodeAsNode("/term/query",termReqCtxt.docPtr())->children;
       if (termReqNode==NULL)
-        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
+        throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
       //если эмулируем запрос web-регистрации с терминала - то делаем подмену client_type
       xmlNodePtr ifaceNode=GetNode("/term/query/@id",termReqCtxt.docPtr());
       if (ifaceNode!=NULL && strcmp(NodeAsString(ifaceNode), WEB_JXT_IFACE_ID)==0)
@@ -1773,4 +1779,245 @@ void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       }
     }
 }
+
+bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id, bool &piece_concept)
+{
+  point_id=NoExists;
+  grp_id=NoExists;
+  piece_concept=false;
+
+  QParams params;
+  id.setSQLParams(params);
+  TCachedQuery Qry(id.grpSQL(), params);
+  Qry.get().Execute();
+  if (Qry.get().Eof) return false; //это бывает когда разрегистрация всей группы по ошибке агента
+  point_id=Qry.get().FieldAsInteger("point_dep");
+  grp_id=Qry.get().FieldAsInteger("grp_id");
+  piece_concept=!Qry.get().FieldIsNULL("piece_concept") && Qry.get().FieldAsInteger("piece_concept")!=0;
+
+  TFlights flightsForLock;
+  flightsForLock.Get( point_id, ftTranzit );
+  flightsForLock.Lock();
+  return true;
+}
+
+void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode)
+{
+  int point_id=NoExists;
+  int grp_id=NoExists;
+  bool piece_concept=false;
+  if (!Lock(id, point_id, grp_id, piece_concept)) return;
+
+  string reqName=(char*)(reqNode->name);
+  if (!piece_concept && reqName!="TCkinLoadPax") return; //для местовой системы делаем refresh только при загрузке группы
+
+  set<int> pax_ids;
+  if (piece_concept)
+  {
+    list<PieceConcept::TPaidBagItem> paid;
+    PieceConcept::PaidBagFromDB(grp_id, true, paid);
+    for(list<PieceConcept::TPaidBagItem>::const_iterator p=paid.begin(); p!=paid.end(); ++p)
+      if (p->status==PieceConcept::bsNeed) pax_ids.insert(p->pax_id);
+    if (pax_ids.empty()) return;
+  }
+  else
+  {
+    list<WeightConcept::TPaidBagItem> paid;
+    WeightConcept::PaidBagFromDB(NoExists, grp_id, paid);
+    list<CheckIn::TPaidBagEMDItem> emd;
+    CheckIn::PaidBagEMDFromDB(grp_id, emd);
+    list<WeightConcept::TPaidBagItem>::const_iterator p=paid.begin();
+    for(; p!=paid.end(); ++p)
+    {
+      if (p->weight<=0) continue;
+      int emd_weight=0;
+      for(list<CheckIn::TPaidBagEMDItem>::const_iterator e=emd.begin(); e!=emd.end(); ++e)
+        if (e->rfisc.empty() &&
+            e->bag_type==p->bag_type &&
+            (e->trfer_num==NoExists || e->trfer_num==0) &&
+            e->weight!=NoExists) emd_weight+=e->weight;
+      if (emd_weight<p->weight) break;
+    };
+    if (p==paid.end()) return;
+  };
+
+  boost::optional<edifact::KickInfo> kickInfo;
+
+  QParams params;
+  id.setSQLParams(params);
+  TCachedQuery PaxQry(id.paxSQL(), params);
+  PaxQry.get().Execute();
+  for(;!PaxQry.get().Eof; PaxQry.get().Next())
+  {
+    int pax_id=PaxQry.get().FieldAsInteger("pax_id");
+    string refuse=PaxQry.get().FieldAsString("refuse");
+    if (piece_concept && pax_ids.find(pax_id)==pax_ids.end()) continue;
+    if (!refuse.empty()) continue;
+
+    CheckIn::TPaxTknItem tkn;
+    tkn.fromDB(PaxQry.get());
+    if (tkn.no.empty()) continue;
+    try
+    {
+      ETSearchByTickNoParams params;
+      params.point_id=point_id;
+      params.tick_no=tkn.no;
+
+      if (!kickInfo)
+      {
+        id.toXML(reqNode);
+        kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
+                                              "EMDAutoBound");
+      };
+
+      ETSearchInterface::SearchET(params, ETSearchInterface::spEMDRefresh, kickInfo.get());
+    }
+    catch(UserException) {};
+  }
+
+  if (Ticketing::isDoomedToWait())
+    AstraLocale::showErrorMessage("MSG.ETS_EDS_CONNECT_ERROR"); //потом переделать на MSG.ETS_CONNECT_ERROR, когда дисплей будет возвращать RFISC
+}
+
+void EMDAutoBoundInterface::EMDTryBind(int grp_id,
+                                       xmlNodePtr termReqNode,
+                                       xmlNodePtr ediResNode)
+{
+  bool second_call=GetNode("second_call", termReqNode)!=NULL;
+
+  list<PieceConcept::TPaidBagItem> paid_bag;
+  list<CheckIn::TPaidBagEMDItem> paid_bag_emd;
+  CheckIn::TPaidBagEMDProps paid_bag_emd_props;
+  PieceConcept::PaidBagFromDB(grp_id, true, paid_bag);
+  CheckIn::PaidBagEMDFromDB(grp_id, paid_bag_emd);
+  CheckIn::PaidBagEMDPropsFromDB(grp_id, paid_bag_emd_props);
+  boost::optional< list<CheckIn::TPaidBagEMDItem> > confirmed_emd;
+  if (second_call)
+  {
+    confirmed_emd=list<CheckIn::TPaidBagEMDItem>();
+
+    //надо бы в paid_bag_emd включить только изменившие статус EMD
+    xmlNodePtr emdNode=GetNode("emdocs", ediResNode);
+    if (emdNode!=NULL) emdNode=emdNode->children;
+    for(; emdNode!=NULL; emdNode=emdNode->next)
+    {
+      TEMDCtxtItem EMDCtxt;
+      EMDCtxt.fromXML(emdNode);
+
+      if (EMDCtxt.paxUnknown()) continue;
+
+      EdiErrorList errList;
+      GetEdiError(emdNode, errList);
+      if (!errList.empty()) continue;      
+
+      CheckIn::TPaidBagEMDItem item;
+      item.emd_no=EMDCtxt.asvc.emd_no;
+      item.emd_coupon=EMDCtxt.asvc.emd_coupon;
+      item.pax_id=EMDCtxt.pax.id;
+
+      confirmed_emd.get().push_back(item);
+    };
+  };
+
+
+  if (PieceConcept::TryAddPaidBagEMD(paid_bag, paid_bag_emd, paid_bag_emd_props, confirmed_emd))
+  {
+    TGrpToLogInfo grpInfoBefore;
+    GetGrpToLogInfo(grp_id, grpInfoBefore);
+    CheckIn::PaidBagEMDList paidBagEMDBefore;
+    if (!second_call)
+      PaxASVCList::GetBoundPaidBagEMD(grp_id, NoExists, paidBagEMDBefore);
+
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+      "UPDATE pax_grp SET tid=cycle_tid__seq.nextval WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id", otInteger, grp_id);
+    Qry.Execute();
+
+    PieceConcept::PaidBagToDB(grp_id, paid_bag);
+    CheckIn::PaidBagEMDToDB(grp_id, paid_bag_emd);
+
+    if (!second_call)
+    {
+      //здесь ChangeStatus
+      TEMDChangeStatusList EMDList;
+      EMDStatusInterface::EMDCheckStatus(grp_id, paidBagEMDBefore, EMDList);
+
+      if (!EMDList.empty())
+      {
+        //хотя бы один документ будет обрабатываться
+        OraSession.Rollback();  //откат        
+        NewTextChild(termReqNode, "second_call");
+        edifact::KickInfo kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc)),
+                                                                "EMDAutoBound");
+        EMDStatusInterface::EMDChangeStatus(kickInfo,EMDList);
+        return;
+      };
+    };
+
+    TGrpToLogInfo grpInfoAfter;
+    GetGrpToLogInfo(grp_id, grpInfoAfter);
+    TAgentStatInfo agentStat;
+    SaveGrpToLog(grpInfoBefore, grpInfoAfter, CheckIn::TPaidBagEMDProps(), agentStat);
+  };
+}
+
+void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
+
+  XMLDoc termReqCtxt;
+  getTermRequestCtxt(req_ctxt_id, true, "EMDAutoBoundInterface::KickHandler", termReqCtxt);
+
+  XMLDoc ediResCtxt;
+  getEdiResponseCtxt(req_ctxt_id, true, "EMDAutoBoundInterface::KickHandler", ediResCtxt);
+
+  xmlNodePtr termReqNode=NodeAsNode("/term/query",termReqCtxt.docPtr())->children;
+  if (termReqNode==NULL)
+    throw EXCEPTIONS::Exception("CheckInInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
+
+  string termReqName=(char*)(termReqNode->name);
+
+  xmlNodePtr ediResNode=NodeAsNode("/context",ediResCtxt.docPtr());
+
+  int point_id=NoExists, grp_id=NoExists;
+  bool piece_concept=false;
+  if (termReqName=="TCkinLoadPax" ||
+      termReqName=="TCkinSavePax" ||
+      termReqName=="TCkinSaveUnaccompBag")
+  {
+    bool afterSavePax=termReqName=="TCkinSavePax" ||
+                      termReqName=="TCkinSaveUnaccompBag";
+
+    EMDAutoBoundGrpId id(termReqNode);
+    if (Lock(id, point_id, grp_id, piece_concept))
+    {
+      if (piece_concept) EMDTryBind(grp_id, termReqNode, ediResNode);
+    }
+    else grp_id=id.grp_id;
+
+    if (Ticketing::isDoomedToWait())  //специально в этом месте, потому что LoadPax может вывести более важное сообщение
+      AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
+
+    CheckInInterface::LoadPax(grp_id, resNode, afterSavePax);
+  }
+  if (termReqName=="PaxByPaxId" ||
+      termReqName=="PaxByRegNo" ||
+      termReqName=="PaxByScanData")
+  {
+    EMDAutoBoundRegNo id(termReqNode);
+    if (Lock(id, point_id, grp_id, piece_concept))
+    {
+      if (piece_concept) EMDTryBind(grp_id, termReqNode, ediResNode);
+    };
+
+    if (Ticketing::isDoomedToWait())  //специально в этом месте, потому что GetPax может вывести более важное сообщение
+      AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
+
+    BrdInterface::GetPax(termReqNode, resNode);
+  } 
+}
+
+
 

@@ -3,6 +3,7 @@
 #include "apps_interaction.h"
 #include "httpClient.h"
 #include "astra_service.h"
+#include "sopp.h"
 #include <pion/http/parser.hpp>
 
 using namespace std;
