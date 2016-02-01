@@ -17,6 +17,7 @@
 #include "tlg/tlg.h"
 #include "astra_elem_utils.h"
 #include "baggage_pc.h"
+#include "astra_elems.h"
 #include "serverlib/xml_stuff.h"
 
 #define NICKNAME "DENIS"
@@ -6022,6 +6023,8 @@ void get_rfisc_stat(int point_id)
             "    arv_point.point_num, "
             "    pax_grp.grp_id, "
             "    pax_grp.airp_arv, "
+            "    pax.pax_id, "
+            "    pax.subclass, "
             "    bag2.rfisc, "
             "    bag2.num bag_num, "
             "    place_calc.time_out_in travel_time, "
@@ -6048,6 +6051,7 @@ void get_rfisc_stat(int point_id)
             "    pax_grp.status NOT IN ('E') and "
             "    ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and "
             "    bag2.pr_cabin = 0 and "
+            "    bag2.rfisc is not null and "
             "    ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) = pax.pax_id(+)  and "
             "    pax_grp.grp_id=transfer.grp_id(+) and "
             "    transfer.pr_final(+) <> 0 and "
@@ -6077,6 +6081,7 @@ void get_rfisc_stat(int point_id)
             "  user_login, "
             "  user_descr, "
             "  tag_no, "
+            "  fqt_no, "
             "  excess, "
             "  paid "
             ") values ( "
@@ -6096,6 +6101,7 @@ void get_rfisc_stat(int point_id)
             "  :login, "
             "  :descr, "
             "  :bag_tag, "
+            "  :fqt_no, "
             "  :excess, "
             "  :paid "
             ") ",
@@ -6116,6 +6122,7 @@ void get_rfisc_stat(int point_id)
             << QParam("desk", otString)
             << QParam("time_create", otDate)
             << QParam("bag_tag", otFloat)
+            << QParam("fqt_no", otString)
             << QParam("excess", otInteger)
             << QParam("paid", otInteger)
             );
@@ -6125,6 +6132,25 @@ void get_rfisc_stat(int point_id)
             << QParam("grp_id", otInteger)
             << QParam("bag_num", otInteger)
             );
+
+    TCachedQuery fqtQry(
+        "select "
+        "   pax_fqt.rem_code, "
+        "   pax_fqt.airline, "
+        "   pax_fqt.no, "
+        "   pax_fqt.extra, "
+        "   crs_pnr.subclass "
+        "from "
+        "   pax_fqt, "
+        "   crs_pax, "
+        "   crs_pnr "
+        "where "
+        "   pax_fqt.pax_id = :pax_id and "
+        "   pax_fqt.pax_id = crs_pax.pax_id(+) and "
+        "   crs_pax.pr_del(+)=0 and "
+        "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+        "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ",
+            QParams() << QParam("pax_id", otInteger));
 
 
     LogTrace(TRACE5) << "before bagQry";
@@ -6145,6 +6171,8 @@ void get_rfisc_stat(int point_id)
         int col_point_num = bagQry.get().FieldIndex("point_num");
         int col_grp_id = bagQry.get().FieldIndex("grp_id");
         int col_airp_arv = bagQry.get().FieldIndex("airp_arv");
+        int col_pax_id = bagQry.get().FieldIndex("pax_id");
+        int col_subclass = bagQry.get().FieldIndex("subclass");
         int col_rfisc = bagQry.get().FieldIndex("rfisc");
         int col_bag_num = bagQry.get().FieldIndex("bag_num");
         int col_travel_time = bagQry.get().FieldIndex("travel_time");
@@ -6191,6 +6219,43 @@ void get_rfisc_stat(int point_id)
 
             PaidBagFromDB(grp_id, true, paid);
 
+            string fqt_no;
+            if(not bagQry.get().FieldIsNULL(col_pax_id)) {
+                string subcls = bagQry.get().FieldAsString(col_subclass);
+                fqtQry.get().SetVariable("pax_id", bagQry.get().FieldAsInteger(col_pax_id));
+                fqtQry.get().Execute();
+
+
+                if(!fqtQry.get().Eof) {
+                    int col_rem_code = fqtQry.get().FieldIndex("rem_code");
+                    int col_airline = fqtQry.get().FieldIndex("airline");
+                    int col_no = fqtQry.get().FieldIndex("no");
+                    int col_extra = fqtQry.get().FieldIndex("extra");
+                    int col_subclass = fqtQry.get().FieldIndex("subclass");
+                    for(; !fqtQry.get().Eof; fqtQry.get().Next()) {
+                        string item;
+                        string rem_code = fqtQry.get().FieldAsString(col_rem_code);
+                        string airline = fqtQry.get().FieldAsString(col_airline);
+                        string no = fqtQry.get().FieldAsString(col_no);
+                        string extra = fqtQry.get().FieldAsString(col_extra);
+                        string subclass = fqtQry.get().FieldAsString(col_subclass);
+                        item +=
+                            rem_code + " " +
+                            ElemIdToElem(etAirline, airline, efmtCodeNative, LANG_EN) + " " +
+                            transliter(no, 1, true);
+                        if(rem_code == "FQTV") {
+                            if(not subclass.empty() and subclass != subcls)
+                                item += "-" + ElemIdToElem(etSubcls, subclass, efmtCodeNative, LANG_EN);
+                        } else {
+                            if(not extra.empty())
+                                item += "-" + transliter(extra, 1, true);
+                        }
+                        fqt_no = item;
+                        break;
+                    }
+                }
+            }
+
             set<PieceConcept::TBagStatus> bs_set;
             for(list<PieceConcept::TPaidBagItem>::iterator i = paid.begin(); i != paid.end(); i++) {
                 if(i->trfer_num == 0 and not i->pr_cabin) {
@@ -6235,6 +6300,8 @@ void get_rfisc_stat(int point_id)
                     insQry.get().SetVariable("paid", paid);
 
                 insQry.get().SetVariable("bag_tag", tagsQry.get().FieldAsFloat("no"));
+                insQry.get().SetVariable("fqt_no", fqt_no);
+                fqt_no.clear();
 
                 insQry.get().Execute();
             }
