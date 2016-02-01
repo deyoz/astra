@@ -776,119 +776,303 @@ void PreparePaidBagInfo(int grp_id,
   }
 }
 
-void TryDelPaidBagEMD(int grp_id,
-                      const list<PieceConcept::TPaidBagItem> &curr_paid)
+bool TryDelPaidBagEMD(const list<PieceConcept::TPaidBagItem> &curr_paid,
+                      list<CheckIn::TPaidBagEMDItem> &curr_emds)
 {
+  class TTmpKey
+  {
+    public:
+      int pax_id;
+      string rfisc;
+      int trfer_num;
+      TTmpKey(const PieceConcept::TPaidBagItem &item) : pax_id(item.pax_id), rfisc(item.RFISC), trfer_num(item.trfer_num) {}
+      TTmpKey(const CheckIn::TPaidBagEMDItem &item) : pax_id(item.pax_id), rfisc(item.rfisc), trfer_num(item.trfer_num) {}
+      TTmpKey(int _pax_id, string _rfisc, int _trfer_num) : pax_id(_pax_id), rfisc(_rfisc), trfer_num(_trfer_num) {}
+      bool operator < (const TTmpKey &key) const
+      {
+        if (pax_id!=key.pax_id)
+          return pax_id<key.pax_id;
+        if (rfisc!=key.rfisc)
+          return rfisc<key.rfisc;
+        return trfer_num<key.trfer_num;
+      }
+  };
+
+
+  bool modified=false;
   set< pair<int/*pax_id*/, string/*rfisc*/> > rfiscs;
+  map< TTmpKey, int > tmp_paid;
   for(list<PieceConcept::TPaidBagItem>::const_iterator p=curr_paid.begin(); p!=curr_paid.end(); ++p)
     if (p->status==bsUnknown ||
         p->status==bsPaid ||
-        p->status==bsNeed) rfiscs.insert(make_pair(p->pax_id, p->RFISC));
+        p->status==bsNeed)
+    {
+      rfiscs.insert(make_pair(p->pax_id, p->RFISC));
+      TTmpKey key(*p);
+      map< TTmpKey, int >::iterator i=tmp_paid.find(key);
+      if (i!=tmp_paid.end())
+        i->second++;
+      else
+        tmp_paid.insert(make_pair(key, 1));
+    };
 
-  list<CheckIn::TPaidBagEMDItem> curr_emds;
-  CheckIn::PaidBagEMDFromDB(grp_id, curr_emds);
-  bool modified=false;
+  map< TTmpKey, int > tmp_emds;
   for(list<CheckIn::TPaidBagEMDItem>::iterator e=curr_emds.begin(); e!=curr_emds.end();)
     if (!e->rfisc.empty() && rfiscs.find(make_pair(e->pax_id, e->rfisc))==rfiscs.end())
     {
       e=curr_emds.erase(e);
       modified=true;
     }
-    else ++e;
-  if (modified) CheckIn::PaidBagEMDToDB(grp_id, curr_emds);
+    else
+    {
+      TTmpKey key(*e);
+      map< TTmpKey, int >::iterator i=tmp_emds.find(key);
+      if (i!=tmp_emds.end())
+        i->second++;
+      else
+        tmp_emds.insert(make_pair(key, 1));
+      ++e;
+    };
+
+  for(map< TTmpKey, int >::const_iterator e=tmp_emds.begin(); e!=tmp_emds.end(); ++e)
+  {
+    map< TTmpKey, int >::const_iterator p=tmp_paid.find(e->first);
+    if (p==tmp_paid.end() || e->second>p->second)
+      throw UserException("MSG.EXCESS_EMD_ATTACHED_FOR_BAG_TYPE",
+                          LParams() << LParam("bag_type", e->first.rfisc));
+  }
+
+  return modified;
 }
 
-bool TryAddPaidBagEMD(list<TPaidBagItem> &paid_bag,
-                      list<CheckIn::TPaidBagEMDItem> &paid_bag_emd,
-                      const CheckIn::TPaidBagEMDProps &paid_bag_emd_props)
+bool UpdatePaidBag(const CheckIn::TPaidBagEMDItem &emd,
+                   list<TPaidBagItem> &paid_bag,
+                   bool only_check)
 {
-  bool result=false;
-  map< int/*pax_id*/, multiset<TPaxEMDItem> > unbound;
-
-  for(bool pr_cabin=false; ;pr_cabin=!pr_cabin)
+  for(bool pr_cabin=only_check?true:false; ;pr_cabin=!pr_cabin)
   {
     for(list<TPaidBagItem>::iterator p=paid_bag.begin(); p!=paid_bag.end(); ++p)
     {
-      if (p->pr_cabin!=pr_cabin || p->status!=bsNeed) continue;
-      map< int/*pax_id*/, multiset<TPaxEMDItem> >::iterator u=unbound.find(p->pax_id);
-      if (u==unbound.end())
+      if (p->pax_id!=ASTRA::NoExists && p->pax_id==emd.pax_id &&
+          p->trfer_num!=ASTRA::NoExists && p->trfer_num==emd.trfer_num &&
+          !p->RFISC.empty() && p->RFISC==emd.rfisc &&
+          p->status==bsNeed &&
+          (only_check || p->pr_cabin==pr_cabin))
       {
-        u=unbound.insert(make_pair(p->pax_id, multiset<TPaxEMDItem>())).first;
-        if (u==unbound.end())
-          throw Exception("%s: u==unbound.end()!", __FUNCTION__);
-        GetPaxUnboundEMD(p->pax_id, u->second); //возвращает emd_type='A' и RFIC для багажа
-      };
-
-      for(multiset<TPaxEMDItem>::iterator e=u->second.begin(); e!=u->second.end(); ++e)
-      {
-        if (e->trfer_num!=p->trfer_num || e->RFISC!=p->RFISC) continue;
-        if (paid_bag_emd_props.get(e->emd_no, e->emd_coupon).manual_bind) continue;
-
-        p->status=bsPaid;
-        CheckIn::TPaidBagEMDItem item;
-        item.rfisc=e->RFISC;
-        item.trfer_num=e->trfer_num;
-        item.emd_no=e->emd_no;
-        item.emd_coupon=e->emd_coupon;
-        item.weight=0;
-        item.pax_id=p->pax_id;
-        item.handmade66=false;
-        paid_bag_emd.push_back(item);
-        u->second.erase(e);
-        result=true;
-        break;
+        if (!only_check) p->status=bsPaid;
+        return true;
       };
     };
     if (pr_cabin) break;
   };
-  return result;
+  return false;
 }
 
-//эта процедура проставляет pax_id
-void PaidBagEMDToDB(int grp_id,
-                    const CheckIn::PaidBagEMDList &prior_emds,
-                    boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds)
+bool Confirmed(const CheckIn::TPaidBagEMDItem &emd,
+               const boost::optional< list<CheckIn::TPaidBagEMDItem> > &confirmed_emd)
 {
-  if (!curr_emds) return;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText= PaxASVCList::GetSQL(PaxASVCList::oneWithTknByGrpId);
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.DeclareVariable("emd_no", otString);
-  Qry.DeclareVariable("emd_coupon", otInteger);
-  for(list<CheckIn::TPaidBagEMDItem>::iterator i=curr_emds.get().begin(); i!=curr_emds.get().end(); ++i)
-  {
-    CheckIn::TPaidBagEMDItem &emd=*i;
-    CheckIn::PaidBagEMDList::const_iterator j=prior_emds.begin();
-    for(; j!=prior_emds.end(); ++j)
-      if (j->second.emd_no==emd.emd_no &&
-          j->second.emd_coupon==emd.emd_coupon) break;
-    if (j!=prior_emds.end() && j->second.pax_id!=ASTRA::NoExists)
-    {
-      //EMD уже была раньше
-      emd.pax_id=j->second.pax_id;
-      //emd.handmade=j->second.handmade; пока не используем
-    }
-    else
-    {
-      //EMD новая
-      Qry.SetVariable("emd_no", emd.emd_no);
-      Qry.SetVariable("emd_coupon", emd.emd_coupon);
-      Qry.Execute();
-      if (Qry.Eof)
-        throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
-                            LParams() << LParam("emd", emd.no_str()));
-      emd.pax_id=Qry.FieldAsInteger("pax_id");
-      TPaxEMDItem asvc;
-      asvc.fromDB(Qry);
-      if (emd.trfer_num!=asvc.trfer_num ||
-          emd.rfisc!=asvc.RFISC)
-        throw UserException("MSG.EMD_WRONG_ATTACHMENT_DIFFERENT_SEG_OR_RFISC",
-                            LParams() << LParam("emd", emd.no_str()));
+  if (!confirmed_emd) return true;
+  if (emd.trfer_num!=0) return true;
+  for(list<CheckIn::TPaidBagEMDItem>::const_iterator i=confirmed_emd.get().begin(); i!=confirmed_emd.get().end(); ++i)
+    if (emd.emd_no==i->emd_no &&
+        emd.emd_coupon==i->emd_coupon &&
+        emd.pax_id==i->pax_id) return true;
+  return false;
+}
 
-    };
+bool TryAddPaidBagEMD(list<TPaidBagItem> &paid_bag,
+                      list<CheckIn::TPaidBagEMDItem> &paid_bag_emd,
+                      const CheckIn::TPaidBagEMDProps &paid_bag_emd_props,
+                      const boost::optional< list<CheckIn::TPaidBagEMDItem> > &confirmed_emd)
+{
+  ProgTrace(TRACE5, "%s started", __FUNCTION__);
+
+  if (confirmed_emd)
+  {
+    ostringstream s;
+    for(list<CheckIn::TPaidBagEMDItem>::const_iterator i=confirmed_emd.get().begin(); i!=confirmed_emd.get().end(); ++i)
+    {
+      if (i!=confirmed_emd.get().begin()) s << ", ";
+      s << i->no_str();
+    }
+    ProgTrace(TRACE5, "%s: confirmed_emd=%s", __FUNCTION__, s.str().c_str());
   };
-  CheckIn::PaidBagEMDToDB(grp_id, curr_emds);
+
+
+  bool result=false;
+
+  class TAddedEmdItem
+  {
+    public:
+      string rfisc;
+      string emd_no_base;
+      int continuous_segs;
+      bool manual_bind;
+      list<CheckIn::TPaidBagEMDItem> coupons;
+
+      TAddedEmdItem(): continuous_segs(0), manual_bind(false) {}
+      TAddedEmdItem(const string& _rfisc, const string& _emd_no_base):
+        rfisc(_rfisc), emd_no_base(_emd_no_base), continuous_segs(0), manual_bind(false) {}
+
+      bool operator < (const TAddedEmdItem &item) const
+      {
+        if (continuous_segs!=item.continuous_segs)
+          return continuous_segs<item.continuous_segs;
+        if (manual_bind!=item.manual_bind)
+          return manual_bind;
+        return coupons.size()>item.coupons.size();
+      }
+      bool empty() const
+      {
+        return rfisc.empty() || emd_no_base.empty() || continuous_segs==0 || coupons.empty();
+      }
+      string traceStr() const
+      {
+        ostringstream s;
+        s << "rfisc=" << rfisc << ", "
+             "emd_no_base=" << emd_no_base << ", "
+             "continuous_segs=" << continuous_segs << ", "
+             "manual_bind=" << (manual_bind?"true":"false") << ", "
+             "coupons=";
+        for(list<CheckIn::TPaidBagEMDItem>::const_iterator i=coupons.begin(); i!=coupons.end(); ++i)
+        {
+          if (i!=coupons.begin()) s << ", ";
+          s << i->no_str();
+        };
+        return s.str();
+      }
+  };
+
+  class TBaseEmdMap : public map< string/*emd_no_base*/, set<string/*emd_no*/> >
+  {
+    public:
+      string rfisc;
+      TBaseEmdMap(const string& _rfisc) : rfisc(_rfisc) {}
+      void add(const TPaxEMDItem& emd)
+      {
+        if (emd.RFISC!=rfisc) return;
+        string emd_no_base=emd.emd_no_base.empty()?emd.emd_no:emd.emd_no_base;
+        pair< TBaseEmdMap::iterator, bool > res=insert(make_pair(emd_no_base, set<string>()));
+        if (res.first==end()) throw Exception("%s: res.first==end()!", __FUNCTION__);
+        res.first->second.insert(emd.emd_no);
+      }
+      string traceStr() const
+      {
+        ostringstream s;
+        for(TBaseEmdMap::const_iterator i=begin(); i!=end(); ++i)
+        {
+          if (i!=begin()) s << ", ";
+          for(set<string>::const_iterator j=i->second.begin(); j!=i->second.end(); ++j)
+          {
+            if (j!=i->second.begin()) s << "/";
+            s << *j;
+          }
+        }
+        return s.str();
+      }
+  };
+
+  typedef map<int/*pax_id*/, map<string/*RFISC*/, int/*кол-во*/> > TNeedMap;
+  TNeedMap need;
+  for(list<TPaidBagItem>::iterator p=paid_bag.begin(); p!=paid_bag.end(); ++p)
+  {
+    if (p->RFISC.empty() || p->status!=bsNeed) continue;
+    TNeedMap::iterator i=need.find(p->pax_id);
+    if (i==need.end())
+      i=need.insert(make_pair(p->pax_id, map<string, int>())).first;
+    if (i==need.end()) throw Exception("%s: i==need.end()!", __FUNCTION__);
+    pair<map<string/*RFISC*/, int/*кол-во*/>::iterator, bool> res=i->second.insert(make_pair(p->RFISC,0));
+    if (res.first==i->second.end()) throw Exception("%s: res.first==i->second.end()!", __FUNCTION__);
+    res.first->second++;
+  };
+
+  for(TNeedMap::iterator i=need.begin(); i!=need.end(); ++i)
+  {
+    multiset<TPaxEMDItem> emds;
+    GetPaxEMD(i->first, emds);
+    if (emds.empty()) continue; //по пассажиру нет ничего
+    for(map<string, int>::iterator irfisc=i->second.begin(); irfisc!=i->second.end(); ++irfisc)
+    {
+      TBaseEmdMap base_emds(irfisc->first);
+      for(multiset<TPaxEMDItem>::const_iterator e=emds.begin(); e!=emds.end(); ++e) base_emds.add(*e);
+
+      ProgTrace(TRACE5, "%s: pax_id=%d, rfisc=%s(%d), emds: %s",
+                __FUNCTION__, i->first, irfisc->first.c_str(), irfisc->second, base_emds.traceStr().c_str());
+
+      for(;irfisc->second>0;)
+      {
+        TAddedEmdItem best_added;
+
+        for(TBaseEmdMap::const_iterator be=base_emds.begin(); be!=base_emds.end(); ++be)
+        {
+          TAddedEmdItem curr_added(base_emds.rfisc, be->first);
+
+          for(;;curr_added.continuous_segs++)
+          {
+            {
+              //ищем среди привязанных
+              list<CheckIn::TPaidBagEMDItem>::const_iterator e=paid_bag_emd.begin();
+              for(; e!=paid_bag_emd.end(); ++e)
+                if (e->rfisc==curr_added.rfisc &&
+                    e->trfer_num==curr_added.continuous_segs &&
+                    e->pax_id==i->first &&
+                    be->second.find(e->emd_no)!=be->second.end()) break;
+              if (e!=paid_bag_emd.end()) continue;
+            }
+            {
+              //ищем среди непривязанных
+              multiset<TPaxEMDItem>::const_iterator e=emds.begin();
+              for(; e!=emds.end(); ++e)
+                if (e->RFISC==curr_added.rfisc &&
+                    e->trfer_num==curr_added.continuous_segs &&
+                    be->second.find(e->emd_no)!=be->second.end()) break;
+              if (e!=emds.end())
+              {
+                CheckIn::TPaidBagEMDItem item;
+                item.rfisc=e->RFISC;
+                item.trfer_num=e->trfer_num;
+                item.emd_no=e->emd_no;
+                item.emd_coupon=e->emd_coupon;
+                item.weight=0;
+                item.pax_id=i->first;
+
+                if (Confirmed(item, confirmed_emd) &&
+                    UpdatePaidBag(item, paid_bag, true))
+                {
+                  if (paid_bag_emd_props.get(e->emd_no, e->emd_coupon).manual_bind)
+                    curr_added.manual_bind=true;
+                  else
+                  {
+                    curr_added.coupons.push_back(item);
+                    continue;
+                  }
+                };
+              }
+            }
+            break; //сюда дошли - значит к данному сегменту не можем привязать
+          }
+
+          if (curr_added.coupons.empty()) continue;
+          if (best_added<curr_added) best_added=curr_added;
+        }; //emd_no
+
+        if (best_added.empty()) break; //ни одного EMD из непривязанных не можем привязать по текущему RFISC
+
+        ProgTrace(TRACE5, "%s: pax_id=%d, %s", __FUNCTION__, i->first, best_added.traceStr().c_str());
+
+        for(list<CheckIn::TPaidBagEMDItem>::const_iterator e=best_added.coupons.begin(); e!=best_added.coupons.end(); ++e)
+        {
+          if (!UpdatePaidBag(*e, paid_bag, false)) throw Exception("%s: UpdatePaidBag strange situation!", __FUNCTION__);
+          paid_bag_emd.push_back(*e);
+          irfisc->second--;
+          result=true;
+        }
+        base_emds.erase(best_added.emd_no_base);
+      }
+    } //rfisc
+  }
+
+  return result;
 }
 
 class TPiadBagViewKey

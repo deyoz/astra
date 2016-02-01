@@ -393,9 +393,9 @@ class EMDAutoBoundInterface: public JxtInterface
     void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
     virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
-    static bool Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id);
+    static bool Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id, bool &piece_concept);
     static void EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode);
-    static void EMDTryBind(int grp_id);
+    static void EMDTryBind(int grp_id, xmlNodePtr termReqNode, xmlNodePtr ediResNode);
 };
 
 

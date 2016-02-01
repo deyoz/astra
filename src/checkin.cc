@@ -1443,7 +1443,7 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
   list<TPaxEMDItem> emds;
   if (!from_crs)
   {
-    LoadPaxEMD(pax_id, emds);
+    PaxEMDFromDB(pax_id, emds);
     if (!emds.empty())
     {
       xmlNodePtr asvcNode=NewTextChild(node,"asvc_rems");
@@ -3134,8 +3134,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
       if (AfterSaveInfoList.front().action==CheckIn::actionRefreshPaidBagPC)
       {
-        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
-        if (Ticketing::isDoomedToWait()) return true;
+        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);        
       };
 
       LoadPax(grp_id, resNode, true);
@@ -3599,6 +3598,54 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
     }
   }
 };
+
+//эта процедура проставляет pax_id
+void PaidBagEMDToDBAdv(int grp_id,
+                       bool piece_concept,
+                       const CheckIn::PaidBagEMDList &prior_emds,
+                       boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds)
+{
+  if (!curr_emds) return;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText= PaxASVCList::GetSQL(PaxASVCList::oneWithTknByGrpId);
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.DeclareVariable("emd_no", otString);
+  Qry.DeclareVariable("emd_coupon", otInteger);
+  for(list<CheckIn::TPaidBagEMDItem>::iterator i=curr_emds.get().begin(); i!=curr_emds.get().end(); ++i)
+  {
+    CheckIn::TPaidBagEMDItem &emd=*i;
+    CheckIn::PaidBagEMDList::const_iterator j=prior_emds.begin();
+    for(; j!=prior_emds.end(); ++j)
+      if (j->second.emd_no==emd.emd_no &&
+          j->second.emd_coupon==emd.emd_coupon) break;
+    if (j!=prior_emds.end() && j->second.pax_id!=ASTRA::NoExists)
+    {
+      //EMD уже была раньше
+      if (piece_concept) emd.pax_id=j->second.pax_id;      
+    }
+    else
+    {
+      //EMD новая
+      Qry.SetVariable("emd_no", emd.emd_no);
+      Qry.SetVariable("emd_coupon", emd.emd_coupon);
+      Qry.Execute();
+      if (Qry.Eof)
+        throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
+                            LParams() << LParam("emd", emd.no_str()));
+      if (piece_concept) emd.pax_id=Qry.FieldAsInteger("pax_id");
+      TPaxEMDItem asvc;
+      asvc.fromDB(Qry);
+      if (emd.trfer_num!=asvc.trfer_num)
+        throw UserException("MSG.EMD_WRONG_ATTACHMENT_DIFFERENT_SEG",
+                            LParams() << LParam("emd", emd.no_str()));
+      if (!emd.rfisc.empty() && emd.rfisc!=asvc.RFISC)
+        throw UserException("MSG.EMD_WRONG_ATTACHMENT_DIFFERENT_RFISC",
+                            LParams() << LParam("emd", emd.no_str()));
+    };
+  };
+  CheckIn::PaidBagEMDToDB(grp_id, curr_emds);
+}
 
 namespace SirenaExchange
 {
@@ -5408,15 +5455,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (grp.paid)
                   WeightConcept::TryDelPaidBagEMD(grp.paid.get(), paidBagEMDBefore, emd);
               };
-
-              CheckIn::PaidBagEMDToDB(grp.id, emd);
             }
             else
             {
               if (AfterSaveInfo.action==CheckIn::actionNone)
                 AfterSaveInfo.action=CheckIn::actionRefreshPaidBagPC;
-              PieceConcept::PaidBagEMDToDB(grp.id, paidBagEMDBefore, emd);
             }
+            PaidBagEMDToDBAdv(grp.id, grp.piece_concept, paidBagEMDBefore, emd);
 
             SaveTagPacks(reqNode);
           }
@@ -5989,7 +6034,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     CheckIn::PaidBagEMDList paidBagEMDBefore;
     PaxASVCList::GetBoundPaidBagEMD(first_grp_id, NoExists, paidBagEMDBefore);
     PieceConcept::PaidBagToDB(first_grp_id, paid);
-    PieceConcept::TryDelPaidBagEMD(first_grp_id, paid);
+    list<CheckIn::TPaidBagEMDItem> emds;
+    for(CheckIn::PaidBagEMDList::const_iterator i=paidBagEMDBefore.begin(); i!=paidBagEMDBefore.end(); ++i)
+      emds.push_back(i->second);
+    if (PieceConcept::TryDelPaidBagEMD(paid, emds))
+      CheckIn::PaidBagEMDToDB(first_grp_id, emds);
 
     if (ediResNode==NULL && reqInfo->client_type!=ctPNL)
     {
@@ -6111,8 +6160,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   else grp_id=NodeAsInteger(node);
 
-  EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
-  if (Ticketing::isDoomedToWait()) return;
+  EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);  
 
   LoadPax(grp_id,resNode,false);
 };
@@ -6414,7 +6462,6 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
             }
           };
           PieceConcept::PaidBagToDB(first_grp_id, paid);
-          PieceConcept::TryDelPaidBagEMD(first_grp_id, paid);
         };
       }
     }

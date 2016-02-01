@@ -193,7 +193,6 @@ class TPaidBagEMDItem
     int emd_coupon;
     int weight;
     int pax_id;
-    int handmade66;
   TPaidBagEMDItem()
   {
     clear();
@@ -207,7 +206,6 @@ class TPaidBagEMDItem
     emd_coupon=ASTRA::NoExists;
     weight=ASTRA::NoExists;
     pax_id=ASTRA::NoExists;
-    handmade66=ASTRA::NoExists;
   };
   const TPaidBagEMDItem& toXML(xmlNodePtr node) const;
   TPaidBagEMDItem& fromXML(xmlNodePtr node, bool piece_concept);

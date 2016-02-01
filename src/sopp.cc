@@ -35,7 +35,7 @@
 #include "apis.h"
 #include "trip_tasks.h"
 #include "pers_weights.h"
-
+#include "qrys.h"
 #include "aodb.h"
 #include "emdoc.h"
 #include "serverlib/perfom.h"

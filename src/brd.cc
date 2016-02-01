@@ -964,8 +964,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       if (set_mark && !EMDAutoBoundRegNo::exists(reqNode))
       {
-        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundRegNo(point_id, reg_no), reqNode);
-        if (Ticketing::isDoomedToWait()) return;
+        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundRegNo(point_id, reg_no), reqNode);        
       };
 
       Qry.Clear();
