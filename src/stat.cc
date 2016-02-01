@@ -5327,7 +5327,7 @@ void RunRFISCStat(
     }
 }
 
-void createXMLRFISCStat(const TRFISCStat &RFISCStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
+void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
 {
     if(RFISCStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
     NewTextChild(resNode, "airline", prn_airline.get(), "");
@@ -5452,14 +5452,14 @@ void createXMLRFISCStat(const TRFISCStat &RFISCStat, const TPrintAirline &prn_ai
         NewTextChild(rowNode, "col", DateTimeToStr(i->scd_out, "dd.mm.yyyy"));
         // Рейс
         buf.str("");
-        buf << setw(3) << setfill('0') << i->flt_no << i->suffix;
+        buf << setw(3) << setfill('0') << i->flt_no << ElemIdToCodeNative(etSuffix, i->suffix);
         NewTextChild(rowNode, "col", buf.str());
         // От
-        NewTextChild(rowNode, "col", i->airp);
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
         // До
-        NewTextChild(rowNode, "col", i->airp_arv);
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp_arv));
         // Тип ВС
-        NewTextChild(rowNode, "col", i->craft);
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etCraft, i->craft));
         // Время в пути
         if(i->travel_time == NoExists)
             NewTextChild(rowNode, "col");
@@ -5471,20 +5471,20 @@ void createXMLRFISCStat(const TRFISCStat &RFISCStat, const TPrintAirline &prn_ai
         string trfer_airp_dep;
         string trfer_airp_arv;
         if(i->trfer_flt_no) {
-            trfer_flt_no << setw(3) << setfill('0') << i->trfer_flt_no << i->trfer_suffix;
+            trfer_flt_no << setw(3) << setfill('0') << i->trfer_flt_no << ElemIdToCodeNative(etSuffix, i->trfer_suffix);
             trfer_airp_dep = i->airp;
             trfer_airp_arv = i->trfer_airp_arv;
         }
         // Рейс
         NewTextChild(rowNode, "col", trfer_flt_no.str());
         // От (совпадает с От рейса)
-        NewTextChild(rowNode, "col", trfer_airp_dep);
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, trfer_airp_dep));
         // До
-        NewTextChild(rowNode, "col", trfer_airp_arv);
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, trfer_airp_arv));
 
         // Информация об агенте
         // АП рег. (совпадает с От рейса)
-        NewTextChild(rowNode, "col", i->airp);
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
         // Стойка
         NewTextChild(rowNode, "col", i->desk);
         // LOGIN
@@ -5497,6 +5497,16 @@ void createXMLRFISCStat(const TRFISCStat &RFISCStat, const TPrintAirline &prn_ai
         else
             NewTextChild(rowNode, "col", DateTimeToStr(i->time_create, "dd.mm.yyyy"));
     }
+
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "stat_type", params.statType);
+    NewTextChild(variablesNode, "stat_mode", getLocaleText("Багажные RFISC"));
+    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
+
+    NewTextChild(variablesNode, "CAP.STAT.AGENT_INFO", getLocaleText("CAP.STAT.AGENT_INFO"));
+    NewTextChild(variablesNode, "CAP.STAT.BAG_INFO", getLocaleText("CAP.STAT.BAG_INFO"));
+    NewTextChild(variablesNode, "CAP.STAT.PAX_INFO", getLocaleText("CAP.STAT.PAX_INFO"));
+    NewTextChild(variablesNode, "CAP.STAT.FLT_INFO", getLocaleText("CAP.STAT.FLT_INFO"));
 }
 
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -5544,6 +5554,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
       case statDetail:
         get_compatible_report_form("DetailStat", reqNode, resNode);
         break;
+      case statRFISC:
+        get_compatible_report_form("RFISCStat", reqNode, resNode);
+        break;
       case statSelfCkinFull:
       case statSelfCkinShort:
       case statSelfCkinDetail:
@@ -5554,7 +5567,6 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
       case statTlgOutShort:
       case statTlgOutDetail:
       case statPactShort:
-      case statRFISC:
         get_compatible_report_form("stat", reqNode, resNode);
         break;
       default:
@@ -5631,7 +5643,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TPrintAirline airline;
             TRFISCStat RFISCStat;
             RunRFISCStat(params, RFISCStat, airline);
-            createXMLRFISCStat(RFISCStat, airline, resNode);
+            createXMLRFISCStat(params,RFISCStat, airline, resNode);
         }
     }
     catch (EOracleError &E)
