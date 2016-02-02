@@ -5416,8 +5416,8 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
     SetProp(colNode, "width", 70);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("ê•©·"));
-    SetProp(colNode, "width", 50);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("í‡‰‡.‡•©·"));
+    SetProp(colNode, "width", 60);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("é‚"));
@@ -5563,7 +5563,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             params.statType==statAgentTotal ||
             params.statType==statTlgOutShort ||
             params.statType==statTlgOutDetail ||
-            params.statType==statTlgOutFull
+            params.statType==statTlgOutFull ||
+            params.statType==statRFISC
             )
     {
       if(IncMonth(params.FirstDate, 1) < params.LastDate)
