@@ -2465,6 +2465,7 @@ struct TRFISCStatRow {
     string user_descr;
     TDateTime time_create;
     double tag_no;
+    string fqt_no;
     int excess;
     int paid;
 
@@ -5261,6 +5262,7 @@ void RunRFISCStat(
             "   rfisc_stat.user_descr, "
             "   rfisc_stat.time_create, "
             "   rfisc_stat.tag_no, "
+            "   rfisc_stat.fqt_no, "
             "   rfisc_stat.excess, "
             "   rfisc_stat.paid "
             "from ";
@@ -5320,6 +5322,7 @@ void RunRFISCStat(
             int col_user_descr = Qry.get().GetFieldIndex("user_descr");
             int col_time_create = Qry.get().GetFieldIndex("time_create");
             int col_tag_no = Qry.get().GetFieldIndex("tag_no");
+            int col_fqt_no = Qry.get().GetFieldIndex("fqt_no");
             int col_excess = Qry.get().GetFieldIndex("excess");
             int col_paid = Qry.get().GetFieldIndex("paid");
             for(; not Qry.get().Eof; Qry.get().Next()) {
@@ -5346,6 +5349,7 @@ void RunRFISCStat(
                 if(not Qry.get().FieldIsNULL(col_time_create))
                     row.time_create = Qry.get().FieldAsDateTime(col_time_create);
                 row.tag_no = Qry.get().FieldAsFloat(col_tag_no);
+                row.fqt_no = Qry.get().FieldAsString(col_fqt_no);
                 if(not Qry.get().FieldIsNULL(col_excess))
                     row.excess = Qry.get().FieldAsInteger(col_excess);
                 if(not Qry.get().FieldIsNULL(col_paid))
@@ -5385,7 +5389,7 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("FQTV"));
-    SetProp(colNode, "width", 100);
+    SetProp(colNode, "width", 150);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата вылета"));
@@ -5474,7 +5478,7 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
         // SPEQ - признак спец. багажа
         NewTextChild(rowNode, "col");
         // Статус или признак FQTV
-        NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col", i->fqt_no);
 
         // Информация о рейсе
         // Дата вылета
@@ -6031,12 +6035,10 @@ void STAT::agent_stat_delta(
 
 void get_rfisc_stat(int point_id)
 {
-    LogTrace(TRACE5) << "get_rfisc_stat begun";
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, point_id);
 
     TCachedQuery delQry("delete from rfisc_stat where point_id = :point_id", QryParams);
-    LogTrace(TRACE5) << "before delQry";
     delQry.get().Execute();
 
     TCachedQuery bagQry(
@@ -6180,14 +6182,7 @@ void get_rfisc_stat(int point_id)
         "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ",
             QParams() << QParam("pax_id", otInteger));
 
-
-    LogTrace(TRACE5) << "before bagQry";
-    LogTrace(TRACE5) << bagQry.get().SQLText.SQLText();
-    for(int i = 0; i < bagQry.get().VariablesCount(); i++)
-        LogTrace(TRACE5) << bagQry.get().VariableName(i) << " = " << bagQry.get().GetVariableAsString(i);
-
     bagQry.get().Execute();
-    LogTrace(TRACE5) << "bagQry.get().Eof: " << bagQry.get().Eof;
     if(not bagQry.get().Eof) {
         int col_point_id = bagQry.get().FieldIndex("point_id");
         int col_pr_trfer = bagQry.get().FieldIndex("pr_trfer");
@@ -6335,7 +6330,6 @@ void get_rfisc_stat(int point_id)
             }
         }
     }
-    LogTrace(TRACE5) << "get_rfisc_stat finished";
 }
 
 void get_flight_stat(int point_id, bool final_collection)
