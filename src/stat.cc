@@ -5280,15 +5280,15 @@ void RunRFISCStat(
             "   points.pr_del >= 0 and ";
         if (!params.airps.elems().empty()) {
             if (params.airps.elems_permit())
-                SQLText += " AND points.airp IN " + GetSQLEnum(params.airps.elems()) + "\n";
+                SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and \n";
             else
-                SQLText += " AND points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "\n";
+                SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and \n";
         };
         if (!params.airlines.elems().empty()) {
             if (params.airlines.elems_permit())
-                SQLText += " AND points.airline IN " + GetSQLEnum(params.airlines.elems()) + "\n";
+                SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and \n";
             else
-                SQLText += " AND points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "\n";
+                SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and \n";
         };
         if (pass!=0)
           SQLText +=
