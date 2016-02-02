@@ -1124,7 +1124,7 @@ void SavePaidToLog(const TPaidToLogInfo &paidBefore,
       if (handmadeEMDDiff.find(CheckIn::TPaidBagEMDPropsItem(*e))==handmadeEMDDiff.end())
       {
         emd_auto.insert(*e);
-        e=emd.erase(e);
+        emd.erase(e++);
       }
       else ++e;
 
