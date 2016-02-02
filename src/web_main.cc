@@ -429,8 +429,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         iFlt->toXML(segNode, true);
         iDest->toXML(segNode, true);
         iSeg->second.toXML(segNode, true);
-        if (iSeg==segs.begin())
-          PNRs.pnrs.begin()->second.toXML(segNode, true);
+        PNRs.pnrs.begin()->second.toXML(segNode, true);  //пишет только <bag_norm>
       };
       return; //выходим из поиска, так как записали в XML сквозные сегменты с самым подходящим 1-м сегментом
     }
