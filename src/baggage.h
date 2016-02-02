@@ -51,6 +51,8 @@ class TBagItem
     int amount;
     int weight;
     int hall,user_id; //для old_bag
+    std::string desk;
+    BASIC::TDateTime time_create;
     int value_bag_num,bag_pool_num; //для new_bag
     bool pr_liab_limit, to_ramp;  //для new_bag
     bool using_scales;
@@ -71,6 +73,8 @@ class TBagItem
       weight=ASTRA::NoExists;
       hall=ASTRA::NoExists;
       user_id=ASTRA::NoExists;
+      desk.clear();
+      time_create=ASTRA::NoExists;
       value_bag_num=ASTRA::NoExists;
       bag_pool_num=ASTRA::NoExists;
       pr_liab_limit=false;
