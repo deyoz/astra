@@ -776,10 +776,7 @@ void PreparePaidBagInfo(int grp_id,
   }
 }
 
-bool TryDelPaidBagEMD(const list<PieceConcept::TPaidBagItem> &curr_paid,
-                      list<CheckIn::TPaidBagEMDItem> &curr_emds)
-{
-  class TTmpKey
+class TTmpKey
   {
     public:
       int pax_id;
@@ -798,7 +795,9 @@ bool TryDelPaidBagEMD(const list<PieceConcept::TPaidBagItem> &curr_paid,
       }
   };
 
-
+bool TryDelPaidBagEMD(const list<PieceConcept::TPaidBagItem> &curr_paid,
+                      list<CheckIn::TPaidBagEMDItem> &curr_emds)
+{
   bool modified=false;
   set< pair<int/*pax_id*/, string/*rfisc*/> > rfiscs;
   map< TTmpKey, int > tmp_paid;
