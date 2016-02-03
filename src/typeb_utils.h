@@ -37,7 +37,7 @@ class localizedstream : public std::ostringstream
 namespace TypeB
 {
 
-const std::string endl = "\xa";
+const std::string endl = "\xd\xa";
 
 const std::string ERR_TAG_NAME = "ERROR";
 const std::string DEFAULT_ERR = "?";
