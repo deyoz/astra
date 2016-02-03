@@ -374,7 +374,7 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
     };
     if (r->status() == edifact::RemoteStatus::Success)
     {
-      std::list<Emd> emdList = EmdEdifactReader::readList(r->tlgSource());      
+      std::list<Emd> emdList = EmdEdifactReader::readList(r->tlgSource());
       if (emdList.empty())
       {
         LogError(STDLOG) << "EMDDisplayInterface::KickHandler: strange situation - emdList.empty() for " << emd_no;
@@ -412,7 +412,7 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
 
   set<string> base_emds;
   for(map<string, Emd>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
-  {  
+  {
     string base_emd_no;
     string emd_text=Ticketing::TickView::EmdXmlViewToText(e->second, unknownPnrExists, base_emd_no);
     if (base_emds.find(base_emd_no)!=base_emds.end()) continue;
@@ -1845,6 +1845,10 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     if (p==paid.end()) return;
   };
 
+  //проверим, что нет тревоги "Нет связи с СЭБ"
+  TFltParams fltParams;
+  if (!(fltParams.get(point_id) && fltParams.pr_etstatus>=0)) return;
+
   boost::optional<edifact::KickInfo> kickInfo;
 
   QParams params;
@@ -1912,7 +1916,7 @@ void EMDAutoBoundInterface::EMDTryBind(int grp_id,
 
       EdiErrorList errList;
       GetEdiError(emdNode, errList);
-      if (!errList.empty()) continue;      
+      if (!errList.empty()) continue;
 
       CheckIn::TPaidBagEMDItem item;
       item.emd_no=EMDCtxt.asvc.emd_no;
@@ -1951,7 +1955,7 @@ void EMDAutoBoundInterface::EMDTryBind(int grp_id,
       if (!EMDList.empty())
       {
         //хотя бы один документ будет обрабатываться
-        OraSession.Rollback();  //откат        
+        OraSession.Rollback();  //откат
         NewTextChild(termReqNode, "second_call");
         edifact::KickInfo kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc)),
                                                                 "EMDAutoBound");
@@ -2020,7 +2024,7 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
 
     BrdInterface::GetPax(termReqNode, resNode);
-  } 
+  }
 }
 
 
