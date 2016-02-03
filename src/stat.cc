@@ -6034,6 +6034,55 @@ void STAT::agent_stat_delta(
     Qry.Execute();
 }
 
+struct TRFISCBag {
+
+    struct TBagInfo {
+        int excess, paid;
+        TBagInfo():
+            excess(NoExists),
+            paid(NoExists)
+        {}
+    };
+
+    typedef list<TBagInfo> TBagInfoList;
+    typedef map<string, TBagInfoList> TRFISCGroup; // Группировка по кодам RFISC
+    typedef map<int, TRFISCGroup> TGrpIdGroup; // Группировка по grp_id
+    TGrpIdGroup items;
+
+    TRFISCGroup &get(int grp_id)
+    {
+        TGrpIdGroup::iterator result = items.find(grp_id);
+        if(result == items.end()) {
+            list<PieceConcept::TPaidBagItem> paid;
+            PaidBagFromDB(grp_id, true, paid);
+            for(list<PieceConcept::TPaidBagItem>::iterator i = paid.begin(); i != paid.end(); i++) {
+                if(i->trfer_num == 0 and not i->pr_cabin) {
+                    TBagInfo val;
+
+                    switch(i->status) {
+                        case PieceConcept::bsFree:
+                            val.excess = 0;
+                            break;
+                        case PieceConcept::bsPaid:
+                        case PieceConcept::bsNeed:
+                            val.excess = 1;
+                            break;
+                        default:
+                            val.excess = NoExists;
+                            break;
+                    }
+
+                    val.paid = (i->status == PieceConcept::bsPaid ? 1 : NoExists);
+
+                    items[grp_id][i->RFISC].push_back(val);
+                }
+            }
+            result = items.find(grp_id);
+        }
+        return result->second;
+    }
+};
+
 void get_rfisc_stat(int point_id)
 {
     QParams QryParams;
@@ -6184,6 +6233,7 @@ void get_rfisc_stat(int point_id)
             QParams() << QParam("pax_id", otInteger));
 
     bagQry.get().Execute();
+    TRFISCBag rfisc_bag;
     if(not bagQry.get().Eof) {
         int col_point_id = bagQry.get().FieldIndex("point_id");
         int col_pr_trfer = bagQry.get().FieldIndex("pr_trfer");
@@ -6238,11 +6288,6 @@ void get_rfisc_stat(int point_id)
             insQry.get().SetVariable("login", bagQry.get().FieldAsString(col_login));
             insQry.get().SetVariable("descr", bagQry.get().FieldAsString(col_descr));
 
-            int grp_id = bagQry.get().FieldAsInteger(col_grp_id);
-            list<PieceConcept::TPaidBagItem> paid;
-
-            PaidBagFromDB(grp_id, true, paid);
-
             string fqt_no;
             if(not bagQry.get().FieldIsNULL(col_pax_id)) {
                 string subcls = bagQry.get().FieldAsString(col_subclass);
@@ -6280,48 +6325,29 @@ void get_rfisc_stat(int point_id)
                 }
             }
 
-            set<PieceConcept::TBagStatus> bs_set;
-            for(list<PieceConcept::TPaidBagItem>::iterator i = paid.begin(); i != paid.end(); i++) {
-                if(i->trfer_num == 0 and not i->pr_cabin) {
-                    bs_set.insert(i->status);
-                }
-            }
+            int grp_id = bagQry.get().FieldAsInteger(col_grp_id);
+
+            TRFISCBag::TRFISCGroup &rfisc_grp = rfisc_bag.get(grp_id);
 
             tagsQry.get().SetVariable("grp_id", grp_id);
             tagsQry.get().SetVariable("bag_num", bagQry.get().FieldAsInteger(col_bag_num));
             tagsQry.get().Execute();
-            set<PieceConcept::TBagStatus>::iterator bs_idx = bs_set.begin();
             for(; not tagsQry.get().Eof; tagsQry.get().Next()) {
-
-                int excess = NoExists;
-                int paid = NoExists;
-
-                if(bs_idx != bs_set.end()) {
-                    switch(*bs_idx) {
-                        case PieceConcept::bsFree:
-                            excess = 0;
-                            break;
-                        case PieceConcept::bsPaid:
-                        case PieceConcept::bsNeed:
-                            excess = 1;
-                            break;
-                        default:
-                            excess = NoExists;
-                            break;
-                    }
-
-                    paid = (*bs_idx == PieceConcept::bsPaid ? 1 : NoExists);
-                    bs_idx++;
+                TRFISCBag::TBagInfoList &bag_info = rfisc_grp[bagQry.get().FieldAsString(col_rfisc)];
+                TRFISCBag::TBagInfo paid_bag_item;
+                if(not bag_info.empty()) {
+                    paid_bag_item = bag_info.back();
+                    bag_info.pop_back();
                 }
 
-                if(excess == NoExists)
+                if(paid_bag_item.excess == NoExists)
                     insQry.get().SetVariable("excess", FNull);
                 else
-                    insQry.get().SetVariable("excess", excess);
-                if(paid == NoExists)
+                    insQry.get().SetVariable("excess", paid_bag_item.excess);
+                if(paid_bag_item.paid == NoExists)
                     insQry.get().SetVariable("paid", FNull);
                 else
-                    insQry.get().SetVariable("paid", paid);
+                    insQry.get().SetVariable("paid", paid_bag_item.paid);
 
                 insQry.get().SetVariable("bag_tag", tagsQry.get().FieldAsFloat("no"));
                 insQry.get().SetVariable("fqt_no", fqt_no);
