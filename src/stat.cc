@@ -6034,6 +6034,18 @@ void STAT::agent_stat_delta(
     Qry.Execute();
 }
 
+// сбор статистики с сентября по тек. момент
+int rfisc_stat(int argc,char **argv)
+{
+    TDateTime from;
+    TDateTime to = NowUTC();
+    StrToDateTime("01.09.2015 00:00:00",ServerFormatDateTimeAsString,from);
+    for(; from < to; from++) {
+        cout << DateTimeToStr(from, ServerFormatDateTimeAsString) << endl;
+    }
+    return 0;
+}
+
 void get_rfisc_stat(int point_id)
 {
     QParams QryParams;

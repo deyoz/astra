@@ -89,6 +89,7 @@ const
     {"-http",                   verifyHTTP,             NULL,                       NULL},
     {"-bcbp",                   AstraWeb::bcbp_test,    NULL,                       NULL},
     {"-nat_stat",               nat_stat,              NULL,                       NULL},
+    {"-rfisc_stat",             rfisc_stat,             NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

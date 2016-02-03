@@ -85,4 +85,6 @@ public:
 
 void get_flight_stat(int point_id, bool final_collection);
 
+int rfisc_stat(int argc,char **argv);
+
 #endif
