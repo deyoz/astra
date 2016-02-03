@@ -964,7 +964,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       if (set_mark && !EMDAutoBoundRegNo::exists(reqNode))
       {
-        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundRegNo(point_id, reg_no), reqNode);        
+        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundRegNo(point_id, reg_no), reqNode);
+        if (Ticketing::isDoomedToWait()) return;
       };
 
       Qry.Clear();
@@ -1141,7 +1142,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         Qry.Execute();
         if (Qry.Eof)
           throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-        int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");        
+        int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
 
         //============================ проверка листа ожидания ============================
         if (set_mark && !setList.value(tsFreeSeating) &&
