@@ -2055,12 +2055,13 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
   Qry.Clear();
   Qry.SQLText =
     "SELECT pax.pax_id, pax.name, pax.surname, pax_grp.grp_id, pax.pers_type, pax.seats, pax.reg_no "
-    " FROM pax, pax_grp "
-    " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       point_dep=:point_id AND "
-    "       pr_brd IS NOT NULL  AND pax_grp.status NOT IN ('E') AND "
-    "       piece_concept<>0 AND  "
-    "       ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, pax_grp.excess)<>0 ";
+    "FROM pax, pax_grp "
+    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      point_dep=:point_id AND "
+    "      pr_brd IS NOT NULL AND pax_grp.status NOT IN ('E') AND "
+    "      piece_concept<>0 AND  "
+    "      ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
+    "                            pax_grp.piece_concept, pax_grp.excess, pax.pax_id)<>0 ";
   set<int> paxs;
   for ( list<TAdvTripInfo>::iterator iflt=flts.begin(); iflt!=flts.end(); iflt++ ) {
     Qry.CreateVariable( "point_id", otInteger, iflt->point_id );
@@ -2073,12 +2074,13 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
   Qry.Clear();
   Qry.SQLText =
     "SELECT pax.pax_id, pax.name, pax.surname, pax_grp.grp_id, pax.pers_type, pax.seats, pax.reg_no "
-    " FROM pax, pax_grp "
-    " WHERE pax_grp.grp_id=pax.grp_id AND "
-    "       pax_grp.point_id_mark=:point_id AND"
-    "       pr_brd IS NOT NULL  AND pax_grp.status NOT IN ('E') AND "
-    "       piece_concept<>0 AND  "
-    "       ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, pax_grp.excess)<>0 ";
+    "FROM pax, pax_grp "
+    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      pax_grp.point_id_mark=:point_id AND"
+    "      pr_brd IS NOT NULL AND pax_grp.status NOT IN ('E') AND "
+    "      piece_concept<>0 AND  "
+    "      ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
+    "                            pax_grp.piece_concept, pax_grp.excess, pax.pax_id)<>0 ";
   for ( set<int>::iterator iflt=marketing_point_ids.begin(); iflt!=marketing_point_ids.end(); iflt++ ) {
     Qry.CreateVariable( "point_id", otInteger, *iflt );
     Qry.Execute();
