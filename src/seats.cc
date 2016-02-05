@@ -2598,21 +2598,32 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
   passGrps.clear();
   TPassengers p;
   if ( AllowedAttrsSeat.pr_isWorkINFT ) {
-    for ( int j=0; j<2; j++ ) {
+    for ( int icond=0; icond<4; icond++ ) { // делим на: 0=платный ребенок и 1=платный взрослый , 2=бесплатный ребеной, 3=бесплатный взрослый
       TPassengers v;
       for ( int i=0; i<passengers.getCount(); i++ ) {
         TPassenger &pass = passengers.Get( i );
-        if ( (j==0 && pass.isRemark( "INFT" )) ||
-             (j==1 && !pass.isRemark( "INFT" )) ) {
-          v.Add( pass, pass.index );
+        bool pr_pay = false;
+        if ( SALONS2::isUserProtectLayer( pass.preseat_layer ) ) {
+          if ( pass.preseat_layer == cltProtBeforePay ||
+               pass.preseat_layer == cltPNLBeforePay ||
+               pass.preseat_layer == cltProtAfterPay ||
+               pass.preseat_layer == cltPNLAfterPay )
+            pr_pay = true;
+        }
+        if (
+             (icond == 0 && pr_pay && pass.isRemark( "INFT" )) ||
+             (icond == 1 && pr_pay &&  !pass.isRemark( "INFT" )) ||
+             (icond == 2 && !pr_pay &&  pass.isRemark( "INFT" )) ||
+             (icond == 3 && !pr_pay &&  !pass.isRemark( "INFT" )) ) {
+            v.Add( pass, pass.index );
 //          ProgTrace( TRACE5, "dividePassengersToGrps: j=%d, i=%d, pass.idx=%d, pass.pax_id=%d, INFT=%d", j,i, pass.paxId, pass.index, pass.isRemark( "INFT") );
         }
-      }
-      if ( v.getCount() > 0 ) {
-  //      ProgTrace( TRACE5, "passGrps.push_back( %d )", v.getCount() );
-        passGrps.push_back( v );
-      }
-    }
+        if ( v.getCount() > 0 ) {
+    //      ProgTrace( TRACE5, "passGrps.push_back( %d )", v.getCount() );
+          passGrps.push_back( v );
+        }
+      } // INFT
+    } //ipay
   }
   if ( passengers.getCount() > 0 ) {
 //    ProgTrace( TRACE5, "add all grp: passGrps.push_back( %d )", passengers.getCount() );

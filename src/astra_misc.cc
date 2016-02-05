@@ -9,7 +9,7 @@
 #include "astra_locale.h"
 #include "seats_utils.h"
 #include "aodb.h"
-#include "web_main.h"
+#include "meridian.h"
 #include "basel_aero.h"
 #include "qrys.h"
 #include "emdoc.h"
@@ -1746,7 +1746,7 @@ bool is_sync_paxs( int point_id )
   if ( Qry.Eof )
     return false;
   TTripInfo tripInfo( Qry );
-  return AstraWeb::is_sync_meridian( tripInfo ) ||
+  return MERIDIAN::is_sync_meridian( tripInfo ) ||
          is_sync_basel_pax( tripInfo ) ||
          is_sync_aodb_pax( tripInfo );
 }

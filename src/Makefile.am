@@ -99,6 +99,7 @@ astra_SOURCES = \
   load_fr.cc \
   locale.cc \
   maindcs.cc \
+  meridian.cc \
   msg_handler.cc \
   msg_queue.cc \
   obrnosir.cc \
@@ -237,6 +238,7 @@ noinst_HEADERS = \
   images.h \
   load_fr.h \
   maindcs.h \
+  meridian.h \
   msg_queue.h \
   obrnosir.h \
   passenger.h \
