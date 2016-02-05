@@ -332,12 +332,12 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
     init_bp_tags();
 }
 
-static inline bool if_only_one_non_empty(const std::string& a, const std::string& b)
-{
-    if(a.empty() && !b.empty()) return true;
-    if(!b.empty() && a.empty()) return true;
-    return false;
-}
+//static inline bool if_only_one_non_empty(const std::string& a, const std::string& b)
+//{
+//    if(a.empty() && !b.empty()) return true;
+//    if(!b.empty() && a.empty()) return true;
+//    return false;
+//}
 
 static inline int check_date_for_reprint(int lower_shift, int upper_shift, BASIC::TDateTime  date_of_flight)
 {     BASIC::TDateTime ret = NowUTC();
@@ -359,6 +359,7 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
     if (fmt==efmtUnknown)
     airline_id = airline;
     if(airp_id.empty() || airline_id.empty()) return false;
+
     struct Reprint_options
     {   string desk, airline, airp;
         int lower_shift, upper_shift, desk_grp;
@@ -367,79 +368,107 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
     TReqInfo *reqInfo = TReqInfo::Instance();
     std::string desk = reqInfo->desk.code;
     int desk_grp = reqInfo->desk.grp_id;
+
     Qry.SQLText =
-        "select "
-        "   desk, desk_grp, airline, airp, lower_shift, upper_shift "
-        "from "
-        "   bcbp_reprint_options "
-        "where "
-        "   (desk = :desk and desk_grp = :desk_grp) or ( desk = :desk and desk_grp is null) or (desk_grp = :desk_grp and desk is null)";
-    Qry.CreateVariable("desk", otString, desk);
+      "SELECT lower_shift, upper_shift, "
+      "       DECODE(desk,NULL,0,4)+ "
+      "       DECODE(airline,NULL,0,2)+ "
+      "       DECODE(airp,NULL,0,1) AS priority "
+      "FROM bcbp_reprint_options "
+      "WHERE desk_grp=:desk_grp AND "
+      "      (desk IS NULL OR desk=:desk) AND "
+      "      (airline IS NULL OR airline=:airline) AND "
+      "      (airp IS NULL OR airp=:airp) "
+      "ORDER BY priority DESC ";
     Qry.CreateVariable("desk_grp", otInteger, desk_grp);
+    Qry.CreateVariable("desk", otString, desk);
+    Qry.CreateVariable("airline", otString, airline_id);
+    Qry.CreateVariable("airp", otString, airp_id);
     Qry.Execute();
-    Reprint_options rep_opts, temp;
-    Reprint_options* found_opt = 0;
-    int count_wrong_airp = 0, count_wrong_airline = 0,count_wrong_airp_in_grp_field = 0, count_wrong_airline_in_grp_field = 0;
-    int counter = 0;
-    bool airport_err_in_priority = false;
-    for(; not Qry.Eof; Qry.Next(), counter++)
-    {    temp.desk = Qry.FieldAsString("desk");
-         temp.airline =  Qry.FieldAsString("airline");
-         temp.airp = Qry.FieldAsString("airp");
-         temp.lower_shift = Qry.FieldAsInteger("lower_shift");
-         temp.upper_shift = Qry.FieldAsInteger("upper_shift");
-         temp.desk_grp = Qry.FieldAsInteger("desk_grp");
-         if(temp.airline != airline_id && !temp.airline.empty())
-         {   if(temp.desk_grp == desk_grp)
-              count_wrong_airline_in_grp_field++;
-             else count_wrong_airline++; 
-             continue;
-         } 
-         if(temp.airp != airp_id && !temp.airp.empty())
-         {    if(temp.desk_grp == desk_grp)
-                 count_wrong_airp_in_grp_field++;
-              else  count_wrong_airp++;
-              if(temp.airline == airline_id || temp.airline.empty())
-                  airport_err_in_priority = true;
-              continue;
-         }
 
-         if(found_opt)
-         { if(temp.desk.empty() && !found_opt->desk.empty()) continue;
-           if(!if_only_one_non_empty(temp.desk, found_opt->desk) && temp.desk_grp != found_opt->desk_grp)
-           { if(if_only_one_non_empty(found_opt->airp, found_opt->airline) &&
-                   if_only_one_non_empty(temp.airp, temp.airline) &&
-                        if_only_one_non_empty(found_opt->airp, temp.airp))
-             {
-                if(!check_date_for_reprint(found_opt->lower_shift, found_opt->upper_shift, date_of_flight)) //0 -- репринт можно печатать
-                   continue;
-             }
-             else
-             {  if(!found_opt->airp.empty() && temp.airp.empty()) continue;
-                if(!found_opt->airline.empty() && temp.airline.empty()) continue;
-             }
-           }
-           else
-           {    if(!found_opt->desk.empty() && !found_opt->desk_grp)
-                  continue;
-           }
-         }
-         rep_opts = temp;
-         found_opt = &rep_opts;
+    if (!Qry.Eof)
+    {
+      switch(check_date_for_reprint(Qry.FieldAsInteger("lower_shift"),
+                                    Qry.FieldAsInteger("upper_shift"),
+                                    date_of_flight))
+      { case -1:throw UserException("MSG.REPRINT_WRONG_DATE_BEFORE");
+        case 1: throw UserException("MSG.REPRINT_WRONG_DATE_AFTER");
+      }
     }
-    if(counter == 0) return true;
-    if(!found_opt)
-    {    if(!airport_err_in_priority && count_wrong_airline) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
-         if(count_wrong_airp) throw UserException("MSG.REPRINT_WRONG_AIRP");
-         if(count_wrong_airline_in_grp_field) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
-         if(count_wrong_airp_in_grp_field) throw UserException("MSG.REPRINT_WRONG_AIRP");
-         return true; 
-    }    
 
-    switch(check_date_for_reprint(found_opt->lower_shift , found_opt->upper_shift, date_of_flight))
-    { case -1:throw UserException("MSG.REPRINT_WRONG_DATE_BEFORE");
-      case 1: throw UserException("MSG.REPRINT_WRONG_DATE_AFTER");
-    }
+//    Qry.SQLText =
+//        "select "
+//        "   desk, desk_grp, airline, airp, lower_shift, upper_shift "
+//        "from "
+//        "   bcbp_reprint_options "
+//        "where "
+//        "   (desk = :desk and desk_grp = :desk_grp) or ( desk = :desk and desk_grp is null) or (desk_grp = :desk_grp and desk is null)";
+//    Qry.CreateVariable("desk", otString, desk);
+//    Qry.CreateVariable("desk_grp", otInteger, desk_grp);
+//    Qry.Execute();
+//    Reprint_options rep_opts, temp;
+//    Reprint_options* found_opt = 0;
+//    int count_wrong_airp = 0, count_wrong_airline = 0,count_wrong_airp_in_grp_field = 0, count_wrong_airline_in_grp_field = 0;
+//    int counter = 0;
+//    bool airport_err_in_priority = false;
+//    for(; not Qry.Eof; Qry.Next(), counter++)
+//    {    temp.desk = Qry.FieldAsString("desk");
+//         temp.airline =  Qry.FieldAsString("airline");
+//         temp.airp = Qry.FieldAsString("airp");
+//         temp.lower_shift = Qry.FieldAsInteger("lower_shift");
+//         temp.upper_shift = Qry.FieldAsInteger("upper_shift");
+//         temp.desk_grp = Qry.FieldAsInteger("desk_grp");
+//         if(temp.airline != airline_id && !temp.airline.empty())
+//         {   if(temp.desk_grp == desk_grp)
+//              count_wrong_airline_in_grp_field++;
+//             else count_wrong_airline++;
+//             continue;
+//         }
+//         if(temp.airp != airp_id && !temp.airp.empty())
+//         {    if(temp.desk_grp == desk_grp)
+//                 count_wrong_airp_in_grp_field++;
+//              else  count_wrong_airp++;
+//              if(temp.airline == airline_id || temp.airline.empty())
+//                  airport_err_in_priority = true;
+//              continue;
+//         }
+
+//         if(found_opt)
+//         { if(temp.desk.empty() && !found_opt->desk.empty()) continue;
+//           if(!if_only_one_non_empty(temp.desk, found_opt->desk) && temp.desk_grp != found_opt->desk_grp)
+//           { if(if_only_one_non_empty(found_opt->airp, found_opt->airline) &&
+//                   if_only_one_non_empty(temp.airp, temp.airline) &&
+//                        if_only_one_non_empty(found_opt->airp, temp.airp))
+//             {
+//                if(!check_date_for_reprint(found_opt->lower_shift, found_opt->upper_shift, date_of_flight)) //0 -- репринт можно печатать
+//                   continue;
+//             }
+//             else
+//             {  if(!found_opt->airp.empty() && temp.airp.empty()) continue;
+//                if(!found_opt->airline.empty() && temp.airline.empty()) continue;
+//             }
+//           }
+//           else
+//           {    if(!found_opt->desk.empty() && !found_opt->desk_grp)
+//                  continue;
+//           }
+//         }
+//         rep_opts = temp;
+//         found_opt = &rep_opts;
+//    }
+//    if(counter == 0) return true;
+//    if(!found_opt)
+//    {    if(!airport_err_in_priority && count_wrong_airline) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
+//         if(count_wrong_airp) throw UserException("MSG.REPRINT_WRONG_AIRP");
+//         if(count_wrong_airline_in_grp_field) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
+//         if(count_wrong_airp_in_grp_field) throw UserException("MSG.REPRINT_WRONG_AIRP");
+//         return true;
+//    }
+
+//    switch(check_date_for_reprint(found_opt->lower_shift , found_opt->upper_shift, date_of_flight))
+//    { case -1:throw UserException("MSG.REPRINT_WRONG_DATE_BEFORE");
+//      case 1: throw UserException("MSG.REPRINT_WRONG_DATE_AFTER");
+//    }
     ProgTrace(TRACE5, __FUNCTION__);
     return true;
 }
@@ -1156,20 +1185,20 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
           if(Qry.Eof)
               throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
           airp_dep = Qry.FieldAsString("airp_dep");
-          
+
           TTripRouteItem next;
           TTripRoute().GetNextAirp(NoExists,point_dep,trtNotCancelled,next);
           if (next.point_id==NoExists || next.airp.empty())
             throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
           point_arv = next.point_id;
           airp_arv = next.airp;
-        
+
           Qry.Clear();
           Qry.SQLText =
             "SELECT cls_grp.id AS class_grp "
             "FROM test_pax, subcls, cls_grp "
-	          "WHERE test_pax.subclass=subcls.code AND "
-	          "      subcls.class=cls_grp.class AND "
+              "WHERE test_pax.subclass=subcls.code AND "
+              "      subcls.class=cls_grp.class AND "
             "      cls_grp.airline IS NULL AND cls_grp.airp IS NULL AND "
             "      test_pax.id=:pax_id";
           Qry.CreateVariable("pax_id", otInteger, apax_id);
