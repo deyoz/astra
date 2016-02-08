@@ -5925,23 +5925,16 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
   NewTextChild( dataNode, "craft", ElemIdToElemCtxt( ecDisp, etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" ) ) );
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
   
-  string craft = Qry.FieldAsString( "craft" ), airp = Qry.FieldAsString("airp"), airp_last;
+  string craft = Qry.FieldAsString( "craft" ), airp = Qry.FieldAsString("airp");
   TTripRoute route;
-  route.GetRouteAfter(NoExists, trip_id, trtNotCurrent, trtNotCancelled);
-  airp_last = route.back().airp;
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT time_out_in "
-    "FROM place_calc "
-    "WHERE bc=:bc and cod_out=:airp and cod_in=:airp_last ";
-  Qry.CreateVariable( "bc", otString, craft );
-  Qry.CreateVariable( "airp", otString, airp );
-  Qry.CreateVariable( "airp_last", otString, airp_last );
-  Qry.Execute();
-  string travel_time = "00-00";
-  if(!Qry.Eof && !Qry.FieldIsNULL("time_out_in"))
-  	travel_time = DateTimeToStr(Qry.FieldAsDateTime("time_out_in"), "hh:nn", true);
-  NewTextChild( dataNode, "travel_time", travel_time);
+  route.GetRouteAfter(NoExists, trip_id, trtWithCurrent, trtNotCancelled);
+  string airp_last = route.back().airp;
+
+  TDateTime travel_time = getTimeTravel(craft, airp, airp_last);
+  string travel_time_str = "00-00";
+  if(travel_time != NoExists)
+  	travel_time_str = DateTimeToStr(travel_time, "hh:nn", true);
+  NewTextChild( dataNode, "travel_time", travel_time_str);
 
   Qry.Clear();
   Qry.SQLText = "SELECT "\
