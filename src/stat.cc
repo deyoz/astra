@@ -17,9 +17,11 @@
 #include "tlg/tlg.h"
 #include "astra_elem_utils.h"
 #include "baggage_pc.h"
+#include "astra_elems.h"
+#include "serverlib/xml_stuff.h"
 
 #define NICKNAME "DENIS"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 #define MAX_STAT_ROWS 2000
 #define WITHOUT_TOTAL_WHEN_PROBLEM false
@@ -1851,7 +1853,8 @@ enum TStatType {
     statTlgOutFull,
     statTlgOutShort,
     statTlgOutDetail,
-    statPactShort
+    statPactShort,
+    statRFISC
 };
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
@@ -2192,6 +2195,11 @@ void TStatParams::get(xmlNodePtr reqNode)
             statType=statPactShort;
         else
             throw Exception("Unknown stat mode " + name);
+    } else if(type == "Багажные RFISC") {
+        if(name == "Подробная")
+            statType=statRFISC;
+        else
+            throw Exception("Unknown stat mode " + name);
     } else
         throw Exception("Unknown stat type " + type);
 
@@ -2436,6 +2444,60 @@ struct TDetailCmp {
     };
 };
 typedef map<TDetailStatKey, TDetailStatRow, TDetailCmp> TDetailStat;
+
+struct TRFISCStatRow {
+    string rfisc;
+    int point_id;
+    int point_num;
+    int pr_trfer;
+    TDateTime scd_out;
+    int flt_no;
+    string suffix;
+    string airp;
+    string airp_arv;
+    string craft;
+    TDateTime travel_time;
+    int trfer_flt_no;
+    string trfer_suffix;
+    string trfer_airp_arv;
+    string desk;
+    string user_login;
+    string user_descr;
+    TDateTime time_create;
+    double tag_no;
+    string fqt_no;
+    int excess;
+    int paid;
+
+    TRFISCStatRow():
+        point_id(NoExists),
+        point_num(NoExists),
+        pr_trfer(NoExists),
+        scd_out(NoExists),
+        flt_no(NoExists),
+        travel_time(NoExists),
+        trfer_flt_no(NoExists),
+        time_create(NoExists),
+        tag_no(NoExists),
+        excess(NoExists),
+        paid(NoExists)
+    {}
+
+    bool operator < (const TRFISCStatRow &val) const
+    {
+        if(point_id != val.point_id)
+            return point_id < val.point_id;
+        if(point_num != val.point_num)
+            return point_num < val.point_num;
+        if(pr_trfer != val.pr_trfer)
+            return pr_trfer > val.pr_trfer;
+        if(trfer_airp_arv != val.trfer_airp_arv)
+            return trfer_airp_arv < val.trfer_airp_arv;
+        return tag_no < val.tag_no;
+    }
+};
+
+typedef set<TRFISCStatRow> TRFISCStat;
 
 struct TPaid {
     int excess;
@@ -5167,6 +5229,319 @@ void StatInterface::stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
+void RunRFISCStat(
+        const TStatParams &params,
+        TRFISCStat &RFISCStat,
+        TPrintAirline &prn_airline
+        )
+{
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+    for(int pass = 0; pass <= 1; pass++) {
+        string SQLText =
+            "select "
+            "   rfisc_stat.rfisc, "
+            "   rfisc_stat.point_id, "
+            "   rfisc_stat.point_num, "
+            "   rfisc_stat.pr_trfer, "
+            "   points.scd_out, "
+            "   points.airline, "
+            "   points.flt_no, "
+            "   points.suffix, "
+            "   points.airp, "
+            "   rfisc_stat.airp_arv, "
+            "   points.craft, "
+            "   rfisc_stat.travel_time, "
+            "   rfisc_stat.trfer_flt_no, "
+            "   rfisc_stat.trfer_suffix, "
+            "   rfisc_stat.trfer_airp_arv, "
+            "   rfisc_stat.desk, "
+            "   rfisc_stat.user_login, "
+            "   rfisc_stat.user_descr, "
+            "   rfisc_stat.time_create, "
+            "   rfisc_stat.tag_no, "
+            "   rfisc_stat.fqt_no, "
+            "   rfisc_stat.excess, "
+            "   rfisc_stat.paid "
+            "from ";
+        if(pass != 0) {
+            SQLText +=
+                "   arx_points points, \n"
+                "   arx_rfisc_stat rfisc_stat \n";
+        } else {
+            SQLText +=
+                "   points, \n"
+                "   rfisc_stat \n";
+        }
+        SQLText +=
+            "where ";
+        SQLText +=
+            "   rfisc_stat.point_id = points.point_id and "
+            "   points.pr_del >= 0 and ";
+        if (!params.airps.elems().empty()) {
+            if (params.airps.elems_permit())
+                SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and \n";
+            else
+                SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and \n";
+        };
+        if (!params.airlines.elems().empty()) {
+            if (params.airlines.elems_permit())
+                SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and \n";
+            else
+                SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and \n";
+        };
+        if (pass!=0)
+          SQLText +=
+            "    points.part_key >= :FirstDate AND points.part_key < :LastDate and \n"
+            "    rfisc_stat.part_key >= :FirstDate AND rfisc_stat.part_key < :LastDate \n";
+        else
+          SQLText +=
+            "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
+        TCachedQuery Qry(SQLText, QryParams);
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            int col_rfisc = Qry.get().GetFieldIndex("rfisc");
+            int col_point_id = Qry.get().GetFieldIndex("point_id");
+            int col_point_num = Qry.get().GetFieldIndex("point_num");
+            int col_pr_trfer = Qry.get().GetFieldIndex("pr_trfer");
+            int col_scd_out = Qry.get().GetFieldIndex("scd_out");
+            int col_airline = Qry.get().GetFieldIndex("airline");
+            int col_flt_no = Qry.get().GetFieldIndex("flt_no");
+            int col_suffix = Qry.get().GetFieldIndex("suffix");
+            int col_airp = Qry.get().GetFieldIndex("airp");
+            int col_airp_arv = Qry.get().GetFieldIndex("airp_arv");
+            int col_craft = Qry.get().GetFieldIndex("craft");
+            int col_travel_time = Qry.get().GetFieldIndex("travel_time");
+            int col_trfer_flt_no = Qry.get().GetFieldIndex("trfer_flt_no");
+            int col_trfer_suffix = Qry.get().GetFieldIndex("trfer_suffix");
+            int col_trfer_airp_arv = Qry.get().GetFieldIndex("trfer_airp_arv");
+            int col_desk = Qry.get().GetFieldIndex("desk");
+            int col_user_login = Qry.get().GetFieldIndex("user_login");
+            int col_user_descr = Qry.get().GetFieldIndex("user_descr");
+            int col_time_create = Qry.get().GetFieldIndex("time_create");
+            int col_tag_no = Qry.get().GetFieldIndex("tag_no");
+            int col_fqt_no = Qry.get().GetFieldIndex("fqt_no");
+            int col_excess = Qry.get().GetFieldIndex("excess");
+            int col_paid = Qry.get().GetFieldIndex("paid");
+            for(; not Qry.get().Eof; Qry.get().Next()) {
+                prn_airline.check(Qry.get().FieldAsString(col_airline));
+                TRFISCStatRow row;
+                row.rfisc = Qry.get().FieldAsString(col_rfisc);
+                row.point_id = Qry.get().FieldAsInteger(col_point_id);
+                row.point_num = Qry.get().FieldAsInteger(col_point_num);
+                row.pr_trfer = Qry.get().FieldAsInteger(col_pr_trfer);
+                row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+                row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+                row.suffix = Qry.get().FieldAsString(col_suffix);
+                row.airp = Qry.get().FieldAsString(col_airp);
+                row.airp_arv = Qry.get().FieldAsString(col_airp_arv);
+                row.craft = Qry.get().FieldAsString(col_craft);
+                if(not Qry.get().FieldIsNULL(col_travel_time))
+                    row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
+                row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
+                row.trfer_suffix = Qry.get().FieldAsString(col_trfer_suffix);
+                row.trfer_airp_arv = Qry.get().FieldAsString(col_trfer_airp_arv);
+                row.desk = Qry.get().FieldAsString(col_desk);
+                row.user_login = Qry.get().FieldAsString(col_user_login);
+                row.user_descr = Qry.get().FieldAsString(col_user_descr);
+                if(not Qry.get().FieldIsNULL(col_time_create))
+                    row.time_create = Qry.get().FieldAsDateTime(col_time_create);
+                row.tag_no = Qry.get().FieldAsFloat(col_tag_no);
+                row.fqt_no = Qry.get().FieldAsString(col_fqt_no);
+                if(not Qry.get().FieldIsNULL(col_excess))
+                    row.excess = Qry.get().FieldAsInteger(col_excess);
+                if(not Qry.get().FieldIsNULL(col_paid))
+                    row.paid = Qry.get().FieldAsInteger(col_paid);
+                RFISCStat.insert(row);
+            }
+        }
+    }
+}
+
+void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
+{
+    if(RFISCStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    NewTextChild(resNode, "airline", prn_airline.get(), "");
+    xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+
+    xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+    xmlNodePtr colNode;
+    colNode = NewTextChild(headerNode, "col", "RFISC");
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Платн."));
+    SetProp(colNode, "width", 100);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Опл."));
+    SetProp(colNode, "width", 80);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Бирка"));
+    SetProp(colNode, "width", 80);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("SPEQ"));
+    SetProp(colNode, "width", 100);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("FQTV"));
+    SetProp(colNode, "width", 150);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата вылета"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("От"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип ВС"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Время в пути"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Трфр.рейс"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("От"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АП рег."));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Стойка"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", "LOGIN");
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
+    SetProp(colNode, "width", 100);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата оформ."));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+
+    xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+    xmlNodePtr rowNode;
+    ostringstream buf;
+    for(TRFISCStat::iterator i = RFISCStat.begin(); i != RFISCStat.end(); i++) {
+        rowNode = NewTextChild(rowsNode, "row");
+        // RFISC
+        NewTextChild(rowNode, "col", i->rfisc);
+        // Признак платности багажа
+        if(i->excess == NoExists)
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col", i->excess);
+        // Признак оплаты
+        if(i->paid == NoExists)
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col", i->paid);
+        // Бирка
+        buf.str("");
+        buf
+            << fixed
+            << setprecision(0)
+            << setw(10)
+            << setfill('0')
+            << i->tag_no;
+        NewTextChild(rowNode, "col", buf.str());
+        // SPEQ - признак спец. багажа
+        NewTextChild(rowNode, "col");
+        // Статус или признак FQTV
+        NewTextChild(rowNode, "col", i->fqt_no);
+
+        // Информация о рейсе
+        // Дата вылета
+        NewTextChild(rowNode, "col", DateTimeToStr(i->scd_out, "dd.mm.yyyy"));
+        // Рейс
+        buf.str("");
+        buf << setw(3) << setfill('0') << i->flt_no << ElemIdToCodeNative(etSuffix, i->suffix);
+        NewTextChild(rowNode, "col", buf.str());
+        // От
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
+        // До
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp_arv));
+        // Тип ВС
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etCraft, i->craft));
+        // Время в пути
+        if(i->travel_time == NoExists)
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col", DateTimeToStr(i->travel_time, "hh:nn"));
+
+        // Трансфер на
+        ostringstream trfer_flt_no;
+        string trfer_airp_dep;
+        string trfer_airp_arv;
+        if(i->trfer_flt_no) {
+            trfer_flt_no << setw(3) << setfill('0') << i->trfer_flt_no << ElemIdToCodeNative(etSuffix, i->trfer_suffix);
+            trfer_airp_dep = i->airp;
+            trfer_airp_arv = i->trfer_airp_arv;
+        }
+        // Рейс
+        NewTextChild(rowNode, "col", trfer_flt_no.str());
+        // От (совпадает с От рейса)
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, trfer_airp_dep));
+        // До
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, trfer_airp_arv));
+
+        // Информация об агенте
+        // АП рег. (совпадает с От рейса)
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
+        // Стойка
+        NewTextChild(rowNode, "col", i->desk);
+        // LOGIN
+        NewTextChild(rowNode, "col", i->user_login);
+        // Агент
+        NewTextChild(rowNode, "col", i->user_descr);
+        // Дата оформления
+        if(i->time_create == NoExists)
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col", DateTimeToStr(i->time_create, "dd.mm.yyyy"));
+    }
+
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "stat_type", params.statType);
+    NewTextChild(variablesNode, "stat_mode", getLocaleText("Багажные RFISC"));
+    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
+
+    NewTextChild(variablesNode, "CAP.STAT.AGENT_INFO", getLocaleText("CAP.STAT.AGENT_INFO"));
+    NewTextChild(variablesNode, "CAP.STAT.BAG_INFO", getLocaleText("CAP.STAT.BAG_INFO"));
+    NewTextChild(variablesNode, "CAP.STAT.PAX_INFO", getLocaleText("CAP.STAT.PAX_INFO"));
+    NewTextChild(variablesNode, "CAP.STAT.FLT_INFO", getLocaleText("CAP.STAT.FLT_INFO"));
+}
+
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -5188,7 +5563,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             params.statType==statAgentTotal ||
             params.statType==statTlgOutShort ||
             params.statType==statTlgOutDetail ||
-            params.statType==statTlgOutFull
+            params.statType==statTlgOutFull ||
+            params.statType==statRFISC
             )
     {
       if(IncMonth(params.FirstDate, 1) < params.LastDate)
@@ -5211,6 +5587,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         break;
       case statDetail:
         get_compatible_report_form("DetailStat", reqNode, resNode);
+        break;
+      case statRFISC:
+        get_compatible_report_form("RFISCStat", reqNode, resNode);
         break;
       case statSelfCkinFull:
       case statSelfCkinShort:
@@ -5293,6 +5672,13 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             RunTlgOutStat(params, TlgOutStat, TlgOutStatTotal, airline);
             createXMLTlgOutStat(params, TlgOutStat, TlgOutStatTotal, airline, resNode);
         }
+        if(params.statType == statRFISC)
+        {
+            TPrintAirline airline;
+            TRFISCStat RFISCStat;
+            RunRFISCStat(params, RFISCStat, airline);
+            createXMLRFISCStat(params,RFISCStat, airline, resNode);
+        }
     }
     catch (EOracleError &E)
     {
@@ -5301,6 +5687,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         else
             throw;
     }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
 void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -5647,6 +6034,331 @@ void STAT::agent_stat_delta(
     Qry.Execute();
 }
 
+struct TRFISCBag {
+
+    struct TBagInfo {
+        int excess, paid;
+        TBagInfo():
+            excess(NoExists),
+            paid(NoExists)
+        {}
+    };
+
+    typedef list<TBagInfo> TBagInfoList;
+    typedef map<string, TBagInfoList> TRFISCGroup; // Группировка по кодам RFISC
+    typedef map<int, TRFISCGroup> TGrpIdGroup; // Группировка по grp_id
+    TGrpIdGroup items;
+
+    TRFISCGroup &get(int grp_id)
+    {
+        TGrpIdGroup::iterator result = items.find(grp_id);
+        if(result == items.end()) {
+            list<PieceConcept::TPaidBagItem> paid;
+            PaidBagFromDB(grp_id, true, paid);
+            for(list<PieceConcept::TPaidBagItem>::iterator i = paid.begin(); i != paid.end(); i++) {
+                if(i->trfer_num == 0 and not i->pr_cabin) {
+                    TBagInfo val;
+
+                    switch(i->status) {
+                        case PieceConcept::bsFree:
+                            val.excess = 0;
+                            break;
+                        case PieceConcept::bsPaid:
+                        case PieceConcept::bsNeed:
+                            val.excess = 1;
+                            break;
+                        default:
+                            val.excess = NoExists;
+                            break;
+                    }
+
+                    val.paid = (i->status == PieceConcept::bsPaid ? 1 : NoExists);
+
+                    items[grp_id][i->RFISC].push_back(val);
+                }
+            }
+            result = items.find(grp_id);
+        }
+        return result->second;
+    }
+};
+
+void get_rfisc_stat(int point_id)
+{
+    QParams QryParams;
+    QryParams << QParam("point_id", otInteger, point_id);
+
+    TCachedQuery delQry("delete from rfisc_stat where point_id = :point_id", QryParams);
+    delQry.get().Execute();
+
+    TCachedQuery bagQry(
+            "select "
+            "    points.point_id, "
+            "    nvl2(transfer.grp_id, 1, 0) pr_trfer, "
+            "    trfer_trips.airline trfer_airline, "
+            "    trfer_trips.flt_no trfer_flt_no, "
+            "    trfer_trips.suffix trfer_suffix, "
+            "    transfer.airp_arv trfer_airp_arv, "
+            "    trfer_trips.scd trfer_scd, "
+            "    arv_point.point_num, "
+            "    pax_grp.grp_id, "
+            "    pax_grp.airp_arv, "
+            "    pax.pax_id, "
+            "    pax.subclass, "
+            "    bag2.rfisc, "
+            "    bag2.num bag_num, "
+            "    place_calc.time_out_in travel_time, "
+            "    bag2.desk, "
+            "    bag2.time_create, "
+            "    users2.login, "
+            "    users2.descr "
+            "from "
+            "    pax_grp, "
+            "    points arv_point, "
+            "    points, "
+            "    bag2, "
+            "    pax, "
+            "    transfer, "
+            "    trfer_trips, "
+            "    place_calc, "
+            "    users2 "
+            "where "
+            "    points.point_id = :point_id and "
+            "    arv_point.pr_del>=0 AND "
+            "    pax_grp.point_dep = points.point_id and "
+            "    pax_grp.point_arv = arv_point.point_id and "
+            "    pax_grp.grp_id = bag2.grp_id and "
+            "    pax_grp.status NOT IN ('E') and "
+            "    ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and "
+            "    bag2.pr_cabin = 0 and "
+            "    bag2.rfisc is not null and "
+            "    ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) = pax.pax_id(+)  and "
+            "    pax_grp.grp_id=transfer.grp_id(+) and "
+            "    transfer.pr_final(+) <> 0 and "
+            "    transfer.point_id_trfer = trfer_trips.point_id(+) and "
+            "    place_calc.bc = points.craft(+) and "
+            "    place_calc.cod_out = points.airp(+) and "
+            "    place_calc.cod_in = arv_point.airp(+) and "
+            "    bag2.user_id = users2.user_id(+) ",
+        QryParams
+            );
+
+    TCachedQuery insQry(
+            "insert into rfisc_stat( "
+            "  point_id, "
+            "  pr_trfer, "
+            "  trfer_airline, "
+            "  trfer_flt_no, "
+            "  trfer_suffix, "
+            "  trfer_airp_arv, "
+            "  trfer_scd, "
+            "  point_num, "
+            "  airp_arv, "
+            "  rfisc, "
+            "  travel_time, "
+            "  desk, "
+            "  time_create, "
+            "  user_login, "
+            "  user_descr, "
+            "  tag_no, "
+            "  fqt_no, "
+            "  excess, "
+            "  paid "
+            ") values ( "
+            "  :point_id, "
+            "  :pr_trfer, "
+            "  :trfer_airline, "
+            "  :trfer_flt_no, "
+            "  :trfer_suffix, "
+            "  :trfer_airp_arv, "
+            "  :trfer_scd, "
+            "  :point_num, "
+            "  :airp_arv, "
+            "  :rfisc, "
+            "  :travel_time, "
+            "  :desk, "
+            "  :time_create, "
+            "  :login, "
+            "  :descr, "
+            "  :bag_tag, "
+            "  :fqt_no, "
+            "  :excess, "
+            "  :paid "
+            ") ",
+        QParams()
+            << QParam("point_id", otInteger)
+            << QParam("pr_trfer", otInteger)
+            << QParam("trfer_airline", otString)
+            << QParam("trfer_flt_no", otInteger)
+            << QParam("trfer_suffix", otString)
+            << QParam("trfer_airp_arv", otString)
+            << QParam("trfer_scd", otDate)
+            << QParam("point_num", otInteger)
+            << QParam("airp_arv", otString)
+            << QParam("rfisc", otString)
+            << QParam("travel_time", otDate)
+            << QParam("login", otString)
+            << QParam("descr", otString)
+            << QParam("desk", otString)
+            << QParam("time_create", otDate)
+            << QParam("bag_tag", otFloat)
+            << QParam("fqt_no", otString)
+            << QParam("excess", otInteger)
+            << QParam("paid", otInteger)
+            );
+
+    TCachedQuery tagsQry("select no from bag_tags where grp_id = :grp_id and bag_num = :bag_num",
+            QParams()
+            << QParam("grp_id", otInteger)
+            << QParam("bag_num", otInteger)
+            );
+
+    TCachedQuery fqtQry(
+        "select "
+        "   pax_fqt.rem_code, "
+        "   pax_fqt.airline, "
+        "   pax_fqt.no, "
+        "   pax_fqt.extra, "
+        "   crs_pnr.subclass "
+        "from "
+        "   pax_fqt, "
+        "   crs_pax, "
+        "   crs_pnr "
+        "where "
+        "   pax_fqt.pax_id = :pax_id and "
+        "   pax_fqt.pax_id = crs_pax.pax_id(+) and "
+        "   crs_pax.pr_del(+)=0 and "
+        "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+        "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ",
+            QParams() << QParam("pax_id", otInteger));
+
+    bagQry.get().Execute();
+    TRFISCBag rfisc_bag;
+    if(not bagQry.get().Eof) {
+        int col_point_id = bagQry.get().FieldIndex("point_id");
+        int col_pr_trfer = bagQry.get().FieldIndex("pr_trfer");
+        int col_trfer_airline = bagQry.get().FieldIndex("trfer_airline");
+        int col_trfer_flt_no = bagQry.get().FieldIndex("trfer_flt_no");
+        int col_trfer_suffix = bagQry.get().FieldIndex("trfer_suffix");
+        int col_trfer_airp_arv = bagQry.get().FieldIndex("trfer_airp_arv");
+        int col_trfer_scd = bagQry.get().FieldIndex("trfer_scd");
+        int col_point_num = bagQry.get().FieldIndex("point_num");
+        int col_grp_id = bagQry.get().FieldIndex("grp_id");
+        int col_airp_arv = bagQry.get().FieldIndex("airp_arv");
+        int col_pax_id = bagQry.get().FieldIndex("pax_id");
+        int col_subclass = bagQry.get().FieldIndex("subclass");
+        int col_rfisc = bagQry.get().FieldIndex("rfisc");
+        int col_bag_num = bagQry.get().FieldIndex("bag_num");
+        int col_travel_time = bagQry.get().FieldIndex("travel_time");
+        int col_desk = bagQry.get().FieldIndex("desk");
+        int col_time_create = bagQry.get().FieldIndex("time_create");
+        int col_login = bagQry.get().FieldIndex("login");
+        int col_descr = bagQry.get().FieldIndex("descr");
+        for(; not bagQry.get().Eof; bagQry.get().Next()) {
+            insQry.get().SetVariable("point_id", bagQry.get().FieldAsInteger(col_point_id));
+            insQry.get().SetVariable("pr_trfer", bagQry.get().FieldAsInteger(col_pr_trfer));
+            insQry.get().SetVariable("trfer_airline", bagQry.get().FieldAsString(col_trfer_airline));
+            insQry.get().SetVariable("trfer_suffix", bagQry.get().FieldAsString(col_trfer_suffix));
+            insQry.get().SetVariable("trfer_airp_arv", bagQry.get().FieldAsString(col_trfer_airp_arv));
+            insQry.get().SetVariable("point_num", bagQry.get().FieldAsInteger(col_point_num));
+            insQry.get().SetVariable("airp_arv", bagQry.get().FieldAsString(col_airp_arv));
+            insQry.get().SetVariable("rfisc", bagQry.get().FieldAsString(col_rfisc));
+            insQry.get().SetVariable("desk", bagQry.get().FieldAsString(col_desk));
+
+            if(bagQry.get().FieldIsNULL(col_trfer_flt_no))
+                insQry.get().SetVariable("trfer_flt_no", FNull);
+            else
+                insQry.get().SetVariable("trfer_flt_no", bagQry.get().FieldAsInteger(col_trfer_flt_no));
+
+            if(bagQry.get().FieldIsNULL(col_trfer_scd))
+                insQry.get().SetVariable("trfer_scd", FNull);
+            else
+                insQry.get().SetVariable("trfer_scd", bagQry.get().FieldAsDateTime(col_trfer_scd));
+
+            if(bagQry.get().FieldIsNULL(col_travel_time))
+                insQry.get().SetVariable("travel_time", FNull);
+            else
+                insQry.get().SetVariable("travel_time", bagQry.get().FieldAsDateTime(col_travel_time));
+
+            if(bagQry.get().FieldIsNULL(col_time_create))
+                insQry.get().SetVariable("time_create", FNull);
+            else
+                insQry.get().SetVariable("time_create", bagQry.get().FieldAsDateTime(col_time_create));
+
+            insQry.get().SetVariable("login", bagQry.get().FieldAsString(col_login));
+            insQry.get().SetVariable("descr", bagQry.get().FieldAsString(col_descr));
+
+            string fqt_no;
+            if(not bagQry.get().FieldIsNULL(col_pax_id)) {
+                string subcls = bagQry.get().FieldAsString(col_subclass);
+                fqtQry.get().SetVariable("pax_id", bagQry.get().FieldAsInteger(col_pax_id));
+                fqtQry.get().Execute();
+
+
+                if(!fqtQry.get().Eof) {
+                    int col_rem_code = fqtQry.get().FieldIndex("rem_code");
+                    int col_airline = fqtQry.get().FieldIndex("airline");
+                    int col_no = fqtQry.get().FieldIndex("no");
+                    int col_extra = fqtQry.get().FieldIndex("extra");
+                    int col_subclass = fqtQry.get().FieldIndex("subclass");
+                    for(; !fqtQry.get().Eof; fqtQry.get().Next()) {
+                        string item;
+                        string rem_code = fqtQry.get().FieldAsString(col_rem_code);
+                        string airline = fqtQry.get().FieldAsString(col_airline);
+                        string no = fqtQry.get().FieldAsString(col_no);
+                        string extra = fqtQry.get().FieldAsString(col_extra);
+                        string subclass = fqtQry.get().FieldAsString(col_subclass);
+                        item +=
+                            rem_code + " " +
+                            ElemIdToElem(etAirline, airline, efmtCodeNative, LANG_EN) + " " +
+                            transliter(no, 1, true);
+                        if(rem_code == "FQTV") {
+                            if(not subclass.empty() and subclass != subcls)
+                                item += "-" + ElemIdToElem(etSubcls, subclass, efmtCodeNative, LANG_EN);
+                        } else {
+                            if(not extra.empty())
+                                item += "-" + transliter(extra, 1, true);
+                        }
+                        fqt_no = item;
+                        break;
+                    }
+                }
+            }
+
+            int grp_id = bagQry.get().FieldAsInteger(col_grp_id);
+
+            TRFISCBag::TRFISCGroup &rfisc_grp = rfisc_bag.get(grp_id);
+
+            tagsQry.get().SetVariable("grp_id", grp_id);
+            tagsQry.get().SetVariable("bag_num", bagQry.get().FieldAsInteger(col_bag_num));
+            tagsQry.get().Execute();
+            for(; not tagsQry.get().Eof; tagsQry.get().Next()) {
+                TRFISCBag::TBagInfoList &bag_info = rfisc_grp[bagQry.get().FieldAsString(col_rfisc)];
+                TRFISCBag::TBagInfo paid_bag_item;
+                if(not bag_info.empty()) {
+                    paid_bag_item = bag_info.back();
+                    bag_info.pop_back();
+                }
+
+                if(paid_bag_item.excess == NoExists)
+                    insQry.get().SetVariable("excess", FNull);
+                else
+                    insQry.get().SetVariable("excess", paid_bag_item.excess);
+                if(paid_bag_item.paid == NoExists)
+                    insQry.get().SetVariable("paid", FNull);
+                else
+                    insQry.get().SetVariable("paid", paid_bag_item.paid);
+
+                insQry.get().SetVariable("bag_tag", tagsQry.get().FieldAsFloat("no"));
+                insQry.get().SetVariable("fqt_no", fqt_no);
+                fqt_no.clear();
+
+                insQry.get().Execute();
+            }
+        }
+    }
+}
+
 void get_flight_stat(int point_id, bool final_collection)
 {
    TFlights flightsForLock;
@@ -5671,6 +6383,7 @@ void get_flight_stat(int point_id, bool final_collection)
                       "END;",
                       QryParams);
      Qry.get().Execute();
+     get_rfisc_stat(point_id);
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
