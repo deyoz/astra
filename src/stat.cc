@@ -6072,7 +6072,18 @@ struct TRFISCBag {
                             break;
                     }
 
-                    val.paid = (i->status == PieceConcept::bsPaid ? 1 : NoExists);
+                    switch(i->status) {
+                        case PieceConcept::bsPaid:
+                            val.paid = 1;
+                            break;
+                        case PieceConcept::bsUnknown:
+                        case PieceConcept::bsNeed:
+                            val.paid = 0;
+                            break;
+                        default:
+                            val.paid = NoExists;
+                            break;
+                    }
 
                     items[grp_id][i->RFISC].push_back(val);
                 }
@@ -6357,6 +6368,43 @@ void get_rfisc_stat(int point_id)
             }
         }
     }
+}
+
+void nosir_rfisc_stat_point(int point_id)
+{
+   TFlights flightsForLock;
+   flightsForLock.Get( point_id, ftTranzit );
+   flightsForLock.Lock();
+
+   /* ???
+   {
+     QParams QryParams;
+     QryParams << QParam("point_id", otInteger, point_id);
+     QryParams << QParam("final_collection", otInteger, (int)final_collection);
+     TCachedQuery Qry("UPDATE trip_sets SET pr_stat=:final_collection WHERE point_id=:point_id AND pr_stat=0", QryParams);
+     Qry.get().Execute();
+     if (Qry.get().RowsProcessed()<=0) return; //статистику не собираем
+   };
+   */
+
+   get_rfisc_stat(point_id);
+
+   TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
+}
+
+int nosir_rfisc_stat(int argc,char **argv)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select point_id from points where act_out is not null and pr_del <> 1";
+    Qry.Execute();
+    int count = 0;
+    for(; not Qry.Eof; Qry.Next(), count++) {
+        int point_id = Qry.FieldAsInteger(0);
+        nosir_rfisc_stat_point(point_id);
+        OraSession.Commit();
+        cout << count << endl;
+    }
+    return 0;
 }
 
 void get_flight_stat(int point_id, bool final_collection)
