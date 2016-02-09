@@ -24,7 +24,7 @@ enum TRemEventType {
     retCKIN_VIEW,
     retTYPEB_PSM,
     retTYPEB_PIL,
-    retCOMFORT_STAT
+    retSERVICE_STAT
 };
 
 struct TRemGrp:public std::vector<std::string> { // !!!

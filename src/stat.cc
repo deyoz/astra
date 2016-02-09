@@ -1856,7 +1856,7 @@ enum TStatType {
     statTlgOutDetail,
     statPactShort,
     statRFISC,
-    statComfort
+    statService
 };
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
@@ -2202,9 +2202,9 @@ void TStatParams::get(xmlNodePtr reqNode)
             statType=statRFISC;
         else
             throw Exception("Unknown stat mode " + name);
-    } else if(type == "Комфорт") {
+    } else if(type == "Услуги") {
         if(name == "Подробная")
-            statType=statComfort;
+            statType=statService;
         else
             throw Exception("Unknown stat mode " + name);
     } else
@@ -5549,13 +5549,13 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
     NewTextChild(variablesNode, "CAP.STAT.FLT_INFO", getLocaleText("CAP.STAT.FLT_INFO"));
 }
 
-/******************* Comfort Stat ****************************/
+/******************* Service Stat ****************************/
 
-void get_comfort_stat(int point_id)
+void get_service_stat(int point_id)
 {
-    TRemGrp comfort_rem_grp;
-    comfort_rem_grp.Load(retCOMFORT_STAT, point_id);
-    LogTrace(TRACE5) << "comfort_rem_grp.size(): " << comfort_rem_grp.size();
+    TRemGrp service_rem_grp;
+    service_rem_grp.Load(retSERVICE_STAT, point_id);
+    LogTrace(TRACE5) << "service_rem_grp.size(): " << service_rem_grp.size();
     TCachedQuery Qry(
             "select "
             "    pax.pax_id, "
@@ -5573,8 +5573,8 @@ void get_comfort_stat(int point_id)
             );
     TCachedQuery insQry(
             "begin "
-            "delete from comfort_stat where point_id = :point_id; "
-            "insert into comfort_stat( "
+            "delete from service_stat where point_id = :point_id; "
+            "insert into service_stat( "
             "   point_id, "
             "   travel_time, "
             "   rem_code, "
@@ -5610,7 +5610,7 @@ void get_comfort_stat(int point_id)
             for(vector<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++)
                 LogTrace(TRACE5) << "rems item: '" << i->code << "'";
             for(vector<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++)
-                if(comfort_rem_grp.exists(i->code)) found_rems.insert(*i);
+                if(service_rem_grp.exists(i->code)) found_rems.insert(*i);
             LogTrace(TRACE5) << "found_rems.size(): " << found_rems.size();
             if(not found_rems.empty()) {
                 // Ищем ремарку пассажира в ремарках из брони
@@ -5652,7 +5652,7 @@ void get_comfort_stat(int point_id)
     }
 }
 
-struct TComfortStatRow {
+struct TServiceStatRow {
     int point_id;
     string ticket_no;
     TDateTime scd_out;
@@ -5664,23 +5664,23 @@ struct TComfortStatRow {
     TDateTime travel_time;
     string rem_code;
     string airline;
-    TComfortStatRow():
+    TServiceStatRow():
         point_id(NoExists),
         scd_out(NoExists),
         flt_no(NoExists),
         travel_time(NoExists)
     {}
-    bool operator < (const TComfortStatRow &val) const
+    bool operator < (const TServiceStatRow &val) const
     {
         return point_id < val.point_id;
     }
 };
 
-typedef set<TComfortStatRow> TComfortStat;
+typedef set<TServiceStatRow> TServiceStat;
 
-void RunComfortStat(
+void RunServiceStat(
         const TStatParams &params,
-        TComfortStat &ComfortStat,
+        TServiceStat &ServiceStat,
         TPrintAirline &prn_airline
         )
 {
@@ -5702,7 +5702,7 @@ void RunComfortStat(
         "   cs.rem_code, "
         "   points.airline "
         "from "
-        "   comfort_stat cs, "
+        "   service_stat cs, "
         "   points "
         "where "
         "   cs.point_id = points.point_id and ";
@@ -5740,7 +5740,7 @@ void RunComfortStat(
         int col_airline = Qry.get().GetFieldIndex("airline");
         for(; not Qry.get().Eof; Qry.get().Next()) {
             prn_airline.check(Qry.get().FieldAsString(col_airline));
-            TComfortStatRow row;
+            TServiceStatRow row;
             row.point_id = Qry.get().FieldAsInteger(col_point_id);
             row.ticket_no = Qry.get().FieldAsString(col_ticket_no);
             row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
@@ -5751,14 +5751,14 @@ void RunComfortStat(
             row.craft = Qry.get().FieldAsString(col_craft);
             row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
             row.rem_code = Qry.get().FieldAsString(col_rem_code);
-            ComfortStat.insert(row);
+            ServiceStat.insert(row);
         }
     }
 }
 
-void createXMLComfortStat(const TStatParams &params, const TComfortStat &ComfortStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
+void createXMLServiceStat(const TStatParams &params, const TServiceStat &ServiceStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
 {
-    if(ComfortStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    if(ServiceStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -5812,7 +5812,7 @@ void createXMLComfortStat(const TStatParams &params, const TComfortStat &Comfort
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
     ostringstream buf;
-    for(TComfortStat::iterator i = ComfortStat.begin(); i != ComfortStat.end(); i++) {
+    for(TServiceStat::iterator i = ServiceStat.begin(); i != ServiceStat.end(); i++) {
         rowNode = NewTextChild(rowsNode, "row");
         // АП рег
         NewTextChild(rowNode, "col");
@@ -5849,7 +5849,7 @@ void createXMLComfortStat(const TStatParams &params, const TComfortStat &Comfort
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
 }
 
-/******************* End of Comfort Stat ****************************/
+/******************* End of Service Stat ****************************/
 
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -5900,8 +5900,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
       case statRFISC:
         get_compatible_report_form("RFISCStat", reqNode, resNode);
         break;
-      case statComfort:
-        get_compatible_report_form("ComfortStat", reqNode, resNode);
+      case statService:
+        get_compatible_report_form("ServiceStat", reqNode, resNode);
         break;
       case statSelfCkinFull:
       case statSelfCkinShort:
@@ -5991,12 +5991,12 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             RunRFISCStat(params, RFISCStat, airline);
             createXMLRFISCStat(params,RFISCStat, airline, resNode);
         }
-        if(params.statType == statComfort)
+        if(params.statType == statService)
         {
             TPrintAirline airline;
-            TComfortStat ComfortStat;
-            RunComfortStat(params, ComfortStat, airline);
-            createXMLComfortStat(params,ComfortStat, airline, resNode);
+            TServiceStat ServiceStat;
+            RunServiceStat(params, ServiceStat, airline);
+            createXMLServiceStat(params,ServiceStat, airline, resNode);
         }
     }
     catch (EOracleError &E)
@@ -6752,7 +6752,7 @@ void get_flight_stat(int point_id, bool final_collection)
                       QryParams);
      Qry.get().Execute();
      get_rfisc_stat(point_id);
-     get_comfort_stat(point_id);
+     get_service_stat(point_id);
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
