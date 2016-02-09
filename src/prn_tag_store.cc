@@ -288,14 +288,12 @@ TPrnTagStore::TPrnTagStore(bool apr_lat):
     prn_test_tags.Init();
 }
 
-TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
-    scan(ascan),
-    time_print(NowUTC()),
-    prn_tag_props(dotPrnBP)
-{
-    scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
+
+void TPrnTagStore::check_scancode_with_options_in_reprint_access_table(const string &ascan, boost::shared_ptr<BCBPSections> scan_data = NULL)
+{   if(scan_data == NULL)
+       scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
     try {
-        BCBPSections::get(scan, 0, scan.size(), *scan_data);
+        BCBPSections::get(ascan, 0, ascan.size(), *scan_data);
     } catch(const Exception &E) {
         LogError(STDLOG) << "barcode parse error: " << E.what();
         throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
@@ -325,11 +323,19 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
     };
 
     check_reprint_access(date_of_flight, scan_data->from_city_airport(0), scan_data->operating_carrier_designator(0));
+}
 
+TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
+    scan(ascan),
+    time_print(NowUTC()),
+    prn_tag_props(dotPrnBP)
+{   scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
+    init_from_scancode(ascan, apr_lat, scan_data);
     print_mode = 0;
     tag_lang.Init(apr_lat);
     init_bp_tags();
 }
+
 
 //static inline bool if_only_one_non_empty(const std::string& a, const std::string& b)
 //{

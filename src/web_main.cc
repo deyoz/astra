@@ -2556,6 +2556,7 @@ int bcbp_test(int argc,char **argv)
         cout << "pax not found." << endl;
         parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scan));
     } else {
+        TPrnTagStore::check_scancode_with_options_in_reprint_access_table(scan);
         cout << "pax found, pax_id: " << pax.pax_id << endl;
         parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
     }
@@ -2585,6 +2586,7 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       if(pax.pax_id == NoExists) {
           parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser((string)NodeAsString(scanCodeNode)));
       } else {
+          TPrnTagStore::check_scancode_with_options_in_reprint_access_table((string)NodeAsString(scanCodeNode));
           parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
       }
   }

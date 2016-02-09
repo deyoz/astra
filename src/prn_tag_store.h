@@ -194,7 +194,7 @@ class TPrnTagStore {
 
         boost::shared_ptr<BCBPSections> scan_data;
         const std::string scan; // данные 2D баркода
-
+        static void check_scancode_with_options_in_reprint_access_table(const string &ascan, boost::shared_ptr<BCBPSections> scan_data = NULL);
         TBagReceipt rcpt;
 
         struct TFieldParams {
