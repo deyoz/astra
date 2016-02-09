@@ -292,7 +292,7 @@ class EMDAutoBoundGrpId : public EMDAutoBoundId
     }
     virtual const char* paxSQL() const
     {
-      return "SELECT pax.pax_id, pax.refuse, "
+      return "SELECT pax.grp_id, pax.pax_id, pax.refuse, "
              "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm "
              "FROM pax "
              "WHERE pax.grp_id=:grp_id";
@@ -344,7 +344,7 @@ class EMDAutoBoundRegNo : public EMDAutoBoundId
     }
     virtual const char* paxSQL() const
     {
-      return "SELECT pax.pax_id, pax.refuse, "
+      return "SELECT pax.grp_id, pax.pax_id, pax.refuse, "
              "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm "
              "FROM pax_grp, pax "
              "WHERE pax_grp.grp_id=pax.grp_id AND "

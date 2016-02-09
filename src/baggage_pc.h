@@ -359,7 +359,6 @@ class TPaxItem
     std::string surname, name;
     ASTRA::TPerson pers_type;
     int seats;
-    CheckIn::TPaxTknItem tkn;
     CheckIn::TPaxDocItem doc;
 
     TPaxSegMap segs;
@@ -376,7 +375,6 @@ class TPaxItem
       name=item.name;
       pers_type=item.pers_type;
       seats=item.seats;
-      tkn=item.tkn;
       doc=item.doc;
     }
 
@@ -387,7 +385,6 @@ class TPaxItem
       name.clear();
       pers_type=ASTRA::NoPerson;
       seats=ASTRA::NoExists;
-      tkn.clear();
       doc.clear();
       segs.clear();
     }

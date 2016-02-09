@@ -973,8 +973,10 @@ bool TryAddPaidBagEMD(list<TPaidBagItem> &paid_bag,
 
   typedef map<int/*pax_id*/, map<string/*RFISC*/, int/*кол-во*/> > TNeedMap;
   TNeedMap need;
+  int max_trfer_num=0;
   for(list<TPaidBagItem>::iterator p=paid_bag.begin(); p!=paid_bag.end(); ++p)
   {
+    if (max_trfer_num<p->trfer_num) max_trfer_num=p->trfer_num;
     if (p->RFISC.empty() || p->status!=bsNeed) continue;
     TNeedMap::iterator i=need.find(p->pax_id);
     if (i==need.end())
@@ -998,76 +1000,81 @@ bool TryAddPaidBagEMD(list<TPaidBagItem> &paid_bag,
       ProgTrace(TRACE5, "%s: pax_id=%d, rfisc=%s(%d), emds: %s",
                 __FUNCTION__, i->first, irfisc->first.c_str(), irfisc->second, base_emds.traceStr().c_str());
 
-      for(;irfisc->second>0;)
+      for(int initial_trfer_num=0; initial_trfer_num<=max_trfer_num && irfisc->second>0; initial_trfer_num++)
       {
-        TAddedEmdItem best_added;
-
-        for(TBaseEmdMap::const_iterator be=base_emds.begin(); be!=base_emds.end(); ++be)
+        for(;irfisc->second>0;)
         {
-          TAddedEmdItem curr_added(base_emds.rfisc, be->first);
+          TAddedEmdItem best_added;
 
-          for(;;curr_added.continuous_segs++)
+          for(TBaseEmdMap::const_iterator be=base_emds.begin(); be!=base_emds.end(); ++be)
           {
+            TAddedEmdItem curr_added(base_emds.rfisc, be->first);
+
+            for(;curr_added.continuous_segs<=max_trfer_num;curr_added.continuous_segs++)
             {
-              //ищем среди привязанных
-              list<CheckIn::TPaidBagEMDItem>::const_iterator e=paid_bag_emd.begin();
-              for(; e!=paid_bag_emd.end(); ++e)
-                if (e->rfisc==curr_added.rfisc &&
-                    e->trfer_num==curr_added.continuous_segs &&
-                    e->pax_id==i->first &&
-                    be->second.find(e->emd_no)!=be->second.end()) break;
-              if (e!=paid_bag_emd.end()) continue;
-            }
-            {
-              //ищем среди непривязанных
-              multiset<TPaxEMDItem>::const_iterator e=emds.begin();
-              for(; e!=emds.end(); ++e)
-                if (e->RFISC==curr_added.rfisc &&
-                    e->trfer_num==curr_added.continuous_segs &&
-                    be->second.find(e->emd_no)!=be->second.end()) break;
-              if (e!=emds.end())
               {
-                CheckIn::TPaidBagEMDItem item;
-                item.rfisc=e->RFISC;
-                item.trfer_num=e->trfer_num;
-                item.emd_no=e->emd_no;
-                item.emd_coupon=e->emd_coupon;
-                item.weight=0;
-                item.pax_id=i->first;
-
-                if (Confirmed(item, confirmed_emd) &&
-                    UpdatePaidBag(item, paid_bag, true))
-                {
-                  if (paid_bag_emd_props.get(e->emd_no, e->emd_coupon).manual_bind)
-                    curr_added.manual_bind=true;
-                  else
-                  {
-                    curr_added.coupons.push_back(item);
-                    continue;
-                  }
-                };
+                //ищем среди привязанных
+                list<CheckIn::TPaidBagEMDItem>::const_iterator e=paid_bag_emd.begin();
+                for(; e!=paid_bag_emd.end(); ++e)
+                  if (e->rfisc==curr_added.rfisc &&
+                      e->trfer_num==curr_added.continuous_segs &&
+                      e->pax_id==i->first &&
+                      be->second.find(e->emd_no)!=be->second.end()) break;
+                if (curr_added.continuous_segs< initial_trfer_num && e==paid_bag_emd.end()) continue;
+                if (curr_added.continuous_segs>=initial_trfer_num && e!=paid_bag_emd.end()) continue;
               }
+              {
+                //ищем среди непривязанных
+                multiset<TPaxEMDItem>::const_iterator e=emds.begin();
+                for(; e!=emds.end(); ++e)
+                  if (e->RFISC==curr_added.rfisc &&
+                      e->trfer_num==curr_added.continuous_segs &&
+                      be->second.find(e->emd_no)!=be->second.end()) break;
+                if (curr_added.continuous_segs< initial_trfer_num && e==emds.end()) continue;
+                if (curr_added.continuous_segs>=initial_trfer_num && e!=emds.end())
+                {
+                  CheckIn::TPaidBagEMDItem item;
+                  item.rfisc=e->RFISC;
+                  item.trfer_num=e->trfer_num;
+                  item.emd_no=e->emd_no;
+                  item.emd_coupon=e->emd_coupon;
+                  item.weight=0;
+                  item.pax_id=i->first;
+
+                  if (Confirmed(item, confirmed_emd) &&
+                      UpdatePaidBag(item, paid_bag, true))
+                  {
+                    if (paid_bag_emd_props.get(e->emd_no, e->emd_coupon).manual_bind)
+                      curr_added.manual_bind=true;
+                    else
+                    {
+                      curr_added.coupons.push_back(item);
+                      continue;
+                    }
+                  };
+                }
+              }
+              break; //сюда дошли - значит к данному сегменту не можем привязать
             }
-            break; //сюда дошли - значит к данному сегменту не можем привязать
+
+            if (curr_added.coupons.empty()) continue;
+            if (best_added<curr_added) best_added=curr_added;
+          }; //emd_no
+
+          if (best_added.empty()) break; //ни одного EMD из непривязанных не можем привязать по текущему RFISC
+
+          ProgTrace(TRACE5, "%s: pax_id=%d, %s", __FUNCTION__, i->first, best_added.traceStr().c_str());
+
+          for(list<CheckIn::TPaidBagEMDItem>::const_iterator e=best_added.coupons.begin(); e!=best_added.coupons.end(); ++e)
+          {
+            if (!UpdatePaidBag(*e, paid_bag, false)) throw Exception("%s: UpdatePaidBag strange situation!", __FUNCTION__);
+            paid_bag_emd.push_back(*e);
+            irfisc->second--;
+            result=true;
           }
-
-          if (curr_added.coupons.empty()) continue;
-          if (best_added<curr_added) best_added=curr_added;
-        }; //emd_no
-
-        if (best_added.empty()) break; //ни одного EMD из непривязанных не можем привязать по текущему RFISC
-
-        ProgTrace(TRACE5, "%s: pax_id=%d, %s", __FUNCTION__, i->first, best_added.traceStr().c_str());
-
-        for(list<CheckIn::TPaidBagEMDItem>::const_iterator e=best_added.coupons.begin(); e!=best_added.coupons.end(); ++e)
-        {
-          if (!UpdatePaidBag(*e, paid_bag, false)) throw Exception("%s: UpdatePaidBag strange situation!", __FUNCTION__);
-          paid_bag_emd.push_back(*e);
-          irfisc->second--;
-          result=true;
+          base_emds.erase(best_added.emd_no_base);
         }
-        base_emds.erase(best_added.emd_no_base);
-      }
+      }; //initial_trfer_num
     } //rfisc
   }
 
@@ -1115,33 +1122,14 @@ class TPiadBagViewItem : public TPiadBagViewKey
           item.status==bsNeed) pieces++;
       if (item.status==bsPaid) emd_pieces++;
     }
-    const TPiadBagViewItem& toXML(xmlNodePtr node) const;
-    const TPiadBagViewItem& toXML2(xmlNodePtr node,
-                                   const TTrferRoute &trfer,
-                                   const TRFISCList &rfisc_list) const;
+    const TPiadBagViewItem& toXML(xmlNodePtr node,
+                                  const TTrferRoute &trfer,
+                                  const TRFISCList &rfisc_list) const;
 };
 
-const TPiadBagViewItem& TPiadBagViewItem::toXML(xmlNodePtr node) const
-{
-  if (node==NULL) return *this;
-
-  xmlNodePtr rowNode=NewTextChild(node,"paid_bag");
-  NewTextChild(rowNode,"bag_type",RFISC);
-  NewTextChild(rowNode,"weight",pieces);
-  NewTextChild(rowNode,"weight_calc",pieces);
-  NewTextChild(rowNode,"rate_id");
-
-  NewTextChild(rowNode,"bag_type_view",RFISC);
-  NewTextChild(rowNode,"bag_number_view",bag_number);
-  NewTextChild(rowNode,"weight_view",pieces);
-  NewTextChild(rowNode,"weight_calc_view",pieces);
-
-  return *this;
-}
-
-const TPiadBagViewItem& TPiadBagViewItem::toXML2(xmlNodePtr node,
-                                                 const TTrferRoute &trfer,
-                                                 const TRFISCList &rfisc_list) const
+const TPiadBagViewItem& TPiadBagViewItem::toXML(xmlNodePtr node,
+                                                const TTrferRoute &trfer,
+                                                const TRFISCList &rfisc_list) const
 {
   if (node==NULL) return *this;
 
@@ -1185,6 +1173,76 @@ const TPiadBagViewItem& TPiadBagViewItem::toXML2(xmlNodePtr node,
   colNode=NewTextChild(rowNode, "col", emd_pieces);
   if (pieces==0 && emd_pieces==0)
     SetProp(colNode, "font_style", "");
+
+  return *this;
+}
+
+class TSumPaidBagViewItem : public set<TPiadBagViewItem>
+{
+  public:
+    const TSumPaidBagViewItem& toXML(xmlNodePtr node) const;
+};
+
+class TSumPaidBagViewMap : public map< string, TSumPaidBagViewItem >
+{
+  public:
+    void add(const TPiadBagViewItem &item)
+    {
+      pair<TSumPaidBagViewMap::iterator, bool> i=insert(make_pair(item.RFISC, TSumPaidBagViewItem()));
+      if (i.first==end()) throw Exception("%s: i.first==end()!", __FUNCTION__);
+      i.first->second.insert(item);
+    }
+};
+
+const TSumPaidBagViewItem& TSumPaidBagViewItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+
+  if (empty()) return *this;
+  int bag_number=0, pieces=begin()->pieces;
+  bool different_pieces=false;
+  ostringstream pieces_view;
+  int trfer_num=0;
+  for(TSumPaidBagViewItem::const_iterator i=begin(); i!=end();)
+  {
+    if (trfer_num>=i->trfer_num)
+    {
+      if (bag_number<i->bag_number) bag_number=i->bag_number;
+      if (pieces!=i->pieces)
+      {
+        different_pieces=true;
+        if (pieces<i->pieces) pieces=i->pieces;
+      };
+      if (!pieces_view.str().empty()) pieces_view << "/";
+      pieces_view << i->pieces;
+      if (trfer_num==i->trfer_num) trfer_num++;
+      ++i;
+    }
+    else
+    {
+      different_pieces=true;
+      if (!pieces_view.str().empty()) pieces_view << "/";
+      pieces_view << "?";
+      trfer_num++;
+    };
+  }
+
+  if (!different_pieces)
+  {
+    pieces_view.str("");
+    pieces_view << pieces;
+  }
+
+  xmlNodePtr rowNode=NewTextChild(node,"paid_bag");
+  NewTextChild(rowNode, "bag_type", begin()->RFISC);
+  NewTextChild(rowNode, "weight", pieces);
+  NewTextChild(rowNode, "weight_calc", pieces);
+  NewTextChild(rowNode, "rate_id");
+
+  NewTextChild(rowNode, "bag_type_view", begin()->RFISC);
+  NewTextChild(rowNode, "bag_number_view", bag_number);
+  NewTextChild(rowNode, "weight_view", pieces_view.str());
+  NewTextChild(rowNode, "weight_calc_view", pieces_view.str());
 
   return *this;
 }
@@ -1251,12 +1309,14 @@ void PaidBagViewToXML(const TTrferRoute &trfer,
 
   xmlNodePtr rowsNode = NewTextChild(paidViewNode, "rows");
 
+  TSumPaidBagViewMap paid_view_sum;
   for(map<TPiadBagViewKey, TPiadBagViewItem>::const_iterator i=paid_view.begin(); i!=paid_view.end(); ++i)
   {
-    if (i->second.trfer_num==0)
-      i->second.toXML(paidNode);
-    i->second.toXML2(rowsNode, trfer, rfisc_list);
+    paid_view_sum.add(i->second);
+    i->second.toXML(rowsNode, trfer, rfisc_list);
   };
+  for(TSumPaidBagViewMap::const_iterator i=paid_view_sum.begin(); i!=paid_view_sum.end(); ++i)
+    i->second.toXML(paidNode);
 }
 
 
@@ -1385,9 +1445,6 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node, const std::string &lang) const
   if (doc.birth_date!=ASTRA::NoExists)
     SetProp(node, "birthdate", DateTimeToStr(doc.birth_date, "yyyy-mm-dd"));
   SetProp(node, "sex", sex(), "");
-  //билет
-  if (!tkn.no.empty())
-    SetProp(NewTextChild(node, "ticket"), "number", tkn.no);
   if (!doc.type_rcpt.empty() || !doc.no.empty() || !doc.issue_country.empty())
   {
     xmlNodePtr docNode=NewTextChild(node, "document");
