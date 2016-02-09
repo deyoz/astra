@@ -108,6 +108,9 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
         case retTYPEB_PIL:
             event_type = "TYPEB_PIL";
             break;
+        case retCOMFORT_STAT:
+            event_type = "COMFORT_STAT";
+            break;
         default:
             throw Exception("LoadRemGrp: unknown event type %d", rem_set_type);
     }

@@ -23,10 +23,11 @@ enum TRemEventType {
     retRPT_PM,
     retCKIN_VIEW,
     retTYPEB_PSM,
-    retTYPEB_PIL
+    retTYPEB_PIL,
+    retCOMFORT_STAT
 };
 
-struct TRemGrp:private std::vector<std::string> {
+struct TRemGrp:public std::vector<std::string> { // !!!
     private:
         bool any;
     public:

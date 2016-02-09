@@ -19,6 +19,7 @@
 #include "baggage_pc.h"
 #include "astra_elems.h"
 #include "serverlib/xml_stuff.h"
+#include "astra_misc.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -1854,7 +1855,8 @@ enum TStatType {
     statTlgOutShort,
     statTlgOutDetail,
     statPactShort,
-    statRFISC
+    statRFISC,
+    statComfort
 };
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
@@ -2198,6 +2200,11 @@ void TStatParams::get(xmlNodePtr reqNode)
     } else if(type == "Багажные RFISC") {
         if(name == "Подробная")
             statType=statRFISC;
+        else
+            throw Exception("Unknown stat mode " + name);
+    } else if(type == "Комфорт") {
+        if(name == "Подробная")
+            statType=statComfort;
         else
             throw Exception("Unknown stat mode " + name);
     } else
@@ -5542,6 +5549,308 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
     NewTextChild(variablesNode, "CAP.STAT.FLT_INFO", getLocaleText("CAP.STAT.FLT_INFO"));
 }
 
+/******************* Comfort Stat ****************************/
+
+void get_comfort_stat(int point_id)
+{
+    TRemGrp comfort_rem_grp;
+    comfort_rem_grp.Load(retCOMFORT_STAT, point_id);
+    LogTrace(TRACE5) << "comfort_rem_grp.size(): " << comfort_rem_grp.size();
+    TCachedQuery Qry(
+            "select "
+            "    pax.pax_id, "
+            "    points.craft, "
+            "    points.airp "
+            "from "
+            "    points, "
+            "    pax_grp, "
+            "    pax "
+            "where "
+            "    points.point_id = :point_id and "
+            "    pax_grp.point_dep = points.point_id and "
+            "    pax_grp.grp_id = pax.grp_id ",
+            QParams() << QParam("point_id", otInteger, point_id)
+            );
+    TCachedQuery insQry(
+            "begin "
+            "delete from comfort_stat where point_id = :point_id; "
+            "insert into comfort_stat( "
+            "   point_id, "
+            "   travel_time, "
+            "   rem_code, "
+            "   ticket_no, "
+            "   airp_last "
+            ") values ( "
+            "   :point_id, "
+            "   :travel_time, "
+            "   :rem_code, "
+            "   :ticket_no, "
+            "   :airp_last "
+            "); "
+            "end; ",
+            QParams()
+            << QParam("point_id", otInteger, point_id)
+            << QParam("travel_time", otDate)
+            << QParam("rem_code", otString)
+            << QParam("ticket_no", otString)
+            << QParam("airp_last", otString)
+            );
+
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_pax_id = Qry.get().FieldIndex("pax_id");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            int pax_id = Qry.get().FieldAsInteger(col_pax_id);
+            vector<CheckIn::TPaxRemItem> rems, crs_rems;
+            set<CheckIn::TPaxRemItem> found_rems; // ремарки, соотв. настройкам
+
+            // Вытаскиваем из ремарок паса требуемые ремарки.
+            LoadPaxRem(pax_id, false, rems);
+            LogTrace(TRACE5) << "pax_id: " << pax_id;
+            for(vector<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++)
+                LogTrace(TRACE5) << "rems item: '" << i->code << "'";
+            for(vector<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++)
+                if(comfort_rem_grp.exists(i->code)) found_rems.insert(*i);
+            LogTrace(TRACE5) << "found_rems.size(): " << found_rems.size();
+            if(not found_rems.empty()) {
+                // Ищем ремарку пассажира в ремарках из брони
+                LoadCrsPaxRem(pax_id, crs_rems);
+                for(vector<CheckIn::TPaxRemItem>::iterator i = crs_rems.begin(); i != crs_rems.end(); i++) {
+                    set<CheckIn::TPaxRemItem>::iterator idx = found_rems.find(*i);
+                    if(idx != found_rems.end()) found_rems.erase(idx);
+                }
+                if(not found_rems.empty()) {
+                    string craft = Qry.get().FieldAsString("craft");
+                    string airp = Qry.get().FieldAsString("airp");
+                    TTripRoute route;
+                    route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
+                    string airp_last = route.back().airp;
+                    insQry.get().SetVariable("airp_last", airp_last);
+
+                    TDateTime travel_time = getTimeTravel(craft, airp, airp_last);
+                    CheckIn::TPaxTknItem tkn;
+                    LoadPaxTkn(pax_id, tkn);
+                    ostringstream ticket_no;
+                    if(not tkn.empty()) {
+                        ticket_no << tkn.no;
+                        if (tkn.coupon!=ASTRA::NoExists)
+                            ticket_no << "/" << tkn.coupon;
+                    }
+                    // Запись в базу
+                    for(set<CheckIn::TPaxRemItem>::iterator i = found_rems.begin(); i != found_rems.end(); i++) {
+                        if(travel_time == NoExists)
+                            insQry.get().SetVariable("travel_time", FNull);
+                        else
+                            insQry.get().SetVariable("travel_time", travel_time);
+                        insQry.get().SetVariable("rem_code", i->code);
+                        insQry.get().SetVariable("ticket_no", ticket_no.str());
+                        insQry.get().Execute();
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct TComfortStatRow {
+    int point_id;
+    string ticket_no;
+    TDateTime scd_out;
+    int flt_no;
+    string suffix;
+    string airp;
+    string airp_last;
+    string craft;
+    TDateTime travel_time;
+    string rem_code;
+    string airline;
+    TComfortStatRow():
+        point_id(NoExists),
+        scd_out(NoExists),
+        flt_no(NoExists),
+        travel_time(NoExists)
+    {}
+    bool operator < (const TComfortStatRow &val) const
+    {
+        return point_id < val.point_id;
+    }
+};
+
+typedef set<TComfortStatRow> TComfortStat;
+
+void RunComfortStat(
+        const TStatParams &params,
+        TComfortStat &ComfortStat,
+        TPrintAirline &prn_airline
+        )
+{
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+    string SQLText =
+        "select "
+        "   points.point_id, "
+        "   cs.ticket_no, "
+        "   points.scd_out, "
+        "   points.flt_no, "
+        "   points.suffix, "
+        "   points.airp, "
+        "   cs.airp_last, "
+        "   points.craft, "
+        "   cs.travel_time, "
+        "   cs.rem_code, "
+        "   points.airline "
+        "from "
+        "   comfort_stat cs, "
+        "   points "
+        "where "
+        "   cs.point_id = points.point_id and ";
+    if (!params.airps.elems().empty()) {
+        if (params.airps.elems_permit())
+            SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and \n";
+        else
+            SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and \n";
+    };
+    if (!params.airlines.elems().empty()) {
+        if (params.airlines.elems_permit())
+            SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and \n";
+        else
+            SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and \n";
+    };
+    if(params.flt_no != NoExists) {
+        SQLText += " points.flt_no = :flt_no and ";
+        QryParams << QParam("flt_no", otInteger, params.flt_no);
+    }
+    SQLText +=
+        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
+    TCachedQuery Qry(SQLText, QryParams);
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_point_id = Qry.get().GetFieldIndex("point_id");
+        int col_ticket_no = Qry.get().GetFieldIndex("ticket_no");
+        int col_scd_out = Qry.get().GetFieldIndex("scd_out");
+        int col_flt_no = Qry.get().GetFieldIndex("flt_no");
+        int col_suffix = Qry.get().GetFieldIndex("suffix");
+        int col_airp = Qry.get().GetFieldIndex("airp");
+        int col_airp_last = Qry.get().GetFieldIndex("airp_last");
+        int col_craft = Qry.get().GetFieldIndex("craft");
+        int col_travel_time = Qry.get().GetFieldIndex("travel_time");
+        int col_rem_code = Qry.get().GetFieldIndex("rem_code");
+        int col_airline = Qry.get().GetFieldIndex("airline");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            prn_airline.check(Qry.get().FieldAsString(col_airline));
+            TComfortStatRow row;
+            row.point_id = Qry.get().FieldAsInteger(col_point_id);
+            row.ticket_no = Qry.get().FieldAsString(col_ticket_no);
+            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+            row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+            row.suffix = Qry.get().FieldAsString(col_suffix);
+            row.airp = Qry.get().FieldAsString(col_airp);
+            row.airp_last = Qry.get().FieldAsString(col_airp_last);
+            row.craft = Qry.get().FieldAsString(col_craft);
+            row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
+            row.rem_code = Qry.get().FieldAsString(col_rem_code);
+            ComfortStat.insert(row);
+        }
+    }
+}
+
+void createXMLComfortStat(const TStatParams &params, const TComfortStat &ComfortStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
+{
+    if(ComfortStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    NewTextChild(resNode, "airline", prn_airline.get(), "");
+    xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+
+    xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+    xmlNodePtr colNode;
+    colNode = NewTextChild(headerNode, "col", "АП рег");
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", "Стойка");
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", "Агент");
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", "Билет");
+    SetProp(colNode, "width", 100);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", "Дата");
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", "Рейс");
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", "От");
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", "До");
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", "Тип ВС");
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", "Время в пути");
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", "Код услуги");
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+
+    xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+    xmlNodePtr rowNode;
+    ostringstream buf;
+    for(TComfortStat::iterator i = ComfortStat.begin(); i != ComfortStat.end(); i++) {
+        rowNode = NewTextChild(rowsNode, "row");
+        // АП рег
+        NewTextChild(rowNode, "col");
+        // Стойка
+        NewTextChild(rowNode, "col");
+        // Агент
+        NewTextChild(rowNode, "col");
+        // Билет
+        NewTextChild(rowNode, "col", i->ticket_no);
+        // Дата
+        NewTextChild(rowNode, "col", DateTimeToStr(i->scd_out, "dd.mm.yyyy"));
+        // Рейс
+        ostringstream buf;
+        buf << setw(3) << setfill('0') << i->flt_no << ElemIdToCodeNative(etSuffix, i->suffix);
+        NewTextChild(rowNode, "col", buf.str());
+        // От
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
+        // До
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp_last));
+        // Тип ВС
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etCraft, i->craft));
+        // Время в пути
+        if(i->travel_time == NoExists)
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col", DateTimeToStr(i->travel_time, "hh:nn"));
+        // Код услуги
+        NewTextChild(rowNode, "col", i->rem_code);
+    }
+
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "stat_type", params.statType);
+    NewTextChild(variablesNode, "stat_mode", getLocaleText("Багажные RFISC"));
+    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
+}
+
+/******************* End of Comfort Stat ****************************/
+
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -5590,6 +5899,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         break;
       case statRFISC:
         get_compatible_report_form("RFISCStat", reqNode, resNode);
+        break;
+      case statComfort:
+        get_compatible_report_form("ComfortStat", reqNode, resNode);
         break;
       case statSelfCkinFull:
       case statSelfCkinShort:
@@ -5678,6 +5990,13 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TRFISCStat RFISCStat;
             RunRFISCStat(params, RFISCStat, airline);
             createXMLRFISCStat(params,RFISCStat, airline, resNode);
+        }
+        if(params.statType == statComfort)
+        {
+            TPrintAirline airline;
+            TComfortStat ComfortStat;
+            RunComfortStat(params, ComfortStat, airline);
+            createXMLComfortStat(params,ComfortStat, airline, resNode);
         }
     }
     catch (EOracleError &E)
@@ -6034,18 +6353,6 @@ void STAT::agent_stat_delta(
     Qry.Execute();
 }
 
-// сбор статистики с сентября по тек. момент
-int rfisc_stat(int argc,char **argv)
-{
-    TDateTime from;
-    TDateTime to = NowUTC();
-    StrToDateTime("01.09.2015 00:00:00",ServerFormatDateTimeAsString,from);
-    for(; from < to; from++) {
-        cout << DateTimeToStr(from, ServerFormatDateTimeAsString) << endl;
-    }
-    return 0;
-}
-
 struct TRFISCBag {
 
     struct TBagInfo {
@@ -6105,6 +6412,7 @@ struct TRFISCBag {
         return result->second;
     }
 };
+
 
 void get_rfisc_stat(int point_id)
 {
@@ -6444,6 +6752,7 @@ void get_flight_stat(int point_id, bool final_collection)
                       QryParams);
      Qry.get().Execute();
      get_rfisc_stat(point_id);
+     get_comfort_stat(point_id);
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
