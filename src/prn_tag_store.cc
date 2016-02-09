@@ -324,8 +324,7 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
                 date_of_flight=d;
     };
 
-    if(!check_reprint_access(date_of_flight, scan_data->from_city_airport(0), scan_data->operating_carrier_designator(0)))
-        throw UserException("MSG.REPRINT_ACCESS_ERR");
+    check_reprint_access(date_of_flight, scan_data->from_city_airport(0), scan_data->operating_carrier_designator(0));
 
     print_mode = 0;
     tag_lang.Init(apr_lat);
@@ -350,15 +349,17 @@ static inline int check_date_for_reprint(int lower_shift, int upper_shift, BASIC
 }
 
 
-bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const string &airp, const string &airline)
-{   TElemFmt fmt;
+void TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const string &airp, const string &airline)
+{
+    ProgTrace(TRACE5, "%s started", __FUNCTION__);
+    TElemFmt fmt;
     string airp_id = ElemToElemId(etAirp, airp, fmt);
     if(fmt == efmtUnknown)
     airp_id = airp;
     string airline_id = ElemToElemId(etAirline, airline, fmt);
     if (fmt==efmtUnknown)
     airline_id = airline;
-    if(airp_id.empty() || airline_id.empty()) return false;
+    if(airp_id.empty() || airline_id.empty()) throw UserException("MSG.REPRINT_ACCESS_ERR");
 
     struct Reprint_options
     {   string desk, airline, airp;
@@ -371,15 +372,12 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
 
     Qry.SQLText =
       "SELECT lower_shift, upper_shift, "
-      "       DECODE(desk,NULL,0,4)+ "
-      "       DECODE(airline,NULL,0,2)+ "
-      "       DECODE(airp,NULL,0,1) AS priority "
+      "       DECODE(airline,NULL,0,:airline,2,-100)+ "
+      "       DECODE(airp,NULL,0,:airp,1,-100) AS priority "
       "FROM bcbp_reprint_options "
       "WHERE desk_grp=:desk_grp AND "
-      "      (desk IS NULL OR desk=:desk) AND "
-      "      (airline IS NULL OR airline=:airline) AND "
-      "      (airp IS NULL OR airp=:airp) "
-      "ORDER BY priority DESC ";
+      "      (desk IS NULL OR desk=:desk) "
+      "ORDER BY desk NULLS LAST, priority DESC ";
     Qry.CreateVariable("desk_grp", otInteger, desk_grp);
     Qry.CreateVariable("desk", otString, desk);
     Qry.CreateVariable("airline", otString, airline_id);
@@ -388,6 +386,7 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
 
     if (!Qry.Eof)
     {
+      if (Qry.FieldAsInteger("priority")<0) throw UserException("MSG.REPRINT_ACCESS_ERR");
       switch(check_date_for_reprint(Qry.FieldAsInteger("lower_shift"),
                                     Qry.FieldAsInteger("upper_shift"),
                                     date_of_flight))
@@ -469,8 +468,6 @@ bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
 //    { case -1:throw UserException("MSG.REPRINT_WRONG_DATE_BEFORE");
 //      case 1: throw UserException("MSG.REPRINT_WRONG_DATE_AFTER");
 //    }
-    ProgTrace(TRACE5, __FUNCTION__);
-    return true;
 }
 
 

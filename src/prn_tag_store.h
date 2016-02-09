@@ -574,7 +574,7 @@ class TPrnTagStore {
         void set_print_mode(int val);
         void clear();
         BASIC::TDateTime get_time_print() { return time_print.val; };
-        bool check_reprint_access(BASIC::TDateTime date_of_flight, const std::string &airp, const std::string  &airline);
+        void check_reprint_access(BASIC::TDateTime date_of_flight, const std::string &airp, const std::string  &airline);
         void tst_get_tag_list(std::vector<std::string> &tag_list);
 };
 
