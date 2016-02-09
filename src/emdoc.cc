@@ -814,7 +814,7 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
   std::set<ASTRA::TRcptServiceType> service_types;
   emd.rcpt_service_types(service_types);
   if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
-      service_types.find(ASTRA::rstPaid)==service_types.end()) return;  
+      service_types.find(ASTRA::rstPaid)==service_types.end()) return;
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -830,6 +830,8 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
 
   list<TPaxEMDItem> emds(1, emd);
 
+  set< pair<int/*grp_id*/, int/*pax_id*/> > ids;
+
   Qry.Clear();
   Qry.SQLText="SELECT grp_id, pax_id FROM pax WHERE ticket_no=:et_no";
   Qry.DeclareVariable("et_no", otString);
@@ -841,8 +843,20 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
     {
       int grp_id=Qry.FieldAsInteger("grp_id");
       int pax_id=Qry.FieldAsInteger("pax_id");
+      ids.insert(make_pair(grp_id, pax_id));
+      map<int, CheckIn::TCkinPaxTknItem> tkns;
+      CheckIn::GetTCkinTickets(pax_id, tkns);
+      for(map<int, CheckIn::TCkinPaxTknItem>::const_iterator i=tkns.begin(); i!=tkns.end(); ++i)
+        ids.insert(make_pair(i->second.grp_id, i->second.pax_id));
+    };
+  };
+
+  for(set< pair<int/*grp_id*/, int/*pax_id*/> >::const_iterator i=ids.begin(); i!=ids.end(); ++i)
+  {
+    try
+    {
       TTrferRoute route;
-      route.GetRoute(grp_id, trtWithFirstSeg);
+      route.GetRoute(i->first, trtWithFirstSeg);
       int trfer_num=0;
       for(TTrferRoute::iterator t=route.begin(); t!=route.end(); ++t, trfer_num++)
       {
@@ -852,11 +866,16 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
             t->airp_arv==trfer.airp_arv)
         {
           emds.front().trfer_num=trfer_num;
-          PaxEMDToDB(pax_id, emds);
+          PaxEMDToDB(i->second, emds);
           break;
         };
       }
+    }
+    catch(std::exception &e)
+    {
+      ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
     };
+
   };
 }
 
@@ -924,7 +943,7 @@ void handleEmdDispResponse(const std::string &tlg)
               if (emdCpn.associatedNum())
                 emdItem.et_coupon=emdCpn.associatedNum().get();
             };
-            emdItem.emd_no_base=connected_emd_no.empty()?emdItem.emd_no:*(connected_emd_no.begin());            
+            emdItem.emd_no_base=connected_emd_no.empty()?emdItem.emd_no:*(connected_emd_no.begin());
 
             ProgTrace(TRACE5, "%s: %s %s->%s: %s %s",
                               __FUNCTION__,

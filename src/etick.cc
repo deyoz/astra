@@ -1855,6 +1855,7 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
   id.setSQLParams(params);
   TCachedQuery PaxQry(id.paxSQL(), params);
   PaxQry.get().Execute();
+  set<string> tkns_set;
   for(;!PaxQry.get().Eof; PaxQry.get().Next())
   {
     int pax_id=PaxQry.get().FieldAsInteger("pax_id");
@@ -1862,25 +1863,32 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     if (piece_concept && pax_ids.find(pax_id)==pax_ids.end()) continue;
     if (!refuse.empty()) continue;
 
-    CheckIn::TPaxTknItem tkn;
-    tkn.fromDB(PaxQry.get());
-    if (tkn.no.empty()) continue;
-    try
+    map<int, CheckIn::TCkinPaxTknItem> tkns;
+    CheckIn::GetTCkinTickets(pax_id, tkns);
+    if (tkns.empty()) //не сквозной пассажир
+      tkns.insert(make_pair(1, CheckIn::TCkinPaxTknItem().fromDB(PaxQry.get())));
+
+    for(map<int, CheckIn::TCkinPaxTknItem>::const_iterator i=tkns.begin(); i!=tkns.end(); ++i)
     {
-      ETSearchByTickNoParams params;
-      params.point_id=point_id;
-      params.tick_no=tkn.no;
-
-      if (!kickInfo)
+      if (i->second.no.empty()) continue;
+      if (!tkns_set.insert(i->second.no).second) continue; //чтобы не было дублирования по билетам на дисплей
+      try
       {
-        id.toXML(reqNode);
-        kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
-                                              "EMDAutoBound");
-      };
+        ETSearchByTickNoParams params;
+        params.point_id=point_id;
+        params.tick_no=i->second.no;
 
-      ETSearchInterface::SearchET(params, ETSearchInterface::spEMDRefresh, kickInfo.get());
-    }
-    catch(UserException) {};
+        if (!kickInfo)
+        {
+          id.toXML(reqNode);
+          kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
+                                                "EMDAutoBound");
+        };
+
+        ETSearchInterface::SearchET(params, ETSearchInterface::spEMDRefresh, kickInfo.get());
+      }
+      catch(UserException) {};
+    };
   }
 
   if (Ticketing::isDoomedToWait())

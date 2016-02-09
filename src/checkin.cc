@@ -2440,7 +2440,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (with_rcpt_info)
     sql <<
     "  AND pax_grp.status NOT IN ('E') "
-    "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, pax_grp.excess)<>0 ";
+    "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
+    "                            pax_grp.piece_concept, pax_grp.excess, pax.pax_id)<>0 ";
   sql <<
     "ORDER BY pax.reg_no, pax.seats DESC"; //в будущем убрать ORDER BY
 
@@ -2721,7 +2722,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   if (with_rcpt_info)
     sql <<
-    "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, pax_grp.excess)<>0 ";
+    "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
+    "                            pax_grp.piece_concept, pax_grp.excess, NULL)<>0 ";
 
   ProgTrace(TRACE5, "%s", sql.str().c_str());
 
@@ -3134,7 +3136,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
       if (AfterSaveInfoList.front().action==CheckIn::actionRefreshPaidBagPC)
       {
-        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);        
+        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
       };
 
       LoadPax(grp_id, resNode, true);
@@ -3622,7 +3624,7 @@ void PaidBagEMDToDBAdv(int grp_id,
     if (j!=prior_emds.end() && j->second.pax_id!=ASTRA::NoExists)
     {
       //EMD уже была раньше
-      if (piece_concept) emd.pax_id=j->second.pax_id;      
+      if (piece_concept) emd.pax_id=j->second.pax_id;
     }
     else
     {
@@ -6160,7 +6162,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   else grp_id=NodeAsInteger(node);
 
-  EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);  
+  EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
 
   LoadPax(grp_id,resNode,false);
 };
