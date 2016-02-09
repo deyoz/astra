@@ -194,7 +194,6 @@ class TPrnTagStore {
 
         boost::shared_ptr<BCBPSections> scan_data;
         const std::string scan; // данные 2D баркода
-        static void check_scancode_with_options_in_reprint_access_table(const string &ascan, boost::shared_ptr<BCBPSections> scan_data = NULL);
         TBagReceipt rcpt;
 
         struct TFieldParams {
@@ -552,6 +551,7 @@ class TPrnTagStore {
 
     public:
         TTagProps prn_tag_props;
+        static void check_scancode_with_options_in_reprint_access_table(const std::string &ascan, boost::shared_ptr<BCBPSections> scan_data = NULL);
         TTagLang tag_lang;
         TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute = TTrferRoute());
         TPrnTagStore(const std::string &scan, bool apr_lat);
@@ -574,7 +574,7 @@ class TPrnTagStore {
         void set_print_mode(int val);
         void clear();
         BASIC::TDateTime get_time_print() { return time_print.val; };
-        void check_reprint_access(BASIC::TDateTime date_of_flight, const std::string &airp, const std::string  &airline);
+        static void check_reprint_access(BASIC::TDateTime date_of_flight, const std::string &airp, const std::string  &airline);
         void tst_get_tag_list(std::vector<std::string> &tag_list);
 };
 

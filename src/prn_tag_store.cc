@@ -289,7 +289,7 @@ TPrnTagStore::TPrnTagStore(bool apr_lat):
 }
 
 
-void TPrnTagStore::check_scancode_with_options_in_reprint_access_table(const string &ascan, boost::shared_ptr<BCBPSections> scan_data = NULL)
+void TPrnTagStore::check_scancode_with_options_in_reprint_access_table(const string &ascan, boost::shared_ptr<BCBPSections> scan_data)
 {   if(scan_data == NULL)
        scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
     try {
@@ -330,7 +330,7 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
     time_print(NowUTC()),
     prn_tag_props(dotPrnBP)
 {   scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
-    init_from_scancode(ascan, apr_lat, scan_data);
+    check_scancode_with_options_in_reprint_access_table(ascan, scan_data);
     print_mode = 0;
     tag_lang.Init(apr_lat);
     init_bp_tags();
