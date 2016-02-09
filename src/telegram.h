@@ -15,7 +15,7 @@
 #include "typeb_utils.h"
 #include "base_tables.h"
 
-const size_t PART_SIZE = 3500;
+const size_t PART_SIZE = 3000;
 
 struct TTlgCompLayer {
 	int pax_id;
