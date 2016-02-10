@@ -6711,38 +6711,53 @@ void get_rfisc_stat(int point_id)
 
 void nosir_rfisc_stat_point(int point_id)
 {
-   TFlights flightsForLock;
-   flightsForLock.Get( point_id, ftTranzit );
-   flightsForLock.Lock();
+    TFlights flightsForLock;
+    flightsForLock.Get( point_id, ftTranzit );
+    flightsForLock.Lock();
 
-   /* ???
-   {
-     QParams QryParams;
-     QryParams << QParam("point_id", otInteger, point_id);
-     QryParams << QParam("final_collection", otInteger, (int)final_collection);
-     TCachedQuery Qry("UPDATE trip_sets SET pr_stat=:final_collection WHERE point_id=:point_id AND pr_stat=0", QryParams);
-     Qry.get().Execute();
-     if (Qry.get().RowsProcessed()<=0) return; //статистику не собираем
-   };
-   */
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "SELECT count(*) from points where point_id=:point_id AND pr_del<>0";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if(not Qry.Eof and Qry.FieldAsInteger(0) == 0)
+    {
+        OraSession.Rollback();
+        return;
+    }
 
-   get_rfisc_stat(point_id);
+    bool pr_stat = false;
+    Qry.SQLText = "SELECT pr_stat FROM trip_sets WHERE point_id=:point_id";
+    Qry.Execute();
+    if(not Qry.Eof) pr_stat = Qry.FieldAsInteger(0) != 0;
 
-   TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
+    int count = 0;
+    Qry.SQLText = "select count(*) from rfisc_stat where point_id=:point_id";
+    Qry.Execute();
+    if(not Qry.Eof) count = Qry.FieldAsInteger(0);
+
+    if(pr_stat and count == 0)
+        get_rfisc_stat(point_id);
+
+    OraSession.Commit();
 }
 
 int nosir_rfisc_stat(int argc,char **argv)
 {
+    TPerfTimer tm;
+    tm.Init();
+    list<int> point_ids;
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select point_id from points where act_out is not null and pr_del <> 1";
+    Qry.SQLText = "select point_id from trip_sets";
     Qry.Execute();
+    for(; not Qry.Eof; Qry.Next()) point_ids.push_back(Qry.FieldAsInteger(0));
+    OraSession.Rollback();
+    cout << point_ids.size() << " points to process." << endl;
     int count = 0;
-    for(; not Qry.Eof; Qry.Next(), count++) {
-        int point_id = Qry.FieldAsInteger(0);
-        nosir_rfisc_stat_point(point_id);
-        OraSession.Commit();
+    for(list<int>::iterator i = point_ids.begin(); i != point_ids.end(); i++, count++) {
+        nosir_rfisc_stat_point(*i);
         cout << count << endl;
     }
+    cout << "interval time: " << tm.PrintWithMessage() << endl;
     return 0;
 }
 
