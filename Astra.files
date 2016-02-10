@@ -124,6 +124,8 @@ src/load_fr.h
 src/locale.cc
 src/maindcs.cc
 src/maindcs.h
+src/meridian.cc
+src/meridian.h
 src/obrnosir.cc
 src/obrnosir.h
 src/passenger.cc
