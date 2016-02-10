@@ -85,6 +85,7 @@ const
     {"-check_counters_by_subcls",check_counters_by_subcls,NULL,                     NULL},
     {"-convert_codeshare",      convert_codeshare,      NULL,                       NULL},
     {"-http",                   verifyHTTP,             NULL,                       NULL},
+    {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
