@@ -477,26 +477,86 @@ void TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
 }
 
 bool test_check_reprint_access()
-{   class Void
+{   std::cout<<"Started Test check_reprint_access()...\n";
+     struct Record
+       	    { string airp, airline; 
+              int lower_shift, upper_shift;
+       	    };
+
+    class Void
     {
-        public: static int get_last_good(vector<string>& x)
+        public:
+	    static int get_last_good(vector<string>& x)
             {int ret = 0; for(unsigned int i = 0; i<x.size(); i++, ret++)
                 if(x[i].empty()) return i; return ret;
             }
+           vector<Record> table;
+           void set_bd(vector<Record>& new_table)
+           {    clear();
+                table = new_table; 
+                TQuery Qry(&OraSession);
+		for(auto &i : table) 
+                { Qry.SQLText =
+      		  "INSERT INTO bcbp_reprint_options(DESK_GPR, DESK, AIRLINE, AIRP, UPPER_SHIFT, LOWER_SHIFT)"
+		   "VALUES(:desk_grp, :desk, :airp, :airline, :lower_shift, :upper_shift) ;" ;
+		    Qry.CreateVariable("desk_grp", otInteger, grp_id);
+		    Qry.CreateVariable("desk", otString, desk_code);
+		    Qry.CreateVariable("airline", otString, i.airline);
+		    Qry.CreateVariable("airp", otString, i.airp);
+                    Qry.CreateVariable("airline", otInteger, i.upper_shift);
+                    Qry.CreateVariable("airp", otInteger, i.lower_shift);
+		    Qry.Execute();
+                    Qry.Clear();
+              }
+           }
+
+           void clear()
+           {  TQuery Qry(&OraSession);
+                for(auto &i : table)
+                { Qry.SQLText =
+                  "DELETE FROM bcbp_reprint_options WHERE"
+                   "desk_grp = :desk_grp AND desk = :desk AND airp = :airp AND airline = :airline "
+                   "AND lower_shift = :lower_shift AND upper_shift = :upper_shift ;" ;
+                    Qry.CreateVariable("desk_grp", otInteger, grp_id);
+                    Qry.CreateVariable("desk", otString, desk_code);
+                    Qry.CreateVariable("airline", otString, i.airline);
+                    Qry.CreateVariable("airp", otString, i.airp);
+                    Qry.CreateVariable("airline", otInteger, i.upper_shift);
+                    Qry.CreateVariable("airp", otInteger, i.lower_shift);
+                    Qry.Execute();
+                    Qry.Clear();
+              }
+ 	   }
+           ~Void(){clear();};	
+           int grp_id;
+           string desk_code; 
+           
+	   Void(string _code, int _id) : grp_id(), desk_code(_code){}	
+           		
     };
-    TReqInfo::Instance()->desk.grp_id=1;
-    TReqInfo::Instance()->desk.term_id=ASTRA::NoExists;
+    Void query("KIOSKB", 1);
+    TReqInfo::Instance()->desk.grp_id=query.grp_id;
+    TReqInfo::Instance()->desk.code=query.desk_code;
     vector<string> airps = {"ВНК", "ДМД", "VKO", "DME", "", " ", "0000", "000"}; //последнее в принципе допустимое имя аэропорта/авиакомпании должно быть написано до ""
     vector<string>airlines = {"ЮТ", "AU", "", " ", "0000", "000"};
     vector<BASIC::TDateTime> times;
     int final_good_airps = Void::get_last_good(airps);
     int final_good_airlines = Void::get_last_good(airlines);
-    for(unsigned int i = -20; i < 21; i++)
+ 
+    for(int i = -20; i < 21; i++)
         times.push_back(NowUTC() + i);
-    for(unsigned int i = -400; i <= 400; i+=50)
+    for(int i = -400; i <= 400; i+=50)
         times.push_back(NowUTC() + i);
     bool got_reprint_access_err = false;
-    for(unsigned int i = 0; i<times.size(); i++)
+    vector<vector<Record>> tables = {
+    	{ { "VKO", "UT", 2, 1},
+          { "", "UT", 50, 50},
+          {"", "", 0, 0}
+        } 
+    };
+    for(auto &t :tables)    
+    {   query.set_bd(t);
+	for(unsigned int i = 0; i<times.size(); i++)
          for(unsigned int j = 0; j<airps.size(); j++)
               for(unsigned int k = 0; k<airlines.size(); k++)
               {   got_reprint_access_err = false;
@@ -511,26 +571,32 @@ bool test_check_reprint_access()
                       else
                       if(e.getLexemaData().lexema_id == "MSG.REPRINT_WRONG_DATE_AFTER" || e.getLexemaData().lexema_id == "MSG.REPRINT_WRONG_DATE_BEFORE");
                       else
-                      {ProgError(STDLOG, "Undefined error while test_check_reprint_access() in prn_tag_store.cc");
+                      {std::cout<<"Test failed: err with wrong description\n"; 
+		       ProgError(STDLOG, "Undefined error while test_check_reprint_access() in prn_tag_store.cc");
                        return false;
                       }
                   }
                   catch(...)
-                  {   ProgError(STDLOG, "Undefined error while test_check_reprint_access() in prn_tag_store.cc");
+                  {   std::cout<<"Test failed: uknown err\n";
+		      ProgError(STDLOG, "Undefined error while test_check_reprint_access() in prn_tag_store.cc");
                       return false;
                   }
                   if(!got_reprint_access_err)
                   {   if(j >= (unsigned int)final_good_airps)
-                      {ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc, test didnt passed, because bad name airp didnt catched");
+                      { std::cout<<"Test failed: bad airport name "<<airps[j]<<"didnt filtered\n";
+			ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc, test didnt passed, because bad name airp didnt catched");
                         return false;
                       }
                       if(k >= (unsigned int)final_good_airlines)
-                      {ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc because bad name airline");
+                      { std::cout<<"Test failed: bad airline name "<<airlines[k]<<"didnt filtered\n";
+ 	                ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc because bad name airline");
                         return false;
                       }
                   }
 
               }
+    }
+    std::cout<<"Test passed\n";
     return true;
 }
 
