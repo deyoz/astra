@@ -479,30 +479,30 @@ void TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
 bool test_check_reprint_access()
 {   class Void
     {
-        public: static get_last_good(vector<string>& x)
-            {int ret = 0; for(int i = 0; i<x.size(); i++, ret++)
+        public: static int get_last_good(vector<string>& x)
+            {int ret = 0; for(unsigned int i = 0; i<x.size(); i++, ret++)
                 if(x[i].empty()) return i; return ret;
             }
-    };+
+    };
     TReqInfo::Instance()->desk.grp_id=3542763;
-    TReqInfo::Instance()->term_id=3542763;
+    TReqInfo::Instance()->desk.term_id=3542763;
     vector<string> airps = {"ВНК", "ДМД", "VKO", "DME", "", " ", "0000", "000"}; //последнее в принципе допустимое имя аэропорта/авиакомпании должно быть написано до ""
     vector<string>airlines = {"ЮТ", "AU", "", " ", "0000", "000"};
     vector<BASIC::TDateTime> times;
     int final_good_airps = Void::get_last_good(airps);
     int final_good_airlines = Void::get_last_good(airlines);
-    for(int i = -20; i < 21; i++)
+    for(unsigned int i = -20; i < 21; i++)
         times.push_back(NowUTC() + i);
-    for(int i = -400; i <= 400; i+=50)
+    for(unsigned int i = -400; i <= 400; i+=50)
         times.push_back(NowUTC() + i);
     bool got_reprint_access_err = false;
-    for(int i = 0; i<times.size(); i++)
-         for(int j = 0; j<airps.size(); j++)
-              for(int k = 0; k<airlines.size(); k++)
+    for(unsigned int i = 0; i<times.size(); i++)
+         for(unsigned int j = 0; j<airps.size(); j++)
+              for(unsigned int k = 0; k<airlines.size(); k++)
               {   got_reprint_access_err = false;
                   try
                   {
-                    TPrnTagStore::check_reprint_access(i, j, k);
+                    TPrnTagStore::check_reprint_access(times[i], airps[j], airlines[k]);
                   }
                   catch(UserException &e)
                   {
@@ -511,21 +511,21 @@ bool test_check_reprint_access()
                       else
                       if(e.getLexemaData().lexema_id == "MSG.REPRINT_WRONG_DATE_AFTER" || e.getLexemaData().lexema_id == "MSG.REPRINT_WRONG_DATE_BEFORE");
                       else
-                      {ProgError(STDLOG, "Error while test_check_reprint_access() in prn_tag_store.cc" , "undefined error");
+                      {ProgError(STDLOG, "Undefined error while test_check_reprint_access() in prn_tag_store.cc");
                        return false;
                       }
                   }
                   catch(...)
-                  {   ProgError(STDLOG, "Error while test_check_reprint_access() in prn_tag_store.cc" , "undefined error");
+                  {   ProgError(STDLOG, "Undefined error while test_check_reprint_access() in prn_tag_store.cc");
                       return false;
                   }
                   if(!got_reprint_access_err)
-                  {   if(j >= final_good_airps)
-                      {ProgError(STDLOG, "Error while test_check_reprint_access() in prn_tag_store.cc, test didnt passed, because bad name airp didnt catched" , "undefined error");
+                  {   if(j >= (unsigned int)final_good_airps)
+                      {ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc, test didnt passed, because bad name airp didnt catched");
                         return false;
                       }
-                      if(k >= final_good_airlines)
-                      {ProgError(STDLOG, "Error while test_check_reprint_access() in prn_tag_store.cc because bad name airline" , "test didnt passed");
+                      if(k >= (unsigned int)final_good_airlines)
+                      {ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc because bad name airline");
                         return false;
                       }
                   }
