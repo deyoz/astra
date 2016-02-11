@@ -6049,7 +6049,7 @@ struct TRFISCBag {
     typedef map<int, TRFISCGroup> TGrpIdGroup; // Группировка по grp_id
     TGrpIdGroup items;
 
-    TRFISCGroup &get(int grp_id)
+    TGrpIdGroup::iterator get(int grp_id)
     {
         TGrpIdGroup::iterator result = items.find(grp_id);
         if(result == items.end()) {
@@ -6090,7 +6090,7 @@ struct TRFISCBag {
             }
             result = items.find(grp_id);
         }
-        return result->second;
+        return result;
     }
 };
 
@@ -6118,11 +6118,13 @@ void get_rfisc_stat(int point_id)
             "    pax.subclass, "
             "    bag2.rfisc, "
             "    bag2.num bag_num, "
-            "    place_calc.time_out_in travel_time, "
             "    bag2.desk, "
             "    bag2.time_create, "
             "    users2.login, "
-            "    users2.descr "
+            "    users2.descr, "
+            "    points.airp, "
+            "    points.craft, "
+            "    arv_point.airp airp_last "
             "from "
             "    pax_grp, "
             "    points arv_point, "
@@ -6131,7 +6133,6 @@ void get_rfisc_stat(int point_id)
             "    pax, "
             "    transfer, "
             "    trfer_trips, "
-            "    place_calc, "
             "    users2 "
             "where "
             "    points.point_id = :point_id and "
@@ -6142,14 +6143,12 @@ void get_rfisc_stat(int point_id)
             "    pax_grp.status NOT IN ('E') and "
             "    ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and "
             "    bag2.pr_cabin = 0 and "
+            "    bag2.is_trfer = 0 and "
             "    bag2.rfisc is not null and "
             "    ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) = pax.pax_id(+)  and "
             "    pax_grp.grp_id=transfer.grp_id(+) and "
             "    transfer.pr_final(+) <> 0 and "
             "    transfer.point_id_trfer = trfer_trips.point_id(+) and "
-            "    place_calc.bc = points.craft(+) and "
-            "    place_calc.cod_out = points.airp(+) and "
-            "    place_calc.cod_in = arv_point.airp(+) and "
             "    bag2.user_id = users2.user_id(+) ",
         QryParams
             );
@@ -6244,7 +6243,6 @@ void get_rfisc_stat(int point_id)
             QParams() << QParam("pax_id", otInteger));
 
     bagQry.get().Execute();
-    TRFISCBag rfisc_bag;
     if(not bagQry.get().Eof) {
         int col_point_id = bagQry.get().FieldIndex("point_id");
         int col_pr_trfer = bagQry.get().FieldIndex("pr_trfer");
@@ -6260,13 +6258,22 @@ void get_rfisc_stat(int point_id)
         int col_subclass = bagQry.get().FieldIndex("subclass");
         int col_rfisc = bagQry.get().FieldIndex("rfisc");
         int col_bag_num = bagQry.get().FieldIndex("bag_num");
-        int col_travel_time = bagQry.get().FieldIndex("travel_time");
         int col_desk = bagQry.get().FieldIndex("desk");
         int col_time_create = bagQry.get().FieldIndex("time_create");
         int col_login = bagQry.get().FieldIndex("login");
         int col_descr = bagQry.get().FieldIndex("descr");
+        int col_airp = bagQry.get().FieldIndex("airp");
+        int col_craft = bagQry.get().FieldIndex("craft");
+        int col_airp_last = bagQry.get().FieldIndex("airp_last");
+        map<int, TDateTime> travel_times;
+        TRFISCBag rfisc_bag;
         for(; not bagQry.get().Eof; bagQry.get().Next()) {
-            insQry.get().SetVariable("point_id", bagQry.get().FieldAsInteger(col_point_id));
+            int grp_id = bagQry.get().FieldAsInteger(col_grp_id);
+            TRFISCBag::TGrpIdGroup::iterator rfisc_grp = rfisc_bag.get(grp_id);
+            if(rfisc_grp == rfisc_bag.items.end()) continue;
+
+            int point_id =  bagQry.get().FieldAsInteger(col_point_id);
+            insQry.get().SetVariable("point_id", point_id);
             insQry.get().SetVariable("pr_trfer", bagQry.get().FieldAsInteger(col_pr_trfer));
             insQry.get().SetVariable("trfer_airline", bagQry.get().FieldAsString(col_trfer_airline));
             insQry.get().SetVariable("trfer_suffix", bagQry.get().FieldAsString(col_trfer_suffix));
@@ -6286,10 +6293,26 @@ void get_rfisc_stat(int point_id)
             else
                 insQry.get().SetVariable("trfer_scd", bagQry.get().FieldAsDateTime(col_trfer_scd));
 
-            if(bagQry.get().FieldIsNULL(col_travel_time))
+
+            map<int, TDateTime>::iterator travel_times_idx = travel_times.find(point_id);
+            if(travel_times_idx == travel_times.end()) {
+                pair<map<int, TDateTime>::iterator, bool> ret =
+                    travel_times.insert(
+                            make_pair(point_id,
+                                getTimeTravel(
+                                    bagQry.get().FieldAsString(col_craft),
+                                    bagQry.get().FieldAsString(col_airp),
+                                    bagQry.get().FieldAsString(col_airp_last)
+                                    )
+                                )
+                            );
+                travel_times_idx = ret.first;
+            }
+
+            if(travel_times_idx->second == NoExists)
                 insQry.get().SetVariable("travel_time", FNull);
             else
-                insQry.get().SetVariable("travel_time", bagQry.get().FieldAsDateTime(col_travel_time));
+                insQry.get().SetVariable("travel_time", travel_times_idx->second);
 
             if(bagQry.get().FieldIsNULL(col_time_create))
                 insQry.get().SetVariable("time_create", FNull);
@@ -6336,15 +6359,11 @@ void get_rfisc_stat(int point_id)
                 }
             }
 
-            int grp_id = bagQry.get().FieldAsInteger(col_grp_id);
-
-            TRFISCBag::TRFISCGroup &rfisc_grp = rfisc_bag.get(grp_id);
-
             tagsQry.get().SetVariable("grp_id", grp_id);
             tagsQry.get().SetVariable("bag_num", bagQry.get().FieldAsInteger(col_bag_num));
             tagsQry.get().Execute();
             for(; not tagsQry.get().Eof; tagsQry.get().Next()) {
-                TRFISCBag::TBagInfoList &bag_info = rfisc_grp[bagQry.get().FieldAsString(col_rfisc)];
+                TRFISCBag::TBagInfoList &bag_info = rfisc_grp->second[bagQry.get().FieldAsString(col_rfisc)];
                 TRFISCBag::TBagInfo paid_bag_item;
                 if(not bag_info.empty()) {
                     paid_bag_item = bag_info.back();
@@ -6372,38 +6391,52 @@ void get_rfisc_stat(int point_id)
 
 void nosir_rfisc_stat_point(int point_id)
 {
-   TFlights flightsForLock;
-   flightsForLock.Get( point_id, ftTranzit );
-   flightsForLock.Lock();
+    TFlights flightsForLock;
+    flightsForLock.Get( point_id, ftTranzit );
+    flightsForLock.Lock();
 
-   /* ???
-   {
-     QParams QryParams;
-     QryParams << QParam("point_id", otInteger, point_id);
-     QryParams << QParam("final_collection", otInteger, (int)final_collection);
-     TCachedQuery Qry("UPDATE trip_sets SET pr_stat=:final_collection WHERE point_id=:point_id AND pr_stat=0", QryParams);
-     Qry.get().Execute();
-     if (Qry.get().RowsProcessed()<=0) return; //статистику не собираем
-   };
-   */
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "SELECT count(*) from points where point_id=:point_id AND pr_del=0";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if (Qry.Eof || Qry.FieldAsInteger(0) == 0)
+    {
+        OraSession.Rollback();
+        return;
+    }
 
-   get_rfisc_stat(point_id);
+    bool pr_stat = false;
+    Qry.SQLText = "SELECT pr_stat FROM trip_sets WHERE point_id=:point_id";
+    Qry.Execute();
+    if(not Qry.Eof) pr_stat = Qry.FieldAsInteger(0) != 0;
 
-   TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
+    int count = 0;
+    Qry.SQLText = "select count(*) from rfisc_stat where point_id=:point_id";
+    Qry.Execute();
+    if(not Qry.Eof) count = Qry.FieldAsInteger(0);
+
+    if(pr_stat and count == 0)
+        get_rfisc_stat(point_id);
+
+    OraSession.Commit();
 }
 
 int nosir_rfisc_stat(int argc,char **argv)
 {
+    cout << "start time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
+    list<int> point_ids;
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select point_id from points where act_out is not null and pr_del <> 1";
+    Qry.SQLText = "select point_id from trip_sets";
     Qry.Execute();
+    for(; not Qry.Eof; Qry.Next()) point_ids.push_back(Qry.FieldAsInteger(0));
+    OraSession.Rollback();
+    cout << point_ids.size() << " points to process." << endl;
     int count = 0;
-    for(; not Qry.Eof; Qry.Next(), count++) {
-        int point_id = Qry.FieldAsInteger(0);
-        nosir_rfisc_stat_point(point_id);
-        OraSession.Commit();
+    for(list<int>::iterator i = point_ids.begin(); i != point_ids.end(); i++, count++) {
+        nosir_rfisc_stat_point(*i);
         cout << count << endl;
     }
+    cout << "end time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
     return 0;
 }
 

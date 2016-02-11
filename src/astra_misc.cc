@@ -2015,3 +2015,21 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
   };
 
 };
+
+TDateTime getTimeTravel(const string &craft, const string &airp, const string &airp_last)
+{
+    TCachedQuery Qry(
+    "SELECT time_out_in "
+    "FROM place_calc "
+    "WHERE bc=:bc and cod_out=:airp and cod_in=:airp_last ",
+    QParams()
+    << QParam("bc", otString, craft)
+    << QParam("airp", otString, airp)
+    << QParam("airp_last", otString, airp_last)
+    );
+  Qry.get().Execute();
+  TDateTime result = NoExists;
+  if(!Qry.get().Eof && !Qry.get().FieldIsNULL("time_out_in"))
+      result = Qry.get().FieldAsDateTime("time_out_in");
+  return result;
+}

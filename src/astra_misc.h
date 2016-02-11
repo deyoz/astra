@@ -914,6 +914,8 @@ bool compareLists(const std::list<T> &a, const std::list<T> &b)
     return compareVectors(std::vector<T>(a.begin(), a.end()), std::vector<T>(b.begin(), b.end()));
 }
 
+BASIC::TDateTime getTimeTravel(const std::string &craft, const std::string &airp, const std::string &airp_last);
+
 
 #endif /*_ASTRA_MISC_H_*/
 
