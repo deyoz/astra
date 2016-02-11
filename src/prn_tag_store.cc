@@ -548,14 +548,15 @@ bool test_check_reprint_access()
     for(int i = -400; i <= 400; i+=50)
         times.push_back(NowUTC() + i);
     bool got_reprint_access_err = false;
-    vector<vector<Record>> tables = {
-    	{ { "VKO", "UT", 2, 1},
+    vector<std::pair<vector<Record>, bool>> tables = {
+    	{ {{ "VKO", "UT", 2, 1},
           { "", "UT", 50, 50},
-          {"", "", 0, 0}
+          {"", "", 0, 0}},
+          false
         } 
     };
     for(auto &t :tables)    
-    {   query.set_bd(t);
+    {   query.set_bd(t.first);
 	for(unsigned int i = 0; i<times.size(); i++)
          for(unsigned int j = 0; j<airps.size(); j++)
               for(unsigned int k = 0; k<airlines.size(); k++)
@@ -565,7 +566,7 @@ bool test_check_reprint_access()
                     TPrnTagStore::check_reprint_access(times[i], airps[j], airlines[k]);
                   }
                   catch(UserException &e)
-                  {
+                  {  
                       if (e.getLexemaData().lexema_id == "MSG.REPRINT_ACCESS_ERR")
                          got_reprint_access_err = true;
                       else
@@ -582,7 +583,12 @@ bool test_check_reprint_access()
                       return false;
                   }
                   if(!got_reprint_access_err)
-                  {   if(j >= (unsigned int)final_good_airps)
+                  {   if(!t.second){
+                         ProgError(STDLOG, "Condition of test failed");
+                         std::cout<<"Condition of test failed";   
+			 return false;
+                      }
+                      if(j >= (unsigned int)final_good_airps)
                       { std::cout<<"Test failed: bad airport name "<<airps[j]<<"didnt filtered\n";
 			ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc, test didnt passed, because bad name airp didnt catched");
                         return false;
@@ -591,6 +597,13 @@ bool test_check_reprint_access()
                       { std::cout<<"Test failed: bad airline name "<<airlines[k]<<"didnt filtered\n";
  	                ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc because bad name airline");
                         return false;
+                      }
+                  }
+                  else
+                  { if(t.second){
+                       	 ProgError(STDLOG, "Condition of test failed");                           
+       	       	       	 std::cout<<"Condition of test failed"; 
+                         return false;
                       }
                   }
 
