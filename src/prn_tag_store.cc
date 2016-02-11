@@ -484,8 +484,8 @@ bool test_check_reprint_access()
                 if(x[i].empty()) return i; return ret;
             }
     };
-    TReqInfo::Instance()->desk.grp_id=3542763;
-    TReqInfo::Instance()->desk.term_id=3542763;
+    TReqInfo::Instance()->desk.grp_id=1;
+    TReqInfo::Instance()->desk.term_id=ASTRA::NoExists;
     vector<string> airps = {"ВНК", "ДМД", "VKO", "DME", "", " ", "0000", "000"}; //последнее в принципе допустимое имя аэропорта/авиакомпании должно быть написано до ""
     vector<string>airlines = {"ЮТ", "AU", "", " ", "0000", "000"};
     vector<BASIC::TDateTime> times;
