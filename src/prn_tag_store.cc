@@ -344,8 +344,8 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
 //    return false;
 //}
 
-static inline int check_date_for_reprint(int lower_shift, int upper_shift, BASIC::TDateTime  date_of_flight)
-{     BASIC::TDateTime ret = NowUTC();
+static inline int check_date_for_reprint(int lower_shift, int upper_shift, BASIC::TDateTime  date_of_flight, const string &airp)
+{     BASIC::TDateTime ret = UTCToLocal(NowUTC(), AirpTZRegion(airp));
       int date_diff = ret - date_of_flight;
       if(date_diff > 0 && date_diff > lower_shift)
                 return -1;
@@ -395,7 +395,7 @@ void TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
       if (Qry.FieldAsInteger("priority")<0) throw UserException("MSG.REPRINT_ACCESS_ERR");
       switch(check_date_for_reprint(Qry.FieldAsInteger("lower_shift"),
                                     Qry.FieldAsInteger("upper_shift"),
-                                    date_of_flight))
+                                    date_of_flight, airp_id))
       { case -1:throw UserException("MSG.REPRINT_WRONG_DATE_BEFORE");
         case 1: throw UserException("MSG.REPRINT_WRONG_DATE_AFTER");
       }
@@ -476,6 +476,69 @@ void TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const s
 //    }
 }
 
+bool test_check_reprint_access()
+{   class Void
+    {
+        public: static get_last_good(vector<string>& x)
+            {int ret = 0; for(int i = 0; i<x.size(); i++, ret++)
+                if(x[i].empty()) return i; return ret;
+            }
+    };+
+    TReqInfo::Instance()->desk.grp_id=3542763;
+    TReqInfo::Instance()->term_id=3542763;
+    vector<string> airps = {"ВНК", "ДМД", "VKO", "DME", "", " ", "0000", "000"}; //последнее в принципе допустимое имя аэропорта/авиакомпании должно быть написано до ""
+    vector<string>airlines = {"ЮТ", "AU", "", " ", "0000", "000"};
+    vector<BASIC::TDateTime> times;
+    int final_good_airps = Void::get_last_good(airps);
+    int final_good_airlines = Void::get_last_good(airlines);
+    for(int i = -20; i < 21; i++)
+        times.push_back(NowUTC() + i);
+    for(int i = -400; i <= 400; i+=50)
+        times.push_back(NowUTC() + i);
+    bool got_reprint_access_err = false;
+    for(int i = 0; i<times.size(); i++)
+         for(int j = 0; j<airps.size(); j++)
+              for(int k = 0; k<airlines.size(); k++)
+              {   got_reprint_access_err = false;
+                  try
+                  {
+                    TPrnTagStore::check_reprint_access(i, j, k);
+                  }
+                  catch(UserException &e)
+                  {
+                      if (e.getLexemaData().lexema_id == "MSG.REPRINT_ACCESS_ERR")
+                         got_reprint_access_err = true;
+                      else
+                      if(e.getLexemaData().lexema_id == "MSG.REPRINT_WRONG_DATE_AFTER" || e.getLexemaData().lexema_id == "MSG.REPRINT_WRONG_DATE_BEFORE");
+                      else
+                      {ProgError(STDLOG, "Error while test_check_reprint_access() in prn_tag_store.cc" , "undefined error");
+                       return false;
+                      }
+                  }
+                  catch(...)
+                  {   ProgError(STDLOG, "Error while test_check_reprint_access() in prn_tag_store.cc" , "undefined error");
+                      return false;
+                  }
+                  if(!got_reprint_access_err)
+                  {   if(j >= final_good_airps)
+                      {ProgError(STDLOG, "Error while test_check_reprint_access() in prn_tag_store.cc, test didnt passed, because bad name airp didnt catched" , "undefined error");
+                        return false;
+                      }
+                      if(k >= final_good_airlines)
+                      {ProgError(STDLOG, "Error while test_check_reprint_access() in prn_tag_store.cc because bad name airline" , "test didnt passed");
+                        return false;
+                      }
+                  }
+
+              }
+    return true;
+}
+
+int test_reprint(int argc,char **argv)\
+{
+    test_check_reprint_access();
+    return 1;
+}
 
 void TPrnTagStore::init_bp_tags()
 {
@@ -3136,7 +3199,6 @@ string TPrnTagStore::TO(TFieldParams fp)
     if (rcpt.scd_local_date!=ASTRA::NoExists)
       s << " "
         << DateTimeToStr(rcpt.scd_local_date, "ddmmm", tag_lang.GetLang() != AstraLocale::LANG_RU);
-
     return  s.str();
 }
 
