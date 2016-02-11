@@ -6396,10 +6396,10 @@ void nosir_rfisc_stat_point(int point_id)
     flightsForLock.Lock();
 
     TQuery Qry(&OraSession);
-    Qry.SQLText = "SELECT count(*) from points where point_id=:point_id AND pr_del<>0";
+    Qry.SQLText = "SELECT count(*) from points where point_id=:point_id AND pr_del=0";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
-    if(not Qry.Eof and Qry.FieldAsInteger(0) == 0)
+    if (Qry.Eof || Qry.FieldAsInteger(0) == 0)
     {
         OraSession.Rollback();
         return;
@@ -6423,8 +6423,7 @@ void nosir_rfisc_stat_point(int point_id)
 
 int nosir_rfisc_stat(int argc,char **argv)
 {
-    TPerfTimer tm;
-    tm.Init();
+    cout << "start time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
     list<int> point_ids;
     TQuery Qry(&OraSession);
     Qry.SQLText = "select point_id from trip_sets";
@@ -6437,7 +6436,7 @@ int nosir_rfisc_stat(int argc,char **argv)
         nosir_rfisc_stat_point(*i);
         cout << count << endl;
     }
-    cout << "interval time: " << tm.PrintWithMessage() << endl;
+    cout << "end time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
     return 0;
 }
 
