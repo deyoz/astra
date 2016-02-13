@@ -63,7 +63,7 @@ bool isDisabledRem( const string &rem_code, const string &rem_text )
 
 void TRemGrp::Load(TRemEventType rem_set_type, int point_id)
 {
-    Clear();
+    clear();
     TQuery Qry(&OraSession);
     Qry.SQLText = "select airline from points where point_id = :point_id";
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -75,7 +75,7 @@ void TRemGrp::Load(TRemEventType rem_set_type, int point_id)
 
 void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
 {
-    Clear();
+    clear();
     string event_type;
     switch(rem_set_type) {
         case retBP:
@@ -133,7 +133,7 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
     Qry.CreateVariable("airline", otString, airline);
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next())
-      push_back(Qry.FieldAsString("rem_code"));
+      insert(Qry.FieldAsString("rem_code"));
 }
 
 string GetRemarkStr(const TRemGrp &rem_grp, const vector<CheckIn::TPaxRemItem> &rems, const string &term)
@@ -559,6 +559,177 @@ void SavePaxFQT(int pax_id, const vector<TPaxFQTItem> &fqts)
     FQTQry.Execute();
   };
 };
+
+class TPaxRemOriginItem
+{
+  public:
+    string rem_code;
+    int user_id;
+    string desk;
+    BASIC::TDateTime time_create;
+    TPaxRemOriginItem()
+    {
+      clear();
+    }
+    void clear()
+    {
+      rem_code.clear();
+      user_id=ASTRA::NoExists;
+      desk.clear();
+      time_create=ASTRA::NoExists;
+    }
+    const TPaxRemOriginItem& toDB(TQuery &Qry) const;
+    TPaxRemOriginItem& fromDB(TQuery &Qry);
+};
+
+const TPaxRemOriginItem& TPaxRemOriginItem::toDB(TQuery &Qry) const
+{
+  Qry.SetVariable("rem_code", rem_code);
+  Qry.SetVariable("user_id", user_id);
+  Qry.SetVariable("desk", desk);
+  Qry.SetVariable("time_create", time_create);
+  return *this;
+};
+
+TPaxRemOriginItem& TPaxRemOriginItem::fromDB(TQuery &Qry)
+{
+  clear();
+  rem_code=Qry.FieldAsString("rem_code");
+  user_id=Qry.FieldAsInteger("user_id");
+  desk=Qry.FieldAsString("desk");
+  time_create=Qry.FieldAsDateTime("time_create");
+  return *this;
+};
+
+class TPaxRemOriginList : public std::vector<TPaxRemOriginItem>
+{
+  private:
+    bool modified;
+  public:
+    TPaxRemOriginList() : modified(false) {}
+    void load(int pax_id);
+    void save(int pax_id) const;
+    void add(const multiset<string> &rems, const int &user_id, const string &desk);
+    void del(const multiset<string> &rems, const int &user_id, const string &desk);
+    void clear()
+    {
+      std::vector<TPaxRemOriginItem>::clear();
+      modified=false;
+    }
+};
+
+void TPaxRemOriginList::load(int pax_id)
+{
+  clear();
+  const char* sql=
+    "SELECT * FROM pax_rem_origin WHERE pax_id=:pax_id";
+
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TCachedQuery PaxRemQry(sql, QryParams);
+  PaxRemQry.get().Execute();
+  for(;!PaxRemQry.get().Eof;PaxRemQry.get().Next())
+    push_back(TPaxRemOriginItem().fromDB(PaxRemQry.get()));
+}
+
+void TPaxRemOriginList::save(int pax_id) const
+{
+  if (!modified) return;
+
+  TQuery RemQry(&OraSession);
+  RemQry.Clear();
+  RemQry.SQLText="DELETE FROM pax_rem_origin WHERE pax_id=:pax_id";
+  RemQry.CreateVariable("pax_id", otInteger, pax_id);
+  RemQry.Execute();
+
+  RemQry.SQLText=
+    "INSERT INTO pax_rem_origin(pax_id, rem_code, user_id, desk, time_create) "
+    "VALUES(:pax_id, :rem_code, :user_id, :desk, :time_create)";
+  RemQry.DeclareVariable("rem_code", otString);
+  RemQry.DeclareVariable("user_id", otInteger);
+  RemQry.DeclareVariable("desk", otString);
+  RemQry.DeclareVariable("time_create", otDate);
+  for(TPaxRemOriginList::const_iterator r=begin(); r!=end(); ++r)
+  {
+    r->toDB(RemQry);
+    RemQry.Execute();
+  };
+}
+
+void TPaxRemOriginList::add(const multiset<string> &rems,
+                            const int &user_id,
+                            const string &desk)
+{
+  if (rems.empty()) return;
+  TPaxRemOriginItem item;
+  item.user_id=user_id;
+  item.desk=desk;
+  item.time_create=BASIC::NowUTC();
+  for(multiset<string>::const_iterator i=rems.begin(); i!=rems.end(); ++i)
+  {
+    item.rem_code=*i;
+    push_back(item);
+    modified=true;
+  }
+}
+
+void TPaxRemOriginList::del(const multiset<string> &rems,
+                            const int &user_id,
+                            const string &desk)
+{
+  if (rems.empty()) return;
+  for(multiset<string>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
+  {
+    for(int pass=0; pass<3; pass++)
+    {
+      TPaxRemOriginList::iterator j=end();
+      for(TPaxRemOriginList::iterator i=begin(); i!=end(); ++i)
+      {
+        if (i->rem_code!=*r) continue;
+        if (pass==0 && (i->user_id!=user_id || i->desk!=desk)) continue; //1 проход - совпадение пользователя и пульта
+        if (pass==1 && i->user_id!=user_id) continue;                    //2 проход - совпадение пользователя
+                                                                         //3 проход - просто удаление последней введенной
+        if (j==end() || j->time_create<i->time_create) j=i;
+      }
+      if (j!=end())
+      {
+        erase(j);
+        modified=true;
+        break;
+      };
+    }
+  }
+}
+
+void SyncPaxRemOrigin(const TRemGrp &rem_grp,
+                      const int &pax_id,
+                      const vector<TPaxRemItem> &prior_rems,
+                      const vector<TPaxRemItem> &curr_rems,
+                      const int &user_id,
+                      const string &desk)
+{
+  multiset<string> prior_rems_filtered, curr_rems_filtered, added, deleted;
+  for(vector<TPaxRemItem>::const_iterator i=prior_rems.begin(); i!=prior_rems.end(); ++i)
+    if (rem_grp.exists(i->code)) prior_rems_filtered.insert(i->code);
+  for(vector<TPaxRemItem>::const_iterator i=curr_rems.begin(); i!=curr_rems.end(); ++i)
+    if (rem_grp.exists(i->code)) curr_rems_filtered.insert(i->code);
+
+  set_difference(prior_rems_filtered.begin(), prior_rems_filtered.end(),
+                 curr_rems_filtered.begin(), curr_rems_filtered.end(),
+                 inserter(deleted, deleted.end()));
+
+  set_difference(curr_rems_filtered.begin(), curr_rems_filtered.end(),
+                 prior_rems_filtered.begin(), prior_rems_filtered.end(),
+                 inserter(added, added.end()));
+
+  if (deleted.empty() && added.empty()) return;
+
+  TPaxRemOriginList rems_origin;
+  rems_origin.load(pax_id);
+  rems_origin.del(deleted, user_id, desk);
+  rems_origin.add(added, user_id, desk);
+  rems_origin.save(pax_id);
+}
 
 }; //namespace CheckIn
 

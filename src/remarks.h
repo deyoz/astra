@@ -27,15 +27,12 @@ enum TRemEventType {
     retSERVICE_STAT
 };
 
-struct TRemGrp:public std::vector<std::string> { // !!!
-    private:
-        bool any;
-    public:
-        TRemGrp(): any(false) {};
-        bool exists (const std::string &rem) const { return any or find(begin(), end(), rem) != end(); }
-        void Load(TRemEventType rem_set_type, int point_id);
-        void Load(TRemEventType rem_set_type, const std::string &airline);
-        void Clear() { clear(); any = false; };
+class TRemGrp : public std::set<std::string>
+{
+  public:
+    bool exists (const std::string &rem) const { return find(rem) != end(); }
+    void Load(TRemEventType rem_set_type, int point_id);
+    void Load(TRemEventType rem_set_type, const std::string &airline);
 };
 
 namespace CheckIn
@@ -175,6 +172,13 @@ void SavePaxRem(int pax_id, const std::vector<TPaxRemItem> &rems);
 void SavePaxFQT(int pax_id, const std::vector<TPaxFQTItem> &fqts);
 
 bool SyncPaxASVC(int id, bool is_grp_id);
+
+void SyncPaxRemOrigin(const TRemGrp &rem_grp,
+                      const int &pax_id,
+                      const std::vector<TPaxRemItem> &prior_rems,
+                      const std::vector<TPaxRemItem> &curr_rems,
+                      const int &user_id,
+                      const std::string &desk);
 
 };
 
