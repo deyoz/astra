@@ -69,6 +69,9 @@ public:
      // Сообщение о любой ошибке в Астру (например, после неудачной печати)
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::ClientError);
      AddEvent("ClientError",evHandle);
+     // Подтверждение оплаты
+     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::PaymentStatus);
+     AddEvent("PaymentStatus",evHandle);
 
      //Система Меридиан
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::GetFlightInfo);
@@ -92,6 +95,7 @@ public:
   void AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RemoveProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
 
   void GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

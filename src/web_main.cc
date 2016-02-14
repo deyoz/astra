@@ -2984,6 +2984,74 @@ void WebRequestsIface::ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   NewTextChild(resNode, "ClientError");
 };
 
+void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+
+  const char* pax_sql=
+    "SELECT pax_grp.point_dep, pax_grp.grp_id, "
+    "       pax.surname, pax.name, pax.pers_type, pax.reg_no "
+    "FROM pax_grp, pax "
+    "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id";
+
+  const char* crs_pax_sql=
+    "SELECT tlg_binding.point_id_spp AS point_dep, NULL AS grp_id, "
+    "       crs_pax.surname, crs_pax.name, crs_pax.pers_type, NULL AS reg_no "
+    "FROM crs_pax, crs_pnr, tlg_binding "
+    "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
+    "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "      crs_pax.pax_id=:pax_id";
+
+  TQuery Qry(&OraSession);
+  Qry.DeclareVariable("pax_id", otInteger);
+
+  TLogLocale msg;
+  msg.ev_type=ASTRA::evtPax;
+  msg.lexema_id = "EVT.PASSENGER_DATA";
+
+  xmlNodePtr paxNode=GetNode("passengers", reqNode);
+  if (paxNode!=NULL) paxNode=paxNode->children;
+  for(; paxNode!=NULL; paxNode=paxNode->next)
+  {
+    xmlNodePtr node2=paxNode->children;
+    int crs_pax_id=NodeAsIntegerFast("crs_pax_id", node2);
+    string status=NodeAsStringFast("status", node2);
+    if (!(status=="PAID" ||
+          status=="NOT_PAID"))
+      throw EXCEPTIONS::Exception("%s: wrong payment status '%s'", __FUNCTION__, status.c_str());
+
+    Qry.SetVariable("pax_id", crs_pax_id);
+    for(int pass=0; pass<2; pass++)
+    {
+      Qry.SQLText=(pass==0?pax_sql:crs_pax_sql);
+      Qry.Execute();
+      if (Qry.Eof) continue;
+      msg.id1=Qry.FieldAsInteger("point_dep");
+      msg.id2=Qry.FieldIsNULL("reg_no")?NoExists:
+                                        Qry.FieldAsInteger("reg_no");
+      msg.id3=Qry.FieldIsNULL("grp_id")?NoExists:
+                                        Qry.FieldAsInteger("grp_id");
+      string full_name=Qry.FieldAsString("surname");
+      if (!Qry.FieldIsNULL("name"))
+      {
+        full_name+=" ";
+        full_name+=Qry.FieldAsString("name");
+      };
+      string pers_type=Qry.FieldAsString("pers_type");
+
+      msg.prms.clearPrms();
+      msg.prms << PrmSmpl<string>("pax_name", full_name)
+               << PrmElem<string>("pers_type", etPersType, pers_type)
+               << PrmLexema("param", "EVT.PAYMENT_SYSTEM_STATUS_" + status);
+
+      TReqInfo::Instance()->LocaleToLog(msg);
+      break;
+    };
+  }
+  NewTextChild( resNode, "PaymentStatus" );
+};
+
 void RevertWebResDoc()
 {
   ProgTrace(TRACE5, "%s started", __FUNCTION__);
