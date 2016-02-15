@@ -288,14 +288,12 @@ TPrnTagStore::TPrnTagStore(bool apr_lat):
     prn_test_tags.Init();
 }
 
-TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
-    scan(ascan),
-    time_print(NowUTC()),
-    prn_tag_props(dotPrnBP)
-{
-    scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
+
+void TPrnTagStore::check_scancode_with_options_in_reprint_access_table(const string &ascan, boost::shared_ptr<BCBPSections> scan_data)
+{   if(scan_data == NULL)
+       scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
     try {
-        BCBPSections::get(scan, 0, scan.size(), *scan_data);
+        BCBPSections::get(ascan, 0, ascan.size(), *scan_data);
     } catch(const Exception &E) {
         LogError(STDLOG) << "barcode parse error: " << E.what();
         throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
@@ -324,23 +322,31 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
                 date_of_flight=d;
     };
 
-    if(!check_reprint_access(date_of_flight, scan_data->from_city_airport(0), scan_data->operating_carrier_designator(0)))
-        throw UserException("MSG.REPRINT_ACCESS_ERR");
+    check_reprint_access(date_of_flight, scan_data->from_city_airport(0), scan_data->operating_carrier_designator(0));
+}
 
+TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
+    scan(ascan),
+    time_print(NowUTC()),
+    prn_tag_props(dotPrnBP)
+{   scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
+    check_scancode_with_options_in_reprint_access_table(ascan, scan_data);
     print_mode = 0;
     tag_lang.Init(apr_lat);
     init_bp_tags();
 }
 
-static inline bool if_only_one_non_empty(const std::string& a, const std::string& b)
-{
-    if(a.empty() && !b.empty()) return true;
-    if(!b.empty() && a.empty()) return true;
-    return false;
-}
+static inline int check_date_for_reprint(int lower_shift, int upper_shift, BASIC::TDateTime  date_of_flight, const string &airp)
+{     string region;
+      try{
+      region=AirpTZRegion(airp);
+      }
+      catch(Exception& e)
+      { throw UserException("MSG.REPRINT_ACCESS_ERR");
+      }
 
-static inline int check_date_for_reprint(int lower_shift, int upper_shift, BASIC::TDateTime  date_of_flight)
-{     BASIC::TDateTime ret = NowUTC();
+      BASIC::TDateTime ret = UTCToLocal(NowUTC(), region);
+      modf(ret, &ret);
       int date_diff = ret - date_of_flight;
       if(date_diff > 0 && date_diff > lower_shift)
                 return -1;
@@ -350,100 +356,362 @@ static inline int check_date_for_reprint(int lower_shift, int upper_shift, BASIC
 }
 
 
-bool TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const string &airp, const string &airline)
-{   TElemFmt fmt;
+void TPrnTagStore::check_reprint_access(BASIC::TDateTime date_of_flight, const string &airp, const string &airline)
+{
+    ProgTrace(TRACE5, "%s started", __FUNCTION__);
+    TElemFmt fmt;
     string airp_id = ElemToElemId(etAirp, airp, fmt);
-    if(fmt == efmtUnknown)
-    airp_id = airp;
+    if (fmt == efmtUnknown) airp_id = airp;
     string airline_id = ElemToElemId(etAirline, airline, fmt);
-    if (fmt==efmtUnknown)
-    airline_id = airline;
-    if(airp_id.empty() || airline_id.empty()) return false;
-    struct Reprint_options
-    {   string desk, airline, airp;
-        int lower_shift, upper_shift, desk_grp;
-    };
-    TQuery Qry(&OraSession);
+    if (fmt == efmtUnknown) airline_id = airline;
+    if(airp_id.empty() || airline_id.empty()) throw UserException("MSG.REPRINT_ACCESS_ERR");
+
     TReqInfo *reqInfo = TReqInfo::Instance();
-    std::string desk = reqInfo->desk.code;
-    int desk_grp = reqInfo->desk.grp_id;
+    TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select "
-        "   desk, desk_grp, airline, airp, lower_shift, upper_shift "
-        "from "
-        "   bcbp_reprint_options "
-        "where "
-        "   (desk = :desk and desk_grp = :desk_grp) or ( desk = :desk and desk_grp is null) or (desk_grp = :desk_grp and desk is null)";
-    Qry.CreateVariable("desk", otString, desk);
-    Qry.CreateVariable("desk_grp", otInteger, desk_grp);
+      "SELECT lower_shift, upper_shift, "
+      "       DECODE(airline,NULL,0,:airline,2,-100)+ "
+      "       DECODE(airp,NULL,0,:airp,1,-100) AS priority "
+      "FROM bcbp_reprint_options "
+      "WHERE desk_grp=:desk_grp AND "
+      "      (desk IS NULL OR desk=:desk) "
+      "ORDER BY desk NULLS LAST, priority DESC ";
+    Qry.CreateVariable("desk_grp", otInteger, reqInfo->desk.grp_id);
+    Qry.CreateVariable("desk", otString, reqInfo->desk.code);
+    Qry.CreateVariable("airline", otString, airline_id);
+    Qry.CreateVariable("airp", otString, airp_id);
     Qry.Execute();
-    Reprint_options rep_opts, temp;
-    Reprint_options* found_opt = 0;
-    int count_wrong_airp = 0, count_wrong_airline = 0,count_wrong_airp_in_grp_field = 0, count_wrong_airline_in_grp_field = 0;
-    int counter = 0;
-    bool airport_err_in_priority = false;
-    for(; not Qry.Eof; Qry.Next(), counter++)
-    {    temp.desk = Qry.FieldAsString("desk");
-         temp.airline =  Qry.FieldAsString("airline");
-         temp.airp = Qry.FieldAsString("airp");
-         temp.lower_shift = Qry.FieldAsInteger("lower_shift");
-         temp.upper_shift = Qry.FieldAsInteger("upper_shift");
-         temp.desk_grp = Qry.FieldAsInteger("desk_grp");
-         if(temp.airline != airline_id && !temp.airline.empty())
-         {   if(temp.desk_grp == desk_grp)
-              count_wrong_airline_in_grp_field++;
-             else count_wrong_airline++; 
-             continue;
-         } 
-         if(temp.airp != airp_id && !temp.airp.empty())
-         {    if(temp.desk_grp == desk_grp)
-                 count_wrong_airp_in_grp_field++;
-              else  count_wrong_airp++;
-              if(temp.airline == airline_id || temp.airline.empty())
-                  airport_err_in_priority = true;
-              continue;
+
+    if (!Qry.Eof)
+    {
+      if (Qry.FieldAsInteger("priority")<0) throw UserException("MSG.REPRINT_ACCESS_ERR");
+      switch(check_date_for_reprint(Qry.FieldAsInteger("lower_shift"),
+                                    Qry.FieldAsInteger("upper_shift"),
+                                    date_of_flight, airp_id))
+      { case -1:throw UserException("MSG.REPRINT_WRONG_DATE_BEFORE");
+        case  1:throw UserException("MSG.REPRINT_WRONG_DATE_AFTER");
+      }
+    }
+}
+
+
+
+
+bool test_check_reprint_access()
+{   std::cout<<"Started Test check_reprint_access()...\n";
+     struct Record
+            { int grp;
+          string desk, airp, airline;
+              int lower_shift, upper_shift;
+              string str()
+              { return string(" with airp: ") + airp + " airline: " +  airline  + " days before: " +
+                     std::to_string(lower_shift) + " days after: " +  std::to_string(upper_shift)  + " kiosk: " + desk + " kiosk group: " + std::to_string(grp)  + "\n";
+              }
+            };
+    struct TestRecord
+    {
+
+              int grp;
+              string desk, airp, airline;
+              int _time;
+              string err;
+              /*string str()
+              { return string(" with airp: ") + airp + " airline: " +  airline  + " days before: " +
+                     std::to_string(lower_shift) + " days after: " +  std::to_string(upper_shift)  + " kiosk: " + desk + " kiosk group: " + std::to_string(grp)  + "\n";
+              }*/
+
+              TDateTime time(){
+                TElemFmt fmt;
+                string airp_id = ElemToElemId(etAirp, airp, fmt); ;
+                TDateTime t ;
+                try{
+                   t = UTCToLocal(NowUTC(), AirpTZRegion(airp_id, false)) + _time;
+                }
+                catch(...)
+                {  t = NowUTC() + _time;
+                }
+        modf(t, &t) ;
+                return t;
+              }
+
+   };
+    class Void
+    {
+        public:
+            static int get_last_good(vector<string>& x)
+            {int ret = 0; for(unsigned int i = 0; i<x.size(); i++, ret++)
+                if(x[i].empty()) return i; return ret;
+            }
+           vector<Record> table;
+           void set_bd(vector<Record>& new_table)
+           {    std::cout<<"clear() start\n";
+                std::cout.flush();
+
+                clear();
+                std::cout<<"clear() end\n";
+                std::cout.flush();
+                table = new_table;
+                TElemFmt fmt;
+                TQuery Qry(&OraSession);
+        for(auto &i : table)
+                {  Qry.SQLText =
+              " INSERT INTO bcbp_reprint_options (id, desk_grp, desk, airline, airp, upper_shift, lower_shift) "
+           " VALUES(id__seq.nextval, :desk_grp, :desk, :airline, :airp, :upper_shift, :lower_shift) " ;
+            Qry.CreateVariable("desk_grp", otInteger, i.grp);
+            Qry.CreateVariable("desk", otString, i.desk);
+            Qry.CreateVariable("airline", otString, ElemToElemId(etAirline, i.airline, fmt));
+            Qry.CreateVariable("airp", otString, ElemToElemId(etAirp, i.airp, fmt));
+                    Qry.CreateVariable("upper_shift", otInteger, i.upper_shift);
+                    Qry.CreateVariable("lower_shift", otInteger, i.lower_shift);
+            Qry.Execute();
+                    Qry.Clear();
+              }
+              std::cout<<"set bd end\n";
+              std::cout.flush();
+           }
+
+           void clear()
+           {
+               std::cout<<"start session()\n";
+               std::cout.flush();
+
+           TQuery Qry(&OraSession);
+               std::cout<<"set text\n";
+               std::cout.flush();
+
+               Qry.SQLText =
+                   "DELETE FROM  bcbp_reprint_options  ";
+                    Qry.Execute();
+            std::cout<<"execute\n";
+               std::cout.flush();
+
+                    Qry.Clear();
+        std::cout<<"Qry.Clear()\n";
+              std::cout.flush();
+
+       }
+          // ~Void(){clear(); OraSession.Rollback();};
+
+           int grp_id;
+           string desk_code;
+
+//	   Void(string _code, int _id) : grp_id(_id), desk_code(_code) {}
+    };
+    std::cout<<"Init...\n"; std::cout.flush();
+    Void query;
+   // TReqInfo::Instance()->desk.grp_id=query.grp_id;
+    //TReqInfo::Instance()->desk.code=query.desk_code;
+    vector<string> airps = {"VKO", "DME", "", " ", "0000", "000"}; //последнее в принципе допустимое имя аэропорта/авиакомпании должно быть написано до ""
+    vector<string>airlines = {"AU", "", " ", "0000", "000"};
+    vector<int> grps = {1};
+    vector<string> desks = {"KIOSKB"};
+    vector<BASIC::TDateTime> times;
+//    int final_good_airps = Void::get_last_good(airps);
+//    int final_good_airlines = Void::get_last_good(airlines);
+//    int final_good_grps = 2;
+//    int final_good_desks = Void::get_last_good(desks);
+
+
+    for(int i = -20; i < 21; i++)
+        times.push_back(NowUTC() + i);
+    for(int i = -400; i <= 400; i+=50)
+        times.push_back(NowUTC() + i);
+    bool got_reprint_access_err = false;
+
+    vector<pair<vector<Record>, vector<TestRecord> > > tables =
+    {	{ {{ 1, "KIOSKB",  "VKO", "UT", 250, 1},
+           { 1, "KIOSKB",  "", "UT", 50, 50},
+           { 1, "KIOSKB", "VKO", "CX", 1, 1},
+           { 1, "KIOSKB", "DME", "", 0, 0}
+          },
+          {{ 1, "KIOSKB",  "ZZA", "UT", +0, "wrong airp"},
+           { 1, "KIOSKB",  "VKO", "ZZA", +0, "wrong airline"},
+       { 1, "KIOSKB",  "ZZA", "ZZA", +0, "wrong airp and airline"},
+           { 1, "KIOSKB",  "DME", "ZZA", +0, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -5, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -300, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", +300, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", -4, ""},
+           { 1, "KIOSKB",  "VKO", "UT", +50, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", +1, ""},
+           { 1, "KIOSKB",  "VKO", "UT", +0, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -300, "Time"},
+           { 1, "KIOSKB",  "DME", "UT", -5, ""},
+           { 1, "KIOSKB",  "DME", "UT", +0, ""},
+       { 1, "KIOSKB",  "DME", "UT", +0, ""},
+           { 1, "KIOSKB",  "DME", "CX", -51, "Time"},
+           { 1, "KIOSKB",  "DME", "UT", +10, ""},
+           { 1, "KIOSKB",  "VKO", "CX", +0, ""},
+           { 1, "KIOSKB",  "VKO", "YC", -300, "Time"},
+           { 1, "KIOSKB",  "VKO", "CX", +1, ""},
+           { 1, "KIOSKB",  "DME", "CX", +0, ""},
+           { 1, "KIOSKB",  "DME", "YC", +2, "Time"},
+           { 1, "KIOSKB",  "DME", "YC", +1, "Time"},
+           { 1, "KIOSKB",  "DME", "CX", +1, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", -5, ""}},
+           //{ 1, "KIOSKB",  "", "UT", -10,  "bad data: airport cant be null inside the ticket"},
+           //{ 1, "KIOSKB",  "", "", 0, "bad data: airline cant be null inside the ticket"}},
+         },
+
+         { {},
+
+       {{ 1, "KIOSKB",  "VKO", "UT", -5, ""},
+           { 9000, "K",  "VKO", "UT", -300, ""}, //wrong kiosk and kiosk_group
+           { 1, "KIOSKB",  "ZZA", "UT", +300, ""}, //unexisted airport
+           { 1, "KIOSKB",  "VKO", "ZZA", -4, ""}, //unexisted airline
+           { 1, "KIOSKB",  "ZZA", "ZZA", +50, ""}, //unexisted airp airline
+           { 1, "KIOSKB",  "VKO", "UT", +1, ""},
+           { 1, "KIOSKB",  "VKO", "UT", +0, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -300, ""},
+           { 1, "KIOSKB",  "DME", "UT", -5, ""},
+           { 1, "KIOSKB",  "DME", "UT", +0, ""},
+           { 1, "KIOSKB",  "DME", "UT", +0, ""},
+           { 1, "KIOSKB",  "DME", "CX", -51, ""},
+           { 1, "KIOSKB",  "DME", "UT", +10, ""},
+           { 1, "KIOSKB",  "VKO", "CX", +0, ""},
+           { 1, "KIOSKB",  "VKO", "YC", -300, ""},
+           { 1, "KIOSKB",  "VKO", "CX", +1, ""},
+           { 1, "KIOSKB",  "DME", "CX", +0, ""},
+           { 1, "KIOSKB",  "DME", "YC", +2, ""},
+           { 1, "KIOSKB",  "DME", "YC", +1, ""},
+           { 1, "KIOSKB",  "DME", "CX", +1, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -5, ""}}
+         },
+
+         { {{ 1, "",  "VKO", "UT", 250, 1},
+           { 1, "KIOSKB",  "", "UT", 50, 50},
+           { 1, "KIOSKB", "VKO", "CX", 1, 1},
+           { 1, "KIOSKB", "DME", "", 0, 0}
+          },
+          {{ 1, "K",  "VKO", "UT", -5,  ""},
+           { 1, "K",  "VKO", "UT", +2, "Time"},
+           { 1, "K",  "DME", "UT", +0, "Airp"},
+           { 1,	"K",  "VKO", "UT", +0, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -300, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", +300, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", -51, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", +50, ""},
+           { 1, "KIOSKB",  "VKO", "UT", +51, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", +0, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -300, "Time"},
+           { 1, "KIOSKB",  "DME", "UT", -5, ""},
+           { 1, "KIOSKB",  "DME", "UT", +0, ""},
+           { 1, "KIOSKB",  "DME", "UT", +0, ""},
+           { 1, "KIOSKB",  "DME", "CX", -51, "Time"},
+           { 1, "KIOSKB",  "DME", "UT", +10, ""},
+           { 1, "KIOSKB",  "VKO", "CX", +0, ""},
+           { 1, "KIOSKB",  "VKO", "YC", -300, "Time"},
+           { 1, "KIOSKB",  "VKO", "CX", +1, ""},
+           { 1, "KIOSKB",  "DME", "CX", +0, ""},
+           { 1, "KIOSKB",  "DME", "YC", +2, "Time"},
+           { 1, "KIOSKB",  "DME", "YC", +1, "Time"},
+           { 1, "KIOSKB",  "DME", "CX", +1, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", -5, ""}},
          }
 
-         if(found_opt)
-         { if(temp.desk.empty() && !found_opt->desk.empty()) continue;
-           if(!if_only_one_non_empty(temp.desk, found_opt->desk) && temp.desk_grp != found_opt->desk_grp)
-           { if(if_only_one_non_empty(found_opt->airp, found_opt->airline) &&
-                   if_only_one_non_empty(temp.airp, temp.airline) &&
-                        if_only_one_non_empty(found_opt->airp, temp.airp))
-             {
-                if(!check_date_for_reprint(found_opt->lower_shift, found_opt->upper_shift, date_of_flight)) //0 -- репринт можно печатать
-                   continue;
-             }
-             else
-             {  if(!found_opt->airp.empty() && temp.airp.empty()) continue;
-                if(!found_opt->airline.empty() && temp.airline.empty()) continue;
-             }
-           }
-           else
-           {    if(!found_opt->desk.empty() && !found_opt->desk_grp)
-                  continue;
-           }
-         }
-         rep_opts = temp;
-         found_opt = &rep_opts;
-    }
-    if(counter == 0) return true;
-    if(!found_opt)
-    {    if(!airport_err_in_priority && count_wrong_airline) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
-         if(count_wrong_airp) throw UserException("MSG.REPRINT_WRONG_AIRP");
-         if(count_wrong_airline_in_grp_field) throw UserException("MSG.REPRINT_WRONG_AIRLINE");
-         if(count_wrong_airp_in_grp_field) throw UserException("MSG.REPRINT_WRONG_AIRP");
-         return true; 
-    }    
+    };
+    std::cout<<"Run...\n"; std::cout.flush();
+    string exception_err_str;
+    for(auto &t :tables)
+    {   query.set_bd(t.first);
+       for(auto &i : t.second)
+              {
+        got_reprint_access_err = false;
+                  try
+                  { TReqInfo::Instance()->desk.grp_id=i.grp;
+            TReqInfo::Instance()->desk.code=i.desk;
+                    std::cout << BASIC::DateTimeToStr(i.time(), "dd.mm.yy hh:nn", true) << std::endl;
+                    TPrnTagStore::check_reprint_access(i.time(), i.airp, i.airline);
+                  }
+                  catch(UserException &e)
+                  {   exception_err_str = e.what();
+                      if (e.getLexemaData().lexema_id == "MSG.REPRINT_ACCESS_ERR")
+                         got_reprint_access_err = true;
+                      else
+                      if(e.getLexemaData().lexema_id == "MSG.REPRINT_WRONG_DATE_AFTER" || e.getLexemaData().lexema_id == "MSG.REPRINT_WRONG_DATE_BEFORE")  got_reprint_access_err = true;
+                      else
+                      {std::cout<<"Test failed: err with wrong description\n";
+               ProgError(STDLOG, "Undefined error while test_check_reprint_access() in prn_tag_store.cc");
+                       return false;
+                      }
+                  }
+                  catch(std::exception &e)
+                  {   exception_err_str = e.what();
+                      //std::cout << "Test failed: " << e.what() << "\n";
+                      got_reprint_access_err = true;
 
-    switch(check_date_for_reprint(found_opt->lower_shift , found_opt->upper_shift, date_of_flight))
-    { case -1:throw UserException("MSG.REPRINT_WRONG_DATE_BEFORE");
-      case 1: throw UserException("MSG.REPRINT_WRONG_DATE_AFTER");
+                  }
+                  catch(...)
+                  {   std::cout<<"Test failed: uknown err\n";
+              ProgError(STDLOG, "Undefined error while test_check_reprint_access() in prn_tag_store.cc");
+                      return false;
+                  }
+                  if(!got_reprint_access_err)
+                  {   if(!i.err.empty()){
+                         string err = string("Condition of test failed, waited ")  + i.err  + "\n with airp = "
+                + i.airp
+                           + " airline = " + i.airline + " time " +
+                                 BASIC::DateTimeToStr(i.time(), "dd.mm.yy", true) +  " kiosk " + i.desk + " kiosk group " + std::to_string(i.grp) + "\n"
+            ;
+                         err+= "\nException message: "  + exception_err_str +  " \n";
+                         err+="for table {\n";
+                           for(auto &z: t.first)
+                             err+="\t\t" + z.str() + "\n";
+                         err+="}\n";
+                         ProgError(STDLOG, err.c_str());
+                         std::cout<<err;
+             return false;
+                      }
+                      /*if(i.airp >= (unsigned int)final_good_airps)
+                      { std::cout<<"Test failed: bad airport name "<<airps[iairp]<<"didnt filtered\n";
+            ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc, test didnt passed, because bad name airp didnt catched");
+                        return false;
+                      }
+                      if(iairline >= (unsigned int)final_good_airlines)
+                      { std::cout<<"Test failed: bad airline name "<<airlines[iairline]<<"didnt filtered\n";
+                    ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc because bad name airline ");
+                        return false;
+                      }
+              if(igrp >= (unsigned int)final_good_grps)
+                      { std::cout<<"Test failed: bad grp_name "<<grps[igrp]<<"didnt filtered\n";
+                        ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc because bad name grp ");
+                        return false;
+                      }
+              if(idesk >= (unsigned int)final_good_desks)
+                      { std::cout<<"Test failed: bad grp_name "<<desks[idesk]<<"didnt filtered\n";
+                        ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc because bad name desk" );
+                        return false;
+                      }*/
+
+                  }
+                  else
+                  { if(i.err.empty()){
+                         string err = string("Condition of test failed in test with airp = ") + i.airp
+                           + " airline = " + i.airline + " time " +
+                 BASIC::DateTimeToStr(i.time(), "dd.mm.yy", true) +  " kiosk " + i.desk + " kiosk group " + std::to_string(i.grp) +
+                        "\nException message: "  + exception_err_str +  " \n"  +
+            " in table: {\n";
+                         for(auto &z: t.first)
+                     err+="\t\t" + z.str() + "\n";
+                         err += "}\n";
+                         ProgError(STDLOG, err.c_str());
+                         std::cout<<err;
+                         return false;
+                      }
+                  }
+                  exception_err_str = "";
+
+              }
     }
-    ProgTrace(TRACE5, __FUNCTION__);
+    std::cout<<"Test passed\n";
     return true;
 }
 
+int test_reprint(int argc,char **argv)\
+{
+    test_check_reprint_access();
+    return 1;
+}
 
 void TPrnTagStore::init_bp_tags()
 {
@@ -1155,20 +1423,20 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
           if(Qry.Eof)
               throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
           airp_dep = Qry.FieldAsString("airp_dep");
-          
+
           TTripRouteItem next;
           TTripRoute().GetNextAirp(NoExists,point_dep,trtNotCancelled,next);
           if (next.point_id==NoExists || next.airp.empty())
             throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
           point_arv = next.point_id;
           airp_arv = next.airp;
-        
+
           Qry.Clear();
           Qry.SQLText =
             "SELECT cls_grp.id AS class_grp "
             "FROM test_pax, subcls, cls_grp "
-	          "WHERE test_pax.subclass=subcls.code AND "
-	          "      subcls.class=cls_grp.class AND "
+              "WHERE test_pax.subclass=subcls.code AND "
+              "      subcls.class=cls_grp.class AND "
             "      cls_grp.airline IS NULL AND cls_grp.airp IS NULL AND "
             "      test_pax.id=:pax_id";
           Qry.CreateVariable("pax_id", otInteger, apax_id);
@@ -1981,9 +2249,12 @@ string TPrnTagStore::CHD(TFieldParams fp)
 
 string TPrnTagStore::HALL(TFieldParams fp)
 {
-    ostringstream result;
-    result << tag_lang.ElemIdToTagElem(etHall, grpInfo.hall, efmtNameLong);
-    return result.str();
+    if(scan_data == NULL) {
+        ostringstream result;
+        result << tag_lang.ElemIdToTagElem(etHall, grpInfo.hall, efmtNameLong);
+        return result.str();
+    } else
+        return string();
 }
 
 string TPrnTagStore::INF(TFieldParams fp)
@@ -3094,7 +3365,6 @@ string TPrnTagStore::TO(TFieldParams fp)
     if (rcpt.scd_local_date!=ASTRA::NoExists)
       s << " "
         << DateTimeToStr(rcpt.scd_local_date, "ddmmm", tag_lang.GetLang() != AstraLocale::LANG_RU);
-
     return  s.str();
 }
 

@@ -43,6 +43,7 @@ int points_dst_format(int argc,char **argv);
 int nosir_tscript(int argc, char** argv);
 int tz2db(int argc,char **argv);
 int verifyHTTP(int argc,char **argv);
+int test_reprint(int argc,char **argv);
 
 const
   struct {
@@ -90,6 +91,7 @@ const
     {"-http",                   verifyHTTP,             NULL,                       NULL},
     {"-bcbp",                   AstraWeb::bcbp_test,    NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
+    {"-test_reprint",           test_reprint,    NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
