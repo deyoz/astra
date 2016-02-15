@@ -345,7 +345,15 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
 //}
 
 static inline int check_date_for_reprint(int lower_shift, int upper_shift, BASIC::TDateTime  date_of_flight, const string &airp)
-{     BASIC::TDateTime ret = UTCToLocal(NowUTC(), AirpTZRegion(airp));
+{     string region;
+      try{
+      region=AirpTZRegion(airp);
+      }
+      catch(Exception& e)
+      { throw UserException("MSG.REPRINT_ACCESS_ERR");
+      }
+      
+      BASIC::TDateTime ret = UTCToLocal(NowUTC(), AirpTZRegion(airp));
       modf(ret, &ret);
       int date_diff = ret - date_of_flight;
       cout<<"\n"<<"airp: "<<airp;
@@ -510,8 +518,14 @@ bool test_check_reprint_access()
          
               TDateTime time(){
                 TElemFmt fmt;
-                string airp_id = ElemToElemId(etAirp, airp, fmt); 
-                TDateTime t = UTCToLocal(NowUTC(), AirpTZRegion(airp_id)) + _time;
+                string airp_id = ElemToElemId(etAirp, airp, fmt); ;
+                TDateTime t ;
+                try{
+                   t = UTCToLocal(NowUTC(), AirpTZRegion(airp_id, false)) + _time;
+                }
+                catch(...)
+                {  t = NowUTC() + _time;
+                }  
 		modf(t, &t) ;
                 return t;
               }
@@ -609,6 +623,7 @@ bool test_check_reprint_access()
           {{ 1, "KIOSKB",  "ZZA", "UT", +0, "wrong airp"},
            { 1, "KIOSKB",  "VKO", "ZZA", +0, "wrong airline"},
    	   { 1, "KIOSKB",  "ZZA", "ZZA", +0, "wrong airp and airline"},
+           { 1, "KIOSKB",  "DME", "ZZA", +0, ""},
            { 1, "KIOSKB",  "VKO", "UT", -5, ""},
            { 1, "KIOSKB",  "VKO", "UT", -300, "Time"}, 
            { 1, "KIOSKB",  "VKO", "UT", +300, "Time"},
@@ -638,9 +653,9 @@ bool test_check_reprint_access()
            
 	   {{ 1, "KIOSKB",  "VKO", "UT", -5, ""},
            { 9000, "K",  "VKO", "UT", -300, ""}, //wrong kiosk and kiosk_group
-           { 1, "KIOSKB",  "ZZA", "UT", +300, "Wrong airport"}, //unexisted airport
+           { 1, "KIOSKB",  "ZZA", "UT", +300, ""}, //unexisted airport
            { 1, "KIOSKB",  "VKO", "ZZA", -4, ""}, //unexisted airline
-           { 1, "KIOSKB",  "ZZA", "ZZA", +50, "Wrong airp and airline"}, //unexisted airp airline
+           { 1, "KIOSKB",  "ZZA", "ZZA", +50, ""}, //unexisted airp airline
            { 1, "KIOSKB",  "VKO", "UT", +1, ""},
            { 1, "KIOSKB",  "VKO", "UT", +0, ""},
            { 1, "KIOSKB",  "VKO", "UT", -300, ""},
@@ -692,6 +707,7 @@ bool test_check_reprint_access()
 	     
     };
     std::cout<<"Run...\n"; std::cout.flush();
+    string exception_err_str;
     for(auto &t :tables)   
     {   query.set_bd(t.first);
 	   for(auto &i : t.second)                      			
@@ -704,7 +720,7 @@ bool test_check_reprint_access()
                     TPrnTagStore::check_reprint_access(i.time(), i.airp, i.airline);
                   }
                   catch(UserException &e)
-                  {  
+                  {   exception_err_str = e.what();
                       if (e.getLexemaData().lexema_id == "MSG.REPRINT_ACCESS_ERR")
                          got_reprint_access_err = true;
                       else
@@ -716,7 +732,7 @@ bool test_check_reprint_access()
                       }
                   }
                   catch(std::exception &e)
-                  {
+                  {   exception_err_str = e.what();
                       //std::cout << "Test failed: " << e.what() << "\n";
                       got_reprint_access_err = true;
   
@@ -733,6 +749,7 @@ bool test_check_reprint_access()
                            + " airline = " + i.airline + " time " +
                                  BASIC::DateTimeToStr(i.time(), "dd.mm.yy", true) +  " kiosk " + i.desk + " kiosk group " + std::to_string(i.grp) + "\n"
 			;
+                         err+= "\nException message: "  + exception_err_str +  " \n";
                          err+="for table {\n";
                            for(auto &z: t.first)
                              err+="\t\t" + z.str() + "\n";
@@ -768,6 +785,7 @@ bool test_check_reprint_access()
                          string err = string("Condition of test failed in test with airp = ") + i.airp
                            + " airline = " + i.airline + " time " + 
 				 BASIC::DateTimeToStr(i.time(), "dd.mm.yy", true) +  " kiosk " + i.desk + " kiosk group " + std::to_string(i.grp) +
+                        "\nException message: "  + exception_err_str +  " \n"  +
 			" in table: {\n";                       
                          for(auto &z: t.first)
 		             err+="\t\t" + z.str() + "\n"; 		
@@ -777,6 +795,7 @@ bool test_check_reprint_access()
                          return false;
                       }
                   }
+                  exception_err_str = "";
 
               }
     }
