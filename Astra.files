@@ -54,12 +54,12 @@ src/astra_tick_view_xml.h
 src/astra_ticket.h
 src/astra_utils.cc
 src/astra_utils.h
+src/AsyncNet.cpp
+src/AsyncNet.hpp
 src/baggage.cc
 src/baggage.h
 src/baggage_calc.cc
 src/baggage_calc.h
-src/baggage_pc.cc
-src/baggage_pc.h
 src/base_tables.cc
 src/base_tables.h
 src/basel_aero.cc
@@ -82,6 +82,8 @@ src/convert.cc
 src/convert.h
 src/crypt.cc
 src/crypt.h
+src/Depeches.cpp
+src/Depeches.hpp
 src/dev_consts.cc
 src/dev_consts.h
 src/dev_tuning.cc
@@ -124,8 +126,14 @@ src/load_fr.h
 src/locale.cc
 src/maindcs.cc
 src/maindcs.h
+<<<<<<< .working
 src/meridian.cc
 src/meridian.h
+=======
+src/msg_handler.cc
+src/msg_queue.cc
+src/msg_queue.h
+>>>>>>> .merge-right.r177152
 src/obrnosir.cc
 src/obrnosir.h
 src/passenger.cc

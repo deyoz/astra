@@ -2,7 +2,6 @@
 #include <string>
 #include <string.h>
 #include "astra_utils.h"
-#include "basic.h"
 #include "oralib.h"
 #include "astra_locale.h"
 #include "stl_utils.h"
@@ -838,6 +837,10 @@ TDateTime JulianDateToDateTime( int jdate, int year)
     throw EConvertError("JulianDateToDateTime: wrong year");
   return result;
 };
+
+
+
+
 
 namespace AstraLocale {
 
