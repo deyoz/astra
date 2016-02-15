@@ -606,7 +606,10 @@ bool test_check_reprint_access()
            { 1, "KIOSKB", "VKO", "CX", 1, 1},
            { 1, "KIOSKB", "DME", "", 0, 0}
           },     
-          {{ 1, "KIOSKB",  "VKO", "UT", -5, ""},
+          {{ 1, "KIOSKB",  "ZZA", "UT", +0, "wrong airp"},
+           { 1, "KIOSKB",  "VKO", "ZZA", +0, "wrong airline"},
+   	   { 1, "KIOSKB",  "ZZA", "ZZA", +0, "wrong airp and airline"},
+           { 1, "KIOSKB",  "VKO", "UT", -5, ""},
            { 1, "KIOSKB",  "VKO", "UT", -300, "Time"}, 
            { 1, "KIOSKB",  "VKO", "UT", +300, "Time"},
            { 1, "KIOSKB",  "VKO", "UT", -4, ""},
