@@ -5553,6 +5553,8 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
 
 void get_service_stat(int point_id)
 {
+    TCachedQuery delQry("delete from service_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
+    delQry.get().Execute();
     TCachedQuery Qry(
             "select "
             "    pax.pax_id, "
@@ -5574,8 +5576,6 @@ void get_service_stat(int point_id)
             QParams() << QParam("point_id", otInteger, point_id)
             );
     TCachedQuery insQry(
-            "begin "
-            "delete from service_stat where point_id = :point_id; "
             "insert into service_stat( "
             "   point_id, "
             "   travel_time, "
@@ -5592,8 +5592,7 @@ void get_service_stat(int point_id)
             "   :airp_last, "
             "   :user_id, "
             "   :desk "
-            "); "
-            "end; ",
+            ") ",
             QParams()
             << QParam("point_id", otInteger, point_id)
             << QParam("travel_time", otDate)
@@ -5659,7 +5658,10 @@ void get_service_stat(int point_id)
             LogTrace(TRACE5) << "pax_id: " << pax_id;
             LogTrace(TRACE5) << "rem_code: " << Qry.get().FieldAsString(col_rem_code);
 
-            insQry.get().SetVariable("travel_time", flt_info_idx->second.travel_time);
+            if(flt_info_idx->second.travel_time == NoExists)
+                insQry.get().SetVariable("travel_time", FNull);
+            else
+                insQry.get().SetVariable("travel_time", flt_info_idx->second.travel_time);
             insQry.get().SetVariable("rem_code", Qry.get().FieldAsString(col_rem_code));
             insQry.get().SetVariable("ticket_no", ticket_no.str());
             insQry.get().SetVariable("airp_last", flt_info_idx->second.airp_last);
@@ -5696,11 +5698,13 @@ struct TServiceStatRow {
     {}
     bool operator < (const TServiceStatRow &val) const
     {
+        if(point_id == val.point_id)
+            return rem_code < val.rem_code;
         return point_id < val.point_id;
     }
 };
 
-typedef set<TServiceStatRow> TServiceStat;
+typedef multiset<TServiceStatRow> TServiceStat;
 
 void RunServiceStat(
         const TStatParams &params,
@@ -5801,11 +5805,11 @@ void createXMLServiceStat(const TStatParams &params, const TServiceStat &Service
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", "Стойка");
-    SetProp(colNode, "width", 40);
+    SetProp(colNode, "width", 60);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", "Агент");
-    SetProp(colNode, "width", 40);
+    SetProp(colNode, "width", 80);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", "Билет");
