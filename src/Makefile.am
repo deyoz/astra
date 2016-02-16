@@ -35,7 +35,7 @@ xp-tests: clean-xp-tests
 	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
 	
 
-AM_CXXFLAGS = $(TCLINCLUDE) @PION_CXXFLAGS@
+AM_CXXFLAGS = $(TCLINCLUDE) @PION_CXXFLAGS@ @SERVERLIB_CXXFLAGS@
 astra_SOURCES = \
   adm.cc \
   access.cc \

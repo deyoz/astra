@@ -61,6 +61,13 @@ fi
 # end hack
 
 
+build_externallib() {
+    ./bin/sirena_update_and_build.sh $1 $EXTERNALLIBS_DIR/$1
+    checkresult build_$1 $?
+    export PKG_CONFIG_PATH=$EXTERNALLIBS_DIR/$1/lib/pkgconfig:$PKG_CONFIG_PATH
+    echo "export LD_LIBRARY_PATH=$EXTERNALLIBS_DIR/$1/lib:\$LD_LIBRARY_PATH" >> sirenalibs/external_env_file
+}
+
 
 usage_no_exit()
 {
@@ -166,12 +173,9 @@ fi
 if [ "$quiet" = "1" ]; then db_out_stream="/dev/null"; else db_out_stream="/dev/stdout"; fi
 if [ "$quiet" = "1" ]; then make_silent="-s"; else make_silent=""; fi
 
-if [ "$configlibs" = "1" ]; then
-    echo SIRENA_LIBCHECK_BASE=$SIRENA_LIBCHECK_BASE
-    (cd locallibs && make ${make_silent} config clean)
-    checkresult configlibs $?
-fi
 if [ "$configlibs" = "2" ]; then
+    build_externallib boost
+    [ "$BUILD_TESTS" = 1 ] && build_externallib check
     echo SIRENA_LIBCHECK_BASE=$SIRENA_LIBCHECK_BASE
     export MY_LOCAL_CFLAGS="-O2 $MY_LOCAL_CFLAGS"
     (cd locallibs && make ${make_silent} config clean)
