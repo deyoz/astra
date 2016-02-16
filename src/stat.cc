@@ -5553,22 +5553,24 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
 
 void get_service_stat(int point_id)
 {
-    TRemGrp service_rem_grp;
-    service_rem_grp.Load(retSERVICE_STAT, point_id);
-    LogTrace(TRACE5) << "service_rem_grp.size(): " << service_rem_grp.size();
     TCachedQuery Qry(
             "select "
             "    pax.pax_id, "
             "    points.craft, "
-            "    points.airp "
+            "    points.airp, "
+            "    pro.rem_code, "
+            "    pro.user_id, "
+            "    pro.desk "
             "from "
             "    points, "
             "    pax_grp, "
-            "    pax "
+            "    pax, "
+            "    pax_rem_origin pro "
             "where "
             "    points.point_id = :point_id and "
             "    pax_grp.point_dep = points.point_id and "
-            "    pax_grp.grp_id = pax.grp_id ",
+            "    pax_grp.grp_id = pax.grp_id and"
+            "    pax.pax_id = pro.pax_id ",
             QParams() << QParam("point_id", otInteger, point_id)
             );
     TCachedQuery insQry(
@@ -5579,13 +5581,17 @@ void get_service_stat(int point_id)
             "   travel_time, "
             "   rem_code, "
             "   ticket_no, "
-            "   airp_last "
+            "   airp_last, "
+            "   user_id, "
+            "   desk "
             ") values ( "
             "   :point_id, "
             "   :travel_time, "
             "   :rem_code, "
             "   :ticket_no, "
-            "   :airp_last "
+            "   :airp_last, "
+            "   :user_id, "
+            "   :desk "
             "); "
             "end; ",
             QParams()
@@ -5594,60 +5600,76 @@ void get_service_stat(int point_id)
             << QParam("rem_code", otString)
             << QParam("ticket_no", otString)
             << QParam("airp_last", otString)
+            << QParam("user_id", otInteger)
+            << QParam("desk", otString)
             );
 
     Qry.get().Execute();
+
+    struct TFltInfo {
+        struct THelperFltInfo {
+            string airp_last;
+            TDateTime travel_time;
+            THelperFltInfo(): travel_time(NoExists) {}
+        };
+        typedef map<int, THelperFltInfo> TItems;
+        TItems items;
+        TItems::iterator get(const int &point_id, const string &craft, const string &airp)
+        {
+            TItems::iterator result = items.find(point_id);
+            if(result == items.end()) {
+                THelperFltInfo hfi;
+                TTripRoute route;
+                route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
+                hfi.airp_last = route.back().airp;
+
+                hfi.travel_time = getTimeTravel(craft, airp, hfi.airp_last);
+                pair<TItems::iterator, bool> res = items.insert(make_pair(point_id, hfi));
+                result = res.first;
+            }
+            return result;
+        }
+    };
+
+
     if(not Qry.get().Eof) {
         int col_pax_id = Qry.get().FieldIndex("pax_id");
+        int col_craft = Qry.get().FieldIndex("craft");
+        int col_airp = Qry.get().FieldIndex("airp");
+        int col_rem_code = Qry.get().FieldIndex("rem_code");
+        int col_user_id = Qry.get().FieldIndex("user_id");
+        int col_desk = Qry.get().FieldIndex("desk");
+        TFltInfo flt_info;
         for(; not Qry.get().Eof; Qry.get().Next()) {
             int pax_id = Qry.get().FieldAsInteger(col_pax_id);
-            vector<CheckIn::TPaxRemItem> rems, crs_rems;
-            set<CheckIn::TPaxRemItem> found_rems; // ремарки, соотв. настройкам
+            string craft = Qry.get().FieldAsString(col_craft);
+            string airp = Qry.get().FieldAsString(col_airp);
 
-            // Вытаскиваем из ремарок паса требуемые ремарки.
-            LoadPaxRem(pax_id, false, rems);
-            LogTrace(TRACE5) << "pax_id: " << pax_id;
-            for(vector<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++)
-                LogTrace(TRACE5) << "rems item: '" << i->code << "'";
-            for(vector<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++)
-                if(service_rem_grp.exists(i->code)) found_rems.insert(*i);
-            LogTrace(TRACE5) << "found_rems.size(): " << found_rems.size();
-            if(not found_rems.empty()) {
-                // Ищем ремарку пассажира в ремарках из брони
-                LoadCrsPaxRem(pax_id, crs_rems);
-                for(vector<CheckIn::TPaxRemItem>::iterator i = crs_rems.begin(); i != crs_rems.end(); i++) {
-                    set<CheckIn::TPaxRemItem>::iterator idx = found_rems.find(*i);
-                    if(idx != found_rems.end()) found_rems.erase(idx);
-                }
-                if(not found_rems.empty()) {
-                    string craft = Qry.get().FieldAsString("craft");
-                    string airp = Qry.get().FieldAsString("airp");
-                    TTripRoute route;
-                    route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
-                    string airp_last = route.back().airp;
-                    insQry.get().SetVariable("airp_last", airp_last);
+            TFltInfo::TItems::iterator flt_info_idx = flt_info.get(point_id, craft, airp);
 
-                    TDateTime travel_time = getTimeTravel(craft, airp, airp_last);
-                    CheckIn::TPaxTknItem tkn;
-                    LoadPaxTkn(pax_id, tkn);
-                    ostringstream ticket_no;
-                    if(not tkn.empty()) {
-                        ticket_no << tkn.no;
-                        if (tkn.coupon!=ASTRA::NoExists)
-                            ticket_no << "/" << tkn.coupon;
-                    }
-                    // Запись в базу
-                    for(set<CheckIn::TPaxRemItem>::iterator i = found_rems.begin(); i != found_rems.end(); i++) {
-                        if(travel_time == NoExists)
-                            insQry.get().SetVariable("travel_time", FNull);
-                        else
-                            insQry.get().SetVariable("travel_time", travel_time);
-                        insQry.get().SetVariable("rem_code", i->code);
-                        insQry.get().SetVariable("ticket_no", ticket_no.str());
-                        insQry.get().Execute();
-                    }
-                }
+            CheckIn::TPaxTknItem tkn;
+            LoadPaxTkn(pax_id, tkn);
+            ostringstream ticket_no;
+            if(not tkn.empty()) {
+                ticket_no << tkn.no;
+                if (tkn.coupon!=ASTRA::NoExists)
+                    ticket_no << "/" << tkn.coupon;
             }
+
+            LogTrace(TRACE5) << "pax_id: " << pax_id;
+            LogTrace(TRACE5) << "rem_code: " << Qry.get().FieldAsString(col_rem_code);
+
+            insQry.get().SetVariable("travel_time", flt_info_idx->second.travel_time);
+            insQry.get().SetVariable("rem_code", Qry.get().FieldAsString(col_rem_code));
+            insQry.get().SetVariable("ticket_no", ticket_no.str());
+            insQry.get().SetVariable("airp_last", flt_info_idx->second.airp_last);
+            insQry.get().SetVariable("user_id", Qry.get().FieldAsInteger(col_user_id));
+            insQry.get().SetVariable("desk", Qry.get().FieldAsString(col_desk));
+
+            for(int i = 0; i < insQry.get().VariablesCount(); i++)
+                LogTrace(TRACE5) << insQry.get().VariableName(i) << " = " << insQry.get().GetVariableAsString(i);
+
+            insQry.get().Execute();
         }
     }
 }
@@ -5664,6 +5686,8 @@ struct TServiceStatRow {
     TDateTime travel_time;
     string rem_code;
     string airline;
+    string user;
+    string desk;
     TServiceStatRow():
         point_id(NoExists),
         scd_out(NoExists),
@@ -5700,30 +5724,34 @@ void RunServiceStat(
         "   points.craft, "
         "   cs.travel_time, "
         "   cs.rem_code, "
-        "   points.airline "
+        "   points.airline, "
+        "   users2.descr, "
+        "   cs.desk "
         "from "
         "   service_stat cs, "
-        "   points "
+        "   points, "
+        "   users2 "
         "where "
         "   cs.point_id = points.point_id and ";
     if (!params.airps.elems().empty()) {
         if (params.airps.elems_permit())
-            SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and \n";
+            SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and ";
         else
-            SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and \n";
+            SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and ";
     };
     if (!params.airlines.elems().empty()) {
         if (params.airlines.elems_permit())
-            SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and \n";
+            SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and ";
         else
-            SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and \n";
+            SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and ";
     };
     if(params.flt_no != NoExists) {
         SQLText += " points.flt_no = :flt_no and ";
         QryParams << QParam("flt_no", otInteger, params.flt_no);
     }
     SQLText +=
-        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
+        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
+        "    cs.user_id = users2.user_id ";
     TCachedQuery Qry(SQLText, QryParams);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
@@ -5738,6 +5766,8 @@ void RunServiceStat(
         int col_travel_time = Qry.get().GetFieldIndex("travel_time");
         int col_rem_code = Qry.get().GetFieldIndex("rem_code");
         int col_airline = Qry.get().GetFieldIndex("airline");
+        int col_descr = Qry.get().GetFieldIndex("descr");
+        int col_desk = Qry.get().GetFieldIndex("desk");
         for(; not Qry.get().Eof; Qry.get().Next()) {
             prn_airline.check(Qry.get().FieldAsString(col_airline));
             TServiceStatRow row;
@@ -5751,6 +5781,8 @@ void RunServiceStat(
             row.craft = Qry.get().FieldAsString(col_craft);
             row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
             row.rem_code = Qry.get().FieldAsString(col_rem_code);
+            row.user = Qry.get().FieldAsString(col_descr);
+            row.desk = Qry.get().FieldAsString(col_desk);
             ServiceStat.insert(row);
         }
     }
@@ -5815,11 +5847,11 @@ void createXMLServiceStat(const TStatParams &params, const TServiceStat &Service
     for(TServiceStat::iterator i = ServiceStat.begin(); i != ServiceStat.end(); i++) {
         rowNode = NewTextChild(rowsNode, "row");
         // АП рег
-        NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
         // Стойка
-        NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col", i->desk);
         // Агент
-        NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col", i->user);
         // Билет
         NewTextChild(rowNode, "col", i->ticket_no);
         // Дата
