@@ -6741,6 +6741,190 @@ void nosir_rfisc_stat_point(int point_id)
     OraSession.Commit();
 }
 
+int nosir_rfisc_all_xml(int argc,char **argv)
+{
+    TDateTime begin;
+    TDateTime now = NowUTC();
+    StrToDateTime("01.10.2015 00:00:00", "dd.mm.yyyy hh:nn:ss", begin);
+    TQuery nextDateQry(&OraSession);
+    nextDateQry.SQLText = "select add_months(:begin, 1) from dual";
+    nextDateQry.DeclareVariable("begin", otDate);
+    while(begin < now) {
+        nextDateQry.SetVariable("begin", begin);
+        nextDateQry.Execute();
+        TDateTime end = nextDateQry.FieldAsDateTime(0);
+
+        TStatParams params;
+        TPrintAirline airline;
+        TRFISCStat RFISCStat;
+        RunRFISCStat(params, RFISCStat, airline);
+        //createXMLRFISCStat(params,RFISCStat, airline, resNode);
+
+        begin = end;
+    }
+    return 1;
+}
+
+int nosir_rfisc_all(int argc,char **argv)
+{
+    TDateTime begin;
+    StrToDateTime("01.10.2015 00:00:00", "dd.mm.yyyy hh:nn:ss", begin);
+    TQuery nextDateQry(&OraSession);
+    nextDateQry.SQLText = "select add_months(:begin, 1) from dual";
+    nextDateQry.DeclareVariable("begin", otDate);
+
+    TQuery rfiscQry(&OraSession);
+    rfiscQry.SQLText =
+        "select "
+        "   rfisc_stat.rfisc, "
+        "   rfisc_stat.point_id, "
+        "   rfisc_stat.point_num, "
+        "   rfisc_stat.pr_trfer, "
+        "   points.scd_out, "
+        "   points.airline, "
+        "   points.flt_no, "
+        "   points.suffix, "
+        "   points.airp, "
+        "   rfisc_stat.airp_arv, "
+        "   points.craft, "
+        "   rfisc_stat.travel_time, "
+        "   rfisc_stat.trfer_flt_no, "
+        "   rfisc_stat.trfer_suffix, "
+        "   rfisc_stat.trfer_airp_arv, "
+        "   rfisc_stat.desk, "
+        "   rfisc_stat.user_login, "
+        "   rfisc_stat.user_descr, "
+        "   rfisc_stat.time_create, "
+        "   rfisc_stat.tag_no, "
+        "   rfisc_stat.fqt_no, "
+        "   rfisc_stat.excess, "
+        "   rfisc_stat.paid "
+        "from "
+        "   points, "
+        "   rfisc_stat "
+        "where "
+        "   rfisc_stat.point_id = points.point_id and "
+        "   points.pr_del >= 0 and "
+        "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
+        "order by "
+        "   rfisc_stat.point_id, "
+        "   rfisc_stat.point_num, "
+        "   rfisc_stat.pr_trfer, "
+        "   rfisc_stat.airp_arv ";
+    rfiscQry.DeclareVariable("FirstDate", otDate);
+    rfiscQry.DeclareVariable("LastDate", otDate);
+    TDateTime now = NowUTC();
+    string header = "RFISC,Платн.,Опл.,Бирка,SPEC,FQTV,Дата вылета,Рейс,От,До,Тип ВС,Время в пути,Трфр.рейс,От,До,АП рег.,Стойка,LOGIN,Агент,Дата оформ.";
+    ofstream rfisc_all("rfisc_all.csv");
+    rfisc_all << header << endl;
+    int count = 0;
+    while(begin < now) {
+        nextDateQry.SetVariable("begin", begin);
+        nextDateQry.Execute();
+        TDateTime end = nextDateQry.FieldAsDateTime(0);
+        cout << "begin: " << DateTimeToStr(begin, ServerFormatDateTimeAsString) << endl;
+        cout << "end: " << DateTimeToStr(end, ServerFormatDateTimeAsString) << endl;
+        rfiscQry.SetVariable("FirstDate", begin);
+        rfiscQry.SetVariable("LastDate", end);
+        rfiscQry.Execute();
+        if(not rfiscQry.Eof) {
+            string fname = "rfisc." + DateTimeToStr(begin, "mm.yyyy") + ".csv";
+            ofstream rfisc_month(fname);
+            rfisc_month << header << endl;
+            ostringstream out;
+
+            int col_rfisc = rfiscQry.GetFieldIndex("rfisc");
+            int col_scd_out = rfiscQry.GetFieldIndex("scd_out");
+            int col_flt_no = rfiscQry.GetFieldIndex("flt_no");
+            int col_suffix = rfiscQry.GetFieldIndex("suffix");
+            int col_airp = rfiscQry.GetFieldIndex("airp");
+            int col_airp_arv = rfiscQry.GetFieldIndex("airp_arv");
+            int col_craft = rfiscQry.GetFieldIndex("craft");
+            int col_travel_time = rfiscQry.GetFieldIndex("travel_time");
+            int col_pr_trfer = rfiscQry.GetFieldIndex("pr_trfer");
+            int col_trfer_flt_no = rfiscQry.GetFieldIndex("trfer_flt_no");
+            int col_trfer_suffix = rfiscQry.GetFieldIndex("trfer_suffix");
+            int col_trfer_airp_arv = rfiscQry.GetFieldIndex("trfer_airp_arv");
+            int col_desk = rfiscQry.GetFieldIndex("desk");
+            int col_user_login = rfiscQry.GetFieldIndex("user_login");
+            int col_user_descr = rfiscQry.GetFieldIndex("user_descr");
+            int col_time_create = rfiscQry.GetFieldIndex("time_create");
+            int col_tag_no = rfiscQry.GetFieldIndex("tag_no");
+            int col_fqt_no = rfiscQry.GetFieldIndex("fqt_no");
+            int col_excess = rfiscQry.GetFieldIndex("excess");
+            int col_paid = rfiscQry.GetFieldIndex("paid");
+
+            for(; not rfiscQry.Eof; rfiscQry.Next(), count++) {
+                // RFISC
+                out
+                    << rfiscQry.FieldAsString(col_rfisc) << ",";
+                // Платн.
+                if(not rfiscQry.FieldIsNULL(col_excess))
+                    out << rfiscQry.FieldAsInteger(col_excess);
+                out << ",";
+                // Опл.
+                if(not rfiscQry.FieldIsNULL(col_paid))
+                    out << rfiscQry.FieldAsInteger(col_paid);
+                out
+                    << ","
+                    // Бирка
+                    << rfiscQry.FieldAsString(col_tag_no) << ","
+                    // SPEQ
+                    << ","
+                    // FQTV
+                    << rfiscQry.FieldAsString(col_fqt_no) << ","
+                    // Дата вылета
+                    << DateTimeToStr(rfiscQry.FieldAsDateTime(col_scd_out), "dd.mm.yyyy") << ","
+                    // Рейс
+                    << rfiscQry.FieldAsInteger(col_flt_no) << rfiscQry.FieldAsString(col_suffix) << ","
+                    // От
+                    << rfiscQry.FieldAsString(col_airp) << ","
+                    // До
+                    << rfiscQry.FieldAsString(col_airp_arv) << ","
+                    // Тип ВС
+                    << rfiscQry.FieldAsString(col_craft) << ",";
+                // Время в пути
+                if(not rfiscQry.FieldIsNULL(col_travel_time))
+                    out << DateTimeToStr(rfiscQry.FieldAsDateTime(col_travel_time), "hh:nn");
+                out
+                    << ",";
+                if(rfiscQry.FieldAsInteger(col_pr_trfer) != 0) {
+                    out
+                        // Трфр.рейс
+                        << rfiscQry.FieldAsInteger(col_trfer_flt_no) << rfiscQry.FieldAsString(col_trfer_suffix) << ","
+                        // От
+                        << rfiscQry.FieldAsString(col_airp) << ","
+                        // До
+                        << rfiscQry.FieldAsString(col_trfer_airp_arv) << ",";
+                } else {
+                    out << ",,,";
+                }
+                out
+                    // АП рег
+                    << rfiscQry.FieldAsString(col_airp) << ","
+                    // Стойка
+                    << rfiscQry.FieldAsString(col_desk) << ","
+                    // Логин
+                    << rfiscQry.FieldAsString(col_user_login) << ","
+                    // Агент
+                    << rfiscQry.FieldAsString(col_user_descr) << ",";
+                // Дата оформ.
+                if(not rfiscQry.FieldIsNULL(col_time_create))
+                    out << DateTimeToStr(rfiscQry.FieldAsDateTime(col_scd_out), "dd.mm.yyyy");
+                out << endl;
+                if(count % 10000 == 0)
+                    cout << count << endl;
+            }
+            rfisc_month << out.str();
+            rfisc_all << out.str();
+        }
+        OraSession.Rollback();
+        begin = end;
+    }
+    cout << count << endl;
+    return 1;
+}
+
 int nosir_rfisc_stat(int argc,char **argv)
 {
     cout << "start time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;

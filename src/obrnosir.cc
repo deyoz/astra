@@ -91,6 +91,7 @@ const
     {"-bcbp",                   AstraWeb::bcbp_test,    NULL,                       NULL},
     {"-nat_stat",               nat_stat,              NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
+    {"-rfisc_all",              nosir_rfisc_all,        NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
   };
 
