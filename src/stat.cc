@@ -5712,82 +5712,99 @@ void RunServiceStat(
         TPrintAirline &prn_airline
         )
 {
-    QParams QryParams;
-    QryParams
-        << QParam("FirstDate", otDate, params.FirstDate)
-        << QParam("LastDate", otDate, params.LastDate);
-    string SQLText =
-        "select "
-        "   points.point_id, "
-        "   cs.ticket_no, "
-        "   points.scd_out, "
-        "   points.flt_no, "
-        "   points.suffix, "
-        "   points.airp, "
-        "   cs.airp_last, "
-        "   points.craft, "
-        "   cs.travel_time, "
-        "   cs.rem_code, "
-        "   points.airline, "
-        "   users2.descr, "
-        "   cs.desk "
-        "from "
-        "   service_stat cs, "
-        "   points, "
-        "   users2 "
-        "where "
-        "   cs.point_id = points.point_id and ";
-    if (!params.airps.elems().empty()) {
-        if (params.airps.elems_permit())
-            SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and ";
+    for(int pass = 0; pass <= 1; pass++) {
+        QParams QryParams;
+        QryParams
+            << QParam("FirstDate", otDate, params.FirstDate)
+            << QParam("LastDate", otDate, params.LastDate);
+        string SQLText =
+            "select "
+            "   points.point_id, "
+            "   cs.ticket_no, "
+            "   points.scd_out, "
+            "   points.flt_no, "
+            "   points.suffix, "
+            "   points.airp, "
+            "   cs.airp_last, "
+            "   points.craft, "
+            "   cs.travel_time, "
+            "   cs.rem_code, "
+            "   points.airline, "
+            "   users2.descr, "
+            "   cs.desk "
+            "from ";
+        if(pass != 0) {
+            SQLText +=
+                "   arx_service_stat cs, "
+                "   arx_points points, ";
+        } else {
+            SQLText +=
+                "   service_stat cs, "
+                "   points, ";
+        }
+        SQLText +=
+            "   users2 "
+            "where "
+            "   cs.point_id = points.point_id and ";
+        if (!params.airps.elems().empty()) {
+            if (params.airps.elems_permit())
+                SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and ";
+            else
+                SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and ";
+        };
+        if (!params.airlines.elems().empty()) {
+            if (params.airlines.elems_permit())
+                SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and ";
+            else
+                SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and ";
+        };
+        if(params.flt_no != NoExists) {
+            SQLText += " points.flt_no = :flt_no and ";
+            QryParams << QParam("flt_no", otInteger, params.flt_no);
+        }
+        if(pass != 0)
+            SQLText +=
+                " points.part_key >= :FirstDate and points.part_key < :FirstDate and "
+                " cs.part_key >= :FirstDate and cs.part_key < :LastDate and ";
         else
-            SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and ";
-    };
-    if (!params.airlines.elems().empty()) {
-        if (params.airlines.elems_permit())
-            SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and ";
-        else
-            SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and ";
-    };
-    if(params.flt_no != NoExists) {
-        SQLText += " points.flt_no = :flt_no and ";
-        QryParams << QParam("flt_no", otInteger, params.flt_no);
-    }
-    SQLText +=
-        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
-        "    cs.user_id = users2.user_id ";
-    TCachedQuery Qry(SQLText, QryParams);
-    Qry.get().Execute();
-    if(not Qry.get().Eof) {
-        int col_point_id = Qry.get().GetFieldIndex("point_id");
-        int col_ticket_no = Qry.get().GetFieldIndex("ticket_no");
-        int col_scd_out = Qry.get().GetFieldIndex("scd_out");
-        int col_flt_no = Qry.get().GetFieldIndex("flt_no");
-        int col_suffix = Qry.get().GetFieldIndex("suffix");
-        int col_airp = Qry.get().GetFieldIndex("airp");
-        int col_airp_last = Qry.get().GetFieldIndex("airp_last");
-        int col_craft = Qry.get().GetFieldIndex("craft");
-        int col_travel_time = Qry.get().GetFieldIndex("travel_time");
-        int col_rem_code = Qry.get().GetFieldIndex("rem_code");
-        int col_airline = Qry.get().GetFieldIndex("airline");
-        int col_descr = Qry.get().GetFieldIndex("descr");
-        int col_desk = Qry.get().GetFieldIndex("desk");
-        for(; not Qry.get().Eof; Qry.get().Next()) {
-            prn_airline.check(Qry.get().FieldAsString(col_airline));
-            TServiceStatRow row;
-            row.point_id = Qry.get().FieldAsInteger(col_point_id);
-            row.ticket_no = Qry.get().FieldAsString(col_ticket_no);
-            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
-            row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
-            row.suffix = Qry.get().FieldAsString(col_suffix);
-            row.airp = Qry.get().FieldAsString(col_airp);
-            row.airp_last = Qry.get().FieldAsString(col_airp_last);
-            row.craft = Qry.get().FieldAsString(col_craft);
-            row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
-            row.rem_code = Qry.get().FieldAsString(col_rem_code);
-            row.user = Qry.get().FieldAsString(col_descr);
-            row.desk = Qry.get().FieldAsString(col_desk);
-            ServiceStat.insert(row);
+            SQLText +=
+                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate and ";
+        SQLText +=
+            "    cs.user_id = users2.user_id ";
+        TCachedQuery Qry(SQLText, QryParams);
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            int col_point_id = Qry.get().GetFieldIndex("point_id");
+            int col_ticket_no = Qry.get().GetFieldIndex("ticket_no");
+            int col_scd_out = Qry.get().GetFieldIndex("scd_out");
+            int col_flt_no = Qry.get().GetFieldIndex("flt_no");
+            int col_suffix = Qry.get().GetFieldIndex("suffix");
+            int col_airp = Qry.get().GetFieldIndex("airp");
+            int col_airp_last = Qry.get().GetFieldIndex("airp_last");
+            int col_craft = Qry.get().GetFieldIndex("craft");
+            int col_travel_time = Qry.get().GetFieldIndex("travel_time");
+            int col_rem_code = Qry.get().GetFieldIndex("rem_code");
+            int col_airline = Qry.get().GetFieldIndex("airline");
+            int col_descr = Qry.get().GetFieldIndex("descr");
+            int col_desk = Qry.get().GetFieldIndex("desk");
+            for(; not Qry.get().Eof; Qry.get().Next()) {
+                prn_airline.check(Qry.get().FieldAsString(col_airline));
+                TServiceStatRow row;
+                row.point_id = Qry.get().FieldAsInteger(col_point_id);
+                row.ticket_no = Qry.get().FieldAsString(col_ticket_no);
+                row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+                row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+                row.suffix = Qry.get().FieldAsString(col_suffix);
+                row.airp = Qry.get().FieldAsString(col_airp);
+                row.airp_last = Qry.get().FieldAsString(col_airp_last);
+                row.craft = Qry.get().FieldAsString(col_craft);
+                if(not Qry.get().FieldIsNULL(col_travel_time))
+                    row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
+                row.rem_code = Qry.get().FieldAsString(col_rem_code);
+                row.user = Qry.get().FieldAsString(col_descr);
+                row.desk = Qry.get().FieldAsString(col_desk);
+                ServiceStat.insert(row);
+            }
         }
     }
 }
@@ -5800,48 +5817,48 @@ void createXMLServiceStat(const TStatParams &params, const TServiceStat &Service
 
     xmlNodePtr headerNode = NewTextChild(grdNode, "header");
     xmlNodePtr colNode;
-    colNode = NewTextChild(headerNode, "col", "АП рег");
-    SetProp(colNode, "width", 40);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АП рег."));
+    SetProp(colNode, "width", 50);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", "Стойка");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Стойка"));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", "Агент");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
     SetProp(colNode, "width", 80);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", "Билет");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Билет"));
     SetProp(colNode, "width", 100);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", "Дата");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", "Рейс");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", "От");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("От"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", "До");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", "Тип ВС");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип ВС"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", "Время в пути");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Время в пути"));
     SetProp(colNode, "width", 70);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", "Код услуги");
-    SetProp(colNode, "width", 60);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Код услуги"));
+    SetProp(colNode, "width", 70);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
 
