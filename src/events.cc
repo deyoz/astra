@@ -517,7 +517,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paxInfo.pr_brd=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
         paxInfo.pr_exam=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_exam") && Qry.FieldAsInteger("pr_exam")!=0;
         paxInfo.apis.fromDB(paxInfoKey.pax_id);
-        LoadPaxRem(paxInfoKey.pax_id, true, paxInfo.rems);
+        CheckIn::LoadPaxRem(paxInfoKey.pax_id, true, paxInfo.rems);
         sort(paxInfo.rems.begin(), paxInfo.rems.end());
       }
       else
@@ -670,6 +670,9 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
 
   bool auto_weighing=GetAutoWeighing(point_id, "Р");
   bool apis_control=GetAPISControl(point_id);
+
+  TRemGrp service_stat_rem_grp;
+  service_stat_rem_grp.Load(retSERVICE_STAT, operFlt.airline);
 
   agentStat.clear();
 
@@ -897,6 +900,32 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
       reqInfo->LocaleToLog("EVT.PASSENGER_DELETED", params, ASTRA::evtPax, point_id, NoExists, grp_id);
       changed=true;
     };
+
+    //пишем pax_rem_origin
+    if (aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError)
+    {
+      if (bPax!=grpInfoBefore.pax.end() && bPax->second.refuse!=refuseAgentError)
+      {
+        CheckIn::SyncPaxRemOrigin(service_stat_rem_grp,
+                                  aPax->first.pax_id,
+                                  bPax->second.rems,
+                                  aPax->second.rems,
+                                  reqInfo->user.user_id,
+                                  reqInfo->desk.code);
+      }
+      else
+      {
+        //первоначальная регистрация
+        vector<CheckIn::TPaxRemItem> crs_rems;
+        CheckIn::LoadCrsPaxRem(aPax->first.pax_id, crs_rems);
+        CheckIn::SyncPaxRemOrigin(service_stat_rem_grp,
+                                  aPax->first.pax_id,
+                                  crs_rems,
+                                  aPax->second.rems,
+                                  reqInfo->user.user_id,
+                                  reqInfo->desk.code);
+      }
+    }
 
     string bagStrAfter, bagStrBefore;
     int d=0;
