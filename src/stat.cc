@@ -5551,6 +5551,33 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
 
 /******************* Service Stat ****************************/
 
+namespace ServiceStat {
+    struct TFltInfo {
+        struct THelperFltInfo {
+            string airp_last;
+            TDateTime travel_time;
+            THelperFltInfo(): travel_time(NoExists) {}
+        };
+        typedef map<int, THelperFltInfo> TItems;
+        TItems items;
+        TItems::iterator get(const int &point_id, const string &craft, const string &airp)
+        {
+            TItems::iterator result = items.find(point_id);
+            if(result == items.end()) {
+                THelperFltInfo hfi;
+                TTripRoute route;
+                route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
+                hfi.airp_last = route.back().airp;
+
+                hfi.travel_time = getTimeTravel(craft, airp, hfi.airp_last);
+                pair<TItems::iterator, bool> res = items.insert(make_pair(point_id, hfi));
+                result = res.first;
+            }
+            return result;
+        }
+    };
+}
+
 void get_service_stat(int point_id)
 {
     TCachedQuery delQry("delete from service_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
@@ -5605,31 +5632,6 @@ void get_service_stat(int point_id)
 
     Qry.get().Execute();
 
-    struct TFltInfo {
-        struct THelperFltInfo {
-            string airp_last;
-            TDateTime travel_time;
-            THelperFltInfo(): travel_time(NoExists) {}
-        };
-        typedef map<int, THelperFltInfo> TItems;
-        TItems items;
-        TItems::iterator get(const int &point_id, const string &craft, const string &airp)
-        {
-            TItems::iterator result = items.find(point_id);
-            if(result == items.end()) {
-                THelperFltInfo hfi;
-                TTripRoute route;
-                route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
-                hfi.airp_last = route.back().airp;
-
-                hfi.travel_time = getTimeTravel(craft, airp, hfi.airp_last);
-                pair<TItems::iterator, bool> res = items.insert(make_pair(point_id, hfi));
-                result = res.first;
-            }
-            return result;
-        }
-    };
-
 
     if(not Qry.get().Eof) {
         int col_pax_id = Qry.get().FieldIndex("pax_id");
@@ -5638,13 +5640,13 @@ void get_service_stat(int point_id)
         int col_rem_code = Qry.get().FieldIndex("rem_code");
         int col_user_id = Qry.get().FieldIndex("user_id");
         int col_desk = Qry.get().FieldIndex("desk");
-        TFltInfo flt_info;
+        ServiceStat::TFltInfo flt_info;
         for(; not Qry.get().Eof; Qry.get().Next()) {
             int pax_id = Qry.get().FieldAsInteger(col_pax_id);
             string craft = Qry.get().FieldAsString(col_craft);
             string airp = Qry.get().FieldAsString(col_airp);
 
-            TFltInfo::TItems::iterator flt_info_idx = flt_info.get(point_id, craft, airp);
+            ServiceStat::TFltInfo::TItems::iterator flt_info_idx = flt_info.get(point_id, craft, airp);
 
             CheckIn::TPaxTknItem tkn;
             LoadPaxTkn(pax_id, tkn);
