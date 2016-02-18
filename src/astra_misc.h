@@ -780,7 +780,11 @@ std::string GetTagRangesStr(const TBagTagNumber &tag);
 std::string GetBagRcptStr(const std::vector<std::string> &rcpts);
 
 const int TEST_ID_BASE = 1000000000;
+const int TEST_ID_LAST = TEST_ID_BASE+999999999;
+const int EMPTY_ID = TEST_ID_LAST+1;
 bool isTestPaxId(int id);
+int getEmptyPaxId();
+bool isEmptyPaxId(int id);
 
 struct TInfantAdults {
   int grp_id;

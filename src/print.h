@@ -30,6 +30,7 @@ class PrintDataParser {
         std::string parse_tag(int offset, std::string tag);
     public:
         TPrnTagStore pts;
+        PrintDataParser(const std::string &scan, bool pr_lat = false): pectab_format(0), pts(scan, pr_lat) {};
         PrintDataParser(bool pr_lat = false): pectab_format(0), pts(pr_lat) {};
         PrintDataParser(const TBagReceipt &rcpt, bool pr_lat): pectab_format(0), pts(rcpt, pr_lat) {};
         PrintDataParser(int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, const TTrferRoute &route = TTrferRoute()):
@@ -58,6 +59,7 @@ class PrintInterface: public JxtInterface
           std::pair<std::string, bool> gate; //bool=true, если делать set_tag, иначе с gate ничего не делаем
           BASIC::TDateTime time_print;
           std::string prn_form;
+          std::string scan;
           bool hex;
           BPPax()
           {
@@ -80,6 +82,7 @@ class PrintInterface: public JxtInterface
             gate=std::make_pair("", false);
             time_print=ASTRA::NoExists;
             prn_form.clear();
+            scan.clear();
             hex=false;
           };
           bool fromDB(int vpax_id, int test_point_dep);

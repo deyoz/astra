@@ -2332,36 +2332,151 @@ void GetBPPax(xmlNodePtr paxNode, bool is_test, bool check_tids, PrintInterface:
   GetBPPax(is_test && point_dep==NoExists?pax_grp_tid:point_dep, pax_id, is_test, pax);
 };
 
+class BPReprintOptions
+{
+  public:
+    static int check_date(int lower_shift, int upper_shift, int julian_date_of_flight, const string &airp);
+    static void check_access(int julian_date_of_flight, const string &airp, const string &airline);
+};
+
+int BPReprintOptions::check_date(int lower_shift, int upper_shift, int julian_date_of_flight, const string &airp)
+{
+  TDateTime date_of_flight = NoExists;
+  int Year, Month, Day;
+  TDateTime utc_date=NowUTC();
+  DecodeDate(utc_date, Year, Month, Day);
+  for(int y=Year-1; y<=Year+1; y++)
+  {
+    TDateTime d=JulianDateToDateTime(julian_date_of_flight, y);
+    if (date_of_flight==NoExists ||
+        fabs(date_of_flight-utc_date)>fabs(d-utc_date))
+      date_of_flight=d;
+  };
+
+  BASIC::TDateTime ret = NowUTC();
+  try
+  {
+    ret=UTCToLocal(ret, AirpTZRegion(airp));
+  }
+  catch(EXCEPTIONS::Exception& e) {};
+
+  modf(ret, &ret);
+  int date_diff = ret - date_of_flight;
+  if(date_diff > 0 && date_diff > lower_shift)
+    return -1;
+  if(date_diff < 0 && -date_diff > upper_shift)
+    return 1;
+  return 0;
+}
+
+void BPReprintOptions::check_access(int julian_date_of_flight, const string &airp, const string &airline)
+{
+  ProgTrace(TRACE5, "%s started", __FUNCTION__);
+  TElemFmt fmt;
+  string airp_id = ElemToElemId(etAirp, airp, fmt);
+  if (fmt == efmtUnknown) airp_id = airp;
+  string airline_id = ElemToElemId(etAirline, airline, fmt);
+  if (fmt == efmtUnknown) airline_id = airline;
+  if(airp_id.empty() || airline_id.empty()) throw UserException("MSG.REPRINT_ACCESS_ERR");
+
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT lower_shift, upper_shift, "
+    "       DECODE(airline,NULL,0,:airline,2,-100)+ "
+    "       DECODE(airp,NULL,0,:airp,1,-100) AS priority "
+    "FROM bcbp_reprint_options "
+    "WHERE desk_grp=:desk_grp AND "
+    "      (desk IS NULL OR desk=:desk) "
+    "ORDER BY desk NULLS LAST, priority DESC ";
+  Qry.CreateVariable("desk_grp", otInteger, reqInfo->desk.grp_id);
+  Qry.CreateVariable("desk", otString, reqInfo->desk.code);
+  Qry.CreateVariable("airline", otString, airline_id);
+  Qry.CreateVariable("airp", otString, airp_id);
+  Qry.Execute();
+
+  if (!Qry.Eof)
+  {
+    if (Qry.FieldAsInteger("priority")<0) throw UserException("MSG.REPRINT_ACCESS_ERR");
+    switch(check_date(Qry.FieldAsInteger("lower_shift"),
+                      Qry.FieldAsInteger("upper_shift"),
+                      julian_date_of_flight, airp_id))
+    { case -1:throw UserException("MSG.REPRINT_WRONG_DATE_BEFORE");
+      case  1:throw UserException("MSG.REPRINT_WRONG_DATE_AFTER");
+    }
+  }
+}
+
 void GetBPPaxFromScanCode(const string &scanCode, PrintInterface::BPPax &pax)
 {
+  pax.clear();
+
   WebSearch::TPNRFilters filters;
-  filters.fromBCBP_M(scanCode);
+  BCBPSections scanSections;
+  filters.getBCBPSections(scanCode, scanSections);
+  try
+  {
+    //внимание!!
+    //процедура заточена только на односегментный посадочный талон
+    //многосегментные посадочные талоны пока не печатаются
+    if (scanSections.repeated.size()!=1)
+      throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
+    const BCBPRepeatedSections &repeated=*(scanSections.repeated.begin());
+    //проверим что это посадочный талон
+    if (repeated.checkinSeqNumber().first==NoExists) //это не посадочный талон, потому что рег. номер не известен
+      throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
+    boost::optional<BCBPSectionsEnums::DocType> doc_type = scanSections.doc_type();
+    if (doc_type && doc_type.get() == BCBPSectionsEnums::itenirary_receipt)
+      throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
+    //проверим доступ для перепечати
+    BPReprintOptions::check_access(repeated.dateOfFlight(),
+                                   repeated.fromCityAirpCode(),
+                                   repeated.operatingCarrierDesignator());
+  }
+  catch(EXCEPTIONS::EConvertError &e)
+  {
+    //не можем даже минимально проверить доступ
+    LogTrace(TRACE5) << '\n' << scanSections;
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "GetBPPaxFromScanCode: %s", e.what());
+    throw UserException("MSG.SCAN_CODE.UNKNOWN_DATA");
+  }
 
-  list<AstraLocale::LexemaData> errors;
-  list<WebSearch::TPNRs> PNRsList;
+  //попытка найти пассажира
+  try
+  {
+    filters.fromBCBPSections(scanSections);
 
-  GetPNRsList(filters, PNRsList, errors);
-  if (!errors.empty())
-    throw UserException(errors.begin()->lexema_id, errors.begin()->lparams);
-  //проверим что это посадочный талон и что пассажир тестовый
-  if (filters.segs.empty()) throw EXCEPTIONS::Exception("%s: filters.segs.empty()", __FUNCTION__);
-  if (filters.segs.front().reg_no==NoExists) //это не посадочный талон, потому что рег. номер не известен
-    throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
+    list<AstraLocale::LexemaData> errors;
+    list<WebSearch::TPNRs> PNRsList;
 
-  bool is_test=!filters.segs.front().test_paxs.empty();
+    GetPNRsList(filters, PNRsList, errors);
+    if (!errors.empty())
+      throw UserException(errors.begin()->lexema_id, errors.begin()->lparams);
+    //проверим что это посадочный талон и что пассажир тестовый
+    if (filters.segs.empty()) throw EXCEPTIONS::Exception("%s: filters.segs.empty()", __FUNCTION__);
+    if (filters.segs.front().reg_no==NoExists) //это не посадочный талон, потому что рег. номер не известен
+      throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
 
-  if (PNRsList.empty()) throw UserException( "MSG.PASSENGER.NOT_FOUND" );
-  const WebSearch::TPNRs &PNRs=PNRsList.front();
+    bool is_test=!filters.segs.front().test_paxs.empty();
 
-  if (PNRs.pnrs.empty())
-    throw UserException( "MSG.PASSENGERS.NOT_FOUND" );
-  if (!is_test && (PNRs.pnrs.size()>1 || PNRs.pnrs.begin()->second.paxs.size()>1))
-    throw UserException( "MSG.PASSENGERS.FOUND_MORE" );
-  if (PNRs.pnrs.begin()->second.segs.empty()) throw EXCEPTIONS::Exception("%s: PNRs.pnrs.begin()->second.segs.empty()", __FUNCTION__);
-  int point_dep=PNRs.pnrs.begin()->second.segs.begin()->second.point_dep;
-  if (PNRs.pnrs.begin()->second.paxs.empty()) throw EXCEPTIONS::Exception("%s: PNRs.pnrs.begin()->second.paxs.empty()", __FUNCTION__);
-  int pax_id=PNRs.pnrs.begin()->second.paxs.begin()->pax_id;
-  GetBPPax( point_dep, pax_id, is_test, pax );
+    if (PNRsList.empty()) throw UserException( "MSG.PASSENGER.NOT_FOUND" );
+    const WebSearch::TPNRs &PNRs=PNRsList.front();
+
+    if (PNRs.pnrs.empty())
+      throw UserException( "MSG.PASSENGERS.NOT_FOUND" );
+    if (!is_test && (PNRs.pnrs.size()>1 || PNRs.pnrs.begin()->second.paxs.size()>1))
+      throw UserException( "MSG.PASSENGERS.FOUND_MORE" );
+    if (PNRs.pnrs.begin()->second.segs.empty()) throw EXCEPTIONS::Exception("%s: PNRs.pnrs.begin()->second.segs.empty()", __FUNCTION__);
+    int point_dep=PNRs.pnrs.begin()->second.segs.begin()->second.point_dep;
+    if (PNRs.pnrs.begin()->second.paxs.empty()) throw EXCEPTIONS::Exception("%s: PNRs.pnrs.begin()->second.paxs.empty()", __FUNCTION__);
+    int pax_id=PNRs.pnrs.begin()->second.paxs.begin()->pax_id;
+    GetBPPax( point_dep, pax_id, is_test, pax );
+  }
+  catch(UserException &e)
+  {
+    LogTrace(TRACE5) << '\n' << scanSections;
+    LogTrace(TRACE5) << ">>>> " << e.what();
+  }
 };
 
 string GetBPGate(int point_id)
@@ -2395,14 +2510,15 @@ void WebRequestsIface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   ProgTrace(TRACE1,"WebRequestsIface::ConfirmPrintBP");
   CheckIn::UserException ue;
   vector<PrintInterface::BPPax> paxs;
-  bool is_test=isTestPaxId(NodeAsInteger("passengers/pax/pax_id", reqNode));
   xmlNodePtr paxNode = NodeAsNode("passengers", reqNode)->children;
   for(;paxNode!=NULL;paxNode=paxNode->next)
   {
+    int pax_id=NodeAsInteger("pax_id", paxNode);
+    if (isTestPaxId(pax_id) || isEmptyPaxId(pax_id)) continue;
     PrintInterface::BPPax pax;
     try
     {
-      GetBPPax( paxNode, is_test, false, pax );
+      GetBPPax( paxNode, false, false, pax );
       pax.time_print=NodeAsDateTime("prn_form_key", paxNode);
       paxs.push_back(pax);
     }
@@ -2413,10 +2529,7 @@ void WebRequestsIface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     };
   };
 
-  if (!is_test)
-  {
-    PrintInterface::ConfirmPrintBP(paxs, ue);  //не надо прокидывать ue в терминал - подтверждаем все что можем!
-  };
+  PrintInterface::ConfirmPrintBP(paxs, ue);  //не надо прокидывать ue в терминал - подтверждаем все что можем!
 
   NewTextChild( resNode, "ConfirmPrintBP" );
 };
@@ -2457,12 +2570,17 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
   if (scanCodeNode!=NULL)
   {
+    string scanCode=NodeAsString(scanCodeNode);
     PrintInterface::BPPax pax;
     try
     {
-      GetBPPaxFromScanCode(NodeAsString(scanCodeNode), pax);
-      if (gates.find(pax.point_dep)==gates.end()) gates[pax.point_dep]=GetBPGate(pax.point_dep);
-      pax.gate=make_pair(gates[pax.point_dep], true);
+      GetBPPaxFromScanCode(scanCode, pax);
+      if (pax.point_dep!=NoExists)
+      {
+        if (gates.find(pax.point_dep)==gates.end()) gates[pax.point_dep]=GetBPGate(pax.point_dep);
+        pax.gate=make_pair(gates[pax.point_dep], true);
+      };
+      if (pax.pax_id==NoExists) pax.scan=scanCode;
       paxs.push_back(pax);
     }
     catch(UserException &e)
@@ -2502,7 +2620,7 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   for (vector<PrintInterface::BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
   {
     xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-    NewTextChild(paxNode, "pax_id", iPax->pax_id);
+    NewTextChild(paxNode, "pax_id", iPax->pax_id==NoExists?getEmptyPaxId():iPax->pax_id);
     if (!iPax->hex && params.prnParams.encoding!="UTF-8")
     {
       iPax->prn_form = ConvertCodepage(iPax->prn_form, "CP866", params.prnParams.encoding);
@@ -2514,6 +2632,66 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   };
 };
 
+#include <fstream>
+
+int bcbp_test(int argc,char **argv)
+{
+    // Без инициализации reqInfo пас не найдется
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    reqInfo->Initialize("МОВ");
+
+    vector<string> tags;
+    BPTags::Instance()->getFields( tags );
+    string pectab;
+    for(vector<string>::iterator iv = tags.begin(); iv != tags.end(); iv++) {
+        int pad = 20 - iv->size();
+        if(pad < 0) pad = 0;
+        pectab += *iv + string(pad, ' ');
+        string fp = "(40,,)";
+
+        if(
+                upperc(*iv) == TAG::BCBP_M_2 or
+                upperc(*iv) == TAG::BCBP_V_5
+          ) fp.clear();
+
+        if(
+                upperc(*iv) == TAG::SCD or
+                upperc(*iv) == TAG::TIME_PRINT
+          ) {
+            fp = "(,,dd.mm)";
+            pectab += "'[<" + *iv + fp + ">]'\n";
+            fp = "(,,hh:nn)";
+            pectab += *iv + string(pad, ' ');
+            pectab += "'[<" + *iv + fp + ">]'\n";
+        } else
+            pectab += "'[<" + *iv + fp + ">]'\n";
+    }
+
+    cout << pectab << endl;
+
+    ifstream ifs("bcbp");
+    std::string scan((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+
+    //string scan = "M1ZAKHAROV/DENIS YUREV        DMEAER UT0001 264Y005A0001 128>2180OO    B                000028787007";
+
+    PrintInterface::BPPax pax;
+    GetBPPaxFromScanCode(scan, pax);
+
+    boost::shared_ptr<PrintDataParser> parser;
+    if(pax.pax_id == NoExists) {
+        cout << "pax not found." << endl;
+        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scan));
+    } else {
+        cout << "pax found, pax_id: " << pax.pax_id << endl;
+        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
+    }
+    cout << endl;
+
+    cout << parser->parse(pectab) << endl;
+
+    return 1;
+}
+
 void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -2523,27 +2701,34 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   PrintInterface::BPPax pax;
   xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
+  boost::shared_ptr<PrintDataParser> parser;
   if (scanCodeNode!=NULL)
   {
-    GetBPPaxFromScanCode(NodeAsString(scanCodeNode), pax);
+    string scanCode=NodeAsString(scanCodeNode);
+    GetBPPaxFromScanCode(scanCode, pax);
+
+    if(pax.pax_id == NoExists)
+      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scanCode));
+    else
+      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
   }
   else
   {
     bool is_test=isTestPaxId(NodeAsInteger("pax_id", reqNode));
     GetBPPax( reqNode, is_test, true, pax );
+    parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
   };
-  PrintDataParser parser( pax.grp_id, pax.pax_id, 0, NULL );
   vector<string> tags;
   BPTags::Instance()->getFields( tags );
   xmlNodePtr node = NewTextChild( resNode, "GetBPTags" );
   for ( vector<string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
     for(int j = 0; j < 2; j++) {
-      string value = parser.pts.get_tag(*i, ServerFormatDateTimeAsString, (j == 0 ? "R" : "E"));
+      string value = parser->pts.get_tag(*i, ServerFormatDateTimeAsString, ((j == 0 and not scanCodeNode) ? "R" : "E"));
       NewTextChild( node, (*i + (j == 0 ? "" : "_lat")).c_str(), value );
       ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
     }
   }
-  parser.pts.save_bp_print(true);
+  parser->pts.save_bp_print(true);
 
   string gate=GetBPGate(pax.point_dep);
   if (!gate.empty())
@@ -3133,6 +3318,328 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 //////////////////END MERIDIAN //////////////////////////////////
 
 } //end namespace AstraWeb
+
+#if 0
+
+bool test_check_reprint_access()
+{   std::cout<<"Started Test check_reprint_access()...\n";
+     struct Record
+            { int grp;
+          string desk, airp, airline;
+              int lower_shift, upper_shift;
+              string str()
+              { return string(" with airp: ") + airp + " airline: " +  airline  + " days before: " +
+                     std::to_string(lower_shift) + " days after: " +  std::to_string(upper_shift)  + " kiosk: " + desk + " kiosk group: " + std::to_string(grp)  + "\n";
+              }
+            };
+    struct TestRecord
+    {
+
+              int grp;
+              string desk, airp, airline;
+              int _time;
+              string err;
+              /*string str()
+              { return string(" with airp: ") + airp + " airline: " +  airline  + " days before: " +
+                     std::to_string(lower_shift) + " days after: " +  std::to_string(upper_shift)  + " kiosk: " + desk + " kiosk group: " + std::to_string(grp)  + "\n";
+              }*/
+
+              TDateTime time(){
+                TElemFmt fmt;
+                string airp_id = ElemToElemId(etAirp, airp, fmt); ;
+                TDateTime t ;
+                try{
+                   t = UTCToLocal(NowUTC(), AirpTZRegion(airp_id, false)) + _time;
+                }
+                catch(...)
+                {  t = NowUTC() + _time;
+                }
+        modf(t, &t) ;
+                return t;
+              }
+
+   };
+    class Void
+    {
+        public:
+            static int get_last_good(vector<string>& x)
+            {int ret = 0; for(unsigned int i = 0; i<x.size(); i++, ret++)
+                if(x[i].empty()) return i; return ret;
+            }
+           vector<Record> table;
+           void set_bd(vector<Record>& new_table)
+           {    std::cout<<"clear() start\n";
+                std::cout.flush();
+
+                clear();
+                std::cout<<"clear() end\n";
+                std::cout.flush();
+                table = new_table;
+                TElemFmt fmt;
+                TQuery Qry(&OraSession);
+        for(auto &i : table)
+                {  Qry.SQLText =
+              " INSERT INTO bcbp_reprint_options (id, desk_grp, desk, airline, airp, upper_shift, lower_shift) "
+           " VALUES(id__seq.nextval, :desk_grp, :desk, :airline, :airp, :upper_shift, :lower_shift) " ;
+            Qry.CreateVariable("desk_grp", otInteger, i.grp);
+            Qry.CreateVariable("desk", otString, i.desk);
+            Qry.CreateVariable("airline", otString, ElemToElemId(etAirline, i.airline, fmt));
+            Qry.CreateVariable("airp", otString, ElemToElemId(etAirp, i.airp, fmt));
+                    Qry.CreateVariable("upper_shift", otInteger, i.upper_shift);
+                    Qry.CreateVariable("lower_shift", otInteger, i.lower_shift);
+            Qry.Execute();
+                    Qry.Clear();
+              }
+              std::cout<<"set bd end\n";
+              std::cout.flush();
+           }
+
+           void clear()
+           {
+               std::cout<<"start session()\n";
+               std::cout.flush();
+
+           TQuery Qry(&OraSession);
+               std::cout<<"set text\n";
+               std::cout.flush();
+
+               Qry.SQLText =
+                   "DELETE FROM  bcbp_reprint_options  ";
+                    Qry.Execute();
+            std::cout<<"execute\n";
+               std::cout.flush();
+
+                    Qry.Clear();
+        std::cout<<"Qry.Clear()\n";
+              std::cout.flush();
+
+       }
+          // ~Void(){clear(); OraSession.Rollback();};
+
+           int grp_id;
+           string desk_code;
+
+//	   Void(string _code, int _id) : grp_id(_id), desk_code(_code) {}
+    };
+    std::cout<<"Init...\n"; std::cout.flush();
+    Void query;
+   // TReqInfo::Instance()->desk.grp_id=query.grp_id;
+    //TReqInfo::Instance()->desk.code=query.desk_code;
+    vector<string> airps = {"VKO", "DME", "", " ", "0000", "000"}; //последнее в принципе допустимое имя аэропорта/авиакомпании должно быть написано до ""
+    vector<string>airlines = {"AU", "", " ", "0000", "000"};
+    vector<int> grps = {1};
+    vector<string> desks = {"KIOSKB"};
+    vector<BASIC::TDateTime> times;
+//    int final_good_airps = Void::get_last_good(airps);
+//    int final_good_airlines = Void::get_last_good(airlines);
+//    int final_good_grps = 2;
+//    int final_good_desks = Void::get_last_good(desks);
+
+
+    for(int i = -20; i < 21; i++)
+        times.push_back(NowUTC() + i);
+    for(int i = -400; i <= 400; i+=50)
+        times.push_back(NowUTC() + i);
+    bool got_reprint_access_err = false;
+
+    vector<pair<vector<Record>, vector<TestRecord> > > tables =
+    {	{ {{ 1, "KIOSKB",  "VKO", "UT", 250, 1},
+           { 1, "KIOSKB",  "", "UT", 50, 50},
+           { 1, "KIOSKB", "VKO", "CX", 1, 1},
+           { 1, "KIOSKB", "DME", "", 0, 0}
+          },
+          {{ 1, "KIOSKB",  "ZZA", "UT", +0, "wrong airp"},
+           { 1, "KIOSKB",  "VKO", "ZZA", +0, "wrong airline"},
+       { 1, "KIOSKB",  "ZZA", "ZZA", +0, "wrong airp and airline"},
+           { 1, "KIOSKB",  "DME", "ZZA", +0, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -5, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -300, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", +300, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", -4, ""},
+           { 1, "KIOSKB",  "VKO", "UT", +50, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", +1, ""},
+           { 1, "KIOSKB",  "VKO", "UT", +0, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -300, "Time"},
+           { 1, "KIOSKB",  "DME", "UT", -5, ""},
+           { 1, "KIOSKB",  "DME", "UT", +0, ""},
+       { 1, "KIOSKB",  "DME", "UT", +0, ""},
+           { 1, "KIOSKB",  "DME", "CX", -51, "Time"},
+           { 1, "KIOSKB",  "DME", "UT", +10, ""},
+           { 1, "KIOSKB",  "VKO", "CX", +0, ""},
+           { 1, "KIOSKB",  "VKO", "YC", -300, "Time"},
+           { 1, "KIOSKB",  "VKO", "CX", +1, ""},
+           { 1, "KIOSKB",  "DME", "CX", +0, ""},
+           { 1, "KIOSKB",  "DME", "YC", +2, "Time"},
+           { 1, "KIOSKB",  "DME", "YC", +1, "Time"},
+           { 1, "KIOSKB",  "DME", "CX", +1, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", -5, ""}},
+           //{ 1, "KIOSKB",  "", "UT", -10,  "bad data: airport cant be null inside the ticket"},
+           //{ 1, "KIOSKB",  "", "", 0, "bad data: airline cant be null inside the ticket"}},
+         },
+
+         { {},
+
+       {{ 1, "KIOSKB",  "VKO", "UT", -5, ""},
+           { 9000, "K",  "VKO", "UT", -300, ""}, //wrong kiosk and kiosk_group
+           { 1, "KIOSKB",  "ZZA", "UT", +300, ""}, //unexisted airport
+           { 1, "KIOSKB",  "VKO", "ZZA", -4, ""}, //unexisted airline
+           { 1, "KIOSKB",  "ZZA", "ZZA", +50, ""}, //unexisted airp airline
+           { 1, "KIOSKB",  "VKO", "UT", +1, ""},
+           { 1, "KIOSKB",  "VKO", "UT", +0, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -300, ""},
+           { 1, "KIOSKB",  "DME", "UT", -5, ""},
+           { 1, "KIOSKB",  "DME", "UT", +0, ""},
+           { 1, "KIOSKB",  "DME", "UT", +0, ""},
+           { 1, "KIOSKB",  "DME", "CX", -51, ""},
+           { 1, "KIOSKB",  "DME", "UT", +10, ""},
+           { 1, "KIOSKB",  "VKO", "CX", +0, ""},
+           { 1, "KIOSKB",  "VKO", "YC", -300, ""},
+           { 1, "KIOSKB",  "VKO", "CX", +1, ""},
+           { 1, "KIOSKB",  "DME", "CX", +0, ""},
+           { 1, "KIOSKB",  "DME", "YC", +2, ""},
+           { 1, "KIOSKB",  "DME", "YC", +1, ""},
+           { 1, "KIOSKB",  "DME", "CX", +1, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -5, ""}}
+         },
+
+         { {{ 1, "",  "VKO", "UT", 250, 1},
+           { 1, "KIOSKB",  "", "UT", 50, 50},
+           { 1, "KIOSKB", "VKO", "CX", 1, 1},
+           { 1, "KIOSKB", "DME", "", 0, 0}
+          },
+          {{ 1, "K",  "VKO", "UT", -5,  ""},
+           { 1, "K",  "VKO", "UT", +2, "Time"},
+           { 1, "K",  "DME", "UT", +0, "Airp"},
+           { 1,	"K",  "VKO", "UT", +0, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -300, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", +300, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", -51, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", +50, ""},
+           { 1, "KIOSKB",  "VKO", "UT", +51, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", +0, ""},
+           { 1, "KIOSKB",  "VKO", "UT", -300, "Time"},
+           { 1, "KIOSKB",  "DME", "UT", -5, ""},
+           { 1, "KIOSKB",  "DME", "UT", +0, ""},
+           { 1, "KIOSKB",  "DME", "UT", +0, ""},
+           { 1, "KIOSKB",  "DME", "CX", -51, "Time"},
+           { 1, "KIOSKB",  "DME", "UT", +10, ""},
+           { 1, "KIOSKB",  "VKO", "CX", +0, ""},
+           { 1, "KIOSKB",  "VKO", "YC", -300, "Time"},
+           { 1, "KIOSKB",  "VKO", "CX", +1, ""},
+           { 1, "KIOSKB",  "DME", "CX", +0, ""},
+           { 1, "KIOSKB",  "DME", "YC", +2, "Time"},
+           { 1, "KIOSKB",  "DME", "YC", +1, "Time"},
+           { 1, "KIOSKB",  "DME", "CX", +1, "Time"},
+           { 1, "KIOSKB",  "VKO", "UT", -5, ""}},
+         }
+
+    };
+    std::cout<<"Run...\n"; std::cout.flush();
+    string exception_err_str;
+    for(auto &t :tables)
+    {   query.set_bd(t.first);
+       for(auto &i : t.second)
+              {
+        got_reprint_access_err = false;
+                  try
+                  { TReqInfo::Instance()->desk.grp_id=i.grp;
+            TReqInfo::Instance()->desk.code=i.desk;
+                    std::cout << BASIC::DateTimeToStr(i.time(), "dd.mm.yy hh:nn", true) << std::endl;
+                    TPrnTagStore::check_reprint_access(i.time(), i.airp, i.airline);
+                  }
+                  catch(UserException &e)
+                  {   exception_err_str = e.what();
+                      if (e.getLexemaData().lexema_id == "MSG.REPRINT_ACCESS_ERR")
+                         got_reprint_access_err = true;
+                      else
+                      if(e.getLexemaData().lexema_id == "MSG.REPRINT_WRONG_DATE_AFTER" || e.getLexemaData().lexema_id == "MSG.REPRINT_WRONG_DATE_BEFORE")  got_reprint_access_err = true;
+                      else
+                      {std::cout<<"Test failed: err with wrong description\n";
+               ProgError(STDLOG, "Undefined error while test_check_reprint_access() in prn_tag_store.cc");
+                       return false;
+                      }
+                  }
+                  catch(std::exception &e)
+                  {   exception_err_str = e.what();
+                      //std::cout << "Test failed: " << e.what() << "\n";
+                      got_reprint_access_err = true;
+
+                  }
+                  catch(...)
+                  {   std::cout<<"Test failed: uknown err\n";
+              ProgError(STDLOG, "Undefined error while test_check_reprint_access() in prn_tag_store.cc");
+                      return false;
+                  }
+                  if(!got_reprint_access_err)
+                  {   if(!i.err.empty()){
+                         string err = string("Condition of test failed, waited ")  + i.err  + "\n with airp = "
+                + i.airp
+                           + " airline = " + i.airline + " time " +
+                                 BASIC::DateTimeToStr(i.time(), "dd.mm.yy", true) +  " kiosk " + i.desk + " kiosk group " + std::to_string(i.grp) + "\n"
+            ;
+                         err+= "\nException message: "  + exception_err_str +  " \n";
+                         err+="for table {\n";
+                           for(auto &z: t.first)
+                             err+="\t\t" + z.str() + "\n";
+                         err+="}\n";
+                         ProgError(STDLOG, err.c_str());
+                         std::cout<<err;
+             return false;
+                      }
+                      /*if(i.airp >= (unsigned int)final_good_airps)
+                      { std::cout<<"Test failed: bad airport name "<<airps[iairp]<<"didnt filtered\n";
+            ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc, test didnt passed, because bad name airp didnt catched");
+                        return false;
+                      }
+                      if(iairline >= (unsigned int)final_good_airlines)
+                      { std::cout<<"Test failed: bad airline name "<<airlines[iairline]<<"didnt filtered\n";
+                    ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc because bad name airline ");
+                        return false;
+                      }
+              if(igrp >= (unsigned int)final_good_grps)
+                      { std::cout<<"Test failed: bad grp_name "<<grps[igrp]<<"didnt filtered\n";
+                        ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc because bad name grp ");
+                        return false;
+                      }
+              if(idesk >= (unsigned int)final_good_desks)
+                      { std::cout<<"Test failed: bad grp_name "<<desks[idesk]<<"didnt filtered\n";
+                        ProgError(STDLOG, "Failed test check_reprint_access() in prn_tag_store.cc because bad name desk" );
+                        return false;
+                      }*/
+
+                  }
+                  else
+                  { if(i.err.empty()){
+                         string err = string("Condition of test failed in test with airp = ") + i.airp
+                           + " airline = " + i.airline + " time " +
+                 BASIC::DateTimeToStr(i.time(), "dd.mm.yy", true) +  " kiosk " + i.desk + " kiosk group " + std::to_string(i.grp) +
+                        "\nException message: "  + exception_err_str +  " \n"  +
+            " in table: {\n";
+                         for(auto &z: t.first)
+                     err+="\t\t" + z.str() + "\n";
+                         err += "}\n";
+                         ProgError(STDLOG, err.c_str());
+                         std::cout<<err;
+                         return false;
+                      }
+                  }
+                  exception_err_str = "";
+
+              }
+    }
+    std::cout<<"Test passed\n";
+    return true;
+}
+
+#endif
+
+int test_reprint(int argc,char **argv)
+{
+#if 0
+    test_check_reprint_access();
+#endif
+    return 1;
+}
 
 namespace TypeB
 {

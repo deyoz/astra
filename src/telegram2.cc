@@ -17,11 +17,9 @@
 #include "qrys.h"
 #include "typeb_utils.h"
 #include "emdoc.h"
-#include "serverlib/logger.h"
 
 #define NICKNAME "DEN"
-#define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 #include "alarms.h"
 #include "TypeBHelpMng.h"
