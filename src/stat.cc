@@ -19,6 +19,7 @@
 #include "baggage_pc.h"
 #include "astra_elems.h"
 #include "serverlib/xml_stuff.h"
+#include "astra_misc.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -1854,7 +1855,8 @@ enum TStatType {
     statTlgOutShort,
     statTlgOutDetail,
     statPactShort,
-    statRFISC
+    statRFISC,
+    statService
 };
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
@@ -2198,6 +2200,11 @@ void TStatParams::get(xmlNodePtr reqNode)
     } else if(type == "Багажные RFISC") {
         if(name == "Подробная")
             statType=statRFISC;
+        else
+            throw Exception("Unknown stat mode " + name);
+    } else if(type == "Услуги") {
+        if(name == "Подробная")
+            statType=statService;
         else
             throw Exception("Unknown stat mode " + name);
     } else
@@ -5542,6 +5549,363 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
     NewTextChild(variablesNode, "CAP.STAT.FLT_INFO", getLocaleText("CAP.STAT.FLT_INFO"));
 }
 
+/******************* Service Stat ****************************/
+
+namespace ServiceStat {
+    struct TFltInfo {
+        struct THelperFltInfo {
+            string airp_last;
+            TDateTime travel_time;
+            THelperFltInfo(): travel_time(NoExists) {}
+        };
+        typedef map<int, THelperFltInfo> TItems;
+        TItems items;
+        TItems::iterator get(const int &point_id, const string &craft, const string &airp)
+        {
+            TItems::iterator result = items.find(point_id);
+            if(result == items.end()) {
+                THelperFltInfo hfi;
+                TTripRoute route;
+                route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
+                hfi.airp_last = route.back().airp;
+
+                hfi.travel_time = getTimeTravel(craft, airp, hfi.airp_last);
+                pair<TItems::iterator, bool> res = items.insert(make_pair(point_id, hfi));
+                result = res.first;
+            }
+            return result;
+        }
+    };
+}
+
+void get_service_stat(int point_id)
+{
+    TCachedQuery delQry("delete from service_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
+    delQry.get().Execute();
+    TCachedQuery Qry(
+            "select "
+            "    pax.pax_id, "
+            "    points.craft, "
+            "    points.airp, "
+            "    pro.rem_code, "
+            "    pro.user_id, "
+            "    pro.desk "
+            "from "
+            "    points, "
+            "    pax_grp, "
+            "    pax, "
+            "    pax_rem_origin pro "
+            "where "
+            "    points.point_id = :point_id and "
+            "    pax_grp.point_dep = points.point_id and "
+            "    pax_grp.grp_id = pax.grp_id and"
+            "    pax.pax_id = pro.pax_id ",
+            QParams() << QParam("point_id", otInteger, point_id)
+            );
+    TCachedQuery insQry(
+            "insert into service_stat( "
+            "   point_id, "
+            "   travel_time, "
+            "   rem_code, "
+            "   ticket_no, "
+            "   airp_last, "
+            "   user_id, "
+            "   desk "
+            ") values ( "
+            "   :point_id, "
+            "   :travel_time, "
+            "   :rem_code, "
+            "   :ticket_no, "
+            "   :airp_last, "
+            "   :user_id, "
+            "   :desk "
+            ") ",
+            QParams()
+            << QParam("point_id", otInteger, point_id)
+            << QParam("travel_time", otDate)
+            << QParam("rem_code", otString)
+            << QParam("ticket_no", otString)
+            << QParam("airp_last", otString)
+            << QParam("user_id", otInteger)
+            << QParam("desk", otString)
+            );
+
+    Qry.get().Execute();
+
+
+    if(not Qry.get().Eof) {
+        int col_pax_id = Qry.get().FieldIndex("pax_id");
+        int col_craft = Qry.get().FieldIndex("craft");
+        int col_airp = Qry.get().FieldIndex("airp");
+        int col_rem_code = Qry.get().FieldIndex("rem_code");
+        int col_user_id = Qry.get().FieldIndex("user_id");
+        int col_desk = Qry.get().FieldIndex("desk");
+        ServiceStat::TFltInfo flt_info;
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            int pax_id = Qry.get().FieldAsInteger(col_pax_id);
+            string craft = Qry.get().FieldAsString(col_craft);
+            string airp = Qry.get().FieldAsString(col_airp);
+
+            ServiceStat::TFltInfo::TItems::iterator flt_info_idx = flt_info.get(point_id, craft, airp);
+
+            CheckIn::TPaxTknItem tkn;
+            LoadPaxTkn(pax_id, tkn);
+            ostringstream ticket_no;
+            if(not tkn.empty()) {
+                ticket_no << tkn.no;
+                if (tkn.coupon!=ASTRA::NoExists)
+                    ticket_no << "/" << tkn.coupon;
+            }
+
+            LogTrace(TRACE5) << "pax_id: " << pax_id;
+            LogTrace(TRACE5) << "rem_code: " << Qry.get().FieldAsString(col_rem_code);
+
+            if(flt_info_idx->second.travel_time == NoExists)
+                insQry.get().SetVariable("travel_time", FNull);
+            else
+                insQry.get().SetVariable("travel_time", flt_info_idx->second.travel_time);
+            insQry.get().SetVariable("rem_code", Qry.get().FieldAsString(col_rem_code));
+            insQry.get().SetVariable("ticket_no", ticket_no.str());
+            insQry.get().SetVariable("airp_last", flt_info_idx->second.airp_last);
+            insQry.get().SetVariable("user_id", Qry.get().FieldAsInteger(col_user_id));
+            insQry.get().SetVariable("desk", Qry.get().FieldAsString(col_desk));
+
+            for(int i = 0; i < insQry.get().VariablesCount(); i++)
+                LogTrace(TRACE5) << insQry.get().VariableName(i) << " = " << insQry.get().GetVariableAsString(i);
+
+            insQry.get().Execute();
+        }
+    }
+}
+
+struct TServiceStatRow {
+    int point_id;
+    string ticket_no;
+    TDateTime scd_out;
+    int flt_no;
+    string suffix;
+    string airp;
+    string airp_last;
+    string craft;
+    TDateTime travel_time;
+    string rem_code;
+    string airline;
+    string user;
+    string desk;
+    TServiceStatRow():
+        point_id(NoExists),
+        scd_out(NoExists),
+        flt_no(NoExists),
+        travel_time(NoExists)
+    {}
+    bool operator < (const TServiceStatRow &val) const
+    {
+        if(point_id == val.point_id)
+            return rem_code < val.rem_code;
+        return point_id < val.point_id;
+    }
+};
+
+typedef multiset<TServiceStatRow> TServiceStat;
+
+void RunServiceStat(
+        const TStatParams &params,
+        TServiceStat &ServiceStat,
+        TPrintAirline &prn_airline
+        )
+{
+    for(int pass = 0; pass <= 1; pass++) {
+        QParams QryParams;
+        QryParams
+            << QParam("FirstDate", otDate, params.FirstDate)
+            << QParam("LastDate", otDate, params.LastDate);
+        string SQLText =
+            "select "
+            "   points.point_id, "
+            "   cs.ticket_no, "
+            "   points.scd_out, "
+            "   points.flt_no, "
+            "   points.suffix, "
+            "   points.airp, "
+            "   cs.airp_last, "
+            "   points.craft, "
+            "   cs.travel_time, "
+            "   cs.rem_code, "
+            "   points.airline, "
+            "   users2.descr, "
+            "   cs.desk "
+            "from ";
+        if(pass != 0) {
+            SQLText +=
+                "   arx_service_stat cs, "
+                "   arx_points points, ";
+        } else {
+            SQLText +=
+                "   service_stat cs, "
+                "   points, ";
+        }
+        SQLText +=
+            "   users2 "
+            "where "
+            "   cs.point_id = points.point_id and ";
+        if (!params.airps.elems().empty()) {
+            if (params.airps.elems_permit())
+                SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and ";
+            else
+                SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and ";
+        };
+        if (!params.airlines.elems().empty()) {
+            if (params.airlines.elems_permit())
+                SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and ";
+            else
+                SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and ";
+        };
+        if(params.flt_no != NoExists) {
+            SQLText += " points.flt_no = :flt_no and ";
+            QryParams << QParam("flt_no", otInteger, params.flt_no);
+        }
+        if(pass != 0)
+            SQLText +=
+                " points.part_key >= :FirstDate and points.part_key < :FirstDate and "
+                " cs.part_key >= :FirstDate and cs.part_key < :LastDate and ";
+        else
+            SQLText +=
+                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate and ";
+        SQLText +=
+            "    cs.user_id = users2.user_id ";
+        TCachedQuery Qry(SQLText, QryParams);
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            int col_point_id = Qry.get().GetFieldIndex("point_id");
+            int col_ticket_no = Qry.get().GetFieldIndex("ticket_no");
+            int col_scd_out = Qry.get().GetFieldIndex("scd_out");
+            int col_flt_no = Qry.get().GetFieldIndex("flt_no");
+            int col_suffix = Qry.get().GetFieldIndex("suffix");
+            int col_airp = Qry.get().GetFieldIndex("airp");
+            int col_airp_last = Qry.get().GetFieldIndex("airp_last");
+            int col_craft = Qry.get().GetFieldIndex("craft");
+            int col_travel_time = Qry.get().GetFieldIndex("travel_time");
+            int col_rem_code = Qry.get().GetFieldIndex("rem_code");
+            int col_airline = Qry.get().GetFieldIndex("airline");
+            int col_descr = Qry.get().GetFieldIndex("descr");
+            int col_desk = Qry.get().GetFieldIndex("desk");
+            for(; not Qry.get().Eof; Qry.get().Next()) {
+                prn_airline.check(Qry.get().FieldAsString(col_airline));
+                TServiceStatRow row;
+                row.point_id = Qry.get().FieldAsInteger(col_point_id);
+                row.ticket_no = Qry.get().FieldAsString(col_ticket_no);
+                row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+                row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+                row.suffix = Qry.get().FieldAsString(col_suffix);
+                row.airp = Qry.get().FieldAsString(col_airp);
+                row.airp_last = Qry.get().FieldAsString(col_airp_last);
+                row.craft = Qry.get().FieldAsString(col_craft);
+                if(not Qry.get().FieldIsNULL(col_travel_time))
+                    row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
+                row.rem_code = Qry.get().FieldAsString(col_rem_code);
+                row.user = Qry.get().FieldAsString(col_descr);
+                row.desk = Qry.get().FieldAsString(col_desk);
+                ServiceStat.insert(row);
+            }
+        }
+    }
+}
+
+void createXMLServiceStat(const TStatParams &params, const TServiceStat &ServiceStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
+{
+    if(ServiceStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    NewTextChild(resNode, "airline", prn_airline.get(), "");
+    xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+
+    xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+    xmlNodePtr colNode;
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АП рег."));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Стойка"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
+    SetProp(colNode, "width", 80);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Билет"));
+    SetProp(colNode, "width", 100);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("От"));
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип ВС"));
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Время в пути"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Код услуги"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+
+    xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+    xmlNodePtr rowNode;
+    ostringstream buf;
+    for(TServiceStat::iterator i = ServiceStat.begin(); i != ServiceStat.end(); i++) {
+        rowNode = NewTextChild(rowsNode, "row");
+        // АП рег
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
+        // Стойка
+        NewTextChild(rowNode, "col", i->desk);
+        // Агент
+        NewTextChild(rowNode, "col", i->user);
+        // Билет
+        NewTextChild(rowNode, "col", i->ticket_no);
+        // Дата
+        NewTextChild(rowNode, "col", DateTimeToStr(i->scd_out, "dd.mm.yyyy"));
+        // Рейс
+        ostringstream buf;
+        buf << setw(3) << setfill('0') << i->flt_no << ElemIdToCodeNative(etSuffix, i->suffix);
+        NewTextChild(rowNode, "col", buf.str());
+        // От
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
+        // До
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp_last));
+        // Тип ВС
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etCraft, i->craft));
+        // Время в пути
+        if(i->travel_time == NoExists)
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col", DateTimeToStr(i->travel_time, "hh:nn"));
+        // Код услуги
+        NewTextChild(rowNode, "col", i->rem_code);
+    }
+
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "stat_type", params.statType);
+    NewTextChild(variablesNode, "stat_mode", getLocaleText("Багажные RFISC"));
+    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
+}
+
+/******************* End of Service Stat ****************************/
+
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -5590,6 +5954,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         break;
       case statRFISC:
         get_compatible_report_form("RFISCStat", reqNode, resNode);
+        break;
+      case statService:
+        get_compatible_report_form("ServiceStat", reqNode, resNode);
         break;
       case statSelfCkinFull:
       case statSelfCkinShort:
@@ -5678,6 +6045,13 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TRFISCStat RFISCStat;
             RunRFISCStat(params, RFISCStat, airline);
             createXMLRFISCStat(params,RFISCStat, airline, resNode);
+        }
+        if(params.statType == statService)
+        {
+            TPrintAirline airline;
+            TServiceStat ServiceStat;
+            RunServiceStat(params, ServiceStat, airline);
+            createXMLServiceStat(params,ServiceStat, airline, resNode);
         }
     }
     catch (EOracleError &E)
@@ -6094,6 +6468,7 @@ struct TRFISCBag {
     }
 };
 
+
 void get_rfisc_stat(int point_id)
 {
     QParams QryParams;
@@ -6465,6 +6840,7 @@ void get_flight_stat(int point_id, bool final_collection)
                       QryParams);
      Qry.get().Execute();
      get_rfisc_stat(point_id);
+     get_service_stat(point_id);
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
