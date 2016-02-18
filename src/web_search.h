@@ -5,6 +5,7 @@
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "stages.h"
+#include "dev_utils.h"
 #include <boost/optional.hpp>
 
 namespace WebSearch
@@ -112,6 +113,8 @@ class TPNRFilters
       segs.clear();
     };
 
+    TPNRFilters& getBCBPSections(const std::string &bcbp, BCBPSections &sections);
+    TPNRFilters& fromBCBPSections(const BCBPSections &sections);
     TPNRFilters& fromBCBP_M(const std::string &bcbp);
     TPNRFilters& fromXML(xmlNodePtr node);
 };
