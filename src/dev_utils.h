@@ -306,16 +306,15 @@ std::ostream& operator<<(std::ostream& os, const BCBPRepeatedSections&);
 
 class BCBPSections : public  BCBPInternalWork
 {
+    void check_i(int i);
 
+    void set_version_raw();
+  public:
     void clear()
     {
       unique.clear();
       repeated.clear();
     }
-    void check_i(int i);
-
-    void set_version_raw();
-  public:
 
     struct Baggage_plate_nums
     {

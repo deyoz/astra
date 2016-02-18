@@ -395,16 +395,15 @@ void TPNRFilter::trace( TRACE_SIGNATURE ) const
   ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ TPNRFilter ^^^^^^^^^^^^");
 };
 
-TPNRFilters& TPNRFilters::fromBCBP_M(const std::string &bcbp)
+TPNRFilters& TPNRFilters::getBCBPSections(const std::string &bcbp, BCBPSections &sections)
 {
-  clear();
+  sections.clear();
   if (bcbp.empty())
   {
-    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: empty bcbp");
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilters::getBCBPSections: empty bcbp");
     throw UserException("MSG.SCAN_CODE.NOT_SET");
   };
 
-  BCBPSections sections;
   try
   {
     BCBPSections::get(bcbp, 0, bcbp.size(), sections, true);
@@ -412,10 +411,16 @@ TPNRFilters& TPNRFilters::fromBCBP_M(const std::string &bcbp)
   catch(EXCEPTIONS::EConvertError &e)
   {
     LogTrace(TRACE5) << '\n' << sections;
-    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: %s", e.what());
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilters::getBCBPSections: %s", e.what());
     throw UserException("MSG.SCAN_CODE.UNKNOWN_FORMAT");
   };
 
+  return *this;
+}
+
+TPNRFilters& TPNRFilters::fromBCBPSections(const BCBPSections &sections)
+{
+  clear();
   try
   {
     TElemFmt fmt;
@@ -501,9 +506,18 @@ TPNRFilters& TPNRFilters::fromBCBP_M(const std::string &bcbp)
   catch(EXCEPTIONS::EConvertError &e)
   {
     LogTrace(TRACE5) << '\n' << sections;
-    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilter::fromBCBP_M: %s", e.what());
+    TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilters::fromBCBPSections: %s", e.what());
     throw UserException("MSG.SCAN_CODE.UNKNOWN_DATA");
   };
+
+  return *this;
+}
+
+TPNRFilters& TPNRFilters::fromBCBP_M(const std::string &bcbp)
+{
+  BCBPSections sections;
+  getBCBPSections(bcbp, sections);
+  fromBCBPSections(sections);
 
   return *this;
 };
@@ -1611,7 +1625,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
           TPNRSegInfo seg;
           if (!seg.fromTestPax(iFlt->first.point_dep, route, *p)) continue;
           TPaxInfo pax;
-          if (!pax.fromTestPax(*p)) continue;          
+          if (!pax.fromTestPax(*p)) continue;
           PNRs.add(iFlt->first, seg, pax, true);
         };
       };
