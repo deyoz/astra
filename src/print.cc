@@ -1662,18 +1662,14 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
 
     for (vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
 //        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
-        boost::shared_ptr<PrintDataParser> parser;
-        if(iPax->scan.empty())
-            parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode ));
-        else
-            parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( iPax->scan));
+        PrintDataParser parser( iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode );
 //        big_test(parser, dotPrnBP);
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
         if (iPax->gate.second)
-            parser->pts.set_tag("gate", iPax->gate.first);
+            parser.pts.set_tag("gate", iPax->gate.first);
 
-        iPax->prn_form = parser->parse(data);
+        iPax->prn_form = parser.parse(data);
         iPax->hex=false;
         if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
             to_esc::TConvertParams ConvertParams;
@@ -1683,9 +1679,8 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
             StringToHex( string(iPax->prn_form), iPax->prn_form );
             iPax->hex=true;
         }
-        if(iPax->scan.empty())
-            parser->pts.save_bp_print();
-        iPax->time_print=parser->pts.get_time_print();
+        parser.pts.save_bp_print();
+        iPax->time_print=parser.pts.get_time_print();
     }
 };
 

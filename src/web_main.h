@@ -160,7 +160,6 @@ struct TWebPax {
     bool suitable(const WebSearch::TPNRFilter &filter) const;
 };
 bool isOwnerFreePlace( int pax_id, const std::vector<TWebPax> &pnr );
-int bcbp_test(int argc,char **argv);
 
 } // namespace AstraWeb
 

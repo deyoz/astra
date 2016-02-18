@@ -18,7 +18,6 @@ const std::string FT_298_451 = "298 451";
 const std::string FT_823_451 = "823 451";
 
 namespace TAG {
-    const std::string BCBP_V_5 = "BCBP_V_5";
     const std::string BCBP_M_2 = "BCBP_M_2";
     const std::string ACT = "ACT";
     const std::string AGENT = "AGENT";
@@ -180,8 +179,7 @@ int separate_double(double d, int precision, int *iptr);
 class TPrnTagStore {
     private:
 
-        boost::shared_ptr<BCBPSections> scan_data;
-        const std::string scan; // данные 2D баркода
+
         TBagReceipt rcpt;
 
         struct TFieldParams {
@@ -397,8 +395,8 @@ class TPrnTagStore {
         TRStationInfo rstationInfo;
 
         std::string get_fmt_seat(std::string fmt, bool english_tag);
+
         std::string BCBP_M_2(TFieldParams fp);
-        std::string BCBP_V_5(TFieldParams fp);
         std::string ACT(TFieldParams fp);
         std::string AGENT(TFieldParams fp);
         std::string AIRLINE(TFieldParams fp);
@@ -532,16 +530,11 @@ class TPrnTagStore {
 
         std::string get_test_field(std::string name, size_t len, std::string date_format);
         std::string get_real_field(std::string name, size_t len, std::string date_format);
-        std::string get_field_from_bcbp(std::string name, size_t len, std::string date_format);
-
-        void init_bp_tags();
 
     public:
         TTagProps prn_tag_props;
-        static void check_scancode_with_options_in_reprint_access_table(const std::string &ascan, boost::shared_ptr<BCBPSections> scan_data = NULL);
         TTagLang tag_lang;
         TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute = TTrferRoute());
-        TPrnTagStore(const std::string &scan, bool apr_lat);
         TPrnTagStore(bool apr_lat);
         TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat);
         void set_tag(std::string name, std::string value);
@@ -561,7 +554,7 @@ class TPrnTagStore {
         void set_print_mode(int val);
         void clear();
         BASIC::TDateTime get_time_print() { return time_print.val; };
-        static void check_reprint_access(BASIC::TDateTime date_of_flight, const std::string &airp, const std::string  &airline);
+
         void tst_get_tag_list(std::vector<std::string> &tag_list);
 };
 

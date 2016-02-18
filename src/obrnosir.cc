@@ -27,11 +27,10 @@
 #include "edilib/edi_loading.h"
 
 #define NICKNAME "VLAD"
-#include "serverlib/slogger.h"
+#include "serverlib/test.h"
 
 #include "tlg/ssm_parser.h"
 #include "tlg/lci_parser.h"
-//#include "img.h"
 
 /*
 int LocalIsNosir=0;
@@ -43,7 +42,6 @@ int points_dst_format(int argc,char **argv);
 int nosir_tscript(int argc, char** argv);
 int tz2db(int argc,char **argv);
 int verifyHTTP(int argc,char **argv);
-int test_reprint(int argc,char **argv);
 
 const
   struct {
@@ -57,8 +55,6 @@ const
     {"-testbm",                 testbm,                 NULL,                       NULL},
     {"-load_fr",                load_fr,                NULL,                       "loading FR files to database"},
     {"-get_fr",                 get_fr,                 NULL,                       "getting FR files from database to local path"},
-//    {"-load_img",               img::load_img,          NULL,                       "loading img files to database"},
-//    {"-get_img",                img::get_img,           NULL,                       "getting img files from database to local path"},
     {"-termversion",            SetTermVersionNotice,   SetTermVersionNoticeHelp,   NULL},
     {"-create_apis",            create_apis_nosir,      create_apis_nosir_help,     NULL},
     {"-send_tlg",               send_tlg,               send_tlg_help,              NULL},
@@ -89,9 +85,7 @@ const
     {"-check_counters_by_subcls",check_counters_by_subcls,NULL,                     NULL},
     {"-convert_codeshare",      convert_codeshare,      NULL,                       NULL},
     {"-http",                   verifyHTTP,             NULL,                       NULL},
-    {"-bcbp",                   AstraWeb::bcbp_test,    NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
-    {"-test_reprint",           test_reprint,    NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
