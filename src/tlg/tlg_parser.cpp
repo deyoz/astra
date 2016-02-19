@@ -3145,7 +3145,7 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
   int res,k;
   string::size_type pos;
   bool pr_parse;
-  string strh;  
+  string strh;
   char rem_code[7],numh[4];
   int num;
   vector<TRemItem>::iterator iRemItem;
@@ -6766,9 +6766,11 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               PnrAddrsQry.Execute();
             };
 
+            bool onlyDEL=true;
             for(iNameElement=pnr.ne.begin();iNameElement!=pnr.ne.end();iNameElement++)
             {
               TNameElement& ne=*iNameElement;
+              if (ne.indicator!=DEL) onlyDEL=false;
               CrsPaxQry.SetVariable("surname",ne.surname);
               CrsPaxQry.SetVariable("seats",1);
               for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
@@ -6967,8 +6969,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             }; //for(iNameElement=pnr.ne.begin()
 
             //запишем стыковки
-            //if (/*ne.indicator==ADD && */!pnr.transfer.empty() /*||
-            //    ne.indicator==CHG*/)
+            if (!onlyDEL)
             {
               //удаляем нафиг все стыковки
               Qry.Clear();
@@ -7002,8 +7003,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               Qry.Execute();
             };
             //запишем коммерческий рейс
-            //if (/*ne.indicator==ADD && */!pnr.market_flt.Empty() /*||
-            //    ne.indicator==CHG*/)
+            if (!onlyDEL)
             {
               //удаляем нафиг предыдущий
               Qry.Clear();
