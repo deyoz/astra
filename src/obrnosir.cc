@@ -93,6 +93,7 @@ const
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-rfisc_all",              nosir_rfisc_all,        NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
+    {"-self_ckin",              nosir_self_ckin,        NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

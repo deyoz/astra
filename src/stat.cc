@@ -6796,6 +6796,63 @@ void nosir_rfisc_stat_point(int point_id)
     OraSession.Commit();
 }
 
+int nosir_self_ckin(int argc,char **argv)
+{
+    cout << "start time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
+    map<string, map<string, int> > result;
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "    points.point_id, "
+        "    points.airline, "
+        "    scs.client_type "
+        "from "
+        "    self_ckin_stat scs, "
+        "    points "
+        "where "
+        "    points.scd_out >= to_date('01.11.2015 00:00:00', 'DD.MM.YYYY HH24:MI:SS') and "
+        "    points.scd_out < to_date('01.02.2016 00:00:00', 'DD.MM.YYYY HH24:MI:SS') and "
+        "    points.point_id = scs.point_id ";
+    Qry.Execute();
+    if(not Qry.Eof) {
+        int col_point_id = Qry.GetFieldIndex("point_id");
+        int col_airline = Qry.GetFieldIndex("airline");
+        int col_client_type = Qry.GetFieldIndex("client_type");
+        int count = 0;
+        map<int, string> points;
+        for(; not Qry.Eof; Qry.Next(), count++) {
+            if(count % 100 == 0) cout << count << endl;
+            int point_id = Qry.FieldAsInteger(col_point_id);
+
+            map<int, string>::iterator idx = points.find(point_id);
+            if(idx == points.end()) {
+                TTripRoute route;
+                route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
+                string airp_arv;
+                if(not route.empty())
+                    airp_arv = route.back().airp;
+                pair<map<int, string>::iterator, bool> res = points.insert(make_pair(point_id, airp_arv));
+                idx = res.first;
+            }
+
+            if(idx->second != "СОЧ") continue;
+            result[Qry.FieldAsString(col_airline)][Qry.FieldAsString(col_client_type)]++;
+        }
+    }
+    ofstream out("self_ckin.csv");
+    for(map<string, map<string, int> >::iterator i = result.begin(); i != result.end(); i++) {
+        for(map<string, int>::iterator j = i->second.begin(); j != i->second.end(); j++) {
+            out
+                << i->first << ","
+                << j->first << ","
+                << "СОЧ,"
+                << j->second << endl;
+        }
+    }
+    cout << "end time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
+    return 1;
+}
+
 int nosir_rfisc_all_xml(int argc,char **argv)
 {
     TDateTime begin;
@@ -6869,9 +6926,31 @@ int nosir_rfisc_all(int argc,char **argv)
     rfiscQry.DeclareVariable("FirstDate", otDate);
     rfiscQry.DeclareVariable("LastDate", otDate);
     TDateTime now = NowUTC();
-    string header = "RFISC,Платн.,Опл.,Бирка,SPEC,FQTV,Дата вылета,Рейс,От,До,Тип ВС,Время в пути,Трфр.рейс,От,До,АП рег.,Стойка,LOGIN,Агент,Дата оформ.";
+    const char delim = ';';
+    ostringstream header;
+    header
+        << "RFISC" << delim
+        << "Платн." << delim
+        << "Опл." << delim
+        << "Бирка" << delim
+        << "SPEC" << delim
+        << "FQTV" << delim
+        << "Дата вылета" << delim
+        << "Рейс" << delim
+        << "От" << delim
+        << "До" << delim
+        << "Тип ВС" << delim
+        << "Время в пути" << delim
+        << "Трфр.рейс" << delim
+        << "От" << delim
+        << "До" << delim
+        << "АП рег." << delim
+        << "Стойка" << delim
+        << "LOGIN" << delim
+        << "Агент" << delim
+        << "Дата оформ.";
     ofstream rfisc_all("rfisc_all.csv");
-    rfisc_all << header << endl;
+    rfisc_all << header.str() << endl;
     int count = 0;
     while(begin < now) {
         nextDateQry.SetVariable("begin", begin);
@@ -6883,9 +6962,9 @@ int nosir_rfisc_all(int argc,char **argv)
         rfiscQry.SetVariable("LastDate", end);
         rfiscQry.Execute();
         if(not rfiscQry.Eof) {
-            string fname = "rfisc." + DateTimeToStr(begin, "mm.yyyy") + ".csv";
+            string fname = "rfisc." + DateTimeToStr(begin, "yyyymm") + ".csv";
             ofstream rfisc_month(fname);
-            rfisc_month << header << endl;
+            rfisc_month << header.str() << endl;
             ostringstream out;
 
             int col_rfisc = rfiscQry.GetFieldIndex("rfisc");
@@ -6912,57 +6991,57 @@ int nosir_rfisc_all(int argc,char **argv)
             for(; not rfiscQry.Eof; rfiscQry.Next(), count++) {
                 // RFISC
                 out
-                    << rfiscQry.FieldAsString(col_rfisc) << ",";
+                    << rfiscQry.FieldAsString(col_rfisc) << delim;
                 // Платн.
                 if(not rfiscQry.FieldIsNULL(col_excess))
                     out << rfiscQry.FieldAsInteger(col_excess);
-                out << ",";
+                out << delim;
                 // Опл.
                 if(not rfiscQry.FieldIsNULL(col_paid))
                     out << rfiscQry.FieldAsInteger(col_paid);
                 out
-                    << ","
+                    << delim
                     // Бирка
-                    << rfiscQry.FieldAsString(col_tag_no) << ","
+                    << rfiscQry.FieldAsString(col_tag_no) << delim
                     // SPEQ
-                    << ","
+                    << delim
                     // FQTV
-                    << rfiscQry.FieldAsString(col_fqt_no) << ","
+                    << rfiscQry.FieldAsString(col_fqt_no) << delim
                     // Дата вылета
-                    << DateTimeToStr(rfiscQry.FieldAsDateTime(col_scd_out), "dd.mm.yyyy") << ","
+                    << DateTimeToStr(rfiscQry.FieldAsDateTime(col_scd_out), "dd.mm.yyyy") << delim
                     // Рейс
-                    << rfiscQry.FieldAsInteger(col_flt_no) << rfiscQry.FieldAsString(col_suffix) << ","
+                    << rfiscQry.FieldAsInteger(col_flt_no) << rfiscQry.FieldAsString(col_suffix) << delim
                     // От
-                    << rfiscQry.FieldAsString(col_airp) << ","
+                    << rfiscQry.FieldAsString(col_airp) << delim
                     // До
-                    << rfiscQry.FieldAsString(col_airp_arv) << ","
+                    << rfiscQry.FieldAsString(col_airp_arv) << delim
                     // Тип ВС
-                    << rfiscQry.FieldAsString(col_craft) << ",";
+                    << rfiscQry.FieldAsString(col_craft) << delim;
                 // Время в пути
                 if(not rfiscQry.FieldIsNULL(col_travel_time))
                     out << DateTimeToStr(rfiscQry.FieldAsDateTime(col_travel_time), "hh:nn");
                 out
-                    << ",";
+                    << delim;
                 if(rfiscQry.FieldAsInteger(col_pr_trfer) != 0) {
                     out
                         // Трфр.рейс
-                        << rfiscQry.FieldAsInteger(col_trfer_flt_no) << rfiscQry.FieldAsString(col_trfer_suffix) << ","
+                        << rfiscQry.FieldAsInteger(col_trfer_flt_no) << rfiscQry.FieldAsString(col_trfer_suffix) << delim
                         // От
-                        << rfiscQry.FieldAsString(col_airp) << ","
+                        << rfiscQry.FieldAsString(col_airp) << delim
                         // До
-                        << rfiscQry.FieldAsString(col_trfer_airp_arv) << ",";
+                        << rfiscQry.FieldAsString(col_trfer_airp_arv) << delim;
                 } else {
-                    out << ",,,";
+                    out << delim << delim << delim;
                 }
                 out
                     // АП рег
-                    << rfiscQry.FieldAsString(col_airp) << ","
+                    << rfiscQry.FieldAsString(col_airp) << delim
                     // Стойка
-                    << rfiscQry.FieldAsString(col_desk) << ","
+                    << rfiscQry.FieldAsString(col_desk) << delim
                     // Логин
-                    << rfiscQry.FieldAsString(col_user_login) << ","
+                    << rfiscQry.FieldAsString(col_user_login) << delim
                     // Агент
-                    << rfiscQry.FieldAsString(col_user_descr) << ",";
+                    << rfiscQry.FieldAsString(col_user_descr) << delim;
                 // Дата оформ.
                 if(not rfiscQry.FieldIsNULL(col_time_create))
                     out << DateTimeToStr(rfiscQry.FieldAsDateTime(col_scd_out), "dd.mm.yyyy");
