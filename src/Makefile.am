@@ -12,8 +12,7 @@ SysTarg:
 	$(srcdir)/autotests.sh $(srcdir)/ts
 	$(MAKE) -f $(srcdir)/systarg.mk
 	
-# log4cpp hardcode!!!
-astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@ -llog4cpp
+astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@
 
 install-edimessages:
 	./nosir.tcl -ediinsert -i ${EDILIB_PATH}/edi_messages
