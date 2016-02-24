@@ -35,7 +35,7 @@ xp-tests: clean-xp-tests
 	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
 	
 
-AM_CXXFLAGS = $(TCLINCLUDE) @SERVERLIB_CXXFLAGS@
+AM_CXXFLAGS = $(TCLINCLUDE) @SERVERLIB_CXXFLAGS@ @PION_CXXFLAGS@
 astra_SOURCES = \
   adm.cc \
   access.cc \
@@ -162,6 +162,7 @@ astra_LDADD = $(all_libraries) \
 	@BOOST_SYSTEM_LIB@\
 	@BOOST_FILESYSTEM_LIB@\
 	@BOOST_REGEX_LIB@\
+	@BOOST_THREAD_LIB@\
         @PION_LDFLAGS@
 
 
