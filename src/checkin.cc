@@ -43,6 +43,7 @@
 #include "astra_callbacks.h"
 #include "astra_elem_utils.h"
 #include "baggage_pc.h"
+#include "tlg/AgentWaitsForRemote.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1441,7 +1442,7 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
   list<TPaxEMDItem> emds;
   if (!from_crs)
   {
-    LoadPaxEMD(pax_id, emds);
+    PaxEMDFromDB(pax_id, emds);
     if (!emds.empty())
     {
       xmlNodePtr asvcNode=NewTextChild(node,"asvc_rems");
@@ -2438,7 +2439,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (with_rcpt_info)
     sql <<
     "  AND pax_grp.status NOT IN ('E') "
-    "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, pax_grp.excess)<>0 ";
+    "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
+    "                            pax_grp.piece_concept, pax_grp.excess, pax.pax_id)<>0 ";
   sql <<
     "ORDER BY pax.reg_no, pax.seats DESC"; //в будущем убрать ORDER BY
 
@@ -2719,7 +2721,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   if (with_rcpt_info)
     sql <<
-    "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, pax_grp.excess)<>0 ";
+    "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
+    "                            pax_grp.piece_concept, pax_grp.excess, NULL)<>0 ";
 
   ProgTrace(TRACE5, "%s", sql.str().c_str());
 
@@ -3105,8 +3108,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
   TChangeStatusList ChangeStatusInfo;
+  SirenaExchange::TLastExchangeList SirenaExchangeList;
   CheckIn::TAfterSaveInfoList AfterSaveInfoList;
-  bool result=SavePax(reqNode, ediResNode, ChangeStatusInfo, AfterSaveInfoList);
+  bool result=SavePax(reqNode, ediResNode, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList);
   if (result)
   {
     if (ediResNode==NULL && !ChangeStatusInfo.empty())
@@ -3114,14 +3118,28 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       //хотя бы один билет будет обрабатываться
       OraSession.Rollback();  //откат
       ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
+      SirenaExchangeList.handle(__FUNCTION__);
       return false;
+    }
+    else
+    {
+      SirenaExchangeList.handle(__FUNCTION__);
     };
 
     AfterSaveInfoList.handle(__FUNCTION__);
 
     if (!AfterSaveInfoList.empty() &&
         !AfterSaveInfoList.front().segs.empty())
-      LoadPax(AfterSaveInfoList.front().segs.front().grp_id, resNode, true);
+    {
+      int grp_id=AfterSaveInfoList.front().segs.front().grp_id;
+
+      if (AfterSaveInfoList.front().action==CheckIn::actionRefreshPaidBagPC)
+      {
+        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+      };
+
+      LoadPax(grp_id, resNode, true);
+    }
   };
   return result;
 };
@@ -3138,7 +3156,7 @@ void CheckIn::TAfterSaveInfo::toLog(const string& where)
 
     UpdGrpToLogInfo(s->grp_id, s->grpInfoAfter);
     TAgentStatInfo agentStat;
-    SaveGrpToLog(s->point_dep, s->operFlt, s->markFlt, s->grpInfoBefore, s->grpInfoAfter, agentStat);
+    SaveGrpToLog(s->grpInfoBefore, s->grpInfoAfter, handmadeEMDDiff, agentStat);
     recountBySubcls(s->point_dep, s->grpInfoBefore, s->grpInfoAfter);
 
     if (agent_stat_period==ASTRA::NoExists) continue;
@@ -3582,9 +3600,63 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
   }
 };
 
+//эта процедура проставляет pax_id
+void PaidBagEMDToDBAdv(int grp_id,
+                       bool piece_concept,
+                       const CheckIn::PaidBagEMDList &prior_emds,
+                       boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds)
+{
+  if (!curr_emds) return;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText= PaxASVCList::GetSQL(PaxASVCList::oneWithTknByGrpId);
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.DeclareVariable("emd_no", otString);
+  Qry.DeclareVariable("emd_coupon", otInteger);
+  for(list<CheckIn::TPaidBagEMDItem>::iterator i=curr_emds.get().begin(); i!=curr_emds.get().end(); ++i)
+  {
+    CheckIn::TPaidBagEMDItem &emd=*i;
+    CheckIn::PaidBagEMDList::const_iterator j=prior_emds.begin();
+    for(; j!=prior_emds.end(); ++j)
+      if (j->second.emd_no==emd.emd_no &&
+          j->second.emd_coupon==emd.emd_coupon) break;
+    if (j!=prior_emds.end() && j->second.pax_id!=ASTRA::NoExists)
+    {
+      //EMD уже была раньше
+      if (piece_concept) emd.pax_id=j->second.pax_id;
+    }
+    else
+    {
+      //EMD новая
+      Qry.SetVariable("emd_no", emd.emd_no);
+      Qry.SetVariable("emd_coupon", emd.emd_coupon);
+      Qry.Execute();
+      if (Qry.Eof)
+        throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
+                            LParams() << LParam("emd", emd.no_str()));
+      if (piece_concept) emd.pax_id=Qry.FieldAsInteger("pax_id");
+      TPaxEMDItem asvc;
+      asvc.fromDB(Qry);
+      if (emd.trfer_num!=asvc.trfer_num)
+        throw UserException("MSG.EMD_WRONG_ATTACHMENT_DIFFERENT_SEG",
+                            LParams() << LParam("emd", emd.no_str()));
+      if (!emd.rfisc.empty() && emd.rfisc!=asvc.RFISC)
+        throw UserException("MSG.EMD_WRONG_ATTACHMENT_DIFFERENT_RFISC",
+                            LParams() << LParam("emd", emd.no_str()));
+    };
+  };
+  CheckIn::PaidBagEMDToDB(grp_id, curr_emds);
+}
+
+namespace SirenaExchange
+{
+void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int> &grp_ids);
+}
+
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                TChangeStatusList &ChangeStatusInfo,
+                               SirenaExchange::TLastExchangeList &SirenaExchangeList,
                                CheckIn::TAfterSaveInfoList &AfterSaveInfoList)
 {
   AfterSaveInfoList.push_back(CheckIn::TAfterSaveInfo());
@@ -3637,7 +3709,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   TFlights flightsForLock;
   flightsForLock.Get( point_ids, ftTranzit );
   //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
-    flightsForLock.Lock();
+  flightsForLock.Lock();
 
   for(map<int,TSegInfo>::iterator s=segs.begin();s!=segs.end();++s)
   {
@@ -3962,11 +4034,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       AfterSaveInfo.agent_stat_period=NodeAsInteger("agent_stat_period",reqNode);
     AfterSaveInfo.segs.push_back(CheckIn::TAfterSaveSegInfo());
     AfterSaveInfo.segs.back().point_dep=grp.point_dep;
-    AfterSaveInfo.segs.back().operFlt=fltInfo;
-    AfterSaveInfo.segs.back().markFlt=fltInfo;
     TGrpToLogInfo &grpInfoBefore=AfterSaveInfo.segs.back().grpInfoBefore;
     TGrpToLogInfo &grpInfoAfter=AfterSaveInfo.segs.back().grpInfoAfter;
-    TTripInfo &markFltInfo=AfterSaveInfo.segs.back().markFlt;
+    CheckIn::TPaidBagEMDProps &handmadeEMDDiff=AfterSaveInfo.handmadeEMDDiff;
+    TTripInfo markFltInfo=fltInfo;
     markFltInfo.scd_out=UTCToLocal(markFltInfo.scd_out,AirpTZRegion(markFltInfo.airp));
     modf(markFltInfo.scd_out,&markFltInfo.scd_out);
     bool pr_mark_norms=false;
@@ -5340,6 +5411,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             boost::optional< list<CheckIn::TPaidBagEMDItem> > emd;
             CheckIn::PaidBagEMDFromXML(segNode, emd, grp.piece_concept);
+            CheckIn::TPaidBagEMDProps paid_bag_emd_props;
+            CheckIn::CalcPaidBagEMDProps(paidBagEMDBefore, emd, handmadeEMDDiff, paid_bag_emd_props);
+            CheckIn::PaidBagEMDPropsToDB(grp.id, paid_bag_emd_props);
+
             if (!grp.piece_concept)
             {
               if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
@@ -5355,21 +5430,23 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 GetBagToLogInfo(grp.id, curr_bag);
                 list<WeightConcept::TPaidBagItem> prior_paid;
                 WeightConcept::PaidBagFromDB(NoExists, grp.id, prior_paid);
-                WeightConcept::RecalcPaidBagToDB(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true);
+                list<WeightConcept::TPaidBagItem> result_paid;
+                WeightConcept::RecalcPaidBagToDB(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true, result_paid);
+                WeightConcept::TryDelPaidBagEMD(result_paid, paidBagEMDBefore, emd);
               }
               else
               {
                 WeightConcept::PaidBagToDB(grp.id, grp.paid);
+                if (grp.paid)
+                  WeightConcept::TryDelPaidBagEMD(grp.paid.get(), paidBagEMDBefore, emd);
               };
-
-              CheckIn::PaidBagEMDToDB(grp.id, emd);
             }
             else
             {
               if (AfterSaveInfo.action==CheckIn::actionNone)
                 AfterSaveInfo.action=CheckIn::actionRefreshPaidBagPC;
-              PieceConcept::PaidBagEMDToDB(grp.id, paidBagEMDBefore, emd);
             }
+            PaidBagEMDToDBAdv(grp.id, grp.piece_concept, paidBagEMDBefore, emd);
 
             SaveTagPacks(reqNode);
           }
@@ -5874,6 +5951,85 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
   }; //цикл по сегментам
 
+  if (AfterSaveInfo.action==CheckIn::actionRefreshPaidBagPC)
+  try
+  {
+
+    if (reqInfo->client_type==ASTRA::ctTerm &&
+        !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
+    {
+      showErrorMessage("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
+      throw 1;
+    };
+    if (AfterSaveInfo.segs.empty()) throw 1;
+    int first_grp_id=AfterSaveInfo.segs.front().grp_id;
+    list<int> grp_ids;
+    bool pr_unaccomp;
+
+    SirenaExchange::TPaymentStatusReq req;
+    SirenaExchange::fillPaxsBags(first_grp_id, req, pr_unaccomp, grp_ids);
+
+    if (grp_ids.empty() || pr_unaccomp) throw 1;
+
+    list<PieceConcept::TPaidBagItem> paid;
+    if (!req.bags.empty())
+    {
+      try
+      {
+        SirenaExchange::TPaymentStatusRes res;
+
+        SirenaExchange::TLastExchangeInfo prior, curr;
+        prior.fromDB(first_grp_id);
+        req.build(curr.pc_payment_req);
+        if (prior.pc_payment_req_created==NoExists ||
+            prior.pc_payment_res_created==NoExists ||
+            prior.pc_payment_req.empty() ||
+            prior.pc_payment_res.empty() ||
+            prior.pc_payment_req!=curr.pc_payment_req)
+        {
+          RequestInfo requestInfo;
+          ResponseInfo responseInfo;
+          SirenaExchange::SendRequest(req, res, requestInfo, responseInfo);
+          curr.grp_id=first_grp_id;
+          curr.pc_payment_res=responseInfo.content;
+          SirenaExchangeList.push_back(curr);
+        }
+        else
+          res.parse(prior.pc_payment_res);
+
+        set<string> rfiscs;
+        res.check_unknown_status(rfiscs);
+        if (!rfiscs.empty())
+          throw UserException("MSG.CHECKIN.UNKNOWN_PAYMENT_STATUS_FOR_BAG_TYPE", LParams()<<LParam("bag_type", *rfiscs.begin()));
+        res.normsToDB(0);
+        res.convert(paid);
+      }
+      catch(UserException &e)
+      {
+        throw;
+      }
+      catch(std::exception &e)
+      {
+        ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
+        throw UserException("MSG.CHECKIN.UNABLE_CALC_PAID_BAG_TRY_RE_CHECKIN");
+      }
+    };
+    CheckIn::PaidBagEMDList paidBagEMDBefore;
+    PaxASVCList::GetBoundPaidBagEMD(first_grp_id, NoExists, paidBagEMDBefore);
+    PieceConcept::PaidBagToDB(first_grp_id, paid);
+    list<CheckIn::TPaidBagEMDItem> emds;
+    for(CheckIn::PaidBagEMDList::const_iterator i=paidBagEMDBefore.begin(); i!=paidBagEMDBefore.end(); ++i)
+      emds.push_back(i->second);
+    if (PieceConcept::TryDelPaidBagEMD(paid, emds))
+      CheckIn::PaidBagEMDToDB(first_grp_id, emds);
+
+    if (ediResNode==NULL && reqInfo->client_type!=ctPNL)
+    {
+      EMDStatusInterface::EMDCheckStatus(first_grp_id, paidBagEMDBefore, ChangeStatusInfo.EMD);
+    };
+  }
+  catch(int) {};
+
   return true;
 };
 
@@ -5986,6 +6142,8 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     };
   }
   else grp_id=NodeAsInteger(node);
+
+  EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
 
   LoadPax(grp_id,resNode,false);
 };
@@ -6147,6 +6305,7 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int
           SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
           reqSeg.set(seg_no, operFlt, grp, mktFlight, scd_in);
           reqSeg.subcl=pax.subcl;
+          reqSeg.tkn=pax.tkn;
           CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
           CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
           ++iReqPax;
@@ -6158,12 +6317,12 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int
 
 }
 
-}
+} //namespace SirenaExchange
 
 void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActionType action)
 {
   if (action==CheckIn::actionNone) return;
-  if (action!=CheckIn::actionCheckPieceConcept && action!=CheckIn::actionRefreshPaidBagPC) return;
+  if (action!=CheckIn::actionCheckPieceConcept/* !!!vlad && action!=CheckIn::actionRefreshPaidBagPC*/) return;
 
   if (action==CheckIn::actionCheckPieceConcept)
     ProgTrace(TRACE5, "%s started with actionCheckPieceConcept", __FUNCTION__);
@@ -6335,7 +6494,12 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     Qry.SQLText=pax_grp_sql;
     Qry.CreateVariable("grp_id",otInteger,*grp_id);
     Qry.Execute();
-    if (Qry.Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
+    if (Qry.Eof)
+    {
+      if (grp_id==grp_ids.begin() && !afterSavePax)
+        throw AstraLocale::UserException("MSG.PAX_GRP_OR_LUGGAGE_NOT_CHECKED_IN");
+      return; //это бывает когда разрегистрация всей группы по ошибке агента
+    };
 
     CheckIn::TPaxGrpItem grp;
     grp.fromDB(Qry);
@@ -8275,6 +8439,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                            PNRs, emulDocHeader, emulCkinDoc, emulChngDocs);
 
             TChangeStatusList ChangeStatusInfo;
+            SirenaExchange::TLastExchangeList SirenaExchangeList;
             CheckIn::TAfterSaveInfoList AfterSaveInfoList;
 
             if (emulCkinDoc.docPtr()!=NULL) //регистрация новой группы
@@ -8282,9 +8447,10 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
               xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
               if (emulReqNode==NULL)
                 throw EXCEPTIONS::Exception("CheckInInterface::CrewCheckin: emulReqNode=NULL");
-              if (SavePax(emulReqNode, NULL, ChangeStatusInfo, AfterSaveInfoList))
+              if (SavePax(emulReqNode, NULL, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList))
               {
                 //сюда попадаем если была реальная регистрация
+                SirenaExchangeList.handle(__FUNCTION__);
                 AfterSaveInfoList.handle(__FUNCTION__);
               }
             }

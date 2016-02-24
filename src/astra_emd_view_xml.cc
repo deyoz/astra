@@ -197,15 +197,17 @@ void EmdXmlView::viewEmdTicketCoupons(const std::list<EmdCoupon>& lCpn) const
 
 using namespace AstraLocale;
 
-string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists)
+string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists, string &base_emd_no)
 {
   unknownPnrExists=false;
+  base_emd_no.clear();
 
   XMLDoc doc("emd");
   xmlNodePtr node=NodeAsNode("/emd", doc.docPtr());
   EmdDisp::doDisplay(EmdXmlView(node, emd));
   ostringstream res;
   xmlNodePtr node2;
+
   //PNR
   node2=NodeAsNode("recloc",node)->children;
   res << "PNR" << ": "
@@ -230,8 +232,8 @@ string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists)
       << "  " << getLocaleText("Возр.") << ": " << NodeAsStringFast("age",node2) << endl;
 
   res << getLocaleText("Тип EMD") << ": " << NodeAsString("emd_type",node) << endl
-      << "RFIC" << ": " << NodeAsString("rfic",node) << endl
-      << getLocaleText("Купоны") << ": " << endl;
+      << "RFIC" << ": " << NodeAsString("rfic",node) << endl;
+
 
   const char* titles[] =
   {
@@ -250,64 +252,78 @@ string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists)
     "СтАссоц."
   };
 
-  map<int, list<string> > coupons;
-  map<int, list<string> >::iterator i=coupons.insert(make_pair(0, list<string>())).first;
-  if (i==coupons.end()) throw EXCEPTIONS::Exception("%s: i==coupons.end()", __FUNCTION__);
-  for(unsigned t=0; t<sizeof(titles)/sizeof(titles[0]); t++)
-    i->second.push_back(getLocaleText(titles[t]));
-  list<size_t> widths;
-  for(list<string>::const_iterator f=i->second.begin(); f!=i->second.end(); ++f)
-    widths.push_back(f->size());
-
-  for(xmlNodePtr cNode=NodeAsNode("emd1/coupon", node)->children; cNode!=NULL; cNode=cNode->next)
+  set<string> connected_emd_no;
+  for(int emd_num=1; ; emd_num++)
   {
-    node2=cNode->children;
-    int num=NodeAsIntegerFast("num", node2);
-    map<int, list<string> >::iterator i=coupons.insert(make_pair(num, list<string>())).first;
-    if (i==coupons.end()) throw EXCEPTIONS::Exception("%s: i==coupons.end()", __FUNCTION__);
-    i->second.push_back(NodeAsStringFast("num", node2));
-    i->second.push_back(NodeAsStringFast("dep_date", node2));
-    i->second.push_back(NodeAsStringFast("dep_time", node2));
-    i->second.push_back(NodeAsStringFast("dep", node2));
-    i->second.push_back(NodeAsStringFast("arr", node2));
-    i->second.push_back(NodeAsStringFast("codea", node2));
-    i->second.push_back(NodeAsStringFast("flight", node2));
-    i->second.push_back(NodeAsStringFast("amount", node2));
-    i->second.push_back(NodeAsStringFast("rfisc_code", node2));
-    i->second.push_back(NodeAsStringFast("rfisc_desc", node2));
-    i->second.push_back(NodeAsStringFast("coup_status", node2));
-    string assoc=NodeAsStringFast("associated_doc_num", node2);
-    RTrimString(assoc);
-    assoc+="/";
-    assoc+=NodeAsStringFast("associated_num", node2);
-    i->second.push_back(assoc);
-    i->second.push_back(NodeAsStringFast("association_status", node2));
-  };
-
-  for(map<int, list<string> >::const_iterator r=coupons.begin(); r!=coupons.end(); ++r)
-  {
-    list<string>::const_iterator f=r->second.begin();
-    list<size_t>::iterator w=widths.begin();
-    for(; f!=r->second.end() && w!=widths.end(); ++f, ++w)
-      if (f->size()>*w) *w=f->size();
-  };
-
-  for(map<int, list<string> >::const_iterator r=coupons.begin(); r!=coupons.end(); ++r)
-  {
-    res << "  ";
-    list<string>::const_iterator f=r->second.begin();
-    list<size_t>::const_iterator w=widths.begin();
-    for(; f!=r->second.end(); ++f)
-    {
-      if (w!=widths.end())
-      {
-        res << setw(*w) << left;
-        ++w;
-      };
-      res << *f << " ";
-    };
+    xmlNodePtr tNode=GetNode(string("emd"+IntToString(emd_num)).c_str(), node);
+    if (tNode==NULL) break;
+    node2=tNode->children;
+    string emd_no=NodeAsStringFast("emd_num", node2);
+    if (!emd_no.empty()) connected_emd_no.insert(emd_no);
     res << endl;
+    res << "EMD#" << emd_no << ": " << endl;
+
+    map<int, list<string> > coupons;
+    map<int, list<string> >::iterator i=coupons.insert(make_pair(0, list<string>())).first;
+    if (i==coupons.end()) throw EXCEPTIONS::Exception("%s: i==coupons.end()", __FUNCTION__);
+    for(unsigned t=0; t<sizeof(titles)/sizeof(titles[0]); t++)
+      i->second.push_back(getLocaleText(titles[t]));
+    list<size_t> widths;
+    for(list<string>::const_iterator f=i->second.begin(); f!=i->second.end(); ++f)
+      widths.push_back(f->size());
+
+    for(xmlNodePtr cNode=NodeAsNodeFast("coupon", node2)->children; cNode!=NULL; cNode=cNode->next)
+    {
+      node2=cNode->children;
+      int num=NodeAsIntegerFast("num", node2);
+      map<int, list<string> >::iterator i=coupons.insert(make_pair(num, list<string>())).first;
+      if (i==coupons.end()) throw EXCEPTIONS::Exception("%s: i==coupons.end()", __FUNCTION__);
+      i->second.push_back(NodeAsStringFast("num", node2));
+      i->second.push_back(NodeAsStringFast("dep_date", node2));
+      i->second.push_back(NodeAsStringFast("dep_time", node2));
+      i->second.push_back(NodeAsStringFast("dep", node2));
+      i->second.push_back(NodeAsStringFast("arr", node2));
+      i->second.push_back(NodeAsStringFast("codea", node2));
+      i->second.push_back(NodeAsStringFast("flight", node2));
+      i->second.push_back(NodeAsStringFast("amount", node2));
+      i->second.push_back(NodeAsStringFast("rfisc_code", node2));
+      i->second.push_back(NodeAsStringFast("rfisc_desc", node2));
+      i->second.push_back(NodeAsStringFast("coup_status", node2));
+      string assoc=NodeAsStringFast("associated_doc_num", node2);
+      RTrimString(assoc);
+      assoc+="/";
+      assoc+=NodeAsStringFast("associated_num", node2);
+      i->second.push_back(assoc);
+      i->second.push_back(NodeAsStringFast("association_status", node2));
+    };
+
+    for(map<int, list<string> >::const_iterator r=coupons.begin(); r!=coupons.end(); ++r)
+    {
+      list<string>::const_iterator f=r->second.begin();
+      list<size_t>::iterator w=widths.begin();
+      for(; f!=r->second.end() && w!=widths.end(); ++f, ++w)
+        if (f->size()>*w) *w=f->size();
+    };
+
+    for(map<int, list<string> >::const_iterator r=coupons.begin(); r!=coupons.end(); ++r)
+    {
+      res << "  ";
+      list<string>::const_iterator f=r->second.begin();
+      list<size_t>::const_iterator w=widths.begin();
+      for(; f!=r->second.end(); ++f)
+      {
+        if (w!=widths.end())
+        {
+          res << setw(*w) << left;
+          ++w;
+        };
+        res << *f << " ";
+      };
+      res << endl;
+    };
   };
+  if (!connected_emd_no.empty())
+    base_emd_no=*(connected_emd_no.begin());
 
   //оплата
   node2=NodeAsNode("payment",node)->children;
@@ -317,8 +333,7 @@ string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists)
       << "  " << getLocaleText("Всего") << ": " << NodeAsStringFast("total",node2) << endl
       << "  " << getLocaleText("Оплата") << ": " << NodeAsStringFast("payment",node2) << endl;
 
-  return res.str();
-  //return XMLTreeToText(doc.docPtr());
+  return res.str();  
 }
 
 }//namespace TickView

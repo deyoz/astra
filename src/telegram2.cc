@@ -4403,7 +4403,7 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
     LoadPaxASVC(pax.pax_id, asvc);
 
     std::list<TPaxEMDItem> emds;
-    LoadPaxEMD(pax.pax_id, emds);
+    PaxEMDFromDB(pax.pax_id, emds);
 
     CheckIn::PaidBagEMDList &emdList = (*pax.grpEmds)[pax.grp_id];
 

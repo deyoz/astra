@@ -499,6 +499,35 @@ std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);
 
 bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs);
 
+
+typedef std::list< std::pair<TPaxASVCItem, TPaidBagEMDItem> > PaidBagEMDList;
+
+void CalcPaidBagEMDProps(const CheckIn::PaidBagEMDList &prior_emds,
+                         const boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds,
+                         CheckIn::TPaidBagEMDProps &diff,
+                         CheckIn::TPaidBagEMDProps &props);
+
+class TCkinPaxTknItem : public TPaxTknItem
+{
+  public:
+    int grp_id;
+    int pax_id;
+    TCkinPaxTknItem()
+    {
+      clear();
+    }
+    void clear()
+    {
+      TPaxTknItem::clear();
+      grp_id=ASTRA::NoExists;
+      pax_id=ASTRA::NoExists;
+    }
+
+    TCkinPaxTknItem& fromDB(TQuery &Qry);
+};
+
+void GetTCkinTickets(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
+
 }; //namespace CheckIn
 
 #endif

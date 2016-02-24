@@ -349,6 +349,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsAODBCreateFlight=26,          //Создание рейсов из AODB
                     tsSetDepTimeByMVT=27,           //Проставление вылета рейса по телеграмме MVT
                     tsSyncMeridian=28,              //Синхронизация с меридианом
+                    tsNoEMDAutoBinding=31,          //Запрет автопривязки EMD
 
                     /*привязанные к рейсу (есть соответствующие поля в таблице trip_sets)*/
                     tsCheckLoad=2,                  //Контроль загрузки при регистрации

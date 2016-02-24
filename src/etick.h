@@ -9,6 +9,7 @@
 #include "xml_unit.h"
 #include "edi_utils.h"
 #include "emdoc.h"
+#include "qrys.h"
 #include "tlg/EdifactRequest.h"
 
 namespace edifact{
@@ -33,18 +34,18 @@ class ETSearchByTickNoParams : public ETSearchParams
 class ETSearchInterface : public JxtInterface
 {
 public:
-  enum SearchPurpose {spETDisplay, spEMDDisplay};
+  enum SearchPurpose {spETDisplay, spEMDDisplay, spEMDRefresh};
 
   ETSearchInterface() : JxtInterface("ETSearchForm","ETSearchForm")
   {
      Handler *evHandle;
      evHandle=JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::SearchETByTickNo);
-     AddEvent("SearchETByTickNo",evHandle);     
+     AddEvent("SearchETByTickNo",evHandle);
      AddEvent("kick", JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::KickHandler));
   }
 
   void SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
+  void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
   static void SearchET(const ETSearchParams& searchParams,
@@ -199,14 +200,13 @@ public:
      AddEvent("ChangePaxStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangePaxStatus));
      AddEvent("ChangeGrpStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangeGrpStatus));
      AddEvent("ChangeFltStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangeFltStatus));
-     //AddEvent("kick", JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::KickHandler));
   }
 
   void SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  //void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
   static void ETCheckStatus(int point_id,
@@ -261,6 +261,141 @@ class ChangeStatusInterface: public JxtInterface
 
     static void ChangeStatus(const xmlNodePtr reqNode,
                              const TChangeStatusList &info);
+};
+
+class EMDAutoBoundId
+{
+  public:
+    virtual const char* grpSQL() const=0;
+    virtual const char* paxSQL() const=0;
+    virtual void setSQLParams(QParams &params) const=0;
+    virtual void fromXML(xmlNodePtr node)=0;
+    virtual void toXML(xmlNodePtr node) const=0;
+    virtual ~EMDAutoBoundId() {};
+};
+
+class EMDAutoBoundGrpId : public EMDAutoBoundId
+{
+  public:
+    int grp_id;
+    EMDAutoBoundGrpId(int _grp_id) : grp_id(_grp_id) {}
+    EMDAutoBoundGrpId(xmlNodePtr node) { fromXML(node); }
+    void clear()
+    {
+      grp_id=ASTRA::NoExists;
+    }
+    virtual const char* grpSQL() const
+    {
+      return "SELECT pax_grp.point_dep, pax_grp.grp_id, pax_grp.piece_concept "
+             "FROM pax_grp "
+             "WHERE pax_grp.grp_id=:grp_id";
+    }
+    virtual const char* paxSQL() const
+    {
+      return "SELECT pax.grp_id, pax.pax_id, pax.refuse, "
+             "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm "
+             "FROM pax "
+             "WHERE pax.grp_id=:grp_id";
+    }
+    virtual void setSQLParams(QParams &params) const
+    {
+      params.clear();
+      params << (grp_id!=ASTRA::NoExists?QParam("grp_id", otInteger, grp_id):
+                                         QParam("grp_id", otInteger, FNull));
+    }
+    virtual void fromXML(xmlNodePtr node)
+    {
+      clear();
+      if (node==NULL) return;
+      if (!NodeIsNULL("emd_auto_bound_grp_id", node))
+        grp_id=NodeAsInteger("emd_auto_bound_grp_id", node);
+    }
+    virtual void toXML(xmlNodePtr node) const
+    {
+      if (node==NULL) return;
+      grp_id!=ASTRA::NoExists?NewTextChild(node, "emd_auto_bound_grp_id", grp_id):
+                              NewTextChild(node, "emd_auto_bound_grp_id");
+    }
+    static bool exists(xmlNodePtr node)
+    {
+      if (node==NULL) return false;
+      return GetNode("emd_auto_bound_grp_id", node)!=NULL;
+    }
+};
+
+class EMDAutoBoundRegNo : public EMDAutoBoundId
+{
+  public:
+    int point_id;
+    int reg_no;
+    EMDAutoBoundRegNo(int _point_id, int _reg_no) : point_id(_point_id), reg_no(_reg_no) {}
+    EMDAutoBoundRegNo(xmlNodePtr node) { fromXML(node); }
+    void clear()
+    {
+      point_id=ASTRA::NoExists;
+      reg_no=ASTRA::NoExists;
+    }
+    virtual const char* grpSQL() const
+    {
+      return "SELECT pax_grp.point_dep, pax_grp.grp_id, pax_grp.piece_concept "
+             "FROM pax_grp, pax "
+             "WHERE pax_grp.grp_id=pax.grp_id AND "
+             "      pax_grp.point_dep=:point_id AND pax.reg_no=:reg_no";
+    }
+    virtual const char* paxSQL() const
+    {
+      return "SELECT pax.grp_id, pax.pax_id, pax.refuse, "
+             "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm "
+             "FROM pax_grp, pax "
+             "WHERE pax_grp.grp_id=pax.grp_id AND "
+             "      pax_grp.point_dep=:point_id AND pax.reg_no=:reg_no";
+    }
+    virtual void setSQLParams(QParams &params) const
+    {
+      params.clear();
+      params << (point_id!=ASTRA::NoExists?QParam("point_id", otInteger, point_id):
+                                           QParam("point_id", otInteger, FNull));
+      params << (reg_no  !=ASTRA::NoExists?QParam("reg_no", otInteger, reg_no):
+                                           QParam("reg_no", otInteger, FNull));
+    }
+    virtual void fromXML(xmlNodePtr node)
+    {
+      clear();
+      if (node==NULL) return;
+      if (!NodeIsNULL("emd_auto_bound_point_id", node))
+        point_id=NodeAsInteger("emd_auto_bound_point_id", node);
+      if (!NodeIsNULL("emd_auto_bound_reg_no", node))
+        reg_no=NodeAsInteger("emd_auto_bound_reg_no", node);
+    }
+    virtual void toXML(xmlNodePtr node) const
+    {
+      if (node==NULL) return;
+      point_id!=ASTRA::NoExists?NewTextChild(node, "emd_auto_bound_point_id", point_id):
+                                NewTextChild(node, "emd_auto_bound_point_id");
+      reg_no  !=ASTRA::NoExists?NewTextChild(node, "emd_auto_bound_reg_no", reg_no):
+                                NewTextChild(node, "emd_auto_bound_reg_no");
+    }
+    static bool exists(xmlNodePtr node)
+    {
+      if (node==NULL) return false;
+      return GetNode("emd_auto_bound_reg_no", node)!=NULL;
+    }
+};
+
+class EMDAutoBoundInterface: public JxtInterface
+{
+  public:
+    EMDAutoBoundInterface(): JxtInterface("EMDAutoBound", "EMDAutoBound")
+    {
+        AddEvent("kick",            JXT_HANDLER(EMDAutoBoundInterface, KickHandler));
+    }
+
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
+
+    static bool Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id, bool &piece_concept);
+    static void EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode);
+    static void EMDTryBind(int grp_id, xmlNodePtr termReqNode, xmlNodePtr ediResNode);
 };
 
 

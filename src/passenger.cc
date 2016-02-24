@@ -1497,6 +1497,67 @@ bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs)
   return !pnrs.empty();
 };
 
+void CalcPaidBagEMDProps(const CheckIn::PaidBagEMDList &prior_emds,
+                         const boost::optional< list<CheckIn::TPaidBagEMDItem> > &curr_emds,
+                         CheckIn::TPaidBagEMDProps &diff,
+                         CheckIn::TPaidBagEMDProps &props)
+{
+  diff.clear();
+  props.clear();
+  if (!curr_emds) return;  //ничего не изменялось
+  CheckIn::TPaidBagEMDProps props1, props2;
+  for(CheckIn::PaidBagEMDList::const_iterator i=prior_emds.begin(); i!=prior_emds.end(); ++i)
+    props1.insert(CheckIn::TPaidBagEMDPropsItem(i->second, true));
+  for(list<CheckIn::TPaidBagEMDItem>::const_iterator i=curr_emds.get().begin(); i!=curr_emds.get().end(); ++i)
+    props2.insert(CheckIn::TPaidBagEMDPropsItem(*i, true));
+  //в различия попадают и добавленные, и удаленные
+  set_difference(props1.begin(), props1.end(),
+                 props2.begin(), props2.end(),
+                 inserter(diff, diff.end()));
+  set_difference(props2.begin(), props2.end(),
+                 props1.begin(), props1.end(),
+                 inserter(diff, diff.end()));
+  //manual_bind=true только для удаленных
+  set_difference(props1.begin(), props1.end(),
+                 props2.begin(), props2.end(),
+                 inserter(props, props.end()));
+}
+
+TCkinPaxTknItem& TCkinPaxTknItem::fromDB(TQuery &Qry)
+{
+  clear();
+  TPaxTknItem::fromDB(Qry);
+  if (!Qry.FieldIsNULL("grp_id"))
+    grp_id=Qry.FieldAsInteger("grp_id");
+  if (!Qry.FieldIsNULL("pax_id"))
+    pax_id=Qry.FieldAsInteger("pax_id");
+  return *this;
+}
+
+void GetTCkinTickets(int pax_id, map<int, TCkinPaxTknItem> &tkns)
+{
+  tkns.clear();
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm, "
+    "       pax.grp_id, pax.pax_id, tckin_pax_grp.seg_no "
+    "FROM pax, tckin_pax_grp, "
+    "     (SELECT tckin_pax_grp.tckin_id, "
+    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+    "      FROM pax, tckin_pax_grp "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.pax_id=:pax_id) p "
+    "WHERE tckin_pax_grp.tckin_id=p.tckin_id AND "
+    "      pax.grp_id=tckin_pax_grp.grp_id AND "
+    "      tckin_pax_grp.first_reg_no-pax.reg_no=p.distance ";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next())
+    tkns.insert(make_pair(Qry.FieldAsInteger("seg_no"), TCkinPaxTknItem().fromDB(Qry)));
+}
+
+
 }; //namespace CheckIn
 
 

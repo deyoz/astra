@@ -5,6 +5,8 @@
 #include "passenger.h"
 #include "term_version.h"
 #include "emdoc.h"
+#include "httpClient.h"
+
 namespace PieceConcept
 {
 
@@ -227,9 +229,13 @@ void PreparePaidBagInfo(int grp_id,
                         int seg_count,
                         std::list<TPaidBagItem> &paid_bag);
 
-void PaidBagEMDToDB(int grp_id,
-                    const CheckIn::PaidBagEMDList &prior_emds,
-                    boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds);
+bool TryDelPaidBagEMD(const std::list<PieceConcept::TPaidBagItem> &curr_paid,
+                      std::list<CheckIn::TPaidBagEMDItem> &curr_emds);
+
+bool TryAddPaidBagEMD(std::list<TPaidBagItem> &paid_bag,
+                      std::list<CheckIn::TPaidBagEMDItem> &paid_bag_emd,
+                      const CheckIn::TPaidBagEMDProps &paid_bag_emd_props,
+                      const boost::optional<std::list<CheckIn::TPaidBagEMDItem> > &confirmed_emd);
 
 void PaidBagViewToXML(const TTrferRoute &trfer,
                       const std::list<TPaidBagItem> &paid,
@@ -313,6 +319,7 @@ class TPaxSegItem : public TSegItem
 {
   public:
     std::string subcl;
+    CheckIn::TPaxTknItem tkn;
     std::list<CheckIn::TPnrAddrItem> pnrs;
     std::vector<CheckIn::TPaxFQTItem> fqts;
     TPaxSegItem()
@@ -323,10 +330,11 @@ class TPaxSegItem : public TSegItem
     void clear()
     {
       subcl.clear();
+      tkn.clear();
       pnrs.clear();
       fqts.clear();
     }
-    const TPaxSegItem& toXML(xmlNodePtr node, const int &ticket_coupon, const std::string &lang) const;
+    const TPaxSegItem& toXML(xmlNodePtr node, const std::string &lang) const;
 };
 
 typedef std::map<int, TPaxSegItem> TPaxSegMap;
@@ -351,7 +359,6 @@ class TPaxItem
     std::string surname, name;
     ASTRA::TPerson pers_type;
     int seats;
-    CheckIn::TPaxTknItem tkn;
     CheckIn::TPaxDocItem doc;
 
     TPaxSegMap segs;
@@ -368,7 +375,6 @@ class TPaxItem
       name=item.name;
       pers_type=item.pers_type;
       seats=item.seats;
-      tkn=item.tkn;
       doc=item.doc;
     }
 
@@ -379,7 +385,6 @@ class TPaxItem
       name.clear();
       pers_type=ASTRA::NoPerson;
       seats=ASTRA::NoExists;
-      tkn.clear();
       doc.clear();
       segs.clear();
     }
@@ -709,7 +714,38 @@ class TGroupInfoRes : public TGroupInfo
     virtual void toXML(xmlNodePtr node) const;
 };
 
+void SendRequest(const TExchange &request, TExchange &response,
+                 RequestInfo &requestInfo, ResponseInfo &responseInfo);
 void SendRequest(const TExchange &request, TExchange &response);
+
+class TLastExchangeInfo
+{
+  public:
+    int grp_id;
+    std::string pc_payment_req, pc_payment_res;
+    BASIC::TDateTime pc_payment_req_created, pc_payment_res_created;
+    void clear()
+    {
+      grp_id=ASTRA::NoExists;
+      pc_payment_req.clear();
+      pc_payment_res.clear();
+      pc_payment_req_created=ASTRA::NoExists;
+      pc_payment_res_created=ASTRA::NoExists;
+    }
+    TLastExchangeInfo()
+    {
+      clear();
+    }
+    void toDB();
+    void fromDB(int grp_id);
+    static void cleanOldRecords();
+};
+
+class TLastExchangeList : public std::list<TLastExchangeInfo>
+{
+  public:
+    void handle(const std::string& where);
+};
 
 } //namespace SirenaExchange
 

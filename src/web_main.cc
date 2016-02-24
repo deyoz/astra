@@ -39,8 +39,8 @@
 #include "apis_utils.h"
 #include "stl_utils.h"
 #include "astra_callbacks.h"
+#include "baggage_pc.h"
 #include "meridian.h"
-
 
 
 
@@ -2202,6 +2202,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   VerifyPax(segs, emulDocHeader, emulCkinDoc, emulChngDocs, ids);
 
   TChangeStatusList ChangeStatusInfo;
+  SirenaExchange::TLastExchangeList SirenaExchangeList;
   CheckIn::TAfterSaveInfoList AfterSaveInfoList;
   bool result=true;
   bool handleAfterSave=false;
@@ -2215,7 +2216,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
     if (emulReqNode==NULL)
       throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-    if (!CheckInInterface::SavePax(emulReqNode, ediResNode, ChangeStatusInfo, AfterSaveInfoList)) result=false;
+    if (!CheckInInterface::SavePax(emulReqNode, ediResNode, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList)) result=false;
     handleAfterSave=true;
   };
   if (result)
@@ -2226,7 +2227,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulChngDoc.docPtr())->children;
       if (emulReqNode==NULL)
         throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-      if (!CheckInInterface::SavePax(emulReqNode, ediResNode, ChangeStatusInfo, AfterSaveInfoList))
+      if (!CheckInInterface::SavePax(emulReqNode, ediResNode, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList))
       {
         //по идее сюда мы никогда не должны попадать (см. комментарий выше)
         //для этого никогда не возвращаем false и делаем специальную защиту в SavePax:
@@ -2244,7 +2245,12 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       //хотя бы один билет будет обрабатываться
       OraSession.Rollback();  //откат
       ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
+      SirenaExchangeList.handle(__FUNCTION__);
       return false;
+    }
+    else
+    {
+      SirenaExchangeList.handle(__FUNCTION__);
     };
 
     if (handleAfterSave)
@@ -3727,10 +3733,12 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
                 throw EXCEPTIONS::Exception("emulReqNode=NULL");
 
               TChangeStatusList ChangeStatusInfo;
+              SirenaExchange::TLastExchangeList SirenaExchangeList;
               CheckIn::TAfterSaveInfoList AfterSaveInfoList;
-              if (CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, ChangeStatusInfo, AfterSaveInfoList))
+              if (CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList))
               {
                 //сюда попадаем если была реальная регистрация
+                SirenaExchangeList.handle(__FUNCTION__);
                 AfterSaveInfoList.handle(__FUNCTION__);
               };
             };

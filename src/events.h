@@ -260,6 +260,7 @@ class TGrpToLogInfo
 {
   public:
     int grp_id;
+    int point_dep;
     bool trfer_confirm, piece_concept;
     std::map<TPaxToLogInfoKey, TPaxToLogInfo> pax;
     std::map<int/*id*/, TEventsBagItem> bag;
@@ -267,6 +268,7 @@ class TGrpToLogInfo
     void clear()
     {
       grp_id=ASTRA::NoExists;
+      point_dep=ASTRA::NoExists;
       trfer_confirm=false;
       piece_concept=false;
       pax.clear();
@@ -285,6 +287,11 @@ class TGrpToLogInfo
         if (i->first.pax_id==pax_id) break;
       return i;
     }
+
+    void clearExcess();
+    void setExcess();
+    void clearEmd();
+    void setEmd();
 };
 
 class TAgentStatInfo
@@ -334,17 +341,16 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
 void GetBagToLogInfo(int grp_id, std::map<int/*id*/, TEventsBagItem> &bag);
 void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo);
 void UpdGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo);
-void SaveGrpToLog(int point_id,
-                  const TTripInfo &operFlt,
-                  const TTripInfo &markFlt,
-                  const TGrpToLogInfo &grpInfoBefore,
+void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
                   const TGrpToLogInfo &grpInfoAfter,
+                  const CheckIn::TPaidBagEMDProps &handmadeEMDDiff,
                   TAgentStatInfo &agentStat);
 void SavePaidToLog(const TPaidToLogInfo &paidBefore,
                    const TPaidToLogInfo &paidAfter,
                    const TLogLocale &msgPattern,
                    bool piece_concept,
-                   bool onlyEMD);
+                   bool onlyEMD,
+                   const CheckIn::TPaidBagEMDProps &handmadeEMDDiff);
 //функция не только возвращает auto_weighing для пульта,
 //но и пишет в лог, если для данного пульта изменилась настройка
 bool GetAutoWeighing(int point_id, const std::string &work_mode);
