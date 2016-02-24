@@ -73,10 +73,10 @@ rm -f $userconfigjam
 }
 
 function uab_check_version() {
-    grep -w 'BOOST_VERSION[ ]\+105900' $1/include/boost/version.hpp
+    grep -w 'BOOST_VERSION[ ]\+105700' $1/include/boost/version.hpp
 }
 
 function uab_pkg_tarball() {
-    echo boost_1_59_0.tar.bz2
+    echo boost_1_57_0.tar.bz2
 }
 

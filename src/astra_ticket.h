@@ -302,7 +302,8 @@ typedef BasePnrListItem<OrigOfRequest,
                         ResContrInfo,
                         Passenger,
                         Ticket,
-                        FormOfPayment> PnrListItem;
+                        FormOfPayment,
+                        MonetaryInfo> PnrListItem;
 
 typedef BasePnrList <PnrListItem> PnrList;
 }

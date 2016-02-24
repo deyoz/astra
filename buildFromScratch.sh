@@ -60,12 +60,31 @@ if [ -f ./bin/box_hack.sh ] ; then
 fi
 # end hack
 
+set_cxx11="1"
+buildboost="1"
+
+
+EXTERNALLIBS_DIR=${SIRENA_EXTERNALS:-$(pwd)/externallibs}
+
+if [ "$set_cxx11" = "1" ]; then
+    cat <<EOF > locallibs/external_env_file
+if [ -n "\$BOOST_LIB" ] || [ -n "\$BOOST_LIBS_SUFFIX" ] || [ -n "\$PION_LIB" ] ; then echo "unset BOOST_LIB BOOST_LIBS_SUFFIX PION_LIB, then $0 --build_external_libs" 1>&2; exit 2; fi
+export readonly CPP_STD_VERSION="c++11"
+export readonly BOOST=$EXTERNALLIBS_DIR/boost
+export readonly PION=$EXTERNALLIBS_DIR/pion
+export MY_LOCAL_CFLAGS="\$MY_LOCAL_CFLAGS -DBOOST_NO_CXX11_SCOPED_ENUMS -DBOOST_NO_CXX11_EXPLICIT_CONVERSION_OPERATORS -DBOOST_FILESYSTEM_DEPRECATED"
+EOF
+elif [ "$set_cxx11" = "0" ]; then
+    rm -f locallibs/external_env_file
+fi
+
+
 
 build_externallib() {
-    ./bin/sirena_update_and_build.sh $1 $EXTERNALLIBS_DIR/$1
+    ./bin/astra_update_and_build.sh $1 $EXTERNALLIBS_DIR/$1
     checkresult build_$1 $?
     export PKG_CONFIG_PATH=$EXTERNALLIBS_DIR/$1/lib/pkgconfig:$PKG_CONFIG_PATH
-    echo "export LD_LIBRARY_PATH=$EXTERNALLIBS_DIR/$1/lib:\$LD_LIBRARY_PATH" >> sirenalibs/external_env_file
+    echo "export LD_LIBRARY_PATH=$EXTERNALLIBS_DIR/$1/lib:\$LD_LIBRARY_PATH" >> locallibs/external_env_file
 }
 
 
@@ -73,6 +92,7 @@ usage_no_exit()
 {
     echo "Usage: `basename $0` CONNECT_STRING [options]"
     echo -e "Options:
+    --build_external_libs
     --configlibs
     --buildlibs
     --configastra
@@ -97,9 +117,6 @@ checkresult()
     fi
 }
 
-set_cxx11="0"
-buildboost="0"
-
 if [ $# -eq 0 ]; then
     usage
 elif [ $# -eq 1 ]; then
@@ -107,6 +124,7 @@ elif [ $# -eq 1 ]; then
       usage
     fi
     export readonly CONNECT_STRING=$1
+    build_external_libs="1"
     configlibs="2"
     buildlibs="1"
     configastra="1"
@@ -121,6 +139,7 @@ elif [ $# -eq 2 ] && ( [ "$1" = "--quiet" ] || [ "$2" = "--quiet" ] ); then
     elif [ "$2" != "--quiet" ]; then
         export readonly CONNECT_STRING=$2
     fi
+    build_external_libs="1"
     configlibs="2"
     buildlibs="1"
     configastra="1"
@@ -138,6 +157,8 @@ else
             ;;
         "--help") usage
             ;;
+        "--build_external_libs") build_external_libs="1"
+       	    ;;
         "--configlibs") configlibs="2"
             ;;
         "--buildlibs") buildlibs="1"
@@ -173,9 +194,14 @@ fi
 if [ "$quiet" = "1" ]; then db_out_stream="/dev/null"; else db_out_stream="/dev/stdout"; fi
 if [ "$quiet" = "1" ]; then make_silent="-s"; else make_silent=""; fi
 
-if [ "$configlibs" = "2" ]; then
+if [ "$build_external_libs" = "1" ]; then
     build_externallib boost
-    [ "$BUILD_TESTS" = 1 ] && build_externallib check
+    build_externallib check
+    build_externallib pion
+fi
+
+if [ "$configlibs" = "2" ]; then
+    [ "$BUILD_TESTS" = 1 ]
     echo SIRENA_LIBCHECK_BASE=$SIRENA_LIBCHECK_BASE
     export MY_LOCAL_CFLAGS="-O2 $MY_LOCAL_CFLAGS"
     (cd locallibs && make ${make_silent} config clean)

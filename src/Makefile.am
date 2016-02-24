@@ -11,8 +11,9 @@ export EDILIB_PATH
 SysTarg:
 	$(srcdir)/autotests.sh $(srcdir)/ts
 	$(MAKE) -f $(srcdir)/systarg.mk
-
-astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@
+	
+# log4cpp hardcode!!!
+astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@ -llog4cpp
 
 install-edimessages:
 	./nosir.tcl -ediinsert -i ${EDILIB_PATH}/edi_messages
@@ -35,7 +36,7 @@ xp-tests: clean-xp-tests
 	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
 	
 
-AM_CXXFLAGS = $(TCLINCLUDE) @PION_CXXFLAGS@ @SERVERLIB_CXXFLAGS@
+AM_CXXFLAGS = $(TCLINCLUDE) @SERVERLIB_CXXFLAGS@
 astra_SOURCES = \
   adm.cc \
   access.cc \

@@ -15,6 +15,7 @@
 #include <serverlib/rip_oci.h>
 
 #include <boost/lexical_cast.hpp>
+#include <boost/optional/optional_io.hpp>
 
 #define NICKNAME "ANTON"
 #define NICK_TRACE ANTON_TRACE
