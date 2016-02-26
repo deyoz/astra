@@ -153,23 +153,25 @@ astra_SOURCES = \
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
-  tests/libtests.a \
+	azimut_loyalty/libazimut_loyalty.a \
+  	tests/libtests.a \
 	@ETICKLIB_LIBS@ \
 	@ORACLE_LIBS@ @EDILIB_LIBS@ \
 	@JXTLIB_LIBS@ @SHARED_LIBS@ \
 	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
-	$(XML_LIBS) @CHECK_LIBS@\
-	@BOOST_SYSTEM_LIB@\
-	@BOOST_FILESYSTEM_LIB@\
-	@BOOST_REGEX_LIB@\
-	@BOOST_THREAD_LIB@\
-        @PION_LDFLAGS@
+	$(XML_LIBS) @CHECK_LIBS@ \
+	@BOOST_SYSTEM_LIB@ \
+	@BOOST_FILESYSTEM_LIB@ \
+	@BOOST_REGEX_LIB@ \
+	@BOOST_THREAD_LIB@ \
+        @PION_LDFLAGS@ \
+        @AXIS2C_LDFLAGS@
 
 
 #	-L/usr/lib -lboost_filesystem
 #	-L/home/beta/crypt/locallibs/mespro -lmesprox
 
-SUBDIRS = tlg tests
+SUBDIRS = tlg tests azimut_loyalty
 
 EXTRA_DIST = systarg.mk run astra.tcl PS Restart kills \
 	MAKE local_after_example.tcl local_before_example.tcl
