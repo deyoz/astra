@@ -15,7 +15,6 @@ create or replace PROCEDURE SearchHist(UserIdValue users2.user_id%TYPE)
       SEPARATOR '\r\nUNION\r\n'
     )
   INTO
-    @resultQuery
   FROM
     hist_users2, history_events
   WHERE
