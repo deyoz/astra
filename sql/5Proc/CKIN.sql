@@ -30,10 +30,12 @@ FUNCTION get_birks2(vgrp_id       IN pax.grp_id%TYPE,
                     vbag_pool_num IN pax.bag_pool_num%TYPE,
                     vlang	        IN lang_types.code%TYPE) RETURN VARCHAR2;
 
-FUNCTION need_for_payment(vgrp_id     IN pax_grp.grp_id%TYPE,
-                          vclass      IN pax_grp.class%TYPE,
-                          vbag_refuse IN pax_grp.bag_refuse%TYPE,
-                          vexcess     IN pax_grp.excess%TYPE) RETURN NUMBER;
+FUNCTION need_for_payment(vgrp_id        IN pax_grp.grp_id%TYPE,
+                          vclass         IN pax_grp.class%TYPE,
+                          vbag_refuse    IN pax_grp.bag_refuse%TYPE,
+                          vpiece_concept IN pax_grp.piece_concept%TYPE,
+                          vexcess        IN pax_grp.excess%TYPE,
+                          vpax_id        IN pax.pax_id%TYPE) RETURN NUMBER;
 
 FUNCTION get_excess(vgrp_id       IN pax.grp_id%TYPE,
                     vpax_id       IN pax.pax_id%TYPE) RETURN NUMBER;

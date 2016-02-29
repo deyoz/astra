@@ -355,6 +355,7 @@ PROCEDURE modify_rem_event_sets(old_set_id    rem_event_sets.set_id%TYPE,
                                 ckin_view     rem_event_sets.event_value%TYPE,
                                 typeb_psm     rem_event_sets.event_value%TYPE,
                                 typeb_pil     rem_event_sets.event_value%TYPE,
+                                service_stat  rem_event_sets.event_value%TYPE,
                                 vsetting_user history_events.open_user%TYPE,
                                 vstation      history_events.open_desk%TYPE);
 
@@ -468,6 +469,12 @@ PROCEDURE modify_roles(vrole_id       roles.role_id%TYPE,
 PROCEDURE delete_roles(vrole_id       roles.role_id%TYPE,
                        vsetting_user  history_events.open_user%TYPE,
                        vstation       history_events.open_desk%TYPE);
+
+PROCEDURE check_range(vmin         IN NUMBER,
+                      vmax         IN NUMBER,
+                      vcache_table IN cache_tables.code%TYPE,
+                      vcache_field IN cache_fields.name%TYPE,
+                      vlang        IN lang_types.code%TYPE);
 
 END adm;
 /

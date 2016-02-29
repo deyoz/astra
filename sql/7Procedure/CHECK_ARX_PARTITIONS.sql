@@ -38,7 +38,7 @@ BEGIN
                                               'ARX_POINTS',
                                               'ARX_STAT',
                                               'ARX_TRFER_STAT',
-                                              'ARX_KIOSK_STAT',
+                                              'ARX_SELF_CKIN_STAT',
                                               'ARX_AGENT_STAT',
                                               'ARX_TRIP_CLASSES',
                                               'ARX_TRIP_DELAYS',

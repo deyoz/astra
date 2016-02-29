@@ -493,6 +493,38 @@ BEGIN
       DELETE FROM self_ckin_stat WHERE rowid=rowids(i);
 
     SELECT rowid BULK COLLECT INTO rowids
+    FROM rfisc_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_rfisc_stat
+           (point_id, pr_trfer, trfer_airline, trfer_flt_no, trfer_suffix, trfer_airp_arv, trfer_scd,
+            point_num, airp_arv, rfisc, excess, paid, tag_no, fqt_no, travel_time, user_login, user_descr, desk, time_create, part_key)
+        SELECT
+           point_id, pr_trfer, trfer_airline, trfer_flt_no, trfer_suffix, trfer_airp_arv, trfer_scd,
+            point_num, airp_arv, rfisc, excess, paid, tag_no, fqt_no, travel_time, user_login, user_descr, desk, time_create, vpart_key
+        FROM rfisc_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM rfisc_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM service_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_service_stat
+        (point_id, travel_time, rem_code, ticket_no, airp_last, user_id, desk, part_key)
+        SELECT
+         point_id, travel_time, rem_code, ticket_no, airp_last, user_id, desk, vpart_key
+        FROM service_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM service_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
     FROM agent_stat
     WHERE point_id=curRow.point_id FOR UPDATE;
     IF use_insert THEN
@@ -672,10 +704,10 @@ BEGIN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_bag2
             (grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,to_ramp,
-             using_scales,bag_pool_num,hall,user_id,is_trfer,handmade,part_key)
+             using_scales,bag_pool_num,hall,user_id,is_trfer,handmade,desk,time_create,part_key)
           SELECT
              grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,to_ramp,
-             using_scales,bag_pool_num,hall,user_id,is_trfer,handmade,vpart_key
+             using_scales,bag_pool_num,hall,user_id,is_trfer,handmade,desk,time_create,vpart_key
           FROM bag2
           WHERE rowid=rowids(i);
       END IF;
@@ -941,6 +973,7 @@ BEGIN
         DELETE FROM pax WHERE rowid=paxrowids(i);
       DELETE FROM tckin_pax_grp WHERE grp_id=grpids(j);
       DELETE FROM paid_bag_emd WHERE grp_id=grpids(j);
+      DELETE FROM paid_bag_emd_props WHERE grp_id=grpids(j);
       DELETE FROM pnr_addrs_pc WHERE grp_id=grpids(j);
     END LOOP;
     FORALL i IN 1..grprowids.COUNT

@@ -1190,7 +1190,7 @@ BEGIN
     RETURN vdesk_grp;
   END IF;
 
-  SELECT grp_id INTO vdesk_grp2 FROM desks WHERE code=vdesk;
+  SELECT grp_id INTO vdesk_grp2 FROM desks WHERE code=vdesk;	
 
   IF vdesk_grp IS NOT NULL AND vdesk_grp<>vdesk_grp2 THEN
     system.raise_user_exception('MSG.DESK_GRP_DOES_NOT_MEET_DESK');
@@ -1980,7 +1980,7 @@ mins  VARCHAR2(2);
 i     BINARY_INTEGER;
 h     NUMBER(2);
 m     NUMBER(2);
-BEGIN
+BEGIN  	
   IF str IS NULL THEN RETURN NULL; END IF;
   i:=INSTR(str,'-');
   IF i=0 THEN RAISE VALUE_ERROR; END IF;
@@ -1998,6 +1998,26 @@ EXCEPTION
     lparams('fieldname'):=get_locale_text(info.field_title(cache_field), vlang);
     system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
 END check_trfer_sets_interval;
+
+PROCEDURE check_range(vmin         IN NUMBER,
+                      vmax         IN NUMBER,
+                      vcache_table IN cache_tables.code%TYPE,
+                      vcache_field IN cache_fields.name%TYPE,
+                      vlang        IN lang_types.code%TYPE)
+IS
+info	        adm.TCacheInfo;
+lparams         system.TLexemeParams;
+BEGIN
+   IF vmin IS NOT NULL AND
+      vmax IS NOT NULL AND
+      vmin>vmax THEN
+    info:=adm.get_cache_info(vcache_table);
+    lparams('fieldname'):=get_locale_text(info.field_title(vcache_field), vlang);
+    system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
+  END IF;
+END check_range;
+
+
 
 PROCEDURE insert_trfer_sets(vid		      IN trfer_sets.id%TYPE,
                             vairline_in       IN trfer_sets.airline_in%TYPE,
@@ -2065,13 +2085,7 @@ BEGIN
 
   min_intervalh:=check_trfer_sets_interval(vmin_interval,'TRFER_SETS','MIN_INTERVAL',vlang);
   max_intervalh:=check_trfer_sets_interval(vmax_interval,'TRFER_SETS','MAX_INTERVAL',vlang);
-  IF min_intervalh IS NOT NULL AND
-     max_intervalh IS NOT NULL AND
-     min_intervalh>max_intervalh THEN
-    info:=adm.get_cache_info('TRFER_SETS');
-    lparams('fieldname'):=get_locale_text(info.field_title('MAX_INTERVAL'), vlang);
-    system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
-  END IF;
+  check_range(min_intervalh, max_intervalh, 'TRFER_SETS', 'MAX_INTERVAL', vlang);
 
   --собственно запись в базу
   IF vid IS NULL THEN
@@ -2516,7 +2530,7 @@ FUNCTION check_date_wo_year(str         IN VARCHAR2,
 IS
 info	 adm.TCacheInfo;
 lparams   system.TLexemeParams;
-BEGIN
+BEGIN  	
   RETURN TO_DATE(str||'.2000','DD.MM.YYYY');
 EXCEPTION
   WHEN OTHERS THEN
@@ -2594,7 +2608,7 @@ BEGIN
     info:=adm.get_cache_info('AIRLINE_PERS_WEIGHTS');
     lparams('fieldname'):=get_locale_text(info.field_title('FIRST_DATE'), vlang);
     system.raise_user_exception('MSG.TABLE.NOT_SET_FIELD_VALUE', lparams);
-  END IF;
+  END IF; 	
   IF vfirst_date IS NOT NULL AND vlast_date IS NULL THEN
     info:=adm.get_cache_info('AIRLINE_PERS_WEIGHTS');
     lparams('fieldname'):=get_locale_text(info.field_title('LAST_DATE'), vlang);
@@ -2611,7 +2625,7 @@ BEGIN
           (subclass IS NULL AND vsubclass IS NULL OR subclass=vsubclass) AND
           pr_summer=vpr_summer AND
           rownum<2;
-  ELSE
+  ELSE	
     SELECT COUNT(*) INTO n
     FROM pers_weights
     WHERE (vid IS NULL OR id<>vid) AND
@@ -2665,6 +2679,7 @@ PROCEDURE modify_rem_event_sets(old_set_id    rem_event_sets.set_id%TYPE,
                                 ckin_view     rem_event_sets.event_value%TYPE,
                                 typeb_psm     rem_event_sets.event_value%TYPE,
                                 typeb_pil     rem_event_sets.event_value%TYPE,
+                                service_stat  rem_event_sets.event_value%TYPE,
                                 vsetting_user history_events.open_user%TYPE,
                                 vstation      history_events.open_desk%TYPE)
 IS
@@ -2675,7 +2690,7 @@ vid          rem_event_sets.id%TYPE;
 vset_id      rem_event_sets.set_id%TYPE;
 BEGIN
   SELECT id__seq.nextval INTO vset_id FROM dual;
-  FOR i IN 1..10 LOOP
+  FOR i IN 1..11 LOOP
     vevent_type:= CASE i
                     WHEN 1  THEN 'BP'
                     WHEN 2  THEN 'ALARM_SS'
@@ -2687,6 +2702,7 @@ BEGIN
                     WHEN 8  THEN 'CKIN_VIEW'
                     WHEN 9  THEN 'TYPEB_PSM'
                     WHEN 10 THEN 'TYPEB_PIL'
+                    WHEN 11 THEN 'SERVICE_STAT'
                   END;
     vevent_value:=CASE i
                     WHEN 1  THEN bp
@@ -2699,6 +2715,7 @@ BEGIN
                     WHEN 8  THEN ckin_view
                     WHEN 9  THEN typeb_psm
                     WHEN 10 THEN typeb_pil
+                    WHEN 11 THEN service_stat
                   END;
     IF old_set_id IS NOT NULL THEN
       IF vrem_code IS NULL THEN
