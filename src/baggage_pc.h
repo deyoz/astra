@@ -7,6 +7,8 @@
 #include "emdoc.h"
 #include "httpClient.h"
 
+enum TBagConcept { bcUnknown, bcPiece, bcWeight };
+
 namespace PieceConcept
 {
 
@@ -30,7 +32,6 @@ struct TNodeList {
 private:
      void apply();
 };
-
 
 enum TBagStatus { bsUnknown, bsFree, bsPaid, bsNeed, bsNone };
 
@@ -160,16 +161,31 @@ class TPaxNormTextItem
     std::string lang, text;
 };
 
-class TPaxNormItem : public std::map<std::string/*lang*/, TPaxNormTextItem>
+class TSimplePaxNormItem : public std::map<std::string/*lang*/, TPaxNormTextItem>
 {
   public:
     void fromXML(xmlNodePtr node);
-    void fromXMLAdv(xmlNodePtr node, bool &piece_concept, std::string &airline);
-    void fromDB(int pax_id); // загрузка данных по пассажиру
-    void toDB(int pax_id) const; // сохранение данных по пассажиру
+    void fromXMLAdv(xmlNodePtr node, TBagConcept &concept, std::string &airline);
 };
 
-void PaxNormsToStream(const CheckIn::TPaxItem &pax, std::ostringstream &s);
+class TPaxNormItem : public TSimplePaxNormItem
+{
+  public:
+    int pax_id, trfer_num;
+
+    TPaxNormItem()
+    {
+      clear();
+    }
+    void clear()
+    {
+      TSimplePaxNormItem::clear();
+      pax_id=ASTRA::NoExists;
+      trfer_num=ASTRA::NoExists;
+    }
+};
+
+void PaxNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &pax, std::ostringstream &s);
 
 std::string DecodeEmdType(const std::string &s);
 std::string EncodeEmdType(const std::string &s);
@@ -223,7 +239,7 @@ void PaidBagToDB(int grp_id, const std::list<TPaidBagItem> &paid);
 void PaidBagFromDB(int id, bool is_grp_id, std::list<TPaidBagItem> &paid);
 
 std::string GetBagRcptStr(int grp_id, int pax_id);
-bool BagPaymentCompleted(int pax_id);
+bool BagPaymentCompleted(int grp_id, int pax_id, bool only_tckin_segs);
 
 void PreparePaidBagInfo(int grp_id,
                         int seg_count,
@@ -581,17 +597,17 @@ class TAvailabilityReq : public TAvailability
 class TAvailabilityResItem
 {
   public:
-    bool piece_concept;
+    TBagConcept concept;
     std::string airline;
     PieceConcept::TRFISCList rfisc_list;
-    PieceConcept::TPaxNormItem norm;
+    PieceConcept::TSimplePaxNormItem norm;
     TAvailabilityResItem()
     {
       clear();
     }
     void clear()
     {
-      piece_concept=false;
+      concept=bcUnknown;
       airline.clear();
       rfisc_list.clear();
       norm.clear();
@@ -610,13 +626,13 @@ class TAvailabilityRes : public TAvailability, public TAvailabilityResMap
       TAvailabilityResMap::clear();
     }
     virtual void fromXML(xmlNodePtr node);
-    bool identical_piece_concept();
-    bool identical_rfisc_list();
-    void normsToDB(int seg_id);
+    bool identical_concept(int seg_id, boost::optional<TBagConcept> &concept) const;
+    bool identical_rfisc_list(int seg_id, boost::optional<PieceConcept::TRFISCList> &rfisc_list) const;
+    void normsToDB(const TCkinGrpIds &tckin_grp_ids) const;
 };
 
 typedef std::list< std::pair<TPaxSegKey, TBagItem> > TBagList;
-typedef std::list< std::pair<TPaxSegKey, PieceConcept::TPaxNormItem> > TPaxNormList;
+typedef std::list< std::pair<TPaxSegKey, PieceConcept::TSimplePaxNormItem> > TPaxNormList;
 
 class TPaymentStatusReq : public TPaymentStatus
 {
@@ -646,9 +662,9 @@ class TPaymentStatusRes : public TPaymentStatus
       norms.clear();
     }
     virtual void fromXML(xmlNodePtr node);
-    void normsToDB(int seg_id);
+    void normsToDB(const TCkinGrpIds &tckin_grp_ids) const;
     void convert(std::list<PieceConcept::TPaidBagItem> &paid) const;
-    void check_unknown_status(std::set<std::string> &rfiscs) const;
+    void check_unknown_status(int seg_id, std::set<std::string> &rfiscs) const;
 };
 
 //запросы Сирены в Астру

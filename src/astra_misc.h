@@ -350,6 +350,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsSetDepTimeByMVT=27,           //Проставление вылета рейса по телеграмме MVT
                     tsSyncMeridian=28,              //Синхронизация с меридианом
                     tsNoEMDAutoBinding=31,          //Запрет автопривязки EMD
+                    tsCheckPayOnTCkinSegs=32,       //Контроль оплаты только на сквозных сегментах
 
                     /*привязанные к рейсу (есть соответствующие поля в таблице trip_sets)*/
                     tsCheckLoad=2,                  //Контроль загрузки при регистрации
@@ -643,6 +644,8 @@ enum TCkinRouteType1 { crtNotCurrent,
 enum TCkinRouteType2 { crtOnlyDependent,
                        crtIgnoreDependent };
 
+class TCkinGrpIds : public std::list<int> {};
+
 class TCkinRoute : public std::vector<TCkinRouteItem>
 {
   private:
@@ -694,6 +697,12 @@ class TCkinRoute : public std::vector<TCkinRouteItem>
                      TCkinRouteType2 route_type2,
                      TCkinRouteItem& item);    //результат=false только если для grp_id не производилась сквозная регистрация!
                                                //отсутствие предыдущего сегмента всегда лучше проверять по возвращенному item
+    void get(TCkinGrpIds &tckin_grp_ids) const
+    {
+      tckin_grp_ids.clear();
+      for(TCkinRoute::const_iterator i=begin(); i!=end(); ++i)
+        tckin_grp_ids.push_back(i->grp_id);
+    }
 };
 
 enum TCkinSegmentSet { cssNone,
