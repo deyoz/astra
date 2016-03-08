@@ -431,16 +431,12 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 */
 
 struct TWebPnr {
-  TCheckDocInfo checkDocInfo;
-  TCheckTknInfo checkTknInfo;
-  set<string> apis_formats;
+  TCompleteAPICheckInfo checkInfo;
   vector<TWebPax> paxs;
 
   void clear()
   {
-    checkDocInfo.clear();
-    checkTknInfo.clear();
-    apis_formats.clear();
+    checkInfo.clear();
     paxs.clear();
   };
 };
@@ -523,81 +519,77 @@ bool is_valid_pax_status(int point_id, int pax_id)
          is_valid_pax_nationality(point_id, pax_id);
 };
 
-bool is_valid_doc_info(const TCheckDocInfo &checkDocInfo,
+bool is_valid_doc_info(const TCompleteAPICheckInfo &checkInfo,
                        const CheckIn::TPaxDocItem &doc)
 {
-  if ((checkDocInfo.doc.required_fields&doc.getNotEmptyFieldsMask())!=checkDocInfo.doc.required_fields) return false;
+  if (checkInfo.incomplete(doc)) return false;
   return true;
 };
 
-bool is_valid_doco_info(const TCheckDocInfo &checkDocInfo,
+bool is_valid_doco_info(const TCompleteAPICheckInfo &checkInfo,
                         const CheckIn::TPaxDocoItem &doco)
 {
-  if ((checkDocInfo.doco.required_fields&doco.getNotEmptyFieldsMask())!=checkDocInfo.doco.required_fields) return false;
+  if (checkInfo.incomplete(doco)) return false;
   return true;
 };
 
-bool is_valid_doca_info(const TCheckDocInfo &checkDocInfo,
+bool is_valid_doca_info(const TCompleteAPICheckInfo &checkInfo,
                         const list<CheckIn::TPaxDocaItem> &doca)
 {
-  CheckIn::TPaxDocaItem docaB, docaR, docaD;
-  CheckIn::ConvertDoca(doca, docaB, docaR, docaD);
-
-  if ((checkDocInfo.docaB.required_fields&docaB.getNotEmptyFieldsMask())!=checkDocInfo.docaB.required_fields) return false;
-  if ((checkDocInfo.docaR.required_fields&docaR.getNotEmptyFieldsMask())!=checkDocInfo.docaR.required_fields) return false;
-  if ((checkDocInfo.docaD.required_fields&docaD.getNotEmptyFieldsMask())!=checkDocInfo.docaD.required_fields) return false;
+  for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
+    if (checkInfo.incomplete(*d)) return false;
   return true;
 };
 
-bool is_valid_tkn_info(const TCheckTknInfo &checkTknInfo,
+bool is_valid_tkn_info(const TCompleteAPICheckInfo &checkInfo,
                        const CheckIn::TPaxTknItem &tkn)
 {
-  if ((checkTknInfo.tkn.required_fields&tkn.getNotEmptyFieldsMask())!=checkTknInfo.tkn. required_fields) return false;
+  if (checkInfo.incomplete(tkn)) return false;
   return true;
 };
 
-void checkDocInfoToXML(const TCheckDocInfo &checkDocInfo,
+void checkDocInfoToXML(const TCompleteAPICheckInfo &checkInfo,
                        const xmlNodePtr node)
 {
   if (node==NULL) return;
   xmlNodePtr fieldsNode=NewTextChild(node, "doc_required_fields");
-  SetProp(fieldsNode, "is_inter", checkDocInfo.doc.is_inter);
-  if ((checkDocInfo.doc.required_fields&DOC_TYPE_FIELD) != 0x0000)
+  SetProp(fieldsNode, "is_inter", checkInfo.pass().get(apiDoc).is_inter);
+  if ((checkInfo.pass().get(apiDoc).required_fields&DOC_TYPE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "type");
-  if ((checkDocInfo.doc.required_fields&DOC_ISSUE_COUNTRY_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoc).required_fields&DOC_ISSUE_COUNTRY_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "issue_country");
-  if ((checkDocInfo.doc.required_fields&DOC_NO_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoc).required_fields&DOC_NO_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "no");
-  if ((checkDocInfo.doc.required_fields&DOC_NATIONALITY_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoc).required_fields&DOC_NATIONALITY_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "nationality");
-  if ((checkDocInfo.doc.required_fields&DOC_BIRTH_DATE_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoc).required_fields&DOC_BIRTH_DATE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "birth_date");
-  if ((checkDocInfo.doc.required_fields&DOC_GENDER_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoc).required_fields&DOC_GENDER_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "gender");
-  if ((checkDocInfo.doc.required_fields&DOC_EXPIRY_DATE_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoc).required_fields&DOC_EXPIRY_DATE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "expiry_date");
-  if ((checkDocInfo.doc.required_fields&DOC_SURNAME_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoc).required_fields&DOC_SURNAME_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "surname");
-  if ((checkDocInfo.doc.required_fields&DOC_FIRST_NAME_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoc).required_fields&DOC_FIRST_NAME_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "first_name");
-  if ((checkDocInfo.doc.required_fields&DOC_SECOND_NAME_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoc).required_fields&DOC_SECOND_NAME_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "second_name");
 
   fieldsNode=NewTextChild(node, "doco_required_fields");
-  SetProp(fieldsNode, "is_inter", checkDocInfo.doco.is_inter);
-  if ((checkDocInfo.doco.required_fields&DOCO_BIRTH_PLACE_FIELD) != 0x0000)
+  SetProp(fieldsNode, "is_inter", checkInfo.pass().get(apiDoco).is_inter);
+  if ((checkInfo.pass().get(apiDoco).required_fields&DOCO_BIRTH_PLACE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "birth_place");
-  if ((checkDocInfo.doco.required_fields&DOCO_TYPE_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoco).required_fields&DOCO_TYPE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "type");
-  if ((checkDocInfo.doco.required_fields&DOCO_NO_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoco).required_fields&DOCO_NO_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "no");
-  if ((checkDocInfo.doco.required_fields&DOCO_ISSUE_PLACE_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoco).required_fields&DOCO_ISSUE_PLACE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "issue_place");
-  if ((checkDocInfo.doco.required_fields&DOCO_ISSUE_DATE_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoco).required_fields&DOCO_ISSUE_DATE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "issue_date");
-  if ((checkDocInfo.doco.required_fields&DOCO_EXPIRY_DATE_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoco).required_fields&DOCO_EXPIRY_DATE_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "expiry_date");
-  if ((checkDocInfo.doco.required_fields&DOCO_APPLIC_COUNTRY_FIELD) != 0x0000)
+  if ((checkInfo.pass().get(apiDoco).required_fields&DOCO_APPLIC_COUNTRY_FIELD) != 0x0000)
     NewTextChild(fieldsNode, "field", "applic_country");
 };
 
@@ -783,12 +775,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
       SeatQry.SetVariable("crs_seat_no", FNull);
       if (!Qry.Eof)
       {
-        pnr.checkDocInfo=GetCheckDocInfo(point_id, Qry.FieldAsString("airp_arv"), pnr.apis_formats).pass;
-        pnr.checkTknInfo=GetCheckTknInfo(point_id).pass;
-        //ProgTrace(TRACE5, "getPnr: point_id=%d airp_arv=%s", point_id, Qry.FieldAsString("airp_arv"));
-        //ProgTrace(TRACE5, "getPnr: checkDocInfo.first.required_fields=%ld", pnr.checkDocInfo.first.required_fields);
-        //ProgTrace(TRACE5, "getPnr: checkDocInfo.second.required_fields=%ld", pnr.checkDocInfo.second.required_fields);
-        //ProgTrace(TRACE5, "getPnr: checkTknInfo.required_fields=%ld", pnr.checkTknInfo.required_fields);
+        pnr.checkInfo.set(point_id, Qry.FieldAsString("airp_arv"));
         for(;!Qry.Eof;Qry.Next())
         {
           TWebPax pax;
@@ -866,13 +853,13 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
               pax.agent_checkin_reasons.insert("web_cancel");
             if (!is_valid_pax_nationality(point_id, pax.crs_pax_id))
               pax.agent_checkin_reasons.insert("pax_nationality");
-            if (!is_valid_doc_info(pnr.checkDocInfo, pax.doc))
+            if (!is_valid_doc_info(pnr.checkInfo, pax.doc))
               pax.agent_checkin_reasons.insert("incomplete_doc");
-            if (!is_valid_doco_info(pnr.checkDocInfo, pax.doco))
+            if (!is_valid_doco_info(pnr.checkInfo, pax.doco))
               pax.agent_checkin_reasons.insert("incomplete_doco");
-            if (!is_valid_doca_info(pnr.checkDocInfo, pax.doca))
+            if (!is_valid_doca_info(pnr.checkInfo, pax.doca))
               pax.agent_checkin_reasons.insert("incomplete_doca");
-            if (!is_valid_tkn_info(pnr.checkTknInfo, pax.tkn))
+            if (!is_valid_tkn_info(pnr.checkInfo, pax.tkn))
               pax.agent_checkin_reasons.insert("incomplete_tkn");
 
             if (!pax.agent_checkin_reasons.empty())
@@ -1084,8 +1071,8 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids,
                           NewTextChild( segNode, "flt_no", i->flt_no );
       NewTextChild( segNode, "suffix", i->suffix );
 
-      NewTextChild( segNode, "apis", (int)(!pnr.apis_formats.empty()) );
-      checkDocInfoToXML(pnr.checkDocInfo, segNode);
+      NewTextChild( segNode, "apis", (int)(!pnr.checkInfo.apis_formats().empty()) );
+      checkDocInfoToXML(pnr.checkInfo, segNode);
 
       xmlNodePtr node = NewTextChild( segNode, "passengers" );
       for ( vector<TWebPax>::const_iterator iPax=pnr.paxs.begin(); iPax!=pnr.paxs.end(); iPax++ )
@@ -1876,17 +1863,17 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
               pax.pers_type = Qry.FieldAsString("pers_type");
               pax.seat_no = Qry.FieldAsString("seat_no");
               pax.seats = Qry.FieldAsInteger("seats");
-              if (iPax->present_in_req.find(ciDoc) !=  iPax->present_in_req.end())
+              if (iPax->present_in_req.find(apiDoc) !=  iPax->present_in_req.end())
               {
                 //проверка всех реквизитов документа
                 pax.doc=NormalizeDoc(iPax->doc);
-                pax.present_in_req.insert(ciDoc);
+                pax.present_in_req.insert(apiDoc);
               };
-              if (iPax->present_in_req.find(ciDoco) !=  iPax->present_in_req.end())
+              if (iPax->present_in_req.find(apiDoco) !=  iPax->present_in_req.end())
               {
                 //проверка всех реквизитов визы
                 pax.doco=NormalizeDoco(iPax->doco);
-                pax.present_in_req.insert(ciDoco);
+                pax.present_in_req.insert(apiDoco);
               };
 
               s->second.paxForChng.push_back(pax);
@@ -1912,20 +1899,20 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
               }
               else
               {
-                if (iPax->present_in_req.find(ciDoc) !=  iPax->present_in_req.end())
+                if (iPax->present_in_req.find(apiDoc) !=  iPax->present_in_req.end())
                 {
                   //проверка всех реквизитов документа
                   pax.apis.doc=NormalizeDoc(iPax->doc);
-                  pax.present_in_req.insert(ciDoc);
+                  pax.present_in_req.insert(apiDoc);
                 }
                 else
                   LoadCrsPaxDoc(pax.crs_pax_id, pax.apis.doc, true);
 
-                if (iPax->present_in_req.find(ciDoco) !=  iPax->present_in_req.end())
+                if (iPax->present_in_req.find(apiDoco) !=  iPax->present_in_req.end())
                 {
                   //проверка всех реквизитов визы
                   pax.apis.doco=NormalizeDoco(iPax->doco);
-                  pax.present_in_req.insert(ciDoco);
+                  pax.present_in_req.insert(apiDoco);
                 }
                 else
                   LoadCrsPaxVisa(pax.crs_pax_id, pax.apis.doco);
@@ -2110,11 +2097,11 @@ void WebRequestsIface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE1,"WebRequestsIface::SavePax");
-    vector< pair<int, TWebPnrForSave > > segs;
-    xmlNodePtr segNode=NodeAsNode("segments", reqNode)->children;
-    for(;segNode!=NULL;segNode=segNode->next)
-    {
-      TWebPnrForSave pnr;
+  vector< pair<int, TWebPnrForSave > > segs;
+  xmlNodePtr segNode=NodeAsNode("segments", reqNode)->children;
+  for(;segNode!=NULL;segNode=segNode->next)
+  {
+    TWebPnrForSave pnr;
     xmlNodePtr paxNode=GetNode("passengers", segNode);
     if (paxNode!=NULL) paxNode=paxNode->children;
     if (paxNode!=NULL)
@@ -2129,13 +2116,13 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
         xmlNodePtr docNode = GetNode("document", paxNode);
         if (docNode!=NULL) {
-            pax.present_in_req.insert(ciDoc);
+            pax.present_in_req.insert(apiDoc);
             PaxDocFromXML(docNode, pax.doc);
         }
 
         xmlNodePtr docoNode = GetNode("doco", paxNode);
         if (docoNode!=NULL) {
-            pax.present_in_req.insert(ciDoco);
+            pax.present_in_req.insert(apiDoco);
             PaxDocoFromXML(docoNode, pax.doco);
         }
 
@@ -2176,11 +2163,11 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     segs.push_back(make_pair( NodeAsInteger("point_id", segNode), pnr ));
   };
 
-    XMLDoc emulDocHeader;
-    CreateEmulXMLDoc(reqNode, emulDocHeader);
+  XMLDoc emulDocHeader;
+  CreateEmulXMLDoc(reqNode, emulDocHeader);
 
-    XMLDoc emulCkinDoc;
-    map<int,XMLDoc> emulChngDocs;
+  XMLDoc emulCkinDoc;
+  map<int,XMLDoc> emulChngDocs;
   vector<TIdsPnrData> ids;
   VerifyPax(segs, emulDocHeader, emulCkinDoc, emulChngDocs, ids);
 

@@ -17,9 +17,6 @@ void GetCustomsDependCountries(const std::string &regul,
 std::string GetCustomsRegulCountry(const std::string &depend,
                                    TQuery &Qry);
 
-bool isValidGender(const std::string &fmt, const std::string &pax_doc_gender, const std::string &pax_name);
-bool isValidDocType(const std::string &fmt, const ASTRA::TPaxStatus &status, const std::string &doc_type);
-
 };
 
 void create_apis_task(int point_id, const std::string& task_name, const std::string &params);

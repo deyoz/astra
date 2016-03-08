@@ -40,7 +40,7 @@ void CheckSeatNoFromReq(int point_id,
     getXYName( point_id, prior_seat_no, prior_xname, prior_yname );
 
     if ( prior_xname + prior_yname != curr_xname + curr_yname )
-    {      
+    {
       TQuery Qry(&OraSession);
       Qry.Clear();
       Qry.SQLText=
@@ -326,7 +326,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
       if (iPnrData==PNRs.end()) //лишние сегменты в запросе на регистрацию
         throw EXCEPTIONS::Exception("CreateEmulDocs: iPnrData==PNRs.end() (seg_no=%d)", seg_no);
 
-      TCheckDocInfo checkDocInfo=GetCheckDocInfo(iPnrData->flt.point_dep, iPnrData->dest.airp_arv).pass;
+      TCompleteAPICheckInfo checkInfo(iPnrData->flt.point_dep, iPnrData->dest.airp_arv);
 
       const TWebPnrForSave &currPnr=s->second;
       //пассажиры для регистрации
@@ -458,21 +458,19 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
               NewTextChild(paxNode,"ticket_confirm",(int)false);
             };
 
-            if (iPaxForCkin->present_in_req.find(ciDoc) != iPaxForCkin->present_in_req.end())
-              CheckDoc(iPaxForCkin->apis.doc, checkDocInfo.doc, now_local);
+            if (iPaxForCkin->present_in_req.find(apiDoc) != iPaxForCkin->present_in_req.end())
+              CheckDoc(iPaxForCkin->apis.doc, currPnr.status, checkInfo, now_local);
             iPaxForCkin->apis.doc.toXML(paxNode);
 
-            if (iPaxForCkin->present_in_req.find(ciDoco) != iPaxForCkin->present_in_req.end())
-              CheckDoco(iPaxForCkin->apis.doco, checkDocInfo.doco, now_local);
+            if (iPaxForCkin->present_in_req.find(apiDoco) != iPaxForCkin->present_in_req.end())
+              CheckDoco(iPaxForCkin->apis.doco, currPnr.status, checkInfo, now_local);
             iPaxForCkin->apis.doco.toXML(paxNode);
 
-            for(list<CheckIn::TPaxDocaItem>::const_iterator d=iPaxForCkin->apis.doca.begin(); d!=iPaxForCkin->apis.doca.end(); ++d) {
-                if (d->type == "B" && iPaxForCkin->present_in_req.find(ciDocaB) != iPaxForCkin->present_in_req.end())
-                  CheckDoca(*d, checkDocInfo.docaB);
-                else if (d->type == "R" && iPaxForCkin->present_in_req.find(ciDocaR) != iPaxForCkin->present_in_req.end())
-                  CheckDoca(*d, checkDocInfo.docaR);
-                else if (d->type == "D" && iPaxForCkin->present_in_req.find(ciDocaD) != iPaxForCkin->present_in_req.end())
-                  CheckDoca(*d, checkDocInfo.docaD);
+            for(list<CheckIn::TPaxDocaItem>::const_iterator d=iPaxForCkin->apis.doca.begin(); d!=iPaxForCkin->apis.doca.end(); ++d)
+            {
+              const CheckIn::TPaxDocaItem &doca=*d;
+              if (iPaxForCkin->present_in_req.find(doca.apiType()) != iPaxForCkin->present_in_req.end())
+                CheckDoca(doca, currPnr.status, checkInfo);
             }
 
             xmlNodePtr docaNode=NewTextChild(paxNode, "addresses");
@@ -556,18 +554,18 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           };
 
           bool DocUpdatesPending=false;
-          if (iPaxForChng->present_in_req.find(ciDoc) != iPaxForChng->present_in_req.end()) //тег <document> пришел
+          if (iPaxForChng->present_in_req.find(apiDoc) != iPaxForChng->present_in_req.end()) //тег <document> пришел
           {
-            CheckDoc(iPaxForChng->doc, checkDocInfo.doc, now_local);
+            CheckDoc(iPaxForChng->doc, currPnr.status, checkInfo, now_local);
             CheckIn::TPaxDocItem prior_doc;
             LoadPaxDoc(iPaxForChng->crs_pax_id, prior_doc);
             DocUpdatesPending=!(prior_doc.equal(iPaxForChng->doc)); //реагируем также на изменение scanned_attrs
           };
 
           bool DocoUpdatesPending=false;
-          if (iPaxForChng->present_in_req.find(ciDoco) != iPaxForChng->present_in_req.end()) //тег <doco> пришел
+          if (iPaxForChng->present_in_req.find(apiDoco) != iPaxForChng->present_in_req.end()) //тег <doco> пришел
           {
-            CheckDoco(iPaxForChng->doco, checkDocInfo.doco, now_local);
+            CheckDoco(iPaxForChng->doco, currPnr.status, checkInfo, now_local);
             CheckIn::TPaxDocoItem prior_doco;
             LoadPaxDoco(iPaxForChng->crs_pax_id, prior_doco);
             DocoUpdatesPending=!(prior_doco.equal(iPaxForChng->doco)); //реагируем также на изменение scanned_attrs

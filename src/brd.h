@@ -54,9 +54,10 @@ public:
   static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
-void GetAPISAlarms(bool isCBBG,
+void GetAPISAlarms(ASTRA::TPaxStatus status,
+                   bool api_doc_applied,
                    int crs_pax_id, //¬.¡. NoExists
-                   const TCheckDocInfo &check_info,
+                   const TCompleteAPICheckInfo &check_info,
                    const CheckIn::TAPISItem &apis,
                    const std::set<APIS::TAlarmType> &required_alarms,
                    std::set<APIS::TAlarmType> &alarms);

@@ -254,7 +254,7 @@ void BrdInterface::readTripCounters( const int point_id,
     }
 };
 
-void get_new_tid(int locked_point_id, TQuery &Qry)
+void lock_and_get_new_tid(int locked_point_id)
 {
   if (locked_point_id!=NoExists)
   {
@@ -262,10 +262,8 @@ void get_new_tid(int locked_point_id, TQuery &Qry)
     flights.Get( locked_point_id, ftTranzit );
     flights.Lock(); //лочим весь транзитный рейс
   };
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT cycle_tid__seq.nextval FROM dual";
-  Qry.Execute();
+  TCachedQuery Qry("SELECT cycle_tid__seq.nextval FROM dual");
+  Qry.get().Execute();
 }
 
 void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -275,11 +273,10 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   int point_id=NodeAsInteger("point_id",reqNode);
   bool boarding = NodeAsInteger("boarding", reqNode)!=0;
 
-  TQuery PaxQry(&OraSession);
-
-  get_new_tid(point_id, PaxQry);
+  lock_and_get_new_tid(point_id);
 
   ostringstream sql;
+  TQuery PaxQry(&OraSession);
   PaxQry.Clear();
   sql.str("");
   sql << "SELECT pax_id,reg_no,pr_brd FROM pax_grp,pax "
@@ -589,32 +586,32 @@ void put_exambrd_vars(xmlNodePtr variablesNode)
     NewTextChild(variablesNode, "cap_no_brd", getLocaleText("CAP.DOC.EXAMBRD.NO_BRD.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
 }
 
-void LoadAPIS(const TCheckDocInfo &check_info, const CheckIn::TAPISItem &apis, xmlNodePtr resNode)
+void LoadAPIS(TPaxStatus status, const TCompleteAPICheckInfo &check_info, const CheckIn::TAPISItem &apis, xmlNodePtr resNode)
 {
   if (resNode==NULL) return;
 
   xmlNodePtr infoNode=NewTextChild(resNode, "check_info");
-  check_info.toXML(infoNode);
+  check_info.get(status).toXML(infoNode);
   apis.toXML(resNode);
 };
 
-void LoadAPIS(int point_id, const string &airp_arv, int pax_id, xmlNodePtr resNode)
+void LoadAPIS(int point_id, const string &airp_arv, TPaxStatus status, int pax_id, xmlNodePtr resNode)
 {
   if (resNode==NULL) return;
 
-  TCompleteCheckDocInfo checkDocInfo=GetCheckDocInfo(point_id, airp_arv);
-  LoadAPIS(checkDocInfo.pass, CheckIn::TAPISItem().fromDB(pax_id), resNode);
+  LoadAPIS(status, TCompleteAPICheckInfo(point_id, airp_arv), CheckIn::TAPISItem().fromDB(pax_id), resNode);
 };
 
-void GetAPISAlarms(bool isCBBG,
+void GetAPISAlarms(TPaxStatus status,
+                   bool api_doc_applied,
                    int crs_pax_id, //м.б. NoExists
-                   const TCheckDocInfo &check_info,
+                   const TCompleteAPICheckInfo &check_info,
                    const CheckIn::TAPISItem &apis,
                    const set<APIS::TAlarmType> &required_alarms,
                    set<APIS::TAlarmType> &alarms)
 {
   alarms.clear();
-  if (isCBBG) return;
+  if (!api_doc_applied) return;
 
   CheckIn::TPaxDocaItem docaB, docaR, docaD;
   CheckIn::ConvertDoca(apis.doca, docaB, docaR, docaD);
@@ -647,18 +644,18 @@ void GetAPISAlarms(bool isCBBG,
 
   if (required_alarms.find(APIS::atIncomplete)!=required_alarms.end())
   {
-    if ((apis.doc.getNotEmptyFieldsMask() & check_info.doc.required_fields)!=check_info.doc.required_fields)
+    if (check_info.incomplete(apis.doc, status))
       alarms.insert(APIS::atIncomplete);
     else
     {
       if (!(apis.doco.getNotEmptyFieldsMask()==NO_FIELDS && apis.doco.doco_confirm) && //пришла непустая информация о визе
-          (apis.doco.getNotEmptyFieldsMask() & check_info.doco.required_fields)!=check_info.doco.required_fields)
+          check_info.incomplete(apis.doco, status))
         alarms.insert(APIS::atIncomplete);
       else
       {
-        if ((docaB.getNotEmptyFieldsMask() & check_info.docaB.required_fields)!=check_info.docaB.required_fields ||
-            (docaR.getNotEmptyFieldsMask() & check_info.docaR.required_fields)!=check_info.docaR.required_fields ||
-            (docaD.getNotEmptyFieldsMask() & check_info.docaD.required_fields)!=check_info.docaD.required_fields)
+        if (check_info.incomplete(docaB, status) ||
+            check_info.incomplete(docaR, status) ||
+            check_info.incomplete(docaD, status))
           alarms.insert(APIS::atIncomplete);
       };
     };
@@ -666,42 +663,40 @@ void GetAPISAlarms(bool isCBBG,
 
   if (required_alarms.find(APIS::atManualInput)!=required_alarms.end())
   {
-    long int required_not_empty_fields=check_info.doc.required_fields & apis.doc.getNotEmptyFieldsMask();
+    long int required_not_empty_fields=check_info.get(apis.doc, status).required_fields & apis.doc.getNotEmptyFieldsMask();
     if ((apis.doc.scanned_attrs & required_not_empty_fields) != required_not_empty_fields)
       alarms.insert(APIS::atManualInput);
   };
 };
 
-bool GetAPISAlarms(const int pax_id,
-                   const bool isCBBG,
-                   const string &airp_arv,
+bool GetAPISAlarms(const string &airp_arv,
+                   const TPaxStatus status,
+                   const bool api_doc_applied,
+                   const int pax_id,
                    const int crs_pax_id,      //м.б. NoExists
                    const bool apis_control,
                    const bool apis_manual_input,
-                   const TAPISMap &apis_map,
-                   TCheckDocInfo &check_info,
+                   const TRouteAPICheckInfo &route_check_info,
                    CheckIn::TAPISItem &apis,
                    set<APIS::TAlarmType> &alarms,
                    bool &document_alarm)
 {
-  check_info.clear();
   apis.clear();
   alarms.clear();
   document_alarm=false;
 
-  TAPISMap::const_iterator iAPISMap=apis_map.find(airp_arv);
-  if (apis_control &&
-      iAPISMap!=apis_map.end() &&
-      !iAPISMap->second.second.empty())
+  if (!apis_control) return false;
+
+  boost::optional<const TCompleteAPICheckInfo&> check_info=route_check_info.get(airp_arv);
+  if (check_info && !check_info.get().apis_formats().empty())
   {
     //по данному направлению формируется APIS и разрешен вывод тревог
-    check_info=iAPISMap->second.first.pass;
     apis.fromDB(pax_id);
     set<APIS::TAlarmType> required_alarms;
     required_alarms.insert(APIS::atDiffersFromBooking);
     required_alarms.insert(APIS::atIncomplete);
     required_alarms.insert(APIS::atManualInput);
-    GetAPISAlarms(isCBBG, crs_pax_id, check_info, apis, required_alarms, alarms);
+    GetAPISAlarms(status, api_doc_applied, crs_pax_id, check_info.get(), apis, required_alarms, alarms);
     if (alarms.find(APIS::atIncomplete)!=alarms.end() ||
         (!apis_manual_input && alarms.find(APIS::atManualInput)!=alarms.end()))
       document_alarm=true;
@@ -715,29 +710,40 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
 {
   if (reqNode==NULL) return;
   //берем новый tid
-  TQuery Qry(&OraSession);
-  get_new_tid(NoExists, Qry);
-  bool apis_control=GetAPISControl(point_id);
+  lock_and_get_new_tid(point_id); //здесь лочим
 
+  TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT pax_grp.grp_id, pax_grp.status, "
-    "       pax.reg_no, pax.surname, pax.name, pax.pers_type "
-    "FROM pax_grp, pax "
+    "SELECT pax_grp.* FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
-    "      pax.pax_id=:pax_id AND pax.tid=:tid FOR UPDATE";
+    "      pax_grp.point_dep=:point_id AND pax.pax_id=:pax_id AND pax.tid=:tid";
+  Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.CreateVariable("pax_id", otInteger, pax_id);
   Qry.CreateVariable("tid", otInteger, tid);
   Qry.Execute();
   if (Qry.Eof)
     throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
 
-  int grp_id=Qry.FieldAsInteger("grp_id");
-  string status=Qry.FieldAsString("status");
-  int reg_no=Qry.FieldAsInteger("reg_no");
-  string surname=Qry.FieldAsString("surname");
-  string name=Qry.FieldAsString("name");
-  string pers_type=Qry.FieldAsString("pers_type");
+  CheckIn::TPaxGrpItem grp;
+  grp.fromDB(Qry);
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pax.*, NULL As seat_no FROM pax WHERE pax_id=:pax_id";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.Execute();
+  if (Qry.Eof)
+    throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+
+  CheckIn::TPaxItem pax;
+  pax.fromDB(Qry);
+
+  if (!(pax.refuse.empty() && pax.api_doc_applied())) return;
+
+  bool apis_control=GetAPISControl(point_id);
+  TCompleteAPICheckInfo checkInfo(point_id, grp.airp_arv);
+  TDateTime checkDate=UTCToLocal(NowUTC(), AirpTZRegion(grp.airp_dep));
 
   CheckIn::TAPISItem prior_apis;
   prior_apis.fromDB(pax_id);
@@ -758,10 +764,18 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
   xmlNodePtr docNode;
   docNode=GetNodeFast("document",node2);
   if (docNode!=NULL)
-    SavePaxDoc(pax_id, apis.doc.fromXML(docNode), Qry);
+  {
+    apis.doc.fromXML(docNode);
+    HandleDoc(grp, pax, checkInfo, checkDate, apis.doc);
+    CheckIn::SavePaxDoc(pax_id, apis.doc, Qry);
+  }
   docNode=GetNodeFast("doco",node2);
   if (docNode!=NULL)
-    SavePaxDoco(pax_id, apis.doco.fromXML(docNode), Qry);
+  {
+    apis.doco.fromXML(docNode);
+    HandleDoco(grp, pax, checkInfo, checkDate, apis.doco);
+    CheckIn::SavePaxDoco(pax_id, apis.doco, Qry);
+  }
   xmlNodePtr docaNode=GetNodeFast("addresses",node2);
   if (docaNode!=NULL)
   {
@@ -773,7 +787,8 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
       if (docaItem.empty()) continue;
       apis.doca.push_back(docaItem);
     };
-    SavePaxDoca(pax_id, apis.doca, Qry, false);
+    HandleDoca(grp, pax, checkInfo, apis.doca);
+    CheckIn::SavePaxDoca(pax_id, apis.doca, Qry, false);
   };
 
   if (apis_control)
@@ -783,9 +798,9 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
     for(list<pair<string, string> >::const_iterator m=msgs.begin(); m!=msgs.end(); ++m)
     {
       LEvntPrms params;
-      logPaxName(status, surname, name, pers_type, params);
+      logPaxName(EncodePaxStatus(grp.status), pax.surname, pax.name, EncodePerson(pax.pers_type), params);
       TReqInfo::Instance()->LocaleToLog((*m).first, params << PrmSmpl<string>("params", (*m).second),
-                                     ASTRA::evtPax, point_id, reg_no, grp_id);
+                                     ASTRA::evtPax, point_id, pax.reg_no, grp.id);
     };
   }
   else
@@ -794,12 +809,11 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
           apis.doco.equalAttrs(prior_apis.doco) &&
           apis.doca==prior_apis.doca))
     {
-      string lexema_id;
-      if (status!=EncodePaxStatus(psCrew)) lexema_id = "EVT.CHANGED_PASSENGER_DATA";
-      else lexema_id = "EVT.CHANGED_CREW_MEMBER_DATA";
+      string lexema_id=grp.status!=psCrew?"EVT.CHANGED_PASSENGER_DATA":
+                                          "EVT.CHANGED_CREW_MEMBER_DATA";
       LEvntPrms params;
-      logPaxName(status, surname, name, pers_type, params);
-      TReqInfo::Instance()->LocaleToLog(lexema_id, params, ASTRA::evtPax, point_id, reg_no, grp_id);
+      logPaxName(EncodePaxStatus(grp.status), pax.surname, pax.name, EncodePerson(pax.pers_type), params);
+      TReqInfo::Instance()->LocaleToLog(lexema_id, params, ASTRA::evtPax, point_id, pax.reg_no, grp.id);
     };
   };
 };
@@ -935,9 +949,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     bool check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, fltInfo);
 
     //проверяем настройки APIS по каждому направлению
-    TAPISMap apis_map;
-    set<string> apis_formats;
-    GetAPISSets(point_id, apis_map, apis_formats);
+    TRouteAPICheckInfo route_check_info(point_id);
 
     //признак контроля данных APIS
     TTripSetList setList;
@@ -1185,13 +1197,13 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
             if (!pax.exists()) continue;
 
-            TCheckDocInfo check_info;
+            TCompleteAPICheckInfo check_info;
             CheckIn::TAPISItem apis;
             set<APIS::TAlarmType> alarms;
             bool document_alarm=false;
-            GetAPISAlarms(pax.pax_id, pax.name=="CBBG", airp_arv,  NoExists,
-                          setList.value(tsAPISControl), setList.value(tsAPISManualInput), apis_map,
-                          check_info, apis, alarms, document_alarm);
+            GetAPISAlarms(airp_arv, grp_status, pax.name!="CBBG", pax.pax_id, NoExists,
+                          setList.value(tsAPISControl), setList.value(tsAPISManualInput), route_check_info,
+                          apis, alarms, document_alarm);
             if (document_alarm &&
                 reqInfo->desk.compatible(APIS_CONTROL_VERSION))
             {
@@ -1291,7 +1303,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         };
 
         //============================ собственно посадка пассажира(ов) ============================
-        get_new_tid(NoExists, Qry);  //не лочим рейс, так как лочим ранее
+        lock_and_get_new_tid(NoExists);  //не лочим рейс, так как лочим ранее
         for(int pass=0;pass<2;pass++)
         {
           TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
@@ -1410,6 +1422,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int col_class=Qry.FieldIndex("class");
       int col_airp_arv=Qry.FieldIndex("airp_arv");
       int col_last_airp_arv=Qry.FieldIndex("last_airp_arv");
+      int col_status=Qry.FieldIndex("status");
       int col_seat_no=Qry.FieldIndex("seat_no");
       int col_seats=Qry.FieldIndex("seats");
       int col_wl_type=Qry.FieldIndex("wl_type");
@@ -1441,6 +1454,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           string surname=Qry.FieldAsString(col_surname);
           string name=Qry.FieldAsString(col_name);
           string airp_arv=Qry.FieldAsString(col_airp_arv);
+          TPaxStatus grp_status=DecodePaxStatus(Qry.FieldAsString(col_status));
 
           xmlNodePtr paxNode = NewTextChild(listNode, "pax");
           NewTextChild(paxNode, "pax_id", pax_id);
@@ -1511,7 +1525,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           if (DecodeClientType(Qry.FieldAsString(col_client_type))!=ctTerm)
             NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)));
 
-          TCheckDocInfo check_info;
           CheckIn::TAPISItem apis;
           set<APIS::TAlarmType> alarms;
           bool document_alarm=false;
@@ -1519,9 +1532,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         /*  ProgTrace(TRACE5, "pax_id=%d name=%s airp_arv=%s apis_control=%d apis_manual_input=%d apis_map.size()=%zu",
                     pax_id, name.c_str(), airp_arv.c_str(), (int)apis_control, (int)apis_manual_input, apis_map.size());
         */
-          if (GetAPISAlarms(pax_id, name=="CBBG", airp_arv, crs_pax_id,
-                            setList.value(tsAPISControl), setList.value(tsAPISManualInput), apis_map,
-                            check_info, apis, alarms, document_alarm))
+          boost::optional<const TCompleteAPICheckInfo &> check_info=route_check_info.get(airp_arv);
+          if (GetAPISAlarms(airp_arv, grp_status, name!="CBBG", pax_id, crs_pax_id,
+                            setList.value(tsAPISControl), setList.value(tsAPISManualInput), route_check_info,
+                            apis, alarms, document_alarm))
           {
             if (document_alarm)
               NewTextChild(paxNode, "document_alarm", (int)true);
@@ -1530,7 +1544,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                search_type==updateByScanData ||
                search_type==refreshByPaxId)
               //для определенных search_type грузим в терминал APIS
-              LoadAPIS(check_info, apis, paxNode);
+              LoadAPIS(grp_status,
+                       check_info?check_info.get():TCompleteAPICheckInfo(),
+                       apis,
+                       paxNode);
           }
           else
           {
@@ -1539,12 +1556,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                search_type==updateByRegNo ||
                search_type==updateByScanData ||
                search_type==refreshByPaxId)
-            {
-              TCheckDocInfo check_info;
-              TAPISMap::const_iterator iAPISMap=apis_map.find(airp_arv);
-              if (iAPISMap!=apis_map.end()) check_info=iAPISMap->second.first.pass;
-              LoadAPIS(check_info, CheckIn::TAPISItem().fromDB(pax_id), paxNode);
-            };
+              LoadAPIS(grp_status,
+                       check_info?check_info.get():TCompleteAPICheckInfo(),
+                       CheckIn::TAPISItem().fromDB(pax_id),
+                       paxNode);
           };
 
           if (!alarms.empty())
@@ -1625,7 +1640,7 @@ void BrdInterface::LoadPaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT pax_grp.airp_arv "
+    "SELECT pax_grp.airp_arv, pax_grp.status "
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id AND pax_grp.point_dep=:point_id AND pax.tid=:tid";
   Qry.CreateVariable("point_id", otInteger, point_id);
@@ -1635,8 +1650,9 @@ void BrdInterface::LoadPaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (Qry.Eof)
     throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
   string airp_arv=Qry.FieldAsString("airp_arv");
+  TPaxStatus grp_status=DecodePaxStatus(Qry.FieldAsString("status"));
 
-  LoadAPIS(point_id, airp_arv, pax_id, resNode);
+  LoadAPIS(point_id, airp_arv, grp_status, pax_id, resNode);
 };
 
 void BrdInterface::SavePaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

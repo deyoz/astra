@@ -20,38 +20,114 @@ const std::string PARAM_PASSWORD = "PASSWORD";
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
-TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv)
+bool TAPICheckInfo::CheckLetDigSpace(const std::string &str, std::string::size_type &errorIdx) const
 {
-  set<string> apis_formats;
-  return GetCheckDocInfo(point_dep, airp_arv, apis_formats);
+  errorIdx=0;
+  for(string::const_iterator i=str.begin(); i!=str.end(); ++i, errorIdx++)
+    if (!(( !is_inter || IsAscii7(*i) ) &&
+          ( IsUpperLetter(*i) || IsDigit(*i) || *i==' ' )
+         ))
+      return false;
+  errorIdx=string::npos;
+  return true;
 }
 
-TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_arv, set<string> &apis_formats)
+bool TAPICheckInfo::CheckLetSpaceDash(const std::string &str, std::string::size_type &errorIdx) const
 {
-  apis_formats.clear();
-  TCompleteCheckDocInfo result;
+  errorIdx=0;
+  for(string::const_iterator i=str.begin(); i!=str.end(); ++i, errorIdx++)
+    if (!(( !is_inter || IsAscii7(*i) ) &&
+          ( IsUpperLetter(*i) || *i==' ' || *i=='-' || (not_apis && *i=='.'))
+         ))
+      return false;
+  errorIdx=string::npos;
+  return true;
+}
 
+bool TAPICheckInfo::CheckLetDigSpaceDash(const std::string &str, std::string::size_type &errorIdx) const
+{
+  errorIdx=0;
+  for(string::const_iterator i=str.begin(); i!=str.end(); ++i, errorIdx++)
+    if (!(( !is_inter || IsAscii7(*i) ) &&
+          ( IsUpperLetter(*i) || IsDigit(*i) || *i==' ' || *i=='-' || (not_apis && (*i=='.' || *i=='/')))
+         ))
+      return false;
+  errorIdx=string::npos;
+  return true;
+}
+
+void TAPICheckInfoList::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return;
+
+  for(TAPICheckInfoList::const_iterator i=begin(); i!=end(); ++i)
+    switch(i->first)
+    {
+      case apiDoc:   i->second.toXML(NewTextChild(node, "doc"));    break;
+      case apiDoco:
+      {
+        TReqInfo *reqInfo = TReqInfo::Instance();
+        if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_CONFIRM_VERSION) &&
+            i->second.required_fields!=NO_FIELDS)
+        {
+          TAPICheckInfo checkInfo=i->second;
+          checkInfo.required_fields=DOCO_TYPE_FIELD;
+          checkInfo.toXML(NewTextChild(node, "doco"));
+        }
+        else i->second.toXML(NewTextChild(node, "doco"));
+        break;
+      }
+      case apiDocaB: i->second.toXML(NewTextChild(node, "doca_b")); break;
+      case apiDocaR: i->second.toXML(NewTextChild(node, "doca_r")); break;
+      case apiDocaD: i->second.toXML(NewTextChild(node, "doca_d")); break;
+      case apiTkn:   i->second.toXML(NewTextChild(node, "tkn"));    break;
+      case apiUnknown: throw Exception("TAPICheckInfoList::toXML: apiUnknown!");
+    };
+}
+
+const TAPICheckInfo& TAPICheckInfoList::get(TAPIType apiType) const
+{
+  TAPICheckInfoList::const_iterator i=find(apiType);
+  if (i==end()) throw Exception("APICheckInfoList::get: i==end()!");
+  return i->second;
+}
+
+TAPICheckInfo& TAPICheckInfoList::get(TAPIType apiType)
+{
+  return const_cast<TAPICheckInfo&>(static_cast<const TAPICheckInfoList&>(*this).get(apiType));
+}
+
+TCompleteAPICheckInfo::TCompleteAPICheckInfo(const int point_dep, const std::string& airp_arv)
+{
+  set(point_dep, airp_arv);
+}
+
+void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv)
+{
+  clear();
   TTripInfo fltInfo;
   if (fltInfo.getByPointId(point_dep))
-  {    
-    if (TTripSetList().fromDB(point_dep).value(tsRegWithDoc, false))
+  {
+    TTripSetList setList;
+    setList.fromDB(point_dep);
+
+    if (setList.value(tsRegWithTkn, false))
+      _pass.get(apiTkn).required_fields|=TKN_TICKET_NO_FIELD;
+
+    if (setList.value(tsRegWithDoc, false))
     {
-      result.pass.doc.required_fields|=DOC_NO_FIELD;
-      result.crew.doc.required_fields|=DOC_NO_FIELD;
+      _pass.get(apiDoc).required_fields|=DOC_NO_FIELD;
+      _crew.get(apiDoc).required_fields|=DOC_NO_FIELD;
     };
 
     if (GetTripSets(tsMintransFile, fltInfo))
     {
-        result.pass.doc.required_fields|=DOC_MINTRANS_FIELDS;
-        result.crew.doc.required_fields|=DOC_MINTRANS_FIELDS;
+      _pass.get(apiTkn).required_fields|=TKN_MINTRANS_FIELDS;
+      _pass.get(apiDoc).required_fields|=DOC_MINTRANS_FIELDS;
+      _crew.get(apiDoc).required_fields|=DOC_MINTRANS_FIELDS;
     };
 
-    if(isNeedAPPSReq(point_dep, airp_arv)) {
-      apis_formats.insert("APPS_SITA");
-      result.pass.doc.required_fields|=DOC_APPS_SITA_FIELDS;
-      result.crew.doc.required_fields|=DOC_APPS_SITA_FIELDS;
-    }
-
+    bool is_inter=false;
     try
     {
       string airline, country_dep, country_arv, city;
@@ -71,183 +147,134 @@ TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const string& airp_ar
       Qry.CreateVariable("country_dep", otString, country_dep);
       Qry.CreateVariable("country_arv", otString, country_arv);
       Qry.Execute();
-      if (!Qry.Eof)
-      {
-        bool is_inter=!(country_dep=="РФ" && country_arv=="РФ");
-        result.pass.doc.is_inter=is_inter;
-        result.pass.doco.is_inter=is_inter;
-        result.pass.docaB.is_inter=is_inter;
-        result.pass.docaR.is_inter=is_inter;
-        result.pass.docaD.is_inter=is_inter;
-        result.crew.doc.is_inter=is_inter;
-        result.crew.doco.is_inter=is_inter;
-        result.crew.docaB.is_inter=is_inter;
-        result.crew.docaR.is_inter=is_inter;
-        result.crew.docaD.is_inter=is_inter;
-        for(;!Qry.Eof;Qry.Next())
-        {
-          string fmt=Qry.FieldAsString("format");
-          apis_formats.insert(fmt);
-          if (fmt=="CSV_CZ")
-          {
-            result.pass.doc.required_fields|=DOC_CSV_CZ_FIELDS;
-          };
-          if (fmt=="EDI_CZ")
-          {
-            result.pass.doc.required_fields|=DOC_EDI_CZ_FIELDS;
-          };
-          if (fmt=="EDI_CN")
-          {
-            result.pass.doc.required_fields|=DOC_EDI_CN_FIELDS;
-            result.crew.doc.required_fields|=DOC_EDI_CN_FIELDS;
-          };
-          if (fmt=="EDI_IN")
-          {
-            result.pass.doc.required_fields|=DOC_EDI_IN_FIELDS;
-            result.crew.doc.required_fields|=DOC_EDI_IN_FIELDS;
-          };
-          if (fmt=="EDI_US")
-          {
-            result.pass.doc.required_fields|=DOC_EDI_US_FIELDS;
-            result.crew.doc.required_fields|=DOC_EDI_US_FIELDS;
-            result.crew.docaB.required_fields|=DOCA_B_CREW_EDI_US_FIELDS;
-            result.pass.docaR.required_fields|=DOCA_R_PASS_EDI_US_FIELDS;
-            result.crew.docaR.required_fields|=DOCA_R_CREW_EDI_US_FIELDS;
-            result.pass.docaD.required_fields|=DOCA_D_PASS_EDI_US_FIELDS;
-          };
-          if (fmt=="EDI_USBACK")
-          {
-            result.pass.doc.required_fields|=DOC_EDI_USBACK_FIELDS;
-            result.crew.doc.required_fields|=DOC_EDI_USBACK_FIELDS;
-            result.crew.docaB.required_fields|=DOCA_B_CREW_EDI_USBACK_FIELDS;
-            result.pass.docaR.required_fields|=DOCA_R_PASS_EDI_USBACK_FIELDS;
-            result.crew.docaR.required_fields|=DOCA_R_CREW_EDI_USBACK_FIELDS;
-            result.pass.docaD.required_fields|=DOCA_D_PASS_EDI_USBACK_FIELDS;
-          };
-          if (fmt=="EDI_UK")
-          {
-            result.pass.doc.required_fields|=DOC_EDI_UK_FIELDS;
-            result.crew.doc.required_fields|=DOC_EDI_UK_FIELDS;
-          };
-          if (fmt=="EDI_ES")
-          {
-            result.pass.doc.required_fields|=DOC_EDI_ES_FIELDS;
-            result.crew.doc.required_fields|=DOC_EDI_ES_FIELDS;
-          };
-          if (fmt=="CSV_DE")
-          {
-            result.pass.doc.required_fields|=DOC_CSV_DE_FIELDS;
-            result.pass.doco.required_fields|=DOCO_CSV_DE_FIELDS;
-          };
-          if (fmt=="TXT_EE")
-          {
-            result.pass.doc.required_fields|=DOC_TXT_EE_FIELDS;
-            result.pass.doco.required_fields|=DOCO_TXT_EE_FIELDS;
-          };
-          if (fmt=="XML_TR")
-          {
-            result.pass.doc.required_fields|=DOC_XML_TR_FIELDS;
-            result.crew.doc.required_fields|=DOC_XML_TR_FIELDS;
-          };
-          if (fmt=="CSV_AE")
-          {
-            result.pass.doc.required_fields|=DOC_CSV_AE_FIELDS;
-            result.crew.doc.required_fields|=DOC_CSV_AE_FIELDS;
-          };
-          if (fmt=="EDI_LT")
-          {
-            result.pass.doc.required_fields|=DOC_EDI_LT_FIELDS;
-          };
-          if (fmt=="CSV_TH")
-          {
-            result.pass.doc.required_fields|=DOC_CSV_TH_FIELDS;
-            result.crew.doc.required_fields|=DOC_CSV_TH_FIELDS;
-          };
-        };
-      };
-      if (apis_formats.empty())
-      {
-          result.pass.doco.not_apis=true;
-          result.crew.doco.not_apis=true;
-          result.pass.docaB.not_apis=true;
-          result.crew.docaB.not_apis=true;
-          result.pass.docaR.not_apis=true;
-          result.crew.docaR.not_apis=true;
-          result.pass.docaD.not_apis=true;
-          result.crew.docaD.not_apis=true;
-      }
+      for(;!Qry.Eof;Qry.Next())
+        _apis_formats.insert(Qry.FieldAsString("format"));
+
+      is_inter=!(country_dep=="РФ" && country_arv=="РФ");
     }
     catch(EBaseTableError) {};
 
+
+    if(isNeedAPPSReq(point_dep, airp_arv))
+    {
+      _apis_formats.insert("APPS_SITA");
+      is_inter=true;
+    };
+
+    if (!_apis_formats.empty())
+    {
+      //здесь имеем ненулевой apis_formats
+      set_is_inter(is_inter);
+      set_not_apis(false);
+      for(std::set<std::string>::const_iterator f=_apis_formats.begin(); f!=_apis_formats.end(); ++f)
+      {
+        const string &fmt=*f;
+        if (fmt=="CSV_CZ")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_CSV_CZ_FIELDS;
+        };
+        if (fmt=="EDI_CZ")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_EDI_CZ_FIELDS;
+        };
+        if (fmt=="EDI_CN")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_EDI_CN_FIELDS;
+          _crew.get(apiDoc).required_fields|=DOC_EDI_CN_FIELDS;
+        };
+        if (fmt=="EDI_IN")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_EDI_IN_FIELDS;
+          _crew.get(apiDoc).required_fields|=DOC_EDI_IN_FIELDS;
+        };
+        if (fmt=="EDI_US")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_EDI_US_FIELDS;
+          _crew.get(apiDoc).required_fields|=DOC_EDI_US_FIELDS;
+          _crew.get(apiDocaB).required_fields|=DOCA_B_CREW_EDI_US_FIELDS;
+          _pass.get(apiDocaR).required_fields|=DOCA_R_PASS_EDI_US_FIELDS;
+          _crew.get(apiDocaR).required_fields|=DOCA_R_CREW_EDI_US_FIELDS;
+          _pass.get(apiDocaD).required_fields|=DOCA_D_PASS_EDI_US_FIELDS;
+        };
+        if (fmt=="EDI_USBACK")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_EDI_USBACK_FIELDS;
+          _crew.get(apiDoc).required_fields|=DOC_EDI_USBACK_FIELDS;
+          _crew.get(apiDocaB).required_fields|=DOCA_B_CREW_EDI_USBACK_FIELDS;
+          _pass.get(apiDocaR).required_fields|=DOCA_R_PASS_EDI_USBACK_FIELDS;
+          _crew.get(apiDocaR).required_fields|=DOCA_R_CREW_EDI_USBACK_FIELDS;
+          _pass.get(apiDocaD).required_fields|=DOCA_D_PASS_EDI_USBACK_FIELDS;
+        };
+        if (fmt=="EDI_UK")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_EDI_UK_FIELDS;
+          _crew.get(apiDoc).required_fields|=DOC_EDI_UK_FIELDS;
+        };
+        if (fmt=="EDI_ES")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_EDI_ES_FIELDS;
+          _crew.get(apiDoc).required_fields|=DOC_EDI_ES_FIELDS;
+        };
+        if (fmt=="CSV_DE")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_CSV_DE_FIELDS;
+          _pass.get(apiDoco).required_fields|=DOCO_CSV_DE_FIELDS;
+        };
+        if (fmt=="TXT_EE")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_TXT_EE_FIELDS;
+          _pass.get(apiDoco).required_fields|=DOCO_TXT_EE_FIELDS;
+        };
+        if (fmt=="XML_TR")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_XML_TR_FIELDS;
+          _crew.get(apiDoc).required_fields|=DOC_XML_TR_FIELDS;
+        };
+        if (fmt=="CSV_AE")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_CSV_AE_FIELDS;
+          _crew.get(apiDoc).required_fields|=DOC_CSV_AE_FIELDS;
+        };
+        if (fmt=="EDI_LT")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_EDI_LT_FIELDS;
+        };
+        if (fmt=="CSV_TH")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_CSV_TH_FIELDS;
+          _crew.get(apiDoc).required_fields|=DOC_CSV_TH_FIELDS;
+        };
+        if(fmt=="APPS_SITA")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_APPS_SITA_FIELDS;
+          _crew.get(apiDoc).required_fields|=DOC_APPS_SITA_FIELDS;
+        };
+      };
+    };
   };
-  return result;
 }
 
-TCompleteCheckTknInfo GetCheckTknInfo(const int point_dep)
+TRouteAPICheckInfo::TRouteAPICheckInfo(const int point_id)
 {
-  TCompleteCheckTknInfo result;
-
-  TTripInfo fltInfo;
-  if (fltInfo.getByPointId(point_dep))
-  {
-    if (TTripSetList().fromDB(point_dep).value(tsRegWithTkn, false))
-      result.pass.tkn.required_fields|=TKN_TICKET_NO_FIELD;
-
-    if (GetTripSets(tsMintransFile, fltInfo)) result.pass.tkn.required_fields|=TKN_MINTRANS_FIELDS;
-  };
-  return result;
-}
-
-void GetAPISSets( const int point_id, TAPISMap &apis_map, set<string> &apis_formats)
-{
-  apis_map.clear();
-  apis_formats.clear();
-
+  clear();
   TTripRoute route;
   route.GetRouteAfter(NoExists,point_id,trtNotCurrent,trtNotCancelled);
   for(TTripRoute::iterator r = route.begin(); r != route.end(); ++r)
-  {
-    set<string> formats;
-    TCompleteCheckDocInfo check_info=GetCheckDocInfo(point_id, r->airp, formats);
-    apis_map.insert( make_pair(r->airp, make_pair(check_info, formats)));
-    apis_formats.insert(formats.begin(), formats.end());
-  };
+    insert( make_pair(r->airp, TCompleteAPICheckInfo(point_id, r->airp)));
 }
 
-bool CheckLetDigSpace(const string &str, const TCheckDocTknInfo &checkDocInfo, string::size_type &errorIdx)
+bool TRouteAPICheckInfo::apis_generation() const
 {
-  errorIdx=0;
-  for(string::const_iterator i=str.begin(); i!=str.end(); ++i, errorIdx++)
-    if (!(( !checkDocInfo.is_inter || IsAscii7(*i) ) &&
-          ( IsUpperLetter(*i) || IsDigit(*i) || *i==' ' )
-         ))
-      return false;
-  errorIdx=string::npos;
-  return true;
+  for(TRouteAPICheckInfo::const_iterator i=begin(); i!=end(); ++i)
+    if (!i->second.apis_formats().empty()) return true;
+  return false;
 }
 
-bool CheckLetSpaceDash(const string &str, const TCheckDocTknInfo &checkDocInfo, string::size_type &errorIdx)
+boost::optional<const TCompleteAPICheckInfo &> TRouteAPICheckInfo::get(const std::string &airp_arv) const
 {
-  errorIdx=0;
-  for(string::const_iterator i=str.begin(); i!=str.end(); ++i, errorIdx++)
-    if (!(( !checkDocInfo.is_inter || IsAscii7(*i) ) &&
-          ( IsUpperLetter(*i) || *i==' ' || *i=='-' || (checkDocInfo.not_apis && *i=='.'))
-         ))
-      return false;
-  errorIdx=string::npos;
-  return true;
-}
-
-bool CheckLetDigSpaceDash(const string &str, const TCheckDocTknInfo &checkDocInfo, string::size_type &errorIdx)
-{
-  errorIdx=0;
-  for(string::const_iterator i=str.begin(); i!=str.end(); ++i, errorIdx++)
-    if (!(( !checkDocInfo.is_inter || IsAscii7(*i) ) &&
-          ( IsUpperLetter(*i) || IsDigit(*i) || *i==' ' || *i=='-' || (checkDocInfo.not_apis && (*i=='.' || *i=='/')))
-         ))
-      return false;
-  errorIdx=string::npos;
-  return true;
+  TRouteAPICheckInfo::const_iterator i=find(airp_arv);
+  if (i!=end()) return i->second;
+  return boost::none;
 }
 
 string ElemToPaxDocCountryId(const string &elem, TElemFmt &fmt)
@@ -274,12 +301,12 @@ string ElemToPaxDocCountryId(const string &elem, TElemFmt &fmt)
 }
 
 void throwInvalidSymbol(const string &fieldname,
-                        const TCheckDocTknInfo &checkDocInfo,
+                        const TAPICheckInfo &checkInfo,
                         const string &symbol)
 {
   (symbol.size()!=1?
     throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText(fieldname))):
-    (checkDocInfo.is_inter && IsLetter(symbol[0]) && !IsAscii7(symbol[0])?
+    (checkInfo.is_inter && IsLetter(symbol[0]) && !IsAscii7(symbol[0])?
       throw UserException("WRAP.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText(fieldname))
                                                                <<LParam("text", LexemaData("MSG.FIELD_CONSIST_LAT_CHARS"))):
       throw UserException("WRAP.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText(fieldname))
@@ -289,117 +316,134 @@ void throwInvalidSymbol(const string &fieldname,
 }
 
 void CheckDoc(const CheckIn::TPaxDocItem &doc,
-              const TCheckDocTknInfo &checkDocInfo,
+              TPaxStatus status,
+              const TCompleteAPICheckInfo &checkInfo,
               TDateTime nowLocal)
 {
-  string::size_type errorIdx;
+  const TAPICheckInfo &ci=checkInfo.get(doc, status);
 
-  modf(nowLocal, &nowLocal);
-
-  if (doc.birth_date!=NoExists && doc.birth_date>nowLocal)
-    throw UserException("MSG.CHECK_DOC.INVALID_BIRTH_DATE", LParams()<<LParam("fieldname", "document/birth_date" ));
-
-  if (doc.expiry_date!=NoExists && doc.expiry_date<nowLocal)
-    throw UserException("MSG.CHECK_DOC.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "document/expiry_date" ));
-
-  if (!CheckLetDigSpace(doc.no, checkDocInfo, errorIdx))
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  try
   {
-    ProgTrace(TRACE5, ">>>> document/no: %s", doc.no.c_str());
-    throw UserException("MSG.CHECK_DOC.INVALID_NO", LParams()<<LParam("fieldname", "document/no" ));
-  };
+    string::size_type errorIdx;
 
-  if (!CheckLetSpaceDash(doc.surname, checkDocInfo, errorIdx))
+    modf(nowLocal, &nowLocal);
+
+    if (doc.birth_date!=NoExists && doc.birth_date>nowLocal)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_BIRTH_DATE", LParams()<<LParam("fieldname", "document/birth_date" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.BIRTH_DATE")));
+
+    if (doc.expiry_date!=NoExists && doc.expiry_date<nowLocal)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "document/expiry_date" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.EXPIRY_DATE")));
+
+    if (!ci.CheckLetDigSpace(doc.no, errorIdx))
+    {
+      ProgTrace(TRACE5, ">>>> document/no: %s", doc.no.c_str());
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_NO", LParams()<<LParam("fieldname", "document/no" )):
+        throwInvalidSymbol("CAP.PAX_DOC.NO", ci, (errorIdx==string::npos?"":doc.no.substr(errorIdx, 1)));
+    };
+
+    if (!ci.CheckLetSpaceDash(doc.surname, errorIdx))
+    {
+      ProgTrace(TRACE5, ">>>> document/surname: %s", doc.surname.c_str());
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_SURNAME", LParams()<<LParam("fieldname", "document/surname" )):
+        throwInvalidSymbol("CAP.PAX_DOC.SURNAME", ci, (errorIdx==string::npos?"":doc.surname.substr(errorIdx, 1)));
+    };
+
+    if (!ci.CheckLetSpaceDash(doc.first_name, errorIdx))
+    {
+      ProgTrace(TRACE5, ">>>> document/first_name: %s", doc.first_name.c_str());
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_FIRST_NAME", LParams()<<LParam("fieldname", "document/first_name" )):
+        throwInvalidSymbol("CAP.PAX_DOC.FIRST_NAME", ci, (errorIdx==string::npos?"":doc.first_name.substr(errorIdx, 1)));
+    };
+
+    if (!ci.CheckLetSpaceDash(doc.second_name, errorIdx))
+    {
+      ProgTrace(TRACE5, ">>>> document/second_name: %s", doc.second_name.c_str());
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_SECOND_NAME", LParams()<<LParam("fieldname", "document/second_name" )):
+        throwInvalidSymbol("CAP.PAX_DOC.SECOND_NAME", ci, (errorIdx==string::npos?"":doc.second_name.substr(errorIdx, 1)));
+    };
+
+    //проверяем пустоту
+    if (reqInfo->client_type==ctTerm)
+    {
+      long int mask=doc.getNotEmptyFieldsMask();
+
+      for(int pass=0; pass<10; pass++)
+      {
+        long int FIELD=NO_FIELDS;
+        string CAP;
+        switch(pass)
+        {
+          case 0:
+            FIELD=DOC_TYPE_FIELD;
+            CAP="CAP.PAX_DOC.TYPE";
+            break;
+          case 1:
+            FIELD=DOC_ISSUE_COUNTRY_FIELD;
+            CAP="CAP.PAX_DOC.ISSUE_COUNTRY";
+            break;
+          case 2:
+            FIELD=DOC_NO_FIELD;
+            CAP="CAP.PAX_DOC.NO";
+            break;
+          case 3:
+            FIELD=DOC_NATIONALITY_FIELD;
+            CAP="CAP.PAX_DOC.NATIONALITY";
+            break;
+          case 4:
+            FIELD=DOC_BIRTH_DATE_FIELD;
+            CAP="CAP.PAX_DOC.BIRTH_DATE";
+            break;
+          case 5:
+            FIELD=DOC_GENDER_FIELD;
+            CAP="CAP.PAX_DOC.GENDER";
+            break;
+          case 6:
+            FIELD=DOC_EXPIRY_DATE_FIELD;
+            CAP="CAP.PAX_DOC.EXPIRY_DATE";
+            break;
+          case 7:
+            FIELD=DOC_SURNAME_FIELD;
+            CAP="CAP.PAX_DOC.SURNAME";
+            break;
+          case 8:
+            FIELD=DOC_FIRST_NAME_FIELD;
+            CAP="CAP.PAX_DOC.FIRST_NAME";
+            break;
+          case 9:
+            FIELD=DOC_SECOND_NAME_FIELD;
+            CAP="CAP.PAX_DOC.SECOND_NAME";
+            break;
+        };
+        if ((mask & FIELD) == 0 && (ci.required_fields & FIELD) != 0)
+          throw UserException("MSG.TABLE.NOT_SET_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText(CAP)));
+      };
+    };
+  }
+  catch(UserException &e)
   {
-    ProgTrace(TRACE5, ">>>> document/surname: %s", doc.surname.c_str());
-    throw UserException("MSG.CHECK_DOC.INVALID_SURNAME", LParams()<<LParam("fieldname", "document/surname" ));
+    if (reqInfo->client_type==ctTerm)
+      throw UserException("WRAP.PAX_DOC.DETAILS", LParams()<<LParam("text" ,e.getLexemaData()));
+    else
+      throw;
   };
-
-  if (!CheckLetSpaceDash(doc.first_name, checkDocInfo, errorIdx))
-  {
-    ProgTrace(TRACE5, ">>>> document/first_name: %s", doc.first_name.c_str());
-    throw UserException("MSG.CHECK_DOC.INVALID_FIRST_NAME", LParams()<<LParam("fieldname", "document/first_name" ));
-  };
-
-  if (!CheckLetSpaceDash(doc.second_name, checkDocInfo, errorIdx))
-  {
-    ProgTrace(TRACE5, ">>>> document/second_name: %s", doc.second_name.c_str());
-    throw UserException("MSG.CHECK_DOC.INVALID_SECOND_NAME", LParams()<<LParam("fieldname", "document/second_name" ));
-  };
-}
-
-CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc)
-{
-  CheckIn::TPaxDocItem result;
-  TElemFmt fmt;
-
-  result.type = doc.type;
-  result.type = TrimString(result.type);
-  if (!result.type.empty())
-  {
-    result.type=ElemToElemId(etPaxDocType, upperc(result.type), fmt);
-    if (fmt==efmtUnknown || result.type=="V")
-      throw UserException("MSG.CHECK_DOC.INVALID_TYPE", LParams()<<LParam("fieldname", "document/type" ));
-  };
-  result.issue_country = doc.issue_country;
-  result.issue_country = TrimString(result.issue_country);
-  if (!result.issue_country.empty())
-  {
-    result.issue_country=ElemToPaxDocCountryId(upperc(result.issue_country), fmt);
-    if (fmt==efmtUnknown)
-      throw UserException("MSG.CHECK_DOC.INVALID_ISSUE_COUNTRY", LParams()<<LParam("fieldname", "document/issue_country" ));
-  };
-
-  result.no = upperc(doc.no);
-  result.no = TrimString(result.no);
-  if (result.no.size()>15)
-    throw UserException("MSG.CHECK_DOC.INVALID_NO", LParams()<<LParam("fieldname", "document/no" ));
-
-  result.nationality = doc.nationality;
-  result.nationality = TrimString(result.nationality);
-  if (!result.nationality.empty())
-  {
-    result.nationality=ElemToPaxDocCountryId(upperc(result.nationality), fmt);
-    if (fmt==efmtUnknown)
-      throw UserException("MSG.CHECK_DOC.INVALID_NATIONALITY", LParams()<<LParam("fieldname", "document/nationality" ));
-  };
-
-  if (doc.birth_date!=NoExists)
-    modf(doc.birth_date, &result.birth_date);
-
-  result.gender = doc.gender;
-  result.gender = TrimString(result.gender);
-  if (!result.gender.empty())
-  {
-    result.gender=ElemToElemId(etGenderType, upperc(result.gender), fmt);
-    if (fmt==efmtUnknown)
-      throw UserException("MSG.CHECK_DOC.INVALID_GENDER", LParams()<<LParam("fieldname", "document/gender" ));
-  };
-
-  if (doc.expiry_date!=NoExists)
-    modf(doc.expiry_date, &result.expiry_date);
-
-  result.surname = upperc(doc.surname);
-  result.surname = TrimString(result.surname);
-  if (result.surname.size()>64)
-    throw UserException("MSG.CHECK_DOC.INVALID_SURNAME", LParams()<<LParam("fieldname", "document/surname" ));
-
-  result.first_name = upperc(doc.first_name);
-  result.first_name = TrimString(result.first_name);
-  if (result.first_name.size()>64)
-    throw UserException("MSG.CHECK_DOC.INVALID_FIRST_NAME", LParams()<<LParam("fieldname", "document/first_name" ));
-
-  result.second_name = upperc(doc.second_name);
-  result.second_name = TrimString(result.second_name);
-  if (result.second_name.size()>64)
-    throw UserException("MSG.CHECK_DOC.INVALID_SECOND_NAME", LParams()<<LParam("fieldname", "document/second_name" ));
-
-  return result;
 }
 
 void CheckDoco(const CheckIn::TPaxDocoItem &doc,
-               const TCheckDocTknInfo &checkDocInfo,
+               TPaxStatus status,
+               const TCompleteAPICheckInfo &checkInfo,
                TDateTime nowLocal)
 {
+  const TAPICheckInfo &ci=checkInfo.get(doc, status);
+
   TReqInfo *reqInfo = TReqInfo::Instance();
   try
   {
@@ -417,28 +461,28 @@ void CheckDoco(const CheckIn::TPaxDocoItem &doc,
         throw UserException("MSG.CHECK_DOCO.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "doco/expiry_date" )):
         throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.EXPIRY_DATE")));
 
-    if (!CheckLetDigSpaceDash(doc.birth_place, checkDocInfo, errorIdx))
+    if (!ci.CheckLetDigSpaceDash(doc.birth_place, errorIdx))
     {
       ProgTrace(TRACE5, ">>>> doco/birth_place: %s", doc.birth_place.c_str());
       reqInfo->client_type!=ctTerm?
         throw UserException("MSG.CHECK_DOCO.INVALID_BIRTH_PLACE", LParams()<<LParam("fieldname", "doco/birth_place" )):
-        throwInvalidSymbol("CAP.PAX_DOCO.BIRTH_PLACE", checkDocInfo, (errorIdx==string::npos?"":doc.birth_place.substr(errorIdx, 1)));
+        throwInvalidSymbol("CAP.PAX_DOCO.BIRTH_PLACE", ci, (errorIdx==string::npos?"":doc.birth_place.substr(errorIdx, 1)));
     };
 
-    if (!CheckLetDigSpace(doc.no, checkDocInfo, errorIdx))
+    if (!ci.CheckLetDigSpace(doc.no, errorIdx))
     {
       ProgTrace(TRACE5, ">>>> doco/no: %s", doc.no.c_str());
       reqInfo->client_type!=ctTerm?
         throw UserException("MSG.CHECK_DOCO.INVALID_NO", LParams()<<LParam("fieldname", "doco/no" )):
-        throwInvalidSymbol("CAP.PAX_DOCO.NO", checkDocInfo, (errorIdx==string::npos?"":doc.no.substr(errorIdx, 1)));
+        throwInvalidSymbol("CAP.PAX_DOCO.NO", ci, (errorIdx==string::npos?"":doc.no.substr(errorIdx, 1)));
     };
 
-    if (!CheckLetDigSpaceDash(doc.issue_place, checkDocInfo, errorIdx))
+    if (!ci.CheckLetDigSpaceDash(doc.issue_place, errorIdx))
     {
       ProgTrace(TRACE5, ">>>> doco/issue_place: %s", doc.issue_place.c_str());
       reqInfo->client_type!=ctTerm?
         throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" )):
-        throwInvalidSymbol("CAP.PAX_DOCO.ISSUE_PLACE", checkDocInfo, (errorIdx==string::npos?"":doc.issue_place.substr(errorIdx, 1)));
+        throwInvalidSymbol("CAP.PAX_DOCO.ISSUE_PLACE", ci, (errorIdx==string::npos?"":doc.issue_place.substr(errorIdx, 1)));
     };
 
     //проверяем пустоту
@@ -481,7 +525,7 @@ void CheckDoco(const CheckIn::TPaxDocoItem &doc,
             CAP="CAP.PAX_DOCO.EXPIRY_DATE";
             break;
         };
-        if ((mask & FIELD) == 0 && (checkDocInfo.required_fields & FIELD) != 0)
+        if ((mask & FIELD) == 0 && (ci.required_fields & FIELD) != 0)
           throw UserException("MSG.TABLE.NOT_SET_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText(CAP)));
       };
     };
@@ -495,12 +539,206 @@ void CheckDoco(const CheckIn::TPaxDocoItem &doc,
   };
 }
 
+void CheckDoca(const CheckIn::TPaxDocaItem &doc,
+               TPaxStatus status,
+               const TCompleteAPICheckInfo &checkInfo)
+{
+  const TAPICheckInfo &ci=checkInfo.get(doc, status);
+
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  try
+  {
+    string::size_type errorIdx;
+    if (!ci.CheckLetDigSpaceDash(doc.address, errorIdx))
+    {
+        ProgTrace(TRACE5, ">>>> doca/address: %s", doc.address.c_str());
+        reqInfo->client_type!=ctTerm?
+          throw UserException("MSG.CHECK_DOCA.INVALID_ADDRESS", LParams()<<LParam("fieldname", "doca/address" )):
+          throwInvalidSymbol("CAP.PAX_DOCA.ADDRESS", ci, (errorIdx==string::npos?"":doc.address.substr(errorIdx, 1)));
+    };
+
+    if (!ci.CheckLetDigSpaceDash(doc.city, errorIdx))
+    {
+        ProgTrace(TRACE5, ">>>> doca/city: %s", doc.city.c_str());
+        reqInfo->client_type!=ctTerm?
+          throw UserException("MSG.CHECK_DOCA.INVALID_CITY", LParams()<<LParam("fieldname", "doca/city" )):
+          throwInvalidSymbol("CAP.PAX_DOCA.CITY", ci, (errorIdx==string::npos?"":doc.city.substr(errorIdx, 1)));
+    };
+
+    if (!ci.CheckLetDigSpaceDash(doc.region, errorIdx))
+    {
+        ProgTrace(TRACE5, ">>>> doca/region: %s", doc.region.c_str());
+        reqInfo->client_type!=ctTerm?
+          throw UserException("MSG.CHECK_DOCA.INVALID_REGION", LParams()<<LParam("fieldname", "doca/region" )):
+          throwInvalidSymbol("CAP.PAX_DOCA.REGION", ci, (errorIdx==string::npos?"":doc.region.substr(errorIdx, 1)));
+    };
+
+    if (!ci.CheckLetDigSpaceDash(doc.postal_code, errorIdx))
+    {
+        ProgTrace(TRACE5, ">>>> doca/postal_code: %s", doc.postal_code.c_str());
+        reqInfo->client_type!=ctTerm?
+          throw UserException("MSG.CHECK_DOCA.INVALID_POSTAL_CODE", LParams()<<LParam("fieldname", "doca/postal_code" )):
+          throwInvalidSymbol("CAP.PAX_DOCA.POSTAL_CODE", ci, (errorIdx==string::npos?"":doc.postal_code.substr(errorIdx, 1)));
+    };
+
+    //проверяем пустоту
+    if (reqInfo->client_type==ctTerm)
+    {
+      long int mask=doc.getNotEmptyFieldsMask();
+
+      for(int pass=0; pass<5; pass++)
+      {
+        long int FIELD=NO_FIELDS;
+        string CAP;
+        switch(pass)
+        {
+          case 0:
+            FIELD=DOCA_COUNTRY_FIELD;
+            CAP="CAP.PAX_DOCA.COUNTRY";
+            break;
+          case 1:
+            FIELD=DOCA_ADDRESS_FIELD;
+            CAP="CAP.PAX_DOCA.ADDRESS";
+            break;
+          case 2:
+            FIELD=DOCA_CITY_FIELD;
+            CAP="CAP.PAX_DOCA.CITY";
+            break;
+          case 3:
+            FIELD=DOCA_REGION_FIELD;
+            CAP="CAP.PAX_DOCA.REGION";
+            break;
+          case 4:
+            FIELD=DOCA_POSTAL_CODE_FIELD;
+            CAP="CAP.PAX_DOCA.POSTAL_CODE";
+            break;
+        };
+        if ((mask & FIELD) == 0 && (ci.required_fields & FIELD) != 0)
+          throw UserException("MSG.TABLE.NOT_SET_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText(CAP)));
+      };
+    };
+  }
+  catch(UserException &e)
+  {
+    if (reqInfo->client_type==ctTerm)
+      switch(doc.apiType())
+      {
+        case apiDocaB:
+          throw UserException("WRAP.PAX_DOCA_B.DETAILS", LParams()<<LParam("text" ,e.getLexemaData()));
+        case apiDocaR:
+          throw UserException("WRAP.PAX_DOCA_R.DETAILS", LParams()<<LParam("text" ,e.getLexemaData()));
+        case apiDocaD:
+          throw UserException("WRAP.PAX_DOCA_D.DETAILS", LParams()<<LParam("text" ,e.getLexemaData()));
+        default:
+          throw;
+      }
+    else
+      throw;
+  };
+}
+
+CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  try
+  {
+    CheckIn::TPaxDocItem result(doc);
+    TElemFmt fmt;
+
+    result.type = doc.type;
+    result.type = TrimString(result.type);
+    if (!result.type.empty())
+    {
+      result.type=ElemToElemId(etPaxDocType, upperc(result.type), fmt);
+      if (fmt==efmtUnknown || result.type=="V")
+        reqInfo->client_type!=ctTerm?
+          throw UserException("MSG.CHECK_DOC.INVALID_TYPE", LParams()<<LParam("fieldname", "document/type" )):
+          throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.TYPE")));
+    };
+    result.issue_country = doc.issue_country;
+    result.issue_country = TrimString(result.issue_country);
+    if (!result.issue_country.empty())
+    {
+      result.issue_country=ElemToPaxDocCountryId(upperc(result.issue_country), fmt);
+      if (fmt==efmtUnknown)
+        reqInfo->client_type!=ctTerm?
+          throw UserException("MSG.CHECK_DOC.INVALID_ISSUE_COUNTRY", LParams()<<LParam("fieldname", "document/issue_country" )):
+          throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.ISSUE_COUNTRY")));
+    };
+
+    result.no = upperc(doc.no);
+    result.no = TrimString(result.no);
+    if (result.no.size()>15)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_NO", LParams()<<LParam("fieldname", "document/no" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.NO")));
+
+    result.nationality = doc.nationality;
+    result.nationality = TrimString(result.nationality);
+    if (!result.nationality.empty())
+    {
+      result.nationality=ElemToPaxDocCountryId(upperc(result.nationality), fmt);
+      if (fmt==efmtUnknown)
+        reqInfo->client_type!=ctTerm?
+          throw UserException("MSG.CHECK_DOC.INVALID_NATIONALITY", LParams()<<LParam("fieldname", "document/nationality" )):
+          throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.NATIONALITY")));
+    };
+
+    if (doc.birth_date!=NoExists)
+      modf(doc.birth_date, &result.birth_date);
+
+    result.gender = doc.gender;
+    result.gender = TrimString(result.gender);
+    if (!result.gender.empty())
+    {
+      result.gender=ElemToElemId(etGenderType, upperc(result.gender), fmt);
+      if (fmt==efmtUnknown)
+        reqInfo->client_type!=ctTerm?
+          throw UserException("MSG.CHECK_DOC.INVALID_GENDER", LParams()<<LParam("fieldname", "document/gender" )):
+          throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.GENDER")));
+    };
+
+    if (doc.expiry_date!=NoExists)
+      modf(doc.expiry_date, &result.expiry_date);
+
+    result.surname = upperc(doc.surname);
+    result.surname = TrimString(result.surname);
+    if (result.surname.size()>64)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_SURNAME", LParams()<<LParam("fieldname", "document/surname" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.SURNAME")));
+
+    result.first_name = upperc(doc.first_name);
+    result.first_name = TrimString(result.first_name);
+    if (result.first_name.size()>64)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_FIRST_NAME", LParams()<<LParam("fieldname", "document/first_name" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.FIRST_NAME")));
+
+    result.second_name = upperc(doc.second_name);
+    result.second_name = TrimString(result.second_name);
+    if (result.second_name.size()>64)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_SECOND_NAME", LParams()<<LParam("fieldname", "document/second_name" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.SECOND_NAME")));
+
+    return result;
+  }
+  catch(UserException &e)
+  {
+    if (reqInfo->client_type==ctTerm)
+      throw UserException("WRAP.PAX_DOC.DETAILS", LParams()<<LParam("text" ,e.getLexemaData()));
+    else
+      throw;
+  };
+}
+
 CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   try
   {
-    CheckIn::TPaxDocoItem result;
+    CheckIn::TPaxDocoItem result(doc);
     TElemFmt fmt;
 
     result.birth_place = upperc(doc.birth_place);
@@ -520,8 +758,8 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
             reqInfo->client_type == ctKiosk ||
             reqInfo->client_type == ctMobile) && result.type!="V"))
         reqInfo->client_type!=ctTerm?
-              throw UserException("MSG.CHECK_DOCO.INVALID_TYPE", LParams()<<LParam("fieldname", "doco/type" )):
-              throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.TYPE")));
+          throw UserException("MSG.CHECK_DOCO.INVALID_TYPE", LParams()<<LParam("fieldname", "doco/type" )):
+          throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.TYPE")));
     };
 
     result.no = upperc(doc.no);
@@ -551,8 +789,8 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
       result.applic_country=ElemToPaxDocCountryId(upperc(result.applic_country), fmt);
       if (fmt==efmtUnknown)
         reqInfo->client_type!=ctTerm?
-              throw UserException("MSG.CHECK_DOCO.INVALID_APPLIC_COUNTRY", LParams()<<LParam("fieldname", "doco/applic_country" )):
-              throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.APPLIC_COUNTRY")));
+          throw UserException("MSG.CHECK_DOCO.INVALID_APPLIC_COUNTRY", LParams()<<LParam("fieldname", "doco/applic_country" )):
+          throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.APPLIC_COUNTRY")));
     };
 
     if (reqInfo->client_type == ctHTTP)
@@ -569,44 +807,19 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
   };
 }
 
-void CheckDoca(const CheckIn::TPaxDocaItem &doc,
-               const TCheckDocTknInfo &checkDocInfo)
-{
-    string::size_type errorIdx;
-    if (!CheckLetDigSpaceDash(doc.address, checkDocInfo, errorIdx))
-    {
-        ProgTrace(TRACE5, ">>>> doca/address: %s", doc.address.c_str());
-        throw UserException("MSG.CHECK_DOCA.INVALID_ADDRESS", LParams()<<LParam("fieldname", "doca/address" ));
-    };
-
-    if (!CheckLetDigSpaceDash(doc.city, checkDocInfo, errorIdx))
-    {
-        ProgTrace(TRACE5, ">>>> doca/city: %s", doc.city.c_str());
-        throw UserException("MSG.CHECK_DOCA.INVALID_CITY", LParams()<<LParam("fieldname", "doca/city" ));
-    };
-
-    if (!CheckLetDigSpaceDash(doc.region, checkDocInfo, errorIdx))
-    {
-        ProgTrace(TRACE5, ">>>> doca/region: %s", doc.region.c_str());
-        throw UserException("MSG.CHECK_DOCA.INVALID_REGION", LParams()<<LParam("fieldname", "doca/region" ));
-    };
-
-    if (!CheckLetDigSpaceDash(doc.postal_code, checkDocInfo, errorIdx))
-    {
-        ProgTrace(TRACE5, ">>>> doca/postal_code: %s", doc.postal_code.c_str());
-        throw UserException("MSG.CHECK_DOCA.INVALID_POSTAL_CODE", LParams()<<LParam("fieldname", "doca/postal_code" ));
-    };
-}
-
 CheckIn::TPaxDocaItem NormalizeDoca(const CheckIn::TPaxDocaItem &doc)
 {
-    CheckIn::TPaxDocaItem result;
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  try
+  {
+    CheckIn::TPaxDocaItem result(doc);
     TElemFmt fmt;
 
     result.type = upperc(doc.type);
     result.type = TrimString(result.type);
-    if (!(result.type == "B" || result.type == "R" || result.type == "D"))
-        throw EXCEPTIONS::Exception("Invalid <doca> type. B, R or D is required");
+
+    if (result.apiType()==apiUnknown)
+      throw Exception("NormalizeDoca: result.apiType()==apiUnknown!");
 
     result.country = doc.country;
     result.country = TrimString(result.country);
@@ -614,33 +827,60 @@ CheckIn::TPaxDocaItem NormalizeDoca(const CheckIn::TPaxDocaItem &doc)
     {
       result.country = ElemToPaxDocCountryId(upperc(result.country), fmt);
       if (fmt==efmtUnknown)
-        throw UserException("MSG.CHECK_DOCA.INVALID_COUNTRY", LParams()<<LParam("fieldname", "doca/country"));
+        reqInfo->client_type!=ctTerm?
+          throw UserException("MSG.CHECK_DOCA.INVALID_COUNTRY", LParams()<<LParam("fieldname", "doca/country")):
+          throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCA.COUNTRY")));
     }
     result.address = upperc(doc.address);
     result.address = TrimString(result.address);
-    if (result.address.size() > 35) {
-        throw UserException("MSG.CHECK_DOCO.INVALID_ADDRESS", LParams()<<LParam("fieldname", "doca/address"));
-    }
+    if (result.address.size() > 35)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCA.INVALID_ADDRESS", LParams()<<LParam("fieldname", "doca/address")):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCA.ADDRESS")));
+
     result.city = upperc(doc.city);
     result.city = TrimString(result.city);
-    if (result.city.size() > 35) {
-        throw UserException("MSG.CHECK_DOCO.INVALID_SITY", LParams()<<LParam("fieldname", "doca/city"));
-    }
+    if (result.city.size() > 35)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCA.INVALID_CITY", LParams()<<LParam("fieldname", "doca/city")):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCA.CITY")));
+
     result.region = upperc(doc.region);
     result.region = TrimString(result.region);
-    if (result.region.size() > 35) {
-        throw UserException("MSG.CHECK_DOCO.INVALID_REGION", LParams()<<LParam("fieldname", "doca/region"));
-    }
+    if (result.region.size() > 35)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCA.INVALID_REGION", LParams()<<LParam("fieldname", "doca/region")):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCA.REGION")));
+
     result.postal_code = doc.postal_code;
     result.postal_code = TrimString(result.postal_code);
-    if (result.postal_code.size() > 17) {
-        throw UserException("MSG.CHECK_DOCO.INVALID_POSTAL_CODE", LParams()<<LParam("fieldname", "doca/postal_code"));
-    }
+    if (result.postal_code.size() > 17)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCA.INVALID_POSTAL_CODE", LParams()<<LParam("fieldname", "doca/postal_code")):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCA.POSTAL_CODE")));
 
     if (TReqInfo::Instance()->client_type == ctHTTP)
       result.ReplacePunctSymbols();
 
     return result;
+  }
+  catch(UserException &e)
+  {
+    if (reqInfo->client_type==ctTerm)
+      switch(doc.apiType())
+      {
+        case apiDocaB:
+          throw UserException("WRAP.PAX_DOCA_B.DETAILS", LParams()<<LParam("text" ,e.getLexemaData()));
+        case apiDocaR:
+          throw UserException("WRAP.PAX_DOCA_R.DETAILS", LParams()<<LParam("text" ,e.getLexemaData()));
+        case apiDocaD:
+          throw UserException("WRAP.PAX_DOCA_D.DETAILS", LParams()<<LParam("text" ,e.getLexemaData()));
+        default:
+          throw;
+      }
+    else
+      throw;
+  };
 }
 
 namespace APIS
@@ -658,7 +898,237 @@ string EncodeAlarmType(const TAlarmType alarm )
     return AlarmTypeS[ alarm ];
 };
 
+bool isValidGender(const string &fmt, const string &pax_doc_gender, const string &pax_name)
+{
+  if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US" || fmt=="EDI_USBACK"|| fmt=="EDI_LT")
+  {
+    int is_female=CheckIn::is_female(pax_doc_gender, pax_name);
+    if (is_female==NoExists) return false;
+  };
+  return true;
+};
+
+bool isValidDocType(const string &fmt, const TPaxStatus &status, const string &doc_type)
+{
+  if (fmt=="EDI_CZ" || fmt=="EDI_LT")
+  {
+    if (!(doc_type=="P" ||
+          doc_type=="A" ||
+          doc_type=="C" ||
+          (status!=psCrew &&
+           (doc_type=="B" ||
+            doc_type=="T" ||
+            doc_type=="N" ||
+            doc_type=="M")) ||
+          (status==psCrew &&
+           (doc_type=="L")))) return false;
+  };
+  if (fmt=="EDI_CN")
+  {
+    /*
+    1. Official travel documents:
+      P for Passport
+      PT for P.R. China Travel Permit
+      PL for P.R. China Exit and Entry Permit
+      W for Travel Permit To and From HK and Macao
+      A for Travel Permit To and From HK and Macao for Public Affairs
+      Q for Travel Permit To HK and Macao
+      C for Travel Permit of HK and Macao Residents To and From Mainland
+      D for Travel Permit of Mainland Residents To and From Taiwan
+      T for Travel Permit of Taiwan Residents To and From Mainland
+      S for Seafarer's Passport
+      F for approved non-standard identity documents used for travel
+    2. Other documents:
+      V for Visa
+      AC for Crew Member Certificate
+
+    Visa and Crew Member Certificate are optional
+    */
+    if (!(doc_type=="P" ||
+          doc_type=="PT" ||
+          doc_type=="PL" ||
+          doc_type=="W" ||
+          doc_type=="A" ||
+          doc_type=="Q" ||
+          doc_type=="C" ||
+          doc_type=="D" ||
+          doc_type=="T" ||
+          doc_type=="S" ||
+          doc_type=="F" ||
+          (status==psCrew &&
+           (doc_type=="AC")))) return false;
+  };
+  if (fmt=="EDI_IN")
+  {
+    /*
+    ICAO 9303 Document Types
+      P Passport
+      V Visa
+      A Identity Card (exact use defined by the Issuing State)
+      C Identity Card (exact use defined by the Issuing State)
+      I Identity Card (exact use defined by the Issuing State)
+      AC Crew Member Certificate
+      IP Passport Card
+    Other Document Types
+      F Approved non-standard identity documents used for travel
+      (exact use defined by the Issuing State).
+    */
+    if (!(doc_type=="P" ||
+          doc_type=="A" ||
+          doc_type=="C" ||
+          doc_type=="I" ||
+          doc_type=="IP" ||
+          doc_type=="F" ||
+          (status==psCrew &&
+           (doc_type=="AC")))) return false;
+  };
+  if (fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="XML_TR")
+  {
+    /*
+    P - Passport
+    C - Permanent resident card
+    A - Resident alien card
+    M - US military ID.
+    T - Re-entry permit or refugee permit
+    IN - NEXUS card
+    IS - SENTRI card
+    F - Facilitation card
+    V - U.S. Non-Immigrant Visa (Secondary Document Only)
+    L - Pilots license (crew members only)
+    */
+    if (!(doc_type=="P" ||
+          doc_type=="C" ||
+          doc_type=="A" ||
+          (status!=psCrew &&
+           (doc_type=="M" ||
+            doc_type=="T" ||
+            doc_type=="IN" ||
+            doc_type=="IS" ||
+            doc_type=="F")) ||
+          (status==psCrew &&
+           (doc_type=="L")))) return false;
+  };
+
+  if (fmt=="EDI_UK")
+  {
+    /*
+    P - Passport
+    G - Group Passport
+    A - National Identity Card or Resident Card. Exact use defined by issuing state
+    C - National Identity Card or Resident Card. Exact use defined by issuing state
+    I - National Identity Card or Resident Card. Exact use defined by issuing state
+    M - Military Identification
+    D - Diplomatic Identification
+    AC - Crew Member Certificate
+    IP - Passport Card
+    F -  Other approved non-standard identity documents used for travel (as per Authority regulations)
+    */
+    if (!(doc_type=="P" ||
+          doc_type=="G" ||
+          doc_type=="A" ||
+          doc_type=="C" ||
+          doc_type=="I" ||
+          doc_type=="M" ||
+          doc_type=="D" ||
+          doc_type=="IP" ||
+          doc_type=="F" ||
+          (status==psCrew &&
+           (doc_type=="AC")))) return false;
+  };
+
+  if (fmt=="EDI_ES")
+  {
+    /*
+    I (C,A) National Id Docs and Residence cards C and A admitted though main type being I.
+    P Passport
+    G group Passport
+    V Visa
+    R Travel title
+    */
+    if (!(doc_type=="I" ||
+          doc_type=="C" ||
+          doc_type=="A" ||
+          doc_type=="P" ||
+          doc_type=="G" ||
+          doc_type=="R")) return false;
+  };
+  return true;
+};
+
 }; //namespace APIS
+
+void HandleDoc(const CheckIn::TPaxGrpItem &grp,
+               const CheckIn::TSimplePaxItem &pax,
+               const TCompleteAPICheckInfo &checkInfo,
+               const TDateTime &checkDate,
+               CheckIn::TPaxDocItem &doc)
+{
+  doc=NormalizeDoc(doc);
+  CheckDoc(doc, grp.status, checkInfo, checkDate);
+
+  if (checkInfo.incomplete(doc, grp.status))
+    throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOC_INFO_NOT_SET");
+
+  for(set<string>::const_iterator f=checkInfo.apis_formats().begin(); f!=checkInfo.apis_formats().end(); ++f)
+  {
+    if (!APIS::isValidDocType(*f, grp.status, doc.type))
+    {
+      if (!doc.type.empty())
+        throw UserException("MSG.PASSENGER.INVALID_DOC_TYPE_FOR_APIS",
+                            LParams() << LParam("surname", pax.full_name())
+                            << LParam("code", ElemIdToCodeNative(etPaxDocType, doc.type)));
+    };
+    if (!APIS::isValidGender(*f, doc.gender, pax.name))
+    {
+      if (!doc.gender.empty())
+        throw UserException("MSG.PASSENGER.INVALID_GENDER_FOR_APIS",
+                            LParams() << LParam("surname", pax.full_name())
+                            << LParam("code", ElemIdToCodeNative(etGenderType, doc.gender)));
+    };
+  };
+};
+
+void HandleDoco(const CheckIn::TPaxGrpItem &grp,
+                const CheckIn::TSimplePaxItem &pax,
+                const TCompleteAPICheckInfo &checkInfo,
+                const TDateTime &checkDate,
+                CheckIn::TPaxDocoItem &doco)
+{
+  if (!(doco.getNotEmptyFieldsMask()==NO_FIELDS && doco.doco_confirm)) //пришла непустая информация о визе
+  {
+    doco=NormalizeDoco(doco);
+    CheckDoco(doco, grp.status, checkInfo, checkDate);
+
+    if (checkInfo.incomplete(doco, grp.status))
+      throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCO_INFO_NOT_SET");
+  };
+};
+
+void HandleDoca(const CheckIn::TPaxGrpItem &grp,
+                const CheckIn::TSimplePaxItem &pax,
+                const TCompleteAPICheckInfo &checkInfo,
+                list<CheckIn::TPaxDocaItem> &doca)
+{
+  for(list<CheckIn::TPaxDocaItem>::iterator d=doca.begin(); d!=doca.end(); ++d)
+  {
+    CheckIn::TPaxDocaItem &doc=*d;
+    doc=NormalizeDoca(doc);
+    CheckDoca(doc, grp.status, checkInfo);
+    if (checkInfo.incomplete(doc, grp.status))
+    {
+      switch(doc.apiType())
+      {
+        case apiDocaB:
+          throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCA_B_INFO_NOT_SET");
+        case apiDocaR:
+          throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCA_R_INFO_NOT_SET");
+        case apiDocaD:
+          throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCA_D_INFO_NOT_SET");
+        default: ;
+      }
+    };
+  }
+};
 
 const TFilterQueue& getApisFilter( const std::string& type ) {
   static std::map<std::string, TFilterQueue> filter;
