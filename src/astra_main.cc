@@ -114,11 +114,18 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
       AstraHTTP::http_main(rep, req);
     }
 
-    virtual std::tuple<std::vector<uint8_t>, std::vector<uint8_t>> internet_proc(const std::vector<uint8_t>& body, const char *head, size_t hlen) override
+    virtual std::tuple<ApplicationCallbacks::Grp2Head& head, std::vector<uint8_t>> internet_proc(const ApplicationCallbacks::Grp2Head& head, const std::vector<uint8_t>& body)
     {
       //ProgError(STDLOG, "OciCpp::mainSession()=%d", OciCpp::mainSession().mode());
       OciCpp::mainSession().set7(); //это очень плохо что где-то в serverlib постоянно идет переключение на OCI8 !
-      return AstraWeb::internet_main(body,head,hlen);
+
+      std::string shead(head.begin(), head.end());
+      std::vector<uint8_t> h, abody;
+      std::tie(h,abody) = AstraWeb::internet_main(body, shead.data(), shead.size());
+
+      ApplicationCallbacks::Grp2Head ahead;
+      std::copy_n(h.begin(), ahead.size(), ahead.begin());
+      return std::make_tuple(ahead, abody);
     }
 
     virtual int message_control(int type /* 0 - request, 1 - answer */,
