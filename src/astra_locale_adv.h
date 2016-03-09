@@ -264,6 +264,7 @@ class UserException:public EXCEPTIONS::Exception
         lexema_id = vlexema;
         FCode = code;
         useAdvParams=false;
+        setMessage();
     }
     UserException( const std::string &vlexema, const LParams &aparams):EXCEPTIONS::Exception(vlexema)
     {
@@ -271,6 +272,7 @@ class UserException:public EXCEPTIONS::Exception
         lexema_id = vlexema;
         FCode = 0;
         useAdvParams=false;
+        setMessage();
     }
     UserException( int code, const std::string &vlexema, const LEvntPrms &aparams):EXCEPTIONS::Exception(vlexema)
     {
@@ -278,6 +280,7 @@ class UserException:public EXCEPTIONS::Exception
         lexema_id = vlexema;
         FCode = code;
         useAdvParams=true;
+        setMessage();
     }
     UserException( const std::string &vlexema, const LEvntPrms &aparams):EXCEPTIONS::Exception(vlexema)
     {
@@ -285,16 +288,19 @@ class UserException:public EXCEPTIONS::Exception
         lexema_id = vlexema;
         FCode = 0;
         useAdvParams=true;
+        setMessage();
     }
     UserException( int code, const std::string &vlexema):EXCEPTIONS::Exception(vlexema)
     {
         lexema_id = vlexema;
         FCode = code;
+        setMessage();
     }
     UserException( const std::string &vlexema):EXCEPTIONS::Exception(vlexema)
     {
         lexema_id = vlexema;
         FCode = 0;
+        setMessage();
     }
     LexemaData getLexemaData( ) const {
         LexemaData data;
@@ -322,25 +328,29 @@ class UserException:public EXCEPTIONS::Exception
             aparams=advParams;
     }
 
-    virtual const char* what() const throw()
+    void setMessage()
     {
       LexemaData lexemeData=getLexemaData();
-      if (lexemeData.lexema_id.empty()) return EXCEPTIONS::Exception::what();
+      if (lexemeData.lexema_id.empty()) return;
       std::string text, master_lexema_id;
       try
       {
         buildMsg( LANG_EN, lexemeData, text, master_lexema_id );
-        return text.c_str();
+        EXCEPTIONS::Exception::setMessage(text);
+        return;
       }
       catch (...) {};
       try
       {
         buildMsg( LANG_RU, lexemeData, text, master_lexema_id );
-        return text.c_str();
+        EXCEPTIONS::Exception::setMessage(text);
+        return;
       }
       catch (...) {};
-      return lexemeData.lexema_id.c_str();
+      EXCEPTIONS::Exception::setMessage(lexemeData.lexema_id);
+      return;
     }
+
     virtual ~UserException() throw(){}
 };
 } // end namespace astraLocale
