@@ -10,10 +10,20 @@
 
 const long int NO_FIELDS=0x0000;
 
+enum TAPIType { apiDoc, apiDoco, apiDocaB, apiDocaR, apiDocaD, apiTkn, apiUnknown };
+
 namespace CheckIn
 {
 
-class TPaxTknItem
+class TPaxAPIItem
+{
+  public:
+    virtual long int getNotEmptyFieldsMask() const=0;
+    virtual TAPIType apiType() const=0;
+    virtual ~TPaxAPIItem() {}
+};
+
+class TPaxTknItem : public TPaxAPIItem
 {
   public:
     std::string no;
@@ -50,13 +60,14 @@ class TPaxTknItem
     TPaxTknItem& fromDB(TQuery &Qry);
 
     long int getNotEmptyFieldsMask() const;
+    TAPIType apiType() const { return apiTkn; }
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
 bool LoadPaxTkn(BASIC::TDateTime part_key, int pax_id, TPaxTknItem &tkn);
 bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn);
 
-class TPaxDocItem
+class TPaxDocItem : public TPaxAPIItem
 {
   public:
     std::string type;
@@ -132,13 +143,14 @@ class TPaxDocItem
     const TPaxDocItem& toDB(TQuery &Qry) const;
     TPaxDocItem& fromDB(TQuery &Qry);
 
-    long int getNotEmptyFieldsMask() const;
     long int getEqualAttrsFieldsMask(const TPaxDocItem &item) const;
+    long int getNotEmptyFieldsMask() const;
+    TAPIType apiType() const { return apiDoc; }
 };
 
 const std::string DOCO_PSEUDO_TYPE="-";
 
-class TPaxDocoItem
+class TPaxDocoItem : public TPaxAPIItem
 {
   public:
     std::string birth_place;
@@ -198,12 +210,13 @@ class TPaxDocoItem
 
     bool needPseudoType() const;
 
-    long int getNotEmptyFieldsMask() const;
     long int getEqualAttrsFieldsMask(const TPaxDocoItem &item) const;
     void ReplacePunctSymbols();
+    long int getNotEmptyFieldsMask() const;
+    TAPIType apiType() const { return apiDoco; }
 };
 
-class TPaxDocaItem
+class TPaxDocaItem : public TPaxAPIItem
 {
   public:
     std::string type;
@@ -263,12 +276,20 @@ class TPaxDocaItem
     const TPaxDocaItem& toDB(TQuery &Qry) const;
     TPaxDocaItem& fromDB(TQuery &Qry);
 
-    long int getNotEmptyFieldsMask() const;
     long int getEqualAttrsFieldsMask(const TPaxDocaItem &item) const;
     void ReplacePunctSymbols();
+    long int getNotEmptyFieldsMask() const;
+    TAPIType apiType() const
+    {
+      TAPIType result=apiUnknown;
+      if (type=="B") result=apiDocaB;
+      if (type=="R") result=apiDocaR;
+      if (type=="D") result=apiDocaD;
+      return result;
+    }
 };
 
-class TPaxItem
+class TSimplePaxItem
 {
   public:
     int id;
@@ -288,18 +309,10 @@ class TPaxItem
     int bag_pool_num;
     int tid;
     TPaxTknItem tkn;
-    TPaxDocItem doc;
-    TPaxDocoItem doco;
-    std::list<TPaxDocaItem> doca;
-    bool PaxUpdatesPending;
-    bool TknExists;
-    bool DocExists;
-    bool DocoExists;
-    bool DocaExists;
-    TPaxItem()
+    TSimplePaxItem()
     {
       clear();
-    };
+    }
     void clear()
     {
       id=ASTRA::NoExists;
@@ -319,6 +332,31 @@ class TPaxItem
       bag_pool_num=ASTRA::NoExists;
       tid=ASTRA::NoExists;
       tkn.clear();
+    }
+
+    TSimplePaxItem& fromDB(TQuery &Qry);
+    std::string full_name() const;
+    bool api_doc_applied() const;
+};
+
+class TPaxItem : public TSimplePaxItem
+{
+  public:
+    TPaxDocItem doc;
+    TPaxDocoItem doco;
+    std::list<TPaxDocaItem> doca;
+    bool PaxUpdatesPending;
+    bool TknExists;
+    bool DocExists;
+    bool DocoExists;
+    bool DocaExists;
+    TPaxItem()
+    {
+      clear();
+    }
+    void clear()
+    {
+      TSimplePaxItem::clear();
       doc.clear();
       doco.clear();
       doca.clear();
@@ -327,14 +365,13 @@ class TPaxItem
       DocExists=false;
       DocoExists=false;
       DocaExists=false;
-    };
+    }
 
     const TPaxItem& toXML(xmlNodePtr node) const;
     TPaxItem& fromXML(xmlNodePtr node);
     const TPaxItem& toDB(TQuery &Qry) const;
     TPaxItem& fromDB(TQuery &Qry);
     int is_female() const;
-    std::string full_name() const;
 };
 
 class TAPISItem

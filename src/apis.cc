@@ -80,163 +80,6 @@ string GetCustomsRegulCountry(const string &depend,
     return depend;
 };
 
-bool isValidGender(const string &fmt, const string &pax_doc_gender, const string &pax_name)
-{
-  if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US" || fmt=="EDI_USBACK"|| fmt=="EDI_LT")
-  {
-    int is_female=CheckIn::is_female(pax_doc_gender, pax_name);
-    if (is_female==NoExists) return false;
-  };
-  return true;
-};
-
-bool isValidDocType(const string &fmt, const TPaxStatus &status, const string &doc_type)
-{
-  if (fmt=="EDI_CZ" || fmt=="EDI_LT")
-  {
-    if (!(doc_type=="P" ||
-          doc_type=="A" ||
-          doc_type=="C" ||
-          (status!=psCrew &&
-           (doc_type=="B" ||
-            doc_type=="T" ||
-            doc_type=="N" ||
-            doc_type=="M")) ||
-          (status==psCrew &&
-           (doc_type=="L")))) return false;
-  };
-  if (fmt=="EDI_CN")
-  {
-    /*
-    1. Official travel documents:
-      P for Passport
-      PT for P.R. China Travel Permit
-      PL for P.R. China Exit and Entry Permit
-      W for Travel Permit To and From HK and Macao
-      A for Travel Permit To and From HK and Macao for Public Affairs
-      Q for Travel Permit To HK and Macao
-      C for Travel Permit of HK and Macao Residents To and From Mainland
-      D for Travel Permit of Mainland Residents To and From Taiwan
-      T for Travel Permit of Taiwan Residents To and From Mainland
-      S for Seafarer's Passport
-      F for approved non-standard identity documents used for travel
-    2. Other documents:
-      V for Visa
-      AC for Crew Member Certificate
-
-    Visa and Crew Member Certificate are optional
-    */
-    if (!(doc_type=="P" ||
-          doc_type=="PT" ||
-          doc_type=="PL" ||
-          doc_type=="W" ||
-          doc_type=="A" ||
-          doc_type=="Q" ||
-          doc_type=="C" ||
-          doc_type=="D" ||
-          doc_type=="T" ||
-          doc_type=="S" ||
-          doc_type=="F" ||
-          (status==psCrew &&
-           (doc_type=="AC")))) return false;
-  };
-  if (fmt=="EDI_IN")
-  {
-    /*
-    ICAO 9303 Document Types
-      P Passport
-      V Visa
-      A Identity Card (exact use defined by the Issuing State)
-      C Identity Card (exact use defined by the Issuing State)
-      I Identity Card (exact use defined by the Issuing State)
-      AC Crew Member Certificate
-      IP Passport Card
-    Other Document Types
-      F Approved non-standard identity documents used for travel
-      (exact use defined by the Issuing State).
-    */
-    if (!(doc_type=="P" ||
-          doc_type=="A" ||
-          doc_type=="C" ||
-          doc_type=="I" ||
-          doc_type=="IP" ||
-          doc_type=="F" ||
-          (status==psCrew &&
-           (doc_type=="AC")))) return false;
-  };
-  if (fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="XML_TR")
-  {
-    /*
-    P - Passport
-    C - Permanent resident card
-    A - Resident alien card
-    M - US military ID.
-    T - Re-entry permit or refugee permit
-    IN - NEXUS card
-    IS - SENTRI card
-    F - Facilitation card
-    V - U.S. Non-Immigrant Visa (Secondary Document Only)
-    L - Pilots license (crew members only)
-    */
-    if (!(doc_type=="P" ||
-          doc_type=="C" ||
-          doc_type=="A" ||
-          (status!=psCrew &&
-           (doc_type=="M" ||
-            doc_type=="T" ||
-            doc_type=="IN" ||
-            doc_type=="IS" ||
-            doc_type=="F")) ||
-          (status==psCrew &&
-           (doc_type=="L")))) return false;
-  };
-
-  if (fmt=="EDI_UK")
-  {
-    /*
-    P - Passport
-    G - Group Passport
-    A - National Identity Card or Resident Card. Exact use defined by issuing state
-    C - National Identity Card or Resident Card. Exact use defined by issuing state
-    I - National Identity Card or Resident Card. Exact use defined by issuing state
-    M - Military Identification
-    D - Diplomatic Identification
-    AC - Crew Member Certificate
-    IP - Passport Card
-    F -  Other approved non-standard identity documents used for travel (as per Authority regulations)
-    */
-    if (!(doc_type=="P" ||
-          doc_type=="G" ||
-          doc_type=="A" ||
-          doc_type=="C" ||
-          doc_type=="I" ||
-          doc_type=="M" ||
-          doc_type=="D" ||
-          doc_type=="IP" ||
-          doc_type=="F" ||
-          (status==psCrew &&
-           (doc_type=="AC")))) return false;
-  };
-
-  if (fmt=="EDI_ES")
-  {
-    /*
-    I (C,A) National Id Docs and Residence cards C and A admitted though main type being I.
-    P Passport
-    G group Passport
-    V Visa
-    R Travel title
-    */
-    if (!(doc_type=="I" ||
-          doc_type=="C" ||
-          doc_type=="A" ||
-          doc_type=="P" ||
-          doc_type=="G" ||
-          doc_type=="R")) return false;
-  };
-  return true;
-};
-
 };
 
 const char* APIS_PARTY_INFO()
@@ -380,7 +223,7 @@ bool create_apis_file(int point_id, const string& task_name)
   bool result=false;
   try
   {
-  	TQuery Qry(&OraSession);
+    TQuery Qry(&OraSession);
     Qry.SQLText =
       "SELECT airline, flt_no, suffix, airp, scd_out, act_out, "
       "       point_num, first_point, pr_tranzit, "
@@ -496,13 +339,13 @@ bool create_apis_file(int point_id, const string& task_name)
                          (task_name.empty() && !Qry.FieldIsNULL("act_out")) );
 
         TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
-      	if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.code.c_str());
-      	tz_region=AirpTZRegion(airp_arv.code);
+        if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.code.c_str());
+        tz_region=AirpTZRegion(airp_arv.code);
         if (RouteQry.FieldIsNULL("scd_in")) throw Exception("scd_in empty (airp_arv=%s)",airp_arv.code.c_str());
         TDateTime scd_in_local = UTCToLocal(RouteQry.FieldAsDateTime("scd_in"),tz_region);
 
         TAirpsRow &airp_cbp = (TAirpsRow&)base_tables.get("airps").get_row("code",iCBPAirp->second);
-      	if (airp_cbp.code_lat.empty()) throw Exception("airp_cbp.code_lat empty (code=%s)",airp_cbp.code.c_str());
+        if (airp_cbp.code_lat.empty()) throw Exception("airp_cbp.code_lat empty (code=%s)",airp_cbp.code.c_str());
 
         for(;!ApisSetsQry.Eof;ApisSetsQry.Next())
         {
@@ -522,8 +365,8 @@ bool create_apis_file(int point_id, const string& task_name)
             if (airline.city.empty()) throw Exception("airline.city empty (code=%s)",airline.code.c_str());
             TCitiesRow &airlineCityRow = (TCitiesRow&)base_tables.get("cities").get_row("code",airline.city);
             TCountriesRow &airlineCountryRow = (TCountriesRow&)base_tables.get("countries").get_row("code",airlineCityRow.country);
-   	    	  if (airlineCountryRow.code_iso.empty()) throw Exception("airlineCountryRow.code_iso empty (code=%s)",airlineCityRow.country.c_str());
-   	    	  airline_country = airlineCountryRow.code_iso;
+              if (airlineCountryRow.code_iso.empty()) throw Exception("airlineCountryRow.code_iso empty (code=%s)",airlineCityRow.country.c_str());
+              airline_country = airlineCountryRow.code_iso;
           };
 
           string lst_type_extra;
@@ -539,7 +382,7 @@ bool create_apis_file(int point_id, const string& task_name)
           }
 
           Paxlst::PaxlstInfo FPM(Paxlst::PaxlstInfo::FlightPassengerManifest, lst_type_extra);
-        	Paxlst::PaxlstInfo FCM(Paxlst::PaxlstInfo::FlightCrewManifest, lst_type_extra);
+            Paxlst::PaxlstInfo FCM(Paxlst::PaxlstInfo::FlightCrewManifest, lst_type_extra);
 
           if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" ||
               fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR")
@@ -652,12 +495,12 @@ bool create_apis_file(int point_id, const string& task_name)
             };
           };
 
-        	int count=0;
+            int count=0;
           ostringstream body, paxs_body, crew_body;
-      	  PaxQry.SetVariable("point_arv",r->point_id);
-      	  PaxQry.Execute();
-      	  for(;!PaxQry.Eof;PaxQry.Next(),count++)
-      	  {
+          PaxQry.SetVariable("point_arv",r->point_id);
+          PaxQry.Execute();
+          for(;!PaxQry.Eof;PaxQry.Next(),count++)
+          {
             int pax_id=PaxQry.FieldAsInteger("pax_id");
             bool boarded=PaxQry.FieldAsInteger("pr_brd")!=0;
             TPaxStatus status=DecodePaxStatus(PaxQry.FieldAsString("status"));
@@ -665,12 +508,12 @@ bool create_apis_file(int point_id, const string& task_name)
             if (status!=psCrew && !boarded && final_apis) continue;
 
             Paxlst::PassengerInfo paxInfo;
-      	    string airp_final_lat;
-      	    if (fmt=="CSV_DE")
-        	  {
-        	    if (!PaxQry.FieldIsNULL("airp_final"))
-        	    {
-        	      TAirpsRow &airp_final = (TAirpsRow&)base_tables.get("airps").get_row("code",PaxQry.FieldAsString("airp_final"));
+            string airp_final_lat;
+            if (fmt=="CSV_DE")
+              {
+                if (!PaxQry.FieldIsNULL("airp_final"))
+                {
+                  TAirpsRow &airp_final = (TAirpsRow&)base_tables.get("airps").get_row("code",PaxQry.FieldAsString("airp_final"));
                 if (airp_final.code_lat.empty()) throw Exception("airp_final.code_lat empty (code=%s)",airp_final.code.c_str());
                 airp_final_lat=airp_final.code_lat;
               }
@@ -693,12 +536,12 @@ bool create_apis_file(int point_id, const string& task_name)
               docaB_exists=LoadPaxDoca(pax_id, CheckIn::docaBirth, (CheckIn::TPaxDocaItem&)docaB);
             };
 
-    	      string doc_surname, doc_first_name, doc_second_name;
+              string doc_surname, doc_first_name, doc_second_name;
             if (!doc.surname.empty())
             {
               doc_surname=transliter(doc.surname,1,1);
-      	  		doc_first_name=transliter(doc.first_name,1,1);
-      	  		doc_second_name=transliter(doc.second_name,1,1);
+                doc_first_name=transliter(doc.first_name,1,1);
+                doc_second_name=transliter(doc.second_name,1,1);
             }
             else
             {
@@ -734,51 +577,51 @@ bool create_apis_file(int point_id, const string& task_name)
               if (fmt=="CSV_AE" || fmt=="CSV_TH") gender = "X";
             };
 
-    	    	string doc_type;
-    	    	if (!doc.type.empty())
-    	    	{
-    	    	  TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doc.type);
-    	    	  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",doc.type.c_str());
-    	    	  doc_type=doc_type_row.code_lat;
+                string doc_type;
+                if (!doc.type.empty())
+                {
+                  TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doc.type);
+                  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",doc.type.c_str());
+                  doc_type=doc_type_row.code_lat;
 
               if (!APIS::isValidDocType(fmt, status, doc_type)) doc_type.clear();
 
-    	    	  if (fmt=="CSV_DE")
-    	    	  {
-    	    	    if (doc_type!="P" && doc_type!="I") doc_type="P";
+                  if (fmt=="CSV_DE")
+                  {
+                    if (doc_type!="P" && doc_type!="I") doc_type="P";
               };
               if (fmt=="TXT_EE")
-    	    	  {
-    	    	    if (doc_type!="P") doc_type.clear(); else doc_type="2";
-    	    	  };
+                  {
+                    if (doc_type!="P") doc_type.clear(); else doc_type="2";
+                  };
               if (fmt=="CSV_AE" || fmt=="CSV_TH")
               {
                 if (doc_type!="P") doc_type="O";
               };
-    	    	};
-    	    	string nationality=doc.nationality;
-    	    	string issue_country=doc.issue_country;
-    	    	string birth_date;
-    	    	if (doc.birth_date!=NoExists)
-    	    	{
+                };
+                string nationality=doc.nationality;
+                string issue_country=doc.issue_country;
+                string birth_date;
+                if (doc.birth_date!=NoExists)
+                {
               if (fmt=="CSV_CZ")
-    	    	    birth_date=DateTimeToStr(doc.birth_date,"ddmmmyy",true);
+                    birth_date=DateTimeToStr(doc.birth_date,"ddmmmyy",true);
               else if (fmt=="CSV_DE")
-    	    	    birth_date=DateTimeToStr(doc.birth_date,"yymmdd",true);
+                    birth_date=DateTimeToStr(doc.birth_date,"yymmdd",true);
               else if (fmt=="TXT_EE")
                 birth_date=DateTimeToStr(doc.birth_date,"dd.mm.yyyy",true);
               else if (fmt=="CSV_AE"|| fmt=="CSV_TH")
                 birth_date=DateTimeToStr(doc.birth_date,"dd-mmm-yyyy",true);
-    	    	};
+                };
 
-    	    	string expiry_date;
-    	    	if (doc.expiry_date!=NoExists)
-    	    	{
+                string expiry_date;
+                if (doc.expiry_date!=NoExists)
+                {
               if (fmt=="CSV_CZ")
-    	    	    expiry_date=DateTimeToStr(doc.expiry_date,"ddmmmyy",true);
+                    expiry_date=DateTimeToStr(doc.expiry_date,"ddmmmyy",true);
               if (fmt=="CSV_AE" || fmt=="CSV_TH")
                 expiry_date=DateTimeToStr(doc.expiry_date,"dd-mmm-yyyy",true);
-    	    	};
+                };
 
             string doc_no=doc.no;
             if (fmt=="EDI_IN")
@@ -841,15 +684,15 @@ bool create_apis_file(int point_id, const string& task_name)
               paxInfo.setSecondName(doc_second_name);
               paxInfo.setSex(gender);
 
-      	      if (doc.birth_date!=NoExists)
-      	        paxInfo.setBirthDate(doc.birth_date);
+              if (doc.birth_date!=NoExists)
+                paxInfo.setBirthDate(doc.birth_date);
 
               if (fmt=="EDI_US" || fmt=="EDI_USBACK")
               {
                 if (country_regul_dep!=US_CUSTOMS_CODE)
                   paxInfo.setCBPPort(airp_cbp.code_lat);
               };
-      	      paxInfo.setDepPort(airp_dep.code_lat);
+              paxInfo.setDepPort(airp_dep.code_lat);
               paxInfo.setArrPort(airp_arv.code_lat);
               paxInfo.setNationality(nationality);
 
@@ -895,34 +738,34 @@ bool create_apis_file(int point_id, const string& task_name)
                 trip_type = getTripType(status, PaxQry.FieldAsInteger("grp_id"), direction, apis_country);
 
             if (fmt=="CSV_CZ")
-      	    {
-      	    	body << doc_surname << ";"
-      	  		     << doc_first_name << ";"
-      	  		     << doc_second_name << ";"
-      	  		     << birth_date << ";"
-      	  		     << gender << ";"
-      	  		     << nationality << ";"
-      	  		     << doc_type << ";"
-      	  		     << doc_no << ";"
-      	  		     << expiry_date << ";"
-      	  		     << issue_country << ";";
-      	  	};
-      	  	if (fmt=="CSV_DE")
-      	    {
-      	      body << doc_surname << ";"
-      	           << doc_first_name << ";"
-      	           << gender << ";"
-      	           << birth_date << ";"
-      	           << nationality << ";"
+            {
+                body << doc_surname << ";"
+                     << doc_first_name << ";"
+                     << doc_second_name << ";"
+                     << birth_date << ";"
+                     << gender << ";"
+                     << nationality << ";"
+                     << doc_type << ";"
+                     << doc_no << ";"
+                     << expiry_date << ";"
+                     << issue_country << ";";
+            };
+            if (fmt=="CSV_DE")
+            {
+              body << doc_surname << ";"
+                   << doc_first_name << ";"
+                   << gender << ";"
+                   << birth_date << ";"
+                   << nationality << ";"
                    << airp_arv.code_lat << ";"
-    	  		       << airp_dep.code_lat << ";"
-    	  		       << airp_final_lat << ";"
-    	  		       << doc_type << ";"
-    	  		       << convert_char_view(doc_no,true) << ";"
-    	  		       << issue_country;
-      	    };
+                       << airp_dep.code_lat << ";"
+                       << airp_final_lat << ";"
+                       << doc_type << ";"
+                       << convert_char_view(doc_no,true) << ";"
+                       << issue_country;
+            };
             if ( fmt=="CSV_AE" || fmt=="CSV_TH" )
-      	    {
+            {
               ostringstream data;
               if ( fmt=="CSV_TH" ) {
                 data << doc_type << ","
@@ -955,33 +798,33 @@ bool create_apis_file(int point_id, const string& task_name)
               else
                 paxs_body << data.str() << ENDL;
             };
-      	    if (fmt=="TXT_EE")
-      	    {
+            if (fmt=="TXT_EE")
+            {
               body << "1# " << count+1 << ENDL
-    	  		       << "2# " << doc_surname << ENDL
-    	  		       << "3# " << doc_first_name << ENDL
-    	  		       << "4# " << birth_date << ENDL
-    	  		       << "5# " << nationality << ENDL
-    	  		       << "6# " << doc_type << ENDL
-    	  		       << "7# " << convert_char_view(doc_no,true) << ENDL
-    	  		       << "8# " << issue_country << ENDL
-    	  		       << "9# " << gender << ENDL;
-      	    };
-      	    if (doco_exists && (fmt=="CSV_DE" || fmt=="TXT_EE"))
-      	  	{
-      	  	  //виза пассажира найдена
-        	    string doco_type;
-      	    	if (!doco.type.empty())
-      	    	{
-      	    	  TPaxDocTypesRow &doco_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doco.type);
-      	    	  if (doco_type_row.code_lat.empty()) throw Exception("doco_type.code_lat empty (code=%s)",doco.type.c_str());
-      	    	  doco_type=doco_type_row.code_lat;
-      	    	};
-      	    	string applic_country=doco.applic_country;
+                       << "2# " << doc_surname << ENDL
+                       << "3# " << doc_first_name << ENDL
+                       << "4# " << birth_date << ENDL
+                       << "5# " << nationality << ENDL
+                       << "6# " << doc_type << ENDL
+                       << "7# " << convert_char_view(doc_no,true) << ENDL
+                       << "8# " << issue_country << ENDL
+                       << "9# " << gender << ENDL;
+            };
+            if (doco_exists && (fmt=="CSV_DE" || fmt=="TXT_EE"))
+            {
+              //виза пассажира найдена
+                string doco_type;
+                if (!doco.type.empty())
+                {
+                  TPaxDocTypesRow &doco_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doco.type);
+                  if (doco_type_row.code_lat.empty()) throw Exception("doco_type.code_lat empty (code=%s)",doco.type.c_str());
+                  doco_type=doco_type_row.code_lat;
+                };
+                string applic_country=doco.applic_country;
 
-      	      if (fmt=="CSV_DE")
-        	    {
-        	      body << ";"
+              if (fmt=="CSV_DE")
+                {
+                  body << ";"
                      << doco_type << ";"
                      << convert_char_view(doco.no,true) << ";"
                      << applic_country;
@@ -1057,11 +900,11 @@ bool create_apis_file(int point_id, const string& task_name)
                 fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR")
             {
               if (status!=psCrew)
-      	        FPM.addPassenger( paxInfo );
+                FPM.addPassenger( paxInfo );
               else
                 FCM.addPassenger( paxInfo );
             };
-      	  }; //цикл по пассажирам
+          }; //цикл по пассажирам
 
           vector< pair<string, string> > files;
 
@@ -1117,7 +960,7 @@ bool create_apis_file(int point_id, const string& task_name)
                 };
               };
             };
-      	  }
+          }
           else if ( fmt=="XML_TR" || fmt=="EDI_LT" ) {
             string text, type;
             int passengers_count = FPM.passengersList().size();
@@ -1161,23 +1004,23 @@ bool create_apis_file(int point_id, const string& task_name)
               }
             }
           }
-      	  else
+          else
           {
             if (task_name.empty() ||
                 !use_us_customs_tasks ||
                 task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL)
             {
-        	    ostringstream file_name;
+                ostringstream file_name;
               if (fmt=="CSV_CZ" || fmt=="CSV_DE" || fmt=="CSV_AE"|| fmt=="CSV_TH")
               {
                 ostringstream f;
                 f << airline.code_lat << flt_no << suffix;
-              	file_name << ApisSetsQry.FieldAsString("dir")
+                file_name << ApisSetsQry.FieldAsString("dir")
                           << "/"
                           << airline.code_lat
                           << (f.str().size()<6?string(6-f.str().size(),'0'):"") << flt_no << suffix  //по стандарту поле не должно превышать 6 символов
-              	          << airp_dep.code_lat
-              	          << airp_arv.code_lat
+                          << airp_dep.code_lat
+                          << airp_arv.code_lat
                           << DateTimeToStr(scd_out_local,"yyyymmdd");
                 if (fmt!="CSV_AE" && fmt!="CSV_TH") file_name << ".CSV";
               };
@@ -1191,18 +1034,18 @@ bool create_apis_file(int point_id, const string& task_name)
               //доклеиваем заголовочную часть
               ostringstream header, pax_header, crew_header;
               if (fmt=="CSV_CZ")
-              	header << "csv;"
+                header << "csv;"
                        << airline_name << ";"
-              	    	 << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ";"
-            	      	 << airp_dep.code_lat << ";" << DateTimeToStr(scd_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
-            	      	 << airp_arv.code_lat << ";" << DateTimeToStr(scd_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
-            	      	 << count << ";" << ENDL;
-            	if (fmt=="CSV_DE")
+                         << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ";"
+                         << airp_dep.code_lat << ";" << DateTimeToStr(scd_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
+                         << airp_arv.code_lat << ";" << DateTimeToStr(scd_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
+                         << count << ";" << ENDL;
+                if (fmt=="CSV_DE")
                 header << airline.code_lat << ";"
-                    	 << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
-                    	 << airp_dep.code_lat << ";" << DateTimeToStr(scd_out_local,"yymmddhhnn") << ";"
-                    	 << airp_arv.code_lat << ";" << DateTimeToStr(scd_in_local,"yymmddhhnn") << ";"
-                    	 << count << ENDL;
+                         << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
+                         << airp_dep.code_lat << ";" << DateTimeToStr(scd_out_local,"yymmddhhnn") << ";"
+                         << airp_arv.code_lat << ";" << DateTimeToStr(scd_in_local,"yymmddhhnn") << ";"
+                         << count << ENDL;
               if (fmt=="CSV_AE" || fmt=="CSV_TH")
               {
                 string tb_date, tb_time, tb_airp;
@@ -1235,22 +1078,22 @@ bool create_apis_file(int point_id, const string& task_name)
               if (fmt=="TXT_EE")
               {
                 header << "1$ " << airline_name << ENDL
-                    	 << "2$ " << ENDL
-                    	 << "3$ " << airline_country << ENDL
-                    	 << "4$ " << ENDL
-                    	 << "5$ " << ENDL
-                    	 << "6$ " << ENDL
-                    	 << "7$ " << ENDL
-                    	 << "8$ " << ENDL
-                    	 << "9$ " << DateTimeToStr(scd_in_local,"dd.mm.yy hh:nn") << ENDL
-                    	 << "10$ " << (airp_arv.code=="TLL"?"Tallinna Lennujaama piiripunkt":
-                         	          airp_arv.code=="TAY"?"Tartu piiripunkt":
-                             	      airp_arv.code=="URE"?"Kuressaare-2 piiripunkt":
-                                 	  airp_arv.code=="KDL"?"Kardla Lennujaama piiripunkt":"") << ENDL
-                    	 << "11$ " << ENDL
-                    	 << "1$ " << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ENDL
-                    	 << "2$ " << ENDL
-                    	 << "3$ " << count << ENDL;
+                         << "2$ " << ENDL
+                         << "3$ " << airline_country << ENDL
+                         << "4$ " << ENDL
+                         << "5$ " << ENDL
+                         << "6$ " << ENDL
+                         << "7$ " << ENDL
+                         << "8$ " << ENDL
+                         << "9$ " << DateTimeToStr(scd_in_local,"dd.mm.yy hh:nn") << ENDL
+                         << "10$ " << (airp_arv.code=="TLL"?"Tallinna Lennujaama piiripunkt":
+                                      airp_arv.code=="TAY"?"Tartu piiripunkt":
+                                      airp_arv.code=="URE"?"Kuressaare-2 piiripunkt":
+                                      airp_arv.code=="KDL"?"Kardla Lennujaama piiripunkt":"") << ENDL
+                         << "11$ " << ENDL
+                         << "1$ " << airline.code_lat << setw(3) << setfill('0') << flt_no << suffix << ENDL
+                         << "2$ " << ENDL
+                         << "3$ " << count << ENDL;
               };
               if (fmt=="CSV_AE" || fmt=="CSV_TH") {
                 if ( !paxs_body.str().empty() && !pax_header.str().empty() ) {
@@ -1269,19 +1112,19 @@ bool create_apis_file(int point_id, const string& task_name)
                   files.push_back( make_pair(file_name.str(), string(header.str()).append(body.str())) );
               }
             };
-      	  };
+          };
 
           if (!files.empty())
           {
             for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
             {
-            	ofstream f;
+                ofstream f;
               f.open(iFile->first.c_str());
               if (!f.is_open()) throw Exception("Can't open file '%s'",iFile->first.c_str());
               try
               {
-              	f << iFile->second;
-              	f.close();
+                f << iFile->second;
+                f.close();
               }
               catch(...)
               {

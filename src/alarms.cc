@@ -722,10 +722,8 @@ void check_apis_alarms(int point_id, const set<TTripAlarmsType> &checked_alarms)
   bool apis_control=false;
   bool apis_manual_input=false;
 
-  TAPISMap apis_map;
-  set<string> apis_formats;
-  GetAPISSets(point_id, apis_map, apis_formats);
-  if (!apis_formats.empty())
+  TRouteAPICheckInfo route_check_info(point_id);
+  if (route_check_info.apis_generation())
   {
     //хотя бы по одному из направлений настроен APIS
     TTripSetList setList;
@@ -769,8 +767,8 @@ void check_apis_alarms(int point_id, const set<TTripAlarmsType> &checked_alarms)
         string airp_arv=Qry.FieldAsString("airp_arv");
         TPaxStatus status=DecodePaxStatus(Qry.FieldAsString("status"));
 
-        TAPISMap::const_iterator iAPISMap=apis_map.find(airp_arv);
-        if (iAPISMap==apis_map.end() || iAPISMap->second.second.empty()) continue;
+        boost::optional<const TCompleteAPICheckInfo&> check_info=route_check_info.get(airp_arv);
+        if (!check_info || check_info.get().apis_formats().empty()) continue;
 
         CheckIn::TAPISItem apis;
         if (off_alarms.find(APIS::atDiffersFromBooking)!=off_alarms.end() ||
@@ -781,9 +779,8 @@ void check_apis_alarms(int point_id, const set<TTripAlarmsType> &checked_alarms)
           //грузим только документ
           CheckIn::LoadPaxDoc(pax_id, apis.doc);
 
-        TCheckDocInfo check_info=status==psCrew?iAPISMap->second.first.crew:iAPISMap->second.first.pass;
         set<APIS::TAlarmType> alarms;
-        GetAPISAlarms(name=="CBBG", crs_pax_id, check_info, apis, off_alarms, alarms);
+        GetAPISAlarms(status, name!="CBBG", crs_pax_id, check_info.get(), apis, off_alarms, alarms);
         for(set<APIS::TAlarmType>::const_iterator a=alarms.begin(); a!=alarms.end(); ++a) off_alarms.erase(*a);
       };
     };

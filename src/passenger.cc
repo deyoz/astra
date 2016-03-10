@@ -712,8 +712,11 @@ void ConvertDoca(const list<TPaxDocaItem> &doca,
                  TPaxDocaItem &docaD)
 {
   docaB.clear();
+  docaB.type="B";
   docaR.clear();
+  docaR.type="R";
   docaD.clear();
+  docaD.type="D";
   for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
   {
     if (d->type=="B") docaB=*d;
@@ -982,15 +985,9 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
   NewTextChild(paxNode, "tid", tid);
 
   if (TknExists) tkn.toXML(paxNode);
-  if (reqInfo->desk.compatible(DOCS_VERSION))
-  {
-    if (DocExists) doc.toXML(paxNode);
-    if (DocoExists || doco.needPseudoType()) doco.toXML(paxNode);
-  }
-  else
-  {
-    NewTextChild(paxNode, "document", doc.no);
-  };
+  if (DocExists) doc.toXML(paxNode);
+  if (DocoExists || doco.needPseudoType()) doco.toXML(paxNode);
+
   if (reqInfo->desk.compatible(DOCA_VERSION))
   {
     if (DocaExists)
@@ -1045,23 +1042,39 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
         bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
     };
 
-    if (reqInfo->client_type==ASTRA::ctTerm)
+    if (refuse.empty() && api_doc_applied())
     {
-      //терминал
-      if (reqInfo->desk.compatible(DOCS_VERSION))
+      if (reqInfo->client_type==ASTRA::ctTerm)
       {
+        //терминал
         doc.fromXML(GetNodeFast("document",node2));
         doco.fromXML(GetNodeFast("doco",node2));
         DocExists=true;
         DocoExists=true;
+
+        if (reqInfo->desk.compatible(DOCA_VERSION))
+        {
+          xmlNodePtr docaNode=GetNodeFast("addresses",node2);
+          if (docaNode!=NULL)
+          {
+            for(docaNode=docaNode->children; docaNode!=NULL; docaNode=docaNode->next)
+            {
+              TPaxDocaItem docaItem;
+              docaItem.fromXML(docaNode);
+              if (docaItem.empty()) continue;
+              doca.push_back(docaItem);
+            };
+          };
+          DocaExists=true;
+        };
       }
       else
       {
-        doc.no=NodeAsStringFast("document",node2);
-        DocExists=true;
-      };
-      if (reqInfo->desk.compatible(DOCA_VERSION))
-      {
+        //киоски и веб
+        xmlNodePtr docNode=GetNodeFast("document",node2);
+        doc.fromXML(docNode);
+        xmlNodePtr docoNode=GetNodeFast("doco",node2);
+        doco.fromXML(docoNode);
         xmlNodePtr docaNode=GetNodeFast("addresses",node2);
         if (docaNode!=NULL)
         {
@@ -1073,31 +1086,11 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
             doca.push_back(docaItem);
           };
         };
-        DocaExists=true;
-      };
-    }
-    else
-    {
-      //киоски и веб
-      xmlNodePtr docNode=GetNodeFast("document",node2);
-      doc.fromXML(docNode);
-      xmlNodePtr docoNode=GetNodeFast("doco",node2);
-      doco.fromXML(docoNode);
-      xmlNodePtr docaNode=GetNodeFast("addresses",node2);
-      if (docaNode!=NULL)
-      {
-        for(docaNode=docaNode->children; docaNode!=NULL; docaNode=docaNode->next)
-        {
-          TPaxDocaItem docaItem;
-          docaItem.fromXML(docaNode);
-          if (docaItem.empty()) continue;
-          doca.push_back(docaItem);
-        };
-      };
 
-      DocExists=(tid==ASTRA::NoExists || docNode!=NULL);
-      DocoExists=(tid==ASTRA::NoExists || docoNode!=NULL);
-      DocaExists=(tid==ASTRA::NoExists || docaNode!=NULL);
+        DocExists=(tid==ASTRA::NoExists || docNode!=NULL);
+        DocoExists=(tid==ASTRA::NoExists || docoNode!=NULL);
+        DocaExists=(tid==ASTRA::NoExists || docaNode!=NULL);
+      };
     };
   };
 
@@ -1144,7 +1137,7 @@ const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
   return *this;
 };
 
-TPaxItem& TPaxItem::fromDB(TQuery &Qry)
+TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
 {
   clear();
   id=Qry.FieldAsInteger("pax_id");
@@ -1161,6 +1154,13 @@ TPaxItem& TPaxItem::fromDB(TQuery &Qry)
   bag_pool_num=Qry.FieldIsNULL("bag_pool_num")?ASTRA::NoExists:Qry.FieldAsInteger("bag_pool_num");
   tid=Qry.FieldAsInteger("tid");
   tkn.fromDB(Qry);
+  return *this;
+}
+
+TPaxItem& TPaxItem::fromDB(TQuery &Qry)
+{
+  clear();
+  TSimplePaxItem::fromDB(Qry);
   TknExists=true;
   DocExists=CheckIn::LoadPaxDoc(id, doc);
   DocoExists=CheckIn::LoadPaxDoco(id, doco);
@@ -1171,18 +1171,7 @@ TPaxItem& TPaxItem::fromDB(TQuery &Qry)
 int TPaxItem::is_female() const
 {
   if (!DocExists) return ASTRA::NoExists;
-
-  if (TReqInfo::Instance()->client_type!=ASTRA::ctTerm ||
-      TReqInfo::Instance()->desk.compatible(DOCS_VERSION))
-  {
-    return CheckIn::is_female(doc.gender, name);
-  }
-  else
-  {
-    TPaxDocItem crs_doc;
-    if (id!=ASTRA::NoExists) LoadCrsPaxDoc(id, crs_doc);
-    return CheckIn::is_female(crs_doc.gender, name);
-  };
+  return CheckIn::is_female(doc.gender, name);
 };
 
 int is_female(const string &pax_doc_gender, const string &pax_name)
@@ -1203,7 +1192,7 @@ int is_female(const string &pax_doc_gender, const string &pax_name)
   return result;
 };
 
-std::string TPaxItem::full_name() const
+std::string TSimplePaxItem::full_name() const
 {
   ostringstream s;
   s << surname;
@@ -1211,6 +1200,11 @@ std::string TPaxItem::full_name() const
     s << " " << name;
   return s.str();
 };
+
+bool TSimplePaxItem::api_doc_applied() const
+{
+  return name!="CBBG";
+}
 
 TAPISItem& TAPISItem::fromDB(int pax_id)
 {

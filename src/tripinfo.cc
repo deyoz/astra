@@ -1108,10 +1108,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       if (setList.empty()) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
       setList.toXML(node);
 
-      TAPISMap apis_map;
-      set<string> apis_formats;
-      GetAPISSets(point_id, apis_map, apis_formats);
-      NewTextChild( node, "apis_exists", (int)(!apis_formats.empty()) );
+      NewTextChild( node, "apis_exists", (int)(TRouteAPICheckInfo(point_id).apis_generation()) );
 
       if (reqInfo->client_type == ctTerm &&
           !reqInfo->desk.compatible(PAX_LOAD_BY_GENDER))

@@ -14,7 +14,7 @@ struct TWebPaxFromReq
   CheckIn::TPaxDocoItem doco;
   std::vector<std::string> fqt_rems;
   bool fqt_rems_present;
-  std::set<TCheckInfoType> present_in_req;
+  std::set<TAPIType> present_in_req;
   bool refuse;
   int crs_pnr_tid;
     int crs_pax_tid;
@@ -51,7 +51,7 @@ struct TWebPaxForChng
 
   CheckIn::TPaxDocItem doc;
   CheckIn::TPaxDocoItem doco;
-  std::set<TCheckInfoType> present_in_req;
+  std::set<TAPIType> present_in_req;
 };
 
 struct TWebPaxForCkin
@@ -68,7 +68,7 @@ struct TWebPaxForCkin
   std::string eticket;
   std::string ticket;
   CheckIn::TAPISItem apis;
-  std::set<TCheckInfoType> present_in_req;
+  std::set<TAPIType> present_in_req;
   std::string subclass;
   int reg_no;
 

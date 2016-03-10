@@ -238,125 +238,160 @@ const long int DOC_CSV_TH_FIELDS=DOC_TYPE_FIELD|
 
 //==============================================================================
 
-enum TCheckInfoType { ciDoc, ciDoco, ciDocaB, ciDocaR, ciDocaD, ciTkn };
+static TAPIType const APITypeArray[] = {apiDoc, apiDoco, apiDocaB, apiDocaR, apiDocaD, apiTkn};
 
-class TCheckDocTknInfo
+class TAPICheckInfo
 {
   public:
     bool is_inter;
     long int required_fields; //битовая маска
     long int readonly_fields; //битовая маска временно не используется
     bool not_apis;
-    TCheckDocTknInfo()
+    TAPICheckInfo()
     {
       clear();
     }
-    void toXML(xmlNodePtr node, TCheckInfoType ciType) const
+    void toXML(xmlNodePtr node) const
     {
       if (node==NULL) return;
       NewTextChild(node, "is_inter", (int)is_inter, (int)false);
-      TReqInfo *reqInfo = TReqInfo::Instance();
-      if (ciType!=ciDoco ||
-          !(reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_CONFIRM_VERSION)) ||
-          required_fields==NO_FIELDS)
-        NewTextChild(node, "required_fields", required_fields, (int)NO_FIELDS);
-      else
-        NewTextChild(node, "required_fields", (int)DOCO_TYPE_FIELD, (int)NO_FIELDS);
+      NewTextChild(node, "required_fields", required_fields, (int)NO_FIELDS);
       NewTextChild(node, "readonly_fields", readonly_fields, (int)NO_FIELDS);
     }
     void clear()
     {
       is_inter=false;
-      not_apis=false;
+      not_apis=true;
       required_fields=NO_FIELDS;
       readonly_fields=NO_FIELDS;
     }
+    bool CheckLetDigSpace(const std::string &str, std::string::size_type &errorIdx) const;
+    bool CheckLetSpaceDash(const std::string &str, std::string::size_type &errorIdx) const;
+    bool CheckLetDigSpaceDash(const std::string &str, std::string::size_type &errorIdx) const;
 };
 
-class TCheckTknInfo
+class TAPICheckInfoList : private std::map<TAPIType, TAPICheckInfo>
 {
   public:
-    TCheckDocTknInfo tkn;
+    TAPICheckInfoList()
+    {
+      for(unsigned i=0; i<sizeof(APITypeArray)/sizeof(APITypeArray[0]); i++)
+        insert(std::make_pair(APITypeArray[i], TAPICheckInfo()));
+    }
     void clear()
     {
-      tkn.clear();
+      for(TAPICheckInfoList::iterator i=begin(); i!=end(); ++i)
+        i->second.clear();
+    }
+    void toXML(xmlNodePtr node) const;
+    const TAPICheckInfo& get(TAPIType apiType) const;
+    TAPICheckInfo& get(TAPIType apiType);
+    void set_is_inter(bool _is_inter)
+    {
+      for(TAPICheckInfoList::iterator i=begin(); i!=end(); ++i)
+        i->second.is_inter=_is_inter;
+    }
+    void set_not_apis(bool _not_apis)
+    {
+      for(TAPICheckInfoList::iterator i=begin(); i!=end(); ++i)
+        i->second.not_apis=_not_apis;
+    }
+};
+
+class TCompleteAPICheckInfo
+{
+  private:
+    TAPICheckInfoList _pass;
+    TAPICheckInfoList _crew;
+    std::set<std::string> _apis_formats;
+  public:
+    TCompleteAPICheckInfo() { clear(); }
+    TCompleteAPICheckInfo(const int point_dep, const std::string& airp_arv);
+    void clear()
+    {
+      _pass.clear();
+      _crew.clear();
+      _apis_formats.clear();
+    }
+    void set(const int point_dep, const std::string& airp_arv);
+
+    inline const TAPICheckInfoList& get(ASTRA::TPaxStatus status) const
+    {
+      return (status==ASTRA::psCrew?_crew:_pass);
+    }
+    const TAPICheckInfo& get(const CheckIn::TPaxAPIItem &item, ASTRA::TPaxStatus status) const
+    {
+      return get(status).get(item.apiType());
+    }
+    bool incomplete(const CheckIn::TPaxAPIItem &item, ASTRA::TPaxStatus status) const
+    {
+      long int required_fields=get(item, status).required_fields;
+      return ((item.getNotEmptyFieldsMask()&required_fields)!=required_fields);
+    }
+    //для пассажиров
+    bool incomplete(const CheckIn::TPaxAPIItem &item) const
+    {
+      long int required_fields=get(item, ASTRA::psCheckin).required_fields;
+      return ((item.getNotEmptyFieldsMask()&required_fields)!=required_fields);
+    }
+
+    void set_is_inter(bool _is_inter)
+    {
+      _pass.set_is_inter(_is_inter);
+      _crew.set_is_inter(_is_inter);
+    }
+    void set_not_apis(bool _not_apis)
+    {
+      _pass.set_not_apis(_not_apis);
+      _crew.set_not_apis(_not_apis);
+    }
+    const TAPICheckInfoList& pass() const
+    {
+      return _pass;
+    }
+    const TAPICheckInfoList& crew() const
+    {
+      return _crew;
+    }
+    const std::set<std::string>& apis_formats() const
+    {
+      return _apis_formats;
     }
     void toXML(xmlNodePtr node) const
     {
-      tkn.toXML(NewTextChild(node, "tkn"), ciTkn);
+      if (node==NULL) return;
+      _pass.toXML(NewTextChild(node, "pass"));
+      _crew.toXML(NewTextChild(node, "crew"));
     }
 };
 
-class TCheckDocInfo
+class TRouteAPICheckInfo : private std::map<std::string/*airp_arv*/, TCompleteAPICheckInfo>
 {
   public:
-    TCheckDocTknInfo doc, doco, docaB, docaR, docaD;
-    void clear()
-    {
-      doc.clear();
-      doco.clear();
-      docaB.clear();
-      docaR.clear();
-      docaD.clear();
-    }
-    void toXML(xmlNodePtr node) const
-    {
-      doc.toXML(NewTextChild(node, "doc"), ciDoc);
-      doco.toXML(NewTextChild(node, "doco"), ciDoco);
-      docaB.toXML(NewTextChild(node, "doca_b"), ciDocaB);
-      docaR.toXML(NewTextChild(node, "doca_r"), ciDocaR);
-      docaD.toXML(NewTextChild(node, "doca_d"), ciDocaD);
-    }
+    TRouteAPICheckInfo(const int point_id);
+    bool apis_generation() const;
+
+    boost::optional<const TCompleteAPICheckInfo&> get(const std::string &airp_arv) const;
 };
 
-class TCompleteCheckTknInfo
-{
-  public:
-    TCheckTknInfo pass;
-    TCheckTknInfo crew;
-    void clear()
-    {
-      pass.clear();
-      crew.clear();
-    }
-};
-
-class TCompleteCheckDocInfo
-{
-  public:
-    TCheckDocInfo pass;
-    TCheckDocInfo crew;
-    void clear()
-    {
-      pass.clear();
-      crew.clear();
-    }
-};
-
-TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv);
-TCompleteCheckDocInfo GetCheckDocInfo(const int point_dep, const std::string& airp_arv,
-                                      std::set<std::string> &apis_formats);
-TCompleteCheckTknInfo GetCheckTknInfo(const int point_dep);
 std::string ElemToPaxDocCountryId(const std::string &elem, TElemFmt &fmt);
 
-typedef std::map<std::string/*airp_arv*/, std::pair<TCompleteCheckDocInfo, std::set<std::string> > > TAPISMap;
-void GetAPISSets( const int point_id, TAPISMap &apis_map, std::set<std::string> &apis_formats);
-
-bool CheckLetDigSpace(const std::string &str, const TCheckDocTknInfo &checkDocInfo, std::string::size_type &errorIdx);
-bool CheckLetSpaceDash(const std::string &str, const TCheckDocTknInfo &checkDocInfo, std::string::size_type &errorIdx);
-bool CheckLetDigSpaceDash(const std::string &str, const TCheckDocTknInfo &checkDocInfo, std::string::size_type &errorIdx);
+CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc);
+CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc);
+CheckIn::TPaxDocaItem NormalizeDoca(const CheckIn::TPaxDocaItem &doc);
 
 void CheckDoc(const CheckIn::TPaxDocItem &doc,
-              const TCheckDocTknInfo &checkDocInfo,
+              ASTRA::TPaxStatus status,
+              const TCompleteAPICheckInfo &checkInfo,
               BASIC::TDateTime nowLocal);
-CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc);
 void CheckDoco(const CheckIn::TPaxDocoItem &doc,
-               const TCheckDocTknInfo &checkDocInfo,
+               ASTRA::TPaxStatus status,
+               const TCompleteAPICheckInfo &checkInfo,
                BASIC::TDateTime nowLocal);
-CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc);
+
 void CheckDoca(const CheckIn::TPaxDocaItem &doc,
-               const TCheckDocTknInfo &checkDocInfo);
-CheckIn::TPaxDocaItem NormalizeDoca(const CheckIn::TPaxDocaItem &doc);
+               ASTRA::TPaxStatus status,
+               const TCompleteAPICheckInfo &checkInfo);
 
 namespace APIS
 {
@@ -366,7 +401,28 @@ enum TAlarmType { atDiffersFromBooking,
                   atLength };
 
 std::string EncodeAlarmType(const TAlarmType alarm );
+
+bool isValidGender(const std::string &fmt, const std::string &pax_doc_gender, const std::string &pax_name);
+bool isValidDocType(const std::string &fmt, const ASTRA::TPaxStatus &status, const std::string &doc_type);
+
 }; //namespace APIS
+
+void HandleDoc(const CheckIn::TPaxGrpItem &grp,
+               const CheckIn::TSimplePaxItem &pax,
+               const TCompleteAPICheckInfo &checkInfo,
+               const BASIC::TDateTime &checkDate,
+               CheckIn::TPaxDocItem &doc);
+
+void HandleDoco(const CheckIn::TPaxGrpItem &grp,
+                const CheckIn::TSimplePaxItem &pax,
+                const TCompleteAPICheckInfo &checkInfo,
+                const BASIC::TDateTime &checkDate,
+                CheckIn::TPaxDocoItem &doco);
+
+void HandleDoca(const CheckIn::TPaxGrpItem &grp,
+                const CheckIn::TSimplePaxItem &pax,
+                const TCompleteAPICheckInfo &checkInfo,
+                std::list<CheckIn::TPaxDocaItem> &doca);
 
 const std::string APIS_TR = "APIS_TR";
 const std::string APIS_LT = "APIS_LT";
