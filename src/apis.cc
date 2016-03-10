@@ -385,7 +385,7 @@ bool create_apis_file(int point_id, const string& task_name)
             Paxlst::PaxlstInfo FCM(Paxlst::PaxlstInfo::FlightCrewManifest, lst_type_extra);
 
           if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" ||
-              fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR")
+              fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR" || fmt=="EDI_KR")
           {
             for(int pass=0; pass<2; pass++)
             {
@@ -395,12 +395,12 @@ bool create_apis_file(int point_id, const string& task_name)
               if (fmt=="EDI_UK")
                 paxlstInfo.settings().setRespAgnCode("109");
 
-              if (fmt=="EDI_IN")
+              if (fmt=="EDI_IN" || fmt=="EDI_KR")
                 paxlstInfo.settings().setAppRef("");
               if (fmt=="EDI_UK")
                 paxlstInfo.settings().setAppRef("UKBAOP");
 
-              if (fmt=="EDI_IN" || fmt=="EDI_UK")
+              if (fmt=="EDI_IN" || fmt=="EDI_UK" || fmt=="EDI_KR")
                 paxlstInfo.settings().setMesRelNum("05B");
 
               if (fmt=="EDI_US" || fmt=="EDI_USBACK")
@@ -457,7 +457,7 @@ bool create_apis_file(int point_id, const string& task_name)
               else
                 iataCode=Paxlst::createIataCode(flight.str(),scd_in_local,"/yymmdd/hhnn");
               paxlstInfo.setIataCode( iataCode );
-              if (fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR")
+              if (fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR" || fmt=="EDI_KR")
                 paxlstInfo.setCarrier(airline.code_lat);
               paxlstInfo.setFlight(flight.str());
               paxlstInfo.setDepPort(airp_dep.code_lat);
@@ -504,7 +504,8 @@ bool create_apis_file(int point_id, const string& task_name)
             int pax_id=PaxQry.FieldAsInteger("pax_id");
             bool boarded=PaxQry.FieldAsInteger("pr_brd")!=0;
             TPaxStatus status=DecodePaxStatus(PaxQry.FieldAsString("status"));
-            if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR" || fmt=="CSV_AE"|| fmt=="CSV_TH")) continue;
+            if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" ||
+                                    fmt=="EDI_ES" || fmt=="XML_TR" || fmt=="CSV_AE"|| fmt=="CSV_TH" || fmt=="EDI_KR")) continue;
             if (status!=psCrew && !boarded && final_apis) continue;
 
             Paxlst::PassengerInfo paxInfo;
@@ -571,8 +572,10 @@ bool create_apis_file(int point_id, const string& task_name)
             }
             else
             {
-              if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_LT") gender = "M";//gender.clear();
-              if (fmt=="CSV_DE" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="XML_TR") gender = "U";
+              if (fmt=="CSV_CZ" || fmt=="EDI_CZ" || fmt=="EDI_US" || fmt=="EDI_USBACK" ||
+                  fmt=="EDI_LT") gender = "M";//gender.clear();
+              if (fmt=="CSV_DE" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_UK" ||
+                  fmt=="EDI_ES" || fmt=="XML_TR" || fmt=="EDI_KR") gender = "U";
               if (fmt=="TXT_EE") gender = "N";
               if (fmt=="CSV_AE" || fmt=="CSV_TH") gender = "X";
             };
@@ -627,7 +630,7 @@ bool create_apis_file(int point_id, const string& task_name)
             if (fmt=="EDI_IN")
               doc_no=NormalizeDocNo(doc.no, true);
             if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_US" || fmt=="EDI_USBACK" ||
-                fmt=="EDI_UK" || fmt=="EDI_ES"|| fmt=="EDI_LT")
+                fmt=="EDI_UK" || fmt=="EDI_ES"|| fmt=="EDI_LT" || fmt=="EDI_KR")
               doc_no=NormalizeDocNo(doc.no, false);
 
             if (fmt=="XML_TR") {
@@ -676,8 +679,8 @@ bool create_apis_file(int point_id, const string& task_name)
                   FCM.addMarkFlt(mkt_airline.code_lat, mkt_flt);
               }
             }
-            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US"
-                || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR")
+            if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" ||
+                fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR" || fmt=="EDI_KR")
             {
               paxInfo.setSurname(doc_surname);
               paxInfo.setFirstName(doc_first_name);
@@ -706,8 +709,8 @@ bool create_apis_file(int point_id, const string& task_name)
               };
 
 
-              if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK"
-                                || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR")
+              if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" ||
+                  fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR" || fmt=="EDI_KR")
               {
                 if (!doc_type.empty() && !doc_no.empty())
                 {
@@ -897,7 +900,7 @@ bool create_apis_file(int point_id, const string& task_name)
               body << ENDL;
 
             if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" ||
-                fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR")
+                fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_LT" || fmt=="XML_TR" || fmt=="EDI_KR")
             {
               if (status!=psCrew)
                 FPM.addPassenger( paxInfo );
@@ -909,7 +912,7 @@ bool create_apis_file(int point_id, const string& task_name)
           vector< pair<string, string> > files;
 
           if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" ||
-              fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES")
+              fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_KR")
           {
             for(int pass=0; pass<2; pass++)
             {
@@ -924,14 +927,20 @@ bool create_apis_file(int point_id, const string& task_name)
               {
                 vector<string> parts;
                 string file_extension;
-                if (fmt=="EDI_CZ")
+                if (fmt=="EDI_CZ" || fmt=="EDI_KR")
                 {
                   file_extension="TXT";
-                  parts.push_back(paxlstInfo.toEdiString());
-                };
-                if (fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES")
+                }
+                else
                 {
                   file_extension=(pass==0?"FPM":"FCM");
+                }
+                if (fmt=="EDI_CZ")
+                {
+                  parts.push_back(paxlstInfo.toEdiString());
+                }
+                else
+                {
                   for(unsigned maxPaxPerString=MAX_PAX_PER_EDI_PART;maxPaxPerString>0;maxPaxPerString--)
                   {
                     parts=paxlstInfo.toEdiStrings(maxPaxPerString);
@@ -946,6 +955,9 @@ bool create_apis_file(int point_id, const string& task_name)
                 for(vector<string>::const_iterator p=parts.begin(); p!=parts.end(); ++p, part_num++)
                 {
                   ostringstream file_name;
+                  string lst_type;
+                  if (fmt=="EDI_KR")
+                    lst_type=(pass==0?"_P":"_C");
                   file_name << ApisSetsQry.FieldAsString("dir")
                             << "/"
                             << Paxlst::createEdiPaxlstFileName(airline.code_lat,
@@ -955,7 +967,8 @@ bool create_apis_file(int point_id, const string& task_name)
                                                                airp_arv.code_lat,
                                                                scd_out_local,
                                                                file_extension,
-                                                               part_num);
+                                                               part_num,
+                                                               lst_type);
                   files.push_back( make_pair(file_name.str(), *p) );
                 };
               };

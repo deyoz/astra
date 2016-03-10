@@ -662,7 +662,8 @@ std::string createEdiPaxlstFileName( const std::string& carrierCode,
                                      const std::string& destination,
                                      const BASIC::TDateTime& departureDate,
                                      const std::string& ext,
-                                     unsigned partNum = 0 );
+                                     unsigned partNum = 0,
+                                     const std::string& lst_type = "" );
 
 std::string createIataCode( const std::string& flight,
                             const BASIC::TDateTime& destDateTime,

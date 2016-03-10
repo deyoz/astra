@@ -62,7 +62,8 @@ std::string createEdiPaxlstFileName( const std::string& carrierCode,
                                      const std::string& destination,
                                      const BASIC::TDateTime& departureDate,
                                      const std::string& ext,
-                                     unsigned partNum )
+                                     unsigned partNum,
+                                     const std::string& lst_type )
 {
     ostringstream f;
     f << carrierCode << flightNumber << flightSuffix;
@@ -71,9 +72,10 @@ std::string createEdiPaxlstFileName( const std::string& carrierCode,
     fname << carrierCode
           << (f.str().size()<6?string(6-f.str().size(),'0'):"") << flightNumber
           << flightSuffix
-          << origin << destination;
-    fname << BASIC::DateTimeToStr( departureDate, "yyyymmdd" );
-    fname << "." << ext;
+          << origin << destination
+          << BASIC::DateTimeToStr( departureDate, "yyyymmdd" )
+          << lst_type
+          << "." << ext;
     if( partNum )
         fname << ".PART" << std::setfill('0') << std::setw(2) << partNum;
     return fname.str();
