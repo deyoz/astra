@@ -660,14 +660,11 @@ void check_crew_alarms(int point_id)
           {
             //экипаж не зарегистрирован
             //надо проверить mintrans, форматы APIS
-            if (fltInfo.airline!="ЮТ" &&
-                fltInfo.airline!="ЮР")
+            if (!GetTripSets(tsNoCrewCkinAlarm, fltInfo) &&
+                GetTripSets(tsMintransFile, fltInfo))
             {
-              if (GetTripSets(tsMintransFile, fltInfo))
-              {
-                crew_checkin=true;
-                break;
-              };
+              crew_checkin=true;
+              break;
             };
 
             if (need_crew_checkin(fltInfo))
