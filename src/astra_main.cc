@@ -114,7 +114,7 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
       AstraHTTP::http_main(rep, req);
     }
 
-    virtual std::tuple<ApplicationCallbacks::Grp2Head& head, std::vector<uint8_t>> internet_proc(const ApplicationCallbacks::Grp2Head& head, const std::vector<uint8_t>& body)
+    virtual std::tuple<Grp2Head, std::vector<uint8_t>> internet_proc(const Grp2Head& head, const std::vector<uint8_t>& body) override
     {
       //ProgError(STDLOG, "OciCpp::mainSession()=%d", OciCpp::mainSession().mode());
       OciCpp::mainSession().set7(); //это очень плохо что где-то в serverlib постоянно идет переключение на OCI8 !
