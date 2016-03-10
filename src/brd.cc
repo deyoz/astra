@@ -863,14 +863,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (dataNode==NULL)
       dataNode = NewTextChild(resNode, "data");
 
-    TQuery FltQry(&OraSession);
-    FltQry.Clear();
-    FltQry.SQLText=
-      "SELECT airline,flt_no,suffix,airp,scd_out, "
-      "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
-      "FROM points WHERE point_id=:point_id AND pr_del>=0";
-    FltQry.DeclareVariable("point_id",otInteger);
-
     bool showWholeFlight=false;
 
     TQuery Qry(&OraSession);
@@ -928,13 +920,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         }
         else
         {
-          FltQry.SetVariable("point_id",point_id);
-          FltQry.Execute();
-          if (!FltQry.Eof)
-          {
-            TTripInfo info(FltQry);
+          TTripInfo info;
+          if (info.getByPointId(point_id))
             throw AstraLocale::UserException(100, "MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
-          }
           else
             throw AstraLocale::UserException(100, "MSG.PASSENGER.OTHER_FLIGHT");
         };
@@ -953,6 +941,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       //общий список
       showWholeFlight=true;
     };
+
+    TTripInfo fltInfo;
+    if (!fltInfo.getByPointId(point_id))
+      throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+    bool pr_etl_only=GetTripSets(tsETSNoInteract, fltInfo);
+    bool check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, fltInfo);
 
     //проверяем настройки APIS по каждому направлению
     TRouteAPICheckInfo route_check_info(point_id);
@@ -1178,8 +1172,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         if (set_mark &&
             (screen==sBoarding?setList.value(tsCheckPay):setList.value(tsExamCheckPay)) &&
             ((!piece_concept && !WeightConcept::BagPaymentCompleted(grp_id)) ||
-             (piece_concept && (!PieceConcept::BagPaymentCompleted(paxWithSeat.pax_id)||
-                                !PieceConcept::BagPaymentCompleted(paxWithoutSeat.pax_id)))))
+             (piece_concept && (!PieceConcept::BagPaymentCompleted(grp_id, paxWithSeat.pax_id, check_pay_on_tckin_segs)||
+                                !PieceConcept::BagPaymentCompleted(grp_id, paxWithoutSeat.pax_id, check_pay_on_tckin_segs)))))
         {
             AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BAG_PAID");
             throw 1;
@@ -1339,18 +1333,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               NewTextChild(dataNode, "updated", paxWithoutSeat.pax_id);
         };
 
-        //pr_etl_only
-        FltQry.SetVariable("point_id",point_id);
-        FltQry.Execute();
-        if (!FltQry.Eof)
-        {
-          TTripInfo info(FltQry);
-          xmlNodePtr node=NewTextChild(dataNode,"trip_sets");
-          NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETSNoInteract,info) );
-          NewTextChild( node, "pr_etstatus", pr_etstatus );
-        }
-        else
-          throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+        xmlNodePtr node=NewTextChild(dataNode,"trip_sets");
+        NewTextChild( node, "pr_etl_only", (int)pr_etl_only );
+        NewTextChild( node, "pr_etstatus", pr_etstatus );
+
 
         if (screen==sBoarding)
         {
@@ -1515,7 +1501,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
 
           int value_bag_count=0;
-          bool pr_payment=piece_concept?PieceConcept::BagPaymentCompleted(pax_id):
+          bool pr_payment=piece_concept?PieceConcept::BagPaymentCompleted(grp_id, pax_id, check_pay_on_tckin_segs):
                                         WeightConcept::BagPaymentCompleted(grp_id, &value_bag_count);
 
           if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
@@ -1602,11 +1588,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               TTripRoute().GetPriorAirp(NoExists,inboundSeg.point_arv,trtNotCancelled,priorAirp);
               if (priorAirp.point_id!=NoExists)
               {
-                FltQry.SetVariable( "point_id", priorAirp.point_id );
-                FltQry.Execute();
-                if (!FltQry.Eof)
+                TTripInfo inFlt;
+                if (inFlt.getByPointId(priorAirp.point_id))
                 {
-                  TTripInfo inFlt(FltQry);
                   TDateTime scd_out_local = inFlt.scd_out==NoExists?
                                               NoExists:
                                               UTCToLocal(inFlt.scd_out,AirpTZRegion(inFlt.airp));

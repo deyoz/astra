@@ -2376,6 +2376,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   bool with_rcpt_info=(strcmp((char *)reqNode->name, "BagPaxList")==0);
 
+  bool check_pay_on_tckin_segs=false;
+  if (with_rcpt_info) check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, operFlt);
+
   ostringstream sql;
   sql <<
     "SELECT "
@@ -2604,7 +2607,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         map< pair<int, int>, pair<bool, bool> >::iterator i=rcpt_complete_map.find(rcpt_complete_key);
         if (i==rcpt_complete_map.end())
         {
-          bool pr_payment=piece_concept?PieceConcept::BagPaymentCompleted(pax_id):
+          bool pr_payment=piece_concept?PieceConcept::BagPaymentCompleted(grp_id, pax_id, check_pay_on_tckin_segs):
                                         WeightConcept::BagPaymentCompleted(grp_id);
           rcpt_complete_map[rcpt_complete_key]=make_pair(pr_payment, !receipts.empty());
         }
@@ -3642,7 +3645,7 @@ void PaidBagEMDToDBAdv(int grp_id,
 
 namespace SirenaExchange
 {
-void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int> &grp_ids);
+void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, TCkinGrpIds &tckin_grp_ids);
 }
 
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
@@ -5880,13 +5883,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     };
     if (AfterSaveInfo.segs.empty()) throw 1;
     int first_grp_id=AfterSaveInfo.segs.front().grp_id;
-    list<int> grp_ids;
+    TCkinGrpIds tckin_grp_ids;
     bool pr_unaccomp;
 
     SirenaExchange::TPaymentStatusReq req;
-    SirenaExchange::fillPaxsBags(first_grp_id, req, pr_unaccomp, grp_ids);
+    SirenaExchange::fillPaxsBags(first_grp_id, req, pr_unaccomp, tckin_grp_ids);
 
-    if (grp_ids.empty() || pr_unaccomp) throw 1;
+    if (tckin_grp_ids.empty() || pr_unaccomp) throw 1;
 
     list<PieceConcept::TPaidBagItem> paid;
     if (!req.bags.empty())
@@ -5914,11 +5917,26 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         else
           res.parse(prior.pc_payment_res);
 
-        set<string> rfiscs;
-        res.check_unknown_status(rfiscs);
-        if (!rfiscs.empty())
-          throw UserException("MSG.CHECKIN.UNKNOWN_PAYMENT_STATUS_FOR_BAG_TYPE", LParams()<<LParam("bag_type", *rfiscs.begin()));
-        res.normsToDB(0);
+        if (req.paxs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: req.paxs.empty()", __FUNCTION__);
+        const SirenaExchange::TPaxSegMap &segs=req.paxs.front().segs;
+        if (segs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: segs.empty()", __FUNCTION__);
+        for(SirenaExchange::TPaxSegMap::const_iterator s=segs.begin(); s!=segs.end(); ++s)
+        {
+          string flight_view=GetTripName(s->second.operFlt, ecCkin);
+
+          set<string> rfiscs;
+          res.check_unknown_status(s->second.id, rfiscs);
+          if (!rfiscs.empty())
+            throw UserException("MSG.CHECKIN.UNKNOWN_PAYMENT_STATUS_FOR_BAG_TYPE_ON_SEGMENT",
+                                LParams() << LParam("flight", flight_view)
+                                          << LParam("bag_type", *rfiscs.begin()));
+        };
+        //мы не должны допустить запись в БД статуса unknown
+        for(SirenaExchange::TBagList::const_iterator i=res.bags.begin(); i!=res.bags.end(); ++i)
+          if (i->second.status==PieceConcept::bsUnknown)
+            throw EXCEPTIONS::Exception("%s: strange situation: bsUnknown for seg_id=%d", __FUNCTION__, i->first.seg_id);
+
+        res.normsToDB(tckin_grp_ids);
         res.convert(paid);
       }
       catch(UserException &e)
@@ -6114,31 +6132,28 @@ const char* pax_sql=
 namespace SirenaExchange
 {
 
-void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int> &grp_ids)
+void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, TCkinGrpIds &tckin_grp_ids)
 {
   TAvailabilityReq  *availabilityReq=dynamic_cast<TAvailabilityReq*>(&exch);
   TPaymentStatusReq *paymentStatusReq=dynamic_cast<TPaymentStatusReq*>(&exch);
   TGroupInfoRes     *groupInfoRes=dynamic_cast<TGroupInfoRes*>(&exch);
 
-  grp_ids.clear();
-  grp_ids.push_back(first_grp_id);
-
   TCkinRoute tckin_route;
   tckin_route.GetRouteAfter(first_grp_id, crtNotCurrent, crtOnlyDependent);
-  for(TCkinRoute::const_iterator r=tckin_route.begin(); r!=tckin_route.end(); r++)
-    grp_ids.push_back(r->grp_id);
+  tckin_route.get(tckin_grp_ids);
+  tckin_grp_ids.insert(tckin_grp_ids.begin(), first_grp_id);
 
   pr_unaccomp=false;
   TTrferRoute trfer;
   int seg_no=0;
-  for(list<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++,seg_no++)
+  for(list<int>::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++,seg_no++)
   {
     if (seg_no>(int)trfer.size()) break;
     TCachedQuery Qry(pax_grp_sql, QParams() << QParam("grp_id", otInteger, *grp_id));
     Qry.get().Execute();
     if (Qry.get().Eof)
     {
-      grp_ids.clear();
+      tckin_grp_ids.clear();
       return; //это бывает когда разрегистрация всей группы по ошибке агента
     };
 
@@ -6154,17 +6169,17 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int
     if (!PointsQry.get().Eof && !PointsQry.get().FieldIsNULL("scd_in"))
       scd_in=PointsQry.get().FieldAsDateTime("scd_in");
 
-    if (grp_id==grp_ids.begin())
+    if (grp_id==tckin_grp_ids.begin())
     {
       pr_unaccomp=grp.cl.empty() && grp.status!=psCrew;
     };
 
     if (!pr_unaccomp)
     {
-      if (grp_id==grp_ids.begin())
+      if (grp_id==tckin_grp_ids.begin())
         trfer.GetRoute(grp.id, trtNotFirstSeg);
 
-      if ((paymentStatusReq || groupInfoRes) && grp_id==grp_ids.begin())
+      if ((paymentStatusReq || groupInfoRes) && grp_id==tckin_grp_ids.begin())
       {
         list<PieceConcept::TPaidBagItem> paid_bag;
         PieceConcept::PreparePaidBagInfo(*grp_id, trfer.size()+1, paid_bag);
@@ -6191,12 +6206,12 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int
           pax.fromDB(PaxQry.get());
           if (!pax.refuse.empty()) continue;
 
-          if (grp_id==grp_ids.begin())
+          if (grp_id==tckin_grp_ids.begin())
             iReqPax=paxs_ref.insert(paxs_ref.end(), TPaxItem());
           if (iReqPax==paxs_ref.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqPax==paxs.end()");
           TPaxItem &reqPax=*iReqPax;
 
-          if (grp_id==grp_ids.begin())
+          if (grp_id==tckin_grp_ids.begin())
           {
             std::list<CheckIn::TPaxTransferItem> pax_trfer;
             CheckIn::PaxTransferFromDB(pax.id, pax_trfer);
@@ -6238,13 +6253,9 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, list<int
 
 void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActionType action)
 {
-  if (action==CheckIn::actionNone) return;
-  if (action!=CheckIn::actionCheckPieceConcept/* !!!vlad && action!=CheckIn::actionRefreshPaidBagPC*/) return;
+  if (action!=CheckIn::actionCheckPieceConcept) return;
 
-  if (action==CheckIn::actionCheckPieceConcept)
-    ProgTrace(TRACE5, "%s started with actionCheckPieceConcept", __FUNCTION__);
-  if (action==CheckIn::actionRefreshPaidBagPC)
-    ProgTrace(TRACE5, "%s started with actionRefreshPaidBagPC", __FUNCTION__);
+  ProgTrace(TRACE5, "%s started with actionCheckPieceConcept", __FUNCTION__);
 
   TCachedQuery Qry("SELECT point_dep, piece_concept "
                    "FROM pax_grp "
@@ -6258,128 +6269,118 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
   setList.fromDB(point_id);
   if (setList.empty()) return;
 
-  if (action==CheckIn::actionCheckPieceConcept && !Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
-  if (action==CheckIn::actionRefreshPaidBagPC &&
-      (Qry.get().FieldIsNULL("piece_concept") || Qry.get().FieldAsInteger("piece_concept")==0)) return; //не piece_concept
+  if (!Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
 
   bool piece_concept=false;
   int bag_types_id=ASTRA::NoExists;
-  list<int> grp_ids;
+  TCkinGrpIds tckin_grp_ids;
   bool pr_unaccomp;
-  SirenaExchange::TAvailabilityReq req1;
-  SirenaExchange::TPaymentStatusReq req2;
-  if (action==CheckIn::actionCheckPieceConcept)
-    SirenaExchange::fillPaxsBags(first_grp_id, req1, pr_unaccomp, grp_ids);
-  else
-    SirenaExchange::fillPaxsBags(first_grp_id, req2, pr_unaccomp, grp_ids);
+  SirenaExchange::TAvailabilityReq req;
+  SirenaExchange::fillPaxsBags(first_grp_id, req, pr_unaccomp, tckin_grp_ids);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
-  if ((action==CheckIn::actionCheckPieceConcept && setList.value(tsPieceConcept)) ||
-      action==CheckIn::actionRefreshPaidBagPC)
+  if (setList.value(tsPieceConcept))
   {
     if (reqInfo->client_type!=ASTRA::ctTerm  ||
         reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
     {
-      if (grp_ids.empty()) return;
+      if (tckin_grp_ids.empty()) return;
 
       if (!pr_unaccomp)
       {
-        if (action==CheckIn::actionCheckPieceConcept)
+        SirenaExchange::TAvailabilityRes res;
+        try
         {
-          SirenaExchange::TAvailabilityRes res;
-          try
+          if (!req.paxs.empty())
           {
-            if (!req1.paxs.empty())
+            SirenaExchange::SendRequest(req, res);
+            if (res.empty()) throw EXCEPTIONS::Exception("%s: strange situation: res.empty()", __FUNCTION__);
+            if (req.paxs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: req.paxs.empty()", __FUNCTION__);
+            const SirenaExchange::TPaxSegMap &segs=req.paxs.front().segs;
+            if (segs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: segs.empty()", __FUNCTION__);
+            TBagConcept concept=bcUnknown;
+            for(SirenaExchange::TPaxSegMap::const_iterator s=segs.begin(); s!=segs.end(); ++s)
             {
-              SirenaExchange::SendRequest(req1, res);
-              if (res.empty()) throw EXCEPTIONS::Exception("%s: strange situation res.empty()", __FUNCTION__);
-              if (!res.identical_piece_concept())
-                throw UserException("MSG.CHECKIN.DIFFERENT_PIECE_CONCEPT_SETTING");
-              piece_concept=res.begin()->second.piece_concept;
-              if (piece_concept)
+              string flight_view=GetTripName(s->second.operFlt, ecCkin);
+              //пробегаемся по сегментам
+              boost::optional<TBagConcept> seg_concept;
+              if (!res.identical_concept(s->second.id, seg_concept))
+                throw UserException("MSG.CHECKIN.DIFFERENT_BAG_CONCEPT_ON_SEGMENT",
+                                    LParams()<<LParam("flight", flight_view));
+              if (!seg_concept) throw EXCEPTIONS::Exception("%s: strange situation: unknown concept for seg_id=%d", __FUNCTION__, s->second.id);
+              if (s==segs.begin())
+                concept=seg_concept.get();
+              else
               {
-                if (req1.paxs.size()>9)
-                  throw UserException("MSG.CHECKIN.PIECE_CONCEPT_NOT_SUPPORT_MORE_9_PASSENGERS");
-                if (!res.identical_rfisc_list())
-                  throw UserException("MSG.CHECKIN.DIFFERENT_RFISC_LISTS");
-                bag_types_id=res.begin()->second.rfisc_list.toDBAdv();
-                res.normsToDB(0); //сохраняем пока только по первому сегменту
-              };
-            };
-          }
-          catch(UserException &e)
-          {
-            throw;
-          }
-          catch(std::exception &e)
-          {
-            piece_concept=false;
-            bag_types_id=ASTRA::NoExists;
-            if (res.error() &&
-                (res.error_code=="1" || res.error_message=="Incorrect format") &&
-                res.error_reference.path=="passenger/ticket/number" &&
-                !res.error_reference.value.empty())
-            {
-              reqInfo->LocaleToLog("EVT.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED",
-                                   LEvntPrms()<<PrmSmpl<string>("ticket_no", res.error_reference.value),
-                                   ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
-              showErrorMessage("MSG.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED",
-                               LParams()<<LParam("ticket_no", res.error_reference.value));
-            }
-            else
-            {
-              ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
-              reqInfo->LocaleToLog("EVT.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED", ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
-              showErrorMessage("MSG.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED");
-            };
-          }
-        }
-        else
-        {
-          list<PieceConcept::TPaidBagItem> paid;
-          if (!req2.bags.empty())
-          {
-            try
-            {
-              SirenaExchange::TPaymentStatusRes res;
-              SirenaExchange::SendRequest(req2, res);
+                if (seg_concept.get()==bcUnknown)
+                  throw UserException("MSG.TRANSFER_FLIGHT.NOT_MADE_TRANSFER.UNKNOWN_BAG_CONCEPT",
+                                      LParams()<<LParam("flight", flight_view));
 
-              set<string> rfiscs;
-              res.check_unknown_status(rfiscs);
-              if (!rfiscs.empty())
-                throw UserException("MSG.CHECKIN.UNKNOWN_PAYMENT_STATUS_FOR_BAG_TYPE", LParams()<<LParam("bag_type", *rfiscs.begin()));
-              res.normsToDB(0);
-              res.convert(paid);
-            }
-            catch(UserException &e)
+                if (seg_concept.get()!=concept)
+                  throw UserException("MSG.TRANSFER_FLIGHT.NOT_MADE_TRANSFER.DIFFERENT_BAG_CONCEPT",
+                                      LParams()<<LParam("flight", flight_view));
+              }
+            };
+            piece_concept=(concept==bcPiece);
+            if (piece_concept)
             {
-              throw;
-            }
-            catch(std::exception &e)
-            {
-              ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
-              throw UserException("MSG.CHECKIN.UNABLE_CALC_PAID_BAG_TRY_RE_CHECKIN");
-            }
+              if (req.paxs.size()>9)
+                throw UserException("MSG.CHECKIN.PIECE_CONCEPT_NOT_SUPPORT_MORE_9_PASSENGERS");
+              boost::optional<PieceConcept::TRFISCList> rfisc_list;
+              if (!res.identical_rfisc_list(segs.begin()->second.id, rfisc_list))
+              {
+                string flight_view=GetTripName(segs.begin()->second.operFlt, ecCkin);
+                throw UserException("MSG.CHECKIN.DIFFERENT_RFISC_LISTS_ON_SEGMENT",
+                                    LParams()<<LParam("flight", flight_view));
+              };
+              if (!rfisc_list)
+                throw EXCEPTIONS::Exception("%s: strange situation: unknown rfisc_list!", __FUNCTION__);
+              bag_types_id=rfisc_list.get().toDBAdv();
+              res.normsToDB(tckin_grp_ids);
+            };
           };
-          PieceConcept::PaidBagToDB(first_grp_id, paid);
-        };
+        }
+        catch(UserException &e)
+        {
+          throw;
+        }
+        catch(std::exception &e)
+        {
+          piece_concept=false;
+          bag_types_id=ASTRA::NoExists;
+          if (res.error() &&
+              (res.error_code=="1" || res.error_message=="Incorrect format") &&
+              res.error_reference.path=="passenger/ticket/number" &&
+              !res.error_reference.value.empty())
+          {
+            reqInfo->LocaleToLog("EVT.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED",
+                                 LEvntPrms()<<PrmSmpl<string>("ticket_no", res.error_reference.value),
+                                 ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
+            showErrorMessage("MSG.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED",
+                             LParams()<<LParam("ticket_no", res.error_reference.value));
+          }
+          else
+          {
+            ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
+            reqInfo->LocaleToLog("EVT.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED", ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
+            showErrorMessage("MSG.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED");
+          };
+        }
       }
     }
     else showErrorMessage("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
   };
 
-
-  if (action==CheckIn::actionCheckPieceConcept)
-    for(list<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++)
-    {
-      TCachedQuery Qry("UPDATE pax_grp SET piece_concept=:piece_concept, bag_types_id=:bag_types_id WHERE grp_id=:grp_id",
-                       QParams() << QParam("grp_id", otInteger, *grp_id)
-                       << QParam("piece_concept", otInteger, (int)piece_concept)
-                       << (bag_types_id==ASTRA::NoExists?QParam("bag_types_id", otInteger, FNull):
-                                                         QParam("bag_types_id", otInteger, bag_types_id))
-                       );
-      Qry.get().Execute();
-    };
+  for(list<int>::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();++grp_id)
+  {
+    TCachedQuery Qry("UPDATE pax_grp SET piece_concept=:piece_concept, bag_types_id=:bag_types_id WHERE grp_id=:grp_id",
+                     QParams() << QParam("grp_id", otInteger, *grp_id)
+                               << QParam("piece_concept", otInteger, (int)piece_concept)
+                               << (bag_types_id==ASTRA::NoExists?QParam("bag_types_id", otInteger, FNull):
+                                                                 QParam("bag_types_id", otInteger, bag_types_id))
+                     );
+    Qry.get().Execute();
+  };
 }
 
 void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax)
@@ -6388,20 +6389,18 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
 
   xmlNodePtr node;
   TQuery Qry(&OraSession);
-  vector<int> grp_ids;
-  grp_ids.push_back(grp_id);
-
+  TCkinGrpIds tckin_grp_ids;
   TCkinRoute tckin_route;
   tckin_route.GetRouteAfter(grp_id, crtNotCurrent, crtOnlyDependent);
-  for(TCkinRoute::const_iterator r=tckin_route.begin(); r!=tckin_route.end(); r++)
-    grp_ids.push_back(r->grp_id);
+  tckin_route.get(tckin_grp_ids);
+  tckin_grp_ids.insert(tckin_grp_ids.begin(), grp_id);
 
   bool trfer_confirm=true;
   string pax_cat_airline;
   set<string> pax_cats;
   vector<CheckIn::TTransferItem> segs;
   xmlNodePtr segsNode=NewTextChild(resNode,"segments");
-  for(vector<int>::const_iterator grp_id=grp_ids.begin();grp_id!=grp_ids.end();grp_id++)
+  for(TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++)
   {
     list<WeightConcept::TBagNormInfo> all_norms;
     ostringstream norms_view;
@@ -6413,7 +6412,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     Qry.Execute();
     if (Qry.Eof)
     {
-      if (grp_id==grp_ids.begin() && !afterSavePax)
+      if (grp_id==tckin_grp_ids.begin() && !afterSavePax)
         throw AstraLocale::UserException("MSG.PAX_GRP_OR_LUGGAGE_NOT_CHECKED_IN");
       return; //это бывает когда разрегистрация всей группы по ошибке агента
     };
@@ -6424,7 +6423,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     if (grp.piece_concept && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
       throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
 
-    if (grp_id==grp_ids.begin())
+    if (grp_id==tckin_grp_ids.begin())
       trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
 
     TTripInfo operFlt(Qry);
@@ -6471,7 +6470,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     bool pr_unaccomp=grp.cl.empty() && grp.status!=psCrew;
 
     CheckIn::TGroupBagItem group_bag;
-    if (grp_id==grp_ids.begin())
+    if (grp_id==tckin_grp_ids.begin())
       group_bag.fromDB(grp.id, ASTRA::NoExists, !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS));
 
     TTrferRoute trfer;
@@ -6495,7 +6494,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
 
       PaxQry.Execute();
 
-      if (grp_id==grp_ids.begin())
+      if (grp_id==tckin_grp_ids.begin())
       {
         trfer.GetRoute(grp.id, trtWithFirstSeg);
         BuildTransfer(trfer, trtNotFirstSeg, resNode);
@@ -6526,14 +6525,14 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         Qry.Execute();
         NewTextChild(paxNode,"pr_bp_print",(int)(!Qry.Eof));
 
-        if (grp_id==grp_ids.begin())
+        if (grp_id==tckin_grp_ids.begin())
         {
           std::list<CheckIn::TPaxTransferItem> pax_trfer;
           PaxTransferFromDB(pax.id, pax_trfer);
           PaxTransferToXML(pax_trfer, paxNode);
         };
         LoadPaxRem(paxNode);
-        if (grp_id==grp_ids.begin())
+        if (grp_id==tckin_grp_ids.begin())
         {
           if (!grp.piece_concept)
           {
@@ -6545,7 +6544,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
           }
           else
           {
-            PieceConcept::PaxNormsToStream(pax, norms_view);
+            PieceConcept::PaxNormsToStream(trfer, pax, norms_view);
           };
 
           pax_cat_airline=seg.operFlt.airline;
@@ -6556,7 +6555,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     else
     {
       //несопровождаемый багаж
-      if (grp_id==grp_ids.begin())
+      if (grp_id==tckin_grp_ids.begin())
       {
         trfer.GetRoute(grp.id, trtWithFirstSeg);
         BuildTransfer(trfer, trtNotFirstSeg, resNode);
@@ -6569,7 +6568,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         };
       };
     };
-    if (grp_id==grp_ids.begin())
+    if (grp_id==tckin_grp_ids.begin())
     {
       group_bag.toXML(resNode);
       if (!grp.piece_concept)

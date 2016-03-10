@@ -3223,16 +3223,24 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr datasetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr passengersNode = NewTextChild(datasetsNode, "passengers");
     TRemGrp rem_grp;
-    if(not Qry.Eof)
-        rem_grp.Load(retBRD_VIEW, rpt_params.point_id);
-    for( ; !Qry.Eof; Qry.Next()) {
+    if(!Qry.Eof)
+    {
+      rem_grp.Load(retBRD_VIEW, rpt_params.point_id);
+
+      bool check_pay_on_tckin_segs=false;
+      TTripInfo fltInfo;
+      if (fltInfo.getByPointId(rpt_params.point_id))
+        check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, fltInfo);
+
+      for( ; !Qry.Eof; Qry.Next()) {
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+        int grp_id = Qry.FieldAsInteger("grp_id");
         int pax_id = Qry.FieldAsInteger("pax_id");
         NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
         NewTextChild(paxNode, "surname", transliter(Qry.FieldAsString("surname"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         NewTextChild(paxNode, "name", transliter(Qry.FieldAsString("name"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         if(pr_web)
-            NewTextChild(paxNode, "user_descr", transliter(Qry.FieldAsString("user_descr"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+          NewTextChild(paxNode, "user_descr", transliter(Qry.FieldAsString("user_descr"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
         NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam"), 0);
         NewTextChild(paxNode, "pr_brd", Qry.FieldAsInteger("pr_brd"), 0);
@@ -3247,11 +3255,12 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
         bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
         NewTextChild(paxNode, "piece_concept", (int)piece_concept);
-        bool pr_payment=piece_concept?PieceConcept::BagPaymentCompleted(pax_id):
-                                      WeightConcept::BagPaymentCompleted(Qry.FieldAsInteger("grp_id"));
+        bool pr_payment=piece_concept?PieceConcept::BagPaymentCompleted(grp_id, pax_id, check_pay_on_tckin_segs):
+                                      WeightConcept::BagPaymentCompleted(grp_id);
         NewTextChild(paxNode, "pr_payment", (int)pr_payment);
         NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
         NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id));
+      }
     }
 
     // Теперь переменные отчета

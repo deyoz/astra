@@ -31,7 +31,7 @@ bool TTripInfo::getByPointId ( const int point_id )
     "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
     "       airline_fmt, suffix_fmt, airp_fmt  "
     "FROM points "
-    "WHERE point_id = :point_id";
+    "WHERE point_id = :point_id AND pr_del>=0";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
 
