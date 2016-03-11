@@ -41,7 +41,9 @@
 #include "tlg/remote_system_context.h"
 #include "tlg/AgentWaitsForRemote.h"
 
+#define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
+#include "serverlib/test.h"
 #include "serverlib/slogger.h"
 
 using namespace std;
@@ -1899,84 +1901,97 @@ void EMDAutoBoundInterface::EMDTryBind(int grp_id,
                                        xmlNodePtr termReqNode,
                                        xmlNodePtr ediResNode)
 {
-  bool second_call=GetNode("second_call", termReqNode)!=NULL;
-
-  list<PieceConcept::TPaidBagItem> paid_bag;
-  list<CheckIn::TPaidBagEMDItem> paid_bag_emd;
-  CheckIn::TPaidBagEMDProps paid_bag_emd_props;
-  PieceConcept::PaidBagFromDB(grp_id, true, paid_bag);
-  CheckIn::PaidBagEMDFromDB(grp_id, paid_bag_emd);
-  CheckIn::PaidBagEMDPropsFromDB(grp_id, paid_bag_emd_props);
-  boost::optional< list<CheckIn::TPaidBagEMDItem> > confirmed_emd;
-  if (second_call)
+  try
   {
-    confirmed_emd=list<CheckIn::TPaidBagEMDItem>();
+    bool second_call=GetNode("second_call", termReqNode)!=NULL;
 
-    //надо бы в paid_bag_emd включить только изменившие статус EMD
-    xmlNodePtr emdNode=GetNode("emdocs", ediResNode);
-    if (emdNode!=NULL) emdNode=emdNode->children;
-    for(; emdNode!=NULL; emdNode=emdNode->next)
+    list<PieceConcept::TPaidBagItem> paid_bag;
+    list<CheckIn::TPaidBagEMDItem> paid_bag_emd;
+    CheckIn::TPaidBagEMDProps paid_bag_emd_props;
+    PieceConcept::PaidBagFromDB(grp_id, true, paid_bag);
+    CheckIn::PaidBagEMDFromDB(grp_id, paid_bag_emd);
+    CheckIn::PaidBagEMDPropsFromDB(grp_id, paid_bag_emd_props);
+    boost::optional< list<CheckIn::TPaidBagEMDItem> > confirmed_emd;
+    if (second_call)
     {
-      TEMDCtxtItem EMDCtxt;
-      EMDCtxt.fromXML(emdNode);
+      confirmed_emd=list<CheckIn::TPaidBagEMDItem>();
 
-      if (EMDCtxt.paxUnknown()) continue;
-
-      EdiErrorList errList;
-      GetEdiError(emdNode, errList);
-      if (!errList.empty()) continue;
-
-      CheckIn::TPaidBagEMDItem item;
-      item.emd_no=EMDCtxt.asvc.emd_no;
-      item.emd_coupon=EMDCtxt.asvc.emd_coupon;
-      item.pax_id=EMDCtxt.pax.id;
-
-      confirmed_emd.get().push_back(item);
-    };
-  };
-
-
-  if (PieceConcept::TryAddPaidBagEMD(paid_bag, paid_bag_emd, paid_bag_emd_props, confirmed_emd))
-  {
-    TGrpToLogInfo grpInfoBefore;
-    GetGrpToLogInfo(grp_id, grpInfoBefore);
-    CheckIn::PaidBagEMDList paidBagEMDBefore;
-    if (!second_call)
-      PaxASVCList::GetBoundPaidBagEMD(grp_id, NoExists, paidBagEMDBefore);
-
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
-      "UPDATE pax_grp SET tid=cycle_tid__seq.nextval WHERE grp_id=:grp_id";
-    Qry.CreateVariable("grp_id", otInteger, grp_id);
-    Qry.Execute();
-
-    PieceConcept::PaidBagToDB(grp_id, paid_bag);
-    CheckIn::PaidBagEMDToDB(grp_id, paid_bag_emd);
-
-    if (!second_call)
-    {
-      //здесь ChangeStatus
-      TEMDChangeStatusList EMDList;
-      EMDStatusInterface::EMDCheckStatus(grp_id, paidBagEMDBefore, EMDList);
-
-      if (!EMDList.empty())
+      //надо бы в paid_bag_emd включить только изменившие статус EMD
+      xmlNodePtr emdNode=GetNode("emdocs", ediResNode);
+      if (emdNode!=NULL) emdNode=emdNode->children;
+      for(; emdNode!=NULL; emdNode=emdNode->next)
       {
-        //хотя бы один документ будет обрабатываться
-        OraSession.Rollback();  //откат
-        NewTextChild(termReqNode, "second_call");
-        edifact::KickInfo kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc)),
-                                                                "EMDAutoBound");
-        EMDStatusInterface::EMDChangeStatus(kickInfo,EMDList);
-        return;
+        TEMDCtxtItem EMDCtxt;
+        EMDCtxt.fromXML(emdNode);
+
+        if (EMDCtxt.paxUnknown()) continue;
+
+        EdiErrorList errList;
+        GetEdiError(emdNode, errList);
+        if (!errList.empty()) continue;
+
+        CheckIn::TPaidBagEMDItem item;
+        item.emd_no=EMDCtxt.asvc.emd_no;
+        item.emd_coupon=EMDCtxt.asvc.emd_coupon;
+        item.pax_id=EMDCtxt.pax.id;
+
+        confirmed_emd.get().push_back(item);
       };
     };
 
-    TGrpToLogInfo grpInfoAfter;
-    GetGrpToLogInfo(grp_id, grpInfoAfter);
-    TAgentStatInfo agentStat;
-    SaveGrpToLog(grpInfoBefore, grpInfoAfter, CheckIn::TPaidBagEMDProps(), agentStat);
-  };
+
+    if (PieceConcept::TryAddPaidBagEMD(paid_bag, paid_bag_emd, paid_bag_emd_props, confirmed_emd))
+    {
+      TGrpToLogInfo grpInfoBefore;
+      GetGrpToLogInfo(grp_id, grpInfoBefore);
+      CheckIn::PaidBagEMDList paidBagEMDBefore;
+      if (!second_call)
+        PaxASVCList::GetBoundPaidBagEMD(grp_id, NoExists, paidBagEMDBefore);
+
+      TQuery Qry(&OraSession);
+      Qry.Clear();
+      Qry.SQLText=
+          "UPDATE pax_grp SET tid=cycle_tid__seq.nextval WHERE grp_id=:grp_id";
+      Qry.CreateVariable("grp_id", otInteger, grp_id);
+      Qry.Execute();
+
+      PieceConcept::PaidBagToDB(grp_id, paid_bag);
+      CheckIn::PaidBagEMDToDB(grp_id, paid_bag_emd);
+
+      if (!second_call)
+      {
+        //здесь ChangeStatus
+        TEMDChangeStatusList EMDList;
+        EMDStatusInterface::EMDCheckStatus(grp_id, paidBagEMDBefore, EMDList);
+
+        if (!EMDList.empty())
+        {
+          //хотя бы один документ будет обрабатываться
+          OraSession.Rollback();  //откат
+          NewTextChild(termReqNode, "second_call");
+          edifact::KickInfo kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc)),
+                                                                  "EMDAutoBound");
+          EMDStatusInterface::EMDChangeStatus(kickInfo,EMDList);
+          return;
+        };
+      };
+
+      TGrpToLogInfo grpInfoAfter;
+      GetGrpToLogInfo(grp_id, grpInfoAfter);
+      TAgentStatInfo agentStat;
+      SaveGrpToLog(grpInfoBefore, grpInfoAfter, CheckIn::TPaidBagEMDProps(), agentStat);
+    };
+  }
+  catch(UserException &e)
+  {
+    OraSession.Rollback();
+    ProgTrace(TRACE5, ">>>> %s: UserException: %s", __FUNCTION__, e.what());
+  }
+  catch(std::exception &e)
+  {
+    OraSession.Rollback();
+    ProgError(STDLOG, "%s: std::exception: %s", __FUNCTION__, e.what());
+  }
 }
 
 void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
