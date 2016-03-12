@@ -117,12 +117,9 @@ bool handle_tlg(void)
       "       NVL(tlg_queue.proc_attempt,0) AS proc_attempt "
       "FROM tlg_queue "
       "WHERE tlg_queue.receiver=:receiver AND "
-      "      tlg_queue.sender=:sender AND "
-      "      tlg_queue.type='OUTB' AND tlg_queue.status='PUT' "
+      "      tlg_queue.type='IAPP' AND tlg_queue.status='PUT' "
       "ORDER BY tlg_queue.time,tlg_queue.id";
     TlgQry.CreateVariable( "receiver", otString, OWN_CANON_NAME() );
-    TlgQry.CreateVariable( "sender", otString, getAPPSAddr() );
-    // !!! Не забыть заменить type='IAPP' (type='OUTB' только для тестирования) и убрать sender
   };
 
   int count;
@@ -134,7 +131,7 @@ bool handle_tlg(void)
     int id = TlgQry.FieldAsInteger("id");
     std::string text = getTlgText(id);
     ProgTrace(TRACE5,"TLG_IN: <%s>", text.c_str());
-    if ( !processReply( text ) )
+    if ( !processReply( getAnsText( text ) ) )
       ProgTrace(TRACE5, "Message was not found");
     deleteTlg(id);
     callPostHooksBefore();
@@ -168,17 +165,18 @@ void resend_tlg(void)
     bool apps_down = get_alarm(point_id, atAPPSOutage);
     BASIC::TDateTime send_time = Qry.FieldAsDateTime("send_time");
     int msg_id = Qry.FieldAsInteger("msg_id");
-    if (!checkTime(point_id)) {
-      // More than 2 days has passed after flight scheduled departure time. It is useless to continue send.
+    if (!checkTime(point_id) || send_attempts == MaxSendAttempts) {
+      /* More than 2 days has passed after flight scheduled departure time or max value of send attempts has been reached.
+         It is useless to continue send. */
       deleteMsg(msg_id);
     }
     // maximum time to wait for a response from APPS is 4 sec
     BASIC::TDateTime now = BASIC::NowUTC();
-    double ttw_sec = apps_down?600.0:4.0;
+    double ttw_sec = apps_down?600.0:10.0;
     if (now - send_time < ttw_sec/(24.0*60.0*60.0)) {
       continue;
     }
-    if( ( send_attempts >= MaxSendAttempts ) && !apps_down ) {
+    if( ( send_attempts >= NumSendAttempts ) && !apps_down ) {
       // включим тревогу "Нет связи с APPS"
       set_alarm(point_id, atAPPSOutage, true);
     }

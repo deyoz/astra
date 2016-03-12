@@ -226,9 +226,14 @@ static void logTlgTypeB(const std::string& text)
     LogTlg() << text;
 }
 
+static void logTlgTypeAPP(const std::string& text)
+{
+    LogTlg() << text;
+}
+
 static void logTlg(const std::string& type, int tlgNum, const std::string& receiver, const std::string& text)
 {
-    if(type != "OUTA" && type != "OUTB")
+    if(type != "OUTA" && type != "OUTB" && type != "OAPP")
         return;
 
     LogTlg() << "| TNUM: " << tlgNum
@@ -238,8 +243,10 @@ static void logTlg(const std::string& type, int tlgNum, const std::string& recei
 
     if(type == "OUTA")
         logTlgTypeA(text);
-    else
+    else if(type == "OUTB")
         logTlgTypeB(text);
+    else
+        logTlgTypeAPP(text);
 }
 
 static void putTlg2OutQueue(const std::string& receiver,

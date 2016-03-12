@@ -8,20 +8,25 @@
 #include "checkin.h"
 #include "points.h"
 
-const int MaxSendAttempts = 5;
+const int NumSendAttempts = 5; // количество попыток до включения тревоги "Нет связи с APPS"
+const int MaxSendAttempts = 99; // максимальное количество попыток
+
+const char* const APPSAddr = "APIGT";
+
 enum APPSAction { NoAction, NeedUpdate, NeedNew, NeedCancel };
 
 void processPax( const int pax_id, const std::string& override_type = "", const bool is_forced = false );
 void APPSFlightCloseout( const int point_id );
+std::string getAnsText( const std::string& tlg );
 bool processReply( const std::string& source );
-bool isNeedAPPSReq(const int point_dep, const int point_arv);
-bool isNeedAPPSReq( const int point_dep, const std::string& airp_arv );
+bool checkAPPSSets(const int point_dep, const int point_arv );
+bool checkAPPSSets( const int point_dep, const std::string& airp_arv );
+bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& tansit );
 bool checkTime( const int point_id );
 bool checkTime( const int point_id, BASIC::TDateTime& start_time );
 std::string emulateAnswer( const std::string& request );
 bool IsAPPSAnswText( const std::string& tlg_body );
-std::set<std::string> needFltCloseout( const std::set<std::string>& countries );
-std::string getAPPSAddr();
+std::set<std::string> needFltCloseout( const std::set<std::string>& countries, const std::string airline );
 void sendAllAPPSInfo( const int point_id, const std::string& task_name, const std::string& params );
 void sendNewAPPSInfo( const int point_id, const std::string& task_name, const std::string& params );
 void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id );
@@ -36,7 +41,7 @@ struct TTransData
   int ver; // для Арабских Эмиратов версия 21
 
   TTransData() : type( false ), ver( ASTRA::NoExists ) {}
-  void init( const bool pre_ckin, const std::string& trans_code );
+  void init( const bool pre_ckin, const std::string& trans_code, const std::string& id );
   bool operator == ( const TTransData& data ) const
   {
     return type == data.type &&
@@ -74,7 +79,7 @@ struct TFlightData
   void check_data() const;
   std::string msg() const;
   void is_need_req() const {
-    if( !isNeedAPPSReq( point_id, arv_port ) )
+    if( !checkAPPSSets( point_id, arv_port ) )
       throw AstraLocale::UserException( "Flight does not need to be processed by APPS" );
   }
   void check_time() const {
@@ -94,7 +99,7 @@ struct TFlightData
 struct TPaxData
 {
   int pax_id;
-  int apps_pax_id; // только для "PCX". Уникальный ID пассажира. Получаем в ответ на CIRQ запрос
+  std::string apps_pax_id; // только для "PCX". Уникальный ID пассажира. Получаем в ответ на CIRQ запрос
   std::string status;
   std::string pax_crew; // 'C' или 'P'
   std::string nationality;
@@ -120,7 +125,7 @@ struct TPaxData
   std::string pnr_source; // conditional
   std::string pnr_locator; // conditional
 
-  TPaxData () : pax_id(ASTRA::NoExists), apps_pax_id(ASTRA::NoExists) {}
+  TPaxData () : pax_id(ASTRA::NoExists) {}
   void init( const int pax_id, const std::string& surname, const std::string name,
              const bool is_crew, const int transfer, const std::string& override );
   void init( TQuery &Qry );
@@ -169,6 +174,7 @@ struct TMftData
 
 class TPaxRequest
 {
+  std::string header;
   TTransData trans;
   TFlightData int_flt;
   TFlightData ckin_flt;
@@ -212,6 +218,7 @@ public:
 
 class TManifestRequest
 {
+  std::string header;
   TTransData trans;
   TFlightData int_flt;
   TMftData mft_req;
@@ -229,7 +236,7 @@ struct TAnsPaxData
   std::string status; /* Статусы для CIRS: "B" = OK to Board, "D" = Do Not Board (override is possible), "X" = Do Not Board (override is impossible),
   "U" = Unable to determine status, "I" = Not enought data, "T" = Timeout, "E" = Error.
   Статусы для CIСС: "C" = Cancelled, "N" = Not found, "T" = Timeout, "E" = Error. */
-  int apps_pax_id;
+  std::string apps_pax_id;
   int error_code1; // Conditional (on error condition)
   std::string error_text1; // Conditional (on error condition)
   int error_code2; // Conditional (on error condition)
@@ -237,7 +244,7 @@ struct TAnsPaxData
   int error_code3; // Conditional (on error condition)
   std::string error_text3; // Conditional (on error condition)
 
-  TAnsPaxData() : code(ASTRA::NoExists), apps_pax_id(ASTRA::NoExists), error_code1(ASTRA::NoExists),
+  TAnsPaxData() : code(ASTRA::NoExists), error_code1(ASTRA::NoExists),
                   error_code2(ASTRA::NoExists), error_code3(ASTRA::NoExists) {}
   std::string toString() const;
   void init( std::string source );

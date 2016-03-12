@@ -209,6 +209,7 @@ void process_tlg(void)
           tlg_body=tlg_in.body;
           tlg_len=len-tlg_header_len;
         };
+
         if(IsEdifactText(tlg_body,tlg_len))
           type = tEdi;
         else if (IsAPPSAnswText(tlg_body))
@@ -305,7 +306,7 @@ void process_tlg(void)
           TlgUpdQry.SQLText=
             "UPDATE tlg_queue SET status='SEND' "
             "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-            "      type IN ('OUTA','OUTB') AND status='PUT'";
+            "      type IN ('OUTA','OUTB','OAPP') AND status='PUT'";
           TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
           TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
           TlgUpdQry.Execute();
@@ -329,7 +330,7 @@ void process_tlg(void)
           TlgUpdQry.SQLText=
             "DELETE FROM tlg_queue "
             "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-            "      type IN ('OUTA','OUTB') AND status='SEND'";
+            "      type IN ('OUTA','OUTB','OAPP') AND status='SEND'";
           TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
           TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
           TlgUpdQry.Execute();
@@ -347,14 +348,14 @@ void process_tlg(void)
           TlgUpdQry.SQLText=
             "DELETE FROM tlg_queue "
             "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-            "      type IN ('OUTA','OUTB')";
+            "      type IN ('OUTA','OUTB','OAPP')";
           TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
           TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
           TlgUpdQry.Execute();
           TlgUpdQry.SQLText=
             "UPDATE tlgs SET error= :error "
             "WHERE tlg_num= :tlg_num AND sender= :sender AND "
-            "      type IN ('OUTA','OUTB')";
+            "      type IN ('OUTA','OUTB','OAPP')";
           TlgUpdQry.CreateVariable("error",otString,"GATE");
           TlgUpdQry.Execute();
         };

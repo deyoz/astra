@@ -150,7 +150,7 @@ bool scan_tlg(bool sendOutAStepByStep)
       "FROM tlg_queue,rot "
       "WHERE tlg_queue.receiver=rot.canon_name(+) AND tlg_queue.sender=rot.own_canon_name(+) AND "
       "      tlg_queue.sender=:sender AND "
-      "      tlg_queue.type IN ('OUTA','OUTB') AND tlg_queue.status='PUT' "
+      "      tlg_queue.type IN ('OUTA','OUTB','OAPP') AND tlg_queue.status='PUT' "
       "ORDER BY tlg_queue.priority, tlg_queue.time_msec, tlg_queue.tlg_num";
     TlgQry.CreateVariable("sender",otString,OWN_CANON_NAME());
   };
@@ -162,7 +162,7 @@ bool scan_tlg(bool sendOutAStepByStep)
     TlgUpdQry.SQLText=
       "UPDATE tlg_queue SET last_send=:last_send "
       "WHERE id=:id AND "
-      "      type IN ('OUTA','OUTB') AND status='PUT' ";
+      "      type IN ('OUTA','OUTB','OAPP') AND status='PUT' ";
     TlgUpdQry.DeclareVariable("last_send", otFloat);
     TlgUpdQry.DeclareVariable("id", otInteger);
   };

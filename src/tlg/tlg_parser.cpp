@@ -6608,8 +6608,13 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         set<int> emd_alarm_pax_ids;
         bool chkd_exists=false;
         bool apps_pax_exists=false;
-        TAdvTripInfoList trips = getTripsByPointIdTlg(point_id);
-        bool point_id_spp = trips.front().point_id;
+        int point_id_spp = ASTRA::NoExists;
+        TAdvTripInfoList trips;
+        if ( !isPRL ) {
+          trips = getTripsByPointIdTlg(point_id);
+          if (!trips.empty())
+            point_id_spp = trips.front().point_id;
+        }
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
         {
           CrsPnrQry.SetVariable("airp_arv",iTotals->dest);
@@ -6617,7 +6622,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           CrsPnrInsQry.SetVariable("airp_arv",iTotals->dest);
           CrsPnrInsQry.SetVariable("subclass",iTotals->subcl);
           CrsPnrInsQry.SetVariable("class",EncodeClass(iTotals->cl));
-          bool is_need_apps = isNeedAPPSReq(point_id_spp, iTotals->dest);
+          bool is_need_apps = false;
+          if ( point_id_spp != ASTRA::NoExists )
+            checkAPPSSets(point_id_spp, iTotals->dest);
           for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
           {
             TPnrItem& pnr=*iPnrItem;
@@ -7043,7 +7050,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           for(TAdvTripInfoList::const_iterator it = trips.begin(); it != trips.end(); it++)
             add_trip_task((*it).point_id, SYNC_NEW_CHKD, "");
         };
-        if(apps_pax_exists) {
+        if(!isPRL && apps_pax_exists) {
           BASIC::TDateTime start_time;
           bool result = checkTime( point_id, start_time );
           if ( result || ( !result && start_time != ASTRA::NoExists ) )
