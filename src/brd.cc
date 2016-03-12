@@ -1222,7 +1222,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         };
 
         //============================ проверка APPS статуса пассажира ============================
-        if (isNeedAPPSReq(point_id, point_arv)) {
+        if (checkAPPSSets(point_id, point_arv)) {
           TPaxRequest * apps_pax = new TPaxRequest();
           for(int pass=0;pass<2;pass++)
           {

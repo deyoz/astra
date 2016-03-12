@@ -3831,7 +3831,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     segList.back().flt=s->second.fltInfo;
 
-    if (!pr_unaccomp && isNeedAPPSReq(segList.back().grp.point_dep, segList.back().grp.point_arv))
+    if (!pr_unaccomp && checkAPPSSets(segList.back().grp.point_dep, segList.back().grp.point_arv))
         need_apps = true;
   };
 
@@ -5267,7 +5267,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 WeightConcept::PaxNormsToDB(pax.id, p->norms);
 
               if ( need_apps )
-                processPax( pax.id );          }
+                processPax( pax.id );
+            }
             catch(CheckIn::UserException)
             {
               throw;

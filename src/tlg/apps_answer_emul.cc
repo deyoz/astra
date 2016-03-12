@@ -113,7 +113,7 @@ bool handle_tlg(void)
       "WHERE tlg_queue.receiver=:receiver AND "
       "      tlg_queue.type='OAPP' "
       "ORDER BY tlg_queue.time,tlg_queue.id";
-    TlgQry.CreateVariable("receiver",otString,getAPPSAddr());
+    TlgQry.CreateVariable( "receiver", otString, APPSAddr );
   };
 
   int count;
@@ -133,7 +133,7 @@ bool handle_tlg(void)
 
         if (!answer.empty()) {
           // отправим телеграмму
-          sendTlg(OWN_CANON_NAME(), getAPPSAddr().c_str(), qpOutB, 20, answer,
+          sendTlg(OWN_CANON_NAME(), APPSAddr, qpOutB, 20, answer,
                   ASTRA::NoExists, ASTRA::NoExists);
 
           sendCmd("CMD_APPS_HANDLER","H");
