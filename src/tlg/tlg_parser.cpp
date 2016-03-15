@@ -26,6 +26,7 @@
 #include "trip_tasks.h"
 #include "remarks.h"
 #include "apps_interaction.h"
+#include "etick.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -6605,6 +6606,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         bool pr_sync_pnr;
         bool UsePriorContext=false;
         TPointIdsForCheck point_ids_spp;
+        set<int> et_display_pax_ids;
         set<int> emd_alarm_pax_ids;
         bool chkd_exists=false;
         bool apps_pax_exists=false;
@@ -6927,6 +6929,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     SaveDOCARem(inf_id,iInfItem->doca);
                     SaveTKNRem(inf_id,iInfItem->tkn);
                     if (SaveCHKDRem(inf_id,iInfItem->chkd)) chkd_exists=true;
+                    et_display_pax_ids.insert(inf_id);
                   };
 
                   //ремарки пассажира
@@ -6937,6 +6940,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   SaveTKNRem(pax_id,iPaxItem->tkn);
                   SaveFQTRem(pax_id,iPaxItem->fqt);
                   if (SaveCHKDRem(pax_id,iPaxItem->chkd)) chkd_exists=true;
+                  et_display_pax_ids.insert(pax_id);
+
                   bool sync_pax_asvc;
                   SaveASVCRem(pax_id,iPaxItem->asvc,sync_pax_asvc);
                   if (sync_pax_asvc) emd_alarm_pax_ids.insert(pax_id);
@@ -7044,6 +7049,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           };//for(iPnrItem=iTotals->pnr.begin()
         };
         check_layer_change(point_ids_spp);
+        TlgETDisplay(point_id, et_display_pax_ids, true);
         check_unbound_emd_alarm(emd_alarm_pax_ids);
         if (!isPRL && chkd_exists)
         {

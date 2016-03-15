@@ -45,9 +45,10 @@ struct KickInfo
     std::string msgId;
     std::string desk;
   public:
-    KickInfo() : reqCtxtId(ASTRA::NoExists),
-                 parentSessId(ASTRA::NoExists)
-    {}
+    KickInfo()
+    {
+      clear();
+    }
     KickInfo(const int v_reqCtxtId,
              const std::string &v_iface,
              const std::string &v_msgid,
@@ -70,6 +71,11 @@ struct KickInfo
     }
     const KickInfo& toXML(xmlNodePtr node) const;
     KickInfo& fromXML(xmlNodePtr node);
+
+    bool background_mode() const
+    {
+      return msgId.empty();
+    }
 };
 
 /**

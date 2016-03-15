@@ -96,7 +96,7 @@ void EdifactRequest::sendTlg()
     // Положить тлг в очередь на отправку
     ::sendTlg(sysCont()->routerCanonName().c_str(),
               OWN_CANON_NAME(),
-              qpOutA,
+              qpOutA, //!!!здесь доделать step by step, если kickInfo.background_mode
               sysCont()->edifactResponseTimeOut(),
               TlgOut->text(),
               ASTRA::NoExists,

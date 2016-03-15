@@ -204,11 +204,11 @@ public:
     : BaseOrigOfRequest(airline,
                         "ŒŽ‚",
                         "","",//ppr,agn
-                        req.desk.city,
+                        !req.desk.code.empty()?req.desk.city:"ŒŽ‚",
                         'Y',
-                        req.desk.code,
+                        !req.desk.code.empty()?req.desk.code:"SYSTEM",
                         "",
-                        req.desk.lang == AstraLocale::LANG_RU?RUSSIAN:ENGLISH)
+                        !req.desk.code.empty()?(req.desk.lang == AstraLocale::LANG_RU?RUSSIAN:ENGLISH):RUSSIAN)
     {
     }
 

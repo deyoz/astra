@@ -383,8 +383,8 @@ const TEMDCtxtItem& TEMDCtxtItem::toXML(xmlNodePtr node) const
   NewTextChild(node, "doc_no", asvc.emd_no);
   asvc.emd_coupon!=NoExists?NewTextChild(node, "coupon_no", asvc.emd_coupon):
                             NewTextChild(node, "coupon_no");
-  status!=Ticketing::CouponStatus::Unavailable?NewTextChild(node, "coupon_status", status->dispCode()):
-                                               NewTextChild(node, "coupon_status", FNull);
+  status!=CouponStatus::Unavailable?NewTextChild(node, "coupon_status", status->dispCode()):
+                                    NewTextChild(node, "coupon_status", FNull);
   NewTextChild(node, "associated", (int)(action==CpnStatAction::associate));
   NewTextChild(node, "associated_no", pax.tkn.no);
   pax.tkn.coupon !=NoExists?NewTextChild(node, "associated_coupon", pax.tkn.coupon):
@@ -405,8 +405,8 @@ TEMDCtxtItem& TEMDCtxtItem::fromXML(xmlNodePtr node, xmlNodePtr originNode)
   asvc.emd_coupon=NodeAsIntegerFast("coupon_no", node2, NoExists);
   action=NodeAsIntegerFast("associated", node2)!=0?CpnStatAction::associate:
                                                    CpnStatAction::disassociate;
-  status=NodeIsNULLFast("coupon_status", node2)?Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable):
-                                                Ticketing::CouponStatus(CouponStatus::fromDispCode(NodeAsStringFast("coupon_status", node2)));
+  status=NodeIsNULLFast("coupon_status", node2)?CouponStatus(CouponStatus::Unavailable):
+                                                CouponStatus(CouponStatus::fromDispCode(NodeAsStringFast("coupon_status", node2)));
   pax.tkn.no=NodeAsStringFast("associated_no", node2);
   pax.tkn.coupon=NodeAsIntegerFast("associated_coupon", node2, NoExists);
   return *this;
@@ -443,9 +443,9 @@ void GetEMDDisassocList(const int point_id,
 
     if (item.status==CouponStatus::Boarded &&
         Qry.FieldIsNULL("paid_bag_emd_grp_id"))
-      item.action=Ticketing::CpnStatAction::disassociate;
+      item.action=CpnStatAction::disassociate;
     else
-      item.action=Ticketing::CpnStatAction::associate;
+      item.action=CpnStatAction::associate;
     emds.push_back(item);
   };
 };
@@ -505,7 +505,7 @@ void GetEMDStatusList(const int grp_id,
 
 const TEMDocItem& TEMDocItem::toDB(const TEdiAction ediAction) const
 {
-  if (emd_no.empty() || emd_coupon==ASTRA::NoExists)
+  if (empty())
     throw EXCEPTIONS::Exception("TEMDocItem::toDB: empty emd");
 
   QParams QryParams;
@@ -516,12 +516,12 @@ const TEMDocItem& TEMDocItem::toDB(const TEdiAction ediAction) const
   switch(ediAction)
   {
     case ChangeOfStatus:
-      QryParams << (status!=Ticketing::CouponStatus::Unavailable?QParam("coupon_status", otString, status->dispCode()):
-                                                                 QParam("coupon_status", otString, FNull))
+      QryParams << (status!=CouponStatus::Unavailable?QParam("coupon_status", otString, status->dispCode()):
+                                                      QParam("coupon_status", otString, FNull))
                 << QParam("change_status_error", otString, change_status_error.substr(0,100));
       break;
     case SystemUpdate:
-      QryParams << QParam("associated", otInteger, (int)(action==Ticketing::CpnStatAction::associate))
+      QryParams << QParam("associated", otInteger, (int)(action==CpnStatAction::associate))
                 << QParam("associated_no", otString, et_no)
                 << QParam("associated_coupon", otInteger, et_coupon)
                 << QParam("system_update_error", otString, system_update_error.substr(0,100));
@@ -566,18 +566,18 @@ const TEMDocItem& TEMDocItem::toDB(const TEdiAction ediAction) const
   return *this;
 };
 
-TEMDocItem& TEMDocItem::fromDB(const string &v_emd_no,
-                               const int v_emd_coupon,
+TEMDocItem& TEMDocItem::fromDB(const string &_emd_no,
+                               const int _emd_coupon,
                                const bool lock)
 {
   clear();
 
-  if (v_emd_no.empty() || v_emd_coupon==ASTRA::NoExists)
+  if (_emd_no.empty() || _emd_coupon==ASTRA::NoExists)
     throw EXCEPTIONS::Exception("TEMDocItem::fromDB: empty emd");
 
   QParams QryParams;
-  QryParams << QParam("doc_no", otString, v_emd_no);
-  QryParams << QParam("coupon_no", otInteger, v_emd_coupon);
+  QryParams << QParam("doc_no", otString, _emd_no);
+  QryParams << QParam("coupon_no", otInteger, _emd_coupon);
 
   const string sql="SELECT coupon_status, associated, associated_no, associated_coupon, "
                    "       change_status_error, system_update_error, point_id "
@@ -589,17 +589,17 @@ TEMDocItem& TEMDocItem::fromDB(const string &v_emd_no,
   Qry.get().Execute();
   if (!Qry.get().Eof)
   {
-    emd_no=v_emd_no;
-    emd_coupon=v_emd_coupon;
+    emd_no=_emd_no;
+    emd_coupon=_emd_coupon;
 
     et_no=Qry.get().FieldAsString("associated_no");
     et_coupon=Qry.get().FieldIsNULL("associated_coupon")?ASTRA::NoExists:
                                                          Qry.get().FieldAsInteger("associated_coupon");
 
-    status=Qry.get().FieldIsNULL("coupon_status")?Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable):
-                                                  Ticketing::CouponStatus(CouponStatus::fromDispCode(Qry.get().FieldAsString("coupon_status")));
-    action=Qry.get().FieldAsInteger("associated")!=0?Ticketing::CpnStatAction::associate:
-                                                     Ticketing::CpnStatAction::disassociate;
+    status=Qry.get().FieldIsNULL("coupon_status")?CouponStatus(CouponStatus::Unavailable):
+                                                  CouponStatus(CouponStatus::fromDispCode(Qry.get().FieldAsString("coupon_status")));
+    action=Qry.get().FieldAsInteger("associated")!=0?CpnStatAction::associate:
+                                                     CpnStatAction::disassociate;
 
     change_status_error=Qry.get().FieldAsString("change_status_error");
     system_update_error=Qry.get().FieldAsString("system_update_error");
@@ -878,14 +878,6 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
 
   };
 }
-
-TDateTime BoostToDateTime( const boost::gregorian::date &d1 )
-{
-  TDateTime d2;
-  EncodeDate(d1.year(),d1.month(),d1.day(),d2);
-  return d2;
-};
-
 
 void handleEmdDispResponse(const std::string &tlg)
 {

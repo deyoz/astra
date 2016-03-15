@@ -16,6 +16,48 @@ using namespace std;
 using namespace AstraLocale;
 using namespace EXCEPTIONS;
 
+void TBagNormUnit::set(const Ticketing::Baggage::Baggage_t &value)
+{
+  unit=value;
+}
+
+void TBagNormUnit::set(const std::string &value)
+{
+  if      (value=="PC") unit=Ticketing::Baggage::NumPieces;
+  else if (value=="KG") unit=Ticketing::Baggage::WeightKilo;
+  else if (value=="LB") unit=Ticketing::Baggage::WeightPounds;
+  else                  unit=Ticketing::Baggage::Nil;
+}
+
+Ticketing::Baggage::Baggage_t TBagNormUnit::get() const
+{
+  return unit;
+}
+
+std::string TBagNormUnit::get_db_form() const
+{
+  switch(unit)
+  {
+    case Ticketing::Baggage::NumPieces:    return "PC";
+    case Ticketing::Baggage::WeightKilo:   return "KG";
+    case Ticketing::Baggage::WeightPounds: return "LB";
+    case Ticketing::Baggage::Nil:          return "";
+  }
+  return "";
+}
+
+std::string TBagNormUnit::get_lexeme_form() const
+{
+  switch(unit)
+  {
+    case Ticketing::Baggage::NumPieces:    return "MSG.BAGGAGE_UNIT.PC";
+    case Ticketing::Baggage::WeightKilo:   return "MSG.BAGGAGE_UNIT.KG";
+    case Ticketing::Baggage::WeightPounds: return "MSG.BAGGAGE_UNIT.LB";
+    case Ticketing::Baggage::Nil:          return "";
+  }
+  return "";
+}
+
 namespace CheckIn
 {
 

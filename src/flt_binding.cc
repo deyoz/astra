@@ -5,6 +5,7 @@
 #include "alarms.h"
 #include "trip_tasks.h"
 #include "apps_interaction.h"
+#include "etick.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -48,8 +49,8 @@ void crs_recount(int point_id_tlg, int point_id_spp, bool check_comp)
     ProgTrace(TRACE5, "crs_recount: point_id_spp=%d, check_comp=%s", Qry.FieldAsInteger("point_id_spp"), check_comp?"true":"false");
     if (check_comp)
     {
-  	  SALONS2::AutoSetCraft( Qry.FieldAsInteger("point_id_spp") );
-  	};
+      SALONS2::AutoSetCraft( Qry.FieldAsInteger("point_id_spp") );
+    };
   };
 };
 
@@ -76,6 +77,7 @@ void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, b
     bool result = checkTime( point_id_spp, start_time );
     if ( result || ( !result && start_time != ASTRA::NoExists ) )
       add_trip_task( point_id_spp, SEND_ALL_APPS_INFO, "", start_time );
+    TlgETDisplay(point_id_tlg, point_id_spp, false);
   }
   check_tlg_in_alarm(point_id_tlg, point_id_spp);
 };

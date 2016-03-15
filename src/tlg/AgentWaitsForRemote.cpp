@@ -54,8 +54,8 @@ void ConfigAgentToWait(const Ticketing::SystemAddrs_t& rida,
                        const edilib::EdiSessionId_t& sida,
                        const edifact::KickInfo &kickInfo)
 {
-    //if(Environment::Environ::Instance().handlerType() == Environment::HumanHandler)    
-    if (!kickInfo.msgId.empty())
+    //if(Environment::Environ::Instance().handlerType() == Environment::HumanHandler)
+    if (!kickInfo.background_mode())
     {
         LogTrace(TRACE3) << "ConfigAgentToWait for pult " << pult;
         ConfigAgentToWait_(pult.c_str(), rida, sida, kickInfo);
