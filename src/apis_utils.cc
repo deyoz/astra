@@ -237,6 +237,11 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
           _pass.get(apiDoc).required_fields|=DOC_CSV_TH_FIELDS;
           _crew.get(apiDoc).required_fields|=DOC_CSV_TH_FIELDS;
         };
+        if (fmt=="EDI_KR")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_EDI_KR_FIELDS;
+          _crew.get(apiDoc).required_fields|=DOC_EDI_KR_FIELDS;
+        };
       };
     };
   };
@@ -946,7 +951,7 @@ bool isValidDocType(const string &fmt, const TPaxStatus &status, const string &d
           (status==psCrew &&
            (doc_type=="AC")))) return false;
   };
-  if (fmt=="EDI_IN")
+  if (fmt=="EDI_IN" || fmt=="EDI_KR")
   {
     /*
     ICAO 9303 Document Types
