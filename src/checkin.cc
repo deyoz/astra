@@ -1647,19 +1647,10 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
     NewTextChild(node,"seats",PaxQry.FieldAsInteger("seats"),1);
     //обработка документов
     CheckIn::TPaxDocItem doc;
-    if (LoadCrsPaxDoc(pax_id, doc))
-    {
-      if (TReqInfo::Instance()->desk.compatible(DOCS_VERSION))
-        doc.toXML(node);
-      else
-        NewTextChild(node, "document", doc.no, "");
-    };
+    if (LoadCrsPaxDoc(pax_id, doc)) doc.toXML(node);
     //обработка виз
-    if (TReqInfo::Instance()->desk.compatible(DOCS_VERSION))
-    {
-      CheckIn::TPaxDocoItem doco;
-      if (LoadCrsPaxVisa(pax_id, doco)) doco.toXML(node);
-    };
+    CheckIn::TPaxDocoItem doco;
+    if (LoadCrsPaxVisa(pax_id, doco)) doco.toXML(node);
     //обработка адресов
     if (TReqInfo::Instance()->desk.compatible(DOCA_VERSION))
     {
@@ -4111,18 +4102,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       //проверим номера документов и билетов, ремарки
       if (!pr_unaccomp)
       {
-        set<string> apis_formats;
-        TCheckDocInfo checkDocInfo=grp.status==psCrew?GetCheckDocInfo(grp.point_dep, grp.airp_arv, apis_formats).crew:
-                                                       GetCheckDocInfo(grp.point_dep, grp.airp_arv, apis_formats).pass;
-        TCheckTknInfo checkTknInfo=grp.status==psCrew?GetCheckTknInfo(grp.point_dep).crew:
-                                                       GetCheckTknInfo(grp.point_dep).pass;
-        if (reqInfo->client_type==ctTerm && !reqInfo->desk.compatible(DOCS_VERSION))
-        {
-          //в старых версиях терминала можем задавать только номер документа
-          checkDocInfo.doc.required_fields&=DOC_NO_FIELD;
-          //в старых версиях терминала вообще не можем задавать данные по визе
-          checkDocInfo.doco.required_fields=NO_FIELDS;
-        };
+        TCompleteAPICheckInfo checkInfo(grp.point_dep, grp.airp_arv);
         Qry.Clear();
         Qry.SQLText=
           "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm, refuse, seats "
@@ -4130,7 +4110,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         Qry.DeclareVariable("pax_id", otInteger);
         for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p)
         {
-          const CheckIn::TPaxItem &pax=p->pax;
+          CheckIn::TPaxItem &pax=p->pax;
           try
           {
             CheckIn::TPaxTknItem priorTkn;
@@ -4185,83 +4165,21 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               };
               if (pax.refuse.empty())
               {
-                if ((pax.tkn.getNotEmptyFieldsMask()&checkTknInfo.tkn.required_fields)!=checkTknInfo.tkn.required_fields)
+                if (checkInfo.incomplete(pax.tkn, grp.status))
                   throw UserException("MSG.CHECKIN.PASSENGERS_TICKETS_NOT_SET"); //WEB
               };
             };
 
+            TDateTime checkDate=UTCToLocal(NowUTC(), AirpTZRegion(grp.airp_dep));
             //документ
             if (pax.DocExists)
-            {
-              if (pax.doc.no.size()>15)
-              {
-                string document=pax.doc.no;
-                if (document.size()>25) document.erase(25).append("...");
-                throw UserException("MSG.CHECKIN.DOCUMENT_LARGE_MAX_LEN", LParams()<<LParam("document",document));
-              };
-              if (pax.refuse.empty() && pax.name!="CBBG")
-              {
-                if ((pax.doc.getNotEmptyFieldsMask()&checkDocInfo.doc.required_fields)!=checkDocInfo.doc.required_fields)
-                {
-                  if (checkDocInfo.doc.required_fields==DOC_NO_FIELD)
-                    throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
-                  else
-                    throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOC_INFO_NOT_SET"); //WEB
-                };
-                if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
-                {
-                  for(set<string> ::const_iterator f=apis_formats.begin(); f!=apis_formats.end(); ++f)
-                  {
-                    if (!APIS::isValidDocType(*f, grp.status, pax.doc.type))
-                    {
-                      if (!pax.doc.type.empty())
-                        throw UserException("MSG.PASSENGER.INVALID_DOC_TYPE_FOR_APIS",
-                                            LParams() << LParam("surname", pax.full_name())
-                                                      << LParam("code", ElemIdToCodeNative(etPaxDocType, pax.doc.type)));
-                    };
-                    if (!APIS::isValidGender(*f, pax.doc.gender, pax.name))
-                    {
-                      if (!pax.doc.gender.empty())
-                        throw UserException("MSG.PASSENGER.INVALID_GENDER_FOR_APIS",
-                                            LParams() << LParam("surname", pax.full_name())
-                                                      << LParam("code", ElemIdToCodeNative(etGenderType, pax.doc.gender)));
-                    };
-                  };
-                };
-              };
-            };
-
+              HandleDoc(grp, pax, checkInfo, checkDate, pax.doc);
             //виза
             if (pax.DocoExists)
-            {
-              if (pax.refuse.empty() && pax.name!="CBBG")
-              {
-                if (!(pax.doco.getNotEmptyFieldsMask()==NO_FIELDS && pax.doco.doco_confirm)) //пришла непустая информация о визе
-                {
-                  NormalizeDoco(pax.doco);
-                  CheckDoco(pax.doco, checkDocInfo.doco, UTCToLocal(NowUTC(),AirpTZRegion(fltInfo.airp)));
-
-                  if ((pax.doco.getNotEmptyFieldsMask()&checkDocInfo.doco.required_fields)!=checkDocInfo.doco.required_fields)
-                    throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCO_INFO_NOT_SET"); //WEB
-                };
-              };
-            };
+              HandleDoco(grp, pax, checkInfo, checkDate, pax.doco);
 
             if (pax.DocaExists)
-            {
-              if (pax.refuse.empty() && pax.name!="CBBG")
-              {
-                CheckIn::TPaxDocaItem docaB, docaR, docaD;
-                CheckIn::ConvertDoca(pax.doca, docaB, docaR, docaD);
-
-                if ((docaB.getNotEmptyFieldsMask()&checkDocInfo.docaB.required_fields)!=checkDocInfo.docaB.required_fields)
-                  throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCA_B_INFO_NOT_SET"); //WEB
-                if ((docaR.getNotEmptyFieldsMask()&checkDocInfo.docaR.required_fields)!=checkDocInfo.docaR.required_fields)
-                  throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCA_R_INFO_NOT_SET"); //WEB
-                if ((docaD.getNotEmptyFieldsMask()&checkDocInfo.docaD.required_fields)!=checkDocInfo.docaD.required_fields)
-                  throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCA_D_INFO_NOT_SET"); //WEB
-              };
-            };
+              HandleDoca(grp, pax, checkInfo, pax.doca);
 
             if (new_checkin || p->remsExists)
             {
@@ -5026,23 +4944,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 }; //wl_type.empty()
 
                 //запись pax_doc
-                if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
-                {
-                  if (pax.DocExists) CheckIn::SavePaxDoc(pax_id,pax.doc,PaxDocQry);
-                  if (pax.DocoExists) CheckIn::SavePaxDoco(pax_id,pax.doco,PaxDocoQry);
-                  if (pax.DocExists)
-                  {
-                    CrsQry.SetVariable("pax_id",pax_id);
-                    CrsQry.SetVariable("document",pax.doc.no);
-                    CrsQry.SetVariable("full_insert",(int)false);
-                    CrsQry.Execute();
-                  };
-                }
-                else
+                if (pax.DocExists) CheckIn::SavePaxDoc(pax_id,pax.doc,PaxDocQry);
+                if (pax.DocoExists) CheckIn::SavePaxDoco(pax_id,pax.doco,PaxDocoQry);
+                if (pax.DocExists)
                 {
                   CrsQry.SetVariable("pax_id",pax_id);
                   CrsQry.SetVariable("document",pax.doc.no);
-                  CrsQry.SetVariable("full_insert",(int)true);
+                  CrsQry.SetVariable("full_insert",(int)false); //потом убрать параметр за ненадобностью
                   CrsQry.Execute();
                 };
 
@@ -5273,23 +5181,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
                                       LParams()<<LParam("surname",pax.full_name())); //WEB
                 //запись pax_doc
-                if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCS_VERSION))
-                {
-                  if (pax.DocExists) CheckIn::SavePaxDoc(pax.id,pax.doc,PaxDocQry);
-                  if (pax.DocoExists) CheckIn::SavePaxDoco(pax.id,pax.doco,PaxDocoQry);
-                  if (pax.DocExists)
-                  {
-                    CrsQry.SetVariable("pax_id",pax.id);
-                    CrsQry.SetVariable("document",pax.doc.no);
-                    CrsQry.SetVariable("full_insert",(int)false);
-                    CrsQry.Execute();
-                  };
-                }
-                else
+                if (pax.DocExists) CheckIn::SavePaxDoc(pax.id,pax.doc,PaxDocQry);
+                if (pax.DocoExists) CheckIn::SavePaxDoco(pax.id,pax.doco,PaxDocoQry);
+                if (pax.DocExists)
                 {
                   CrsQry.SetVariable("pax_id",pax.id);
                   CrsQry.SetVariable("document",pax.doc.no);
-                  CrsQry.SetVariable("full_insert",(int)true);
+                  CrsQry.SetVariable("full_insert",(int)false);
                   CrsQry.Execute();
                 };
 
@@ -7354,8 +7252,6 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
                       Qry.FieldAsInteger("pr_tranzit")!=0,
                       trtNotCurrent,trtNotCancelled);
 
-  TCompleteCheckTknInfo checkTknInfo=GetCheckTknInfo(point_id);
-
   node = NewTextChild( tripdataNode, "airps" );
   vector<string> airps;
   vector<string>::iterator i;
@@ -7386,23 +7282,17 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
         NewTextChild( itemNode, "airp_name", ElemIdToNameLong(etAirp, airpsRow.code) );
         NewTextChild( itemNode, "city_name", ElemIdToNameLong(etCity, airpsRow.city) );
       };
-      TCompleteCheckDocInfo checkDocInfo=GetCheckDocInfo(point_id, airpsRow.code);
 
+      TCompleteAPICheckInfo checkInfo(point_id, airpsRow.code);
       if (TReqInfo::Instance()->desk.compatible(DOCA_VERSION))
       {
-        xmlNodePtr infoNode=NewTextChild(itemNode, "check_info");
-        xmlNodePtr passNode=NewTextChild(infoNode, "pass");
-        xmlNodePtr crewNode=NewTextChild(infoNode, "crew");
-        checkDocInfo.pass.toXML(passNode);
-        checkDocInfo.crew.toXML(crewNode);
-        checkTknInfo.pass.toXML(passNode);
-        checkTknInfo.crew.toXML(crewNode);
+        checkInfo.toXML(NewTextChild(itemNode, "check_info"));
       }
       else
       {
-        checkDocInfo.pass.doc.toXML(NewTextChild( itemNode, "check_doc_info" ), ciDoc);
-        checkDocInfo.pass.doco.toXML(NewTextChild( itemNode, "check_doco_info" ), ciDoco);
-        checkTknInfo.pass.tkn.toXML(NewTextChild( itemNode, "check_tkn_info" ), ciTkn);
+        checkInfo.pass().get(apiDoc).toXML(NewTextChild( itemNode, "check_doc_info"));
+        checkInfo.pass().get(apiDoco).toXML(NewTextChild( itemNode, "check_doco_info"));
+        checkInfo.pass().get(apiTkn).toXML(NewTextChild( itemNode, "check_tkn_info"));
       };
       airps.push_back(airpsRow.code);
     }
@@ -8339,7 +8229,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                     xmlNodePtr doc=document->children;
                     if (doc==NULL) continue;
                     if (strcmp((const char*)document->name,"DOCS") == 0) {
-                        if (!paxForCkin.present_in_req.insert(ciDoc).second)
+                        if (!paxForCkin.present_in_req.insert(apiDoc).second)
                             throw AstraLocale::UserException("MSG.SECTION_DUPLICATED",
                                                               LEvntPrms() << PrmSmpl<string>("airline", "D"));
                         paxForCkin.surname = upperc(NodeAsStringFast("SURNAME", doc, ""));
@@ -8372,7 +8262,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                         paxForCkin.apis.doc=NormalizeDoc(paxForCkin.apis.doc);
                     }
                     else if (strcmp((const char*)document->name,"doco") == 0) {
-                        if (!paxForCkin.present_in_req.insert(ciDoco).second)
+                        if (!paxForCkin.present_in_req.insert(apiDoco).second)
                             throw AstraLocale::UserException("MSG.SECTION_DUPLICATED",
                                                               LEvntPrms() << PrmSmpl<string>("name", "doco"));
 
@@ -8405,9 +8295,9 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                         if (!(type == "B" || type == "R" || type == "D"))
                             throw AstraLocale::UserException("MSG.INVALID_ADDRES_TYPE");
 
-                        if ((type == "B" && !paxForCkin.present_in_req.insert(ciDocaB).second) ||
-                            ((type == "R" && !paxForCkin.present_in_req.insert(ciDocaR).second)) ||
-                            (type == "D" && !paxForCkin.present_in_req.insert(ciDocaD).second))
+                        if ((type == "B" && !paxForCkin.present_in_req.insert(apiDocaB).second) ||
+                            (type == "R" && !paxForCkin.present_in_req.insert(apiDocaR).second) ||
+                            (type == "D" && !paxForCkin.present_in_req.insert(apiDocaD).second))
                             throw AstraLocale::UserException("MSG.SECTION_DUPLICATED_WITH_TYPE",
                                                               LEvntPrms() << PrmSmpl<string>("name", "DOCA")
                                                               << PrmSmpl<string>("type", type));
@@ -8423,7 +8313,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                     }
                 }
 
-                if (paxForCkin.present_in_req.find(ciDoc) == paxForCkin.present_in_req.end())
+                if (paxForCkin.present_in_req.find(apiDoc) == paxForCkin.present_in_req.end())
                     throw AstraLocale::UserException("MSG.SECTION_NOT_FOUND", LEvntPrms() << PrmSmpl<string>("name", "DOCS"));
                 pnr.paxForCkin.push_back(paxForCkin);
             }
