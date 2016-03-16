@@ -2378,8 +2378,11 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
                   {
                     if (strcmp(iPnrItem->grp_ref,grp_ref)==0)
                     {
-                      if (iPnrItem->grp_seats!=grp_seats)
-                        throw ETlgError("Different number of seats in same group identifier");
+                      //эти строчки закомменчены потому что
+                      //допускаем, что grp_seats может быть разным в рамках одной телеграммы
+                      //увы, как показала практика, такое иногда бывает
+                      //if (iPnrItem->grp_seats!=grp_seats)
+                      //  throw ETlgError("Different number of seats in same group identifier");
                       break;
                     };
                   };
