@@ -2006,7 +2006,7 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
   xmlNodePtr termReqNode=NodeAsNode("/term/query",termReqCtxt.docPtr())->children;
   if (termReqNode==NULL)
-    throw EXCEPTIONS::Exception("CheckInInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
+    throw EXCEPTIONS::Exception("EMDAutoBoundInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");
 
   string termReqName=(char*)(termReqNode->name);
 
@@ -2031,7 +2031,14 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     if (Ticketing::isDoomedToWait())  //специально в этом месте, потому что LoadPax может вывести более важное сообщение
       AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
 
-    CheckInInterface::LoadPax(grp_id, resNode, afterSavePax);
+    try
+    {
+      CheckInInterface::LoadPax(grp_id, resNode, afterSavePax);
+    }
+    catch(...)
+    {
+      if (!Ticketing::isDoomedToWait()) throw;
+    };
   }
   if (termReqName=="PaxByPaxId" ||
       termReqName=="PaxByRegNo" ||
@@ -2043,8 +2050,11 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       if (piece_concept) EMDTryBind(grp_id, termReqNode, ediResNode);
     };
 
-    if (Ticketing::isDoomedToWait())  //специально в этом месте, потому что GetPax может вывести более важное сообщение
+    if (Ticketing::isDoomedToWait())
+    {
       AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
+      return;
+    };
 
     BrdInterface::GetPax(termReqNode, resNode);
   }
