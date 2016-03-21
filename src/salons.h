@@ -144,13 +144,14 @@ struct TSeatTariff {
     std::string color;
     double value;
     std::string currency_id;
+    std::string RFISC;
     TSeatTariff() {
         value = 0.0;
     };
     bool equal( const TSeatTariff &seatTarif ) const {
     return ( color == seatTarif.color &&
              value == seatTarif.value &&
-             currency_id == seatTarif.currency_id );
+             currency_id == seatTarif.currency_id ); //RFISC == seatTarif.RFISC??? !!!vlad
   }
   bool operator != (const TSeatTariff &seatTarif) const {
     return !equal( seatTarif );
@@ -167,6 +168,55 @@ struct SeatTariffCompare {
     }
     return false;
   }
+};
+
+typedef std::map<std::string/*color*/, TSeatTariff> TSeatTariffMapType;
+
+class TSeatTariffMap : public TSeatTariffMapType
+{
+  enum TStatus
+  {
+    stNotFound,       //Чего-нибудь не найдено
+    stNotOperating,   //Пассажир не оперирующего перевозчика
+    stNotET,          //Билет бумажный или не задан
+    stUnknownETDisp,  //Дисплей билета неизвестен
+    stNotRFISC,       //Старая технология - нет RFISC в компоновках
+    stUseRFISC        //Новая технология - RFISC в компоновках
+  };
+
+  private:
+    int _potential_queries, _real_queries;
+    TStatus _status;
+    std::map<int/*point_id_oper*/, TAdvTripInfo> oper_flts;
+    std::map<int/*point_id_mark*/, TGrpMktFlight> mark_flts;
+    std::map<std::string/*airline_oper*/, bool> rfisc_apply;
+    std::map<int/*point_id_oper*/, TSeatTariffMapType > tariff_map; //для stNotRFISC
+
+    void get(TQuery &Qry, const std::string &traceDetail);
+  public:
+    TSeatTariffMap() : _potential_queries(0), _real_queries(0) { clear(); }
+    void get(const TAdvTripInfo &operFlt, const TGrpMktFlight &markFlt, const CheckIn::TPaxTknItem &tkn);
+    void get(int pax_id);                     //если пассажир зарегистрирован
+
+    int potential_queries() const
+    {
+      return _potential_queries;
+    }
+    int real_queries() const
+    {
+      return _real_queries;
+    }
+    TStatus status() const
+    {
+      return _status;
+    }
+    bool is_rfisc_applied(const std::string &airline_oper);
+    void clear()
+    {
+      std::map<std::string/*color*/, TSeatTariff>::clear();
+      _status=stNotFound;
+    }
+    void trace( TRACE_SIGNATURE ) const;
 };
 
 

@@ -20,6 +20,8 @@
 #include "alarms.h"
 #include "points.h"
 #include "rozysk.h"
+#include "qrys.h"
+#include "etick.h"
 
 #include "astra_misc.h"
 
@@ -34,6 +36,209 @@ using namespace BASIC_SALONS;
 
 namespace SALONS2
 {
+
+void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
+{
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next())
+  {
+    TSeatTariff tariff;
+    tariff.color=Qry.FieldAsString("rate_color");
+    tariff.value=Qry.FieldAsFloat("rate");
+    tariff.currency_id=Qry.FieldAsString("rate_cur");
+    tariff.RFISC=Qry.FieldAsString("rfisc");
+
+    if (!insert(make_pair(tariff.color, tariff)).second)
+      throw EXCEPTIONS::Exception("TSeatTariffMap::get: color=%s duplicated (%s)", tariff.color.c_str(), traceDetail.c_str());
+  };
+}
+
+bool TSeatTariffMap::is_rfisc_applied(const std::string &airline_oper)
+{
+  _potential_queries++;
+  std::map<std::string/*airline_oper*/, bool>::const_iterator iRFISCApply=rfisc_apply.find(airline_oper);
+  if (iRFISCApply==rfisc_apply.end())
+  {
+    _real_queries++;
+    TCachedQuery PropsQry("SELECT airline FROM rfisc_comp_props WHERE airline=:airline AND rownum<2",
+                          QParams() << QParam("airline", otString, airline_oper));
+    PropsQry.get().Execute();
+    iRFISCApply=rfisc_apply.insert(make_pair(airline_oper, !PropsQry.get().Eof)).first;
+  }
+  if (iRFISCApply==rfisc_apply.end())
+    throw EXCEPTIONS::Exception("TSeatTariffMap::is_rfisc_applied: iRFISCApply==rfisc_apply.end()!");
+  return iRFISCApply->second;
+}
+
+void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TGrpMktFlight &markFlt, const CheckIn::TPaxTknItem &tkn)
+{
+  clear();
+
+  if (operFlt.airline!=markFlt.airline)
+  {
+    _status=stNotOperating;
+    return;
+  }
+
+  if (is_rfisc_applied(operFlt.airline))
+  {
+    //компания завела хотя-бы один компоновочный RFISC
+    if (tkn.rem!="TKNE" || tkn.no.empty() || tkn.coupon==ASTRA::NoExists)
+    {
+      _status=stNotET;
+      return;
+    }
+
+    _potential_queries++;
+    _real_queries++;
+    TETickItem etick;
+    etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false);
+    if (etick.empty())
+    {
+      _status=stUnknownETDisp;
+      return;
+    }
+
+    _potential_queries++;
+    _real_queries++;
+    TCachedQuery Qry(
+      "SELECT rfisc_comp_props.rate_color, rfisc_rates.rate, rfisc_rates.rate_cur, rfisc_rates.rfisc "
+      "FROM rfisc_comp_props, rfisc_rates "
+      "WHERE rfisc_comp_props.airline=rfisc_rates.airline AND "
+      "      rfisc_comp_props.code=rfisc_rates.rfisc AND "
+      "      rfisc_rates.airline=:airline AND "
+      "      rfisc_rates.fare_basis=:fare_basis AND "
+      "      :issue_date>=rfisc_rates.sale_first_date AND "
+      "      (rfisc_rates.sale_last_date IS NULL OR :issue_date<rfisc_rates.sale_last_date)",
+      QParams() << QParam("airline", otString, operFlt.airline)
+                << QParam("fare_basis", otString, etick.fare_basis)
+                << QParam("issue_date", otDate, etick.issue_date)
+    );
+
+    ostringstream s;
+    s << "status=stUseRFISC, "
+      << "airline=" << operFlt.airline << ", "
+      << "fare_basis=" << etick.fare_basis << ", "
+      << "issue_date=" << DateTimeToStr(etick.issue_date, "dd.mm.yy");
+    get(Qry.get(), s.str());
+    _status=stUseRFISC;
+  }
+  else
+  {
+    _potential_queries++;
+    std::map<int/*point_id_oper*/, TSeatTariffMapType>::const_iterator iTariffMap=tariff_map.find(operFlt.point_id);
+    if (iTariffMap==tariff_map.end())
+    {
+      _real_queries++;
+      TCachedQuery Qry(
+        "SELECT DISTINCT color AS rate_color, rate, rate_cur, NULL AS rfisc "
+        "FROM trip_comp_rates "
+        "WHERE point_id=:point_id",
+        QParams() << QParam("point_id", otInteger, operFlt.point_id)
+      );
+
+      ostringstream s;
+      s << "status=stNotRFISC, "
+        << "point_id=" << operFlt.point_id;
+      get(Qry.get(), s.str());
+
+      tariff_map.insert(make_pair(operFlt.point_id, *this));
+    }
+    else static_cast<TSeatTariffMapType&>(*this)=iTariffMap->second;
+
+    _status=stNotRFISC;
+  }
+}
+
+void TSeatTariffMap::get(const int pax_id)
+{
+  clear();
+
+  _potential_queries++;
+  _real_queries++;
+  TCachedQuery Qry("SELECT pax_grp.point_dep AS point_id_oper, pax_grp.point_id_mark, pax_grp.grp_id "
+                   "FROM pax_grp, pax "
+                   "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id",
+                   QParams() << QParam("pax_id", otInteger, pax_id));
+  Qry.get().Execute();
+  if (Qry.get().Eof)
+  {
+    _status=stNotFound;
+    return;
+  }
+  int point_id_oper=Qry.get().FieldAsInteger("point_id_oper");
+  int point_id_mark=Qry.get().FieldAsInteger("point_id_mark");
+  int grp_id=Qry.get().FieldAsInteger("grp_id");
+
+  _potential_queries++;
+  std::map<int/*point_id_oper*/, TAdvTripInfo>::const_iterator iOper=oper_flts.find(point_id_oper);
+  if (iOper==oper_flts.end())
+  {
+    _real_queries++;
+    TAdvTripInfo operFlt;
+    if (!operFlt.getByPointId(point_id_oper))
+    {
+      _status=stNotFound;
+      return;
+    }
+    iOper=oper_flts.insert(make_pair(point_id_oper, operFlt)).first;
+  }
+  if (iOper==oper_flts.end())
+    throw EXCEPTIONS::Exception("TSeatTariffMap::get: iOper==oper_flts.end()!");
+
+  _potential_queries++;
+  std::map<int/*point_id_mark*/, TGrpMktFlight>::const_iterator iMark=mark_flts.find(point_id_mark);
+  if (iMark==mark_flts.end())
+  {
+    _real_queries++;
+    TGrpMktFlight markFlt;
+    if (!markFlt.getByGrpId(grp_id))
+    {
+      _status=stNotFound;
+      return;
+    }
+    iMark=mark_flts.insert(make_pair(point_id_mark, markFlt)).first;
+  }
+  if (iMark==mark_flts.end())
+    throw EXCEPTIONS::Exception("TSeatTariffMap::get: iMark==mark_flts.end()!");
+
+  CheckIn::TPaxTknItem tkn;
+  if (is_rfisc_applied(iOper->second.airline))
+  {
+    _potential_queries++;
+    _real_queries++;
+    CheckIn::LoadPaxTkn(pax_id, tkn);
+  };
+
+  get(iOper->second, iMark->second, tkn);
+}
+
+void TSeatTariffMap::trace( TRACE_SIGNATURE ) const
+{
+  ProgTrace(TRACE_PARAMS, "============ TSeatTariffMap ============");
+  for(TSeatTariffMap::const_iterator i=begin(); i!=end(); ++i)
+  {
+    ostringstream s;
+    s << right << setw(10) << i->second.color << ": "
+      << right << fixed << setprecision(2) << setw(12) << i->second.value
+      << left << setw(3) << i->second.currency_id << " " << i->second.RFISC;
+    ProgTrace(TRACE_PARAMS, "%s", s.str().c_str());
+  };
+  string st;
+  switch(_status)
+  {
+    case stNotFound:      st="stNotFound";      break;
+    case stNotOperating:  st="stNotOperating";  break;
+    case stNotET:         st="stNotET";         break;
+    case stUnknownETDisp: st="stUnknownETDisp"; break;
+    case stNotRFISC:      st="stNotRFISC";  break;
+    case stUseRFISC:      st="stUseRFISC";  break;
+  }
+  ProgTrace(TRACE_PARAMS, "status=%s, potential_queries=%d, real_queries=%d",
+                          st.c_str(), _potential_queries, _real_queries);
+}
+
+
 
 const int REM_VIP_F = 1;
 const int REM_VIP_C = 1;
@@ -5924,7 +6129,7 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
   NewTextChild( dataNode, "trip", GetTripName( info, ecCkin ) );
   NewTextChild( dataNode, "craft", ElemIdToElemCtxt( ecDisp, etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" ) ) );
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
-  
+
   string craft = Qry.FieldAsString( "craft" ), airp = Qry.FieldAsString("airp");
   TTripRoute route;
   route.GetRouteAfter(NoExists, trip_id, trtWithCurrent, trtNotCancelled);
@@ -5933,7 +6138,7 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
   TDateTime travel_time = getTimeTravel(craft, airp, airp_last);
   string travel_time_str = "00-00";
   if(travel_time != NoExists)
-  	travel_time_str = DateTimeToStr(travel_time, "hh:nn", true);
+    travel_time_str = DateTimeToStr(travel_time, "hh:nn", true);
   NewTextChild( dataNode, "travel_time", travel_time_str);
 
   Qry.Clear();
