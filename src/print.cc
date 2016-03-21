@@ -838,6 +838,39 @@ string PrintDataParser::parse_tag(int offset, string tag)
             return TrimString(result);
         }
 
+        void clean_ending(string &data, const string &end)
+        {
+            if(not data.empty()) {
+                while(true) { // удалим все пробелы, TAB и CR/LF из конца строки
+                    size_t last_ch = data.size() - 1;
+                    if(
+                            data[last_ch] == CR[0] or
+                            data[last_ch] == LF[0] or
+                            data[last_ch] == TAB[0] or
+                            data[last_ch] == ' '
+                      )
+                        data.erase(last_ch);
+                    else
+                        break;
+                }
+                //и добавим один CR/LF
+                data += end;
+            }
+        }
+
+        string place_LF(string data)
+        {
+            size_t pos = 0;
+            while(true) {
+                pos = data.find(CR, pos);
+                if(pos == string::npos)
+                    break;
+                data.erase(pos, 1);
+            }
+            clean_ending(data, LF);
+            return data;
+        }
+
         string place_CR_LF(string data)
         {
             size_t pos = 0;
@@ -853,22 +886,7 @@ string PrintDataParser::parse_tag(int offset, string tag)
                         pos += 1;
                 }
             }
-            if(not data.empty()) {
-                while(true) { // удалим все пробелы, TAB и CR/LF из конца строки
-                    size_t last_ch = data.size() - 1;
-                    if(
-                            data[last_ch] == CR[0] or
-                            data[last_ch] == LF[0] or
-                            data[last_ch] == TAB[0] or
-                            data[last_ch] == ' '
-                      )
-                        data.erase(last_ch);
-                    else
-                        break;
-                }
-                //и добавим один CR/LF
-                data += CR + LF;
-            }
+            clean_ending(data, CR + LF);
             return data;
         }
 
@@ -889,7 +907,7 @@ string PrintDataParser::parse_tag(int offset, string tag)
                 case dftDPL:
                 case dftEPSON:
                 case dftGraphics2D:
-                    result = place_CR_LF(data);
+                    result = place_LF(data);
                     break;
                 case dftSCAN1:
                 case dftSCAN2:
