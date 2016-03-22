@@ -171,16 +171,18 @@ struct SeatTariffCompare {
 };
 
 typedef std::map<std::string/*color*/, TSeatTariff> TSeatTariffMapType;
+typedef std::map<std::string/*color*/, std::string/*rfisc*/> TRFISColorsMap;
 
 class TSeatTariffMap : public TSeatTariffMapType
 {
   enum TStatus
   {
     stNotFound,       //Чего-нибудь не найдено
+    stNotRFISC,       //Старая технология - нет RFISC в компоновках
+    //все остальные статусы относятся к технологии использования RFISC
     stNotOperating,   //Пассажир не оперирующего перевозчика
     stNotET,          //Билет бумажный или не задан
     stUnknownETDisp,  //Дисплей билета неизвестен
-    stNotRFISC,       //Старая технология - нет RFISC в компоновках
     stUseRFISC        //Новая технология - RFISC в компоновках
   };
 
@@ -188,15 +190,22 @@ class TSeatTariffMap : public TSeatTariffMapType
     int _potential_queries, _real_queries;
     TStatus _status;
     std::map<int/*point_id_oper*/, TAdvTripInfo> oper_flts;
-    std::map<int/*point_id_mark*/, TGrpMktFlight> mark_flts;
-    std::map<std::string/*airline_oper*/, bool> rfisc_apply;
+    std::map<int/*point_id_mark*/, TTripInfo> mark_flts;
+    std::map<std::string/*airline_oper*/, TRFISColorsMap> rfisc_colors;
     std::map<int/*point_id_oper*/, TSeatTariffMapType > tariff_map; //для stNotRFISC
 
     void get(TQuery &Qry, const std::string &traceDetail);
   public:
     TSeatTariffMap() : _potential_queries(0), _real_queries(0) { clear(); }
-    void get(const TAdvTripInfo &operFlt, const TGrpMktFlight &markFlt, const CheckIn::TPaxTknItem &tkn);
-    void get(int pax_id);                     //если пассажир зарегистрирован
+    //скорее всего будет использоваться перед первоначальной регистрацией:
+    void get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, const CheckIn::TPaxTknItem &tkn);
+    //если пассажир зарегистрирован и мы хотим абсолютно минимизировать запросы к БД:
+    void get(const int point_id_oper,
+             const int point_id_mark,
+             const int grp_id,
+             const int pax_id);
+    //если пассажир зарегистрирован:
+    void get(const int pax_id);
 
     int potential_queries() const
     {
@@ -211,6 +220,7 @@ class TSeatTariffMap : public TSeatTariffMapType
       return _status;
     }
     bool is_rfisc_applied(const std::string &airline_oper);
+    const TRFISColorsMap& get_rfisc_colors(const std::string &airline_oper);
     void clear()
     {
       std::map<std::string/*color*/, TSeatTariff>::clear();
