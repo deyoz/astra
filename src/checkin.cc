@@ -43,12 +43,15 @@
 #include "astra_callbacks.h"
 #include "apps_interaction.h"
 #include "astra_elem_utils.h"
+#include "sirena_service.h" 
 #include "baggage_pc.h"
+#include "ffp_service_from_sirena.h"
 #include "tlg/AgentWaitsForRemote.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
+
 
 using namespace std;
 using namespace ASTRA;
@@ -8361,6 +8364,13 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         throw;
     }
 }
+
+void CheckInInterface::FFPSirena(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{  std::string status =
+	 SirenaExchange::send_ffp_request(NodeAsStringFast("company", reqNode), NodeAsStringFast("card", reqNode));
+   NodeSetContent(NewTextChild(resNode, "status"), status);	
+}
+
 
 namespace CheckIn
 {

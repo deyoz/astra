@@ -5,6 +5,7 @@
 #include <map>
 #include <libxml/tree.h>
 #include "jxtlib/JxtInterface.h"
+#include "baggage_pc.h"
 #include "astra_ticket.h"
 #include "astra_locale.h"
 #include "astra_consts.h"
@@ -145,6 +146,8 @@ public:
      AddEvent("ParseScanDocData",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::CrewCheckin);
      AddEvent("CREWCHECKIN",evHandle);
+     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::FFPSirena);
+     AddEvent("FFPSirena",evHandle);
   };
 
   void LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -159,6 +162,7 @@ public:
   void CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ParseScanDocData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void FFPSirena(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 

@@ -6,6 +6,7 @@
 #include "term_version.h"
 #include "emdoc.h"
 #include "httpClient.h"
+#include "sirena_service.h"
 
 namespace PieceConcept
 {
@@ -489,7 +490,7 @@ class TPaxSegKey
     TPaxSegKey& fromXML(xmlNodePtr node);
 };
 
-class TErrorReference
+/*class TErrorReference
 {
   public:
     std::string path, value;
@@ -550,6 +551,7 @@ class TErrorRes : public TExchange
     virtual void clear() {}
 };
 
+*/
 //запросы Астры в Сирену
 class TAvailability : public TExchange
 {
@@ -732,6 +734,7 @@ void SendRequest(const TExchange &request, TExchange &response,
                  RequestInfo &requestInfo, ResponseInfo &responseInfo);
 void SendRequest(const TExchange &request, TExchange &response);
 
+/*
 class TLastExchangeInfo
 {
   public:
@@ -760,7 +763,7 @@ class TLastExchangeList : public std::list<TLastExchangeInfo>
   public:
     void handle(const std::string& where);
 };
-
+*/
 } //namespace SirenaExchange
 
 class PieceConceptInterface : public JxtInterface

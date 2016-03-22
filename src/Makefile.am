@@ -148,7 +148,10 @@ astra_SOURCES = \
   astra_msg.cc \
   Depeches.cpp \
   AsyncNet.cpp \
-  img.cpp
+  img.cpp \
+  wsdl_services.cc \
+  ffp_service_from_sirena.cc \
+  sirena_service.cc
 
 
 astra_LDADD = $(all_libraries) \
@@ -163,7 +166,7 @@ astra_LDADD = $(all_libraries) \
 	@BOOST_SYSTEM_LIB@ \
 	@BOOST_FILESYSTEM_LIB@ \
 	@BOOST_REGEX_LIB@ \
-	@BOOST_THREAD_LIB@ \
+        @BOOST_THREAD_LIB@ \
         @PION_LDFLAGS@ \
         @AXIS2C_LDFLAGS@
 
@@ -287,5 +290,8 @@ noinst_HEADERS = \
   astra_msg.h \
   Depeches.hpp \
   AsyncNet.hpp \
-  img.h
+  img.h \
+  wsdl_services.h \
+  ffp_service_from_sirena.h \
+  sirena_service.h
   
