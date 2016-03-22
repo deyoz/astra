@@ -131,14 +131,14 @@ std::string SirenaExchange::send_ffp_request(std::string airline, std::string ca
 		return std::string("Got status: ") + res.get_status();
 	}
         catch(Exception e)
-	{   if(!res.error() || res.error_code.size() != 1) throw e; //╨╡╤Б╨╗╨╕ ╨║╨╛╨┤ ╨╛╤И╨╕╨▒╨║╨╕ ╨╜╨╡ ╨▓╤Е╨╛╨┤╨╕╤В ╨▓ ╤Б╨┐╨╕╤Б╨╛╨║ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╤Е ╤В╨╛╨╢╨╡ ╨┐╨╡╤А╨╡╨║╨╕╨┤╤Л╨▓╨░╨╡╨╝ ╤В╨╡╨║╤Г╤Й╨╡╨╡ ╨╕╤Б╨║╨╗╤О╤З╨╡╨╜╨╕╨╡
+	{   if(!res.error() || res.error_code.size() != 1) throw e; //если код ошибки не входит в список документированных тоже перекидываем текущее исключение
             switch(res.error_code[0])		
             {	case '1': throw Exception("");
 		case '2': throw Exception("");
-		case '3': throw UserException("MSG.FFPService.WrongAirline");  //"╨Ф╨╗╤П ╨┤╨░╨╜╨╜╨╛╨╣ ╨░╨▓╨╕╨░╨║╨╛╨╝╨┐╨░╨╜╨╕╨╕ ╨┤╨░╨╜╨╜╤Л╨╡ ╨┐╨╛ ╨з╨Я╨б╨Ц ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╤О╤В")
-		case '4': throw UserException("MSG.FFPService.WrongCard"); //"╨Ъ╨░╤А╤В╨░ ╤Б ╤В╨░╨║╨╕╨╝ ╨╜╨╛╨╝╨╡╤А╨╛╨╝ ╨╜╨╡ ╨╖╨░╤А╨╡╨│╨╕╤Б╤В╤А╨╕╤А╨╛╨▓╨░╨╜╨░"
-		case '5': throw UserException("MSG.FFPService.3rdPartyTimeOut"); //"╨в╨░╨╣╨╝╨░╤Г╤В ╨▓╨╖╨░╨╕╨╝╨╛╨┤╨╡╨╣╤Б╤В╨▓╨╕╤П ╤Б ╨з╨Я╨б╨Ц-╤Б╨╕╤Б╤В╨╡╨╝╨╛╨╣"
-                case '6': throw UserException("MSG.FFPService.3rdPartyServerError"); //"╨Ю╤И╨╕╨▒╨║╨░ ╨▓╨╖╨░╨╕╨╝╨╛╨┤╨╡╨╣╤Б╤В╨▓╨╕╤П ╤Б ╤Б╨╕╤Б╤В╨╡╨╝╨╛╨╣ ╨з╨Я╨б╨Ц"
+		case '3': throw UserException("MSG.FFPService.WrongAirline");  //"Для данной авиакомпании данные по ЧПСЖ отсутствуют")
+		case '4': throw UserException("MSG.FFPService.WrongCard"); //"Карта с таким номером не зарегистрирована"
+		case '5': throw UserException("MSG.FFPService.3rdPartyTimeOut"); //"Таймаут взаимодействия с ЧПСЖ-системой"
+                case '6': throw UserException("MSG.FFPService.3rdPartyServerError"); //"Ошибка взаимодействия с системой ЧПСЖ"
 		default: throw e;
 	    }			
 	}
