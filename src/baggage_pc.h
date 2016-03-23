@@ -7,8 +7,6 @@
 #include "emdoc.h"
 #include "httpClient.h"
 
-enum TBagConcept { bcUnknown, bcPiece, bcWeight };
-
 namespace PieceConcept
 {
 

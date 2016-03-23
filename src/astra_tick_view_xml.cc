@@ -8,6 +8,7 @@
 #include "astra_ticket.h"
 #include "astra_tick_view_xml.h"
 #include "term_version.h"
+#include "baggage.h"
 #include "jxtlib/xmllibcpp.h"
 #include "jxtlib/gettext.h"
 #include "jxtlib/xml_tools.h"
@@ -130,26 +131,26 @@ void FreeTextInfoXmlView::operator () (ViewerData &Data, const list<FreeTextInfo
 
     for(list<FreeTextInfo>::const_iterator i=lift.begin(); i!=lift.end(); i++)
     {
-    	const FreeTextInfo &Ift = (*i);
-    	if(Ift.fTType()->type() == FreeTextType::FareCalc) {
-    	    // Строка расчёта тарифа
-    	    ProgTrace(TRACE3, "Ift fare calc xml view");
-    	    xmlNodePtr paymentNode=getNode(mainNode,"payment");
-    	    xmlNewTextChild(paymentNode,NULL,"fare_calc", Ift.fullText());
-    	} else if(Ift.fTType()->type() == FreeTextType::AgnAirName){
-    	    //Полное имя города/агенства
-    	    xmlNodePtr origNode=getNode(mainNode,"origin");
-    	    xmlNewTextChild(origNode,NULL,"city_name", Ift.text(0));
-    	    if(Ift.text(0).size() < 25) {
-      	    	//Если название короче, чем отведено место в интерфейсе
-          		setElemProp(mainNode->parent, "city_name" ,"col",
-    			    HelpCpp::string_cast(Ift.text(0).size()).c_str());
-    	    }
-    	    std::string agn_name;
-    	    if(Ift.numParts() > 1){
-    	       agn_name = Ift.text(1);
-    	    }
-    	    xmlNewTextChild(origNode,NULL,"agency_name", agn_name);
+        const FreeTextInfo &Ift = (*i);
+        if(Ift.fTType()->type() == FreeTextType::FareCalc) {
+            // Строка расчёта тарифа
+            ProgTrace(TRACE3, "Ift fare calc xml view");
+            xmlNodePtr paymentNode=getNode(mainNode,"payment");
+            xmlNewTextChild(paymentNode,NULL,"fare_calc", Ift.fullText());
+        } else if(Ift.fTType()->type() == FreeTextType::AgnAirName){
+            //Полное имя города/агенства
+            xmlNodePtr origNode=getNode(mainNode,"origin");
+            xmlNewTextChild(origNode,NULL,"city_name", Ift.text(0));
+            if(Ift.text(0).size() < 25) {
+                //Если название короче, чем отведено место в интерфейсе
+                setElemProp(mainNode->parent, "city_name" ,"col",
+                    HelpCpp::string_cast(Ift.text(0).size()).c_str());
+            }
+            std::string agn_name;
+            if(Ift.numParts() > 1){
+               agn_name = Ift.text(1);
+            }
+            xmlNewTextChild(origNode,NULL,"agency_name", agn_name);
       }
     }
 }
@@ -315,7 +316,7 @@ static void viewConnectedCoupons(XmlViewData &VData, const std::list<Coupon> &lc
 
 /* Ticket data: single */
 void TicketXmlView::operator ()
-	(ViewerData &Data, const list<Ticket> &lTick, const CouponViewer &cpnView) const
+    (ViewerData &Data, const list<Ticket> &lTick, const CouponViewer &cpnView) const
 {
   XmlViewData &VData=dynamic_cast<XmlViewData &>(Data);
   xmlNodePtr mainNode=VData.getNode();
@@ -378,7 +379,7 @@ string getTickNums(const list<Ticket> &lTick)
 };
 /* Ticket data: list */
 void TicketXmlListView::operator ()
-	(ViewerData &Data, const list<Ticket> &lTick, const CouponViewer &cpnView) const
+    (ViewerData &Data, const list<Ticket> &lTick, const CouponViewer &cpnView) const
 {
   XmlViewDataList &VData=dynamic_cast<XmlViewDataList &>(Data);
   xmlNodePtr rowNode=VData.getRowNode();
@@ -462,13 +463,14 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"valid_after",
            (itin.validDates().second.is_special()?
                    "":HelpCpp::string_cast(itin.validDates().second, "%d%b%y", (Language)currLang()))),
-		       "index",col_num++); // Тариф
+               "index",col_num++); // Тариф
 
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"sac",cpn.couponInfo().sac()),"index",col_num++); // код авторизации (Settlement)
 
     ostringstream ebd;
     if(itin.luggage().haveLuggage()){
-        ebd<<itin.luggage()->quantity()<<AstraLocale::getLocaleText(itin.luggage()->code());
+        ebd << itin.luggage()->quantity()
+            << AstraLocale::getLocaleText(TBagNormUnit(itin.luggage()->chargeQualifier()).get_lexeme_form());
     } else {
         ebd<<AstraLocale::getLocaleText("НЕТ");
     }

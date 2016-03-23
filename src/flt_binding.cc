@@ -4,6 +4,7 @@
 #include "comp_layers.h"
 #include "alarms.h"
 #include "trip_tasks.h"
+#include "etick.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -47,8 +48,8 @@ void crs_recount(int point_id_tlg, int point_id_spp, bool check_comp)
     ProgTrace(TRACE5, "crs_recount: point_id_spp=%d, check_comp=%s", Qry.FieldAsInteger("point_id_spp"), check_comp?"true":"false");
     if (check_comp)
     {
-  	  SALONS2::AutoSetCraft( Qry.FieldAsInteger("point_id_spp") );
-  	};
+      SALONS2::AutoSetCraft( Qry.FieldAsInteger("point_id_spp") );
+    };
   };
 };
 
@@ -69,8 +70,10 @@ void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, b
       SyncTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer, point_ids_spp);
       check_layer_change(point_ids_spp);
     };
-  if (!unbind)
+  if (!unbind) {
     add_trip_task(point_id_spp, SYNC_ALL_CHKD, "");
+    TlgETDisplay(point_id_tlg, point_id_spp, false);   
+  }
   check_tlg_in_alarm(point_id_tlg, point_id_spp);
 };
 

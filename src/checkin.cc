@@ -3778,12 +3778,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     if (!pr_unaccomp)
     {
-      xmlNodePtr paxNode=NULL;
-      if (new_checkin || reqInfo->desk.compatible(TRFER_CONFIRM_VERSION))
-        paxNode=NodeAsNode("passengers",segNode);
-      else
-        paxNode=GetNode("passengers",segNode);
-      if (paxNode!=NULL) paxNode=paxNode->children;
+      xmlNodePtr paxNode=NodeAsNode("passengers",segNode)->children;
       for(; paxNode!=NULL; paxNode=paxNode->next)
         paxs.push_back(CheckIn::TPaxListItem().fromXML(paxNode));
     };
@@ -3808,11 +3803,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       if (new_checkin)
         save_trfer=true;
       else
-      {
-        save_trfer=false;
-        if (reqInfo->desk.compatible(TRFER_CONFIRM_VERSION))
-          save_trfer=GetNode("transfer",reqNode)!=NULL;
-      };
+        save_trfer=GetNode("transfer",reqNode)!=NULL;
+
       if (save_trfer)
       {
 
@@ -5040,9 +5032,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         InboundTrfer::GetNextTrferCheckedFlts(grp.id, idGrp, nextTrferSegs);
 
-        bool save_trfer=false;
-        if (reqInfo->desk.compatible(TRFER_CONFIRM_VERSION))
-          save_trfer=GetNode("transfer",reqNode)!=NULL;
+        bool save_trfer=GetNode("transfer",reqNode)!=NULL;
 
         if (first_segment)
         {
@@ -6600,8 +6590,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
 
     segs.push_back(seg);
   };
-  if (!trfer_confirm &&
-      reqInfo->desk.compatible(TRFER_CONFIRM_VERSION))
+  if (!trfer_confirm)
   {
     //собираем информацию о неподтвержденном трансфере
     LoadUnconfirmedTransfer(segs, resNode);

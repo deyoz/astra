@@ -9,6 +9,32 @@
 #include "xml_unit.h"
 #include "transfer.h"
 #include <boost/optional.hpp>
+#include <etick/tick_data.h>
+
+enum TBagConcept { bcUnknown, bcPiece, bcWeight };
+
+class TBagNormUnit
+{
+  private:
+    Ticketing::Baggage::Baggage_t unit;
+  public:
+    TBagNormUnit() : unit(Ticketing::Baggage::Nil) {}
+    TBagNormUnit(const Ticketing::Baggage::Baggage_t &value) : unit(value) {}
+    TBagNormUnit(const std::string &value) { set(value); }
+    void clear()
+    {
+      unit=Ticketing::Baggage::Nil;
+    }
+    bool empty()
+    {
+      return unit==Ticketing::Baggage::Nil;
+    }
+    void set(const Ticketing::Baggage::Baggage_t &value);
+    void set(const std::string &value);
+    Ticketing::Baggage::Baggage_t get() const;
+    std::string get_db_form() const;
+    std::string get_lexeme_form() const;
+};
 
 namespace CheckIn
 {

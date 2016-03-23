@@ -3,6 +3,7 @@
 #include <tcl.h>
 #include <math.h>
 #include <iostream>
+#include "astra_main.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "base_tables.h"
@@ -139,6 +140,7 @@ int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
+    init_locale();
 
     char buf[10];
     for(;;)
@@ -465,7 +467,7 @@ bool handle_tlg(void)
               if (info.association_number!=NoExists)
               {
                 association_number_exists=true;
-                merge_key << " " << setw(6) << setfill('0') << info.association_number;                
+                merge_key << " " << setw(6) << setfill('0') << info.association_number;
               };
 
               TTripInfo fltInfo;
