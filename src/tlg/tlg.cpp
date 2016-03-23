@@ -338,7 +338,10 @@ int sendTlg(const char* receiver,
         // кладём тлг в очередь на отправку
         putTlg2OutQueue(receiver, sender, type, text, priority, tlg_num, ttl);
 
-        registerHookAfter(sendCmdTlgSnd);
+        if (queuePriority==qpOutAStepByStep)
+          registerHookAfter(sendCmdTlgSndStepByStep);
+        else
+          registerHookAfter(sendCmdTlgSnd);
 
         return tlg_num;
     }
