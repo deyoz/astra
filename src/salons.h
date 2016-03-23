@@ -191,7 +191,7 @@ class TSeatTariffMap : public TSeatTariffMapType
     TStatus _status;
     std::map<int/*point_id_oper*/, TAdvTripInfo> oper_flts;
     std::map<int/*point_id_mark*/, TTripInfo> mark_flts;
-    std::map<std::string/*airline_oper*/, TRFISColorsMap> rfisc_colors;
+    std::map<std::string/*airline_oper*/, TSeatTariffMapType> rfisc_colors;
     std::map<int/*point_id_oper*/, TSeatTariffMapType > tariff_map; //для stNotRFISC
 
     void get(TQuery &Qry, const std::string &traceDetail);
@@ -220,7 +220,7 @@ class TSeatTariffMap : public TSeatTariffMapType
       return _status;
     }
     bool is_rfisc_applied(const std::string &airline_oper);
-    const TRFISColorsMap& get_rfisc_colors(const std::string &airline_oper);
+    void get_rfisc_colors(const std::string &airline_oper);
     void clear()
     {
       std::map<std::string/*color*/, TSeatTariff>::clear();

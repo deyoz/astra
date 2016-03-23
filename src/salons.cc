@@ -39,6 +39,8 @@ namespace SALONS2
 
 void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
 {
+  clear();
+
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
   {
@@ -55,33 +57,26 @@ void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
 
 bool TSeatTariffMap::is_rfisc_applied(const std::string &airline_oper)
 {
-  return !get_rfisc_colors(airline_oper).empty();
+  get_rfisc_colors(airline_oper);
+  return !empty();
 }
 
-const TRFISColorsMap& TSeatTariffMap::get_rfisc_colors(const std::string &airline_oper)
+void TSeatTariffMap::get_rfisc_colors(const std::string &airline_oper)
 {
+  clear();
+
   _potential_queries++;
-  std::map<std::string/*airline_oper*/, TRFISColorsMap>::iterator iRFISColors=rfisc_colors.find(airline_oper);
+  std::map<std::string/*airline_oper*/, TSeatTariffMapType>::iterator iRFISColors=rfisc_colors.find(airline_oper);
   if (iRFISColors==rfisc_colors.end())
   {
     _real_queries++;
-    TCachedQuery PropsQry("SELECT code, rate_color FROM rfisc_comp_props WHERE airline=:airline",
-                          QParams() << QParam("airline", otString, airline_oper));
-    PropsQry.get().Execute();
-    iRFISColors=rfisc_colors.insert(make_pair(airline_oper, TRFISColorsMap())).first;
-    if (iRFISColors==rfisc_colors.end())
-      throw EXCEPTIONS::Exception("TRFISColorsMap::get_rfisc_colors: iRFISColors==rfisc_colors.end()!");
-    for(;!PropsQry.get().Eof; PropsQry.get().Next())
-    {
-      string color=PropsQry.get().FieldAsString("rate_color");
-      string rfisc=PropsQry.get().FieldAsString("code");
-      if (!iRFISColors->second.insert(make_pair(color, rfisc)).second)
-        throw EXCEPTIONS::Exception("TRFISColorsMap::get_rfisc_colors: color=%s duplicated (airline=%s)",
-                                    color.c_str(), airline_oper.c_str());
-    }
-  }
+    TCachedQuery Qry("SELECT rate_color, 0 AS rate, NULL AS rate_cur, code AS rfisc FROM rfisc_comp_props WHERE airline=:airline",
+                     QParams() << QParam("airline", otString, airline_oper));
 
-  return iRFISColors->second;
+    ostringstream s;
+    s << "airline_oper=" << airline_oper;
+    get(Qry.get(), s.str());
+  }
 }
 
 void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, const CheckIn::TPaxTknItem &tkn)
