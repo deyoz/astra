@@ -70,13 +70,18 @@ void TSeatTariffMap::get_rfisc_colors(const std::string &airline_oper)
   if (iRFISColors==rfisc_colors.end())
   {
     _real_queries++;
-    TCachedQuery Qry("SELECT rate_color, 0 AS rate, NULL AS rate_cur, code AS rfisc FROM rfisc_comp_props WHERE airline=:airline",
+    TCachedQuery Qry("SELECT rate_color, 0 AS rate, NULL AS rate_cur, code AS rfisc "
+                     "FROM rfisc_comp_props "
+                     "WHERE airline=:airline",
                      QParams() << QParam("airline", otString, airline_oper));
 
     ostringstream s;
     s << "airline_oper=" << airline_oper;
     get(Qry.get(), s.str());
+
+    rfisc_colors.insert(make_pair(airline_oper, *this));
   }
+  else static_cast<TSeatTariffMapType&>(*this)=iRFISColors->second;
 }
 
 void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, const CheckIn::TPaxTknItem &tkn)
