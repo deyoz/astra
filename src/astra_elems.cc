@@ -98,6 +98,7 @@ const
                          {etPaxDocType,            "etPaxDocType",            "pax_doc_types"},
                          {etPayType,               "etPayType",               "pay_types"},
                          {etPersType,              "etPersType",              "pers_types"},
+                         {etRateColor,             "etRateColor",             "rate_colors"},
                          {etRcptDocType,           "etRcptDocType",           "rcpt_doc_types"},
                          {etRefusalType,           "etRefusalType",           "refusal_types"},
                          {etReportType,            "etReportType",             "report_types"},

@@ -69,6 +69,7 @@ const
                          {"HALLS",                   etHall},
                          {"KIOSK_CKIN_DESK_GRP",     etDeskGrp},
                          {"MISC_SET_TYPES",          etMiscSetType},
+                         {"RATE_COLORS",             etRateColor},
                          {"REM_GRP",                 etRemGrp},
                          {"RIGHTS",                  etRight},
                          {"SEASON_TYPES",            etSeasonType},

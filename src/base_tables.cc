@@ -17,8 +17,8 @@ TBaseTables::TBaseTables():mem(STDLOG) {};
 
 void TBaseTables::Invalidate()
 {
-	for(TTables::iterator ti = base_tables.begin(); ti != base_tables.end(); ti++)
-		ti->second->Invalidate();
+    for(TTables::iterator ti = base_tables.begin(); ti != base_tables.end(); ti++)
+        ti->second->Invalidate();
 };
 
 void TBaseTables::Clear()
@@ -75,57 +75,59 @@ TBaseTable &TBaseTables::get(string name)
         else if(name == "CRAFTS")
             base_tables[name] = new TCrafts();
         else if(name == "TRIP_TYPES")
-        	  base_tables[name] = new TTripTypes();
+              base_tables[name] = new TTripTypes();
         else if(name == "GRP_STATUS_TYPES")
-        	  base_tables[name] = new TGrpStatusTypes();
+              base_tables[name] = new TGrpStatusTypes();
         else if(name == "CLIENT_TYPES")
-        	  base_tables[name] = new TClientTypes();
+              base_tables[name] = new TClientTypes();
         else if(name == "COMP_LAYER_TYPES")
-        	  base_tables[name] = new TCompLayerTypes();
+              base_tables[name] = new TCompLayerTypes();
         else if(name == "ALARM_TYPES")
-        	  base_tables[name] = new TAlarmTypes();
+              base_tables[name] = new TAlarmTypes();
         else if(name == "DEV_MODELS")
-        	  base_tables[name] = new TDevModels();
+              base_tables[name] = new TDevModels();
         else if(name == "DEV_SESS_TYPES")
-        	  base_tables[name] = new TDevSessTypes();
+              base_tables[name] = new TDevSessTypes();
         else if(name == "DEV_FMT_TYPES")
-        	  base_tables[name] = new TDevFmtTypes();
+              base_tables[name] = new TDevFmtTypes();
         else if(name == "DEV_OPER_TYPES")
-        	  base_tables[name] = new TDevOperTypes();
+              base_tables[name] = new TDevOperTypes();
         else if(name == "GRAPH_STAGES")
-        	  base_tables[name] = new TGraphStages();
+              base_tables[name] = new TGraphStages();
         else if(name == "MISC_SET_TYPES")
-        	  base_tables[name] = new TMiscSetTypes();
+              base_tables[name] = new TMiscSetTypes();
         else if(name == "SEAT_ALGO_TYPES")
-        	  base_tables[name] = new TSeatAlgoTypes();
+              base_tables[name] = new TSeatAlgoTypes();
         else if(name == "RIGHTS")
               base_tables[name] = new TRights();
         else if(name == "USER_TYPES")
-        	  base_tables[name] = new TUserTypes();
+              base_tables[name] = new TUserTypes();
         else if(name == "USER_SET_TYPES")
-        	  base_tables[name] = new TUserSetTypes();
+              base_tables[name] = new TUserSetTypes();
         else if(name == "TRIP_SUFFIXES")
-        	  base_tables[name] = new TTripSuffixes();
+              base_tables[name] = new TTripSuffixes();
         else if(name == "TYPEB_OPTION_VALUES")
-        	  base_tables[name] = new TTypeBOptionValues();
+              base_tables[name] = new TTypeBOptionValues();
         else if(name == "TYPEB_TYPES")
-        	  base_tables[name] = new TTypeBTypes();
+              base_tables[name] = new TTypeBTypes();
         else if(name == "BAG_NORM_TYPES")
-        	  base_tables[name] = new TBagNormTypes();
+              base_tables[name] = new TBagNormTypes();
         else if(name == "LANG_TYPES")
-        	  base_tables[name] = new TLangTypes();
+              base_tables[name] = new TLangTypes();
         else if(name == "STATION_MODES")
-        	  base_tables[name] = new TStationModes();
+              base_tables[name] = new TStationModes();
         else if(name == "SEASON_TYPES")
-        	  base_tables[name] = new TSeasonTypes();
+              base_tables[name] = new TSeasonTypes();
         else if(name == "FORM_TYPES")
-        	  base_tables[name] = new TFormTypes();
+              base_tables[name] = new TFormTypes();
         else if(name == "CKIN_REM_TYPES")
-        	  base_tables[name] = new TCkinRemTypes();
+              base_tables[name] = new TCkinRemTypes();
         else if(name == "RCPT_DOC_TYPES")
-        	  base_tables[name] = new TRcptDocTypes();
+              base_tables[name] = new TRcptDocTypes();
         else if(name == "MSG_TRANSPORTS")
             base_tables[name] = new TMsgTransports();
+        else if(name == "RATE_COLORS")
+            base_tables[name] = new TRateColors();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
         mem.create(base_tables[name], STDLOG);
@@ -136,7 +138,7 @@ TBaseTable &TBaseTables::get(string name)
 TBaseTable::TBaseTable():mem(STDLOG)
 {
   prior_mem_count=mem.count();
-	Init();
+    Init();
 };
 
 TBaseTable::~TBaseTable()
@@ -235,13 +237,13 @@ const TBaseTableRow& TBaseTable::get_row(std::string field, int value, bool with
 //////////////////////////////////////////////////////////////
 void TNameBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	int idx;
-	if ( (idx=Qry.GetFieldIndex( "name" )) >= 0 )
+    int idx;
+    if ( (idx=Qry.GetFieldIndex( "name" )) >= 0 )
     ((TNameBaseTableRow*)*row)->name=Qry.FieldAsString(idx);
   if ( (idx=Qry.GetFieldIndex( "name_lat" )) >= 0 )
     ((TNameBaseTableRow*)*row)->name_lat=Qry.FieldAsString(idx);
   else
-  	((TNameBaseTableRow*)*row)->name_lat=((TNameBaseTableRow*)*row)->name;
+    ((TNameBaseTableRow*)*row)->name_lat=((TNameBaseTableRow*)*row)->name;
 }
 /////////////////////////////////////////////////////////////
 void TIdBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
@@ -293,12 +295,12 @@ const TBaseTableRow& TIdBaseTable::get_row(std::string field, int value, bool wi
 /////////////////////////////////////////////////////////////
 void TCodeBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	int idx;
+    int idx;
   ((TCodeBaseTableRow*)*row)->code=Qry.FieldAsString("code");
   if ( (idx=Qry.GetFieldIndex( "code_lat" )) >= 0 )
     ((TCodeBaseTableRow*)*row)->code_lat=Qry.FieldAsString(idx);
   else
-  	((TCodeBaseTableRow*)*row)->code_lat=((TCodeBaseTableRow*)*row)->code;
+    ((TCodeBaseTableRow*)*row)->code_lat=((TCodeBaseTableRow*)*row)->code;
   if (*replaced_row==NULL)
   {
     map<string, TBaseTableRow*>::iterator i;
@@ -752,32 +754,32 @@ void TCrafts::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
 
 void TCurrency::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	*row = new TCurrencyRow;
+    *row = new TCurrencyRow;
   mem.create(*row, STDLOG);
-	TTIDBaseTable::create_row(Qry,row,replaced_row);
+    TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
 void TRefusalTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	*row = new TRefusalTypesRow;
+    *row = new TRefusalTypesRow;
   mem.create(*row, STDLOG);
-	TTIDBaseTable::create_row(Qry,row,replaced_row);
+    TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
 void TPayTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	*row = new TPayTypesRow;
+    *row = new TPayTypesRow;
   mem.create(*row, STDLOG);
-	TTIDBaseTable::create_row(Qry,row,replaced_row);
+    TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
 void TRcptDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	*row = new TRcptDocTypesRow;
+    *row = new TRcptDocTypesRow;
   mem.create(*row, STDLOG);
   ((TRcptDocTypesRow*)*row)->code_pax_doc=Qry.FieldAsString("code_pax_doc");
   ((TRcptDocTypesRow*)*row)->code_mintrans=Qry.FieldAsString("code_mintrans");
-	TTIDBaseTable::create_row(Qry,row,replaced_row);
+    TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
 void TTripTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
@@ -800,13 +802,13 @@ void TClsGrp::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
 };
 
 void TAlarmTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
-	*row = new TAlarmTypesRow;
+    *row = new TAlarmTypesRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
 void TDevModels::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
-	*row = new TDevModelsRow;
+    *row = new TDevModelsRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
@@ -818,13 +820,13 @@ void TDevSessTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
 };
 
 void TDevFmtTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
-	*row = new TDevFmtTypesRow;
+    *row = new TDevFmtTypesRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
 void TDevOperTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
-	*row = new TDevOperTypesRow;
+    *row = new TDevOperTypesRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
@@ -906,9 +908,9 @@ void TUserSetTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
 
 void TBagNormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	*row = new TBagNormTypesRow;
+    *row = new TBagNormTypesRow;
   mem.create(*row, STDLOG);
-	TCodeBaseTable::create_row(Qry,row,replaced_row);
+    TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TBagTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
@@ -920,45 +922,45 @@ void TBagTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **rep
 
 void TLangTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	*row = new TLangTypesRow;
+    *row = new TLangTypesRow;
   mem.create(*row, STDLOG);
-	TCodeBaseTable::create_row(Qry,row,replaced_row);
+    TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TStationModes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	*row = new TStationModesRow;
+    *row = new TStationModesRow;
   mem.create(*row, STDLOG);
-	TCodeBaseTable::create_row(Qry,row,replaced_row);
+    TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TSeasonTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	*row = new TSeasonTypesRow;
+    *row = new TSeasonTypesRow;
   mem.create(*row, STDLOG);
-	TIdBaseTable::create_row(Qry,row,replaced_row);
+    TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TFormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	*row = new TFormTypesRow;
+    *row = new TFormTypesRow;
   mem.create(*row, STDLOG);
   ((TFormTypesRow*)*row)->basic_type=Qry.FieldAsString("basic_type");
   ((TFormTypesRow*)*row)->validator=Qry.FieldAsString("validator");
   ((TFormTypesRow*)*row)->series_len=Qry.FieldAsInteger("series_len");
   ((TFormTypesRow*)*row)->no_len=Qry.FieldAsInteger("no_len");
   ((TFormTypesRow*)*row)->pr_check_bit=Qry.FieldAsInteger("pr_check_bit")!=0;
-	TCodeBaseTable::create_row(Qry,row,replaced_row);
+    TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TCkinRemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-	*row = new TCkinRemTypesRow;
+    *row = new TCkinRemTypesRow;
   mem.create(*row, STDLOG);
   ((TCkinRemTypesRow*)*row)->grp_id=Qry.FieldAsInteger("grp_id");
   ((TCkinRemTypesRow*)*row)->is_iata=Qry.FieldAsInteger("is_iata")!=0;
   ((TCkinRemTypesRow*)*row)->priority=Qry.FieldIsNULL("priority")?ASTRA::NoExists:Qry.FieldAsInteger("priority");
-	TTIDBaseTable::create_row(Qry,row,replaced_row);
+    TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
 void TMsgTransports::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
@@ -967,5 +969,11 @@ void TMsgTransports::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow 
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
+void TRateColors::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TRateColorsRow;
+  mem.create(*row, STDLOG);
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
 
 TBaseTables base_tables;
