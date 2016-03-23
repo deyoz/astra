@@ -1703,6 +1703,8 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
             StringToHex( string(iPax->prn_form), iPax->prn_form );
             iPax->hex=true;
         }
+        if(DecodeDevFmtType(params.fmt_type) == dftGraphics2D)
+            iPax->prn_form = StrUtils::b64_encode(iPax->prn_form);
         if(iPax->pax_id!=NoExists)
             parser->pts.save_bp_print();
         iPax->time_print=parser->pts.get_time_print();
