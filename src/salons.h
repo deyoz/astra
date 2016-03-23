@@ -1,7 +1,6 @@
 #ifndef _SALONS_H_
 #define _SALONS_H_
 
-#include <string>
 #include <vector>
 #include <map>
 #include <set>
@@ -123,23 +122,6 @@ struct TPlaceLayer {
   }
 };
 
-struct TPlaceWebTariff {
-    std::string color;
-    double value;
-    std::string currency_id;
-    TPlaceWebTariff() {
-      value = 0.0;
-    };
-    bool empty() const {
-      return value == 0.0;
-    };
-    std::string valueStr() const {
-      std::ostringstream buf;
-      buf << std::fixed << std::setprecision(2) << value;
-      return buf.str();
-    }
-};
-
 struct TSeatTariff {
     std::string color;
     double value;
@@ -147,7 +129,15 @@ struct TSeatTariff {
     std::string RFISC;
     TSeatTariff() {
         value = 0.0;
-    };
+    }
+    bool empty() const {
+      return value == 0.0;
+    }
+    std::string valueStr() const {
+      std::ostringstream buf;
+      buf << std::fixed << std::setprecision(2) << color << value << currency_id;
+      return buf.str();
+    }
     bool equal( const TSeatTariff &seatTarif ) const {
     return ( color == seatTarif.color &&
              value == seatTarif.value &&
@@ -170,8 +160,17 @@ struct SeatTariffCompare {
   }
 };
 
-typedef std::map<std::string/*color*/, TSeatTariff> TSeatTariffMapType;
-typedef std::map<std::string/*color*/, std::string/*rfisc*/> TRFISColorsMap;
+class TSeatTariffMapType : public std::map<std::string,TSeatTariff> {
+  public:
+    std::string key() const {
+      std::string res;
+      for ( std::map<std::string,TSeatTariff,SeatTariffCompare>::const_iterator i=begin(); i!=end(); i++ ) {
+         res += " " + i->second.valueStr();
+      }
+      return res;
+    }
+};
+//typedef std::map<std::string/*color*/, std::string/*rfisc*/> TRFISColorsMap;
 
 class TSeatTariffMap : public TSeatTariffMapType
 {
@@ -223,7 +222,7 @@ class TSeatTariffMap : public TSeatTariffMapType
     void get_rfisc_colors(const std::string &airline_oper);
     void clear()
     {
-      std::map<std::string/*color*/, TSeatTariff>::clear();
+      std::map<std::string,TSeatTariff>::clear();
       _status=stNotFound;
     }
     void trace( TRACE_SIGNATURE ) const;
@@ -544,6 +543,7 @@ class FilterRoutesProperty: public std::vector<TTripRouteItem> {
     int crc_comp;
     int comp_id;
     bool pr_craft_lat;
+    std::string airline;
     std::map<int,PointAirpNum> pointNum;
     std::set<int> takeoffPoints;
     int readNum( int point_id, bool in_use );
@@ -559,6 +559,7 @@ class FilterRoutesProperty: public std::vector<TTripRouteItem> {
       crc_comp = filterRoutes.crc_comp;
       comp_id = filterRoutes.comp_id;
       pr_craft_lat = filterRoutes.pr_craft_lat;
+      airline = filterRoutes.airline;
       pointNum = filterRoutes.pointNum;
       clear();
       insert( end(), filterRoutes.begin(), filterRoutes.end() );
@@ -583,6 +584,9 @@ class FilterRoutesProperty: public std::vector<TTripRouteItem> {
     }
     bool isCraftLat() const {
       return pr_craft_lat;
+    }
+    std::string getAirline() const {
+      return airline;
     }
     int getCompId() const {
       return comp_id;
@@ -612,7 +616,7 @@ class TPlace {
     std::map<int,TSeatLayer> drop_blocked_layers;
     bool CompareRems( const TPlace &seat ) const;
     bool CompareLayers( const TPlace &seat ) const;
-    bool CompareTariffs( const TPlace &seat ) const;
+    bool CompareTariffs( const TPlace &seat ) const;    
   public:
     bool visible;
     int x, y, num;
@@ -626,7 +630,7 @@ class TPlace {
     bool passSel;
     std::vector<TRem> rems;
     std::vector<TPlaceLayer> layers;
-    TPlaceWebTariff WebTariff;
+    TSeatTariff SeatTariff;
     BitSet<TDrawPropsType> drawProps;
     bool isPax;
     TPlace() {
@@ -660,7 +664,7 @@ class TPlace {
       save_lrss = pl.save_lrss;
       lrss = pl.lrss;
       rems = pl.rems;
-      WebTariff = pl.WebTariff;
+      SeatTariff = pl.SeatTariff;
       isPax = pl.isPax;
       remarks = pl.remarks;
       tariffs = pl.tariffs;
@@ -740,19 +744,24 @@ class TPlace {
     void GetRemarks( std::map<int, std::vector<TSeatRemark>,classcomp > &vremarks ) const {
       vremarks = remarks;
     }
+    void clearRemarks( ) {
+      remarks.clear();
+    }
     void AddTariff( int key, const TSeatTariff &seatTariff ) {
       tariffs[ key ] = seatTariff;
-    }
+    }    
     void GetTariffs( std::map<int, TSeatTariff,classcomp> &vtariffs ) const {
       vtariffs = tariffs;
     }
     void AddTariff( const std::string &vcolor,
                     const double &vvalue,
-                      const std::string &vcurrency_id ) {
-       WebTariff.color = vcolor;
-       WebTariff.value = vvalue;
-       WebTariff.currency_id = vcurrency_id;
+                    const std::string &vcurrency_id ) {
+       SeatTariff.color = vcolor;
+       SeatTariff.value = vvalue;
+       SeatTariff.currency_id = vcurrency_id;
     }
+
+    void SetTariffsByColor( TSeatTariffMapType salonTariffs );
     void AddLayerToPlace( ASTRA::TCompLayerType l, BASIC::TDateTime time_create, int pax_id,
                            int point_dep, int point_arv, int priority ) {
         std::vector<TPlaceLayer>::iterator i;
@@ -766,7 +775,9 @@ class TPlace {
         layers.insert( i, pl );
         if ( pax_id > 0 )
             isPax = true;
-    };
+    }
+    void SetRFICSRemarkByColor( int key, TSeatTariffMapType salonRFISCColor );
+    void DropRFISCRemarks( TSeatTariffMapType salonRFISCColor );
     bool isChange( const TPlace &seat, BitSet<TCompareComps> &flags ) const;
     void Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) const;
     void Build( xmlNodePtr node, int point_dep, bool pr_lat_seat, bool pr_update,
@@ -1054,21 +1065,22 @@ class TSalons {
                 return false;
       }
       return true;
-    };
+    }
     int getPriority( ASTRA::TCompLayerType layer_type ) {
       BASIC_SALONS::TCompLayerType layer_elem;
       if ( BASIC_SALONS::TCompLayerTypes::Instance()->getElem( layer_type, layer_elem ) ) {
         return layer_elem.getPriority();
       }
       else return 10000;
-    };
-    bool getLatSeat() { return pr_lat_seat; };
+    }
+    bool getLatSeat() { return pr_lat_seat; }
     void BuildLayersInfo( xmlNodePtr salonsNode,
                           const BitSet<TDrawPropsType> &props );
     void Build( xmlNodePtr salonsNode );
     void Read( bool drop_not_used_pax_layers=true );
     void Write( const TComponSets &compSets );
     void Parse( xmlNodePtr salonsNode );
+    void SetTariffsByColor( TSeatTariffMapType tariffs );
 };
 
 struct ComparePassenger {
@@ -1206,6 +1218,8 @@ class TSalonList: public std::vector<TPlaceList*> {
                      int prior_compon_props_point_id );
     void ReadTariff( TQuery &Qry, FilterRoutesProperty &filterSegments,
                      int prior_compon_props_point_id );
+    void AddRFISCRemarks( int key, const std::string &airline );
+    void DropRFISCRemarks( const std::string &airline );
     void ReadPaxs( TQuery &Qry, TPaxList &pax_list );
     void ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list );
     void validateLayersSeats( );
@@ -1245,10 +1259,10 @@ class TSalonList: public std::vector<TPlaceList*> {
                      TSalonReadVersion version,
                      const std::string &filterClass,
                      bool for_calc_waitlist = false,  //!!!
-                     int prior_compon_props_point_id = ASTRA::NoExists );
+                     int prior_compon_props_point_id = ASTRA::NoExists );    
     void Build( bool with_pax,
                 xmlNodePtr salonsNode );
-    void Parse( int vpoint_id, xmlNodePtr salonsNode );
+    void Parse( int vpoint_id, const std::string &airline, xmlNodePtr salonsNode );
     void WriteFlight( int vpoint_id );
     void WriteCompon( int &vcomp_id, const TComponSets &componSets );
     bool CreateSalonsForAutoSeats( TSalons &salons,
@@ -1286,8 +1300,8 @@ class TSalonList: public std::vector<TPlaceList*> {
 //typedef std::map<TPlace*, std::vector<TPlaceLayer> > TPlacePaxs; // сортировка по приоритетам слоев
 
 
-    typedef std::pair<int,TPlace> TSalonSeat;
-    bool Checkin( int pax_id );
+  typedef std::pair<int,TPlace> TSalonSeat;
+  bool Checkin( int pax_id );
   bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
   void GetTripParams( int trip_id, xmlNodePtr dataNode );
   void GetCompParams( int comp_id, xmlNodePtr dataNode );
@@ -1335,21 +1349,13 @@ class TSalonList: public std::vector<TPlaceList*> {
   bool isBaseLayer( ASTRA::TCompLayerType layer_type, bool isComponCraft );
   int getCrsPaxPointArv( int crs_pax_id, int point_id_spp );
   void CreateSalonMenu( int point_dep, xmlNodePtr salonsNode );
-
   bool isTranzitSalons( int point_id );
   bool isFreeSeating( int point_id );
   bool isEmptySalons( int point_id );
   void DeleteSalons( int point_id );
-
   bool isUserProtectLayer( ASTRA::TCompLayerType layer_type );
-
   void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
                     const std::vector<TSeatRange> &seatRanges, const std::string &reason );
-
 } // END namespace SALONS2
-
-
 int testsalons(int argc,char **argv);
-
 #endif /*_SALONS2_H_*/
-

@@ -87,74 +87,179 @@ struct TDefaults {
 };
 
 struct TPassenger {
-	private:
+  private:
     std::vector<std::string> rems;
-	public:
-  /*вход*/
-  int index;
-  int grpId;
-  int regNo;
-  std::string fullName;
-  std::string pers_type;
-  int paxId; /* pax_id */
-  int preseat_pax_id;
-  int point_arv;
-  //std::string placeName;
-  std::string foundSeats;
-  bool isSeat;
-  std::string wl_type;
-  int countPlace;
-  TSeatStep Step;
-  std::string SUBCLS_REM;
-  std::string maxRem;
-  std::string placeRem; /* 'NSSA', 'NSSW', 'NSSB' и т. д. */
-  bool prSmoke;
-  std::string clname;
-  //ASTRA::TCompLayerType layer; // статус пассажира предв. рассадка, бронь, ...
-  ASTRA::TCompLayerType grp_status; // статус группы Т - транзит ...
-  int priority;
-  int tid;
-  std::string preseat_no;
-  ASTRA::TCompLayerType preseat_layer;
-  //std::string agent_seat;
-  std::string ticket_no;
-  std::string document;
-  int bag_weight;
-  int bag_amount;
-  int excess;
-  std::string trip_from;
-  std::string pass_rem;
-  /*выход*/
-  std::vector<TSeat> seat_no;
-  SALONS2::TPlaceList *placeList; /* салон */
-  SALONS2::TPoint Pos; /* указывает место */
-  bool InUse;
-  bool isValidPlace;
-  TPassenger() {
-  	bag_weight = 0;
-  	bag_amount = 0;
-  	excess = 0;
-    countPlace = 1;
-    prSmoke = false;
-    preseat_layer = ASTRA::cltUnknown;
-    grp_status = ASTRA::cltUnknown;
-    priority = 0;
-    SUBCLS_REM = "";
-    placeList = NULL;
-    Pos.x = 0;
-    Pos.y = 0;
-    InUse = false;
-    isValidPlace = true;
-    tid = -1;
-    point_arv = ASTRA::NoExists;
-  }
-  void set_seat_no();
-  void add_rem( std::string code );
-  void calc_priority(std::map<std::string, int> &remarks);
-  void get_remarks( std::vector<std::string> &vrems );
-  bool isRemark( std::string code );
-  bool is_valid_seats( const std::vector<SALONS2::TPlace> &places );
-  void build( xmlNodePtr pNode, const TDefaults& def);
+  public:
+    /*вход*/
+    int index;
+    int grpId;
+    int regNo;
+    std::string fullName;
+    std::string pers_type;
+    int paxId; /* pax_id */
+    int preseat_pax_id;
+    int point_arv;
+    //std::string placeName;
+    std::string foundSeats;
+    bool isSeat;
+    std::string wl_type;
+    int countPlace;
+    TSeatStep Step;
+    std::string SUBCLS_REM;
+    std::string maxRem;
+    std::string placeRem; /* 'NSSA', 'NSSW', 'NSSB' и т. д. */
+    bool prSmoke;
+    std::string clname;
+    //ASTRA::TCompLayerType layer; // статус пассажира предв. рассадка, бронь, ...
+    ASTRA::TCompLayerType grp_status; // статус группы Т - транзит ...
+    int priority;
+    int tid;
+    std::string preseat_no;
+    ASTRA::TCompLayerType preseat_layer;
+    //std::string agent_seat;
+    std::string ticket_no;
+    std::string document;
+    int bag_weight;
+    int bag_amount;
+    int excess;
+    std::string trip_from;
+    std::string pass_rem;
+    /*выход*/
+    std::vector<TSeat> seat_no;
+    SALONS2::TPlaceList *placeList; /* салон */
+    SALONS2::TPoint Pos; /* указывает место */
+    bool InUse;
+    bool isValidPlace;
+    TSeatTariffMapType tariffs;
+    TPassenger() {
+      regNo = -1;
+      bag_weight = 0;
+      bag_amount = 0;
+      excess = 0;
+      countPlace = 1;
+      prSmoke = false;
+      preseat_layer = ASTRA::cltUnknown;
+      grp_status = ASTRA::cltUnknown;
+      priority = 0;
+      SUBCLS_REM = "";
+      placeList = NULL;
+      Pos.x = 0;
+      Pos.y = 0;
+      InUse = false;
+      isValidPlace = true;
+      tid = -1;
+      point_arv = ASTRA::NoExists;
+    }
+    void set_seat_no();
+    void add_rem( std::string code );
+    void calc_priority(std::map<std::string, int> &remarks);
+    void get_remarks( std::vector<std::string> &vrems );
+    bool isRemark( std::string code );
+    bool is_valid_seats( const std::vector<SALONS2::TPlace> &places );
+    void build( xmlNodePtr pNode, const TDefaults& def);
+    std::string toString() const {
+      std::ostringstream buf;
+      buf << std::fixed << std::setprecision(2);
+      buf << "index=" << index << ",";
+      buf << "grpId=" << grpId << ",";
+      buf << "regNo=" << regNo << ",";
+      if ( !fullName.empty() ) {
+        buf << "fullName=" << fullName << ",";
+      }
+      if ( !pers_type.empty() ) {
+        buf << "pers_type=" << pers_type << ",";
+      }
+      buf << "paxId=" << paxId << ",";
+      buf << "preseat_pax_id=" << preseat_pax_id << ",";
+      buf << "point_arv=" << point_arv << ",";
+      if ( !foundSeats.empty() ) {
+        buf << "foundSeats=" << foundSeats << ",";
+      }
+      if ( isSeat ) {
+        buf << "isSeat=" << isSeat << ",";
+      }
+      if ( !wl_type.empty() ) {
+        buf << "wl_type=" << wl_type << ",";
+      }
+      if ( countPlace != 1 ) {
+        buf << "countPlace=" << countPlace << ",";
+      }
+      if ( Step != sLeft && Step != sRight ) {
+        buf << "Step=UpDown";
+      }
+      if ( !SUBCLS_REM.empty() ) {
+        buf << "SUBCLS_REM=" << SUBCLS_REM << ",";
+      }
+      if ( !maxRem.empty() ) {
+        buf << "maxRem=" << maxRem << ",";
+      }
+      if ( !placeRem.empty() ) {
+        buf << "placeRem=" << placeRem << ",";
+      }
+      if ( prSmoke ) {
+        buf << "prSmoke,";
+      }
+      if ( !clname.empty() ) {
+        buf << "clname=" << clname << ",";
+      }
+      buf << "grp_status=" << EncodeCompLayerType(grp_status) << ",";
+      if ( priority != 0 ) {
+        buf << "priority=" << priority << ",";
+      }
+      if ( tid  >= 0 ) {
+        buf << "tid=" << tid << ",";
+      }
+      if ( !preseat_no.empty() ) {
+        buf << "preseat_no=" << preseat_no << ",";
+      }
+      if ( preseat_layer != ASTRA::cltUnknown ) {
+        buf << "preseat_layer=" << EncodeCompLayerType(preseat_layer) << ",";
+      }
+      if ( !ticket_no.empty() ) {
+        buf << "ticket_no=" << ticket_no << ",";
+      }
+      if ( !document.empty() ) {
+        buf << "document=" << document << ",";
+      }
+      if ( bag_weight > 0 ) {
+        buf << "bag_weight=" << bag_weight << ",";
+      }
+      if ( bag_amount > 0 ) {
+        buf << "bag_amount=" << bag_amount << ",";
+      }
+      if ( excess != 0 ) {
+        buf << "excess=" << excess << ",";
+      }
+      if ( !trip_from.empty() ) {
+        buf << "trip_from=" << trip_from << ",";
+      }
+      if ( !pass_rem.empty() ) {
+        buf << "pass_rem=" << pass_rem << ",";
+      }
+      if ( !seat_no.empty() ) {
+        buf << "seats=";
+        for ( std::vector<TSeat>::const_iterator iseat=seat_no.begin(); iseat!=seat_no.end(); iseat++ ) {
+          buf << iseat->row << iseat->line << " ";
+        }
+        buf << ",";
+      }
+      if ( InUse ) {
+        buf << "InUse,";
+      }
+      if ( !isValidPlace ) {
+        buf << "not isValidPlace,";
+      }
+      if ( !tariffs.empty() ) {
+        buf << "tariffs=" << tariffs.key() << ",";
+      }
+      if ( !rems.empty() ) {
+         buf << "rems=";
+         for ( std::vector<std::string>::const_iterator irem=rems.begin(); irem!=rems.end(); irem++ ) {
+           buf << *irem << " ";
+         }
+      }
+      return buf.str();
+    }
 };
 
 typedef std::vector<TPassenger> VPassengers;

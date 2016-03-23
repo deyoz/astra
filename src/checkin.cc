@@ -4045,15 +4045,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     try
     {
+      TAdvTripInfo fltAdvInfo(fltInfo,
+                              s->second.point_dep,
+                              s->second.point_num,
+                              s->second.first_point,
+                              s->second.pr_tranzit);
       //BSM
       BSM::TBSMAddrs BSMaddrs;
       BSM::TTlgContent BSMContentBefore;
       bool BSMsend=grp.status==psCrew?false:
-                                      BSM::IsSend(TAdvTripInfo(fltInfo,
-                                                               s->second.point_dep,
-                                                               s->second.point_num,
-                                                               s->second.first_point,
-                                                               s->second.pr_tranzit), BSMaddrs);
+                                      BSM::IsSend(fltAdvInfo, BSMaddrs);
 
       set<int> nextTrferSegs;
 
@@ -4362,6 +4363,58 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             if (setList.value(tsFreeSeating)) wl_type="F";
           };
 
+          if (grp.status!=psCrew)
+          {
+            //запишем коммерческий рейс
+            xmlNodePtr markFltNode=GetNode("mark_flight",segNode);
+            if (markFltNode!=NULL)
+            {
+              TGrpMktFlight mktFlight;
+              mktFlight.fromXML(markFltNode);
+              markFltInfo.Init(mktFlight);
+              pr_mark_norms=mktFlight.pr_mark_norms;
+              //получим локальную дату выполнения фактического рейса
+              TDateTime scd_local=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
+              modf(scd_local,&scd_local);
+
+              ostringstream flt;
+              flt << markFltInfo.airline
+                  << setw(3) << setfill('0') << markFltInfo.flt_no
+                  << markFltInfo.suffix;
+              if (markFltInfo.scd_out!=scd_local)
+                flt << "/" << DateTimeToStr(markFltInfo.scd_out,"dd");
+              if (markFltInfo.airp!=fltInfo.airp)
+                flt << "/" << markFltInfo.airp;
+
+              string str;
+              TElemFmt fmt;
+
+              str=ElemToElemId(etAirline,markFltInfo.airline,fmt);
+              if (fmt==efmtUnknown)
+                throw UserException("MSG.COMMERCIAL_FLIGHT.AIRLINE.UNKNOWN_CODE",
+                                    LParams()<<LParam("airline",markFltInfo.airline)
+                                             <<LParam("flight", flt.str()));  //WEB
+              markFltInfo.airline=str;
+
+              if (!markFltInfo.suffix.empty())
+              {
+                str=ElemToElemId(etSuffix,markFltInfo.suffix,fmt);
+                if (fmt==efmtUnknown)
+                  throw UserException("MSG.COMMERCIAL_FLIGHT.SUFFIX.INVALID",
+                                      LParams()<<LParam("suffix",markFltInfo.suffix)
+                                               <<LParam("flight",flt.str())); //WEB
+                markFltInfo.suffix=str;
+              };
+
+              str=ElemToElemId(etAirp,markFltInfo.airp,fmt);
+              if (fmt==efmtUnknown)
+                throw UserException("MSG.COMMERCIAL_FLIGHT.UNKNOWN_AIRP",
+                                    LParams()<<LParam("airp",markFltInfo.airp)
+                                             <<LParam("flight",flt.str())); //WEB
+              markFltInfo.airp=str;
+            };
+          };
+
           if (wl_type.empty() && grp.status!=psCrew)
           {
             //группа регистрируется не на лист ожидания
@@ -4401,9 +4454,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 else
                 {
                   if (pax.pers_type == ASTRA::adult) AdultItems.push_back( pass );
-                };
+                };                                                
               };
             }
+            SALONS2::TSeatTariffMap tariffMap;
             //ProgTrace( TRACE5, "InfItems.size()=%zu, AdultItems.size()=%zu", InfItems.size(), AdultItems.size() );
             SetInfantsToAdults( InfItems, AdultItems );
             SEATS2::Passengers.Clear();
@@ -4485,6 +4539,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   if ( flagINFT ) {
                     pas.add_rem("INFT");
                   }
+
+                  //здесь набираем
+                  tariffMap.get(fltAdvInfo, markFltInfo, pax.tkn);
+                  pas.tariffs=tariffMap;
+                  tariffMap.trace(TRACE5);
+
                   if ( isTranzitSalonsVersion ) {
                     SEATS2::Passengers.Add(salonList,pas);
                   }
@@ -4522,58 +4582,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               pr_lat_seat=Salons.getLatSeat();
             }
           }; //if (wl_type.empty())
-
-          if (grp.status!=psCrew)
-          {
-            //запишем коммерческий рейс
-            xmlNodePtr markFltNode=GetNode("mark_flight",segNode);
-            if (markFltNode!=NULL)
-            {
-              TGrpMktFlight mktFlight;
-              mktFlight.fromXML(markFltNode);
-              markFltInfo.Init(mktFlight);
-              pr_mark_norms=mktFlight.pr_mark_norms;
-              //получим локальную дату выполнения фактического рейса
-              TDateTime scd_local=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
-              modf(scd_local,&scd_local);
-
-              ostringstream flt;
-              flt << markFltInfo.airline
-                  << setw(3) << setfill('0') << markFltInfo.flt_no
-                  << markFltInfo.suffix;
-              if (markFltInfo.scd_out!=scd_local)
-                flt << "/" << DateTimeToStr(markFltInfo.scd_out,"dd");
-              if (markFltInfo.airp!=fltInfo.airp)
-                flt << "/" << markFltInfo.airp;
-
-              string str;
-              TElemFmt fmt;
-
-              str=ElemToElemId(etAirline,markFltInfo.airline,fmt);
-              if (fmt==efmtUnknown)
-                throw UserException("MSG.COMMERCIAL_FLIGHT.AIRLINE.UNKNOWN_CODE",
-                                    LParams()<<LParam("airline",markFltInfo.airline)
-                                             <<LParam("flight", flt.str()));  //WEB
-              markFltInfo.airline=str;
-
-              if (!markFltInfo.suffix.empty())
-              {
-                str=ElemToElemId(etSuffix,markFltInfo.suffix,fmt);
-                if (fmt==efmtUnknown)
-                  throw UserException("MSG.COMMERCIAL_FLIGHT.SUFFIX.INVALID",
-                                      LParams()<<LParam("suffix",markFltInfo.suffix)
-                                               <<LParam("flight",flt.str())); //WEB
-                markFltInfo.suffix=str;
-              };
-
-              str=ElemToElemId(etAirp,markFltInfo.airp,fmt);
-              if (fmt==efmtUnknown)
-                throw UserException("MSG.COMMERCIAL_FLIGHT.UNKNOWN_AIRP",
-                                    LParams()<<LParam("airp",markFltInfo.airp)
-                                             <<LParam("flight",flt.str())); //WEB
-              markFltInfo.airp=str;
-            };
-          };
 
           if (reqInfo->client_type!=ctPNL)
           {

@@ -662,7 +662,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TTripInfo info( Qry );
   SALONS2::TSalons Salons( trip_id, SALONS2::rTripSalons ), OldSalons( trip_id, SALONS2::rTripSalons );;
   SALONS2::TSalonList salonList, priorsalonList;
-  salonList.Parse( trip_id, NodeAsNode( "salons", reqNode ) );
+  salonList.Parse( trip_id, info.airline, NodeAsNode( "salons", reqNode ) );
   if ( !isTranzitSalonsVersion ) {
     Salons.Parse( NodeAsNode( "salons", reqNode ) );
   }
@@ -921,7 +921,7 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   BitSet<ASTRA::TCompLayerType> editabeLayers;
   getEditabeLayers( editabeLayers, true );
   componSets.Parse( reqNode );
-  salonList.Parse( ASTRA::NoExists, GetNode( "salons", reqNode ) );
+  salonList.Parse( ASTRA::NoExists, componSets.airline, GetNode( "salons", reqNode ) );
   if ( componSets.modify != SALONS2::mNone &&
        componSets.modify != SALONS2::mAdd ) {
     priorsalonList.ReadCompon( comp_id );

@@ -244,12 +244,12 @@ struct TCondRate {
   bool pr_web; //признак того, что регистрируется платный пассажир
   bool use_rate; // использовать платные места для пассажиров без оплаченных мест
   bool ignore_rate; // игнорируем тариф
-  map<int, TPlaceWebTariff> rates;
-  map<int, TPlaceWebTariff>::iterator current_rate;
+  map<int, TSeatTariff> rates;
+  map<int, TSeatTariff>::iterator current_rate;
   TCondRate( ) {
     current_rate = rates.end();
   }
-  double convertUniValue( TPlaceWebTariff &rate ) {
+  double convertUniValue( TSeatTariff &rate ) {
     return rate.value;
   }
   void Init( SALONS2::TSalons &Salons, bool apr_pay, TClientType client_type ) {
@@ -267,9 +267,9 @@ struct TCondRate {
           plList!=Salons.placelists.end(); plList++ ) {
       placeList = *plList;
       for ( IPlace i=placeList->places.begin(); i!=placeList->places.end(); i++ ) {
-        if ( i->WebTariff.value == 0.0 || !i->visible || !i->isplace )
+        if ( i->SeatTariff.value == 0.0 || !i->visible || !i->isplace )
           continue;
-        double univalue = convertUniValue( i->WebTariff );
+        double univalue = convertUniValue( i->SeatTariff );
         if ( vars.find( univalue ) == vars.end() ) { // не нашли
           bool pr_ins = false;
           for ( map<double,int>::iterator p=vars.begin(); p!=vars.end(); p++ ) {
@@ -279,30 +279,30 @@ struct TCondRate {
                 vars[ univalue ] = p->second;
                 for ( int k=vars.size(); k >p->second; k-- )
                   rates[ k ] = rates[ k - 1 ];
-                rates[ p->second ] = i->WebTariff;
+                rates[ p->second ] = i->SeatTariff;
               }
               vars[ p->first ] = vars[ p->first ] + 1;
             }
           }
           if ( !pr_ins )
            vars[ univalue ] = vars.size();
-           rates[ vars[ univalue ] ] = i->WebTariff;
+           rates[ vars[ univalue ] ] = i->SeatTariff;
         }
       }
     }
     current_rate = rates.begin();
-    for ( map<int, TPlaceWebTariff>::iterator i=rates.begin(); i!=rates.end(); i++ ) {
+    for ( map<int, TSeatTariff>::iterator i=rates.begin(); i!=rates.end(); i++ ) {
       ProgTrace( TRACE5, " rates.first=%d, rates.second.value=%f", i->first, i->second.value );
     }
   }
   bool CanUseRate( TPlace *place ) { /* если все возможные тарифы попробовали при рассадке и не смогли рассадить или нет тарифов на рейсе или место без тарифа, то можно использовать */
-    bool res = ( pr_web || current_rate == rates.end() || place->WebTariff.value == 0.0 || ignore_rate );
+    bool res = ( pr_web || current_rate == rates.end() || place->SeatTariff.value == 0.0 || ignore_rate );
     if ( !res ) {
       if ( !use_rate ) {
         return res;
       }
-      for ( map<int, TPlaceWebTariff>::iterator i=rates.begin(); ; i++ ) { // просмотр всех тарифов, кот. сортированы в порядке возрастания приоритета использования
-        if ( i->second.value == place->WebTariff.value ) {
+      for ( map<int, TSeatTariff>::iterator i=rates.begin(); ; i++ ) { // просмотр всех тарифов, кот. сортированы в порядке возрастания приоритета использования
+        if ( i->second.value == place->SeatTariff.value ) {
           res = true;
           break;
         }
@@ -313,7 +313,7 @@ struct TCondRate {
     return res;
   }
   bool isIgnoreRates( ) {
-    map<int, TPlaceWebTariff>::iterator i = rates.end();
+    map<int, TSeatTariff>::iterator i = rates.end();
     if ( !rates.empty() )
       i--;
     return ( (current_rate == rates.end() && use_rate) || i == current_rate || ignore_rate);
@@ -2597,38 +2597,47 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
 {
   passGrps.clear();
   TPassengers p;
-  if ( AllowedAttrsSeat.pr_isWorkINFT ) {
-    for ( int icond=0; icond<4; icond++ ) { // делим на: 0=платный ребенок и 1=платный взрослый , 2=бесплатный ребеной, 3=бесплатный взрослый
-      TPassengers v;
-      for ( int i=0; i<passengers.getCount(); i++ ) {
-        TPassenger &pass = passengers.Get( i );
-        bool pr_pay = false;
-        if ( SALONS2::isUserProtectLayer( pass.preseat_layer ) ) {
-          if ( pass.preseat_layer == cltProtBeforePay ||
-               pass.preseat_layer == cltPNLBeforePay ||
-               pass.preseat_layer == cltProtAfterPay ||
-               pass.preseat_layer == cltPNLAfterPay )
-            pr_pay = true;
+  boolean ignoreINFT = !AllowedAttrsSeat.pr_isWorkINFT;
+  std::set<int> addedPasses;
+  for ( int icond=0; icond<4; icond++ ) { // AllowedAttrsSeat.pr_isWorkINFT делим на: 0=платный ребенок и 1=платный взрослый , 2=бесплатный ребеной, 3=бесплатный взрослый
+    std::map<std::string,TPassengers> v; //делим по тарифам
+    for ( int i=0; i<passengers.getCount(); i++ ) {
+      TPassenger &pass = passengers.Get( i );
+      bool pr_pay = false;
+      if ( SALONS2::isUserProtectLayer( pass.preseat_layer ) ) {
+        if ( pass.preseat_layer == cltProtBeforePay ||
+             pass.preseat_layer == cltPNLBeforePay ||
+             pass.preseat_layer == cltProtAfterPay ||
+             pass.preseat_layer == cltPNLAfterPay )
+          pr_pay = true;
+      }
+      if (
+           (icond == 0 && pr_pay && (ignoreINFT || pass.isRemark( "INFT" ))) ||
+           (icond == 1 && pr_pay && (ignoreINFT || !pass.isRemark( "INFT" ))) ||
+           (icond == 2 && !pr_pay && (ignoreINFT || pass.isRemark( "INFT" ))) ||
+           (icond == 3 && !pr_pay && (ignoreINFT || !pass.isRemark( "INFT" ))) ) {
+        if ( addedPasses.find( pass.index ) != addedPasses.end() ) {
+          tst();
+          continue;
         }
-        if (
-             (icond == 0 && pr_pay && pass.isRemark( "INFT" )) ||
-             (icond == 1 && pr_pay &&  !pass.isRemark( "INFT" )) ||
-             (icond == 2 && !pr_pay &&  pass.isRemark( "INFT" )) ||
-             (icond == 3 && !pr_pay &&  !pass.isRemark( "INFT" )) ) {
-            v.Add( pass, pass.index );
+        addedPasses.insert( pass.index  );
+        ProgTrace( TRACE5, "pass.index=%d", pass.index );
+        v[ pass.tariffs.key() ].Add( pass, pass.index );
+
+        ProgTrace( TRACE5, "dividePassengersToGrps: icond=%d, pass=%s, pass.tariffs.key()=%s", icond, pass.toString().c_str(), pass.tariffs.key().c_str() );
 //          ProgTrace( TRACE5, "dividePassengersToGrps: j=%d, i=%d, pass.idx=%d, pass.pax_id=%d, INFT=%d", j,i, pass.paxId, pass.index, pass.isRemark( "INFT") );
-        }
-        if ( v.getCount() > 0 ) {
-    //      ProgTrace( TRACE5, "passGrps.push_back( %d )", v.getCount() );
-          passGrps.push_back( v );
-        }
-      } // INFT
-    } //ipay
-  }
+      }
+    } // passs
+    for ( std::map<std::string,TPassengers>::iterator ip = v.begin(); ip!=v.end(); ip++ ) {
+      if ( ip->second.getCount() > 0 ) {
+        passGrps.push_back( ip->second );
+      }
+    }
+  } //cond
   if ( passengers.getCount() > 0 ) {
 //    ProgTrace( TRACE5, "add all grp: passGrps.push_back( %d )", passengers.getCount() );
     p = passengers;
-    passGrps.push_back( p );
+    passGrps.push_back( p ); //last element contain prior passengers variant
   }
 }
 
@@ -2745,8 +2754,12 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
 {
   ProgTrace( TRACE5, "NEWSEATS, ASeatAlgoParams=%d, Salons->placelists.size()=%zu, passengers.getCount()=%d",
             (int)ASeatAlgoParams.SeatAlgoType, Salons->placelists.size(), passengers.getCount() );
-  if ( !passengers.getCount() )
+  if ( !passengers.getCount() ) {
     return;
+  }
+  //для всей группы одна разметка тарифом
+  ProgTrace( TRACE5, "passengers.Get(0).tariffs=%s", passengers.Get(0).tariffs.key().c_str() );
+  Salons->SetTariffsByColor( passengers.Get(0).tariffs );
 
   GetUseLayers( UseLayers );
   TUseLayers preseat_layers, curr_preseat_layers;

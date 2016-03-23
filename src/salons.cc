@@ -50,7 +50,7 @@ void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
     tariff.currency_id=Qry.FieldAsString("rate_cur");
     tariff.RFISC=Qry.FieldAsString("rfisc");
 
-    if (!insert(make_pair(tariff.color, tariff)).second)
+     if (!insert(make_pair(tariff.color, tariff)).second)
       throw EXCEPTIONS::Exception("TSeatTariffMap::get: color=%s duplicated (%s)", tariff.color.c_str(), traceDetail.c_str());
   };
 }
@@ -132,6 +132,9 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, 
       << "fare_basis=" << etick.fare_basis << ", "
       << "issue_date=" << DateTimeToStr(etick.issue_date, "dd.mm.yy");
     get(Qry.get(), s.str());
+
+    if (empty()) get_rfisc_colors(operFlt.airline);
+
     _status=stUseRFISC;
   }
   else
@@ -155,7 +158,7 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, 
 
       tariff_map.insert(make_pair(operFlt.point_id, *this));
     }
-    else static_cast<TSeatTariffMapType&>(*this)=iTariffMap->second;
+    else static_cast<TSeatTariffMapType&>(*this)=iTariffMap->second;       
 
     _status=stNotRFISC;
   }
@@ -699,11 +702,11 @@ void TFilterLayers::getIntFilterLayers( int point_id,
     Qry.Execute();
 
     if ( !Qry.Eof && Qry.FieldAsInteger( "pr_permit" )!=0 ) {
-    setFlag( cltProtBeforePay );
-    setFlag( cltProtAfterPay );
-    setFlag( cltPNLBeforePay );
-    setFlag( cltPNLAfterPay );
-  }
+      setFlag( cltProtBeforePay );
+      setFlag( cltProtAfterPay );
+      setFlag( cltPNLBeforePay );
+      setFlag( cltPNLAfterPay );
+    }
 
   Qry.Clear();
     Qry.SQLText =
@@ -1236,6 +1239,84 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat, bool pr_up
    NewTextChild( node, "yname", denorm_iata_row( yname, NULL ) );
 }
 
+void TPlace::SetTariffsByColor( TSeatTariffMapType salonTariffs )
+{
+  if ( salonTariffs.empty() || !visible || !isplace ) {
+    tst();
+    return;
+  }
+  for ( std::map<int, TSeatTariff,classcomp>::iterator itariff=tariffs.begin();
+        itariff!=tariffs.end(); itariff++ ) {
+    if ( itariff->second.color.empty() ) {
+      continue;
+    }
+    if ( salonTariffs.find( itariff->second.color ) != salonTariffs.end() ) {
+      itariff->second.value = salonTariffs[ itariff->second.color ].value;
+      itariff->second.currency_id = salonTariffs[ itariff->second.color ].currency_id;
+      itariff->second.RFISC = salonTariffs[ itariff->second.color ].RFISC;
+      ProgTrace( TRACE5, "1 place(%d,%d) set tarif=%f", x, y, salonTariffs[ SeatTariff.color ].value );
+    }
+  }
+  ProgTrace( TRACE5, "SeatTariff.color=%s, salonTariffs.size()=%zu", SeatTariff.color.c_str(), salonTariffs.size() );
+  if ( salonTariffs.find( SeatTariff.color ) != salonTariffs.end() ) {
+    SeatTariff.value = salonTariffs[ SeatTariff.color ].value;
+    ProgTrace( TRACE5, "2 place(%d,%d) set tarif=%f", x, y, salonTariffs[ SeatTariff.color ].value );
+    SeatTariff.currency_id = salonTariffs[ SeatTariff.color ].currency_id;
+    SeatTariff.RFISC = salonTariffs[ SeatTariff.color ].RFISC;
+  }
+}
+
+void TPlace::SetRFICSRemarkByColor( int key, TSeatTariffMapType salonRFISCColor )
+{
+  if ( salonRFISCColor.empty() || !visible || !isplace ) {
+    return;
+  }
+  TSeatRemark remark;
+  remark.pr_denial = 0;
+  for ( std::map<int, TSeatTariff,classcomp>::iterator itariff=tariffs.begin();
+        itariff!=tariffs.end(); itariff++ ) {
+    if ( itariff->second.color.empty() ) {
+      continue;
+    }
+    if ( salonRFISCColor.find( itariff->second.color ) != salonRFISCColor.end() ) {
+      remark.value = salonRFISCColor[ itariff->second.color ].RFISC;
+      AddRemark( key, remark );
+      return;
+    }
+  }
+  if ( salonRFISCColor.find( SeatTariff.color ) != salonRFISCColor.end() ) {
+    remark.value = salonRFISCColor[ SeatTariff.color ].RFISC;
+    AddRemark( key, remark );
+  }
+}
+
+void TPlace::DropRFISCRemarks( TSeatTariffMapType salonRFISCColor )
+{
+  if ( salonRFISCColor.empty() ) {
+    return;
+  }
+  std::map<int, std::vector<TSeatRemark>,classcomp > vremarks;
+  GetRemarks( vremarks );
+  clearRemarks();
+  for ( std::map<int, std::vector<TSeatRemark>,classcomp >::iterator iremarks=vremarks.begin();
+        iremarks!=vremarks.end(); iremarks++ ) {
+    for ( std::vector<TSeatRemark>::iterator ir=iremarks->second.begin();
+          ir!=iremarks->second.end(); ir++ ) {
+      bool prFind = false;
+      for ( std::map<std::string,TSeatTariff>::iterator  ic=salonRFISCColor.begin();
+            ic!=salonRFISCColor.end(); ic++ ) {
+        if ( ir->value == ic->second.RFISC ) {
+          prFind = true;
+          break;
+        }
+      }
+      if ( !prFind ) {
+        AddRemark( iremarks->first, *ir );
+      }
+    }
+  }
+}
+
 void TPlace::Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) const
 {
    NewTextChild( node, "x", x );
@@ -1267,10 +1348,10 @@ void TPlace::Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) const
        NewTextChild( remNode, "layer_type", EncodeCompLayerType( l->layer_type ) );
      }
    }
-   if ( WebTariff.value != 0.0 ) {
-     xmlNodePtr n = NewTextChild( node, "tariff", WebTariff.value );
-     SetProp( n, "color", WebTariff.color );
-     SetProp( n, "currency_id", WebTariff.currency_id );
+   if ( SeatTariff.value != 0.0 ) {
+     xmlNodePtr n = NewTextChild( node, "tariff", SeatTariff.value );
+     SetProp( n, "color", SeatTariff.color );
+     SetProp( n, "currency_id", SeatTariff.currency_id );
    }
    if ( !drawProps.emptyFlags() ) {
      xmlNodePtr n = NewTextChild( node, "drawProps" );
@@ -1365,9 +1446,9 @@ void TSalons::BuildLayersInfo( xmlNodePtr salonsNode,
   }
   xmlNodePtr n = NewTextChild( editNode, "layer",  EncodeCompLayerType( cltUnknown ) );
   SetProp( n, "id", id );
-    SetProp( n, "name", "LAYER_CLEAR_ALL" );
-    SetProp( n, "priority", 10000 );
-    SetProp( n, "edit", 1 );
+  SetProp( n, "name", "LAYER_CLEAR_ALL" );
+  SetProp( n, "priority", 10000 );
+  SetProp( n, "edit", 1 );
   SetProp( n, "name_view_help", AstraLocale::getLocaleText("Очистить все статусы мест") );
   SetProp( n, "func_key", "Shift+F8" );
   xmlNodePtr propNode = NewTextChild( salonsNode, "draw_props" );
@@ -1718,13 +1799,13 @@ void TSalons::Write( const TComponSets &compSets )
               QryLayers.Execute();
         }
       }
-      if ( place->WebTariff.value != 0.0 ) {
+      if ( place->SeatTariff.value != 0.0 ) {
         QryWebTariff.SetVariable( "num", (*plist)->num );
         QryWebTariff.SetVariable( "x", place->x );
         QryWebTariff.SetVariable( "y", place->y );
-        QryWebTariff.SetVariable( "color", place->WebTariff.color );
-        QryWebTariff.SetVariable( "rate", place->WebTariff.value );
-        QryWebTariff.SetVariable( "rate_cur", place->WebTariff.currency_id );
+        QryWebTariff.SetVariable( "color", place->SeatTariff.color );
+        QryWebTariff.SetVariable( "rate", place->SeatTariff.value );
+        QryWebTariff.SetVariable( "rate_cur", place->SeatTariff.currency_id );
         QryWebTariff.Execute();
       }
     } //for place
@@ -2572,6 +2653,7 @@ FilterRoutesProperty::FilterRoutesProperty( )
   comp_id = ASTRA::NoExists;
   crc_comp = 0;
   pr_craft_lat = false;
+  airline = "";
 }
 
 /* зачитка маршрута */
@@ -2587,7 +2669,8 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
   //3. здесь надо будет сделать отсечку
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT act_out, "
+    "SELECT airline, "
+    "       act_out, "
     "       pr_lat_seat, "
     "       NVL(comp_id,-1) comp_id, "
     "       crc_comp, "
@@ -2604,6 +2687,7 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
   }
   crc_comp = Qry.FieldAsInteger( "crc_comp" );
   pr_craft_lat = Qry.FieldAsInteger( "pr_lat_seat" );
+  airline = Qry.FieldAsString( "airline" );
   comp_id = Qry.FieldAsInteger( "comp_id" );
   bool pr_tranzit = ( Qry.FieldAsInteger( "pr_tranzit" ) != 0 &&
                       Qry.FieldAsInteger( "pr_tranz_reg" ) == 0 );
@@ -2784,6 +2868,34 @@ void FilterRoutesProperty::Build( xmlNodePtr node )
   }
 }
 
+void TSalonList::AddRFISCRemarks( int key, const std::string &airline )
+{
+  if ( airline.empty() ) {
+    return;
+  }
+  TSeatTariffMap tariffMap;
+  tariffMap.get_rfisc_colors( airline );
+  for ( std::vector<TPlaceList*>::iterator iplacelist=begin(); iplacelist!=end(); iplacelist++ ) {
+    for ( TPlaces::iterator iseat=(*iplacelist)->places.begin(); iseat!=(*iplacelist)->places.end(); iseat++ ) {
+      iseat->SetRFICSRemarkByColor( key, tariffMap );
+    }
+  }
+}
+
+void TSalonList::DropRFISCRemarks( const std::string &airline )
+{
+  if ( airline.empty() ) {
+    return;
+  }
+  TSeatTariffMap tariffMap;
+  tariffMap.get_rfisc_colors( airline );
+  for ( std::vector<TPlaceList*>::iterator iplacelist=begin(); iplacelist!=end(); iplacelist++ ) {
+    for ( TPlaces::iterator iseat=(*iplacelist)->places.begin(); iseat!=(*iplacelist)->places.end(); iseat++ ) {
+      iseat->DropRFISCRemarks( tariffMap );
+    }
+  }
+}
+
 void TSalonList::ReadCompon( int vcomp_id )
 {
   ProgTrace( TRACE5, "TSalonList::ReadCompon(), comp_id=%d", vcomp_id );
@@ -2795,11 +2907,12 @@ void TSalonList::ReadCompon( int vcomp_id )
   filterLayers.clearFlags();
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT pr_lat_seat FROM comps WHERE comp_id=:comp_id";
+    "SELECT pr_lat_seat,airline FROM comps WHERE comp_id=:comp_id";
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
   Qry.Execute();
   if ( Qry.Eof ) throw UserException("MSG.SALONS.NOT_FOUND.REFRESH_DATA");
   pr_craft_lat = Qry.FieldAsInteger( "pr_lat_seat" );
+  string airline = Qry.FieldAsString( "airline" );
   Qry.Clear();
   Qry.SQLText =
     "SELECT num,x,y,elem_type,xprior,yprior,agle,xname,yname,class "
@@ -2833,6 +2946,7 @@ void TSalonList::ReadCompon( int vcomp_id )
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
   Qry.Execute();
   ReadLayers( Qry, filterRoutes, filterLayers, pax_list, NoExists );
+  AddRFISCRemarks( NoExists, airline );
 }
 
 
@@ -4008,6 +4122,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
                 prior_compon_props_point_id );
   }
   CommitLayers();
+  AddRFISCRemarks( filterRoutesSets.point_dep, filterRoutes.getAirline() );
 
   //имеем на выходе множество слоев с учетом фильтра
   //множество пассажиров без учета фильтра - можно удалить тех, у которых нет слоя
@@ -4061,7 +4176,7 @@ void TSalonList::Build( bool with_pax,
                    menuLayers, props, salonsNode );
 }
 
-void TSalonList::Parse( int vpoint_id, xmlNodePtr salonsNode )
+void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr salonsNode )
 {
   ProgTrace( TRACE5, "TSalonList::Parse, point_id=%d", vpoint_id );
   Clear();
@@ -4234,6 +4349,7 @@ void TSalonList::Parse( int vpoint_id, xmlNodePtr salonsNode )
   if ( !pr_lat_seat_init ) {
     pr_craft_lat = ( lat_count >= rus_count );
   }
+  DropRFISCRemarks( airline );
 }
 
 void getEditableFlightLayers1( TFilterLayers &FilterLayers,
@@ -5770,7 +5886,7 @@ void TSalons::Read( bool drop_not_used_pax_layers )
            FilterLayers.CanUseLayer( cltPNLBeforePay, -1, -1, false ) ||
            FilterLayers.CanUseLayer( cltPNLAfterPay, -1, -1, false ) ) {
         if ( !QryWebTariff.Eof &&
-                QryWebTariff.FieldAsInteger( webtariff_col_num ) == num &&
+              QryWebTariff.FieldAsInteger( webtariff_col_num ) == num &&
               QryWebTariff.FieldAsInteger( webtariff_col_x ) == place.x &&
               QryWebTariff.FieldAsInteger( webtariff_col_y ) == place.y ) {
           place.AddTariff( QryWebTariff.FieldAsString( webtariff_col_color ),
@@ -5969,9 +6085,9 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       }
       remNode = GetNodeFast( "tarif", node );
       if ( remNode ) {
-        place.WebTariff.color = NodeAsString( "@color", remNode );
-        place.WebTariff.value = NodeAsFloat( remNode );
-        place.WebTariff.currency_id = NodeAsString( "@currency_id", remNode );
+        place.SeatTariff.color = NodeAsString( "@color", remNode );
+        place.SeatTariff.value = NodeAsFloat( remNode );
+        place.SeatTariff.currency_id = NodeAsString( "@currency_id", remNode );
       }
       place.visible = true;
       placeList->Add( place );
@@ -5982,6 +6098,20 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   }
   if ( !pr_lat_seat_init ) {
     pr_lat_seat = ( lat_count>=rus_count );
+  }
+}
+
+void TSalons::SetTariffsByColor( TSeatTariffMapType tariffs )
+{
+  if ( tariffs.empty() ) {
+    return;
+  }
+  for( vector<TPlaceList*>::iterator placeList = placelists.begin();
+       placeList != placelists.end(); placeList++ ) {
+    for ( TPlaces::iterator place = (*placeList)->places.begin();
+          place != (*placeList)->places.end(); place++ ) {
+      place->SetTariffsByColor( tariffs );
+    }
   }
 }
 
@@ -7822,8 +7952,8 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
       }
     }
     else {
-      str << std::fixed << std::setprecision(2) << places.begin()->WebTariff.value;
-      params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, places.begin()->WebTariff.currency_id);
+      str << std::fixed << std::setprecision(2) << places.begin()->SeatTariff.value;
+      params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, places.begin()->SeatTariff.currency_id);
     }
     params.prms << PrmSmpl<string>("", ":");
   }
@@ -7840,8 +7970,8 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
       }
     }
     else {
-      str << std::fixed << std::setprecision(2) << places.begin()->WebTariff.value;
-      params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, places.begin()->WebTariff.currency_id);
+      str << std::fixed << std::setprecision(2) << places.begin()->SeatTariff.value;
+      params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, places.begin()->SeatTariff.currency_id);
     }
     params.prms << PrmSmpl<string>("", ":");
   }
