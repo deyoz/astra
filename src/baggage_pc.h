@@ -154,37 +154,66 @@ class TRFISCListWithSets : public TRFISCList, public TRFISCSettingList
     void check(const CheckIn::TBagItem &bag) const;
 };
 
-class TPaxNormTextItem
+class TLocaleTextItem
 {
   public:
     std::string lang, text;
 };
 
-class TSimplePaxNormItem : public std::map<std::string/*lang*/, TPaxNormTextItem>
+class TLocaleTextMap : public std::map<std::string/*lang*/, TLocaleTextItem>
 {
   public:
     void fromXML(xmlNodePtr node);
+};
+
+class TSimplePaxNormItem : public TLocaleTextMap
+{
+  public:
     void fromXMLAdv(xmlNodePtr node, TBagConcept &concept, std::string &airline);
 };
 
-class TPaxNormItem : public TSimplePaxNormItem
+class TSimplePaxBrandItem : public TLocaleTextMap
+{
+  public:
+    void fromXMLAdv(xmlNodePtr node);
+};
+
+class TPaxSegIds
 {
   public:
     int pax_id, trfer_num;
-
-    TPaxNormItem()
+    TPaxSegIds()
     {
       clear();
     }
     void clear()
     {
-      TSimplePaxNormItem::clear();
       pax_id=ASTRA::NoExists;
       trfer_num=ASTRA::NoExists;
     }
 };
 
-void PaxNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &pax, std::ostringstream &s);
+class TPaxNormItem : public TSimplePaxNormItem, public TPaxSegIds
+{
+  public:
+    void clear()
+    {
+      TSimplePaxNormItem::clear();
+      TPaxSegIds::clear();
+    }
+};
+
+class TPaxBrandItem : public TSimplePaxBrandItem, public TPaxSegIds
+{
+  public:
+    void clear()
+    {
+      TSimplePaxBrandItem::clear();
+      TPaxSegIds::clear();
+    }
+};
+
+void PaxBrandsNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &pax, std::ostringstream &s);
 
 std::string DecodeEmdType(const std::string &s);
 std::string EncodeEmdType(const std::string &s);
@@ -214,20 +243,13 @@ class TSimplePaidBagItem
     }
 };
 
-class TPaidBagItem : public TSimplePaidBagItem
+class TPaidBagItem : public TSimplePaidBagItem, public TPaxSegIds
 {
   public:
-    int pax_id, trfer_num;
-
-    TPaidBagItem()
-    {
-      clear();
-    }
     void clear()
     {
       TSimplePaidBagItem::clear();
-      pax_id=ASTRA::NoExists;
-      trfer_num=ASTRA::NoExists;
+      TPaxSegIds::clear();
     }
 
     const TPaidBagItem& toDB(TQuery &Qry) const;
@@ -601,6 +623,7 @@ class TAvailabilityResItem
     std::string airline;
     PieceConcept::TRFISCList rfisc_list;
     PieceConcept::TSimplePaxNormItem norm;
+    PieceConcept::TSimplePaxBrandItem brand;
     TAvailabilityResItem()
     {
       clear();
@@ -611,6 +634,7 @@ class TAvailabilityResItem
       airline.clear();
       rfisc_list.clear();
       norm.clear();
+      brand.clear();
     }
 };
 
@@ -629,6 +653,7 @@ class TAvailabilityRes : public TAvailability, public TAvailabilityResMap
     bool identical_concept(int seg_id, boost::optional<TBagConcept> &concept) const;
     bool identical_rfisc_list(int seg_id, boost::optional<PieceConcept::TRFISCList> &rfisc_list) const;
     void normsToDB(const TCkinGrpIds &tckin_grp_ids) const;
+    void brandsToDB(const TCkinGrpIds &tckin_grp_ids) const;
 };
 
 typedef std::list< std::pair<TPaxSegKey, TBagItem> > TBagList;
