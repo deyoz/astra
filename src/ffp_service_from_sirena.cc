@@ -133,8 +133,8 @@ std::string SirenaExchange::send_ffp_request(std::string airline, std::string ca
         catch(Exception e)
 	{   if(!res.error() || res.error_code.size() != 1) throw e; //если код ошибки не входит в список документированных тоже перекидываем текущее исключение
             switch(res.error_code[0])		
-            {	case '1': throw Exception("");
-		case '2': throw Exception("");
+            {	case '1': throw e;
+		case '2': throw e;
 		case '3': throw UserException("MSG.FFPService.WrongAirline");  //"Для данной авиакомпании данные по ЧПСЖ отсутствуют")
 		case '4': throw UserException("MSG.FFPService.WrongCard"); //"Карта с таким номером не зарегистрирована"
 		case '5': throw UserException("MSG.FFPService.3rdPartyTimeOut"); //"Таймаут взаимодействия с ЧПСЖ-системой"
