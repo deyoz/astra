@@ -236,18 +236,15 @@ TDateTime getdiffhours( const std::string &region )
 'Asia/Chita' +2
 'Asia/Srednekolymsk' +1
 */
-  if ( region == "Asia/Anadyr" ||
-       region == "Asia/Kamchatka" ||
-       region == "Asia/Novokuznetsk" ||
-       region == "Europe/Samara" ) {
-    return 0.0;
+  if ( region == "Asia/Barnaul" ||
+       region == "Europe/Astrakhan" ||
+       region == "Europe/Ulyanovsk" ||
+       region == "Asia/Chita" ||
+       region == "Asia/Sakhalin" ) {
+    return -1.0;
   }
 
-  if ( region == "Asia/Magadan" ||
-       region == "Asia/Chita" ) {
-    return 2.0;
-  }
-  return 1.0;
+  return 0.0;
 }
 
 
@@ -384,46 +381,23 @@ int points_dst_format(int argc,char **argv)
   TQuery Qry(&OraSession);
   if ( prior ) {
     Qry.Clear();
-    Qry.SQLText = "select distinct s.region region from seasons s, DATE_TIME_ZONESPEC d where s.region=d.id AND id IN ("
-        "'Europe/Kaliningrad',"
-        "'Europe/Moscow',"
-        "'Europe/Samara',"
-        "'Asia/Yekaterinburg',"
-        "'Asia/Novosibirsk',"
-        "'Asia/Krasnoyarsk',"
-        "'Asia/Irkutsk',"
-        "'Asia/Yakutsk',"
+    Qry.SQLText =
+        "select distinct s.region region from seasons s, DATE_TIME_ZONESPEC d where s.region=d.id AND id IN ("
         "'Asia/Sakhalin',"
-        "'Asia/Srednekolymsk',"
-        "'Asia/Anadyr',"
-        "'Asia/Novokuznetsk',"
-        "'Asia/Chita',"
-        "'Asia/Magadan' )";
-  tst();
+        "'Asia/Chita' )";
+    tst();
     Qry.Execute();
     tst();
     vector<string> regions;
     for ( ; !Qry.Eof; Qry.Next() ) {
       regions.push_back( Qry.FieldAsString("region") );
     }
-    Qry.SQLText = "DELETE FROM seasons where region in (  "
+    Qry.SQLText =
+        "DELETE FROM seasons where region in (  "
         "select distinct s.region from seasons s, DATE_TIME_ZONESPEC d "
         " where s.region=d.id AND d.id IN ( "
-                  "'Europe/Kaliningrad',"
-                  "'Europe/Moscow',"
-                  "'Europe/Samara',"
-                  "'Asia/Yekaterinburg',"
-                  "'Asia/Yekaterinburg',"
-                  "'Asia/Novosibirsk',"
-                  "'Asia/Krasnoyarsk',"
-                  "'Asia/Irkutsk',"
-                  "'Asia/Yakutsk',"
                   "'Asia/Sakhalin',"
-                  "'Asia/Srednekolymsk',"
-                  "'Asia/Anadyr',"
-                  "'Asia/Novokuznetsk',"
-                  "'Asia/Chita',"
-                  "'Asia/Magadan' )"
+                  "'Asia/Chita' )"
         ")";
     tst();
     Qry.Execute();
@@ -467,8 +441,14 @@ int points_dst_format(int argc,char **argv)
   Qry.SQLText =
     "select point_id,airp,scd_in,scd_out,est_in,est_out,act_in,act_out, c.tz_region region from airps a, cities c,"
     " ( select point_id,airp,scd_in,scd_out,est_in,est_out,act_in,act_out from points p "
-    " where (scd_in >= to_date('27.03.15','DD.MM.YY') or scd_out >= to_date('27.03.15','DD.MM.YY')) AND pr_del <> -1 ) p "
+    " where (scd_in >= to_date('25.03.16','DD.MM.YY') or scd_out >= to_date('25.03.16','DD.MM.YY')) AND pr_del <> -1 ) p "
     " WHERE "
+    " c.tz_region IN ( "
+    " 'Europe/Astrakhan',"
+    " 'Asia/Chita',"
+    " 'Asia/Barnaul',"
+    " 'Europe/Ulyanovsk',"
+    " 'Europe/Astrakhan') AND "
     " p.airp=a.code AND a.city=c.code AND c.country='РФ' ";
   Qry.Execute();
   TQuery UQry(&OraSession);
@@ -703,12 +683,12 @@ int points_dst_format(int argc,char **argv)
     Qry.Clear();
     Qry.SQLText =
       "SELECT point_id from dpoints "
-      " WHERE NVL(pscd_in,to_date('27.03.15','DD.MM.YY'))!=NVL(nscd_in,to_date('27.03.15','DD.MM.YY')) OR "
-      "        NVL(pscd_out,to_date('27.03.15','DD.MM.YY'))!=NVL(nscd_out,to_date('27.03.15','DD.MM.YY')) OR "
-      "        NVL(pest_in,to_date('27.03.15','DD.MM.YY'))!=NVL(nest_in,to_date('27.03.15','DD.MM.YY')) OR "
-      "        NVL(pest_out,to_date('27.03.15','DD.MM.YY'))!=NVL(nest_out,to_date('27.03.15','DD.MM.YY')) OR "
-      "        NVL(pact_in,to_date('27.03.15','DD.MM.YY'))!=NVL(nact_in,to_date('27.03.15','DD.MM.YY')) OR "
-      "        NVL(pact_out,to_date('27.03.15','DD.MM.YY'))!=NVL(nact_out,to_date('27.03.15','DD.MM.YY')) ";
+      " WHERE NVL(pscd_in,to_date('25.03.16','DD.MM.YY'))!=NVL(nscd_in,to_date('25.03.16','DD.MM.YY')) OR "
+      "        NVL(pscd_out,to_date('25.03.16','DD.MM.YY'))!=NVL(nscd_out,to_date('25.03.16','DD.MM.YY')) OR "
+      "        NVL(pest_in,to_date('25.03.16','DD.MM.YY'))!=NVL(nest_in,to_date('25.03.16','DD.MM.YY')) OR "
+      "        NVL(pest_out,to_date('25.03.16','DD.MM.YY'))!=NVL(nest_out,to_date('25.03.16','DD.MM.YY')) OR "
+      "        NVL(pact_in,to_date('25.03.16','DD.MM.YY'))!=NVL(nact_in,to_date('25.03.16','DD.MM.YY')) OR "
+      "        NVL(pact_out,to_date('25.03.16','DD.MM.YY'))!=NVL(nact_out,to_date('25.03.16','DD.MM.YY')) ";
     Qry.Execute();
     for ( ; !Qry.Eof; Qry.Next() ) {
       ProgError( STDLOG, "point_id=%d", Qry.FieldAsInteger( "point_id" ) );
@@ -860,24 +840,13 @@ int seasons_dst_format(int argc,char **argv)
   //1 - зима
   Qry.Clear();
   Qry.SQLText =
-    "SELECT trip_id,move_id,num,first_day,last_day,days,sched_days.region FROM sched_days, seasons,"
+    "SELECT DISTINCT trip_id,move_id,num,first_day,last_day,days,sched_days.region FROM sched_days, seasons,"
     "( SELECT id region FROM DATE_TIME_ZONESPEC "
     " WHERE id IN ("
-    "'Europe/Kaliningrad',"
-    "'Europe/Moscow',"
-    "'Europe/Samara',"
-    "'Asia/Yekaterinburg',"
-    "'Asia/Novosibirsk',"
-    "'Asia/Krasnoyarsk',"
-    "'Asia/Irkutsk',"
-    "'Asia/Yakutsk',"
     "'Asia/Sakhalin',"
-    "'Asia/Srednekolymsk',"
-    "'Asia/Anadyr',"
-    "'Asia/Novokuznetsk',"
-    "'Asia/Chita',"
-    "'Asia/Magadan' ) ) d "
-    "WHERE seasons.region=sched_days.region AND seasons.region=d.region AND seasons.hours=1 AND "
+    "'Asia/Chita'"
+    " ) ) d "
+    "WHERE seasons.region=sched_days.region AND seasons.region=d.region AND seasons.last > to_date('27.03.16','DD.MM.YY') AND "
     "      first_day BETWEEN seasons.first AND seasons.last "
     "ORDER BY trip_id,move_id,num";
   tst();
@@ -1139,23 +1108,18 @@ int seasons_dst_format(int argc,char **argv)
       " FROM ROUTES,SCHED_DAYS, SEASONS, "
       "( SELECT id region FROM DATE_TIME_ZONESPEC "
       " WHERE id IN ("
-      "'Europe/Kaliningrad',"
-      "'Europe/Moscow',"
-      "'Europe/Samara',"
-      "'Asia/Yekaterinburg',"
-      "'Asia/Novosibirsk',"
-      "'Asia/Krasnoyarsk',"
-      "'Asia/Irkutsk',"
-      "'Asia/Yakutsk',"
       "'Asia/Sakhalin',"
-      "'Asia/Srednekolymsk',"
-      "'Asia/Anadyr',"
-      "'Asia/Novokuznetsk',"
-      "'Asia/Chita',"
-      "'Asia/Magadan' ) ) d "
+      "'Europe/Astrakhan',"
+      "'Europe/Ulyanovsk',"
+      "'Asia/Barnaul',"
+      "'Asia/Chita'"
+      " ) ) d "
       " WHERE "
       " ROUTES.MOVE_ID=SCHED_DAYS.MOVE_ID AND "
-      " seasons.region=d.region AND seasons.hours=1 AND SEASONS.REGION=SCHED_DAYS.REGION AND SCD_IN IS NOT NULL AND "
+      " seasons.region=d.region "
+      " AND seasons.last > to_date('27.03.16','DD.MM.YY') AND "
+      //" AND seasons.hours=1 AND "
+        " SEASONS.REGION=SCHED_DAYS.REGION AND SCD_IN IS NOT NULL AND "
       " TRUNC(FIRST_DAY)+DELTA_IN+(SCD_IN-TRUNC(SCD_IN)) NOT BETWEEN SEASONS.FIRST AND SEASONS.LAST AND "
       " FIRST_DAY BETWEEN SEASONS.FIRST AND SEASONS.LAST "
       " UNION "
@@ -1163,23 +1127,18 @@ int seasons_dst_format(int argc,char **argv)
       " FROM ROUTES,SCHED_DAYS, SEASONS, "
       "( SELECT id region FROM DATE_TIME_ZONESPEC "
       " WHERE id IN ("
-      "'Europe/Kaliningrad',"
-      "'Europe/Moscow',"
-      "'Europe/Samara',"
-      "'Asia/Yekaterinburg',"
-      "'Asia/Novosibirsk',"
-      "'Asia/Krasnoyarsk',"
-      "'Asia/Irkutsk',"
-      "'Asia/Yakutsk',"
-      "'Asia/Sakhalin',"
-      "'Asia/Srednekolymsk',"
-      "'Asia/Anadyr',"
-      "'Asia/Novokuznetsk',"
-      "'Asia/Chita',"
-      "'Asia/Magadan' ) ) d "
+        "'Asia/Sakhalin',"
+        "'Europe/Astrakhan',"
+        "'Europe/Ulyanovsk',"
+        "'Asia/Barnaul',"
+        "'Asia/Chita'"
+      " ) ) d "
       " WHERE "
       " ROUTES.MOVE_ID=SCHED_DAYS.MOVE_ID AND "
-      " seasons.region=d.region AND seasons.hours=1 AND SEASONS.REGION=SCHED_DAYS.REGION AND SCD_OUT IS NOT NULL AND "
+      " seasons.region=d.region "
+      " AND seasons.last > to_date('27.03.16','DD.MM.YY') AND "
+        //" AND seasons.hours=1 AND "
+      " SEASONS.REGION=SCHED_DAYS.REGION AND SCD_OUT IS NOT NULL AND "
       " TRUNC(FIRST_DAY)+DELTA_OUT+(SCD_OUT-TRUNC(SCD_OUT)) NOT BETWEEN SEASONS.FIRST AND SEASONS.LAST AND "
       " FIRST_DAY BETWEEN SEASONS.FIRST AND SEASONS.LAST "
       " order by first_day ";
