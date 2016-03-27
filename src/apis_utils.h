@@ -394,6 +394,7 @@ CheckIn::TPaxDocaItem NormalizeDoca(const CheckIn::TPaxDocaItem &doc);
 
 void CheckDoc(const CheckIn::TPaxDocItem &doc,
               ASTRA::TPaxStatus status,
+              const std::string &pax_surname,
               const TCompleteAPICheckInfo &checkInfo,
               BASIC::TDateTime nowLocal);
 void CheckDoco(const CheckIn::TPaxDocoItem &doc,

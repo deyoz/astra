@@ -321,7 +321,8 @@ void throwInvalidSymbol(const string &fieldname,
 }
 
 void CheckDoc(const CheckIn::TPaxDocItem &doc,
-              TPaxStatus status,
+              ASTRA::TPaxStatus status,
+              const std::string &pax_surname,
               const TCompleteAPICheckInfo &checkInfo,
               TDateTime nowLocal)
 {
@@ -374,6 +375,15 @@ void CheckDoc(const CheckIn::TPaxDocItem &doc,
       reqInfo->client_type!=ctTerm?
         throw UserException("MSG.CHECK_DOC.INVALID_SECOND_NAME", LParams()<<LParam("fieldname", "document/second_name" )):
         throwInvalidSymbol("CAP.PAX_DOC.SECOND_NAME", ci, (errorIdx==string::npos?"":doc.second_name.substr(errorIdx, 1)));
+    };
+
+    //проверяем похожесть фамилий
+    if (best_transliter_similarity(pax_surname, doc.surname)<70)  //не менее 70% схожести
+    {
+      ProgTrace(TRACE5, ">>>> document/surname: %s, pax.surname=%s", doc.surname.c_str(), pax_surname.c_str());
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_SURNAME", LParams()<<LParam("fieldname", "document/surname" )):
+        throw UserException("MSG.CHECK_DOC.DOC_SURNAME_DIFFERS_FROM_PAX_SURNAME");
     };
 
     //проверяем пустоту
@@ -443,7 +453,7 @@ void CheckDoc(const CheckIn::TPaxDocItem &doc,
 }
 
 void CheckDoco(const CheckIn::TPaxDocoItem &doc,
-               TPaxStatus status,
+               ASTRA::TPaxStatus status,
                const TCompleteAPICheckInfo &checkInfo,
                TDateTime nowLocal)
 {
@@ -545,7 +555,7 @@ void CheckDoco(const CheckIn::TPaxDocoItem &doc,
 }
 
 void CheckDoca(const CheckIn::TPaxDocaItem &doc,
-               TPaxStatus status,
+               ASTRA::TPaxStatus status,
                const TCompleteAPICheckInfo &checkInfo)
 {
   const TAPICheckInfo &ci=checkInfo.get(doc, status);
@@ -1069,7 +1079,7 @@ void HandleDoc(const CheckIn::TPaxGrpItem &grp,
                CheckIn::TPaxDocItem &doc)
 {
   doc=NormalizeDoc(doc);
-  CheckDoc(doc, grp.status, checkInfo, checkDate);
+  CheckDoc(doc, grp.status, pax.surname, checkInfo, checkDate);
 
   if (checkInfo.incomplete(doc, grp.status))
     throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOC_INFO_NOT_SET");
