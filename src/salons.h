@@ -135,6 +135,11 @@ struct TSeatTariff {
     }
     std::string valueStr() const {
       std::ostringstream buf;
+      buf << std::fixed << std::setprecision(2) << value;
+      return buf.str();
+    }
+    std::string tariffStr() const {
+      std::ostringstream buf;
       buf << std::fixed << std::setprecision(2) << color << value << currency_id;
       return buf.str();
     }
@@ -165,7 +170,7 @@ class TSeatTariffMapType : public std::map<std::string,TSeatTariff> {
     std::string key() const {
       std::string res;
       for ( std::map<std::string,TSeatTariff,SeatTariffCompare>::const_iterator i=begin(); i!=end(); i++ ) {
-         res += " " + i->second.valueStr();
+         res += " " + i->second.tariffStr();
       }
       return res;
     }
