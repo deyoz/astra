@@ -5,6 +5,7 @@
 #include "passenger.h"
 #include "term_version.h"
 #include "emdoc.h"
+#include "etick.h"
 #include "httpClient.h"
 
 namespace PieceConcept
@@ -381,12 +382,20 @@ class TPaxItem
     {
       clear();
     }
-    void set(const CheckIn::TPaxItem &item)
+    void set(const CheckIn::TPaxItem &item, const TETickItem &etick)
     {
       clear();
       id=item.id;
-      surname=item.surname;
-      name=item.name;
+      if (!etick.surname.empty())
+      {
+        surname=etick.surname;
+        name=etick.name;
+      }
+      else
+      {
+        surname=item.surname;
+        name=item.name;
+      };
       pers_type=item.pers_type;
       seats=item.seats;
       doc=item.doc;
@@ -423,11 +432,19 @@ class TPaxItem2
     {
       clear();
     }
-    void set(int _grp_id, const CheckIn::TPaxItem &item)
+    void set(int _grp_id, const CheckIn::TPaxItem &item, const TETickItem &etick)
     {
       clear();
-      surname=item.surname;
-      name=item.name;
+      if (!etick.surname.empty())
+      {
+        surname=etick.surname;
+        name=etick.name;
+      }
+      else
+      {
+        surname=item.surname;
+        name=item.name;
+      };
       pers_type=item.pers_type;
       seats=item.seats;
       reg_no=item.reg_no;
@@ -445,7 +462,6 @@ class TPaxItem2
     }
 
     const TPaxItem2& toXML(xmlNodePtr node, const std::string &lang) const;
-    TPaxItem2& fromDB(TQuery &Qry);
     std::string category() const {
       return category::value( pers_type, seats );
     }

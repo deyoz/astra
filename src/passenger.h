@@ -61,6 +61,7 @@ class TPaxTknItem : public TPaxAPIItem
 
     long int getNotEmptyFieldsMask() const;
     TAPIType apiType() const { return apiTkn; }
+    bool validET() const { return rem=="TKNE" && !no.empty() && coupon!=ASTRA::NoExists; }
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
