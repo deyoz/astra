@@ -43,7 +43,7 @@
 #include "astra_callbacks.h"
 #include "apps_interaction.h"
 #include "astra_elem_utils.h"
-#include "sirena_service.h" 
+#include "sirena_service.h"
 #include "baggage_pc.h"
 #include "ffp_service_from_sirena.h"
 #include "tlg/AgentWaitsForRemote.h"
@@ -4454,7 +4454,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 else
                 {
                   if (pax.pers_type == ASTRA::adult) AdultItems.push_back( pass );
-                };                                                
+                };
               };
             }
             SALONS2::TSeatTariffMap tariffMap;
@@ -6218,7 +6218,11 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, TCkinGrp
             std::list<CheckIn::TPaxTransferItem> pax_trfer;
             CheckIn::PaxTransferFromDB(pax.id, pax_trfer);
 
-            reqPax.set(pax);
+            TETickItem etick;
+            if (pax.tkn.validET())
+              etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+
+            reqPax.set(pax, etick);
             TTrferRoute::const_iterator s=trfer.begin();
             list<CheckIn::TPaxTransferItem>::const_iterator p=pax_trfer.begin();
             for(int trfer_num=1; s!=trfer.end() && p!=pax_trfer.end(); ++s, ++p, trfer_num++)
@@ -8376,8 +8380,8 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void CheckInInterface::FFPSirena(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {  std::string status =
-	 SirenaExchange::send_ffp_request(NodeAsStringFast("company", reqNode), NodeAsStringFast("card", reqNode));
-   NodeSetContent(NewTextChild(resNode, "status"), status);	
+     SirenaExchange::send_ffp_request(NodeAsStringFast("company", reqNode), NodeAsStringFast("card", reqNode));
+   NodeSetContent(NewTextChild(resNode, "status"), status);
 }
 
 
