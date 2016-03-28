@@ -7,6 +7,7 @@
 #include "astra_misc.h"
 #include "misc.h"
 #include "emdoc.h"
+#include "etick.h"
 #include "baggage.h"
 #include "astra_locale.h"
 #include "qrys.h"
@@ -1606,18 +1607,6 @@ const TPaxItem2& TPaxItem2::toXML(xmlNodePtr node, const std::string &lang) cons
   return *this;
 }
 
-TPaxItem2& TPaxItem2::fromDB(TQuery &Qry)
-{
-  clear();
-  surname = Qry.FieldAsString( "surname" );
-  name = Qry.FieldAsString( "name" );
-  pers_type = DecodePerson( Qry.FieldAsString( "pers_type" ) );
-  seats = Qry.FieldAsInteger( "seats" );
-  reg_no = Qry.FieldAsInteger( "reg_no" );
-  grp_id = Qry.FieldAsInteger( "grp_id" );
-  return *this;
-}
-
 const TBagItem& TBagItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -2256,7 +2245,7 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT pax.pax_id, pax.name, pax.surname, pax_grp.grp_id, pax.pers_type, pax.seats, pax.reg_no "
+    "SELECT pax.*, NULL AS seat_no "
     "FROM pax, pax_grp "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      point_dep=:point_id AND "
@@ -2270,12 +2259,19 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
     Qry.Execute();
     for ( ; !Qry.Eof; Qry.Next() ) {
       if (!paxs.insert( Qry.FieldAsInteger( "pax_id" ) ).second) continue;
-      res.push_back( SirenaExchange::TPaxItem2().fromDB(Qry) );
+      CheckIn::TPaxItem pax;
+      pax.fromDB(Qry);
+      TETickItem etick;
+      if (pax.tkn.validET())
+        etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+      SirenaExchange::TPaxItem2 resPax;
+      resPax.set(Qry.FieldAsInteger("grp_id"), pax, etick);
+      res.push_back( resPax );
     }
   }
   Qry.Clear();
   Qry.SQLText =
-    "SELECT pax.pax_id, pax.name, pax.surname, pax_grp.grp_id, pax.pers_type, pax.seats, pax.reg_no "
+    "SELECT pax.*, NULL AS seat_no "
     "FROM pax, pax_grp "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_id_mark=:point_id AND"
@@ -2288,7 +2284,14 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
     Qry.Execute();
     for ( ; !Qry.Eof; Qry.Next() ) {
       if (!paxs.insert( Qry.FieldAsInteger( "pax_id" ) ).second) continue;
-      res.push_back( SirenaExchange::TPaxItem2().fromDB(Qry) );
+      CheckIn::TPaxItem pax;
+      pax.fromDB(Qry);
+      TETickItem etick;
+      if (pax.tkn.validET())
+        etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+      SirenaExchange::TPaxItem2 resPax;
+      resPax.set(Qry.FieldAsInteger("grp_id"), pax, etick);
+      res.push_back( resPax );
     }
   }
 }

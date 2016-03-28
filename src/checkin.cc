@@ -6207,7 +6207,11 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, TCkinGrp
             std::list<CheckIn::TPaxTransferItem> pax_trfer;
             CheckIn::PaxTransferFromDB(pax.id, pax_trfer);
 
-            reqPax.set(pax);
+            TETickItem etick;
+            if (pax.tkn.validET())
+              etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+
+            reqPax.set(pax, etick);
             TTrferRoute::const_iterator s=trfer.begin();
             list<CheckIn::TPaxTransferItem>::const_iterator p=pax_trfer.begin();
             for(int trfer_num=1; s!=trfer.end() && p!=pax_trfer.end(); ++s, ++p, trfer_num++)
