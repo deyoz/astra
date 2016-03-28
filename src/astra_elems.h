@@ -9,10 +9,11 @@ enum TElemType {
                  etAgency,                   //кассирские агентства
                  etAirline,                  //авиакомпании
                  etAirp,                     //аэропорты
-                 etAirpTerminal,            //терминалы аэропортов
+                 etAirpTerminal,             //терминалы аэропортов
                  etAlarmType,                //типы тревог
                  etBagNormType,              //типы багажных норм
                  etBagType,                  //типы багажа
+                 etBrand,                    //бренды
                  etBIRegGroup,               //группа регистрации для приглашений
                  etBPType,                   //типы посадочных талонов
                  etBTType,                   //типы багажных бирок

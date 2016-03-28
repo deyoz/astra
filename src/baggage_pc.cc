@@ -330,7 +330,7 @@ void TRFISCSettingList::fromDB(const string& airline)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT * FROM rfisc_types WHERE airline=:airline";
+    "SELECT * FROM rfisc_bag_props WHERE airline=:airline";
   Qry.CreateVariable( "airline", otString, airline );
   Qry.Execute();
   for ( ;!Qry.Eof; Qry.Next())

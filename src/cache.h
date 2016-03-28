@@ -54,6 +54,7 @@ const
                          {"AIRP_TERMINALS",          etAirpTerminal},
                          {"BAG_NORM_TYPES",          etBagNormType},
                          {"BAG_TYPES",               etBagType},
+                         {"BRANDS",                  etBrand},
                          {"BI_REG_GROUP",            etBIRegGroup},
                          {"CITIES",                  etCity},
                          {"CKIN_REM_TYPES",          etCkinRemType},
