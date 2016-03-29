@@ -4137,20 +4137,26 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             if (pax.name.empty() && pr_mintrans_file)
               throw UserException("MSG.CHECKIN.PASSENGERS_NAMES_NOT_SET");
 
-            if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) &&
-                defer_etstatus && !pr_etl_only && pr_etstatus>=0 && //раздельное изменение статуса и есть связь с СЭБ
-                pax.tkn.rem=="TKNE" && !pax.tkn.confirm)
+            if (pax.tkn.rem=="TKNE" && !pr_etl_only && pr_etstatus>=0) //это ЭБ и есть связь с СЭБ
             {
-              //возможно это произошло в ситуации, когда изменился у пульта defer_etstatus в true,
-              //а пульт не успел перечитать эту настройку
-              if (new_checkin) throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
-
-              if (pax.tkn.rem    != priorTkn.rem ||
-                  pax.tkn.no     != priorTkn.no  ||
-                  pax.tkn.coupon != priorTkn.coupon)
+              if (!pax.tkn.equalAttrs(priorTkn))
               {
-                //билет отличается от ранее записанного
-                throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
+                //первоначальная регистрация или билет отличается от ранее записанного
+                if (pax.tkn.no.empty())
+                  throw UserException("MSG.ETICK.NUMBER_NOT_SET");
+                if (pax.tkn.coupon==NoExists)
+                  throw UserException("MSG.ETICK.COUPON_NOT_SET", LParams()<<LParam("etick", pax.tkn.no ) );
+
+                if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) &&
+                    defer_etstatus && !pax.tkn.confirm)
+                  //возможно это произошло в ситуации, когда изменился у пульта defer_etstatus в true,
+                  //а пульт не успел перечитать эту настройку
+                  throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
+
+                TETickItem etick;
+                etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+                if (etick.empty())
+                  throw UserException("MSG.ETICK.NEED_DISPLAY", LParams()<<LParam("etick", pax.tkn.no_str()));
               };
             };
             //проверка refusability для киосков и веба
@@ -4162,10 +4168,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             //билет
             if (pax.TknExists)
             {
-              if (setList.value(tsRegWithoutTKNA)&& pax.tkn.rem!="TKNE" &&
-                  (pax.tkn.rem    != priorTkn.rem ||
-                   pax.tkn.no     != priorTkn.no  ||
-                   pax.tkn.coupon != priorTkn.coupon))
+              if (setList.value(tsRegWithoutTKNA) &&
+                  pax.tkn.rem!="TKNE" &&
+                  !pax.tkn.equalAttrs(priorTkn))
                 throw UserException("MSG.CHECKIN.TKNA_DENIAL");
 
               if (pax.tkn.no.size()>15)

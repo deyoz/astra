@@ -50,8 +50,17 @@ void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
     tariff.currency_id=Qry.FieldAsString("rate_cur");
     tariff.RFISC=Qry.FieldAsString("rfisc");
 
-     if (!insert(make_pair(tariff.color, tariff)).second)
-      throw EXCEPTIONS::Exception("TSeatTariffMap::get: color=%s duplicated (%s)", tariff.color.c_str(), traceDetail.c_str());
+    pair<TSeatTariffMapType::iterator, bool> i=insert(make_pair(tariff.color, tariff));
+    if (!i.second)
+    {
+      ProgError(STDLOG, "TSeatTariffMap::get: color=%s duplicated (%s)", tariff.color.c_str(), traceDetail.c_str());
+      trace(TRACE5);
+      if (tariff.value<i.first->second.value)
+      {
+        i.first->second=tariff;
+        trace(TRACE5);
+      };
+    };
   };
 }
 
@@ -90,14 +99,14 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, 
 
   if (is_rfisc_applied(operFlt.airline))
   {
+    //компания завела хотя-бы один компоновочный RFISC
     if (operFlt.airline!=markFlt.airline)
     {
       _status=stNotOperating;
       return;
     }
 
-    //компания завела хотя-бы один компоновочный RFISC
-    if (tkn.rem!="TKNE" || tkn.no.empty() || tkn.coupon==ASTRA::NoExists)
+    if (!tkn.validET())
     {
       _status=stNotET;
       return;
@@ -123,7 +132,7 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, 
       "      rfisc_rates.airline=rfisc_comp_props.airline AND "
       "      rfisc_rates.rfisc=rfisc_comp_props.code AND "
       "      brand_fares.airline=:airline AND "
-      "      brand_fares.fare_basis=:fare_basis AND "
+      "      :fare_basis LIKE REPLACE(brand_fares.fare_basis,'*','%') AND "
       "      :issue_date>=rfisc_rates.sale_first_date AND "
       "      (rfisc_rates.sale_last_date IS NULL OR :issue_date<rfisc_rates.sale_last_date)",
       QParams() << QParam("airline", otString, operFlt.airline)
@@ -163,7 +172,7 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, 
 
       tariff_map.insert(make_pair(operFlt.point_id, *this));
     }
-    else static_cast<TSeatTariffMapType&>(*this)=iTariffMap->second;       
+    else static_cast<TSeatTariffMapType&>(*this)=iTariffMap->second;
 
     _status=stNotRFISC;
   }
