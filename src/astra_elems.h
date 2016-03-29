@@ -12,6 +12,7 @@ enum TElemType {
                  etAlarmType,                //типы тревог
                  etBagNormType,              //типы багажных норм
                  etBagType,                  //типы багажа
+                 etBrand,                    //бренды
                  etBPType,                   //типы посадочных талонов
                  etBTType,                   //типы багажных бирок
                  etCity,                     //города
@@ -42,6 +43,7 @@ enum TElemType {
                  etPaxDocType,               //типы документов пассажиров
                  etPayType,                  //код типа оплаты
                  etPersType,                 //тип пассажира ВЗ, РБ, РМ
+                 etRateColor,                //цвета тарифов в компоновке
                  etRcptDocType,              //типы документов пассажиров для оплаты багажа
                  etRefusalType,              //коды причин отказа в регистрации
                  etReportType,               //типы отчетов
