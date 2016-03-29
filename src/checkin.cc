@@ -6312,6 +6312,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
                 throw EXCEPTIONS::Exception("%s: strange situation: unknown rfisc_list!", __FUNCTION__);
               bag_types_id=rfisc_list.get().toDBAdv();
               res.normsToDB(tckin_grp_ids);
+              res.brandsToDB(tckin_grp_ids);
             };
           };
         }
@@ -6519,7 +6520,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
           }
           else
           {
-            PieceConcept::PaxNormsToStream(trfer, pax, norms_view);
+            PieceConcept::PaxBrandsNormsToStream(trfer, pax, norms_view);
           };
 
           pax_cat_airline=seg.operFlt.airline;
