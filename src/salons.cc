@@ -1282,16 +1282,14 @@ void TPlace::SetTariffsByColor( TSeatTariffMapType salonTariffs )
 
 void TPlace::SetRFICSRemarkByColor( int key, TSeatTariffMapType salonRFISCColor )
 {
-  if ( salonRFISCColor.empty() || !visible || !isplace ) {
+  if ( salonRFISCColor.empty() || !visible || !isplace || tariffs.find( key ) == tariffs.end() ) {
     return;
   }
   TSeatRemark remark;
   remark.pr_denial = 0;
-  for ( std::map<int, TSeatTariff,classcomp>::iterator itariff=tariffs.begin();
-        itariff!=tariffs.end(); itariff++ ) {
-    if ( itariff->second.color.empty() ) {
-      continue;
-    }
+
+  std::map<int, TSeatTariff,classcomp>::iterator itariff=tariffs.find( key );
+  if ( !itariff->second.color.empty() ) {
     if ( salonRFISCColor.find( itariff->second.color ) != salonRFISCColor.end() ) {
       remark.value = salonRFISCColor[ itariff->second.color ].RFISC;
       AddRemark( key, remark );

@@ -2162,6 +2162,7 @@ void TPassengers::Add( SALONS2::TSalons &Salons, TPassenger &pass )
 {
   if ( pass.countPlace > CONST_MAXPLACE || pass.countPlace <= 0 )
    throw EXCEPTIONS::Exception( "Не допустимое кол-во мест для расадки" );
+  pass.preseatPlaces.clear();
 
   size_t i = 0;
   for (; i < pass.preseat_no.size(); i++)
@@ -2186,12 +2187,14 @@ void TPassengers::Add( SALONS2::TSalons &Salons, TPassenger &pass )
              !i->isPax ||
              (!i->layers.empty() && i->layers.begin()->pax_id <= 0) ||
              i->layers.begin()->pax_id != pass.paxId )
-          continue;
-        TPoint p( i->x, i->y );
-        pass.preseat_no = denorm_iata_row( i->yname, NULL ) + denorm_iata_line( i->xname, Salons.getLatSeat() );
-        pass.preseat_layer = i->layers.begin()->layer_type;
-        pass.preseat_pax_id = i->layers.begin()->pax_id;
-        break;
+          continue;        
+        if ( pass.preseat_layer == cltUnknown ) {
+          TPoint p( i->x, i->y );
+          pass.preseat_no = denorm_iata_row( i->yname, NULL ) + denorm_iata_line( i->xname, Salons.getLatSeat() );
+          pass.preseat_layer = i->layers.begin()->layer_type;
+          pass.preseat_pax_id = i->layers.begin()->pax_id;
+        }
+        pass.preseatPlaces.push_back( *i );
       }
     }
   }
@@ -2202,6 +2205,7 @@ void TPassengers::Add( const SALONS2::TSalonList &salonList, TPassenger &pass )
 {
   if ( pass.countPlace > CONST_MAXPLACE || pass.countPlace <= 0 )
    throw EXCEPTIONS::Exception( "Недопустимое кол-во мест для расадки" );
+  pass.preseatPlaces.clear();
 
   size_t i = 0;
   for (; i < pass.preseat_no.size(); i++)
@@ -2230,26 +2234,15 @@ void TPassengers::Add( const SALONS2::TSalonList &salonList, TPassenger &pass )
             std::set<TPlace*,CompareSeats>::const_iterator iseat = ilayer->second.seats.begin();
             pass.preseat_no = denorm_iata_row( (*iseat)->yname, NULL ) +
                               denorm_iata_line( (*iseat)->xname, salonList.isCraftLat() );
+            for ( std::set<TPlace*,CompareSeats>::const_iterator iseat=ilayer->second.seats.begin();
+                  iseat!=ilayer->second.seats.end(); iseat++ ) {
+              pass.preseatPlaces.push_back( **iseat );
+            }
             break;
-
           }
         }
       }
     }
-/*    SALONS2::TPlaceList *placeList;
-    for ( vector<SALONS2::TPlaceList*>::iterator plList=Salons.placelists.begin();
-          plList!=Salons.placelists.end(); plList++ ) {
-      placeList = *plList;
-      for ( IPlace i=placeList->places.begin(); i!=placeList->places.end(); i++ ) {
-        if ( !i->visible || !i->isplace || !i->isPax || i->layers.begin()->pax_id != pass.paxId )
-          continue;
-        TPoint p( i->x, i->y );
-        pass.preseat_no = denorm_iata_row( i->yname, NULL ) + denorm_iata_line( i->xname, Salons.getLatSeat() );
-        pass.preseat_layer = i->layers.begin()->layer_type;
-        pass.preseat_pax_id = i->layers.begin()->pax_id;
-        break;
-      }
-    }*/
   }
   Add( pass );
 }
@@ -2745,6 +2738,35 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
 }
 
 
+bool UsedPayedPreseatForPassanger( const TPlace &seat, TPassenger &pass ) {
+  if ( seat.SeatTariff.empty() ) {
+    return true;
+  }
+  if ( !seat.layers.empty() ) {
+    if ( seat.layers.begin()->layer_type == cltProtBeforePay ||
+         seat.layers.begin()->layer_type == cltProtAfterPay ||
+         seat.layers.begin()->layer_type == cltPNLBeforePay ||
+         seat.layers.begin()->layer_type == cltPNLAfterPay ) {
+      ProgTrace( TRACE5, "seat->pax_id=%d, pass.preseat_pax_id=%d",
+                 seat.layers.begin()->pax_id, pass.preseat_pax_id );
+      return seat.layers.begin()->pax_id == pass.preseat_pax_id; //принадлежит пассажиру
+    }
+  }
+  //у пассажира разметка с меньшим приоритетом чем платное
+  BASIC_SALONS::TCompLayerTypes *compTypes = BASIC_SALONS::TCompLayerTypes::Instance();
+  int priority = compTypes->priority( pass.preseat_layer );
+  if ( priority > compTypes->priority( cltProtBeforePay )&&
+       priority > compTypes->priority( cltProtAfterPay )&&
+       priority > compTypes->priority( cltPNLBeforePay )&&
+       priority > compTypes->priority( cltPNLAfterPay ) ) {
+    tst();
+    return false;
+  }
+  tst();
+  return true;
+}
+
+
 /* рассадка пассажиров */
 void SeatsPassengers( SALONS2::TSalons *Salons,
                       TSeatAlgoParams ASeatAlgoParams /* sdUpDown_Line - умолчание */,
@@ -2760,6 +2782,25 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   //для всей группы одна разметка тарифом
   ProgTrace( TRACE5, "passengers.Get(0).tariffs=%s", passengers.Get(0).tariffs.key().c_str() );
   Salons->SetTariffsByColor( passengers.Get(0).tariffs );
+
+  //удаляем предварительно назначенное платное место
+  for ( int i=0; i<passengers.getCount(); i++ ) {
+    TPassenger &pass = passengers.Get( i );
+    if ( pass.preseatPlaces.empty() ) {
+      continue;
+    }
+    for ( std::vector<SALONS2::TPlace>::iterator iseat=pass.preseatPlaces.begin(); iseat!=pass.preseatPlaces.end(); iseat++ ) {
+      iseat->SetTariffsByColor( pass.tariffs );
+      if ( !UsedPayedPreseatForPassanger( *iseat, pass ) ) { //очистка предварительно назначенных мест
+        pass.preseat_layer = cltUnknown;
+        pass.preseat_no.clear();
+        pass.preseat_pax_id = 0;
+        tst();
+        break;
+      }
+    }
+    pass.preseatPlaces.clear();
+  }
 
   GetUseLayers( UseLayers );
   TUseLayers preseat_layers, curr_preseat_layers;
