@@ -371,7 +371,7 @@ void TRFISCListWithSets::check(const CheckIn::TBagItem &bag) const
   TRFISCSettingList::check(bag);
 }
 
-void TSimplePaxNormItem::fromXML(xmlNodePtr node)
+void TLocaleTextMap::fromXML(xmlNodePtr node)
 {
   clear();
 
@@ -387,7 +387,7 @@ void TSimplePaxNormItem::fromXML(xmlNodePtr node)
       if (lang.empty()) throw Exception("Empty @language");
       if (lang!="ru" && lang!="en") continue;
 
-      TPaxNormTextItem item;
+      TLocaleTextItem item;
       item.lang=(lang=="ru"?LANG_RU:LANG_EN);
       item.text=NodeAsString(textNode);
       if (item.text.empty()) throw Exception("Empty <text language='%s'>", item.lang.c_str());
@@ -400,7 +400,7 @@ void TSimplePaxNormItem::fromXML(xmlNodePtr node)
   }
   catch(Exception &e)
   {
-    throw Exception("TPaxNormItem::fromXML: %s", e.what());
+    throw Exception("TLocaleTextMap::fromXML: %s", e.what());
   };
 }
 
@@ -439,7 +439,29 @@ void TSimplePaxNormItem::fromXMLAdv(xmlNodePtr node, TBagConcept &concept, strin
   }
   catch(Exception &e)
   {
-    throw Exception("TPaxNormItem::fromXMLAdv: %s", e.what());
+    throw Exception("TSimplePaxNormItem::fromXMLAdv: %s", e.what());
+  };
+}
+
+void TSimplePaxBrandItem::fromXMLAdv(xmlNodePtr node)
+{
+  clear();
+
+  try
+  {
+    if (node==NULL) throw Exception("node not defined");
+    for(node=node->children; node!=NULL; node=node->next)
+    {
+      if (string((char*)node->name)!="brand_info") continue;
+
+      if (!empty()) throw Exception("<brand_info> tag duplicated" );
+
+      fromXML(node);
+    };
+  }
+  catch(Exception &e)
+  {
+    throw Exception("TSimplePaxBrandItem::fromXMLAdv: %s", e.what());
   };
 }
 
@@ -480,6 +502,43 @@ void CopyPaxNorms(int grp_id_src, int grp_id_dest)
   Qry.Execute();
 }
 
+void CopyPaxBrands(int grp_id_src, int grp_id_dest)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_brands WHERE pax.pax_id=pax_brands.pax_id AND pax.grp_id=:grp_id)";
+  Qry.CreateVariable("grp_id", otInteger, grp_id_dest);
+  Qry.Execute();
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO pax_brands(pax_id, transfer_num, lang, page_no, text) "
+    "SELECT dest.pax_id, "
+    "       pax_brands.transfer_num+src.seg_no-dest.seg_no, "
+    "       pax_brands.lang, "
+    "       pax_brands.page_no, "
+    "       pax_brands.text "
+    "FROM pax_brands, "
+    "     (SELECT pax.pax_id, "
+    "             tckin_pax_grp.tckin_id, "
+    "             tckin_pax_grp.seg_no, "
+    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+    "      FROM pax, tckin_pax_grp "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
+    "     (SELECT pax.pax_id, "
+    "             tckin_pax_grp.tckin_id, "
+    "             tckin_pax_grp.seg_no, "
+    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+    "      FROM pax, tckin_pax_grp "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
+    "WHERE src.tckin_id=dest.tckin_id AND "
+    "      src.distance=dest.distance AND "
+    "      pax_brands.pax_id=src.pax_id AND "
+    "      pax_brands.transfer_num+src.seg_no-dest.seg_no>=0 ";
+  Qry.CreateVariable("grp_id_src", otInteger, grp_id_src);
+  Qry.CreateVariable("grp_id_dest", otInteger, grp_id_dest);
+  Qry.Execute();
+}
+
 void PaxNormsToDB(int grp_id, const list<TPaxNormItem> &norms)
 {
   TQuery Qry(&OraSession);
@@ -508,6 +567,34 @@ void PaxNormsToDB(int grp_id, const list<TPaxNormItem> &norms)
   };
 };
 
+void PaxBrandsToDB(int grp_id, const list<TPaxBrandItem> &norms)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_brands WHERE pax.pax_id=pax_brands.pax_id AND pax.grp_id=:grp_id)";
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.Execute();
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO pax_brands(pax_id, transfer_num, lang, page_no, text) "
+    "VALUES(:pax_id, :transfer_num, :lang, :page_no, :text)";
+  Qry.DeclareVariable("pax_id", otInteger);
+  Qry.DeclareVariable("transfer_num", otInteger);
+  Qry.DeclareVariable("lang", otString);
+  Qry.DeclareVariable("page_no", otInteger);
+  Qry.DeclareVariable("text", otString);
+  for(list<TPaxBrandItem>::const_iterator i=norms.begin(); i!=norms.end(); ++i)
+  {
+    Qry.SetVariable("pax_id", i->pax_id);
+    Qry.SetVariable("transfer_num", i->trfer_num);
+    for(TPaxBrandItem::const_iterator j=i->begin(); j!=i->end(); ++j)
+    {
+      Qry.SetVariable("lang", j->second.lang);
+      longToDB(Qry, "text", j->second.text);
+    };
+  };
+};
+
 void PaxNormsToDB(const TCkinGrpIds &tckin_grp_ids, const list<TPaxNormItem> &norms)
 {
   for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
@@ -516,6 +603,17 @@ void PaxNormsToDB(const TCkinGrpIds &tckin_grp_ids, const list<TPaxNormItem> &no
       PaxNormsToDB(*i, norms);
     else
       CopyPaxNorms(*tckin_grp_ids.begin(), *i);
+  }
+}
+
+void PaxBrandsToDB(const TCkinGrpIds &tckin_grp_ids, const list<TPaxBrandItem> &norms)
+{
+  for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
+  {
+    if (i==tckin_grp_ids.begin())
+      PaxBrandsToDB(*i, norms);
+    else
+      CopyPaxBrands(*tckin_grp_ids.begin(), *i);
   }
 }
 
@@ -538,7 +636,7 @@ void PaxNormsFromDB(int pax_id, list<TPaxNormItem> &norms)
         iLast->pax_id!=item.pax_id || iLast->trfer_num!=item.trfer_num)
       iLast=norms.insert(norms.end(), item);
 
-    TPaxNormTextItem textItem;
+    TLocaleTextItem textItem;
     textItem.lang=Qry.FieldAsString("lang");
     textItem.text=Qry.FieldAsString("text");
     TPaxNormItem::iterator i=iLast->find(textItem.lang);
@@ -549,59 +647,123 @@ void PaxNormsFromDB(int pax_id, list<TPaxNormItem> &norms)
   }
 }
 
-void PaxNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &pax, ostringstream &s)
+void PaxBrandsFromDB(int pax_id, list<TPaxBrandItem> &norms)
+{
+  norms.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT * FROM pax_brands WHERE pax_id=:id ORDER BY pax_id, transfer_num, lang, page_no";
+  Qry.CreateVariable("id", otInteger, pax_id);
+  Qry.Execute();
+  list<TPaxBrandItem>::iterator iLast=norms.end();
+  for(; !Qry.Eof; Qry.Next())
+  {
+    TPaxBrandItem item;
+    item.pax_id=Qry.FieldAsInteger("pax_id");
+    item.trfer_num=Qry.FieldAsInteger("transfer_num");
+    if (iLast==norms.end() ||
+        iLast->pax_id!=item.pax_id || iLast->trfer_num!=item.trfer_num)
+      iLast=norms.insert(norms.end(), item);
+
+    TLocaleTextItem textItem;
+    textItem.lang=Qry.FieldAsString("lang");
+    textItem.text=Qry.FieldAsString("text");
+    TPaxBrandItem::iterator i=iLast->find(textItem.lang);
+    if (i!=iLast->end())
+      i->second.text+=textItem.text;
+    else
+      iLast->insert(make_pair(textItem.lang, textItem));
+  }
+}
+
+void PaxBrandsNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &pax, ostringstream &s)
 {
   s << "#" << setw(3) << setfill('0') << pax.reg_no << " "
     << pax.full_name() << "(" << ElemIdToCodeNative(etPersType, EncodePerson(pax.pers_type)) << "):" << endl;
 
   list<TPaxNormItem> norms;
   PaxNormsFromDB(pax.id, norms);
+  list<TPaxBrandItem> brands;
+  PaxBrandsFromDB(pax.id, brands);
 
-  string prior_text;
-  int trfer_num=0;
-  for(TTrferRoute::const_iterator t=trfer.begin(); ; ++t, trfer_num++)
+  for(int pass=0; pass<2; pass++)
   {
-    //ищем норму, соответствующую сегменту
-    string curr_text;
-    if (t!=trfer.end())
+    string prior_text;
+    int trfer_num=0;
+    for(TTrferRoute::const_iterator t=trfer.begin(); ; ++t, trfer_num++)
     {
-      for(list<TPaxNormItem>::const_iterator n=norms.begin(); n!=norms.end(); ++n)
+      //ищем норму, соответствующую сегменту
+      string curr_text;
+      if (t!=trfer.end())
       {
-        const TPaxNormItem &norm=*n;
-        if (norm.trfer_num!=trfer_num) continue;
+        if (pass==0)
+        {
+          //бренды
+          for(list<TPaxBrandItem>::const_iterator b=brands.begin(); b!=brands.end(); ++b)
+          {
+            const TPaxBrandItem &brand=*b;
+            if (brand.trfer_num!=trfer_num) continue;
 
-        TSimplePaxNormItem::const_iterator i=norm.find(TReqInfo::Instance()->desk.lang);
-        if (i==norm.end() && !norm.empty()) i=norm.begin(); //первая попавшаяся
+            TSimplePaxBrandItem::const_iterator i=brand.find(TReqInfo::Instance()->desk.lang);
+            if (i==brand.end() && !brand.empty()) i=brand.begin(); //первая попавшаяся
 
-        if (i!=norm.end()) curr_text=i->second.text;
-        break;
+            if (i!=brand.end()) curr_text=i->second.text;
+            break;
+          };
+        }
+        else
+        {
+          //нормы
+          for(list<TPaxNormItem>::const_iterator n=norms.begin(); n!=norms.end(); ++n)
+          {
+            const TPaxNormItem &norm=*n;
+            if (norm.trfer_num!=trfer_num) continue;
+
+            TSimplePaxNormItem::const_iterator i=norm.find(TReqInfo::Instance()->desk.lang);
+            if (i==norm.end() && !norm.empty()) i=norm.begin(); //первая попавшаяся
+
+            if (i!=norm.end()) curr_text=i->second.text;
+            break;
+          };
+        };
       };
-    };
 
-    if (t!=trfer.begin())
-    {
-      if (t==trfer.end() || curr_text!=prior_text)
+      if (t!=trfer.begin())
       {
-        s << ":" << endl //закончили секцию сегментов
-          << (prior_text.empty()?getLocaleText("MSG.LUGGAGE.UNKNOWN_BAG_NORM"):prior_text) << endl;  //записали соответствующую норму
-      }
-      else
+        if (t==trfer.end() || curr_text!=prior_text)
+        {
+          if (pass==1 || !prior_text.empty())
+          {
+            s << ":" << endl //закончили секцию сегментов
+              << (prior_text.empty()?getLocaleText(pass==0?"MSG.UNKNOWN_BRAND":
+                                                           "MSG.LUGGAGE.UNKNOWN_BAG_NORM"):prior_text) << endl;  //записали соответствующую норму
+          };
+        }
+        else
+        {
+          if (pass==1 || !prior_text.empty()) s << " -> ";
+        }
+      };
+
+      if (t==trfer.end()) break;
+
+      if (t==trfer.begin() || curr_text!=prior_text)
       {
-        s << " -> ";
-      }
-    };
+        if (pass==1 || t==trfer.begin() || !prior_text.empty()) s << endl;
+      };
 
-    if (t==trfer.end()) break;
+      if (pass==1 || !curr_text.empty())
+      {
+        const TTrferRouteItem &item=*t;
+        s << ElemIdToCodeNative(etAirline, item.operFlt.airline)
+          << setw(2) << setfill('0') << item.operFlt.flt_no
+          << ElemIdToCodeNative(etSuffix, item.operFlt.suffix)
+          << " " << ElemIdToCodeNative(etAirp, item.operFlt.airp);
+      };
 
-    if (t==trfer.begin() || curr_text!=prior_text) s << endl;
-
-    const TTrferRouteItem &item=*t;
-    s << ElemIdToCodeNative(etAirline, item.operFlt.airline)
-      << setw(2) << setfill('0') << item.operFlt.flt_no
-      << ElemIdToCodeNative(etSuffix, item.operFlt.suffix)
-      << " " << ElemIdToCodeNative(etAirp, item.operFlt.airp);
-
-    prior_text=curr_text;
+      prior_text=curr_text;
+    }
   }
 
   s << string(100,'=') << endl; //подведем черту :)
@@ -1818,6 +1980,8 @@ void TAvailabilityReq::toXML(xmlNodePtr node) const
 
   if (paxs.empty()) throw Exception("TAvailabilityReq::toXML: paxs.empty()");
 
+  SetProp(node, "show_brand_info", "true");
+
   for(list<TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
     p->toXML(NewTextChild(node, "passenger"), LANG_EN);
 }
@@ -1839,6 +2003,7 @@ void TAvailabilityRes::fromXML(xmlNodePtr node)
       TAvailabilityResItem &item=insert(make_pair(key, TAvailabilityResItem())).first->second;
       item.rfisc_list.fromXML(node);
       item.norm.fromXMLAdv(node, item.concept, item.rfisc_list.airline);
+      item.brand.fromXMLAdv(node);
     };
     if (empty()) throw Exception("empty()");
   }
@@ -1893,6 +2058,7 @@ void TAvailabilityRes::normsToDB(const TCkinGrpIds &tckin_grp_ids) const
   list<PieceConcept::TPaxNormItem> normsList;
   for(TAvailabilityResMap::const_iterator i=begin(); i!=end(); ++i)
   {
+    if (i->second.norm.empty()) continue;
     PieceConcept::TPaxNormItem item;
     static_cast<PieceConcept::TSimplePaxNormItem&>(item)=i->second.norm;
     item.pax_id=i->first.pax_id;
@@ -1900,6 +2066,21 @@ void TAvailabilityRes::normsToDB(const TCkinGrpIds &tckin_grp_ids) const
     normsList.push_back(item);
   }
   PieceConcept::PaxNormsToDB(tckin_grp_ids, normsList);
+}
+
+void TAvailabilityRes::brandsToDB(const TCkinGrpIds &tckin_grp_ids) const
+{
+  list<PieceConcept::TPaxBrandItem> brandsList;
+  for(TAvailabilityResMap::const_iterator i=begin(); i!=end(); ++i)
+  {
+    if (i->second.brand.empty()) continue;
+    PieceConcept::TPaxBrandItem item;
+    static_cast<PieceConcept::TSimplePaxBrandItem&>(item)=i->second.brand;
+    item.pax_id=i->first.pax_id;
+    item.trfer_num=i->first.seg_id;
+    brandsList.push_back(item);
+  }
+  PieceConcept::PaxBrandsToDB(tckin_grp_ids, brandsList);
 }
 
 void TPaymentStatusReq::toXML(xmlNodePtr node) const
