@@ -66,6 +66,7 @@ const
                          {etAlarmType,             "etAlarmType",             "alarm_types"},
                          {etBagNormType,           "etBagNormType",           "bag_norm_types"},
                          {etBagType,               "etBagType",               "bag_types"},
+                         {etBrand,                 "etBrand",                 ""},
                          {etBPType,                "etBPType",                ""},
                          {etBTType,                "etBTType",                ""},
                          {etCity,                  "etCity",                  "cities"},
@@ -96,6 +97,7 @@ const
                          {etPaxDocType,            "etPaxDocType",            "pax_doc_types"},
                          {etPayType,               "etPayType",               "pay_types"},
                          {etPersType,              "etPersType",              "pers_types"},
+                         {etRateColor,             "etRateColor",             "rate_colors"},
                          {etRcptDocType,           "etRcptDocType",           "rcpt_doc_types"},
                          {etRefusalType,           "etRefusalType",           "refusal_types"},
                          {etReportType,            "etReportType",             "report_types"},
@@ -663,6 +665,7 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
        case etRemGrp: Qry.SQLText="SELECT name, name_lat FROM rem_grp WHERE id=:id"; break;
         case etUsers: Qry.SQLText="SELECT descr AS name, descr AS name_lat FROM users2 WHERE user_id=:id"; break;
         case etRoles: Qry.SQLText="SELECT name AS name, name AS name_lat FROM roles WHERE role_id=:id"; break;
+        case etBrand: Qry.SQLText="SELECT name, name_lat FROM brands WHERE id=:id"; break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otInteger,id);

@@ -259,6 +259,7 @@ class TAdvTripInfo : public TTripInfo
       TTripInfo::Clear();
       init();
     };
+    using TTripInfo::Init;
     virtual void Init( TQuery &Qry )
     {
       TTripInfo::Init(Qry);

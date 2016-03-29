@@ -50,18 +50,18 @@ class TBaseTableRow {
 
 class TBaseTable {
   private:
-   	bool pr_init,pr_actual;
-   	std::vector<TBaseTableRow*> table;
+    bool pr_init,pr_actual;
+    std::vector<TBaseTableRow*> table;
     virtual const char *get_select_sql_text() {
-    	return select_sql.c_str();
+        return select_sql.c_str();
     }
     virtual const char *get_refresh_sql_text() {
-    	return select_sql.c_str();
+        return select_sql.c_str();
     }
   protected:
     TMemoryManager mem;
     int prior_mem_count;
-   	std::string select_sql;
+    std::string select_sql;
     void load_table();
     virtual const char *get_table_name() = 0;
     virtual void create_variables(TQuery &Qry, bool pr_refresh) = 0;
@@ -69,15 +69,15 @@ class TBaseTable {
     virtual void delete_row(TBaseTableRow *row);
     virtual void add_row(TBaseTableRow *row);
     virtual void after_update() = 0;
-  	virtual void Init(const std::string &sql_table_name="") {
-   	  pr_init=false;
-	  	pr_actual=false;
-	  	if ( !sql_table_name.empty() ) {
-	  	  select_sql = std::string("SELECT * FROM ") + sql_table_name;
-	  	}
-  	}
+    virtual void Init(const std::string &sql_table_name="") {
+      pr_init=false;
+        pr_actual=false;
+        if ( !sql_table_name.empty() ) {
+          select_sql = std::string("SELECT * FROM ") + sql_table_name;
+        }
+    }
   public:
-  	TBaseTable();
+    TBaseTable();
     virtual ~TBaseTable();
     virtual const TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
     virtual const TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
@@ -85,9 +85,9 @@ class TBaseTable {
 };
 
 class TNameBaseTableRow: public TBaseTableRow { //name, name_lat
-	protected:
-	public:
-		std::string name, name_lat;
+    protected:
+    public:
+        std::string name, name_lat;
     virtual bool deleted() { return false; };
     virtual std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
@@ -98,10 +98,10 @@ class TNameBaseTableRow: public TBaseTableRow { //name, name_lat
 
 class TNameBaseTable: public TBaseTable {
   private:
-  	bool pr_name;
-  	bool pr_name_lat;
+    bool pr_name;
+    bool pr_name_lat;
   protected:
-		virtual void create_variables(TQuery &Qry, bool pr_refresh) {};
+        virtual void create_variables(TQuery &Qry, bool pr_refresh) {};
     virtual void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     virtual void after_update() {};
   public:
@@ -125,6 +125,7 @@ class TIdBaseTable: public TNameBaseTable {
     virtual void delete_row(TBaseTableRow *row);
     virtual void add_row(TBaseTableRow *row);
   public:
+    using TNameBaseTable::get_row;
     virtual const TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
 };
 
@@ -148,6 +149,7 @@ class TCodeBaseTable: public TNameBaseTable {
     virtual void delete_row(TBaseTableRow *row);
     virtual void add_row(TBaseTableRow *row);
   public:
+    using TNameBaseTable::get_row;
     virtual const TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
 };
 
@@ -174,7 +176,7 @@ class TTIDBaseTable: public TCodeBaseTable {
     int tid,new_tid;
     std::map<int, TBaseTableRow*> id;
     virtual const char *get_refresh_sql_text() {
-    	return refresh_sql.c_str();
+        return refresh_sql.c_str();
     }
   protected:
     virtual void create_variables(TQuery &Qry, bool pr_refresh);
@@ -183,13 +185,14 @@ class TTIDBaseTable: public TCodeBaseTable {
     virtual void add_row(TBaseTableRow *row);
     virtual void after_update();
     virtual void Init(const std::string &sql_table_name="") {
-    	TCodeBaseTable::Init( sql_table_name );
-   		if ( !sql_table_name.empty() ) {
-	  	  refresh_sql = std::string("SELECT * FROM ") + sql_table_name + " WHERE tid>:tid";
-	  	}
-  	}
+        TCodeBaseTable::Init( sql_table_name );
+        if ( !sql_table_name.empty() ) {
+          refresh_sql = std::string("SELECT * FROM ") + sql_table_name + " WHERE tid>:tid";
+        }
+    }
   public:
     TTIDBaseTable() {tid=-1; new_tid=-1;};
+    using TCodeBaseTable::get_row;
     virtual const TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
 };
 
@@ -212,6 +215,7 @@ class TICAOBaseTable: public TTIDBaseTable {
     virtual void delete_row(TBaseTableRow *row);
     virtual void add_row(TBaseTableRow *row);
   public:
+    using TTIDBaseTable::get_row;
     virtual const TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
 };
 ///////////////////////////////////////////////////////////////////
@@ -235,10 +239,11 @@ class TCountries: public TTIDBaseTable {
     void delete_row(TBaseTableRow *row);
     void add_row(TBaseTableRow *row);
   public:
+    using TTIDBaseTable::get_row;
     virtual const TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
     TCountries( ) {
- 		  Init("countries");
-  	}
+          Init("countries");
+    }
 };
 
 class TAirpsRow: public TICAOBaseTableRow {
@@ -257,9 +262,9 @@ class TAirps: public TICAOBaseTable {
     const char *get_table_name() { return "TAirps"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
   public:
-  	TAirps( ) {
- 		  Init("airps");
-  	}
+    TAirps( ) {
+          Init("airps");
+    }
 };
 
 class TPersTypesRow: public TCodeBaseTableRow {
@@ -280,8 +285,8 @@ class TPersTypes: public TCodeBaseTable {
     void Invalidate() {}; //всегда актуальна
   public:
     TPersTypes() {
- 		  Init("pers_types");
- 	  }
+          Init("pers_types");
+      }
 };
 
 class TGenderTypesRow: public TCodeBaseTableRow {
@@ -306,9 +311,9 @@ class TReportTypes: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TReportTypes() {
-  		Init( "report_types" );
-  	}
+    TReportTypes() {
+        Init( "report_types" );
+    }
 };
 
 class TGenderTypes: public TCodeBaseTable {
@@ -317,9 +322,9 @@ class TGenderTypes: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TGenderTypes() {
-  		Init( "gender_types" );
-  	}
+    TGenderTypes() {
+        Init( "gender_types" );
+    }
 };
 
 class TTagColorsRow: public TCodeBaseTableRow {
@@ -333,9 +338,9 @@ class TTagColors: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TTagColors() {
-  		Init( "tag_colors" );
-  	}
+    TTagColors() {
+        Init( "tag_colors" );
+    }
 };
 
 class TPaxDocCountriesRow: public TTIDBaseTableRow {
@@ -358,10 +363,11 @@ class TPaxDocCountries: public TTIDBaseTable {
     void delete_row(TBaseTableRow *row);
     void add_row(TBaseTableRow *row);
   public:
+    using TTIDBaseTable::get_row;
     virtual const TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
     TPaxDocCountries( ) {
- 		  Init("pax_doc_countries");
-  	}
+          Init("pax_doc_countries");
+    }
 };
 
 class TPaxDocTypesRow: public TCodeBaseTableRow {
@@ -382,7 +388,7 @@ class TPaxDocTypes: public TCodeBaseTable {
     void Invalidate() {}; //всегда актуальна
   public:
     TPaxDocTypes( ) {
-    	Init( "pax_doc_types" );
+        Init( "pax_doc_types" );
     }
 };
 
@@ -405,10 +411,10 @@ class TTypeBOptionValues: public TCodeBaseTable {
   public:
     TTypeBOptionValues() {
       Init();
-  		select_sql = "SELECT tlg_type||'+'||category||'+'||value AS code, "
+        select_sql = "SELECT tlg_type||'+'||category||'+'||value AS code, "
                    "       short_name, short_name_lat, name, name_lat "
                    "FROM typeb_option_values";
- 	  }
+      }
 };
 
 class TTypeBTypesRow: public TCodeBaseTableRow {
@@ -443,8 +449,8 @@ class TTypeBTypes: public TCodeBaseTable {
     void Invalidate() {}; //всегда актуальна
   public:
     TTypeBTypes() {
- 		  Init("typeb_types");
- 	  }
+          Init("typeb_types");
+      }
 };
 
 class TCitiesRow: public TTIDBaseTableRow {
@@ -456,7 +462,7 @@ class TCitiesRow: public TTIDBaseTableRow {
       if (lowerc(field)=="country") return country;
       if (lowerc(field)=="tz_region") return tz_region;
       return TTIDBaseTableRow::AsString(field,lang);
-    };    
+    };
 };
 
 class TCities: public TTIDBaseTable {
@@ -491,9 +497,10 @@ class TAirlines: public TICAOBaseTable {
     virtual void delete_row(TBaseTableRow *row);
     virtual void add_row(TBaseTableRow *row);
   public:
+    using TICAOBaseTable::get_row;
     virtual const TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
     TAirlines() {
-    	Init( "airlines" );
+        Init( "airlines" );
     }
 };
 
@@ -514,9 +521,9 @@ class TClasses: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TClasses() {
-  		Init( "classes" );
-  	}
+    TClasses() {
+        Init( "classes" );
+    }
 };
 
 class TSubclsRow: public TCodeBaseTableRow {
@@ -536,9 +543,9 @@ class TSubcls: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TSubcls() {
-  		Init( "subcls" );
-  	}
+    TSubcls() {
+        Init( "subcls" );
+    }
 };
 
 class TTripSuffixesRow: public TCodeBaseTableRow {
@@ -552,9 +559,9 @@ class TTripSuffixes: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TTripSuffixes() {
-  		Init( "trip_suffixes" );
-  	}
+    TTripSuffixes() {
+        Init( "trip_suffixes" );
+    }
 };
 
 class TCraftsRow: public TICAOBaseTableRow {
@@ -567,9 +574,9 @@ class TCrafts: public TICAOBaseTable {
     const char *get_table_name() { return "TCrafts"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
   public:
-  	TCrafts( ) {
-  		Init( "crafts" );
-  	}
+    TCrafts( ) {
+        Init( "crafts" );
+    }
 };
 
 class TCurrencyRow: public TTIDBaseTableRow {
@@ -583,7 +590,7 @@ class TCurrency: public TTIDBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
   public:
     TCurrency() {
-    	Init( "currency" );
+        Init( "currency" );
     }
 };
 
@@ -597,9 +604,9 @@ class TRefusalTypes: public TTIDBaseTable {
     const char *get_table_name() { return "TRefusalTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
   public:
-  	TRefusalTypes( ) {
-  		Init( "refusal_types" );
-  	}
+    TRefusalTypes( ) {
+        Init( "refusal_types" );
+    }
 };
 
 class TPayTypesRow: public TTIDBaseTableRow {
@@ -612,9 +619,9 @@ class TPayTypes: public TTIDBaseTable {
     const char *get_table_name() { return "TPayTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
   public:
-  	TPayTypes( ) {
-  		Init( "pay_types" );
-  	}
+    TPayTypes( ) {
+        Init( "pay_types" );
+    }
 };
 
 class TRcptDocTypesRow: public TTIDBaseTableRow {
@@ -635,9 +642,9 @@ class TRcptDocTypes: public TTIDBaseTable {
     const char *get_table_name() { return "TRcptDocTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
   public:
-  	TRcptDocTypes( ) {
-  		Init( "rcpt_doc_types" );
-  	}
+    TRcptDocTypes( ) {
+        Init( "rcpt_doc_types" );
+    }
 };
 
 class TTripTypesRow: public TTIDBaseTableRow {
@@ -656,9 +663,9 @@ class TTripTypes: public TTIDBaseTable {
     const char *get_table_name() { return "TTripTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
   public:
-  	TTripTypes() {
-  		Init( "trip_types" );
-  	}
+    TTripTypes() {
+        Init( "trip_types" );
+    }
 };
 
 class TClsGrpRow: public TTIDBaseTableRow {
@@ -685,9 +692,9 @@ class TClsGrp: public TTIDBaseTable {
     const char *get_table_name() { return "TClsGrp"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
   public:
-  	TClsGrp() {
-  		Init( "cls_grp" );
-  	}
+    TClsGrp() {
+        Init( "cls_grp" );
+    }
 };
 
 class TAlarmTypesRow: public TCodeBaseTableRow {
@@ -707,63 +714,63 @@ class TAlarmTypes: public TCodeBaseTable {
 };
 
 class TDevModelsRow: public TCodeBaseTableRow {
-	public:
-	  const char *get_row_name() const { return "TDevModelsRow"; };
+    public:
+      const char *get_row_name() const { return "TDevModelsRow"; };
 };
 
 class TDevModels: public TCodeBaseTable {
   protected:
-		const char *get_table_name() { return "TDevModels"; };
+        const char *get_table_name() { return "TDevModels"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
   public:
-  	TDevModels() {
-  		Init( "dev_models" );
-  	}
+    TDevModels() {
+        Init( "dev_models" );
+    }
 };
 
 class TDevSessTypesRow: public TCodeBaseTableRow {
-	public:
-	  const char *get_row_name() const { return "TDevSessTypesRow"; };
+    public:
+      const char *get_row_name() const { return "TDevSessTypesRow"; };
 };
 
 class TDevSessTypes: public TCodeBaseTable {
   protected:
-		const char *get_table_name() { return "TDevSessTypes"; };
+        const char *get_table_name() { return "TDevSessTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
   public:
-  	TDevSessTypes( ) {
-  		Init( "dev_sess_types" );
-  	}
+    TDevSessTypes( ) {
+        Init( "dev_sess_types" );
+    }
 };
 
 class TDevFmtTypesRow: public TCodeBaseTableRow {
-	public:
-	  const char *get_row_name() const { return "TDevFmtTypesRow"; };
+    public:
+      const char *get_row_name() const { return "TDevFmtTypesRow"; };
 };
 
 class TDevFmtTypes: public TCodeBaseTable {
   protected:
-		const char *get_table_name() { return "TDevFmtTypes"; };
+        const char *get_table_name() { return "TDevFmtTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
   public:
-  	TDevFmtTypes() {
-  		Init( "dev_fmt_types" );
-  	}
+    TDevFmtTypes() {
+        Init( "dev_fmt_types" );
+    }
 };
 
 class TDevOperTypesRow: public TCodeBaseTableRow {
-	public:
-	  const char *get_row_name() const { return "TDevOperTypesRow"; };
+    public:
+      const char *get_row_name() const { return "TDevOperTypesRow"; };
 };
 
 class TDevOperTypes: public TCodeBaseTable {
   protected:
-		const char *get_table_name() { return "TDevOperTypes"; };
+        const char *get_table_name() { return "TDevOperTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
   public:
-  	TDevOperTypes() {
-  		Init( "dev_oper_types" );
-  	}
+    TDevOperTypes() {
+        Init( "dev_oper_types" );
+    }
 };
 
 class TGrpStatusTypesRow: public TCodeBaseTableRow {
@@ -789,9 +796,9 @@ class TGrpStatusTypes: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TGrpStatusTypes() {
-  		Init( "grp_status_types" );
-  	}
+    TGrpStatusTypes() {
+        Init( "grp_status_types" );
+    }
 };
 
 class TClientTypesRow: public TCodeBaseTableRow {
@@ -817,9 +824,9 @@ class TClientTypes: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TClientTypes() {
-  		Init( "client_types" );
-  	}
+    TClientTypes() {
+        Init( "client_types" );
+    }
 };
 
 class TCompLayerTypesRow: public TCodeBaseTableRow {
@@ -839,13 +846,13 @@ class TCompLayerTypes: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TCompLayerTypes() {
-  		Init( "comp_layer_types" );
-  	}
+    TCompLayerTypes() {
+        Init( "comp_layer_types" );
+    }
 };
 
 class TGraphStagesRow: public TIdBaseTableRow {
-	  public:
+      public:
     int stage_time;
     bool pr_auto, pr_airp_stage;
     const char *get_row_name() const { return "TGraphStagesRow"; };
@@ -868,14 +875,14 @@ class TGraphStages: public TIdBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TGraphStages() {
-  		Init();
-  		select_sql = "SELECT stage_id id,name,name_lat,time,pr_auto,pr_airp_stage FROM graph_stages";
-  	};
+    TGraphStages() {
+        Init();
+        select_sql = "SELECT stage_id id,name,name_lat,time,pr_auto,pr_airp_stage FROM graph_stages";
+    };
 };
 
 class TMiscSetTypesRow: public TIdBaseTableRow {
-	  public:
+      public:
     const char *get_row_name() const { return "TMiscSetTypesRow"; };
 };
 
@@ -885,14 +892,14 @@ class TMiscSetTypes: public TIdBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TMiscSetTypes() {
-  		Init();
-  		select_sql = "SELECT code id,name,name_lat FROM misc_set_types";
-  	};
+    TMiscSetTypes() {
+        Init();
+        select_sql = "SELECT code id,name,name_lat FROM misc_set_types";
+    };
 };
 
 class TSeatAlgoTypesRow: public TIdBaseTableRow {
-	  public:
+      public:
     const char *get_row_name() const { return "TSeatAlgoTypesRow"; };
 };
 
@@ -902,13 +909,13 @@ class TSeatAlgoTypes: public TIdBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TSeatAlgoTypes() {
-  		Init( "seat_algo_types" );
-  	};
+    TSeatAlgoTypes() {
+        Init( "seat_algo_types" );
+    };
 };
 
 class TRightsRow: public TIdBaseTableRow {
-	  public:
+      public:
     const char *get_row_name() const { return "TRightsRow"; };
 };
 
@@ -919,13 +926,13 @@ class TRights: public TIdBaseTable {
     void Invalidate() {}; //всегда актуальна
   public:
     TRights() {
-  		Init();
+        Init();
         select_sql = "SELECT ida AS id,name,name_lat FROM rights_list";
-  	};
+    };
 };
 
 class TUserTypesRow: public TIdBaseTableRow {
-	  public:
+      public:
     const char *get_row_name() const { return "TUserTypesRow"; };
 };
 
@@ -935,10 +942,10 @@ class TUserTypes: public TIdBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TUserTypes() {
-  		Init();
-  		select_sql = "SELECT code AS id,name,name_lat FROM user_types";
-  	};
+    TUserTypes() {
+        Init();
+        select_sql = "SELECT code AS id,name,name_lat FROM user_types";
+    };
 };
 
 class TUserSetTypesRow: public TIdBaseTableRow {
@@ -959,15 +966,15 @@ class TUserSetTypes: public TIdBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TUserSetTypes() {
-  		Init();
-  		select_sql = "SELECT code AS id,category,short_name,short_name_lat,name,name_lat "
+    TUserSetTypes() {
+        Init();
+        select_sql = "SELECT code AS id,category,short_name,short_name_lat,name,name_lat "
                    "FROM user_set_types";
-  	}
+    }
 };
 
 class TBagNormTypesRow: public TCodeBaseTableRow {
-	public:
+    public:
     const char *get_row_name() const { return "TBagNormTypesRow"; };
 };
 
@@ -977,9 +984,9 @@ class TBagNormTypes: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TBagNormTypes() {
-  		Init( "bag_norm_types" );
-  	};
+    TBagNormTypes() {
+        Init( "bag_norm_types" );
+    };
 };
 
 class TBagTypesRow: public TIdBaseTableRow {
@@ -1000,7 +1007,7 @@ class TBagTypes: public TIdBaseTable {
 };
 
 class TLangTypesRow: public TCodeBaseTableRow {
-	public:
+    public:
     const char *get_row_name() const { return "TLangTypesRow"; };
 };
 
@@ -1010,13 +1017,13 @@ class TLangTypes: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TLangTypes() {
-  		Init( "lang_types" );
-  	};
+    TLangTypes() {
+        Init( "lang_types" );
+    };
 };
 
 class TStationModesRow: public TCodeBaseTableRow {
-	public:
+    public:
     const char *get_row_name() const { return "TStationModesRow"; };
 };
 
@@ -1026,17 +1033,17 @@ class TStationModes: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TStationModes() {
+    TStationModes() {
       Init();
-  		select_sql =
-  		  "SELECT 'Р' AS code, 'Регистрация' AS name, 'Check-in' AS name_lat FROM dual "
+        select_sql =
+          "SELECT 'Р' AS code, 'Регистрация' AS name, 'Check-in' AS name_lat FROM dual "
         "UNION "
         "SELECT 'П', 'Посадка', 'Boarding' FROM dual";
-  	};
+    };
 };
 
 class TSeasonTypesRow: public TIdBaseTableRow {
-	public:
+    public:
     const char *get_row_name() const { return "TSeasonTypesRow"; };
 };
 
@@ -1046,20 +1053,20 @@ class TSeasonTypes: public TIdBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TSeasonTypes() {
+    TSeasonTypes() {
       Init();
-  		select_sql =
-  		  "SELECT 0 AS id, 'Зима' AS name, 'Winter' AS name_lat FROM dual "
+        select_sql =
+          "SELECT 0 AS id, 'Зима' AS name, 'Winter' AS name_lat FROM dual "
         "UNION "
         "SELECT 1, 'Лето', 'Summer' FROM dual";
-  	};
+    };
 };
 
 class TFormTypesRow: public TCodeBaseTableRow {
-	public:
-	  std::string basic_type, validator;
-	  int series_len, no_len;
-	  bool pr_check_bit;
+    public:
+      std::string basic_type, validator;
+      int series_len, no_len;
+      bool pr_check_bit;
     const char *get_row_name() const { return "TFormTypesRow"; };
     std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
     {
@@ -1086,9 +1093,9 @@ class TFormTypes: public TCodeBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
   public:
-  	TFormTypes() {
+    TFormTypes() {
     Init( "form_types" );
-  	};
+    };
 };
 
 class TCkinRemTypesRow: public TTIDBaseTableRow {
@@ -1141,7 +1148,7 @@ class TCkinRemTypes: public TTIDBaseTable {
     const char *get_refresh_sql_text()
     {
       return
-      	"SELECT ckin_rem_types.id, ckin_rem_types.code, ckin_rem_types.code_lat, "
+        "SELECT ckin_rem_types.id, ckin_rem_types.code, ckin_rem_types.code_lat, "
         "       ckin_rem_types.name, ckin_rem_types.name_lat, ckin_rem_types.grp_id, "
         "       ckin_rem_types.is_iata, ckin_rem_types.pr_del, ckin_rem_types.tid, "
         "       rem_grp.priority "
@@ -1151,6 +1158,22 @@ class TCkinRemTypes: public TTIDBaseTable {
   protected:
     const char *get_table_name() { return "TCkinRemTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+};
+
+class TRateColorsRow: public TCodeBaseTableRow {
+    public:
+    const char *get_row_name() const { return "TRateColorsRow"; };
+};
+
+class TRateColors: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TRateColors"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+    TRateColors() {
+        Init( "rate_colors" );
+    };
 };
 
 class TBaseTables {

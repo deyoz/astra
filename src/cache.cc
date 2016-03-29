@@ -406,6 +406,11 @@ void TCacheTable::initFields()
           FField.ElemCategory=cecCode;
           FField.ElemType=etValidatorType;
         };
+        if (FField.ReferCode == "BRANDS" && FField.ReferName == "AIRLINE_VIEW" )
+        {
+          FField.ElemCategory=cecCode;
+          FField.ElemType=etAirline;
+        };
 
         FFields.push_back(FField);
         Qry->Next();
