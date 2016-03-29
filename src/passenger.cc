@@ -1154,6 +1154,7 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
   bag_pool_num=Qry.FieldIsNULL("bag_pool_num")?ASTRA::NoExists:Qry.FieldAsInteger("bag_pool_num");
   tid=Qry.FieldAsInteger("tid");
   tkn.fromDB(Qry);
+  TknExists=true;
   return *this;
 }
 
@@ -1161,7 +1162,6 @@ TPaxItem& TPaxItem::fromDB(TQuery &Qry)
 {
   clear();
   TSimplePaxItem::fromDB(Qry);
-  TknExists=true;
   DocExists=CheckIn::LoadPaxDoc(id, doc);
   DocoExists=CheckIn::LoadPaxDoco(id, doco);
   DocaExists=CheckIn::LoadPaxDoca(id, doca);

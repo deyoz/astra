@@ -122,7 +122,7 @@ class TSalons {
 
 namespace SALONS
 {
-    typedef std::pair<int,TPlace> TSalonSeat;
+  typedef std::pair<int,TPlace> TSalonSeat;
   void GetCompParams( int comp_id, xmlNodePtr dataNode );
   void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
   void ClearLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );

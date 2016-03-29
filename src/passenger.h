@@ -54,6 +54,12 @@ class TPaxTknItem : public TPaxAPIItem
               rem == item.rem &&
               confirm == item.confirm;
     };
+    bool equalAttrs(const TPaxTknItem &item) const
+    {
+      return  no == item.no &&
+              coupon == item.coupon &&
+              rem == item.rem;
+    }
     const TPaxTknItem& toXML(xmlNodePtr node) const;
     TPaxTknItem& fromXML(xmlNodePtr node);
     const TPaxTknItem& toDB(TQuery &Qry) const;
@@ -62,6 +68,15 @@ class TPaxTknItem : public TPaxAPIItem
     long int getNotEmptyFieldsMask() const;
     TAPIType apiType() const { return apiTkn; }
     bool validET() const { return rem=="TKNE" && !no.empty() && coupon!=ASTRA::NoExists; }
+
+    std::string no_str() const
+    {
+      std::ostringstream s;
+      s << no;
+      if (coupon!=ASTRA::NoExists)
+        s << "/" << coupon;
+      return s.str();
+    };
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
@@ -310,6 +325,7 @@ class TSimplePaxItem
     int bag_pool_num;
     int tid;
     TPaxTknItem tkn;
+    bool TknExists;
     TSimplePaxItem()
     {
       clear();
@@ -333,6 +349,7 @@ class TSimplePaxItem
       bag_pool_num=ASTRA::NoExists;
       tid=ASTRA::NoExists;
       tkn.clear();
+      TknExists=false;
     }
 
     TSimplePaxItem& fromDB(TQuery &Qry);
@@ -347,7 +364,6 @@ class TPaxItem : public TSimplePaxItem
     TPaxDocoItem doco;
     std::list<TPaxDocaItem> doca;
     bool PaxUpdatesPending;
-    bool TknExists;
     bool DocExists;
     bool DocoExists;
     bool DocaExists;
@@ -362,7 +378,6 @@ class TPaxItem : public TSimplePaxItem
       doco.clear();
       doca.clear();
       PaxUpdatesPending=false;
-      TknExists=false;
       DocExists=false;
       DocoExists=false;
       DocaExists=false;
