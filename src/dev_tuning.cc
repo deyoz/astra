@@ -183,6 +183,10 @@ void DevTuningInterface::Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.Execute();
     if(Qry.Eof)
         throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
+
+    TDevFmtType fmt_type = DecodeDevFmtType(Qry.FieldAsString("fmt_type"));
+    if(fmt_type == dftGraphics2D)
+        throw UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
     xmlNodePtr prnFormNode = NewTextChild(resNode, "prn_form");
     NewTextChild(prnFormNode, "fmt_type", Qry.FieldAsString("fmt_type"));
     NewTextChild(prnFormNode, "form", Qry.FieldAsString("form"));
