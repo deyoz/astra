@@ -4260,7 +4260,9 @@ void TSalonList::Build( bool with_pax,
                    menuLayers, props, salonsNode );
 }
 
-void checkUniqTariffs( const TPlace &seat, const TSeatTariff &seatTariff, std::map<std::string,pair<TSeatTariff, TPlace>> &uniqTariffs )
+void checkUniqTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
+                       std::map<std::string,pair<TSeatTariff, TPlace>> &uniqTariffs,
+                       bool pr_lat)
 {
   std::map<std::string,pair<TSeatTariff, TPlace>>::iterator itariff = uniqTariffs.find( seatTariff.color );
   if ( itariff == uniqTariffs.end() ) {
@@ -4269,7 +4271,9 @@ void checkUniqTariffs( const TPlace &seat, const TSeatTariff &seatTariff, std::m
   }
   if ( itariff->second.first.value != seatTariff.value ) {
     ostringstream buf;
-    string value1, value2;
+    string value1, value2, seat1, seat2;
+    seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
+    seat2 = denorm_iata_row( itariff->second.second.yname, NULL ) + denorm_iata_line( itariff->second.second.xname, pr_lat );
     buf << std::fixed << std::setprecision(2)  << seatTariff.value;
     value1 = buf.str();
     buf.str("");
@@ -4277,17 +4281,20 @@ void checkUniqTariffs( const TPlace &seat, const TSeatTariff &seatTariff, std::m
     value2 = buf.str();
     throw UserException( "MSG.DIFFERENTE_PRICE",
                           LParams()<<LParam("color",ElemIdToNameLong( etRateColor, seatTariff.color ))
-                                   <<LParam("seat1",seat.yname+seat.xname)
+                                   <<LParam("seat1",seat1)
                                    <<LParam("tariff1",value1)
-                                   <<LParam("seat2",itariff->second.second.yname+itariff->second.second.xname)
+                                   <<LParam("seat2",seat2)
                                    <<LParam("tariff2",value2) );
   }
   if ( itariff->second.first.currency_id != seatTariff.currency_id ) {
+    string seat1, seat2;
+    seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
+    seat2 = denorm_iata_row( itariff->second.second.yname, NULL ) + denorm_iata_line( itariff->second.second.xname, pr_lat );
     throw UserException( "MSG.DIFFERENTE_CURRENCY",
                           LParams()<<LParam("color",ElemIdToNameLong( etRateColor, seatTariff.color ))
-                                   <<LParam("seat1",seat.yname+seat.xname)
+                                   <<LParam("seat1",seat1)
                                    <<LParam("currency1",seatTariff.currency_id)
-                                   <<LParam("seat2",itariff->second.second.yname+itariff->second.second.xname)
+                                   <<LParam("seat2",seat2)
                                    <<LParam("currency2",itariff->second.first.currency_id) );
   }
 }
@@ -4442,7 +4449,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
             seatTariff.color = NodeAsStringFast( "color", n2, "" );
             seatTariff.value = NodeAsFloatFast( "value", n2, NoExists );
             seatTariff.currency_id = NodeAsStringFast( "currency_id", n2, "" );
-            checkUniqTariffs( place, seatTariff, uniqTariffs );
+            checkUniqTariffs( place, seatTariff, uniqTariffs, pr_craft_lat  );
             place.AddTariff( point_id, seatTariff );
             n1 = n1->next;
           }
@@ -4455,7 +4462,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
           seatTariff.color = NodeAsString( "@color", n1 );
           seatTariff.value = NodeAsFloat( n1 );
           seatTariff.currency_id = NodeAsString( "@currency_id", n1 );
-          checkUniqTariffs( place, seatTariff, uniqTariffs );
+          checkUniqTariffs( place, seatTariff, uniqTariffs, pr_craft_lat );
           place.AddTariff( vpoint_id, seatTariff );
         }
       }
