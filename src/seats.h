@@ -86,6 +86,11 @@ struct TDefaults {
   };
 };
 
+struct TCoordSeat {
+    int placeListIdx;
+    TPoint p;
+};
+
 struct TPassenger {
   private:
     std::vector<std::string> rems;
@@ -116,7 +121,7 @@ struct TPassenger {
     int tid;
     std::string preseat_no;
     ASTRA::TCompLayerType preseat_layer;
-    std::vector<SALONS2::TPlace> preseatPlaces;
+    std::vector<TCoordSeat> preseatPlaces;
     //std::string agent_seat;
     std::string ticket_no;
     std::string document;

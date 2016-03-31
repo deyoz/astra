@@ -1253,30 +1253,54 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat, bool pr_up
    NewTextChild( node, "yname", denorm_iata_row( yname, NULL ) );
 }
 
-void TPlace::SetTariffsByColor( TSeatTariffMapType salonTariffs )
+void TPlace::SetTariffsByColor( const TSeatTariffMapType &salonTariffs, bool setPassengerTariffs )
 {
+  ProgTrace( TRACE5, "place(%d,%d) tariffs.size()=%zu", x, y, tariffs.size() );
   if ( salonTariffs.empty() || !visible || !isplace ) {
-    tst();
     return;
   }
+  TSeatTariffMapType::const_iterator colorItem;
   for ( std::map<int, TSeatTariff,classcomp>::iterator itariff=tariffs.begin();
-        itariff!=tariffs.end(); itariff++ ) {
+        itariff!=tariffs.end();  ) {
     if ( itariff->second.color.empty() ) {
+      std::map<int, TSeatTariff,classcomp>::iterator next=itariff;
+      ++next;
+      tariffs.erase( itariff );
+      itariff=next;
       continue;
     }
-    if ( salonTariffs.find( itariff->second.color ) != salonTariffs.end() ) {
-      itariff->second.value = salonTariffs[ itariff->second.color ].value;
-      itariff->second.currency_id = salonTariffs[ itariff->second.color ].currency_id;
-      itariff->second.RFISC = salonTariffs[ itariff->second.color ].RFISC;
-      ProgTrace( TRACE5, "1 place(%d,%d) set tarif=%f", x, y, salonTariffs[ SeatTariff.color ].value );
+    colorItem = salonTariffs.find( itariff->second.color );
+    if ( colorItem != salonTariffs.end() ) {
+      if ( setPassengerTariffs  ) {
+        itariff->second.value = colorItem->second.value;
+        itariff->second.currency_id = colorItem->second.currency_id;
+        itariff->second.RFISC = colorItem->second.RFISC;
+        ProgTrace( TRACE5, "1 place(%d,%d) set tarif=%f", x, y, colorItem->second.value );
+      }
+      ++itariff;
+    }
+    else {
+      ProgTrace( TRACE5, "1 place(%d,%d) delete tarif=%s", x, y, itariff->second.color.c_str() );
+      std::map<int, TSeatTariff,classcomp>::iterator next=itariff;
+      ++next;
+      tariffs.erase( itariff );
+      itariff=next;
     }
   }
-  ProgTrace( TRACE5, "SeatTariff.color=%s, salonTariffs.size()=%zu", SeatTariff.color.c_str(), salonTariffs.size() );
-  if ( salonTariffs.find( SeatTariff.color ) != salonTariffs.end() ) {
-    SeatTariff.value = salonTariffs[ SeatTariff.color ].value;
-    ProgTrace( TRACE5, "2 place(%d,%d) set tarif=%f", x, y, salonTariffs[ SeatTariff.color ].value );
-    SeatTariff.currency_id = salonTariffs[ SeatTariff.color ].currency_id;
-    SeatTariff.RFISC = salonTariffs[ SeatTariff.color ].RFISC;
+  colorItem = salonTariffs.find( SeatTariff.color );
+  if ( colorItem != salonTariffs.end() ) {
+    if ( setPassengerTariffs  ) {
+      SeatTariff.value = colorItem->second.value;
+      ProgTrace( TRACE5, "2 place(%d,%d) set tarif=%f", x, y, colorItem->second.value );
+      SeatTariff.currency_id = colorItem->second.currency_id;
+      SeatTariff.RFISC = colorItem->second.RFISC;
+    }
+  }
+  else {
+    ProgTrace( TRACE5, "2 place(%d,%d) delete tarif=%f", x, y, SeatTariff.value );
+    SeatTariff.value = 0.0;
+    SeatTariff.currency_id.clear();
+    SeatTariff.RFISC.clear();
   }
 }
 
@@ -1326,6 +1350,40 @@ void TPlace::DropRFISCRemarks( TSeatTariffMapType salonRFISCColor )
         AddRemark( iremarks->first, *ir );
       }
     }
+  }
+}
+
+void TPlace::convertSeatTariffs( int point_dep )
+{
+  vector<int> points;
+  points.push_back( point_dep );
+  convertSeatTariffs( true, point_dep, points );
+}
+
+void TPlace::convertSeatTariffs( bool pr_departure_tariff_only, int point_dep, const std::vector<int> &points )
+{
+  std::map<int, TSeatTariff,classcomp> tariffs;
+  set<TSeatTariff,SeatTariffCompare> uniqueTariffs;
+  GetTariffs( tariffs );
+  for ( vector<int>::const_iterator ipoint=points.begin(); ipoint!=points.end(); ipoint++ ) {
+    if ( pr_departure_tariff_only && *ipoint != point_dep ) {
+      continue;
+    }
+    if ( tariffs.find( *ipoint ) == tariffs.end() ) {
+      continue;
+    }
+    //!logProgTrace( TRACE5, "ipoint->point_id=%d", *ipoint );
+    if ( uniqueTariffs.find( tariffs[ *ipoint ] ) != uniqueTariffs.end() ) {
+      //!log tst();
+      continue;
+    }
+    uniqueTariffs.insert( tariffs[ *ipoint ] );
+    //!logProgTrace( TRACE5, "*ipoint=%d, color=%s,", *ipoint, tariffs[ *ipoint ].color.c_str() );
+    AddTariff( tariffs[ *ipoint ].color,
+               tariffs[ *ipoint ].value,
+               tariffs[ *ipoint ].currency_id );
+    ProgTrace( TRACE5, "SeatTariff=%s", SeatTariff.tariffStr().c_str() );
+    break;
   }
 }
 
@@ -2908,6 +2966,24 @@ void TSalonList::DropRFISCRemarks( const std::string &airline )
   }
 }
 
+void TSalonList::SetTariffsByColor( const std::string &airline, bool setPassengerTariffs )
+{
+  TSeatTariffMap tariffMap;
+  tariffMap.get_rfisc_colors( airline );
+  if ( tariffMap.empty() ) {
+    return;
+  }
+  ProgTrace( TRACE5, "tariffMap.size()=%zu", tariffMap.size() );
+  for( vector<TPlaceList*>::iterator placeList = begin();
+       placeList != end(); placeList++ ) {
+    for ( TPlaces::iterator place = (*placeList)->places.begin();
+          place != (*placeList)->places.end(); place++ ) {
+      place->SetTariffsByColor( tariffMap, setPassengerTariffs );
+    }
+  }
+}
+
+
 void TSalonList::ReadCompon( int vcomp_id )
 {
   ProgTrace( TRACE5, "TSalonList::ReadCompon(), comp_id=%d", vcomp_id );
@@ -4135,6 +4211,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   }
   CommitLayers();
   AddRFISCRemarks( filterRoutesSets.point_dep, filterRoutes.getAirline() );
+  SetTariffsByColor( filterRoutes.getAirline(), false );
+
 
   //имеем на выходе множество слоев с учетом фильтра
   //множество пассажиров без учета фильтра - можно удалить тех, у которых нет слоя
@@ -4188,6 +4266,45 @@ void TSalonList::Build( bool with_pax,
                    menuLayers, props, salonsNode );
 }
 
+void checkUniqTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
+                       std::map<std::string,pair<TSeatTariff, TPlace> > &uniqTariffs,
+                       bool pr_lat)
+{
+  std::map<std::string,pair<TSeatTariff, TPlace> >::iterator itariff = uniqTariffs.find( seatTariff.color );
+  if ( itariff == uniqTariffs.end() ) {
+    uniqTariffs.insert( make_pair( seatTariff.color, make_pair(seatTariff,seat) ) );
+    return;
+  }
+  if ( itariff->second.first.value != seatTariff.value ) {
+    ostringstream buf;
+    string value1, value2, seat1, seat2;
+    seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
+    seat2 = denorm_iata_row( itariff->second.second.yname, NULL ) + denorm_iata_line( itariff->second.second.xname, pr_lat );
+    buf << std::fixed << std::setprecision(2)  << seatTariff.value;
+    value1 = buf.str();
+    buf.str("");
+    buf << std::fixed << std::setprecision(2)  << itariff->second.first.value;
+    value2 = buf.str();
+    throw UserException( "MSG.DIFFERENTE_PRICE",
+                          LParams()<<LParam("color",ElemIdToNameLong( etRateColor, seatTariff.color ))
+                                   <<LParam("seat1",seat1)
+                                   <<LParam("tariff1",value1)
+                                   <<LParam("seat2",seat2)
+                                   <<LParam("tariff2",value2) );
+  }
+  if ( itariff->second.first.currency_id != seatTariff.currency_id ) {
+    string seat1, seat2;
+    seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
+    seat2 = denorm_iata_row( itariff->second.second.yname, NULL ) + denorm_iata_line( itariff->second.second.xname, pr_lat );
+    throw UserException( "MSG.DIFFERENTE_CURRENCY",
+                          LParams()<<LParam("color",ElemIdToNameLong( etRateColor, seatTariff.color ))
+                                   <<LParam("seat1",seat1)
+                                   <<LParam("currency1",seatTariff.currency_id)
+                                   <<LParam("seat2",seat2)
+                                   <<LParam("currency2",itariff->second.first.currency_id) );
+  }
+}
+
 void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr salonsNode )
 {
   ProgTrace( TRACE5, "TSalonList::Parse, point_id=%d", vpoint_id );
@@ -4207,6 +4324,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
   int lat_count = 0, rus_count = 0;
   string rus_lines = rus_seat, lat_lines = lat_seat;
   TElemFmt fmt;
+  std::map<std::string,pair<TSeatTariff, TPlace> > uniqTariffs;
   while ( salonNode ) {
     TPlaceList *placeList = new TPlaceList();
     placeList->num = NodeAsInteger( "@num", salonNode );
@@ -4325,6 +4443,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
         seatlayer.point_dep = vpoint_id;
         place.AddLayer( seatlayer.point_id, seatlayer );
       }
+
       if ( TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) ) {
         n1 = GetNodeFast( "tariffs", node );
         if ( n1 ) {
@@ -4336,6 +4455,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
             seatTariff.color = NodeAsStringFast( "color", n2, "" );
             seatTariff.value = NodeAsFloatFast( "value", n2, NoExists );
             seatTariff.currency_id = NodeAsStringFast( "currency_id", n2, "" );
+            checkUniqTariffs( place, seatTariff, uniqTariffs, pr_craft_lat  );
             place.AddTariff( point_id, seatTariff );
             n1 = n1->next;
           }
@@ -4348,6 +4468,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
           seatTariff.color = NodeAsString( "@color", n1 );
           seatTariff.value = NodeAsFloat( n1 );
           seatTariff.currency_id = NodeAsString( "@currency_id", n1 );
+          checkUniqTariffs( place, seatTariff, uniqTariffs, pr_craft_lat );
           place.AddTariff( vpoint_id, seatTariff );
         }
       }
@@ -4846,63 +4967,49 @@ void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets )
   }
 }
 
-struct TPointInRoute {
-  int point_id;
-  bool inRoute;
-  bool beforeDeparture;
-  TPointInRoute( int vpoint_id, bool vinRoute, bool vbeforeDeparture ) {
-    point_id = vpoint_id;
-    inRoute = vinRoute;
-    beforeDeparture = vbeforeDeparture;
+TPropsPoints::TPropsPoints( const FilterRoutesProperty &filterRoutes, int point_dep, int point_arv )
+{
+  bool inRoute = true;
+  bool beforeDeparture = true;
+  //!logProgTrace( TRACE5, "TPropsPoints: point_arv=%d", point_arv );
+  for ( std::vector<TTripRouteItem>::const_iterator iroute=filterRoutes.begin();
+        iroute!=filterRoutes.end(); ++iroute ) {
+    if ( iroute->point_id == point_arv ) {
+      inRoute = false;
+    }
+    if ( iroute->point_id == point_dep ) {
+      beforeDeparture = false;
+    }
+    push_back( TPointInRoute( iroute->point_id, inRoute, beforeDeparture ) );
+    //!logProgTrace( TRACE5, "TPropsPoints: points.push_back(%d,%d,%d)", iroute->point_id, inRoute, beforeDeparture );
   }
-  TPointInRoute() {
-    point_id = ASTRA::NoExists;
-    inRoute = false;
-    beforeDeparture = false;
-  }
-};
+}
 
-class TPropsPoints: public vector<TPointInRoute> {
-  public:
-  TPropsPoints( const FilterRoutesProperty &filterRoutes, int point_dep, int point_arv ) {
-    bool inRoute = true;
-    bool beforeDeparture = true;
-    //!logProgTrace( TRACE5, "TPropsPoints: point_arv=%d", point_arv );
-    for ( std::vector<TTripRouteItem>::const_iterator iroute=filterRoutes.begin();
-          iroute!=filterRoutes.end(); ++iroute ) {
-      if ( iroute->point_id == point_arv ) {
-        inRoute = false;
-      }
-      if ( iroute->point_id == point_dep ) {
-        beforeDeparture = false;
-      }
-      push_back( TPointInRoute( iroute->point_id, inRoute, beforeDeparture ) );
-      //!logProgTrace( TRACE5, "TPropsPoints: points.push_back(%d,%d,%d)", iroute->point_id, inRoute, beforeDeparture );
+bool TPropsPoints::getPropRoute( int point_id, TPointInRoute &point )
+{
+  for ( vector<TPointInRoute>::iterator ipoint=begin(); ipoint!=end(); ipoint++ ) {
+    if ( ipoint->point_id == point_id ) {
+      point.point_id = ipoint->point_id;
+      point.inRoute = ipoint->inRoute;
+      point.beforeDeparture = ipoint->beforeDeparture;
+      return true;
     }
   }
-  bool getPropRoute( int point_id, TPointInRoute &point ) {
-    for ( vector<TPointInRoute>::iterator ipoint=begin(); ipoint!=end(); ipoint++ ) {
-      if ( ipoint->point_id == point_id ) {
-        point.point_id = ipoint->point_id;
-        point.inRoute = ipoint->inRoute;
-        point.beforeDeparture = ipoint->beforeDeparture;
-        return true;
-      }
+  return false;
+}
+
+bool TPropsPoints::getLastPropRouteDeparture( TPointInRoute &point )
+{
+  point = TPointInRoute();
+  for( vector<TPointInRoute>::const_reverse_iterator iroute=rbegin();
+       iroute!=rend(); iroute++ ) {
+    if ( iroute->inRoute ) {
+      point = *iroute;
+      return true;
     }
-    return false;
   }
-  bool getLastPropRouteDeparture( TPointInRoute &point ) {
-    point = TPointInRoute();
-    for( vector<TPointInRoute>::const_reverse_iterator iroute=rbegin();
-         iroute!=rend(); iroute++ ) {
-      if ( iroute->inRoute ) {
-        point = *iroute;
-        return true;
-      }
-    }
-    return false;
-  }
-};
+  return false;
+}
 
 bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
                                            TFilterRoutesSets &filterRoutes,
@@ -4919,6 +5026,15 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
                                    dropLayersFlags );
 }
 
+void TSalonList::convertSeatTariffs( TPlace &iseat, bool pr_departure_tariff_only, int point_dep, int point_arv ) const
+{
+  TPropsPoints points( filterSets.filterRoutes, point_dep, point_arv );
+  vector<int> pnts;
+  for ( vector<TPointInRoute>::const_iterator ipoint=points.begin(); ipoint!=points.end(); ipoint++ ) {
+    pnts.push_back( ipoint->point_id );
+  }
+  iseat.convertSeatTariffs( pr_departure_tariff_only, point_dep, pnts );
+}
 
 bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
                                            TFilterRoutesSets &filterRoutes,
@@ -5002,12 +5118,14 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
         }
       }
       //заполнение тарифов
-      tariffs.clear();
-      iseat->GetTariffs( tariffs );
-      uniqueTariffs.clear();
+//      tariffs.clear();
+//      iseat->GetTariffs( tariffs );
+//      uniqueTariffs.clear();
+
+      convertSeatTariffs( *iseat, pr_departure_tariff_only, filterRoutes.point_dep, filterRoutes.point_arv );
       //если пассажир хочет получить платное место, то надо искать его только в нашем пункте
       //если пассажир регистрируется на не платное место, то надо найти платное по маршруту
-      for ( vector<TPointInRoute>::iterator ipoint=points.begin(); ipoint!=points.end(); ipoint++ ) {
+      /*for ( vector<TPointInRoute>::iterator ipoint=points.begin(); ipoint!=points.end(); ipoint++ ) {
         if ( pr_departure_tariff_only && ipoint->point_id != getDepartureId() ) {
           continue;
         }
@@ -5024,8 +5142,9 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
         iseat->AddTariff( tariffs[ ipoint->point_id ].color,
                           tariffs[ ipoint->point_id ].value,
                           tariffs[ ipoint->point_id ].currency_id );
+        ProgTrace( TRACE5, "SeatTariff=%s", iseat->SeatTariff.tariffStr().c_str() );
         break;
-      }
+      }*/
       //заполнение слоев: удаляем только менее приоритетные
       layers.clear();
       iseat->layers.clear();
@@ -5194,7 +5313,7 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
   TSalonList salonList;
   TSalonPassengers passengers;
   FilterRoutesProperty filterRoutes;
-  bool pr_exists_salons = false;
+  //bool pr_exists_salons;
   for ( TFlights::iterator iflights=flights.begin(); iflights!=flights.end(); iflights++ ) { //пробег по рейсам
     for ( FlightPoints::iterator iroute=iflights->begin(); iroute!=iflights->end()-1; iroute++ ) { //пробег по пунктам
       //!logProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d", iroute->point_id );
@@ -5215,7 +5334,7 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
         //!log           filterRoutesTmp.getMaxRoute().point_dep, filterRoutesTmp.getMaxRoute().point_arv );
         filterRoutes = filterRoutesTmp;
         if ( iroute->point_id == filterRoutes.getArrivalId() ) { //нет вылета
-          pr_exists_salons = false;
+          //pr_exists_salons = false;
           tst();
           continue;
         }
@@ -5271,17 +5390,21 @@ void CheckWaitListToLog( TQuery &QryAirp,
   string fullname = ipass->second.surname;
   fullname = TrimString( fullname )  + (ipass->second.name.empty()?"":" ") + ipass->second.name;
   TWaitListReason waitListReason;
-  string new_seat_no = ipass->second.seat_no( "list", pr_craft_lat, waitListReason );
+  string new_seat_no = ipass->second.event_seat_no( pr_craft_lat, point_dep, waitListReason );
   if ( waitListReason.layerStatus == layerValid ) {
     if ( pr_exists ) {
-      TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+      TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT_WITH_MODE",
+                                        LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                                        << PrmLexema("mode", "EVT.AUTO")
                                         << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_dep,
                                         ipass->second.reg_no, ipass->second.grp_id);
     }
     else {
-      TReqInfo::Instance()->LocaleToLog( "EVT.PASSENGER_SEATED", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
-                                        << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_dep,
-                                        ipass->second.reg_no, ipass->second.grp_id );
+      TReqInfo::Instance()->LocaleToLog( "EVT.PASSENGER_SEATED_WITH_MODE",
+                                         LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                                         << PrmLexema("mode", "EVT.AUTO")
+                                         << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_dep,
+                                         ipass->second.reg_no, ipass->second.grp_id );
     }
     return;
   }
@@ -6113,7 +6236,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   }
 }
 
-void TSalons::SetTariffsByColor( TSeatTariffMapType tariffs )
+void TSalons::SetTariffsByColor( const TSeatTariffMapType &tariffs, bool setPassengerTariffs )
 {
   if ( tariffs.empty() ) {
     return;
@@ -6122,7 +6245,7 @@ void TSalons::SetTariffsByColor( TSeatTariffMapType tariffs )
        placeList != placelists.end(); placeList++ ) {
     for ( TPlaces::iterator place = (*placeList)->places.begin();
           place != (*placeList)->places.end(); place++ ) {
-      place->SetTariffsByColor( tariffs );
+      place->SetTariffsByColor( tariffs, setPassengerTariffs );
     }
   }
 }
@@ -7791,12 +7914,12 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
       std::map<int, TSeatTariff,classcomp> tariffs;
       places.begin()->GetTariffs( tariffs );
       if ( tariffs.find( point_id ) != tariffs.end() ) {
-        str << std::fixed << std::setprecision(2) << tariffs[ point_id ].value;
+        str << std::fixed << std::setprecision(2)  << tariffs[ point_id ].value;
         params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, tariffs[ point_id ].currency_id);
       }
     }
     else {
-      str << std::fixed << std::setprecision(2) << places.begin()->SeatTariff.value;
+      str << std::fixed << std::setprecision(2)  << places.begin()->SeatTariff.value;
       params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, places.begin()->SeatTariff.currency_id);
     }
     params.prms << PrmSmpl<string>("", ":");
@@ -7814,7 +7937,7 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
       }
     }
     else {
-      str << std::fixed << std::setprecision(2) << places.begin()->SeatTariff.value;
+      str << std::fixed << std::setprecision(2)  << places.begin()->SeatTariff.value;
       params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, places.begin()->SeatTariff.currency_id);
     }
     params.prms << PrmSmpl<string>("", ":");
@@ -7912,13 +8035,13 @@ void fillMapChangesRemarksSeats( int point_id,
                                  map<string,TRP> &mapChanges,
                                  const string &key_value )
 {
-  bool pr_find_rem;
+  //bool pr_find_rem;
   std::map<int, std::vector<TSeatRemark>,classcomp > remarks1, remarks2;
   seat1->GetRemarks( remarks1 );
   seat2->GetRemarks( remarks2 );
   for ( vector<TSeatRemark>::const_iterator iremark1=remarks1[ point_id ].begin();
         iremark1!=remarks1[ point_id ].end(); iremark1++ ) { // пробег по старым ремаркам
-    pr_find_rem = false;
+//    pr_find_rem = false;
     if ( find( remarks2[ point_id ].begin(), remarks2[ point_id ].end(), *iremark1 ) != remarks2[ point_id ].end() ) {  //поиск старых
       continue;
     }
@@ -8533,6 +8656,37 @@ std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, TWa
     ranges.push_back( TSeatRange( *ipass_seat, *ipass_seat ) );
   }
   return GetSeatRangeView(ranges, format, pr_lat_seat);
+}
+
+std::string TSalonPax::event_seat_no( bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason ) const
+{
+  std::vector<TSeatRange> ranges;
+  vector<TPlace*> seats;
+  int_get_seats( waitListReason, seats );
+  ostringstream res;
+  for ( std::vector<TPlace*>::const_iterator iseat=seats.begin();
+        iseat!=seats.end(); iseat++ ) {
+    ranges.clear();
+    ranges.push_back( TSeatRange(  TSeat( (*iseat)->yname, (*iseat)->xname ),  TSeat( (*iseat)->yname, (*iseat)->xname ) ) );
+    if ( !res.str().empty() ) {
+      res << " ";
+    }
+    res << GetSeatRangeView(ranges, "list", pr_lat_seat);
+    TSeatTariffMap passTariffs;
+    passTariffs.get( pax_id );
+    (*iseat)->convertSeatTariffs( point_dep );
+    (*iseat)->SetTariffsByColor( passTariffs, true );
+    (*iseat)->SetRFICSRemarkByColor( point_dep, passTariffs );
+
+    if ( !(*iseat)->SeatTariff.RFISC.empty() ) {
+      res << " " + (*iseat)->SeatTariff.RFISC;
+    }
+    if ( !(*iseat)->SeatTariff.empty() ) {
+      res << " " << fixed << setprecision(2) << (*iseat)->SeatTariff.value;
+      res << " " << (*iseat)->SeatTariff.currency_id;
+    }
+  }
+  return res.str();
 }
 
 std::string TSalonPax::prior_seat_no( const std::string &format, bool pr_lat_seat ) const
