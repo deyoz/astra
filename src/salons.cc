@@ -5387,14 +5387,14 @@ void CheckWaitListToLog( TQuery &QryAirp,
   string new_seat_no = ipass->second.event_seat_no( pr_craft_lat, point_dep, waitListReason );
   if ( waitListReason.layerStatus == layerValid ) {
     if ( pr_exists ) {
-      TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT",
+      TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT_WITH_MODE",
                                         LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                                         << PrmLexema("mode", "EVT.AUTO")
                                         << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_dep,
                                         ipass->second.reg_no, ipass->second.grp_id);
     }
     else {
-      TReqInfo::Instance()->LocaleToLog( "EVT.PASSENGER_SEATED",
+      TReqInfo::Instance()->LocaleToLog( "EVT.PASSENGER_SEATED_WITH_MODE",
                                          LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                                          << PrmLexema("mode", "EVT.AUTO")
                                          << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_dep,
