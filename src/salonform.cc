@@ -1172,7 +1172,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     if ( seatLayer.layer_type == layer_type && !seats.empty() ) {
       used_seat_no = (*seats.begin())->yname + (*seats.begin())->xname;
     }
-    ProgTrace( TRACE5, "IntChangeSeats: occupy point_dep=%d, pax_id=%d, %s, used_seat_no=%s",
+    ProgTrace( TRACE5, "IntChangeSeatsN: occupy point_dep=%d, pax_id=%d, %s, used_seat_no=%s",
                point_id, pax_id, seatLayer.toString().c_str(), used_seat_no.c_str() );
     // вычисляем предв. места по слоям, для того чтобы предупредить о том, что есть предв. рассадка на тек. месте
     if ( !used_seat_no.empty() && !flags.isFlag( flSetPayLayer ) ) {
@@ -1569,8 +1569,15 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
         NewTextChild( dataNode, "seat_no", seat_no );
         NewTextChild( dataNode, "layer_type", slayer_type );
     }
-    if ( pr_update_salons )
-      SALONS2::BuildSalonChanges( dataNode, seats );
+    if ( pr_update_salons ) {
+      if ( isTranzitSalonsVersion ) {
+        std::map<int,SALONS2::TPaxList> pax_lists;
+        SALONS2::BuildSalonChanges( dataNode, point_id, seats, false, pax_lists );
+      }
+      else {
+        SALONS2::BuildSalonChanges( dataNode, seats );
+      }
+    }
   }
   catch( UserException ue ) {
     if ( TReqInfo::Instance()->client_type != ctTerm  )

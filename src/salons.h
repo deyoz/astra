@@ -669,7 +669,10 @@ class TPlace {
       save_lrss = pl.save_lrss;
       lrss = pl.lrss;
       rems = pl.rems;
-      SeatTariff = pl.SeatTariff;
+      SeatTariff.color = pl.SeatTariff.color;
+      SeatTariff.currency_id = pl.SeatTariff.currency_id;
+      SeatTariff.value = pl.SeatTariff.value;
+      SeatTariff.RFISC = pl.SeatTariff.RFISC;
       isPax = pl.isPax;
       remarks = pl.remarks;
       tariffs = pl.tariffs;
@@ -766,7 +769,7 @@ class TPlace {
        SeatTariff.currency_id = vcurrency_id;
     }
 
-    void SetTariffsByColor( TSeatTariffMapType salonTariffs );
+    void SetTariffsByColor( const TSeatTariffMapType &salonTariffs, bool setPassengerTariffs );
     void AddLayerToPlace( ASTRA::TCompLayerType l, BASIC::TDateTime time_create, int pax_id,
                            int point_dep, int point_arv, int priority ) {
         std::vector<TPlaceLayer>::iterator i;
@@ -783,6 +786,8 @@ class TPlace {
     }
     void SetRFICSRemarkByColor( int key, TSeatTariffMapType salonRFISCColor );
     void DropRFISCRemarks( TSeatTariffMapType salonRFISCColor );
+    void convertSeatTariffs( int point_dep );
+    void convertSeatTariffs( bool pr_departure_tariff_only, int point_dep, const std::vector<int> &points );
     bool isChange( const TPlace &seat, BitSet<TCompareComps> &flags ) const;
     void Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) const;
     void Build( xmlNodePtr node, int point_dep, bool pr_lat_seat, bool pr_update,
@@ -952,6 +957,7 @@ struct TSalonPax {
     void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges ) const;
     std::string seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const;
+    std::string event_seat_no( bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason ) const;
     std::string prior_seat_no( const std::string &format, bool pr_lat_seat ) const;
 };
                                 //pax_id,TSalonPax
@@ -1085,7 +1091,7 @@ class TSalons {
     void Read( bool drop_not_used_pax_layers=true );
     void Write( const TComponSets &compSets );
     void Parse( xmlNodePtr salonsNode );
-    void SetTariffsByColor( TSeatTariffMapType tariffs );
+    void SetTariffsByColor( const TSeatTariffMapType &tariffs, bool setPassengerTariffs );
 };
 
 struct ComparePassenger {
@@ -1207,6 +1213,30 @@ enum TDropLayers { clDropNotWeb,
                    clDropBlockCentLayers };
 typedef BitSet<TDropLayers> TDropLayersFlags;
 
+struct TPointInRoute {
+  int point_id;
+  bool inRoute;
+  bool beforeDeparture;
+  TPointInRoute( int vpoint_id, bool vinRoute, bool vbeforeDeparture ) {
+    point_id = vpoint_id;
+    inRoute = vinRoute;
+    beforeDeparture = vbeforeDeparture;
+  }
+  TPointInRoute() {
+    point_id = ASTRA::NoExists;
+    inRoute = false;
+    beforeDeparture = false;
+  }
+};
+
+class TPropsPoints: public std::vector<TPointInRoute> {
+  public:
+    TPropsPoints( const FilterRoutesProperty &filterRoutes, int point_dep, int point_arv );
+    bool getPropRoute( int point_id, TPointInRoute &point );
+    bool getLastPropRouteDeparture( TPointInRoute &point );
+};
+
+
 class TSalonList: public std::vector<TPlaceList*> {
   private:
     TFilterSets filterSets;
@@ -1225,6 +1255,7 @@ class TSalonList: public std::vector<TPlaceList*> {
                      int prior_compon_props_point_id );
     void AddRFISCRemarks( int key, const std::string &airline );
     void DropRFISCRemarks( const std::string &airline );
+    void SetTariffsByColor( const std::string &ailrine, bool setPassengerTariffs );
     void ReadPaxs( TQuery &Qry, TPaxList &pax_list );
     void ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list );
     void validateLayersSeats( );
@@ -1270,6 +1301,7 @@ class TSalonList: public std::vector<TPlaceList*> {
     void Parse( int vpoint_id, const std::string &airline, xmlNodePtr salonsNode );
     void WriteFlight( int vpoint_id );
     void WriteCompon( int &vcomp_id, const TComponSets &componSets );
+    void convertSeatTariffs( TPlace &iseat, bool pr_departure_tariff_only, int point_dep, int point_arv ) const;
     bool CreateSalonsForAutoSeats( TSalons &salons,
                                    TFilterRoutesSets &filterRoutes,
                                    bool pr_departure_tariff_only,
