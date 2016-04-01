@@ -1193,15 +1193,10 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
             << setw(4) << right << setfill('0') << pointInfo.flt_no
             << setw(1) << setfill(' ') << tag_lang.ElemIdToTagElem(etSuffix, pointInfo.suffix, efmtCodeNative);
         // Date of Flight
-        TDateTime scd = UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep));
-        int Year, Month, Day;
-        DecodeDate(scd, Year, Month, Day);
-        TDateTime first, last;
-        EncodeDate(Year, 1, 1, first);
-        EncodeDate(Year, Month, Day, last);
-        TDateTime period = last + 1 - first;
-        result
-            << fixed << setprecision(0) << setw(3) << setfill('0') << period;
+        JulianDate scd(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)));
+        scd.trace(__FUNCTION__);
+
+        result << setw(3) << setfill('0') << scd.getJulianDate();
         // Compartment Code
         result << CLASS(fp);
         // Seat Number
@@ -1332,34 +1327,12 @@ string get_date_from_bcbp(TDateTime date, const string &date_format, bool pr_lat
 
 string get_date_from_bcbp(int julian_date, const string &date_format, bool pr_lat)
 {
-    //дата рейса (julian format)
-    int Year, Month, Day;
-    TDateTime utc_date=NowUTC(), scd_out_local=NoExists;
-    DecodeDate(utc_date, Year, Month, Day);
-    /*for(int y=Year-1; y<=Year+1; y++)
-    {
-        try
-        {
-            TDateTime d=JulianDateToDateTime(julian_date, y);
-            if (scd_out_local==NoExists ||
-                    fabs(scd_out_local-utc_date)>fabs(d-utc_date))
-                scd_out_local=d;
-        }
-        catch(EXCEPTIONS::EConvertError) {};
-    };*/
-    //дата не может быть больше текущей
-    const int arr_sz = 2;
-    TDateTime d[arr_sz] = {0.0, 0.0};
-    for(int i = 0, y = Year - 1; i < arr_sz; i++, y++)
-    {  try{ d[i] = JulianDateToDateTime(julian_date, y); } catch(...){}
-    }
-    if(d[1] > utc_date)
-        scd_out_local = d[0];
-    else scd_out_local = d[1];
-    DecodeDate(scd_out_local, Year, Month, Day);
-    //ostringstream convert;
-    //convert<<Day<<"."<<Month;
-    return get_date_from_bcbp(scd_out_local, "dd.mm", pr_lat);
+    //вообще-то здесь нужно различать TDirection
+    //для time_print TDirection::before, для date_of_flight TDirection::everywhere
+    //это на потом
+    JulianDate d(julian_date, NowUTC(), JulianDate::TDirection::everywhere);
+    d.trace(__FUNCTION__);
+    return get_date_from_bcbp(d.getDateTime(), "dd.mm", pr_lat);
 }
 
 string TPrnTagStore::ACT(TFieldParams fp)

@@ -1031,15 +1031,18 @@ boost::optional<BASIC::TDateTime> BCBPSections::date_of_boarding_pass_issuance()
     process_err("date of boarding pass issuance (year part)", conditional_str, err);
     unsigned int ret_day = get_int(unique.conditional, pos_pass_issuance_date, err, 1, 366);
     process_err("date of boarding pass issuance (day part)", conditional_str, err);
-    int curr_year_in_decade, now_year, skip1, skip2;
-    BASIC::TDateTime ret = NowUTC();
-    DecodeDate(ret, now_year, skip1, skip2);
-    curr_year_in_decade = now_year%10;
-    if(curr_year_in_decade > static_cast<int>(ret_year)) ret_year += now_year - curr_year_in_decade; //try to deduce real date of ticket (format of ticket code dont allow enough precission of year keeping)
-    else ret_year += now_year - curr_year_in_decade - 10;
-    try {ret = JulianDateToDateTime(ret_day, ret_year);}
-    catch(Exception e){process_err("date of boarding pass issuance",  conditional_str, e.what());}
-    return boost::optional<TDateTime>(ret);
+
+    try
+    {
+      JulianDate d(ret_day, ret_year, NowUTC()+1, JulianDate::TDirection::before); //добавляем сутки из-за смещения локального времени
+      d.trace(__FUNCTION__);
+      return d.getDateTime();
+    }
+    catch(Exception e)
+    {
+      process_err("date of boarding pass issuance",  conditional_str, e.what());
+      return boost::none;
+    };
 }
 
 boost::optional<BCBPSectionsEnums::DocType> BCBPSections::doc_type()
@@ -1320,7 +1323,7 @@ std::string BCBPSections::build_bcbp_str()
         unique.security[pos_beg_security_data.begin] = '^';
         i_to_hex_char(unique.security.size() - pos_sec_data.begin, ret, pos_length_sec_data.begin);
     }
-    ret+=unique.security;    
+    ret+=unique.security;
     return ret;
 }
 
@@ -1450,12 +1453,10 @@ void BCBPSections::set_date_of_boarding_pass_issuance(boost::optional<BASIC::TDa
     {   write_field(unique.conditional, pos_pass_issuance_date, "", "date of boarding pass issuance", conditional_str);
         return;
     }
-    int year, non_use1, non_use2;
-    DecodeDate(*x, year, non_use1, non_use2);
-    int julian_date = DateTimeToJulianDate(*x);
-    if(!julian_date)
-        process_err("date of boarding pass issuance", conditional_str, "impossible date");
-    julian_date+=(year%10)*1000;
+
+    JulianDate d(x.get());
+    d.trace(__FUNCTION__);
+    int julian_date = d.getJulianDate()+d.getYearLastDigit()*1000;
     write_field(unique.conditional, pos_pass_issuance_date, julian_date, "date of boarding pass issuance", conditional_str);
 }
 
@@ -1512,12 +1513,9 @@ void BCBPSections::set_date_of_flight(boost::optional<BASIC::TDateTime> x, int i
        {    write_field(repeated[i].mandatory, pos_date_of_flight, "", "date of flight", mandatory_str);
             return;
         }
-        int julian_date =  DateTimeToJulianDate(*x);
-        int day, month, year;
-        DecodeDate(*x, day, month, year);
-        if(!julian_date)
-            process_err("date of flight", mandatory_str, "impossible date", i);
-        write_field(repeated[i].mandatory, pos_date_of_flight, julian_date, "date of flight", mandatory_str);
+        JulianDate d(x.get());
+        d.trace(__FUNCTION__);
+        write_field(repeated[i].mandatory, pos_date_of_flight, d.getJulianDate(), "date of flight", mandatory_str);
 }
 
 
@@ -1612,7 +1610,8 @@ std::string BCBPSections::test_bcbp_build()
     x.set_to_city_airport("VKO", 0);
     x.set_operating_carrier_designator("AC", 0);
     x.set_flight_number("0834", 0 );
-    x.set_date_of_flight(JulianDateToDateTime(360, 15), 0);
+    JulianDate d(360, 5, NowUTC(), JulianDate::TDirection::before);
+    x.set_date_of_flight(d.getDateTime(), 0);
     x.set_compartment_code(' ', 0);
     x.set_seat_number("001A", 0);
     x.set_check_in_seq_number("0025 ", 0);
@@ -1630,7 +1629,7 @@ std::string BCBPSections::test_bcbp_build()
     x.set_to_city_airport("VKO", 1);
     x.set_operating_carrier_designator("AC", 1);
     x.set_flight_number("0864", 1 );
-    x.set_date_of_flight(JulianDateToDateTime(360, 15), 1);
+    x.set_date_of_flight(d.getDateTime(), 1);
     x.set_compartment_code(' ', 1);
     x.set_seat_number("002G", 1);
     x.set_check_in_seq_number("9000 ", 1);

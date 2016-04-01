@@ -491,7 +491,6 @@ char DecodeStatus(char* s);
 #define sign( x ) ( ( x ) > 0 ? 1 : ( x ) < 0 ? -1 : 0 )
 BASIC::TDateTime DecodeTimeFromSignedWord( signed short int Value );
 signed short int EncodeTimeToSignedWord( BASIC::TDateTime Value );
-BASIC::TDateTime JulianDateToDateTime( int jdate, int year);
 
 void showBasicInfo(void);
 

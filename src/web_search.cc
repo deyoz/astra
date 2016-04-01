@@ -477,25 +477,16 @@ TPNRFilters& TPNRFilters::fromBCBPSections(const BCBPSections &sections)
 
       //дата рейса (julian format)
       int julian_date=repeated.dateOfFlight();
-      int Year, Month, Day;
-      TDateTime utc_date=NowUTC(), scd_out_local=NoExists;
-      DecodeDate(utc_date, Year, Month, Day);
-      for(int y=Year-1; y<=Year+1; y++)
+      try
       {
-        try
-        {
-          TDateTime d=JulianDateToDateTime(julian_date, y);
-          if (scd_out_local==NoExists ||
-              fabs(scd_out_local-utc_date)>fabs(d-utc_date))
-            scd_out_local=d;
-        }
-        catch(EXCEPTIONS::EConvertError) {};
-      };
-
-      if (scd_out_local==NoExists)
+        JulianDate scd_out_local(julian_date, NowUTC(), JulianDate::TDirection::everywhere);
+        scd_out_local.trace(__FUNCTION__);
+        MergeSortedRanges(filter.scd_out_local_ranges, make_pair(scd_out_local.getDateTime(), scd_out_local.getDateTime()+1.0));
+      }
+      catch(EXCEPTIONS::EConvertError)
+      {
         throw EXCEPTIONS::EConvertError("unknown item 46 <Date of Flight (Julian Date)> %d", julian_date);
-
-      MergeSortedRanges(filter.scd_out_local_ranges, make_pair(scd_out_local, scd_out_local+1.0));
+      };
 
       //рег. номер
       filter.reg_no=repeated.checkinSeqNumber().first;

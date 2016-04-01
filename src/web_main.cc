@@ -2317,17 +2317,8 @@ class BPReprintOptions
 
 int BPReprintOptions::check_date(int lower_shift, int upper_shift, int julian_date_of_flight, const string &airp)
 {
-  TDateTime date_of_flight = NoExists;
-  int Year, Month, Day;
-  TDateTime utc_date=NowUTC();
-  DecodeDate(utc_date, Year, Month, Day);
-  for(int y=Year-1; y<=Year+1; y++)
-  {
-    TDateTime d=JulianDateToDateTime(julian_date_of_flight, y);
-    if (date_of_flight==NoExists ||
-        fabs(date_of_flight-utc_date)>fabs(d-utc_date))
-      date_of_flight=d;
-  };
+  JulianDate d(julian_date_of_flight, NowUTC(), JulianDate::TDirection::everywhere);
+  d.trace(__FUNCTION__);
 
   BASIC::TDateTime ret = NowUTC();
   try
@@ -2337,7 +2328,7 @@ int BPReprintOptions::check_date(int lower_shift, int upper_shift, int julian_da
   catch(EXCEPTIONS::Exception& e) {};
 
   modf(ret, &ret);
-  int date_diff = ret - date_of_flight;
+  int date_diff = (int)(ret - d.getDateTime());
   if(date_diff > 0 && date_diff > lower_shift)
     return -1;
   if(date_diff < 0 && -date_diff > upper_shift)
