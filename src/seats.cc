@@ -3818,8 +3818,9 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         case cltTCheckin:
             reqinfo->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT_WITH_MODE", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                               << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_id, idx1, idx2);
-          if ( is_sync_paxs( point_id ) )
+          if ( is_sync_paxs( point_id ) ) {
             update_pax_change( point_id, pax_id, idx1, "Р" );
+          }
           break;
         default:;
         }
@@ -4043,6 +4044,10 @@ bool getCurrSeat( const TSalonList &salonList,
         }
     }
     return false;
+}
+
+void vlad( const vector<pair<TSeatRange,TSeatTariff>> &tariffs )
+{
 }
 
 #warning 6 ChangeLayer: передавать TSalonList, чтобы не делать очередную начитку + определение приоритета слоя (layer_type,time_create,point_dep, point_arv)
@@ -4435,6 +4440,9 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
           reqinfo->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT_WITH_MODE", LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                             << PrmLexema("mode", "EVT.MANUAL")
                             << PrmSmpl<std::string>("seat", new_seat_no.str()), evtPax, point_id, idx1, idx2);
+          if ( prCheckin ) {
+            vlad( tariffs );
+          }
 /*          if ( is_sync_paxs( point_id ) )
             update_pax_change( point_id, pax_id, idx1, "Р" );*/
           break;
