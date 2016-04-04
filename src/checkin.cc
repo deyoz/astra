@@ -4548,6 +4548,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   //здесь набираем
                   tariffMap.get(fltAdvInfo, markFltInfo, pax.tkn);
                   pas.tariffs=tariffMap;
+                  pas.tariffStatus = tariffMap.status();
                   tariffMap.trace(TRACE5);
 
                   if ( isTranzitSalonsVersion ) {

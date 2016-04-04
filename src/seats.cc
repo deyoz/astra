@@ -251,7 +251,7 @@ struct TCondRate {
     current_rate = rates.end();
   }
   double convertUniValue( TSeatTariff &rate ) {
-    return rate.value;
+    return rate.rate;
   }
   void Init( SALONS2::TSalons &Salons, bool apr_pay, TClientType client_type ) {
     pr_web = apr_pay;
@@ -259,7 +259,7 @@ struct TCondRate {
     ProgTrace( TRACE5, "use_rate=%d", use_rate);
     rates.clear();
     ignore_rate = false;
-    rates[ 0 ].value = 0.0; // всегда задаем - означает, что надо использовать места без тарифа
+    rates[ 0 ].rate = 0.0; // всегда задаем - означает, что надо использовать места без тарифа
     if ( pr_web ) // не учитываем платные места
       return;
     SALONS2::TPlaceList *placeList;
@@ -268,7 +268,7 @@ struct TCondRate {
           plList!=Salons.placelists.end(); plList++ ) {
       placeList = *plList;
       for ( IPlace i=placeList->places.begin(); i!=placeList->places.end(); i++ ) {
-        if ( i->SeatTariff.value == 0.0 || !i->visible || !i->isplace )
+        if ( i->SeatTariff.empty() || !i->visible || !i->isplace )
           continue;
         double univalue = convertUniValue( i->SeatTariff );
         if ( vars.find( univalue ) == vars.end() ) { // не нашли
@@ -293,17 +293,17 @@ struct TCondRate {
     }
     current_rate = rates.begin();
     for ( map<int, TSeatTariff>::iterator i=rates.begin(); i!=rates.end(); i++ ) {
-      ProgTrace( TRACE5, " rates.first=%d, rates.second.value=%f", i->first, i->second.value );
+      ProgTrace( TRACE5, " rates.first=%d, rates.second.value=%f", i->first, i->second.rate  );
     }
   }
   bool CanUseRate( TPlace *place ) { /* если все возможные тарифы попробовали при рассадке и не смогли рассадить или нет тарифов на рейсе или место без тарифа, то можно использовать */
-    bool res = ( pr_web || current_rate == rates.end() || place->SeatTariff.value == 0.0 || ignore_rate );
+    bool res = ( pr_web || current_rate == rates.end() || place->SeatTariff.empty() || ignore_rate );
     if ( !res ) {
       if ( !use_rate ) {
         return res;
       }
       for ( map<int, TSeatTariff>::iterator i=rates.begin(); ; i++ ) { // просмотр всех тарифов, кот. сортированы в порядке возрастания приоритета использования
-        if ( i->second.value == place->SeatTariff.value ) {
+        if ( i->second.rate == place->SeatTariff.rate ) {
           res = true;
           break;
         }
@@ -4417,7 +4417,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       new_seat_no << " " + it->second.RFISC;
     }
     if ( !it->second.empty() ) {
-      new_seat_no << " " << fixed << setprecision(2) << it->second.value <<it->second.currency_id;
+      new_seat_no << " " << fixed << setprecision(2) << it->second.rate <<it->second.currency_id;
     }
   }
   switch( seat_type ) {

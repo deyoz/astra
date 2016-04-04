@@ -46,7 +46,7 @@ void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
   {
     TSeatTariff tariff;
     tariff.color=Qry.FieldAsString("rate_color");
-    tariff.value=Qry.FieldAsFloat("rate");
+    tariff.rate=Qry.FieldAsFloat("rate");
     tariff.currency_id=Qry.FieldAsString("rate_cur");
     tariff.RFISC=Qry.FieldAsString("rfisc");
 
@@ -55,7 +55,7 @@ void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
     {
       ProgError(STDLOG, "TSeatTariffMap::get: color=%s duplicated (%s)", tariff.color.c_str(), traceDetail.c_str());
       trace(TRACE5);
-      if (tariff.value<i.first->second.value)
+      if (tariff.rate<i.first->second.rate)
       {
         i.first->second=tariff;
         trace(TRACE5);
@@ -260,7 +260,7 @@ void TSeatTariffMap::trace( TRACE_SIGNATURE ) const
   {
     ostringstream s;
     s << right << setw(10) << i->second.color << ": "
-      << right << fixed << setprecision(2) << setw(12) << i->second.value
+      << right << fixed << setprecision(2) << setw(12) << i->second.rate
       << left << setw(3) << i->second.currency_id << " " << i->second.RFISC;
     ProgTrace(TRACE_PARAMS, "%s", s.str().c_str());
   };
@@ -1212,12 +1212,12 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat, bool pr_up
        if ( TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) ) {
          propNode = NewTextChild( propsNode, "tariff" );
          NewTextChild( propNode, "point_id", itariff->first );
-         NewTextChild( propNode, "value", itariff->second.value );
+         NewTextChild( propNode, "value", itariff->second.rate );
          NewTextChild( propNode, "color", itariff->second.color );
          NewTextChild( propNode, "currency_id", itariff->second.currency_id );
        }
        else {
-         xmlNodePtr n = NewTextChild( node, "tariff",itariff->second.value );
+         xmlNodePtr n = NewTextChild( node, "tariff",itariff->second.rate );
          SetProp( n, "color", itariff->second.color );
          SetProp( n, "currency_id", itariff->second.currency_id );
        }
@@ -1270,10 +1270,10 @@ void TPlace::SetTariffsByColor( const TSeatTariffMapType &salonTariffs, bool set
     colorItem = salonTariffs.find( itariff->second.color );
     if ( colorItem != salonTariffs.end() ) {
       if ( setPassengerTariffs  ) {
-        itariff->second.value = colorItem->second.value;
+        itariff->second.rate = colorItem->second.rate;
         itariff->second.currency_id = colorItem->second.currency_id;
         itariff->second.RFISC = colorItem->second.RFISC;
-        ProgTrace( TRACE5, "1 place(%d,%d) set tarif=%f", x, y, colorItem->second.value );
+        ProgTrace( TRACE5, "1 place(%d,%d) set tarif=%f", x, y, colorItem->second.rate );
       }
       ++itariff;
     }
@@ -1285,15 +1285,16 @@ void TPlace::SetTariffsByColor( const TSeatTariffMapType &salonTariffs, bool set
   colorItem = salonTariffs.find( SeatTariff.color );
   if ( colorItem != salonTariffs.end() ) {
     if ( setPassengerTariffs  ) {
-      SeatTariff.value = colorItem->second.value;
-      ProgTrace( TRACE5, "2 place(%d,%d) set tarif=%f", x, y, colorItem->second.value );
+      SeatTariff.rate = colorItem->second.rate;
+      ProgTrace( TRACE5, "2 place(%d,%d) set tarif=%f", x, y, colorItem->second.rate );
       SeatTariff.currency_id = colorItem->second.currency_id;
       SeatTariff.RFISC = colorItem->second.RFISC;
     }
   }
   else {
-    ProgTrace( TRACE5, "2 place(%d,%d) delete tarif=%f", x, y, SeatTariff.value );
-    SeatTariff.value = 0.0;
+    ProgTrace( TRACE5, "2 place(%d,%d) delete tarif=%f", x, y, SeatTariff.rate );
+    SeatTariff.color.clear();
+    SeatTariff.rate = 0.0;
     SeatTariff.currency_id.clear();
     SeatTariff.RFISC.clear();
   }
@@ -1375,7 +1376,7 @@ void TPlace::convertSeatTariffs( bool pr_departure_tariff_only, int point_dep, c
     uniqueTariffs.insert( tariffs[ *ipoint ] );
     //!logProgTrace( TRACE5, "*ipoint=%d, color=%s,", *ipoint, tariffs[ *ipoint ].color.c_str() );
     AddTariff( tariffs[ *ipoint ].color,
-               tariffs[ *ipoint ].value,
+               tariffs[ *ipoint ].rate,
                tariffs[ *ipoint ].currency_id );
     ProgTrace( TRACE5, "SeatTariff=%s", SeatTariff.tariffStr().c_str() );
     break;
@@ -1413,8 +1414,8 @@ void TPlace::Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) const
        NewTextChild( remNode, "layer_type", EncodeCompLayerType( l->layer_type ) );
      }
    }
-   if ( SeatTariff.value != 0.0 ) {
-     xmlNodePtr n = NewTextChild( node, "tariff", SeatTariff.value );
+   if ( !SeatTariff.empty() ) {
+     xmlNodePtr n = NewTextChild( node, "tariff", SeatTariff.rate );
      SetProp( n, "color", SeatTariff.color );
      SetProp( n, "currency_id", SeatTariff.currency_id );
    }
@@ -1864,12 +1865,12 @@ void TSalons::Write( const TComponSets &compSets )
               QryLayers.Execute();
         }
       }
-      if ( place->SeatTariff.value != 0.0 ) {
+      if ( !place->SeatTariff.empty() ) {
         QryWebTariff.SetVariable( "num", (*plist)->num );
         QryWebTariff.SetVariable( "x", place->x );
         QryWebTariff.SetVariable( "y", place->y );
         QryWebTariff.SetVariable( "color", place->SeatTariff.color );
-        QryWebTariff.SetVariable( "rate", place->SeatTariff.value );
+        QryWebTariff.SetVariable( "rate", place->SeatTariff.rate );
         QryWebTariff.SetVariable( "rate_cur", place->SeatTariff.currency_id );
         QryWebTariff.Execute();
       }
@@ -2589,7 +2590,7 @@ void TSalonList::ReadTariff( TQuery &Qry, FilterRoutesProperty &filterRoutes,
     }
     TSeatTariff tariff;
     tariff.color = Qry.FieldAsString( col_color );
-    tariff.value = Qry.FieldAsFloat( col_rate );
+    tariff.rate = Qry.FieldAsFloat( col_rate );
     tariff.currency_id = Qry.FieldAsString( col_rate_cur );
     if ( col_point_id >= 0 ) {
       if ( prior_compon_props_point_id != ASTRA::NoExists ) {
@@ -4270,15 +4271,15 @@ void checkUniqTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
     uniqTariffs.insert( make_pair( seatTariff.color, make_pair(seatTariff,seat) ) );
     return;
   }
-  if ( itariff->second.first.value != seatTariff.value ) {
+  if ( itariff->second.first.rate != seatTariff.rate ) {
     ostringstream buf;
     string value1, value2, seat1, seat2;
     seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
     seat2 = denorm_iata_row( itariff->second.second.yname, NULL ) + denorm_iata_line( itariff->second.second.xname, pr_lat );
-    buf << std::fixed << std::setprecision(2)  << seatTariff.value;
+    buf << std::fixed << std::setprecision(2)  << seatTariff.rate;
     value1 = buf.str();
     buf.str("");
-    buf << std::fixed << std::setprecision(2)  << itariff->second.first.value;
+    buf << std::fixed << std::setprecision(2)  << itariff->second.first.rate;
     value2 = buf.str();
     throw UserException( "MSG.DIFFERENTE_PRICE",
                           LParams()<<LParam("color",ElemIdToNameLong( etRateColor, seatTariff.color ))
@@ -4448,7 +4449,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
             TSeatTariff seatTariff;
             int point_id = NodeAsIntegerFast( "point_id", n2, vpoint_id );
             seatTariff.color = NodeAsStringFast( "color", n2, "" );
-            seatTariff.value = NodeAsFloatFast( "value", n2, NoExists );
+            seatTariff.rate = NodeAsFloatFast( "value", n2, NoExists );
             seatTariff.currency_id = NodeAsStringFast( "currency_id", n2, "" );
             checkUniqTariffs( place, seatTariff, uniqTariffs, pr_craft_lat  );
             place.AddTariff( point_id, seatTariff );
@@ -4461,7 +4462,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
         if ( n1 ) {
           TSeatTariff seatTariff;
           seatTariff.color = NodeAsString( "@color", n1 );
-          seatTariff.value = NodeAsFloat( n1 );
+          seatTariff.rate = NodeAsFloat( n1 );
           seatTariff.currency_id = NodeAsString( "@currency_id", n1 );
           checkUniqTariffs( place, seatTariff, uniqTariffs, pr_craft_lat );
           place.AddTariff( vpoint_id, seatTariff );
@@ -4673,7 +4674,7 @@ void TSalonList::WriteFlight( int vpoint_id )
           continue;
         }
         QryTariffs.SetVariable( "color", itariff->second.color );
-        QryTariffs.SetVariable( "rate", itariff->second.value );
+        QryTariffs.SetVariable( "rate", itariff->second.rate );
         QryTariffs.SetVariable( "rate_cur", itariff->second.currency_id );
         QryTariffs.Execute();
       }
@@ -4916,7 +4917,7 @@ void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets )
           continue;
         }
         QryTariffs.SetVariable( "color", itariff->second.color );
-        QryTariffs.SetVariable( "rate", itariff->second.value );
+        QryTariffs.SetVariable( "rate", itariff->second.rate );
         QryTariffs.SetVariable( "rate_cur", itariff->second.currency_id );
         QryTariffs.Execute();
       }
@@ -6216,7 +6217,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       remNode = GetNodeFast( "tarif", node );
       if ( remNode ) {
         place.SeatTariff.color = NodeAsString( "@color", remNode );
-        place.SeatTariff.value = NodeAsFloat( remNode );
+        place.SeatTariff.rate = NodeAsFloat( remNode );
         place.SeatTariff.currency_id = NodeAsString( "@currency_id", remNode );
       }
       place.visible = true;
@@ -8077,12 +8078,12 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
       std::map<int, TSeatTariff,classcomp> tariffs;
       places.begin()->GetTariffs( tariffs );
       if ( tariffs.find( point_id ) != tariffs.end() ) {
-        str << std::fixed << std::setprecision(2)  << tariffs[ point_id ].value;
+        str << std::fixed << std::setprecision(2)  << tariffs[ point_id ].rate;
         params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, tariffs[ point_id ].currency_id);
       }
     }
     else {
-      str << std::fixed << std::setprecision(2)  << places.begin()->SeatTariff.value;
+      str << std::fixed << std::setprecision(2)  << places.begin()->SeatTariff.rate;
       params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, places.begin()->SeatTariff.currency_id);
     }
     params.prms << PrmSmpl<string>("", ":");
@@ -8095,12 +8096,12 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
       std::map<int, TSeatTariff,classcomp> tariffs;
       places.begin()->GetTariffs( tariffs );
       if ( tariffs.find( point_id ) != tariffs.end() ) {
-        str << std::fixed << std::setprecision(2) << tariffs[ point_id ].value;
+        str << std::fixed << std::setprecision(2) << tariffs[ point_id ].rate;
         params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, tariffs[ point_id ].currency_id);
       }
     }
     else {
-      str << std::fixed << std::setprecision(2)  << places.begin()->SeatTariff.value;
+      str << std::fixed << std::setprecision(2)  << places.begin()->SeatTariff.rate;
       params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, places.begin()->SeatTariff.currency_id);
     }
     params.prms << PrmSmpl<string>("", ":");
@@ -8230,7 +8231,7 @@ void fillMapChangesTariffsSeats( int point_id,
   if ( tariffs1.find( point_id ) != tariffs1.end() &&
        ( tariffs2.find( point_id ) == tariffs1.end() ||
          tariffs1[ point_id ] != tariffs2[ point_id ] ) ) {
-    mapChanges[ key_value + tariffs1[ point_id ].color+FloatToString(tariffs1[ point_id ].value)+tariffs1[ point_id ].currency_id ].places.push_back( *seat1 );
+    mapChanges[ key_value + tariffs1[ point_id ].color+FloatToString(tariffs1[ point_id ].rate)+tariffs1[ point_id ].currency_id ].places.push_back( *seat1 );
   }
 }
 
@@ -8845,7 +8846,7 @@ std::string TSalonPax::event_seat_no( bool pr_lat_seat, int point_dep, TWaitList
       res << " " + (*iseat)->SeatTariff.RFISC;
     }
     if ( !(*iseat)->SeatTariff.empty() ) {
-      res << " " << fixed << setprecision(2) << (*iseat)->SeatTariff.value;
+      res << " " << fixed << setprecision(2) << (*iseat)->SeatTariff.rate;
       res << " " << (*iseat)->SeatTariff.currency_id;
     }
   }
