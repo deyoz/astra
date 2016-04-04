@@ -4048,6 +4048,11 @@ bool getCurrSeat( const TSalonList &salonList,
 
 void vlad( const vector<pair<TSeatRange,TSeatTariff>> &tariffs )
 {
+  for ( vector<pair<TSeatRange,TSeatTariff>>::const_iterator it=tariffs.begin(); it!=tariffs.end(); it++ ) {
+    ProgTrace( TRACE5, "seat=%s, tariff=%s",
+               string(denorm_iata_row( it->first.first.row, NULL ) + denorm_iata_line( it->first.first.line, true )).c_str(),
+               it->second.valueStr().c_str() );
+  }
 }
 
 #warning 6 ChangeLayer: передавать TSalonList, чтобы не делать очередную начитку + определение приоритета слоя (layer_type,time_create,point_dep, point_arv)
@@ -4273,12 +4278,12 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       }
       if ( !UsedPayedPreseatForPassenger( *seat, pax_id, layer_type ) ) {
          throw UserException( "MSG.SEATS.UNABLE_SET_CURRENT" );
-      }
-      tariffs.push_back( make_pair(r, seat->SeatTariff ) );
+      }      
       strcpy( r.first.line, seat->xname.c_str() );
       strcpy( r.first.row, seat->yname.c_str() );
       r.second = r.first;
       seatRanges.push_back( r );
+      tariffs.push_back( make_pair(r, seat->SeatTariff ) );
       if ( pr_down )
         coord.y++;
       else

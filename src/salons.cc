@@ -1255,7 +1255,8 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat, bool pr_up
 
 void TPlace::SetTariffsByColor( const TSeatTariffMapType &salonTariffs, bool setPassengerTariffs )
 {
-  ProgTrace( TRACE5, "place(%d,%d) tariffs.size()=%zu", x, y, tariffs.size() );
+  ProgTrace( TRACE5, "place(%d,%d) tariffs.size()=%zu, setPassengerTariffs=%d",
+             x, y, tariffs.size(), setPassengerTariffs );
   if ( salonTariffs.empty() || !visible || !isplace ) {
     return;
   }
