@@ -137,6 +137,7 @@ struct TPassenger {
     bool InUse;
     bool isValidPlace;
     TSeatTariffMapType tariffs;
+    TSeatTariffMap::TStatus tariffStatus;
     TPassenger() {
       regNo = -1;
       bag_weight = 0;
@@ -254,6 +255,16 @@ struct TPassenger {
       }
       if ( !isValidPlace ) {
         buf << "not isValidPlace,";
+      }
+      buf << "tariffPassStatus=";
+      switch(tariffStatus)
+      {
+        case TSeatTariffMap::stNotFound:      buf << "stNotFound";      break;
+        case TSeatTariffMap::stNotOperating:  buf << "stNotOperating";  break;
+        case TSeatTariffMap::stNotET:         buf << "stNotET";         break;
+        case TSeatTariffMap::stUnknownETDisp: buf << "stUnknownETDisp"; break;
+        case TSeatTariffMap::stNotRFISC:      buf << "stNotRFISC";  break;
+        case TSeatTariffMap::stUseRFISC:      buf << "stUseRFISC";  break;
       }
       if ( !tariffs.empty() ) {
         buf << "tariffs=" << tariffs.key() << ",";

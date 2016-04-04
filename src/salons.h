@@ -124,28 +124,28 @@ struct TPlaceLayer {
 
 struct TSeatTariff {
     std::string color;
-    double value;
+    double rate;
     std::string currency_id;
     std::string RFISC;
     TSeatTariff() {
-        value = 0.0;
+        rate = 0.0;
     }
     bool empty() const {
-      return value == 0.0;
+      return color.empty(); //price == 0.0;
     }
     std::string valueStr() const {
       std::ostringstream buf;
-      buf << std::fixed << std::setprecision(2) << value;
+      buf << std::fixed << std::setprecision(2) << rate;
       return buf.str();
     }
     std::string tariffStr() const {
       std::ostringstream buf;
-      buf << std::fixed << std::setprecision(2) << color << value << currency_id;
+      buf << std::fixed << std::setprecision(2) << color << rate << currency_id;
       return buf.str();
     }
     bool equal( const TSeatTariff &seatTarif ) const {
     return ( color == seatTarif.color &&
-             value == seatTarif.value &&
+             rate == seatTarif.rate &&
              currency_id == seatTarif.currency_id ); //RFISC == seatTarif.RFISC??? !!!vlad
   }
   bool operator != (const TSeatTariff &seatTarif) const {
@@ -158,8 +158,8 @@ struct SeatTariffCompare {
     if ( tariff1.color + tariff1.currency_id != tariff2.color + tariff2.currency_id ) {
       return ( tariff1.color + tariff1.currency_id < tariff2.color + tariff2.currency_id );
     }
-    if ( tariff1.value != tariff2.value ) {
-      return ( tariff1.value < tariff2.value );
+    if ( tariff1.rate != tariff2.rate ) {
+      return ( tariff1.rate < tariff2.rate );
     }
     return false;
   }
@@ -179,16 +179,17 @@ class TSeatTariffMapType : public std::map<std::string,TSeatTariff> {
 
 class TSeatTariffMap : public TSeatTariffMapType
 {
-  enum TStatus
-  {
-    stNotFound,       //Чего-нибудь не найдено
-    stNotRFISC,       //Старая технология - нет RFISC в компоновках
-    //все остальные статусы относятся к технологии использования RFISC
-    stNotOperating,   //Пассажир не оперирующего перевозчика
-    stNotET,          //Билет бумажный или не задан
-    stUnknownETDisp,  //Дисплей билета неизвестен
-    stUseRFISC        //Новая технология - RFISC в компоновках
-  };
+  public:
+    enum TStatus
+    {
+      stNotFound,       //Чего-нибудь не найдено
+      stNotRFISC,       //Старая технология - нет RFISC в компоновках
+      //все остальные статусы относятся к технологии использования RFISC
+      stNotOperating,   //Пассажир не оперирующего перевозчика
+      stNotET,          //Билет бумажный или не задан
+      stUnknownETDisp,  //Дисплей билета неизвестен
+      stUseRFISC        //Новая технология - RFISC в компоновках
+    };
 
   private:
     int _potential_queries, _real_queries;
@@ -671,7 +672,7 @@ class TPlace {
       rems = pl.rems;
       SeatTariff.color = pl.SeatTariff.color;
       SeatTariff.currency_id = pl.SeatTariff.currency_id;
-      SeatTariff.value = pl.SeatTariff.value;
+      SeatTariff.rate = pl.SeatTariff.rate;
       SeatTariff.RFISC = pl.SeatTariff.RFISC;
       isPax = pl.isPax;
       remarks = pl.remarks;
@@ -762,10 +763,10 @@ class TPlace {
       vtariffs = tariffs;
     }
     void AddTariff( const std::string &vcolor,
-                    const double &vvalue,
+                    const double &rate,
                     const std::string &vcurrency_id ) {
        SeatTariff.color = vcolor;
-       SeatTariff.value = vvalue;
+       SeatTariff.rate = rate;
        SeatTariff.currency_id = vcurrency_id;
     }
 
