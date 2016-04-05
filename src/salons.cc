@@ -6415,14 +6415,16 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
 
   string craft = Qry.FieldAsString( "craft" ), airp = Qry.FieldAsString("airp");
-  TTripRoute route;
-  route.GetRouteAfter(NoExists, trip_id, trtWithCurrent, trtNotCancelled);
-  string airp_last = route.back().airp;
 
-  TDateTime travel_time = getTimeTravel(craft, airp, airp_last);
   string travel_time_str = "00-00";
-  if(travel_time != NoExists)
-    travel_time_str = DateTimeToStr(travel_time, "hh:nn", true);
+  TTripRoute route;
+  route.GetRouteAfter(NoExists, trip_id, trtNotCurrent, trtNotCancelled);
+  if (!route.empty())
+  {
+    TDateTime travel_time = getTimeTravel(craft, airp, route.back().airp);
+    if(travel_time != NoExists)
+      travel_time_str = DateTimeToStr(travel_time, "hh:nn", true);
+  };
   NewTextChild( dataNode, "travel_time", travel_time_str);
 
   Qry.Clear();
