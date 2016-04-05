@@ -1249,7 +1249,7 @@ struct TWebPlace {
     int pr_free;
     int pr_CHIN;
     int pax_id;
-    SALONS2::TPlaceWebTariff WebTariff;
+    SALONS2::TSeatTariff SeatTariff;
     TWebPlace() {
       pr_free = 0;
       pr_CHIN = 0;
@@ -1361,7 +1361,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
         wp.pr_free = 0;
         wp.pr_CHIN = false;
         wp.pax_id = NoExists;
-        wp.WebTariff = place->WebTariff;
+        wp.SeatTariff = place->SeatTariff;
         if ( place->isplace && !place->clname.empty() && place->clname == crs_class ) {
             bool pr_first = true;
         for( std::vector<TPlaceLayer>::iterator ilayer=place->layers.begin(); ilayer!=place->layers.end(); ilayer++ ) { // сортировка по приоритетам
@@ -1464,7 +1464,7 @@ int get_seat_status( TWebPlace &wp, bool pr_find_free_subcls_place )
   if ( status == 0 && wp.pr_CHIN ) {
     status = 2;
   }
-  if ( TReqInfo::Instance()->client_type == ctKiosk && status != 1 && !wp.WebTariff.empty() ) {
+  if ( TReqInfo::Instance()->client_type == ctKiosk && status != 1 && !wp.SeatTariff.empty() ) {
     status = 1;
   }
   return status;
@@ -1551,11 +1551,11 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( placeNode, "status", get_seat_status( *wp, pr_find_free_subcls_place ) );
       if ( wp->pax_id != NoExists )
         NewTextChild( placeNode, "pax_id", wp->pax_id );
-      if ( !wp->WebTariff.empty() ) { // если платная регистрация отключена, value=0.0 в любом случае
+      if ( !wp->SeatTariff.empty() ) { // если платная регистрация отключена, value=0.0 в любом случае
         xmlNodePtr rateNode = NewTextChild( placeNode, "rate" );
-        NewTextChild( rateNode, "color", wp->WebTariff.color );
-        NewTextChild( rateNode, "value", wp->WebTariff.valueStr() );
-        NewTextChild( rateNode, "currency", wp->WebTariff.currency_id );
+        NewTextChild( rateNode, "color", wp->SeatTariff.color );
+        NewTextChild( rateNode, "value", wp->SeatTariff.valueStr() );
+        NewTextChild( rateNode, "currency", wp->SeatTariff.currency_id );
       }
     }
   }
@@ -2903,7 +2903,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
             if (!iSeat->second.lexema_id.empty())
               throw UserException(iSeat->second.lexema_id, iSeat->second.lparams);
 
-/*            if ( iSeat->first.WebTariff.empty() )  //нет тарифа
+/*            if ( iSeat->first.SeatTariff.empty() )  //нет тарифа
               throw UserException("MSG.SEATS.NOT_SET_RATE");*/
 
             if (isTestPaxId(iPax->crs_pax_id)) continue;
@@ -2999,11 +2999,11 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                 iSeat->first.seat_no==iPax->crs_seat_no) break;
           if (iSeat!=pax_seats.end())
           {
-            if ( !iSeat->first.WebTariff.empty() ) { // если платная регистрация отключена, value=0.0 в любом случае
+            if ( !iSeat->first.SeatTariff.empty() ) { // если платная регистрация отключена, value=0.0 в любом случае
                 xmlNodePtr rateNode = NewTextChild( paxNode, "rate" );
-                NewTextChild( rateNode, "color", iSeat->first.WebTariff.color );
-                NewTextChild( rateNode, "value", iSeat->first.WebTariff.valueStr() );
-                NewTextChild( rateNode, "currency", iSeat->first.WebTariff.currency_id );
+                NewTextChild( rateNode, "color", iSeat->first.SeatTariff.color );
+                NewTextChild( rateNode, "value", iSeat->first.SeatTariff.valueStr() );
+                NewTextChild( rateNode, "currency", iSeat->first.SeatTariff.currency_id );
             };
           };
         };
