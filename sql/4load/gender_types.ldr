@@ -1,0 +1,18 @@
+LOAD DATA
+INFILE *
+INTO TABLE gender_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,pr_inf
+,name_lat
+)
+BEGINDATA
+"M"|"Мужской пол"|0|"Male"
+"F"|"Женский пол"|0|"Female"
+"I"|"Младенец"|1|"Infant"
+"MI"|"Младенец мужского пола"|1|"Male infant"
+"FI"|"Младенец женского пола"|1|"Female infant"
