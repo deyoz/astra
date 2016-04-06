@@ -15,8 +15,6 @@ int test_typeb_utils2(int argc,char **argv);
 int compare_apis(int argc,char **argv);
 int test_sopp_sql(int argc,char **argv);
 int test_file_queue(int argc,char **argv);
-int mobile_stat(int argc,char **argv);
-int fill_counters_by_subcls(int argc,char **argv);
 int convert_codeshare(int argc,char **argv);
 
 #endif

@@ -321,7 +321,7 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
      TPersWeights persWeights;
      persWeights.getRules( point_id, r );
      r.write( point_id );
-  }  
+  }
 
   bool use_counters_by_subcls = weight_type != withBrd && include_wait_list;
 
@@ -332,7 +332,7 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
     sql << "SELECT class, subclass, "
            "       male, female, child, infant, rk_weight, bag_weight "
            "FROM counters_by_subcls "
-           "WHERE point_id=:point_id";        
+           "WHERE point_id=:point_id";
   }
   else
   {
@@ -364,9 +364,9 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
            "GROUP BY class ";
     Qry.CreateVariable( "adl", otString, string(EncodePerson( ASTRA::adult )) );
     Qry.CreateVariable( "chd", otString, string(EncodePerson( ASTRA::child )) );
-    Qry.CreateVariable( "inf", otString, string(EncodePerson( ASTRA::baby )) );    
+    Qry.CreateVariable( "inf", otString, string(EncodePerson( ASTRA::baby )) );
   };
-  //ProgTrace( TRACE5, "TFlightWeights::read: sql=%s", sql.str().c_str() );  
+  //ProgTrace( TRACE5, "TFlightWeights::read: sql=%s", sql.str().c_str() );
   Qry.SQLText = sql.str().c_str();
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
@@ -403,7 +403,7 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
       weight_bag += Qry.FieldAsInteger( "bag_weight" );
     };
     Qry.Next();
-  }  
+  }
 }
 
 int getCommerceWeight( int point_id, TTypeFlightWeight weight_type, TTypeCalcCommerceWeight calc_type )
@@ -590,134 +590,4 @@ void recountBySubcls(int point_id)
   Qry.CreateVariable( "inf", otString, string(EncodePerson( ASTRA::baby )) );
   Qry.Execute();
 }
-
-//!!! потом удалить check_counters_by_subcls и alter_wait2
-
-void alter_wait2(int processed, bool commit_before_sleep=false, int work_secs=5, int sleep_secs=5)
-{
-  static time_t start_time=time(NULL);
-  if (time(NULL)-start_time>=work_secs)
-  {
-    if (commit_before_sleep) OraSession.Commit();
-    printf("%d iterations processed. sleep...", processed);
-    fflush(stdout);
-    sleep(sleep_secs);
-    printf("go!\n");
-    start_time=time(NULL);
-  };
-};
-
-int check_counters_by_subcls(int argc,char **argv)
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT point_id AS max_point_id FROM last_processed_point_id";
-  Qry.Execute();
-  if (Qry.Eof || Qry.FieldIsNULL("max_point_id"))
-  {
-    Qry.Clear();
-    Qry.SQLText="SELECT max(point_id) AS max_point_id FROM points";
-    Qry.Execute();
-    if (Qry.Eof || Qry.FieldIsNULL("max_point_id")) return 0;
-  };
-  int max_point_id=Qry.FieldAsInteger("max_point_id");
-
-  Qry.Clear();
-  Qry.SQLText="SELECT min(point_id) AS min_point_id FROM points";
-  Qry.Execute();
-  if (Qry.Eof || Qry.FieldIsNULL("min_point_id")) return 0;
-  int min_point_id=Qry.FieldAsInteger("min_point_id");
-
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT point_id FROM points "
-    "WHERE point_id>:low_point_id AND point_id<=:high_point_id AND "
-    "      pr_reg<>0 AND pr_del>=0 ";
-  Qry.DeclareVariable("low_point_id", otInteger);
-  Qry.DeclareVariable("high_point_id", otInteger);
-
-  TQuery UpdQry(&OraSession);
-  UpdQry.Clear();
-  UpdQry.SQLText="UPDATE last_processed_point_id SET point_id=:point_id";
-  UpdQry.DeclareVariable("point_id", otInteger);
-
-  TQuery CountersQry(&OraSession);
-  CountersQry.Clear();
-  CountersQry.SQLText="SELECT * FROM counters_by_subcls WHERE point_id=:point_id";
-  CountersQry.DeclareVariable("point_id", otInteger);
-
-
-  int processed=0;
-  for(int curr_point_id=max_point_id; curr_point_id>=min_point_id; curr_point_id-=50000)
-  {
-    Qry.SetVariable("low_point_id", curr_point_id-50000);
-    Qry.SetVariable("high_point_id", curr_point_id);
-    Qry.Execute();
-    list<int> point_ids;
-    for(;!Qry.Eof;Qry.Next()) point_ids.push_back(Qry.FieldAsInteger("point_id"));
-    Qry.Close();
-
-    printf("processed range: (%d; %d] count=%zu\n", curr_point_id-50000, curr_point_id, point_ids.size());
-
-    for(list<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
-    {
-      try
-      {
-        TFlights fligths;
-        fligths.Get( *i, ftTranzit );
-        fligths.Lock();
-
-        map<TStatBySubclsKey, TStatBySubclsItem> stat0;
-        map<TStatBySubclsKey, TStatBySubclsItem> stat1;
-        for(int pass=0; pass<2; pass++)
-        {
-          if (pass==1) recountBySubcls(*i);
-          CountersQry.SetVariable("point_id", *i);
-          CountersQry.Execute();
-          for(; !CountersQry.Eof; CountersQry.Next())
-          {
-            TStatBySubclsKey key(CountersQry.FieldAsString("subclass"),
-                                 CountersQry.FieldAsString("class"));
-            TStatBySubclsItem item;
-            item.male=CountersQry.FieldAsInteger("male");
-            item.female=CountersQry.FieldAsInteger("female");
-            item.child=CountersQry.FieldAsInteger("child");
-            item.infant=CountersQry.FieldAsInteger("infant");
-            item.bag_weight=CountersQry.FieldAsInteger("bag_weight");
-            item.rk_weight=CountersQry.FieldAsInteger("rk_weight");
-            if (item==TStatBySubclsItem()) continue;
-            if (pass==0)
-              stat0.insert(make_pair(key, item));
-            else
-              stat1.insert(make_pair(key, item));
-          };
-        };
-        OraSession.Rollback();
-
-        if (!(stat0==stat1))
-        {
-          printf("wrong counters! point_id=%d\n", *i);
-          ProgError(STDLOG, "wrong counters! point_id=%d", *i);
-        };
-
-        UpdQry.SetVariable("point_id", *i);
-        UpdQry.Execute();
-        OraSession.Commit();
-
-        alter_wait2(processed++/*, false, 9, 1*/);
-      }
-      catch(...)
-      {
-        OraSession.Rollback();
-        printf("error! point_id=%d\n", *i);
-        ProgError(STDLOG, "error! point_id=%d", *i);
-        throw;
-      };
-    };
-
-  };
-  return 0;
-}
-
-
 

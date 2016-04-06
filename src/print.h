@@ -112,8 +112,11 @@ class PrintInterface: public JxtInterface
             AddEvent("ConfirmPrintBP",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::RefreshPrnTests);
             AddEvent("refresh_prn_tests",evHandle);
+            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetImg);
+            AddEvent("GetImg",evHandle);
         }
 
+        void GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

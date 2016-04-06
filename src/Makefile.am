@@ -136,7 +136,8 @@ astra_SOURCES = \
   ticket_types.cpp \
   astra_emd.cpp \
   EdiTimeOutsDaemon.cc \
-  TypeBHelpMng.cpp
+  TypeBHelpMng.cpp \
+  img.cpp
 
 
 astra_LDADD = $(all_libraries) \
@@ -263,4 +264,5 @@ noinst_HEADERS = \
   astra_dates.h \
   astra_dates_oci.h \
   astra_emd.h \
-  TypeBHelpMng.h
+  TypeBHelpMng.h \
+  img.h
