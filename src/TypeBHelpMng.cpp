@@ -213,7 +213,7 @@ bool notify(int typeb_in_id, int typeb_out_id)
         if (!HexToString(typeb_help.intmsgid,intmsgid) || intmsgid.size()!=sizeof(int)*3)
             throw EXCEPTIONS::Exception("TypeBHelpMng.notify: wrong intmsgid=%s", typeb_help.intmsgid.c_str());
         make_notify_msg(typeb_help.text, typeb_in_id, typeb_out_id);
-        sethAfter(EdiHelpSignal((const int*)intmsgid.c_str(),
+        sethAfter(EdiHelpSignal(ServerFramework::InternalMsgId::fromString(intmsgid),
                     typeb_help.addr.c_str(),
                     typeb_help.text.c_str()));
     }

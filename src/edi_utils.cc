@@ -280,7 +280,7 @@ void confirm_notify_levb(const int edi_sess_id, const bool err_if_not_found)
     if (!HexToString(hex_msg_id,str_msg_id) || str_msg_id.size()!=sizeof(int)*3)
       throw EXCEPTIONS::Exception("confirm_notify_levb: wrong intmsgid=%s", hex_msg_id.c_str());
     ProgTrace(TRACE2,"confirm_notify_levb: prepare signal %s",txt.c_str());
-    sethAfter(EdiHelpSignal((const int*)str_msg_id.c_str(),
+    sethAfter(EdiHelpSignal(ServerFramework::InternalMsgId::fromString(str_msg_id),
                             Qry.GetVariableAsString("address"),
                             txt.c_str()));
 #ifdef XP_TESTING
