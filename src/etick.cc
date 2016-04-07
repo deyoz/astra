@@ -73,11 +73,13 @@ std::string GetSQL(const TListType ltype)
   if (ltype==notDisplayedByPointIdTlg ||
       ltype==notDisplayedByPaxIdTlg)
   {
-    sql << "SELECT tlg_binding.point_id_spp AS point_id, crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no \n"
-           "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_binding, eticks_display \n"
+    sql << "SELECT tlg_binding.point_id_spp AS point_id, crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no, \n"
+           "       tlg_trips.airline, tlg_trips.flt_no, tlg_trips.airp_dep \n"
+           "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_trips, tlg_binding, eticks_display \n"
            "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
            "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
            "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
+           "      crs_pnr.point_id=tlg_trips.point_id AND \n"
            "      crs_pax_tkn.ticket_no=eticks_display.ticket_no(+) AND \n"
            "      crs_pax_tkn.coupon_no=eticks_display.coupon_no(+) AND \n"
            "      tlg_binding.point_id_tlg=:point_id_tlg AND \n";
@@ -111,15 +113,62 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
     params.point_id=Qry.FieldAsInteger("point_id");
     params.tick_no=Qry.FieldAsString("ticket_no");
     searchParams.insert(params);
+    //добавляем телеграммный рейс
+    params.airline=Qry.FieldAsString("airline");
+    params.flt_no=Qry.FieldIsNULL("flt_no")?ASTRA::NoExists:Qry.FieldAsInteger("flt_no");
+    params.airp_dep=Qry.FieldAsString("airp_dep");
+    searchParams.insert(params);
   };
 }
 
 } //namespace PaxETList
 
+class ETDisplayKey
+{
+  public:
+    string tick_no;
+    string airline;
+    pair<string,string> addrs;
+    bool operator < (const ETDisplayKey &key) const
+    {
+      if (tick_no!=key.tick_no)
+        return tick_no<key.tick_no;
+      if (airline!=key.airline)
+        return airline<key.airline;
+      return addrs<key.addrs;
+    }
+    std::string traceStr() const
+    {
+      std::ostringstream s;
+      s << "tick_no=" << tick_no
+        << ", airline=" << airline
+        << ", addrs=(" << addrs.first << "; " << addrs.second << ")";
+      return s.str();
+    }
+};
+
+class ETDisplayProps
+{
+  public:
+    bool interact;
+    string airline;
+    pair<string,string> addrs;
+    ETDisplayProps() : interact(false) {}
+    std::string traceStr() const
+    {
+      std::ostringstream s;
+      s << "interact=" << (interact?"true":"false")
+        << ", airline=" << airline
+        << ", addrs=(" << addrs.first << "; " << addrs.second << ")";
+      return s.str();
+    }
+};
+
 void TlgETDisplay(int point_id_tlg, const set<int> &ids, bool is_pax_id)
 {
-  map<int/*point_id*/, bool/*ets_connect*/> ets_connect;
-  set<string> eticks;
+  map<ETWideSearchParams, ETDisplayProps> ets_props;
+  set<ETDisplayKey> eticks;
+
   for(set<int>::const_iterator i=ids.begin(); i!=ids.end(); ++i)
   try
   {
@@ -127,35 +176,53 @@ void TlgETDisplay(int point_id_tlg, const set<int> &ids, bool is_pax_id)
     PaxETList::GetNotDisplayedET(point_id_tlg, *i, is_pax_id, params);
     for(set<ETSearchByTickNoParams>::const_iterator p=params.begin(); p!=params.end(); ++p)
     {
-      if (eticks.find(p->tick_no)!=eticks.end()) continue;
-
-      map<int, bool>::iterator iConnect=ets_connect.find(p->point_id);
-      if (iConnect==ets_connect.end())
+      map<ETWideSearchParams, ETDisplayProps>::iterator iETSProps=ets_props.find(*p);
+      if (iETSProps==ets_props.end())
       {
-        TFltParams fltParams;
-        iConnect=ets_connect.insert(make_pair(p->point_id, fltParams.get(p->point_id) && fltParams.pr_etstatus>=0)).first;
+        ETDisplayProps props;
+        TTripInfo flt;
+        if (p->existsAdditionalFltInfo())
+          p->set(flt);
+        else
+          flt.getByPointId(p->point_id);
 
-        if (iConnect!=ets_connect.end())
-          ProgTrace(TRACE5, "%s: point_id=%d, ets_connect=%s",
-                            __FUNCTION__, iConnect->first, iConnect->second?"true":"false");
-      };
-      if (iConnect==ets_connect.end()) throw EXCEPTIONS::Exception("%s: iConnect==ets_connect.end()!", __FUNCTION__);
-      if (iConnect->second)
-      {
-        //связь с СЭБ есть
-        try
+        if (!flt.airline.empty() &&
+            flt.flt_no!=ASTRA::NoExists &&
+            !flt.airp.empty())
         {
-          ETSearchInterface::SearchET(*p, ETSearchInterface::spETDisplay, edifact::KickInfo());
-          eticks.insert(p->tick_no);
-          ProgTrace(TRACE5, "%s: ETSearchInterface::SearchET (point_id=%d, ticket_no=%s)",
-                            __FUNCTION__, p->point_id, p->tick_no.c_str());
-        }
-        catch(UserException &e)
-        {
-          ProgTrace(TRACE5, "%s: %s (point_id=%d, ticket_no=%s)",
-                            __FUNCTION__, e.what(), p->point_id, p->tick_no.c_str());
+          props.airline=flt.airline;
+          props.interact=checkETSInteract(flt, false) &&
+                         get_et_addr_set(flt.airline, flt.flt_no, props.addrs);
         };
+
+        iETSProps=ets_props.insert(make_pair(*p, props)).first;
+        ProgTrace(TRACE5, "%s: ets_props.insert(%s; %s)", __FUNCTION__, p->traceStr().c_str(), props.traceStr().c_str());
+
       }
+      if (iETSProps==ets_props.end()) throw EXCEPTIONS::Exception("%s: iETSProps==ets_props.end()!", __FUNCTION__);
+
+      if (!iETSProps->second.interact) continue;
+
+      //связь с СЭБ есть
+      ETDisplayKey eticksKey;
+      eticksKey.tick_no=p->tick_no;
+      eticksKey.airline=iETSProps->second.airline;
+      eticksKey.addrs=iETSProps->second.addrs;
+
+      if (eticks.find(eticksKey)!=eticks.end()) continue;
+
+      try
+      {
+        ETSearchInterface::SearchET(*p, ETSearchInterface::spETDisplay, edifact::KickInfo());
+        eticks.insert(eticksKey);
+        ProgTrace(TRACE5, "%s: ETSearchInterface::SearchET (%s)", __FUNCTION__, p->traceStr().c_str());
+      }
+      catch(UserException &e)
+      {
+        ProgTrace(TRACE5, "%s: %s", __FUNCTION__, e.what());
+        ProgTrace(TRACE5, "%s: ETSearchByTickNoParams (%s)", __FUNCTION__, p->traceStr().c_str());
+        ProgTrace(TRACE5, "%s: ETDisplayKey (%s)", __FUNCTION__, eticksKey.traceStr().c_str());
+      };
     }
   }
   catch(std::exception &e)
@@ -383,10 +450,20 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
   checkDocNum(params.tick_no);
 
   TTripInfo info;
-  checkETSInteract(params.point_id, true, info);
+  if (params.existsAdditionalFltInfo())
+  {
+    params.set(info);
+  }
+  else
+  {
+    if (!info.getByPointId(params.point_id))
+      throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+  };
+
+  checkETSInteract(info, true);
   if (searchPurpose==spEMDDisplay ||
       searchPurpose==spEMDRefresh)
-    checkEDSInteract(params.point_id, true, info);
+    checkEDSInteract(info, true);
 
   if(!inTestMode())
   {

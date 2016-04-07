@@ -100,25 +100,13 @@ void checkDocNum(const std::string& doc_no)
         throw AstraLocale::UserException("MSG.ETICK.TICKET_NO_INVALID_CHARS");
 }
 
-bool checkInteract(const int point_id,
+bool checkInteract(const TTripInfo& info,
                    const TTripSetType set_type,
-                   const bool with_exception,
-                   TTripInfo& info)
+                   const bool with_exception)
 {
-  info.Clear();
   bool result=true;
   try
   {
-    TQuery Qry(&OraSession);
-    Qry.SQLText=
-        "SELECT airline,flt_no,airp FROM points "
-        "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.Execute();
-    if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-    info.airline=Qry.FieldAsString("airline");
-    info.flt_no=Qry.FieldAsInteger("flt_no");
-    info.airp=Qry.FieldAsString("airp");
     switch(set_type)
     {
       case tsETSNoInteract:
@@ -140,6 +128,40 @@ bool checkInteract(const int point_id,
   }
 
   return result;
+}
+
+bool checkInteract(const int point_id,
+                   const TTripSetType set_type,
+                   const bool with_exception,
+                   TTripInfo& info)
+{
+  info.Clear();
+  bool result=true;
+  try
+  {
+    if (!info.getByPointId(point_id))
+      throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+    result=checkInteract(info, set_type, with_exception);
+  }
+  catch(AstraLocale::UserException &e)
+  {
+    if (with_exception) throw;
+    result=false;
+  }
+
+  return result;
+}
+
+bool checkETSInteract(const TTripInfo& info,
+                      const bool with_exception)
+{
+  return checkInteract(info, tsETSNoInteract, with_exception);
+}
+
+bool checkEDSInteract(const TTripInfo& info,
+                      const bool with_exception)
+{
+  return checkInteract(info, tsEDSNoInteract, with_exception);
 }
 
 bool checkETSInteract(const int point_id,
