@@ -21,19 +21,78 @@ class ETSearchParams
 {
   public:
     int point_id;
-    ETSearchParams(): point_id(ASTRA::NoExists) {};
-    virtual ~ETSearchParams() {};
+    ETSearchParams(): point_id(ASTRA::NoExists) {}
+    virtual ~ETSearchParams() {}
+    bool operator != (const ETSearchParams &params) const
+    {
+      return point_id!=params.point_id;
+    }
+    bool operator < (const ETSearchParams &params) const
+    {
+      return point_id<params.point_id;
+    }
 };
 
-class ETSearchByTickNoParams : public ETSearchParams
+class ETWideSearchParams : public ETSearchParams
+{
+  public:
+    std::string airline, airp_dep;
+    int flt_no;
+    ETWideSearchParams() : flt_no(ASTRA::NoExists) {}
+    bool existsAdditionalFltInfo() const
+    {
+      return !airline.empty() &&
+             flt_no!=ASTRA::NoExists &&
+             !airp_dep.empty();
+    }
+    void set(TTripInfo &info) const
+    {
+      info.Clear();
+      info.airline=airline;
+      info.flt_no=flt_no;
+      info.airp=airp_dep;
+    }
+    bool operator != (const ETWideSearchParams &params) const
+    {
+      return ETSearchParams::operator !=(params) ||
+             existsAdditionalFltInfo()!=params.existsAdditionalFltInfo() ||
+             airline!=params.airline ||
+             flt_no!=params.flt_no ||
+             airp_dep!=params.airp_dep;
+    }
+    bool operator < (const ETWideSearchParams &params) const
+    {
+      if (ETSearchParams::operator !=(params))
+        return ETSearchParams::operator <(params);
+      if (existsAdditionalFltInfo()!=params.existsAdditionalFltInfo())
+        return existsAdditionalFltInfo()<params.existsAdditionalFltInfo();
+      if (airline!=params.airline)
+        return airline<params.airline;
+      if (flt_no!=params.flt_no)
+        return flt_no<params.flt_no;
+      return airp_dep<params.airp_dep;
+    }
+};
+
+class ETSearchByTickNoParams : public ETWideSearchParams
 {
   public:
     std::string tick_no;
     bool operator < (const ETSearchByTickNoParams &params) const
     {
-      if (point_id!=params.point_id)
-        return point_id<params.point_id;
+      if (ETWideSearchParams::operator !=(params))
+        return ETWideSearchParams::operator <(params);
       return tick_no<params.tick_no;
+    }
+    std::string traceStr() const
+    {
+      std::ostringstream s;
+      s << "tick_no=" << tick_no
+        << ", point_id=" << point_id;
+      if (existsAdditionalFltInfo())
+        s << ", airline=" << airline
+          << ", flt_no=" << flt_no;
+      return s.str();
     }
 };
 
