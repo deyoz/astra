@@ -33,6 +33,12 @@ class TFltParams
 
 void checkDocNum(const std::string& doc_no);
 
+bool checkETSInteract(const TTripInfo& info,
+                      const bool with_exception);
+
+bool checkEDSInteract(const TTripInfo& info,
+                      const bool with_exception);
+
 bool checkETSInteract(const int point_id,
                       const bool with_exception,
                       TTripInfo& info);
