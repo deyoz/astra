@@ -17,6 +17,7 @@
 #include "term_version.h"
 #include "emdoc.h"
 #include "serverlib/str_utils.h"
+#include "qrys.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -837,6 +838,39 @@ string PrintDataParser::parse_tag(int offset, string tag)
             return TrimString(result);
         }
 
+        void clean_ending(string &data, const string &end)
+        {
+            if(not data.empty()) {
+                while(true) { // удалим все пробелы, TAB и CR/LF из конца строки
+                    size_t last_ch = data.size() - 1;
+                    if(
+                            data[last_ch] == CR[0] or
+                            data[last_ch] == LF[0] or
+                            data[last_ch] == TAB[0] or
+                            data[last_ch] == ' '
+                      )
+                        data.erase(last_ch);
+                    else
+                        break;
+                }
+                //и добавим один CR/LF
+                data += end;
+            }
+        }
+
+        string place_LF(string data)
+        {
+            size_t pos = 0;
+            while(true) {
+                pos = data.find(CR, pos);
+                if(pos == string::npos)
+                    break;
+                data.erase(pos, 1);
+            }
+            clean_ending(data, LF);
+            return data;
+        }
+
         string place_CR_LF(string data)
         {
             size_t pos = 0;
@@ -852,22 +886,7 @@ string PrintDataParser::parse_tag(int offset, string tag)
                         pos += 1;
                 }
             }
-            if(not data.empty()) {
-                while(true) { // удалим все пробелы, TAB и CR/LF из конца строки
-                    size_t last_ch = data.size() - 1;
-                    if(
-                            data[last_ch] == CR[0] or
-                            data[last_ch] == LF[0] or
-                            data[last_ch] == TAB[0] or
-                            data[last_ch] == ' '
-                      )
-                        data.erase(last_ch);
-                    else
-                        break;
-                }
-                //и добавим один CR/LF
-                data += CR + LF;
-            }
+            clean_ending(data, CR + LF);
             return data;
         }
 
@@ -887,7 +906,8 @@ string PrintDataParser::parse_tag(int offset, string tag)
                 case dftEPL2:
                 case dftDPL:
                 case dftEPSON:
-                    result = place_CR_LF(data);
+                case dftGraphics2D:
+                    result = place_LF(data);
                     break;
                 case dftSCAN1:
                 case dftSCAN2:
@@ -1683,6 +1703,8 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
             StringToHex( string(iPax->prn_form), iPax->prn_form );
             iPax->hex=true;
         }
+        if(DecodeDevFmtType(params.fmt_type) == dftGraphics2D)
+            iPax->prn_form = StrUtils::b64_encode(ConvertCodepage(iPax->prn_form, "CP866", "UTF-8"));
         if(iPax->pax_id!=NoExists)
             parser->pts.save_bp_print();
         iPax->time_print=parser->pts.get_time_print();
@@ -1948,6 +1970,28 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
             }
         }
     }
+}
+
+void PrintInterface::GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string name = NodeAsString("name", reqNode);
+    QParams QryParams;
+    QryParams << QParam("name", otString, name);
+
+    TCachedQuery Qry(
+            "select data from images_data, images where images.name = :name and images.id = images_data.id order by page_no",
+            QryParams
+            );
+
+    Qry.get().Execute();
+
+    string result;
+    for(; not Qry.get().Eof; Qry.get().Next())
+        result += Qry.get().FieldAsString("data");
+    if(result.empty())
+        throw Exception("image %s not found", name.c_str());
+    xmlNodePtr kioskImgNode = NewTextChild(resNode, "kiosk_img");
+    xmlNodePtr dataNode = NewTextChild(kioskImgNode, "data", result);
 }
 
 void PrintInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

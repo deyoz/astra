@@ -55,6 +55,7 @@ namespace TAG {
     const std::string GATES = "GATES";
     const std::string HALL = "HALL";
     const std::string INF = "INF";
+    const std::string IMG = "IMG";
     const std::string LONG_ARV = "LONG_ARV";
     const std::string LONG_DEP = "LONG_DEP";
     const std::string NAME = "NAME";
@@ -179,6 +180,17 @@ int separate_double(double d, int precision, int *iptr);
 
 class TPrnTagStore {
     private:
+
+//        struct TImgMng {
+//            static TImgMng *Instance()
+//            {
+//                static boost::shared_ptr<TImgMng> instance_ = NULL;
+//                if ( !instance_ ) {
+//                    instance_ = boost::shared_ptr<TImgMng>(new TImgMng);
+//                }
+//                return instance_.get();
+//            }
+//        };
 
         boost::shared_ptr<BCBPSections> scan_data;
         const std::string scan; // данные 2D баркода
@@ -433,6 +445,7 @@ class TPrnTagStore {
         std::string GATE(TFieldParams fp);
         std::string GATES(TFieldParams fp);
         std::string HALL(TFieldParams fp);
+        std::string IMG(TFieldParams fp);
         std::string INF(TFieldParams fp);
         std::string LONG_ARV(TFieldParams fp);
         std::string LONG_DEP(TFieldParams fp);
