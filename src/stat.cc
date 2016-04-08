@@ -5578,6 +5578,37 @@ namespace ServiceStat {
     };
 }
 
+struct TRemInfo {
+    string rfisc;
+    double rate;
+    string rate_cur;
+    TRemInfo(const string &rem) {
+        parse(rem);
+    }
+    void parse(const string &rem);
+};
+
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
+
+void TRemInfo::parse(const string &rem)
+{
+    rfisc.clear();
+    rate_cur.clear();
+    rate = NoExists;
+
+    vector<string> tokens;
+    boost::split(tokens, rem, boost::is_any_of("/"));
+    if(tokens.size() == 2) { // PRSA/0B7
+        rfisc = tokens[1];
+    } else if(tokens.size() == 4) { // PRSA/0B7/1500/RUB
+        rfisc = tokens[1];
+        rate = stof(tokens[2]);
+        TElemFmt fmt;
+        rate_cur = ElemToElemId(etCurrency, tokens[3], fmt);
+    }
+}
+
 void get_service_stat(int point_id)
 {
     TCachedQuery delQry("delete from service_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
@@ -5588,6 +5619,7 @@ void get_service_stat(int point_id)
             "    points.craft, "
             "    points.airp, "
             "    pro.rem_code, "
+            "    pro.rem, "
             "    pro.user_id, "
             "    pro.desk "
             "from "
@@ -5610,7 +5642,10 @@ void get_service_stat(int point_id)
             "   ticket_no, "
             "   airp_last, "
             "   user_id, "
-            "   desk "
+            "   desk, "
+            "   rfisc, "
+            "   rate, "
+            "   rate_cur "
             ") values ( "
             "   :point_id, "
             "   :travel_time, "
@@ -5618,7 +5653,10 @@ void get_service_stat(int point_id)
             "   :ticket_no, "
             "   :airp_last, "
             "   :user_id, "
-            "   :desk "
+            "   :desk, "
+            "   :rfisc, "
+            "   :rate, "
+            "   :rate_cur "
             ") ",
             QParams()
             << QParam("point_id", otInteger, point_id)
@@ -5628,6 +5666,9 @@ void get_service_stat(int point_id)
             << QParam("airp_last", otString)
             << QParam("user_id", otInteger)
             << QParam("desk", otString)
+            << QParam("rfisc", otString)
+            << QParam("rate", otFloat)
+            << QParam("rate_cur", otString)
             );
 
     Qry.get().Execute();
@@ -5638,6 +5679,7 @@ void get_service_stat(int point_id)
         int col_craft = Qry.get().FieldIndex("craft");
         int col_airp = Qry.get().FieldIndex("airp");
         int col_rem_code = Qry.get().FieldIndex("rem_code");
+        int col_rem = Qry.get().FieldIndex("rem");
         int col_user_id = Qry.get().FieldIndex("user_id");
         int col_desk = Qry.get().FieldIndex("desk");
         ServiceStat::TFltInfo flt_info;
@@ -5670,6 +5712,15 @@ void get_service_stat(int point_id)
             insQry.get().SetVariable("user_id", Qry.get().FieldAsInteger(col_user_id));
             insQry.get().SetVariable("desk", Qry.get().FieldAsString(col_desk));
 
+            TRemInfo remInfo(Qry.get().FieldAsString(col_rem));
+
+            insQry.get().SetVariable("rfisc", remInfo.rfisc);
+            if(remInfo.rate == NoExists)
+                insQry.get().SetVariable("rate", FNull);
+            else
+                insQry.get().SetVariable("rate", remInfo.rate);
+            insQry.get().SetVariable("rate_cur", remInfo.rate_cur);
+
             for(int i = 0; i < insQry.get().VariablesCount(); i++)
                 LogTrace(TRACE5) << insQry.get().VariableName(i) << " = " << insQry.get().GetVariableAsString(i);
 
@@ -5692,11 +5743,18 @@ struct TServiceStatRow {
     string airline;
     string user;
     string desk;
+    string rfisc;
+    double rate;
+    string rate_cur;
+
+    string rate_str() const;
+
     TServiceStatRow():
         point_id(NoExists),
         scd_out(NoExists),
         flt_no(NoExists),
-        travel_time(NoExists)
+        travel_time(NoExists),
+        rate(NoExists)
     {}
     bool operator < (const TServiceStatRow &val) const
     {
@@ -5705,6 +5763,15 @@ struct TServiceStatRow {
         return point_id < val.point_id;
     }
 };
+
+string TServiceStatRow::rate_str() const
+{
+    ostringstream result;
+    if(rate != NoExists) {
+        result << fixed << setprecision(2) << setfill('0') << rate;
+    }
+    return result.str();
+}
 
 typedef multiset<TServiceStatRow> TServiceStat;
 
@@ -5733,7 +5800,10 @@ void RunServiceStat(
             "   cs.rem_code, "
             "   points.airline, "
             "   users2.descr, "
-            "   cs.desk "
+            "   cs.desk, "
+            "   cs.rfisc, "
+            "   cs.rate, "
+            "   cs.rate_cur "
             "from ";
         if(pass != 0) {
             SQLText +=
@@ -5789,6 +5859,9 @@ void RunServiceStat(
             int col_airline = Qry.get().GetFieldIndex("airline");
             int col_descr = Qry.get().GetFieldIndex("descr");
             int col_desk = Qry.get().GetFieldIndex("desk");
+            int col_rfisc = Qry.get().GetFieldIndex("rfisc");
+            int col_rate = Qry.get().GetFieldIndex("rate");
+            int col_rate_cur = Qry.get().GetFieldIndex("rate_cur");
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 prn_airline.check(Qry.get().FieldAsString(col_airline));
                 TServiceStatRow row;
@@ -5805,6 +5878,10 @@ void RunServiceStat(
                 row.rem_code = Qry.get().FieldAsString(col_rem_code);
                 row.user = Qry.get().FieldAsString(col_descr);
                 row.desk = Qry.get().FieldAsString(col_desk);
+                row.rfisc = Qry.get().FieldAsString(col_rfisc);
+                if(not Qry.get().FieldIsNULL(col_rate))
+                    row.rate = Qry.get().FieldAsFloat(col_rate);
+                row.rate_cur = Qry.get().FieldAsString(col_rate_cur);
                 ServiceStat.insert(row);
             }
         }
@@ -5863,6 +5940,18 @@ void createXMLServiceStat(const TStatParams &params, const TServiceStat &Service
     SetProp(colNode, "width", 70);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("RFISC"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Тариф"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortFloat);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Валюта"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
@@ -5896,6 +5985,12 @@ void createXMLServiceStat(const TStatParams &params, const TServiceStat &Service
             NewTextChild(rowNode, "col", DateTimeToStr(i->travel_time, "hh:nn"));
         // Код услуги
         NewTextChild(rowNode, "col", i->rem_code);
+        // RFISC
+        NewTextChild(rowNode, "col", i->rfisc);
+        // Тариф
+        NewTextChild(rowNode, "col", i->rate_str());
+        // Валюта
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etCurrency, i->rate_cur));
     }
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
