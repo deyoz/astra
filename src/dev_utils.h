@@ -10,9 +10,7 @@
 #include <boost/optional/optional.hpp>
 #include "basic.h"
 #include "astra_utils.h"
-#include "wsdl_services.h"
 
-//#include "azimut_loyalty/adb_loginResponseE3.h"
 
 ASTRA::TDevOperType DecodeDevOperType(std::string s);
 ASTRA::TDevFmtType DecodeDevFmtType(std::string s);
@@ -141,8 +139,7 @@ namespace  BCBPSectionsEnums {
     }
 
     inline std::string to_string(FreeBaggage e)
-    {   adb_loginResponseE3_create(nullptr);
-          //  const axutil_env_t *env)
+    {
         switch(e)
         {   case kg: return "kilogramm";
             case pound: return "pound";

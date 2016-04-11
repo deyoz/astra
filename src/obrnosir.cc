@@ -32,7 +32,6 @@
 #include "tlg/ssm_parser.h"
 #include "tlg/lci_parser.h"
 #include "img.h"
-#include "wsdl_services.h"
 
 /*
 int LocalIsNosir=0;
@@ -95,7 +94,6 @@ const
     {"-rfisc_all",              nosir_rfisc_all,        NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
     {"-self_ckin",              nosir_self_ckin,        NULL,                       NULL},
-    {"-azimut_sir",		azimut_login,        NULL,                       NULL}	
   };
 
 int nosir_test(int argc,char **argv)

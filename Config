@@ -35,9 +35,6 @@ fi
 if [ "$BUILD_TESTS" = "1" ]; then
       WITH_PARAMS="$WITH_PARAMS --enable-xp-testing"
 fi
-if [ -n "$AXIS2C_LIB" ]; then
-      WITH_PARAMS="$WITH_PARAMS --with-axis2c=$AXIS2C_LIB"
-fi
 
 set -x
 pwd

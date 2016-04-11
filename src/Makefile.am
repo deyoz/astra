@@ -149,7 +149,6 @@ astra_SOURCES = \
   Depeches.cpp \
   AsyncNet.cpp \
   img.cpp \
-  wsdl_services.cc \
   ffp_service_from_sirena.cc \
   sirena_service.cc \
   astra_api.cpp
@@ -157,7 +156,6 @@ astra_SOURCES = \
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
-	azimut_loyalty/libazimut_loyalty.a \
   	tests/libtests.a \
 	@ETICKLIB_LIBS@ \
 	@ORACLE_LIBS@ @EDILIB_LIBS@ \
@@ -168,14 +166,13 @@ astra_LDADD = $(all_libraries) \
 	@BOOST_FILESYSTEM_LIB@ \
 	@BOOST_REGEX_LIB@ \
         @BOOST_THREAD_LIB@ \
-        @PION_LDFLAGS@ \
-        @AXIS2C_LDFLAGS@
+        @PION_LDFLAGS@
 
 
 #	-L/usr/lib -lboost_filesystem
 #	-L/home/beta/crypt/locallibs/mespro -lmesprox
 
-SUBDIRS = tlg tests azimut_loyalty
+SUBDIRS = tlg tests
 
 EXTRA_DIST = systarg.mk run astra.tcl PS Restart kills \
 	MAKE local_after_example.tcl local_before_example.tcl
@@ -294,7 +291,6 @@ noinst_HEADERS = \
   img.h \
   astra_iface.h \
   astra_api.h \
-  wsdl_services.h \
   ffp_service_from_sirena.h \
   sirena_service.h
   
