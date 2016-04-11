@@ -726,20 +726,6 @@ std::pair<Itin, boost::shared_ptr<Itin> >
             RpiStat = ItinStatus::OpenDate;
         }
 
-        if(open)
-            switch(RpiStat->type()){
-                case ItinStatus::OpenDate:
-                case ItinStatus::NonAir:
-                case ItinStatus::Standby:
-                case ItinStatus::SpaceAvailable:
-                    tst();
-                    break;
-                default:
-                    throw tick_soft_except(STDLOG, EtErr::INV_ITIN_STATUS,
-                                           std::string("SB/OPE/G segment with ")
-                                                   + RpiStat->code() +" status");
-            }
-
         PopEdiPoint_wdG(pMes);
         //Luggage
         Lugg = MakeLuggage(pMes);

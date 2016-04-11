@@ -2510,18 +2510,13 @@ void handleEtDispResponse(const edifact::RemoteResults& remRes)
     //для фонового режима выйти и не продолжать с контекстом
     if (remRes.pult()=="SYSTEM") return;
 
-    tst();
-
     std::string ctxt;
     AstraContext::GetContext("EDI_SESSION", ediSessId.get(), ctxt);
     ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
 
-    tst();
-
     XMLDoc ediSessCtxt(ctxt);
     if(ediSessCtxt.docPtr()!=NULL)
     {
-        tst();
         //для нормальной работы надо все дерево перевести в CP866:
         xml_decode_nodelist(ediSessCtxt.docPtr()->children);
         xmlNodePtr rootNode=NodeAsNode("/context",ediSessCtxt.docPtr());

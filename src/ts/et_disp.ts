@@ -214,3 +214,53 @@ ORG+ûí:åéÇ++++Y+::RU+åéÇêéå"
 TKT+2982348111616"
 UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+UTET+UTDC+160409:1627+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
+MSG+:131+3"
+EQN+1:TD"
+TIF+REPIN:IN+IVAN"
+TAI+4465+887:B"
+RCI+1H:T777W7:1+UT:1613F6:1"
+MON+B:FREE+T:FREE"
+FOP+MS:3:::::::::::PK/CA5469670000006655"
+PTK+++040416"
+ODI+SGC+SGC"
+ORG+1H:MOW+92123301:03ëìê+SGC++T+RU+887+ëìêå28"
+EQN+2:TF"
+IFT+4:15:0+SGC UT TJM UT SGC0.00RUB0.00END"
+IFT+4:10+çÑëÄ/ä0.00 çÑëZZ0.00/UT-119 èêéïã çÄèàíäà/UT-102 èêéïã çÄèàíäà"
+IFT+4:39+ëìêÉìí+ééé áÄèÄÑçé ëàÅàêëäéÖ ÄÇë"
+IFT+4:5+-734677004+79222548183"
+TKT+2986147221707:T:1:3"
+CPN+1:I::E"
+TVL+090416:2220+SGC+TJM+UT+119:Q++1"
+RPI++NS"
+PTS++QUT/IN"
+EBD++1::N"
+CPN+3:I::E"
+TVL++TJM+SGC+UT+OPEN:Q++2"
+RPI++NS"
+PTS++QUT/IN"
+EBD++1::N"
+UNT+28+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+
+!! capture=on
+$(lastRedisplay)
+
+>> lines=auto
+              <dep_date index='1'>OPEN</dep_date>
+              <dep_time index='2'>----</dep_time>
+              <dep index='3'>TJM</dep>
+              <arr index='4'>SGC</arr>
+              <codea index='5'>UT</codea>
+              <codea_oper index='6'>UT</codea_oper>
+              <flight index='7'>OPEN</flight>
+              <flight_oper index='8'>OPEN</flight_oper>
