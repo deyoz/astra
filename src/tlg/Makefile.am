@@ -19,12 +19,13 @@ libtlg_a_SOURCES = apps_handler.cc apps_answer_emul.cc edi_handler.cpp edi_msg.c
         IatciPlfRequest.cpp IatciPlfResponseHandler.cpp IatciPlfRequestHandler.cpp \
         IatciSeatmapResponseHandler.cpp IatciSmfRequest.cpp IatciSmfResponseHandler.cpp \
         IatciBprRequest.cpp IatciBprResponseHandler.cpp IatciBprRequestHandler.cpp \
-        IatciSeatmapRequestHandler.cpp IatciSmfRequestHandler.cpp \
-        postpone_edifact.cpp mvt_parser.cpp
+        IatciSeatmapRequestHandler.cpp IatciSmfRequestHandler.cpp EtDispResponseHandler.cpp \
+        EtCosResponseHandler.cpp postpone_edifact.cpp mvt_parser.cpp et_request.cpp request_params.cpp \
+        et_disp_request.cpp et_cos_request.cpp typeb_handler.cpp
         
 
 noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_msg.h edi_elements.h \
-   	view_edi_elements.h emd_disp_request.h edi_tkt_request.h edi_tlg.h tlg.h \
+   	view_edi_elements.h emd_disp_request.h edi_tlg.h tlg.h \
    	remote_system_context.h remote_results.h tlg_types.h tlg_source.h \
    	tlg_source_edifact.h ResponseHandler.h EmdDispResponseHandler.h \
    	EdifactProfile.h emd_edifact.h AgentWaitsForRemote.h CheckinBaseTypes.h \
@@ -37,7 +38,7 @@ noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_msg.h edi_elements.h \
    	IatciPlfRequest.h IatciPlfResponseHandler.h IatciPlfRequestHandler.h \
    	IatciSeatmapResponseHandler.h IatciSmfRequest.h IatciSmfResponseHandler.h \
    	IatciBprRequest.h IatciBprResponseHandler.h IatciBprRequestHandler.h \
-   	IatciSeatmapRequestHandler.h IatciSmfRequestHandler.h \
-   	postpone_edifact.h mvt_parser.h
-   	
-   	
+   	IatciSeatmapRequestHandler.h IatciSmfRequestHandler.h EtDispResponseHandler.h \
+   	EtCosResponseHandler.h postpone_edifact.h mvt_parser.h et_request.h request_params.h \
+   	et_disp_request.h et_cos_request.h typeb_handler.h
+   	  	

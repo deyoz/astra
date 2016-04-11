@@ -25,10 +25,6 @@ EmdDispResponseHandler::EmdDispResponseHandler(_EDI_REAL_MES_STRUCT_ *pMes,
 {
 }
 
-void EmdDispResponseHandler::parse()
-{
-}
-
 void EmdDispResponseHandler::handle()
 {
   try

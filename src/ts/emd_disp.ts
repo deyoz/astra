@@ -6,12 +6,14 @@ $(init_jxt_pult åéÇêéå)
 $(login)
 $(init_eds ûí UTET UTDC)
 
+$(PREPARE_ONE_FLIGHT UT DME LED 103)
 
-{<?xml version='1.0' encoding='UTF-8'?>
+
+{<?xml version='1.0' encoding='CP866'?>
  <term>
    <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <SearchEMDByDocNo>
-       <point_id>2276899</point_id>
+       <point_id>$(last_point_id_spp)</point_id>
        <EmdNoEdit>2982348111616</EmdNoEdit>
      </SearchEMDByDocNo>
    </query>
@@ -151,12 +153,14 @@ $(init_jxt_pult åéÇêéå)
 $(login)
 $(init_eds ûí UTET UTDC)
 
+$(PREPARE_ONE_FLIGHT UT DME LED 103)
 
-{<?xml version='1.0' encoding='UTF-8'?>
+
+{<?xml version='1.0' encoding='CP866'?>
  <term>
    <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <SearchEMDByDocNo>
-       <point_id>2276899</point_id>
+       <point_id>$(last_point_id_spp)</point_id>
        <EmdNoEdit>2982348111616</EmdNoEdit>
      </SearchEMDByDocNo>
    </query>
@@ -190,12 +194,14 @@ $(init_jxt_pult åéÇêéå)
 $(login)
 $(init_eds ûí UTET UTDC)
 
+$(PREPARE_ONE_FLIGHT UT DME LED 103)
 
-{<?xml version='1.0' encoding='UTF-8'?>
+
+{<?xml version='1.0' encoding='CP866'?>
  <term>
    <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <SearchEMDByDocNo>
-       <point_id>2276899</point_id>
+       <point_id>$(last_point_id_spp)</point_id>
        <EmdNoEdit>2988200000386</EmdNoEdit>
      </SearchEMDByDocNo>
    </query>

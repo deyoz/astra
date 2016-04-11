@@ -147,6 +147,8 @@ public:
   static bool readTripHeader( int point_id, xmlNodePtr dataNode );
   static void readGates(int point_id, std::vector<std::string> &gates);
   static void readHalls( std::string airp_dep, std::string work_mode, xmlNodePtr dataNode);
+
+  static TripsInterface* instance();
 };
 
 #endif /*_TRIPINFO_H_*/

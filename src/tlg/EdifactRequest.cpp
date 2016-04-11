@@ -17,6 +17,7 @@
 #include "EdiSessionTimeOut.h"
 #include "AgentWaitsForRemote.h"
 #include "astra_context.h"
+#include "astra_consts.h"
 
 #include <edilib/edi_func_cpp.h>
 
@@ -33,45 +34,13 @@ using namespace EXCEPTIONS;
 using namespace TlgHandling;
 using namespace Ticketing;
 
-const KickInfo& KickInfo::toXML(xmlNodePtr node) const
-{
-  if (node==NULL) return *this;
-
-  xmlNodePtr kickInfoNode=NewTextChild(node,"kick_info");
-  reqCtxtId==ASTRA::NoExists?NewTextChild(kickInfoNode, "req_ctxt_id"):
-                             NewTextChild(kickInfoNode, "req_ctxt_id", reqCtxtId);
-  NewTextChild(kickInfoNode, "iface", iface);
-  NewTextChild(kickInfoNode, "handle", handle);
-  parentSessId==ASTRA::NoExists?NewTextChild(kickInfoNode, "parent_sess_id"):
-                                NewTextChild(kickInfoNode, "parent_sess_id", parentSessId);
-  NewTextChild(kickInfoNode, "int_msg_id", msgId);
-  NewTextChild(kickInfoNode, "desk", desk);
-  return *this;
-}
-
-KickInfo& KickInfo::fromXML(xmlNodePtr node)
-{
-  clear();
-  if (node==NULL) return *this;
-  xmlNodePtr kickInfoNode=GetNode("kick_info",node);
-  if (kickInfoNode==NULL) return *this;
-  if (!NodeIsNULL("req_ctxt_id", kickInfoNode))
-    reqCtxtId=NodeAsInteger("req_ctxt_id", kickInfoNode);
-  iface=NodeAsString("iface", kickInfoNode);
-  handle=NodeAsString("handle", kickInfoNode);
-  if (!NodeIsNULL("parent_sess_id", kickInfoNode))
-    parentSessId=NodeAsInteger("parent_sess_id", kickInfoNode);
-  msgId=NodeAsString("int_msg_id", kickInfoNode);
-  desk=NodeAsString("desk", kickInfoNode);
-  return *this;
-}
-
 EdifactRequest::EdifactRequest(const std::string &pult,
                                const std::string& ctxt,
-                               const KickInfo &v_kickInfo,
+                               const edifact::KickInfo &v_kickInfo,
                                edi_msg_types_t msg_type,
                                const Ticketing::RemoteSystemContext::SystemContext* sysCont)
-    :edilib::EdifactRequest(msg_type), TlgOut(0), ediSessCtxt(ctxt), m_kickInfo(v_kickInfo)
+    :edilib::EdifactRequest(msg_type), TlgOut(0),
+     ediSessCtxt(ctxt), m_kickInfo(v_kickInfo), SysCont(sysCont)
 {
     setEdiSessionController(new NewAstraEdiSessWR(pult, msgHead(), sysCont));
     setEdiSessMesAttr();
@@ -80,6 +49,7 @@ EdifactRequest::EdifactRequest(const std::string &pult,
 EdifactRequest::~EdifactRequest()
 {
     delete TlgOut;
+    delete SysCont;
 }
 
 void EdifactRequest::sendTlg()

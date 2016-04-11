@@ -9231,6 +9231,12 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
   }
 }
 
+void processSalonsCfg_TestMode(int point_id, int comp_id)
+{
+    TTripClasses tripClasses(point_id);
+    tripClasses.processBaseCompCfg(comp_id);
+}
+
 } // end namespace SALONS2
 
 

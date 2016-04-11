@@ -89,6 +89,7 @@ void viewCntElement(_EDI_REAL_MES_STRUCT_* pMes, const CntElem& elem, int num = 
  * @brief makes a TVL element
 */
 void viewTvlElement(_EDI_REAL_MES_STRUCT_* pMes, const TvlElem& elem);
+void viewItin(EDI_REAL_MES_STRUCT *pMes, const Ticketing::Itin &itin, int num = 0);
 
 /**
  * @brief makes a TKT element

@@ -244,6 +244,8 @@ public:
                            const std::map<int, CheckIn::TTransferItem> &trfer,
                            const bool get_trfer_permit_only,
                            std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs);
+
+  static CheckInInterface* instance();
 };
 
 namespace CheckIn

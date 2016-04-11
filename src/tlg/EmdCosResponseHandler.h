@@ -11,7 +11,7 @@ public:
     EmdCosResponseHandler(_EDI_REAL_MES_STRUCT_ *pmes,
                           const edilib::EdiSessRdData *edisess);
 
-    void parse();
+    void parse() {}
     void handle();
     void onTimeOut() {}
     void onCONTRL() {}

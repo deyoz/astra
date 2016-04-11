@@ -10,8 +10,12 @@
 #include "EdiHandlersFactory.h"
 #include "edi_tlg.h"
 
+// et handlers
+#include "EtDispResponseHandler.h"
+#include "EtCosResponseHandler.h"
 // emd handlers
 #include "EmdDispResponseHandler.h"
+#include "EmdCosResponseHandler.h"
 #include "EmdSysUpdateResponseHandler.h"
 // iatci handlers
 #include "IatciCkiResponseHandler.h"
@@ -28,59 +32,32 @@
 namespace Ticketing
 {
 
+#define __DECLARE_HANDLER__(handler, msg__, func_code__) \
+        if(msg__ == msgid && (func_code == func_code__ || !*func_code__))\
+        {\
+            return new handler(0, psess.get());\
+        }
+
 TlgHandling::AstraEdiResponseHandler* EdiResHandlersFactory(edi_msg_types_t msgid,
                                                             const std::string &func_code,
                                                             boost::shared_ptr<AstraEdiSessRD> psess)
 {
-    switch (msgid)
-    {
-        case TKCRES:
-        {
-            if(func_code == "791") // Disp
-            {
-                return new TlgHandling::EmdDispResponseHandler(0, psess.get());
-            }
-            else if(func_code == "794") // Sys Upd
-            {
-                return new TlgHandling::EmdSysUpdateResponseHandler(0, psess.get());
-            }
-        }
-        case DCRCKA:
-        {
-            if(func_code == "I") // CKI
-            {
-                return new TlgHandling::IatciCkiResponseHandler(0, psess.get());
-            }
-            else if(func_code == "U") // CKU
-            {
-                return new TlgHandling::IatciCkuResponseHandler(0, psess.get());
-            }
-            else if(func_code == "X") // CKX
-            {
-                return new TlgHandling::IatciCkxResponseHandler(0, psess.get());
-            }
-            else if(func_code == "B") // BPR
-            {
-                return new TlgHandling::IatciBprResponseHandler(0, psess.get());
-            }
-            else if(func_code == "P") // PLF
-            {
-                return new TlgHandling::IatciPlfResponseHandler(0, psess.get());
-            }
-        }
-        case DCRSMF:
-        {
-            if(func_code == "S") // SMF
-            {
-                return new TlgHandling::IatciSmfResponseHandler(0, psess.get());
-            }
-            else if(func_code == "T") // SMP
-            {
-                // TODO
-            }
-        }
-        default:;
-    }
+    using namespace TlgHandling;
+
+    // ET
+    __DECLARE_HANDLER__(EtDispResponseHandler,       TKCRES, "131");
+    __DECLARE_HANDLER__(EtCosResponseHandler,        TKCRES, "142");
+    // EMD
+    __DECLARE_HANDLER__(EmdDispResponseHandler,      TKCRES, "791");
+    __DECLARE_HANDLER__(EmdCosResponseHandler,       TKCRES, "793");
+    __DECLARE_HANDLER__(EmdSysUpdateResponseHandler, TKCRES, "794");
+    // IATCI
+    __DECLARE_HANDLER__(IatciCkiResponseHandler,     DCRCKA, "I");
+    __DECLARE_HANDLER__(IatciCkuResponseHandler,     DCRCKA, "U");
+    __DECLARE_HANDLER__(IatciCkxResponseHandler,     DCRCKA, "X");
+    __DECLARE_HANDLER__(IatciBprResponseHandler,     DCRCKA, "B");
+    __DECLARE_HANDLER__(IatciPlfResponseHandler,     DCRCKA, "P");
+    __DECLARE_HANDLER__(IatciPlfResponseHandler,     DCRSMF, "S");
 
     LogError(STDLOG) <<
             "There is no factory for message " << msgid <<
@@ -88,4 +65,6 @@ TlgHandling::AstraEdiResponseHandler* EdiResHandlersFactory(edi_msg_types_t msgi
     return 0;
 }
 
-}
+#undef __DECLARE_HANDLER__
+
+}//namespace Ticketing

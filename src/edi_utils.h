@@ -6,6 +6,10 @@
 #include "tlg/EdifactRequest.h"
 #include <etick/tick_data.h>
 
+namespace edifact {
+    struct KickInfo;
+}//namespace edifact
+
 namespace AstraEdifact
 {
 

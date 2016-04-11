@@ -1,6 +1,3 @@
-#include <stdarg.h>
-#include <string>
-#include <string.h>
 #include "astra_utils.h"
 #include "oralib.h"
 #include "astra_locale.h"
@@ -11,17 +8,24 @@
 #include "base_tables.h"
 #include "term_version.h"
 #include "qrys.h"
-#include "serverlib/tcl_utils.h"
-#include "serverlib/monitor_ctl.h"
-#include "serverlib/sirena_queue.h"
-#include "serverlib/testmode.h"
-#include "serverlib/lwriter.h"
-#include "jxtlib/JxtInterface.h"
-#include "jxtlib/jxt_cont.h"
-#include "jxtlib/xml_stuff.h"
+
+#include <serverlib/tcl_utils.h>
+#include <serverlib/monitor_ctl.h>
+#include <serverlib/sirena_queue.h>
+#include <serverlib/testmode.h>
+#include <serverlib/lwriter.h>
+#include <serverlib/cursctl.h>
+#include <serverlib/dump_table.h>
+#include <jxtlib/JxtInterface.h>
+#include <jxtlib/jxt_cont.h>
+#include <jxtlib/xml_stuff.h>
+
+#include <stdarg.h>
+#include <string>
+#include <string.h>
 
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace ASTRA;
@@ -1685,18 +1689,51 @@ string get_internal_msgid_hex()
 namespace ASTRA
 {
 
+static void commitInTestMode_()
+{
+    const char* sql = "SAVEPOINT SP_XP_TESTING";
+    LogTrace(TRACE3) << sql;
+    std::shared_ptr <OciCpp::OracleData> odata;
+    odata = OciCpp::mainSession().cdaCursor(sql,false);
+    if (odata->exec())
+    {
+        fprintf(stderr, "SAVEPOINT SP_XP_TESTING failed");
+        abort();
+    }
+}
+
+static void rollbackInTestMode_()
+{
+    const char* sql = "ROLLBACK TO SAVEPOINT SP_XP_TESTING";
+    LogTrace(TRACE3) << sql;
+    std::shared_ptr <OciCpp::OracleData> odata;
+    odata = OciCpp::mainSession().cdaCursor(sql,false);
+    if (odata->exec())
+    {
+        LogError (STDLOG) << odata->error_text()<<"\n" << sql;
+        fprintf(stderr, "ROLLBACK TO SAVEPOINT SP_XP_TESTING failed\n");
+        abort();
+    }
+}
+
 void commit()
 {
-    //inTestMode()?commit():OraSession.Commit();
-    if(!inTestMode())
+    LogTrace(TRACE3) << "ASTRA::commit()";
+    if(inTestMode()) {
+        commitInTestMode_();
+    } else {
         OraSession.Commit();
+    }
 }
 
 void rollback()
 {
-    //inTestMode()?rollback():OraSession.Rollback();
-    if(!inTestMode())
+    LogTrace(TRACE3) << "ASTRA::rollback()";
+    if(inTestMode()) {
+        rollbackInTestMode_();
+    } else {
         OraSession.Rollback();
+    }
 }
 
 }// namespace ASTRA

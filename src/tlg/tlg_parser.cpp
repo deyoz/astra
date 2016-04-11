@@ -6440,7 +6440,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
   if (pr_recount) crs_recount(point_id,NoExists,true);
 
-  OraSession.Commit();
+  ASTRA::commit();//OraSession.Commit();
 
   try
   {

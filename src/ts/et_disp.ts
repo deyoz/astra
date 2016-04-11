@@ -4,14 +4,16 @@ include(ts/macro.ts)
 
 $(init_jxt_pult åéÇêéå)
 $(login)
-$(init_eds ûí UTDC UTET)
+$(init_eds ûí UTET UTDC)
+
+$(PREPARE_ONE_FLIGHT UT DME LED 103)
 
 
-{<?xml version='1.0' encoding='UTF-8'?>
+{<?xml version='1.0' encoding='CP866'?>
  <term>
    <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <SearchETByTickNo>
-       <point_id>2276899</point_id>
+       <point_id>$(last_point_id_spp)</point_id>
        <TickNoEdit>2982348111616</TickNoEdit>
      </SearchETByTickNo>
    </query>
@@ -101,14 +103,16 @@ $(lastRedisplay)
 
 $(init_jxt_pult åéÇêéå)
 $(login)
-$(init_eds ûí UTDC UTET)
+$(init_eds ûí UTET UTDC)
+
+$(PREPARE_ONE_FLIGHT UT DME LED 103)
 
 
-{<?xml version='1.0' encoding='UTF-8'?>
+{<?xml version='1.0' encoding='CP866'?>
  <term>
    <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <SearchETByTickNo>
-       <point_id>2276899</point_id>
+       <point_id>$(last_point_id_spp)</point_id>
        <TickNoEdit>2982348111616</TickNoEdit>
      </SearchETByTickNo>
    </query>
@@ -181,3 +185,32 @@ UNZ+1+$(last_edifact_ref)0001"
 
 !!
 $(lastRedisplay)
+
+
+%%
+#########################################################################################
+
+$(init_jxt_pult åéÇêéå)
+$(login)
+$(init_eds ûí UTET UTDC)
+
+$(PREPARE_ONE_FLIGHT UT DME LED 103)
+
+{<?xml version='1.0' encoding='CP866'?>
+ <term>
+   <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+     <SearchETByTickNo>
+       <point_id>$(last_point_id_spp)</point_id>
+       <TickNoEdit>2982348111616</TickNoEdit>
+     </SearchETByTickNo>
+   </query>
+ </term>}
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:131"
+ORG+ûí:åéÇ++++Y+::RU+åéÇêéå"
+TKT+2982348111616"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"

@@ -1394,6 +1394,8 @@ class TSalonList: public std::vector<TPlaceList*> {
   bool isUserProtectLayer( ASTRA::TCompLayerType layer_type );
   void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
                     const std::vector<TSeatRange> &seatRanges, const std::string &reason );
+  void processSalonsCfg_TestMode(int point_id, int comp_id);
+
 } // END namespace SALONS2
 int testsalons(int argc,char **argv);
 #endif /*_SALONS2_H_*/

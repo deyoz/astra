@@ -26,12 +26,7 @@ namespace
 EmdCosResponseHandler::EmdCosResponseHandler(_EDI_REAL_MES_STRUCT_ *pmes,
                                              const edilib::EdiSessRdData *edisess)
     : AstraEdiResponseHandler(pmes, edisess)
-{
-}
-
-void EmdCosResponseHandler::parse()
-{
-}
+{}
 
 void EmdCosResponseHandler::handle()
 {

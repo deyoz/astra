@@ -95,8 +95,6 @@ namespace RemoteSystemContext
 
 //---------------------------------------------------------------------------------------
 
-    class EdsSystemContext;
-
     class InboundTlgInfo
     {
         bool ToBePostponed;
@@ -147,6 +145,9 @@ namespace RemoteSystemContext
 
         SystemSettings CommonSettings;
 
+    public:
+        typedef boost::shared_ptr<SystemContext> pSystemContext;
+
     private:
         void checkContinuity() const;
 
@@ -154,7 +155,7 @@ namespace RemoteSystemContext
         static Ticketing::SystemAddrs_t getNextId();
 
 
-        static boost::shared_ptr<SystemContext> SysCtxt;
+        static pSystemContext SysCtxt;
     public:
         Ticketing::SystemAddrs_t ida() const { return Ida; }
         const std::string& airline() const { return Airline; }
@@ -258,6 +259,7 @@ namespace RemoteSystemContext
     };
 
 //---------------------------------------------------------------------------------------
+
 
     /// @class DcsSystemContext
     /// @brief Система регистрации (в случае iacti)

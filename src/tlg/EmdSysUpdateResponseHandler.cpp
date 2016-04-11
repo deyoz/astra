@@ -22,11 +22,6 @@ EmdSysUpdateResponseHandler::EmdSysUpdateResponseHandler(_EDI_REAL_MES_STRUCT_* 
 {
 }
 
-void EmdSysUpdateResponseHandler::parse()
-{
-
-}
-
 void EmdSysUpdateResponseHandler::handle()
 {
   try
@@ -98,16 +93,6 @@ void EmdSysUpdateResponseHandler::handle()
   {
     ProgError(STDLOG, "EmdSysUpdateResponseHandler::handle: %s", e.what());
   };
-}
-
-void EmdSysUpdateResponseHandler::onTimeOut()
-{
-
-}
-
-void EmdSysUpdateResponseHandler::onCONTRL()
-{
-
 }
 
 }//namespace TlgHandling

@@ -101,55 +101,6 @@ int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[])
     ProgError(STDLOG, "Unknown exception");
   };
   return 0;
-};
-
-
-static bool isNewEdifact(const std::string& ediText)
-{
-    EDI_REAL_MES_STRUCT *pMes = edilib::ReadEdifactMessage(ediText.c_str());
-    std::string msg_type_str = edilib::GetDBFName(pMes,
-                                                  edilib::DataElement(65),
-                                                  edilib::CompElement("S009"),
-                                                  edilib::SegmElement("UNH"));
-
-    std::string func_code = edilib::GetDBFName(pMes,
-                                               edilib::DataElement(9868), "",
-                                               edilib::CompElement(),
-                                               edilib::SegmElement("RAD"),
-                                               edilib::SegGrElement(1));
-    if(func_code.empty()) {
-        func_code = edilib::GetDBFName(pMes,
-                                       edilib::DataElement(1225), "",
-                                       edilib::CompElement("C302"),
-                                       edilib::SegmElement("MSG"));
-    }
-
-    LogTrace(TRACE3) << "edi func_code=" << func_code << " for msg " << msg_type_str;
-
-    // warning: temporary hardcode !!!
-    if(msg_type_str     == "DCQCKI"
-        || msg_type_str == "DCQCKU"
-        || msg_type_str == "DCQCKX"
-        || msg_type_str == "DCQBPR"
-        || msg_type_str == "DCQPLF"
-        || msg_type_str == "DCQSMF"
-        || msg_type_str == "DCQSMP"
-        || func_code == "791"
-        || func_code == "793"
-        || func_code == "794"
-        || func_code == "I"
-        || func_code == "X"
-        || func_code == "U"
-        || func_code == "B"
-        || func_code == "P"
-        || func_code == "S"
-        || func_code == "T") {
-            LogTrace(TRACE3) << "It's a New Edifact!";
-            return true;
-    }
-
-    LogTrace(TRACE3) << "It's an Old Edifact!";
-    return false;
 }
 
 static bool isTlgPostponed(const tlg_info& tlg)
@@ -185,15 +136,11 @@ void handle_edi_tlg(const tlg_info &tlg)
         boost::optional<TlgHandling::TlgSourceEdifact> answTlg;
         procTlg(tlg_id);
         ASTRA::commit();
-        if(isNewEdifact(tlg.text)) {
-            boost::shared_ptr<TlgHandling::TlgSourceEdifact> tlgSrc;
-            tlgSrc.reset(new TlgHandling::TlgSourceEdifact(tlg.text));
-            tlgSrc->setTlgNum(tlgnum_t(boost::lexical_cast<std::string>(tlg_id)));
-            answTlg = proc_new_edifact(tlgSrc);
-        }
-        else {
-            proc_edifact(tlg.text);
-        }
+
+        boost::shared_ptr<TlgHandling::TlgSourceEdifact> tlgSrc;
+        tlgSrc.reset(new TlgHandling::TlgSourceEdifact(tlg.text));
+        tlgSrc->setTlgNum(tlgnum_t(boost::lexical_cast<std::string>(tlg_id)));
+        answTlg = proc_new_edifact(tlgSrc);
 
         // если сформировался ответ, отправим его
         if(answTlg) {

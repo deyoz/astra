@@ -129,7 +129,7 @@ std::string SystemContext::routerCanonName() const
 
 unsigned SystemContext::edifactResponseTimeOut() const
 {
-    return 20;
+    return 15;
 }
 
 // ================== E D S =====================
@@ -138,8 +138,9 @@ EdsSystemContext* EdsSystemContext::read(const std::string& airl, const Ticketin
 {
     int systemId = 0;
     std::pair<std::string, std::string> addrs;
-    if(!AstraEdifact::get_et_addr_set(airl, flNum?flNum.get():ASTRA::NoExists, addrs, systemId))
+    if(!AstraEdifact::get_et_addr_set(airl, flNum?flNum.get():ASTRA::NoExists, addrs, systemId)) {
         throw system_not_found(airl, flNum);
+    }
 
     SystemContextMaker ctxtMaker;
     ctxtMaker.setIda(Ticketing::SystemAddrs_t(systemId));

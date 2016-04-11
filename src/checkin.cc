@@ -50,7 +50,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 
 using namespace std;
@@ -2893,8 +2893,7 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
                         segInfo.first_point,
                         segInfo.pr_tranzit,
                         trtNotCurrent,trtNotCancelled);
-
-    TTripRoute::iterator r;
+    TTripRoute::iterator r;    
     for(r=route.begin();r!=route.end();r++)
       if (r->airp==airp_arv) break;
     if (r==route.end()) return false;
@@ -3114,7 +3113,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     if (ediResNode==NULL && !ChangeStatusInfo.empty())
     {
       //хотя бы один билет будет обрабатываться
-      OraSession.Rollback();  //откат
+      ASTRA::rollback();//OraSession.Rollback();  //откат
       ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
       SirenaExchangeList.handle(__FUNCTION__);
       return false;
@@ -7581,6 +7580,16 @@ void CheckInInterface::GetTCkinFlights(const map<int, CheckIn::TTransferItem> &t
     segs[t->first]=make_pair(t->second, seg);
   };
 };
+
+CheckInInterface* CheckInInterface::instance()
+{
+    static CheckInInterface* inst = 0;
+    if(!inst) {
+        inst = new CheckInInterface();
+    }
+    return inst;
+}
+
 
 class TCkinSegmentItem : public TCkinSegFlts
 {

@@ -151,7 +151,8 @@ astra_SOURCES = \
   img.cpp \
   wsdl_services.cc \
   ffp_service_from_sirena.cc \
-  sirena_service.cc
+  sirena_service.cc \
+  astra_api.cpp
 
 
 astra_LDADD = $(all_libraries) \
@@ -291,6 +292,8 @@ noinst_HEADERS = \
   Depeches.hpp \
   AsyncNet.hpp \
   img.h \
+  astra_iface.h \
+  astra_api.h \
   wsdl_services.h \
   ffp_service_from_sirena.h \
   sirena_service.h
