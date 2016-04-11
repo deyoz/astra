@@ -214,10 +214,12 @@ bool notify(int typeb_in_id, int typeb_out_id)
         string intmsgid;
         if (!HexToString(typeb_help.intmsgid,intmsgid) || intmsgid.size()!=sizeof(int)*3)
             throw EXCEPTIONS::Exception("TypeBHelpMng.notify: wrong intmsgid=%s", typeb_help.intmsgid.c_str());
+        std::array<uint32_t,3> a;
+        memcpy(&a, intmsgid.c_str(), 12);
         make_notify_msg(typeb_help.text, typeb_in_id, typeb_out_id);
-        sethAfter(EdiHelpSignal(ServerFramework::InternalMsgId::fromString(intmsgid),
-                                typeb_help.addr.c_str(),
-                                typeb_help.text.c_str()));
+        sethAfter(EdiHelpSignal(ServerFramework::InternalMsgId(a),
+                    typeb_help.addr.c_str(),
+                    typeb_help.text.c_str()));
     }
     return result;
 }
