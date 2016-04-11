@@ -30,6 +30,25 @@ void checkBCBP_M(const std::string &bcbp,
                  std::string::size_type &airline_use_begin_idx,
                  std::string::size_type &airline_use_end_idx);
 
+struct TConstPos
+{
+    unsigned int begin;
+    unsigned int end;
+    TConstPos(unsigned int _begin,  unsigned int length)
+    { begin = _begin; end = begin + length;
+    }
+    TConstPos(TConstPos x,  unsigned int length)
+    {
+        begin = x.end; end = begin + length;
+    }
+    bool operator==(unsigned int i)
+    { return i > begin && i< end;
+    }
+    TConstPos inside()
+    {  return TConstPos(begin + 1, end - 1);
+    }
+    int size() const;
+};
 
 namespace NamesBCBPData
 {
@@ -199,16 +218,16 @@ protected:
     boost::optional<T>  get_enum_opt(const std::string& x, int start, std::string& err, const std::string& test, bool allow_non_found = true);
 
 
-    unsigned int get_int(const std::string& x, BASIC::TConstPos pos, std::string& err, unsigned int allow_min = 0, unsigned int allow_max = 0xFFFFFFFF, bool allow_non_found = true);
+    unsigned int get_int(const std::string& x, TConstPos pos, std::string& err, unsigned int allow_min = 0, unsigned int allow_max = 0xFFFFFFFF, bool allow_non_found = true);
 
     template<class T>
-    boost::optional<T>  get_enum_opt(const std::string& x, BASIC::TConstPos pos, std::string& err, const std::string& test, bool allow_non_found = true);
+    boost::optional<T>  get_enum_opt(const std::string& x, TConstPos pos, std::string& err, const std::string& test, bool allow_non_found = true);
 
     template<bool allow_nums>
-    std::string get_alfa_chars_str(const std::string& x, BASIC::TConstPos pos, std::string& err, const std::string special_symbols_allowed = "", bool allow_non_found = true);
+    std::string get_alfa_chars_str(const std::string& x, TConstPos pos, std::string& err, const std::string special_symbols_allowed = "", bool allow_non_found = true);
 
     template<bool allow_non_num_alfa>
-    char get_char(const std::string& x, BASIC::TConstPos pos, std::string& err, bool allow_non_found = true);
+    char get_char(const std::string& x, TConstPos pos, std::string& err, bool allow_non_found = true);
 
     bool bad_symbol(char x,std::string& err);
 
@@ -238,12 +257,12 @@ protected:
     std::string  add_zeros(unsigned int x, unsigned int num, const std::string& field_name,const  std::string& field_type, unsigned int min = 0, unsigned int max = 0xFFFFFFFF);
     std::string add_whitespaces(const std::string& x, unsigned int num, const std::string& field_name, const std::string& field_type);
     void extend_section(std::string &section, unsigned int new_size);
-    void raw_write_field(std::string& where,BASIC::TConstPos pos, const  std::string& what, const std::string& field_name, const std::string& field_type);
-    void write_field(std::string& where, BASIC::TConstPos pos, const  std::string& what, const std::string& field_name, const std::string& field_type);
-    void write_field(std::string& where, BASIC::TConstPos pos,  boost::optional<int> what, const std::string& field_name, const std::string& field_type);
+    void raw_write_field(std::string& where,TConstPos pos, const  std::string& what, const std::string& field_name, const std::string& field_type);
+    void write_field(std::string& where, TConstPos pos, const  std::string& what, const std::string& field_name, const std::string& field_type);
+    void write_field(std::string& where, TConstPos pos,  boost::optional<int> what, const std::string& field_name, const std::string& field_type);
     template<class T>
-    void write_field(std::string& where, BASIC::TConstPos pos,  boost::optional<T> what, const std::string& variants, const std::string& field_name, const std::string& field_type);
-    void write_char(std::string &where, BASIC::TConstPos pos, char what);
+    void write_field(std::string& where, TConstPos pos,  boost::optional<T> what, const std::string& variants, const std::string& field_name, const std::string& field_type);
+    void write_char(std::string &where, TConstPos pos, char what);
 };
 
 
