@@ -1283,6 +1283,9 @@ class TSalonList: public std::vector<TPlaceList*> {
     int getArrivalId() const {
       return filterSets.filterRoutes.getArrivalId();
     }
+    std::string getAirline() const {
+      return filterSets.filterRoutes.getAirline();
+    }
     void getEditableFlightLayers( BitSet<ASTRA::TCompLayerType> &editabeLayers );
     TSalonList( ) {
       pr_craft_lat = false;
