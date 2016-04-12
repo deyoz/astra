@@ -1217,9 +1217,17 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat, bool pr_up
          NewTextChild( propNode, "currency_id", itariff->second.currency_id );
        }
        else {
-         xmlNodePtr n = NewTextChild( node, "tariff",itariff->second.rate );
-         SetProp( n, "color", itariff->second.color );
-         SetProp( n, "currency_id", itariff->second.currency_id );
+         if ( !pr_update ) {
+           xmlNodePtr n = NewTextChild( node, "tariff",itariff->second.rate );
+           SetProp( n, "color", itariff->second.color );
+           SetProp( n, "currency_id", itariff->second.currency_id );
+         }
+         else { //!!! на стороне клиент есть ошибка запроса тега XMLParseUpdateSalons: remsNode := GetNode( 'tariff', n ); надо использовать GetNodeFast
+                //делаем заглушку для того, чтобы работало
+           xmlNodePtr n = NewTextChild( propsNode, "tariff",itariff->second.rate );
+           SetProp( n, "color", itariff->second.color );
+           SetProp( n, "currency_id", itariff->second.currency_id );
+         }
        }
      }
    }
@@ -1419,7 +1427,7 @@ void TPlace::Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) const
        remNode = NewTextChild( layersNode, "layer" );
        NewTextChild( remNode, "layer_type", EncodeCompLayerType( l->layer_type ) );
      }
-   }
+   }   
    if ( !SeatTariff.empty() ) {
      xmlNodePtr n = NewTextChild( node, "tariff", SeatTariff.rate );
      SetProp( n, "color", SeatTariff.color );
@@ -4268,11 +4276,40 @@ void TSalonList::Build( bool with_pax,
                    menuLayers, props, salonsNode );
 }
 
-void checkUniqTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
-                       std::map<std::string,pair<TSeatTariff, TPlace> > &uniqTariffs,
-                       bool pr_lat)
+void checkTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
+                   std::map<std::string,pair<TSeatTariff, TPlace>> &uniqTariffs,
+                   bool pr_lat, const TSeatTariffMap &tariffMap,
+                   bool is_rfisc_applied )
 {
-  std::map<std::string,pair<TSeatTariff, TPlace> >::iterator itariff = uniqTariffs.find( seatTariff.color );
+  //еще одна проверка на то, что тариф имеет цвет описанный в настройках по RFISC'ам
+  ProgTrace( TRACE5, "seatTariff.color=%s, not tariffMap.find()=%d, tariffMap.status()=stUseRFISC %d, tariffMap.status()=%d",
+             seatTariff.color.c_str(), tariffMap.find( seatTariff.color ) == tariffMap.end(),
+             tariffMap.status() == TSeatTariffMap::TStatus::stUseRFISC,
+             (int)tariffMap.status());
+  if ( is_rfisc_applied &&
+       tariffMap.find( seatTariff.color ) == tariffMap.end() ) {
+    string seat1, seat2;
+    seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
+    throw UserException( "MSG.TARIFFCOLOR_NOTINUSE",
+                         LParams()<<LParam("color",ElemIdToNameLong( etRateColor, seatTariff.color ))
+                         <<LParam("seat1",seat1) );
+  }
+  std::map<std::string,pair<TSeatTariff, TPlace>>::iterator itariff;
+  if ( !uniqTariffs.empty() ) {
+    itariff = uniqTariffs.begin();
+    if ( itariff->second.first.currency_id != seatTariff.currency_id ) {
+      string seat1, seat2;
+      seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
+      seat2 = denorm_iata_row( itariff->second.second.yname, NULL ) + denorm_iata_line( itariff->second.second.xname, pr_lat );
+      throw UserException( "MSG.DIFFERENTE_CURRENCY",
+                            LParams()<<LParam("color", ElemIdToNameLong( etRateColor, seatTariff.color ))
+                                     <<LParam("seat1", seat1)
+                                     <<LParam("currency1", ElemIdToNameShort( etCurrency, seatTariff.currency_id))
+                                     <<LParam("seat2",seat2)
+                                     <<LParam("currency2", ElemIdToNameShort( etCurrency, itariff->second.first.currency_id) ) );
+    }
+  }
+  itariff = uniqTariffs.find( seatTariff.color );
   if ( itariff == uniqTariffs.end() ) {
     uniqTariffs.insert( make_pair( seatTariff.color, make_pair(seatTariff,seat) ) );
     return;
@@ -4293,17 +4330,6 @@ void checkUniqTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
                                    <<LParam("tariff1",value1)
                                    <<LParam("seat2",seat2)
                                    <<LParam("tariff2",value2) );
-  }
-  if ( itariff->second.first.currency_id != seatTariff.currency_id ) {
-    string seat1, seat2;
-    seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
-    seat2 = denorm_iata_row( itariff->second.second.yname, NULL ) + denorm_iata_line( itariff->second.second.xname, pr_lat );
-    throw UserException( "MSG.DIFFERENTE_CURRENCY",
-                          LParams()<<LParam("color",ElemIdToNameLong( etRateColor, seatTariff.color ))
-                                   <<LParam("seat1",seat1)
-                                   <<LParam("currency1",seatTariff.currency_id)
-                                   <<LParam("seat2",seat2)
-                                   <<LParam("currency2",itariff->second.first.currency_id) );
   }
 }
 
@@ -4327,6 +4353,9 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
   string rus_lines = rus_seat, lat_lines = lat_seat;
   TElemFmt fmt;
   std::map<std::string,pair<TSeatTariff, TPlace> > uniqTariffs;
+  TSeatTariffMap tariffMap;
+  tariffMap.get_rfisc_colors( airline );
+  tariffMap.trace( TRACE5 );
   while ( salonNode ) {
     TPlaceList *placeList = new TPlaceList();
     placeList->num = NodeAsInteger( "@num", salonNode );
@@ -4455,10 +4484,12 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
             TSeatTariff seatTariff;
             int point_id = NodeAsIntegerFast( "point_id", n2, vpoint_id );
             seatTariff.color = NodeAsStringFast( "color", n2, "" );
-            seatTariff.rate = NodeAsFloatFast( "value", n2, NoExists );
-            seatTariff.currency_id = NodeAsStringFast( "currency_id", n2, "" );
-            checkUniqTariffs( place, seatTariff, uniqTariffs, pr_craft_lat  );
-            place.AddTariff( point_id, seatTariff );
+            if ( seatTariff.color != "clBtnFace" ) { // ошибка на стороне терминала в случае лат. режима
+              seatTariff.rate = NodeAsFloatFast( "value", n2, NoExists );
+              seatTariff.currency_id = NodeAsStringFast( "currency_id", n2, "" );
+              checkTariffs( place, seatTariff, uniqTariffs, pr_craft_lat, tariffMap, tariffMap.is_rfisc_applied( airline ) );
+              place.AddTariff( point_id, seatTariff );
+            }
             n1 = n1->next;
           }
         }
@@ -4468,10 +4499,12 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
         if ( n1 ) {
           TSeatTariff seatTariff;
           seatTariff.color = NodeAsString( "@color", n1 );
-          seatTariff.rate = NodeAsFloat( n1 );
-          seatTariff.currency_id = NodeAsString( "@currency_id", n1 );
-          checkUniqTariffs( place, seatTariff, uniqTariffs, pr_craft_lat );
-          place.AddTariff( vpoint_id, seatTariff );
+          if ( seatTariff.color != "clBtnFace" ) { // ошибка на стороне терминала в случае лат. режима
+            seatTariff.rate = NodeAsFloat( n1 );
+            seatTariff.currency_id = NodeAsString( "@currency_id", n1 );
+            checkTariffs( place, seatTariff, uniqTariffs, pr_craft_lat, tariffMap, tariffMap.is_rfisc_applied( airline ) );
+            place.AddTariff( vpoint_id, seatTariff );
+          }
         }
       }
       place.visible = true;
@@ -4508,8 +4541,8 @@ void TSalonList::WriteFlight( int vpoint_id )
 {
   ProgTrace( TRACE5, "TSalonList::WriteFlight: point_id=%d", vpoint_id );
   TFlights flights;
-    flights.Get( vpoint_id, ftTranzit );
-    flights.Lock();
+  flights.Get( vpoint_id, ftTranzit );
+  flights.Lock();
   TQuery Qry( &OraSession );
   TQuery QryLayers( &OraSession );
   QryLayers.SQLText =
@@ -6223,8 +6256,13 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       remNode = GetNodeFast( "tarif", node );
       if ( remNode ) {
         place.SeatTariff.color = NodeAsString( "@color", remNode );
-        place.SeatTariff.rate = NodeAsFloat( remNode );
-        place.SeatTariff.currency_id = NodeAsString( "@currency_id", remNode );
+        if ( place.SeatTariff.color != "clBtnFace" ) { // ошибка на стороне терминала в случае лат. режима
+          place.SeatTariff.color.clear();
+        }
+        else {
+          place.SeatTariff.rate = NodeAsFloat( remNode );
+          place.SeatTariff.currency_id = NodeAsString( "@currency_id", remNode );
+        }
       }
       place.visible = true;
       placeList->Add( place );
@@ -7639,19 +7677,19 @@ void BuildSalonChanges( xmlNodePtr dataNode, const vector<TSalonSeat> &seats )
   if ( seats.empty() )
     return;
   xmlNodePtr node = NewTextChild( dataNode, "update_salons" );
-    node = NewTextChild( node, "seats" );
-    int num = -1;
-    xmlNodePtr salonNode = NULL;
+  node = NewTextChild( node, "seats" );
+  int num = -1;
+  xmlNodePtr salonNode = NULL;
   BitSet<TDrawPropsType> props;
-    for ( vector<TSalonSeat>::const_iterator p=seats.begin(); p!=seats.end(); p++ ) {
-        if ( num != p->first ) {
-            salonNode = NewTextChild( node, "salon" );
-            SetProp( salonNode, "num", p->first );
-            num = p->first;
-        }
-        p->second.Build( NewTextChild( salonNode, "place" ), true, true ); //!!props - могли измениться - хорошо бы передать на клиент
-        props += p->second.drawProps;
-    }
+  for ( vector<TSalonSeat>::const_iterator p=seats.begin(); p!=seats.end(); p++ ) {
+      if ( num != p->first ) {
+        salonNode = NewTextChild( node, "salon" );
+        SetProp( salonNode, "num", p->first );
+        num = p->first;
+      }
+      p->second.Build( NewTextChild( salonNode, "place" ), true, true ); //!!props - могли измениться - хорошо бы передать на клиент
+      props += p->second.drawProps;
+  }
 }
 
 void BuildSalonChanges( xmlNodePtr dataNode,
@@ -7662,20 +7700,20 @@ void BuildSalonChanges( xmlNodePtr dataNode,
   if ( seats.empty() )
     return;
   xmlNodePtr node = NewTextChild( dataNode, "update_salons" );
-    node = NewTextChild( node, "seats" );
-    int num = -1;
-    xmlNodePtr salonNode = NULL;
+  node = NewTextChild( node, "seats" );
+  int num = -1;
+  xmlNodePtr salonNode = NULL;
   BitSet<TDrawPropsType> props;
-    for ( vector<TSalonSeat>::const_iterator p=seats.begin(); p!=seats.end(); p++ ) {
-        if ( num != p->first ) {
-            salonNode = NewTextChild( node, "salon" );
-            SetProp( salonNode, "num", p->first );
-            num = p->first;
-        }
-        p->second.Build( NewTextChild( salonNode, "place" ), point_dep, true, true,
-                     with_pax, pax_lists ); //!!props - могли измениться!!! - хорошо бы передать на клиент
-        props += p->second.drawProps;
-    }
+  for ( vector<TSalonSeat>::const_iterator p=seats.begin(); p!=seats.end(); p++ ) {
+      if ( num != p->first ) {
+          salonNode = NewTextChild( node, "salon" );
+          SetProp( salonNode, "num", p->first );
+          num = p->first;
+      }
+      p->second.Build( NewTextChild( salonNode, "place" ), point_dep, true, true,
+                       with_pax, pax_lists ); //!!props - могли измениться!!! - хорошо бы передать на клиент
+      props += p->second.drawProps;
+  }
 }
 
 
