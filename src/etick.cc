@@ -2481,12 +2481,6 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   }
 }
 
-static void cleanRemoteResults()
-{
-    std::list<edifact::RemoteResults> lRes;
-    edifact::RemoteResults::readDb(lRes);
-}
-
 void handleEtDispResponse(const edifact::RemoteResults& remRes)
 {
     edilib::EdiSessionId_t ediSessId = remRes.ediSession();
@@ -2545,8 +2539,8 @@ void handleEtDispResponse(const edifact::RemoteResults& remRes)
                 throw EXCEPTIONS::Exception("%s: CreateXMLDoc failed", __FUNCTION__);
             xmlNodePtr ediResCtxtNode=NodeAsNode("/context",ediResCtxt.docPtr());
 
-            // подчищаем RemoteResults - они больше не нужны
-            cleanRemoteResults();
+            // подчищаем RemoteResults дисплея ЭБ - они больше не нужны
+            edifact::RemoteResults::deleteDb(ediSessId);
 
             try
             {

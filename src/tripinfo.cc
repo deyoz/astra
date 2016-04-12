@@ -424,7 +424,6 @@ void TTripInfoSQLParams::set(void)
 /*******************************************************************************/
 void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    tst();
   bool advanced_trip_list=strcmp((char *)reqNode->name, "GetAdvTripList")==0;
 
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -471,10 +470,8 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
 
   vector<TTripListItem> list;
-  tst();
   if (!SQLfilter.access.totally_not_permitted())
   {
-    tst();
     TDateTime utc_date=NowUTC();
     //вычислим client_date
     TDateTime client_date=UTCToClient(utc_date,reqInfo->desk.tz_region);
@@ -496,7 +493,6 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     TQuery StagesQry( &OraSession );
     if (advanced_trip_list)
     {
-      tst();
       if (listInfo.date==NoExists)
         listInfo.date=client_date;
 
@@ -506,16 +502,13 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         SQLfilter.check_point_id=listInfo.point_id;
         setSQLTripList( Qry, SQLfilter );
         Qry.Execute();
-        tst();
         if (!Qry.Eof)
         {
-          tst();
           int point_id=Qry.FieldAsInteger("point_id");
           TTripInfo info(Qry);
           if (!(!checkFinalStages(StagesQry, point_id, SQLfilter) ||
                 (!listInfo.filter.airp_dep.empty() && listInfo.filter.airp_dep!=info.airp)))
           {
-            tst();
             //рейс подходит
             TDateTime scd_out_client;
             info.get_client_dates(scd_out_client,listInfo.date,false);

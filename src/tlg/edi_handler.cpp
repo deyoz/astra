@@ -277,8 +277,3 @@ bool handle_tlg(void)
 
   return queue_not_empty;
 }
-
-
-
-
-

@@ -133,24 +133,6 @@ void EmdCosResponseHandler::handle()
       };
     };
     AstraContext::ClearContext("EDI_SESSION", ediSessId().get());
-/*
-    using namespace edifact;
-
-    switch(respStatus().status())
-    {
-    case edilib::EdiRespStatus::successfully:
-      if(remoteResults())
-      {
-        LogTrace(TRACE3) << "set tlg source: " << getTlgSrc();
-        remoteResults()->setTlgSource(getTlgSrc());
-      }
-      break;
-    case edilib::EdiRespStatus::partial:        
-    case edilib::EdiRespStatus::notProcessed:
-    case edilib::EdiRespStatus::rejected:
-      break;
-    }
-*/
   }
   catch(std::exception &e)
   {
