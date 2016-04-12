@@ -4271,14 +4271,13 @@ void TSalonList::Build( bool with_pax,
 }
 
 void checkTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
-                   std::map<std::string,pair<TSeatTariff, TPlace>> &uniqTariffs,
+                   std::map<std::string,pair<TSeatTariff, TPlace> > &uniqTariffs,
                    bool pr_lat, const TSeatTariffMap &tariffMap,
                    bool is_rfisc_applied )
 {
   //еще одна проверка на то, что тариф имеет цвет описанный в настройках по RFISC'ам
-  ProgTrace( TRACE5, "seatTariff.color=%s, not tariffMap.find()=%d, tariffMap.status()=stUseRFISC %d, tariffMap.status()=%d",
+  ProgTrace( TRACE5, "seatTariff.color=%s, not tariffMap.find()=%d, tariffMap.status()=%d",
              seatTariff.color.c_str(), tariffMap.find( seatTariff.color ) == tariffMap.end(),
-             tariffMap.status() == TSeatTariffMap::TStatus::stUseRFISC,
              (int)tariffMap.status());
   if ( is_rfisc_applied &&
        tariffMap.find( seatTariff.color ) == tariffMap.end() ) {
@@ -4288,7 +4287,7 @@ void checkTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
                          LParams()<<LParam("color",ElemIdToNameLong( etRateColor, seatTariff.color ))
                          <<LParam("seat1",seat1) );
   }
-  std::map<std::string,pair<TSeatTariff, TPlace>>::iterator itariff;
+  std::map<std::string,pair<TSeatTariff, TPlace> >::iterator itariff;
   if ( !uniqTariffs.empty() ) {
     itariff = uniqTariffs.begin();
     if ( itariff->second.first.currency_id != seatTariff.currency_id ) {
@@ -4346,7 +4345,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
   int lat_count = 0, rus_count = 0;
   string rus_lines = rus_seat, lat_lines = lat_seat;
   TElemFmt fmt;
-  std::map<std::string,pair<TSeatTariff, TPlace>> uniqTariffs;
+  std::map<std::string,pair<TSeatTariff, TPlace> > uniqTariffs;
   TSeatTariffMap tariffMap;
   tariffMap.get_rfisc_colors( airline );
   tariffMap.trace( TRACE5 );
