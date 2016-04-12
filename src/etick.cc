@@ -472,7 +472,7 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
   const ETSearchByTickNoParams& params = dynamic_cast<const ETSearchByTickNoParams&>(searchParams);
   if (params.tick_no.empty())
     throw UserException("MSG.TICK.NOT_SET_NUMBER");
-  checkDocNum(params.tick_no);
+  Ticketing::TicketNum_t tickNum = checkDocNum(params.tick_no);
 
   TTripInfo info;
   if (params.existsAdditionalFltInfo())
@@ -535,7 +535,7 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
                                                                  kickInfo,
                                                                  info.airline,
                                                                  Ticketing::FlightNum_t(info.flt_no),
-                                                                 Ticketing::TicketNum_t(params.tick_no)));
+                                                                 tickNum));
   dispReq.sendTlg();
 }
 

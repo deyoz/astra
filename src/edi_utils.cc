@@ -97,13 +97,19 @@ bool TFltParams::get(int point_id)
   return true;
 }
 
-void checkDocNum(const std::string& doc_no)
+Ticketing::TicketNum_t checkDocNum(const std::string& doc_no)
 {
     std::string docNum = doc_no;
     TrimString(docNum);
     for(string::const_iterator c=docNum.begin(); c!=docNum.end(); ++c)
       if (!IsDigitIsLetter(*c))
         throw AstraLocale::UserException("MSG.ETICK.TICKET_NO_INVALID_CHARS");
+    try {
+        return Ticketing::TicketNum_t(docNum);
+    } catch (const TickExceptions::Exception&) {
+        // TODO нужен вменяемый locale_message
+        throw AstraLocale::UserException("MSG.CHECKIN.TICKET_NO_INVALID_CHARS");
+    }
 }
 
 bool checkInteract(const TTripInfo& info,

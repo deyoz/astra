@@ -35,7 +35,7 @@ class TFltParams
     bool get(int point_id);
 };
 
-void checkDocNum(const std::string& doc_no);
+Ticketing::TicketNum_t checkDocNum(const std::string& doc_no);
 
 bool checkETSInteract(const TTripInfo& info,
                       const bool with_exception);
