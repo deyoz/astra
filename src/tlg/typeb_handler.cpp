@@ -11,6 +11,7 @@
 #include "typeb_utils.h"
 #include "telegram.h"
 #include "memory_manager.h"
+#include "astra_main.h"
 #include "qrys.h"
 #include "TypeBHelpMng.h"
 #include "edi_handler.h"
@@ -147,6 +148,7 @@ int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
+    init_locale();
 
     char buf[10];
     for(;;)
