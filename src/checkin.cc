@@ -1428,50 +1428,26 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
 {
   if (node==NULL) return;
 
-  vector<CheckIn::TPaxRemItem> rems;
-  if (from_crs)
-    CheckIn::LoadCrsPaxRem(pax_id, rems);
-  else
-    CheckIn::LoadPaxRem(pax_id, true, rems);
-
-  xmlNodePtr remsNode=NULL;
-  for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
-  {
-    if (isDisabledRem(r->code, r->text)) continue;
-
-    if (remsNode==NULL) remsNode=NewTextChild(node,"rems");
-    r->toXML(remsNode);
-  };
+  vector<CheckIn::TPaxRemItem> rems_and_asvc;
+  vector<CheckIn::TPaxASVCItem> asvc;
+  CheckIn::PaxRemAndASVCFromDB(pax_id, from_crs, rems_and_asvc, asvc);
+  CheckIn::PaxRemAndASVCToXML(rems_and_asvc, node);
 
   list<TPaxEMDItem> emds;
   if (!from_crs)
   {
     PaxEMDFromDB(pax_id, emds);
+    xmlNodePtr asvcNode=NewTextChild(node,"asvc_rems");
     if (!emds.empty())
     {
-      xmlNodePtr asvcNode=NewTextChild(node,"asvc_rems");
       for(list<TPaxEMDItem>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
         e->toXML(asvcNode);
     }
-  };
-
-  vector<CheckIn::TPaxASVCItem> asvc;
-  if (from_crs)
-    CheckIn::LoadCrsPaxASVC(pax_id, asvc);
-  else
-    CheckIn::LoadPaxASVC(pax_id, asvc);
-
-  xmlNodePtr asvcNode=NULL;
-  for(vector<CheckIn::TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
-  {
-    if (!from_crs && emds.empty())
+    else
     {
-      if (asvcNode==NULL) asvcNode=NewTextChild(node,"asvc_rems");
-      r->toXML(asvcNode);
+      for(vector<CheckIn::TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
+        r->toXML(asvcNode);
     };
-
-    if (remsNode==NULL) remsNode=NewTextChild(node,"rems");
-    CheckIn::TPaxRemItem("ASVC", r->text("HI")).toXML(remsNode);
   };
 };
 
@@ -2893,7 +2869,7 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
                         segInfo.first_point,
                         segInfo.pr_tranzit,
                         trtNotCurrent,trtNotCancelled);
-    TTripRoute::iterator r;    
+    TTripRoute::iterator r;
     for(r=route.begin();r!=route.end();r++)
       if (r->airp==airp_arv) break;
     if (r==route.end()) return false;
@@ -4215,9 +4191,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             if (new_checkin || p->remsExists)
             {
-              //простановка ремарок VIP,EXST, если нужно
-              //набор ремарок FQT
               vector<CheckIn::TPaxRemItem> &rems=p->rems;
+
               bool flagVIP=false,
                    flagSTCR=false,
                    flagEXST=false,
@@ -4234,8 +4209,30 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   p->fqts.push_back(fqt);
                 //проверим запрещенные для ввода ремарки...
                 if (isDisabledRem(r->code, r->text))
-                  throw UserException("MSG.REMARK.INPUT_CODE_DENIAL", LParams()<<LParam("remark",r->code.empty()?r->text.substr(0,5):r->code));
+                  throw UserException("MSG.REMARK.INPUT_CODE_DENIAL",
+                                      LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
               };
+              //проверка readonly-ремарок
+              vector<CheckIn::TPaxRemItem> prior_rems;
+              vector<CheckIn::TPaxASVCItem> asvc;
+              CheckIn::PaxRemAndASVCFromDB(pax.id, new_checkin, prior_rems, asvc);
+              multiset<CheckIn::TPaxRemItem> added;
+              multiset<CheckIn::TPaxRemItem> deleted;
+              CheckIn::GetPaxRemDifference(boost::none, prior_rems, rems, added, deleted);
+              for(int pass=0; pass<2; pass++)
+              {
+                for(multiset<CheckIn::TPaxRemItem>::const_iterator r=(pass==0?added:deleted).begin();
+                                                                   r!=(pass==0?added:deleted).end(); ++r)
+                {
+                  if (r->code.empty()) continue;
+                  if (IsReadonlyRem(r->code, r->text))
+                    throw UserException(pass==0?"MSG.REMARK.ADD_OR_CHANGE_DENIAL":"MSG.REMARK.CHANGE_OR_DEL_DENIAL",
+                                        LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
+                };
+              };
+
+              //простановка ремарок VIP,EXST, если нужно
+              //набор ремарок FQT
               int seats=pax.seats;
               if (seats==NoExists)
               {

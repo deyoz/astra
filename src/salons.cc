@@ -260,7 +260,7 @@ void TSeatTariffMap::trace( TRACE_SIGNATURE ) const
   {
     ostringstream s;
     s << right << setw(10) << i->second.color << ": "
-      << right << fixed << setprecision(2) << setw(12) << i->second.rate
+      << right << setw(12) << i->second.rateView()
       << left << setw(3) << i->second.currency_id << " " << i->second.RFISC;
     ProgTrace(TRACE_PARAMS, "%s", s.str().c_str());
   };
@@ -1278,10 +1278,11 @@ void TPlace::SetTariffsByColor( const TSeatTariffMapType &salonTariffs, bool set
     colorItem = salonTariffs.find( itariff->second.color );
     if ( colorItem != salonTariffs.end() ) {
       if ( setPassengerTariffs  ) {
-        itariff->second.rate = colorItem->second.rate;
-        itariff->second.currency_id = colorItem->second.currency_id;
-        itariff->second.RFISC = colorItem->second.RFISC;
-        ProgTrace( TRACE5, "1 place(%d,%d) set tarif=%f", x, y, colorItem->second.rate );
+        itariff->second = colorItem->second;
+        ProgTrace( TRACE5, "1 place(%d,%d) set tarif=%s%s",
+                           x, y,
+                           colorItem->second.rateView().c_str(),
+                           colorItem->second.currency_id.c_str() );
       }
       ++itariff;
     }
@@ -1293,18 +1294,19 @@ void TPlace::SetTariffsByColor( const TSeatTariffMapType &salonTariffs, bool set
   colorItem = salonTariffs.find( SeatTariff.color );
   if ( colorItem != salonTariffs.end() ) {
     if ( setPassengerTariffs  ) {
-      SeatTariff.rate = colorItem->second.rate;
-      ProgTrace( TRACE5, "2 place(%d,%d) set tarif=%f", x, y, colorItem->second.rate );
-      SeatTariff.currency_id = colorItem->second.currency_id;
-      SeatTariff.RFISC = colorItem->second.RFISC;
+      SeatTariff = colorItem->second;
+      ProgTrace( TRACE5, "2 place(%d,%d) set tarif=%s%s",
+                         x, y,
+                         colorItem->second.rateView().c_str(),
+                         colorItem->second.currency_id.c_str() );
     }
   }
   else {
-    ProgTrace( TRACE5, "2 place(%d,%d) delete tarif=%f", x, y, SeatTariff.rate );
-    SeatTariff.color.clear();
-    SeatTariff.rate = 0.0;
-    SeatTariff.currency_id.clear();
-    SeatTariff.RFISC.clear();
+    ProgTrace( TRACE5, "2 place(%d,%d) delete tarif=%s%s",
+                       x, y,
+                       SeatTariff.rateView().c_str(),
+                       SeatTariff.currency_id.c_str() );
+    SeatTariff.clear();
   }
 }
 
@@ -1383,10 +1385,10 @@ void TPlace::convertSeatTariffs( bool pr_departure_tariff_only, int point_dep, c
     }
     uniqueTariffs.insert( tariffs[ *ipoint ] );
     //!logProgTrace( TRACE5, "*ipoint=%d, color=%s,", *ipoint, tariffs[ *ipoint ].color.c_str() );
-    AddTariff( tariffs[ *ipoint ].color,
-               tariffs[ *ipoint ].rate,
-               tariffs[ *ipoint ].currency_id );
-    ProgTrace( TRACE5, "SeatTariff=%s", SeatTariff.tariffStr().c_str() );
+    SeatTariff=TSeatTariff(tariffs[ *ipoint ].color,
+                           tariffs[ *ipoint ].rate,
+                           tariffs[ *ipoint ].currency_id);
+    ProgTrace( TRACE5, "SeatTariff=%s", SeatTariff.str().c_str() );
     break;
   }
 }
@@ -1421,7 +1423,7 @@ void TPlace::Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) const
        remNode = NewTextChild( layersNode, "layer" );
        NewTextChild( remNode, "layer_type", EncodeCompLayerType( l->layer_type ) );
      }
-   }   
+   }
    if ( !SeatTariff.empty() ) {
      xmlNodePtr n = NewTextChild( node, "tariff", SeatTariff.rate );
      SetProp( n, "color", SeatTariff.color );
@@ -4308,21 +4310,15 @@ void checkTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
     return;
   }
   if ( itariff->second.first.rate != seatTariff.rate ) {
-    ostringstream buf;
-    string value1, value2, seat1, seat2;
+    string seat1, seat2;
     seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
     seat2 = denorm_iata_row( itariff->second.second.yname, NULL ) + denorm_iata_line( itariff->second.second.xname, pr_lat );
-    buf << std::fixed << std::setprecision(2)  << seatTariff.rate;
-    value1 = buf.str();
-    buf.str("");
-    buf << std::fixed << std::setprecision(2)  << itariff->second.first.rate;
-    value2 = buf.str();
     throw UserException( "MSG.DIFFERENTE_PRICE",
                           LParams()<<LParam("color",ElemIdToNameLong( etRateColor, seatTariff.color ))
                                    <<LParam("seat1",seat1)
-                                   <<LParam("tariff1",value1)
+                                   <<LParam("tariff1",seatTariff.rateView())
                                    <<LParam("seat2",seat2)
-                                   <<LParam("tariff2",value2) );
+                                   <<LParam("tariff2",itariff->second.first.rateView()) );
   }
 }
 
@@ -5418,21 +5414,20 @@ void CheckWaitListToLog( TQuery &QryAirp,
   string fullname = ipass->second.surname;
   fullname = TrimString( fullname )  + (ipass->second.name.empty()?"":" ") + ipass->second.name;
   TWaitListReason waitListReason;
-  string new_seat_no = ipass->second.event_seat_no( pr_craft_lat, point_dep, waitListReason );
+  PrmEnum seatPrmEnum("seat", "");
+  string new_seat_no = ipass->second.event_seat_no( pr_craft_lat, point_dep, waitListReason, seatPrmEnum.prms );
   if ( waitListReason.layerStatus == layerValid ) {
     if ( pr_exists ) {
-      TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT_WITH_MODE",
+      TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT_AUTOMATICALLY",
                                         LEvntPrms() << PrmSmpl<std::string>("name", fullname)
-                                        << PrmLexema("mode", "EVT.AUTO")
-                                        << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_dep,
-                                        ipass->second.reg_no, ipass->second.grp_id);
+                                                    << seatPrmEnum,
+                                        evtPax, point_dep, ipass->second.reg_no, ipass->second.grp_id);
     }
     else {
-      TReqInfo::Instance()->LocaleToLog( "EVT.PASSENGER_SEATED_WITH_MODE",
-                                         LEvntPrms() << PrmSmpl<std::string>("name", fullname)
-                                         << PrmLexema("mode", "EVT.AUTO")
-                                         << PrmSmpl<std::string>("seat", new_seat_no), evtPax, point_dep,
-                                         ipass->second.reg_no, ipass->second.grp_id );
+      TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_SEATED_AUTOMATICALLY",
+                                        LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                                                    << seatPrmEnum,
+                                        evtPax, point_dep, ipass->second.reg_no, ipass->second.grp_id );
     }
     return;
   }
@@ -6052,9 +6047,9 @@ void TSalons::Read( bool drop_not_used_pax_layers )
               QryWebTariff.FieldAsInteger( webtariff_col_num ) == num &&
               QryWebTariff.FieldAsInteger( webtariff_col_x ) == place.x &&
               QryWebTariff.FieldAsInteger( webtariff_col_y ) == place.y ) {
-          place.AddTariff( QryWebTariff.FieldAsString( webtariff_col_color ),
-                           QryWebTariff.FieldAsFloat( webtariff_col_rate ),
-                           QryWebTariff.FieldAsString( webtariff_col_rate_cur ) );
+          place.SeatTariff=TSeatTariff( QryWebTariff.FieldAsString( webtariff_col_color ),
+                                        QryWebTariff.FieldAsFloat( webtariff_col_rate ),
+                                        QryWebTariff.FieldAsString( webtariff_col_rate_cur ) );
           QryWebTariff.Next();
         }
       }
@@ -8057,33 +8052,33 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
   TCompElemTypes::Instance()->getElem( places.begin()->elem_type, elem_type );
     tmp = "ADD_COMMON_SALON_REF";
   if ( name.find( tmp ) != string::npos ) {
-      params.prms << PrmSmpl<string>("", "+") << PrmLexema("", "EVT.SALON")
-           << PrmSmpl<string>("", " "+name.substr(name.find( tmp )+tmp.size() ) + " ")
-           << PrmElem<string>("", etClass, places.begin()->clname) << PrmSmpl<string>("", " ")
-           << PrmElem<string>("", etCompElemType, elem_type.getCode(), efmtNameLong) << PrmSmpl<string>("", ":");
+    params.prms << PrmSmpl<string>("", "+") << PrmLexema("", "EVT.SALON")
+                << PrmSmpl<string>("", " "+name.substr(name.find( tmp )+tmp.size() ) + " ")
+                << PrmElem<string>("", etClass, places.begin()->clname) << PrmSmpl<string>("", " ")
+                << PrmElem<string>("", etCompElemType, elem_type.getCode(), efmtNameLong) << PrmSmpl<string>("", ":");
     name.clear();
   }
     tmp = "ADD_SALON";
   if ( name.find( tmp ) != string::npos ) {
     params.prms << PrmSmpl<string>("", "+") << PrmLexema("", "EVT.SALON")
-           << PrmSmpl<string>("", " "+name.substr(name.find( tmp )+tmp.size() ) + ":");
+                << PrmSmpl<string>("", " "+name.substr(name.find( tmp )+tmp.size() ) + ":");
   }
   tmp = string("DEL_SALON" );
   if ( name.find( tmp ) != string::npos ) {
     params.prms << PrmSmpl<string>("", "-") << PrmLexema("", "EVT.SALON")
-           << PrmSmpl<string>("", " "+name.substr(name.find( tmp )+tmp.size() ) + ":");
+                << PrmSmpl<string>("", " "+name.substr(name.find( tmp )+tmp.size() ) + ":");
   }
   tmp = "ADD_SEATS";
   if ( name.find( tmp ) != string::npos ) {
     params.prms << PrmSmpl<string>("", "+") << PrmElem<string>("", etCompElemType, elem_type.getCode(), efmtNameLong)
-           << PrmSmpl<string>("", " ") << PrmElem<string>("", etClass, places.begin()->clname)
-           << PrmSmpl<string>("", ":");
+                << PrmSmpl<string>("", " ") << PrmElem<string>("", etClass, places.begin()->clname)
+                << PrmSmpl<string>("", ":");
   }
   tmp = "DEL_SEATS";
   if ( name.find( tmp ) != string::npos ) {
     params.prms << PrmSmpl<string>("", "-") << PrmElem<string>("", etCompElemType, elem_type.getCode(), efmtNameLong)
-           << PrmSmpl<string>("", " ") << PrmElem<string>("", etClass, places.begin()->clname)
-           << PrmSmpl<string>("", ":");
+                << PrmSmpl<string>("", " ") << PrmElem<string>("", etClass, places.begin()->clname)
+                << PrmSmpl<string>("", ":");
   }
   tmp = "ADD_REMS";
   if ( name.find( tmp ) != string::npos ) {
@@ -8098,50 +8093,48 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
     ASTRA::TCompLayerType layer_type = DecodeCompLayerType( name.substr( name.find( tmp )+tmp.size() ).c_str() );
     BASIC_SALONS::TCompLayerTypes *compLayerTypes = BASIC_SALONS::TCompLayerTypes::Instance();
     params.prms << PrmSmpl<string>("", "+")
-           << PrmElem<string>("", etCompLayerType, compLayerTypes->getCode((layer_type)), efmtNameLong)
-           << PrmSmpl<string>("", ":");
+                << PrmElem<string>("", etCompLayerType, compLayerTypes->getCode((layer_type)), efmtNameLong)
+                << PrmSmpl<string>("", ":");
   }
   tmp = "DEL_LAYERS";
   if ( name.find( tmp ) != string::npos ) {
     ASTRA::TCompLayerType layer_type = DecodeCompLayerType( name.substr( name.find( tmp )+tmp.size() ).c_str() );
     BASIC_SALONS::TCompLayerTypes *compLayerTypes = BASIC_SALONS::TCompLayerTypes::Instance();
     params.prms << PrmSmpl<string>("", "-")
-           << PrmElem<string>("", etCompLayerType, compLayerTypes->getCode((layer_type)), efmtNameLong)
-           << PrmSmpl<string>("", ":");
+                << PrmElem<string>("", etCompLayerType, compLayerTypes->getCode((layer_type)), efmtNameLong)
+                << PrmSmpl<string>("", ":");
   }
   tmp = "ADD_WEB_TARIFF";
   if ( name.find( tmp ) != string::npos ) {
     params.prms << PrmSmpl<string>("", "+") << PrmLexema("", "EVT.WEB_TARIFF") << PrmSmpl<string>("", " ");
-    ostringstream str;
     if ( /*TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION )*/ true ) {
       std::map<int, TSeatTariff,classcomp> tariffs;
       places.begin()->GetTariffs( tariffs );
       if ( tariffs.find( point_id ) != tariffs.end() ) {
-        str << std::fixed << std::setprecision(2)  << tariffs[ point_id ].rate;
-        params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, tariffs[ point_id ].currency_id);
+        params.prms << PrmSmpl<string>("", tariffs[ point_id ].rateView())
+                    << PrmElem<string>("", etCurrency, tariffs[ point_id ].currency_id);
       }
     }
     else {
-      str << std::fixed << std::setprecision(2)  << places.begin()->SeatTariff.rate;
-      params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, places.begin()->SeatTariff.currency_id);
+      params.prms << PrmSmpl<string>("", places.begin()->SeatTariff.rateView())
+                  << PrmElem<string>("", etCurrency, places.begin()->SeatTariff.currency_id);
     }
     params.prms << PrmSmpl<string>("", ":");
   }
   tmp = "DEL_WEB_TARIFF";
   if ( name.find( tmp ) != string::npos ) {
     params.prms << PrmSmpl<string>("", "-") << PrmLexema("", "EVT.WEB_TARIFF") << PrmSmpl<string>("", " ");
-    ostringstream str;
     if ( /*TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION )*/ true ) {
       std::map<int, TSeatTariff,classcomp> tariffs;
       places.begin()->GetTariffs( tariffs );
       if ( tariffs.find( point_id ) != tariffs.end() ) {
-        str << std::fixed << std::setprecision(2) << tariffs[ point_id ].rate;
-        params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, tariffs[ point_id ].currency_id);
+        params.prms << PrmSmpl<string>("", tariffs[ point_id ].rateView())
+                    << PrmElem<string>("", etCurrency, tariffs[ point_id ].currency_id);
       }
     }
     else {
-      str << std::fixed << std::setprecision(2)  << places.begin()->SeatTariff.rate;
-      params.prms << PrmSmpl<string>("", str.str()) << PrmElem<string>("", etCurrency, places.begin()->SeatTariff.currency_id);
+      params.prms << PrmSmpl<string>("", places.begin()->SeatTariff.rateView())
+                  << PrmElem<string>("", etCurrency, places.begin()->SeatTariff.currency_id);
     }
     params.prms << PrmSmpl<string>("", ":");
   }
@@ -8270,7 +8263,7 @@ void fillMapChangesTariffsSeats( int point_id,
   if ( tariffs1.find( point_id ) != tariffs1.end() &&
        ( tariffs2.find( point_id ) == tariffs1.end() ||
          tariffs1[ point_id ] != tariffs2[ point_id ] ) ) {
-    mapChanges[ key_value + tariffs1[ point_id ].color+FloatToString(tariffs1[ point_id ].rate)+tariffs1[ point_id ].currency_id ].places.push_back( *seat1 );
+    mapChanges[ key_value + tariffs1[ point_id ].str() ].places.push_back( *seat1 );
   }
 }
 
@@ -8861,8 +8854,9 @@ std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, TWa
   return GetSeatRangeView(ranges, format, pr_lat_seat);
 }
 
-std::string TSalonPax::event_seat_no( bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason ) const
+std::string TSalonPax::event_seat_no( bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const
 {
+  evntPrms.clear();
   std::vector<TSeatRange> ranges;
   vector<TPlace*> seats;
   int_get_seats( waitListReason, seats );
@@ -8871,22 +8865,40 @@ std::string TSalonPax::event_seat_no( bool pr_lat_seat, int point_dep, TWaitList
         iseat!=seats.end(); iseat++ ) {
     ranges.clear();
     ranges.push_back( TSeatRange(  TSeat( (*iseat)->yname, (*iseat)->xname ),  TSeat( (*iseat)->yname, (*iseat)->xname ) ) );
-    if ( !res.str().empty() ) {
+    string seat_view=GetSeatRangeView(ranges, "list", pr_lat_seat);
+
+    if (iseat!=seats.begin())
+    {
       res << " ";
+      evntPrms << PrmSmpl<string>("", " ");
     }
-    res << GetSeatRangeView(ranges, "list", pr_lat_seat);
+    res << seat_view;
+    evntPrms << PrmSmpl<string>("", seat_view);
+
     TSeatTariffMap passTariffs;
     passTariffs.get( pax_id );
     (*iseat)->convertSeatTariffs( point_dep );
     (*iseat)->SetTariffsByColor( passTariffs, true );
     (*iseat)->SetRFICSRemarkByColor( point_dep, passTariffs );
 
-    if ( !(*iseat)->SeatTariff.RFISC.empty() ) {
-      res << " " + (*iseat)->SeatTariff.RFISC;
-    }
-    if ( !(*iseat)->SeatTariff.empty() ) {
-      res << " " << fixed << setprecision(2) << (*iseat)->SeatTariff.rate;
-      res << " " << (*iseat)->SeatTariff.currency_id;
+    if ( !(*iseat)->SeatTariff.RFISC.empty() || !(*iseat)->SeatTariff.empty() )
+    {
+      evntPrms << PrmSmpl<string>("", "(");
+      if ( !(*iseat)->SeatTariff.RFISC.empty() )
+        evntPrms << PrmSmpl<string>("", (*iseat)->SeatTariff.RFISC);
+      if ( !(*iseat)->SeatTariff.empty() )
+      {
+        if ( !(*iseat)->SeatTariff.RFISC.empty() )
+          evntPrms << PrmSmpl<string>("", "/");
+
+        if (passTariffs.status()==TSeatTariffMap::stUseRFISC ||
+            passTariffs.status()==TSeatTariffMap::stNotRFISC)
+          evntPrms << PrmSmpl<string>("", (*iseat)->SeatTariff.rateView())
+                   << PrmElem<string>("", etCurrency, (*iseat)->SeatTariff.currency_id);
+        else
+          evntPrms << PrmLexema("", "EVT.UNKNOWN_RATE");
+      }
+      evntPrms << PrmSmpl<string>("", ")");
     }
   }
   return res.str();

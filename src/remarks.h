@@ -12,6 +12,7 @@ enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remASVC, remUnknow
 TRemCategory getRemCategory( const std::string &rem_code, const std::string &rem_text );
 bool isDisabledRemCategory( TRemCategory cat );
 bool isDisabledRem( const std::string &rem_code, const std::string &rem_text );
+bool IsReadonlyRem( const std::string &rem_code, const std::string &rem_text );
 
 enum TRemEventType {
     retBP,
@@ -173,12 +174,26 @@ void SavePaxFQT(int pax_id, const std::vector<TPaxFQTItem> &fqts);
 
 bool SyncPaxASVC(int id, bool is_grp_id);
 
-void SyncPaxRemOrigin(const TRemGrp &rem_grp,
+void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
+                         const std::vector<TPaxRemItem> &prior_rems,
+                         const std::vector<TPaxRemItem> &curr_rems,
+                         std::multiset<TPaxRemItem> &added,
+                         std::multiset<TPaxRemItem> &deleted);
+
+void SyncPaxRemOrigin(const boost::optional<TRemGrp> &rem_grp,
                       const int &pax_id,
                       const std::vector<TPaxRemItem> &prior_rems,
                       const std::vector<TPaxRemItem> &curr_rems,
                       const int &user_id,
                       const std::string &desk);
+
+void PaxRemAndASVCFromDB(int pax_id,
+                         bool from_crs,
+                         std::vector<TPaxRemItem> &rems_and_asvc,
+                         std::vector<TPaxASVCItem> &asvc);
+
+void PaxRemAndASVCToXML(const std::vector<TPaxRemItem> &rems_and_asvc,
+                        xmlNodePtr node);
 
 };
 
