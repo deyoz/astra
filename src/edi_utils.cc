@@ -107,8 +107,7 @@ Ticketing::TicketNum_t checkDocNum(const std::string& doc_no)
     try {
         return Ticketing::TicketNum_t(docNum);
     } catch (const TickExceptions::Exception&) {
-        // TODO нужен вменяемый locale_message
-        throw AstraLocale::UserException("MSG.CHECKIN.TICKET_NO_INVALID_CHARS");
+        throw AstraLocale::UserException("MSG.ETICK.INVALID_NUMBER");
     }
 }
 
