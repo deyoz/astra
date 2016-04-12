@@ -4296,11 +4296,11 @@ void checkTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
       seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
       seat2 = denorm_iata_row( itariff->second.second.yname, NULL ) + denorm_iata_line( itariff->second.second.xname, pr_lat );
       throw UserException( "MSG.DIFFERENTE_CURRENCY",
-                            LParams()<<LParam("color",ElemIdToNameLong( etRateColor, seatTariff.color ))
-                                     <<LParam("seat1",seat1)
-                                     <<LParam("currency1",seatTariff.currency_id)
+                            LParams()<<LParam("color", ElemIdToNameLong( etRateColor, seatTariff.color ))
+                                     <<LParam("seat1", seat1)
+                                     <<LParam("currency1", ElemIdToNameShort( etCurrency, seatTariff.currency_id))
                                      <<LParam("seat2",seat2)
-                                     <<LParam("currency2",itariff->second.first.currency_id) );
+                                     <<LParam("currency2", ElemIdToNameShort( etCurrency, itariff->second.first.currency_id) ) );
     }
   }
   itariff = uniqTariffs.find( seatTariff.color );
