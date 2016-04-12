@@ -25,7 +25,6 @@ class TPlace {
     std::string status;
     bool pr_free;
     bool block;
-    bool passSel;
     std::vector<SALONS2::TRem> rems;
     std::vector<std::string> layers;
     TPlace() {
@@ -43,7 +42,6 @@ class TPlace {
       status = "FP";
       pr_free = true;
       block = false;
-      passSel = false;
     }
 };
 

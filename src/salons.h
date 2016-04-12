@@ -127,41 +127,68 @@ struct TSeatTariff {
     double rate;
     std::string currency_id;
     std::string RFISC;
-    TSeatTariff() {
-        rate = 0.0;
+    TSeatTariff()
+    {
+      clear();
     }
-    bool empty() const {
+    TSeatTariff(const std::string& _color,
+                const double& _rate,
+                const std::string& _currency_id)
+    {
+      clear();
+      color=_color;
+      rate=_rate;
+      currency_id=_currency_id;
+    }
+    void clear()
+    {
+      color.clear();
+      rate = 0.0;
+      currency_id.clear();
+      RFISC.clear();
+    }
+    bool empty() const
+    {
       return color.empty(); //price == 0.0;
     }
-    std::string valueStr() const {
+    std::string rateView() const
+    {
       std::ostringstream buf;
       buf << std::fixed << std::setprecision(2) << rate;
       return buf.str();
     }
-    std::string tariffStr() const {
-      std::ostringstream buf;
-      buf << std::fixed << std::setprecision(2) << color << rate << currency_id;
-      return buf.str();
+    std::string currencyView(const std::string &lang) const
+    {
+      return ElemIdToPrefferedElem(etCurrency, currency_id, efmtCodeNative, lang);
     }
-    bool equal( const TSeatTariff &seatTarif ) const {
-    return ( color == seatTarif.color &&
-             rate == seatTarif.rate &&
-             currency_id == seatTarif.currency_id ); //RFISC == seatTarif.RFISC??? !!!vlad
-  }
-  bool operator != (const TSeatTariff &seatTarif) const {
-    return !equal( seatTarif );
-  }
+    std::string str() const
+    {
+      return color+rateView()+currency_id;
+    }
+    bool equal( const TSeatTariff &seatTarif ) const
+    {
+      return ( color == seatTarif.color &&
+               rate == seatTarif.rate &&
+               currency_id == seatTarif.currency_id );
+    }
+    bool operator != (const TSeatTariff &seatTarif) const
+    {
+      return !equal( seatTarif );
+    }
+    bool operator < (const TSeatTariff &seatTarif) const
+    {
+      if (color != seatTarif.color)
+        return color < seatTarif.color;
+      if (rate != seatTarif.rate)
+        return rate < seatTarif.rate;
+      return currency_id < seatTarif.currency_id;
+    }
 };
 
 struct SeatTariffCompare {
-  bool operator() ( const TSeatTariff &tariff1, const TSeatTariff &tariff2 ) const {
-    if ( tariff1.color + tariff1.currency_id != tariff2.color + tariff2.currency_id ) {
-      return ( tariff1.color + tariff1.currency_id < tariff2.color + tariff2.currency_id );
-    }
-    if ( tariff1.rate != tariff2.rate ) {
-      return ( tariff1.rate < tariff2.rate );
-    }
-    return false;
+  bool operator() ( const TSeatTariff &tariff1, const TSeatTariff &tariff2 ) const
+  {
+    return tariff1<tariff2;
   }
 };
 
@@ -170,12 +197,11 @@ class TSeatTariffMapType : public std::map<std::string,TSeatTariff> {
     std::string key() const {
       std::string res;
       for ( std::map<std::string,TSeatTariff,SeatTariffCompare>::const_iterator i=begin(); i!=end(); i++ ) {
-         res += " " + i->second.tariffStr();
+         res += " " + i->second.str();
       }
       return res;
     }
 };
-//typedef std::map<std::string/*color*/, std::string/*rfisc*/> TRFISColorsMap;
 
 class TSeatTariffMap : public TSeatTariffMapType
 {
@@ -622,7 +648,7 @@ class TPlace {
     std::map<int,TSeatLayer> drop_blocked_layers;
     bool CompareRems( const TPlace &seat ) const;
     bool CompareLayers( const TPlace &seat ) const;
-    bool CompareTariffs( const TPlace &seat ) const;    
+    bool CompareTariffs( const TPlace &seat ) const;
   public:
     bool visible;
     int x, y, num;
@@ -633,7 +659,6 @@ class TPlace {
     int agle;
     std::string clname;
     std::string xname, yname;
-    bool passSel;
     std::vector<TRem> rems;
     std::vector<TPlaceLayer> layers;
     TSeatTariff SeatTariff;
@@ -642,6 +667,7 @@ class TPlace {
     TPlace() {
       x = -1;
       y = -1;
+      num = -1;
       visible = false;
       isplace = false;
       xprior = -1;
@@ -649,35 +675,7 @@ class TPlace {
       xnext = -1;
       ynext = -1;
       agle = 0;
-      passSel = false;
       isPax = false;
-    }
-    void Assign( TPlace &pl ) {
-      visible = pl.visible;
-      x = pl.x;
-      y = pl.y;
-      elem_type = pl.elem_type;
-      isplace = pl.isplace;
-      xprior = pl.xprior;
-      yprior = pl.yprior;
-      xnext = pl.xnext;
-      ynext = pl.ynext;
-      agle = pl.agle;
-      clname = pl.clname;
-      xname = pl.xname;
-      yname = pl.yname;
-      layers = pl.layers;
-      save_lrss = pl.save_lrss;
-      lrss = pl.lrss;
-      rems = pl.rems;
-      SeatTariff.color = pl.SeatTariff.color;
-      SeatTariff.currency_id = pl.SeatTariff.currency_id;
-      SeatTariff.rate = pl.SeatTariff.rate;
-      SeatTariff.RFISC = pl.SeatTariff.RFISC;
-      isPax = pl.isPax;
-      remarks = pl.remarks;
-      tariffs = pl.tariffs;
-      drop_blocked_layers = pl.drop_blocked_layers;
     }
     bool isLayer( ASTRA::TCompLayerType layer, int pax_id = -1 ) {
         for (std::vector<TPlaceLayer>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
@@ -758,16 +756,9 @@ class TPlace {
     }
     void AddTariff( int key, const TSeatTariff &seatTariff ) {
       tariffs[ key ] = seatTariff;
-    }    
+    }
     void GetTariffs( std::map<int, TSeatTariff,classcomp> &vtariffs ) const {
       vtariffs = tariffs;
-    }
-    void AddTariff( const std::string &vcolor,
-                    const double &rate,
-                    const std::string &vcurrency_id ) {
-       SeatTariff.color = vcolor;
-       SeatTariff.rate = rate;
-       SeatTariff.currency_id = vcurrency_id;
     }
 
     void SetTariffsByColor( const TSeatTariffMapType &salonTariffs, bool setPassengerTariffs );
@@ -958,7 +949,7 @@ struct TSalonPax {
     void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges ) const;
     std::string seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const;
-    std::string event_seat_no( bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason ) const;
+    std::string event_seat_no(bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const;
     std::string prior_seat_no( const std::string &format, bool pr_lat_seat ) const;
 };
                                 //pax_id,TSalonPax
@@ -1299,7 +1290,7 @@ class TSalonList: public std::vector<TPlaceList*> {
                      TSalonReadVersion version,
                      const std::string &filterClass,
                      bool for_calc_waitlist = false,  //!!!
-                     int prior_compon_props_point_id = ASTRA::NoExists );    
+                     int prior_compon_props_point_id = ASTRA::NoExists );
     void Build( bool with_pax,
                 xmlNodePtr salonsNode );
     void Parse( int vpoint_id, const std::string &airline, xmlNodePtr salonsNode );

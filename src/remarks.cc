@@ -61,6 +61,37 @@ bool isDisabledRem( const string &rem_code, const string &rem_text )
   return isDisabledRemCategory(getRemCategory(rem_code, rem_text));
 };
 
+const char *ReadonlyRemCodes[]=
+    {"TKNO","TKNA","TKNE","TKNM","TKN","TKT","TKTN","TKTNO","TTKNR","TTKNO","PSPT",
+     "EXST","RQST","SEAT","NSST","NSSA","NSSB","NSSW","SMST","SMSA","SMSB","SMSW",
+     "CHD","CHLD","INF","INFT","DOCS","DOCO","DOCA","ASVC",
+     "ACLS","BCLS","CCLS","DCLS","ECLS","FCLS","GCLS","HCLS","ICLS","JCLS","KCLS","LCLS",
+     "MCLS","NCLS","OCLS","PCLS","QCLS","RCLS","SCLS","TCLS","UCLS","VCLS","WCLS","XCLS",
+     "YCLS","ZCLS",
+     "PRSA"};
+
+bool IsReadonlyRem( const string &rem_code, const string &rem_text )
+{
+  static set<string> rems;
+  if (rems.empty())
+  {
+    int i=sizeof(ReadonlyRemCodes)/sizeof(ReadonlyRemCodes[0])-1;
+    for(;i>=0;i--) rems.insert(ReadonlyRemCodes[i]);
+  };
+
+  if (!rem_code.empty()) return rems.find(rem_code)!=rems.end();
+
+  if (!rem_text.empty())
+  {
+    for(set<string>::const_iterator iRem=rems.begin(); iRem!=rems.end(); ++iRem)
+    {
+      if (rem_text.substr(0,iRem->size())==*iRem) return true;
+    };
+  };
+
+  return false;
+}
+
 void TRemGrp::Load(TRemEventType rem_set_type, int point_id)
 {
     clear();
@@ -563,7 +594,7 @@ void SavePaxFQT(int pax_id, const vector<TPaxFQTItem> &fqts)
 class TPaxRemOriginItem
 {
   public:
-    string rem_code;
+    TPaxRemItem rem;
     int user_id;
     string desk;
     BASIC::TDateTime time_create;
@@ -573,7 +604,7 @@ class TPaxRemOriginItem
     }
     void clear()
     {
-      rem_code.clear();
+      rem.clear();
       user_id=ASTRA::NoExists;
       desk.clear();
       time_create=ASTRA::NoExists;
@@ -584,7 +615,7 @@ class TPaxRemOriginItem
 
 const TPaxRemOriginItem& TPaxRemOriginItem::toDB(TQuery &Qry) const
 {
-  Qry.SetVariable("rem_code", rem_code);
+  rem.toDB(Qry);
   Qry.SetVariable("user_id", user_id);
   Qry.SetVariable("desk", desk);
   Qry.SetVariable("time_create", time_create);
@@ -594,7 +625,7 @@ const TPaxRemOriginItem& TPaxRemOriginItem::toDB(TQuery &Qry) const
 TPaxRemOriginItem& TPaxRemOriginItem::fromDB(TQuery &Qry)
 {
   clear();
-  rem_code=Qry.FieldAsString("rem_code");
+  rem.fromDB(Qry);
   user_id=Qry.FieldAsInteger("user_id");
   desk=Qry.FieldAsString("desk");
   time_create=Qry.FieldAsDateTime("time_create");
@@ -609,8 +640,8 @@ class TPaxRemOriginList : public std::vector<TPaxRemOriginItem>
     TPaxRemOriginList() : modified(false) {}
     void load(int pax_id);
     void save(int pax_id) const;
-    void add(const multiset<string> &rems, const int &user_id, const string &desk);
-    void del(const multiset<string> &rems, const int &user_id, const string &desk);
+    void add(const multiset<TPaxRemItem> &rems, const int &user_id, const string &desk);
+    void del(const multiset<TPaxRemItem> &rems, const int &user_id, const string &desk);
     void clear()
     {
       std::vector<TPaxRemOriginItem>::clear();
@@ -643,8 +674,9 @@ void TPaxRemOriginList::save(int pax_id) const
   RemQry.Execute();
 
   RemQry.SQLText=
-    "INSERT INTO pax_rem_origin(pax_id, rem_code, user_id, desk, time_create) "
-    "VALUES(:pax_id, :rem_code, :user_id, :desk, :time_create)";
+    "INSERT INTO pax_rem_origin(pax_id, rem, rem_code, user_id, desk, time_create) "
+    "VALUES(:pax_id, :rem, :rem_code, :user_id, :desk, :time_create)";
+  RemQry.DeclareVariable("rem", otString);
   RemQry.DeclareVariable("rem_code", otString);
   RemQry.DeclareVariable("user_id", otInteger);
   RemQry.DeclareVariable("desk", otString);
@@ -656,7 +688,7 @@ void TPaxRemOriginList::save(int pax_id) const
   };
 }
 
-void TPaxRemOriginList::add(const multiset<string> &rems,
+void TPaxRemOriginList::add(const multiset<TPaxRemItem> &rems,
                             const int &user_id,
                             const string &desk)
 {
@@ -665,27 +697,27 @@ void TPaxRemOriginList::add(const multiset<string> &rems,
   item.user_id=user_id;
   item.desk=desk;
   item.time_create=BASIC::NowUTC();
-  for(multiset<string>::const_iterator i=rems.begin(); i!=rems.end(); ++i)
+  for(multiset<TPaxRemItem>::const_iterator i=rems.begin(); i!=rems.end(); ++i)
   {
-    item.rem_code=*i;
+    item.rem=*i;
     push_back(item);
     modified=true;
   }
 }
 
-void TPaxRemOriginList::del(const multiset<string> &rems,
+void TPaxRemOriginList::del(const multiset<TPaxRemItem> &rems,
                             const int &user_id,
                             const string &desk)
 {
   if (rems.empty()) return;
-  for(multiset<string>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
+  for(multiset<TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
   {
     for(int pass=0; pass<3; pass++)
     {
       TPaxRemOriginList::iterator j=end();
       for(TPaxRemOriginList::iterator i=begin(); i!=end(); ++i)
       {
-        if (i->rem_code!=*r) continue;
+        if (!(i->rem==*r)) continue;
         if (pass==0 && (i->user_id!=user_id || i->desk!=desk)) continue; //1 проход - совпадение пользователя и пульта
         if (pass==1 && i->user_id!=user_id) continue;                    //2 проход - совпадение пользователя
                                                                          //3 проход - просто удаление последней введенной
@@ -701,18 +733,20 @@ void TPaxRemOriginList::del(const multiset<string> &rems,
   }
 }
 
-void SyncPaxRemOrigin(const TRemGrp &rem_grp,
-                      const int &pax_id,
-                      const vector<TPaxRemItem> &prior_rems,
-                      const vector<TPaxRemItem> &curr_rems,
-                      const int &user_id,
-                      const string &desk)
+void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
+                         const vector<TPaxRemItem> &prior_rems,
+                         const vector<TPaxRemItem> &curr_rems,
+                         multiset<TPaxRemItem> &added,
+                         multiset<TPaxRemItem> &deleted)
 {
-  multiset<string> prior_rems_filtered, curr_rems_filtered, added, deleted;
+  added.clear();
+  deleted.clear();
+
+  multiset<TPaxRemItem> prior_rems_filtered, curr_rems_filtered;
   for(vector<TPaxRemItem>::const_iterator i=prior_rems.begin(); i!=prior_rems.end(); ++i)
-    if (rem_grp.exists(i->code)) prior_rems_filtered.insert(i->code);
+    if (!rem_grp || rem_grp.get().exists(i->code)) prior_rems_filtered.insert(*i);
   for(vector<TPaxRemItem>::const_iterator i=curr_rems.begin(); i!=curr_rems.end(); ++i)
-    if (rem_grp.exists(i->code)) curr_rems_filtered.insert(i->code);
+    if (!rem_grp || rem_grp.get().exists(i->code)) curr_rems_filtered.insert(*i);
 
   set_difference(prior_rems_filtered.begin(), prior_rems_filtered.end(),
                  curr_rems_filtered.begin(), curr_rems_filtered.end(),
@@ -721,6 +755,18 @@ void SyncPaxRemOrigin(const TRemGrp &rem_grp,
   set_difference(curr_rems_filtered.begin(), curr_rems_filtered.end(),
                  prior_rems_filtered.begin(), prior_rems_filtered.end(),
                  inserter(added, added.end()));
+}
+
+void SyncPaxRemOrigin(const boost::optional<TRemGrp> &rem_grp,
+                      const int &pax_id,
+                      const vector<TPaxRemItem> &prior_rems,
+                      const vector<TPaxRemItem> &curr_rems,
+                      const int &user_id,
+                      const string &desk)
+{
+  multiset<TPaxRemItem> added, deleted;
+
+  GetPaxRemDifference(rem_grp, prior_rems, curr_rems, added, deleted);
 
   if (deleted.empty() && added.empty()) return;
 
@@ -729,6 +775,48 @@ void SyncPaxRemOrigin(const TRemGrp &rem_grp,
   rems_origin.del(deleted, user_id, desk);
   rems_origin.add(added, user_id, desk);
   rems_origin.save(pax_id);
+}
+
+void PaxRemAndASVCFromDB(int pax_id,
+                         bool from_crs,
+                         std::vector<TPaxRemItem> &rems_and_asvc,
+                         std::vector<TPaxASVCItem> &asvc)
+{
+  rems_and_asvc.clear();
+  asvc.clear();
+
+  if (from_crs)
+  {
+    LoadCrsPaxRem(pax_id, rems_and_asvc);
+    LoadCrsPaxASVC(pax_id, asvc);
+  }
+  else
+  {
+    LoadPaxRem(pax_id, true, rems_and_asvc);
+    LoadPaxASVC(pax_id, asvc);
+  };
+
+  for(vector<CheckIn::TPaxRemItem>::iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end();)
+  {
+    if (isDisabledRem(r->code, r->text))
+      r=rems_and_asvc.erase(r);
+    else
+      ++r;
+  };
+  for(vector<CheckIn::TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
+  {
+    rems_and_asvc.push_back(CheckIn::TPaxRemItem("ASVC", r->text("HI")));
+  };
+}
+
+void PaxRemAndASVCToXML(const std::vector<TPaxRemItem> &rems_and_asvc,
+                        xmlNodePtr node)
+{
+  if (node==NULL) return;
+
+  xmlNodePtr remsNode=NewTextChild(node,"rems");
+  for(vector<TPaxRemItem>::const_iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end();++r)
+    r->toXML(remsNode);
 }
 
 }; //namespace CheckIn
