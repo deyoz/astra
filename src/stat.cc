@@ -5603,7 +5603,8 @@ void TRemInfo::parse(const string &rem)
         rfisc = tokens[1];
     } else if(tokens.size() == 4) { // PRSA/0B7/1500/RUB
         rfisc = tokens[1];
-        rate = stof(tokens[2]);
+        if ( StrToFloat( tokens[2].c_str(), rate ) == EOF )
+            rate = NoExists;
         TElemFmt fmt;
         rate_cur = ElemToElemId(etCurrency, tokens[3], fmt);
     }
