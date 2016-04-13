@@ -378,7 +378,8 @@ void CheckDoc(const CheckIn::TPaxDocItem &doc,
     };
 
     //проверяем похожесть фамилий
-    if (!pax_surname.empty() && !doc.surname.empty() &&
+    if (reqInfo->client_type==ctTerm &&
+        !pax_surname.empty() && !doc.surname.empty() &&
         best_transliter_similarity(pax_surname, doc.surname)<70)  //не менее 70% схожести
     {
       ProgTrace(TRACE5, ">>>> document/surname: %s, pax.surname=%s", doc.surname.c_str(), pax_surname.c_str());
