@@ -1554,8 +1554,8 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       if ( !wp->SeatTariff.empty() ) { // если платная регистрация отключена, value=0.0 в любом случае
         xmlNodePtr rateNode = NewTextChild( placeNode, "rate" );
         NewTextChild( rateNode, "color", wp->SeatTariff.color );
-        NewTextChild( rateNode, "value", wp->SeatTariff.valueStr() );
-        NewTextChild( rateNode, "currency", wp->SeatTariff.currency_id );
+        NewTextChild( rateNode, "value", wp->SeatTariff.rateView() );
+        NewTextChild( rateNode, "currency", wp->SeatTariff.currencyView(reqInfo->desk.lang) );
       }
     }
   }
@@ -2723,6 +2723,8 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                          bool pr_del, int time_limit,
                          int &curr_tid, CheckIn::UserException &ue)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
   TQuery Qry(&OraSession);
   int point_id=NoExists;
   bool error_exists=false;
@@ -2993,8 +2995,8 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
             if ( !iSeat->first.SeatTariff.empty() ) { // если платная регистрация отключена, value=0.0 в любом случае
                 xmlNodePtr rateNode = NewTextChild( paxNode, "rate" );
                 NewTextChild( rateNode, "color", iSeat->first.SeatTariff.color );
-                NewTextChild( rateNode, "value", iSeat->first.SeatTariff.valueStr() );
-                NewTextChild( rateNode, "currency", iSeat->first.SeatTariff.currency_id );
+                NewTextChild( rateNode, "value", iSeat->first.SeatTariff.rateView() );
+                NewTextChild( rateNode, "currency", iSeat->first.SeatTariff.currencyView(reqInfo->desk.lang) );
             };
           };
         };
