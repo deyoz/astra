@@ -459,7 +459,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             };
 
             if (iPaxForCkin->present_in_req.find(apiDoc) != iPaxForCkin->present_in_req.end())
-              CheckDoc(iPaxForCkin->apis.doc, currPnr.status, checkInfo, now_local);
+              CheckDoc(iPaxForCkin->apis.doc, currPnr.status, iPaxForCkin->surname, checkInfo, now_local);
             iPaxForCkin->apis.doc.toXML(paxNode);
 
             if (iPaxForCkin->present_in_req.find(apiDoco) != iPaxForCkin->present_in_req.end())
@@ -556,7 +556,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           bool DocUpdatesPending=false;
           if (iPaxForChng->present_in_req.find(apiDoc) != iPaxForChng->present_in_req.end()) //тег <document> пришел
           {
-            CheckDoc(iPaxForChng->doc, currPnr.status, checkInfo, now_local);
+            CheckDoc(iPaxForChng->doc, currPnr.status, iPaxForChng->surname, checkInfo, now_local);
             CheckIn::TPaxDocItem prior_doc;
             LoadPaxDoc(iPaxForChng->crs_pax_id, prior_doc);
             DocUpdatesPending=!(prior_doc.equal(iPaxForChng->doc)); //реагируем также на изменение scanned_attrs

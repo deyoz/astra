@@ -381,6 +381,29 @@ TETickItem& TETickItem::fromDB(const string &_et_no,
   return *this;
 }
 
+void TETickItem::fromDB(const std::string &_et_no,
+                        const TEdiAction ediAction,
+                        std::list<TETickItem> &eticks)
+{
+  eticks.clear();
+
+  if (_et_no.empty())
+    throw EXCEPTIONS::Exception("TETickItem::fromDB: empty eticket");
+
+  QParams QryParams;
+  QryParams << QParam("ticket_no", otString, _et_no);
+
+  string sql;
+  if (ediAction==Display) sql="SELECT * FROM eticks_display WHERE ticket_no=:ticket_no";
+  if (ediAction==ChangeOfStatus) sql="SELECT * FROM etickets WHERE ticket_no=:ticket_no";
+
+  TCachedQuery Qry(sql, QryParams);
+
+  Qry.get().Execute();
+  for(;!Qry.get().Eof; Qry.get().Next())
+    eticks.push_back(TETickItem().fromDB(ediAction, Qry.get()));
+}
+
 void ETDisplayToDB(const Ticketing::Pnr &pnr)
 {
   for(list<Ticket>::const_iterator i=pnr.ltick().begin(); i!=pnr.ltick().end(); ++i)

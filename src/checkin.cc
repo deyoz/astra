@@ -4179,6 +4179,23 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (checkInfo.incomplete(pax.tkn, grp.status))
                   throw UserException("MSG.CHECKIN.PASSENGERS_TICKETS_NOT_SET"); //WEB
               };
+
+              //проверяем фамилию в билете
+              if (!pax.tkn.no.empty() && !pax.surname.empty())
+              {
+                list<TETickItem> eticks;
+                TETickItem::fromDB(pax.tkn.no, TETickItem::Display, eticks);
+                if (!eticks.empty() && !eticks.front().surname.empty())
+                {
+                  string tick_surname=eticks.front().surname;
+                  //удаляем пробелы из билетной фамилии
+                  for(string::iterator i=tick_surname.begin(); i!=tick_surname.end();)
+                    if (*i==' ') i=tick_surname.erase(i); else ++i;
+                  if (best_transliter_similarity(pax.surname, tick_surname)<70)
+                    throw UserException("MSG.CHECKIN.TICKET_SURNAME_DIFFERS_FROM_PAX_SURNAME",
+                                        LParams()<<LParam("ticket_no", pax.tkn.no_str()));
+                }
+              };
             };
 
             TDateTime checkDate=UTCToLocal(NowUTC(), AirpTZRegion(grp.airp_dep));
