@@ -221,6 +221,7 @@ public:
 
   static bool CheckFQTRem(CheckIn::TPaxRemItem &rem, CheckIn::TPaxFQTItem &fqt);
   static bool ParseFQTRem(TypeB::TTlgParser &tlg, std::string &rem_text, CheckIn::TPaxFQTItem &fqt);
+  static bool CheckAPPSRems(const std::vector<CheckIn::TPaxRemItem> &rems, std::string& override, bool& is_forced);
 
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
   static void readTripData( int point_id, xmlNodePtr dataNode );

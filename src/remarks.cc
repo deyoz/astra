@@ -4,6 +4,7 @@
 #include "base_tables.h"
 #include "qrys.h"
 #include "serverlib/str_utils.h"
+#include "apps_interaction.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -174,7 +175,10 @@ string GetRemarkStr(const TRemGrp &rem_grp, const vector<CheckIn::TPaxRemItem> &
   {
     if (r->code.empty() || !rem_grp.exists(r->code)) continue;
     if (!result.empty()) result+=term;
-    result+=r->code;
+    if ( r->code == "SBIA" || r->code == "SPIA" || r->code == "SXIA")
+      result+=r->text;
+    else
+      result+=r->code;
   };
   return result;
 };
@@ -204,6 +208,9 @@ string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &term)
     vector<CheckIn::TPaxRemItem> rems;
     for(;!Qry.get().Eof;Qry.get().Next())
       rems.push_back(CheckIn::TPaxRemItem().fromDB(Qry.get()));
+    CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id );
+    if ( !apps_satus_rem.empty() )
+     rems.push_back( apps_satus_rem );
     sort(rems.begin(), rems.end());
     return GetRemarkStr(rem_grp, rems, term);
 };
@@ -564,6 +571,9 @@ void SavePaxRem(int pax_id, const vector<TPaxRemItem> &rems)
   for(vector<TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
   {
     if (r->text.empty()) continue; //защита от пустой ремарки (иногда может почему то приходить с терминала)
+    if ( r->code == "RSIA" || r->code == "ATH" || r->code == "GTH" ||
+                              r->code == "AAE" || r->code == "GAE" )
+      continue; // не храним информацию о перезаписи и повторной отправке в APPS
     r->toDB(RemQry);
     RemQry.Execute();
   };

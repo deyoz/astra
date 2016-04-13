@@ -876,7 +876,7 @@ void TAnsPaxData::init( std::string source )
   error_code1 = getInt(*(rit++));
   if ( grp_id == PaxAnsPrs.first )
     apps_pax_id = *(rit++);
-  status = (*(rit++)).front();
+  status = *((*(rit++)).begin());
   code = getInt(*(rit++));
 }
 
@@ -895,10 +895,9 @@ std::string TAnsPaxData::toString() const
   return res.str();
 }
 
-void TAPPSAns::logAnswer( const std::string& country, const std::string& pax, const int status_code,
+void TAPPSAns::getLogParams( LEvntPrms& params, const std::string& country, const int status_code,
                 const int error_code, const std::string& error_text ) const
 {
-  LEvntPrms params;
   params << PrmLexema( "req_type", "MSG.APPS_" + code );
 
   if ( !country.empty() ) {
@@ -912,13 +911,6 @@ void TAPPSAns::logAnswer( const std::string& country, const std::string& pax, co
   }
   else
     params << PrmSmpl<string>("country", "");
-
-  if ( !pax.empty() ) {
-    PrmLexema lexema("passenger", "MSG.APPS_PASSENGER");
-    lexema.prms << PrmSmpl<string>("passenger", pax);
-    params << lexema;
-  }
-  else params << PrmSmpl<string>("passenger", "");
 
   if ( status_code != ASTRA::NoExists ) {
     // нужно как-то различать Timeout и Error condition. Для обоих status_code 0000
@@ -941,9 +933,6 @@ void TAPPSAns::logAnswer( const std::string& country, const std::string& pax, co
   }
   else
     params << PrmSmpl<string>( "error", "" );
-
-  TReqInfo::Instance()->LocaleToLog( "MSG.APPS_RESP", params,
-                                     (code == AnsTypeCima)?evtFlt:evtPax, point_id );
 }
 
 bool TAPPSAns::init( const std::string& trans_type, const std::string& source )
@@ -1075,7 +1064,7 @@ void TPaxReqAnswer::processErrors() const
 
   // Сообщение не обработано системой. Разберем ошибки.
   for(std::vector<TError>::const_iterator it = errors.begin(); it < errors.end(); it ++)
-    logAnswer( it->country, family_name, ASTRA::NoExists, it->error_code, it->error_text );
+    logAnswer( it->country, ASTRA::NoExists, it->error_code, it->error_text );
 
   if( /*!CheckIfNeedResend() &&*/ code == AnsTypeCirs ) {
     set_pax_alarm( pax_id, atAPPSConflict, true ); // рассинхронизация
@@ -1100,12 +1089,12 @@ void TPaxReqAnswer::processAnswer() const
   string apps_pax_id;
   for ( vector<TAnsPaxData>::const_iterator it = passengers.begin(); it < passengers.end(); it++ ) {
     // запишем в журнал операций присланный статус
-    logAnswer( it->country, family_name, it->code, it->error_code1, it->error_text1 );
+    logAnswer( it->country, it->code, it->error_code1, it->error_text1 );
     if ( it->error_code2 != ASTRA::NoExists ) {
-      logAnswer( it->country, family_name, it->code, it->error_code2, it->error_text2 );
+      logAnswer( it->country, it->code, it->error_code2, it->error_text2 );
     }
     if ( it->error_code3 != ASTRA::NoExists )
-      logAnswer( it->country, family_name, it->code, it->error_code3, it->error_text3 );
+      logAnswer( it->country, it->code, it->error_code3, it->error_text3 );
 
     if ( code == AnsTypeCicc ) {
       // Ответ на отмену
@@ -1189,6 +1178,34 @@ void TPaxReqAnswer::processAnswer() const
   deleteMsg( msg_id );
 }
 
+void TPaxReqAnswer::logAnswer( const std::string& country, const int status_code,
+                const int error_code, const std::string& error_text ) const
+{
+  LEvntPrms params;
+  getLogParams( params, country, status_code, error_code, error_text );
+  PrmLexema lexema( "passenger", "MSG.APPS_PASSENGER" );
+  lexema.prms << PrmSmpl<string>( "passenger", family_name );
+  params << lexema;
+
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT pax.*, NULL As seat_no FROM pax WHERE pax_id=:pax_id";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.Execute();
+  CheckIn::TSimplePaxItem pax;
+  if (!Qry.Eof)
+    pax.fromDB(Qry);
+  TReqInfo::Instance()->LocaleToLog( "MSG.APPS_RESP", params, evtPax, point_id, pax.reg_no );
+}
+
+void TMftAnswer::logAnswer( const std::string& country, const int status_code,
+                const int error_code, const std::string& error_text ) const
+{
+  LEvntPrms params;
+  getLogParams( params, country, status_code, error_code, error_text );
+  params << PrmSmpl<string>("passenger", "");
+  TReqInfo::Instance()->LocaleToLog( "MSG.APPS_RESP", params, evtFlt, point_id );
+}
+
 bool TMftAnswer::init( const std::string& code, const std::string& source )
 {
   if( !TAPPSAns::init( code, source) )
@@ -1220,7 +1237,7 @@ void TMftAnswer::processErrors() const
 
   // Сообщение не обработано системой. Разберем ошибки.
   for(std::vector<TError>::const_iterator it = errors.begin(); it < errors.end(); it ++)
-    logAnswer( it->country, "", ASTRA::NoExists, it->error_code, it->error_text );
+    logAnswer( it->country, ASTRA::NoExists, it->error_code, it->error_text );
   // CheckIfNeedResend();
   deleteMsg( msg_id );
 }
@@ -1231,7 +1248,7 @@ void TMftAnswer::processAnswer() const
     return;
 
   // Сообщение обработано системой. Залогируем ответ и удалим сообщение из apps_messages.
-  logAnswer( country, "", resp_code, error_code, error_text );
+  logAnswer( country, resp_code, error_code, error_text );
   deleteMsg( msg_id );
 }
 
@@ -1260,11 +1277,11 @@ bool processReply( const std::string& source )
 
   string code = source.substr(0, 4);
   string answer = source.substr(5, source.size() - 6); // отрезаем код транзакции и замыкающий '/' (XXXX:text_to_parse/)
-  TAPPSAns * res = nullptr;
-  if ( code == AnsTypeCirs ||  code == AnsTypeCicc )
+  TAPPSAns * res = NULL;
+  if ( code == AnsTypeCirs || code == AnsTypeCicc )
     res = new TPaxReqAnswer();
   else if ( code == AnsTypeCima ) {
-    res = new TPaxReqAnswer();
+    res = new TMftAnswer();
   }
   else
     throw Exception( std::string( "Unknown transaction code: " + code ) );
@@ -1284,7 +1301,6 @@ void processPax( const int pax_id, const std::string& override_type, const bool 
   ProgTrace( TRACE5, "processPax: %d", pax_id );
   TPaxRequest * new_data = new TPaxRequest();
   new_data->init( pax_id, override_type );
-  if(is_forced) new_data->beforeSend();
   TPaxRequest * actual_data = new TPaxRequest();
   bool is_exists = actual_data->fromDBByPaxId( pax_id );
   APPSAction action = new_data->typeOfAction( is_exists, actual_data->getStatus(),
@@ -1513,6 +1529,26 @@ void deleteMsg( const int msg_id )
                 "WHERE msg_id = :msg_id ";
   Qry.CreateVariable("msg_id", otInteger, msg_id);
   Qry.Execute();
+}
+
+CheckIn::TPaxRemItem getAPPSRem( const int pax_id )
+{
+  TPaxRequest * apps_pax = new TPaxRequest();
+  apps_pax->fromDBByPaxId( pax_id );
+  string status = apps_pax->getStatus();
+  CheckIn::TPaxRemItem rem;
+  if( status == "B" )
+    rem.code = "SBIA";
+  else if( status == "P" )
+    rem.code = "SPIA";
+  else if( status == "X" )
+    rem.code = "SXIA";
+  if ( !rem.code.empty() ) {
+    TCkinRemTypesRow &ckin_rem = (TCkinRemTypesRow&)base_tables.get("CKIN_REM_TYPES").get_row("code",rem.code);
+    rem.text = ( TReqInfo::Instance()->desk.lang == AstraLocale::LANG_RU ) ? ckin_rem.name : ckin_rem.name_lat;
+  }
+  if ( apps_pax ) delete apps_pax;
+  return rem;
 }
 
 static void sendAPPSInfo( const int point_id, const int point_id_tlg )

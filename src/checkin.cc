@@ -47,6 +47,7 @@
 #include "baggage_pc.h"
 #include "ffp_service_from_sirena.h"
 #include "tlg/AgentWaitsForRemote.h"
+#include <boost/algorithm/string.hpp>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1431,6 +1432,9 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
   vector<CheckIn::TPaxRemItem> rems_and_asvc;
   vector<CheckIn::TPaxASVCItem> asvc;
   CheckIn::PaxRemAndASVCFromDB(pax_id, from_crs, rems_and_asvc, asvc);
+  CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id );
+  if ( !apps_satus_rem.empty() )
+   rems_and_asvc.push_back( apps_satus_rem );
   CheckIn::PaxRemAndASVCToXML(rems_and_asvc, node);
 
   list<TPaxEMDItem> emds;
@@ -2561,7 +2565,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
       NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id),"");
 
-
       //коммерческий рейс
       TTripInfo markFlt;
       markFlt.airline=Qry.FieldAsString(col_airline_mark);
@@ -3019,6 +3022,26 @@ bool CheckInInterface::ParseFQTRem(TypeB::TTlgParser &tlg, string &rem_text, Che
   };
   return false;
 };
+
+bool CheckInInterface::CheckAPPSRems(const std::vector<CheckIn::TPaxRemItem> &rems, std::string& override, bool& is_forced)
+{
+  for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
+  {
+    // За один раз можем отправить только один запрос для пассажира
+    if ( r->code == "RSIA" )
+      is_forced = true;
+    else if ( ( ( r->code == "ATH" || r->code == "GTH" ) && override.find("TH") == std::string::npos ) ||
+              ( ( r->code == "AAE" || r->code == "GAE" ) && override.find("AE") == std::string::npos ) ) {
+      override += r->code;
+      is_forced = true;
+    }
+    else if ( r->code == "GTH" )
+      boost::replace_all(override, "ATH", "GTH");
+    else if ( r->code == "GAE" )
+      boost::replace_all(override, "AAE", "GAE");
+  };
+  return is_forced;
+}
 
 LexemaData GetLexemeDataWithFlight(const LexemaData &data, const TTripInfo &fltInfo)
 {
@@ -5018,8 +5041,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                     !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
                   WeightConcept::PaxNormsToDB(pax_id, p->norms);
 
-                if ( need_apps )
+                if ( need_apps ) {
+                  // Для новых пассадиров ремарки APPS не проверяем
                   processPax( pax_id );
+                }
               }
               catch(CheckIn::UserException)
               {
@@ -5286,8 +5311,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
                 WeightConcept::PaxNormsToDB(pax.id, p->norms);
 
-              if ( need_apps )
-                processPax( pax.id );
+              if ( need_apps ) {
+                string override;
+                bool is_forced = false;
+                // проверим ремарки только в случае записи изменений
+                CheckInInterface::CheckAPPSRems( p->rems, override, is_forced );
+                processPax( pax.id, override, is_forced );
+              }
             }
             catch(CheckIn::UserException)
             {
