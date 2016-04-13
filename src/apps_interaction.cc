@@ -1551,6 +1551,12 @@ CheckIn::TPaxRemItem getAPPSRem( const int pax_id )
   return rem;
 }
 
+bool isAPPSRem( const std::string& rem )
+{
+  return ( rem == "RSIA" || rem == "SPIA" || rem == "SBIA" || rem == "SXIA" ||
+           rem == "ATH" || rem == "GTH" || rem == "AAE" || rem == "GAE" );
+}
+
 static void sendAPPSInfo( const int point_id, const int point_id_tlg )
 {
   ProgTrace( TRACE5, "sendAPPSInfo: point_id %d, point_id_tlg: %d", point_id, point_id_tlg );

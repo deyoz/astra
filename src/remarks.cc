@@ -571,8 +571,7 @@ void SavePaxRem(int pax_id, const vector<TPaxRemItem> &rems)
   for(vector<TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
   {
     if (r->text.empty()) continue; //защита от пустой ремарки (иногда может почему то приходить с терминала)
-    if ( r->code == "RSIA" || r->code == "ATH" || r->code == "GTH" ||
-                              r->code == "AAE" || r->code == "GAE" )
+    if ( isAPPSRem( r->code) )
       continue; // не храним информацию о перезаписи и повторной отправке в APPS
     r->toDB(RemQry);
     RemQry.Execute();
