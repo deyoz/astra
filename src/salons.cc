@@ -51,7 +51,7 @@ void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
     tariff.RFISC=Qry.FieldAsString("rfisc");
 
     pair<TSeatTariffMapType::iterator, bool> i=insert(make_pair(tariff.color, tariff));
-    if (!i.second)
+    if (!i.second && tariff!=i.first->second)
     {
       ProgError(STDLOG, "TSeatTariffMap::get: color=%s duplicated (%s)", tariff.color.c_str(), traceDetail.c_str());
       trace(TRACE5);
