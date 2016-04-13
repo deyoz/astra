@@ -29,6 +29,7 @@
 #include "pers_weights.h"
 #include "web_search.h"
 #include "sopp.h"
+#include "apps_interaction.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -2602,6 +2603,9 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     int pax_id=Qry.FieldAsInteger( col_pax_id );
     vector<CheckIn::TPaxRemItem> rems;
     LoadCrsPaxRem(pax_id, rems);
+    CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id );
+    if ( !apps_satus_rem.empty() )
+     rems.push_back( apps_satus_rem );
     ostringstream rem_detail;
     sort(rems.begin(),rems.end()); //сортировка по priority
     xmlNodePtr stcrNode = NULL;

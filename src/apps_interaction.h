@@ -31,6 +31,7 @@ void sendAllAPPSInfo( const int point_id, const std::string& task_name, const st
 void sendNewAPPSInfo( const int point_id, const std::string& task_name, const std::string& params );
 void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id );
 void deleteMsg( const int msg_id );
+CheckIn::TPaxRemItem getAPPSRem( const int pax_id );
 
 struct TTransData
 {
@@ -78,22 +79,6 @@ struct TFlightData
   }
   void check_data() const;
   std::string msg() const;
-  void is_need_req() const {
-    if( !checkAPPSSets( point_id, arv_port ) )
-      throw AstraLocale::UserException( "Flight does not need to be processed by APPS" );
-  }
-  void check_time() const {
-    BASIC::TDateTime now = BASIC::NowUTC();
-    // The APP System only allows transactions on [- 2 days] TODAY [+ 10 days].
-    if ( now - date > 2 || date - now > 10 )
-      throw AstraLocale::UserException( "Time window [- 2 days] TODAY [+ 10 days] was violated" );
-  }
-  void lock_flt() const
-  {
-    TFlights flightsForLock;
-    flightsForLock.Get( point_id, ftTranzit );
-    flightsForLock.Lock();
-  }
 };
 
 struct TPaxData
@@ -205,11 +190,6 @@ public:
   APPSAction typeOfAction( const bool is_exists, const std::string& status,
                            const bool is_the_same, const bool is_forced ) const;
   std::string msg() const;
-  void beforeSend() {
-    int_flt.is_need_req();
-    int_flt.check_time();
-    int_flt.lock_flt();
-  }
   void sendReq() const;
   std::string getStatus() const {
     return pax.status;
@@ -271,7 +251,7 @@ protected:
   std::vector<TError> errors; // Error (repeating). Conditional
 
   bool CheckIfNeedResend() const;
-  virtual void logAnswer( const std::string& country, const std::string& pax, const int status_code,
+  virtual void getLogParams( LEvntPrms& params, const std::string& country, const int status_code,
                   const int error_code, const std::string& error_text ) const;
 public:
   TAPPSAns() : send_attempts(ASTRA::NoExists), point_id(ASTRA::NoExists) {}
@@ -281,6 +261,8 @@ public:
   virtual std::string toString() const;
   virtual void processErrors() const = 0;
   virtual void processAnswer() const = 0;
+  virtual void logAnswer( const std::string& country, const int status_code,
+                  const int error_code, const std::string& error_text ) const = 0;
 };
 
 class TPaxReqAnswer : public TAPPSAns
@@ -296,6 +278,8 @@ public:
   virtual void processErrors() const;
   virtual void processAnswer() const;
   virtual std::string toString() const;
+  virtual void logAnswer( const std::string& country, const int status_code,
+                  const int error_code, const std::string& error_text ) const;
 };
 
 class TMftAnswer : public TAPPSAns
@@ -313,6 +297,8 @@ public:
   virtual void processErrors() const;
   virtual void processAnswer() const;
   virtual std::string toString() const;
+  virtual void logAnswer( const std::string& country, const int status_code,
+                  const int error_code, const std::string& error_text ) const;
 };
 
 #endif // APPS_INTERACTION_H
