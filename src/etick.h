@@ -169,6 +169,9 @@ class TETickItem
                        const int _et_coupon,
                        const TEdiAction ediAction,
                        const bool lock);
+    static void fromDB(const std::string &_et_no,
+                       const TEdiAction ediAction,
+                       std::list<TETickItem> &eticks);
 };
 
 void ETDisplayToDB(const Ticketing::Pnr &pnr);

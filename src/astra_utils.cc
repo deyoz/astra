@@ -1523,8 +1523,8 @@ string convert_pnr_addr(const string &value, bool pr_lat)
 class TTranslitLetter
 {
   public:
-    string lat1, lat2;
-    TTranslitLetter(const char* l1, const char* l2):lat1(l1), lat2(l2) {};
+    string lat1, lat2, lat3;
+    TTranslitLetter(const char* l1, const char* l2, const char* l3):lat1(l1), lat2(l2), lat3(l3) {};
     TTranslitLetter() {};
 };
 
@@ -1538,29 +1538,51 @@ string transliter(const string &value, int fmt, bool pr_lat)
     {
       TQuery Qry(&OraSession);
       Qry.Clear();
-      Qry.SQLText = "SELECT letter, lat1, lat2 FROM translit_dicts";
+      Qry.SQLText = "SELECT letter, lat1, lat2, lat3 FROM translit_dicts";
       Qry.Execute();
       for(;!Qry.Eof;Qry.Next())
       {
         const char* letter=Qry.FieldAsString("letter");
-        dicts[*letter]=TTranslitLetter(Qry.FieldAsString("lat1"), Qry.FieldAsString("lat2"));
+        dicts[*letter]=TTranslitLetter(Qry.FieldAsString("lat1"),
+                                       Qry.FieldAsString("lat2"),
+                                       Qry.FieldAsString("lat3"));
       };
       ProgTrace(TRACE5, "dicts loaded");
     };
 
-    char c;
-    string c2;
     for(string::const_iterator i=value.begin();i!=value.end();i++)
     {
-      c=*i;
+      char c=*i;
+      char uc=ToUpper(*i);
+      string c2;
       if (!IsAscii7(c))
       {
-        map<char, TTranslitLetter>::const_iterator letter=dicts.find(ToUpper(c));
-        if (letter!=dicts.end())
-          c2=(fmt==2?letter->second.lat2:letter->second.lat1);
-        else
-          c2 = "?";
-        if (ToUpper(c)!=c) result+=lowerc(c2); else result+=c2;
+        if (fmt==3)
+        {
+          string::const_iterator i2=i+1;
+          if (i2!=value.end())
+          {
+            char uc2=ToUpper(*i2);
+            if (uc=='' && uc2=='‘') { c2="X"; i=i2; };
+            if (uc=='' && uc2=='‰' && (i2+1)==value.end()) { c2="Y"; i=i2; };
+          };
+          if (uc=='—' && i!=value.begin() && string("€…π“›").find_first_of(ToUpper(*(i-1)))!=string::npos) c2="TCH";
+          if (uc=='“' && i==value.begin()) c2="U";
+        };
+        if (c2.empty())
+        {
+          map<char, TTranslitLetter>::const_iterator letter=dicts.find(uc);
+          if (letter!=dicts.end())
+          {
+            if      (fmt==3) c2=letter->second.lat3;
+            else if (fmt==2) c2=letter->second.lat2;
+            else if (fmt==1) c2=letter->second.lat1;
+            else             c2=uc;
+          }
+          else
+            c2 = "?";
+        };
+        if (uc!=c) result+=lowerc(c2); else result+=c2;
       }
       else result+=c;
     };
@@ -1571,15 +1593,29 @@ string transliter(const string &value, int fmt, bool pr_lat)
 
 bool transliter_equal(const string &value1, const string &value2, int fmt)
 {
-  return transliter(value1,fmt,true)==transliter(value2,fmt,true);
+  return transliter(value1, fmt, true)==transliter(value2, fmt, true);
 };
 
 bool transliter_equal(const string &value1, const string &value2)
 {
   for(int fmt=1;fmt<=2;fmt++)
-    if (transliter_equal(value1,value2,fmt)) return true;
+    if (transliter_equal(value1, value2, fmt)) return true;
   return false;
 };
+
+int best_transliter_similarity(const string &value1, const string &value2)
+{
+  if (value1==value2) return 100;
+
+  int result=EditDistanceSimilarity(value1, value2);
+  for(int fmt=1;fmt<=3;fmt++)
+  {
+    if (result>=100) return result;
+    int i=EditDistanceSimilarity(transliter(value1, fmt, true), transliter(value2, fmt, true));
+    if (i>result) result=i;
+  }
+  return result;
+}
 
 const char *rus_char_view = "€‚‘…’• α¥ª¬®ΰεμ";
 const char *lat_char_view = "ABCEHKMOPTXacekmopxb";
