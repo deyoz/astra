@@ -45,7 +45,7 @@ void IatciRequestHandler::handle()
 {
     if(nextParams())
     {
-        if(!SystemContext::Instance(STDLOG).inbTlgInfo().repeatedlyProcessed()) {
+        if(!postponeHandling()) {
             EdiSessionId_t sessId = sendCascadeRequest();
             throw TlgHandling::TlgToBePostponed(sessId);
         } else {
@@ -69,8 +69,9 @@ void IatciRequestHandler::makeAnAnswer()
 
         viewFdrElement(pMesW(), res.flight());
         viewRadElement(pMesW(), respType(), res.statusAsString());
-        if(res.cascadeDetails())
+        if(res.cascadeDetails()) {
             viewChdElement(pMesW(), *res.cascadeDetails());
+        }
 
         if(fullAnswer())
         {
@@ -78,12 +79,25 @@ void IatciRequestHandler::makeAnAnswer()
 
             PushEdiPointW(pMesW());
             SetEdiSegGr(pMesW(), SegGrElement(2));
-            SetEdiPointToSegGrW(pMesW(), SegGrElement(2), "SegGr2(pxg) not found" );
+            SetEdiPointToSegGrW(pMesW(), SegGrElement(2), "SegGr2(pxg) not found");
 
             ASSERT(res.pax());
             viewPpdElement(pMesW(), *res.pax());
-            if(res.seat())
+            if(res.seat()) {
                 viewPfdElement(pMesW(), *res.seat());
+            }
+            if(res.serviceDetails()) {
+                viewPsiElement(pMesW(), *res.serviceDetails());
+            }
+            if(res.pax()->doc()) {
+                PushEdiPointW(pMesW());
+                SetEdiSegGr(pMesW(), SegGrElement(3));
+                SetEdiPointToSegGrW(pMesW(), SegGrElement(3), "SegGr3(apg) not found");
+
+                viewPapElement(pMesW(), *res.pax()->doc());
+
+                PopEdiPointW(pMesW());
+            }
 
             PopEdiPointW(pMesW());
         }
@@ -123,11 +137,14 @@ const std::string& IatciRequestHandler::ediErrorLevel() const
     return m_ediErrorLevel;
 }
 
+bool IatciRequestHandler::postponeHandling() const
+{
+    return SystemContext::Instance(STDLOG).inbTlgInfo().repeatedlyProcessed();
+}
+
 void IatciRequestHandler::loadDeferredData()
 {
-    boost::optional<tlgnum_t> inbTlgNum = SystemContext::Instance(STDLOG).inbTlgInfo().tlgNum();
-    ASSERT(inbTlgNum);
-    m_lRes = iatci::loadDeferredCkiData(*inbTlgNum);
+    m_lRes = iatci::loadDeferredCkiData(inboundTlgNum());
     if(m_lRes.empty()) {
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Empty result list!");
     } else if(m_lRes.size() == 1 && m_lRes.front().status() == iatci::Result::Failed) {

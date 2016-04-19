@@ -46,4 +46,6 @@ public:
     virtual ~EtCosRequest() {}
 };
 
+edilib::EdiSessionId_t SendEtCosRequest(const EtCosParams& cosParams);
+
 }//namespace edifact

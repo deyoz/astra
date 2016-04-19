@@ -98,13 +98,13 @@ void EdiErrMsg::init()
     ADD_MSG2(INV_FLIGHT_DATE,                 "5");
     ADD_MSG2(TOO_MANY_PAX_WITH_SAME_SURNAME,  "6");
     ADD_MSG2(FLIGHT_NOT_FOR_THROUGH_CHECK_IN, "9");
+    ADD_MSG2(PAX_ALREADY_CHECKED_IN,          "17");
     ADD_MSG2(BAGGAGE_WEIGHT_REQUIRED,         "19");
     ADD_MSG2(NO_SEAT_SELCTN_ON_FLIGHT,        "26");
     ADD_MSG2(TOO_MANY_PAXES,                  "44");
     ADD_MSG2(TOO_MANY_INFANTS,                "61");
     ADD_MSG2(SMOKING_ZONE_UNAVAILABLE,        "62");
     ADD_MSG2(NON_SMOKING_ZONE_UNAVAILABLE,    "63");
-    ADD_MSG2(PAX_ALREADY_CHECKED_IN,          "17");
     ADD_MSG2(EDI_PROC_ERR,                    "102");
     ADD_MSG2(PAX_SURNAME_NOT_CHECKED_IN,      "193");
     ADD_MSG2(TIMEOUT_ON_HOST_3,               "196");

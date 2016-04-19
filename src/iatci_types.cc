@@ -1,8 +1,13 @@
 #include "iatci_types.h"
+#include "iatci_help.h"
+#include "xml_unit.h"
 
 #include <serverlib/exception.h>
+#include <serverlib/xml_tools.h>
+#include <serverlib/xmllibcpp.h>
 
 #include <ostream>
+#include <boost/foreach.hpp>
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
@@ -13,7 +18,7 @@ namespace iatci {
 
 OriginatorDetails::OriginatorDetails(const std::string& airl, const std::string& point)
     : m_airline(airl),
-      m_point(point)
+      m_port(point)
 {}
 
 const std::string& OriginatorDetails::airline() const
@@ -21,9 +26,9 @@ const std::string& OriginatorDetails::airline() const
     return m_airline;
 }
 
-const std::string& OriginatorDetails::point() const
+const std::string& OriginatorDetails::port() const
 {
-    return m_point;
+    return m_port;
 }
 
 //-----------------------------------------------------------------------------
@@ -39,8 +44,8 @@ FlightDetails::FlightDetails(const std::string& airl,
                              const boost::posix_time::time_duration& brdTime)
     : m_airline(airl),
       m_flightNum(flNum),
-      m_depPoint(depPoint),
-      m_arrPoint(arrPoint),
+      m_depPort(depPoint),
+      m_arrPort(arrPoint),
       m_depDate(depDate),
       m_arrDate(arrDate),
       m_depTime(depTime),
@@ -58,14 +63,14 @@ Ticketing::FlightNum_t FlightDetails::flightNum() const
     return m_flightNum;
 }
 
-const std::string& FlightDetails::depPoint() const
+const std::string& FlightDetails::depPort() const
 {
-    return m_depPoint;
+    return m_depPort;
 }
 
-const std::string& FlightDetails::arrPoint() const
+const std::string& FlightDetails::arrPort() const
 {
-    return m_arrPoint;
+    return m_arrPort;
 }
 
 const boost::gregorian::date& FlightDetails::depDate() const
@@ -102,14 +107,79 @@ std::string FlightDetails::toShortKeyString() const
 
 //-----------------------------------------------------------------------------
 
+PaxDetails::DocInfo::DocInfo(const std::string& docType,
+                             const std::string& issueCountry,
+                             const std::string& no,
+                             const std::string& surname,
+                             const std::string& name,
+                             const std::string& gender,
+                             const std::string& nationality,
+                             const boost::gregorian::date& birthDate,
+                             const boost::gregorian::date& expiryDate)
+    : m_docType(docType), m_issueCountry(issueCountry),
+      m_no(no), m_surname(surname), m_name(name),
+      m_gender(gender), m_nationality(nationality),
+      m_birthDate(birthDate), m_expiryDate(expiryDate)
+{
+}
+
+const std::string& PaxDetails::DocInfo::docType() const
+{
+    return m_docType;
+}
+
+const std::string& PaxDetails::DocInfo::issueCountry() const
+{
+    return m_issueCountry;
+}
+
+const std::string& PaxDetails::DocInfo::no() const
+{
+    return m_no;
+}
+
+const std::string& PaxDetails::DocInfo::surname() const
+{
+    return m_surname;
+}
+
+const std::string& PaxDetails::DocInfo::name() const
+{
+    return m_name;
+}
+
+const std::string& PaxDetails::DocInfo::gender() const
+{
+    return m_gender;
+}
+
+const std::string& PaxDetails::DocInfo::nationality() const
+{
+    return m_nationality;
+}
+
+const boost::gregorian::date& PaxDetails::DocInfo::birthDate() const
+{
+    return m_birthDate;
+}
+
+const boost::gregorian::date& PaxDetails::DocInfo::expiryDate() const
+{
+    return m_expiryDate;
+}
+
+//
+
 PaxDetails::PaxDetails(const std::string& surname,
                        const std::string& name,
                        PaxType_e type,
+                       const boost::optional<DocInfo>& doc,
                        const std::string& qryRef,
                        const std::string& respRef)
     : m_surname(surname),
       m_name(name),
       m_type(type),
+      m_doc(doc),
       m_qryRef(qryRef),
       m_respRef(respRef)
 {}
@@ -139,6 +209,11 @@ std::string PaxDetails::typeAsString() const
     case Adult:  return "A";
     default:     return "A";
     }
+}
+
+const boost::optional<PaxDetails::DocInfo>& PaxDetails::doc() const
+{
+    return m_doc;
 }
 
 const std::string& PaxDetails::qryRef() const
@@ -337,7 +412,7 @@ PaxSeatDetails::PaxSeatDetails(const std::string& surname,
                                const std::string& tickNum,
                                const std::string& qryRef,
                                const std::string& respRef)
-    : PaxDetails(surname, name, Adult, qryRef, respRef),
+    : PaxDetails(surname, name, Adult, boost::none, qryRef, respRef),
       m_rbd(rbd), m_seat(seat), m_securityId(securityId),
       m_recloc(recloc), m_tickNum(tickNum)
 {
@@ -432,6 +507,14 @@ unsigned ServiceDetails::SsrInfo::quantity() const
     return m_quantity;
 }
 
+TicketCpn_t ServiceDetails::SsrInfo::toTicketCpn() const
+{
+    ASSERT(m_ssrCode == "TKNE");
+    ASSERT(m_ssrText.length() == 14); // ticknum(13)+cpnnum(1)
+    return TicketCpn_t(m_ssrText.substr(0, 13),
+                       boost::lexical_cast<unsigned>(m_ssrText.substr(12, 1)));
+}
+
 //
 
 ServiceDetails::ServiceDetails(const std::string& osi)
@@ -474,6 +557,17 @@ void ServiceDetails::addSsrTkne(const std::string& tickNum, unsigned couponNum, 
     std::ostringstream tkne;
     tkne << tickNum << couponNum;
     addSsrTkne(tkne.str(), inftTicket);
+}
+
+boost::optional<TicketCpn_t> ServiceDetails::findTicketCpn() const
+{
+    BOOST_FOREACH(const ServiceDetails::SsrInfo& ssr, lSsr()) {
+        if(ssr.ssrCode() == "TKNE") {
+            return ssr.toTicketCpn();
+        }
+    }
+
+    return boost::none;
 }
 
 //-----------------------------------------------------------------------------
@@ -667,9 +761,9 @@ CascadeHostDetails::CascadeHostDetails(const std::string& host)
 }
 
 CascadeHostDetails::CascadeHostDetails(const std::string& origAirl,
-                                       const std::string& origPoint)
+                                       const std::string& origPort)
     : m_originAirline(origAirl),
-      m_originPoint(origPoint)
+      m_originPort(origPort)
 {}
 
 const std::string& CascadeHostDetails::originAirline() const
@@ -677,9 +771,9 @@ const std::string& CascadeHostDetails::originAirline() const
     return m_originAirline;
 }
 
-const std::string& CascadeHostDetails::originPoint() const
+const std::string& CascadeHostDetails::originPort() const
 {
-    return m_originPoint;
+    return m_originPort;
 }
 
 const std::list<std::string>& CascadeHostDetails::hostAirlines() const
@@ -827,7 +921,7 @@ Result Result::makeUpdateResult(Status_e status,
 
 Result Result::makeCancelResult(Status_e status,
                                 const FlightDetails& flight,
-                                const PaxDetails& pax,
+                                boost::optional<PaxDetails> pax,
                                 boost::optional<FlightSeatDetails> seat,
                                 boost::optional<CascadeHostDetails> cascadeDetails,
                                 boost::optional<ErrorDetails> errorDetails,
@@ -1005,6 +1099,7 @@ Result::Status_e Result::strToStatus(const std::string& s)
 {
     if(s == "O")      return Ok;
     else if(s == "P") return OkWithNoData;
+    else if(s == "F") return Failed;
     else {
         LogError(STDLOG) << "Unknown status string: " << s;
         return Failed;
@@ -1037,6 +1132,118 @@ std::string Result::statusAsString() const
     }
 
     throw EXCEPTIONS::Exception("Unknown status value: %d", m_status);
+}
+
+void Result::toXml(xmlNodePtr node) const
+{
+    xmlNodePtr segNode = newChild(node, "segment");
+
+    xmlNodePtr tripHeaderNode = newChild(segNode, "tripheader");
+    NewTextChild(tripHeaderNode, "flight",  fullFlightString(flight()));
+    NewTextChild(tripHeaderNode, "airline", flight().airline());
+    NewTextChild(tripHeaderNode, "aircode", airlineAccode(flight().airline()));
+    NewTextChild(tripHeaderNode, "flt_no",  flightString(flight()));
+    NewTextChild(tripHeaderNode, "suffix",  "");
+    NewTextChild(tripHeaderNode, "airp",    flight().depPort());
+    NewTextChild(tripHeaderNode, "scd_out_local", depDateTimeString(flight()));
+    NewTextChild(tripHeaderNode, "pr_etl_only", "0"); // TODO
+    NewTextChild(tripHeaderNode, "pr_etstatus", "0"); // TODO
+    NewTextChild(tripHeaderNode, "pr_no_ticket_check", "0"); // TODO)
+
+    xmlNodePtr tripDataNode = newChild(segNode, "tripdata");
+    xmlNodePtr airpsNode = newChild(tripDataNode, "airps");
+    xmlNodePtr airpNode = newChild(airpsNode, "airp");
+    NewTextChild(airpNode, "point_id", -1);
+    NewTextChild(airpNode, "airp_code", airportCode(flight().arrPort()));
+    NewTextChild(airpNode, "city_code", airportCityCode(flight().arrPort()));
+    NewTextChild(airpNode, "target_view", fullAirportString(flight().arrPort()));
+    xmlNodePtr checkInfoNode = newChild(airpNode, "check_info");
+    xmlNodePtr passNode = newChild(checkInfoNode, "pass"); // TODO
+    xmlNodePtr crewNode = newChild(checkInfoNode, "crew"); // TODO
+    xmlNodePtr classesNode = newChild(tripDataNode, "classes"); // TODO
+    xmlNodePtr gatesNode = newChild(tripDataNode, "gates"); // TODO
+    xmlNodePtr hallsNode = newChild(tripDataNode, "halls"); // TODO
+    xmlNodePtr markFltsNode = newChild(tripDataNode, "mark_flights"); // TODO
+
+    NewTextChild(segNode, "grp_id", -1);
+    NewTextChild(segNode, "point_dep", -1);
+    NewTextChild(segNode, "airp_dep", flight().depPort());
+    NewTextChild(segNode, "point_arv", -1);
+    NewTextChild(segNode, "airp_arv", flight().arrPort());
+    NewTextChild(segNode, "class", "ù"); // TODO
+    NewTextChild(segNode, "status", "K"); // TODO
+    NewTextChild(segNode, "bag_refuse", ""); // TODO
+    NewTextChild(segNode, "piece_concept", 0); // TODO
+    NewTextChild(segNode, "tid", 0); // TODO
+    NewTextChild(segNode, "city_arv", cityCode(flight().arrPort()));
+    //xmlNodePtr markFltNode = newChild(segNode, "mark_flight"); // TODO
+
+    if(pax())
+    {
+        xmlNodePtr paxesNode = newChild(segNode, "passengers");
+        xmlNodePtr paxNode = newChild(paxesNode, "pax");
+        NewTextChild(paxNode, "pax_id", -1);
+        NewTextChild(paxNode, "surname", pax()->surname());
+        NewTextChild(paxNode, "name", pax()->name());
+        NewTextChild(paxNode, "pers_type", paxTypeString(pax().get())); // TODO
+        NewTextChild(paxNode, "seat_no", seat() ? seat()->seat() : "");
+        NewTextChild(paxNode, "seat_type", ""); // TODO
+        NewTextChild(paxNode, "seats", 1); // TODO
+        NewTextChild(paxNode, "refuse", ""); // TODO
+        NewTextChild(paxNode, "reg_no", "1"); // TODO
+        NewTextChild(paxNode, "subclass", "ù"); // TODO
+        NewTextChild(paxNode, "bag_pool_num", ""); // TODO
+        NewTextChild(paxNode, "tid", 0); // TODO
+        boost::optional<TicketCpn_t> tickCpn;
+        if(serviceDetails()) {
+            tickCpn = serviceDetails()->findTicketCpn();
+        }
+        if(tickCpn) {
+            NewTextChild(paxNode, "ticket_no", tickCpn->tickNum());
+            NewTextChild(paxNode, "coupon_no", (const int)tickCpn->couponNum());
+        }
+        else {
+            NewTextChild(paxNode, "ticket_no");
+            NewTextChild(paxNode, "coupon_no");
+        }
+
+        NewTextChild(paxNode, "ticket_rem", ""); // TODO
+        NewTextChild(paxNode, "ticket_confirm", "1"); // TODO
+
+        xmlNodePtr docNode = newChild(paxNode, "document");
+        if(pax()->doc())
+        {
+            NewTextChild(docNode, "type", pax()->doc()->docType());
+            NewTextChild(docNode, "issue_country", pax()->doc()->issueCountry());
+            NewTextChild(docNode, "no", pax()->doc()->no());
+            NewTextChild(docNode, "nationality", pax()->doc()->nationality());
+            NewTextChild(docNode, "birth_date", "10.03.1986 00:00:00");
+            NewTextChild(docNode, "gender", pax()->doc()->gender());
+            NewTextChild(docNode, "surname", pax()->doc()->surname());
+            NewTextChild(docNode, "first_name", pax()->doc()->name());
+            NewTextChild(docNode, "expiry_date", "31.12.2049 00:00:00");
+        }
+        else
+        {
+            NewTextChild(docNode, "type", "");
+            NewTextChild(docNode, "issue_country", "");
+            NewTextChild(docNode, "no", "");
+            NewTextChild(docNode, "nationality", "");
+            NewTextChild(docNode, "birth_date", "");
+            NewTextChild(docNode, "gender", "");
+            NewTextChild(docNode, "surname", "");
+            NewTextChild(docNode, "first_name", "");
+            NewTextChild(docNode, "expiry_date", "");
+        }
+
+        NewTextChild(paxNode, "pr_norec", 0); // TODO
+        NewTextChild(paxNode, "pr_bp_print", 0); // TODO
+        xmlNodePtr paxRemsNode = newChild(paxNode, "rems"); // TODO
+    }
+
+    NewTextChild(segNode, "paid_bag_emd", ""); // TODO
+    xmlNodePtr tripCountersNode = newChild(segNode, "tripcounters"); // TODO
+    NewTextChild(segNode, "load_residue", ""); // TODO
 }
 
 //-----------------------------------------------------------------------------

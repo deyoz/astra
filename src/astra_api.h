@@ -274,9 +274,9 @@ struct LoadPaxXmlResult
 {
     std::list<XmlSegment> lSeg;
 
-    //iatci::Result toIatci(iatci::Result::Action_e action,
-    //                      iatci::Result::Status_e status,
-    //                      bool afterSavePax) const;
+    iatci::Result toIatci(iatci::Result::Action_e action,
+                          iatci::Result::Status_e status,
+                          bool afterSavePax) const;
 };
 
 struct GetAdvTripListXmlResult
@@ -423,16 +423,11 @@ int findDepPointId(const std::string& depPort,
                    unsigned flNum,
                    const boost::gregorian::date& depDate);
 
-void getNextTrip(const std::string& depPort,
-                 const std::string& airline,
-                 unsigned flNum,
-                 const boost::gregorian::date& depDate);
+iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams);
+iatci::Result checkinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
-//iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams);
-//iatci::Result checkinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
-
-//iatci::Result cancelCheckinIatciPax(const iatci::CkxParams& ckxParams);
-//iatci::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+iatci::Result cancelCheckinIatciPax(const iatci::CkxParams& ckxParams);
+iatci::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
 
 void searchTrip(const iatci::FlightDetails& flight,

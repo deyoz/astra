@@ -587,8 +587,8 @@ void TFltBinding::trace_for_bind(const vector<TTripInfo> &flts, const string &wh
           << " " << flt->airp
           << "/" << (flt->scd_out==NoExists?"??.??":DateTimeToStr(flt->scd_out, "dd.mm"))
           << ";";
-  ProgTrace(TRACE5, trace.str().c_str());
-};
+  ProgTrace(TRACE5, "%s", trace.str().c_str());
+}
 
 void TFltBinding::trace_for_bind(const vector<int> &point_ids, const string &where)
 {
@@ -597,6 +597,6 @@ void TFltBinding::trace_for_bind(const vector<int> &point_ids, const string &whe
   for(vector<int>::const_iterator id=point_ids.begin();id!=point_ids.end();id++)
     trace << " " << *id << ";";
 
-  ProgTrace(TRACE5, trace.str().c_str());
-};
+  ProgTrace(TRACE5, "%s", trace.str().c_str());
+}
 

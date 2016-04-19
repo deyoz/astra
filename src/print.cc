@@ -203,7 +203,7 @@ namespace to_esc {
         try {
             mso_form = ConvertCodepage( mso_form, "CP866", prnParams.encoding );
         } catch(EConvertError &E) {
-            ProgError(STDLOG, E.what());
+            ProgError(STDLOG, "%s", E.what());
             throw AstraLocale::UserException("MSG.CONVERT_INTO_ERR", LParams() << LParam("enc", prnParams.encoding));
         }
 

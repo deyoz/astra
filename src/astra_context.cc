@@ -78,13 +78,13 @@ int SetContext(const std::string &name,
     ProgTrace(TRACE5, "AstraContext::SetContext: name=%s id=%d", name.c_str(), id);
     throw;
   }
-};
+}
 
 int SetContext(const std::string &name,
                const std::string &value)
 {
   return SetContext(name,ASTRA::NoExists,value);
-};
+}
 
 BASIC::TDateTime GetContext(const std::string &name,
                             const int id,
@@ -105,7 +105,7 @@ BASIC::TDateTime GetContext(const std::string &name,
     time_create=Qry.FieldAsDateTime("time_create");
   };
   return time_create;
-};
+}
 
 void ClearContext(const std::string &name,
                   const BASIC::TDateTime time_create)
@@ -125,7 +125,7 @@ void ClearContext(const std::string &name,
   };
   Qry.CreateVariable("name",otString,name);
   Qry.Execute();
-};
+}
 
 void ClearContext(const std::string &name,
                   const int id)
@@ -136,7 +136,20 @@ void ClearContext(const std::string &name,
   Qry.CreateVariable("name",otString,name);
   Qry.CreateVariable("id",otInteger,id);
   Qry.Execute();
-};
+}
+
+void MoveContext(const std::string& srcName, int srcId,
+                 const std::string& destName, int destId)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "UPDATE context SET name=:dest_name, id=:dest_id "
+        "WHERE name=:name AND id=:id";
+    Qry.CreateVariable("name", otString, srcName);
+    Qry.CreateVariable("id", otInteger, srcId);
+    Qry.CreateVariable("dest_name", otString, destName);
+    Qry.CreateVariable("dest_id", otInteger, destId);
+    Qry.Execute();
+}
 
 } /* namespace AstraContext */
-

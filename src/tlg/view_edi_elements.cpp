@@ -364,7 +364,7 @@ void viewOrgElement(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest&
 void viewLorElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::OriginatorDetails& origin)
 {
     std::ostringstream lor;
-    lor << origin.airline() << ":" << origin.point();
+    lor << origin.airline() << ":" << origin.port();
     SetEdiFullSegment(pMes, SegmElement("LOR"), lor.str());
 }
 
@@ -373,8 +373,8 @@ static std::string fullDateTimeString(const boost::gregorian::date& d,
 {
     std::ostringstream str;
     str << Dates::rrmmdd(d);
-    if(!t.is_not_a_date_time())
-        str << Dates::hh24mi(t, false /*delimeter*/);
+//    if(!t.is_not_a_date_time())
+//        str << Dates::hh24mi(t, false /*delimeter*/);
     return str.str();
 }
 
@@ -398,8 +398,8 @@ void viewFdqElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& nex
     PopEdiPointW(pMes);
 
     SetEdiDataElem(pMes, DataElement(2281, 0), fullDateTimeString(nextFlight.depDate(), nextFlight.depTime()));
-    SetEdiDataElem(pMes, DataElement(3215, 0), nextFlight.depPoint());
-    SetEdiDataElem(pMes, DataElement(3259, 0), nextFlight.arrPoint());
+    SetEdiDataElem(pMes, DataElement(3215, 0), nextFlight.depPort());
+    SetEdiDataElem(pMes, DataElement(3259, 0), nextFlight.arrPort());
 
     if(currFlight)
     {
@@ -417,8 +417,8 @@ void viewFdqElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& nex
 
         SetEdiDataElem(pMes, DataElement(2281, 0, 1), fullDateTimeString(currFlight->depDate(), currFlight->depTime()));
         SetEdiDataElem(pMes, DataElement(2107, 0),    fullDateTimeString(currFlight->arrDate(), currFlight->arrTime()));
-        SetEdiDataElem(pMes, DataElement(3215, 0, 1), currFlight->depPoint());
-        SetEdiDataElem(pMes, DataElement(3259, 0, 1), currFlight->arrPoint());
+        SetEdiDataElem(pMes, DataElement(3215, 0, 1), currFlight->depPort());
+        SetEdiDataElem(pMes, DataElement(3259, 0, 1), currFlight->arrPort());
     }
 
     PopEdiPointW(pMes);
@@ -444,8 +444,8 @@ void viewFdrElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& fli
     PopEdiPointW(pMes);
 
     SetEdiDataElem(pMes, DataElement(2281, 0), fullDateTimeString(flight.depDate(), flight.depTime()));
-    SetEdiDataElem(pMes, DataElement(3215, 0), flight.depPoint());
-    SetEdiDataElem(pMes, DataElement(3259, 0), flight.arrPoint());
+    SetEdiDataElem(pMes, DataElement(3215, 0), flight.depPort());
+    SetEdiDataElem(pMes, DataElement(3259, 0), flight.arrPort());
     SetEdiDataElem(pMes, DataElement(2107, 0), fullDateTimeString(flight.arrDate(), flight.arrTime()));
     SetEdiDataElem(pMes, DataElement(9856, 0), fcIndicator);
 
@@ -521,7 +521,7 @@ void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& ba
 void viewChdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CascadeHostDetails& cascadeDetails)
 {
     std::ostringstream chd;
-    chd << cascadeDetails.originAirline() << ":" << cascadeDetails.originPoint();
+    chd << cascadeDetails.originAirline() << ":" << cascadeDetails.originPort();
     chd << "++++++++";
     BOOST_FOREACH(const std::string& hostAirline, cascadeDetails.hostAirlines()) {
         chd << "H::" << hostAirline << "+";
@@ -657,6 +657,22 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
         rod << "+";
     }
     SetEdiFullSegment(pMes, SegmElement("ROD", num), rod.str());
+}
+
+void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails::DocInfo& doc)
+{
+    std::ostringstream pap;
+    pap << ":::" << Dates::ddmmrr(doc.birthDate())
+        << ":::" << doc.nationality() << "++";
+    pap << doc.docType() << ":"
+        << doc.no() << ":"
+        << doc.issueCountry() << ":::"
+        << Dates::ddmmrr(doc.expiryDate()) << ":"
+        << doc.gender() << "::::::"
+        << doc.surname() << ":"
+        << doc.name();
+
+    SetEdiFullSegment(pMes, SegmElement("PAP"), pap.str());
 }
 
 }//namespace edifact

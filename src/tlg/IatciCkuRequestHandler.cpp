@@ -190,6 +190,7 @@ iatci::CkuParams IatciCkuParamsMaker::makeParams() const
     iatci::PaxDetails paxDetails(m_ppd.m_passSurname,
                                  m_ppd.m_passName,
                                  iatci::PaxDetails::strToType(m_ppd.m_passType),
+                                 boost::none,
                                  m_ppd.m_passQryRef,
                                  m_ppd.m_passRespRef);
 

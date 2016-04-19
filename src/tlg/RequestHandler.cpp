@@ -1,4 +1,5 @@
 #include "RequestHandler.h"
+#include "remote_system_context.h"
 #include "exceptions.h"
 #include "edi_msg.h"
 
@@ -13,6 +14,7 @@
 namespace TlgHandling {
 
 using namespace Ticketing;
+using namespace Ticketing::RemoteSystemContext;
 
 AstraRequestHandler::AstraRequestHandler(_EDI_REAL_MES_STRUCT_* pMes,
                                          const edilib::EdiSessRdData *edisess)
@@ -38,9 +40,9 @@ void AstraRequestHandler::onHandlerError(const std::exception *e)
         } else {
             WriteLog(STDLOG, "%s", exc->what());
         }
-        saveErrorInfo(exc->errCode(), exc->what());
+        saveErrorInfo(exc->errCode(), exc->errText());
     } else if(__CAST(EXCEPTIONS::Exception, exc, e)) {
-        ProgError(STDLOG, "%s", exc->what());
+        WriteLog(STDLOG, "%s", exc->what());
         saveErrorInfo(AstraErr::EDI_PROC_ERR, exc->what());
     } else {
         ProgError(STDLOG,"std::exception: %s", e->what());
@@ -51,6 +53,13 @@ void AstraRequestHandler::onHandlerError(const std::exception *e)
 bool AstraRequestHandler::needPutErrToQueue() const
 {
     return false;
+}
+
+tlgnum_t AstraRequestHandler::inboundTlgNum() const
+{
+    boost::optional<tlgnum_t> inbTlgNum = SystemContext::Instance(STDLOG).inbTlgInfo().tlgNum();
+    ASSERT(inbTlgNum);
+    return inbTlgNum.get();
 }
 
 }//namespace TlgHandling

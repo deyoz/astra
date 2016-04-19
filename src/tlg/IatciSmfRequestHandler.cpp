@@ -102,7 +102,7 @@ boost::optional<iatci::SmfParams> IatciSmfRequestHandler::nextSmfParams() const
     }
 
     iatci::CascadeHostDetails cascadeDetails(smfParams().origin().airline(),
-                                             smfParams().origin().point());
+                                             smfParams().origin().port());
     cascadeDetails.addHostAirline(smfParams().flight().airline());
     if(smfParams().flightFromPrevHost()) {
         cascadeDetails.addHostAirline(smfParams().flightFromPrevHost()->airline());

@@ -18,7 +18,8 @@ PlfRequest::PlfRequest(const iatci::PlfParams& params,
                        const std::string& ctxt,
                        const KickInfo& kick)
     : EdifactRequest(pult, ctxt, kick, DCQPLF,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline())),
+                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline(),
+                                                                            params.flight().flightNum())),
       m_params(params)
 {
 }

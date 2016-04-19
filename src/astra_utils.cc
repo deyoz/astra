@@ -1689,6 +1689,14 @@ string get_internal_msgid_hex()
 namespace ASTRA
 {
 
+void dumpTable(const std::string& table,
+               int loglevel, const char* nick, const char* file, int line)
+{
+    OciCpp::DumpTable dt(table);
+    dt.exec(loglevel, nick, file, line);
+}
+
+
 static void commitInTestMode_()
 {
     const char* sql = "SAVEPOINT SP_XP_TESTING";

@@ -221,6 +221,12 @@ void viewCbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CabinDetails& cabi
 */
 void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDetails, int num = 0);
 
+/**
+ * @brief makes a PAP element
+*/
+void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails::DocInfo& doc);
+
+
 }//namespace edifact
 
 #endif/*_VIEW_EDI_ELEMENTS_H_*/

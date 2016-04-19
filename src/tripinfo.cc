@@ -31,8 +31,10 @@
 #include "sopp.h"
 #include "apps_interaction.h"
 
+#include <serverlib/testmode.h>
+
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace BASIC;
@@ -592,7 +594,9 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         {
           int point_id=Qry.FieldAsInteger("point_id");
 
-          if (!checkFinalStages(StagesQry, point_id, SQLfilter)) continue; //пропускаем, рейс не подходит по final_stages
+          if (!checkFinalStages(StagesQry, point_id, SQLfilter)) {
+              if(!inTestMode()) continue; //пропускаем, рейс не подходит по final_stages
+          }
 
           TTripInfo info(Qry);
 

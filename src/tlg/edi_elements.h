@@ -637,6 +637,7 @@ struct PrdElem
 ///@class PsdElem - Passenger seat request details --PSD
 struct PsdElem
 {
+    std::string m_seat;
     std::string m_noSmokingInd;
     std::string m_characteristic; // TODO
 };
@@ -908,6 +909,23 @@ struct RodElem
 
 //-----------------------------------------------------------------------------
 
+
+///@class PapElem - Passenger API/DOT information --PAP
+struct PapElem
+{
+    Dates::Date_t m_birthDate;
+    std::string   m_nationality;
+    std::string   m_docQualifier;
+    std::string   m_docNumber;
+    std::string   m_placeOfIssue;
+    Dates::Date_t m_expiryDate;
+    std::string   m_gender;
+    std::string   m_surname;
+    std::string   m_name;
+};
+
+//-----------------------------------------------------------------------------
+
 std::ostream& operator<<(std::ostream &os, const LorElem &lor);
 std::ostream& operator<<(std::ostream &os, const FdqElem &fdq);
 std::ostream& operator<<(std::ostream &os, const PpdElem &ppd);
@@ -930,6 +948,7 @@ std::ostream& operator<<(std::ostream &os, const SrpElem &srp);
 std::ostream& operator<<(std::ostream &os, const EqdElem &eqd);
 std::ostream& operator<<(std::ostream &os, const CbdElem &cbd);
 std::ostream& operator<<(std::ostream &os, const RodElem &rod);
+std::ostream& operator<<(std::ostream &os, const PapElem &pap);
 
 }//namespace edifact
 

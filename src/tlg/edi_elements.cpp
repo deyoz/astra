@@ -160,6 +160,7 @@ std::ostream& operator<<(std::ostream &os, const PrdElem &prd)
 std::ostream& operator<<(std::ostream &os, const PsdElem &psd)
 {
     os << "PSD: ";
+    os << "seat: " << psd.m_seat << "; ";
     os << "nosmoking: " << psd.m_noSmokingInd << "; ";
     os << "characterstic: " << psd.m_characteristic;
     return os;
@@ -350,6 +351,21 @@ std::ostream& operator<<(std::ostream &os, const RodElem &rod)
             os << c << ",";
         }
     }
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const PapElem &pap)
+{
+    os << "PAP: ";
+    os << "birth date: " << pap.m_birthDate << "; ";
+    os << "nationality: " << pap.m_nationality << "; ";
+    os << "doc qualifier: " << pap.m_docQualifier << "; ";
+    os << "doc number: " << pap.m_docNumber << "; ";
+    os << "place of issue: " << pap.m_placeOfIssue << "; ";
+    os << "expiry date: " << pap.m_expiryDate << "; ";
+    os << "gender: " << pap.m_gender << "; ";
+    os << "surname: " << pap.m_surname << "; ";
+    os << "name: " << pap.m_name << "; ";
     return os;
 }
 

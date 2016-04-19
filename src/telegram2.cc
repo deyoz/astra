@@ -3760,7 +3760,7 @@ void TTlgPlace::dump()
         buf << "point_arv: " << point_arv << "; ";
     if(!xname.empty())
         buf << yname << xname;
-    ProgTrace(TRACE5, buf.str().c_str());
+    ProgTrace(TRACE5, "%s", buf.str().c_str());
 }
 
 void TSeatRectList::vert_pack()

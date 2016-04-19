@@ -8,29 +8,36 @@
 namespace iatci { class Result; }
 
 
-class IactiInterface: public JxtInterface
+class IatciInterface: public JxtInterface
 {
 public:
-    IactiInterface()
+    IatciInterface()
         : JxtInterface("", "IactiInterface")
     {
-        AddEvent("InitialRequest",  JXT_HANDLER(IactiInterface, InitialRequest));
-        AddEvent("UpdateRequest",   JXT_HANDLER(IactiInterface, UpdateRequest));
-        AddEvent("CancelRequest",   JXT_HANDLER(IactiInterface, CancelRequest));
-        AddEvent("ReprintRequest",  JXT_HANDLER(IactiInterface, ReprintRequest));
-        AddEvent("PasslistRequest", JXT_HANDLER(IactiInterface, PasslistRequest));
-        AddEvent("SeatmapRequest",  JXT_HANDLER(IactiInterface, SeatmapRequest));
-        AddEvent("kick",            JXT_HANDLER(IactiInterface, KickHandler));
+        AddEvent("InitialRequest",  JXT_HANDLER(IatciInterface, InitialRequest));
+        AddEvent("UpdateRequest",   JXT_HANDLER(IatciInterface, UpdateRequest));
+        AddEvent("CancelRequest",   JXT_HANDLER(IatciInterface, CancelRequest));
+        AddEvent("ReprintRequest",  JXT_HANDLER(IatciInterface, ReprintRequest));
+        AddEvent("PasslistRequest", JXT_HANDLER(IatciInterface, PasslistRequest));
+        AddEvent("SeatmapRequest",  JXT_HANDLER(IatciInterface, SeatmapRequest));
+        AddEvent("kick",            JXT_HANDLER(IatciInterface, KickHandler));
     }
+
+    static void DispatchRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+
+    static bool NeedSendIatciRequest(xmlNodePtr reqNode);
 
     // Initial Through Check-in Interchange
     void InitialRequest(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    static void InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
-    // Through Check-in Update Interchang
+    // Through Check-in Update Interchange
     void UpdateRequest(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    static void UpdateRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // Through Check-in Cancel Interchange
     void CancelRequest(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    static void CancelRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // Boarding Pass Reprint Interchange
     void ReprintRequest(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -46,14 +53,21 @@ public:
     void KickHandler(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
     // Kick handlers
-    void CheckinKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
-    void UpdateKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
-    void CancelKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
-    void ReprintKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
-    void PasslistKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
-    void SeatmapKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
-    void SeatmapForPassengerKickHandler(xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
+    void CheckinKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode,
+                            const std::list<iatci::Result>& lRes);
+    void UpdateKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode,
+                           const std::list<iatci::Result>& lRes);
+    void CancelKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode,
+                           const std::list<iatci::Result>& lRes);
+    void ReprintKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode,
+                            const std::list<iatci::Result>& lRes);
+    void PasslistKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode,
+                             const std::list<iatci::Result>& lRes);
+    void SeatmapKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode,
+                            const std::list<iatci::Result>& lRes);
+    void SeatmapForPassengerKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode,
+                                        const std::list<iatci::Result>& lRes);
 
     // Timeout Kick handler
-    void TimeoutKickHandler(xmlNodePtr resNode);
+    void TimeoutKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode);
 };

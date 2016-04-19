@@ -48,10 +48,9 @@ void AstraEdiResponseHandler::readRemoteResults()
 
     if(RemoteResults)
     {
-        if(ediErrCode().empty())
+        if(ediErrCode().empty()) {
             RemoteResults->setStatus(edifact::RemoteStatus::Success);
-        else
-        {
+        } else {
             RemoteResults->setStatus(edifact::RemoteStatus::CommonError);
             RemoteResults->setEdiErrCode(ediErrCode());
             RemoteResults->setRemark(ediErrText());

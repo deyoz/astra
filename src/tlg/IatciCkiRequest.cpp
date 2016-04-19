@@ -16,7 +16,8 @@ CkiRequest::CkiRequest(const iatci::CkiParams& params,
                        const std::string& ctxt,
                        const KickInfo& kick)
     : EdifactRequest(pult, ctxt, kick, DCQCKI,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline())),
+                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline(),
+                                                                            params.flight().flightNum())),
       m_params(params)
 {
 }
@@ -34,8 +35,9 @@ std::string CkiRequest::funcCode() const
 void CkiRequest::collectMessage()
 {
     viewLorElement(pMes(), m_params.origin());
-    if(m_params.cascadeDetails())
+    if(m_params.cascadeDetails()) {
         viewChdElement(pMes(), *m_params.cascadeDetails());
+    }
 
     edilib::SetEdiSegGr(pMes(), 1);
     edilib::SetEdiPointToSegGrW(pMes(), 1);
@@ -44,14 +46,18 @@ void CkiRequest::collectMessage()
     edilib::SetEdiSegGr(pMes(), 2);
     edilib::SetEdiPointToSegGrW(pMes(), 2);
     viewPpdElement(pMes(), m_params.pax());
-    if(m_params.reserv())
+    if(m_params.reserv()) {
         viewPrdElement(pMes(), *m_params.reserv());
-    if(m_params.seat())
+    }
+    if(m_params.seat()) {
         viewPsdElement(pMes(), *m_params.seat());
-    if(m_params.baggage())
+    }
+    if(m_params.baggage()) {
         viewPbdElement(pMes(), *m_params.baggage());
-    if(m_params.service())
+    }
+    if(m_params.service()) {
         viewPsiElement(pMes(), *m_params.service());
+    }
 }
 
 //-----------------------------------------------------------------------------

@@ -530,13 +530,12 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
       break;
   };
 
-  edifact::EtDispByNumRequest dispReq(edifact::EtDispByNumParams(org,
-                                                                 XMLTreeToText(xmlCtxt.docPtr()),
-                                                                 kickInfo,
-                                                                 info.airline,
-                                                                 Ticketing::FlightNum_t(info.flt_no),
-                                                                 tickNum));
-  dispReq.sendTlg();
+  edifact::SendEtDispByNumRequest(edifact::EtDispByNumParams(org,
+                                                             XMLTreeToText(xmlCtxt.docPtr()),
+                                                             kickInfo,
+                                                             info.airline,
+                                                             Ticketing::FlightNum_t(info.flt_no),
+                                                             tickNum));
 }
 
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1961,6 +1960,25 @@ void ChangeStatusInterface::ChangeStatus(const xmlNodePtr reqNode,
 
 void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    using namespace edifact;
+
+    pRemoteResults remRes = RemoteResults::readSingle();
+    switch(remRes->status()->codeInt())
+    {
+    case RemoteStatus::Success:
+    case RemoteStatus::CommonError:
+        KickOnAnswer(reqNode, resNode);
+        break;
+    case RemoteStatus::Timeout:
+        KickOnTimeout(reqNode, resNode);
+        break;
+    default:
+        break;
+    }
+}
+
+void ChangeStatusInterface::KickOnAnswer(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
     string context;
     TReqInfo *reqInfo = TReqInfo::Instance();
     if (GetNode("@req_ctxt_id",reqNode)!=NULL)  //req_ctxt_id отсутствует, если телеграмма сформирована не от пульта
@@ -2196,11 +2214,16 @@ void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       }
       catch(ServerFramework::Exception &e)
       {
-        OraSession.Rollback();
+        ASTRA::rollback();
         jxtlib::JXTLib::Instance()->GetCallbacks()->HandleException(&e);
         ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
       }
     }
+}
+
+void ChangeStatusInterface::KickOnTimeout(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    // TODO handle COS timeout
 }
 
 bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id, bool &piece_concept)
@@ -2388,7 +2411,7 @@ void EMDAutoBoundInterface::EMDTryBind(int grp_id,
         if (!EMDList.empty())
         {
           //хотя бы один документ будет обрабатываться
-          OraSession.Rollback();  //откат
+          ASTRA::rollback();
           NewTextChild(termReqNode, "second_call");
           edifact::KickInfo kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc)),
                                                                   "EMDAutoBound");
@@ -2405,12 +2428,12 @@ void EMDAutoBoundInterface::EMDTryBind(int grp_id,
   }
   catch(UserException &e)
   {
-    OraSession.Rollback();
+    ASTRA::rollback();
     ProgTrace(TRACE5, ">>>> %s: UserException: %s", __FUNCTION__, e.what());
   }
   catch(std::exception &e)
   {
-    OraSession.Rollback();
+    ASTRA::rollback();
     ProgError(STDLOG, "%s: std::exception: %s", __FUNCTION__, e.what());
   }
 }

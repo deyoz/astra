@@ -32,8 +32,8 @@ public:
 
     using iatci::FlightDetails::m_airline;
     using iatci::FlightDetails::m_flightNum;
-    using iatci::FlightDetails::m_depPoint;
-    using iatci::FlightDetails::m_arrPoint;
+    using iatci::FlightDetails::m_depPort;
+    using iatci::FlightDetails::m_arrPort;
     using iatci::FlightDetails::m_depDate;
     using iatci::FlightDetails::m_arrDate;
     using iatci::FlightDetails::m_depTime;
@@ -51,7 +51,7 @@ inline void save(Archive& ar, const iatci::FlightDetails& par, const unsigned in
 {
     FlightDetailsAccessor acc(par);
     ar & acc.m_airline;
-    ar & acc.m_depPoint & acc.m_arrPoint;
+    ar & acc.m_depPort & acc.m_arrPort;
     std::string depDate = Dates::ddmmyyyy(acc.m_depDate),
                 arrDate = Dates::ddmmyyyy(acc.m_arrDate);
     std::string depTime = Dates::hh24mi(acc.m_depTime),
@@ -70,7 +70,7 @@ inline void load(Archive& ar, iatci::FlightDetails& par, const unsigned int vers
 {
     FlightDetailsAccessor acc;
     ar & acc.m_airline;
-    ar & acc.m_depPoint & acc.m_arrPoint;
+    ar & acc.m_depPort & acc.m_arrPort;
     std::string depDate, arrDate;
     std::string depTime, arrTime;
     std::string brdTime;
@@ -99,6 +99,33 @@ inline void serialize(Archive& ar, iatci::FlightDetails& par, const unsigned int
 
 namespace {
 
+class DocInfoAccessor: private iatci::PaxDetails::DocInfo
+{
+public:
+    // for save
+    explicit DocInfoAccessor(const iatci::PaxDetails::DocInfo& d)
+        : iatci::PaxDetails::DocInfo(d)
+    {}
+
+    // for load
+    DocInfoAccessor()
+    {}
+
+    iatci::PaxDetails::DocInfo& get() { return *this; }
+
+    using iatci::PaxDetails::DocInfo::m_birthDate;
+    using iatci::PaxDetails::DocInfo::m_docType;
+    using iatci::PaxDetails::DocInfo::m_expiryDate;
+    using iatci::PaxDetails::DocInfo::m_gender;
+    using iatci::PaxDetails::DocInfo::m_issueCountry;
+    using iatci::PaxDetails::DocInfo::m_name;
+    using iatci::PaxDetails::DocInfo::m_nationality;
+    using iatci::PaxDetails::DocInfo::m_no;
+    using iatci::PaxDetails::DocInfo::m_surname;
+};
+
+//
+
 class PaxDetailsAccessor: private iatci::PaxDetails
 {
 public:
@@ -116,11 +143,48 @@ public:
     using iatci::PaxDetails::m_surname;
     using iatci::PaxDetails::m_name;
     using iatci::PaxDetails::m_type;
+    using iatci::PaxDetails::m_doc;
     using iatci::PaxDetails::m_qryRef;
     using iatci::PaxDetails::m_respRef;
 };
 
 }//namespace
+
+
+/*****
+ * DocInfo
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::PaxDetails::DocInfo& par, const unsigned int version)
+{
+    DocInfoAccessor acc(par);
+    std::string bd = Dates::ddmmyyyy(acc.m_birthDate),
+                ed = Dates::ddmmyyyy(acc.m_expiryDate);
+
+    ar & bd & ed & acc.m_docType;
+    ar & acc.m_gender & acc.m_issueCountry & acc.m_name;
+    ar & acc.m_nationality & acc.m_no & acc.m_surname;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::PaxDetails::DocInfo& par, const unsigned int version)
+{
+    DocInfoAccessor acc;
+    std::string bd, ed;
+
+    ar & bd & ed & acc.m_docType;
+    ar & acc.m_gender & acc.m_issueCountry & acc.m_name;
+    ar & acc.m_nationality & acc.m_no & acc.m_surname;
+    acc.m_birthDate  = Dates::ddmmyyyy(bd);
+    acc.m_expiryDate = Dates::ddmmyyyy(ed);
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::PaxDetails::DocInfo& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
 
 /*****
  * PaxDetails
@@ -129,14 +193,14 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::PaxDetails& par, const unsigned int version)
 {
     PaxDetailsAccessor acc(par);
-    ar & acc.m_surname & acc.m_name & acc.m_type & acc.m_respRef & acc.m_qryRef;
+    ar & acc.m_surname & acc.m_name & acc.m_type & acc.m_doc & acc.m_respRef & acc.m_qryRef;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::PaxDetails& par, const unsigned int version)
 {
     PaxDetailsAccessor acc;
-    ar & acc.m_surname & acc.m_name & acc.m_type & acc.m_respRef & acc.m_qryRef;
+    ar & acc.m_surname & acc.m_name & acc.m_type & acc.m_doc & acc.m_respRef & acc.m_qryRef;
     par = acc.get();
 }
 
@@ -164,6 +228,7 @@ public:
 
     const iatci::SeatDetails& get() const { return *this; }
 
+    using iatci::SeatDetails::m_seat;
     using iatci::SeatDetails::m_smokeInd;
     using iatci::SeatDetails::m_characteristics;
 };
@@ -177,14 +242,14 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::SeatDetails& par, const unsigned int version)
 {
     SeatDetailsAccessor acc(par);
-    ar & acc.m_smokeInd & acc.m_characteristics;
+    ar & acc.m_seat & acc.m_smokeInd & acc.m_characteristics;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::SeatDetails& par, const unsigned int version)
 {
     SeatDetailsAccessor acc;
-    ar & acc.m_smokeInd & acc.m_characteristics;
+    ar & acc.m_seat & acc.m_smokeInd & acc.m_characteristics;
     par = acc.get();
 }
 
@@ -615,7 +680,7 @@ public:
     iatci::CascadeHostDetails& get() { return *this; }
 
     using iatci::CascadeHostDetails::m_originAirline;
-    using iatci::CascadeHostDetails::m_originPoint;
+    using iatci::CascadeHostDetails::m_originPort;
     using iatci::CascadeHostDetails::m_hostAirlines;
 };
 
@@ -628,14 +693,14 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::CascadeHostDetails& par, const unsigned int version)
 {
     CascadeHostDetailsAccessor acc(par);
-    ar & acc.m_originAirline & acc.m_originPoint & acc.m_hostAirlines;
+    ar & acc.m_originAirline & acc.m_originPort & acc.m_hostAirlines;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::CascadeHostDetails& par, const unsigned int version)
 {
     CascadeHostDetailsAccessor acc;
-    ar & acc.m_originAirline & acc.m_originPoint & acc.m_hostAirlines;
+    ar & acc.m_originAirline & acc.m_originPort & acc.m_hostAirlines;
     par = acc.get();
 }
 

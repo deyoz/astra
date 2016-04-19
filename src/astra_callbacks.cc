@@ -69,12 +69,10 @@ void AstraJxtCallbacks::InitInterfaces()
     new EMDSystemUpdateInterface();
     new EMDStatusInterface();
     new EMDAutoBoundInterface();
-    new IactiInterface();
+    new IatciInterface();
     new ChangeStatusInterface();
     new ImagesInterface();
-    new CheckInInterface();
     new EventsInterface();
-    new TripsInterface();
     new SalonsInterface();
     new SalonFormInterface();
     new CentInterface();
@@ -96,6 +94,8 @@ void AstraJxtCallbacks::InitInterfaces()
     new HTTPRequestsIface();
     new PieceConceptInterface();
 
+    CheckInInterface::instance();
+    TripsInterface::instance();
 };
 
 void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &body)

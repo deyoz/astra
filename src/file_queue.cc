@@ -445,7 +445,7 @@ int TFileQueue::putFile( const std::string &receiver,
   catch( std::exception &e)
   {
   	try {deleteFile( file_id );} catch(...){};
-    ProgError(STDLOG, e.what());
+    ProgError(STDLOG, "%s", e.what());
     throw;
   }
   catch(...)

@@ -443,6 +443,7 @@ class TReqInfo
     TScreen screen;
     ASTRA::TClientType client_type;
     bool duplicate;
+    bool api_mode;
     void clear()
     {
       desk.clear();
@@ -452,6 +453,7 @@ class TReqInfo
       duplicate = false;
       vtracing=true;
       vtracing_init=false;
+      api_mode = false;
     }
     virtual ~TReqInfo() {}
     static TReqInfo *Instance();
@@ -559,7 +561,7 @@ public:
      AddEvent("ClientError",evHandle);
      evHandle=JxtHandler<SysReqInterface>::CreateHandler(&SysReqInterface::GetBasicInfo);
      AddEvent("GetBasicInfo",evHandle);
-  };
+  }
 
   static void ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -615,15 +617,17 @@ void MergeSortedRanges(std::vector< std::pair<T,T> > &ranges, const std::pair<T,
   }
   else
     ranges.push_back( range );
-};
+}
 
-
-
+/////////////////////////////////////////////////////////////////////////////////////////
 
 namespace ASTRA
 {
+void dumpTable(const std::string& table,
+               int loglevel, const char* nick, const char* file, int line);
+
 void commit();
 void rollback();
-};
+}//namespace ASTRA
 
 #endif /*_ASTRA_UTILS_H_*/

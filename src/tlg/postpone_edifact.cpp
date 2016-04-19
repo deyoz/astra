@@ -107,7 +107,7 @@ boost::optional<tlgnum_t> PostponeEdiHandling::deleteWaiting(edilib::EdiSessionI
     boost::optional<tlgnum_t> tnum = deleteDb(sessId);
     if(tnum)
     {
-        LogTrace(TRACE1) << "putTlg2InputQueue postponed tlg with num: " << tnum;
+        LogTrace(TRACE1) << "putTlg2InputQueue postponed tlg with num: " << tnum.get();
         addToQueue(*tnum);
     }
     return tnum;

@@ -42,6 +42,8 @@ protected:
     void setEdiErrorLevel(const std::string& errLevel);
     const std::string& ediErrorLevel() const;
 
+    bool postponeHandling() const;
+
 private:
     virtual void loadDeferredData();
     iatci::BaseParams requestParams() const;

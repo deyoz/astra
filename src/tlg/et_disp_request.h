@@ -60,4 +60,6 @@ public:
     virtual ~EtDispByNumRequest() {}
 };
 
+edilib::EdiSessionId_t SendEtDispByNumRequest(const EtDispByNumParams& dispParams);
+
 }//namespace edifact

@@ -4,6 +4,7 @@
 #include "exceptions.h"
 #include "tlg/edi_tlg.h"
 #include "tlg/et_cos_request.h"
+#include "tlg/postpone_edifact.h"
 
 #include <edilib/edi_func_cpp.h>
 
@@ -43,8 +44,13 @@ namespace ChangeStatus
                                       lTick,
                                       itin);
 
-        edifact::EtCosRequest cosReq(chngData);
-        cosReq.sendTlg();
+        edilib::EdiSessionId_t sessIda = edifact::SendEtCosRequest(chngData);
+        // для случая edifact нужно сохранить признак отложенной обработки тлг
+        if(TReqInfo::Instance()->api_mode)
+        {
+            LogTrace(TRACE3) << "throw TlgToBePostponed for edi_session=" << sessIda;
+            throw TlgHandling::TlgToBePostponed(sessIda);
+        }
     }
 
     ChngStatAnswer ChngStatAnswer::readEdiTlg(EDI_REAL_MES_STRUCT *pMes)

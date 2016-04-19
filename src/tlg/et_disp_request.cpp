@@ -12,9 +12,7 @@ namespace edifact {
 
 EtDispByNumRequest::EtDispByNumRequest(const EtDispByNumParams& dispParams)
     : EtRequest(dispParams), m_dispParams(dispParams)
-{
-
-}
+{}
 
 std::string EtDispByNumRequest::mesFuncCode() const
 {
@@ -29,6 +27,13 @@ void EtDispByNumRequest::collectMessage()
     TktElem tkt;
     tkt.m_ticketNum = m_dispParams.tickNum();
     viewTktElement(pMes(), tkt);
+}
+
+edilib::EdiSessionId_t SendEtDispByNumRequest(const EtDispByNumParams& dispParams)
+{
+    EtDispByNumRequest dispReq(dispParams);
+    dispReq.sendTlg();
+    return dispReq.ediSessionId();
 }
 
 }//namespace edifact

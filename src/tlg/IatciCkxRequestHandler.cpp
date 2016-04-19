@@ -103,7 +103,15 @@ boost::optional<iatci::BaseParams> IatciCkxRequestHandler::nextParams() const
 
 iatci::Result IatciCkxRequestHandler::handleRequest() const
 {
-   return iatci::cancelCheckin(ckxParams());
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
+
+    if(postponeHandling()) {
+        LogTrace(TRACE3) << "postpone handling for tlg " << inboundTlgNum();
+
+        return iatci::cancelCheckin(inboundTlgNum());
+    }
+
+    return iatci::cancelCheckin(ckxParams());
 }
 
 edilib::EdiSessionId_t IatciCkxRequestHandler::sendCascadeRequest() const
@@ -167,6 +175,7 @@ iatci::CkxParams IatciCkxParamsMaker::makeParams() const
     iatci::PaxDetails paxDetails(m_ppd.m_passSurname,
                                  m_ppd.m_passName,
                                  iatci::PaxDetails::strToType(m_ppd.m_passType),
+                                 boost::none,
                                  m_ppd.m_passQryRef,
                                  m_ppd.m_passRespRef);
 

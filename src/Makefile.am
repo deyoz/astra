@@ -144,6 +144,7 @@ astra_SOURCES = \
   iatci.cc \
   iatci_types.cc \
   iatci_api.cc \
+  iatci_help.cc \
   TypeBHelpMng.cpp \
   astra_msg.cc \
   Depeches.cpp \
@@ -152,6 +153,7 @@ astra_SOURCES = \
   ffp_service_from_sirena.cc \
   sirena_service.cc \
   astra_api.cpp
+  
 
 
 astra_LDADD = $(all_libraries) \
@@ -283,6 +285,7 @@ noinst_HEADERS = \
   iatci_types.h \
   iatci_serialization.h \
   iatci_api.h \
+  iatci_help.h \
   iatci.h \
   TypeBHelpMng.h \
   astra_msg.h \

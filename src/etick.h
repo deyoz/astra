@@ -404,6 +404,10 @@ class ChangeStatusInterface: public AstraJxtIface
 
     static void ChangeStatus(const xmlNodePtr reqNode,
                              const TChangeStatusList &info);
+
+  protected:
+    void KickOnAnswer(xmlNodePtr reqNode, xmlNodePtr resNode);
+    void KickOnTimeout(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 class EMDAutoBoundInterface: public AstraJxtIface

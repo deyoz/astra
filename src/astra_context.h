@@ -27,10 +27,9 @@ void ClearContext(const std::string &name,
 void ClearContext(const std::string &name,
                   const int id);
 
-}; /* namespace AstraContext */
+void MoveContext(const std::string& srcName, int srcId,
+                 const std::string& destName, int destId);
 
-
+} /* namespace AstraContext */
 
 #endif /*_ASTRA_CONTEXT_H_*/
-
-

@@ -17,7 +17,8 @@ SmfRequest::SmfRequest(const iatci::SmfParams& params,
                        const std::string& ctxt,
                        const KickInfo& kick)
     : EdifactRequest(pult, ctxt, kick, DCQSMF,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline())),
+                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline(),
+                                                                            params.flight().flightNum())),
       m_params(params)
 {
 }

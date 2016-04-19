@@ -2,6 +2,7 @@
 
 #include <edilib/edi_request_handler.h>
 #include <etick/etick_msg_types.h>
+#include <libtlg/tlgnum.h>
 
 
 struct _EDI_REAL_MES_STRUCT_;
@@ -22,6 +23,9 @@ public:
                                const std::string& errText) {}
 
     virtual ~AstraRequestHandler() {}
+
+protected:
+    tlgnum_t inboundTlgNum() const;
 };
 
 }//namespace TlgHandling

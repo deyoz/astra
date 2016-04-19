@@ -16,7 +16,8 @@ BprRequest::BprRequest(const iatci::BprParams& params,
                        const std::string& ctxt,
                        const KickInfo& kick)
     : EdifactRequest(pult, ctxt, kick, DCQBPR,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline())),
+                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline(),
+                                                                            params.flight().flightNum())),
       m_params(params)
 {
 }

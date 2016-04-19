@@ -35,6 +35,7 @@ private:
     boost::optional<edifact::ErdElem> m_erd;
     boost::optional<edifact::WadElem> m_wad;
     boost::optional<edifact::EqdElem> m_eqd;
+    boost::optional<edifact::PapElem> m_pap;
 
 public:
     void setFdr(const boost::optional<edifact::FdrElem>& fdr);
@@ -47,6 +48,7 @@ public:
     void setErd(const boost::optional<edifact::ErdElem>& erd, bool required = false);
     void setWad(const boost::optional<edifact::WadElem>& wad, bool required = false);
     void setEqd(const boost::optional<edifact::EqdElem>& eqd, bool required = false);
+    void setPap(const boost::optional<edifact::PapElem>& pap, bool required = false);
     iatci::Result makeResult() const;
 };
 
@@ -106,6 +108,27 @@ void IatciResponseHandler::fillFuncCodeRespStatus()
 
 void IatciResponseHandler::fillErrorDetails()
 {
+    if(pMes())
+    {
+        PushEdiPointG(pMes());
+        if(SetEdiPointToSegGrG(pMes(), 1))
+        {
+            PushEdiPointG(pMes());
+            if(SetEdiPointToSegmentG(pMes(), SegmElement("ERD")))
+            {
+                PushEdiPointG(pMes());
+                SetEdiPointToCompositeG(pMes(), CompElement("C056"));
+
+                setEdiErrCode(GetDBFName(pMes(), DataElement(9845), ""));
+                setEdiErrText(GetDBFName(pMes(), DataElement(4440), ""));
+
+                PopEdiPointG(pMes());
+            }
+
+            PopEdiPointG(pMes());
+        }
+        PopEdiPointG(pMes());
+    }
 }
 
 void IatciResponseHandler::parse()
@@ -131,6 +154,13 @@ void IatciResponseHandler::parse()
             resultMaker.setPpd(readEdiPpd(pMes()), true /*required*/);
             resultMaker.setPfd(readEdiPfd(pMes()));
             resultMaker.setPsi(readEdiPsi(pMes()));
+
+            if(GetNumSegGr(pMes(), 3) > 0)
+            {
+                EdiPointHolder apg_holder(pMes());
+                SetEdiPointToSegGrG(pMes(), SegGrElement(3), "PROG_ERR");
+                resultMaker.setPap(readEdiPap(pMes()));
+            }
         }
 
         m_lRes.push_back(resultMaker.makeResult());
@@ -139,10 +169,10 @@ void IatciResponseHandler::parse()
 
 void IatciResponseHandler::handle()
 {
-    boost::optional<tlgnum_t> postponeTlg = PostponeEdiHandling::findPostponeTlg(ediSessId());
-    if(postponeTlg) {
+    boost::optional<tlgnum_t> postponeTlgNum = PostponeEdiHandling::findPostponeTlg(ediSessId());
+    if(postponeTlgNum) {
         // сохранение данных для последующей обработки отложенной телеграммы
-        iatci::saveDeferredCkiData(*postponeTlg, m_lRes);
+        iatci::saveDeferredCkiData(*postponeTlgNum, m_lRes);
     } else {
         // сохранение данных для obrzap
         iatci::saveCkiData(ediSessId(), m_lRes);
@@ -154,9 +184,9 @@ void IatciResponseHandler::onTimeOut()
     // в список m_lRes положим один элемент, информирующий о таймауте
     m_lRes.push_back(iatci::Result::makeFailResult(action(),
                                                    iatci::ErrorDetails(AstraErr::TIMEOUT_ON_HOST_3)));
-    boost::optional<tlgnum_t> postponeTlg = PostponeEdiHandling::findPostponeTlg(ediSessId());
-    if(postponeTlg) {
-        iatci::saveDeferredCkiData(*postponeTlg, m_lRes);
+    boost::optional<tlgnum_t> postponeTlgNum = PostponeEdiHandling::findPostponeTlg(ediSessId());
+    if(postponeTlgNum) {
+        iatci::saveDeferredCkiData(*postponeTlgNum, m_lRes);
     }
 }
 
@@ -230,6 +260,13 @@ void IatciResultMaker::setEqd(const boost::optional<edifact::EqdElem>& eqd, bool
     m_eqd = eqd;
 }
 
+void IatciResultMaker::setPap(const boost::optional<edifact::PapElem>& pap, bool required)
+{
+    if(required)
+        ASSERT(pap);
+    m_pap = pap;
+}
+
 iatci::Result IatciResultMaker::makeResult() const
 {
     iatci::FlightDetails flightDetails(m_fdr.m_airl,
@@ -242,11 +279,25 @@ iatci::Result IatciResultMaker::makeResult() const
                                        m_fdr.m_arrTime,
                                        m_fsd ? m_fsd->m_boardingTime : Dates::not_a_date_time);
 
+    boost::optional<iatci::PaxDetails::DocInfo> paxDoc;
+    if(m_pap) {
+        paxDoc = iatci::PaxDetails::DocInfo(m_pap->m_docQualifier,
+                                            m_pap->m_placeOfIssue,
+                                            m_pap->m_docNumber,
+                                            m_pap->m_surname,
+                                            m_pap->m_name,
+                                            m_pap->m_gender,
+                                            m_pap->m_nationality,
+                                            m_pap->m_birthDate,
+                                            m_pap->m_expiryDate);
+    }
+
     boost::optional<iatci::PaxDetails> paxDetails;
     if(m_ppd) {
         paxDetails = iatci::PaxDetails(m_ppd->m_passSurname,
                                        m_ppd->m_passName,
                                        iatci::PaxDetails::strToType(m_ppd->m_passType),
+                                       paxDoc,
                                        m_ppd->m_passQryRef,
                                        m_ppd->m_passRespRef);
     }

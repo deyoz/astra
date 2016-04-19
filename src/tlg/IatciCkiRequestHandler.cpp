@@ -6,6 +6,8 @@
 #include "iatci_types.h"
 #include "iatci_api.h"
 #include "astra_msg.h"
+#include "astra_utils.h"
+#include "astra_api.h" // TODO dropme
 
 #include <edilib/edi_func_cpp.h>
 #include <etick/exceptions.h>
@@ -91,6 +93,14 @@ std::string IatciCkiRequestHandler::respType() const
 
 iatci::Result IatciCkiRequestHandler::handleRequest() const
 {
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
+
+    if(postponeHandling()) {
+        LogTrace(TRACE3) << "postpone handling for tlg " << inboundTlgNum();
+
+        return iatci::checkinPax(inboundTlgNum());
+    }
+
     return iatci::checkinPax(ckiParams());
 }
 
@@ -132,10 +142,11 @@ boost::optional<iatci::CkiParams> IatciCkiRequestHandler::nextCkiParams() const
     iatci::PaxDetails pax = iatci::PaxDetails(ckiParams().pax().surname(),
                                               ckiParams().pax().name(),
                                               ckiParams().pax().type(),
+                                              boost::none,
                                               ckiParams().flight().toShortKeyString());
 
     iatci::CascadeHostDetails cascadeDetails(ckiParams().origin().airline(),
-                                             ckiParams().origin().point());
+                                             ckiParams().origin().port());
     cascadeDetails.addHostAirline(ckiParams().flight().airline());
     if(ckiParams().flightFromPrevHost()) {
         cascadeDetails.addHostAirline(ckiParams().flightFromPrevHost()->airline());
@@ -224,6 +235,7 @@ iatci::CkiParams IatciCkiParamsMaker::makeParams() const
     iatci::PaxDetails paxDetails(m_ppd.m_passSurname,
                                  m_ppd.m_passName,
                                  iatci::PaxDetails::strToType(m_ppd.m_passType),
+                                 boost::none,
                                  m_ppd.m_passQryRef,
                                  m_ppd.m_passRespRef);
 
@@ -234,8 +246,8 @@ iatci::CkiParams IatciCkiParamsMaker::makeParams() const
 
     boost::optional<iatci::SeatDetails> seatDetails;
     if(m_psd) {
-        // TODO
-        seatDetails = iatci::SeatDetails(iatci::SeatDetails::strToSmokeInd((m_psd->m_noSmokingInd)));
+        seatDetails = iatci::SeatDetails(m_psd->m_seat,
+                                         iatci::SeatDetails::strToSmokeInd((m_psd->m_noSmokingInd)));
     }
 
     boost::optional<iatci::BaggageDetails> baggageDetails;

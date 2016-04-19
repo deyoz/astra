@@ -11,6 +11,8 @@
 
 #include <boost/serialization/access.hpp>
 
+#include <libxml/tree.h>
+
 
 namespace iatci {
 
@@ -21,13 +23,13 @@ struct OriginatorDetails
 
 protected:
     std::string m_airline;
-    std::string m_point;
+    std::string m_port;
 
 public:
-    OriginatorDetails(const std::string& airl, const std::string& point = "");
+    OriginatorDetails(const std::string& airl, const std::string& port = "");
 
     const std::string& airline() const;
-    const std::string& point() const;
+    const std::string& port() const;
 
 protected:
     OriginatorDetails() {} // for boost serialization only
@@ -43,8 +45,8 @@ struct FlightDetails
 protected:
     std::string                      m_airline;
     Ticketing::FlightNum_t           m_flightNum;
-    std::string                      m_depPoint;
-    std::string                      m_arrPoint;
+    std::string                      m_depPort;
+    std::string                      m_arrPort;
     boost::gregorian::date           m_depDate;
     boost::gregorian::date           m_arrDate;
     boost::posix_time::time_duration m_depTime;
@@ -54,18 +56,18 @@ protected:
 public:
     FlightDetails(const std::string& airl,
                   const Ticketing::FlightNum_t& flNum,
-                  const std::string& depPoint,
-                  const std::string& arrPoint,
+                  const std::string& depPort,
+                  const std::string& arrPort,
                   const boost::gregorian::date& depDate,
-                  const boost::gregorian::date& arrDate,
+                  const boost::gregorian::date& arrDate = boost::gregorian::date(),
                   const boost::posix_time::time_duration& depTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                   const boost::posix_time::time_duration& arrTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                   const boost::posix_time::time_duration& brdTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time));
 
     const std::string&                      airline() const;
     Ticketing::FlightNum_t                  flightNum() const;
-    const std::string&                      depPoint() const;
-    const std::string&                      arrPoint() const;
+    const std::string&                      depPort() const;
+    const std::string&                      arrPort() const;
     const boost::gregorian::date&           depDate() const;
     const boost::gregorian::date&           arrDate() const;
     const boost::posix_time::time_duration& depTime() const;
@@ -81,6 +83,46 @@ protected:
 
 struct PaxDetails
 {
+    struct DocInfo
+    {
+        friend class boost::serialization::access;
+
+        protected:
+            std::string m_docType;
+            std::string m_issueCountry;
+            std::string m_no;
+            std::string m_surname;
+            std::string m_name;
+            std::string m_gender;
+            std::string m_nationality;
+            boost::gregorian::date m_birthDate;
+            boost::gregorian::date m_expiryDate;
+
+        public:
+            DocInfo(const std::string& docType,
+                    const std::string& issueCountry,
+                    const std::string& no,
+                    const std::string& surname,
+                    const std::string& name,
+                    const std::string& gender,
+                    const std::string& nationality,
+                    const boost::gregorian::date& birthDate = boost::gregorian::date(),
+                    const boost::gregorian::date& expiryDate = boost::gregorian::date());
+
+            const std::string& docType() const;
+            const std::string& issueCountry() const;
+            const std::string& no() const;
+            const std::string& surname() const;
+            const std::string& name() const;
+            const std::string& gender() const;
+            const std::string& nationality() const;
+            const boost::gregorian::date& birthDate() const;
+            const boost::gregorian::date& expiryDate() const;
+
+        protected:
+            DocInfo() {} // for boost serialization only
+    };
+
     friend class Result;
     friend class boost::serialization::access;
 
@@ -96,6 +138,7 @@ protected:
     std::string m_surname;
     std::string m_name;
     PaxType_e   m_type;
+    boost::optional<DocInfo> m_doc;
     std::string m_qryRef;
     std::string m_respRef;
 
@@ -103,6 +146,7 @@ public:
     PaxDetails(const std::string& surname,
                const std::string& name,
                PaxType_e type,
+               const boost::optional<DocInfo>& doc = boost::none,
                const std::string& qryRef = "",
                const std::string& respRef = "");
 
@@ -110,6 +154,7 @@ public:
     const std::string& name() const;
     PaxType_e          type() const;
     std::string        typeAsString() const;
+    const boost::optional<DocInfo>& doc() const;
     const std::string& qryRef() const;
     const std::string& respRef() const;
 
@@ -329,6 +374,22 @@ public:
 
 //-----------------------------------------------------------------------------
 
+class TicketCpn_t
+{
+    std::string m_tickNum;
+    unsigned    m_cpnNum;
+
+public:
+    TicketCpn_t(const std::string& tickNum, unsigned cpnNum)
+        : m_tickNum(tickNum), m_cpnNum(cpnNum)
+    {}
+
+    const std::string& tickNum() const { return m_tickNum; }
+    unsigned couponNum() const { return m_cpnNum; }
+};
+
+//-----------------------------------------------------------------------------
+
 struct ServiceDetails
 {
     struct SsrInfo
@@ -355,6 +416,8 @@ struct ServiceDetails
         const std::string& airline() const;
         unsigned           quantity() const;
 
+        TicketCpn_t toTicketCpn() const;
+
     protected:
         SsrInfo()
         {} // for boost serialization only
@@ -376,6 +439,8 @@ public:
     void addSsr(const std::string& ssrCode, const std::string& ssrText);
     void addSsrTkne(const std::string& tickNum, bool isInftTicket = false);
     void addSsrTkne(const std::string& tickNum, unsigned couponNum, bool inftTicket);
+
+    boost::optional<TicketCpn_t> findTicketCpn() const;
 };
 
 //-----------------------------------------------------------------------------
@@ -384,6 +449,7 @@ struct SeatRequestDetails: public SeatDetails
 {
     friend class Result;
     friend class boost::serialization::access;
+
 protected:
     std::string m_cabinClass;
 
@@ -565,16 +631,16 @@ struct CascadeHostDetails
 
 protected:
     std::string            m_originAirline;
-    std::string            m_originPoint;
+    std::string            m_originPort;
     std::list<std::string> m_hostAirlines;
 
 public:
     CascadeHostDetails(const std::string& host);
     CascadeHostDetails(const std::string& origAirl,
-                       const std::string& origPoint);
+                       const std::string& origPort);
 
     const std::string&            originAirline() const;
-    const std::string&            originPoint() const;
+    const std::string&            originPort() const;
     const std::list<std::string>& hostAirlines() const;
 
     void addHostAirline(const std::string& hostAirline);
@@ -891,7 +957,7 @@ public:
 
     static Result makeCancelResult(Status_e status,
                                    const FlightDetails& flight,
-                                   const PaxDetails& pax,
+                                   boost::optional<PaxDetails> pax = boost::none,
                                    boost::optional<FlightSeatDetails> seat = boost::none,
                                    boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
                                    boost::optional<ErrorDetails> errorDetails = boost::none,
@@ -944,6 +1010,8 @@ public:
 
     std::string                                actionAsString() const;
     std::string                                statusAsString() const;
+
+    void toXml(xmlNodePtr node) const;
 
     static Action_e strToAction(const std::string& a);
     static Status_e strToStatus(const std::string& s);

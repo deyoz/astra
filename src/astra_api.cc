@@ -810,7 +810,7 @@ void AstraEngine::initReqInfo() const
     TReqInfo::Instance()->Initialize("МОВ");
     TReqInfo::Instance()->client_type  = ASTRA::ctTerm;
     TReqInfo::Instance()->desk.version = VERSION_WITH_BAG_POOLS;
-    //TReqInfo::Instance()->api_mode     = true; // TODO !!!
+    TReqInfo::Instance()->api_mode     = true;
     JxtContext::JxtContHolder::Instance()
             ->setHandler(new JxtContext::JxtContHandlerSir(""));
 
@@ -875,186 +875,164 @@ int findDepPointId(const std::string& depPort,
     throw tick_soft_except(STDLOG, AstraErr::INV_FLIGHT_DATE);
 }
 
-void getNextTrip(const std::string& depPort,
-                 const std::string& airline,
-                 unsigned flNum,
-                 const boost::gregorian::date& depDate)
+iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams)
 {
-    LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
-    int depPoint = findDepPointId(depPort, airline, flNum, depDate);
-    LogTrace(TRACE3) << "depPoint=" << depPoint;
+    LogTrace(TRACE3) << __FUNCTION__ << " by "
+                     << "airp_dep[" << ckiParams.flight().depPort() << "]; "
+                     << "airline["  << ckiParams.flight().airline() << "]; "
+                     << "flight["   << ckiParams.flight().flightNum() << "]; "
+                     << "dep_date[" << ckiParams.flight().depDate() << "]; "
+                     << "surname["  << ckiParams.pax().surname() << "]; "
+                     << "name["     << ckiParams.pax().name() << "] ";
 
-    TAdvTripRoute route;
-    route.GetRouteAfter(ASTRA::NoExists,
-                        depPoint,
-                        trtNotCurrent, trtNotCancelled);
+    int depPointId = astra_api::findDepPointId(ckiParams.flight().depPort(),
+                                               ckiParams.flight().airline(),
+                                               ckiParams.flight().flightNum().get(),
+                                               ckiParams.flight().depDate());
 
-    LogTrace(TRACE3) << "route.size()=" << route.size();
+    LogTrace(TRACE3) << __FUNCTION__ << " point_dep[" << depPointId << "]";
 
-    if(!route.empty()) {
-        LogTrace(TRACE3) << "next point: " << route.front().point_id << "; "
-                                           << route.front().airp;
+    SearchPaxXmlResult searchPaxXmlRes;
+    searchPaxXmlRes = AstraEngine::singletone().SearchPax(depPointId,
+                                                          ckiParams.pax().surname(),
+                                                          ckiParams.pax().name(),
+                                                          "К");
+
+    if(searchPaxXmlRes.lTrip.size() == 0) {
+        // пассажир не найден в списке незарегистрированных
+        // тогда поищем его в списке зарегистрированных
+        PaxListXmlResult paxListXmlRes;
+        paxListXmlRes = AstraEngine::singletone().PaxList(depPointId);
+        std::list<XmlPax> wantedPaxes = paxListXmlRes.applyNameFilter(ckiParams.pax().surname(),
+                                                                      ckiParams.pax().name());
+        if(!wantedPaxes.empty()) {
+            // нашли пассажира в списке зарегистрированных
+            throw tick_soft_except(STDLOG, AstraErr::PAX_ALREADY_CHECKED_IN);
+        } else {
+            throw tick_soft_except(STDLOG, AstraErr::PAX_SURNAME_NF);
+        }
+    } else if(searchPaxXmlRes.lTrip.size() > 1) {
+        // найдено несколько пассажиров
+        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
+    }
+
+    XmlTrip& paxTrip = searchPaxXmlRes.lTrip.front();
+    fillPaxTrip(paxTrip, ckiParams);
+    // SavePax
+    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(depPointId,
+                                                                       paxTrip);
+    if(loadPaxXmlRes.lSeg.empty()) {
+        // не смоги зарегистрировать
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
+    }
+
+    return loadPaxXmlRes.toIatci(iatci::Result::Checkin,
+                                 iatci::Result::Ok,
+                                 true/*afterSavePax*/);
+}
+
+iatci::Result checkinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
+{
+    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(reqNode, ediResNode);
+    if(loadPaxXmlRes.lSeg.empty()) {
+        // не смоги зарегистрировать
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
+    }
+    return loadPaxXmlRes.toIatci(iatci::Result::Checkin,
+                                 iatci::Result::Ok,
+                                 true/*afterSavePax*/);
+}
+
+iatci::Result cancelCheckinIatciPax(const iatci::CkxParams& ckxParams)
+{
+    // отмена регистрации
+    // работает пока по имени/фамилии/рейсу
+    // но, скорее всего, должна работать по id, полученному после регистрации
+
+    LogTrace(TRACE3) << __FUNCTION__ << " by "
+                     << "airp_dep[" << ckxParams.flight().depPort() << "]; "
+                     << "airline["  << ckxParams.flight().airline() << "]; "
+                     << "flight["   << ckxParams.flight().flightNum() << "]; "
+                     << "dep_date[" << ckxParams.flight().depDate() << "]; "
+                     << "surname["  << ckxParams.pax().surname() << "]; "
+                     << "name["     << ckxParams.pax().name() << "] ";
+
+    int depPointId = astra_api::findDepPointId(ckxParams.flight().depPort(),
+                                               ckxParams.flight().airline(),
+                                               ckxParams.flight().flightNum().get(),
+                                               ckxParams.flight().depDate());
+
+    PaxListXmlResult paxListXmlRes;
+    paxListXmlRes = AstraEngine::singletone().PaxList(depPointId);
+    std::list<XmlPax> wantedPaxes = paxListXmlRes.applyNameFilter(ckxParams.pax().surname(),
+                                                                  ckxParams.pax().name());
+    if(wantedPaxes.empty()) {
+        // не нашли пассажира в списке зарегистрированных
+        throw tick_soft_except(STDLOG, AstraErr::PAX_SURNAME_NOT_CHECKED_IN);
+    }
+
+    if(wantedPaxes.size() > 1) {
+        // нашшли несколько зарегистрированных пассажиров с одним именем/фамилией
+        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
+    }
+
+    // в этом месте в списке wantedPaxes ровно 1 пассажир
+    const XmlPax& pax = wantedPaxes.front();
+    LogTrace(TRACE3) << "Pax " << pax.surname << " " << pax.name << " "
+                     << "has reg_no " << pax.reg_no;
+
+    ASSERT(pax.reg_no != ASTRA::NoExists);
+
+    LoadPaxXmlResult loadPaxXmlRes;
+    loadPaxXmlRes = AstraEngine::singletone().LoadPax(depPointId, pax.reg_no);
+
+    if(loadPaxXmlRes.lSeg.size() != 1) {
+        LogError(STDLOG) << "Load pax failed! " << loadPaxXmlRes.lSeg.size() << " "
+                         << "segments found but should be 1";
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
+    }
+
+    XmlSegment& paxSegForCancel = loadPaxXmlRes.lSeg.front();
+    ASSERT(paxSegForCancel.passengers.size() == 1);
+
+    XmlPax& paxForCancel = paxSegForCancel.passengers.front();
+    paxForCancel.refuse = "А"; // пока причина отмены всегда "А - Ошибка агента"
+
+    // SavePax
+    loadPaxXmlRes = AstraEngine::singletone().SavePax(depPointId,
+                                                      paxSegForCancel);
+
+    if(!loadPaxXmlRes.lSeg.empty()) {
+        tst();
+        return loadPaxXmlRes.toIatci(iatci::Result::Cancel,
+                                     iatci::Result::OkWithNoData,
+                                     true/*afterSavePax*/);
+    } else {
+        tst();
+        // в результат надо положить сегмент - взять его здесь можно из ckxParams
+        return iatci::Result::makeCancelResult(iatci::Result::OkWithNoData,
+                                               ckxParams.flight());
     }
 }
 
-//iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams)
-//{
-//    LogTrace(TRACE3) << __FUNCTION__ << " by "
-//                     << "airp_dep[" << ckiParams.flight().depPort() << "]; "
-//                     << "airline["  << ckiParams.flight().airline() << "]; "
-//                     << "flight["   << ckiParams.flight().flightNum() << "]; "
-//                     << "dep_date[" << ckiParams.flight().depDate() << "]; "
-//                     << "surname["  << ckiParams.pax().surname() << "]; "
-//                     << "name["     << ckiParams.pax().name() << "] ";
-
-//    int depPointId = astra_api::findDepPointId(ckiParams.flight().depPort(),
-//                                               ckiParams.flight().airline(),
-//                                               ckiParams.flight().flightNum().get(),
-//                                               ckiParams.flight().depDate());
-
-//    LogTrace(TRACE3) << __FUNCTION__ << " point_dep[" << depPointId << "]";
-
-//    SearchPaxXmlResult searchPaxXmlRes;
-//    searchPaxXmlRes = AstraEngine::singletone().SearchPax(depPointId,
-//                                                          ckiParams.pax().surname(),
-//                                                          ckiParams.pax().name(),
-//                                                          "К");
-
-//    if(searchPaxXmlRes.lTrip.size() == 0) {
-//        // пассажир не найден в списке незарегистрированных
-//        // тогда поищем его в списке зарегистрированных
-//        PaxListXmlResult paxListXmlRes;
-//        paxListXmlRes = AstraEngine::singletone().PaxList(depPointId);
-//        std::list<XmlPax> wantedPaxes = paxListXmlRes.applyNameFilter(ckiParams.pax().surname(),
-//                                                                      ckiParams.pax().name());
-//        if(!wantedPaxes.empty()) {
-//            // нашли пассажира в списке зарегистрированных
-//            throw tick_soft_except(STDLOG, AstraErr::PAX_ALREADY_CHECKED_IN);
-//        } else {
-//            throw tick_soft_except(STDLOG, AstraErr::PAX_SURNAME_NF);
-//        }
-//    } else if(searchPaxXmlRes.lTrip.size() > 1) {
-//        // найдено несколько пассажиров
-//        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
-//    }
-
-//    XmlTrip& paxTrip = searchPaxXmlRes.lTrip.front();
-//    fillPaxTrip(paxTrip, ckiParams);
-//    // SavePax
-//    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(depPointId,
-//                                                                       paxTrip);
-//    if(loadPaxXmlRes.lSeg.empty()) {
-//        // не смоги зарегистрировать
-//        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
-//    }
-
-//    return loadPaxXmlRes.toIatci(iatci::Result::Checkin,
-//                                 iatci::Result::Ok,
-//                                 true/*afterSavePax*/);
-//}
-
-//iatci::Result checkinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
-//{
-//    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(reqNode, ediResNode);
-//    if(loadPaxXmlRes.lSeg.empty()) {
-//        // не смоги зарегистрировать
-//        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
-//    }
-//    return loadPaxXmlRes.toIatci(iatci::Result::Checkin,
-//                                 iatci::Result::Ok,
-//                                 true/*afterSavePax*/);
-//}
-
-//iatci::Result cancelCheckinIatciPax(const iatci::CkxParams& ckxParams)
-//{
-//    // отмена регистрации
-//    // работает пока по имени/фамилии/рейсу
-//    // но, скорее всего, должна работать по id, полученному после регистрации
-
-//    LogTrace(TRACE3) << __FUNCTION__ << " by "
-//                     << "airp_dep[" << ckxParams.flight().depPort() << "]; "
-//                     << "airline["  << ckxParams.flight().airline() << "]; "
-//                     << "flight["   << ckxParams.flight().flightNum() << "]; "
-//                     << "dep_date[" << ckxParams.flight().depDate() << "]; "
-//                     << "surname["  << ckxParams.pax().surname() << "]; "
-//                     << "name["     << ckxParams.pax().name() << "] ";
-
-//    int depPointId = astra_api::findDepPointId(ckxParams.flight().depPort(),
-//                                               ckxParams.flight().airline(),
-//                                               ckxParams.flight().flightNum().get(),
-//                                               ckxParams.flight().depDate());
-
-//    PaxListXmlResult paxListXmlRes;
-//    paxListXmlRes = AstraEngine::singletone().PaxList(depPointId);
-//    std::list<XmlPax> wantedPaxes = paxListXmlRes.applyNameFilter(ckxParams.pax().surname(),
-//                                                                  ckxParams.pax().name());
-//    if(wantedPaxes.empty()) {
-//        // не нашли пассажира в списке зарегистрированных
-//        throw tick_soft_except(STDLOG, AstraErr::PAX_SURNAME_NOT_CHECKED_IN);
-//    }
-
-//    if(wantedPaxes.size() > 1) {
-//        // нашшли несколько зарегистрированных пассажиров с одним именем/фамилией
-//        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
-//    }
-
-//    // в этом месте в списке wantedPaxes ровно 1 пассажир
-//    const XmlPax& pax = wantedPaxes.front();
-//    LogTrace(TRACE3) << "Pax " << pax.surname << " " << pax.name << " "
-//                     << "has reg_no " << pax.reg_no;
-
-//    ASSERT(pax.reg_no != ASTRA::NoExists);
-
-//    LoadPaxXmlResult loadPaxXmlRes;
-//    loadPaxXmlRes = AstraEngine::singletone().LoadPax(depPointId, pax.reg_no);
-
-//    if(loadPaxXmlRes.lSeg.size() != 1) {
-//        LogError(STDLOG) << "Load pax failed! " << loadPaxXmlRes.lSeg.size() << " "
-//                         << "segments found but should be 1";
-//        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
-//    }
-
-//    XmlSegment& paxSegForCancel = loadPaxXmlRes.lSeg.front();
-//    ASSERT(paxSegForCancel.passengers.size() == 1);
-
-//    XmlPax& paxForCancel = paxSegForCancel.passengers.front();
-//    paxForCancel.refuse = "А"; // пока причина отмены всегда "А - Ошибка агента"
-
-//    // SavePax
-//    loadPaxXmlRes = AstraEngine::singletone().SavePax(depPointId,
-//                                                      paxSegForCancel);
-
-//    if(!loadPaxXmlRes.lSeg.empty()) {
-//        tst();
-//        return loadPaxXmlRes.toIatci(iatci::Result::Cancel,
-//                                     iatci::Result::OkWithNoData,
-//                                     true/*afterSavePax*/);
-//    } else {
-//        tst();
-//        // в результат надо положить сегмент - взять его здесь можно из ckxParams
-//        return iatci::Result::makeCancelResult(iatci::Result::OkWithNoData,
-//                                               ckxParams.flight());
-//    }
-//}
-
-//iatci::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
-//{
-//    tst();
-//    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(reqNode, ediResNode);
-//    if(!loadPaxXmlRes.lSeg.empty()) {
-//        tst();
-//        return loadPaxXmlRes.toIatci(iatci::Result::Cancel,
-//                                     iatci::Result::OkWithNoData,
-//                                     true/*afterSavePax*/);
-//    } else {
-//        tst();
-//        // в результат надо положить сегмент - взять его здесь можно только из reqNode
-//        loadPaxXmlRes = parseLoadPaxAnswer(reqNode);
-//        return loadPaxXmlRes.toIatci(iatci::Result::Cancel,
-//                                     iatci::Result::OkWithNoData,
-//                                     false/*afterSavePax*/);
-//    }
-//}
+iatci::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
+{
+    tst();
+    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(reqNode, ediResNode);
+    if(!loadPaxXmlRes.lSeg.empty()) {
+        tst();
+        return loadPaxXmlRes.toIatci(iatci::Result::Cancel,
+                                     iatci::Result::OkWithNoData,
+                                     true/*afterSavePax*/);
+    } else {
+        tst();
+        // в результат надо положить сегмент - взять его здесь можно только из reqNode
+        loadPaxXmlRes = parseLoadPaxAnswer(reqNode);
+        return loadPaxXmlRes.toIatci(iatci::Result::Cancel,
+                                     iatci::Result::OkWithNoData,
+                                     false/*afterSavePax*/);
+    }
+}
 
 void searchTrip(const iatci::FlightDetails& flight, const iatci::PaxDetails& pax)
 {
@@ -1067,117 +1045,117 @@ void searchTrip(const iatci::FlightDetails& flight, const iatci::PaxDetails& pax
 
 //---------------------------------------------------------------------------------------
 
-//iatci::Result LoadPaxXmlResult::toIatci(iatci::Result::Action_e action,
-//                                        iatci::Result::Status_e status,
-//                                        bool afterSavePax) const
-//{
-//    // flight details
-//    ASSERT(lSeg.size() == 1);
-//    const XmlSegment& seg = lSeg.front();
+iatci::Result LoadPaxXmlResult::toIatci(iatci::Result::Action_e action,
+                                        iatci::Result::Status_e status,
+                                        bool afterSavePax) const
+{
+    // flight details
+    ASSERT(lSeg.size() == 1);
+    const XmlSegment& seg = lSeg.front();
 
-//    std::string airl     = seg.tripHeader.airline;
-//    std::string flNum    = seg.tripHeader.flt_no;
-//    std::string scd_local= seg.tripHeader.scd_out_local;
-//    std::string airp_dep = seg.airp_dep;
-//    std::string airp_arv = seg.airp_arv;
+    std::string airl     = seg.tripHeader.airline;
+    std::string flNum    = seg.tripHeader.flt_no;
+    std::string scd_local= seg.tripHeader.scd_out_local;
+    std::string airp_dep = seg.airp_dep;
+    std::string airp_arv = seg.airp_arv;
 
-//    if(airl.empty()) {
-//        airl = seg.mark_flight.airline;
-//    }
-//    if(flNum.empty()) {
-//        flNum = seg.mark_flight.flt_no;
-//    }
-//    if(scd_local.empty()) {
-//        scd_local = seg.mark_flight.scd;
-//    }
+    if(airl.empty()) {
+        airl = seg.mark_flight.airline;
+    }
+    if(flNum.empty()) {
+        flNum = seg.mark_flight.flt_no;
+    }
+    if(scd_local.empty()) {
+        scd_local = seg.mark_flight.scd;
+    }
 
-//    ASSERT(!scd_local.empty());
-//    boost::posix_time::ptime scd_dep_date_time = boostDateTimeFromAstraFormatStr(scd_local);
+    ASSERT(!scd_local.empty());
+    boost::posix_time::ptime scd_dep_date_time = boostDateTimeFromAstraFormatStr(scd_local);
 
-//    boost::gregorian::date scd_dep_date = scd_dep_date_time.date();
-//    boost::gregorian::date scd_arr_date = boost::gregorian::date();
-//    boost::posix_time::time_duration scd_dep_time(boost::posix_time::not_a_date_time);
-//    if(afterSavePax) {
-//        scd_dep_time = scd_dep_date_time.time_of_day();
-//    }
-//    boost::posix_time::time_duration scd_arr_time(boost::posix_time::not_a_date_time);
+    boost::gregorian::date scd_dep_date = scd_dep_date_time.date();
+    boost::gregorian::date scd_arr_date = boost::gregorian::date();
+    boost::posix_time::time_duration scd_dep_time(boost::posix_time::not_a_date_time);
+    if(afterSavePax) {
+        scd_dep_time = scd_dep_date_time.time_of_day();
+    }
+    boost::posix_time::time_duration scd_arr_time(boost::posix_time::not_a_date_time);
 
-//    iatci::FlightDetails flightDetails(airl,
-//                                       Ticketing::getFlightNum(flNum),
-//                                       airp_dep,
-//                                       airp_arv,
-//                                       scd_dep_date,
-//                                       scd_arr_date,
-//                                       scd_dep_time,
-//                                       scd_arr_time);
+    iatci::FlightDetails flightDetails(airl,
+                                       Ticketing::getFlightNum(flNum),
+                                       airp_dep,
+                                       airp_arv,
+                                       scd_dep_date,
+                                       scd_arr_date,
+                                       scd_dep_time,
+                                       scd_arr_time);
 
-//    // pax details
-//    ASSERT(seg.passengers.size() == 1);
-//    const XmlPax& pax = seg.passengers.front();
+    // pax details
+    ASSERT(seg.passengers.size() == 1);
+    const XmlPax& pax = seg.passengers.front();
 
-//    boost::optional<iatci::PaxDetails::DocInfo> paxDoc;
-//    if(pax.doc)
-//    {
-//        boost::gregorian::date birthDate = boostDateTimeFromAstraFormatStr(pax.doc->birth_date).date(),
-//                              expiryDate = boostDateTimeFromAstraFormatStr(pax.doc->expiry_date).date();
-//        paxDoc = iatci::PaxDetails::DocInfo(pax.doc->type,
-//                                            "",
-//                                            pax.doc->no,
-//                                            pax.doc->surname,
-//                                            pax.doc->first_name,
-//                                            "",
-//                                            "",
-//                                            birthDate,
-//                                            expiryDate);
-//    }
+    boost::optional<iatci::PaxDetails::DocInfo> paxDoc;
+    if(pax.doc)
+    {
+        boost::gregorian::date birthDate = boostDateTimeFromAstraFormatStr(pax.doc->birth_date).date(),
+                              expiryDate = boostDateTimeFromAstraFormatStr(pax.doc->expiry_date).date();
+        paxDoc = iatci::PaxDetails::DocInfo(pax.doc->type,
+                                            "",
+                                            pax.doc->no,
+                                            pax.doc->surname,
+                                            pax.doc->first_name,
+                                            "",
+                                            "",
+                                            birthDate,
+                                            expiryDate);
+    }
 
-//    std::string surname  = pax.surname;
-//    std::string name     = pax.name;
-//    std::string pers_type= pax.pers_type;
+    std::string surname  = pax.surname;
+    std::string name     = pax.name;
+    std::string pers_type= pax.pers_type;
 
-//    iatci::PaxDetails paxDetails(surname,
-//                                 name,
-//                                 iatci::PaxDetails::Adult,// TODO
-//                                 paxDoc);
+    iatci::PaxDetails paxDetails(surname,
+                                 name,
+                                 iatci::PaxDetails::Adult,// TODO
+                                 paxDoc);
 
-//    boost::optional<iatci::FlightSeatDetails> seatDetails;
-//    boost::optional<iatci::ServiceDetails> serviceDetails;
-//    if(status != iatci::Result::OkWithNoData)
-//    {
-//        // seat details
-//        ASSERT(!pax.seat_no.empty());
-//        seatDetails = iatci::FlightSeatDetails(pax.seat_no,
-//                                               pax.subclass,
-//                                               "", // securityCode
-//                                               iatci::SeatDetails::None); // non-smoking ind
+    boost::optional<iatci::FlightSeatDetails> seatDetails;
+    boost::optional<iatci::ServiceDetails> serviceDetails;
+    if(status != iatci::Result::OkWithNoData)
+    {
+        // seat details
+        ASSERT(!pax.seat_no.empty());
+        seatDetails = iatci::FlightSeatDetails(pax.seat_no,
+                                               pax.subclass,
+                                               "", // securityCode
+                                               iatci::SeatDetails::None); // non-smoking ind
 
 
 
-//        serviceDetails = iatci::ServiceDetails();
-//        if(pax.ticket_rem == "TKNE") {
-//            serviceDetails->addSsrTkne(pax.ticket_no,
-//                                       pax.coupon_no,
-//                                       false);
-//        } else {
-//            serviceDetails->addSsr(pax.ticket_rem,
-//                                   pax.ticket_no);
-//        }
-//    }
+        serviceDetails = iatci::ServiceDetails();
+        if(pax.ticket_rem == "TKNE") {
+            serviceDetails->addSsrTkne(pax.ticket_no,
+                                       pax.coupon_no,
+                                       false);
+        } else {
+            serviceDetails->addSsr(pax.ticket_rem,
+                                   pax.ticket_no);
+        }
+    }
 
-//    // TODO
+    // TODO
 
-//    return iatci::Result::makeResult(action,
-//                                     status,
-//                                     flightDetails,
-//                                     paxDetails,
-//                                     seatDetails,
-//                                     boost::none,
-//                                     boost::none,
-//                                     boost::none,
-//                                     boost::none,
-//                                     boost::none,
-//                                     serviceDetails);
-//}
+    return iatci::Result::makeResult(action,
+                                     status,
+                                     flightDetails,
+                                     paxDetails,
+                                     seatDetails,
+                                     boost::none,
+                                     boost::none,
+                                     boost::none,
+                                     boost::none,
+                                     boost::none,
+                                     serviceDetails);
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 

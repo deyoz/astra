@@ -30,8 +30,8 @@ namespace AstraEdifact
 {
 
 CouponStatus calcPaxCouponStatus(const string& refuse,
-                                 const bool pr_brd,
-                                 const bool in_final_status)
+                                 bool pr_brd,
+                                 bool in_final_status)
 {
   CouponStatus real_status;
   if (!refuse.empty())
@@ -113,7 +113,7 @@ Ticketing::TicketNum_t checkDocNum(const std::string& doc_no)
 
 bool checkInteract(const TTripInfo& info,
                    const TTripSetType set_type,
-                   const bool with_exception)
+                   bool with_exception)
 {
   bool result=true;
   try
@@ -141,9 +141,9 @@ bool checkInteract(const TTripInfo& info,
   return result;
 }
 
-bool checkInteract(const int point_id,
+bool checkInteract(int point_id,
                    const TTripSetType set_type,
-                   const bool with_exception,
+                   bool with_exception,
                    TTripInfo& info)
 {
   info.Clear();
@@ -164,26 +164,26 @@ bool checkInteract(const int point_id,
 }
 
 bool checkETSInteract(const TTripInfo& info,
-                      const bool with_exception)
+                      bool with_exception)
 {
   return checkInteract(info, tsETSNoInteract, with_exception);
 }
 
 bool checkEDSInteract(const TTripInfo& info,
-                      const bool with_exception)
+                      bool with_exception)
 {
   return checkInteract(info, tsEDSNoInteract, with_exception);
 }
 
-bool checkETSInteract(const int point_id,
-                      const bool with_exception,
+bool checkETSInteract(int point_id,
+                      bool with_exception,
                       TTripInfo& info)
 {
   return checkInteract(point_id, tsETSNoInteract, with_exception, info);
 }
 
-bool checkEDSInteract(const int point_id,
-                      const bool with_exception,
+bool checkEDSInteract(int point_id,
+                      bool with_exception,
                       TTripInfo& info)
 {
   return checkInteract(point_id, tsEDSNoInteract, with_exception, info);
@@ -202,17 +202,17 @@ Ticketing::FlightNum_t getTripFlightNum(const TTripInfo& ti)
 }
 
 bool get_et_addr_set( const string &airline,
-                      const int flt_no,
+                      int flt_no,
                       pair<string,string> &addrs)
 {
   int id;
   return get_et_addr_set(airline, flt_no, addrs, id);
-};
+}
 
-bool get_et_addr_set( const string &airline,
-                      const int flt_no,
-                      pair<string,string> &addrs,
-                      int &id)
+bool get_et_addr_set(const string &airline,
+                     int flt_no,
+                     pair<string,string> &addrs,
+                     int &id)
 {
   addrs.first.clear();
   addrs.second.clear();
@@ -276,7 +276,7 @@ void copy_notify_levb(const int src_edi_sess_id,
   };
 }
 
-void confirm_notify_levb(const int edi_sess_id, const bool err_if_not_found)
+void confirm_notify_levb(int edi_sess_id, bool err_if_not_found)
 {
   ProgTrace(TRACE2,"confirm_notify_levb: called with edi_sess_id=%d",edi_sess_id);
 
@@ -350,7 +350,7 @@ string make_xml_kick(const edifact::KickInfo &kickInfo)
   return ConvertCodepage(XMLTreeToText(kickDoc.docPtr()),"CP866","UTF-8");
 };
 
-edifact::KickInfo createKickInfo(const int v_reqCtxtId,
+edifact::KickInfo createKickInfo(int v_reqCtxtId,
                                  const std::string &v_iface)
 {
   return edifact::KickInfo(v_reqCtxtId,
@@ -359,7 +359,7 @@ edifact::KickInfo createKickInfo(const int v_reqCtxtId,
                            v_iface.empty()?"":TReqInfo::Instance()->desk.code);
 }
 
-void addToEdiResponseCtxt(const int ctxtId,
+void addToEdiResponseCtxt(int ctxtId,
                           const xmlNodePtr srcNode,
                           const string &destNodeName)
 {
@@ -408,8 +408,8 @@ void addToEdiResponseCtxt(const int ctxtId,
   };
 };
 
-void getEdiResponseCtxt(const int ctxtId,
-                        const bool clear,
+void getEdiResponseCtxt(int ctxtId,
+                        bool clear,
                         const string &where,
                         string &context)
 {
@@ -421,10 +421,10 @@ void getEdiResponseCtxt(const int ctxtId,
 
   if (context.empty())
     throw EXCEPTIONS::Exception("%s: context EDI_RESPONSE empty", where.c_str());
-};
+}
 
-void getEdiResponseCtxt(const int ctxtId,
-                        const bool clear,
+void getEdiResponseCtxt(int ctxtId,
+                        bool clear,
                         const string &where,
                         XMLDoc &xmlCtxt)
 {
@@ -437,8 +437,8 @@ void getEdiResponseCtxt(const int ctxtId,
   xml_decode_nodelist(xmlCtxt.docPtr()->children);
 };
 
-void getTermRequestCtxt(const int ctxtId,
-                        const bool clear,
+void getTermRequestCtxt(int ctxtId,
+                        bool clear,
                         const string &where,
                         XMLDoc &xmlCtxt)
 {
@@ -457,9 +457,45 @@ void getTermRequestCtxt(const int ctxtId,
     throw EXCEPTIONS::Exception("%s: context TERM_REQUEST wrong XML format", where.c_str());
 
   xml_decode_nodelist(xmlCtxt.docPtr()->children);
-};
+}
 
-void cleanOldRecords(const int min_ago)
+static void getEdiSessionCtxt(const std::string& ctxtKey, int keyValue,
+                              const bool clear, const std::string& where,
+                              XMLDoc &xmlCtxt)
+{
+    std::string context;
+    AstraContext::GetContext(ctxtKey,
+                             keyValue,
+                             context);
+
+    LogTrace(TRACE3) << ctxtKey << "(" << keyValue << "): " << context;
+
+    if (clear) AstraContext::ClearContext(ctxtKey, keyValue);
+
+    if (context.empty())
+      throw EXCEPTIONS::Exception("%s: context %s empty", where.c_str(), ctxtKey.c_str());
+
+    xmlCtxt.set(ConvertCodepage(context, "CP866", "UTF-8"));
+    if(xmlCtxt.docPtr()==NULL)
+        throw EXCEPTIONS::Exception("context %s has wrong XML format", ctxtKey.c_str());
+
+    xml_decode_nodelist(xmlCtxt.docPtr()->children);
+}
+
+void getEdiSessionCtxt(int sessIda, bool clear,
+                       const std::string& where, XMLDoc &xmlCtxt)
+{
+    getEdiSessionCtxt("EDI_SESSION", sessIda, clear, where, xmlCtxt);
+}
+
+void getEdiSessionCtxt(const tlgnum_t& tlgNum, bool clear,
+                       const std::string& where, XMLDoc &xmlCtxt)
+{
+    getEdiSessionCtxt("EDI_SESSION_TLG", boost::lexical_cast<int>(tlgNum.num),
+                      clear, where, xmlCtxt);
+}
+
+void cleanOldRecords(int min_ago)
 {
   if (min_ago<1)
     throw EXCEPTIONS::Exception("%s: wrong min_ago=%d", __FUNCTION__, min_ago);
@@ -484,7 +520,7 @@ void cleanOldRecords(const int min_ago)
   };
 
   edifact::RemoteResults::cleanOldRecords(min_ago);
-};
+}
 
 void ProcEdiError(const AstraLocale::LexemaData &error,
                   const xmlNodePtr errorCtxtNode,
@@ -507,6 +543,6 @@ void GetEdiError(const xmlNodePtr errorCtxtNode,
     LexemeDataFromXML(node, i->first);
     i->second=NodeAsInteger("@global", node)!=0;
   }
-};
+}
 
 } //namespace AstraEdifact

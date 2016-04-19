@@ -132,10 +132,11 @@ boost::optional<iatci::BprParams> IatciBprRequestHandler::nextBprParams() const
     iatci::PaxDetails pax = iatci::PaxDetails(bprParams().pax().surname(),
                                               bprParams().pax().name(),
                                               bprParams().pax().type(),
+                                              boost::none,
                                               bprParams().flight().toShortKeyString());
 
     iatci::CascadeHostDetails cascadeDetails(bprParams().origin().airline(),
-                                             bprParams().origin().point());
+                                             bprParams().origin().port());
     cascadeDetails.addHostAirline(bprParams().flight().airline());
     if(bprParams().flightFromPrevHost()) {
         cascadeDetails.addHostAirline(bprParams().flightFromPrevHost()->airline());
@@ -224,6 +225,7 @@ iatci::BprParams IatciBprParamsMaker::makeParams() const
     iatci::PaxDetails paxDetails(m_ppd.m_passSurname,
                                  m_ppd.m_passName,
                                  iatci::PaxDetails::strToType(m_ppd.m_passType),
+                                 boost::none,
                                  m_ppd.m_passQryRef,
                                  m_ppd.m_passRespRef);
 

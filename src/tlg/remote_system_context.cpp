@@ -267,7 +267,7 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketin
 {
     std::string sql =
 "  select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR  "
-"  FROM DCS_SYSTEMS  "
+"  FROM DCS_ADDR_SET "
 "  WHERE AIRLINE = :airl and (FLT_NO is null or FLT_NO = :flt_no) ";
 
     int systemId = 0;
@@ -339,7 +339,7 @@ void DcsSystemContext::deleteDb()
 void DcsSystemContext::addDb()
 {
     std::string sql =
-"  insert into DCS_SYSTEMS "
+"  insert into DCS_ADDR_SET "
 "  (AIRLINE, EDI_ADDR, EDI_OWN_ADDR, ID) "
 "  values "
 "  (:airline, :edi_addr, :edi_own_addr, :id) ";

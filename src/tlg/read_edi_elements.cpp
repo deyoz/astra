@@ -698,6 +698,7 @@ boost::optional<PsdElem> readEdiPsd(_EDI_REAL_MES_STRUCT_ *pMes)
 
     PsdElem psd;
     psd.m_noSmokingInd   = GetDBFName(pMes, DataElement(9807), CompElement("C024"));
+    psd.m_seat           = GetDBFName(pMes, DataElement(9809), CompElement());
     psd.m_characteristic = GetDBFName(pMes, DataElement(9825), CompElement("C024"));
 
     LogTrace(TRACE3) << psd;
@@ -1117,6 +1118,36 @@ boost::optional<edifact::RodElem> readEdiRod(_EDI_REAL_MES_STRUCT_ *pMes, unsign
     LogTrace(TRACE3) << rod;
 
     return rod;
+}
+
+boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder pap_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "PAP")) {
+        return boost::optional<PapElem>();
+    }
+
+    std::string expiryDate = GetDBFName(pMes, DataElement(2380), CompElement("C700"));
+    std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
+
+    PapElem pap;
+    pap.m_nationality  = GetDBFName(pMes, DataElement(3207), CompElement("C060"));
+    pap.m_docQualifier = GetDBFName(pMes, DataElement(7365), CompElement("C700"));
+    pap.m_docNumber    = GetDBFName(pMes, DataElement(1004), CompElement("C700"));
+    pap.m_placeOfIssue = GetDBFName(pMes, DataElement(3207), CompElement("C700"));
+    pap.m_gender       = GetDBFName(pMes, DataElement(6353), CompElement("C700"));
+    pap.m_surname      = GetDBFName(pMes, DataElement(3808), CompElement("C700"));
+    pap.m_name         = GetDBFName(pMes, DataElement(3809), CompElement("C700"));
+    if(!expiryDate.empty()) {
+        pap.m_expiryDate = Dates::ddmmrr(expiryDate);
+    }
+    if(!birthDate.empty()) {
+        pap.m_birthDate = Dates::ddmmrr(birthDate);
+    }
+
+    LogTrace(TRACE3) << pap;
+
+    return pap;
 }
 
 } // namespace TickReader

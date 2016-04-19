@@ -16,7 +16,8 @@ CkxRequest::CkxRequest(const iatci::CkxParams& params,
                        const std::string& ctxt,
                        const KickInfo& kick)
     : EdifactRequest(pult, ctxt, kick, DCQCKX,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline())),
+                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline(),
+                                                                            params.flight().flightNum())),
       m_params(params)
 {
 }

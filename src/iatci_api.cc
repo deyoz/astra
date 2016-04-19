@@ -1,10 +1,17 @@
 #include "iatci_api.h"
 #include "iatci_serialization.h"
 
-#include <serverlib/dates.h>
+#include "etick.h" // ChangeOfStatus
+#include "astra_ticket.h" // Ticket
+#include "astra_api.h"
+#include "astra_msg.h"
+#include "edi_utils.h"
+
+#include <serverlib/dates_io.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/int_parameters_oci.h>
 #include <serverlib/rip_oci.h>
+#include <serverlib/xml_stuff.h>
 
 #include <sstream>
 #include <boost/lexical_cast.hpp>
@@ -18,6 +25,9 @@
 
 namespace iatci
 {
+
+using namespace AstraEdifact;
+
 
 static const int MaxSerializedDataLen = 1024;
 
@@ -42,46 +52,79 @@ static void deserialize(std::list<iatci::Result>& lRes, const std::string& data)
 }
 
 Result checkinPax(const CkiParams& ckiParams)
+{   
+    return astra_api::checkinIatciPax(ckiParams);
+}
+
+Result checkinPax(tlgnum_t postponeTlgNum)
 {
-    // TODO вызов функций Астры
-    FlightDetails flight4Checkin(ckiParams.flight().airline(),
-                                 ckiParams.flight().flightNum(),
-                                 ckiParams.flight().depPoint(),
-                                 ckiParams.flight().arrPoint(),
-                                 Dates::rrmmdd("150217"),
-                                 Dates::rrmmdd("150217"),
-                                 Dates::hh24mi("1000"),
-                                 Dates::hh24mi("1330"),
-                                 Dates::hh24mi("0930"));
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << " by tlgnum " << postponeTlgNum;
+    XMLDoc ediSessCtxt;
+    getEdiSessionCtxt(postponeTlgNum, true, "iatci::checkinPax", ediSessCtxt);
 
-    PaxDetails pax4Checkin(ckiParams.pax().surname(),
-                           ckiParams.pax().name(),
-                           ckiParams.pax().type(),
-                           ckiParams.pax().qryRef(),
-                           flight4Checkin.toShortKeyString());
+    xml_decode_nodelist(ediSessCtxt.docPtr()->children);
+    xmlNodePtr rootNode = NodeAsNode("/context", ediSessCtxt.docPtr());
+    if(GetNode("@req_ctxt_id", rootNode))
+    {
+        tst();
+        int reqCtxtId = NodeAsInteger("@req_ctxt_id", rootNode);
+        LogTrace(TRACE3) << "req_ctxt_id=" << reqCtxtId;
 
-    FlightSeatDetails seat4Checkin("03A",
-                                   "C",
-                                   "0030",
-                                   SeatDetails::NonSmoking);
+        XMLDoc termReqCtxt;
+        AstraEdifact::getTermRequestCtxt(reqCtxtId, true, "iatci::checkinPax", termReqCtxt);
+        xmlNodePtr termReqNode = NodeAsNode("/query", termReqCtxt.docPtr())->children;
+        ASSERT(termReqNode != NULL);
 
-    boost::optional<CascadeHostDetails> cascadeDetails;
-    if(findCascadeFlight(ckiParams.flight()))
-        cascadeDetails = CascadeHostDetails(flight4Checkin.airline());
+        XMLDoc ediResCtxt;
+        AstraEdifact::getEdiResponseCtxt(reqCtxtId, true, "iatci::checkinPax", ediResCtxt);
+        xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
+        ASSERT(ediResNode != NULL);
 
-    return Result::makeCheckinResult(Result::Ok,
-                                     flight4Checkin,
-                                     pax4Checkin,
-                                     seat4Checkin,
-                                     cascadeDetails);
+        tst();
+        return astra_api::checkinIatciPax(termReqNode, ediResNode);
+    }
+
+    TST();
+    return Result::makeFailResult(Result::Checkin,
+                                  ErrorDetails(Ticketing::AstraErr::EDI_PROC_ERR));
 }
 
 Result cancelCheckin(const CkxParams& ckxParams)
 {
-    // TODO вызов функций Астры
-    return Result::makeCancelResult(Result::OkWithNoData,
-                                    ckxParams.flight(),
-                                    ckxParams.pax());
+   return astra_api::cancelCheckinIatciPax(ckxParams);
+}
+
+Result cancelCheckin(tlgnum_t postponeTlgNum)
+{
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << " by tlgnum " << postponeTlgNum;
+    XMLDoc ediSessCtxt;
+    getEdiSessionCtxt(postponeTlgNum, true, "iatci::checkinPax", ediSessCtxt);
+
+    xml_decode_nodelist(ediSessCtxt.docPtr()->children);
+    xmlNodePtr rootNode = NodeAsNode("/context", ediSessCtxt.docPtr());
+    if(GetNode("@req_ctxt_id", rootNode))
+    {
+        tst();
+        int reqCtxtId = NodeAsInteger("@req_ctxt_id", rootNode);
+        LogTrace(TRACE3) << "req_ctxt_id=" << reqCtxtId;
+
+        XMLDoc termReqCtxt;
+        AstraEdifact::getTermRequestCtxt(reqCtxtId, true, "iatci::cancelCheckinPax", termReqCtxt);
+        xmlNodePtr termReqNode = NodeAsNode("/query", termReqCtxt.docPtr())->children;
+        ASSERT(termReqNode != NULL);
+
+        XMLDoc ediResCtxt;
+        AstraEdifact::getEdiResponseCtxt(reqCtxtId, true, "iatci::cancelCheckinPax", ediResCtxt);
+        xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
+        ASSERT(ediResNode != NULL);
+
+        tst();
+        return astra_api::cancelCheckinIatciPax(termReqNode, ediResNode);
+    }
+
+    TST();
+    return Result::makeFailResult(Result::Cancel,
+                                  ErrorDetails(Ticketing::AstraErr::EDI_PROC_ERR));
 }
 
 Result updateCheckin(const CkuParams& ckuParams)
@@ -97,8 +140,8 @@ Result reprintBoardingPass(const BprParams& bprParams)
     // TODO вызов функций Астры
     FlightDetails flight4Checkin(bprParams.flight().airline(),
                                  bprParams.flight().flightNum(),
-                                 bprParams.flight().depPoint(),
-                                 bprParams.flight().arrPoint(),
+                                 bprParams.flight().depPort(),
+                                 bprParams.flight().arrPort(),
                                  Dates::rrmmdd("150217"),
                                  Dates::rrmmdd("150217"),
                                  Dates::hh24mi("1000"),
@@ -108,6 +151,7 @@ Result reprintBoardingPass(const BprParams& bprParams)
     PaxDetails pax4Checkin(bprParams.pax().surname(),
                            bprParams.pax().name(),
                            bprParams.pax().type(),
+                           boost::none,
                            bprParams.pax().qryRef(),
                            flight4Checkin.toShortKeyString());
 
@@ -181,18 +225,8 @@ Result fillSeatmap(const SmfParams& smfParams)
 }
 
 boost::optional<FlightDetails> findCascadeFlight(const FlightDetails& flight)
-{
-    // TODO вызов функций Астры
-    if(flight.airline() == "SU" && flight.flightNum() == Ticketing::FlightNum_t(200))
-    {
-        return FlightDetails("UT",
-                             Ticketing::FlightNum_t(300),
-                             "AER",
-                             "SVO",
-                             Dates::rrmmdd("150222"),
-                             Dates::rrmmdd("150222"));
-    }
-
+{    
+    // TODO пока не реализовано
     return boost::none;
 }
 
