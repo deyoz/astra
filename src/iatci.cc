@@ -494,7 +494,7 @@ bool IatciInterface::NeedSendIatciRequest(xmlNodePtr reqNode)
 {
     std::vector<TPaxSegInfo> vPaxSeg = getPaxSegs(reqNode, false);
     if(vPaxSeg.size() < 2) {
-        ProgTrace(TRACE0, "%s: At least 2 segments must be present in the query for iatci, but there is %zu",
+        ProgTrace(TRACE1, "%s: At least 2 segments must be present in the query for iatci, but there is %zu",
                            __FUNCTION__, vPaxSeg.size());
         return boost::none;
     }

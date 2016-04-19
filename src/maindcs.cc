@@ -1558,6 +1558,16 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     Qry.CreateVariable("term_mode", otString, EncodeOperMode(reqInfo->desk.mode));
     Qry.Execute();
 
+    if(inTestMode())
+    {
+        // добавляем немного привелегий юзеру
+        Qry.Clear();
+        Qry.SQLText =
+          "INSERT INTO user_roles VALUES(1, 1, :user_id)";
+        Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
+        Qry.Execute();
+    }
+
     vector<string> run_params;
     SessionParamsFromXML(reqNode, run_params);
     TSessionAirlines sess_airlines;
