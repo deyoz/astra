@@ -476,6 +476,7 @@ void IatciInterface::DispatchRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
         }
     }
 
+    TST();
     ASSERT(false); // throw always
 }
 
@@ -611,34 +612,7 @@ void IatciInterface::CheckinKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode,
         LogTrace(TRACE3) << "error: " << (res.errorDetails() ? res.errorDetails()->errCode() : "None");
     }
 
-    if(GetNode("@req_ctxt_id", reqNode) != NULL)
-    {
-        int reqCtxtId = NodeAsInteger("@req_ctxt_id", reqNode);
-        LogTrace(TRACE3) << "reqCtxtId = " << reqCtxtId;
-
-        XMLDoc resCtxt;
-        resCtxt.set("iatci_cki_result");
-        xmlNodePtr iatciResNode = NodeAsNode("/iatci_cki_result", resCtxt.docPtr());
-        BOOST_FOREACH(const iatci::Result& res, lRes) {
-            if(res.status() != iatci::Result::OkWithNoData) {
-                res.toXml(iatciResNode);
-            }
-        }
-
-        AstraEdifact::addToEdiResponseCtxt(reqCtxtId, iatciResNode, "context");
-
-        XMLDoc termReqCtxt;
-        AstraEdifact::getTermRequestCtxt(reqCtxtId, true, "IatciInterface::KickHandler", termReqCtxt);
-        xmlNodePtr termReqNode = NodeAsNode("/term/query", termReqCtxt.docPtr())->children;
-        ASSERT(termReqNode != NULL);
-
-        XMLDoc ediResCtxt;
-        AstraEdifact::getEdiResponseCtxt(reqCtxtId, true, "IatciInterface::KickHandler", ediResCtxt);
-        xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
-        ASSERT(ediResNode != NULL);
-
-        CheckInInterface::SavePax(termReqNode, ediResNode, resNode);
-    }
+    DoKickAction(reqNode, resNode, lRes, "iatci_cki_result", ActSavePax);
 
     FuncOut(CheckinKickHandler);
 }
@@ -653,35 +627,8 @@ void IatciInterface::UpdateKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode,
 void IatciInterface::CancelKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode,
                                        const std::list<iatci::Result>& lRes)
 {
-    FuncIn(CancelKickHandler);
-
-    if(GetNode("@req_ctxt_id", reqNode) != NULL)
-    {
-        int reqCtxtId = NodeAsInteger("@req_ctxt_id", reqNode);
-        LogTrace(TRACE3) << "reqCtxtId = " << reqCtxtId;
-
-        XMLDoc resCtxt;
-        resCtxt.set("iatci_ckx_result");
-        xmlNodePtr iatciResNode = NodeAsNode("/iatci_ckx_result", resCtxt.docPtr());
-        BOOST_FOREACH(const iatci::Result& res, lRes) {
-            res.toXml(iatciResNode);
-        }
-
-        AstraEdifact::addToEdiResponseCtxt(reqCtxtId, iatciResNode, "context");
-
-        XMLDoc termReqCtxt;
-        AstraEdifact::getTermRequestCtxt(reqCtxtId, true, "IatciInterface::KickHandler", termReqCtxt);
-        xmlNodePtr termReqNode = NodeAsNode("/term/query", termReqCtxt.docPtr())->children;
-        ASSERT(termReqNode != NULL);
-
-        XMLDoc ediResCtxt;
-        AstraEdifact::getEdiResponseCtxt(reqCtxtId, true, "IatciInterface::KickHandler", ediResCtxt);
-        xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
-        ASSERT(ediResNode != NULL);
-
-        CheckInInterface::SavePax(termReqNode, ediResNode, resNode);
-    }
-
+    FuncIn(CancelKickHandler);    
+    DoKickAction(reqNode, resNode, lRes, "iatci_ckx_result", ActSavePax);
     FuncOut(CancelKickHandler);
 }
 
@@ -716,6 +663,7 @@ void IatciInterface::SeatmapForPassengerKickHandler(xmlNodePtr reqNode, xmlNodeP
 void IatciInterface::TimeoutKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     FuncIn(TimeoutKickHandler);
+    // TODO locale_messages
     AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
     FuncOut(TimeoutKickHandler);
 }
@@ -776,8 +724,61 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
                     AstraLocale::showProgError("Ошибка обработки в удалённой DCS");
                 }
             }
-            ASTRA::rollback();
+            DoKickAction(reqNode, resNode, std::list<iatci::Result>(), "", ActRollbackStatus);
         }
     }
     FuncOut(KickHandler);
+}
+
+void IatciInterface::DoKickAction(xmlNodePtr reqNode, xmlNodePtr resNode,
+                                  const std::list<iatci::Result>& lRes,
+                                  const std::string& resNodeName,
+                                  KickAction_e act)
+{
+    if(GetNode("@req_ctxt_id", reqNode) != NULL)
+    {
+        int reqCtxtId = NodeAsInteger("@req_ctxt_id", reqNode);
+        LogTrace(TRACE3) << "reqCtxtId = " << reqCtxtId;
+
+
+        if(!resNodeName.empty())
+        {
+            XMLDoc resCtxt;
+            resCtxt.set(resNodeName.c_str());
+            xmlNodePtr iatciResNode = NodeAsNode(std::string("/" + resNodeName).c_str(), resCtxt.docPtr());
+            for(const iatci::Result& res: lRes) {
+                res.toXml(iatciResNode);
+            }
+
+            AstraEdifact::addToEdiResponseCtxt(reqCtxtId, iatciResNode, "context");
+        }
+
+
+        XMLDoc termReqCtxt;
+        AstraEdifact::getTermRequestCtxt(reqCtxtId, true, "IatciInterface::KickHandler", termReqCtxt);
+        xmlNodePtr termReqNode = NodeAsNode("/term/query", termReqCtxt.docPtr())->children;
+        ASSERT(termReqNode != NULL);
+
+        XMLDoc ediResCtxt;
+        AstraEdifact::getEdiResponseCtxt(reqCtxtId, true, "IatciInterface::KickHandler", ediResCtxt);
+        xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
+        ASSERT(ediResNode != NULL);
+
+        switch(act)
+        {
+        case ActSavePax:
+            CheckInInterface::SavePax(termReqNode, ediResNode, resNode);
+            break;
+        case ActRollbackStatus:
+            ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(), false);
+            break;
+        default:
+            LogError(STDLOG) << "Nothing to do!";
+        }
+    }
+    else
+    {
+        TST();
+        LogError(STDLOG) << "Node 'req_ctxt_id'' not found in request!";
+    }
 }

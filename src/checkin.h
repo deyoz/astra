@@ -119,36 +119,22 @@ class CheckInInterface : public JxtInterface
 public:
   CheckInInterface() : JxtInterface("","CheckIn")
   {
-     Handler *evHandle;
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::LoadTagPacks);
-     AddEvent("LoadTagPacks",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SearchGrp);
-     AddEvent("SearchGrp",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SearchPax);
-     AddEvent("SearchPax",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SavePax);
-     AddEvent("TCkinSavePax",evHandle);
-     AddEvent("TCkinSaveUnaccompBag",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::LoadPax);
-     AddEvent("TCkinLoadPax",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::PaxList);
-     AddEvent("PaxList",evHandle);
-     AddEvent("BagPaxList",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::ArrivalPaxList);
-     AddEvent("ArrivalPaxList",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::GetTripCounters);
-     AddEvent("GetTripCounters",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::OpenCheckInInfo);
-     AddEvent("OpenCheckInInfo",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::CheckTCkinRoute);
-     AddEvent("CheckTCkinRoute",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::ParseScanDocData);
-     AddEvent("ParseScanDocData",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::CrewCheckin);
-     AddEvent("CREWCHECKIN",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::FFPSirena);
-     AddEvent("FFPSirena",evHandle);
-  };
+     AddEvent("LoadTagPacks",         JXT_HANDLER(CheckInInterface, LoadTagPacks));
+     AddEvent("SearchGrp",            JXT_HANDLER(CheckInInterface, SearchGrp));
+     AddEvent("SearchPax",            JXT_HANDLER(CheckInInterface, SearchPax));
+     AddEvent("TCkinSavePax",         JXT_HANDLER(CheckInInterface, SavePax));
+     AddEvent("TCkinSaveUnaccompBag", JXT_HANDLER(CheckInInterface, SavePax));
+     AddEvent("TCkinLoadPax",         JXT_HANDLER(CheckInInterface, LoadPax));
+     AddEvent("PaxList",              JXT_HANDLER(CheckInInterface, PaxList));
+     AddEvent("BagPaxList",           JXT_HANDLER(CheckInInterface, PaxList));
+     AddEvent("ArrivalPaxList",       JXT_HANDLER(CheckInInterface, ArrivalPaxList));
+     AddEvent("GetTripCounters",      JXT_HANDLER(CheckInInterface, GetTripCounters));
+     AddEvent("OpenCheckInInfo",      JXT_HANDLER(CheckInInterface, OpenCheckInInfo));
+     AddEvent("CheckTCkinRoute",      JXT_HANDLER(CheckInInterface, CheckTCkinRoute));
+     AddEvent("ParseScanDocData",     JXT_HANDLER(CheckInInterface, ParseScanDocData));
+     AddEvent("CREWCHECKIN",          JXT_HANDLER(CheckInInterface, CrewCheckin));
+     AddEvent("FFPSirena",            JXT_HANDLER(CheckInInterface, FFPSirena));
+  }
 
   void LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -166,7 +152,7 @@ public:
 
   void TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
   static std::string GetSearchPaxSubquery(ASTRA::TPaxStatus pax_status,
                                           bool return_pnr_ids,
@@ -255,8 +241,8 @@ namespace CheckIn
 class OverloadException: public AstraLocale::UserException
 {
   public:
-    OverloadException(const std::string &msg):AstraLocale::UserException(msg) {};
-    virtual ~OverloadException() throw(){};
+    OverloadException(const std::string &msg):AstraLocale::UserException(msg) {}
+    virtual ~OverloadException() throw(){}
 };
 
 class UserException:public AstraLocale::UserException
@@ -278,7 +264,7 @@ class UserException:public AstraLocale::UserException
     {
       if (segs.empty()) setLexemaData(lexemeData);
       segs[point_id][pax_id]=lexemeData;
-    };
+    }
 /*  если кто-то надумает раскомментарить этот кусок, обратитесь сначала к Владу
     void addError(const std::string &lexema_id, const AstraLocale::LParams &lparams,
                   int point_id,
@@ -295,7 +281,7 @@ class UserException:public AstraLocale::UserException
     {
         addError(lexema_id, AstraLocale::LParams(), point_id, pax_id);
     };*/
-    bool empty() { return segs.empty(); };
+    bool empty() { return segs.empty(); }
 };
 
 void showError(const std::map<int, std::map <int, AstraLocale::LexemaData> > &segs);

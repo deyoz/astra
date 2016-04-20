@@ -70,4 +70,11 @@ public:
 
     // Timeout Kick handler
     void TimeoutKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode);
+
+protected:
+    enum KickAction_e { ActSavePax, ActRollbackStatus };
+    void DoKickAction(xmlNodePtr reqNode, xmlNodePtr resNode,
+                      const std::list<iatci::Result>& lRes,
+                      const std::string& resNodeName,
+                      KickAction_e act);
 };
