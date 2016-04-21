@@ -7015,6 +7015,8 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     if (!reqInfo->desk.compatible(INA_BUGFIX_VERSION))
       ShowPaxCatWarning(pax_cat_airline, pax_cats, Qry);
   }
+
+  LoadIatciXmlResFromDb(resNode, grp_id);
 }
 
 void CheckInInterface::LoadPaxRem(xmlNodePtr paxNode)

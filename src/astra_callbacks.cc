@@ -96,7 +96,7 @@ void AstraJxtCallbacks::InitInterfaces()
 
     CheckInInterface::instance();
     TripsInterface::instance();
-};
+}
 
 void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &body)
 {
