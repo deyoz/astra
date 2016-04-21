@@ -752,7 +752,7 @@ bool TTrferRoute::GetRoute(int grp_id,
       "SELECT points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
       "       NVL(points.act_out, NVL(points.est_out, points.scd_out)) AS real_out, "
       "       points.pr_del, points.airline_fmt, points.suffix_fmt, points.airp_fmt, "
-      "       pax_grp.airp_arv "
+      "       pax_grp.airp_arv, pax_grp.piece_concept "
       "FROM pax_grp, points "
       "WHERE points.point_id=pax_grp.point_dep AND "
       "      pax_grp.grp_id = :grp_id AND points.pr_del>=0";
@@ -765,12 +765,15 @@ bool TTrferRoute::GetRoute(int grp_id,
     item.operFlt.scd_out=UTCToLocal(item.operFlt.scd_out, AirpTZRegion(item.operFlt.airp));
     item.operFlt.real_out=UTCToLocal(item.operFlt.real_out, AirpTZRegion(item.operFlt.airp));
     item.airp_arv=Qry.FieldAsString("airp_arv");
+    if (!Qry.FieldIsNULL("piece_concept"))
+      item.piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
   };
 
   Qry.Clear();
   Qry.SQLText=
     "SELECT airline,airline_fmt,flt_no,suffix,suffix_fmt,scd AS scd_out, "
-    "       airp_dep AS airp,airp_dep_fmt AS airp_fmt,airp_arv,airp_arv_fmt "
+    "       airp_dep AS airp,airp_dep_fmt AS airp_fmt,airp_arv,airp_arv_fmt, "
+    "       transfer.piece_concept "
     "FROM transfer,trfer_trips "
     "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
     "      grp_id=:grp_id AND transfer_num>0 "
@@ -784,6 +787,8 @@ bool TTrferRoute::GetRoute(int grp_id,
     item.operFlt.Init(Qry);
     item.airp_arv=Qry.FieldAsString("airp_arv");
     item.airp_arv_fmt=(TElemFmt)Qry.FieldAsInteger("airp_arv_fmt");
+    if (!Qry.FieldIsNULL("piece_concept"))
+      item.piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
   };
   return true;
 };

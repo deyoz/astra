@@ -264,7 +264,7 @@ std::string GetBagRcptStr(int grp_id, int pax_id);
 bool BagPaymentCompleted(int grp_id, int pax_id, bool only_tckin_segs);
 
 void PreparePaidBagInfo(int grp_id,
-                        int seg_count,
+                        int tckin_seg_count, int trfer_seg_count,
                         std::list<TPaidBagItem> &paid_bag);
 
 bool TryDelPaidBagEMD(const std::list<PieceConcept::TPaidBagItem> &curr_paid,

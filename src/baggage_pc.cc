@@ -1032,7 +1032,8 @@ bool BagPaymentCompleted(int grp_id, int pax_id, bool only_tckin_segs)
 }
 
 void PreparePaidBagInfo(int grp_id,
-                        int seg_count,
+                        int tckin_seg_count,
+                        int trfer_seg_count,
                         list<TPaidBagItem> &paid_bag)
 {
   paid_bag.clear();
@@ -1043,13 +1044,14 @@ void PreparePaidBagInfo(int grp_id,
   list<CheckIn::TPaidBagEMDItem> paid_bag_emd;
   CheckIn::PaidBagEMDFromDB(grp_id, paid_bag_emd);
 
-  for(int trfer_num=0; trfer_num<seg_count; trfer_num++)
+  for(int trfer_num=0; trfer_num<trfer_seg_count; trfer_num++)
   {
     TBagMap bag_map_tmp=bag_map;
     for(TBagMap::iterator b=bag_map_tmp.begin(); b!=bag_map_tmp.end(); ++b)
     {
       while (!b->second.zero())
       {
+        if (trfer_num>=tckin_seg_count && b->second.trunk<=0) break; //ручную кладь оцениваем только на сквозных сегментах
         TPaidBagItem item;
         item.pax_id=b->first.pax_id;
         item.trfer_num=trfer_num;
