@@ -253,16 +253,21 @@ bool bad_client_img_version()
 
 void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePtr reqNode)
 {
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-    if(bad_client_img_version())
-        NewTextChild(variablesNode, "doc_cap_test", " ");
-    vector<SEASON::TViewPeriod> viewp;
-    SEASON::ReadTripInfo( trip_id, viewp, GetNode( "seasonvars", reqNode ) );
+  NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
+  if(bad_client_img_version())
+      NewTextChild(variablesNode, "doc_cap_test", " ");
+  vector<SEASON::TViewPeriod> viewp;
+  SEASON::ReadTripInfo( trip_id, viewp, GetNode( "seasonvars", reqNode ) );
+  bool pr_find = false;
   for ( vector<SEASON::TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
     for ( vector<SEASON::TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
       NewTextChild( variablesNode, "trip", j->name );
+      pr_find = true;
       break;
     }
+  }
+  if ( !pr_find ) {
+    throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   }
 }
 
