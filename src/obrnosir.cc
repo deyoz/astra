@@ -44,6 +44,7 @@ int nosir_tscript(int argc, char** argv);
 int tz2db(int argc,char **argv);
 int verifyHTTP(int argc,char **argv);
 int nat_stat(int argc,char **argv);
+int pc_wt_stat(int argc,char **argv);
 int test_reprint(int argc,char **argv);
 
 const
@@ -89,7 +90,8 @@ const
     {"-ovb",                    STAT::ovb,              NULL,                       NULL},
     {"-http",                   verifyHTTP,             NULL,                       NULL},
     {"-bcbp",                   AstraWeb::bcbp_test,    NULL,                       NULL},
-    {"-nat_stat",               nat_stat,              NULL,                       NULL},
+    {"-nat_stat",               nat_stat,               NULL,                       NULL},
+    {"-pc_wt_stat",             pc_wt_stat,             NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-rfisc_all",              nosir_rfisc_all,        NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
