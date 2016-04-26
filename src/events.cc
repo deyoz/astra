@@ -571,6 +571,35 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
   };
 };
 
+void GetTKNLogMsgs(const CheckIn::TPaxTknItem &tknCrs,
+                   const boost::optional<CheckIn::TPaxTknItem> &tknBefore,
+                   const CheckIn::TPaxTknItem &tknAfter,
+                   list< pair<string, LEvntPrms> > &msgs)
+{
+  msgs.clear();
+  const CheckIn::TPaxTknItem &tknPrior=tknBefore?tknBefore.get():tknCrs;
+
+  if (tknAfter.equalAttrs(tknPrior)) return;
+  if (tknAfter.empty())
+    msgs.push_back(make_pair("EVT.TKN_DELETED_FOR_PASSENGER", LEvntPrms()));
+  else
+  {
+    ostringstream s;
+    s << tknAfter.rem << " " << tknAfter.no_str();
+
+    bool equivalent_booking=tknAfter.equalAttrs(tknCrs);
+
+    if (tknPrior.empty())
+      msgs.push_back(make_pair(equivalent_booking?"EVT.TKN_ADDED_FOR_PASSENGER.EQUIVALENT_BOOKING":
+                                                  "EVT.TKN_ADDED_FOR_PASSENGER",
+                               LEvntPrms() << PrmSmpl<string>("params", s.str())));
+    else
+      msgs.push_back(make_pair(equivalent_booking?"EVT.TKN_MODIFIED_FOR_PASSENGER.EQUIVALENT_BOOKING":
+                                                  "EVT.TKN_MODIFIED_FOR_PASSENGER",
+                               LEvntPrms() << PrmSmpl<string>("params", s.str())));
+  };
+}
+
 void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
                     const CheckIn::TAPISItem &apisAfter,
                     list<pair<string, string> > &msgs)
@@ -723,7 +752,6 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
                 aPax->second.pers_type==bPax->second.pers_type &&
                 aPax->second.subcl==bPax->second.subcl &&
                 aPax->second.seat_no==bPax->second.seat_no &&
-                aPax->second.tkn==bPax->second.tkn &&
                 (apis_control ||
                  (aPax->second.apis.doc.equalAttrs(bPax->second.apis.doc) &&
                   aPax->second.apis.doco.equalAttrs(bPax->second.apis.doco) &&
@@ -839,6 +867,29 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
           };
 
           changed=true;
+        };
+
+        if (!is_unaccomp)
+        {
+          //изменения по билету
+          if (!(bPax!=grpInfoBefore.pax.end() &&
+                bPax->second.refuse.empty() &&
+                aPax->second.tkn==bPax->second.tkn))
+          {
+            CheckIn::TPaxTknItem tknCrs;
+            LoadCrsPaxTkn(aPax->first.pax_id, tknCrs);
+            list< pair<string, LEvntPrms> > msgs;
+            if (bPax!=grpInfoBefore.pax.end() && bPax->second.refuse.empty())
+              GetTKNLogMsgs(tknCrs, bPax->second.tkn, aPax->second.tkn, msgs);
+            else
+              GetTKNLogMsgs(tknCrs, boost::none, aPax->second.tkn, msgs);
+            for(list< pair<string, LEvntPrms> >::iterator m=msgs.begin(); m!=msgs.end(); ++m)
+            {
+              aPax->second.getPaxName(m->second);
+              reqInfo->LocaleToLog(m->first, m->second, ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+            }
+            changed=true;
+          };
         };
       }
       else
