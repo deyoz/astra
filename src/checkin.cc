@@ -5630,6 +5630,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
       }
 
+      if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2) &&
+          AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value(tsPieceConcept))
+        throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
+
       AfterSaveInfo.segs.back().grp_id=grp.id;
 
       if (first_segment)
@@ -6612,6 +6616,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
   TCkinGrpIds tckin_grp_ids;
   map<int/*seg_no*/,TBagConcept> bag_concept_by_seg;
   bool pr_unaccomp;
+  TLogLocale event;
   SirenaExchange::TAvailabilityReq req;
   SirenaExchange::fillPaxsBags(first_grp_id, req, pr_unaccomp, tckin_grp_ids);
 
@@ -6704,28 +6709,38 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
               res.error_reference.path=="passenger/ticket/number" &&
               !res.error_reference.value.empty())
           {
-            reqInfo->LocaleToLog("EVT.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED",
-                                 LEvntPrms()<<PrmSmpl<string>("ticket_no", res.error_reference.value),
-                                 ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
+            event.lexema_id="EVT.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED";
+            event.prms << PrmSmpl<string>("ticket_no", res.error_reference.value);
+            event.ev_type=ASTRA::evtPax;
+
             showErrorMessage("MSG.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED",
                              LParams()<<LParam("ticket_no", res.error_reference.value));
           }
           else
           {
             ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
-            reqInfo->LocaleToLog("EVT.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED", ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
+
+            event.lexema_id="EVT.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED";
+            event.ev_type=ASTRA::evtPax;
+
             showErrorMessage("MSG.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED");
           }
         }
       }
     }
-    else showErrorMessage("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
+    else throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
   }
 
-  TCachedQuery GrpQry("UPDATE pax_grp SET piece_concept=:piece_concept, bag_types_id=:bag_types_id WHERE grp_id=:grp_id",
+  TCachedQuery GrpQry("BEGIN "
+                      "  UPDATE pax_grp "
+                      "  SET piece_concept=:piece_concept, bag_types_id=:bag_types_id "
+                      "  WHERE grp_id=:grp_id "
+                      "  RETURNING point_dep INTO :point_id; "
+                      "END;",
                       QParams() << QParam("grp_id", otInteger)
                                 << QParam("piece_concept", otInteger)
-                                << QParam("bag_types_id", otInteger));
+                                << QParam("bag_types_id", otInteger)
+                                << QParam("point_id", otInteger));
   TCachedQuery TrferQry("UPDATE transfer SET piece_concept=:piece_concept WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
                         QParams() << QParam("grp_id", otInteger)
                                   << QParam("transfer_num", otInteger)
@@ -6739,7 +6754,16 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
       GrpQry.get().SetVariable("grp_id", *grp_id);
       GrpQry.get().SetVariable("piece_concept", (int)false);
       GrpQry.get().SetVariable("bag_types_id", FNull);
+      GrpQry.get().SetVariable("point_id", FNull);
       GrpQry.get().Execute();
+
+      if (!event.lexema_id.empty() &&
+          !GrpQry.get().VariableIsNULL("point_id"))
+      {
+        event.id1=GrpQry.get().GetVariableAsInteger("point_id");
+        event.id3=*grp_id;
+        reqInfo->LocaleToLog(event);
+      };
     }
   }
   else
@@ -6755,6 +6779,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
       GrpQry.get().SetVariable("piece_concept", (int)(i->second==bcPiece));
       bag_types_id==ASTRA::NoExists?GrpQry.get().SetVariable("bag_types_id", FNull):
                                     GrpQry.get().SetVariable("bag_types_id", bag_types_id);
+      GrpQry.get().SetVariable("point_id", FNull);
       GrpQry.get().Execute();
       ++i;
 
@@ -6767,6 +6792,14 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
         else
           TrferQry.get().SetVariable("piece_concept", (int)(j->second==bcPiece));
         TrferQry.get().Execute();
+      };
+
+      if (!event.lexema_id.empty() &&
+          !GrpQry.get().VariableIsNULL("point_id"))
+      {
+        event.id1=GrpQry.get().GetVariableAsInteger("point_id");
+        event.id3=*grp_id;
+        reqInfo->LocaleToLog(event);
       };
     };
   }
