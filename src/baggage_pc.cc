@@ -2292,6 +2292,7 @@ void traceXML(const string& xml)
 void SendRequest(const TExchange &request, TExchange &response,
                  RequestInfo &requestInfo, ResponseInfo &responseInfo)
 {
+  time_t start_time=time(NULL);
   requestInfo.host = SIRENA_HOST();
   requestInfo.port = SIRENA_PORT();
   requestInfo.path = "/astra";
@@ -2316,6 +2317,8 @@ void SendRequest(const TExchange &request, TExchange &response,
     traceXML(responseInfo.content);
   response.parse(responseInfo.content);
   if (response.error()) throw Exception("SIRENA ERROR: %s", response.traceError().c_str());
+
+  ProgTrace(TRACE5, "%s: processing time %ld secs", __FUNCTION__, time(NULL)-start_time);
 }
 
 void SendRequest(const TExchange &request, TExchange &response)
