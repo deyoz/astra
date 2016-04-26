@@ -304,11 +304,10 @@ public:
          std::stringstream ss;
          ss << &reply_;
          res_info_.content += ss.str();
-         ProgTrace(TRACE5, "handle_read_header: part of bufer=%s, length=%zu", res_info_.content.c_str(), res_info_.content.length());
+         //ProgTrace(TRACE5, "handle_read_header: part of bufer=%s, length=%zu", res_info_.content.c_str(), res_info_.content.length());
        }
        if ( res_info_.content.length() < res_info_.content_length ) {
          if ( req_info_.using_ssl ) {
-           tst();
            boost::asio::async_read(ssl_socket_, reply_, boost::asio::transfer_at_least(1),
                                    boost::bind(&Client::handle_read_content, this,
                                    boost::asio::placeholders::error));
@@ -322,7 +321,6 @@ public:
        else {
          answerReady( err, toReadHeaders );
        }
-       tst();
      }
      else {
        ProgError( STDLOG, "handle_read_headers error: %s", err.message().c_str() );
@@ -340,7 +338,7 @@ public:
       if ( res_info_.content_length < res_info_.content.length() ) {
         res_info_.content = res_info_.content.substr( 0, res_info_.content_length - 1 );
       }
-      ProgTrace( TRACE5, "handle_read_body end file: %s", res_info_.content.c_str() );
+      //ProgTrace( TRACE5, "handle_read_body end file: %s", res_info_.content.c_str() );
       res_info_.completed = true;
     }
     stop( err, operation_error );
@@ -390,7 +388,7 @@ void httpClient_main(const RequestInfo& request, ResponseInfo& response)
     // Block until the asynchronous operation has completed. c.stop() - stoped client
     //do io_service.run_one(); while (c.would_block());
 
-    response=c.response();    
+    response=c.response();
     if ( !response.completed ) {
       ProgError( STDLOG, "httpClient_main: response return %s", response.toString().c_str() );
     }

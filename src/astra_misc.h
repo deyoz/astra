@@ -598,6 +598,7 @@ struct TTrferRouteItem
   TTripInfo operFlt;
   std::string airp_arv;
   TElemFmt airp_arv_fmt;
+  boost::optional<bool> piece_concept;
   TTrferRouteItem()
   {
     Clear();
@@ -607,6 +608,7 @@ struct TTrferRouteItem
     operFlt.Clear();
     airp_arv.clear();
     airp_arv_fmt=efmtUnknown;
+    piece_concept=boost::none;
   };
 };
 

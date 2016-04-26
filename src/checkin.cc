@@ -6180,7 +6180,11 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, TCkinGrp
       if ((paymentStatusReq || groupInfoRes) && grp_id==tckin_grp_ids.begin())
       {
         list<PieceConcept::TPaidBagItem> paid_bag;
-        PieceConcept::PreparePaidBagInfo(*grp_id, trfer.size()+1, paid_bag);
+        int trfer_seg_count_pc=0;
+        for(TTrferRoute::const_iterator t=trfer.begin(); t!=trfer.end(); ++t, trfer_seg_count_pc++)
+          if (!t->piece_concept || !t->piece_concept.get()) break; //подсчитываем только кол-во трансферных сегментов с местовой системой расчета
+
+        PieceConcept::PreparePaidBagInfo(*grp_id, tckin_route.size()+1, trfer_seg_count_pc+1, paid_bag);
         TBagList &bags_ref=(paymentStatusReq?paymentStatusReq->bags:groupInfoRes->bags);
         for(list<PieceConcept::TPaidBagItem>::const_iterator i=paid_bag.begin(); i!=paid_bag.end(); ++i)
           bags_ref.push_back(make_pair(TPaxSegKey(i->pax_id,i->trfer_num), TBagItem(*i)));
@@ -6273,9 +6277,9 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
 
   if (!Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
 
-  bool piece_concept=false;
   int bag_types_id=ASTRA::NoExists;
   TCkinGrpIds tckin_grp_ids;
+  map<int/*seg_no*/,TBagConcept> bag_concept_by_seg;
   bool pr_unaccomp;
   SirenaExchange::TAvailabilityReq req;
   SirenaExchange::fillPaxsBags(first_grp_id, req, pr_unaccomp, tckin_grp_ids);
@@ -6300,31 +6304,44 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
             if (req.paxs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: req.paxs.empty()", __FUNCTION__);
             const SirenaExchange::TPaxSegMap &segs=req.paxs.front().segs;
             if (segs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: segs.empty()", __FUNCTION__);
-            TBagConcept concept=bcUnknown;
+            boost::optional<TBagConcept> bag_concept=bcUnknown;
+            bag_concept=boost::none; //дурацкое решение, но это для того чтобы не вызывать ошибку error: ?*((void*)& bag_concept +4)? may be used uninitialized in this function
             for(SirenaExchange::TPaxSegMap::const_iterator s=segs.begin(); s!=segs.end(); ++s)
             {
               string flight_view=GetTripName(s->second.operFlt, ecCkin);
               //пробегаемся по сегментам
               boost::optional<TBagConcept> seg_concept;
               if (!res.identical_concept(s->second.id, seg_concept))
-                throw UserException("MSG.CHECKIN.DIFFERENT_BAG_CONCEPT_ON_SEGMENT",
-                                    LParams()<<LParam("flight", flight_view));
-              if (!seg_concept) throw EXCEPTIONS::Exception("%s: strange situation: unknown concept for seg_id=%d", __FUNCTION__, s->second.id);
-              if (s==segs.begin())
-                concept=seg_concept.get();
-              else
               {
-                if (seg_concept.get()==bcUnknown)
-                  throw UserException("MSG.TRANSFER_FLIGHT.NOT_MADE_TRANSFER.UNKNOWN_BAG_CONCEPT",
+                if ((unsigned)s->second.id<tckin_grp_ids.size())
+                  //только если сквозной сегмент
+                  throw UserException("MSG.CHECKIN.DIFFERENT_BAG_CONCEPT_ON_SEGMENT",
                                       LParams()<<LParam("flight", flight_view));
-
-                if (seg_concept.get()!=concept)
-                  throw UserException("MSG.TRANSFER_FLIGHT.NOT_MADE_TRANSFER.DIFFERENT_BAG_CONCEPT",
-                                      LParams()<<LParam("flight", flight_view));
+                seg_concept=bcUnknown;
               }
+              if (!seg_concept) throw EXCEPTIONS::Exception("%s: strange situation: unknown concept for seg_id=%d", __FUNCTION__, s->second.id);
+              bag_concept_by_seg.insert(make_pair(s->second.id, seg_concept.get()));
+
+              if ((unsigned)s->second.id<tckin_grp_ids.size())
+              {
+                //только если сквозной сегмент
+                if (!bag_concept)
+                  bag_concept=seg_concept.get();
+                else
+                {
+                  if (seg_concept.get()==bcUnknown)
+                    throw UserException("MSG.TRANSFER_FLIGHT.NOT_MADE_TCHECKIN.UNKNOWN_BAG_CONCEPT",
+                                        LParams()<<LParam("flight", flight_view));
+
+                  if (seg_concept.get()!=bag_concept.get())
+                    throw UserException("MSG.TRANSFER_FLIGHT.NOT_MADE_TCHECKIN.DIFFERENT_BAG_CONCEPT",
+                                        LParams()<<LParam("flight", flight_view));
+                };
+              };
             };
-            piece_concept=(concept==bcPiece);
-            if (piece_concept)
+            if (!bag_concept) throw EXCEPTIONS::Exception("%s: strange situation: unknown bag_concept", __FUNCTION__);
+
+            if (bag_concept.get()==bcPiece)
             {
               if (req.paxs.size()>9)
                 throw UserException("MSG.CHECKIN.PIECE_CONCEPT_NOT_SUPPORT_MORE_9_PASSENGERS");
@@ -6349,7 +6366,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
         }
         catch(std::exception &e)
         {
-          piece_concept=false;
+          bag_concept_by_seg.clear();
           bag_types_id=ASTRA::NoExists;
           if (res.error() &&
               (res.error_code=="1" || res.error_message=="Incorrect format") &&
@@ -6374,16 +6391,54 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
     else showErrorMessage("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
   };
 
-  for(list<int>::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();++grp_id)
+  TCachedQuery GrpQry("UPDATE pax_grp SET piece_concept=:piece_concept, bag_types_id=:bag_types_id WHERE grp_id=:grp_id",
+                      QParams() << QParam("grp_id", otInteger)
+                                << QParam("piece_concept", otInteger)
+                                << QParam("bag_types_id", otInteger));
+  TCachedQuery TrferQry("UPDATE transfer SET piece_concept=:piece_concept WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
+                        QParams() << QParam("grp_id", otInteger)
+                                  << QParam("transfer_num", otInteger)
+                                  << QParam("piece_concept", otInteger));
+
+  TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();
+  if (bag_concept_by_seg.empty())
   {
-    TCachedQuery Qry("UPDATE pax_grp SET piece_concept=:piece_concept, bag_types_id=:bag_types_id WHERE grp_id=:grp_id",
-                     QParams() << QParam("grp_id", otInteger, *grp_id)
-                               << QParam("piece_concept", otInteger, (int)piece_concept)
-                               << (bag_types_id==ASTRA::NoExists?QParam("bag_types_id", otInteger, FNull):
-                                                                 QParam("bag_types_id", otInteger, bag_types_id))
-                     );
-    Qry.get().Execute();
-  };
+    for(; grp_id!=tckin_grp_ids.end(); ++grp_id)
+    {
+      GrpQry.get().SetVariable("grp_id", *grp_id);
+      GrpQry.get().SetVariable("piece_concept", (int)false);
+      GrpQry.get().SetVariable("bag_types_id", FNull);
+      GrpQry.get().Execute();
+    }
+  }
+  else
+  {
+    map<int/*seg_no*/,TBagConcept>::const_iterator i=bag_concept_by_seg.begin();
+    for(int seg_no=0; grp_id!=tckin_grp_ids.end(); ++grp_id, seg_no++)
+    {
+      if (i==bag_concept_by_seg.end())
+        throw EXCEPTIONS::Exception("%s: strange situation: i==bag_concept_by_seg.end()!", __FUNCTION__);
+      if (i->first!=seg_no)
+        throw EXCEPTIONS::Exception("%s: strange situation: i->first=%d seg_no=%d!", __FUNCTION__, i->first, seg_no);
+      GrpQry.get().SetVariable("grp_id", *grp_id);
+      GrpQry.get().SetVariable("piece_concept", (int)(i->second==bcPiece));
+      bag_types_id==ASTRA::NoExists?GrpQry.get().SetVariable("bag_types_id", FNull):
+                                    GrpQry.get().SetVariable("bag_types_id", bag_types_id);
+      GrpQry.get().Execute();
+      ++i;
+
+      for(map<int/*seg_no*/,TBagConcept>::const_iterator j=i; j!=bag_concept_by_seg.end(); ++j)
+      {
+        TrferQry.get().SetVariable("grp_id", *grp_id);
+        TrferQry.get().SetVariable("transfer_num", j->first-seg_no);
+        if (j->second==bcUnknown)
+          TrferQry.get().SetVariable("piece_concept", FNull);
+        else
+          TrferQry.get().SetVariable("piece_concept", (int)(j->second==bcPiece));
+        TrferQry.get().Execute();
+      };
+    };
+  }
 }
 
 void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax)
