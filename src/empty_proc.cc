@@ -2303,6 +2303,7 @@ CREATE TABLE drop_pc_wt_stat
    etick_norm      NUMBER(3) NULL,
    etick_norm_unit VARCHAR2(2) NOT NULL,
    pax_norm        VARCHAR2(20) NULL,
+   events_time     DATE NULL,
    events_msg      VARCHAR2(250) NULL
 );
 
@@ -2319,6 +2320,7 @@ SELECT 'А/к'||CHR(9)||
        'Номер ЭБ'||CHR(9)||
        'Норма в билете'||CHR(9)||
        'Норма применена'||CHR(9)||
+       'Время применения (UTC)'||CHR(9)||
        'Журнал операций' AS str
 FROM dual;
 SELECT points.airline||CHR(9)||
@@ -2328,6 +2330,7 @@ SELECT points.airline||CHR(9)||
        stat.ticket_no||'/'||stat.coupon_no||CHR(9)||
        stat.etick_norm||stat.etick_norm_unit||CHR(9)||
        pax_norm||CHR(9)||
+       TO_CHAR(events_time, 'DD.MM.YY HH24:MI:SS')||CHR(9)||
        events_msg
 FROM points, trip_sets, drop_pc_wt_stat stat
 WHERE points.point_id=stat.point_id AND
@@ -2368,7 +2371,7 @@ int pc_wt_stat(int argc,char **argv)
     "       pax.ticket_rem, pax.ticket_no, pax.coupon_no, pax.ticket_confirm, "
     "       eticks_display.bag_norm, eticks_display.bag_norm_unit "
     "FROM pax_grp, pax, eticks_display "
-    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "WHERE pax_grp.grp_id=pax.grp_id AND pax.refuse IS NULL AND "
     "      pax.ticket_no=eticks_display.ticket_no(+) AND "
     "      pax.coupon_no=eticks_display.coupon_no(+) AND "
     "      pax_grp.point_dep=:point_id AND "
@@ -2381,20 +2384,21 @@ int pc_wt_stat(int argc,char **argv)
   TQuery InsQry(&OraSession);
   InsQry.Clear();
   InsQry.SQLText=
-    "INSERT INTO drop_pc_wt_stat(point_id, ticket_no, coupon_no, etick_norm, etick_norm_unit, pax_norm, events_msg) "
-    "VALUES(:point_id, :ticket_no, :coupon_no, :etick_norm, :etick_norm_unit, :pax_norm, :events_msg)";
+    "INSERT INTO drop_pc_wt_stat(point_id, ticket_no, coupon_no, etick_norm, etick_norm_unit, pax_norm, events_time, events_msg) "
+    "VALUES(:point_id, :ticket_no, :coupon_no, :etick_norm, :etick_norm_unit, :pax_norm, :events_time, :events_msg)";
   InsQry.DeclareVariable("point_id", otInteger);
   InsQry.DeclareVariable("ticket_no", otString);
   InsQry.DeclareVariable("coupon_no", otInteger);
   InsQry.DeclareVariable("etick_norm", otInteger);
   InsQry.DeclareVariable("etick_norm_unit", otString);
   InsQry.DeclareVariable("pax_norm", otString);
+  InsQry.DeclareVariable("events_time", otDate);
   InsQry.DeclareVariable("events_msg", otString);
 
   TQuery LogQry(&OraSession);
   LogQry.Clear();
   LogQry.SQLText=
-    "SELECT msg "
+    "SELECT msg, time "
     "FROM events_bilingual "
     "WHERE lang=:lang AND type=:type AND id1=:point_id AND id3=:grp_id AND "
     "      msg like '%рименена весовая система расчета%' ";
@@ -2402,6 +2406,22 @@ int pc_wt_stat(int argc,char **argv)
   LogQry.CreateVariable("type", otString, EncodeEventType(ASTRA::evtPax));
   LogQry.DeclareVariable("point_id", otInteger);
   LogQry.DeclareVariable("grp_id", otInteger);
+
+  TQuery LogQry2(&OraSession);
+  LogQry2.Clear();
+  LogQry2.SQLText=
+    "SELECT MIN(time) AS time "
+    "FROM events_bilingual, web_clients "
+    "WHERE events_bilingual.station=web_clients.desk(+) AND "
+    "      events_bilingual.lang=:lang AND "
+    "      events_bilingual.type=:type AND "
+    "      events_bilingual.id1=:point_id AND "
+    "      events_bilingual.id3=:grp_id AND "
+    "      web_clients.desk IS NULL";
+  LogQry2.CreateVariable("lang", otString, AstraLocale::LANG_RU);
+  LogQry2.CreateVariable("type", otString, EncodeEventType(ASTRA::evtPax));
+  LogQry2.DeclareVariable("point_id", otInteger);
+  LogQry2.DeclareVariable("grp_id", otInteger);
 
   int processed=0;
   for(list< int >::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
@@ -2413,6 +2433,7 @@ int pc_wt_stat(int argc,char **argv)
       bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
       int grp_id=Qry.FieldAsInteger("grp_id");
       string pax_norm_view, events_msg;
+      TDateTime events_time=NoExists;
       if (!piece_concept)
       {
         int pax_id=Qry.FieldAsInteger("pax_id");
@@ -2438,9 +2459,21 @@ int pc_wt_stat(int argc,char **argv)
         LogQry.SetVariable("grp_id", events_grp_id);
         LogQry.Execute();
         if (!LogQry.Eof)
+        {
           events_msg=LogQry.FieldAsString("msg");
+          events_time=LogQry.FieldAsDateTime("time");
+        };
       }
       else pax_norm_view="PC";
+
+      if (events_time==NoExists)
+      {
+        LogQry2.SetVariable("point_id", *i);
+        LogQry2.SetVariable("grp_id", grp_id);
+        LogQry2.Execute();
+        if (!LogQry2.Eof && !LogQry2.FieldIsNULL("time"))
+          events_time=LogQry2.FieldAsDateTime("time");
+      }
 
       InsQry.SetVariable("point_id", *i);
       InsQry.SetVariable("ticket_no", Qry.FieldAsString("ticket_no"));
@@ -2451,6 +2484,10 @@ int pc_wt_stat(int argc,char **argv)
         InsQry.SetVariable("etick_norm", FNull);
       InsQry.SetVariable("etick_norm_unit", Qry.FieldAsString("bag_norm_unit"));
       InsQry.SetVariable("pax_norm", pax_norm_view);
+      if (events_time!=NoExists)
+        InsQry.SetVariable("events_time", events_time);
+      else
+        InsQry.SetVariable("events_time", FNull);
       InsQry.SetVariable("events_msg", events_msg);
       InsQry.Execute();
     };
