@@ -181,7 +181,7 @@ void ETDisplayToDB(const Ticketing::Pnr &pnr);
 class ETSearchInterface : public AstraJxtIface
 {
 public:
-  enum SearchPurpose {spETDisplay, spEMDDisplay, spEMDRefresh};
+  enum SearchPurpose {spETDisplay, spTlgETDisplay, spEMDDisplay, spEMDRefresh};
 
   ETSearchInterface() : AstraJxtIface("ETSearchForm")
   {
