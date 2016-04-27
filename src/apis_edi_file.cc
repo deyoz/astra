@@ -500,14 +500,12 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
       SetProp(checkInNode, "CheckInStatus", it->prBrd()?"B":"C");
       flyerNode = NewTextChild(checkInNode, "DCS_Traveller");
       if (!it->persType().empty()) SetProp(flyerNode, "Type", it->persType());
-      if (!it->seats().empty()) {
-        for(vector< pair<int, string> >::const_iterator i=it->seats().begin();i!=it->seats().end();i++)
-        {
-          xmlNodePtr seatNode = NewTextChild(checkInNode, "CheckInSeat");
-          SetProp(seatNode, "Number", IntToString(i->first) + i->second);
-          SetProp(seatNode, "Row", i->first);
-          SetProp(seatNode, "Column", i->second);
-        }
+      for(vector< pair<int, string> >::const_iterator i=it->seats().begin();i!=it->seats().end();i++)
+      {
+        xmlNodePtr seatNode = NewTextChild(checkInNode, "CheckInSeat");
+        SetProp(seatNode, "Number", IntToString(i->first) + i->second);
+        SetProp(seatNode, "Row", i->first);
+        SetProp(seatNode, "Column", i->second);
       }
       if (!it->fqts().empty()) {
         xmlNodePtr fqtsNode = NewTextChild(checkInNode, "FrequentFlyer");
