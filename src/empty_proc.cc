@@ -2184,33 +2184,63 @@ int convert_codeshare(int argc,char **argv)
   return 0;
 };
 
-//CREATE TABLE drop_nat_stat
-//(
-//    nationality VARCHAR2(3),
-//    num         NUMBER(9)
-//);
+/*
+CREATE TABLE drop_nat_stat
+(
+    nationality VARCHAR2(3),
+    craft       VARCHAR2(3),
+    num         NUMBER(9)
+);
 
 
-//SELECT pax_doc_countries.name||CHR(9)||nationality||CHR(9)||num
-//FROM drop_nat_stat, pax_doc_countries
-//WHERE drop_nat_stat.nationality=pax_doc_countries.code(+)
-//ORDER BY pax_doc_countries.name
+set serveroutput on;
+set heading off;
+set pagesize 5000;
+set linesize 500;
+set trimspool on;
+spool 'Статистика по гражданству ЮТ 011215-310316.txt';
+SELECT 'Страна'||CHR(9)||'Код'||CHR(9)||'СНГ'||CHR(9)||'Тип ВС'||CHR(9)||'Код ВС'||CHR(9)||'Пассажиры' AS str
+FROM dual;
+SELECT NVL(pax_doc_countries.name,'Гражданство не определено')||CHR(9)||
+       nationality||CHR(9)||
+       DECODE(nationality, 'AZE', 'СНГ',
+                           'ARM', 'СНГ',
+                           'BLR', 'СНГ',
+                           'KAZ', 'СНГ',
+                           'KGZ', 'СНГ',
+                           'MDA', 'СНГ',
+                           'RUS', 'СНГ',
+                           'UZB', 'СНГ',
+                           'UKR', 'СНГ', NULL)||CHR(9)||
+       NVL(crafts.name,'Тип ВС не определен')||CHR(9)||
+       drop_nat_stat.craft||CHR(9)||
+       num AS str
+FROM drop_nat_stat, pax_doc_countries, crafts
+WHERE drop_nat_stat.nationality=pax_doc_countries.code(+) AND
+      drop_nat_stat.craft=crafts.code(+)
+ORDER BY pax_doc_countries.name, crafts.name;
+spool off;
+set heading on;
+set pagesize 50;
+set linesize 150;
+*/
 
+typedef pair<string/*nationality*/, string/*craft*/> natStatKey;
+typedef map< natStatKey, int> natStatMap;
 
 int nat_stat(int argc,char **argv)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT point_id FROM points "
-    "WHERE scd_out>=TO_DATE('01.09.2015','DD.MM.YYYY') AND scd_out<TO_DATE('01.11.2015','DD.MM.YYYY') AND "
+    "SELECT point_id, craft FROM points "
+    "WHERE scd_out>=TO_DATE('01.12.2015','DD.MM.YYYY') AND scd_out<TO_DATE('01.04.2016','DD.MM.YYYY') AND airline='ЮТ' AND "
     "      pr_reg<>0 AND pr_del>=0";
   Qry.Execute();
-  list<int> point_ids;
+  list< pair<int, string> > point_ids;
   for(;!Qry.Eof;Qry.Next())
-    point_ids.push_back(Qry.FieldAsInteger("point_id"));
+    point_ids.push_back(make_pair(Qry.FieldAsInteger("point_id"), Qry.FieldAsString("craft")));
 
-  map<string, int> stat;
   Qry.Clear();
   Qry.SQLText=
     "SELECT pax_doc.nationality, COUNT(*) AS num "
@@ -2220,30 +2250,41 @@ int nat_stat(int argc,char **argv)
     "GROUP BY pax_doc.nationality";
   Qry.DeclareVariable("point_id", otInteger);
 
-  for(list<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
+  natStatMap stat;
+  int processed=0;
+  for(list< pair<int, string> >::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
   {
-    Qry.SetVariable("point_id", *i);
+    Qry.SetVariable("point_id", i->first);
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
-      string nat=Qry.FieldAsString("nationality");
+      natStatKey key(Qry.FieldAsString("nationality"), i->second);
+
       int num=Qry.FieldAsInteger("num");
-      map<string, int>::iterator j=stat.find(nat);
+      natStatMap::iterator j=stat.find(key);
       if (j==stat.end())
-        stat.insert(make_pair(nat, num));
+        stat.insert(make_pair(key, num));
       else
         j->second+=num;
     }
+    processed++;
+    alter_wait(processed, false, 10, 0);
   }
 
   Qry.Clear();
+  Qry.SQLText="DELETE FROM drop_nat_stat";
+  Qry.Execute();
+
+  Qry.Clear();
   Qry.SQLText=
-    "INSERT INTO drop_nat_stat(nationality, num) VALUES(:nationality, :num)";
+    "INSERT INTO drop_nat_stat(nationality, craft, num) VALUES(:nationality, :craft, :num)";
   Qry.DeclareVariable("nationality", otString);
+  Qry.DeclareVariable("craft", otString);
   Qry.DeclareVariable("num", otInteger);
-  for(map<string, int>::const_iterator i=stat.begin(); i!=stat.end(); ++i)
+  for(natStatMap::const_iterator i=stat.begin(); i!=stat.end(); ++i)
   {
-    Qry.SetVariable("nationality", i->first);
+    Qry.SetVariable("nationality", i->first.first);
+    Qry.SetVariable("craft", i->first.second);
     Qry.SetVariable("num", i->second);
     Qry.Execute();
   }
@@ -2252,4 +2293,210 @@ int nat_stat(int argc,char **argv)
 
   return 0;
 }
+
+/*
+CREATE TABLE drop_pc_wt_stat
+(
+   point_id        NUMBER(9) NOT NULL,
+   ticket_no       VARCHAR2(15) NOT NULL,
+   coupon_no       NUMBER(1) NOT NULL,
+   etick_norm      NUMBER(3) NULL,
+   etick_norm_unit VARCHAR2(2) NOT NULL,
+   pax_norm        VARCHAR2(20) NULL,
+   events_time     DATE NULL,
+   events_msg      VARCHAR2(250) NULL
+);
+
+set serveroutput on;
+set heading off;
+set pagesize 30000;
+set linesize 1000;
+set trimspool on;
+spool 'Неправильно оформленный багаж.txt';
+SELECT 'А/к'||CHR(9)||
+       'Рейс'||CHR(9)||
+       'А/п'||CHR(9)||
+       'Вылет (UTC)'||CHR(9)||
+       'Номер ЭБ'||CHR(9)||
+       'Норма в билете'||CHR(9)||
+       'Норма применена'||CHR(9)||
+       'Время применения (UTC)'||CHR(9)||
+       'Журнал операций' AS str
+FROM dual;
+SELECT points.airline||CHR(9)||
+       LPAD(points.flt_no, 3, '0')||points.suffix||CHR(9)||
+       points.airp||CHR(9)||
+       TO_CHAR(points.scd_out, 'DD.MM.YY HH24:MI')||CHR(9)||
+       stat.ticket_no||'/'||stat.coupon_no||CHR(9)||
+       stat.etick_norm||stat.etick_norm_unit||CHR(9)||
+       pax_norm||CHR(9)||
+       TO_CHAR(events_time, 'DD.MM.YY HH24:MI:SS')||CHR(9)||
+       events_msg
+FROM points, trip_sets, drop_pc_wt_stat stat
+WHERE points.point_id=stat.point_id AND
+      points.point_id=trip_sets.point_id AND trip_sets.piece_concept<>0
+ORDER BY points.airline, points.airp, points.scd_out, points.flt_no,
+         stat.ticket_no, stat.coupon_no;
+spool off;
+set heading on;
+set pagesize 50;
+set linesize 150;
+*/
+
+int pc_wt_stat(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="DELETE FROM drop_pc_wt_stat";
+  Qry.Execute();
+  OraSession.Commit();
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT point_id FROM points "
+    "WHERE scd_out>=:first_date AND scd_out<:last_date AND "
+    "      pr_reg<>0 AND pr_del>=0";
+  TDateTime last_date=NowUTC()+2;
+  TDateTime first_date=IncMonth(last_date, -1);
+  Qry.CreateVariable("first_date", otDate, first_date);
+  Qry.CreateVariable("last_date", otDate, last_date);
+  Qry.Execute();
+  list< int > point_ids;
+  for(;!Qry.Eof;Qry.Next())
+    point_ids.push_back(Qry.FieldAsInteger("point_id"));
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pax_grp.piece_concept, pax_grp.grp_id, pax.pax_id, "
+    "       pax.ticket_rem, pax.ticket_no, pax.coupon_no, pax.ticket_confirm, "
+    "       eticks_display.bag_norm, eticks_display.bag_norm_unit "
+    "FROM pax_grp, pax, eticks_display "
+    "WHERE pax_grp.grp_id=pax.grp_id AND pax.refuse IS NULL AND "
+    "      pax.ticket_no=eticks_display.ticket_no(+) AND "
+    "      pax.coupon_no=eticks_display.coupon_no(+) AND "
+    "      pax_grp.point_dep=:point_id AND "
+    "      pax_grp.piece_concept IS NOT NULL AND "
+    "      eticks_display.bag_norm_unit IS NOT NULL AND "
+    "      (pax_grp.piece_concept=0 AND eticks_display.bag_norm_unit='PC' OR "
+    "       pax_grp.piece_concept<>0 AND eticks_display.bag_norm_unit<>'PC')";
+  Qry.DeclareVariable("point_id", otInteger);
+
+  TQuery InsQry(&OraSession);
+  InsQry.Clear();
+  InsQry.SQLText=
+    "INSERT INTO drop_pc_wt_stat(point_id, ticket_no, coupon_no, etick_norm, etick_norm_unit, pax_norm, events_time, events_msg) "
+    "VALUES(:point_id, :ticket_no, :coupon_no, :etick_norm, :etick_norm_unit, :pax_norm, :events_time, :events_msg)";
+  InsQry.DeclareVariable("point_id", otInteger);
+  InsQry.DeclareVariable("ticket_no", otString);
+  InsQry.DeclareVariable("coupon_no", otInteger);
+  InsQry.DeclareVariable("etick_norm", otInteger);
+  InsQry.DeclareVariable("etick_norm_unit", otString);
+  InsQry.DeclareVariable("pax_norm", otString);
+  InsQry.DeclareVariable("events_time", otDate);
+  InsQry.DeclareVariable("events_msg", otString);
+
+  TQuery LogQry(&OraSession);
+  LogQry.Clear();
+  LogQry.SQLText=
+    "SELECT msg, time "
+    "FROM events_bilingual "
+    "WHERE lang=:lang AND type=:type AND id1=:point_id AND id3=:grp_id AND "
+    "      msg like '%рименена весовая система расчета%' ";
+  LogQry.CreateVariable("lang", otString, AstraLocale::LANG_RU);
+  LogQry.CreateVariable("type", otString, EncodeEventType(ASTRA::evtPax));
+  LogQry.DeclareVariable("point_id", otInteger);
+  LogQry.DeclareVariable("grp_id", otInteger);
+
+  TQuery LogQry2(&OraSession);
+  LogQry2.Clear();
+  LogQry2.SQLText=
+    "SELECT MIN(time) AS time "
+    "FROM events_bilingual, web_clients "
+    "WHERE events_bilingual.station=web_clients.desk(+) AND "
+    "      events_bilingual.lang=:lang AND "
+    "      events_bilingual.type=:type AND "
+    "      events_bilingual.id1=:point_id AND "
+    "      events_bilingual.id3=:grp_id AND "
+    "      web_clients.desk IS NULL";
+  LogQry2.CreateVariable("lang", otString, AstraLocale::LANG_RU);
+  LogQry2.CreateVariable("type", otString, EncodeEventType(ASTRA::evtPax));
+  LogQry2.DeclareVariable("point_id", otInteger);
+  LogQry2.DeclareVariable("grp_id", otInteger);
+
+  int processed=0;
+  for(list< int >::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
+  {
+    Qry.SetVariable("point_id", *i);
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+    {
+      bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
+      int grp_id=Qry.FieldAsInteger("grp_id");
+      string pax_norm_view, events_msg;
+      TDateTime events_time=NoExists;
+      if (!piece_concept)
+      {
+        int pax_id=Qry.FieldAsInteger("pax_id");
+        list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
+        WeightConcept::PaxNormsFromDB(NoExists, pax_id, norms);
+        for(list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> >::const_iterator n=norms.begin(); n!=norms.end(); ++n)
+        {
+          if (n->first.bag_type!=NoExists) continue;
+          pax_norm_view=n->second.str(AstraLocale::LANG_RU);
+          break;
+        };
+
+        int events_point_id=*i, events_grp_id=grp_id;
+        TCkinRoute route;
+        route.GetRouteBefore(grp_id, crtWithCurrent, crtIgnoreDependent);
+        if (!route.empty())
+        {
+          events_point_id=route.front().point_dep;
+          events_grp_id=route.front().grp_id;
+        };
+
+        LogQry.SetVariable("point_id", events_point_id);
+        LogQry.SetVariable("grp_id", events_grp_id);
+        LogQry.Execute();
+        if (!LogQry.Eof)
+        {
+          events_msg=LogQry.FieldAsString("msg");
+          events_time=LogQry.FieldAsDateTime("time");
+        };
+      }
+      else pax_norm_view="PC";
+
+      if (events_time==NoExists)
+      {
+        LogQry2.SetVariable("point_id", *i);
+        LogQry2.SetVariable("grp_id", grp_id);
+        LogQry2.Execute();
+        if (!LogQry2.Eof && !LogQry2.FieldIsNULL("time"))
+          events_time=LogQry2.FieldAsDateTime("time");
+      }
+
+      InsQry.SetVariable("point_id", *i);
+      InsQry.SetVariable("ticket_no", Qry.FieldAsString("ticket_no"));
+      InsQry.SetVariable("coupon_no", Qry.FieldAsInteger("coupon_no"));
+      if (!Qry.FieldIsNULL("bag_norm"))
+        InsQry.SetVariable("etick_norm", Qry.FieldAsInteger("bag_norm"));
+      else
+        InsQry.SetVariable("etick_norm", FNull);
+      InsQry.SetVariable("etick_norm_unit", Qry.FieldAsString("bag_norm_unit"));
+      InsQry.SetVariable("pax_norm", pax_norm_view);
+      if (events_time!=NoExists)
+        InsQry.SetVariable("events_time", events_time);
+      else
+        InsQry.SetVariable("events_time", FNull);
+      InsQry.SetVariable("events_msg", events_msg);
+      InsQry.Execute();
+    };
+    OraSession.Commit();
+    processed++;
+    alter_wait(processed, false, 10, 0);
+  }
+
+  return 0;
+}
+
 
