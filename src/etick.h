@@ -179,7 +179,7 @@ void ETDisplayToDB(const Ticketing::Pnr &pnr);
 class ETSearchInterface : public JxtInterface
 {
 public:
-  enum SearchPurpose {spETDisplay, spEMDDisplay, spEMDRefresh};
+  enum SearchPurpose {spETDisplay, spTlgETDisplay, spEMDDisplay, spEMDRefresh};
 
   ETSearchInterface() : JxtInterface("ETSearchForm","ETSearchForm")
   {

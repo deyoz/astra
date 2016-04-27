@@ -191,7 +191,7 @@ void TlgETDisplay(int point_id_tlg, const set<int> &ids, bool is_pax_id)
             !flt.airp.empty())
         {
           props.airline=flt.airline;
-          props.interact=checkETSInteract(flt, false) &&
+          props.interact=/*checkETSInteract(flt, false) && принято решение игнорировать отмену интерактива и учитывать только настройки адресов СЭБ */
                          get_et_addr_set(flt.airline, flt.flt_no, props.addrs);
         };
 
@@ -213,7 +213,7 @@ void TlgETDisplay(int point_id_tlg, const set<int> &ids, bool is_pax_id)
 
       try
       {
-        ETSearchInterface::SearchET(*p, ETSearchInterface::spETDisplay, edifact::KickInfo());
+        ETSearchInterface::SearchET(*p, ETSearchInterface::spTlgETDisplay, edifact::KickInfo());
         eticks.insert(eticksKey);
         ProgTrace(TRACE5, "%s: ETSearchInterface::SearchET (%s)", __FUNCTION__, p->traceStr().c_str());
       }
@@ -483,7 +483,8 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
       throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   };
 
-  checkETSInteract(info, true);
+  if (!(searchPurpose==spTlgETDisplay && kickInfo.background_mode()))
+    checkETSInteract(info, true);
   if (searchPurpose==spEMDDisplay ||
       searchPurpose==spEMDRefresh)
     checkEDSInteract(info, true);
@@ -515,6 +516,7 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
   switch(searchPurpose)
   {
     case spETDisplay:
+    case spTlgETDisplay:
       SetProp(rootNode,"purpose","ETDisplay");
       break;
     case spEMDDisplay:
@@ -522,9 +524,6 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
       break;
     case spEMDRefresh:
       SetProp(rootNode,"purpose","EMDRefresh");
-      break;
-    default:
-      SetProp(rootNode,"purpose","unknown");
       break;
   };
 
