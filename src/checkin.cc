@@ -1925,11 +1925,24 @@ string CheckInInterface::GetSearchPaxSubquery(TPaxStatus pax_status,
 
 void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
   int point_dep = NodeAsInteger("point_dep",reqNode);
   TPaxStatus pax_status = DecodePaxStatus(NodeAsString("pax_status",reqNode));
   string query= NodeAsString("query",reqNode);
   bool pr_unaccomp=query=="0";
   bool charter_search=false;
+
+  TTripInfo fltInfo;
+  if (!fltInfo.getByPointId(point_dep))
+    throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+  TTripSetList setList;
+  setList.fromDB(point_dep);
+  if (setList.empty())
+    throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+  if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2) &&
+      setList.value(tsPieceConcept))
+    throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
 
   TInquiryGroup grp;
   TInquiryGroupSummary sum;
@@ -1963,14 +1976,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         if (fmt.infSeatsFmt!=0) fmt.infSeatsFmt=1;
       }
     }
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT airline,flt_no,suffix,airp,scd_out "
-      "FROM points WHERE point_id=:point_id AND pr_del>=0";
-    Qry.CreateVariable("point_id",otInteger,point_dep);
-    Qry.Execute();
-    if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-    TTripInfo fltInfo(Qry);
+
     charter_search=GetTripSets(tsCharterSearch,fltInfo);
 
     GetInquiryInfo(grp,fmt,sum);
@@ -1990,14 +1996,13 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   xmlNodePtr node;
 
-  Qry.Clear();
-  Qry.SQLText="SELECT pr_tranz_reg FROM trip_sets WHERE point_id=:point_id";
-  Qry.CreateVariable("point_id",otInteger,point_dep);
-  Qry.Execute();
-  if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-
   if (pax_status==psTransit)
   {
+    Qry.Clear();
+    Qry.SQLText="SELECT pr_tranz_reg FROM trip_sets WHERE point_id=:point_id";
+    Qry.CreateVariable("point_id",otInteger,point_dep);
+    Qry.Execute();
+    if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
     if (Qry.FieldIsNULL("pr_tranz_reg")||Qry.FieldAsInteger("pr_tranz_reg")==0)
       throw UserException("MSG.CHECKIN.NOT_RECHECKIN_MODE_FOR_TRANZIT");
   }
@@ -4529,6 +4534,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                                                    r!=(pass==0?added:deleted).end(); ++r)
                 {
                   if (r->code.empty()) continue;
+                  TRemCategory cat=getRemCategory(r->code, r->text);
+                  if (cat==remASVC) continue; //пропускаем ASVC
                   if (IsReadonlyRem(r->code, r->text))
                     throw UserException(pass==0?"MSG.REMARK.ADD_OR_CHANGE_DENIAL":"MSG.REMARK.CHANGE_OR_DEL_DENIAL",
                                         LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
