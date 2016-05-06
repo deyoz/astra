@@ -1195,8 +1195,10 @@ void Result::toXml(xmlNodePtr node) const
         NewTextChild(paxNode, "bag_pool_num", ""); // TODO
         NewTextChild(paxNode, "tid", 0); // TODO
         boost::optional<TicketCpn_t> tickCpn;
+        std::string tickRem;
         if(serviceDetails()) {
             tickCpn = serviceDetails()->findTicketCpn();
+            tickRem = "TKNE";
         }
         if(tickCpn) {
             NewTextChild(paxNode, "ticket_no", tickCpn->tickNum());
@@ -1207,7 +1209,7 @@ void Result::toXml(xmlNodePtr node) const
             NewTextChild(paxNode, "coupon_no");
         }
 
-        NewTextChild(paxNode, "ticket_rem", ""); // TODO
+        NewTextChild(paxNode, "ticket_rem", tickRem);
         NewTextChild(paxNode, "ticket_confirm", "1"); // TODO
 
         xmlNodePtr docNode = newChild(paxNode, "document");

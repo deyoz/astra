@@ -1066,7 +1066,7 @@ $(lastRedisplay)
             <tid>0</tid>
             <ticket_no>2986120030297</ticket_no>
             <coupon_no>2</coupon_no>
-            <ticket_rem/>
+            <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
             <document>
               <type>PP</type>
@@ -1526,7 +1526,7 @@ $(lastRedisplay)
             <tid>0</tid>
             <ticket_no>4216120030255</ticket_no>
             <coupon_no>2</coupon_no>
-            <ticket_rem/>
+            <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
             <document>
               <type>PP</type>
