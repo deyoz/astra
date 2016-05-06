@@ -542,9 +542,9 @@ void ServiceDetails::addSsr(const ServiceDetails::SsrInfo& ssr)
     m_lSsr.push_back(ssr);
 }
 
-void ServiceDetails::addSsr(const std::string& ssrCode, const std::string& ssrText)
+void ServiceDetails::addSsr(const std::string& ssrCode, const std::string& ssrFreeText)
 {
-    m_lSsr.push_back(ServiceDetails::SsrInfo(ssrCode, ssrText));
+    m_lSsr.push_back(ServiceDetails::SsrInfo(ssrCode, "", false, ssrFreeText));
 }
 
 void ServiceDetails::addSsrTkne(const std::string& tickNum, bool isInftTicket)
@@ -557,6 +557,11 @@ void ServiceDetails::addSsrTkne(const std::string& tickNum, unsigned couponNum, 
     std::ostringstream tkne;
     tkne << tickNum << couponNum;
     addSsrTkne(tkne.str(), inftTicket);
+}
+
+void ServiceDetails::addSsrFqtv(const std::string& fqtvCode)
+{
+    m_lSsr.push_back(ServiceDetails::SsrInfo("FQTV", fqtvCode));
 }
 
 boost::optional<TicketCpn_t> ServiceDetails::findTicketCpn() const
@@ -1240,7 +1245,26 @@ void Result::toXml(xmlNodePtr node) const
 
         NewTextChild(paxNode, "pr_norec", 0); // TODO
         NewTextChild(paxNode, "pr_bp_print", 0); // TODO
-        xmlNodePtr paxRemsNode = newChild(paxNode, "rems"); // TODO
+
+        xmlNodePtr paxRemsNode = newChild(paxNode, "rems");
+        if(serviceDetails())
+        {
+            for(const ServiceDetails::SsrInfo& ssr: serviceDetails()->lSsr()) {
+                std::string remCode = ssr.ssrCode(),
+                            remText;
+                if(remCode == "TKNE") continue;
+
+                if(remCode == "FQTV") {
+                    remText = ssr.ssrText();
+                } else {
+                    remText = ssr.freeText();
+                }
+
+                xmlNodePtr paxRemNode = newChild(paxRemsNode, "rem");
+                NewTextChild(paxRemNode, "rem_code", remCode);
+                NewTextChild(paxRemNode, "rem_text", remText);
+            }
+        }
     }
 
     NewTextChild(segNode, "paid_bag_emd", ""); // TODO

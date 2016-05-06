@@ -1222,6 +1222,13 @@ iatci::Result LoadPaxXmlResult::toIatci(iatci::Result::Action_e action,
             serviceDetails->addSsr(pax.ticket_rem,
                                    pax.ticket_no);
         }
+
+        // rems
+        for(const XmlRem& rem: pax.rems)
+        {
+            serviceDetails->addSsr(rem.rem_code,
+                                   rem.rem_text);
+        }
     }
 
     // TODO

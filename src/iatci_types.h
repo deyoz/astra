@@ -436,9 +436,10 @@ public:
     const std::string&        osi() const;
 
     void addSsr(const ServiceDetails::SsrInfo& ssr);
-    void addSsr(const std::string& ssrCode, const std::string& ssrText);
+    void addSsr(const std::string& ssrCode, const std::string& ssrFreeText);
     void addSsrTkne(const std::string& tickNum, bool isInftTicket = false);
     void addSsrTkne(const std::string& tickNum, unsigned couponNum, bool inftTicket);
+    void addSsrFqtv(const std::string& fqtvCode);
 
     boost::optional<TicketCpn_t> findTicketCpn() const;
 };
