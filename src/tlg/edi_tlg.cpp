@@ -20,6 +20,7 @@
 #include "remote_system_context.h"
 #include "astra_tick_read_edi.h"
 #include "etick.h"
+#include "iatci_api.h"
 
 // response handlers
 #include "EmdDispResponseHandler.h"
@@ -44,6 +45,7 @@
 #include "IatciSmfRequestHandler.h"
 
 #include <etick/lang.h>
+#include <etick/exceptions.h>
 #include <jxtlib/cont_tools.h>
 #include <jxtlib/xml_stuff.h>
 #include <serverlib/cursctl.h>
@@ -587,8 +589,9 @@ void AstraEdiHandlerManager::beforeProc()
 
 void AstraEdiHandlerManager::afterProc()
 {
-    if(sessionHandler()->edih()->msg_type_req == RESPONSE) {
-        /* Если обрабатываем ответ */
+    /* Если обрабатываем ответ */
+    if(sessionHandler()->edih()->msg_type_req == RESPONSE)
+    {
         if(sessionHandler()->ediSession()->mustBeDeleted()) {
             TlgHandling::PostponeEdiHandling::deleteWaiting(sessionHandler()->ediSession()->ida());
         }
@@ -659,9 +662,7 @@ boost::optional<TlgSourceEdifact> proc_new_edifact(boost::shared_ptr<TlgHandling
     {
         LogError(STDLOG) << "Exception at this point tells something wrong";
         LogError(STDLOG) << e.what();
-        // TODO throw normal typified exception here
-        //throw EdifactTlgHandleErr(Tr(EtsErr::EDI_PROC_ERR, ENGLISH));
-        throw EXCEPTIONS::Exception("EDI_PROC_ERR");
+        throw Ticketing::TickExceptions::tick_fatal_except(STDLOG, AstraErr::EDI_PROC_ERR);
     }
 
     ProgTrace(TRACE2, "New Edifact done.");

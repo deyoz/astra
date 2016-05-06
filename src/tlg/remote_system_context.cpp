@@ -369,6 +369,11 @@ void DcsSystemContext::updateDb()
     SystemContext::updateDb();
 }
 
+iatci::IatciSettings DcsSystemContext::iatciSettings() const
+{
+    return iatci::readIatciSettings(ida(), true);
+}
+
 //---------------------------------------------------------------------------------------
 
 void SystemContextMaker::setOurAddrEdifact(const std::string &val)

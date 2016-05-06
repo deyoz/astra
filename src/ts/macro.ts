@@ -93,11 +93,13 @@ $(defmacro PREPARE_SEASON_SCD
 ) # end-of-macro
 
 
-$(defmacro INBOUND_PNL
+$(defmacro INBOUND_PNL_1
     airl
     depp
     arrp
     flt
+    surname
+    name
 {MOWKB1H
 .MOWRMUT 020815
 PNL
@@ -112,25 +114,306 @@ Y059
 -LED000F
 -LED000C
 -LED001Y
-1REPIN/IVAN
+1$(surname)/$(name)
 .L/0840Z6/$(airl)
 .L/09T1B3/1H
 -LED000K
 -LED000M
 -LED000U
-ENDPNL}) #end-of-macro
+ENDPNL}
+) #end-of-macro
 
 
-$(defmacro PREPARE_ONE_FLIGHT
-    airl=UT
-    depp=DME
-    arrp=LED
+$(defmacro PREPARE_FLIGHT_1
+    airl=ûí
     flt=103
+    depp=ÑåÑ
+    arrp=èãä
+    surname=REPIN
+    name=IVAN
 {
-$(PREPARE_SEASON_SCD $(airl) $(depp) $(arrp) $(flt))
+$(PREPARE_SEASON_SCD $(get_lat_code awk $(airl))
+                     $(get_lat_code aer $(depp))
+                     $(get_lat_code aer $(arrp))
+                     $(flt))
 $(create_spp $(ddmmyyyy +0))
 
 <<
-$(INBOUND_PNL $(airl) $(depp) $(arrp) $(flt))
+$(INBOUND_PNL_1 $(get_lat_code awk $(airl))
+                $(get_lat_code aer $(depp))
+                $(get_lat_code aer $(arrp))
+                $(flt)
+                $(surname) $(name))
+
+$(create_random_trip_comp $(get_dep_point_id $(depp) $(airl) 103 $(yymmdd +0)) ù)
+
+}) #end-of-macro
+
+
+$(defmacro INBOUND_PNL_2
+    airl1
+    depp1
+    arrp1
+    flt1
+    airl2
+    depp2
+    arrp2
+    flt2
+    surname
+    name
+    tickno
+    cpnno
+{MOWKB1H
+.MOWRMUT 020815
+PNL
+$(airl1)$(flt1)/$(ddmon +0 en) $(depp1) PART1
+CFG/060F060C060Y
+RBD F/F C/C Y/YKMU
+AVAIL
+ $(depp1)  $(arrp1)
+F060
+C060
+Y059
+-LED000F
+-LED000C
+-LED001Y
+1$(surname)/$(name)
+.L/0840Z6/$(airl1)
+.L/09T1B3/1H
+.O/$(airl2)$(flt2)Y$(dd +0 en)$(depp2)$(arrp2)2315AR
+.R/TKNE HK1 $(tickno)/$(cpnno)-1$(surname)/$(name)
+.R/DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/$(surname)
+.RN//$(name)-1$(surname)/$(name)
+.R/PSPT HK1 ZB400522509/TJK/24JUL85/$(surname)/$(name)/M
+.RN/-1$(surname)/$(name)
+.R/FOID PPZB400522509-1$(surname)/$(name)
+-LED000K
+-LED000M
+-LED000U
+ENDPNL}
+) #end-of-macro
+
+
+$(defmacro PREPARE_FLIGHT_2
+    airl1=ûí
+    flt1=103
+    depp1=ÑåÑ
+    arrp1=èãä
+    airl2=ëì
+    flt2=2278
+    depp2=èãä
+    arrp2=ëéó
+    surname=REPIN
+    name=IVAN
+    tickno=2982401841689
+    cpnno=1
+{
+$(PREPARE_SEASON_SCD $(get_lat_code awk $(airl1))
+                     $(get_lat_code aer $(depp1))
+                     $(get_lat_code aer $(arrp1))
+                     $(flt1))
+$(create_spp $(ddmmyyyy +0))
+
+<<
+$(INBOUND_PNL_2 $(airl1) $(depp1) $(arrp1) $(flt1)
+                $(airl2) $(depp2) $(arrp2) $(flt2) $(surname) $(name)
+                $(tickno) $(cpnno))
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:131"
+ORG+ûí:åéÇ++++Y+::RU+SYSTEM"
+TKT+2982401841689"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
+MSG+:131+3"
+TIF+$(surname)+$(name)"
+TAI+0162"
+RCI+UA:G4LK6W:1"
+MON+B:20.00:USD+T:20.00:USD"
+FOP+CA:3"
+PTK+++$(ddmmyy)+++:US"
+ODI+$(depp1)+$(arrp1)"
+ORG+UT:MOW++IAH++A+US+D80D1BWO"
+EQN+1:TD"
+TXD+700+0.00:::US"
+IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
+IFT+4:5+00001230161213"
+IFT+4:10+REFUNDABLE"
+IFT+4:39+HOUSTON+UNITED AIRLINES INC"
+TKT+2982401841689:T:1:3"
+CPN+1:I"
+TVL+$(ddmmyy):2205+$(depp1)+$(arrp1)+$(airl1)+$(flt1):Y+J"
+RPI++NS"
+PTS++YINF"
+UNT+19+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(create_random_trip_comp $(get_dep_point_id ÑåÑ ûí 103 $(yymmdd +0)) ù)
+
+}) #end-of-macro
+
+
+$(defmacro INBOUND_PNL_3
+    airl1
+    depp1
+    arrp1
+    flt1
+    airl2
+    depp2
+    arrp2
+    flt2
+    surname
+    name
+    tickno
+    cpnno
+{MOWKB1H
+.MOWRMUT 020815
+PNL
+$(airl1)$(flt1)/$(ddmon +0 en) $(depp1) PART1
+CFG/060F060C060Y
+RBD F/F C/C Y/YKMU
+AVAIL
+ $(depp1)  $(arrp1)
+F060
+C060
+Y059
+-LED000F
+-LED000C
+-LED001Y
+1$(surname)/$(name)
+.L/0840Z6/$(airl1)
+.L/09T1B3/1H
+.O/$(airl2)$(flt2)Y$(dd +0 en)$(depp2)$(arrp2)2315AR
+-LED000K
+-LED000M
+-LED000U
+ENDPNL}
+) #end-of-macro
+
+
+$(defmacro PREPARE_FLIGHT_3
+    airl1=ûí
+    flt1=103
+    depp1=ÑåÑ
+    arrp1=èãä
+    airl2=ë7
+    flt2=1027
+    depp2=èãä
+    arrp2=ëéó
+    surname=REPIN
+    name=IVAN
+    tickno=2982401841689
+    cpnno=1
+{
+$(PREPARE_SEASON_SCD $(get_lat_code awk $(airl1))
+                     $(get_lat_code aer $(depp1))
+                     $(get_lat_code aer $(arrp1))
+                     $(flt1))
+$(create_spp $(ddmmyyyy +0))
+
+<<
+$(INBOUND_PNL_3 $(airl1) $(depp1) $(arrp1) $(flt1)
+                $(airl2) $(depp2) $(arrp2) $(flt2) $(surname) $(name)
+                $(tickno) $(cpnno))
+
+$(create_random_trip_comp $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)) ù)
+
+}) #end-of-macro
+
+
+$(defmacro OPEN_CHECKIN
+    point_id
+{
+!! capture=on
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <WriteTrips>
+      <trips>
+        <trip>
+          <point_id>$(point_id)</point_id>
+          <tripstages>
+            <stage>
+              <stage_id>10</stage_id>
+              <act>$(date_format %d.%m.%Y -24h) 00:41:00</act>
+            </stage>
+            <stage>
+              <stage_id>20</stage_id>
+              <act>$(date_format %d.%m.%Y -24h) 00:41:00</act>
+            </stage>
+          </tripstages>
+        </trip>
+      </trips>
+    </WriteTrips>
+  </query>
+</term>}
+
+>> lines=auto
+    <command>
+      <message lexema_id='MSG.DATA_SAVED' code='0'>Ñ†≠≠Î• „·Ø•Ë≠Æ ·ÆÂ‡†≠•≠Î</message>
+    </command>
+
+}) #end-of-macro
+
+
+$(defmacro SEARCH_EMD_BY_DOC_NO
+    point_dep
+    emd_no
+{
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+ <term>
+   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+     <SearchEMDByDocNo>
+       <point_id>$(point_dep)</point_id>
+       <EmdNoEdit>$(emd_no)</EmdNoEdit>
+     </SearchEMDByDocNo>
+   </query>
+ </term>}
+
+}) #end-of-macro
+
+
+$(defmacro SEARCH_ET_BY_TICK_NO
+    point_dep
+    tick_no
+{
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <SearchETByTickNo>
+      <point_id>$(point_dep)</point_id>
+      <TickNoEdit>$(tick_no)</TickNoEdit>
+    </SearchETByTickNo>
+  </query>
+</term>}
+
+}) #end-of-macro
+
+
+$(defmacro EMD_TEXT_VIEW
+    point_dep
+    tick_no
+{
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+ <term>
+   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+     <EMDTextView>
+       <point_id>$(point_dep)</point_id>
+       <ticket_no>$(tick_no)</ticket_no>
+       <pax_id/>
+       <coupon_no/>
+       <ticket_rem/>
+     </EMDTextView>
+   </query>
+ </term>}
 
 }) #end-of-macro

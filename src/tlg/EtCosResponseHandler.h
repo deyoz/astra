@@ -13,8 +13,6 @@ public:
 
     void parse() {}
     void handle();
-    void onTimeOut() {}
-    void onCONTRL() {}
 
     virtual ~EtCosResponseHandler() {}
 };

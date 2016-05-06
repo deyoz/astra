@@ -145,6 +145,7 @@ astra_SOURCES = \
   iatci_types.cc \
   iatci_api.cc \
   iatci_help.cc \
+  iatci_settings.cc \
   TypeBHelpMng.cpp \
   astra_msg.cc \
   Depeches.cpp \
@@ -286,6 +287,7 @@ noinst_HEADERS = \
   iatci_serialization.h \
   iatci_api.h \
   iatci_help.h \
+  iatci_settings.h \
   iatci.h \
   TypeBHelpMng.h \
   astra_msg.h \

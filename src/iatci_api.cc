@@ -3,6 +3,7 @@
 
 #include "etick.h" // ChangeOfStatus
 #include "astra_ticket.h" // Ticket
+#include "astra_context.h"
 #include "astra_api.h"
 #include "astra_msg.h"
 #include "edi_utils.h"
@@ -12,6 +13,7 @@
 #include <serverlib/int_parameters_oci.h>
 #include <serverlib/rip_oci.h>
 #include <serverlib/xml_stuff.h>
+#include <etick/exceptions.h>
 
 #include <sstream>
 #include <boost/lexical_cast.hpp>
@@ -27,6 +29,8 @@ namespace iatci
 {
 
 using namespace AstraEdifact;
+using namespace Ticketing;
+using namespace Ticketing::TickExceptions;
 
 
 static const int MaxSerializedDataLen = 1024;
@@ -59,11 +63,13 @@ Result checkinPax(const CkiParams& ckiParams)
 Result checkinPax(tlgnum_t postponeTlgNum)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << " by tlgnum " << postponeTlgNum;
+
     XMLDoc ediSessCtxt;
     getEdiSessionCtxt(postponeTlgNum, true, "iatci::checkinPax", ediSessCtxt);
 
     xml_decode_nodelist(ediSessCtxt.docPtr()->children);
     xmlNodePtr rootNode = NodeAsNode("/context", ediSessCtxt.docPtr());
+
     if(GetNode("@req_ctxt_id", rootNode))
     {
         tst();
@@ -71,12 +77,18 @@ Result checkinPax(tlgnum_t postponeTlgNum)
         LogTrace(TRACE3) << "req_ctxt_id=" << reqCtxtId;
 
         XMLDoc termReqCtxt;
-        AstraEdifact::getTermRequestCtxt(reqCtxtId, true, "iatci::checkinPax", termReqCtxt);
+        AstraEdifact::getTermRequestCtxt(reqCtxtId, true,
+                                         "iatci::checkinPax", termReqCtxt);
         xmlNodePtr termReqNode = NodeAsNode("/query", termReqCtxt.docPtr())->children;
         ASSERT(termReqNode != NULL);
 
         XMLDoc ediResCtxt;
-        AstraEdifact::getEdiResponseCtxt(reqCtxtId, true, "iatci::checkinPax", ediResCtxt);
+        AstraEdifact::getEdiResponseCtxt(reqCtxtId, true,
+                                         "iatci::checkinPax", ediResCtxt, false/*throw*/);
+        if(ediResCtxt.docPtr() == NULL) {
+            // сюда попадем если случится таймаут
+            throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "");
+        }
         xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
         ASSERT(ediResNode != NULL);
 
@@ -84,7 +96,6 @@ Result checkinPax(tlgnum_t postponeTlgNum)
         return astra_api::checkinIatciPax(termReqNode, ediResNode);
     }
 
-    TST();
     return Result::makeFailResult(Result::Checkin,
                                   ErrorDetails(Ticketing::AstraErr::EDI_PROC_ERR));
 }
@@ -109,12 +120,19 @@ Result cancelCheckin(tlgnum_t postponeTlgNum)
         LogTrace(TRACE3) << "req_ctxt_id=" << reqCtxtId;
 
         XMLDoc termReqCtxt;
-        AstraEdifact::getTermRequestCtxt(reqCtxtId, true, "iatci::cancelCheckinPax", termReqCtxt);
+        AstraEdifact::getTermRequestCtxt(reqCtxtId, true,
+                                         "iatci::cancelCheckinPax", termReqCtxt);
         xmlNodePtr termReqNode = NodeAsNode("/query", termReqCtxt.docPtr())->children;
         ASSERT(termReqNode != NULL);
 
         XMLDoc ediResCtxt;
-        AstraEdifact::getEdiResponseCtxt(reqCtxtId, true, "iatci::cancelCheckinPax", ediResCtxt);
+        AstraEdifact::getEdiResponseCtxt(reqCtxtId, true,
+                                         "iatci::cancelCheckinPax", ediResCtxt, false/*throw*/);
+        if(ediResCtxt.docPtr() == NULL) {
+            // сюда попадем если случится таймаут
+            throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "");
+        }
+
         xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
         ASSERT(ediResNode != NULL);
 
@@ -173,12 +191,7 @@ Result reprintBoardingPass(const BprParams& bprParams)
 
 Result fillPasslist(const PlfParams& plfParams)
 {
-    // TODO вызов функций Астры
-    return Result::makePasslistResult(Result::Ok,
-                                      plfParams.flight(),
-                                      iatci::PaxDetails(plfParams.pax().surname(),
-                                                        plfParams.pax().name(),
-                                                        iatci::PaxDetails::Adult));
+    return astra_api::fillPaxList(plfParams);
 }
 
 Result fillSeatmap(const SmfParams& smfParams)

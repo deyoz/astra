@@ -586,10 +586,7 @@ void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
   ETSearchInterface::SearchET(params, ETSearchInterface::spEMDDisplay, kickInfo);
 
-  if(!inTestMode()) {
-    // TODO - уточнить у Влада
-    AstraLocale::showProgError("MSG.ETS_EDS_CONNECT_ERROR");
-  }
+  AstraLocale::showProgError("MSG.ETS_EDS_CONNECT_ERROR");
 }
 
 Pnr readPnr(const string &tlg_text)
@@ -800,8 +797,7 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
   map<string, LexemaData> errors;
   for(list<edifact::RemoteResults>::const_iterator r=lres.begin(); r!=lres.end(); ++r)
   {
-    string emd_no;
-    AstraContext::GetContext("EDI_SESSION", r->ediSession().get(), emd_no);
+    string emd_no = AstraEdifact::getEdiSessionCtxt(r->ediSession().get(), true/*clear*/, false/*throw*/);
     if (emd_no.empty())
     {
       LogError(STDLOG) << "EMDDisplayInterface::KickHandler: strange situation - empty EDI_SESSION context";
@@ -2476,7 +2472,7 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
     try
     {
-      CheckInInterface::LoadPax(grp_id, resNode, afterSavePax);
+      CheckInInterface::LoadPax(grp_id, NULL, resNode, afterSavePax);
     }
     catch(...)
     {
@@ -2895,9 +2891,9 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
         else
         {
             ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
-        };
-      };
-    };
+        }
+      }
+    }
 
     addToEdiResponseCtxt(req_ctxt_id, ticketNode, "tickets");
 

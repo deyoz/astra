@@ -112,12 +112,4 @@ const Ticketing::RemoteSystemContext::SystemContext * EdifactRequest::sysCont()
     return dynamic_cast<NewAstraEdiSessWR*>(ediSess())->sysCont();
 }
 
-edilib::EdiSessionId_t EdifactRequest::ediSessionId() const
-{
-    const edilib::EdiSessWrData *const ediSessWrData = ediSess();
-    const edilib::EdiSession *const ediSession = ediSessWrData ? ediSessWrData->ediSession() : nullptr;
-    return ediSession ? ediSession->ida() : edilib::EdiSessionId_t();
-}
-
 } // namespace edifact
-

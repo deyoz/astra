@@ -130,15 +130,15 @@ void EmdCosResponseHandler::handle()
          EMDocItem.toDB(TEMDocItem::ChangeOfStatus);
 
          AstraEdifact::addToEdiResponseCtxt(req_ctxt_id, node, "emdocs");
-      };
-    };
+      }
+    }
+
     AstraContext::ClearContext("EDI_SESSION", ediSessId().get());
   }
   catch(std::exception &e)
   {
     ProgError(STDLOG, "EmdCosResponseHandler::handle: %s", e.what());
-  };
-
+  }
 }
 
 }//namespace TlgHandling

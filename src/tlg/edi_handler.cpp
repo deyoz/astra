@@ -4,6 +4,7 @@
 #include <math.h>
 #include "astra_main.h"
 #include "astra_consts.h"
+#include "astra_context.h"
 #include "astra_utils.h"
 #include "base_tables.h"
 #include "exceptions.h"
@@ -156,9 +157,11 @@ void handle_edi_tlg(const tlg_info &tlg)
     }
     catch(TlgHandling::TlgToBePostponed& e)
     {
+        LogTrace(TRACE3) << "tlg.id=" << tlg.id << " e.sessionId=" << e.sessionId();
         if(tlg.id && e.sessionId())
         {
             ProgTrace(TRACE1, "Tlg %d to be postponed for session %d", tlg.id, e.sessionId().get());
+            AstraContext::CopyContext("EDI_SESSION", e.sessionId().get(), "EDI_SESSION_TLG", tlg.id);
             TlgHandling::PostponeEdiHandling::postpone(tlg.id, e.sessionId());
             callPostHooksBefore();
             ASTRA::commit();

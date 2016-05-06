@@ -403,8 +403,7 @@ public:
     // сохранение информации о пассажире
     xml_entities::LoadPaxXmlResult SavePax(int depPointId,
                                            const xml_entities::XmlTrip& paxTrip);
-    xml_entities::LoadPaxXmlResult SavePax(int depPointId,
-                                           const xml_entities::XmlSegment& paxSeg);
+    xml_entities::LoadPaxXmlResult SavePax(const xml_entities::XmlSegment& paxSeg);
     xml_entities::LoadPaxXmlResult SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // расширенный поиск рейса на дату
@@ -416,18 +415,35 @@ public:
 
 /**
  * Найти Id вылетного пойнта
- * @return Id или -1(если не найден)
+ * @return Id или tick_soft_except
 */
 int findDepPointId(const std::string& depPort,
                    const std::string& airline,
                    unsigned flNum,
                    const boost::gregorian::date& depDate);
 
+/**
+ * Найти grp_id для вылетного пойнта и регистрационного номера пассажира
+ * @return GrpId или 0(если не найден)
+*/
+int findGrpIdByRegNo(int pointDep, int regNo);
+
+/**
+ * Найти grp_id для вылетного пойнта и идентификатора пассажира
+ * @return GrpId или 0(если не найден)
+*/
+int findGrpIdByPaxId(int pointDep, int paxId);
+
+// регистрация
 iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams);
 iatci::Result checkinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
+// отмена регистрации
 iatci::Result cancelCheckinIatciPax(const iatci::CkxParams& ckxParams);
 iatci::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+
+// информация по пассажиру
+iatci::Result fillPaxList(const iatci::PlfParams& plfParams);
 
 
 void searchTrip(const iatci::FlightDetails& flight,

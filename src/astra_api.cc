@@ -551,7 +551,7 @@ LoadPaxXmlResult AstraEngine::LoadPax(int pointId, int paxRegNo)
 }
 
 
-SearchPaxXmlResult AstraEngine::SearchPax(int pointId,
+SearchPaxXmlResult AstraEngine::SearchPax(int pointDep,
                                           const std::string& paxSurname,
                                           const std::string& paxName,
                                           const std::string& paxStatus)
@@ -562,7 +562,7 @@ SearchPaxXmlResult AstraEngine::SearchPax(int pointId,
     std::string query = paxSurname + " " + paxName;
 
     xmlNodePtr searchPaxNode = newChild(reqNode, "SearchPax");
-    NewTextChild(searchPaxNode, "point_dep", pointId);
+    NewTextChild(searchPaxNode, "point_dep", pointDep);
     NewTextChild(searchPaxNode, "pax_status", paxStatus);
     NewTextChild(searchPaxNode, "query", query);
 
@@ -574,7 +574,7 @@ SearchPaxXmlResult AstraEngine::SearchPax(int pointId,
     return parseSearchPaxAnswer(resNode);
 }
 
-LoadPaxXmlResult AstraEngine::SavePax(int depPointId, const XmlTrip& paxTrip)
+LoadPaxXmlResult AstraEngine::SavePax(int pointDep, const XmlTrip& paxTrip)
 {
     // пока один можем обрабатывать одного пассажира
     const XmlPnr& pnr = paxTrip.pnr();
@@ -589,8 +589,8 @@ LoadPaxXmlResult AstraEngine::SavePax(int depPointId, const XmlTrip& paxTrip)
     xmlNodePtr segsNode = newChild(savePaxNode, "segments");
     // пока можем добавить только один сегмент
     xmlNodePtr segNode = newChild(segsNode, "segment");
-    NewTextChild(segNode, "point_dep", depPointId);
-    NewTextChild(segNode, "point_arv", GetArvPointId(depPointId, pnr));
+    NewTextChild(segNode, "point_dep", pointDep);
+    NewTextChild(segNode, "point_arv", GetArvPointId(pointDep, pnr));
     NewTextChild(segNode, "airp_dep",  paxTrip.airp_dep);
     NewTextChild(segNode, "airp_arv",  pnr.airp_arv);
     NewTextChild(segNode, "class",     pnr.cls);
@@ -668,8 +668,7 @@ LoadPaxXmlResult AstraEngine::SavePax(int depPointId, const XmlTrip& paxTrip)
     return parseLoadPaxAnswer(resNode);
 }
 
-LoadPaxXmlResult AstraEngine::SavePax(int depPointId,
-                                      const xml_entities::XmlSegment& paxSeg)
+LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg)
 {
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
@@ -851,6 +850,42 @@ static int GetArvPointId(int depPointId, const XmlPnr &paxPnr)
     return pointArv;
 }
 
+static LoadPaxXmlResult LoadPax__(int pointDep,
+                                  const std::string& surname,
+                                  const std::string& name)
+{
+    PaxListXmlResult paxListXmlRes;
+    paxListXmlRes = AstraEngine::singletone().PaxList(pointDep);
+    std::list<XmlPax> wantedPaxes = paxListXmlRes.applyNameFilter(surname, name);
+    if(wantedPaxes.empty()) {
+        // не нашли пассажира в списке зарегистрированных
+        throw tick_soft_except(STDLOG, AstraErr::PAX_SURNAME_NOT_CHECKED_IN);
+    }
+
+    if(wantedPaxes.size() > 1) {
+        // нашшли несколько зарегистрированных пассажиров с одним именем/фамилией
+        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
+    }
+
+    // в этом месте в списке wantedPaxes ровно 1 пассажир
+    const XmlPax& pax = wantedPaxes.front();
+    LogTrace(TRACE3) << "Pax " << pax.surname << " " << pax.name << " "
+                     << "has reg_no " << pax.reg_no;
+
+    ASSERT(pax.reg_no != ASTRA::NoExists);
+
+    LoadPaxXmlResult loadPaxXmlRes;
+    loadPaxXmlRes = AstraEngine::singletone().LoadPax(pointDep, pax.reg_no);
+
+    if(loadPaxXmlRes.lSeg.size() != 1) {
+        LogError(STDLOG) << "Load pax failed! " << loadPaxXmlRes.lSeg.size() << " "
+                         << "segments found but should be 1";
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
+    }
+
+    return loadPaxXmlRes;
+}
+
 //---------------------------------------------------------------------------------------
 
 int findDepPointId(const std::string& depPort,
@@ -875,6 +910,48 @@ int findDepPointId(const std::string& depPort,
     throw tick_soft_except(STDLOG, AstraErr::INV_FLIGHT_DATE);
 }
 
+int findGrpIdByRegNo(int pointDep, int regNo)
+{
+    OciCpp::CursCtl cur = make_curs(
+"select PAX_GRP.GRP_ID from PAX, PAX_GRP "
+"where PAX.GRP_ID = PAX_GRP.GRP_ID "
+"and PAX_GRP.POINT_DEP = :point_dep "
+"and PAX.REG_NO = :regno "
+"and PAX.REFUSE is null "
+"and PAX_GRP.STATUS not in ('E')");
+    int grpId = 0;
+    cur.def(grpId)
+       .bind(":point_dep", pointDep)
+       .bind(":regno",     regNo)
+       .EXfet();
+
+    LogTrace(TRACE3) << "grp_id:" << grpId << " "
+                     << "found by point_dep:" << pointDep << " and "
+                     << "reg_no:" << regNo;
+    return grpId;
+}
+
+int findGrpIdByPaxId(int pointDep, int paxId)
+{
+    OciCpp::CursCtl cur = make_curs(
+"select PAX_GRP.GRP_ID from PAX, PAX_GRP "
+"where PAX.GRP_ID = PAX_GRP.GRP_ID "
+"and PAX_GRP.POINT_DEP = :point_dep "
+"and PAX.PAX_ID = :pax_id "
+"and PAX.REFUSE is null "
+"and PAX_GRP.STATUS not in ('E')");
+    int grpId = 0;
+    cur.def(grpId)
+       .bind(":point_dep", pointDep)
+       .bind(":pax_id",   paxId)
+       .EXfet();
+
+    LogTrace(TRACE3) << "grp_id:" << grpId << " "
+                     << "found by point_dep:" << pointDep << " and "
+                     << "pax_id:" << paxId;
+    return grpId;
+}
+
 iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by "
@@ -885,15 +962,15 @@ iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams)
                      << "surname["  << ckiParams.pax().surname() << "]; "
                      << "name["     << ckiParams.pax().name() << "] ";
 
-    int depPointId = astra_api::findDepPointId(ckiParams.flight().depPort(),
-                                               ckiParams.flight().airline(),
-                                               ckiParams.flight().flightNum().get(),
-                                               ckiParams.flight().depDate());
+    int pointDep = astra_api::findDepPointId(ckiParams.flight().depPort(),
+                                             ckiParams.flight().airline(),
+                                             ckiParams.flight().flightNum().get(),
+                                             ckiParams.flight().depDate());
 
-    LogTrace(TRACE3) << __FUNCTION__ << " point_dep[" << depPointId << "]";
+    LogTrace(TRACE3) << __FUNCTION__ << " point_dep[" << pointDep << "]";
 
     SearchPaxXmlResult searchPaxXmlRes;
-    searchPaxXmlRes = AstraEngine::singletone().SearchPax(depPointId,
+    searchPaxXmlRes = AstraEngine::singletone().SearchPax(pointDep,
                                                           ckiParams.pax().surname(),
                                                           ckiParams.pax().name(),
                                                           "К");
@@ -902,7 +979,7 @@ iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams)
         // пассажир не найден в списке незарегистрированных
         // тогда поищем его в списке зарегистрированных
         PaxListXmlResult paxListXmlRes;
-        paxListXmlRes = AstraEngine::singletone().PaxList(depPointId);
+        paxListXmlRes = AstraEngine::singletone().PaxList(pointDep);
         std::list<XmlPax> wantedPaxes = paxListXmlRes.applyNameFilter(ckiParams.pax().surname(),
                                                                       ckiParams.pax().name());
         if(!wantedPaxes.empty()) {
@@ -919,7 +996,7 @@ iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams)
     XmlTrip& paxTrip = searchPaxXmlRes.lTrip.front();
     fillPaxTrip(paxTrip, ckiParams);
     // SavePax
-    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(depPointId,
+    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(pointDep,
                                                                        paxTrip);
     if(loadPaxXmlRes.lSeg.empty()) {
         // не смоги зарегистрировать
@@ -957,40 +1034,14 @@ iatci::Result cancelCheckinIatciPax(const iatci::CkxParams& ckxParams)
                      << "surname["  << ckxParams.pax().surname() << "]; "
                      << "name["     << ckxParams.pax().name() << "] ";
 
-    int depPointId = astra_api::findDepPointId(ckxParams.flight().depPort(),
-                                               ckxParams.flight().airline(),
-                                               ckxParams.flight().flightNum().get(),
-                                               ckxParams.flight().depDate());
+    int pointDep = astra_api::findDepPointId(ckxParams.flight().depPort(),
+                                             ckxParams.flight().airline(),
+                                             ckxParams.flight().flightNum().get(),
+                                             ckxParams.flight().depDate());
 
-    PaxListXmlResult paxListXmlRes;
-    paxListXmlRes = AstraEngine::singletone().PaxList(depPointId);
-    std::list<XmlPax> wantedPaxes = paxListXmlRes.applyNameFilter(ckxParams.pax().surname(),
-                                                                  ckxParams.pax().name());
-    if(wantedPaxes.empty()) {
-        // не нашли пассажира в списке зарегистрированных
-        throw tick_soft_except(STDLOG, AstraErr::PAX_SURNAME_NOT_CHECKED_IN);
-    }
-
-    if(wantedPaxes.size() > 1) {
-        // нашшли несколько зарегистрированных пассажиров с одним именем/фамилией
-        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
-    }
-
-    // в этом месте в списке wantedPaxes ровно 1 пассажир
-    const XmlPax& pax = wantedPaxes.front();
-    LogTrace(TRACE3) << "Pax " << pax.surname << " " << pax.name << " "
-                     << "has reg_no " << pax.reg_no;
-
-    ASSERT(pax.reg_no != ASTRA::NoExists);
-
-    LoadPaxXmlResult loadPaxXmlRes;
-    loadPaxXmlRes = AstraEngine::singletone().LoadPax(depPointId, pax.reg_no);
-
-    if(loadPaxXmlRes.lSeg.size() != 1) {
-        LogError(STDLOG) << "Load pax failed! " << loadPaxXmlRes.lSeg.size() << " "
-                         << "segments found but should be 1";
-        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
-    }
+    LoadPaxXmlResult loadPaxXmlRes = LoadPax__(pointDep,
+                                               ckxParams.pax().surname(),
+                                               ckxParams.pax().name());
 
     XmlSegment& paxSegForCancel = loadPaxXmlRes.lSeg.front();
     ASSERT(paxSegForCancel.passengers.size() == 1);
@@ -999,8 +1050,7 @@ iatci::Result cancelCheckinIatciPax(const iatci::CkxParams& ckxParams)
     paxForCancel.refuse = "А"; // пока причина отмены всегда "А - Ошибка агента"
 
     // SavePax
-    loadPaxXmlRes = AstraEngine::singletone().SavePax(depPointId,
-                                                      paxSegForCancel);
+    loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSegForCancel);
 
     if(!loadPaxXmlRes.lSeg.empty()) {
         tst();
@@ -1031,6 +1081,38 @@ iatci::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
         return loadPaxXmlRes.toIatci(iatci::Result::Cancel,
                                      iatci::Result::OkWithNoData,
                                      false/*afterSavePax*/);
+    }
+}
+
+iatci::Result fillPaxList(const iatci::PlfParams& plfParams)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " by "
+                     << "airp_dep[" << plfParams.flight().depPort() << "]; "
+                     << "airline["  << plfParams.flight().airline() << "]; "
+                     << "flight["   << plfParams.flight().flightNum() << "]; "
+                     << "dep_date[" << plfParams.flight().depDate() << "]; "
+                     << "surname["  << plfParams.pax().surname() << "]; "
+                     << "name["     << plfParams.pax().name() << "] ";
+
+    int pointDep = astra_api::findDepPointId(plfParams.flight().depPort(),
+                                             plfParams.flight().airline(),
+                                             plfParams.flight().flightNum().get(),
+                                             plfParams.flight().depDate());
+
+    LoadPaxXmlResult loadPaxXmlRes = LoadPax__(pointDep,
+                                               plfParams.pax().surname(),
+                                               plfParams.pax().name());
+
+    if(!loadPaxXmlRes.lSeg.empty()) {
+        tst();
+        return loadPaxXmlRes.toIatci(iatci::Result::Passlist,
+                                     iatci::Result::Ok,
+                                     false/*afterSavePax*/);
+    } else {
+        tst();
+        // в результат надо положить сегмент - взять его здесь можно из plfParams
+        return iatci::Result::makeCancelResult(iatci::Result::OkWithNoData,
+                                               plfParams.flight());
     }
 }
 

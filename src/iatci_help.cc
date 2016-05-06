@@ -5,6 +5,7 @@
 #include "astra_utils.h"
 
 #include <serverlib/dates_io.h>
+#include <serverlib/dates_oci.h>
 #include <serverlib/cursctl.h>
 
 #include <ostream>
@@ -219,6 +220,104 @@ std::string IatciXmlDb::load(int grpId)
     }
 
     return res;
+}
+
+//---------------------------------------------------------------------------------------
+
+void IatciDb::add(int grpId, const std::list<iatci::Result>& lRes)
+{
+    addPax(grpId, lRes);
+    addSeg(grpId, lRes);
+}
+
+std::list<iatci::PaxDetails> IatciDb::readPax(int grpId)
+{
+    OciCpp::CursCtl cur = make_curs(
+"select SURNAME, NAME, PAX_TYPE "
+"from IATCI_PAX "
+"where GRP_ID = :grp_id");
+
+    std::string surname, name, paxType;
+    cur.def(surname)
+       .defNull(name, "")
+       .defNull(paxType, "")
+       .bind(":grp_id", grpId)
+       .EXfet(); // пока на один GRP_ID храним одного PAX
+
+    std::list<iatci::PaxDetails> res;
+    res.push_back(iatci::PaxDetails(surname, name, iatci::PaxDetails::strToType(paxType)));
+
+    return res;
+}
+
+std::list<iatci::FlightDetails> IatciDb::readSeg(int grpId)
+{
+    OciCpp::CursCtl cur = make_curs(
+"select AIRLINE, FLT_NO, DEP_PORT, ARR_PORT, DEP_DATE, ARR_DATE "
+"from IATCI_SEG "
+"where GRP_ID = :grp_id order by NUM");
+
+    std::string airline, flNum, depPort, arrPort;
+    boost::gregorian::date depDate, arrDate;
+
+    cur.def(airline)
+       .def(flNum)
+       .def(depPort)
+       .def(arrPort)
+       .def(depDate)
+       .defNull(arrDate, boost::gregorian::date())
+       .bind(":grp_id", grpId)
+       .exec();
+    std::list<iatci::FlightDetails> res;
+    while(!cur.fen())  {
+        res.push_back(iatci::FlightDetails(airline,
+                                           Ticketing::getFlightNum(flNum),
+                                           depPort,
+                                           arrPort,
+                                           depDate,
+                                           arrDate));
+    }
+
+    return res;
+}
+
+void IatciDb::addPax(int grpId, const std::list<iatci::Result>& lRes)
+{
+    ASSERT(!lRes.empty());
+    const iatci::Result& firstRes = lRes.front();
+    ASSERT(firstRes.pax());
+    iatci::PaxDetails pax = firstRes.pax().get();
+    OciCpp::CursCtl cur = make_curs(
+"insert into IATCI_PAX (SURNAME, NAME, GRP_ID) "
+"values (:surname, :name, :grp_id)");
+    cur.stb()
+       .bind(":surname", pax.surname())
+       .bind(":name",    pax.name())
+       .bind(":grp_id",  grpId)
+       .exec();
+}
+
+void IatciDb::addSeg(int grpId, const std::list<iatci::Result>& lRes)
+{
+    unsigned segNum = 1;
+    for(const iatci::Result res: lRes) {
+        iatci::FlightDetails flight = res.flight();
+        OciCpp::CursCtl cur = make_curs(
+"insert into IATCI_SEG "
+"(AIRLINE, FLT_NO, DEP_PORT, ARR_PORT, DEP_DATE, ARR_DATE, NUM, GRP_ID) "
+"values "
+"(:airline, :flt_no, :dep_port, :arr_port, :dep_date, :arr_date, :num, :grp_id)");
+    cur.stb()
+       .bind(":airline", flight.airline())
+       .bind(":flt_no",  flight.flightNum().get())
+       .bind(":dep_port",flight.depPort())
+       .bind(":arr_port",flight.arrPort())
+       .bind(":dep_date",flight.depDate())
+       .bind(":arr_date",flight.arrDate())
+       .bind(":num",     segNum++)
+       .bind(":grp_id",  grpId)
+       .exec();
+    }
 }
 
 }//namespace iatci

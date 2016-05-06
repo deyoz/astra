@@ -23,7 +23,7 @@ public:
         AddEvent("kick",            JXT_HANDLER(IatciInterface, KickHandler));
     }
 
-    static void DispatchRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+    static void DispatchCheckInRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     static bool NeedSendIatciRequest(xmlNodePtr reqNode);
 
@@ -44,6 +44,7 @@ public:
 
     // Passenger List Function Interchange
     void PasslistRequest(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    static void PasslistRequest(xmlNodePtr reqNode, int grpId);
 
     // Seat Map Function Interchange
     void SeatmapRequest(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -72,7 +73,7 @@ public:
     void TimeoutKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode);
 
 protected:
-    enum KickAction_e { ActSavePax, ActRollbackStatus };
+    enum KickAction_e { ActSavePax, ActRollbackStatus, ActLoadPax };
     void DoKickAction(xmlNodePtr reqNode, xmlNodePtr resNode,
                       const std::list<iatci::Result>& lRes,
                       const std::string& resNodeName,

@@ -6,21 +6,9 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
-
-{<?xml version='1.0' encoding='CP866'?>
- <term>
-   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-     <EMDTextView>
-       <point_id>$(last_point_id_spp)</point_id>
-       <ticket_no>2982348111616</ticket_no>
-       <pax_id/>
-       <coupon_no/>
-       <ticket_rem/>
-     </EMDTextView>
-   </query>
- </term>}
+$(EMD_TEXT_VIEW $(last_point_id_spp) 2982348111616)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -221,7 +209,6 @@ EMD$(sharp)2982121212132: $()
 </text>
 
 
-
 #########################################################################################
 %%
 # test 2 - только ЭБ
@@ -230,21 +217,9 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
-
-{<?xml version='1.0' encoding='CP866'?>
- <term>
-   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-     <EMDTextView>
-       <point_id>$(last_point_id_spp)</point_id>
-       <ticket_no>2982348111616</ticket_no>
-       <pax_id/>
-       <coupon_no/>
-       <ticket_rem/>
-     </EMDTextView>
-   </query>
- </term>}
+$(EMD_TEXT_VIEW $(last_point_id_spp) 2982348111616)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -301,21 +276,9 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
-
-{<?xml version='1.0' encoding='CP866'?>
- <term>
-   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-     <EMDTextView>
-       <point_id>$(last_point_id_spp)</point_id>
-       <ticket_no>2982348111616</ticket_no>
-       <pax_id/>
-       <coupon_no/>
-       <ticket_rem/>
-     </EMDTextView>
-   </query>
- </term>}
+$(EMD_TEXT_VIEW $(last_point_id_spp) 2982348111616)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -351,21 +314,9 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
-
-{<?xml version='1.0' encoding='CP866'?>
- <term>
-   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-     <EMDTextView>
-       <point_id>$(last_point_id_spp)</point_id>
-       <ticket_no>2982348111616</ticket_no>
-       <pax_id/>
-       <coupon_no/>
-       <ticket_rem/>
-     </EMDTextView>
-   </query>
- </term>}
+$(EMD_TEXT_VIEW $(last_point_id_spp) 2982348111616)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -488,21 +439,9 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
-
-{<?xml version='1.0' encoding='CP866'?>
- <term>
-   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-     <EMDTextView>
-       <point_id>$(last_point_id_spp)</point_id>
-       <ticket_no>2982348111616</ticket_no>
-       <pax_id/>
-       <coupon_no/>
-       <ticket_rem/>
-     </EMDTextView>
-   </query>
- </term>}
+$(EMD_TEXT_VIEW $(last_point_id_spp) 2982348111616)
 
 
 >>

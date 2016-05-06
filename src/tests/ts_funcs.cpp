@@ -11,6 +11,7 @@
 #include "season.h"
 #include "salons.h"
 #include "basic.h"
+#include "base_tables.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_system_context.h"
 #include "tlg/edi_tlg.h"
@@ -156,7 +157,7 @@ static std::string FP_init_jxt_pult(const std::vector<std::string> &args)
         return "";
     }
     
-    ASSERT(args.size() == 1 && args[0].length() == 6)
+    assert(args.size() == 1 && args[0].length() == 6);
     GetTestContext()->vars["JXT_PULT"] = args[0];
     return "";
 }
@@ -223,7 +224,7 @@ static std::string FP_init_eds(const std::vector<std::string> &p)
 {
     using namespace Ticketing::RemoteSystemContext;
 
-    ASSERT(p.size() == 3);
+    assert(p.size() == 3);
     EdsSystemContext::create4TestsOnly(p.at(0) /*airline*/,
                                        p.at(1) /*remote edi address - to*/,
                                        p.at(2) /*our edi address - from*/);
@@ -237,7 +238,7 @@ static std::string FP_init_dcs(const std::vector<std::string> &p)
 {
     using namespace Ticketing::RemoteSystemContext;
 
-    ASSERT(p.size() == 3);
+    assert(p.size() == 3);
     DcsSystemContext::create4TestsOnly(p.at(0) /*airline*/,
                                        p.at(1) /*remote edi address - to*/,
                                        p.at(2) /*our edi address - from*/);
@@ -247,7 +248,7 @@ static std::string FP_init_dcs(const std::vector<std::string> &p)
 
 std::string FP_create_spp(const std::vector<std::string> &p) {
 
-    ASSERT(p.size() >= 1);
+    assert(p.size() >= 1);
     std::string fmt = "ddmmyyyy";
     if(p.size() == 2) {
         fmt = p.at(1);
@@ -327,8 +328,8 @@ static int getRandomBaseComponId(const std::string& cls)
 {
     OciCpp::CursCtl cur = make_curs(
 "select COMP_ID from "
-    "(select COMP_ID from COMP_ELEMS where CLASS=:class order by dbms_random.random) "
-"where rownum < 2");
+"(select COMP_ID, count(*) as cnt from COMP_ELEMS where CLASS = :class group by COMP_ID order by dbms_random.random) "
+"where cnt = 1 and rownum = 1");
 
     int comp_id = 0;
     cur.bind(":class", cls).def(comp_id).exfet();
@@ -343,7 +344,7 @@ static void createRandomTripCompForPointId(int point_id, const std::string& cls)
 {
     int comp_id = getRandomBaseComponId(cls);
     LogTrace(TRACE3) << "For class:" << cls << " our comp_id:" << comp_id;
-    ASSERT(comp_id != -1);
+    assert(comp_id != -1);
 
     OciCpp::CursCtl cur = make_curs(
 "insert into TRIP_COMP_ELEMS "
@@ -421,6 +422,22 @@ static std::string FP_getSingleTid(const std::vector<std::string>& p)
     return boost::lexical_cast<std::string>(paxSeg.tid);
 }
 
+static std::string FP_get_lat_code(const std::vector<std::string>& p)
+{
+    assert(p.size() == 2);
+    std::string table = p.at(0),
+                 code = p.at(1);
+    if(table == "awk") {
+        return ((const TAirlinesRow&)base_tables.get("airlines").get_row("code", code)).code_lat;
+    } else if(table == "sfe") {
+        return ((const TCitiesRow&)base_tables.get("cities").get_row("code", code)).code_lat;
+    } else if(table == "aer") {
+        return ((const TAirpsRow&)base_tables.get("airps").get_row("code", code)).code_lat;
+    } else {
+        return "";
+    }
+}
+
 
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
@@ -440,5 +457,6 @@ FP_REGISTER("create_random_trip_comp", FP_create_random_trip_comp);
 FP_REGISTER("get_single_pax_id", FP_getSinglePaxId);
 FP_REGISTER("get_single_grp_id", FP_getSingleGrpId);
 FP_REGISTER("get_single_tid", FP_getSingleTid);
+FP_REGISTER("get_lat_code", FP_get_lat_code);
 
 #endif /* XP_TESTING */

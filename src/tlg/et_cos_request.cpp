@@ -73,7 +73,7 @@ edilib::EdiSessionId_t SendEtCosRequest(const EtCosParams& cosParams)
 {
     edifact::EtCosRequest cosReq(cosParams);
     cosReq.sendTlg();
-    return cosReq.ediSessionId();
+    return cosReq.ediSessId();
 }
 
 }//namespace edifact

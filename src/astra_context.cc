@@ -5,7 +5,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 void longToDB(TQuery &Qry, const std::string &column_name, const std::string &src, bool nullable, int len)
 {
@@ -141,15 +141,20 @@ void ClearContext(const std::string &name,
 void MoveContext(const std::string& srcName, int srcId,
                  const std::string& destName, int destId)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "UPDATE context SET name=:dest_name, id=:dest_id "
-        "WHERE name=:name AND id=:id";
-    Qry.CreateVariable("name", otString, srcName);
-    Qry.CreateVariable("id", otInteger, srcId);
-    Qry.CreateVariable("dest_name", otString, destName);
-    Qry.CreateVariable("dest_id", otInteger, destId);
-    Qry.Execute();
+    CopyContext(srcName, srcId, destName, destId);
+    ClearContext(srcName, srcId);
+}
+
+void CopyContext(const std::string& srcName, int srcId,
+                 const std::string& destName, int destId)
+{
+    std::string value;
+    GetContext(srcName, srcId, value);
+    if(value.empty()) {
+        LogWarning(STDLOG) << "Context " << srcName << "[" << srcId << "] is empty!";
+    }
+
+    SetContext(destName, destId, value);
 }
 
 } /* namespace AstraContext */

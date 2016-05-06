@@ -6,18 +6,9 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
-
-{<?xml version='1.0' encoding='CP866'?>
- <term>
-   <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-     <SearchETByTickNo>
-       <point_id>$(last_point_id_spp)</point_id>
-       <TickNoEdit>2982348111616</TickNoEdit>
-     </SearchETByTickNo>
-   </query>
- </term>}
+$(SEARCH_ET_BY_TICK_NO $(last_point_id_spp) 2982348111616)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -105,18 +96,9 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
-
-{<?xml version='1.0' encoding='CP866'?>
- <term>
-   <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-     <SearchETByTickNo>
-       <point_id>$(last_point_id_spp)</point_id>
-       <TickNoEdit>2982348111616</TickNoEdit>
-     </SearchETByTickNo>
-   </query>
- </term>}
+$(SEARCH_ET_BY_TICK_NO $(last_point_id_spp) 2982348111616)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -194,17 +176,9 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
-{<?xml version='1.0' encoding='CP866'?>
- <term>
-   <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-     <SearchETByTickNo>
-       <point_id>$(last_point_id_spp)</point_id>
-       <TickNoEdit>2982348111616</TickNoEdit>
-     </SearchETByTickNo>
-   </query>
- </term>}
+$(SEARCH_ET_BY_TICK_NO $(last_point_id_spp) 2982348111616)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"

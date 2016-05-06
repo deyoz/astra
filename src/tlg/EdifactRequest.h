@@ -70,7 +70,6 @@ public:
 
     const Ticketing::RemoteSystemContext::SystemContext* sysCont();
 
-    edilib::EdiSessionId_t ediSessionId() const;
     virtual ~EdifactRequest();
 };
 

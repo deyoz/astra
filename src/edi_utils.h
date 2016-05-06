@@ -76,12 +76,14 @@ void addToEdiResponseCtxt(int ctxtId,
 void getEdiResponseCtxt(int ctxtId,
                         bool clear,
                         const std::string &where,
-                        std::string &context);
+                        std::string &context,
+                        bool throwEmpty=true);
 
 void getEdiResponseCtxt(int ctxtId,
                         bool clear,
                         const std::string &where,
-                        XMLDoc &xmlCtxt);
+                        XMLDoc &xmlCtxt,
+                        bool throwEmpty=true);
 
 void getTermRequestCtxt(int ctxtId,
                         bool clear,
@@ -97,6 +99,10 @@ void getEdiSessionCtxt(const tlgnum_t& tlgNum,
                        bool clear,
                        const std::string& where,
                        XMLDoc &xmlCtxt);
+
+std::string getEdiSessionCtxt(int sessIda,
+                              bool clear,
+                              bool throwEmpty = true);
 
 void cleanOldRecords(int min_ago);
 

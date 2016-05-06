@@ -12,8 +12,6 @@ public:
 
     void handle();
     void parse() {}
-    void onTimeOut() {}
-    void onCONTRL() {}
 
     virtual ~EmdSysUpdateResponseHandler() {}
 };

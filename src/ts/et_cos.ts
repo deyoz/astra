@@ -4,6 +4,16 @@ include(ts/macro.ts)
 
 
 $(defmacro CHECKIN_PAX
+    pax_id
+    point_dep
+    point_arv
+    airp_dep=ДМД
+    airp_arv=ПЛК
+    airl=ЮТ
+    flt=454
+    surname=REPIN
+    name=IVAN
+    tickno=2986120030297
 {<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
@@ -12,32 +22,32 @@ $(defmacro CHECKIN_PAX
       <transfer/>
       <segments>
         <segment>
-          <point_dep>$(get first_point_id)</point_dep>
-          <point_arv>$(get next_point_id)</point_arv>
-          <airp_dep>ДМД</airp_dep>
-          <airp_arv>ПЛК</airp_arv>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
           <class>Э</class>
           <status>K</status>
           <wl_type/>
           <mark_flight>
-            <airline>ЮТ</airline>
-            <flt_no>454</flt_no>
+            <airline>$(airl)</airline>
+            <flt_no>$(flt)</flt_no>
             <suffix/>
             <scd>$(date_format %d.%m.%Y) 00:00:00</scd>
-            <airp_dep>ДМД</airp_dep>
+            <airp_dep>$(airp_dep)</airp_dep>
             <pr_mark_norms>0</pr_mark_norms>
           </mark_flight>
           <passengers>
             <pax>
-              <pax_id>$(get pax_id)</pax_id>
-              <surname>REPIN</surname>
-              <name>IVAN</name>
+              <pax_id>$(pax_id)</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
               <pers_type>ВЗ</pers_type>
               <seat_no/>
               <preseat_no/>
               <seat_type/>
               <seats>1</seats>
-              <ticket_no>2986120030297</ticket_no>
+              <ticket_no>$(tickno)</ticket_no>
               <coupon_no>1</coupon_no>
               <ticket_rem>TKNE</ticket_rem>
               <ticket_confirm>0</ticket_confirm>
@@ -48,8 +58,8 @@ $(defmacro CHECKIN_PAX
                 <nationality>RUS</nationality>
                 <birth_date>01.05.1976 00:00:00</birth_date>
                 <gender>M</gender>
-                <surname>REPIN</surname>
-                <first_name>IVAN</first_name>
+                <surname>$(surname)</surname>
+                <first_name>$(name)</first_name>
               </document>
               <doco/>
               <addresses/>
@@ -84,49 +94,16 @@ $(defmacro CHECKIN_PAX
 ) #end-of-macro
 
 
-$(defmacro OPEN_CHECKIN
-{
-!! capture=on
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <WriteTrips>
-      <trips>
-        <trip>
-          <point_id>$(last_point_id_spp)</point_id>
-          <tripstages>
-            <stage>
-              <stage_id>10</stage_id>
-              <act>$(date_format %d.%m.%Y -24h) 00:41:00</act>
-            </stage>
-            <stage>
-              <stage_id>20</stage_id>
-              <act>$(date_format %d.%m.%Y -24h) 00:41:00</act>
-            </stage>
-          </tripstages>
-        </trip>
-      </trips>
-    </WriteTrips>
-  </query>
-</term>}
-
->> lines=auto
-    <command>
-      <message lexema_id='MSG.DATA_SAVED' code='0'>Данные успешно сохранены</message>
-    </command>
-
-}
-) #end-of-macro
-
-
-$(defmacro SAVE_ET_DISP point_id
+$(defmacro SAVE_ET_DISP
+    point_id
+    tickno=2986120030297
 {
 {<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <SearchETByTickNo>
       <point_id>$(point_id)</point_id>
-      <TickNoEdit>2986120030297</TickNoEdit>
+      <TickNoEdit>$(tickno)</TickNoEdit>
     </SearchETByTickNo>
   </query>
 </term>}
@@ -184,26 +161,17 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
-$(set dep_point_id $(get_dep_point_id ДМД ЮТ 103 $(yymmdd +0)))
-$(create_random_trip_comp $(get dep_point_id) Э)
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
 
-# открываем регистрацию
-$(OPEN_CHECKIN)
-
-
-$(set first_point_id $(last_point_id_spp))
-$(set next_point_id $(get_next_trip_point_id $(get first_point_id)))
-
-
-$(set pax_id $(get_single_pax_id $(get first_point_id) REPIN IVAN K))
-
-$(SAVE_ET_DISP $(last_point_id_spp))
-
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep))
 
 !! err=ignore
-$(CHECKIN_PAX)
+$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv))
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -248,24 +216,17 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
-$(set dep_point_id $(get_dep_point_id ДМД ЮТ 103 $(yymmdd +0)))
-$(create_random_trip_comp $(get dep_point_id) Э)
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
 
-# открываем регистрацию
-$(OPEN_CHECKIN)
-
-$(set first_point_id $(last_point_id_spp))
-$(set next_point_id $(get_next_trip_point_id $(get first_point_id)))
-
-
-$(set pax_id $(get_single_pax_id $(get first_point_id) REPIN IVAN K))
-
-$(SAVE_ET_DISP $(last_point_id_spp))
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep))
 
 !! err=ignore
-$(CHECKIN_PAX)
+$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv))
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -311,24 +272,17 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
-$(set dep_point_id $(get_dep_point_id ДМД ЮТ 103 $(yymmdd +0)))
-$(create_random_trip_comp $(get dep_point_id) Э)
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
 
-# открываем регистрацию
-$(OPEN_CHECKIN)
-
-$(set first_point_id $(last_point_id_spp))
-$(set next_point_id $(get_next_trip_point_id $(get first_point_id)))
-
-
-$(set pax_id $(get_single_pax_id $(get first_point_id) REPIN IVAN K))
-
-$(SAVE_ET_DISP $(last_point_id_spp))
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep))
 
 !! err=ignore
-$(CHECKIN_PAX)
+$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv))
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"

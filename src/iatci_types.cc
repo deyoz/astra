@@ -512,7 +512,7 @@ TicketCpn_t ServiceDetails::SsrInfo::toTicketCpn() const
     ASSERT(m_ssrCode == "TKNE");
     ASSERT(m_ssrText.length() == 14); // ticknum(13)+cpnnum(1)
     return TicketCpn_t(m_ssrText.substr(0, 13),
-                       boost::lexical_cast<unsigned>(m_ssrText.substr(12, 1)));
+                       boost::lexical_cast<unsigned>(m_ssrText.substr(13, 1)));
 }
 
 //
@@ -1382,6 +1382,15 @@ PlfParams::PlfParams(const OriginatorDetails& origin,
                      boost::optional<CascadeHostDetails> cascadeDetails)
     : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails),
       m_paxEx(pax)
+{}
+
+PlfParams::PlfParams(const OriginatorDetails& origin,
+                     const PaxDetails& pax,
+                     const FlightDetails& flight,
+                     boost::optional<FlightDetails> flightFromPrevHost,
+                     boost::optional<CascadeHostDetails> cascadeDetails)
+    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails),
+      m_paxEx(PaxSeatDetails(pax.surname(), pax.name()))
 {}
 
 const PaxSeatDetails& PlfParams::paxEx() const

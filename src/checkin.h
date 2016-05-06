@@ -193,7 +193,8 @@ public:
   static void SaveTagPacks(xmlNodePtr node);
 
   static void AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActionType action);
-  static void LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax);
+  static void LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax);
+  static void LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int grpId, bool needSync);
   static void LoadPaxRem(xmlNodePtr paxNode);
   static void BuildTransfer(const TTrferRoute &trfer, TTrferRouteType route_type, xmlNodePtr transferNode);
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);

@@ -6,7 +6,7 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
 
 {<?xml version='1.0' encoding='CP866'?>
@@ -57,7 +57,7 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
 {<?xml version='1.0' encoding='CP866'?>
  <term>
@@ -104,7 +104,7 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC)
 
-$(PREPARE_ONE_FLIGHT UT DME LED 103)
+$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
 {<?xml version='1.0' encoding='CP866'?>
  <term>

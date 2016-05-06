@@ -184,9 +184,9 @@ void IatciResponseHandler::onTimeOut()
     // в список m_lRes положим один элемент, информирующий о таймауте
     m_lRes.push_back(iatci::Result::makeFailResult(action(),
                                                    iatci::ErrorDetails(AstraErr::TIMEOUT_ON_HOST_3)));
-    boost::optional<tlgnum_t> postponeTlgNum = PostponeEdiHandling::findPostponeTlg(ediSessId());
-    if(postponeTlgNum) {
-        iatci::saveDeferredCkiData(*postponeTlgNum, m_lRes);
+    boost::optional<tlgnum_t> ppTlgNum = PostponeEdiHandling::findPostponeTlg(ediSessId());
+    if(ppTlgNum) {
+        iatci::saveDeferredCkiData(*ppTlgNum, m_lRes);
     }
 }
 

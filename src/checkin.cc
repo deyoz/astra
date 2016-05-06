@@ -3180,50 +3180,6 @@ static void removeIatciSegNode(xmlNodePtr segNode)
     xmlFreeNode(segNode);
 }
 
-static void SaveIatciXmlResToDb(xmlNodePtr iatciResNode, int grpId,
-                                iatci::Result::Action_e act)
-{
-    LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
-    std::string xmlData = XMLTreeToText(iatciResNode->doc);
-    if(act == iatci::Result::Checkin) {
-        iatci::IatciXmlDb::add(grpId, xmlData);
-    } else if(act == iatci::Result::Update) {
-        iatci::IatciXmlDb::upd(grpId, xmlData);
-    } else if(act == iatci::Result::Cancel) {
-        iatci::IatciXmlDb::del(grpId);
-    }
-}
-
-static void LoadIatciXmlResFromDb(xmlNodePtr resNode, int grpId)
-{
-    std::string xmlData = iatci::IatciXmlDb::load(grpId);
-    if(!xmlData.empty())
-    {
-        LogTrace(TRACE3) << "Xml data:\n" << xmlData;
-        XMLDoc xmlDoc;
-        xmlDoc.set(ConvertCodepage(xmlData, "CP866", "UTF-8"));
-        if(xmlDoc.docPtr() == NULL)
-            throw EXCEPTIONS::Exception("IATCI XML has wrong format!");
-        xml_decode_nodelist(xmlDoc.docPtr()->children);
-
-        xmlNodePtr node = NodeAsNode("/context", xmlDoc.docPtr());
-        node = findNodeR(node, "iatci_cki_result");
-        ASSERT(node != NULL);
-
-        xmlNodePtr destSegsNode = findNodeR(resNode, "segments");
-        for(xmlNodePtr srcSegNode = node->children; srcSegNode != NULL; srcSegNode = srcSegNode->next)
-        {
-            CopyNode(destSegsNode, srcSegNode, true/*recursive*/);
-        }
-    }
-    else
-    {
-        if(!TReqInfo::Instance()->api_mode) {
-            LogTrace(TRACE3) << "Empty IATCI XML!";
-        }
-    }
-}
-
 static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
 {
     ASSERT(grpId != -1);
@@ -3259,32 +3215,6 @@ static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
 
     tst();
     return boost::none;
-}
-
-
-static void SaveIatciPax(xmlNodePtr ediResNode, int grpId)
-{
-    LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
-    boost::optional<iatci::Result::Action_e> act;
-    xmlNodePtr node = NULL;
-    if((node = findNodeR(ediResNode, "iatci_cki_result")) != NULL) {
-        act = iatci::Result::Checkin;
-    } else if((node = findNodeR(ediResNode, "iatci_ckx_result")) != NULL) {
-        act = iatci::Result::Cancel;
-    } else if((node = findNodeR(ediResNode, "iatci_cku_result")) != NULL) {
-        act = iatci::Result::Update;
-    }
-
-    if(node == NULL)
-    {
-        LogTrace(TRACE3) << "No one iatci pax";
-        return;
-    }
-
-    ASSERT(act);
-    // Пока сохраним информацию для всей группы,
-    // но, возможно, в будущем потребуется сохранять для каждого пассажира
-    SaveIatciXmlResToDb(node, grpId, *act);
 }
 
 static void transformSavePaxRequestByIatci(xmlNodePtr reqNode)
@@ -3385,7 +3315,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
             // снимем флаг необходимости посылки iatci
             xmlNodeSetContent(node, "false");
             transformSavePaxRequestByIatci(reqNode, AfterSaveInfoList.front().segs.front().grp_id);
-            IatciInterface::DispatchRequest(reqNode, ediResNode);
+            IatciInterface::DispatchCheckInRequest(reqNode, ediResNode);
             return true;
         }
 
@@ -3400,7 +3330,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
                 EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
             }
 
-            LoadPax(grp_id, resNode, true);
+            LoadPax(grp_id, NULL, resNode, true);
         }
     }
     return result;
@@ -6303,8 +6233,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   }
   catch(int) {}
 
-  SaveIatciPax(ediResNode, AfterSaveInfoList.front().segs.front().grp_id/*first_grp_id*/);
-
   return true;
 }
 
@@ -6420,7 +6348,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
 
-  LoadPax(grp_id,resNode,false);
+  LoadPax(grp_id,reqNode,resNode,false);
 }
 
 void AddPaxCategory(const CheckIn::TPaxItem &pax, set<string> &cats)
@@ -6812,7 +6740,40 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
   }
 }
 
-void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax)
+void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int grpId, bool needSync)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " grpId:" << grpId << "; needSync:" << needSync;
+    std::string xmlData = iatci::IatciXmlDb::load(grpId);
+    if(!xmlData.empty())
+    {
+        if(needSync && reqNode != NULL) {
+            IatciInterface::PasslistRequest(reqNode, grpId);
+            AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO
+            return;
+        }
+        LogTrace(TRACE3) << "Xml data:\n" << xmlData;
+        XMLDoc xmlDoc;
+        xmlDoc.set(ConvertCodepage(xmlData, "CP866", "UTF-8"));
+        if(xmlDoc.docPtr() == NULL)
+            throw EXCEPTIONS::Exception("IATCI XML has wrong format!");
+        xml_decode_nodelist(xmlDoc.docPtr()->children);
+
+        xmlNodePtr contextNode = NodeAsNode("/context", xmlDoc.docPtr());
+        xmlNodePtr node = findNodeR(contextNode, "iatci_cki_result");
+        if(node == NULL)
+            node = findNodeR(contextNode, "iatci_plf_result");
+        ASSERT(node != NULL);
+
+        xmlNodePtr destSegsNode = findNodeR(resNode, "segments");
+        for(xmlNodePtr srcSegNode = node->children; srcSegNode != NULL; srcSegNode = srcSegNode->next)
+        {
+            CopyNode(destSegsNode, srcSegNode, true/*recursive*/);
+        }
+    }
+}
+
+
+void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -7056,7 +7017,11 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       ShowPaxCatWarning(pax_cat_airline, pax_cats, Qry);
   }
 
-  LoadIatciXmlResFromDb(resNode, grp_id);
+  if(!afterSavePax) {
+    bool need_sync = NodeAsBoolean("need_sync", reqNode, !reqInfo->api_mode);
+    LogTrace(TRACE3) << "need_sync=" << need_sync;
+    LoadIatciPax(reqNode, resNode, grp_id, need_sync/*need_sync*/);
+  }
 }
 
 void CheckInInterface::LoadPaxRem(xmlNodePtr paxNode)

@@ -18,6 +18,7 @@
 #include "exceptions.h"
 #include "CheckinBaseTypes.h"
 #include "EdifactProfile.h"
+#include "iatci_settings.h"
 
 #include <etick/lang.h>
 #include <etick/tick_data.h>
@@ -269,6 +270,8 @@ namespace RemoteSystemContext
         DcsSystemContext(const SystemContext& baseCnt);
         static DcsSystemContext* read(const std::string& airl,
                                       const Ticketing::FlightNum_t& flNum = Ticketing::FlightNum_t());
+
+        iatci::IatciSettings iatciSettings() const;
 
 #ifdef XP_TESTING
         static DcsSystemContext* create4TestsOnly(const std::string& airline,

@@ -837,6 +837,12 @@ public:
               boost::optional<FlightDetails> flightFromPrevHost = boost::none,
               boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 
+    PlfParams(const OriginatorDetails& origin,
+              const PaxDetails& pax,
+              const FlightDetails& flight,
+              boost::optional<FlightDetails> flightFromPrevHost = boost::none,
+              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+
     const PaxSeatDetails& paxEx() const;
 };
 

@@ -85,14 +85,15 @@ void EmdSysUpdateResponseHandler::handle()
           event.prms << PrmSmpl<std::string>("err", EMDocItem.system_update_error);
 
         ProcEdiEvent(event, EMDCtxt, NULL, false);
-      };
-    };
+      }
+    }
+
     AstraContext::ClearContext("EDI_SESSION", ediSessId().get());
   }
   catch(std::exception &e)
   {
     ProgError(STDLOG, "EmdSysUpdateResponseHandler::handle: %s", e.what());
-  };
+  }
 }
 
 }//namespace TlgHandling

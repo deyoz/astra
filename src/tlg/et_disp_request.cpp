@@ -33,7 +33,7 @@ edilib::EdiSessionId_t SendEtDispByNumRequest(const EtDispByNumParams& dispParam
 {
     EtDispByNumRequest dispReq(dispParams);
     dispReq.sendTlg();
-    return dispReq.ediSessionId();
+    return dispReq.ediSessId();
 }
 
 }//namespace edifact
