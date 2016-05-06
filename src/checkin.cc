@@ -3192,9 +3192,11 @@ static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
             throw EXCEPTIONS::Exception("IATCI XML has wrong format!");
         xml_decode_nodelist(xmlDoc.docPtr()->children);
 
-        xmlNodePtr node = NodeAsNode("/context", xmlDoc.docPtr());
-        node = findNodeR(node, "iatci_cki_result");
-        ASSERT(node != NULL);
+        xmlNodePtr contextNode = NodeAsNode("/context", xmlDoc.docPtr());
+        xmlNodePtr node = findNodeR(contextNode, "iatci_cki_result");
+        if(node == NULL)
+            node = findNodeR(contextNode, "iatci_plf_result");
+        ASSERT(node);
 
         xmlNodePtr tripHeaderNode = findNodeR(node, "tripheader");
         if(tripHeaderNode)
