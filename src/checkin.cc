@@ -4311,8 +4311,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         if (grp.status==psTransit && !pr_tranz_reg)
           throw UserException("MSG.CHECKIN.NOT_RECHECKIN_MODE_FOR_TRANZIT");
 
-        if (reqInfo->client_type == ctTerm &&
-            (reqInfo->desk.compatible(BAG_WITH_HALL_VERSION) || new_checkin))
+        if (reqInfo->client_type == ctTerm)
         {
           Qry.Clear();
           Qry.SQLText="SELECT pr_vip FROM halls2 WHERE id=:hall";
@@ -5597,7 +5596,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             //знаем систему расчета
             if (grp.group_bag)
             {
-              grp.group_bag.get().fromXMLadditional(grp.point_dep, grp.id, grp.hall);
+              grp.group_bag.get().checkAndGenerateTags(grp.point_dep, grp.id);
               CheckBagChanges(grpInfoBefore, grp);
               grp.group_bag.get().toDB(grp.id);
             }
