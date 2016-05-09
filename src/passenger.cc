@@ -1360,62 +1360,13 @@ TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node)
   //зал
   if (reqInfo->client_type == ASTRA::ctTerm)
   {
-    if (reqInfo->desk.compatible(BAG_WITH_HALL_VERSION))
-    {
-      hall=NodeAsIntegerFast("hall",node2);
-    }
-    else
-    {
-      if (tid==ASTRA::NoExists)
-      {
-        //новая регистрация
-        hall=NodeAsIntegerFast("hall",node2);
-        JxtContext::getJxtContHandler()->sysContext()->write("last_hall_id", hall);
-      }
-      else
-      {
-        //запись изменений
-        TQuery Qry(&OraSession);
-        //попробуем считать зал из контекста пульта
-        hall=JxtContext::getJxtContHandler()->sysContext()->readInt("last_hall_id", ASTRA::NoExists);
-        if (hall==ASTRA::NoExists)
-        {
-          //ничего в контексте нет - берем зал из station_halls, но только если он один
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT station_halls.hall "
-            "FROM station_halls,stations "
-            "WHERE station_halls.airp=stations.airp AND "
-            "      station_halls.station=stations.name AND "
-            "      stations.desk=:desk AND stations.work_mode=:work_mode";
-          Qry.CreateVariable("desk",otString, TReqInfo::Instance()->desk.code);
-          Qry.CreateVariable("work_mode",otString,"Р");
-          Qry.Execute();
-          if (!Qry.Eof)
-          {
-            hall=Qry.FieldAsInteger("hall");
-            Qry.Next();
-            if (!Qry.Eof) hall=ASTRA::NoExists;
-          };
-        };
-        if (hall==ASTRA::NoExists)
-        {
-          //берем зал из pax_grp для этой группы
-          Qry.Clear();
-          Qry.SQLText="SELECT hall FROM pax_grp WHERE grp_id=:grp_id";
-          Qry.CreateVariable("grp_id", otInteger, id);
-          Qry.Execute();
-          if (!Qry.Eof && !Qry.FieldIsNULL("hall"))
-            hall=Qry.FieldAsInteger("hall");
-        };
-      };
-    };
+    hall=NodeAsIntegerFast("hall",node2);
   };
 
   PaidBagFromXML(node, paid);
 
   group_bag=TGroupBagItem();
-  if (!group_bag.get().fromXML(node, piece_concept)) group_bag=boost::none;
+  if (!group_bag.get().fromXML(node, id, hall, piece_concept)) group_bag=boost::none;
 
   return *this;
 };

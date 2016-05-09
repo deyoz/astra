@@ -740,9 +740,9 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(resNode,"tid",tid);
 
     CheckIn::TGroupBagItem grp;
-    if (grp.fromXML(reqNode, false)) //для кассы piece_concept=false
+    if (grp.fromXML(reqNode, grp_id, ASTRA::NoExists, false)) //для кассы piece_concept=false
     {
-      grp.fromXMLadditional(point_dep, grp_id, ASTRA::NoExists);
+      grp.checkAndGenerateTags(point_dep, grp_id);
       grp.toDB(grp_id);
     };
 

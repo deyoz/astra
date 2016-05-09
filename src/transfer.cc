@@ -1238,7 +1238,7 @@ bool TGrpItem::alreadyCheckedIn(int point_id) const
     "      bag2.grp_id=pax_grp.grp_id AND "
     "      bag_tags.no=:no AND "
     "      pax_grp.point_dep=:point_id AND "
-    "      bag2.is_trfer<>0 AND NVL(bag2.handmade,0)=0 ";   //!!!vlad потом убрать
+    "      bag2.is_trfer<>0 AND bag2.handmade=0 ";
 
   const char *tags_sql=
     "SELECT no FROM bag_tags WHERE grp_id=:grp_id AND bag_num=:bag_num";
