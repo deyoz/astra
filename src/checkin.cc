@@ -6433,7 +6433,6 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, TCkinGrp
   int seg_no=0;
   for(list<int>::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++,seg_no++)
   {
-    if (seg_no>(int)trfer.size()) break;
     TCachedQuery Qry(pax_grp_sql, QParams() << QParam("grp_id", otInteger, *grp_id));
     Qry.get().Execute();
     if (Qry.get().Eof)
