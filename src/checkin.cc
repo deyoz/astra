@@ -5667,6 +5667,22 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print) "
             "  SELECT :grp_id,num,tag_type,no,color,bag_num,pr_print "
             "  FROM bag_tags WHERE grp_id=:first_grp_id; "
+            "  MERGE INTO pax "
+            "  USING "
+            "  ( "
+            "  SELECT pax1.bag_pool_num, pax2.pax_id "
+            "  FROM pax pax1, tckin_pax_grp tckin_pax_grp1, "
+            "       pax pax2, tckin_pax_grp tckin_pax_grp2 "
+            "  WHERE pax1.grp_id=tckin_pax_grp1.grp_id AND "
+            "        pax2.grp_id=tckin_pax_grp2.grp_id AND "
+            "        tckin_pax_grp1.first_reg_no-pax1.reg_no=tckin_pax_grp2.first_reg_no-pax2.reg_no AND "
+            "        tckin_pax_grp1.grp_id=:first_grp_id AND "
+            "        tckin_pax_grp2.grp_id=:grp_id "
+            "  ) src "
+            "  ON (pax.pax_id=src.pax_id) "
+            "  WHEN MATCHED THEN "
+            "  UPDATE SET pax.bag_pool_num=src.bag_pool_num, "
+            "             pax.tid=DECODE(pax.bag_pool_num, src.bag_pool_num, pax.tid, cycle_tid__seq.currval); "
             "END; ";
           Qry.CreateVariable("grp_id",otInteger,grp.id);
           Qry.CreateVariable("first_grp_id",otInteger,AfterSaveInfo.segs.front().grp_id);
