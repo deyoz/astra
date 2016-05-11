@@ -230,13 +230,13 @@ namespace
         return (seg.point_dep == -1 && seg.point_arv == -1);
     }
 
-    static TPaxSegInfo paxSegFromNode(xmlNodePtr segNode)
+    static TSegInfo segFromNode(xmlNodePtr segNode)
     {
-        TPaxSegInfo paxSegInfo;
-        paxSegInfo.seg.point_dep = NodeAsInteger("point_dep", segNode);
-        paxSegInfo.seg.airp_dep  = NodeAsString("airp_dep", segNode);
-        paxSegInfo.seg.point_arv = NodeAsInteger("point_arv", segNode);
-        paxSegInfo.seg.airp_arv  = NodeAsString("airp_arv", segNode);
+        TSegInfo segInfo;
+        segInfo.point_dep = NodeAsInteger("point_dep", segNode);
+        segInfo.airp_dep  = NodeAsString("airp_dep", segNode);
+        segInfo.point_arv = NodeAsInteger("point_arv", segNode);
+        segInfo.airp_arv  = NodeAsString("airp_arv", segNode);
 
         xmlNodePtr fltNode = findNode(segNode, "mark_flight");
         if(!fltNode)
@@ -244,12 +244,20 @@ namespace
 
         if(fltNode)
         {
-            paxSegInfo.seg.fltInfo.airline = NodeAsString("airline", fltNode);
-            paxSegInfo.seg.fltInfo.flt_no  = NodeAsInteger("flt_no", fltNode);
-            paxSegInfo.seg.fltInfo.suffix  = NodeAsString("suffix", fltNode);
-            paxSegInfo.seg.fltInfo.scd_out = NodeAsDateTime("scd", fltNode);
-            paxSegInfo.seg.fltInfo.airp    = NodeAsString("airp_dep",fltNode);
+            segInfo.fltInfo.airline = NodeAsString("airline", fltNode);
+            segInfo.fltInfo.flt_no  = NodeAsInteger("flt_no", fltNode);
+            segInfo.fltInfo.suffix  = NodeAsString("suffix", fltNode);
+            segInfo.fltInfo.scd_out = NodeAsDateTime("scd", fltNode);
+            segInfo.fltInfo.airp    = NodeAsString("airp_dep",fltNode);
         }
+
+        return segInfo;
+    }
+
+    static TPaxSegInfo paxSegFromNode(xmlNodePtr segNode)
+    {
+        TPaxSegInfo paxSegInfo;
+        paxSegInfo.seg = segFromNode(segNode);
 
         xmlNodePtr paxNode = NodeAsNode("passengers/pax", segNode);
         // пока можем обрабатывать только одного пассажира для Edifact
@@ -261,7 +269,18 @@ namespace
         return paxSegInfo;
     }
 
-    std::vector<TPaxSegInfo> getPaxSegs(xmlNodePtr reqNode, bool iatciFlag)
+    std::vector<TSegInfo> getSegs(xmlNodePtr reqNode)
+    {
+        std::vector<TSegInfo> vSeg;
+        xmlNodePtr segNode = NodeAsNode("segments/segment", reqNode);
+        for(;segNode != NULL; segNode = segNode->next) {
+            vSeg.push_back(segFromNode(segNode));
+        }
+
+        return vSeg;
+    }
+
+    std::vector<TPaxSegInfo> getPaxSegs(xmlNodePtr reqNode)
     {
         std::vector<TPaxSegInfo> vPaxSeg;
         xmlNodePtr segNode = NodeAsNode("segments/segment", reqNode);
@@ -269,12 +288,9 @@ namespace
             vPaxSeg.push_back(paxSegFromNode(segNode));
         }
 
-        if(iatciFlag)
-        {
-            segNode = NodeAsNode("iatci_segments/segment", reqNode);
-            if(segNode) {
-                vPaxSeg.push_back(paxSegFromNode(segNode));
-            }
+        segNode = NodeAsNode("iatci_segments/segment", reqNode);
+        if(segNode) {
+            vPaxSeg.push_back(paxSegFromNode(segNode));
         }
 
         return vPaxSeg;
@@ -361,7 +377,7 @@ static edifact::KickInfo getIatciKickInfo(xmlNodePtr reqNode, xmlNodePtr ediResN
 
 static boost::optional<iatci::CkiParams> getCkiParams(xmlNodePtr reqNode)
 {
-    std::vector<TPaxSegInfo> vPaxSeg = getPaxSegs(reqNode, true/*iatci_flag*/);
+    std::vector<TPaxSegInfo> vPaxSeg = getPaxSegs(reqNode);
     if(vPaxSeg.size() < 2) {
         ProgTrace(TRACE0, "%s: At least 2 segments must be present in the query for iatci, but there is %zu",
                            __FUNCTION__, vPaxSeg.size());
@@ -405,7 +421,7 @@ static boost::optional<iatci::CkiParams> getCkiParams(xmlNodePtr reqNode)
 
 static boost::optional<iatci::CkxParams> getCkxParams(xmlNodePtr reqNode)
 {
-    std::vector<TPaxSegInfo> vPaxSeg = getPaxSegs(reqNode, true/*iatci_flag*/);
+    std::vector<TPaxSegInfo> vPaxSeg = getPaxSegs(reqNode);
     if(vPaxSeg.size() < 2) {
         ProgTrace(TRACE0, "%s: At least 2 segments must be present in the query for iatci, but there is %zu",
                            __FUNCTION__, vPaxSeg.size());
@@ -560,29 +576,26 @@ static int SaveIatciPax(const std::list<iatci::Result>& lRes,
 
 void IatciInterface::DispatchCheckInRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 {
-    std::vector<TPaxSegInfo> vPaxSeg;
     xmlNodePtr segNode = NodeAsNode("segments/segment", reqNode);
-    for(;segNode != NULL; segNode = segNode->next) {
-        xmlNodePtr grpIdNode = findNode(segNode, "grp_id");
-        if(grpIdNode == NULL) {
-            LogTrace(TRACE3) << "Checkin request detected!";
-            return InitialRequest(reqNode, ediResNode);
-        } else {
-            xmlNodePtr paxesNode = findNode(segNode, "passengers");
-            if(paxesNode != NULL) {
-                xmlNodePtr paxNode = findNode(paxesNode, "pax");
-                if(paxNode != NULL) {
-                    xmlNodePtr refuseNode = findNode(paxNode, "refuse");
-                    if(refuseNode != NULL) {
-                        LogTrace(TRACE3) << "Cancel request detected!";
-                        return CancelRequest(reqNode, ediResNode);
-                    }
+    xmlNodePtr grpIdNode = findNode(segNode, "grp_id");
+    if(grpIdNode == NULL) {
+        LogTrace(TRACE3) << "Checkin request detected!";
+        return InitialRequest(reqNode, ediResNode);
+    } else {
+        xmlNodePtr paxesNode = findNode(segNode, "passengers");
+        if(paxesNode != NULL) {
+            xmlNodePtr paxNode = findNode(paxesNode, "pax");
+            if(paxNode != NULL) {
+                xmlNodePtr refuseNode = findNode(paxNode, "refuse");
+                if(refuseNode != NULL && !NodeIsNULL(refuseNode)) {
+                    LogTrace(TRACE3) << "Cancel request detected!";
+                    return CancelRequest(reqNode, ediResNode);
                 }
             }
-
-            LogTrace(TRACE3) << "Update request detected!";
-            return UpdateRequest(reqNode, ediResNode);
         }
+
+        LogTrace(TRACE3) << "Update request detected!";
+        return UpdateRequest(reqNode, ediResNode);
     }
 
     TST();
@@ -602,18 +615,18 @@ void IatciInterface::InitialRequest(XMLRequestCtxt* ctxt,
 
 bool IatciInterface::NeedSendIatciRequest(xmlNodePtr reqNode)
 {
-    std::vector<TPaxSegInfo> vPaxSeg = getPaxSegs(reqNode, false/*iatci_flag*/);
-    if(vPaxSeg.size() < 2) {
+    std::vector<TSegInfo> vSeg = getSegs(reqNode);
+    if(vSeg.size() < 2) {
         ProgTrace(TRACE1, "%s: At least 2 segments must be present in the query for iatci, but there is %zu",
-                           __FUNCTION__, vPaxSeg.size());
+                           __FUNCTION__, vSeg.size());
         return boost::none;
     }
 
-    const TPaxSegInfo& lastPaxSeg   = vPaxSeg.at(vPaxSeg.size() - 1); // Последний сегмент в запросе
-    const TPaxSegInfo& penultPaxSeg = vPaxSeg.at(vPaxSeg.size() - 2); // Предпоследний сегмент в запросе
+    const TSegInfo& lastSeg   = vSeg.at(vSeg.size() - 1); // Последний сегмент в запросе
+    const TSegInfo& penultSeg = vSeg.at(vSeg.size() - 2); // Предпоследний сегмент в запросе
 
     // последний сегмент запроса должен быть предназначен для Edifact iatci, а предпоследний - нет
-    return (isSeg4EdiTCkin(lastPaxSeg.seg) && !isSeg4EdiTCkin(penultPaxSeg.seg));
+    return (isSeg4EdiTCkin(lastSeg) && !isSeg4EdiTCkin(penultSeg));
 }
 
 void IatciInterface::InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
@@ -647,7 +660,7 @@ void IatciInterface::UpdateRequest(XMLRequestCtxt* ctxt,
 
 void IatciInterface::UpdateRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 {
-    // TODO
+    // TODO!
 }
 
 void IatciInterface::CancelRequest(XMLRequestCtxt* ctxt,

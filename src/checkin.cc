@@ -3201,8 +3201,6 @@ static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
         xmlNodePtr tripHeaderNode = findNodeR(node, "tripheader");
         if(tripHeaderNode)
         {
-            tst();
-
             TGrpMktFlight grpMktFlt;
             grpMktFlt.airline = NodeAsString("airline", tripHeaderNode);
             grpMktFlt.flt_no  = NodeAsInteger("flt_no", tripHeaderNode);
