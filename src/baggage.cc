@@ -172,12 +172,24 @@ TBagItem& TBagItem::fromXML(xmlNodePtr node, bool piece_concept)
   xmlNodePtr node2=node->children;
   id=NodeAsIntegerFast("id",node2,ASTRA::NoExists);
   num=NodeAsIntegerFast("num",node2);
-  if (!piece_concept)
+  if (id==ASTRA::NoExists)
   {
-    if (!NodeIsNULLFast("bag_type",node2))
-      bag_type=NodeAsIntegerFast("bag_type",node2);
-  }
-  else rfisc=NodeAsStringFast("bag_type",node2);
+    //только для вновь введенного багажа
+    if (!piece_concept)
+    {
+      if (!NodeIsNULLFast("bag_type",node2))
+        bag_type=NodeAsIntegerFast("bag_type",node2);
+    }
+    else rfisc=NodeAsStringFast("bag_type",node2);
+
+    if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+      is_trfer=NodeAsIntegerFast("is_trfer",node2)!=0;
+    else
+    {
+      is_trfer=(bag_type==99);
+      if (bag_type==99) bag_type=ASTRA::NoExists;
+    };
+  };
   pr_cabin=NodeAsIntegerFast("pr_cabin",node2)!=0;
   amount=NodeAsIntegerFast("amount",node2);
   weight=NodeAsIntegerFast("weight",node2);
@@ -190,14 +202,6 @@ TBagItem& TBagItem::fromXML(xmlNodePtr node, bool piece_concept)
 
   if (TReqInfo::Instance()->desk.compatible(USING_SCALES_VERSION))
     using_scales=NodeAsIntegerFast("using_scales",node2)!=0;
-
-  if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
-    is_trfer=NodeAsIntegerFast("is_trfer",node2)!=0;
-  else
-  {
-    is_trfer=(bag_type==99);
-    if (bag_type==99) bag_type=ASTRA::NoExists;
-  };
 
   if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
     bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
@@ -272,19 +276,7 @@ TBagItem& TBagItem::fromDB(TQuery &Qry)
   if (!Qry.FieldIsNULL("time_create"))
     time_create=Qry.FieldAsDateTime("time_create");
   is_trfer=Qry.FieldAsInteger("is_trfer")!=0;
-  if (Qry.FieldIsNULL("handmade"))
-  {
-    //переходный момент  потом удалить!!!vlad
-    if (bag_type==99)
-    {
-      //это трансферный багаж
-      bag_type=ASTRA::NoExists;
-      handmade=!is_trfer;
-      is_trfer=true;
-    }
-    else handmade=true;
-  }
-  else handmade=Qry.FieldAsInteger("handmade")!=0;
+  handmade=Qry.FieldAsInteger("handmade")!=0;
   return *this;
 };
 
@@ -637,7 +629,7 @@ bool TGroupBagItem::trferExists() const
   return false;
 }
 
-bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, bool piece_concept)
+bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool piece_concept)
 {
   clear();
   if (bagtagNode==NULL) return false;
@@ -703,10 +695,13 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, bool piece_concept)
   };
 
   pr_tag_print=NodeAsInteger("@pr_print",tagNode)!=0;
+
+  fromXMLcompletion(grp_id, hall);
+
   return true;
 }
 
-void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
+void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool is_payment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
@@ -831,70 +826,17 @@ void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
       else throw UserException(1,"MSG.CHECKIN.COUNT_BIRKS_NOT_EQUAL_PLACES");
     };
   };
+};
 
-  TQuery BagQry(&OraSession);
+void TGroupBagItem::fromXMLcompletion(int grp_id, int hall)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  bool is_payment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
 
-  if (is_payment && !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+  map<int /*num*/, TBagItem> old_bags;
+  if (grp_id!=ASTRA::NoExists)
   {
-    map<int /*num*/, TBagItem> old_bags;
-    map<int /*num*/, bool> refused_bags;
-    BagQry.Clear();
-    if (reqInfo->desk.compatible(BAG_WITH_HALL_VERSION))
-      BagQry.SQLText="SELECT * FROM bag2 WHERE grp_id=:grp_id FOR UPDATE";
-    else
-      //вызов ckin.bag_pool_refused перед записью багажа прокатывает только если
-      //перед этим нет изменений в группе пассажиров (пулы могут потерять актуальность)
-      //условие соблюдается (все нормально) если запись багажа из модуля "Оплата багажа"
-      BagQry.SQLText=
-        "SELECT bag2.*, "
-        "       ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse) AS refused "
-        "FROM pax_grp,bag2 "
-        "WHERE pax_grp.grp_id=bag2.grp_id AND bag2.grp_id=:grp_id FOR UPDATE";
-    BagQry.CreateVariable("grp_id",otInteger,grp_id);
-    BagQry.Execute();
-    for(;!BagQry.Eof;BagQry.Next())
-    {
-      TBagItem bag;
-      bag.fromDB(BagQry);
-      old_bags[bag.num]=bag;
-      if (!reqInfo->desk.compatible(BAG_WITH_HALL_VERSION))
-        refused_bags[bag.num]=BagQry.FieldAsInteger("refused")!=0;
-    };
-
-    //для кассы используем old_bags, но с очисткой и переустановлением всех value_bag_num
-    if (reqInfo->desk.compatible(BAG_WITH_HALL_VERSION))
-    {
-      //работаем по идентификаторам
-      for(map<int, TBagItem>::iterator ob=old_bags.begin();ob!=old_bags.end();++ob)
-      {
-        map<int, TBagItem>::const_iterator nb=bags.begin();
-        for(;nb!=bags.end();++nb)
-          if (nb->second.id==ob->second.id) break;
-        if (nb!=bags.end())
-          ob->second.value_bag_num=nb->second.value_bag_num;
-        else
-          ob->second.value_bag_num=ASTRA::NoExists;
-      };
-    }
-    else
-    {
-      //работаем учитывая порядок и разрегистрированный багаж
-      map<int, TBagItem>::const_iterator nb=bags.begin();
-      for(map<int, TBagItem>::iterator ob=old_bags.begin();ob!=old_bags.end();++ob)
-      {
-        ob->second.value_bag_num=ASTRA::NoExists;
-        if (refused_bags[ob->second.num]) continue;
-        if (nb==bags.end()) throw Exception("TGroupBagItem::fromXML: nb==bags.end()");
-        ob->second.value_bag_num=nb->second.value_bag_num;
-        ++nb;
-      };
-      if (nb!=bags.end()) throw Exception("TGroupBagItem::fromXML: nb!=bags.end()");
-    };
-    bags=old_bags;
-  }
-  else
-  {
-    map<int /*num*/, TBagItem> old_bags;
+    TQuery BagQry(&OraSession);
     BagQry.Clear();
     BagQry.SQLText="SELECT * FROM bag2 WHERE grp_id=:grp_id FOR UPDATE";
     BagQry.CreateVariable("grp_id",otInteger,grp_id);
@@ -905,74 +847,50 @@ void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
       bag.fromDB(BagQry);
       old_bags[bag.num]=bag;
     };
+  };
+
+  if (is_payment && !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+  {
+    //для кассы используем old_bags, но с очисткой и переустановлением всех value_bag_num
+    //работаем по идентификаторам
+    for(map<int, TBagItem>::iterator ob=old_bags.begin();ob!=old_bags.end();++ob)
+    {
+      map<int, TBagItem>::const_iterator nb=bags.begin();
+      for(;nb!=bags.end();++nb)
+        if (nb->second.id==ob->second.id) break;
+      if (nb!=bags.end())
+        ob->second.value_bag_num=nb->second.value_bag_num;
+      else
+        ob->second.value_bag_num=ASTRA::NoExists;
+    };
+
+    bags=old_bags;
+  }
+  else
+  {
     //пробегаемся по сортированным массивам с целью заполнения старых hall и user_id в массиве нового багажа
-    if (reqInfo->desk.compatible(BAG_WITH_HALL_VERSION))
+    for(map<int, TBagItem>::iterator nb=bags.begin();nb!=bags.end();++nb)
     {
-      for(map<int, TBagItem>::iterator nb=bags.begin();nb!=bags.end();++nb)
+      if (nb->second.id==ASTRA::NoExists)
       {
-        if (nb->second.id==ASTRA::NoExists)
-        {
-          //вновь введенный багаж
-          nb->second.hall=hall;
-          nb->second.user_id=reqInfo->user.user_id;
-          nb->second.desk=reqInfo->desk.code;
-          nb->second.time_create=BASIC::NowUTC();
-        }
-        else
-        {
-          //старый багаж
-          map<int, TBagItem>::const_iterator ob=old_bags.begin();
-          for(;ob!=old_bags.end();++ob)
-            if (ob->second.id==nb->second.id) break;
-          if (ob!=old_bags.end())
-          {
-            nb->second.hall=ob->second.hall;
-            nb->second.user_id=ob->second.user_id;
-            nb->second.desk=ob->second.desk;
-            nb->second.time_create=ob->second.time_create;
-            if (!reqInfo->desk.compatible(BAG_TO_RAMP_VERSION))
-              nb->second.to_ramp=ob->second.to_ramp;
-            if (!reqInfo->desk.compatible(USING_SCALES_VERSION))
-            {
-              //сохраняем старый using_scales только если ob->second.weight==nb->second.weight
-              if (ob->second.weight==nb->second.weight)
-                nb->second.using_scales=ob->second.using_scales;
-              else
-                nb->second.using_scales=false;
-            };
-            if (!reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
-            {
-              nb->second.is_trfer=ob->second.is_trfer;
-              if (nb->second.is_trfer)
-                nb->second.bag_type=ob->second.bag_type;
-            };
-            nb->second.handmade=ob->second.handmade;
-          }
-          else
-          {
-            nb->second.hall=hall;
-            nb->second.user_id=reqInfo->user.user_id;
-            nb->second.desk=reqInfo->desk.code;
-            nb->second.time_create=BASIC::NowUTC();
-          };
-        };
-      };
-    }
-    else
-    {
-      map<int, TBagItem>::const_iterator ob=old_bags.begin();
-      for(map<int, TBagItem>::iterator nb=bags.begin();nb!=bags.end();++nb)
+        //вновь введенный багаж
+        nb->second.hall=hall;
+        nb->second.user_id=reqInfo->user.user_id;
+        nb->second.desk=reqInfo->desk.code;
+        nb->second.time_create=BASIC::NowUTC();
+      }
+      else
       {
+        //старый багаж
+        map<int, TBagItem>::const_iterator ob=old_bags.begin();
         for(;ob!=old_bags.end();++ob)
-        {
-          if (ob->second.bag_type==nb->second.bag_type &&
-              ob->second.pr_cabin==nb->second.pr_cabin &&
-              ob->second.amount==  nb->second.amount &&
-              ob->second.weight==  nb->second.weight) break;
-        };
+          if (ob->second.id==nb->second.id) break;
         if (ob!=old_bags.end())
         {
-          nb->second.id=ob->second.id;
+          nb->second.bag_type=ob->second.bag_type;
+          nb->second.rfisc=ob->second.rfisc;
+          nb->second.is_trfer=ob->second.is_trfer;
+
           nb->second.hall=ob->second.hall;
           nb->second.user_id=ob->second.user_id;
           nb->second.desk=ob->second.desk;
@@ -980,22 +898,16 @@ void TGroupBagItem::fromXMLadditional(int point_id, int grp_id, int hall)
           if (!reqInfo->desk.compatible(BAG_TO_RAMP_VERSION))
             nb->second.to_ramp=ob->second.to_ramp;
           if (!reqInfo->desk.compatible(USING_SCALES_VERSION))
-            //так как ob->second.weight==nb->second.weight, то смело сохраняем старый using_scales
-            nb->second.using_scales=ob->second.using_scales;
-          if (!reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
-            nb->second.is_trfer=ob->second.is_trfer;
+          {
+            //сохраняем старый using_scales только если ob->second.weight==nb->second.weight
+            if (ob->second.weight==nb->second.weight)
+              nb->second.using_scales=ob->second.using_scales;
+            else
+              nb->second.using_scales=false;
+          };
           nb->second.handmade=ob->second.handmade;
-          ++ob;
         }
-        else
-        {
-          if (hall==ASTRA::NoExists)
-            throw Exception("TGroupBagItem::fromXML: unknown hall");
-          nb->second.hall=hall;
-          nb->second.user_id=reqInfo->user.user_id;
-          nb->second.desk=reqInfo->desk.code;
-          nb->second.time_create=BASIC::NowUTC();
-        };
+        else throw Exception("%s: strange situation ob==old_bags.end()!");
       };
     };
   };
