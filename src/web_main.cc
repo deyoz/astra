@@ -3288,6 +3288,19 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 } //end namespace AstraWeb
 
+int nosir_parse_bcbp(int argc, char **argv)
+{
+    string scanCode = "M1PLESKACH/EKATERINA  E19LC26 SGCVKOUT 0296 133L          3D>10B0      IUT 2C2982986148311439 0UT                        ";
+    PrintInterface::BPPax pax;
+    AstraWeb::GetBPPaxFromScanCode(scanCode, pax);
+    /*
+    WebSearch::TPNRFilters filters;
+    BCBPSections scanSections;
+    filters.getBCBPSections("M1PLESKACH/EKATERINA  E19LC26 SGCVKOUT 0296 133L          3D>10B0      IUT 2C2982986148311439 0UT                        ", scanSections);
+    */
+    return 1;
+}
+
 #if 0
 
 bool test_check_reprint_access()

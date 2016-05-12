@@ -166,6 +166,8 @@ int bcbp_test(int argc,char **argv);
 
 } // namespace AstraWeb
 
+int nosir_parse_bcbp(int argc,char **argv);
+
 namespace TypeB
 {
   void SyncNewCHKD(int point_id_spp, const std::string& task_name, const std::string& params);
