@@ -351,11 +351,14 @@ class PassengerInfo
     std::string pers_type;
     std::string ticket_num;
     std::vector< std::pair<int, std::string> > pax_seats;
+    int m_bagCount;
+    int m_bagWaight;
     std::vector<CheckIn::TPaxFQTItem> pax_fqts;
 
 public:
     PassengerInfo()
-        : m_birthDate( ASTRA::NoExists ), m_docExpirateDate( ASTRA::NoExists )
+        : m_birthDate( ASTRA::NoExists ), m_docExpirateDate( ASTRA::NoExists ),
+          m_bagCount( ASTRA::NoExists ), m_bagWaight( ASTRA::NoExists )
     {}
 
     // passenger's surname
@@ -568,6 +571,18 @@ public:
     }
     void setSeats(std::vector< std::pair<int, std::string> >& values) {
       pax_seats = values;
+    }
+    const int bagCount() const {
+        return m_bagCount;
+    }
+    void setBagCount( const int value ) {
+      m_bagCount = value;
+    }
+    const int bagWaight() const {
+        return m_bagWaight;
+    }
+    void setBagWaight( const int value ) {
+      m_bagWaight = value;
     }
     const std::vector<CheckIn::TPaxFQTItem>& fqts() const {
         return pax_fqts;

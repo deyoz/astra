@@ -289,6 +289,34 @@ struct AttElem
 
 //-----------------------------------------------------------------------------
 
+///@class MeaElem - Attribute --MEA
+struct MeaElem
+{
+    enum MeaQualifier
+    {
+        BagCount,
+        BagWaight
+    };
+
+    MeaQualifier m_meaQualifier;
+    int m_mea;
+
+    MeaElem( const MeaQualifier meaQualifier,
+             const int mea)
+        : m_meaQualifier(meaQualifier),
+          m_mea(mea)
+    {}
+
+    static std::string meaQualifierToStr(MeaQualifier qualifier)
+    {
+        if( qualifier == BagCount )
+            return "CT";
+        return "WT";
+    }
+};
+
+//-----------------------------------------------------------------------------
+
 ///@class NatElem - Nationality --NAT
 struct NatElem
 {
