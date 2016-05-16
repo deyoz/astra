@@ -316,11 +316,11 @@ class UserException:public EXCEPTIONS::Exception
         lexema = lexema_id;
         if (!useAdvParams) {
           for(std::map<std::string, boost::any>::iterator iter = lparams.begin(); iter != lparams.end(); iter++) {
-            if ( boost::any_cast<std::string>(&(iter->second)))
+            if (boost::any_cast<std::string>(&(iter->second)))
               aparams << PrmSmpl<std::string>(iter->first, boost::any_cast<std::string>(iter->second));
-            else if ((iter->second).type() != typeid(int))
+            else if (boost::any_cast<int>(&(iter->second)))
               aparams << PrmSmpl<int>(iter->first, boost::any_cast<int>(iter->second));
-            else if ((iter->second).type() != typeid(double))
+            else if (boost::any_cast<double>(&(iter->second)))
               aparams << PrmSmpl<double>(iter->first, boost::any_cast<double>(iter->second));
           }
         }
