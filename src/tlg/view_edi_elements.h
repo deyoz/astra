@@ -65,6 +65,11 @@ void viewDtmElement( _EDI_REAL_MES_STRUCT_* pMes, const DtmElem& elem, int num =
 void viewAttElement( _EDI_REAL_MES_STRUCT_* pMes, const AttElem& elem, int num = 0 );
 
 /**
+ * @brief makes a MEA element
+*/
+void viewMeaElement(_EDI_REAL_MES_STRUCT_* pMes, const MeaElem& elem, int num = 0);
+
+/**
  * @brief makes a NAT element
 */
 void viewNatElement( _EDI_REAL_MES_STRUCT_* pMes, const NatElem& elem, int num = 0 );

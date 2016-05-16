@@ -266,7 +266,9 @@ bool create_apis_file(int point_id, const string& task_name)
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
       "SELECT pax.pax_id, pax.surname, pax.name, pax.pr_brd, pax.grp_id, "
-      "       tckin_segments.airp_arv AS airp_final, pax_grp.status, pers_type, ticket_no "
+      "       tckin_segments.airp_arv AS airp_final, pax_grp.status, pers_type, ticket_no, "
+      "       ckin.get_bagAmount2(pax.grp_id, pax.pax_id, pax.bag_pool_num) AS bag_amount, "
+      "       ckin.get_bagWeight2(pax.grp_id, pax.pax_id, pax.bag_pool_num) AS bag_weight "
       "FROM pax_grp,pax,tckin_segments "
       "WHERE pax_grp.grp_id=pax.grp_id AND "
       "      pax_grp.grp_id=tckin_segments.grp_id(+) AND tckin_segments.pr_final(+)<>0 AND "
@@ -656,13 +658,6 @@ bool create_apis_file(int point_id, const string& task_name)
               }
               paxInfo.setTicketNumber(PaxQry.FieldAsString("ticket_no"));
 
-              vector< pair<int, string> > seats;
-              SeatsQry.SetVariable("pax_id",pax_id);
-              SeatsQry.Execute();
-              for(;!SeatsQry.Eof;SeatsQry.Next())
-                seats.push_back(make_pair(SeatsQry.FieldAsInteger("seat_row"), SeatsQry.FieldAsString("seat_column")));
-              paxInfo.setSeats(seats);
-
               std::vector<CheckIn::TPaxFQTItem> fqts;
               CheckIn::LoadPaxFQT(pax_id, fqts);
               paxInfo.setFqts(fqts);
@@ -683,6 +678,26 @@ bool create_apis_file(int point_id, const string& task_name)
                   FPM.addMarkFlt(mkt_airline.code_lat, mkt_flt);
                 else if (mkt_airline.code_lat != FCM.carrier() || mkt_flt != FCM.flight())
                   FCM.addMarkFlt(mkt_airline.code_lat, mkt_flt);
+              }
+            }
+
+            if (fmt=="XML_TR" || fmt=="EDI_AZ") {
+              vector< pair<int, string> > seats;
+              SeatsQry.SetVariable("pax_id",pax_id);
+              SeatsQry.Execute();
+              for(;!SeatsQry.Eof;SeatsQry.Next())
+                seats.push_back(make_pair(SeatsQry.FieldAsInteger("seat_row"), SeatsQry.FieldAsString("seat_column")));
+              paxInfo.setSeats(seats);
+            }
+
+            if (fmt=="EDI_AZ") {
+              if (!PaxQry.FieldIsNULL("bag_amount")) {
+                int amount = PaxQry.FieldAsInteger("bag_amount");
+                if (amount) paxInfo.setBagCount(amount);
+              }
+              if (!PaxQry.FieldIsNULL("bag_weight")) {
+                int weight = PaxQry.FieldAsInteger("bag_weight");
+                if (weight) paxInfo.setBagWeight(weight);
               }
             }
 

@@ -202,7 +202,17 @@ void viewAttElement( _EDI_REAL_MES_STRUCT_* pMes, const AttElem& elem, int num )
     SetEdiFullSegment( pMes, SegmElement( "ATT", num ), att.str() );
 }
 
-void viewNatElement( _EDI_REAL_MES_STRUCT_* pMes, const NatElem& elem, int num )
+void viewMeaElement(_EDI_REAL_MES_STRUCT_* pMes, const MeaElem& elem, int num)
+{
+    std::ostringstream mea;
+    mea << MeaElem::meaQualifierToStr(elem.m_meaQualifier) << "++";
+    if (elem.m_meaQualifier == MeaElem::BagWeight)
+      mea << "KGM";
+    mea << ":" << elem.m_mea;
+    SetEdiFullSegment(pMes, SegmElement("MEA", num), mea.str());
+}
+
+void viewNatElement(_EDI_REAL_MES_STRUCT_* pMes, const NatElem& elem, int num)
 {
     std::ostringstream nat;
     nat << elem.m_natQualifier << "+" << elem.m_nat;

@@ -213,6 +213,18 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         // DTM
         viewDtmElement( pMes, DtmElem( DtmElem::DateOfBirth, it->birthDate() ) );
 
+        int meaNum = 0;
+        if( it->bagCount() != ASTRA::NoExists )
+        {
+            // MEA
+            viewMeaElement( pMes, MeaElem( MeaElem::BagCount, it->bagCount() ), meaNum++ );
+        }
+        if( it->bagWeight() != ASTRA::NoExists )
+        {
+            // MEA
+            viewMeaElement( pMes, MeaElem( MeaElem::BagWeight, it->bagWeight() ), meaNum++ );
+        }
+
         int locNum = 0;
         if( !it->CBPPort().empty() )
         {
@@ -249,10 +261,17 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
             viewNatElement( pMes, NatElem( "2", it->nationality() ) );
         }
 
+        int rffNum = 0;
         if( !it->reservNum().empty() )
         {
             // RFF
-            viewRffElement( pMes, RffElem( "AVF", it->reservNum() ) );
+            viewRffElement( pMes, RffElem( "AVF", it->reservNum() ), rffNum++ );
+        }
+
+        for( vector< pair<int,string> >::const_iterator i = it->seats().begin(); i != it->seats().end(); i++ )
+        {
+            // RFF
+            viewRffElement( pMes, RffElem( "SEA", IntToString( i->first ) + i->second ), rffNum++ );
         }
 
         if( !it->docType().empty() || !it->docNumber().empty() )
