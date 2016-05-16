@@ -295,7 +295,7 @@ struct MeaElem
     enum MeaQualifier
     {
         BagCount,
-        BagWaight
+        BagWeight
     };
 
     MeaQualifier m_meaQualifier;

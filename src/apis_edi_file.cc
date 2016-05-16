@@ -219,10 +219,10 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
             // MEA
             viewMeaElement( pMes, MeaElem( MeaElem::BagCount, it->bagCount() ), meaNum++ );
         }
-        if( it->bagWaight() != ASTRA::NoExists )
+        if( it->bagWeight() != ASTRA::NoExists )
         {
             // MEA
-            viewMeaElement( pMes, MeaElem( MeaElem::BagWaight, it->bagWaight() ), meaNum++ );
+            viewMeaElement( pMes, MeaElem( MeaElem::BagWeight, it->bagWeight() ), meaNum++ );
         }
 
         int locNum = 0;

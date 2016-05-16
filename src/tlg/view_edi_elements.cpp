@@ -207,7 +207,7 @@ void viewMeaElement(_EDI_REAL_MES_STRUCT_* pMes, const MeaElem& elem, int num)
 {
     std::ostringstream mea;
     mea << MeaElem::meaQualifierToStr(elem.m_meaQualifier) << "++";
-    if (elem.m_meaQualifier == MeaElem::BagWaight)
+    if (elem.m_meaQualifier == MeaElem::BagWeight)
       mea << "KGM";
     mea << ":" << elem.m_mea;
     SetEdiFullSegment(pMes, SegmElement("MEA", num), mea.str());

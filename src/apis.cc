@@ -691,10 +691,14 @@ bool create_apis_file(int point_id, const string& task_name)
             }
 
             if (fmt=="EDI_AZ") {
-              if (!PaxQry.FieldIsNULL("bag_amount"))
-                paxInfo.setBagCount(PaxQry.FieldAsInteger("bag_amount"));
-              if (!PaxQry.FieldIsNULL("bag_weight"))
-                paxInfo.setBagWaight(PaxQry.FieldAsInteger("bag_weight"));
+              if (!PaxQry.FieldIsNULL("bag_amount")) {
+                int amount = PaxQry.FieldAsInteger("bag_amount");
+                if (amount) paxInfo.setBagCount(amount);
+              }
+              if (!PaxQry.FieldIsNULL("bag_weight")) {
+                int weight = PaxQry.FieldAsInteger("bag_weight");
+                if (weight) paxInfo.setBagWeight(weight);
+              }
             }
 
             if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" ||
