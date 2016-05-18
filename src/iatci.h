@@ -10,6 +10,8 @@ namespace iatci { class Result; }
 
 class IatciInterface: public JxtInterface
 {
+    enum RequestType { Cki, Cku, Ckx, Bpr, Plf, Smp, };
+
 public:
     IatciInterface()
         : JxtInterface("", "IactiInterface")
@@ -23,21 +25,24 @@ public:
         AddEvent("kick",            JXT_HANDLER(IatciInterface, KickHandler));
     }
 
-    static void DispatchCheckInRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+    /* returns: true - req was sent, false - otherwise*/
+    static RequestType ClassifyCheckInRequest(xmlNodePtr reqNode);
+    static bool DispatchCheckInRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+    static bool WillBeSentCheckInRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
-    static bool NeedSendIatciRequest(xmlNodePtr reqNode);
+    static bool MayNeedSendIatci(xmlNodePtr reqNode);
 
     // Initial Through Check-in Interchange
     void InitialRequest(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-    static void InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+    static bool InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // Through Check-in Update Interchange
     void UpdateRequest(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-    static void UpdateRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+    static bool UpdateRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // Through Check-in Cancel Interchange
     void CancelRequest(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-    static void CancelRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+    static bool CancelRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // Boarding Pass Reprint Interchange
     void ReprintRequest(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

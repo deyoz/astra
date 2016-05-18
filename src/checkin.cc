@@ -13,6 +13,7 @@
 #include "typeb_utils.h"
 #include "misc.h"
 #include "astra_misc.h"
+#include "astra_api.h"
 #include "base_tables.h"
 #include "convert.h"
 #include "tripinfo.h"
@@ -68,6 +69,7 @@ using namespace std;
 using namespace ASTRA;
 using namespace BASIC;
 using namespace AstraLocale;
+using astra_api::xml_entities::ReqParams;
 
 void CheckInInterface::LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -3195,6 +3197,8 @@ static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
         xmlNodePtr contextNode = NodeAsNode("/context", xmlDoc.docPtr());
         xmlNodePtr node = findNodeR(contextNode, "iatci_cki_result");
         if(node == NULL)
+            node = findNodeR(contextNode, "iatci_cku_result");
+        if(node == NULL)
             node = findNodeR(contextNode, "iatci_plf_result");
         ASSERT(node);
 
@@ -3220,10 +3224,9 @@ static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
 static void transformSavePaxRequestByIatci(xmlNodePtr reqNode)
 {
     xmlNodePtr rootNode = findNodeR(reqNode, "TCkinSavePax");
-    ASSERT(rootNode);
-    if(!findNode(reqNode, "need_send_iatci"))
+    if(rootNode)
     {
-        xmlNewBoolChild(rootNode, "need_send_iatci", true);
+        ReqParams(rootNode).setBoolParam("may_need_send_iatci", true);
         xmlNodePtr node = newChild(rootNode, "iatci_segments");
         xmlNodePtr segNode = findIatciSegNode(rootNode);
         if(segNode)
@@ -3239,34 +3242,41 @@ static void transformSavePaxRequestByIatci(xmlNodePtr reqNode, int grpId)
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << " grpId=" << grpId;
 
     xmlNodePtr rootNode = findNodeR(reqNode, "TCkinSavePax");
-    ASSERT(rootNode);
-
-    xmlNodePtr node = findNodeR(reqNode, "iatci_segments");
-    if(node)
+    if(rootNode)
     {
-        // берём первый iatci-сегмент
-        xmlNodePtr segNode = node->children;
-        if(!findNode(segNode, "mark_flight"))
+        // этот флаг может быть выставлен в false только
+        // в случае Update, если не обновления не затрагивают
+        // ни одну edifact-вкладку.
+        // В этом случае значение флага будет выставлено в false
+        // сразу после определения этого случая
+        ReqParams(rootNode).setBoolParam("was_sent_iatci", true);
+
+        xmlNodePtr node = findNodeR(reqNode, "iatci_segments");
+        if(node)
         {
-            xmlNodePtr pseudoMarkFlightNode = findNode(segNode, "pseudo_mark_flight");
-            if(!pseudoMarkFlightNode)
-                pseudoMarkFlightNode = newChild(segNode, "pseudo_mark_flight");
-
-            boost::optional<TGrpMktFlight> mktFlt = LoadIatciMktFlight(grpId);
-            if(mktFlt)
+            // берём первый iatci-сегмент
+            xmlNodePtr segNode = node->children;
+            if(!findNode(segNode, "mark_flight"))
             {
-                NewTextChild(pseudoMarkFlightNode, "airline", mktFlt->airline);
-                NewTextChild(pseudoMarkFlightNode, "flt_no", mktFlt->flt_no);
-                NewTextChild(pseudoMarkFlightNode, "suffix", mktFlt->suffix);
-                NewTextChild(pseudoMarkFlightNode, "scd", DateTimeToStr(mktFlt->scd_date_local));
-                NewTextChild(pseudoMarkFlightNode, "airp_dep", mktFlt->airp_dep);
+                xmlNodePtr pseudoMarkFlightNode = findNode(segNode, "pseudo_mark_flight");
+                if(!pseudoMarkFlightNode)
+                    pseudoMarkFlightNode = newChild(segNode, "pseudo_mark_flight");
 
-                LogTrace(TRACE3) << "mktFlt->airline= " << mktFlt->airline << "; "
-                                 << "mktFlt->flt_no= " << mktFlt->flt_no << "; "
-                                 << "mktFlt->suffix= " << mktFlt->suffix << "; "
-                                 << "mktFlt->scd_date_local= " << DateTimeToStr(mktFlt->scd_date_local )<< "; "
-                                 << "mktFlt->airp_dep= " << mktFlt->airp_dep;
+                boost::optional<TGrpMktFlight> mktFlt = LoadIatciMktFlight(grpId);
+                if(mktFlt)
+                {
+                    NewTextChild(pseudoMarkFlightNode, "airline", mktFlt->airline);
+                    NewTextChild(pseudoMarkFlightNode, "flt_no", mktFlt->flt_no);
+                    NewTextChild(pseudoMarkFlightNode, "suffix", mktFlt->suffix);
+                    NewTextChild(pseudoMarkFlightNode, "scd", DateTimeToStr(mktFlt->scd_date_local));
+                    NewTextChild(pseudoMarkFlightNode, "airp_dep", mktFlt->airp_dep);
 
+                    LogTrace(TRACE3) << "mktFlt->airline= " << mktFlt->airline << "; "
+                                     << "mktFlt->flt_no= " << mktFlt->flt_no << "; "
+                                     << "mktFlt->suffix= " << mktFlt->suffix << "; "
+                                     << "mktFlt->scd_date_local= " << DateTimeToStr(mktFlt->scd_date_local )<< "; "
+                                     << "mktFlt->airp_dep= " << mktFlt->airp_dep;
+                }
             }
         }
     }
@@ -3282,7 +3292,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
     OciCpp::Savepoint sp("sp_savepax");
-    if(ediResNode == NULL && IatciInterface::NeedSendIatciRequest(reqNode)) {
+    if(ediResNode == NULL && IatciInterface::MayNeedSendIatci(reqNode)) {
+        // запоминаем, что возможно надо послать iatci-запрос
+        // и "прячем" edifact-сегмент от обычного SavePax
         transformSavePaxRequestByIatci(reqNode);
     }
 
@@ -3307,18 +3319,26 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
         AfterSaveInfoList.handle(__FUNCTION__);
 
-        xmlNodePtr node = findNodeR(reqNode, "need_send_iatci");
-        bool needSendIatci = istrue(node);
-        if(needSendIatci)
+        // если нам возможно требуется послать iatci-запрос, то
+        // пытаемся послать его и, если послан, фиксируем этот факт
+        // в тэге "was_sent_iatci"
+        if(ReqParams(reqNode).getBoolParam("may_need_send_iatci"))
         {
-            sp.rollback(); // опять откат
-            // снимем флаг необходимости посылки iatci
-            xmlNodeSetContent(node, "false");
-            transformSavePaxRequestByIatci(reqNode, AfterSaveInfoList.front().segs.front().grp_id);
-            IatciInterface::DispatchCheckInRequest(reqNode, ediResNode);
-            return true;
-        }
+            bool willSentIatci = IatciInterface::WillBeSentCheckInRequest(reqNode, ediResNode);
+            if(willSentIatci) {
+                sp.rollback(); // опять откат, если будет послан iatci-запрос
+            }
 
+            // снимем флаг необходимости посылки iatci-запроса
+            ReqParams(reqNode).setBoolParam("may_need_send_iatci", false);
+            // TODO добавлять mark_flight не для всех запросов
+            transformSavePaxRequestByIatci(reqNode, AfterSaveInfoList.front().segs.front().grp_id);
+            bool wasSentIatci = IatciInterface::DispatchCheckInRequest(reqNode, ediResNode);
+            ASSERT(wasSentIatci == willSentIatci);
+            if(wasSentIatci) {
+                return true;
+            }
+        }
 
         if (!AfterSaveInfoList.empty() &&
             !AfterSaveInfoList.front().segs.empty())
@@ -3330,7 +3350,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
                 EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
             }
 
-            LoadPax(grp_id, NULL, resNode, true);
+            LoadPax(grp_id, reqNode, resNode, true);
         }
     }
     return result;
@@ -6775,6 +6795,8 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int 
         xmlNodePtr contextNode = NodeAsNode("/context", xmlDoc.docPtr());
         xmlNodePtr node = findNodeR(contextNode, "iatci_cki_result");
         if(node == NULL)
+            node = findNodeR(contextNode, "iatci_cku_result");
+        if(node == NULL)
             node = findNodeR(contextNode, "iatci_plf_result");
         ASSERT(node != NULL);
 
@@ -7031,10 +7053,14 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
       ShowPaxCatWarning(pax_cat_airline, pax_cats, Qry);
   }
 
-  if(!afterSavePax) {
-    bool need_sync = NodeAsBoolean("need_sync", reqNode, !reqInfo->api_mode);
-    LogTrace(TRACE3) << "need_sync=" << need_sync;
-    LoadIatciPax(reqNode, resNode, grp_id, need_sync/*need_sync*/);
+  // если посылался iatci-запрос на checkin/update,
+  // то LoadIatciPax вызовется в kick-переспросе,
+  // иначе - здесь
+  const bool needSyncDflt = !reqInfo->api_mode && !afterSavePax;
+  bool needSync = ReqParams(reqNode).getBoolParam("need_sync", needSyncDflt);
+  bool wasSentIatci = ReqParams(reqNode).getBoolParam("was_sent_iatci", false);
+  if(!wasSentIatci) {
+      LoadIatciPax(reqNode, resNode, grp_id, needSync);
   }
 }
 

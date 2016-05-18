@@ -194,19 +194,36 @@ public:
 
 struct UpdatePaxDetails: public UpdateDetails
 {
+    struct UpdateDocInfo: public UpdateDetails, public PaxDetails::DocInfo
+    {
+        UpdateDocInfo(UpdateActionCode_e actionCode,
+                      const std::string& docType,
+                      const std::string& issueCountry,
+                      const std::string& no,
+                      const std::string& surname,
+                      const std::string& name,
+                      const std::string& gender,
+                      const std::string& nationality,
+                      const boost::gregorian::date& birthDate = boost::gregorian::date(),
+                      const boost::gregorian::date& expiryDate = boost::gregorian::date());
+    };
+
 protected:
     std::string m_surname;
     std::string m_name;
+    boost::optional<UpdateDocInfo> m_doc;
     std::string m_qryRef;
 
 public:
     UpdatePaxDetails(UpdateActionCode_e actionCode,
                      const std::string& surname,
                      const std::string& name,
+                     const boost::optional<UpdateDocInfo>& doc,
                      const std::string& qryRef = "");
 
     const std::string& surname() const;
     const std::string& name() const;
+    const boost::optional<UpdatePaxDetails::UpdateDocInfo>& doc() const;
     const std::string& qryRef() const;
 
 };

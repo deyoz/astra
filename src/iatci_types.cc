@@ -278,14 +278,33 @@ UpdateDetails::UpdateActionCode_e UpdateDetails::strToActionCode(const std::stri
 
 //-----------------------------------------------------------------------------
 
+UpdatePaxDetails::UpdateDocInfo::UpdateDocInfo(UpdateActionCode_e actionCode,
+                                               const std::string& docType,
+                                               const std::string& issueCountry,
+                                               const std::string& no,
+                                               const std::string& surname,
+                                               const std::string& name,
+                                               const std::string& gender,
+                                               const std::string& nationality,
+                                               const boost::gregorian::date& birthDate,
+                                               const boost::gregorian::date& expiryDate)
+    : UpdateDetails(actionCode),
+      PaxDetails::DocInfo(docType, issueCountry,
+                          no, surname, name,
+                          gender, nationality, birthDate, expiryDate)
+{}
+
+//
+
 UpdatePaxDetails::UpdatePaxDetails(UpdateActionCode_e actionCode,
                                    const std::string& surname,
                                    const std::string& name,
+                                   const boost::optional<UpdateDocInfo>& doc,
                                    const std::string& qryRef)
     : UpdateDetails(actionCode),
-      m_surname(surname), m_name(name), m_qryRef(qryRef)
-{
-}
+      m_surname(surname), m_name(name),
+      m_doc(doc), m_qryRef(qryRef)
+{}
 
 const std::string& UpdatePaxDetails::surname() const
 {
@@ -295,6 +314,11 @@ const std::string& UpdatePaxDetails::surname() const
 const std::string& UpdatePaxDetails::name() const
 {
     return m_name;
+}
+
+const boost::optional<UpdatePaxDetails::UpdateDocInfo>& UpdatePaxDetails::doc() const
+{
+    return m_doc;
 }
 
 const std::string& UpdatePaxDetails::qryRef() const

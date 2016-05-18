@@ -620,6 +620,22 @@ void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetai
     SetEdiFullSegment(pMes, SegmElement("UBD"), ubd.str());
 }
 
+void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdatePaxDetails::UpdateDocInfo &updDoc)
+{
+    std::ostringstream uap;
+    uap << updDoc.actionCodeAsString() << "+";
+    uap << ":::" << Dates::ddmmrr(updDoc.birthDate())
+        << ":::" << updDoc.nationality() << "++";
+    uap << updDoc.docType() << ":"
+        << updDoc.no() << ":"
+        << updDoc.issueCountry() << ":::"
+        << Dates::ddmmrr(updDoc.expiryDate()) << ":"
+        << updDoc.gender() << "::::::"
+        << updDoc.surname() << ":"
+        << updDoc.name();
+    SetEdiFullSegment(pMes, SegmElement("UAP"), uap.str());
+}
+
 void viewSrpElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatRequestDetails& seatReqDetails)
 {
     std::ostringstream srp;

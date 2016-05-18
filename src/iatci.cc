@@ -20,6 +20,7 @@
 
 #include <serverlib/dates.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/savepoint.h>
 #include <serverlib/dump_table.h>
 
 #include <boost/foreach.hpp>
@@ -28,6 +29,8 @@
 #define NICKTRACE ANTON_TRACE
 #include <serverlib/slogger.h>
 
+using namespace astra_api;
+using namespace astra_api::xml_entities;
 
 static iatci::CkiParams getDebugCkiParams()
 {
@@ -114,7 +117,8 @@ static iatci::CkuParams getDebugCkuParams()
 
     iatci::UpdatePaxDetails updPax(iatci::UpdateDetails::Replace,
                                    "IVANOV",
-                                   "SERGEI");
+                                   "SERGEI",
+                                   boost::none);
 
     iatci::UpdateSeatDetails updSeat(iatci::UpdateDetails::Replace,
                                      "15B");
@@ -224,11 +228,6 @@ namespace
         TSegInfo seg;
         CheckIn::TPaxItem pax;
     };
-
-    bool isSeg4EdiTCkin(const TSegInfo& seg)
-    {
-        return (seg.point_dep == -1 && seg.point_arv == -1);
-    }
 
     static TSegInfo segFromNode(xmlNodePtr segNode)
     {
@@ -377,6 +376,7 @@ static edifact::KickInfo getIatciKickInfo(xmlNodePtr reqNode, xmlNodePtr ediResN
 
 static boost::optional<iatci::CkiParams> getCkiParams(xmlNodePtr reqNode)
 {
+    // TODO переделать на CheckInTabs
     std::vector<TPaxSegInfo> vPaxSeg = getPaxSegs(reqNode);
     if(vPaxSeg.size() < 2) {
         ProgTrace(TRACE0, "%s: At least 2 segments must be present in the query for iatci, but there is %zu",
@@ -386,11 +386,6 @@ static boost::optional<iatci::CkiParams> getCkiParams(xmlNodePtr reqNode)
 
     const TPaxSegInfo& lastPaxSeg   = vPaxSeg.at(vPaxSeg.size() - 1); // Последний сегмент в запросе
     const TPaxSegInfo& penultPaxSeg = vPaxSeg.at(vPaxSeg.size() - 2); // Предпоследний сегмент в запросе
-
-    // последний сегмент запроса должен быть предназначен для Edifact iatci
-    ASSERT(isSeg4EdiTCkin(lastPaxSeg.seg));
-    // а предпоследний - нет
-    ASSERT(!isSeg4EdiTCkin(penultPaxSeg.seg));
 
     iatci::OriginatorDetails origin(penultPaxSeg.seg.fltInfo.airline,
                                     penultPaxSeg.seg.airp_dep);
@@ -421,6 +416,7 @@ static boost::optional<iatci::CkiParams> getCkiParams(xmlNodePtr reqNode)
 
 static boost::optional<iatci::CkxParams> getCkxParams(xmlNodePtr reqNode)
 {
+    // TODO переделать на CheckInTabs
     std::vector<TPaxSegInfo> vPaxSeg = getPaxSegs(reqNode);
     if(vPaxSeg.size() < 2) {
         ProgTrace(TRACE0, "%s: At least 2 segments must be present in the query for iatci, but there is %zu",
@@ -430,11 +426,6 @@ static boost::optional<iatci::CkxParams> getCkxParams(xmlNodePtr reqNode)
 
     const TPaxSegInfo& lastPaxSeg   = vPaxSeg.at(vPaxSeg.size() - 1); // Последний сегмент в запросе
     const TPaxSegInfo& penultPaxSeg = vPaxSeg.at(vPaxSeg.size() - 2); // Предпоследний сегмент в запросе
-
-    // последний сегмент запроса должен быть предназначен для Edifact iatci
-    ASSERT(isSeg4EdiTCkin(lastPaxSeg.seg));
-    // а предпоследний - нет
-    ASSERT(!isSeg4EdiTCkin(penultPaxSeg.seg));
 
     std::string origAirline = penultPaxSeg.seg.fltInfo.airline;
     std::string origAirport = penultPaxSeg.seg.airp_dep;
@@ -468,16 +459,101 @@ static boost::optional<iatci::CkxParams> getCkxParams(xmlNodePtr reqNode)
     return iatci::CkxParams(origin, pax, flight);
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace {
+class IatciPaxSeg
+{
+    iatci::FlightDetails m_seg;
+    iatci::PaxDetails m_pax;
+
+public:
+    IatciPaxSeg(const iatci::FlightDetails& seg,
+                const iatci::PaxDetails& pax)
+        : m_seg(seg), m_pax(pax)
+    {}
+
+    static IatciPaxSeg read(int grpId)
+    {
+        LogTrace(TRACE3) << "read for grpId: " << grpId;
+        std::list<iatci::FlightDetails> iatciSeg = iatci::IatciDb::readSeg(grpId);
+        ASSERT(!iatciSeg.empty());
+        std::list<iatci::PaxDetails>    iatciPax = iatci::IatciDb::readPax(grpId);
+        ASSERT(iatciPax.size() == 1);
+
+        return IatciPaxSeg(iatciSeg.front(), iatciPax.front());
+    }
+
+    const iatci::FlightDetails& seg() const { return m_seg; }
+    const iatci::PaxDetails&    pax() const { return m_pax; }
+};
+} //namespace
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
+{
+    boost::optional<astra_entities::PaxInfo> changedPax;
+
+    XmlCheckInTabs iatciTabs(findNodeR(reqNode, "iatci_segments"));
+    for(const XmlCheckInTab& tab: iatciTabs.tabs()) {
+        std::list<astra_entities::PaxInfo> lPax = tab.lPax();
+        if(!lPax.empty())
+        {
+            tst();
+            // пока умеем работать с одним пассажиром
+            const astra_entities::PaxInfo& pax = lPax.front();
+
+            // TODO пока обрабатываем только были ли изменения в документе
+            if(pax.m_doc) {
+                tst();
+                changedPax = pax;
+            }
+        }
+    }
+
+    if(changedPax && changedPax->m_doc)
+    {
+        tst();
+        XmlCheckInTab firstTab(NodeAsNode("segments/segment", reqNode));
+        IatciPaxSeg iatciPaxSeg = IatciPaxSeg::read(firstTab.seg().m_grpId);
+
+        iatci::UpdatePaxDetails::UpdateDocInfo
+                updDoc(iatci::UpdateDetails::Replace,
+                       changedPax->m_doc->m_type,
+                       changedPax->m_doc->m_country,
+                       changedPax->m_doc->m_num,
+                       changedPax->m_doc->m_surname,
+                       changedPax->m_doc->m_name,
+                       changedPax->m_doc->m_gender,
+                       changedPax->m_doc->m_citizenship,
+                       changedPax->m_doc->m_birthDate,
+                       changedPax->m_doc->m_expiryDate);
+
+        iatci::UpdatePaxDetails
+                updPax(iatci::UpdateDetails::Replace,
+                       changedPax->m_surname,
+                       changedPax->m_name,
+                       updDoc);
+
+        tst();
+        return iatci::CkuParams(iatci::OriginatorDetails("ЮТ", "ДМД"), // TODO
+                                iatciPaxSeg.pax(),
+                                iatciPaxSeg.seg(),
+                                boost::none,
+                                updPax);
+    }
+
+    tst();
+    return boost::none;
+}
+
 static iatci::PlfParams getPlfParams(int grpId)
 {
-    std::list<iatci::FlightDetails> iatciSeg = iatci::IatciDb::readSeg(grpId);
-    ASSERT(!iatciSeg.empty());
-    std::list<iatci::PaxDetails>    iatciPax = iatci::IatciDb::readPax(grpId);
-    ASSERT(iatciPax.size() == 1);
-
+    IatciPaxSeg iatciPaxSeg = IatciPaxSeg::read(grpId);
     return iatci::PlfParams(iatci::OriginatorDetails("ЮТ", "ДМД"), // TODO
-                            iatciPax.front(),
-                            iatciSeg.front());
+                            iatciPaxSeg.pax(),
+                            iatciPaxSeg.seg());
 }
 
 static void SaveIatciXmlResToDb(const std::list<iatci::Result>& lRes,
@@ -574,13 +650,13 @@ static int SaveIatciPax(const std::list<iatci::Result>& lRes,
 
 //---------------------------------------------------------------------------------------
 
-void IatciInterface::DispatchCheckInRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
+IatciInterface::RequestType IatciInterface::ClassifyCheckInRequest(xmlNodePtr reqNode)
 {
     xmlNodePtr segNode = NodeAsNode("segments/segment", reqNode);
     xmlNodePtr grpIdNode = findNode(segNode, "grp_id");
     if(grpIdNode == NULL) {
         LogTrace(TRACE3) << "Checkin request detected!";
-        return InitialRequest(reqNode, ediResNode);
+        return IatciInterface::Cki;
     } else {
         xmlNodePtr paxesNode = findNode(segNode, "passengers");
         if(paxesNode != NULL) {
@@ -589,17 +665,55 @@ void IatciInterface::DispatchCheckInRequest(xmlNodePtr reqNode, xmlNodePtr ediRe
                 xmlNodePtr refuseNode = findNode(paxNode, "refuse");
                 if(refuseNode != NULL && !NodeIsNULL(refuseNode)) {
                     LogTrace(TRACE3) << "Cancel request detected!";
-                    return CancelRequest(reqNode, ediResNode);
+                    return IatciInterface::Ckx;
                 }
             }
         }
 
         LogTrace(TRACE3) << "Update request detected!";
-        return UpdateRequest(reqNode, ediResNode);
+        return IatciInterface::Cku;
     }
 
     TST();
     ASSERT(false); // throw always
+}
+
+bool IatciInterface::DispatchCheckInRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
+{
+    RequestType reqType = ClassifyCheckInRequest(reqNode);
+    switch(reqType)
+    {
+    case Cki:
+        return InitialRequest(reqNode, ediResNode);
+    case Cku:
+        return UpdateRequest(reqNode, ediResNode);
+    case Ckx:
+        return CancelRequest(reqNode, ediResNode);
+    default:
+        break;
+    }
+
+    TST();
+    ASSERT(false); // throw always
+
+    return false;
+}
+
+// функция проверяет, будет ли послан iatci-запрос на регистрацию(checkin,update,cancel)
+// причём запрос может быть не послан только в случае update, если изменения не затронули
+// edifact-вкладки
+bool IatciInterface::WillBeSentCheckInRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
+{
+    RequestType reqType = ClassifyCheckInRequest(reqNode);
+    if(reqType == Cku) {
+        if(getCkuParams(reqNode)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void IatciInterface::InitialRequest(XMLRequestCtxt* ctxt,
@@ -613,23 +727,13 @@ void IatciInterface::InitialRequest(XMLRequestCtxt* ctxt,
                             AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface"));
 }
 
-bool IatciInterface::NeedSendIatciRequest(xmlNodePtr reqNode)
+bool IatciInterface::MayNeedSendIatci(xmlNodePtr reqNode)
 {
-    std::vector<TSegInfo> vSeg = getSegs(reqNode);
-    if(vSeg.size() < 2) {
-        ProgTrace(TRACE1, "%s: At least 2 segments must be present in the query for iatci, but there is %zu",
-                           __FUNCTION__, vSeg.size());
-        return boost::none;
-    }
-
-    const TSegInfo& lastSeg   = vSeg.at(vSeg.size() - 1); // Последний сегмент в запросе
-    const TSegInfo& penultSeg = vSeg.at(vSeg.size() - 2); // Предпоследний сегмент в запросе
-
-    // последний сегмент запроса должен быть предназначен для Edifact iatci, а предпоследний - нет
-    return (isSeg4EdiTCkin(lastSeg) && !isSeg4EdiTCkin(penultSeg));
+    XmlCheckInTabs tabs(findNodeR(reqNode, "segments"));
+    return tabs.containsEdiTab();
 }
 
-void IatciInterface::InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
+bool IatciInterface::InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 {
     boost::optional<iatci::CkiParams> ckiParams = getCkiParams(reqNode);
     ASSERT(ckiParams);
@@ -645,6 +749,8 @@ void IatciInterface::InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
         LogTrace(TRACE3) << "throw TlgToBePostponed for edi_session=" << sessIda;
         throw TlgHandling::TlgToBePostponed(sessIda);
     }
+
+    return true; /*req was sent*/
 }
 
 void IatciInterface::UpdateRequest(XMLRequestCtxt* ctxt,
@@ -658,9 +764,32 @@ void IatciInterface::UpdateRequest(XMLRequestCtxt* ctxt,
                             AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface"));
 }
 
-void IatciInterface::UpdateRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
+bool IatciInterface::UpdateRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 {
-    // TODO!
+    // запрос на Update может не затронуть edifact-сегменты:
+    // в этом случае ckuParams будут отсутствовать
+    boost::optional<iatci::CkuParams> ckuParams = getCkuParams(reqNode);
+    if(ckuParams)
+    {
+        edifact::KickInfo kickInfo = getIatciKickInfo(reqNode, ediResNode);
+        edilib::EdiSessionId_t sessIda = edifact::SendCkuRequest(ckuParams.get(),
+                                                                 getIatciPult(),
+                                                                 getIatciRequestContext(kickInfo),
+                                                                 kickInfo);
+
+        if(TReqInfo::Instance()->api_mode)
+        {
+            LogTrace(TRACE3) << "throw TlgToBePostponed for edi_session=" << sessIda;
+            throw TlgHandling::TlgToBePostponed(sessIda);
+        }
+
+        return true; /*req was sent*/
+    }
+
+    // выставим "was_sent_iatci" в значение false, т.к. запрос не был послан
+    ReqParams(reqNode).setBoolParam("was_sent_iatci", false);
+
+    return false; /*req was NOT sent*/
 }
 
 void IatciInterface::CancelRequest(XMLRequestCtxt* ctxt,
@@ -674,7 +803,7 @@ void IatciInterface::CancelRequest(XMLRequestCtxt* ctxt,
                             AstraEdifact::createKickInfo(ASTRA::NoExists, "IactiInterface"));
 }
 
-void IatciInterface::CancelRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
+bool IatciInterface::CancelRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 {
     tst();
     boost::optional<iatci::CkxParams> ckxParams = getCkxParams(reqNode);
@@ -691,6 +820,8 @@ void IatciInterface::CancelRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
         LogTrace(TRACE3) << "throw TlgToBePostponed for edi_session=" << sessIda;
         throw TlgHandling::TlgToBePostponed(sessIda);
     }
+
+    return true; /*req was sent*/
 }
 
 void IatciInterface::ReprintRequest(XMLRequestCtxt* ctxt,
@@ -753,6 +884,7 @@ void IatciInterface::UpdateKickHandler(xmlNodePtr reqNode, xmlNodePtr resNode,
                                        const std::list<iatci::Result>& lRes)
 {
     FuncIn(UpdateKickHandler);
+    DoKickAction(reqNode, resNode, lRes, "iatci_cku_result", ActSavePax);
     FuncOut(UpdateKickHandler);
 }
 
@@ -930,7 +1062,6 @@ void IatciInterface::DoKickAction(xmlNodePtr reqNode, xmlNodePtr resNode,
             } else {
                 LogError(STDLOG) << "SavePax returns an error!";
             }
-
             break;
 
         case ActRollbackStatus:
@@ -940,7 +1071,7 @@ void IatciInterface::DoKickAction(xmlNodePtr reqNode, xmlNodePtr resNode,
 
         case ActLoadPax:
             tst();
-            xmlNewBoolChild(termReqNode, "need_sync", false);
+            ReqParams(termReqNode).setBoolParam("need_sync", false);
             SaveIatciPax(lRes, ediResNode, termReqNode, resNode);
             CheckInInterface::instance()->LoadPax(NULL, termReqNode, resNode);
             break;

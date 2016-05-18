@@ -212,6 +212,11 @@ void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateSeatDetails&
 void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetails& updBaggage);
 
 /**
+ * @brief make an UAP element
+*/
+void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdatePaxDetails::UpdateDocInfo &updDoc);
+
+/**
  * @brief makes a SRP element
 */
 void viewSrpElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatRequestDetails& seatReqDetails);

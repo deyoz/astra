@@ -710,7 +710,7 @@ $(defmacro CANCEL_PAX
 }) #end-of-macro
 
 
-$(defmacro UPDATE_PAX
+$(defmacro UPDATE_PAX_DOC
     point_dep
     point_arv
     airp_dep
@@ -740,44 +740,7 @@ $(defmacro UPDATE_PAX
           <class>ù</class>
           <grp_id>$(grp_id)</grp_id>
           <tid>$(tid)</tid>
-          <passengers>
-            <pax>
-              <pax_id>$(pax_id)</pax_id>
-              <surname>$(surname)</surname>
-              <name>$(name)</name>
-              <pers_type>Çá</pers_type>
-              <refuse/>
-              <ticket_no>$(tickno)</ticket_no>
-              <coupon_no>$(cpnno)</coupon_no>
-              <ticket_rem>TKNE</ticket_rem>
-              <ticket_confirm>1</ticket_confirm>
-              <document>
-                <type>P</type>
-                <issue_country>RUS</issue_country>
-                <no>7774441111</no>
-                <nationality>RUS</nationality>
-                <birth_date>01.05.1976 00:00:00</birth_date>
-                <gender>M</gender>
-                <surname>$(surname)</surname>
-                <first_name>$(name)</first_name>
-              </document>
-              <doco/>
-              <addresses/>
-              <bag_pool_num/>
-              <subclass>ù</subclass>
-              <tid>$(tid)</tid>
-              <rems>
-                <rem>
-                  <rem_code>FOID</rem_code>
-                  <rem_text>FOID PP7774441111</rem_text>
-                </rem>
-                <rem>
-                  <rem_code>OTHS</rem_code>
-                  <rem_text>OTHS HK1 DOCS/7774441110/PS</rem_text>
-                </rem>
-              </rems>
-            </pax>
-          </passengers>
+          <passengers/>
           <paid_bag_emd/>
         </segment>
         <segment>
@@ -788,7 +751,33 @@ $(defmacro UPDATE_PAX
           <class>ù</class>
           <grp_id>-1</grp_id>
           <tid>0</tid>
-          <passengers/>
+          <passengers>
+            <pax>
+              <pax_id>-1</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>Çá</pers_type>
+              <refuse/>
+              <ticket_no>$(tickno)</ticket_no>
+              <coupon_no>$(cpnno)</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document>
+                  <type>P</type>
+                  <no>99999999999</no>
+                  <nationality>RUS</nationality>
+                  <birth_date>01.05.1976 00:00:00</birth_date>
+                  <expiry_date>31.12.2049 00:00:00</expiry_date>
+                  <surname>$(surname)</surname>
+                  <first_name>$(name)</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>ù</subclass>
+              <tid>0</tid>
+            </pax>
+          </passengers>
           <paid_bag_emd/>
         </segment>
       </segments>
@@ -886,6 +875,85 @@ UNZ+1+$(last_edifact_ref)0001"
 
 }) #end-of-macro
 
+
+$(defmacro UPDATE_PAX_DOC_NON_IATCI
+    point_dep
+    point_arv
+    airp_dep
+    airp_arv
+    grp_id
+    pax_id
+    tid
+    airp_dep2
+    airp_arv2
+    surname
+    name
+    tickno
+    cpnno
+{
+!! capture=on
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>ù</class>
+          <grp_id>$(grp_id)</grp_id>
+          <tid>$(tid)</tid>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id)</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>Çá</pers_type>
+              <refuse/>
+              <ticket_no>$(tickno)</ticket_no>
+              <coupon_no>$(cpnno)</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document>
+                <type>P</type>
+                <no>99999999999</no>
+                <nationality>RUS</nationality>
+                <birth_date>01.05.1976 00:00:00</birth_date>
+                <expiry_date>31.12.2049 00:00:00</expiry_date>
+                <surname>$(surname)</surname>
+                <first_name>$(name)</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>ù</subclass>
+              <tid>$(tid)</tid>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+        <segment>
+          <point_dep>-1</point_dep>
+          <point_arv>-1</point_arv>
+          <airp_dep>$(airp_dep2)</airp_dep>
+          <airp_arv>$(airp_arv2)</airp_arv>
+          <class>ù</class>
+          <grp_id>-1</grp_id>
+          <tid>0</tid>
+          <passengers/>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro
 
 #########################################################################################
 # ¸1 Ø•‡¢®Á≠†Ô ‡•£®·‚‡†Ê®Ô
@@ -2275,7 +2343,152 @@ $(lastRedisplay)
 $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
 
-$(UPDATE_PAX $(get point_dep) $(get point_arv) ÑåÑ èãä
-             $(get grp_id) $(get pax_id) $(get tid) èãä ëéó
-             REPIN IVAN 2986120030297 1)
+$(UPDATE_PAX_DOC $(get point_dep) $(get point_arv) ÑåÑ èãä
+                 $(get grp_id) $(get pax_id) $(get tid) èãä ëéó
+                 REPIN IVAN 4216120030297 2)
 
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:96:2:IA+$(last_edifact_ref)"
+LOR+ûí:ÑåÑ"
+FDQ+ë7+1027+$(yymmdd)+èãä+ëéó"
+PPD+REPIN+A++IVAN"
+UAP+R+:::010576:::RUS++P:99999999999::::311249:::::::REPIN:IVAN"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+ë7+1027+$(yymmdd)1000+èãä+ëéó++T"
+RAD+U+O"
+PPD+REPIN+A++IVAN"
+PFD+xx+:ù"
+PSI++TKNE::42161200302972"
+PAP+:::010576:::RUS++P:99999999999::::311249:::::::REPIN:IVAN"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!! capture=on
+$(lastRedisplay)
+
+
+>> lines=auto
+          <pax>
+            <pax_id>-1</pax_id>
+            <surname>REPIN</surname>
+            <name>IVAN</name>
+            <pers_type>Çá</pers_type>
+            <seat_no>xx</seat_no>
+            <seat_type/>
+            <seats>1</seats>
+            <refuse/>
+            <reg_no>1</reg_no>
+            <subclass>ù</subclass>
+            <bag_pool_num/>
+            <tid>0</tid>
+            <ticket_no>4216120030297</ticket_no>
+            <coupon_no>2</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <document>
+              <type>P</type>
+              <issue_country/>
+              <no>99999999999</no>
+              <nationality>RUS</nationality>
+              <birth_date>10.03.1986 00:00:00</birth_date>
+              <gender/>
+              <surname>REPIN</surname>
+              <first_name>IVAN</first_name>
+              <expiry_date>31.12.2049 00:00:00</expiry_date>
+            </document>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <rems/>
+          </pax>
+
+
+%%
+#########################################################################################
+# ¸11 é°≠Æ¢´•≠®• §†≠≠ÎÂ ‡•£®·‚‡†Ê®® °•ß IATCI
+###
+
+
+$(init)
+$(init_jxt_pult åéÇêéå)
+$(login)
+$(init_dcs ë7 TA OA)
+$(init_eds ûí UTET UTDC)
+
+
+$(PREPARE_FLIGHT_3 ûí 103 ÑåÑ èãä ë7 1027 èãä ëéó REPIN IVAN)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep) 2986120030297)
+$(CHECK_ADV_TRIPS_LIST $(get point_dep) ûí 103 ÑåÑ)
+$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ûí 103 ÑåÑ èãä
+                                                           ë7 1027 èãä ëéó
+                                                           REPIN IVAN
+                                                           2986120030297)
+
+$(ETS_COS_EXCHANGE 2986120030297 1 CK)
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+$(lastRedisplay)
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+LOR+ûí:ÑåÑ"
+FDQ+ë7+1027+$(yymmdd)+èãä+ëéó++ûí+103+$(yymmdd)++ÑåÑ+èãä"
+PPD+REPIN+A++IVAN"
+PSD++7A"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+ë7+1027+$(yymmdd)1000+èãä+ëéó++T"
+RAD+I+O"
+PPD+REPIN+A++IVAN"
+PFD+xx+:ù"
+PSI++TKNE::42161200302972"
+PAP+:::100386:::RUS++PP:5408123432:RUS:::311249:M::::::REPIN:IVAN"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!!
+$(lastRedisplay)
+
+$(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
+$(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
+
+$(UPDATE_PAX_DOC_NON_IATCI $(get point_dep) $(get point_arv) ÑåÑ èãä
+                           $(get grp_id) $(get pax_id) $(get tid) èãä ëéó
+                           REPIN IVAN 2986120030297 1)
+
+>> lines=auto
+            <document>
+              <type>P</type>
+              <no>99999999999</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.1976 00:00:00</birth_date>
+              <expiry_date>31.12.2049 00:00:00</expiry_date>
+              <surname>REPIN</surname>
+              <first_name>IVAN</first_name>
+            </document>

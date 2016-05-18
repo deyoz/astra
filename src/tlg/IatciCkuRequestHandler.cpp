@@ -208,6 +208,7 @@ iatci::CkuParams IatciCkuParamsMaker::makeParams() const
         updatePaxDetails = iatci::UpdatePaxDetails(iatci::UpdatePaxDetails::strToActionCode(m_upd->m_actionCode),
                                                    m_upd->m_surname,
                                                    m_upd->m_name,
+                                                   boost::none,// TODO
                                                    m_upd->m_passQryRef);
     }
 
