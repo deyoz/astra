@@ -1104,8 +1104,8 @@ XmlRem XmlEntityReader::readRem(xmlNodePtr remNode)
     ASSERT(remNode);
 
     XmlRem rem;
-    rem.rem_code = NodeAsString("rem_code", remNode);
-    rem.rem_text = NodeAsString("rem_text", remNode);
+    rem.rem_code = NodeAsString("rem_code", remNode, "");
+    rem.rem_text = NodeAsString("rem_text", remNode, "");
     return rem;
 }
 
