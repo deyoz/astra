@@ -1143,7 +1143,7 @@ boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
 
     std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
     if(!birthDate.empty()) {
-        pap.m_birthDate = Dates::DateFromYYMMDD(birthDate,
+        pap.m_birthDate = Dates::DateFromDDMMYY(birthDate,
                                                 Dates::YY2YYYY_WraparoundFutureDate,
                                                 Dates::currentDate());
     }
@@ -1177,7 +1177,7 @@ boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
 
     std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
     if(!birthDate.empty()) {
-        uap.m_birthDate = Dates::DateFromYYMMDD(birthDate,
+        uap.m_birthDate = Dates::DateFromDDMMYY(birthDate,
                                                 Dates::YY2YYYY_WraparoundFutureDate,
                                                 Dates::currentDate());
     }

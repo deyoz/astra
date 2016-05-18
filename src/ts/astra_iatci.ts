@@ -2365,7 +2365,7 @@ RAD+U+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:ù"
 PSI++TKNE::42161200302972"
-PAP+:::010576:::RUS++P:99999999999::::311249:::::::REPIN:IVAN"
+PAP+:::010576:::RUS++P:99999999999:USA:::311249:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2396,11 +2396,11 @@ $(lastRedisplay)
             <ticket_confirm>1</ticket_confirm>
             <document>
               <type>P</type>
-              <issue_country/>
+              <issue_country>USA</issue_country>
               <no>99999999999</no>
               <nationality>RUS</nationality>
-              <birth_date>10.03.1986 00:00:00</birth_date>
-              <gender/>
+              <birth_date>01.05.1976 00:00:00</birth_date>
+              <gender>M</gender>
               <surname>REPIN</surname>
               <first_name>IVAN</first_name>
               <expiry_date>31.12.2049 00:00:00</expiry_date>

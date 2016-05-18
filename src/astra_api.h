@@ -134,7 +134,7 @@ struct XmlPaxDoc
     std::string second_name;
     std::string nationality;
     std::string gender;
-    std::string issueCountry;
+    std::string issue_country;
 
     astra_entities::DocInfo toDoc() const;
 };

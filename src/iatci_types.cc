@@ -1,6 +1,7 @@
 #include "iatci_types.h"
 #include "iatci_help.h"
 #include "xml_unit.h"
+#include "basic.h"
 
 #include <serverlib/exception.h>
 #include <serverlib/xml_tools.h>
@@ -1248,11 +1249,11 @@ void Result::toXml(xmlNodePtr node) const
             NewTextChild(docNode, "issue_country", pax()->doc()->issueCountry());
             NewTextChild(docNode, "no", pax()->doc()->no());
             NewTextChild(docNode, "nationality", pax()->doc()->nationality());
-            NewTextChild(docNode, "birth_date", "10.03.1986 00:00:00");
+            NewTextChild(docNode, "birth_date", BASIC::boostDateToAstraFormatStr(pax()->doc()->birthDate()));
             NewTextChild(docNode, "gender", pax()->doc()->gender());
             NewTextChild(docNode, "surname", pax()->doc()->surname());
             NewTextChild(docNode, "first_name", pax()->doc()->name());
-            NewTextChild(docNode, "expiry_date", "31.12.2049 00:00:00");
+            NewTextChild(docNode, "expiry_date", BASIC::boostDateToAstraFormatStr(pax()->doc()->expiryDate()));
         }
         else
         {

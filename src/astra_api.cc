@@ -30,31 +30,6 @@ using namespace Ticketing::TickExceptions;
 
 namespace {
 
-/* FormatStr = 'DD.MM.YYYY HH24:MI:SS' */
-boost::posix_time::ptime boostDateTimeFromAstraFormatStr(const std::string& str)
-{
-    if(str.length() != 19) { // DD.MM.YYYY HH24:MI:SS
-        LogWarning(STDLOG) << "Invalid date/time: " << str;
-        return boost::posix_time::ptime();
-    }
-    BASIC::TDateTime dt = ASTRA::NoExists;
-    ASSERT(!BASIC::StrToDateTime(str.c_str(), dt));
-    if(dt == ASTRA::NoExists) {
-        LogWarning(STDLOG) << "Invalid date/time: " << str;
-        return boost::posix_time::ptime();
-    }
-    return BASIC::DateTimeToBoost(dt);
-}
-
-/* FormatStr = 'DD.MM.YYYY HH24:MI:SS' */
-std::string boostDateToAstraFormatStr(const boost::gregorian::date& d)
-{
-    if(d.is_not_a_date()) {
-        return "";
-    }
-    return HelpCpp::string_cast(d, "%d.%m.%Y 00:00:00");
-}
-
 void fillPaxTrip(XmlTrip& paxTrip, const iatci::CkiParams& ckiParams)
 {
     paxTrip.status = "K"; // всегда "K" ?
@@ -179,15 +154,14 @@ LoadPaxXmlResult AstraEngine::SavePax(int pointDep, const XmlTrip& paxTrip)
     NewTextChild(paxNode, "ticket_confirm", 0);
     if(pax.doc)
     {
-        //NewTextChild(paxNode, "document", pax.doc->no);
         xmlNodePtr docNode = newChild(paxNode, "document");
         NewTextChild(docNode, "type", pax.doc->type);
-        NewTextChild(docNode, "issue_country");
+        NewTextChild(docNode, "issue_country", pax.doc->issue_country);
         NewTextChild(docNode, "no", pax.doc->no);
-        NewTextChild(docNode, "nationality");
+        NewTextChild(docNode, "nationality", pax.doc->nationality);
         NewTextChild(docNode, "birth_date", pax.doc->birth_date);
         NewTextChild(docNode, "expiry_date", pax.doc->expiry_date);
-        NewTextChild(docNode, "gender");
+        NewTextChild(docNode, "gender", pax.doc->gender);
         NewTextChild(docNode, "surname", pax.doc->surname);
         NewTextChild(docNode, "first_name", pax.doc->first_name);
         NewTextChild(docNode, "second_name", pax.doc->second_name);
@@ -285,7 +259,7 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg)
         NewTextChild(docNode, "second_name", pax.doc->second_name);
         NewTextChild(docNode, "nationality", pax.doc->nationality);
         NewTextChild(docNode, "gender", pax.doc->gender);
-        NewTextChild(docNode, "issue_country", pax.doc->issueCountry);
+        NewTextChild(docNode, "issue_country", pax.doc->issue_country);
     }
 
     NewTextChild(paxNode, "doco");
@@ -602,13 +576,14 @@ iatci::Result updateIatciPax(const iatci::CkuParams& ckuParams)
             XmlPaxDoc newPaxDoc;
             newPaxDoc.no = doc.no();
             newPaxDoc.type = doc.docType();
-            newPaxDoc.birth_date = boostDateToAstraFormatStr(doc.birthDate());
-            newPaxDoc.expiry_date = boostDateToAstraFormatStr(doc.expiryDate());
+            newPaxDoc.birth_date = BASIC::boostDateToAstraFormatStr(doc.birthDate());
+            newPaxDoc.expiry_date = BASIC::boostDateToAstraFormatStr(doc.expiryDate());
             newPaxDoc.surname = doc.surname();
             newPaxDoc.first_name = doc.name();
             //newPaxDoc.second_name TODO
             newPaxDoc.nationality = doc.nationality();
-            newPaxDoc.issueCountry = doc.issueCountry();
+            newPaxDoc.issue_country = doc.issueCountry();
+            newPaxDoc.gender = doc.gender();
             paxForUpdate.doc = newPaxDoc;
         }
     }
@@ -748,14 +723,14 @@ bool ReqParams::getBoolParam(const std::string& param, bool nvl)
 astra_entities::DocInfo XmlPaxDoc::toDoc() const
 {
     return astra_entities::DocInfo(type,
-                                   issueCountry,
+                                   issue_country,
                                    no,
-                                   boostDateTimeFromAstraFormatStr(expiry_date).date(),
+                                   BASIC::boostDateTimeFromAstraFormatStr(expiry_date).date(),
                                    surname,
                                    first_name,
                                    second_name,
                                    nationality,
-                                   boostDateTimeFromAstraFormatStr(birth_date).date(),
+                                   BASIC::boostDateTimeFromAstraFormatStr(birth_date).date(),
                                    gender);
 }
 
@@ -1139,7 +1114,7 @@ XmlPaxDoc XmlEntityReader::readDoc(xmlNodePtr docNode)
         doc.type        = NodeAsString("type", docNode, "");
         doc.nationality = NodeAsString("nationality", docNode, "");
         doc.gender      = NodeAsString("gender", docNode, "");
-        doc.issueCountry= NodeAsString("issue_country", docNode, "");
+        doc.issue_country= NodeAsString("issue_country", docNode, "");
     }
     return doc;
 }
@@ -1441,7 +1416,7 @@ iatci::Result LoadPaxXmlResult::toIatci(iatci::Result::Action_e action,
     }
 
     ASSERT(!scd_local.empty());
-    boost::posix_time::ptime scd_dep_date_time = boostDateTimeFromAstraFormatStr(scd_local);
+    boost::posix_time::ptime scd_dep_date_time = BASIC::boostDateTimeFromAstraFormatStr(scd_local);
 
     boost::gregorian::date scd_dep_date = scd_dep_date_time.date();
     boost::gregorian::date scd_arr_date = boost::gregorian::date();
@@ -1467,15 +1442,15 @@ iatci::Result LoadPaxXmlResult::toIatci(iatci::Result::Action_e action,
     boost::optional<iatci::PaxDetails::DocInfo> paxDoc;
     if(pax.doc)
     {
-        boost::gregorian::date birthDate = boostDateTimeFromAstraFormatStr(pax.doc->birth_date).date(),
-                              expiryDate = boostDateTimeFromAstraFormatStr(pax.doc->expiry_date).date();
+        boost::gregorian::date birthDate = BASIC::boostDateTimeFromAstraFormatStr(pax.doc->birth_date).date(),
+                              expiryDate = BASIC::boostDateTimeFromAstraFormatStr(pax.doc->expiry_date).date();
         paxDoc = iatci::PaxDetails::DocInfo(pax.doc->type,
-                                            "",
+                                            pax.doc->issue_country,
                                             pax.doc->no,
                                             pax.doc->surname,
                                             pax.doc->first_name,
-                                            "",
-                                            "",
+                                            pax.doc->gender,
+                                            pax.doc->nationality,
                                             birthDate,
                                             expiryDate);
     }
