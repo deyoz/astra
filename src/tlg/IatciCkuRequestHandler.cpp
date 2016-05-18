@@ -35,6 +35,7 @@ class IatciCkuParamsMaker
     edifact::FdqElem m_fdq;
     edifact::PpdElem m_ppd;
     boost::optional<edifact::ChdElem> m_chd;
+    boost::optional<edifact::UapElem> m_uap;
     boost::optional<edifact::UpdElem> m_upd;
     boost::optional<edifact::UsdElem> m_usd;
     boost::optional<edifact::UbdElem> m_ubd;
@@ -44,6 +45,7 @@ public:
     void setFdq(const boost::optional<edifact::FdqElem>& fdq);
     void setPpd(const boost::optional<edifact::PpdElem>& ppd);
     void setChd(const boost::optional<edifact::ChdElem>& chd, bool required = false);
+    void setUap(const boost::optional<edifact::UapElem>& uap, bool required = false);
     void setUpd(const boost::optional<edifact::UpdElem>& upd, bool required = false);
     void setUsd(const boost::optional<edifact::UsdElem>& usd, bool required = false);
     void setUbd(const boost::optional<edifact::UbdElem>& ubd, bool required = false);
@@ -81,6 +83,9 @@ void IatciCkuRequestHandler::parse()
     ckuParamsMaker.setUsd(readEdiUsd(pMes()));
     ckuParamsMaker.setUbd(readEdiUbd(pMes()));
 
+    EdiPointHolder apg_holder(pMes());
+    SetEdiPointToSegGrG(pMes(), 3, 0, "PROG_ERR");
+    ckuParamsMaker.setUap(readEdiUap(pMes()));
     m_ckuParams = ckuParamsMaker.makeParams();
 }
 
@@ -153,6 +158,13 @@ void IatciCkuParamsMaker::setChd(const boost::optional<edifact::ChdElem>& chd, b
     m_chd = chd;
 }
 
+void IatciCkuParamsMaker::setUap(const boost::optional<edifact::UapElem>& uap, bool required)
+{
+    if(required)
+        ASSERT(uap);
+    m_uap = uap;
+}
+
 void IatciCkuParamsMaker::setUpd(const boost::optional<edifact::UpdElem>& upd, bool required)
 {
     if(required)
@@ -203,13 +215,39 @@ iatci::CkuParams IatciCkuParamsMaker::makeParams() const
         }
     }
 
+    boost::optional<iatci::UpdatePaxDetails::UpdateDocInfo> updateDoc;
+    if(m_uap) {
+        updateDoc = iatci::UpdatePaxDetails::UpdateDocInfo(iatci::UpdateDetails::strToActionCode(m_uap->m_actionCode),
+                                                           m_uap->m_docQualifier,
+                                                           m_uap->m_placeOfIssue,
+                                                           m_uap->m_docNumber,
+                                                           m_uap->m_surname,
+                                                           m_uap->m_name,
+                                                           m_uap->m_gender,
+                                                           m_uap->m_nationality,
+                                                           m_uap->m_birthDate,
+                                                           m_uap->m_expiryDate);
+    }
+
     boost::optional<iatci::UpdatePaxDetails> updatePaxDetails;
     if(m_upd) {
-        updatePaxDetails = iatci::UpdatePaxDetails(iatci::UpdatePaxDetails::strToActionCode(m_upd->m_actionCode),
+        tst();
+        updatePaxDetails = iatci::UpdatePaxDetails(iatci::UpdateDetails::strToActionCode(m_upd->m_actionCode),
                                                    m_upd->m_surname,
                                                    m_upd->m_name,
-                                                   boost::none,// TODO
+                                                   updateDoc,
                                                    m_upd->m_passQryRef);
+    } else {
+        tst();
+        if(m_uap) {
+            tst();
+            updatePaxDetails = iatci::UpdatePaxDetails(iatci::UpdateDetails::strToActionCode(m_uap->m_actionCode),
+                                                       m_ppd.m_passSurname,
+                                                       m_ppd.m_passName,
+                                                       updateDoc,
+                                                       m_ppd.m_passQryRef);
+        }
+
     }
 
     boost::optional<iatci::UpdateSeatDetails> updateSeatDetails;

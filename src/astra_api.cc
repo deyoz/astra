@@ -46,6 +46,15 @@ boost::posix_time::ptime boostDateTimeFromAstraFormatStr(const std::string& str)
     return BASIC::DateTimeToBoost(dt);
 }
 
+/* FormatStr = 'DD.MM.YYYY HH24:MI:SS' */
+std::string boostDateToAstraFormatStr(const boost::gregorian::date& d)
+{
+    if(d.is_not_a_date()) {
+        return "";
+    }
+    return HelpCpp::string_cast(d, "%d.%m.%Y 00:00:00");
+}
+
 void fillPaxTrip(XmlTrip& paxTrip, const iatci::CkiParams& ckiParams)
 {
     paxTrip.status = "K"; // всегда "K" ?
@@ -181,6 +190,7 @@ LoadPaxXmlResult AstraEngine::SavePax(int pointDep, const XmlTrip& paxTrip)
         NewTextChild(docNode, "gender");
         NewTextChild(docNode, "surname", pax.doc->surname);
         NewTextChild(docNode, "first_name", pax.doc->first_name);
+        NewTextChild(docNode, "second_name", pax.doc->second_name);
     }
 
     NewTextChild(paxNode, "doco");
@@ -265,7 +275,6 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg)
     NewTextChild(paxNode, "ticket_confirm", 0);
     if(pax.doc)
     {
-        //NewTextChild(paxNode, "document", pax.doc->no);
         xmlNodePtr docNode = newChild(paxNode, "document");
         NewTextChild(docNode, "no", pax.doc->no);
         NewTextChild(docNode, "type", pax.doc->type);
@@ -273,6 +282,10 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg)
         NewTextChild(docNode, "expiry_date", pax.doc->expiry_date);
         NewTextChild(docNode, "surname", pax.doc->surname);
         NewTextChild(docNode, "first_name", pax.doc->first_name);
+        NewTextChild(docNode, "second_name", pax.doc->second_name);
+        NewTextChild(docNode, "nationality", pax.doc->nationality);
+        NewTextChild(docNode, "gender", pax.doc->gender);
+        NewTextChild(docNode, "issue_country", pax.doc->issueCountry);
     }
 
     NewTextChild(paxNode, "doco");
@@ -545,7 +558,7 @@ iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams)
     LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(pointDep,
                                                                        paxTrip);
     if(loadPaxXmlRes.lSeg.empty()) {
-        // не смоги зарегистрировать
+        // не смогли зарегистрировать
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
     }
 
@@ -558,10 +571,56 @@ iatci::Result checkinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 {
     LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(reqNode, ediResNode);
     if(loadPaxXmlRes.lSeg.empty()) {
-        // не смоги зарегистрировать
+        // не смогли зарегистрировать
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
     }
     return loadPaxXmlRes.toIatci(iatci::Result::Checkin,
+                                 iatci::Result::Ok,
+                                 true/*afterSavePax*/);
+}
+
+iatci::Result updateIatciPax(const iatci::CkuParams& ckuParams)
+{
+    int pointDep = astra_api::findDepPointId(ckuParams.flight().depPort(),
+                                             ckuParams.flight().airline(),
+                                             ckuParams.flight().flightNum().get(),
+                                             ckuParams.flight().depDate());
+
+    LoadPaxXmlResult loadPaxXmlRes = LoadPax__(pointDep,
+                                               ckuParams.pax().surname(),
+                                               ckuParams.pax().name());
+
+    XmlSegment& paxSegForUpdate = loadPaxXmlRes.lSeg.front();
+    ASSERT(paxSegForUpdate.passengers.size() == 1);
+
+    XmlPax& paxForUpdate = paxSegForUpdate.passengers.front();
+    if(ckuParams.updPax()) {
+        tst();
+        if(ckuParams.updPax()->doc()) {
+            tst();
+            iatci::UpdatePaxDetails::UpdateDocInfo doc = *ckuParams.updPax()->doc();
+            XmlPaxDoc newPaxDoc;
+            newPaxDoc.no = doc.no();
+            newPaxDoc.type = doc.docType();
+            newPaxDoc.birth_date = boostDateToAstraFormatStr(doc.birthDate());
+            newPaxDoc.expiry_date = boostDateToAstraFormatStr(doc.expiryDate());
+            newPaxDoc.surname = doc.surname();
+            newPaxDoc.first_name = doc.name();
+            //newPaxDoc.second_name TODO
+            newPaxDoc.nationality = doc.nationality();
+            newPaxDoc.issueCountry = doc.issueCountry();
+            paxForUpdate.doc = newPaxDoc;
+        }
+    }
+
+    // SavePax
+    loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSegForUpdate);
+    if(loadPaxXmlRes.lSeg.empty()) {
+        // не смогли зарегистрировать
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
+    }
+
+    return loadPaxXmlRes.toIatci(iatci::Result::Update,
                                  iatci::Result::Ok,
                                  true/*afterSavePax*/);
 }

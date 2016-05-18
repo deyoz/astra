@@ -587,6 +587,9 @@ int findGrpIdByPaxId(int pointDep, int paxId);
 iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams);
 iatci::Result checkinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
+// обновление регистрационных данных
+iatci::Result updateIatciPax(const iatci::CkuParams& ckuParams);
+
 // отмена регистрации
 iatci::Result cancelCheckinIatciPax(const iatci::CkxParams& ckxParams);
 iatci::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);

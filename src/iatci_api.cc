@@ -147,10 +147,7 @@ Result cancelCheckin(tlgnum_t postponeTlgNum)
 
 Result updateCheckin(const CkuParams& ckuParams)
 {
-    // TODO вызов функций Астры
-    return Result::makeUpdateResult(Result::Ok,
-                                    ckuParams.flight(),
-                                    ckuParams.pax());
+    return astra_api::updateIatciPax(ckuParams);
 }
 
 Result reprintBoardingPass(const BprParams& bprParams)

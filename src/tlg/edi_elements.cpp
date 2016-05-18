@@ -369,4 +369,20 @@ std::ostream& operator<<(std::ostream &os, const PapElem &pap)
     return os;
 }
 
+std::ostream& operator<<(std::ostream &os, const UapElem &uap)
+{
+    os << "UAP: ";
+    os << "action code: " << uap.m_actionCode << "; ";
+    os << "birth date: " << uap.m_birthDate << "; ";
+    os << "nationality: " << uap.m_nationality << "; ";
+    os << "doc qualifier: " << uap.m_docQualifier << "; ";
+    os << "doc number: " << uap.m_docNumber << "; ";
+    os << "place of issue: " << uap.m_placeOfIssue << "; ";
+    os << "expiry date: " << uap.m_expiryDate << "; ";
+    os << "gender: " << uap.m_gender << "; ";
+    os << "surname: " << uap.m_surname << "; ";
+    os << "name: " << uap.m_name << "; ";
+    return os;
+}
+
 }//namespace edifact

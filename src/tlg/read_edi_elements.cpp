@@ -1127,9 +1127,6 @@ boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
         return boost::optional<PapElem>();
     }
 
-    std::string expiryDate = GetDBFName(pMes, DataElement(2380), CompElement("C700"));
-    std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
-
     PapElem pap;
     pap.m_nationality  = GetDBFName(pMes, DataElement(3207), CompElement("C060"));
     pap.m_docQualifier = GetDBFName(pMes, DataElement(7365), CompElement("C700"));
@@ -1138,16 +1135,56 @@ boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
     pap.m_gender       = GetDBFName(pMes, DataElement(6353), CompElement("C700"));
     pap.m_surname      = GetDBFName(pMes, DataElement(3808), CompElement("C700"));
     pap.m_name         = GetDBFName(pMes, DataElement(3809), CompElement("C700"));
+
+    std::string expiryDate = GetDBFName(pMes, DataElement(2380), CompElement("C700"));
     if(!expiryDate.empty()) {
         pap.m_expiryDate = Dates::ddmmrr(expiryDate);
     }
+
+    std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
     if(!birthDate.empty()) {
-        pap.m_birthDate = Dates::ddmmrr(birthDate);
+        pap.m_birthDate = Dates::DateFromYYMMDD(birthDate,
+                                                Dates::YY2YYYY_WraparoundFutureDate,
+                                                Dates::currentDate());
     }
 
     LogTrace(TRACE3) << pap;
 
     return pap;
+}
+
+boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder pap_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "UAP")) {
+        return boost::optional<UapElem>();
+    }
+
+    UapElem uap;
+    uap.m_actionCode = GetDBFName(pMes, DataElement(9858), CompElement("C031"));
+    uap.m_nationality  = GetDBFName(pMes, DataElement(3207), CompElement("C060"));
+    uap.m_docQualifier = GetDBFName(pMes, DataElement(7365), CompElement("C700"));
+    uap.m_docNumber    = GetDBFName(pMes, DataElement(1004), CompElement("C700"));
+    uap.m_placeOfIssue = GetDBFName(pMes, DataElement(3207), CompElement("C700"));
+    uap.m_gender       = GetDBFName(pMes, DataElement(6353), CompElement("C700"));
+    uap.m_surname      = GetDBFName(pMes, DataElement(3808), CompElement("C700"));
+    uap.m_name         = GetDBFName(pMes, DataElement(3809), CompElement("C700"));
+
+    std::string expiryDate = GetDBFName(pMes, DataElement(2380), CompElement("C700"));
+    if(!expiryDate.empty()) {
+        uap.m_expiryDate = Dates::ddmmrr(expiryDate);
+    }
+
+    std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
+    if(!birthDate.empty()) {
+        uap.m_birthDate = Dates::DateFromYYMMDD(birthDate,
+                                                Dates::YY2YYYY_WraparoundFutureDate,
+                                                Dates::currentDate());
+    }
+
+    LogTrace(TRACE3) << uap;
+
+    return uap;
 }
 
 } // namespace TickReader
