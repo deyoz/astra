@@ -15,7 +15,7 @@
 #include "emdoc.h"
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 #include "apis_utils.h"
 
 using namespace BASIC;
@@ -2047,4 +2047,58 @@ TDateTime getTimeTravel(const string &craft, const string &airp, const string &a
   if(!Qry.get().Eof && !Qry.get().FieldIsNULL("time_out_in"))
       result = Qry.get().FieldAsDateTime("time_out_in");
   return result;
+}
+
+const char* units[] = {"B", "K", "M", "G", "T", "P", "E", "Z", "Y"};
+const size_t units_size = sizeof(units) / sizeof(units[0]);
+
+double getFileSizeDouble(const string &str)
+{
+    double Result = NoExists;
+    if(
+            not str.empty() and
+            StrToFloat( str.substr(0, str.size() - 1).c_str(), Result ) != EOF
+      ) {
+        char c = *(upperc(str).end() - 1);
+        size_t i = 0;
+        for(; i < units_size; i++)
+            if(c == units[i][0]) break;
+        Result = Result * pow(1024, i);
+    }
+    return Result;
+}
+
+string getFileSizeStr(double size)
+{
+    if(size == 0) return "0";
+    if(size == NoExists) return string();
+
+    ostringstream result;
+
+    for(int i = 8; i >= 0; i--) {
+        double val = size / pow(1024, i);
+        if(round(val) != 0) {
+            double integral;
+            int fract = (int)(modf(val, &integral) * 100);
+            int precision = ((fract == 0 or i == 1) ? 0 : 2);
+            ostringstream adjusted, rounded;
+            adjusted << fixed << setprecision(precision) << val;
+            rounded << fixed << setprecision(precision) << round(val);
+            if(adjusted.str() == rounded.str())
+                precision = 0;
+            if(precision != 0) {
+                ostringstream tmp1, tmp2;
+                tmp1 << fixed << setprecision(precision) << val;
+                tmp2 << fixed << setprecision(1) << val << '0';
+                if(tmp1.str() == tmp2.str())
+                    result << fixed << setprecision(1) << val;
+                else
+                    result << tmp1.str();
+            } else
+                result << fixed << setprecision(precision) << val;
+            result << units[i];
+            break;
+        }
+    }
+    return result.str();
 }

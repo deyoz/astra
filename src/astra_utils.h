@@ -584,6 +584,12 @@ int ARX_TRIP_DATE_RANGE();
 int ARX_EVENTS_DISABLED();
 bool get_test_server();
 
+const char* ORDERS_PATH();
+int ORDERS_BLOCK_SIZE();
+double ORDERS_MAX_SIZE();
+double ORDERS_MAX_TOTAL_SIZE();
+int ORDERS_TIMEOUT();
+
 std::string& EOracleError2UserException(std::string& msg);
 
 std::string get_internal_msgid_hex();

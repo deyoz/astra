@@ -8,6 +8,7 @@
 #include "base_tables.h"
 #include "term_version.h"
 #include "qrys.h"
+#include "astra_misc.h"
 
 #include <serverlib/tcl_utils.h>
 #include <serverlib/monitor_ctl.h>
@@ -1215,6 +1216,51 @@ int ARX_TRIP_DATE_RANGE()
     VAR=getTCLParam("ARX_TRIP_DATE_RANGE",1,999,1);
   return VAR;
 };
+
+const char* ORDERS_PATH()
+{
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam("ORDERS_PATH","stat_orders/");
+  return VAR.c_str();
+};
+
+int ORDERS_TIMEOUT()
+{
+    static int VAR = NoExists;
+    if(VAR == NoExists) {
+        VAR = getTCLParam("ORDERS_TIMEOUT", NoExists, NoExists, 3);
+    }
+    return VAR;
+}
+
+int ORDERS_BLOCK_SIZE()
+{
+    static int VAR = NoExists;
+    if(VAR == NoExists) {
+        string param_val = getTCLParam("ORDERS_BLOCK_SIZE", "1M");
+        VAR = (size_t)round(getFileSizeDouble(param_val)); // приведение double к size_t в случае переполнения приведет к 0
+        if(VAR == 0) // type overflow occurred
+            throw EXCEPTIONS::Exception("wrong tcl param ORDERS_BLOCK_SIZE '%s'", param_val.c_str());
+    }
+    return VAR;
+}
+
+double ORDERS_MAX_SIZE()
+{
+    static double VAR = NoExists;
+    if(VAR == NoExists)
+        VAR = getFileSizeDouble(getTCLParam("ORDERS_MAX_SIZE", "10G"));
+    return VAR;
+}
+
+double ORDERS_MAX_TOTAL_SIZE()
+{
+    static double VAR = NoExists;
+    if(VAR == NoExists)
+        VAR = getFileSizeDouble(getTCLParam("ORDERS_MAX_TOTAL_SIZE", "1T"));
+    return VAR;
+}
 
 int ARX_EVENTS_DISABLED()
 {

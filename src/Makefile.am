@@ -154,7 +154,6 @@ astra_SOURCES = \
   ffp_service_from_sirena.cc \
   sirena_service.cc \
   astra_api.cpp
-  
 
 
 astra_LDADD = $(all_libraries) \
@@ -165,6 +164,7 @@ astra_LDADD = $(all_libraries) \
 	@JXTLIB_LIBS@ @SHARED_LIBS@ \
 	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
 	$(XML_LIBS) @CHECK_LIBS@ \
+	@BOOST_IOSTREAMS_LIB@ \
 	@BOOST_SYSTEM_LIB@ \
 	@BOOST_FILESYSTEM_LIB@ \
 	@BOOST_REGEX_LIB@ \

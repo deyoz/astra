@@ -934,6 +934,8 @@ bool compareLists(const std::list<T> &a, const std::list<T> &b)
 
 BASIC::TDateTime getTimeTravel(const std::string &craft, const std::string &airp, const std::string &airp_last);
 
+double getFileSizeDouble(const std::string &str);
+std::string getFileSizeStr(double size);
 
 #endif /*_ASTRA_MISC_H_*/
 
