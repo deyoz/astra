@@ -4145,7 +4145,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               };
 
               //проверяем фамилию в билете
-              if (!pax.tkn.no.empty() && !pax.surname.empty())
+              if (!pax.tkn.no.empty() && !pax.surname.empty() && pax.api_doc_applied())
               {
                 list<TETickItem> eticks;
                 TETickItem::fromDB(pax.tkn.no, TETickItem::Display, eticks);
