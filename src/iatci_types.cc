@@ -1281,11 +1281,13 @@ void Result::toXml(xmlNodePtr node) const
                             remText;
                 if(remCode == "TKNE") continue;
 
-                if(remCode == "FQTV") {
+                /*if(remCode == "FQTV") {
                     remText = ssr.ssrText();
                 } else {
                     remText = ssr.freeText();
-                }
+                }*/
+
+                remText = ssr.freeText();
 
                 xmlNodePtr paxRemNode = newChild(paxRemsNode, "rem");
                 NewTextChild(paxRemNode, "rem_code", remCode);

@@ -1471,7 +1471,7 @@ FDR+ë7+1027+$(yymmdd)1000+èãä+ëéó++T"
 RAD+P+O"
 PPD+REPIN+A++IVAN"
 PFD+2A+:ù"
-PSI++TKNE::42161200302552"
+PSI++TKNE::42161200302552+FQTV::::::FQTV S7 55555555555555555"
 PAP+:::100386:::RUS++PP:1111111111:RUS:::311249:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -1701,7 +1701,12 @@ $(lastRedisplay)
             </document>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
-            <rems/>
+            <rems>
+              <rem>
+                <rem_code>FQTV</rem_code>
+                <rem_text>FQTV S7 55555555555555555</rem_text>
+              </rem>
+            </rems>
           </pax>
         </passengers>
         <paid_bag_emd/>
