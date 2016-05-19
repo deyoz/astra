@@ -52,10 +52,10 @@ enum TOrderStatus {
 };
 
 const char *TOrderStatusS[] = {
-    "Ready",
-    "Running",
-    "Corrupted",
-    "Error",
+    "Готов",
+    "Выполняется",
+    "Поврежден",
+    "Ошибка",
     "?"
 };
 
@@ -7229,9 +7229,9 @@ void orderStat(const TStatParams &params, XMLRequestCtxt *ctxt, xmlNodePtr reqNo
         NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.ORDERS_MAX_TOTAL_SIZE_EXCEEDED"));
     } else {
         so.get(); // default behaviour, orders list for current user
-//        if(so.is_running()) {
-//            NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.IS_RUNNING"));
-//        } else
+        if(so.is_running()) {
+            NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.IS_RUNNING"));
+        } else
             if(so.size() >= ORDERS_MAX_SIZE()) {
                 NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED",
                             LParams() << LParam("max", getFileSizeStr(ORDERS_MAX_SIZE()))
@@ -7546,31 +7546,31 @@ void TStatOrders::toXML(xmlNodePtr resNode)
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
     xmlNodePtr headerNode = NewTextChild(grdNode, "header");
     xmlNodePtr colNode;
-    colNode = NewTextChild(headerNode, "col", "Отчет");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Отчет"));
     SetProp(colNode, "width", 150);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", "Время заказа");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Время заказа"));
     SetProp(colNode, "width", 110);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortDate);
-    colNode = NewTextChild(headerNode, "col", "Время выполнения");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Время выполнения"));
     SetProp(colNode, "width", 110);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortDate);
-    colNode = NewTextChild(headerNode, "col", "Время удаления");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Время удаления"));
     SetProp(colNode, "width", 110);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortDate);
-    colNode = NewTextChild(headerNode, "col", "Статус");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Статус"));
     SetProp(colNode, "width", 110);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", "Готовность");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Готовность"));
     SetProp(colNode, "width", 110);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortDate);
-    colNode = NewTextChild(headerNode, "col", "Размер");
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Размер"));
     SetProp(colNode, "width", 110);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortFloat);
@@ -7604,7 +7604,7 @@ void TStatOrders::toXML(xmlNodePtr resNode)
         }
 
         // Статус
-        NewTextChild(rowNode, "col", EncodeOrderStatus(curr_order.status));
+        NewTextChild(rowNode, "col", getLocaleText(EncodeOrderStatus(curr_order.status)));
 
         // Готовность
         NewTextChild(rowNode, "col", IntToString(curr_order.progress) + "%");
