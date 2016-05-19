@@ -8987,3 +8987,115 @@ int nosir_md5(int argc,char **argv)
     }
     return 1;
 }
+
+int nosir_departed_pax(int argc, char **argv)
+{
+    TDateTime FirstDate, LastDate;
+    StrToDateTime("01.04.2016 00:00:00", "dd.mm.yyyy hh:nn:ss", FirstDate);
+    LastDate = NowUTC();
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+    "SELECT point_id, airline, flt_no, suffix, airp, scd_out  FROM points "
+    "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND airline='ЮТ' AND "
+    "      pr_reg<>0 AND pr_del>=0";
+    Qry.CreateVariable("FirstDate", otDate, FirstDate);
+    Qry.CreateVariable("LastDate", otDate, LastDate);
+
+    TQuery paxQry(&OraSession);
+    paxQry.SQLText =
+        "select "
+        "   pax.name, "
+        "   pax.surname, "
+        "   pax.ticket_no, "
+        "   pax.coupon_no, "
+        "   crs_pnr.pnr_id, "
+        "   pax.pax_id "
+        "from "
+        "   pax, pax_grp, crs_pnr, crs_pax where "
+        "   pax.pax_id = crs_pax.pax_id(+) and "
+        "   crs_pax.pr_del(+)=0 and "
+        "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+        "   pax_grp.point_dep = :point_id and "
+        "   pax_grp.grp_id = pax.grp_id ";
+    paxQry.DeclareVariable("point_id", otInteger);
+
+    Qry.Execute();
+    bool pr_header = true;
+    string delim = ";";
+    ofstream of;
+    TTripRoute route;
+    vector<TPnrAddrItem> pnrs;
+    for(; not Qry.Eof; Qry.Next()) {
+        int point_id = Qry.FieldAsInteger("point_id");
+        route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
+        string airp_arv;
+        if(not route.empty())
+            airp_arv = route.begin()->airp;
+        
+        paxQry.SetVariable("point_id", point_id);
+        paxQry.Execute();
+        for(; not paxQry.Eof; paxQry.Next()) {
+            if(pr_header) {
+                pr_header = false;
+                of.open("pax_departed.csv");
+                of
+                    << "ФИО" << delim
+                    << "Номер билета" << delim
+                    << "Номер бронирования" << delim
+                    << "Рейс" << delim
+                    << "Дата вылета" << delim
+                    << "Направление" << delim
+                    << "Дата рождения" << delim
+                    << "Пол" << endl;
+            }
+            string name = paxQry.FieldAsString("name");
+            string surname = paxQry.FieldAsString("surname");
+
+            string airline = Qry.FieldAsString("airline");
+            int flt_no = Qry.FieldAsInteger("flt_no");
+            string suffix = Qry.FieldAsString("suffix");
+            string airp = Qry.FieldAsString("airp");
+            TDateTime scd_out = Qry.FieldAsDateTime("scd_out");
+            ostringstream flt_str;
+            flt_str
+                << airline
+                << setw(3) << setfill('0') << flt_no
+                << (suffix.empty() ? "" : suffix);
+
+            string ticket_no = paxQry.FieldAsString("ticket_no");
+            string coupon_no = paxQry.FieldAsString("coupon_no");
+            ostringstream ticket;
+            if(not ticket_no.empty())
+                ticket << ticket_no << (coupon_no.empty() ? "" : "/") << coupon_no;
+
+            GetPnrAddr(paxQry.FieldAsInteger("pnr_id"), pnrs);
+            string pnr_addr;
+            if (!pnrs.empty())
+                pnr_addr.append(pnrs.begin()->addr).append("/").append(pnrs.begin()->airline);
+
+            CheckIn::TPaxDocItem doc;
+            LoadPaxDoc(paxQry.FieldAsInteger("pax_id"), doc);
+            string birth_date = (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy"):"");
+            string gender = doc.gender;
+
+            of
+                // ФИО
+                << name << (name.empty() ? "" : " ") << surname << delim
+                // Номер билета
+                << ticket.str() << delim
+                // Номер бронирования
+                << pnr_addr << delim
+                // Рейс
+                << flt_str.str() << delim
+                // Дата вылета
+                << DateTimeToStr(scd_out, "ddmmm") << delim
+                // Направление
+                << route.begin()->airp << delim
+                // Дата рождения
+                << birth_date << delim
+                // Пол
+                << gender << endl;
+        }
+    }
+    return 1;
+}

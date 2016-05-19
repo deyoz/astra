@@ -104,6 +104,8 @@ int nosir_rfisc_stat(int argc,char **argv);
 int nosir_rfisc_all(int argc,char **argv);
 int nosir_self_ckin(int argc,char **argv);
 int nosir_stat_order(int argc,char **argv);
+int nosir_departed_pax(int argc, char **argv);
+
 
 void stat_orders_collect(void);
 void stat_orders_synchro(void);
