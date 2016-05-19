@@ -67,6 +67,15 @@ public:
      AddEvent("run_stat",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::stat_srv);
      AddEvent("stat_srv",evHandle);
+
+     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::StatOrders);
+     AddEvent("stat_orders",evHandle);
+     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::StatOrderDel);
+     AddEvent("stat_order_del",evHandle);
+     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::DownloadOrder);
+     AddEvent("download_order",evHandle);
+     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::FileList);
+     AddEvent("get_file_list",evHandle);
   };
 
   void FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -80,10 +89,21 @@ public:
   void RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void TestRunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
+  // Работа с заказами
+  void StatOrders(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void StatOrderDel(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void DownloadOrder(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void FileList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
 void get_flight_stat(int point_id, bool final_collection);
 int nosir_rfisc_stat(int argc,char **argv);
+int nosir_stat_order(int argc,char **argv);
+
+void stat_orders_collect(void);
+void stat_orders_synchro(void);
 
 #endif

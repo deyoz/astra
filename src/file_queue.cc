@@ -8,6 +8,7 @@
 #include "basic.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
+#include "qrys.h"
 
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
@@ -217,7 +218,6 @@ void TFileQueue::get( const TFilterQueue &filter,
         if ( pr_need_send ) { //файл нужно отправлять
           //проверим есть ли в очереди
           if ( file_keys.find( in_order_key ) != file_keys.end() ) { //такой тип + отправитель файла ждет ответа
-            tst();
             pr_need_send = false;
           }
         }
@@ -230,7 +230,6 @@ void TFileQueue::get( const TFilterQueue &filter,
         }
       }
       if ( !pr_need_send ) { //файл не нужно отправлять - переход к следующему
-        tst();
         continue;
       }
     }
@@ -249,9 +248,11 @@ void TFileQueue::get( const TFilterQueue &filter,
     }
     
     int len = Qry.GetSizeLongField( "data" );
-    if ( pdata )
-    	pdata = (char*)realloc( pdata, len );
-    else
+
+    if ( pdata ) {
+        if(len)
+            pdata = (char*)realloc( pdata, len );
+    } else
       pdata = (char*)malloc( len );
     if ( !pdata )
       throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
@@ -265,14 +266,12 @@ void TFileQueue::get( const TFilterQueue &filter,
       nfilter.first_id = item.id;
       nfilter.receiver = item.receiver;
       nfilter.type = item.type;
-      tst();
       std::vector<TQueueItem> vitems;
       get( nfilter, vitems );
       pr_last_file = vitems.empty();
       break;
     }
   }
-  tst();
 }
 
 bool TFileQueue::in_order( int id )
