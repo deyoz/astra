@@ -1249,23 +1249,15 @@ void Result::toXml(xmlNodePtr node) const
             NewTextChild(docNode, "issue_country", pax()->doc()->issueCountry());
             NewTextChild(docNode, "no", pax()->doc()->no());
             NewTextChild(docNode, "nationality", pax()->doc()->nationality());
-            NewTextChild(docNode, "birth_date", BASIC::boostDateToAstraFormatStr(pax()->doc()->birthDate()));
+            if(!pax()->doc()->birthDate().is_not_a_date()) {
+                NewTextChild(docNode, "birth_date", BASIC::boostDateToAstraFormatStr(pax()->doc()->birthDate()));
+            }
             NewTextChild(docNode, "gender", pax()->doc()->gender());
             NewTextChild(docNode, "surname", pax()->doc()->surname());
             NewTextChild(docNode, "first_name", pax()->doc()->name());
-            NewTextChild(docNode, "expiry_date", BASIC::boostDateToAstraFormatStr(pax()->doc()->expiryDate()));
-        }
-        else
-        {
-            NewTextChild(docNode, "type", "");
-            NewTextChild(docNode, "issue_country", "");
-            NewTextChild(docNode, "no", "");
-            NewTextChild(docNode, "nationality", "");
-            NewTextChild(docNode, "birth_date", "");
-            NewTextChild(docNode, "gender", "");
-            NewTextChild(docNode, "surname", "");
-            NewTextChild(docNode, "first_name", "");
-            NewTextChild(docNode, "expiry_date", "");
+            if(!pax()->doc()->expiryDate().is_not_a_date()) {
+                NewTextChild(docNode, "expiry_date", BASIC::boostDateToAstraFormatStr(pax()->doc()->expiryDate()));
+            }
         }
 
         NewTextChild(paxNode, "pr_norec", 0); // TODO
