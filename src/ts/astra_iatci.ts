@@ -722,6 +722,7 @@ $(defmacro UPDATE_PAX_DOC
     airp_arv2
     surname
     name
+    second_name
     tickno
     cpnno
 {
@@ -770,6 +771,7 @@ $(defmacro UPDATE_PAX_DOC
                   <expiry_date>31.12.2049 00:00:00</expiry_date>
                   <surname>$(surname)</surname>
                   <first_name>$(name)</first_name>
+                  <second_name>$(second_name)</second_name>
               </document>
               <doco/>
               <addresses/>
@@ -2345,7 +2347,7 @@ $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
 
 $(UPDATE_PAX_DOC $(get point_dep) $(get point_arv) ÑåÑ èãä
                  $(get grp_id) $(get pax_id) $(get tid) èãä ëéó
-                 REPIN IVAN 4216120030297 2)
+                 REPIN IVAN IVANICH 4216120030297 2)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -2353,7 +2355,7 @@ UNH+1+DCQCKU:96:2:IA+$(last_edifact_ref)"
 LOR+ûí:ÑåÑ"
 FDQ+ë7+1027+$(yymmdd)+èãä+ëéó"
 PPD+REPIN+A++IVAN"
-UAP+R+:::010576:::RUS++P:99999999999::::311249:::::::REPIN:IVAN"
+UAP+R+:::010576:::RUS++P:99999999999::::311249:::::::REPIN:IVAN:IVANICH"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2365,7 +2367,7 @@ RAD+U+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:ù"
 PSI++TKNE::42161200302972"
-PAP+:::010576:::RUS++P:99999999999:USA:::311249:M::::::REPIN:IVAN"
+PAP+:::010576:::RUS++P:99999999999:USA:::311249:M::::::REPIN:IVAN:IVANICH"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2403,6 +2405,7 @@ $(lastRedisplay)
               <gender>M</gender>
               <surname>REPIN</surname>
               <first_name>IVAN</first_name>
+              <second_name>IVANICH</second_name>
               <expiry_date>31.12.2049 00:00:00</expiry_date>
             </document>
             <pr_norec>0</pr_norec>

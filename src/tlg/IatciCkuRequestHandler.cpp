@@ -223,6 +223,7 @@ iatci::CkuParams IatciCkuParamsMaker::makeParams() const
                                                            m_uap->m_docNumber,
                                                            m_uap->m_surname,
                                                            m_uap->m_name,
+                                                           m_uap->m_otherName,
                                                            m_uap->m_gender,
                                                            m_uap->m_nationality,
                                                            m_uap->m_birthDate,

@@ -950,6 +950,7 @@ struct PapElem
     std::string   m_gender;
     std::string   m_surname;
     std::string   m_name;
+    std::string   m_otherName;
 };
 
 //---------------------------------------------------------------------------------------

@@ -286,6 +286,7 @@ iatci::Result IatciResultMaker::makeResult() const
                                             m_pap->m_docNumber,
                                             m_pap->m_surname,
                                             m_pap->m_name,
+                                            m_pap->m_otherName,
                                             m_pap->m_gender,
                                             m_pap->m_nationality,
                                             m_pap->m_birthDate,

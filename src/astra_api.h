@@ -154,6 +154,7 @@ struct XmlPax
     int         pax_id;
     std::string surname;
     std::string name;
+    std::string second_name;
     std::string pers_type;
     std::string seat_no;
     std::string seat_type;

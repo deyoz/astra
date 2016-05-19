@@ -119,6 +119,7 @@ public:
     using iatci::PaxDetails::DocInfo::m_gender;
     using iatci::PaxDetails::DocInfo::m_issueCountry;
     using iatci::PaxDetails::DocInfo::m_name;
+    using iatci::PaxDetails::DocInfo::m_secondName;
     using iatci::PaxDetails::DocInfo::m_nationality;
     using iatci::PaxDetails::DocInfo::m_no;
     using iatci::PaxDetails::DocInfo::m_surname;
@@ -164,6 +165,7 @@ inline void save(Archive& ar, const iatci::PaxDetails::DocInfo& par, const unsig
     ar & bd & ed & acc.m_docType;
     ar & acc.m_gender & acc.m_issueCountry & acc.m_name;
     ar & acc.m_nationality & acc.m_no & acc.m_surname;
+    ar & acc.m_secondName;
 }
 
 template<class Archive>
@@ -175,6 +177,7 @@ inline void load(Archive& ar, iatci::PaxDetails::DocInfo& par, const unsigned in
     ar & bd & ed & acc.m_docType;
     ar & acc.m_gender & acc.m_issueCountry & acc.m_name;
     ar & acc.m_nationality & acc.m_no & acc.m_surname;
+    ar & acc.m_secondName;
     acc.m_birthDate  = Dates::ddmmyyyy(bd);
     acc.m_expiryDate = Dates::ddmmyyyy(ed);
     par = acc.get();

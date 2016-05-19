@@ -113,12 +113,13 @@ PaxDetails::DocInfo::DocInfo(const std::string& docType,
                              const std::string& no,
                              const std::string& surname,
                              const std::string& name,
+                             const std::string& secondName,
                              const std::string& gender,
                              const std::string& nationality,
                              const boost::gregorian::date& birthDate,
                              const boost::gregorian::date& expiryDate)
-    : m_docType(docType), m_issueCountry(issueCountry),
-      m_no(no), m_surname(surname), m_name(name),
+    : m_docType(docType), m_issueCountry(issueCountry), m_no(no),
+      m_surname(surname), m_name(name), m_secondName(secondName),
       m_gender(gender), m_nationality(nationality),
       m_birthDate(birthDate), m_expiryDate(expiryDate)
 {
@@ -147,6 +148,11 @@ const std::string& PaxDetails::DocInfo::surname() const
 const std::string& PaxDetails::DocInfo::name() const
 {
     return m_name;
+}
+
+const std::string& PaxDetails::DocInfo::secondName() const
+{
+    return m_secondName;
 }
 
 const std::string& PaxDetails::DocInfo::gender() const
@@ -285,13 +291,14 @@ UpdatePaxDetails::UpdateDocInfo::UpdateDocInfo(UpdateActionCode_e actionCode,
                                                const std::string& no,
                                                const std::string& surname,
                                                const std::string& name,
+                                               const std::string& secondName,
                                                const std::string& gender,
                                                const std::string& nationality,
                                                const boost::gregorian::date& birthDate,
                                                const boost::gregorian::date& expiryDate)
     : UpdateDetails(actionCode),
-      PaxDetails::DocInfo(docType, issueCountry,
-                          no, surname, name,
+      PaxDetails::DocInfo(docType, issueCountry, no,
+                          surname, name, secondName,
                           gender, nationality, birthDate, expiryDate)
 {}
 
@@ -1255,6 +1262,9 @@ void Result::toXml(xmlNodePtr node) const
             NewTextChild(docNode, "gender", pax()->doc()->gender());
             NewTextChild(docNode, "surname", pax()->doc()->surname());
             NewTextChild(docNode, "first_name", pax()->doc()->name());
+            if(!pax()->doc()->secondName().empty()) {
+                NewTextChild(docNode, "second_name", pax()->doc()->secondName());
+            }
             if(!pax()->doc()->expiryDate().is_not_a_date()) {
                 NewTextChild(docNode, "expiry_date", BASIC::boostDateToAstraFormatStr(pax()->doc()->expiryDate()));
             }

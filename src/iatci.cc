@@ -525,6 +525,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
                        changedPax->m_doc->m_num,
                        changedPax->m_doc->m_surname,
                        changedPax->m_doc->m_name,
+                       changedPax->m_doc->m_secName,
                        changedPax->m_doc->m_gender,
                        changedPax->m_doc->m_citizenship,
                        changedPax->m_doc->m_birthDate,

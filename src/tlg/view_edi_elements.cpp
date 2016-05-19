@@ -632,7 +632,8 @@ void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdatePaxDetails::
         << Dates::ddmmrr(updDoc.expiryDate()) << ":"
         << updDoc.gender() << "::::::"
         << updDoc.surname() << ":"
-        << updDoc.name();
+        << updDoc.name() << ":"
+        << updDoc.secondName();
     SetEdiFullSegment(pMes, SegmElement("UAP"), uap.str());
 }
 
@@ -696,7 +697,8 @@ void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails::DocInf
         << Dates::ddmmrr(doc.expiryDate()) << ":"
         << doc.gender() << "::::::"
         << doc.surname() << ":"
-        << doc.name();
+        << doc.name() << ":"
+        << doc.secondName();
 
     SetEdiFullSegment(pMes, SegmElement("PAP"), pap.str());
 }

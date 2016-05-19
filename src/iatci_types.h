@@ -93,6 +93,7 @@ struct PaxDetails
             std::string m_no;
             std::string m_surname;
             std::string m_name;
+            std::string m_secondName;
             std::string m_gender;
             std::string m_nationality;
             boost::gregorian::date m_birthDate;
@@ -104,6 +105,7 @@ struct PaxDetails
                     const std::string& no,
                     const std::string& surname,
                     const std::string& name,
+                    const std::string& secondName,
                     const std::string& gender,
                     const std::string& nationality,
                     const boost::gregorian::date& birthDate = boost::gregorian::date(),
@@ -114,6 +116,7 @@ struct PaxDetails
             const std::string& no() const;
             const std::string& surname() const;
             const std::string& name() const;
+            const std::string& secondName() const;
             const std::string& gender() const;
             const std::string& nationality() const;
             const boost::gregorian::date& birthDate() const;
@@ -202,6 +205,7 @@ struct UpdatePaxDetails: public UpdateDetails
                       const std::string& no,
                       const std::string& surname,
                       const std::string& name,
+                      const std::string& secondName,
                       const std::string& gender,
                       const std::string& nationality,
                       const boost::gregorian::date& birthDate = boost::gregorian::date(),

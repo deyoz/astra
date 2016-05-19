@@ -1135,6 +1135,7 @@ boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
     pap.m_gender       = GetDBFName(pMes, DataElement(6353), CompElement("C700"));
     pap.m_surname      = GetDBFName(pMes, DataElement(3808), CompElement("C700"));
     pap.m_name         = GetDBFName(pMes, DataElement(3809), CompElement("C700"));
+    pap.m_otherName    = GetDBFName(pMes, DataElement(9754), CompElement("C700"));
 
     std::string expiryDate = GetDBFName(pMes, DataElement(2380), CompElement("C700"));
     if(!expiryDate.empty()) {
@@ -1169,6 +1170,7 @@ boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
     uap.m_gender       = GetDBFName(pMes, DataElement(6353), CompElement("C700"));
     uap.m_surname      = GetDBFName(pMes, DataElement(3808), CompElement("C700"));
     uap.m_name         = GetDBFName(pMes, DataElement(3809), CompElement("C700"));
+    uap.m_otherName    = GetDBFName(pMes, DataElement(9754), CompElement("C700"));
 
     std::string expiryDate = GetDBFName(pMes, DataElement(2380), CompElement("C700"));
     if(!expiryDate.empty()) {

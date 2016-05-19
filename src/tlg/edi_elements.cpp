@@ -366,6 +366,7 @@ std::ostream& operator<<(std::ostream &os, const PapElem &pap)
     os << "gender: " << pap.m_gender << "; ";
     os << "surname: " << pap.m_surname << "; ";
     os << "name: " << pap.m_name << "; ";
+    os << "other name: " << pap.m_otherName << "; ";
     return os;
 }
 
@@ -382,6 +383,7 @@ std::ostream& operator<<(std::ostream &os, const UapElem &uap)
     os << "gender: " << uap.m_gender << "; ";
     os << "surname: " << uap.m_surname << "; ";
     os << "name: " << uap.m_name << "; ";
+    os << "other name: " << uap.m_otherName << "; ";
     return os;
 }
 

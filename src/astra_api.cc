@@ -580,7 +580,7 @@ iatci::Result updateIatciPax(const iatci::CkuParams& ckuParams)
             newPaxDoc.expiry_date = BASIC::boostDateToAstraFormatStr(doc.expiryDate());
             newPaxDoc.surname = doc.surname();
             newPaxDoc.first_name = doc.name();
-            //newPaxDoc.second_name TODO
+            newPaxDoc.second_name = doc.secondName();
             newPaxDoc.nationality = doc.nationality();
             newPaxDoc.issue_country = doc.issueCountry();
             newPaxDoc.gender = doc.gender();
@@ -1449,6 +1449,7 @@ iatci::Result LoadPaxXmlResult::toIatci(iatci::Result::Action_e action,
                                             pax.doc->no,
                                             pax.doc->surname,
                                             pax.doc->first_name,
+                                            pax.doc->second_name,
                                             pax.doc->gender,
                                             pax.doc->nationality,
                                             birthDate,
