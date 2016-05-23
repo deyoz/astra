@@ -11,7 +11,7 @@ enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remASVC, remUnknow
 
 TRemCategory getRemCategory( const std::string &rem_code, const std::string &rem_text );
 bool isDisabledRemCategory( TRemCategory cat );
-bool isDisabledRem( const std::string &rem_code, const std::string &rem_text );
+bool isDisabledRem(const std::string &rem_code, const std::string &rem_text, bool disableFQTCat);
 bool IsReadonlyRem( const std::string &rem_code, const std::string &rem_text );
 
 enum TRemEventType {
@@ -90,6 +90,8 @@ class TPaxFQTItem
     std::string airline;
     std::string no;
     std::string extra;
+    std::string tier_level;
+    bool tier_level_confirm;
     TPaxFQTItem()
     {
       clear();
@@ -100,16 +102,21 @@ class TPaxFQTItem
       airline.clear();
       no.clear();
       extra.clear();
+      tier_level.clear();
+      tier_level_confirm=false;
     };
     bool empty() const
     {
       return rem.empty() &&
              airline.empty() &&
              no.empty() &&
-             extra.empty();
+             extra.empty() &&
+             tier_level.empty();
     };
     const TPaxFQTItem& toDB(TQuery &Qry) const;
     TPaxFQTItem& fromDB(TQuery &Qry);
+    const TPaxFQTItem& toXML(xmlNodePtr node) const;
+    TPaxFQTItem& fromXML(xmlNodePtr node);
 };
 
 class TPaxASVCItem
@@ -192,8 +199,15 @@ void PaxRemAndASVCFromDB(int pax_id,
                          std::vector<TPaxRemItem> &rems_and_asvc,
                          std::vector<TPaxASVCItem> &asvc);
 
+void PaxFQTFromDB(int pax_id,
+                  bool from_crs,
+                  std::vector<TPaxFQTItem> &fqts);
+
 void PaxRemAndASVCToXML(const std::vector<TPaxRemItem> &rems_and_asvc,
                         xmlNodePtr node);
+
+void PaxFQTToXML(const std::vector<TPaxFQTItem> &fqts,
+                 xmlNodePtr node);
 
 };
 

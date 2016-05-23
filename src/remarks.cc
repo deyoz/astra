@@ -57,9 +57,10 @@ bool isDisabledRemCategory( TRemCategory cat )
   return cat==remTKN || cat==remDOC || cat==remDOCO || cat==remDOCA || cat==remASVC;
 };
 
-bool isDisabledRem( const string &rem_code, const string &rem_text )
+bool isDisabledRem( const string &rem_code, const string &rem_text, bool disableFQTCat)
 {
-  return isDisabledRemCategory(getRemCategory(rem_code, rem_text));
+  TRemCategory cat=getRemCategory(rem_code, rem_text);
+  return isDisabledRemCategory(cat) || (disableFQTCat && cat==remFQT);
 };
 
 const char *ReadonlyRemCodes[]=
@@ -292,6 +293,8 @@ const TPaxFQTItem& TPaxFQTItem::toDB(TQuery &Qry) const
   Qry.SetVariable("airline", airline);
   Qry.SetVariable("no", no);
   Qry.SetVariable("extra", extra);
+  Qry.SetVariable("tier_level", tier_level);
+  Qry.SetVariable("tier_level_confirm", (int)tier_level_confirm);
   return *this;
 };
 
@@ -302,6 +305,36 @@ TPaxFQTItem& TPaxFQTItem::fromDB(TQuery &Qry)
   airline=Qry.FieldAsString("airline");
   no=Qry.FieldAsString("no");
   extra=Qry.FieldAsString("extra");
+  tier_level=Qry.FieldAsString("tier_level");
+  tier_level_confirm=!Qry.FieldIsNULL("tier_level_confirm") &&
+                     Qry.FieldAsInteger("tier_level_confirm")!=0;
+  return *this;
+};
+
+const TPaxFQTItem& TPaxFQTItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  xmlNodePtr remNode=NewTextChild(node,"fqt_rem");
+  NewTextChild(remNode, "rem_code", rem);
+  NewTextChild(remNode, "airline", airline);
+  NewTextChild(remNode, "no", no);
+  NewTextChild(remNode, "extra", extra, "");
+  NewTextChild(remNode, "tier_level", tier_level, "");
+  NewTextChild(remNode, "tier_level_confirm", (int)tier_level_confirm, (int)false);
+  return *this;
+};
+
+TPaxFQTItem& TPaxFQTItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  rem=NodeAsStringFast("rem_code", node2);
+  airline=NodeAsStringFast("airline", node2);
+  no=NodeAsStringFast("no", node2);
+  extra=NodeAsStringFast("extra", node2, "");
+  tier_level=NodeAsStringFast("tier_level", node2, "");
+  tier_level_confirm=NodeAsIntegerFast("tier_level_confirm", node2, (int)false)!=0;
   return *this;
 };
 
@@ -587,12 +620,14 @@ void SavePaxFQT(int pax_id, const vector<TPaxFQTItem> &fqts)
   FQTQry.Execute();
 
   FQTQry.SQLText=
-    "INSERT INTO pax_fqt(pax_id,rem_code,airline,no,extra) "
-    "VALUES(:pax_id,:rem_code,:airline,:no,:extra)";
+    "INSERT INTO pax_fqt(pax_id,rem_code,airline,no,extra,tier_level,tier_level_confirm) "
+    "VALUES(:pax_id,:rem_code,:airline,:no,:extra,:tier_level,:tier_level_confirm)";
   FQTQry.DeclareVariable("rem_code",otString);
   FQTQry.DeclareVariable("airline",otString);
   FQTQry.DeclareVariable("no",otString);
   FQTQry.DeclareVariable("extra",otString);
+  FQTQry.DeclareVariable("tier_level",otString);
+  FQTQry.DeclareVariable("tier_level_confirm",otInteger);
   for(vector<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
   {
     r->toDB(FQTQry);
@@ -791,6 +826,7 @@ void PaxRemAndASVCFromDB(int pax_id,
                          std::vector<TPaxRemItem> &rems_and_asvc,
                          std::vector<TPaxASVCItem> &asvc)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
   rems_and_asvc.clear();
   asvc.clear();
 
@@ -807,7 +843,8 @@ void PaxRemAndASVCFromDB(int pax_id,
 
   for(vector<CheckIn::TPaxRemItem>::iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end();)
   {
-    if (isDisabledRem(r->code, r->text))
+    if (isDisabledRem(r->code, r->text,
+                      reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
       r=rems_and_asvc.erase(r);
     else
       ++r;
@@ -818,13 +855,35 @@ void PaxRemAndASVCFromDB(int pax_id,
   };
 }
 
+void PaxFQTFromDB(int pax_id,
+                  bool from_crs,
+                  std::vector<TPaxFQTItem> &fqts)
+{
+  fqts.clear();
+
+  if (from_crs)
+    LoadCrsPaxFQT(pax_id, fqts);
+  else
+    LoadPaxFQT(pax_id, fqts);
+}
+
 void PaxRemAndASVCToXML(const std::vector<TPaxRemItem> &rems_and_asvc,
                         xmlNodePtr node)
 {
   if (node==NULL) return;
 
   xmlNodePtr remsNode=NewTextChild(node,"rems");
-  for(vector<TPaxRemItem>::const_iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end();++r)
+  for(vector<TPaxRemItem>::const_iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end(); ++r)
+    r->toXML(remsNode);
+}
+
+void PaxFQTToXML(const std::vector<TPaxFQTItem> &fqts,
+                 xmlNodePtr node)
+{
+  if (node==NULL) return;
+
+  xmlNodePtr remsNode=NewTextChild(node,"fqt_rems");
+  for(vector<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
     r->toXML(remsNode);
 }
 

@@ -3212,7 +3212,7 @@ void TSSR::get(const TRemGrp &ssr_rem_grp, int pax_id)
             if(not ssr_rem_grp.exists(item.code))
                 continue;
             item.free_text = Qry.FieldAsString(col_rem);
-            if (isDisabledRem(item.code, item.free_text)) continue;
+            if (isDisabledRem(item.code, item.free_text, false)) continue;
             if(item.code == item.free_text)
                 item.free_text.erase();
             else

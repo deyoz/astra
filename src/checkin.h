@@ -133,7 +133,7 @@ public:
      AddEvent("CheckTCkinRoute",      JXT_HANDLER(CheckInInterface, CheckTCkinRoute));
      AddEvent("ParseScanDocData",     JXT_HANDLER(CheckInInterface, ParseScanDocData));
      AddEvent("CREWCHECKIN",          JXT_HANDLER(CheckInInterface, CrewCheckin));
-     AddEvent("FFPSirena",            JXT_HANDLER(CheckInInterface, FFPSirena));
+     AddEvent("GetFQTTierLevel",      JXT_HANDLER(CheckInInterface, GetFQTTierLevel));
   }
 
   void LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -148,7 +148,7 @@ public:
   void CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ParseScanDocData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void FFPSirena(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetFQTTierLevel(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 

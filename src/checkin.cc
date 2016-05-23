@@ -1511,6 +1511,15 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
   }
 }
 
+void LoadPaxFQT(int pax_id, xmlNodePtr node, bool from_crs)
+{
+  if (node==NULL) return;
+
+  vector<CheckIn::TPaxFQTItem> fqts;
+  CheckIn::PaxFQTFromDB(pax_id, from_crs, fqts);
+  CheckIn::PaxFQTToXML(fqts, node);
+}
+
 static int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
 {
   TQuery FltQry(&OraSession);
@@ -1709,7 +1718,7 @@ static int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNod
     {
       //билет TKNE
       ticket_no=PaxQry.FieldAsString("eticket");
-      int coupon_no=0;
+      int coupon_no=NoExists;
       string::size_type pos=ticket_no.find_last_of('/');
       if (pos!=string::npos)
       {
@@ -1717,11 +1726,11 @@ static int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNod
             coupon_no>=1 && coupon_no<=4)
           ticket_no.erase(pos);
         else
-          coupon_no=0;
+          coupon_no=NoExists;
       }
 
       NewTextChild(node,"ticket_no",ticket_no);
-      NewTextChild(node,"coupon_no",coupon_no,0);
+      NewTextChild(node,"coupon_no",coupon_no,NoExists);
       NewTextChild(node,"ticket_rem","TKNE");
     }
     else
@@ -1736,6 +1745,7 @@ static int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNod
     }
 
     LoadPaxRemAndASVC(pax_id, node, true);
+    LoadPaxFQT(pax_id, node, true);
   }
   return count;
 }
@@ -4466,7 +4476,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (CheckFQTRem(*r,fqt)) //эта процедура нормализует ремарки FQT
                   p->fqts.push_back(fqt);
                 //проверим запрещенные для ввода ремарки...
-                if (isDisabledRem(r->code, r->text))
+                if (isDisabledRem(r->code, r->text,
+                                  reqInfo->client_type==ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
                   throw UserException("MSG.REMARK.INPUT_CODE_DENIAL",
                                       LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
               }
@@ -6945,6 +6956,9 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
           pax.tkn.rem="TKNA";  //crew compatible
         }
         pax.toXML(paxNode);
+        if (pax.tkn.rem=="TKNE" && !pax.tkn.no.empty() && pax.tkn.coupon!=NoExists)
+          NewTextChild(paxNode, "ticket_bag_norm",
+                       TETickItem().fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false).bag_norm_view(), "");
         NewTextChild(paxNode,"pr_norec",(int)PaxQry.FieldIsNULL("crs_pax_id"));
 
         Qry.SetVariable("pax_id",pax.id);
@@ -7071,6 +7085,7 @@ void CheckInInterface::LoadPaxRem(xmlNodePtr paxNode)
   int pax_id=NodeAsIntegerFast("pax_id",node2);
 
   LoadPaxRemAndASVC(pax_id, paxNode, false);
+  LoadPaxFQT(pax_id, paxNode, false);
 }
 
 void CheckInInterface::SavePaxTransfer(int pax_id, int pax_no, const vector<CheckIn::TTransferItem> &trfer, int seg_no)
@@ -8989,13 +9004,6 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     }
 }
 
-void CheckInInterface::FFPSirena(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{  std::string status =
-     SirenaExchange::send_ffp_request(NodeAsStringFast("company", reqNode), NodeAsStringFast("card", reqNode));
-   NodeSetContent(NewTextChild(resNode, "status"), status);
-}
-
-
 namespace CheckIn
 {
 
@@ -9036,3 +9044,14 @@ void showError(const std::map<int, std::map<int, AstraLocale::LexemaData> > &seg
 }
 
 } //namespace CheckIn
+
+void CheckInInterface::GetFQTTierLevel(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  CheckIn::TPaxFQTItem fqt;
+  fqt.fromXML(NodeAsNode("fqt_rem", reqNode));
+
+  fqt.tier_level=fqt.airline+": SUPER-PUPER LEVEL";
+  fqt.tier_level_confirm=true;
+
+  fqt.toXML(resNode);
+}

@@ -25,7 +25,7 @@ class TBagNormUnit
     {
       unit=Ticketing::Baggage::Nil;
     }
-    bool empty()
+    bool empty() const
     {
       return unit==Ticketing::Baggage::Nil;
     }

@@ -132,7 +132,7 @@ void CreateEmulRems(xmlNodePtr paxNode, TQuery &RemQry, const vector<string> &fq
   {
     const char* rem_code=RemQry.FieldAsString("rem_code");
     const char* rem_text=RemQry.FieldAsString("rem");
-    if (isDisabledRem(rem_code, rem_text)) continue;
+    if (isDisabledRem(rem_code, rem_text, false)) continue;
     if (strcmp(rem_code,"FQTV")==0) continue;
     xmlNodePtr remNode=NewTextChild(remsNode,"rem");
     NewTextChild(remNode,"rem_code",rem_code);
