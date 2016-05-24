@@ -1957,27 +1957,19 @@ void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 {
     using namespace edifact;
 
-    std::list<RemoteResults> remResList;
-    RemoteResults::readDb(remResList);
-    if (!remResList.empty())
-    {
-      //pRemoteResults remRes = RemoteResults::readSingle();
-      for(list<RemoteResults>::const_iterator i=remResList.begin(); i!=remResList.end(); ++i)
-      {
-        switch(i->status()->codeInt())
+    pRemoteResults remRes = RemoteResults::readSingle();
+    switch(remRes->status()->codeInt())
     {
     case RemoteStatus::Success:
     case RemoteStatus::CommonError:
+        KickOnAnswer(reqNode, resNode);
         break;
     case RemoteStatus::Timeout:
         KickOnTimeout(reqNode, resNode);
-            return;
+        break;
     default:
-            return;
+        break;
     }
-      };
-      KickOnAnswer(reqNode, resNode);
-    };
 }
 
 void ChangeStatusInterface::KickOnAnswer(xmlNodePtr reqNode, xmlNodePtr resNode)
