@@ -37,7 +37,9 @@ enum TCompareComps { ccXY,
                      ccRemarks,
                      ccLayers,
                      ccTariffs,
+                     ccRFISC,
                      ccDrawProps };
+enum TRFISCMode { rTariff, rRFISC, rAll };
 
 typedef BitSet<TCompareComps> TCompareCompsFlags;
 
@@ -122,11 +124,72 @@ struct TPlaceLayer {
   }
 };
 
+struct TRFISC {
+    std::string color;
+    double rate;
+    std::string currency_id;
+    std::string code;
+    TRFISC() {
+      clear();
+    }
+    TRFISC(const std::string &color,
+           const double &rate,
+           const std::string &currency_id,
+           const std::string &code) {
+      this->color = color;
+      this->rate = rate;
+      this->currency_id = currency_id;
+      this->code = code;
+    }
+    void clear() {
+      color.clear();
+      rate = 0.0;
+      currency_id.clear();
+      code.clear();
+    }
+    bool empty() const
+    {
+      return color.empty(); //price == 0.0;
+    }
+    std::string rateView() const
+    {
+      std::ostringstream buf;
+      buf << std::fixed << std::setprecision(2) << rate;
+      return buf.str();
+    }
+    std::string currencyView(const std::string &lang) const
+    {
+      return ElemIdToPrefferedElem(etCurrency, currency_id, efmtCodeNative, lang);
+    }
+    std::string str() const
+    {
+      return color+rateView()+currency_id;
+    }
+    bool equal( const TRFISC &rfisc ) const
+    {
+      return ( color == rfisc.color &&
+               rate == rfisc.rate &&
+               currency_id == rfisc.currency_id );
+    }
+    bool operator != (const TRFISC &rfisc) const
+    {
+      return !equal( rfisc );
+    }
+    bool operator < (const TRFISC &rfisc) const
+    {
+      if (color != rfisc.color)
+        return color < rfisc.color;
+      if (rate != rfisc.rate)
+        return rate < rfisc.rate;
+      return currency_id < rfisc.currency_id;
+    }
+};
+
 struct TSeatTariff {
     std::string color;
     double rate;
     std::string currency_id;
-    std::string RFISC;
+    //std::string RFISC;
     TSeatTariff()
     {
       clear();
@@ -145,7 +208,7 @@ struct TSeatTariff {
       color.clear();
       rate = 0.0;
       currency_id.clear();
-      RFISC.clear();
+      //RFISC.clear();
     }
     bool empty() const
     {
@@ -192,11 +255,19 @@ struct SeatTariffCompare {
   }
 };
 
-class TSeatTariffMapType : public std::map<std::string,TSeatTariff> {
+struct RFISCCompare {
+  bool operator() ( const TRFISC &rfisc1, const TRFISC &rfisc2 ) const
+  {
+    return rfisc1<rfisc2;
+  }
+};
+
+
+class TSeatTariffMapType : public std::map<std::string,TRFISC> {
   public:
     std::string key() const {
       std::string res;
-      for ( std::map<std::string,TSeatTariff,SeatTariffCompare>::const_iterator i=begin(); i!=end(); i++ ) {
+      for ( std::map<std::string,TRFISC,RFISCCompare>::const_iterator i=begin(); i!=end(); i++ ) {
          res += " " + i->second.str();
       }
       return res;
@@ -226,6 +297,7 @@ class TSeatTariffMap : public TSeatTariffMapType
     std::map<int/*point_id_oper*/, TSeatTariffMapType > tariff_map; //для stNotRFISC
 
     void get(TQuery &Qry, const std::string &traceDetail);
+    void get_rfisc_colors_internal(const std::string &airline_oper);
   public:
     TSeatTariffMap() : _potential_queries(0), _real_queries(0) { clear(); }
     //скорее всего будет использоваться перед первоначальной регистрацией:
@@ -254,7 +326,7 @@ class TSeatTariffMap : public TSeatTariffMapType
     void get_rfisc_colors(const std::string &airline_oper);
     void clear()
     {
-      std::map<std::string,TSeatTariff>::clear();
+      std::map<std::string,TRFISC>::clear();
       _status=stNotFound;
     }
     void trace( TRACE_SIGNATURE ) const;
@@ -582,6 +654,8 @@ class FilterRoutesProperty: public std::vector<TTripRouteItem> {
   public:
     //определяем множество пунктов вылета по которым надо начитать информацию
     FilterRoutesProperty( );
+    FilterRoutesProperty( const std::string &airline );
+    void Clear();
     void Read( const TFilterRoutesSets &filterRoutesSets );
     //фильтр св-ва места исходя из его сегмента разметки
     //проверить на пересечение сегментов
@@ -646,9 +720,11 @@ class TPlace {
     std::map<int, std::vector<TSeatRemark>,classcomp > remarks;
     std::map<int, TSeatTariff,classcomp> tariffs;
     std::map<int,TSeatLayer> drop_blocked_layers;
+    std::map<int, TRFISC,classcomp> rfiscs;
     bool CompareRems( const TPlace &seat ) const;
     bool CompareLayers( const TPlace &seat ) const;
     bool CompareTariffs( const TPlace &seat ) const;
+    bool CompareRFISCs( const TPlace &seat ) const;
   public:
     bool visible;
     int x, y, num;
@@ -662,6 +738,7 @@ class TPlace {
     std::vector<TRem> rems;
     std::vector<TPlaceLayer> layers;
     TSeatTariff SeatTariff;
+    TRFISC rfisc;
     BitSet<TDrawPropsType> drawProps;
     bool isPax;
     TPlace() {
@@ -760,8 +837,14 @@ class TPlace {
     void GetTariffs( std::map<int, TSeatTariff,classcomp> &vtariffs ) const {
       vtariffs = tariffs;
     }
+    void AddRFISC( int key, const TRFISC &rfisc ) {
+      rfiscs[ key ] = rfisc;
+    }
+    void GetRFISCs( std::map<int, TRFISC,classcomp> &vrfiscs ) const {
+      vrfiscs = rfiscs;
+    }
 
-    void SetTariffsByColor( const TSeatTariffMapType &salonTariffs, bool setPassengerTariffs );
+    void SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &salonTariffs, bool setPassengerTariffs );
     void AddLayerToPlace( ASTRA::TCompLayerType l, BASIC::TDateTime time_create, int pax_id,
                            int point_dep, int point_arv, int priority ) {
         std::vector<TPlaceLayer>::iterator i;
@@ -776,13 +859,15 @@ class TPlace {
         if ( pax_id > 0 )
             isPax = true;
     }
+    void SetRFISC( int point_id, TSeatTariffMapType &tariffMap );
     void SetRFICSRemarkByColor( int key, TSeatTariffMapType salonRFISCColor );
-    void DropRFISCRemarks( TSeatTariffMapType salonRFISCColor );
+    //void DropRFISCRemarks( TSeatTariffMapType salonRFISCColor );
     void convertSeatTariffs( int point_dep );
     void convertSeatTariffs( bool pr_departure_tariff_only, int point_dep, const std::vector<int> &points );
     bool isChange( const TPlace &seat, BitSet<TCompareComps> &flags ) const;
     void Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) const;
-    void Build( xmlNodePtr node, int point_dep, bool pr_lat_seat, bool pr_update,
+    void Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
+                TRFISCMode RFISCMode, bool pr_update,
                 bool with_pax, const std::map<int,TPaxList> &pax_lists ) const;
 
 };
@@ -1083,7 +1168,7 @@ class TSalons {
     void Read( bool drop_not_used_pax_layers=true );
     void Write( const TComponSets &compSets );
     void Parse( xmlNodePtr salonsNode );
-    void SetTariffsByColor( const TSeatTariffMapType &tariffs, bool setPassengerTariffs );
+    void SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &tariffs, bool setPassengerTariffs );
 };
 
 struct ComparePassenger {
@@ -1228,12 +1313,22 @@ class TPropsPoints: public std::vector<TPointInRoute> {
     bool getLastPropRouteDeparture( TPointInRoute &point );
 };
 
+typedef std::pair<int,TPlace> TSalonSeat;
+
+class TSalonChanges: public std::vector<TSalonSeat> {
+  public:
+    TRFISCMode RFISCMode;
+    TSalonChanges( ) {
+      this->RFISCMode = rTariff;
+    }
+};
 
 class TSalonList: public std::vector<TPlaceList*> {
   private:
     TFilterSets filterSets;
     int comp_id;
     bool pr_craft_lat;
+    TRFISCMode RFISCMode;
     void Clear();
     inline bool findSeat( std::map<int,TPlaceList*> &salons, TPlaceList** placelist,
                           const TSalonPoint &point_s );
@@ -1245,9 +1340,12 @@ class TSalonList: public std::vector<TPlaceList*> {
                      int prior_compon_props_point_id );
     void ReadTariff( TQuery &Qry, FilterRoutesProperty &filterSegments,
                      int prior_compon_props_point_id );
-    void AddRFISCRemarks( int key, const std::string &airline );
-    void DropRFISCRemarks( const std::string &airline );
-    void SetTariffsByColor( const std::string &ailrine, bool setPassengerTariffs );
+    void ReadRFISCColors( TQuery &Qry, FilterRoutesProperty &filterRoutes,
+                          int prior_compon_props_point_id );
+    void SetRFISC( int point_id, TSeatTariffMap &tariffMap );
+    void AddRFISCRemarks( int key, TSeatTariffMap &tariffMap );
+    //void DropRFISCRemarks( TSeatTariffMap &tariffMap );
+    void SetTariffsByRFICSColor( int point_dep, TSeatTariffMap &tariffMap, bool setPassengerTariffs );
     void ReadPaxs( TQuery &Qry, TPaxList &pax_list );
     void ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list );
     void validateLayersSeats( );
@@ -1257,6 +1355,9 @@ class TSalonList: public std::vector<TPlaceList*> {
     std::map<int,TPaxList> pax_lists;
     bool isCraftLat() const {
       return pr_craft_lat;
+    }
+    TRFISCMode getRFISCMode() const {
+      return RFISCMode;
     }
     int getCompId() const {
       return comp_id;
@@ -1281,14 +1382,16 @@ class TSalonList: public std::vector<TPlaceList*> {
     TSalonList( ) {
       pr_craft_lat = false;
       comp_id = ASTRA::NoExists;
+      RFISCMode = rTariff;
     }
     ~TSalonList() {
       Clear();
     }
-    void ReadCompon( int vcomp_id );
+    void ReadCompon( int vcomp_id, int point_id );
     void ReadFlight( const TFilterRoutesSets &filterRoutesSets,
                      TSalonReadVersion version,
                      const std::string &filterClass,
+                     int tariff_pax_id,
                      bool for_calc_waitlist = false,  //!!!
                      int prior_compon_props_point_id = ASTRA::NoExists );
     void Build( bool with_pax,
@@ -1332,7 +1435,6 @@ class TSalonList: public std::vector<TPlaceList*> {
 //typedef std::map<TPlace*, std::vector<TPlaceLayer> > TPlacePaxs; // сортировка по приоритетам слоев
 
 
-  typedef std::pair<int,TPlace> TSalonSeat;
   bool Checkin( int pax_id );
   bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
   void GetTripParams( int trip_id, xmlNodePtr dataNode );
@@ -1346,15 +1448,16 @@ class TSalonList: public std::vector<TPlaceList*> {
   TFindSetCraft AutoSetCraft( int point_id );
   void InitVIP( int point_id );
   void setTRIP_CLASSES( int point_id );
-  //void getSalonChanges( TSalons &OldSalons, std::vector<TSalonSeat> &seats );
   bool getSalonChanges( const std::vector<TPlaceList*> &list1, bool pr_craft_lat1,
                         const std::vector<TPlaceList*> &list2, bool pr_craft_lat2,
-                        std::vector<TSalonSeat> &seats );
+                        TRFISCMode RFISCMode,
+                        TSalonChanges &seats );
   void getSalonChanges( const TSalonList &salonList,
-                        std::vector<TSalonSeat> &seats );
-  void getSalonChanges( TSalons &OldSalons, std::vector<TSalonSeat> &seats );
-  void BuildSalonChanges( xmlNodePtr dataNode, const std::vector<TSalonSeat> &seats );
-  void BuildSalonChanges( xmlNodePtr dataNode, int point_dep, const std::vector<TSalonSeat> &seats,
+                        int tariff_pax_id,
+                        TSalonChanges &seats );
+  void getSalonChanges( TSalons &OldSalons, TRFISCMode RFISCMode, TSalonChanges &seats );
+  void BuildSalonChanges( xmlNodePtr dataNode, const TSalonChanges &seats );
+  void BuildSalonChanges( xmlNodePtr dataNode, int point_dep, const TSalonChanges &seats,
                           bool with_pax, const std::map<int,SALONS2::TPaxList> &pax_lists );
   void salonChangesToText( int point_id,
                            const std::vector<TPlaceList*> &oldlist, bool oldpr_craft_lat,

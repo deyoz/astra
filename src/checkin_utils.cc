@@ -538,6 +538,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
                                  SEATS2::stReseat,
                                  cltUnknown,
                                  change_layer_flags,
+                                 0, NoExists,
                                  NULL );
               }
               else {

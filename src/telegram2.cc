@@ -197,7 +197,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
     SALONS2::TSalonList salonList;
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ),
                           SALONS2::isTranzitSalons( point_dep )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
-                          "" );
+                          "", NoExists );
     TSalonPassengers passengers;
     SALONS2::TGetPassFlags flags;
     flags.setFlag( SALONS2::gpPassenger ); //только пассажиров с местами
@@ -352,7 +352,7 @@ void getSalonLayers( int point_id,
   SALONS2::TSalonList salonList;
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ),
                         SALONS2::isTranzitSalons( point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
-                        "" );
+                        "", NoExists );
   SALONS2::TGetPassFlags flags;
   TSectionInfo sectionInfo;
   salonList.getSectionInfo( sectionInfo, flags );
@@ -6183,7 +6183,7 @@ struct TSR_S {
         const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
         if(options.seat_restrict.find('S') != string::npos) {
             SALONS2::TSalonList salonList;
-            salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "" );
+            salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
             SALONS2::TSectionInfo sectionInfo;
             SALONS2::TGetPassFlags flags;
             flags.clearFlags();
@@ -8313,7 +8313,7 @@ void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_t
 {
   //try verify its new code!!!
   SALONS2::TSalonList salonList;
-  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "" );
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
   SALONS2::TSectionInfo sectionInfo;
   SALONS2::TGetPassFlags flags;
   flags.clearFlags();

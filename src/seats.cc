@@ -2808,7 +2808,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   }
   //для всей группы одна разметка тарифом
   ProgTrace( TRACE5, "passengers.Get(0).tariffs=%s", passengers.Get(0).tariffs.key().c_str() );
-  Salons->SetTariffsByColor( passengers.Get(0).tariffs, true );
+  Salons->SetTariffsByRFICSColor( Salons->trip_id, passengers.Get(0).tariffs, true );
 
   //удаляем предварительно назначенное платное место
   for ( int i=0; i<passengers.getCount(); i++ ) {
@@ -4055,7 +4055,7 @@ bool getCurrSeat( const TSalonList &salonList,
 void SyncPRSA( const string &airline_oper,
                int pax_id,
                TSeatTariffMap::TStatus tariffs_status,
-               const vector<pair<TSeatRange,TSeatTariff>> &tariffs )
+               const vector<pair<TSeatRange,TRFISC>> &tariffs )
 {
   if (tariffs.empty())
   {
@@ -4082,13 +4082,13 @@ void SyncPRSA( const string &airline_oper,
     "INSERT INTO pax_rem(pax_id,rem,rem_code) VALUES(:pax_id,:rem,:rem_code)";
   RemQry.DeclareVariable("rem",otString);
 
-  for ( vector<pair<TSeatRange,TSeatTariff>>::const_iterator it=tariffs.begin(); it!=tariffs.end(); ++it )
+  for ( vector<pair<TSeatRange,TRFISC>>::const_iterator it=tariffs.begin(); it!=tariffs.end(); ++it )
   {
     if (tariffs_status==TSeatTariffMap::stNotFound ||
         tariffs_status==TSeatTariffMap::stNotRFISC) continue;
-    if ((tariffs_status==TSeatTariffMap::stUseRFISC && it->second.rate==0.0) || it->second.RFISC.empty()) continue;
+    if ((tariffs_status==TSeatTariffMap::stUseRFISC && it->second.rate==0.0) || it->second.code.empty()) continue;
     ostringstream rem;
-    rem << "PRSA/" << it->second.RFISC;
+    rem << "PRSA/" << it->second.code;
     if (tariffs_status==TSeatTariffMap::stUseRFISC)
       rem << "/" << it->second.rateView()
           << "/" << it->second.currencyView(LANG_EN);
@@ -4228,7 +4228,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     }
   }
   vector<TSeatRange> seatRanges;
-  vector<pair<TSeatRange,TSeatTariff>> tariffs;
+  vector<pair<TSeatRange,TRFISC>> tariffs;
   TSeatRange r;
   vector<TPlaceList*>::const_iterator isalonList;
   SALONS2::TPoint coord;
@@ -4275,9 +4275,23 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       //назначим тарифы для пассажира
       //TPropsPoints points( salonList.filterSets.filterRoutes, salonList.filterRoutes.point_dep, salonList.filterRoutes.point_arv );
       //bool pr_departure_tariff_only = true;
-      seat->convertSeatTariffs( point_id );
+      seat->SetRFISC( point_id, passTariffs );
+      std::map<int, TRFISC,classcomp> vrfiscs;
+      seat->GetRFISCs( vrfiscs );
+      TRFISC rfisc;
+      if ( vrfiscs.find( point_id ) != vrfiscs.end() ) {
+        rfisc = vrfiscs[ point_id ];
+      }
+      if ( rfisc.code.empty() ) { //старый режим работы ???
+        seat->convertSeatTariffs( point_id );
+        rfisc.rate = seat->SeatTariff.rate;
+        rfisc.currency_id = seat->SeatTariff.currency_id;
+      }
+
+
+/*!!!!      seat->convertSeatTariffs( point_id );
       seat->SetTariffsByColor( passTariffs, true );
-      seat->SetRFICSRemarkByColor( point_id, passTariffs );
+      seat->SetRFICSRemarkByColor( point_id, passTariffs );*/
       verifyPlaces.push_back( *seat );
         // проверка на то, что пассажир не "ВЗ" а место у аварийного выхода
         // проверка на то, что мы имеем право назначить слой на эти места по пассажиру
@@ -4337,7 +4351,8 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       strcpy( r.first.row, seat->yname.c_str() );
       r.second = r.first;
       seatRanges.push_back( r );
-      tariffs.push_back( make_pair(r, seat->SeatTariff ) );
+      //!!!tariffs.push_back( make_pair(r, seat->SeatTariff ) );
+      tariffs.push_back( make_pair(r, rfisc ) );
       if ( pr_down )
         coord.y++;
       else
@@ -4463,21 +4478,21 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
   TReqInfo *reqinfo = TReqInfo::Instance();
   PrmEnum seatPrmEnum("seat", "");
 
-  for ( vector<pair<TSeatRange,TSeatTariff>>::iterator it=tariffs.begin(); it!=tariffs.end(); it++ ) {
+  for ( vector<pair<TSeatRange,TRFISC>>::iterator it=tariffs.begin(); it!=tariffs.end(); it++ ) {
     if (it!=tariffs.begin())
       seatPrmEnum.prms << PrmSmpl<string>("", " ");
 
     seatPrmEnum.prms << PrmSmpl<string>("", denorm_iata_row( it->first.first.row, NULL ) + denorm_iata_line( it->first.first.line, salonList.isCraftLat() ));
 
-    if ( !it->second.RFISC.empty() || !it->second.empty())
+    if ( !it->second.code.empty() || !it->second.empty())
     {
       seatPrmEnum.prms << PrmSmpl<string>("", "(");
-      if ( !it->second.RFISC.empty() )
-        seatPrmEnum.prms << PrmSmpl<string>("", it->second.RFISC);
+      if ( !it->second.code.empty() )
+        seatPrmEnum.prms << PrmSmpl<string>("", it->second.code);
 
       if ( !it->second.empty() )
       {
-        if ( !it->second.RFISC.empty() )
+        if ( !it->second.code.empty() )
           seatPrmEnum.prms << PrmSmpl<string>("", "/");
 
         if (passTariffs.status()==TSeatTariffMap::stUseRFISC ||

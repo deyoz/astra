@@ -39,8 +39,11 @@ public:
      AddEvent("AutoSeats",evHandle);
      evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::Tranzit);
      AddEvent("Tranzit",evHandle);
+     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::RefreshPaxSalons);
+     AddEvent("RefreshPaxSalons",evHandle);
   };
   void Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void RefreshPaxSalons(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -76,11 +79,11 @@ bool IntChangeSeats( int point_id, int pax_id,
                      ASTRA::TCompLayerType layer_type,
                      const BitSet<SEATS2::TChangeLayerFlags> &flags,
                      xmlNodePtr resNode );
-bool IntChangeSeatsN( int point_id, int pax_id, int &tid,
-                      std::string xname, std::string yname,
+bool IntChangeSeatsN( int point_id, int pax_id, int &tid, std::string xname, std::string yname,
                       SEATS2::TSeatsType seat_type,
                       ASTRA::TCompLayerType layer_type,
                       const BitSet<SEATS2::TChangeLayerFlags> &flags,
+                      int comp_crc, int tariff_pax_id,
                       xmlNodePtr resNode );
 void trace( int pax_id, int grp_id, int parent_pax_id, int crs_pax_id, const std::string &pers_type, int seats );
 template <class T1>
