@@ -305,9 +305,11 @@ TPaxFQTItem& TPaxFQTItem::fromDB(TQuery &Qry)
   airline=Qry.FieldAsString("airline");
   no=Qry.FieldAsString("no");
   extra=Qry.FieldAsString("extra");
-  tier_level=Qry.FieldAsString("tier_level");
-  tier_level_confirm=!Qry.FieldIsNULL("tier_level_confirm") &&
-                     Qry.FieldAsInteger("tier_level_confirm")!=0;
+  if (Qry.GetFieldIndex("tier_level")>=0)
+    tier_level=Qry.FieldAsString("tier_level");
+  if (Qry.GetFieldIndex("tier_level_confirm")>=0)
+    tier_level_confirm=!Qry.FieldIsNULL("tier_level_confirm") &&
+                       Qry.FieldAsInteger("tier_level_confirm")!=0;
   return *this;
 };
 
