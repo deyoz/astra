@@ -4399,23 +4399,15 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
 {
     CheckIn::TPaxRemItem rem;
 
-    vector<CheckIn::TPaxASVCItem> asvc;
-    LoadPaxASVC(pax.pax_id, asvc);
-
-    std::list<TPaxEMDItem> emds;
-    PaxEMDFromDB(pax.pax_id, emds);
+    multiset<TPaxEMDItem> emds;
+    GetPaxEMD(pax.pax_id, emds);
 
     CheckIn::PaidBagEMDList &emdList = (*pax.grpEmds)[pax.grp_id];
 
-    for(CheckIn::PaidBagEMDList::iterator emdItem = emdList.begin(); emdItem != emdList.end(); emdItem++) {
-        if(emds.empty())
-            for(vector<CheckIn::TPaxASVCItem>::iterator AsvcItem = asvc.begin(); AsvcItem != asvc.end(); AsvcItem++) {
-                if(emdItem->first == *AsvcItem) pax.used_asvc.push_back(*AsvcItem);
-            }
-        else
-            for(list<TPaxEMDItem>::iterator EMDItem = emds.begin(); EMDItem != emds.end(); EMDItem++) {
-                if(emdItem->first == *EMDItem) pax.used_asvc.push_back(*EMDItem);
-            }
+    for(CheckIn::PaidBagEMDList::iterator emdItem = emdList.begin(); emdItem != emdList.end(); emdItem++)
+    {
+      for(multiset<TPaxEMDItem>::iterator EMDItem = emds.begin(); EMDItem != emds.end(); EMDItem++)
+        if(emdItem->first == *EMDItem) pax.used_asvc.push_back(*EMDItem);
     }
 
     if(not pax.used_asvc.empty()) {

@@ -152,14 +152,13 @@ class TPaxASVCItem
       if (emd_coupon!=item.emd_coupon)
         return (item.emd_coupon==ASTRA::NoExists ||
                 (emd_coupon!=ASTRA::NoExists && emd_coupon<item.emd_coupon));
-      return emd_type<item.emd_type;
+      return false;
     };
     bool operator == (const TPaxASVCItem &item) const
     {
         return
             emd_no == item.emd_no and
-            emd_coupon == item.emd_coupon and
-            emd_type == item.emd_type;
+            emd_coupon == item.emd_coupon;
     }
     const TPaxASVCItem& toXML(xmlNodePtr node) const;
     const TPaxASVCItem& toDB(TQuery &Qry) const;
@@ -196,8 +195,7 @@ void SyncPaxRemOrigin(const boost::optional<TRemGrp> &rem_grp,
 
 void PaxRemAndASVCFromDB(int pax_id,
                          bool from_crs,
-                         std::vector<TPaxRemItem> &rems_and_asvc,
-                         std::vector<TPaxASVCItem> &asvc);
+                         std::vector<TPaxRemItem> &rems_and_asvc);
 
 void PaxFQTFromDB(int pax_id,
                   bool from_crs,

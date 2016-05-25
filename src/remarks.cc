@@ -415,14 +415,13 @@ std::string TPaxASVCItem::no_str() const
   if (emd_coupon!=ASTRA::NoExists)
     s << "/" << emd_coupon;
   else
-    if (emd_type=="A") s << "/?";
+    s << "/?";
   return s.str();
 };
 
 void TPaxASVCItem::rcpt_service_types(set<ASTRA::TRcptServiceType> &service_types) const
 {
   service_types.clear();
-  if (emd_type!="A") return;
   if (RFIC=="C")
   {
     service_types.insert(ASTRA::rstExcess);
@@ -512,7 +511,7 @@ bool SyncPaxASVC(int id, bool is_grp_id)
     "      rfic IS NOT NULL AND "
     "      rfisc IS NOT NULL AND "
     "      service_name IS NOT NULL AND "
-    "      emd_type='A' AND "
+    "      emd_type IS NOT NULL AND "
     "      emd_no IS NOT NULL AND "
     "      emd_coupon IS NOT NULL AND ";
   if (is_grp_id)
@@ -531,7 +530,7 @@ bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
 {
   asvc.clear();
   const char* sql=
-    "SELECT * FROM pax_asvc WHERE pax_id=:pax_id AND emd_type='A'";
+    "SELECT * FROM pax_asvc WHERE pax_id=:pax_id";
   const char* crs_sql=
     "SELECT * FROM crs_pax_asvc "
     "WHERE pax_id=:pax_id AND "
@@ -539,7 +538,7 @@ bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
     "      rfic IS NOT NULL AND "
     "      rfisc IS NOT NULL AND "
     "      service_name IS NOT NULL AND "
-    "      emd_type='A' AND "
+    "      emd_type IS NOT NULL AND "
     "      emd_no IS NOT NULL AND "
     "      emd_coupon IS NOT NULL ";
 
@@ -825,12 +824,11 @@ void SyncPaxRemOrigin(const boost::optional<TRemGrp> &rem_grp,
 
 void PaxRemAndASVCFromDB(int pax_id,
                          bool from_crs,
-                         std::vector<TPaxRemItem> &rems_and_asvc,
-                         std::vector<TPaxASVCItem> &asvc)
+                         std::vector<TPaxRemItem> &rems_and_asvc)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   rems_and_asvc.clear();
-  asvc.clear();
+  std::vector<TPaxASVCItem> asvc;
 
   if (from_crs)
   {

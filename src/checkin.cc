@@ -1486,29 +1486,20 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
   if (node==NULL) return;
 
   vector<CheckIn::TPaxRemItem> rems_and_asvc;
-  vector<CheckIn::TPaxASVCItem> asvc;
-  CheckIn::PaxRemAndASVCFromDB(pax_id, from_crs, rems_and_asvc, asvc);
+  CheckIn::PaxRemAndASVCFromDB(pax_id, from_crs, rems_and_asvc);
   CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id );
   if ( !apps_satus_rem.empty() )
    rems_and_asvc.push_back( apps_satus_rem );
   CheckIn::PaxRemAndASVCToXML(rems_and_asvc, node);
 
-  list<TPaxEMDItem> emds;
+  multiset<TPaxEMDItem> emds;
   if (!from_crs)
   {
-    PaxEMDFromDB(pax_id, emds);
+    GetPaxEMD(pax_id, emds);
     xmlNodePtr asvcNode=NewTextChild(node,"asvc_rems");
-    if (!emds.empty())
-    {
-      for(list<TPaxEMDItem>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
-        e->toXML(asvcNode);
-    }
-    else
-    {
-      for(vector<CheckIn::TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
-        r->toXML(asvcNode);
-    }
-  }
+    for(multiset<TPaxEMDItem>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
+      e->toXML(asvcNode);
+  };
 }
 
 void LoadPaxFQT(int pax_id, xmlNodePtr node, bool from_crs)
@@ -4483,8 +4474,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               }
               //проверка readonly-ремарок
               vector<CheckIn::TPaxRemItem> prior_rems;
-              vector<CheckIn::TPaxASVCItem> asvc;
-              CheckIn::PaxRemAndASVCFromDB(pax.id, new_checkin, prior_rems, asvc);
+              CheckIn::PaxRemAndASVCFromDB(pax.id, new_checkin, prior_rems);
               multiset<CheckIn::TPaxRemItem> added;
               multiset<CheckIn::TPaxRemItem> deleted;
               CheckIn::GetPaxRemDifference(boost::none, prior_rems, rems, added, deleted);
