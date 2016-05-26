@@ -223,6 +223,7 @@ $(defmacro CHECK_SEARCH_PAX
                 <surname>$(surname)</surname>
                 <name>$(name)</name>
                 <rems/>
+                <fqt_rems/>
               </pax>
             </passengers>
             <transfer>
@@ -1213,6 +1214,7 @@ $(lastRedisplay)
               <surname>REPIN</surname>
               <first_name>IVAN</first_name>
             </document>
+            <ticket_bag_norm>çÖí</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <rems>
@@ -1222,6 +1224,7 @@ $(lastRedisplay)
               </rem>
             </rems>
             <asvc_rems/>
+            <fqt_rems/>
             <norms/>
           </pax>
         </passengers>
@@ -1673,6 +1676,7 @@ $(lastRedisplay)
               <surname>REPIN</surname>
               <first_name>IVAN</first_name>
             </document>
+            <ticket_bag_norm>çÖí</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <rems>
@@ -1682,6 +1686,7 @@ $(lastRedisplay)
               </rem>
             </rems>
             <asvc_rems/>
+            <fqt_rems/>
             <norms/>
           </pax>
         </passengers>
@@ -2407,7 +2412,7 @@ FDR+ë7+1027+$(yymmdd)1000+èãä+ëéó++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:ù"
-PSI++TKNE::42161200302972"
+PSI++TKNE::42161200302972+OTHS::::::FREE TEXT"
 PAP+:::100386:::RUS++PP:5408123432:RUS:::311249:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"

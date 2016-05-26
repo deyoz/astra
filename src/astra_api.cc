@@ -173,12 +173,15 @@ LoadPaxXmlResult AstraEngine::SavePax(int pointDep, const XmlTrip& paxTrip)
     NewTextChild(paxNode, "bag_pool_num");
     NewTextChild(paxNode, "transfer");
 
-    xmlNodePtr remsNode = newChild(paxNode, "rems");
-    for(const XmlRem& rem: pax.rems)
+    if(pax.rems)
     {
-        xmlNodePtr remNode = newChild(remsNode, "rem");
-        NewTextChild(remNode, "rem_code", rem.rem_code);
-        NewTextChild(remNode, "rem_text", rem.rem_text);
+        xmlNodePtr remsNode = newChild(paxNode, "rems");
+        for(const XmlRem& rem: pax.rems->rems)
+        {
+            xmlNodePtr remNode = newChild(remsNode, "rem");
+            NewTextChild(remNode, "rem_code", rem.rem_code);
+            NewTextChild(remNode, "rem_text", rem.rem_text);
+        }
     }
 
     NewTextChild(segNode, "paid_bag_emd");
@@ -262,12 +265,15 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg)
         NewTextChild(docNode, "issue_country", pax.doc->issue_country);
     }
 
-    xmlNodePtr remsNode = newChild(paxNode, "rems");
-    for(const XmlRem& rem: pax.rems)
+    if(pax.rems)
     {
-        xmlNodePtr remNode = newChild(remsNode, "rem");
-        NewTextChild(remNode, "rem_code", rem.rem_code);
-        NewTextChild(remNode, "rem_text", rem.rem_text);
+        xmlNodePtr remsNode = newChild(paxNode, "rems");
+        for(const XmlRem& rem: pax.rems->rems)
+        {
+            xmlNodePtr remNode = newChild(remsNode, "rem");
+            NewTextChild(remNode, "rem_code", rem.rem_code);
+            NewTextChild(remNode, "rem_text", rem.rem_text);
+        }
     }
 
     NewTextChild(paxNode, "doco");
@@ -432,6 +438,10 @@ static void applyDocUpdate(XmlPax& pax, const iatci::UpdatePaxDetails::UpdateDoc
 static void applyRemsUpdate(XmlPax& pax, const iatci::UpdateServiceDetails& updSvc)
 {
     LogTrace(TRACE3) << __FUNCTION__;
+    if(!pax.rems) {
+        pax.rems = XmlRems();
+    }
+
     for(const iatci::UpdateServiceDetails::UpdSsrInfo& updSsr: updSvc.lSsr())
     {
         XmlRem rem;
@@ -445,14 +455,14 @@ static void applyRemsUpdate(XmlPax& pax, const iatci::UpdateServiceDetails& updS
         {
             LogTrace(TRACE3) << "add/modify remark: " << updSsr.ssrCode() <<
                                 "/" << updSsr.ssrText() << " (" << updSsr.freeText() << ")";
-            pax.rems.push_back(rem);
+            pax.rems->rems.push_back(rem);
             break;
         }
         case iatci::UpdateDetails::Cancel:
         {
             LogTrace(TRACE3) << "cancel remark: " << updSsr.ssrCode() <<
                                 "/" << updSsr.ssrText() << " (" << updSsr.freeText() << ")";
-            pax.rems.remove(rem);
+            pax.rems->rems.remove(rem);
             break;
         }
         default:
@@ -825,10 +835,14 @@ astra_entities::PaxInfo XmlPax::toPax() const
         paxDoc = doc->toDoc();
     }
 
-    std::list<astra_entities::Remark> paxRems;
-    for(const XmlRem& rem: rems) {
-        paxRems.push_back(astra_entities::Remark(rem.rem_code,
-                                                 rem.rem_text));
+    boost::optional<astra_entities::Remarks> paxRems;
+    if(rems)
+    {
+        paxRems = astra_entities::Remarks();
+        for(const XmlRem& rem: rems->rems) {
+            paxRems->m_lRems.push_back(astra_entities::Remark(rem.rem_code,
+                                                              rem.rem_text));
+        }
     }
 
     return astra_entities::PaxInfo(pax_id,
@@ -1154,15 +1168,15 @@ XmlRem XmlEntityReader::readRem(xmlNodePtr remNode)
     return rem;
 }
 
-std::list<XmlRem> XmlEntityReader::readRems(xmlNodePtr remsNode)
+XmlRems XmlEntityReader::readRems(xmlNodePtr remsNode)
 {
     ASSERT(remsNode);
 
-    std::list<XmlRem> rems;
+    XmlRems rems;
     for(xmlNodePtr remNode = remsNode->children;
         remNode != NULL; remNode = remNode->next)
     {
-        rems.push_back(XmlEntityReader::readRem(remNode));
+        rems.rems.push_back(XmlEntityReader::readRem(remNode));
     }
     return rems;
 }
@@ -1559,10 +1573,13 @@ iatci::Result LoadPaxXmlResult::toIatci(iatci::Result::Action_e action,
         }
 
         // rems
-        for(const XmlRem& rem: pax.rems)
+        if(pax.rems)
         {
-            serviceDetails->addSsr(rem.rem_code,
-                                   rem.rem_text);
+            for(const XmlRem& rem: pax.rems->rems)
+            {
+                serviceDetails->addSsr(rem.rem_code,
+                                       rem.rem_text);
+            }
         }
     }
 
@@ -1727,6 +1744,18 @@ bool operator!=(const DocInfo& left, const DocInfo& right)
 
 //---------------------------------------------------------------------------------------
 
+bool operator==(const Remarks& left, const Remarks& right)
+{
+    return (left.m_lRems == right.m_lRems);
+}
+
+bool operator!=(const Remarks& left, const Remarks& right)
+{
+    return !(left == right);
+}
+
+//---------------------------------------------------------------------------------------
+
 PaxInfo::PaxInfo(int paxId,
                  const std::string& surname,
                  const std::string& name,
@@ -1735,7 +1764,7 @@ PaxInfo::PaxInfo(int paxId,
                  unsigned couponNum,
                  const std::string& ticketRem,
                  const boost::optional<DocInfo>& doc,
-                 const std::list<Remark>& lRems)
+                 const boost::optional<Remarks>& rems)
     : m_paxId(paxId),
       m_surname(surname),
       m_name(name),
@@ -1744,7 +1773,7 @@ PaxInfo::PaxInfo(int paxId,
       m_couponNum(couponNum),
       m_ticketRem(ticketRem),
       m_doc(doc),
-      m_lRems(lRems)
+      m_rems(rems)
 {}
 
 bool operator==(const PaxInfo& left, const PaxInfo& right)
@@ -1757,7 +1786,7 @@ bool operator==(const PaxInfo& left, const PaxInfo& right)
             left.m_couponNum == right.m_couponNum &&
             left.m_ticketRem == right.m_ticketRem &&
             left.m_doc       == right.m_doc &&
-            left.m_lRems     == right.m_lRems);
+            left.m_rems     == right.m_rems);
 }
 
 bool operator!=(const PaxInfo& left, const PaxInfo& right)

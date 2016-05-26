@@ -105,6 +105,16 @@ bool operator!=(const DocInfo& left, const DocInfo& right);
 
 //---------------------------------------------------------------------------------------
 
+struct Remarks
+{
+    std::list<Remark> m_lRems;
+};
+
+bool operator==(const Remarks& left, const Remarks& right);
+bool operator!=(const Remarks& left, const Remarks& right);
+
+//---------------------------------------------------------------------------------------
+
 struct PaxInfo
 {
     int                      m_paxId;
@@ -115,7 +125,7 @@ struct PaxInfo
     unsigned                 m_couponNum;
     std::string              m_ticketRem;
     boost::optional<DocInfo> m_doc;
-    std::list<Remark>        m_lRems;
+    boost::optional<Remarks> m_rems;
 
     PaxInfo(int paxId,
             const std::string& surname,
@@ -125,7 +135,7 @@ struct PaxInfo
             unsigned couponNum,
             const std::string& ticketRem,
             const boost::optional<DocInfo>& doc,
-            const std::list<Remark>& lRems = std::list<Remark>());
+            const boost::optional<Remarks>& rems = boost::none);
 
     int id() const { return m_paxId; }
 };
@@ -178,6 +188,13 @@ bool operator==(const XmlRem& l, const XmlRem& r);
 
 //---------------------------------------------------------------------------------------
 
+struct XmlRems
+{
+    std::list<XmlRem> rems;
+};
+
+//---------------------------------------------------------------------------------------
+
 struct XmlPax
 {
     int         pax_id;
@@ -206,8 +223,7 @@ struct XmlPax
     int         user_id;
     std::string airp_arv;
     boost::optional<XmlPaxDoc> doc;
-    std::list<XmlRem> rems;
-
+    boost::optional<XmlRems> rems;
 
     XmlPax();
 
@@ -472,7 +488,7 @@ public:
     static std::list<XmlTripCounterItem> readTripCounterItems(xmlNodePtr tripCountersNode);
 
     static XmlRem                        readRem(xmlNodePtr remNode);
-    static std::list<XmlRem>             readRems(xmlNodePtr remsNode);
+    static XmlRems                       readRems(xmlNodePtr remsNode);
 
     static XmlPaxDoc                     readDoc(xmlNodePtr docNode);
 

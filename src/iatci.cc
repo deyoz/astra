@@ -596,10 +596,14 @@ PaxChange::PaxChange(const astra_entities::PaxInfo& oldPax,
         m_docChange = DocChange_t(oldPax.m_doc.get(), newPax.m_doc.get());
     }
 
-    RemChange_t remChng(oldPax.m_lRems, newPax.m_lRems);
-    if(!remChng.empty())
+    if(newPax.m_rems)
     {
-        m_remChange = remChng;
+        ASSERT(oldPax.m_rems); // в старом пассажире ремарки быть обязаны
+        RemChange_t remChng(oldPax.m_rems->m_lRems, newPax.m_rems->m_lRems);
+        if(!remChng.empty())
+        {
+            m_remChange = remChng;
+        }
     }
 }
 
