@@ -234,11 +234,14 @@ TDateTime getdiffhours( const std::string &region )
 'Asia/Chita' +2
 'Asia/Srednekolymsk' +1
 */
-  if ( region == "Asia/Barnaul" ||
+/*  if ( region == "Asia/Barnaul" ||
        region == "Europe/Astrakhan" ||
        region == "Europe/Ulyanovsk" ||
        region == "Asia/Chita" ||
        region == "Asia/Sakhalin" ) {
+    return -1.0;
+  }*/
+  if ( region == "Asia/Tomsk" ) {
     return -1.0;
   }
 
@@ -838,14 +841,12 @@ int seasons_dst_format(int argc,char **argv)
   //1 - ß®¨†
   Qry.Clear();
   Qry.SQLText =
-    "SELECT DISTINCT trip_id,move_id,num,first_day,last_day,days,sched_days.region FROM sched_days, seasons,"
-    "( SELECT id region FROM DATE_TIME_ZONESPEC "
-    " WHERE id IN ("
-    "'Asia/Sakhalin',"
-    "'Asia/Chita'"
-    " ) ) d "
-    "WHERE seasons.region=sched_days.region AND seasons.region=d.region AND seasons.last > to_date('27.03.16','DD.MM.YY') AND "
-    "      first_day BETWEEN seasons.first AND seasons.last "
+    "SELECT DISTINCT trip_id,move_id,num,first_day,last_day,days,sched_days.region FROM sched_days "
+    "WHERE move_id IN ( "
+    " SELECT move_id FROM routes, airps WHERE airps.code=routes.airp AND airps.city IN ("
+    "'Äêç','ÅÖÉ','ÅÖã','ÅáÄ','Åäó','Åíê','Çíà','ÑÖÖ','ÑìÜ','äÄë','äÇÖ','äÇâ','äÑÑ','äÖÉ','äàÑ','ääÉ','äãò','äãû','äêü','äìÜ','äìû','äòê','ãäÄ','åÜç','åâë',"
+    "'åäá','åãç','åéó','åõã','çÉí','çáç','çèë','çíá','çõÇ','éëà','èÅÉ','èÑç','èàç','èéÑ','èêÅ','èïä','ëÇû','ëÖà','ëèá','ëèç','ëëä','ëíÜ','ëíñ','ëìÉ','íãÑ',"
+    "'íëä','íõå','ìíõ','ìóà','òÉê') ) AND first_day > to_date('28.05.16','DD.MM.YY') "
     "ORDER BY trip_id,move_id,num";
   tst();
   Qry.Execute();
@@ -969,9 +970,9 @@ int seasons_dst_format(int argc,char **argv)
          break;
         }
         if (  prior_scd_in != NoExists ) {
-          ProgTrace( TRACE5, "before convert move_id=%d, route.num=%d, scd_in=%s, delta_in=%d, airp=%s",
+          ProgTrace( TRACE5, "before convert move_id=%d, route.num=%d, scd_in=%s, delta_in=%d, airp=%s, region=%s",
                      move_id, route_num, DateTimeToStr( prior_scd_in, "dd.mm.yyyy hh:nn" ).c_str(),
-                     prior_delta_in, RQry.FieldAsString( "airp" ) );
+                     prior_delta_in, RQry.FieldAsString( "airp" ), city_region.c_str() );
           if ( row.country == "êî" ) {
             scd_in = trunc_f + prior_delta_in + prior_scd_in;
             ProgTrace( TRACE5, "scd_in=%f, scd_in=%s", scd_in, DateTimeToStr( scd_in, "dd.mm.yyyy hh:nn" ).c_str() );
@@ -1100,7 +1101,7 @@ int seasons_dst_format(int argc,char **argv)
     Qry.Next();
     OraSession.Commit();
   }
-    Qry.Clear();
+    /*Qry.Clear();
     Qry.SQLText =
       "SELECT SCHED_DAYS.TRIP_ID,SCHED_DAYS.MOVE_ID,SCHED_DAYS.NUM,SCHED_DAYS.FIRST_DAY, airp,scd_in,delta_in,scd_out,delta_out,routes.num route_num "
       " FROM ROUTES,SCHED_DAYS, SEASONS, "
@@ -1192,11 +1193,6 @@ int seasons_dst_format(int argc,char **argv)
               double df;
               scd_in = modf( scd_in, &df );
               delta_in = (int)df;
-/*              if ( prior_delta_in != 0 || delta_in < 0 ) {
-                delta_in = prior_delta_in;
-                scd_in = prior_scd_in;
-                tst();
-              }*/
             }
 
             if ( Qry.FieldIsNULL( "scd_out" ) )
@@ -1219,11 +1215,6 @@ int seasons_dst_format(int argc,char **argv)
               double df;
               scd_out = modf( scd_out, &df );
               delta_out = (int)df;
-/*              if ( prior_delta_out != 0 || delta_out < 0 ) {
-                delta_out = prior_delta_out;
-                scd_out = prior_scd_out;
-                tst();
-              }*/
             }
             RUQry.SetVariable( "move_id", Qry.FieldAsInteger( "move_id" ) );
             RUQry.SetVariable( "num", Qry.FieldAsInteger( "route_num" ) );
@@ -1248,7 +1239,7 @@ int seasons_dst_format(int argc,char **argv)
       }
       Qry.Next();
       OraSession.Commit();
-    }
+    }*/
 
 
   }
