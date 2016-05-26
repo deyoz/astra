@@ -560,6 +560,7 @@ class TPrnTagStore {
         void set_tag(std::string name, int value);
         void set_tag(std::string name, BASIC::TDateTime value);
         std::string get_field(std::string name, size_t len, std::string align, std::string date_format, std::string tag_lang, bool pr_user_except = true);
+        void save_bi_print(bool pr_print = false);
         void save_bp_print(bool pr_print = false);
         std::string get_tag_no_err( // Версия get_tag, которая игнорирует ошибку "Данные печати не латинские"
                 std::string name,

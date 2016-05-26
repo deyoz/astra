@@ -5998,6 +5998,57 @@ void set_trip_sets(const TAdvTripInfo &flt)
                                       evtFlt, flt.point_id);
   };
 
+  //приглашения
+  InsQry.Clear();
+  InsQry.SQLText=
+    "INSERT INTO trip_bi(point_id, class, bi_type) "
+    "VALUES(:point_id, :class, :bi_type) ";
+  InsQry.CreateVariable("point_id", otInteger, flt.point_id);
+  InsQry.DeclareVariable("class", otString);
+  InsQry.DeclareVariable("bi_type", otString);
+
+  Qry.SQLText=
+    "SELECT class,bi_type, "
+    "       DECODE(airline,NULL,0,8)+ "
+    "       DECODE(flt_no,NULL,0,2)+ "
+    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM bi_set "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+    "ORDER BY class,priority DESC ";
+  Qry.Execute();
+
+  pr_first=true;
+  prev_cl.clear();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    string cl=Qry.FieldAsString("class");
+    string bi_type=Qry.FieldAsString("bi_type");
+    if (pr_first || prev_cl!=cl)
+    {
+      InsQry.SetVariable("class", cl);
+      InsQry.SetVariable("bi_type", bi_type);
+      InsQry.Execute();
+
+      ostringstream msg;
+      string lexema_id;
+      LEvntPrms params;
+      params << PrmElem<string>("name", etBIType, bi_type, efmtNameLong);
+      if (!cl.empty())
+      {
+        lexema_id = "EVT.BI_FORM_INSERTED_FOR_CLASS";
+        params << PrmElem<string>("cls", etClass, cl, efmtCodeNative);
+      }
+      else
+        lexema_id = "EVT.BI_FORM_INSERTED";
+      msg << ".";
+      TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtFlt, flt.point_id);
+    };
+    pr_first=false;
+    prev_cl=cl;
+  };
+
   //залы
   InsQry.Clear();
   InsQry.SQLText=

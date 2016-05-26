@@ -15,6 +15,7 @@ enum TElemType {
                  etBagType,                  //типы багажа
                  etBrand,                    //бренды
                  etBIRegGroup,               //группа регистрации для приглашений
+                 etBIType,                   //типы приглашений
                  etBPType,                   //типы посадочных талонов
                  etBTType,                   //типы багажных бирок
                  etCity,                     //города
@@ -45,6 +46,7 @@ enum TElemType {
                  etPaxDocType,               //типы документов пассажиров
                  etPayType,                  //код типа оплаты
                  etPersType,                 //тип пассажира ВЗ, РБ, РМ
+                 etPriorityCardType,         //тип карты приоритета
                  etRateColor,                //цвета тарифов в компоновке
                  etRcptDocType,              //типы документов пассажиров для оплаты багажа
                  etRefusalType,              //коды причин отказа в регистрации

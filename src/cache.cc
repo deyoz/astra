@@ -18,7 +18,7 @@
 #include "jxtlib/xml_stuff.h"
 
 #define NICKNAME "DJEK"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL",""};
 
@@ -400,10 +400,17 @@ void TCacheTable::initFields()
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirp;
         };
+        /*
         if (FField.ReferCode == "PRIORITY_CARD_TYPES" && FField.ReferName == "AIRLINE_VIEW" )
         {
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirline;
+        };
+        */
+        if (FField.ReferCode == "PRIORITY_CARD_TYPES" && FField.ReferName == "CARD_TYPE" )
+        {
+          FField.ElemCategory=cecName;
+          FField.ElemType=etPriorityCardType;
         };
         if (FField.ReferCode == "HALLS" && FField.ReferName == "AIRP_VIEW" )
         {
@@ -1555,6 +1562,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 
         SetVariables( *iv, vars );
         try {
+            LogTrace(TRACE5) << Qry->SQLText.SQLText(); // !!!
           Qry->Execute();
           if ( Logging ) /* логирование */
             OnLogging( *iv, status );

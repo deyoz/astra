@@ -9,6 +9,7 @@
 #include "docs.h"
 #include "tripinfo.h"
 #include "passenger.h"
+#include "qrys.h"
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DEN"
@@ -693,6 +694,50 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
         "       :client_type ";
 };
 
+void TPrnTagStore::save_bi_print(bool pr_print)
+{
+    if (isTestPaxId(pax_id)) return;
+    if(not prn_test_tags.items.empty())
+        throw Exception("save_bi_print can't be called in test mode");
+    QParams QryParams;
+    QryParams
+        << QParam("time_print", otDate)
+        << QParam("pax_id", otInteger, pax_id)
+        << QParam("now_utc", otDate, time_print.val)
+        << QParam("pr_print", otInteger, pr_print)
+        << QParam("desk", otString, TReqInfo::Instance()->desk.code)
+        << QParam("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
+    TCachedQuery Qry(
+        "begin "
+        "   delete from bi_print where pax_id = :pax_id and pr_print = 0 and desk=:desk; "
+        "   insert into bi_print( "
+        "       pax_id, "
+        "       time_print, "
+        "       pr_print, "
+        "       desk, "
+        "       client_type "
+        "   ) values( "
+        "       :pax_id, "
+        "       :now_utc, "
+        "       :pr_print, "
+        "       :desk, "
+        "       :client_type "
+        "  ) returning time_print into :time_print; "
+        "end; ", QryParams);
+    Qry.get().Execute();
+    LogTrace(TRACE5) << "save_bi_print after execute";
+    try {
+        Qry.get().Execute();
+        LogTrace(TRACE5) << "save_bi_print time_print: " << DateTimeToStr(Qry.get().GetVariableAsDateTime("time_print"));
+    } catch(EOracleError &E) {
+        if(E.Code == 1) {
+            if(TReqInfo::Instance()->client_type == ctTerm)
+                throw UserException("MSG.PRINT.BI_ALREADY_PRODUCED");
+        } else
+            throw;
+    }
+}
+
 void TPrnTagStore::save_bp_print(bool pr_print)
 {
     if(scan_data != NULL) return;
@@ -763,8 +808,7 @@ void TPrnTagStore::save_bp_print(bool pr_print)
     }
     if(tag_list[TAG::SURNAME].processed)
         prnQry.add_part(TAG::SURNAME, paxInfo.surname);
-    string SQLText = prnQry.text();
-    Qry.SQLText = SQLText;
+    Qry.SQLText = prnQry.text();
     try {
         Qry.Execute();
     } catch(EOracleError &E) {

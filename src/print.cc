@@ -1377,6 +1377,42 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     GetPrintDataBT(dataNode, tag_key);
 }
 
+void PrintInterface::ConfirmPrintBI(const std::vector<BIPax> &paxs,
+                                    CheckIn::UserException &ue)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "BEGIN "
+        "  UPDATE bi_print "
+        "  SET pr_print = 1 "
+        "  WHERE pax_id = :pax_id AND time_print = :time_print AND pr_print = 0 AND desk=:desk; "
+        "  :rows:=SQL%ROWCOUNT; "
+        "END;";
+    Qry.DeclareVariable("rows", otInteger);
+    Qry.DeclareVariable("pax_id", otInteger);
+    Qry.DeclareVariable("time_print", otDate);
+    Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
+    for (vector<BIPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+    {
+        try
+        {
+            Qry.SetVariable("pax_id", iPax->pax_id);
+            Qry.SetVariable("time_print", iPax->time_print);
+            Qry.Execute();
+            if (Qry.GetVariableAsInteger("rows")==0)
+                throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+            LEvntPrms params;
+            params << PrmSmpl<std::string>("full_name", iPax->full_name);
+            TReqInfo::Instance()->LocaleToLog("EVT.PRINT_INVITATION", params, ASTRA::evtPax, iPax->point_dep,
+                                              iPax->reg_no, iPax->grp_id);
+        }
+        catch(AstraLocale::UserException &e)
+        {
+          ue.addError(e.getLexemaData(), iPax->point_dep, iPax->pax_id);
+        };
+    };
+};
+
 void PrintInterface::ConfirmPrintBP(const std::vector<BPPax> &paxs,
                                     CheckIn::UserException &ue)
 {
@@ -1416,6 +1452,36 @@ void PrintInterface::ConfirmPrintBP(const std::vector<BPPax> &paxs,
           ue.addError(e.getLexemaData(), iPax->point_dep, iPax->pax_id);
         };
     };
+};
+
+void PrintInterface::ConfirmPrintBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TQuery PaxQry(&OraSession);
+    PaxQry.SQLText =
+      "SELECT pax.grp_id, surname||' '||name full_name, reg_no, point_dep "
+      "FROM pax, pax_grp  "
+      "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
+    PaxQry.DeclareVariable("pax_id",otInteger);
+    vector<BIPax> paxs;
+    xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
+    for(; curNode != NULL; curNode = curNode->next)
+    {
+        BIPax pax;
+        pax.pax_id=NodeAsInteger("@pax_id", curNode);
+        pax.time_print=NodeAsDateTime("@time_print", curNode);
+
+        PaxQry.SetVariable("pax_id", pax.pax_id);
+        PaxQry.Execute();
+        if(PaxQry.Eof) continue;
+
+        pax.point_dep=PaxQry.FieldAsInteger("point_dep");
+        pax.grp_id=PaxQry.FieldAsInteger("grp_id");
+        pax.reg_no=PaxQry.FieldAsInteger("reg_no");
+        pax.full_name=PaxQry.FieldAsString("full_name");
+        paxs.push_back(pax);
+    };
+    CheckIn::UserException ue;
+    ConfirmPrintBI(paxs, ue); //не надо прокидывать ue в терминал - подтверждаем все что можем!
 };
 
 void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1649,6 +1715,148 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
     }
 }
 
+static const char *BIRegGroupS[] = {
+    "+1",
+    "ДА",
+    "НЕТ"
+};
+
+struct TBIPrintRules {
+    enum TRegGroup { rgPlusOne, rgYes, rgNo, rgNum };
+
+    TRegGroup DecodeRegGroup(const string &reg_group);
+    string EncodeRegGroup(TRegGroup s);
+
+    struct TRule {
+        TRegGroup reg_group;
+        bool pr_issue;
+        TRule(): reg_group(rgYes), pr_issue(false) {}
+        TRule(TRegGroup areg_group, bool apr_issue):
+            reg_group(areg_group),
+            pr_issue(apr_issue)
+        {}
+    };
+
+    typedef map<string, TRule> TRemRule;
+    typedef map<string, TRemRule> TSubclsRule;
+    typedef map<string, TSubclsRule> TClsRule;
+    typedef map<int, TClsRule> TRuleMap;
+
+    TRuleMap rules;
+
+    TBIPrintRules(int point_id);
+    TBIPrintRules(const string &airline);
+};
+
+TBIPrintRules::TBIPrintRules(const string &airline)
+{
+    QParams QryParams;
+    QryParams << QParam("airline", otString, airline);
+    TCachedQuery Qry("select * from bi_print_rules where airline = :airline", QryParams);
+    Qry.get().Execute();
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        rules
+            [Qry.get().FieldAsInteger("card_type")]
+            [Qry.get().FieldAsString("cls")]
+            [Qry.get().FieldAsString("subcls")]
+            [Qry.get().FieldAsString("rem_code")]
+            =
+            TRule(
+                    DecodeRegGroup(Qry.get().FieldAsString("reg_group")),
+                    Qry.get().FieldAsInteger("pr_issue") != 0
+                 );
+    }
+}
+
+TBIPrintRules::TBIPrintRules(int point_id)
+{
+    QParams QryParams;
+    QryParams << QParam("point_id", otInteger, point_id);
+    TCachedQuery Qry("select airline from points where point_id = :point_id", QryParams);
+    Qry.get().Execute();
+    if(Qry.get().Eof)
+        throw Exception("%s, flight not found, point_id = %d", __FUNCTION__, point_id);
+    TBIPrintRules(Qry.get().FieldAsString("airline"));
+}
+
+string TBIPrintRules::EncodeRegGroup(TBIPrintRules::TRegGroup s)
+{
+    return BIRegGroupS[s];
+}
+
+TBIPrintRules::TRegGroup TBIPrintRules::DecodeRegGroup(const string &reg_group)
+{
+    int i = 0;
+    for(i = 0; i < (int)rgNum; i++)
+        if(reg_group == BIRegGroupS[i])
+            break;
+    if(i == rgNum)
+        throw Exception("DecodeRegGroup: unknown reg group");
+    else
+        return TRegGroup(i);
+}
+
+void PrintInterface::GetPrintDataBI(const BPParams &params,
+                                    string &pectab,
+                                    vector<BIPax> &paxs)
+{
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText =
+        "select "
+        "   prn_form_vers.form, "
+        "   prn_form_vers.data "
+        "from "
+        "   bi_models, "
+        "   prn_form_vers "
+        "where "
+        "   bi_models.form_type = :form_type and "
+        "   bi_models.dev_model = :dev_model and "
+        "   bi_models.fmt_type = :fmt_type and "
+        "   bi_models.id = prn_form_vers.id and "
+        "   bi_models.version = prn_form_vers.version ";
+    Qry.CreateVariable("form_type", otString, params.form_type);
+    Qry.CreateVariable("dev_model", otString, params.dev_model);
+    Qry.CreateVariable("fmt_type", otString, params.fmt_type);
+    Qry.Execute();
+    if(Qry.Eof or
+       Qry.FieldIsNULL("data") or
+       (Qry.FieldIsNULL( "form" ) and (DecodeDevFmtType(params.fmt_type) == dftBTP or
+                                     DecodeDevFmtType(params.fmt_type) == dftATB))
+      )
+        previewDeviceSets(true, "MSG.PRINT.BI_UNAVAILABLE_FOR_THIS_DEVICE");
+    pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
+    string data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
+
+
+    for (vector<BIPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+        // здесь применение настроек из bi_print_rules
+
+
+
+//        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
+        PrintDataParser parser( iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode );
+//        big_test(parser, dotPrnBP);
+        // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
+        //надо удалить выход на посадку из данных по пассажиру
+        if (iPax->gate.second)
+            parser.pts.set_tag("gate", iPax->gate.first);
+
+        iPax->prn_form = parser.parse(data);
+        iPax->hex=false;
+        if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
+            to_esc::TConvertParams ConvertParams;
+            ConvertParams.init(params.dev_model);
+//            ProgTrace(TRACE5, "prn_form: %s", iPax->prn_form.c_str());
+            to_esc::convert(iPax->prn_form, ConvertParams, params.prnParams);
+            StringToHex( string(iPax->prn_form), iPax->prn_form );
+            iPax->hex=true;
+        }
+        parser.pts.save_bi_print();
+        iPax->time_print=parser.pts.get_time_print();
+    }
+};
+
 void PrintInterface::GetPrintDataBP(const BPParams &params,
                                     string &pectab,
                                     vector<BPPax> &paxs)
@@ -1711,6 +1919,167 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
     }
 };
 
+bool check_bi_print(int point_id, int hall)
+{
+    QParams QryParams;
+    QryParams
+        << QParam("point_id", otInteger, point_id)
+        << QParam("hall", otInteger, hall);
+    TCachedQuery Qry(
+            "SELECT * FROM points, bi_airline_service bias WHERE "
+            "   points.point_id = :point_id and "
+            "   points.airline = bias.airline and "
+            "   points.airp = bias.airp and "
+            "   bias.hall = :hall and "
+            "   bias.is_business_hall <> 0 "
+            ,
+            QryParams
+            );
+    Qry.get().Execute();
+    return not Qry.get().Eof;
+}
+
+void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr currNode = reqNode->children;
+    BPParams params;
+    int first_seg_grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists); // grp_id - первого сегмента или ид. группы
+    int pax_id = NodeAsIntegerFast("pax_id", currNode, NoExists);
+    int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
+    params.dev_model = NodeAsStringFast("dev_model", currNode);
+    params.fmt_type = NodeAsStringFast("fmt_type", currNode);
+    params.prnParams.get_prn_params(reqNode);
+    params.clientDataNode = NodeAsNodeFast("clientData", currNode);
+    if(params.dev_model.empty())
+      previewDeviceSets(false, "MSG.PRINTER_NOT_SPECIFIED");
+
+    TQuery Qry(&OraSession);
+    if(first_seg_grp_id == NoExists) {
+        Qry.Clear();
+        Qry.SQLText="SELECT grp_id from pax where pax_id = :pax_id";
+        Qry.CreateVariable("pax_id", otInteger, pax_id);
+        Qry.Execute();
+        if(Qry.Eof)
+            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+        first_seg_grp_id = Qry.FieldAsInteger("grp_id");
+    }
+
+
+    Qry.Clear();
+    Qry.SQLText="SELECT point_dep, class, status, hall FROM pax_grp WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id",otInteger,first_seg_grp_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+    if (DecodePaxStatus(Qry.FieldAsString("status"))==psCrew)
+        throw AstraLocale::UserException("MSG.INVITATION_NOT_AVAILABLE_FOR_CREW");
+    if(Qry.FieldIsNULL("class"))
+        throw AstraLocale::UserException("MSG.INVITATION_NOT_AVAILABLE_FOR_UNACC_BAGGAGE");
+    if(Qry.FieldIsNULL("hall"))
+        throw AstraLocale::UserException("MSG.INVITATION_NOT_AVAILABLE_FOR_EMPTY_HALL");
+    int point_id = Qry.FieldAsInteger("point_dep");
+    string cl = Qry.FieldAsString("class");
+    int hall = Qry.FieldAsInteger("hall");
+    if(not check_bi_print(point_id, hall))
+        throw AstraLocale::UserException("MSG.NO_ACCESS");
+    Qry.Clear();
+    Qry.SQLText =
+        "SELECT bi_type, "
+        "       DECODE(class,NULL,0,1) AS priority "
+        "FROM trip_bi "
+        "WHERE point_id=:point_id AND "
+        "      (class IS NULL OR class=:class) "
+        "ORDER BY priority DESC ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("class", otString, cl);
+    Qry.Execute();
+    if(Qry.Eof) throw AstraLocale::UserException("MSG.BI_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
+    params.form_type = Qry.FieldAsString("bi_type");
+    ProgTrace(TRACE5, "bi_type: %s", params.form_type.c_str());
+
+    TBIPrintRules bi_rules(point_id);
+
+    vector<int> grps;
+    vector<BIPax> paxs;
+    Qry.Clear();
+    if ( pax_id == NoExists ) { // печать всех или только тех, у которых не подтверждена распечатка
+        TCkinRoute cr;
+        cr.GetRouteAfter(first_seg_grp_id, crtWithCurrent, crtOnlyDependent);
+        if (!cr.empty())
+        {
+          for(vector<TCkinRouteItem>::iterator iv = cr.begin(); iv != cr.end(); iv++)
+              grps.push_back(iv->grp_id);
+        }
+        else grps.push_back(first_seg_grp_id);
+
+        Qry.Clear();
+        if ( pr_all )
+            Qry.SQLText =
+                "SELECT pax_id, grp_id, reg_no "
+                " FROM pax "
+                "WHERE grp_id = :grp_id AND "
+                "      refuse IS NULL "
+                "ORDER BY pax.reg_no, pax.seats DESC";
+        else
+            Qry.SQLText =
+                "SELECT pax.pax_id, pax.grp_id, pax.reg_no "
+                " FROM pax, bi_print "
+                "WHERE  pax.grp_id = :grp_id AND "
+                "       pax.refuse IS NULL AND "
+                "       pax.pax_id = bi_print.pax_id(+) AND "
+                "       bi_print.pr_print(+) <> 0 AND "
+                "       bi_print.pax_id IS NULL "
+                "ORDER BY pax.reg_no, pax.seats DESC";
+        Qry.DeclareVariable( "grp_id", otInteger );
+        for( vector<int>::iterator igrp=grps.begin(); igrp!=grps.end(); igrp++ ) {
+            Qry.SetVariable( "grp_id", *igrp );
+            Qry.Execute();
+            if ( Qry.Eof && pr_all ) // анализ на клиенте по сегментам, значит и мы должны анализировать по сегментам
+                throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //все посадочные отпечатаны
+            while ( !Qry.Eof ) {
+                paxs.push_back( BIPax( Qry.FieldAsInteger("grp_id"),
+                                       Qry.FieldAsInteger("pax_id"),
+                                       Qry.FieldAsInteger("reg_no") ) );
+                Qry.Next();
+            }
+            break; // только первый сегмент (c) den.
+        }
+        if ( !pr_all && paxs.empty() ) //все посадочные отпечатаны, но при этом надо было напечатать те, которые были не напечатанны
+            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+    }
+    else { // печать конкретного пассажира
+        Qry.SQLText =
+            "SELECT grp_id, pax_id, reg_no FROM pax where pax_id = :pax_id";
+        Qry.CreateVariable("pax_id", otInteger, pax_id);
+        Qry.Execute();
+        if ( Qry.Eof )
+            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+        paxs.push_back( BIPax( Qry.FieldAsInteger("grp_id"),
+                               Qry.FieldAsInteger("pax_id"),
+                               Qry.FieldAsInteger("reg_no") ) );
+    };
+
+    for (vector<BIPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+      if(first_seg_grp_id != iPax->grp_id) iPax->gate=make_pair("", true);
+
+    string pectab;
+    GetPrintDataBI(params, pectab, paxs);
+
+    xmlNodePtr BINode = NewTextChild(NewTextChild(resNode, "data"), "printBI");
+    NewTextChild(BINode, "pectab", pectab);
+    xmlNodePtr passengersNode = NewTextChild(BINode, "passengers");
+    for (vector<BIPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+        xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+        SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
+        SetProp(paxNode, "pax_id", iPax->pax_id);
+        SetProp(paxNode, "reg_no", (int)iPax->reg_no);
+        SetProp(paxNode, "time_print", DateTimeToStr(iPax->time_print));
+        bool unbound_emd_warning=(pax_id == NoExists &&               // печать всех или только тех, у которых не подтверждена распечатка
+                                  iPax->grp_id == first_seg_grp_id && // только для пассажиров первого сегмента сквозной регистрации
+                                  PaxASVCList::ExistsPaxUnboundEMD(iPax->pax_id));
+        NewTextChild(paxNode, "unbound_emd_warning", (int)unbound_emd_warning, (int)false);
+    }
+}
 
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

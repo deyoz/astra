@@ -50,6 +50,44 @@ double CalcPayRateSum(const TBagReceipt &rcpt);
 class PrintInterface: public JxtInterface
 {
     public:
+        struct BIPax {
+            int point_dep;
+            int grp_id;
+            int pax_id;
+            int reg_no;
+            std::string full_name;
+            std::pair<std::string, bool> gate; //bool=true, если делать set_tag, иначе с gate ничего не делаем
+            BASIC::TDateTime time_print;
+            std::string prn_form;
+            bool hex;
+
+            BIPax()
+            {
+                clear();
+            };
+
+            BIPax( int vgrp_id, int vpax_id, int vreg_no )
+            {
+                clear();
+                grp_id=vgrp_id;
+                pax_id=vpax_id;
+                reg_no=vreg_no;
+            };
+
+            void clear()
+            {
+                point_dep=ASTRA::NoExists;
+                grp_id=ASTRA::NoExists;
+                pax_id=ASTRA::NoExists;
+                reg_no=ASTRA::NoExists;
+                gate=std::make_pair("", false);
+                time_print=ASTRA::NoExists;
+                full_name.clear();
+                prn_form.clear();
+                hex=false;
+            };
+        };
+
         struct BPPax {
           int point_dep;
           int grp_id;
@@ -99,6 +137,9 @@ class PrintInterface: public JxtInterface
         PrintInterface(): JxtInterface("123", "print")
         {
             Handler *evHandle;
+            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBI);
+            AddEvent("GetPrintDataBI",evHandle);
+            AddEvent("GetGRPPrintDataBI",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBP);
             AddEvent("GetPrintDataBP",evHandle);
             AddEvent("GetGRPPrintDataBP",evHandle);
@@ -106,6 +147,8 @@ class PrintInterface: public JxtInterface
             AddEvent("ReprintDataBT",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBTXML);
             AddEvent("GetPrintDataBT",evHandle);
+            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ConfirmPrintBI);
+            AddEvent("ConfirmPrintBI",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ConfirmPrintBT);
             AddEvent("ConfirmPrintBT",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ConfirmPrintBP);
@@ -118,9 +161,11 @@ class PrintInterface: public JxtInterface
 
         void GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void ConfirmPrintBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         static void GetPrintDataBR(std::string &form_type, PrintDataParser &parser,
@@ -131,7 +176,12 @@ class PrintInterface: public JxtInterface
         static void GetPrintDataBP(const BPParams &params,
                                    std::string &pectab,
                                    std::vector<BPPax> &paxs);
+        static void GetPrintDataBI(const BPParams &params,
+                                   std::string &pectab,
+                                   std::vector<BIPax> &paxs);
         static void ConfirmPrintBP(const std::vector<BPPax> &paxs,
+                                   CheckIn::UserException &ue);
+        static void ConfirmPrintBI(const std::vector<BIPax> &paxs,
                                    CheckIn::UserException &ue);
 };
 
