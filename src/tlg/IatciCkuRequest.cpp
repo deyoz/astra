@@ -46,18 +46,23 @@ void CkuRequest::collectMessage()
     edilib::SetEdiPointToSegGrW(pMes(), 2);
     viewPpdElement(pMes(), m_params.pax());
 
-    if(m_params.updPax()) {
-        //viewUpdElement(pMes(), *m_params.updPax());
+    if(m_params.updPax() || m_params.updService() ||
+       m_params.updSeat() || m_params.updBaggage())
+    {
+        if(m_params.updService())
+            viewUsiElement(pMes(), *m_params.updService());
+        if(m_params.updSeat())
+            viewUsdElement(pMes(), *m_params.updSeat());
+        if(m_params.updBaggage())
+            viewUbdElement(pMes(), *m_params.updBaggage());
+
         if(m_params.updPax()->doc()) {
             edilib::SetEdiSegGr(pMes(), 3);
             edilib::SetEdiPointToSegGrW(pMes(), 3);
+
             viewUapElement(pMes(), *m_params.updPax()->doc());
         }
     }
-    if(m_params.updSeat())
-        viewUsdElement(pMes(), *m_params.updSeat());
-    if(m_params.updBaggage())
-        viewUbdElement(pMes(), *m_params.updBaggage());
 }
 
 //-----------------------------------------------------------------------------

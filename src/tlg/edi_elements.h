@@ -758,6 +758,13 @@ struct ChdElem
 {
     std::string m_origAirline;
     std::string m_origPoint;
+    std::string m_outbAirline;
+    Ticketing::FlightNum_t m_outbFlNum;
+    boost::gregorian::date m_depDate;
+    std::string m_depPoint;
+    std::string m_arrPoint;
+    std::string m_outbFlContinIndic;
+
     std::list<std::string> m_hostAirlines;
 };
 
@@ -963,6 +970,23 @@ struct UapElem: public PapElem
 
 //---------------------------------------------------------------------------------------
 
+///@class UsiElem
+struct UsiElem
+{
+    struct UpdSsrDetails: public PsiElem::SsrDetails
+    {
+        std::string m_actionCode;
+
+        UpdSsrDetails()
+            : PsiElem::SsrDetails()
+        {}
+    };
+
+    std::list<UpdSsrDetails> m_lSsr;
+};
+
+//---------------------------------------------------------------------------------------
+
 std::ostream& operator<<(std::ostream &os, const LorElem &lor);
 std::ostream& operator<<(std::ostream &os, const FdqElem &fdq);
 std::ostream& operator<<(std::ostream &os, const PpdElem &ppd);
@@ -987,6 +1011,7 @@ std::ostream& operator<<(std::ostream &os, const CbdElem &cbd);
 std::ostream& operator<<(std::ostream &os, const RodElem &rod);
 std::ostream& operator<<(std::ostream &os, const PapElem &pap);
 std::ostream& operator<<(std::ostream &os, const UapElem &uap);
+std::ostream& operator<<(std::ostream &os, const UsiElem &usi);
 
 }//namespace edifact
 

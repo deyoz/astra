@@ -22,6 +22,8 @@
 #include <serverlib/cursctl.h>
 #include <serverlib/savepoint.h>
 #include <serverlib/dump_table.h>
+#include <serverlib/xml_stuff.h>
+#include <serverlib/algo.h>
 
 #include <boost/foreach.hpp>
 
@@ -131,6 +133,7 @@ static iatci::CkuParams getDebugCkuParams()
                             flight,
                             boost::none,
                             updPax,
+                            boost::none,
                             updSeat,
                             baggage);
 }
@@ -462,6 +465,7 @@ static boost::optional<iatci::CkxParams> getCkxParams(xmlNodePtr reqNode)
 /////////////////////////////////////////////////////////////////////////////////////////
 
 namespace {
+
 class IatciPaxSeg
 {
     iatci::FlightDetails m_seg;
@@ -487,62 +491,353 @@ public:
     const iatci::FlightDetails& seg() const { return m_seg; }
     const iatci::PaxDetails&    pax() const { return m_pax; }
 };
+
+//---------------------------------------------------------------------------------------
+
+template<class EntityT>
+class ModifiedEntity
+{
+    EntityT m_oldEntity;
+    EntityT m_newEntity;
+
+public:
+    typedef boost::optional<ModifiedEntity<EntityT> > Optional_t;
+
+    ModifiedEntity(const EntityT& oldE, const EntityT& newE)
+        : m_oldEntity(oldE), m_newEntity(newE)
+    {}
+
+    const EntityT& oldEntity() const { return m_oldEntity; }
+    const EntityT& newEntity() const { return m_newEntity; }
+};
+
+//---------------------------------------------------------------------------------------
+
+template<class EntityT>
+class CheckInEntityDiff
+{
+    std::vector<EntityT> m_added;
+    std::vector<EntityT> m_removed;
+    std::vector<ModifiedEntity<EntityT> > m_modified;
+
+public:
+    typedef boost::optional<CheckInEntityDiff<EntityT> > Optional_t;
+
+    CheckInEntityDiff(const std::list<EntityT>& lOld, const std::list<EntityT>& lNew)
+    {
+        for(const EntityT& oldEntity: lOld) {
+            //if(oldEntity.id() == ASTRA::NoExists) continue; // неправильные сущности пропускаем
+            const auto newEntityOpt = algo::find_opt_if<boost::optional>(lNew,
+                [&oldEntity](const EntityT& newEntity) { return newEntity.id() == oldEntity.id(); } );
+            if(newEntityOpt) { // если найдена в новых и с изменениями -> помещаем в modified
+                if(*newEntityOpt != oldEntity) {
+                    m_modified.push_back(ModifiedEntity<EntityT>(oldEntity, *newEntityOpt));
+                }
+            } else { // если не найдена в новых-> помещаем в cancelled
+                m_removed.push_back(oldEntity);
+            }
+        }
+
+        for(const EntityT& newEntity: lNew) {
+            //if(newEntity.id() == ASTRA::NoExists) continue; // неправильных пассажиров пропускаем
+            const auto oldEntityOpt = algo::find_opt_if<boost::optional>(lOld,
+                [&newEntity](const EntityT& oldEntity) { return oldEntity.id() == newEntity.id(); } );
+            if(!oldEntityOpt) { // если в старых не найден -> помещаем в added
+                m_added.push_back(newEntity);
+            }
+        }
+    }
+
+    const std::vector<ModifiedEntity<EntityT> >& modified() const { return m_modified;  }
+    const std::vector<EntityT>& added()    const { return m_added;     }
+    const std::vector<EntityT>& removed()const { return m_removed; }
+    bool empty() const { return m_modified.empty() &&
+                                m_added.empty() &&
+                                m_removed.empty(); }
+};
+
+//---------------------------------------------------------------------------------------
+
+class PaxChange
+{
+public:
+    typedef ModifiedEntity<astra_entities::DocInfo> DocChange_t;
+    typedef CheckInEntityDiff<astra_entities::Remark> RemChange_t;
+    typedef DocChange_t::Optional_t DocChangeOpt_t;
+    typedef RemChange_t::Optional_t RemChangeOpt_t;
+
+private:
+    astra_entities::PaxInfo m_oldPax;
+    astra_entities::PaxInfo m_newPax;
+
+    DocChangeOpt_t          m_docChange;
+    RemChangeOpt_t          m_remChange;
+
+public:
+    PaxChange(const astra_entities::PaxInfo& oldPax,
+              const astra_entities::PaxInfo& newPax);
+
+    const astra_entities::PaxInfo& oldPax() const { return m_oldPax; }
+    const astra_entities::PaxInfo& newPax() const { return m_newPax; }
+
+    const DocChangeOpt_t& docChange() const { return m_docChange; }
+    const RemChangeOpt_t& remChange() const { return m_remChange; }
+};
+
+//
+
+PaxChange::PaxChange(const astra_entities::PaxInfo& oldPax,
+                     const astra_entities::PaxInfo& newPax)
+    : m_oldPax(oldPax), m_newPax(newPax)
+{
+    if(oldPax.m_doc && newPax.m_doc &&
+       oldPax.m_doc.get() != newPax.m_doc.get())
+    {
+        m_docChange = DocChange_t(oldPax.m_doc.get(), newPax.m_doc.get());
+    }
+
+    RemChange_t remChng(oldPax.m_lRems, newPax.m_lRems);
+    if(!remChng.empty())
+    {
+        m_remChange = remChng;
+    }
+}
+
+//---------------------------------------------------------------------------------------
+
+class PaxDiff: public CheckInEntityDiff<astra_entities::PaxInfo>
+{
+public:
+    typedef CheckInEntityDiff<astra_entities::PaxInfo> Base_t;
+    typedef std::vector<PaxChange> PaxChanges_t;
+
+private:
+    PaxChanges_t m_paxChanges;
+
+public:
+
+    PaxDiff(const std::list<astra_entities::PaxInfo>& lPaxOld,
+            const std::list<astra_entities::PaxInfo>& lPaxNew);
+
+    const PaxChanges_t& paxChanges() const;
+};
+
+//
+
+PaxDiff::PaxDiff(const std::list<astra_entities::PaxInfo>& lPaxOld,
+                 const std::list<astra_entities::PaxInfo>& lPaxNew)
+    : Base_t(lPaxOld, lPaxNew)
+{
+    for(auto& re: modified()) {
+        m_paxChanges.push_back(PaxChange(re.oldEntity(), re.newEntity()));
+    }
+}
+
+const PaxDiff::PaxChanges_t& PaxDiff::paxChanges() const
+{
+    return m_paxChanges;
+}
+
+//---------------------------------------------------------------------------------------
+
+class TabDiff
+{
+    PaxDiff m_paxDiff;
+
+protected:
+    TabDiff(const PaxDiff& paxDiff);
+
+public:
+    typedef boost::optional<TabDiff> Optional_t;
+
+    static Optional_t diff(const XmlCheckInTab& oldTab, const XmlCheckInTab& newTab);
+    const PaxDiff& paxDiff() const { return m_paxDiff; }
+};
+
+//
+
+TabDiff::TabDiff(const PaxDiff& paxDiff)
+    : m_paxDiff(paxDiff)
+{}
+
+TabDiff::Optional_t TabDiff::diff(const XmlCheckInTab& oldTab, const XmlCheckInTab& newTab)
+{
+   PaxDiff paxDiff(oldTab.lPax(), newTab.lPax());
+   if(!paxDiff.empty()) {
+       return TabDiff(paxDiff);
+   }
+   return boost::none;
+}
+
+//---------------------------------------------------------------------------------------
+
+class TabsDiff
+{
+public:
+    typedef std::map<size_t, TabDiff::Optional_t> Map_t;
+
+private:
+    Map_t m_tabsDiff;
+
+public:
+    TabsDiff(const XmlCheckInTabs& oldTabs,
+             const XmlCheckInTabs& newTabs);
+
+    const Map_t& tabsDiff() const { return m_tabsDiff; }
+    TabDiff::Optional_t at(size_t i) const;
+};
+
+//
+
+TabsDiff::TabsDiff(const XmlCheckInTabs& oldTabs,
+                   const XmlCheckInTabs& newTabs)
+{
+    ASSERT(oldTabs.size() == newTabs.size());
+
+    for(size_t i = 0; i < oldTabs.size(); ++i) {
+        m_tabsDiff.insert(std::make_pair(i, TabDiff::diff(oldTabs.tabs().at(i),
+                                                          newTabs.tabs().at(i))));
+    }
+}
+
+TabDiff::Optional_t TabsDiff::at(size_t i) const
+{
+    ASSERT(i < m_tabsDiff.size());
+    return m_tabsDiff.at(i);
+}
+
+//---------------------------------------------------------------------------------------
+
+XMLDoc createXmlDoc(const std::string& xml)
+{
+    XMLDoc doc;
+    doc.set(ConvertCodepage(xml, "CP866", "UTF-8"));
+    if(doc.docPtr() == NULL) {
+        throw EXCEPTIONS::Exception("context %s has wrong XML format", xml.c_str());
+    }
+    xml_decode_nodelist(doc.docPtr()->children);
+    return doc;
+}
+
+//---------------------------------------------------------------------------------------
+
+static boost::optional<iatci::UpdatePaxDetails::UpdateDocInfo> getUpdDoc(const PaxChange& paxChange)
+{
+    if(!paxChange.docChange()) {
+        return boost::none;
+    }
+
+    return iatci::UpdatePaxDetails::UpdateDocInfo(
+                   iatci::UpdateDetails::Replace,
+                   paxChange.docChange()->newEntity().m_type,
+                   paxChange.docChange()->newEntity().m_country,
+                   paxChange.docChange()->newEntity().m_num,
+                   paxChange.docChange()->newEntity().m_surname,
+                   paxChange.docChange()->newEntity().m_name,
+                   paxChange.docChange()->newEntity().m_secName,
+                   paxChange.docChange()->newEntity().m_gender,
+                   paxChange.docChange()->newEntity().m_citizenship,
+                   paxChange.docChange()->newEntity().m_birthDate,
+                   paxChange.docChange()->newEntity().m_expiryDate);
+}
+
+static iatci::UpdatePaxDetails getUpdPax(const PaxChange& paxChange)
+{
+    return iatci::UpdatePaxDetails(
+                   iatci::UpdateDetails::Replace,
+                   paxChange.newPax().m_surname,
+                   paxChange.newPax().m_name,
+                   getUpdDoc(paxChange));
+}
+
+static boost::optional<iatci::UpdateServiceDetails> getUpdService(const PaxChange& paxChange)
+{
+    if(!paxChange.remChange()) {
+        return boost::none;
+    }
+
+    iatci::UpdateServiceDetails updService(iatci::UpdateDetails::Replace); // Replace в конструкторе ни на что не влияет
+
+    // удалённые
+    for(auto& rem: paxChange.remChange()->removed()) {
+        updService.addSsr(iatci::UpdateServiceDetails::UpdSsrInfo(
+                        iatci::UpdateDetails::Cancel,
+                        rem.m_remCode,
+                        "",
+                        false,
+                        rem.m_remText));
+    }
+
+    // добавленные
+    for(auto& rem: paxChange.remChange()->added()) {
+        updService.addSsr(iatci::UpdateServiceDetails::UpdSsrInfo(
+                        iatci::UpdateDetails::Add,
+                        rem.m_remCode,
+                        "",
+                        false,
+                        rem.m_remText));
+    }
+
+    // измененные
+    for(auto& chng: paxChange.remChange()->modified()) {
+        updService.addSsr(iatci::UpdateServiceDetails::UpdSsrInfo(
+                        iatci::UpdateDetails::Replace,
+                        chng.newEntity().m_remCode,
+                        "",
+                        false,
+                        chng.newEntity().m_remText));
+    }
+
+    return updService;
+}
+
 } //namespace
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
 {
-    boost::optional<astra_entities::PaxInfo> changedPax;
+    XmlCheckInTab firstTab(NodeAsNode("segments/segment", reqNode));
+    IatciPaxSeg iatciPaxSeg = IatciPaxSeg::read(firstTab.seg().m_grpId);
 
-    XmlCheckInTabs iatciTabs(findNodeR(reqNode, "iatci_segments"));
-    for(const XmlCheckInTab& tab: iatciTabs.tabs()) {
-        std::list<astra_entities::PaxInfo> lPax = tab.lPax();
-        if(!lPax.empty())
-        {
-            tst();
-            // пока умеем работать с одним пассажиром
-            const astra_entities::PaxInfo& pax = lPax.front();
+    XMLDoc oldXmlDoc = createXmlDoc(iatci::IatciXmlDb::load(firstTab.seg().m_grpId));
 
-            // TODO пока обрабатываем только были ли изменения в документе
-            if(pax.m_doc) {
-                tst();
-                changedPax = pax;
+
+    XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
+    XmlCheckInTabs newIatciTabs(findNodeR(reqNode, "iatci_segments"));
+
+    TabsDiff diff(oldIatciTabs, newIatciTabs);
+    LogTrace(TRACE3) << "tabsDiff.size = " << diff.tabsDiff().size();
+
+    const size_t sz = diff.tabsDiff().size();
+    for(size_t i = 0; i < sz; ++i)
+    {
+        TabDiff::Optional_t tabDiff = diff.at(i);
+        if(tabDiff) {
+            LogTrace(TRACE3) << "Tab diff detected!";
+            PaxDiff paxDiff = tabDiff->paxDiff();
+            LogTrace(TRACE3) << "Pax diff detected";
+            LogTrace(TRACE3) << paxDiff.added().size() << " paxes were added";
+            LogTrace(TRACE3) << paxDiff.removed().size() << " paxes were cancelled";
+            LogTrace(TRACE3) << paxDiff.modified().size() << " paxes were changed";
+            if(!paxDiff.paxChanges().empty())
+            {
+                const PaxChange& firstPaxChange = paxDiff.paxChanges().front();
+                if(firstPaxChange.docChange()) {
+                    LogTrace(TRACE3) << "Pax doc change detected";
+                }
+                if(firstPaxChange.remChange()) {
+                    LogTrace(TRACE3) << "Pax rems change detected";
+                }
+
+                return iatci::CkuParams(iatci::OriginatorDetails("ЮТ", "ДМД"), // TODO
+                                        iatciPaxSeg.pax(),
+                                        iatciPaxSeg.seg(),
+                                        boost::none,
+                                        getUpdPax(firstPaxChange),
+                                        getUpdService(firstPaxChange));
             }
         }
-    }
-
-    if(changedPax && changedPax->m_doc)
-    {
-        tst();
-        XmlCheckInTab firstTab(NodeAsNode("segments/segment", reqNode));
-        IatciPaxSeg iatciPaxSeg = IatciPaxSeg::read(firstTab.seg().m_grpId);
-
-        iatci::UpdatePaxDetails::UpdateDocInfo
-                updDoc(iatci::UpdateDetails::Replace,
-                       changedPax->m_doc->m_type,
-                       changedPax->m_doc->m_country,
-                       changedPax->m_doc->m_num,
-                       changedPax->m_doc->m_surname,
-                       changedPax->m_doc->m_name,
-                       changedPax->m_doc->m_secName,
-                       changedPax->m_doc->m_gender,
-                       changedPax->m_doc->m_citizenship,
-                       changedPax->m_doc->m_birthDate,
-                       changedPax->m_doc->m_expiryDate);
-
-        iatci::UpdatePaxDetails
-                updPax(iatci::UpdateDetails::Replace,
-                       changedPax->m_surname,
-                       changedPax->m_name,
-                       updDoc);
-
-        tst();
-        return iatci::CkuParams(iatci::OriginatorDetails("ЮТ", "ДМД"), // TODO
-                                iatciPaxSeg.pax(),
-                                iatciPaxSeg.seg(),
-                                boost::none,
-                                updPax);
     }
 
     tst();
@@ -1034,8 +1329,9 @@ void IatciInterface::DoKickAction(xmlNodePtr reqNode, xmlNodePtr resNode,
             XMLDoc resCtxt;
             resCtxt.set(resNodeName.c_str());
             xmlNodePtr iatciResNode = NodeAsNode(std::string("/" + resNodeName).c_str(), resCtxt.docPtr());
+            xmlNodePtr segmentsNode = newChild(iatciResNode, "segments");
             for(const iatci::Result& res: lRes) {
-                res.toXml(iatciResNode);
+                res.toXml(segmentsNode);
             }
 
             AstraEdifact::addToEdiResponseCtxt(reqCtxtId, iatciResNode, "context");

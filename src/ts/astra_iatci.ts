@@ -957,6 +957,78 @@ $(defmacro UPDATE_PAX_DOC_NON_IATCI
 
 }) #end-of-macro
 
+
+$(defmacro UPDATE_PAX_REMS
+    point_dep
+    point_arv
+    airp_dep
+    airp_arv
+    grp_id
+    pax_id
+    tid
+    airp_dep2
+    airp_arv2
+    surname
+    name
+    second_name
+    tickno
+    cpnno
+{
+!!
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>Э</class>
+          <grp_id>$(grp_id)</grp_id>
+          <tid>$(tid)</tid>
+          <passengers/>
+          <paid_bag_emd/>
+        </segment>
+        <segment>
+          <point_dep>-1</point_dep>
+          <point_arv>-1</point_arv>
+          <airp_dep>$(airp_dep2)</airp_dep>
+          <airp_arv>$(airp_arv2)</airp_arv>
+          <class>Э</class>
+          <grp_id>-1</grp_id>
+          <tid>0</tid>
+          <passengers>
+            <pax>
+              <pax_id>-1</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <tid>0</tid>
+              <rems>
+                <rem>
+                  <rem_code>FOID</rem_code>
+                  <rem_text>FOID PP7774449999</rem_text>
+                </rem>
+                <rem>
+                  <rem_code>OTHS</rem_code>
+                  <rem_text>OTHS HK1 DOCS/7777771110/PS</rem_text>
+                </rem>
+              </rems>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro
+
 #########################################################################################
 # №1 первичная регистрация
 ###
@@ -2286,7 +2358,7 @@ $(ETS_COS_EXCHANGE 2986120030297 1 CK SYSTEM)
 
 %%
 #########################################################################################
-# №10 Обновление данных регистрации
+# №10 Обновление данных регистрации (Документ)
 ###
 
 $(init)
@@ -2418,7 +2490,6 @@ $(lastRedisplay)
             <rems/>
           </pax>
 
-
 %%
 #########################################################################################
 # №11 Обновление данных регистрации без IATCI
@@ -2500,3 +2571,115 @@ $(UPDATE_PAX_DOC_NON_IATCI $(get point_dep) $(get point_arv) ДМД ПЛК
               <surname>REPIN</surname>
               <first_name>IVAN</first_name>
             </document>
+
+
+%%
+#########################################################################################
+# №12 Обновление данных регистрации (Ремарки)
+###
+
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_dcs С7 TA OA)
+$(init_eds ЮТ UTET UTDC)
+
+
+$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep) 2986120030297)
+$(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
+$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
+                                                           С7 1027 ПЛК СОЧ
+                                                           REPIN IVAN
+                                                           2986120030297)
+
+$(ETS_COS_EXCHANGE 2986120030297 1 CK)
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+$(lastRedisplay)
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+LOR+ЮТ:ДМД"
+FDQ+С7+1027+$(yymmdd)+ПЛК+СОЧ++ЮТ+103+$(yymmdd)++ДМД+ПЛК"
+PPD+REPIN+A++IVAN"
+PSD++7A"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
+RAD+I+O"
+PPD+REPIN+A++IVAN"
+PFD+xx+:Э"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PAP+:::100386:::RUS++PP:5408123432:RUS:::311249:M::::::REPIN:IVAN"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!!
+$(lastRedisplay)
+
+$(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
+$(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
+
+$(UPDATE_PAX_REMS $(get point_dep) $(get point_arv) ДМД ПЛК
+                  $(get grp_id) $(get pax_id) $(get tid) ПЛК СОЧ
+                  REPIN IVAN IVANICH 4216120030297 2)
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:96:2:IA+$(last_edifact_ref)"
+LOR+ЮТ:ДМД"
+FDQ+С7+1027+$(yymmdd)+ПЛК+СОЧ"
+PPD+REPIN+A++IVAN"
+USI++C:FOID::::::FOID PP7774441110+A:FOID::::::FOID PP7774449999+A:OTHS::::::OTHS HK1 DOCS/7777771110/PS"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
+RAD+U+O"
+PPD+REPIN+A++IVAN"
+PFD+xx+:Э"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774449999+OTHS::::::OTHS HK1 DOCS/7777771110/PS"
+PAP+:::100386:::RUS++PP:5408123432:RUS:::311249:M::::::REPIN:IVAN"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!! capture=on
+$(lastRedisplay)
+
+>> lines=auto
+            <rems>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PP7774449999</rem_text>
+              </rem>
+              <rem>
+                <rem_code>OTHS</rem_code>
+                <rem_text>OTHS HK1 DOCS/7777771110/PS</rem_text>
+              </rem>
+            </rems>

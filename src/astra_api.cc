@@ -262,6 +262,14 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg)
         NewTextChild(docNode, "issue_country", pax.doc->issue_country);
     }
 
+    xmlNodePtr remsNode = newChild(paxNode, "rems");
+    for(const XmlRem& rem: pax.rems)
+    {
+        xmlNodePtr remNode = newChild(remsNode, "rem");
+        NewTextChild(remNode, "rem_code", rem.rem_code);
+        NewTextChild(remNode, "rem_text", rem.rem_text);
+    }
+
     NewTextChild(paxNode, "doco");
     NewTextChild(paxNode, "addresses");
     NewTextChild(paxNode, "bag_pool_num");
@@ -398,6 +406,59 @@ static LoadPaxXmlResult LoadPax__(int pointDep,
     }
 
     return loadPaxXmlRes;
+}
+
+//---------------------------------------------------------------------------------------
+
+static void applyDocUpdate(XmlPax& pax, const iatci::UpdatePaxDetails::UpdateDocInfo& updDoc)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " with act code: " << updDoc.actionCodeAsString();
+    XmlPaxDoc newDoc;
+    newDoc.no = updDoc.no();
+    newDoc.type = updDoc.docType();
+    newDoc.birth_date = BASIC::boostDateToAstraFormatStr(updDoc.birthDate());
+    newDoc.expiry_date = BASIC::boostDateToAstraFormatStr(updDoc.expiryDate());
+    newDoc.surname = updDoc.surname();
+    newDoc.first_name = updDoc.name();
+    newDoc.second_name = updDoc.secondName();
+    newDoc.nationality = updDoc.nationality();
+    newDoc.issue_country = updDoc.issueCountry();
+    newDoc.gender = updDoc.gender();
+    pax.doc = newDoc;
+}
+
+//---------------------------------------------------------------------------------------
+
+static void applyRemsUpdate(XmlPax& pax, const iatci::UpdateServiceDetails& updSvc)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+    for(const iatci::UpdateServiceDetails::UpdSsrInfo& updSsr: updSvc.lSsr())
+    {
+        XmlRem rem;
+        rem.rem_code = updSsr.ssrCode();
+        rem.rem_text = updSsr.freeText();
+
+        switch(updSsr.actionCode())
+        {
+        case iatci::UpdateDetails::Add:
+        case iatci::UpdateDetails::Replace:
+        {
+            LogTrace(TRACE3) << "add/modify remark: " << updSsr.ssrCode() <<
+                                "/" << updSsr.ssrText() << " (" << updSsr.freeText() << ")";
+            pax.rems.push_back(rem);
+            break;
+        }
+        case iatci::UpdateDetails::Cancel:
+        {
+            LogTrace(TRACE3) << "cancel remark: " << updSsr.ssrCode() <<
+                                "/" << updSsr.ssrText() << " (" << updSsr.freeText() << ")";
+            pax.rems.remove(rem);
+            break;
+        }
+        default:
+            break;
+        }
+    }
 }
 
 //---------------------------------------------------------------------------------------
@@ -570,23 +631,19 @@ iatci::Result updateIatciPax(const iatci::CkuParams& ckuParams)
     XmlPax& paxForUpdate = paxSegForUpdate.passengers.front();
     if(ckuParams.updPax()) {
         tst();
+        // Doc
         if(ckuParams.updPax()->doc()) {
             tst();
-            iatci::UpdatePaxDetails::UpdateDocInfo doc = *ckuParams.updPax()->doc();
-            XmlPaxDoc newPaxDoc;
-            newPaxDoc.no = doc.no();
-            newPaxDoc.type = doc.docType();
-            newPaxDoc.birth_date = BASIC::boostDateToAstraFormatStr(doc.birthDate());
-            newPaxDoc.expiry_date = BASIC::boostDateToAstraFormatStr(doc.expiryDate());
-            newPaxDoc.surname = doc.surname();
-            newPaxDoc.first_name = doc.name();
-            newPaxDoc.second_name = doc.secondName();
-            newPaxDoc.nationality = doc.nationality();
-            newPaxDoc.issue_country = doc.issueCountry();
-            newPaxDoc.gender = doc.gender();
-            paxForUpdate.doc = newPaxDoc;
+            applyDocUpdate(paxForUpdate, *ckuParams.updPax()->doc());
         }
     }
+
+    // Rems
+    if(ckuParams.updService()) {
+        tst();
+        applyRemsUpdate(paxForUpdate, *ckuParams.updService());
+    }
+
 
     // SavePax
     loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSegForUpdate);
@@ -720,6 +777,14 @@ bool ReqParams::getBoolParam(const std::string& param, bool nvl)
 
 //---------------------------------------------------------------------------------------
 
+bool operator==(const XmlRem& l, const XmlRem& r)
+{
+    return (l.rem_code == r.rem_code &&
+            l.rem_text == r.rem_text);
+}
+
+//---------------------------------------------------------------------------------------
+
 astra_entities::DocInfo XmlPaxDoc::toDoc() const
 {
     return astra_entities::DocInfo(type,
@@ -755,10 +820,15 @@ XmlPax::XmlPax()
 
 astra_entities::PaxInfo XmlPax::toPax() const
 {
+    boost::optional<astra_entities::DocInfo> paxDoc;
     if(doc) {
-        LogTrace(TRACE0) << "have doc";
-    } else {
-        LogTrace(TRACE0) << "no one doc!";
+        paxDoc = doc->toDoc();
+    }
+
+    std::list<astra_entities::Remark> paxRems;
+    for(const XmlRem& rem: rems) {
+        paxRems.push_back(astra_entities::Remark(rem.rem_code,
+                                                 rem.rem_text));
     }
 
     return astra_entities::PaxInfo(pax_id,
@@ -768,8 +838,8 @@ astra_entities::PaxInfo XmlPax::toPax() const
                                    ticket_no,
                                    coupon_no,
                                    ticket_rem,
-                                   doc ? doc->toDoc()
-                                       : boost::optional<astra_entities::DocInfo>());
+                                   paxDoc,
+                                   paxRems);
 }
 
 //---------------------------------------------------------------------------------------
@@ -870,7 +940,7 @@ bool XmlCheckInTabs::containsEdiTab() const
     return false;
 }
 
-const std::list<XmlCheckInTab>& XmlCheckInTabs::tabs() const
+const std::vector<XmlCheckInTab>& XmlCheckInTabs::tabs() const
 {
     return m_tabs;
 }
@@ -1595,6 +1665,25 @@ SegmentInfo::SegmentInfo(int grpId,
 
 //---------------------------------------------------------------------------------------
 
+Remark::Remark(const std::string& remCode,
+               const std::string& remText)
+    : m_remCode(remCode),
+      m_remText(remText)
+{}
+
+bool operator==(const Remark& left, const Remark& right)
+{
+    return (left.m_remCode == right.m_remCode &&
+            left.m_remText == right.m_remText);
+}
+
+bool operator!=(const Remark& left, const Remark& right)
+{
+    return !(left == right);
+}
+
+//---------------------------------------------------------------------------------------
+
 DocInfo::DocInfo(const std::string& type,
                  const std::string& country,
                  const std::string& num,
@@ -1617,6 +1706,25 @@ DocInfo::DocInfo(const std::string& type,
       m_gender(gender)
 {}
 
+bool operator==(const DocInfo& left, const DocInfo& right)
+{
+    return (left.m_type        == right.m_type &&
+            left.m_country     == right.m_country &&
+            left.m_num         == right.m_num &&
+            left.m_expiryDate  == right.m_expiryDate &&
+            left.m_surname     == right.m_surname &&
+            left.m_name        == right.m_name &&
+            left.m_secName     == right.m_secName &&
+            left.m_citizenship == right.m_citizenship &&
+            left.m_birthDate   == right.m_birthDate &&
+            left.m_gender      == right.m_gender);
+}
+
+bool operator!=(const DocInfo& left, const DocInfo& right)
+{
+    return !(left == right);
+}
+
 //---------------------------------------------------------------------------------------
 
 PaxInfo::PaxInfo(int paxId,
@@ -1626,7 +1734,8 @@ PaxInfo::PaxInfo(int paxId,
                  const std::string& ticketNum,
                  unsigned couponNum,
                  const std::string& ticketRem,
-                 const boost::optional<DocInfo>& doc)
+                 const boost::optional<DocInfo>& doc,
+                 const std::list<Remark>& lRems)
     : m_paxId(paxId),
       m_surname(surname),
       m_name(name),
@@ -1634,8 +1743,27 @@ PaxInfo::PaxInfo(int paxId,
       m_ticketNum(ticketNum),
       m_couponNum(couponNum),
       m_ticketRem(ticketRem),
-      m_doc(doc)
+      m_doc(doc),
+      m_lRems(lRems)
 {}
+
+bool operator==(const PaxInfo& left, const PaxInfo& right)
+{
+    return (left.m_paxId     == right.m_paxId &&
+            left.m_surname   == right.m_surname &&
+            left.m_name      == right.m_name &&
+            left.m_persType  == right.m_persType &&
+            left.m_ticketNum == right.m_ticketNum &&
+            left.m_couponNum == right.m_couponNum &&
+            left.m_ticketRem == right.m_ticketRem &&
+            left.m_doc       == right.m_doc &&
+            left.m_lRems     == right.m_lRems);
+}
+
+bool operator!=(const PaxInfo& left, const PaxInfo& right)
+{
+    return !(left == right);
+}
 
 }//namespace astra_entities
 

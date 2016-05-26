@@ -105,6 +105,7 @@ boost::optional<edifact::CbdElem> readEdiCbd(_EDI_REAL_MES_STRUCT_ *pMes, unsign
 boost::optional<edifact::RodElem> readEdiRod(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n = 0);
 boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::UsiElem> readEdiUsi(_EDI_REAL_MES_STRUCT_ *pMes);
 
 } // namespace Ticketing
 } // namespace TickReader

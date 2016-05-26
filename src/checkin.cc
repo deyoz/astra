@@ -3194,16 +3194,9 @@ static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
         if(xmlDoc.docPtr() == NULL)
             throw EXCEPTIONS::Exception("IATCI XML has wrong format!");
         xml_decode_nodelist(xmlDoc.docPtr()->children);
-
         xmlNodePtr contextNode = NodeAsNode("/context", xmlDoc.docPtr());
-        xmlNodePtr node = findNodeR(contextNode, "iatci_cki_result");
-        if(node == NULL)
-            node = findNodeR(contextNode, "iatci_cku_result");
-        if(node == NULL)
-            node = findNodeR(contextNode, "iatci_plf_result");
-        ASSERT(node);
 
-        xmlNodePtr tripHeaderNode = findNodeR(node, "tripheader");
+        xmlNodePtr tripHeaderNode = findNodeR(contextNode, "tripheader");
         if(tripHeaderNode)
         {
             TGrpMktFlight grpMktFlt;
@@ -6794,15 +6787,11 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int 
         xml_decode_nodelist(xmlDoc.docPtr()->children);
 
         xmlNodePtr contextNode = NodeAsNode("/context", xmlDoc.docPtr());
-        xmlNodePtr node = findNodeR(contextNode, "iatci_cki_result");
-        if(node == NULL)
-            node = findNodeR(contextNode, "iatci_cku_result");
-        if(node == NULL)
-            node = findNodeR(contextNode, "iatci_plf_result");
-        ASSERT(node != NULL);
+        xmlNodePtr srcSegsNode = findNodeR(contextNode, "segments");
+        ASSERT(srcSegsNode != NULL);
 
         xmlNodePtr destSegsNode = findNodeR(resNode, "segments");
-        for(xmlNodePtr srcSegNode = node->children; srcSegNode != NULL; srcSegNode = srcSegNode->next)
+        for(xmlNodePtr srcSegNode = srcSegsNode->children; srcSegNode != NULL; srcSegNode = srcSegNode->next)
         {
             CopyNode(destSegsNode, srcSegNode, true/*recursive*/);
         }

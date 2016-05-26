@@ -32,7 +32,7 @@ const std::string& OriginatorDetails::port() const
     return m_port;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 FlightDetails::FlightDetails(const std::string& airl,
                              const Ticketing::FlightNum_t& flNum,
@@ -106,7 +106,7 @@ std::string FlightDetails::toShortKeyString() const
     return os.str();
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 PaxDetails::DocInfo::DocInfo(const std::string& docType,
                              const std::string& issueCountry,
@@ -245,7 +245,7 @@ PaxDetails::PaxType_e PaxDetails::strToType(const std::string& s)
     }
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 UpdateDetails::UpdateDetails(UpdateActionCode_e actionCode)
     : m_actionCode(actionCode)
@@ -283,7 +283,7 @@ UpdateDetails::UpdateActionCode_e UpdateDetails::strToActionCode(const std::stri
     }
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 UpdatePaxDetails::UpdateDocInfo::UpdateDocInfo(UpdateActionCode_e actionCode,
                                                const std::string& docType,
@@ -334,7 +334,7 @@ const std::string& UpdatePaxDetails::qryRef() const
     return m_qryRef;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ReservationDetails::ReservationDetails(const std::string& rbd)
     : m_rbd(rbd)
@@ -345,7 +345,7 @@ const std::string& ReservationDetails::rbd() const
     return m_rbd;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 SeatDetails::SeatDetails(SmokeIndicator_e smokeInd)
     : m_smokeInd(smokeInd)
@@ -404,7 +404,7 @@ SeatDetails::SmokeIndicator_e SeatDetails::strToSmokeInd(const std::string& s)
     }
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 UpdateSeatDetails::UpdateSeatDetails(UpdateActionCode_e actionCode,
                                      const std::string& seat,
@@ -413,7 +413,7 @@ UpdateSeatDetails::UpdateSeatDetails(UpdateActionCode_e actionCode,
 {
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 FlightSeatDetails::FlightSeatDetails(const std::string& seat,
                                      const std::string& cabinClass,
@@ -433,7 +433,7 @@ const std::string& FlightSeatDetails::securityId() const
     return m_securityId;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 PaxSeatDetails::PaxSeatDetails(const std::string& surname,
                                const std::string& name,
@@ -475,7 +475,7 @@ const std::string& PaxSeatDetails::tickNum() const
     return m_tickNum;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 BaggageDetails::BaggageDetails(unsigned numOfPieces, unsigned weight)
     : m_numOfPieces(numOfPieces),
@@ -492,14 +492,14 @@ unsigned BaggageDetails::weight() const
     return m_weight;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 UpdateBaggageDetails::UpdateBaggageDetails(UpdateActionCode_e actionCode,
                                            unsigned numOfPieces, unsigned weight)
     : UpdateDetails(actionCode), BaggageDetails(numOfPieces, weight)
 {}
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ServiceDetails::SsrInfo::SsrInfo(const std::string& ssrCode, const std::string& ssrText,
                                  bool isInftTicket, const std::string& freeText,
@@ -607,7 +607,35 @@ boost::optional<TicketCpn_t> ServiceDetails::findTicketCpn() const
     return boost::none;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
+
+UpdateServiceDetails::UpdSsrInfo::UpdSsrInfo(UpdateActionCode_e actionCode,
+                                             const std::string& ssrCode,
+                                             const std::string& ssrText,
+                                             bool isInftTicket,
+                                             const std::string& freeText,
+                                             const std::string& airline,
+                                             unsigned qtty)
+    : UpdateDetails(actionCode),
+      ServiceDetails::SsrInfo(ssrCode, ssrText, isInftTicket,
+                              freeText, airline, qtty)
+{}
+
+UpdateServiceDetails::UpdateServiceDetails(UpdateActionCode_e actionCode)
+    : UpdateDetails(actionCode)
+{}
+
+const std::list<UpdateServiceDetails::UpdSsrInfo>& UpdateServiceDetails::lSsr() const
+{
+    return m_lUpdSsr;
+}
+
+void UpdateServiceDetails::addSsr(const UpdateServiceDetails::UpdSsrInfo& updSsr)
+{
+    m_lUpdSsr.push_back(updSsr);
+}
+
+//---------------------------------------------------------------------------------------
 
 SeatRequestDetails::SeatRequestDetails(const std::string& cabinClass,
                                        SmokeIndicator_e smokeInd)
@@ -620,7 +648,7 @@ const std::string& SeatRequestDetails::cabinClass() const
     return m_cabinClass;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 RowRange::RowRange(unsigned firstRow, unsigned lastRow)
     : m_firstRow(firstRow), m_lastRow(lastRow)
@@ -636,7 +664,7 @@ unsigned RowRange::lastRow() const
     return m_lastRow;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 SeatColumnDetails::SeatColumnDetails(const std::string& column, const std::string& desc1,
                              const std::string& desc2)
@@ -658,7 +686,7 @@ const std::string& SeatColumnDetails::desc2() const
     return m_desc2;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 CabinDetails::CabinDetails(const std::string& classDesignator,
                            const RowRange& rowRange,
@@ -707,7 +735,7 @@ const boost::optional<RowRange>& CabinDetails::overwingArea() const
     return m_overwingArea;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 SeatOccupationDetails::SeatOccupationDetails(const std::string& column,
                                              const std::string& occupation,
@@ -731,7 +759,7 @@ const std::list<std::string>& SeatOccupationDetails::lCharacteristics() const
     return m_lCharacteristics;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 RowDetails::RowDetails(const std::string& row,
                        const std::list<SeatOccupationDetails>& lOccupationDetails,
@@ -755,7 +783,7 @@ const std::string& RowDetails::characteristic() const
     return m_characteristic;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 EquipmentDetails::EquipmentDetails(const std::string& equipment)
     : m_equipment(equipment)
@@ -766,7 +794,7 @@ const std::string& EquipmentDetails::equipment() const
     return m_equipment;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 SeatmapDetails::SeatmapDetails(const std::list<CabinDetails>& lCabinDetails,
                                const std::list<RowDetails>& lRowDetails,
@@ -790,7 +818,7 @@ const std::list<RowDetails>& SeatmapDetails::lRowDetails() const
     return m_lRowDetails;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 CascadeHostDetails::CascadeHostDetails(const std::string& host)
 {
@@ -823,7 +851,7 @@ void CascadeHostDetails::addHostAirline(const std::string& hostAirline)
     m_hostAirlines.push_back(hostAirline);
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ErrorDetails::ErrorDetails(const Ticketing::ErrMsg_t& errCode,
                            const std::string& errDesc)
@@ -841,7 +869,7 @@ const std::string& ErrorDetails::errDesc() const
     return m_errDesc;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 WarningDetails::WarningDetails(const Ticketing::ErrMsg_t& warningCode,
                                const std::string& warningDesc)
@@ -859,7 +887,7 @@ const std::string& WarningDetails::warningDesc() const
     return m_warningDesc;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 Result::Result(Action_e action,
                Status_e status,
@@ -1301,7 +1329,7 @@ void Result::toXml(xmlNodePtr node) const
     NewTextChild(segNode, "load_residue", ""); // TODO
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 BaseParams::BaseParams(const OriginatorDetails& origin,
                        const FlightDetails& flight,
@@ -1331,7 +1359,7 @@ const boost::optional<iatci::CascadeHostDetails>& BaseParams::cascadeDetails() c
     return m_cascadeDetails;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 Params::Params(const OriginatorDetails& origin,
                const PaxDetails& pax,
@@ -1353,7 +1381,7 @@ const boost::optional<ServiceDetails>& Params::service() const
     return m_service;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 CkiParams::CkiParams(const OriginatorDetails& origin,
                      const PaxDetails& pax,
@@ -1383,21 +1411,22 @@ const boost::optional<ReservationDetails>& CkiParams::reserv() const
     return m_reserv;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 CkuParams::CkuParams(const OriginatorDetails& origin,
                      const PaxDetails& pax,
                      const FlightDetails& flight,
                      boost::optional<FlightDetails> flightFromPrevHost,
                      boost::optional<UpdatePaxDetails> updPax,
+                     boost::optional<UpdateServiceDetails> updService,
                      boost::optional<UpdateSeatDetails> updSeat,
                      boost::optional<UpdateBaggageDetails> updBaggage,
                      boost::optional<CascadeHostDetails> cascadeDetails,
                      boost::optional<ServiceDetails> serviceDetails)
     : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails, serviceDetails),
-      m_updPax(updPax), m_updSeat(updSeat), m_updBaggage(updBaggage)
+      m_updPax(updPax), m_updService(updService), m_updSeat(updSeat), m_updBaggage(updBaggage)
 {
-    if(!m_updPax && !m_updSeat && !m_updBaggage) {
+    if(!m_updPax && !m_updService && !m_updSeat && !m_updBaggage) {
         LogError(STDLOG) << "CkuParams without update information!";
     }
 }
@@ -1405,6 +1434,11 @@ CkuParams::CkuParams(const OriginatorDetails& origin,
 const boost::optional<UpdatePaxDetails>& CkuParams::updPax() const
 {
     return m_updPax;
+}
+
+const boost::optional<UpdateServiceDetails>& CkuParams::updService() const
+{
+    return m_updService;
 }
 
 const boost::optional<UpdateSeatDetails>& CkuParams::updSeat() const
@@ -1417,7 +1451,7 @@ const boost::optional<UpdateBaggageDetails>& CkuParams::updBaggage() const
     return m_updBaggage;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 CkxParams::CkxParams(const OriginatorDetails& origin,
                      const PaxDetails& pax,
@@ -1428,7 +1462,7 @@ CkxParams::CkxParams(const OriginatorDetails& origin,
     : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails, serviceDetails)
 {}
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 PlfParams::PlfParams(const OriginatorDetails& origin,
                      const PaxSeatDetails& pax,
@@ -1453,7 +1487,7 @@ const PaxSeatDetails& PlfParams::paxEx() const
     return m_paxEx;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 SmfParams::SmfParams(const OriginatorDetails& origin,
                      const FlightDetails& flight,
@@ -1469,7 +1503,7 @@ const boost::optional<SeatRequestDetails>& SmfParams::seatRequestDetails() const
     return m_seatReqDetails;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 BprParams::BprParams(const OriginatorDetails& origin,
                      const PaxDetails& pax,

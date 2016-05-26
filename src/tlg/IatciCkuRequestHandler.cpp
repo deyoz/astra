@@ -37,6 +37,7 @@ class IatciCkuParamsMaker
     boost::optional<edifact::ChdElem> m_chd;
     boost::optional<edifact::UapElem> m_uap;
     boost::optional<edifact::UpdElem> m_upd;
+    boost::optional<edifact::UsiElem> m_usi;
     boost::optional<edifact::UsdElem> m_usd;
     boost::optional<edifact::UbdElem> m_ubd;
 
@@ -47,6 +48,7 @@ public:
     void setChd(const boost::optional<edifact::ChdElem>& chd, bool required = false);
     void setUap(const boost::optional<edifact::UapElem>& uap, bool required = false);
     void setUpd(const boost::optional<edifact::UpdElem>& upd, bool required = false);
+    void setUsi(const boost::optional<edifact::UsiElem>& usi, bool required = false);
     void setUsd(const boost::optional<edifact::UsdElem>& usd, bool required = false);
     void setUbd(const boost::optional<edifact::UbdElem>& ubd, bool required = false);
     iatci::CkuParams makeParams() const;
@@ -80,12 +82,16 @@ void IatciCkuRequestHandler::parse()
     SetEdiPointToSegGrG(pMes(), 2, 0, "PROG_ERR");
     ckuParamsMaker.setPpd(readEdiPpd(pMes())); /* PPD должен быть обязательно в Sg2 */
     ckuParamsMaker.setUpd(readEdiUpd(pMes()));
+    ckuParamsMaker.setUsi(readEdiUsi(pMes()));
     ckuParamsMaker.setUsd(readEdiUsd(pMes()));
     ckuParamsMaker.setUbd(readEdiUbd(pMes()));
 
-    EdiPointHolder apg_holder(pMes());
-    SetEdiPointToSegGrG(pMes(), 3, 0, "PROG_ERR");
-    ckuParamsMaker.setUap(readEdiUap(pMes()));
+    if(GetNumSegGr(pMes(), 3) > 0)
+    {
+        EdiPointHolder apg_holder(pMes());
+        SetEdiPointToSegGrG(pMes(), 3, 0, "PROG_ERR");
+        ckuParamsMaker.setUap(readEdiUap(pMes()));
+    }
     m_ckuParams = ckuParamsMaker.makeParams();
 }
 
@@ -172,6 +178,13 @@ void IatciCkuParamsMaker::setUpd(const boost::optional<edifact::UpdElem>& upd, b
     m_upd = upd;
 }
 
+void IatciCkuParamsMaker::setUsi(const boost::optional<edifact::UsiElem>& usi, bool required)
+{
+    if(required)
+        ASSERT(usi);
+    m_usi = usi;
+}
+
 void IatciCkuParamsMaker::setUsd(const boost::optional<edifact::UsdElem>& usd, bool required)
 {
     if(required)
@@ -248,7 +261,21 @@ iatci::CkuParams IatciCkuParamsMaker::makeParams() const
                                                        updateDoc,
                                                        m_ppd.m_passQryRef);
         }
+    }
 
+    boost::optional<iatci::UpdateServiceDetails> updateServiceDetails;
+    if(m_usi) {
+        updateServiceDetails = iatci::UpdateServiceDetails(iatci::UpdateDetails::Replace/*ignored*/);
+        for(auto& ssr: m_usi->m_lSsr) {
+            updateServiceDetails->addSsr(iatci::UpdateServiceDetails::UpdSsrInfo(
+                                             iatci::UpdateDetails::strToActionCode(ssr.m_actionCode),
+                                             ssr.m_ssrCode,
+                                             ssr.m_ssrText,
+                                             false,
+                                             ssr.m_freeText));
+        }
+
+        LogTrace(TRACE3) << "updateServiceDetails->lSsr().size()=" << updateServiceDetails->lSsr().size();
     }
 
     boost::optional<iatci::UpdateSeatDetails> updateSeatDetails;
@@ -269,6 +296,7 @@ iatci::CkuParams IatciCkuParamsMaker::makeParams() const
                             flight,
                             boost::none, // TODO
                             updatePaxDetails,
+                            updateServiceDetails,
                             updateSeatDetails,
                             updateBaggageDetails);
 

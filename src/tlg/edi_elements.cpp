@@ -233,6 +233,12 @@ std::ostream& operator<<(std::ostream &os, const ChdElem &chd)
     os << "CHD: ";
     os << "airline: " << chd.m_origAirline << "; ";
     os << "point: " << chd.m_origPoint << "; ";
+    os << "outb airline: " << chd.m_outbAirline << "; ";
+    os << "outb flight: " << chd.m_outbFlNum << "; ";
+    os << "dep date: " << Dates::ddmmyyyy(chd.m_depDate) << "; ";
+    os << "dep point: " << chd.m_depPoint << "; ";
+    os << "arr point: " << chd.m_arrPoint << "; ";
+    os << "outb flight continuation indicator: " << chd.m_outbFlContinIndic;
     os << "host airlines: ";
     BOOST_FOREACH(const std::string& hostAirline, chd.m_hostAirlines) {
         os << hostAirline << ", ";
@@ -384,6 +390,28 @@ std::ostream& operator<<(std::ostream &os, const UapElem &uap)
     os << "surname: " << uap.m_surname << "; ";
     os << "name: " << uap.m_name << "; ";
     os << "other name: " << uap.m_otherName << "; ";
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const UsiElem &usi)
+{
+    os << "USI: ";
+    os << "\nssrs:";
+    BOOST_FOREACH(const UsiElem::UpdSsrDetails& ssr, usi.m_lSsr) {
+        os << "\naction code: " << ssr.m_actionCode << "; ";
+        os << "\ncode: " << ssr.m_ssrCode << "; ";
+        os << "airline: " << ssr.m_airline << "; ";
+        os << "text: " << ssr.m_ssrText << "; ";
+        if(ssr.m_age)
+            os << "age: " << ssr.m_age << "; ";
+        if(ssr.m_numOfPieces)
+            os << "num of pieces: " << ssr.m_numOfPieces << "; ";
+        if(ssr.m_weight)
+            os << "weight: " << ssr.m_weight << "; ";
+        os << "free text: " << ssr.m_freeText << "; ";
+        os << "numeric of units qualifier: " << ssr.m_qualifier;
+    }
+
     return os;
 }
 

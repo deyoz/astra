@@ -57,6 +57,22 @@ struct SegmentInfo
 
 //---------------------------------------------------------------------------------------
 
+struct Remark
+{
+    std::string m_remCode;
+    std::string m_remText;
+
+    Remark(const std::string& remCode,
+           const std::string& remText);
+
+    std::string id() const { return m_remCode + m_remText; }
+};
+
+bool operator==(const Remark& left, const Remark& right);
+bool operator!=(const Remark& left, const Remark& right);
+
+//---------------------------------------------------------------------------------------
+
 struct DocInfo
 {
     std::string            m_type;
@@ -80,7 +96,12 @@ struct DocInfo
             const std::string& citizenship,
             const boost::gregorian::date& birthDate,
             const std::string& gender);
+
+    std::string id() const { return m_type + m_num; }
 };
+
+bool operator==(const DocInfo& left, const DocInfo& right);
+bool operator!=(const DocInfo& left, const DocInfo& right);
 
 //---------------------------------------------------------------------------------------
 
@@ -94,6 +115,7 @@ struct PaxInfo
     unsigned                 m_couponNum;
     std::string              m_ticketRem;
     boost::optional<DocInfo> m_doc;
+    std::list<Remark>        m_lRems;
 
     PaxInfo(int paxId,
             const std::string& surname,
@@ -102,8 +124,14 @@ struct PaxInfo
             const std::string& ticketNum,
             unsigned couponNum,
             const std::string& ticketRem,
-            const boost::optional<DocInfo>& doc);
+            const boost::optional<DocInfo>& doc,
+            const std::list<Remark>& lRems = std::list<Remark>());
+
+    int id() const { return m_paxId; }
 };
+
+bool operator==(const PaxInfo& left, const PaxInfo& right);
+bool operator!=(const PaxInfo& left, const PaxInfo& right);
 
 }//namespace astra_entities
 
@@ -146,6 +174,7 @@ struct XmlRem
     std::string rem_code;
     std::string rem_text;
 };
+bool operator==(const XmlRem& l, const XmlRem& r);
 
 //---------------------------------------------------------------------------------------
 
@@ -406,14 +435,14 @@ public:
 
 class XmlCheckInTabs
 {
-    std::list<XmlCheckInTab> m_tabs;
+    std::vector<XmlCheckInTab> m_tabs;
 
 public:
     XmlCheckInTabs(xmlNodePtr tabsNode);
     size_t size() const;
     bool containsEdiTab() const;
 
-    const std::list<XmlCheckInTab>& tabs() const;
+    const std::vector<XmlCheckInTab>& tabs() const;
 };
 
 //---------------------------------------------------------------------------------------

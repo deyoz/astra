@@ -495,7 +495,7 @@ void viewPsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ServiceDetails& se
             psi << ssr.quantity();
         psi << "::" << ssr.freeText();
         if(ssr.isInfantTicket())
-            psi << ":INF";
+            psi << "INF";
     }
 
     if(!psi.str().empty())
@@ -635,6 +635,26 @@ void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdatePaxDetails::
         << updDoc.name() << ":"
         << updDoc.secondName();
     SetEdiFullSegment(pMes, SegmElement("UAP"), uap.str());
+}
+
+void viewUsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateServiceDetails& updService)
+{
+    std::ostringstream usi;
+    BOOST_FOREACH(const iatci::UpdateServiceDetails::UpdSsrInfo& ssr, updService.lSsr())
+    {
+        usi << "+" << ssr.actionCodeAsString() << ":"
+                   << ssr.ssrCode() << ":" << ssr.airline();
+        usi << ":" << ssr.ssrText() << "::";
+        if(ssr.quantity())
+            usi << ssr.quantity();
+        usi << "::" << ssr.freeText();
+        if(ssr.isInfantTicket())
+            usi << ":INF";
+    }
+
+    LogTrace(TRACE3) << "usi:" << usi.str();
+
+    SetEdiFullSegment(pMes, SegmElement("USI"), usi.str());
 }
 
 void viewSrpElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatRequestDetails& seatReqDetails)

@@ -35,7 +35,7 @@ protected:
     OriginatorDetails() {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct FlightDetails
 {
@@ -79,7 +79,7 @@ protected:
     FlightDetails() {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct PaxDetails
 {
@@ -169,7 +169,7 @@ protected:
     {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct UpdateDetails
 {
@@ -193,7 +193,7 @@ public:
 
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct UpdatePaxDetails: public UpdateDetails
 {
@@ -232,7 +232,7 @@ public:
 
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct ReservationDetails
 {
@@ -251,7 +251,7 @@ protected:
     ReservationDetails() {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct SeatDetails
 {
@@ -289,7 +289,7 @@ public:
 
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct UpdateSeatDetails: public UpdateDetails, public SeatDetails
 {
@@ -299,7 +299,7 @@ public:
                       SmokeIndicator_e smokeInd = None);
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct FlightSeatDetails: public SeatDetails
 {
@@ -325,7 +325,7 @@ protected:
     {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct PaxSeatDetails: public PaxDetails
 {
@@ -361,7 +361,7 @@ protected:
     {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct BaggageDetails
 {
@@ -384,7 +384,7 @@ protected:
     {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct UpdateBaggageDetails: public UpdateDetails, public BaggageDetails
 {
@@ -393,7 +393,7 @@ public:
                          unsigned numOfPieces, unsigned weight);
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 class TicketCpn_t
 {
@@ -409,7 +409,7 @@ public:
     unsigned couponNum() const { return m_cpnNum; }
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct ServiceDetails
 {
@@ -465,7 +465,30 @@ public:
     boost::optional<TicketCpn_t> findTicketCpn() const;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
+
+struct UpdateServiceDetails: public UpdateDetails
+{
+    struct UpdSsrInfo: public UpdateDetails, public ServiceDetails::SsrInfo
+    {
+    public:
+        UpdSsrInfo(UpdateActionCode_e actionCode,
+                   const std::string& ssrCode, const std::string& ssrText,
+                   bool isInftTicket = false, const std::string& freeText = "",
+                   const std::string& airline = "", unsigned quantity = 0);
+    };
+
+protected:
+    std::list<UpdSsrInfo> m_lUpdSsr;
+
+public:
+    UpdateServiceDetails(UpdateActionCode_e actionCode);
+
+    const std::list<UpdSsrInfo>& lSsr() const;
+    void addSsr(const UpdateServiceDetails::UpdSsrInfo& updSsr);
+};
+
+//---------------------------------------------------------------------------------------
 
 struct SeatRequestDetails: public SeatDetails
 {
@@ -485,7 +508,7 @@ protected:
     using SeatDetails::seat; // hide method from the base class
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct RowRange
 {
@@ -508,7 +531,7 @@ protected:
     {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct SeatColumnDetails
 {
@@ -532,7 +555,7 @@ protected:
     SeatColumnDetails() {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct CabinDetails
 {
@@ -569,7 +592,7 @@ protected:
     CabinDetails() {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct SeatOccupationDetails
 {
@@ -594,7 +617,7 @@ protected:
     SeatOccupationDetails() {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct RowDetails
 {
@@ -619,7 +642,7 @@ protected:
     RowDetails() {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct SeatmapDetails
 {
@@ -644,7 +667,7 @@ protected:
     SeatmapDetails() {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct CascadeHostDetails
 {
@@ -671,7 +694,7 @@ protected:
     CascadeHostDetails() {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct ErrorDetails
 {
@@ -693,7 +716,7 @@ protected:
     ErrorDetails() {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct EquipmentDetails
 {
@@ -712,7 +735,7 @@ protected:
     EquipmentDetails() {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct WarningDetails
 {
@@ -734,7 +757,7 @@ protected:
     WarningDetails() {} // for boost serialization only
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct BaseParams
 {
@@ -756,7 +779,7 @@ public:
     const boost::optional<CascadeHostDetails>& cascadeDetails() const;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct Params: public BaseParams
 {
@@ -776,7 +799,7 @@ public:
     const boost::optional<ServiceDetails>& service() const;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct CkiParams: public Params
 {
@@ -801,12 +824,13 @@ public:
     const boost::optional<ReservationDetails>& reserv() const;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct CkuParams: public Params
 {
 protected:
     boost::optional<UpdatePaxDetails>     m_updPax;
+    boost::optional<UpdateServiceDetails> m_updService;
     boost::optional<UpdateSeatDetails>    m_updSeat;
     boost::optional<UpdateBaggageDetails> m_updBaggage;
 
@@ -816,17 +840,19 @@ public:
               const FlightDetails& flight,
               boost::optional<FlightDetails> flightFromPrevHost = boost::none,
               boost::optional<UpdatePaxDetails> updPax = boost::none,
+              boost::optional<UpdateServiceDetails> updService = boost::none,
               boost::optional<UpdateSeatDetails> updSeat = boost::none,
               boost::optional<UpdateBaggageDetails> updBaggage = boost::none,
               boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
               boost::optional<ServiceDetails> serviceDetails = boost::none);
 
     const boost::optional<UpdatePaxDetails>&     updPax() const;
+    const boost::optional<UpdateServiceDetails>& updService() const;
     const boost::optional<UpdateSeatDetails>&    updSeat() const;
     const boost::optional<UpdateBaggageDetails>& updBaggage() const;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct CkxParams: public Params
 {
@@ -845,7 +871,7 @@ public:
 
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct PlfParams: public Params
 {
@@ -868,7 +894,7 @@ public:
     const PaxSeatDetails& paxEx() const;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct SmfParams: public BaseParams
 {
@@ -885,7 +911,7 @@ public:
     const boost::optional<SeatRequestDetails>& seatRequestDetails() const;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct BprParams: public CkiParams
 {
@@ -901,7 +927,7 @@ public:
               boost::optional<ServiceDetails> serviceDetails = boost::none);
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 struct Result
 {

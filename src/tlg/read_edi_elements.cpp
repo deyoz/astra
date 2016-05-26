@@ -1189,5 +1189,41 @@ boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
     return uap;
 }
 
+boost::optional<edifact::UsiElem> readEdiUsi(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder pap_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "USI")) {
+        return boost::optional<UsiElem>();
+    }
+
+    UsiElem usi;
+
+    unsigned num_ssrs = GetNumComposite(pMes, "C038");
+    EdiPointHolder c030_holder(pMes);
+    for(unsigned i = 0; i < num_ssrs; i++)
+    {
+        SetEdiPointToCompositeG(pMes, "C038", i, "EtErr::INV_SSR_DETAILS");
+
+        UsiElem::UpdSsrDetails ssr;
+        ssr.m_actionCode = GetDBFName(pMes, 9858);
+        ssr.m_ssrCode = GetDBFName(pMes, 9837);
+        ssr.m_airline = GetDBFName(pMes, 3127);
+        ssr.m_ssrText = GetDBFName(pMes, 9839);
+        ssr.m_age = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 9886);
+        ssr.m_numOfPieces = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 6806);
+        ssr.m_weight = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 6803);
+        ssr.m_freeText = GetDBFName(pMes, 4440);
+        ssr.m_qualifier = GetDBFName(pMes, 6353);
+
+        PopEdiPoint_wdG(pMes);
+
+        usi.m_lSsr.push_back(ssr);
+    }
+
+    LogTrace(TRACE3) << usi;
+
+    return usi;
+}
+
 } // namespace TickReader
 } // namespace Ticketing
