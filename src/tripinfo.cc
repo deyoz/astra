@@ -809,8 +809,9 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   {
     xmlNodePtr segsNode=NewTextChild(dataNode,"segments");
     for(node=node->children;node!=NULL;node=node->next)
-      if(skipSeg(node)) continue;
-      GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"));
+      if(!skipSeg(node)) { 
+        GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"));
+      }
   };
   //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
