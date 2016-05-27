@@ -97,17 +97,22 @@ bool TFltParams::get(int point_id)
   return true;
 }
 
-Ticketing::TicketNum_t checkDocNum(const std::string& doc_no)
+Ticketing::TicketNum_t checkDocNum(const std::string& doc_no, bool is_et)
 {
+    if (doc_no.empty())
+      throw AstraLocale::UserException(is_et?"MSG.ETICK.NOT_SET_NUMBER":
+                                             "MSG.EMD.NOT_SET_NUMBER");
     std::string docNum = doc_no;
     TrimString(docNum);
     for(string::const_iterator c=docNum.begin(); c!=docNum.end(); ++c)
       if (!IsDigitIsLetter(*c))
-        throw AstraLocale::UserException("MSG.ETICK.TICKET_NO_INVALID_CHARS");
+        throw AstraLocale::UserException(is_et?"MSG.ETICK.TICKET_NO_INVALID_CHARS":
+                                               "MSG.EMD.TICKET_NO_INVALID_CHARS");
     try {
         return Ticketing::TicketNum_t(docNum);
     } catch (const TickExceptions::Exception&) {
-        throw AstraLocale::UserException("MSG.ETICK.INVALID_NUMBER");
+        throw AstraLocale::UserException(is_et?"MSG.ETICK.INVALID_NUMBER":
+                                               "MSG.EMD.INVALID_NUMBER");
     }
 }
 

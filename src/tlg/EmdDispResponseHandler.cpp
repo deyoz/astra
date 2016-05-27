@@ -38,8 +38,8 @@ void EmdDispResponseHandler::handle()
         {
             LogTrace(TRACE3) << "set tlg source: " << getTlgSrc();
             remoteResults()->setTlgSource(getTlgSrc());
+            handleEmdDispResponse(*remoteResults());
         }
-        handleEmdDispResponse(getTlgSrc());
         break;
     case edilib::EdiRespStatus::partial:
     case edilib::EdiRespStatus::notProcessed:

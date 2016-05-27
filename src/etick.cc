@@ -470,9 +470,7 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
                                  const edifact::KickInfo& kickInfo)
 {
   const ETSearchByTickNoParams& params = dynamic_cast<const ETSearchByTickNoParams&>(searchParams);
-  if (params.tick_no.empty())
-    throw UserException("MSG.TICK.NOT_SET_NUMBER");
-  Ticketing::TicketNum_t tickNum = checkDocNum(params.tick_no);
+  Ticketing::TicketNum_t tickNum = checkDocNum(params.tick_no, true);
 
   TTripInfo info;
   if (params.existsAdditionalFltInfo())
@@ -714,7 +712,10 @@ void EMDSearchInterface::SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     LogTrace(TRACE3) << "SearchEMDByDocNo";
 
     set<Ticketing::TicketNum_t> emds;
-    emds.insert(Ticketing::TicketNum_t(NodeAsString("EmdNoEdit", reqNode)));
+    bool trueTermRequest=GetNode("emd_no", reqNode)!=NULL;
+
+    Ticketing::TicketNum_t emdNum = checkDocNum(NodeAsString(trueTermRequest?"emd_no":"EmdNoEdit", reqNode), false);
+    emds.insert(emdNum);
 
     int pointId = NodeAsInteger("point_id",reqNode);
     TTripInfo info;
@@ -725,9 +726,19 @@ void EMDSearchInterface::SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 
     OrigOfRequest org(airline, *TReqInfo::Instance());
 
-    edifact::KickInfo kickInfo=createKickInfo(ASTRA::NoExists,"EMDSearch");
+    edifact::KickInfo kickInfo=trueTermRequest?createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)), "EMDDisplay"):
+                                               createKickInfo(ASTRA::NoExists, "EMDSearch");
 
     SearchEMDsByTickNo(emds, kickInfo, org, flNum);
+
+    if (trueTermRequest)
+    {
+      XMLDoc ediResCtxt("context");
+      if (ediResCtxt.docPtr()==NULL)
+        throw EXCEPTIONS::Exception("%s: CreateXMLDoc failed", __FUNCTION__);
+      xmlNodePtr ediResCtxtNode=NodeAsNode("/context",ediResCtxt.docPtr());
+      addToEdiResponseCtxt(kickInfo.reqCtxtId, ediResCtxtNode->children, "");
+    };
 }
 
 void EMDSearchInterface::KickHandler(XMLRequestCtxt *ctxt,

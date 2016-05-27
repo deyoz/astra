@@ -866,9 +866,9 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
   };
 }
 
-void handleEmdDispResponse(const std::string &tlg)
+void handleEmdDispResponse(const edifact::RemoteResults& remRes)
 {
-  std::list<Emd> emdList = EmdEdifactReader::readList(tlg);
+  std::list<Emd> emdList = EmdEdifactReader::readList(remRes.tlgSource());
   for(list<Emd>::const_iterator e=emdList.begin(); e!=emdList.end(); ++e)
   {
     const Emd &emd=*e;
