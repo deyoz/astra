@@ -236,7 +236,7 @@ std::list<EmdCoupon> EmdEdifact::makeCpn(const std::list<CpnEdifact>& lcpn,
 
         if(tickAct == TickStatAction::newtick)
         {
-            if(docType == DocType::EmdA) {
+            if(c.tvl_) {
                 cpn.resetItin(Itin::SharedPtr(new Itin(makeItin(*c.tvl_, c.pts_, c.ebd_))));
                 //cpn.setDateOfService(c.tvl_->m_depDate); // будем считать датой сервиса в купоне дату вылета
             }
