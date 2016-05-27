@@ -1,17 +1,7 @@
-#pragma once
-#include <boost/crc.hpp>
+#include "sirena_exchange.h"
 #include "astra_context.h"
-#include "httpClient.h"
-#include "points.h"
-#include "basic.h"
-#include "astra_misc.h"
-#include "misc.h"
-#include "emdoc.h"
-#include "astra_locale.h"
-#include "qrys.h"
 #include <boost/asio.hpp>
 #include <serverlib/xml_stuff.h>
-#include "sirena_service.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -24,7 +14,6 @@ using namespace AstraLocale;
 
 namespace SirenaExchange
 {
-
 
 const char* SIRENA_HOST()
 {
@@ -57,8 +46,6 @@ int SIRENA_REQ_ATTEMPTS()
     VAR=getTCLParam("SIRENA_REQ_ATTEMPTS", 1, 10, 1);
   return VAR;
 };
-
-
 
 void TExchange::build(std::string &content) const
 {
@@ -241,7 +228,6 @@ void SendRequest(const TExchange &request, TExchange &response)
   SendRequest(request, response, requestInfo, responseInfo);
 }
 
-
 void TLastExchangeInfo::toDB()
 {
   if (grp_id==ASTRA::NoExists) return;
@@ -272,11 +258,9 @@ void TLastExchangeInfo::cleanOldRecords()
 
 void TLastExchangeList::handle(const string& where)
 {
-    for(TLastExchangeList::iterator i=begin(); i!=end(); ++i)
+  for(TLastExchangeList::iterator i=begin(); i!=end(); ++i)
     i->toDB();
 }
-
-
 
 void SendTestRequest(const string &req)
 {
@@ -303,6 +287,24 @@ void SendTestRequest(const string &req)
   if (!response.completed ) throw Exception("%s: responseInfo.completed()=false", __FUNCTION__);
 
   ProgTrace( TRACE5, "response=%s", response.toString().c_str());
+}
+
+string airlineToXML(const std::string &code, const std::string &lang)
+{
+  string result;
+  result=ElemIdToPrefferedElem(etAirline, code, efmtCodeNative, lang);
+  if (result.size()==3) //â¨¯  ˆŠ€Ž
+    result=ElemIdToPrefferedElem(etAirline, code, efmtCodeNative, lang==LANG_EN?LANG_RU:LANG_EN);
+  return result;
+}
+
+string airpToXML(const std::string &code, const std::string &lang)
+{
+  string result;
+  result=ElemIdToPrefferedElem(etAirp, code, efmtCodeNative, lang);
+  if (result.size()==4) //â¨¯  ˆŠ€Ž
+    result=ElemIdToPrefferedElem(etAirp, code, efmtCodeNative, lang==LANG_EN?LANG_RU:LANG_EN);
+  return result;
 }
 
 } //namespace SirenaExchange

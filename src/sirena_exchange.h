@@ -1,30 +1,14 @@
-#pragma once
+#ifndef _SIRENA_EXCHANGE_H_
+#define _SIRENA_EXCHANGE_H_
 
-#include "astra_misc.h"
-#include "passenger.h"
-#include "term_version.h"
-#include "emdoc.h"
+#include <string>
+#include "astra_consts.h"
+#include "xml_unit.h"
 #include "httpClient.h"
 
 
 namespace SirenaExchange
 {
-
-
-const char* SIRENA_HOST();
-
-int SIRENA_PORT();
-
-int SIRENA_REQ_TIMEOUT();
-
-int SIRENA_REQ_ATTEMPTS();
-
-int SIRENA_PORT();
-
-int SIRENA_REQ_TIMEOUT();
-
-//SIRENA_REQ_ATTEMPTS();
-
 
 class TErrorReference
 {
@@ -125,9 +109,12 @@ class TLastExchangeList : public std::list<TLastExchangeInfo>
 
 void SendTestRequest(const std::string &req);
 
+std::string airlineToXML(const std::string &code, const std::string &lang);
+std::string airpToXML(const std::string &code, const std::string &lang);
+
 } //namespace SirenaExchange
 
-
+#endif //_SIRENA_EXCHANGE_H_
 
 
 

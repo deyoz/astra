@@ -89,6 +89,7 @@ astra_SOURCES = \
   etick.cc \
   events.cc \
   external_spp_synch.cc \
+  ffp_sirena.cc \
   flt_binding.cc \
   file_queue.cc \
   hist.cc \
@@ -120,6 +121,7 @@ astra_SOURCES = \
   season.cc \
   seats_utils.cc \
   seats.cc \
+  sirena_exchange.cc \
   sofi.cc \
   sopp.cc \
   spp_cek.cc \
@@ -151,8 +153,6 @@ astra_SOURCES = \
   Depeches.cpp \
   AsyncNet.cpp \
   img.cpp \
-  ffp_service_from_sirena.cc \
-  sirena_service.cc \
   astra_api.cpp
 
 
@@ -235,6 +235,7 @@ noinst_HEADERS = \
   etick.h \
   events.h \
   external_spp_synch.h \
+  ffp_sirena.h \
   flt_binding.h \
   file_queue.h \
   hist.h \
@@ -265,6 +266,7 @@ noinst_HEADERS = \
   season.h \
   seats_utils.h \
   seats.h \
+  sirena_exchange.h \
   sofi.h \
   sopp.h \
   spp_cek.h \
@@ -295,7 +297,5 @@ noinst_HEADERS = \
   AsyncNet.hpp \
   img.h \
   astra_iface.h \
-  astra_api.h \
-  ffp_service_from_sirena.h \
-  sirena_service.h
+  astra_api.h
   

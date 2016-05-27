@@ -44,9 +44,9 @@
 #include "astra_callbacks.h"
 #include "apps_interaction.h"
 #include "astra_elem_utils.h"
-#include "sirena_service.h"
+#include "sirena_exchange.h"
 #include "baggage_pc.h"
-#include "ffp_service_from_sirena.h"
+#include "ffp_sirena.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include "tlg/tlg_parser.h"
 #include "tlg/IatciCkiRequest.h"
@@ -9029,7 +9029,13 @@ void CheckInInterface::GetFQTTierLevel(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   CheckIn::TPaxFQTItem fqt;
   fqt.fromXML(NodeAsNode("fqt_rem", reqNode));
 
-  fqt.tier_level=fqt.airline+": SUPER-PUPER LEVEL";
+  SirenaExchange::TFFPInfoReq req;
+  SirenaExchange::TFFPInfoRes res;
+  req.set(fqt.airline, fqt.no);
+
+  get_ffp_status(req, res);
+
+  fqt.tier_level=res.status;
   fqt.tier_level_confirm=true;
 
   fqt.toXML(resNode);

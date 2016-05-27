@@ -21,6 +21,7 @@
 #include "empty_proc.h"
 #include "pers_weights.h"
 #include "basel_aero.h"
+#include "ffp_sirena.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/testmode.h"
@@ -96,6 +97,7 @@ const
     {"-rfisc_all",              nosir_rfisc_all,        NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
     {"-self_ckin",              nosir_self_ckin,        NULL,                       NULL},
+    {"-ffp",                    ffp,                    ffp_help,                   "getting FFP card status"},
     {"-parse_bcbp",             nosir_parse_bcbp,       NULL,                       NULL},
     {"-departed_pax",           nosir_departed_pax,     NULL,                       NULL},
     {"-departed",               nosir_departed,         NULL,                       NULL},
