@@ -98,6 +98,8 @@ const
     {"-self_ckin",              nosir_self_ckin,        NULL,                       NULL},
     {"-parse_bcbp",             nosir_parse_bcbp,       NULL,                       NULL},
     {"-departed_pax",           nosir_departed_pax,     NULL,                       NULL},
+    {"-departed",               nosir_departed,         NULL,                       NULL},
+    {"-sql",                    nosir_departed_sql,     NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
