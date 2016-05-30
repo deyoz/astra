@@ -1863,11 +1863,24 @@ string CheckInInterface::GetSearchPaxSubquery(TPaxStatus pax_status,
 
 void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
   int point_dep = NodeAsInteger("point_dep",reqNode);
   TPaxStatus pax_status = DecodePaxStatus(NodeAsString("pax_status",reqNode));
   string query= NodeAsString("query",reqNode);
   bool pr_unaccomp=query=="0";
   bool charter_search=false;
+
+  TTripInfo fltInfo;
+  if (!fltInfo.getByPointId(point_dep))
+    throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+  TTripSetList setList;
+  setList.fromDB(point_dep);
+  if (setList.empty())
+    throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+  if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2) &&
+      setList.value(tsPieceConcept))
+    throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
 
   TInquiryGroup grp;
   TInquiryGroupSummary sum;
@@ -1901,14 +1914,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         if (fmt.infSeatsFmt!=0) fmt.infSeatsFmt=1;
       };
     };
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT airline,flt_no,suffix,airp,scd_out "
-      "FROM points WHERE point_id=:point_id AND pr_del>=0";
-    Qry.CreateVariable("point_id",otInteger,point_dep);
-    Qry.Execute();
-    if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-    TTripInfo fltInfo(Qry);
+
     charter_search=GetTripSets(tsCharterSearch,fltInfo);
 
     GetInquiryInfo(grp,fmt,sum);
@@ -1928,14 +1934,13 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   xmlNodePtr node;
 
-  Qry.Clear();
-  Qry.SQLText="SELECT pr_tranz_reg FROM trip_sets WHERE point_id=:point_id";
-  Qry.CreateVariable("point_id",otInteger,point_dep);
-  Qry.Execute();
-  if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-
   if (pax_status==psTransit)
   {
+    Qry.Clear();
+    Qry.SQLText="SELECT pr_tranz_reg FROM trip_sets WHERE point_id=:point_id";
+    Qry.CreateVariable("point_id",otInteger,point_dep);
+    Qry.Execute();
+    if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
     if (Qry.FieldIsNULL("pr_tranz_reg")||Qry.FieldAsInteger("pr_tranz_reg")==0)
       throw UserException("MSG.CHECKIN.NOT_RECHECKIN_MODE_FOR_TRANZIT");
   };
@@ -4209,6 +4214,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                                                    r!=(pass==0?added:deleted).end(); ++r)
                 {
                   if (r->code.empty()) continue;
+                  TRemCategory cat=getRemCategory(r->code, r->text);
+                  if (cat==remASVC) continue; //пропускаем ASVC
                   if (IsReadonlyRem(r->code, r->text))
                     throw UserException(pass==0?"MSG.REMARK.ADD_OR_CHANGE_DENIAL":"MSG.REMARK.CHANGE_OR_DEL_DENIAL",
                                         LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
@@ -5297,6 +5304,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         };
       };
 
+      if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2) &&
+          AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value(tsPieceConcept))
+        throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
+
       AfterSaveInfo.segs.back().grp_id=grp.id;
 
       if (first_segment)
@@ -6295,6 +6306,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
   TCkinGrpIds tckin_grp_ids;
   map<int/*seg_no*/,TBagConcept> bag_concept_by_seg;
   bool pr_unaccomp;
+  TLogLocale event;
   SirenaExchange::TAvailabilityReq req;
   SirenaExchange::fillPaxsBags(first_grp_id, req, pr_unaccomp, tckin_grp_ids);
 
@@ -6387,28 +6399,38 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
               res.error_reference.path=="passenger/ticket/number" &&
               !res.error_reference.value.empty())
           {
-            reqInfo->LocaleToLog("EVT.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED",
-                                 LEvntPrms()<<PrmSmpl<string>("ticket_no", res.error_reference.value),
-                                 ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
+            event.lexema_id="EVT.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED";
+            event.prms << PrmSmpl<string>("ticket_no", res.error_reference.value);
+            event.ev_type=ASTRA::evtPax;
+
             showErrorMessage("MSG.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED",
                              LParams()<<LParam("ticket_no", res.error_reference.value));
           }
           else
           {
             ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
-            reqInfo->LocaleToLog("EVT.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED", ASTRA::evtPax, point_id, ASTRA::NoExists, first_grp_id);
+
+            event.lexema_id="EVT.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED";
+            event.ev_type=ASTRA::evtPax;
+
             showErrorMessage("MSG.ERROR_CHECKING_PIECE_CONCEPT_WEIGHT_CONCEPT_APPLIED");
           };
         }
       }
     }
-    else showErrorMessage("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
+    else throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
   };
 
-  TCachedQuery GrpQry("UPDATE pax_grp SET piece_concept=:piece_concept, bag_types_id=:bag_types_id WHERE grp_id=:grp_id",
+  TCachedQuery GrpQry("BEGIN "
+                      "  UPDATE pax_grp "
+                      "  SET piece_concept=:piece_concept, bag_types_id=:bag_types_id "
+                      "  WHERE grp_id=:grp_id "
+                      "  RETURNING point_dep INTO :point_id; "
+                      "END;",
                       QParams() << QParam("grp_id", otInteger)
                                 << QParam("piece_concept", otInteger)
-                                << QParam("bag_types_id", otInteger));
+                                << QParam("bag_types_id", otInteger)
+                                << QParam("point_id", otInteger));
   TCachedQuery TrferQry("UPDATE transfer SET piece_concept=:piece_concept WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
                         QParams() << QParam("grp_id", otInteger)
                                   << QParam("transfer_num", otInteger)
@@ -6422,7 +6444,16 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
       GrpQry.get().SetVariable("grp_id", *grp_id);
       GrpQry.get().SetVariable("piece_concept", (int)false);
       GrpQry.get().SetVariable("bag_types_id", FNull);
+      GrpQry.get().SetVariable("point_id", FNull);
       GrpQry.get().Execute();
+
+      if (!event.lexema_id.empty() &&
+          !GrpQry.get().VariableIsNULL("point_id"))
+      {
+        event.id1=GrpQry.get().GetVariableAsInteger("point_id");
+        event.id3=*grp_id;
+        reqInfo->LocaleToLog(event);
+      };
     }
   }
   else
@@ -6438,6 +6469,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
       GrpQry.get().SetVariable("piece_concept", (int)(i->second==bcPiece));
       bag_types_id==ASTRA::NoExists?GrpQry.get().SetVariable("bag_types_id", FNull):
                                     GrpQry.get().SetVariable("bag_types_id", bag_types_id);
+      GrpQry.get().SetVariable("point_id", FNull);
       GrpQry.get().Execute();
       ++i;
 
@@ -6450,6 +6482,14 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
         else
           TrferQry.get().SetVariable("piece_concept", (int)(j->second==bcPiece));
         TrferQry.get().Execute();
+      };
+
+      if (!event.lexema_id.empty() &&
+          !GrpQry.get().VariableIsNULL("point_id"))
+      {
+        event.id1=GrpQry.get().GetVariableAsInteger("point_id");
+        event.id3=*grp_id;
+        reqInfo->LocaleToLog(event);
       };
     };
   }
