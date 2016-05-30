@@ -1095,11 +1095,16 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info, TFligh
           {
             if (strncmp(tlg.lex,"ANA/",4)==0)
             {
+              char assoc_number_str[7];
+              *assoc_number_str=0;
+              int i=NoExists;
               c=0;
-              res=sscanf(tlg.lex,"ANA/%lu%c",&info.association_number,&c);
+              res=sscanf(tlg.lex,"ANA/%6[0-9]%c",assoc_number_str,&c);
               if (c!=0||res!=1||
-                  info.association_number<100||info.association_number>999999)
+                  strlen(assoc_number_str)<3||
+                  StrToInt(assoc_number_str, i)==EOF)
                 throw ETlgError("Wrong association number");
+              info.association_number=i;
               if (tlg.GetLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
               line_p=tlg.NextLine(line_p);
             };
