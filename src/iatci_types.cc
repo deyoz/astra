@@ -2,6 +2,7 @@
 #include "iatci_help.h"
 #include "xml_unit.h"
 #include "basic.h"
+#include "astra_locale_adv.h"
 
 #include <serverlib/exception.h>
 #include <serverlib/xml_tools.h>
@@ -507,7 +508,12 @@ ServiceDetails::SsrInfo::SsrInfo(const std::string& ssrCode, const std::string& 
     : m_ssrCode(ssrCode), m_ssrText(ssrText),
       m_isInfantTicket(isInftTicket), m_freeText(freeText),
       m_airline(airline), m_quantity(quantity)
-{}
+{
+    const size_t MaxFreeTextLen = 70;
+    if(m_freeText.length() > MaxFreeTextLen) {
+        throw AstraLocale::UserException("MSG.TOO_LONG_SSR_FREE_TEXT");
+    }
+}
 
 const std::string& ServiceDetails::SsrInfo::ssrCode() const
 {
