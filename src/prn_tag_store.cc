@@ -1191,6 +1191,7 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
             << "M"
             << 1;
         // Passenger Name
+        result << left;
         string surname = transliter(paxInfo.surname_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
         string name = transliter(paxInfo.name_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
         string pax_name = surname;
@@ -1216,6 +1217,7 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
         // Electronic Ticket Indicator
         result << (ETKT(fp).empty() ? " " : "E");
         // Operating carrier PNR code
+        result << left;
         vector<TPnrAddrItem>::iterator iv = pnrInfo.pnrs.begin();
         for(; iv != pnrInfo.pnrs.end(); iv++)
             if(pointInfo.airline == iv->airline) {
@@ -1225,29 +1227,30 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
         if(iv == pnrInfo.pnrs.end())
             result << setw(7) << " ";
         else if(strlen(iv->addr) <= 7)
-            result << setw(7) << left << convert_pnr_addr(iv->addr, tag_lang.GetLang() != AstraLocale::LANG_RU);
+            result << setw(7) << convert_pnr_addr(iv->addr, tag_lang.GetLang() != AstraLocale::LANG_RU);
         // From City Airport Code
         result << setw(3) << AIRP_DEP(fp);
         // To City Airport Code
         result << setw(3) << AIRP_ARV(fp);
         // Operating Carrier Designator
-        result << setw(3) << AIRLINE(fp);
+        result << left << setw(3) << AIRLINE(fp);
         // Flight Number
         result
+            << right
             << setw(4) << right << setfill('0') << pointInfo.flt_no
             << setw(1) << setfill(' ') << tag_lang.ElemIdToTagElem(etSuffix, pointInfo.suffix, efmtCodeNative);
         // Date of Flight
         JulianDate scd(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)));
         scd.trace(__FUNCTION__);
-
-        result << setw(3) << setfill('0') << scd.getJulianDate();
+        // Date of flight(Julian Date)
+        result << right << setw(3) << setfill('0') << scd.getJulianDate();
         // Compartment Code
         result << CLASS(fp);
         // Seat Number
         result << setw(4) << right << ONE_SEAT_NO(fp);
         // Check-In Sequence Number
         result
-            << setw(4) <<  setfill('0') << paxInfo.reg_no
+            << right << setw(4) <<  setfill('0') << paxInfo.reg_no
             << " ";
         // Passenger Status
         // Я так понимаю что к этому моменту (т.е. вывод пос. талона на печать)
