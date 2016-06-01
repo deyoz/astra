@@ -6619,6 +6619,11 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
                 seg_concept=bcUnknown;
               }
               if (!seg_concept) throw EXCEPTIONS::Exception("%s: strange situation: unknown concept for seg_id=%d", __FUNCTION__, s->second.id);
+              if (seg_concept.get()==bcNo)
+              {
+                //определяем piece или weight по наличию/отсутствию RFISC
+                seg_concept=res.exists_rfisc_list(s->second.id)?bcPiece:bcWeight;
+              }
               bag_concept_by_seg.insert(make_pair(s->second.id, seg_concept.get()));
 
               if ((unsigned)s->second.id<tckin_grp_ids.size())

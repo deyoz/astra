@@ -606,6 +606,7 @@ class TAvailabilityRes : public TAvailability, public TAvailabilityResMap
     virtual void fromXML(xmlNodePtr node);
     bool identical_concept(int seg_id, boost::optional<TBagConcept> &concept) const;
     bool identical_rfisc_list(int seg_id, boost::optional<PieceConcept::TRFISCList> &rfisc_list) const;
+    bool exists_rfisc_list(int seg_id) const;
     void normsToDB(const TCkinGrpIds &tckin_grp_ids) const;
     void brandsToDB(const TCkinGrpIds &tckin_grp_ids) const;
 };
