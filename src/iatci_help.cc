@@ -288,11 +288,12 @@ void IatciDb::addPax(int grpId, const std::list<iatci::Result>& lRes)
     ASSERT(firstRes.pax());
     iatci::PaxDetails pax = firstRes.pax().get();
     OciCpp::CursCtl cur = make_curs(
-"insert into IATCI_PAX (SURNAME, NAME, GRP_ID) "
-"values (:surname, :name, :grp_id)");
+"insert into IATCI_PAX (SURNAME, NAME, PAX_TYPE, GRP_ID) "
+"values (:surname, :name, :pax_type, :grp_id)");
     cur.stb()
        .bind(":surname", pax.surname())
        .bind(":name",    pax.name())
+       .bind(":pax_type",pax.typeAsString())
        .bind(":grp_id",  grpId)
        .exec();
 }

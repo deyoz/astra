@@ -813,8 +813,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
     TabsDiff diff(oldIatciTabs, newIatciTabs);
     LogTrace(TRACE3) << "tabsDiff.size = " << diff.tabsDiff().size();
 
-    const size_t sz = diff.tabsDiff().size();
-    for(size_t i = 0; i < sz; ++i)
+    for(size_t i = 0; i < diff.tabsDiff().size(); ++i)
     {
         TabDiff::Optional_t tabDiff = diff.at(i);
         if(tabDiff) {
