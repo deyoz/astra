@@ -341,12 +341,12 @@ void CheckDoc(const CheckIn::TPaxDocItem &doc,
 
     modf(nowLocal, &nowLocal);
 
-    if (doc.birth_date!=NoExists && doc.birth_date>nowLocal)
+    if (doc.birth_date!=NoExists && (doc.birth_date>nowLocal || doc.birth_date<IncMonth(nowLocal, -130*12))) //до 130 лет назад
       reqInfo->client_type!=ctTerm?
         throw UserException("MSG.CHECK_DOC.INVALID_BIRTH_DATE", LParams()<<LParam("fieldname", "document/birth_date" )):
         throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.BIRTH_DATE")));
 
-    if (doc.expiry_date!=NoExists && doc.expiry_date<nowLocal)
+    if (doc.expiry_date!=NoExists && (doc.expiry_date<nowLocal || doc.expiry_date>IncMonth(nowLocal, 100*12))) //до 100 лет вперед
       reqInfo->client_type!=ctTerm?
         throw UserException("MSG.CHECK_DOC.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "document/expiry_date" )):
         throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.EXPIRY_DATE")));
@@ -474,12 +474,12 @@ void CheckDoco(const CheckIn::TPaxDocoItem &doc,
 
     modf(nowLocal, &nowLocal);
 
-    if (doc.issue_date!=NoExists && doc.issue_date>nowLocal)
+    if (doc.issue_date!=NoExists && (doc.issue_date>nowLocal || doc.issue_date<IncMonth(nowLocal, -70*12))) //до 70 лет назад
       reqInfo->client_type!=ctTerm?
         throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_DATE", LParams()<<LParam("fieldname", "doco/issue_date" )):
         throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.ISSUE_DATE")));
 
-    if (doc.expiry_date!=NoExists && doc.expiry_date<nowLocal)
+    if (doc.expiry_date!=NoExists && (doc.expiry_date<nowLocal || doc.expiry_date>IncMonth(nowLocal, 70*12))) //до 70 лет вперед
       reqInfo->client_type!=ctTerm?
         throw UserException("MSG.CHECK_DOCO.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "doco/expiry_date" )):
         throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.EXPIRY_DATE")));

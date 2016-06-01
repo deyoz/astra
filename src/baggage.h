@@ -11,7 +11,7 @@
 #include <boost/optional.hpp>
 #include <etick/tick_data.h>
 
-enum TBagConcept { bcUnknown, bcPiece, bcWeight };
+enum TBagConcept { bcUnknown, bcPiece, bcWeight, bcNo };
 
 class TBagNormUnit
 {
