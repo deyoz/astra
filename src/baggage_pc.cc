@@ -424,6 +424,8 @@ void TSimplePaxNormItem::fromXMLAdv(xmlNodePtr node, TBagConcept &concept, strin
           ( str == "weight" ) concept=bcWeight;
       else if
           ( str == "unknown" ) concept=bcUnknown;
+      else if
+          ( str == "no" ) concept=bcNo;
       else
         throw Exception("Unknown @type='%s'", str.c_str());
 
@@ -1556,7 +1558,7 @@ void PaidBagViewToXML(const TTrferRoute &trfer,
 
   };
 
-  const string taLeftJustify="taLeftJustify";  //!!!vlad ¢ astra_consts
+  const string taLeftJustify="taLeftJustify";
   const string taRightJustify="taRightJustify";
   const string taCenter="taCenter";
   const string fsBold="fsBold";
@@ -2021,11 +2023,11 @@ bool TAvailabilityRes::identical_concept(int seg_id, boost::optional<TBagConcept
   for(TAvailabilityResMap::const_iterator i=begin(); i!=end(); ++i)
   {
     if (i->first.seg_id!=seg_id) continue;
-    if (!concept)
+    if (!concept || concept.get()==bcNo)
       concept=i->second.concept;
     else
     {
-      if (concept.get()!=i->second.concept)
+      if (concept.get()!=bcNo && i->second.concept!=bcNo && concept.get()!=i->second.concept)
       {
         concept=boost::none;
         return false;
@@ -2054,6 +2056,16 @@ bool TAvailabilityRes::identical_rfisc_list(int seg_id, boost::optional<PieceCon
   };
   return true;
 }
+
+bool TAvailabilityRes::exists_rfisc_list(int seg_id) const
+{
+  for(TAvailabilityResMap::const_iterator i=begin(); i!=end(); ++i)
+  {
+    if (i->first.seg_id!=seg_id) continue;
+    if (!i->second.rfisc_list.empty()) return true;
+  };
+  return false;
+};
 
 void TAvailabilityRes::normsToDB(const TCkinGrpIds &tckin_grp_ids) const
 {
