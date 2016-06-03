@@ -67,6 +67,8 @@ public:
      AddEvent("run_stat",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::stat_srv);
      AddEvent("stat_srv",evHandle);
+     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::Layout);
+     AddEvent("layout",evHandle);
 
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::StatOrders);
      AddEvent("stat_orders",evHandle);
@@ -88,6 +90,7 @@ public:
   void PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void Layout(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void TestRunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   // Работа с заказами
