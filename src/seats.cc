@@ -4045,7 +4045,7 @@ bool getCurrSeat( const TSalonList &salonList,
 void SyncPRSA( const string &airline_oper,
                int pax_id,
                TSeatTariffMap::TStatus tariffs_status,
-               const vector<pair<TSeatRange,TRFISC>> &tariffs )
+               const vector<pair<TSeatRange,TRFISC> > &tariffs )
 {
   if (tariffs.empty())
   {
@@ -4072,7 +4072,7 @@ void SyncPRSA( const string &airline_oper,
     "INSERT INTO pax_rem(pax_id,rem,rem_code) VALUES(:pax_id,:rem,:rem_code)";
   RemQry.DeclareVariable("rem",otString);
 
-  for ( vector<pair<TSeatRange,TRFISC>>::const_iterator it=tariffs.begin(); it!=tariffs.end(); ++it )
+  for ( vector<pair<TSeatRange,TRFISC> >::const_iterator it=tariffs.begin(); it!=tariffs.end(); ++it )
   {
     if (tariffs_status==TSeatTariffMap::stNotFound ||
         tariffs_status==TSeatTariffMap::stNotRFISC) continue;
@@ -4218,7 +4218,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     }
   }
   vector<TSeatRange> seatRanges;
-  vector<pair<TSeatRange,TRFISC>> tariffs;
+  vector<pair<TSeatRange,TRFISC> > tariffs;
   TSeatRange r;
   vector<TPlaceList*>::const_iterator isalonList;
   SALONS2::TPoint coord;
@@ -4475,7 +4475,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
   TReqInfo *reqinfo = TReqInfo::Instance();
   PrmEnum seatPrmEnum("seat", "");
 
-  for ( vector<pair<TSeatRange,TRFISC>>::iterator it=tariffs.begin(); it!=tariffs.end(); it++ ) {
+  for ( vector<pair<TSeatRange,TRFISC> >::iterator it=tariffs.begin(); it!=tariffs.end(); it++ ) {
     if (it!=tariffs.begin())
       seatPrmEnum.prms << PrmSmpl<string>("", " ");
 

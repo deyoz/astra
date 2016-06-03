@@ -1403,7 +1403,10 @@ void TPlace::SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &sa
   for ( std::map<int, TRFISC,classcomp>::iterator irfisc=rfiscs.begin();
         irfisc!=rfiscs.end();  ) {
     if ( irfisc->second.color.empty() ) {
-      irfisc = rfiscs.erase( irfisc );
+      std::map<int, TRFISC,classcomp>::iterator next=irfisc;
+      ++next;
+      rfiscs.erase( irfisc );
+      irfisc=next;
       continue;
     }
     colorItem = salonTariffs.find( irfisc->second.color );
@@ -1431,7 +1434,10 @@ void TPlace::SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &sa
         ProgTrace( TRACE5, "clear Settariff %s",SeatTariff.str().c_str() );
         SeatTariff.clear();
       }
-      irfisc = rfiscs.erase( irfisc );
+      std::map<int, TRFISC,classcomp>::iterator next=irfisc;
+      ++next;
+      rfiscs.erase( irfisc );
+      irfisc=next;
     }
   }
 }
