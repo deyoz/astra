@@ -2,6 +2,11 @@ include(ts/macro.ts)
 
 # meta: suite print
 
+###
+### ˆ”:
+### „‹Ÿ ‚›• ’…‘’‚ ‚‡Œ† ’…“’‘Ÿ ¤àã£¨¥ ¤ ­­ë¥ ¢ Loader' å ’€‹ˆ–
+### bp_types, bp_models, prn_form_vers, prn_tag_props  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+###
 
 $(init)
 $(init_jxt_pult Œ‚Œ)
