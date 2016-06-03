@@ -1,0 +1,16 @@
+LOAD DATA
+INFILE *
+INTO TABLE prn_form_vers
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+data
+,descr
+,form
+,id
+,read_only
+,version
+)
+BEGINDATA
+"CP#1C01#01K#02[<tags(,,)>]#02[<fullname(50,,)>]#03[<airp_dep_name(11,,)>]#04[<airp_arv_name(11,,)>]#05[<airline(3,R,)><flt_no(5,L,)>]#07[<est(,,dd.mm)>]#09[<gate(6,,)>]#0A[<brd_to(,,hh:nn)>]#0B[<class(1,,)>]#0C[<str_seat_no(6,R,)>]#0D[<excess>KGS]#0E[<etkt(21,,)>]#0F[<document(15,,)>]#20[<fullname(20,,)>]#21[<airp_dep_name(20,,)>]#22[<airp_arv_name(20,,)>]#25[<airline(3,R,)><flt_no(5,L,)>]#27[<est(,,dd.mm)>]#2B[<class(1,,)>]#2C[<str_seat_no(6,C,)>]#3F[<pax_id(10,,)>]#F1[<reg_no(3,,)>]#FF[<test_server(72,,)>]#"|"baggage"|"PT##?K1Z#@;#TICK#>>/#BOARD#0101#0250E01W#0311H01W#0411L01W#0508H13W#0705H40#0906L27W#0A05M12R#0B01H30W#0C06L38W#0D16O02W#0E21Q01Q52W#0F15R01R53W#2020C53W#2120E53W#2220H53W#2508O53W#2705L53O#2B01L67W#2C06O64W#3FB1R30B601031#F104D41A54#FF72M01W#"|39897|0|16
