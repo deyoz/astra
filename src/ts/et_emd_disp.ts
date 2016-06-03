@@ -143,12 +143,7 @@ UNT+32+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
->> lines=auto
-    <kick req_ctxt_id...
-
-
-!! capture=on
-$(lastRedisplay)
+$(KICK_IN)
 
 
 >> lines=auto
@@ -255,12 +250,7 @@ EBD++20::W:K"
 UNT+23+1"
 UNZ+1+$(last_edifact_ref)0001"
 
->> lines=auto
-    <kick req_ctxt_id...
-
-
-!! capture=on
-$(lastRedisplay)
+$(KICK_IN)
 
 
 # ―γαβ®
@@ -294,12 +284,7 @@ $(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
 $(run_daemon edi_timeout)
 
 
->> lines=auto
-    <kick req_ctxt_id...
-
-
-!! capture=on
-$(lastRedisplay)
+$(KICK_IN)
 
 >> lines=auto
       <user_error lexema_id='MSG.EMD.EDS_TIMEOUT_ERROR'...
@@ -462,13 +447,7 @@ IFT+3+‹…’/„“…’ … €‰„…  ‡€„€› ’…"
 UNT+5+1"
 UNZ+1+0001U2VWHL0001"
 
-
->> lines=auto
-    <kick req_ctxt_id...
-
-
-!! capture=on
-$(lastRedisplay)
+$(KICK_IN)
 
 >> lines=auto
     <command>

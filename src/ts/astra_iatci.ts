@@ -75,12 +75,7 @@ PTS++YINF"
 UNT+19+1"
 UNZ+1+$(last_edifact_ref)0001"
 
->> lines=auto
-    <kick req_ctxt_id...
-
-
-!!
-$(lastRedisplay)
+$(KICK_IN)
 
 }
 ) #end-of-macro
@@ -1134,10 +1129,7 @@ $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ’ 103 „Œ„ ‹Š
                                                            2986120030297)
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
->> lines=auto
-    <kick req_ctxt_id...
-
-$(lastRedisplay)
+$(KICK_IN_SILENT)
 
 
 >>
@@ -1163,11 +1155,7 @@ UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
->> lines=auto
-    <kick req_ctxt_id...
-
-!! capture=on
-$(lastRedisplay)
+$(KICK_IN)
 
 >> lines=auto
     <segments>
@@ -1455,11 +1443,7 @@ $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ’ 103 „Œ„ ‹Š
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
->> lines=auto
-    <kick req_ctxt_id...
-
-$(lastRedisplay)
-
+$(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -1501,10 +1485,7 @@ $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point
 
 $(ETS_COS_EXCHANGE 2986120030297 1 I)
 
->> lines=auto
-    <kick req_ctxt_id...
-
-$(lastRedisplay)
+$(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -1524,11 +1505,7 @@ UNT+4+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
->> lines=auto
-    <kick req_ctxt_id...
-
-!! capture=on
-$(lastRedisplay)
+$(KICK_IN)
 
 >> lines=4
     <segments/>
@@ -1591,11 +1568,7 @@ UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
->> lines=auto
-    <kick req_ctxt_id...
-
-!!
-$(lastRedisplay)
+$(KICK_IN_SILENT)
 
 $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
@@ -1624,12 +1597,7 @@ UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
->> lines=auto
-    <kick req_ctxt_id...
-
-
-!! capture=on
-$(lastRedisplay)
+$(KICK_IN)
 
 >> lines=auto
     <segments>
@@ -1662,7 +1630,7 @@ $(lastRedisplay)
             <class>
               <code></code>
               <class_view>ŠŒ</class_view>
-              <cfg>1</cfg>
+              <cfg>...
             </class>
           </classes>
           <gates/>
@@ -1767,12 +1735,12 @@ $(lastRedisplay)
           <item>
             <point_arv>$(get point_arv)</point_arv>
             <class></class>
-            <noshow>0</noshow>
-            <trnoshow>0</trnoshow>
-            <show>1</show>
-            <free_ok>0</free_ok>
-            <free_goshow>0</free_goshow>
-            <nooccupy>0</nooccupy>
+            <noshow>...
+            <trnoshow>...
+            <show>...
+            <free_ok>...
+            <free_goshow>...
+            <nooccupy>...
           </item>
         </tripcounters>
         <load_residue/>
@@ -1937,12 +1905,7 @@ PAP+:::100386:::RUS++PP:5408123432:RUS:::311249:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
-
->> lines=auto
-    <kick req_ctxt_id...
-
-!!
-$(lastRedisplay)
+$(KICK_IN_SILENT)
 
 $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
@@ -2525,11 +2488,7 @@ PAP+:::010576:::RUS++P:99999999999:USA:::311249:M::::::REPIN:IVAN:IVANICH"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
->> lines=auto
-    <kick req_ctxt_id...
-
-!! capture=on
-$(lastRedisplay)
+$(KICK_IN)
 
 
 >> lines=auto
@@ -2743,11 +2702,7 @@ PAP+:::100386:::RUS++PP:5408123432:RUS:::311249:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
->> lines=auto
-    <kick req_ctxt_id...
-
-!! capture=on
-$(lastRedisplay)
+$(KICK_IN)
 
 >> lines=auto
             <rems>
@@ -2790,11 +2745,7 @@ $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ’ 103 „Œ„ ‹Š
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
->> lines=auto
-    <kick req_ctxt_id...
-
-$(lastRedisplay)
-
+$(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"

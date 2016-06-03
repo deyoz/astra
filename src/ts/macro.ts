@@ -48,6 +48,30 @@ $(defmacro login2
 ) # end-of-defmacro
 
 
+$(defmacro KICK_IN
+{
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+
+!! capture=on
+$(lastRedisplay)
+
+}) #end-of-macro
+
+
+$(defmacro KICK_IN_SILENT
+{
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!!
+$(lastRedisplay)
+
+}) #end-of-macro
+
 
 $(defmacro PREPARE_SEASON_SCD
   airl=UT
@@ -327,6 +351,73 @@ $(create_random_trip_comp $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd 
 }) #end-of-macro
 
 
+$(defmacro INBOUND_PNL_4
+    airl1
+    depp1
+    arrp1
+    flt1
+    surname1
+    name1
+    surname2
+    name2
+{MOWKB1H
+.MOWRMUT 020815
+PNL
+$(airl1)$(flt1)/$(ddmon +0 en) $(depp1) PART1
+CFG/060F060C060Y
+RBD F/F C/C Y/Y
+AVAIL
+ $(depp1)  $(arrp1)
+F060
+C060
+Y058
+-LED000F
+-LED000C
+-LED002Y
+1$(surname1)/$(name1)
+.L/0840Z6/$(airl1)
+.L/09T1B3/1H
+1$(surname2)/$(name2)
+.L/0840Z7/$(airl1)
+.L/09T1B4/1H
+ENDPNL}
+) #end-of-macro
+
+
+$(defmacro PREPARE_FLIGHT_4
+    airl=ûí
+    flt=103
+    depp=ÑåÑ
+    arrp=èãä
+    surname1=êÖèàç
+    name1=àÇÄç
+    surname2=êÖèàçÄ
+    name2=ÄççÄ
+{
+
+$(set airl_lat $(get_lat_code awk $(airl)))
+$(set depp_lat $(get_lat_code aer $(depp)))
+$(set arrp_lat $(get_lat_code aer $(arrp)))
+
+$(PREPARE_SEASON_SCD $(get airl_lat)
+                     $(get depp_lat)
+                     $(get arrp_lat)
+                     $(flt))
+$(create_spp $(ddmmyyyy +0))
+
+<<
+$(INBOUND_PNL_4 $(get airl_lat)
+                $(get depp_lat)
+                $(get arrp_lat)
+                $(flt)
+                $(surname1) $(name1)
+                $(surname2) $(name2))
+
+$(create_random_trip_comp $(get_dep_point_id $(depp) $(airl) $(flt) $(yymmdd +0)) ù)
+
+}) #end-of-macro
+
+
 $(defmacro OPEN_CHECKIN
     point_id
 {
@@ -417,3 +508,62 @@ $(defmacro EMD_TEXT_VIEW
  </term>}
 
 }) #end-of-macro
+
+
+$(defmacro SAVE_ET_DISP
+    point_id
+    tickno=2986120030297
+    surname=REPIN
+    name=IVAN
+    airl=UT
+    recloc=G4LK6W
+{
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <SearchETByTickNo>
+      <point_id>$(point_id)</point_id>
+      <TickNoEdit>$(tickno)</TickNoEdit>
+    </SearchETByTickNo>
+  </query>
+</term>}
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:131"
+ORG+ûí:åéÇ++++Y+::RU+åéÇêéå"
+TKT+$(tickno)"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
+MSG+:131+3"
+TIF+$(surname)+$(name)"
+TAI+0162"
+RCI+$(airl):$(recloc):1"
+MON+B:20.00:USD+T:20.00:USD"
+FOP+CA:3"
+PTK+++$(ddmmyy)+++:US"
+ODI+DME+LED"
+ORG+UT:MOW++IAH++A+US+D80D1BWO"
+EQN+1:TD"
+TXD+700+0.00:::US"
+IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
+IFT+4:5+00001230161213"
+IFT+4:10+REFUNDABLE"
+IFT+4:39+HOUSTON+UNITED AIRLINES INC"
+TKT+$(tickno):T:1:3"
+CPN+1:I"
+TVL+$(ddmmyy):2205+DME+LED+$(airl)+103:Y+J"
+RPI++NS"
+PTS++YINF"
+UNT+19+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN_SILENT)
+
+}
+) #end-of-macro

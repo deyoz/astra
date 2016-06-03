@@ -327,12 +327,16 @@ static std::string FP_get_dep_point_id(const std::vector<std::string>& p)
 static int getRandomBaseComponId(const std::string& cls)
 {
     OciCpp::CursCtl cur = make_curs(
-"select COMP_ID from "
-"(select COMP_ID, count(*) as cnt from COMP_ELEMS where CLASS = :class group by COMP_ID order by dbms_random.random) "
-"where cnt = 1 and rownum = 1");
+"select CID from "
+"(select COMP_ID as CID, count(*) as CNT from COMP_ELEMS "
+"where CLASS=:cls and ELEM_TYPE in (select CODE from COMP_ELEM_TYPES where PR_SEAT=1) "
+"group by COMP_ID order by dbms_random.random) a "
+"where not exists (select 1 from COMP_ELEMS where COMP_ID=a.CID and CLASS<>:cls) "
+"and a.CNT > 1");
 
     int comp_id = 0;
-    cur.bind(":class", cls).def(comp_id).exfet();
+    cur.bind(":cls", cls)
+       .def(comp_id).exfet();
     if(cur.err() == NO_DATA_FOUND) {
         comp_id = -1;
     }
@@ -352,10 +356,11 @@ static void createRandomTripCompForPointId(int point_id, const std::string& cls)
 "X, XNAME, XPRIOR, Y, YNAME, YPRIOR) "
 "select :point_id, AGLE, CLASS, ELEM_TYPE, NOT_GOOD, NUM, PR_SMOKE, "
 "X, XNAME, XPRIOR, Y, YNAME, YPRIOR "
-"from COMP_ELEMS where COMP_ID=:comp_id");
+"from COMP_ELEMS where COMP_ID=:comp_id and CLASS=:cls");
 
     cur.bind(":point_id", point_id)
        .bind(":comp_id",  comp_id)
+       .bind(":cls",      cls)
        .exec();
     SALONS2::processSalonsCfg_TestMode(point_id, comp_id);
 }
@@ -382,9 +387,11 @@ static std::string FP_getSinglePaxId(const std::vector<std::string>& p)
                                                                               paxSurname,
                                                                               paxName,
                                                                               paxStatus);
-    assert(!spRes.lTrip.empty());
-    const XmlTrip& trip = spRes.lTrip.front();
-    return boost::lexical_cast<std::string>(trip.pnr().pax().pax_id);
+    std::list<XmlPax> lPax = spRes.applyNameFilter(paxSurname, paxName);
+    assert(!lPax.empty());
+
+    const XmlPax& pax = lPax.front();
+    return boost::lexical_cast<std::string>(pax.pax_id);
 }
 
 static std::string FP_getSingleGrpId(const std::vector<std::string>& p)
@@ -438,6 +445,36 @@ static std::string FP_get_lat_code(const std::vector<std::string>& p)
     }
 }
 
+static std::string getRandomBpTypeCode()
+{
+    OciCpp::CursCtl cur = make_curs(
+"select CODE from BP_TYPES where CODE in ('TST') order by dbms_random.random");
+    std::string code;
+    cur.def(code).exfet();
+    return code;
+}
+
+static std::string FP_prepare_bp_printing(const std::vector<std::string>& p)
+{
+    assert(p.size() == 3);
+    std::string airl = p.at(0);
+    std::string flt_no = p.at(1);
+    std::string airp = p.at(2);
+    std::string bpType = getRandomBpTypeCode();
+
+    OciCpp::CursCtl cur = make_curs(
+"insert into BP_SET (ID, AIRLINE, FLT_NO, AIRP_DEP, BP_TYPE) "
+"values (ID__SEQ.nextval, :airl, :flt_no, :airp, :bp_type)");
+
+    cur.bind(":airl",   airl)
+       .bind(":flt_no", flt_no)
+       .bind(":airp",   airp)
+       .bind(":bp_type",bpType)
+       .exec();
+
+    return "";
+}
+
 
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
@@ -458,5 +495,6 @@ FP_REGISTER("get_single_pax_id", FP_getSinglePaxId);
 FP_REGISTER("get_single_grp_id", FP_getSingleGrpId);
 FP_REGISTER("get_single_tid", FP_getSingleTid);
 FP_REGISTER("get_lat_code", FP_get_lat_code);
+FP_REGISTER("prepare_bp_printing", FP_prepare_bp_printing);
 
 #endif /* XP_TESTING */

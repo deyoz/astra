@@ -215,7 +215,6 @@ UNZ+1+$(last_edifact_ref)0001"
 >> lines=auto
     <kick...
 
-
 !! capture=on
 $(lastRedisplay)
 
@@ -325,7 +324,6 @@ UNZ+1+$(last_edifact_ref)0001"
 
 >> lines=auto
     <kick...
-
 
 !! capture=on
 $(lastRedisplay)

@@ -1265,8 +1265,12 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
 xmlNodePtr TETChangeStatusList::addTicket(const TETChangeStatusKey &key,
                                         const Ticketing::Ticket &tick)
 {
+  size_t MaxTicketsInTlg = MAX_TICKETS_IN_TLG;
+  if(inTestMode()) {
+      MaxTicketsInTlg = 1;
+  }
   if ((*this)[key].empty() ||
-      (*this)[key].back().first.size()>=MAX_TICKETS_IN_TLG)
+      (*this)[key].back().first.size()>=MaxTicketsInTlg)
   {
     (*this)[key].push_back(TETChangeStatusItem());
   }
@@ -1927,9 +1931,6 @@ void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 void EMDStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     FuncIn(KickHandler);
-    using namespace edifact;
-    pRemoteResults res = RemoteResults::readSingle();
-    LogTrace(TRACE3) << "RemoteResults::Status: " << res->status();
     // TODO add kick handling
     FuncOut(KickHandler);
 }
@@ -1964,22 +1965,29 @@ void ChangeStatusInterface::ChangeStatus(const xmlNodePtr reqNode,
   };
 }
 
+static bool WasTimeout(const std::list<edifact::RemoteResults>& lRemRes)
+{
+    using namespace edifact;
+
+    for(const RemoteResults& remRes: lRemRes) {
+        if(remRes.status()->codeInt() == RemoteStatus::Timeout) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     using namespace edifact;
 
-    pRemoteResults remRes = RemoteResults::readSingle();
-    switch(remRes->status()->codeInt())
-    {
-    case RemoteStatus::Success:
-    case RemoteStatus::CommonError:
-        KickOnAnswer(reqNode, resNode);
-        break;
-    case RemoteStatus::Timeout:
+    std::list<RemoteResults> lRemRes;
+    RemoteResults::readDb(lRemRes);
+    if(WasTimeout(lRemRes)) {
         KickOnTimeout(reqNode, resNode);
-        break;
-    default:
-        break;
+    } else {
+        KickOnAnswer(reqNode, resNode);
     }
 }
 

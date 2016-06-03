@@ -160,13 +160,7 @@ PTS++Y2"
 UNT+45+1"
 UNZ+1+$(last_edifact_ref)0001"
 
-
->> lines=auto
-    <kick req_ctxt_id...
-
-
-!!
-$(lastRedisplay)
+$(KICK_IN_SILENT)
 
 
 %%
@@ -222,12 +216,7 @@ UNT+28+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
->> lines=auto
-    <kick req_ctxt_id...
-
-
-!! capture=on
-$(lastRedisplay)
+$(KICK_IN)
 
 >> lines=auto
               <dep_date index='1'>OPEN</dep_date>

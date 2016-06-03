@@ -94,65 +94,6 @@ $(defmacro CHECKIN_PAX
 ) #end-of-macro
 
 
-$(defmacro SAVE_ET_DISP
-    point_id
-    tickno=2986120030297
-{
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <SearchETByTickNo>
-      <point_id>$(point_id)</point_id>
-      <TickNoEdit>$(tickno)</TickNoEdit>
-    </SearchETByTickNo>
-  </query>
-</term>}
-
->>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:131"
-ORG+ЮТ:МОВ++++Y+::RU+МОВРОМ"
-TKT+2986120030297"
-UNT+5+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-<<
-UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:131+3"
-TIF+REPIN+IVAN"
-TAI+0162"
-RCI+UA:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+DME+LED"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+2986120030297:T:1:3"
-CPN+1:I"
-TVL+$(ddmmyy):2205+DME+LED+UT+103:Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+$(last_edifact_ref)0001"
-
->> lines=auto
-    <kick req_ctxt_id...
-
-
-!!
-$(lastRedisplay)
-
-}
-) #end-of-macro
-
 ### test 1 - успешная смена статуса
 #########################################################################################
 
@@ -196,12 +137,7 @@ UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
->> lines=auto
-    <kick req_ctxt_id...
-
-
-!! capture=on
-$(lastRedisplay)
+$(KICK_IN)
 
 
 >> lines=auto
@@ -250,13 +186,7 @@ UNT+4+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
->> lines=auto
-    <kick req_ctxt_id...
-
-
-!! capture=on
-$(lastRedisplay)
-
+$(KICK_IN)
 
 >> lines=auto
     <ets_error>СЭБ: ОШИБКА 401

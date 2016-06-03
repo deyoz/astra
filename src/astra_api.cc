@@ -1465,6 +1465,24 @@ SearchPaxXmlResult::SearchPaxXmlResult(xmlNodePtr node)
     }
 }
 
+std::list<XmlPax> SearchPaxXmlResult::applyNameFilter(const std::string& surname,
+                                                      const std::string& name)
+{
+    std::list<XmlPax> res;
+    for(const XmlTrip& trip: lTrip) {
+        for(const XmlPnr& pnr: trip.pnrs) {
+            for(const XmlPax& pax: pnr.passengers) {
+                // TODO необходимо усложнить функцию сравнения (trim, translit)
+                if(surname == pax.surname && name == pax.name) {
+                    res.push_back(pax);
+                }
+            }
+        }
+    }
+
+    return res;
+}
+
 //---------------------------------------------------------------------------------------
 
 LoadPaxXmlResult::LoadPaxXmlResult(xmlNodePtr node)

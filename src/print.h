@@ -135,28 +135,18 @@ class PrintInterface: public JxtInterface
         };
 
         PrintInterface(): JxtInterface("123", "print")
-        {
-            Handler *evHandle;
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBI);
-            AddEvent("GetPrintDataBI",evHandle);
-            AddEvent("GetGRPPrintDataBI",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBP);
-            AddEvent("GetPrintDataBP",evHandle);
-            AddEvent("GetGRPPrintDataBP",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ReprintDataBTXML);
-            AddEvent("ReprintDataBT",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBTXML);
-            AddEvent("GetPrintDataBT",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ConfirmPrintBI);
-            AddEvent("ConfirmPrintBI",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ConfirmPrintBT);
-            AddEvent("ConfirmPrintBT",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ConfirmPrintBP);
-            AddEvent("ConfirmPrintBP",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::RefreshPrnTests);
-            AddEvent("refresh_prn_tests",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetImg);
-            AddEvent("GetImg",evHandle);
+        {            
+            AddEvent("GetPrintDataBI",    JXT_HANDLER(PrintInterface, GetPrintDataBI));
+            AddEvent("GetGRPPrintDataBI", JXT_HANDLER(PrintInterface, GetPrintDataBI));
+            AddEvent("GetPrintDataBP",    JXT_HANDLER(PrintInterface, GetPrintDataBP));
+            AddEvent("GetGRPPrintDataBP", JXT_HANDLER(PrintInterface, GetPrintDataBP));
+            AddEvent("ReprintDataBT",     JXT_HANDLER(PrintInterface, ReprintDataBTXML));
+            AddEvent("GetPrintDataBT",    JXT_HANDLER(PrintInterface, GetPrintDataBTXML));
+            AddEvent("ConfirmPrintBI",    JXT_HANDLER(PrintInterface, ConfirmPrintBI));
+            AddEvent("ConfirmPrintBT",    JXT_HANDLER(PrintInterface, ConfirmPrintBT));
+            AddEvent("ConfirmPrintBP",    JXT_HANDLER(PrintInterface, ConfirmPrintBP));
+            AddEvent("refresh_prn_tests", JXT_HANDLER(PrintInterface, RefreshPrnTests));
+            AddEvent("GetImg",            JXT_HANDLER(PrintInterface, GetImg));
         }
 
         void GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

@@ -517,6 +517,9 @@ struct SearchPaxXmlResult
 {
     std::list<XmlTrip> lTrip;
 
+    std::list<XmlPax> applyNameFilter(const std::string& surname,
+                                      const std::string& name);
+
     SearchPaxXmlResult(xmlNodePtr node);
 };
 
