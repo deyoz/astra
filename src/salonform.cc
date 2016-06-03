@@ -928,7 +928,7 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     if ( SALONS2::isFreeSeating( point_id ) ) {
       throw UserException( "MSG.SALONS.FREE_SEATING" );
     }
-    salonList.ReadFlight( SALONS2::TFilterRoutesSets( id ), SALONS2::rfTranzitVersion, "", point_id );
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( id ), SALONS2::rfTranzitVersion, "", ASTRA::NoExists, false, point_id );
   }
   else {
     int point_id = ASTRA::NoExists;
@@ -1215,7 +1215,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     point_arv = SALONS2::getCrsPaxPointArv( pax_id, point_id );
   }
 
-  ProgTrace( TRACE5, "IntChangeSeats: point_id=%d, point_arv=%d, pax_id=%d, tid=%d, layer=%s",
+  ProgTrace( TRACE5, "IntChangeSeatsN: point_id=%d, point_arv=%d, pax_id=%d, tid=%d, layer=%s",
             point_id, point_arv, pax_id, tid, EncodeCompLayerType( layer_type ) );
 
   SALONS2::TSalonList salonList, salonListPriorVersion;
@@ -1341,6 +1341,10 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
       xmlFreeNode( dataNode );
     }
     dataNode = NewTextChild( resNode, "data" );
+
+    if ( !TReqInfo::Instance()->desk.compatible(RFISC_VERSION) ) {
+      salonList.ReadFlight( salonList.getFilterRoutes(), SALONS2::rfTranzitVersion, salonList.getFilterClass(), tariff_pax_id );
+    }
     SALONS2::GetTripParams( point_id, dataNode );
     salonList.JumpToLeg( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ) );
     int comp_id;
@@ -1678,6 +1682,9 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
       SALONS2::GetTripParams( point_id, dataNode );
       int comp_id;
       if ( isTranzitSalonsVersion ) {
+        if ( !TReqInfo::Instance()->desk.compatible(RFISC_VERSION) ) {
+          salonList.ReadFlight( salonList.getFilterRoutes(), SALONS2::rfTranzitVersion, salonList.getFilterClass(), tariff_pax_id );
+        }
         salonList.Build( true, salonsNode );
         comp_id = salonList.getCompId();
       }

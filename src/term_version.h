@@ -44,9 +44,9 @@
 #define PIECE_CONCEPT_VERSION         "201509-0172727"
 #define PIECE_CONCEPT_VERSION2        "201509-0173253"
 #define FQT_TIER_LEVEL_VERSION        "201606-0000000"  //!!!vlad
+#define RFISC_VERSION                 "201605-0181021" //cute certificate
 
 #define TRANSIT_CRAFT_VERSION         "201700-0000000"
-#define RFISC_VERSION                 "201800-0000000"
 #define EMDA_VERSION                  "202000-0000000"
 #define DOCO_CONFIRM_VERSION             "202000-0000000"
 #define STAT_ORDERS_VERSION           "202000-0000000"

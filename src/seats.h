@@ -285,7 +285,6 @@ class TPassengers {
   private:
     std::map<std::string, int> remarks;
     VPassengers FPassengers;
-    void LoadRemarksPriority( std::map<std::string, int> &rems );
   public:
     TCounters counters;
     std::string clname;   // класс с которым мы работаем

@@ -738,7 +738,7 @@ class TPlace {
     std::vector<TRem> rems;
     std::vector<TPlaceLayer> layers;
     TSeatTariff SeatTariff;
-    TRFISC rfisc;
+    //TRFISC rfisc;
     BitSet<TDrawPropsType> drawProps;
     bool isPax;
     TPlace() {
@@ -834,6 +834,9 @@ class TPlace {
     void AddTariff( int key, const TSeatTariff &seatTariff ) {
       tariffs[ key ] = seatTariff;
     }
+    void clearTariffs() {
+      tariffs.clear();
+    }
     void GetTariffs( std::map<int, TSeatTariff,classcomp> &vtariffs ) const {
       vtariffs = tariffs;
     }
@@ -842,6 +845,9 @@ class TPlace {
     }
     void GetRFISCs( std::map<int, TRFISC,classcomp> &vrfiscs ) const {
       vrfiscs = rfiscs;
+    }
+    void clearRFISCs() {
+      rfiscs.clear();
     }
 
     void SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &salonTariffs, bool setPassengerTariffs );
@@ -860,7 +866,7 @@ class TPlace {
             isPax = true;
     }
     void SetRFISC( int point_id, TSeatTariffMapType &tariffMap );
-    void SetRFICSRemarkByColor( int key, TSeatTariffMapType salonRFISCColor );
+    //void SetRFICSRemarkByColor( int key, TSeatTariffMapType salonRFISCColor );
     //void DropRFISCRemarks( TSeatTariffMapType salonRFISCColor );
     void convertSeatTariffs( int point_dep );
     void convertSeatTariffs( bool pr_departure_tariff_only, int point_dep, const std::vector<int> &points );
@@ -1343,9 +1349,9 @@ class TSalonList: public std::vector<TPlaceList*> {
     void ReadRFISCColors( TQuery &Qry, FilterRoutesProperty &filterRoutes,
                           int prior_compon_props_point_id );
     void SetRFISC( int point_id, TSeatTariffMap &tariffMap );
-    void AddRFISCRemarks( int key, TSeatTariffMap &tariffMap );
+    //void AddRFISCRemarks( int key, TSeatTariffMap &tariffMap );
     //void DropRFISCRemarks( TSeatTariffMap &tariffMap );
-    void SetTariffsByRFICSColor( int point_dep, TSeatTariffMap &tariffMap, bool setPassengerTariffs );
+    //void SetTariffsByRFICSColor( int point_dep, TSeatTariffMap &tariffMap, bool setPassengerTariffs );
     void ReadPaxs( TQuery &Qry, TPaxList &pax_list );
     void ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list );
     void validateLayersSeats( );
@@ -1434,7 +1440,7 @@ class TSalonList: public std::vector<TPlaceList*> {
 
 //typedef std::map<TPlace*, std::vector<TPlaceLayer> > TPlacePaxs; // сортировка по приоритетам слоев
 
-
+  void LoadCompRemarksPriority( std::map<std::string, int> &rems );
   bool Checkin( int pax_id );
   bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
   void GetTripParams( int trip_id, xmlNodePtr dataNode );

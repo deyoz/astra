@@ -2075,18 +2075,6 @@ void TPassengers::copyFrom( VPassengers &npass )
   FPassengers.assign( npass.begin(), npass.end() );
 }
 
-void TPassengers::LoadRemarksPriority( std::map<std::string, int> &rems )
-{
-  rems.clear();
-  TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT code, pr_comp FROM comp_rem_types WHERE pr_comp IS NOT NULL";
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-    rems[ Qry.FieldAsString( "code" ) ] = Qry.FieldAsInteger( "pr_comp" );
-    Qry.Next();
-  }
-}
-
 bool greatIndex( const TPassenger &p1, const TPassenger &p2 )
 {
   return p1.index < p2.index;
@@ -2138,7 +2126,7 @@ void TPassengers::Add( TPassenger &pass, int index )
     clname = pass.clname;
  // высчитываем приоритет
   if ( remarks.empty() )
-    LoadRemarksPriority( remarks );
+    SALONS2::LoadCompRemarksPriority( remarks );
   pass.calc_priority( remarks );
   if ( pass.placeRem.find( "SW" ) == 2 )
     KWindow = true;
@@ -2640,7 +2628,7 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
         }
         addedPasses.insert( pass.index  );
         ProgTrace( TRACE5, "pass.index=%d", pass.index );
-        v[ pass.tariffs.key() ].Add( pass, pass.index );
+        v[ pass.tariffs.key() + EncodeCompLayerType(pass.preseat_layer) ].Add( pass, pass.index );
 
         ProgTrace( TRACE5, "dividePassengersToGrps: icond=%d, pass=%s, pass.tariffs.key()=%s", icond, pass.toString().c_str(), pass.tariffs.key().c_str() );
 //          ProgTrace( TRACE5, "dividePassengersToGrps: j=%d, i=%d, pass.idx=%d, pass.pax_id=%d, INFT=%d", j,i, pass.paxId, pass.index, pass.isRemark( "INFT") );
@@ -2807,8 +2795,10 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
     return;
   }
   //для всей группы одна разметка тарифом
-  ProgTrace( TRACE5, "passengers.Get(0).tariffs=%s", passengers.Get(0).tariffs.key().c_str() );
-  Salons->SetTariffsByRFICSColor( Salons->trip_id, passengers.Get(0).tariffs, true );
+  ProgTrace( TRACE5, "passengers.Get(0).tariffs=%s, tariffStatus=%d", passengers.Get(0).tariffs.key().c_str(), passengers.Get(0).tariffStatus );
+  if ( passengers.Get(0).tariffStatus == TSeatTariffMap::stUseRFISC ) {
+    Salons->SetTariffsByRFICSColor( Salons->trip_id, passengers.Get(0).tariffs, true );
+  }
 
   //удаляем предварительно назначенное платное место
   for ( int i=0; i<passengers.getCount(); i++ ) {
@@ -4242,9 +4232,11 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
   TSeatTariffMap passTariffs;
   if ( seat_type != stDropseat ) { // заполнение вектора мест + проверка
     if ( prCheckin ) {
+      ProgTrace( TRACE5, "pax_id=%d", pax_id );
       passTariffs.get( pax_id );
     }
     else {
+      ProgTrace( TRACE5, "pax_id=%d", pax_id );
       TMktFlight flight;
       flight.getByCrsPaxId( pax_id );
       TTripInfo markFlt;
@@ -4275,19 +4267,24 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       //назначим тарифы для пассажира
       //TPropsPoints points( salonList.filterSets.filterRoutes, salonList.filterRoutes.point_dep, salonList.filterRoutes.point_arv );
       //bool pr_departure_tariff_only = true;
-      seat->SetRFISC( point_id, passTariffs );
-      std::map<int, TRFISC,classcomp> vrfiscs;
-      seat->GetRFISCs( vrfiscs );
       TRFISC rfisc;
-      if ( vrfiscs.find( point_id ) != vrfiscs.end() ) {
-        rfisc = vrfiscs[ point_id ];
+      ProgTrace( TRACE5, "RFISCMode=%d", salonList.getRFISCMode() );
+      passTariffs.trace( TRACE5 );
+      if ( passTariffs.status() == TSeatTariffMap::stUseRFISC ) {
+        seat->SetRFISC( point_id, passTariffs );
+        std::map<int, TRFISC,classcomp> vrfiscs;
+        seat->GetRFISCs( vrfiscs );
+        if ( vrfiscs.find( point_id ) != vrfiscs.end() ) {
+          rfisc = vrfiscs[ point_id ];
+        }
       }
-      if ( rfisc.code.empty() ) { //старый режим работы ???
+      else { //старый режим работы ???
         seat->convertSeatTariffs( point_id );
+        rfisc.color = seat->SeatTariff.color;
         rfisc.rate = seat->SeatTariff.rate;
         rfisc.currency_id = seat->SeatTariff.currency_id;
       }
-
+      ProgTrace( TRACE5, "rfisc=%s", rfisc.str().c_str() );
 
 /*!!!!      seat->convertSeatTariffs( point_id );
       seat->SetTariffsByColor( passTariffs, true );

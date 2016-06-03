@@ -1056,7 +1056,6 @@ bool TPlace::isChange( const TPlace &seat, BitSet<TCompareComps> &compare ) cons
     }
   }
   if ( compare.isFlag( ccRFISC ) ) {
-    tst();
     if ( visible != seat.visible ||
          ( visible && !CompareRFISCs( seat ) ) ) {
 //!log      ProgTrace( TRACE5, "TPlace::isChange(ccTariffs), seat1(%d,%d).visible=%d, "
@@ -1103,7 +1102,6 @@ void TPlace::AddLayer( int key, const TSeatLayer &seatLayer ) { //сортировка по 
   lrss[ key ].insert( seatLayer );
 }
 
-
 void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
                     TRFISCMode RFISCMode, bool pr_update,
                     bool with_pax, const std::map<int,SALONS2::TPaxList> &pax_lists ) const
@@ -1116,6 +1114,20 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
    NewTextChild( node, "x", x );
    NewTextChild( node, "y", y );
    GetRemarks( remarks );
+   if ( RFISCMode != rTariff &&
+        !TReqInfo::Instance()->desk.compatible( RFISC_VERSION ) ) {
+     std::map<int, TRFISC,classcomp> rfiscs;
+     GetRFISCs(rfiscs);
+     for ( std::map<int, TRFISC,classcomp>::iterator irfisc=rfiscs.begin();
+           irfisc!=rfiscs.end(); irfisc++ ) {
+       if ( !irfisc->second.code.empty() ) {
+         TSeatRemark remark;
+         remark.pr_denial = 0;
+         remark.value = irfisc->second.code;
+         remarks[ irfisc->first ].push_back( remark );
+       }
+     }
+   }
    set<TSeatRemark,SeatRemarkCompare> uniqueReamarks;
    propsNode = NULL;
    //!!!надо сделать сортировку по пунктам и вначале выводить ремарки самые близкие к пункту вылета - начинаем с начала маршрута - кажется и так ОК!!!
@@ -1237,9 +1249,24 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
        }
      }
    }
-   if ( RFISCMode != rRFISC ) {
+   if ( RFISCMode != rRFISC ||
+        !TReqInfo::Instance()->desk.compatible( RFISC_VERSION ) ) {
      std::map<int,TSeatTariff,classcomp> tariffs;
      GetTariffs( tariffs );
+     if ( RFISCMode != rTariff &&
+          !TReqInfo::Instance()->desk.compatible( RFISC_VERSION ) ) { //более понятно
+       tariffs.clear();
+       std::map<int, TRFISC,classcomp> rfiscs;
+       GetRFISCs(rfiscs);
+       for ( std::map<int, TRFISC,classcomp>::iterator irfisc=rfiscs.begin();
+             irfisc!=rfiscs.end(); irfisc++ ) {
+         TSeatTariff seatTariff;
+         seatTariff.color = irfisc->second.color;
+         seatTariff.rate = 1; //!!!
+         seatTariff.currency_id = "РУБ"; //!!!
+         tariffs.insert( make_pair( irfisc->first, seatTariff ) );
+       }
+     }
      set<TSeatTariff,SeatTariffCompare> uniqueTariffs;
      if ( !tariffs.empty() ) {
        propsNode = NewTextChild( node, "tariffs" );
@@ -1409,7 +1436,7 @@ void TPlace::SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &sa
   }
 }
 
-void TPlace::SetRFICSRemarkByColor( int key, TSeatTariffMapType salonRFISCColor )
+/*void TPlace::SetRFICSRemarkByColor( int key, TSeatTariffMapType salonRFISCColor )
 {
   if ( salonRFISCColor.empty() || !visible || !isplace || tariffs.find( key ) == tariffs.end() ) {
     return;
@@ -1429,13 +1456,14 @@ void TPlace::SetRFICSRemarkByColor( int key, TSeatTariffMapType salonRFISCColor 
     remark.value = salonRFISCColor[ SeatTariff.color ].code;
     AddRemark( key, remark );
   }
-}
+}*/
 
 void TPlace::SetRFISC( int point_id, TSeatTariffMapType &tariffMap )
 {
   std::map<int, TRFISC,classcomp> vrfiscs;
   std::map<int, TRFISC,classcomp>::iterator irfisc;
   GetRFISCs( vrfiscs );
+  clearRFISCs();
   irfisc = vrfiscs.find( point_id );
   if ( irfisc != vrfiscs.end() ) {
     string color = irfisc->second.color;
@@ -3137,14 +3165,14 @@ void FilterRoutesProperty::Build( xmlNodePtr node )
   }
 }
 
-void TSalonList::AddRFISCRemarks( int key, TSeatTariffMap &tariffMap )
+/*void TSalonList::AddRFISCRemarks( int key, TSeatTariffMap &tariffMap )
 {  
   for ( std::vector<TPlaceList*>::iterator iplacelist=begin(); iplacelist!=end(); iplacelist++ ) {
     for ( TPlaces::iterator iseat=(*iplacelist)->places.begin(); iseat!=(*iplacelist)->places.end(); iseat++ ) {
       iseat->SetRFICSRemarkByColor( key, tariffMap );
     }
   }
-}
+}*/
 
 /*void TSalonList::DropRFISCRemarks( TSeatTariffMap &tariffMap )
 {
@@ -3155,7 +3183,7 @@ void TSalonList::AddRFISCRemarks( int key, TSeatTariffMap &tariffMap )
   }
 }*/
 
-void TSalonList::SetTariffsByRFICSColor( int point_dep, TSeatTariffMap &tariffMap, bool setPassengerTariffs )
+/*void TSalonList::SetTariffsByRFICSColor( int point_dep, TSeatTariffMap &tariffMap, bool setPassengerTariffs )
 {
   ProgTrace( TRACE5, "tariffMap.size()=%zu", tariffMap.size() );
   for( vector<TPlaceList*>::iterator placeList = begin();
@@ -3166,7 +3194,7 @@ void TSalonList::SetTariffsByRFICSColor( int point_dep, TSeatTariffMap &tariffMa
     }
   }
 }
-
+*/
 
 void TSalonList::ReadCompon( int vcomp_id, int point_id )
 {
@@ -4450,6 +4478,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     if ( SALONS2::Checkin( tariff_pax_id ) ) {
       tariffMap.get( tariff_pax_id );
       paxTariff = ( tariffMap.status() == TSeatTariffMap::stUseRFISC );
+      ProgTrace( TRACE5, "RFIS CMode=%d, paxTariff=%d, tariff_pax_id=%d", RFISCMode, paxTariff, tariff_pax_id );
+      tariffMap.trace(TRACE5);
     }
     else {
       TAdvTripInfo operFlt;
@@ -4463,22 +4493,23 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
         CheckIn::TPaxTknItem tkn;
         CheckIn::LoadCrsPaxTkn( tariff_pax_id, tkn);
         tariffMap.get( operFlt, markFlt, tkn );
-        tst();
         paxTariff = (tariffMap.status() == TSeatTariffMap::stUseRFISC);
       }
     }
   }
   if ( !paxTariff ) { // если пассажир не найден, то по авиакомпании отображаем rfics + color
     if ( !filterRoutes.getAirline().empty() ) {
-      tst();
       tariffMap.is_rfisc_applied( filterRoutes.getAirline() );
     }
   }
 
   RFISCMode = ( tariffMap.status() == TSeatTariffMap::stUseRFISC )?rRFISC:rTariff;
   ProgTrace( TRACE5, "RFISCMode=%d, paxTariff=%d, tariff_pax_id=%d", RFISCMode, paxTariff, tariff_pax_id );
+  tariffMap.trace(TRACE5);
   //задаем тарифы
-  SetRFISC( filterRoutesSets.point_dep, tariffMap );
+  if ( RFISCMode != rTariff ) {
+    SetRFISC( filterRoutesSets.point_dep, tariffMap );
+  }
   //AddRFISCRemarks( filterRoutesSets.point_dep, tariffMap );
 /*  if ( !tariffMap.empty() ) {
     tst();
@@ -4641,7 +4672,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
     pr_craft_lat = NodeAsInteger( node );
     pr_lat_seat_init = true;
   }
-  RFISCMode = rTariff;
+  RFISCMode = rTariff;  
   node = GetNode( "@RFISCMode", salonsNode );
   if ( node ) {
     tst();
@@ -4655,8 +4686,19 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
   TElemFmt fmt;
   std::map<std::string,pair<TSeatTariff, TPlace> > uniqTariffs;
   TSeatTariffMap tariffMap;
-  tariffMap.get_rfisc_colors( airline );
+  tariffMap.get_rfisc_colors( airline );  
+  if ( !TReqInfo::Instance()->desk.compatible( RFISC_VERSION ) ) {
+    if ( tariffMap.status() != TSeatTariffMap::stUseRFISC ) {
+      tariffMap.clear();
+      tst();
+    }
+    else {
+      RFISCMode = rRFISC;
+    }
+  }
   tariffMap.trace( TRACE5 );
+  std::map<std::string, int> remarks;
+  LoadCompRemarksPriority( remarks );
   while ( salonNode ) {
     TPlaceList *placeList = new TPlaceList();
     placeList->num = NodeAsInteger( "@num", salonNode );
@@ -4716,7 +4758,9 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
               seatRemark.value = NodeAsStringFast( "code", n2, "" );
               seatRemark.pr_denial = GetNodeFast( "pr_denial", n2 );
               verifyValidRem( place.clname, seatRemark.value );
-              place.AddRemark( point_id, seatRemark );
+              if ( remarks.find( seatRemark.value ) != remarks.end() ) { //чтобы rfisc не пытался записаться как ремарка при копировании компоновки рейса в базовую, у которой нет настроек rfisc
+                place.AddRemark( point_id, seatRemark );
+              }
               n1 = n1->next;
           }
         }
@@ -4736,7 +4780,9 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
             }
             else {
               verifyValidRem( place.clname, seatRemark.value );
+              if ( remarks.find( seatRemark.value ) != remarks.end() ) { //чтобы rfisc не пытался записаться как ремарка при копировании компоновки рейса в базовую, у которой нет настроек rfisc
                 place.AddRemark( vpoint_id, seatRemark );
+              }
             }
             n1 = n1->next;
           }
@@ -4790,6 +4836,18 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
               seatTariff.currency_id = NodeAsStringFast( "currency_id", n2, "" );
               checkTariffs( place, seatTariff, uniqTariffs, pr_craft_lat );
               place.AddTariff( point_id, seatTariff );
+              if ( !TReqInfo::Instance()->desk.compatible( RFISC_VERSION ) &&
+                   tariffMap.status() == TSeatTariffMap::stUseRFISC ) {
+                //if ( tariffMap.find( seatTariff.color ) != tariffMap.end() ) {
+                  TRFISC rfisc;
+                  rfisc.color = seatTariff.color;
+                  checkRFISC(  place, rfisc.color, pr_craft_lat, tariffMap, tariffMap.is_rfisc_applied( airline ) );
+                  place.AddRFISC( point_id, rfisc );
+                //}
+                if ( point_id != ASTRA::NoExists ) { // салон рейса - в режиме rFISC надо удалить тарифы (редактирование тарифа или rFISC)
+                  place.clearTariffs();
+                }
+              }
             }
             n1 = n1->next;
           }
@@ -4805,6 +4863,18 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
             seatTariff.currency_id = NodeAsString( "@currency_id", n1 );
             checkTariffs( place, seatTariff, uniqTariffs, pr_craft_lat );
             place.AddTariff( vpoint_id, seatTariff );
+            if ( !TReqInfo::Instance()->desk.compatible( RFISC_VERSION ) &&
+                 tariffMap.status() == TSeatTariffMap::stUseRFISC ) {
+              //if ( tariffMap.find( seatTariff.color ) != tariffMap.end() ) {
+                TRFISC rfisc;
+                rfisc.color = seatTariff.color;
+                checkRFISC(  place, rfisc.color, pr_craft_lat, tariffMap, tariffMap.is_rfisc_applied( airline ) );
+                place.AddRFISC( vpoint_id, rfisc );
+              //}
+              if ( vpoint_id != ASTRA::NoExists ) { // салон рейса - в режиме rFISC надо удалить тарифы (редактирование тарифа или rFISC)
+                place.clearTariffs();
+              }
+            }
           }
         }
       }
@@ -4847,10 +4917,9 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
   if ( !pr_lat_seat_init ) {
     pr_craft_lat = ( lat_count >= rus_count );
   }
-/*  if ( !airline.empty() ) {
-    TSeatTariffMap tariffMapColor;
-    tariffMapColor.get_rfisc_colors( airline );
-    DropRFISCRemarks( tariffMapColor );
+/*  if ( !TReqInfo::Instance()->desk.compatible( RFISC_VERSION ) &&
+       tariffMap.is_rfisc_applied( airline ) ) {
+    DropRFISCRemarks( tariffMap );
   }*/
 }
 
@@ -5564,8 +5633,10 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
 //      tariffs.clear();
 //      iseat->GetTariffs( tariffs );
 //      uniqueTariffs.clear();
+      if ( getRFISCMode() != rRFISC ) { // старый режим работы с тарифами
+        convertSeatTariffs( *iseat, pr_departure_tariff_only, filterRoutes.point_dep, filterRoutes.point_arv );
+      }
 
-      convertSeatTariffs( *iseat, pr_departure_tariff_only, filterRoutes.point_dep, filterRoutes.point_arv );
       //если пассажир хочет получить платное место, то надо искать его только в нашем пункте
       //если пассажир регистрируется на не платное место, то надо найти платное по маршруту
       /*for ( vector<TPointInRoute>::iterator ipoint=points.begin(); ipoint!=points.end(); ipoint++ ) {
@@ -5772,16 +5843,17 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
         continue;
       }
       if ( filterRoutes.getMaxRoute() != filterRoutesTmp.getMaxRoute() ) { //макс. плечо не равно предыдущему
-        //!logProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d, filterRoutesSets.point_dep=%d,%d, filterRoutesTmp.getMaxRoute()=%d,%d",
-        //!log           iroute->point_id, filterRoutes.getMaxRoute().point_dep, filterRoutes.getMaxRoute().point_arv,
-        //!log           filterRoutesTmp.getMaxRoute().point_dep, filterRoutesTmp.getMaxRoute().point_arv );
+//        ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d, filterRoutesSets.point_dep=%d,%d, filterRoutesTmp.getMaxRoute()=%d,%d",
+//                   iroute->point_id, filterRoutes.getMaxRoute().point_dep, filterRoutes.getMaxRoute().point_arv,
+//                   filterRoutesTmp.getMaxRoute().point_dep, filterRoutesTmp.getMaxRoute().point_arv );
         filterRoutes = filterRoutesTmp;
         if ( iroute->point_id == filterRoutes.getArrivalId() ) { //нет вылета
           //pr_exists_salons = false;
           tst();
           continue;
         }
-        salonList.ReadFlight( TFilterRoutesSets( iroute->point_id, filterRoutes.getArrivalId() ), rfTranzitVersion, "", true );
+        tst();
+        salonList.ReadFlight( TFilterRoutesSets( iroute->point_id, filterRoutes.getArrivalId() ), rfTranzitVersion, "", ASTRA::NoExists, true );
         salonList.check_waitlist_alarm_on_tranzit_routes( paxs_external_logged );
       }
     }
@@ -6834,6 +6906,18 @@ void TPlaceList::Add( TPlace &pl )
     place( p )->ynext = pl.y;
   }
   places[ idx ] = pl;
+}
+
+void LoadCompRemarksPriority( std::map<std::string, int> &rems )
+{
+  rems.clear();
+  TQuery Qry( &OraSession );
+  Qry.SQLText = "SELECT code, pr_comp FROM comp_rem_types WHERE pr_comp IS NOT NULL";
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+    rems[ Qry.FieldAsString( "code" ) ] = Qry.FieldAsInteger( "pr_comp" );
+    Qry.Next();
+  }
 }
 
 bool Checkin( int pax_id )
@@ -8581,7 +8665,7 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
       places.begin()->GetRFISCs( rfiscs );
       if ( rfiscs.find( point_id ) != rfiscs.end() ) {
         tst();
-        params.prms << PrmSmpl<string>("", rfiscs[ point_id ].color);
+        params.prms << PrmSmpl<string>("", ElemIdToNameLong( etRateColor, rfiscs[ point_id ].color ));
       }
     }
 /*???    else {
@@ -8598,7 +8682,7 @@ void ReferPlaces( int point_id, string name, TPlaces places, PrmEnum &params, bo
       places.begin()->GetRFISCs( rfiscs );
       if ( rfiscs.find( point_id ) != rfiscs.end() ) {
         tst();
-        params.prms << PrmSmpl<string>("", rfiscs[ point_id ].color);
+        params.prms << PrmSmpl<string>("", ElemIdToNameLong( etRateColor, rfiscs[ point_id ].color ));
       }
     }
 /*    else {
@@ -9373,22 +9457,22 @@ std::string TSalonPax::event_seat_no( bool pr_lat_seat, int point_dep, TWaitList
     evntPrms << PrmSmpl<string>("", seat_view);
 
     TSeatTariffMap passTariffs;
-    passTariffs.get( pax_id );
-    (*iseat)->SetRFISC( point_dep, passTariffs );
-    std::map<int, TRFISC,classcomp> vrfiscs;
-    (*iseat)->GetRFISCs( vrfiscs );
     TRFISC rfisc;
-    if ( vrfiscs.find( point_dep ) != vrfiscs.end() ) {
-      rfisc = vrfiscs[ point_dep ];
+    passTariffs.get( pax_id );
+    if ( passTariffs.status() == TSeatTariffMap::stUseRFISC ) {
+      (*iseat)->SetRFISC( point_dep, passTariffs );
+      std::map<int, TRFISC,classcomp> vrfiscs;
+      (*iseat)->GetRFISCs( vrfiscs );
+      if ( vrfiscs.find( point_dep ) != vrfiscs.end() ) {
+        rfisc = vrfiscs[ point_dep ];
+      }
     }
-
-    //!!!(*iseat)->SetTariffsByColor( passTariffs, true );
-    if ( rfisc.code.empty() ) { //старый режим работы ???
+    else { //старый режим работы ???
       (*iseat)->convertSeatTariffs( point_dep );
+      rfisc.color = (*iseat)->SeatTariff.color;
       rfisc.rate = (*iseat)->SeatTariff.rate;
       rfisc.currency_id = (*iseat)->SeatTariff.currency_id;
     }
-
     //(*iseat)->SetRFICSRemarkByColor( point_dep, passTariffs );
 
     if ( !rfisc.empty() )
