@@ -11,6 +11,7 @@
 #include "basic.h"
 #include "astra_utils.h"
 
+
 ASTRA::TDevOperType DecodeDevOperType(std::string s);
 ASTRA::TDevFmtType DecodeDevFmtType(std::string s);
 std::string EncodeDevOperType(ASTRA::TDevOperType s);

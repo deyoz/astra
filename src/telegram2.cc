@@ -197,7 +197,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
     SALONS2::TSalonList salonList;
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ),
                           SALONS2::isTranzitSalons( point_dep )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
-                          "" );
+                          "", NoExists );
     TSalonPassengers passengers;
     SALONS2::TGetPassFlags flags;
     flags.setFlag( SALONS2::gpPassenger ); //только пассажиров с местами
@@ -352,7 +352,7 @@ void getSalonLayers( int point_id,
   SALONS2::TSalonList salonList;
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ),
                         SALONS2::isTranzitSalons( point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
-                        "" );
+                        "", NoExists );
   SALONS2::TGetPassFlags flags;
   TSectionInfo sectionInfo;
   salonList.getSectionInfo( sectionInfo, flags );
@@ -3212,7 +3212,7 @@ void TSSR::get(const TRemGrp &ssr_rem_grp, int pax_id)
             if(not ssr_rem_grp.exists(item.code))
                 continue;
             item.free_text = Qry.FieldAsString(col_rem);
-            if (isDisabledRem(item.code, item.free_text)) continue;
+            if (isDisabledRem(item.code, item.free_text, false)) continue;
             if(item.code == item.free_text)
                 item.free_text.erase();
             else
@@ -4399,23 +4399,15 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
 {
     CheckIn::TPaxRemItem rem;
 
-    vector<CheckIn::TPaxASVCItem> asvc;
-    LoadPaxASVC(pax.pax_id, asvc);
-
-    std::list<TPaxEMDItem> emds;
-    PaxEMDFromDB(pax.pax_id, emds);
+    multiset<TPaxEMDItem> emds;
+    GetPaxEMD(pax.pax_id, emds);
 
     CheckIn::PaidBagEMDList &emdList = (*pax.grpEmds)[pax.grp_id];
 
-    for(CheckIn::PaidBagEMDList::iterator emdItem = emdList.begin(); emdItem != emdList.end(); emdItem++) {
-        if(emds.empty())
-            for(vector<CheckIn::TPaxASVCItem>::iterator AsvcItem = asvc.begin(); AsvcItem != asvc.end(); AsvcItem++) {
-                if(emdItem->first == *AsvcItem) pax.used_asvc.push_back(*AsvcItem);
-            }
-        else
-            for(list<TPaxEMDItem>::iterator EMDItem = emds.begin(); EMDItem != emds.end(); EMDItem++) {
-                if(emdItem->first == *EMDItem) pax.used_asvc.push_back(*EMDItem);
-            }
+    for(CheckIn::PaidBagEMDList::iterator emdItem = emdList.begin(); emdItem != emdList.end(); emdItem++)
+    {
+      for(multiset<TPaxEMDItem>::iterator EMDItem = emds.begin(); EMDItem != emds.end(); EMDItem++)
+        if(emdItem->first == *EMDItem) pax.used_asvc.push_back(*EMDItem);
     }
 
     if(not pax.used_asvc.empty()) {
@@ -6183,7 +6175,7 @@ struct TSR_S {
         const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
         if(options.seat_restrict.find('S') != string::npos) {
             SALONS2::TSalonList salonList;
-            salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "" );
+            salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
             SALONS2::TSectionInfo sectionInfo;
             SALONS2::TGetPassFlags flags;
             flags.clearFlags();
@@ -8290,7 +8282,7 @@ void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_t
 {
   //try verify its new code!!!
   SALONS2::TSalonList salonList;
-  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "" );
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
   SALONS2::TSectionInfo sectionInfo;
   SALONS2::TGetPassFlags flags;
   flags.clearFlags();

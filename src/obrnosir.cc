@@ -21,6 +21,7 @@
 #include "empty_proc.h"
 #include "pers_weights.h"
 #include "basel_aero.h"
+#include "ffp_sirena.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/testmode.h"
@@ -94,6 +95,7 @@ const
     {"-pc_wt_stat",             pc_wt_stat,             NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
+    {"-ffp",                    ffp,                    ffp_help,                   "getting FFP card status"},
   };
 
 int nosir_test(int argc,char **argv)

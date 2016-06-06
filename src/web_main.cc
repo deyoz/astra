@@ -1296,7 +1296,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
   SALONS2::TSalonList salonList;
   SALONS2::TSalons SalonsO( point_id, SALONS2::rTripSalons );
   if ( isTranzitSalonsVersion ) {
-    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, crs_class );
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, crs_class, NoExists );
   }
   else {
     SalonsO.FilterClass = crs_class;
@@ -2912,6 +2912,8 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                                stSeat,
                                cltProtBeforePay,
                                change_layer_flags,
+                               0,
+                               NoExists,
                                NULL );
             }
             else {

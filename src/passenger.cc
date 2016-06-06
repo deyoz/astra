@@ -1230,6 +1230,8 @@ const TAPISItem& TAPISItem::toXML(xmlNodePtr node) const
 
 TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
 {
+  TReqInfo *reqInfo=TReqInfo::Instance();
+
   clear();
   if (paxNode==NULL) return *this;
   xmlNodePtr node2=paxNode->children;
@@ -1249,6 +1251,12 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
       if (cat==remASVC) continue; //пропускаем переданные ASVC
       rems.push_back(rem);
     };
+    if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION))
+    {
+      //ремарки FQT
+      for(remNode=NodeAsNodeFast("fqt_rems",node2)->children; remNode!=NULL; remNode=remNode->next)
+        fqts.push_back(CheckIn::TPaxFQTItem().fromXML(remNode));
+    };
   };
   //нормы
   xmlNodePtr normNode=GetNodeFast("norms",node2);
@@ -1258,7 +1266,7 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
     for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
     {
       norms.get().push_back(WeightConcept::TPaxNormItem().fromXML(normNode));
-      if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+      if (!reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
       {
         if (norms.get().back().bag_type==99) norms.get().pop_back();
       };

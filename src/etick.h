@@ -163,6 +163,21 @@ class TETickItem
       return s.str();
     };
 
+    std::string bag_norm_view() const
+    {
+      std::ostringstream s;
+      if (bag_norm!=ASTRA::NoExists || !bag_norm_unit.empty())
+      {
+        if (bag_norm!=ASTRA::NoExists)
+          s << bag_norm << AstraLocale::getLocaleText(bag_norm_unit.get_lexeme_form());
+      }
+      else
+      {
+        s << AstraLocale::getLocaleText("…’");
+      };
+      return s.str();
+    }
+
     const TETickItem& toDB(const TEdiAction ediAction) const;
     TETickItem& fromDB(const TEdiAction ediAction, TQuery &Qry);
     TETickItem& fromDB(const std::string &_et_no,

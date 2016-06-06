@@ -5,6 +5,7 @@
 #include "tlg/CheckinBaseTypes.h"
 #include "tlg/EdifactRequest.h"
 #include <etick/tick_data.h>
+#include "ticket_types.h"
 
 namespace AstraEdifact
 {
@@ -31,7 +32,7 @@ class TFltParams
     bool get(int point_id);
 };
 
-void checkDocNum(const std::string& doc_no);
+Ticketing::TicketNum_t checkDocNum(const std::string& doc_no, bool is_et);
 
 bool checkETSInteract(const TTripInfo& info,
                       const bool with_exception);

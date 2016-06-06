@@ -43,7 +43,9 @@
 #include "astra_callbacks.h"
 #include "apps_interaction.h"
 #include "astra_elem_utils.h"
+#include "sirena_exchange.h"
 #include "baggage_pc.h"
+#include "ffp_sirena.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include <boost/algorithm/string.hpp>
 
@@ -1427,30 +1429,30 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
   if (node==NULL) return;
 
   vector<CheckIn::TPaxRemItem> rems_and_asvc;
-  vector<CheckIn::TPaxASVCItem> asvc;
-  CheckIn::PaxRemAndASVCFromDB(pax_id, from_crs, rems_and_asvc, asvc);
+  CheckIn::PaxRemAndASVCFromDB(pax_id, from_crs, rems_and_asvc);
   CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id, TReqInfo::Instance()->desk.lang );
   if ( !apps_satus_rem.empty() )
    rems_and_asvc.push_back( apps_satus_rem );
   CheckIn::PaxRemAndASVCToXML(rems_and_asvc, node);
 
-  list<TPaxEMDItem> emds;
+  multiset<TPaxEMDItem> emds;
   if (!from_crs)
   {
-    PaxEMDFromDB(pax_id, emds);
+    GetPaxEMD(pax_id, emds);
     xmlNodePtr asvcNode=NewTextChild(node,"asvc_rems");
-    if (!emds.empty())
-    {
-      for(list<TPaxEMDItem>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
-        e->toXML(asvcNode);
-    }
-    else
-    {
-      for(vector<CheckIn::TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
-        r->toXML(asvcNode);
-    };
+    for(multiset<TPaxEMDItem>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
+      e->toXML(asvcNode);
   };
-};
+}
+
+void LoadPaxFQT(int pax_id, xmlNodePtr node, bool from_crs)
+{
+  if (node==NULL) return;
+
+  vector<CheckIn::TPaxFQTItem> fqts;
+  CheckIn::PaxFQTFromDB(pax_id, from_crs, fqts);
+  CheckIn::PaxFQTToXML(fqts, node);
+}
 
 int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
 {
@@ -1650,7 +1652,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
     {
       //билет TKNE
       ticket_no=PaxQry.FieldAsString("eticket");
-      int coupon_no=0;
+      int coupon_no=NoExists;
       string::size_type pos=ticket_no.find_last_of('/');
       if (pos!=string::npos)
       {
@@ -1658,11 +1660,11 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
             coupon_no>=1 && coupon_no<=4)
           ticket_no.erase(pos);
         else
-          coupon_no=0;
+          coupon_no=NoExists;
       };
 
       NewTextChild(node,"ticket_no",ticket_no);
-      NewTextChild(node,"coupon_no",coupon_no,0);
+      NewTextChild(node,"coupon_no",coupon_no,NoExists);
       NewTextChild(node,"ticket_rem","TKNE");
     }
     else
@@ -1677,7 +1679,8 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
     };
 
     LoadPaxRemAndASVC(pax_id, node, true);
-  };
+    LoadPaxFQT(pax_id, node, true);
+  }
   return count;
 };
 
@@ -4232,14 +4235,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (CheckFQTRem(*r,fqt)) //эта процедура нормализует ремарки FQT
                   p->fqts.push_back(fqt);
                 //проверим запрещенные для ввода ремарки...
-                if (isDisabledRem(r->code, r->text))
+                if (isDisabledRem(r->code, r->text,
+                                  reqInfo->client_type==ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
                   throw UserException("MSG.REMARK.INPUT_CODE_DENIAL",
                                       LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
               };
               //проверка readonly-ремарок
               vector<CheckIn::TPaxRemItem> prior_rems;
-              vector<CheckIn::TPaxASVCItem> asvc;
-              CheckIn::PaxRemAndASVCFromDB(pax.id, new_checkin, prior_rems, asvc);
+              CheckIn::PaxRemAndASVCFromDB(pax.id, new_checkin, prior_rems);
               multiset<CheckIn::TPaxRemItem> added;
               multiset<CheckIn::TPaxRemItem> deleted;
               CheckIn::GetPaxRemDifference(boost::none, prior_rems, rems, added, deleted);
@@ -4509,7 +4512,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             // начитка салона
             SALONS2::TSalons Salons( grp.point_dep, SALONS2::rTripSalons );
             if ( isTranzitSalonsVersion ) {
-              salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), SALONS2::rfTranzitVersion, grp.cl );
+              salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), SALONS2::rfTranzitVersion, grp.cl, ASTRA::NoExists );
             }
             else {
               Salons.FilterClass = grp.cl;
@@ -6686,6 +6689,9 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
           pax.tkn.rem="TKNA";  //crew compatible
         };
         pax.toXML(paxNode);
+        if (pax.tkn.rem=="TKNE" && !pax.tkn.no.empty() && pax.tkn.coupon!=NoExists)
+          NewTextChild(paxNode, "ticket_bag_norm",
+                       TETickItem().fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false).bag_norm_view(), "");
         NewTextChild(paxNode,"pr_norec",(int)PaxQry.FieldIsNULL("crs_pax_id"));
 
         Qry.SetVariable("pax_id",pax.id);
@@ -6802,7 +6808,8 @@ void CheckInInterface::LoadPaxRem(xmlNodePtr paxNode)
   int pax_id=NodeAsIntegerFast("pax_id",node2);
 
   LoadPaxRemAndASVC(pax_id, paxNode, false);
-};
+  LoadPaxFQT(pax_id, paxNode, false);
+}
 
 void CheckInInterface::SavePaxTransfer(int pax_id, int pax_no, const vector<CheckIn::TTransferItem> &trfer, int seg_no)
 {
@@ -8538,6 +8545,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     }
 }
 
+
 namespace CheckIn
 {
 
@@ -8577,4 +8585,22 @@ void showError(const std::map<int, std::map<int, AstraLocale::LexemaData> > &seg
   };
 };
 
-}; //namespace CheckIn
+} //namespace CheckIn
+
+void CheckInInterface::GetFQTTierLevel(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  CheckIn::TPaxFQTItem fqt;
+  fqt.fromXML(NodeAsNode("fqt_rem", reqNode));
+
+  SirenaExchange::TFFPInfoReq req;
+  SirenaExchange::TFFPInfoRes res;
+  req.set(fqt.airline, fqt.no);
+
+  get_ffp_status(req, res);
+
+  fqt.tier_level=res.status;
+  fqt.tier_level_confirm=true;
+
+  fqt.toXML(resNode);
+}
+
