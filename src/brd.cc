@@ -1247,8 +1247,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                       {
                         TRemGrp rem_grp;
                         rem_grp.Load(retBRD_WARN, point_id);
-                        if ((!paxWithSeat.exists() || GetRemarkStr(rem_grp, paxWithSeat.pax_id).empty()) &&
-                            (!paxWithoutSeat.exists() || GetRemarkStr(rem_grp, paxWithoutSeat.pax_id).empty())) break;
+                        bool pr_lat = (TReqInfo::Instance()->desk.lang == AstraLocale::LANG_EN);
+                        if ((!paxWithSeat.exists() || GetRemarkStr(rem_grp, paxWithSeat.pax_id, pr_lat).empty()) &&
+                            (!paxWithoutSeat.exists() || GetRemarkStr(rem_grp, paxWithoutSeat.pax_id, pr_lat).empty())) break;
 
                         xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
                         NewTextChild(confirmNode,"reset",(int)reset);
@@ -1521,7 +1522,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger(col_rk_amount), 0);
           NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight), 0);
           NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags), "");
-          NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id), "");
+          NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, TReqInfo::Instance()->desk.lang == AstraLocale::LANG_EN), "");
           if (DecodeClientType(Qry.FieldAsString(col_client_type))!=ctTerm)
             NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)));
 

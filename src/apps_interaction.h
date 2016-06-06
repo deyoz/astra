@@ -31,8 +31,6 @@ void sendAllAPPSInfo( const int point_id, const std::string& task_name, const st
 void sendNewAPPSInfo( const int point_id, const std::string& task_name, const std::string& params );
 void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id );
 void deleteMsg( const int msg_id );
-CheckIn::TPaxRemItem getAPPSRem( const int pax_id );
-bool isAPPSRem( const std::string& rem );
 
 struct TTransData
 {

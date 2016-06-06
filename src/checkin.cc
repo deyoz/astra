@@ -1487,7 +1487,7 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
 
   vector<CheckIn::TPaxRemItem> rems_and_asvc;
   CheckIn::PaxRemAndASVCFromDB(pax_id, from_crs, rems_and_asvc);
-  CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id );
+  CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id, TReqInfo::Instance()->desk.lang == AstraLocale::LANG_EN );
   if ( !apps_satus_rem.empty() )
    rems_and_asvc.push_back( apps_satus_rem );
   CheckIn::PaxRemAndASVCToXML(rems_and_asvc, node);
@@ -2625,7 +2625,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       pcNodeList.set_concept(excessNode, piece_concept);
 
       NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
-      NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id),"");
+      NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id, TReqInfo::Instance()->desk.lang == AstraLocale::LANG_EN),"");
 
       //коммерческий рейс
       TTripInfo markFlt;
