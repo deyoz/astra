@@ -1986,7 +1986,7 @@ string TPrnTagStore::REM(TFieldParams fp)
     if(scan_data != NULL)
         return string();
     else
-        return GetRemarkStr(remInfo.rem, pax_id, " ");
+        return GetRemarkStr(remInfo.rem, pax_id, tag_lang.GetLang(), " ");
 }
 
 string TPrnTagStore::REG_NO(TFieldParams fp)

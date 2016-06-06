@@ -4,7 +4,8 @@
 #include "base_tables.h"
 #include "qrys.h"
 #include "serverlib/str_utils.h"
-#include "apps_interaction.h"
+#include "astra_utils.h"
+#include "term_version.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -93,6 +94,12 @@ bool IsReadonlyRem( const string &rem_code, const string &rem_text )
   return false;
 }
 
+static bool isAPPSRem( const std::string& rem )
+{
+  return ( rem == "RSIA" || rem == "SPIA" || rem == "SBIA" || rem == "SXIA" ||
+           rem == "ATH" || rem == "GTH" || rem == "AAE" || rem == "GAE" );
+}
+
 void TRemGrp::Load(TRemEventType rem_set_type, int point_id)
 {
     clear();
@@ -168,6 +175,31 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
       insert(Qry.FieldAsString("rem_code"));
 }
 
+CheckIn::TPaxRemItem getAPPSRem(const int pax_id, const std::string &lang )
+{
+  CheckIn::TPaxRemItem rem;
+  TQuery Qry( &OraSession );
+  Qry.SQLText = "SELECT * FROM "
+                "(SELECT status FROM apps_pax_data WHERE pax_id = :pax_id ORDER BY send_time DESC) "
+                "WHERE rownum = 1";
+  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  Qry.Execute();
+
+  if( Qry.Eof )
+    return rem;
+
+  string status = Qry.FieldAsString("status");
+  if( status == "B" )
+    rem.code = "SBIA";
+  else if( status == "P" )
+    rem.code = "SPIA";
+  else if( status == "X" )
+    rem.code = "SXIA";
+  if ( !rem.code.empty() )
+    rem.text=ElemIdToPrefferedElem(etCkinRemType, rem.code, efmtNameLong, lang);
+  return rem;
+}
+
 string GetRemarkStr(const TRemGrp &rem_grp, const vector<CheckIn::TPaxRemItem> &rems, const string &term)
 {
   string result;
@@ -183,7 +215,7 @@ string GetRemarkStr(const TRemGrp &rem_grp, const vector<CheckIn::TPaxRemItem> &
   return result;
 };
 
-string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &term)
+string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &lang, const string &term)
 {
     const char *sql =
         "SELECT TRIM(ticket_rem) AS rem_code, NULL AS rem FROM pax "
@@ -208,7 +240,7 @@ string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &term)
     vector<CheckIn::TPaxRemItem> rems;
     for(;!Qry.get().Eof;Qry.get().Next())
       rems.push_back(CheckIn::TPaxRemItem().fromDB(Qry.get()));
-    CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id );
+    CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id, lang );
     if ( !apps_satus_rem.empty() )
      rems.push_back( apps_satus_rem );
     sort(rems.begin(), rems.end());

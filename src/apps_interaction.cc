@@ -1531,32 +1531,6 @@ void deleteMsg( const int msg_id )
   Qry.Execute();
 }
 
-CheckIn::TPaxRemItem getAPPSRem( const int pax_id )
-{
-  TPaxRequest * apps_pax = new TPaxRequest();
-  apps_pax->fromDBByPaxId( pax_id );
-  string status = apps_pax->getStatus();
-  CheckIn::TPaxRemItem rem;
-  if( status == "B" )
-    rem.code = "SBIA";
-  else if( status == "P" )
-    rem.code = "SPIA";
-  else if( status == "X" )
-    rem.code = "SXIA";
-  if ( !rem.code.empty() ) {
-    TCkinRemTypesRow &ckin_rem = (TCkinRemTypesRow&)base_tables.get("CKIN_REM_TYPES").get_row("code",rem.code);
-    rem.text = ( TReqInfo::Instance()->desk.lang == AstraLocale::LANG_RU ) ? ckin_rem.name : ckin_rem.name_lat;
-  }
-  if ( apps_pax ) delete apps_pax;
-  return rem;
-}
-
-bool isAPPSRem( const std::string& rem )
-{
-  return ( rem == "RSIA" || rem == "SPIA" || rem == "SBIA" || rem == "SXIA" ||
-           rem == "ATH" || rem == "GTH" || rem == "AAE" || rem == "GAE" );
-}
-
 static void sendAPPSInfo( const int point_id, const int point_id_tlg )
 {
   ProgTrace( TRACE5, "sendAPPSInfo: point_id %d, point_id_tlg: %d", point_id, point_id_tlg );
