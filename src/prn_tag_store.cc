@@ -1335,7 +1335,7 @@ string get_date_from_bcbp(int julian_date, const string &date_format, bool pr_la
     //это на потом
     JulianDate d(julian_date, NowUTC(), JulianDate::everywhere);
     d.trace(__FUNCTION__);
-    return get_date_from_bcbp(d.getDateTime(), "dd.mm", pr_lat);
+    return get_date_from_bcbp(d.getDateTime(), date_format, pr_lat);
 }
 
 string TPrnTagStore::ACT(TFieldParams fp)

@@ -1688,7 +1688,7 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
         if(iPax->pax_id!=NoExists)
             parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode ));
         else
-            parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( iPax->scan));
+            parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( iPax->scan, true));
 //        big_test(parser, dotPrnBP);
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
