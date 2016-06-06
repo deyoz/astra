@@ -1209,7 +1209,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             rem_grp.Load(retRPT_PM, rpt_params.point_id);
         }
         NewTextChild(rowNode, "remarks",
-                (rpt_params.pr_et ? Qry.FieldAsString("remarks") : GetRemarkStr(rem_grp, pax_id)));
+                (rpt_params.pr_et ? Qry.FieldAsString("remarks") : GetRemarkStr(rem_grp, pax_id, rpt_params.GetLang())));
     }
 
     dataSetNode = NewTextChild(dataSetsNode, rpt_params.pr_trfer ? "v_pm_trfer_total" : "v_pm_total");
@@ -3264,7 +3264,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                                       WeightConcept::BagPaymentCompleted(grp_id);
         NewTextChild(paxNode, "pr_payment", (int)pr_payment);
         NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
-        NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id));
+        NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, rpt_params.GetLang()));
       }
     }
 

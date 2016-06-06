@@ -197,8 +197,9 @@ void PaxRemAndASVCToXML(const std::vector<TPaxRemItem> &rems_and_asvc,
 
 };
 
+CheckIn::TPaxRemItem getAPPSRem(const int pax_id, const std::string &lang );
 std::string GetRemarkStr(const TRemGrp &rem_grp, const std::vector<CheckIn::TPaxRemItem> &rems, const std::string &term = " ");
-std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &term = " ");
+std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &lang, const std::string &term = " ");
 std::string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &term = " ");
 
 #endif

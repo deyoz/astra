@@ -1,5 +1,6 @@
 #include "apis_utils.h"
 #include "misc.h"
+#include "apps_interaction.h"
 #include "httpClient.h"
 #include "astra_service.h"
 #include "sopp.h"
@@ -154,6 +155,13 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
     }
     catch(EBaseTableError) {};
 
+
+    if(checkAPPSSets(point_dep, airp_arv))
+    {
+      _apis_formats.insert("APPS_SITA");
+      is_inter=true;
+    };
+
     if (!_apis_formats.empty())
     {
       //здесь имеем ненулевой apis_formats
@@ -241,6 +249,11 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
         {
           _pass.get(apiDoc).required_fields|=DOC_EDI_KR_FIELDS;
           _crew.get(apiDoc).required_fields|=DOC_EDI_KR_FIELDS;
+        };
+        if(fmt=="APPS_SITA")
+        {
+          _pass.get(apiDoc).required_fields|=DOC_APPS_SITA_FIELDS;
+          _crew.get(apiDoc).required_fields|=DOC_APPS_SITA_FIELDS;
         };
         if (fmt=="EDI_AZ")
         {

@@ -8,6 +8,7 @@
 #include "lci_parser.h"
 #include "ssm_parser.h"
 #include "astra_consts.h"
+#include "../astra_misc.h"
 #include "astra_utils.h"
 #include "base_tables.h"
 #include "stl_utils.h"
@@ -24,6 +25,7 @@
 #include "alarms.h"
 #include "trip_tasks.h"
 #include "remarks.h"
+#include "apps_interaction.h"
 #include "etick.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
@@ -6535,12 +6537,12 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           "BEGIN "
           "  IF :pax_id IS NULL THEN "
           "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
-          "    INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid) "
-          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval); "
+          "    INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,need_apps) "
+          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval,:need_apps); "
           "  ELSE "
           "    UPDATE crs_pax "
           "    SET pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_rem= :seat_rem, "
-          "        seat_type= :seat_type, bag_pool= :bag_pool, pr_del= :pr_del, last_op= :last_op, tid=cycle_tid__seq.currval "
+          "        seat_type= :seat_type, bag_pool= :bag_pool, pr_del= :pr_del, last_op= :last_op, tid=cycle_tid__seq.currval,need_apps=:need_apps "
           "    WHERE pax_id=:pax_id; "
           "  END IF; "
           "END;";
@@ -6557,6 +6559,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         CrsPaxInsQry.DeclareVariable("bag_pool",otString);
         CrsPaxInsQry.DeclareVariable("pr_del",otInteger);
         CrsPaxInsQry.DeclareVariable("last_op",otDate);
+        CrsPaxInsQry.DeclareVariable("need_apps",otInteger);
 
         TQuery CrsInfInsQry(&OraSession);
         CrsInfInsQry.Clear();
@@ -6614,6 +6617,14 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         set<int> et_display_pax_ids;
         set<int> emd_alarm_pax_ids;
         bool chkd_exists=false;
+        bool apps_pax_exists=false;
+        int point_id_spp = ASTRA::NoExists;
+        TAdvTripInfoList trips;
+        if ( !isPRL ) {
+          trips = getTripsByPointIdTlg(point_id);
+          if (!trips.empty())
+            point_id_spp = trips.front().point_id;
+        }
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
         {
           CrsPnrQry.SetVariable("airp_arv",iTotals->dest);
@@ -6621,6 +6632,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           CrsPnrInsQry.SetVariable("airp_arv",iTotals->dest);
           CrsPnrInsQry.SetVariable("subclass",iTotals->subcl);
           CrsPnrInsQry.SetVariable("class",EncodeClass(iTotals->cl));
+          bool is_need_apps = false;
+          if ( point_id_spp != ASTRA::NoExists )
+            checkAPPSSets(point_id_spp, iTotals->dest);
           for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
           {
             TPnrItem& pnr=*iPnrItem;
@@ -6837,6 +6851,12 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                 else
                   CrsPaxInsQry.SetVariable("pr_del",0);
                 CrsPaxInsQry.SetVariable("last_op",info.time_create);
+                if(is_need_apps) {
+                  CrsPaxInsQry.SetVariable("need_apps",1);
+                  apps_pax_exists=true;
+                }
+                else
+                  CrsPaxInsQry.SetVariable("need_apps",0);
                 CrsPaxInsQry.Execute();
                 pax_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
                 if (ne.indicator==CHG||ne.indicator==DEL)
@@ -7041,14 +7061,15 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         check_unbound_emd_alarm(emd_alarm_pax_ids);
         if (!isPRL && chkd_exists)
         {
-          Qry.Clear();
-          Qry.SQLText =
-            "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id";
-          Qry.CreateVariable("point_id", otInteger, point_id);
-          Qry.Execute();
-          for(;!Qry.Eof;Qry.Next())
-            add_trip_task(Qry.FieldAsInteger("point_id_spp"), SYNC_NEW_CHKD, "");
+          for(TAdvTripInfoList::const_iterator it = trips.begin(); it != trips.end(); it++)
+            add_trip_task((*it).point_id, SYNC_NEW_CHKD, "");
         };
+        if(!isPRL && apps_pax_exists) {
+          BASIC::TDateTime start_time;
+          bool result = checkTime( point_id, start_time );
+          if ( result || ( !result && start_time != ASTRA::NoExists ) )
+            add_trip_task( point_id_spp, SEND_NEW_APPS_INFO, "", start_time );
+        }
       };
 
       if (!isPRL)

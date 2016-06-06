@@ -92,7 +92,9 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
                 ->add("wb_garantserv", "logdaemon", main_tcp_wb_garant_tcl)
                 ->add("wb_garant_handler", "logdaemon", main_wb_garant_handler_tcl)
                 ->add("request_dup", "logdaemon", main_request_dup_tcl)
-                ->add("edi_timer", "logdaemon", main_edi_timer_tcl);
+                ->add("edi_timer", "logdaemon", main_edi_timer_tcl)                
+                ->add("apps_handler", "logairimp", main_apps_handler_tcl)
+                ->add("apps_answer_emul", "logairimp", main_apps_answer_emul_tcl);
     }
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,
                  char **res, int len)

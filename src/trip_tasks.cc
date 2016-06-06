@@ -8,6 +8,7 @@
 #include "telegram.h"
 #include "etick.h"
 #include "tlg/remote_system_context.h"
+#include "apps_interaction.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -36,6 +37,8 @@ TTripTasks::TTripTasks()
     items.insert(make_pair(SYNC_NEW_CHKD, TypeB::SyncNewCHKD ));
     items.insert(make_pair(SYNC_ALL_CHKD, TypeB::SyncAllCHKD ));
     items.insert(make_pair(EMD_SYS_UPDATE, emd_sys_update ));
+    items.insert(make_pair(SEND_NEW_APPS_INFO, sendNewAPPSInfo));
+    items.insert(make_pair(SEND_ALL_APPS_INFO, sendAllAPPSInfo));
     TSyncTlgOutMng::Instance()->add_tasks(items);
 }
 

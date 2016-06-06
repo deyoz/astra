@@ -653,7 +653,6 @@ bool create_apis_file(int point_id, const string& task_name)
                 case baby:
                   paxInfo.setPersType("Infant");
                   break;
-                break;
               default:
                   throw Exception("DecodePerson failed");
               }

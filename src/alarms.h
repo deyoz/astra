@@ -24,6 +24,11 @@ enum TTripAlarmsType { atSalon,
                        atAPISIncomplete,
                        atAPISManualInput,
                        atUnboundEMD,
+                       atAPPSProblem,
+                       atAPPSOutage,
+                       atAPPSConflict,
+                       atAPPSNegativeDirective,
+                       atAPPSError,
                        atLength };
 extern const char *TripAlarmsTypeS[];
 
@@ -31,9 +36,16 @@ std::string EncodeAlarmType(TTripAlarmsType alarm);
 TTripAlarmsType DecodeAlarmType(const std::string &alarm);
 
 void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms );
+void PaxAlarms( int pax_id, BitSet<TTripAlarmsType> &Alarms );
+void CrsPaxAlarms( int pax_id, BitSet<TTripAlarmsType> &Alarms );
 std::string TripAlarmString( TTripAlarmsType alarm );
 bool get_alarm( int point_id, TTripAlarmsType alarm_type );
+bool get_pax_alarm( int pax_id, TTripAlarmsType alarm_type );
+bool get_crs_pax_alarm( int pax_id, TTripAlarmsType alarm_type );
 void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value );
+void set_pax_alarm( int pax_id, TTripAlarmsType alarm_type, bool alarm_value );
+void set_crs_pax_alarm( int pax_id, TTripAlarmsType alarm_type, bool alarm_value );
+void synch_trip_alarm(int point_id, TTripAlarmsType alarm_type);
 
 bool calc_overload_alarm( int point_id );
 bool check_overload_alarm( int point_id );
@@ -57,6 +69,8 @@ void check_apis_alarms(int point_id);
 void check_apis_alarms(int point_id, const std::set<TTripAlarmsType> &checked_alarms);
 void check_unbound_emd_alarm( int point_id );
 void check_unbound_emd_alarm( std::set<int> &pax_ids );
+bool check_apps_alarm( int point_id );
+bool calc_apps_alarm( int point_id );
 
 #endif
 

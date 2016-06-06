@@ -21,6 +21,7 @@
 #include "salons.h"
 #include "term_version.h"
 #include "events.h"
+#include "apps_interaction.h"
 #include "baggage_pc.h"
 #include "baggage_calc.h"
 #include "sopp.h"
@@ -975,7 +976,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       Qry.Clear();
       Qry.SQLText=
-        "SELECT pax_grp.grp_id, pax_grp.airp_arv, pax_grp.status, "
+        "SELECT pax_grp.grp_id, pax_grp.point_arv, pax_grp.airp_arv, pax_grp.status, "
         "       NVL(pax_grp.piece_concept, 0) AS piece_concept, "
         "       pax.pax_id, pax.surname, pax.name, pax.seats, "
         "       pax.pr_brd, pax.pr_exam, pax.wl_type, pax.ticket_rem, pax.tid "
@@ -989,6 +990,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       if (Qry.Eof)
         throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
       int grp_id=Qry.FieldAsInteger("grp_id");
+      int point_arv=Qry.FieldAsInteger("point_arv");
       string airp_arv=Qry.FieldAsString("airp_arv");
       TPaxStatus grp_status=DecodePaxStatus(Qry.FieldAsString("status"));
       bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
@@ -1219,6 +1221,19 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           };
         };
 
+        //============================ проверка APPS статуса пассажира ============================
+        if (checkAPPSSets(point_id, point_arv)) {
+          TPaxRequest * apps_pax = new TPaxRequest();
+          for(int pass=0;pass<2;pass++)
+          {
+            TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
+            if (!pax.exists()) continue;
+            apps_pax->fromDBByPaxId( pax.pax_id );
+            if( apps_pax->getStatus() != "B" )
+              throw AstraLocale::UserException("MSG.PASSENGER.APPS_PROBLEM");
+          }
+        }
+
         if (!without_monitor)
         {
           //============================ вопрос в терминал ============================
@@ -1232,8 +1247,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                       {
                         TRemGrp rem_grp;
                         rem_grp.Load(retBRD_WARN, point_id);
-                        if ((!paxWithSeat.exists() || GetRemarkStr(rem_grp, paxWithSeat.pax_id).empty()) &&
-                            (!paxWithoutSeat.exists() || GetRemarkStr(rem_grp, paxWithoutSeat.pax_id).empty())) break;
+                        if ((!paxWithSeat.exists() || GetRemarkStr(rem_grp, paxWithSeat.pax_id, reqInfo->desk.lang).empty()) &&
+                            (!paxWithoutSeat.exists() || GetRemarkStr(rem_grp, paxWithoutSeat.pax_id, reqInfo->desk.lang).empty())) break;
 
                         xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
                         NewTextChild(confirmNode,"reset",(int)reset);
@@ -1506,7 +1521,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger(col_rk_amount), 0);
           NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight), 0);
           NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags), "");
-          NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id), "");
+          NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang), "");
           if (DecodeClientType(Qry.FieldAsString(col_client_type))!=ctTerm)
             NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)));
 

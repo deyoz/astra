@@ -13,6 +13,7 @@
 #include "tlg.h"
 #include <edilib/edi_user_func.h>
 #include <serverlib/ourtime.h>
+#include "apps_interaction.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -21,6 +22,8 @@ using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
+
+enum { tEdi, tAPPS, tTYPEB, tNone };
 
 static int WAIT_INTERVAL()       //миллисекунды
 {
@@ -121,7 +124,7 @@ void process_tlg(void)
 
   H2H_MSG h2hinf;
   bool is_h2h=false;
-  bool is_edi=false;
+  int type = tNone;
   time_t start_time=time(NULL);
 
   try
@@ -206,8 +209,14 @@ void process_tlg(void)
           tlg_body=tlg_in.body;
           tlg_len=len-tlg_header_len;
         };
-        is_edi=IsEdifactText(tlg_body,tlg_len);
-        if (tlg_in.TTL==1) return; //по-хорошему надо бы if (is_edi) SendEdiTlgCONTRL
+
+        if(IsEdifactText(tlg_body,tlg_len))
+          type = tEdi;
+        else if (IsAPPSAnswText(tlg_body))
+          type = tAPPS;
+        else
+          type = tTYPEB;
+        if (tlg_in.TTL==1) return; //по-хорошему надо бы if (type == tEdi) SendEdiTlgCONTRL
 
         //сначала ищем id телеграммы, если таковая уже была
         {
@@ -240,10 +249,13 @@ void process_tlg(void)
             TlgInsQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
             TlgInsQry.CreateVariable("receiver",otString,tlg_in.Receiver);
             TlgInsQry.DeclareVariable("type",otInteger);
-            if (is_edi)
+            if ( type == tEdi )
               TlgInsQry.CreateVariable("type",otString,"INA");
-            else
+            else if ( type == tTYPEB )
               TlgInsQry.CreateVariable("type",otString,"INB");
+            else if ( type == tAPPS )
+              TlgInsQry.CreateVariable("type",otString,"IAPP");
+
             TlgInsQry.CreateVariable("time",otDate,nowUTC);
 
             // tlgs
@@ -294,7 +306,7 @@ void process_tlg(void)
           TlgUpdQry.SQLText=
             "UPDATE tlg_queue SET status='SEND' "
             "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-            "      type IN ('OUTA','OUTB') AND status='PUT'";
+            "      type IN ('OUTA','OUTB','OAPP') AND status='PUT'";
           TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
           TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
           TlgUpdQry.Execute();
@@ -318,7 +330,7 @@ void process_tlg(void)
           TlgUpdQry.SQLText=
             "DELETE FROM tlg_queue "
             "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-            "      type IN ('OUTA','OUTB') AND status='SEND'";
+            "      type IN ('OUTA','OUTB','OAPP') AND status='SEND'";
           TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
           TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
           TlgUpdQry.Execute();
@@ -336,14 +348,14 @@ void process_tlg(void)
           TlgUpdQry.SQLText=
             "DELETE FROM tlg_queue "
             "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-            "      type IN ('OUTA','OUTB')";
+            "      type IN ('OUTA','OUTB','OAPP')";
           TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
           TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
           TlgUpdQry.Execute();
           TlgUpdQry.SQLText=
             "UPDATE tlgs SET error= :error "
             "WHERE tlg_num= :tlg_num AND sender= :sender AND "
-            "      type IN ('OUTA','OUTB')";
+            "      type IN ('OUTA','OUTB','OAPP')";
           TlgUpdQry.CreateVariable("error",otString,"GATE");
           TlgUpdQry.Execute();
         };
@@ -386,12 +398,12 @@ void process_tlg(void)
         };
         return;
     };
-    if ((tlg_in.type==TLG_IN||tlg_in.type==TLG_OUT)&&is_edi&&tlg_in.TTL>0)
+    if ((tlg_in.type==TLG_IN||tlg_in.type==TLG_OUT)&&(type==tEdi)&&tlg_in.TTL>0)
     {
       if (time(NULL)-start_time>=tlg_in.TTL)
       {
         OraSession.Rollback();
-        //по-хорошему надо бы if (is_edi) SendEdiTlgCONTRL
+        //по-хорошему надо бы if (type==tEdi) SendEdiTlgCONTRL
         return;
       };
     };
@@ -411,9 +423,11 @@ void process_tlg(void)
     {
       case TLG_IN:
       case TLG_OUT:
-        if (is_edi)
+        if ( type == tEdi )
           sendCmd("CMD_EDI_HANDLER","H");
-        else
+        else if ( type == tAPPS )
+          sendCmd("CMD_APPS_HANDLER","H");
+        else if ( type == tTYPEB )
           sendCmd("CMD_TYPEB_HANDLER","H");
         break;
       case TLG_F_ACK:
