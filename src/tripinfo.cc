@@ -809,7 +809,7 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   {
     xmlNodePtr segsNode=NewTextChild(dataNode,"segments");
     for(node=node->children;node!=NULL;node=node->next)
-      if(!skipSeg(node)) { 
+      if(!skipSeg(node)) {
         GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"));
       }
   };
@@ -2627,7 +2627,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     int pax_id=Qry.FieldAsInteger( col_pax_id );
     vector<CheckIn::TPaxRemItem> rems;
     LoadCrsPaxRem(pax_id, rems);
-    CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id, TReqInfo::Instance()->desk.lang == AstraLocale::LANG_EN );
+    CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id, TReqInfo::Instance()->desk.lang );
     if ( !apps_satus_rem.empty() )
      rems.push_back( apps_satus_rem );
     ostringstream rem_detail;

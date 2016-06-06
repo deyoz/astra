@@ -2030,7 +2030,7 @@ string TPrnTagStore::REM(TFieldParams fp)
     if(scan_data != NULL)
         return string();
     else
-        return GetRemarkStr(remInfo.rem, pax_id, TReqInfo::Instance()->desk.lang == AstraLocale::LANG_EN, " ");
+        return GetRemarkStr(remInfo.rem, pax_id, tag_lang.GetLang(), " ");
 }
 
 string TPrnTagStore::REG_NO(TFieldParams fp)
