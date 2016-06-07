@@ -112,7 +112,7 @@ $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep))
 
 !! err=ignore
-$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) )
+$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv))
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -250,56 +250,7 @@ $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
 
 $(OPEN_CHECKIN $(get point_dep))
-
-
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <SearchETByTickNo>
-      <point_id>$(get point_dep)</point_id>
-      <TickNoEdit>7706120030297</TickNoEdit>
-    </SearchETByTickNo>
-  </query>
-</term>}
-
->>
-UNB+SIRE:1+IKDC+IKET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:131"
-ORG+IK:МОВ++++Y+::RU+МОВРОМ"
-TKT+7706120030297"
-UNT+5+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-
-<<
-UNB+SIRE:1+IKET+IKDC+091030:0529+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:131+3"
-TIF+REPIN+IVAN"
-TAI+0162"
-RCI+IK:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+DME+LED"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+7706120030297:T:1:3"
-CPN+1:I"
-TVL+$(ddmmyy):2205+DME+LED+IK+103:Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-$(KICK_IN_SILENT)
-
+$(SAVE_ET_DISP $(get point_dep) 7706120030297 REPIN IVAN IK IKDC IKET)
 
 !! err=ignore
 $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv)

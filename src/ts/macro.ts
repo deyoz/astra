@@ -515,7 +515,9 @@ $(defmacro SAVE_ET_DISP
     tickno=2986120030297
     surname=REPIN
     name=IVAN
-    airl=UT
+    airl=ЮТ
+    dcs_addr=UTDC
+    ets_addr=UTET
     recloc=G4LK6W
 {
 {<?xml version='1.0' encoding='CP866'?>
@@ -529,16 +531,16 @@ $(defmacro SAVE_ET_DISP
 </term>}
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNB+SIRE:1+$(dcs_addr)+$(ets_addr)+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
 MSG+:131"
-ORG+ЮТ:МОВ++++Y+::RU+МОВРОМ"
+ORG+$(airl):МОВ++++Y+::RU+МОВРОМ"
 TKT+$(tickno)"
 UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
-UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
+UNB+SIRE:1+$(ets_addr)+$(dcs_addr)+091030:0529+$(last_edifact_ref)0001+++T"
 UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
 MSG+:131+3"
 TIF+$(surname)+$(name)"
