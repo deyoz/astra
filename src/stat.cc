@@ -5528,6 +5528,15 @@ void TParamItem::toXML(xmlNodePtr resNode)
     NewTextChild(itemNode, "ref", ref);
     NewTextChild(itemNode, "ref_field", ref_field);
     NewTextChild(itemNode, "tag", tag);
+    if(code == "Seance") {
+        static const char *seances[] = {"", "Ää", "Äè"};
+        xmlNodePtr dataNode = NewTextChild(itemNode, "data");
+        for(size_t i = 0; i < sizeof(seances) / sizeof(seances[0]); i++) {
+            xmlNodePtr CBoxItemNode = NewTextChild(dataNode, "item");
+            NewTextChild(CBoxItemNode, "code", seances[i]);
+            NewTextChild(CBoxItemNode, "caption", seances[i]);
+        }
+    }
 }
 
 void TParamItem::fromDB(TQuery &Qry)
