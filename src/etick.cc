@@ -20,6 +20,7 @@
 #include "misc.h"
 #include "qrys.h"
 #include "request_dup.h"
+#include "sirena_exchange.h"
 #include <jxtlib/jxtlib.h>
 #include <jxtlib/xml_stuff.h>
 #include <serverlib/query_runner.h>
@@ -62,6 +63,7 @@ using namespace AstraLocale;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace AstraEdifact;
+using namespace SirenaExchange;
 
 #define MAX_TICKETS_IN_TLG 5
 
@@ -502,8 +504,8 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
   ProgTrace(TRACE5,"ETSearch: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
                    info.airline.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
 
-  const OrigOfRequest &org=kickInfo.background_mode()?OrigOfRequest(info.airline):
-                                                      OrigOfRequest(info.airline, *TReqInfo::Instance());
+  const OrigOfRequest &org=kickInfo.background_mode()?OrigOfRequest(airlineToXML(info.airline, LANG_RU)):
+                                                      OrigOfRequest(airlineToXML(info.airline, LANG_RU), *TReqInfo::Instance());
 
   XMLDoc xmlCtxt("context");
   if (xmlCtxt.docPtr()==NULL)
@@ -889,7 +891,7 @@ void EMDSystemUpdateInterface::SysUpdateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodeP
     std::string airline = getTripAirline(info);
     Ticketing::FlightNum_t flNum = getTripFlightNum(info);
 
-    OrigOfRequest org(airline, *TReqInfo::Instance());
+    OrigOfRequest org(airlineToXML(airline, LANG_RU), *TReqInfo::Instance());
 
     edifact::KickInfo kickInfo=createKickInfo(ASTRA::NoExists, "EMDSystemUpdate");
 
@@ -1034,7 +1036,8 @@ bool EMDSystemUpdateInterface::EMDChangeDisassociation(const edifact::KickInfo &
 
       string ediCtxt=XMLTreeToText(i->second.docPtr());
 
-      edifact::EmdDisassociateRequestParams disassocParams(OrigOfRequest(i->first.airline_oper, *TReqInfo::Instance()),
+      edifact::EmdDisassociateRequestParams disassocParams(OrigOfRequest(airlineToXML(i->first.airline_oper, LANG_RU),
+                                                                         *TReqInfo::Instance()),
                                                            ediCtxt,
                                                            kickInfo,
                                                            i->first.airline_oper,
@@ -1375,7 +1378,7 @@ void ETStatusInterface::ETCheckStatus(int point_id,
           TDateTime scd_local=UTCToLocal(fltParams.fltInfo.scd_out,
                                          AirpTZRegion(fltParams.fltInfo.airp));
           ptime scd(DateTimeToBoost(scd_local));
-          Itin itin(fltParams.fltInfo.airline,         //marketing carrier
+          Itin itin(airlineToXML(fltParams.fltInfo.airline, LANG_RU),   //marketing carrier
                   "",                                  //operating carrier
                   fltParams.fltInfo.flt_no,0,
                   SubClass(),
@@ -1524,7 +1527,7 @@ bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
         string ediCtxt=XMLTreeToText(j->ctxt.docPtr());
         //ProgTrace(TRACE5, "ediCosCtxt=%s", ediCtxt.c_str());
 
-        edifact::EmdCosParams cosParams(OrigOfRequest(i->first.airline_oper, *TReqInfo::Instance()),
+        edifact::EmdCosParams cosParams(OrigOfRequest(airlineToXML(i->first.airline_oper, LANG_RU), *TReqInfo::Instance()),
                                         ediCtxt,
                                         kickInfo,
                                         i->first.airline_oper,
@@ -1686,7 +1689,7 @@ void ETStatusInterface::ETCheckStatus(int id,
               TDateTime scd_local=UTCToLocal(fltParams.fltInfo.scd_out,
                                              AirpTZRegion(fltParams.fltInfo.airp));
               ptime scd(DateTimeToBoost(scd_local));
-              Itin itin(fltParams.fltInfo.airline,         //marketing carrier
+              Itin itin(airlineToXML(fltParams.fltInfo.airline, LANG_RU),    //marketing carrier
                         "",                                  //operating carrier
                         fltParams.fltInfo.flt_no,0,
                         SubClass(),
@@ -1789,7 +1792,7 @@ void ETStatusInterface::ETCheckStatus(int id,
             TDateTime scd_local=UTCToLocal(fltParams.fltInfo.scd_out,
                                            AirpTZRegion(fltParams.fltInfo.airp));
             ptime scd(DateTimeToBoost(scd_local));
-            Itin itin(fltParams.fltInfo.airline,             //marketing carrier
+            Itin itin(airlineToXML(fltParams.fltInfo.airline, LANG_RU),   //marketing carrier
                       "",                                  //operating carrier
                       fltParams.fltInfo.flt_no,0,
                       SubClass(),
@@ -1886,8 +1889,8 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
 
         string ediCtxt=XMLTreeToText(j->second.docPtr());
 
-        const OrigOfRequest &org=kickInfo.background_mode()?OrigOfRequest(oper_carrier):
-                                                            OrigOfRequest(oper_carrier, *TReqInfo::Instance());
+        const OrigOfRequest &org=kickInfo.background_mode()?OrigOfRequest(airlineToXML(oper_carrier, LANG_RU)):
+                                                            OrigOfRequest(airlineToXML(oper_carrier, LANG_RU), *TReqInfo::Instance());
 
         //throw_if_request_dup("ETStatusInterface::ETChangeStatus");
         ChangeStatus::ETChangeStatus(org,
@@ -1919,7 +1922,7 @@ void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     checkEDSInteract(pointId, true, info);
     std::string airline = getTripAirline(info);
     Ticketing::FlightNum_t flNum = getTripFlightNum(info);
-    OrigOfRequest org(airline, *TReqInfo::Instance());
+    OrigOfRequest org(airlineToXML(airline, LANG_RU), *TReqInfo::Instance());
     edifact::KickInfo kickInfo=createKickInfo(ASTRA::NoExists, "EMDStatus");
 
     edifact::EmdCosParams cosParams(org, "", kickInfo, airline, flNum, emdDocNum, emdCpnNum, emdCpnStatus);
