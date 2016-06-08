@@ -1926,6 +1926,7 @@ enum TStatType {
     statPactShort,
     statRFISC,
     statService,
+    statLimitedCapab,
     statNum
 };
 
@@ -1945,7 +1946,8 @@ const char *TStatTypeS[statNum] = {
     "statTlgOutDetail",
     "statPactShort",
     "statRFISC",
-    "statService"
+    "statService",
+    "statLimitedCapab"
 };
 
 TStatType DecodeStatType( const string stat_type )
@@ -2402,6 +2404,11 @@ void TStatParams::get(xmlNodePtr reqNode)
     } else if(type == "Услуги") {
         if(name == "Подробная")
             statType=statService;
+        else
+            throw Exception("Unknown stat mode " + name);
+    } else if(type == "Огр. возмож.") {
+        if(name == "Подробная")
+            statType=statLimitedCapab;
         else
             throw Exception("Unknown stat mode " + name);
     } else
@@ -6127,6 +6134,85 @@ void TRemInfo::parse(const string &rem)
     }
 }
 
+void get_limited_capability_stat(int point_id)
+{
+    TCachedQuery delQry("delete from limited_capability_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
+    delQry.get().Execute();
+
+    TRemGrp rem_grp;
+    rem_grp.Load(retLIMITED_CAPAB_STAT, point_id);
+    if(rem_grp.empty()) return;
+
+    TCachedQuery Qry(
+            "select pax.grp_id, pax_grp.airp_arv, rem_code "
+            "from pax_grp, pax, pax_rem where "
+            "   pax_grp.point_dep = :point_id and "
+            "   pax.grp_id = pax_grp.grp_id and "
+            "   pax_rem.pax_id = pax.pax_id ",
+            QParams() << QParam("point_id", otInteger, point_id)
+            );
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+
+        struct TAirpArvInfo {
+            map<int, string> items;
+            string get(TQuery &Qry)
+            {
+                int grp_id = Qry.FieldAsInteger("grp_id");
+                map<int, string>::iterator im = items.find(grp_id);
+                if(im == items.end()) {
+                    TCkinRoute tckin_route;
+                    tckin_route.GetRouteAfter(grp_id, crtWithCurrent, crtIgnoreDependent);
+                    string airp_arv;
+                    if(tckin_route.empty())
+                        airp_arv = Qry.FieldAsString("airp_arv");
+                    else
+                        airp_arv = tckin_route.back().airp_arv;
+                    pair<map<int, string>::iterator, bool> res = items.insert(make_pair(grp_id, airp_arv));
+                    im = res.first;
+                }
+                return im->second;
+            }
+        } airp_arv_info;
+
+        map<string, map<string, int> > rems;
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            string airp_arv = airp_arv_info.get(Qry.get());
+            string rem = Qry.get().FieldAsString("rem_code");
+            if(rem_grp.exists(rem)) rems[airp_arv][rem]++;
+        }
+
+        if(not rems.empty()) {
+            TCachedQuery insQry(
+                    "insert into limited_capability_stat ( "
+                    "   point_id, "
+                    "   airp_arv, "
+                    "   rem_code, "
+                    "   pax_amount "
+                    ") values ( "
+                    "   :point_id, "
+                    "   :airp_arv, "
+                    "   :rem_code, "
+                    "   :pax_amount "
+                    ") ",
+                    QParams()
+                    << QParam("point_id", otInteger, point_id)
+                    << QParam("airp_arv", otString)
+                    << QParam("rem_code", otString)
+                    << QParam("pax_amount", otInteger)
+                    );
+            for(map<string, map<string, int> >::iterator airp_arv = rems.begin(); airp_arv != rems.end(); airp_arv++) {
+                for(map<string, int>::iterator rem = airp_arv->second.begin(); rem != airp_arv->second.end(); rem++) {
+                    insQry.get().SetVariable("airp_arv", airp_arv->first);
+                    insQry.get().SetVariable("rem_code", rem->first);
+                    insQry.get().SetVariable("pax_amount", rem->second);
+                    insQry.get().Execute();
+                }
+            }
+        }
+    }
+}
+
 void get_service_stat(int point_id)
 {
     TCachedQuery delQry("delete from service_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
@@ -6345,6 +6431,212 @@ string TServiceStatRow::rate_str() const
         result << fixed << setprecision(2) << setfill('0') << rate;
     }
     return result.str();
+}
+
+struct TFlight {
+    int point_id;
+    string airline;
+    string airp;
+    int flt_no;
+    string suffix;
+    TDateTime scd_out;
+    TFlight():
+        flt_no(NoExists),
+        scd_out(NoExists)
+    {}
+    bool operator < (const TFlight &val) const
+    {
+        return point_id < val.point_id;
+    }
+
+};
+
+struct TLimitedCapabStat {
+    typedef map<string, int> TRems;
+    typedef map<string, TRems> TAirpArv;
+    typedef map<TFlight, TAirpArv> TRows;
+    TRems total;
+    TRows rows;
+};
+
+void RunLimitedCapabStat(
+        const TStatParams &params,
+        TLimitedCapabStat &LimitedCapabStat,
+        TPrintAirline &prn_airline
+        )
+{
+    for(int pass = 0; pass <= 1; pass++) {
+        QParams QryParams;
+        QryParams
+            << QParam("FirstDate", otDate, params.FirstDate)
+            << QParam("LastDate", otDate, params.LastDate);
+        string SQLText =
+            "select "
+            "   points.point_id, "
+            "   points.airline, "
+            "   points.airp, "
+            "   stat.airp_arv, "
+            "   points.flt_no, "
+            "   points.suffix, "
+            "   points.scd_out, "
+            "   stat.rem_code, "
+            "   stat.pax_amount "
+            "from ";
+        if(pass != 0) {
+            SQLText +=
+                "   arx_limited_capability_stat stat, "
+                "   arx_points points ";
+        } else {
+            SQLText +=
+                "   limited_capability_stat stat, "
+                "   points ";
+        }
+        SQLText +=
+            "where "
+            "   stat.point_id = points.point_id and ";
+        if (!params.airps.elems().empty()) {
+            if (params.airps.elems_permit())
+                SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and ";
+            else
+                SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and ";
+        };
+        if (!params.airlines.elems().empty()) {
+            if (params.airlines.elems_permit())
+                SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and ";
+            else
+                SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and ";
+        };
+        if(params.flt_no != NoExists) {
+            SQLText += " points.flt_no = :flt_no and ";
+            QryParams << QParam("flt_no", otInteger, params.flt_no);
+        }
+        if(pass != 0)
+            SQLText +=
+                " points.part_key >= :FirstDate and points.part_key < :FirstDate and "
+                " stat.part_key >= :FirstDate and stat.part_key < :LastDate ";
+        else
+            SQLText +=
+                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+        TCachedQuery Qry(SQLText, QryParams);
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            int col_point_id = Qry.get().FieldIndex("point_id");
+            int col_airline = Qry.get().FieldIndex("airline");
+            int col_airp = Qry.get().FieldIndex("airp");
+            int col_airp_arv = Qry.get().FieldIndex("airp_arv");
+            int col_flt_no = Qry.get().FieldIndex("flt_no");
+            int col_suffix = Qry.get().FieldIndex("suffix");
+            int col_scd_out = Qry.get().FieldIndex("scd_out");
+            int col_rem_code = Qry.get().FieldIndex("rem_code");
+            int col_pax_amount = Qry.get().FieldIndex("pax_amount");
+            for(; not Qry.get().Eof; Qry.get().Next()) {
+                prn_airline.check(Qry.get().FieldAsString(col_airline));
+                TFlight row;
+                row.point_id = Qry.get().FieldAsInteger(col_point_id);
+                row.airline = Qry.get().FieldAsString(col_airline);
+                row.airp = Qry.get().FieldAsString(col_airp);
+                row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+                row.suffix = Qry.get().FieldAsString(col_suffix);
+                row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+
+                string airp_arv = Qry.get().FieldAsString(col_airp_arv);
+                string rem_code = Qry.get().FieldAsString(col_rem_code);
+                int pax_amount = Qry.get().FieldAsInteger(col_pax_amount);
+
+
+                LimitedCapabStat.total[rem_code] += pax_amount;
+                LimitedCapabStat.rows[row][airp_arv][rem_code] = pax_amount;
+            }
+        }
+    }
+}
+
+void createXMLLimitedCapabStat(const TStatParams &params, const TLimitedCapabStat &LimitedCapabStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
+{
+    if(LimitedCapabStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    NewTextChild(resNode, "airline", prn_airline.get(), "");
+
+    xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+    xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+    xmlNodePtr colNode;
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АК"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АП"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortDate);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
+    SetProp(colNode, "width", 90);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    for(TLimitedCapabStat::TRems::const_iterator rem_col = LimitedCapabStat.total.begin();
+            rem_col != LimitedCapabStat.total.end(); rem_col++)
+    {
+        colNode = NewTextChild(headerNode, "col", rem_col->first);
+        SetProp(colNode, "width", 40);
+        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
+    }
+
+    xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+    xmlNodePtr rowNode;
+    for(TLimitedCapabStat::TRows::const_iterator row = LimitedCapabStat.rows.begin();
+            row != LimitedCapabStat.rows.end(); row++)
+    {
+        for(TLimitedCapabStat::TAirpArv::const_iterator airp = row->second.begin();
+                airp != row->second.end(); airp++)
+        {
+            rowNode = NewTextChild(rowsNode, "row");
+            // АК
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirline, row->first.airline));
+            // АП
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, row->first.airp));
+            // Рейс
+            ostringstream buf;
+            buf << setw(3) << setfill('0') << row->first.flt_no << ElemIdToCodeNative(etSuffix, row->first.suffix);
+            NewTextChild(rowNode, "col", buf.str());
+            // Дата
+            NewTextChild(rowNode, "col", DateTimeToStr(row->first.scd_out, "dd.mm.yyyy"));
+            // До
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, airp->first));
+
+            const TLimitedCapabStat::TRems &rems = airp->second;
+
+            for(TLimitedCapabStat::TRems::const_iterator rem_col = LimitedCapabStat.total.begin();
+                    rem_col != LimitedCapabStat.total.end(); rem_col++)
+            {
+                TLimitedCapabStat::TRems::const_iterator rems_idx = rems.find(rem_col->first);
+                int pax_count = 0;
+                if(rems_idx != rems.end()) pax_count = rems_idx->second;
+                NewTextChild(rowNode, "col", pax_count);
+            }
+        }
+    }
+    rowNode = NewTextChild(rowsNode, "row");
+    NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    for(TLimitedCapabStat::TRems::const_iterator rem_col = LimitedCapabStat.total.begin();
+            rem_col != LimitedCapabStat.total.end(); rem_col++)
+        NewTextChild(rowNode, "col", rem_col->second);
+
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "rem_col_num", (int)LimitedCapabStat.total.size());
+    NewTextChild(variablesNode, "stat_type", params.statType);
+    NewTextChild(variablesNode, "stat_mode", getLocaleText("Пассажиры с ограниченными возможностями"));
+    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
 }
 
 typedef multiset<TServiceStatRow> TServiceStat;
@@ -7444,6 +7736,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statTlgOutShort:
         case statTlgOutDetail:
         case statPactShort:
+        case statLimitedCapab:
             get_compatible_report_form("stat", reqNode, resNode);
             break;
         default:
@@ -7528,6 +7821,13 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TServiceStat ServiceStat;
             RunServiceStat(params, ServiceStat, airline);
             createXMLServiceStat(params,ServiceStat, airline, resNode);
+        }
+        if(params.statType == statLimitedCapab)
+        {
+            TPrintAirline airline;
+            TLimitedCapabStat LimitedCapabStat;
+            RunLimitedCapabStat(params, LimitedCapabStat, airline);
+            createXMLLimitedCapabStat(params, LimitedCapabStat, airline, resNode);
         }
     }
     catch (EOracleError &E)
@@ -8867,6 +9167,7 @@ void get_flight_stat(int point_id, bool final_collection)
      Qry.get().Execute();
      get_rfisc_stat(point_id);
      get_service_stat(point_id);
+     get_limited_capability_stat(point_id);
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
