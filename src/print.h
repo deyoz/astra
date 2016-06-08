@@ -30,11 +30,14 @@ class PrintDataParser {
         std::string parse_tag(int offset, std::string tag);
     public:
         TPrnTagStore pts;
-        PrintDataParser(const std::string &scan, bool pr_lat = false): pectab_format(0), pts(scan, pr_lat) {};
-        PrintDataParser(bool pr_lat = false): pectab_format(0), pts(pr_lat) {};
-        PrintDataParser(const TBagReceipt &rcpt, bool pr_lat): pectab_format(0), pts(rcpt, pr_lat) {};
+        PrintDataParser(const std::string &scan, bool pr_lat = false): pectab_format(0), pts(scan, pr_lat) {}
+        PrintDataParser(bool pr_lat = false): pectab_format(0), pts(pr_lat) {}
+        PrintDataParser(const TBagReceipt &rcpt, bool pr_lat): pectab_format(0), pts(rcpt, pr_lat) {}
         PrintDataParser(int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, const TTrferRoute &route = TTrferRoute()):
-            pectab_format(0), pts(grp_id, pax_id, pr_lat, tagsNode, route) {};
+            pectab_format(0), pts(grp_id, pax_id, pr_lat, tagsNode, route) {}
+        PrintDataParser(const std::string& airp_dep, const std::string& airp_arv)
+            : pectab_format(0), pts(airp_dep, airp_arv) {}
+
         std::string parse(std::string &form);
 };
 
@@ -164,8 +167,13 @@ class PrintInterface: public JxtInterface
         virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
         static void GetPrintDataBP(const BPParams &params,
+                                   std::string &data,
                                    std::string &pectab,
                                    std::vector<BPPax> &paxs);
+        static void GetIatciPrintDataBP(int grpId,
+                                        const std::string& data,
+                                        const BPParams &params,
+                                        std::vector<BPPax> &paxs);
         static void GetPrintDataBI(const BPParams &params,
                                    std::string &pectab,
                                    std::vector<BIPax> &paxs);

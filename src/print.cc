@@ -5,6 +5,8 @@
 #include "xml_unit.h"
 #include "stl_utils.h"
 #include "astra_utils.h"
+#include "astra_api.h"
+#include "iatci_help.h"
 #include "misc.h"
 #include "stages.h"
 #include "docs.h"
@@ -20,7 +22,7 @@
 #include "qrys.h"
 
 #define NICKNAME "DENIS"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -1858,6 +1860,7 @@ void PrintInterface::GetPrintDataBI(const BPParams &params,
 };
 
 void PrintInterface::GetPrintDataBP(const BPParams &params,
+                                    std::string &data,
                                     string &pectab,
                                     vector<BPPax> &paxs)
 {
@@ -1887,7 +1890,7 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
       )
         previewDeviceSets(true, "MSG.PRINT.BP_UNAVAILABLE_FOR_THIS_DEVICE");
     pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
-    string data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
+    data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
 
 
     for (vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
@@ -1917,7 +1920,84 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
             parser->pts.save_bp_print();
         iPax->time_print=parser->pts.get_time_print();
     }
-};
+}
+
+void PrintInterface::GetIatciPrintDataBP(int grpId,
+                                         const std::string& data_in,
+                                         const BPParams &params,
+                                         std::vector<BPPax> &paxs)
+{
+    using namespace astra_api::xml_entities;
+
+    LogTrace(TRACE3) << __FUNCTION__ << " for grpId: " << grpId;
+
+    std::string loaded = iatci::IatciXmlDb::load(grpId);
+    LogTrace(TRACE3) << "loaded:\n" << loaded;
+    if(!loaded.empty())
+    {
+        XMLDoc xml = iatci::createXmlDoc(loaded);
+        std::list<XmlSegment> lSeg = XmlEntityReader::readSegs(findNodeR(xml.docPtr()->children, "segments"));
+
+        for(const XmlSegment& xmlSeg: lSeg)
+        {
+            for(const XmlPax& xmlPax: xmlSeg.passengers)
+            {
+                std::string data(data_in);
+                boost::shared_ptr<PrintDataParser> parser;
+                parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(xmlSeg.airp_dep,
+                                                                                xmlSeg.airp_arv));
+
+                parser->pts.set_tag(TAG::AIRLINE,       xmlSeg.trip_header.airline);
+                parser->pts.set_tag(TAG::FLT_NO,        xmlSeg.trip_header.flt_no);
+                parser->pts.set_tag(TAG::AIRP_DEP,      ElemIdToNameShort(etAirp, xmlSeg.airp_dep));
+                parser->pts.set_tag(TAG::AIRP_ARV,      ElemIdToNameShort(etAirp, xmlSeg.airp_arv));
+                parser->pts.set_tag(TAG::SURNAME,       xmlPax.surname);
+                parser->pts.set_tag(TAG::NAME,          xmlPax.name);
+                parser->pts.set_tag(TAG::SEAT_NO,       xmlPax.seat_no);
+                parser->pts.set_tag(TAG::SCD,           xmlSeg.trip_header.scd_out_local);
+                parser->pts.set_tag(TAG::AIRP_DEP_NAME, ElemIdToNameLong(etAirp, xmlSeg.airp_dep));
+                parser->pts.set_tag(TAG::AIRP_ARV_NAME, ElemIdToNameLong(etAirp, xmlSeg.airp_arv));
+                parser->pts.set_tag(TAG::DOCUMENT,      xmlPax.doc ? xmlPax.doc->no : "");
+                parser->pts.set_tag(TAG::CLASS,         xmlSeg.cls);
+                LogTrace(TRACE3) << "paxId0=" << xmlPax.pax_id;
+                parser->pts.set_tag(TAG::PAX_ID,        xmlPax.pax_id);
+                parser->pts.set_tag(TAG::GATE,          "?"); // TODO get it
+                parser->pts.set_tag(TAG::BRD_TO,        "?"); // TODO get it
+
+                // дата вылета
+                BASIC::TDateTime est = ASTRA::NoExists;
+                BASIC::StrToDateTime(xmlSeg.trip_header.scd_out_local.c_str(), est);
+                parser->pts.set_tag(TAG::EST,           est);
+
+                // билет/купон
+                std::ostringstream tickCpn;
+                tickCpn << xmlPax.ticket_no << "/" << xmlPax.coupon_no;
+                parser->pts.set_tag(TAG::ETKT,          tickCpn.str());
+
+                // регистрационный номер
+                std::ostringstream regno;
+                regno << std::setw(3) << std::setfill('0') << xmlPax.reg_no;
+                parser->pts.set_tag(TAG::REG_NO,        regno.str());
+
+
+                BPPax pax;
+                pax.reg_no = xmlPax.reg_no; // Зачем?
+                pax.prn_form = parser->parse(data);
+                pax.hex = false;
+                if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
+                    to_esc::TConvertParams ConvertParams;
+                    ConvertParams.init(params.dev_model);
+                    to_esc::convert(pax.prn_form, ConvertParams, params.prnParams);
+                    StringToHex(string(pax.prn_form), pax.prn_form);
+                    pax.hex = true;
+                }
+                pax.time_print = parser->pts.get_time_print();
+                paxs.push_back(pax);
+            }
+        }
+    }
+}
+
 
 bool check_bi_print(int point_id, int hall)
 {
@@ -2196,8 +2276,10 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     for (vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
       if(first_seg_grp_id != iPax->grp_id) iPax->gate=make_pair("", true);
 
-    string pectab;
-    GetPrintDataBP(params, pectab, paxs);
+    string pectab, data;
+    GetPrintDataBP(params, data, pectab, paxs);
+
+    GetIatciPrintDataBP(first_seg_grp_id, data, params, paxs);
 
     xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "printBP");
     NewTextChild(BPNode, "pectab", pectab);

@@ -161,10 +161,10 @@ $(dump_table TRIP_BP)
 >> lines=auto
     <data>
       <printBP>
-        <pectab>PT$(sharp)$(sharp)?K1Z$(sharp)@;$(sharp)TICK$(sharp)&gt;&gt;/$(sharp)BOARD$(sharp)0101$(sharp)0250E01W$(sharp)0311H01W$(sharp)0411L01W$(sharp)0508H13W$(sharp)0705H40$(sharp)0906L27W$(sharp)0A05M12R$(sharp)0B01H30W$(sharp)0C06L38W$(sharp)0D16O02W$(sharp)0E21Q01Q52W$(sharp)0F15R01R53W$(sharp)2020C53W$(sharp)2120E53W$(sharp)2220H53W$(sharp)2508O53W$(sharp)2705L53O$(sharp)2B01L67W$(sharp)2C06O64W$(sharp)3FB1R30B601031$(sharp)F104D41A54$(sharp)FF72M01W$(sharp)</pectab>
+        <pectab>PT{##}?K1Z{#}@;{#}TICK{#}&gt;&gt;/{#}BOARD{#}0101{#}0250E01W{#}0311H01W{#}0411L01W{#}0508H13W{#}0705H40{#}0906L27W{#}0A05M12R{#}0B01H30W{#}0C06L38W{#}0D16O02W{#}0E21Q01Q52W{#}0F15R01R53W{#}2020C53W{#}2120E53W{#}2220H53W{#}2508O53W{#}2705L53O{#}2B01L67W{#}2C06O64W{#}3FB1R30B601031{#}F104D41A54{#}FF72M01W{#}</pectab>
         <passengers>
           <pax pax_id...
-            <prn_form hex='0'>CP$(sharp)1C01$(sharp)01K$(sharp)02$(sharp)02…ˆ ˆ‚€                                        $(sharp)03„Œ„…„‚ $(sharp)04“‹Š‚    $(sharp)05 ’103  $(sharp)xxxx.xx$(sharp)091     $(sharp)0A09:35$(sharp)0B$(sharp)0C    1A$(sharp)0D0KGS$(sharp)0EETKT2981212121212/1  $(sharp)0F7774441110     $(sharp)20…ˆ ˆ‚€          $(sharp)21„Œ„…„‚          $(sharp)22“‹Š‚             $(sharp)25 ’103  $(sharp)xxxx.xx$(sharp)2B$(sharp)2C  1A  $(sharp)3F000000$(get pax_id)$(sharp)F1001$(sharp)FF                                                                        $(sharp)</prn_form>
+            <prn_form hex='0'>CP{#}1C01{#}01K{#}02{#}02…ˆ ˆ‚€                                        {#}03„Œ„…„‚ {#}04“‹Š‚    {#}05 ’103  {#}07$(date_format %d.%m){#}091     {#}0A09:35{#}0B{#}0C    1A{#}0D0KGS{#}0EETKT2981212121212/1  {#}0F7774441110     {#}20…ˆ ˆ‚€          {#}21„Œ„…„‚          {#}22“‹Š‚             {#}25 ’103  {#}27$(date_format %d.%m){#}2B{#}2C  1A  {#}3F000000$(get pax_id){#}F1001{#}FF                                                                        {#}</prn_form>
           </pax>
         </passengers>
       </printBP>

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "iatci_types.h"
+#include "xml_unit.h"
 
 
 namespace iatci {
@@ -17,6 +18,10 @@ std::string cityCode(const std::string& city);
 std::string cityName(const std::string& city);
 std::string paxTypeString(const PaxDetails& pax);
 std::string paxSexString(const PaxDetails& pax);
+
+//-----------------------------------------------------------------------------
+
+XMLDoc createXmlDoc(const std::string& xml);
 
 //-----------------------------------------------------------------------------
 

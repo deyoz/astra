@@ -2770,11 +2770,7 @@ UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
->> lines=auto
-    <kick req_ctxt_id...
-
-!!
-$(lastRedisplay)
+$(KICK_IN_SILENT)
 
 $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
@@ -2783,3 +2779,101 @@ $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
 $(UPDATE_PAX_REMS_WITH_LONG $(get point_dep) $(get point_arv) ÑåÑ èãä
                             $(get grp_id) $(get pax_id) $(get tid) èãä ëéó
                             REPIN IVAN IVANICH 4216120030297 2)
+
+
+%%
+#########################################################################################
+# ¸14 è•Á†‚Ï èí
+###
+
+$(init)
+$(init_jxt_pult åéÇêéå)
+$(login)
+$(init_dcs ë7 TA OA)
+$(init_eds ûí UTET UTDC)
+
+
+$(prepare_bp_printing ûí 103 ÑåÑ)
+$(PREPARE_FLIGHT_3 ûí 103 ÑåÑ èãä ë7 1027 èãä ëéó REPIN IVAN)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep) 2986120030297)
+$(CHECK_ADV_TRIPS_LIST $(get point_dep) ûí 103 ÑåÑ)
+$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ûí 103 ÑåÑ èãä
+                                                           ë7 1027 èãä ëéó
+                                                           REPIN IVAN
+                                                           2986120030297)
+
+$(ETS_COS_EXCHANGE 2986120030297 1 CK)
+
+$(KICK_IN_SILENT)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+LOR+ûí:ÑåÑ"
+FDQ+ë7+1027+$(yymmdd)+èãä+ëéó++ûí+103+$(yymmdd)++ÑåÑ+èãä"
+PPD+REPIN+A++IVAN"
+PSD++7A"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+ë7+1027+$(yymmdd)1000+èãä+ëéó++T"
+RAD+I+O"
+PPD+REPIN+A++IVAN"
+PFD+xx+:ù"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PAP+:::100386:::RUS++PP:5408123432:RUS:::311249:M::::::REPIN:IVAN"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+$(KICK_IN_SILENT)
+
+$(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
+
+
+!! capture=on
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='print' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <GetGRPPrintDataBP>
+      <grp_id>$(get grp_id)</grp_id>
+      <pr_all>1</pr_all>
+      <dev_model>506</dev_model>
+      <fmt_type>ATB</fmt_type>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <clientData>
+        <gate>1</gate>
+      </clientData>
+    </GetGRPPrintDataBP>
+  </query>
+</term>}
+
+
+>> lines=auto
+    <data>
+      <printBP>
+        <pectab>PT{##}?K1Z{#}@;{#}TICK{#}&gt;&gt;/{#}BOARD{#}0101{#}0250E01W{#}0311H01W{#}0411L01W{#}0508H13W{#}0705H40{#}0906L27W{#}0A05M12R{#}0B01H30W{#}0C06L38W{#}0D16O02W{#}0E21Q01Q52W{#}0F15R01R53W{#}2020C53W{#}2120E53W{#}2220H53W{#}2508O53W{#}2705L53O{#}2B01L67W{#}2C06O64W{#}3FB1R30B601031{#}F104D41A54{#}FF72M01W{#}</pectab>
+        <passengers>
+          <pax pax_id...
+            <prn_form hex='0'>CP{#}1C01{#}01K{#}02{#}02REPIN IVAN                                        {#}03ÑéåéÑÖÑéÇé {#}04èìãäéÇé    {#}05 ûí103  {#}0708.06{#}091     {#}0A09:35{#}0Bù{#}0C    1A{#}0D0KGS{#}0EETKT2986120030297/1  {#}0F7774441110     {#}20REPIN IVAN          {#}21ÑéåéÑÖÑéÇé          {#}22èìãäéÇé             {#}25 ûí103  {#}27xx.xx{#}2Bù{#}2C  1A  {#}3F000000xxxx{#}F1001{#}FF                                                                        {#}</prn_form>
+          </pax>
+          <pax pax_id...
+            <prn_form hex='0'>CP{#}1C01{#}01K{#}02{#}02REPIN IVAN                                        {#}03èìãäéÇé    {#}04ëéóà       {#}05 ë71027 {#}0708.06{#}09?     {#}0A?{#}0Bù{#}0C    1A{#}0D0KGS{#}0EETKT4216120030297/2  {#}0F5408123432     {#}20REPIN IVAN          {#}21èìãäéÇé             {#}22ëéóà                {#}25 ë71027 {#}27xx.xx{#}2Bù{#}2C  1A  {#}3F2000000000{#}F1001{#}FF                                                                        {#}</prn_form>
+          </pax>
+        </passengers>
+      </printBP>
+    </data>

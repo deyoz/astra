@@ -556,6 +556,8 @@ class TPrnTagStore {
         TPrnTagStore(const std::string &scan, bool apr_lat);
         TPrnTagStore(bool apr_lat);
         TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat);
+        TPrnTagStore(const std::string& airp_dep, const std::string& airp_arv);
+
         void set_tag(std::string name, std::string value);
         void set_tag(std::string name, int value);
         void set_tag(std::string name, BASIC::TDateTime value);

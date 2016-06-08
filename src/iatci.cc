@@ -712,19 +712,6 @@ TabDiff::Optional_t TabsDiff::at(size_t i) const
 
 //---------------------------------------------------------------------------------------
 
-XMLDoc createXmlDoc(const std::string& xml)
-{
-    XMLDoc doc;
-    doc.set(ConvertCodepage(xml, "CP866", "UTF-8"));
-    if(doc.docPtr() == NULL) {
-        throw EXCEPTIONS::Exception("context %s has wrong XML format", xml.c_str());
-    }
-    xml_decode_nodelist(doc.docPtr()->children);
-    return doc;
-}
-
-//---------------------------------------------------------------------------------------
-
 static boost::optional<iatci::UpdatePaxDetails::UpdateDocInfo> getUpdDoc(const PaxChange& paxChange)
 {
     if(!paxChange.docChange()) {
@@ -804,7 +791,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
     XmlCheckInTab firstTab(NodeAsNode("segments/segment", reqNode));
     IatciPaxSeg iatciPaxSeg = IatciPaxSeg::read(firstTab.seg().m_grpId);
 
-    XMLDoc oldXmlDoc = createXmlDoc(iatci::IatciXmlDb::load(firstTab.seg().m_grpId));
+    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(firstTab.seg().m_grpId));
 
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));

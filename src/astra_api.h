@@ -390,7 +390,7 @@ struct XmlTripCounterItem
 
 struct XmlSegment
 {
-    XmlTripHeader trip_header; // TODO optional?
+    XmlTripHeader trip_header;
     XmlTripData   trip_data;
     int           grp_id;
     int           point_dep;

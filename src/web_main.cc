@@ -2578,8 +2578,8 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
   if (!ue.empty()) throw ue;
 
-  string pectab;
-  PrintInterface::GetPrintDataBP(params, pectab, paxs);
+  string pectab, data;
+  PrintInterface::GetPrintDataBP(params, data, pectab, paxs);
 
   xmlNodePtr BPNode = NewTextChild( resNode, "GetPrintDataBP" );
   NewTextChild(BPNode, "pectab", pectab);

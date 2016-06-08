@@ -7,6 +7,7 @@
 #include <serverlib/dates_io.h>
 #include <serverlib/dates_oci.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/xml_stuff.h>
 
 #include <ostream>
 
@@ -139,7 +140,20 @@ std::string paxSexString(const PaxDetails& pax)
     return "";
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
+
+XMLDoc createXmlDoc(const std::string& xml)
+{
+    XMLDoc doc;
+    doc.set(ConvertCodepage(xml, "CP866", "UTF-8"));
+    if(doc.docPtr() == NULL) {
+        throw EXCEPTIONS::Exception("context %s has wrong XML format", xml.c_str());
+    }
+    xml_decode_nodelist(doc.docPtr()->children);
+    return doc;
+}
+
+//---------------------------------------------------------------------------------------
 
 const size_t IatciXmlDb::PageSize = 1000;
 
