@@ -8443,7 +8443,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                         paxForCkin.seats = 1;
                         paxForCkin.apis.doc.type=NodeAsStringFast("TYPE",doc,"");
                         paxForCkin.apis.doc.issue_country=CheckIn::PaxDocCountryFromTerm(NodeAsStringFast("ISSUE_COUNTRY",doc,""));
-                        paxForCkin.apis.doc.no=NodeAsString("NO",doc,"");
+                        paxForCkin.apis.doc.no=NodeAsStringFast("NO",doc,"");
                         paxForCkin.apis.doc.nationality=CheckIn::PaxDocCountryFromTerm(NodeAsStringFast("NATIONALITY",doc,""));
                         if (!NodeIsNULLFast("BIRTH_DATE",doc, true))
                             paxForCkin.apis.doc.birth_date = date_fromXML(NodeAsStringFast("BIRTH_DATE",doc,""));
@@ -8452,7 +8452,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                             paxForCkin.apis.doc.expiry_date = date_fromXML(NodeAsStringFast("EXPIRY_DATE",doc,""));
                         paxForCkin.apis.doc=NormalizeDoc(paxForCkin.apis.doc);
                     }
-                    else if (strcmp((const char*)document->name,"doco") == 0) {
+                    else if (strcmp((const char*)document->name,"DOCO") == 0) {
                         if (!paxForCkin.present_in_req.insert(apiDoco).second)
                             throw AstraLocale::UserException("MSG.SECTION_DUPLICATED",
                                                               LEvntPrms() << PrmSmpl<string>("name", "doco"));
@@ -8463,7 +8463,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                         paxForCkin.apis.doco.birth_place=NodeAsStringFast("BIRTH_PLACE",doc,"");
                         paxForCkin.apis.doco.type=NodeAsStringFast("TYPE",doc,"");
                         paxForCkin.apis.doco.no=NodeAsStringFast("NO",doc,"");
-                        paxForCkin.apis.doco.issue_place=NodeAsStringFast("ISSUE_PLASE",doc,"");
+                        paxForCkin.apis.doco.issue_place=NodeAsStringFast("ISSUE_PLACE",doc,"");
                         if (!NodeIsNULLFast("ISSUE_DATE",doc,true))
                             paxForCkin.apis.doco.issue_date=date_fromXML(NodeAsStringFast("ISSUE_DATE",doc,""));
                         if (!NodeIsNULLFast("EXPIRY_DATE",doc,true))
@@ -8496,7 +8496,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                         CheckIn::TPaxDocaItem doca;
                         doca.type=type;
                         doca.country=CheckIn::PaxDocCountryFromTerm(NodeAsStringFast("COUNTRY",doc,""));
-                        doca.address=NodeAsStringFast("ADRESS",doc,"");
+                        doca.address=NodeAsStringFast("ADDRESS",doc,"");
                         doca.city=NodeAsStringFast("CITY",doc,"");
                         doca.region=NodeAsStringFast("REGION",doc,"");
                         doca.postal_code=NodeAsStringFast("POSTAL_CODE",doc,"");
