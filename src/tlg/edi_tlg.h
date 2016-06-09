@@ -171,6 +171,7 @@ Ticketing::Pnr readPnr(const std::string &tlg_text);
 void SearchEMDsByTickNo(const std::set<Ticketing::TicketNum_t> &emds,
                         const edifact::KickInfo& kickInfo,
                         const Ticketing::OrigOfRequest &org,
+                        const std::string &airline,
                         const Ticketing::FlightNum_t &flNum);
 
 #endif /*_EDI_TLG_H_*/

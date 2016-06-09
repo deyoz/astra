@@ -247,43 +247,54 @@ public:
     }
 
     static void toXML(const OrigOfRequest &orig,
-                      const FlightNum_t &flNum,
+                      const std::string& airline,
+                      const Ticketing::FlightNum_t& flNum,
                       xmlNodePtr node)
     {
       if (node==NULL) return;
       xmlNodePtr origNode=NewTextChild(node, "orig_of_request");
       NewTextChild(origNode, "airline", orig.airlineCode());
-      flNum?NewTextChild(origNode, "flt_no", (int)flNum.get()):
-            NewTextChild(origNode, "flt_no");
       NewTextChild(origNode, "desk_city", orig.originLocationCode());
       NewTextChild(origNode, "desk_code", orig.pult());
       NewTextChild(origNode, "desk_lang", orig.lang()==RUSSIAN?AstraLocale::LANG_RU:AstraLocale::LANG_EN);
+      xmlNodePtr fltNode=NewTextChild(node, "flight_info");
+      NewTextChild(fltNode, "airline", airline);
+      flNum?NewTextChild(fltNode, "flt_no", (int)flNum.get()):
+            NewTextChild(fltNode, "flt_no");
     };
 
     static void fromXML(xmlNodePtr node,
                         OrigOfRequest &orig,
-                        FlightNum_t &flNum)
+                        std::string& airline,
+                        Ticketing::FlightNum_t& flNum)
     {
       if (node==NULL) return;
       xmlNodePtr origNode=GetNode("orig_of_request",node);
-      if (origNode==NULL) return;
-      std::string airline=NodeAsString("airline", origNode);
-      if (!NodeIsNULL("flt_no", origNode))
-        flNum=FlightNum_t(NodeAsInteger("flt_no", origNode));
-      else
-        flNum=FlightNum_t();
-      std::string originLocation=NodeAsString("desk_city", origNode);
-      std::string pult=NodeAsString("desk_code", origNode);
-      Language lang=NodeAsString("desk_lang", origNode) == AstraLocale::LANG_RU?RUSSIAN:ENGLISH;
+      if (origNode!=NULL)
+      {
+        std::string originAirline=NodeAsString("airline", origNode);
+        std::string originLocation=NodeAsString("desk_city", origNode);
+        std::string pult=NodeAsString("desk_code", origNode);
+        Language lang=NodeAsString("desk_lang", origNode) == AstraLocale::LANG_RU?RUSSIAN:ENGLISH;
 
-      orig=OrigOfRequest(airline,
-                         "ŒŽ‚",
-                         "", "",
-                         originLocation,
-                         'Y',
-                         pult,
-                         "",
-                         lang);
+        orig=OrigOfRequest(originAirline,
+                           "ŒŽ‚",
+                           "", "",
+                           originLocation,
+                           'Y',
+                           pult,
+                           "",
+                           lang);
+      };
+      xmlNodePtr fltNode=GetNode("flight_info",node);
+      if (fltNode!=NULL)
+      {
+        airline=NodeAsString("airline", fltNode);
+        if (!NodeIsNULL("flt_no", fltNode))
+          flNum=FlightNum_t(NodeAsInteger("flt_no", fltNode));
+        else
+          flNum=FlightNum_t();
+      };
     }
 
 };
