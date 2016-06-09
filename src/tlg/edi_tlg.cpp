@@ -1233,8 +1233,9 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
         kickInfo.fromXML(rootNode);
         kickInfo.parentSessId=udata.sessData()->ediSession()->ida().get();
         OrigOfRequest org("");
+        string airline;
         Ticketing::FlightNum_t flNum;
-        OrigOfRequest::fromXML(rootNode, org, flNum);
+        OrigOfRequest::fromXML(rootNode, org, airline, flNum);
         set<Ticketing::TicketNum_t> emds;
         for(list<Ticket>::const_iterator i=pnr.get().ltick().begin(); i!=pnr.get().ltick().end(); ++i)
           if (i->actCode() == TickStatAction::inConnectionWith)
@@ -1243,7 +1244,7 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
             //ProgTrace(TRACE5, "%s: %s", __FUNCTION__, i->connectedDocNum().get().c_str());
           };
         Ticket::Trace(TRACE5, pnr.get().ltick());
-        SearchEMDsByTickNo(emds, kickInfo, org, flNum);
+        SearchEMDsByTickNo(emds, kickInfo, org, airline, flNum);
       }
       catch(AstraLocale::UserException &e)
       {

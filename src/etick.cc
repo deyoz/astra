@@ -511,7 +511,7 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
   xmlNodePtr rootNode=NodeAsNode("/context",xmlCtxt.docPtr());
   NewTextChild(rootNode,"point_id",params.point_id);
   kickInfo.toXML(rootNode);
-  OrigOfRequest::toXML(org, getTripFlightNum(info), rootNode);
+  OrigOfRequest::toXML(org, getTripAirline(info), getTripFlightNum(info), rootNode);
   SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
   switch(searchPurpose)
   {
@@ -683,7 +683,8 @@ void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 void SearchEMDsByTickNo(const set<Ticketing::TicketNum_t> &emds,
                         const edifact::KickInfo& kickInfo,
                         const OrigOfRequest &org,
-                        const Ticketing::FlightNum_t &flNum)
+                        const std::string& airline,
+                        const Ticketing::FlightNum_t& flNum)
 {
   try
   {
@@ -728,7 +729,7 @@ void EMDSearchInterface::SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     edifact::KickInfo kickInfo=trueTermRequest?createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)), "EMDDisplay"):
                                                createKickInfo(ASTRA::NoExists, "EMDSearch");
 
-    SearchEMDsByTickNo(emds, kickInfo, org, flNum);
+    SearchEMDsByTickNo(emds, kickInfo, org, airline, flNum);
 
     if (trueTermRequest)
     {
