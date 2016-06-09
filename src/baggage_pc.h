@@ -803,6 +803,9 @@ class TLastExchangeList : public std::list<TLastExchangeInfo>
     void handle(const std::string& where);
 };
 
+std::string airlineToXML(const std::string &code, const std::string &lang);
+std::string airpToXML(const std::string &code, const std::string &lang);
+
 } //namespace SirenaExchange
 
 class PieceConceptInterface : public JxtInterface
@@ -820,7 +823,5 @@ public:
   static void procGroupInfo( const SirenaExchange::TGroupInfoReq &req, SirenaExchange::TGroupInfoRes &res );
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
-
-
 
 #endif
