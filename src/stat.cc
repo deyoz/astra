@@ -5490,6 +5490,128 @@ void convertStatParam(xmlNodePtr paramNode)
     xmlNodeSetContent(paramNode, idx->second.c_str());
 }
 
+struct TParamItem {
+    string code;
+    int visible;
+    string label;
+    string caption;
+    string ctype;
+    string name; // control name property
+    int width;
+    int len;
+    int isalnum;
+    string ref;
+    string ref_field;
+    string tag;
+    TParamItem():
+        visible(NoExists),
+        width(NoExists),
+        len(NoExists),
+        isalnum(NoExists)
+    {}
+    void fromDB(TQuery &Qry);
+    void toXML(xmlNodePtr resNode);
+};
+
+void TParamItem::toXML(xmlNodePtr resNode)
+{
+    xmlNodePtr itemNode = NewTextChild(resNode, "item");
+    NewTextChild(itemNode, "code", code);
+    NewTextChild(itemNode, "visible", visible);
+    NewTextChild(itemNode, "label", label);
+    NewTextChild(itemNode, "caption", caption);
+    NewTextChild(itemNode, "ctype", ctype);
+    NewTextChild(itemNode, "name", name);
+    NewTextChild(itemNode, "width", width);
+    NewTextChild(itemNode, "len", len);
+    NewTextChild(itemNode, "isalnum", isalnum);
+    NewTextChild(itemNode, "ref", ref);
+    NewTextChild(itemNode, "ref_field", ref_field);
+    NewTextChild(itemNode, "tag", tag);
+    if(code == "Seance") {
+        static const char *seances[] = {"", "Ää", "Äè"};
+        xmlNodePtr dataNode = NewTextChild(itemNode, "data");
+        for(size_t i = 0; i < sizeof(seances) / sizeof(seances[0]); i++) {
+            xmlNodePtr CBoxItemNode = NewTextChild(dataNode, "item");
+            NewTextChild(CBoxItemNode, "code", seances[i]);
+            NewTextChild(CBoxItemNode, "caption", seances[i]);
+        }
+    }
+}
+
+void TParamItem::fromDB(TQuery &Qry)
+{
+    code = Qry.FieldAsString("code");
+    visible = Qry.FieldAsInteger("visible");
+    label = code + "L";
+    caption = Qry.FieldAsString("caption");
+    ctype = Qry.FieldAsString("ctype");
+    name = code + ctype;
+    width = Qry.FieldAsInteger("width");
+    len = Qry.FieldAsInteger("len");
+    isalnum = Qry.FieldAsInteger("isalnum");
+    ref = Qry.FieldAsString("ref");
+    ref_field = Qry.FieldAsString("ref_field");
+    tag = Qry.FieldAsString("tag");
+}
+
+struct TLayout {
+    map<int, TParamItem> params;
+    void get_params();
+    void toXML(xmlNodePtr resNode);
+    void toXML(xmlNodePtr resNode, const string &tag, const string &qry);
+};
+
+void TLayout::get_params()
+{
+    if(params.empty()) {
+        TCachedQuery Qry("select * from stat_params");
+        Qry.get().Execute();
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TParamItem &item = params[Qry.get().FieldAsInteger("visible")];
+            item.fromDB(Qry.get());
+        }
+    }
+}
+
+void TLayout::toXML(xmlNodePtr resNode, const string &tag, const string &qry)
+{
+    TCachedQuery Qry(qry);
+    Qry.get().Execute();
+    xmlNodePtr listNode = NewTextChild(resNode, tag.c_str());
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        xmlNodePtr itemNode = NewTextChild(listNode, "item");
+        NewTextChild(itemNode, "type", Qry.get().FieldAsString("code"));
+        NewTextChild(itemNode, "visible", Qry.get().FieldAsString("visible"));
+        if(tag == "types") {
+            int item_params = Qry.get().FieldAsInteger("params");
+            xmlNodePtr paramsNode = NULL;
+            for(map<int, TParamItem>::iterator i = params.begin(); i != params.end(); i++) {
+                if((item_params & i->first) == i->first) {
+                    if(not paramsNode) paramsNode = NewTextChild(itemNode, "params");
+                    NewTextChild(paramsNode, "item", i->second.code);
+                }
+            }
+        }
+    }
+}
+
+void TLayout::toXML(xmlNodePtr resNode)
+{
+    get_params();
+    xmlNodePtr paramsNode = NewTextChild(resNode, "params");
+    for(map<int, TParamItem>::iterator i = params.begin(); i != params.end(); i++)
+        i->second.toXML(paramsNode);
+    toXML(resNode, "types", "select * from stat_types order by view_order");
+    toXML(resNode, "levels", "select * from stat_levels order by view_order");
+}
+
+void StatInterface::Layout(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TLayout().toXML(resNode);
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
+}
+
 void StatInterface::stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr curNode = reqNode->children;
