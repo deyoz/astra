@@ -693,7 +693,7 @@ void SearchEMDsByTickNo(const set<Ticketing::TicketNum_t> &emds,
       edifact::EmdDispByNum emdDispParams(org,
                                           e->get(),
                                           kickInfo,
-                                          org.airlineCode(),
+                                          airline,
                                           flNum,
                                           *e);
       edifact::EmdDispRequestByNum ediReq(emdDispParams);
