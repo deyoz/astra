@@ -1932,7 +1932,7 @@ void PrintInterface::GetIatciPrintDataBP(int grpId,
     LogTrace(TRACE3) << __FUNCTION__ << " for grpId: " << grpId;
 
     std::string loaded = iatci::IatciXmlDb::load(grpId);
-    LogTrace(TRACE3) << "loaded:\n" << loaded;
+    LogTrace(TRACE5) << "loaded by grpId[" << grpId << "]:\n" << loaded;
     if(!loaded.empty())
     {
         XMLDoc xml = iatci::createXmlDoc(loaded);
@@ -1946,38 +1946,73 @@ void PrintInterface::GetIatciPrintDataBP(int grpId,
                 boost::shared_ptr<PrintDataParser> parser;
                 parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(xmlSeg.airp_dep,
                                                                                 xmlSeg.airp_arv));
-
-                parser->pts.set_tag(TAG::AIRLINE,       xmlSeg.trip_header.airline);
-                parser->pts.set_tag(TAG::FLT_NO,        xmlSeg.trip_header.flt_no);
-                parser->pts.set_tag(TAG::AIRP_DEP,      ElemIdToNameShort(etAirp, xmlSeg.airp_dep));
-                parser->pts.set_tag(TAG::AIRP_ARV,      ElemIdToNameShort(etAirp, xmlSeg.airp_arv));
-                parser->pts.set_tag(TAG::SURNAME,       xmlPax.surname);
-                parser->pts.set_tag(TAG::NAME,          xmlPax.name);
-                parser->pts.set_tag(TAG::SEAT_NO,       xmlPax.seat_no);
-                parser->pts.set_tag(TAG::SCD,           xmlSeg.trip_header.scd_out_local);
-                parser->pts.set_tag(TAG::AIRP_DEP_NAME, ElemIdToNameLong(etAirp, xmlSeg.airp_dep));
-                parser->pts.set_tag(TAG::AIRP_ARV_NAME, ElemIdToNameLong(etAirp, xmlSeg.airp_arv));
-                parser->pts.set_tag(TAG::DOCUMENT,      xmlPax.doc ? xmlPax.doc->no : "");
-                parser->pts.set_tag(TAG::CLASS,         xmlSeg.cls);
-                LogTrace(TRACE3) << "paxId0=" << xmlPax.pax_id;
-                parser->pts.set_tag(TAG::PAX_ID,        xmlPax.pax_id);
-                parser->pts.set_tag(TAG::GATE,          "?"); // TODO get it
-                parser->pts.set_tag(TAG::BRD_TO,        "?"); // TODO get it
-
                 // дата вылета
-                BASIC::TDateTime est = ASTRA::NoExists;
-                BASIC::StrToDateTime(xmlSeg.trip_header.scd_out_local.c_str(), est);
-                parser->pts.set_tag(TAG::EST,           est);
+                BASIC::TDateTime est_act_scd = ASTRA::NoExists;
+                BASIC::StrToDateTime(xmlSeg.trip_header.scd_out_local.c_str(), est_act_scd);
 
                 // билет/купон
                 std::ostringstream tickCpn;
-                tickCpn << xmlPax.ticket_no << "/" << xmlPax.coupon_no;
-                parser->pts.set_tag(TAG::ETKT,          tickCpn.str());
+                if(xmlPax.ticket_rem == "TKNE") {
+                    tickCpn << xmlPax.ticket_no << "/" << xmlPax.coupon_no;
+                }
 
-                // регистрационный номер
-                std::ostringstream regno;
-                regno << std::setw(3) << std::setfill('0') << xmlPax.reg_no;
-                parser->pts.set_tag(TAG::REG_NO,        regno.str());
+                // полное имя
+                std::ostringstream fullName;
+                fullName << xmlPax.surname << " " << xmlPax.name;
+
+                parser->pts.set_tag(TAG::ACT,           est_act_scd);
+                parser->pts.set_tag(TAG::AIRLINE,       xmlSeg.trip_header.airline);
+                parser->pts.set_tag(TAG::AIRLINE_NAME,  xmlSeg.trip_header.airline);
+                parser->pts.set_tag(TAG::AIRLINE_SHORT, xmlSeg.trip_header.airline);
+                parser->pts.set_tag(TAG::AIRP_ARV,      xmlSeg.airp_arv);
+                parser->pts.set_tag(TAG::AIRP_ARV_NAME, xmlSeg.airp_arv);
+                parser->pts.set_tag(TAG::AIRP_DEP,      xmlSeg.airp_dep);
+                parser->pts.set_tag(TAG::AIRP_DEP_NAME, xmlSeg.airp_dep);
+                parser->pts.set_tag(TAG::BAG_AMOUNT,    0); // TODO get it
+                parser->pts.set_tag(TAG::BAGGAGE,       ""); // TODO get it
+                parser->pts.set_tag(TAG::BAG_WEIGHT,    0); // TODO get it
+                parser->pts.set_tag(TAG::BCBP_M_2,      ""); // TODO get it
+                parser->pts.set_tag(TAG::BRD_FROM,      NowUTC()); // TODO get it
+                parser->pts.set_tag(TAG::BRD_TO,        NowUTC()); // TODO get it
+                parser->pts.set_tag(TAG::CHD,           ""); // TODO get it
+                parser->pts.set_tag(TAG::CITY_ARV_NAME, xmlSeg.airp_arv);
+                parser->pts.set_tag(TAG::CITY_DEP_NAME, xmlSeg.airp_dep);
+                parser->pts.set_tag(TAG::CLASS,         xmlSeg.cls);
+                parser->pts.set_tag(TAG::CLASS_NAME,    xmlSeg.cls);
+                parser->pts.set_tag(TAG::DOCUMENT,      xmlPax.doc ? xmlPax.doc->no : "");
+                parser->pts.set_tag(TAG::DUPLICATE,     0); // TODO get it
+                parser->pts.set_tag(TAG::EST,           est_act_scd);
+                parser->pts.set_tag(TAG::ETKT,          tickCpn.str());
+                parser->pts.set_tag(TAG::EXCESS,        0); // TODO get it
+                parser->pts.set_tag(TAG::FLT_NO,        xmlSeg.trip_header.flt_no);
+                parser->pts.set_tag(TAG::FQT,           ""); // TODO get it
+                parser->pts.set_tag(TAG::FULLNAME,      fullName.str());
+                parser->pts.set_tag(TAG::FULL_PLACE_ARV,xmlSeg.airp_arv);
+                parser->pts.set_tag(TAG::FULL_PLACE_DEP,xmlSeg.airp_dep);
+                parser->pts.set_tag(TAG::GATE,          ""); // TODO get it
+                parser->pts.set_tag(TAG::GATES,         ""); // TODO get it
+                parser->pts.set_tag(TAG::HALL,          ""); // TODO get it
+                parser->pts.set_tag(TAG::INF,           xmlPax.pers_type);
+                parser->pts.set_tag(TAG::LIST_SEAT_NO,  xmlPax.seat_no);
+                parser->pts.set_tag(TAG::LONG_ARV,      xmlSeg.airp_arv);
+                parser->pts.set_tag(TAG::LONG_DEP,      xmlSeg.airp_dep);
+                parser->pts.set_tag(TAG::NAME,          xmlPax.name);
+                parser->pts.set_tag(TAG::NO_SMOKE,      0); // TODO get it
+                parser->pts.set_tag(TAG::ONE_SEAT_NO,   xmlPax.seat_no);
+                parser->pts.set_tag(TAG::PAX_ID,        xmlPax.pax_id);
+                parser->pts.set_tag(TAG::PAX_TITLE,     ""); // TODO get it
+                parser->pts.set_tag(TAG::PLACE_ARV,     xmlSeg.airp_arv);
+                parser->pts.set_tag(TAG::PLACE_DEP,     xmlSeg.airp_dep);
+                parser->pts.set_tag(TAG::PNR,           ""); // TODO get it
+                parser->pts.set_tag(TAG::REG_NO,        xmlPax.reg_no);
+                parser->pts.set_tag(TAG::REM,           ""); // TODO get it
+                parser->pts.set_tag(TAG::RK_AMOUNT,      0); // TODO get it
+                parser->pts.set_tag(TAG::RK_WEIGHT,      0); // TODO get it
+                parser->pts.set_tag(TAG::SCD,           est_act_scd);
+                parser->pts.set_tag(TAG::SEAT_NO,       xmlPax.seat_no);
+                parser->pts.set_tag(TAG::SUBCLS,        xmlPax.subclass);
+                parser->pts.set_tag(TAG::SURNAME,       xmlPax.surname);
+                parser->pts.set_tag(TAG::TAGS,          ""); // TODO get it
 
 
                 BPPax pax;

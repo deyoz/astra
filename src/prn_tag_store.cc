@@ -1192,155 +1192,159 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
 
 string TPrnTagStore::BCBP_M_2(TFieldParams fp)
 {
-    if(scan_data != NULL) {
-        return scan;
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
     } else {
-        ostringstream result;
-        result
-            << "M"
-            << 1;
-        // Passenger Name
-        result << left;
-        string surname = transliter(paxInfo.surname_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-        string name = transliter(paxInfo.name_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-        string pax_name = surname;
-        if(!name.empty())
-            pax_name += "/" + name;
-        if(pax_name.size() > 20){
-            size_t diff = pax_name.size() - 20;
-            if(name.empty()) {
-                result << surname.substr(0, surname.size() - diff);
-            } else {
-                if(name.size() > diff) {
-                    name = name.substr(0, name.size() - diff);
+        if(scan_data != NULL) {
+            return scan;
+        } else {
+            ostringstream result;
+            result
+                << "M"
+                << 1;
+            // Passenger Name
+            result << left;
+            string surname = transliter(paxInfo.surname_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+            string name = transliter(paxInfo.name_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+            string pax_name = surname;
+            if(!name.empty())
+                pax_name += "/" + name;
+            if(pax_name.size() > 20){
+                size_t diff = pax_name.size() - 20;
+                if(name.empty()) {
+                    result << surname.substr(0, surname.size() - diff);
                 } else {
-                    diff -= name.size() - 1;
-                    name = name[0];
-                    surname = surname.substr(0, surname.size() - diff);
+                    if(name.size() > diff) {
+                        name = name.substr(0, name.size() - diff);
+                    } else {
+                        diff -= name.size() - 1;
+                        name = name[0];
+                        surname = surname.substr(0, surname.size() - diff);
+                    }
+                    result << surname + "/" + name;
                 }
-                result << surname + "/" + name;
-            }
-        } else
-            result << setw(20) << left << pax_name;
+            } else
+                result << setw(20) << left << pax_name;
 
-        // Electronic Ticket Indicator
-        result << (ETKT(fp).empty() ? " " : "E");
-        // Operating carrier PNR code
-        result << left;
-        vector<TPnrAddrItem>::iterator iv = pnrInfo.pnrs.begin();
-        for(; iv != pnrInfo.pnrs.end(); iv++)
-            if(pointInfo.airline == iv->airline) {
-                ProgTrace(TRACE5, "PNR found: %s", iv->addr);
-                break;
-            }
-        if(iv == pnrInfo.pnrs.end())
-            result << setw(7) << " ";
-        else if(strlen(iv->addr) <= 7)
-            result << setw(7) << convert_pnr_addr(iv->addr, tag_lang.GetLang() != AstraLocale::LANG_RU);
-        // From City Airport Code
-        result << setw(3) << AIRP_DEP(fp);
-        // To City Airport Code
-        result << setw(3) << AIRP_ARV(fp);
-        // Operating Carrier Designator
-        result << left << setw(3) << AIRLINE(fp);
-        // Flight Number
-        result
-            << right
-            << setw(4) << right << setfill('0') << pointInfo.flt_no
-            << setw(1) << setfill(' ') << tag_lang.ElemIdToTagElem(etSuffix, pointInfo.suffix, efmtCodeNative);
-        // Date of Flight
-        JulianDate scd(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)));
-        scd.trace(__FUNCTION__);
-        // Date of flight(Julian Date)
-        result << right << setw(3) << setfill('0') << scd.getJulianDate();
-        // Compartment Code
-        result << CLASS(fp);
-        // Seat Number
-        result << setw(4) << right << ONE_SEAT_NO(fp);
-        // Check-In Sequence Number
-        result
-            << right << setw(4) <<  setfill('0') << paxInfo.reg_no
-            << " ";
-        // Passenger Status
-        // Я так понимаю что к этому моменту (т.е. вывод пос. талона на печать)
-        // статус пассажира "1": passenger checked in
-        result << 1;
-
-        ostringstream cond1; // first conditional field
-        { // filling up cond1
-            cond1
-                << ">"
-                << 2;
-            // field size of following structured message
-            // постоянное значение равное сумме зарезервированных длин последующих 7-и полей
-            // в данной версии эта длина равна 24 (двадцать четыре)
-            cond1 << "18";
-            // Passenger Description
-            TPerson pers_type = DecodePerson((char *)paxInfo.pers_type.c_str());
-            int result_pers_type = 0;
-            switch(pers_type) {
-                case adult:
-                    result_pers_type = 0;
+            // Electronic Ticket Indicator
+            result << (ETKT(fp).empty() ? " " : "E");
+            // Operating carrier PNR code
+            result << left;
+            vector<TPnrAddrItem>::iterator iv = pnrInfo.pnrs.begin();
+            for(; iv != pnrInfo.pnrs.end(); iv++)
+                if(pointInfo.airline == iv->airline) {
+                    ProgTrace(TRACE5, "PNR found: %s", iv->addr);
                     break;
-                case child:
-                    result_pers_type = 3;
-                    break;
-                case baby:
-                    result_pers_type = 4;
-                    break;
-                case NoPerson:
-                    throw Exception("BCBP_M_2: something wrong with pers_type");
+                }
+            if(iv == pnrInfo.pnrs.end())
+                result << setw(7) << " ";
+            else if(strlen(iv->addr) <= 7)
+                result << setw(7) << convert_pnr_addr(iv->addr, tag_lang.GetLang() != AstraLocale::LANG_RU);
+            // From City Airport Code
+            result << setw(3) << AIRP_DEP(fp);
+            // To City Airport Code
+            result << setw(3) << AIRP_ARV(fp);
+            // Operating Carrier Designator
+            result << left << setw(3) << AIRLINE(fp);
+            // Flight Number
+            result
+                << right
+                << setw(4) << right << setfill('0') << pointInfo.flt_no
+                << setw(1) << setfill(' ') << tag_lang.ElemIdToTagElem(etSuffix, pointInfo.suffix, efmtCodeNative);
+            // Date of Flight
+            JulianDate scd(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)));
+            scd.trace(__FUNCTION__);
+            // Date of flight(Julian Date)
+            result << right << setw(3) << setfill('0') << scd.getJulianDate();
+            // Compartment Code
+            result << CLASS(fp);
+            // Seat Number
+            result << setw(4) << right << ONE_SEAT_NO(fp);
+            // Check-In Sequence Number
+            result
+                << right << setw(4) <<  setfill('0') << paxInfo.reg_no
+                << " ";
+            // Passenger Status
+            // Я так понимаю что к этому моменту (т.е. вывод пос. талона на печать)
+            // статус пассажира "1": passenger checked in
+            result << 1;
+
+            ostringstream cond1; // first conditional field
+            { // filling up cond1
+                cond1
+                    << ">"
+                    << 2;
+                // field size of following structured message
+                // постоянное значение равное сумме зарезервированных длин последующих 7-и полей
+                // в данной версии эта длина равна 24 (двадцать четыре)
+                cond1 << "18";
+                // Passenger Description
+                TPerson pers_type = DecodePerson((char *)paxInfo.pers_type.c_str());
+                int result_pers_type = 0;
+                switch(pers_type) {
+                    case adult:
+                        result_pers_type = 0;
+                        break;
+                    case child:
+                        result_pers_type = 3;
+                        break;
+                    case baby:
+                        result_pers_type = 4;
+                        break;
+                    case NoPerson:
+                        throw Exception("BCBP_M_2: something wrong with pers_type");
+                }
+                cond1 << result_pers_type;
+                // Source of Check-In
+                cond1 << "O";
+                // Source of Boarding Pass Issuance
+                cond1 << "O";
+                // Date of Issue of Boarding Pass (not used)
+                cond1 << setw(4) << " ";
+                // Document type (B - Boarding Pass, I - Itinerary Receipt)
+                cond1 << "B";
+                // Airline Designator of Boarding Pass Issuer (not used)
+                cond1 << setw(3) << " ";
+                // Baggage Tag License Plate Number(s) (not used  because dont know how)
+                cond1 << setw(13) << " ";
+                // end of 11-length structured message
+
+                // field size of following structured message (41, hex 29)
+                cond1 << "00";
+
+                /*  We'll discuss it later
+
+                // field size of following structured message (41, hex 29)
+                cond1 << "29";
+                // Airline Numeric Code (not used)
+                cond1 << setw(3) << " ";
+                // Document Form/Serial Number (not used)
+                cond1 << setw(10) << " ";
+                // Selectee Indicator (not used)
+                cond1 << " ";
+                // International Documentation Verification (0 - not required)
+                cond1 << 0;
+                // Marketing carrier designator
+                cond1 << setw(3) << setfill(' ') << left << mkt_airline(pax_id);
+
+                //......
+                */
+
+                // For individual airline use
+                cond1 << setw(10) << right << setfill('0') << paxInfo.pax_id;
+
             }
-            cond1 << result_pers_type;
-            // Source of Check-In
-            cond1 << "O";
-            // Source of Boarding Pass Issuance
-            cond1 << "O";
-            // Date of Issue of Boarding Pass (not used)
-            cond1 << setw(4) << " ";
-            // Document type (B - Boarding Pass, I - Itinerary Receipt)
-            cond1 << "B";
-            // Airline Designator of Boarding Pass Issuer (not used)
-            cond1 << setw(3) << " ";
-            // Baggage Tag License Plate Number(s) (not used  because dont know how)
-            cond1 << setw(13) << " ";
-            // end of 11-length structured message
 
-            // field size of following structured message (41, hex 29)
-            cond1 << "00";
+            // Field size of following varible size field
+            result << setw(2) << right << setfill('0') << hex << uppercase << cond1.str().size();
+            result << cond1.str();
 
-            /*  We'll discuss it later
-
-            // field size of following structured message (41, hex 29)
-            cond1 << "29";
-            // Airline Numeric Code (not used)
-            cond1 << setw(3) << " ";
-            // Document Form/Serial Number (not used)
-            cond1 << setw(10) << " ";
-            // Selectee Indicator (not used)
-            cond1 << " ";
-            // International Documentation Verification (0 - not required)
-            cond1 << 0;
-            // Marketing carrier designator
-            cond1 << setw(3) << setfill(' ') << left << mkt_airline(pax_id);
-
-            //......
-            */
-
-            // For individual airline use
-            cond1 << setw(10) << right << setfill('0') << paxInfo.pax_id;
-
+            string buf = result.str();
+            if((tag_lang.get_pr_lat() or tag_lang.english_tag()) and not IsAscii7(buf))
+                for(string::iterator si = buf.begin(); si != buf.end(); si++)
+                    if(not IsAscii7(*si)) *si = 'X';
+            return buf;
         }
-
-        // Field size of following varible size field
-        result << setw(2) << right << setfill('0') << hex << uppercase << cond1.str().size();
-        result << cond1.str();
-
-        string buf = result.str();
-        if((tag_lang.get_pr_lat() or tag_lang.english_tag()) and not IsAscii7(buf))
-            for(string::iterator si = buf.begin(); si != buf.end(); si++)
-                if(not IsAscii7(*si)) *si = 'X';
-        return buf;
     }
 }
 
@@ -1352,7 +1356,8 @@ string TPrnTagStore::AGENT(TFieldParams fp)
 string TPrnTagStore::AIRLINE(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
+        const std::string airlCode = boost::any_cast<std::string>(fp.TagInfo);
+        return tag_lang.ElemIdToTagElem(etAirline, airlCode, efmtCodeNative);
     } else {
         string airline;
         if(scan_data == NULL)
@@ -1397,52 +1402,68 @@ string get_date_from_bcbp(int julian_date, const string &date_format, bool pr_la
 
 string TPrnTagStore::ACT(TFieldParams fp)
 {
-    if(scan_data != NULL)
-        return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
-    else
-    {
-        return DateTimeToStr(UTCToLocal(pointInfo.act, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    if(!fp.TagInfo.empty()) {
+        TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
+        return dt != ASTRA::NoExists ? get_date_from_bcbp(dt, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
+    } else {
+        if(scan_data != NULL)
+            return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
+        else
+        {
+            return DateTimeToStr(UTCToLocal(pointInfo.act, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
+        }
     }
 }
 
 string TPrnTagStore::AIRLINE_SHORT(TFieldParams fp)
 {
-    string airline_short;
-    if(scan_data == NULL)
-        airline_short = tag_lang.ElemIdToTagElem(etAirline, pointInfo.airline, efmtNameShort);
-    else {
-        string buf = StrUtils::trim(scan_data->operating_carrier_designator(0));
-        TElemFmt fmt;
-        airline_short = ElemToElemId(etAirline, buf, fmt);
-        if (fmt==efmtUnknown)
-            airline_short = buf;
-        else
-            airline_short = tag_lang.ElemIdToTagElem(etAirline, airline_short, efmtNameShort);
+    if(!fp.TagInfo.empty()) {
+        const std::string airlCode = boost::any_cast<std::string>(fp.TagInfo);
+        return tag_lang.ElemIdToTagElem(etAirline, airlCode, efmtNameShort);
+    } else {
+        string airline_short;
+        if(scan_data == NULL)
+            airline_short = tag_lang.ElemIdToTagElem(etAirline, pointInfo.airline, efmtNameShort);
+        else {
+            string buf = StrUtils::trim(scan_data->operating_carrier_designator(0));
+            TElemFmt fmt;
+            airline_short = ElemToElemId(etAirline, buf, fmt);
+            if (fmt==efmtUnknown)
+                airline_short = buf;
+            else
+                airline_short = tag_lang.ElemIdToTagElem(etAirline, airline_short, efmtNameShort);
+        }
+        return airline_short;
     }
-    return airline_short;
 }
 
 string TPrnTagStore::AIRLINE_NAME(TFieldParams fp)
 {
-    string airline_name;
-    if(scan_data == NULL)
-        airline_name = tag_lang.ElemIdToTagElem(etAirline, pointInfo.airline, efmtNameLong);
-    else {
-        string buf = StrUtils::trim(scan_data->operating_carrier_designator(0));
-        TElemFmt fmt;
-        airline_name = ElemToElemId(etAirline, buf, fmt);
-        if (fmt==efmtUnknown)
-            airline_name = buf;
-        else
-            airline_name = tag_lang.ElemIdToTagElem(etAirline, airline_name, efmtNameLong);
+    if(!fp.TagInfo.empty()) {
+        const std::string airlCode = boost::any_cast<std::string>(fp.TagInfo);
+        return tag_lang.ElemIdToTagElem(etAirline, airlCode, efmtNameLong);
+    } else {
+        string airline_name;
+        if(scan_data == NULL)
+            airline_name = tag_lang.ElemIdToTagElem(etAirline, pointInfo.airline, efmtNameLong);
+        else {
+            string buf = StrUtils::trim(scan_data->operating_carrier_designator(0));
+            TElemFmt fmt;
+            airline_name = ElemToElemId(etAirline, buf, fmt);
+            if (fmt==efmtUnknown)
+                airline_name = buf;
+            else
+                airline_name = tag_lang.ElemIdToTagElem(etAirline, airline_name, efmtNameLong);
+        }
+        return airline_name;
     }
-    return airline_name;
 }
 
 string TPrnTagStore::AIRP_ARV(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
+        const std::string airpCode = boost::any_cast<std::string>(fp.TagInfo);
+        return tag_lang.ElemIdToTagElem(etAirp, airpCode, efmtCodeNative);
     } else {
         string airp_arv;
         if(scan_data == NULL)
@@ -1463,7 +1484,8 @@ string TPrnTagStore::AIRP_ARV(TFieldParams fp)
 string TPrnTagStore::AIRP_ARV_NAME(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
+        const std::string airpCode = boost::any_cast<std::string>(fp.TagInfo);
+        return tag_lang.ElemIdToTagElem(etAirp, airpCode, efmtNameLong);
     } else {
         string airp_arv;
         if(scan_data == NULL)
@@ -1484,7 +1506,8 @@ string TPrnTagStore::AIRP_ARV_NAME(TFieldParams fp)
 string TPrnTagStore::AIRP_DEP(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
+        const std::string airpCode = boost::any_cast<std::string>(fp.TagInfo);
+        return tag_lang.ElemIdToTagElem(etAirp, airpCode, efmtCodeNative);
     } else {
         string airp_dep;
         if(scan_data == NULL)
@@ -1505,7 +1528,8 @@ string TPrnTagStore::AIRP_DEP(TFieldParams fp)
 string TPrnTagStore::AIRP_DEP_NAME(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
+        const std::string airpCode = boost::any_cast<std::string>(fp.TagInfo);
+        return tag_lang.ElemIdToTagElem(etAirp, airpCode, efmtNameLong);
     } else {
         string airp_dep;
         if(scan_data == NULL)
@@ -1525,37 +1549,58 @@ string TPrnTagStore::AIRP_DEP_NAME(TFieldParams fp)
 
 string TPrnTagStore::BAGGAGE(TFieldParams fp)
 {
-    if(scan_data == NULL) {
-        ostringstream result;
-        if(paxInfo.bag_amount != 0)
-            result << paxInfo.bag_amount << "/" << paxInfo.bag_weight;
-        return result.str();
-    } else
-        return string();
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
+    } else {
+        if(scan_data == NULL) {
+            ostringstream result;
+            if(paxInfo.bag_amount != 0)
+                result << paxInfo.bag_amount << "/" << paxInfo.bag_weight;
+            return result.str();
+        } else
+            return string();
+    }
 }
 
 string TPrnTagStore::RK_AMOUNT(TFieldParams fp)
 {
-    if(scan_data == NULL)
-        return IntToString(paxInfo.rk_amount);
-    else
+    if(scan_data == NULL) {
+        int rk_am = 0;
+        if(!fp.TagInfo.empty())
+            rk_am = boost::any_cast<int>(fp.TagInfo);
+        else
+            rk_am = paxInfo.rk_amount;
+        return IntToString(rk_am);
+    } else {
         return string();
+    }
 }
 
 string TPrnTagStore::RK_WEIGHT(TFieldParams fp)
 {
-    if(scan_data == NULL)
-        return IntToString(paxInfo.rk_weight);
-    else
+    if(scan_data == NULL) {
+        int rk_we = 0;
+        if(!fp.TagInfo.empty())
+            rk_we = boost::any_cast<int>(fp.TagInfo);
+        else
+            rk_we = paxInfo.rk_weight;
+        return IntToString(rk_we);
+    } else {
         return string();
+    }
 }
 
 string TPrnTagStore::BAG_AMOUNT(TFieldParams fp)
 {
-    if(scan_data == NULL)
-        return IntToString(paxInfo.bag_amount);
-    else
-        return string();
+    if(!fp.TagInfo.empty()) {
+        int amBag = boost::any_cast<int>(fp.TagInfo);
+        return IntToString(amBag);
+    } else {
+        if(scan_data == NULL)
+            return IntToString(paxInfo.bag_amount);
+        else
+            return string();
+    }
 }
 
 string TPrnTagStore::TAGS(TFieldParams fp)
@@ -1565,30 +1610,44 @@ string TPrnTagStore::TAGS(TFieldParams fp)
         return some;
     else
     */
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
+    } else {
         return paxInfo.tags;
+    }
 }
 
 string TPrnTagStore::BAG_WEIGHT(TFieldParams fp)
 {
-    if(scan_data == NULL)
-        return IntToString(paxInfo.bag_weight);
-    else
-        return string();
+    if(!fp.TagInfo.empty()) {
+        int bagWeight = boost::any_cast<int>(fp.TagInfo);
+        return IntToString(bagWeight);
+    } else {
+        if(scan_data == NULL)
+            return IntToString(paxInfo.bag_weight);
+        else
+            return string();
+    }
 }
 
 string TPrnTagStore::BRD_FROM(TFieldParams fp)
 {
-    if(scan_data != NULL)
-        return string();
-    else
-        return DateTimeToStr(UTCToLocal(brdInfo.brd_from, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    if(!fp.TagInfo.empty()) {
+        TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
+        return dt != ASTRA::NoExists ? BASIC::DateTimeToStr(dt, fp.date_format) : "";
+    } else {
+        if(scan_data != NULL)
+            return string();
+        else
+            return DateTimeToStr(UTCToLocal(brdInfo.brd_from, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    }
 }
 
 string TPrnTagStore::BRD_TO(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
-
+        TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
+        return dt != ASTRA::NoExists ? BASIC::DateTimeToStr(dt, fp.date_format) : "";
     } else {
         if(scan_data != NULL)
             return string();
@@ -1626,46 +1685,59 @@ string TPrnTagStore::BT_WEIGHT(TFieldParams fp)
 
 string TPrnTagStore::CITY_ARV_NAME(TFieldParams fp)
 {
-    if(scan_data != NULL) {
-        string buf = StrUtils::trim(scan_data->to_city_airport(0));
-        TElemFmt fmt;
-        string city = ElemToElemId(etAirp, buf, fmt);
-        if (fmt==efmtUnknown)
-            city = buf;
-        else {
-            const TAirpsRow& row = (TAirpsRow&)(base_tables.get("airps").get_row("code",city));
-            city = tag_lang.ElemIdToTagElem(etCity, row.city, efmtNameLong);
-        }
-        return city;
-    } else {
-        TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_arv);
+    if(!fp.TagInfo.empty()) {
+        const std::string airpCode = boost::any_cast<std::string>(fp.TagInfo);
+        TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",airpCode);
         return tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong);
+    } else {
+        if(scan_data != NULL) {
+            string buf = StrUtils::trim(scan_data->to_city_airport(0));
+            TElemFmt fmt;
+            string city = ElemToElemId(etAirp, buf, fmt);
+            if (fmt==efmtUnknown)
+                city = buf;
+            else {
+                const TAirpsRow& row = (TAirpsRow&)(base_tables.get("airps").get_row("code",city));
+                city = tag_lang.ElemIdToTagElem(etCity, row.city, efmtNameLong);
+            }
+            return city;
+        } else {
+            TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_arv);
+            return tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong);
+        }
     }
 }
 
 string TPrnTagStore::CITY_DEP_NAME(TFieldParams fp)
 {
-    if(scan_data != NULL) {
-        string buf = StrUtils::trim(scan_data->from_city_airport(0));
-        TElemFmt fmt;
-        string city = ElemToElemId(etAirp, buf, fmt);
-        if (fmt==efmtUnknown)
-            city = buf;
-        else {
-            const TAirpsRow& row = (TAirpsRow&)(base_tables.get("airps").get_row("code",city));
-            city = tag_lang.ElemIdToTagElem(etCity, row.city, efmtNameLong);
-        }
-        return city;
-    } else {
-        TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_dep);
+    if(!fp.TagInfo.empty()) {
+        const std::string airpCode = boost::any_cast<std::string>(fp.TagInfo);
+        TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",airpCode);
         return tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong);
+    } else {
+        if(scan_data != NULL) {
+            string buf = StrUtils::trim(scan_data->from_city_airport(0));
+            TElemFmt fmt;
+            string city = ElemToElemId(etAirp, buf, fmt);
+            if (fmt==efmtUnknown)
+                city = buf;
+            else {
+                const TAirpsRow& row = (TAirpsRow&)(base_tables.get("airps").get_row("code",city));
+                city = tag_lang.ElemIdToTagElem(etCity, row.city, efmtNameLong);
+            }
+            return city;
+        } else {
+            TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",grpInfo.airp_dep);
+            return tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong);
+        }
     }
 }
 
 string TPrnTagStore::CLASS(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
+        const std::string cls = boost::any_cast<std::string>(fp.TagInfo);
+        return !cls.empty() ? tag_lang.ElemIdToTagElem(etClsGrp, cls, efmtCodeNative) : "";
     } else {
         if(scan_data != NULL) {
             string buf = string(1, scan_data->compartment_code(0));
@@ -1687,6 +1759,10 @@ string TPrnTagStore::CLASS(TFieldParams fp)
 
 string TPrnTagStore::CLASS_NAME(TFieldParams fp)
 {
+    if(!fp.TagInfo.empty()) {
+        const std::string cls = boost::any_cast<std::string>(fp.TagInfo);
+        return !cls.empty() ? tag_lang.ElemIdToTagElem(etClsGrp, grpInfo.class_grp, efmtNameLong) : "";
+    }
     if(scan_data != NULL) {
         string buf = string(1, scan_data->compartment_code(0));
         TElemFmt fmt;
@@ -1723,8 +1799,14 @@ string TPrnTagStore::DOCUMENT(TFieldParams fp)
 
 string TPrnTagStore::DUPLICATE(TFieldParams fp)
 {
+    bool pr_bp = false;
+    if(!fp.TagInfo.empty()) {
+        pr_bp = boost::any_cast<int>(fp.TagInfo);
+    } else {
+        pr_bp = paxInfo.pr_bp_print;
+    }
     string result;
-    if(paxInfo.pr_bp_print)
+    if(pr_bp)
         result = getLocaleText("ДУБЛИКАТ", tag_lang.GetLang());
     return result;
 }
@@ -1732,8 +1814,8 @@ string TPrnTagStore::DUPLICATE(TFieldParams fp)
 string TPrnTagStore::EST(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
-        return dt != ASTRA::NoExists ? BASIC::DateTimeToStr(dt, fp.date_format) : "";
+        TDateTime est = boost::any_cast<TDateTime>(fp.TagInfo);
+        return est != ASTRA::NoExists ? get_date_from_bcbp(est, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
     } else {
         if(scan_data != NULL) {
             return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
@@ -1774,16 +1856,24 @@ string TPrnTagStore::ETKT(TFieldParams fp)
 
 string TPrnTagStore::EXCESS(TFieldParams fp)
 {
-    if(scan_data != NULL)
-        return string();
-    else
-        return IntToString(grpInfo.excess);
+    if(!fp.TagInfo.empty()) {
+        int exbg = boost::any_cast<int>(fp.TagInfo);
+        return IntToString(exbg);
+    } else {
+        if(scan_data != NULL)
+            return string();
+        else
+            return IntToString(grpInfo.excess);
+    }
 }
 
 string TPrnTagStore::FLT_NO(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
+        const std::string flt_no = boost::any_cast<std::string>(fp.TagInfo);
+        ostringstream result;
+        result << setw(3) << setfill('0') << flt_no;
+        return result.str();
     } else {
         if(scan_data != NULL) {
             pair<int, char> bcbp_flt_no = scan_data->flight_number(0);
@@ -1806,20 +1896,24 @@ string TPrnTagStore::FLT_NO(TFieldParams fp)
 
 string TPrnTagStore::FQT(TFieldParams fp)
 {
-    string result;
-    if(not fqtInfo.airline.empty()) {
-        string airline = tag_lang.ElemIdToTagElem(etAirline, fqtInfo.airline, efmtCodeNative);
-        string extra = transliter(fqtInfo.extra, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-        result = (airline + " " + fqtInfo.no + string(" ", extra.empty() ? 0 : 1) + extra);
-        size_t min_width = airline.size() + fqtInfo.no.size() + 1;
-        if(fp.len == 0)
-            ;
-        else if(min_width > fp.len)
-            result = fqtInfo.no;
-        else
-            result = result.substr(0, fp.len > min_width ? fp.len : fp.len == 0 ? string::npos : min_width);
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
+    } else {
+        string result;
+        if(not fqtInfo.airline.empty()) {
+            string airline = tag_lang.ElemIdToTagElem(etAirline, fqtInfo.airline, efmtCodeNative);
+            string extra = transliter(fqtInfo.extra, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+            result = (airline + " " + fqtInfo.no + string(" ", extra.empty() ? 0 : 1) + extra);
+            size_t min_width = airline.size() + fqtInfo.no.size() + 1;
+            if(fp.len == 0)
+                ;
+            else if(min_width > fp.len)
+                result = fqtInfo.no;
+            else
+                result = result.substr(0, fp.len > min_width ? fp.len : fp.len == 0 ? string::npos : min_width);
+        }
+        return result;
     }
-    return result;
 }
 
 string cut_full_place(string city, string airp, size_t len)
@@ -1841,17 +1935,23 @@ string TPrnTagStore::FULL_PLACE_DEP(TFieldParams fp)
 
 string TPrnTagStore::FULLNAME(TFieldParams fp)
 {
-    string name, surname;
-    if(scan_data != NULL) {
-        surname = scan_data->unique.passengerName().first;
-        name = scan_data->unique.passengerName().second;
+    if(!fp.TagInfo.empty()) {
+        const std::string fullnm = boost::any_cast<std::string>(fp.TagInfo);
+        return transliter(fullnm, 1, tag_lang.GetLang() != AstraLocale::LANG_RU)
+                .substr(0, fp.len > 10 ? fp.len : fp.len == 0 ? string::npos : 10);
     } else {
-        surname = paxInfo.surname;
-        name = paxInfo.name;
+        string name, surname;
+        if(scan_data != NULL) {
+            surname = scan_data->unique.passengerName().first;
+            name = scan_data->unique.passengerName().second;
+        } else {
+            surname = paxInfo.surname;
+            name = paxInfo.name;
+        }
+        return
+            transliter(name.empty() ? surname : surname + " " + name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU)
+            .substr(0, fp.len > 10 ? fp.len : fp.len == 0 ? string::npos : 10);
     }
-    return
-        transliter(name.empty() ? surname : surname + " " + name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU)
-        .substr(0, fp.len > 10 ? fp.len : fp.len == 0 ? string::npos : 10);
 }
 
 string TPrnTagStore::GATE(TFieldParams fp)
@@ -1867,28 +1967,32 @@ string TPrnTagStore::GATE(TFieldParams fp)
 
 string TPrnTagStore::GATES(TFieldParams fp)
 {
-    string result;
-    for(vector<string>::const_iterator iv = pointInfo.gates.begin(); iv != pointInfo.gates.end(); iv++)
-    {
-        size_t next_len = result.size() + iv->size() + 1;
-        if(fp.len != 0 and not result.empty() and (next_len > fp.len)) {
-            int diff = fp.len - result.size();
-            if(diff  > 3)
-                result += ('/' + *iv ).substr(0, diff - 3) + "...";
-            else if(diff == 3)
-                result += "...";
-            else {
-                if(iv == pointInfo.gates.begin() + 1)
-                    result = *iv + "...";
-                else
-                    result = result.substr(0, result.size() - 3 + diff) + "...";
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
+    } else {
+        string result;
+        for(vector<string>::const_iterator iv = pointInfo.gates.begin(); iv != pointInfo.gates.end(); iv++)
+        {
+            size_t next_len = result.size() + iv->size() + 1;
+            if(fp.len != 0 and not result.empty() and (next_len > fp.len)) {
+                int diff = fp.len - result.size();
+                if(diff  > 3)
+                    result += ('/' + *iv ).substr(0, diff - 3) + "...";
+                else if(diff == 3)
+                    result += "...";
+                else {
+                    if(iv == pointInfo.gates.begin() + 1)
+                        result = *iv + "...";
+                    else
+                        result = result.substr(0, result.size() - 3 + diff) + "...";
+                }
+                break;
             }
-            break;
+            if(not result.empty()) result += '/';
+            result += *iv;
         }
-        if(not result.empty()) result += '/';
-        result += *iv;
+        return result;
     }
-    return result;
 }
 
 string TPrnTagStore::CHD(TFieldParams fp)
@@ -1901,12 +2005,16 @@ string TPrnTagStore::CHD(TFieldParams fp)
 
 string TPrnTagStore::HALL(TFieldParams fp)
 {
-    if(scan_data == NULL) {
-        ostringstream result;
-        result << tag_lang.ElemIdToTagElem(etHall, grpInfo.hall, efmtNameLong);
-        return result.str();
-    } else
-        return string();
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
+    } else {
+        if(scan_data == NULL) {
+            ostringstream result;
+            result << tag_lang.ElemIdToTagElem(etHall, grpInfo.hall, efmtNameLong);
+            return result.str();
+        } else
+            return string();
+    }
 }
 
 string TPrnTagStore::IMG(TFieldParams fp)
@@ -1917,9 +2025,15 @@ string TPrnTagStore::IMG(TFieldParams fp)
 
 string TPrnTagStore::INF(TFieldParams fp)
 {
+    std::string pers_type;
+    if(!fp.TagInfo.empty()) {
+        pers_type = boost::any_cast<std::string>(fp.TagInfo);
+    } else {
+        pers_type = paxInfo.pers_type;
+    }
     string result;
-    if(DecodePerson((char *)paxInfo.pers_type.c_str()) == baby)
-        result = tag_lang.ElemIdToTagElem(etPersType, paxInfo.pers_type, efmtCodeNative);
+    if(DecodePerson(pers_type.c_str()) == baby)
+        result = tag_lang.ElemIdToTagElem(etPersType, pers_type, efmtCodeNative);
     return result;
 }
 
@@ -1996,7 +2110,11 @@ string TPrnTagStore::LONG_ARV(TFieldParams fp)
             if (fmt==efmtUnknown)
                 return buf;
         } else
-            airp_arv = grpInfo.airp_arv;
+            if(!fp.TagInfo.empty())
+                airp_arv = boost::any_cast<std::string>(fp.TagInfo);
+            else
+                airp_arv = grpInfo.airp_arv;
+
         TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",airp_arv);
         result = cut_long_place(
                 tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, tag_lang.dup_lang()),
@@ -2023,7 +2141,10 @@ string TPrnTagStore::LONG_DEP(TFieldParams fp)
             if (fmt==efmtUnknown)
                 return buf;
         } else
-            airp_dep = grpInfo.airp_dep;
+            if(!fp.TagInfo.empty())
+                airp_dep = boost::any_cast<std::string>(fp.TagInfo);
+            else
+                airp_dep = grpInfo.airp_dep;
         TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",airp_dep);
         result = cut_long_place(
                 tag_lang.ElemIdToTagElem(etCity, airpRow.city, efmtNameLong, tag_lang.dup_lang()),
@@ -2038,33 +2159,40 @@ string TPrnTagStore::LONG_DEP(TFieldParams fp)
 
 string TPrnTagStore::NAME(TFieldParams fp)
 {
-    if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
+    string result;
+    if(scan_data != NULL) {
+        result = transliter(scan_data->unique.passengerName().second, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     } else {
-        string result;
-        if(scan_data != NULL) {
-            result = transliter(scan_data->unique.passengerName().second, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-        } else {
-            if(fp.TagInfo.empty())
-                result = transliter(paxInfo.name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-            else
-                result = SURNAME(fp);
-        }
-        return result;
+        if(fp.TagInfo.empty())
+            result = transliter(paxInfo.name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+        else
+            result = SURNAME(fp);
     }
+    return result;
 }
 
 string TPrnTagStore::NO_SMOKE(TFieldParams fp)
 {
     if(scan_data != NULL)
         return string();
-    else
-        return (paxInfo.pr_smoke ? " " : "X");
+    else {
+        bool pr_smoke = false;
+        if(!fp.TagInfo.empty()) {
+            pr_smoke = boost::any_cast<int>(fp.TagInfo);
+        } else {
+            pr_smoke = paxInfo.pr_smoke;
+        }
+        return (pr_smoke ? " " : "X");
+    }
 }
 
 string TPrnTagStore::ONE_SEAT_NO(TFieldParams fp)
 {
-    return get_fmt_seat("one", tag_lang.english_tag());
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
+    } else {
+        return get_fmt_seat("one", tag_lang.english_tag());
+    }
 }
 
 string TPrnTagStore::PAX_ID(TFieldParams fp)
@@ -2093,25 +2221,32 @@ string TPrnTagStore::PLACE_DEP(TFieldParams fp)
 
 string TPrnTagStore::REM(TFieldParams fp)
 {
-    if(scan_data != NULL)
-        return string();
-    else
-        return GetRemarkStr(remInfo.rem, pax_id, tag_lang.GetLang(), " ");
-}
-
-string TPrnTagStore::REG_NO(TFieldParams fp)
-{
     if(!fp.TagInfo.empty()) {
         return boost::any_cast<std::string>(fp.TagInfo);
     } else {
         if(scan_data != NULL)
-            return scan_data->check_in_seq_number(0);
-        else {
-            ostringstream result;
-            if(paxInfo.reg_no != NoExists)
-                result << setw(3) << setfill('0') << paxInfo.reg_no;
-            return result.str();
+            return string();
+        else
+            return GetRemarkStr(remInfo.rem, pax_id, tag_lang.GetLang(), " ");
+    }
+}
+
+string TPrnTagStore::REG_NO(TFieldParams fp)
+{
+    if(scan_data != NULL)
+        return scan_data->check_in_seq_number(0);
+    else {
+        ostringstream result;
+        int regno = NoExists;
+        if(!fp.TagInfo.empty()) {
+            regno = boost::any_cast<int>(fp.TagInfo);
+        } else {
+            regno = paxInfo.reg_no;
         }
+
+        if(regno != NoExists)
+            result << setw(3) << setfill('0') << regno;
+        return result.str();
     }
 }
 
@@ -2123,7 +2258,8 @@ string TPrnTagStore::RSTATION(TFieldParams fp)
 string TPrnTagStore::SCD(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
+        TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
+        return dt != ASTRA::NoExists ? get_date_from_bcbp(dt, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
     } else {
         if(scan_data != NULL)
             return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
@@ -2146,10 +2282,14 @@ string TPrnTagStore::SEAT_NO(TFieldParams fp)
 
 string TPrnTagStore::SUBCLS(TFieldParams fp)
 {
-    if(scan_data != NULL)
-        return string();
-    else
-        return tag_lang.ElemIdToTagElem(etSubcls, paxInfo.subcls, efmtCodeNative);
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
+    } else {
+        if(scan_data != NULL)
+            return string();
+        else
+            return tag_lang.ElemIdToTagElem(etSubcls, paxInfo.subcls, efmtCodeNative);
+    }
 }
 
 string TPrnTagStore::STR_SEAT_NO(TFieldParams fp)
@@ -2199,7 +2339,11 @@ string TPrnTagStore::get_fmt_seat(string fmt, bool english_tag)
 
 string TPrnTagStore::LIST_SEAT_NO(TFieldParams fp)
 {
-    return get_fmt_seat("list", tag_lang.english_tag());
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
+    } else {
+        return get_fmt_seat("list", tag_lang.english_tag());
+    }
 }
 
 string get_unacc_name(int bag_type, TTagLang &tag_lang)
@@ -2225,52 +2369,55 @@ string get_unacc_name(int bag_type, TTagLang &tag_lang)
 
 string TPrnTagStore::SURNAME(TFieldParams fp)
 {
-    if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
-    } else {
-        string result;
-        if(scan_data != NULL) {
-            result = transliter(scan_data->unique.passengerName().first, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-        } else if(fp.TagInfo.empty())
-            result = transliter(paxInfo.surname, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-        else {
-            if(boost::any_cast<int>(&fp.TagInfo))
-                result = get_unacc_name(boost::any_cast<int>(fp.TagInfo), tag_lang);
-            else
-                throw Exception("TPrnTagStore::SURNAME: unexpected TagInfo type");
-        }
-        return result.substr(0, fp.len > 8 ? fp.len : fp.len == 0 ? string::npos : 8);
+    string result;
+    if(scan_data != NULL) {
+        result = transliter(scan_data->unique.passengerName().first, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    } else if(fp.TagInfo.empty())
+        result = transliter(paxInfo.surname, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    else {
+        if(boost::any_cast<int>(&fp.TagInfo))
+            result = get_unacc_name(boost::any_cast<int>(fp.TagInfo), tag_lang);
+        else if(boost::any_cast<std::string>(&fp.TagInfo))
+            result = transliter(boost::any_cast<std::string>(fp.TagInfo), 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+        else
+            throw Exception("TPrnTagStore::SURNAME: unexpected TagInfo type");
     }
+    return result.substr(0, fp.len > 8 ? fp.len : fp.len == 0 ? string::npos : 8);
 }
 
 string TPrnTagStore::PAX_TITLE(TFieldParams fp)
 {
-    if(scan_data != NULL)
-        return string();
-    else {
-        TPerson pers_type = DecodePerson((char *)paxInfo.pers_type.c_str());
-        string result;
-        switch(pers_type) {
-            case adult:
-                {
-                    int is_female = CheckIn::is_female(paxInfo.doc.gender, "");
-                    if(is_female == NoExists) // по умолчанию
-                        result = "Г-Н";
-                    else {
-                        result = (is_female != 0 ? "Г-ЖА" : "Г-Н");
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
+    } else {
+        if(scan_data != NULL)
+            return string();
+        else {
+            const std::string pt = paxInfo.pers_type;
+            TPerson pers_type = DecodePerson(pt.c_str());
+            string result;
+            switch(pers_type) {
+                case adult:
+                    {
+                        int is_female = CheckIn::is_female(paxInfo.doc.gender, "");
+                        if(is_female == NoExists) // по умолчанию
+                            result = "Г-Н";
+                        else {
+                            result = (is_female != 0 ? "Г-ЖА" : "Г-Н");
+                        }
                     }
-                }
-                break;
-            case child:
-                result = "РБ";
-                break;
-            case baby:
-                result = "РМ";
-                break;
-            case NoPerson:
-                throw Exception("PAX_TITLE: something wrong with pers_type");
+                    break;
+                case child:
+                    result = "РБ";
+                    break;
+                case baby:
+                    result = "РМ";
+                    break;
+                case NoPerson:
+                    throw Exception("PAX_TITLE: something wrong with pers_type");
+            }
+            return getLocaleText(result, tag_lang.GetLang());
         }
-        return getLocaleText(result, tag_lang.GetLang());
     }
 }
 
@@ -2409,16 +2556,20 @@ string TPrnTagStore::AIRP_ARV_NAME3(TFieldParams fp) {
 }
 
 string TPrnTagStore::PNR(TFieldParams fp) {
-    if(scan_data != NULL)
-        return scan_data->operatingCarrierPNR(0);
-    else {
-        string pnr;
-        if (!pnrInfo.pnrs.empty()) {
-            pnr = convert_pnr_addr(pnrInfo.pnrs[0].addr, tag_lang.GetLang() != AstraLocale::LANG_RU);
-            if(pnrInfo.pnrs[0].airline!=pnrInfo.airline and pnr.size() + strlen(pnrInfo.pnrs[0].airline) + 1 <= fp.len)
-                pnr += "/" + tag_lang.ElemIdToTagElem(etAirline, pnrInfo.pnrs[0].airline, efmtCodeNative);
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
+    } else {
+        if(scan_data != NULL)
+            return scan_data->operatingCarrierPNR(0);
+        else {
+            string pnr;
+            if (!pnrInfo.pnrs.empty()) {
+                pnr = convert_pnr_addr(pnrInfo.pnrs[0].addr, tag_lang.GetLang() != AstraLocale::LANG_RU);
+                if(pnrInfo.pnrs[0].airline!=pnrInfo.airline and pnr.size() + strlen(pnrInfo.pnrs[0].airline) + 1 <= fp.len)
+                    pnr += "/" + tag_lang.ElemIdToTagElem(etAirline, pnrInfo.pnrs[0].airline, efmtCodeNative);
+            }
+            return pnr;
         }
-        return pnr;
     }
 }
 
