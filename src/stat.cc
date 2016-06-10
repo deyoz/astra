@@ -9782,10 +9782,6 @@ int nosir_seDCSAddReport(int argc, char **argv)
         int col_suffix;
         int col_scd_out;
 
-        int col_client_type;
-        int col_pers_type;
-        int col_pr_bag;
-
         TCachedQuery fltQry;
 
         const char *delim;
@@ -9799,11 +9795,34 @@ int nosir_seDCSAddReport(int argc, char **argv)
         // data[point_id][pr_adult][pr_web][pr_bag] = count;
         TFltData data;
 
+        void data_dump()
+        {
+            for(TFltData::iterator flt = data.begin(); flt != data.end(); flt++) {
+                for(TPersRow::iterator pers = flt->second.begin(); pers != flt->second.end(); pers++) {
+                    for(TWebRow::iterator web = pers->second.begin(); web != pers->second.end(); web++) {
+                        for(TBagRow::iterator bag = web->second.begin(); bag != web->second.end(); bag++) {
+                            LogTrace(TRACE5)
+                                << "data["
+                                << flt->first
+                                << "]["
+                                << pers->first
+                                << "]["
+                                << web->first
+                                << "]["
+                                << bag->first
+                                << "] = "
+                                << bag->second;
+                        }
+                    }
+                }
+            }
+        }
+
         TFltStat(TQuery &Qry, const char *adelim): fltQry(
                 "select "
                 "    pax_grp.client_type, "
                 "    pax.pers_type, "
-                "    nvl(bag2.grp_id, 1, 0) pr_bag "
+                "    nvl2(bag2.grp_id, 1, 0) pr_bag "
                 "from "
                 "    pax_grp, "
                 "    pax, "
@@ -9824,27 +9843,23 @@ int nosir_seDCSAddReport(int argc, char **argv)
             col_flt_no = Qry.GetFieldIndex("flt_no");
             col_suffix = Qry.GetFieldIndex("suffix");
             col_scd_out = Qry.GetFieldIndex("scd_out");
-
-            col_client_type = Qry.GetFieldIndex("client_type");
-            col_pers_type = Qry.GetFieldIndex("pers_type");
-            col_pr_bag = Qry.GetFieldIndex("pr_bag");
-        }
-
-        int aggregate(TWebRow &val1, TWebRow &val2)
-        {
-            return 0;
         }
 
         void get(TQuery &Qry, ofstream &of) {
             data.clear();
             int point_id = Qry.FieldAsInteger(col_point_id);
-            fltQry.get().SetVariable("point_id", Qry.FieldAsInteger(col_point_id));
+            fltQry.get().SetVariable("point_id", point_id);
             fltQry.get().Execute();
-            for(; not fltQry.get().Eof; fltQry.get().Next()) {
-                bool pr_adult = DecodePerson(fltQry.get().FieldAsString(col_pers_type)) == adult;
-                bool pr_web = DecodeClientType(fltQry.get().FieldAsString(col_client_type)) != ctTerm;
-                bool pr_bag = fltQry.get().FieldAsInteger(col_pr_bag) != 0;
-                data[point_id][pr_adult][pr_web][pr_bag]++;
+            if(not fltQry.get().Eof) {
+                int col_client_type = fltQry.get().GetFieldIndex("client_type");
+                int col_pers_type = fltQry.get().GetFieldIndex("pers_type");
+                int col_pr_bag = fltQry.get().GetFieldIndex("pr_bag");
+                for(; not fltQry.get().Eof; fltQry.get().Next()) {
+                    bool pr_adult = DecodePerson(fltQry.get().FieldAsString(col_pers_type)) == adult;
+                    bool pr_web = DecodeClientType(fltQry.get().FieldAsString(col_client_type)) != ctTerm;
+                    bool pr_bag = fltQry.get().FieldAsInteger(col_pr_bag) != 0;
+                    data[point_id][pr_adult][pr_web][pr_bag]++;
+                }
             }
             if(not data.empty()) {
                 of
@@ -9858,24 +9873,39 @@ int nosir_seDCSAddReport(int argc, char **argv)
                     << Qry.FieldAsString(col_suffix) << delim
                     //Дата рейса
                     << DateTimeToStr(Qry.FieldAsDateTime(col_scd_out), "dd.mm.yyyy") << delim
-                    /*
                     //Пассажиры ВЗР с регистрацией в а/п
-                    << data[point_id][true][false] << delim
+                    <<
+                    data[point_id][true][false][false] +
+                    data[point_id][true][false][true]
+                    << delim
                     //Пассажиры РБ с регистрацией в а/п
-                    << data[point_id][false][false] << delim
+                    <<
+                    data[point_id][false][false][false] +
+                    data[point_id][false][false][true]
+                    << delim
                     //Пассажиры ВЗР с регистрацией в а/п без багажа
-                    << data[point_id][true][false] << delim
+                    <<
+                    data[point_id][true][false][false]
+                    << delim
                     //Пассажиры РБ с регистрацией в а/п без багажа
-                    << data[point_id][true][false] << delim
+                    <<
+                    data[point_id][false][false][false]
+                    << delim
                     //Пассажиры ВЗР с саморегистрацией и багажом
-                    << data[point_id][true][false] << delim
+                    <<
+                    data[point_id][true][true][true]
+                    << delim
                     //Пассажиры РБ с саморегистрацией и багажом
-                    << data[point_id][true][false] << delim
+                    <<
+                    data[point_id][false][true][true]
+                    << delim
                     //Пассажиры ВЗР с саморегистрацией без багажа
-                    << data[point_id][true][false] << delim
+                    <<
+                    data[point_id][true][true][false]
+                    << delim
                     //Пассажиры РБ с саморегистрацией без багажа
-                    << data[point_id][true][false]
-                    */
+                    <<
+                    data[point_id][false][true][false]
                     << endl;
             }
         }
@@ -9898,8 +9928,9 @@ int nosir_seDCSAddReport(int argc, char **argv)
             << QParam("first_date", otDate, FirstDate)
             << QParam("last_date", otDate, FirstDate + 1)
             );
+
     Qry.get().Execute();
-    if(Qry.get().Eof) {
+    if(not Qry.get().Eof) {
         const char *delim = ",";
         ofstream of((string)"seDCSAddReport." + argv[1] + ".csv");
         of
