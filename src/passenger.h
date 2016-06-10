@@ -23,8 +23,14 @@ class TPaxAPIItem
     virtual ~TPaxAPIItem() {}
 };
 
-class TPaxTknItem : public TPaxAPIItem
+class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
 {
+  protected:
+    std::string get_rem_text(bool inf_indicator,
+                             const std::string& lang,
+                             bool strictly_lat,
+                             bool translit_lat,
+                             bool language_lat) const;
   public:
     std::string no;
     int coupon;
@@ -77,14 +83,24 @@ class TPaxTknItem : public TPaxAPIItem
         s << "/" << coupon;
       return s.str();
     };
+    std::string rem_code() const
+    {
+      return rem;
+    }
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
 bool LoadPaxTkn(BASIC::TDateTime part_key, int pax_id, TPaxTknItem &tkn);
 bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn);
 
-class TPaxDocItem : public TPaxAPIItem
+class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
 {
+  protected:
+    std::string get_rem_text(bool inf_indicator,
+                             const std::string& lang,
+                             bool strictly_lat,
+                             bool translit_lat,
+                             bool language_lat) const;
   public:
     std::string type;
     std::string issue_country;
@@ -162,12 +178,22 @@ class TPaxDocItem : public TPaxAPIItem
     long int getEqualAttrsFieldsMask(const TPaxDocItem &item) const;
     long int getNotEmptyFieldsMask() const;
     TAPIType apiType() const { return apiDoc; }
+    std::string rem_code() const
+    {
+      return "DOCS";
+    }
 };
 
 const std::string DOCO_PSEUDO_TYPE="-";
 
-class TPaxDocoItem : public TPaxAPIItem
+class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic
 {
+  protected:
+    std::string get_rem_text(bool inf_indicator,
+                             const std::string& lang,
+                             bool strictly_lat,
+                             bool translit_lat,
+                             bool language_lat) const;
   public:
     std::string birth_place;
     std::string type;
@@ -230,10 +256,20 @@ class TPaxDocoItem : public TPaxAPIItem
     void ReplacePunctSymbols();
     long int getNotEmptyFieldsMask() const;
     TAPIType apiType() const { return apiDoco; }
+    std::string rem_code() const
+    {
+      return "DOCO";
+    }
 };
 
-class TPaxDocaItem : public TPaxAPIItem
+class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
 {
+  protected:
+    std::string get_rem_text(bool inf_indicator,
+                             const std::string& lang,
+                             bool strictly_lat,
+                             bool translit_lat,
+                             bool language_lat) const;
   public:
     std::string type;
     std::string country;
@@ -302,6 +338,10 @@ class TPaxDocaItem : public TPaxAPIItem
       if (type=="R") result=apiDocaR;
       if (type=="D") result=apiDocaD;
       return result;
+    }
+    std::string rem_code() const
+    {
+      return "DOCA";
     }
 };
 

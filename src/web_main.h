@@ -5,7 +5,6 @@
 #include <string>
 #include "passenger.h"
 #include "typeb_utils.h"
-#include "tlg/tlg_parser.h"
 #include "web_search.h"
 #include "checkin_utils.h"
 #include <tuple>
@@ -137,7 +136,7 @@ struct TWebPax {
     CheckIn::TPaxDocItem doc;
     CheckIn::TPaxDocoItem doco;
     std::list<CheckIn::TPaxDocaItem> doca;
-    std::vector<TypeB::TFQTItem> fqt_rems;
+    std::vector<CheckIn::TPaxFQTItem> fqts;
     TWebPax() {
       pax_no = ASTRA::NoExists;
       crs_pax_id = ASTRA::NoExists;

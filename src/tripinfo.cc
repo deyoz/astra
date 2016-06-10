@@ -1860,7 +1860,27 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                     << "        pax.pr_brd IS NOT NULL AND " << endl
                     << "        'DOCA' IN " << GetSQLEnum(iRem->second) << endl;
                 break;
-              default:
+              case remASVC:
+                sql << "  SELECT DISTINCT pax.pax_id,'ASVC' AS rem_code " << endl
+                    << "  FROM pax_grp,pax,pax_asvc " << endl
+                    << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+                    << "        pax.pax_id=pax_asvc.pax_id AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND " << endl
+                    << "        " << crew_filter << endl
+                    << "        pax.pr_brd IS NOT NULL AND " << endl
+                    << "        'ASVC' IN " << GetSQLEnum(iRem->second) << endl;
+                break;
+              case remFQT:
+                sql << "  SELECT DISTINCT pax.pax_id, pax_fqt.rem_code " << endl
+                    << "  FROM pax_grp,pax,pax_fqt " << endl
+                    << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+                    << "        pax.pax_id=pax_fqt.pax_id AND " << endl
+                    << "        pax_grp.point_dep=:point_id AND " << endl
+                    << "        " << crew_filter << endl
+                    << "        pax.pr_brd IS NOT NULL AND " << endl
+                    << "        pax_fqt.rem_code IN " << GetSQLEnum(iRem->second) << endl;
+                break;
+              case remUnknown:
                 sql << "  SELECT DISTINCT pax.pax_id,pax_rem.rem_code " << endl
                     << "  FROM pax_grp,pax,pax_rem " << endl
                     << "  WHERE pax_grp.grp_id=pax.grp_id AND " << endl

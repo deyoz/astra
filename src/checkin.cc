@@ -4449,22 +4449,32 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                    flagSTCR=false,
                    flagEXST=false,
                    flagCREW=false;
-              for(vector<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end(); ++r)
+              for(vector<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end();)
               {
                 if (r->code=="VIP")  flagVIP=true;
                 if (r->code=="STCR") flagSTCR=true;
                 if (r->code=="EXST") flagEXST=true;
                 if (r->code=="CREW") flagCREW=true;
-                //проверим корректность ремарки FQT...
-                CheckIn::TPaxFQTItem fqt;
-                if (CheckFQTRem(*r,fqt)) //эта процедура нормализует ремарки FQT
-                  p->fqts.push_back(fqt);
+
+                if (!(reqInfo->client_type==ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
+                {
+                  //проверим корректность ремарки FQT...
+                  CheckIn::TPaxFQTItem fqt;
+                  if (CheckFQTRem(*r,fqt)) //эта процедура нормализует ремарки FQT
+                  {
+                    p->fqts.push_back(fqt);
+                    r=rems.erase(r);
+                    continue;
+                  };
+                };
                 //проверим запрещенные для ввода ремарки...
-                if (isDisabledRem(r->code, r->text,
-                                  reqInfo->client_type==ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
+                if (isDisabledRem(r->code, r->text))
                   throw UserException("MSG.REMARK.INPUT_CODE_DENIAL",
                                       LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
+                ++r;
               }
+              //синхронизация tier_level для FQT при записи со старых терминалов
+              SyncFQTTierLevel(pax.id, new_checkin, p->fqts);
               //проверка readonly-ремарок
               vector<CheckIn::TPaxRemItem> prior_rems;
               CheckIn::PaxRemAndASVCFromDB(pax.id, new_checkin, prior_rems);

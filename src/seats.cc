@@ -4059,7 +4059,7 @@ void SyncPRSA( const string &airline_oper,
   service_stat_rem_grp.Load(retSERVICE_STAT, airline_oper);
 
   vector<CheckIn::TPaxRemItem> prior_rems;
-  CheckIn::LoadPaxRem(pax_id, true, prior_rems);
+  CheckIn::LoadPaxRem(pax_id, prior_rems);
 
   TQuery RemQry(&OraSession);
   RemQry.Clear();
@@ -4088,7 +4088,7 @@ void SyncPRSA( const string &airline_oper,
   }
 
   vector<CheckIn::TPaxRemItem> curr_rems;
-  CheckIn::LoadPaxRem(pax_id, true, curr_rems);
+  CheckIn::LoadPaxRem(pax_id, curr_rems);
 
   CheckIn::SyncPaxRemOrigin(service_stat_rem_grp,
                             pax_id,
