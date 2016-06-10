@@ -9831,8 +9831,7 @@ int nosir_seDCSAddReport(int argc, char **argv)
                 "    pax_grp.point_dep = :point_id and "
                 "    pax.grp_id = pax_grp.grp_id and "
                 "    bag2.grp_id(+) = pax_grp.grp_id and "
-                "    bag2.num(+) = 1 and "
-                "    rownum < 10 ",
+                "    bag2.num(+) = 1 ",
                 QParams() << QParam("point_id", otInteger)
                 ),
         delim(adelim)
@@ -9862,6 +9861,7 @@ int nosir_seDCSAddReport(int argc, char **argv)
                 }
             }
             if(not data.empty()) {
+                data_dump();
                 of
                     //Код аэропорта (города)
                     << Qry.FieldAsString(col_airp) << delim
