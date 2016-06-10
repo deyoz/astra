@@ -2332,8 +2332,6 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                                   PaxASVCList::ExistsPaxUnboundEMD(iPax->pax_id));
         NewTextChild(paxNode, "unbound_emd_warning", (int)unbound_emd_warning, (int)false);
     }
-
-    LogTrace(TRACE1) << "print res:\n" << XMLTreeToText(resNode->doc);
 }
 
 struct TPrnTestsKey {
