@@ -9621,7 +9621,7 @@ int nosir_departed(int argc, char **argv)
     period.get(FirstDate, LastDate);
     string delim = ";";
     for(TPeriods::TItems::iterator i = period.items.begin(); i != period.items.end(); i++) {
-        ofstream of("departed." + DateTimeToStr(i->first, "yymm") + ".csv");
+        ofstream of(((string)"departed." + DateTimeToStr(i->first, "yymm") + ".csv").c_str());
         of
             << "ФИО" << delim
             << "Дата рождения" << delim
