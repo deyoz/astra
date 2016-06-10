@@ -6134,6 +6134,27 @@ void TRemInfo::parse(const string &rem)
     }
 }
 
+struct TAirpArvInfo {
+    map<int, string> items;
+    string get(TQuery &Qry)
+    {
+        int grp_id = Qry.FieldAsInteger("grp_id");
+        map<int, string>::iterator im = items.find(grp_id);
+        if(im == items.end()) {
+            TCkinRoute tckin_route;
+            tckin_route.GetRouteAfter(grp_id, crtWithCurrent, crtIgnoreDependent);
+            string airp_arv;
+            if(tckin_route.empty())
+                airp_arv = Qry.FieldAsString("airp_arv");
+            else
+                airp_arv = tckin_route.back().airp_arv;
+            pair<map<int, string>::iterator, bool> res = items.insert(make_pair(grp_id, airp_arv));
+            im = res.first;
+        }
+        return im->second;
+    }
+};
+
 void get_limited_capability_stat(int point_id)
 {
     TCachedQuery delQry("delete from limited_capability_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
@@ -6154,26 +6175,7 @@ void get_limited_capability_stat(int point_id)
     Qry.get().Execute();
     if(not Qry.get().Eof) {
 
-        struct TAirpArvInfo {
-            map<int, string> items;
-            string get(TQuery &Qry)
-            {
-                int grp_id = Qry.FieldAsInteger("grp_id");
-                map<int, string>::iterator im = items.find(grp_id);
-                if(im == items.end()) {
-                    TCkinRoute tckin_route;
-                    tckin_route.GetRouteAfter(grp_id, crtWithCurrent, crtIgnoreDependent);
-                    string airp_arv;
-                    if(tckin_route.empty())
-                        airp_arv = Qry.FieldAsString("airp_arv");
-                    else
-                        airp_arv = tckin_route.back().airp_arv;
-                    pair<map<int, string>::iterator, bool> res = items.insert(make_pair(grp_id, airp_arv));
-                    im = res.first;
-                }
-                return im->second;
-            }
-        } airp_arv_info;
+        TAirpArvInfo airp_arv_info;
 
         map<string, map<string, int> > rems;
         for(; not Qry.get().Eof; Qry.get().Next()) {
@@ -9146,6 +9148,353 @@ int nosir_md5(int argc,char **argv)
         // ...buffer contains the entire file...
 
         delete[] buffer;
+    }
+    return 1;
+}
+
+void departed_flt(TQuery &Qry, ofstream &of)
+{
+    int point_id = Qry.FieldAsInteger("point_id");
+    TDateTime part_key = NoExists;
+
+    if(not Qry.FieldIsNULL("part_key"))
+        part_key = Qry.FieldAsDateTime("part_key");
+
+    TQuery paxQry(&OraSession);
+    paxQry.CreateVariable("point_id", otInteger, point_id);
+    if(part_key != NoExists)
+        paxQry.CreateVariable("part_key", otDate, part_key);
+
+    string SQLText =
+        "select \n"
+        "   pax.name, \n"
+        "   pax.surname, \n"
+        "   pax.ticket_no, \n"
+        "   pax.coupon_no, \n"
+        "   pax.pax_id, \n"
+        "   pax.grp_id, \n"
+        "   pax_grp.airp_arv \n"
+        "from \n";
+    if(part_key == NoExists)
+        SQLText +=
+            "   pax, pax_grp \n";
+    else
+        SQLText +=
+            "   arx_pax pax, arx_pax_grp pax_grp \n";
+    SQLText +=
+        "where \n"
+        "   pax_grp.point_dep = :point_id and \n"
+        "   pax_grp.grp_id = pax.grp_id \n";
+    if(part_key != NoExists)
+        SQLText +=
+            " and pax.part_key = :part_key and \n"
+            " pax_grp.part_key = :part_key \n";
+
+    TQuery pnrQry(&OraSession);
+    pnrQry.SQLText =
+        "select crs_pnr.pnr_id from "
+        "  crs_pnr, crs_pax "
+        "where "
+        "   crs_pax.pax_id = :pax_id and "
+        "   crs_pax.pr_del = 0 and "
+        "   crs_pax.pnr_id = crs_pnr.pnr_id ";
+    pnrQry.DeclareVariable("pax_id", otInteger);
+
+    string delim = ";";
+
+    vector<TPnrAddrItem> pnrs;
+
+    paxQry.SQLText = SQLText;
+    paxQry.Execute();
+    TAirpArvInfo airp_arv_info;
+    for(; not paxQry.Eof; paxQry.Next()) {
+        string name = paxQry.FieldAsString("name");
+        string surname = paxQry.FieldAsString("surname");
+
+        string airline = Qry.FieldAsString("airline");
+        int flt_no = Qry.FieldAsInteger("flt_no");
+        string suffix = Qry.FieldAsString("suffix");
+        string airp = Qry.FieldAsString("airp");
+        TDateTime scd_out = Qry.FieldAsDateTime("scd_out");
+        ostringstream flt_str;
+        flt_str
+            << airline
+            << setw(3) << setfill('0') << flt_no
+            << (suffix.empty() ? "" : suffix);
+
+        string ticket_no = paxQry.FieldAsString("ticket_no");
+        string coupon_no = paxQry.FieldAsString("coupon_no");
+        ostringstream ticket;
+        if(not ticket_no.empty())
+            ticket << ticket_no << (coupon_no.empty() ? "" : "/") << coupon_no;
+
+        string pnr_addr;
+        if(part_key == NoExists) {
+            pnrQry.SetVariable("pax_id", paxQry.FieldAsInteger("pax_id"));
+            pnrQry.Execute();
+            if(not pnrQry.Eof) {
+                GetPnrAddr(pnrQry.FieldAsInteger("pnr_id"), pnrs);
+                if (!pnrs.empty())
+                    pnr_addr.append(pnrs.begin()->addr).append("/").append(pnrs.begin()->airline);
+            }
+        }
+
+
+        CheckIn::TPaxDocItem doc;
+        LoadPaxDoc(part_key, paxQry.FieldAsInteger("pax_id"), doc);
+        string birth_date = (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "dd.mmm.yy"):"");
+        string gender = doc.gender;
+
+        of
+            // ФИО
+            << name << (name.empty() ? "" : " ") << surname << delim
+            // Дата рождения
+            << birth_date << delim
+            // Пол
+            << gender << delim
+            // Тип документа
+            << doc.type << delim
+            // Серия и номер документа
+            << doc.no << delim
+            // Номер билета
+            << ticket.str() << delim
+            // Номер бронирования
+            << pnr_addr << delim
+            // Рейс
+            << flt_str.str() << delim
+            // Дата вылета
+            << DateTimeToStr(scd_out, "ddmmm") << delim
+            // От
+            << airp << delim
+            // До
+            << airp_arv_info.get(paxQry) << endl;
+    }
+
+    /*
+       ofstream out(IntToString(part_key == NoExists ? 0 : 1) + "pax1.sql");
+       out << SQLText;
+       out.close();
+       */
+}
+
+void departed_month(const pair<TDateTime, TDateTime> &interval, ofstream &of)
+{
+    TQuery Qry(&OraSession);
+    Qry.CreateVariable("first_date", otDate, interval.first);
+    Qry.CreateVariable("last_date", otDate, interval.second);
+    for(int pass = 0; pass <= 2; pass++) {
+        if (pass!=0)
+            Qry.CreateVariable("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+        ostringstream sql;
+        sql << "SELECT ";
+        if(pass)
+            sql << "points.part_key, ";
+        else
+            sql << "null part_key, ";
+        sql << "point_id, airline, flt_no, suffix, airp, scd_out  FROM ";
+        if (pass!=0)
+        {
+            sql << " arx_points points \n";
+            if (pass==2)
+                sql << ",(SELECT part_key, move_id FROM move_arx_ext \n"
+                    "  WHERE part_key >= :last_date+:arx_trip_date_range AND part_key <= :last_date+date_range) arx_ext \n";
+        }
+        else
+            sql << " points \n";
+        sql << "WHERE \n";
+        if (pass==1)
+            sql << " points.part_key >= :first_date AND points.part_key < :last_date + :arx_trip_date_range AND \n";
+        if (pass==2)
+            sql << " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
+        sql <<
+            "   scd_out>=:first_date AND scd_out<:last_date AND airline='ЮТ' AND "
+            "      pr_reg<>0 AND pr_del>=0";
+
+        /*
+           ofstream out(IntToString(pass) + ".sql");
+           out << sql.str();
+           out.close();
+           */
+
+        Qry.SQLText = sql.str().c_str();
+        Qry.Execute();
+        for(; not Qry.Eof; Qry.Next())
+            departed_flt(Qry, of);
+    }
+}
+
+int nosir_departed_sql(int argc, char **argv)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select :part_key part_key from dual";
+    Qry.CreateVariable("part_key", otDate, FNull);
+    Qry.Execute();
+//    departed_flt(Qry);
+    Qry.SetVariable("part_key", NowUTC());
+    Qry.Execute();
+//    departed_flt(Qry);
+    return 1;
+}
+
+int nosir_departed(int argc, char **argv)
+{
+    if(argc != 3) {
+        cout << "usage: " << argv[0] << " yyyymmdd yyyymmdd" << endl;
+        return 1;
+    }
+    TPerfTimer tm;
+    tm.Init();
+    TDateTime FirstDate, LastDate;
+
+    if(StrToDateTime(argv[1], "yyyymmdd", FirstDate) == EOF) {
+        cout << "wrong first date: " << argv[1] << endl;
+        return 1;
+    }
+
+    if(StrToDateTime(argv[2], "yyyymmdd", LastDate) == EOF) {
+        cout << "wrong last date: " << argv[1] << endl;
+        return 1;
+    }
+
+    TPeriods period;
+    period.get(FirstDate, LastDate);
+    string delim = ";";
+    for(TPeriods::TItems::iterator i = period.items.begin(); i != period.items.end(); i++) {
+        ofstream of(((string)"departed." + DateTimeToStr(i->first, "yymm") + ".csv").c_str());
+        of
+            << "ФИО" << delim
+            << "Дата рождения" << delim
+            << "Пол" << delim
+            << "Тип документа" << delim
+            << "Серия и номер документа" << delim
+            << "Номер билета" << delim
+            << "Номер бронирования" << delim
+            << "Рейс" << delim
+            << "Дата вылета" << delim
+            << "От" << delim
+            << "До" << endl;
+        departed_month(*i, of);
+    }
+    LogTrace(TRACE5) << "time: " << tm.PrintWithMessage();
+    return 1;
+}
+
+int nosir_departed_pax(int argc, char **argv)
+{
+    TDateTime FirstDate, LastDate;
+    StrToDateTime("01.04.2016 00:00:00", "dd.mm.yyyy hh:nn:ss", FirstDate);
+    LastDate = NowUTC();
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+    "SELECT point_id, airline, flt_no, suffix, airp, scd_out  FROM points "
+    "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND airline='ЮТ' AND "
+    "      pr_reg<>0 AND pr_del>=0";
+    Qry.CreateVariable("FirstDate", otDate, FirstDate);
+    Qry.CreateVariable("LastDate", otDate, LastDate);
+
+    TQuery paxQry(&OraSession);
+    paxQry.SQLText =
+        "select "
+        "   pax.name, "
+        "   pax.surname, "
+        "   pax.ticket_no, "
+        "   pax.coupon_no, "
+        "   crs_pnr.pnr_id, "
+        "   pax.pax_id "
+        "from "
+        "   pax, pax_grp, crs_pnr, crs_pax where "
+        "   pax.pax_id = crs_pax.pax_id(+) and "
+        "   crs_pax.pr_del(+)=0 and "
+        "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+        "   pax_grp.point_dep = :point_id and "
+        "   pax_grp.grp_id = pax.grp_id ";
+    paxQry.DeclareVariable("point_id", otInteger);
+
+    Qry.Execute();
+    bool pr_header = true;
+    string delim = ";";
+    ofstream of;
+    TTripRoute route;
+    vector<TPnrAddrItem> pnrs;
+    for(; not Qry.Eof; Qry.Next()) {
+        int point_id = Qry.FieldAsInteger("point_id");
+        route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
+        string airp_arv;
+        if(not route.empty())
+            airp_arv = route.begin()->airp;
+        
+        paxQry.SetVariable("point_id", point_id);
+        paxQry.Execute();
+        for(; not paxQry.Eof; paxQry.Next()) {
+            if(pr_header) {
+                pr_header = false;
+                of.open("pax_departed.csv");
+                of
+                    << "ФИО" << delim
+                    << "Номер билета" << delim
+                    << "Номер бронирования" << delim
+                    << "Рейс" << delim
+                    << "Дата вылета" << delim
+                    << "Направление" << delim
+                    << "Дата рождения" << delim
+                    << "Пол" << endl;
+            }
+            string name = paxQry.FieldAsString("name");
+            string surname = paxQry.FieldAsString("surname");
+
+            string airline = Qry.FieldAsString("airline");
+            int flt_no = Qry.FieldAsInteger("flt_no");
+            string suffix = Qry.FieldAsString("suffix");
+            string airp = Qry.FieldAsString("airp");
+            TDateTime scd_out = Qry.FieldAsDateTime("scd_out");
+            ostringstream flt_str;
+            flt_str
+                << airline
+                << setw(3) << setfill('0') << flt_no
+                << (suffix.empty() ? "" : suffix);
+
+            string ticket_no = paxQry.FieldAsString("ticket_no");
+            string coupon_no = paxQry.FieldAsString("coupon_no");
+            ostringstream ticket;
+            if(not ticket_no.empty())
+                ticket << ticket_no << (coupon_no.empty() ? "" : "/") << coupon_no;
+
+            GetPnrAddr(paxQry.FieldAsInteger("pnr_id"), pnrs);
+            string pnr_addr;
+            if (!pnrs.empty())
+                pnr_addr.append(pnrs.begin()->addr).append("/").append(pnrs.begin()->airline);
+
+            CheckIn::TPaxDocItem doc;
+            LoadPaxDoc(paxQry.FieldAsInteger("pax_id"), doc);
+            string birth_date = (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "dd.mmm.yy"):"");
+            string gender = doc.gender;
+
+            of
+                // ФИО
+                << name << (name.empty() ? "" : " ") << surname << delim
+                // Дата рождения
+                << birth_date << delim
+                // Пол
+                << gender << delim
+                // Тип документа
+                << delim
+                // Серия документа
+                << delim
+                // Номер документа
+                << delim
+                // Номер билета
+                << ticket.str() << delim
+                // Номер бронирования
+                << pnr_addr << delim
+                // Рейс
+                << flt_str.str() << delim
+                // Дата вылета
+                << DateTimeToStr(scd_out, "ddmmm") << delim
+                // От
+                << delim
+                // До
+                << route.begin()->airp << delim;
+        }
     }
     return 1;
 }
