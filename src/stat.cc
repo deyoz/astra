@@ -9932,7 +9932,7 @@ int nosir_seDCSAddReport(int argc, char **argv)
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         const char *delim = ",";
-        ofstream of((string)"seDCSAddReport." + argv[1] + ".csv");
+        ofstream of(((string)"seDCSAddReport." + argv[1] + ".csv").c_str());
         of
             << "Код аэропорта (города)" << delim
             << "Перевозчик" << delim
