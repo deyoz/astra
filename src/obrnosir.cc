@@ -102,6 +102,7 @@ const
     {"-departed_pax",           nosir_departed_pax,     NULL,                       NULL},
     {"-departed",               nosir_departed,         NULL,                       NULL},
     {"-sql",                    nosir_departed_sql,     NULL,                       NULL},
+    {"-seDCSAddReport",         nosir_seDCSAddReport,   NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

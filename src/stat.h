@@ -110,6 +110,7 @@ int nosir_stat_order(int argc,char **argv);
 int nosir_departed_pax(int argc, char **argv);
 int nosir_departed(int argc, char **argv);
 int nosir_departed_sql(int argc, char **argv);
+int nosir_seDCSAddReport(int argc, char **argv);
 
 
 void stat_orders_collect(void);
