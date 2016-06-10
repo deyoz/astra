@@ -729,17 +729,6 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
           "ORDER BY DECODE(rem_code,'TKNE',0,'TKNA',1,'TKNO',2,3),ticket_no,coupon_no";
       CrsTKNQry.DeclareVariable( "pax_id", otInteger );
 
-      TQuery FQTQry(&OraSession);
-      FQTQry.DeclareVariable( "pax_id", otInteger );
-
-      const char* PaxFQTQrySQL=
-          "SELECT rem_code, airline, no, extra "
-          "FROM pax_fqt WHERE pax_id=:pax_id AND rem_code='FQTV'";
-
-      const char* CrsFQTQrySQL=
-          "SELECT rem_code, airline, no, extra "
-          "FROM crs_pax_fqt WHERE pax_id=:pax_id AND rem_code='FQTV'";
-
       TQuery SeatQry(&OraSession);
       SeatQry.SQLText=
           "BEGIN "
@@ -840,8 +829,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
             pax.tkn.fromDB(Qry);
             LoadPaxDoc(pax.pax_id, pax.doc);
             LoadPaxDoco(pax.pax_id, pax.doco);
-            FQTQry.SQLText=PaxFQTQrySQL;
-            FQTQry.SetVariable( "pax_id", pax.pax_id );
+            CheckIn::LoadPaxFQT(pax.pax_id, pax.fqts);
           }
           else
           {
@@ -882,19 +870,8 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
             if (!pax.agent_checkin_reasons.empty())
               pax.checkin_status = "agent_checkin";
 
-            FQTQry.SQLText=CrsFQTQrySQL;
-            FQTQry.SetVariable( "pax_id", pax.crs_pax_id );
+            CheckIn::LoadCrsPaxFQT(pax.crs_pax_id, pax.fqts);
           }
-          FQTQry.Execute();
-          for(; !FQTQry.Eof; FQTQry.Next())
-          {
-            TypeB::TFQTItem FQTItem;
-            strcpy(FQTItem.rem_code, FQTQry.FieldAsString("rem_code"));
-            strcpy(FQTItem.airline, FQTQry.FieldAsString("airline"));
-            strcpy(FQTItem.no, FQTQry.FieldAsString("no"));
-            FQTItem.extra = FQTQry.FieldAsString("extra");
-            pax.fqt_rems.push_back(FQTItem);
-          };
           pax.crs_pnr_tid = Qry.FieldAsInteger( "crs_pnr_tid" );
           pax.crs_pax_tid = Qry.FieldAsInteger( "crs_pax_tid" );
           if ( !Qry.FieldIsNULL( "pax_grp_tid" ) )
@@ -948,11 +925,11 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
 
         if (!Qry.FieldIsNULL("fqt_airline") && !Qry.FieldIsNULL("fqt_no"))
         {
-          TypeB::TFQTItem FQTItem;
-          strcpy(FQTItem.rem_code, "FQTV");
-          strcpy(FQTItem.airline, Qry.FieldAsString("fqt_airline"));
-          strcpy(FQTItem.no, Qry.FieldAsString("fqt_no"));
-            pax.fqt_rems.push_back(FQTItem);
+          CheckIn::TPaxFQTItem fqt;
+          fqt.rem="FQTV";
+          fqt.airline=Qry.FieldAsString("fqt_airline");
+          fqt.no=Qry.FieldAsString("fqt_no");
+          pax.fqts.push_back(fqt);
         };
 
         pax.crs_pnr_tid = pnr_id;
@@ -1144,12 +1121,8 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids,
         PaxDocoToXML(iPax->doco, paxNode);
 
         xmlNodePtr fqtsNode = NewTextChild( paxNode, "fqt_rems" );
-        for ( vector<TypeB::TFQTItem>::const_iterator f=iPax->fqt_rems.begin(); f!=iPax->fqt_rems.end(); f++ )
-        {
-          xmlNodePtr fqtNode = NewTextChild( fqtsNode, "fqt_rem" );
-          NewTextChild( fqtNode, "airline", f->airline );
-          NewTextChild( fqtNode, "no", f->no );
-        };
+        for(vector<CheckIn::TPaxFQTItem>::const_iterator f=iPax->fqts.begin(); f!=iPax->fqts.end(); ++f++)
+          if (f->rem=="FQTV") f->toXML(fqtsNode);
 
         xmlNodePtr tidsNode = NewTextChild( paxNode, "tids" );
         NewTextChild( tidsNode, "crs_pnr_tid", iPax->crs_pnr_tid );
@@ -1573,11 +1546,6 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
 
   TWebPnrForSave pnr;
 
-  TQuery RemQry(&OraSession);
-  RemQry.Clear();
-  RemQry.SQLText="SELECT rem FROM crs_pax_rem WHERE pax_id=:pax_id AND rem_code='FQTV'";
-  RemQry.DeclareVariable("pax_id", otInteger);
-
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
@@ -1629,9 +1597,6 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
     paxFromReq.crs_pax_id=Qry.FieldAsInteger("pax_id");
     paxFromReq.crs_pnr_tid=Qry.FieldAsInteger("crs_pnr_tid");
     paxFromReq.crs_pax_tid=Qry.FieldAsInteger("crs_pax_tid");
-    RemQry.SetVariable("pax_id", paxFromReq.crs_pax_id);
-    RemQry.Execute();
-    for(;!RemQry.Eof;RemQry.Next()) paxFromReq.fqt_rems.push_back(RemQry.FieldAsString("rem"));
 
     TWebPaxForCkin paxForCkin;
     paxForCkin.crs_pax_id=Qry.FieldAsInteger("pax_id");
@@ -2144,20 +2109,22 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         }
 
         xmlNodePtr fqtNode = GetNode("fqt_rems", paxNode);
-        pax.fqt_rems_present=(fqtNode!=NULL); //если тег <fqt_rems> пришел, то изменяем и перезаписываем ремарки FQTV
-        if (fqtNode!=NULL)
-        {
+        if (fqtNode!=NULL) {
+          //если тег <fqt_rems> пришел, то изменяем и перезаписываем ремарки FQTV
+          pax.fqtv_rems_present=true;
           //читаем пришедшие ремарки
           for(fqtNode=fqtNode->children; fqtNode!=NULL; fqtNode=fqtNode->next)
           {
-            ostringstream rem_text;
-            rem_text << "FQTV "
-                     << NodeAsString("airline",fqtNode) << " "
-                     << NodeAsString("no",fqtNode);
-            pax.fqt_rems.push_back(rem_text.str());
+            CheckIn::TPaxFQTItem fqt;
+            fqt.rem="FQTV";
+            TElemFmt fmt;
+            fqt.airline = ElemToElemId( etAirline, NodeAsString("airline",fqtNode), fmt );
+            if (fmt==efmtUnknown)
+              fqt.airline=NodeAsString("airline",fqtNode);
+            fqt.no=NodeAsString("no",fqtNode);
+            pax.fqtv_rems.push_back(fqt);
           };
         };
-        sort(pax.fqt_rems.begin(),pax.fqt_rems.end());
 
         pax.refuse=NodeAsIntegerFast("refuse", node2, 0)!=0;
         if (pax.refuse) pnr.refusalCountFromReq++;

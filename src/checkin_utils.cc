@@ -16,6 +16,28 @@ using namespace AstraLocale;
 using namespace BASIC;
 using namespace SALONS2;
 
+bool TWebPaxFromReq::mergePaxFQT(vector<CheckIn::TPaxFQTItem> &fqts) const
+{
+  if (!fqtv_rems_present) return false;
+  multiset<string> prior, curr;
+  for(vector<CheckIn::TPaxFQTItem>::iterator f=fqts.begin(); f!=fqts.end();)
+  {
+    if (f->rem=="FQTV")
+    {
+      prior.insert(f->rem_text(false));
+      f=fqts.erase(f);
+    }
+    else
+      ++f;
+  };
+  for(vector<CheckIn::TPaxFQTItem>::const_iterator f=fqtv_rems.begin(); f!=fqtv_rems.end(); ++f)
+    curr.insert(f->rem_text(false));
+
+  fqts.insert(fqts.end(), fqtv_rems.begin(), fqtv_rems.end());
+
+  return prior!=curr;
+}
+
 void CheckSeatNoFromReq(int point_id,
                         int crs_pax_id,
                         const string &prior_seat_no,
@@ -125,26 +147,18 @@ void CheckSeatNoFromReq(int point_id,
   };
 }
 
-void CreateEmulRems(xmlNodePtr paxNode, TQuery &RemQry, const vector<string> &fqtv_rems)
+void CreateEmulRems(xmlNodePtr paxNode, const vector<CheckIn::TPaxRemItem> &rems, const vector<CheckIn::TPaxFQTItem> &fqts)
 {
   xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
-  for(;!RemQry.Eof;RemQry.Next())
+  for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
   {
-    const char* rem_code=RemQry.FieldAsString("rem_code");
-    const char* rem_text=RemQry.FieldAsString("rem");
-    if (isDisabledRem(rem_code, rem_text, false)) continue;
-    if (strcmp(rem_code,"FQTV")==0) continue;
-    xmlNodePtr remNode=NewTextChild(remsNode,"rem");
-    NewTextChild(remNode,"rem_code",rem_code);
-    NewTextChild(remNode,"rem_text",rem_text);
-  };
-  //добавим переданные fqtv_rems
-  for(vector<string>::const_iterator r=fqtv_rems.begin();r!=fqtv_rems.end();r++)
-  {
-    xmlNodePtr remNode=NewTextChild(remsNode,"rem");
-    NewTextChild(remNode,"rem_code","FQTV");
-    NewTextChild(remNode,"rem_text",*r);
-  };
+    if (isDisabledRem(r->code, r->text)) continue;
+    r->toXML(remsNode);
+  }
+
+  //добавим fqts
+  for(vector<CheckIn::TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
+    CheckIn::TPaxRemItem(*r, false).toXML(remsNode);
 }
 
 void CompletePnrDataForCrew(const string &airp_arv, WebSearch::TPnrData &pnrData)
@@ -298,17 +312,6 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
                     XMLDoc &emulCkinDoc, map<int,XMLDoc> &emulChngDocs)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-
-  const char* PaxRemQrySQL=
-      "SELECT rem_code,rem FROM pax_rem "
-      "WHERE pax_id=:pax_id AND rem_code NOT IN ('FQTV')";
-
-  const char* CrsPaxRemQrySQL=
-      "SELECT rem_code,rem FROM crs_pax_rem "
-      "WHERE pax_id=:pax_id AND rem_code NOT IN ('FQTV')";
-
-  TQuery RemQry(&OraSession);
-  RemQry.DeclareVariable("pax_id",otInteger);
 
   TDateTime now_local;
   if  (!PNRs.empty())
@@ -484,10 +487,12 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
               NewTextChild(paxNode,"reg_no",iPaxForCkin->reg_no);
 
             //ремарки
-            RemQry.SQLText=CrsPaxRemQrySQL;
-            RemQry.SetVariable("pax_id",iPaxForCkin->crs_pax_id);
-            RemQry.Execute();
-            CreateEmulRems(paxNode, RemQry, iPaxFromReq->fqt_rems);
+            vector<CheckIn::TPaxRemItem> rems;
+            CheckIn::LoadCrsPaxRem(iPaxForCkin->crs_pax_id, rems);
+            vector<CheckIn::TPaxFQTItem> fqts;
+            CheckIn::LoadCrsPaxFQT(iPaxForCkin->crs_pax_id, fqts);
+            iPaxFromReq->mergePaxFQT(fqts);
+            CreateEmulRems(paxNode, rems, fqts);
 
             NewTextChild(paxNode,"norms"); //пустой тег - норм нет
           }
@@ -573,17 +578,11 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           };
 
           bool FQTRemUpdatesPending=false;
-          if (iPaxFromReq->fqt_rems_present) //тег <fqt_rems> пришел
+          vector<CheckIn::TPaxFQTItem> fqts;
+          if (iPaxFromReq->fqtv_rems_present) //тег <fqt_rems> пришел
           {
-            vector<string> prior_fqt_rems;
-            //читаем уже записанные ремарки FQTV
-            RemQry.SQLText="SELECT rem FROM pax_rem WHERE pax_id=:pax_id AND rem_code='FQTV'";
-            RemQry.SetVariable("pax_id", iPaxForChng->crs_pax_id);
-            RemQry.Execute();
-            for(;!RemQry.Eof;RemQry.Next()) prior_fqt_rems.push_back(RemQry.FieldAsString("rem"));
-            //сортируем и сравниваем
-            sort(prior_fqt_rems.begin(),prior_fqt_rems.end());
-            FQTRemUpdatesPending=prior_fqt_rems!=iPaxFromReq->fqt_rems;
+            CheckIn::LoadPaxFQT(iPaxForChng->crs_pax_id, fqts);
+            FQTRemUpdatesPending=iPaxFromReq->mergePaxFQT(fqts);
           };
 
           if (iPaxFromReq->refuse ||
@@ -642,10 +641,9 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             if (FQTRemUpdatesPending)
             {
               //ремарки
-              RemQry.SQLText=PaxRemQrySQL;
-              RemQry.SetVariable("pax_id",iPaxForChng->crs_pax_id);
-              RemQry.Execute();
-              CreateEmulRems(paxNode, RemQry, iPaxFromReq->fqt_rems);
+              vector<CheckIn::TPaxRemItem> rems;
+              CheckIn::LoadPaxRem(iPaxForChng->crs_pax_id, rems);
+              CreateEmulRems(paxNode, rems, fqts);
             };
           };
         }

@@ -12,8 +12,8 @@ struct TWebPaxFromReq
   std::string seat_no;
   CheckIn::TPaxDocItem doc;
   CheckIn::TPaxDocoItem doco;
-  std::vector<std::string> fqt_rems;
-  bool fqt_rems_present;
+  std::vector<CheckIn::TPaxFQTItem> fqtv_rems;
+  bool fqtv_rems_present;
   std::set<TAPIType> present_in_req;
   bool refuse;
   int crs_pnr_tid;
@@ -22,13 +22,14 @@ struct TWebPaxFromReq
     int pax_tid;
   TWebPaxFromReq() {
         crs_pax_id = ASTRA::NoExists;
-        fqt_rems_present = false;
+        fqtv_rems_present = false;
         refuse = false;
         crs_pnr_tid = ASTRA::NoExists;
         crs_pax_tid	= ASTRA::NoExists;
         pax_grp_tid = ASTRA::NoExists;
         pax_tid = ASTRA::NoExists;
     };
+  bool mergePaxFQT(std::vector<CheckIn::TPaxFQTItem> &fqts) const;
 };
 
 struct TWebPaxForChng
@@ -111,7 +112,7 @@ void CheckSeatNoFromReq(int point_id,
                         std::string &curr_xname,
                         std::string &curr_yname,
                         bool &changed);
-void CreateEmulRems(xmlNodePtr paxNode, TQuery &RemQry, const std::vector<std::string> &fqtv_rems);
+void CreateEmulRems(xmlNodePtr paxNode, const std::vector<CheckIn::TPaxRemItem> &rems, const std::vector<CheckIn::TPaxFQTItem> &fqts);
 void CompletePnrDataForCrew(const std::string &airp_arv, WebSearch::TPnrData &pnrData);
 void CompletePnrData(bool is_test, int pnr_id, WebSearch::TPnrData &pnrData);
 void CreateEmulXMLDoc(xmlNodePtr reqNode, XMLDoc &emulDoc);
