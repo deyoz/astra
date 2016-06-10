@@ -1982,6 +1982,7 @@ void PrintInterface::GetIatciPrintDataBP(int grpId,
                 parser->pts.set_tag(TAG::DOCUMENT,      xmlPax.doc ? xmlPax.doc->no : "");
                 parser->pts.set_tag(TAG::DUPLICATE,     0); // TODO get it
                 parser->pts.set_tag(TAG::EST,           est_act_scd);
+                parser->pts.set_tag(TAG::ETICKET_NO,    tickCpn.str());
                 parser->pts.set_tag(TAG::ETKT,          tickCpn.str());
                 parser->pts.set_tag(TAG::EXCESS,        0); // TODO get it
                 parser->pts.set_tag(TAG::FLT_NO,        xmlSeg.trip_header.flt_no);
@@ -2010,6 +2011,7 @@ void PrintInterface::GetIatciPrintDataBP(int grpId,
                 parser->pts.set_tag(TAG::RK_WEIGHT,      0); // TODO get it
                 parser->pts.set_tag(TAG::SCD,           est_act_scd);
                 parser->pts.set_tag(TAG::SEAT_NO,       xmlPax.seat_no);
+                parser->pts.set_tag(TAG::STR_SEAT_NO,   xmlPax.seat_no);
                 parser->pts.set_tag(TAG::SUBCLS,        xmlPax.subclass);
                 parser->pts.set_tag(TAG::SURNAME,       xmlPax.surname);
                 parser->pts.set_tag(TAG::TAGS,          ""); // TODO get it
@@ -2330,6 +2332,8 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                                   PaxASVCList::ExistsPaxUnboundEMD(iPax->pax_id));
         NewTextChild(paxNode, "unbound_emd_warning", (int)unbound_emd_warning, (int)false);
     }
+
+    LogTrace(TRACE1) << "print res:\n" << XMLTreeToText(resNode->doc);
 }
 
 struct TPrnTestsKey {

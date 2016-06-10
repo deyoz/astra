@@ -286,8 +286,9 @@ class TPrnTagStore {
                 scd(ASTRA::NoExists),
                 est(ASTRA::NoExists),
                 act(ASTRA::NoExists),
-                point_id(ASTRA::NoExists)
-            {};
+                point_id(ASTRA::NoExists),
+                flt_no(ASTRA::NoExists)
+            {}
             void Init(ASTRA::TDevOperType op, int apoint_id, int grp_id);
         };
         TPointInfo pointInfo;
@@ -302,9 +303,12 @@ class TPrnTagStore {
             int hall;
             TGrpInfo():
                 grp_id(ASTRA::NoExists),
+                point_dep(ASTRA::NoExists),
+                point_arv(ASTRA::NoExists),
                 class_grp(ASTRA::NoExists),
+                excess(ASTRA::NoExists),
                 hall(ASTRA::NoExists)
-            {};
+            {}
             void Init(int agrp_id, int apax_id);
         };
         TGrpInfo grpInfo;
@@ -346,7 +350,7 @@ class TPrnTagStore {
                 rk_amount(ASTRA::NoExists),
                 rk_weight(ASTRA::NoExists),
                 pr_bp_print(false)
-            {};
+            {}
             void Init(int apax_id, TTagLang &tag_lang);
         };
         TPaxInfo paxInfo;

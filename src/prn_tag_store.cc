@@ -281,6 +281,8 @@ TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
 
 TPrnTagStore::TPrnTagStore(const std::string& airp_dep,
                            const std::string& airp_arv) :
+    pax_id(NoExists),
+    print_mode(0),
     time_print(NowUTC()),
     prn_tag_props(dotPrnBP)
 {
@@ -845,6 +847,10 @@ void TPrnTagStore::TRStationInfo::Init()
 
 void TPrnTagStore::TPnrInfo::Init(int apax_id)
 {
+    if(apax_id == NoExists) {
+        LogTrace(TRACE3) << "Fake pax_id detected!";
+        return;
+    }
     if(not pr_init) {
         pr_init = true;
         GetPaxPnrAddr(apax_id, pnrs, airline);
@@ -853,6 +859,10 @@ void TPrnTagStore::TPnrInfo::Init(int apax_id)
 
 void TPrnTagStore::TFqtInfo::Init(int apax_id)
 {
+    if(apax_id == NoExists) {
+        LogTrace(TRACE3) << "Fake pax_id detected!";
+        return;
+    }
     if(not pr_init) {
         pr_init = true;
         TQuery Qry(&OraSession);
@@ -872,6 +882,10 @@ void TPrnTagStore::TFqtInfo::Init(int apax_id)
 
 void TPrnTagStore::TRemInfo::Init(int point_id)
 {
+    if(point_id == NoExists) {
+        LogTrace(TRACE3) << "Fake point_id detected!";
+        return;
+    }
     if(not pr_init) {
         pr_init = true;
         rem.Load(retBP, point_id);
@@ -880,6 +894,10 @@ void TPrnTagStore::TRemInfo::Init(int point_id)
 
 void TPrnTagStore::TBrdInfo::Init(int point_id)
 {
+    if(point_id == NoExists) {
+        LogTrace(TRACE3) << "Fake point_id detected!";
+        return;
+    }
     if(brd_from == NoExists) {
         TQuery Qry(&OraSession);
         Qry.SQLText =
@@ -910,7 +928,10 @@ void TPrnTagStore::TBrdInfo::Init(int point_id)
 
 void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
 {
-    if(apax_id == NoExists) return;
+    if(apax_id == NoExists) {
+        LogTrace(TRACE3) << "Fake pax_id detected!";
+        return;
+    }
     if(pax_id == NoExists) {
         pax_id = apax_id;
         TQuery Qry(&OraSession);
@@ -1010,6 +1031,10 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
 
 void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
 {
+    if(agrp_id == NoExists || apax_id == NoExists) {
+        LogTrace(TRACE3) << "Fake grp_id or pax_id detected!";
+        return;
+    }
     if(grp_id == NoExists) {
         grp_id = agrp_id;
         TQuery Qry(&OraSession);
@@ -1081,6 +1106,10 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
 
 void TPrnTagStore::TPointInfo::Init(TDevOperType op, int apoint_id, int agrp_id)
 {
+    if(apoint_id == NoExists || agrp_id == NoExists) {
+        LogTrace(TRACE3) << "Fake point_id or grp_id detected!";
+        return;
+    }
     if(point_id == NoExists) {
         point_id = apoint_id;
         TQuery Qry(&OraSession);
@@ -2294,7 +2323,7 @@ string TPrnTagStore::SUBCLS(TFieldParams fp)
 
 string TPrnTagStore::STR_SEAT_NO(TFieldParams fp)
 {
-    if(scan_data != NULL)
+    if(scan_data != NULL || !fp.TagInfo.empty())
         return SEAT_NO(fp);
     else
         return get_fmt_seat("voland", tag_lang.english_tag());
