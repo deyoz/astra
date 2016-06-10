@@ -6134,6 +6134,27 @@ void TRemInfo::parse(const string &rem)
     }
 }
 
+struct TAirpArvInfo {
+    map<int, string> items;
+    string get(TQuery &Qry)
+    {
+        int grp_id = Qry.FieldAsInteger("grp_id");
+        map<int, string>::iterator im = items.find(grp_id);
+        if(im == items.end()) {
+            TCkinRoute tckin_route;
+            tckin_route.GetRouteAfter(grp_id, crtWithCurrent, crtIgnoreDependent);
+            string airp_arv;
+            if(tckin_route.empty())
+                airp_arv = Qry.FieldAsString("airp_arv");
+            else
+                airp_arv = tckin_route.back().airp_arv;
+            pair<map<int, string>::iterator, bool> res = items.insert(make_pair(grp_id, airp_arv));
+            im = res.first;
+        }
+        return im->second;
+    }
+};
+
 void get_limited_capability_stat(int point_id)
 {
     TCachedQuery delQry("delete from limited_capability_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
@@ -6154,26 +6175,7 @@ void get_limited_capability_stat(int point_id)
     Qry.get().Execute();
     if(not Qry.get().Eof) {
 
-        struct TAirpArvInfo {
-            map<int, string> items;
-            string get(TQuery &Qry)
-            {
-                int grp_id = Qry.FieldAsInteger("grp_id");
-                map<int, string>::iterator im = items.find(grp_id);
-                if(im == items.end()) {
-                    TCkinRoute tckin_route;
-                    tckin_route.GetRouteAfter(grp_id, crtWithCurrent, crtIgnoreDependent);
-                    string airp_arv;
-                    if(tckin_route.empty())
-                        airp_arv = Qry.FieldAsString("airp_arv");
-                    else
-                        airp_arv = tckin_route.back().airp_arv;
-                    pair<map<int, string>::iterator, bool> res = items.insert(make_pair(grp_id, airp_arv));
-                    im = res.first;
-                }
-                return im->second;
-            }
-        } airp_arv_info;
+        TAirpArvInfo airp_arv_info;
 
         map<string, map<string, int> > rems;
         for(; not Qry.get().Eof; Qry.get().Next()) {
@@ -9430,7 +9432,9 @@ void departed_flt(TQuery &Qry, ofstream &of)
         "   pax.surname, \n"
         "   pax.ticket_no, \n"
         "   pax.coupon_no, \n"
-        "   pax.pax_id \n"
+        "   pax.pax_id, \n"
+        "   pax.grp_id, \n"
+        "   pax_grp.airp_arv \n"
         "from \n";
     if(part_key == NoExists)
         SQLText +=
@@ -9459,16 +9463,11 @@ void departed_flt(TQuery &Qry, ofstream &of)
 
     string delim = ";";
 
-    TTripRoute route;
-    route.GetRouteAfter(part_key, point_id, trtNotCurrent, trtNotCancelled);
-    string airp_arv;
-    if(not route.empty())
-        airp_arv = route.begin()->airp;
-
     vector<TPnrAddrItem> pnrs;
 
     paxQry.SQLText = SQLText;
     paxQry.Execute();
+    TAirpArvInfo airp_arv_info;
     for(; not paxQry.Eof; paxQry.Next()) {
         string name = paxQry.FieldAsString("name");
         string surname = paxQry.FieldAsString("surname");
@@ -9529,7 +9528,7 @@ void departed_flt(TQuery &Qry, ofstream &of)
             // Žâ
             << airp << delim
             // „®
-            << airp_arv << endl;
+            << airp_arv_info.get(paxQry) << endl;
     }
 
     /*
@@ -9600,13 +9599,24 @@ int nosir_departed_sql(int argc, char **argv)
 
 int nosir_departed(int argc, char **argv)
 {
+    if(argc != 3) {
+        cout << "usage: " << argv[0] << " yyyymmdd yyyymmdd" << endl;
+        return 1;
+    }
     TPerfTimer tm;
     tm.Init();
     TDateTime FirstDate, LastDate;
-//    StrToDateTime("01.01.2011 00:00:00", "dd.mm.yyyy hh:nn:ss", FirstDate);
-//    StrToDateTime("01.01.2017 00:00:00", "dd.mm.yyyy hh:nn:ss", LastDate);
-    StrToDateTime("01.01.2015 00:00:00", "dd.mm.yyyy hh:nn:ss", FirstDate);
-    StrToDateTime("01.07.2015 00:00:00", "dd.mm.yyyy hh:nn:ss", LastDate);
+
+    if(StrToDateTime(argv[1], "yyyymmdd", FirstDate) == EOF) {
+        cout << "wrong first date: " << argv[1] << endl;
+        return 1;
+    }
+
+    if(StrToDateTime(argv[2], "yyyymmdd", LastDate) == EOF) {
+        cout << "wrong last date: " << argv[1] << endl;
+        return 1;
+    }
+
     TPeriods period;
     period.get(FirstDate, LastDate);
     string delim = ";";
