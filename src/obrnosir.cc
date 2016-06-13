@@ -96,6 +96,10 @@ const
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
     {"-ffp",                    ffp,                    ffp_help,                   "getting FFP card status"},
+    {"-departed_pax",           nosir_departed_pax,     NULL,                       NULL},
+    {"-departed",               nosir_departed,         NULL,                       NULL},
+    {"-sql",                    nosir_departed_sql,     NULL,                       NULL},
+    {"-seDCSAddReport",         nosir_seDCSAddReport,   NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
