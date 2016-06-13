@@ -105,7 +105,6 @@ public:
 void get_flight_stat(int point_id, bool final_collection);
 int nosir_rfisc_stat(int argc,char **argv);
 int nosir_stat_order(int argc,char **argv);
-int nosir_seDCSAddReport(int argc, char **argv);
 
 void stat_orders_collect(void);
 void stat_orders_synchro(void);
