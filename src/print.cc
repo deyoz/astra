@@ -2018,6 +2018,7 @@ void PrintInterface::GetIatciPrintDataBP(int grpId,
 
 
                 BPPax pax;
+                pax.pax_id = -1;
                 pax.reg_no = xmlPax.reg_no; // Зачем?
                 pax.prn_form = parser->parse(data);
                 pax.hex = false;
