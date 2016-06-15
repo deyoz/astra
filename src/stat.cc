@@ -9124,6 +9124,47 @@ int nosir_rfisc_all(int argc,char **argv)
     return 1;
 }
 
+void nosir_lim_capab_stat_point(int point_id)
+{
+    TFlights flightsForLock;
+    flightsForLock.Get( point_id, ftTranzit );
+    flightsForLock.Lock();
+
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "SELECT count(*) from points where point_id=:point_id AND pr_del=0";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if (Qry.Eof || Qry.FieldAsInteger(0) == 0)
+    {
+        OraSession.Rollback();
+        return;
+    }
+
+    get_limited_capability_stat(point_id);
+
+    OraSession.Commit();
+}
+
+int nosir_lim_capab_stat(int argc,char **argv)
+{
+    cout << "start time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
+    list<int> point_ids;
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select point_id from trip_sets";
+    Qry.Execute();
+    for(; not Qry.Eof; Qry.Next()) point_ids.push_back(Qry.FieldAsInteger(0));
+    OraSession.Rollback();
+    cout << point_ids.size() << " points to process." << endl;
+    int count = 0;
+    for(list<int>::iterator i = point_ids.begin(); i != point_ids.end(); i++, count++) {
+        nosir_lim_capab_stat_point(*i);
+        if(not (count % 1000))
+            cout << count << endl;
+    }
+    cout << "end time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
+    return 0;
+}
+
 int nosir_rfisc_stat(int argc,char **argv)
 {
     cout << "start time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;

@@ -103,6 +103,7 @@ const
     {"-departed",               nosir_departed,         NULL,                       NULL},
     {"-sql",                    nosir_departed_sql,     NULL,                       NULL},
     {"-seDCSAddReport",         nosir_seDCSAddReport,   NULL,                       NULL},
+    {"-lim_capab_stat",         nosir_lim_capab_stat,   NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
