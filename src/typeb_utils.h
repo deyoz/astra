@@ -724,11 +724,13 @@ class TPRLOptions : public TMarkInfoOptions
     private:
         void init()
         {
+            version = "201606";
             create_point = "CLOSE_CKIN";
             pax_state = "BRD";
             rbd = false;
         }
     public:
+        std::string version;
         std::string create_point;
         std::string pax_state;
         bool rbd;
@@ -744,6 +746,7 @@ class TPRLOptions : public TMarkInfoOptions
             TMarkInfoOptions::fromXML(node);
             if(node == NULL) return;
             xmlNodePtr node2=node->children;
+            version=NodeAsStringFast("version", node2, version.c_str());
             create_point = NodeAsStringFast("create_point", node2, create_point.c_str());
             pax_state = NodeAsStringFast("pax_state", node2, pax_state.c_str());
             rbd = NodeAsIntegerFast("rbd", node2, rbd) != 0;
@@ -757,6 +760,11 @@ class TPRLOptions : public TMarkInfoOptions
             for(;!OptionsQry.Eof;OptionsQry.Next())
             {
                 std::string cat=OptionsQry.FieldAsString("category");
+                if (cat=="VERSION")
+                {
+                    version = OptionsQry.FieldAsString("value");
+                    continue;
+                };
                 if (cat=="CREATE_POINT")
                 {
                     create_point = OptionsQry.FieldAsString("value");
@@ -779,6 +787,9 @@ class TPRLOptions : public TMarkInfoOptions
             TMarkInfoOptions::logStr(s);
             s
                 << ", "
+                << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
+                << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+VERSION+"+version)
+                << ", "
                 << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.CREATE_POINT") << ": "
                 << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+CREATE_POINT+"+create_point)
                 << ", "
@@ -794,6 +805,9 @@ class TPRLOptions : public TMarkInfoOptions
         {
             TMarkInfoOptions::extraStr(s);
             s
+                << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
+                << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+VERSION+"+version)
+                << endl
                 << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.CREATE_POINT") << ": "
                 << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+CREATE_POINT+"+create_point)
                 << endl
@@ -817,6 +831,7 @@ class TPRLOptions : public TMarkInfoOptions
             {
                 const TPRLOptions &opt = dynamic_cast<const TPRLOptions&>(item);
                 return
+                    version == opt.version and
                     create_point == opt.create_point and
                     rbd == opt.rbd and
                     pax_state == opt.pax_state;
@@ -833,6 +848,7 @@ class TPRLOptions : public TMarkInfoOptions
             {
                 const TPRLOptions &opt = dynamic_cast<const TPRLOptions&>(item);
                 return
+                    version == opt.version and
                     create_point == opt.create_point and
                     rbd == opt.rbd and
                     pax_state == opt.pax_state;
@@ -848,6 +864,7 @@ class TPRLOptions : public TMarkInfoOptions
             try
             {
                 const TPRLOptions &opt = dynamic_cast<const TPRLOptions&>(item);
+                version = opt.version;
                 create_point = opt.create_point;
                 pax_state = opt.pax_state;
                 rbd = opt.rbd;
