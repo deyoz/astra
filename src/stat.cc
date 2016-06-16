@@ -9140,7 +9140,18 @@ void nosir_lim_capab_stat_point(int point_id)
         return;
     }
 
-    get_limited_capability_stat(point_id);
+    bool pr_stat = false;
+    Qry.SQLText = "SELECT pr_stat FROM trip_sets WHERE point_id=:point_id";
+    Qry.Execute();
+    if(not Qry.Eof) pr_stat = Qry.FieldAsInteger(0) != 0;
+
+    int count = 0;
+    Qry.SQLText = "select count(*) from limited_capability_stat where point_id=:point_id";
+    Qry.Execute();
+    if(not Qry.Eof) count = Qry.FieldAsInteger(0);
+
+    if(pr_stat and count == 0)
+        get_limited_capability_stat(point_id);
 
     OraSession.Commit();
 }
