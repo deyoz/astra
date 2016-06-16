@@ -9,7 +9,6 @@
 #include "docs.h"
 #include "base_tables.h"
 #include "astra_utils.h"
-#include "astra_misc.h"
 #include "term_version.h"
 #include "passenger.h"
 #include "points.h"
@@ -20,6 +19,13 @@
 #include "astra_elems.h"
 #include "serverlib/xml_stuff.h"
 #include "astra_misc.h"
+#include "file_queue.h"
+#include "jxtlib/zip.h"
+#include "astra_context.h"
+#include "serverlib/str_utils.h"
+#include <boost/filesystem.hpp>
+#include <boost/shared_array.hpp>
+#include <boost/crc.hpp>
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -35,6 +41,69 @@ using namespace BASIC;
 const string SYSTEM_USER = "Система";
 
 const int arx_trip_date_range=5;
+
+enum TOrderStatus {
+    stReady,
+    stRunning,
+    stCorrupted,
+    stError,
+    stUnknown,
+    stNum
+};
+
+const char *TOrderStatusS[] = {
+    "Готов",
+    "Выполняется",
+    "Поврежден",
+    "Ошибка",
+    "?"
+};
+
+TOrderStatus DecodeOrderStatus( const string &os )
+{
+  int i;
+  for( i=0; i<(int)stNum; i++ )
+    if ( os == TOrderStatusS[ i ] )
+      break;
+  if ( i == stNum )
+    return stUnknown;
+  else
+    return (TOrderStatus)i;
+}
+
+const string EncodeOrderStatus(TOrderStatus s)
+{
+  return TOrderStatusS[s];
+};
+
+enum TOrderSource {
+    osSTAT,
+    osUnknown,
+    osNum
+};
+
+const char *TOrderSourceS[] = {
+    "STAT",
+    "?"
+};
+
+TOrderSource DecodeOrderSource( const string &os )
+{
+  int i;
+  for( i=0; i<(int)osNum; i++ )
+    if ( os == TOrderSourceS[ i ] )
+      break;
+  if ( i == osNum )
+    return osUnknown;
+  else
+    return (TOrderSource)i;
+}
+
+const string EncodeOrderSource(TOrderSource s)
+{
+  return TOrderSourceS[s];
+};
+
 
 const string AIRP_PERIODS =
 "(SELECT DECODE(SIGN(period_first_date-:FirstDate),1,period_first_date,:FirstDate) AS period_first_date, \n"
@@ -1856,12 +1925,74 @@ enum TStatType {
     statTlgOutDetail,
     statPactShort,
     statRFISC,
-    statService
+    statService,
+    statNum
 };
+
+const char *TStatTypeS[statNum] = {
+    "statTrferFull",
+    "statFull",
+    "statShort",
+    "statDetail",
+    "statSelfCkinFull",
+    "statSelfCkinShort",
+    "statSelfCkinDetail",
+    "statAgentFull",
+    "statAgentShort",
+    "statAgentTotal",
+    "statTlgOutFull",
+    "statTlgOutShort",
+    "statTlgOutDetail",
+    "statPactShort",
+    "statRFISC",
+    "statService"
+};
+
+TStatType DecodeStatType( const string stat_type )
+{
+    int i;
+    for( i=0; i<(int)statNum; i++ )
+        if ( stat_type == TStatTypeS[ i ] )
+            break;
+    return (TStatType)i;
+}
+
+string EncodeStatType(const TStatType stat_type)
+{
+    return (
+            stat_type >= statNum or stat_type < 0
+            ? string() : TStatTypeS[ stat_type ]
+           );
+}
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
 
+static const string PARAM_SEANCE_TYPE           = "seance_type";
+static const string PARAM_DESK_CITY             = "desk_city";
+static const string PARAM_NAME                  = "name";
+static const string PARAM_TYPE                  = "type";
+static const string PARAM_STAT_TYPE             = "stat_type";
+static const string PARAM_AIRLINES_PREFIX       = "airlines.";
+static const string PARAM_AIRLINES_PERMIT       = "airlines.permit";
+static const string PARAM_AIRPS_PREFIX          = "airps.";
+static const string PARAM_AIRPS_PERMIT          = "airps.permit";
+static const string PARAM_AIRP_COLUMN_FIRST     = "airp_column_first";
+static const string PARAM_FIRSTDATE             = "FirstDate";
+static const string PARAM_LASTDATE              = "LastDate";
+static const string PARAM_FLT_NO                = "flt_no";
+static const string PARAM_DESK                  = "desk";
+static const string PARAM_USER_ID               = "user_id";
+static const string PARAM_USER_LOGIN            = "user_login";
+static const string PARAM_TYPEB_TYPE            = "typeb_type";
+static const string PARAM_SENDER_ADDR           = "sender_addr";
+static const string PARAM_RECEIVER_DESCR        = "receiver_descr";
+static const string PARAM_REG_TYPE              = "reg_type";
+static const string PARAM_SKIP_ROWS             = "skip_rows";
+static const string PARAM_ORDER_SOURCE          = "order_source";
+
 struct TStatParams {
+    string desk_city; // Используется в TReqInfo::Initialize(city) в фоновой статистике
+    string name, type;
     TStatType statType;
     TAccessElems<string> airlines, airps;
     bool airp_column_first;
@@ -1877,7 +2008,73 @@ struct TStatParams {
     string reg_type;
     bool skip_rows;
     void get(xmlNodePtr resNode);
+    void toFileParams(map<string, string> &file_params) const;
+    void fromFileParams(map<string, string> &file_params);
 };
+
+void TStatParams::fromFileParams(map<string, string> &file_params)
+{
+    seance = (TSeanceType)ToInt(file_params[PARAM_SEANCE_TYPE]);
+    desk_city = file_params[PARAM_DESK_CITY];
+    name = file_params[PARAM_NAME];
+    type = file_params[PARAM_TYPE];
+    statType = DecodeStatType(file_params[PARAM_STAT_TYPE]);
+    for(map<string, string>::iterator i = file_params.begin(); i != file_params.end(); i++) {
+        if(i->first.substr(0, PARAM_AIRLINES_PREFIX.size()) == PARAM_AIRLINES_PREFIX)
+            airlines.add_elem(i->second);
+        if(i->first.substr(0, PARAM_AIRPS_PREFIX.size()) == PARAM_AIRPS_PREFIX)
+            airlines.add_elem(i->second);
+    }
+    airlines.set_elems_permit(ToInt(file_params[PARAM_AIRLINES_PERMIT]));
+    airps.set_elems_permit(ToInt(file_params[PARAM_AIRPS_PERMIT]));
+    airp_column_first = ToInt(file_params[PARAM_AIRP_COLUMN_FIRST]);
+    StrToDateTime(file_params[PARAM_FIRSTDATE].c_str(), ServerFormatDateTimeAsString, FirstDate);
+    StrToDateTime(file_params[PARAM_LASTDATE].c_str(), ServerFormatDateTimeAsString, LastDate);
+    flt_no = ToInt(file_params[PARAM_FLT_NO]);
+    desk = file_params[PARAM_DESK];
+    user_id = ToInt(file_params[PARAM_USER_ID]);
+    user_login = file_params[PARAM_USER_LOGIN];
+    typeb_type = file_params[PARAM_TYPEB_TYPE];
+    sender_addr = file_params[PARAM_SENDER_ADDR];
+    receiver_descr = file_params[PARAM_RECEIVER_DESCR];
+    reg_type = file_params[PARAM_REG_TYPE];
+    skip_rows = ToInt(file_params[PARAM_SKIP_ROWS]);
+}
+
+void TStatParams::toFileParams(map<string, string> &file_params) const
+{
+    file_params[PARAM_SEANCE_TYPE] = IntToString(seance);
+    file_params[PARAM_DESK_CITY] = TReqInfo::Instance()->desk.city;
+    file_params[PARAM_NAME] = name;
+    file_params[PARAM_TYPE] = type;
+    file_params[PARAM_STAT_TYPE] = EncodeStatType(statType);
+    file_params[PARAM_STAT_TYPE] = EncodeStatType(statType);
+    int idx = 0;
+    for(set<string>::iterator i = airlines.elems().begin(); i != airlines.elems().end(); i++, idx++) {
+        file_params[PARAM_AIRLINES_PREFIX + IntToString(idx)] = *i;
+    }
+    file_params[PARAM_AIRLINES_PERMIT] = IntToString(airlines.elems_permit());
+
+    idx = 0;
+    for(set<string>::iterator i = airps.elems().begin(); i != airps.elems().end(); i++, idx++) {
+        file_params[PARAM_AIRPS_PREFIX + IntToString(idx)] = *i;
+    }
+    file_params[PARAM_AIRPS_PERMIT] = IntToString(airps.elems_permit());
+    file_params[PARAM_AIRP_COLUMN_FIRST] = IntToString(airp_column_first);
+    file_params[PARAM_FIRSTDATE] = DateTimeToStr(FirstDate, ServerFormatDateTimeAsString);
+    file_params[PARAM_LASTDATE] = DateTimeToStr(LastDate, ServerFormatDateTimeAsString);
+    file_params[PARAM_FLT_NO] = IntToString(flt_no);
+    file_params[PARAM_DESK] = desk;
+    file_params[PARAM_USER_ID] = IntToString(user_id);
+    file_params[PARAM_USER_LOGIN] = user_login;
+    file_params[PARAM_TYPEB_TYPE] = typeb_type;
+    file_params[PARAM_SENDER_ADDR] = sender_addr;
+    file_params[PARAM_RECEIVER_DESCR] = receiver_descr;
+    file_params[PARAM_REG_TYPE] = reg_type;
+    file_params[PARAM_SKIP_ROWS] = IntToString(skip_rows);
+
+    file_params[PARAM_ORDER_SOURCE] = EncodeOrderSource(osSTAT);
+}
 
 string GetStatSQLText(const TStatParams &params, int pass)
 {
@@ -2147,8 +2344,8 @@ void TPrintAirline::check(string val)
 
 void TStatParams::get(xmlNodePtr reqNode)
 {
-    string name = NodeAsString("stat_mode", reqNode);
-    string type = NodeAsString("stat_type", reqNode, "Общая");
+    name = NodeAsString("stat_mode", reqNode);
+    type = NodeAsString("stat_type", reqNode, "Общая");
 
     if(type == "Общая") {
         if(name == "Подробная") statType=statFull;
@@ -2452,7 +2649,14 @@ struct TDetailCmp {
 };
 typedef map<TDetailStatKey, TDetailStatRow, TDetailCmp> TDetailStat;
 
-struct TRFISCStatRow {
+struct TOrderStatItem {
+    static const char delim = ';';
+    virtual void add_header(ostringstream &buf) const = 0;
+    virtual void add_data(ostringstream &buf) const = 0;
+    virtual ~TOrderStatItem() {}
+};
+
+struct TRFISCStatRow:public TOrderStatItem {
     string rfisc;
     int point_id;
     int point_num;
@@ -2502,7 +2706,101 @@ struct TRFISCStatRow {
             return trfer_airp_arv < val.trfer_airp_arv;
         return tag_no < val.tag_no;
     }
+
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
 };
+
+void TRFISCStatRow::add_data(ostringstream &buf) const
+{
+    //RFISC
+    buf << rfisc << delim;
+    // Платн.
+    if(excess != NoExists)
+        buf << excess;
+    buf << delim;
+    // Опл.
+    if(paid != NoExists)
+        buf << paid;
+    buf
+        << delim
+        // Бирка
+        << fixed << setprecision(0) << setw(10) << setfill('0') << tag_no << delim
+        // SPEQ
+        << delim
+        // FQTV
+        << fqt_no << delim
+        // Дата вылета
+        << DateTimeToStr(scd_out, "dd.mm.yyyy") << delim
+        // Рейс
+        << flt_no << suffix << delim
+        // От
+        << delim
+        // До
+        << airp_arv << delim
+        // Тип ВС
+        << craft << delim;
+    // Время в пути
+    if(travel_time != NoExists)
+        buf << DateTimeToStr(travel_time, "hh:nn");
+    buf << delim;
+
+    // Трансфер на
+    ostringstream trfer_flt_no;
+    string trfer_airp_dep;
+    string trfer_airp_arv;
+    if(this->trfer_flt_no) {
+        trfer_flt_no << setw(3) << setfill('0') << trfer_flt_no << ElemIdToCodeNative(etSuffix, trfer_suffix);
+        trfer_airp_dep = airp;
+        trfer_airp_arv = trfer_airp_arv;
+    }
+    // Рейс
+    buf << trfer_flt_no.str() << delim;
+    // От (совпадает с От рейса)
+    buf << ElemIdToCodeNative(etAirp, trfer_airp_dep) << delim;
+    // До
+    buf << ElemIdToCodeNative(etAirp, trfer_airp_arv) << delim;
+
+    // Информация об агенте
+    // АП рег. (совпадает с От рейса)
+    buf << ElemIdToCodeNative(etAirp, airp) << delim;
+    // Стойка
+    buf << desk << delim;
+    // LOGIN
+    buf << user_login << delim;
+    // Агент
+    buf << user_descr << delim;
+    // Дата оформления
+    if(time_create != NoExists)
+        buf << DateTimeToStr(time_create, "dd.mm.yyyy");
+    buf << endl;
+}
+
+void TRFISCStatRow::add_header(ostringstream &buf) const
+{
+    buf
+        << "RFISC" << delim
+        << "Платн." << delim
+        << "Опл." << delim
+        << "Бирка" << delim
+        << "SPEC" << delim
+        << "FQTV" << delim
+        << "Дата вылета" << delim
+        << "Рейс" << delim
+        << "От" << delim
+        << "До" << delim
+        << "Тип ВС" << delim
+        << "Время в пути" << delim
+        << "Трфр.рейс" << delim
+        << "От" << delim
+        << "До" << delim
+        << "АП рег." << delim
+        << "Стойка" << delim
+        << "LOGIN" << delim
+        << "Агент" << delim
+        << "Дата оформ."
+        << endl;
+}
 
 typedef set<TRFISCStatRow> TRFISCStat;
 
@@ -5236,9 +5534,10 @@ void StatInterface::stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
+template <class T>
 void RunRFISCStat(
         const TStatParams &params,
-        TRFISCStat &RFISCStat,
+        T &RFISCStat,
         TPrintAirline &prn_airline
         )
 {
@@ -5364,6 +5663,102 @@ void RunRFISCStat(
                 RFISCStat.insert(row);
             }
         }
+    }
+}
+
+void createCSVFullStat(const TStatParams &params, const TFullStat &FullStat, const TPrintAirline &prn_airline, ostringstream &data)
+{
+    if(FullStat.empty()) return;
+
+    const char delim = ';';
+    data
+        << "Код а/к" << delim
+        << "Код а/п" << delim
+        << "Номер рейса" << delim
+        << "Дата" << delim
+        << "Направление" << delim
+        << "Кол-во пасс." << delim
+        << "Web" << delim
+        << "БГ" << delim
+        << "ПТ" << delim
+        << "Киоски" << delim
+        << "БГ" << delim
+        << "ПТ" << delim
+        << "Моб." << delim
+        << "БГ" << delim
+        << "ПТ" << delim
+        << "ВЗ" << delim
+        << "РБ" << delim
+        << "РМ" << delim
+        << "Р/кладь (вес)" << delim
+        << "БГ мест" << delim
+        << "БГ вес" << delim
+        << "Пл.м" << delim
+        << "Пл.вес"
+        << endl;
+    bool showTotal = true;
+    for(TFullStat::const_iterator i = FullStat.begin(); i != FullStat.end(); i++) {
+        //region обязательно в начале цикла, иначе будет испорчен xml
+        string region;
+        try
+        {
+            region = AirpTZRegion(i->first.airp);
+        }
+        catch(AstraLocale::UserException &E)
+        {
+            AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
+            if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
+            continue;
+        };
+
+        // Код а/к
+        data << i->first.col1 << delim;
+        // Код а/п
+        data << i->first.col2 << delim;
+        // Номер рейса
+        data << i->first.flt_no << delim;
+        // Дата
+        data << DateTimeToStr(
+                UTCToClient(i->first.scd_out, region), "dd.mm.yy")
+            << delim;
+        // Направление
+        data << i->first.places.get() << delim;
+        // Кол-во пасс.
+        data << i->second.pax_amount << delim;
+        // Web
+        data << i->second.i_stat.web << delim;
+        // БГ
+        data << i->second.i_stat.web_bag << delim;
+        // ПТ
+        data << i->second.i_stat.web_bp << delim;
+        // Киоски
+        data << i->second.i_stat.kiosk << delim;
+        // БГ
+        data << i->second.i_stat.kiosk_bag << delim;
+        // ПТ
+        data << i->second.i_stat.kiosk_bp << delim;
+        // Моб.
+        data << i->second.i_stat.mobile << delim;
+        // БГ
+        data << i->second.i_stat.mobile_bag << delim;
+        // ПТ
+        data << i->second.i_stat.mobile_bp << delim;
+        // ВЗ
+        data << i->second.adult << delim;
+        // РБ
+        data << i->second.child << delim;
+        // РМ
+        data << i->second.baby << delim;
+        // Р/кладь (вес)
+        data << i->second.rk_weight << delim;
+        // БГ мест
+        data << i->second.bag_amount << delim;
+        // БГ вес
+        data << i->second.bag_weight << delim;
+        // Пл.м
+        data << i->second.paid.excess_pcs << delim;
+        // Пл.вес
+        data << i->second.paid.excess << endl;
     }
 }
 
@@ -5700,9 +6095,6 @@ void get_service_stat(int point_id)
                     ticket_no << "/" << tkn.coupon;
             }
 
-            LogTrace(TRACE5) << "pax_id: " << pax_id;
-            LogTrace(TRACE5) << "rem_code: " << Qry.get().FieldAsString(col_rem_code);
-
             if(flt_info_idx->second.travel_time == NoExists)
                 insQry.get().SetVariable("travel_time", FNull);
             else
@@ -5722,15 +6114,12 @@ void get_service_stat(int point_id)
                 insQry.get().SetVariable("rate", remInfo.rate);
             insQry.get().SetVariable("rate_cur", remInfo.rate_cur);
 
-            for(int i = 0; i < insQry.get().VariablesCount(); i++)
-                LogTrace(TRACE5) << insQry.get().VariableName(i) << " = " << insQry.get().GetVariableAsString(i);
-
             insQry.get().Execute();
         }
     }
 }
 
-struct TServiceStatRow {
+struct TServiceStatRow:public TOrderStatItem {
     int point_id;
     string ticket_no;
     TDateTime scd_out;
@@ -5763,7 +6152,69 @@ struct TServiceStatRow {
             return rem_code < val.rem_code;
         return point_id < val.point_id;
     }
+
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
 };
+
+void TServiceStatRow::add_header(ostringstream &buf) const
+{
+    buf
+        << "АП рег." << delim
+        << "Стойка" << delim
+        << "Агент" << delim
+        << "Билет" << delim
+        << "Дата" << delim
+        << "Рейс" << delim
+        << "От" << delim
+        << "До" << delim
+        << "Тип ВС" << delim
+        << "Время в пути" << delim
+        << "Код услуги" << delim
+        << "RFISC" << delim
+        << "Тариф" << delim
+        << "Валюта"
+        << endl;
+}
+
+void TServiceStatRow::add_data(ostringstream &buf) const
+{
+    buf
+        // АП рег
+        << ElemIdToCodeNative(etAirp, airp) << delim
+        // Стойка
+        << desk << delim
+        // Агент
+        << user << delim
+        // Билет
+        << ticket_no << delim
+        // Дата
+        << DateTimeToStr(scd_out, "dd.mm.yyyy") << delim;
+    // Рейс
+    ostringstream flt_no_str;
+    flt_no_str << setw(3) << setfill('0') << flt_no << ElemIdToCodeNative(etSuffix, suffix);
+    buf
+        << flt_no_str.str() << delim
+        // От
+        << ElemIdToCodeNative(etAirp, airp) << delim
+        // До
+        << ElemIdToCodeNative(etAirp, airp_last) << delim
+        // Тип ВС
+        << ElemIdToCodeNative(etCraft, craft) << delim;
+    // Время в пути
+    if(travel_time != NoExists)
+        buf << DateTimeToStr(travel_time, "hh:nn");
+    buf << delim
+        // Код услуги
+        << rem_code << delim
+        // RFISC
+        << rfisc << delim
+        // Тариф
+        << rate_str() << delim
+        // Валюта
+        << ElemIdToCodeNative(etCurrency, rate_cur)
+        << endl;
+}
 
 string TServiceStatRow::rate_str() const
 {
@@ -5776,9 +6227,10 @@ string TServiceStatRow::rate_str() const
 
 typedef multiset<TServiceStatRow> TServiceStat;
 
+template <class T>
 void RunServiceStat(
         const TStatParams &params,
-        TServiceStat &ServiceStat,
+        T &ServiceStat,
         TPrintAirline &prn_airline
         )
 {
@@ -6002,17 +6454,825 @@ void createXMLServiceStat(const TStatParams &params, const TServiceStat &Service
 
 /******************* End of Service Stat ****************************/
 
+struct TPeriods {
+    typedef list<pair<TDateTime, TDateTime> > TItems;
+    TItems items;
+    void get(TDateTime FirstDate, TDateTime LastDate);
+    void dump();
+    void dump(TItems::iterator i);
+};
+
+void TPeriods::dump(TItems::iterator i)
+{
+    if(i == items.end())
+        LogTrace(TRACE5) << "at the end.";
+    else
+        LogTrace(TRACE5)
+            << DateTimeToStr(i->first, ServerFormatDateTimeAsString)
+            << "-"
+            << DateTimeToStr(i->second, ServerFormatDateTimeAsString);
+}
+
+void TPeriods::dump()
+{
+    for(TItems::iterator i = items.begin(); i != items.end(); i++) dump(i);
+}
+
+void TPeriods::get(TDateTime FirstDate, TDateTime LastDate)
+{
+    items.clear();
+    TCachedQuery Qry("select trunc(:FirstDate, 'month'), add_months(trunc(:FirstDate, 'month'), 1) from dual",
+            QParams() << QParam("FirstDate", otDate));
+    TDateTime tmp_begin = FirstDate;
+    while(true) {
+        Qry.get().SetVariable("FirstDate", tmp_begin);
+        Qry.get().Execute();
+        TDateTime begin = Qry.get().FieldAsDateTime(0);
+        TDateTime end = Qry.get().FieldAsDateTime(1);
+        items.push_back(make_pair(begin, end));
+        if(LastDate < end) break;
+        tmp_begin = end;
+    }
+    items.front().first = FirstDate;
+    if(items.back().first == LastDate)
+        items.pop_back();
+    else
+        items.back().second = LastDate;
+}
+
+void longToDB(TQuery &Qry, TQuery &monthsEndQry, TDateTime month, const std::string &src, int &page_no)
+{
+    bool nullable = false;
+    int len = 4000;
+    if (!src.empty())
+    {
+        std::string::const_iterator ib,ie;
+        ib=src.begin();
+        page_no = 1;
+        for(;ib<src.end();page_no++)
+        {
+            ie=ib+len;
+            if (ie>src.end()) ie=src.end();
+            Qry.SetVariable("page_no", page_no);
+            Qry.SetVariable("text", std::string(ib,ie));
+            Qry.Execute();
+            if(page_no % 1000 == 0) {
+                monthsEndQry.SetVariable("month", month);
+                monthsEndQry.SetVariable("page_count", page_no);
+                monthsEndQry.Execute();
+                OraSession.Commit();
+            }
+            ib=ie;
+        };
+    }
+    else
+    {
+        if (nullable)
+        {
+            Qry.SetVariable("page_no", 1);
+            Qry.SetVariable("text", FNull);
+            Qry.Execute();
+        };
+    }
+    monthsEndQry.SetVariable("month", month);
+    monthsEndQry.SetVariable("page_count", page_no);
+    monthsEndQry.Execute();
+    OraSession.Commit();
+}
+
+struct TFileParams {
+    std::map<std::string,std::string> items;
+    void get(int file_id);
+    TFileParams() {}
+    TFileParams(const map<string, string> &vitems): items(vitems) {}
+    string get_name();
+};
+
+string get_part_file_name(int file_id, TDateTime month)
+{
+    // get part file name
+    ostringstream file_name;
+    file_name << ORDERS_PATH() << file_id << '.' << DateTimeToStr(month, "yymm");
+    return file_name.str();
+}
+
+void commit_progress(TQuery &Qry, int parts, int size)
+{
+    Qry.SetVariable("progress", round((double)parts / size * 100));
+    Qry.Execute();
+    OraSession.Commit();
+}
+
+int GetCrc32(const string& my_string) {
+    boost::crc_32_type result;
+    result.process_bytes(my_string.data(), my_string.length());
+    return result.checksum();
+}
+
+struct TErrCommit {
+    TCachedQuery Qry;
+    TErrCommit();
+    static TErrCommit *Instance()
+    {
+        static TErrCommit *instance_ = 0;
+        if(not instance_)
+            instance_ = new TErrCommit();
+        return instance_;
+    }
+    void exec(int file_id, TOrderStatus st, const string &err);
+};
+
+void TErrCommit::exec(int file_id, TOrderStatus st, const string &err)
+{
+    // Запускал processStatOrders из nosir, долго не мог понять, почему не работает.
+    // А просто была ошибка вставки ошибки в базу.
+    // Поэтому ошибка продублирована LogTrace-ом.
+    LogTrace(TRACE5) << "TErrCommit::exec: " << err;
+    Qry.get().SetVariable("file_id", file_id);
+    Qry.get().SetVariable("status", st);
+    Qry.get().SetVariable("error", err);
+    Qry.get().Execute();
+    OraSession.Commit();
+}
+
+TErrCommit::TErrCommit():
+    Qry(
+        "update stat_orders set "
+        "   status = :status, "
+        "   error = :error "
+        "where "
+        "   file_id = :file_id ",
+        QParams()
+        << QParam("file_id", otInteger)
+        << QParam("status", otInteger)
+        << QParam("error", otString)
+       )
+{
+}
+
+struct TStatOrderDataItem
+{
+    int file_id;
+    TDateTime month;
+    string file_name;
+    double file_size;
+    double file_size_zip;
+    string md5_sum;
+
+    void complete() const;
+
+    void clear()
+    {
+        file_id = NoExists;
+        month = NoExists;
+        file_name.clear();
+        file_size = NoExists;
+        file_size_zip = NoExists;
+        md5_sum.clear();
+    }
+
+    TStatOrderDataItem()
+    {
+        clear();
+    }
+
+};
+
+void TStatOrderDataItem::complete() const
+{
+    TCachedQuery Qry(
+            "update stat_orders_data set download_times = download_times + 1 where "
+            "   file_id = :file_id and "
+            "   month = :month",
+            QParams()
+            << QParam("file_id", otInteger, file_id)
+            << QParam("month", otDate, month)
+            );
+    Qry.get().Execute();
+}
+
+typedef list<TStatOrderDataItem> TStatOrderData;
+
+struct TStatOrder {
+    int file_id;
+    string name;
+    int user_id;
+    TDateTime time_ordered;
+    TDateTime time_created;
+    TOrderSource source;
+    double data_size;
+    double data_size_zip;
+    TOrderStatus status;
+    string error;
+    int progress;
+
+    TStatOrderData so_data;
+
+    TStatOrder(int afile_id, int auser_id, TOrderSource asource):
+        file_id(afile_id),
+        user_id(auser_id),
+        source(asource)
+    { };
+    TStatOrder() { clear(); }
+    void clear()
+    {
+        file_id = NoExists;
+        user_id = NoExists;
+        time_ordered = NoExists;
+        time_created = NoExists;
+        source = osUnknown;
+        data_size = NoExists;
+        data_size_zip = NoExists;
+        status = stUnknown;
+        error.clear();
+        progress = NoExists;
+    }
+
+    void del() const;
+    void toDB();
+    void fromDB(TCachedQuery &Qry);
+    void get_parts();
+    void check_integrity(TDateTime month);
+};
+
+void TStatOrder::del() const
+{
+    for(TStatOrderData::const_iterator i = so_data.begin(); i != so_data.end(); i++)
+        remove( get_part_file_name(i->file_id, i->month).c_str());
+    TCachedQuery delQry(
+            "begin "
+            "   delete from stat_orders_data where file_id = :file_id; "
+            "   delete from stat_orders where file_id = :file_id; "
+            "end; ", QParams() << QParam("file_id", otInteger, file_id)
+            );
+    delQry.get().Execute();
+}
+
+void TStatOrder::toDB()
+{
+    TCachedQuery Qry(
+            "insert into stat_orders( "
+            "   file_id, "
+            "   user_id, "
+            "   time_ordered, "
+            "   source, "
+            "   status, "
+            "   progress "
+            ") values ( "
+            "   :file_id, "
+            "   :user_id, "
+            "   (select time from files where id = :file_id), "
+            "   :os, "
+            "   :status, "
+            "   0 "
+            ") ",
+            QParams()
+            << QParam("file_id", otInteger, file_id)
+            << QParam("user_id", otInteger, user_id)
+            << QParam("os", otString, EncodeOrderSource(source))
+            << QParam("status", otInteger, stRunning)
+            );
+    Qry.get().Execute();
+}
+
+#include <openssl/md5.h>
+
+struct TMD5Sum {
+    MD5_CTX c;
+    u_char digest[16];
+    double data_size;
+
+    void init()
+    {
+        data_size = 0;
+        MD5_Init(&c);
+    }
+
+    int update(const void *data, size_t len)
+    {
+        data_size += len;
+        return MD5_Update(&c, (unsigned char *)data, len);
+    }
+
+    int Final()
+    {
+        return MD5_Final(digest, &c);
+    }
+
+    string str()
+    {
+        ostringstream md5sum;
+        for(size_t i = 0; i < sizeof(digest) / sizeof(u_char); i++)
+            md5sum << hex << setw(2) << setfill('0') << (int)digest[i];
+        return md5sum.str();
+    }
+
+    static TMD5Sum *Instance()
+    {
+        static TMD5Sum *instance_ = 0;
+        if(not instance_)
+            instance_ = new TMD5Sum();
+        return instance_;
+    }
+};
+
+void TStatOrder::check_integrity(TDateTime month)
+{
+    if(status == stRunning or status == stError)
+        return;
+
+    try {
+        for(TStatOrderData::iterator data_item = so_data.begin(); data_item != so_data.end(); data_item++) {
+            if(month != NoExists and data_item->month < month) continue;
+            string file_name = get_part_file_name(data_item->file_id, data_item->month);
+            ifstream is(file_name.c_str(), ifstream::binary);
+            if(is.is_open()) {
+                is.seekg (0, is.end);
+                int length = is.tellg();
+                is.seekg (0, is.beg);
+
+                boost::shared_array<char> data (new char[length]);
+                is.read (data.get(), length);
+
+                TMD5Sum::Instance()->init();
+                TMD5Sum::Instance()->update(data.get(), length);
+                TMD5Sum::Instance()->Final();
+
+                if(data_item->md5_sum != TMD5Sum::Instance()->str())
+                    throw UserException((string)"The order is corrupted! part_file_name: " + file_name);
+            } else
+                throw UserException((string)"file open error: " + file_name);
+        }
+
+        status = stReady;
+        TCachedQuery readyQry("update stat_orders set status = :status, error = :error where file_id = :file_id",
+                QParams()
+                << QParam("file_id", otInteger, file_id)
+                << QParam("status", otInteger, status)
+                << QParam("error", otString, string())
+                );
+        readyQry.get().Execute();
+    } catch (Exception &E) {
+        status = stCorrupted;
+        TErrCommit::Instance()->exec(file_id, status, string(E.what()).substr(0, 250).c_str());
+    } catch(...) {
+        status = stCorrupted;
+        TErrCommit::Instance()->exec(file_id, status, "unknown");
+    }
+}
+
+typedef map<TDateTime, TStatOrder> TStatOrderMap;
+
+struct TStatOrders {
+
+    TStatOrderMap items;
+
+    void get(int file_id);
+    void get(int user_id, int file_id, const string &source = string());
+    void get(const string &source = string());
+    TStatOrderData::const_iterator get_part(int file_id, TDateTime month);
+    void toXML(xmlNodePtr resNode);
+    bool so_data_empty(int file_id);
+    void check_integrity(); // check integrity for each item
+    double size(); // summary size of all orders in the list
+    bool is_running(); // true if at least one order has stRunning state
+};
+
+bool TStatOrders::is_running()
+{
+    bool result = false;
+    for(TStatOrderMap::iterator i = items.begin(); i != items.end(); i++)
+        if(i->second.status == stRunning) {
+            result = true;
+            break;
+        }
+    return result;
+}
+
+double TStatOrders::size()
+{
+    double result = 0;
+    for(TStatOrderMap::iterator i = items.begin(); i != items.end(); i++)
+        if(i->second.data_size != NoExists)
+            result += i->second.data_size;
+    return result;
+}
+
+TStatOrderData::const_iterator TStatOrders::get_part(int file_id, TDateTime month)
+{
+    get(file_id);
+    if(items.size() != 1)
+        throw Exception("TStatOrders::get_part: file not found");
+    TStatOrderData &so_data = items.begin()->second.so_data;
+    TStatOrderData::const_iterator result = so_data.begin();
+    for(; result != so_data.end(); result++) {
+        if(result->month == month)
+            break;
+    }
+    if(result == so_data.end())
+        throw Exception("TStatOrders::get_part: part not found");
+    items.begin()->second.check_integrity(month);
+    if(items.begin()->second.status != stReady)
+        throw UserException("MSG.STAT_ORDERS.FILE_TRANSFER_ERROR",
+                LParams() << LParam("status", EncodeOrderStatus(items.begin()->second.status)));
+    return result;
+}
+
+bool TStatOrders::so_data_empty(int file_id)
+{
+    bool result = items.empty();
+    if(not result) {
+        TStatOrderMap::iterator order = items.begin();
+        for(; order != items.end(); order++) {
+            if(order->second.file_id == file_id) {
+                result = order->second.so_data.empty();
+                break;
+            }
+        }
+        if(order == items.end()) result = true;
+    }
+    return result;
+}
+
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/copy.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/device/file.hpp>
+
+void seg_fault_emul()
+{
+    // seg fault emul
+    char **a = NULL;
+    char *b = a[0];
+    LogTrace(TRACE5) << *b;
+
+}
+
+class TMD5Filter : public boost::iostreams::multichar_output_filter {
+    public:
+        template<typename Sink>
+            std::streamsize write(Sink& dest, const char* s, std::streamsize n)
+            {
+                TMD5Sum::Instance()->update(s, n);
+                boost::iostreams::copy(boost::iostreams::basic_array_source<char>(s, n), dest);
+                return n;
+            }
+
+        /* Other members */
+};
+
+
+struct TOrderStatWriter {
+    int file_id;
+    TDateTime month;
+    string file_name;
+    double data_size;
+    double data_size_zip;
+    boost::iostreams::filtering_ostream out;
+    size_t rowcount;
+
+    void insert(const TOrderStatItem &row);
+    void finish();
+
+    TOrderStatWriter(int afile_id, TDateTime amonth, const string &afile_name):
+        file_id(afile_id),
+        month(amonth),
+        file_name(afile_name),
+        data_size(0),
+        data_size_zip(0),
+        rowcount(0)
+    {}
+};
+
+void TOrderStatWriter::finish()
+{
+    if(rowcount == 0) return;
+    // forces all the underlying buffers to be flushed, thus TMD5Sum updates correctly
+    //
+    // from boost manual:
+    //  void reset()
+    //  Clears the underlying chain. If the chain is initially complete,
+    //  causes each Filter and Device in the chain to be closed using the function close.
+    out.reset();
+    TMD5Sum::Instance()->Final();
+    data_size_zip = TMD5Sum::Instance()->data_size;
+    TCachedQuery updDataQry(
+            "update stat_orders_data set "
+            "   file_size = :file_size, "
+            "   file_size_zip = :file_size_zip, "
+            "   md5_sum = :md5_sum "
+            "where "
+            "   file_id = :file_id and "
+            "   month = :month ",
+            QParams()
+            << QParam("file_id", otInteger, file_id)
+            << QParam("month", otDate, month)
+            << QParam("file_size", otFloat, data_size)
+            << QParam("file_size_zip", otFloat, data_size_zip)
+            << QParam("md5_sum", otString, TMD5Sum::Instance()->str())
+            );
+    updDataQry.get().Execute();
+}
+
+void TOrderStatWriter::insert(const TOrderStatItem &row)
+{
+    if(rowcount == 0) { // первый инсерт, открываем файл
+        TMD5Sum::Instance()->init();
+        out.push(boost::iostreams::zlib_compressor(), ORDERS_BLOCK_SIZE());
+        out.push(TMD5Filter(), ORDERS_BLOCK_SIZE());
+        out.push(boost::iostreams::file_sink(get_part_file_name(file_id, month)), ORDERS_BLOCK_SIZE());
+
+        TCachedQuery insDataQry(
+                "begin "
+                "   insert into stat_orders_data(file_id, month, file_name, download_times) values ( "
+                "   :file_id, :month, :file_name, 0); "
+                "exception "
+                "   when dup_val_on_index then "
+                "       update stat_orders_data set "
+                "           file_name = :file_name "
+                "       where "
+                "           file_id = :file_id and "
+                "           month = :month; "
+                "end; "
+                ,
+                QParams() << QParam("file_id", otInteger, file_id)
+                << QParam("month", otDate, month)
+                << QParam("file_name", otString, file_name)
+                );
+        insDataQry.get().Execute();
+        OraSession.Commit(); // чтобы сборщик мусора все видел и не удалял.
+
+        ostringstream buf;
+        row.add_header(buf);
+        out << buf.str();
+        data_size += buf.str().size();
+    }
+    ostringstream buf;
+    row.add_data(buf);
+    rowcount++;
+    out << buf.str();
+    data_size += buf.str().size();
+    out.flush();
+}
+
+
+void create_plain_files(
+        const TStatParams &params,
+        double &data_size,
+        double &data_size_zip,
+        TQueueItem &item
+        )
+{
+    TFileParams file_params(item.params);
+    // get file name
+    string file_name =
+        file_params.get_name() + "." +
+        DateTimeToStr(item.time, "yymmddhhnn") + "." +
+        DateTimeToStr(params.FirstDate, "yymm") + ".csv";
+
+    TPrintAirline airline;
+    TOrderStatWriter order_writer(item.id, params.FirstDate, file_name);
+    switch(params.statType) {
+        case statRFISC:
+            RunRFISCStat(params, order_writer, airline);
+            break;
+        case statService:
+            RunServiceStat(params, order_writer, airline);
+            break;
+        default:
+            throw Exception("unsupported statType %d", params.statType);
+
+    }
+    order_writer.finish();
+    data_size += order_writer.data_size;
+    data_size_zip += order_writer.data_size_zip;
+}
+
+void processStatOrders(TQueueItem &item) {
+    TPerfTimer tm;
+    tm.Init();
+    try {
+        TCachedQuery finishQry(
+                "update stat_orders set "
+                "   data_size = :data_size, "
+                "   data_size_zip = :data_size_zip, "
+                "   time_created = :tc, "
+                "   status = :status "
+                "where file_id = :file_id",
+                QParams()
+                << QParam("data_size", otFloat)
+                << QParam("data_size_zip", otFloat)
+                << QParam("tc", otDate)
+                << QParam("file_id", otInteger, item.id)
+                << QParam("status", otInteger)
+                );
+        TCachedQuery progressQry("update stat_orders set progress = :progress where file_id = :file_id",
+                QParams()
+                << QParam("file_id", otInteger, item.id)
+                << QParam("progress", otInteger)
+                );
+
+        TStatParams params;
+        params.fromFileParams(item.params);
+
+        TReqInfo::Instance()->Initialize(params.desk_city);
+
+        TPeriods periods;
+        periods.get(params.FirstDate, params.LastDate);
+
+        int parts = 0;
+        double data_size = 0;
+        double data_size_zip = 0;
+        TPeriods::TItems::iterator i = periods.items.begin();
+
+        // Возможно, в базе уже есть данные отчета (so_data не пустой)
+        // тогда цикл надо начинать с последнего собранного куска
+        // Иначе говоря, перематываем на текущее состояние сборки.
+        TStatOrders so;
+        so.get(item.id);
+        if(not so.so_data_empty(item.id)) {
+            const TStatOrderData &so_data = so.items.begin()->second.so_data;
+            for(
+                    TStatOrderData::const_iterator i_data = so_data.begin();
+                    (i_data != so_data.end() and not i_data->md5_sum.empty());
+                    i_data++
+               ) {
+                data_size += i_data->file_size;
+                data_size_zip += i_data->file_size_zip;
+                // отматываем периоды
+                // 1. в so_data могут быть пропуски в месяцах, если в них не было данных
+                // поэтому простой i++ не получится
+                // 2. Дата периода не обязана быть первым днем месяца, в то время как
+                // месяц отчета всегда первый день месяца
+                while(true) {
+                    if(DateTimeToStr(i->first, "mm.yy") == DateTimeToStr(i_data->month, "mm.yy"))
+                        break;
+                    i++;
+                    parts++;
+                }
+            }
+            // После перемотки итератор периода стоит на последнем успешном месяце
+            // Надо его передвинуть на новый, еще не собранный месяц
+            // как и счетчик parts, чтобы прогресс отображался правильно
+            i++;
+            parts++;
+        }
+
+        periods.dump(i);
+
+        for(; i != periods.items.end();
+                i++,
+                commit_progress(progressQry.get(), ++parts, periods.items.size())
+           ) {
+            params.FirstDate = i->first;
+            params.LastDate = i->second;
+
+            create_plain_files(
+                    params,
+                    data_size,
+                    data_size_zip,
+                    item
+                    );
+        }
+        finishQry.get().SetVariable("data_size", data_size);
+        finishQry.get().SetVariable("data_size_zip", data_size_zip);
+        finishQry.get().SetVariable("tc", NowUTC());
+        finishQry.get().SetVariable("status", stReady);
+        finishQry.get().Execute();
+    } catch(Exception &E) {
+        TErrCommit::Instance()->exec(item.id, stError, string(E.what()).substr(0, 250).c_str());
+    } catch(...) {
+        TErrCommit::Instance()->exec(item.id, stError, "unknown");
+    }
+     ProgTrace(TRACE5, "Stat Orders processing time: %s", tm.PrintWithMessage().c_str());
+}
+
+void stat_orders_synchro(void)
+{
+    TStatOrders so;
+    so.get(NoExists);
+    TDateTime time_out = NowUTC() - ORDERS_TIMEOUT();
+    set<string> files;
+    for(TStatOrderMap::iterator i = so.items.begin(); i != so.items.end(); i++) {
+        const TStatOrder &so_item = i->second;
+        if(so_item.status != stRunning and so_item.time_created <= time_out)
+            so_item.del();
+        else {
+            for(TStatOrderData::const_iterator so_data = so_item.so_data.begin();
+                    so_data != so_item.so_data.end();
+                    so_data++) {
+                files.insert(
+                        get_part_file_name(
+                            so_item.file_id,
+                            so_data->month
+                            )
+                        );
+            }
+        }
+    }
+
+    namespace fs = boost::filesystem;
+    fs::path so_path(ORDERS_PATH());
+    fs::directory_iterator end_iter;
+    for ( fs::directory_iterator dir_itr( so_path ); dir_itr != end_iter; ++dir_itr ) {
+        if(files.find((string)ORDERS_PATH() + dir_itr->path().filename().c_str()) == files.end()) {
+            fs::remove_all(dir_itr->path());
+        }
+    }
+}
+
+int nosir_synchro(int argc,char **argv)
+{
+    cout << DateTimeToStr(NowUTC(), "dd.mm.yyyy 00:00:00") << endl;
+    return 1;
+}
+
+
+void stat_orders_collect(void)
+{
+    TFileQueue file_queue;
+    file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_COLLECT_TYPE ) );
+    for ( TFileQueue::iterator item=file_queue.begin();
+            item!=file_queue.end();
+            item++, OraSession.Commit() ) {
+        try {
+            switch(DecodeOrderSource(item->params[PARAM_ORDER_SOURCE])) {
+                case osSTAT :
+                    processStatOrders(*item);
+                    break;
+                default:
+                    break;
+            }
+            TFileQueue::deleteFile(item->id);
+        }
+        catch(Exception &E) {
+            OraSession.Rollback();
+            try
+            {
+                EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+                if (orae!=NULL&&
+                        (orae->Code==4061||orae->Code==4068)) continue;
+                ProgError(STDLOG,"Exception: %s (file id=%d), SQLText: %s",E.what(),item->id, orae->SQLText());
+            }
+            catch(...) {};
+        }
+        catch(...) {
+            OraSession.Rollback();
+            ProgError(STDLOG, "Something goes wrong");
+        }
+    }
+}
+
+void orderStat(const TStatParams &params, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TStatOrders so;
+    so.get(NoExists); // list contains all orders in the system
+    if(so.size() >= ORDERS_MAX_TOTAL_SIZE()) {
+        NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.ORDERS_MAX_TOTAL_SIZE_EXCEEDED"));
+    } else {
+        so.get(); // default behaviour, orders list for current user
+        if(so.is_running()) {
+            NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.IS_RUNNING"));
+        } else
+            if(so.size() >= ORDERS_MAX_SIZE()) {
+                NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED",
+                            LParams() << LParam("max", getFileSizeStr(ORDERS_MAX_SIZE()))
+                            ));
+            } else {
+                map<string, string> file_params;
+                params.toFileParams(file_params);
+                int file_id = TFileQueue::putFile(
+                        OWN_POINT_ADDR(),
+                        OWN_POINT_ADDR(),
+                        FILE_COLLECT_TYPE,
+                        file_params,
+                        ""
+                        );
+                TStatOrder(file_id, TReqInfo::Instance()->user.user_id, osSTAT).toDB();
+                NewTextChild(resNode, "collect_msg", getLocaleText("MSG.COLLECT_STAT_INFO"));
+            }
+    }
+}
+
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
     if (!reqInfo->user.access.rights().permitted(600))
-      throw AstraLocale::UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
+        throw AstraLocale::UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
 
     if (reqInfo->user.access.totally_not_permitted())
-      throw AstraLocale::UserException("MSG.NOT_DATA");
+        throw AstraLocale::UserException("MSG.NOT_DATA");
 
     TStatParams params;
     params.get(reqNode);
+
+    if(
+            TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION) and (
+                params.statType == statRFISC or
+                params.statType == statService
+                )
+      )
+        return orderStat(params, ctxt, reqNode, resNode);
 
     if (
             params.statType==statFull ||
@@ -6025,49 +7285,49 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             params.statType==statTlgOutDetail ||
             params.statType==statTlgOutFull ||
             params.statType==statRFISC
-            )
+       )
     {
-      if(IncMonth(params.FirstDate, 1) < params.LastDate)
-        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
+        if(IncMonth(params.FirstDate, 1) < params.LastDate)
+            throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     } else {
-      if(IncMonth(params.FirstDate, 12) < params.LastDate)
-        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_YEAR");
+        if(IncMonth(params.FirstDate, 12) < params.LastDate)
+            throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_YEAR");
     }
 
     switch(params.statType)
     {
-      case statFull:
-        get_compatible_report_form("FullStat", reqNode, resNode);
-        break;
-      case statTrferFull:
-        get_compatible_report_form("TrferFullStat", reqNode, resNode);
-        break;
-      case statShort:
-        get_compatible_report_form("ShortStat", reqNode, resNode);
-        break;
-      case statDetail:
-        get_compatible_report_form("DetailStat", reqNode, resNode);
-        break;
-      case statRFISC:
-        get_compatible_report_form("RFISCStat", reqNode, resNode);
-        break;
-      case statService:
-        get_compatible_report_form("ServiceStat", reqNode, resNode);
-        break;
-      case statSelfCkinFull:
-      case statSelfCkinShort:
-      case statSelfCkinDetail:
-      case statAgentFull:
-      case statAgentShort:
-      case statAgentTotal:
-      case statTlgOutFull:
-      case statTlgOutShort:
-      case statTlgOutDetail:
-      case statPactShort:
-        get_compatible_report_form("stat", reqNode, resNode);
-        break;
-      default:
-        throw Exception("unexpected stat type %d", params.statType);
+        case statFull:
+            get_compatible_report_form("FullStat", reqNode, resNode);
+            break;
+        case statTrferFull:
+            get_compatible_report_form("TrferFullStat", reqNode, resNode);
+            break;
+        case statShort:
+            get_compatible_report_form("ShortStat", reqNode, resNode);
+            break;
+        case statDetail:
+            get_compatible_report_form("DetailStat", reqNode, resNode);
+            break;
+        case statRFISC:
+            get_compatible_report_form("RFISCStat", reqNode, resNode);
+            break;
+        case statService:
+            get_compatible_report_form("ServiceStat", reqNode, resNode);
+            break;
+        case statSelfCkinFull:
+        case statSelfCkinShort:
+        case statSelfCkinDetail:
+        case statAgentFull:
+        case statAgentShort:
+        case statAgentTotal:
+        case statTlgOutFull:
+        case statTlgOutShort:
+        case statTlgOutDetail:
+        case statPactShort:
+            get_compatible_report_form("stat", reqNode, resNode);
+            break;
+        default:
+            throw Exception("unexpected stat type %d", params.statType);
     };
 
 
@@ -6075,38 +7335,38 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     {
         if (params.statType==statShort || params.statType==statDetail || params.statType == statPactShort)
         {
-          bool pr_pacts =
-            reqInfo->user.access.rights().permitted(605) and params.seance == seanceAll;
+            bool pr_pacts =
+                reqInfo->user.access.rights().permitted(605) and params.seance == seanceAll;
 
-          if(not pr_pacts and params.statType == statPactShort)
-              throw UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
+            if(not pr_pacts and params.statType == statPactShort)
+                throw UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
 
-          TDetailStat DetailStat;
-          TDetailStatRow DetailStatTotal;
-          TPrintAirline airline;
+            TDetailStat DetailStat;
+            TDetailStatRow DetailStatTotal;
+            TPrintAirline airline;
 
-          if (pr_pacts)
-            RunPactDetailStat(params, DetailStat, DetailStatTotal, airline);
-          else
-            RunDetailStat(params, DetailStat, DetailStatTotal, airline);
+            if (pr_pacts)
+                RunPactDetailStat(params, DetailStat, DetailStatTotal, airline);
+            else
+                RunDetailStat(params, DetailStat, DetailStatTotal, airline);
 
-          createXMLDetailStat(params, pr_pacts, DetailStat, DetailStatTotal, airline, resNode);
+            createXMLDetailStat(params, pr_pacts, DetailStat, DetailStatTotal, airline, resNode);
         };
         if (params.statType==statFull || params.statType==statTrferFull)
         {
-          TFullStat FullStat;
-          TFullStatRow FullStatTotal;
-          TPrintAirline airline;
+            TFullStat FullStat;
+            TFullStatRow FullStatTotal;
+            TPrintAirline airline;
 
-          RunFullStat(params, FullStat, FullStatTotal, airline);
+            RunFullStat(params, FullStat, FullStatTotal, airline);
 
-          createXMLFullStat(params, FullStat, FullStatTotal, airline, resNode);
+            createXMLFullStat(params, FullStat, FullStatTotal, airline, resNode);
         };
         if(
                 params.statType == statSelfCkinShort or
                 params.statType == statSelfCkinDetail or
                 params.statType == statSelfCkinFull
-                ) {
+          ) {
             TSelfCkinStat SelfCkinStat;
             TSelfCkinStatRow SelfCkinStatTotal;
             TPrintAirline airline;
@@ -6117,7 +7377,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
                 params.statType == statAgentShort or
                 params.statType == statAgentFull or
                 params.statType == statAgentTotal
-                ) {
+          ) {
             TAgentStat AgentStat;
             TAgentStatRow AgentStatTotal;
             TPrintAirline airline;
@@ -6128,7 +7388,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
                 params.statType == statTlgOutShort or
                 params.statType == statTlgOutDetail or
                 params.statType == statTlgOutFull
-                ) {
+          ) {
             TTlgOutStat TlgOutStat;
             TTlgOutStatRow TlgOutStatTotal;
             TPrintAirline airline;
@@ -6157,7 +7417,294 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         else
             throw;
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
+}
+
+void TStatOrders::check_integrity()
+{
+    for(TStatOrderMap::iterator i = items.begin(); i != items.end(); i++)
+        i->second.check_integrity(NoExists);
+}
+
+void TStatOrders::get(int file_id)
+{
+    return get(NoExists, file_id);
+}
+
+void TStatOrders::get(const string &source)
+{
+    return get(TReqInfo::Instance()->user.user_id, NoExists, source);
+}
+
+string TFileParams::get_name()
+{
+    string result;
+    string type = items[PARAM_TYPE];
+    string name = items[PARAM_NAME];
+    result = getLocaleText((type.empty() ? "Unknown" : type), LANG_EN) + "-";
+    result += getLocaleText((name.empty() ? "Unknown" : name), LANG_EN);
+    boost::replace_all(result, " ", "_");
+    return result;
+}
+
+void TFileParams::get(int file_id)
+{
+    items.clear();
+    TCachedQuery Qry(
+            "select name, value from file_params where id = :file_id", QParams() << QParam("file_id", otInteger, file_id)
+            );
+    Qry.get().Execute();
+    for(; not Qry.get().Eof; Qry.get().Next())
+        items[Qry.get().FieldAsString("name")] = Qry.get().FieldAsString("value");
+}
+
+void TStatOrder::get_parts()
+{
+    TCachedQuery Qry(
+            "select * from stat_orders_data where "
+            "   file_id = :file_id "
+            "order by month "
+            ,
+            QParams() << QParam("file_id", otInteger, file_id)
+            );
+    Qry.get().Execute();
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        TStatOrderDataItem item;
+        item.file_id = file_id;
+        item.month = Qry.get().FieldAsDateTime("month");
+        item.file_name = Qry.get().FieldAsString("file_name");
+        item.file_size = Qry.get().FieldAsFloat("file_size");
+        item.file_size_zip = Qry.get().FieldAsFloat("file_size_zip");
+        item.md5_sum = Qry.get().FieldAsString("md5_sum");
+        so_data.push_back(item);
+    }
+}
+
+void TStatOrder::fromDB(TCachedQuery &Qry)
+{
+    clear();
+    if(not Qry.get().Eof) {
+        file_id = Qry.get().FieldAsInteger("file_id");
+        TFileParams params;
+        params.get(file_id);
+        name = params.get_name();
+        user_id = Qry.get().FieldAsInteger("user_id");
+        time_ordered = Qry.get().FieldAsDateTime("time_ordered");
+        if(not Qry.get().FieldIsNULL("time_created"))
+            time_created = Qry.get().FieldAsDateTime("time_created");
+        if(time_ordered == time_created)
+            time_created = NoExists;
+        if(time_created != NoExists) { // Если заказ еще не сформирован, size неизвестен (NoExists)
+            data_size = Qry.get().FieldAsFloat("data_size");
+            data_size_zip = Qry.get().FieldAsFloat("data_size_zip");
+        }
+        source = DecodeOrderSource(Qry.get().FieldAsString("source"));
+        status = (TOrderStatus)Qry.get().FieldAsInteger("status");
+        error = Qry.get().FieldAsString("error");
+        progress = Qry.get().FieldAsInteger("progress");
+        get_parts();
+    }
+}
+
+void TStatOrders::get(int user_id, int file_id, const string &source)
+{
+    items.clear();
+    QParams QryParams;
+    string condition;
+    if(user_id != NoExists) {
+        condition = " user_id = :user_id ";
+        QryParams << QParam("user_id", otInteger, user_id);
+    }
+    if(file_id != NoExists) {
+        if(not condition.empty())
+            condition += " and ";
+        condition += " file_id = :file_id ";
+        QryParams << QParam("file_id", otInteger, file_id);
+    } else if(not source.empty()) {
+        if(not condition.empty())
+            condition += " and ";
+        condition += "   source = :source ";
+        QryParams << QParam("source", otString, source);
+    }
+    string SQLText = "select * from stat_orders ";
+    if(not condition.empty())
+        SQLText += " where " + condition;
+    TCachedQuery Qry(SQLText, QryParams);
+    
+    Qry.get().Execute();
+    TPerfTimer tm;
+    tm.Init();
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        TStatOrder item;
+        item.fromDB(Qry);
+        items[item.time_ordered] = item;
+    }
+    ProgTrace(TRACE5, "Stat Orders from DB: %s", tm.PrintWithMessage().c_str());
+}
+
+enum TColType { ctCompressRate };
+
+void TStatOrders::toXML(xmlNodePtr resNode)
+{
+    xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+    xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+    xmlNodePtr colNode;
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Отчет"));
+    SetProp(colNode, "width", 150);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Время заказа"));
+    SetProp(colNode, "width", 110);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortDate);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Время выполнения"));
+    SetProp(colNode, "width", 110);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortDate);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Время удаления"));
+    SetProp(colNode, "width", 110);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortDate);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Статус"));
+    SetProp(colNode, "width", 110);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Готовность"));
+    SetProp(colNode, "width", 110);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortDate);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Размер"));
+    SetProp(colNode, "width", 110);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortFloat);
+
+    xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+    xmlNodePtr rowNode;
+
+    double total_size = 0;
+    for(TStatOrderMap::iterator i = items.begin(); i != items.end(); i++) {
+        const TStatOrder &curr_order = i->second;
+        rowNode = NewTextChild(rowsNode, "row");
+
+        SetProp(rowNode, "file_id", curr_order.file_id);
+        SetProp(rowNode, "size", FloatToString(curr_order.data_size));
+        SetProp(rowNode, "size_zip", FloatToString(curr_order.data_size_zip));
+        SetProp(rowNode, "status", EncodeOrderStatus(curr_order.status));
+
+        // Отчет
+        NewTextChild(rowNode, "col", curr_order.name);
+
+        // Время заказа
+        NewTextChild(rowNode, "col", DateTimeToStr(curr_order.time_ordered));
+
+        // Время выполнения и удаления
+        if(curr_order.time_created == NoExists) {
+            NewTextChild(rowNode, "col");
+            NewTextChild(rowNode, "col");
+        } else {
+            NewTextChild(rowNode, "col", DateTimeToStr(curr_order.time_created));
+            NewTextChild(rowNode, "col", DateTimeToStr(curr_order.time_created + ORDERS_TIMEOUT()));
+        }
+
+        // Статус
+        NewTextChild(rowNode, "col", getLocaleText(EncodeOrderStatus(curr_order.status)));
+
+        // Готовность
+        NewTextChild(rowNode, "col", IntToString(curr_order.progress) + "%");
+
+        // Размер
+        if(curr_order.data_size == NoExists)
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col", getFileSizeStr(curr_order.data_size));
+
+        total_size += (curr_order.data_size == NoExists ? 0 : curr_order.data_size);
+    }
+    rowNode = NewTextChild(rowsNode, "row");
+    NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col", getFileSizeStr(total_size));
+}
+
+void StatInterface::FileList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int file_id = NodeAsInteger("file_id", reqNode);
+    TStatOrders so;
+    so.get(file_id);
+    so.items.begin()->second.check_integrity(NoExists);
+    if(so.items.begin()->second.status != stReady)
+        throw UserException("MSG.STAT_ORDERS.FILE_TRANSFER_ERROR",
+                LParams() << LParam("status", EncodeOrderStatus(so.items.begin()->second.status)));
+    if(so.so_data_empty(file_id))
+        throw UserException("MSG.STAT_ORDERS.ORDER_IS_EMPTY");
+    xmlNodePtr filesNode = NewTextChild(resNode, "files");
+    for(TStatOrderMap::iterator curr_order_idx = so.items.begin(); curr_order_idx != so.items.end(); curr_order_idx++) {
+        const TStatOrder &so = curr_order_idx->second;
+        for(TStatOrderData::const_iterator so_data_idx = so.so_data.begin(); so_data_idx != so.so_data.end(); so_data_idx++) {
+            xmlNodePtr itemNode = NewTextChild(filesNode, "item");
+            NewTextChild(itemNode, "month", DateTimeToStr(so_data_idx->month, ServerFormatDateTimeAsString));
+            NewTextChild(itemNode, "file_name", so_data_idx->file_name);
+            NewTextChild(itemNode, "file_size", so_data_idx->file_size);
+            NewTextChild(itemNode, "file_size_zip", so_data_idx->file_size_zip);
+        }
+    }
+}
+
+void StatInterface::DownloadOrder(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int file_id = NodeAsInteger("file_id", reqNode);
+    TDateTime month = NodeAsDateTime("month", reqNode, NoExists);
+    int pos = NodeAsInteger("pos", reqNode, 0);
+    TDateTime finished_month = NodeAsDateTime("finished_month", reqNode, NoExists);
+    TStatOrders so;
+    if(finished_month != NoExists)
+        so.get_part(file_id, finished_month)->complete();
+
+    if(month == NoExists) return;
+
+    so.get_part(file_id, month);
+
+    ifstream in(get_part_file_name(file_id, month).c_str(), ios::binary);
+    if(in.is_open()) {
+        boost::shared_array<char> data (new char[ORDERS_BLOCK_SIZE()]);
+        in.seekg(pos);
+        in.read(data.get(), ORDERS_BLOCK_SIZE());
+
+        NewTextChild(resNode, "data", StrUtils::b64_encode(data.get(), in.gcount()));
+    } else
+        throw UserException("file open error");
+}
+
+void StatInterface::StatOrderDel(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int file_id = NodeAsInteger("file_id", reqNode);
+    TStatOrders so;
+    so.get(file_id);
+
+    if(so.items.size() != 1) return; // must be exactly one item
+
+    TStatOrder &order = so.items.begin()->second;
+    if(order.status == stRunning)
+        throw UserException("MSG.STAT_ORDERS.CANT_DEL_RUNNING");
+    order.del();
+}
+
+void StatInterface::StatOrders(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TPerfTimer tm;
+    string source = NodeAsString("source", reqNode);
+    int file_id = NodeAsInteger("file_id", reqNode, NoExists);
+    TStatOrders so;
+    so.get(TReqInfo::Instance()->user.user_id, file_id, source);
+    so.check_integrity();
+    if(file_id != NoExists) { // был запрошен ровно один отчет, для него проверка целостности
+        so.items.begin()->second.check_integrity(NoExists);
+    }
+    so.toXML(resNode);
+    LogTrace(TRACE5) << "StatOrders handler time: " << tm.PrintWithMessage();
 }
 
 void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -7102,4 +8649,80 @@ int STAT::ovb(int argc,char **argv)
 
     cout << "time: " << tm.PrintWithMessage() << endl;
     return 1; // 0 - изменения коммитятся, 1 - rollback
+}
+
+int nosir_months(int argc,char **argv)
+{
+    TDateTime FirstDate, LastDate;
+    StrToDateTime("12.04.2014 00:00:00", ServerFormatDateTimeAsString, FirstDate);
+    StrToDateTime("13.04.2018 00:00:00", ServerFormatDateTimeAsString, LastDate);
+    TPeriods periods;
+    periods.get(FirstDate, LastDate);
+    periods.dump();
+    return 1;
+}
+
+int nosir_stat_order(int argc,char **argv)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select text from stat_orders_data where file_id = 14167838 order by page_no";
+    Qry.Execute();
+    string data;
+    for(; not Qry.Eof; Qry.Next()) {
+        data += Qry.FieldAsString(0);
+    }
+    ofstream out("decompressed14167838.csv");
+    out << Zip::decompress(StrUtils::b64_decode(data));
+    ofstream b64("b64_14167838");
+    b64 << data;
+    return 1;
+}
+
+int nosir_md5(int argc,char **argv)
+{
+    ifstream is("14213060.1508.0005", ifstream::binary);
+
+
+    if (is) {
+        // get length of file:
+        is.seekg (0, is.end);
+        int length = is.tellg();
+        is.seekg (0, is.beg);
+
+        char * buffer = new char [length];
+
+        std::cout << "Reading " << length << " characters... ";
+        // read data as a block:
+        is.read (buffer,length);
+
+        u_char digest[16];
+        //MD5((unsigned char*) buffer, length, digest);
+
+        MD5_CTX c;
+        MD5_Init(&c);
+        MD5_Update(&c, (unsigned char*) buffer, length);
+        MD5_Final(digest, &c);
+
+        /*
+        MD5Context ctxt;
+        MD5Init(&ctxt);
+        MD5Update(&ctxt, (const u_char *)buffer, length);
+        u_char digest[16];
+        MD5Final(digest, &ctxt);
+        */
+        ostringstream md5sum;
+        for(size_t i = 0; i < sizeof(digest) / sizeof(u_char); i++)
+            md5sum << hex << setw(2) << setfill('0') << (int)digest[i];
+
+        if (is)
+            std::cout << "all characters read successfully.";
+        else
+            std::cout << "error: only " << is.gcount() << " could be read";
+        is.close();
+
+        // ...buffer contains the entire file...
+
+        delete[] buffer;
+    }
+    return 1;
 }

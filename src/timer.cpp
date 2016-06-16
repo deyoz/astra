@@ -162,6 +162,10 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       else
       if ( name == "mintrans" ) save_mintrans_files();
       else
+      if ( name == "stat_orders_synchro" ) stat_orders_synchro();
+      else
+      if ( name == "stat_orders_collect" ) stat_orders_collect();
+      else
       if ( name == "utg" ) utg();
       else
       if ( name == "utg_prl" ) utg_prl();
