@@ -67,6 +67,8 @@ public:
      AddEvent("run_stat",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::stat_srv);
      AddEvent("stat_srv",evHandle);
+     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::Layout);
+     AddEvent("layout",evHandle);
 
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::StatOrders);
      AddEvent("stat_orders",evHandle);
@@ -88,6 +90,7 @@ public:
   void PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void Layout(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void TestRunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   // Работа с заказами
@@ -102,6 +105,11 @@ public:
 void get_flight_stat(int point_id, bool final_collection);
 int nosir_rfisc_stat(int argc,char **argv);
 int nosir_stat_order(int argc,char **argv);
+int nosir_departed_pax(int argc, char **argv);
+int nosir_departed(int argc, char **argv);
+int nosir_departed_sql(int argc, char **argv);
+int nosir_seDCSAddReport(int argc, char **argv);
+
 
 void stat_orders_collect(void);
 void stat_orders_synchro(void);

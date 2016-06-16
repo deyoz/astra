@@ -516,6 +516,7 @@ public:
 };
 
 class TTripRoute : public TTripBase, public std::vector<TTripRouteItem>
+
 {
   private:
     virtual void GetRoute(BASIC::TDateTime part_key,

@@ -1926,6 +1926,7 @@ enum TStatType {
     statPactShort,
     statRFISC,
     statService,
+    statLimitedCapab,
     statNum
 };
 
@@ -1945,7 +1946,8 @@ const char *TStatTypeS[statNum] = {
     "statTlgOutDetail",
     "statPactShort",
     "statRFISC",
-    "statService"
+    "statService",
+    "statLimitedCapab"
 };
 
 TStatType DecodeStatType( const string stat_type )
@@ -2402,6 +2404,11 @@ void TStatParams::get(xmlNodePtr reqNode)
     } else if(type == "Услуги") {
         if(name == "Подробная")
             statType=statService;
+        else
+            throw Exception("Unknown stat mode " + name);
+    } else if(type == "Огр. возмож.") {
+        if(name == "Подробная")
+            statType=statLimitedCapab;
         else
             throw Exception("Unknown stat mode " + name);
     } else
@@ -5490,6 +5497,128 @@ void convertStatParam(xmlNodePtr paramNode)
     xmlNodeSetContent(paramNode, idx->second.c_str());
 }
 
+struct TParamItem {
+    string code;
+    int visible;
+    string label;
+    string caption;
+    string ctype;
+    string name; // control name property
+    int width;
+    int len;
+    int isalnum;
+    string ref;
+    string ref_field;
+    string tag;
+    TParamItem():
+        visible(NoExists),
+        width(NoExists),
+        len(NoExists),
+        isalnum(NoExists)
+    {}
+    void fromDB(TQuery &Qry);
+    void toXML(xmlNodePtr resNode);
+};
+
+void TParamItem::toXML(xmlNodePtr resNode)
+{
+    xmlNodePtr itemNode = NewTextChild(resNode, "item");
+    NewTextChild(itemNode, "code", code);
+    NewTextChild(itemNode, "visible", visible);
+    NewTextChild(itemNode, "label", label);
+    NewTextChild(itemNode, "caption", caption);
+    NewTextChild(itemNode, "ctype", ctype);
+    NewTextChild(itemNode, "name", name);
+    NewTextChild(itemNode, "width", width);
+    NewTextChild(itemNode, "len", len);
+    NewTextChild(itemNode, "isalnum", isalnum);
+    NewTextChild(itemNode, "ref", ref);
+    NewTextChild(itemNode, "ref_field", ref_field);
+    NewTextChild(itemNode, "tag", tag);
+    if(code == "Seance") {
+        static const char *seances[] = {"", "АК", "АП"};
+        xmlNodePtr dataNode = NewTextChild(itemNode, "data");
+        for(size_t i = 0; i < sizeof(seances) / sizeof(seances[0]); i++) {
+            xmlNodePtr CBoxItemNode = NewTextChild(dataNode, "item");
+            NewTextChild(CBoxItemNode, "code", seances[i]);
+            NewTextChild(CBoxItemNode, "caption", seances[i]);
+        }
+    }
+}
+
+void TParamItem::fromDB(TQuery &Qry)
+{
+    code = Qry.FieldAsString("code");
+    visible = Qry.FieldAsInteger("visible");
+    label = code + "L";
+    caption = Qry.FieldAsString("caption");
+    ctype = Qry.FieldAsString("ctype");
+    name = code + ctype;
+    width = Qry.FieldAsInteger("width");
+    len = Qry.FieldAsInteger("len");
+    isalnum = Qry.FieldAsInteger("isalnum");
+    ref = Qry.FieldAsString("ref");
+    ref_field = Qry.FieldAsString("ref_field");
+    tag = Qry.FieldAsString("tag");
+}
+
+struct TLayout {
+    map<int, TParamItem> params;
+    void get_params();
+    void toXML(xmlNodePtr resNode);
+    void toXML(xmlNodePtr resNode, const string &tag, const string &qry);
+};
+
+void TLayout::get_params()
+{
+    if(params.empty()) {
+        TCachedQuery Qry("select * from stat_params");
+        Qry.get().Execute();
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TParamItem &item = params[Qry.get().FieldAsInteger("visible")];
+            item.fromDB(Qry.get());
+        }
+    }
+}
+
+void TLayout::toXML(xmlNodePtr resNode, const string &tag, const string &qry)
+{
+    TCachedQuery Qry(qry);
+    Qry.get().Execute();
+    xmlNodePtr listNode = NewTextChild(resNode, tag.c_str());
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        xmlNodePtr itemNode = NewTextChild(listNode, "item");
+        NewTextChild(itemNode, "type", Qry.get().FieldAsString("code"));
+        NewTextChild(itemNode, "visible", Qry.get().FieldAsString("visible"));
+        if(tag == "types") {
+            int item_params = Qry.get().FieldAsInteger("params");
+            xmlNodePtr paramsNode = NULL;
+            for(map<int, TParamItem>::iterator i = params.begin(); i != params.end(); i++) {
+                if((item_params & i->first) == i->first) {
+                    if(not paramsNode) paramsNode = NewTextChild(itemNode, "params");
+                    NewTextChild(paramsNode, "item", i->second.code);
+                }
+            }
+        }
+    }
+}
+
+void TLayout::toXML(xmlNodePtr resNode)
+{
+    get_params();
+    xmlNodePtr paramsNode = NewTextChild(resNode, "params");
+    for(map<int, TParamItem>::iterator i = params.begin(); i != params.end(); i++)
+        i->second.toXML(paramsNode);
+    toXML(resNode, "types", "select * from stat_types order by view_order");
+    toXML(resNode, "levels", "select * from stat_levels order by view_order");
+}
+
+void StatInterface::Layout(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TLayout().toXML(resNode);
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
+}
+
 void StatInterface::stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr curNode = reqNode->children;
@@ -6005,6 +6134,87 @@ void TRemInfo::parse(const string &rem)
     }
 }
 
+struct TAirpArvInfo {
+    map<int, string> items;
+    string get(TQuery &Qry)
+    {
+        int grp_id = Qry.FieldAsInteger("grp_id");
+        map<int, string>::iterator im = items.find(grp_id);
+        if(im == items.end()) {
+            TCkinRoute tckin_route;
+            tckin_route.GetRouteAfter(grp_id, crtWithCurrent, crtIgnoreDependent);
+            string airp_arv;
+            if(tckin_route.empty())
+                airp_arv = Qry.FieldAsString("airp_arv");
+            else
+                airp_arv = tckin_route.back().airp_arv;
+            pair<map<int, string>::iterator, bool> res = items.insert(make_pair(grp_id, airp_arv));
+            im = res.first;
+        }
+        return im->second;
+    }
+};
+
+void get_limited_capability_stat(int point_id)
+{
+    TCachedQuery delQry("delete from limited_capability_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
+    delQry.get().Execute();
+
+    TRemGrp rem_grp;
+    rem_grp.Load(retLIMITED_CAPAB_STAT, point_id);
+    if(rem_grp.empty()) return;
+
+    TCachedQuery Qry(
+            "select pax.grp_id, pax_grp.airp_arv, rem_code "
+            "from pax_grp, pax, pax_rem where "
+            "   pax_grp.point_dep = :point_id and "
+            "   pax.grp_id = pax_grp.grp_id and "
+            "   pax_rem.pax_id = pax.pax_id ",
+            QParams() << QParam("point_id", otInteger, point_id)
+            );
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+
+        TAirpArvInfo airp_arv_info;
+
+        map<string, map<string, int> > rems;
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            string airp_arv = airp_arv_info.get(Qry.get());
+            string rem = Qry.get().FieldAsString("rem_code");
+            if(rem_grp.exists(rem)) rems[airp_arv][rem]++;
+        }
+
+        if(not rems.empty()) {
+            TCachedQuery insQry(
+                    "insert into limited_capability_stat ( "
+                    "   point_id, "
+                    "   airp_arv, "
+                    "   rem_code, "
+                    "   pax_amount "
+                    ") values ( "
+                    "   :point_id, "
+                    "   :airp_arv, "
+                    "   :rem_code, "
+                    "   :pax_amount "
+                    ") ",
+                    QParams()
+                    << QParam("point_id", otInteger, point_id)
+                    << QParam("airp_arv", otString)
+                    << QParam("rem_code", otString)
+                    << QParam("pax_amount", otInteger)
+                    );
+            for(map<string, map<string, int> >::iterator airp_arv = rems.begin(); airp_arv != rems.end(); airp_arv++) {
+                for(map<string, int>::iterator rem = airp_arv->second.begin(); rem != airp_arv->second.end(); rem++) {
+                    insQry.get().SetVariable("airp_arv", airp_arv->first);
+                    insQry.get().SetVariable("rem_code", rem->first);
+                    insQry.get().SetVariable("pax_amount", rem->second);
+                    insQry.get().Execute();
+                }
+            }
+        }
+    }
+}
+
 void get_service_stat(int point_id)
 {
     TCachedQuery delQry("delete from service_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
@@ -6223,6 +6433,212 @@ string TServiceStatRow::rate_str() const
         result << fixed << setprecision(2) << setfill('0') << rate;
     }
     return result.str();
+}
+
+struct TFlight {
+    int point_id;
+    string airline;
+    string airp;
+    int flt_no;
+    string suffix;
+    TDateTime scd_out;
+    TFlight():
+        flt_no(NoExists),
+        scd_out(NoExists)
+    {}
+    bool operator < (const TFlight &val) const
+    {
+        return point_id < val.point_id;
+    }
+
+};
+
+struct TLimitedCapabStat {
+    typedef map<string, int> TRems;
+    typedef map<string, TRems> TAirpArv;
+    typedef map<TFlight, TAirpArv> TRows;
+    TRems total;
+    TRows rows;
+};
+
+void RunLimitedCapabStat(
+        const TStatParams &params,
+        TLimitedCapabStat &LimitedCapabStat,
+        TPrintAirline &prn_airline
+        )
+{
+    for(int pass = 0; pass <= 1; pass++) {
+        QParams QryParams;
+        QryParams
+            << QParam("FirstDate", otDate, params.FirstDate)
+            << QParam("LastDate", otDate, params.LastDate);
+        string SQLText =
+            "select "
+            "   points.point_id, "
+            "   points.airline, "
+            "   points.airp, "
+            "   stat.airp_arv, "
+            "   points.flt_no, "
+            "   points.suffix, "
+            "   points.scd_out, "
+            "   stat.rem_code, "
+            "   stat.pax_amount "
+            "from ";
+        if(pass != 0) {
+            SQLText +=
+                "   arx_limited_capability_stat stat, "
+                "   arx_points points ";
+        } else {
+            SQLText +=
+                "   limited_capability_stat stat, "
+                "   points ";
+        }
+        SQLText +=
+            "where "
+            "   stat.point_id = points.point_id and ";
+        if (!params.airps.elems().empty()) {
+            if (params.airps.elems_permit())
+                SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and ";
+            else
+                SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and ";
+        };
+        if (!params.airlines.elems().empty()) {
+            if (params.airlines.elems_permit())
+                SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and ";
+            else
+                SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and ";
+        };
+        if(params.flt_no != NoExists) {
+            SQLText += " points.flt_no = :flt_no and ";
+            QryParams << QParam("flt_no", otInteger, params.flt_no);
+        }
+        if(pass != 0)
+            SQLText +=
+                " points.part_key >= :FirstDate and points.part_key < :FirstDate and "
+                " stat.part_key >= :FirstDate and stat.part_key < :LastDate ";
+        else
+            SQLText +=
+                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+        TCachedQuery Qry(SQLText, QryParams);
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            int col_point_id = Qry.get().FieldIndex("point_id");
+            int col_airline = Qry.get().FieldIndex("airline");
+            int col_airp = Qry.get().FieldIndex("airp");
+            int col_airp_arv = Qry.get().FieldIndex("airp_arv");
+            int col_flt_no = Qry.get().FieldIndex("flt_no");
+            int col_suffix = Qry.get().FieldIndex("suffix");
+            int col_scd_out = Qry.get().FieldIndex("scd_out");
+            int col_rem_code = Qry.get().FieldIndex("rem_code");
+            int col_pax_amount = Qry.get().FieldIndex("pax_amount");
+            for(; not Qry.get().Eof; Qry.get().Next()) {
+                prn_airline.check(Qry.get().FieldAsString(col_airline));
+                TFlight row;
+                row.point_id = Qry.get().FieldAsInteger(col_point_id);
+                row.airline = Qry.get().FieldAsString(col_airline);
+                row.airp = Qry.get().FieldAsString(col_airp);
+                row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+                row.suffix = Qry.get().FieldAsString(col_suffix);
+                row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+
+                string airp_arv = Qry.get().FieldAsString(col_airp_arv);
+                string rem_code = Qry.get().FieldAsString(col_rem_code);
+                int pax_amount = Qry.get().FieldAsInteger(col_pax_amount);
+
+
+                LimitedCapabStat.total[rem_code] += pax_amount;
+                LimitedCapabStat.rows[row][airp_arv][rem_code] = pax_amount;
+            }
+        }
+    }
+}
+
+void createXMLLimitedCapabStat(const TStatParams &params, const TLimitedCapabStat &LimitedCapabStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
+{
+    if(LimitedCapabStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    NewTextChild(resNode, "airline", prn_airline.get(), "");
+
+    xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+    xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+    xmlNodePtr colNode;
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АК"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АП"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortDate);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
+    SetProp(colNode, "width", 90);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    for(TLimitedCapabStat::TRems::const_iterator rem_col = LimitedCapabStat.total.begin();
+            rem_col != LimitedCapabStat.total.end(); rem_col++)
+    {
+        colNode = NewTextChild(headerNode, "col", rem_col->first);
+        SetProp(colNode, "width", 40);
+        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "sort", sortInteger);
+    }
+
+    xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+    xmlNodePtr rowNode;
+    for(TLimitedCapabStat::TRows::const_iterator row = LimitedCapabStat.rows.begin();
+            row != LimitedCapabStat.rows.end(); row++)
+    {
+        for(TLimitedCapabStat::TAirpArv::const_iterator airp = row->second.begin();
+                airp != row->second.end(); airp++)
+        {
+            rowNode = NewTextChild(rowsNode, "row");
+            // АК
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirline, row->first.airline));
+            // АП
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, row->first.airp));
+            // Рейс
+            ostringstream buf;
+            buf << setw(3) << setfill('0') << row->first.flt_no << ElemIdToCodeNative(etSuffix, row->first.suffix);
+            NewTextChild(rowNode, "col", buf.str());
+            // Дата
+            NewTextChild(rowNode, "col", DateTimeToStr(row->first.scd_out, "dd.mm.yyyy"));
+            // До
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, airp->first));
+
+            const TLimitedCapabStat::TRems &rems = airp->second;
+
+            for(TLimitedCapabStat::TRems::const_iterator rem_col = LimitedCapabStat.total.begin();
+                    rem_col != LimitedCapabStat.total.end(); rem_col++)
+            {
+                TLimitedCapabStat::TRems::const_iterator rems_idx = rems.find(rem_col->first);
+                int pax_count = 0;
+                if(rems_idx != rems.end()) pax_count = rems_idx->second;
+                NewTextChild(rowNode, "col", pax_count);
+            }
+        }
+    }
+    rowNode = NewTextChild(rowsNode, "row");
+    NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    for(TLimitedCapabStat::TRems::const_iterator rem_col = LimitedCapabStat.total.begin();
+            rem_col != LimitedCapabStat.total.end(); rem_col++)
+        NewTextChild(rowNode, "col", rem_col->second);
+
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "rem_col_num", (int)LimitedCapabStat.total.size());
+    NewTextChild(variablesNode, "stat_type", params.statType);
+    NewTextChild(variablesNode, "stat_mode", getLocaleText("Пассажиры с ограниченными возможностями"));
+    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
 }
 
 typedef multiset<TServiceStatRow> TServiceStat;
@@ -7324,6 +7740,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statTlgOutShort:
         case statTlgOutDetail:
         case statPactShort:
+        case statLimitedCapab:
             get_compatible_report_form("stat", reqNode, resNode);
             break;
         default:
@@ -7408,6 +7825,13 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TServiceStat ServiceStat;
             RunServiceStat(params, ServiceStat, airline);
             createXMLServiceStat(params,ServiceStat, airline, resNode);
+        }
+        if(params.statType == statLimitedCapab)
+        {
+            TPrintAirline airline;
+            TLimitedCapabStat LimitedCapabStat;
+            RunLimitedCapabStat(params, LimitedCapabStat, airline);
+            createXMLLimitedCapabStat(params, LimitedCapabStat, airline, resNode);
         }
     }
     catch (EOracleError &E)
@@ -8484,6 +8908,7 @@ void get_flight_stat(int point_id, bool final_collection)
      Qry.get().Execute();
      get_rfisc_stat(point_id);
      get_service_stat(point_id);
+     get_limited_capability_stat(point_id);
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
@@ -8724,5 +9149,547 @@ int nosir_md5(int argc,char **argv)
 
         delete[] buffer;
     }
+    return 1;
+}
+
+void departed_flt(TQuery &Qry, ofstream &of)
+{
+    int point_id = Qry.FieldAsInteger("point_id");
+    TDateTime part_key = NoExists;
+
+    if(not Qry.FieldIsNULL("part_key"))
+        part_key = Qry.FieldAsDateTime("part_key");
+
+    TQuery paxQry(&OraSession);
+    paxQry.CreateVariable("point_id", otInteger, point_id);
+    if(part_key != NoExists)
+        paxQry.CreateVariable("part_key", otDate, part_key);
+
+    string SQLText =
+        "select \n"
+        "   pax.name, \n"
+        "   pax.surname, \n"
+        "   pax.ticket_no, \n"
+        "   pax.coupon_no, \n"
+        "   pax.pax_id, \n"
+        "   pax.grp_id, \n"
+        "   pax_grp.airp_arv \n"
+        "from \n";
+    if(part_key == NoExists)
+        SQLText +=
+            "   pax, pax_grp \n";
+    else
+        SQLText +=
+            "   arx_pax pax, arx_pax_grp pax_grp \n";
+    SQLText +=
+        "where \n"
+        "   pax_grp.point_dep = :point_id and \n"
+        "   pax_grp.grp_id = pax.grp_id \n";
+    if(part_key != NoExists)
+        SQLText +=
+            " and pax.part_key = :part_key and \n"
+            " pax_grp.part_key = :part_key \n";
+
+    TQuery pnrQry(&OraSession);
+    pnrQry.SQLText =
+        "select crs_pnr.pnr_id from "
+        "  crs_pnr, crs_pax "
+        "where "
+        "   crs_pax.pax_id = :pax_id and "
+        "   crs_pax.pr_del = 0 and "
+        "   crs_pax.pnr_id = crs_pnr.pnr_id ";
+    pnrQry.DeclareVariable("pax_id", otInteger);
+
+    string delim = ";";
+
+    vector<TPnrAddrItem> pnrs;
+
+    paxQry.SQLText = SQLText;
+    paxQry.Execute();
+    TAirpArvInfo airp_arv_info;
+    for(; not paxQry.Eof; paxQry.Next()) {
+        string name = paxQry.FieldAsString("name");
+        string surname = paxQry.FieldAsString("surname");
+
+        string airline = Qry.FieldAsString("airline");
+        int flt_no = Qry.FieldAsInteger("flt_no");
+        string suffix = Qry.FieldAsString("suffix");
+        string airp = Qry.FieldAsString("airp");
+        TDateTime scd_out = Qry.FieldAsDateTime("scd_out");
+        ostringstream flt_str;
+        flt_str
+            << airline
+            << setw(3) << setfill('0') << flt_no
+            << (suffix.empty() ? "" : suffix);
+
+        string ticket_no = paxQry.FieldAsString("ticket_no");
+        string coupon_no = paxQry.FieldAsString("coupon_no");
+        ostringstream ticket;
+        if(not ticket_no.empty())
+            ticket << ticket_no << (coupon_no.empty() ? "" : "/") << coupon_no;
+
+        string pnr_addr;
+        if(part_key == NoExists) {
+            pnrQry.SetVariable("pax_id", paxQry.FieldAsInteger("pax_id"));
+            pnrQry.Execute();
+            if(not pnrQry.Eof) {
+                GetPnrAddr(pnrQry.FieldAsInteger("pnr_id"), pnrs);
+                if (!pnrs.empty())
+                    pnr_addr.append(pnrs.begin()->addr).append("/").append(pnrs.begin()->airline);
+            }
+        }
+
+
+        CheckIn::TPaxDocItem doc;
+        LoadPaxDoc(part_key, paxQry.FieldAsInteger("pax_id"), doc);
+        string birth_date = (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "dd.mmm.yy"):"");
+        string gender = doc.gender;
+
+        of
+            // ФИО
+            << name << (name.empty() ? "" : " ") << surname << delim
+            // Дата рождения
+            << birth_date << delim
+            // Пол
+            << gender << delim
+            // Тип документа
+            << doc.type << delim
+            // Серия и номер документа
+            << doc.no << delim
+            // Номер билета
+            << ticket.str() << delim
+            // Номер бронирования
+            << pnr_addr << delim
+            // Рейс
+            << flt_str.str() << delim
+            // Дата вылета
+            << DateTimeToStr(scd_out, "ddmmm") << delim
+            // От
+            << airp << delim
+            // До
+            << airp_arv_info.get(paxQry) << endl;
+    }
+
+    /*
+       ofstream out(IntToString(part_key == NoExists ? 0 : 1) + "pax1.sql");
+       out << SQLText;
+       out.close();
+       */
+}
+
+void departed_month(const pair<TDateTime, TDateTime> &interval, ofstream &of)
+{
+    TQuery Qry(&OraSession);
+    Qry.CreateVariable("first_date", otDate, interval.first);
+    Qry.CreateVariable("last_date", otDate, interval.second);
+    for(int pass = 0; pass <= 2; pass++) {
+        if (pass!=0)
+            Qry.CreateVariable("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+        ostringstream sql;
+        sql << "SELECT ";
+        if(pass)
+            sql << "points.part_key, ";
+        else
+            sql << "null part_key, ";
+        sql << "point_id, airline, flt_no, suffix, airp, scd_out  FROM ";
+        if (pass!=0)
+        {
+            sql << " arx_points points \n";
+            if (pass==2)
+                sql << ",(SELECT part_key, move_id FROM move_arx_ext \n"
+                    "  WHERE part_key >= :last_date+:arx_trip_date_range AND part_key <= :last_date+date_range) arx_ext \n";
+        }
+        else
+            sql << " points \n";
+        sql << "WHERE \n";
+        if (pass==1)
+            sql << " points.part_key >= :first_date AND points.part_key < :last_date + :arx_trip_date_range AND \n";
+        if (pass==2)
+            sql << " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
+        sql <<
+            "   scd_out>=:first_date AND scd_out<:last_date AND airline='ЮТ' AND "
+            "      pr_reg<>0 AND pr_del>=0";
+
+        /*
+           ofstream out(IntToString(pass) + ".sql");
+           out << sql.str();
+           out.close();
+           */
+
+        Qry.SQLText = sql.str().c_str();
+        Qry.Execute();
+        for(; not Qry.Eof; Qry.Next())
+            departed_flt(Qry, of);
+    }
+}
+
+int nosir_departed_sql(int argc, char **argv)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select :part_key part_key from dual";
+    Qry.CreateVariable("part_key", otDate, FNull);
+    Qry.Execute();
+//    departed_flt(Qry);
+    Qry.SetVariable("part_key", NowUTC());
+    Qry.Execute();
+//    departed_flt(Qry);
+    return 1;
+}
+
+int nosir_departed(int argc, char **argv)
+{
+    if(argc != 3) {
+        cout << "usage: " << argv[0] << " yyyymmdd yyyymmdd" << endl;
+        return 1;
+    }
+    TPerfTimer tm;
+    tm.Init();
+    TDateTime FirstDate, LastDate;
+
+    if(StrToDateTime(argv[1], "yyyymmdd", FirstDate) == EOF) {
+        cout << "wrong first date: " << argv[1] << endl;
+        return 1;
+    }
+
+    if(StrToDateTime(argv[2], "yyyymmdd", LastDate) == EOF) {
+        cout << "wrong last date: " << argv[1] << endl;
+        return 1;
+    }
+
+    TPeriods period;
+    period.get(FirstDate, LastDate);
+    string delim = ";";
+    for(TPeriods::TItems::iterator i = period.items.begin(); i != period.items.end(); i++) {
+        ofstream of(((string)"departed." + DateTimeToStr(i->first, "yymm") + ".csv").c_str());
+        of
+            << "ФИО" << delim
+            << "Дата рождения" << delim
+            << "Пол" << delim
+            << "Тип документа" << delim
+            << "Серия и номер документа" << delim
+            << "Номер билета" << delim
+            << "Номер бронирования" << delim
+            << "Рейс" << delim
+            << "Дата вылета" << delim
+            << "От" << delim
+            << "До" << endl;
+        departed_month(*i, of);
+    }
+    LogTrace(TRACE5) << "time: " << tm.PrintWithMessage();
+    return 1;
+}
+
+int nosir_departed_pax(int argc, char **argv)
+{
+    TDateTime FirstDate, LastDate;
+    StrToDateTime("01.04.2016 00:00:00", "dd.mm.yyyy hh:nn:ss", FirstDate);
+    LastDate = NowUTC();
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+    "SELECT point_id, airline, flt_no, suffix, airp, scd_out  FROM points "
+    "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND airline='ЮТ' AND "
+    "      pr_reg<>0 AND pr_del>=0";
+    Qry.CreateVariable("FirstDate", otDate, FirstDate);
+    Qry.CreateVariable("LastDate", otDate, LastDate);
+
+    TQuery paxQry(&OraSession);
+    paxQry.SQLText =
+        "select "
+        "   pax.name, "
+        "   pax.surname, "
+        "   pax.ticket_no, "
+        "   pax.coupon_no, "
+        "   crs_pnr.pnr_id, "
+        "   pax.pax_id "
+        "from "
+        "   pax, pax_grp, crs_pnr, crs_pax where "
+        "   pax.pax_id = crs_pax.pax_id(+) and "
+        "   crs_pax.pr_del(+)=0 and "
+        "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+        "   pax_grp.point_dep = :point_id and "
+        "   pax_grp.grp_id = pax.grp_id ";
+    paxQry.DeclareVariable("point_id", otInteger);
+
+    Qry.Execute();
+    bool pr_header = true;
+    string delim = ";";
+    ofstream of;
+    TTripRoute route;
+    vector<TPnrAddrItem> pnrs;
+    for(; not Qry.Eof; Qry.Next()) {
+        int point_id = Qry.FieldAsInteger("point_id");
+        route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
+        string airp_arv;
+        if(not route.empty())
+            airp_arv = route.begin()->airp;
+        
+        paxQry.SetVariable("point_id", point_id);
+        paxQry.Execute();
+        for(; not paxQry.Eof; paxQry.Next()) {
+            if(pr_header) {
+                pr_header = false;
+                of.open("pax_departed.csv");
+                of
+                    << "ФИО" << delim
+                    << "Номер билета" << delim
+                    << "Номер бронирования" << delim
+                    << "Рейс" << delim
+                    << "Дата вылета" << delim
+                    << "Направление" << delim
+                    << "Дата рождения" << delim
+                    << "Пол" << endl;
+            }
+            string name = paxQry.FieldAsString("name");
+            string surname = paxQry.FieldAsString("surname");
+
+            string airline = Qry.FieldAsString("airline");
+            int flt_no = Qry.FieldAsInteger("flt_no");
+            string suffix = Qry.FieldAsString("suffix");
+            string airp = Qry.FieldAsString("airp");
+            TDateTime scd_out = Qry.FieldAsDateTime("scd_out");
+            ostringstream flt_str;
+            flt_str
+                << airline
+                << setw(3) << setfill('0') << flt_no
+                << (suffix.empty() ? "" : suffix);
+
+            string ticket_no = paxQry.FieldAsString("ticket_no");
+            string coupon_no = paxQry.FieldAsString("coupon_no");
+            ostringstream ticket;
+            if(not ticket_no.empty())
+                ticket << ticket_no << (coupon_no.empty() ? "" : "/") << coupon_no;
+
+            GetPnrAddr(paxQry.FieldAsInteger("pnr_id"), pnrs);
+            string pnr_addr;
+            if (!pnrs.empty())
+                pnr_addr.append(pnrs.begin()->addr).append("/").append(pnrs.begin()->airline);
+
+            CheckIn::TPaxDocItem doc;
+            LoadPaxDoc(paxQry.FieldAsInteger("pax_id"), doc);
+            string birth_date = (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "dd.mmm.yy"):"");
+            string gender = doc.gender;
+
+            of
+                // ФИО
+                << name << (name.empty() ? "" : " ") << surname << delim
+                // Дата рождения
+                << birth_date << delim
+                // Пол
+                << gender << delim
+                // Тип документа
+                << delim
+                // Серия документа
+                << delim
+                // Номер документа
+                << delim
+                // Номер билета
+                << ticket.str() << delim
+                // Номер бронирования
+                << pnr_addr << delim
+                // Рейс
+                << flt_str.str() << delim
+                // Дата вылета
+                << DateTimeToStr(scd_out, "ddmmm") << delim
+                // От
+                << delim
+                // До
+                << route.begin()->airp << delim;
+        }
+    }
+    return 1;
+}
+
+
+int nosir_seDCSAddReport(int argc, char **argv)
+{
+    if(argc != 2) {
+        cout << "usage: " << argv[0] << " yyyymmdd" << endl;
+        return 1;
+    }
+
+    TDateTime FirstDate;
+    if(StrToDateTime(argv[1], "yyyymmdd", FirstDate) == EOF) {
+        cout << "wrong date: " << argv[1] << endl;
+        return 1;
+    }
+
+    struct TFltStat {
+        int col_point_id;
+        int col_airline;
+        int col_airp;
+        int col_flt_no;
+        int col_suffix;
+        int col_scd_out;
+
+        TCachedQuery fltQry;
+
+        const char *delim;
+
+
+        typedef map<bool, int> TBagRow;
+        typedef map<bool, TBagRow> TWebRow;
+        typedef map<bool, TWebRow> TPersRow;
+        typedef map<int, TPersRow> TFltData;
+
+        // data[point_id][pr_adult][pr_web][pr_bag] = count;
+        TFltData data;
+
+        void data_dump()
+        {
+            for(TFltData::iterator flt = data.begin(); flt != data.end(); flt++) {
+                for(TPersRow::iterator pers = flt->second.begin(); pers != flt->second.end(); pers++) {
+                    for(TWebRow::iterator web = pers->second.begin(); web != pers->second.end(); web++) {
+                        for(TBagRow::iterator bag = web->second.begin(); bag != web->second.end(); bag++) {
+                            LogTrace(TRACE5)
+                                << "data["
+                                << flt->first
+                                << "]["
+                                << pers->first
+                                << "]["
+                                << web->first
+                                << "]["
+                                << bag->first
+                                << "] = "
+                                << bag->second;
+                        }
+                    }
+                }
+            }
+        }
+
+        TFltStat(TQuery &Qry, const char *adelim): fltQry(
+                "select "
+                "    pax_grp.client_type, "
+                "    pax.pers_type, "
+                "    nvl2(bag2.grp_id, 1, 0) pr_bag "
+                "from "
+                "    pax_grp, "
+                "    pax, "
+                "    bag2 "
+                "where "
+                "    pax_grp.point_dep = :point_id and "
+                "    pax.grp_id = pax_grp.grp_id and "
+                "    bag2.grp_id(+) = pax_grp.grp_id and "
+                "    bag2.num(+) = 1 ",
+                QParams() << QParam("point_id", otInteger)
+                ),
+        delim(adelim)
+        {
+            col_point_id = Qry.GetFieldIndex("point_id");
+            col_airline = Qry.GetFieldIndex("airline");
+            col_airp = Qry.GetFieldIndex("airp");
+            col_flt_no = Qry.GetFieldIndex("flt_no");
+            col_suffix = Qry.GetFieldIndex("suffix");
+            col_scd_out = Qry.GetFieldIndex("scd_out");
+        }
+
+        void get(TQuery &Qry, ofstream &of) {
+            data.clear();
+            int point_id = Qry.FieldAsInteger(col_point_id);
+            fltQry.get().SetVariable("point_id", point_id);
+            fltQry.get().Execute();
+            if(not fltQry.get().Eof) {
+                int col_client_type = fltQry.get().GetFieldIndex("client_type");
+                int col_pers_type = fltQry.get().GetFieldIndex("pers_type");
+                int col_pr_bag = fltQry.get().GetFieldIndex("pr_bag");
+                for(; not fltQry.get().Eof; fltQry.get().Next()) {
+                    bool pr_adult = DecodePerson(fltQry.get().FieldAsString(col_pers_type)) == adult;
+                    bool pr_web = DecodeClientType(fltQry.get().FieldAsString(col_client_type)) != ctTerm;
+                    bool pr_bag = fltQry.get().FieldAsInteger(col_pr_bag) != 0;
+                    data[point_id][pr_adult][pr_web][pr_bag]++;
+                }
+            }
+            if(not data.empty()) {
+                data_dump();
+                of
+                    //Код аэропорта (города)
+                    << Qry.FieldAsString(col_airp) << delim
+                    //Перевозчик
+                    << Qry.FieldAsString(col_airline) << delim
+                    //Номер рейса
+                    << Qry.FieldAsString(col_flt_no) << delim
+                    //Литера
+                    << Qry.FieldAsString(col_suffix) << delim
+                    //Дата рейса
+                    << DateTimeToStr(Qry.FieldAsDateTime(col_scd_out), "dd.mm.yyyy") << delim
+                    //Пассажиры ВЗР с регистрацией в а/п
+                    <<
+                    data[point_id][true][false][false] +
+                    data[point_id][true][false][true]
+                    << delim
+                    //Пассажиры РБ с регистрацией в а/п
+                    <<
+                    data[point_id][false][false][false] +
+                    data[point_id][false][false][true]
+                    << delim
+                    //Пассажиры ВЗР с регистрацией в а/п без багажа
+                    <<
+                    data[point_id][true][false][false]
+                    << delim
+                    //Пассажиры РБ с регистрацией в а/п без багажа
+                    <<
+                    data[point_id][false][false][false]
+                    << delim
+                    //Пассажиры ВЗР с саморегистрацией и багажом
+                    <<
+                    data[point_id][true][true][true]
+                    << delim
+                    //Пассажиры РБ с саморегистрацией и багажом
+                    <<
+                    data[point_id][false][true][true]
+                    << delim
+                    //Пассажиры ВЗР с саморегистрацией без багажа
+                    <<
+                    data[point_id][true][true][false]
+                    << delim
+                    //Пассажиры РБ с саморегистрацией без багажа
+                    <<
+                    data[point_id][false][true][false]
+                    << endl;
+            }
+        }
+    };
+
+    TCachedQuery Qry(
+            "select "
+            "   point_id, "
+            "   airline, "
+            "   airp, "
+            "   flt_no, "
+            "   suffix, "
+            "   scd_out "
+            "from "
+            "   points "
+            "where "
+            "   scd_out>=:first_date AND scd_out<:last_date AND airline='ЮТ' AND "
+            "   pr_reg<>0 AND pr_del>=0 ",
+            QParams()
+            << QParam("first_date", otDate, FirstDate)
+            << QParam("last_date", otDate, FirstDate + 1)
+            );
+
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        const char *delim = ",";
+        ofstream of(((string)"seDCSAddReport." + argv[1] + ".csv").c_str());
+        of
+            << "Код аэропорта (города)" << delim
+            << "Перевозчик" << delim
+            << "Номер рейса" << delim
+            << "Литера" << delim
+            << "Дата рейса" << delim
+            << "Пассажиры ВЗР с регистрацией в а/п" << delim
+            << "Пассажиры РБ с регистрацией в а/п" << delim
+            << "Пассажиры ВЗР с регистрацией в а/п без багажа" << delim
+            << "Пассажиры РБ с регистрацией в а/п без багажа" << delim
+            << "Пассажиры ВЗР с саморегистрацией и багажом" << delim
+            << "Пассажиры РБ с саморегистрацией и багажом" << delim
+            << "Пассажиры ВЗР с саморегистрацией без багажа" << delim
+            << "Пассажиры РБ с саморегистрацией без багажа" << endl;
+        TFltStat flt_stat(Qry.get(), delim);
+        for(; not Qry.get().Eof; Qry.get().Next())
+            flt_stat.get(Qry.get(), of);
+    }
+
     return 1;
 }

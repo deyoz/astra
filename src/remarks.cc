@@ -150,6 +150,9 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
         case retSERVICE_STAT:
             event_type = "SERVICE_STAT";
             break;
+        case retLIMITED_CAPAB_STAT:
+            event_type = "LIMITED_CAPAB_STAT";
+            break;
         default:
             throw Exception("LoadRemGrp: unknown event type %d", rem_set_type);
     }
