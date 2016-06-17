@@ -1564,9 +1564,12 @@ namespace PRL_SPACE {
         for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
             if(infRow->grp_id == pax.grp_id and infRow->parent_pax_id == pax.pax_id) {
                 string rem;
-                if(PRLOptions and PRLOptions->version == "33")
-                    rem = "1INFT ";
-                else
+                if(PRLOptions and PRLOptions->version == "33") {
+                    rem = "INFT HK1 ";
+                    CheckIn::TPaxDocItem doc;
+                    if(LoadPaxDoc(infRow->pax_id, doc))
+                        rem += DateTimeToStr(doc.birth_date, "ddmmmyy", info.is_lat()) + " ";
+                } else
                     rem = "1INF ";
                 rem += transliter(infRow->surname, 1, info.is_lat());
                 if(!infRow->name.empty()) {
