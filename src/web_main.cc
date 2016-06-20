@@ -1244,6 +1244,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
   string crs_class, crs_subclass;
   web_salons.clear();
   bool pr_CHIN = false;
+  bool pr_INFT = false;
   for ( vector<TWebPax>::iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
     if ( !i->pass_class.empty() )
       crs_class = i->pass_class;
@@ -1251,13 +1252,15 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
       crs_subclass = i->pass_subclass;
     TPerson p=DecodePerson(i->pers_type_extended.c_str());
     pr_CHIN=(pr_CHIN || p==ASTRA::child || p==ASTRA::baby); //среди типов может быть БГ (CBBG) который приравнивается к взрослому
+    pr_INFT=(pr_INFT || p==ASTRA::baby);
     if ( isTranzitSalonsVersion ) {
       if ( point_arv == ASTRA::NoExists ) {
         point_arv = SALONS2::getCrsPaxPointArv( i->crs_pax_id, point_id );
       }
     }
   }
-  ProgTrace( TRACE5, "ReadWebSalons: point_dep=%d, point_arv=%d", point_id, point_arv );
+  ProgTrace( TRACE5, "ReadWebSalons: point_dep=%d, point_arv=%d, pr_CHIN=%d, pr_INFT=%d",
+             point_id, point_arv, pr_CHIN, pr_INFT );
   if ( crs_class.empty() )
     throw UserException( "MSG.CLASS.NOT_SET" );
   TQuery Qry(&OraSession);
@@ -1407,7 +1410,15 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
                   }
               }
             }
+        }
+        if ( pr_INFT ) {
+          for ( vector<TRem>::iterator i=place->rems.begin(); i!=place->rems.end(); i++ ) {
+            if ( i->pr_denial && i->rem == "INFT" ) {
+                  wp.pr_CHIN = true;
+                break;
+              }
           }
+        }
       } // end if place->isplace && !place->clname.empty() && place->clname == crs_class
       web_place_list.places.push_back( wp );
     }
