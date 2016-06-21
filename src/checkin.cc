@@ -6916,7 +6916,13 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
       }
 
       Qry.Clear();
-      Qry.SQLText="SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND pr_print<>0 AND rownum=1";
+      Qry.SQLText=
+          "SELECT pax_id, 0 AS lvl "
+          " FROM bp_print WHERE pax_id=:pax_id AND pr_print<>0 AND rownum=1 "
+          "UNION "
+          "SELECT pax_id, 1 AS lvl "
+          " FROM bi_print WHERE pax_id=:pax_id AND pr_print<>0 AND rownum=1 "
+          "ORDER BY lvl";
       Qry.DeclareVariable("pax_id",otInteger);
       TQuery PaxQry(&OraSession);
       PaxQry.Clear();
@@ -6957,8 +6963,10 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
 
         Qry.SetVariable("pax_id",pax.id);
         Qry.Execute();
-        NewTextChild(paxNode,"pr_bp_print",(int)(!Qry.Eof));
-
+        int pr_bp_print;
+        NewTextChild(paxNode,"pr_bp_print",pr_bp_print=(!Qry.Eof && Qry.FieldAsInteger("lvl") == 0));
+        if ( pr_bp_print ) { Qry.Next(); }
+        NewTextChild(paxNode,"pr_bi_print",pr_bp_print=(!Qry.Eof && Qry.FieldAsInteger("lvl") == 1));
         if (grp_id==tckin_grp_ids.begin())
         {
           std::list<CheckIn::TPaxTransferItem> pax_trfer;

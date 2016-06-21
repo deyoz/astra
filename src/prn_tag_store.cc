@@ -971,7 +971,11 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
           bpPrintQry.CreateVariable("pax_id", otInteger, pax_id);
           bpPrintQry.Execute();
           pr_bp_print = not bpPrintQry.Eof;
-
+          bpPrintQry.Clear();
+          bpPrintQry.SQLText = "SELECT pax_id FROM bi_print WHERE pax_id=:pax_id AND pr_print<>0 AND rownum=1";
+          bpPrintQry.CreateVariable("pax_id", otInteger, pax_id);
+          bpPrintQry.Execute();
+          pr_bi_print = not bpPrintQry.Eof;
         }
         else
         {
@@ -998,6 +1002,7 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
               "   id = :pax_id ";
           Qry.CreateVariable("adult", otString, EncodePerson(adult));
           pr_bp_print = false;
+          pr_bi_print = false;
         };
         Qry.CreateVariable("pax_id", otInteger, pax_id);
         Qry.Execute();

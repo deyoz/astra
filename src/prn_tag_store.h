@@ -338,6 +338,7 @@ class TPrnTagStore {
             std::string tags;
             std::string subcls;
             bool pr_bp_print;
+            bool pr_bi_print;
             CheckIn::TPaxDocItem doc;
             TPaxInfo():
                 pax_id(ASTRA::NoExists),
@@ -349,7 +350,8 @@ class TPrnTagStore {
                 bag_weight(ASTRA::NoExists),
                 rk_amount(ASTRA::NoExists),
                 rk_weight(ASTRA::NoExists),
-                pr_bp_print(false)
+                pr_bp_print(false),
+                pr_bi_print(false)
             {}
             void Init(int apax_id, TTagLang &tag_lang);
         };
