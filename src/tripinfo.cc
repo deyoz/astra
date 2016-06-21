@@ -791,7 +791,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 static bool skipSeg(xmlNodePtr segNode)
 {
     xmlNodePtr pointIdNode = findNode(segNode, "point_id");
-    if(pointIdNode != NULL && NodeAsInteger(pointIdNode) == -1) {
+    if(pointIdNode != NULL && NodeAsInteger(pointIdNode) < 0) {
         return true;
     }
     return false;
