@@ -37,8 +37,6 @@ static time_t randt = time(NULL);
 size_t form_crypt_error(char* res, size_t res_len, const char* head, size_t hlen, int error)
 {
   int newlen;
-  char *utf8txt=NULL;
-  int utf8len=0;
   int byte=getGrp3ParamsByte();
   if(head[0]==2) {
   	ProgError( STDLOG, "form_crypt_error: head[0]==2!!!" );
@@ -85,9 +83,9 @@ size_t form_crypt_error(char* res, size_t res_len, const char* head, size_t hlen
   ProgTrace(TRACE1,"Crypting error occured: (%i) '%s'",error,msg_error.c_str());
   memcpy(res, head, hlen);
   res[byte] |= MSG_SYS_ERROR;
-  utf8len=CP866toUTF8((unsigned char **)&utf8txt,(unsigned char *)msg_error.c_str());
-  if(utf8len<=0)
-    utf8txt=(char *)"System error!";
+  auto utf8txt = CP866toUTF8(msg_error);
+  if(utf8txt.empty())
+    utf8txt="System error!";
   switch(head[0]) {
   	case 2:
       msg_error=std::string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -119,11 +117,9 @@ size_t form_crypt_error(char* res, size_t res_len, const char* head, size_t hlen
   	default:
       (res[byte])|=MSG_TEXT;
       int err_len=sprintf(res+hlen,"%i ",error);
-      newlen = utf8len+err_len;
-      memcpy(res+hlen+err_len,utf8txt,utf8len);
+      newlen = utf8txt.size()+err_len;
+      memcpy(res+hlen+err_len,utf8txt.data(),utf8txt.size());
   };
-  if(utf8len>0) // memory was allocated
-    free(utf8txt);
   levC_adjust_crypt_header(res,newlen,0,0);
 
   (res[byte])&=~MSG_BINARY;
