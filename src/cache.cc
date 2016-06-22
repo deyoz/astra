@@ -405,6 +405,11 @@ void TCacheTable::initFields()
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirline;
         };
+        if (FField.ReferCode == "PRIORITY_CARD_TYPES" && FField.ReferName == "REM_CODE_VIEW" )
+        {
+          FField.ElemCategory=cecCode;
+          FField.ElemType=etCkinRemType;
+        };
         /*
         if (FField.ReferCode == "PRIORITY_CARD_TYPES" && FField.ReferName == "CARD_TYPE" )
         {
