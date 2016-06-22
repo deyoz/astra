@@ -489,6 +489,21 @@ string GetTermInfo( TQuery &Qry, int pax_id, int reg_no, bool pr_tcheckin, const
   return info.str();
 }
 
+std::string toAODBCode( std::string code, std::string name )
+{
+  TQuery Qry(&OraSession);
+  if ( name == "AIRPS") {
+    Qry.SQLText =
+      "SELECT aodb_code AS code FROM aodb_airps WHERE code=:code";
+    Qry.CreateVariable( "code", otString, code );
+    Qry.Execute();
+    if ( !Qry.Eof ) {
+      return Qry.FieldAsString( "code" );
+    }
+  }
+  return code;
+}
+
 bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::string &point_addr,
                                 TAODBFormat format, TFileDatas &fds )
 {
@@ -671,7 +686,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       if ( format == afNewUrengoy )
         record<<setw(3)<<row->code.substr(0,3);
       else
-        record<<setw(20)<<row->code.substr(0,20);
+        record<<setw(20)<<toAODBCode( row->code, "AIRPS" ).substr(0,20); //§´Ô Ççä
       record<<setw(1);
       switch ( DecodeClass(Qry.FieldAsString( "class")) ) {
         case ASTRA::F:
