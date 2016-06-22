@@ -1554,13 +1554,24 @@ namespace PRL_SPACE {
 
     void TRemList::get(TypeB::TDetailCreateInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers )
     {
+        const TypeB::TPRLOptions *PRLOptions=NULL;
+        if(info.optionsIs<TypeB::TPRLOptions>())
+            PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
+
         items.clear();
         if(pax.pax_id == NoExists) return;
         // rems must be push_backed exactly in this order. Don't swap!
         for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
             if(infRow->grp_id == pax.grp_id and infRow->parent_pax_id == pax.pax_id) {
                 string rem;
-                rem = "1INF " + transliter(infRow->surname, 1, info.is_lat());
+                if(PRLOptions and PRLOptions->version == "33") {
+                    rem = "INFT HK1 ";
+                    CheckIn::TPaxDocItem doc;
+                    if(LoadPaxDoc(infRow->pax_id, doc))
+                        rem += DateTimeToStr(doc.birth_date, "ddmmmyy", info.is_lat()) + " ";
+                } else
+                    rem = "1INF ";
+                rem += transliter(infRow->surname, 1, info.is_lat());
                 if(!infRow->name.empty()) {
                     rem += "/" + transliter(infRow->name, 1, info.is_lat());
                 }
