@@ -494,7 +494,7 @@ std::string toAODBCode( std::string code, std::string name )
   TQuery Qry(&OraSession);
   if ( name == "AIRPS") {
     Qry.SQLText =
-      "SELECT aodb_code AS code FROM aodb_airps WHERE code=:code";
+      "SELECT aodb_code AS code FROM aodb_airps WHERE airp=:code";
     Qry.CreateVariable( "code", otString, code );
     Qry.Execute();
     if ( !Qry.Eof ) {
