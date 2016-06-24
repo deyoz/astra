@@ -101,6 +101,11 @@ class PrintInterface: public JxtInterface
           BASIC::TDateTime time_print;
           std::string prn_form;
           std::string scan;
+
+          BIPrintRules::TRule bi_rule;
+          std::string business_hall;
+          std::string fqtv_status;
+
           bool hex;
           BPPax()
           {
@@ -124,6 +129,8 @@ class PrintInterface: public JxtInterface
             time_print=ASTRA::NoExists;
             prn_form.clear();
             scan.clear();
+            business_hall.clear();
+            fqtv_status.clear();
             hex=false;
           };
           bool fromDB(int vpax_id, int test_point_dep);

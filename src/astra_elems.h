@@ -18,6 +18,7 @@ enum TElemType {
                  etBIType,                   //типы приглашений
                  etBPType,                   //типы посадочных талонов
                  etBTType,                   //типы багажных бирок
+                 etBusinessHall,             //бизнес залы
                  etCity,                     //города
                  etCkinRemType,              //коды ремарок регистрации
                  etClass,                    //базовые классы

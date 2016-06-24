@@ -72,6 +72,7 @@ const
                          {etBPType,                "etBPType",                ""},
                          {etBTType,                "etBTType",                ""},
                          {etBIRegGroup,            "etBIRegGroup",            "bi_reg_group"},
+                         {etBusinessHall,          "etBusinessHall",          ""},
                          {etCity,                  "etCity",                  "cities"},
                          {etCkinRemType,           "etCkinRemType",           "ckin_rem_types"},
                          {etClass,                 "etClass",                 "classes"},
@@ -665,6 +666,7 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
     //не base_table
     switch(type)
     {
+        case etBusinessHall: Qry.SQLText="SELECT name,name_lat FROM business_halls WHERE id=:id"; break;
                 case etHall: Qry.SQLText="SELECT name,name_lat FROM halls2 WHERE id=:id"; break;
              case etDeskGrp: Qry.SQLText="SELECT descr AS name, descr_lat AS name_lat FROM desk_grp WHERE grp_id=:id"; break;
               case etRemGrp: Qry.SQLText="SELECT name, name_lat FROM rem_grp WHERE id=:id"; break;

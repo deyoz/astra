@@ -56,6 +56,7 @@ const
                          {"BAG_TYPES",               etBagType},
                          {"BRANDS",                  etBrand},
                          {"BI_REG_GROUP",            etBIRegGroup},
+                         {"BUSINESS_HALLS",          etBusinessHall},
                          {"CITIES",                  etCity},
                          {"CKIN_REM_TYPES",          etCkinRemType},
                          {"CLASSES",                 etClass},

@@ -376,6 +376,8 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::TIME_PRINT,      TTagListItem(&TPrnTagStore::TIME_PRINT)));
     tag_list.insert(make_pair(TAG::PAX_TITLE,       TTagListItem(&TPrnTagStore::PAX_TITLE, PAX_INFO)));
     tag_list.insert(make_pair(TAG::PNR,             TTagListItem(&TPrnTagStore::PNR, PNR_INFO)));
+    tag_list.insert(make_pair(TAG::BUSINESS_HALL,   TTagListItem(&TPrnTagStore::BUSINESS_HALL, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::FQTV_STATUS,     TTagListItem(&TPrnTagStore::FQTV_STATUS, POINT_INFO)));
 }
 
 // BP && BT
@@ -434,6 +436,15 @@ void TPrnTagStore::clear()
 {
     for(map<const string, TTagListItem>::iterator im = tag_list.begin(); im != tag_list.end(); im++)
         im->second.english_only = true;
+}
+
+void TPrnTagStore::set_tag(string name, const BIPrintRules::TRule &value)
+{
+    name = upperc(name);
+    map<const string, TTagListItem>::iterator im = tag_list.find(name);
+    if(im == tag_list.end())
+        throw Exception("TPrnTagStore::set_tag: tag '%s' not implemented", name.c_str());
+    im->second.TagInfo = value;
 }
 
 void TPrnTagStore::set_tag(string name, TDateTime value)
@@ -2589,6 +2600,32 @@ string TPrnTagStore::AIRP_ARV_NAME3(TFieldParams fp) {
     return AIRP_ARV_NAME1(fp);
 }
 
+string TPrnTagStore::FQTV_STATUS(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty()) {
+        const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
+        if(rule.pr_issue)
+            result << rule.card_type;
+    }
+    return result.str();
+}
+
+string TPrnTagStore::BUSINESS_HALL(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty()) {
+        const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
+        if(rule.pr_issue) {
+            if(rule.is_business_hall)
+                result << tag_lang.ElemIdToTagElem(etHall, rule.hall, efmtNameLong);
+            else
+                result << upperc(getLocaleText("Бизнес зал"));
+            if(rule.reg_group == BIPrintRules::rgPlusOne)
+                result << " +1";
+        }
+    }
+    return result.str();
+}
+
 string TPrnTagStore::PNR(TFieldParams fp) {
     if(!fp.TagInfo.empty()) {
         return boost::any_cast<std::string>(fp.TagInfo);
@@ -3240,4 +3277,130 @@ string TPrnTagStore::NDS(TFieldParams fp)
 string TPrnTagStore::TOTAL(TFieldParams fp)
 {
   return RateToString(rcpt.pay_rate_sum(), rcpt.pay_rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
+}
+
+namespace BIPrintRules {
+
+    static const char *BIRegGroupS[] = {
+        "+1",
+        "ДА",
+        "НЕТ"
+    };
+
+    void get_rule(
+            const string &airline,
+            const string &card_type,
+            const string &cls,
+            const string &subcls,
+            const string &rem_code,
+            TRule &rule
+            )
+    {
+        TCachedQuery Qry(
+                "select "
+                "    reg_group, "
+                "    pr_issue, "
+                "    decode(cls, null, 0, 4) + "
+                "    decode(subcls, null, 0, 8)  priority "
+                "from "
+                "    bi_print_rules "
+                "where "
+                "    airline = :airline and "
+                "    card_type = :card_type and "
+                "    rem_code = :rem_code and "
+                "    (cls is null or cls = :cls) and "
+                "    (subcls is null or subcls = :subcls) "
+                "order by "
+                "    priority desc ",
+                QParams()
+                << QParam("airline", otString, airline)
+                << QParam("card_type", otString, card_type)
+                << QParam("rem_code", otString, rem_code)
+                << QParam("cls", otString, cls)
+                << QParam("subcls", otString, subcls)
+                );
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            rule.reg_group = DecodeRegGroup(Qry.get().FieldAsString("reg_group"));
+            rule.pr_issue = Qry.get().FieldAsInteger("pr_issue") != 0;
+            rule.card_type = card_type;
+        }
+    }
+
+    string EncodeRegGroup(TRegGroup s)
+    {
+        return BIRegGroupS[s];
+    }
+
+    TRegGroup DecodeRegGroup(const string &reg_group)
+    {
+        int i = 0;
+        for(i = 0; i < (int)rgNum; i++)
+            if(reg_group == BIRegGroupS[i])
+                break;
+        if(i == rgNum)
+            throw Exception("DecodeRegGroup: unknown reg group");
+        else
+            return TRegGroup(i);
+    }
+
+    bool bi_airline_service(
+            const TTripInfo &info,
+            int terminal,
+            int hall,
+            TRule &rule
+            )
+    {
+        TCachedQuery Qry(
+                "select "
+                "   terminal, "
+                "   hall, "
+                "   is_business_hall, "
+                "   pr_bi, "
+                "   decode(hall, null, 0, 1) priority "
+                "from "
+                "   bi_airline_service "
+                "where "
+                "   airline = :airline and "
+                "   airp = :airp and "
+                "   (hall is null or hall = :hall) "
+                "order by priority desc",
+                QParams()
+                << QParam("airline", otString, info.airline)
+                << QParam("airp", otString, info.airp)
+                << QParam("hall", otInteger, hall)
+                );
+        Qry.get().Execute();
+        // если bi_airline_service.hall is null, то bi_airline_service.terminal всегда is NOT null
+        // в этом случае проверяем, принадлежит ли текущий pax_grp.hall (входной параметр)
+        // терминалу, указанному в bi_airline_service.hall
+        bool result =
+            not Qry.get().Eof and
+            (not Qry.get().FieldIsNULL("hall") or Qry.get().FieldAsInteger("terminal") == terminal);
+        if(result) {
+            rule.hall = hall; // Всегда присваиваем hall, т.к. из запроса м.б. NULL
+            rule.is_business_hall = Qry.get().FieldAsInteger("is_business_hall") != 0;
+            rule.pr_bi = Qry.get().FieldAsInteger("pr_bi") != 0;
+        }
+        return result;
+    }
+
+    bool bi_airline_service_by_grp(
+            const TTripInfo &info,
+            int grp_id,
+            TRule &rule
+            )
+    {
+        TCachedQuery Qry("select terminal, hall from pax_grp, halls2 where grp_id = :grp_id and hall = halls2.id",
+                QParams() << QParam("grp_id", otInteger, grp_id));
+        Qry.get().Execute();
+        bool result = false;
+        if(not Qry.get().Eof) {
+            int terminal = Qry.get().FieldAsInteger("terminal");
+            int hall = Qry.get().FieldAsInteger("hall");
+            result = bi_airline_service(info, terminal, hall, rule);
+        }
+        return result;
+    }
+
 }

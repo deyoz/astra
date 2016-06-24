@@ -78,6 +78,8 @@ namespace TAG {
     const std::string TEST_SERVER = "TEST_SERVER";
     const std::string TIME_PRINT = "TIME_PRINT";
     const std::string PAX_TITLE = "PAX_TITLE";
+    const std::string BUSINESS_HALL = "BUSINESS_HALL";
+    const std::string FQTV_STATUS = "FQTV_STATUS";
 
     // specific for bag tags
     const std::string AIRCODE = "AIRCODE";
@@ -177,6 +179,53 @@ class TTagLang {
 };
 
 int separate_double(double d, int precision, int *iptr);
+
+namespace BIPrintRules {
+
+    enum TRegGroup { rgPlusOne, rgYes, rgNo, rgNum };
+
+    std::string EncodeRegGroup(TRegGroup s);
+    TRegGroup DecodeRegGroup(const std::string &reg_group);
+
+    struct TRule {
+        std::string card_type;
+        int hall,             // id зала
+            is_business_hall, // 0, 1, NoExists Что печатать в теге: название зала или константу 'Бизнес зал'
+            pr_bi;            // 0, 1, NoExists Печатать отдельное БП или нет
+        TRegGroup reg_group;
+        bool pr_issue;
+        bool exists() { return reg_group != rgNum; };
+        TRule():
+            hall(ASTRA::NoExists),
+            is_business_hall(ASTRA::NoExists),
+            pr_bi(ASTRA::NoExists),
+            reg_group(rgNum),
+            pr_issue(false)
+        {}
+    };
+
+    void get_rule(
+            const std::string &airline,
+            const std::string &card_type,
+            const std::string &cls,
+            const std::string &subcls,
+            const std::string &rem_code,
+            TRule &rule
+            );
+
+    bool bi_airline_service(
+            const TTripInfo &info,
+            int terminal,
+            int hall,
+            TRule &rule
+            );
+
+    bool bi_airline_service_by_grp(
+            const TTripInfo &info,
+            int grp_id, // для того, чтобы узнать halls2.id
+            TRule &rule
+            );
+};
 
 class TPrnTagStore {
     private:
@@ -475,6 +524,8 @@ class TPrnTagStore {
         std::string TEST_SERVER(TFieldParams fp);
         std::string TIME_PRINT(TFieldParams fp);
         std::string PAX_TITLE(TFieldParams fp);
+        std::string BUSINESS_HALL(TFieldParams fp);
+        std::string FQTV_STATUS(TFieldParams fp);
 
         // specific for bag tags
         std::string AIRCODE(TFieldParams fp);
@@ -564,6 +615,7 @@ class TPrnTagStore {
         TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat);
         TPrnTagStore(const std::string& airp_dep, const std::string& airp_arv);
 
+        void set_tag(std::string name, const BIPrintRules::TRule &value);
         void set_tag(std::string name, std::string value);
         void set_tag(std::string name, int value);
         void set_tag(std::string name, BASIC::TDateTime value);
