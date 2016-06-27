@@ -1379,7 +1379,7 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     GetPrintDataBT(dataNode, tag_key);
 }
 
-void PrintInterface::ConfirmPrintBI(const std::vector<BIPax> &paxs,
+void PrintInterface::ConfirmPrintBI(const std::vector<BPPax> &paxs,
                                     CheckIn::UserException &ue)
 {
     TQuery Qry(&OraSession);
@@ -1394,7 +1394,7 @@ void PrintInterface::ConfirmPrintBI(const std::vector<BIPax> &paxs,
     Qry.DeclareVariable("pax_id", otInteger);
     Qry.DeclareVariable("time_print", otDate);
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
-    for (vector<BIPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+    for (vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
     {
         try
         {
@@ -1464,11 +1464,11 @@ void PrintInterface::ConfirmPrintBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       "FROM pax, pax_grp  "
       "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
     PaxQry.DeclareVariable("pax_id",otInteger);
-    vector<BIPax> paxs;
+    vector<BPPax> paxs;
     xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
     for(; curNode != NULL; curNode = curNode->next)
     {
-        BIPax pax;
+        BPPax pax;
         pax.pax_id=NodeAsInteger("@pax_id", curNode);
         pax.time_print=NodeAsDateTime("@time_print", curNode);
 
@@ -1717,9 +1717,100 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
     }
 }
 
+void set_BI_data(vector<PrintInterface::BPPax> &paxs)
+{
+    // Пробегаемся по пасам и определяем правила
+    for (vector<PrintInterface::BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+
+        // если правила есть в базе, то применяем их
+        TCachedQuery ruleQry("select * from bp_print where pax_id = :pax_id order by time_print desc",
+                QParams() << QParam("pax_id", otInteger, iPax->pax_id));
+        ruleQry.get().Execute();
+        if(not ruleQry.get().Eof) {
+            iPax->bi_rule.fromDB(ruleQry.get());
+            continue;
+        }
+
+        TCachedQuery Qry("select points.* from points, pax_grp where pax_grp.grp_id = :grp_id and pax_grp.point_dep = points.point_id",
+                QParams() << QParam("grp_id", otInteger, iPax->grp_id));
+        Qry.get().Execute();
+        TTripInfo t(Qry.get());
+        if(GetTripSets(tsBIPrinting, t)) {
+            // Достаем данные из кеша Обслуживание авиакомпаний в аэропортах
+            if(BIPrintRules::bi_airline_service(t, iPax->bi_rule)) {
+                tst();
+                // на данном этапе в bi_rule определены:
+                // Название зала    (bi_rule.hall)
+                // Бизнес зал       (bi_rule.is_business_hall)
+                // Биз. пригл.      (bi_rule.pr_bi)
+
+                // Достаем класс и подкласс паса
+                TCachedQuery clsQry(
+                        "select pax_grp.class, pax.subclass from pax_grp, pax where "
+                        "   pax.pax_id = :pax_id and "
+                        "   pax.grp_id = pax_grp.grp_id ",
+                        QParams() << QParam("pax_id", otInteger, iPax->pax_id)
+                        );
+                clsQry.get().Execute();
+                if(clsQry.get().Eof)
+                    throw Exception("set_BI_data: pax not found, pax_id = %d", iPax->pax_id);
+                string cls = clsQry.get().FieldAsString("class");
+                string subcls = clsQry.get().FieldAsString("subclass");
+
+                // Достаем ремарки
+                vector<CheckIn::TPaxFQTItem> fqts;
+                CheckIn::LoadPaxFQT(iPax->pax_id, fqts);
+
+                // Пробег по ремаркам
+                // у паса может быть несколько ремарок с разными
+                // настройками группы регистрации (bi_print_rules.reg_group = ДА, +1, НЕТ)
+                // выбираем самую приоритетную.
+
+                BIPrintRules::TRule tmp_rule = iPax->bi_rule; // чтобы не потерять hall, is_business_hall, pr_bi
+                for(vector<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); iFqt++) {
+                    BIPrintRules::get_rule(
+                            t.airline,
+                            iFqt->tier_level,
+                            cls,
+                            subcls,
+                            iFqt->rem,
+                            tmp_rule
+                            );
+
+                    tmp_rule.dump(__FILE__, __LINE__);
+
+                    // После нахождения правила из кеша Правила печати приглашений
+                    // данные этого правила сохраняются в bi_rule:
+                    // Группа регистрации (bi_rule.reg_group)
+                    // Оформление (bi_rule.pr_issue)
+
+                    if(tmp_rule.exists() and tmp_rule.pr_issue) {
+                        if(not iPax->bi_rule.exists())
+                            iPax->bi_rule = tmp_rule;
+                        else {
+                            // вот здесь выбор по приоритету
+                            if(iPax->bi_rule.reg_group < tmp_rule.reg_group)
+                                iPax->bi_rule = tmp_rule;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Находим первого паса с печатью для всей группы (Группа регистрации ДА т.е. bi_rule.reg_group = rgYes)
+    vector<PrintInterface::BPPax>::iterator grpPax=paxs.begin();
+    for(; grpPax!=paxs.end() and grpPax->bi_rule.reg_group != BIPrintRules::rgYes; ++grpPax );
+
+    // Применяем групповое правило для всех пасов, если таковое нашлось
+    if(grpPax != paxs.end()) {
+        for (vector<PrintInterface::BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+            iPax->bi_rule = grpPax->bi_rule;
+    }
+}
+
 void PrintInterface::GetPrintDataBI(const BPParams &params,
                                     string &pectab,
-                                    vector<BIPax> &paxs)
+                                    vector<BPPax> &paxs)
 {
     TQuery Qry(&OraSession);
     Qry.Clear();
@@ -1749,12 +1840,10 @@ void PrintInterface::GetPrintDataBI(const BPParams &params,
     pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
     string data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
 
+    set_BI_data(paxs);
 
-    for (vector<BIPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
-        // здесь применение настроек из bi_print_rules
-
-
-
+    for (vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+        if(not iPax->bi_rule.pr_bi) continue;
 //        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
         PrintDataParser parser( iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode );
 //        big_test(parser, dotPrnBP);
@@ -1763,12 +1852,16 @@ void PrintInterface::GetPrintDataBI(const BPParams &params,
         if (iPax->gate.second)
             parser.pts.set_tag("gate", iPax->gate.first);
 
+        parser.pts.set_tag(TAG::BUSINESS_HALL, iPax->bi_rule);
+        parser.pts.set_tag(TAG::BSN_HALL_CAPTION, iPax->bi_rule);
+        parser.pts.set_tag(TAG::FQTV_STATUS, iPax->bi_rule);
+
         iPax->prn_form = parser.parse(data);
         iPax->hex=false;
         if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
             to_esc::TConvertParams ConvertParams;
             ConvertParams.init(params.dev_model);
-//            ProgTrace(TRACE5, "prn_form: %s", iPax->prn_form.c_str());
+            ProgTrace(TRACE5, "BI prn_form: %s", iPax->prn_form.c_str());
             to_esc::convert(iPax->prn_form, ConvertParams, params.prnParams);
             StringToHex( string(iPax->prn_form), iPax->prn_form );
             iPax->hex=true;
@@ -1777,73 +1870,6 @@ void PrintInterface::GetPrintDataBI(const BPParams &params,
         iPax->time_print=parser.pts.get_time_print();
     }
 };
-
-void set_BI_data(vector<PrintInterface::BPPax> &paxs)
-{
-    // Пробегаемся по пасам и определяем правила
-    for (vector<PrintInterface::BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
-        TCachedQuery Qry("select points.* from points, pax_grp where pax_grp.grp_id = :grp_id and pax_grp.point_dep = points.point_id",
-                QParams() << QParam("grp_id", otInteger, iPax->grp_id));
-        Qry.get().Execute();
-        TTripInfo t(Qry.get());
-        if(GetTripSets(tsBIPrinting, t)) {
-            // Достаем данные из кеша Обслуживание авиакомпаний в аэропортах
-            if(BIPrintRules::bi_airline_service_by_grp(t, iPax->grp_id, iPax->bi_rule)) {
-                // на данном этапе в bi_rule определены:
-                // Название зала    (bi_rule.hall)
-                // Бизнес зал       (bi_rule.is_business_hall)
-                // Биз. пригл.      (bi_rule.pr_bi)
-
-                // Достаем класс и подкласс паса
-                TCachedQuery clsQry(
-                        "select pax_grp.class, pax.subclass from pax_grp, pax where "
-                        "   pax.pax_id = :pax_id and "
-                        "   pax.grp_id = pax_grp.grp_id ",
-                        QParams() << QParam("pax_id", otInteger, iPax->pax_id)
-                        );
-                clsQry.get().Execute();
-                if(clsQry.get().Eof)
-                    throw Exception("set_BI_data: pax not found, pax_id = %d", iPax->pax_id);
-                string cls = Qry.get().FieldAsString("class");
-                string subcls = Qry.get().FieldAsString("subclass");
-
-                // Достаем ремарки
-                vector<CheckIn::TPaxFQTItem> fqts;
-                CheckIn::LoadPaxFQT(iPax->pax_id, fqts);
-
-                // Пробег по ремаркам
-                for(vector<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); iFqt++) {
-                    BIPrintRules::get_rule(
-                            t.airline,
-                            iFqt->tier_level,
-                            cls,
-                            subcls,
-                            iFqt->rem,
-                            iPax->bi_rule
-                            );
-
-                    // После нахождения правила из кеша Правила печати приглашений
-                    // данные этого правила сохраняются в bi_rule:
-                    // Группа регистрации (bi_rule.reg_group)
-                    // Оформление (bi_rule.pr_issue)
-                    if(iPax->bi_rule.exists()) break;
-                }
-            }
-        }
-    }
-    // Находим первого паса с печатью для всей группы (Группа регистрации ДА т.е. bi_rule.reg_group = rgYes)
-    vector<PrintInterface::BPPax>::iterator grpPax=paxs.begin();
-    for(; grpPax!=paxs.end() or grpPax->bi_rule.reg_group != BIPrintRules::rgYes; ++grpPax );
-
-    // Применяем групповое правило для всех пасов, для которых ранее не определились правила
-    if(grpPax != paxs.end()) {
-        for (vector<PrintInterface::BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
-            if(not iPax->bi_rule.pr_issue) {
-                iPax->bi_rule = grpPax->bi_rule;
-            }
-        }
-    }
-}
 
 void PrintInterface::GetPrintDataBP(const BPParams &params,
                                     std::string &data,
@@ -1894,14 +1920,17 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
         if (iPax->gate.second)
             parser->pts.set_tag("gate", iPax->gate.first);
 
+        iPax->bi_rule.dump(__FILE__, __LINE__);
         parser->pts.set_tag(TAG::BUSINESS_HALL, iPax->bi_rule);
+        parser->pts.set_tag(TAG::BSN_HALL_CAPTION, iPax->bi_rule);
+        parser->pts.set_tag(TAG::FQTV_STATUS, iPax->bi_rule);
 
         iPax->prn_form = parser->parse(data);
         iPax->hex=false;
         if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
             to_esc::TConvertParams ConvertParams;
             ConvertParams.init(params.dev_model);
-//            ProgTrace(TRACE5, "prn_form: %s", iPax->prn_form.c_str());
+            ProgTrace(TRACE5, "prn_form: %s", iPax->prn_form.c_str());
             to_esc::convert(iPax->prn_form, ConvertParams, params.prnParams);
             StringToHex( string(iPax->prn_form), iPax->prn_form );
             iPax->hex=true;
@@ -2088,8 +2117,8 @@ void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     int point_id = Qry.FieldAsInteger("point_dep");
     string cl = Qry.FieldAsString("class");
     int hall = Qry.FieldAsInteger("hall");
-    if(not check_bi_print(point_id, hall))
-        throw AstraLocale::UserException("MSG.NO_ACCESS");
+//    if(not check_bi_print(point_id, hall))
+//        throw AstraLocale::UserException("MSG.NO_ACCESS");
     Qry.Clear();
     Qry.SQLText =
         "SELECT bi_type, "
@@ -2106,7 +2135,7 @@ void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     ProgTrace(TRACE5, "bi_type: %s", params.form_type.c_str());
 
     vector<int> grps;
-    vector<BIPax> paxs;
+    vector<BPPax> paxs;
     Qry.Clear();
     if ( pax_id == NoExists ) { // печать всех или только тех, у которых не подтверждена распечатка
         TCkinRoute cr;
@@ -2143,7 +2172,7 @@ void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             if ( Qry.Eof && pr_all ) // анализ на клиенте по сегментам, значит и мы должны анализировать по сегментам
                 throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //все посадочные отпечатаны
             while ( !Qry.Eof ) {
-                paxs.push_back( BIPax( Qry.FieldAsInteger("grp_id"),
+                paxs.push_back( BPPax( Qry.FieldAsInteger("grp_id"),
                                        Qry.FieldAsInteger("pax_id"),
                                        Qry.FieldAsInteger("reg_no") ) );
                 Qry.Next();
@@ -2160,12 +2189,12 @@ void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         Qry.Execute();
         if ( Qry.Eof )
             throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-        paxs.push_back( BIPax( Qry.FieldAsInteger("grp_id"),
+        paxs.push_back( BPPax( Qry.FieldAsInteger("grp_id"),
                                Qry.FieldAsInteger("pax_id"),
                                Qry.FieldAsInteger("reg_no") ) );
     };
 
-    for (vector<BIPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+    for (vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
       if(first_seg_grp_id != iPax->grp_id) iPax->gate=make_pair("", true);
 
     string pectab;
@@ -2174,7 +2203,7 @@ void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     xmlNodePtr BINode = NewTextChild(NewTextChild(resNode, "data"), "printBI");
     NewTextChild(BINode, "pectab", pectab);
     xmlNodePtr passengersNode = NewTextChild(BINode, "passengers");
-    for (vector<BIPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+    for (vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
         SetProp(paxNode, "pax_id", iPax->pax_id);

@@ -53,44 +53,6 @@ double CalcPayRateSum(const TBagReceipt &rcpt);
 class PrintInterface: public JxtInterface
 {
     public:
-        struct BIPax {
-            int point_dep;
-            int grp_id;
-            int pax_id;
-            int reg_no;
-            std::string full_name;
-            std::pair<std::string, bool> gate; //bool=true, если делать set_tag, иначе с gate ничего не делаем
-            BASIC::TDateTime time_print;
-            std::string prn_form;
-            bool hex;
-
-            BIPax()
-            {
-                clear();
-            };
-
-            BIPax( int vgrp_id, int vpax_id, int vreg_no )
-            {
-                clear();
-                grp_id=vgrp_id;
-                pax_id=vpax_id;
-                reg_no=vreg_no;
-            };
-
-            void clear()
-            {
-                point_dep=ASTRA::NoExists;
-                grp_id=ASTRA::NoExists;
-                pax_id=ASTRA::NoExists;
-                reg_no=ASTRA::NoExists;
-                gate=std::make_pair("", false);
-                time_print=ASTRA::NoExists;
-                full_name.clear();
-                prn_form.clear();
-                hex=false;
-            };
-        };
-
         struct BPPax {
           int point_dep;
           int grp_id;
@@ -103,8 +65,6 @@ class PrintInterface: public JxtInterface
           std::string scan;
 
           BIPrintRules::TRule bi_rule;
-          std::string business_hall;
-          std::string fqtv_status;
 
           bool hex;
           BPPax()
@@ -129,8 +89,6 @@ class PrintInterface: public JxtInterface
             time_print=ASTRA::NoExists;
             prn_form.clear();
             scan.clear();
-            business_hall.clear();
-            fqtv_status.clear();
             hex=false;
           };
           bool fromDB(int vpax_id, int test_point_dep);
@@ -183,10 +141,10 @@ class PrintInterface: public JxtInterface
                                         std::vector<BPPax> &paxs);
         static void GetPrintDataBI(const BPParams &params,
                                    std::string &pectab,
-                                   std::vector<BIPax> &paxs);
+                                   std::vector<BPPax> &paxs);
         static void ConfirmPrintBP(const std::vector<BPPax> &paxs,
                                    CheckIn::UserException &ue);
-        static void ConfirmPrintBI(const std::vector<BIPax> &paxs,
+        static void ConfirmPrintBI(const std::vector<BPPax> &paxs,
                                    CheckIn::UserException &ue);
 };
 

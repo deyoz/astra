@@ -314,70 +314,71 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
 
 void TPrnTagStore::init_bp_tags()
 {
-    tag_list.insert(make_pair(TAG::BCBP_V_5,        TTagListItem(&TPrnTagStore::BCBP_V_5, POINT_INFO | PAX_INFO | PNR_INFO)));
-    tag_list.insert(make_pair(TAG::BCBP_M_2,        TTagListItem(&TPrnTagStore::BCBP_M_2, POINT_INFO | PAX_INFO | PNR_INFO)));
-    tag_list.insert(make_pair(TAG::ACT,             TTagListItem(&TPrnTagStore::ACT, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::AGENT,           TTagListItem(&TPrnTagStore::AGENT)));
-    tag_list.insert(make_pair(TAG::AIRLINE,         TTagListItem(&TPrnTagStore::AIRLINE, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::AIRLINE_SHORT,   TTagListItem(&TPrnTagStore::AIRLINE_SHORT, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::AIRLINE_NAME,    TTagListItem(&TPrnTagStore::AIRLINE_NAME, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::AIRP_ARV,        TTagListItem(&TPrnTagStore::AIRP_ARV)));
-    tag_list.insert(make_pair(TAG::AIRP_ARV_NAME,   TTagListItem(&TPrnTagStore::AIRP_ARV_NAME)));
-    tag_list.insert(make_pair(TAG::AIRP_DEP,        TTagListItem(&TPrnTagStore::AIRP_DEP)));
-    tag_list.insert(make_pair(TAG::AIRP_DEP_NAME,   TTagListItem(&TPrnTagStore::AIRP_DEP_NAME)));
-    tag_list.insert(make_pair(TAG::BAG_AMOUNT,      TTagListItem(&TPrnTagStore::BAG_AMOUNT, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::TAGS,            TTagListItem(&TPrnTagStore::TAGS, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::BAG_WEIGHT,      TTagListItem(&TPrnTagStore::BAG_WEIGHT, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::BAGGAGE,         TTagListItem(&TPrnTagStore::BAGGAGE, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::BRD_FROM,        TTagListItem(&TPrnTagStore::BRD_FROM, BRD_INFO)));
-    tag_list.insert(make_pair(TAG::BRD_TO,          TTagListItem(&TPrnTagStore::BRD_TO, BRD_INFO | POINT_INFO)));
-    tag_list.insert(make_pair(TAG::CHD,             TTagListItem(&TPrnTagStore::CHD, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::CITY_ARV_NAME,   TTagListItem(&TPrnTagStore::CITY_ARV_NAME)));
-    tag_list.insert(make_pair(TAG::CITY_DEP_NAME,   TTagListItem(&TPrnTagStore::CITY_DEP_NAME)));
-    tag_list.insert(make_pair(TAG::CLASS,           TTagListItem(&TPrnTagStore::CLASS)));
-    tag_list.insert(make_pair(TAG::CLASS_NAME,      TTagListItem(&TPrnTagStore::CLASS_NAME)));
-    tag_list.insert(make_pair(TAG::DESK,            TTagListItem(&TPrnTagStore::DESK)));
-    tag_list.insert(make_pair(TAG::DOCUMENT,        TTagListItem(&TPrnTagStore::DOCUMENT, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::DUPLICATE,       TTagListItem(&TPrnTagStore::DUPLICATE, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::EST,             TTagListItem(&TPrnTagStore::EST, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::ETICKET_NO,      TTagListItem(&TPrnTagStore::ETICKET_NO, PAX_INFO))); // !!!
-    tag_list.insert(make_pair(TAG::ETKT,            TTagListItem(&TPrnTagStore::ETKT, PAX_INFO))); // !!!
-    tag_list.insert(make_pair(TAG::EXCESS,          TTagListItem(&TPrnTagStore::EXCESS)));
-    tag_list.insert(make_pair(TAG::FLT_NO,          TTagListItem(&TPrnTagStore::FLT_NO, POINT_INFO))); // !!!
-    tag_list.insert(make_pair(TAG::FQT,             TTagListItem(&TPrnTagStore::FQT, FQT_INFO)));
-    tag_list.insert(make_pair(TAG::FULL_PLACE_ARV,  TTagListItem(&TPrnTagStore::FULL_PLACE_ARV)));
-    tag_list.insert(make_pair(TAG::FULL_PLACE_DEP,  TTagListItem(&TPrnTagStore::FULL_PLACE_DEP)));
-    tag_list.insert(make_pair(TAG::FULLNAME,        TTagListItem(&TPrnTagStore::FULLNAME, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::GATE,            TTagListItem(&TPrnTagStore::GATE)));
-    tag_list.insert(make_pair(TAG::GATES,           TTagListItem(&TPrnTagStore::GATES, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::HALL,            TTagListItem(&TPrnTagStore::HALL)));
-    tag_list.insert(make_pair(TAG::IMG,             TTagListItem(&TPrnTagStore::IMG)));
-    tag_list.insert(make_pair(TAG::INF,             TTagListItem(&TPrnTagStore::INF, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::LONG_ARV,        TTagListItem(&TPrnTagStore::LONG_ARV)));
-    tag_list.insert(make_pair(TAG::LONG_DEP,        TTagListItem(&TPrnTagStore::LONG_DEP)));
-    tag_list.insert(make_pair(TAG::NAME,            TTagListItem(&TPrnTagStore::NAME, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::NO_SMOKE,        TTagListItem(&TPrnTagStore::NO_SMOKE, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::ONE_SEAT_NO,     TTagListItem(&TPrnTagStore::ONE_SEAT_NO, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::PAX_ID,          TTagListItem(&TPrnTagStore::PAX_ID, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::PLACE_ARV,       TTagListItem(&TPrnTagStore::PLACE_ARV)));
-    tag_list.insert(make_pair(TAG::PLACE_DEP,       TTagListItem(&TPrnTagStore::PLACE_DEP)));
-    tag_list.insert(make_pair(TAG::REG_NO,          TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::REM,             TTagListItem(&TPrnTagStore::REM, REM_INFO)));
-    tag_list.insert(make_pair(TAG::RK_AMOUNT,       TTagListItem(&TPrnTagStore::RK_AMOUNT, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::RK_WEIGHT,       TTagListItem(&TPrnTagStore::RK_WEIGHT, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::RSTATION,        TTagListItem(&TPrnTagStore::RSTATION, RSTATION_INFO)));
-    tag_list.insert(make_pair(TAG::SCD,             TTagListItem(&TPrnTagStore::SCD, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::SEAT_NO,         TTagListItem(&TPrnTagStore::SEAT_NO, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::STR_SEAT_NO,     TTagListItem(&TPrnTagStore::STR_SEAT_NO, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::SUBCLS,          TTagListItem(&TPrnTagStore::SUBCLS, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::LIST_SEAT_NO,    TTagListItem(&TPrnTagStore::LIST_SEAT_NO, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::SURNAME,         TTagListItem(&TPrnTagStore::SURNAME, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::TEST_SERVER,     TTagListItem(&TPrnTagStore::TEST_SERVER)));
-    tag_list.insert(make_pair(TAG::TIME_PRINT,      TTagListItem(&TPrnTagStore::TIME_PRINT)));
-    tag_list.insert(make_pair(TAG::PAX_TITLE,       TTagListItem(&TPrnTagStore::PAX_TITLE, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::PNR,             TTagListItem(&TPrnTagStore::PNR, PNR_INFO)));
-    tag_list.insert(make_pair(TAG::BUSINESS_HALL,   TTagListItem(&TPrnTagStore::BUSINESS_HALL, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::FQTV_STATUS,     TTagListItem(&TPrnTagStore::FQTV_STATUS, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::BCBP_V_5,                TTagListItem(&TPrnTagStore::BCBP_V_5, POINT_INFO | PAX_INFO | PNR_INFO)));
+    tag_list.insert(make_pair(TAG::BCBP_M_2,                TTagListItem(&TPrnTagStore::BCBP_M_2, POINT_INFO | PAX_INFO | PNR_INFO)));
+    tag_list.insert(make_pair(TAG::ACT,                     TTagListItem(&TPrnTagStore::ACT, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::AGENT,                   TTagListItem(&TPrnTagStore::AGENT)));
+    tag_list.insert(make_pair(TAG::AIRLINE,                 TTagListItem(&TPrnTagStore::AIRLINE, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::AIRLINE_SHORT,           TTagListItem(&TPrnTagStore::AIRLINE_SHORT, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::AIRLINE_NAME,            TTagListItem(&TPrnTagStore::AIRLINE_NAME, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::AIRP_ARV,                TTagListItem(&TPrnTagStore::AIRP_ARV)));
+    tag_list.insert(make_pair(TAG::AIRP_ARV_NAME,           TTagListItem(&TPrnTagStore::AIRP_ARV_NAME)));
+    tag_list.insert(make_pair(TAG::AIRP_DEP,                TTagListItem(&TPrnTagStore::AIRP_DEP)));
+    tag_list.insert(make_pair(TAG::AIRP_DEP_NAME,           TTagListItem(&TPrnTagStore::AIRP_DEP_NAME)));
+    tag_list.insert(make_pair(TAG::BAG_AMOUNT,              TTagListItem(&TPrnTagStore::BAG_AMOUNT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::TAGS,                    TTagListItem(&TPrnTagStore::TAGS, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::BAG_WEIGHT,              TTagListItem(&TPrnTagStore::BAG_WEIGHT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::BAGGAGE,                 TTagListItem(&TPrnTagStore::BAGGAGE, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::BRD_FROM,                TTagListItem(&TPrnTagStore::BRD_FROM, BRD_INFO)));
+    tag_list.insert(make_pair(TAG::BRD_TO,                  TTagListItem(&TPrnTagStore::BRD_TO, BRD_INFO | POINT_INFO)));
+    tag_list.insert(make_pair(TAG::CHD,                     TTagListItem(&TPrnTagStore::CHD, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::CITY_ARV_NAME,           TTagListItem(&TPrnTagStore::CITY_ARV_NAME)));
+    tag_list.insert(make_pair(TAG::CITY_DEP_NAME,           TTagListItem(&TPrnTagStore::CITY_DEP_NAME)));
+    tag_list.insert(make_pair(TAG::CLASS,                   TTagListItem(&TPrnTagStore::CLASS)));
+    tag_list.insert(make_pair(TAG::CLASS_NAME,              TTagListItem(&TPrnTagStore::CLASS_NAME)));
+    tag_list.insert(make_pair(TAG::DESK,                    TTagListItem(&TPrnTagStore::DESK)));
+    tag_list.insert(make_pair(TAG::DOCUMENT,                TTagListItem(&TPrnTagStore::DOCUMENT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::DUPLICATE,               TTagListItem(&TPrnTagStore::DUPLICATE, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::EST,                     TTagListItem(&TPrnTagStore::EST, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::ETICKET_NO,              TTagListItem(&TPrnTagStore::ETICKET_NO, PAX_INFO))); // !!!
+    tag_list.insert(make_pair(TAG::ETKT,                    TTagListItem(&TPrnTagStore::ETKT, PAX_INFO))); // !!!
+    tag_list.insert(make_pair(TAG::EXCESS,                  TTagListItem(&TPrnTagStore::EXCESS)));
+    tag_list.insert(make_pair(TAG::FLT_NO,                  TTagListItem(&TPrnTagStore::FLT_NO, POINT_INFO))); // !!!
+    tag_list.insert(make_pair(TAG::FQT,                     TTagListItem(&TPrnTagStore::FQT, FQT_INFO)));
+    tag_list.insert(make_pair(TAG::FULL_PLACE_ARV,          TTagListItem(&TPrnTagStore::FULL_PLACE_ARV)));
+    tag_list.insert(make_pair(TAG::FULL_PLACE_DEP,          TTagListItem(&TPrnTagStore::FULL_PLACE_DEP)));
+    tag_list.insert(make_pair(TAG::FULLNAME,                TTagListItem(&TPrnTagStore::FULLNAME, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::GATE,                    TTagListItem(&TPrnTagStore::GATE)));
+    tag_list.insert(make_pair(TAG::GATES,                   TTagListItem(&TPrnTagStore::GATES, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::HALL,                    TTagListItem(&TPrnTagStore::HALL)));
+    tag_list.insert(make_pair(TAG::IMG,                     TTagListItem(&TPrnTagStore::IMG)));
+    tag_list.insert(make_pair(TAG::INF,                     TTagListItem(&TPrnTagStore::INF, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::LONG_ARV,                TTagListItem(&TPrnTagStore::LONG_ARV)));
+    tag_list.insert(make_pair(TAG::LONG_DEP,                TTagListItem(&TPrnTagStore::LONG_DEP)));
+    tag_list.insert(make_pair(TAG::NAME,                    TTagListItem(&TPrnTagStore::NAME, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::NO_SMOKE,                TTagListItem(&TPrnTagStore::NO_SMOKE, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::ONE_SEAT_NO,             TTagListItem(&TPrnTagStore::ONE_SEAT_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::PAX_ID,                  TTagListItem(&TPrnTagStore::PAX_ID, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::PLACE_ARV,               TTagListItem(&TPrnTagStore::PLACE_ARV)));
+    tag_list.insert(make_pair(TAG::PLACE_DEP,               TTagListItem(&TPrnTagStore::PLACE_DEP)));
+    tag_list.insert(make_pair(TAG::REG_NO,                  TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::REM,                     TTagListItem(&TPrnTagStore::REM, REM_INFO)));
+    tag_list.insert(make_pair(TAG::RK_AMOUNT,               TTagListItem(&TPrnTagStore::RK_AMOUNT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::RK_WEIGHT,               TTagListItem(&TPrnTagStore::RK_WEIGHT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::RSTATION,                TTagListItem(&TPrnTagStore::RSTATION, RSTATION_INFO)));
+    tag_list.insert(make_pair(TAG::SCD,                     TTagListItem(&TPrnTagStore::SCD, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::SEAT_NO,                 TTagListItem(&TPrnTagStore::SEAT_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::STR_SEAT_NO,             TTagListItem(&TPrnTagStore::STR_SEAT_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::SUBCLS,                  TTagListItem(&TPrnTagStore::SUBCLS, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::LIST_SEAT_NO,            TTagListItem(&TPrnTagStore::LIST_SEAT_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::SURNAME,                 TTagListItem(&TPrnTagStore::SURNAME, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::TEST_SERVER,             TTagListItem(&TPrnTagStore::TEST_SERVER)));
+    tag_list.insert(make_pair(TAG::TIME_PRINT,              TTagListItem(&TPrnTagStore::TIME_PRINT)));
+    tag_list.insert(make_pair(TAG::PAX_TITLE,               TTagListItem(&TPrnTagStore::PAX_TITLE, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::PNR,                     TTagListItem(&TPrnTagStore::PNR, PNR_INFO)));
+    tag_list.insert(make_pair(TAG::BUSINESS_HALL,           TTagListItem(&TPrnTagStore::BUSINESS_HALL, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::BSN_HALL_CAPTION,        TTagListItem(&TPrnTagStore::BSN_HALL_CAPTION, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::FQTV_STATUS,             TTagListItem(&TPrnTagStore::FQTV_STATUS, POINT_INFO)));
 }
 
 // BP && BT
@@ -773,6 +774,26 @@ void TPrnTagStore::save_bp_print(bool pr_print)
     Qry.CreateVariable("pr_print", otInteger, pr_print);
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
     Qry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
+
+    if(
+            tag_list[TAG::BUSINESS_HALL].processed or
+            tag_list[TAG::BSN_HALL_CAPTION].processed or
+            tag_list[TAG::FQTV_STATUS].processed
+      ) {
+        const boost::any &TagInfo = tag_list[TAG::BUSINESS_HALL].TagInfo;
+        if(!TagInfo.empty()) {
+            const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(TagInfo);
+            if(rule.pr_issue and rule.hall != NoExists) {
+                // запишем эту штуку в bp_print
+                prnQry.add_part("bi_rule_tier_level", rule.card_type);
+                prnQry.add_part("bi_rule_hall", rule.hall);
+                prnQry.add_part("bi_rule_is_business_hall", rule.is_business_hall);
+                prnQry.add_part("bi_rule_pr_bi", rule.pr_bi);
+                prnQry.add_part("bi_rule_reg_group", EncodeRegGroup(rule.reg_group));
+                prnQry.add_part("bi_rule_pr_issue", rule.pr_issue);
+            }
+        }
+    }
 
     if(tag_list[TAG::AIRLINE].processed or tag_list[TAG::AIRLINE_NAME].processed)
         prnQry.add_part(TAG::AIRLINE, pointInfo.airline);
@@ -2610,13 +2631,26 @@ string TPrnTagStore::FQTV_STATUS(TFieldParams fp) {
     return result.str();
 }
 
+string TPrnTagStore::BSN_HALL_CAPTION(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty()) {
+        const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
+        if(rule.pr_issue) {
+            result << upperc(getLocaleText("Бизнес зал"));
+            if(rule.reg_group == BIPrintRules::rgPlusOne)
+                result << " +1";
+        }
+    }
+    return result.str();
+}
+
 string TPrnTagStore::BUSINESS_HALL(TFieldParams fp) {
     ostringstream result;
     if(!fp.TagInfo.empty()) {
         const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
         if(rule.pr_issue) {
             if(rule.is_business_hall)
-                result << tag_lang.ElemIdToTagElem(etHall, rule.hall, efmtNameLong);
+                result << tag_lang.ElemIdToTagElem(etBusinessHall, rule.hall, efmtNameLong);
             else
                 result << upperc(getLocaleText("Бизнес зал"));
             if(rule.reg_group == BIPrintRules::rgPlusOne)
@@ -3282,10 +3316,35 @@ string TPrnTagStore::TOTAL(TFieldParams fp)
 namespace BIPrintRules {
 
     static const char *BIRegGroupS[] = {
+        "НЕТ",
         "+1",
         "ДА",
-        "НЕТ"
+        "?"
     };
+
+    void TRule::fromDB(TQuery &Qry)
+    {
+        if(Qry.FieldIsNULL("bi_rule_hall")) return;
+
+        card_type = Qry.FieldAsString("bi_rule_tier_level");
+        hall = Qry.FieldAsInteger("bi_rule_hall");
+        is_business_hall = Qry.FieldAsInteger("bi_rule_is_business_hall");
+        pr_bi = Qry.FieldAsInteger("bi_rule_pr_bi");
+        reg_group = DecodeRegGroup(Qry.FieldAsString("bi_rule_reg_group"));
+        pr_issue = Qry.FieldAsInteger("bi_rule_pr_issue");
+    }
+
+    void TRule::dump(const string &file, int line)
+    {
+        LogTrace(TRACE5) << "-------TRule::dump(): " << file << ":" << line << "-------";
+        LogTrace(TRACE5) << "tier_level: " << card_type;
+        LogTrace(TRACE5) << "hall: " << hall;
+        LogTrace(TRACE5) << "is_business_hall: " << is_business_hall;
+        LogTrace(TRACE5) << "pr_bi: " << pr_bi;
+        LogTrace(TRACE5) << "reg_group: " << EncodeRegGroup(reg_group);
+        LogTrace(TRACE5) << "pr_issue: " << pr_issue;
+        LogTrace(TRACE5) << "---------------------------";
+    }
 
     void get_rule(
             const string &airline,
@@ -3346,8 +3405,6 @@ namespace BIPrintRules {
 
     bool bi_airline_service(
             const TTripInfo &info,
-            int terminal,
-            int hall,
             TRule &rule
             )
     {
@@ -3356,51 +3413,23 @@ namespace BIPrintRules {
                 "   terminal, "
                 "   hall, "
                 "   is_business_hall, "
-                "   pr_bi, "
-                "   decode(hall, null, 0, 1) priority "
+                "   pr_bi "
                 "from "
                 "   bi_airline_service "
                 "where "
                 "   airline = :airline and "
-                "   airp = :airp and "
-                "   (hall is null or hall = :hall) "
-                "order by priority desc",
+                "   airp = :airp ",
                 QParams()
                 << QParam("airline", otString, info.airline)
                 << QParam("airp", otString, info.airp)
-                << QParam("hall", otInteger, hall)
                 );
         Qry.get().Execute();
-        // если bi_airline_service.hall is null, то bi_airline_service.terminal всегда is NOT null
-        // в этом случае проверяем, принадлежит ли текущий pax_grp.hall (входной параметр)
-        // терминалу, указанному в bi_airline_service.hall
-        bool result =
-            not Qry.get().Eof and
-            (not Qry.get().FieldIsNULL("hall") or Qry.get().FieldAsInteger("terminal") == terminal);
+        bool result = not Qry.get().Eof;
         if(result) {
-            rule.hall = hall; // Всегда присваиваем hall, т.к. из запроса м.б. NULL
+            rule.hall = Qry.get().FieldAsInteger("hall");
             rule.is_business_hall = Qry.get().FieldAsInteger("is_business_hall") != 0;
             rule.pr_bi = Qry.get().FieldAsInteger("pr_bi") != 0;
         }
         return result;
     }
-
-    bool bi_airline_service_by_grp(
-            const TTripInfo &info,
-            int grp_id,
-            TRule &rule
-            )
-    {
-        TCachedQuery Qry("select terminal, hall from pax_grp, halls2 where grp_id = :grp_id and hall = halls2.id",
-                QParams() << QParam("grp_id", otInteger, grp_id));
-        Qry.get().Execute();
-        bool result = false;
-        if(not Qry.get().Eof) {
-            int terminal = Qry.get().FieldAsInteger("terminal");
-            int hall = Qry.get().FieldAsInteger("hall");
-            result = bi_airline_service(info, terminal, hall, rule);
-        }
-        return result;
-    }
-
 }
