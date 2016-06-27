@@ -195,32 +195,31 @@ Result fillSeatmap(const SmfParams& smfParams)
 {
     // TODO вызов функци Астры
     std::list<SeatColumnDetails> cabinFColumns;
-    cabinFColumns.push_back(SeatColumnDetails("A", "W"));
-    cabinFColumns.push_back(SeatColumnDetails("B", "A"));
-    iatci::CabinDetails cabinF("F", RowRange(1, 9), "F", cabinFColumns);
-
-    std::list<SeatColumnDetails> cabinYColumns;
-    cabinYColumns.push_back(SeatColumnDetails("A", "W"));
-    cabinYColumns.push_back(SeatColumnDetails("B", "A"));
-    cabinYColumns.push_back(SeatColumnDetails("C", "A"));
-    cabinYColumns.push_back(SeatColumnDetails("D", "W"));
-    iatci::CabinDetails cabinY("Y", RowRange(9, 29), "F", cabinYColumns, "",
-                               RowRange(10,11), RowRange(15,20));
-
+    cabinFColumns.push_back(SeatColumnDetails("А", "W"));
+    cabinFColumns.push_back(SeatColumnDetails("Б", "A"));
+    cabinFColumns.push_back(SeatColumnDetails("В", "A"));
+    cabinFColumns.push_back(SeatColumnDetails("Г", "W"));
+    iatci::CabinDetails cabinF("Э", RowRange(3, 6), "F", cabinFColumns);
 
     std::list<iatci::CabinDetails> lCabin;
     lCabin.push_back(cabinF);
-    lCabin.push_back(cabinY);
 
-    std::list<iatci::SeatOccupationDetails> lRowSeatOccup;
-    lRowSeatOccup.push_back(iatci::SeatOccupationDetails("A", "O"));
-    lRowSeatOccup.push_back(iatci::SeatOccupationDetails("B", "F"));
-    lRowSeatOccup.push_back(iatci::SeatOccupationDetails("C", "F"));
+    std::list<iatci::SeatOccupationDetails> lRowSeatOccup3;
+    lRowSeatOccup3.push_back(iatci::SeatOccupationDetails("А", "", {"K"}));
+    lRowSeatOccup3.push_back(iatci::SeatOccupationDetails("Б", "", {"K"}));
+    lRowSeatOccup3.push_back(iatci::SeatOccupationDetails("В", "", {"K"}));
+    lRowSeatOccup3.push_back(iatci::SeatOccupationDetails("Г", "", {"K"}));
+
+    std::list<iatci::SeatOccupationDetails> lRowSeatOccup6;
+    lRowSeatOccup6.push_back(iatci::SeatOccupationDetails("А", ""));
+    lRowSeatOccup6.push_back(iatci::SeatOccupationDetails("Б", "O"));
+    lRowSeatOccup6.push_back(iatci::SeatOccupationDetails("В", ""));
+    lRowSeatOccup6.push_back(iatci::SeatOccupationDetails("Г", ""));
+
 
     std::list<iatci::RowDetails> lRow;
-    lRow.push_back(iatci::RowDetails("1", lRowSeatOccup));
-    lRow.push_back(iatci::RowDetails("2", lRowSeatOccup));
-    lRow.push_back(iatci::RowDetails("5", lRowSeatOccup));
+    lRow.push_back(iatci::RowDetails("3", lRowSeatOccup3));
+    lRow.push_back(iatci::RowDetails("6", lRowSeatOccup6));
 
     iatci::SeatmapDetails seatmap(lCabin,
                                   lRow,

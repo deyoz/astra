@@ -124,6 +124,7 @@ struct PaxInfo
     std::string              m_ticketNum;
     unsigned                 m_couponNum;
     std::string              m_ticketRem;
+    std::string              m_seatNo;
     boost::optional<DocInfo> m_doc;
     boost::optional<Remarks> m_rems;
 
@@ -134,6 +135,7 @@ struct PaxInfo
             const std::string& ticketNum,
             unsigned couponNum,
             const std::string& ticketRem,
+            const std::string& seatNo,
             const boost::optional<DocInfo>& doc,
             const boost::optional<Remarks>& rems = boost::none);
 
@@ -157,6 +159,9 @@ public:
     ReqParams(xmlNodePtr rootNode);
     void setBoolParam(const std::string& param, bool val);
     bool getBoolParam(const std::string& param, bool nvl = false);
+
+    void setStrParam(const std::string& param, const std::string& val);
+    std::string getStrParam(const std::string& param);
 };
 
 //---------------------------------------------------------------------------------------
@@ -596,6 +601,9 @@ public:
     xml_entities::LoadPaxXmlResult SavePax(int depPointId, const xml_entities::XmlTrip& paxTrip);
     xml_entities::LoadPaxXmlResult SavePax(const xml_entities::XmlSegment& paxSeg);
     xml_entities::LoadPaxXmlResult SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+
+    // изменение места пассажира
+    xml_entities::LoadPaxXmlResult ReseatPax(const xml_entities::XmlSegment& paxSeg);
 
     // расширенный поиск рейса на дату
     xml_entities::GetAdvTripListXmlResult GetAdvTripList(const boost::gregorian::date& depDate);

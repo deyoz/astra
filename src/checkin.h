@@ -194,6 +194,7 @@ public:
 
   static void AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActionType action);
   static void LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax);
+  static void LoadPax(xmlNodePtr reqNode, xmlNodePtr resNode);
   static void LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int grpId, bool needSync);
   static void LoadPaxRem(xmlNodePtr paxNode);
   static void BuildTransfer(const TTrferRoute &trfer, TTrferRouteType route_type, xmlNodePtr transferNode);

@@ -42,6 +42,7 @@ namespace Ticketing
         DEFERR(UPDATE_SEPARATELY);
         DEFERR(CASCADED_QUERY_TIMEOUT);
         DEFERR(ID_CARD_REQUIRED);
+        DEFERR(INV_SEAT);
     };
 }//namespace Ticketing
 

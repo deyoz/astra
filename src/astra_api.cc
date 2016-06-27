@@ -6,6 +6,7 @@
 #include "points.h"
 #include "checkin.h"
 #include "tripinfo.h"
+#include "salonform.h"
 
 #include <serverlib/cursctl.h>
 #include <serverlib/xml_tools.h>
@@ -312,6 +313,31 @@ LoadPaxXmlResult AstraEngine::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
     return LoadPaxXmlResult(resNode);
 }
 
+LoadPaxXmlResult AstraEngine::ReseatPax(const xml_entities::XmlSegment& paxSeg)
+{
+    xmlNodePtr reqNode = getQueryNode(),
+               resNode = getAnswerNode();
+
+    // пока работаем с одним пассажиром
+    ASSERT(paxSeg.passengers.size() == 1);
+    const XmlPax& pax = paxSeg.passengers.front();
+
+    iatci::Seat seat = iatci::Seat::fromStr(pax.seat_no);
+    xmlNodePtr reseatNode = newChild(reqNode, "Reseat");
+    NewTextChild(reseatNode, "trip_id", paxSeg.point_dep);
+    NewTextChild(reseatNode, "pax_id",  pax.pax_id);
+    NewTextChild(reseatNode, "xname",   seat.col());
+    NewTextChild(reseatNode, "yname",   seat.row());
+    NewTextChild(reseatNode, "tid",     pax.tid);
+    NewTextChild(reseatNode, "question_reseat", "");
+
+    LogTrace(TRACE3) << "reseat pax query:\n" << XMLTreeToText(reqNode->doc);
+    SalonFormInterface::instance()->Reseat(getRequestCtxt(), reseatNode, resNode);
+    LogTrace(TRACE3) << "reseat pax answer:\n" << XMLTreeToText(resNode->doc);
+    return LoadPax(paxSeg.point_dep, pax.reg_no);
+}
+
+
 GetAdvTripListXmlResult AstraEngine::GetAdvTripList(const boost::gregorian::date& depDate)
 {
     xmlNodePtr reqNode = getQueryNode(),
@@ -469,6 +495,14 @@ static void applyRemsUpdate(XmlPax& pax, const iatci::UpdateServiceDetails& updS
             break;
         }
     }
+}
+
+//---------------------------------------------------------------------------------------
+
+static void applySeatUpdate(XmlPax& pax, const iatci::UpdateSeatDetails& updSeat)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " with act code: " << updSeat.actionCodeAsString();
+    pax.seat_no = updSeat.seat();
 }
 
 //---------------------------------------------------------------------------------------
@@ -639,6 +673,11 @@ iatci::Result updateIatciPax(const iatci::CkuParams& ckuParams)
     ASSERT(paxSegForUpdate.passengers.size() == 1);
 
     XmlPax& paxForUpdate = paxSegForUpdate.passengers.front();
+    if(ckuParams.updSeat()) {
+        tst();
+        applySeatUpdate(paxForUpdate, *ckuParams.updSeat());
+    }
+
     if(ckuParams.updPax()) {
         tst();
         // Doc
@@ -654,17 +693,24 @@ iatci::Result updateIatciPax(const iatci::CkuParams& ckuParams)
         applyRemsUpdate(paxForUpdate, *ckuParams.updService());
     }
 
+    if(ckuParams.updSeat()) {
+        loadPaxXmlRes = AstraEngine::singletone().ReseatPax(paxSegForUpdate);
+        return loadPaxXmlRes.toIatci(iatci::Result::Update,
+                                     iatci::Result::Ok,
+                                     false/*afterSavePax*/);
+    } else {
+        // SavePax
+        loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSegForUpdate);
+        if(loadPaxXmlRes.lSeg.empty()) {
+            // не смогли зарегистрировать
+            throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
+        }
 
-    // SavePax
-    loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSegForUpdate);
-    if(loadPaxXmlRes.lSeg.empty()) {
-        // не смогли зарегистрировать
-        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
+        return loadPaxXmlRes.toIatci(iatci::Result::Update,
+                                     iatci::Result::Ok,
+                                     true/*afterSavePax*/);
     }
 
-    return loadPaxXmlRes.toIatci(iatci::Result::Update,
-                                 iatci::Result::Ok,
-                                 true/*afterSavePax*/);
 }
 
 iatci::Result cancelCheckinIatciPax(const iatci::CkxParams& ckxParams)
@@ -785,6 +831,21 @@ bool ReqParams::getBoolParam(const std::string& param, bool nvl)
     return xmlbool(findNodeR(m_rootNode, param), nvl);
 }
 
+void ReqParams::setStrParam(const std::string& param, const std::string& val)
+{
+    xmlNodePtr node = findNodeR(m_rootNode, param);
+    if(node) {
+        xmlNodeSetContent(node, val);
+    } else {
+        NewTextChild(m_rootNode, param.c_str(), val);
+    }
+}
+
+std::string ReqParams::getStrParam(const std::string& param)
+{
+    return getStrFromXml(findNodeR(m_rootNode, param));
+}
+
 //---------------------------------------------------------------------------------------
 
 bool operator==(const XmlRem& l, const XmlRem& r)
@@ -852,6 +913,7 @@ astra_entities::PaxInfo XmlPax::toPax() const
                                    ticket_no,
                                    coupon_no,
                                    ticket_rem,
+                                   seat_no,
                                    paxDoc,
                                    paxRems);
 }
@@ -1781,6 +1843,7 @@ PaxInfo::PaxInfo(int paxId,
                  const std::string& ticketNum,
                  unsigned couponNum,
                  const std::string& ticketRem,
+                 const std::string& seatNo,
                  const boost::optional<DocInfo>& doc,
                  const boost::optional<Remarks>& rems)
     : m_paxId(paxId),
@@ -1790,6 +1853,7 @@ PaxInfo::PaxInfo(int paxId,
       m_ticketNum(ticketNum),
       m_couponNum(couponNum),
       m_ticketRem(ticketRem),
+      m_seatNo(seatNo),
       m_doc(doc),
       m_rems(rems)
 {}
@@ -1803,6 +1867,7 @@ bool operator==(const PaxInfo& left, const PaxInfo& right)
             left.m_ticketNum == right.m_ticketNum &&
             left.m_couponNum == right.m_couponNum &&
             left.m_ticketRem == right.m_ticketRem &&
+            left.m_seatNo    == right.m_seatNo &&
             left.m_doc       == right.m_doc &&
             left.m_rems     == right.m_rems);
 }

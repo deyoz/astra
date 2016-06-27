@@ -3,10 +3,13 @@
 #include "xml_unit.h"
 #include "basic.h"
 #include "astra_locale_adv.h"
+#include "astra_msg.h"
 
 #include <serverlib/exception.h>
 #include <serverlib/xml_tools.h>
 #include <serverlib/xmllibcpp.h>
+
+#include <etick/exceptions.h>
 
 #include <ostream>
 #include <boost/foreach.hpp>
@@ -17,6 +20,73 @@
 
 
 namespace iatci {
+
+using namespace Ticketing;
+using namespace Ticketing::TickExceptions;
+
+MagicTab MagicTab::fromNeg(int gt)
+{
+    ASSERT(gt < 0);
+    const std::string pts = std::to_string(std::abs(gt));
+    std::string p = pts.substr(0, pts.length() - 1);
+    std::string t = pts.substr(pts.length() - 1);
+    LogTrace(TRACE5) << "gt: " << gt;
+    LogTrace(TRACE5) << "p: " << p;
+    LogTrace(TRACE5) << "t: " << t;
+    return MagicTab(std::atoi(p.c_str()), std::atoi(t.c_str()));
+}
+
+int MagicTab::toNeg() const
+{
+    std::ostringstream s;
+    s << "-";
+    s << m_grpId;
+    s << m_tabInd;
+    LogTrace(TRACE5) << "P: " << m_grpId;
+    LogTrace(TRACE5) << "T: " << m_tabInd;
+    LogTrace(TRACE5) << "GT: " << std::atoi(s.str().c_str());
+    return std::atoi(s.str().c_str());
+}
+
+//---------------------------------------------------------------------------------------
+
+Seat::Seat(const std::string& row, const std::string& col)
+    : m_row(row), m_col(col)
+{}
+
+Seat Seat::fromStr(const std::string& str)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << " " << str;
+    if(!(str.length() > 1 && str.size() < 5)) {
+        LogTrace(TRACE5) << "invalid seat string [" << str << "]";
+        throw tick_soft_except(STDLOG, AstraErr::INV_SEAT);
+    }
+
+    std::string row = std::string(str.begin(), --str.end());
+    std::string col = str.substr(str.length() - 1);
+    LogTrace(TRACE5) << "row:" << row << " "
+                     << "col:" << col;
+
+    return Seat(row, col);
+}
+
+std::string Seat::toStr() const
+{
+    return m_row + m_col;
+}
+
+bool operator==(const Seat& left, const Seat& right)
+{
+    return (left.row() == right.row() &&
+            left.col() == right.col());
+}
+
+bool operator!=(const Seat& left, const Seat& right)
+{
+    return !(left == right);
+}
+
+//---------------------------------------------------------------------------------------
 
 OriginatorDetails::OriginatorDetails(const std::string& airl, const std::string& point)
     : m_airline(airl),
@@ -1333,6 +1403,180 @@ void Result::toXml(xmlNodePtr node) const
     NewTextChild(segNode, "paid_bag_emd", ""); // TODO
     xmlNodePtr tripCountersNode = newChild(segNode, "tripcounters"); // TODO
     NewTextChild(segNode, "load_residue", ""); // TODO
+}
+
+void Result::toSmpXml(xmlNodePtr node) const
+{
+    ASSERT(seatmap());
+    PlaceMatrix placeMatrix = createPlaceMatrix(seatmap().get());
+
+    NewTextChild(node, "trip",        fullFlightString(flight(), false));
+    NewTextChild(node, "craft",       ""); // TODO get it
+    NewTextChild(node, "bort",        ""); // TODO get it
+    NewTextChild(node, "travel_time", depTimeString(flight()));
+    NewTextChild(node, "comp_id",     -1);
+    NewTextChild(node, "descr",       "");
+
+    xmlNodePtr salonsNode = newChild(node, "salons"); // TODO fill node properties
+    xmlSetProp(salonsNode, "RFISCMode", 0);
+
+    xmlNodePtr filterRoutesNode = newChild(salonsNode, "filterRoutes");
+    NewTextChild(filterRoutesNode, "point_dep", -1);
+    NewTextChild(filterRoutesNode, "point_arv", -1);
+
+    xmlNodePtr itemsNode = newChild(filterRoutesNode, "items");
+
+    xmlNodePtr depItemNode = newChild(itemsNode, "item");
+    NewTextChild(depItemNode, "point_id", -1);
+    NewTextChild(depItemNode, "airp", airportCode(flight().depPort()));
+
+    xmlNodePtr arrItemNode = newChild(itemsNode, "item");
+    NewTextChild(arrItemNode, "point_id", -1);
+    NewTextChild(arrItemNode, "airp", airportCode(flight().arrPort()));
+
+    for(const auto& pm: placeMatrix.placeLists()) {
+        xmlNodePtr placeListNode = newChild(salonsNode, "placelist");
+        xmlSetProp(placeListNode, "num", pm.first);
+        xmlSetProp(placeListNode, "xcount", 4); // TODO calc it!!
+        xmlSetProp(placeListNode, "ycount", 4); // TODO calc it!!
+
+        for(const auto& pl: pm.second.places()) {
+            xmlNodePtr placeNode = newChild(placeListNode, "place");
+            NewTextChild(placeNode, "x", (int)pl.first.m_x);
+            NewTextChild(placeNode, "y", (int)pl.first.m_y);
+            if(pl.second.m_occupied) {
+                xmlNodePtr layersNode = newChild(placeNode, "layers");
+                xmlNodePtr layerNode = newChild(layersNode, "layer");
+                NewTextChild(layerNode, "layer_type", "CHECKIN");
+            }
+            NewTextChild(placeNode, "elem_type", pl.second.m_elemType);
+            NewTextChild(placeNode, "class", pl.second.m_class);
+            NewTextChild(placeNode, "xname", pl.second.m_xName);
+            NewTextChild(placeNode, "yname", pl.second.m_yName);
+        }
+    }
+}
+
+void Result::toSmpUpdXml(xmlNodePtr node,
+                         const Seat& oldSeat,
+                         const Seat& newSeat) const
+{
+    ASSERT(seatmap());
+    PlaceMatrix placeMatrix = createPlaceMatrix(seatmap().get());
+
+    xmlNodePtr salonsNode = newChild(node, "update_salons");
+    xmlSetProp(salonsNode, "RFISCMode", 0);
+
+    xmlNodePtr seatsNode = newChild(salonsNode, "seats");
+
+    size_t newSeatSalonNum = placeMatrix.findPlaceListNum(newSeat.col(), newSeat.row());
+    size_t oldSeatSalonNum = placeMatrix.findPlaceListNum(oldSeat.col(), oldSeat.row());
+
+    xmlNodePtr salonNode = newChild(seatsNode, "salon");
+    xmlSetProp(salonNode, "num", oldSeatSalonNum);
+
+    const PlaceMatrix::PlaceList& oldSeatSalon = placeMatrix.placeLists().at(oldSeatSalonNum);
+    xmlNodePtr oldPlaceNode = newChild(salonNode, "place");
+    boost::optional<PlaceMatrix::Coord2D> oldPlaceCoord = oldSeatSalon.findPlaceCoords(oldSeat.col(), oldSeat.row());
+    ASSERT(oldPlaceCoord);
+    NewTextChild(oldPlaceNode, "x", (int)oldPlaceCoord->m_x);
+    NewTextChild(oldPlaceNode, "y", (int)oldPlaceCoord->m_y);
+
+
+    if(newSeatSalonNum != oldSeatSalonNum) {
+        salonNode = newChild(seatsNode, "salon");
+        xmlSetProp(salonNode, "num", newSeatSalonNum);
+    }
+
+    const PlaceMatrix::PlaceList& newSeatSalon = placeMatrix.placeLists().at(newSeatSalonNum);
+    xmlNodePtr newPlaceNode = newChild(salonNode, "place");
+    boost::optional<PlaceMatrix::Coord2D> newPlaceCoord = newSeatSalon.findPlaceCoords(newSeat.col(), newSeat.row());
+    ASSERT(newPlaceCoord);
+    NewTextChild(newPlaceNode, "x", (int)newPlaceCoord->m_x);
+    NewTextChild(newPlaceNode, "y", (int)newPlaceCoord->m_y);
+    xmlNodePtr layersNode = newChild(newPlaceNode, "layers");
+    xmlNodePtr layerNode = newChild(layersNode, "layer");
+    NewTextChild(layerNode, "layer_type", "CHECKIN");
+}
+
+//---------------------------------------------------------------------------------------
+
+boost::optional<PlaceMatrix::Coord2D> PlaceMatrix::PlaceList::findPlaceCoords(const std::string& xName,
+                                                                              const std::string& yName) const
+{
+    for(std::map<PlaceMatrix::Coord2D, PlaceMatrix::Place>::const_iterator it = m_places.begin();
+        it != m_places.end(); ++it)
+    {
+        if(it->second.m_xName == xName && it->second.m_yName == yName) {
+            return it->first;
+        }
+    }
+    return boost::none;
+}
+
+size_t PlaceMatrix::findPlaceListNum(const std::string& xName,
+                                     const std::string& yName) const
+{
+    for(std::map<size_t, PlaceList>::const_iterator it = m_matrix.begin();
+        it != m_matrix.end(); ++it)
+    {
+        if(it->second.findPlaceCoords(xName, yName)) {
+            return it->first;
+        }
+    }
+    throw EXCEPTIONS::Exception("Bad seat: %s %s", xName.c_str(), yName.c_str());
+}
+
+//---------------------------------------------------------------------------------------
+
+PlaceMatrix createPlaceMatrix(const SeatmapDetails& seatmap)
+{
+    PlaceMatrix placeMatrix;
+    size_t placeListNum = 0;
+    for(const CabinDetails& cbd: seatmap.lCabinDetails()) {
+        PlaceMatrix::PlaceList placeList;
+        unsigned y = 0;
+        for(unsigned row = cbd.rowRange().firstRow(); row <= cbd.rowRange().lastRow(); ++row)  {
+            unsigned x = 0;
+            bool wasAisle = false;
+            for(const SeatColumnDetails& col: cbd.seatColumns()) {
+                std::string curXName = col.column(),
+                            curYName = boost::lexical_cast<std::string>(row);
+                PlaceMatrix::Place place(curXName,
+                                         curYName,
+                                         cbd.classDesignator(),
+                                         "Š", // TODO get it
+                                         cbd.defaultSeatOccupation() == "O" ? true : false);
+                for(const RowDetails& rod: seatmap.lRowDetails()) {
+                    if(rod.row() == curYName) {
+                        for(const SeatOccupationDetails& seatOccup: rod.lOccupationDetails()) {
+                            if(seatOccup.column() == curXName) {
+                                if(seatOccup.occupation() == "O") {
+                                    place.m_occupied = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                placeList.setPlace(PlaceMatrix::Coord2D(x, y), place);
+                ++x;
+                if(col.desc1() == "A") {
+                    if(!wasAisle) {
+                        wasAisle = true;
+                        ++x;
+                    } else {
+                        wasAisle = false;
+                    }
+                }
+
+            }
+            ++y;
+        }
+
+        placeMatrix.addPlaceList(placeListNum++, placeList);
+    }
+
+    return placeMatrix;
 }
 
 //---------------------------------------------------------------------------------------

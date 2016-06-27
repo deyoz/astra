@@ -5,6 +5,7 @@
 #include <etick/etick_msg_types.h>
 
 #include <list>
+#include <vector>
 #include <boost/optional.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/date_time/gregorian/gregorian_types.hpp>
@@ -15,6 +16,46 @@
 
 
 namespace iatci {
+
+class MagicTab
+{
+    int m_grpId;
+    unsigned m_tabInd;
+
+public:
+    MagicTab(int grpId, unsigned tabInd)
+        : m_grpId(grpId), m_tabInd(tabInd)
+    {}
+
+    int grpId() const { return m_grpId; }
+    unsigned tabInd() const { return m_tabInd; }
+
+    int toNeg() const;
+
+    static MagicTab fromNeg(int pt);
+};
+
+//---------------------------------------------------------------------------------------
+
+class Seat
+{
+    std::string m_row;
+    std::string m_col;
+
+public:
+    Seat(const std::string& row, const std::string& col);
+    static Seat fromStr(const std::string& str);
+
+    const std::string& row() const { return m_row; }
+    const std::string& col() const { return m_col; }
+
+    std::string toStr() const;
+};
+
+bool operator==(const Seat& left, const Seat& right);
+bool operator!=(const Seat& left, const Seat& right);
+
+//---------------------------------------------------------------------------------------
 
 struct OriginatorDetails
 {
@@ -759,6 +800,92 @@ protected:
 
 //---------------------------------------------------------------------------------------
 
+class PlaceMatrix
+{
+public:
+    struct Coord2D
+    {
+        unsigned m_x;
+        unsigned m_y;
+
+        Coord2D(unsigned x, unsigned y)
+            : m_x(x), m_y(y)
+        {}
+
+        bool operator==(const Coord2D& other) const {
+            return (m_x == other.m_x && m_y == other.m_y);
+        }
+        bool operator< (const Coord2D& other) const {
+            return (m_y == other.m_y ? m_x < other.m_x : m_y < other.m_y);
+        }
+    };
+
+    struct Place
+    {
+        std::string m_xName;
+        std::string m_yName;
+        std::string m_class;
+        std::string m_elemType;
+        bool        m_occupied;
+
+        Place(bool occupied = false)
+            : m_occupied(occupied)
+        {}
+
+        Place(const std::string& xName, const std::string& yName,
+              const std::string& cls, const std::string& elemType,
+              bool occupied)
+            : m_xName(xName), m_yName(yName),
+              m_class(cls), m_elemType(elemType),
+              m_occupied(occupied)
+        {}        
+    };
+
+    struct PlaceList
+    {
+        std::map<Coord2D, Place> m_places;
+
+        void setPlace(const Coord2D& coord, const Place& place) {
+            m_places[coord] = place;
+        }
+
+        Place getPlace(const Coord2D& coord) const {
+            return m_places.at(coord);
+        }
+
+        const std::map<Coord2D, Place>& places() const {
+            return m_places;
+        }
+
+        boost::optional<Coord2D> findPlaceCoords(const std::string& xName,
+                                                 const std::string& yName) const;
+    };
+
+private:
+    std::map<size_t, PlaceList> m_matrix;
+
+public:
+    PlaceMatrix() {}
+
+    const std::map<size_t, PlaceList>& placeLists() const {
+        return m_matrix;
+    }
+
+    void addPlaceList(size_t num, const PlaceList& placeList) {
+        m_matrix[num] = placeList;
+    }
+
+    size_t findPlaceListNum(const std::string& xName,
+                            const std::string& yName) const;
+
+};
+
+//---------------------------------------------------------------------------------------
+
+PlaceMatrix createPlaceMatrix(const SeatmapDetails& seatmap);
+
+//---------------------------------------------------------------------------------------
+
 struct BaseParams
 {
 protected:
@@ -1066,6 +1193,10 @@ public:
     std::string                                statusAsString() const;
 
     void toXml(xmlNodePtr node) const;
+    void toSmpXml(xmlNodePtr node) const;
+    void toSmpUpdXml(xmlNodePtr node,
+                     const Seat& oldSeat,
+                     const Seat& newSeat) const;
 
     static Action_e strToAction(const std::string& a);
     static Status_e strToStatus(const std::string& s);

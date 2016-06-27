@@ -407,13 +407,7 @@ $(defmacro CHECK_TCKIN_ROUTE_2
               <city_code>...
             </airp>
           </airps>
-          <classes>
-            <class>
-              <code></code>
-              <class_view></class_view>
-              <cfg>-1</cfg>
-            </class>
-          </classes>
+          <classes/>
           <gates/>
           <halls/>
         </tripdata>
@@ -1335,7 +1329,7 @@ $(KICK_IN)
           <mark_flights/>
         </tripdata>
         <grp_id>-1</grp_id>
-        <point_dep>-1</point_dep>
+        <point_dep>-...
         <airp_dep>‹</airp_dep>
         <point_arv>-1</point_arv>
         <airp_arv>‘—</airp_arv>
@@ -1777,7 +1771,7 @@ $(KICK_IN)
           <mark_flights/>
         </tripdata>
         <grp_id>-1</grp_id>
-        <point_dep>-1</point_dep>
+        <point_dep>-...
         <airp_dep>‹</airp_dep>
         <point_arv>-1</point_arv>
         <airp_arv>‘—</airp_arv>
@@ -2877,3 +2871,196 @@ $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
         </passengers>
       </printBP>
     </data>
+
+
+%%
+#########################################################################################
+# ό15  ΰβ  ¬¥αβ
+###
+
+$(init)
+$(init_jxt_pult ‚)
+$(login)
+$(init_dcs ‘7 TA OA)
+$(init_eds ’ UTET UTDC)
+
+
+$(prepare_bp_printing ’ 103 „„)
+$(PREPARE_FLIGHT_3 ’ 103 „„ ‹ ‘7 1027 ‹ ‘— REPIN IVAN)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep) 2986120030297)
+$(CHECK_ADV_TRIPS_LIST $(get point_dep) ’ 103 „„)
+$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ’ 103 „„ ‹
+                                                           ‘7 1027 ‹ ‘—
+                                                           REPIN IVAN
+                                                           2986120030297)
+
+$(ETS_COS_EXCHANGE 2986120030297 1 CK)
+
+$(KICK_IN_SILENT)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+LOR+’:„„"
+FDQ+‘7+1027+$(yymmdd)+‹+‘—++’+103+$(yymmdd)++„„+‹"
+PPD+REPIN+A++IVAN"
+PSD++7A"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+‘7+1027+$(yymmdd)1000+‹+‘—++T"
+RAD+I+O"
+PPD+REPIN+A++IVAN"
+PFD+3B+:"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PAP+:::100386:::RUS++PP:5408123432:RUS:::311249:M::::::REPIN:IVAN"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN_SILENT)
+
+$(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
+
+$(dump_table GRP_IATCI_DATA)
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <Show>
+      <trip_id>-$(get grp_id)1</trip_id>
+    </Show>
+  </query>
+</term>}
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQSMF:96:2:IA+$(last_edifact_ref)"
+LOR+’:„„"
+FDQ+‘7+1027+$(yymmdd)+‹+‘—"
+UNT+4+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRSMF:96:2:IA+$(last_edifact_ref)"
+FDR+‘7+1027+$(yymmdd)1000+‹+‘—++T"
+RAD+S+O"
+EQD++++++D09"
+CBD+F+3:6+++F++A:W+B:A+E:A+F:W"
+ROD+3++A::K+B::K+E::K+F::K"
+ROD+6++A+B:O+E+F"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+$(KICK_IN)
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <Reseat>
+      <trip_id>-$(get grp_id)1</trip_id>
+      <pax_id>-1</pax_id>
+      <xname>A</xname>
+      <yname>6</yname>
+      <tid>0</tid>
+      <question_reseat/>
+    </Reseat>
+  </query>
+</term>}
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:96:2:IA+$(last_edifact_ref)"
+LOR+’:„„"
+FDQ+‘7+1027+$(yymmdd)+‹+‘—"
+PPD+REPIN+A++IVAN"
+USD++6A"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+‘7+1027+$(yymmdd)1000+‹+‘—++T"
+RAD+U+O"
+PPD+REPIN+A++IVAN"
+PFD+6A+:"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PAP+:::100386:::RUS++PP:5408123432:RUS:::311249:M::::::REPIN:IVAN"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+$(KICK_IN_SILENT)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQSMF:96:2:IA+$(last_edifact_ref)"
+LOR+’:„„"
+FDQ+‘7+1027+$(yymmdd)+‹+‘—"
+UNT+4+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRSMF:96:2:IA+$(last_edifact_ref)"
+FDR+‘7+1027+$(yymmdd)1000+‹+‘—++T"
+RAD+S+O"
+EQD++++++D09"
+CBD+F+3:6+++F++A:W+B:A+E:A+F:W"
+ROD+3++A::K+B::K+E::K+F::K"
+ROD+6++A:O+B+E+F"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN)
+
+
+%%
+#########################################################################################
+# ό16  ΰβ  ¬¥αβ ¤® ΰ¥£¨αβΰ ζ¨¨
+###
+
+$(init)
+$(init_jxt_pult ‚)
+$(login)
+$(init_dcs ‘7 TA OA)
+$(init_eds ’ UTET UTDC)
+
+
+$(prepare_bp_printing ’ 103 „„)
+$(PREPARE_FLIGHT_3 ’ 103 „„ ‹ ‘7 1027 ‹ ‘— REPIN IVAN)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep) 2986120030297)
+$(CHECK_ADV_TRIPS_LIST $(get point_dep) ’ 103 „„)
+
+
+!!
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <Show>
+      <trip_id>-1</trip_id>
+    </Show>
+  </query>
+</term>}
+
+

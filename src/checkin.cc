@@ -3194,9 +3194,8 @@ static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
         if(xmlDoc.docPtr() == NULL)
             throw EXCEPTIONS::Exception("IATCI XML has wrong format!");
         xml_decode_nodelist(xmlDoc.docPtr()->children);
-        xmlNodePtr contextNode = NodeAsNode("/context", xmlDoc.docPtr());
 
-        xmlNodePtr tripHeaderNode = findNodeR(contextNode, "tripheader");
+        xmlNodePtr tripHeaderNode = findNodeR(xmlDoc.docPtr()->children, "tripheader");
         if(tripHeaderNode)
         {
             TGrpMktFlight grpMktFlt;
@@ -6791,8 +6790,7 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int 
     {
         if(needSync && reqNode != NULL) {
             IatciInterface::PasslistRequest(reqNode, grpId);
-            AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO
-            return;
+            return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
         }
         LogTrace(TRACE3) << "Xml data:\n" << xmlData;
         XMLDoc xmlDoc;
@@ -6801,8 +6799,7 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int 
             throw EXCEPTIONS::Exception("IATCI XML has wrong format!");
         xml_decode_nodelist(xmlDoc.docPtr()->children);
 
-        xmlNodePtr contextNode = NodeAsNode("/context", xmlDoc.docPtr());
-        xmlNodePtr srcSegsNode = findNodeR(contextNode, "segments");
+        xmlNodePtr srcSegsNode = findNodeR(xmlDoc.docPtr()->children, "segments");
         ASSERT(srcSegsNode != NULL);
 
         xmlNodePtr destSegsNode = findNodeR(resNode, "segments");
@@ -7078,6 +7075,11 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
   if(!wasSentIatci) {
       LoadIatciPax(reqNode, resNode, grp_id, needSync);
   }
+}
+
+void CheckInInterface::LoadPax(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    CheckInInterface::instance()->LoadPax(NULL, reqNode, resNode);
 }
 
 void CheckInInterface::LoadPaxRem(xmlNodePtr paxNode)
@@ -8660,10 +8662,10 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           NewTextChild(checkInfoNode, "crew");
 
           xmlNodePtr classesNode = NewTextChild(tripdataNode, "classes");
-          xmlNodePtr classNode = NewTextChild(classesNode, "class");
-          NewTextChild(classNode, "code", EncodeClass(Y)); // TODO
-          NewTextChild(classNode, "class_view", "ùäéçéå"); // TODO
-          NewTextChild(classNode, "cfg", -1); // TODO
+          //xmlNodePtr classNode = NewTextChild(classesNode, "class");
+          //NewTextChild(classNode, "code", EncodeClass(Y)); // TODO
+          //NewTextChild(classNode, "class_view", "ùäéçéå"); // TODO
+          //NewTextChild(classNode, "cfg", -1); // TODO
 
           node = NewTextChild(tripdataNode, "gates");   // ???
           node = NewTextChild(tripdataNode, "halls");   // ???

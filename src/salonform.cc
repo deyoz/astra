@@ -7,6 +7,7 @@
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
+#include "astra_api.h"
 #include "oralib.h"
 #include "stl_utils.h"
 #include "images.h"
@@ -15,6 +16,8 @@
 #include "seats.h"
 #include "seats_utils.h"
 #include "convert.h"
+#include "iatci.h"
+#include "iatci_types.h"
 #include "astra_misc.h"
 #include "tlg/tlg_parser.h" // only for convert_salons
 #include "term_version.h"
@@ -22,7 +25,7 @@
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DJEK"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace BASIC;
@@ -513,11 +516,16 @@ void SalonFormInterface::RefreshPaxSalons(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   }
 }
 
-
 void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   int point_id = NodeAsInteger( "trip_id", reqNode );
+  if(point_id < 0)
+  {
+      ProgTrace(TRACE3, "Show iatci seat map");
+      IatciInterface::SeatmapRequest(reqNode, point_id);
+      return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO
+  }
   bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( point_id );
   ProgTrace(TRACE5, "SalonFormInterface::Show point_id=%d, isTranzitSalonsVersion=%d", point_id, isTranzitSalonsVersion );
 
@@ -1550,7 +1558,15 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
 
 void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType seat_type )
 {
+    tst();
   int point_id = NodeAsInteger( "trip_id", reqNode );
+  tst();
+  if(point_id < 0)
+  {
+      ProgTrace(TRACE3, "Query iatci seat change");
+      IatciInterface::UpdateSeatRequest(reqNode, point_id);
+      return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO
+  }
   int pax_id = NodeAsInteger( "pax_id", reqNode );
   int tid = NodeAsInteger( "tid", reqNode );
   bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( point_id );
@@ -2042,6 +2058,35 @@ void SalonFormInterface::Tranzit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     }
 }
 
+void SalonFormInterface::ShowRemote(xmlNodePtr resNode, const iatci::Result& res)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+    xmlNodePtr dataNode = newChild(resNode, "data");
+    res.toSmpXml(dataNode);
+}
+
+void SalonFormInterface::ReseatRemote(xmlNodePtr resNode,
+                                      const iatci::Seat& oldSeat,
+                                      const iatci::Seat& newSeat,
+                                      const iatci::Result& res)
+{
+
+    LogTrace(TRACE3) << __FUNCTION__;
+    xmlNodePtr dataNode = newChild(resNode, "data");
+    NewTextChild(dataNode, "tid",        0);
+    NewTextChild(dataNode, "seat_no",    newSeat.toStr());
+    NewTextChild(dataNode, "layer_type", "CHECKIN");
+    res.toSmpUpdXml(dataNode, oldSeat, newSeat);
+}
+
+SalonFormInterface* SalonFormInterface::instance()
+{
+    static SalonFormInterface* inst = 0;
+    if(!inst) {
+        inst = new SalonFormInterface();
+    }
+    return inst;
+}
 
 void trace( int pax_id, int grp_id, int parent_pax_id, int crs_pax_id, const std::string &pers_type, int seats )
 {

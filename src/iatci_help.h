@@ -6,13 +6,14 @@
 
 namespace iatci {
 
-std::string fullFlightString(const FlightDetails& flight);
+std::string fullFlightString(const FlightDetails& flight, bool edi = true);
 std::string flightString(const FlightDetails& flight);
 std::string airlineAccode(const std::string& airline);
 std::string airportCode(const std::string& airport);
 std::string airportCityCode(const std::string& airport);
 std::string airportCityName(const std::string& airport);
 std::string depDateTimeString(const FlightDetails& flight);
+std::string depTimeString(const FlightDetails& flight);
 std::string fullAirportString(const std::string& airport);
 std::string cityCode(const std::string& city);
 std::string cityName(const std::string& city);
@@ -46,8 +47,8 @@ class IatciDb
 public:
     static void add(int grpId, const std::list<iatci::Result>& lRes);
 
-    static std::list<iatci::PaxDetails> readPax(int grpId);
-    static std::list<iatci::FlightDetails> readSeg(int grpId);
+    static std::vector<iatci::PaxDetails> readPax(int grpId);
+    static std::vector<iatci::FlightDetails> readSeg(int grpId);
 
 private:
     static void addPax(int grpId, const std::list<iatci::Result>& lRes);

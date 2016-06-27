@@ -18,14 +18,15 @@
 
 namespace iatci {
 
-std::string fullFlightString(const FlightDetails& flight)
+std::string fullFlightString(const FlightDetails& flight, bool edi)
 {
     std::ostringstream os;
     os << flight.airline()
        << flight.flightNum()
        << "/" << HelpCpp::string_cast(flight.depDate(), "%d.%m")
-       << " " << flight.depPort()
-       << " (EDI)";
+       << " " << flight.depPort();
+    if(edi)
+       os << " (EDI)";
     return os.str();
 }
 
@@ -66,10 +67,18 @@ std::string depDateTimeString(const FlightDetails& flight)
 {
     std::ostringstream os;
     os << HelpCpp::string_cast(flight.depDate(), "%d.%m.%Y");
+    os << " " << depTimeString(flight);
+
+    return os.str();
+}
+
+std::string depTimeString(const FlightDetails& flight)
+{
+    std::ostringstream os;
     if(!flight.depTime().is_not_a_date_time()) {
-        os << " " << HelpCpp::string_cast(flight.depTime(), "%H:%M:%S");
+        os << HelpCpp::string_cast(flight.depTime(), "%H:%M:%S");
     } else {
-        os << " " << "00:00:00";
+        os << "00:00:00";
     }
 
     return os.str();
@@ -244,7 +253,7 @@ void IatciDb::add(int grpId, const std::list<iatci::Result>& lRes)
     addSeg(grpId, lRes);
 }
 
-std::list<iatci::PaxDetails> IatciDb::readPax(int grpId)
+std::vector<iatci::PaxDetails> IatciDb::readPax(int grpId)
 {
     OciCpp::CursCtl cur = make_curs(
 "select SURNAME, NAME, PAX_TYPE "
@@ -258,13 +267,13 @@ std::list<iatci::PaxDetails> IatciDb::readPax(int grpId)
        .bind(":grp_id", grpId)
        .EXfet(); // пока на один GRP_ID храним одного PAX
 
-    std::list<iatci::PaxDetails> res;
+    std::vector<iatci::PaxDetails> res;
     res.push_back(iatci::PaxDetails(surname, name, iatci::PaxDetails::strToType(paxType)));
 
     return res;
 }
 
-std::list<iatci::FlightDetails> IatciDb::readSeg(int grpId)
+std::vector<iatci::FlightDetails> IatciDb::readSeg(int grpId)
 {
     OciCpp::CursCtl cur = make_curs(
 "select AIRLINE, FLT_NO, DEP_PORT, ARR_PORT, DEP_DATE, ARR_DATE "
@@ -282,7 +291,7 @@ std::list<iatci::FlightDetails> IatciDb::readSeg(int grpId)
        .defNull(arrDate, boost::gregorian::date())
        .bind(":grp_id", grpId)
        .exec();
-    std::list<iatci::FlightDetails> res;
+    std::vector<iatci::FlightDetails> res;
     while(!cur.fen())  {
         res.push_back(iatci::FlightDetails(airline,
                                            Ticketing::getFlightNum(flNum),
@@ -316,7 +325,7 @@ void IatciDb::addSeg(int grpId, const std::list<iatci::Result>& lRes)
 {
     unsigned segNum = 1;
     for(const iatci::Result res: lRes) {
-        iatci::FlightDetails flight = res.flight();
+        const iatci::FlightDetails& flight = res.flight();
         OciCpp::CursCtl cur = make_curs(
 "insert into IATCI_SEG "
 "(AIRLINE, FLT_NO, DEP_PORT, ARR_PORT, DEP_DATE, ARR_DATE, NUM, GRP_ID) "

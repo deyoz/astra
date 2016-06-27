@@ -74,7 +74,6 @@ void AstraJxtCallbacks::InitInterfaces()
     new ImagesInterface();
     new EventsInterface();
     new SalonsInterface();
-    new SalonFormInterface();
     new CentInterface();
     new PrepRegInterface();
     new SoppInterface();
@@ -96,6 +95,7 @@ void AstraJxtCallbacks::InitInterfaces()
 
     CheckInInterface::instance();
     TripsInterface::instance();
+    SalonFormInterface::instance();
 }
 
 void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &body)
