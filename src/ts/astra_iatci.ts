@@ -2965,6 +2965,168 @@ UNZ+1+$(last_edifact_ref)0001"
 
 $(KICK_IN)
 
+>> lines=auto
+    <data>
+      <trip>ë71027/27.06 èãä</trip>
+      <craft/>
+      <bort/>
+      <travel_time>10:00:00</travel_time>
+      <comp_id>-1</comp_id>
+      <descr/>
+      <salons RFISCMode='0'>
+        <filterRoutes>
+          <point_dep>-1</point_dep>
+          <point_arv>-1</point_arv>
+          <items>
+            <item>
+              <point_id>-1</point_id>
+              <airp>èãä</airp>
+            </item>
+            <item>
+              <point_id>-1</point_id>
+              <airp>ëéó</airp>
+            </item>
+          </items>
+        </filterRoutes>
+        <placelist num='0' xcount='4' ycount='4'>
+          <place>
+            <x>0</x>
+            <y>0</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>A</xname>
+            <yname>3</yname>
+          </place>
+          <place>
+            <x>1</x>
+            <y>0</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>B</xname>
+            <yname>3</yname>
+          </place>
+          <place>
+            <x>3</x>
+            <y>0</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>E</xname>
+            <yname>3</yname>
+          </place>
+          <place>
+            <x>4</x>
+            <y>0</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>F</xname>
+            <yname>3</yname>
+          </place>
+          <place>
+            <x>0</x>
+            <y>1</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>A</xname>
+            <yname>4</yname>
+          </place>
+          <place>
+            <x>1</x>
+            <y>1</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>B</xname>
+            <yname>4</yname>
+          </place>
+          <place>
+            <x>3</x>
+            <y>1</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>E</xname>
+            <yname>4</yname>
+          </place>
+          <place>
+            <x>4</x>
+            <y>1</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>F</xname>
+            <yname>4</yname>
+          </place>
+          <place>
+            <x>0</x>
+            <y>2</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>A</xname>
+            <yname>5</yname>
+          </place>
+          <place>
+            <x>1</x>
+            <y>2</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>B</xname>
+            <yname>5</yname>
+          </place>
+          <place>
+            <x>3</x>
+            <y>2</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>E</xname>
+            <yname>5</yname>
+          </place>
+          <place>
+            <x>4</x>
+            <y>2</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>F</xname>
+            <yname>5</yname>
+          </place>
+          <place>
+            <x>0</x>
+            <y>3</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>A</xname>
+            <yname>6</yname>
+          </place>
+          <place>
+            <x>1</x>
+            <y>3</y>
+            <layers>
+              <layer>
+                <layer_type>CHECKIN</layer_type>
+              </layer>
+            </layers>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>B</xname>
+            <yname>6</yname>
+          </place>
+          <place>
+            <x>3</x>
+            <y>3</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>E</xname>
+            <yname>6</yname>
+          </place>
+          <place>
+            <x>4</x>
+            <y>3</y>
+            <elem_type>ä</elem_type>
+            <class>F</class>
+            <xname>F</xname>
+            <yname>6</yname>
+          </place>
+        </placelist>
+      </salons>
+    </data>
+
+
 !! err=ignore
 {<?xml version='1.0' encoding='CP866'?>
 <term>
@@ -3028,6 +3190,32 @@ UNZ+1+$(last_edifact_ref)0001"
 
 $(KICK_IN)
 
+>> lines=auto
+    <data>
+      <tid>0</tid>
+      <seat_no>6A</seat_no>
+      <layer_type>CHECKIN</layer_type>
+      <update_salons RFISCMode='0'>
+        <seats>
+          <salon num='0'>
+            <place>
+              <x>1</x>
+              <y>0</y>
+            </place>
+            <place>
+              <x>0</x>
+              <y>3</y>
+              <layers>
+                <layer>
+                  <layer_type>CHECKIN</layer_type>
+                </layer>
+              </layers>
+            </place>
+          </salon>
+        </seats>
+      </update_salons>
+    </data>
+
 
 %%
 #########################################################################################
@@ -3062,5 +3250,3 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ûí 103 ÑåÑ)
     </Show>
   </query>
 </term>}
-
-
