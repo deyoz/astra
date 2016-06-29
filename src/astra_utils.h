@@ -636,4 +636,8 @@ void commit();
 void rollback();
 }//namespace ASTRA
 
+struct TRegEvents:public  std::map< std::pair<int, int>, std::pair<BASIC::TDateTime, BASIC::TDateTime> > {
+    void fromDB(BASIC::TDateTime part_key, int point_id);
+};
+
 #endif /*_ASTRA_UTILS_H_*/
