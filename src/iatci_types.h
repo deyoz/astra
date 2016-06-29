@@ -585,12 +585,15 @@ protected:
     std::string m_desc2;
 
 public:
-    SeatColumnDetails(const std::string& column, const std::string& desc1,
+    SeatColumnDetails(const std::string& column,
+                      const std::string& desc1 = "",
                       const std::string& desc2 = "");
 
     const std::string& column() const;
     const std::string& desc1() const;
     const std::string& desc2() const;
+
+    void setAisle();
 
 protected:
     SeatColumnDetails() {} // for boost serialization only
@@ -647,12 +650,14 @@ protected:
 
 public:
     SeatOccupationDetails(const std::string& column,
-                          const std::string& occupation,
+                          const std::string& occupation = "",
                           const std::list<std::string>& lCharacteristics = std::list<std::string>());
 
     const std::string&            column() const;
     const std::string&            occupation() const;
     const std::list<std::string>& lCharacteristics() const;
+
+    void setOccupied();
 
 protected:
     SeatOccupationDetails() {} // for boost serialization only
@@ -674,6 +679,9 @@ public:
     RowDetails(const std::string& row,
                const std::list<SeatOccupationDetails>& lOccupationDetails,
                const std::string& characteristic = "");
+
+    RowDetails(const unsigned& row,
+               const std::list<SeatOccupationDetails>& lOccupationDetails);
 
     const std::string&                      row() const;
     const std::list<SeatOccupationDetails>& lOccupationDetails() const;

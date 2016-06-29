@@ -443,19 +443,17 @@ $(PREPARE_FLIGHT_2 ûí 103 ÑåÑ èãä ëì 2278 èãä ëéó REPIN IVAN)
 UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
 UNH+1+DCQSMF:96:2:IA+ASTRA00066"
 LOR+S7:SVO"
-FDQ+ë7+1027+$(yymmdd)+èãä+ëéó"
+FDQ+ûí+103+$(yymmdd)+ÑåÑ+èãä"
 UNT+8+1"
 UNZ+1+ASTRA000660001"
 
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRSMF:96:2:IA+ASTRA00066"
-FDR+ë7+1027+$(yymmdd)+èãä+ëéó++T"
+FDR+ûí+103+$(yymmdd)+ÑåÑ+èãä++T"
 RAD+S+O"
-CBD+ù+3:6+++F++Ä:W+Å:A+Ç:A+É:W"
-ROD+3++Ä::K+Å::K+Ç::K+É::K"
-ROD+6++Ä+Å:O+Ç+É"
-UNT+7+1"
+CBD+ù+1:13+++F++Ä+Å:A+Ç:A+É"
+UNT+5+1"
 UNZ+1+ASTRA000660001"
 
 

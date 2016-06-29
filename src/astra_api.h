@@ -440,6 +440,85 @@ struct XmlTrip
 
 //---------------------------------------------------------------------------------------
 
+struct XmlFilterRouteItem
+{
+    int point_id;
+    std::string airp;
+
+    XmlFilterRouteItem() :
+        point_id(ASTRA::NoExists)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlFilterRoutes
+{
+    int point_dep;
+    int point_arv;
+    std::list<XmlFilterRouteItem> items;
+
+    XmlFilterRoutes() :
+        point_dep(ASTRA::NoExists),
+        point_arv(ASTRA::NoExists)
+    {}
+
+    XmlFilterRouteItem depItem() const;
+    XmlFilterRouteItem arrItem() const;
+
+protected:
+    boost::optional<XmlFilterRouteItem> findItem(int pointId) const;
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlPlaceLayer
+{
+    std::string layer_type;
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlPlace
+{
+    int         x;
+    int         y;
+    std::string elem_type;
+    std::string cls;
+    std::string xname;
+    std::string yname;
+    std::list<XmlPlaceLayer> layers;
+
+    XmlPlace()
+        : x(ASTRA::NoExists),
+          y(ASTRA::NoExists)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlPlaceList
+{
+    int num;
+    int xcount;
+    int ycount;
+
+    XmlFilterRoutes filterRoutes;
+    std::list<XmlPlace> places;
+
+    XmlPlaceList()
+        : num(ASTRA::NoExists),
+          xcount(ASTRA::NoExists),
+          ycount(ASTRA::NoExists)
+    {}
+
+    std::vector<XmlPlace> yPlaces(int y) const;
+    XmlPlace minYPlace() const;
+    XmlPlace maxYPlace() const;
+};
+
+//---------------------------------------------------------------------------------------
+
 class XmlCheckInTab
 {
     XmlSegment m_seg;
@@ -514,6 +593,20 @@ public:
 
     static XmlSegment                    readSeg(xmlNodePtr segNode);
     static std::list<XmlSegment>         readSegs(xmlNodePtr segsNode);
+
+    static XmlPlaceLayer                 readPlaceLayer(xmlNodePtr layerNode);
+    static std::list<XmlPlaceLayer>      readPlaceLayers(xmlNodePtr layersNode);
+
+    static XmlPlace                      readPlace(xmlNodePtr placeNode);
+    static std::list<XmlPlace>           readPlaces(xmlNodePtr placesNode);
+
+    static XmlPlaceList                  readPlaceList(xmlNodePtr placelistNode);
+    static std::list<XmlPlaceList>       readPlaceLists(xmlNodePtr salonsNode);
+
+    static XmlFilterRouteItem            readFilterRouteItem(xmlNodePtr itemNode);
+    static std::list<XmlFilterRouteItem> readFilterRouteItems(xmlNodePtr itemsNode);
+
+    static XmlFilterRoutes               readFilterRoutes(xmlNodePtr filterRoutesNode);
 };
 
 //---------------------------------------------------------------------------------------
@@ -564,6 +657,21 @@ struct GetAdvTripListXmlResult
     GetAdvTripListXmlResult(xmlNodePtr node);
 };
 
+//---------------------------------------------------------------------------------------
+
+struct GetSeatmapXmlResult
+{
+    std::string trip;
+    std::string craft;
+    XmlFilterRoutes filterRoutes;
+
+    std::list<XmlPlaceList> lPlacelist;
+
+    iatci::Result toIatci() const;
+
+    GetSeatmapXmlResult(xmlNodePtr node);
+};
+
 }//namespace xml_entities
 
 
@@ -608,6 +716,8 @@ public:
     // расширенный поиск рейса на дату
     xml_entities::GetAdvTripListXmlResult GetAdvTripList(const boost::gregorian::date& depDate);
 
+    // просмотр карты мест рейса
+    xml_entities::GetSeatmapXmlResult GetSeatmap(int depPointId);
 };
 
 //-----------------------------------------------------------------------------
@@ -653,5 +763,8 @@ iatci::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
 // информация по пассажиру
 iatci::Result fillPaxList(const iatci::PlfParams& plfParams);
+
+// карта мест
+iatci::Result fillSeatmap(const iatci::SmfParams& smfParams);
 
 }//namespace astra_api

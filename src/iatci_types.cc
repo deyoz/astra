@@ -742,8 +742,9 @@ unsigned RowRange::lastRow() const
 
 //---------------------------------------------------------------------------------------
 
-SeatColumnDetails::SeatColumnDetails(const std::string& column, const std::string& desc1,
-                             const std::string& desc2)
+SeatColumnDetails::SeatColumnDetails(const std::string& column,
+                                     const std::string& desc1,
+                                     const std::string& desc2)
     : m_column(column), m_desc1(desc1), m_desc2(desc2)
 {}
 
@@ -760,6 +761,11 @@ const std::string& SeatColumnDetails::desc1() const
 const std::string& SeatColumnDetails::desc2() const
 {
     return m_desc2;
+}
+
+void SeatColumnDetails::setAisle()
+{
+    m_desc1 = "A";
 }
 
 //---------------------------------------------------------------------------------------
@@ -835,13 +841,25 @@ const std::list<std::string>& SeatOccupationDetails::lCharacteristics() const
     return m_lCharacteristics;
 }
 
+void SeatOccupationDetails::setOccupied()
+{
+    m_occupation = "O";
+}
+
 //---------------------------------------------------------------------------------------
 
 RowDetails::RowDetails(const std::string& row,
                        const std::list<SeatOccupationDetails>& lOccupationDetails,
                        const std::string& characteristic)
-    : m_row(row), m_lOccupationDetails(lOccupationDetails),
+    : m_row(row),
+      m_lOccupationDetails(lOccupationDetails),
       m_characteristic(characteristic)
+{}
+
+RowDetails::RowDetails(const unsigned& row,
+                       const std::list<SeatOccupationDetails>& lOccupationDetails)
+    : m_row(boost::lexical_cast<std::string>(row)),
+      m_lOccupationDetails(lOccupationDetails)
 {}
 
 const std::string& RowDetails::row() const
@@ -1376,6 +1394,7 @@ void Result::toXml(xmlNodePtr node) const
 
         NewTextChild(paxNode, "pr_norec", 0); // TODO
         NewTextChild(paxNode, "pr_bp_print", 0); // TODO
+        NewTextChild(paxNode, "pr_bi_print", 0); // TODO
 
         xmlNodePtr paxRemsNode = newChild(paxNode, "rems");
         if(serviceDetails())

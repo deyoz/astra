@@ -244,6 +244,7 @@ $(KICK_IN)
             <ticket_bag_norm>НЕТ</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
             <rems>
               <rem>
                 <rem_code>FOID</rem_code>
@@ -297,7 +298,6 @@ $(KICK_IN)
         <nooccupy>...
       </item>
     </tripcounters>
-    <load_residue/>
 
 
 %%
@@ -608,6 +608,7 @@ $(KICK_IN)
             <ticket_bag_norm>НЕТ</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
             <rems>
               <rem>
                 <rem_code>FOID</rem_code>
@@ -648,6 +649,7 @@ $(KICK_IN)
             <ticket_bag_norm>НЕТ</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
             <rems>
               <rem>
                 <rem_code>FOID</rem_code>
@@ -701,8 +703,6 @@ $(KICK_IN)
         <nooccupy>...
       </item>
     </tripcounters>
-    <load_residue/>
-
 
 %%
 ### test 2 - сквозная регистрации одного пассажира

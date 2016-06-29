@@ -193,44 +193,7 @@ Result fillPasslist(const PlfParams& plfParams)
 
 Result fillSeatmap(const SmfParams& smfParams)
 {
-    // TODO вызов функци Астры
-    std::list<SeatColumnDetails> cabinFColumns;
-    cabinFColumns.push_back(SeatColumnDetails("А", "W"));
-    cabinFColumns.push_back(SeatColumnDetails("Б", "A"));
-    cabinFColumns.push_back(SeatColumnDetails("В", "A"));
-    cabinFColumns.push_back(SeatColumnDetails("Г", "W"));
-    iatci::CabinDetails cabinF("Э", RowRange(3, 6), "F", cabinFColumns);
-
-    std::list<iatci::CabinDetails> lCabin;
-    lCabin.push_back(cabinF);
-
-    std::list<iatci::SeatOccupationDetails> lRowSeatOccup3;
-    lRowSeatOccup3.push_back(iatci::SeatOccupationDetails("А", "", {"K"}));
-    lRowSeatOccup3.push_back(iatci::SeatOccupationDetails("Б", "", {"K"}));
-    lRowSeatOccup3.push_back(iatci::SeatOccupationDetails("В", "", {"K"}));
-    lRowSeatOccup3.push_back(iatci::SeatOccupationDetails("Г", "", {"K"}));
-
-    std::list<iatci::SeatOccupationDetails> lRowSeatOccup6;
-    lRowSeatOccup6.push_back(iatci::SeatOccupationDetails("А", ""));
-    lRowSeatOccup6.push_back(iatci::SeatOccupationDetails("Б", "O"));
-    lRowSeatOccup6.push_back(iatci::SeatOccupationDetails("В", ""));
-    lRowSeatOccup6.push_back(iatci::SeatOccupationDetails("Г", ""));
-
-
-    std::list<iatci::RowDetails> lRow;
-    lRow.push_back(iatci::RowDetails("3", lRowSeatOccup3));
-    lRow.push_back(iatci::RowDetails("6", lRowSeatOccup6));
-
-    iatci::SeatmapDetails seatmap(lCabin,
-                                  lRow,
-                                  smfParams.seatRequestDetails());
-    return Result::makeSeatmapResult(Result::Ok,
-                                     smfParams.flight(),
-                                     seatmap,
-                                     boost::none,
-                                     boost::none,
-                                     boost::none,
-                                     boost::none);
+    return astra_api::fillSeatmap(smfParams);
 }
 
 boost::optional<FlightDetails> findCascadeFlight(const FlightDetails& flight)

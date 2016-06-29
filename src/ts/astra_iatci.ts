@@ -1271,6 +1271,7 @@ $(KICK_IN)
             <ticket_bag_norm>çÖí</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
             <rems>
               <rem>
                 <rem_code>FOID</rem_code>
@@ -1370,6 +1371,7 @@ $(KICK_IN)
             </document>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
             <rems/>
           </pax>
         </passengers>
@@ -1713,6 +1715,7 @@ $(KICK_IN)
             <ticket_bag_norm>çÖí</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
             <rems>
               <rem>
                 <rem_code>FOID</rem_code>
@@ -1812,6 +1815,7 @@ $(KICK_IN)
             </document>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
             <rems>
               <rem>
                 <rem_code>FQTV</rem_code>
@@ -2517,6 +2521,7 @@ $(KICK_IN)
             </document>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
             <rems/>
           </pax>
 
@@ -2966,13 +2971,6 @@ UNZ+1+$(last_edifact_ref)0001"
 $(KICK_IN)
 
 >> lines=auto
-    <data>
-      <trip>ë71027/27.06 èãä</trip>
-      <craft/>
-      <bort/>
-      <travel_time>10:00:00</travel_time>
-      <comp_id>-1</comp_id>
-      <descr/>
       <salons RFISCMode='0'>
         <filterRoutes>
           <point_dep>-1</point_dep>

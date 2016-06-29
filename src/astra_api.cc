@@ -12,6 +12,8 @@
 #include <serverlib/xml_tools.h>
 #include <serverlib/xml_stuff.h>
 #include <serverlib/dates_io.h>
+#include <serverlib/str_utils.h>
+#include <serverlib/algo.h>
 #include <jxtlib/jxt_cont.h>
 #include <jxtlib/jxt_cont_impl.h>
 #include <etick/exceptions.h>
@@ -33,7 +35,7 @@ namespace {
 
 void fillPaxTrip(XmlTrip& paxTrip, const iatci::CkiParams& ckiParams)
 {
-    paxTrip.status = "K"; // всегда "K" ?
+    paxTrip.status = "K"; // TODO всегда "K" ?
     paxTrip.pnr().pax().pers_type = "ВЗ";
     if(ckiParams.seat()) {
         paxTrip.pnr().pax().seat_no = ckiParams.seat()->seat();
@@ -331,6 +333,8 @@ LoadPaxXmlResult AstraEngine::ReseatPax(const xml_entities::XmlSegment& paxSeg)
     NewTextChild(reseatNode, "tid",     pax.tid);
     NewTextChild(reseatNode, "question_reseat", "");
 
+    initReqInfo();
+
     LogTrace(TRACE3) << "reseat pax query:\n" << XMLTreeToText(reqNode->doc);
     SalonFormInterface::instance()->Reseat(getRequestCtxt(), reseatNode, resNode);
     LogTrace(TRACE3) << "reseat pax answer:\n" << XMLTreeToText(resNode->doc);
@@ -358,6 +362,23 @@ GetAdvTripListXmlResult AstraEngine::GetAdvTripList(const boost::gregorian::date
     TripsInterface::instance()->GetTripList(getRequestCtxt(), advTripListNode, resNode);
     LogTrace(TRACE3) << "adv trip list answer:\n" << XMLTreeToText(resNode->doc);
     return GetAdvTripListXmlResult(resNode);
+}
+
+GetSeatmapXmlResult AstraEngine::GetSeatmap(int depPointId)
+{
+    xmlNodePtr reqNode = getQueryNode(),
+               resNode = getAnswerNode();
+
+    xmlNodePtr showNode = newChild(reqNode, "Show");
+    NewTextChild(showNode, "trip_id", depPointId);
+
+    initReqInfo();
+
+    LogTrace(TRACE3) << "show seatmap query:\n" << XMLTreeToText(reqNode->doc);
+    SalonFormInterface::instance()->Show(getRequestCtxt(), showNode, resNode);
+    LogTrace(TRACE3) << "show seatmap answer:\n" << XMLTreeToText(resNode->doc);
+
+    return GetSeatmapXmlResult(resNode);
 }
 
 XMLRequestCtxt* AstraEngine::getRequestCtxt() const
@@ -391,6 +412,168 @@ void AstraEngine::initReqInfo() const
 }
 
 //---------------------------------------------------------------------------------------
+
+//С7300/29.05 ДМД
+//СУ1204/28 ПЛК
+//ЮТ103 СОЧ
+static void parseTrip(const std::string& trip,
+                      std::string& airline,
+                      std::string& flNum,
+                      std::string& scd)
+{
+    ASSERT(trip.length() > 4);
+    std::vector<std::string> splitted1;
+    StrUtils::split_string(splitted1, trip, ' ');
+    ASSERT(!splitted1.empty());
+    std::string left = splitted1.at(0);
+    ASSERT(!left.empty());
+    if(algo::contains(left, '/')) {
+        std::vector<std::string> splitted2;
+        StrUtils::split_string(splitted2, left, '/');
+        ASSERT(splitted2.size() == 2);
+        left = splitted2.at(0);
+        scd = splitted2.at(1);
+    }
+
+    ASSERT(left.length() > 2);
+    size_t airlLen = 2;
+    if(StrUtils::IsLatOrRusChar(left[2])) {
+        airlLen = 3; // чтобы обрабатывать 3-х символьный код компании
+    }
+    airline = left.substr(0, airlLen); // TODO авк может иметь трёхсимвольный код
+    flNum = left.substr(airlLen);
+
+    LogTrace(TRACE3) << trip << " parsed to airline:" << airline << "; "
+                     << "flNum:" << flNum << "; "
+                     << "scd:" << scd;
+}
+
+static boost::optional<XmlPlaceLayer> findLayer(const XmlPlace& place, const std::string& layerType)
+{
+    for(const XmlPlaceLayer& layer: place.layers) {
+        if(layer.layer_type == layerType) {
+            return layer;
+        }
+    }
+    return boost::none;
+}
+
+static iatci::FlightDetails createFlightDetails(const std::string& trip,
+                                                const XmlFilterRoutes& filterRoutes)
+{
+    std::string airl, flNum, scd;
+    parseTrip(trip, airl, flNum, scd);
+
+    std::string airpDep = filterRoutes.depItem().airp,
+                airpArv = filterRoutes.arrItem().airp;
+
+    BASIC::TDateTime now_local = UTCToLocal(BASIC::NowUTC(), AirpTZRegion(airpDep));
+    int now_day_local = ASTRA::NoExists,
+        now_mon_local = ASTRA::NoExists,
+        now_year_local = ASTRA::NoExists;
+    BASIC::DecodeDate(now_local,
+                      now_year_local, now_mon_local, now_day_local);
+    LogTrace(TRACE3) << "current local year: " << now_year_local << "; "
+                     << "local month: " << now_mon_local << "; "
+                     << "local day: " << now_day_local;
+
+    if(scd.length() == 2) {
+        // только день - берём текущие месяц и год
+        ASSERT(sscanf(scd.c_str(), "%d", &now_day_local) == 1);
+    } else if(scd.length() == 5 ) {
+        // день.месяц - берём текущий год
+        ASSERT(sscanf(scd.c_str(), "%d.%d", &now_day_local, &now_mon_local) == 2);
+    }
+
+    BASIC::TDateTime scd_local = ASTRA::NoExists;
+    BASIC::EncodeDate(now_year_local, now_mon_local, now_day_local, scd_local);
+
+    return iatci::FlightDetails(airl,
+                                Ticketing::getFlightNum(flNum),
+                                airpDep,
+                                airpArv,
+                                BASIC::DateTimeToBoost(scd_local).date());
+}
+
+static iatci::CabinDetails createCabinDetails(const XmlPlaceList& placelist)
+{
+    ASSERT(!placelist.places.empty());
+
+    const std::string cls = placelist.places.front().cls;
+    XmlPlace minYPlace = placelist.minYPlace(),
+             maxYPlace = placelist.maxYPlace();
+    const iatci::RowRange rowRange(boost::lexical_cast<unsigned>(minYPlace.yname),
+                                   boost::lexical_cast<unsigned>(maxYPlace.yname));
+
+    // берём первый упомянутый ряд кресел
+    std::vector<XmlPlace> rowPlaces = placelist.yPlaces(minYPlace.y);
+
+    std::list<iatci::SeatColumnDetails> seatColumns;
+    std::vector<XmlPlace>::const_iterator prev = rowPlaces.begin();
+    for(std::vector<XmlPlace>::const_iterator curr = rowPlaces.begin();
+        curr != rowPlaces.end(); ++curr)
+    {
+        bool aisle = false;
+        if((curr->x - prev->x) > 1) {
+            aisle = true;
+        }
+        if(aisle) {
+            // обновляем предыдущее кресло в шаблоне
+            seatColumns.back().setAisle();
+        }
+        seatColumns.push_back(iatci::SeatColumnDetails(curr->xname));
+        if(aisle) {
+            // обновляем текущее кресло в шаблоне
+            seatColumns.back().setAisle();
+        }
+        prev = curr;
+    }
+
+    return iatci::CabinDetails(cls, rowRange, "F", seatColumns);
+}
+
+static boost::optional<iatci::RowDetails> createFilledRowDetails(const XmlPlaceList& placelist,
+                                                                 int row)
+{
+    std::vector<XmlPlace> rowPlaces = placelist.yPlaces(row);
+    std::list<iatci::SeatOccupationDetails> rowOccupations;
+    bool atLeastOnePlaceOccupied = false;
+    for(const XmlPlace& place: rowPlaces) {
+        rowOccupations.push_back(iatci::SeatOccupationDetails(place.xname));
+        if(findLayer(place, "CHECKIN")) {
+            rowOccupations.back().setOccupied();
+            atLeastOnePlaceOccupied = true;
+        }
+    }
+
+    if(atLeastOnePlaceOccupied) {
+        return iatci::RowDetails(rowPlaces.front().yname, rowOccupations);
+    }
+
+    return boost::none;
+}
+
+static iatci::SeatmapDetails createSeatmapDetails(const std::list<XmlPlaceList>& lPlacelist)
+{
+    std::list<iatci::RowDetails> lRow;
+    std::list<iatci::CabinDetails> lCabin;
+    for(const XmlPlaceList& placelist: lPlacelist)
+    {
+        iatci::CabinDetails cabin = createCabinDetails(placelist);
+        lCabin.push_back(cabin);
+        XmlPlace minYPlace = placelist.minYPlace(),
+                 maxYPlace = placelist.maxYPlace();
+        for(int curRow = minYPlace.y; curRow <= maxYPlace.y; ++curRow)
+        {
+            boost::optional<iatci::RowDetails> row = createFilledRowDetails(placelist, curRow);
+            if(row) {
+                lRow.push_back(*row);
+            }
+        }
+    }
+
+    return iatci::SeatmapDetails(lCabin, lRow);
+}
 
 static TSearchFltInfo MakeSearchFltFilter(const std::string& depPort,
                                           const std::string& airline,
@@ -740,7 +923,7 @@ iatci::Result cancelCheckinIatciPax(const iatci::CkxParams& ckxParams)
     ASSERT(paxSegForCancel.passengers.size() == 1);
 
     XmlPax& paxForCancel = paxSegForCancel.passengers.front();
-    paxForCancel.refuse = "А"; // пока причина отмены всегда "А - Ошибка агента"
+    paxForCancel.refuse = "А"; // TODO пока причина отмены всегда "А - Ошибка агента"
 
     // SavePax
     loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSegForCancel);
@@ -806,6 +989,25 @@ iatci::Result fillPaxList(const iatci::PlfParams& plfParams)
     // в результат надо положить сегмент - взять его здесь можно из plfParams
     return iatci::Result::makeCancelResult(iatci::Result::OkWithNoData,
                                            plfParams.flight());
+}
+
+iatci::Result fillSeatmap(const iatci::SmfParams& smfParams)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " by "
+                     << "airp_dep[" << smfParams.flight().depPort() << "]; "
+                     << "airline["  << smfParams.flight().airline() << "]; "
+                     << "flight["   << smfParams.flight().flightNum() << "]; "
+                     << "dep_date[" << smfParams.flight().depDate() << "]; ";
+
+    int pointDep = astra_api::findDepPointId(smfParams.flight().depPort(),
+                                             smfParams.flight().airline(),
+                                             smfParams.flight().flightNum().get(),
+                                             smfParams.flight().depDate());
+
+    LogTrace(TRACE3) << "seatmap point id: " << pointDep;
+
+    GetSeatmapXmlResult seatmapXmlRes = AstraEngine::singletone().GetSeatmap(pointDep);
+    return seatmapXmlRes.toIatci();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -964,6 +1166,61 @@ const XmlPax& XmlPnr::pax() const
 {
     ASSERT(!passengers.empty());
     return passengers.front();
+}
+
+//---------------------------------------------------------------------------------------
+
+XmlFilterRouteItem XmlFilterRoutes::depItem() const
+{
+    boost::optional<XmlFilterRouteItem> item = findItem(point_dep);
+    ASSERT(item);
+    return item.get();
+}
+
+XmlFilterRouteItem XmlFilterRoutes::arrItem() const
+{
+    boost::optional<XmlFilterRouteItem> item = findItem(point_arv);
+    ASSERT(item);
+    return item.get();
+}
+
+boost::optional<XmlFilterRouteItem> XmlFilterRoutes::findItem(int pointId) const
+{
+    ASSERT(pointId != ASTRA::NoExists);
+    for(auto& item: items) {
+        if(item.point_id == pointId)
+            return item;
+    }
+    return boost::none;
+}
+
+//---------------------------------------------------------------------------------------
+
+std::vector<XmlPlace> XmlPlaceList::yPlaces(int y) const
+{
+    std::vector<XmlPlace> res;
+    for(auto& place: places) {
+        if(place.y == y) {
+            res.push_back(place);
+        }
+    }
+
+    ASSERT(!res.empty());
+    return algo::sort(res, [](const XmlPlace& l, const XmlPlace& r) { return r.x > l.x; });
+}
+
+XmlPlace XmlPlaceList::minYPlace() const
+{
+    std::vector<XmlPlace> lPlaces = algo::transform<std::vector>(places, [](const XmlPlace& p) { return p; });
+    lPlaces = algo::sort(lPlaces, [](const XmlPlace& l, const XmlPlace& r) { return r.y > l.y; });
+    return lPlaces.front();
+}
+
+XmlPlace XmlPlaceList::maxYPlace() const
+{
+    std::vector<XmlPlace> lPlaces = algo::transform<std::vector>(places, [](const XmlPlace& p) { return p; });
+    lPlaces = algo::sort(lPlaces, [](const XmlPlace& l, const XmlPlace& r) { return l.y > r.y; });
+    return lPlaces.front();
 }
 
 //---------------------------------------------------------------------------------------
@@ -1517,6 +1774,117 @@ std::list<XmlSegment> XmlEntityReader::readSegs(xmlNodePtr segsNode)
     return segs;
 }
 
+XmlPlaceLayer XmlEntityReader::readPlaceLayer(xmlNodePtr layerNode)
+{
+    ASSERT(layerNode);
+
+    XmlPlaceLayer layer;
+    layer.layer_type = NodeAsString("layer_type", layerNode, "");
+    return layer;
+}
+
+std::list<XmlPlaceLayer> XmlEntityReader::readPlaceLayers(xmlNodePtr layersNode)
+{
+    ASSERT(layersNode);
+
+    std::list<XmlPlaceLayer> layers;
+    for(xmlNodePtr layerNode = layersNode->children;
+        layerNode != NULL; layerNode = layerNode->next)
+    {
+        layers.push_back(XmlEntityReader::readPlaceLayer(layerNode));
+    }
+    return layers;
+}
+
+XmlPlace XmlEntityReader::readPlace(xmlNodePtr placeNode)
+{
+    ASSERT(placeNode);
+
+    XmlPlace place;
+    place.x         = NodeAsInteger("x", placeNode, ASTRA::NoExists);
+    place.y         = NodeAsInteger("y", placeNode, ASTRA::NoExists);
+    place.elem_type = NodeAsString("elem_type", placeNode, "");
+    place.cls       = NodeAsString("class", placeNode, "");
+    place.xname     = NodeAsString("xname", placeNode, "");
+    place.yname     = NodeAsString("yname", placeNode, "");
+    xmlNodePtr layersNode = findNode(placeNode, "layers");
+    if(layersNode != NULL) {
+        place.layers    = readPlaceLayers(layersNode);
+    }
+    return place;
+}
+
+std::list<XmlPlace> XmlEntityReader::readPlaces(xmlNodePtr placesNode)
+{
+    ASSERT(placesNode);
+
+    std::list<XmlPlace> places;
+    for(xmlNodePtr placeNode = placesNode->children;
+        placeNode != NULL; placeNode = placeNode->next)
+    {
+        places.push_back(XmlEntityReader::readPlace(placeNode));
+    }
+    return places;
+}
+
+XmlPlaceList XmlEntityReader::readPlaceList(xmlNodePtr placelistNode)
+{
+    ASSERT(placelistNode);
+
+    XmlPlaceList placelist;
+    placelist.num    = getIntPropFromXml(placelistNode, "num", ASTRA::NoExists);
+    placelist.xcount = getIntPropFromXml(placelistNode, "xcount", ASTRA::NoExists);
+    placelist.ycount = getIntPropFromXml(placelistNode, "ycount", ASTRA::NoExists);
+    placelist.places = readPlaces(placelistNode);
+    return placelist;
+}
+
+std::list<XmlPlaceList> XmlEntityReader::readPlaceLists(xmlNodePtr salonsNode)
+{
+    ASSERT(salonsNode);
+
+    std::list<XmlPlaceList> placelists;
+    for(xmlNodePtr node = salonsNode->children;
+        node != NULL; node = node->next)
+    {
+        if(!strcmp((const char*)node->name, "placelist")) {
+            placelists.push_back(readPlaceList(node));
+        } else {
+            LogTrace(TRACE5) << "Node '" << (const char*)node->name << "' is not a 'placelist' node! Skip it...";
+        }
+    }
+
+    return placelists;
+}
+
+XmlFilterRouteItem XmlEntityReader::readFilterRouteItem(xmlNodePtr itemNode)
+{
+    XmlFilterRouteItem item;
+    item.point_id = NodeAsInteger("point_id", itemNode, ASTRA::NoExists);
+    item.airp     = NodeAsString("airp", itemNode, "");
+    return item;
+}
+
+std::list<XmlFilterRouteItem> XmlEntityReader::readFilterRouteItems(xmlNodePtr itemsNode)
+{
+    std::list<XmlFilterRouteItem> items;
+    for(xmlNodePtr node = itemsNode->children;
+        node != NULL; node = node->next)
+    {
+        items.push_back(readFilterRouteItem(node));
+    }
+    return items;
+}
+
+XmlFilterRoutes XmlEntityReader::readFilterRoutes(xmlNodePtr filterRoutesNode)
+{
+    XmlFilterRoutes filterRoutes;
+    filterRoutes.point_dep = NodeAsInteger("point_dep", filterRoutesNode, ASTRA::NoExists);
+    filterRoutes.point_arv = NodeAsInteger("point_arv", filterRoutesNode, ASTRA::NoExists);
+    filterRoutes.items     = readFilterRouteItems(findNode(filterRoutesNode, "items"));
+    return filterRoutes;
+}
+
 //---------------------------------------------------------------------------------------
 
 SearchPaxXmlResult::SearchPaxXmlResult(xmlNodePtr node)
@@ -1722,6 +2090,35 @@ std::list<XmlTrip> GetAdvTripListXmlResult::applyFlightFilter(const std::string&
     }
 
     return res;
+}
+
+//---------------------------------------------------------------------------------------
+
+GetSeatmapXmlResult::GetSeatmapXmlResult(xmlNodePtr node)
+{
+    trip  = NodeAsString(findNodeR(node, "trip"));
+    craft = NodeAsString(findNodeR(node, "craft"));
+    xmlNodePtr salonsNode = findNodeR(node, "salons");
+    if(salonsNode != NULL) {
+        lPlacelist   = XmlEntityReader::readPlaceLists(salonsNode);
+        xmlNodePtr filterRoutesNode = findNodeR(salonsNode, "filterRoutes");
+        if(filterRoutesNode != NULL) {
+            filterRoutes = XmlEntityReader::readFilterRoutes(filterRoutesNode);
+        }
+    }
+}
+
+iatci::Result GetSeatmapXmlResult::toIatci() const
+{
+    if(lPlacelist.empty() || filterRoutes.items.empty()) {
+        LogError(STDLOG) << "Seatmap failed!";
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
+    }
+
+    return iatci::Result::makeSeatmapResult(iatci::Result::Ok,
+                                            createFlightDetails(trip, filterRoutes),
+                                            createSeatmapDetails(lPlacelist));
+
 }
 
 }//namespace xml_entities
