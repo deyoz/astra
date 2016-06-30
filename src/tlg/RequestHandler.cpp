@@ -3,6 +3,7 @@
 #include "exceptions.h"
 #include "edi_msg.h"
 
+#include "exceptions.h"
 #include <etick/exceptions.h>
 
 #define NICKNAME "ANTON"
@@ -41,8 +42,11 @@ void AstraRequestHandler::onHandlerError(const std::exception *e)
             WriteLog(STDLOG, "%s", exc->what());
         }
         saveErrorInfo(exc->errCode(), exc->errText());
+    } else if(__CAST(EXCEPTIONS::Exception, exc, e)) {
+        WriteLog(STDLOG, "%s", exc->what());
+        saveErrorInfo(AstraErr::EDI_PROC_ERR, exc->what());
     } else {
-        ProgTrace(TRACE0,"std::exception: %s", e->what());
+        WriteLog(STDLOG,"std::exception: %s", e->what());
         saveErrorInfo(AstraErr::EDI_PROC_ERR, "");
     }
 }

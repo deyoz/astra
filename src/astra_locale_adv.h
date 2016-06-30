@@ -257,7 +257,7 @@ class UserException:public EXCEPTIONS::Exception
         lparams = data.lparams;
     }
     public:
-    int Code() { return FCode; }
+    int Code() const { return FCode; }
     UserException( int code, const std::string &vlexema, const LParams &aparams):EXCEPTIONS::Exception(vlexema)
     {
         lparams = aparams;
