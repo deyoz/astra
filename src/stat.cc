@@ -1927,6 +1927,7 @@ enum TStatType {
     statRFISC,
     statService,
     statLimitedCapab,
+    statUnaccBag,
     statNum
 };
 
@@ -1947,7 +1948,8 @@ const char *TStatTypeS[statNum] = {
     "statPactShort",
     "statRFISC",
     "statService",
-    "statLimitedCapab"
+    "statLimitedCapab",
+    "statUnaccBag"
 };
 
 TStatType DecodeStatType( const string stat_type )
@@ -2409,6 +2411,11 @@ void TStatParams::get(xmlNodePtr reqNode)
     } else if(type == "Огр. возмож.") {
         if(name == "Подробная")
             statType=statLimitedCapab;
+        else
+            throw Exception("Unknown stat mode " + name);
+    } else if(type == "Несопр. багаж") {
+        if(name == "Подробная")
+            statType=statUnaccBag;
         else
             throw Exception("Unknown stat mode " + name);
     } else
@@ -6435,6 +6442,47 @@ string TServiceStatRow::rate_str() const
     return result.str();
 }
 
+//------------------------------ UnaccBagStat -----------------------------------------------
+struct TUnaccBagStatRow {
+    string original_tag_no;
+    string surname;
+    string name;
+    string airline;
+    int flt_no;
+    string suffix;
+    int grp_id;
+    int num;
+    TUnaccBagStatRow():
+        flt_no(NoExists),
+        grp_id(NoExists),
+        num(NoExists)
+    {}
+};
+
+struct TUnaccBagStat {
+    list<TUnaccBagStatRow> rows;
+};
+
+void RunUnaccBagStat(
+        const TStatParams &params,
+        TUnaccBagStat &UnaccBagStat,
+        TPrintAirline &prn_airline
+        )
+{
+    string SQLText =
+        "select * from unacc_bag_info_den where ";
+}
+
+void createXMLUnaccBagStat(
+        const TStatParams &params,
+        const TUnaccBagStat &UnaccBagStat,
+        const TPrintAirline &prn_airline,
+        xmlNodePtr resNode)
+{
+}
+
+//------------------------------ UnaccBagStat end--------------------------------------------
+
 struct TFlight {
     int point_id;
     string airline;
@@ -7739,6 +7787,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statTlgOutDetail:
         case statPactShort:
         case statLimitedCapab:
+        case statUnaccBag:
             get_compatible_report_form("stat", reqNode, resNode);
             break;
         default:
@@ -7830,6 +7879,13 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TLimitedCapabStat LimitedCapabStat;
             RunLimitedCapabStat(params, LimitedCapabStat, airline);
             createXMLLimitedCapabStat(params, LimitedCapabStat, airline, resNode);
+        }
+        if(params.statType == statUnaccBag)
+        {
+            TPrintAirline airline;
+            TUnaccBagStat UnaccBagStat;
+            RunUnaccBagStat(params, UnaccBagStat, airline);
+            createXMLUnaccBagStat(params, UnaccBagStat, airline, resNode);
         }
     }
     catch (EOracleError &E)
