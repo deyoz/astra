@@ -1610,12 +1610,12 @@ void SalonFormInterface::DropSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 {
      // удаление мест пассажира
   ChangeSeats( reqNode, resNode, SEATS2::stDropseat );
-};
+}
 
 void SalonFormInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ChangeSeats( reqNode, resNode, SEATS2::stReseat );
-};
+}
 
 void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

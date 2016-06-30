@@ -42,7 +42,7 @@ void AstraRequestHandler::onHandlerError(const std::exception *e)
         }
         saveErrorInfo(exc->errCode(), exc->errText());
     } else {
-        ProgError(STDLOG,"std::exception: %s", e->what());
+        ProgTrace(TRACE0,"std::exception: %s", e->what());
         saveErrorInfo(AstraErr::EDI_PROC_ERR, "");
     }
 }

@@ -3163,8 +3163,8 @@ static xmlNodePtr findIatciSegNode(xmlNodePtr reqNode)
     xmlNodePtr segsNode = findNodeR(reqNode, "segments");
     for(xmlNodePtr segNode = segsNode->children; segNode != NULL; segNode = segNode->next)
     {
-        if(getIntFromXml(segNode, "point_dep") == -1 &&
-           getIntFromXml(segNode, "point_arv") == -1)
+        if(getIntFromXml(segNode, "point_dep") < 0 &&
+           getIntFromXml(segNode, "point_arv") < 0)
         {
             result = segNode;
             break;
