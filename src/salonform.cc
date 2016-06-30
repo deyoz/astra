@@ -1556,16 +1556,18 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
   return changedOrNotPay;
 }
 
+static void ChangeIatciSeats(xmlNodePtr reqNode, int point_id)
+{
+    ProgTrace(TRACE3, "Query iatci seat change");
+    IatciInterface::UpdateSeatRequest(reqNode, point_id);
+    return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO
+}
+
 void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType seat_type )
 {
-    tst();
   int point_id = NodeAsInteger( "trip_id", reqNode );
-  tst();
-  if(point_id < 0)
-  {
-      ProgTrace(TRACE3, "Query iatci seat change");
-      IatciInterface::UpdateSeatRequest(reqNode, point_id);
-      return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO
+  if(point_id < 0) {
+      return ChangeIatciSeats(reqNode, point_id);
   }
   int pax_id = NodeAsInteger( "pax_id", reqNode );
   int tid = NodeAsInteger( "tid", reqNode );

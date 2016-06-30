@@ -744,13 +744,18 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode, int magicId)
     ASSERT(magicId < 0);
     iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
     IatciPaxSeg iatciPaxSeg = IatciPaxSeg::read(magicTab.grpId(), magicTab.tabInd());
+    iatci::UpdateSeatDetails updSeat = getSeatUpdate(reqNode);
+    if(updSeat.seat() == getOldSeat(reqNode)) {
+        throw AstraLocale::UserException("MSG.SEATS.SEAT_NO.PASSENGER_OWNER");
+    }
+
     return iatci::CkuParams(iatci::OriginatorDetails("ž’", "„Œ„"), // TODO
                             iatciPaxSeg.pax(),
                             iatciPaxSeg.seg(),
                             boost::none,
                             boost::none,
                             boost::none,
-                            getSeatUpdate(reqNode));
+                            updSeat);
 }
 
 static iatci::SmfParams getSmfParams(int magicId)
