@@ -732,11 +732,14 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
 
 static iatci::UpdateSeatDetails getSeatUpdate(xmlNodePtr reqNode)
 {
-    std::ostringstream seat;
-    seat << NodeAsString("yname", reqNode)
-         << NodeAsString("xname", reqNode);
+    const std::string seatYname = NodeAsString("yname", reqNode);
+    const std::string seatXname = NodeAsString("xname", reqNode);
+    if(seatYname.empty() || seatXname.empty()) {
+        throw AstraLocale::UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
+    }
+    const std::string seat = seatYname + seatXname;
     return iatci::UpdateSeatDetails(iatci::UpdateDetails::Replace,
-                                    seat.str());
+                                    seat);
 }
 
 static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode, int magicId)
