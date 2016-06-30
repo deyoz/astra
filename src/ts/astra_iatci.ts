@@ -2986,7 +2986,7 @@ $(KICK_IN)
             </item>
           </items>
         </filterRoutes>
-        <placelist num='0' xcount='4' ycount='4'>
+        <placelist num='0' xcount='5' ycount='4'>
           <place>
             <x>0</x>
             <y>0</y>

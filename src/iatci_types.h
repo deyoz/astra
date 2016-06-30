@@ -828,6 +828,24 @@ public:
         }
     };
 
+    struct Limits
+    {
+        Coord2D m_topLeft;
+        Coord2D m_bottomRight;
+
+        Limits(const Coord2D& tl, const Coord2D& br)
+            : m_topLeft(tl), m_bottomRight(br)
+        {}
+
+        unsigned width() const {
+            return std::abs(m_bottomRight.m_x - m_topLeft.m_x);
+        }
+
+        unsigned height() const {
+            return std::abs(m_bottomRight.m_y - m_topLeft.m_y);
+        }
+    };
+
     struct Place
     {
         std::string m_xName;
@@ -867,6 +885,8 @@ public:
 
         boost::optional<Coord2D> findPlaceCoords(const std::string& xName,
                                                  const std::string& yName) const;
+
+        Limits limits() const;
     };
 
 private:

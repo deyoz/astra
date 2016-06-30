@@ -1454,10 +1454,11 @@ void Result::toSmpXml(xmlNodePtr node) const
     NewTextChild(arrItemNode, "airp", airportCode(flight().arrPort()));
 
     for(const auto& pm: placeMatrix.placeLists()) {
+        PlaceMatrix::Limits limits = pm.second.limits();
         xmlNodePtr placeListNode = newChild(salonsNode, "placelist");
         xmlSetProp(placeListNode, "num", pm.first);
-        xmlSetProp(placeListNode, "xcount", 4); // TODO calc it!!
-        xmlSetProp(placeListNode, "ycount", 4); // TODO calc it!!
+        xmlSetProp(placeListNode, "xcount", limits.width() ? limits.width() + 1 : 0);
+        xmlSetProp(placeListNode, "ycount", limits.height() ? limits.height() + 1 : 0);
 
         for(const auto& pl: pm.second.places()) {
             xmlNodePtr placeNode = newChild(placeListNode, "place");
@@ -1544,6 +1545,12 @@ size_t PlaceMatrix::findPlaceListNum(const std::string& xName,
         }
     }
     throw EXCEPTIONS::Exception("Bad seat: %s %s", xName.c_str(), yName.c_str());
+}
+
+PlaceMatrix::Limits PlaceMatrix::PlaceList::limits() const
+{
+    return PlaceMatrix::Limits(m_places.begin()->first,
+                               m_places.rbegin()->first);
 }
 
 //---------------------------------------------------------------------------------------
