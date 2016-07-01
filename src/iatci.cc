@@ -5,6 +5,7 @@
 #include "astra_api.h"
 #include "basic.h"
 #include "checkin.h"
+#include "print.h"
 #include "salonform.h"
 #include "passenger.h" // TPaxItem
 #include "astra_context.h" // AstraContext
@@ -604,6 +605,14 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
     return iatci::CkxParams(origin, pax, flight);
 }
 
+static iatci::BprParams getBprParams(int grpId)
+{
+    IatciPaxSeg iatciPaxSeg = IatciPaxSeg::readFirst(grpId);
+    return iatci::BprParams(iatci::OriginatorDetails("ž’", "„Œ„"), // TODO
+                            iatciPaxSeg.pax(),
+                            iatciPaxSeg.seg());
+}
+
 static iatci::PlfParams getPlfParams(int grpId)
 {
     IatciPaxSeg iatciPaxSeg = IatciPaxSeg::readFirst(grpId);
@@ -1004,6 +1013,15 @@ bool IatciInterface::CancelRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
     return true; /*req was sent*/
 }
 
+void IatciInterface::ReprintRequest(xmlNodePtr reqNode, int grpId)
+{
+    edifact::KickInfo kickInfo = getIatciKickInfo(reqNode, NULL);
+    edifact::SendBprRequest(getBprParams(grpId),
+                            getIatciPult(),
+                            getIatciRequestContext(kickInfo),
+                            kickInfo);
+}
+
 void IatciInterface::PasslistRequest(xmlNodePtr reqNode, int grpId)
 {
     edifact::KickInfo kickInfo = getIatciKickInfo(reqNode, NULL);
@@ -1068,6 +1086,7 @@ void IatciInterface::ReprintKickHandler(int ctxtId,
                                         const std::list<iatci::Result>& lRes)
 {
     FuncIn(ReprintKickHandler);
+    DoKickAction(ctxtId, initialReqNode, resNode, lRes, Bpr, ActReprint);
     FuncOut(ReprintKickHandler);
 }
 
@@ -1279,6 +1298,14 @@ void IatciInterface::DoKickAction(int ctxtId,
         ReqParams(reqNode).setBoolParam("need_sync", false);
         SaveIatciPax(lRes, reqType, iatciResNode, reqNode, resNode);
         CheckInInterface::LoadPax(reqNode, resNode);
+    }
+    break;
+
+    case ActReprint:
+    {
+        ReqParams(reqNode).setBoolParam("after_kick", true);
+        SaveIatciPax(lRes, reqType, iatciResNode, reqNode, resNode);
+        PrintInterface::GetPrintDataBP(reqNode, resNode);
     }
     break;
 

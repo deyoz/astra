@@ -7,6 +7,7 @@
 #include "astra_utils.h"
 #include "astra_api.h"
 #include "iatci_help.h"
+#include "iatci.h"
 #include "misc.h"
 #include "stages.h"
 #include "docs.h"
@@ -1941,7 +1942,12 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
     }
 }
 
-void PrintInterface::GetIatciPrintDataBP(int grpId,
+/**
+ *  возвращает false - если послана тлг DCQBPR,
+ *              true - в остальных случаях
+ */
+bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
+                                         int grpId,
                                          const std::string& data_in,
                                          const BPParams &params,
                                          std::vector<BPPax> &paxs)
@@ -1951,9 +1957,14 @@ void PrintInterface::GetIatciPrintDataBP(int grpId,
     LogTrace(TRACE3) << __FUNCTION__ << " for grpId: " << grpId;
 
     std::string loaded = iatci::IatciXmlDb::load(grpId);
-    LogTrace(TRACE5) << "loaded by grpId[" << grpId << "]:\n" << loaded;
     if(!loaded.empty())
     {
+        tst();
+        if(!ReqParams(reqNode).getBoolParam("after_kick", false)) {
+            tst();
+            IatciInterface::ReprintRequest(reqNode, grpId);
+            return false;
+        }
         XMLDoc xml = iatci::createXmlDoc(loaded);
         std::list<XmlSegment> lSeg = XmlEntityReader::readSegs(findNodeR(xml.docPtr()->children, "segments"));
 
@@ -2053,6 +2064,8 @@ void PrintInterface::GetIatciPrintDataBP(int grpId,
             }
         }
     }
+
+    return true;
 }
 
 
@@ -2218,6 +2231,12 @@ void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    GetPrintDataBP(reqNode, resNode);
+}
+
+void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    LogTrace(TRACE3) << "Print req:\n" << XMLTreeToText(reqNode->doc);
     xmlNodePtr currNode = reqNode->children;
     BPParams params;
     int first_seg_grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists); // grp_id - первого сегмента или ид. группы
@@ -2334,7 +2353,10 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     string pectab, data;
     GetPrintDataBP(params, data, pectab, paxs);
 
-    GetIatciPrintDataBP(first_seg_grp_id, data, params, paxs);
+    if(!GetIatciPrintDataBP(reqNode, first_seg_grp_id, data, params, paxs)) {
+        tst();
+        return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
+    }
 
     xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "printBP");
     NewTextChild(BPNode, "pectab", pectab);

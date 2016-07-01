@@ -2839,7 +2839,7 @@ $(KICK_IN_SILENT)
 $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 
 
-!! capture=on
+!! err=ignore
 {<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='print' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
@@ -2860,6 +2860,30 @@ $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
     </GetGRPPrintDataBP>
   </query>
 </term>}
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQBPR:96:2:IA+$(last_edifact_ref)"
+LOR+ЮТ:ДМД"
+FDQ+С7+1027+$(yymmdd)+ПЛК+СОЧ"
+PPD+REPIN+A++IVAN"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
+RAD+B+O"
+PPD+REPIN+A++IVAN"
+PFD+7A+:Э"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PAP+:::100386:::RUS++PP:5408123432:RUS:::311249:M::::::REPIN:IVAN"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+$(KICK_IN)
 
 
 >> lines=auto

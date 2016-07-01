@@ -12,7 +12,7 @@ class IatciInterface: public JxtInterface
 {
 public:
     enum RequestType { Cki, Cku, Ckx, Bpr, Plf, Smp, };
-    enum KickAction { ActSavePax, ActReseatPax, ActLoadPax };
+    enum KickAction { ActSavePax, ActReseatPax, ActLoadPax, ActReprint };
 
     IatciInterface()
         : JxtInterface("", "IactiInterface")
@@ -38,7 +38,7 @@ public:
     static bool CancelRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // Boarding Pass Reprint Interchange
-    // TODO
+    static void ReprintRequest(xmlNodePtr reqNode, int grpId);
 
     // Passenger List Function Interchange
     static void PasslistRequest(xmlNodePtr reqNode, int grpId);

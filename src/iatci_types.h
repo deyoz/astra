@@ -1075,11 +1075,7 @@ public:
               const PaxDetails& pax,
               const FlightDetails& flight,
               boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-              boost::optional<SeatDetails> seat = boost::none,
-              boost::optional<BaggageDetails> baggage = boost::none,
-              boost::optional<ReservationDetails> reserv = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-              boost::optional<ServiceDetails> serviceDetails = boost::none);
+              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 };
 
 //---------------------------------------------------------------------------------------

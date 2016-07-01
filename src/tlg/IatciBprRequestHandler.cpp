@@ -34,18 +34,12 @@ private:
     edifact::LorElem m_lor;
     edifact::FdqElem m_fdq;
     edifact::PpdElem m_ppd;
-    boost::optional<edifact::PrdElem> m_prd;
-    boost::optional<edifact::PsdElem> m_psd;
-    boost::optional<edifact::PbdElem> m_pbd;
     boost::optional<edifact::ChdElem> m_chd;
 
 public:
     void setLor(const boost::optional<edifact::LorElem>& lor);
     void setFdq(const boost::optional<edifact::FdqElem>& fdq);
     void setPpd(const boost::optional<edifact::PpdElem>& ppd);
-    void setPrd(const boost::optional<edifact::PrdElem>& prd, bool required = false);
-    void setPsd(const boost::optional<edifact::PsdElem>& psd, bool required = false);
-    void setPbd(const boost::optional<edifact::PbdElem>& pbd, bool required = false);
     void setChd(const boost::optional<edifact::ChdElem>& chd, bool required = false);
     iatci::BprParams makeParams() const;
 };
@@ -77,9 +71,6 @@ void IatciBprRequestHandler::parse()
     EdiPointHolder grp_holder(pMes());
     SetEdiPointToSegGrG(pMes(), 2, 0, "PROG_ERR");
     bprParamsMaker.setPpd(readEdiPpd(pMes())); /* PPD должен быть обязательно в Sg2 */
-    bprParamsMaker.setPrd(readEdiPrd(pMes()));
-    bprParamsMaker.setPsd(readEdiPsd(pMes()));
-    bprParamsMaker.setPbd(readEdiPbd(pMes()));
 
     m_bprParams = bprParamsMaker.makeParams();
 }
@@ -146,9 +137,6 @@ boost::optional<iatci::BprParams> IatciBprRequestHandler::nextBprParams() const
                             pax,
                             *flightForNextHost,
                             bprParams().flight(),
-                            bprParams().seat(),
-                            bprParams().baggage(),
-                            bprParams().reserv(),
                             cascadeDetails);
 }
 
@@ -170,27 +158,6 @@ void IatciBprParamsMaker::setPpd(const boost::optional<edifact::PpdElem>& ppd)
 {
     ASSERT(ppd);
     m_ppd = *ppd;
-}
-
-void IatciBprParamsMaker::setPrd(const boost::optional<edifact::PrdElem>& prd, bool required)
-{
-    if(required)
-        ASSERT(prd);
-    m_prd = prd;
-}
-
-void IatciBprParamsMaker::setPsd(const boost::optional<edifact::PsdElem>& psd, bool required)
-{
-    if(required)
-        ASSERT(psd);
-    m_psd = psd;
-}
-
-void IatciBprParamsMaker::setPbd(const boost::optional<edifact::PbdElem>& pbd, bool required)
-{
-    if(required)
-        ASSERT(pbd);
-    m_pbd = pbd;
 }
 
 void IatciBprParamsMaker::setChd(const boost::optional<edifact::ChdElem>& chd, bool required)
@@ -229,23 +196,6 @@ iatci::BprParams IatciBprParamsMaker::makeParams() const
                                  m_ppd.m_passQryRef,
                                  m_ppd.m_passRespRef);
 
-    boost::optional<iatci::ReservationDetails> reservDetails;
-    if(m_prd) {
-        reservDetails = iatci::ReservationDetails(m_prd->m_rbd);
-    }
-
-    boost::optional<iatci::SeatDetails> seatDetails;
-    if(m_psd) {
-        // TODO
-        seatDetails = iatci::SeatDetails(iatci::SeatDetails::strToSmokeInd((m_psd->m_noSmokingInd)));
-    }
-
-    boost::optional<iatci::BaggageDetails> baggageDetails;
-    if(m_pbd) {
-        baggageDetails = iatci::BaggageDetails(m_pbd->m_numOfPieces,
-                                               m_pbd->m_weight);
-    }
-
     boost::optional<iatci::CascadeHostDetails> cascadeHostDetails;
     if(m_chd) {
         cascadeHostDetails = iatci::CascadeHostDetails(m_chd->m_origAirline,
@@ -259,9 +209,6 @@ iatci::BprParams IatciBprParamsMaker::makeParams() const
                             paxDetails,
                             flight,
                             prevFlight,
-                            seatDetails,
-                            baggageDetails,
-                            reservDetails,
                             cascadeHostDetails);
 }
 

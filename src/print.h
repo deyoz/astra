@@ -135,7 +135,8 @@ class PrintInterface: public JxtInterface
                                    std::string &data,
                                    std::string &pectab,
                                    std::vector<BPPax> &paxs);
-        static void GetIatciPrintDataBP(int grpId,
+        static bool GetIatciPrintDataBP(xmlNodePtr reqNode,
+                                        int grpId,
                                         const std::string& data,
                                         const BPParams &params,
                                         std::vector<BPPax> &paxs);
@@ -146,6 +147,8 @@ class PrintInterface: public JxtInterface
                                    CheckIn::UserException &ue);
         static void ConfirmPrintBI(const std::vector<BPPax> &paxs,
                                    CheckIn::UserException &ue);
+
+        static void GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 #endif

@@ -2072,7 +2072,6 @@ void SalonFormInterface::ReseatRemote(xmlNodePtr resNode,
                                       const iatci::Seat& newSeat,
                                       const iatci::Result& res)
 {
-
     LogTrace(TRACE3) << __FUNCTION__;
     xmlNodePtr dataNode = newChild(resNode, "data");
     NewTextChild(dataNode, "tid",        0);
