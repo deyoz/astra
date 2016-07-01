@@ -2236,7 +2236,6 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    LogTrace(TRACE3) << "Print req:\n" << XMLTreeToText(reqNode->doc);
     xmlNodePtr currNode = reqNode->children;
     BPParams params;
     int first_seg_grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists); // grp_id - первого сегмента или ид. группы
