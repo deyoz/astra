@@ -2014,6 +2014,7 @@ struct TStatParams {
     void get(xmlNodePtr resNode);
     void toFileParams(map<string, string> &file_params) const;
     void fromFileParams(map<string, string> &file_params);
+    void AccessClause(string &SQLText) const;
 };
 
 void TStatParams::fromFileParams(map<string, string> &file_params)
@@ -6444,18 +6445,31 @@ string TServiceStatRow::rate_str() const
 
 //------------------------------ UnaccBagStat -----------------------------------------------
 struct TUnaccBagStatRow {
-    string original_tag_no;
-    string surname;
-    string name;
     string airline;
     int flt_no;
     string suffix;
+    TDateTime scd_out;
+    string airp;
+    string airp_arv;
+
+    string original_tag_no;
+    string surname;
+    string name;
+    string prev_airline;
+    int prev_flt_no;
+    string prev_suffix;
     int grp_id;
     int num;
+    int amount;
+    int weight;
     TUnaccBagStatRow():
         flt_no(NoExists),
+        scd_out(NoExists),
+        prev_flt_no(NoExists),
         grp_id(NoExists),
-        num(NoExists)
+        num(NoExists),
+        amount(NoExists),
+        weight(NoExists)
     {}
 };
 
@@ -6463,14 +6477,111 @@ struct TUnaccBagStat {
     list<TUnaccBagStatRow> rows;
 };
 
+void TStatParams::AccessClause(string &SQLText) const
+{
+    if (!airps.elems().empty()) {
+        if (airps.elems_permit())
+            SQLText += " points.airp IN " + GetSQLEnum(airps.elems()) + "and ";
+        else
+            SQLText += " points.airp NOT IN " + GetSQLEnum(airps.elems()) + "and ";
+    };
+    if (!airlines.elems().empty()) {
+        if (airlines.elems_permit())
+            SQLText += " points.airline IN " + GetSQLEnum(airlines.elems()) + "and ";
+        else
+            SQLText += " points.airline NOT IN " + GetSQLEnum(airlines.elems()) + "and ";
+    };
+}
+
 void RunUnaccBagStat(
         const TStatParams &params,
         TUnaccBagStat &UnaccBagStat,
         TPrintAirline &prn_airline
         )
 {
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
     string SQLText =
-        "select * from unacc_bag_info_den where ";
+        "select "
+        "   points.airline, "
+        "   points.flt_no, "
+        "   points.suffix, "
+        "   points.scd_out, "
+        "   points.airp, "
+        "   pax_grp.airp_arv, "
+        "   unaccomp.original_tag_no, "
+        "   unaccomp.surname, "
+        "   unaccomp.name, "
+        "   unaccomp.airline prev_airline, "
+        "   unaccomp.flt_no prev_flt_no, "
+        "   unaccomp.suffix prev_suffix, "
+        "   pax_grp.grp_id, "
+        "   bag2.num, "
+        "   bag2.amount, "
+        "   bag2.weight "
+        "from "
+        "   points, "
+        "   pax_grp, "
+        "   bag2, "
+        "   unaccomp_bag_info_den unaccomp "
+        "where "
+        "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and ";
+    params.AccessClause(SQLText);
+    if(params.flt_no != NoExists) {
+        SQLText += " points.flt_no = :flt_no and ";
+        QryParams << QParam("flt_no", otInteger, params.flt_no);
+    }
+    SQLText +=
+        "   pax_grp.point_dep = points.point_id and "
+        "   pax_grp.class is null and "
+        "   bag2.grp_id = pax_grp.grp_id and "
+        "   unaccomp.grp_id(+) = bag2.grp_id and "
+        "   unaccomp.num(+) = bag2.num "
+        "order by points.point_id ";
+    TCachedQuery Qry(SQLText, QryParams);
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        TAirpArvInfo airp_arv_info;
+        int col_airline = Qry.get().FieldIndex("airline");
+        int col_flt_no = Qry.get().FieldIndex("flt_no");
+        int col_suffix = Qry.get().FieldIndex("suffix");
+        int col_scd_out = Qry.get().FieldIndex("scd_out");
+        int col_airp = Qry.get().FieldIndex("airp");
+        int col_original_tag_no = Qry.get().FieldIndex("original_tag_no");
+        int col_surname = Qry.get().FieldIndex("surname");
+        int col_name = Qry.get().FieldIndex("name");
+        int col_prev_airline = Qry.get().FieldIndex("prev_airline");
+        int col_prev_flt_no = Qry.get().FieldIndex("prev_flt_no");
+        int col_prev_suffix = Qry.get().FieldIndex("prev_suffix");
+        int col_grp_id = Qry.get().FieldIndex("grp_id");
+        int col_num = Qry.get().FieldIndex("num");
+        int col_amount = Qry.get().FieldIndex("amount");
+        int col_weight = Qry.get().FieldIndex("weight");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            prn_airline.check(Qry.get().FieldAsString(col_airline));
+            TUnaccBagStatRow row;
+            row.airline = Qry.get().FieldAsString(col_airline);
+            row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+            row.suffix = Qry.get().FieldAsString(col_suffix);
+            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+            row.airp = Qry.get().FieldAsString(col_airp);
+            row.airp_arv = airp_arv_info.get(Qry.get());
+            row.original_tag_no = Qry.get().FieldAsString(col_original_tag_no);
+            row.surname = Qry.get().FieldAsString(col_surname);
+            row.name = Qry.get().FieldAsString(col_name);
+            row.prev_airline = Qry.get().FieldAsString(col_prev_airline);
+            if(not Qry.get().FieldIsNULL(col_prev_flt_no))
+                row.prev_flt_no = Qry.get().FieldAsInteger(col_prev_flt_no);
+            row.prev_suffix = Qry.get().FieldAsString(col_prev_suffix);
+            row.grp_id = Qry.get().FieldAsInteger(col_grp_id);
+            row.num = Qry.get().FieldAsInteger(col_num);
+            row.amount = Qry.get().FieldAsInteger(col_amount);
+            row.weight = Qry.get().FieldAsInteger(col_weight);
+            UnaccBagStat.rows.push_back(row);
+        }
+    }
 }
 
 void createXMLUnaccBagStat(
@@ -6479,6 +6590,69 @@ void createXMLUnaccBagStat(
         const TPrintAirline &prn_airline,
         xmlNodePtr resNode)
 {
+    if(UnaccBagStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    NewTextChild(resNode, "airline", prn_airline.get(), "");
+    xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+
+    xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+    xmlNodePtr colNode;
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АП рег."));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Стойка"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
+    SetProp(colNode, "width", 80);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Билет"));
+    SetProp(colNode, "width", 100);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("От"));
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип ВС"));
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Время в пути"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Код услуги"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("RFISC"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Тариф"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortFloat);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Валюта"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+
 }
 
 //------------------------------ UnaccBagStat end--------------------------------------------
@@ -6544,18 +6718,7 @@ void RunLimitedCapabStat(
         SQLText +=
             "where "
             "   stat.point_id = points.point_id and ";
-        if (!params.airps.elems().empty()) {
-            if (params.airps.elems_permit())
-                SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and ";
-            else
-                SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and ";
-        };
-        if (!params.airlines.elems().empty()) {
-            if (params.airlines.elems_permit())
-                SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and ";
-            else
-                SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and ";
-        };
+        params.AccessClause(SQLText);
         if(params.flt_no != NoExists) {
             SQLText += " points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
@@ -6735,18 +6898,7 @@ void RunServiceStat(
             "   users2 "
             "where "
             "   cs.point_id = points.point_id and ";
-        if (!params.airps.elems().empty()) {
-            if (params.airps.elems_permit())
-                SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and ";
-            else
-                SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and ";
-        };
-        if (!params.airlines.elems().empty()) {
-            if (params.airlines.elems_permit())
-                SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and ";
-            else
-                SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and ";
-        };
+        params.AccessClause(SQLText);
         if(params.flt_no != NoExists) {
             SQLText += " points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
