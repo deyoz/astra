@@ -9673,7 +9673,7 @@ int nosir_md5(int argc,char **argv)
     return 1;
 }
 
-void departed_flt(TQuery &Qry, ofstream &of)
+void departed_flt(TQuery &Qry, TEncodedFileStream &of)
 {
     int point_id = Qry.FieldAsInteger("point_id");
     TDateTime part_key = NoExists;
@@ -9837,7 +9837,7 @@ void departed_flt(TQuery &Qry, ofstream &of)
        */
 }
 
-void departed_month(const pair<TDateTime, TDateTime> &interval, ofstream &of)
+void departed_month(const pair<TDateTime, TDateTime> &interval, TEncodedFileStream &of)
 {
     TQuery Qry(&OraSession);
     Qry.CreateVariable("first_date", otDate, interval.first);
@@ -9920,7 +9920,7 @@ int nosir_departed(int argc, char **argv)
     period.get(FirstDate, LastDate);
     string delim = ";";
     for(TPeriods::TItems::iterator i = period.items.begin(); i != period.items.end(); i++) {
-        ofstream of(((string)"departed." + DateTimeToStr(i->first, "yymm") + ".csv").c_str());
+        TEncodedFileStream of("cp1251", (string)"departed." + DateTimeToStr(i->first, "yymm") + ".csv");
         of
             << "ФИО" << delim
             << "Дата рождения" << delim

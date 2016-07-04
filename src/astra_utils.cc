@@ -1836,3 +1836,30 @@ void TRegEvents::fromDB(BASIC::TDateTime part_key, int point_id)
     };
 }
 
+void TEncodedFileStream::open()
+{
+    if(not of.is_open()) {
+        of.open(filename.c_str());
+        if(not of.is_open())
+            throw Exception("TEncodedFileStream: error opening file %s", filename.c_str());
+    }
+}
+
+/*
+    template<typename T>
+TEncodedFileStream &TEncodedFileStream::operator << (const T &val)
+{
+    open();
+    ostringstream buf;
+    buf << val;
+    of << ConvertCodepage(buf.str(), "CP866", codepage);
+    return *this;
+}
+*/
+
+TEncodedFileStream &TEncodedFileStream::operator << (ostream &(*os)(ostream &))
+{
+    open();
+    of << os;
+    return *this;
+}
