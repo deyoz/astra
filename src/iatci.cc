@@ -110,23 +110,22 @@ namespace
         static IatciPaxSeg readFirst(int grpId)
         {
             LogTrace(TRACE3) << "read for grpId: " << grpId;
-            std::vector<iatci::FlightDetails> iatciSeg = iatci::IatciDb::readSeg(grpId);
-            ASSERT(!iatciSeg.empty());
-            std::vector<iatci::PaxDetails>    iatciPax = iatci::IatciDb::readPax(grpId);
-            ASSERT(!iatciPax.empty());
-
-            return IatciPaxSeg(iatciSeg.front(), iatciPax.front());
+            return read(grpId, 1);
         }
 
         static IatciPaxSeg read(int grpId, unsigned segInd)
         {
             LogTrace(TRACE3) << "read for grpId: " << grpId << " and segInd:" << segInd;
-            std::vector<iatci::FlightDetails> iatciSeg = iatci::IatciDb::readSeg(grpId);
-            ASSERT(segInd > 0 && segInd <= iatciSeg.size());
-            std::vector<iatci::PaxDetails>    iatciPax = iatci::IatciDb::readPax(grpId);
-            ASSERT(segInd > 0 && segInd <= iatciPax.size());
-
-            return IatciPaxSeg(iatciSeg.at(segInd - 1), iatciPax.at(segInd - 1));
+            XMLDoc loadedDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(grpId));
+            XmlCheckInTabs loadedTabs(findNodeR(loadedDoc.docPtr()->children, "segments"));
+            std::list<XmlSegment> lSeg = algo::transform< std::list<XmlSegment> >(loadedTabs.tabs(),
+                [](const XmlCheckInTab& tab) { return tab.xmlSeg(); });
+            std::vector<iatci::Result> lRes = LoadPaxXmlResult(lSeg).toIatci(iatci::Result::Passlist,
+                                                                             iatci::Result::Ok);
+            ASSERT(segInd > 0 && segInd <= lRes.size()); // TODO #21190 check pax_id
+            iatci::Result res = lRes.at(segInd - 1);
+            ASSERT(res.pax());
+            return IatciPaxSeg(res.flight(), res.pax().get());
         }
 
         const iatci::FlightDetails& seg() const { return m_seg; }
@@ -816,7 +815,6 @@ static void SaveIatciXmlResToDb(const std::list<iatci::Result>& lRes,
     case IatciInterface::Cki:
         tst();
         iatci::IatciXmlDb::add(grpId, xmlData);
-        iatci::IatciDb::add(grpId, lRes);
         break;
 
     case IatciInterface::Cku:

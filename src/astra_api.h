@@ -527,6 +527,7 @@ public:
     XmlCheckInTab(xmlNodePtr tabNode);
 
     bool isEdi() const;
+    const XmlSegment& xmlSeg() const;
     astra_entities::SegmentInfo seg() const;
     std::list<astra_entities::PaxInfo> lPax() const;
 };
@@ -540,6 +541,7 @@ class XmlCheckInTabs
 public:
     XmlCheckInTabs(xmlNodePtr tabsNode);
     size_t size() const;
+    bool empty() const;
     bool containsEdiTab() const;
 
     const std::vector<XmlCheckInTab>& tabs() const;
@@ -627,11 +629,14 @@ struct LoadPaxXmlResult
 {
     std::list<XmlSegment> lSeg;
 
-    iatci::Result toIatci(iatci::Result::Action_e action,
-                          iatci::Result::Status_e status,
-                          bool afterSavePax) const;
+    std::vector<iatci::Result> toIatci(iatci::Result::Action_e action,
+                                       iatci::Result::Status_e status) const;
+
+    iatci::Result toIatciFirst(iatci::Result::Action_e action,
+                               iatci::Result::Status_e status) const;
 
     LoadPaxXmlResult(xmlNodePtr node);
+    LoadPaxXmlResult(const std::list<XmlSegment>& lSeg);
 };
 
 //---------------------------------------------------------------------------------------

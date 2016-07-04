@@ -40,19 +40,4 @@ private:
     static void delXml(int grpId);
 };
 
-//-----------------------------------------------------------------------------
-
-class IatciDb
-{
-public:
-    static void add(int grpId, const std::list<iatci::Result>& lRes);
-
-    static std::vector<iatci::PaxDetails> readPax(int grpId);
-    static std::vector<iatci::FlightDetails> readSeg(int grpId);
-
-private:
-    static void addPax(int grpId, const std::list<iatci::Result>& lRes);
-    static void addSeg(int grpId, const std::list<iatci::Result>& lRes);
-};
-
 }//namespace iatci

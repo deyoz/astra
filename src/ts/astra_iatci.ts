@@ -2959,7 +2959,7 @@ $(KICK_IN_SILENT)
 
 $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 
-$(dump_table GRP_IATCI_DATA)
+$(dump_table GRP_IATCI_XML)
 
 !! err=ignore
 {<?xml version='1.0' encoding='CP866'?>

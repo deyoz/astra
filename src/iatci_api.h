@@ -17,9 +17,10 @@ Result cancelCheckin(tlgnum_t postponeTlgNum);
 
 Result updateCheckin(const CkuParams& ckuParams);
 
-
 Result reprintBoardingPass(const BprParams& bprParams);
+
 Result fillPasslist(const PlfParams& plfParams);
+
 Result fillSeatmap(const SmfParams& smfParams);
 
 boost::optional<FlightDetails> findCascadeFlight(const FlightDetails& flight);

@@ -842,9 +842,8 @@ iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams)
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
     }
 
-    return loadPaxXmlRes.toIatci(iatci::Result::Checkin,
-                                 iatci::Result::Ok,
-                                 true/*afterSavePax*/);
+    return loadPaxXmlRes.toIatciFirst(iatci::Result::Checkin,
+                                      iatci::Result::Ok);
 }
 
 iatci::Result checkinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
@@ -854,9 +853,8 @@ iatci::Result checkinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
         // не смогли зарегистрировать
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
     }
-    return loadPaxXmlRes.toIatci(iatci::Result::Checkin,
-                                 iatci::Result::Ok,
-                                 true/*afterSavePax*/);
+    return loadPaxXmlRes.toIatciFirst(iatci::Result::Checkin,
+                                      iatci::Result::Ok);
 }
 
 iatci::Result updateIatciPax(const iatci::CkuParams& ckuParams)
@@ -896,9 +894,8 @@ iatci::Result updateIatciPax(const iatci::CkuParams& ckuParams)
 
     if(ckuParams.updSeat()) {
         loadPaxXmlRes = AstraEngine::singletone().ReseatPax(paxSegForUpdate);
-        return loadPaxXmlRes.toIatci(iatci::Result::Update,
-                                     iatci::Result::Ok,
-                                     false/*afterSavePax*/);
+        return loadPaxXmlRes.toIatciFirst(iatci::Result::Update,
+                                          iatci::Result::Ok);
     } else {
         // SavePax
         loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSegForUpdate);
@@ -907,9 +904,8 @@ iatci::Result updateIatciPax(const iatci::CkuParams& ckuParams)
             throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
         }
 
-        return loadPaxXmlRes.toIatci(iatci::Result::Update,
-                                     iatci::Result::Ok,
-                                     true/*afterSavePax*/);
+        return loadPaxXmlRes.toIatciFirst(iatci::Result::Update,
+                                          iatci::Result::Ok);
     }
 
 }
@@ -948,9 +944,8 @@ iatci::Result cancelCheckinIatciPax(const iatci::CkxParams& ckxParams)
 
     if(!loadPaxXmlRes.lSeg.empty()) {
         tst();
-        return loadPaxXmlRes.toIatci(iatci::Result::Cancel,
-                                     iatci::Result::OkWithNoData,
-                                     true/*afterSavePax*/);
+        return loadPaxXmlRes.toIatciFirst(iatci::Result::Cancel,
+                                          iatci::Result::OkWithNoData);
     }
 
     tst();
@@ -965,16 +960,14 @@ iatci::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
     LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(reqNode, ediResNode);
     if(!loadPaxXmlRes.lSeg.empty()) {
         tst();
-        return loadPaxXmlRes.toIatci(iatci::Result::Cancel,
-                                     iatci::Result::OkWithNoData,
-                                     true/*afterSavePax*/);
+        return loadPaxXmlRes.toIatciFirst(iatci::Result::Cancel,
+                                          iatci::Result::OkWithNoData);
     }
 
     tst();
     // в результат надо положить сегмент - достать его здесь можно, например, из reqNode
-    return LoadPaxXmlResult(reqNode).toIatci(iatci::Result::Cancel,
-                                             iatci::Result::OkWithNoData,
-                                             false/*afterSavePax*/);
+    return LoadPaxXmlResult(reqNode).toIatciFirst(iatci::Result::Cancel,
+                                                  iatci::Result::OkWithNoData);
 }
 
 iatci::Result fillPaxList(const iatci::PlfParams& plfParams)
@@ -1002,9 +995,8 @@ iatci::Result fillPaxList(const iatci::PlfParams& plfParams)
     }
 
     tst();
-    return loadPaxXmlRes.toIatci(iatci::Result::Passlist,
-                                 iatci::Result::Ok,
-                                 false/*afterSavePax*/);
+    return loadPaxXmlRes.toIatciFirst(iatci::Result::Passlist,
+                                      iatci::Result::Ok);
 }
 
 iatci::Result fillSeatmap(const iatci::SmfParams& smfParams)
@@ -1053,9 +1045,8 @@ iatci::Result printBoardingPass(const iatci::BprParams& bprParams)
     savePrintBP(loadPaxXmlRes);
 
     tst();
-    return loadPaxXmlRes.toIatci(iatci::Result::Passlist,
-                                 iatci::Result::Ok,
-                                 false/*afterSavePax*/);
+    return loadPaxXmlRes.toIatciFirst(iatci::Result::Passlist,
+                                      iatci::Result::Ok);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -1285,6 +1276,11 @@ bool XmlCheckInTab::isEdi() const
             m_seg.grp_id < 0);
 }
 
+const XmlSegment& XmlCheckInTab::xmlSeg() const
+{
+    return m_seg;
+}
+
 astra_entities::SegmentInfo XmlCheckInTab::seg() const
 {
     return m_seg.toSeg();
@@ -1313,6 +1309,11 @@ XmlCheckInTabs::XmlCheckInTabs(xmlNodePtr tabsNode)
 size_t XmlCheckInTabs::size() const
 {
     return tabs().size();
+}
+
+bool XmlCheckInTabs::empty() const
+{
+    return (size() == 0);
 }
 
 bool XmlCheckInTabs::containsEdiTab() const
@@ -1971,127 +1972,136 @@ LoadPaxXmlResult::LoadPaxXmlResult(xmlNodePtr node)
     }
 }
 
-iatci::Result LoadPaxXmlResult::toIatci(iatci::Result::Action_e action,
-                                        iatci::Result::Status_e status,
-                                        bool afterSavePax) const
+LoadPaxXmlResult::LoadPaxXmlResult(const std::list<XmlSegment>& lSeg)
 {
-    // flight details
-    ASSERT(lSeg.size() == 1);
-    const XmlSegment& seg = lSeg.front();
+    this->lSeg = lSeg;
+}
 
-    std::string airl     = seg.trip_header.airline;
-    std::string flNum    = seg.trip_header.flt_no;
-    std::string scd_local= seg.trip_header.scd_out_local;
-    std::string airp_dep = seg.airp_dep;
-    std::string airp_arv = seg.airp_arv;
-
-    if(airl.empty()) {
-        airl = seg.mark_flight.airline;
-    }
-    if(flNum.empty()) {
-        flNum = seg.mark_flight.flt_no;
-    }
-    if(scd_local.empty()) {
-        scd_local = seg.mark_flight.scd;
-    }
-
-    ASSERT(!scd_local.empty());
-    boost::posix_time::ptime scd_dep_date_time = BASIC::boostDateTimeFromAstraFormatStr(scd_local);
-
-    boost::gregorian::date scd_dep_date = scd_dep_date_time.date();
-    boost::gregorian::date scd_arr_date = boost::gregorian::date();
-    boost::posix_time::time_duration scd_dep_time(boost::posix_time::not_a_date_time);
-    if(afterSavePax) {
-        scd_dep_time = scd_dep_date_time.time_of_day();
-    }
-    boost::posix_time::time_duration scd_arr_time(boost::posix_time::not_a_date_time);
-
-    iatci::FlightDetails flightDetails(airl,
-                                       Ticketing::getFlightNum(flNum),
-                                       airp_dep,
-                                       airp_arv,
-                                       scd_dep_date,
-                                       scd_arr_date,
-                                       scd_dep_time,
-                                       scd_arr_time);
-
-    // pax details
-    ASSERT(seg.passengers.size() == 1);
-    const XmlPax& pax = seg.passengers.front();
-
-    boost::optional<iatci::PaxDetails::DocInfo> paxDoc;
-    if(pax.doc)
+std::vector<iatci::Result> LoadPaxXmlResult::toIatci(iatci::Result::Action_e action,
+                                                     iatci::Result::Status_e status) const
+{
+    std::vector<iatci::Result> lRes;
+    for(auto& seg: lSeg)
     {
-        boost::gregorian::date birthDate = BASIC::boostDateTimeFromAstraFormatStr(pax.doc->birth_date).date(),
-                              expiryDate = BASIC::boostDateTimeFromAstraFormatStr(pax.doc->expiry_date).date();
-        paxDoc = iatci::PaxDetails::DocInfo(pax.doc->type,
-                                            pax.doc->issue_country,
-                                            pax.doc->no,
-                                            pax.doc->surname,
-                                            pax.doc->first_name,
-                                            pax.doc->second_name,
-                                            pax.doc->gender,
-                                            pax.doc->nationality,
-                                            birthDate,
-                                            expiryDate);
-    }
+        // flight details
+        std::string airl     = seg.trip_header.airline;
+        std::string flNum    = seg.trip_header.flt_no;
+        std::string scd_local= seg.trip_header.scd_out_local;
+        std::string airp_dep = seg.airp_dep;
+        std::string airp_arv = seg.airp_arv;
 
-    std::string surname  = pax.surname;
-    std::string name     = pax.name;
-    std::string pers_type= pax.pers_type;
-
-    iatci::PaxDetails paxDetails(surname,
-                                 name,
-                                 iatci::PaxDetails::Adult,// TODO
-                                 paxDoc);
-
-    boost::optional<iatci::FlightSeatDetails> seatDetails;
-    boost::optional<iatci::ServiceDetails> serviceDetails;
-    if(status != iatci::Result::OkWithNoData)
-    {
-        // seat details
-        ASSERT(!pax.seat_no.empty());
-        seatDetails = iatci::FlightSeatDetails(pax.seat_no,
-                                               pax.subclass,
-                                               "", // securityCode
-                                               iatci::SeatDetails::None); // non-smoking ind
-
-
-
-        serviceDetails = iatci::ServiceDetails();
-        if(pax.ticket_rem == "TKNE") {
-            serviceDetails->addSsrTkne(pax.ticket_no,
-                                       pax.coupon_no,
-                                       false);
-        } else {
-            serviceDetails->addSsr(pax.ticket_rem,
-                                   pax.ticket_no);
+        if(airl.empty()) {
+            airl = seg.mark_flight.airline;
+        }
+        if(flNum.empty()) {
+            flNum = seg.mark_flight.flt_no;
+        }
+        if(scd_local.empty()) {
+            scd_local = seg.mark_flight.scd;
         }
 
-        // rems
-        if(pax.rems)
+        ASSERT(!scd_local.empty());
+        boost::posix_time::ptime scd_dep_date_time = BASIC::boostDateTimeFromAstraFormatStr(scd_local);
+
+        boost::gregorian::date scd_dep_date = scd_dep_date_time.date();
+        boost::gregorian::date scd_arr_date = boost::gregorian::date();
+
+        iatci::FlightDetails flightDetails(airl,
+                                           Ticketing::getFlightNum(flNum),
+                                           airp_dep,
+                                           airp_arv,
+                                           scd_dep_date,
+                                           scd_arr_date,
+                                           boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
+                                           boost::posix_time::time_duration(boost::posix_time::not_a_date_time));
+
+        // pax details
+        ASSERT(seg.passengers.size() == 1);
+        const XmlPax& pax = seg.passengers.front();
+
+        boost::optional<iatci::PaxDetails::DocInfo> paxDoc;
+        if(pax.doc)
         {
-            for(const XmlRem& rem: pax.rems->rems)
+            boost::gregorian::date birthDate = BASIC::boostDateTimeFromAstraFormatStr(pax.doc->birth_date).date(),
+                                  expiryDate = BASIC::boostDateTimeFromAstraFormatStr(pax.doc->expiry_date).date();
+            paxDoc = iatci::PaxDetails::DocInfo(pax.doc->type,
+                                                pax.doc->issue_country,
+                                                pax.doc->no,
+                                                pax.doc->surname,
+                                                pax.doc->first_name,
+                                                pax.doc->second_name,
+                                                pax.doc->gender,
+                                                pax.doc->nationality,
+                                                birthDate,
+                                                expiryDate);
+        }
+
+        std::string surname  = pax.surname;
+        std::string name     = pax.name;
+        std::string pers_type= pax.pers_type;
+
+        iatci::PaxDetails paxDetails(surname,
+                                     name,
+                                     iatci::PaxDetails::Adult,// TODO
+                                     paxDoc);
+
+        boost::optional<iatci::FlightSeatDetails> seatDetails;
+        boost::optional<iatci::ServiceDetails> serviceDetails;
+        if(status != iatci::Result::OkWithNoData)
+        {
+            // seat details
+            ASSERT(!pax.seat_no.empty());
+            seatDetails = iatci::FlightSeatDetails(pax.seat_no,
+                                                   pax.subclass,
+                                                   "", // securityCode
+                                                   iatci::SeatDetails::None); // non-smoking ind
+
+
+
+            serviceDetails = iatci::ServiceDetails();
+            if(pax.ticket_rem == "TKNE") {
+                serviceDetails->addSsrTkne(pax.ticket_no,
+                                           pax.coupon_no,
+                                           false);
+            } else {
+                serviceDetails->addSsr(pax.ticket_rem,
+                                       pax.ticket_no);
+            }
+
+            // rems
+            if(pax.rems)
             {
-                serviceDetails->addSsr(rem.rem_code,
-                                       rem.rem_text);
+                for(const XmlRem& rem: pax.rems->rems)
+                {
+                    serviceDetails->addSsr(rem.rem_code,
+                                           rem.rem_text);
+                }
             }
         }
+        // TODO
+
+        lRes.push_back(iatci::Result::makeResult(action,
+                                                 status,
+                                                 flightDetails,
+                                                 paxDetails,
+                                                 seatDetails,
+                                                 boost::none,
+                                                 boost::none,
+                                                 boost::none,
+                                                 boost::none,
+                                                 boost::none,
+                                                 serviceDetails));
     }
 
-    // TODO
+    return lRes;
+}
 
-    return iatci::Result::makeResult(action,
-                                     status,
-                                     flightDetails,
-                                     paxDetails,
-                                     seatDetails,
-                                     boost::none,
-                                     boost::none,
-                                     boost::none,
-                                     boost::none,
-                                     boost::none,
-                                     serviceDetails);
+iatci::Result LoadPaxXmlResult::toIatciFirst(iatci::Result::Action_e action,
+                                             iatci::Result::Status_e status) const
+{
+    std::vector<iatci::Result> lRes = toIatci(action, status);
+    ASSERT(!lRes.empty());
+    return lRes.front();
 }
 
 //---------------------------------------------------------------------------------------
