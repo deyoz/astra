@@ -767,4 +767,7 @@ iatci::Result fillPaxList(const iatci::PlfParams& plfParams);
 // карта мест
 iatci::Result fillSeatmap(const iatci::SmfParams& smfParams);
 
+// печть посадочного талона
+iatci::Result printBoardingPass(const iatci::BprParams& bprParams);
+
 }//namespace astra_api

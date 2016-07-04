@@ -5,6 +5,7 @@
 #include "basic.h"
 #include "points.h"
 #include "checkin.h"
+#include "print.h"
 #include "tripinfo.h"
 #include "salonform.h"
 
@@ -40,6 +41,23 @@ void fillPaxTrip(XmlTrip& paxTrip, const iatci::CkiParams& ckiParams)
     if(ckiParams.seat()) {
         paxTrip.pnr().pax().seat_no = ckiParams.seat()->seat();
     }
+}
+
+void savePrintBP(const LoadPaxXmlResult& loadPaxRes)
+{
+    ASSERT(!loadPaxRes.lSeg.empty());
+    const XmlSegment& seg = loadPaxRes.lSeg.front();
+    ASSERT(!seg.passengers.empty());
+    const XmlPax& pax = seg.passengers.front();
+
+    LogTrace(TRACE3) << __FUNCTION__
+                     << " grp_id:" << seg.grp_id
+                     << " pax_id:" << pax.pax_id;
+
+    TReqInfo::Instance()->desk.code = "IATCI";
+
+    PrintDataParser parser(seg.grp_id, pax.pax_id, 0, NULL);
+    parser.pts.save_bp_print(true);
 }
 
 }//namespace
@@ -978,17 +996,15 @@ iatci::Result fillPaxList(const iatci::PlfParams& plfParams)
                                                plfParams.pax().surname(),
                                                plfParams.pax().name());
 
-    if(!loadPaxXmlRes.lSeg.empty()) {
+    if(loadPaxXmlRes.lSeg.empty()) {
         tst();
-        return loadPaxXmlRes.toIatci(iatci::Result::Passlist,
-                                     iatci::Result::Ok,
-                                     false/*afterSavePax*/);
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to load pax");
     }
 
     tst();
-    // в результат надо положить сегмент - взять его здесь можно из plfParams
-    return iatci::Result::makeCancelResult(iatci::Result::OkWithNoData,
-                                           plfParams.flight());
+    return loadPaxXmlRes.toIatci(iatci::Result::Passlist,
+                                 iatci::Result::Ok,
+                                 false/*afterSavePax*/);
 }
 
 iatci::Result fillSeatmap(const iatci::SmfParams& smfParams)
@@ -1008,6 +1024,38 @@ iatci::Result fillSeatmap(const iatci::SmfParams& smfParams)
 
     GetSeatmapXmlResult seatmapXmlRes = AstraEngine::singletone().GetSeatmap(pointDep);
     return seatmapXmlRes.toIatci();
+}
+
+iatci::Result printBoardingPass(const iatci::BprParams& bprParams)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " by "
+                     << "airp_dep[" << bprParams.flight().depPort() << "]; "
+                     << "airline["  << bprParams.flight().airline() << "]; "
+                     << "flight["   << bprParams.flight().flightNum() << "]; "
+                     << "dep_date[" << bprParams.flight().depDate() << "]; "
+                     << "surname["  << bprParams.pax().surname() << "]; "
+                     << "name["     << bprParams.pax().name() << "] ";
+
+    int pointDep = astra_api::findDepPointId(bprParams.flight().depPort(),
+                                             bprParams.flight().airline(),
+                                             bprParams.flight().flightNum().get(),
+                                             bprParams.flight().depDate());
+
+    LoadPaxXmlResult loadPaxXmlRes = LoadPax__(pointDep,
+                                               bprParams.pax().surname(),
+                                               bprParams.pax().name());
+
+    if(loadPaxXmlRes.lSeg.empty()) {
+        tst();
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to find pax");
+    }
+
+    savePrintBP(loadPaxXmlRes);
+
+    tst();
+    return loadPaxXmlRes.toIatci(iatci::Result::Passlist,
+                                 iatci::Result::Ok,
+                                 false/*afterSavePax*/);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

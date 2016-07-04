@@ -152,38 +152,7 @@ Result updateCheckin(const CkuParams& ckuParams)
 
 Result reprintBoardingPass(const BprParams& bprParams)
 {
-    // TODO вызов функций Астры
-    FlightDetails flight4Checkin(bprParams.flight().airline(),
-                                 bprParams.flight().flightNum(),
-                                 bprParams.flight().depPort(),
-                                 bprParams.flight().arrPort(),
-                                 Dates::rrmmdd("150217"),
-                                 Dates::rrmmdd("150217"),
-                                 Dates::hh24mi("1000"),
-                                 Dates::hh24mi("1330"),
-                                 Dates::hh24mi("0930"));
-
-    PaxDetails pax4Checkin(bprParams.pax().surname(),
-                           bprParams.pax().name(),
-                           bprParams.pax().type(),
-                           boost::none,
-                           bprParams.pax().qryRef(),
-                           flight4Checkin.toShortKeyString());
-
-    FlightSeatDetails seat4Checkin("03A",
-                                   "C",
-                                   "0030",
-                                   SeatDetails::NonSmoking);
-
-    boost::optional<CascadeHostDetails> cascadeDetails;
-    if(findCascadeFlight(bprParams.flight()))
-        cascadeDetails = CascadeHostDetails(flight4Checkin.airline());
-
-    return Result::makeReprintResult(Result::Ok,
-                                     flight4Checkin,
-                                     pax4Checkin,
-                                     seat4Checkin,
-                                     cascadeDetails);
+    return astra_api::printBoardingPass(bprParams);
 }
 
 Result fillPasslist(const PlfParams& plfParams)
