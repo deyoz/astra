@@ -9152,13 +9152,16 @@ int nosir_md5(int argc,char **argv)
     return 1;
 }
 
-void departed_flt(TQuery &Qry, ofstream &of)
+void departed_flt(TQuery &Qry, TEncodedFileStream &of)
 {
     int point_id = Qry.FieldAsInteger("point_id");
     TDateTime part_key = NoExists;
 
     if(not Qry.FieldIsNULL("part_key"))
         part_key = Qry.FieldAsDateTime("part_key");
+
+    TRegEvents events;
+    events.fromDB(part_key, point_id);
 
     TQuery paxQry(&OraSession);
     paxQry.CreateVariable("point_id", otInteger, point_id);
@@ -9173,7 +9176,22 @@ void departed_flt(TQuery &Qry, ofstream &of)
         "   pax.coupon_no, \n"
         "   pax.pax_id, \n"
         "   pax.grp_id, \n"
-        "   pax_grp.airp_arv \n"
+        "   pax.reg_no, \n"
+        "   pax_grp.client_type, \n"
+        "   pax_grp.airp_arv, \n";
+    if(part_key == NoExists)
+    SQLText +=
+        "   (SELECT 1 FROM bp_print  "
+        "   WHERE bp_print.pax_id=pax.pax_id AND  "
+        "   client_type='TERM' AND pr_print<>0 AND rownum<2) AS term_bp, "
+        "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,0) AS seat_no, "
+        "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
+        "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight \n";
+    else
+    SQLText +=
+          " NVL(arch.get_bagAmount2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
+          " NVL(arch.get_bagWeight2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight \n";
+    SQLText +=
         "from \n";
     if(part_key == NoExists)
         SQLText +=
@@ -9208,6 +9226,8 @@ void departed_flt(TQuery &Qry, ofstream &of)
     paxQry.Execute();
     TAirpArvInfo airp_arv_info;
     for(; not paxQry.Eof; paxQry.Next()) {
+        int grp_id = paxQry.FieldAsInteger("grp_id");
+        int reg_no = paxQry.FieldAsInteger("reg_no");
         string name = paxQry.FieldAsString("name");
         string surname = paxQry.FieldAsString("surname");
 
@@ -9267,7 +9287,26 @@ void departed_flt(TQuery &Qry, ofstream &of)
             // От
             << airp << delim
             // До
-            << airp_arv_info.get(paxQry) << endl;
+            << airp_arv_info.get(paxQry) << delim
+            // Багаж мест
+            << paxQry.FieldAsInteger("bag_amount") << delim
+            // Багаж вес
+            << paxQry.FieldAsInteger("bag_weight") << delim;
+        // Время регистрации
+        TRegEvents::const_iterator evt = events.find(make_pair(grp_id, reg_no));
+        if(evt != events.end())
+            of << DateTimeToStr(evt->second.first, "dd.mm.yyyy hh:nn:ss");
+        of << delim;
+        // Номер места
+        if(part_key == NoExists)
+            of << paxQry.FieldAsString("seat_no");
+        of << delim
+            // Способ регистрации
+            << paxQry.FieldAsString("client_type") << delim;
+        // Печать ПТ на стойке
+        if(part_key == NoExists)
+            of << (paxQry.FieldAsInteger("term_bp") == 0 ? "НЕТ" : "ДА");
+        of << endl;
     }
 
     /*
@@ -9277,7 +9316,7 @@ void departed_flt(TQuery &Qry, ofstream &of)
        */
 }
 
-void departed_month(const pair<TDateTime, TDateTime> &interval, ofstream &of)
+void departed_month(const pair<TDateTime, TDateTime> &interval, TEncodedFileStream &of)
 {
     TQuery Qry(&OraSession);
     Qry.CreateVariable("first_date", otDate, interval.first);
@@ -9360,7 +9399,7 @@ int nosir_departed(int argc, char **argv)
     period.get(FirstDate, LastDate);
     string delim = ";";
     for(TPeriods::TItems::iterator i = period.items.begin(); i != period.items.end(); i++) {
-        ofstream of(((string)"departed." + DateTimeToStr(i->first, "yymm") + ".csv").c_str());
+        TEncodedFileStream of("cp1251", (string)"departed." + DateTimeToStr(i->first, "yymm") + ".csv");
         of
             << "ФИО" << delim
             << "Дата рождения" << delim
@@ -9372,7 +9411,13 @@ int nosir_departed(int argc, char **argv)
             << "Рейс" << delim
             << "Дата вылета" << delim
             << "От" << delim
-            << "До" << endl;
+            << "До" << delim
+            << "Багаж мест" << delim
+            << "Багаж вес" << delim
+            << "Время регистрации (UTC)" << delim
+            << "Номер места" << delim
+            << "Способ регистрации" << delim
+            << "Печать ПТ на стойке" << endl;
         departed_month(*i, of);
     }
     LogTrace(TRACE5) << "time: " << tm.PrintWithMessage();

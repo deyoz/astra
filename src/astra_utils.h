@@ -629,4 +629,36 @@ void commit();
 void rollback();
 };
 
+struct TRegEvents:public  std::map< std::pair<int, int>, std::pair<BASIC::TDateTime, BASIC::TDateTime> > {
+    void fromDB(BASIC::TDateTime part_key, int point_id);
+};
+
+struct TEncodedFileStream
+{
+    std::string codepage;
+    std::string filename;
+    std::ofstream of;
+    TEncodedFileStream(const std::string &acodepage, const std::string &afilename):
+        codepage(acodepage),
+        filename(afilename)
+    {
+    }
+
+    void open();
+    template<typename T>
+        TEncodedFileStream &operator << (const T &val)
+    {
+        open();
+        std::ostringstream buf;
+        buf << val;
+        of << ConvertCodepage(buf.str(), "CP866", codepage);
+        return *this;
+    }
+
+
+    // operator for iomanips (such as endl)
+    TEncodedFileStream &operator << (std::ostream &(*os)(std::ostream &));
+};
+
+
 #endif /*_ASTRA_UTILS_H_*/
