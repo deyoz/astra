@@ -177,10 +177,10 @@ struct TRFISC {
     }
     bool operator < (const TRFISC &rfisc) const
     {
-      if (color != rfisc.color)
-        return color < rfisc.color;
       if (rate != rfisc.rate)
         return rate < rfisc.rate;
+      if (color != rfisc.color)
+        return color > rfisc.color;
       return currency_id < rfisc.currency_id;
     }
 };
@@ -240,10 +240,10 @@ struct TSeatTariff {
     }
     bool operator < (const TSeatTariff &seatTarif) const
     {
-      if (color != seatTarif.color)
-        return color < seatTarif.color;
       if (rate != seatTarif.rate)
         return rate < seatTarif.rate;
+      if (color != seatTarif.color)
+        return color > seatTarif.color;
       return currency_id < seatTarif.currency_id;
     }
 };

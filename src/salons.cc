@@ -1344,7 +1344,7 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
            NewTextChild( propNode, "code", irfisc->second.code );
          }
          else {
-           ProgTrace( TRACE5, "rfisc %s", irfisc->second.str().c_str() );
+           //ProgTrace( TRACE5, "rfisc %s", irfisc->second.str().c_str() );
            propNode = NewTextChild( node, "rfisc" );
            if ( irfisc->second.rate != 0.0 ) {
              NewTextChild( propNode, "value", irfisc->second.rate );
@@ -1392,8 +1392,6 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
 
 void TPlace::SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &salonTariffs, bool setPassengerTariffs )
 {
-  ProgTrace( TRACE5, "place(%d,%d) tariffs.size()=%zu, setPassengerTariffs=%d, %s",
-             x, y, tariffs.size(), setPassengerTariffs, salonTariffs.key().c_str() );
   if ( salonTariffs.empty() || !visible || !isplace ) {
     return;
   }
@@ -1411,7 +1409,6 @@ void TPlace::SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &sa
     }
     colorItem = salonTariffs.find( irfisc->second.color );
     if ( colorItem != salonTariffs.end() ) {
-      tst();
       if ( setPassengerTariffs  ) {
         TSeatTariff tariff;
         tariff.color = colorItem->second.color;
@@ -1479,7 +1476,7 @@ void TPlace::SetRFISC( int point_id, TSeatTariffMapType &tariffMap )
       std::map<std::string,TRFISC>::iterator vrfisc = tariffMap.find( color );
       if ( vrfisc != tariffMap.end() ) {
         AddRFISC( point_id, vrfisc->second );
-        ProgTrace( TRACE5, "SetRFISC point_id %d, %s", point_id, vrfisc->second.str().c_str() );
+        //ProgTrace( TRACE5, "SetRFISC point_id %d, %s", point_id, vrfisc->second.str().c_str() );
       }
     }
   }
