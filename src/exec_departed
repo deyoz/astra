@@ -1,4 +1,4 @@
 cd ~/NOSIR.tst
 ./new_astra
 rm *.log
-./nosir.tcl -departed 20160609 20160610
+./nosir.tcl -departed 20160627 20160628
