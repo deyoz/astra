@@ -78,8 +78,8 @@ enum TUseRem { sAllUse, sMaxUse, sOnlyUse, sNotUse_NotUseDenial, sNotUse, sNotUs
 */
 /* Нельзя разбивать трех, нельзя сажать по одному более одного раза, все можно */
 enum TUseAlone { uFalse3 /* нельзя оставлять одного при рассадке группы*/,
-                   uFalse1 /* можно оставлять одного только один раз при рассадке группы*/,
-                   uTrue /*можно оставлять одного при рассадке группы любое кол-во раз*/ };
+                 uFalse1 /* можно оставлять одного только один раз при рассадке группы*/,
+                 uTrue /*можно оставлять одного при рассадке группы любое кол-во раз*/ };
 
 string DecodeCanUseRems( TUseRem VCanUseRems )
 {
@@ -245,32 +245,37 @@ struct TCondRate {
   bool pr_web; //признак того, что регистрируется платный пассажир
   bool use_rate; // использовать платные места для пассажиров без оплаченных мест
   bool ignore_rate; // игнорируем тариф
-  map<int, TSeatTariff> rates;
-  map<int, TSeatTariff>::iterator current_rate;
+  set<SALONS2::TSeatTariff,SALONS2::SeatTariffCompare> rates;
+  set<SALONS2::TSeatTariff,SALONS2::SeatTariffCompare>::iterator current_rate;
   TCondRate( ) {
     current_rate = rates.end();
   }
-  double convertUniValue( TSeatTariff &rate ) {
+/*  double convertUniValue( TSeatTariff &rate ) {
     return rate.rate;
-  }
+  }*/
   void Init( SALONS2::TSalons &Salons, bool apr_pay, TClientType client_type ) {
     pr_web = apr_pay;
     use_rate = ( client_type == ctTerm || client_type == ctPNL );
     ProgTrace( TRACE5, "use_rate=%d", use_rate);
     rates.clear();
     ignore_rate = false;
-    rates[ 0 ].rate = 0.0; // всегда задаем - означает, что надо использовать места без тарифа
+    rates.insert( TSeatTariff( "", 0.0, "" ) ); // всегда задаем - означает, что надо использовать места без тарифа
+    //!!!rates[ 0 ].rate = 0.0; // всегда задаем - означает, что надо использовать места без тарифа
     if ( pr_web ) // не учитываем платные места
       return;
     SALONS2::TPlaceList *placeList;
-    map<double,int> vars;
+    //!!!!map<double,int> vars;
     for ( vector<SALONS2::TPlaceList*>::iterator plList=Salons.placelists.begin();
           plList!=Salons.placelists.end(); plList++ ) {
       placeList = *plList;
       for ( IPlace i=placeList->places.begin(); i!=placeList->places.end(); i++ ) {
         if ( i->SeatTariff.empty() || !i->visible || !i->isplace )
           continue;
-        double univalue = convertUniValue( i->SeatTariff );
+        if ( rates.find( i->SeatTariff ) != rates.end() ) {
+          continue;
+        }
+        rates.insert( i->SeatTariff );
+    /* !!!   double univalue = convertUniValue( i->SeatTariff );
         if ( vars.find( univalue ) == vars.end() ) { // не нашли
           bool pr_ins = false;
           for ( map<double,int>::iterator p=vars.begin(); p!=vars.end(); p++ ) {
@@ -288,22 +293,25 @@ struct TCondRate {
           if ( !pr_ins )
            vars[ univalue ] = vars.size();
            rates[ vars[ univalue ] ] = i->SeatTariff;
-        }
+        }*/
       }
     }
     current_rate = rates.begin();
-    for ( map<int, TSeatTariff>::iterator i=rates.begin(); i!=rates.end(); i++ ) {
-      ProgTrace( TRACE5, " rates.first=%d, rates.second.value=%s", i->first, i->second.rateView().c_str() );
+    for ( set<TSeatTariff,SeatTariffCompare>::iterator i=rates.begin(); i!=rates.end(); i++ ) {
+      ProgTrace( TRACE5, "rates.value=%s", i->str().c_str() );
     }
   }
   bool CanUseRate( TPlace *place ) { /* если все возможные тарифы попробовали при рассадке и не смогли рассадить или нет тарифов на рейсе или место без тарифа, то можно использовать */
-    bool res = ( pr_web || current_rate == rates.end() || place->SeatTariff.empty() || ignore_rate );
+    //ProgTrace( TRACE5, "x=%d, y=%d, place->SeatTariff=%s", place->x, place->y, place->SeatTariff.str().c_str() );
+    bool res = ( pr_web || current_rate == rates.end() /*!!!|| place->SeatTariff.empty()*/ || ignore_rate );
     if ( !res ) {
       if ( !use_rate ) {
         return res;
       }
-      for ( map<int, TSeatTariff>::iterator i=rates.begin(); ; i++ ) { // просмотр всех тарифов, кот. сортированы в порядке возрастания приоритета использования
-        if ( i->second.rate == place->SeatTariff.rate ) {
+      for ( set<TSeatTariff,SeatTariffCompare>::iterator i=rates.begin(); ; i++ ) { // просмотр всех тарифов, кот. сортированы в порядке возрастания приоритета использования
+        if ( i->rate == place->SeatTariff.rate &&
+             i->color == place->SeatTariff.color ) {
+//          tst();
           res = true;
           break;
         }
@@ -314,7 +322,7 @@ struct TCondRate {
     return res;
   }
   bool isIgnoreRates( ) {
-    map<int, TSeatTariff>::iterator i = rates.end();
+    set<TSeatTariff,SeatTariffCompare>::iterator i = rates.end();
     if ( !rates.empty() )
       i--;
     return ( (current_rate == rates.end() && use_rate) || i == current_rate || ignore_rate);
@@ -2981,7 +2989,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
              /* использование платных мест */
              bool ignore_rate = condRates.ignore_rate;
              for ( condRates.current_rate = condRates.rates.begin(); condRates.current_rate != condRates.rates.end(); condRates.current_rate++ ) {
-               if ( ( condRates.current_rate != condRates.rates.begin() && SeatAlg != sSeatPassengers ) ) { //???
+               if ( ( condRates.current_rate->rate != 0.0 && SeatAlg != sSeatPassengers ) ) { //рассадка на платные места только по одному SeatAlg=1
                  //               ProgTrace( TRACE5, "condRates.current_rate->first=%d", condRates.current_rate->first );
                  continue;
                }
@@ -2992,7 +3000,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                else {
                  condRates.ignore_rate = ignore_rate;
                }
-               ProgTrace( TRACE5, "condRates.ignore_rate=%d, SeatAlg=%d", condRates.ignore_rate, SeatAlg );
+               //ProgTrace( TRACE5, "condRates.current_rate=%s, condRates.ignore_rate=%d, SeatAlg=%d", condRates.current_rate->str().c_str(), condRates.ignore_rate, SeatAlg );
                //ProgTrace( TRACE5, "SeatAlg == %d, condRates.current_rate.first=%d, condRates.current_rate->second.value=%f",
                //                        SeatAlg, condRates.current_rate->first, condRates.current_rate->second.value );
                /* использование статусов мест */
@@ -3038,6 +3046,10 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                    /* оставлять одного несколько раз на рядах при Рассадке группы */
                    for ( int FCanUseAlone=uFalse3; FCanUseAlone<=uTrue; FCanUseAlone++ ) {
                      CanUseAlone = (TUseAlone)FCanUseAlone;
+                     if ( CanUseAlone == uFalse3 && passengers.getCount() < 2 ) { //чтобы не делать лишний циклов, т.к. рассадка все равно не пройдет
+                       //Один пассажир должен сидеть один в ряду
+                       continue;
+                     }
                      if ( CanUseAlone == uTrue && CanUseRems == sNotUse_NotUseDenial	 ) {
                        // если пассажиров можно оставлять сколько угодно раз по одному в ряду и можно сажать только на места с нужными ремарками
                        continue;
