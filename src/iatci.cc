@@ -352,77 +352,6 @@ namespace
 
     //-----------------------------------------------------------------------------------
 
-    struct TPaxSegInfo
-    {
-        TSegInfo seg;
-        CheckIn::TPaxItem pax;
-    };
-
-    TSegInfo segFromNode(xmlNodePtr segNode)
-    {
-        TSegInfo segInfo;
-        segInfo.point_dep = NodeAsInteger("point_dep", segNode);
-        segInfo.airp_dep  = NodeAsString("airp_dep", segNode);
-        segInfo.point_arv = NodeAsInteger("point_arv", segNode);
-        segInfo.airp_arv  = NodeAsString("airp_arv", segNode);
-
-        xmlNodePtr fltNode = findNode(segNode, "mark_flight");
-        if(!fltNode)
-            fltNode = findNode(segNode, "pseudo_mark_flight");
-
-        if(fltNode)
-        {
-            segInfo.fltInfo.airline = NodeAsString("airline", fltNode);
-            segInfo.fltInfo.flt_no  = NodeAsInteger("flt_no", fltNode);
-            segInfo.fltInfo.suffix  = NodeAsString("suffix", fltNode);
-            segInfo.fltInfo.scd_out = NodeAsDateTime("scd", fltNode);
-            segInfo.fltInfo.airp    = NodeAsString("airp_dep",fltNode);
-        }
-
-        return segInfo;
-    }
-
-    TPaxSegInfo paxSegFromNode(xmlNodePtr segNode)
-    {
-        TPaxSegInfo paxSegInfo;
-        paxSegInfo.seg = segFromNode(segNode);
-
-        xmlNodePtr paxNode = NodeAsNode("passengers/pax", segNode);
-        // пока можем обрабатывать только одного пассажира для Edifact
-        paxSegInfo.pax.surname   = NodeAsString("surname", paxNode);
-        paxSegInfo.pax.name      = NodeAsString("name", paxNode);
-        paxSegInfo.pax.pers_type = DecodePerson(NodeAsString("pers_type", paxNode));
-        paxSegInfo.pax.seat_no   = NodeAsString("seat_no", paxNode, "");
-
-        return paxSegInfo;
-    }
-
-    std::vector<TSegInfo> getSegs(xmlNodePtr reqNode)
-    {
-        std::vector<TSegInfo> vSeg;
-        xmlNodePtr segNode = NodeAsNode("segments/segment", reqNode);
-        for(;segNode != NULL; segNode = segNode->next) {
-            vSeg.push_back(segFromNode(segNode));
-        }
-
-        return vSeg;
-    }
-
-    std::vector<TPaxSegInfo> getPaxSegs(xmlNodePtr reqNode)
-    {
-        std::vector<TPaxSegInfo> vPaxSeg;
-        xmlNodePtr segNode = NodeAsNode("segments/segment", reqNode);
-        for(;segNode != NULL; segNode = segNode->next) {
-            vPaxSeg.push_back(paxSegFromNode(segNode));
-        }
-
-        segNode = NodeAsNode("iatci_segments/segment", reqNode);
-        if(segNode) {
-            vPaxSeg.push_back(paxSegFromNode(segNode));
-        }
-
-        return vPaxSeg;
-    }
 
     iatci::PaxDetails::PaxType_e astra2iatci(ASTRA::TPerson personType)
     {
@@ -442,31 +371,52 @@ namespace
         std::string m_airline;
         std::string m_airport;
 
+        PointInfo()
+        {}
+
         PointInfo(const std::string& airline,
                   const std::string& airport)
             : m_airline(airline),
               m_airport(airport)
         {}
-    };
 
-    boost::optional<PointInfo> readPointInfo(int pointId)
-    {
-        LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << " by pointId " << pointId;
+        static PointInfo readByPointId(int pointId)
+        {
+            LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << " by pointId " << pointId;
 
-        std::string airl, airp;
-        OciCpp::CursCtl cur = make_curs(
-"select AIRLINE, AIRP from POINTS where POINT_ID=:point_id");
-        cur.bind(":point_id", pointId)
-           .defNull(airl, "")
-           .def(airp)
-           .EXfet();
-        if(cur.err() == NO_DATA_FOUND) {
-            LogWarning(STDLOG) << "Point " << pointId << " not found!";
-            return boost::none;
+            std::string airl, airp;
+            OciCpp::CursCtl cur = make_curs(
+                    "select AIRLINE, AIRP from POINTS where POINT_ID=:point_id");
+            cur.bind(":point_id", pointId)
+               .defNull(airl, "")
+               .def(airp)
+               .EXfet();
+            if(cur.err() == NO_DATA_FOUND) {
+                LogWarning(STDLOG) << "Point " << pointId << " not found!";
+                throw EXCEPTIONS::Exception("Point %d not found", pointId);
+            }
+
+            return PointInfo(airl, airp);
         }
 
-        return PointInfo(airl, airp);
-    }
+        static PointInfo readByGrpId(int grpId)
+        {
+            LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << " by grpId " << grpId;
+
+            int pointId = ASTRA::NoExists;
+            OciCpp::CursCtl cur = make_curs(
+                    "select POINT_DEP from PAX_GRP where GRP_ID=:grp_id");
+            cur.bind(":grp_id", grpId)
+               .def(pointId)
+               .EXfet();
+            if(cur.err() == NO_DATA_FOUND) {
+                LogWarning(STDLOG) << "Group " << grpId << " not found!";
+                throw EXCEPTIONS::Exception("Group %d not found", grpId);
+            }
+
+            return readByPointId(pointId);
+        }
+    };
 
 }//namespace
 
@@ -492,6 +442,19 @@ static std::string getOldSeat(xmlNodePtr reqNode)
     return oldSeat;
 }
 
+static PointInfo readPointInfo(int grpId)
+{
+    TCkinRoute tckinRoute;
+    if(tckinRoute.GetRouteBefore(grpId, crtWithCurrent, crtIgnoreDependent)) {
+        // если на стороне Астры делалась локальная(не iatci) сквозная регистрация
+        ASSERT(!tckinRoute.empty());
+        return PointInfo::readByPointId(tckinRoute.front().point_dep);
+    } else {
+        // если один единственный сегмент
+        return PointInfo::readByGrpId(grpId);
+    }
+}
+
 static std::string getIatciRequestContext(const edifact::KickInfo& kickInfo = edifact::KickInfo())
 {
     // TODO fill whole context
@@ -500,6 +463,47 @@ static std::string getIatciRequestContext(const edifact::KickInfo& kickInfo = ed
     kickInfo.toXML(rootNode);
     SetProp(rootNode,"req_ctxt_id", kickInfo.reqCtxtId);
     return XMLTreeToText(xmlCtxt.docPtr());
+}
+
+static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::RequestType reqType)
+{
+    int grpId = 0;
+    if(reqType == IatciInterface::Cki) {
+        // при первичной регистрации grp_id появляется в ответном xml
+        grpId = NodeAsInteger("grp_id", NodeAsNode("segments/segment", resNode));
+    } else {
+        // в остальных случаях grp_id уже содержится в запросе, либо её можно найти
+        xmlNodePtr grpIdNode = findNodeR(reqNode, "grp_id");
+        if(grpIdNode != NULL && !NodeIsNULL(grpIdNode)) {
+            grpId = NodeAsInteger(grpIdNode);
+        } else {
+            xmlNodePtr tripIdNode = findNodeR(reqNode, "trip_id");
+            if(tripIdNode != NULL && !NodeIsNULL(tripIdNode)) {
+                int magicId = NodeAsInteger(tripIdNode);
+                ASSERT(magicId < 0);
+                iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
+                grpId = magicTab.grpId();
+            } else {
+                xmlNodePtr pointIdNode = findNodeR(reqNode, "point_id");
+                ASSERT((pointIdNode != NULL && !NodeIsNULL(pointIdNode)));
+                int pointId = NodeAsInteger(pointIdNode);
+                xmlNodePtr regNoNode = findNodeR(reqNode, "reg_no");
+                if(regNoNode != NULL && !NodeIsNULL(regNoNode)) {
+                    int regNo = NodeAsInteger(regNoNode);
+                    grpId = astra_api::findGrpIdByRegNo(pointId, regNo);
+                } else {
+                    xmlNodePtr paxIdNode = findNodeR(reqNode, "pax_id");
+                    if(paxIdNode != NULL && !NodeIsNULL(paxIdNode)) {
+                        int paxId = NodeAsInteger(paxIdNode);
+                        grpId = astra_api::findGrpIdByPaxId(pointId, paxId);
+                    }
+                }
+            }
+        }
+    }
+
+    LogTrace(TRACE3) << "grpId:" << grpId;
+    return grpId;
 }
 
 static std::string getIatciPult()
@@ -523,101 +527,77 @@ static edifact::KickInfo getIatciKickInfo(xmlNodePtr reqNode, xmlNodePtr ediResN
 
 static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
 {
-    // TODO переделать на CheckInTabs
-    std::vector<TPaxSegInfo> vPaxSeg = getPaxSegs(reqNode);
-    if(vPaxSeg.size() < 2) {
-        throw EXCEPTIONS::Exception("%s: At least 2 segments must be present in the query for iatci, but there is %zu",
-                                     __FUNCTION__, vPaxSeg.size());
+    XmlCheckInTabs ownTabs(findNodeR(reqNode, "segments"));
+    ASSERT(!ownTabs.empty());
+
+    XmlCheckInTabs ediTabs(findNodeR(reqNode, "iatci_segments"));
+    ASSERT(ediTabs.size() == 1);
+
+    const XmlCheckInTab& lastOwnTab = ownTabs.tabs().back();
+    const XmlSegment& ownSeg = lastOwnTab.xmlSeg();
+
+    iatci::OriginatorDetails ediOrg(ownSeg.mark_flight.airline,
+                                    ownSeg.mark_flight.airp_dep);
+
+    const XmlCheckInTab& firstEdiTab = ediTabs.tabs().front();
+    const XmlSegment& firstEdiSeg = firstEdiTab.xmlSeg();
+    ASSERT(!firstEdiSeg.passengers.empty());
+    const XmlPax& pax = firstEdiSeg.passengers.front(); // TODO #21190
+
+    iatci::PaxDetails ediPax(pax.surname,
+                             pax.name,
+                             iatci::PaxDetails::strToType(pax.pers_type));
+
+    iatci::FlightDetails ediFlight(firstEdiSeg.mark_flight.airline,
+                                   Ticketing::getFlightNum(firstEdiSeg.mark_flight.flt_no),
+                                   firstEdiSeg.airp_dep,
+                                   firstEdiSeg.airp_arv,
+                                   BASIC::boostDateTimeFromAstraFormatStr(firstEdiSeg.mark_flight.scd).date());
+
+    iatci::FlightDetails ownFlight(ownSeg.mark_flight.airline,
+                                   Ticketing::getFlightNum(ownSeg.mark_flight.flt_no),
+                                   ownSeg.airp_dep,
+                                   ownSeg.airp_arv,
+                                   BASIC::boostDateTimeFromAstraFormatStr(ownSeg.mark_flight.scd).date());
+
+    boost::optional<iatci::SeatDetails> ediSeat;
+    if(!pax.seat_no.empty()) {
+        ediSeat = iatci::SeatDetails(pax.seat_no);
     }
 
-    const TPaxSegInfo& lastPaxSeg   = vPaxSeg.at(vPaxSeg.size() - 1); // Последний сегмент в запросе
-    const TPaxSegInfo& penultPaxSeg = vPaxSeg.at(vPaxSeg.size() - 2); // Предпоследний сегмент в запросе
+    return iatci::CkiParams(ediOrg, ediPax, ediFlight, ownFlight, ediSeat);
+}
 
-    iatci::OriginatorDetails origin(penultPaxSeg.seg.fltInfo.airline,
-                                    penultPaxSeg.seg.airp_dep);
-
-    iatci::PaxDetails pax(lastPaxSeg.pax.surname,
-                          lastPaxSeg.pax.name,
-                          astra2iatci(lastPaxSeg.pax.pers_type));
-
-    iatci::FlightDetails flight(lastPaxSeg.seg.fltInfo.airline,
-                                Ticketing::FlightNum_t(lastPaxSeg.seg.fltInfo.flt_no),
-                                lastPaxSeg.seg.airp_dep,
-                                lastPaxSeg.seg.airp_arv,
-                                BASIC::DateTimeToBoost(lastPaxSeg.seg.fltInfo.scd_out).date());
-
-    iatci::FlightDetails prevFlight(penultPaxSeg.seg.fltInfo.airline,
-                                    Ticketing::FlightNum_t(penultPaxSeg.seg.fltInfo.flt_no),
-                                    penultPaxSeg.seg.airp_dep,
-                                    penultPaxSeg.seg.airp_arv,
-                                    BASIC::DateTimeToBoost(penultPaxSeg.seg.fltInfo.scd_out).date());
-
-    boost::optional<iatci::SeatDetails> seat;
-    if(!lastPaxSeg.pax.seat_no.empty()) {
-        seat = iatci::SeatDetails(lastPaxSeg.pax.seat_no);
-    }
-
-    return iatci::CkiParams(origin, pax, flight, prevFlight, seat);
+static iatci::OriginatorDetails getOrigDetails(int grpId)
+{
+    PointInfo pointInfo = readPointInfo(grpId);
+    return iatci::OriginatorDetails(pointInfo.m_airline,
+                                    pointInfo.m_airport);
 }
 
 static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
 {
-    // TODO переделать на CheckInTabs
-    std::vector<TPaxSegInfo> vPaxSeg = getPaxSegs(reqNode);
-    if(vPaxSeg.size() < 2) {
-        throw EXCEPTIONS::Exception("%s: At least 2 segments must be present in the query for iatci, but there is %zu",
-                                     __FUNCTION__, vPaxSeg.size());
-    }
-
-    const TPaxSegInfo& lastPaxSeg   = vPaxSeg.at(vPaxSeg.size() - 1); // Последний сегмент в запросе
-    const TPaxSegInfo& penultPaxSeg = vPaxSeg.at(vPaxSeg.size() - 2); // Предпоследний сегмент в запросе
-
-    std::string origAirline = penultPaxSeg.seg.fltInfo.airline;
-    std::string origAirport = penultPaxSeg.seg.airp_dep;
-    if(origAirline.empty() || origAirport.empty())
-    {
-        tst();
-        if(penultPaxSeg.seg.point_dep != -1)
-        {
-            tst();
-            boost::optional<PointInfo> pointInfo = readPointInfo(penultPaxSeg.seg.point_dep);
-            if(pointInfo)
-            {
-                origAirline = pointInfo->m_airline;
-                origAirport = pointInfo->m_airport;
-            }
-        }
-    }
-
-    iatci::OriginatorDetails origin(origAirline, origAirport);
-
-    iatci::PaxDetails pax(lastPaxSeg.pax.surname,
-                          lastPaxSeg.pax.name,
-                          astra2iatci(lastPaxSeg.pax.pers_type));
-
-    iatci::FlightDetails flight(lastPaxSeg.seg.fltInfo.airline,
-                                Ticketing::FlightNum_t(lastPaxSeg.seg.fltInfo.flt_no),
-                                lastPaxSeg.seg.airp_dep,
-                                lastPaxSeg.seg.airp_arv,
-                                BASIC::DateTimeToBoost(lastPaxSeg.seg.fltInfo.scd_out).date());
-
-    return iatci::CkxParams(origin, pax, flight);
+    int firstOwnSegGrpId = getGrpId(reqNode, NULL, IatciInterface::Ckx);
+    IatciPaxSeg ediPaxSeg = IatciPaxSeg::readFirst(firstOwnSegGrpId);
+    return iatci::CkxParams(getOrigDetails(firstOwnSegGrpId),
+                            ediPaxSeg.pax(),
+                            ediPaxSeg.seg());
 }
 
 static iatci::BprParams getBprParams(int grpId)
 {
-    IatciPaxSeg iatciPaxSeg = IatciPaxSeg::readFirst(grpId);
-    return iatci::BprParams(iatci::OriginatorDetails("ЮТ", "ДМД"), // TODO
-                            iatciPaxSeg.pax(),
-                            iatciPaxSeg.seg());
+    IatciPaxSeg ediPaxSeg = IatciPaxSeg::readFirst(grpId);
+    return iatci::BprParams(getOrigDetails(grpId),
+                            ediPaxSeg.pax(),
+                            ediPaxSeg.seg());
 }
 
 static iatci::PlfParams getPlfParams(int grpId)
 {
-    IatciPaxSeg iatciPaxSeg = IatciPaxSeg::readFirst(grpId);
-    return iatci::PlfParams(iatci::OriginatorDetails("ЮТ", "ДМД"), // TODO
-                            iatciPaxSeg.pax(),
-                            iatciPaxSeg.seg());
+    IatciPaxSeg ediPaxSeg = IatciPaxSeg::readFirst(grpId);
+    return iatci::PlfParams(getOrigDetails(grpId),
+                            ediPaxSeg.pax(),
+                            ediPaxSeg.seg());
 }
 
 static boost::optional<iatci::UpdatePaxDetails::UpdateDocInfo> getUpdDoc(const PaxChange& paxChange)
@@ -692,11 +672,9 @@ static boost::optional<iatci::UpdateServiceDetails> getUpdService(const PaxChang
 
 static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
 {
-    XmlCheckInTab firstTab(NodeAsNode("segments/segment", reqNode));
-    IatciPaxSeg iatciPaxSeg = IatciPaxSeg::readFirst(firstTab.seg().m_grpId);
-
-    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(firstTab.seg().m_grpId));
-
+    XmlCheckInTab firstOwnTab(NodeAsNode("segments/segment", reqNode));
+    int firstOwnSegGrpId = firstOwnTab.seg().m_grpId;
+    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(firstOwnSegGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     XmlCheckInTabs newIatciTabs(findNodeR(reqNode, "iatci_segments"));
@@ -724,9 +702,10 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
                     LogTrace(TRACE3) << "Pax rems change detected";
                 }
 
-                return iatci::CkuParams(iatci::OriginatorDetails("ЮТ", "ДМД"), // TODO
-                                        iatciPaxSeg.pax(),
-                                        iatciPaxSeg.seg(),
+                IatciPaxSeg firstEdiSeg = IatciPaxSeg::readFirst(firstOwnSegGrpId);
+                return iatci::CkuParams(getOrigDetails(firstOwnSegGrpId),
+                                        firstEdiSeg.pax(),
+                                        firstEdiSeg.seg(),
                                         boost::none,
                                         getUpdPax(firstPaxChange),
                                         getUpdService(firstPaxChange));
@@ -760,7 +739,7 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode, int magicId)
         throw AstraLocale::UserException("MSG.SEATS.SEAT_NO.PASSENGER_OWNER");
     }
 
-    return iatci::CkuParams(iatci::OriginatorDetails("ЮТ", "ДМД"), // TODO
+    return iatci::CkuParams(getOrigDetails(magicTab.grpId()),
                             iatciPaxSeg.pax(),
                             iatciPaxSeg.seg(),
                             boost::none,
@@ -777,7 +756,7 @@ static iatci::SmfParams getSmfParams(int magicId)
     }
     iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
     IatciPaxSeg iatciPaxSeg = IatciPaxSeg::read(magicTab.grpId(), magicTab.tabInd());
-    return iatci::SmfParams(iatci::OriginatorDetails("ЮТ", "ДМД"), // TODO
+    return iatci::SmfParams(getOrigDetails(magicTab.grpId()),
                             iatciPaxSeg.seg());
 }
 
@@ -839,45 +818,10 @@ static int SaveIatciPax(const std::list<iatci::Result>& lRes,
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
 
-    int grpId = 0;
-    if(reqType == IatciInterface::Cki) {
-        // при первичной регистрации grp_id появляется в ответном xml
-        grpId = NodeAsInteger("grp_id", NodeAsNode("segments/segment", resNode));
-    } else {
-        // в остальных случаях grp_id уже содержится в запросе, либо её можно найти
-        xmlNodePtr grpIdNode = findNodeR(termReqNode, "grp_id");
-        if(grpIdNode != NULL && !NodeIsNULL(grpIdNode)) {
-            grpId = NodeAsInteger(grpIdNode);
-        } else {
-            xmlNodePtr tripIdNode = findNodeR(termReqNode, "trip_id");
-            if(tripIdNode != NULL && !NodeIsNULL(tripIdNode)) {
-                int magicId = NodeAsInteger(tripIdNode);
-                ASSERT(magicId < 0);
-                iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
-                grpId = magicTab.grpId();
-            } else {
-                xmlNodePtr pointIdNode = findNodeR(termReqNode, "point_id");
-                ASSERT((pointIdNode != NULL && !NodeIsNULL(pointIdNode)));
-                int pointId = NodeAsInteger(pointIdNode);
-                xmlNodePtr regNoNode = findNodeR(termReqNode, "reg_no");
-                if(regNoNode != NULL && !NodeIsNULL(regNoNode)) {
-                    int regNo = NodeAsInteger(regNoNode);
-                    grpId = astra_api::findGrpIdByRegNo(pointId, regNo);
-                } else {
-                    xmlNodePtr paxIdNode = findNodeR(termReqNode, "pax_id");
-                    if(paxIdNode != NULL && !NodeIsNULL(paxIdNode)) {
-                        int paxId = NodeAsInteger(paxIdNode);
-                        grpId = astra_api::findGrpIdByPaxId(pointId, paxId);
-                    }
-                }
-            }
-        }
-    }
-
-    LogTrace(TRACE3) << "grpId=" << grpId;
+    int grpId = getGrpId(termReqNode, resNode, reqType);
     ASSERT(grpId > 0);
 
-    // Пока сохраним информацию для всей группы,
+    // TODO Пока сохраним информацию для всей группы,
     // но, возможно, в будущем потребуется сохранять для каждого пассажира
     SaveIatciXmlResToDb(lRes, NodeAsNode("/iatci_result", ediResNode), grpId, reqType);
 

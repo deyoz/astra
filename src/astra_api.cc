@@ -1791,6 +1791,10 @@ XmlSegment XmlEntityReader::readSeg(xmlNodePtr segNode)
 
     // mark flight
     xmlNodePtr markFlightNode = findNode(segNode, "mark_flight");
+    if(markFlightNode == NULL) {
+        markFlightNode = findNode(segNode, "pseudo_mark_flight");
+    }
+
     if(markFlightNode != NULL) {
         seg.mark_flight = XmlEntityReader::readMarkFlight(markFlightNode);
     }
