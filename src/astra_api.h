@@ -287,19 +287,21 @@ struct XmlPnr
 
 struct XmlTripHeader
 {
-    std::string flight;
-    std::string airline;
-    std::string aircode;
-    std::string flt_no;
-    std::string suffix;
-    std::string airp;
-    std::string scd_out_local;
-    int         pr_etl_only;
-    int         pr_etstatus;
-    int         pr_no_ticket_check;
+    std::string      flight;
+    std::string      airline;
+    std::string      aircode;
+    int              flt_no;
+    std::string      suffix;
+    std::string      airp;
+    BASIC::TDateTime scd_out_local;
+    int              pr_etl_only;
+    int              pr_etstatus;
+    int              pr_no_ticket_check;
 
     XmlTripHeader()
-        : pr_etl_only(ASTRA::NoExists),
+        : flt_no(ASTRA::NoExists),
+          scd_out_local(ASTRA::NoExists),
+          pr_etl_only(ASTRA::NoExists),
           pr_etstatus(ASTRA::NoExists),
           pr_no_ticket_check(ASTRA::NoExists)
     {}
@@ -344,15 +346,17 @@ struct XmlHall {};
 
 struct XmlMarkFlight
 {
-    std::string airline;
-    std::string flt_no;
-    std::string suffix;
-    std::string scd;
-    std::string airp_dep;
-    int         pr_mark_norms;
+    std::string      airline;
+    int              flt_no;
+    std::string      suffix;
+    BASIC::TDateTime scd;
+    std::string      airp_dep;
+    int              pr_mark_norms;
 
     XmlMarkFlight()
-        : pr_mark_norms(ASTRA::NoExists)
+        : flt_no(ASTRA::NoExists),
+          scd(ASTRA::NoExists),
+          pr_mark_norms(ASTRA::NoExists)
     {}
 };
 

@@ -248,7 +248,7 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg)
     NewTextChild(markFlightNode, "airline",       paxSeg.mark_flight.airline);
     NewTextChild(markFlightNode, "flt_no",        paxSeg.mark_flight.flt_no);
     NewTextChild(markFlightNode, "suffix",        paxSeg.mark_flight.suffix);
-    NewTextChild(markFlightNode, "scd",           paxSeg.mark_flight.scd);
+    NewTextChild(markFlightNode, "scd",           BASIC::DateTimeToStr(paxSeg.mark_flight.scd, BASIC::ServerFormatDateTimeAsString));
     NewTextChild(markFlightNode, "airp_dep",      paxSeg.mark_flight.airp_dep);
     NewTextChild(markFlightNode, "pr_mark_norms", paxSeg.mark_flight.pr_mark_norms);
 
@@ -1053,9 +1053,13 @@ iatci::Result printBoardingPass(const iatci::BprParams& bprParams)
 
 namespace xml_entities {
 
-ReqParams::ReqParams(xmlNodePtr rootNode)
-    : m_rootNode(rootNode)
-{}
+ReqParams::ReqParams(xmlNodePtr node)
+{
+    ASSERT(node->doc->children);
+    ASSERT(node->doc->children->children);
+    ASSERT(node->doc->children->children->children);
+    m_rootNode = node->doc->children->children->children;
+}
 
 void ReqParams::setBoolParam(const std::string& param, bool val)
 {
@@ -1337,10 +1341,10 @@ XmlTripHeader XmlEntityReader::readTripHeader(xmlNodePtr tripHeaderNode)
     tripHeader.flight             = NodeAsString("flight",  tripHeaderNode, "");
     tripHeader.airline            = NodeAsString("airline", tripHeaderNode, "");
     tripHeader.aircode            = NodeAsString("aircode", tripHeaderNode, "");
-    tripHeader.flt_no             = NodeAsString("flt_no",  tripHeaderNode, "");
+    tripHeader.flt_no             = NodeAsInteger("flt_no",  tripHeaderNode, ASTRA::NoExists);
     tripHeader.suffix             = NodeAsString("suffix",  tripHeaderNode, "");
     tripHeader.airp               = NodeAsString("airp",    tripHeaderNode, "");
-    tripHeader.scd_out_local      = NodeAsString("scd_out_local", tripHeaderNode, "");
+    tripHeader.scd_out_local      = NodeAsDateTime("scd_out_local", tripHeaderNode, ASTRA::NoExists);
     tripHeader.pr_etl_only        = NodeAsInteger("pr_etl_only",  tripHeaderNode, ASTRA::NoExists);
     tripHeader.pr_etstatus        = NodeAsInteger("pr_etstatus",  tripHeaderNode, ASTRA::NoExists);
     tripHeader.pr_no_ticket_check = NodeAsInteger("pr_no_ticket_check", tripHeaderNode, ASTRA::NoExists);
@@ -1476,9 +1480,9 @@ XmlMarkFlight XmlEntityReader::readMarkFlight(xmlNodePtr flightNode)
 
     XmlMarkFlight flight;
     flight.airline       = NodeAsString("airline", flightNode, "");
-    flight.flt_no        = NodeAsString("flt_no", flightNode, "");
+    flight.flt_no        = NodeAsInteger("flt_no", flightNode, ASTRA::NoExists);
     flight.suffix        = NodeAsString("suffix", flightNode, "");
-    flight.scd           = NodeAsString("scd", flightNode, "");
+    flight.scd           = NodeAsDateTime("scd", flightNode, ASTRA::NoExists);
     flight.airp_dep      = NodeAsString("airp_dep", flightNode, "");
     flight.pr_mark_norms = NodeAsInteger("pr_mark_norms", flightNode, ASTRA::NoExists);
     return flight;
@@ -1988,30 +1992,32 @@ std::vector<iatci::Result> LoadPaxXmlResult::toIatci(iatci::Result::Action_e act
     for(auto& seg: lSeg)
     {
         // flight details
-        std::string airl     = seg.trip_header.airline;
-        std::string flNum    = seg.trip_header.flt_no;
-        std::string scd_local= seg.trip_header.scd_out_local;
-        std::string airp_dep = seg.airp_dep;
-        std::string airp_arv = seg.airp_arv;
+        std::string      airl     = seg.trip_header.airline;
+        int              flNum    = seg.trip_header.flt_no;
+        BASIC::TDateTime scd_local= seg.trip_header.scd_out_local;
+        std::string      airp_dep = seg.airp_dep;
+        std::string      airp_arv = seg.airp_arv;
 
         if(airl.empty()) {
             airl = seg.mark_flight.airline;
         }
-        if(flNum.empty()) {
+        if(flNum == ASTRA::NoExists) {
             flNum = seg.mark_flight.flt_no;
         }
-        if(scd_local.empty()) {
+        if(scd_local == ASTRA::NoExists) {
             scd_local = seg.mark_flight.scd;
         }
 
-        ASSERT(!scd_local.empty());
-        boost::posix_time::ptime scd_dep_date_time = BASIC::boostDateTimeFromAstraFormatStr(scd_local);
+        ASSERT(scd_local != ASTRA::NoExists);
+        ASSERT(flNum != ASTRA::NoExists);
+
+        boost::posix_time::ptime scd_dep_date_time = BASIC::DateTimeToBoost(scd_local);
 
         boost::gregorian::date scd_dep_date = scd_dep_date_time.date();
         boost::gregorian::date scd_arr_date = boost::gregorian::date();
 
         iatci::FlightDetails flightDetails(airl,
-                                           Ticketing::getFlightNum(flNum),
+                                           Ticketing::FlightNum_t(flNum),
                                            airp_dep,
                                            airp_arv,
                                            scd_dep_date,

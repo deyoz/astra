@@ -3185,29 +3185,26 @@ static void removeIatciSegNode(xmlNodePtr segNode)
 
 static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
 {
-    ASSERT(grpId != -1);
+    using namespace astra_api::xml_entities;
+    ASSERT(grpId > 0);
     std::string xmlData = iatci::IatciXmlDb::load(grpId);
     if(!xmlData.empty())
     {
-        XMLDoc xmlDoc;
-        xmlDoc.set(ConvertCodepage(xmlData, "CP866", "UTF-8"));
-        if(xmlDoc.docPtr() == NULL)
-            throw EXCEPTIONS::Exception("IATCI XML has wrong format!");
-        xml_decode_nodelist(xmlDoc.docPtr()->children);
-
+        XMLDoc xmlDoc = iatci::createXmlDoc(xmlData);
         xmlNodePtr tripHeaderNode = findNodeR(xmlDoc.docPtr()->children, "tripheader");
         if(tripHeaderNode)
         {
+            tst();
+            XmlTripHeader th = XmlEntityReader::readTripHeader(tripHeaderNode);
+
             TGrpMktFlight grpMktFlt;
-            grpMktFlt.airline = NodeAsString("airline", tripHeaderNode);
-            grpMktFlt.flt_no  = NodeAsInteger("flt_no", tripHeaderNode);
-            grpMktFlt.suffix  = NodeAsString("suffix",  tripHeaderNode);
-            grpMktFlt.scd_date_local = NodeAsDateTime("scd_out_local", tripHeaderNode);
-            grpMktFlt.airp_dep = NodeAsString("airp", tripHeaderNode);
+            grpMktFlt.airline        = th.airline;
+            grpMktFlt.flt_no         = th.flt_no;
+            grpMktFlt.suffix         = th.suffix;
+            grpMktFlt.scd_date_local = th.scd_out_local;
+            grpMktFlt.airp_dep       = th.airp;
             return grpMktFlt;
         }
-
-        tst();
     }
 
     tst();
@@ -3216,17 +3213,12 @@ static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
 
 static void transformSavePaxRequestByIatci(xmlNodePtr reqNode)
 {
-    xmlNodePtr rootNode = findNodeR(reqNode, "TCkinSavePax");
-    if(rootNode)
+    xmlNodePtr segNode = findIatciSegNode(reqNode);
+    if(segNode)
     {
-        ReqParams(rootNode).setBoolParam("may_need_send_iatci", true);
-        xmlNodePtr node = newChild(rootNode, "iatci_segments");
-        xmlNodePtr segNode = findIatciSegNode(rootNode);
-        if(segNode)
-        {
-            CopyNode(node, segNode, true/*recursive*/);
-            removeIatciSegNode(segNode);
-        }
+        xmlNodePtr node = newChild(reqNode, "iatci_segments");
+        CopyNode(node, segNode, true/*recursive*/);
+        removeIatciSegNode(segNode);
     }
 }
 
@@ -3234,42 +3226,31 @@ static void transformSavePaxRequestByIatci(xmlNodePtr reqNode, int grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << " grpId=" << grpId;
 
-    xmlNodePtr rootNode = findNodeR(reqNode, "TCkinSavePax");
-    if(rootNode)
+    xmlNodePtr node = findNodeR(reqNode, "iatci_segments");
+    if(node)
     {
-        // этот флаг может быть выставлен в false только
-        // в случае Update, если не обновления не затрагивают
-        // ни одну edifact-вкладку.
-        // В этом случае значение флага будет выставлено в false
-        // сразу после определения этого случая
-        ReqParams(rootNode).setBoolParam("was_sent_iatci", true);
-
-        xmlNodePtr node = findNodeR(reqNode, "iatci_segments");
-        if(node)
+        // берём первый iatci-сегмент
+        xmlNodePtr segNode = node->children;
+        if(!findNode(segNode, "mark_flight"))
         {
-            // берём первый iatci-сегмент
-            xmlNodePtr segNode = node->children;
-            if(!findNode(segNode, "mark_flight"))
+            xmlNodePtr pseudoMarkFlightNode = findNode(segNode, "pseudo_mark_flight");
+            if(!pseudoMarkFlightNode)
+                pseudoMarkFlightNode = newChild(segNode, "pseudo_mark_flight");
+
+            boost::optional<TGrpMktFlight> mktFlt = LoadIatciMktFlight(grpId);
+            if(mktFlt)
             {
-                xmlNodePtr pseudoMarkFlightNode = findNode(segNode, "pseudo_mark_flight");
-                if(!pseudoMarkFlightNode)
-                    pseudoMarkFlightNode = newChild(segNode, "pseudo_mark_flight");
+                NewTextChild(pseudoMarkFlightNode, "airline", mktFlt->airline);
+                NewTextChild(pseudoMarkFlightNode, "flt_no", mktFlt->flt_no);
+                NewTextChild(pseudoMarkFlightNode, "suffix", mktFlt->suffix);
+                NewTextChild(pseudoMarkFlightNode, "scd", DateTimeToStr(mktFlt->scd_date_local));
+                NewTextChild(pseudoMarkFlightNode, "airp_dep", mktFlt->airp_dep);
 
-                boost::optional<TGrpMktFlight> mktFlt = LoadIatciMktFlight(grpId);
-                if(mktFlt)
-                {
-                    NewTextChild(pseudoMarkFlightNode, "airline", mktFlt->airline);
-                    NewTextChild(pseudoMarkFlightNode, "flt_no", mktFlt->flt_no);
-                    NewTextChild(pseudoMarkFlightNode, "suffix", mktFlt->suffix);
-                    NewTextChild(pseudoMarkFlightNode, "scd", DateTimeToStr(mktFlt->scd_date_local));
-                    NewTextChild(pseudoMarkFlightNode, "airp_dep", mktFlt->airp_dep);
-
-                    LogTrace(TRACE3) << "mktFlt->airline= " << mktFlt->airline << "; "
-                                     << "mktFlt->flt_no= " << mktFlt->flt_no << "; "
-                                     << "mktFlt->suffix= " << mktFlt->suffix << "; "
-                                     << "mktFlt->scd_date_local= " << DateTimeToStr(mktFlt->scd_date_local )<< "; "
-                                     << "mktFlt->airp_dep= " << mktFlt->airp_dep;
-                }
+                LogTrace(TRACE3) << "mktFlt->airline= " << mktFlt->airline << "; "
+                                 << "mktFlt->flt_no= " << mktFlt->flt_no << "; "
+                                 << "mktFlt->suffix= " << mktFlt->suffix << "; "
+                                 << "mktFlt->scd_date_local= " << DateTimeToStr(mktFlt->scd_date_local )<< "; "
+                                 << "mktFlt->airp_dep= " << mktFlt->airp_dep;
             }
         }
     }
@@ -3285,10 +3266,15 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
     OciCpp::Savepoint sp("sp_savepax");
-    if(ediResNode == NULL && IatciInterface::MayNeedSendIatci(reqNode)) {
-        // запоминаем, что возможно надо послать iatci-запрос
-        // и "прячем" edifact-сегмент от обычного SavePax
-        transformSavePaxRequestByIatci(reqNode);
+    if(ediResNode == NULL && IatciInterface::MayNeedSendIatci(reqNode))
+    {
+        if(!ReqParams(reqNode).getBoolParam("may_need_send_iatci"))
+        {
+            // запоминаем, что возможно надо послать iatci-запрос
+            // и "прячем" edifact-сегмент от обычного SavePax
+            ReqParams(reqNode).setBoolParam("may_need_send_iatci", true);
+            transformSavePaxRequestByIatci(reqNode);
+        }
     }
 
     TChangeStatusList ChangeStatusInfo;
@@ -3317,19 +3303,17 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         // в тэге "was_sent_iatci"
         if(ReqParams(reqNode).getBoolParam("may_need_send_iatci"))
         {
-            bool willSentIatci = IatciInterface::WillBeSentCheckInRequest(reqNode, ediResNode);
-            if(willSentIatci) {
+            if(IatciInterface::WillBeSentCheckInRequest(reqNode, ediResNode)) {
                 sp.rollback(); // опять откат, если будет послан iatci-запрос
             }
 
             // снимем флаг необходимости посылки iatci-запроса
             ReqParams(reqNode).setBoolParam("may_need_send_iatci", false);
-            // TODO добавлять mark_flight не для всех запросов
             transformSavePaxRequestByIatci(reqNode, AfterSaveInfoList.front().segs.front().grp_id);
             bool wasSentIatci = IatciInterface::DispatchCheckInRequest(reqNode, ediResNode);
-            ASSERT(wasSentIatci == willSentIatci);
+            ReqParams(reqNode).setBoolParam("was_sent_iatci", wasSentIatci);
             if(wasSentIatci) {
-                return true;
+                return true; // послали iatci-запрос - выходим. Вернёмся после получения ответа
             }
         }
 
@@ -6792,7 +6776,6 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int 
             IatciInterface::PasslistRequest(reqNode, grpId);
             return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
         }
-        LogTrace(TRACE3) << "Xml data:\n" << xmlData;
         XMLDoc xmlDoc;
         xmlDoc.set(ConvertCodepage(xmlData, "CP866", "UTF-8"));
         if(xmlDoc.docPtr() == NULL)
@@ -6809,7 +6792,6 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int 
         }
     }
 }
-
 
 void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax)
 {
@@ -7069,10 +7051,10 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
   // если посылался iatci-запрос на checkin/update,
   // то LoadIatciPax вызовется в kick-переспросе,
   // иначе - здесь
-  const bool needSyncDflt = !reqInfo->api_mode && !afterSavePax;
-  bool needSync = ReqParams(reqNode).getBoolParam("need_sync", needSyncDflt);
-  bool wasSentIatci = ReqParams(reqNode).getBoolParam("was_sent_iatci", false);
-  if(!wasSentIatci) {
+  if(!ReqParams(reqNode).getBoolParam("was_sent_iatci"))
+  {
+      bool afterKick = ReqParams(reqNode).getBoolParam("after_kick", false);
+      bool needSync = !afterKick && !reqInfo->api_mode && !afterSavePax;
       LoadIatciPax(reqNode, resNode, grp_id, needSync);
   }
 }
@@ -8661,12 +8643,12 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           NewTextChild(checkInfoNode, "pass");
           NewTextChild(checkInfoNode, "crew");
 
-          xmlNodePtr classesNode = NewTextChild(tripdataNode, "classes");
           //xmlNodePtr classNode = NewTextChild(classesNode, "class");
           //NewTextChild(classNode, "code", EncodeClass(Y)); // TODO
           //NewTextChild(classNode, "class_view", "ЭКОНОМ"); // TODO
           //NewTextChild(classNode, "cfg", -1); // TODO
 
+          node = NewTextChild(tripdataNode, "classes"); // ???
           node = NewTextChild(tripdataNode, "gates");   // ???
           node = NewTextChild(tripdataNode, "halls");   // ???
 

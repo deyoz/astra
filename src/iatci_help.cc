@@ -39,7 +39,7 @@ std::string flightString(const FlightDetails& flight)
 
 std::string airlineAccode(const std::string& airline)
 {
-    const TAirlinesRow& airlRow = (const TAirlinesRow&)base_tables.get("airlines").get_row("code/code_lat", airline);
+    const TAirlinesRow& airlRow = dynamic_cast<const TAirlinesRow&>(base_tables.get("airlines").get_row("code/code_lat", airline));
     std::ostringstream os;
     os << airlRow.AsString("aircode");
     return os.str();
@@ -47,19 +47,19 @@ std::string airlineAccode(const std::string& airline)
 
 std::string airportCode(const std::string& airport)
 {
-    const TAirpsRow& airpsRow = (const TAirpsRow&)base_tables.get("airps").get_row("code", airport);
+    const TAirpsRow& airpsRow = dynamic_cast<const TAirpsRow&>(base_tables.get("airps").get_row("code", airport));
     return ElemIdToCodeNative(etAirp, airpsRow.code);
 }
 
 std::string airportCityCode(const std::string& airport)
 {
-    const TAirpsRow& airpsRow = (const TAirpsRow&)base_tables.get("airps").get_row("code", airport);
+    const TAirpsRow& airpsRow = dynamic_cast<const TAirpsRow&>(base_tables.get("airps").get_row("code", airport));
     return cityCode(airpsRow.city);
 }
 
 std::string airportCityName(const std::string& airport)
 {
-    const TAirpsRow& airpsRow = (const TAirpsRow&)base_tables.get("airps").get_row("code", airport);
+    const TAirpsRow& airpsRow = dynamic_cast<const TAirpsRow&>(base_tables.get("airps").get_row("code", airport));
     return cityName(airpsRow.name);
 }
 
@@ -86,7 +86,7 @@ std::string depTimeString(const FlightDetails& flight)
 
 std::string fullAirportString(const std::string& airport)
 {
-    const TAirpsRow& airpsRow = (const TAirpsRow&)base_tables.get("airps").get_row("code", airport);
+    const TAirpsRow& airpsRow = dynamic_cast<const TAirpsRow&>(base_tables.get("airps").get_row("code", airport));
     std::ostringstream os;
     os << ElemIdToNameLong(etCity, airpsRow.city)
        << " (" << ElemIdToCodeNative(etAirp, airpsRow.code) << ")";
@@ -95,19 +95,19 @@ std::string fullAirportString(const std::string& airport)
 
 std::string cityString(const std::string& city)
 {
-    const TCitiesRow& citiesRow = (TCitiesRow&)base_tables.get("cities").get_row("code", city);
+    const TCitiesRow& citiesRow = dynamic_cast<const TCitiesRow&>(base_tables.get("cities").get_row("code", city));
     return ElemIdToNameShort(etCity, citiesRow.id);
 }
 
 std::string cityCode(const std::string& city)
 {
-    const TCitiesRow& citiesRow = (TCitiesRow&)base_tables.get("cities").get_row("code", city);
+    const TCitiesRow& citiesRow = dynamic_cast<const TCitiesRow&>(base_tables.get("cities").get_row("code", city));
     return ElemIdToCodeNative(etCity, citiesRow.id);
 }
 
 std::string cityName(const std::string& city)
 {
-    const TCitiesRow& citiesRow = (TCitiesRow&)base_tables.get("cities").get_row("code", city);
+    const TCitiesRow& citiesRow = dynamic_cast<const TCitiesRow&>(base_tables.get("cities").get_row("code", city));
     return ElemIdToNameShort(etCity, citiesRow.id);
 }
 

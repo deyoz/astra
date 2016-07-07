@@ -1976,9 +1976,6 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 boost::shared_ptr<PrintDataParser> parser;
                 parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(xmlSeg.airp_dep,
                                                                                 xmlSeg.airp_arv));
-                // дата вылета
-                BASIC::TDateTime est_act_scd = ASTRA::NoExists;
-                BASIC::StrToDateTime(xmlSeg.trip_header.scd_out_local.c_str(), est_act_scd);
 
                 // билет/купон
                 std::ostringstream tickCpn;
@@ -1990,7 +1987,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 std::ostringstream fullName;
                 fullName << xmlPax.surname << " " << xmlPax.name;
 
-                parser->pts.set_tag(TAG::ACT,           est_act_scd);
+                parser->pts.set_tag(TAG::ACT,           xmlSeg.trip_header.scd_out_local);
                 parser->pts.set_tag(TAG::AIRLINE,       xmlSeg.trip_header.airline);
                 parser->pts.set_tag(TAG::AIRLINE_NAME,  xmlSeg.trip_header.airline);
                 parser->pts.set_tag(TAG::AIRLINE_SHORT, xmlSeg.trip_header.airline);
@@ -2011,7 +2008,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 parser->pts.set_tag(TAG::CLASS_NAME,    xmlSeg.cls);
                 parser->pts.set_tag(TAG::DOCUMENT,      xmlPax.doc ? xmlPax.doc->no : "");
                 parser->pts.set_tag(TAG::DUPLICATE,     0); // TODO get it
-                parser->pts.set_tag(TAG::EST,           est_act_scd);
+                parser->pts.set_tag(TAG::EST,           xmlSeg.trip_header.scd_out_local);
                 parser->pts.set_tag(TAG::ETICKET_NO,    tickCpn.str());
                 parser->pts.set_tag(TAG::ETKT,          tickCpn.str());
                 parser->pts.set_tag(TAG::EXCESS,        0); // TODO get it
@@ -2039,7 +2036,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 parser->pts.set_tag(TAG::REM,           ""); // TODO get it
                 parser->pts.set_tag(TAG::RK_AMOUNT,      0); // TODO get it
                 parser->pts.set_tag(TAG::RK_WEIGHT,      0); // TODO get it
-                parser->pts.set_tag(TAG::SCD,           est_act_scd);
+                parser->pts.set_tag(TAG::SCD,           xmlSeg.trip_header.scd_out_local);
                 parser->pts.set_tag(TAG::SEAT_NO,       xmlPax.seat_no);
                 parser->pts.set_tag(TAG::STR_SEAT_NO,   xmlPax.seat_no);
                 parser->pts.set_tag(TAG::SUBCLS,        xmlPax.subclass);

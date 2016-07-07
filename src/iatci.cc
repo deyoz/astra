@@ -506,6 +506,19 @@ static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::Requ
     return grpId;
 }
 
+static void specialPlfErrorHandler(xmlNodePtr reqNode, const std::string& errCode)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " called for err:" << errCode;
+    if(edifact::getInnerErrByErd(errCode) == Ticketing::AstraErr::PAX_SURNAME_NOT_CHECKED_IN) {
+        int grpId = getGrpId(reqNode, NULL, IatciInterface::Plf);
+        ASSERT(grpId > 0);
+        if(!iatci::IatciXmlDb::load(grpId).empty()) {
+            LogWarning(STDLOG) << "Group " << grpId << " marked as checked-in at our side but not checked-in at iatci-partner side. Drop iatci information...";
+            iatci::IatciXmlDb::del(grpId);
+        }
+    }
+}
+
 static std::string getIatciPult()
 {
     return TReqInfo::Instance()->desk.code;
@@ -546,19 +559,19 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
 
     iatci::PaxDetails ediPax(pax.surname,
                              pax.name,
-                             iatci::PaxDetails::strToType(pax.pers_type));
+                             astra2iatci(DecodePerson(pax.pers_type.c_str())));
 
     iatci::FlightDetails ediFlight(firstEdiSeg.mark_flight.airline,
-                                   Ticketing::getFlightNum(firstEdiSeg.mark_flight.flt_no),
+                                   Ticketing::FlightNum_t(firstEdiSeg.mark_flight.flt_no),
                                    firstEdiSeg.airp_dep,
                                    firstEdiSeg.airp_arv,
-                                   BASIC::boostDateTimeFromAstraFormatStr(firstEdiSeg.mark_flight.scd).date());
+                                   BASIC::DateTimeToBoost(firstEdiSeg.mark_flight.scd).date());
 
     iatci::FlightDetails ownFlight(ownSeg.mark_flight.airline,
-                                   Ticketing::getFlightNum(ownSeg.mark_flight.flt_no),
+                                   Ticketing::FlightNum_t(ownSeg.mark_flight.flt_no),
                                    ownSeg.airp_dep,
                                    ownSeg.airp_arv,
-                                   BASIC::boostDateTimeFromAstraFormatStr(ownSeg.mark_flight.scd).date());
+                                   BASIC::DateTimeToBoost(ownSeg.mark_flight.scd).date());
 
     boost::optional<iatci::SeatDetails> ediSeat;
     if(!pax.seat_no.empty()) {
@@ -929,9 +942,6 @@ bool IatciInterface::UpdateRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
         return true; /*req was sent*/
     }
 
-    // выставим "was_sent_iatci" в значение false, т.к. запрос не был послан
-    ReqParams(reqNode).setBoolParam("was_sent_iatci", false);
-
     return false; /*req was NOT sent*/
 }
 
@@ -1098,12 +1108,12 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
                     AstraLocale::showProgError(remRes->remark());
                 } else {
                     if(!remRes->ediErrCode().empty()) {
-                        AstraLocale::showProgError(getInnerErrByErd(remRes->ediErrCode()));
+                        AstraLocale::showMessage(getInnerErrByErd(remRes->ediErrCode()));
                     } else {
                         AstraLocale::showProgError("Ошибка обработки в удалённой DCS"); // TODO #25409
                     }
                 }
-                KickHandler_onFailure(reqCtxtId, termReqCtxt.node(), resNode, lRes);
+                KickHandler_onFailure(reqCtxtId, termReqCtxt.node(), resNode, lRes, remRes->ediErrCode());
             }
         }
     }
@@ -1157,9 +1167,11 @@ void IatciInterface::KickHandler_onSuccess(int ctxtId,
 void IatciInterface::KickHandler_onFailure(int ctxtId,
                                            xmlNodePtr initialReqNode,
                                            xmlNodePtr resNode,
-                                           const std::list<iatci::Result>& lRes)
+                                           const std::list<iatci::Result>& lRes,
+                                           const std::string& errCode)
 {
     FuncIn(KickHandler_onFailure);
+    ReqParams(initialReqNode).setBoolParam("after_kick", true);
     ASSERT(!lRes.empty());
     switch(lRes.front().action())
     {
@@ -1172,8 +1184,12 @@ void IatciInterface::KickHandler_onFailure(int ctxtId,
         }
         break;
 
-    case iatci::Result::Reprint:
     case iatci::Result::Passlist:
+        specialPlfErrorHandler(initialReqNode, errCode);
+        CheckInInterface::LoadPax(initialReqNode, resNode);
+        break;
+
+    case iatci::Result::Reprint:
     case iatci::Result::Seatmap:
     case iatci::Result::SeatmapForPassenger:
         // ; NOP
@@ -1198,6 +1214,9 @@ void IatciInterface::DoKickAction(int ctxtId,
                                   RequestType reqType,
                                   KickAction act)
 {
+    FuncIn(DoKickAction);
+    ReqParams(reqNode).setBoolParam("after_kick", true);
+
     XMLDoc iatciResCtxt = iatci::createXmlDoc("<iatci_result/>");
     xmlNodePtr iatciResNode = NodeAsNode(std::string("/iatci_result").c_str(), iatciResCtxt.docPtr());
     xmlNodePtr segmentsNode = newChild(iatciResNode, "segments");
@@ -1211,8 +1230,7 @@ void IatciInterface::DoKickAction(int ctxtId,
     {
     case ActSavePax:
     {
-        int sp = CheckInInterface::SavePax(reqNode, ediResCtxt.node(), resNode);
-        ASSERT(sp);
+        ASSERT(CheckInInterface::SavePax(reqNode, ediResCtxt.node(), resNode));
         int grpId = SaveIatciPax(lRes, reqType, iatciResNode, reqNode, resNode);
         CheckInInterface::LoadIatciPax(NULL, resNode, grpId, false);
     }
@@ -1237,7 +1255,6 @@ void IatciInterface::DoKickAction(int ctxtId,
 
     case ActLoadPax:
     {
-        ReqParams(reqNode).setBoolParam("need_sync", false);
         SaveIatciPax(lRes, reqType, iatciResNode, reqNode, resNode);
         CheckInInterface::LoadPax(reqNode, resNode);
     }
@@ -1245,7 +1262,6 @@ void IatciInterface::DoKickAction(int ctxtId,
 
     case ActReprint:
     {
-        ReqParams(reqNode).setBoolParam("after_kick", true);
         SaveIatciPax(lRes, reqType, iatciResNode, reqNode, resNode);
         PrintInterface::GetPrintDataBP(reqNode, resNode);
     }
@@ -1254,6 +1270,7 @@ void IatciInterface::DoKickAction(int ctxtId,
     default:
         throw EXCEPTIONS::Exception("Can't be here!");
     }
+    FuncOut(DoKickAction);
 }
 
 void IatciInterface::RollbackChangeOfStatus(int ctxtId)

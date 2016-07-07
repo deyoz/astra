@@ -1936,7 +1936,7 @@ string TPrnTagStore::EXCESS(TFieldParams fp)
 string TPrnTagStore::FLT_NO(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        const std::string flt_no = boost::any_cast<std::string>(fp.TagInfo);
+        const int flt_no = boost::any_cast<int>(fp.TagInfo);
         ostringstream result;
         result << setw(3) << setfill('0') << flt_no;
         return result.str();

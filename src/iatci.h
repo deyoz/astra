@@ -57,7 +57,8 @@ protected:
                                const std::list<iatci::Result>& lRes);
     void KickHandler_onFailure(int ctxtId, xmlNodePtr initialReqNode,
                                xmlNodePtr resNode,
-                               const std::list<iatci::Result>& lRes);
+                               const std::list<iatci::Result>& lRes,
+                               const std::string& errCode);
     void KickHandler_onTimeout(int ctxtId, xmlNodePtr initialReqNode, xmlNodePtr resNode);
 
     // Kick handlers
