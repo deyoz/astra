@@ -1,5 +1,7 @@
 #pragma once
 
+#include "astra_msg.h"
+
 #include <jxtlib/JxtInterface.h>
 
 #include <list>
@@ -58,7 +60,7 @@ protected:
     void KickHandler_onFailure(int ctxtId, xmlNodePtr initialReqNode,
                                xmlNodePtr resNode,
                                const std::list<iatci::Result>& lRes,
-                               const std::string& errCode);
+                               const Ticketing::AstraMsg_t& errCode);
     void KickHandler_onTimeout(int ctxtId, xmlNodePtr initialReqNode, xmlNodePtr resNode);
 
     // Kick handlers
