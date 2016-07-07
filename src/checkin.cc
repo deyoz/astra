@@ -3303,15 +3303,19 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         // в тэге "was_sent_iatci"
         if(ReqParams(reqNode).getBoolParam("may_need_send_iatci"))
         {
-            if(IatciInterface::WillBeSentCheckInRequest(reqNode, ediResNode)) {
+            bool willSentIatci = IatciInterface::WillBeSentCheckInRequest(reqNode, ediResNode);
+            if(willSentIatci) {
                 sp.rollback(); // опять откат, если будет послан iatci-запрос
             }
 
             // снимем флаг необходимости посылки iatci-запроса
             ReqParams(reqNode).setBoolParam("may_need_send_iatci", false);
             transformSavePaxRequestByIatci(reqNode, AfterSaveInfoList.front().segs.front().grp_id);
+            // выставим флаг факта посылки iatci-запроса. Может быть изменён в false,
+            // если update не затронет edifact-вкладки
+            ReqParams(reqNode).setBoolParam("was_sent_iatci", willSentIatci);
             bool wasSentIatci = IatciInterface::DispatchCheckInRequest(reqNode, ediResNode);
-            ReqParams(reqNode).setBoolParam("was_sent_iatci", wasSentIatci);
+            ASSERT(wasSentIatci == willSentIatci);
             if(wasSentIatci) {
                 return true; // послали iatci-запрос - выходим. Вернёмся после получения ответа
             }
@@ -6769,6 +6773,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
 void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int grpId, bool needSync)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " grpId:" << grpId << "; needSync:" << needSync;
+
     std::string xmlData = iatci::IatciXmlDb::load(grpId);
     if(!xmlData.empty())
     {
@@ -6776,11 +6781,7 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int 
             IatciInterface::PasslistRequest(reqNode, grpId);
             return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
         }
-        XMLDoc xmlDoc;
-        xmlDoc.set(ConvertCodepage(xmlData, "CP866", "UTF-8"));
-        if(xmlDoc.docPtr() == NULL)
-            throw EXCEPTIONS::Exception("IATCI XML has wrong format!");
-        xml_decode_nodelist(xmlDoc.docPtr()->children);
+        XMLDoc xmlDoc = iatci::createXmlDoc(xmlData);
 
         xmlNodePtr srcSegsNode = findNodeR(xmlDoc.docPtr()->children, "segments");
         ASSERT(srcSegsNode != NULL);

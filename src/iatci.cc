@@ -573,12 +573,32 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
                                    ownSeg.airp_arv,
                                    BASIC::DateTimeToBoost(ownSeg.mark_flight.scd).date());
 
+    boost::optional<iatci::ServiceDetails> ediServices;
+    if(pax.rems) {
+        std::list<iatci::ServiceDetails::SsrInfo> lSsr;
+        for(auto& rem: pax.rems->rems) {
+            lSsr.push_back(iatci::ServiceDetails::SsrInfo(rem.rem_code,
+                                                          "",
+                                                          false,
+                                                          rem.rem_text));
+        }
+        ediServices = iatci::ServiceDetails(lSsr);
+    }
+
     boost::optional<iatci::SeatDetails> ediSeat;
     if(!pax.seat_no.empty()) {
         ediSeat = iatci::SeatDetails(pax.seat_no);
     }
 
-    return iatci::CkiParams(ediOrg, ediPax, ediFlight, ownFlight, ediSeat);
+    return iatci::CkiParams(ediOrg,
+                            ediPax,
+                            ediFlight,
+                            ownFlight,
+                            ediSeat,
+                            boost::none,
+                            boost::none,
+                            boost::none,
+                            ediServices);
 }
 
 static iatci::OriginatorDetails getOrigDetails(int grpId)
