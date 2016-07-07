@@ -55,12 +55,13 @@ TRemCategory getRemCategory( const string &rem_code, const string &rem_text )
 
 bool isDisabledRemCategory( TRemCategory cat )
 {
-  return cat==remTKN || cat==remDOC || cat==remDOCO || cat==remDOCA || cat==remASVC;
+  return cat==remTKN || cat==remDOC || cat==remDOCO || cat==remDOCA || cat==remASVC || cat==remFQT;
 };
 
-bool isDisabledRem( const string &rem_code, const string &rem_text )
+bool isDisabledRem( const string &rem_code, const string &rem_text)
 {
-  return isDisabledRemCategory(getRemCategory(rem_code, rem_text));
+  TRemCategory cat=getRemCategory(rem_code, rem_text);
+  return isDisabledRemCategory(cat);
 };
 
 const char *ReadonlyRemCodes[]=
@@ -261,6 +262,40 @@ string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &term)
 namespace CheckIn
 {
 
+std::string TPaxRemBasic::RemoveTrailingChars(const std::string &str, const std::string &chars) const
+{
+  size_t pos=str.find_last_not_of(chars);
+  if (pos!=string::npos)
+    return str.substr(0, pos+1);
+  else
+    return "";
+}
+
+std::string TPaxRemBasic::rem_text(bool inf_indicator, const std::string& lang, TLangApplying fmt) const
+{
+  if (empty()) return "";
+  bool strictly_lat=lang!=AstraLocale::LANG_RU && fmt==applyLangForAll;
+  bool translit_lat=lang!=AstraLocale::LANG_RU && (fmt==applyLangForAll || fmt==applyLangForTranslit);
+  bool language_lat=lang!=AstraLocale::LANG_RU && (fmt==applyLangForAll || fmt==applyLangForTranslit || fmt==applyLang);
+  return get_rem_text(inf_indicator, lang, strictly_lat, translit_lat, language_lat);
+}
+
+std::string TPaxRemBasic::rem_text(bool inf_indicator) const
+{
+  return rem_text(inf_indicator, AstraLocale::LANG_RU, applyLang);
+}
+
+int TPaxRemBasic::get_priority() const
+{
+  int priority=ASTRA::NoExists;
+  try
+  {
+    priority=base_tables.get("CKIN_REM_TYPES").get_row("code",rem_code()).AsInteger("priority");
+  }
+  catch (EBaseTableError) {};
+  return priority;
+}
+
 TPaxRemItem::TPaxRemItem(const std::string &rem_code,
                          const std::string &rem_text)
 {
@@ -268,7 +303,25 @@ TPaxRemItem::TPaxRemItem(const std::string &rem_code,
   code=rem_code;
   text=rem_text;
   calcPriority();
-};
+}
+
+TPaxRemItem::TPaxRemItem(const TPaxRemBasic &basic,
+                         bool inf_indicator, const std::string &lang, TLangApplying fmt)
+{
+  clear();
+  code=basic.rem_code();
+  text=basic.rem_text(inf_indicator, lang, fmt);
+  calcPriority();
+}
+
+TPaxRemItem::TPaxRemItem(const TPaxRemBasic &basic,
+                         bool inf_indicator)
+{
+  clear();
+  code=basic.rem_code();
+  text=basic.rem_text(inf_indicator);
+  calcPriority();
+}
 
 const TPaxRemItem& TPaxRemItem::toXML(xmlNodePtr node) const
 {
@@ -313,13 +366,28 @@ TPaxRemItem& TPaxRemItem::fromDB(TQuery &Qry)
 
 void TPaxRemItem::calcPriority()
 {
-  priority=ASTRA::NoExists;
-  try
+  priority=get_priority();
+}
+
+std::string TPaxRemItem::get_rem_text(bool inf_indicator,
+                                      const std::string& lang,
+                                      bool strictly_lat,
+                                      bool translit_lat,
+                                      bool language_lat) const
+{
+  if (!code.empty() && text.substr(0,code.size())==code)
   {
-    priority=base_tables.get("CKIN_REM_TYPES").get_row("code",code).AsInteger("priority");
+    ostringstream result;
+    result << ElemIdToPrefferedElem(etCkinRemType, code, efmtCodeNative, lang);
+    if (!result.str().empty())
+    {
+      result << transliter(text.substr(code.size()), 1, translit_lat);
+      return result.str();
+    }
   }
-  catch (EBaseTableError) {};
-};
+
+  return transliter(text, 1, translit_lat);
+}
 
 const TPaxFQTItem& TPaxFQTItem::toDB(TQuery &Qry) const
 {
@@ -327,6 +395,8 @@ const TPaxFQTItem& TPaxFQTItem::toDB(TQuery &Qry) const
   Qry.SetVariable("airline", airline);
   Qry.SetVariable("no", no);
   Qry.SetVariable("extra", extra);
+  Qry.SetVariable("tier_level", tier_level);
+  Qry.SetVariable("tier_level_confirm", (int)tier_level_confirm);
   return *this;
 };
 
@@ -337,8 +407,56 @@ TPaxFQTItem& TPaxFQTItem::fromDB(TQuery &Qry)
   airline=Qry.FieldAsString("airline");
   no=Qry.FieldAsString("no");
   extra=Qry.FieldAsString("extra");
+  if (Qry.GetFieldIndex("tier_level")>=0)
+    tier_level=Qry.FieldAsString("tier_level");
+  if (Qry.GetFieldIndex("tier_level_confirm")>=0)
+    tier_level_confirm=!Qry.FieldIsNULL("tier_level_confirm") &&
+                       Qry.FieldAsInteger("tier_level_confirm")!=0;
   return *this;
 };
+
+const TPaxFQTItem& TPaxFQTItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  xmlNodePtr remNode=NewTextChild(node,"fqt_rem");
+  NewTextChild(remNode, "rem_code", rem);
+  NewTextChild(remNode, "airline", airline);
+  NewTextChild(remNode, "no", no);
+  NewTextChild(remNode, "extra", extra, "");
+  NewTextChild(remNode, "tier_level", tier_level, "");
+  NewTextChild(remNode, "tier_level_confirm", (int)tier_level_confirm, (int)false);
+  return *this;
+};
+
+TPaxFQTItem& TPaxFQTItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  rem=NodeAsStringFast("rem_code", node2);
+  airline=NodeAsStringFast("airline", node2);
+  no=NodeAsStringFast("no", node2);
+  extra=NodeAsStringFast("extra", node2, "");
+  tier_level=NodeAsStringFast("tier_level", node2, "");
+  tier_level_confirm=NodeAsIntegerFast("tier_level_confirm", node2, (int)false)!=0;
+  return *this;
+};
+
+std::string TPaxFQTItem::get_rem_text(bool inf_indicator,
+                                      const std::string& lang,
+                                      bool strictly_lat,
+                                      bool translit_lat,
+                                      bool language_lat) const
+{
+  ostringstream result;
+  result << ElemIdToPrefferedElem(etCkinRemType, rem, efmtCodeNative, lang)
+         << " " << ElemIdToPrefferedElem(etAirline, airline, efmtCodeNative, lang)
+         << " " << (strictly_lat?transliter(convert_char_view(no, strictly_lat), 1, strictly_lat):no);
+  if (!extra.empty())
+    result << "/" << transliter(extra, 1, translit_lat);
+
+  return RemoveTrailingChars(result.str(), " ");
+}
 
 const TPaxASVCItem& TPaxASVCItem::toXML(xmlNodePtr node) const
 {
@@ -388,25 +506,26 @@ TPaxASVCItem& TPaxASVCItem::fromDB(TQuery &Qry)
   return *this;
 };
 
-std::string TPaxASVCItem::text(const std::string &rem_status) const
+std::string TPaxASVCItem::get_rem_text(bool inf_indicator,
+                                       const std::string& lang,
+                                       bool strictly_lat,
+                                       bool translit_lat,
+                                       bool language_lat) const
 {
-  ostringstream s;
-  s << "ASVC ";
-  if (!rem_status.empty())
-    s << rem_status << "1 ";
-  s << RFIC << "/"
-    << RFISC << "/"
-    << ssr_code << "/"
-    << service_name << "/"
-    << emd_type << "/";
-  if (!emd_no.empty())
-  {
-    s << emd_no;
-    if (emd_coupon!=ASTRA::NoExists)
-      s << "C" << emd_coupon;
-  };
-  return s.str();
-};
+  ostringstream result;
+  result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
+         << " HI1"
+         << " " << RFIC
+         << "/" << RFISC
+         << "/" << (strictly_lat && !IsAscii7(ssr_code)?"":ssr_code)
+         << "/" << transliter(service_name, 1, translit_lat)
+         << "/" << emd_type
+         << "/" << (strictly_lat?transliter(convert_char_view(emd_no, strictly_lat), 1, strictly_lat):emd_no);
+  if (emd_coupon!=ASTRA::NoExists)
+    result << "C" << emd_coupon;
+
+  return result.str();
+}
 
 std::string TPaxASVCItem::no_str() const
 {
@@ -415,14 +534,13 @@ std::string TPaxASVCItem::no_str() const
   if (emd_coupon!=ASTRA::NoExists)
     s << "/" << emd_coupon;
   else
-    if (emd_type=="A") s << "/?";
+    s << "/?";
   return s.str();
 };
 
 void TPaxASVCItem::rcpt_service_types(set<ASTRA::TRcptServiceType> &service_types) const
 {
   service_types.clear();
-  if (emd_type!="A") return;
   if (RFIC=="C")
   {
     service_types.insert(ASTRA::rstExcess);
@@ -434,7 +552,7 @@ void TPaxASVCItem::rcpt_service_types(set<ASTRA::TRcptServiceType> &service_type
   };
 };
 
-bool LoadPaxRem(int pax_id, bool withFQTcat, vector<TPaxRemItem> &rems)
+bool LoadPaxRem(int pax_id, vector<TPaxRemItem> &rems, bool withFQT)
 {
   rems.clear();
   const char* sql=
@@ -449,9 +567,18 @@ bool LoadPaxRem(int pax_id, bool withFQTcat, vector<TPaxRemItem> &rems)
     TPaxRemItem rem;
     rem.fromDB(PaxRemQry.get());
     TRemCategory cat=getRemCategory(rem.code, rem.text);
-    if (cat==remUnknown || (cat==remFQT && withFQTcat))
-      rems.push_back(rem);
+    if (isDisabledRemCategory(cat)) continue;
+    rems.push_back(rem);
   };
+
+  if (withFQT)
+  {
+    vector<TPaxFQTItem> fqts;
+    LoadPaxFQT(pax_id, fqts);
+    for(vector<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
+      rems.push_back(TPaxRemItem(*r, false));
+  }
+
   return !rems.empty();
 };
 
@@ -512,7 +639,7 @@ bool SyncPaxASVC(int id, bool is_grp_id)
     "      rfic IS NOT NULL AND "
     "      rfisc IS NOT NULL AND "
     "      service_name IS NOT NULL AND "
-    "      emd_type='A' AND "
+    "      emd_type IS NOT NULL AND "
     "      emd_no IS NOT NULL AND "
     "      emd_coupon IS NOT NULL AND ";
   if (is_grp_id)
@@ -531,7 +658,7 @@ bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
 {
   asvc.clear();
   const char* sql=
-    "SELECT * FROM pax_asvc WHERE pax_id=:pax_id AND emd_type='A'";
+    "SELECT * FROM pax_asvc WHERE pax_id=:pax_id";
   const char* crs_sql=
     "SELECT * FROM crs_pax_asvc "
     "WHERE pax_id=:pax_id AND "
@@ -539,7 +666,7 @@ bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
     "      rfic IS NOT NULL AND "
     "      rfisc IS NOT NULL AND "
     "      service_name IS NOT NULL AND "
-    "      emd_type='A' AND "
+    "      emd_type IS NOT NULL AND "
     "      emd_no IS NOT NULL AND "
     "      emd_coupon IS NOT NULL ";
 
@@ -613,6 +740,33 @@ void SavePaxRem(int pax_id, const vector<TPaxRemItem> &rems)
   };
 };
 
+void SyncFQTTierLevel(int pax_id, bool from_crs, vector<TPaxFQTItem> &fqts)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
+  {
+    if (pax_id==ASTRA::NoExists) return;
+    if (fqts.empty()) return;
+    //сохраняем tier_level
+    vector<TPaxFQTItem> prior_fqts;
+    if (from_crs)
+      LoadCrsPaxFQT(pax_id, prior_fqts);
+    else
+      LoadPaxFQT(pax_id, prior_fqts);
+
+    for(vector<TPaxFQTItem>::iterator curr=fqts.begin(); curr!=fqts.end(); ++curr)
+      for(vector<TPaxFQTItem>::const_iterator prior=prior_fqts.begin(); prior!=prior_fqts.end(); ++prior)
+        if (curr->airline==prior->airline &&
+            curr->no==prior->no &&
+            !prior->tier_level.empty() &&
+            curr->tier_level.empty())
+        {
+          curr->tier_level=prior->tier_level;
+          curr->tier_level_confirm=prior->tier_level_confirm;
+        }
+  }
+}
+
 void SavePaxFQT(int pax_id, const vector<TPaxFQTItem> &fqts)
 {
   TQuery FQTQry(&OraSession);
@@ -622,12 +776,14 @@ void SavePaxFQT(int pax_id, const vector<TPaxFQTItem> &fqts)
   FQTQry.Execute();
 
   FQTQry.SQLText=
-    "INSERT INTO pax_fqt(pax_id,rem_code,airline,no,extra) "
-    "VALUES(:pax_id,:rem_code,:airline,:no,:extra)";
+    "INSERT INTO pax_fqt(pax_id,rem_code,airline,no,extra,tier_level,tier_level_confirm) "
+    "VALUES(:pax_id,:rem_code,:airline,:no,:extra,:tier_level,:tier_level_confirm)";
   FQTQry.DeclareVariable("rem_code",otString);
   FQTQry.DeclareVariable("airline",otString);
   FQTQry.DeclareVariable("no",otString);
   FQTQry.DeclareVariable("extra",otString);
+  FQTQry.DeclareVariable("tier_level",otString);
+  FQTQry.DeclareVariable("tier_level_confirm",otInteger);
   for(vector<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
   {
     r->toDB(FQTQry);
@@ -823,11 +979,11 @@ void SyncPaxRemOrigin(const boost::optional<TRemGrp> &rem_grp,
 
 void PaxRemAndASVCFromDB(int pax_id,
                          bool from_crs,
-                         std::vector<TPaxRemItem> &rems_and_asvc,
-                         std::vector<TPaxASVCItem> &asvc)
+                         std::vector<TPaxRemItem> &rems_and_asvc)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
   rems_and_asvc.clear();
-  asvc.clear();
+  std::vector<TPaxASVCItem> asvc;
 
   if (from_crs)
   {
@@ -836,21 +992,48 @@ void PaxRemAndASVCFromDB(int pax_id,
   }
   else
   {
-    LoadPaxRem(pax_id, true, rems_and_asvc);
+    LoadPaxRem(pax_id, rems_and_asvc);
     LoadPaxASVC(pax_id, asvc);
   };
 
-  for(vector<CheckIn::TPaxRemItem>::iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end();)
+  for(vector<TPaxRemItem>::iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end();)
   {
     if (isDisabledRem(r->code, r->text))
       r=rems_and_asvc.erase(r);
     else
       ++r;
   };
-  for(vector<CheckIn::TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
+  for(vector<TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
   {
-    rems_and_asvc.push_back(CheckIn::TPaxRemItem("ASVC", r->text("HI")));
+    rems_and_asvc.push_back(TPaxRemItem(*r, false, reqInfo->desk.lang, applyLang));
   };
+
+  if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
+  {
+    std::vector<TPaxFQTItem> fqts;
+
+    if (from_crs)
+      LoadCrsPaxFQT(pax_id, fqts);
+    else
+      LoadPaxFQT(pax_id, fqts);
+
+    for(vector<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
+    {
+      rems_and_asvc.push_back(TPaxRemItem(*r, false, reqInfo->desk.lang, applyLang));
+    };
+  }
+}
+
+void PaxFQTFromDB(int pax_id,
+                  bool from_crs,
+                  std::vector<TPaxFQTItem> &fqts)
+{
+  fqts.clear();
+
+  if (from_crs)
+    LoadCrsPaxFQT(pax_id, fqts);
+  else
+    LoadPaxFQT(pax_id, fqts);
 }
 
 void PaxRemAndASVCToXML(const std::vector<TPaxRemItem> &rems_and_asvc,
@@ -859,7 +1042,17 @@ void PaxRemAndASVCToXML(const std::vector<TPaxRemItem> &rems_and_asvc,
   if (node==NULL) return;
 
   xmlNodePtr remsNode=NewTextChild(node,"rems");
-  for(vector<TPaxRemItem>::const_iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end();++r)
+  for(vector<TPaxRemItem>::const_iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end(); ++r)
+    r->toXML(remsNode);
+}
+
+void PaxFQTToXML(const std::vector<TPaxFQTItem> &fqts,
+                 xmlNodePtr node)
+{
+  if (node==NULL) return;
+
+  xmlNodePtr remsNode=NewTextChild(node,"fqt_rems");
+  for(vector<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
     r->toXML(remsNode);
 }
 

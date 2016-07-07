@@ -8,6 +8,7 @@
 #include "ticket_types.h"
 #include "qrys.h"
 #include "etick/tick_data.h"
+#include "tlg/remote_results.h"
 
 namespace PaxASVCList
 {
@@ -193,7 +194,6 @@ class TPaxEMDItem : public CheckIn::TPaxASVCItem
 };
 
 void GetPaxEMD(int pax_id, std::multiset<TPaxEMDItem> &emds);
-bool PaxEMDFromDB(int pax_id, std::list<TPaxEMDItem> &emds);
 
 void ProcEdiEvent(const TLogLocale &event,
                   const TEdiCtxtItem &ctxt,
@@ -323,6 +323,6 @@ class EMDAutoBoundRegNo : public EMDAutoBoundId
     }
 };
 
-void handleEmdDispResponse(const std::string &tlg);
+void handleEmdDispResponse(const edifact::RemoteResults &remRes);
 
 #endif

@@ -208,6 +208,8 @@ string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists, string &base_emd
   ostringstream res;
   xmlNodePtr node2;
 
+  //ProgTrace(TRACE5, "%s: %s", __FUNCTION__, XMLTreeToText(doc.docPtr()).c_str());
+
   //PNR
   node2=NodeAsNode("recloc",node)->children;
   res << "PNR" << ": "
@@ -289,12 +291,15 @@ string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists, string &base_emd
       i->second.push_back(NodeAsStringFast("rfisc_code", node2));
       i->second.push_back(NodeAsStringFast("rfisc_desc", node2));
       i->second.push_back(NodeAsStringFast("coup_status", node2));
-      string assoc=NodeAsStringFast("associated_doc_num", node2);
-      RTrimString(assoc);
-      assoc+="/";
-      assoc+=NodeAsStringFast("associated_num", node2);
+      string assoc=NodeAsStringFast("associated_doc_num", node2, "");
+      if (!assoc.empty())
+      {
+        RTrimString(assoc);
+        assoc+="/";
+        assoc+=NodeAsStringFast("associated_num", node2);
+      };
       i->second.push_back(assoc);
-      i->second.push_back(NodeAsStringFast("association_status", node2));
+      i->second.push_back(NodeAsStringFast("association_status", node2, ""));
     };
 
     for(map<int, list<string> >::const_iterator r=coupons.begin(); r!=coupons.end(); ++r)
@@ -333,7 +338,7 @@ string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists, string &base_emd
       << "  " << getLocaleText("Всего") << ": " << NodeAsStringFast("total",node2) << endl
       << "  " << getLocaleText("Оплата") << ": " << NodeAsStringFast("payment",node2) << endl;
 
-  return res.str();  
+  return res.str();
 }
 
 }//namespace TickView

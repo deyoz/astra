@@ -197,7 +197,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
     SALONS2::TSalonList salonList;
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ),
                           SALONS2::isTranzitSalons( point_dep )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
-                          "" );
+                          "", NoExists );
     TSalonPassengers passengers;
     SALONS2::TGetPassFlags flags;
     flags.setFlag( SALONS2::gpPassenger ); //только пассажиров с местами
@@ -352,7 +352,7 @@ void getSalonLayers( int point_id,
   SALONS2::TSalonList salonList;
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ),
                         SALONS2::isTranzitSalons( point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
-                        "" );
+                        "", NoExists );
   SALONS2::TGetPassFlags flags;
   TSectionInfo sectionInfo;
   salonList.getSectionInfo( sectionInfo, flags );
@@ -1601,11 +1601,10 @@ namespace PRL_SPACE {
         Qry.get().Execute();
         for(; !Qry.get().Eof; Qry.get().Next())
         {
-            TRemCategory cat=getRemCategory(Qry.get().FieldAsString("rem_code"),
-                    Qry.get().FieldAsString("rem"));
-            if (isDisabledRemCategory(cat)) continue;
-            if (cat==remFQT) continue;
-            items.push_back(transliter(Qry.get().FieldAsString("rem"), 1, info.is_lat()));
+          TRemCategory cat=getRemCategory(Qry.get().FieldAsString("rem_code"),
+                                          Qry.get().FieldAsString("rem"));
+          if (isDisabledRemCategory(cat)) continue;
+          items.push_back(transliter(Qry.get().FieldAsString("rem"), 1, info.is_lat()));
         };
 
         bool inf_indicator=false; //сюда попадают только люди не infant и ремарки выводим только для этих людей
@@ -3154,6 +3153,12 @@ int calculate_btm_grp_len(const vector<string>::iterator &iv, const vector<strin
 struct TSSRItem {
     string code;
     string free_text;
+    bool operator < (const TSSRItem &item) const
+    {
+      if (code!=item.code)
+        return code<item.code;
+      return free_text<item.free_text;
+    };
 };
 
 struct TSSR {
@@ -3201,37 +3206,31 @@ void TSSR::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 
 void TSSR::get(const TRemGrp &ssr_rem_grp, int pax_id)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   rem_code, "
-        "   rem "
-        "from "
-        "   pax_rem "
-        "where "
-        "   pax_id = :pax_id "
-        "order by "
-        "   rem_code ";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.Execute();
-    if(!Qry.Eof) {
-        int col_rem_code = Qry.FieldIndex("rem_code");
-        int col_rem = Qry.FieldIndex("rem");
-        for(; !Qry.Eof; Qry.Next()) {
-            TSSRItem item;
-            item.code = Qry.FieldAsString(col_rem_code);
-            if(not ssr_rem_grp.exists(item.code))
-                continue;
-            item.free_text = Qry.FieldAsString(col_rem);
-            if (isDisabledRem(item.code, item.free_text)) continue;
-            if(item.code == item.free_text)
-                item.free_text.erase();
-            else
-                item.free_text = item.free_text.substr(item.code.size() + 1);
-            TrimString(item.free_text);
-            items.push_back(item);
-        }
-    }
+  vector<CheckIn::TPaxRemItem> rems;
+  CheckIn::LoadPaxRem(pax_id, rems);
+
+  vector<CheckIn::TPaxFQTItem> fqts;
+  CheckIn::LoadPaxFQT(pax_id, fqts);
+  for(vector<CheckIn::TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
+    rems.push_back(CheckIn::TPaxRemItem(*r, false));
+
+  for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
+  {
+    if(not ssr_rem_grp.exists(r->code)) continue;
+    TRemCategory cat=getRemCategory(r->code, r->text);
+    if (cat!=remFQT && isDisabledRemCategory(cat)) continue;
+    TSSRItem item;
+    item.code=r->code;
+    item.free_text=r->text;
+    if(item.code == item.free_text)
+      item.free_text.erase();
+    else
+      item.free_text = item.free_text.substr(item.code.size() + 1);
+    TrimString(item.free_text);
+    items.push_back(item);
+  };
+
+  sort(items.begin(), items.end());
 }
 
 struct TClsCmp {
@@ -4410,23 +4409,15 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
 {
     CheckIn::TPaxRemItem rem;
 
-    vector<CheckIn::TPaxASVCItem> asvc;
-    LoadPaxASVC(pax.pax_id, asvc);
-
-    std::list<TPaxEMDItem> emds;
-    PaxEMDFromDB(pax.pax_id, emds);
+    multiset<TPaxEMDItem> emds;
+    GetPaxEMD(pax.pax_id, emds);
 
     CheckIn::PaidBagEMDList &emdList = (*pax.grpEmds)[pax.grp_id];
 
-    for(CheckIn::PaidBagEMDList::iterator emdItem = emdList.begin(); emdItem != emdList.end(); emdItem++) {
-        if(emds.empty())
-            for(vector<CheckIn::TPaxASVCItem>::iterator AsvcItem = asvc.begin(); AsvcItem != asvc.end(); AsvcItem++) {
-                if(emdItem->first == *AsvcItem) pax.used_asvc.push_back(*AsvcItem);
-            }
-        else
-            for(list<TPaxEMDItem>::iterator EMDItem = emds.begin(); EMDItem != emds.end(); EMDItem++) {
-                if(emdItem->first == *EMDItem) pax.used_asvc.push_back(*EMDItem);
-            }
+    for(CheckIn::PaidBagEMDList::iterator emdItem = emdList.begin(); emdItem != emdList.end(); emdItem++)
+    {
+      for(multiset<TPaxEMDItem>::iterator EMDItem = emds.begin(); EMDItem != emds.end(); EMDItem++)
+        if(emdItem->first == *EMDItem) pax.used_asvc.push_back(*EMDItem);
     }
 
     if(not pax.used_asvc.empty()) {
@@ -4443,7 +4434,8 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
                 if (tkn.rem == "TKNE" and getPaxRem(info, tkn, true, rem)) items.push_back(rem.text);
             }
         }
-        getPaxRem(info, pax.used_asvc, items);
+        for(vector<CheckIn::TPaxASVCItem>::const_iterator asvc = pax.used_asvc.begin(); asvc != pax.used_asvc.end(); ++asvc)
+          if (getPaxRem(info, *asvc, false, rem)) items.push_back(rem.text);
     }
 }
 
@@ -4487,118 +4479,12 @@ struct TFTLDest {
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
 
-bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxTknItem &tkn, bool inf_indicator, CheckIn::TPaxRemItem &rem)
+bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxRemBasic &basic, bool inf_indicator, CheckIn::TPaxRemItem &rem)
 {
-  if (tkn.empty() || tkn.rem.empty()) return false;
-  rem.clear();
-  rem.code=tkn.rem;
-  ostringstream text;
-  text << rem.code << " HK1 " << (inf_indicator?"INF":"")
-       << transliter(convert_char_view(tkn.no, info.is_lat()), 1, info.is_lat());
-  if (tkn.coupon!=ASTRA::NoExists)
-    text << "/" << tkn.coupon;
-  rem.text=text.str();
-  rem.calcPriority();
+  if (basic.empty()) return false;
+  rem=CheckIn::TPaxRemItem(basic, inf_indicator, info.is_lat()?AstraLocale::LANG_EN:AstraLocale::LANG_RU, applyLangForAll);
   return true;
-};
-
-void getPaxRem(TypeB::TDetailCreateInfo &info, const vector<CheckIn::TPaxASVCItem> &asvc, vector<string> &items)
-{
-    for(vector<CheckIn::TPaxASVCItem>::const_iterator iv = asvc.begin(); iv != asvc.end(); iv++) {
-        ostringstream text;
-        text << "ASVC HI1 "; // Вообще говоря, возможно надо выводить все статусы, но в данный момент в pax_asvc только ремарки со статусом HI
-        text << iv->RFIC << "/" << iv->RFISC << "/";
-        if(IsAscii7(iv->ssr_code)) text << iv->ssr_code << "/"; // лат
-        text
-            << transliter(iv->service_name, 1, info.is_lat()) << "/"
-            << iv->emd_type << "/" // Вообще говоря, возможно надо выводить тип S, но в данный момент в pax_asvc только статус A
-            << iv->emd_no
-            << "C" << iv->emd_coupon;
-        items.push_back(text.str());
-    }
-};
-
-bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocItem &doc, bool inf_indicator, CheckIn::TPaxRemItem &rem)
-{
-  if (doc.empty()) return false;
-  rem.clear();
-  rem.code="DOCS";
-  ostringstream text;
-  text << rem.code
-       << " " << "HK1"
-       << "/" << (doc.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doc.type))
-       << "/" << (doc.issue_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.issue_country))
-       << "/" << transliter(convert_char_view(doc.no, info.is_lat()), 1, info.is_lat())
-       << "/" << (doc.nationality.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doc.nationality))
-       << "/" << (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", info.is_lat()):"")
-       << "/" << (doc.gender.empty()?"":info.TlgElemIdToElem(etGenderType, doc.gender)) << (inf_indicator?"I":"")
-       << "/" << (doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(doc.expiry_date, "ddmmmyy", info.is_lat()):"")
-       << "/" << transliter(doc.surname, 1, info.is_lat())
-       << "/" << transliter(doc.first_name, 1, info.is_lat())
-       << "/" << transliter(doc.second_name, 1, info.is_lat())
-       << "/" << (doc.pr_multi?"H":"");
-  rem.text=text.str();
-  for(int i=rem.text.size()-1;i>=0;i--)
-    if (rem.text[i]!='/')
-    {
-      rem.text.erase(i+1);
-      break;
-    };
-  rem.calcPriority();
-  return true;
-};
-
-bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocoItem &doco, bool inf_indicator, CheckIn::TPaxRemItem &rem)
-{
-  if (doco.empty()) return false;
-  rem.clear();
-  rem.code="DOCO";
-  ostringstream text;
-  text << rem.code
-       << " " << "HK1"
-       << "/" << transliter(doco.birth_place, 1, info.is_lat())
-       << "/" << (doco.type.empty()?"":info.TlgElemIdToElem(etPaxDocType, doco.type))
-       << "/" << transliter(convert_char_view(doco.no, info.is_lat()), 1, info.is_lat())
-       << "/" << transliter(doco.issue_place, 1, info.is_lat())
-       << "/" << (doco.issue_date!=ASTRA::NoExists?DateTimeToStr(doco.issue_date, "ddmmmyy", info.is_lat()):"")
-       << "/" << (doco.applic_country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doco.applic_country))
-       << "/" << (inf_indicator?"I":"");
-  rem.text=text.str();
-  for(int i=rem.text.size()-1;i>=0;i--)
-    if (rem.text[i]!='/')
-    {
-      rem.text.erase(i+1);
-      break;
-    };
-  rem.calcPriority();
-  return true;
-};
-
-bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocaItem &doca, bool inf_indicator, CheckIn::TPaxRemItem &rem)
-{
-  if (doca.empty()) return false;
-  rem.clear();
-  rem.code="DOCA";
-  ostringstream text;
-  text << rem.code
-       << " " << "HK1"
-       << "/" << doca.type
-       << "/" << (doca.country.empty()?"":info.TlgElemIdToElem(etPaxDocCountry, doca.country))
-       << "/" << transliter(doca.address, 1, info.is_lat())
-       << "/" << transliter(doca.city, 1, info.is_lat())
-       << "/" << transliter(doca.region, 1, info.is_lat())
-       << "/" << transliter(doca.postal_code, 1, info.is_lat())
-       << "/" << (inf_indicator?"I":"");
-  rem.text=text.str();
-  for(int i=rem.text.size()-1;i>=0;i--)
-    if (rem.text[i]!='/')
-    {
-      rem.text.erase(i+1);
-      break;
-    };
-  rem.calcPriority();
-  return true;
-};
+}
 
 void TRemList::internal_get(TypeB::TDetailCreateInfo &info, int pax_id, string subcls)
 {
@@ -6194,7 +6080,7 @@ struct TSR_S {
         const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
         if(options.seat_restrict.find('S') != string::npos) {
             SALONS2::TSalonList salonList;
-            salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "" );
+            salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
             SALONS2::TSectionInfo sectionInfo;
             SALONS2::TGetPassFlags flags;
             flags.clearFlags();
@@ -8301,7 +8187,7 @@ void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_t
 {
   //try verify its new code!!!
   SALONS2::TSalonList salonList;
-  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "" );
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
   SALONS2::TSectionInfo sectionInfo;
   SALONS2::TGetPassFlags flags;
   flags.clearFlags();

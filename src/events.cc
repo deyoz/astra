@@ -517,7 +517,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paxInfo.pr_brd=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
         paxInfo.pr_exam=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_exam") && Qry.FieldAsInteger("pr_exam")!=0;
         paxInfo.apis.fromDB(paxInfoKey.pax_id);
-        CheckIn::LoadPaxRem(paxInfoKey.pax_id, true, paxInfo.rems);
+        CheckIn::LoadPaxRem(paxInfoKey.pax_id, paxInfo.rems, true);
         sort(paxInfo.rems.begin(), paxInfo.rems.end());
       }
       else

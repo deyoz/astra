@@ -95,7 +95,7 @@ string GetSQL(const TListType ltype)
       sql << "        pax_grp.status NOT IN ('E') AND \n"
              "        pax.refuse IS NULL \n";
       if (pass==0)
-        sql << "        AND NOT EXISTS(SELECT 0 FROM pax_emd WHERE pax_id=pax.pax_id) \n"
+        sql << "        AND (e.emd_type='S' OR e.emd_type='A' AND NOT EXISTS(SELECT 0 FROM pax_emd WHERE pax_id=pax.pax_id)) \n"
                "  UNION \n";
     };
     sql << " ) a, \n"
@@ -167,7 +167,7 @@ string GetSQL(const TListType ltype)
         sql << "      pax.pax_id=:pax_id AND \n";
       sql << "      e.emd_no=:emd_no AND e.emd_coupon=:emd_coupon \n";
       if (pass==0)
-        sql << "      AND NOT EXISTS(SELECT 0 FROM pax_emd WHERE pax_id=pax.pax_id) \n"
+        sql << "      AND (e.emd_type='S' OR e.emd_type='A' AND NOT EXISTS(SELECT 0 FROM pax_emd WHERE pax_id=pax.pax_id)) \n"
                "UNION \n";
       else
         sql << "ORDER BY reg_no \n";
@@ -204,7 +204,7 @@ string GetSQL(const TListType ltype)
       };
       sql << "WHERE pax_id=:id \n";
       if (pass==0)
-        sql << "      AND NOT EXISTS(SELECT 0 FROM pax_emd WHERE pax_id=e.pax_id) \n"
+        sql << "      AND (e.emd_type='S' OR e.emd_type='A' AND NOT EXISTS(SELECT 0 FROM pax_emd WHERE pax_id=e.pax_id)) \n"
                "UNION \n";
     }
   }
@@ -277,7 +277,7 @@ void GetBoundPaidBagEMD(int grp_id, int trfer_num, CheckIn::PaidBagEMDList &emd)
     "       'C' AS rfic, "
     "       NULL AS ssr_code, "
     "       NULL AS service_name, "
-    "       'A' AS emd_type "
+    "       NULL AS emd_type "
     "FROM paid_bag_emd "
     "WHERE paid_bag_emd.grp_id=:grp_id AND "
     "      (:transfer_num IS NULL OR NVL(transfer_num,0)=:transfer_num)";
@@ -743,7 +743,7 @@ bool TPaxEMDItem::valid() const
           !emd_no_base.empty());
 }
 
-void GetPaxEMD(int pax_id, std::multiset<TPaxEMDItem> &emds)
+void GetPaxEMD(int pax_id, multiset<TPaxEMDItem> &emds)
 {
   emds.clear();
   TCachedQuery Qry(PaxASVCList::GetSQL(PaxASVCList::allByPaxId),
@@ -760,18 +760,6 @@ void GetPaxEMD(int pax_id, std::multiset<TPaxEMDItem> &emds)
     emds.insert(item);
   };
 }
-
-bool PaxEMDFromDB(int pax_id, list<TPaxEMDItem> &emds)
-{
-  emds.clear();
-  TCachedQuery Qry("SELECT * FROM pax_emd WHERE pax_id=:pax_id AND emd_type='A'",
-                   QParams() << QParam("pax_id", otInteger, pax_id));
-  Qry.get().Execute();
-  for(; !Qry.get().Eof; Qry.get().Next())
-    emds.push_back(TPaxEMDItem().fromDB(Qry.get()));
-
-  return !emds.empty();
-};
 
 void PaxEMDToDB(int pax_id, const list<TPaxEMDItem> &emds)
 {
@@ -794,7 +782,6 @@ void PaxEMDToDB(int pax_id, const list<TPaxEMDItem> &emds)
               << QParam("emd_no_base", otString));
   for(list<TPaxEMDItem>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
   {
-    if (e->emd_type!="A") continue;
     e->toDB(Qry.get());
     Qry.get().Execute();
   };
@@ -879,9 +866,9 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
   };
 }
 
-void handleEmdDispResponse(const std::string &tlg)
+void handleEmdDispResponse(const edifact::RemoteResults& remRes)
 {
-  std::list<Emd> emdList = EmdEdifactReader::readList(tlg);
+  std::list<Emd> emdList = EmdEdifactReader::readList(remRes.tlgSource());
   for(list<Emd>::const_iterator e=emdList.begin(); e!=emdList.end(); ++e)
   {
     const Emd &emd=*e;

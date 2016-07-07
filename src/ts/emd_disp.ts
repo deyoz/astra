@@ -293,3 +293,112 @@ $(lastRedisplay)
     </emd1>
   </answer>
 </term>
+
+
+%%
+#########################################################################################
+
+$(init_jxt_pult Œ‚Œ)
+$(login)
+$(init_eds ’ UTET UTDC)
+
+$(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š REPIN IVAN)
+
+$(SEARCH_EMD_BY_DOC_NO $(last_point_id_spp) 2988200000386)
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:791"
+ORG+’:Œ‚++++Y+::RU+Œ‚Œ"
+TKT+2988200000386"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+<<
+UNB+SIRE:1+ETP2+ETDT+160527:1125+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
+MSG+:791+3"
+TIF+’…‘’+’…‘’"
+TAI+2984+99ƒ‘:B"
+RCI+1H:09FB3W:1+UT:084M5S:1"
+MON+B:0.00:RUB+T:0.00:RUB"
+FOP+CA:3"
+PTK+++160516"
+ORG+1H:MOW+29842300:99ƒ‘+MOW++T+RU+1471+Œ‚Š…‘"
+EQN+1:TD"
+IFT+4:15:0"
+IFT+4:45+2982408014079/Œ‚/16Œ€‰16/29842300"
+IFT+4:8+71+‘€‚Š€  ˆ‘‹œ‡‚€ˆˆ “—€‘’Š€(‚)"
+IFT+4:10+€‹"
+IFT+4:41+01”…‚80"
+IFT+4:5+74951234567"
+IFT+4:23+Œ‚-’Œ YQ=650“+ZZ=0.00“+Œ‚-’Œ-Œ‚ ’€ˆ”=1100“"
+PTS+++++I"
+TKT+2988200000386:Y:1"
+CPN+1:B::E::::::6"
+TVL+180516:0815+VKO+TJM+UT+700"
+PTS++++++FNA"
+IFT+4:47+‘€‚Š€  ˆ‘. “—€‘’Š€(‚)"
+TKT+2988200000386:Y::4::2982408014079"
+UNT+25+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>> lines=auto
+    <kick...
+
+
+!! capture=on
+$(lastRedisplay)
+
+>> lines=auto
+    <passenger>
+      <surname>’…‘’</surname>
+      <kkp/>
+      <age/>
+      <name>’…‘’</name>
+    </passenger>
+    <recloc>
+      <awk>UT</awk>
+      <regnum>09FB3W</regnum>
+    </recloc>
+    <origin>
+      <date_of_issue>16Œ€‰16</date_of_issue>
+      <sys_addr>MOW 1H</sys_addr>
+      <ppr>29842300</ppr>
+      <agn>99ƒ‘</agn>
+      <opr_flpoint>MOW</opr_flpoint>
+      <authcode>1471</authcode>
+      <pult>Œ‚Š…‘</pult>
+    </origin>
+    <foid/>
+    <payment>
+      <fare>0.00RUB</fare>
+      <total>0.00RUB</total>
+      <payment>0.00 CA</payment>
+      <tax/>
+      <fare_calc/>
+    </payment>
+    <rfic>I</rfic>
+    <emd_type>S</emd_type>
+    <emd1>
+      <emd_num>2988200000386</emd_num>
+      <coupon refresh='true'>
+        <row index='0'>
+          <num index='0'>1</num>
+          <dep_date index='1'>180516</dep_date>
+          <dep_time index='2'>0815</dep_time>
+          <dep index='3'>VKO</dep>
+          <arr index='4'>TJM</arr>
+          <codea index='5'>UT</codea>
+          <flight index='6'>700</flight>
+          <amount index='7'>0.00</amount>
+          <rfisc_code index='8'>FNA</rfisc_code>
+          <rfisc_desc index='9'>‘€‚Š€  ˆ‘. “—€‘’Š€(‚)</rfisc_desc>
+          <sac index='10'/>
+          <coup_status index='11'>F</coup_status>
+        </row>
+      </coupon>
+    </emd1>

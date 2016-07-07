@@ -86,6 +86,7 @@ astra_SOURCES = \
   etick.cc \
   events.cc \
   external_spp_synch.cc \
+  ffp_sirena.cc \
   flt_binding.cc \
   file_queue.cc \
   hist.cc \
@@ -115,6 +116,7 @@ astra_SOURCES = \
   season.cc \
   seats_utils.cc \
   seats.cc \
+  sirena_exchange.cc \
   sofi.cc \
   sopp.cc \
   spp_cek.cc \
@@ -218,6 +220,7 @@ noinst_HEADERS = \
   etick.h \
   events.h \
   external_spp_synch.h \
+  ffp_sirena.h \
   flt_binding.h \
   file_queue.h \
   hist.h \
@@ -247,6 +250,7 @@ noinst_HEADERS = \
   season.h \
   seats_utils.h \
   seats.h \
+  sirena_exchange.h \
   sofi.h \
   sopp.h \
   spp_cek.h \

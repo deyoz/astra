@@ -18,12 +18,12 @@
 const size_t PART_SIZE = 3000;
 
 struct TTlgCompLayer {
-	int pax_id;
-	int point_dep;
-	int point_arv;
-	ASTRA::TCompLayerType layer_type;
-	std::string xname;
-	std::string yname;
+    int pax_id;
+    int point_dep;
+    int point_arv;
+    ASTRA::TCompLayerType layer_type;
+    std::string xname;
+    std::string yname;
 };
 
 
@@ -68,11 +68,7 @@ class TTlgStat
     doneTypeBOut()*/
 };
 
-bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxTknItem &tkn, bool inf_indicator, CheckIn::TPaxRemItem &rem);
-bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocItem &doc, bool inf_indicator, CheckIn::TPaxRemItem &rem);
-bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocoItem &doco, bool inf_indicator, CheckIn::TPaxRemItem &rem);
-bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxDocaItem &doca, bool inf_indicator, CheckIn::TPaxRemItem &rem);
-void getPaxRem(TypeB::TDetailCreateInfo &info, const std::vector<CheckIn::TPaxASVCItem> &asvc, std::vector<std::string> &items);
+bool getPaxRem(TypeB::TDetailCreateInfo &info, const CheckIn::TPaxRemBasic &basic, bool inf_indicator, CheckIn::TPaxRemItem &rem);
 
 // stuff used to form seat ranges in tlgs
 struct TTlgPlace {
@@ -254,7 +250,7 @@ void LoadContent(int grp_id, TTlgContent& con);
 void CompareContent(const TTlgContent& con1, const TTlgContent& con2, std::vector<TTlgContent>& bsms);
 
 struct TBSMAddrs {
-    std::vector<TypeB::TCreateInfo> createInfo;    
+    std::vector<TypeB::TCreateInfo> createInfo;
     bool empty() const { return createInfo.empty(); }
 };
 bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs );

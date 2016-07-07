@@ -281,10 +281,11 @@ class TCompLayerTypes {
     }
 };
 
-}; //
+};
 
 
 void GetDataForDrawSalon( xmlNodePtr reqNode, xmlNodePtr resNode);
+void getTariffColors( std::map<std::string,std::string> &colors );
 
 #endif /*_IMAGES_H_*/
 

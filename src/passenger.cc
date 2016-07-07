@@ -99,6 +99,21 @@ long int TPaxTknItem::getNotEmptyFieldsMask() const
   return result;
 };
 
+std::string TPaxTknItem::get_rem_text(bool inf_indicator,
+                                      const std::string& lang,
+                                      bool strictly_lat,
+                                      bool translit_lat,
+                                      bool language_lat) const
+{
+  ostringstream result;
+  result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
+         << " HK1 " << (inf_indicator?"INF":"")
+         << (strictly_lat?transliter(convert_char_view(no, strictly_lat), 1, strictly_lat):no);
+  if (coupon!=ASTRA::NoExists)
+    result << "/" << coupon;
+  return result.str();
+}
+
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn)
 {
   return LoadPaxTkn(ASTRA::NoExists, pax_id, tkn);
@@ -340,6 +355,30 @@ long int TPaxDocItem::getEqualAttrsFieldsMask(const TPaxDocItem &item) const
   return result;
 };
 
+std::string TPaxDocItem::get_rem_text(bool inf_indicator,
+                                      const std::string& lang,
+                                      bool strictly_lat,
+                                      bool translit_lat,
+                                      bool language_lat) const
+{
+  ostringstream result;
+  result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
+         << " HK1"
+         << "/" << (type.empty()?"":ElemIdToPrefferedElem(etPaxDocType, type, efmtCodeNative, lang))
+         << "/" << (issue_country.empty()?"":ElemIdToPrefferedElem(etPaxDocCountry, issue_country, efmtCodeNative, lang))
+         << "/" << (strictly_lat?transliter(convert_char_view(no, strictly_lat), 1, strictly_lat):no)
+         << "/" << (nationality.empty()?"":ElemIdToPrefferedElem(etPaxDocCountry, nationality, efmtCodeNative, lang))
+         << "/" << (birth_date!=ASTRA::NoExists?DateTimeToStr(birth_date, "ddmmmyy", language_lat):"")
+         << "/" << (gender.empty()?"":ElemIdToPrefferedElem(etGenderType, gender, efmtCodeNative, lang)) << (inf_indicator?"I":"")
+         << "/" << (expiry_date!=ASTRA::NoExists?DateTimeToStr(expiry_date, "ddmmmyy", language_lat):"")
+         << "/" << transliter(surname, 1, translit_lat)
+         << "/" << transliter(first_name, 1, translit_lat)
+         << "/" << transliter(second_name, 1, translit_lat)
+         << "/" << (pr_multi?"H":"");
+
+  return RemoveTrailingChars(result.str(), "/");
+}
+
 bool TPaxDocoItem::needPseudoType() const
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -474,6 +513,26 @@ void TPaxDocoItem::ReplacePunctSymbols()
   transform(issue_place.begin(), issue_place.end(), issue_place.begin(), APIS::ReplacePunctSymbol);
 }
 
+std::string TPaxDocoItem::get_rem_text(bool inf_indicator,
+                                       const std::string& lang,
+                                       bool strictly_lat,
+                                       bool translit_lat,
+                                       bool language_lat) const
+{
+  ostringstream result;
+  result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
+         << " HK1"
+         << "/" << transliter(birth_place, 1, translit_lat)
+         << "/" << (type.empty()?"":ElemIdToPrefferedElem(etPaxDocType, type, efmtCodeNative, lang))
+         << "/" << (strictly_lat?transliter(convert_char_view(no, strictly_lat), 1, strictly_lat):no)
+         << "/" << transliter(issue_place, 1, translit_lat)
+         << "/" << (issue_date!=ASTRA::NoExists?DateTimeToStr(issue_date, "ddmmmyy", language_lat):"")
+         << "/" << (applic_country.empty()?"":ElemIdToPrefferedElem(etPaxDocCountry, applic_country, efmtCodeNative, lang))
+         << "/" << (inf_indicator?"I":"");
+
+  return RemoveTrailingChars(result.str(), "/");
+}
+
 const TPaxDocaItem& TPaxDocaItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -572,6 +631,26 @@ void TPaxDocaItem::ReplacePunctSymbols()
   transform(city.begin(), city.end(), city.begin(), APIS::ReplacePunctSymbol);
   transform(region.begin(), region.end(), region.begin(), APIS::ReplacePunctSymbol);
   transform(postal_code.begin(), postal_code.end(), postal_code.begin(), APIS::ReplacePunctSymbol);
+}
+
+std::string TPaxDocaItem::get_rem_text(bool inf_indicator,
+                                       const std::string& lang,
+                                       bool strictly_lat,
+                                       bool translit_lat,
+                                       bool language_lat) const
+{
+  ostringstream result;
+  result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
+         << " HK1"
+         << "/" << type
+         << "/" << (country.empty()?"":ElemIdToPrefferedElem(etPaxDocCountry, country, efmtCodeNative, lang))
+         << "/" << transliter(address, 1, translit_lat)
+         << "/" << transliter(city, 1, translit_lat)
+         << "/" << transliter(region, 1, translit_lat)
+         << "/" << transliter(postal_code, 1, translit_lat)
+         << "/" << (inf_indicator?"I":"");
+
+  return RemoveTrailingChars(result.str(), "/");
 }
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
@@ -1230,6 +1309,8 @@ const TAPISItem& TAPISItem::toXML(xmlNodePtr node) const
 
 TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
 {
+  TReqInfo *reqInfo=TReqInfo::Instance();
+
   clear();
   if (paxNode==NULL) return *this;
   xmlNodePtr node2=paxNode->children;
@@ -1249,6 +1330,12 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
       if (cat==remASVC) continue; //пропускаем переданные ASVC
       rems.push_back(rem);
     };
+    if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION))
+    {
+      //ремарки FQT
+      for(remNode=NodeAsNodeFast("fqt_rems",node2)->children; remNode!=NULL; remNode=remNode->next)
+        fqts.push_back(CheckIn::TPaxFQTItem().fromXML(remNode));
+    };
   };
   //нормы
   xmlNodePtr normNode=GetNodeFast("norms",node2);
@@ -1258,7 +1345,7 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
     for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
     {
       norms.get().push_back(WeightConcept::TPaxNormItem().fromXML(normNode));
-      if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+      if (!reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
       {
         if (norms.get().back().bag_type==99) norms.get().pop_back();
       };

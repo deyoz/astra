@@ -2593,121 +2593,12 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 }
 
-bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxTknItem &tkn, bool inf_indicator, CheckIn::TPaxRemItem &rem)
+bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxRemBasic &basic, bool inf_indicator, CheckIn::TPaxRemItem &rem)
 {
-  if (tkn.empty() || tkn.rem.empty()) return false;
-  rem.clear();
-  rem.code=tkn.rem;
-  ostringstream text;
-  text << rem.code << " HK1 " << (inf_indicator?"INF":"") << tkn.no;
-  if (tkn.coupon!=ASTRA::NoExists)
-    text << "/" << tkn.coupon;
-  rem.text=text.str();
-  rem.calcPriority();
+  if (basic.empty()) return false;
+  rem=CheckIn::TPaxRemItem(basic, inf_indicator, rpt_params.GetLang(), applyLangForTranslit);
   return true;
-};
-
-bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocItem &doc, bool inf_indicator, CheckIn::TPaxRemItem &rem)
-{
-  if (doc.empty()) return false;
-  rem.clear();
-  rem.code="DOCS";
-  bool pr_lat=rpt_params.GetLang() != AstraLocale::LANG_RU;
-  ostringstream text;
-  text << rem.code
-       << " " << "HK1"
-       << "/" << rpt_params.ElemIdToReportElem(etPaxDocType, doc.type, efmtCodeNative)
-       << "/" << rpt_params.ElemIdToReportElem(etPaxDocCountry, doc.issue_country, efmtCodeNative)
-       << "/" << doc.no
-       << "/" << rpt_params.ElemIdToReportElem(etPaxDocCountry, doc.nationality, efmtCodeNative)
-       << "/" << (doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "ddmmmyy", pr_lat):"")
-       << "/" << rpt_params.ElemIdToReportElem(etGenderType, doc.gender, efmtCodeNative) << (inf_indicator?"I":"")
-       << "/" << (doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(doc.expiry_date, "ddmmmyy", pr_lat):"")
-       << "/" << transliter(doc.surname, 1, pr_lat)
-       << "/" << transliter(doc.first_name, 1, pr_lat)
-       << "/" << transliter(doc.second_name, 1, pr_lat)
-       << "/" << (doc.pr_multi?"H":"");
-  rem.text=text.str();
-  for(int i=rem.text.size()-1;i>=0;i--)
-    if (rem.text[i]!='/')
-    {
-      rem.text.erase(i+1);
-      break;
-    };
-  rem.calcPriority();
-  return true;
-};
-
-bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocoItem &doco, bool inf_indicator, CheckIn::TPaxRemItem &rem)
-{
-  if (doco.empty()) return false;
-  rem.clear();
-  rem.code="DOCO";
-  bool pr_lat=rpt_params.GetLang() != AstraLocale::LANG_RU;
-  ostringstream text;
-  text << rem.code
-       << " " << "HK1"
-       << "/" << transliter(doco.birth_place, 1, pr_lat)
-       << "/" << rpt_params.ElemIdToReportElem(etPaxDocType, doco.type, efmtCodeNative)
-       << "/" << doco.no
-       << "/" << transliter(doco.issue_place, 1, pr_lat)
-       << "/" << (doco.issue_date!=ASTRA::NoExists?DateTimeToStr(doco.issue_date, "ddmmmyy", pr_lat):"")
-       << "/" << rpt_params.ElemIdToReportElem(etPaxDocCountry, doco.applic_country, efmtCodeNative)
-       << "/" << (inf_indicator?"I":"");
-  rem.text=text.str();
-  for(int i=rem.text.size()-1;i>=0;i--)
-    if (rem.text[i]!='/')
-    {
-      rem.text.erase(i+1);
-      break;
-    };
-  rem.calcPriority();
-  return true;
-};
-
-bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxDocaItem &doca, bool inf_indicator, CheckIn::TPaxRemItem &rem)
-{
-  if (doca.empty()) return false;
-  rem.clear();
-  rem.code="DOCA";
-  bool pr_lat=rpt_params.GetLang() != AstraLocale::LANG_RU;
-  ostringstream text;
-  text << rem.code
-       << " " << "HK1"
-       << "/" << doca.type
-       << "/" << rpt_params.ElemIdToReportElem(etPaxDocCountry, doca.country, efmtCodeNative)
-       << "/" << transliter(doca.address, 1, pr_lat)
-       << "/" << transliter(doca.city, 1, pr_lat)
-       << "/" << transliter(doca.region, 1, pr_lat)
-       << "/" << transliter(doca.postal_code, 1, pr_lat)
-       << "/" << (inf_indicator?"I":"");
-  rem.text=text.str();
-  for(int i=rem.text.size()-1;i>=0;i--)
-    if (rem.text[i]!='/')
-    {
-      rem.text.erase(i+1);
-      break;
-    };
-  rem.calcPriority();
-  return true;
-};
-
-bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxFQTItem &fqt, CheckIn::TPaxRemItem &rem)
-{
-  if (fqt.empty()) return false;
-  rem.clear();
-  rem.code=fqt.rem;
-  bool pr_lat=rpt_params.GetLang() != AstraLocale::LANG_RU;
-  ostringstream text;
-  text << rem.code
-       << " " << rpt_params.ElemIdToReportElem(etAirline, fqt.airline, efmtCodeNative)
-       << " " << fqt.no;
-  if (!fqt.extra.empty())
-    text << "/" << transliter(fqt.extra, 1, pr_lat);
-  rem.text=text.str();
-  rem.calcPriority();
-  return true;
-};
+}
 
 void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -2826,7 +2717,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
               cats[remFQT]=true;
               break;
             default:
-              LoadPaxRem(pax_id, false, rems);
+              LoadPaxRem(pax_id, rems);
               for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
               {
                 if (!r->code.empty() &&
@@ -2846,7 +2737,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
       CheckIn::TPaxRemItem rem;
       //обычные ремарки (обязательно обрабатываем первыми)
-      if (!cats[remUnknown]) LoadPaxRem(pax_id, false, rems);
+      if (!cats[remUnknown]) LoadPaxRem(pax_id, rems);
       for(vector<CheckIn::TPaxRemItem>::iterator r=rems.begin();r!=rems.end();r++)
         r->text=transliter(r->text, 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
 
@@ -2866,7 +2757,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       //бонус-программа
       if (!cats[remFQT]) LoadPaxFQT(pax_id, fqts);
       for(vector<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
-        if (getPaxRem(rpt_params, *f, rem)) rems.push_back(rem);
+        if (getPaxRem(rpt_params, *f, inf_indicator, rem)) rems.push_back(rem);
 
       if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT) {
           vector<CheckIn::TPaxRemItem> tmp_rems;

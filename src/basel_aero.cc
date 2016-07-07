@@ -354,7 +354,7 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
 {
   stats.clear();
   TQuery Qry(&OraSession);
-  Qry.Clear();  
+  Qry.Clear();
   ostringstream sql;
   sql <<
     "SELECT airline, flt_no, suffix, airp, scd_out, act_out AS real_out ";
@@ -461,10 +461,10 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
       "      pax_grp.point_dep=:point_id AND "
       "      pax_grp.status NOT IN ('E') "
       "ORDER BY pax.reg_no NULLS LAST, pax.seats DESC NULLS LAST";
-  };  
+  };
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.Execute();  
+  Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
     bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
@@ -491,7 +491,7 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
     stat.viewPayWeight = Qry.FieldAsInteger("excess");
     stat.viewTag = string(Qry.FieldAsString("tags")).substr(0,100);
     pair<TDateTime, TDateTime> times(NoExists, NoExists);
-    std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;    
+    std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
     if (stat.pax_id!=NoExists)
     {
       stat.viewUncheckin = ElemIdToNameLong(etRefusalType, Qry.FieldAsString("refuse")).substr(0,50);
@@ -512,7 +512,7 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
 
       if (!piece_concept)
         WeightConcept::GrpNormsFromDB(part_key, stat.viewGroup, norms);
-    };    
+    };
     stat.viewCheckinTime = times.first;
     stat.viewChekinDuration = NoExists;
     stat.viewBoardingTime = times.second;
@@ -529,9 +529,9 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
         if (n!=norms_normal.begin()) stat.viewBagNorms += ", ";
         if (!n->first.empty())
           stat.viewBagNorms += n->first + ": ";
-        stat.viewBagNorms += n->second.str();
+        stat.viewBagNorms += n->second.str(AstraLocale::LANG_RU);
       };
-    };    
+    };
 
     TPaidToLogInfo paidInfo;
     BagQry.Clear();
@@ -551,8 +551,8 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
       BagQry.SQLText=bag_sql;
     };
     if (!BagQry.SQLText.IsEmpty())
-    {            
-      BagQry.Execute();      
+    {
+      BagQry.Execute();
       if (!BagQry.Eof)
       {
         for(;!BagQry.Eof;BagQry.Next())
@@ -567,14 +567,14 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
           paidInfo.add(bagItem);
         };
         if (!piece_concept)
-        {          
+        {
           list<WeightConcept::TPaidBagItem> paid;
           WeightConcept::PaidBagFromDB(part_key, stat.viewGroup, paid);
           for(list<WeightConcept::TPaidBagItem>::const_iterator p=paid.begin(); p!=paid.end(); ++p)
-            paidInfo.add(*p);          
+            paidInfo.add(*p);
         }
         else
-        {          
+        {
           if (part_key==NoExists)
           {
             list<PieceConcept::TPaidBagItem> paid;
@@ -584,7 +584,7 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
               if (p->trfer_num!=0) continue;
               paidInfo.add(*p);
             };
-          };          
+          };
         };
         ostringstream str;
         for(map<TEventsSumBagKey, TEventsSumBagItem>::const_iterator b=paidInfo.bag.begin(); b!=paidInfo.bag.end(); ++b)
@@ -597,7 +597,7 @@ void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::ve
           if (b->first.is_trfer)
             str << "T:";
           str << b->second.amount << "/" << b->second.weight << "/" << b->second.paid;
-        };        
+        };
         stat.viewPCTWeightPaidByType=str.str();
       };
     };

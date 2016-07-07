@@ -277,8 +277,8 @@ void ImagesInterface::GetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
 void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-    ImagesInterface::GetImages( reqNode, resNode );
-    TQuery Qry(&OraSession);
+  ImagesInterface::GetImages( reqNode, resNode );
+  TQuery Qry(&OraSession);
   Qry.SQLText = "SELECT code,color,figure FROM comp_layer_types";
   Qry.Execute();
   xmlNodePtr imagesNode = GetNode( "data/images", resNode );
@@ -292,13 +292,25 @@ void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
         continue;
       }
 
-            xmlNodePtr n = NewTextChild( layersNode, "layer", Qry.FieldAsString( "code" ) );
-      if ( !Qry.FieldIsNULL( "color" ) )
-              SetProp( n, "color", Qry.FieldAsString( "color" ) );
-            if ( !Qry.FieldIsNULL( "figure" ) )
-              SetProp( n, "figure", Qry.FieldAsString( "figure" ) );
+  xmlNodePtr n = NewTextChild( layersNode, "layer", Qry.FieldAsString( "code" ) );
+  if ( !Qry.FieldIsNULL( "color" ) )
+    SetProp( n, "color", Qry.FieldAsString( "color" ) );
+    if ( !Qry.FieldIsNULL( "figure" ) )
+      SetProp( n, "figure", Qry.FieldAsString( "figure" ) );
     Qry.Next();
   }
+}
+
+void getTariffColors( std::map<std::string,std::string> &colors )
+{
+  colors.clear();
+  colors.insert( make_pair( "$00CECF00", "rurect" ) );
+  colors.insert( make_pair( "$004646FF", "rurect" ) );
+  colors.insert( make_pair( "$000DCAA4", "rurect" ) );
+  colors.insert( make_pair( "$00FF64FF", "rurect" ) );
+  colors.insert( make_pair( "$00000000", "rurect" ) );
+  colors.insert( make_pair( "$001C66FF", "rurect" ) );
+  colors.insert( make_pair( "$00FD2D71", "rurect" ) );
 }
 
 void GetDrawWebTariff( xmlNodePtr reqNode, xmlNodePtr resNode )
@@ -315,27 +327,13 @@ void GetDrawWebTariff( xmlNodePtr reqNode, xmlNodePtr resNode )
         tariffsNode = NewTextChild( tariffsNode, "images" );
     }
     tariffsNode = NewTextChild( tariffsNode, "web_tariff_property" );
-    xmlNodePtr n = NewTextChild( tariffsNode, "tarif" );
-    SetProp( n, "color", "$00CECF00" );
-    SetProp( n, "figure", "rurect" );
-  n = NewTextChild( tariffsNode, "tarif" );
-    SetProp( n, "color", "$004646FF" );
-    SetProp( n, "figure", "rurect" );
-  n = NewTextChild( tariffsNode, "tarif" );
-    SetProp( n, "color", "$000DCAA4" );
-    SetProp( n, "figure", "rurect" );
-  n = NewTextChild( tariffsNode, "tarif" );
-    SetProp( n, "color", "$00FF64FF" );
-    SetProp( n, "figure", "rurect" );
-  n = NewTextChild( tariffsNode, "tarif" );
-    SetProp( n, "color", "$00000000" );
-    SetProp( n, "figure", "rurect" );
-  n = NewTextChild( tariffsNode, "tarif" );
-    SetProp( n, "color", "$001C66FF" );
-    SetProp( n, "figure", "rurect" );
-  n = NewTextChild( tariffsNode, "tarif" );
-    SetProp( n, "color", "$00FD2D71" );
-    SetProp( n, "figure", "rurect" );
+    map<string,string> colors;
+    getTariffColors( colors );
+    for ( map<string,string>::iterator i=colors.begin(); i!=colors.end(); i++ ) {
+      xmlNodePtr n = NewTextChild( tariffsNode, "tarif" );
+      SetProp( n, "color", i->first );
+      SetProp( n, "figure", i->second );
+    }
 }
 
 void GetDataForDrawSalon( xmlNodePtr reqNode, xmlNodePtr resNode)

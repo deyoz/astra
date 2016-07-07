@@ -25,7 +25,7 @@ class TBagNormUnit
     {
       unit=Ticketing::Baggage::Nil;
     }
-    bool empty()
+    bool empty() const
     {
       return unit==Ticketing::Baggage::Nil;
     }
@@ -334,7 +334,7 @@ class TNormItem
   };
   const TNormItem& toXML(xmlNodePtr node) const;
   TNormItem& fromDB(TQuery &Qry);
-  std::string str(const std::string& lang = AstraLocale::LANG_RU) const;
+  std::string str(const std::string& lang) const;
   void GetNorms(PrmEnum& prmenum) const;
 };
 
