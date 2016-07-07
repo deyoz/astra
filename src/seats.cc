@@ -260,6 +260,7 @@ struct TCondRate {
     rates.clear();
     ignore_rate = false;
     rates.insert( TSeatTariff( "", 0.0, "" ) ); // всегда задаем - означает, что надо использовать места без тарифа
+    rates.insert( TSeatTariff( "", INT_MAX, "" ) );
     //!!!rates[ 0 ].rate = 0.0; // всегда задаем - означает, что надо использовать места без тарифа
     if ( pr_web ) // не учитываем платные места
       return;
@@ -301,18 +302,22 @@ struct TCondRate {
       ProgTrace( TRACE5, "rates.value=%s", i->str().c_str() );
     }
   }
-  bool CanUseRate( TPlace *place ) { /* если все возможные тарифы попробовали при рассадке и не смогли рассадить или нет тарифов на рейсе или место без тарифа, то можно использовать */
-    //ProgTrace( TRACE5, "x=%d, y=%d, place->SeatTariff=%s", place->x, place->y, place->SeatTariff.str().c_str() );
-    bool res = ( pr_web || current_rate == rates.end() /*!!!|| place->SeatTariff.empty()*/ || ignore_rate );
+  bool current_rate_end() {
+    return current_rate == rates.end() || current_rate->rate == INT_MAX;
+  }
+
+  bool CanUseRate( TPlace *place ) { /* если все возможные тарифы попробовали при рассадке и не смогли рассадить или нет тарифов на рейсе или место без тарифа, то можно использовать */    
+    bool res = ( pr_web || (current_rate_end() && use_rate) /*!!!|| place->SeatTariff.empty()*/ || ignore_rate );
+//    ProgTrace( TRACE5, "CanUseRate: x=%d, y=%d, place->SeatTariff=%s, res=%d,use_rate=%d,  current_rate=%s",
+//               place->x, place->y, place->SeatTariff.str().c_str(), res, use_rate, current_rate->str().c_str() );
     if ( !res ) {
-      if ( !use_rate ) {
-        return res;
-      }
       for ( set<TSeatTariff,SeatTariffCompare>::iterator i=rates.begin(); ; i++ ) { // просмотр всех тарифов, кот. сортированы в порядке возрастания приоритета использования
         if ( i->rate == place->SeatTariff.rate &&
              i->color == place->SeatTariff.color ) {
-//          tst();
-          res = true;
+          //tst();
+          if ( use_rate || i->rate == 0.0 ) {
+            res = true;
+          }
           break;
         }
         if ( i == current_rate ) // далее тарифы нам не доступны
@@ -325,7 +330,7 @@ struct TCondRate {
     set<TSeatTariff,SeatTariffCompare>::iterator i = rates.end();
     if ( !rates.empty() )
       i--;
-    return ( (current_rate == rates.end() && use_rate) || i == current_rate || ignore_rate);
+    return ( (current_rate_end() && use_rate) || i == current_rate || ignore_rate);
   }
 };
 
@@ -2989,12 +2994,13 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
              /* использование платных мест */
              bool ignore_rate = condRates.ignore_rate;
              for ( condRates.current_rate = condRates.rates.begin(); condRates.current_rate != condRates.rates.end(); condRates.current_rate++ ) {
-               if ( ( condRates.current_rate->rate != 0.0 && SeatAlg != sSeatPassengers ) ) { //рассадка на платные места только по одному SeatAlg=1
-                 //               ProgTrace( TRACE5, "condRates.current_rate->first=%d", condRates.current_rate->first );
+//               ProgTrace( TRACE5, "current_rate=condRates.rates.current_rate=%s", condRates.current_rate->str().c_str() );
+               if ( ( condRates.current_rate->rate != 0.0   &&
+                      SeatAlg != sSeatPassengers ) ) { //рассадка на платные места только по одному SeatAlg=1
+                 //ProgTrace( TRACE5, "condRates.current_rate=%f continue", condRates.current_rate->rate );
                  continue;
                }
                if ( use_preseat_layer && SeatAlg == sSeatPassengers ) { // если предварительно размеченный слой, то игнорируем платные места
-
                  condRates.ignore_rate = true;
                }
                else {
