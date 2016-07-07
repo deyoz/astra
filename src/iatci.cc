@@ -506,10 +506,10 @@ static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::Requ
     return grpId;
 }
 
-static void specialPlfErrorHandler(xmlNodePtr reqNode, const std::string& errCode)
+static void specialPlfErrorHandler(xmlNodePtr reqNode, const Ticketing::AstraMsg_t& errCode)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " called for err:" << errCode;
-    if(edifact::getInnerErrByErd(errCode) == Ticketing::AstraErr::PAX_SURNAME_NOT_CHECKED_IN) {
+    if(errCode == Ticketing::AstraErr::PAX_SURNAME_NOT_CHECKED_IN) {
         int grpId = getGrpId(reqNode, NULL, IatciInterface::Plf);
         ASSERT(grpId > 0);
         if(!iatci::IatciXmlDb::load(grpId).empty()) {
@@ -1104,16 +1104,17 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
             if(remRes->status() == RemoteStatus::Success) {
                 KickHandler_onSuccess(reqCtxtId, termReqCtxt.node(), resNode, lRes);
             } else {
+                Ticketing::AstraMsg_t errCode = getInnerErrByErd(remRes->ediErrCode());
                 if(!remRes->remark().empty()) {
                     AstraLocale::showProgError(remRes->remark());
                 } else {
                     if(!remRes->ediErrCode().empty()) {
-                        AstraLocale::showMessage(getInnerErrByErd(remRes->ediErrCode()));
+                        AstraLocale::showMessage(errCode);
                     } else {
                         AstraLocale::showProgError("Ошибка обработки в удалённой DCS"); // TODO #25409
                     }
                 }
-                KickHandler_onFailure(reqCtxtId, termReqCtxt.node(), resNode, lRes, remRes->ediErrCode());
+                KickHandler_onFailure(reqCtxtId, termReqCtxt.node(), resNode, lRes, errCode);
             }
         }
     }
@@ -1168,7 +1169,7 @@ void IatciInterface::KickHandler_onFailure(int ctxtId,
                                            xmlNodePtr initialReqNode,
                                            xmlNodePtr resNode,
                                            const std::list<iatci::Result>& lRes,
-                                           const std::string& errCode)
+                                           const Ticketing::AstraMsg_t& errCode)
 {
     FuncIn(KickHandler_onFailure);
     ReqParams(initialReqNode).setBoolParam("after_kick", true);
