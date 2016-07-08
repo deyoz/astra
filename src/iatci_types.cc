@@ -1349,7 +1349,7 @@ void Result::toXml(xmlNodePtr node) const
         NewTextChild(paxNode, "seat_type", ""); // TODO
         NewTextChild(paxNode, "seats", 1); // TODO
         NewTextChild(paxNode, "refuse", ""); // TODO
-        NewTextChild(paxNode, "reg_no", "1"); // TODO
+        NewTextChild(paxNode, "reg_no", seat() ? seat()->securityId() : "");
         NewTextChild(paxNode, "subclass", "ù"); // TODO
         NewTextChild(paxNode, "bag_pool_num", ""); // TODO
         NewTextChild(paxNode, "tid", 0); // TODO

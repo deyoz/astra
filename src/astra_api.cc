@@ -2049,6 +2049,9 @@ std::vector<iatci::Result> LoadPaxXmlResult::toIatci(iatci::Result::Action_e act
         std::string surname  = pax.surname;
         std::string name     = pax.name;
         std::string pers_type= pax.pers_type;
+        std::ostringstream pax_regno;
+        if(pax.reg_no != ASTRA::NoExists)
+            pax_regno << pax.reg_no;
 
         iatci::PaxDetails paxDetails(surname,
                                      name,
@@ -2063,7 +2066,7 @@ std::vector<iatci::Result> LoadPaxXmlResult::toIatci(iatci::Result::Action_e act
             ASSERT(!pax.seat_no.empty());
             seatDetails = iatci::FlightSeatDetails(pax.seat_no,
                                                    pax.subclass,
-                                                   "", // securityCode
+                                                   pax_regno.str(),
                                                    iatci::SeatDetails::None); // non-smoking ind
 
 
