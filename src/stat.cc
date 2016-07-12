@@ -6445,6 +6445,7 @@ string TServiceStatRow::rate_str() const
 
 //------------------------------ UnaccBagStat -----------------------------------------------
 struct TUnaccBagStatRow {
+    string craft;
     string airline;
     int flt_no;
     string suffix;
@@ -6458,18 +6459,37 @@ struct TUnaccBagStatRow {
     string prev_airline;
     int prev_flt_no;
     string prev_suffix;
+    TDateTime prev_scd;
+
     int grp_id;
+    string descr;
+    string desk;
+    TDateTime time_create;
+    int bag_type;
     int num;
     int amount;
     int weight;
+    double no;
+
+    string trfer_airline;
+    int trfer_flt_no;
+    string trfer_suffix;
+    TDateTime trfer_scd;
+    string trfer_airp_arv;
+
     TUnaccBagStatRow():
         flt_no(NoExists),
         scd_out(NoExists),
         prev_flt_no(NoExists),
+        prev_scd(NoExists),
         grp_id(NoExists),
+        time_create(NoExists),
+        bag_type(NoExists),
         num(NoExists),
         amount(NoExists),
-        weight(NoExists)
+        weight(NoExists),
+        no(NoExists),
+        trfer_flt_no(NoExists)
     {}
 };
 
@@ -6505,6 +6525,7 @@ void RunUnaccBagStat(
         << QParam("LastDate", otDate, params.LastDate);
     string SQLText =
         "select "
+        "   points.craft, "
         "   points.airline, "
         "   points.flt_no, "
         "   points.suffix, "
@@ -6517,17 +6538,35 @@ void RunUnaccBagStat(
         "   unaccomp.airline prev_airline, "
         "   unaccomp.flt_no prev_flt_no, "
         "   unaccomp.suffix prev_suffix, "
+        "   unaccomp.scd prev_scd, "
         "   pax_grp.grp_id, "
+        "   users2.descr, "
+        "   bag2.desk, "
+        "   bag2.time_create, "
+        "   bag2.bag_type, "
         "   bag2.num, "
         "   bag2.amount, "
-        "   bag2.weight "
+        "   bag2.weight, "
+        "   bag_tags.no, "
+        "   trfer_trips.airline trfer_airline, "
+        "   trfer_trips.flt_no trfer_flt_no, "
+        "   trfer_trips.suffix trfer_suffix, "
+        "   trfer_trips.scd trfer_scd, "
+        "   transfer.airp_arv trfer_airp_arv "
         "from "
         "   points, "
         "   pax_grp, "
         "   bag2, "
-        "   unaccomp_bag_info_den unaccomp "
+        "   bag_tags, "
+        "   users2, "
+        "   unaccomp_bag_info unaccomp, "
+        "   transfer, "
+        "   trfer_trips "
         "where "
-        "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and ";
+        "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
+        "   pax_grp.user_id = users2.user_id(+) and "
+        "   bag2.grp_id = bag_tags.grp_id and "
+        "   bag2.num = bag_tags.num and ";
     params.AccessClause(SQLText);
     if(params.flt_no != NoExists) {
         SQLText += " points.flt_no = :flt_no and ";
@@ -6538,12 +6577,16 @@ void RunUnaccBagStat(
         "   pax_grp.class is null and "
         "   bag2.grp_id = pax_grp.grp_id and "
         "   unaccomp.grp_id(+) = bag2.grp_id and "
-        "   unaccomp.num(+) = bag2.num "
-        "order by points.point_id ";
+        "   unaccomp.num(+) = bag2.num and "
+        "   pax_grp.grp_id = transfer.grp_id(+) and "
+        "   transfer.pr_final(+) <> 0 and "
+        "   transfer.point_id_trfer = trfer_trips.point_id(+) "
+        "order by points.point_id, time_create ";
     TCachedQuery Qry(SQLText, QryParams);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         TAirpArvInfo airp_arv_info;
+        int col_craft = Qry.get().FieldIndex("craft");
         int col_airline = Qry.get().FieldIndex("airline");
         int col_flt_no = Qry.get().FieldIndex("flt_no");
         int col_suffix = Qry.get().FieldIndex("suffix");
@@ -6555,13 +6598,27 @@ void RunUnaccBagStat(
         int col_prev_airline = Qry.get().FieldIndex("prev_airline");
         int col_prev_flt_no = Qry.get().FieldIndex("prev_flt_no");
         int col_prev_suffix = Qry.get().FieldIndex("prev_suffix");
+        int col_prev_scd = Qry.get().FieldIndex("prev_scd");
         int col_grp_id = Qry.get().FieldIndex("grp_id");
+        int col_descr = Qry.get().FieldIndex("descr");
+        int col_desk = Qry.get().FieldIndex("desk");
+        int col_time_create = Qry.get().FieldIndex("time_create");
+        int col_bag_type = Qry.get().FieldIndex("bag_type");
         int col_num = Qry.get().FieldIndex("num");
         int col_amount = Qry.get().FieldIndex("amount");
         int col_weight = Qry.get().FieldIndex("weight");
+        int col_no = Qry.get().FieldIndex("no");
+
+        int col_trfer_airline = Qry.get().FieldIndex("trfer_airline");
+        int col_trfer_flt_no = Qry.get().FieldIndex("trfer_flt_no");
+        int col_trfer_suffix = Qry.get().FieldIndex("trfer_suffix");
+        int col_trfer_scd = Qry.get().FieldIndex("trfer_scd");
+        int col_trfer_airp_arv = Qry.get().FieldIndex("trfer_airp_arv");
+
         for(; not Qry.get().Eof; Qry.get().Next()) {
             prn_airline.check(Qry.get().FieldAsString(col_airline));
             TUnaccBagStatRow row;
+            row.craft = Qry.get().FieldAsString(col_craft);
             row.airline = Qry.get().FieldAsString(col_airline);
             row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
             row.suffix = Qry.get().FieldAsString(col_suffix);
@@ -6575,10 +6632,26 @@ void RunUnaccBagStat(
             if(not Qry.get().FieldIsNULL(col_prev_flt_no))
                 row.prev_flt_no = Qry.get().FieldAsInteger(col_prev_flt_no);
             row.prev_suffix = Qry.get().FieldAsString(col_prev_suffix);
+            if(not Qry.get().FieldIsNULL(col_prev_scd))
+                row.prev_scd = Qry.get().FieldAsDateTime(col_prev_scd);
             row.grp_id = Qry.get().FieldAsInteger(col_grp_id);
+            row.descr = Qry.get().FieldAsString(col_descr);
+            row.desk = Qry.get().FieldAsString(col_desk);
+            row.time_create = Qry.get().FieldAsDateTime(col_time_create);
+            row.bag_type = Qry.get().FieldAsInteger(col_bag_type);
             row.num = Qry.get().FieldAsInteger(col_num);
             row.amount = Qry.get().FieldAsInteger(col_amount);
             row.weight = Qry.get().FieldAsInteger(col_weight);
+            row.no = Qry.get().FieldAsFloat(col_no);
+
+            row.trfer_airline = Qry.get().FieldAsString(col_trfer_airline);
+            if(not Qry.get().FieldIsNULL(col_trfer_flt_no))
+                row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
+            row.trfer_suffix = Qry.get().FieldAsString(col_trfer_suffix);
+            if(not Qry.get().FieldIsNULL(col_trfer_scd))
+                row.trfer_scd = Qry.get().FieldAsDateTime(col_trfer_scd);
+            row.trfer_airp_arv = Qry.get().FieldAsString(col_trfer_airp_arv);
+
             UnaccBagStat.rows.push_back(row);
         }
     }
@@ -6596,8 +6669,8 @@ void createXMLUnaccBagStat(
 
     xmlNodePtr headerNode = NewTextChild(grdNode, "header");
     xmlNodePtr colNode;
-    colNode = NewTextChild(headerNode, "col", getLocaleText("АП рег."));
-    SetProp(colNode, "width", 50);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АП рег. багажа"));
+    SetProp(colNode, "width", 90);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Стойка"));
@@ -6608,11 +6681,11 @@ void createXMLUnaccBagStat(
     SetProp(colNode, "width", 80);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Билет"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата оформления"));
     SetProp(colNode, "width", 100);
     SetProp(colNode, "align", taLeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
+    SetProp(colNode, "sort", sortDate);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АК"));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
@@ -6636,23 +6709,146 @@ void createXMLUnaccBagStat(
     SetProp(colNode, "width", 70);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Код услуги"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Трфр"));
+    SetProp(colNode, "width", 35);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АК трфр"));
     SetProp(colNode, "width", 70);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("RFISC"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс трфр"));
     SetProp(colNode, "width", 70);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Тариф"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("От трфр"));
     SetProp(colNode, "width", 70);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortFloat);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Валюта"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("До трфр"));
     SetProp(colNode, "width", 70);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип багажа"));
+    SetProp(colNode, "width", 70);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Бирка"));
+    SetProp(colNode, "width", 75);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("ФИО пассажира"));
+    SetProp(colNode, "width", 85);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Первичная бирка"));
+    SetProp(colNode, "width", 110);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Первичная АК"));
+    SetProp(colNode, "width", 80);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Первичный рейс"));
+    SetProp(colNode, "width", 90);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата вылета"));
+    SetProp(colNode, "width", 105);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
 
+    xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+    xmlNodePtr rowNode;
+    for(list<TUnaccBagStatRow>::const_iterator i = UnaccBagStat.rows.begin(); i != UnaccBagStat.rows.end(); i++) {
+        rowNode = NewTextChild(rowsNode, "row");
+        // АП рег. багажа
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
+        //Стойка
+        NewTextChild(rowNode, "col", i->desk);
+        //Агент
+        NewTextChild(rowNode, "col", i->descr);
+        //Дата оформления
+        NewTextChild(rowNode, "col", DateTimeToStr(i->time_create, "dd.mm.yyyy"));
+        //AK
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirline, i->airline));
+        //Рейс
+        ostringstream buf;
+        buf << setw(3) << setfill('0') << i->flt_no << ElemIdToCodeNative(etSuffix, i->suffix);
+        NewTextChild(rowNode, "col", buf.str());
+        //От
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
+        //До
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp_arv));
+        //Тип ВС
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etCraft, i->craft));
+        //Время в пути
+        TDateTime time_travel = getTimeTravel(i->craft, i->airp, i->airp_arv);
+        if(time_travel != NoExists)
+            NewTextChild(rowNode, "col", DateTimeToStr(time_travel, "hh:nn"));
+        else
+            NewTextChild(rowNode, "col");
+        //Трфр
+        NewTextChild(rowNode, "col", getLocaleText((i->trfer_flt_no == NoExists ? "НЕТ" : "ДА")));
+        if(i->trfer_flt_no == NoExists) {
+            //АК трфр
+            NewTextChild(rowNode, "col");
+            //Рейс трфр
+            NewTextChild(rowNode, "col");
+            //От трфр
+            NewTextChild(rowNode, "col");
+            //До трфр
+            NewTextChild(rowNode, "col");
+        } else {
+            //АК трфр
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirline, i->trfer_airline));
+            //Рейс трфр
+            buf.str("");
+            buf << setw(3) << setfill('0') << i->trfer_flt_no << ElemIdToCodeNative(etSuffix, i->trfer_suffix);
+            NewTextChild(rowNode, "col", buf.str());
+            //От трфр
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp_arv));
+            //До трфр
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->trfer_airp_arv));
+        }
+        //Тип багажа
+        NewTextChild(rowNode, "col",  ElemIdToNameLong(etBagType, i->bag_type));
+        //№ баг. бирки
+        buf.str("");
+        buf << fixed << setprecision(0) << setw(10) << setfill('0') << i->no;
+        NewTextChild(rowNode, "col", buf.str());
+        //ФИО пассажира
+        buf.str("");
+        if(not i->surname.empty())
+            buf << i->surname;
+        if(not i->name.empty()) {
+            if(not buf.str().empty())
+                buf << " ";
+            buf << i->name;
+        }
+        NewTextChild(rowNode, "col", buf.str());
+        //Первичный № бирки
+        NewTextChild(rowNode, "col", i->original_tag_no);
+        //Первичная АК
+        if(i->prev_airline.empty())
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirline, i->prev_airline));
+        //Первичный рейс
+        buf.str("");
+        if(i->prev_flt_no != NoExists)
+            buf << setw(3) << setfill('0') << i->prev_flt_no << ElemIdToCodeNative(etSuffix, i->prev_suffix);
+        NewTextChild(rowNode, "col", buf.str());
+        //Дата вылета рейса
+        if(i->prev_scd == NoExists)
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col", DateTimeToStr(i->prev_scd, "dd.mm.yyyy"));
+    }
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "stat_type", params.statType);
+    NewTextChild(variablesNode, "stat_mode", getLocaleText("Несопр. багаж"));
+    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
 }
 
 //------------------------------ UnaccBagStat end--------------------------------------------
