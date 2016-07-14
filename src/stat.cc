@@ -6472,6 +6472,7 @@ struct TUnaccBagStatRow {
     double no;
 
     string trfer_airline;
+    string trfer_airp_dep;
     int trfer_flt_no;
     string trfer_suffix;
     TDateTime trfer_scd;
@@ -6541,14 +6542,15 @@ void RunUnaccBagStat(
         "   unaccomp.scd prev_scd, "
         "   pax_grp.grp_id, "
         "   users2.descr, "
-        "   bag2.desk, "
-        "   bag2.time_create, "
+        "   pax_grp.desk, "
+        "   pax_grp.time_create, "
         "   bag2.bag_type, "
         "   bag2.num, "
         "   bag2.amount, "
         "   bag2.weight, "
         "   bag_tags.no, "
         "   trfer_trips.airline trfer_airline, "
+        "   trfer_trips.airp_dep trfer_airp_dep, "
         "   trfer_trips.flt_no trfer_flt_no, "
         "   trfer_trips.suffix trfer_suffix, "
         "   trfer_trips.scd trfer_scd, "
@@ -6610,6 +6612,7 @@ void RunUnaccBagStat(
         int col_no = Qry.get().FieldIndex("no");
 
         int col_trfer_airline = Qry.get().FieldIndex("trfer_airline");
+        int col_trfer_airp_dep = Qry.get().FieldIndex("trfer_airp_dep");
         int col_trfer_flt_no = Qry.get().FieldIndex("trfer_flt_no");
         int col_trfer_suffix = Qry.get().FieldIndex("trfer_suffix");
         int col_trfer_scd = Qry.get().FieldIndex("trfer_scd");
@@ -6637,7 +6640,8 @@ void RunUnaccBagStat(
             row.grp_id = Qry.get().FieldAsInteger(col_grp_id);
             row.descr = Qry.get().FieldAsString(col_descr);
             row.desk = Qry.get().FieldAsString(col_desk);
-            row.time_create = Qry.get().FieldAsDateTime(col_time_create);
+            if(not Qry.get().FieldIsNULL(col_time_create))
+                row.time_create = Qry.get().FieldAsDateTime(col_time_create);
             row.bag_type = Qry.get().FieldAsInteger(col_bag_type);
             row.num = Qry.get().FieldAsInteger(col_num);
             row.amount = Qry.get().FieldAsInteger(col_amount);
@@ -6645,6 +6649,7 @@ void RunUnaccBagStat(
             row.no = Qry.get().FieldAsFloat(col_no);
 
             row.trfer_airline = Qry.get().FieldAsString(col_trfer_airline);
+            row.trfer_airp_dep = Qry.get().FieldAsString(col_trfer_airp_dep);
             if(not Qry.get().FieldIsNULL(col_trfer_flt_no))
                 row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
             row.trfer_suffix = Qry.get().FieldAsString(col_trfer_suffix);
@@ -6769,7 +6774,7 @@ void createXMLUnaccBagStat(
         //Агент
         NewTextChild(rowNode, "col", i->descr);
         //Дата оформления
-        NewTextChild(rowNode, "col", DateTimeToStr(i->time_create, "dd.mm.yyyy"));
+        NewTextChild(rowNode, "col", (i->time_create == NoExists ? "" : DateTimeToStr(i->time_create, "dd.mm.yyyy")));
         //AK
         NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirline, i->airline));
         //Рейс
@@ -6807,7 +6812,7 @@ void createXMLUnaccBagStat(
             buf << setw(3) << setfill('0') << i->trfer_flt_no << ElemIdToCodeNative(etSuffix, i->trfer_suffix);
             NewTextChild(rowNode, "col", buf.str());
             //От трфр
-            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp_arv));
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->trfer_airp_dep));
             //До трфр
             NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->trfer_airp_arv));
         }
