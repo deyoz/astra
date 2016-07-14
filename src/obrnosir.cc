@@ -47,10 +47,6 @@ int verifyHTTP(int argc,char **argv);
 int nat_stat(int argc,char **argv);
 int pc_wt_stat(int argc,char **argv);
 int test_reprint(int argc,char **argv);
-int test_apis(int argc,char **argv);
-int test_apis2(int argc,char **argv);
-int test_apis3(int argc,char **argv);
-int test_julian(int argc,char **argv);
 
 const
   struct {
@@ -101,10 +97,6 @@ const
     {"-rfisc_all",              nosir_rfisc_all,        NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
     {"-self_ckin",              nosir_self_ckin,        NULL,                       NULL},
-    {"-test_apis",              test_apis,        NULL,                       NULL},
-    {"-test_apis2",              test_apis2,        NULL,                       NULL},
-    {"-test_apis3",              test_apis3,        NULL,                       NULL},
-    {"-test_julian",              test_julian,        NULL,                       NULL},
     {"-ffp",                    ffp,                    ffp_help,                   "getting FFP card status"},
     {"-parse_bcbp",             nosir_parse_bcbp,       NULL,                       NULL},
     {"-departed_pax",           nosir_departed_pax,     NULL,                       NULL},
