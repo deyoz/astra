@@ -395,17 +395,17 @@ void TCacheTable::initFields()
             ProgTrace(TRACE5,"initFields: name=%s, elem_type unknown", FField.Name.c_str());
           };
         };
-        if (FField.ReferCode == "STATIONS" && FField.ReferName == "AIRP_VIEW" )
+        if ((FField.ReferCode == "STATIONS" ||
+             FField.ReferCode == "AIRP_TERMINALS" ||
+             FField.ReferCode == "HALLS" ||
+             FField.ReferCode == "BUSINESS_HALLS") && FField.ReferName == "AIRP_VIEW")
         {
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirp;
         };
-        if (FField.ReferCode == "AIRP_TERMINALS" && FField.ReferName == "AIRP_VIEW" )
-        {
-          FField.ElemCategory=cecCode;
-          FField.ElemType=etAirp;
-        };
-        if (FField.ReferCode == "PRIORITY_CARD_TYPES" && FField.ReferName == "AIRLINE_VIEW" )
+        if ((FField.ReferCode == "PRIORITY_CARD_TYPES" ||
+             FField.ReferCode == "BRANDS" ||
+             FField.ReferCode == "RFISC_COMP_PROPS") && FField.ReferName == "AIRLINE_VIEW")
         {
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirline;
@@ -414,18 +414,6 @@ void TCacheTable::initFields()
         {
           FField.ElemCategory=cecCode;
           FField.ElemType=etCkinRemType;
-        };
-        /*
-        if (FField.ReferCode == "PRIORITY_CARD_TYPES" && FField.ReferName == "CARD_TYPE" )
-        {
-          FField.ElemCategory=cecName;
-          FField.ElemType=etPriorityCardType;
-        };
-        */
-        if (FField.ReferCode == "HALLS" && FField.ReferName == "AIRP_VIEW" )
-        {
-          FField.ElemCategory=cecCode;
-          FField.ElemType=etAirp;
         };
         if (FField.ReferCode == "SALE_POINTS" && FField.ReferName == "VALIDATOR_VIEW" )
         {
@@ -437,20 +425,10 @@ void TCacheTable::initFields()
           FField.ElemCategory=cecName;
           FField.ElemType=etAirpTerminal;
         };
-        if (FField.ReferCode == "BUSINESS_HALLS" && FField.ReferName == "AIRP_VIEW" )
-        {
-          FField.ElemCategory=cecCode;
-          FField.ElemType=etAirp;
-        };
         if (FField.ReferCode == "BUSINESS_HALLS" && FField.ReferName == "AIRP_TERMINAL_VIEW" )
         {
           FField.ElemCategory=cecName;
           FField.ElemType=etAirpTerminal;
-        };
-        if (FField.ReferCode == "BRANDS" && FField.ReferName == "AIRLINE_VIEW" )
-        {
-          FField.ElemCategory=cecCode;
-          FField.ElemType=etAirline;
         };
 
         FFields.push_back(FField);
