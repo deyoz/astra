@@ -2010,6 +2010,7 @@ struct TStatParams {
     string sender_addr;
     string receiver_descr;
     string reg_type;
+    bool order;
     bool skip_rows;
     void get(xmlNodePtr resNode);
     void toFileParams(map<string, string> &file_params) const;
@@ -2444,6 +2445,7 @@ void TStatParams::get(xmlNodePtr reqNode)
     sender_addr = NodeAsStringFast("sender_addr", curNode, "");
     receiver_descr = NodeAsStringFast("receiver_descr", curNode, "");
     reg_type = NodeAsStringFast("reg_type", curNode, "");
+    order = NodeAsStringFast("Order", curNode, 0) != 0;
 
     ProgTrace(TRACE5, "ak: %s", ak.c_str());
     ProgTrace(TRACE5, "ap: %s", ap.c_str());
@@ -6444,7 +6446,7 @@ string TServiceStatRow::rate_str() const
 }
 
 //------------------------------ UnaccBagStat -----------------------------------------------
-struct TUnaccBagStatRow {
+struct TUnaccBagStatRow:public TOrderStatItem {
     string craft;
     string airline;
     int flt_no;
@@ -6478,6 +6480,9 @@ struct TUnaccBagStatRow {
     TDateTime trfer_scd;
     string trfer_airp_arv;
 
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+
     TUnaccBagStatRow():
         flt_no(NoExists),
         scd_out(NoExists),
@@ -6494,9 +6499,127 @@ struct TUnaccBagStatRow {
     {}
 };
 
+void TUnaccBagStatRow::add_data(ostringstream &buf) const
+{
+        // АП рег. багажа
+        buf << ElemIdToCodeNative(etAirp, airp) << delim;
+        //Стойка
+        buf << desk << delim;
+        //Агент
+        buf << descr << delim;
+        //Дата оформления
+        buf << (time_create == NoExists ? "" : DateTimeToStr(time_create, "dd.mm.yyyy")) << delim;
+        //AK
+        buf << ElemIdToCodeNative(etAirline, airline) << delim;
+        //Рейс
+        ostringstream tmp_s;
+        tmp_s << setw(3) << setfill('0') << flt_no << ElemIdToCodeNative(etSuffix, suffix);
+        buf << tmp_s.str() << delim;
+        //От
+        buf << ElemIdToCodeNative(etAirp, airp) << delim;
+        //До
+        buf << ElemIdToCodeNative(etAirp, airp_arv) << delim;
+        //Тип ВС
+        buf << ElemIdToCodeNative(etCraft, craft) << delim;
+        //Время в пути
+        TDateTime time_travel = getTimeTravel(craft, airp, airp_arv);
+        if(time_travel != NoExists)
+            buf << DateTimeToStr(time_travel, "hh:nn") << delim;
+        else
+            buf << delim;
+        //Трфр
+        buf << getLocaleText((trfer_flt_no == NoExists ? "НЕТ" : "ДА")) << delim;
+        if(trfer_flt_no == NoExists) {
+            //АК трфр
+            buf << delim;
+            //Рейс трфр
+            buf << delim;
+            //От трфр
+            buf << delim;
+            //До трфр
+            buf << delim;
+        } else {
+            //АК трфр
+            buf << ElemIdToCodeNative(etAirline, trfer_airline) << delim;
+            //Рейс трфр
+            tmp_s.str("");
+            tmp_s << setw(3) << setfill('0') << trfer_flt_no << ElemIdToCodeNative(etSuffix, trfer_suffix);
+            buf << tmp_s.str() << delim;
+            //От трфр
+            buf << ElemIdToCodeNative(etAirp, trfer_airp_dep) << delim;
+            //До трфр
+            buf << ElemIdToCodeNative(etAirp, trfer_airp_arv) << delim;
+        }
+        //Тип багажа
+        buf <<  ElemIdToNameLong(etBagType, bag_type) << delim;
+        //№ баг. бирки
+        tmp_s.str("");
+        tmp_s << fixed << setprecision(0) << setw(10) << setfill('0') << no;
+        buf << tmp_s.str() << delim;
+        //ФИО пассажира
+        tmp_s.str("");
+        if(not surname.empty())
+            tmp_s << surname;
+        if(not name.empty()) {
+            if(not tmp_s.str().empty())
+                tmp_s << " ";
+            tmp_s << name;
+        }
+        buf << tmp_s.str() << delim;
+        //Первичный № бирки
+        buf << original_tag_no << delim;
+        //Первичная АК
+        if(prev_airline.empty())
+            buf << delim;
+        else
+            buf << ElemIdToCodeNative(etAirline, prev_airline) << delim;
+        //Первичный рейс
+        tmp_s.str("");
+        if(prev_flt_no != NoExists)
+            tmp_s << setw(3) << setfill('0') << prev_flt_no << ElemIdToCodeNative(etSuffix, prev_suffix);
+        buf << tmp_s.str() << delim;
+        //Дата вылета рейса
+        if(prev_scd != NoExists)
+            buf << DateTimeToStr(prev_scd, "dd.mm.yyyy");
+        buf << endl;
+}
+
+void TUnaccBagStatRow::add_header(ostringstream &buf) const
+{
+    buf
+        << "АП рег. багажа" << delim
+        << "Стойка" << delim
+        << "Агент" << delim
+        << "Дата оформления" << delim
+        << "АК" << delim
+        << "Рейс" << delim
+        << "От" << delim
+        << "До" << delim
+        << "Тип ВС" << delim
+        << "Время в пути" << delim
+        << "Трфр" << delim
+        << "АК трфр" << delim
+        << "Рейс трфр" << delim
+        << "От трфр" << delim
+        << "До трфр" << delim
+        << "Тип багажа" << delim
+        << "Бирка" << delim
+        << "ФИО пассажира" << delim
+        << "Первичная бирка" << delim
+        << "Первичная АК" << delim
+        << "Первичный рейс" << delim
+        << "Дата вылета" << endl;
+}
+
 struct TUnaccBagStat {
     list<TUnaccBagStatRow> rows;
+    void insert(const TUnaccBagStatRow &row);
 };
+
+void TUnaccBagStat::insert(const TUnaccBagStatRow &row)
+{
+    rows.push_back(row);
+}
 
 void TStatParams::AccessClause(string &SQLText) const
 {
@@ -6514,9 +6637,10 @@ void TStatParams::AccessClause(string &SQLText) const
     };
 }
 
+template <class T>
 void RunUnaccBagStat(
         const TStatParams &params,
-        TUnaccBagStat &UnaccBagStat,
+        T &UnaccBagStat,
         TPrintAirline &prn_airline
         )
 {
@@ -6657,7 +6781,7 @@ void RunUnaccBagStat(
                 row.trfer_scd = Qry.get().FieldAsDateTime(col_trfer_scd);
             row.trfer_airp_arv = Qry.get().FieldAsString(col_trfer_airp_arv);
 
-            UnaccBagStat.rows.push_back(row);
+            UnaccBagStat.insert(row);
         }
     }
 }
@@ -7740,6 +7864,7 @@ class TMD5Filter : public boost::iostreams::multichar_output_filter {
 
 
 struct TOrderStatWriter {
+    const string enc;
     int file_id;
     TDateTime month;
     string file_name;
@@ -7752,6 +7877,7 @@ struct TOrderStatWriter {
     void finish();
 
     TOrderStatWriter(int afile_id, TDateTime amonth, const string &afile_name):
+        enc("CP1251"),
         file_id(afile_id),
         month(amonth),
         file_name(afile_name),
@@ -7819,13 +7945,13 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
 
         ostringstream buf;
         row.add_header(buf);
-        out << buf.str();
+        out << ConvertCodepage(buf.str(), "CP866", enc);
         data_size += buf.str().size();
     }
     ostringstream buf;
     row.add_data(buf);
     rowcount++;
-    out << buf.str();
+    out << ConvertCodepage(buf.str(), "CP866", enc);
     data_size += buf.str().size();
     out.flush();
 }
@@ -7853,6 +7979,9 @@ void create_plain_files(
             break;
         case statService:
             RunServiceStat(params, order_writer, airline);
+            break;
+        case statUnaccBag:
+            RunUnaccBagStat(params, order_writer, airline);
             break;
         default:
             throw Exception("unsupported statType %d", params.statType);
@@ -8082,10 +8211,11 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     params.get(reqNode);
 
     if(
-            TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION) and (
+            (TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION) and (
                 params.statType == statRFISC or
                 params.statType == statService
-                )
+                )) or
+            params.order
       )
         return orderStat(params, ctxt, reqNode, resNode);
 
