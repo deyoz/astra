@@ -5585,8 +5585,13 @@ void TLayout::get_params()
         TCachedQuery Qry("select * from stat_params");
         Qry.get().Execute();
         for(; not Qry.get().Eof; Qry.get().Next()) {
-            TParamItem &item = params[Qry.get().FieldAsInteger("visible")];
+            TParamItem item;
             item.fromDB(Qry.get());
+            if(
+                    item.ctype != "CkBox" or
+                    TReqInfo::Instance()->desk.compatible(STAT_CKBOX_VERSION)
+              )
+                params.insert(make_pair(item.visible, item));
         }
     }
 }
