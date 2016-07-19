@@ -247,7 +247,7 @@ const TBagItem& TBagItem::toDB(TQuery &Qry) const
   else
     Qry.SetVariable("time_create",FNull);
   Qry.SetVariable("is_trfer",(int)is_trfer);
-  Qry.SetVariable("handmade",(int)handmade);
+  Qry.SetVariable("handmade",(int)handmade);  
   return *this;
 };
 
@@ -354,6 +354,99 @@ TTagItem& TTagItem::fromDB(TQuery &Qry)
   pr_print=Qry.FieldAsInteger("pr_print")!=0;
   return *this;
 };
+
+const TUnaccompInfoItem& TUnaccompInfoItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL || isEmpty() ) return *this;
+  NewTextChild(node,"num",num);
+  if ( !original_tag_no.empty() ) {
+    NewTextChild(node,"original_tag_no",original_tag_no);
+  }
+  if ( !name.empty() ) {
+    NewTextChild(node,"name",name);
+  }
+  if ( !surname.empty() ) {
+    NewTextChild(node,"surname",surname);
+  }
+  if ( !airline.empty() ) {
+    NewTextChild(node,"airline",airline);
+  }
+  if ( flt_no != ASTRA::NoExists ) {
+    NewTextChild(node,"flt_no",flt_no);
+  }
+  if ( !suffix.empty() ) {
+    NewTextChild(node,"suffix",suffix);
+  }
+  if ( scd != ASTRA::NoExists ) {
+    NewTextChild(node,"scd",BASIC::DateTimeToStr( scd, BASIC::ServerFormatDateTimeAsString ));
+  }
+  return *this;
+}
+
+TUnaccompInfoItem& TUnaccompInfoItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  num = NodeAsIntegerFast("num",node2,ASTRA::NoExists);
+  original_tag_no = NodeAsStringFast("original_tag_no",node2,"");
+  name = NodeAsStringFast("name",node2,"");
+  surname = NodeAsStringFast("surname",node2,"");
+  airline = NodeAsStringFast("airline",node2,"");
+  flt_no = NodeAsIntegerFast("flt_no",node2,ASTRA::NoExists);
+  suffix = NodeAsStringFast("suffix",node2,"");
+  scd = NodeAsDateTimeFast("scd",node2,ASTRA::NoExists);
+  return *this;
+}
+
+const TUnaccompInfoItem& TUnaccompInfoItem::toDB(TQuery &Qry) const
+{
+  if ( isEmpty() ) {
+    return *this;
+  }
+  Qry.SetVariable("num",num);
+  Qry.SetVariable("original_tag_no",original_tag_no);
+  Qry.SetVariable("surname",surname);
+  Qry.SetVariable("name",name);
+  Qry.SetVariable("airline",airline);
+  Qry.SetVariable("flt_no",flt_no==ASTRA::NoExists?FNull:flt_no);
+  Qry.SetVariable("suffix",suffix);
+  if ( scd==ASTRA::NoExists ) {
+    Qry.SetVariable("scd",FNull);
+  }
+  else {
+    Qry.SetVariable("scd",scd);
+  }
+  return *this;
+}
+
+TUnaccompInfoItem& TUnaccompInfoItem::fromDB(TQuery &Qry)
+{
+  clear();
+  num=Qry.FieldAsInteger("num");
+  original_tag_no=Qry.FieldAsString("original_tag_no");
+  surname=Qry.FieldAsString("surname");
+  name=Qry.FieldAsString("name");
+  airline=Qry.FieldAsString("airline");
+  flt_no=Qry.FieldIsNULL("flt_no")?ASTRA::NoExists:Qry.FieldAsInteger("flt_no");
+  suffix=Qry.FieldAsString("suffix");
+  scd=Qry.FieldIsNULL("scd")?ASTRA::NoExists:Qry.FieldAsDateTime("scd");
+  return *this;
+}
+
+const TUnaccompRuleItem& TUnaccompRuleItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL ) return *this;
+  NewTextChild(node,"fieldname",fieldname);
+  NewTextChild(node,"empty",empty);
+  if ( max_len != ASTRA::NoExists ) {
+    NewTextChild(node,"max_len",max_len);
+  }
+  if ( min_len != ASTRA::NoExists ) {
+    NewTextChild(node,"min_len",min_len);
+  }
+  return *this;
+}
 
 void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges)
 {
@@ -638,6 +731,7 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool pi
   xmlNodePtr valueBagNode=GetNode("value_bags",bagtagNode);
   xmlNodePtr bagNode=GetNode("bags",bagtagNode);
   xmlNodePtr tagNode=GetNode("tags",bagtagNode);
+  xmlNodePtr unaccompsNode=GetNode("unaccomps",bagtagNode);
 
   if (valueBagNode==NULL && bagNode==NULL && tagNode==NULL) return false;
   if (valueBagNode==NULL) throw Exception("TGroupBagItem::fromXML: valueBagNode=NULL");
@@ -675,6 +769,20 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool pi
     tags[tag.num]=tag;
   };
 
+  if ( unaccompsNode != NULL ) {
+    for(node=unaccompsNode->children;node!=NULL;node=node->next)
+    {
+      TUnaccompInfoItem unaccomp;
+      unaccomp.fromXML(node);
+      if (unaccomps.find(unaccomp.num)!=unaccomps.end())
+        throw Exception("TGroupBagItem::fromXML: unaccomps[%d] duplicated", unaccomp.num);
+      if (bags.find(unaccomp.num)==bags.end())
+        throw Exception("TGroupBagItem::fromXML: bags[%d] not found", unaccomp.num);
+      unaccomps[unaccomp.num]=unaccomp;
+    };
+  }
+
+
   int num=1;
   for(map<int, TValueBagItem>::const_iterator v=vals.begin();v!=vals.end();++v,num++)
   {
@@ -693,7 +801,6 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool pi
     if (t->second.num!=num)
       throw Exception("TGroupBagItem::fromXML: tags[%d] not found", t->second.num);
   };
-
   pr_tag_print=NodeAsInteger("@pr_print",tagNode)!=0;
 
   fromXMLcompletion(grp_id, hall);
@@ -924,6 +1031,11 @@ void TGroupBagItem::toDB(int grp_id) const
   BagQry.SQLText="DELETE FROM value_bag WHERE grp_id=:grp_id";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
   BagQry.Execute();
+  //unaccomp
+  BagQry.Clear();
+  BagQry.SQLText="DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
   BagQry.SQLText=
     "INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
     "VALUES(:grp_id,:num,:value,:value_cur,:tax_id,:tax,:tax_trfer)";
@@ -998,6 +1110,28 @@ void TGroupBagItem::toDB(int grp_id) const
       BagQry.Execute();
     };
   }; //!pr_payment
+  //unaccomp
+  BagQry.Clear();
+  BagQry.SQLText=" DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
+  BagQry.SQLText=
+    "INSERT INTO unaccomp_bag_info(grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd) "
+    "VALUES(:grp_id,:num,:original_tag_no,:surname,:name,:airline,:flt_no,:suffix,:scd) ";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.DeclareVariable("num",otInteger);
+  BagQry.DeclareVariable("original_tag_no",otString);
+  BagQry.DeclareVariable("surname",otString);
+  BagQry.DeclareVariable("name",otString);
+  BagQry.DeclareVariable("airline",otString);
+  BagQry.DeclareVariable("flt_no",otInteger);
+  BagQry.DeclareVariable("suffix",otString);
+  BagQry.DeclareVariable("scd",otDate);
+  for(map<int, TUnaccompInfoItem>::const_iterator ub=unaccomps.begin();ub!=unaccomps.end();++ub)
+  {
+    ub->second.toDB(BagQry);
+    BagQry.Execute();
+  };
 };
 
 void TGroupBagItem::toLists(list<TValueBagItem> &vals_list,
@@ -1159,6 +1293,22 @@ void TGroupBagItem::fromDB(int grp_id, int bag_pool_num, bool without_refused)
     tags[tag.num]=tag;
   };
 
+  BagQry.Clear();
+  BagQry.SQLText=
+    "SELECT * FROM unaccomp_bag_info "
+    "WHERE grp_id=:grp_id";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
+  for(;!BagQry.Eof;BagQry.Next())
+  {
+    TUnaccompInfoItem unaccomp;
+    unaccomp.fromDB(BagQry);
+    unaccomps[unaccomp.num]=unaccomp;
+  };
+
+  //!!!djek
+  fillUnaccompRules();
+
   if (bag_pool_num!=ASTRA::NoExists)
   {
     set<int> keep_pools;
@@ -1219,6 +1369,12 @@ void TGroupBagItem::toXML(xmlNodePtr bagtagNode) const
   node=NewTextChild(bagtagNode,"tags");
   for(map<int /*num*/, TTagItem>::const_iterator i=tags.begin();i!=tags.end();++i)
     i->second.toXML(NewTextChild(node,"tag"));
+  node=NewTextChild(bagtagNode,"unaccomps_rules");
+  for(set<TUnaccompRuleItem>::const_iterator i=unaccomp_rules.begin();i!=unaccomp_rules.end();++i)
+    i->toXML(NewTextChild(node,"rule"));
+  node=NewTextChild(bagtagNode,"unaccomps_data");
+  for(map<int /*num*/, TUnaccompInfoItem>::const_iterator i=unaccomps.begin();i!=unaccomps.end();++i)
+    i->second.toXML(NewTextChild(node,"unnacomp"));
 };
 
 void TGroupBagItem::convertBag(std::multimap<int /*id*/, TBagItem> &result) const
@@ -1227,6 +1383,16 @@ void TGroupBagItem::convertBag(std::multimap<int /*id*/, TBagItem> &result) cons
   result.clear();
   for(multimap<int /*num*/, TBagItem>::const_iterator b=bags.begin(); b!=bags.end(); ++b)
     result.insert(make_pair(b->second.id, b->second));
+}
+
+void TGroupBagItem::fillUnaccompRules()
+{
+  unaccomp_rules.clear();
+  unaccomp_rules.insert( TUnaccompRuleItem("original_tag_no",false,10,15) );
+  unaccomp_rules.insert( TUnaccompRuleItem("surname",false,ASTRA::NoExists,64) );
+  unaccomp_rules.insert( TUnaccompRuleItem("name",true,ASTRA::NoExists,64) );
+  unaccomp_rules.insert( TUnaccompRuleItem("flight",true,ASTRA::NoExists,9) );
+  unaccomp_rules.insert( TUnaccompRuleItem("scd",true,ASTRA::NoExists,5) );
 }
 
 const TPaidBagEMDItem& TPaidBagEMDItem::toXML(xmlNodePtr node) const
