@@ -1428,7 +1428,7 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
 
 void TPlace::SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &salonTariffs, const TSeatTariffMap::TStatus &status )
 {
-  if ( salonTariffs.empty() || !visible || !isplace || status == TSeatTariffMap::TStatus::stNotRFISC ) {
+  if ( salonTariffs.empty() || !visible || !isplace || status == TSeatTariffMap::stNotRFISC ) {
     return;
   }
   tariffs.clear();
@@ -1448,7 +1448,7 @@ void TPlace::SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &sa
       TSeatTariff tariff;
       tariff.color = colorItem->second.color;
       tariff.currency_id = colorItem->second.currency_id;
-      if ( status != TSeatTariffMap::TStatus::stUseRFISC ) {
+      if ( status != TSeatTariffMap::stUseRFISC ) {
       //режим работы с RFISC, но оценка не прошла, надо указать для разметки макс. стоимость, чтобы пассажир сел на размеченные места в последнюю очередь
         tariff.rate = INT_MAX;
       }
