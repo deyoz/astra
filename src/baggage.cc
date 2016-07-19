@@ -1112,7 +1112,7 @@ void TGroupBagItem::toDB(int grp_id) const
   }; //!pr_payment
   //unaccomp
   BagQry.Clear();
-  BagQry.SQLText=" DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id";
+  BagQry.SQLText="DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
   BagQry.Execute();
   BagQry.SQLText=
