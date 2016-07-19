@@ -46,6 +46,7 @@
 #define STAT_ORDERS_VERSION           "201605-0180719"
 #define FQT_TIER_LEVEL_VERSION        "201605-0180894"
 #define RFISC_VERSION                 "201605-0181021"
+#define STAT_CKBOX_VERSION            "201607-0182768"
 
 #define TRANSIT_CRAFT_VERSION         "201700-0000000"
 #define EMDA_VERSION                  "202000-0000000"

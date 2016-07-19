@@ -67,6 +67,70 @@ class TValueBagItem
     TValueBagItem& fromDB(TQuery &Qry);
 };
 
+class TUnaccompInfoItem
+{
+  public:
+    int num;
+    std::string original_tag_no;
+    std::string surname;
+    std::string name;
+    std::string airline;
+    int flt_no;
+    std::string suffix;
+    BASIC::TDateTime scd;
+    TUnaccompInfoItem() {
+      clear();
+    }
+    void clear() {
+      num=ASTRA::NoExists;
+      original_tag_no.clear();
+      surname.clear();
+      name.clear();
+      airline.clear();
+      flt_no = ASTRA::NoExists;
+      suffix.clear();
+      scd = ASTRA::NoExists;
+    }
+    bool isEmpty() const {
+      return ( original_tag_no.empty() &&
+               surname.empty() &&
+               name.empty() &&
+               airline.empty() &&
+               flt_no == ASTRA::NoExists &&
+               suffix.empty() &&
+               scd == ASTRA::NoExists &&
+               num == ASTRA::NoExists);
+    }
+    const TUnaccompInfoItem& toXML(xmlNodePtr node) const;
+    TUnaccompInfoItem& fromXML(xmlNodePtr node);
+    const TUnaccompInfoItem& toDB(TQuery &Qry) const;
+    TUnaccompInfoItem& fromDB(TQuery &Qry);
+};
+
+class TUnaccompRuleItem
+{
+  public:
+    std::string fieldname;
+    int max_len;
+    int min_len;
+    bool empty;
+    void clear() {
+      fieldname.clear();
+      empty = true;
+    }
+    TUnaccompRuleItem( const std::string &vfieldname, bool isempty, int vmin_len, int vmax_len ) {
+      fieldname = vfieldname;
+      empty = isempty;
+      max_len = vmax_len;
+      min_len = vmin_len;
+    }
+    bool operator < (const TUnaccompRuleItem &item) const
+    {
+      return fieldname < item.fieldname;
+    }
+    const TUnaccompRuleItem& toXML(xmlNodePtr node) const;
+};
+
 class TBagItem
 {
   public:
@@ -180,6 +244,8 @@ class TGroupBagItem
     std::map<int /*num*/, TValueBagItem> vals;
     std::map<int /*num*/, TBagItem> bags;
     std::map<int /*num*/, TTagItem> tags;
+    std::map<int /*num*/, TUnaccompInfoItem> unaccomps;
+    std::set<TUnaccompRuleItem> unaccomp_rules;
     bool pr_tag_print;
     TGroupBagItem()
     {
@@ -190,6 +256,8 @@ class TGroupBagItem
       vals.clear();
       bags.clear();
       tags.clear();
+      unaccomps.clear();
+      unaccomp_rules.clear();
       pr_tag_print=false;
     };
     bool empty() const
@@ -208,6 +276,7 @@ class TGroupBagItem
     void setPoolNum(int bag_pool_num);
     bool trferExists() const;
     void convertBag(std::multimap<int, TBagItem> &result) const;
+    void fillUnaccompRules();
 };
 
 class TPaidBagEMDItem
