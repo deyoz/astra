@@ -2809,8 +2809,8 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   }
   //для всей группы одна разметка тарифом
   ProgTrace( TRACE5, "passengers.Get(0).tariffs=%s, tariffStatus=%d", passengers.Get(0).tariffs.key().c_str(), passengers.Get(0).tariffStatus );
-  if ( passengers.Get(0).tariffStatus == TSeatTariffMap::stUseRFISC ) {
-    Salons->SetTariffsByRFICSColor( Salons->trip_id, passengers.Get(0).tariffs, true );
+  if ( passengers.Get(0).tariffStatus != TSeatTariffMap::stNotRFISC ) {
+    Salons->SetTariffsByRFISCColor( Salons->trip_id, passengers.Get(0).tariffs, passengers.Get(0).tariffStatus );
   }
 
   //удаляем предварительно назначенное платное место
@@ -4243,7 +4243,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
   TPlace* seat;
   Qry.Clear();
   Qry.SQLText =
-    "SELECT airp,point_id,point_num,first_point,pr_tranzit "
+    "SELECT airline,airp,point_id,point_num,first_point,pr_tranzit "
     " FROM points WHERE point_id=:point_id";
   Qry.DeclareVariable( "point_id", otInteger );
 
@@ -4289,6 +4289,13 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       ProgTrace( TRACE5, "RFISCMode=%d", salonList.getRFISCMode() );
       passTariffs.trace( TRACE5 );
       if ( passTariffs.status() == TSeatTariffMap::stUseRFISC ) {
+        if ( selfckin_client() ) {
+          Qry.SetVariable( "point_id", point_id );
+          Qry.Execute();
+          if ( !Qry.Eof ) {
+            addAirlineSelfCkinTariff( Qry.FieldAsString( "airline" ), passTariffs );
+          }
+        }
         seat->SetRFISC( point_id, passTariffs );
         std::map<int, TRFISC,classcomp> vrfiscs;
         seat->GetRFISCs( vrfiscs );
