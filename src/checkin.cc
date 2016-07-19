@@ -5452,6 +5452,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.SQLText=
             "BEGIN "
             "  DELETE FROM value_bag WHERE grp_id=:grp_id; "
+            "  DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id; "
             "  DELETE FROM bag2 WHERE grp_id=:grp_id; "
             "  DELETE FROM paid_bag WHERE grp_id=:grp_id; "
             "  DELETE FROM bag_tags WHERE grp_id=:grp_id; "
@@ -5466,6 +5467,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print) "
             "  SELECT :grp_id,num,tag_type,no,color,bag_num,pr_print "
             "  FROM bag_tags WHERE grp_id=:first_grp_id; "
+            "  INSERT INTO unaccomp_bag_info(grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd) "
+            "  SELECT :grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd "
+            "  FROM unaccomp_bag_info WHERE grp_id=:first_grp_id; "
             "  MERGE INTO pax "
             "  USING "
             "  ( "
