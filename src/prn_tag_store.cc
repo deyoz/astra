@@ -378,7 +378,6 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::PNR,                     TTagListItem(&TPrnTagStore::PNR, PNR_INFO)));
     tag_list.insert(make_pair(TAG::BUSINESS_HALL,           TTagListItem(&TPrnTagStore::BUSINESS_HALL, POINT_INFO)));
     tag_list.insert(make_pair(TAG::BSN_HALL_CAPTION,        TTagListItem(&TPrnTagStore::BSN_HALL_CAPTION, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::FQTV_STATUS,             TTagListItem(&TPrnTagStore::FQTV_STATUS, POINT_INFO)));
 }
 
 // BP && BT
@@ -777,8 +776,7 @@ void TPrnTagStore::save_bp_print(bool pr_print)
 
     if(
             tag_list[TAG::BUSINESS_HALL].processed or
-            tag_list[TAG::BSN_HALL_CAPTION].processed or
-            tag_list[TAG::FQTV_STATUS].processed
+            tag_list[TAG::BSN_HALL_CAPTION].processed
       ) {
         const boost::any &TagInfo = tag_list[TAG::BUSINESS_HALL].TagInfo;
         if(!TagInfo.empty()) {
@@ -2619,16 +2617,6 @@ string TPrnTagStore::AIRP_ARV_NAME2(TFieldParams fp) {
 
 string TPrnTagStore::AIRP_ARV_NAME3(TFieldParams fp) {
     return AIRP_ARV_NAME1(fp);
-}
-
-string TPrnTagStore::FQTV_STATUS(TFieldParams fp) {
-    ostringstream result;
-    if(!fp.TagInfo.empty()) {
-        const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
-        if(rule.pr_issue)
-            result << rule.card_type;
-    }
-    return result.str();
 }
 
 string TPrnTagStore::BSN_HALL_CAPTION(TFieldParams fp) {

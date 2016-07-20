@@ -80,7 +80,6 @@ namespace TAG {
     const std::string PAX_TITLE = "PAX_TITLE";
     const std::string BUSINESS_HALL = "BUSINESS_HALL";
     const std::string BSN_HALL_CAPTION = "BSN_HALL_CAPTION";
-    const std::string FQTV_STATUS = "FQTV_STATUS";
 
     // specific for bag tags
     const std::string AIRCODE = "AIRCODE";
@@ -526,7 +525,6 @@ class TPrnTagStore {
         std::string PAX_TITLE(TFieldParams fp);
         std::string BUSINESS_HALL(TFieldParams fp);
         std::string BSN_HALL_CAPTION(TFieldParams fp);
-        std::string FQTV_STATUS(TFieldParams fp);
 
         // specific for bag tags
         std::string AIRCODE(TFieldParams fp);

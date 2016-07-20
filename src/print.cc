@@ -1855,7 +1855,6 @@ void PrintInterface::GetPrintDataBI(const BPParams &params,
 
         parser.pts.set_tag(TAG::BUSINESS_HALL, iPax->bi_rule);
         parser.pts.set_tag(TAG::BSN_HALL_CAPTION, iPax->bi_rule);
-        parser.pts.set_tag(TAG::FQTV_STATUS, iPax->bi_rule);
 
         iPax->prn_form = parser.parse(data);
         iPax->hex=false;
@@ -1924,7 +1923,6 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
         iPax->bi_rule.dump(__FILE__, __LINE__);
         parser->pts.set_tag(TAG::BUSINESS_HALL, iPax->bi_rule);
         parser->pts.set_tag(TAG::BSN_HALL_CAPTION, iPax->bi_rule);
-        parser->pts.set_tag(TAG::FQTV_STATUS, iPax->bi_rule);
 
         iPax->prn_form = parser->parse(data);
         iPax->hex=false;
