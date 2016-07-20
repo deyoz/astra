@@ -425,6 +425,21 @@ void TCacheTable::initFields()
           FField.ElemCategory=cecName;
           FField.ElemType=etAirpTerminal;
         };
+        if (FField.ReferCode == "HALLS_AND_TERMINALS" && FField.ReferName == "AIRP_VIEW" )
+        {
+          FField.ElemCategory=cecCode;
+          FField.ElemType=etAirp;
+        };
+        if (FField.ReferCode == "HALLS_AND_TERMINALS" && FField.ReferName == "TERMINAL_VIEW" )
+        {
+          FField.ElemCategory=cecName;
+          FField.ElemType=etAirpTerminal;
+        };
+        if (FField.ReferCode == "HALLS_AND_TERMINALS" && FField.ReferName == "HALL_VIEW" )
+        {
+          FField.ElemCategory=cecName;
+          FField.ElemType=etBusinessHall;
+        };
         if (FField.ReferCode == "BUSINESS_HALLS" && FField.ReferName == "AIRP_TERMINAL_VIEW" )
         {
           FField.ElemCategory=cecName;
@@ -774,7 +789,6 @@ TUpdateDataType TCacheTable::refreshData()
                       if ((f>-1E9) && (f<1E9)) int_id=(int)f;
                     };
                   };
-
 
                   switch (i->ElemCategory)
                   {
