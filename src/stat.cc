@@ -8282,7 +8282,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             params.statType==statTlgOutShort ||
             params.statType==statTlgOutDetail ||
             params.statType==statTlgOutFull ||
-            params.statType==statRFISC
+            params.statType==statRFISC ||
+            params.statType==statUnaccBag
        )
     {
         if(IncMonth(params.FirstDate, 1) < params.LastDate)
