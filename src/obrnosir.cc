@@ -247,7 +247,7 @@ TDateTime getdiffhours( const std::string &region )
        region == "Asia/Sakhalin" ) {
     return -1.0;
   }*/
-  if ( region == "Asia/Tomsk" ) {
+  if ( region == "Asia/Novosibirsk" ) {
     return -1.0;
   }
 
@@ -455,7 +455,7 @@ int points_dst_format(int argc,char **argv)
     " 'Asia/Chita',"
     " 'Asia/Barnaul',"
     " 'Europe/Ulyanovsk',"
-    " 'Europe/Astrakhan') AND "
+    " 'Asia/Sakhalin') AND "
     " p.airp=a.code AND a.city=c.code AND c.country='”' ";
   Qry.Execute();
   TQuery UQry(&OraSession);
@@ -847,13 +847,13 @@ int seasons_dst_format(int argc,char **argv)
   //1 - §¨¬ 
   Qry.Clear();
   Qry.SQLText =
-    "SELECT DISTINCT trip_id,move_id,num,first_day,last_day,days,sched_days.region FROM sched_days "
-    "WHERE move_id IN ( "
-    " SELECT move_id FROM routes, airps WHERE airps.code=routes.airp AND airps.city IN ("
-    "'€','…ƒ','…‹','‡€','Š—','’','‚’ˆ','„……','„“†','Š€‘','Š‚…','Š‚‰','Š„„','Š…ƒ','Šˆ„','ŠŠƒ','Š‹˜','Š‹ž','ŠŸ','Š“†','Š“ž','Š˜','‹Š€','Œ†','Œ‰‘',"
-    "'ŒŠ‡','Œ‹','ŒŽ—','Œ›‹','ƒ’','‡','‘','’‡','›‚','Ž‘ˆ','ƒ','„','ˆ','Ž„','','•Š','‘‚ž','‘…ˆ','‘‡','‘','‘‘Š','‘’†','‘’–','‘“ƒ','’‹„',"
-    "'’‘Š','’›Œ','“’›','“—ˆ','˜ƒ') ) AND first_day > to_date('28.05.16','DD.MM.YY') "
-    "ORDER BY trip_id,move_id,num";
+    "SELECT * FROM ( "
+    " SELECT DISTINCT trip_id,move_id,num,first_day,last_day,days,d.region FROM sched_days d "
+    " WHERE move_id IN ( "
+    " SELECT move_id FROM routes, airps,cities WHERE airps.code=routes.airp AND airps.city=cities.code AND tz_region='Asia/Novosibirsk' ) "
+    " AND first_day > to_date('23.07.16','DD.MM.YY') ) d "
+    " WHERE d.move_id NOT IN (SELECT move_id FROM sched_days WHERE move_id=d.move_id AND first_day <to_date('23.07.16','DD.MM.YY') ) "
+    " ORDER BY trip_id,move_id,num ";
   tst();
   Qry.Execute();
   tst();
@@ -1122,7 +1122,7 @@ int seasons_dst_format(int argc,char **argv)
       " WHERE "
       " ROUTES.MOVE_ID=SCHED_DAYS.MOVE_ID AND "
       " seasons.region=d.region "
-      " AND seasons.last > to_date('27.03.16','DD.MM.YY') AND "
+      " AND seasons.first > to_date('27.03.16','DD.MM.YY') AND "
       //" AND seasons.hours=1 AND "
         " SEASONS.REGION=SCHED_DAYS.REGION AND SCD_IN IS NOT NULL AND "
       " TRUNC(FIRST_DAY)+DELTA_IN+(SCD_IN-TRUNC(SCD_IN)) NOT BETWEEN SEASONS.FIRST AND SEASONS.LAST AND "
