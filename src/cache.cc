@@ -400,16 +400,16 @@ void TCacheTable::initFields()
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirp;
         };
-
+        if ((FField.ReferCode == "BRANDS" ||
+             FField.ReferCode == "RFISC_COMP_PROPS") && FField.ReferName == "AIRLINE_VIEW")
+        {
+          FField.ElemCategory=cecCode;
+          FField.ElemType=etAirline;
+        };        
         if (FField.ReferCode == "SALE_POINTS" && FField.ReferName == "VALIDATOR_VIEW" )
         {
           FField.ElemCategory=cecCode;
           FField.ElemType=etValidatorType;
-        };
-        if (FField.ReferCode == "BRANDS" && FField.ReferName == "AIRLINE_VIEW" )
-        {
-          FField.ElemCategory=cecCode;
-          FField.ElemType=etAirline;
         };
 
         FFields.push_back(FField);
