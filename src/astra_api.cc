@@ -57,7 +57,7 @@ void savePrintBP(const LoadPaxXmlResult& loadPaxRes)
     TReqInfo::Instance()->desk.code = "IATCI";
 
     PrintDataParser parser(seg.grp_id, pax.pax_id, 0, NULL);
-    parser.pts.save_bp_print(true);
+    parser.pts.confirm_print(true, ASTRA::dotPrnBP);
 }
 
 }//namespace

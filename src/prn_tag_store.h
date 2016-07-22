@@ -194,19 +194,15 @@ namespace BIPrintRules {
     struct TRule {
         std::string card_type;
         int hall,             // id зала
-            is_business_hall, // ХЗ для чего
-            pr_bi;            // 0, 1, NoExists Печатать отдельное БП или нет
+            pr_print_bi;            // 0, 1, NoExists Печатать отдельное БП или нет
         TRegGroup reg_group;
-        bool pr_issue;
-        bool exists() { return reg_group != rgNum; };
+        bool exists() const { return reg_group != rgNum; };
         void dump(const std::string &file, int line);
         void fromDB(TQuery &Qry);
         TRule():
             hall(ASTRA::NoExists),
-            is_business_hall(ASTRA::NoExists),
-            pr_bi(false),
-            reg_group(rgNum),
-            pr_issue(false)
+            pr_print_bi(false),
+            reg_group(rgNum)
         {}
     };
 
@@ -619,8 +615,7 @@ class TPrnTagStore {
         void set_tag(std::string name, int value);
         void set_tag(std::string name, BASIC::TDateTime value);
         std::string get_field(std::string name, size_t len, std::string align, std::string date_format, std::string tag_lang, bool pr_user_except = true);
-        void save_bi_print(bool pr_print = false);
-        void save_bp_print(bool pr_print = false);
+        void confirm_print(bool pr_print, ASTRA::TDevOperType op_type);
         std::string get_tag_no_err( // Версия get_tag, которая игнорирует ошибку "Данные печати не латинские"
                 std::string name,
                 std::string date_format = BASIC::ServerFormatDateTimeAsString,

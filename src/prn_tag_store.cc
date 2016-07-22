@@ -700,72 +700,30 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
 {
     part1 =
         "begin "
-        "   delete from bp_print where pax_id = :pax_id and pr_print = 0 and desk=:desk; "
-        "   insert into bp_print( "
+        "   delete from confirm_print where pax_id = :pax_id and pr_print = 0 and desk=:desk and " OP_TYPE_COND("op_type")"; "
+        "   insert into confirm_print( "
         "       pax_id, "
         "       time_print, "
         "       pr_print, "
         "       desk, "
-        "       client_type ";
+        "       client_type, "
+        "       op_type ";
     part2 =
         "   ) values( "
         "       :pax_id, "
         "       :now_utc, "
         "       :pr_print, "
         "       :desk, "
-        "       :client_type ";
+        "       :client_type, "
+        "       :op_type ";
 };
 
-void TPrnTagStore::save_bi_print(bool pr_print)
-{
-    if (isTestPaxId(pax_id)) return;
-    if(not prn_test_tags.items.empty())
-        throw Exception("save_bi_print can't be called in test mode");
-    QParams QryParams;
-    QryParams
-        << QParam("time_print", otDate)
-        << QParam("pax_id", otInteger, pax_id)
-        << QParam("now_utc", otDate, time_print.val)
-        << QParam("pr_print", otInteger, pr_print)
-        << QParam("desk", otString, TReqInfo::Instance()->desk.code)
-        << QParam("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
-    TCachedQuery Qry(
-        "begin "
-        "   delete from bi_print where pax_id = :pax_id and pr_print = 0 and desk=:desk; "
-        "   insert into bi_print( "
-        "       pax_id, "
-        "       time_print, "
-        "       pr_print, "
-        "       desk, "
-        "       client_type "
-        "   ) values( "
-        "       :pax_id, "
-        "       :now_utc, "
-        "       :pr_print, "
-        "       :desk, "
-        "       :client_type "
-        "  ) returning time_print into :time_print; "
-        "end; ", QryParams);
-    Qry.get().Execute();
-    LogTrace(TRACE5) << "save_bi_print after execute";
-    try {
-        Qry.get().Execute();
-        LogTrace(TRACE5) << "save_bi_print time_print: " << DateTimeToStr(Qry.get().GetVariableAsDateTime("time_print"));
-    } catch(EOracleError &E) {
-        if(E.Code == 1) {
-            if(TReqInfo::Instance()->client_type == ctTerm)
-                throw UserException("MSG.PRINT.BI_ALREADY_PRODUCED");
-        } else
-            throw;
-    }
-}
-
-void TPrnTagStore::save_bp_print(bool pr_print)
+void TPrnTagStore::confirm_print(bool pr_print, TDevOperType op_type)
 {
     if(scan_data != NULL) return;
     if (isTestPaxId(pax_id)) return;
     if(not prn_test_tags.items.empty())
-        throw Exception("save_bp_print can't be called in test mode");
+        throw Exception("confirm_print can't be called in test mode");
     TQuery Qry(&OraSession);
     TPrnQryBuilder prnQry(Qry);
     Qry.CreateVariable("pax_id", otInteger, pax_id);
@@ -773,44 +731,8 @@ void TPrnTagStore::save_bp_print(bool pr_print)
     Qry.CreateVariable("pr_print", otInteger, pr_print);
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
     Qry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
 
-    if(
-            tag_list[TAG::BUSINESS_HALL].processed or
-            tag_list[TAG::BSN_HALL_CAPTION].processed
-      ) {
-        const boost::any &TagInfo = tag_list[TAG::BUSINESS_HALL].TagInfo;
-        if(!TagInfo.empty()) {
-            const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(TagInfo);
-            if(rule.pr_issue and rule.hall != NoExists) {
-                // запишем эту штуку в bp_print
-                prnQry.add_part("bi_rule_tier_level", rule.card_type);
-                prnQry.add_part("bi_rule_hall", rule.hall);
-                prnQry.add_part("bi_rule_is_business_hall", rule.is_business_hall);
-                prnQry.add_part("bi_rule_pr_bi", rule.pr_bi);
-                prnQry.add_part("bi_rule_reg_group", EncodeRegGroup(rule.reg_group));
-                prnQry.add_part("bi_rule_pr_issue", rule.pr_issue);
-            }
-        }
-    }
-
-    if(tag_list[TAG::AIRLINE].processed or tag_list[TAG::AIRLINE_NAME].processed)
-        prnQry.add_part(TAG::AIRLINE, pointInfo.airline);
-    if(tag_list[TAG::SCD].processed)
-        prnQry.add_part(TAG::SCD, pointInfo.scd);
-    if(tag_list[TAG::BRD_FROM].processed)
-        prnQry.add_part(TAG::BRD_FROM, brdInfo.brd_from);
-    if(tag_list[TAG::BRD_TO].processed)
-        prnQry.add_part(TAG::BRD_TO, brdInfo.brd_to);
-    if(tag_list[TAG::AIRP_ARV].processed or tag_list[TAG::AIRP_ARV_NAME].processed)
-        prnQry.add_part(TAG::AIRP_ARV, grpInfo.airp_arv);
-    if(tag_list[TAG::AIRP_DEP].processed or tag_list[TAG::AIRP_DEP_NAME].processed)
-        prnQry.add_part(TAG::AIRP_DEP, grpInfo.airp_dep);
-    if(tag_list[TAG::CLASS].processed)
-        prnQry.add_part("class_grp", grpInfo.class_grp);
-    if(tag_list[TAG::GATE].processed)
-        prnQry.add_part(TAG::GATE, boost::any_cast<string>(tag_list[TAG::GATE].TagInfo));
-    if(tag_list[TAG::REG_NO].processed)
-        prnQry.add_part(TAG::REG_NO, paxInfo.reg_no);
     if(
             tag_list[TAG::SEAT_NO].processed or
             tag_list[TAG::ONE_SEAT_NO].processed or
@@ -831,30 +753,12 @@ void TPrnTagStore::save_bp_print(bool pr_print)
         prnQry.add_part("seat_no", get_fmt_seat("list", seat_no_lat));
         prnQry.add_part("seat_no_lat", get_fmt_seat("list", true));
     }
-    if(tag_list[TAG::NAME].processed)
-        prnQry.add_part(TAG::NAME, paxInfo.name);
-    if(tag_list[TAG::NO_SMOKE].processed)
-        prnQry.add_part("pr_smoke", paxInfo.pr_smoke);
-    if(tag_list[TAG::BAG_AMOUNT].processed or tag_list[TAG::BAGGAGE].processed)
-        prnQry.add_part(TAG::BAG_AMOUNT, paxInfo.bag_amount);
-    if(tag_list[TAG::TAGS].processed)
-        prnQry.add_part(TAG::TAGS, paxInfo.tags);
-    if(tag_list[TAG::BAG_WEIGHT].processed or tag_list[TAG::BAGGAGE].processed)
-        prnQry.add_part(TAG::BAG_WEIGHT, paxInfo.bag_weight);
-    if(tag_list[TAG::EXCESS].processed)
-        prnQry.add_part(TAG::EXCESS, grpInfo.excess);
-    if(tag_list[TAG::FLT_NO].processed) {
-        prnQry.add_part(TAG::FLT_NO, pointInfo.flt_no);
-        prnQry.add_part("suffix", pointInfo.suffix);
-    }
-    if(tag_list[TAG::SURNAME].processed)
-        prnQry.add_part(TAG::SURNAME, paxInfo.surname);
     Qry.SQLText = prnQry.text();
     try {
         Qry.Execute();
     } catch(EOracleError &E) {
         if(E.Code == 1) {
-            if(TReqInfo::Instance()->client_type == ctTerm)
+            if(TReqInfo::Instance()->client_type == ctTerm and op_type == dotPrnBP)
                 throw UserException("MSG.PRINT.BP_ALREADY_PRODUCED");
         } else
             throw;
@@ -996,16 +900,7 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
               "   pax_id = :pax_id ";
           Qry.CreateVariable("lang", otString, tag_lang.GetLang());
 
-          TQuery bpPrintQry(&OraSession);
-          bpPrintQry.SQLText = "SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND pr_print<>0 AND rownum=1";
-          bpPrintQry.CreateVariable("pax_id", otInteger, pax_id);
-          bpPrintQry.Execute();
-          pr_bp_print = not bpPrintQry.Eof;
-          bpPrintQry.Clear();
-          bpPrintQry.SQLText = "SELECT pax_id FROM bi_print WHERE pax_id=:pax_id AND pr_print<>0 AND rownum=1";
-          bpPrintQry.CreateVariable("pax_id", otInteger, pax_id);
-          bpPrintQry.Execute();
-          pr_bi_print = not bpPrintQry.Eof;
+          get_pr_print(pax_id, pr_bp_print, pr_bi_print);
         }
         else
         {
@@ -2623,7 +2518,7 @@ string TPrnTagStore::BSN_HALL_CAPTION(TFieldParams fp) {
     ostringstream result;
     if(!fp.TagInfo.empty()) {
         const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
-        if(rule.pr_issue) {
+        if(rule.exists()) {
             result << upperc(getLocaleText("Бизнес зал"));
             if(rule.reg_group == BIPrintRules::rgPlusOne)
                 result << " +1";
@@ -2636,11 +2531,8 @@ string TPrnTagStore::BUSINESS_HALL(TFieldParams fp) {
     ostringstream result;
     if(!fp.TagInfo.empty()) {
         const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
-        if(rule.pr_issue) {
-            if(rule.is_business_hall)
-                result << tag_lang.ElemIdToTagElem(etBusinessHall, rule.hall, efmtNameLong);
-            else
-                result << upperc(getLocaleText("Бизнес зал"));
+        if(rule.exists()) {
+            result << tag_lang.ElemIdToTagElem(etBusinessHall, rule.hall, efmtNameLong);
             if(rule.reg_group == BIPrintRules::rgPlusOne)
                 result << " +1";
         }
@@ -3310,27 +3202,13 @@ namespace BIPrintRules {
         "?"
     };
 
-    void TRule::fromDB(TQuery &Qry)
-    {
-        if(Qry.FieldIsNULL("bi_rule_hall")) return;
-
-        card_type = Qry.FieldAsString("bi_rule_tier_level");
-        hall = Qry.FieldAsInteger("bi_rule_hall");
-        is_business_hall = Qry.FieldAsInteger("bi_rule_is_business_hall");
-        pr_bi = Qry.FieldAsInteger("bi_rule_pr_bi");
-        reg_group = DecodeRegGroup(Qry.FieldAsString("bi_rule_reg_group"));
-        pr_issue = Qry.FieldAsInteger("bi_rule_pr_issue");
-    }
-
     void TRule::dump(const string &file, int line)
     {
         LogTrace(TRACE5) << "-------TRule::dump(): " << file << ":" << line << "-------";
         LogTrace(TRACE5) << "tier_level: " << card_type;
         LogTrace(TRACE5) << "hall: " << hall;
-        LogTrace(TRACE5) << "is_business_hall: " << is_business_hall;
-        LogTrace(TRACE5) << "pr_bi: " << pr_bi;
+        LogTrace(TRACE5) << "pr_print_bi: " << pr_print_bi;
         LogTrace(TRACE5) << "reg_group: " << EncodeRegGroup(reg_group);
-        LogTrace(TRACE5) << "pr_issue: " << pr_issue;
         LogTrace(TRACE5) << "---------------------------";
     }
 
@@ -3346,7 +3224,6 @@ namespace BIPrintRules {
         TCachedQuery Qry(
                 "select "
                 "    reg_group, "
-                "    pr_issue, "
                 "    decode(cls, null, 0, 4) + "
                 "    decode(subcls, null, 0, 8)  priority "
                 "from "
@@ -3355,6 +3232,7 @@ namespace BIPrintRules {
                 "    airline = :airline and "
                 "    card_type = :card_type and "
                 "    rem_code = :rem_code and "
+                "    pr_issue <> 0 and "
                 "    (cls is null or cls = :cls) and "
                 "    (subcls is null or subcls = :subcls) "
                 "order by "
@@ -3369,9 +3247,10 @@ namespace BIPrintRules {
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             rule.reg_group = DecodeRegGroup(Qry.get().FieldAsString("reg_group"));
-            rule.pr_issue = Qry.get().FieldAsInteger("pr_issue") != 0;
             rule.card_type = card_type;
         }
+        LogTrace(TRACE5) << "At the end of get_rule: ";
+        rule.dump(__FILE__, __LINE__);
     }
 
     string EncodeRegGroup(TRegGroup s)
@@ -3398,15 +3277,14 @@ namespace BIPrintRules {
     {
         TCachedQuery Qry(
                 "select "
-                "   terminal, "
                 "   hall, "
-                "   is_business_hall, "
-                "   pr_bi "
+                "   pr_print_bi "
                 "from "
                 "   bi_airline_service "
                 "where "
                 "   airline = :airline and "
-                "   airp = :airp ",
+                "   airp = :airp and "
+                "   pr_denial = 0 ",
                 QParams()
                 << QParam("airline", otString, info.airline)
                 << QParam("airp", otString, info.airp)
@@ -3415,8 +3293,7 @@ namespace BIPrintRules {
         bool result = not Qry.get().Eof;
         if(result) {
             rule.hall = Qry.get().FieldAsInteger("hall");
-            rule.is_business_hall = Qry.get().FieldAsInteger("is_business_hall") != 0;
-            rule.pr_bi = Qry.get().FieldAsInteger("pr_bi") != 0;
+            rule.pr_print_bi = Qry.get().FieldAsInteger("pr_print_bi") != 0;
         }
         return result;
     }
