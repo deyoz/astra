@@ -31,6 +31,8 @@ void sendAllAPPSInfo( const int point_id, const std::string& task_name, const st
 void sendNewAPPSInfo( const int point_id, const std::string& task_name, const std::string& params );
 void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id );
 void deleteMsg( const int msg_id );
+void deleteAPPSData( const int pax_id );
+void deleteAPPSAlarms( const int pax_id );
 
 struct TTransData
 {
