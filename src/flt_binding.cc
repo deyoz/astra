@@ -75,7 +75,7 @@ void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, b
     add_trip_task(point_id_spp, SYNC_ALL_CHKD, "");
     BASIC::TDateTime start_time;
     bool result = checkTime( point_id_spp, start_time );
-    if ( result || ( !result && start_time != ASTRA::NoExists ) )
+    if ( result || start_time != ASTRA::NoExists )
       add_trip_task( point_id_spp, SEND_ALL_APPS_INFO, "", start_time );
     TlgETDisplay(point_id_tlg, point_id_spp, false);
   }

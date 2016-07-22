@@ -6634,7 +6634,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           CrsPnrInsQry.SetVariable("class",EncodeClass(iTotals->cl));
           bool is_need_apps = false;
           if ( point_id_spp != ASTRA::NoExists )
-            checkAPPSSets(point_id_spp, iTotals->dest);
+            is_need_apps = checkAPPSSets(point_id_spp, iTotals->dest);
           for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
           {
             TPnrItem& pnr=*iPnrItem;
@@ -6907,6 +6907,10 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     DeleteTlgSeatRanges(cltProtCkin, pax_id, tid, point_ids_spp);
                     DeleteTlgSeatRanges(cltProtBeforePay, pax_id, tid, point_ids_spp);
                     DeleteTlgSeatRanges(cltProtAfterPay, pax_id, tid, point_ids_spp);
+                    if(is_need_apps) {
+                      deleteAPPSAlarms(pax_id);
+                      deleteAPPSData(pax_id);
+                    }
                   };
                 };
                 if (ne.indicator!=DEL)
@@ -7066,8 +7070,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         };
         if(!isPRL && apps_pax_exists) {
           BASIC::TDateTime start_time;
-          bool result = checkTime( point_id, start_time );
-          if ( result || ( !result && start_time != ASTRA::NoExists ) )
+          bool result = checkTime( point_id_spp, start_time );
+          if ( result || start_time != ASTRA::NoExists )
             add_trip_task( point_id_spp, SEND_NEW_APPS_INFO, "", start_time );
         }
       };

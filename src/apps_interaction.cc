@@ -209,17 +209,18 @@ bool checkTime( const int point_id, BASIC::TDateTime& start_time )
   start_time = ASTRA::NoExists;
   BASIC::TDateTime now = BASIC::NowUTC();
   TTripInfo trip;
-  BASIC::TDateTime scd_out = trip.getByPointId(point_id);
+  trip.getByPointId(point_id);
   // The APP System only allows transactions on [- 2 days] TODAY [+ 10 days].
-  if ( now - trip.scd_out > 2 )
+  if ( ( now - trip.scd_out ) > 2 )
     return false;
-  if ( trip.scd_out - now > 10 ) {
-    start_time = scd_out - 10;
+  if ( ( trip.scd_out - now ) > 10 ) {
+    start_time = trip.scd_out - 10;
+    return false;
   }
   return true;
 }
 
-static void deleteAPPSData( const int pax_id )
+void deleteAPPSData( const int pax_id )
 {
   TQuery Qry(&OraSession);
   Qry.SQLText = "DELETE FROM apps_pax_data WHERE pax_id = :pax_id";
@@ -227,7 +228,7 @@ static void deleteAPPSData( const int pax_id )
   Qry.Execute();
 }
 
-static void deleteAPPSAlarms( const int pax_id )
+void deleteAPPSAlarms( const int pax_id )
 {
   set_pax_alarm( pax_id, atAPPSNegativeDirective, false );
   set_crs_pax_alarm( pax_id, atAPPSNegativeDirective, false );
@@ -368,7 +369,8 @@ void TPaxData::init( const int pax_ident, const std::string& surname, const std:
 {
   pax_id = pax_ident;
   CheckIn::TPaxDocItem doc;
-  CheckIn::LoadPaxDoc(pax_ident, doc);
+  if ( !CheckIn::LoadPaxDoc( pax_ident, doc ) )
+    CheckIn::LoadCrsPaxDoc( pax_ident, doc );
   pax_crew = is_crew?"C":"P";
   nationality = doc.nationality;
   issuing_state = doc.issue_country;
@@ -755,10 +757,15 @@ APPSAction TPaxRequest::typeOfAction( const bool is_exists, const std::string& s
                                       const bool is_the_same, const bool is_forced) const
 {
   bool is_cancel = (trans.code == ReqTypeCicx);
-  if( !is_exists && is_cancel )
-    return NoAction;
-  if(!is_exists && !is_cancel)
+
+  if( !is_exists ) {
+    if ( is_cancel ) {
+      deleteAPPSAlarms( pax.pax_id );
+      return NoAction;
+    }
     return NeedNew;
+  }
+
   if ( !status.empty() && is_cancel ) {
     deleteAPPSAlarms( pax.pax_id );
     if ( status != "B" ) {
@@ -768,6 +775,7 @@ APPSAction TPaxRequest::typeOfAction( const bool is_exists, const std::string& s
     else
       return NeedCancel;
   }
+
   if ( !status.empty() && !is_the_same ) {
     if(status == "P")
       return NeedNew;
@@ -1169,7 +1177,7 @@ void TPaxReqAnswer::processAnswer() const
   TPaxRequest * reseived = new TPaxRequest();
   actual->init( pax_id );
   reseived->fromDBByMsgId( msg_id );
-  if ( *reseived != *actual ) {
+  if ( *reseived == *actual ) {
     set_pax_alarm( pax_id, atAPPSConflict, false );
     set_crs_pax_alarm( pax_id, atAPPSConflict, false );
   }
