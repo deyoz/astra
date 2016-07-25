@@ -345,6 +345,7 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::EXCESS,                  TTagListItem(&TPrnTagStore::EXCESS)));
     tag_list.insert(make_pair(TAG::FLT_NO,                  TTagListItem(&TPrnTagStore::FLT_NO, POINT_INFO))); // !!!
     tag_list.insert(make_pair(TAG::FQT,                     TTagListItem(&TPrnTagStore::FQT, FQT_INFO)));
+    tag_list.insert(make_pair(TAG::FQT_TIER_LEVEL,          TTagListItem(&TPrnTagStore::FQT_TIER_LEVEL, FQT_INFO)));
     tag_list.insert(make_pair(TAG::FULL_PLACE_ARV,          TTagListItem(&TPrnTagStore::FULL_PLACE_ARV)));
     tag_list.insert(make_pair(TAG::FULL_PLACE_DEP,          TTagListItem(&TPrnTagStore::FULL_PLACE_DEP)));
     tag_list.insert(make_pair(TAG::FULLNAME,                TTagListItem(&TPrnTagStore::FULLNAME, PAX_INFO)));
@@ -801,15 +802,16 @@ void TPrnTagStore::TFqtInfo::Init(int apax_id)
         pr_init = true;
         TQuery Qry(&OraSession);
         if (!isTestPaxId(apax_id))
-          Qry.SQLText = "select airline, no, extra from pax_fqt where pax_id = :pax_id and rownum < 2";
+          Qry.SQLText = "select airline, no, extra, tier_level from pax_fqt where pax_id = :pax_id and rownum < 2";
         else
-          Qry.SQLText = "SELECT pnr_airline AS airline, fqt_no AS no, NULL AS extra FROM test_pax WHERE id=:pax_id";
+          Qry.SQLText = "SELECT pnr_airline AS airline, fqt_no AS no, NULL AS extra, null tier_level FROM test_pax WHERE id=:pax_id";
         Qry.CreateVariable("pax_id", otInteger, apax_id);
         Qry.Execute();
         if(!Qry.Eof) {
             airline = Qry.FieldAsString("airline");
             no = Qry.FieldAsString("no");
             extra = Qry.FieldAsString("extra");
+            tier_level = Qry.FieldAsString("tier_level");
         }
     }
 }
@@ -1851,6 +1853,14 @@ string TPrnTagStore::FLT_NO(TFieldParams fp)
             return result.str();
         }
     }
+}
+
+string TPrnTagStore::FQT_TIER_LEVEL(TFieldParams fp)
+{
+    if(!fp.TagInfo.empty())
+        return boost::any_cast<std::string>(fp.TagInfo);
+    else
+        return transliter(fqtInfo.tier_level, 1,tag_lang.GetLang() != AstraLocale::LANG_RU);
 }
 
 string TPrnTagStore::FQT(TFieldParams fp)

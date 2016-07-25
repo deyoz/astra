@@ -48,6 +48,7 @@ namespace TAG {
     const std::string EXCESS = "EXCESS";
     const std::string FLT_NO = "FLT_NO";
     const std::string FQT = "FQT";
+    const std::string FQT_TIER_LEVEL = "FQT_TIER_LEVEL";
     const std::string FULL_PLACE_ARV = "FULL_PLACE_ARV";
     const std::string FULL_PLACE_DEP = "FULL_PLACE_DEP";
     const std::string FULLNAME = "FULLNAME";
@@ -410,7 +411,7 @@ class TPrnTagStore {
 
         struct TFqtInfo {
             bool pr_init;
-            std::string airline, no, extra;
+            std::string airline, no, extra, tier_level;
             TFqtInfo(): pr_init(false) {};
             void Init(int apax_id);
         };
@@ -539,6 +540,7 @@ class TPrnTagStore {
         std::string ETKT(TFieldParams fp);
         std::string EXCESS(TFieldParams fp);
         std::string FLT_NO(TFieldParams fp);
+        std::string FQT_TIER_LEVEL(TFieldParams fp);
         std::string FQT(TFieldParams fp);
         std::string FULL_PLACE_ARV(TFieldParams fp);
         std::string FULL_PLACE_DEP(TFieldParams fp);
