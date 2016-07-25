@@ -182,33 +182,84 @@ int separate_double(double d, int precision, int *iptr);
 
 namespace BIPrintRules {
 
-    enum TRegGroup {
-        rgNo,       // Строго в данном порядке
-        rgPlusOne,
-        rgYes,
-        rgNum };
+class TPrintType
+{
+  public:
+    enum Enum
+    {
+      One,
+      OnePlusOne,
+      All,
+      None
+    };
 
-    std::string EncodeRegGroup(TRegGroup s);
-    TRegGroup DecodeRegGroup(const std::string &reg_group);
+    static const std::list< std::pair<Enum, std::string> >& pairs()
+    {
+      static std::list< std::pair<Enum, std::string> > l;
+      if (l.empty())
+      {
+        l.push_back(std::make_pair(One,        "ONE"));
+        l.push_back(std::make_pair(OnePlusOne, "TWO"));
+        l.push_back(std::make_pair(All,        "ALL"));
+      }
+      return l;
+    }
+
+    static const std::list< std::pair<Enum, std::string> >& view_pairs()
+    {
+      static std::list< std::pair<Enum, std::string> > l;
+      if (l.empty())
+      {
+        l.push_back(std::make_pair(One,        "One"));
+        l.push_back(std::make_pair(OnePlusOne, "OnePlusOne"));
+        l.push_back(std::make_pair(All,        "All"));
+        l.push_back(std::make_pair(None,       "None"));
+      }
+      return l;
+    }
+};
+
+class TPrintTypes : public ASTRA::PairList<TPrintType::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "TPrintTypes"; }
+  public:
+    TPrintTypes() : ASTRA::PairList<TPrintType::Enum, std::string>(TPrintType::pairs(),
+                                                                   boost::none,
+                                                                   boost::none) {}
+};
+
+class TPrintTypesView : public ASTRA::PairList<TPrintType::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "TPrintTypesView"; }
+  public:
+    TPrintTypesView() : ASTRA::PairList<TPrintType::Enum, std::string>(TPrintType::view_pairs(),
+                                                                       boost::none,
+                                                                       boost::none) {}
+};
+
+extern TPrintTypes PrintTypes;
+extern TPrintTypesView PrintTypesView;
 
     struct TRule {
-        std::string card_type;
-        int hall,             // id зала
-            pr_print_bi;            // 0, 1, NoExists Печатать отдельное БП или нет
-        TRegGroup reg_group;
-        bool exists() const { return reg_group != rgNum; };
+        std::string tier_level;
+        int hall;             // id зала
+        bool pr_print_bi;     // Печатать отдельное БП или нет
+        TPrintType::Enum print_type;
+        bool exists() const { return print_type != TPrintType::None; }
         void dump(const std::string &file, int line);
         void fromDB(TQuery &Qry);
         TRule():
             hall(ASTRA::NoExists),
             pr_print_bi(false),
-            reg_group(rgNum)
+            print_type(TPrintType::None)
         {}
     };
 
     void get_rule(
             const std::string &airline,
-            const std::string &card_type,
+            const std::string &tier_level,
             const std::string &cls,
             const std::string &subcls,
             const std::string &rem_code,
@@ -220,7 +271,7 @@ namespace BIPrintRules {
             TRule &rule
             );
 
-};
+} //namespace BIPrintRules
 
 class TPrnTagStore {
     private:

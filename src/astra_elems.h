@@ -13,12 +13,12 @@ enum TElemType {
                  etAlarmType,                //типы тревог
                  etBagNormType,              //типы багажных норм
                  etBagType,                  //типы багажа
-                 etBrand,                    //бренды
-                 etBIRegGroup,               //группа регистрации для приглашений
+                 etBIHall,                   //бизнес-залы
+                 etBIPrintType,              //типы печати приглашений
                  etBIType,                   //типы приглашений
+                 etBrand,                    //бренды
                  etBPType,                   //типы посадочных талонов
                  etBTType,                   //типы багажных бирок
-                 etBusinessHall,             //бизнес залы
                  etCity,                     //города
                  etCkinRemType,              //коды ремарок регистрации
                  etClass,                    //базовые классы
@@ -47,7 +47,6 @@ enum TElemType {
                  etPaxDocType,               //типы документов пассажиров
                  etPayType,                  //код типа оплаты
                  etPersType,                 //тип пассажира ВЗ, РБ, РМ
-                 etPriorityCardType,         //тип карты приоритета
                  etRateColor,                //цвета тарифов в компоновке
                  etRcptDocType,              //типы документов пассажиров для оплаты багажа
                  etRefusalType,              //коды причин отказа в регистрации

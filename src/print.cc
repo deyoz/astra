@@ -1760,7 +1760,7 @@ void set_BI_data(vector<PrintInterface::BPPax> &paxs)
 
             // Пробег по ремаркам
             // у паса может быть несколько ремарок с разными
-            // настройками группы регистрации (bi_print_rules.reg_group = ДА, +1, НЕТ)
+            // настройками группы регистрации (bi_print_rules.print_type = ALL, TWO, ONE)
             // выбираем самую приоритетную.
 
             BIPrintRules::TRule tmp_rule = iPax->bi_rule; // чтобы не потерять hall, is_business_hall, pr_print_bi
@@ -1778,7 +1778,7 @@ void set_BI_data(vector<PrintInterface::BPPax> &paxs)
 
                 // После нахождения правила из кеша Правила печати приглашений
                 // данные этого правила сохраняются в bi_rule:
-                // Группа регистрации (bi_rule.reg_group)
+                // Группа регистрации (bi_rule.print_type)
                 // Оформление (bi_rule.pr_issue)
 
                 if(tmp_rule.exists()) {
@@ -1786,16 +1786,16 @@ void set_BI_data(vector<PrintInterface::BPPax> &paxs)
                         iPax->bi_rule = tmp_rule;
                     else {
                         // вот здесь выбор по приоритету
-                        if(iPax->bi_rule.reg_group < tmp_rule.reg_group)
+                        if(iPax->bi_rule.print_type < tmp_rule.print_type)
                             iPax->bi_rule = tmp_rule;
                     }
                 }
             }
         }
     }
-    // Находим первого паса с печатью для всей группы (Группа регистрации ДА т.е. bi_rule.reg_group = rgYes)
+    // Находим первого паса с печатью для всей группы (Группа регистрации ДА т.е. bi_rule.print_type = All)
     vector<PrintInterface::BPPax>::iterator grpPax=paxs.begin();
-    for(; grpPax!=paxs.end() and grpPax->bi_rule.reg_group != BIPrintRules::rgYes; ++grpPax );
+    for(; grpPax!=paxs.end() and grpPax->bi_rule.print_type != BIPrintRules::TPrintType::All; ++grpPax );
 
     // Применяем групповое правило для всех пасов, если таковое нашлось
     if(grpPax != paxs.end()) {

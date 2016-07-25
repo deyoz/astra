@@ -4,9 +4,73 @@
 
 #include <limits.h>
 #include <string>
+#include <list>
+#include <boost/optional.hpp>
+#include "exceptions.h"
 
 namespace ASTRA
 {
+
+template <typename T1, typename T2>
+class PairList
+{
+  private:
+    std::multimap<T1, T2> map1;
+    std::multimap<T2, T1> map2;
+    boost::optional<T1> unknown1;
+    boost::optional<T2> unknown2;
+    virtual std::string className() const=0;
+    template <typename FROM, typename TO>
+    TO convert(const FROM& value,
+               const std::multimap<FROM, TO>& map,
+               const boost::optional<TO>& unknown,
+               const std::string& where) const
+    {
+      typename std::multimap<FROM, TO>::const_iterator i=map.find(value);
+      if (i==map.end())
+      {
+        //не нашли
+        if (unknown) return unknown.get();
+        std::ostringstream s;
+        s << className() << "." << where << ": " << value << " not found";  //не решена проблема с возможным рекурсивным вызовом!!!
+        throw EXCEPTIONS::EConvertError(s.str().c_str());
+      }
+      else
+      {
+        //нашли
+        TO result=i->second;
+        ++i;
+        if (i==map.end() || i->second!=result) return result;
+        std::ostringstream s;
+        s << className() << "." << where << ": " << value << " duplicated";  //не решена проблема с возможным рекурсивным вызовом!!!
+        throw EXCEPTIONS::EConvertError(s.str().c_str());
+      }
+    }
+  public:
+    PairList(const std::list< std::pair<T1, T2> > &pairs,
+             const boost::optional<T1>& unk1,
+             const boost::optional<T2>& unk2)
+    {
+      for(typename std::list< std::pair<T1, T2> >::const_iterator i=pairs.begin(); i!=pairs.end(); ++i)
+      {
+        map1.insert(make_pair(i->first, i->second));
+        map2.insert(make_pair(i->second, i->first));
+      }
+      unknown1=unk1;
+      unknown2=unk2;
+    }
+    virtual ~PairList() {}
+
+
+    T1 decode(const T2& value) const
+    {
+      return convert<T2, T1>(value, map2, unknown1, __FUNCTION__);
+    }
+    T2 encode(const T1& value) const
+    {
+      return convert<T1, T2>(value, map1, unknown2, __FUNCTION__);
+    }
+};
 
 enum TClientType { ctTerm, ctWeb, ctKiosk, ctPNL, ctHTTP, ctMobile, ctEDI, ctTypeNum };
 extern const char* ClientTypeS[ctTypeNum];

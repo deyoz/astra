@@ -396,24 +396,16 @@ void TCacheTable::initFields()
           };
         };
         if ((FField.ReferCode == "STATIONS" ||
-             FField.ReferCode == "AIRP_TERMINALS" ||
-             FField.ReferCode == "HALLS" ||
-             FField.ReferCode == "BUSINESS_HALLS") && FField.ReferName == "AIRP_VIEW")
+             FField.ReferCode == "BI_HALLS_AND_TERMINALS") && FField.ReferName == "AIRP_VIEW")
         {
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirp;
         };
-        if ((FField.ReferCode == "PRIORITY_CARD_TYPES" ||
-             FField.ReferCode == "BRANDS" ||
+        if ((FField.ReferCode == "BRANDS" ||
              FField.ReferCode == "RFISC_COMP_PROPS") && FField.ReferName == "AIRLINE_VIEW")
         {
           FField.ElemCategory=cecCode;
           FField.ElemType=etAirline;
-        };
-        if (FField.ReferCode == "PRIORITY_CARD_TYPES" && FField.ReferName == "REM_CODE_VIEW" )
-        {
-          FField.ElemCategory=cecCode;
-          FField.ElemType=etCkinRemType;
         };
         if (FField.ReferCode == "SALE_POINTS" && FField.ReferName == "VALIDATOR_VIEW" )
         {
@@ -425,25 +417,15 @@ void TCacheTable::initFields()
           FField.ElemCategory=cecName;
           FField.ElemType=etAirpTerminal;
         };
-        if (FField.ReferCode == "HALLS_AND_TERMINALS" && FField.ReferName == "AIRP_VIEW" )
-        {
-          FField.ElemCategory=cecCode;
-          FField.ElemType=etAirp;
-        };
-        if (FField.ReferCode == "HALLS_AND_TERMINALS" && FField.ReferName == "TERMINAL_VIEW" )
+        if (FField.ReferCode == "BI_HALLS_AND_TERMINALS" && FField.ReferName == "TERMINAL_VIEW" )
         {
           FField.ElemCategory=cecName;
           FField.ElemType=etAirpTerminal;
         };
-        if (FField.ReferCode == "HALLS_AND_TERMINALS" && FField.ReferName == "HALL_VIEW" )
+        if (FField.ReferCode == "BI_HALLS_AND_TERMINALS" && FField.ReferName == "HALL_VIEW" )
         {
           FField.ElemCategory=cecName;
-          FField.ElemType=etBusinessHall;
-        };
-        if (FField.ReferCode == "BUSINESS_HALLS" && FField.ReferName == "AIRP_TERMINAL_VIEW" )
-        {
-          FField.ElemCategory=cecName;
-          FField.ElemType=etAirpTerminal;
+          FField.ElemType=etBIHall;
         };
 
         FFields.push_back(FField);
@@ -1559,7 +1541,6 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 
         SetVariables( *iv, vars );
         try {
-            LogTrace(TRACE5) << Qry->SQLText.SQLText(); // !!!
           Qry->Execute();
           if ( Logging ) /* логирование */
             OnLogging( *iv, status );

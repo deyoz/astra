@@ -47,9 +47,7 @@ TBaseTable &TBaseTables::get(string name)
         else if(name == "REPORT_TYPES")
             base_tables[name] = new TReportTypes();
         else if(name == "GENDER_TYPES")
-            base_tables[name] = new TGenderTypes();
-        else if(name == "BI_REG_GROUP")
-            base_tables[name] = new TBIRegGroup();
+            base_tables[name] = new TGenderTypes();        
         else if(name == "TAG_COLORS")
             base_tables[name] = new TTagColors();
         else if(name == "PAX_DOC_COUNTRIES")
@@ -128,6 +126,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TMsgTransports();
         else if(name == "RATE_COLORS")
             base_tables[name] = new TRateColors();
+        else if(name == "BI_PRINT_TYPES")
+            base_tables[name] = new TBIPrintTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
         mem.create(base_tables[name], STDLOG);
@@ -583,13 +583,6 @@ void TReportTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TBIRegGroup::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
-{
-  *row = new TBIRegGroupRow;
-  mem.create(*row, STDLOG);
-  TCodeBaseTable::create_row(Qry,row,replaced_row);
-};
-
 void TTagColors::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TTagColorsRow;
@@ -973,6 +966,14 @@ void TRateColors::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **r
 {
   *row = new TRateColorsRow;
   mem.create(*row, STDLOG);
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TBIPrintTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TBIPrintTypesRow;
+  mem.create(*row, STDLOG);
+  ((TBIPrintTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 

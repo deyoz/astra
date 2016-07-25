@@ -2520,7 +2520,7 @@ string TPrnTagStore::BSN_HALL_CAPTION(TFieldParams fp) {
         const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
         if(rule.exists()) {
             result << upperc(getLocaleText("¨§­¥á § «"));
-            if(rule.reg_group == BIPrintRules::rgPlusOne)
+            if(rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
                 result << " +1";
         }
     }
@@ -2532,8 +2532,8 @@ string TPrnTagStore::BUSINESS_HALL(TFieldParams fp) {
     if(!fp.TagInfo.empty()) {
         const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
         if(rule.exists()) {
-            result << tag_lang.ElemIdToTagElem(etBusinessHall, rule.hall, efmtNameLong);
-            if(rule.reg_group == BIPrintRules::rgPlusOne)
+            result << tag_lang.ElemIdToTagElem(etBIHall, rule.hall, efmtNameLong);
+            if(rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
                 result << " +1";
         }
     }
@@ -3193,28 +3193,30 @@ string TPrnTagStore::TOTAL(TFieldParams fp)
   return RateToString(rcpt.pay_rate_sum(), rcpt.pay_rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
 }
 
+std::ostream & operator <<(std::ostream &os, BIPrintRules::TPrintType::Enum const &value)
+{
+  os << BIPrintRules::PrintTypesView.encode(value);
+  return os;
+}
+
 namespace BIPrintRules {
 
-    static const char *BIRegGroupS[] = {
-        "…’",
-        "+1",
-        "„€",
-        "?"
-    };
+TPrintTypes PrintTypes;
+TPrintTypesView PrintTypesView;
 
     void TRule::dump(const string &file, int line)
     {
         LogTrace(TRACE5) << "-------TRule::dump(): " << file << ":" << line << "-------";
-        LogTrace(TRACE5) << "tier_level: " << card_type;
+        LogTrace(TRACE5) << "tier_level: " << tier_level;
         LogTrace(TRACE5) << "hall: " << hall;
         LogTrace(TRACE5) << "pr_print_bi: " << pr_print_bi;
-        LogTrace(TRACE5) << "reg_group: " << EncodeRegGroup(reg_group);
+        LogTrace(TRACE5) << "print_type: " << print_type;
         LogTrace(TRACE5) << "---------------------------";
     }
 
     void get_rule(
             const string &airline,
-            const string &card_type,
+            const string &tier_level,
             const string &cls,
             const string &subcls,
             const string &rem_code,
@@ -3223,51 +3225,34 @@ namespace BIPrintRules {
     {
         TCachedQuery Qry(
                 "select "
-                "    reg_group, "
-                "    decode(cls, null, 0, 4) + "
-                "    decode(subcls, null, 0, 8)  priority "
+                "    print_type, "
+                "    decode(class, null, 0, 4) + "
+                "    decode(subclass, null, 0, 8)  priority "
                 "from "
                 "    bi_print_rules "
                 "where "
                 "    airline = :airline and "
-                "    card_type = :card_type and "
+                "    fqt_tier_level = :tier_level and "
                 "    rem_code = :rem_code and "
-                "    pr_issue <> 0 and "
-                "    (cls is null or cls = :cls) and "
-                "    (subcls is null or subcls = :subcls) "
+                "    pr_denial = 0 and "
+                "    (class is null or class = :class) and "
+                "    (subclass is null or subclass = :subclass) "
                 "order by "
                 "    priority desc ",
                 QParams()
                 << QParam("airline", otString, airline)
-                << QParam("card_type", otString, card_type)
+                << QParam("tier_level", otString, tier_level)
                 << QParam("rem_code", otString, rem_code)
-                << QParam("cls", otString, cls)
-                << QParam("subcls", otString, subcls)
+                << QParam("class", otString, cls)
+                << QParam("subclass", otString, subcls)
                 );
         Qry.get().Execute();
         if(not Qry.get().Eof) {
-            rule.reg_group = DecodeRegGroup(Qry.get().FieldAsString("reg_group"));
-            rule.card_type = card_type;
+            rule.print_type = PrintTypes.decode(Qry.get().FieldAsString("print_type"));
+            rule.tier_level = tier_level;
         }
         LogTrace(TRACE5) << "At the end of get_rule: ";
         rule.dump(__FILE__, __LINE__);
-    }
-
-    string EncodeRegGroup(TRegGroup s)
-    {
-        return BIRegGroupS[s];
-    }
-
-    TRegGroup DecodeRegGroup(const string &reg_group)
-    {
-        int i = 0;
-        for(i = 0; i < (int)rgNum; i++)
-            if(reg_group == BIRegGroupS[i])
-                break;
-        if(i == rgNum)
-            throw Exception("DecodeRegGroup: unknown reg group");
-        else
-            return TRegGroup(i);
     }
 
     bool bi_airline_service(

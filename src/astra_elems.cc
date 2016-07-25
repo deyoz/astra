@@ -67,12 +67,12 @@ const
                          {etAlarmType,             "etAlarmType",             "alarm_types"},
                          {etBagNormType,           "etBagNormType",           "bag_norm_types"},
                          {etBagType,               "etBagType",               "bag_types"},
+                         {etBIHall,                "etBIHall",                ""},
+                         {etBIPrintType,           "etBIPrintType",           "bi_print_types"},
                          {etBIType,                "etBIType",                ""},
                          {etBrand,                 "etBrand",                 ""},
                          {etBPType,                "etBPType",                ""},
                          {etBTType,                "etBTType",                ""},
-                         {etBIRegGroup,            "etBIRegGroup",            "bi_reg_group"},
-                         {etBusinessHall,          "etBusinessHall",          ""},
                          {etCity,                  "etCity",                  "cities"},
                          {etCkinRemType,           "etCkinRemType",           "ckin_rem_types"},
                          {etClass,                 "etClass",                 "classes"},
@@ -101,7 +101,6 @@ const
                          {etPaxDocType,            "etPaxDocType",            "pax_doc_types"},
                          {etPayType,               "etPayType",               "pay_types"},
                          {etPersType,              "etPersType",              "pers_types"},
-                         {etPriorityCardType,      "etPriorityCardType",      ""},
                          {etRateColor,             "etRateColor",             "rate_colors"},
                          {etRcptDocType,           "etRcptDocType",           "rcpt_doc_types"},
                          {etRefusalType,           "etRefusalType",           "refusal_types"},
@@ -666,13 +665,12 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
     //не base_table
     switch(type)
     {
-        case etBusinessHall: Qry.SQLText="SELECT name,name_lat FROM business_halls WHERE id=:id"; break;
                 case etHall: Qry.SQLText="SELECT name,name_lat FROM halls2 WHERE id=:id"; break;
+              case etBIHall: Qry.SQLText="SELECT name,name_lat FROM bi_halls WHERE id=:id"; break;
              case etDeskGrp: Qry.SQLText="SELECT descr AS name, descr_lat AS name_lat FROM desk_grp WHERE grp_id=:id"; break;
               case etRemGrp: Qry.SQLText="SELECT name, name_lat FROM rem_grp WHERE id=:id"; break;
                case etUsers: Qry.SQLText="SELECT descr AS name, descr AS name_lat FROM users2 WHERE user_id=:id"; break;
                case etRoles: Qry.SQLText="SELECT name AS name, name AS name_lat FROM roles WHERE role_id=:id"; break;
-    case etPriorityCardType: Qry.SQLText="SELECT card_type AS name, card_type AS name_lat FROM priority_card_types WHERE id=:id"; break;
         case etAirpTerminal: Qry.SQLText="SELECT name AS name, name AS name_lat FROM airp_terminals WHERE id=:id"; break;
                case etBrand: Qry.SQLText="SELECT name, name_lat FROM brands WHERE id=:id"; break;
                     default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
