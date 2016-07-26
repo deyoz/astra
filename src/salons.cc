@@ -39,6 +39,42 @@ namespace SALONS2
 
 int getCRC_Comp( int point_id );
 
+bool selfckin_client()
+{
+  return ( TReqInfo::Instance()->client_type == ctWeb ||
+           TReqInfo::Instance()->client_type == ctKiosk ||
+           TReqInfo::Instance()->client_type == ctMobile );
+}
+
+
+void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tariffMap )
+{
+  ProgTrace( TRACE5, "addAirlineSelfCkinTariff: clear tariffMap");
+  if ( !selfckin_client() ) {
+    return;
+  }
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT rfisc,rate,rate_cur "
+    " FROM rfisc_rates_self_ckin "
+    " WHERE airline=:airline AND rfisc=:rfisc";
+  Qry.CreateVariable( "airline", otString, airline );
+  Qry.DeclareVariable( "rfisc", otString );
+  for ( TSeatTariffMapType::iterator itariff=tariffMap.begin(); itariff!=tariffMap.end(); itariff++ ) {
+    Qry.SetVariable( "rfisc", itariff->second.code );
+    Qry.Execute();
+    if ( !Qry.Eof ) {
+      itariff->second.rate = Qry.FieldAsFloat("rate");
+      itariff->second.currency_id = Qry.FieldAsString("rate_cur");
+    }
+    else {
+      itariff->second.clear();
+      itariff->second.rate = INT_MAX;
+    }
+  }
+  tariffMap.trace(TRACE5);
+}
+
 void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
 {
   clear();
@@ -1390,9 +1426,9 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
    NewTextChild( node, "yname", denorm_iata_row( yname, NULL ) );
 }
 
-void TPlace::SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &salonTariffs, bool setPassengerTariffs )
+void TPlace::SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &salonTariffs, const TSeatTariffMap::TStatus &status )
 {
-  if ( salonTariffs.empty() || !visible || !isplace ) {
+  if ( salonTariffs.empty() || !visible || !isplace || status == TSeatTariffMap::stNotRFISC ) {
     return;
   }
   tariffs.clear();
@@ -1409,26 +1445,30 @@ void TPlace::SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &sa
     }
     colorItem = salonTariffs.find( irfisc->second.color );
     if ( colorItem != salonTariffs.end() ) {
-      if ( setPassengerTariffs  ) {
-        TSeatTariff tariff;
-        tariff.color = colorItem->second.color;
-        tariff.currency_id = colorItem->second.currency_id;
+      TSeatTariff tariff;
+      tariff.color = colorItem->second.color;
+      tariff.currency_id = colorItem->second.currency_id;
+      if ( status != TSeatTariffMap::stUseRFISC ) {
+      //режим работы с RFISC, но оценка не прошла, надо указать для разметки макс. стоимость, чтобы пассажир сел на размеченные места в последнюю очередь
+        tariff.rate = INT_MAX;
+      }
+      else {
         tariff.rate = colorItem->second.rate;
-        AddTariff( irfisc->first, tariff );
-        ProgTrace( TRACE5, "1 place(%d,%d) set tarif=%s",
-                           x, y,
-                           irfisc->second.str().c_str() );
-        if ( irfisc->first == point_dep ) {
-          SeatTariff = tariff;
-          ProgTrace( TRACE5, "set Settariff %s",SeatTariff.str().c_str() );
-        }
+      }
+      AddTariff( irfisc->first, tariff );
+      ProgTrace( TRACE5, "1 place(%d,%d) set rate=%s",
+                         x, y,
+                         irfisc->second.str().c_str() );
+      if ( irfisc->first == point_dep ) {
+        SeatTariff = tariff;
+        ProgTrace( TRACE5, "set rate %s",SeatTariff.str().c_str() );
       }
       ++irfisc;
     }
     else {
-      ProgTrace( TRACE5, "1 place(%d,%d) delete tarif=%s", x, y, irfisc->second.str().c_str() );
+      ProgTrace( TRACE5, "1 place(%d,%d) delete rate=%s", x, y, irfisc->second.str().c_str() );
       if ( irfisc->first == point_dep ) {
-        ProgTrace( TRACE5, "clear Settariff %s",SeatTariff.str().c_str() );
+        ProgTrace( TRACE5, "clear rate %s",SeatTariff.str().c_str() );
         SeatTariff.clear();
       }
       std::map<int, TRFISC,classcomp>::iterator next=irfisc;
@@ -1438,6 +1478,33 @@ void TPlace::SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &sa
     }
   }
 }
+
+void TPlace::SetTariffsByRFISC( int point_dep )
+{
+  if ( !visible || !isplace ) {
+    return;
+  }
+  tariffs.clear();
+  std::map<int, TRFISC,classcomp>::iterator irfisc = rfiscs.find( point_dep );
+  if ( irfisc!=rfiscs.end() ) {
+    if ( !irfisc->second.color.empty() ) {
+      TSeatTariff tariff;
+      tariff.color = irfisc->second.color;
+      tariff.currency_id = irfisc->second.currency_id;
+      tariff.rate = irfisc->second.rate;
+      SeatTariff = tariff;
+      AddTariff( irfisc->first, tariff );
+      ProgTrace( TRACE5, "SetTariffsByRFICS: place(%d,%d) set tarif=%s",
+                 x, y, irfisc->second.str().c_str() );
+    }
+    else {
+      SeatTariff.clear();
+      AddLayerToPlace( cltDisable, NowUTC(), NoExists, point_dep, NoExists, BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltDisable ) );
+      ProgTrace( TRACE5, "SetTariffsByRFICS: place(%d,%d) set unavailable", x, y );
+    }
+  }
+}
+
 
 /*void TPlace::SetRFICSRemarkByColor( int key, TSeatTariffMapType salonRFISCColor )
 {
@@ -1474,9 +1541,9 @@ void TPlace::SetRFISC( int point_id, TSeatTariffMapType &tariffMap )
     irfisc->second.color = color;
     if ( !tariffMap.empty() ) {
       std::map<std::string,TRFISC>::iterator vrfisc = tariffMap.find( color );
-      if ( vrfisc != tariffMap.end() ) {
+      if ( vrfisc != tariffMap.end() && !color.empty() ) {
         AddRFISC( point_id, vrfisc->second );
-        //ProgTrace( TRACE5, "SetRFISC point_id %d, %s", point_id, vrfisc->second.str().c_str() );
+        ProgTrace( TRACE5, "SetRFISC point_id %d, %s", point_id, vrfisc->second.str().c_str() );
       }
     }
   }
@@ -1522,6 +1589,7 @@ void TPlace::convertSeatTariffs( bool pr_departure_tariff_only, int point_dep, c
   set<TSeatTariff,SeatTariffCompare> uniqueTariffs;
   GetTariffs( tariffs );
   for ( vector<int>::const_iterator ipoint=points.begin(); ipoint!=points.end(); ipoint++ ) {
+  //  ProgTrace( TRACE5, " point_id=%d", *ipoint );
     if ( pr_departure_tariff_only && *ipoint != point_dep ) {
       continue;
     }
@@ -3273,6 +3341,9 @@ void TSalonList::ReadCompon( int vcomp_id, int point_id )
     TSeatTariffMap tariffMap;
     tariffMap.get_rfisc_colors( airline );
     if ( tariffMap.status() == TSeatTariffMap::stUseRFISC ) {
+      if ( selfckin_client() ) {
+        addAirlineSelfCkinTariff( airline, tariffMap );
+      }
       SetRFISC( ASTRA::NoExists, tariffMap );
       if ( point_id != ASTRA::NoExists ) {
         RFISCMode = rRFISC;
@@ -4511,11 +4582,13 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   tariffMap.trace(TRACE5);
   //задаем тарифы
   if ( RFISCMode != rTariff ) {
+    if ( selfckin_client() ) {
+      addAirlineSelfCkinTariff( filterRoutes.getAirline(), tariffMap );
+    }
     SetRFISC( filterRoutesSets.point_dep, tariffMap );
   }
   //AddRFISCRemarks( filterRoutesSets.point_dep, tariffMap );
 /*  if ( !tariffMap.empty() ) {
-    tst();
     SetTariffsByColor( tariffMap, true );
   }*/
 
@@ -4693,7 +4766,6 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
   if ( !TReqInfo::Instance()->desk.compatible( RFISC_VERSION ) ) {
     if ( tariffMap.status() != TSeatTariffMap::stUseRFISC ) {
       tariffMap.clear();
-      tst();
     }
     else {
       RFISCMode = rRFISC;
@@ -5587,7 +5659,7 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
   }
   //теперь фильтр по лишним свойствам и сохранение их в полях TPlace
   std::map<int, std::vector<TSeatRemark>,classcomp > remarks;
-  set<TSeatRemark,SeatRemarkCompare> uniqueReamarks;
+  set<TSeatRemark,SeatRemarkCompare> uniqueRemarks;
   std::map<int, TSeatTariff,classcomp> tariffs;
   set<TSeatTariff,SeatTariffCompare> uniqueTariffs;
   std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
@@ -5613,7 +5685,7 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
       iseat->rems.clear();
       remarks.clear();
       iseat->GetRemarks( remarks );
-      uniqueReamarks.clear();
+      uniqueRemarks.clear();
       //здесь важно найти множество ремарок
       for ( std::map<int,vector<TSeatRemark> >::iterator iremarks = remarks.begin(); iremarks != remarks.end(); iremarks++ ) {
         for ( std::vector<TSeatRemark>::iterator irem=iremarks->second.begin(); irem!=iremarks->second.end(); irem++ ) {
@@ -5621,12 +5693,12 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
                !point.inRoute ) {
             continue;
           }
-          if ( uniqueReamarks.find( *irem ) != uniqueReamarks.end() ) {
+          if ( uniqueRemarks.find( *irem ) != uniqueRemarks.end() ) {
             continue;
           }
           //!logProgTrace( TRACE5, "CreateSalonsForAutoSeats: add remark(%s) value=%s, pr_denial=%d",
           //!log           string(iseat->yname+iseat->xname).c_str(), irem->value.c_str(), irem->pr_denial );
-          uniqueReamarks.insert( *irem );
+          uniqueRemarks.insert( *irem );
           rem.rem = irem->value;
           rem.pr_denial = irem->pr_denial;
           iseat->rems.push_back( rem );
@@ -5799,6 +5871,7 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
     }
   //!logProgTrace( TRACE5, "filterRoutes.point_dep=%d, filterRoutes.point_arv=%d,drop_web_passes=%d",
   //!log           filterRoutes.point_dep, filterRoutes.point_arv, drop_not_web_passes );
+  tst();
   return res;
 }
 
@@ -5909,7 +5982,13 @@ void CheckWaitListToLog( TQuery &QryAirp,
   fullname = TrimString( fullname )  + (ipass->second.name.empty()?"":" ") + ipass->second.name;
   TWaitListReason waitListReason;
   PrmEnum seatPrmEnum("seat", "");
-  string new_seat_no = ipass->second.event_seat_no( pr_craft_lat, point_dep, waitListReason, seatPrmEnum.prms );
+  QryAirp.SetVariable( "point_id", point_dep );
+  QryAirp.Execute();
+  string airline;
+  if ( !QryAirp.Eof ) {
+    airline = QryAirp.FieldAsString( "airline" );
+  }
+  string new_seat_no = ipass->second.event_seat_no( pr_craft_lat, airline, point_dep, waitListReason, seatPrmEnum.prms );
   if ( waitListReason.layerStatus == layerValid ) {
     if ( pr_exists ) {
       TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT_AUTOMATICALLY",
@@ -6036,7 +6115,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
 
   TQuery QryAirp( &OraSession );
   QryAirp.SQLText =
-    "SELECT airp FROM points WHERE point_id=:point_id";
+    "SELECT airline,airp FROM points WHERE point_id=:point_id";
   QryAirp.DeclareVariable( "point_id", otInteger );
   FilterRoutesProperty &filterRoutes = filterSets.filterRoutes;
   TWaitListReason waitListReason;
@@ -6758,7 +6837,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   }
 }
 
-void TSalons::SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &tariffs, bool setPassengerTariffs )
+void TSalons::SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &tariffs, const TSeatTariffMap::TStatus &status )
 {
   if ( tariffs.empty() ) {
     return;
@@ -6767,10 +6846,22 @@ void TSalons::SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &t
        placeList != placelists.end(); placeList++ ) {
     for ( TPlaces::iterator place = (*placeList)->places.begin();
           place != (*placeList)->places.end(); place++ ) {
-      place->SetTariffsByRFICSColor( point_dep, tariffs, setPassengerTariffs );
+      place->SetTariffsByRFISCColor( point_dep, tariffs, status );
     }
   }
 }
+
+void TSalons::SetTariffsByRFISC( int point_dep )
+{
+  for( vector<TPlaceList*>::iterator placeList = placelists.begin();
+       placeList != placelists.end(); placeList++ ) {
+    for ( TPlaces::iterator place = (*placeList)->places.begin();
+          place != (*placeList)->places.end(); place++ ) {
+      place->SetTariffsByRFISC( point_dep );
+    }
+  }
+}
+
 
 void verifyValidRem( const std::string &className, const std::string &remCode )
 {
@@ -9270,7 +9361,7 @@ std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, TWa
   return GetSeatRangeView(ranges, format, pr_lat_seat);
 }
 
-std::string TSalonPax::event_seat_no( bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const
+std::string TSalonPax::event_seat_no( bool pr_lat_seat, const std::string &airline, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const
 {
   evntPrms.clear();
   std::vector<TSeatRange> ranges;
@@ -9295,6 +9386,9 @@ std::string TSalonPax::event_seat_no( bool pr_lat_seat, int point_dep, TWaitList
     TRFISC rfisc;
     passTariffs.get( pax_id );
     if ( passTariffs.status() == TSeatTariffMap::stUseRFISC ) {
+      if ( selfckin_client() ) {
+        addAirlineSelfCkinTariff( airline, passTariffs );
+      }
       (*iseat)->SetRFISC( point_dep, passTariffs );
       std::map<int, TRFISC,classcomp> vrfiscs;
       (*iseat)->GetRFISCs( vrfiscs );

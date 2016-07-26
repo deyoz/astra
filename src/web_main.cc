@@ -1245,6 +1245,8 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
   web_salons.clear();
   bool pr_CHIN = false;
   bool pr_INFT = false;
+  /*TSeatTariffMap passTariffs, firstTariffs;*/
+
   for ( vector<TWebPax>::iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
     if ( !i->pass_class.empty() )
       crs_class = i->pass_class;
@@ -1257,6 +1259,12 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
       if ( point_arv == ASTRA::NoExists ) {
         point_arv = SALONS2::getCrsPaxPointArv( i->crs_pax_id, point_id );
       }
+/*      TMktFlight flight;
+      flight.getByCrsPaxId( i->crs_pax_id );
+      TTripInfo markFlt;
+      markFlt.airline = flight.airline;
+      CheckIn::TPaxTknItem tkn;
+      CheckIn::LoadCrsPaxTkn( i->crs_pax_id, tkn);*/
     }
   }
   ProgTrace( TRACE5, "ReadWebSalons: point_dep=%d, point_arv=%d, pr_CHIN=%d, pr_INFT=%d",
@@ -1305,10 +1313,13 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
                                         pnr,
                                         dropLayersFlags );
    Salons = &SalonsN;
+   if ( salonList.getRFISCMode() != rTariff  ) {
+     Salons->SetTariffsByRFISC(point_id);
+   }
   }
   else {
     Salons = &SalonsO;
-  }
+  }  
   for( vector<TPlaceList*>::iterator placeList = Salons->placelists.begin();
        placeList != Salons->placelists.end(); placeList++ ) {
     TWebPlaceList web_place_list;

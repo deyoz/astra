@@ -175,6 +175,10 @@ struct TRFISC {
     {
       return !equal( rfisc );
     }
+    bool operator == (const TRFISC &rfisc) const
+    {
+      return equal( rfisc );
+    }
     bool operator < (const TRFISC &rfisc) const
     {
       if (rate != rfisc.rate)
@@ -850,7 +854,8 @@ class TPlace {
       rfiscs.clear();
     }
 
-    void SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &salonTariffs, bool setPassengerTariffs );
+    void SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &salonTariffs, const TSeatTariffMap::TStatus &status );
+    void SetTariffsByRFISC( int point_dep );
     void AddLayerToPlace( ASTRA::TCompLayerType l, BASIC::TDateTime time_create, int pax_id,
                            int point_dep, int point_arv, int priority ) {
         std::vector<TPlaceLayer>::iterator i;
@@ -1040,7 +1045,7 @@ struct TSalonPax {
     void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges ) const;
     std::string seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const;
-    std::string event_seat_no(bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const;
+    std::string event_seat_no(bool pr_lat_seat, const std::string &airline, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const;
     std::string prior_seat_no( const std::string &format, bool pr_lat_seat ) const;
 };
                                 //pax_id,TSalonPax
@@ -1174,7 +1179,8 @@ class TSalons {
     void Read( bool drop_not_used_pax_layers=true );
     void Write( const TComponSets &compSets );
     void Parse( xmlNodePtr salonsNode );
-    void SetTariffsByRFICSColor( int point_dep, const TSeatTariffMapType &tariffs, bool setPassengerTariffs );
+    void SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &tariffs, const TSeatTariffMap::TStatus &status );
+    void SetTariffsByRFISC( int point_dep );
 };
 
 struct ComparePassenger {
@@ -1497,6 +1503,8 @@ class TSalonList: public std::vector<TPlaceList*> {
   bool isUserProtectLayer( ASTRA::TCompLayerType layer_type );
   void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
                     const std::vector<TSeatRange> &seatRanges, const std::string &reason );
+  bool selfckin_client();
+  void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tariffMap );
 } // END namespace SALONS2
 int testsalons(int argc,char **argv);
 #endif /*_SALONS2_H_*/
