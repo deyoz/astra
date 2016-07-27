@@ -448,7 +448,7 @@ static std::string FP_get_lat_code(const std::vector<std::string>& p)
 static std::string getRandomBpTypeCode()
 {
     OciCpp::CursCtl cur = make_curs(
-"select CODE from BP_TYPES where CODE in ('TST') order by dbms_random.random");
+"select CODE from BP_TYPES where CODE in ('TST') AND op_type='PRINT_BP' order by dbms_random.random");
     std::string code;
     cur.def(code).exfet();
     return code;
@@ -463,8 +463,8 @@ static std::string FP_prepare_bp_printing(const std::vector<std::string>& p)
     std::string bpType = getRandomBpTypeCode();
 
     OciCpp::CursCtl cur = make_curs(
-"insert into BP_SET (ID, AIRLINE, FLT_NO, AIRP_DEP, BP_TYPE) "
-"values (ID__SEQ.nextval, :airl, :flt_no, :airp, :bp_type)");
+"insert into BP_SET (ID, AIRLINE, FLT_NO, AIRP_DEP, BP_TYPE, OP_TYPE) "
+"values (ID__SEQ.nextval, :airl, :flt_no, :airp, :bp_type, 'PRINT_BP')");
 
     cur.bind(":airl",   airl)
        .bind(":flt_no", flt_no)

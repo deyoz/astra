@@ -1302,7 +1302,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
   }
   else {
     Salons = &SalonsO;
-  }  
+  }
   for( vector<TPlaceList*>::iterator placeList = Salons->placelists.begin();
        placeList != Salons->placelists.end(); placeList++ ) {
     TWebPlaceList web_place_list;
@@ -2509,9 +2509,11 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
       "       DECODE(desk_grp_id,NULL,0,2)+ "
       "       DECODE(desk,NULL,0,4) AS priority "
       "FROM desk_bp_set "
-      "WHERE (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
+      "WHERE op_type=:op_type AND "
+      "      (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
       "      (desk IS NULL OR desk=:desk) "
       "ORDER BY priority DESC ";
+  Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
   Qry.CreateVariable("desk_grp_id", otInteger, reqInfo->desk.grp_id);
   Qry.CreateVariable("desk", otString, reqInfo->desk.code);
   Qry.Execute();

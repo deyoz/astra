@@ -615,8 +615,8 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
           case etSalePoint: Qry.SQLText="SELECT code,descr name,descr_lat name_lat FROM sale_points WHERE code=:id";break;
              case etAgency: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM agencies WHERE code=:id";break;
        case etCompElemType: Qry.SQLText="SELECT name,name_lat FROM comp_elem_types WHERE code=:id"; break;
-             case etBIType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bi_types WHERE code=:id"; break;
-             case etBPType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id"; break;
+             case etBPType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id AND op_type='PRINT_BP'"; break;
+             case etBIType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id AND op_type='PRINT_BI'"; break;
              case etBTType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM tag_types WHERE code=:id"; break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };

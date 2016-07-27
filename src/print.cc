@@ -940,9 +940,10 @@ void GetTripBPPectabs(int point_id, const string &dev_model, const string &fmt_t
         "       class, "
         "       0 AS priority "
         "FROM trip_bp "
-        "WHERE point_id=:point_id "
+        "WHERE point_id=:point_id AND op_type=:op_type "
         "ORDER BY class, priority DESC ";
     Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
     Qry.Execute();
     vector<string> bp_types;
     string prior_class;
@@ -965,12 +966,14 @@ void GetTripBPPectabs(int point_id, const string &dev_model, const string &fmt_t
         "   prn_form_vers "
         "where "
         "   bp_models.form_type = :form_type and "
+        "   bp_models.op_type = :op_type and "
         "   bp_models.dev_model = :dev_model and "
         "   bp_models.fmt_type = :fmt_type and "
         "   bp_models.id = prn_form_vers.id and "
         "   bp_models.version = prn_form_vers.version and "
         "   prn_form_vers.form IS NOT NULL";
     Qry.DeclareVariable("form_type", otString);
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     xmlNodePtr formNode=NewTextChild(node,"bp_forms");
@@ -1815,15 +1818,17 @@ void PrintInterface::GetPrintDataBI(const BPParams &params,
         "   prn_form_vers.form, "
         "   prn_form_vers.data "
         "from "
-        "   bi_models, "
+        "   bp_models, "
         "   prn_form_vers "
         "where "
-        "   bi_models.form_type = :form_type and "
-        "   bi_models.dev_model = :dev_model and "
-        "   bi_models.fmt_type = :fmt_type and "
-        "   bi_models.id = prn_form_vers.id and "
-        "   bi_models.version = prn_form_vers.version ";
+        "   bp_models.form_type = :form_type and "
+        "   bp_models.op_type = :op_type and "
+        "   bp_models.dev_model = :dev_model and "
+        "   bp_models.fmt_type = :fmt_type and "
+        "   bp_models.id = prn_form_vers.id and "
+        "   bp_models.version = prn_form_vers.version ";
     Qry.CreateVariable("form_type", otString, params.form_type);
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
     Qry.CreateVariable("dev_model", otString, params.dev_model);
     Qry.CreateVariable("fmt_type", otString, params.fmt_type);
     Qry.Execute();
@@ -1882,11 +1887,13 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
         "   prn_form_vers "
         "where "
         "   bp_models.form_type = :form_type and "
+        "   bp_models.op_type = :op_type and "
         "   bp_models.dev_model = :dev_model and "
         "   bp_models.fmt_type = :fmt_type and "
         "   bp_models.id = prn_form_vers.id and "
         "   bp_models.version = prn_form_vers.version ";
     Qry.CreateVariable("form_type", otString, params.form_type);
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
     Qry.CreateVariable("dev_model", otString, params.dev_model);
     Qry.CreateVariable("fmt_type", otString, params.fmt_type);
     Qry.Execute();
@@ -2104,14 +2111,16 @@ void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     int hall = Qry.FieldAsInteger("hall");
     Qry.Clear();
     Qry.SQLText =
-        "SELECT bi_type, "
+        "SELECT bp_type, "
         "       DECODE(class,NULL,0,1) AS priority "
-        "FROM trip_bi "
+        "FROM trip_bp "
         "WHERE point_id=:point_id AND "
-        "      (class IS NULL OR class=:class) "
+        "      (class IS NULL OR class=:class) AND "
+        "      op_type=:op_type "
         "ORDER BY priority DESC ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("class", otString, cl);
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
     Qry.Execute();
     if(Qry.Eof) throw AstraLocale::UserException("MSG.BI_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
     params.form_type = Qry.FieldAsString("bi_type");
@@ -2251,10 +2260,12 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
         "       DECODE(class,NULL,0,1) AS priority "
         "FROM trip_bp "
         "WHERE point_id=:point_id AND "
-        "      (class IS NULL OR class=:class) "
+        "      (class IS NULL OR class=:class) AND "
+        "      op_type=:op_type "
         "ORDER BY priority DESC ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("class", otString, cl);
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
     Qry.Execute();
     if(Qry.Eof) throw AstraLocale::UserException("MSG.BP_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
     params.form_type = Qry.FieldAsString("bp_type");
