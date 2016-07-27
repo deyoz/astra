@@ -1848,8 +1848,8 @@ void PrintInterface::GetPrintDataBI(const BPParams &params,
         if (iPax->gate.second)
             parser.pts.set_tag("gate", iPax->gate.first);
 
-        parser.pts.set_tag(TAG::BUSINESS_HALL, iPax->bi_rule);
-        parser.pts.set_tag(TAG::BSN_HALL_CAPTION, iPax->bi_rule);
+        parser.pts.set_tag(TAG::BI_HALL, iPax->bi_rule);
+        parser.pts.set_tag(TAG::BI_HALL_CAPTION, iPax->bi_rule);
 
         iPax->prn_form = parser.parse(data);
         iPax->hex=false;
@@ -1917,8 +1917,8 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
 
         iPax->bi_rule.dump(__FILE__, __LINE__);
         if(not iPax->bi_rule.pr_print_bi) {
-            parser->pts.set_tag(TAG::BUSINESS_HALL, iPax->bi_rule);
-            parser->pts.set_tag(TAG::BSN_HALL_CAPTION, iPax->bi_rule);
+            parser->pts.set_tag(TAG::BI_HALL, iPax->bi_rule);
+            parser->pts.set_tag(TAG::BI_HALL_CAPTION, iPax->bi_rule);
         }
 
         iPax->prn_form = parser->parse(data);

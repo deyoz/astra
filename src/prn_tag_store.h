@@ -79,8 +79,8 @@ namespace TAG {
     const std::string TEST_SERVER = "TEST_SERVER";
     const std::string TIME_PRINT = "TIME_PRINT";
     const std::string PAX_TITLE = "PAX_TITLE";
-    const std::string BUSINESS_HALL = "BUSINESS_HALL";
-    const std::string BSN_HALL_CAPTION = "BSN_HALL_CAPTION";
+    const std::string BI_HALL = "BI_HALL";
+    const std::string BI_HALL_CAPTION = "BI_HALL_CAPTION";
 
     // specific for bag tags
     const std::string AIRCODE = "AIRCODE";
@@ -572,8 +572,8 @@ class TPrnTagStore {
         std::string TEST_SERVER(TFieldParams fp);
         std::string TIME_PRINT(TFieldParams fp);
         std::string PAX_TITLE(TFieldParams fp);
-        std::string BUSINESS_HALL(TFieldParams fp);
-        std::string BSN_HALL_CAPTION(TFieldParams fp);
+        std::string BI_HALL(TFieldParams fp);
+        std::string BI_HALL_CAPTION(TFieldParams fp);
 
         // specific for bag tags
         std::string AIRCODE(TFieldParams fp);

@@ -377,8 +377,8 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::TIME_PRINT,              TTagListItem(&TPrnTagStore::TIME_PRINT)));
     tag_list.insert(make_pair(TAG::PAX_TITLE,               TTagListItem(&TPrnTagStore::PAX_TITLE, PAX_INFO)));
     tag_list.insert(make_pair(TAG::PNR,                     TTagListItem(&TPrnTagStore::PNR, PNR_INFO)));
-    tag_list.insert(make_pair(TAG::BUSINESS_HALL,           TTagListItem(&TPrnTagStore::BUSINESS_HALL, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::BSN_HALL_CAPTION,        TTagListItem(&TPrnTagStore::BSN_HALL_CAPTION, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::BI_HALL,                 TTagListItem(&TPrnTagStore::BI_HALL, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::BI_HALL_CAPTION,         TTagListItem(&TPrnTagStore::BI_HALL_CAPTION, POINT_INFO)));
 }
 
 // BP && BT
@@ -2524,7 +2524,7 @@ string TPrnTagStore::AIRP_ARV_NAME3(TFieldParams fp) {
     return AIRP_ARV_NAME1(fp);
 }
 
-string TPrnTagStore::BSN_HALL_CAPTION(TFieldParams fp) {
+string TPrnTagStore::BI_HALL_CAPTION(TFieldParams fp) {
     ostringstream result;
     if(!fp.TagInfo.empty()) {
         const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
@@ -2537,7 +2537,7 @@ string TPrnTagStore::BSN_HALL_CAPTION(TFieldParams fp) {
     return result.str();
 }
 
-string TPrnTagStore::BUSINESS_HALL(TFieldParams fp) {
+string TPrnTagStore::BI_HALL(TFieldParams fp) {
     ostringstream result;
     if(!fp.TagInfo.empty()) {
         const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
