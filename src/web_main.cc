@@ -2719,6 +2719,8 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
   bool error_exists=false;
   try
   {
+    if (NodeAsNode("passengers", reqNode)->children==NULL) return;
+
     if (!pr_del)
     {
       point_id=NodeAsInteger("point_id", reqNode);
