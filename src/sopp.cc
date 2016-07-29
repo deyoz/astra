@@ -5974,6 +5974,7 @@ void set_trip_sets(const TAdvTripInfo &flt)
       prev_cl=cl;
     };
   };
+  Qry.DeleteVariable("op_type");
 
   //багажные бирки
   InsQry.Clear();
