@@ -2095,7 +2095,7 @@ void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 
     Qry.Clear();
-    Qry.SQLText="SELECT point_dep, class, status, hall FROM pax_grp WHERE grp_id=:grp_id";
+    Qry.SQLText="SELECT point_dep, class, status FROM pax_grp WHERE grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,first_seg_grp_id);
     Qry.Execute();
     if(Qry.Eof)
@@ -2104,11 +2104,8 @@ void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         throw AstraLocale::UserException("MSG.INVITATION_NOT_AVAILABLE_FOR_CREW");
     if(Qry.FieldIsNULL("class"))
         throw AstraLocale::UserException("MSG.INVITATION_NOT_AVAILABLE_FOR_UNACC_BAGGAGE");
-    if(Qry.FieldIsNULL("hall"))
-        throw AstraLocale::UserException("MSG.INVITATION_NOT_AVAILABLE_FOR_EMPTY_HALL");
     int point_id = Qry.FieldAsInteger("point_dep");
     string cl = Qry.FieldAsString("class");
-    int hall = Qry.FieldAsInteger("hall");
     Qry.Clear();
     Qry.SQLText =
         "SELECT bp_type, "

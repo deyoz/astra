@@ -1077,19 +1077,20 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
     point_id = ToInt( cache.FieldOldValue("point_id", row) );
   }
   tlocale.id1 = point_id;
-  if (code == "TRIP_BP")
+  if (code == "TRIP_BP" ||
+      code == "TRIP_BI")
   {
     if (UpdateStatus == usDeleted)
     {
       if (!cache.FieldOldValue( "class", row ).empty())
       {
-        tlocale.lexema_id = "EVT.BP_FORM_DELETED_FOR_CLASS";
+        tlocale.lexema_id = code == "TRIP_BP"?"EVT.BP_FORM_DELETED_FOR_CLASS":"EVT.BI_FORM_DELETED_FOR_CLASS";
         tlocale.prms << PrmSmpl<string>("old_name", cache.FieldOldValue("bp_name", row))
                      << PrmElem<string>("old_cls", etClass, cache.FieldOldValue("class", row));
       }
       else
       {
-        tlocale.lexema_id = "EVT.BP_FORM_DELETED";
+        tlocale.lexema_id = code == "TRIP_BP"?"EVT.BP_FORM_DELETED":"EVT.BI_FORM_DELETED";
         tlocale.prms << PrmSmpl<string>("old_name", cache.FieldOldValue("bp_name", row));
       }
     }
@@ -1097,42 +1098,42 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
     {
       if (!cache.FieldValue( "class", row ).empty())
       {
-        tlocale.lexema_id = "EVT.BP_FORM_INSERTED_FOR_CLASS";
+        tlocale.lexema_id = code == "TRIP_BP"?"EVT.BP_FORM_INSERTED_FOR_CLASS":"EVT.BI_FORM_INSERTED_FOR_CLASS";
         tlocale.prms << PrmSmpl<string>("name", cache.FieldValue("bp_name", row))
                      << PrmElem<string>("cls", etClass, cache.FieldValue("class", row));
       }
       else
       {
-        tlocale.lexema_id = "EVT.BP_FORM_INSERTED";
+        tlocale.lexema_id = code == "TRIP_BP"?"EVT.BP_FORM_INSERTED":"EVT.BI_FORM_INSERTED";
         tlocale.prms << PrmSmpl<string>("name", cache.FieldValue("bp_name", row));
       }
     }
     else if (UpdateStatus == usModified)
     {
-      tlocale.lexema_id = "EVT.BP_FORM_MODIFIED";
+      tlocale.lexema_id = code == "TRIP_BP"?"EVT.BP_FORM_MODIFIED":"EVT.BI_FORM_MODIFIED";
       if (!cache.FieldOldValue( "class", row ).empty())
       {
-        PrmLexema old_form("old_form", "EVT.BP_FORM_DELETED_FOR_CLASS");
+        PrmLexema old_form("old_form", code == "TRIP_BP"?"EVT.BP_FORM_DELETED_FOR_CLASS":"EVT.BI_FORM_DELETED_FOR_CLASS");
         old_form.prms << PrmSmpl<string>("old_name", cache.FieldOldValue("bp_name", row))
                      << PrmElem<string>("old_cls", etClass, cache.FieldOldValue("class", row));
         tlocale.prms << old_form;
       }
       else
       {
-        PrmLexema old_form("old_form", "EVT.BP_FORM_DELETED");
+        PrmLexema old_form("old_form", code == "TRIP_BP"?"EVT.BP_FORM_DELETED":"EVT.BI_FORM_DELETED");
         old_form.prms << PrmSmpl<string>("old_name", cache.FieldOldValue("bp_name", row));
         tlocale.prms << old_form;
       }
       if (!cache.FieldValue( "class", row ).empty())
       {
-        PrmLexema new_form("new_form", "EVT.BP_FORM_INSERTED_FOR_CLASS");
+        PrmLexema new_form("new_form", code == "TRIP_BP"?"EVT.BP_FORM_INSERTED_FOR_CLASS":"EVT.BI_FORM_INSERTED_FOR_CLASS");
         new_form.prms << PrmSmpl<string>("name", cache.FieldValue("bp_name", row))
                      << PrmElem<string>("cls", etClass, cache.FieldValue("class", row));
         tlocale.prms << new_form;
       }
       else
       {
-        PrmLexema new_form("new_form", "EVT.BP_FORM_INSERTED");
+        PrmLexema new_form("new_form", code == "TRIP_BP"?"EVT.BP_FORM_INSERTED":"EVT.BI_FORM_INSERTED");
         new_form.prms << PrmSmpl<string>("name", cache.FieldValue("bp_name", row));
         tlocale.prms << new_form;
       }
@@ -1348,6 +1349,7 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
 {
   string code = this->code();
   if ( code == "TRIP_BP" ||
+       code == "TRIP_BI" ||
        code == "TRIP_BT" ||
        code == "TRIP_BRD_WITH_REG" ||
        code == "TRIP_EXAM_WITH_BRD" ||
