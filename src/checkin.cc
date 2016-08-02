@@ -7047,7 +7047,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
   // если посылался iatci-запрос на checkin/update,
   // то LoadIatciPax вызовется в kick-переспросе,
   // иначе - здесь
-  if(!ReqParams(reqNode).getBoolParam("was_sent_iatci"))
+  if(reqNode != NULL && !ReqParams(reqNode).getBoolParam("was_sent_iatci"))
   {
       bool afterKick = ReqParams(reqNode).getBoolParam("after_kick", false);
       bool needSync = !afterKick && !reqInfo->api_mode && !afterSavePax;
