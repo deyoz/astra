@@ -1967,7 +1967,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       };
 
       //рабиваем фамилию, бирки, ремарки
-      SeparateString(NodeAsString("full_name",rowNode),18,rows);
+      SeparateString(NodeAsString("full_name",rowNode),13,rows);
       fields["full_name"]=rows;
       SeparateString(NodeAsString("tags",rowNode),15,rows);
       fields["tags"]=rows;
