@@ -4758,10 +4758,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           "  END LOOP; "
           "  SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
           "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
-          "                      status,excess,hall,bag_refuse,trfer_confirm,user_id,client_type, "
+          "                      status,excess,hall,bag_refuse,trfer_confirm,user_id,desk,time_create,client_type, "
           "                      point_id_mark,pr_mark_norms,trfer_conflict,inbound_confirm,tid) "
           "  VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
-          "         :status,0,:hall,0,:trfer_confirm,:user_id,:client_type, "
+          "         :status,0,:hall,0,:trfer_confirm,:user_id,:desk,:time_create,:client_type, "
           "         :point_id_mark,:pr_mark_norms,:trfer_conflict,:inbound_confirm,cycle_tid__seq.nextval); "
           "  IF :seg_no IS NOT NULL THEN "
           "    IF :seg_no=1 THEN :tckin_id:=:grp_id; END IF; "
@@ -4790,6 +4790,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
         else
           Qry.CreateVariable("user_id",otInteger,FNull);
+        Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+        Qry.CreateVariable("time_create",otDate,NowUTC());
         Qry.CreateVariable("client_type",otString,EncodeClientType(reqInfo->client_type));
         if (first_segment)
           Qry.CreateVariable("tckin_id",otInteger,FNull);
@@ -5450,6 +5452,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.SQLText=
             "BEGIN "
             "  DELETE FROM value_bag WHERE grp_id=:grp_id; "
+            "  DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id; "
             "  DELETE FROM bag2 WHERE grp_id=:grp_id; "
             "  DELETE FROM paid_bag WHERE grp_id=:grp_id; "
             "  DELETE FROM bag_tags WHERE grp_id=:grp_id; "
@@ -5464,6 +5467,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print) "
             "  SELECT :grp_id,num,tag_type,no,color,bag_num,pr_print "
             "  FROM bag_tags WHERE grp_id=:first_grp_id; "
+            "  INSERT INTO unaccomp_bag_info(grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd) "
+            "  SELECT :grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd "
+            "  FROM unaccomp_bag_info WHERE grp_id=:first_grp_id; "
             "  MERGE INTO pax "
             "  USING "
             "  ( "
