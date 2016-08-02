@@ -1807,10 +1807,10 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
   string str;
   ostringstream s;
   //текстовый формат
-  int page_width=80;
+  int page_width=75;
   //специально вводим для кириллических символов, так как в терминале при экспорте проблемы
   //максимальная длина строки при экспорте в байтах! не должна превышать ~147 (65 рус + 15 лат)
-  int max_symb_count= rpt_params.IsInter() ? page_width : 65;
+  int max_symb_count= rpt_params.IsInter() ? page_width : 60;
   NewTextChild(variablesNode, "page_width", page_width);
   NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
   if(bad_client_img_version())
@@ -1850,10 +1850,10 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       << setw(10) << "ТипВС Ст. ";
 
   if (!NodeIsNULL("airp_arv_name",variablesNode))
-    s << setw(20) << getLocaleText("А/п вылета", rpt_params.GetLang())
+    s << setw(15) << getLocaleText("А/п вылета", rpt_params.GetLang())
       << setw(20) << getLocaleText("А/п назначения", rpt_params.GetLang());
   else
-    s << setw(40) << getLocaleText("А/п вылета", rpt_params.GetLang());
+    s << setw(35) << getLocaleText("А/п вылета", rpt_params.GetLang());
   s << setw(6)  << getLocaleText("Дата", rpt_params.GetLang())
     << setw(5)  << getLocaleText("Время", rpt_params.GetLang()) << endl;
 
@@ -1863,10 +1863,10 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     << setw(4)  << NodeAsString("park",variablesNode);
 
   if (!NodeIsNULL("airp_arv_name",variablesNode))
-    s << setw(20) << string(NodeAsString("airp_dep_name",variablesNode)).substr(0,20-1)
+    s << setw(15) << string(NodeAsString("airp_dep_name",variablesNode)).substr(0,20-1)
       << setw(20) << string(NodeAsString("airp_arv_name",variablesNode)).substr(0,20-1);
   else
-    s << setw(40) << string(NodeAsString("airp_dep_name",variablesNode)).substr(0,40-1);
+    s << setw(35) << string(NodeAsString("airp_dep_name",variablesNode)).substr(0,40-1);
 
   s << setw(6) << NodeAsString("scd_date",variablesNode)
     << setw(5) << NodeAsString("scd_time",variablesNode);
@@ -1891,7 +1891,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
   if (rpt_params.rpt_type==rtPTMTXT)
     s << left
       << setw(4)  << (getLocaleText("CAP.DOC.REG", rpt_params.GetLang()))
-      << setw(rpt_params.IsInter()?18:19) << (getLocaleText("Фамилия", rpt_params.GetLang()))
+      << setw(rpt_params.IsInter()?13:14) << (getLocaleText("Фамилия", rpt_params.GetLang()))
       << setw(4)  << (getLocaleText("Пол", rpt_params.GetLang()))
       << setw(rpt_params.IsInter()?4:3)   << (getLocaleText("Кл", rpt_params.GetLang()))
       << setw(5)  << (getLocaleText("CAP.DOC.SEAT_NO", rpt_params.GetLang()))
@@ -1967,7 +1967,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       };
 
       //рабиваем фамилию, бирки, ремарки
-      SeparateString(NodeAsString("full_name",rowNode),18,rows);
+      SeparateString(NodeAsString("full_name",rowNode),13,rows);
       fields["full_name"]=rows;
       SeparateString(NodeAsString("tags",rowNode),15,rows);
       fields["tags"]=rows;
@@ -1983,7 +1983,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       {
         if (row!=0) s << endl;
         s << right << setw(3) << (row==0?NodeAsString("reg_no",rowNode):"") << " "
-          << left << setw(18) << (!fields["full_name"].empty()?*(fields["full_name"].begin()):"") << " "
+          << left << setw(13) << (!fields["full_name"].empty()?*(fields["full_name"].begin()):"") << " "
           << left <<  setw(4) << (row==0?gender:"")
           << left <<  setw(3) << (row==0?NodeAsString("class",rowNode):"")
           << right << setw(4) << (row==0?NodeAsString("seat_no",rowNode):"") << " "
@@ -2023,9 +2023,9 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       else
       {
         if (k==0)
-          s << setw(24) << (getLocaleText("Всего нетрансф. багажа", rpt_params.GetLang()));
+          s << setw(19) << (getLocaleText("Всего нетр. баг.", rpt_params.GetLang()));
         else
-          s << setw(24) << (getLocaleText("Всего трансф. багажа", rpt_params.GetLang()));
+          s << setw(19) << (getLocaleText("Всего тр. баг.", rpt_params.GetLang()));
       };
 
       s << setw(7) << (getLocaleText("Кресел", rpt_params.GetLang()))
@@ -2073,7 +2073,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
           str_excess << 0;
 
       s.str("");
-      s << setw(rpt_params.pr_trfer?24:20) << NodeAsString("class_name",rowNode)
+      s << setw(rpt_params.pr_trfer?19:15) << NodeAsString("class_name",rowNode)
         << setw(7) << NodeAsInteger("seats",rowNode)
         << setw(8) << adl_fem.str()
         << setw(7) << NodeAsInteger("chd",rowNode)

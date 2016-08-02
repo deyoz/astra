@@ -18,6 +18,7 @@
 #include "jxtlib/jxtlib.h"
 #include "astra_callbacks.h"
 #include "xml_unit.h"
+#include "qrys.h"
 
 using namespace EXCEPTIONS;
 
@@ -37,6 +38,7 @@ namespace AstraHTTP
 
 const std::string CLIENT_ID = "CLIENT-ID";
 const std::string OPERATION = "OPERATION";
+const std::string HOST = "Host";
 const std::string AUTHORIZATION = "Authorization";
 
 using namespace ServerFramework::HTTP;
@@ -173,6 +175,54 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
   return rep;
 }
 
+void save_http_client_headers(const request &req)
+{
+    TCachedQuery Qry(
+            "begin "
+            "   insert into http_client_headers ( "
+            "       client_id, "
+            "       host, "
+            "       path, "
+            "       operation, "
+            "       time "
+            "   ) values ( "
+            "       :client_id, "
+            "       :host, "
+            "       :path, "
+            "       :operation, "
+            "       :time "
+            "   ); "
+            "exception "
+            "   when dup_val_on_index then "
+            "       update http_client_headers "
+            "           set time = :time "
+            "       where "
+            "           client_id = :client_id and "
+            "           host = :host and "
+            "           path = :path and "
+            "           nvl(operation, ' ') = nvl(:operation, ' '); "
+            "end; ",
+        QParams()
+            << QParam("client_id", otString)
+            << QParam("host", otString)
+            << QParam("path", otString, req.uri)
+            << QParam("operation", otString)
+            << QParam("time", otDate, BASIC::NowUTC())
+            );
+    bool pr_kick = false;
+    for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {
+        if ( iheader->name == CLIENT_ID )
+            Qry.get().SetVariable("client_id", iheader->value);
+        if ( iheader->name == HOST )
+            Qry.get().SetVariable("host", iheader->value);
+        if ( iheader->name == OPERATION ) {
+            pr_kick = iheader->value == "kick";
+            Qry.get().SetVariable("operation", iheader->value);
+        }
+    }
+    if(not pr_kick) Qry.get().Execute();
+}
+
 void http_main(reply& rep, const request& req)
 {
   try
@@ -180,6 +230,7 @@ void http_main(reply& rep, const request& req)
     try
     {
       HTTPClient client = getHTTPClient( req );
+      save_http_client_headers(req);
 
       InitLogTime(client.client_info.pult.c_str());
 
