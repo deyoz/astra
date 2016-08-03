@@ -3651,7 +3651,7 @@ void PaidBagEMDToDBAdv(int grp_id,
 
 namespace SirenaExchange
 {
-void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, TCkinGrpIds &tckin_grp_ids);
+void fillPaxsBags(int first_grp_id, TExchange &exch, bool &is_unaccomp_or_crew, TCkinGrpIds &tckin_grp_ids);
 }
 
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
@@ -5977,12 +5977,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     if (AfterSaveInfo.segs.empty()) throw 1;
     int first_grp_id=AfterSaveInfo.segs.front().grp_id;
     TCkinGrpIds tckin_grp_ids;
-    bool pr_unaccomp;
+    bool is_unaccomp_or_crew;
 
     SirenaExchange::TPaymentStatusReq req;
-    SirenaExchange::fillPaxsBags(first_grp_id, req, pr_unaccomp, tckin_grp_ids);
+    SirenaExchange::fillPaxsBags(first_grp_id, req, is_unaccomp_or_crew, tckin_grp_ids);
 
-    if (tckin_grp_ids.empty() || pr_unaccomp) throw 1;
+    if (tckin_grp_ids.empty() || is_unaccomp_or_crew) throw 1;
 
     list<PieceConcept::TPaidBagItem> paid;
     if (!req.bags.empty())
@@ -6225,7 +6225,7 @@ const char* pax_sql=
 namespace SirenaExchange
 {
 
-void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, TCkinGrpIds &tckin_grp_ids)
+void fillPaxsBags(int first_grp_id, TExchange &exch, bool &is_unaccomp_or_crew, TCkinGrpIds &tckin_grp_ids)
 {
   TAvailabilityReq  *availabilityReq=dynamic_cast<TAvailabilityReq*>(&exch);
   TPaymentStatusReq *paymentStatusReq=dynamic_cast<TPaymentStatusReq*>(&exch);
@@ -6236,7 +6236,7 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, TCkinGrp
   tckin_route.get(tckin_grp_ids);
   tckin_grp_ids.insert(tckin_grp_ids.begin(), first_grp_id);
 
-  pr_unaccomp=false;
+  is_unaccomp_or_crew=false;
   TTrferRoute trfer;
   int seg_no=0;
   for(list<int>::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++,seg_no++)
@@ -6263,10 +6263,10 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &pr_unaccomp, TCkinGrp
 
     if (grp_id==tckin_grp_ids.begin())
     {
-      pr_unaccomp=grp.cl.empty() && grp.status!=psCrew;
+      is_unaccomp_or_crew=(grp.cl.empty() && grp.status!=psCrew) || grp.status==psCrew;
     };
 
-    if (!pr_unaccomp)
+    if (!is_unaccomp_or_crew)
     {
       if (grp_id==tckin_grp_ids.begin())
         trfer.GetRoute(grp.id, trtNotFirstSeg);
@@ -6374,10 +6374,10 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
   int bag_types_id=ASTRA::NoExists;
   TCkinGrpIds tckin_grp_ids;
   map<int/*seg_no*/,TBagConcept> bag_concept_by_seg;
-  bool pr_unaccomp;
+  bool is_unaccomp_or_crew;
   TLogLocale event;
   SirenaExchange::TAvailabilityReq req;
-  SirenaExchange::fillPaxsBags(first_grp_id, req, pr_unaccomp, tckin_grp_ids);
+  SirenaExchange::fillPaxsBags(first_grp_id, req, is_unaccomp_or_crew, tckin_grp_ids);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (setList.value(tsPieceConcept))
@@ -6387,7 +6387,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
     {
       if (tckin_grp_ids.empty()) return;
 
-      if (!pr_unaccomp)
+      if (!is_unaccomp_or_crew)
       {
         SirenaExchange::TAvailabilityRes res;
         try
