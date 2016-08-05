@@ -47,7 +47,6 @@ static const std::pair<std::string, int> MftAnsMak("MAK", 4);
 static const std::string AnsErrCode = "ERR";
 
 static const std::string APPSFormat = "APPS_FMT";
-static const std::string  H2HSender = "ASTRA";
 
 static const int BasicFormatVer = 21;
 
@@ -66,7 +65,7 @@ static std::string getH2HReceiver()
 
 static std::string makeHeader( const std::string& airline )
 {
-  return string( "V.\rVHLG.WA/E5" + H2HSender + "/I5" + getH2HReceiver() + "/P0001\rVGZ.\rV" + airline + "/MOW/////////RU\r" );
+  return string( "V.\rVHLG.WA/E5" + string(OWN_CANON_NAME()) + "/I5" + getH2HReceiver() + "/P0001\rVGZ.\rV" + airline + "/MOW/////////RU\r" );
 }
 
 static std::string getUserId( const TAirlinesRow &airline )
@@ -107,7 +106,7 @@ static bool isAPPSCountry( const std::string& country, const std::string& airlin
 static void sendNewReq( const std::string& text, const int msg_id, const int point_id )
 {
   // отправим телеграмму
-  sendTlg( APPSAddr, OWN_CANON_NAME(), qpOutApp, 20, text,
+  sendTlg( getAPPSRotName(), OWN_CANON_NAME(), qpOutApp, 20, text,
           ASTRA::NoExists, ASTRA::NoExists );
 
 //  sendCmd("CMD_APPS_ANSWER_EMUL","H");
@@ -125,6 +124,14 @@ static void sendNewReq( const std::string& text, const int msg_id, const int poi
   Qry.CreateVariable("send_attempts", otInteger, 1);
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
+}
+
+const char* getAPPSRotName()
+{
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam( "APPS_ROT_NAME", NULL );
+  return VAR.c_str();
 }
 
 bool checkAPPSSets( const int point_dep, const int point_arv )
@@ -1513,7 +1520,7 @@ std::string emulateAnswer( const std::string& request )
 
 void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id )
 {
-  sendTlg( APPSAddr, OWN_CANON_NAME(), qpOutApp, 20, msg_text,
+  sendTlg( getAPPSRotName(), OWN_CANON_NAME(), qpOutApp, 20, msg_text,
           ASTRA::NoExists, ASTRA::NoExists );
 
 //  sendCmd("CMD_APPS_ANSWER_EMUL","H");
