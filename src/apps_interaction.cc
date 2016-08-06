@@ -286,6 +286,9 @@ void TFlightData::init( const int id, const std::string& flt_type )
   tmp.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
   route.insert(route.end(), tmp.begin(), tmp.end());
 
+  if( route.empty() )
+    throw Exception( "Empty route, point_id %d", point_id );
+
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", route.front().airline);
   if (airline.code_lat.empty()) throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
   string suffix;
@@ -305,7 +308,7 @@ void TFlightData::init( const int id, const std::string& flt_type )
   if (airp_dep.code_lat.empty()) throw Exception("airp_dep.code_lat empty (code=%s)",airp_dep.code.c_str());
   port = airp_dep.code_lat;
 
-  if( type != FltTypeChk.first )
+  if( type != FltTypeChk.first && route.front().scd_out != ASTRA::NoExists )
     date = UTCToLocal( route.front().scd_out, CityTZRegion(airp_dep.city) );
 
   if( type == FltTypeInt.first ) {
@@ -313,7 +316,8 @@ void TFlightData::init( const int id, const std::string& flt_type )
   if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.code.c_str());
   arv_port = airp_arv.code_lat;
 
-  arv_date = UTCToLocal( route.back().scd_in, CityTZRegion( airp_arv.city ) );
+  if( route.back().scd_in != ASTRA::NoExists )
+    arv_date = UTCToLocal( route.back().scd_in, CityTZRegion( airp_arv.city ) );
   }
 }
 
