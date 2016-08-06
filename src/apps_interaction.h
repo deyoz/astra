@@ -11,8 +11,6 @@
 const int NumSendAttempts = 5; // количество попыток до включения тревоги "Нет связи с APPS"
 const int MaxSendAttempts = 99; // максимальное количество попыток
 
-const char* const APPSAddr = "APIGT";
-
 enum APPSAction { NoAction, NeedUpdate, NeedNew, NeedCancel };
 
 void processPax( const int pax_id, const std::string& override_type = "", const bool is_forced = false );
@@ -33,6 +31,7 @@ void reSendMsg( const int send_attempts, const std::string& msg_text, const int 
 void deleteMsg( const int msg_id );
 void deleteAPPSData( const int pax_id );
 void deleteAPPSAlarms( const int pax_id );
+const char* getAPPSRotName();
 
 struct TTransData
 {
