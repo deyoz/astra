@@ -64,8 +64,6 @@ class PrintInterface: public JxtInterface
           std::string prn_form;
           std::string scan;
 
-          BIPrintRules::TRule bi_rule;
-
           bool hex;
           BPPax()
           {
@@ -107,6 +105,8 @@ class PrintInterface: public JxtInterface
             AddEvent("GetPrintDataBI",    JXT_HANDLER(PrintInterface, GetPrintDataBI));
             AddEvent("GetGRPPrintDataBI", JXT_HANDLER(PrintInterface, GetPrintDataBI));
             AddEvent("GetPrintDataBP",    JXT_HANDLER(PrintInterface, GetPrintDataBP));
+            AddEvent("GetGRPPrintData",   JXT_HANDLER(PrintInterface, GetPrintDataBP));
+
             AddEvent("GetGRPPrintDataBP", JXT_HANDLER(PrintInterface, GetPrintDataBP));
             AddEvent("ReprintDataBT",     JXT_HANDLER(PrintInterface, ReprintDataBTXML));
             AddEvent("GetPrintDataBT",    JXT_HANDLER(PrintInterface, GetPrintDataBTXML));
@@ -134,6 +134,7 @@ class PrintInterface: public JxtInterface
         static void GetPrintDataBP(const BPParams &params,
                                    std::string &data,
                                    std::string &pectab,
+                                   BIPrintRules::Holder &bi_rules,
                                    std::vector<BPPax> &paxs);
         static bool GetIatciPrintDataBP(xmlNodePtr reqNode,
                                         int grpId,

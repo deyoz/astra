@@ -244,15 +244,15 @@ extern TPrintTypes PrintTypes;
 extern TPrintTypesView PrintTypesView;
 
     struct TRule {
-        std::string tier_level;
-        int hall;             // id зала
+        int id; // bi_print_rules.id
+        std::list<int> halls; // список id залов
         bool pr_print_bi;     // Печатать отдельное БП или нет
         TPrintType::Enum print_type;
         bool exists() const { return print_type != TPrintType::None; }
-        void dump(const std::string &file, int line);
+        void dump(const std::string &file, int line) const;
         void fromDB(TQuery &Qry);
         TRule():
-            hall(ASTRA::NoExists),
+            id(ASTRA::NoExists),
             pr_print_bi(false),
             print_type(TPrintType::None)
         {}
@@ -271,6 +271,20 @@ extern TPrintTypesView PrintTypesView;
             const TTripInfo &info,
             TRule &rule
             );
+
+    class Holder {
+        private:
+            void getByGrpId(int grp_id);
+        public:
+            TRule empty_rule;
+            typedef std::map<int, TRule> TPaxList;
+            std::set<int> grps;
+            TPaxList items;
+            const TRule &get(int grp_id, int pax_id);
+            void dump() const;
+            bool complete() const;
+            void toXML(xmlNodePtr resNode);
+    };
 
 } //namespace BIPrintRules
 

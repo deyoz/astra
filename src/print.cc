@@ -1401,7 +1401,7 @@ void PrintInterface::ConfirmPrintBI(const std::vector<BPPax> &paxs,
     Qry.DeclareVariable("pax_id", otInteger);
     Qry.DeclareVariable("time_print", otDate);
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
-    for (vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+    for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
     {
         try
         {
@@ -1441,7 +1441,7 @@ void PrintInterface::ConfirmPrintBP(const std::vector<BPPax> &paxs,
     Qry.DeclareVariable("pax_id", otInteger);
     Qry.DeclareVariable("time_print", otDate);
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
-    for (vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+    for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
     {
         try
         {
@@ -1473,7 +1473,7 @@ void PrintInterface::ConfirmPrintBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       "FROM pax, pax_grp  "
       "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
     PaxQry.DeclareVariable("pax_id",otInteger);
-    vector<BPPax> paxs;
+    std::vector<BPPax> paxs;
     xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
     for(; curNode != NULL; curNode = curNode->next)
     {
@@ -1503,7 +1503,7 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       "FROM pax, pax_grp  "
       "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
     PaxQry.DeclareVariable("pax_id",otInteger);
-    vector<BPPax> paxs;
+    std::vector<BPPax> paxs;
     xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
     for(; curNode != NULL; curNode = curNode->next)
     {
@@ -1726,90 +1726,9 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
     }
 }
 
-void set_BI_data(vector<PrintInterface::BPPax> &paxs)
-{
-    // Пробегаемся по пасам и определяем правила
-    for (vector<PrintInterface::BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
-
-        TCachedQuery Qry("select points.* from points, pax_grp where pax_grp.grp_id = :grp_id and pax_grp.point_dep = points.point_id",
-                QParams() << QParam("grp_id", otInteger, iPax->grp_id));
-        Qry.get().Execute();
-        TTripInfo t(Qry.get());
-
-        // Достаем данные из кеша Обслуживание авиакомпаний в аэропортах
-        if(BIPrintRules::bi_airline_service(t, iPax->bi_rule)) {
-            tst();
-            // на данном этапе в bi_rule определены:
-            // Название зала    (bi_rule.hall)
-            // Бизнес зал       (bi_rule.is_business_hall)
-            // Биз. пригл.      (bi_rule.pr_print_bi)
-
-            // Достаем класс и подкласс паса
-            TCachedQuery clsQry(
-                    "select pax_grp.class, pax.subclass from pax_grp, pax where "
-                    "   pax.pax_id = :pax_id and "
-                    "   pax.grp_id = pax_grp.grp_id ",
-                    QParams() << QParam("pax_id", otInteger, iPax->pax_id)
-                    );
-            clsQry.get().Execute();
-            if(clsQry.get().Eof)
-                throw Exception("set_BI_data: pax not found, pax_id = %d", iPax->pax_id);
-            string cls = clsQry.get().FieldAsString("class");
-            string subcls = clsQry.get().FieldAsString("subclass");
-
-            // Достаем ремарки
-            vector<CheckIn::TPaxFQTItem> fqts;
-            CheckIn::LoadPaxFQT(iPax->pax_id, fqts);
-
-            // Пробег по ремаркам
-            // у паса может быть несколько ремарок с разными
-            // настройками группы регистрации (bi_print_rules.print_type = ALL, TWO, ONE)
-            // выбираем самую приоритетную.
-
-            BIPrintRules::TRule tmp_rule = iPax->bi_rule; // чтобы не потерять hall, is_business_hall, pr_print_bi
-            for(vector<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); iFqt++) {
-                BIPrintRules::get_rule(
-                        t.airline,
-                        iFqt->tier_level,
-                        cls,
-                        subcls,
-                        iFqt->rem,
-                        tmp_rule
-                        );
-
-                tmp_rule.dump(__FILE__, __LINE__);
-
-                // После нахождения правила из кеша Правила печати приглашений
-                // данные этого правила сохраняются в bi_rule:
-                // Группа регистрации (bi_rule.print_type)
-                // Оформление (bi_rule.pr_issue)
-
-                if(tmp_rule.exists()) {
-                    if(not iPax->bi_rule.exists())
-                        iPax->bi_rule = tmp_rule;
-                    else {
-                        // вот здесь выбор по приоритету
-                        if(iPax->bi_rule.print_type < tmp_rule.print_type)
-                            iPax->bi_rule = tmp_rule;
-                    }
-                }
-            }
-        }
-    }
-    // Находим первого паса с печатью для всей группы (Группа регистрации ДА т.е. bi_rule.print_type = All)
-    vector<PrintInterface::BPPax>::iterator grpPax=paxs.begin();
-    for(; grpPax!=paxs.end() and grpPax->bi_rule.print_type != BIPrintRules::TPrintType::All; ++grpPax );
-
-    // Применяем групповое правило для всех пасов, если таковое нашлось
-    if(grpPax != paxs.end()) {
-        for (vector<PrintInterface::BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
-            iPax->bi_rule = grpPax->bi_rule;
-    }
-}
-
 void PrintInterface::GetPrintDataBI(const BPParams &params,
                                     string &pectab,
-                                    vector<BPPax> &paxs)
+                                    std::vector<BPPax> &paxs)
 {
     TQuery Qry(&OraSession);
     Qry.Clear();
@@ -1841,10 +1760,13 @@ void PrintInterface::GetPrintDataBI(const BPParams &params,
     pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
     string data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
 
-    set_BI_data(paxs);
+    //set_BI_data(paxs);
 
-    for (vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
-        if(not iPax->bi_rule.pr_print_bi) continue;
+    BIPrintRules::Holder bi_rules;
+
+    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+        const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
+        if(not bi_rule.pr_print_bi) continue;
 //        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
         PrintDataParser parser( iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode );
 //        big_test(parser, dotPrnBP);
@@ -1853,8 +1775,8 @@ void PrintInterface::GetPrintDataBI(const BPParams &params,
         if (iPax->gate.second)
             parser.pts.set_tag("gate", iPax->gate.first);
 
-        parser.pts.set_tag(TAG::BI_HALL, iPax->bi_rule);
-        parser.pts.set_tag(TAG::BI_HALL_CAPTION, iPax->bi_rule);
+        parser.pts.set_tag(TAG::BI_HALL, bi_rule);
+        parser.pts.set_tag(TAG::BI_HALL_CAPTION, bi_rule);
 
         iPax->prn_form = parser.parse(data);
         iPax->hex=false;
@@ -1874,7 +1796,8 @@ void PrintInterface::GetPrintDataBI(const BPParams &params,
 void PrintInterface::GetPrintDataBP(const BPParams &params,
                                     std::string &data,
                                     string &pectab,
-                                    vector<BPPax> &paxs)
+                                    BIPrintRules::Holder &bi_rules,
+                                    std::vector<BPPax> &paxs)
 {
     TQuery Qry(&OraSession);
     Qry.Clear();
@@ -1906,10 +1829,7 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
     pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
     data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
 
-    set_BI_data(paxs);
-
-
-    for (vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
 //        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
         boost::shared_ptr<PrintDataParser> parser;
         if(iPax->pax_id!=NoExists)
@@ -1922,10 +1842,11 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
         if (iPax->gate.second)
             parser->pts.set_tag("gate", iPax->gate.first);
 
-        iPax->bi_rule.dump(__FILE__, __LINE__);
-        if(not iPax->bi_rule.pr_print_bi) {
-            parser->pts.set_tag(TAG::BI_HALL, iPax->bi_rule);
-            parser->pts.set_tag(TAG::BI_HALL_CAPTION, iPax->bi_rule);
+        const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
+        bi_rule.dump(__FILE__, __LINE__);
+        if(not bi_rule.pr_print_bi) {
+            parser->pts.set_tag(TAG::BI_HALL, bi_rule);
+            parser->pts.set_tag(TAG::BI_HALL_CAPTION, bi_rule);
         }
 
         iPax->prn_form = parser->parse(data);
@@ -2124,7 +2045,7 @@ void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     ProgTrace(TRACE5, "bi_type: %s", params.form_type.c_str());
 
     vector<int> grps;
-    vector<BPPax> paxs;
+    std::vector<BPPax> paxs;
     Qry.Clear();
     if ( pax_id == NoExists ) { // печать всех или только тех, у которых не подтверждена распечатка
         TCkinRoute cr;
@@ -2186,7 +2107,7 @@ void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                                Qry.FieldAsInteger("reg_no") ) );
     };
 
-    for (vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
       if(first_seg_grp_id != iPax->grp_id) iPax->gate=make_pair("", true);
 
     string pectab;
@@ -2195,7 +2116,7 @@ void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     xmlNodePtr BINode = NewTextChild(NewTextChild(resNode, "data"), "printBI");
     NewTextChild(BINode, "pectab", pectab);
     xmlNodePtr passengersNode = NewTextChild(BINode, "passengers");
-    for (vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+    for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
         SetProp(paxNode, "pax_id", iPax->pax_id);
@@ -2269,7 +2190,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     ProgTrace(TRACE5, "bp_type: %s", params.form_type.c_str());
 
     vector<int> grps;
-    vector<BPPax> paxs;
+    std::vector<BPPax> paxs;
     Qry.Clear();
     if ( pax_id == NoExists ) { // печать всех или только тех, у которых не подтверждена распечатка
         TCkinRoute cr;
@@ -2330,30 +2251,41 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
                                Qry.FieldAsInteger("reg_no") ) );
     };
 
-    for (vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
       if(first_seg_grp_id != iPax->grp_id) iPax->gate=make_pair("", true);
 
     string pectab, data;
-    GetPrintDataBP(params, data, pectab, paxs);
 
-    if(!GetIatciPrintDataBP(reqNode, first_seg_grp_id, data, params, paxs)) {
-        tst();
-        return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
-    }
+    // Начитываем правила БП для всех паксов
+    BIPrintRules::Holder bi_rules;
+    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+        bi_rules.get(iPax->grp_id, iPax->pax_id);
+    bi_rules.dump();
+    if(not bi_rules.complete()) {
+        bi_rules.toXML(resNode);
+    } else {
 
-    xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "printBP");
-    NewTextChild(BPNode, "pectab", pectab);
-    xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
-    for (vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
-        xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-        SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
-        SetProp(paxNode, "pax_id", iPax->pax_id);
-        SetProp(paxNode, "reg_no", (int)iPax->reg_no);
-        SetProp(paxNode, "time_print", DateTimeToStr(iPax->time_print));
-        bool unbound_emd_warning=(pax_id == NoExists &&               // печать всех или только тех, у которых не подтверждена распечатка
-                                  iPax->grp_id == first_seg_grp_id && // только для пассажиров первого сегмента сквозной регистрации
-                                  PaxASVCList::ExistsPaxUnboundEMD(iPax->pax_id));
-        NewTextChild(paxNode, "unbound_emd_warning", (int)unbound_emd_warning, (int)false);
+        GetPrintDataBP(params, data, pectab, bi_rules, paxs);
+
+        if(!GetIatciPrintDataBP(reqNode, first_seg_grp_id, data, params, paxs)) {
+            tst();
+            return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
+        }
+
+        xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "printBP");
+        NewTextChild(BPNode, "pectab", pectab);
+        xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
+        for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+            xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+            SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
+            SetProp(paxNode, "pax_id", iPax->pax_id);
+            SetProp(paxNode, "reg_no", (int)iPax->reg_no);
+            SetProp(paxNode, "time_print", DateTimeToStr(iPax->time_print));
+            bool unbound_emd_warning=(pax_id == NoExists &&               // печать всех или только тех, у которых не подтверждена распечатка
+                    iPax->grp_id == first_seg_grp_id && // только для пассажиров первого сегмента сквозной регистрации
+                    PaxASVCList::ExistsPaxUnboundEMD(iPax->pax_id));
+            NewTextChild(paxNode, "unbound_emd_warning", (int)unbound_emd_warning, (int)false);
+        }
     }
 }
 
