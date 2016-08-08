@@ -240,8 +240,8 @@ class TPrintTypesView : public ASTRA::PairList<TPrintType::Enum, std::string>
                                                                        boost::none) {}
 };
 
-extern TPrintTypes PrintTypes;
-extern TPrintTypesView PrintTypesView;
+const TPrintTypes& PrintTypes();
+const TPrintTypesView& PrintTypesView();
 
     struct TRule {
         int id; // bi_print_rules.id

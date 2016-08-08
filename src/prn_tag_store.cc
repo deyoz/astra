@@ -3206,14 +3206,22 @@ string TPrnTagStore::TOTAL(TFieldParams fp)
 
 std::ostream & operator <<(std::ostream &os, BIPrintRules::TPrintType::Enum const &value)
 {
-    os << BIPrintRules::PrintTypesView.encode(value);
+    os << BIPrintRules::PrintTypesView().encode(value);
     return os;
 }
 
 namespace BIPrintRules {
 
-    TPrintTypes PrintTypes;
-    TPrintTypesView PrintTypesView;
+    const TPrintTypes& PrintTypes()
+    {
+      static TPrintTypes printTypes;
+      return printTypes;
+    }
+    const TPrintTypesView& PrintTypesView()
+    {
+      static TPrintTypesView printTypesView;
+      return printTypesView;
+    }
 
     void TRule::dump(const string &file = "", int line = NoExists) const
     {
@@ -3270,7 +3278,7 @@ namespace BIPrintRules {
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             rule.id = Qry.get().FieldAsInteger("id");
-            rule.print_type = PrintTypes.decode(Qry.get().FieldAsString("print_type"));
+            rule.print_type = PrintTypes().decode(Qry.get().FieldAsString("print_type"));
         }
     }
 
