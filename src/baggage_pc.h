@@ -8,6 +8,8 @@
 #include "etick.h"
 #include "httpClient.h"
 #include "sirena_exchange.h"
+#include "date_time.h"
+
 
 namespace PieceConcept
 {
@@ -285,6 +287,8 @@ void PaidBagViewToXML(const TTrferRoute &trfer,
 namespace SirenaExchange
 {
 
+using namespace BASIC::date_time;
+
 class TSegItem
 {
   public:
@@ -293,7 +297,7 @@ class TSegItem
     bool scd_out_contain_time;
     boost::optional<TTripInfo> markFlt;
     std::string airp_arv;
-    BASIC::TDateTime scd_in;
+    TDateTime scd_in;
     bool scd_in_contain_time;
     std::string craft;
     TSegItem()
@@ -312,7 +316,7 @@ class TSegItem
              const TTripInfo &_operFlt,
              const CheckIn::TPaxGrpItem grp,
              const TGrpMktFlight &mktFlight,
-             const BASIC::TDateTime &_scd_in)
+             const TDateTime &_scd_in)
     {
       clear();
       id=seg_id;
@@ -720,7 +724,7 @@ class TLastExchangeInfo
   public:
     int grp_id;
     std::string pc_payment_req, pc_payment_res;
-    BASIC::TDateTime pc_payment_req_created, pc_payment_res_created;
+    TDateTime pc_payment_req_created, pc_payment_res_created;
     void clear()
     {
       grp_id=ASTRA::NoExists;

@@ -3,7 +3,7 @@
 #include "iatci_help.h"
 #include "edi_utils.h"
 #include "astra_api.h"
-#include "basic.h"
+#include "date_time.h"
 #include "checkin.h"
 #include "print.h"
 #include "salonform.h"
@@ -33,6 +33,7 @@
 
 using namespace astra_api;
 using namespace astra_api::xml_entities;
+using namespace BASIC::date_time;
 
 
 namespace
@@ -565,13 +566,13 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
                                    Ticketing::FlightNum_t(firstEdiSeg.mark_flight.flt_no),
                                    firstEdiSeg.airp_dep,
                                    firstEdiSeg.airp_arv,
-                                   BASIC::DateTimeToBoost(firstEdiSeg.mark_flight.scd).date());
+                                   DateTimeToBoost(firstEdiSeg.mark_flight.scd).date());
 
     iatci::FlightDetails ownFlight(ownSeg.mark_flight.airline,
                                    Ticketing::FlightNum_t(ownSeg.mark_flight.flt_no),
                                    ownSeg.airp_dep,
                                    ownSeg.airp_arv,
-                                   BASIC::DateTimeToBoost(ownSeg.mark_flight.scd).date());
+                                   DateTimeToBoost(ownSeg.mark_flight.scd).date());
 
     boost::optional<iatci::ServiceDetails> ediServices;
     if(pax.rems) {

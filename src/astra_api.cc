@@ -2,7 +2,7 @@
 #include "astra_msg.h"
 #include "astra_misc.h"
 #include "astra_utils.h"
-#include "basic.h"
+#include "date_time.h"
 #include "points.h"
 #include "checkin.h"
 #include "print.h"
@@ -31,6 +31,7 @@ namespace astra_api {
 using namespace xml_entities;
 using namespace Ticketing;
 using namespace Ticketing::TickExceptions;
+using namespace BASIC::date_time;
 
 namespace {
 
@@ -248,7 +249,7 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg)
     NewTextChild(markFlightNode, "airline",       paxSeg.mark_flight.airline);
     NewTextChild(markFlightNode, "flt_no",        paxSeg.mark_flight.flt_no);
     NewTextChild(markFlightNode, "suffix",        paxSeg.mark_flight.suffix);
-    NewTextChild(markFlightNode, "scd",           BASIC::DateTimeToStr(paxSeg.mark_flight.scd, BASIC::ServerFormatDateTimeAsString));
+    NewTextChild(markFlightNode, "scd",           DateTimeToStr(paxSeg.mark_flight.scd, ServerFormatDateTimeAsString));
     NewTextChild(markFlightNode, "airp_dep",      paxSeg.mark_flight.airp_dep);
     NewTextChild(markFlightNode, "pr_mark_norms", paxSeg.mark_flight.pr_mark_norms);
 
@@ -485,11 +486,11 @@ static iatci::FlightDetails createFlightDetails(const std::string& trip,
     std::string airpDep = filterRoutes.depItem().airp,
                 airpArv = filterRoutes.arrItem().airp;
 
-    BASIC::TDateTime now_local = UTCToLocal(BASIC::NowUTC(), AirpTZRegion(airpDep));
+    TDateTime now_local = UTCToLocal(NowUTC(), AirpTZRegion(airpDep));
     int now_day_local = ASTRA::NoExists,
         now_mon_local = ASTRA::NoExists,
         now_year_local = ASTRA::NoExists;
-    BASIC::DecodeDate(now_local,
+    DecodeDate(now_local,
                       now_year_local, now_mon_local, now_day_local);
     LogTrace(TRACE3) << "current local year: " << now_year_local << "; "
                      << "local month: " << now_mon_local << "; "
@@ -503,14 +504,14 @@ static iatci::FlightDetails createFlightDetails(const std::string& trip,
         ASSERT(sscanf(scd.c_str(), "%d.%d", &now_day_local, &now_mon_local) == 2);
     }
 
-    BASIC::TDateTime scd_local = ASTRA::NoExists;
-    BASIC::EncodeDate(now_year_local, now_mon_local, now_day_local, scd_local);
+    TDateTime scd_local = ASTRA::NoExists;
+    EncodeDate(now_year_local, now_mon_local, now_day_local, scd_local);
 
     return iatci::FlightDetails(airl,
                                 Ticketing::getFlightNum(flNum),
                                 airpDep,
                                 airpArv,
-                                BASIC::DateTimeToBoost(scd_local).date());
+                                DateTimeToBoost(scd_local).date());
 }
 
 static iatci::CabinDetails createCabinDetails(const XmlPlaceList& placelist)
@@ -602,7 +603,7 @@ static TSearchFltInfo MakeSearchFltFilter(const std::string& depPort,
     filter.airp_dep = depPort;
     filter.airline  = airline;
     filter.flt_no   = flNum;
-    filter.scd_out  = BASIC::BoostToDateTime(depDateTime);
+    filter.scd_out  = BoostToDateTime(depDateTime);
     return filter;
 }
 
@@ -649,8 +650,8 @@ static void applyDocUpdate(XmlPax& pax, const iatci::UpdatePaxDetails::UpdateDoc
     XmlPaxDoc newDoc;
     newDoc.no = updDoc.no();
     newDoc.type = updDoc.docType();
-    newDoc.birth_date = BASIC::boostDateToAstraFormatStr(updDoc.birthDate());
-    newDoc.expiry_date = BASIC::boostDateToAstraFormatStr(updDoc.expiryDate());
+    newDoc.birth_date = boostDateToAstraFormatStr(updDoc.birthDate());
+    newDoc.expiry_date = boostDateToAstraFormatStr(updDoc.expiryDate());
     newDoc.surname = updDoc.surname();
     newDoc.first_name = updDoc.name();
     newDoc.second_name = updDoc.secondName();
@@ -1106,12 +1107,12 @@ astra_entities::DocInfo XmlPaxDoc::toDoc() const
     return astra_entities::DocInfo(type,
                                    issue_country,
                                    no,
-                                   BASIC::boostDateTimeFromAstraFormatStr(expiry_date).date(),
+                                   boostDateTimeFromAstraFormatStr(expiry_date).date(),
                                    surname,
                                    first_name,
                                    second_name,
                                    nationality,
-                                   BASIC::boostDateTimeFromAstraFormatStr(birth_date).date(),
+                                   boostDateTimeFromAstraFormatStr(birth_date).date(),
                                    gender);
 }
 
@@ -1994,7 +1995,7 @@ std::vector<iatci::Result> LoadPaxXmlResult::toIatci(iatci::Result::Action_e act
         // flight details
         std::string      airl     = seg.trip_header.airline;
         int              flNum    = seg.trip_header.flt_no;
-        BASIC::TDateTime scd_local= seg.trip_header.scd_out_local;
+        TDateTime scd_local= seg.trip_header.scd_out_local;
         std::string      airp_dep = seg.airp_dep;
         std::string      airp_arv = seg.airp_arv;
 
@@ -2011,7 +2012,7 @@ std::vector<iatci::Result> LoadPaxXmlResult::toIatci(iatci::Result::Action_e act
         ASSERT(scd_local != ASTRA::NoExists);
         ASSERT(flNum != ASTRA::NoExists);
 
-        boost::posix_time::ptime scd_dep_date_time = BASIC::DateTimeToBoost(scd_local);
+        boost::posix_time::ptime scd_dep_date_time = DateTimeToBoost(scd_local);
 
         boost::gregorian::date scd_dep_date = scd_dep_date_time.date();
         boost::gregorian::date scd_arr_date = boost::gregorian::date();
@@ -2032,8 +2033,8 @@ std::vector<iatci::Result> LoadPaxXmlResult::toIatci(iatci::Result::Action_e act
         boost::optional<iatci::PaxDetails::DocInfo> paxDoc;
         if(pax.doc)
         {
-            boost::gregorian::date birthDate = BASIC::boostDateTimeFromAstraFormatStr(pax.doc->birth_date).date(),
-                                  expiryDate = BASIC::boostDateTimeFromAstraFormatStr(pax.doc->expiry_date).date();
+            boost::gregorian::date birthDate = boostDateTimeFromAstraFormatStr(pax.doc->birth_date).date(),
+                                  expiryDate = boostDateTimeFromAstraFormatStr(pax.doc->expiry_date).date();
             paxDoc = iatci::PaxDetails::DocInfo(pax.doc->type,
                                                 pax.doc->issue_country,
                                                 pax.doc->no,

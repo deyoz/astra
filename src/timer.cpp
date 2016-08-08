@@ -12,6 +12,7 @@
 #include "astra_main.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "astra_date_time.h"
 #include "apis_utils.h"
 #include "misc.h"
 #include "astra_misc.h"
@@ -49,7 +50,7 @@ const int sleepsec = 25;
 static const int keep_alive_minuts = 30;
 
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 
@@ -471,35 +472,22 @@ void get_full_stat(TDateTime utcdate)
 };
 
 
-#include <boost/date_time/local_time/local_time.hpp>
-using namespace boost::local_time;
-
 void sync_sirena_codes( void )
 {
     ProgTrace(TRACE5,"sync_sirena_codes started");
 
-    //вычисляем признак летней/зимней навигации
-    bool pr_summer=false;
-    string tz_region=CityTZRegion("МОВ");
-  tz_database &tz_db = get_tz_database();
-  time_zone_ptr tz = tz_db.time_zone_from_region( tz_region );
-  if (tz==NULL) throw Exception("Region '%s' not found",tz_region.c_str());
-  if (tz->has_dst())
-  {
-    local_date_time ld(DateTimeToBoost(NowUTC()),tz);
-    pr_summer=ld.is_dst();
-  };
-
     TQuery Qry(&OraSession);
     Qry.Clear();
-  Qry.SQLText= //04068
-    "BEGIN "
-    "  utils.sync_sirena_codes(:pr_summer); "
-    "END;";
-  Qry.CreateVariable("pr_summer",otInteger,(int)pr_summer);
-  Qry.Execute();
+    Qry.SQLText= //04068
+        "BEGIN "
+        "  utils.sync_sirena_codes(:pr_summer); "
+        "END;";
+    Qry.CreateVariable("pr_summer",otInteger,
+       ASTRA::date_time::season( Now(CityTZRegion("МОВ")) ).isSummer());
 
-  OraSession.Commit();
+    Qry.Execute();
+
+    OraSession.Commit();
     ProgTrace(TRACE5,"sync_sirena_codes stopped");
-};
+}
 

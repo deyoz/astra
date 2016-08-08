@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 
-#include "basic.h"
+#include "date_time.h"
 #include "stl_utils.h"
 #include "base_tables.h"
 #include "astra_misc.h"
@@ -104,6 +104,8 @@ const
     {"-sql",                    nosir_departed_sql,     NULL,                       NULL},
     {"-seDCSAddReport",         nosir_seDCSAddReport,   NULL,                       NULL},
     {"-lim_capab_stat",         nosir_lim_capab_stat,   NULL,                       NULL},
+	{"-convert_tz",             tz_conversion,          NULL,                       NULL},
+    {"-test_cnv",               test_conversion,        NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
@@ -216,7 +218,7 @@ struct TSTrip {
 };
 
 using namespace std;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace SEASON;
 using namespace ASTRA;
 
@@ -258,7 +260,6 @@ TDateTime getdiffhours( const std::string &region )
   return 0.0;
 }
 
-
 using namespace boost::local_time;
 using namespace boost::posix_time;
 
@@ -272,15 +273,16 @@ void gettime( const TDateTime &old_utc, TDateTime &new_utc,
    if ( old_utc == NoExists ) {
      return;
    }
-   tz_database &tz_db = get_tz_database();
+   
+   /*tz_database &tz_db = get_tz_database();
    old_local = UTCToLocal( old_utc, region );
    ptime vtime( DateTimeToBoost( old_utc ) );
    time_zone_ptr tz = tz_db.time_zone_from_region( region );
-   local_date_time ltime( vtime, tz ); /* определяем текущее время локальное */
+   local_date_time ltime( vtime, tz ); // определяем текущее время локальное
    if ( ltime.is_dst() ) { // лето
      new_utc = new_utc + getdiffhours( region ) /24.0;
    }
-   new_local = UTCToLocal( new_utc, region );
+   new_local = UTCToLocal( new_utc, region );*/
 }
 
 /*
@@ -304,12 +306,14 @@ struct P {
 void getPeriods( string filter_tz_region, vector<P> &periods ) {
   ptime utcd = second_clock::universal_time();
   int year = utcd.date().year();
-  tz_database &tz_db = get_tz_database();
+  
+  /*tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( filter_tz_region );
   if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",filter_tz_region.c_str());
-  local_date_time ld( utcd, tz ); /* определяем текущее время локальное */
+  local_date_time ld( utcd, tz ); // определяем текущее время локальное
+  
   bool summer = true;
-  /* устанавливаем первый год и признак периода */
+  // устанавливаем первый год и признак периода 
   for ( int i=0; i<SEASON_PRIOR_PERIOD; i++ ) {
     if ( tz->has_dst() ) {  // если есть переход на зимнее/летнее расписание
         if ( i == 0 ) {
@@ -357,7 +361,7 @@ void getPeriods( string filter_tz_region, vector<P> &periods ) {
       summer = !summer;
     }
     else {
-     /* период - это целый год */
+     // период - это целый год 
      s_time = ptime( boost::gregorian::date(year,1,1) );
      year++;
      e_time = ptime( boost::gregorian::date(year,1,1) );
@@ -372,7 +376,7 @@ void getPeriods( string filter_tz_region, vector<P> &periods ) {
     p.summer = !summer;
     p.dst =  tz->dst_offset().hours();
     periods.push_back( p );
-  }
+  }*/
 }
 
 

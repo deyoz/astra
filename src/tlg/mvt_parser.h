@@ -6,16 +6,18 @@
 namespace TypeB
 {
     namespace MVTParser {
-        BASIC::TDateTime fetch_time(BASIC::TDateTime scd, const std::string &val);
-        BASIC::TDateTime nearest_date(BASIC::TDateTime time, int day);
+        using BASIC::date_time::TDateTime;
+
+        TDateTime fetch_time(TDateTime scd, const std::string &val);
+        TDateTime nearest_date(TDateTime time, int day);
 
         struct TAD {
-            BASIC::TDateTime off_block_time;
-            BASIC::TDateTime airborne_time;
-            BASIC::TDateTime ea; // Estimated Arrival
+            TDateTime off_block_time;
+            TDateTime airborne_time;
+            TDateTime ea; // Estimated Arrival
             std::string airp_arv;
             void dump();
-            void parse(BASIC::TDateTime scd, const std::string &val);
+            void parse(TDateTime scd, const std::string &val);
             TAD():
                 off_block_time(ASTRA::NoExists),
                 airborne_time(ASTRA::NoExists),
@@ -24,10 +26,10 @@ namespace TypeB
         };
 
         struct TAA {
-            BASIC::TDateTime touch_down_time;
-            BASIC::TDateTime on_block_time;
-            BASIC::TDateTime fld_time; // Flight Leg Date - UTC Scheduled Date of Departure for Flight Leg
-            void parse(BASIC::TDateTime scd, const std::string &val);
+            TDateTime touch_down_time;
+            TDateTime on_block_time;
+            TDateTime fld_time; // Flight Leg Date - UTC Scheduled Date of Departure for Flight Leg
+            void parse(TDateTime scd, const std::string &val);
             TAA():
                 touch_down_time(ASTRA::NoExists),
                 on_block_time(ASTRA::NoExists),

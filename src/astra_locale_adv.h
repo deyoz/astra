@@ -4,6 +4,9 @@
 #include "astra_elems.h"
 #include "stages.h"
 #include "xml_unit.h"
+#include "date_time.h"
+
+using BASIC::date_time::TDateTime;
 
 class LEvntPrm {
   public:
@@ -115,10 +118,10 @@ class PrmSmpl:public LEvntPrm {
 class PrmDate:public LEvntPrm {
   private:
     std::string name;
-    BASIC::TDateTime date;
+    TDateTime date;
     std::string fmt;
   public:
-    PrmDate(const std::string& name, BASIC::TDateTime date, const std::string& fmt):
+    PrmDate(const std::string& name, TDateTime date, const std::string& fmt):
               LEvntPrm(), name(name), date(date), fmt(fmt) {}
     virtual ~PrmDate() {}
     virtual std::string GetMsg (const std::string& lang) const;

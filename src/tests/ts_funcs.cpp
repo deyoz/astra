@@ -10,7 +10,7 @@
 #include "astra_api.h"
 #include "season.h"
 #include "salons.h"
-#include "basic.h"
+#include "date_time.h"
 #include "base_tables.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_system_context.h"
@@ -254,8 +254,8 @@ std::string FP_create_spp(const std::vector<std::string> &p) {
         fmt = p.at(1);
     }
 
-    BASIC::TDateTime dt;
-    BASIC::StrToDateTime(p.at(0).c_str(), fmt.c_str(), dt);
+    BASIC::date_time::TDateTime dt;
+    StrToDateTime(p.at(0).c_str(), fmt.c_str(), dt);
     CreateSPP(dt);
 
     return "";

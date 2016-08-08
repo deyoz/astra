@@ -3,7 +3,6 @@
 #include <tcl.h>
 #include "base_tables.h"
 
-#include "basic.h"
 #include "stl_utils.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
@@ -22,7 +21,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace ASTRA;
 
 const std::string ROZYSK_MAGISTRAL      = "ROZYSK_MAGISTRAL";

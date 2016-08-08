@@ -16,6 +16,7 @@
 #include "tlg/tlg.h"
 #include "astra_misc.h"
 #include "apis_tools.h"
+#include "misc.h"
 
 #include <edilib/edi_func_cpp.h>
 #include <edilib/edi_astra_msg_types.h>
@@ -31,6 +32,7 @@
 #define NICKTRACE ROMAN_TRACE
 #include <serverlib/slogger.h>
 
+using namespace BASIC::date_time;
 
 namespace Paxlst
 {
@@ -46,12 +48,12 @@ static const int   SyntaxVer = 4;
 
 
 std::string createIataCode( const std::string& flight,
-                            const BASIC::TDateTime& destDateTime,
+                            const TDateTime& destDateTime,
                             const std::string& destDateTimeFmt )
 {
     std::ostringstream iata;
     iata << flight;
-    iata << BASIC::DateTimeToStr( destDateTime, destDateTimeFmt );
+    iata << DateTimeToStr( destDateTime, destDateTimeFmt );
     return iata.str();
 }
 
@@ -60,7 +62,7 @@ std::string createEdiPaxlstFileName( const std::string& carrierCode,
                                      const std::string& flightSuffix,
                                      const std::string& origin,
                                      const std::string& destination,
-                                     const BASIC::TDateTime& departureDate,
+                                     const TDateTime& departureDate,
                                      const std::string& ext,
                                      unsigned partNum,
                                      const std::string& lst_type )
@@ -73,7 +75,7 @@ std::string createEdiPaxlstFileName( const std::string& carrierCode,
           << (f.str().size()<6?string(6-f.str().size(),'0'):"") << flightNumber
           << flightSuffix
           << origin << destination
-          << BASIC::DateTimeToStr( departureDate, "yyyymmdd" )
+          << DateTimeToStr( departureDate, "yyyymmdd" )
           << lst_type
           << "." << ext;
     if( partNum )
@@ -100,7 +102,7 @@ static UnhElem::SeqFlag getSeqFlag( unsigned partNum, unsigned partsCnt )
 
 static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
                                   const PaxlstInfo& paxlst,
-                                  const BASIC::TDateTime& nowUtc,
+                                  const TDateTime& nowUtc,
                                   unsigned partNum,
                                   unsigned partsCnt,
                                   unsigned totalCnt )
@@ -332,7 +334,7 @@ static std::string createEdiPaxlstString( const PaxlstInfo& paxlst,
                                           unsigned partsCnt,
                                           unsigned totalCnt )
 {
-    BASIC::TDateTime nowUtc = BASIC::NowUTC();
+    TDateTime nowUtc = NowUTC();
 
     edi_mes_head edih;
     memset( &edih, 0, sizeof(edih) );
@@ -340,8 +342,8 @@ static std::string createEdiPaxlstString( const PaxlstInfo& paxlst,
     edih.mes_num = 1;
     strcpy( edih.chset, Chset );
     strcpy( edih.to, paxlst.recipientName().c_str() );
-    strcpy( edih.date, BASIC::DateTimeToStr( nowUtc, "yymmdd" ).c_str() );
-    strcpy( edih.time, BASIC::DateTimeToStr( nowUtc, "hhnn" ).c_str() );
+    strcpy( edih.date, DateTimeToStr( nowUtc, "yymmdd" ).c_str() );
+    strcpy( edih.time, DateTimeToStr( nowUtc, "hhnn" ).c_str() );
     strcpy( edih.from, paxlst.senderName().c_str() );
     strcpy( edih.acc_ref, paxlst.iataCode().c_str() );
     strcpy( edih.other_ref, "" );
@@ -431,7 +433,7 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
 
   // Make segment "Message"
   if(GetNode("Message", emulApisNode) == NULL) {
-    BASIC::TDateTime nowUtc = BASIC::NowUTC();
+    TDateTime nowUtc = NowUTC();
     xmlNodePtr messageNode = NewTextChild(emulApisNode, "Message");
     NewTextChild(messageNode, "Destination", "GTB");
     xmlNodePtr systemNode = NewTextChild(messageNode, "System");
@@ -441,9 +443,9 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     xmlNodePtr contactNode = NewTextChild(systemNode, "Contact");
     NewTextChild(contactNode, "Name", "SIRENA-TRAVEL");
     NewTextChild(messageNode, "CreateDateTime",
-                 BASIC::DateTimeToStr(nowUtc, "yyyy-mm-dd'T'hh:nn:00"));
+                 DateTimeToStr(nowUtc, "yyyy-mm-dd'T'hh:nn:00"));
     NewTextChild(messageNode, "SentDateTime",
-                 BASIC::DateTimeToStr(nowUtc, "yyyy-mm-dd"));
+                 DateTimeToStr(nowUtc, "yyyy-mm-dd"));
     if (senderCarrierCode().empty())
       throw Exception("senderCarrierCode is empty");
     std::string envelope_id = generate_envelope_id(senderCarrierCode());
@@ -488,14 +490,14 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     if (depDateTime() == ASTRA::NoExists)
       throw Exception("ScheduledDepartureDateTime is empty");
     NewTextChild(flightNode, "ScheduledDepartureDateTime",
-                 BASIC::DateTimeToStr(depDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
+                 DateTimeToStr(depDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
     if (depPort().empty())
       throw Exception("DepartureAirport is empty");
     NewTextChild(flightNode, "DepartureAirport", depPort());
     if (arrDateTime() == ASTRA::NoExists)
       throw Exception("EstimatedArrivalDateTime is empty");
     NewTextChild(flightNode, "EstimatedArrivalDateTime",
-                 BASIC::DateTimeToStr(arrDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
+                 DateTimeToStr(arrDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
     if (arrPort().empty())
       throw Exception("ArrivalAirport is empty");
     NewTextChild(flightNode, "ArrivalAirport", arrPort());
@@ -585,7 +587,7 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
       NewTextChild(nameNode, "MiddleName", it->second_name());
     if (it->birthDate() == ASTRA::NoExists)
       throw Exception("DateOfBirth is empty");
-    NewTextChild(flyerNode, "DateOfBirth", BASIC::DateTimeToStr(it->birthDate(), "yyyy-mm-dd"));
+    NewTextChild(flyerNode, "DateOfBirth", DateTimeToStr(it->birthDate(), "yyyy-mm-dd"));
     if (it->sex().empty())
       throw Exception("Gender is empty");
     NewTextChild(flyerNode, "Gender", it->sex());
@@ -607,7 +609,7 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     if (it->docCountry().empty())
       throw Exception("IssueCountry is empty");
     NewTextChild(docNode, "IssueCountry", it->docCountry());
-    if (it->docExpirateDate()!=ASTRA::NoExists) NewTextChild(docNode, "ExpiryDate", BASIC::DateTimeToStr(it->docExpirateDate(), "yyyy-mm-dd"));
+    if (it->docExpirateDate()!=ASTRA::NoExists) NewTextChild(docNode, "ExpiryDate", DateTimeToStr(it->docExpirateDate(), "yyyy-mm-dd"));
   }
 }
 
@@ -678,19 +680,19 @@ namespace
 
         paxlstInfo.setFlight( "OK688" );
         paxlstInfo.setDepPort( "PrG" );
-        BASIC::TDateTime depDate = ASTRA::NoExists, arrDate = ASTRA::NoExists;
-        BASIC::StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
+        TDateTime depDate = ASTRA::NoExists, arrDate = ASTRA::NoExists;
+        StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
         paxlstInfo.setDepDateTime( depDate );
         paxlstInfo.setArrPort( "BCN" );
-        BASIC::StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
+        StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
         paxlstInfo.setArrDateTime( arrDate );
 
         Paxlst::PassengerInfo pass1;
         pass1.setSurname( "STRANSKY" );
         pass1.setFirstName( "JAROSLAV VICtOROVICH" );
         pass1.setSex( "M" );
-        BASIC::TDateTime bd1 = ASTRA::NoExists;
-        BASIC::StrToDateTime( "10.06.67 00:00:00", bd1 ); //"670610"
+        TDateTime bd1 = ASTRA::NoExists;
+        StrToDateTime( "10.06.67 00:00:00", bd1 ); //"670610"
         pass1.setBirthDate( bd1 );
         pass1.setDepPort( "ZdN" );
         pass1.setArrPort( "bcN" );
@@ -703,8 +705,8 @@ namespace
         pass2.setSurname( "kovacs" );
         pass2.setFirstName( "PETR" );
         pass2.setSex( "M" );
-        BASIC::TDateTime bd2 = ASTRA::NoExists;
-        BASIC::StrToDateTime( "09.12.69 00:00:00", bd2 ); //"691209"
+        TDateTime bd2 = ASTRA::NoExists;
+        StrToDateTime( "09.12.69 00:00:00", bd2 ); //"691209"
         pass2.setBirthDate( bd2 );
         pass2.setDepPort( "ZDN" );
         pass2.setArrPort( "BCN" );
@@ -712,16 +714,16 @@ namespace
         pass2.setReservNum( "Z9WJK" );
         pass2.setDocType( "p" );
         pass2.setDocNumber( "35485167" );
-        BASIC::TDateTime expd1 = ASTRA::NoExists;
-        BASIC::StrToDateTime( "11.09.08 00:00:00", expd1 );
+        TDateTime expd1 = ASTRA::NoExists;
+        StrToDateTime( "11.09.08 00:00:00", expd1 );
         pass2.setDocExpirateDate( expd1 );
 
         Paxlst::PassengerInfo pass3;
         pass3.setSurname( "LESKA" );
         pass3.setFirstName( "PAVEL" );
         pass3.setSex( "M" );
-        BASIC::TDateTime bd3 = ASTRA::NoExists;
-        BASIC::StrToDateTime( "02.05.76 00:00:00", bd3 ); //"760502"
+        TDateTime bd3 = ASTRA::NoExists;
+        StrToDateTime( "02.05.76 00:00:00", bd3 ); //"760502"
         pass3.setBirthDate( bd3 );
         pass3.setDepPort( "VIE" );
         pass3.setArrPort( "BCN" );
@@ -756,13 +758,13 @@ namespace
         paxlstInfo.setFlight( "OK688XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
 
         paxlstInfo.setDepPort( "PRGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-        BASIC::TDateTime depDate = ASTRA::NoExists;
-        BASIC::StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
+        TDateTime depDate = ASTRA::NoExists;
+        StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
         paxlstInfo.setDepDateTime( depDate );
 
         paxlstInfo.setArrPort( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-        BASIC::TDateTime arrDate = ASTRA::NoExists;
-        BASIC::StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
+        TDateTime arrDate = ASTRA::NoExists;
+        StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
         paxlstInfo.setArrDateTime( arrDate );
 
 
@@ -770,8 +772,8 @@ namespace
         pass1.setSurname( "STRANSKYXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass1.setFirstName( "JAROSLAV VICTOROVICHXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass1.setSex( "M" );
-        BASIC::TDateTime bd1 = ASTRA::NoExists;
-        BASIC::StrToDateTime( "10.06.67 00:00:00", bd1 ); //"670610"
+        TDateTime bd1 = ASTRA::NoExists;
+        StrToDateTime( "10.06.67 00:00:00", bd1 ); //"670610"
         pass1.setBirthDate( bd1 );
         pass1.setDepPort( "ZDNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass1.setArrPort( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
@@ -785,8 +787,8 @@ namespace
         pass2.setSurname( "KOVACSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass2.setFirstName( "PETRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass2.setSex( "MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-        BASIC::TDateTime bd2 = ASTRA::NoExists;
-        BASIC::StrToDateTime( "09.12.69 00:00:00", bd2 ); //"691209"
+        TDateTime bd2 = ASTRA::NoExists;
+        StrToDateTime( "09.12.69 00:00:00", bd2 ); //"691209"
         pass2.setBirthDate( bd2 );
         pass2.setDepPort( "ZDNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass2.setArrPort( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
@@ -794,8 +796,8 @@ namespace
         pass2.setReservNum( "Z9WJKXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass2.setDocType( "PXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass2.setDocNumber( "35485167XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-        BASIC::TDateTime expd2 = ASTRA::NoExists;
-        BASIC::StrToDateTime( "11.09.08 00:00:00", expd2 );
+        TDateTime expd2 = ASTRA::NoExists;
+        StrToDateTime( "11.09.08 00:00:00", expd2 );
         pass2.setDocExpirateDate( expd2 );
 
 
@@ -803,8 +805,8 @@ namespace
         pass3.setSurname( "LESKAXXXXXXXXXXXXXXXXXXXXXdXXXXXXXXXXXXXXXXX" );
         pass3.setFirstName( "PAVELXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass3.setSex( "MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
-        BASIC::TDateTime bd3 = ASTRA::NoExists;
-        BASIC::StrToDateTime( "02.05.76 00:00:00", bd3 ); //"760502"
+        TDateTime bd3 = ASTRA::NoExists;
+        StrToDateTime( "02.05.76 00:00:00", bd3 ); //"760502"
         pass3.setBirthDate( bd3 );
         pass3.setDepPort( "VIEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         pass3.setArrPort( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
@@ -831,8 +833,8 @@ namespace
         pass4.setSurname( "PUTIN" );
         pass4.setFirstName( "VOVA" );
         pass4.setSex( "M" );
-        BASIC::TDateTime bd4 = ASTRA::NoExists;
-        BASIC::StrToDateTime( "02.05.52 00:00:00", bd4 );
+        TDateTime bd4 = ASTRA::NoExists;
+        StrToDateTime( "02.05.52 00:00:00", bd4 );
         pass4.setBirthDate( bd4 );
         pass4.setDepPort( "VIE" );
         pass4.setArrPort( "BCN" );
@@ -846,8 +848,8 @@ namespace
         pass5.setSurname( "PUTINA" );
         pass5.setFirstName( "LUDA" );
         pass5.setSex( "F" );
-        BASIC::TDateTime bd5 = ASTRA::NoExists;
-        BASIC::StrToDateTime( "10.05.55 00:00:00", bd5 );
+        TDateTime bd5 = ASTRA::NoExists;
+        StrToDateTime( "10.05.55 00:00:00", bd5 );
         pass5.setBirthDate( bd5 );
         pass5.setDepPort( "VIE" );
         pass5.setArrPort( "BCN" );
@@ -1014,8 +1016,8 @@ END_TEST;
 
 START_TEST( test4 )
 {
-    BASIC::TDateTime depDate = ASTRA::NoExists;
-    BASIC::StrToDateTime( "2007.09.07", "yyyy.mm.dd", depDate );
+    TDateTime depDate = ASTRA::NoExists;
+    StrToDateTime( "2007.09.07", "yyyy.mm.dd", depDate );
 
     std::string fname = Paxlst::createEdiPaxlstFileName( "OK", 421, "", "CAI", "PRG", depDate, "TXT" );
     fail_if( fname != "OK0421CAIPRG20070907.TXT" );
@@ -1033,8 +1035,8 @@ END_TEST;
 
 START_TEST( test5 )
 {
-    BASIC::TDateTime destDate = ASTRA::NoExists;
-    BASIC::StrToDateTime( "2007.09.15 12:10", "yyyy.mm.dd hh:nn", destDate );
+    TDateTime destDate = ASTRA::NoExists;
+    StrToDateTime( "2007.09.15 12:10", "yyyy.mm.dd hh:nn", destDate );
 
     std::string iataCode = Paxlst::createIataCode( "OK0012", destDate );
     fail_if( iataCode != "OK0012/070915/1210" );

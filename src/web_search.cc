@@ -1,5 +1,5 @@
 #include "web_search.h"
-#include "basic.h"
+#include "date_time.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "checkin.h"
@@ -17,7 +17,7 @@
 
 using namespace std;
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace AstraLocale;
 
 namespace WebSearch
@@ -684,7 +684,7 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
 
     TQuery Qry(&OraSession);
     TReqInfo *reqInfo = TReqInfo::Instance();
-    //std::map<TStage, BASIC::TDateTime> stages
+    //std::map<TStage, TDateTime> stages
     stage_times.clear();
     TStagesRules *sr = TStagesRules::Instance();
     TCkinClients ckin_clients;

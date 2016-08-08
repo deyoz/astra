@@ -19,6 +19,7 @@
 namespace edifact
 {
 using namespace edilib;
+using namespace BASIC::date_time;
 
 
 void viewUnbElement(_EDI_REAL_MES_STRUCT_* pMes, const UnbElem& elem)
@@ -64,8 +65,8 @@ void viewUngElement(_EDI_REAL_MES_STRUCT_* pMes, const UngElem& elem)
     SetEdiComposite(pMes, CompElement("S004", 0));
     PushEdiPointW(pMes);
     SetEdiPointToCompositeW(pMes, CompElement("S004", 0));
-    SetEdiDataElem(pMes, DataElement(17, 0), BASIC::DateTimeToStr(elem.m_prepareDateTime, "yymmdd"));
-    SetEdiDataElem(pMes, DataElement(19, 0), BASIC::DateTimeToStr(elem.m_prepareDateTime, "hhnn"));
+    SetEdiDataElem(pMes, DataElement(17, 0), DateTimeToStr(elem.m_prepareDateTime, "yymmdd"));
+    SetEdiDataElem(pMes, DataElement(19, 0), DateTimeToStr(elem.m_prepareDateTime, "hhnn"));
     PopEdiPointW(pMes);
 
     SetEdiDataElem(pMes, DataElement(48, 0), elem.m_groupRefNum);
@@ -191,7 +192,7 @@ void viewDtmElement(_EDI_REAL_MES_STRUCT_* pMes, const DtmElem& elem, int num)
     std::ostringstream dtm;
     dtm << boost::lexical_cast< std::string >(elem.m_dtmQualifier) << ":";
     std::string format = (elem.m_formatCode == "201" ? "yymmddhhnn" : "yymmdd");
-    dtm << (elem.m_dateTime != ASTRA::NoExists ? BASIC::DateTimeToStr(elem.m_dateTime, format) : "");
+    dtm << (elem.m_dateTime != ASTRA::NoExists ? DateTimeToStr(elem.m_dateTime, format) : "");
     dtm << ":" << elem.m_formatCode;
     SetEdiFullSegment(pMes, SegmElement("DTM", num), dtm.str());
 }

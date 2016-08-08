@@ -10,6 +10,9 @@
 #include "transfer.h"
 #include <boost/optional.hpp>
 #include <etick/tick_data.h>
+#include "date_time.h"
+
+using BASIC::date_time::TDateTime;
 
 enum TBagConcept { bcUnknown, bcPiece, bcWeight, bcNo };
 
@@ -77,7 +80,7 @@ class TUnaccompInfoItem
     std::string airline;
     int flt_no;
     std::string suffix;
-    BASIC::TDateTime scd;
+    TDateTime scd;
     TUnaccompInfoItem() {
       clear();
     }
@@ -142,7 +145,7 @@ class TBagItem
     int weight;
     int hall,user_id; //для old_bag
     std::string desk;
-    BASIC::TDateTime time_create;
+    TDateTime time_create;
     int value_bag_num,bag_pool_num; //для new_bag
     bool pr_liab_limit, to_ramp;  //для new_bag
     bool using_scales;
@@ -444,8 +447,8 @@ class TPaxNormItem
   std::string bag_type_str() const;
 };
 
-bool PaxNormsFromDB(BASIC::TDateTime part_key, int pax_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
-bool GrpNormsFromDB(BASIC::TDateTime part_key, int grp_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
+bool PaxNormsFromDB(TDateTime part_key, int pax_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
+bool GrpNormsFromDB(TDateTime part_key, int grp_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
 void NormsToXML(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms, const CheckIn::TGroupBagItem &group_bag, xmlNodePtr node);
 void PaxNormsToDB(int pax_id, const boost::optional< std::list<TPaxNormItem> > &norms);
 void GrpNormsToDB(int grp_id, const boost::optional< std::list<TPaxNormItem> > &norms);
@@ -496,7 +499,7 @@ void PaidBagFromXML(xmlNodePtr paidbagNode,
                     boost::optional< std::list<TPaidBagItem> > &paid);
 void PaidBagToDB(int grp_id,
                  const boost::optional< std::list<TPaidBagItem> > &paid);
-void PaidBagFromDB(BASIC::TDateTime part_key, int grp_id, std::list<TPaidBagItem> &paid);
+void PaidBagFromDB(TDateTime part_key, int grp_id, std::list<TPaidBagItem> &paid);
 void PaidBagToXML(const std::list<TPaidBagItem> &paid, const CheckIn::TGroupBagItem &group_bag, xmlNodePtr paidbagNode);
 
 } //namespace WeightConcept

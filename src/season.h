@@ -4,12 +4,14 @@
 #include <libxml/tree.h>
 #include <string>
 #include <map>
-#include "basic.h"
+#include "date_time.h"
 #include "astra_consts.h"
 #include "jxtlib/JxtInterface.h"
 #include "oralib.h"
 
 namespace SEASON {
+
+using BASIC::date_time::TDateTime;
 
 struct TViewTrip {
 	int trip_id;
@@ -17,10 +19,10 @@ struct TViewTrip {
 	std::string name;
 	std::string crafts;
 	std::string ports;
-	BASIC::TDateTime scd_in;
-	BASIC::TDateTime scd_out;
-	BASIC::TDateTime first;
-	BASIC::TDateTime last;
+	TDateTime scd_in;
+	TDateTime scd_out;
+	TDateTime first;
+	TDateTime last;
 	std::string days;
 	bool pr_del;
 	TViewTrip() {
@@ -39,7 +41,7 @@ void ReadTripInfo( int trip_id, std::vector<TViewPeriod> &viewp, xmlNodePtr reqN
 
 }
 
-void CreateSPP( BASIC::TDateTime localdate );
+void CreateSPP( TDateTime localdate );
 
 class SeasonInterface : public JxtInterface
 {
@@ -92,7 +94,7 @@ class TDoubleTrip
 		 ~TDoubleTrip();
      bool IsExists( int move_id, std::string airline, int flt_no,
      	              std::string suffix, std::string airp,
-	                  BASIC::TDateTime scd_in, BASIC::TDateTime scd_out,
+	                  TDateTime scd_in, TDateTime scd_out,
                     int &point_id );
 };
 

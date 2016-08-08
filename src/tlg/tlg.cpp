@@ -4,7 +4,7 @@
 
 #include "tlg.h"
 #include <string>
-#include "basic.h"
+#include "date_time.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "astra_consts.h"
@@ -26,6 +26,7 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 
@@ -104,7 +105,7 @@ int saveTlg(const char * receiver,
             const std::string &text,
             int typeb_tlg_id, int typeb_tlg_num)
 {
-  BASIC::TDateTime nowUTC=BASIC::NowUTC();
+  TDateTime nowUTC=NowUTC();
 
   int tlg_num = getNextTlgNum();
 
@@ -257,7 +258,7 @@ static void putTlg2OutQueue(const std::string& receiver,
                             int tlgNum,
                             int ttl)
 {
-    BASIC::TDateTime nowUTC=BASIC::NowUTC();
+    TDateTime nowUTC=NowUTC();
     TQuery Qry(&OraSession);
     Qry.SQLText=
       "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
@@ -371,7 +372,7 @@ int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_erro
     {
         hist_uniq_error = false;
 
-        BASIC::TDateTime nowUTC=BASIC::NowUTC();
+        TDateTime nowUTC=NowUTC();
         int tlg_id = getNextTlgNum();
 
         TQuery Qry(&OraSession);

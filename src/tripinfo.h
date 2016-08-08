@@ -5,13 +5,15 @@
 #include <string>
 #include <vector>
 #include <map>
-#include "basic.h"
+#include "date_time.h"
 #include "oralib.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "jxtlib/JxtInterface.h"
 #include "exceptions.h"
+
+using BASIC::date_time::TDateTime;
 
 class TTripListFilter
 {
@@ -60,7 +62,7 @@ class TTripListView
 class TTripListInfo
 {
   public:
-    BASIC::TDateTime date;
+    TDateTime date;
     int point_id;
     TTripListFilter filter;
     bool filter_from_xml;
@@ -99,7 +101,7 @@ class TTripListSQLFilter
 class TTripListSQLParams: public TTripListSQLFilter
 {
   public:
-    BASIC::TDateTime first_date, last_date;
+    TDateTime first_date, last_date;
     int flt_no;
     std::string suffix;
     int check_point_id;

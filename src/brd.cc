@@ -1,4 +1,4 @@
-#include "basic.h"
+#include "date_time.h"
 #include "stat.h"
 #include "docs.h"
 #include "brd.h"
@@ -30,7 +30,7 @@
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
 
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 using namespace AstraLocale;

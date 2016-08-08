@@ -153,14 +153,17 @@ astra_SOURCES = \
   Depeches.cpp \
   AsyncNet.cpp \
   img.cpp \
-  astra_api.cpp
+  astra_api.cpp \
+  astra_date_time.cpp \
+  icu_conversion.cpp \ 
+  tz_test.cpp
 
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
   	tests/libtests.a \
 	@ETICKLIB_LIBS@ \
-	@ORACLE_LIBS@ @EDILIB_LIBS@ \
+	@ORACLE_LDFLAGS@ @ORACLE_LIBS@ @EDILIB_LIBS@ \
 	@JXTLIB_LIBS@ @SHARED_LIBS@ \
 	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
 	$(XML_LIBS) @CHECK_LIBS@ \
@@ -169,9 +172,10 @@ astra_LDADD = $(all_libraries) \
 	@BOOST_FILESYSTEM_LIB@ \
 	@BOOST_REGEX_LIB@ \
         @BOOST_THREAD_LIB@ \
-        @PION_LDFLAGS@
+        @PION_LDFLAGS@ \
+        @SHARED_EXT_LIBS@
 
-
+#-L/usr/lib/x86_64-linux-gnu -licui18n -licuuc -licudata
 #	-L/usr/lib -lboost_filesystem
 #	-L/home/beta/crypt/locallibs/mespro -lmesprox
 
@@ -297,5 +301,6 @@ noinst_HEADERS = \
   AsyncNet.hpp \
   img.h \
   astra_iface.h \
-  astra_api.h
-  
+  astra_api.h \
+  astra_date_time.h \
+  tz_test.h

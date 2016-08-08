@@ -1,5 +1,4 @@
 #include "adm.h"
-#include "basic.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
@@ -13,7 +12,6 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC;
 using namespace ASTRA;
 using namespace AstraLocale;
 

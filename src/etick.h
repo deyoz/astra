@@ -1,6 +1,7 @@
 #ifndef _ETICK_H_
 #define _ETICK_H_
 
+#include "date_time.h"
 #include "astra_utils.h"
 #include "astra_ticket.h"
 #include "astra_misc.h"
@@ -13,6 +14,8 @@
 #include "tlg/EdifactRequest.h"
 
 #include <jxtlib/xmllibcpp.h>
+
+using BASIC::date_time::TDateTime;
 
 namespace edifact{
     class RemoteResults;
@@ -119,7 +122,7 @@ class TETickItem
 
     std::string et_no;
     int et_coupon;
-    BASIC::TDateTime issue_date;
+    TDateTime issue_date;
     std::string surname, name;
     std::string fare_basis;
     int bag_norm;

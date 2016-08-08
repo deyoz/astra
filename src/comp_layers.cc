@@ -5,7 +5,7 @@
 #include "oralib.h"
 #include "alarms.h"
 #include "salons.h"
-#include "basic.h"
+#include "date_time.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -52,6 +52,8 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
                           bool UsePriorContext,
                           TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
+  using namespace BASIC::date_time;
+
   if (ranges.empty()) return;
   if (!IsTlgCompLayer(layer_type)) return;
   if (layer_type==cltPRLTrzt) return;
@@ -78,7 +80,7 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
   InsQry.DeclareVariable("last_xname",otString);
   InsQry.DeclareVariable("first_yname",otString);
   InsQry.DeclareVariable("last_yname",otString);
-  InsQry.CreateVariable( "time_create", otDate, BASIC::NowUTC() );
+  InsQry.CreateVariable( "time_create", otDate, NowUTC() );
   if (crs_pax_id!=NoExists)
     InsQry.CreateVariable("crs_pax_id",otInteger,crs_pax_id);
   else

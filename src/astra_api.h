@@ -19,6 +19,8 @@ namespace astra_api {
 
 namespace astra_entities {
 
+using BASIC::date_time::TDateTime;
+
 struct MarketingInfo
 {
     std::string            m_airline;
@@ -293,7 +295,7 @@ struct XmlTripHeader
     int              flt_no;
     std::string      suffix;
     std::string      airp;
-    BASIC::TDateTime scd_out_local;
+    TDateTime scd_out_local;
     int              pr_etl_only;
     int              pr_etstatus;
     int              pr_no_ticket_check;
@@ -349,7 +351,7 @@ struct XmlMarkFlight
     std::string      airline;
     int              flt_no;
     std::string      suffix;
-    BASIC::TDateTime scd;
+    TDateTime scd;
     std::string      airp_dep;
     int              pr_mark_norms;
 

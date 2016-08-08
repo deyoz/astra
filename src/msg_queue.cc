@@ -1,7 +1,7 @@
 #include <boost/crc.hpp>
 #include <boost/optional.hpp>
 #include "msg_queue.h"
-#include "basic.h"
+#include "date_time.h"
 #include "exceptions.h"
 #include "tlg/tlg.h"
 #include "stl_utils.h"
@@ -16,7 +16,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC;
+using namespace BASIC::date_time;
 
 namespace AstraMessages
 {

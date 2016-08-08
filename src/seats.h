@@ -6,11 +6,13 @@
 #include "astra_utils.h"
 #include "seats_utils.h"
 #include "base_tables.h"
+#include "date_time.h"
 #include <map>
 #include <libxml/tree.h>
 
 namespace SEATS2
 {
+using BASIC::date_time::TDateTime;
 using namespace SALONS2;
 enum TSeatStep { sLeft, sRight, sUp, sDown };
 enum TWhere { sLeftRight, sUpDown, sEveryWhere };
@@ -392,7 +394,7 @@ bool ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, in
                   std::string first_xname, std::string first_yname, TSeatsType seat_type,
                   bool pr_lat_seat, TChangeLayerProcFlag seatFlag );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats,
-	                       int pax_id, int point_dep, int point_arv, BASIC::TDateTime time_create );
+	                       int pax_id, int point_dep, int point_arv, TDateTime time_create );
 bool GetPassengersForWaitList( int point_id, TPassengers &p );
 TSeatAlgoParams GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
 bool IsSubClsRem( const std::string &airline, const std::string &subclass, std::string &rem );

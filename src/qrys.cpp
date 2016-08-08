@@ -9,7 +9,6 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC;
 
 size_t MAX_QRYS()
 {

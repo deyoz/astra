@@ -18,7 +18,7 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace AstraLocale;
 
 const int POINT_INFO = 1;
@@ -280,7 +280,7 @@ TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
 }
 
 TPrnTagStore::TPrnTagStore(const std::string& airp_dep,
-        const std::string& airp_arv) :
+                           const std::string& airp_arv) :
     pax_id(NoExists),
     print_mode(0),
     time_print(NowUTC()),
@@ -1595,7 +1595,7 @@ string TPrnTagStore::BRD_FROM(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
-        return dt != ASTRA::NoExists ? BASIC::DateTimeToStr(dt, fp.date_format) : "";
+        return dt != ASTRA::NoExists ? DateTimeToStr(dt, fp.date_format) : "";
     } else {
         if(scan_data != NULL)
             return string();
@@ -1608,7 +1608,7 @@ string TPrnTagStore::BRD_TO(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
-        return dt != ASTRA::NoExists ? BASIC::DateTimeToStr(dt, fp.date_format) : "";
+        return dt != ASTRA::NoExists ? DateTimeToStr(dt, fp.date_format) : "";
     } else {
         if(scan_data != NULL)
             return string();
@@ -1907,7 +1907,7 @@ string TPrnTagStore::FULLNAME(TFieldParams fp)
     if(!fp.TagInfo.empty()) {
         const std::string fullnm = boost::any_cast<std::string>(fp.TagInfo);
         return transliter(fullnm, 1, tag_lang.GetLang() != AstraLocale::LANG_RU)
-            .substr(0, fp.len > 10 ? fp.len : fp.len == 0 ? string::npos : 10);
+                .substr(0, fp.len > 10 ? fp.len : fp.len == 0 ? string::npos : 10);
     } else {
         string name, surname;
         if(scan_data != NULL) {
@@ -2393,7 +2393,7 @@ string TPrnTagStore::PAX_TITLE(TFieldParams fp)
 string TPrnTagStore::TIME_PRINT(TFieldParams fp)
 {
     if(scan_data != NULL) {
-        boost::optional<BASIC::TDateTime> time_print = scan_data->date_of_boarding_pass_issuance();
+        boost::optional<TDateTime> time_print = scan_data->date_of_boarding_pass_issuance();
         if(time_print != boost::none) {
             return get_date_from_bcbp(*time_print, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
         } else {

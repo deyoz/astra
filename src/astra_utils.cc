@@ -32,7 +32,7 @@
 
 using namespace std;
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace boost::local_time;
 using namespace boost::posix_time;
@@ -1416,28 +1416,6 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
 }
 
-tz_database &get_tz_database()
-{
-  static bool init=false;
-  static tz_database tz_db;
-  if (!init) {
-    try
-    {
-      tz_db.load_from_file("date_time_zonespec.csv");
-      init=true;
-    }
-    catch (boost::local_time::data_not_accessible)
-    {
-      throw EXCEPTIONS::Exception("File 'date_time_zonespec.csv' not found");
-    }
-    catch (boost::local_time::bad_field_count)
-    {
-      throw EXCEPTIONS::Exception("File 'date_time_zonespec.csv' wrong format");
-    };
-  }
-  return tz_db;
-}
-
 string& AirpTZRegion(string airp, bool with_exception)
 {
   if (airp.empty()) throw EXCEPTIONS::Exception("Airport not specified");
@@ -1482,66 +1460,7 @@ TCountriesRow getCountryByAirp( const std::string& airp)
   return ((TCountriesRow&)base_tables.get("countries").get_row("code",cityRow.country));
 }
 
-TDateTime UTCToLocal(TDateTime d, string region)
-{
-  if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");
-  tz_database &tz_db = get_tz_database();
-  time_zone_ptr tz = tz_db.time_zone_from_region(region);
-  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",region.c_str());
-  local_date_time ld(DateTimeToBoost(d),tz);
-  return BoostToDateTime(ld.local_time());
-}
-
-TDateTime LocalToUTC(TDateTime d, string region, int is_dst)
-{
-  if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");
-  tz_database &tz_db = get_tz_database();
-  time_zone_ptr tz = tz_db.time_zone_from_region(region);
-  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",region.c_str());
-  ptime pt=DateTimeToBoost(d);
-  try {
-    local_date_time ld(pt.date(),pt.time_of_day(),tz,local_date_time::EXCEPTION_ON_ERROR);
-    return BoostToDateTime(ld.utc_time());
-  }
-  catch( boost::local_time::ambiguous_result ) {
-    if (is_dst == NoExists) throw;
-    local_date_time ld(pt.date(),pt.time_of_day(),tz,(bool)is_dst);
-    return BoostToDateTime(ld.utc_time());
-  }
-};
-
-TDateTime UTCToClient(TDateTime d, string region)
-{
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  switch (reqInfo->user.sets.time)
-  {
-    case ustTimeUTC:
-      return d;
-    case ustTimeLocalDesk:
-      return UTCToLocal(d,reqInfo->desk.tz_region);
-    case ustTimeLocalAirp:
-      return UTCToLocal(d,region);
-    default:
-      throw EXCEPTIONS::Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
-  };
-};
-
-TDateTime ClientToUTC(TDateTime d, string region, int is_dst)
-{
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  switch (reqInfo->user.sets.time)
-  {
-    case ustTimeUTC:
-      return d;
-    case ustTimeLocalDesk:
-      return LocalToUTC(d,reqInfo->desk.tz_region,is_dst);
-    case ustTimeLocalAirp:
-      return LocalToUTC(d,region,is_dst);
-    default:
-      throw EXCEPTIONS::Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
-  };
-};
-
+/* Korotaev
 bool is_dst(TDateTime d, string region)
 {
     if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");
@@ -1549,9 +1468,9 @@ bool is_dst(TDateTime d, string region)
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( region );
   if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",region.c_str());
-  local_date_time ld( utcd, tz ); /* определяем текущее время локальное */
+  local_date_time ld( utcd, tz ); // определяем текущее время локальное
   return ( tz->has_dst() && ld.is_dst() );
-}
+}*/
 
 char ToLatPnrAddr(char c)
 {
@@ -1794,7 +1713,7 @@ void rollback()
 
 }// namespace ASTRA
 
-void TRegEvents::fromDB(BASIC::TDateTime part_key, int point_id)
+void TRegEvents::fromDB(TDateTime part_key, int point_id)
 {
     QParams QryParams;
     QryParams

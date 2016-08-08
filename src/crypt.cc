@@ -9,7 +9,7 @@
 #include "serverlib/string_cast.h"
 #include "crypt.h"
 #include "oralib.h"
-#include "basic.h"
+#include "date_time.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "oralib.h"
@@ -28,7 +28,7 @@ const int MIN_DAYS_CERT_WARRNING = 10;
 const unsigned int PASSWORD_LENGTH = 16;
 
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 
@@ -538,7 +538,7 @@ void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req )
 	TQuery Qry(&OraSession);
   Qry.SQLText = "SELECT system.UTCSYSDATE udate FROM dual";
   Qry.Execute();
-  BASIC::TDateTime udate = Qry.FieldAsDateTime( "udate" );
+  TDateTime udate = Qry.FieldAsDateTime( "udate" );
   Qry.Clear();
   if ( pr_grp )
     Qry.SQLText =
@@ -562,7 +562,7 @@ void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req )
   Qry.Execute();
 	if ( Qry.Eof )
 		throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
-	req.FileKey = "astra"+BASIC::DateTimeToStr( udate, "ddmmyyhhnn" );
+	req.FileKey = "astra"+DateTimeToStr( udate, "ddmmyyhhnn" );
 	req.Country =	Qry.FieldAsString( "country" );
 	req.Algo = Qry.FieldAsString( "key_algo" );
 	if ( !Qry.FieldIsNULL( "keyslength" ) )
@@ -580,7 +580,7 @@ void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req )
   	if ( pr_grp )
   		req.CommonName += "(Group)";
    	req.CommonName += desk;
-   	req.CommonName += BASIC::DateTimeToStr( udate, "ddmmyyhhnn" );
+   	req.CommonName += DateTimeToStr( udate, "ddmmyyhhnn" );
   }
   req.EmailAddress = Qry.FieldAsString( "email" );
 }
@@ -778,11 +778,11 @@ struct TRequest {
   string cert;
 };
 
-BASIC::TDateTime ConvertCertificateDate( char *certificate_date )
+TDateTime ConvertCertificateDate( char *certificate_date )
 {
 
-	BASIC::TDateTime d;
-	int res = BASIC::StrToDateTime( upperc(certificate_date).c_str(), "dd.mm.yyyy hh:nn:ss", d, true );
+	TDateTime d;
+	int res = StrToDateTime( upperc(certificate_date).c_str(), "dd.mm.yyyy hh:nn:ss", d, true );
 	if ( res == EOF )
 		throw Exception( "Invalid Certificate date=%s", certificate_date );
 	return d;

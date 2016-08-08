@@ -274,3 +274,8 @@ src/xp_testing.cc
 src/xp_testing.h
 src/Makefile.am
 src/tlg/Makefile.am
+src/tz_test.cpp
+src/tz_test.h
+src/icu_conversion.cpp
+src/astra_date_time.cpp
+src/astra_date_time.h

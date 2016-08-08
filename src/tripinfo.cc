@@ -6,8 +6,8 @@
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "astra_misc.h"
+#include "astra_date_time.h"
 #include "base_tables.h"
-#include "basic.h"
 #include "exceptions.h"
 #include "stl_utils.h"
 #include "oralib.h"
@@ -20,7 +20,6 @@
 #include "stat.h"
 #include "print.h"
 #include "convert.h"
-#include "astra_misc.h"
 #include "term_version.h"
 #include "salons.h"
 #include "salonform.h"
@@ -37,10 +36,11 @@
 #include <serverlib/slogger.h>
 
 using namespace std;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;
+using namespace ASTRA::date_time;
 
 void TTripListInfo::ToXML(xmlNodePtr node)
 {

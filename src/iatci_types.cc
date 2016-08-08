@@ -1,7 +1,7 @@
 #include "iatci_types.h"
 #include "iatci_help.h"
 #include "xml_unit.h"
-#include "basic.h"
+#include "date_time.h"
 #include "astra_locale_adv.h"
 #include "astra_msg.h"
 
@@ -1379,7 +1379,7 @@ void Result::toXml(xmlNodePtr node) const
             NewTextChild(docNode, "no", pax()->doc()->no());
             NewTextChild(docNode, "nationality", pax()->doc()->nationality());
             if(!pax()->doc()->birthDate().is_not_a_date()) {
-                NewTextChild(docNode, "birth_date", BASIC::boostDateToAstraFormatStr(pax()->doc()->birthDate()));
+                NewTextChild(docNode, "birth_date", BASIC::date_time::boostDateToAstraFormatStr(pax()->doc()->birthDate()));
             }
             NewTextChild(docNode, "gender", pax()->doc()->gender());
             NewTextChild(docNode, "surname", pax()->doc()->surname());
@@ -1388,7 +1388,7 @@ void Result::toXml(xmlNodePtr node) const
                 NewTextChild(docNode, "second_name", pax()->doc()->secondName());
             }
             if(!pax()->doc()->expiryDate().is_not_a_date()) {
-                NewTextChild(docNode, "expiry_date", BASIC::boostDateToAstraFormatStr(pax()->doc()->expiryDate()));
+                NewTextChild(docNode, "expiry_date", BASIC::date_time::boostDateToAstraFormatStr(pax()->doc()->expiryDate()));
             }
         }
 

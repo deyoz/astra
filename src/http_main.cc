@@ -12,7 +12,7 @@
 #include "serverlib/ourtime.h"
 #include "serverlib/str_utils.h"
 #include "xml_unit.h"
-#include "basic.h"
+#include "date_time.h"
 #include "web_main.h"
 #include "jxtlib/xml_stuff.h"
 #include "jxtlib/jxtlib.h"
@@ -207,7 +207,7 @@ void save_http_client_headers(const request &req)
             << QParam("host", otString)
             << QParam("path", otString, req.uri)
             << QParam("operation", otString)
-            << QParam("time", otDate, BASIC::NowUTC())
+            << QParam("time", otDate, NowUTC())
             );
     bool pr_kick = false;
     for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {

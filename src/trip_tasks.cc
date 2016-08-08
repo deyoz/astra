@@ -15,7 +15,7 @@
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace BASIC;
+using namespace BASIC::date_time;
 
 namespace TypeB {
     void check_tlg_out(int point_id, const std::string &task_name, const std::string &params);

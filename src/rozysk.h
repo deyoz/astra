@@ -1,6 +1,8 @@
 #ifndef _ROZYSK_H_
 #define _ROZYSK_H_
-#include "basic.h"
+#include "date_time.h"
+
+using BASIC::date_time::TDateTime;
 
 namespace rozysk
 {
@@ -12,7 +14,7 @@ void sync_crs_pnr(int pnr_id, const std::string &term, const std::string &user_d
 
 }
 
-void sync_sirena_rozysk( BASIC::TDateTime utcdate );
+void sync_sirena_rozysk( TDateTime utcdate );
 void sirena_rozysk_send();
 void create_mintrans_file(int point_id);
 void save_mintrans_files();

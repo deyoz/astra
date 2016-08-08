@@ -5,7 +5,6 @@
 #include "astra_msg.h"
 #include "etick_change_status.h"
 #include "tlg.h"
-#include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "xml_unit.h"
@@ -67,7 +66,6 @@
 #define NICKTRACE ROMAN_TRACE
 #include <serverlib/slogger.h>
 
-using namespace BASIC;
 using namespace edilib;
 using namespace edifact;
 using namespace Ticketing;

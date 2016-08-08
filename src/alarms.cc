@@ -15,6 +15,7 @@
 #include "brd.h"
 #include "emdoc.h"
 #include "sopp.h"
+#include "date_time.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -23,6 +24,7 @@
 using namespace std;
 using namespace ASTRA;
 using namespace EXCEPTIONS;
+using namespace BASIC::date_time;
 
 const char *TripAlarmsTypeS[] = {
     "SALON",
@@ -610,7 +612,7 @@ void check_crew_alarms(int point_id)
       "       next_exec IS NULL AND last_exec IS NOT NULL) ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("name", otString, BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL);
-    Qry.CreateVariable("now_utc", otDate, BASIC::NowUTC());
+    Qry.CreateVariable("now_utc", otDate, NowUTC());
     Qry.Execute();
     if (!Qry.Eof) do_check=true;
   };

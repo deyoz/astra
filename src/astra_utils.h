@@ -12,17 +12,19 @@
 #include "astra_consts.h"
 #include "astra_locale.h"
 #include "astra_locale_adv.h"
-#include "basic.h"
+#include "date_time.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_xml_cont.h"
 
+using BASIC::date_time::TDateTime;
+
 std::string AlignString(std::string str, int len, std::string align);
 
 struct TLogMsg {
   public:
-    BASIC::TDateTime ev_time;
+    TDateTime ev_time;
     int ev_order;
     std::string msg;
     ASTRA::TEventType ev_type;
@@ -45,7 +47,7 @@ struct TLogLocale {
   protected:
     std::vector<std::string> vlangs;
   public:
-    BASIC::TDateTime ev_time;
+    TDateTime ev_time;
     int ev_order;
     ASTRA::TEventType ev_type;
     std::string lexema_id;
@@ -367,7 +369,7 @@ class TDesk {
     std::string lang;
     std::string version;
     std::string currency;
-    BASIC::TDateTime time;
+    TDateTime time;
     ASTRA::TOperMode mode;
     int grp_id;
     double term_id;
@@ -491,8 +493,8 @@ const char* EncodeCrewType(ASTRA::TCrewType s);
 char DecodeStatus(char* s);
 
 #define sign( x ) ( ( x ) > 0 ? 1 : ( x ) < 0 ? -1 : 0 )
-BASIC::TDateTime DecodeTimeFromSignedWord( signed short int Value );
-signed short int EncodeTimeToSignedWord( BASIC::TDateTime Value );
+TDateTime DecodeTimeFromSignedWord( signed short int Value );
+signed short int EncodeTimeToSignedWord( TDateTime Value );
 
 void showBasicInfo(void);
 
@@ -530,8 +532,6 @@ void getLexemaText( LexemaData lexemaData, std::string &text, std::string &maste
 xmlNodePtr selectPriorityMessage(xmlNodePtr resNode, std::string& error_code, std::string& error_message);
 } // end namespace AstraLocale
 
-
-
 ASTRA::TOperMode DecodeOperMode( const std::string mode );
 std::string EncodeOperMode(const ASTRA::TOperMode mode );
 ASTRA::TEventType DecodeEventType( const std::string ev_type );
@@ -542,14 +542,6 @@ std::string& CityTZRegion(std::string city, bool with_exception=true);
 std::string DeskCity(std::string desk, bool with_exception=true);
 
 TCountriesRow getCountryByAirp( const std::string& airp);
-
-boost::local_time::tz_database &get_tz_database();
-BASIC::TDateTime UTCToLocal(BASIC::TDateTime d, std::string region);
-BASIC::TDateTime LocalToUTC(BASIC::TDateTime d, std::string region, int is_dst=ASTRA::NoExists);
-BASIC::TDateTime UTCToClient(BASIC::TDateTime d, std::string region);
-BASIC::TDateTime ClientToUTC(BASIC::TDateTime d, std::string region, int is_dst=ASTRA::NoExists);
-
-bool is_dst(BASIC::TDateTime d, std::string region);
 
 class SysReqInterface : public JxtInterface
 {
@@ -636,8 +628,8 @@ void commit();
 void rollback();
 }//namespace ASTRA
 
-struct TRegEvents:public  std::map< std::pair<int, int>, std::pair<BASIC::TDateTime, BASIC::TDateTime> > {
-    void fromDB(BASIC::TDateTime part_key, int point_id);
+struct TRegEvents:public  std::map< std::pair<int, int>, std::pair<TDateTime, TDateTime> > {
+    void fromDB(TDateTime part_key, int point_id);
 };
 
 struct TEncodedFileStream
