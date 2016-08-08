@@ -6881,6 +6881,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "    DELETE FROM pax_asvc WHERE pax_id=curRow.inf_id; "
                     "    :sync_pax_asvc_rows:=:sync_pax_asvc_rows+SQL%ROWCOUNT; "
                     "    DELETE FROM crs_pax_refuse WHERE pax_id=curRow.inf_id; "
+                    "    DELETE FROM crs_pax_alarms WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax WHERE pax_id=curRow.inf_id; "
                     "  END LOOP; "
                     "  DELETE FROM crs_pax_rem WHERE pax_id=:pax_id; "
