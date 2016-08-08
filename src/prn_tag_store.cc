@@ -3323,7 +3323,7 @@ namespace BIPrintRules {
     {
         xmlNodePtr paxListNode = NULL;
         for(TPaxList::const_iterator i = items.begin(); i != items.end(); i++) {
-            if(i->second.halls.size() > 1) {
+            if(i->second.exists() and i->second.halls.size() > 1) {
                 if(not paxListNode) {
                     xmlNodePtr printNode = NewTextChild(NewTextChild(resNode, "data"), "print");
                     SetProp(printNode, "halls");
@@ -3345,6 +3345,7 @@ namespace BIPrintRules {
     {
         bool result = true;
         for(TPaxList::const_iterator i = items.begin(); i != items.end(); i++) {
+            if(not i->second.exists()) continue;
             result = i->second.halls.size() == 1;
             if(not result) break;
         }
