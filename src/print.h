@@ -104,8 +104,6 @@ class PrintInterface: public JxtInterface
 
         PrintInterface(): JxtInterface("123", "print")
         {            
-            AddEvent("GetPrintDataBI",    JXT_HANDLER(PrintInterface, GetPrintDataBI));
-            AddEvent("GetGRPPrintDataBI", JXT_HANDLER(PrintInterface, GetPrintDataBI));
             AddEvent("GetPrintDataBP",    JXT_HANDLER(PrintInterface, GetPrintDataBP));
             AddEvent("GetGRPPrintData",   JXT_HANDLER(PrintInterface, GetPrintDataBP));
 
@@ -121,7 +119,6 @@ class PrintInterface: public JxtInterface
 
         void GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-        void GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -133,7 +130,9 @@ class PrintInterface: public JxtInterface
                 );
         virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
-        static void GetPrintDataBP(const BPParams &params,
+        static void GetPrintDataBP(
+                                   ASTRA::TDevOperType op_type,
+                                   const BPParams &params,
                                    std::string &data,
                                    std::string &pectab,
                                    BIPrintRules::Holder &bi_rules,
@@ -143,15 +142,19 @@ class PrintInterface: public JxtInterface
                                         const std::string& data,
                                         const BPParams &params,
                                         std::vector<BPPax> &paxs);
-        static void GetPrintDataBI(const BPParams &params,
-                                   std::string &pectab,
-                                   std::vector<BPPax> &paxs);
         static void ConfirmPrintBP(const std::vector<BPPax> &paxs,
                                    CheckIn::UserException &ue);
         static void ConfirmPrintBI(const std::vector<BPPax> &paxs,
                                    CheckIn::UserException &ue);
 
         static void GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode);
+
+        static void get_pectab(
+                ASTRA::TDevOperType op_type,
+                const BPParams &params,
+                std::string &data,
+                std::string &pectab
+                );
 };
 
 #endif

@@ -1726,9 +1726,12 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
     }
 }
 
-void PrintInterface::GetPrintDataBI(const BPParams &params,
-                                    string &pectab,
-                                    std::vector<BPPax> &paxs)
+void PrintInterface::get_pectab(
+        TDevOperType op_type,
+        const BPParams &params,
+        string &data,
+        string &pectab
+        )
 {
     TQuery Qry(&OraSession);
     Qry.Clear();
@@ -1747,7 +1750,7 @@ void PrintInterface::GetPrintDataBI(const BPParams &params,
         "   bp_models.id = prn_form_vers.id and "
         "   bp_models.version = prn_form_vers.version ";
     Qry.CreateVariable("form_type", otString, params.form_type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
     Qry.CreateVariable("dev_model", otString, params.dev_model);
     Qry.CreateVariable("fmt_type", otString, params.fmt_type);
     Qry.Execute();
@@ -1755,80 +1758,31 @@ void PrintInterface::GetPrintDataBI(const BPParams &params,
        Qry.FieldIsNULL("data") or
        (Qry.FieldIsNULL( "form" ) and (DecodeDevFmtType(params.fmt_type) == dftBTP or
                                      DecodeDevFmtType(params.fmt_type) == dftATB))
-      )
-        previewDeviceSets(true, "MSG.PRINT.BI_UNAVAILABLE_FOR_THIS_DEVICE");
-    pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
-    string data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
-
-    //set_BI_data(paxs);
-
-    BIPrintRules::Holder bi_rules;
-
-    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
-        const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
-        if(not bi_rule.pr_print_bi) continue;
-//        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
-        PrintDataParser parser( iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode );
-//        big_test(parser, dotPrnBP);
-        // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
-        //надо удалить выход на посадку из данных по пассажиру
-        if (iPax->gate.second)
-            parser.pts.set_tag("gate", iPax->gate.first);
-
-        parser.pts.set_tag(TAG::BI_HALL, bi_rule);
-        parser.pts.set_tag(TAG::BI_HALL_CAPTION, bi_rule);
-
-        iPax->prn_form = parser.parse(data);
-        iPax->hex=false;
-        if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
-            to_esc::TConvertParams ConvertParams;
-            ConvertParams.init(params.dev_model);
-            ProgTrace(TRACE5, "BI prn_form: %s", iPax->prn_form.c_str());
-            to_esc::convert(iPax->prn_form, ConvertParams, params.prnParams);
-            StringToHex( string(iPax->prn_form), iPax->prn_form );
-            iPax->hex=true;
+      ) {
+        switch(op_type) {
+            case dotPrnBP:
+                previewDeviceSets(true, "MSG.PRINT.BP_UNAVAILABLE_FOR_THIS_DEVICE");
+                break;
+            case dotPrnBI:
+                previewDeviceSets(true, "MSG.PRINT.BI_UNAVAILABLE_FOR_THIS_DEVICE");
+                break;
+            default:
+                throw Exception("%d: %d: unexpected dev oper type %d", op_type);
         }
-        parser.pts.confirm_print(false, dotPrnBI);
-        iPax->time_print=parser.pts.get_time_print();
     }
-};
+    pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
+    data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
+}
 
-void PrintInterface::GetPrintDataBP(const BPParams &params,
+void PrintInterface::GetPrintDataBP(
+                                    TDevOperType op_type,
+                                    const BPParams &params,
                                     std::string &data,
                                     string &pectab,
                                     BIPrintRules::Holder &bi_rules,
                                     std::vector<BPPax> &paxs)
 {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText =
-        "select "
-        "   prn_form_vers.form, "
-        "   prn_form_vers.data "
-        "from "
-        "   bp_models, "
-        "   prn_form_vers "
-        "where "
-        "   bp_models.form_type = :form_type and "
-        "   bp_models.op_type = :op_type and "
-        "   bp_models.dev_model = :dev_model and "
-        "   bp_models.fmt_type = :fmt_type and "
-        "   bp_models.id = prn_form_vers.id and "
-        "   bp_models.version = prn_form_vers.version ";
-    Qry.CreateVariable("form_type", otString, params.form_type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
-    Qry.CreateVariable("dev_model", otString, params.dev_model);
-    Qry.CreateVariable("fmt_type", otString, params.fmt_type);
-    Qry.Execute();
-    if(Qry.Eof or
-       Qry.FieldIsNULL("data") or
-       (Qry.FieldIsNULL( "form" ) and (DecodeDevFmtType(params.fmt_type) == dftBTP or
-                                     DecodeDevFmtType(params.fmt_type) == dftATB))
-      )
-        previewDeviceSets(true, "MSG.PRINT.BP_UNAVAILABLE_FOR_THIS_DEVICE");
-    pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
-    data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
-
+    get_pectab(op_type, params, data, pectab);
     for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
 //        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
         boost::shared_ptr<PrintDataParser> parser;
@@ -1843,8 +1797,10 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
             parser->pts.set_tag("gate", iPax->gate.first);
 
         const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
-        bi_rule.dump(__FILE__, __LINE__);
-        if(not bi_rule.pr_print_bi) {
+        if(bi_rule.exists() and
+                (not bi_rule.pr_print_bi or
+                op_type == dotPrnBI)
+          ) {
             parser->pts.set_tag(TAG::BI_HALL, bi_rule);
             parser->pts.set_tag(TAG::BI_HALL_CAPTION, bi_rule);
         }
@@ -1860,7 +1816,7 @@ void PrintInterface::GetPrintDataBP(const BPParams &params,
             iPax->hex=true;
         }
         if(iPax->pax_id!=NoExists)
-            parser->pts.confirm_print(false, dotPrnBP);
+            parser->pts.confirm_print(false, op_type);
         iPax->time_print=parser->pts.get_time_print();
     }
 }
@@ -1988,147 +1944,6 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
     return true;
 }
 
-
-void PrintInterface::GetPrintDataBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    xmlNodePtr currNode = reqNode->children;
-    BPParams params;
-    int first_seg_grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists); // grp_id - первого сегмента или ид. группы
-    int pax_id = NodeAsIntegerFast("pax_id", currNode, NoExists);
-    int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
-    params.dev_model = NodeAsStringFast("dev_model", currNode);
-    params.fmt_type = NodeAsStringFast("fmt_type", currNode);
-    params.prnParams.get_prn_params(reqNode);
-    params.clientDataNode = NodeAsNodeFast("clientData", currNode);
-    if(params.dev_model.empty())
-      previewDeviceSets(false, "MSG.PRINTER_NOT_SPECIFIED");
-
-    TQuery Qry(&OraSession);
-    if(first_seg_grp_id == NoExists) {
-        Qry.Clear();
-        Qry.SQLText="SELECT grp_id from pax where pax_id = :pax_id";
-        Qry.CreateVariable("pax_id", otInteger, pax_id);
-        Qry.Execute();
-        if(Qry.Eof)
-            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-        first_seg_grp_id = Qry.FieldAsInteger("grp_id");
-    }
-
-
-    Qry.Clear();
-    Qry.SQLText="SELECT point_dep, class, status FROM pax_grp WHERE grp_id=:grp_id";
-    Qry.CreateVariable("grp_id",otInteger,first_seg_grp_id);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-    if (DecodePaxStatus(Qry.FieldAsString("status"))==psCrew)
-        throw AstraLocale::UserException("MSG.INVITATION_NOT_AVAILABLE_FOR_CREW");
-    if(Qry.FieldIsNULL("class"))
-        throw AstraLocale::UserException("MSG.INVITATION_NOT_AVAILABLE_FOR_UNACC_BAGGAGE");
-    int point_id = Qry.FieldAsInteger("point_dep");
-    string cl = Qry.FieldAsString("class");
-    Qry.Clear();
-    Qry.SQLText =
-        "SELECT bp_type, "
-        "       DECODE(class,NULL,0,1) AS priority "
-        "FROM trip_bp "
-        "WHERE point_id=:point_id AND "
-        "      (class IS NULL OR class=:class) AND "
-        "      op_type=:op_type "
-        "ORDER BY priority DESC ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("class", otString, cl);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
-    Qry.Execute();
-    if(Qry.Eof) throw AstraLocale::UserException("MSG.BI_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
-    params.form_type = Qry.FieldAsString("bi_type");
-    ProgTrace(TRACE5, "bi_type: %s", params.form_type.c_str());
-
-    vector<int> grps;
-    std::vector<BPPax> paxs;
-    Qry.Clear();
-    if ( pax_id == NoExists ) { // печать всех или только тех, у которых не подтверждена распечатка
-        TCkinRoute cr;
-        cr.GetRouteAfter(first_seg_grp_id, crtWithCurrent, crtOnlyDependent);
-        if (!cr.empty())
-        {
-          for(vector<TCkinRouteItem>::iterator iv = cr.begin(); iv != cr.end(); iv++)
-              grps.push_back(iv->grp_id);
-        }
-        else grps.push_back(first_seg_grp_id);
-
-        Qry.Clear();
-        if ( pr_all )
-            Qry.SQLText =
-                "SELECT pax_id, grp_id, reg_no "
-                " FROM pax "
-                "WHERE grp_id = :grp_id AND "
-                "      refuse IS NULL "
-                "ORDER BY pax.reg_no, pax.seats DESC";
-        else {
-            Qry.SQLText =
-                "SELECT pax.pax_id, pax.grp_id, pax.reg_no "
-                " FROM pax, confirm_print cp "
-                "WHERE  pax.grp_id = :grp_id AND "
-                "       pax.refuse IS NULL AND "
-                "       pax.pax_id = cp.pax_id(+) AND "
-                "       " OP_TYPE_COND("cp.op_type")" and "
-                "       cp.pr_print(+) <> 0 AND "
-                "       cp.pax_id IS NULL "
-                "ORDER BY pax.reg_no, pax.seats DESC";
-            Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
-        }
-        Qry.DeclareVariable( "grp_id", otInteger );
-        for( vector<int>::iterator igrp=grps.begin(); igrp!=grps.end(); igrp++ ) {
-            Qry.SetVariable( "grp_id", *igrp );
-            Qry.Execute();
-            if ( Qry.Eof && pr_all ) // анализ на клиенте по сегментам, значит и мы должны анализировать по сегментам
-                throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //все посадочные отпечатаны
-            while ( !Qry.Eof ) {
-                paxs.push_back( BPPax( Qry.FieldAsInteger("grp_id"),
-                                       Qry.FieldAsInteger("pax_id"),
-                                       Qry.FieldAsInteger("reg_no") ) );
-                Qry.Next();
-            }
-            break; // только первый сегмент (c) den.
-        }
-        if ( !pr_all && paxs.empty() ) //все посадочные отпечатаны, но при этом надо было напечатать те, которые были не напечатанны
-            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-    }
-    else { // печать конкретного пассажира
-        Qry.SQLText =
-            "SELECT grp_id, pax_id, reg_no FROM pax where pax_id = :pax_id";
-        Qry.CreateVariable("pax_id", otInteger, pax_id);
-        Qry.Execute();
-        if ( Qry.Eof )
-            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-        paxs.push_back( BPPax( Qry.FieldAsInteger("grp_id"),
-                               Qry.FieldAsInteger("pax_id"),
-                               Qry.FieldAsInteger("reg_no") ) );
-    };
-
-    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
-      if(first_seg_grp_id != iPax->grp_id) iPax->gate=make_pair("", true);
-
-    string pectab;
-    GetPrintDataBI(params, pectab, paxs);
-
-    xmlNodePtr BINode = NewTextChild(NewTextChild(resNode, "data"), "printBI");
-    NewTextChild(BINode, "pectab", pectab);
-    xmlNodePtr passengersNode = NewTextChild(BINode, "passengers");
-    for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
-        xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-        SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
-        SetProp(paxNode, "pax_id", iPax->pax_id);
-        SetProp(paxNode, "reg_no", (int)iPax->reg_no);
-        SetProp(paxNode, "time_print", DateTimeToStr(iPax->time_print));
-        bool unbound_emd_warning=(pax_id == NoExists &&               // печать всех или только тех, у которых не подтверждена распечатка
-                                  iPax->grp_id == first_seg_grp_id && // только для пассажиров первого сегмента сквозной регистрации
-                                  PaxASVCList::ExistsPaxUnboundEMD(iPax->pax_id));
-        NewTextChild(paxNode, "unbound_emd_warning", (int)unbound_emd_warning, (int)false);
-    }
-}
-
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     GetPrintDataBP(reqNode, resNode);
@@ -2141,6 +1956,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     int first_seg_grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists); // grp_id - первого сегмента или ид. группы
     int pax_id = NodeAsIntegerFast("pax_id", currNode, NoExists);
     int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
+    TDevOperType op_type = DecodeDevOperType(NodeAsStringFast("op_type", currNode, EncodeDevOperType(dotPrnBP).c_str()));
     params.dev_model = NodeAsStringFast("dev_model", currNode);
     params.fmt_type = NodeAsStringFast("fmt_type", currNode);
     params.prnParams.get_prn_params(reqNode);
@@ -2183,7 +1999,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
         "ORDER BY priority DESC ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("class", otString, cl);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
     Qry.Execute();
     if(Qry.Eof) throw AstraLocale::UserException("MSG.BP_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
     params.form_type = Qry.FieldAsString("bp_type");
@@ -2221,7 +2037,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
                 "       cp.pr_print(+) <> 0 AND "
                 "       cp.pax_id IS NULL "
                 "ORDER BY pax.reg_no, pax.seats DESC";
-            Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+            Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
         }
         Qry.DeclareVariable( "grp_id", otInteger );
         for( vector<int>::iterator igrp=grps.begin(); igrp!=grps.end(); igrp++ ) {
@@ -2258,14 +2074,21 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     // Начитываем правила БП для всех паксов
     BIPrintRules::Holder bi_rules;
-    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
-        bi_rules.get(iPax->grp_id, iPax->pax_id);
+    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+        const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
+        if(op_type == dotPrnBI and bi_rule.exists() and not bi_rule.pr_print_bi)
+            throw AstraLocale::UserException("MSG.BI.ACCESS_DENIED");
+    }
+    // Если с клиента пришли выбранные залы, выбираем их
+    bi_rules.select(reqNode);
     bi_rules.dump();
     if(not bi_rules.complete()) {
+        // just for check availabity of pectab
+        get_pectab(op_type, params, data, pectab);
         bi_rules.toXML(resNode);
     } else {
 
-        GetPrintDataBP(params, data, pectab, bi_rules, paxs);
+        GetPrintDataBP(op_type, params, data, pectab, bi_rules, paxs);
 
         if(!GetIatciPrintDataBP(reqNode, first_seg_grp_id, data, params, paxs)) {
             tst();

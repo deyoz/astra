@@ -3230,6 +3230,7 @@ namespace BIPrintRules {
         ostringstream buf;
         copy(halls.begin(), halls.end(), ostream_iterator<int>(buf, " "));
         LogTrace(TRACE5) << "halls: [" << buf.str() << "]";
+        LogTrace(TRACE5) << "curr_hall: " << curr_hall;
         LogTrace(TRACE5) << "pr_print_bi: " << pr_print_bi;
         LogTrace(TRACE5) << "print_type: " << print_type;
         LogTrace(TRACE5) << "---------------------------";
@@ -3315,6 +3316,55 @@ namespace BIPrintRules {
             } else
                 rule.halls.push_back(Qry.get().FieldAsInteger("hall"));
             rule.pr_print_bi = Qry.get().FieldAsInteger("pr_print_bi") != 0;
+        }
+        return result;
+    }
+
+    bool Holder::select(xmlNodePtr reqNode)
+    {
+        xmlNodePtr currNode = reqNode->children;
+        currNode = GetNodeFast("halls", currNode);
+
+        if(not currNode) return true;
+
+        bool result = true;
+        currNode = currNode->children;
+        // Пробег по пришедшим залам
+        // Если хотя бы один не найден в правилах,
+        // Правила не меняем.
+        for(; currNode; currNode = currNode->next) {
+            xmlNodePtr dataNode = currNode->children;
+            int pax_id = NodeAsIntegerFast("pax_id", dataNode);
+            int hall_id = NodeAsIntegerFast("hall_id", dataNode);
+            LogTrace(TRACE5) << "select pax_id: " << pax_id;
+            LogTrace(TRACE5) << "select hall_id: " << hall_id;
+
+            TPaxList::iterator rule = items.find(pax_id);
+            if(rule == items.end()) {
+                result = false;
+                break;
+            }
+
+            list<int>::iterator iHall =
+                find(
+                        rule->second.halls.begin(),
+                        rule->second.halls.end(),
+                        hall_id);
+            if(iHall != rule->second.halls.end())
+                rule->second.curr_hall = hall_id;
+            else {
+                result = false;
+                break;
+            }
+            
+        }
+        if(result) {
+            for(TPaxList::iterator i = items.begin(); i != items.end(); i++) {
+                if(i->second.curr_hall != NoExists) {
+                    i->second.halls.clear();
+                    i->second.halls.push_back(i->second.curr_hall);
+                }
+            }
         }
         return result;
     }

@@ -248,13 +248,16 @@ const TPrintTypesView& PrintTypesView();
     struct TRule {
         int id; // bi_print_rules.id
         std::list<int> halls; // список id залов
+        int curr_hall; // зал, выбранный на клиенте
         bool pr_print_bi;     // Печатать отдельное БП или нет
         TPrintType::Enum print_type;
+
         bool exists() const { return print_type != TPrintType::None; }
         void dump(const std::string &file, int line) const;
         void fromDB(TQuery &Qry);
         TRule():
             id(ASTRA::NoExists),
+            curr_hall(ASTRA::NoExists),
             pr_print_bi(false),
             print_type(TPrintType::None)
         {}
@@ -286,6 +289,7 @@ const TPrintTypesView& PrintTypesView();
             void dump() const;
             bool complete() const;
             void toXML(xmlNodePtr resNode);
+            bool select(xmlNodePtr reqNode);
     };
 
 } //namespace BIPrintRules
