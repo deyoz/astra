@@ -783,22 +783,12 @@ void TZUpdate() {
     std::cout << "Creating tables..." << std::endl;
 try{
     drop_table(conversion_table);
-    std::cout << "drop table conv" << std::endl;
-
     drop_table(icu_schedule_table);
-    std::cout << "drop table sched" << std::endl;
-  
     drop_table(icu_routes_table);
-    std::cout << "drop table routes" << std::endl;
-  
+
     create_conversion_table();
-    std::cout << "crt table conv" << std::endl;
-
     create_routes_table();
-    std::cout << "crt table routes" << std::endl;
-
     create_schedule_table();
-    std::cout << "crt table sched" << std::endl;
 
     std::cout << "Generating conversion data." << std::endl;
 
@@ -808,7 +798,7 @@ try{
 
     applyConversion();
 
-    replace_tables();
+//    replace_tables();
 
     OraSession.Commit();
     std::cout << "Conversion finished successfully." << std::endl;
