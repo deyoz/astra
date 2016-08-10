@@ -246,6 +246,7 @@ const TPrintTypes& PrintTypes();
 const TPrintTypesView& PrintTypesView();
 
     struct TRule {
+        bool pr_get; // Признак того, что для тек. пакса был вызван Holder::get
         int id; // bi_print_rules.id
         std::list<int> halls; // список id залов
         int curr_hall; // зал, выбранный на клиенте
@@ -256,6 +257,7 @@ const TPrintTypesView& PrintTypesView();
         void dump(const std::string &file, int line) const;
         void fromDB(TQuery &Qry);
         TRule():
+            pr_get(false),
             id(ASTRA::NoExists),
             curr_hall(ASTRA::NoExists),
             pr_print_bi(false),
@@ -280,6 +282,7 @@ const TPrintTypesView& PrintTypesView();
     class Holder {
         private:
             void getByGrpId(int grp_id);
+            int get_hall_id(ASTRA::TDevOperType op_type, int pax_id);
         public:
             TRule empty_rule;
             typedef std::map<int, TRule> TPaxList;
@@ -288,7 +291,7 @@ const TPrintTypesView& PrintTypesView();
             const TRule &get(int grp_id, int pax_id);
             void dump() const;
             bool complete() const;
-            void toXML(xmlNodePtr resNode);
+            void toXML(ASTRA::TDevOperType op_type, xmlNodePtr resNode);
             bool select(xmlNodePtr reqNode);
     };
 
@@ -408,6 +411,12 @@ class TPrnTagStore {
             void Init(ASTRA::TDevOperType op, int apoint_id, int grp_id);
         };
         TPointInfo pointInfo;
+
+        struct TBIHallInfo {
+            int hall_id;
+            TBIHallInfo(): hall_id(ASTRA::NoExists) {}
+        };
+        TBIHallInfo BIHallInfo;
 
         struct TGrpInfo {
             int grp_id;

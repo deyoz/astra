@@ -930,7 +930,7 @@ string PrintDataParser::parse_tag(int offset, string tag)
         }
     };
 
-void GetTripBPPectabs(int point_id, const string &dev_model, const string &fmt_type, xmlNodePtr node)
+void GetTripBPPectabs(int point_id, TDevOperType op_type, const string &dev_model, const string &fmt_type, xmlNodePtr node)
 {
     if (node==NULL) return;
     TQuery Qry(&OraSession);
@@ -943,7 +943,7 @@ void GetTripBPPectabs(int point_id, const string &dev_model, const string &fmt_t
         "WHERE point_id=:point_id AND op_type=:op_type "
         "ORDER BY class, priority DESC ";
     Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
     Qry.Execute();
     vector<string> bp_types;
     string prior_class;
@@ -973,7 +973,7 @@ void GetTripBPPectabs(int point_id, const string &dev_model, const string &fmt_t
         "   bp_models.version = prn_form_vers.version and "
         "   prn_form_vers.form IS NOT NULL";
     Qry.DeclareVariable("form_type", otString);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     xmlNodePtr formNode=NewTextChild(node,"bp_forms");
@@ -1383,46 +1383,8 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     GetPrintDataBT(dataNode, tag_key);
 }
 
-void PrintInterface::ConfirmPrintBI(const std::vector<BPPax> &paxs,
-                                    CheckIn::UserException &ue)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "BEGIN "
-        "  UPDATE confirm_print "
-        "  SET pr_print = 1 "
-        "  WHERE pax_id = :pax_id AND time_print = :time_print AND "
-        "  " OP_TYPE_COND("op_type")
-        "  pr_print = 0 AND desk=:desk; "
-        "  :rows:=SQL%ROWCOUNT; "
-        "END;";
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
-    Qry.DeclareVariable("rows", otInteger);
-    Qry.DeclareVariable("pax_id", otInteger);
-    Qry.DeclareVariable("time_print", otDate);
-    Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
-    for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
-    {
-        try
-        {
-            Qry.SetVariable("pax_id", iPax->pax_id);
-            Qry.SetVariable("time_print", iPax->time_print);
-            Qry.Execute();
-            if (Qry.GetVariableAsInteger("rows")==0)
-                throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-            LEvntPrms params;
-            params << PrmSmpl<std::string>("full_name", iPax->full_name);
-            TReqInfo::Instance()->LocaleToLog("EVT.PRINT_INVITATION", params, ASTRA::evtPax, iPax->point_dep,
-                                              iPax->reg_no, iPax->grp_id);
-        }
-        catch(AstraLocale::UserException &e)
-        {
-          ue.addError(e.getLexemaData(), iPax->point_dep, iPax->pax_id);
-        };
-    };
-};
-
-void PrintInterface::ConfirmPrintBP(const std::vector<BPPax> &paxs,
+void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
+                                    const std::vector<BPPax> &paxs,
                                     CheckIn::UserException &ue)
 {
     TQuery Qry(&OraSession);
@@ -1435,7 +1397,7 @@ void PrintInterface::ConfirmPrintBP(const std::vector<BPPax> &paxs,
         "  RETURNING seat_no INTO :seat_no; "
         "  :rows:=SQL%ROWCOUNT; "
         "END;";
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
     Qry.DeclareVariable("rows", otInteger);
     Qry.DeclareVariable("seat_no", otString);
     Qry.DeclareVariable("pax_id", otInteger);
@@ -1455,7 +1417,18 @@ void PrintInterface::ConfirmPrintBP(const std::vector<BPPax> &paxs,
             params << PrmSmpl<std::string>("full_name", iPax->full_name);
             if (seat_no.empty()) params << PrmBool("seat_no", false);
             else params << PrmSmpl<std::string>("seat_no", seat_no);
-            TReqInfo::Instance()->LocaleToLog("EVT.PRINT_BOARDING_PASS", params, ASTRA::evtPax, iPax->point_dep,
+            string lexeme;
+            switch(op_type) {
+                case dotPrnBP:
+                    lexeme = "EVT.PRINT_BOARDING_PASS";
+                    break;
+                case dotPrnBI:
+                    lexeme = "EVT.PRINT_INVITATION";
+                    break;
+                default:
+                    throw Exception("%d: %d: unexpected dev oper type %d", op_type);
+            }
+            TReqInfo::Instance()->LocaleToLog(lexeme, params, ASTRA::evtPax, iPax->point_dep,
                                               iPax->reg_no, iPax->grp_id);
         }
         catch(AstraLocale::UserException &e)
@@ -1465,38 +1438,9 @@ void PrintInterface::ConfirmPrintBP(const std::vector<BPPax> &paxs,
     };
 };
 
-void PrintInterface::ConfirmPrintBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TQuery PaxQry(&OraSession);
-    PaxQry.SQLText =
-      "SELECT pax.grp_id, surname||' '||name full_name, reg_no, point_dep "
-      "FROM pax, pax_grp  "
-      "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
-    PaxQry.DeclareVariable("pax_id",otInteger);
-    std::vector<BPPax> paxs;
-    xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
-    for(; curNode != NULL; curNode = curNode->next)
-    {
-        BPPax pax;
-        pax.pax_id=NodeAsInteger("@pax_id", curNode);
-        pax.time_print=NodeAsDateTime("@time_print", curNode);
-
-        PaxQry.SetVariable("pax_id", pax.pax_id);
-        PaxQry.Execute();
-        if(PaxQry.Eof) continue;
-
-        pax.point_dep=PaxQry.FieldAsInteger("point_dep");
-        pax.grp_id=PaxQry.FieldAsInteger("grp_id");
-        pax.reg_no=PaxQry.FieldAsInteger("reg_no");
-        pax.full_name=PaxQry.FieldAsString("full_name");
-        paxs.push_back(pax);
-    };
-    CheckIn::UserException ue;
-    ConfirmPrintBI(paxs, ue); //не надо прокидывать ue в терминал - подтверждаем все что можем!
-};
-
 void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TDevOperType op_type = DecodeDevOperType(NodeAsString("@op_type", reqNode, EncodeDevOperType(dotPrnBP).c_str()));
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText =
       "SELECT pax.grp_id, surname||' '||name full_name, reg_no, point_dep "
@@ -1522,7 +1466,7 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         paxs.push_back(pax);
     };
     CheckIn::UserException ue;
-    ConfirmPrintBP(paxs, ue); //не надо прокидывать ue в терминал - подтверждаем все что можем!
+    ConfirmPrintBP(op_type, paxs, ue); //не надо прокидывать ue в терминал - подтверждаем все что можем!
 };
 
 void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1796,13 +1740,15 @@ void PrintInterface::GetPrintDataBP(
         if (iPax->gate.second)
             parser->pts.set_tag("gate", iPax->gate.first);
 
-        const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
-        if(bi_rule.exists() and
-                (not bi_rule.pr_print_bi or
-                op_type == dotPrnBI)
-          ) {
-            parser->pts.set_tag(TAG::BI_HALL, bi_rule);
-            parser->pts.set_tag(TAG::BI_HALL_CAPTION, bi_rule);
+        if(TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION)) {
+            const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
+            if(bi_rule.exists() and
+                    (not bi_rule.pr_print_bi or
+                     op_type == dotPrnBI)
+              ) {
+                parser->pts.set_tag(TAG::BI_HALL, bi_rule);
+                parser->pts.set_tag(TAG::BI_HALL_CAPTION, bi_rule);
+            }
         }
 
         iPax->prn_form = parser->parse(data);
@@ -2076,16 +2022,18 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     BIPrintRules::Holder bi_rules;
     for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
         const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
-        if(op_type == dotPrnBI and bi_rule.exists() and not bi_rule.pr_print_bi)
+        if(op_type == dotPrnBI and (not bi_rule.exists() or not bi_rule.pr_print_bi))
             throw AstraLocale::UserException("MSG.BI.ACCESS_DENIED");
     }
     // Если с клиента пришли выбранные залы, выбираем их
     bi_rules.select(reqNode);
     bi_rules.dump();
-    if(not bi_rules.complete()) {
-        // just for check availabity of pectab
-        get_pectab(op_type, params, data, pectab);
-        bi_rules.toXML(resNode);
+    if(
+            TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) and
+            not bi_rules.complete()
+            ) {
+        get_pectab(op_type, params, data, pectab); // just for check availabity of pectab
+        bi_rules.toXML(op_type, resNode);
     } else {
 
         GetPrintDataBP(op_type, params, data, pectab, bi_rules, paxs);
@@ -2095,7 +2043,9 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
             return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
         }
 
-        xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "printBP");
+        xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"),
+                (TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) ? "print" : "printBP")
+                );
         NewTextChild(BPNode, "pectab", pectab);
         xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
         for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {

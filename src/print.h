@@ -44,7 +44,7 @@ class PrintDataParser {
 };
 
 
-void GetTripBPPectabs(int point_id, const std::string &dev_model, const std::string &fmt_type, xmlNodePtr node);
+void GetTripBPPectabs(int point_id, ASTRA::TDevOperType op_type, const std::string &dev_model, const std::string &fmt_type, xmlNodePtr node);
 void GetTripBTPectabs(int point_id, const std::string &dev_model, const std::string &fmt_type, xmlNodePtr node);
 
 std::string get_validator(const TBagReceipt &rcpt, bool pr_lat);
@@ -105,14 +105,17 @@ class PrintInterface: public JxtInterface
         PrintInterface(): JxtInterface("123", "print")
         {            
             AddEvent("GetPrintDataBP",    JXT_HANDLER(PrintInterface, GetPrintDataBP));
-            AddEvent("GetGRPPrintData",   JXT_HANDLER(PrintInterface, GetPrintDataBP));
-
             AddEvent("GetGRPPrintDataBP", JXT_HANDLER(PrintInterface, GetPrintDataBP));
+            AddEvent("GetGRPPrintData",   JXT_HANDLER(PrintInterface, GetPrintDataBP));
+            AddEvent("GetPrintData",      JXT_HANDLER(PrintInterface, GetPrintDataBP));
+
             AddEvent("ReprintDataBT",     JXT_HANDLER(PrintInterface, ReprintDataBTXML));
             AddEvent("GetPrintDataBT",    JXT_HANDLER(PrintInterface, GetPrintDataBTXML));
-            AddEvent("ConfirmPrintBI",    JXT_HANDLER(PrintInterface, ConfirmPrintBI));
             AddEvent("ConfirmPrintBT",    JXT_HANDLER(PrintInterface, ConfirmPrintBT));
+
             AddEvent("ConfirmPrintBP",    JXT_HANDLER(PrintInterface, ConfirmPrintBP));
+            AddEvent("ConfirmPrintData",    JXT_HANDLER(PrintInterface, ConfirmPrintBP));
+
             AddEvent("refresh_prn_tests", JXT_HANDLER(PrintInterface, RefreshPrnTests));
             AddEvent("GetImg",            JXT_HANDLER(PrintInterface, GetImg));
         }
@@ -122,7 +125,6 @@ class PrintInterface: public JxtInterface
         void GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-        void ConfirmPrintBI(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         static void GetPrintDataBR(std::string &form_type, PrintDataParser &parser,
@@ -142,11 +144,9 @@ class PrintInterface: public JxtInterface
                                         const std::string& data,
                                         const BPParams &params,
                                         std::vector<BPPax> &paxs);
-        static void ConfirmPrintBP(const std::vector<BPPax> &paxs,
+        static void ConfirmPrintBP(ASTRA::TDevOperType op_type,
+                                   const std::vector<BPPax> &paxs,
                                    CheckIn::UserException &ue);
-        static void ConfirmPrintBI(const std::vector<BPPax> &paxs,
-                                   CheckIn::UserException &ue);
-
         static void GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode);
 
         static void get_pectab(

@@ -2521,7 +2521,7 @@ void WebRequestsIface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     };
   };
 
-  PrintInterface::ConfirmPrintBP(paxs, ue);  //не надо прокидывать ue в терминал - подтверждаем все что можем!
+  PrintInterface::ConfirmPrintBP(dotPrnBP, paxs, ue);  //не надо прокидывать ue в терминал - подтверждаем все что можем!
 
   NewTextChild( resNode, "ConfirmPrintBP" );
 };

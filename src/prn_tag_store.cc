@@ -681,7 +681,10 @@ void TPrnQryBuilder::add_parts(string name)
 
 void TPrnQryBuilder::add_part(string name, int value)
 {
-    Qry.CreateVariable(name, otInteger, value);
+    if(value == NoExists)
+        Qry.CreateVariable(name, otInteger, FNull);
+    else
+        Qry.CreateVariable(name, otInteger, value);
     add_parts(name);
 }
 
@@ -754,6 +757,10 @@ void TPrnTagStore::confirm_print(bool pr_print, TDevOperType op_type)
         prnQry.add_part("seat_no", get_fmt_seat("list", seat_no_lat));
         prnQry.add_part("seat_no_lat", get_fmt_seat("list", true));
     }
+    if(tag_list[TAG::BI_HALL].processed) {
+        prnQry.add_part("hall_id", BIHallInfo.hall_id);
+    }
+
     Qry.SQLText = prnQry.text();
     try {
         Qry.Execute();
@@ -2529,7 +2536,8 @@ string TPrnTagStore::BI_HALL_CAPTION(TFieldParams fp) {
     if(!fp.TagInfo.empty()) {
         const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
         if(rule.exists()) {
-            result << upperc(getLocaleText("Бизнес зал"));
+            BIHallInfo.hall_id = *rule.halls.begin();
+            result << upperc(getLocaleText("Бизнес зал", tag_lang.GetLang()));
             if(rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
                 result << " +1";
         }
@@ -2542,6 +2550,7 @@ string TPrnTagStore::BI_HALL(TFieldParams fp) {
     if(!fp.TagInfo.empty()) {
         const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
         if(rule.exists() and not rule.halls.empty()) {
+            BIHallInfo.hall_id = *rule.halls.begin();
             int hall = *rule.halls.begin();
             result << tag_lang.ElemIdToTagElem(etBIHall, hall, efmtNameLong);
             if(rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
@@ -3369,10 +3378,28 @@ namespace BIPrintRules {
         return result;
     }
 
-    void Holder::toXML(xmlNodePtr resNode)
+    int Holder::get_hall_id(TDevOperType op_type, int pax_id)
+    {
+        TCachedQuery Qry(
+                "select confirm_print.hall_id "
+                "FROM confirm_print, "
+                "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id AND pr_print<>0 and " OP_TYPE_COND("op_type")") a "
+                "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND "
+                "      " OP_TYPE_COND("confirm_print.op_type"),
+                QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, EncodeDevOperType(op_type))
+                );
+        Qry.get().Execute();
+        int result = NoExists;
+        if(not Qry.get().Eof)
+            result = Qry.get().FieldAsInteger("hall_id");
+        return result;
+    }
+
+    void Holder::toXML(TDevOperType op_type, xmlNodePtr resNode)
     {
         xmlNodePtr paxListNode = NULL;
         for(TPaxList::const_iterator i = items.begin(); i != items.end(); i++) {
+            if(not i->second.pr_get) continue;
             if(i->second.exists() and i->second.halls.size() > 1) {
                 if(not paxListNode) {
                     xmlNodePtr printNode = NewTextChild(NewTextChild(resNode, "data"), "print");
@@ -3381,6 +3408,7 @@ namespace BIPrintRules {
                 }
                 xmlNodePtr itemNode = NewTextChild(paxListNode, "passenger");
                 NewTextChild(itemNode, "pax_id", i->first);
+                NewTextChild(itemNode, "hall_id", get_hall_id(op_type, i->first), NoExists); // last printed hall
                 xmlNodePtr hallsNode = NewTextChild(itemNode, "halls");
                 for(list<int>::const_iterator iHall = i->second.halls.begin(); iHall != i->second.halls.end(); iHall++) {
                     xmlNodePtr iHallNode = NewTextChild(hallsNode, "item");
@@ -3395,6 +3423,7 @@ namespace BIPrintRules {
     {
         bool result = true;
         for(TPaxList::const_iterator i = items.begin(); i != items.end(); i++) {
+            if(not i->second.pr_get) continue;
             if(not i->second.exists()) continue;
             result = i->second.halls.size() == 1;
             if(not result) break;
@@ -3433,6 +3462,7 @@ namespace BIPrintRules {
             if(iPax == items.end())
                 throw Exception("BIPrintRules::Holder: rule not defined for pax_id %d", pax_id);
         }
+        iPax->second.pr_get = true;
         return iPax->second;
     }
 
