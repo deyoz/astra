@@ -52,33 +52,10 @@ void create_conversion_table() {
     OraSession.Commit();
 }
 
-void create_routes_table(){
+void fill_routes_table(){
     TQuery qry(&OraSession);
 
-    qry.SQLText =
-        "CREATE TABLE \"" + icu_routes_table + "\" ( "
-            "\"MOVE_ID\" NUMBER(9,0), "
-            "\"NUM\" NUMBER(3,0), "
-            "\"AIRP\" VARCHAR2(3 BYTE), "
-            "\"AIRP_FMT\" NUMBER(1,0), "
-            "\"AIRLINE\" VARCHAR2(3 BYTE), "
-            "\"AIRLINE_FMT\" NUMBER(1,0), "
-            "\"FLT_NO\" NUMBER(5,0), "
-            "\"SUFFIX\" VARCHAR2(1 BYTE), "
-            "\"SUFFIX_FMT\" NUMBER(1,0), "
-            "\"CRAFT\" VARCHAR2(3 BYTE), "
-            "\"CRAFT_FMT\" NUMBER(1,0), "
-            "\"SCD_IN\" DATE, "
-            "\"DELTA_IN\" NUMBER(2,0), "
-            "\"SCD_OUT\" DATE, "
-            "\"DELTA_OUT\" NUMBER(2,0), "
-            "\"TRIP_TYPE\" VARCHAR2(1 BYTE), "
-            "\"LITERA\" VARCHAR2(3 BYTE), "
-            "\"PR_DEL\" NUMBER(1,0) DEFAULT 0, "
-            "\"F\" NUMBER(3,0), "
-            "\"C\" NUMBER(3,0), "
-            "\"Y\" NUMBER(3,0), "
-            "\"UNITRIP\" VARCHAR2(255 BYTE) )";
+    qry.SQLText = "delete from " + icu_routes_table;
     qry.Execute();
 
     qry.Clear();
@@ -87,21 +64,10 @@ void create_routes_table(){
     OraSession.Commit();
 }
 
-void create_schedule_table() {
+void fill_schedule_table() {
     TQuery qry(&OraSession);
 
-    qry.SQLText =
-        "CREATE TABLE \"" + icu_schedule_table + "\" ( "
-            "\"TRIP_ID\" NUMBER(9,0), "
-            "\"NUM\" NUMBER(3,0), "
-            "\"MOVE_ID\" NUMBER(9,0), "
-            "\"FIRST_DAY\" DATE, "
-            "\"LAST_DAY\" DATE, "
-            "\"DAYS\" VARCHAR2(7 BYTE), "
-            "\"PR_DEL\" NUMBER(1,0) DEFAULT 0, "
-            "\"TLG\" VARCHAR2(10 BYTE), "
-            "\"REFERENCE\" VARCHAR2(255 BYTE), "
-            "\"REGION\" VARCHAR2(50 BYTE) )";
+    qry.SQLText = "delete from " + icu_schedule_table;
     qry.Execute();
 
     qry.Clear();
@@ -780,33 +746,24 @@ void TZUpdate() {
     }
     
 
-    std::cout << "Creating tables..." << std::endl;
-try{
-    drop_table(conversion_table);
-    drop_table(icu_schedule_table);
-    drop_table(icu_routes_table);
+    std::cout << "Preparing tables..." << std::endl;
+    try{
+        drop_table(conversion_table);
+        create_conversion_table();
+        fill_routes_table();
+        fill_schedule_table();
 
-    create_conversion_table();
-    create_routes_table();
-    create_schedule_table();
+        std::cout << "Generating conversion data." << std::endl;
+        generateConversionData();
+        applyConversion();
 
-    std::cout << "Generating conversion data." << std::endl;
-
-    generateConversionData();
-
-    std::cout << "Applying conversion.." << std::endl;
-
-    applyConversion();
-
-//    replace_tables();
-
-    OraSession.Commit();
-    std::cout << "Conversion finished successfully." << std::endl;
-}
-catch(std::exception &e) {
-    std::cout << "Exception: " << e.what() << std::endl;
-    OraSession.Rollback();
-}
-
+        OraSession.Commit();
+        std::cout << "Conversion finished successfully. Converted data located at "
+                  << icu_routes_table << ", " << icu_schedule_table << " tables." << std::endl;
+    }
+    catch(std::exception &e) {
+        std::cout << "Exception: " << e.what() << std::endl;
+        OraSession.Rollback();
+    }
 }
 
