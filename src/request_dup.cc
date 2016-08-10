@@ -4,7 +4,8 @@
 #include <sys/ioctl.h>
 
 #include "request_dup.h"
-#include "basic.h"
+#include "date_time.h"
+#include "misc.h"
 #include "xml_unit.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
@@ -18,6 +19,7 @@
 const int SOCKET_ERROR = -1;
 
 using namespace std;
+using namespace BASIC::date_time;
 
 bool SEND_REQUEST_DUP()
 {
@@ -44,10 +46,10 @@ void throw_if_request_dup(const std::string &where)
 
 void TestInterface::TestRequestDup(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  BASIC::TDateTime start_time = BASIC::NowUTC();
+  TDateTime start_time = NowUTC();
   for(;;)
   {
-    if ((BASIC::NowUTC()-start_time)*86400000>200) break;  //задержка на 50 мсек
+    if ((NowUTC()-start_time)*86400000>200) break;  //задержка на 50 мсек
   };
   NewTextChild(resNode, "iteration", NodeAsInteger("iteration", reqNode) );
 };
@@ -83,7 +85,7 @@ int init_socket_grp( const string &var_addr_grp, const string &var_port_grp )
   sockaddr_in addr_in;
   addr_in.sin_family = AF_INET;
   int port;
-  if ( BASIC::StrToInt( port_grp.c_str(), port ) == EOF )
+  if ( StrToInt( port_grp.c_str(), port ) == EOF )
     port = -1;
   addr_in.sin_port = htons( port );
   addr_in.sin_addr.s_addr = inet_addr( addr_grp.c_str() );

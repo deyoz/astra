@@ -13,6 +13,7 @@
 #include "file_queue.h"
 #include "astra_service.h"
 #include "apis_utils.h"
+#include "date_time.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -20,8 +21,9 @@
 
 #define ENDL "\r\n"
 
+
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 
@@ -483,7 +485,7 @@ bool create_apis_file(int point_id, const string& task_name)
                   TAirpsRow &airp = (TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
                   if (airp.code_lat.empty()) throw EXCEPTIONS::Exception("airp.code_lat empty (code=%s)",airp.code.c_str());
                   std::string tz_region=AirpTZRegion(airp.code);
-                  BASIC::TDateTime scd_in_local,scd_out_local;
+                  TDateTime scd_in_local,scd_out_local;
                   scd_in_local = scd_out_local = ASTRA::NoExists;
                   if (!RouteQry.FieldIsNULL("scd_out"))
                     scd_out_local	= UTCToLocal(RouteQry.FieldAsDateTime("scd_out"),tz_region);

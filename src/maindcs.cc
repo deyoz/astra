@@ -2,7 +2,7 @@
 #include <map>
 #include <fstream>
 #include "maindcs.h"
-#include "basic.h"
+#include "date_time.h"
 #include "astra_elems.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
@@ -25,6 +25,7 @@
 #include "serverlib/test.h"
 
 using namespace ASTRA;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace std;
@@ -212,10 +213,10 @@ void CheckTermExpireDate(void)
     Qry.Execute();
     if (Qry.Eof || Qry.FieldIsNULL("expire_date")) return;
 
-    BASIC::TDateTime expire_date=Qry.FieldAsDateTime("expire_date");
-    if (expire_date<=BASIC::NowUTC())
+    TDateTime expire_date=Qry.FieldAsDateTime("expire_date");
+    if (expire_date<= NowUTC())
       throw AstraLocale::UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
-    double remainDays=expire_date-BASIC::NowUTC();
+    double remainDays=expire_date-NowUTC();
     modf(floor(remainDays),&remainDays);
     int remainDaysInt=(int)remainDays;
     LexemaData lexeme;
@@ -984,7 +985,7 @@ void PutSessionAirlines(const TSessionAirlines &airlines, xmlNodePtr resNode)
     if (!reqInfo->user.access.airlines().permitted(i->first)) continue;
     TSessionAirline sess=i->second;
     int aircode;
-    if (BASIC::StrToInt(sess.aircode.c_str(),aircode)==EOF || sess.aircode.size()!=3)
+    if (StrToInt(sess.aircode.c_str(),aircode)==EOF || sess.aircode.size()!=3)
       sess.aircode="954";
 
     xmlNodePtr node=NewTextChild(airlinesNode,"airline");
@@ -1015,7 +1016,7 @@ void PutSessionAirlines(const TSessionAirlines &airlines, xmlNodePtr resNode)
       sess.aircode=row.aircode;
 
       int aircode;
-      if (BASIC::StrToInt(sess.aircode.c_str(),aircode)==EOF || sess.aircode.size()!=3)
+      if (StrToInt(sess.aircode.c_str(),aircode)==EOF || sess.aircode.size()!=3)
         sess.aircode="954";
 
       xmlNodePtr node=NewTextChild(airlinesNode,"airline");

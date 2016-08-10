@@ -7,6 +7,7 @@
 #include "passenger.h"
 #include "checkin.h"
 #include "points.h"
+#include "date_time.h"
 
 const int NumSendAttempts = 5; // количество попыток до включения тревоги "Нет связи с APPS"
 const int MaxSendAttempts = 99; // максимальное количество попыток
@@ -21,7 +22,7 @@ bool checkAPPSSets(const int point_dep, const int point_arv );
 bool checkAPPSSets( const int point_dep, const std::string& airp_arv );
 bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& tansit );
 bool checkTime( const int point_id );
-bool checkTime( const int point_id, BASIC::TDateTime& start_time );
+bool checkTime( const int point_id, TDateTime& start_time );
 std::string emulateAnswer( const std::string& request );
 bool IsAPPSAnswText( const std::string& tlg_body );
 std::set<std::string> needFltCloseout( const std::set<std::string>& countries, const std::string airline );
@@ -59,15 +60,15 @@ struct TFlightData
   int point_id;
   std::string flt_num; // Airline and flight number.
   std::string port; // IATA Airport Code
-  BASIC::TDateTime date;
+  TDateTime date;
   std::string arv_port;  // IATA Airport Code
-  BASIC::TDateTime arv_date;
+  TDateTime arv_date;
 
   TFlightData() : point_id( ASTRA::NoExists ), date( ASTRA::NoExists ),
                   arv_date( ASTRA::NoExists ) {}
   void init( const int point_id, const std::string& type );
   void init( const int point_id, const std::string& type, const std::string& num, const std::string& airp, const std::string& arv_airp,
-             BASIC::TDateTime dep, BASIC::TDateTime arv );
+             TDateTime dep, TDateTime arv );
   bool operator == ( const TFlightData& data ) const
   {
     return type == data.type &&

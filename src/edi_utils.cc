@@ -1,6 +1,7 @@
 #include "edi_utils.h"
 
 #include "misc.h"
+#include "date_time.h"
 #include "tlg/tlg.h"
 #include "astra_context.h"
 #include "tlg/remote_results.h"
@@ -18,7 +19,7 @@
 
 using namespace std;
 using namespace Ticketing;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace ASTRA;
 
 namespace AstraEdifact

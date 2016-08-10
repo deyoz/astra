@@ -11,7 +11,7 @@
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace ASTRA;
 using namespace EXCEPTIONS;
 

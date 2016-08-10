@@ -3,6 +3,8 @@
 #include "astra_locale_adv.h"
 #include "astra_utils.h"
 
+using namespace BASIC::date_time;
+
 template<> std::string PrmSmpl<int>::GetMsg (const std::string& lang) const {
     return IntToString(param);
 }
@@ -20,7 +22,7 @@ AstraLocale::LParam PrmDate::GetParam (const std::string& lang) const {
 }
 
 std::string PrmDate::GetMsg (const std::string& lang) const {
-    return BASIC::DateTimeToStr(date, fmt, lang != AstraLocale::LANG_RU);
+    return DateTimeToStr(date, fmt, lang != AstraLocale::LANG_RU);
 }
 
 LEvntPrm* PrmDate::MakeCopy () const {
@@ -268,7 +270,7 @@ int test_astra_locale_adv(int argc,char **argv)
     Qry.SQLText="SELECT system.UTCSYSDATE AS now FROM dual";
     Qry.Execute();
     if (Qry.Eof) throw EXCEPTIONS::Exception("strange situation");
-    BASIC::TDateTime date=Qry.FieldAsDateTime("now");
+    TDateTime date=Qry.FieldAsDateTime("now");
 
     TLogLocale tloglocale2;
     tloglocale2.lexema_id = "MSG.ARV_TIME_FOR_POINT_NOT_EXISTS"; //Время прилета рейса в пункте [airp%s] не существует [time%s]

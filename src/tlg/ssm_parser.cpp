@@ -1,7 +1,6 @@
 #include "ssm_parser.h"
 #include "misc.h"
 
-
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "DEN"
 #include "serverlib/test.h"
@@ -9,7 +8,7 @@
 #include "tlg.h"
 
 using namespace std;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace ASTRA;
 using namespace EXCEPTIONS;
 

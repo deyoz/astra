@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <list>
+#include "date_time.h"
 #include "tlg_parser.h"
 #include "lci_parser.h"
 #include "ssm_parser.h"
@@ -33,7 +34,7 @@
 #include "serverlib/test.h"
 
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 
@@ -526,7 +527,7 @@ char ParseBSMElement(const char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryMan
             res=sscanf(tlg.lex,"%2lu%3[A-Z€-Ÿð]%c",&day,month,&c);
             if (c!=0||res!=2||day<=0) throw ETlgError("Wrong flight date");
 
-            TDateTime today=NowLocal();
+            TDateTime today = Now();
             int year,mon,currday;
             DecodeDate(today,year,mon,currday);
             try
@@ -1038,7 +1039,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info, TFligh
             if (res==3&&
                 !IsUpperLetter(info.flt.suffix[0])) throw ETlgError("Wrong flight");
 
-            TDateTime today=NowLocal();
+            TDateTime today=Now();
             int year,mon,currday;
             DecodeDate(today,year,mon,currday);
             try
@@ -3294,8 +3295,8 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
   };
 };
 
-bool ParseDOCSRem(TTlgParser &tlg, BASIC::TDateTime scd_local, std::string &rem_text, TDocItem &doc);
-bool ParseDOCORem(TTlgParser &tlg, BASIC::TDateTime scd_local, std::string &rem_text, TDocoItem &doc);
+bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, std::string &rem_text, TDocItem &doc);
+bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, std::string &rem_text, TDocoItem &doc);
 bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca);
 bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd);
 bool ParseASVCRem(TTlgParser &tlg, string &rem_text, TASVCItem &asvc);
@@ -7070,7 +7071,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             add_trip_task((*it).point_id, SYNC_NEW_CHKD, "");
         };
         if(!isPRL && apps_pax_exists) {
-          BASIC::TDateTime start_time;
+          TDateTime start_time;
           bool result = checkTime( point_id_spp, start_time );
           if ( result || start_time != ASTRA::NoExists )
             add_trip_task( point_id_spp, SEND_NEW_APPS_INFO, "", start_time );

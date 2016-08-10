@@ -9,6 +9,7 @@
 #include "docs.h"
 #include "base_tables.h"
 #include "astra_utils.h"
+#include "astra_date_time.h"
 #include "term_version.h"
 #include "passenger.h"
 #include "points.h"
@@ -36,7 +37,8 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
-using namespace BASIC;
+using namespace BASIC::date_time;
+using namespace ASTRA::date_time;
 
 const string SYSTEM_USER = "‘¨αβ¥¬ ";
 
@@ -2767,7 +2769,7 @@ void TRFISCStatRow::add_data(ostringstream &buf) const
     string trfer_airp_dep;
     string trfer_airp_arv;
     if(this->trfer_flt_no) {
-        trfer_flt_no << setw(3) << setfill('0') << trfer_flt_no << ElemIdToCodeNative(etSuffix, trfer_suffix);
+        trfer_flt_no << setw(3) << setfill('0') << this->trfer_flt_no << ElemIdToCodeNative(etSuffix, trfer_suffix);
         trfer_airp_dep = airp;
         trfer_airp_arv = trfer_airp_arv;
     }

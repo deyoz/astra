@@ -5,6 +5,9 @@
 #include "astra_misc.h"
 #include "term_version.h"
 #include "file_queue.h"
+#include "date_time.h"
+
+using BASIC::date_time::TDateTime;
 
 const long int DOC_TYPE_FIELD=0x0001;
 const long int DOC_ISSUE_COUNTRY_FIELD=0x0002;
@@ -408,11 +411,11 @@ void CheckDoc(const CheckIn::TPaxDocItem &doc,
               ASTRA::TPaxStatus status,
               const std::string &pax_surname,
               const TCompleteAPICheckInfo &checkInfo,
-              BASIC::TDateTime nowLocal);
+              TDateTime nowLocal);
 void CheckDoco(const CheckIn::TPaxDocoItem &doc,
                ASTRA::TPaxStatus status,
                const TCompleteAPICheckInfo &checkInfo,
-               BASIC::TDateTime nowLocal);
+               TDateTime nowLocal);
 
 void CheckDoca(const CheckIn::TPaxDocaItem &doc,
                ASTRA::TPaxStatus status,
@@ -435,13 +438,13 @@ bool isValidDocType(const std::string &fmt, const ASTRA::TPaxStatus &status, con
 void HandleDoc(const CheckIn::TPaxGrpItem &grp,
                const CheckIn::TSimplePaxItem &pax,
                const TCompleteAPICheckInfo &checkInfo,
-               const BASIC::TDateTime &checkDate,
+               const TDateTime &checkDate,
                CheckIn::TPaxDocItem &doc);
 
 void HandleDoco(const CheckIn::TPaxGrpItem &grp,
                 const CheckIn::TSimplePaxItem &pax,
                 const TCompleteAPICheckInfo &checkInfo,
-                const BASIC::TDateTime &checkDate,
+                const TDateTime &checkDate,
                 CheckIn::TPaxDocoItem &doco);
 
 void HandleDoca(const CheckIn::TPaxGrpItem &grp,

@@ -2,9 +2,11 @@
 #define _TRIP_TASKS_H_
 
 #include <string>
-#include "basic.h"
+#include "date_time.h"
 #include "astra_consts.h"
 #include <set>
+
+using BASIC::date_time::TDateTime;
 
 const std::string US_CUSTOMS_CODE="ûë";
 const std::string TR_CUSTOMS_CODE="íê";
@@ -27,7 +29,7 @@ const std::string SEND_ALL_APPS_INFO="SEND_ALL_APPS_INFO";
 void add_trip_task(int point_id,
                    const std::string& task_name,
                    const std::string &params,
-                   BASIC::TDateTime new_next_exec=ASTRA::NoExists);
+                   TDateTime new_next_exec=ASTRA::NoExists);
 void remove_trip_task(int point_id,
                       const std::string& task_name,
                       const std::string &params);

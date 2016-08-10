@@ -4,11 +4,14 @@
 #include <sstream>
 #include <string>
 #include <tr1/memory>
+#include "date_time.h"
 #include "astra_locale.h"
 #include "astra_misc.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include <typeinfo>
+
+using BASIC::date_time::TDateTime;
 
 std::string typeid_name( const std::type_info& tinfo );
 
@@ -1565,7 +1568,7 @@ struct TOriginatorInfo
     descr.clear();
   };
   TOriginatorInfo& fromDB(TQuery &Qry);
-  std::string originSection(BASIC::TDateTime time_create, const std::string &endline) const;
+  std::string originSection(TDateTime time_create, const std::string &endline) const;
 };
 
 struct TDraftPart {
@@ -1655,7 +1658,7 @@ class TDetailCreateInfo : public TOptionsInfo
     //адрес отправителя
     TOriginatorInfo originator;
     //время создания
-    BASIC::TDateTime time_create;
+    TDateTime time_create;
     //рейс
     int point_id;
     std::string airline;
@@ -1663,10 +1666,10 @@ class TDetailCreateInfo : public TOptionsInfo
     std::string suffix;
     std::string airp_dep;
     std::string airp_arv;
-    BASIC::TDateTime scd_utc;
-    BASIC::TDateTime est_utc;
-    BASIC::TDateTime scd_local;
-    BASIC::TDateTime act_local;
+    TDateTime scd_utc;
+    TDateTime est_utc;
+    TDateTime scd_local;
+    TDateTime act_local;
     int scd_local_day;
     std::string bort;
     std::string craft;
@@ -1736,7 +1739,7 @@ std::string format_addr_line(std::string vaddrs, TDetailCreateInfo *info = NULL)
 TOriginatorInfo getOriginator(const std::string &airline,
                               const std::string &airp_dep,
                               const std::string &tlg_type,
-                              const BASIC::TDateTime &time_create,
+                              const TDateTime &time_create,
                               bool with_exception);
 
 class TSendInfo

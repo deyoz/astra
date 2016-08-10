@@ -2,7 +2,8 @@
 #include "astra_elems.h"
 #include "astra_utils.h"
 #include "astra_locale.h"
-#include "basic.h"
+#include "date_time.h"
+#include "misc.h"
 #include "xml_unit.h"
 
 #define NICKNAME "VLAD"
@@ -11,7 +12,7 @@
 
 using namespace std;
 using namespace AstraLocale;
-using namespace BASIC;
+using namespace BASIC::date_time;
 
 string airl_fromXML(xmlNodePtr node, TCheckFieldFromXML check_type, const string &trace_info)
 {

@@ -114,7 +114,7 @@ const
   std::string COBRA_STAGES_COMMAND_TAG = "stages";
 
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 
@@ -295,7 +295,7 @@ void TTCPSession::DoWrite( int msg_id, void *sendbuf, int msg_len )
 
 void TTCPSession::HeartBeatOK()
 {
-  heartBeat = BASIC::NowUTC();
+  heartBeat = NowUTC();
   pr_wait_heartBeat = false;
 }
 
@@ -409,7 +409,7 @@ void TTCPListener<T>::Execute() {
             }
             else {
               if ( i->second->use_heartBeat ) {
-                i->second->heartBeat = BASIC::NowUTC(); // что-то пришло, значит соединение живо
+                i->second->heartBeat = NowUTC(); // что-то пришло, значит соединение живо
               }
               try {
                 i->second->DoRead( recvbuf, msg_len );
@@ -445,13 +445,13 @@ void TTCPListener<T>::Execute() {
                 ProgError( STDLOG, "TCPSession::DoWrite exception, handle=%d", i->first );
               }
             }
-            if ( i->second->use_heartBeat && i->second->heartBeat + HEART_BEAT_MSEC/(24.0*60.0*60.0*1000) < BASIC::NowUTC() ) {
+            if ( i->second->use_heartBeat && i->second->heartBeat + HEART_BEAT_MSEC/(24.0*60.0*60.0*1000) < NowUTC() ) {
               if ( i->second->pr_wait_heartBeat ) { // не пришел ответ о корректности сети - удаляем соединение
                 delhds.push_back( i->first );
               }
               else {
                 i->second->DoHeartBeat(); //послать сообщение для проверки сети
-                i->second->heartBeat = BASIC::NowUTC();
+                i->second->heartBeat = NowUTC();
                 i->second->pr_wait_heartBeat = true;
               }
             }
@@ -626,7 +626,7 @@ void ServSession::PutMsg( int msg_id, int msg_flags, const std::string &strbody 
       HeartBeatOK();
     else {
       tst();
-      msg.processTime = BASIC::NowUTC();
+      msg.processTime = NowUTC();
       inmsgs.push_back( msg );
     }
   }
@@ -673,7 +673,7 @@ string ServSession::createHeartBeatStr( )
   string res;
   xmlDocPtr doc = CreateXMLDoc( STR_HEARTBEAT.c_str() );
   try {
-    SetProp( doc->children, "time", BASIC::DateTimeToStr( BASIC::NowUTC() ) );
+    SetProp( doc->children, "time", DateTimeToStr( NowUTC() ) );
     res = XMLTreeToText( doc );
     res = ConvertCodepage( res, "CP866", MsgCodePage );
   }
@@ -803,7 +803,7 @@ void ServSession::ProcessIncommingMsgs()
       msgs.erase( i++ );
       continue;
     }
-    if ( i->second.status == smWaitAnswer && i->second.putTime + WAIT_ANSWER_MSEC/(24.0*60.0*60.0*1000) < BASIC::NowUTC() ) {
+    if ( i->second.status == smWaitAnswer && i->second.putTime + WAIT_ANSWER_MSEC/(24.0*60.0*60.0*1000) < NowUTC() ) {
       //!!!timeout
       ProgTrace( TRACE5, "ServSession::ExecuteQueueMsgs timeout, SessId=%d", i->first );
       i->second.status = smDelete;
@@ -847,7 +847,7 @@ void ServSession::ProcessIncommingMsgs()
       msgs[ FID ].sendDoc = sendDoc;
       msgs[ FID ].pr_test = false;
       msgs[ FID ].status = smForSend;
-      msgs[ FID ].putTime = BASIC::NowUTC();
+      msgs[ FID ].putTime = NowUTC();
     }
   }
   catch(...) {
@@ -883,7 +883,7 @@ int ServSession::WriteSize( int &msg_id )
   for ( std::vector<TAstraServMsg>::iterator imsg=outmsgs.begin(); imsg!=outmsgs.end(); imsg++ ) {
     if ( imsg->processTime <= 0 ) {
       ProgTrace( TRACE5, "ServSession::WriteSize msg_id=%d, flags=%d", imsg->msg_id, imsg->flags );
-      imsg->processTime = BASIC::NowUTC();
+      imsg->processTime = NowUTC();
       msg_id = imsg->msg_id;
       return HEADER_SIZE + imsg->strbody.size();
     }
@@ -1372,7 +1372,7 @@ void ParseFlights( const xmlNodePtr reqNode, vector<TCobraError> &errors )
         tmp = flight_id;
         tmp.erase( 0, i + 1 );
         ProgTrace( TRACE5, "flight_id=%s, date=%s", flight_id.c_str(), tmp.c_str() );
-        if ( BASIC::StrToDateTime( tmp.c_str(), "ddmmyy", key_scd_out ) == EOF )
+        if ( StrToDateTime( tmp.c_str(), "ddmmyy", key_scd_out ) == EOF )
           throw EXCEPTIONS::Exception( "Invalid value '%s' of 'flight_id' node", flight_id.c_str() );
         ProgTrace( TRACE5, "key_airline=%s, key_flt_no=%d, key_suffix=%s, key_scd_out=%s",
                    key_airline.c_str(), key_flt_no, key_suffix.c_str(), DateTimeToStr( key_scd_out, "dd.mm.yy" ).c_str() );

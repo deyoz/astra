@@ -20,7 +20,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "base_tables.h"
 
 #include "exceptions.h"
-#include "basic.h"
+#include "date_time.h"
 #include "stl_utils.h"
 #include "base_tables.h"
 #include "astra_consts.h"
@@ -49,16 +49,11 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "serverlib/posthooks.h"
 #include "serverlib/ourtime.h"
 
-
-using namespace BASIC;
-using namespace EXCEPTIONS;
-
 #define WAIT_INTERVAL           60000      //миллисекунды
-
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace ASTRA;
 
 enum TAODBFormat { afDefault, afNewUrengoy };

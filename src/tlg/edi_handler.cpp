@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <tcl.h>
 #include <math.h>
+#include "date_time.h"
 #include "astra_main.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
@@ -26,7 +27,7 @@
 #include <serverlib/test.h>
 
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 //using namespace tlg_process;
 

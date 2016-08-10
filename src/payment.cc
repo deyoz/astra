@@ -1,6 +1,6 @@
 #include "payment.h"
 #include "xml_unit.h"
-#include "basic.h"
+#include "date_time.h"
 #include "exceptions.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
@@ -24,7 +24,7 @@
 #include "serverlib/test.h"
 
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace std;

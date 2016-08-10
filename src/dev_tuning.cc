@@ -1,6 +1,6 @@
 #include <fstream>
 #include "dev_tuning.h"
-#include "basic.h"
+//#include "date_time.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
@@ -18,7 +18,6 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
-using namespace BASIC;
 using namespace ASTRA;
 
 void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
