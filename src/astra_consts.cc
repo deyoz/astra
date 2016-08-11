@@ -54,6 +54,9 @@ const char *RptTypeS[] = {
     "SPECTXT",
     "EMD",
     "EMDTXT",
+    "LOADSHEET",
+    "NOTOC",
+    "LIR",
     "?"
 };
 
