@@ -279,7 +279,11 @@ void forwardTypeB(const int typeb_tlg_id,
                   const int typeb_tlg_num,
                   const string &typeb_tlg_type)
 {
-  if (typeb_tlg_type!="PNL" && typeb_tlg_type!="ADL") return;
+  if (typeb_tlg_type!="PNL" &&
+      typeb_tlg_type!="ADL" &&
+      typeb_tlg_type!="CPM" &&
+      typeb_tlg_type!="UCM" &&
+      typeb_tlg_type!="SLS") return;
   TCachedQuery Qry("SELECT tlg_binding.point_id_spp "
                    "FROM tlg_binding, tlg_source "
                    "WHERE tlg_binding.point_id_tlg=tlg_source.point_id_tlg AND tlg_source.tlg_id=:tlg_id",
@@ -288,7 +292,15 @@ void forwardTypeB(const int typeb_tlg_id,
   for(; !Qry.get().Eof; Qry.get().Next())
   {
     TForwarder forwarder(Qry.get().FieldAsInteger("point_id_spp"), typeb_tlg_id, typeb_tlg_num);
-    forwarder << typeb_tlg_type << "PNLADL";
+    if (typeb_tlg_type=="PNL" ||
+        typeb_tlg_type=="ADL")
+      forwarder << typeb_tlg_type << "PNLADL";
+
+    if (typeb_tlg_type=="CPM" ||
+        typeb_tlg_type=="UCM" ||
+        typeb_tlg_type=="SLS")
+      forwarder << string(typeb_tlg_type+"->>");
+
     vector<TypeB::TCreateInfo> createInfo;
     forwarder.getInfo(createInfo);
     TelegramInterface::SendTlg(createInfo, NoExists, true);
