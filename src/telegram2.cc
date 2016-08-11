@@ -8252,8 +8252,12 @@ namespace WBMessages {
             throw Exception("Wrong header format: '%s'", lines[0].c_str());
         TMsgType::Enum msg_type = MsgTypes().decode(hdr_items[1]);
         // Во второй строке номер рейса: N49999/09 C А/П вылета не понятно. Пока ШРМ.
+        string flight = lines[1];
+        // remove any spaces
+        flight.erase(remove_if(flight.begin(), flight.end(), ::isspace), flight.end());
+        LogTrace(TRACE5) << "flight: " << flight;
         TypeB::TFlightIdentifier flt;
-        flt.parse(lines[1].c_str());
+        flt.parse(flight.c_str());
         // Начинаем искать
         string suffix;
         if(flt.suffix != 0) suffix.append(flt.suffix, 1);
@@ -8300,6 +8304,7 @@ void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         try {
             WBMessages::parse_print_message(content);
         } catch(const Exception &E) {
+            LogTrace(TRACE5) << "wb msg parse failed: " << E.what();
             NewTextChild(resNode, "content", E.what());
         }
     } else { // Телеграммы
