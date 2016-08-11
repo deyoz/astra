@@ -117,55 +117,45 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
 {
     clear();
     string event_type;
-    switch(rem_set_type)
-    {
-      case retBP:
-        event_type = "BP";
-        break;
-      case retALARM_SS:
-        event_type = "ALARM_SS";
-        break;
-      case retPNL_SEL:
-        event_type = "PNL_SEL";
-        break;
-      case retBRD_VIEW:
-        event_type = "BRD_VIEW";
-        break;
-      case retBRD_WARN:
-        event_type = "BRD_WARN";
-        break;
-      case retRPT_SS:
-        event_type = "RPT_SS";
-        break;
-      case retRPT_PM:
-        event_type = "RPT_PM";
-        break;
-      case retCKIN_VIEW:
-        event_type = "CKIN_VIEW";
-        break;
-      case retTYPEB_PSM:
-        event_type = "TYPEB_PSM";
-        break;
-      case retTYPEB_PIL:
-        event_type = "TYPEB_PIL";
-        break;
-      case retSERVICE_STAT:
-        event_type = "SERVICE_STAT";
-        break;
-      case retLIMITED_CAPAB_STAT:
-        event_type = "LIMITED_CAPAB_STAT";
-        break;
-      case retWEB:
-        event_type = "WEB";
-        break;
-      case retKIOSK:
-        event_type = "KIOSK";
-        break;
-      case retMOB:
-        event_type = "MOB";
-        break;
-      default:
-        throw Exception("LoadRemGrp: unknown event type %d", rem_set_type);
+    switch(rem_set_type) {
+        case retBP:
+            event_type = "BP";
+            break;
+        case retALARM_SS:
+            event_type = "ALARM_SS";
+            break;
+        case retPNL_SEL:
+            event_type = "PNL_SEL";
+            break;
+        case retBRD_VIEW:
+            event_type = "BRD_VIEW";
+            break;
+        case retBRD_WARN:
+            event_type = "BRD_WARN";
+            break;
+        case retRPT_SS:
+            event_type = "RPT_SS";
+            break;
+        case retRPT_PM:
+            event_type = "RPT_PM";
+            break;
+        case retCKIN_VIEW:
+            event_type = "CKIN_VIEW";
+            break;
+        case retTYPEB_PSM:
+            event_type = "TYPEB_PSM";
+            break;
+        case retTYPEB_PIL:
+            event_type = "TYPEB_PIL";
+            break;
+        case retSERVICE_STAT:
+            event_type = "SERVICE_STAT";
+            break;
+        case retLIMITED_CAPAB_STAT:
+            event_type = "LIMITED_CAPAB_STAT";
+            break;
+        default:
+            throw Exception("LoadRemGrp: unknown event type %d", rem_set_type);
     }
 
     TQuery Qry(&OraSession);

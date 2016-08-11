@@ -520,10 +520,10 @@ bool is_web_cancel(int pax_id)
   return false;
 };
 
-bool is_valid_pax_nationality(const TTripInfo &flt,
+bool is_valid_pax_nationality(int point_id,
                               int pax_id)
 {
-  if (!GetSelfCkinSets(tsRegRUSNationOnly, flt, TReqInfo::Instance()->client_type)) return true;
+  if (!GetSelfCkinSets(tsRegRUSNationOnly, point_id, TReqInfo::Instance()->client_type)) return true;
   CheckIn::TPaxDocItem doc;
   CheckIn::LoadCrsPaxDoc(pax_id, doc);
   if (doc.nationality=="RUS") return true;
@@ -532,10 +532,8 @@ bool is_valid_pax_nationality(const TTripInfo &flt,
 
 bool is_valid_pax_status(int point_id, int pax_id)
 {
-  TTripInfo flt;
-  flt.getByPointId(point_id);
   return !is_web_cancel(pax_id) &&
-         is_valid_pax_nationality(flt, pax_id);
+         is_valid_pax_nationality(point_id, pax_id);
 };
 
 bool is_valid_doc_info(const TCompleteAPICheckInfo &checkInfo,
@@ -566,34 +564,6 @@ bool is_valid_tkn_info(const TCompleteAPICheckInfo &checkInfo,
   if (checkInfo.incomplete(tkn)) return false;
   return true;
 };
-
-bool is_valid_rem_codes(const TTripInfo &flt,
-                        const std::vector<CheckIn::TPaxRemItem> &rems)
-{
-  TRemGrp rem_grp;
-  switch (TReqInfo::Instance()->client_type)
-  {
-    case ctWeb:
-      rem_grp.Load(retWEB, flt.airline);
-      break;
-    case ctKiosk:
-      rem_grp.Load(retKIOSK, flt.airline);
-      break;
-    case ctMobile:
-      rem_grp.Load(retMOB, flt.airline);
-      break;
-    default:
-      return true;
-  }
-  bool result=true;
-  for(vector<CheckIn::TPaxRemItem>::const_iterator i=rems.begin(); i!=rems.end(); ++i)
-    if (!rem_grp.exists(i->code))
-    {
-      ProgTrace(TRACE5, "%s: airline=%s forbidden rem code %s", __FUNCTION__, flt.airline.c_str(), i->code.c_str());
-      result=false;
-    }
-  return result;
-}
 
 void checkDocInfoToXML(const TCompleteAPICheckInfo &checkInfo,
                        const xmlNodePtr node)
@@ -882,17 +852,11 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.doco.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.doco.getNotEmptyFieldsMask());
             LoadCrsPaxDoca(pax.crs_pax_id, pax.doca);
 
-            CheckIn::LoadCrsPaxRem(pax.crs_pax_id, pax.rems);
-            CheckIn::LoadCrsPaxFQT(pax.crs_pax_id, pax.fqts);
-
-            TTripInfo flt;
-            flt.getByPointId(point_id);
-
             if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")))
               pax.agent_checkin_reasons.insert("pnr_status");
             if (is_web_cancel(pax.crs_pax_id))
               pax.agent_checkin_reasons.insert("web_cancel");
-            if (!is_valid_pax_nationality(flt, pax.crs_pax_id))
+            if (!is_valid_pax_nationality(point_id, pax.crs_pax_id))
               pax.agent_checkin_reasons.insert("pax_nationality");
             if (!is_valid_doc_info(pnr.checkInfo, pax.doc))
               pax.agent_checkin_reasons.insert("incomplete_doc");
@@ -902,11 +866,11 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
               pax.agent_checkin_reasons.insert("incomplete_doca");
             if (!is_valid_tkn_info(pnr.checkInfo, pax.tkn))
               pax.agent_checkin_reasons.insert("incomplete_tkn");
-            if (!is_valid_rem_codes(flt, pax.rems))
-              pax.agent_checkin_reasons.insert("forbidden_rem_code");
 
             if (!pax.agent_checkin_reasons.empty())
               pax.checkin_status = "agent_checkin";
+
+            CheckIn::LoadCrsPaxFQT(pax.crs_pax_id, pax.fqts);
           }
           pax.crs_pnr_tid = Qry.FieldAsInteger( "crs_pnr_tid" );
           pax.crs_pax_tid = Qry.FieldAsInteger( "crs_pax_tid" );
