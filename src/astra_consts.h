@@ -149,6 +149,9 @@ enum TRptType {
     rtSPECTXT,
     rtEMD,
     rtEMDTXT,
+    rtLOADSHEET,
+    rtNOTOC,
+    rtLIR,
     rtUnknown,
     rtTypeNum
 };

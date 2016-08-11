@@ -23,7 +23,7 @@
 #include "baggage_calc.h"
 
 #define NICKNAME "DENIS"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -2862,6 +2862,44 @@ void REMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 }
 
+void WB_MSG(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    get_compatible_report_form("WB_msg", reqNode, resNode);
+
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "msg");
+
+    TCachedQuery Qry("select id, time_receive from wb_msg where point_id = :point_id and msg_type = :msg_type order by id",
+            QParams()
+            << QParam("point_id", otInteger, rpt_params.point_id)
+            << QParam("msg_type", otString, EncodeRptType(rpt_params.rpt_type))
+            );
+    Qry.get().Execute();
+    if(Qry.get().Eof) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+        NewTextChild(rowNode, "text");
+    } else {
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+            int id = Qry.get().FieldAsInteger("id");
+            TDateTime time_receive = Qry.get().FieldAsDateTime("time_receive");
+            TCachedQuery txtQry("select text from wb_msg_text where id = :id order by page_no",
+                    QParams() << QParam("id", otInteger, id));
+            txtQry.get().Execute();
+            string text;
+            for(; not txtQry.get().Eof; txtQry.get().Next())
+                text += txtQry.get().FieldAsString("text");
+            NewTextChild(rowNode, "text", text);
+        }
+    }
+
+    // Теперь переменные отчета
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    NewTextChild(variablesNode, "caption", EncodeRptType(rpt_params.rpt_type));
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
+}
+
 void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtCRSTXT or rpt_params.rpt_type == rtCRSUNREGTXT)
@@ -3424,6 +3462,11 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             break;
         case rtEMDTXT:
             EMDTXT(rpt_params, reqNode, resNode);
+            break;
+        case rtLOADSHEET:
+        case rtNOTOC:
+        case rtLIR:
+            WB_MSG(rpt_params, reqNode, resNode);
             break;
         default:
             throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
