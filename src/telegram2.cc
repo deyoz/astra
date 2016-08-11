@@ -8255,7 +8255,6 @@ namespace WBMessages {
         string flight = lines[1];
         // remove any spaces
         flight.erase(remove_if(flight.begin(), flight.end(), ::isspace), flight.end());
-        LogTrace(TRACE5) << "flight: " << flight;
         TypeB::TFlightIdentifier flt;
         flt.parse(flight.c_str());
         // Начинаем искать
