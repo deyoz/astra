@@ -4,6 +4,7 @@
 #include "xml_unit.h"
 #include "tlg/tlg.h"
 #include "tlg/mvt_parser.h"
+#include "tlg/tlg_parser.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "convert.h"
@@ -8146,6 +8147,121 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     NewTextChild(resNode, "content", res);
 }
 
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
+#include "astra_context.h"
+
+namespace WBMessages {
+
+    class TMsgType {
+        public:
+            enum Enum {
+                mtLOADSHEET,
+                mtNOTOC,
+                mtLIR,
+                None
+            };
+
+            static const std::list< std::pair<Enum, std::string> >& pairs()
+            {
+                static std::list< std::pair<Enum, std::string> > l;
+                if (l.empty())
+                {
+                    l.push_back(std::make_pair(mtLOADSHEET, "LOADSHEET"));
+                    l.push_back(std::make_pair(mtNOTOC,     "NOTOC"));
+                    l.push_back(std::make_pair(mtLIR,       "LIR"));
+                }
+                return l;
+            }
+
+    };
+
+    class TMsgTypes : public ASTRA::PairList<TMsgType::Enum, std::string>
+    {
+        private:
+            virtual std::string className() const { return "TMsgTypes"; }
+        public:
+            TMsgTypes() : ASTRA::PairList<TMsgType::Enum, std::string>(TMsgType::pairs(),
+                    boost::none,
+                    boost::none) {}
+    };
+
+    const TMsgTypes& MsgTypes()
+    {
+      static TMsgTypes msgTypes;
+      return msgTypes;
+    }
+
+    void toDB(int point_id, TMsgType::Enum msg_type, const string &content) {
+        TCachedQuery Qry(
+                "begin "
+                "   insert into wb_msg(id, msg_type, point_id, time_receive) values "
+                "      (id__seq.nextval, :msg_type, :point_id, system.utcsysdate) "
+                "      returning id into :id; "
+                "end; ",
+                QParams()
+                << QParam("point_id", otInteger, point_id)
+                << QParam("msg_type", otString, MsgTypes().encode(msg_type))
+                << QParam("id", otInteger)
+                );
+        Qry.get().Execute();
+        int id = Qry.get().GetVariableAsInteger("id");
+        TCachedQuery txtQry(
+                "INSERT INTO wb_msg_text(id, page_no, text) VALUES(:id, :page_no, :text)",
+                QParams()
+                << QParam("id", otInteger, id)
+                << QParam("page_no", otInteger)
+                << QParam("text", otString)
+                );
+        longToDB(txtQry.get(), "text", content);
+    }
+
+    void parse_print_message(const string &content)
+    {
+        vector<string> lines;
+        boost::split(lines, content, boost::is_any_of("\n"));
+        if(lines.size() < 2)
+            throw Exception("Wrong message format");
+        // В первой строке константа PRINT и код сообщения, напр "PRINT LOADSHEET"
+        vector<string> hdr_items;
+        boost::split(hdr_items, lines[0], boost::is_any_of(" "));
+        if(hdr_items.size() != 2)
+            throw Exception("Wrong header format: '%s'", lines[0].c_str());
+        TMsgType::Enum msg_type = MsgTypes().decode(hdr_items[1]);
+        // Во второй строке номер рейса: N49999/09 C А/П вылета не понятно. Пока ШРМ.
+        TypeB::TFlightIdentifier flt;
+        flt.parse(lines[1].c_str());
+        // Начинаем искать
+        string suffix;
+        if(flt.suffix != 0) suffix.append(flt.suffix, 1);
+        TCachedQuery Qry(
+                "select point_id from points where "
+                "   airline = :airline and "
+                "   airp = :airp and "
+                "   flt_no = :flt_no and "
+                "   nvl(suffix, ' ') = nvl(:suffix, ' ') and "
+                "   trunc(scd_out) = trunc(:scd_out) ",
+                QParams()
+                << QParam("airline", otString, flt.airline)
+                << QParam("airp", otString, "ШРМ") // ???
+                << QParam("flt_no", otInteger, flt.flt_no)
+                << QParam("suffix", otString, suffix)
+                << QParam("scd_out", otDate, flt.date)
+                );
+        Qry.get().Execute();
+        int point_id = NoExists;
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            if(point_id != NoExists)
+                throw Exception("more than one flights found");
+            point_id = Qry.get().FieldAsInteger("point_id");
+        }
+        if(point_id == NoExists)
+            throw Exception("flight not found");
+        toDB(point_id, msg_type, content);
+    }
+
+}
+
 void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     ProgTrace(TRACE5, "%s", __FUNCTION__);
@@ -8157,29 +8273,36 @@ void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     }
     string content = NodeAsString( contentNode );
     TrimString(content);
-    TypeB::TOriginatorInfo orig = TypeB::getOriginator(
-            string(),
-            string(),
-            string(),
-            NowUTC(),
-            true
-            );
-    string sender = "0" + ctxt->GetPult();
-    string tlg_text = orig.addr + "\xa." + sender + "\n" + content;
+    if(content.substr(0, 6) == "PRINT ") { // AHM 517 (are you sure that?)
+        try {
+            WBMessages::parse_print_message(content);
+        } catch(const Exception &E) {
+            NewTextChild(resNode, "content", E.what());
+        }
+    } else { // Телеграммы
+        TypeB::TOriginatorInfo orig = TypeB::getOriginator(
+                string(),
+                string(),
+                string(),
+                NowUTC(),
+                true
+                );
+        string sender = "0" + ctxt->GetPult();
+        string tlg_text = orig.addr + "\xa." + sender + "\n" + content;
 
-    string tlg_type, airline, airp;
-    get_tlg_info(tlg_text, tlg_type, airline, airp);
+        string tlg_type, airline, airp;
+        get_tlg_info(tlg_text, tlg_type, airline, airp);
 
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    if (not reqInfo->user.access.airlines().permitted(airline) or
-        not reqInfo->user.access.airps().permitted(airp) ) {
-//    if(false) {
-        NewTextChild(resNode, "content", ACCESS_DENIED);
-    } else {
-        int tlgs_id = loadTlg(tlg_text);
-        if(tlg_type == "LCI") { // Для LCI подвешиваем процесс, для остальных - возвр. пустой ответ.
-            TypeBHelpMng::configForPerespros(tlgs_id);
-            NewTextChild(resNode, "content", TIMEOUT_OCCURRED);
+        TReqInfo *reqInfo = TReqInfo::Instance();
+        if (not reqInfo->user.access.airlines().permitted(airline) or
+                not reqInfo->user.access.airps().permitted(airp) ) {
+            NewTextChild(resNode, "content", ACCESS_DENIED);
+        } else {
+            int tlgs_id = loadTlg(tlg_text);
+            if(tlg_type == "LCI") { // Для LCI подвешиваем процесс, для остальных - возвр. пустой ответ.
+                TypeBHelpMng::configForPerespros(tlgs_id);
+                NewTextChild(resNode, "content", TIMEOUT_OCCURRED);
+            }
         }
     }
 }
