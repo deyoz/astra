@@ -9,7 +9,7 @@
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace ASTRA;
 using namespace BASIC::date_time;
@@ -598,5 +598,18 @@ void TFltBinding::trace_for_bind(const vector<int> &point_ids, const string &whe
     trace << " " << *id << ";";
 
   ProgTrace(TRACE5, "%s", trace.str().c_str());
+}
+
+void TFltInfo::dump()
+{
+    LogTrace(TRACE5) << "----TFltInfo::dump----";
+    LogTrace(TRACE5) << "airline: " << airline;
+    LogTrace(TRACE5) << "flt_no: " << flt_no;
+    LogTrace(TRACE5) << "suffix: " << suffix;
+    LogTrace(TRACE5) << "scd: " << DateTimeToStr(scd);
+    LogTrace(TRACE5) << "pr_utc: " << pr_utc;
+    LogTrace(TRACE5) << "airp_dep: " << airp_dep;
+    LogTrace(TRACE5) << "airp_arv: " << airp_arv;
+    LogTrace(TRACE5) << "----------------------";
 }
 
