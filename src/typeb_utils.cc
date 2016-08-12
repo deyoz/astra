@@ -827,6 +827,8 @@ tr1::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
     return tr1::shared_ptr<TCreateOptions>(new TBSMOptions);
   else if (basic_type=="PNL")
     return tr1::shared_ptr<TCreateOptions>(new TPNLADLOptions);
+  else if (basic_type=="->>")
+    return tr1::shared_ptr<TCreateOptions>(new TForwardOptions);
   else if (basic_type=="???")
     return tr1::shared_ptr<TCreateOptions>(new TUnknownFmtOptions);
   else
@@ -1307,14 +1309,26 @@ void TForwarder::getInfo(vector<TCreateInfo> &info)
   TCreator::getInfo(info);
   for(vector<TCreateInfo>::iterator i=info.begin(); i!=info.end(); ++i)
   {
-    TPNLADLOptions *forwarderOptions=NULL;
-    if (i->optionsIs<TPNLADLOptions>())
-      forwarderOptions=i->optionsAs<TPNLADLOptions>();
-    if (forwarderOptions!=NULL)
     {
-      forwarderOptions->typeb_in_id=typeb_in_id;
-      forwarderOptions->typeb_in_num=typeb_in_num;
-    };
+      TPNLADLOptions *forwarderOptions=NULL;
+      if (i->optionsIs<TPNLADLOptions>())
+        forwarderOptions=i->optionsAs<TPNLADLOptions>();
+      if (forwarderOptions!=NULL)
+      {
+        forwarderOptions->typeb_in_id=typeb_in_id;
+        forwarderOptions->typeb_in_num=typeb_in_num;
+      };
+    }
+    {
+      TForwardOptions *forwarderOptions=NULL;
+      if (i->optionsIs<TForwardOptions>())
+        forwarderOptions=i->optionsAs<TForwardOptions>();
+      if (forwarderOptions!=NULL)
+      {
+        forwarderOptions->typeb_in_id=typeb_in_id;
+        forwarderOptions->typeb_in_num=typeb_in_num;
+      };
+    }
   };
 };
 
@@ -1322,12 +1336,20 @@ bool TForwarder::validInfo(const TCreateInfo &info) const
 {
   if (!TCreator::validInfo(info)) return false;
 
-  TPNLADLOptions *forwarderOptions=NULL;
-  if (info.optionsIs<TPNLADLOptions>())
-    forwarderOptions=info.optionsAs<TPNLADLOptions>();
-  if (forwarderOptions==NULL || !forwarderOptions->forwarding) return false;
+  {
+    TPNLADLOptions *forwarderOptions=NULL;
+    if (info.optionsIs<TPNLADLOptions>())
+      forwarderOptions=info.optionsAs<TPNLADLOptions>();
+    if (forwarderOptions!=NULL && forwarderOptions->forwarding) return true;
+  }
+  {
+    TForwardOptions *forwarderOptions=NULL;
+    if (info.optionsIs<TForwardOptions>())
+      forwarderOptions=info.optionsAs<TForwardOptions>();
+    if (forwarderOptions!=NULL && forwarderOptions->forwarding) return true;
+  }
 
-  return true;
+  return false;
 };
 
 string getAirpTrferFromExtra(const string &val)

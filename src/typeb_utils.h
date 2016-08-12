@@ -1215,6 +1215,123 @@ class TBSMOptions : public TCreateOptions
     };
 };
 
+class TForwardOptions : public TCreateOptions
+{
+  private:
+    void init()
+    {
+      forwarding=false;
+      typeb_in_id=ASTRA::NoExists;
+      typeb_in_num=ASTRA::NoExists;
+    };
+  public:
+    bool forwarding;
+    int typeb_in_id, typeb_in_num;
+    TForwardOptions() {init();};
+    virtual ~TForwardOptions() {};
+    virtual void clear()
+    {
+      TCreateOptions::clear();
+      init();
+    };
+    virtual void fromXML(xmlNodePtr node)
+    {
+      TCreateOptions::fromXML(node);
+      if (node==NULL) return;
+      xmlNodePtr node2=node->children;
+      forwarding=NodeAsIntegerFast("forwarding", node2, (int)forwarding) != 0;
+    };
+    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    {
+      TCreateOptions::fromDB(Qry, OptionsQry);
+
+      std::string basic_type;
+      std::string tlg_type = Qry.FieldAsString("tlg_type");
+      try
+      {
+          const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
+          basic_type=row.basic_type;
+      }
+      catch(EBaseTableError)
+      {
+          throw EXCEPTIONS::Exception("%s::fromDB: unknown telegram type %s", typeName().c_str(), tlg_type.c_str());
+      };
+
+      OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
+      OptionsQry.SetVariable("tlg_type", basic_type);
+      OptionsQry.Execute();
+      for(;!OptionsQry.Eof;OptionsQry.Next())
+      {
+        std::string cat=OptionsQry.FieldAsString("category");
+        if (cat=="FORWARDING")
+        {
+          forwarding=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
+      };
+    };
+    virtual localizedstream& logStr(localizedstream &s) const
+    {
+      TCreateOptions::logStr(s);
+      s << ", "
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.FORWARDING") << ": "
+        << (forwarding ? s.getLocaleText("да"):
+                         s.getLocaleText("нет"));
+      return s;
+    };
+    virtual localizedstream& extraStr(localizedstream &s) const
+    {
+      TCreateOptions::extraStr(s);
+      s << s.getLocaleText("CAP.TYPEB_OPTIONS.FORWARDING") << ": "
+        << (forwarding ? s.getLocaleText("да"):
+                         s.getLocaleText("нет"))
+        << endl;
+      return s;
+    };
+    virtual std::string typeName() const
+    {
+      return "TForwardOptions";
+    };
+    virtual bool similar(const TCreateOptions &item) const
+    {
+      if (!TCreateOptions::similar(item)) return false;
+      try
+      {
+        const TForwardOptions &opt = dynamic_cast<const TForwardOptions&>(item);
+        return forwarding==opt.forwarding;
+      }
+      catch(std::bad_cast)
+      {
+        return false;
+      };
+    };
+    virtual bool equal(const TCreateOptions &item) const
+    {
+      if (!TCreateOptions::equal(item)) return false;
+      try
+      {
+        const TForwardOptions &opt = dynamic_cast<const TForwardOptions&>(item);
+        return forwarding==opt.forwarding;
+      }
+      catch(std::bad_cast)
+      {
+        return false;
+      };
+    };
+    virtual void copy(const TCreateOptions &item)
+    {
+      TCreateOptions::copy(item);
+      try
+      {
+        const TForwardOptions &opt = dynamic_cast<const TForwardOptions&>(item);
+        forwarding=opt.forwarding;
+        typeb_in_id=opt.typeb_in_id;
+        typeb_in_num=opt.typeb_in_num;
+      }
+      catch(std::bad_cast) {};
+    };
+};
+
 class TPNLADLOptions : public TMarkInfoOptions
 {
   private:
