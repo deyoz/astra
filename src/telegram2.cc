@@ -5,6 +5,7 @@
 #include "tlg/tlg.h"
 #include "tlg/mvt_parser.h"
 #include "tlg/tlg_parser.h"
+#include "tlg/ucm_parser.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "convert.h"
@@ -6649,6 +6650,76 @@ int ASL(TypeB::TDetailCreateInfo &info)
     return tlg_row.id;
 }
 
+int FWD(TypeB::TDetailCreateInfo &info)
+{
+    TypeB::TForwardOptions *forwarderOptions=NULL;
+    if (info.optionsIs<TypeB::TForwardOptions>())
+        forwarderOptions=info.optionsAs<TypeB::TForwardOptions>();
+    if (forwarderOptions==NULL) throw Exception("%s: forwarderOptions expected", __FUNCTION__);
+    if (forwarderOptions->typeb_in_id==NoExists ||
+            forwarderOptions->typeb_in_num==NoExists) throw Exception("%s: forwarderOptions not defined", __FUNCTION__);
+    TCachedQuery Qry("SELECT heading, ending FROM tlgs_in WHERE id=:tlg_id AND num=:tlg_num",
+            QParams() << QParam("tlg_id", otInteger, forwarderOptions->typeb_in_id)
+            << QParam("tlg_num", otInteger, forwarderOptions->typeb_in_num));
+    Qry.get().Execute();
+    if (Qry.get().Eof) throw Exception("%s: forwarded telegram not found", __FUNCTION__);
+    TTlgDraft tlg_draft(info);
+    TTlgOutPartInfo tlg_row(info);
+
+    TMemoryManager mem(STDLOG);
+    TypeB::THeadingInfo *HeadingInfo=NULL;
+
+    try
+    {
+        try
+        {
+            TypeB::TFlightsForBind bind_flts;
+            TypeB::TTlgPartInfo part;
+            string heading=Qry.get().FieldAsString("heading");
+            part.p=heading.c_str();
+            ParseHeading(part,HeadingInfo,bind_flts,mem);
+        }
+        catch(std::exception &E)
+        {
+            throw Exception("%s: header's parse error", __FUNCTION__);
+        };
+
+        TypeB::TUCMHeadingInfo *UCMHeadingInfo=dynamic_cast<TypeB::TUCMHeadingInfo*>(HeadingInfo);
+
+        if (!forwarderOptions->forwarding)
+        {
+            mem.destroy(HeadingInfo, STDLOG);
+            if (HeadingInfo!=NULL) delete HeadingInfo;
+            return NoExists;
+        };
+
+        tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
+        tlg_row.tlg_type = UCMHeadingInfo->tlg_type;
+        ostringstream heading;
+        heading << tlg_row.tlg_type << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view();
+        tlg_row.heading = heading.str();
+        tlg_row.body = getTypeBBody(forwarderOptions->typeb_in_id,
+                forwarderOptions->typeb_in_num);
+        if (tlg_row.body.size()>4000) throw UserException("MSG.TLG.VERY_BIG_FOR_FORWARDING");
+        tlg_row.ending = Qry.get().FieldAsString("ending");
+
+        mem.destroy(HeadingInfo, STDLOG);
+        if (HeadingInfo!=NULL) delete HeadingInfo;
+    }
+    catch(...)
+    {
+        mem.destroy(HeadingInfo, STDLOG);
+        if (HeadingInfo!=NULL) delete HeadingInfo;
+        throw;
+    };
+
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
+    return tlg_row.id;
+}
+
 int PNL(TypeB::TDetailCreateInfo &info)
 {
   TypeB::TPNLADLOptions *forwarderOptions=NULL;
@@ -8045,6 +8116,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     else if(tlgTypeInfo.basic_type == "PIM") vid = PIM(info);
     else if(tlgTypeInfo.basic_type == "LCI") vid = LCI(info);
     else if(tlgTypeInfo.basic_type == "PNL") vid = PNL(info);
+    else if(tlgTypeInfo.basic_type == "->>") vid = FWD(info);
     else vid = Unknown(info);
     ProgTrace(TRACE5, "utg_prl_tst: %s", tm.PrintWithMessage().c_str());
 
