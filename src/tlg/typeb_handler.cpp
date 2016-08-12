@@ -12,7 +12,6 @@
 #include "tlg.h"
 #include "tlg_parser.h"
 #include "lci_parser.h"
-#include "ucm_parser.h"
 #include "mvt_parser.h"
 #include "typeb_utils.h"
 #include "telegram.h"
@@ -931,17 +930,6 @@ bool parse_tlg(void)
             count++;
             break;
           }
-          case tcUCM:
-          case tcCPM:
-          case tcSLS:
-          {
-              TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
-              SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg);
-              parseTypeB(tlg_id);
-              ASTRA::commit();//OraSession.Commit();
-              count++;
-              break;
-          }
           case tcLCI:
           {
             TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
@@ -1058,7 +1046,6 @@ void get_tlg_info(
         part.offset = parts.addr.size();
         ParseHeading(part, HeadingInfo, bind_flts, mem);
 
-        LogTrace(TRACE5) << "tlg_type: " << tlg_type;
         tlg_type = HeadingInfo->tlg_type;
 
         part.p=parts.body.c_str();
@@ -1073,15 +1060,6 @@ void get_tlg_info(
                 {
                     TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
                     airline = info.flt_info.flt.airline.c_str();
-                    airp = info.flt_info.airp;
-                    break;
-                }
-            case tcUCM:
-            case tcCPM:
-            case tcSLS:
-                {
-                    TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
-                    airline = info.flt_info.airline;
                     airp = info.flt_info.airp;
                     break;
                 }
