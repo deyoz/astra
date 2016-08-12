@@ -355,8 +355,7 @@ TTlgCategory GetTlgCategory(char *tlg_type)
       strcmp(tlg_type,"SOM")==0||
       strcmp(tlg_type,"PRL")==0) cat=tcDCS;
   if (strcmp(tlg_type,"BTM")==0) cat=tcBSM;
-  if (strcmp(tlg_type,"MVT")==0||
-      strcmp(tlg_type,"LDM")==0) cat=tcAHM;
+  if (strcmp(tlg_type,"MVT")==0) cat=tcAHM;
   if (strcmp(tlg_type,"SSM")==0) cat=tcSSM;
   if (strcmp(tlg_type,"ASM")==0) cat=tcASM;
   if (strcmp(tlg_type,"LCI")==0) cat=tcLCI;

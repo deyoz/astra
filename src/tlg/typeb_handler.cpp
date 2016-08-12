@@ -284,6 +284,7 @@ void forwardTypeB(const int typeb_tlg_id,
       typeb_tlg_type!="ADL" &&
       typeb_tlg_type!="CPM" &&
       typeb_tlg_type!="UCM" &&
+      typeb_tlg_type!="LDM" &&
       typeb_tlg_type!="SLS") return;
   TCachedQuery Qry("SELECT tlg_binding.point_id_spp "
                    "FROM tlg_binding, tlg_source "
@@ -299,11 +300,13 @@ void forwardTypeB(const int typeb_tlg_id,
 
     if (typeb_tlg_type=="CPM" ||
         typeb_tlg_type=="UCM" ||
+        typeb_tlg_type=="LDM" ||
         typeb_tlg_type=="SLS")
       forwarder << string(typeb_tlg_type+"->>");
 
     vector<TypeB::TCreateInfo> createInfo;
     forwarder.getInfo(createInfo);
+    LogTrace(TRACE5) << "createInfo.size(): " << createInfo.size();
     TelegramInterface::SendTlg(createInfo, NoExists, true);
   };
 };
