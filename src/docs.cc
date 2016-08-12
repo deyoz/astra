@@ -401,7 +401,15 @@ void TRptParams::Init(xmlNodePtr node)
     pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
     pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
     sort = (TSortType)NodeAsIntegerFast("sort", node, 0);
-    if(text != NoExists and text != 0 and rpt_type != rtBDOCS) // т.к. у отчета BDOCS нет текстового варианта
+    if(text != NoExists and text != 0 and
+            // у этих отчетов нет текстового варианта
+            // При формировании отчетов из-под DCP CUTE, передается тег text = 1
+            // Хотя он visibl = false в терминале
+            rpt_type != rtBDOCS and
+            rpt_type != rtLOADSHEET and
+            rpt_type != rtNOTOC and
+            rpt_type != rtLIR
+            )
         rpt_type = TRptType((int)rpt_type + 1);
     string route_country;
     route_inter = IsRouteInter(point_id, NoExists, route_country);
@@ -2870,34 +2878,28 @@ void WB_MSG(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "msg");
 
-    TCachedQuery Qry("select id, time_receive from wb_msg where point_id = :point_id and msg_type = :msg_type order by id",
+    TCachedQuery Qry("select id, time_receive from wb_msg where point_id = :point_id and msg_type = :msg_type order by id desc",
             QParams()
             << QParam("point_id", otInteger, rpt_params.point_id)
             << QParam("msg_type", otString, EncodeRptType(rpt_params.rpt_type))
             );
     Qry.get().Execute();
-    if(Qry.get().Eof) {
+    if(not Qry.get().Eof) {
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-        NewTextChild(rowNode, "text");
-    } else {
-        for(; not Qry.get().Eof; Qry.get().Next()) {
-            xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-            int id = Qry.get().FieldAsInteger("id");
-            TDateTime time_receive = Qry.get().FieldAsDateTime("time_receive");
-            TCachedQuery txtQry("select text from wb_msg_text where id = :id order by page_no",
-                    QParams() << QParam("id", otInteger, id));
-            txtQry.get().Execute();
-            string text;
-            for(; not txtQry.get().Eof; txtQry.get().Next())
-                text += txtQry.get().FieldAsString("text");
-            NewTextChild(rowNode, "text", text);
-        }
+        int id = Qry.get().FieldAsInteger("id");
+        // TDateTime time_receive = Qry.get().FieldAsDateTime("time_receive");
+        TCachedQuery txtQry("select text from wb_msg_text where id = :id order by page_no",
+                QParams() << QParam("id", otInteger, id));
+        txtQry.get().Execute();
+        string text;
+        for(; not txtQry.get().Eof; txtQry.get().Next())
+            text += txtQry.get().FieldAsString("text");
+        NewTextChild(rowNode, "text", text);
     }
 
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     NewTextChild(variablesNode, "caption", EncodeRptType(rpt_params.rpt_type));
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 }
 
 void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
