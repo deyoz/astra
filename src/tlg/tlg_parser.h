@@ -86,7 +86,8 @@ enum TTlgCategory{
     tcLCI,
     tcUCM,
     tcCPM,
-    tcSLS
+    tcSLS,
+    tcLDM
 };
 
 enum TTlgElement

@@ -1000,6 +1000,7 @@ bool parse_tlg(void)
           case tcUCM:
           case tcCPM:
           case tcSLS:
+          case tcLDM:
           {
               TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
               SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg);
@@ -1145,6 +1146,7 @@ void get_tlg_info(
             case tcUCM:
             case tcCPM:
             case tcSLS:
+            case tcLDM:
                 {
                     TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
                     airline = info.flt_info.airline;
