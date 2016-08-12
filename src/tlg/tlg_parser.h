@@ -76,18 +76,7 @@ class ETlgError:public EXCEPTIONS::Exception
     std::string error_text() const { return text; }
 };
 
-enum TTlgCategory{
-    tcUnknown,
-    tcDCS,
-    tcBSM,
-    tcAHM,
-    tcSSM,
-    tcASM,
-    tcLCI,
-    tcUCM,
-    tcCPM,
-    tcSLS
-};
+enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM,tcSSM,tcASM,tcLCI};
 
 enum TTlgElement
               {//общие
