@@ -58,7 +58,6 @@ class TFltInfo
              strcmp(airp_dep, flt.airp_dep)==0 &&
              strcmp(airp_arv, flt.airp_arv)==0;
     };
-    void dump();
 };
 
 void crs_recount(int point_id_tlg, int point_id_spp, bool check_comp);
