@@ -6,6 +6,7 @@
 #include <list>
 #include "tlg_parser.h"
 #include "lci_parser.h"
+#include "ucm_parser.h"
 #include "ssm_parser.h"
 #include "astra_consts.h"
 #include "../astra_misc.h"
@@ -30,7 +31,7 @@
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace ASTRA;
 using namespace BASIC;
@@ -358,6 +359,9 @@ TTlgCategory GetTlgCategory(char *tlg_type)
   if (strcmp(tlg_type,"SSM")==0) cat=tcSSM;
   if (strcmp(tlg_type,"ASM")==0) cat=tcASM;
   if (strcmp(tlg_type,"LCI")==0) cat=tcLCI;
+  if (strcmp(tlg_type,"UCM")==0) cat=tcUCM;
+  if (strcmp(tlg_type,"CPM")==0) cat=tcCPM;
+  if (strcmp(tlg_type,"SLS")==0) cat=tcSLS;
   return cat;
 };
 
@@ -1371,7 +1375,9 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
 
           heading=nextPart(heading, line_p);
 
+          LogTrace(TRACE5) << "tlg_type: " << infoh.tlg_type;
           infoh.tlg_cat=GetTlgCategory(infoh.tlg_type);
+          LogTrace(TRACE5) << "tlg_cat: " << infoh.tlg_cat;
 
           switch (infoh.tlg_cat)
           {
@@ -1404,6 +1410,13 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
               info = new TLCIHeadingInfo(infoh);
               mem.create(info, STDLOG);
               next=ParseLCIHeading(heading,*(TLCIHeadingInfo*)info,flts);
+              break;
+            case tcUCM:
+            case tcCPM:
+            case tcSLS:
+              info = new TUCMHeadingInfo(infoh);
+              mem.create(info, STDLOG);
+              next=ParseUCMHeading(heading,*(TUCMHeadingInfo*)info,flts);
               break;
             default:
               info = new THeadingInfo(infoh);
