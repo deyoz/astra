@@ -7,7 +7,6 @@ libtlg_a_SOURCES = apps_handler.cc apps_answer_emul.cc edi_handler.cpp edi_msg.c
 	edi_tlg.cpp edi_tlg.h main_snd.cpp main_srv.cpp tlg.cpp tlg.h tlg_parser.cpp \
 	typeb_handler.cpp main_http_snd.cpp \
         ssm_parser.cpp lci_parser.cpp read_edi_elements.cpp view_edi_elements.cpp \
-		ucm_parser.cpp \
         remote_system_context.cpp edi_elements.cpp emd_disp_request.cpp \
         remote_results.cpp tlg_types.cpp tlg_source.cpp tlg_source_edifact.cpp \
         ResponseHandler.cpp EmdDispResponseHandler.cpp EdifactProfile.cc \

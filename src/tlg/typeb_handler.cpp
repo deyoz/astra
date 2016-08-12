@@ -12,7 +12,6 @@
 #include "tlg.h"
 #include "tlg_parser.h"
 #include "lci_parser.h"
-#include "ucm_parser.h"
 #include "mvt_parser.h"
 #include "typeb_utils.h"
 #include "telegram.h"
@@ -271,11 +270,7 @@ void forwardTypeB(const int typeb_tlg_id,
                   const int typeb_tlg_num,
                   const string &typeb_tlg_type)
 {
-  if (typeb_tlg_type!="PNL" &&
-      typeb_tlg_type!="ADL" &&
-      typeb_tlg_type!="CPM" &&
-      typeb_tlg_type!="UCM" &&
-      typeb_tlg_type!="SLS") return;
+  if (typeb_tlg_type!="PNL" && typeb_tlg_type!="ADL") return;
   TCachedQuery Qry("SELECT tlg_binding.point_id_spp "
                    "FROM tlg_binding, tlg_source "
                    "WHERE tlg_binding.point_id_tlg=tlg_source.point_id_tlg AND tlg_source.tlg_id=:tlg_id",
@@ -284,15 +279,7 @@ void forwardTypeB(const int typeb_tlg_id,
   for(; !Qry.get().Eof; Qry.get().Next())
   {
     TForwarder forwarder(Qry.get().FieldAsInteger("point_id_spp"), typeb_tlg_id, typeb_tlg_num);
-    if (typeb_tlg_type=="PNL" ||
-        typeb_tlg_type=="ADL")
-      forwarder << typeb_tlg_type << "PNLADL";
-
-    if (typeb_tlg_type=="CPM" ||
-        typeb_tlg_type=="UCM" ||
-        typeb_tlg_type=="SLS")
-      forwarder << string(typeb_tlg_type+"->>");
-
+    forwarder << typeb_tlg_type << "PNLADL";
     vector<TypeB::TCreateInfo> createInfo;
     forwarder.getInfo(createInfo);
     TelegramInterface::SendTlg(createInfo, NoExists, true);
@@ -943,17 +930,6 @@ bool parse_tlg(void)
             count++;
             break;
           }
-          case tcUCM:
-          case tcCPM:
-          case tcSLS:
-          {
-              TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
-              SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg);
-              parseTypeB(tlg_id);
-              ASTRA::commit();//OraSession.Commit();
-              count++;
-              break;
-          }
           case tcLCI:
           {
             TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
@@ -1070,7 +1046,6 @@ void get_tlg_info(
         part.offset = parts.addr.size();
         ParseHeading(part, HeadingInfo, bind_flts, mem);
 
-        LogTrace(TRACE5) << "tlg_type: " << tlg_type;
         tlg_type = HeadingInfo->tlg_type;
 
         part.p=parts.body.c_str();
@@ -1085,15 +1060,6 @@ void get_tlg_info(
                 {
                     TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
                     airline = info.flt_info.flt.airline.c_str();
-                    airp = info.flt_info.airp;
-                    break;
-                }
-            case tcUCM:
-            case tcCPM:
-            case tcSLS:
-                {
-                    TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
-                    airline = info.flt_info.airline;
                     airp = info.flt_info.airp;
                     break;
                 }
