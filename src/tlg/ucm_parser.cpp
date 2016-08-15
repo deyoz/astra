@@ -97,8 +97,7 @@ namespace regex {
 
 void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts)
 {
-    string src(val); // это важно: boost::regex_match(strin(val), results, e2) не прокатит, непредсказуемо.
-    LogTrace(TRACE5) << "src '" << src << "'";
+    src = val; // это важно: boost::regex_match(strin(val), results, e2) не прокатит, непредсказуемо.
 
     static const boost::regex e1("^" + regex::airline + regex::flt_no + "/" + regex::flt_no + "/" + regex::date + ".*");
     static const boost::regex e2("^" + regex::airline + regex::flt_no + "/" + regex::date + ".*");
