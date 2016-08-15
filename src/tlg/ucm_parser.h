@@ -11,7 +11,7 @@ struct TUCMFltInfo {
     std::string airp;
     int flt_no;
     std::string suffix;
-    BASIC::TDateTime date;
+    TDateTime date;
     TUCMFltInfo():
         airp("òêå"), // !!!
         flt_no(ASTRA::NoExists),
