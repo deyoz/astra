@@ -8312,6 +8312,9 @@ namespace WBMessages {
                 << QParam("text", otString)
                 );
         longToDB(txtQry.get(), "text", content);
+        TReqInfo::Instance()->LocaleToLog("EVT.WB.PRINT",
+                LEvntPrms() << PrmSmpl<string>("msg_type", MsgTypes().encode(msg_type)),
+                evtFlt, point_id);
     }
 
     void parse_print_message(const string &content)
