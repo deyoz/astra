@@ -2884,18 +2884,19 @@ void WB_MSG(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             << QParam("msg_type", otString, EncodeRptType(rpt_params.rpt_type))
             );
     Qry.get().Execute();
-    if(not Qry.get().Eof) {
-        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-        int id = Qry.get().FieldAsInteger("id");
-        // TDateTime time_receive = Qry.get().FieldAsDateTime("time_receive");
-        TCachedQuery txtQry("select text from wb_msg_text where id = :id order by page_no",
-                QParams() << QParam("id", otInteger, id));
-        txtQry.get().Execute();
-        string text;
-        for(; not txtQry.get().Eof; txtQry.get().Next())
-            text += txtQry.get().FieldAsString("text");
-        NewTextChild(rowNode, "text", text);
-    }
+    if(Qry.get().Eof)
+        throw UserException("MSG.NOT_DATA");
+
+    xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+    int id = Qry.get().FieldAsInteger("id");
+    // TDateTime time_receive = Qry.get().FieldAsDateTime("time_receive");
+    TCachedQuery txtQry("select text from wb_msg_text where id = :id order by page_no",
+            QParams() << QParam("id", otInteger, id));
+    txtQry.get().Execute();
+    string text;
+    for(; not txtQry.get().Eof; txtQry.get().Next())
+        text += txtQry.get().FieldAsString("text");
+    NewTextChild(rowNode, "text", text);
 
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
