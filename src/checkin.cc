@@ -6669,9 +6669,6 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
           used_norms_airline_mark=mktFlight.airline;
       };
 
-      Qry.Clear();
-      Qry.SQLText="SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND pr_print<>0 AND rownum=1";
-      Qry.DeclareVariable("pax_id",otInteger);
       TQuery PaxQry(&OraSession);
       PaxQry.Clear();
       PaxQry.SQLText=pax_sql;
@@ -6709,10 +6706,10 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
                        TETickItem().fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false).bag_norm_view(), "");
         NewTextChild(paxNode,"pr_norec",(int)PaxQry.FieldIsNULL("crs_pax_id"));
 
-        Qry.SetVariable("pax_id",pax.id);
-        Qry.Execute();
-        NewTextChild(paxNode,"pr_bp_print",(int)(!Qry.Eof));
-
+        bool pr_bp_print, pr_bi_print;
+        get_pr_print(pax.id, pr_bp_print, pr_bi_print);
+        NewTextChild(paxNode,"pr_bp_print",pr_bp_print);
+        NewTextChild(paxNode,"pr_bi_print",pr_bi_print);
         if (grp_id==tckin_grp_ids.begin())
         {
           std::list<CheckIn::TPaxTransferItem> pax_trfer;

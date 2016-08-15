@@ -16,18 +16,18 @@ using namespace EXCEPTIONS;
 const char* EncodeElemContext(const TElemContext ctxt)
 {
   switch( ctxt ) {
-		case ecDisp:
-		  return "ecDisp";
-		case ecCkin:
-		  return "ecCkin";
-		case ecTrfer:
-		  return "ecTrfer";
-		case ecTlgTypeB:
-		  return "ecTlgTypeB";
-		case ecNone:
-		  return "ecNone";
-	}
-	return "";
+        case ecDisp:
+          return "ecDisp";
+        case ecCkin:
+          return "ecCkin";
+        case ecTrfer:
+          return "ecTrfer";
+        case ecTlgTypeB:
+          return "ecTlgTypeB";
+        case ecNone:
+          return "ecNone";
+    }
+    return "";
 };
 
 const char* EncodeElemFmt(const TElemFmt type)
@@ -63,9 +63,13 @@ const
                          {etAgency,                "etAgency",                ""},
                          {etAirline,               "etAirline",               "airlines"},
                          {etAirp,                  "etAirp",                  "airps"},
+                         {etAirpTerminal,          "etAirpTerminal",          ""},
                          {etAlarmType,             "etAlarmType",             "alarm_types"},
                          {etBagNormType,           "etBagNormType",           "bag_norm_types"},
                          {etBagType,               "etBagType",               "bag_types"},
+                         {etBIHall,                "etBIHall",                ""},
+                         {etBIPrintType,           "etBIPrintType",           "bi_print_types"},
+                         {etBIType,                "etBIType",                ""},
                          {etBrand,                 "etBrand",                 ""},
                          {etBPType,                "etBPType",                ""},
                          {etBTType,                "etBTType",                ""},
@@ -132,11 +136,11 @@ const char* EncodeElemType(const TElemType type)
 
 void DoElemEConvertError( TElemContext ctxt, TElemType type, const string &elem )
 {
-	ostringstream msg;
-	msg << "Can't convert elem to id: "
-	    << "ctxt=" << EncodeElemContext(ctxt) << ", "
-	    << "type=" << EncodeElemType(type) << ", "
-	    << "elem=" << elem;
+    ostringstream msg;
+    msg << "Can't convert elem to id: "
+        << "ctxt=" << EncodeElemContext(ctxt) << ", "
+        << "type=" << EncodeElemType(type) << ", "
+        << "elem=" << elem;
 
   throw EConvertError( msg.str().c_str() );
 }
@@ -161,13 +165,13 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
       TReqInfo *reqInfo = TReqInfo::Instance();
       TUserSettingType user_fmt = ustCodeNative;
       switch(ctxt) {
-      	case ecDisp:
+        case ecDisp:
           if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
           if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
           if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
           if (type==etSuffix) user_fmt=reqInfo->user.sets.disp_suffix;
           break;
-      	case ecCkin:
+        case ecCkin:
           if (type==etAirline) user_fmt=reqInfo->user.sets.ckin_airline;
           if (type==etAirp) user_fmt=reqInfo->user.sets.ckin_airp;
           if (type==etCraft) user_fmt=reqInfo->user.sets.ckin_craft;
@@ -179,7 +183,7 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
           type==etAirp ||
           type==etCraft)
       {
-      	if ( hard_verify || fmt == efmtUnknown ) {
+        if ( hard_verify || fmt == efmtUnknown ) {
           if (!((user_fmt==ustCodeNative     && fmt==efmtCodeNative) ||
                 (user_fmt==ustCodeInter      && fmt==efmtCodeInter) ||
                 (user_fmt==ustCodeICAONative && fmt==efmtCodeICAONative) ||
@@ -195,25 +199,25 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
         }
         else {
           switch( user_fmt )  {
-          	case ustCodeNative:
-          		fmt = efmtCodeNative;
-          		break;
-          	case ustCodeInter:
-          		fmt = efmtCodeInter;
-          		break;
-          	case ustCodeICAONative:
-          		fmt = efmtCodeICAONative;
-          		break;
-          	case ustCodeICAOInter:
-          		fmt = efmtCodeICAOInter;
-          		break;
-          	default:;
+            case ustCodeNative:
+                fmt = efmtCodeNative;
+                break;
+            case ustCodeInter:
+                fmt = efmtCodeInter;
+                break;
+            case ustCodeICAONative:
+                fmt = efmtCodeICAONative;
+                break;
+            case ustCodeICAOInter:
+                fmt = efmtCodeICAOInter;
+                break;
+            default:;
           }
         }
       }
       else
       {
-      	if ( hard_verify || fmt == efmtUnknown ) {
+        if ( hard_verify || fmt == efmtUnknown ) {
           if (!((user_fmt==ustEncNative && fmt==efmtCodeNative) ||
                 (user_fmt==ustEncLatin && fmt==efmtCodeInter) ||
                 (user_fmt==ustEncMixed && (fmt==efmtCodeNative||fmt==efmtCodeInter))))
@@ -224,13 +228,13 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
         }
         else {
           switch( user_fmt )  {
-          	case ustEncNative:
-          		fmt = efmtCodeNative;
-          		break;
-          	case ustEncLatin:
-          		fmt = efmtCodeInter;
-          		break;
-          	default:;
+            case ustEncNative:
+                fmt = efmtCodeNative;
+                break;
+            case ustEncLatin:
+                fmt = efmtCodeInter;
+                break;
+            default:;
           }
 
         }
@@ -238,7 +242,7 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
 
     }
     else
-    	if ( hard_verify || fmt == efmtUnknown ) {
+        if ( hard_verify || fmt == efmtUnknown ) {
         if (fmt!=efmtCodeNative)
         {
           //проблемы
@@ -246,7 +250,7 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
         };
       }
       else {
-      	fmt = efmtCodeNative;
+        fmt = efmtCodeNative;
       }
   };
 
@@ -256,7 +260,7 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, TElemFmt 
 string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
                         TElemFmt fmt, bool with_deleted)
 {
-	TElemFmt fmt2=fmt;  //efmtCodeNative;
+    TElemFmt fmt2=fmt;  //efmtCodeNative;
   if ( ctxt==ecDisp || ctxt==ecCkin )
   {
     if(type==etAirline ||
@@ -267,7 +271,7 @@ string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
       TReqInfo *reqInfo = TReqInfo::Instance();
       TUserSettingType user_fmt = ustCodeNative;
       switch (ctxt) {
-      	case ecDisp:
+        case ecDisp:
           if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
           if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
           if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
@@ -395,37 +399,37 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
   }
   else
   {
-  	TQuery Qry(&OraSession);
-  	switch (type) {
-  		case etDelayType:
-  			Qry.SQLText =
-  		    "SELECT code AS id, code, code_lat FROM delays where :code IN (code, code_lat)";
-  		  Qry.CreateVariable( "code", otString, elem );
-  		  Qry.Execute();
-  		  if ( !Qry.Eof ) {
-  		  	id = Qry.FieldAsString( "id" );
+    TQuery Qry(&OraSession);
+    switch (type) {
+        case etDelayType:
+            Qry.SQLText =
+            "SELECT code AS id, code, code_lat FROM delays where :code IN (code, code_lat)";
+          Qry.CreateVariable( "code", otString, elem );
+          Qry.Execute();
+          if ( !Qry.Eof ) {
+            id = Qry.FieldAsString( "id" );
           if ( elem == Qry.FieldAsString( "code_lat" ) )
-          	fmt = efmtCodeInter;
+            fmt = efmtCodeInter;
           else
-          	fmt = efmtCodeNative;
-  		  }
-  			break;
-  		case etTripLiter:
-  			Qry.SQLText =
-  		    "SELECT code AS id, code, code_lat FROM trip_liters where :code IN (code, code_lat)";
-  		  Qry.CreateVariable( "code", otString, elem );
-  		  Qry.Execute();
-  		  if ( !Qry.Eof ) {
-  		  	id = Qry.FieldAsString( "id" );
+            fmt = efmtCodeNative;
+          }
+            break;
+        case etTripLiter:
+            Qry.SQLText =
+            "SELECT code AS id, code, code_lat FROM trip_liters where :code IN (code, code_lat)";
+          Qry.CreateVariable( "code", otString, elem );
+          Qry.Execute();
+          if ( !Qry.Eof ) {
+            id = Qry.FieldAsString( "id" );
           if ( elem == Qry.FieldAsString( "code_lat" ) )
-          	fmt = efmtCodeInter;
+            fmt = efmtCodeInter;
           else
-          	fmt = efmtCodeNative;
-  		  }
-  			break;
+            fmt = efmtCodeNative;
+          }
+            break;
       //надо бы добавить в будущем etValidatorType
-  		default:;
-  	}
+        default:;
+    }
 
   };
 
@@ -611,7 +615,8 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
           case etSalePoint: Qry.SQLText="SELECT code,descr name,descr_lat name_lat FROM sale_points WHERE code=:id";break;
              case etAgency: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM agencies WHERE code=:id";break;
        case etCompElemType: Qry.SQLText="SELECT name,name_lat FROM comp_elem_types WHERE code=:id"; break;
-             case etBPType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id"; break;
+             case etBPType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id AND op_type='PRINT_BP'"; break;
+             case etBIType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id AND op_type='PRINT_BI'"; break;
              case etBTType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM tag_types WHERE code=:id"; break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
@@ -660,13 +665,15 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
     //не base_table
     switch(type)
     {
-         case etHall: Qry.SQLText="SELECT name,name_lat FROM halls2 WHERE id=:id"; break;
-      case etDeskGrp: Qry.SQLText="SELECT descr AS name, descr_lat AS name_lat FROM desk_grp WHERE grp_id=:id"; break;
-       case etRemGrp: Qry.SQLText="SELECT name, name_lat FROM rem_grp WHERE id=:id"; break;
-        case etUsers: Qry.SQLText="SELECT descr AS name, descr AS name_lat FROM users2 WHERE user_id=:id"; break;
-        case etRoles: Qry.SQLText="SELECT name AS name, name AS name_lat FROM roles WHERE role_id=:id"; break;
-        case etBrand: Qry.SQLText="SELECT name, name_lat FROM brands WHERE id=:id"; break;
-      default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
+                case etHall: Qry.SQLText="SELECT name,name_lat FROM halls2 WHERE id=:id"; break;
+              case etBIHall: Qry.SQLText="SELECT name,name_lat FROM bi_halls WHERE id=:id"; break;
+             case etDeskGrp: Qry.SQLText="SELECT descr AS name, descr_lat AS name_lat FROM desk_grp WHERE grp_id=:id"; break;
+              case etRemGrp: Qry.SQLText="SELECT name, name_lat FROM rem_grp WHERE id=:id"; break;
+               case etUsers: Qry.SQLText="SELECT descr AS name, descr AS name_lat FROM users2 WHERE user_id=:id"; break;
+               case etRoles: Qry.SQLText="SELECT name AS name, name AS name_lat FROM roles WHERE role_id=:id"; break;
+        case etAirpTerminal: Qry.SQLText="SELECT name AS name, name AS name_lat FROM airp_terminals WHERE id=:id"; break;
+               case etBrand: Qry.SQLText="SELECT name, name_lat FROM brands WHERE id=:id"; break;
+                    default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otInteger,id);
     Qry.Execute();

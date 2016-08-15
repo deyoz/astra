@@ -20,6 +20,8 @@
 #include "jxtlib/jxt_cont.h"
 #include "jxtlib/xml_stuff.h"
 #include "astra_misc.h"
+#include "dev_consts.h"
+#include "dev_utils.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -1736,4 +1738,17 @@ TEncodedFileStream &TEncodedFileStream::operator << (ostream &(*os)(ostream &))
     open();
     of << os;
     return *this;
+}
+
+void get_pr_print(int pax_id, bool &pr_bp_print, bool &pr_bi_print)
+{
+    TCachedQuery Qry(
+            "SELECT pax_id FROM confirm_print WHERE pax_id=:pax_id AND pr_print<>0 AND rownum=1 and " OP_TYPE_COND("op_type"),
+            QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, EncodeDevOperType(dotPrnBP))
+            );
+    Qry.get().Execute();
+    pr_bp_print = not Qry.get().Eof;
+    Qry.get().SetVariable("op_type", EncodeDevOperType(dotPrnBI));
+    Qry.get().Execute();
+    pr_bi_print = not Qry.get().Eof;
 }

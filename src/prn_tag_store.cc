@@ -9,6 +9,7 @@
 #include "docs.h"
 #include "tripinfo.h"
 #include "passenger.h"
+#include "qrys.h"
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DEN"
@@ -302,69 +303,70 @@ TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
 
 void TPrnTagStore::init_bp_tags()
 {
-    tag_list.insert(make_pair(TAG::BCBP_V_5,        TTagListItem(&TPrnTagStore::BCBP_V_5, POINT_INFO | PAX_INFO | PNR_INFO)));
-    tag_list.insert(make_pair(TAG::BCBP_M_2,        TTagListItem(&TPrnTagStore::BCBP_M_2, POINT_INFO | PAX_INFO | PNR_INFO)));
-    tag_list.insert(make_pair(TAG::ACT,             TTagListItem(&TPrnTagStore::ACT, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::AGENT,           TTagListItem(&TPrnTagStore::AGENT)));
-    tag_list.insert(make_pair(TAG::AIRLINE,         TTagListItem(&TPrnTagStore::AIRLINE, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::AIRLINE_SHORT,   TTagListItem(&TPrnTagStore::AIRLINE_SHORT, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::AIRLINE_NAME,    TTagListItem(&TPrnTagStore::AIRLINE_NAME, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::AIRP_ARV,        TTagListItem(&TPrnTagStore::AIRP_ARV)));
-    tag_list.insert(make_pair(TAG::AIRP_ARV_NAME,   TTagListItem(&TPrnTagStore::AIRP_ARV_NAME)));
-    tag_list.insert(make_pair(TAG::AIRP_DEP,        TTagListItem(&TPrnTagStore::AIRP_DEP)));
-    tag_list.insert(make_pair(TAG::AIRP_DEP_NAME,   TTagListItem(&TPrnTagStore::AIRP_DEP_NAME)));
-    tag_list.insert(make_pair(TAG::BAG_AMOUNT,      TTagListItem(&TPrnTagStore::BAG_AMOUNT, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::TAGS,            TTagListItem(&TPrnTagStore::TAGS, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::BAG_WEIGHT,      TTagListItem(&TPrnTagStore::BAG_WEIGHT, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::BAGGAGE,         TTagListItem(&TPrnTagStore::BAGGAGE, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::BRD_FROM,        TTagListItem(&TPrnTagStore::BRD_FROM, BRD_INFO)));
-    tag_list.insert(make_pair(TAG::BRD_TO,          TTagListItem(&TPrnTagStore::BRD_TO, BRD_INFO | POINT_INFO)));
-    tag_list.insert(make_pair(TAG::CHD,             TTagListItem(&TPrnTagStore::CHD, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::CITY_ARV_NAME,   TTagListItem(&TPrnTagStore::CITY_ARV_NAME)));
-    tag_list.insert(make_pair(TAG::CITY_DEP_NAME,   TTagListItem(&TPrnTagStore::CITY_DEP_NAME)));
-    tag_list.insert(make_pair(TAG::CLASS,           TTagListItem(&TPrnTagStore::CLASS)));
-    tag_list.insert(make_pair(TAG::CLASS_NAME,      TTagListItem(&TPrnTagStore::CLASS_NAME)));
-    tag_list.insert(make_pair(TAG::DESK,            TTagListItem(&TPrnTagStore::DESK)));
-    tag_list.insert(make_pair(TAG::DOCUMENT,        TTagListItem(&TPrnTagStore::DOCUMENT, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::DUPLICATE,       TTagListItem(&TPrnTagStore::DUPLICATE, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::EST,             TTagListItem(&TPrnTagStore::EST, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::ETICKET_NO,      TTagListItem(&TPrnTagStore::ETICKET_NO, PAX_INFO))); // !!!
-    tag_list.insert(make_pair(TAG::ETKT,            TTagListItem(&TPrnTagStore::ETKT, PAX_INFO))); // !!!
-    tag_list.insert(make_pair(TAG::EXCESS,          TTagListItem(&TPrnTagStore::EXCESS)));
-    tag_list.insert(make_pair(TAG::FLT_NO,          TTagListItem(&TPrnTagStore::FLT_NO, POINT_INFO))); // !!!
-    tag_list.insert(make_pair(TAG::FQT,             TTagListItem(&TPrnTagStore::FQT, FQT_INFO)));
-    tag_list.insert(make_pair(TAG::FQT_TIER_LEVEL,  TTagListItem(&TPrnTagStore::FQT_TIER_LEVEL, FQT_INFO)));
-    tag_list.insert(make_pair(TAG::FULL_PLACE_ARV,  TTagListItem(&TPrnTagStore::FULL_PLACE_ARV)));
-    tag_list.insert(make_pair(TAG::FULL_PLACE_DEP,  TTagListItem(&TPrnTagStore::FULL_PLACE_DEP)));
-    tag_list.insert(make_pair(TAG::FULLNAME,        TTagListItem(&TPrnTagStore::FULLNAME, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::GATE,            TTagListItem(&TPrnTagStore::GATE)));
-    tag_list.insert(make_pair(TAG::GATES,           TTagListItem(&TPrnTagStore::GATES, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::HALL,            TTagListItem(&TPrnTagStore::HALL)));
-    tag_list.insert(make_pair(TAG::IMG,             TTagListItem(&TPrnTagStore::IMG)));
-    tag_list.insert(make_pair(TAG::INF,             TTagListItem(&TPrnTagStore::INF, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::LONG_ARV,        TTagListItem(&TPrnTagStore::LONG_ARV)));
-    tag_list.insert(make_pair(TAG::LONG_DEP,        TTagListItem(&TPrnTagStore::LONG_DEP)));
-    tag_list.insert(make_pair(TAG::NAME,            TTagListItem(&TPrnTagStore::NAME, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::NO_SMOKE,        TTagListItem(&TPrnTagStore::NO_SMOKE, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::ONE_SEAT_NO,     TTagListItem(&TPrnTagStore::ONE_SEAT_NO, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::PAX_ID,          TTagListItem(&TPrnTagStore::PAX_ID, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::PLACE_ARV,       TTagListItem(&TPrnTagStore::PLACE_ARV)));
-    tag_list.insert(make_pair(TAG::PLACE_DEP,       TTagListItem(&TPrnTagStore::PLACE_DEP)));
-    tag_list.insert(make_pair(TAG::REG_NO,          TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::REM,             TTagListItem(&TPrnTagStore::REM, REM_INFO)));
-    tag_list.insert(make_pair(TAG::RK_AMOUNT,       TTagListItem(&TPrnTagStore::RK_AMOUNT, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::RK_WEIGHT,       TTagListItem(&TPrnTagStore::RK_WEIGHT, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::RSTATION,        TTagListItem(&TPrnTagStore::RSTATION, RSTATION_INFO)));
-    tag_list.insert(make_pair(TAG::SCD,             TTagListItem(&TPrnTagStore::SCD, POINT_INFO)));
-    tag_list.insert(make_pair(TAG::SEAT_NO,         TTagListItem(&TPrnTagStore::SEAT_NO, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::STR_SEAT_NO,     TTagListItem(&TPrnTagStore::STR_SEAT_NO, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::SUBCLS,          TTagListItem(&TPrnTagStore::SUBCLS, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::LIST_SEAT_NO,    TTagListItem(&TPrnTagStore::LIST_SEAT_NO, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::SURNAME,         TTagListItem(&TPrnTagStore::SURNAME, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::TEST_SERVER,     TTagListItem(&TPrnTagStore::TEST_SERVER)));
-    tag_list.insert(make_pair(TAG::TIME_PRINT,      TTagListItem(&TPrnTagStore::TIME_PRINT)));
-    tag_list.insert(make_pair(TAG::PAX_TITLE,       TTagListItem(&TPrnTagStore::PAX_TITLE, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::PNR,             TTagListItem(&TPrnTagStore::PNR, PNR_INFO)));
+    tag_list.insert(make_pair(TAG::BCBP_V_5,                TTagListItem(&TPrnTagStore::BCBP_V_5, POINT_INFO | PAX_INFO | PNR_INFO)));
+    tag_list.insert(make_pair(TAG::BCBP_M_2,                TTagListItem(&TPrnTagStore::BCBP_M_2, POINT_INFO | PAX_INFO | PNR_INFO)));
+    tag_list.insert(make_pair(TAG::ACT,                     TTagListItem(&TPrnTagStore::ACT, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::AGENT,                   TTagListItem(&TPrnTagStore::AGENT)));
+    tag_list.insert(make_pair(TAG::AIRLINE,                 TTagListItem(&TPrnTagStore::AIRLINE, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::AIRLINE_SHORT,           TTagListItem(&TPrnTagStore::AIRLINE_SHORT, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::AIRLINE_NAME,            TTagListItem(&TPrnTagStore::AIRLINE_NAME, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::AIRP_ARV,                TTagListItem(&TPrnTagStore::AIRP_ARV)));
+    tag_list.insert(make_pair(TAG::AIRP_ARV_NAME,           TTagListItem(&TPrnTagStore::AIRP_ARV_NAME)));
+    tag_list.insert(make_pair(TAG::AIRP_DEP,                TTagListItem(&TPrnTagStore::AIRP_DEP)));
+    tag_list.insert(make_pair(TAG::AIRP_DEP_NAME,           TTagListItem(&TPrnTagStore::AIRP_DEP_NAME)));
+    tag_list.insert(make_pair(TAG::BAG_AMOUNT,              TTagListItem(&TPrnTagStore::BAG_AMOUNT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::TAGS,                    TTagListItem(&TPrnTagStore::TAGS, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::BAG_WEIGHT,              TTagListItem(&TPrnTagStore::BAG_WEIGHT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::BAGGAGE,                 TTagListItem(&TPrnTagStore::BAGGAGE, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::BRD_FROM,                TTagListItem(&TPrnTagStore::BRD_FROM, BRD_INFO)));
+    tag_list.insert(make_pair(TAG::BRD_TO,                  TTagListItem(&TPrnTagStore::BRD_TO, BRD_INFO | POINT_INFO)));
+    tag_list.insert(make_pair(TAG::CHD,                     TTagListItem(&TPrnTagStore::CHD, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::CITY_ARV_NAME,           TTagListItem(&TPrnTagStore::CITY_ARV_NAME)));
+    tag_list.insert(make_pair(TAG::CITY_DEP_NAME,           TTagListItem(&TPrnTagStore::CITY_DEP_NAME)));
+    tag_list.insert(make_pair(TAG::CLASS,                   TTagListItem(&TPrnTagStore::CLASS)));
+    tag_list.insert(make_pair(TAG::CLASS_NAME,              TTagListItem(&TPrnTagStore::CLASS_NAME)));
+    tag_list.insert(make_pair(TAG::DESK,                    TTagListItem(&TPrnTagStore::DESK)));
+    tag_list.insert(make_pair(TAG::DOCUMENT,                TTagListItem(&TPrnTagStore::DOCUMENT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::DUPLICATE,               TTagListItem(&TPrnTagStore::DUPLICATE, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::EST,                     TTagListItem(&TPrnTagStore::EST, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::ETICKET_NO,              TTagListItem(&TPrnTagStore::ETICKET_NO, PAX_INFO))); // !!!
+    tag_list.insert(make_pair(TAG::ETKT,                    TTagListItem(&TPrnTagStore::ETKT, PAX_INFO))); // !!!
+    tag_list.insert(make_pair(TAG::EXCESS,                  TTagListItem(&TPrnTagStore::EXCESS)));
+    tag_list.insert(make_pair(TAG::FLT_NO,                  TTagListItem(&TPrnTagStore::FLT_NO, POINT_INFO))); // !!!
+    tag_list.insert(make_pair(TAG::FQT,                     TTagListItem(&TPrnTagStore::FQT, FQT_INFO)));
+    tag_list.insert(make_pair(TAG::FULL_PLACE_ARV,          TTagListItem(&TPrnTagStore::FULL_PLACE_ARV)));
+    tag_list.insert(make_pair(TAG::FULL_PLACE_DEP,          TTagListItem(&TPrnTagStore::FULL_PLACE_DEP)));
+    tag_list.insert(make_pair(TAG::FULLNAME,                TTagListItem(&TPrnTagStore::FULLNAME, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::GATE,                    TTagListItem(&TPrnTagStore::GATE)));
+    tag_list.insert(make_pair(TAG::GATES,                   TTagListItem(&TPrnTagStore::GATES, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::HALL,                    TTagListItem(&TPrnTagStore::HALL)));
+    tag_list.insert(make_pair(TAG::IMG,                     TTagListItem(&TPrnTagStore::IMG)));
+    tag_list.insert(make_pair(TAG::INF,                     TTagListItem(&TPrnTagStore::INF, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::LONG_ARV,                TTagListItem(&TPrnTagStore::LONG_ARV)));
+    tag_list.insert(make_pair(TAG::LONG_DEP,                TTagListItem(&TPrnTagStore::LONG_DEP)));
+    tag_list.insert(make_pair(TAG::NAME,                    TTagListItem(&TPrnTagStore::NAME, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::NO_SMOKE,                TTagListItem(&TPrnTagStore::NO_SMOKE, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::ONE_SEAT_NO,             TTagListItem(&TPrnTagStore::ONE_SEAT_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::PAX_ID,                  TTagListItem(&TPrnTagStore::PAX_ID, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::PLACE_ARV,               TTagListItem(&TPrnTagStore::PLACE_ARV)));
+    tag_list.insert(make_pair(TAG::PLACE_DEP,               TTagListItem(&TPrnTagStore::PLACE_DEP)));
+    tag_list.insert(make_pair(TAG::REG_NO,                  TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::REM,                     TTagListItem(&TPrnTagStore::REM, REM_INFO)));
+    tag_list.insert(make_pair(TAG::RK_AMOUNT,               TTagListItem(&TPrnTagStore::RK_AMOUNT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::RK_WEIGHT,               TTagListItem(&TPrnTagStore::RK_WEIGHT, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::RSTATION,                TTagListItem(&TPrnTagStore::RSTATION, RSTATION_INFO)));
+    tag_list.insert(make_pair(TAG::SCD,                     TTagListItem(&TPrnTagStore::SCD, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::SEAT_NO,                 TTagListItem(&TPrnTagStore::SEAT_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::STR_SEAT_NO,             TTagListItem(&TPrnTagStore::STR_SEAT_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::SUBCLS,                  TTagListItem(&TPrnTagStore::SUBCLS, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::LIST_SEAT_NO,            TTagListItem(&TPrnTagStore::LIST_SEAT_NO, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::SURNAME,                 TTagListItem(&TPrnTagStore::SURNAME, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::TEST_SERVER,             TTagListItem(&TPrnTagStore::TEST_SERVER)));
+    tag_list.insert(make_pair(TAG::TIME_PRINT,              TTagListItem(&TPrnTagStore::TIME_PRINT)));
+    tag_list.insert(make_pair(TAG::PAX_TITLE,               TTagListItem(&TPrnTagStore::PAX_TITLE, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::PNR,                     TTagListItem(&TPrnTagStore::PNR, PNR_INFO)));
+    tag_list.insert(make_pair(TAG::BI_HALL,                 TTagListItem(&TPrnTagStore::BI_HALL, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::BI_HALL_CAPTION,         TTagListItem(&TPrnTagStore::BI_HALL_CAPTION, POINT_INFO)));
 }
 
 // BP && BT
@@ -423,6 +425,15 @@ void TPrnTagStore::clear()
 {
     for(map<const string, TTagListItem>::iterator im = tag_list.begin(); im != tag_list.end(); im++)
         im->second.english_only = true;
+}
+
+void TPrnTagStore::set_tag(string name, const BIPrintRules::TRule &value)
+{
+    name = upperc(name);
+    map<const string, TTagListItem>::iterator im = tag_list.find(name);
+    if(im == tag_list.end())
+        throw Exception("TPrnTagStore::set_tag: tag '%s' not implemented", name.c_str());
+    im->second.TagInfo = value;
 }
 
 void TPrnTagStore::set_tag(string name, TDateTime value)
@@ -627,8 +638,8 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
 
 void add_part(string &tag, std::string &part1, std::string &part2)
 {
-        part1 += tag + ", ";
-        part2 += ":" + tag + ", ";
+    part1 += tag + ", ";
+    part2 += ":" + tag + ", ";
 }
 
 class TPrnQryBuilder {
@@ -658,7 +669,10 @@ void TPrnQryBuilder::add_parts(string name)
 
 void TPrnQryBuilder::add_part(string name, int value)
 {
-    Qry.CreateVariable(name, otInteger, value);
+    if(value == NoExists)
+        Qry.CreateVariable(name, otInteger, FNull);
+    else
+        Qry.CreateVariable(name, otInteger, value);
     add_parts(name);
 }
 
@@ -678,28 +692,30 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
 {
     part1 =
         "begin "
-        "   delete from bp_print where pax_id = :pax_id and pr_print = 0 and desk=:desk; "
-        "   insert into bp_print( "
+        "   delete from confirm_print where pax_id = :pax_id and pr_print = 0 and desk=:desk and " OP_TYPE_COND("op_type")"; "
+        "   insert into confirm_print( "
         "       pax_id, "
         "       time_print, "
         "       pr_print, "
         "       desk, "
-        "       client_type ";
+        "       client_type, "
+        "       op_type ";
     part2 =
         "   ) values( "
         "       :pax_id, "
         "       :now_utc, "
         "       :pr_print, "
         "       :desk, "
-        "       :client_type ";
+        "       :client_type, "
+        "       :op_type ";
 };
 
-void TPrnTagStore::save_bp_print(bool pr_print)
+void TPrnTagStore::confirm_print(bool pr_print, TDevOperType op_type)
 {
     if(scan_data != NULL) return;
     if (isTestPaxId(pax_id)) return;
     if(not prn_test_tags.items.empty())
-        throw Exception("save_bp_print can't be called in test mode");
+        throw Exception("confirm_print can't be called in test mode");
     TQuery Qry(&OraSession);
     TPrnQryBuilder prnQry(Qry);
     Qry.CreateVariable("pax_id", otInteger, pax_id);
@@ -707,25 +723,8 @@ void TPrnTagStore::save_bp_print(bool pr_print)
     Qry.CreateVariable("pr_print", otInteger, pr_print);
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
     Qry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
 
-    if(tag_list[TAG::AIRLINE].processed or tag_list[TAG::AIRLINE_NAME].processed)
-        prnQry.add_part(TAG::AIRLINE, pointInfo.airline);
-    if(tag_list[TAG::SCD].processed)
-        prnQry.add_part(TAG::SCD, pointInfo.scd);
-    if(tag_list[TAG::BRD_FROM].processed)
-        prnQry.add_part(TAG::BRD_FROM, brdInfo.brd_from);
-    if(tag_list[TAG::BRD_TO].processed)
-        prnQry.add_part(TAG::BRD_TO, brdInfo.brd_to);
-    if(tag_list[TAG::AIRP_ARV].processed or tag_list[TAG::AIRP_ARV_NAME].processed)
-        prnQry.add_part(TAG::AIRP_ARV, grpInfo.airp_arv);
-    if(tag_list[TAG::AIRP_DEP].processed or tag_list[TAG::AIRP_DEP_NAME].processed)
-        prnQry.add_part(TAG::AIRP_DEP, grpInfo.airp_dep);
-    if(tag_list[TAG::CLASS].processed)
-        prnQry.add_part("class_grp", grpInfo.class_grp);
-    if(tag_list[TAG::GATE].processed)
-        prnQry.add_part(TAG::GATE, boost::any_cast<string>(tag_list[TAG::GATE].TagInfo));
-    if(tag_list[TAG::REG_NO].processed)
-        prnQry.add_part(TAG::REG_NO, paxInfo.reg_no);
     if(
             tag_list[TAG::SEAT_NO].processed or
             tag_list[TAG::ONE_SEAT_NO].processed or
@@ -746,31 +745,16 @@ void TPrnTagStore::save_bp_print(bool pr_print)
         prnQry.add_part("seat_no", get_fmt_seat("list", seat_no_lat));
         prnQry.add_part("seat_no_lat", get_fmt_seat("list", true));
     }
-    if(tag_list[TAG::NAME].processed)
-        prnQry.add_part(TAG::NAME, paxInfo.name);
-    if(tag_list[TAG::NO_SMOKE].processed)
-        prnQry.add_part("pr_smoke", paxInfo.pr_smoke);
-    if(tag_list[TAG::BAG_AMOUNT].processed or tag_list[TAG::BAGGAGE].processed)
-        prnQry.add_part(TAG::BAG_AMOUNT, paxInfo.bag_amount);
-    if(tag_list[TAG::TAGS].processed)
-        prnQry.add_part(TAG::TAGS, paxInfo.tags);
-    if(tag_list[TAG::BAG_WEIGHT].processed or tag_list[TAG::BAGGAGE].processed)
-        prnQry.add_part(TAG::BAG_WEIGHT, paxInfo.bag_weight);
-    if(tag_list[TAG::EXCESS].processed)
-        prnQry.add_part(TAG::EXCESS, grpInfo.excess);
-    if(tag_list[TAG::FLT_NO].processed) {
-        prnQry.add_part(TAG::FLT_NO, pointInfo.flt_no);
-        prnQry.add_part("suffix", pointInfo.suffix);
+    if(tag_list[TAG::BI_HALL].processed) {
+        prnQry.add_part("hall_id", BIHallInfo.hall_id);
     }
-    if(tag_list[TAG::SURNAME].processed)
-        prnQry.add_part(TAG::SURNAME, paxInfo.surname);
-    string SQLText = prnQry.text();
-    Qry.SQLText = SQLText;
+
+    Qry.SQLText = prnQry.text();
     try {
         Qry.Execute();
     } catch(EOracleError &E) {
         if(E.Code == 1) {
-            if(TReqInfo::Instance()->client_type == ctTerm)
+            if(TReqInfo::Instance()->client_type == ctTerm and op_type == dotPrnBP)
                 throw UserException("MSG.PRINT.BP_ALREADY_PRODUCED");
         } else
             throw;
@@ -805,9 +789,9 @@ void TPrnTagStore::TFqtInfo::Init(int apax_id)
         pr_init = true;
         TQuery Qry(&OraSession);
         if (!isTestPaxId(apax_id))
-          Qry.SQLText = "select airline, no, extra, tier_level from pax_fqt where pax_id = :pax_id and rownum < 2";
+            Qry.SQLText = "select airline, no, extra, tier_level from pax_fqt where pax_id = :pax_id and rownum < 2";
         else
-          Qry.SQLText = "SELECT pnr_airline AS airline, fqt_no AS no, NULL AS extra, null tier_level FROM test_pax WHERE id=:pax_id";
+            Qry.SQLText = "SELECT pnr_airline AS airline, fqt_no AS no, NULL AS extra, null tier_level FROM test_pax WHERE id=:pax_id";
         Qry.CreateVariable("pax_id", otInteger, apax_id);
         Qry.Execute();
         if(!Qry.Eof) {
@@ -865,67 +849,63 @@ void TPrnTagStore::TPaxInfo::Init(int apax_id, TTagLang &tag_lang)
         TQuery Qry(&OraSession);
         if (!isTestPaxId(pax_id))
         {
-          LoadPaxDoc(pax_id, doc);
-          Qry.SQLText =
-              "select "
-              "   surname, "
-              "   name, "
-              "   ticket_rem, "
-              "   ticket_no, "
-              "   coupon_no, "
-              "   DECODE( "
-              "       pax.SEAT_TYPE, "
-              "       'SMSA',1, "
-              "       'SMSW',1, "
-              "       'SMST',1, "
-              "       0) pr_smoke, "
-              "   reg_no, "
-              "   seats, "
-              "   pers_type, "
-              "   ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount, "
-              "   ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight, "
-              "   ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount, "
-              "   ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight, "
-              "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
-              "   pax.subclass "
-              "from "
-              "   pax "
-              "where "
-              "   pax_id = :pax_id ";
-          Qry.CreateVariable("lang", otString, tag_lang.GetLang());
+            LoadPaxDoc(pax_id, doc);
+            Qry.SQLText =
+                "select "
+                "   surname, "
+                "   name, "
+                "   ticket_rem, "
+                "   ticket_no, "
+                "   coupon_no, "
+                "   DECODE( "
+                "       pax.SEAT_TYPE, "
+                "       'SMSA',1, "
+                "       'SMSW',1, "
+                "       'SMST',1, "
+                "       0) pr_smoke, "
+                "   reg_no, "
+                "   seats, "
+                "   pers_type, "
+                "   ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount, "
+                "   ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight, "
+                "   ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount, "
+                "   ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight, "
+                "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
+                "   pax.subclass "
+                "from "
+                "   pax "
+                "where "
+                "   pax_id = :pax_id ";
+            Qry.CreateVariable("lang", otString, tag_lang.GetLang());
 
-          TQuery bpPrintQry(&OraSession);
-          bpPrintQry.SQLText = "SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND pr_print<>0 AND rownum=1";
-          bpPrintQry.CreateVariable("pax_id", otInteger, pax_id);
-          bpPrintQry.Execute();
-          pr_bp_print = not bpPrintQry.Eof;
-
+            get_pr_print(pax_id, pr_bp_print, pr_bi_print);
         }
         else
         {
-          Qry.SQLText =
-              "SELECT "
-              "   surname, "
-              "   NULL AS name, "
-              "   'TKNE' AS ticket_rem, "
-              "   tkn_no AS ticket_no, "
-              "   1 AS coupon_no, "
-              "   0 AS pr_smoke, "
-              "   reg_no, "
-              "   1 AS seats, "
-              "   :adult AS pers_type, "
-              "   0 AS bag_amount, "
-              "   0 AS bag_weight, "
-              "   0 AS rk_amount, "
-              "   0 AS rk_weight, "
-              "   NULL AS tags, "
-              "   null subclass "
-              "FROM "
-              "   test_pax "
-              "WHERE "
-              "   id = :pax_id ";
-          Qry.CreateVariable("adult", otString, EncodePerson(adult));
-          pr_bp_print = false;
+            Qry.SQLText =
+                "SELECT "
+                "   surname, "
+                "   NULL AS name, "
+                "   'TKNE' AS ticket_rem, "
+                "   tkn_no AS ticket_no, "
+                "   1 AS coupon_no, "
+                "   0 AS pr_smoke, "
+                "   reg_no, "
+                "   1 AS seats, "
+                "   :adult AS pers_type, "
+                "   0 AS bag_amount, "
+                "   0 AS bag_weight, "
+                "   0 AS rk_amount, "
+                "   0 AS rk_weight, "
+                "   NULL AS tags, "
+                "   null subclass "
+                "FROM "
+                "   test_pax "
+                "WHERE "
+                "   id = :pax_id ";
+            Qry.CreateVariable("adult", otString, EncodePerson(adult));
+            pr_bp_print = false;
+            pr_bi_print = false;
         };
         Qry.CreateVariable("pax_id", otInteger, pax_id);
         Qry.Execute();
@@ -964,66 +944,66 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
         TQuery Qry(&OraSession);
         if (!isTestPaxId(grp_id))
         {
-          Qry.SQLText =
-              "select "
-              "   point_dep, "
-              "   point_arv, "
-              "   airp_dep, "
-              "   airp_arv, "
-              "   class_grp, "
-              "   hall, "
-              "   DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess "
-              "from "
-              "   pax_grp "
-              "where "
-              "   grp_id = :grp_id ";
-          Qry.CreateVariable("grp_id", otInteger, grp_id);
-          Qry.Execute();
-          if(Qry.Eof)
-              throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
-          airp_dep = Qry.FieldAsString("airp_dep");
-          airp_arv = Qry.FieldAsString("airp_arv");
-          point_dep = Qry.FieldAsInteger("point_dep");
-          point_arv = Qry.FieldAsInteger("point_arv");
-          if(not Qry.FieldIsNULL("class_grp"))
-              class_grp = Qry.FieldAsInteger("class_grp");
-          if(not Qry.FieldIsNULL("hall"))
-              hall = Qry.FieldAsInteger("hall");
-          excess = Qry.FieldAsInteger("excess");
+            Qry.SQLText =
+                "select "
+                "   point_dep, "
+                "   point_arv, "
+                "   airp_dep, "
+                "   airp_arv, "
+                "   class_grp, "
+                "   hall, "
+                "   DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess "
+                "from "
+                "   pax_grp "
+                "where "
+                "   grp_id = :grp_id ";
+            Qry.CreateVariable("grp_id", otInteger, grp_id);
+            Qry.Execute();
+            if(Qry.Eof)
+                throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
+            airp_dep = Qry.FieldAsString("airp_dep");
+            airp_arv = Qry.FieldAsString("airp_arv");
+            point_dep = Qry.FieldAsInteger("point_dep");
+            point_arv = Qry.FieldAsInteger("point_arv");
+            if(not Qry.FieldIsNULL("class_grp"))
+                class_grp = Qry.FieldAsInteger("class_grp");
+            if(not Qry.FieldIsNULL("hall"))
+                hall = Qry.FieldAsInteger("hall");
+            excess = Qry.FieldAsInteger("excess");
         }
         else
         {
-          point_dep=grp_id-TEST_ID_BASE;
-          Qry.Clear();
-          Qry.SQLText =
-            "SELECT airp AS airp_dep FROM points WHERE point_id=:point_id AND pr_del>=0";
-          Qry.CreateVariable("point_id", otInteger, point_dep);
-          Qry.Execute();
-          if(Qry.Eof)
-              throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
-          airp_dep = Qry.FieldAsString("airp_dep");
+            point_dep=grp_id-TEST_ID_BASE;
+            Qry.Clear();
+            Qry.SQLText =
+                "SELECT airp AS airp_dep FROM points WHERE point_id=:point_id AND pr_del>=0";
+            Qry.CreateVariable("point_id", otInteger, point_dep);
+            Qry.Execute();
+            if(Qry.Eof)
+                throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
+            airp_dep = Qry.FieldAsString("airp_dep");
 
-          TTripRouteItem next;
-          TTripRoute().GetNextAirp(NoExists,point_dep,trtNotCancelled,next);
-          if (next.point_id==NoExists || next.airp.empty())
-            throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
-          point_arv = next.point_id;
-          airp_arv = next.airp;
+            TTripRouteItem next;
+            TTripRoute().GetNextAirp(NoExists,point_dep,trtNotCancelled,next);
+            if (next.point_id==NoExists || next.airp.empty())
+                throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
+            point_arv = next.point_id;
+            airp_arv = next.airp;
 
-          Qry.Clear();
-          Qry.SQLText =
-            "SELECT cls_grp.id AS class_grp "
-            "FROM test_pax, subcls, cls_grp "
-              "WHERE test_pax.subclass=subcls.code AND "
-              "      subcls.class=cls_grp.class AND "
-            "      cls_grp.airline IS NULL AND cls_grp.airp IS NULL AND "
-            "      test_pax.id=:pax_id";
-          Qry.CreateVariable("pax_id", otInteger, apax_id);
-          Qry.Execute();
-          if(Qry.Eof)
-              throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
-          class_grp = Qry.FieldAsInteger("class_grp");
-          excess =0;
+            Qry.Clear();
+            Qry.SQLText =
+                "SELECT cls_grp.id AS class_grp "
+                "FROM test_pax, subcls, cls_grp "
+                "WHERE test_pax.subclass=subcls.code AND "
+                "      subcls.class=cls_grp.class AND "
+                "      cls_grp.airline IS NULL AND cls_grp.airp IS NULL AND "
+                "      test_pax.id=:pax_id";
+            Qry.CreateVariable("pax_id", otInteger, apax_id);
+            Qry.Execute();
+            if(Qry.Eof)
+                throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
+            class_grp = Qry.FieldAsInteger("class_grp");
+            excess =0;
         };
     }
 }
@@ -1063,26 +1043,26 @@ void TPrnTagStore::TPointInfo::Init(TDevOperType op, int apoint_id, int agrp_id)
         suffix = operFlt.suffix;
         if (!isTestPaxId(agrp_id))
         {
-          Qry.Clear();
-          Qry.SQLText=
-              "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
-              "       mark_trips.scd AS scd_out,mark_trips.airp_dep AS airp "
-              "FROM pax_grp,mark_trips "
-              "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id";
-          Qry.CreateVariable("grp_id",otInteger,agrp_id);
-          Qry.Execute();
-          if (!Qry.Eof)
-          {
-              TTripInfo markFlt(Qry);
-              TCodeShareSets codeshareSets;
-              codeshareSets.get(operFlt,markFlt);
-              if ( op == dotPrnBP and codeshareSets.pr_mark_bp )
-              {
-                  airline = markFlt.airline;
-                  flt_no = markFlt.flt_no;
-                  suffix = markFlt.suffix;
-              };
-          }
+            Qry.Clear();
+            Qry.SQLText=
+                "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
+                "       mark_trips.scd AS scd_out,mark_trips.airp_dep AS airp "
+                "FROM pax_grp,mark_trips "
+                "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id";
+            Qry.CreateVariable("grp_id",otInteger,agrp_id);
+            Qry.Execute();
+            if (!Qry.Eof)
+            {
+                TTripInfo markFlt(Qry);
+                TCodeShareSets codeshareSets;
+                codeshareSets.get(operFlt,markFlt);
+                if ( op == dotPrnBP and codeshareSets.pr_mark_bp )
+                {
+                    airline = markFlt.airline;
+                    flt_no = markFlt.flt_no;
+                    suffix = markFlt.suffix;
+                };
+            }
         };
         TripsInterface::readGates(point_id, gates);
     }
@@ -1490,10 +1470,10 @@ string TPrnTagStore::BAG_AMOUNT(TFieldParams fp)
 string TPrnTagStore::TAGS(TFieldParams fp)
 {
     /* !!! TODO
-    if(scan_data != NULL)
-        return some;
-    else
-    */
+       if(scan_data != NULL)
+       return some;
+       else
+       */
         return paxInfo.tags;
 }
 
@@ -2053,35 +2033,35 @@ string TPrnTagStore::get_fmt_seat(string fmt, bool english_tag)
     TQuery Qry(&OraSession);
     if (!isTestPaxId(paxInfo.pax_id))
     {
-      Qry.SQLText =
-          "select "
-          "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,:fmt,NULL,:is_inter) AS seat_no "
-          "from dual";
-      Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
-      Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-      Qry.CreateVariable("fmt", otString, fmt);
+        Qry.SQLText =
+            "select "
+            "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,:fmt,NULL,:is_inter) AS seat_no "
+            "from dual";
+        Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
+        Qry.CreateVariable("seats", otInteger, paxInfo.seats);
+        Qry.CreateVariable("fmt", otString, fmt);
 
-      Qry.CreateVariable("is_inter", otInteger, 0);
-      Qry.Execute();
-      if ((tag_lang.get_pr_lat() or english_tag) && not IsAscii7(Qry.FieldAsString("seat_no")))
-      {
-          Qry.SetVariable("is_inter",1);
-          Qry.Execute();
-      }
-      return Qry.FieldAsString("seat_no");
+        Qry.CreateVariable("is_inter", otInteger, 0);
+        Qry.Execute();
+        if ((tag_lang.get_pr_lat() or english_tag) && not IsAscii7(Qry.FieldAsString("seat_no")))
+        {
+            Qry.SetVariable("is_inter",1);
+            Qry.Execute();
+        }
+        return Qry.FieldAsString("seat_no");
     }
     else
     {
-      Qry.SQLText =
-        "SELECT seat_xname, seat_yname FROM test_pax WHERE id=:pax_id";
-      Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
-      Qry.Execute();
-      if (Qry.Eof || Qry.FieldIsNULL("seat_yname") || Qry.FieldIsNULL("seat_xname")) return "";
-      TSeat seat(Qry.FieldAsString("seat_yname"),Qry.FieldAsString("seat_xname"));
-      string result=GetSeatView(seat, lowerc(fmt), false);
-      if ((tag_lang.get_pr_lat() or english_tag) && not IsAscii7(result))
-        result=GetSeatView(seat, lowerc(fmt), true);
-      return result;
+        Qry.SQLText =
+            "SELECT seat_xname, seat_yname FROM test_pax WHERE id=:pax_id";
+        Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
+        Qry.Execute();
+        if (Qry.Eof || Qry.FieldIsNULL("seat_yname") || Qry.FieldIsNULL("seat_xname")) return "";
+        TSeat seat(Qry.FieldAsString("seat_yname"),Qry.FieldAsString("seat_xname"));
+        string result=GetSeatView(seat, lowerc(fmt), false);
+        if ((tag_lang.get_pr_lat() or english_tag) && not IsAscii7(result))
+            result=GetSeatView(seat, lowerc(fmt), true);
+        return result;
     };
 }
 
@@ -2292,6 +2272,35 @@ string TPrnTagStore::AIRP_ARV_NAME3(TFieldParams fp) {
     return AIRP_ARV_NAME1(fp);
 }
 
+string TPrnTagStore::BI_HALL_CAPTION(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty()) {
+        const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
+        if(rule.exists()) {
+            BIHallInfo.hall_id = *rule.halls.begin();
+            result << upperc(getLocaleText("Бизнес зал", tag_lang.GetLang()));
+            if(rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
+                result << " +1";
+        }
+    }
+    return result.str();
+}
+
+string TPrnTagStore::BI_HALL(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty()) {
+        const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
+        if(rule.exists() and not rule.halls.empty()) {
+            BIHallInfo.hall_id = *rule.halls.begin();
+            int hall = *rule.halls.begin();
+            result << tag_lang.ElemIdToTagElem(etBIHall, hall, efmtNameLong);
+            if(rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
+                result << " +1";
+        }
+    }
+    return result.str();
+}
+
 string TPrnTagStore::PNR(TFieldParams fp) {
     if(scan_data != NULL)
         return scan_data->operatingCarrierPNR(0);
@@ -2372,20 +2381,20 @@ string TPrnTagStore::VALUE_BT(TFieldParams fp)
 
 int separate_double(double d, int precision, int *iptr)
 {
-  double pd;
-  int pi;
-  switch (precision)
-  {
-    case 0: pd=1.0;     pi=1;     break;
-    case 1: pd=10.0;    pi=10;    break;
-    case 2: pd=100.0;   pi=100;   break;
-    case 3: pd=1000.0;  pi=1000;  break;
-    case 4: pd=10000.0; pi=10000; break;
-   default: throw Exception("separate_double: wrong precision %d",precision);
-  };
-  int i=int(round(d*pd));
-  if (iptr!=NULL) *iptr=i/pi;
-  return i%pi;
+    double pd;
+    int pi;
+    switch (precision)
+    {
+        case 0: pd=1.0;     pi=1;     break;
+        case 1: pd=10.0;    pi=10;    break;
+        case 2: pd=100.0;   pi=100;   break;
+        case 3: pd=1000.0;  pi=1000;  break;
+        case 4: pd=10000.0; pi=10000; break;
+        default: throw Exception("separate_double: wrong precision %d",precision);
+    };
+    int i=int(round(d*pd));
+    if (iptr!=NULL) *iptr=i/pi;
+    return i%pi;
 };
 
 string TPrnTagStore::VALUE_BT_LETTER(TFieldParams fp)
@@ -2441,34 +2450,34 @@ string TPrnTagStore::AIRLINE_CODE(TFieldParams fp)
 
 double TBagReceipt::pay_rate()
 {
-  double pay_rate;
-  if (pay_rate_cur != rate_cur)
-    pay_rate = (rate * exch_pay_rate)/exch_rate;
-  else
-    pay_rate = rate;
-  return pay_rate;
+    double pay_rate;
+    if (pay_rate_cur != rate_cur)
+        pay_rate = (rate * exch_pay_rate)/exch_rate;
+    else
+        pay_rate = rate;
+    return pay_rate;
 }
 
 double TBagReceipt::rate_sum()
 {
-  double rate_sum;
-  if(service_type == 1 || service_type == 2) {
-      rate_sum = rate * ex_weight;
-  } else {
-      rate_sum = rate * value_tax/100;
-  }
-  return rate_sum;
+    double rate_sum;
+    if(service_type == 1 || service_type == 2) {
+        rate_sum = rate * ex_weight;
+    } else {
+        rate_sum = rate * value_tax/100;
+    }
+    return rate_sum;
 }
 
 double TBagReceipt::pay_rate_sum()
 {
-  double pay_rate_sum;
-  if(service_type == 1 || service_type == 2) {
-      pay_rate_sum = pay_rate() * ex_weight;
-  } else {
-      pay_rate_sum = pay_rate() * value_tax/100;
-  }
-  return pay_rate_sum;
+    double pay_rate_sum;
+    if(service_type == 1 || service_type == 2) {
+        pay_rate_sum = pay_rate() * ex_weight;
+    } else {
+        pay_rate_sum = pay_rate() * value_tax/100;
+    }
+    return pay_rate_sum;
 }
 
 int get_rate_precision(double rate, string rate_cur)
@@ -2483,26 +2492,26 @@ int get_rate_precision(double rate, string rate_cur)
         precision = 2;
     else
     {
-      if (separate_double(rate,2,NULL)!=0)
-        precision = 2;
-      else
-        precision = 0;
+        if (separate_double(rate,2,NULL)!=0)
+            precision = 2;
+        else
+            precision = 0;
     };
     return precision;
 }
 
 string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
 {
-  //fmt_type=1 - только rate
-  //fmt_type=2 - только rate_cur
-  //иначе rate+rate_cur
+    //fmt_type=1 - только rate
+    //fmt_type=2 - только rate_cur
+    //иначе rate+rate_cur
     ostringstream buf;
     if (fmt_type!=2 && !pr_lat)
-      buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
+        buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
     if (fmt_type!=1)
-      buf << base_tables.get("currency").get_row("code", rate_cur).AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
+        buf << base_tables.get("currency").get_row("code", rate_cur).AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
     if (fmt_type!=2 && pr_lat)
-      buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
+        buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
     return buf.str();
 };
 
@@ -2605,27 +2614,27 @@ string TPrnTagStore::EX_WEIGHT(TFieldParams fp)
 
 int get_exch_precision(double rate)
 {
-  int i;
-  i=separate_double(rate,4,NULL);
+    int i;
+    i=separate_double(rate,4,NULL);
 
-  if (i==0) return 0;
-  if (i%100==0) return 2;
-  return 4;
+    if (i==0) return 0;
+    if (i%100==0) return 2;
+    return 4;
 
     /*double iptr;
-    ostringstream ssbuf;
-    ssbuf << noshowpoint << modf(rate, &iptr);
-    int precision = ssbuf.str().size();
-    if(precision == 1)
-        precision = 0;
-    else
-        precision -= 2;
+      ostringstream ssbuf;
+      ssbuf << noshowpoint << modf(rate, &iptr);
+      int precision = ssbuf.str().size();
+      if(precision == 1)
+      precision = 0;
+      else
+      precision -= 2;
 
-    if(precision >= 3)
-        precision = 4;
-    else if(precision >= 1)
-        precision = 2;
-    return precision; */
+      if(precision >= 3)
+      precision = 4;
+      else if(precision >= 1)
+      precision = 2;
+      return precision; */
 }
 
 string ExchToString(int rate1, string rate_cur1, double rate2, string rate_cur2, TTagLang &tag_lang)
@@ -2785,7 +2794,7 @@ string TPrnTagStore::PREV_NO(TFieldParams fp)
 
 int get_value_tax_precision(double tax)
 {
-  return 1;
+    return 1;
 };
 
 string TPrnTagStore::RATE(TFieldParams fp)
@@ -2816,7 +2825,7 @@ string TPrnTagStore::REMARKS1(TFieldParams fp)
         if(
                 rcpt.form_type == FT_M61 or
                 rcpt.form_type == FT_298_401
-                ) {
+          ) {
             if(rcpt.service_type == 1 || rcpt.service_type == 2) {
                 result << getLocaleText("MSG.BR.RATE_PER_KG", tag_lang.GetLang()) << RATE(fp);
                 if(rcpt.pr_exchange())
@@ -2850,7 +2859,7 @@ string TPrnTagStore::REMARKS2(TFieldParams fp)
         if(
                 rcpt.form_type == FT_M61 or
                 rcpt.form_type == FT_298_401
-                ) {
+          ) {
             if(rcpt.service_type == 1 || rcpt.service_type == 2)
                 result
                     << rcpt.ex_weight
@@ -2923,8 +2932,8 @@ string TPrnTagStore::TO(TFieldParams fp)
     ostringstream s;
     s << POINT_DEP(fp) << "-" << POINT_ARV(fp) << " " << AIRLINE_CODE(fp);
     if (rcpt.scd_local_date!=ASTRA::NoExists)
-      s << " "
-        << DateTimeToStr(rcpt.scd_local_date, "ddmmm", tag_lang.GetLang() != AstraLocale::LANG_RU);
+        s << " "
+            << DateTimeToStr(rcpt.scd_local_date, "ddmmm", tag_lang.GetLang() != AstraLocale::LANG_RU);
     return  s.str();
 }
 
@@ -2938,5 +2947,368 @@ string TPrnTagStore::NDS(TFieldParams fp)
 
 string TPrnTagStore::TOTAL(TFieldParams fp)
 {
-  return RateToString(rcpt.pay_rate_sum(), rcpt.pay_rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
+    return RateToString(rcpt.pay_rate_sum(), rcpt.pay_rate_cur, tag_lang.GetLang() != AstraLocale::LANG_RU, 0);
+}
+
+std::ostream & operator <<(std::ostream &os, BIPrintRules::TPrintType::Enum const &value)
+{
+    os << BIPrintRules::PrintTypesView().encode(value);
+    return os;
+}
+
+namespace BIPrintRules {
+
+    const TPrintTypes& PrintTypes()
+    {
+      static TPrintTypes printTypes;
+      return printTypes;
+    }
+    const TPrintTypesView& PrintTypesView()
+    {
+      static TPrintTypesView printTypesView;
+      return printTypesView;
+    }
+
+    void TRule::dump(const string &file = "", int line = NoExists) const
+    {
+        LogTrace(TRACE5) << "-------TRule::dump(): " << file << ":" << (line == NoExists ? 0 : line) << "-------";
+        LogTrace(TRACE5) << "id: " << id;
+        ostringstream buf;
+        copy(halls.begin(), halls.end(), ostream_iterator<int>(buf, " "));
+        LogTrace(TRACE5) << "halls: [" << buf.str() << "]";
+        LogTrace(TRACE5) << "curr_hall: " << curr_hall;
+        LogTrace(TRACE5) << "pr_print_bi: " << pr_print_bi;
+        LogTrace(TRACE5) << "print_type: " << print_type;
+        LogTrace(TRACE5) << "---------------------------";
+    }
+
+    void get_rule(
+            const string &airline,
+            const string &tier_level,
+            const string &cls,
+            const string &subcls,
+            const string &rem_code,
+            const string &brand,
+            TRule &rule
+            )
+    {
+        TCachedQuery Qry(
+                "select "
+                "    id, "
+                "    print_type, "
+                "    decode(class, null, 0, 1) + "
+                "    decode(subclass, null, 0, 2) + "
+                "    decode(brand_code, null, 0, 3) + "
+                "    decode(fqt_tier_level, null, 0, 4) + "
+                "    decode(rem_code, null, 0, 5) "
+                "    priority "
+                "from "
+                "    bi_print_rules "
+                "where "
+                "    airline = :airline and "
+                "    pr_denial = 0 and "
+                "    (class is null or class = :class) and "
+                "    (subclass is null or subclass = :subclass) and "
+                "    (brand_code is null or brand_code = :brand) and "
+                "    (fqt_tier_level is null or fqt_tier_level = :tier_level) and "
+                "    (rem_code is null or rem_code = :rem_code) "
+                "order by "
+                "    priority desc ",
+                QParams()
+                << QParam("airline", otString, airline)
+                << QParam("class", otString, cls)
+                << QParam("subclass", otString, subcls)
+                << QParam("brand", otString, subcls)
+                << QParam("tier_level", otString, tier_level)
+                << QParam("rem_code", otString, rem_code)
+                );
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            rule.id = Qry.get().FieldAsInteger("id");
+            rule.print_type = PrintTypes().decode(Qry.get().FieldAsString("print_type"));
+        }
+    }
+
+    bool bi_airline_service(
+            const TTripInfo &info,
+            TRule &rule
+            )
+    {
+        TCachedQuery Qry(
+                "select "
+                "   terminal, "
+                "   hall, "
+                "   pr_print_bi "
+                "from "
+                "   bi_airline_service "
+                "where "
+                "   airline = :airline and "
+                "   airp = :airp and "
+                "   pr_denial = 0 ",
+                QParams()
+                << QParam("airline", otString, info.airline)
+                << QParam("airp", otString, info.airp)
+                );
+        Qry.get().Execute();
+        bool result = not Qry.get().Eof;
+        if(result) {
+            if(Qry.get().FieldIsNULL("hall")) {
+                // Если бизнес зал не задан, достаем все залы данного терминала.
+                TCachedQuery hallsQry("select id from bi_halls where terminal = :terminal",
+                        QParams() << QParam("terminal", otInteger, Qry.get().FieldAsInteger("terminal")));
+                hallsQry.get().Execute();
+                for(; not hallsQry.get().Eof; hallsQry.get().Next())
+                    rule.halls.push_back(hallsQry.get().FieldAsInteger("id"));
+            } else
+                rule.halls.push_back(Qry.get().FieldAsInteger("hall"));
+            rule.pr_print_bi = Qry.get().FieldAsInteger("pr_print_bi") != 0;
+        }
+        return result;
+    }
+
+    bool Holder::select(xmlNodePtr reqNode)
+    {
+        xmlNodePtr currNode = reqNode->children;
+        currNode = GetNodeFast("halls", currNode);
+
+        if(not currNode) return true;
+
+        bool result = true;
+        currNode = currNode->children;
+        // Пробег по пришедшим залам
+        // Если хотя бы один не найден в правилах,
+        // Правила не меняем.
+        for(; currNode; currNode = currNode->next) {
+            xmlNodePtr dataNode = currNode->children;
+            int pax_id = NodeAsIntegerFast("pax_id", dataNode);
+            int hall_id = NodeAsIntegerFast("hall_id", dataNode);
+            LogTrace(TRACE5) << "select pax_id: " << pax_id;
+            LogTrace(TRACE5) << "select hall_id: " << hall_id;
+
+            TPaxList::iterator rule = items.find(pax_id);
+            if(rule == items.end()) {
+                result = false;
+                break;
+            }
+
+            list<int>::iterator iHall =
+                find(
+                        rule->second.halls.begin(),
+                        rule->second.halls.end(),
+                        hall_id);
+            if(iHall != rule->second.halls.end())
+                rule->second.curr_hall = hall_id;
+            else {
+                result = false;
+                break;
+            }
+            
+        }
+        if(result) {
+            for(TPaxList::iterator i = items.begin(); i != items.end(); i++) {
+                if(i->second.curr_hall != NoExists) {
+                    i->second.halls.clear();
+                    i->second.halls.push_back(i->second.curr_hall);
+                }
+            }
+        }
+        return result;
+    }
+
+    int Holder::get_hall_id(TDevOperType op_type, int pax_id)
+    {
+        TCachedQuery Qry(
+                "select confirm_print.hall_id "
+                "FROM confirm_print, "
+                "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id AND pr_print<>0 and " OP_TYPE_COND("op_type")") a "
+                "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND "
+                "      " OP_TYPE_COND("confirm_print.op_type"),
+                QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, EncodeDevOperType(op_type))
+                );
+        Qry.get().Execute();
+        int result = NoExists;
+        if(not Qry.get().Eof)
+            result = Qry.get().FieldAsInteger("hall_id");
+        return result;
+    }
+
+    void Holder::toXML(TDevOperType op_type, xmlNodePtr resNode)
+    {
+        xmlNodePtr paxListNode = NULL;
+        for(TPaxList::const_iterator i = items.begin(); i != items.end(); i++) {
+            if(not i->second.pr_get) continue;
+            if(i->second.exists() and i->second.halls.size() > 1) {
+                if(not paxListNode) {
+                    xmlNodePtr printNode = NewTextChild(NewTextChild(resNode, "data"), "print");
+                    SetProp(printNode, "halls");
+                    paxListNode = NewTextChild(printNode, "passengers");
+                }
+                xmlNodePtr itemNode = NewTextChild(paxListNode, "passenger");
+                NewTextChild(itemNode, "pax_id", i->first);
+                NewTextChild(itemNode, "hall_id", get_hall_id(op_type, i->first), NoExists); // last printed hall
+                xmlNodePtr hallsNode = NewTextChild(itemNode, "halls");
+                for(list<int>::const_iterator iHall = i->second.halls.begin(); iHall != i->second.halls.end(); iHall++) {
+                    xmlNodePtr iHallNode = NewTextChild(hallsNode, "item");
+                    NewTextChild(iHallNode, "id", *iHall);
+                    NewTextChild(iHallNode, "name", ElemIdToNameLong(etBIHall, *iHall));
+                }
+            }
+        }
+    }
+
+    bool Holder::complete() const
+    {
+        bool result = true;
+        for(TPaxList::const_iterator i = items.begin(); i != items.end(); i++) {
+            if(not i->second.pr_get) continue;
+            if(not i->second.exists()) continue;
+            result = i->second.halls.size() == 1;
+            if(not result) break;
+        }
+        return result;
+    }
+
+    void Holder::dump() const
+    {
+        LogTrace(TRACE5) << "-----BIPrintRules::Holder::dump-----";
+        LogTrace(TRACE5) << "items.size(): " << items.size();
+        for(TPaxList::const_iterator i = items.begin(); i != items.end(); i++) {
+            LogTrace(TRACE5) << "pax_id: " << i->first;
+            i->second.dump();
+        }
+        LogTrace(TRACE5) << "------------------------------------";
+    }
+
+    const TRule &Holder::get(int grp_id, int pax_id)
+    {
+        TPaxList::iterator iPax = items.find(pax_id);
+        if(iPax == items.end()) {
+            if(grp_id == NoExists) {
+                TCachedQuery grpQry("select grp_id from pax where pax_id = :pax_id",
+                        QParams() << QParam("pax_id", otInteger, pax_id));
+                grpQry.get().Execute();
+                if(grpQry.get().Eof)
+                    throw Exception("bi_rules: grp_id not found for pax_id: %d", pax_id);
+                grp_id = grpQry.get().FieldAsInteger("grp_id");
+            }
+            if(grps.find(grp_id) == grps.end()) { // Rules for this group not queried yet
+                getByGrpId(grp_id);
+                grps.insert(grp_id);
+            }
+            iPax = items.find(pax_id);
+            if(iPax == items.end())
+                throw Exception("BIPrintRules::Holder: rule not defined for pax_id %d", pax_id);
+        }
+        iPax->second.pr_get = true;
+        return iPax->second;
+    }
+
+    void Holder::getByGrpId(int grp_id)
+    {
+        TCachedQuery fltQry("select points.* from points, pax_grp where pax_grp.grp_id = :grp_id and pax_grp.point_dep = points.point_id",
+                QParams() << QParam("grp_id", otInteger, grp_id));
+        fltQry.get().Execute();
+        TTripInfo t(fltQry.get());
+
+        TCachedQuery paxQry(
+                "select "
+                "   pax.pax_id, "
+                "   pax_grp.class, "
+                "   pax.subclass, "
+                "   pax.ticket_no, "
+                "   pax.coupon_no "
+                "from "
+                "   pax, "
+                "   pax_grp "
+                "where "
+                "   pax_grp.grp_id = :grp_id and "
+                "   pax.grp_id = pax_grp.grp_id ",
+                QParams() << QParam("grp_id", otInteger, grp_id));
+        paxQry.get().Execute();
+        for(; not paxQry.get().Eof; paxQry.get().Next()) {
+            int pax_id = paxQry.get().FieldAsInteger("pax_id");
+            string cls = paxQry.get().FieldAsString("class");
+            string subcls = paxQry.get().FieldAsString("subclass");
+            string ticket_no = paxQry.get().FieldAsString("ticket_no");
+            int coupon_no = paxQry.get().FieldAsInteger("coupon_no");
+            TRule bi_rule;
+            // Достаем данные из кеша Обслуживание авиакомпаний в аэропортах
+            if(bi_airline_service(t, bi_rule)) {
+                // на данном этапе в bi_rule определены:
+                // Список залов     (bi_rule.halls)
+                // Биз. пригл.      (bi_rule.pr_print_bi)
+
+                // Достаем fare_basis (etick.fare_basis)
+                TETickItem etick;
+
+                try { // может не быть ЭБ
+                    etick.fromDB(ticket_no, coupon_no, TETickItem::Display, false);
+                } catch(...) {
+                }
+
+                if(not etick.fare_basis.empty())
+                {
+
+                    // Достаем бренды, соотв. etick.fare_basis (их не может быть > 1, ну а вдруг?)
+                    list<string> brands;
+                    TCachedQuery brandQry(
+                            "select brand from brand_fares where  airline = :airline and :fare_basis like replace(fare_basis, '*', '%')",
+                            QParams()
+                            << QParam("airline", otString, t.airline)
+                            << QParam("fare_basis", otString, etick.fare_basis));
+                    brandQry.get().Execute();
+                    for(; not brandQry.get().Eof; brandQry.get().Next())
+                        brands.push_back(brandQry.get().FieldAsString("brand"));
+
+
+                    // Достаем ремарки
+                    vector<CheckIn::TPaxFQTItem> fqts;
+                    CheckIn::LoadPaxFQT(pax_id, fqts);
+
+                    // Пробег по брендам и ремаркам
+                    // у паса может быть несколько ремарок с разными
+                    // настройками группы регистрации (bi_print_rules.print_type = ALL, TWO, ONE)
+                    // выбираем самую приоритетную.
+
+                    BIPrintRules::TRule tmp_rule = bi_rule; // чтобы не потерять hall, is_business_hall, pr_print_bi
+                    for(list<string>::iterator iBrand = brands.begin(); iBrand != brands.end(); iBrand++)
+                        for(vector<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); iFqt++) {
+                            BIPrintRules::get_rule(
+                                    t.airline,
+                                    iFqt->tier_level,
+                                    cls,
+                                    subcls,
+                                    iFqt->rem,
+                                    *iBrand,
+                                    tmp_rule
+                                    );
+
+                            // После нахождения правила из кеша Правила печати приглашений
+                            // данные этого правила сохраняются в bi_rule:
+                            // Группа регистрации (bi_rule.print_type)
+                            // Оформление (bi_rule.pr_issue)
+
+                            if(tmp_rule.exists()) {
+                                if(not bi_rule.exists())
+                                    bi_rule = tmp_rule;
+                                else {
+                                    // вот здесь выбор по приоритету
+                                    if(bi_rule.print_type < tmp_rule.print_type)
+                                        bi_rule = tmp_rule;
+                                }
+                            }
+                        }
+                }
+            }
+            items.insert(make_pair(pax_id, bi_rule));
+        }
+        // Находим первого паса с печатью для всей группы (Группа регистрации ДА т.е. bi_rule.print_type = All)
+        TPaxList::iterator grpPax = items.begin();
+        for(; grpPax!=items.end() and grpPax->second.print_type != BIPrintRules::TPrintType::All; ++grpPax );
+        // Применяем групповое правило для всех пасов, если таковое нашлось
+        if(grpPax != items.end()) {
+            for (TPaxList::iterator iPax=items.begin(); iPax!=items.end(); ++iPax )
+                iPax->second = grpPax->second;
+        }
+    }
 }

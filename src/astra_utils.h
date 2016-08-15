@@ -652,5 +652,7 @@ struct TEncodedFileStream
     TEncodedFileStream &operator << (std::ostream &(*os)(std::ostream &));
 };
 
+void get_pr_print(int pax_id, bool &pr_bp_print, bool &pr_bi_print);
+
 
 #endif /*_ASTRA_UTILS_H_*/

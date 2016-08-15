@@ -41,7 +41,7 @@ class PrintDataParser {
 };
 
 
-void GetTripBPPectabs(int point_id, const std::string &dev_model, const std::string &fmt_type, xmlNodePtr node);
+void GetTripBPPectabs(int point_id, ASTRA::TDevOperType op_type, const std::string &dev_model, const std::string &fmt_type, xmlNodePtr node);
 void GetTripBTPectabs(int point_id, const std::string &dev_model, const std::string &fmt_type, xmlNodePtr node);
 
 std::string get_validator(const TBagReceipt &rcpt, bool pr_lat);
@@ -62,6 +62,7 @@ class PrintInterface: public JxtInterface
           TDateTime time_print;
           std::string prn_form;
           std::string scan;
+
           bool hex;
           BPPax()
           {
@@ -104,6 +105,8 @@ class PrintInterface: public JxtInterface
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBP);
             AddEvent("GetPrintDataBP",evHandle);
             AddEvent("GetGRPPrintDataBP",evHandle);
+            AddEvent("GetGRPPrintData",evHandle);
+            AddEvent("GetPrintData",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ReprintDataBTXML);
             AddEvent("ReprintDataBT",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBTXML);
@@ -112,6 +115,7 @@ class PrintInterface: public JxtInterface
             AddEvent("ConfirmPrintBT",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ConfirmPrintBP);
             AddEvent("ConfirmPrintBP",evHandle);
+            AddEvent("ConfirmPrintData",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::RefreshPrnTests);
             AddEvent("refresh_prn_tests",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetImg);
@@ -130,11 +134,22 @@ class PrintInterface: public JxtInterface
                 );
         virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
-        static void GetPrintDataBP(const BPParams &params,
+        static void GetPrintDataBP(
+                                   ASTRA::TDevOperType op_type,
+                                   const BPParams &params,
+                                   std::string &data,
                                    std::string &pectab,
+                                   BIPrintRules::Holder &bi_rules,
                                    std::vector<BPPax> &paxs);
-        static void ConfirmPrintBP(const std::vector<BPPax> &paxs,
+        static void ConfirmPrintBP(ASTRA::TDevOperType op_type,
+                                   const std::vector<BPPax> &paxs,
                                    CheckIn::UserException &ue);
+        static void get_pectab(
+                ASTRA::TDevOperType op_type,
+                const BPParams &params,
+                std::string &data,
+                std::string &pectab
+                );
 };
 
 #endif

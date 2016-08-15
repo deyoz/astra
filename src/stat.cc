@@ -9772,15 +9772,16 @@ void departed_flt(TQuery &Qry, TEncodedFileStream &of)
         "   pax.reg_no, \n"
         "   pax_grp.client_type, \n"
         "   pax_grp.airp_arv, \n";
-    if(part_key == NoExists)
-    SQLText +=
-        "   (SELECT 1 FROM bp_print  "
-        "   WHERE bp_print.pax_id=pax.pax_id AND  "
-        "   client_type='TERM' AND pr_print<>0 AND rownum<2) AS term_bp, "
-        "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,0) AS seat_no, "
-        "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
-        "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight \n";
-    else
+    if(part_key == NoExists) {
+        SQLText +=
+            "   (SELECT 1 FROM confirm_print cnf  "
+            "   WHERE " OP_TYPE_COND("op_type")" and cnf.pax_id=pax.pax_id AND  "
+            "   client_type='TERM' AND pr_print<>0 AND rownum<2) AS term_bp, "
+            "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,0) AS seat_no, "
+            "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
+            "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight \n";
+        paxQry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    } else
     SQLText +=
           " NVL(arch.get_bagAmount2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
           " NVL(arch.get_bagWeight2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight \n";

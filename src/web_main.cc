@@ -1355,7 +1355,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
   }
   else {
     Salons = &SalonsO;
-  }  
+  }
   for( vector<TPlaceList*>::iterator placeList = Salons->placelists.begin();
        placeList != Salons->placelists.end(); placeList++ ) {
     TWebPlaceList web_place_list;
@@ -2538,7 +2538,7 @@ void WebRequestsIface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     };
   };
 
-  PrintInterface::ConfirmPrintBP(paxs, ue);  //не надо прокидывать ue в терминал - подтверждаем все что можем!
+  PrintInterface::ConfirmPrintBP(dotPrnBP, paxs, ue);  //не надо прокидывать ue в терминал - подтверждаем все что можем!
 
   NewTextChild( resNode, "ConfirmPrintBP" );
 };
@@ -2562,9 +2562,11 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
       "       DECODE(desk_grp_id,NULL,0,2)+ "
       "       DECODE(desk,NULL,0,4) AS priority "
       "FROM desk_bp_set "
-      "WHERE (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
+      "WHERE op_type=:op_type AND "
+      "      (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
       "      (desk IS NULL OR desk=:desk) "
       "ORDER BY priority DESC ";
+  Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
   Qry.CreateVariable("desk_grp_id", otInteger, reqInfo->desk.grp_id);
   Qry.CreateVariable("desk", otString, reqInfo->desk.code);
   Qry.Execute();
@@ -2620,8 +2622,9 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
   if (!ue.empty()) throw ue;
 
-  string pectab;
-  PrintInterface::GetPrintDataBP(params, pectab, paxs);
+  string pectab, data;
+  BIPrintRules::Holder bi_rules;
+  PrintInterface::GetPrintDataBP(dotPrnBP, params, data, pectab, bi_rules, paxs);
 
   xmlNodePtr BPNode = NewTextChild( resNode, "GetPrintDataBP" );
   NewTextChild(BPNode, "pectab", pectab);
@@ -2737,7 +2740,7 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
     }
   }
-  parser->pts.save_bp_print(true);
+  parser->pts.confirm_print(true, dotPrnBP);
 
   string gate=GetBPGate(pax.point_dep);
   if (!gate.empty())
