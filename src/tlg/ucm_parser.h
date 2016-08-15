@@ -7,6 +7,7 @@ namespace TypeB
 {
 
 struct TUCMFltInfo {
+    std::string src; // whole tlg line with flt as is
     std::string airline;
     std::string airp;
     int flt_no;

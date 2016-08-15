@@ -6695,11 +6695,14 @@ int FWD(TypeB::TDetailCreateInfo &info)
         };
 
         tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
-        tlg_row.tlg_type = UCMHeadingInfo->tlg_type;
         ostringstream heading;
-        heading << tlg_row.tlg_type << TypeB::endl
-            << info.flight_view() << "/"
-            << info.scd_local_view();
+
+        // feel the difference
+        // UCMHeadingInfo->tlg_type = "UCM"
+        // tlg_row.tlg_type = "UCM->>" - for forwarding tlgs
+
+        heading << UCMHeadingInfo->tlg_type << TypeB::endl
+            << UCMHeadingInfo->flt_info.src;
         tlg_row.heading = heading.str();
         tlg_row.body = getTypeBBody(forwarderOptions->typeb_in_id,
                 forwarderOptions->typeb_in_num);
