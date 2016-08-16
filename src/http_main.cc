@@ -132,15 +132,26 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
          // remove any #13
          content.erase(remove_if(content.begin(), content.end(), isCR), content.end());
 
-         body += content.c_str();
-         body.insert( pos + sss.length(), string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" + http_header + "<content/>\n" );
-         body += (string)"</" + operation + ">\n</query></term>";
+         bool is_xml = true;
+         try {
+             XMLDoc(content);
+         } catch(...) {
+             is_xml = false;
+         }
 
-         // screeneng chars such as ampersand, may be encountered in content (& -> &amp;)
-         XMLDoc doc(body);
-         string nodeName = "/term/query/" + operation;
-         ReplaceTextChild(NodeAsNode(nodeName.c_str(), doc.docPtr()), "content", content);
-         body = XMLTreeToText(doc.docPtr());
+         if(is_xml) {
+             body += content.c_str();
+             body.insert( pos + sss.length(), string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" + http_header + "<content>\n" );
+             body += string(" </content>\n") + "</" + operation + ">\n</query></term>";
+         } else {
+             body.insert( pos + sss.length(), string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" + http_header + "<content/>\n" );
+             body += (string)"</" + operation + ">\n</query></term>";
+             // screeneng chars such as ampersand, may be encountered in content (& -> &amp;)
+             XMLDoc doc(body);
+             string nodeName = "/term/query/" + operation;
+             ReplaceTextChild(NodeAsNode(nodeName.c_str(), doc.docPtr()), "content", content);
+             body = XMLTreeToText(doc.docPtr());
+         }
       }
   }
   else
