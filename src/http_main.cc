@@ -2,6 +2,7 @@
 //#include <memory.h>
 #include <string>
 #include <vector>
+#include <libxml/uri.h>
 
 #include <boost/tokenizer.hpp>
 #include "oralib.h"
@@ -125,9 +126,36 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
          str_BOM[3] = 0x00;
          if ( content.size() > 3 && content.substr(0,3) == str_BOM )
            content.erase( 0, 3 );
-         body += content.c_str();
-         body.insert( pos + sss.length(), string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" + http_header + "<content>\n" );
-         body += string(" </content>\n") + "</" + operation + ">\n</query></term>";
+
+         body.insert( pos + sss.length(), string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" + http_header + "<content/>\n" );
+         body += (string)"</" + operation + ">\n</query></term>";
+
+         xmlDocPtr doc = NULL;
+         try {
+             doc = TextToXMLTree(body);
+             xmlNodePtr node =
+                 doc
+                 ->children // term
+                 ->children // query
+                 ->children // tlg_srv
+                 ->children;
+             xmlNodePtr contentNode = NodeAsNodeFast("content", node);
+             NodeSetContent(contentNode, content);
+             body = GetXMLDocText(doc);
+             xmlFreeDoc( doc );
+         }
+         catch(Exception &E) {
+             if(doc)
+                 xmlFreeDoc( doc );
+             ProgError( STDLOG, "Ошибка разбора XML. '%s' : '%s'", body.c_str(), E.what());
+             throw;
+         }
+         catch(...) {
+             if(doc)
+                 xmlFreeDoc( doc );
+             ProgError( STDLOG, "Ошибка разбора XML. '%s'", body.c_str());
+             throw;
+         }
       }
   }
   else
