@@ -132,6 +132,7 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
          // remove any #13
          content.erase(remove_if(content.begin(), content.end(), isCR), content.end());
 
+         body += content.c_str();
          body.insert( pos + sss.length(), string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" + http_header + "<content/>\n" );
          body += (string)"</" + operation + ">\n</query></term>";
 
