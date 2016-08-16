@@ -130,32 +130,11 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
          body.insert( pos + sss.length(), string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" + http_header + "<content/>\n" );
          body += (string)"</" + operation + ">\n</query></term>";
 
-         xmlDocPtr doc = NULL;
-         try {
-             doc = TextToXMLTree(body);
-             xmlNodePtr node =
-                 doc
-                 ->children // term
-                 ->children // query
-                 ->children // tlg_srv
-                 ->children;
-             xmlNodePtr contentNode = NodeAsNodeFast("content", node);
-             NodeSetContent(contentNode, content);
-             body = GetXMLDocText(doc);
-             xmlFreeDoc( doc );
-         }
-         catch(Exception &E) {
-             if(doc)
-                 xmlFreeDoc( doc );
-             ProgError( STDLOG, "Ошибка разбора XML. '%s' : '%s'", body.c_str(), E.what());
-             throw;
-         }
-         catch(...) {
-             if(doc)
-                 xmlFreeDoc( doc );
-             ProgError( STDLOG, "Ошибка разбора XML. '%s'", body.c_str());
-             throw;
-         }
+         // screeneng chars such as ampersand, may be encountered in content (& -> &amp;)
+         XMLDoc doc(body);
+         string nodeName = "/term/query/" + operation;
+         ReplaceTextChild(NodeAsNode(nodeName.c_str(), doc.docPtr()), "content", content);
+         body = XMLTreeToText(doc.docPtr());
       }
   }
   else
