@@ -8295,32 +8295,8 @@ namespace WBMessages {
 
     void parse_print_message(const string &in_content)
     {
-        string xml = (string)
-            "<?xml version='1.0' encoding='cp866'?>"
-            "<content>" + in_content + "</content>";
-        string parsed_content;
-        xmlDocPtr doc = NULL;
-        try {
-            doc = TextToXMLTree(xml);
-            xmlNodePtr node = doc ->children; // content
-            parsed_content = ConvertCodepage(NodeAsStringFast("content", node), "utf-8", "cp866");
-            xmlFreeDoc( doc );
-        }
-        catch(Exception &E) {
-            if(doc)
-                xmlFreeDoc( doc );
-            ProgError( STDLOG, "Ошибка разбора XML. '%s' : '%s'", xml.c_str(), E.what());
-            throw;
-        }
-        catch(...) {
-            if(doc)
-                xmlFreeDoc( doc );
-            ProgError( STDLOG, "Ошибка разбора XML. '%s'", xml.c_str());
-            throw;
-        }
-
         vector<string> lines;
-        boost::split(lines, parsed_content, boost::is_any_of("\n"));
+        boost::split(lines, in_content, boost::is_any_of("\n"));
         if(lines.size() < 2)
             throw Exception("Wrong message format");
         // В первой строке константа PRINT и код сообщения, напр "PRINT LOADSHEET"
@@ -8361,7 +8337,7 @@ namespace WBMessages {
         }
         if(point_id == NoExists)
             throw Exception("flight not found");
-        toDB(point_id, msg_type, parsed_content);
+        toDB(point_id, msg_type, in_content);
     }
 
 }
