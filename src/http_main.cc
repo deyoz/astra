@@ -93,6 +93,8 @@ HTTPClient getHTTPClient(const request& req)
   return client;
 }
 
+bool isCR(char c) { return c == '\r'; };
+
 void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &header, std::string &body )
 {
   header.clear();
@@ -126,6 +128,9 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
          str_BOM[3] = 0x00;
          if ( content.size() > 3 && content.substr(0,3) == str_BOM )
            content.erase( 0, 3 );
+
+         // remove any #13
+         content.erase(remove_if(content.begin(), content.end(), isCR), content.end());
 
          body.insert( pos + sss.length(), string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" + http_header + "<content/>\n" );
          body += (string)"</" + operation + ">\n</query></term>";
