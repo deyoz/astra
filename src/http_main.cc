@@ -134,7 +134,7 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
 
          bool is_xml = true;
          try {
-             XMLDoc(content);
+             is_xml = XMLDoc(content).docPtr() != NULL;
          } catch(...) {
              is_xml = false;
          }
