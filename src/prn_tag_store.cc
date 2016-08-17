@@ -334,6 +334,7 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::EXCESS,                  TTagListItem(&TPrnTagStore::EXCESS)));
     tag_list.insert(make_pair(TAG::FLT_NO,                  TTagListItem(&TPrnTagStore::FLT_NO, POINT_INFO))); // !!!
     tag_list.insert(make_pair(TAG::FQT,                     TTagListItem(&TPrnTagStore::FQT, FQT_INFO)));
+    tag_list.insert(make_pair(TAG::FQT_TIER_LEVEL,          TTagListItem(&TPrnTagStore::FQT_TIER_LEVEL, FQT_INFO)));
     tag_list.insert(make_pair(TAG::FULL_PLACE_ARV,          TTagListItem(&TPrnTagStore::FULL_PLACE_ARV)));
     tag_list.insert(make_pair(TAG::FULL_PLACE_DEP,          TTagListItem(&TPrnTagStore::FULL_PLACE_DEP)));
     tag_list.insert(make_pair(TAG::FULLNAME,                TTagListItem(&TPrnTagStore::FULLNAME, PAX_INFO)));
