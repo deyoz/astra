@@ -1789,7 +1789,11 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       Qry.SQLText =
           "UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id";
       Qry.CreateVariable( "point_id", otInteger, point_id );
-      Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
+      Qry.DeclareVariable( "max_commerce", otInteger );
+      if ( fl.max_load != NoExists )
+        Qry.SetVariable( "max_commerce", fl.max_load );
+      else
+        QrySet.SetVariable( "max_commerce", FNull );      
       err++;
       Qry.Execute();
       err++;
@@ -2134,6 +2138,47 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
       else
         errs += string( "Ошибка разбора строки " ) + IntToString( fl.rec_no ) + " : " + string(e.what()).substr(0,120);
     }
+    catch( std::exception &e ) {
+      try { OraSession.Rollback(); }catch(...){};
+      if ( fl.rec_no == NoExists )
+        QryLog.SetVariable( "rec_no", -1 );
+      else
+        QryLog.SetVariable( "rec_no", fl.rec_no );
+      if ( linestr.empty() )
+        QryLog.SetVariable( "record", "empty line!" );
+      else
+        QryLog.SetVariable( "record", linestr );
+      QryLog.SetVariable( "msg", e.what() );
+      QryLog.SetVariable( "type", EncodeEventType( ASTRA::evtProgError ) );
+      QryLog.Execute();
+      if ( !errs.empty() )
+        errs += c_n/* + c_a*/;
+      if ( fl.rec_no == NoExists )
+        errs += string( "Ошибка разбора строки: " ) + string(e.what()).substr(0,120);
+      else
+        errs += string( "Ошибка разбора строки " ) + IntToString( fl.rec_no ) + " : " + string(e.what()).substr(0,120);
+    }
+    catch( ... ) {
+      try { OraSession.Rollback(); }catch(...){};
+      if ( fl.rec_no == NoExists )
+        QryLog.SetVariable( "rec_no", -1 );
+      else
+        QryLog.SetVariable( "rec_no", fl.rec_no );
+      if ( linestr.empty() )
+        QryLog.SetVariable( "record", "empty line!" );
+      else
+        QryLog.SetVariable( "record", linestr );
+      QryLog.SetVariable( "msg", "unknown error" );
+      QryLog.SetVariable( "type", EncodeEventType( ASTRA::evtProgError ) );
+      QryLog.Execute();
+      if ( !errs.empty() )
+        errs += c_n/* + c_a*/;
+      if ( fl.rec_no == NoExists )
+        errs += string( "Ошибка разбора строки: " ) + string("unknown error").substr(0,120);
+      else
+        errs += string( "Ошибка разбора строки " ) + IntToString( fl.rec_no ) + " : " + string("unknown error").substr(0,120);
+    }
+
     if ( fl.rec_no > NoExists )
       max_rec_no = fl.rec_no;
     OraSession.Commit();
