@@ -1784,7 +1784,11 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       Qry.SQLText =
           "UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id";
       Qry.CreateVariable( "point_id", otInteger, point_id );
-      Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
+      Qry.DeclareVariable( "max_commerce", otInteger );
+      if ( fl.max_load != NoExists )
+        Qry.SetVariable( "max_commerce", fl.max_load );
+      else
+        QrySet.SetVariable( "max_commerce", FNull );      
       err++;
       Qry.Execute();
       err++;
