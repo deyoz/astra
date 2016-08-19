@@ -1482,20 +1482,31 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
           term.name = TrimString( tmp );
           if ( term.name.empty() )
             throw Exception( "Ошибка формата номера стойки, значение=%s", term.name.c_str() );
-          string term_name;
-          if ( term.type == "П" )
-            term_name = "G" + term.name;
-          else
-            term_name = "R" + term.name;
           Qry.Clear();
-          Qry.SQLText = "SELECT desk FROM stations WHERE airp=:airp AND work_mode=:work_mode AND name=:code";
+          Qry.SQLText =
+            "SELECT desk, 1 FROM stations "
+            " WHERE airp=:airp AND work_mode=:work_mode AND name=:code "
+            " UNION "
+            "SELECT desk, 2 FROM aodb_stations a, stations s WHERE "
+            " a.airp=:airp AND s.airp=:airp AND a.aodb_name=:code AND a.name=s.name AND a.work_mode=:work_mode AND s.work_mode=:work_mode "
+            " ORDER BY 2 ";
           Qry.CreateVariable( "airp", otString, airp );
           Qry.CreateVariable( "work_mode", otString, term.type );
-          Qry.CreateVariable( "code", otString, term_name );
+          Qry.CreateVariable( "code", otString, term.name );
           err++;
-          Qry.Execute();
+          Qry.Execute();          
+          if ( !Qry.RowCount() ) {
+            string term_name;
+            if ( term.type == "П" )
+              term_name = "G" + term.name;
+            else
+              term_name = "R" + term.name;
+            Qry.SetVariable( "code", term_name );
+            Qry.Execute();
+          }
           err++;
           if ( !Qry.RowCount() ) {
+            string term_name;
             if ( term.type == "П" )
               term_name = "G0" + term.name;
             else
