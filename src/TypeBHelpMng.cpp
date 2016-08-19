@@ -191,19 +191,15 @@ void configForPerespros(int tlgs_id)
     set_msg_type_and_timeout(MSG_ANSW_STORE_WAIT_SIG, timeout);
 }
 
-void make_notify_msg(string &msg, int typeb_in_id, int typeb_out_id)
+void make_notify_msg(string &msg, int typeb_out_id)
 {
     ServerFramework::HTTP::request_parser parser;
     ServerFramework::HTTP::request rq;
     parser.parse(rq, msg.begin(), msg.end());
-    ostringstream content;
-    content
-        << "<typeb_in_id>" << typeb_in_id << "</typeb_in_id>"
-        << "<typeb_out_id>" << typeb_out_id << "</typeb_out_id>";
     string str_id = IntToString(typeb_out_id);
-    set_http_header(rq, "Content-Length", boost::lexical_cast<std::string>(content.str().size()));
+    set_http_header(rq, "Content-Length", boost::lexical_cast<std::string>(str_id.size()));
     set_http_header(rq, "OPERATION", "kick");
-    msg = rq.to_string() + content.str();
+    msg = rq.to_string() + str_id;
 }
 
 bool notify(int typeb_in_id, int typeb_out_id)
@@ -216,7 +212,7 @@ bool notify(int typeb_in_id, int typeb_out_id)
             throw EXCEPTIONS::Exception("TypeBHelpMng.notify: wrong intmsgid=%s", typeb_help.intmsgid.c_str());
         std::array<uint32_t,3> a;
         memcpy(&a, intmsgid.c_str(), 12);
-        make_notify_msg(typeb_help.text, typeb_in_id, typeb_out_id);
+        make_notify_msg(typeb_help.text, typeb_out_id);
         sethAfter(EdiHelpSignal(ServerFramework::InternalMsgId(a),
                     typeb_help.addr.c_str(),
                     typeb_help.text.c_str()));
