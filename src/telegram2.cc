@@ -8194,7 +8194,7 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     int tlg_id =  NodeAsInteger("content", reqNode);
     string res;
     if(tlg_id == ASTRA::NoExists)
-        res = INTERNAL_SERVER_ERROR;
+        res = "tlg_id not exists";
     else {
         QParams QryParams;
         QryParams << QParam("id", otInteger, tlg_id);
@@ -8211,9 +8211,19 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
             if(ending.empty()) ending = Qry.get().FieldAsString("ending");
             res += Qry.get().FieldAsString("body");
         }
-        if(has_errors)
-            res = INTERNAL_SERVER_ERROR;
-        else {
+        if(has_errors) {
+            TCachedQuery errQry("select text from typeb_out_errors where tlg_id = :tlg_id and lang = :lang order by part_no",
+                    QParams()
+                    << QParam("tlg_id", otInteger, tlg_id)
+                    << QParam("lang", otString, AstraLocale::LANG_EN)
+                    );
+            errQry.get().Execute();
+            ostringstream err_text;
+            for(; not errQry.get().Eof; errQry.get().Next()) {
+                err_text << errQry.get().FieldAsString("text") << endl;
+            }
+            res = err_text.str();;
+        } else {
             res = heading + res + ending;
             markTlgAsSent(tlg_id);
         }
@@ -8311,32 +8321,55 @@ namespace WBMessages {
         flight.erase(remove_if(flight.begin(), flight.end(), ::isspace), flight.end());
         TypeB::TFlightIdentifier flt;
         flt.parse(flight.c_str());
-        // Начинаем искать
-        string suffix;
-        if(flt.suffix != 0) suffix.append(flt.suffix, 1);
-        TCachedQuery Qry(
-                "select point_id from points where "
-                "   airline = :airline and "
-                "   airp = :airp and "
-                "   flt_no = :flt_no and "
-                "   nvl(suffix, ' ') = nvl(:suffix, ' ') and "
-                "   trunc(scd_out) = trunc(:scd_out) ",
-                QParams()
-                << QParam("airline", otString, flt.airline)
-                << QParam("airp", otString, "ШРМ") // ???
-                << QParam("flt_no", otInteger, flt.flt_no)
-                << QParam("suffix", otString, suffix)
-                << QParam("scd_out", otDate, flt.date)
-                );
-        Qry.get().Execute();
+
+        TSearchFltInfo filter;
+        filter.airline = flt.airline;
+        filter.flt_no = flt.flt_no;
+        if(flt.suffix)
+            filter.suffix.append(flt.suffix, 1);
+        filter.airp_dep = "ШРМ";
+        filter.scd_out = flt.date;
+        filter.scd_out_in_utc = true;
+        filter.only_with_reg = false;
+
+        list<TAdvTripInfo> flts;
+        SearchFlt(filter, flts);
+
+
         int point_id = NoExists;
-        for(; not Qry.get().Eof; Qry.get().Next()) {
-            if(point_id != NoExists)
-                throw Exception("more than one flights found");
-            point_id = Qry.get().FieldAsInteger("point_id");
+        if(flts.empty()) {
+            throw Exception("flight not found: %s", flight.c_str());
+        } else if(flts.size() == 1) {
+            point_id = flts.front().point_id;
+        } else {
+            map<TDateTime, int> sorted_points;
+            sorted_points[flt.date] = NoExists;
+            for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
+                sorted_points[i->scd_out] = i->point_id;
+            const map<TDateTime, int>::iterator i_point = sorted_points.find(flt.date);
+            if(i_point->second != NoExists)
+                point_id = i_point->second;
+            else {
+                map<TDateTime, int>::iterator curr_point = i_point;
+                if(i_point == sorted_points.begin()) {
+                    curr_point = i_point;
+                    point_id = (++curr_point)->second;
+                } else if(++curr_point == sorted_points.end()) {
+                    curr_point = i_point;
+                    point_id = (--curr_point)->second;
+                } else {
+                    map<TDateTime, int>::iterator i_prev_point = i_point;
+                    --i_prev_point;
+                    map<TDateTime, int>::iterator i_next_point = i_point;
+                    ++i_next_point;
+                    if(i_next_point->first - flt.date > flt.date - i_prev_point->first)
+                        point_id = i_prev_point->second;
+                    else
+                        point_id = i_next_point->second;
+                }
+            }
         }
-        if(point_id == NoExists)
-            throw Exception("flight not found");
+
         toDB(point_id, msg_type, in_content);
     }
 
