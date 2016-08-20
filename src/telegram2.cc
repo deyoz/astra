@@ -8194,11 +8194,13 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 {
     xmlNodePtr curNode = reqNode->children;
     curNode = NodeAsNodeFast("content", curNode);
+    // tlg_id is a tlg_out.id
     int tlg_id =  NodeAsInteger("content", reqNode);
     string res;
-    if(tlg_id == ASTRA::NoExists)
+    if(tlg_id == ASTRA::NoExists) {
         res = "tlg_id not exists";
-    else {
+        LogTrace(TRACE5) << "tlg_srv kick: " << res;
+    } else {
         QParams QryParams;
         QryParams << QParam("id", otInteger, tlg_id);
         TCachedQuery Qry(
@@ -8226,6 +8228,7 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
                 err_text << errQry.get().FieldAsString("text") << endl;
             }
             res = err_text.str();;
+            LogTrace(TRACE5) << "tlg_srv kick: tlg out (tlg_id: " << tlg_id << ") has errors: " << res;
         } else {
             res = heading + res + ending;
             markTlgAsSent(tlg_id);
