@@ -234,9 +234,12 @@ void save_http_client_headers(const request &req)
             << QParam("time", otDate, NowUTC())
             );
     bool pr_kick = false;
+    bool pr_client_id = false;
     for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {
-        if ( iheader->name == CLIENT_ID )
+        if ( iheader->name == CLIENT_ID ) {
+            pr_client_id = not iheader->value.empty();
             Qry.get().SetVariable("client_id", iheader->value);
+        }
         if ( iheader->name == HOST )
             Qry.get().SetVariable("host", iheader->value);
         if ( iheader->name == OPERATION ) {
@@ -244,7 +247,7 @@ void save_http_client_headers(const request &req)
             Qry.get().SetVariable("operation", iheader->value);
         }
     }
-    if(not pr_kick) Qry.get().Execute();
+    if(not pr_kick and pr_client_id) Qry.get().Execute();
 }
 
 void http_main(reply& rep, const request& req)
@@ -305,6 +308,7 @@ void TlgPostProcessXMLAnswer()
     ProgTrace(TRACE5, "%s started", __FUNCTION__);
 
     XMLRequestCtxt *xmlRC = getXmlCtxt();
+    LogTrace(TRACE5) << "TlgPostProcessXMLAnswer: resDoc: " << GetXMLDocText(xmlRC->resDoc);
     xmlNodePtr resNode = NodeAsNode("/term/answer",xmlRC->resDoc);
     if(resNode->children == NULL) {
         NewTextChild( resNode, "content");
@@ -315,8 +319,8 @@ void TlgPostProcessXMLAnswer()
         if (errNode!=NULL)
         {
             xmlFreeNode(errNode);
-            ProgError(STDLOG, "tlg_srv err: '%s'", error_message.c_str());
-            NewTextChild( resNode, "content", INTERNAL_SERVER_ERROR);
+            LogTrace(TRACE5) << "tlg_srv err: " << error_message.c_str();
+            NewTextChild( resNode, "content", error_message);
         }
     }
 }
