@@ -12,7 +12,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace BASIC::date_time;
@@ -284,6 +284,7 @@ void remove_trip_task(int point_id, const string& task_name, const string &param
 
 void check_trip_tasks()
 {
+    LogTrace(TRACE5) << "check_trip_tasks started";
     TDateTime nowUTC=NowUTC();
 
     TQuery Qry(&OraSession);
@@ -384,6 +385,7 @@ void check_trip_tasks()
             ProgError( STDLOG, "Unknown error");
         };
     };
+    LogTrace(TRACE5) << "check_trip_tasks ended";
 }
 
 void get_flt_period(pair<TDateTime, TDateTime> &val)
@@ -555,6 +557,10 @@ struct TLCITripTask:public TTlgOutTripTask {
     TLCITripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, LCI) {}
 };
 
+struct TUCMFwdTripTask:public TTlgOutTripTask {
+    TUCMFwdTripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, UCM_FWD) {}
+};
+
 TDateTime TCreatePointTripTask::actual_next_exec(TDateTime curr_next_exec) const
 {
     TTripStage ts;
@@ -632,11 +638,50 @@ namespace TypeB {
 // task_name обязан быть типом телеграммы
 void check_tlg_out(int point_id, const string &task_name, const string &params)
 {
-    vector<TCreateInfo> createInfo;
-    TCreator creator(point_id, TCreatePoint(params));
-    creator << task_name;
-    creator.getInfo(createInfo);
-    TelegramInterface::SendTlg(createInfo);
+    if(task_name.substr(3, 3) == "->>") {
+        string tlg_type = task_name.substr(0, 3);
+        TQuery Qry(&OraSession);
+        Qry.SQLText=
+            "SELECT "
+            " tlgs_in.id, "
+            " tlgs_in.num "
+            "FROM tlgs_in, "
+            "     (SELECT DISTINCT tlg_source.tlg_id AS id "
+            "      FROM tlg_source,tlg_binding "
+            "      WHERE tlg_source.point_id_tlg=tlg_binding.point_id_tlg AND "
+            "            tlg_binding.point_id_spp=:point_id and "
+            "            tlg_source.has_errors = 0 and "
+            "            tlg_source.has_alarm_errors = 0 "
+            "     ) ids "
+            "WHERE tlgs_in.id=ids.id and tlgs_in.type = :tlg_type "
+            "ORDER BY id desc, num ";
+        Qry.CreateVariable("point_id",otInteger,point_id);
+        Qry.CreateVariable("tlg_type",otString,tlg_type);
+        Qry.Execute();
+        int aid = ASTRA::NoExists;
+        for(;!Qry.Eof;Qry.Next()) {
+            int id = Qry.FieldAsInteger("id");
+            if(aid == ASTRA::NoExists)
+                aid = id;
+            else if(aid != id)
+                break;
+            TForwarder forwarder(
+                    point_id,
+                    Qry.FieldAsInteger("id"),
+                    Qry.FieldAsInteger("num")
+                    );
+            forwarder << task_name;
+            vector<TypeB::TCreateInfo> createInfo;
+            forwarder.getInfo(createInfo);
+            TelegramInterface::SendTlg(createInfo, ASTRA::NoExists, true);
+        }
+    } else {
+        vector<TCreateInfo> createInfo;
+        TCreator creator(point_id, TCreatePoint(params));
+        creator << task_name;
+        creator.getInfo(createInfo);
+        TelegramInterface::SendTlg(createInfo);
+    }
 }
 
 template <typename T>
@@ -824,4 +869,5 @@ TSyncTlgOutMng::TSyncTlgOutMng()
     items.insert(make_pair(LCI, sync_trip_tasks<TLCITripTask>));
     items.insert(make_pair(COM, sync_trip_tasks<TCOMTripTask>));
     items.insert(make_pair(SOM, sync_trip_tasks<TSOMTripTask>));
+    items.insert(make_pair(UCM_FWD, sync_trip_tasks<TUCMFwdTripTask>));
 }
