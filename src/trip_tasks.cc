@@ -561,6 +561,18 @@ struct TUCMFwdTripTask:public TTlgOutTripTask {
     TUCMFwdTripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, UCM_FWD) {}
 };
 
+struct TLDMFwdTripTask:public TTlgOutTripTask {
+    TLDMFwdTripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, LDM_FWD) {}
+};
+
+struct TCPMFwdTripTask:public TTlgOutTripTask {
+    TCPMFwdTripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, CPM_FWD) {}
+};
+
+struct TSLSFwdTripTask:public TTlgOutTripTask {
+    TSLSFwdTripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, SLS_FWD) {}
+};
+
 TDateTime TCreatePointTripTask::actual_next_exec(TDateTime curr_next_exec) const
 {
     TTripStage ts;
@@ -633,12 +645,17 @@ void get_curr_trip_tasks(const T &pattern, map<T, TTripTaskTimes> &tasks)
     }
 }
 
+bool is_fwd_tlg(const string &tlg_type)
+{
+    return tlg_type.substr(3, FWD_POSTFIX.size()) == FWD_POSTFIX;
+}
+
 namespace TypeB {
 
 // task_name обязан быть типом телеграммы
 void check_tlg_out(int point_id, const string &task_name, const string &params)
 {
-    if(task_name.substr(3, 3) == "->>") {
+    if(is_fwd_tlg(task_name)) {
         string tlg_type = task_name.substr(0, 3);
         TQuery Qry(&OraSession);
         Qry.SQLText=
@@ -734,7 +751,6 @@ void sync_trip_tasks(int point_id)
                           actual_task!=actual_tasks.end() &&
                           curr_task->first == *actual_task;
 
-
         if (proc_curr_and_actual) {
             //синхронизация задач в trip_tasks
             sync_trip_task(actual_task->point_id,
@@ -801,6 +817,7 @@ void emd_sys_update(int point_id, const string &task_name, const string &params)
 }
 
 const string TSyncTlgOutMng::cache_prefix = "TYPEB_ADDRS_";
+const string TSyncTlgOutMng::cache_fwd = "FORWARDING";
 
 TSyncTlgOutMng *TSyncTlgOutMng::Instance()
 {
@@ -828,7 +845,13 @@ void TSyncTlgOutMng::sync_by_cache(const string &cache_name, int point_id)
     if(cache_name.substr(0, cache_prefix.size()) != cache_prefix)
         throw EXCEPTIONS::Exception("sync_by_cache: wrong cache %s", cache_name.c_str());
     try {
-        sync_by_type(cache_name.substr(cache_prefix.size(), cache_prefix.size() + 3), point_id);
+        if(cache_name.substr(cache_prefix.size()) == cache_fwd) {
+            for(std::map<std::string, void (*)(int)>::iterator i = items.begin(); i != items.end(); i++) {
+                if(is_fwd_tlg(i->first)) sync_by_type(i->first, point_id);
+            }
+        } else {
+            sync_by_type(cache_name.substr(cache_prefix.size(), cache_prefix.size() + 3), point_id);
+        }
     } catch(EXCEPTIONS::Exception &E) {
         throw EXCEPTIONS::Exception("sync_by_cache: %s, msg: %s", cache_name.c_str(), E.what());
     }
@@ -855,12 +878,15 @@ void TSyncTlgOutMng::add_tasks(map<string, void (*)(int, const std::string &, co
 bool TSyncTlgOutMng::IsCacheToSync(const string &cache_name)
 {
     bool result = false;
-    for(std::map<std::string, void (*)(int)>::iterator i = items.begin(); i != items.end(); i++) {
-        if(cache_prefix + i->first == cache_name) {
-            result = true;
-            break;
+    if(cache_name == cache_prefix + cache_fwd)
+        result = true;
+    else
+        for(std::map<std::string, void (*)(int)>::iterator i = items.begin(); i != items.end(); i++) {
+            if(cache_prefix + i->first == cache_name) {
+                result = true;
+                break;
+            }
         }
-    }
     return result;
 }
 
@@ -870,4 +896,7 @@ TSyncTlgOutMng::TSyncTlgOutMng()
     items.insert(make_pair(COM, sync_trip_tasks<TCOMTripTask>));
     items.insert(make_pair(SOM, sync_trip_tasks<TSOMTripTask>));
     items.insert(make_pair(UCM_FWD, sync_trip_tasks<TUCMFwdTripTask>));
+    items.insert(make_pair(LDM_FWD, sync_trip_tasks<TLDMFwdTripTask>));
+    items.insert(make_pair(CPM_FWD, sync_trip_tasks<TCPMFwdTripTask>));
+    items.insert(make_pair(SLS_FWD, sync_trip_tasks<TSLSFwdTripTask>));
 }
