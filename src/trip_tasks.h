@@ -19,6 +19,11 @@ const std::string ON_TAKEOFF="ON_TAKEOFF";
 const std::string LCI = "LCI";
 const std::string COM = "COM";
 const std::string SOM = "SOM";
+const std::string FWD_POSTFIX = "->>";
+const std::string UCM_FWD = "UCM" + FWD_POSTFIX;
+const std::string LDM_FWD = "LDM" + FWD_POSTFIX;
+const std::string CPM_FWD = "CPM" + FWD_POSTFIX;
+const std::string SLS_FWD = "SLS" + FWD_POSTFIX;
 
 const std::string SYNC_NEW_CHKD="SYNC_NEW_CHKD";
 const std::string SYNC_ALL_CHKD="SYNC_ALL_CHKD";
@@ -52,6 +57,8 @@ void calc_tlg_out_point_ids(int typeb_addrs_id, std::set<int> &point_ids, std::s
 class TSyncTlgOutMng {
     private:
         static const std::string cache_prefix;
+        static const std::string cache_fwd;
+        static const std::string fwd_postfix;
         std::map<std::string, void (*)(int)> items;
     public:
         static TSyncTlgOutMng *Instance();
