@@ -6439,7 +6439,7 @@ struct TLCI {
     TWM wm; // weight mode
     TLCIPaxTotals pax_totals;
     TSeatPlan sp;
-    string get_action_code(const TypeB::TCreatePoint &cp);
+    string get_action_code(TypeB::TDetailCreateInfo &info);
     void get(TypeB::TDetailCreateInfo &info);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
@@ -6460,11 +6460,16 @@ void TLCI::get(TypeB::TDetailCreateInfo &info)
     sp.get(info);
 }
 
-string TLCI::get_action_code(const TypeB::TCreatePoint &cp)
+string TLCI::get_action_code(TypeB::TDetailCreateInfo &info)
 {
     string result;
-    if(cp.time_offset == 0) {
-        switch(cp.stage_id) {
+
+    TTripStage ts;
+    TTripStages::LoadStage(info.point_id, sCloseCheckIn, ts);
+    if(ts.act != NoExists)
+        result = "F";
+    else if(info.create_point.time_offset == 0) {
+        switch(info.create_point.stage_id) {
             case sOpenCheckIn:
                 result = "O";
                 break;
@@ -6490,7 +6495,7 @@ string TLCI::get_action_code(const TypeB::TCreatePoint &cp)
 void TLCI::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
-    body.push_back("C" + get_action_code(info.create_point));
+    body.push_back("C" + get_action_code(info));
     eqt.ToTlg(info, body);
     wa.ToTlg(info, body);
     if(options.seating) body.push_back("SM.S"); // Seating method 'By Seat' always
