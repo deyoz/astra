@@ -1350,7 +1350,7 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
     int point_id_tlg=SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg);
     TQuery Qry(&OraSession);
     Qry.SQLText =
-      "SELECT point_id_spp, points.scd_out FROM tlg_binding, points WHERE point_id_tlg=:point_id and point_id_spp = point_id",
+      "SELECT point_id_spp, nvl(points.est_out, points.scd_out) scd_out FROM tlg_binding, points WHERE point_id_tlg=:point_id and point_id_spp = point_id",
     Qry.CreateVariable("point_id", otInteger, point_id_tlg);
     Qry.Execute();
     if ( Qry.Eof ) {
