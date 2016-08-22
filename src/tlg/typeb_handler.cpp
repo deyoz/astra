@@ -948,16 +948,8 @@ bool parse_tlg(void)
           {
             TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
             TLCIContent con;
-            {
-                string buf = part.p;
-                ostringstream out_buf;
-                for(string::iterator si = buf.begin(); si != buf.end(); si++) {
-                    out_buf << *si << " " << hex << (int)*si << std::endl;
-                }
-                ProgTrace(TRACE5, "out_buf: %s", out_buf.str().c_str());
-            }
             ParseLCIContent(part,info,con,mem);
-            SaveLCIContent(tlg_id,info,con);
+            SaveLCIContent(tlg_id,time_receive,info,con);
             parseTypeB(tlg_id);
             OraSession.Commit();
             count++;

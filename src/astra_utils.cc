@@ -1752,3 +1752,40 @@ void get_pr_print(int pax_id, bool &pr_bp_print, bool &pr_bi_print)
     Qry.get().Execute();
     pr_bi_print = not Qry.get().Eof;
 }
+
+TNearestDate::TNearestDate(TDateTime asrc_date): src_date(asrc_date)
+{
+    sorted_points[src_date] = NoExists;
+}
+
+int TNearestDate::get()
+{
+    int point_id = NoExists;
+    if(sorted_points.size() == 1) {
+        point_id = sorted_points.begin()->second;
+    } else {
+        const map<TDateTime, int>::iterator i_point = sorted_points.find(src_date);
+        if(i_point->second != NoExists)
+            point_id = i_point->second;
+        else {
+            map<TDateTime, int>::iterator curr_point = i_point;
+            if(i_point == sorted_points.begin()) {
+                curr_point = i_point;
+                point_id = (++curr_point)->second;
+            } else if(++curr_point == sorted_points.end()) {
+                curr_point = i_point;
+                point_id = (--curr_point)->second;
+            } else {
+                map<TDateTime, int>::iterator i_prev_point = i_point;
+                --i_prev_point;
+                map<TDateTime, int>::iterator i_next_point = i_point;
+                ++i_next_point;
+                if(i_next_point->first - src_date > src_date - i_prev_point->first)
+                    point_id = i_prev_point->second;
+                else
+                    point_id = i_next_point->second;
+            }
+        }
+    }
+    return point_id;
+}

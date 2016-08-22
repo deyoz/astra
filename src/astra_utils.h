@@ -655,4 +655,14 @@ struct TEncodedFileStream
 void get_pr_print(int pax_id, bool &pr_bp_print, bool &pr_bi_print);
 
 
+// Возвращает int (напр. point_id), связанный с ближайшей к искомой (src_date) датой.
+// Перед get необходимо заполнить map
+struct TNearestDate
+{
+    std::map<TDateTime, int> sorted_points;
+    TDateTime src_date;
+    TNearestDate(TDateTime asrc_date);
+    int get();
+};
+
 #endif /*_ASTRA_UTILS_H_*/
