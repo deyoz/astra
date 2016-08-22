@@ -3314,7 +3314,8 @@ bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, std::string &rem_text, T
 bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca);
 bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd);
 bool ParseASVCRem(TTlgParser &tlg, string &rem_text, TASVCItem &asvc);
-bool ParseOTHSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc);
+bool ParseOTHS_DOCSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc);
+bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, string &rem_text, TFQTExtraItem &fqt);
 void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
                    const TDetailRemAncestor &item)
 {
@@ -3501,10 +3502,18 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
             if (strcmp(iRemItem->code,"OTHS")==0)
             {
               TDocExtraItem doc;
-              if (ParseOTHSRem(tlg,iRemItem->text,doc))
+              if (ParseOTHS_DOCSRem(tlg,iRemItem->text,doc))
               {
                 if (*(doc.no)!=0)
                   iPaxItem->doc_extra.insert(make_pair(doc.no, doc));
+                continue;
+              };
+              TFQTExtraItem fqt;
+              if (ParseOTHS_FQTSTATUSRem(tlg,iRemItem->text,fqt))
+              {
+                if (!fqt.tier_level.empty())
+                  iPaxItem->fqt_extra.insert(fqt);
+                continue;
               };
               continue;
             };
@@ -3759,12 +3768,22 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
             if (ne.pax.size()==1)
             {
               TDocExtraItem doc;
-              if (ParseOTHSRem(tlg,iRemItem->text,doc))
+              if (ParseOTHS_DOCSRem(tlg,iRemItem->text,doc))
               {
                 if (*(doc.no)!=0)
                   ne.pax.begin()->doc_extra.insert(make_pair(doc.no, doc));
                 ne.pax.begin()->rem.push_back(*iRemItem);
                 iRemItem->text.clear();
+                continue;
+              };
+              TFQTExtraItem fqt;
+              if (ParseOTHS_FQTSTATUSRem(tlg,iRemItem->text,fqt))
+              {
+                if (!fqt.tier_level.empty())
+                  ne.pax.begin()->fqt_extra.insert(fqt);
+                ne.pax.begin()->rem.push_back(*iRemItem);
+                iRemItem->text.clear();
+                continue;
               };
             };
             continue;
@@ -4965,7 +4984,7 @@ bool ParseASVCRem(TTlgParser &tlg, string &rem_text, TASVCItem &asvc)
   return false;
 };
 
-bool ParseOTHSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc)
+bool ParseOTHS_DOCSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc)
 {
   char c;
   int res,k;
@@ -5029,6 +5048,76 @@ bool ParseOTHSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc)
           case 3:
             *doc.type_rcpt=0;
             throw ETlgError("document type: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",rem_code,E.what(),rem_text.c_str());
+    };
+    return true;
+  };
+
+  return false;
+};
+
+bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, string &rem_text, TFQTExtraItem &fqt)
+{
+  char c;
+  int res,k;
+
+  const char *p=rem_text.c_str();
+
+  fqt.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  char rem_code[6],rem_status[3];
+  res=sscanf(tlg.lex,"%5[A-Z€-Ÿð0-9]%c",rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(rem_code,"OTHS")==0)
+  {
+    for(k=0;k<=2;k++)
+    try
+    {
+      try
+      {
+        if (k<2)
+          p=tlg.GetLexeme(p);
+        else
+          p=tlg.GetToEOLLexeme(p);
+        if (p==NULL) break;
+        if (*tlg.lex==0) continue;
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1]%c",rem_status,lexh,&c);
+            if (c!=0||res!=2) return false;
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"%9[A-Z€-Ÿð0-9]%c",lexh,&c);
+            if (c!=0||res!=1||strcmp(lexh,"FQTSTATUS")!=0) return false;
+            break;
+          case 2:
+            fqt.tier_level=tlg.lex;
+            TrimString(fqt.tier_level);
+            if (fqt.tier_level.size()>50) throw ETlgError("Wrong format");
+            break;
+        }
+      }
+      catch(exception &E)
+      {
+        switch(k)
+        {
+          case 0:
+          case 1:
+            return false;
+          case 2:
+            fqt.tier_level.clear();
+            throw ETlgError("tier level: %s",E.what());
         };
       };
     }
@@ -6002,28 +6091,37 @@ void SaveASVCRem(int pax_id, const vector<TASVCItem> &asvc, bool &sync_pax_asvc)
   sync_pax_asvc=CheckIn::SyncPaxASVC(pax_id, false);
 };
 
-void SaveFQTRem(int pax_id, vector<TFQTItem> &fqt)
+void SaveFQTRem(int pax_id, const vector<TFQTItem> &fqt, const set<TFQTExtraItem> &fqt_extra)
 {
   if (fqt.empty()) return;
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO crs_pax_fqt "
-    "  (pax_id,rem_code,airline,no,extra) "
+    "  (pax_id, rem_code, airline, no, extra, tier_level) "
     "VALUES "
-    "  (:pax_id,:rem_code,:airline,:no,:extra) ";
+    "  (:pax_id, :rem_code, :airline, :no, :extra, :tier_level) ";
   Qry.CreateVariable("pax_id",otInteger,pax_id);
   Qry.DeclareVariable("rem_code",otString);
   Qry.DeclareVariable("airline",otString);
   Qry.DeclareVariable("no",otString);
   Qry.DeclareVariable("extra",otString);
-  for(vector<TFQTItem>::iterator i=fqt.begin();i!=fqt.end();i++)
+  set<TFQTItem> unique_fqt;
+  for(vector<TFQTItem>::const_iterator i=fqt.begin();i!=fqt.end();i++)
+    unique_fqt.insert(*i);
+  if (unique_fqt.size()==1 && fqt_extra.size()==1)
+    Qry.CreateVariable("tier_level", otString, fqt_extra.begin()->tier_level);
+  else
+    Qry.CreateVariable("tier_level", otString, FNull);
+  for(vector<TFQTItem>::const_iterator i=fqt.begin();i!=fqt.end();i++)
   {
     Qry.SetVariable("rem_code",i->rem_code);
     Qry.SetVariable("airline",i->airline);
     Qry.SetVariable("no",i->no);
-    if (i->extra.size()>250) i->extra.erase(250);
-    Qry.SetVariable("extra",i->extra);
+    if (i->extra.size()>250)
+      Qry.SetVariable("extra", i->extra.substr(0,250));
+    else
+      Qry.SetVariable("extra", i->extra);
     Qry.Execute();
   };
 };
@@ -6966,7 +7064,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   SaveDOCORem(pax_id,iPaxItem->doco);
                   SaveDOCARem(pax_id,iPaxItem->doca);
                   SaveTKNRem(pax_id,iPaxItem->tkn);
-                  SaveFQTRem(pax_id,iPaxItem->fqt);
+                  SaveFQTRem(pax_id,iPaxItem->fqt,iPaxItem->fqt_extra);
                   if (SaveCHKDRem(pax_id,iPaxItem->chkd)) chkd_exists=true;
                   et_display_pax_ids.insert(pax_id);
 

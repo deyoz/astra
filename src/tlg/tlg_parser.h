@@ -475,6 +475,36 @@ class TFQTItem
       *no=0;
       extra.clear();
     };
+    bool operator < (const TFQTItem &item) const
+    {
+      int res;
+      res=strcmp(no, item.no);
+      if (res!=0) return res<0;
+      res=strcmp(airline, item.airline);
+      return res<0;
+    }
+};
+
+class TFQTExtraItem
+{
+  public:
+    std::string tier_level;
+    TFQTExtraItem()
+    {
+      Clear();
+    }
+    void Clear()
+    {
+      tier_level.clear();
+    }
+    bool Empty() const
+    {
+      return tier_level.empty();
+    }
+    bool operator < (const TFQTExtraItem &item) const
+    {
+      return tier_level<item.tier_level;
+    }
 };
 
 class TCHKDItem : public TDetailRemAncestor
@@ -586,6 +616,7 @@ class TPaxItem
     std::vector<TDocaItem> doca;
     std::vector<TTKNItem> tkn;
     std::vector<TFQTItem> fqt;
+    std::set<TFQTExtraItem> fqt_extra;
     std::vector<TCHKDItem> chkd;
     std::vector<TASVCItem> asvc;
     TPaxItem()
@@ -683,7 +714,7 @@ class TBagItem
     bool Empty() const
     {
       return *weight_unit==0;
-      
+
     };
 };
 
