@@ -570,7 +570,7 @@ bool is_valid_rem_codes(const TTripInfo &flt,
   }
   bool result=true;
   for(vector<CheckIn::TPaxRemItem>::const_iterator i=rems.begin(); i!=rems.end(); ++i)
-    if (!rem_grp.exists(i->code))
+    if (rem_grp.exists(i->code))
     {
       ProgTrace(TRACE5, "%s: airline=%s forbidden rem code %s", __FUNCTION__, flt.airline.c_str(), i->code.c_str());
       result=false;
