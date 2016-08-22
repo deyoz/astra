@@ -8346,40 +8346,12 @@ namespace WBMessages {
         list<TAdvTripInfo> flts;
         SearchFlt(filter, flts);
 
-
-        int point_id = NoExists;
-        if(flts.empty()) {
+        TNearestDate nd(flt.date);
+        for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
+            nd.sorted_points[i->scd_out] = i->point_id;
+        int point_id = nd.get();
+        if(point_id == NoExists)
             throw Exception("flight not found: %s", flight.c_str());
-        } else if(flts.size() == 1) {
-            point_id = flts.front().point_id;
-        } else {
-            map<TDateTime, int> sorted_points;
-            sorted_points[flt.date] = NoExists;
-            for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
-                sorted_points[i->scd_out] = i->point_id;
-            const map<TDateTime, int>::iterator i_point = sorted_points.find(flt.date);
-            if(i_point->second != NoExists)
-                point_id = i_point->second;
-            else {
-                map<TDateTime, int>::iterator curr_point = i_point;
-                if(i_point == sorted_points.begin()) {
-                    curr_point = i_point;
-                    point_id = (++curr_point)->second;
-                } else if(++curr_point == sorted_points.end()) {
-                    curr_point = i_point;
-                    point_id = (--curr_point)->second;
-                } else {
-                    map<TDateTime, int>::iterator i_prev_point = i_point;
-                    --i_prev_point;
-                    map<TDateTime, int>::iterator i_next_point = i_point;
-                    ++i_next_point;
-                    if(i_next_point->first - flt.date > flt.date - i_prev_point->first)
-                        point_id = i_prev_point->second;
-                    else
-                        point_id = i_next_point->second;
-                }
-            }
-        }
 
         toDB(point_id, msg_type, in_content);
     }
