@@ -1346,18 +1346,26 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
     };
 }
 
-void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con)
+void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, TLCIContent& con)
 {
     int point_id_tlg=SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg);
     TQuery Qry(&OraSession);
     Qry.SQLText =
-      "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id";
+      "SELECT point_id_spp, nvl(points.est_out, points.scd_out) scd_out FROM tlg_binding, points WHERE point_id_tlg=:point_id and point_id_spp = point_id",
     Qry.CreateVariable("point_id", otInteger, point_id_tlg);
     Qry.Execute();
     if ( Qry.Eof ) {
       throw Exception( "Flight not found, point_id_tlg=%d", point_id_tlg );
     }
-    int point_id_spp = Qry.FieldAsInteger( "point_id_spp" );
+
+    LogTrace(TRACE5) << "time_receive: " << DateTimeToStr(time_receive);
+
+    TNearestDate nd(time_receive);
+    for(; not Qry.Eof; Qry.Next()) {
+        nd.sorted_points[Qry.FieldAsDateTime( "scd_out" )] =
+            Qry.FieldAsInteger( "point_id_spp" );
+    }
+    int point_id_spp = nd.get();
 
     vector<TSeatRange> ranges_tmp, seatRanges;
 

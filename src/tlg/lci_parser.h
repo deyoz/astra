@@ -391,7 +391,7 @@ class TLCIContent
 };
 
 void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con, TMemoryManager &mem);
-void SaveLCIContent(int tlg_id, TLCIHeadingInfo& info, TLCIContent& con);
+void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, TLCIContent& con);
 
 int lci(int argc,char **argv);
 
