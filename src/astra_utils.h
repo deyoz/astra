@@ -665,9 +665,9 @@ struct TEncodedFileStream
 // Перед get необходимо заполнить map
 struct TNearestDate
 {
-    std::map<TDateTime, int> sorted_points;
-    TDateTime src_date;
-    TNearestDate(TDateTime asrc_date);
+    std::map<BASIC::TDateTime, int> sorted_points;
+    BASIC::TDateTime src_date;
+    TNearestDate(BASIC::TDateTime asrc_date);
     int get();
 };
 
