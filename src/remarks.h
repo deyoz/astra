@@ -27,7 +27,10 @@ enum TRemEventType {
     retTYPEB_PSM,
     retTYPEB_PIL,
     retSERVICE_STAT,
-    retLIMITED_CAPAB_STAT
+    retLIMITED_CAPAB_STAT,
+    retWEB,
+    retKIOSK,
+    retMOB
 };
 
 class TRemGrp : public std::set<std::string>
