@@ -161,11 +161,11 @@ astra_SOURCES = \
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
-  	tests/libtests.a \
-	@ETICKLIB_LIBS@ \
-	@SHARED_EXT_LIBS@ @ORACLE_LDFLAGS@\
-	@ORACLE_LIBS@ @EDILIB_LIBS@ \
-	@JXTLIB_LIBS@ @SHARED_LIBS@ \
+	tests/libtests.a \
+	@ETICKLIB_LIBS@ @EDILIB_LIBS@ \
+	@ORACLE_LIBS@ @ORACLE_LDFLAGS@ \
+	@SHARED_LIBS@ @SHARED_EXT_LIBS@ \
+	@JXTLIB_LIBS@ \
 	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
 	$(XML_LIBS) @CHECK_LIBS@ \
 	@BOOST_IOSTREAMS_LIB@ \
