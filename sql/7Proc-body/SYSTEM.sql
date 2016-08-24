@@ -158,6 +158,7 @@ CURSOR cur IS
 str2	VARCHAR2(4000);
 c	CHAR(1);
 c2	VARCHAR2(4);
+i       BINARY_INTEGER;
 BEGIN
   IF translit_dicts_t.FIRST IS NULL THEN
     -- пустой словарь: надо наполнить
@@ -167,14 +168,26 @@ BEGIN
   END IF;
 
   str2:=NULL;
-  FOR i IN 1..LENGTH(str) LOOP
+  i:=1;
+  WHILE i<=LENGTH(str) LOOP
     c:=SUBSTR(str,i,1);
+    c2:=NULL;
     IF ASCII(c)>127 THEN
       BEGIN
-        c2:=CASE fmt
-              WHEN 2 THEN translit_dicts_t(UPPER(c)).lat2
-                     ELSE translit_dicts_t(UPPER(c)).lat1
-            END;
+        IF fmt=3 THEN
+          IF UPPER(SUBSTR(str,i,2))='КС' THEN c2:='X'; i:=i+1; END IF;
+          IF UPPER(SUBSTR(str,i,3))='ИЙ' THEN c2:='Y'; i:=i+1; END IF;
+          IF UPPER(c)='Ч' AND i>1 AND INSTR('АЕЁИОУЫЭЮЯ', UPPER(SUBSTR(str,i-1,1)))>0 THEN c2:='TCH'; END IF;
+          IF UPPER(c)='У' AND i=1 THEN c2:='U'; END IF;
+        END IF;
+        IF c2 IS NULL THEN
+          c2:=CASE fmt
+                WHEN 3 THEN translit_dicts_t(UPPER(c)).lat3
+                WHEN 2 THEN translit_dicts_t(UPPER(c)).lat2
+                WHEN 1 THEN translit_dicts_t(UPPER(c)).lat1
+                       ELSE UPPER(c)
+              END;
+        END IF;
       EXCEPTION
         WHEN NO_DATA_FOUND THEN c2:='?';
       END;
@@ -183,6 +196,7 @@ BEGIN
     ELSE
       str2:=str2||c;
     END IF;
+    i:=i+1;
   END LOOP;
   RETURN str2;
 EXCEPTION

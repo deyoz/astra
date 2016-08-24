@@ -466,11 +466,11 @@ BEGIN
         INSERT INTO arx_pax_grp
           (grp_id,point_dep,point_arv,airp_dep,airp_arv,class,class_grp,
            status,excess,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
-           piece_concept,bag_types_id,tid,part_key)
+           piece_concept,bag_types_id,desk,time_create,tid,part_key)
         SELECT
            grp_id,point_dep,point_arv,airp_dep,airp_arv,class,class_grp,
            status,excess,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
-           piece_concept,bag_types_id,tid,vpart_key
+           piece_concept,bag_types_id,desk,time_create,tid,vpart_key
         FROM pax_grp
         WHERE rowid=grprowids(i);
     END IF;
@@ -515,14 +515,29 @@ BEGIN
     IF use_insert THEN
       FORALL i IN 1..rowids.COUNT
         INSERT INTO arx_service_stat
-        (point_id, travel_time, rem_code, ticket_no, airp_last, user_id, desk, part_key)
+        (point_id, travel_time, rem_code, ticket_no, airp_last, user_id, desk, rfisc, rate, rate_cur, part_key)
         SELECT
-         point_id, travel_time, rem_code, ticket_no, airp_last, user_id, desk, vpart_key
+         point_id, travel_time, rem_code, ticket_no, airp_last, user_id, desk, rfisc, rate, rate_cur, vpart_key
         FROM service_stat
         WHERE rowid=rowids(i);
     END IF;
     FORALL i IN 1..rowids.COUNT
       DELETE FROM service_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM limited_capability_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_limited_capability_stat
+        (point_id, airp_arv, rem_code, pax_amount, part_key)
+        SELECT
+         point_id, airp_arv, rem_code, pax_amount, vpart_key
+        FROM limited_capability_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM limited_capability_stat WHERE rowid=rowids(i);
 
     SELECT rowid BULK COLLECT INTO rowids
     FROM agent_stat
@@ -698,6 +713,21 @@ BEGIN
     FOR j IN 1..grpids.COUNT LOOP
       /* ======================цикл по группам пассажиров========================= */
       SELECT rowid BULK COLLECT INTO rowids
+      FROM unaccomp_bag_info
+      WHERE grp_id=grpids(j) FOR UPDATE;
+      IF use_insert THEN
+        FORALL i IN 1..rowids.COUNT
+          INSERT INTO arx_unaccomp_bag_info
+            (original_tag_no, surname, name, airline, flt_no, suffix, scd, grp_id, num, part_key)
+          select
+            original_tag_no, surname, name, airline, flt_no, suffix, scd, grp_id, num, vpart_key
+          FROM unaccomp_bag_info
+          WHERE rowid=rowids(i);
+      END IF;
+      FORALL i IN 1..rowids.COUNT
+        DELETE FROM unaccomp_bag_info WHERE rowid=rowids(i);
+
+      SELECT rowid BULK COLLECT INTO rowids
       FROM bag2
       WHERE grp_id=grpids(j) FOR UPDATE;
       IF use_insert THEN
@@ -787,10 +817,10 @@ BEGIN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_transfer
             (grp_id,transfer_num,airline,airline_fmt,flt_no,suffix,suffix_fmt,scd,
-             airp_dep,airp_dep_fmt,airp_arv,airp_arv_fmt,pr_final,part_key)
+             airp_dep,airp_dep_fmt,airp_arv,airp_arv_fmt,pr_final,piece_concept,part_key)
           SELECT
              grp_id,transfer_num,airline,airline_fmt,flt_no,suffix,suffix_fmt,scd,
-             airp_dep,airp_dep_fmt,airp_arv,airp_arv_fmt,pr_final,vpart_key
+             airp_dep,airp_dep_fmt,airp_arv,airp_arv_fmt,pr_final,piece_concept,vpart_key
           FROM transfer,trfer_trips
           WHERE transfer.rowid=rowids(i) AND transfer_num>0 AND
                 trfer_trips.rowid=miscrowids(i);
@@ -960,13 +990,16 @@ BEGIN
         DELETE FROM pax_fqt WHERE pax_id=paxids(k);
         DELETE FROM pax_asvc WHERE pax_id=paxids(k);
         DELETE FROM pax_emd WHERE pax_id=paxids(k);
-        DELETE FROM bp_print WHERE pax_id=paxids(k);
+        DELETE FROM confirm_print WHERE pax_id=paxids(k);
         DELETE FROM trip_comp_layers WHERE pax_id=paxids(k);
         DELETE FROM rozysk WHERE pax_id=paxids(k);
         DELETE FROM pax_seats WHERE pax_id=paxids(k);
         DELETE FROM pax_norms_pc WHERE pax_id=paxids(k);
+        DELETE FROM pax_brands WHERE pax_id=paxids(k);
         DELETE FROM paid_bag_pc WHERE pax_id=paxids(k);
         UPDATE paid_bag_emd SET pax_id=NULL WHERE pax_id=paxids(k);
+        DELETE FROM pax_alarms WHERE pax_id=paxids(k);
+        DELETE FROM pax_rem_origin WHERE pax_id=paxids(k);
         pax_count:=pax_count+1;
       END LOOP;
       FORALL i IN 1..paxrowids.COUNT
@@ -1000,6 +1033,7 @@ BEGIN
     DELETE FROM trip_classes WHERE point_id=curRow.point_id;
     DELETE FROM trip_comp_rem WHERE point_id=curRow.point_id;
     DELETE FROM trip_comp_rates WHERE point_id=curRow.point_id;
+    DELETE FROM trip_comp_rfisc WHERE point_id=curRow.point_id;
     DELETE FROM trip_comp_baselayers WHERE point_id=curRow.point_id;
     DELETE FROM trip_comp_elems WHERE point_id=curRow.point_id;
     DELETE FROM trip_comp_layers WHERE point_id=curRow.point_id;
@@ -1024,6 +1058,8 @@ BEGIN
     DELETE FROM emdocs WHERE point_id=curRow.point_id;
     DELETE FROM trip_apis_params WHERE point_id=curRow.point_id;
     DELETE FROM counters_by_subcls WHERE point_id=curRow.point_id;
+    DELETE FROM apps_messages WHERE point_id=curRow.point_id;
+    DELETE FROM apps_pax_data WHERE point_id=curRow.point_id;
   END LOOP;
   DELETE FROM points WHERE move_id=vmove_id;
   DELETE FROM move_ref WHERE move_id=vmove_id;

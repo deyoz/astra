@@ -796,7 +796,7 @@ BEGIN
       END IF;
       IF curRow.refuse='€' THEN
         deleted:=deleted+1;
-        DELETE FROM bp_print WHERE pax_id=curRow.pax_id;
+        DELETE FROM confirm_print WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_doc WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_doco WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_doca WHERE pax_id=curRow.pax_id;
@@ -805,15 +805,16 @@ BEGIN
         DELETE FROM pax_emd WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_norms WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_norms_pc WHERE pax_id=curRow.pax_id;
+        DELETE FROM pax_brands WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_rem WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_rem_origin WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_seats WHERE pax_id=curRow.pax_id;
         DELETE FROM rozysk WHERE pax_id=curRow.pax_id;
         DELETE FROM transfer_subcls WHERE pax_id=curRow.pax_id;
-        DELETE FROM pax_alarms WHERE pax_id=curRow.pax_id;
         DELETE FROM trip_comp_layers WHERE pax_id=curRow.pax_id;
         DELETE FROM paid_bag_pc WHERE pax_id=curRow.pax_id;
         UPDATE paid_bag_emd SET pax_id=NULL WHERE pax_id=curRow.pax_id;
+        DELETE FROM pax_alarms WHERE pax_id=curRow.pax_id;
         DELETE FROM pax WHERE pax_id=curRow.pax_id;
         FOR langCurRow IN langCur LOOP
           UPDATE events_bilingual SET id2=NULL
@@ -841,6 +842,7 @@ BEGIN
           FOR bagPoolCurRow IN bagPoolCur(vgrp_id, i) LOOP
             DELETE FROM bag_tags WHERE grp_id=vgrp_id AND bag_num=bagPoolCurRow.num;
             DELETE FROM value_bag WHERE grp_id=vgrp_id AND num=bagPoolCurRow.value_bag_num;
+            DELETE FROM unaccomp_bag_info WHERE grp_id=vgrp_id AND num=bagPoolCurRow.value_bag_num;
             DELETE FROM bag2 WHERE grp_id=vgrp_id AND num=bagPoolCurRow.num;
             /*value_bag, paid_bag?*/
           END LOOP;
@@ -891,6 +893,7 @@ BEGIN
     DELETE FROM bag_prepay WHERE grp_id=vgrp_id;
     UPDATE bag_receipts SET grp_id=NULL WHERE grp_id=vgrp_id;
     DELETE FROM bag_tags WHERE grp_id=vgrp_id;
+    DELETE FROM unaccomp_bag_info WHERE grp_id=vgrp_id;
     DELETE FROM bag2 WHERE grp_id=vgrp_id;
     DELETE FROM grp_norms WHERE grp_id=vgrp_id;
     DELETE FROM paid_bag WHERE grp_id=vgrp_id;
@@ -1094,6 +1097,8 @@ BEGIN
   END IF;
   FORALL i IN 1..paxids.COUNT
     DELETE FROM tlg_comp_layers WHERE crs_pax_id=paxids(i);
+  FORALL i IN 1..paxids.COUNT
+    DELETE FROM crs_pax_alarms WHERE pax_id=paxids(i);
 
   FORALL i IN 1..pnrids.COUNT
     DELETE FROM pnr_addrs WHERE pnr_id=pnrids(i);

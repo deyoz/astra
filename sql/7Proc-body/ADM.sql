@@ -1190,7 +1190,7 @@ BEGIN
     RETURN vdesk_grp;
   END IF;
 
-  SELECT grp_id INTO vdesk_grp2 FROM desks WHERE code=vdesk;	
+  SELECT grp_id INTO vdesk_grp2 FROM desks WHERE code=vdesk;
 
   IF vdesk_grp IS NOT NULL AND vdesk_grp<>vdesk_grp2 THEN
     system.raise_user_exception('MSG.DESK_GRP_DOES_NOT_MEET_DESK');
@@ -1980,7 +1980,7 @@ mins  VARCHAR2(2);
 i     BINARY_INTEGER;
 h     NUMBER(2);
 m     NUMBER(2);
-BEGIN  	
+BEGIN
   IF str IS NULL THEN RETURN NULL; END IF;
   i:=INSTR(str,'-');
   IF i=0 THEN RAISE VALUE_ERROR; END IF;
@@ -2530,7 +2530,7 @@ FUNCTION check_date_wo_year(str         IN VARCHAR2,
 IS
 info	 adm.TCacheInfo;
 lparams   system.TLexemeParams;
-BEGIN  	
+BEGIN
   RETURN TO_DATE(str||'.2000','DD.MM.YYYY');
 EXCEPTION
   WHEN OTHERS THEN
@@ -2608,7 +2608,7 @@ BEGIN
     info:=adm.get_cache_info('AIRLINE_PERS_WEIGHTS');
     lparams('fieldname'):=get_locale_text(info.field_title('FIRST_DATE'), vlang);
     system.raise_user_exception('MSG.TABLE.NOT_SET_FIELD_VALUE', lparams);
-  END IF; 	
+  END IF;
   IF vfirst_date IS NOT NULL AND vlast_date IS NULL THEN
     info:=adm.get_cache_info('AIRLINE_PERS_WEIGHTS');
     lparams('fieldname'):=get_locale_text(info.field_title('LAST_DATE'), vlang);
@@ -2625,7 +2625,7 @@ BEGIN
           (subclass IS NULL AND vsubclass IS NULL OR subclass=vsubclass) AND
           pr_summer=vpr_summer AND
           rownum<2;
-  ELSE	
+  ELSE
     SELECT COUNT(*) INTO n
     FROM pers_weights
     WHERE (vid IS NULL OR id<>vid) AND
@@ -2664,24 +2664,28 @@ EXCEPTION
   WHEN NO_DATA_FOUND THEN NULL;
 END check_not_airp_user;
 
-PROCEDURE modify_rem_event_sets(old_set_id    rem_event_sets.set_id%TYPE,
-                                old_airline   rem_event_sets.airline%TYPE,
-                                old_rem_code  rem_event_sets.rem_code%TYPE,
-                                vairline      rem_event_sets.airline%TYPE,
-                                vrem_code     rem_event_sets.rem_code%TYPE,
-                                bp            rem_event_sets.event_value%TYPE,
-                                alarm_ss      rem_event_sets.event_value%TYPE,
-                                pnl_sel       rem_event_sets.event_value%TYPE,
-                                brd_view      rem_event_sets.event_value%TYPE,
-                                brd_warn      rem_event_sets.event_value%TYPE,
-                                rpt_ss        rem_event_sets.event_value%TYPE,
-                                rpt_pm        rem_event_sets.event_value%TYPE,
-                                ckin_view     rem_event_sets.event_value%TYPE,
-                                typeb_psm     rem_event_sets.event_value%TYPE,
-                                typeb_pil     rem_event_sets.event_value%TYPE,
-                                service_stat  rem_event_sets.event_value%TYPE,
-                                vsetting_user history_events.open_user%TYPE,
-                                vstation      history_events.open_desk%TYPE)
+PROCEDURE modify_rem_event_sets(old_set_id          rem_event_sets.set_id%TYPE,
+                                old_airline         rem_event_sets.airline%TYPE,
+                                old_rem_code        rem_event_sets.rem_code%TYPE,
+                                vairline            rem_event_sets.airline%TYPE,
+                                vrem_code           rem_event_sets.rem_code%TYPE,
+                                bp                  rem_event_sets.event_value%TYPE,
+                                alarm_ss            rem_event_sets.event_value%TYPE,
+                                pnl_sel             rem_event_sets.event_value%TYPE,
+                                brd_view            rem_event_sets.event_value%TYPE,
+                                brd_warn            rem_event_sets.event_value%TYPE,
+                                rpt_ss              rem_event_sets.event_value%TYPE,
+                                rpt_pm              rem_event_sets.event_value%TYPE,
+                                ckin_view           rem_event_sets.event_value%TYPE,
+                                typeb_psm           rem_event_sets.event_value%TYPE,
+                                typeb_pil           rem_event_sets.event_value%TYPE,
+                                service_stat        rem_event_sets.event_value%TYPE,
+                                limited_capab_stat  rem_event_sets.event_value%TYPE,
+                                web                 rem_event_sets.event_value%TYPE,
+                                kiosk               rem_event_sets.event_value%TYPE,
+                                mob                 rem_event_sets.event_value%TYPE,
+                                vsetting_user       history_events.open_user%TYPE,
+                                vstation            history_events.open_desk%TYPE)
 IS
 i BINARY_INTEGER;
 vevent_type  rem_event_sets.event_type%TYPE;
@@ -2690,7 +2694,7 @@ vid          rem_event_sets.id%TYPE;
 vset_id      rem_event_sets.set_id%TYPE;
 BEGIN
   SELECT id__seq.nextval INTO vset_id FROM dual;
-  FOR i IN 1..11 LOOP
+  FOR i IN 1..15 LOOP
     vevent_type:= CASE i
                     WHEN 1  THEN 'BP'
                     WHEN 2  THEN 'ALARM_SS'
@@ -2703,6 +2707,10 @@ BEGIN
                     WHEN 9  THEN 'TYPEB_PSM'
                     WHEN 10 THEN 'TYPEB_PIL'
                     WHEN 11 THEN 'SERVICE_STAT'
+                    WHEN 12 THEN 'LIMITED_CAPAB_STAT'
+                    WHEN 13 THEN 'WEB'
+                    WHEN 14 THEN 'KIOSK'
+                    WHEN 15 THEN 'MOB'
                   END;
     vevent_value:=CASE i
                     WHEN 1  THEN bp
@@ -2716,6 +2724,10 @@ BEGIN
                     WHEN 9  THEN typeb_psm
                     WHEN 10 THEN typeb_pil
                     WHEN 11 THEN service_stat
+                    WHEN 12 THEN limited_capab_stat
+                    WHEN 13 THEN web
+                    WHEN 14 THEN kiosk
+                    WHEN 15 THEN mob
                   END;
     IF old_set_id IS NOT NULL THEN
       IF vrem_code IS NULL THEN
@@ -2961,6 +2973,7 @@ END sync_LCI_options;
 
 PROCEDURE sync_PRL_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
+                           vversion       typeb_addr_options.value%TYPE,
                            vcreate_point  typeb_addr_options.value%TYPE,
                            vpax_state     typeb_addr_options.value%TYPE,
                            vrbd           typeb_addr_options.value%TYPE,
@@ -2973,7 +2986,8 @@ BEGIN
   UPDATE typeb_addrs SET id=id WHERE id=vid;
   OPEN cur FOR
     SELECT vid AS typeb_addrs_id, src.tlg_type, src.category, dest.id,
-           DECODE(src.category, 'CREATE_POINT', vcreate_point,
+           DECODE(src.category, 'VERSION',      vversion,
+                                'CREATE_POINT', vcreate_point,
                                 'PAX_STATE',    vpax_state,
                                 'RBD',          vrbd,
                                                 default_value) AS value
@@ -3165,6 +3179,63 @@ BEGIN
   DELETE FROM roles WHERE role_id=vrole_id;
   hist.synchronize_history('roles',vrole_id,vsetting_user,vstation);
 END delete_roles;
+
+PROCEDURE insert_rfisc_rates(vid              IN rfisc_rates.id%TYPE,
+                             vsys_user_id     IN users2.user_id%TYPE,
+                             vairline         IN rfisc_rates.airline%TYPE,
+                             vairline_view    IN VARCHAR2,
+                             vbrand           IN rfisc_rates.brand%TYPE,
+                             vsale_first_date IN rfisc_rates.sale_first_date%TYPE,
+                             vsale_last_date  IN rfisc_rates.sale_last_date%TYPE,
+                             vrfisc_airline   IN rfisc_rates.airline%TYPE,
+                             vrfisc           IN rfisc_rates.rfisc%TYPE,
+                             vrate            IN rfisc_rates.rate%TYPE,
+                             vrate_cur        IN rfisc_rates.rate_cur%TYPE,
+                             vsetting_user    IN history_events.open_user%TYPE,
+                             vstation         IN history_events.open_desk%TYPE)
+IS
+CURSOR cur IS
+  SELECT id, sale_first_date, sale_last_date
+  FROM rfisc_rates
+  WHERE airline=vairline AND brand=vbrand AND rfisc=vrfisc;
+vidh		     rfisc_rates.id%TYPE;
+vairlineh            rfisc_rates.airline%TYPE;
+norm_sale_first_date rfisc_rates.sale_first_date%TYPE;
+norm_sale_last_date  rfisc_rates.sale_last_date%TYPE;
+BEGIN
+  vairlineh:=adm.check_airline_access(vairline,vairline_view,vSYS_user_id,1);
+  IF vrfisc_airline IS NOT NULL AND vrfisc_airline<>vairline THEN
+    system.raise_user_exception('MSG.BRAND_DOES_NOT_MEET_RFISC');
+  END IF;
+
+  norm_sale_first_date:=TRUNC(vsale_first_date);
+  norm_sale_last_date:=TRUNC(vsale_last_date)+1;
+  IF norm_sale_last_date<=norm_sale_first_date THEN
+    system.raise_user_exception('MSG.TABLE.INVALID_RANGE');
+  END IF;
+  FOR curRow IN cur LOOP
+    IF vid IS NULL OR vid<>curRow.id THEN
+      IF (norm_sale_last_date IS NOT NULL AND norm_sale_last_date<=curRow.sale_first_date) OR
+         (curRow.sale_last_date IS NOT NULL AND curRow.sale_last_date<=norm_sale_first_date) THEN
+        NULL; /*не пересекаются*/
+      ELSE
+        system.raise_user_exception('MSG.PERIOD_OVERLAPS_WITH_INTRODUCED');
+      END IF;
+    END IF;
+  END LOOP;
+  IF vid IS NULL THEN
+    SELECT id__seq.nextval INTO vidh FROM dual;
+    INSERT INTO rfisc_rates(id, airline, brand, sale_first_date, sale_last_date, rfisc, rate, rate_cur)
+    VALUES(vidh, vairline, vbrand, norm_sale_first_date, norm_sale_last_date, vrfisc, vrate, vrate_cur);
+    hist.synchronize_history('rfisc_rates', vidh, vsetting_user, vstation);
+  ELSE
+    UPDATE rfisc_rates
+    SET airline=vairline, brand=vbrand, sale_first_date=norm_sale_first_date, sale_last_date=norm_sale_last_date,
+        rfisc=vrfisc, rate=vrate, rate_cur=vrate_cur
+    WHERE id=vid;
+    hist.synchronize_history('rfisc_rates', vid, vsetting_user, vstation);
+  END IF;
+END;
 
 END adm;
 /

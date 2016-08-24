@@ -79,8 +79,8 @@ BEGIN
    (SELECT
       statist.get_trfer_route(pax_grp.grp_id) trfer_route,
       client_type,
-      SUM(DECODE(bag_refuse,0,decode(piece_concept,0,excess,NULL,excess,0     ),0)) AS excess,
-      SUM(DECODE(bag_refuse,0,decode(piece_concept,0,     0,NULL,     0,excess),0)) AS excess_pc
+      SUM(DECODE(bag_refuse,0,decode(pax_grp.piece_concept,0,excess,NULL,excess,0     ),0)) AS excess,
+      SUM(DECODE(bag_refuse,0,decode(pax_grp.piece_concept,0,     0,NULL,     0,excess),0)) AS excess_pc
     FROM pax_grp,transfer
     WHERE point_dep=vpoint_id AND pax_grp.status NOT IN ('E') AND
           pax_grp.grp_id=transfer.grp_id AND transfer_num=1
@@ -132,8 +132,9 @@ begin
       web_clients.descr,
       pax.pers_type,
       tckin_pax_grp.grp_id AS tckin_grp_id,
-      (SELECT 1 FROM bp_print
-       WHERE bp_print.pax_id=pax.pax_id AND
+      (SELECT 1 FROM confirm_print
+       WHERE confirm_print.pax_id=pax.pax_id AND
+             op_type = 'PRINT_BP' and
              client_type='TERM' AND pr_print<>0 AND rownum<2) AS term_bp,
       (SELECT 1 FROM bag2
        WHERE bag2.grp_id=pax.grp_id AND pax.bag_pool_num IS NOT NULL AND
@@ -187,8 +188,8 @@ IS
       NVL(bag2.hall,pax_grp.hall) AS hall,
       DECODE(status,'T','T','N') AS status,
       client_type,
-      SUM(DECODE(bag_refuse,0,decode(piece_concept, 0, excess, NULL, excess, 0     ),0)) AS excess,
-      SUM(DECODE(bag_refuse,0,decode(piece_concept, 0,      0, NULL,      0, excess),0)) AS excess_pc
+      SUM(DECODE(bag_refuse,0,decode(pax_grp.piece_concept, 0, excess, NULL, excess, 0     ),0)) AS excess,
+      SUM(DECODE(bag_refuse,0,decode(pax_grp.piece_concept, 0,      0, NULL,      0, excess),0)) AS excess_pc
     FROM pax_grp,
          (SELECT bag2.grp_id,bag2.hall
           FROM bag2,
@@ -234,8 +235,9 @@ BEGIN
            class,
            pers_type,
            seats,
-           (SELECT 1 FROM bp_print
-            WHERE bp_print.pax_id=pax.pax_id AND
+           (SELECT 1 FROM confirm_print
+            WHERE confirm_print.pax_id=pax.pax_id AND
+                  op_type = 'PRINT_BP' and
                   client_type='TERM' AND pr_print<>0 AND rownum<2) AS term_bp,
            (SELECT 1 FROM bag2
             WHERE bag2.grp_id=pax.grp_id AND pax.bag_pool_num IS NOT NULL AND
