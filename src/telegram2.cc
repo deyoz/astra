@@ -6453,22 +6453,22 @@ void TLCI::get(TypeB::TDetailCreateInfo &info)
         if(eqt.empty()) throw UserException("MSG.CFG.EMPTY");
     }
     if(options.weight_avail != "N") wa.get(info);
-    sr_c.get(info);
-    sr_z.get(info);
-    sr_s.get(info);
-    pax_totals.get(info);
-    sp.get(info);
+    try {
+        sr_c.get(info);
+        sr_z.get(info);
+        sr_s.get(info);
+        pax_totals.get(info);
+        sp.get(info);
+    } catch(AstraLocale::UserException &E) {
+        if(E.getLexemaData().lexema_id != "MSG.FLIGHT_WO_CRAFT_CONFIGURE")
+            throw;
+    }
 }
 
 string TLCI::get_action_code(TypeB::TDetailCreateInfo &info)
 {
     string result;
-
-    TTripStage ts;
-    TTripStages::LoadStage(info.point_id, sCloseCheckIn, ts);
-    if(ts.act != NoExists)
-        result = "F";
-    else if(info.create_point.time_offset == 0) {
+    if(info.create_point.time_offset == 0) {
         switch(info.create_point.stage_id) {
             case sOpenCheckIn:
                 result = "O";
@@ -6482,6 +6482,25 @@ string TLCI::get_action_code(TypeB::TDetailCreateInfo &info)
             case sTakeoff:
                 result = "F";
                 break;
+            case sNoActive:
+                {
+                    // Создаваемая тлг. явл. ответом на LCI-запрос
+                    // Т.к. был вызван конструктор TCreatePoint() без параметров
+                    // в парсере запроса (lci_parser.cpp)
+                    // По умолчанию:
+                    // create_point.stage_id = sNoActive
+                    // create_point.offset = 0
+                    TTripStage ts;
+                    TTripStages::LoadStage(info.point_id, sCloseCheckIn, ts);
+                    bool close_checkin = ts.act != NoExists;
+                    TTripStages::LoadStage(info.point_id, sTakeoff, ts);
+                    bool take_off = ts.act != NoExists;
+                    if(close_checkin or take_off)
+                        result = "F";
+                    else
+                        result = "U";
+                    break;
+                }
             default:
                 result = "U";
                 break;
