@@ -6913,6 +6913,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
         BuildTransfer(trfer, trtNotFirstSeg, resNode);
       }
 
+      TPrPrint prPrint;
       node=NewTextChild(segNode,"passengers");
       for(;!PaxQry.Eof;PaxQry.Next())
       {
@@ -6938,7 +6939,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
         NewTextChild(paxNode,"pr_norec",(int)PaxQry.FieldIsNULL("crs_pax_id"));
 
         bool pr_bp_print, pr_bi_print;
-        get_pr_print(pax.id, pr_bp_print, pr_bi_print);
+        prPrint.get_pr_print(*grp_id, pax.id, pr_bp_print, pr_bi_print);
         NewTextChild(paxNode,"pr_bp_print",pr_bp_print);
         NewTextChild(paxNode,"pr_bi_print",pr_bi_print);
         if (grp_id==tckin_grp_ids.begin())

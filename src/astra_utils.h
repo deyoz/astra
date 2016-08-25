@@ -659,9 +659,6 @@ struct TEncodedFileStream
     TEncodedFileStream &operator << (std::ostream &(*os)(std::ostream &));
 };
 
-void get_pr_print(int pax_id, bool &pr_bp_print, bool &pr_bi_print);
-
-
 // Возвращает int (напр. point_id), связанный с ближайшей к искомой (src_date) датой.
 // Перед get необходимо заполнить map
 struct TNearestDate
