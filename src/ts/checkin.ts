@@ -272,32 +272,6 @@ $(KICK_IN)
         <load_residue/>
       </segment>
     </segments>
-    <transfer/>
-    <value_bags/>
-    <bags/>
-    <tags/>
-    <paid_bags>
-      <paid_bag>
-        <bag_type/>
-        <weight>0</weight>
-        <rate_id/>
-        <rate/>
-        <rate_cur/>
-        <rate_trfer/>
-      </paid_bag>
-    </paid_bags>
-    <tripcounters>
-      <item>
-        <point_arv>$(get point_arv)</point_arv>
-        <class>Э</class>
-        <noshow>...
-        <trnoshow>...
-        <show>...
-        <free_ok>...
-        <free_goshow>...
-        <nooccupy>...
-      </item>
-    </tripcounters>
 
 
 %%
@@ -677,32 +651,7 @@ $(KICK_IN)
         <load_residue/>
       </segment>
     </segments>
-    <transfer/>
-    <value_bags/>
-    <bags/>
-    <tags/>
-    <paid_bags>
-      <paid_bag>
-        <bag_type/>
-        <weight>0</weight>
-        <rate_id/>
-        <rate/>
-        <rate_cur/>
-        <rate_trfer/>
-      </paid_bag>
-    </paid_bags>
-    <tripcounters>
-      <item>
-        <point_arv>$(get point_arv)</point_arv>
-        <class>Э</class>
-        <noshow>...
-        <trnoshow>...
-        <show>...
-        <free_ok>...
-        <free_goshow>...
-        <nooccupy>...
-      </item>
-    </tripcounters>
+
 
 %%
 ### test 2 - сквозная регистрации одного пассажира

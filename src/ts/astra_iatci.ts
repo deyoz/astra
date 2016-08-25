@@ -1386,35 +1386,6 @@ $(KICK_IN)
         <load_residue/>
       </segment>
     </segments>
-    <transfer/>
-    <value_bags/>
-    <bags/>
-    <tags/>
-    <paid_bags>
-      <paid_bag>
-        <bag_type/>
-        <weight>0</weight>
-        <rate_id/>
-        <rate/>
-        <rate_cur/>
-        <rate_trfer/>
-      </paid_bag>
-    </paid_bags>
-    <tripcounters>
-      <item>
-        <point_arv>$(get point_arv)</point_arv>
-        <class>ù</class>
-        <noshow>...
-        <trnoshow>...
-        <show>...
-        <free_ok>...
-        <free_goshow>...
-        <nooccupy>...
-      </item>
-    </tripcounters>
-    <load_residue/>
-  </answer>
-</term>
 
 
 %%
@@ -1837,22 +1808,6 @@ $(KICK_IN)
         <load_residue/>
       </segment>
     </segments>
-    <transfer/>
-    <value_bags/>
-    <bags/>
-    <tags/>
-    <paid_bags>
-      <paid_bag>
-        <bag_type/>
-        <weight>0</weight>
-        <rate_id/>
-        <rate/>
-        <rate_cur/>
-        <rate_trfer/>
-      </paid_bag>
-    </paid_bags>
-  </answer>
-</term>
 
 
 %%
@@ -2733,33 +2688,6 @@ $(KICK_IN)
         <load_residue/>
       </segment>
     </segments>
-    <transfer/>
-    <value_bags/>
-    <bags/>
-    <tags/>
-    <paid_bags>
-      <paid_bag>
-        <bag_type/>
-        <weight>0</weight>
-        <rate_id/>
-        <rate/>
-        <rate_cur/>
-        <rate_trfer/>
-      </paid_bag>
-    </paid_bags>
-    <tripcounters>
-      <item>
-        <point_arv>...
-        <class>ù</class>
-        <noshow>0</noshow>
-        <trnoshow>0</trnoshow>
-        <show>1</show>
-        <free_ok>...
-        <free_goshow>...
-        <nooccupy>...
-      </item>
-    </tripcounters>
-    <load_residue/>
 
 %%
 #########################################################################################
