@@ -6490,11 +6490,9 @@ string TLCI::get_action_code(TypeB::TDetailCreateInfo &info)
                     // create_point.stage_id = sNoActive
                     // create_point.offset = 0
                     TTripStage ts;
-                    TTripStages::LoadStage(info.point_id, sCloseCheckIn, ts);
-                    bool close_checkin = ts.act != NoExists;
-                    TTripStages::LoadStage(info.point_id, sTakeoff, ts);
-                    bool take_off = ts.act != NoExists;
-                    if(close_checkin or take_off)
+                    TTripStages::LoadStage(info.point_id, sCloseBoarding, ts);
+                    bool close_boarding = ts.act != NoExists;
+                    if(close_boarding)
                         result = "F";
                     else
                         result = "U";
