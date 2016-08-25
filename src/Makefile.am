@@ -64,6 +64,7 @@ astra_SOURCES = \
   baggage_pc.cc \
   base_tables.cc \
   basel_aero.cc \
+  bi_rules.cpp \
   brd.cc \
   cache.cc \
   cent.cc \
@@ -203,6 +204,7 @@ noinst_HEADERS = \
   baggage_pc.h \
   base_tables.h \
   basel_aero.h \
+  bi_rules.h \
   brd.h \
   cache.h \
   cent.h \

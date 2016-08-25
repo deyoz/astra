@@ -136,7 +136,7 @@ class PrintInterface: public JxtInterface
 
         static void GetPrintDataBP(
                                    ASTRA::TDevOperType op_type,
-                                   const BPParams &params,
+                                   BPParams &params,
                                    std::string &data,
                                    std::string &pectab,
                                    BIPrintRules::Holder &bi_rules,
@@ -144,9 +144,13 @@ class PrintInterface: public JxtInterface
         static void ConfirmPrintBP(ASTRA::TDevOperType op_type,
                                    const std::vector<BPPax> &paxs,
                                    CheckIn::UserException &ue);
+        
+        static void check_pectab_availability(BPParams &params, int grp_id, ASTRA::TDevOperType op_type);
+
         static void get_pectab(
+                int grp_id,
                 ASTRA::TDevOperType op_type,
-                const BPParams &params,
+                BPParams &params,
                 std::string &data,
                 std::string &pectab
                 );

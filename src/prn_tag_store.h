@@ -11,6 +11,7 @@
 #include "payment.h"
 #include "remarks.h"
 #include "passenger.h"
+#include "bi_rules.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -183,120 +184,6 @@ class TTagLang {
 
 int separate_double(double d, int precision, int *iptr);
 
-namespace BIPrintRules {
-
-class TPrintType
-{
-  public:
-    enum Enum
-    {
-      One,
-      OnePlusOne,
-      All,
-      None
-    };
-
-    static const std::list< std::pair<Enum, std::string> >& pairs()
-    {
-      static std::list< std::pair<Enum, std::string> > l;
-      if (l.empty())
-      {
-        l.push_back(std::make_pair(One,        "ONE"));
-        l.push_back(std::make_pair(OnePlusOne, "TWO"));
-        l.push_back(std::make_pair(All,        "ALL"));
-      }
-      return l;
-    }
-
-    static const std::list< std::pair<Enum, std::string> >& view_pairs()
-    {
-      static std::list< std::pair<Enum, std::string> > l;
-      if (l.empty())
-      {
-        l.push_back(std::make_pair(One,        "One"));
-        l.push_back(std::make_pair(OnePlusOne, "OnePlusOne"));
-        l.push_back(std::make_pair(All,        "All"));
-        l.push_back(std::make_pair(None,       "None"));
-      }
-      return l;
-    }
-};
-
-class TPrintTypes : public ASTRA::PairList<TPrintType::Enum, std::string>
-{
-  private:
-    virtual std::string className() const { return "TPrintTypes"; }
-  public:
-    TPrintTypes() : ASTRA::PairList<TPrintType::Enum, std::string>(TPrintType::pairs(),
-                                                                   boost::none,
-                                                                   boost::none) {}
-};
-
-class TPrintTypesView : public ASTRA::PairList<TPrintType::Enum, std::string>
-{
-  private:
-    virtual std::string className() const { return "TPrintTypesView"; }
-  public:
-    TPrintTypesView() : ASTRA::PairList<TPrintType::Enum, std::string>(TPrintType::view_pairs(),
-                                                                       boost::none,
-                                                                       boost::none) {}
-};
-
-const TPrintTypes& PrintTypes();
-const TPrintTypesView& PrintTypesView();
-
-    struct TRule {
-        bool pr_get; // Признак того, что для тек. пакса был вызван Holder::get
-        int id; // bi_print_rules.id
-        std::list<int> halls; // список id залов
-        int curr_hall; // зал, выбранный на клиенте
-        bool pr_print_bi;     // Печатать отдельное БП или нет
-        TPrintType::Enum print_type;
-
-        bool exists() const { return print_type != TPrintType::None; }
-        void dump(const std::string &file, int line) const;
-        void fromDB(TQuery &Qry);
-        TRule():
-            pr_get(false),
-            id(ASTRA::NoExists),
-            curr_hall(ASTRA::NoExists),
-            pr_print_bi(false),
-            print_type(TPrintType::None)
-        {}
-    };
-
-    void get_rule(
-            const std::string &airline,
-            const std::string &tier_level,
-            const std::string &cls,
-            const std::string &subcls,
-            const std::string &rem_code,
-            TRule &rule
-            );
-
-    bool bi_airline_service(
-            const TTripInfo &info,
-            TRule &rule
-            );
-
-    class Holder {
-        private:
-            void getByGrpId(int grp_id);
-            int get_hall_id(ASTRA::TDevOperType op_type, int pax_id);
-        public:
-            TRule empty_rule;
-            typedef std::map<int, TRule> TPaxList;
-            std::set<int> grps;
-            TPaxList items;
-            const TRule &get(int grp_id, int pax_id);
-            void dump() const;
-            bool complete() const;
-            void toXML(ASTRA::TDevOperType op_type, xmlNodePtr resNode);
-            bool select(xmlNodePtr reqNode);
-    };
-
-} //namespace BIPrintRules
-
 class TPrnTagStore {
     private:
 
@@ -425,6 +312,7 @@ class TPrnTagStore {
             int class_grp;
             int excess;
             int hall;
+            TPrPrint prPrintInfo;
             TGrpInfo():
                 grp_id(ASTRA::NoExists),
                 class_grp(ASTRA::NoExists),
@@ -474,7 +362,7 @@ class TPrnTagStore {
                 pr_bp_print(false),
                 pr_bi_print(false)
             {};
-            void Init(int apax_id, TTagLang &tag_lang);
+            void Init(int agrp_id, int apax_id, TTagLang &tag_lang);
         };
         TPaxInfo paxInfo;
 
