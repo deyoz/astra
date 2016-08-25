@@ -2160,7 +2160,7 @@ bool findFlt( const std::string &airline, const int &flt_no, const std::string &
    "WHERE airline=:airline AND flt_no=:flt_no AND "
      "     ( suffix IS NULL AND :suffix IS NULL OR suffix=:suffix ) AND "
      "     airp=:airp AND "
-     "     scd_out>=:scd_out AND scd_out<:scd_out+1";
+     "     scd_out>=:scd_out-1 AND scd_out<:scd_out+1";
   if ( !withDeleted )
     sql += " AND pr_del != -1";
   Qry.SQLText = sql;

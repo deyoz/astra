@@ -1479,15 +1479,17 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
             throw Exception( "Ошибка формата номера стойки, значение=%s", term.name.c_str() );
           Qry.Clear();
           Qry.SQLText =
-            "SELECT desk, 1 FROM stations "
+            "SELECT desk, 1 as status FROM stations "
             " WHERE airp=:airp AND work_mode=:work_mode AND name=:code "
             " UNION "
             "SELECT desk, 2 FROM aodb_stations a, stations s WHERE "
-            " a.airp=:airp AND s.airp=:airp AND a.aodb_name=:code AND a.name=s.name AND a.work_mode=:work_mode AND s.work_mode=:work_mode "
+            " a.airp=:airp AND s.airp=:airp AND a.aodb_name=:code AND a.name=s.name AND "
+            " a.work_mode=:work_mode AND s.work_mode=:work_mode AND terminal=:terminal "
             " ORDER BY 2 ";
           Qry.CreateVariable( "airp", otString, airp );
           Qry.CreateVariable( "work_mode", otString, term.type );
           Qry.CreateVariable( "code", otString, term.name );
+          Qry.CreateVariable( "terminal", otString, fl.hall );
           err++;
           Qry.Execute();          
           if ( !Qry.RowCount() ) {
@@ -1513,13 +1515,18 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
             if ( !Qry.RowCount() )
               throw Exception( "Неизвестная стойка, значение=%s", term.name.c_str() );
           }
-          term.name = Qry.FieldAsString( "desk" );
           i += 4;
           tmp = linestr.substr( i, 1 );
           tmp = TrimString( tmp );
           if ( tmp.empty() || StrToInt( tmp.c_str(), term.pr_del ) == EOF || term.pr_del < 0 || term.pr_del > 1 )
-            throw Exception( "Ошибка формата признака удаления стойки, значение=%s", tmp.c_str() );
-          fl.terms.push_back( term );
+            throw Exception( "Ошибка формата признака удаления стойки, значение=%s", tmp.c_str() );          
+          for (; !Qry.Eof; Qry.Next() ) {
+            term.name = Qry.FieldAsString( "desk" );
+            fl.terms.push_back( term );
+            if ( Qry.FieldAsInteger( "status") != 2 ) {
+              break;
+            }
+          }
         }
         catch( Exception &e ) {
           i = old_i + 1 + 4;
