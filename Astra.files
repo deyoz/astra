@@ -66,6 +66,8 @@ src/base_tables.cc
 src/base_tables.h
 src/basel_aero.cc
 src/basel_aero.h
+src/bi_rules.cpp
+src/bi_rules.h
 src/brd.cc
 src/brd.h
 src/cache.cc

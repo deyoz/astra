@@ -20,6 +20,8 @@
 #include "jxtlib/jxt_cont.h"
 #include "jxtlib/xml_stuff.h"
 #include "astra_misc.h"
+#include "dev_consts.h"
+#include "dev_utils.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"

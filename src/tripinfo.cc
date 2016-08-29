@@ -810,7 +810,7 @@ void TripsInterface::PectabsResponse(int point_id, xmlNodePtr reqNode, xmlNodePt
   {
       string dev_model = NodeAsString("dev_model", node);
       string fmt_type = NodeAsString("fmt_type", node);
-      GetTripBPPectabs( point_id, dev_model, fmt_type, dataNode );
+      GetTripBPPectabs( point_id, dotPrnBP, dev_model, fmt_type, dataNode );
   };
   node=GetNode( "tripBTpectabs", reqNode );
   if (node!=NULL)
@@ -818,6 +818,13 @@ void TripsInterface::PectabsResponse(int point_id, xmlNodePtr reqNode, xmlNodePt
       string dev_model = NodeAsString("dev_model", node);
       string fmt_type = NodeAsString("fmt_type", node);
       GetTripBTPectabs( point_id, dev_model, fmt_type, dataNode );
+  };
+  node=GetNode( "tripBIpectabs", reqNode );
+  if (node!=NULL)
+  {
+      string dev_model = NodeAsString("dev_model", node);
+      string fmt_type = NodeAsString("fmt_type", node);
+      GetTripBPPectabs( point_id, dotPrnBI, dev_model, fmt_type, dataNode );
   };
 };
 

@@ -423,12 +423,14 @@ bool CheckSeat(int pax_id, string& curr_seat_no)
     Qry.SQLText =
       "SELECT salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,0) AS curr_seat_no, "
       "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,1) AS curr_seat_no_lat, "
-      "       bp_print.seat_no_lat AS bp_seat_no_lat "
-      "FROM bp_print,pax, "
-      "     (SELECT MAX(time_print) AS time_print FROM bp_print WHERE pax_id=:pax_id AND pr_print<>0) a "
-      "WHERE bp_print.time_print=a.time_print AND bp_print.pax_id=:pax_id AND "
+      "       confirm_print.seat_no_lat AS bp_seat_no_lat "
+      "FROM confirm_print,pax, "
+      "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id AND pr_print<>0 and " OP_TYPE_COND("op_type")") a "
+      "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND "
+      "      " OP_TYPE_COND("confirm_print.op_type")" and "
       "      pax.pax_id=:pax_id";
     Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
     Qry.Execute();
     if (!Qry.Eof)
     {

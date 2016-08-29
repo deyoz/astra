@@ -1176,6 +1176,28 @@ class TRateColors: public TCodeBaseTable {
     };
 };
 
+class TBIPrintTypesRow: public TCodeBaseTableRow {
+  public:
+    int priority;
+    const char *get_row_name() const { return "TBIPrintTypesRow"; };
+    int AsInteger(std::string field) const
+    {
+      if (lowerc(field)=="priority") return priority;
+      return TCodeBaseTableRow::AsInteger(field);
+    };
+};
+
+class TBIPrintTypes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TBIPrintTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+    TBIPrintTypes() {
+        Init( "bi_print_types" );
+    };
+};
+
 class TBaseTables {
     private:
         typedef std::map<std::string, TBaseTable *> TTables;

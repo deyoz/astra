@@ -660,7 +660,6 @@ struct TEncodedFileStream
     TEncodedFileStream &operator << (std::ostream &(*os)(std::ostream &));
 };
 
-
 // Возвращает int (напр. point_id), связанный с ближайшей к искомой (src_date) датой.
 // Перед get необходимо заполнить map
 struct TNearestDate

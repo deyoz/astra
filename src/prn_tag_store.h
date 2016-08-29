@@ -11,6 +11,7 @@
 #include "payment.h"
 #include "remarks.h"
 #include "passenger.h"
+#include "bi_rules.h"
 
 const std::string FT_M61 = "M61"; // form type
 const std::string FT_298_401 = "298 401";
@@ -79,6 +80,8 @@ namespace TAG {
     const std::string TEST_SERVER = "TEST_SERVER";
     const std::string TIME_PRINT = "TIME_PRINT";
     const std::string PAX_TITLE = "PAX_TITLE";
+    const std::string BI_HALL = "BI_HALL";
+    const std::string BI_HALL_CAPTION = "BI_HALL_CAPTION";
 
     // specific for bag tags
     const std::string AIRCODE = "AIRCODE";
@@ -293,6 +296,12 @@ class TPrnTagStore {
         };
         TPointInfo pointInfo;
 
+        struct TBIHallInfo {
+            int hall_id;
+            TBIHallInfo(): hall_id(ASTRA::NoExists) {}
+        };
+        TBIHallInfo BIHallInfo;
+
         struct TGrpInfo {
             int grp_id;
             std::string airp_dep;
@@ -301,6 +310,7 @@ class TPrnTagStore {
             int class_grp;
             int excess;
             int hall;
+            TPrPrint prPrintInfo;
             TGrpInfo():
                 grp_id(ASTRA::NoExists),
                 class_grp(ASTRA::NoExists),
@@ -335,6 +345,7 @@ class TPrnTagStore {
             std::string tags;
             std::string subcls;
             bool pr_bp_print;
+            bool pr_bi_print;
             CheckIn::TPaxDocItem doc;
             TPaxInfo():
                 pax_id(ASTRA::NoExists),
@@ -346,9 +357,10 @@ class TPrnTagStore {
                 bag_weight(ASTRA::NoExists),
                 rk_amount(ASTRA::NoExists),
                 rk_weight(ASTRA::NoExists),
-                pr_bp_print(false)
+                pr_bp_print(false),
+                pr_bi_print(false)
             {};
-            void Init(int apax_id, TTagLang &tag_lang);
+            void Init(int agrp_id, int apax_id, TTagLang &tag_lang);
         };
         TPaxInfo paxInfo;
 
@@ -471,6 +483,8 @@ class TPrnTagStore {
         std::string TEST_SERVER(TFieldParams fp);
         std::string TIME_PRINT(TFieldParams fp);
         std::string PAX_TITLE(TFieldParams fp);
+        std::string BI_HALL(TFieldParams fp);
+        std::string BI_HALL_CAPTION(TFieldParams fp);
 
         // specific for bag tags
         std::string AIRCODE(TFieldParams fp);
@@ -558,11 +572,12 @@ class TPrnTagStore {
         TPrnTagStore(const std::string &scan, bool apr_lat);
         TPrnTagStore(bool apr_lat);
         TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat);
+        void set_tag(std::string name, const BIPrintRules::TRule &value);
         void set_tag(std::string name, std::string value);
         void set_tag(std::string name, int value);
         void set_tag(std::string name, BASIC::TDateTime value);
         std::string get_field(std::string name, size_t len, std::string align, std::string date_format, std::string tag_lang, bool pr_user_except = true);
-        void save_bp_print(bool pr_print = false);
+        void confirm_print(bool pr_print, ASTRA::TDevOperType op_type);
         std::string get_tag_no_err( // Версия get_tag, которая игнорирует ошибку "Данные печати не латинские"
                 std::string name,
                 std::string date_format = BASIC::ServerFormatDateTimeAsString,
