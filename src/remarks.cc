@@ -417,11 +417,9 @@ TPaxFQTItem& TPaxFQTItem::fromDB(TQuery &Qry)
   airline=Qry.FieldAsString("airline");
   no=Qry.FieldAsString("no");
   extra=Qry.FieldAsString("extra");
-  if (Qry.GetFieldIndex("tier_level")>=0)
-    tier_level=Qry.FieldAsString("tier_level");
-  if (Qry.GetFieldIndex("tier_level_confirm")>=0)
-    tier_level_confirm=!Qry.FieldIsNULL("tier_level_confirm") &&
-                       Qry.FieldAsInteger("tier_level_confirm")!=0;
+  tier_level=Qry.FieldAsString("tier_level");
+  tier_level_confirm=!Qry.FieldIsNULL("tier_level_confirm") &&
+                     Qry.FieldAsInteger("tier_level_confirm")!=0;
   return *this;
 };
 
@@ -611,8 +609,8 @@ bool LoadCrsPaxFQT(int pax_id, vector<TPaxFQTItem> &fqts)
 {
   fqts.clear();
   const char* sql=
-    "SELECT * FROM crs_pax_fqt WHERE pax_id=:pax_id";
-
+    "SELECT crs_pax_fqt.*, DECODE(tier_level, NULL, NULL, 1) AS tier_level_confirm "
+    "FROM crs_pax_fqt WHERE pax_id=:pax_id";
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
   TCachedQuery PaxFQTQry(sql, QryParams);
