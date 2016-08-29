@@ -261,6 +261,8 @@ namespace BIPrintRules {
                 throw Exception("BIPrintRules::Holder: rule not defined for pax_id %d", pax_id);
         }
         iPax->second.pr_get = true;
+        LogTrace(TRACE5) << "rule to return";
+        iPax->second.dump();
         return iPax->second;
     }
 
@@ -307,11 +309,11 @@ namespace BIPrintRules {
                 } catch(...) {
                 }
 
+                list<string> brands;
                 if(not etick.fare_basis.empty())
                 {
 
                     // Достаем бренды, соотв. etick.fare_basis (их не может быть > 1, ну а вдруг?)
-                    list<string> brands;
                     TCachedQuery brandQry(
                             "select brand from brand_fares where  airline = :airline and :fare_basis like replace(fare_basis, '*', '%')",
                             QParams()
@@ -320,46 +322,49 @@ namespace BIPrintRules {
                     brandQry.get().Execute();
                     for(; not brandQry.get().Eof; brandQry.get().Next())
                         brands.push_back(brandQry.get().FieldAsString("brand"));
+                }
+                // Если не найдено ни одного бренда, добавляем пустой, чтобы get_rule все-таки отработала
+                if(brands.empty()) brands.push_back(string());
 
+                // Достаем ремарки
+                vector<CheckIn::TPaxFQTItem> fqts;
+                CheckIn::LoadPaxFQT(pax_id, fqts);
+                // Если не найдено ни одной ремарки, добавляем пустую, чтобы get_rule все-таки отработала
+                if(fqts.empty()) fqts.push_back(CheckIn::TPaxFQTItem());
 
-                    // Достаем ремарки
-                    vector<CheckIn::TPaxFQTItem> fqts;
-                    CheckIn::LoadPaxFQT(pax_id, fqts);
+                // Пробег по брендам и ремаркам
+                // у паса может быть несколько ремарок с разными
+                // настройками группы регистрации (bi_print_rules.print_type = ALL, TWO, ONE)
+                // выбираем самую приоритетную.
 
-                    // Пробег по брендам и ремаркам
-                    // у паса может быть несколько ремарок с разными
-                    // настройками группы регистрации (bi_print_rules.print_type = ALL, TWO, ONE)
-                    // выбираем самую приоритетную.
+                BIPrintRules::TRule tmp_rule = bi_rule; // чтобы не потерять hall, is_business_hall, pr_print_bi
+                for(vector<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); iFqt++)
+                    for(list<string>::iterator iBrand = brands.begin(); iBrand != brands.end(); iBrand++) {
+                        BIPrintRules::get_rule(
+                                t.airline,
+                                iFqt->tier_level,
+                                cls,
+                                subcls,
+                                iFqt->rem,
+                                *iBrand,
+                                tmp_rule
+                                );
 
-                    BIPrintRules::TRule tmp_rule = bi_rule; // чтобы не потерять hall, is_business_hall, pr_print_bi
-                    for(list<string>::iterator iBrand = brands.begin(); iBrand != brands.end(); iBrand++)
-                        for(vector<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); iFqt++) {
-                            BIPrintRules::get_rule(
-                                    t.airline,
-                                    iFqt->tier_level,
-                                    cls,
-                                    subcls,
-                                    iFqt->rem,
-                                    *iBrand,
-                                    tmp_rule
-                                    );
+                        // После нахождения правила из кеша Правила печати приглашений
+                        // данные этого правила сохраняются в bi_rule:
+                        // Группа регистрации (bi_rule.print_type)
+                        // Оформление (bi_rule.pr_issue)
 
-                            // После нахождения правила из кеша Правила печати приглашений
-                            // данные этого правила сохраняются в bi_rule:
-                            // Группа регистрации (bi_rule.print_type)
-                            // Оформление (bi_rule.pr_issue)
-
-                            if(tmp_rule.exists()) {
-                                if(not bi_rule.exists())
+                        if(tmp_rule.exists()) {
+                            if(not bi_rule.exists())
+                                bi_rule = tmp_rule;
+                            else {
+                                // вот здесь выбор по приоритету
+                                if(bi_rule.print_type < tmp_rule.print_type)
                                     bi_rule = tmp_rule;
-                                else {
-                                    // вот здесь выбор по приоритету
-                                    if(bi_rule.print_type < tmp_rule.print_type)
-                                        bi_rule = tmp_rule;
-                                }
                             }
                         }
-                }
+                    }
             }
             items.insert(make_pair(pax_id, bi_rule));
         }
