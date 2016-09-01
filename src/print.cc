@@ -1710,14 +1710,12 @@ void PrintInterface::check_pectab_availability(BPParams &params, int grp_id, TDe
 }
 
 void PrintInterface::get_pectab(
-        int grp_id,
         TDevOperType op_type,
         BPParams &params,
         string &data,
         string &pectab
         )
 {
-    check_pectab_availability(params, grp_id, op_type);
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText =
@@ -1769,7 +1767,7 @@ void PrintInterface::GetPrintDataBP(
 {
     if(paxs.empty()) return;
 
-    get_pectab(paxs[0].grp_id, op_type, params, data, pectab);
+    get_pectab(op_type, params, data, pectab);
 
     for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
         //        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
@@ -1962,6 +1960,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
         first_seg_grp_id = Qry.FieldAsInteger("grp_id");
     }
 
+    check_pectab_availability(params, first_seg_grp_id, op_type);
 
     std::vector<BPPax> paxs;
     Qry.Clear();
@@ -2053,7 +2052,6 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
             TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) and
             not bi_rules.complete() // требуется назначить залы пассажирам
             ) {
-        get_pectab(first_seg_grp_id, op_type, params, data, pectab); // just for check availabity of pectab
         bi_rules.toXML(op_type, resNode);
     } else {
 
