@@ -1353,9 +1353,8 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
       "SELECT point_id_spp, nvl(points.est_out, points.scd_out) scd_out FROM tlg_binding, points WHERE point_id_tlg=:point_id and point_id_spp = point_id",
     Qry.CreateVariable("point_id", otInteger, point_id_tlg);
     Qry.Execute();
-    if ( Qry.Eof ) {
-      throw Exception( "Flight not found, point_id_tlg=%d", point_id_tlg );
-    }
+    if ( Qry.Eof )
+        throw ETlgError(tlgeNotMonitorYesAlarm, "Flight not found");
 
     LogTrace(TRACE5) << "time_receive: " << DateTimeToStr(time_receive);
 
