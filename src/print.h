@@ -148,7 +148,6 @@ class PrintInterface: public JxtInterface
         static void check_pectab_availability(BPParams &params, int grp_id, ASTRA::TDevOperType op_type);
 
         static void get_pectab(
-                int grp_id,
                 ASTRA::TDevOperType op_type,
                 BPParams &params,
                 std::string &data,
