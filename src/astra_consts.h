@@ -9,6 +9,7 @@
 #include "exceptions.h"
 
 namespace ASTRA
+
 {
 
 template <typename T1, typename T2>
