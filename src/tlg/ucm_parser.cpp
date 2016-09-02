@@ -104,23 +104,20 @@ void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts)
 
     boost::match_results<std::string::const_iterator> results;
 
-    int pr_match = 0;
     if (boost::regex_match(src, results, e1))
     {
-        pr_match = 1;
         airline = new_breed::GetAirline(results[1]);
         flt_no = ToInt(results[2]);
         suffix = new_breed::GetSuffix(results[3]);
         date = ParseDate(results[6]);
     } else if (boost::regex_match(src, results, e2))
     {
-        pr_match = 2;
         airline = new_breed::GetAirline(results[1]);
         flt_no = ToInt(results[2]);
         suffix = new_breed::GetSuffix(results[3]);
         date = ParseDate(results[4]);
-    }
-    LogTrace(TRACE5) << "pr_match: " << pr_match;
+    } else
+        throw ETlgError(tlgeNotMonitorYesAlarm, "Wrong flight: " + src);
 
     // привязка к рейсы
     flts.push_back(make_pair(toFltInfo(), btFirstSeg));
