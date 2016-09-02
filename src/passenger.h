@@ -90,6 +90,10 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     {
       return rem;
     }
+    std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const
+    {
+      return no_str();
+    }
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
@@ -185,6 +189,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
     {
       return "DOCS";
     }
+    std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
 };
 
 const std::string DOCO_PSEUDO_TYPE="-";
@@ -263,6 +268,7 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic
     {
       return "DOCO";
     }
+    std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
 };
 
 class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
@@ -346,6 +352,7 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
     {
       return "DOCA";
     }
+    std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
 };
 
 class TSimplePaxItem
@@ -462,8 +469,8 @@ class TPaxListItem
     CheckIn::TPaxItem pax;
     int generated_pax_id; //заполняется только при первоначальной регистрации (new_checkin) и только для NOREC
     bool remsExists;
-    std::vector<CheckIn::TPaxRemItem> rems;
-    std::vector<CheckIn::TPaxFQTItem> fqts;
+    std::multiset<CheckIn::TPaxRemItem> rems;
+    std::set<CheckIn::TPaxFQTItem> fqts;
     boost::optional< std::list<WeightConcept::TPaxNormItem> > norms;
     xmlNodePtr node;
 
@@ -488,6 +495,9 @@ class TPaxListItem
     }
 
     TPaxListItem& fromXML(xmlNodePtr paxNode);
+
+    void addFQT(const CheckIn::TPaxFQTItem &fqt);
+    void checkFQTTierLevel();
 };
 
 typedef std::list<CheckIn::TPaxListItem> TPaxList;

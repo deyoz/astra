@@ -1427,11 +1427,11 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
 {
   if (node==NULL) return;
 
-  vector<CheckIn::TPaxRemItem> rems_and_asvc;
+  multiset<CheckIn::TPaxRemItem> rems_and_asvc;
   CheckIn::PaxRemAndASVCFromDB(pax_id, from_crs, rems_and_asvc);
   CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id, TReqInfo::Instance()->desk.lang );
   if ( !apps_satus_rem.empty() )
-   rems_and_asvc.push_back( apps_satus_rem );
+   rems_and_asvc.insert( apps_satus_rem );
   CheckIn::PaxRemAndASVCToXML(rems_and_asvc, node);
 
   multiset<TPaxEMDItem> emds;
@@ -1448,7 +1448,7 @@ void LoadPaxFQT(int pax_id, xmlNodePtr node, bool from_crs)
 {
   if (node==NULL) return;
 
-  vector<CheckIn::TPaxFQTItem> fqts;
+  set<CheckIn::TPaxFQTItem> fqts;
   CheckIn::PaxFQTFromDB(pax_id, from_crs, fqts);
   CheckIn::PaxFQTToXML(fqts, node);
 }
@@ -2895,23 +2895,24 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
   return true;
 };
 
-bool CheckInInterface::CheckFQTRem(CheckIn::TPaxRemItem &rem, CheckIn::TPaxFQTItem &fqt)
+bool CheckInInterface::CheckFQTRem(const CheckIn::TPaxRemItem &rem, CheckIn::TPaxFQTItem &fqt)
 {
+  CheckIn::TPaxRemItem rem2=rem;
   //проверим корректность ремарки FQT...
-  string rem_code2=rem.text.substr(0,4);
+  string rem_code2=rem2.text.substr(0,4);
   if (rem_code2=="FQTV" ||
       rem_code2=="FQTU" ||
       rem_code2=="FQTR" ||
       rem_code2=="FQTS" )
   {
-    if (rem.code!=rem_code2)
+    if (rem2.code!=rem_code2)
     {
-      rem.code=rem_code2;
-      if (rem.text.size()>4) rem.text.insert(4," ");
+      rem2.code=rem_code2;
+      if (rem2.text.size()>4) rem2.text.insert(4," ");
     };
 
     TypeB::TTlgParser parser;
-    return ParseFQTRem(parser,rem.text,fqt);
+    return ParseFQTRem(parser,rem2.text,fqt);
   };
   return false;
 };
@@ -3027,9 +3028,9 @@ bool CheckInInterface::ParseFQTRem(TypeB::TTlgParser &tlg, string &rem_text, Che
   return false;
 };
 
-bool CheckInInterface::CheckAPPSRems(const std::vector<CheckIn::TPaxRemItem> &rems, std::string& override, bool& is_forced)
+bool CheckInInterface::CheckAPPSRems(const std::multiset<CheckIn::TPaxRemItem> &rems, std::string& override, bool& is_forced)
 {
-  for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
+  for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
   {
     // За один раз можем отправить только один запрос для пассажира
     if ( r->code == "RSIA" )
@@ -3845,7 +3846,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           allPaxNorec=false;
         if (!crewRemExists)
         {
-          for(vector<CheckIn::TPaxRemItem>::const_iterator r=p->rems.begin(); r!=p->rems.end(); ++r)
+          for(multiset<CheckIn::TPaxRemItem>::const_iterator r=p->rems.begin(); r!=p->rems.end(); ++r)
             if (r->code=="CREW")
             {
               crewRemExists=true;
@@ -4217,13 +4218,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             if (new_checkin || p->remsExists)
             {
-              vector<CheckIn::TPaxRemItem> &rems=p->rems;
+              multiset<CheckIn::TPaxRemItem> &rems=p->rems;
 
               bool flagVIP=false,
                    flagSTCR=false,
                    flagEXST=false,
                    flagCREW=false;
-              for(vector<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end();)
+              for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end();)
               {
                 if (r->code=="VIP")  flagVIP=true;
                 if (r->code=="STCR") flagSTCR=true;
@@ -4236,8 +4237,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   CheckIn::TPaxFQTItem fqt;
                   if (CheckFQTRem(*r,fqt)) //эта процедура нормализует ремарки FQT
                   {
-                    p->fqts.push_back(fqt);
-                    r=rems.erase(r);
+                    p->addFQT(fqt);
+                    r=Erase(rems, r);
                     continue;
                   };
                 };
@@ -4250,7 +4251,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               //синхронизация tier_level для FQT при записи со старых терминалов
               SyncFQTTierLevel(pax.id, new_checkin, p->fqts);
               //проверка readonly-ремарок
-              vector<CheckIn::TPaxRemItem> prior_rems;
+              multiset<CheckIn::TPaxRemItem> prior_rems;
               CheckIn::PaxRemAndASVCFromDB(pax.id, new_checkin, prior_rems);
               multiset<CheckIn::TPaxRemItem> added;
               multiset<CheckIn::TPaxRemItem> deleted;
@@ -4280,18 +4281,18 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               };
 
               if (new_checkin && addVIP && !flagVIP)
-                rems.push_back(CheckIn::TPaxRemItem("VIP","VIP"));
+                rems.insert(CheckIn::TPaxRemItem("VIP","VIP"));
 
               if (seats!=NoExists && seats>1 && !flagEXST && !flagSTCR)
-                rems.push_back(CheckIn::TPaxRemItem("EXST","EXST"));
+                rems.insert(CheckIn::TPaxRemItem("EXST","EXST"));
 
               if (flagEXST && ((seats!=NoExists && seats<=1) || flagSTCR))
-                for(vector<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end();)
+                for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end();)
                 {
-                  if (r->code=="EXST") r=rems.erase(r); else ++r;
+                  if (r->code=="EXST") r=Erase(rems, r); else ++r;
                 };
               if (grp.status==psCrew && !flagCREW)
-                rems.push_back(CheckIn::TPaxRemItem("CREW","CREW"));
+                rems.insert(CheckIn::TPaxRemItem("CREW","CREW"));
             };
           }
           catch(CheckIn::UserException)
@@ -4570,7 +4571,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   pas.pers_type = EncodePerson(pax.pers_type);
                   bool flagCHIN=pax.pers_type != ASTRA::adult;
                   bool flagINFT = false;
-                  for(vector<CheckIn::TPaxRemItem>::const_iterator r=p->rems.begin(); r!=p->rems.end(); ++r)
+                  for(multiset<CheckIn::TPaxRemItem>::const_iterator r=p->rems.begin(); r!=p->rems.end(); ++r)
                   {
                     if (r->code=="BLND" ||
                         r->code=="STCR" ||

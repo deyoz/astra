@@ -327,10 +327,10 @@ namespace BIPrintRules {
                 if(brands.empty()) brands.push_back(string());
 
                 // Достаем ремарки
-                vector<CheckIn::TPaxFQTItem> fqts;
+                set<CheckIn::TPaxFQTItem> fqts;
                 CheckIn::LoadPaxFQT(pax_id, fqts);
                 // Если не найдено ни одной ремарки, добавляем пустую, чтобы get_rule все-таки отработала
-                if(fqts.empty()) fqts.push_back(CheckIn::TPaxFQTItem());
+                if(fqts.empty()) fqts.insert(CheckIn::TPaxFQTItem());
 
                 // Пробег по брендам и ремаркам
                 // у паса может быть несколько ремарок с разными
@@ -338,8 +338,8 @@ namespace BIPrintRules {
                 // выбираем самую приоритетную.
 
                 BIPrintRules::TRule tmp_rule = bi_rule; // чтобы не потерять hall, is_business_hall, pr_print_bi
-                for(vector<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); iFqt++)
-                    for(list<string>::iterator iBrand = brands.begin(); iBrand != brands.end(); iBrand++) {
+                for(set<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); ++iFqt)
+                    for(list<string>::iterator iBrand = brands.begin(); iBrand != brands.end(); ++iBrand) {
                         BIPrintRules::get_rule(
                                 t.airline,
                                 iFqt->tier_level,

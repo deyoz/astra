@@ -363,7 +363,7 @@ class TPaxSegItem : public TSegItem
     std::string subcl;
     CheckIn::TPaxTknItem tkn;
     std::list<CheckIn::TPnrAddrItem> pnrs;
-    std::vector<CheckIn::TPaxFQTItem> fqts;
+    std::set<CheckIn::TPaxFQTItem> fqts;
     TPaxSegItem()
     {
       TSegItem::clear();
