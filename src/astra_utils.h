@@ -669,4 +669,13 @@ struct TNearestDate
     int get();
 };
 
+template <class T>
+typename T::iterator Erase(T &c, typename T::iterator i)
+{
+  typename T::iterator curr=i;
+  ++i;
+  c.erase(curr);
+  return i;
+};
+
 #endif /*_ASTRA_UTILS_H_*/

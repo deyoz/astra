@@ -17,24 +17,24 @@ using namespace AstraLocale;
 using namespace BASIC::date_time;
 using namespace SALONS2;
 
-bool TWebPaxFromReq::mergePaxFQT(vector<CheckIn::TPaxFQTItem> &fqts) const
+bool TWebPaxFromReq::mergePaxFQT(set<CheckIn::TPaxFQTItem> &fqts) const
 {
   if (!fqtv_rems_present) return false;
   multiset<string> prior, curr;
-  for(vector<CheckIn::TPaxFQTItem>::iterator f=fqts.begin(); f!=fqts.end();)
+  for(set<CheckIn::TPaxFQTItem>::iterator f=fqts.begin(); f!=fqts.end();)
   {
     if (f->rem=="FQTV")
     {
       prior.insert(f->rem_text(false));
-      f=fqts.erase(f);
+      f=Erase(fqts, f);
     }
     else
       ++f;
   };
-  for(vector<CheckIn::TPaxFQTItem>::const_iterator f=fqtv_rems.begin(); f!=fqtv_rems.end(); ++f)
+  for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqtv_rems.begin(); f!=fqtv_rems.end(); ++f)
     curr.insert(f->rem_text(false));
 
-  fqts.insert(fqts.end(), fqtv_rems.begin(), fqtv_rems.end());
+  fqts.insert(fqtv_rems.begin(), fqtv_rems.end());
 
   return prior!=curr;
 }
@@ -148,17 +148,17 @@ void CheckSeatNoFromReq(int point_id,
   };
 }
 
-void CreateEmulRems(xmlNodePtr paxNode, const vector<CheckIn::TPaxRemItem> &rems, const vector<CheckIn::TPaxFQTItem> &fqts)
+void CreateEmulRems(xmlNodePtr paxNode, const multiset<CheckIn::TPaxRemItem> &rems, const set<CheckIn::TPaxFQTItem> &fqts)
 {
   xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
-  for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
+  for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
   {
     if (isDisabledRem(r->code, r->text)) continue;
     r->toXML(remsNode);
   }
 
   //добавим fqts
-  for(vector<CheckIn::TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
+  for(set<CheckIn::TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
     CheckIn::TPaxRemItem(*r, false).toXML(remsNode);
 }
 
@@ -488,9 +488,9 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
               NewTextChild(paxNode,"reg_no",iPaxForCkin->reg_no);
 
             //ремарки
-            vector<CheckIn::TPaxRemItem> rems;
+            multiset<CheckIn::TPaxRemItem> rems;
             CheckIn::LoadCrsPaxRem(iPaxForCkin->crs_pax_id, rems);
-            vector<CheckIn::TPaxFQTItem> fqts;
+            set<CheckIn::TPaxFQTItem> fqts;
             CheckIn::LoadCrsPaxFQT(iPaxForCkin->crs_pax_id, fqts);
             iPaxFromReq->mergePaxFQT(fqts);
             CreateEmulRems(paxNode, rems, fqts);
@@ -579,7 +579,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           };
 
           bool FQTRemUpdatesPending=false;
-          vector<CheckIn::TPaxFQTItem> fqts;
+          set<CheckIn::TPaxFQTItem> fqts;
           if (iPaxFromReq->fqtv_rems_present) //тег <fqt_rems> пришел
           {
             CheckIn::LoadPaxFQT(iPaxForChng->crs_pax_id, fqts);
@@ -642,7 +642,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             if (FQTRemUpdatesPending)
             {
               //ремарки
-              vector<CheckIn::TPaxRemItem> rems;
+              multiset<CheckIn::TPaxRemItem> rems;
               CheckIn::LoadPaxRem(iPaxForChng->crs_pax_id, rems);
               CreateEmulRems(paxNode, rems, fqts);
             };

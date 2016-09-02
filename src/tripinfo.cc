@@ -2652,15 +2652,14 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "status", Qry.FieldAsString( col_status ), def_status );
 
     int pax_id=Qry.FieldAsInteger( col_pax_id );
-    vector<CheckIn::TPaxRemItem> rems;
+    multiset<CheckIn::TPaxRemItem> rems;
     LoadCrsPaxRem(pax_id, rems);
     CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id, TReqInfo::Instance()->desk.lang );
     if ( !apps_satus_rem.empty() )
-     rems.push_back( apps_satus_rem );
+     rems.insert( apps_satus_rem );
     ostringstream rem_detail;
-    sort(rems.begin(),rems.end()); //сортировка по priority
     xmlNodePtr stcrNode = NULL;
-    for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();++r)
+    for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();++r)
     {
       rem_detail << ".R/" << r->text << "   ";
       if ( r->code == "STCR" && !stcrNode )

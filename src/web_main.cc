@@ -551,7 +551,7 @@ bool is_valid_tkn_info(const TCompleteAPICheckInfo &checkInfo,
 };
 
 bool is_valid_rem_codes(const TTripInfo &flt,
-                        const std::vector<CheckIn::TPaxRemItem> &rems)
+                        const std::multiset<CheckIn::TPaxRemItem> &rems)
 {
   TRemGrp rem_grp;
   switch (TReqInfo::Instance()->client_type)
@@ -569,7 +569,7 @@ bool is_valid_rem_codes(const TTripInfo &flt,
       return true;
   }
   bool result=true;
-  for(vector<CheckIn::TPaxRemItem>::const_iterator i=rems.begin(); i!=rems.end(); ++i)
+  for(multiset<CheckIn::TPaxRemItem>::const_iterator i=rems.begin(); i!=rems.end(); ++i)
     if (rem_grp.exists(i->code))
     {
       ProgTrace(TRACE5, "%s: airline=%s forbidden rem code %s", __FUNCTION__, flt.airline.c_str(), i->code.c_str());
@@ -948,7 +948,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
           fqt.rem="FQTV";
           fqt.airline=Qry.FieldAsString("fqt_airline");
           fqt.no=Qry.FieldAsString("fqt_no");
-          pax.fqts.push_back(fqt);
+          pax.fqts.insert(fqt);
         };
 
         pax.crs_pnr_tid = pnr_id;
@@ -1140,7 +1140,7 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids,
         PaxDocoToXML(iPax->doco, paxNode);
 
         xmlNodePtr fqtsNode = NewTextChild( paxNode, "fqt_rems" );
-        for(vector<CheckIn::TPaxFQTItem>::const_iterator f=iPax->fqts.begin(); f!=iPax->fqts.end(); ++f++)
+        for(set<CheckIn::TPaxFQTItem>::const_iterator f=iPax->fqts.begin(); f!=iPax->fqts.end(); ++f)
           if (f->rem=="FQTV") f->toXML(fqtsNode);
 
         xmlNodePtr tidsNode = NewTextChild( paxNode, "tids" );
@@ -2163,7 +2163,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
             if (fmt==efmtUnknown)
               fqt.airline=NodeAsString("airline",fqtNode);
             fqt.no=NodeAsString("no",fqtNode);
-            pax.fqtv_rems.push_back(fqt);
+            pax.fqtv_rems.insert(fqt);
           };
         };
 

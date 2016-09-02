@@ -28,7 +28,7 @@ using BASIC::date_time::TDateTime;
 
 namespace Paxlst
 {
-    
+
 class GeneralInfo
 {
     // Name of the company responsible for sending the information
@@ -40,7 +40,7 @@ class GeneralInfo
     /* maxlen = 4 */
     /* required = C */
     std::string m_senderCarrierCode;
-    
+
     // Name of the company responsible for receiving the information
     /* maxlen = 35 */
     /* required = M */
@@ -55,54 +55,54 @@ class GeneralInfo
     /* maxlen = 35 */
     /* required = C */
     std::string m_iataCode;
-    
+
 public:
     GeneralInfo()
     {}
-    
+
     // sender name
-    const std::string& senderName() const { 
-        return m_senderName; 
+    const std::string& senderName() const {
+        return m_senderName;
     }
-    void setSenderName( const std::string& sn ) { 
-        m_senderName = upperc( sn.substr( 0, 35 ) ); 
+    void setSenderName( const std::string& sn ) {
+        m_senderName = upperc( sn.substr( 0, 35 ) );
     }
 
     // sender carrier code
-    const std::string& senderCarrierCode() const { 
-        return m_senderCarrierCode; 
+    const std::string& senderCarrierCode() const {
+        return m_senderCarrierCode;
     }
-    void setSenderCarrierCode( const std::string& scc ) { 
-        m_senderCarrierCode = upperc( scc.substr( 0, 4 ) ); 
+    void setSenderCarrierCode( const std::string& scc ) {
+        m_senderCarrierCode = upperc( scc.substr( 0, 4 ) );
     }
 
     // recipient name
-    const std::string& recipientName() const { 
-        return m_recipientName; 
-    }    
-    void setRecipientName( const std::string& rn ) { 
-        m_recipientName = upperc( rn.substr( 0, 35 ) ); 
+    const std::string& recipientName() const {
+        return m_recipientName;
+    }
+    void setRecipientName( const std::string& rn ) {
+        m_recipientName = upperc( rn.substr( 0, 35 ) );
     }
 
     // recipient carrier code
-    const std::string& recipientCarrierCode() const { 
-        return m_recipientCarrierCode; 
+    const std::string& recipientCarrierCode() const {
+        return m_recipientCarrierCode;
     }
-    void setRecipientCarrierCode( const std::string& rcc ) { 
-        m_recipientCarrierCode = upperc( rcc.substr( 0, 4 ) ); 
+    void setRecipientCarrierCode( const std::string& rcc ) {
+        m_recipientCarrierCode = upperc( rcc.substr( 0, 4 ) );
     }
-    
+
     // iata code
-    const std::string& iataCode() const { 
-        return m_iataCode; 
+    const std::string& iataCode() const {
+        return m_iataCode;
     }
-    void setIataCode( const std::string& ic ) { 
-        m_iataCode = upperc( ic.substr( 0, 35 ) ); 
+    void setIataCode( const std::string& ic ) {
+        m_iataCode = upperc( ic.substr( 0, 35 ) );
     }
 };
 
 //-------------------------------------------------------------------------------------------------
-    
+
 class FlightInfo
 {
     std::string m_carrier;
@@ -134,12 +134,12 @@ class FlightInfo
     std::map<std::string, std::string> mktFlts;
     // Flight legs
     FlightLegs legs;
-    
+
 public:
     FlightInfo()
         : m_depDateTime( ASTRA::NoExists ), m_arrDateTime( ASTRA::NoExists )
     {}
-    
+
     // carrier
     const std::string& carrier() const {
         return m_carrier;
@@ -149,13 +149,13 @@ public:
     }
 
     // flight
-    const std::string& flight() const { 
-        return m_flight; 
+    const std::string& flight() const {
+        return m_flight;
     }
     void setFlight( const std::string& f ) {
         m_flight = upperc( f.substr( 0, 17 ) );
     }
-    
+
     // departure airport
     const std::string& depPort() const {
         return m_depPort;
@@ -163,7 +163,7 @@ public:
     void setDepPort( const std::string& dp ) {
         m_depPort = upperc( dp.substr( 0, 25 ) );
     }
-    
+
     // departure date/time
     void setDepDateTime( const TDateTime& ddt ) {
         m_depDateTime = ddt;
@@ -218,17 +218,17 @@ class PartyInfo
     // Fax number of the company
     /* maxlen = 25 */
     std::string m_fax;
-    
+
     // E-Mail address of the company
     /* maxlen = 25 */
     std::string m_email;
-    
+
 public:
     PartyInfo()
     {}
 
     // Company name
-    const std::string& partyName() const { 
+    const std::string& partyName() const {
         return m_partyName;
     }
     void setPartyName( const std::string& pn ) {
@@ -250,7 +250,7 @@ public:
     void setFax( const std::string& f ) {
         m_fax = upperc( f.substr( 0, 25 ) );
     }
-    
+
     // Company email
     const std::string& email() const {
         return m_email;
@@ -265,7 +265,7 @@ public:
 class PassengerInfo
 {
     friend class PaxlstInfo;
-    
+
     // Contains the passenger's personal data. As a minimum,
     // the name and surname should appear. These data can include
     // all passenger's personal data, or omit some of them
@@ -355,7 +355,7 @@ class PassengerInfo
     std::vector< std::pair<int, std::string> > pax_seats;
     int m_bagCount;
     int m_bagWeight;
-    std::vector<CheckIn::TPaxFQTItem> pax_fqts;
+    std::set<CheckIn::TPaxFQTItem> pax_fqts;
 
 public:
     PassengerInfo()
@@ -586,10 +586,10 @@ public:
     void setBagWeight( const int value ) {
       m_bagWeight = value;
     }
-    const std::vector<CheckIn::TPaxFQTItem>& fqts() const {
+    const std::set<CheckIn::TPaxFQTItem>& fqts() const {
         return pax_fqts;
     }
-    void setFqts(std::vector<CheckIn::TPaxFQTItem>& values) {
+    void setFqts(std::set<CheckIn::TPaxFQTItem>& values) {
       pax_fqts = values;
     }
 };
@@ -604,7 +604,7 @@ class PaxlstSettings
     std::string m_mesAssCode;
     std::string m_respAgnCode;
     bool m_viewUNGandUNE;
-    
+
 public:
     PaxlstSettings()
         : m_appRef( "APIS" ),
@@ -613,7 +613,7 @@ public:
           m_respAgnCode( "111" ),
           m_viewUNGandUNE(false)
     {}
-    
+
     const std::string& appRef() const { return m_appRef; }
     void setAppRef( const std::string& appRef ) { m_appRef = appRef; }
 
@@ -645,8 +645,8 @@ private:
     std::string m_docId;
     PassengersList_t m_passList;
     PaxlstSettings m_settings;
-    
-public:    
+
+public:
     PaxlstInfo(const PaxlstType &paxlstType,
                const std::string &docId)
       : m_type( paxlstType ),
@@ -656,7 +656,7 @@ public:
     const PassengersList_t& passengersList() const { return m_passList; }
     void setPassengersList( const PassengersList_t& passList ) { m_passList = passList; }
     void addPassenger( const PassengerInfo& passInfo );
-    
+
     PaxlstSettings& settings() { return m_settings; }
     const PaxlstSettings& settings() const { return m_settings; }
     PaxlstType type() const { return m_type; }
@@ -665,7 +665,7 @@ public:
     std::string toEdiString() const;
     void toXMLFormat(xmlNodePtr emulApisNode, const int psg_num, const int crew_num, const int version) const;
     std::vector< std::string > toEdiStrings( unsigned maxPaxPerString ) const;
-    
+
 protected:
     void checkInvariant() const;
 };

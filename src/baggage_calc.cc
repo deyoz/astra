@@ -713,11 +713,11 @@ class TWidePaxInfo : public TPaxInfo
         if (seats==0) pax_cats.insert("CHC");
         else
         {
-          const vector<CheckIn::TPaxRemItem> &rems=
+          const multiset<CheckIn::TPaxRemItem> &rems=
             (new_checkin || (curr_pax.pax.PaxUpdatesPending && curr_pax.remsExists))?curr_pax.rems:
                                                                                      prior_pax.rems;
 
-          std::vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();
+          std::multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();
           for(; r!=rems.end(); ++r)
             if (r->code=="UMNR") break;
           if (r==rems.end()) pax_cats.insert("CHD");
