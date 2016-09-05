@@ -117,7 +117,7 @@ void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts)
         suffix = new_breed::GetSuffix(results[3]);
         date = ParseDate(results[4]);
     } else
-        throw ETlgError(tlgeNotMonitorYesAlarm, "Wrong flight: " + src);
+        throw ETlgError(tlgeNotMonitorNotAlarm, "Wrong flight: " + src);
 
     // привязка к рейсы
     flts.push_back(make_pair(toFltInfo(), btFirstSeg));
