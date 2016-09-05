@@ -164,6 +164,9 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
       case retMOB:
         event_type = "MOB";
         break;
+      case retTYPEB_LCI:
+        event_type = "TYPEB_LCI";
+        break;
       default:
         throw Exception("LoadRemGrp: unknown event type %d", rem_set_type);
     }
