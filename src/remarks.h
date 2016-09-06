@@ -30,7 +30,8 @@ enum TRemEventType {
     retLIMITED_CAPAB_STAT,
     retWEB,
     retKIOSK,
-    retMOB
+    retMOB,
+    retTYPEB_LCI
 };
 
 class TRemGrp : public std::set<std::string>
