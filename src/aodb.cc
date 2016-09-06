@@ -1520,7 +1520,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
           tmp = TrimString( tmp );
           if ( tmp.empty() || StrToInt( tmp.c_str(), term.pr_del ) == EOF || term.pr_del < 0 || term.pr_del > 1 )
             throw Exception( "Ошибка формата признака удаления стойки, значение=%s", tmp.c_str() );          
-          int prior_status = ASTRA::NoExists;
+          int priorStatus = ASTRA::NoExists;
           for (; !Qry.Eof; Qry.Next() ) {
             if ( priorStatus == ASTRA::NoExists ) {
               priorStatus = Qry.FieldAsInteger( "status" );
