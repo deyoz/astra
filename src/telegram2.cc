@@ -8367,19 +8367,23 @@ void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         string tlg_text = orig.addr + "\xa." + sender + "\n" + content;
 
         string tlg_type, airline, airp;
-        get_tlg_info(tlg_text, tlg_type, airline, airp);
-
-        TReqInfo *reqInfo = TReqInfo::Instance();
-        if (not reqInfo->user.access.airlines().permitted(airline) or
-                not reqInfo->user.access.airps().permitted(airp) ) {
-            NewTextChild(resNode, "content", ACCESS_DENIED);
-        } else {
-            int tlgs_id = loadTlg(tlg_text);
-            if(tlg_type == "LCI") { // Для LCI подвешиваем процесс, для остальных - возвр. пустой ответ.
-                TypeBHelpMng::configForPerespros(tlgs_id);
-                NewTextChild(resNode, "content", TIMEOUT_OCCURRED);
+        try {
+            get_tlg_info(tlg_text, tlg_type, airline, airp);
+            TReqInfo *reqInfo = TReqInfo::Instance();
+            if (not reqInfo->user.access.airlines().permitted(airline) or
+                    not reqInfo->user.access.airps().permitted(airp) ) {
+                NewTextChild(resNode, "content", ACCESS_DENIED);
+            } else {
+                int tlgs_id = loadTlg(tlg_text);
+                if(tlg_type == "LCI") { // Для LCI подвешиваем процесс, для остальных - возвр. пустой ответ.
+                    TypeBHelpMng::configForPerespros(tlgs_id);
+                    NewTextChild(resNode, "content", TIMEOUT_OCCURRED);
+                }
             }
+        } catch(const Exception &E) {
+            NewTextChild(resNode, "content", E.what());
         }
+
     }
 }
 

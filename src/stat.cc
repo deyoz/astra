@@ -8733,8 +8733,8 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
     TDateTime FirstDate = NodeAsDateTime("FirstDate", reqNode);
     TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
-    if(IncMonth(FirstDate, 3) < LastDate)
-        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_THREE_MONTHS");
+    if(IncMonth(FirstDate, 1) < LastDate)
+        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     TPerfTimer tm;
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
