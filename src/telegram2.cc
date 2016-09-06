@@ -795,14 +795,12 @@ void simple_split(ostringstream &heading, size_t part_len, TTlgDraft &tlg_draft,
 struct TWItem {
     int bagAmount;
     int bagWeight;
-    int rkAmount;
     int rkWeight;
     void get(int grp_id, int bag_pool_num);
     void ToTlg(vector<string> &body);
     TWItem():
         bagAmount(0),
         bagWeight(0),
-        rkAmount(0),
         rkWeight(0)
     {};
 };
@@ -2294,7 +2292,6 @@ void TWItem::get(int grp_id, int bag_pool_num)
         << QParam("bag_pool_num", otInteger, bag_pool_num)
         << QParam("bagAmount", otInteger)
         << QParam("bagWeight", otInteger)
-        << QParam("rkAmount", otInteger)
         << QParam("rkWeight", otInteger);
     TCachedQuery Qry(
             "declare "
@@ -2303,14 +2300,12 @@ void TWItem::get(int grp_id, int bag_pool_num)
             "   bag_pool_pax_id := ckin.get_bag_pool_pax_id(:grp_id, :bag_pool_num); "
             "   :bagAmount := ckin.get_bagAmount2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
             "   :bagWeight := ckin.get_bagWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
-            "   :rkAmount := ckin.get_rkAmount2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
             "   :rkWeight := ckin.get_rkWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
             "end;",
             QryParams);
     Qry.get().Execute();
     bagAmount = Qry.get().GetVariableAsInteger("bagAmount");
     bagWeight = Qry.get().GetVariableAsInteger("bagWeight");
-    rkAmount = Qry.get().GetVariableAsInteger("rkAmount");
     rkWeight = Qry.get().GetVariableAsInteger("rkWeight");
 }
 
@@ -6203,13 +6198,6 @@ typedef map<string, TByGender> TByClass;
 struct TLCIPaxTotalsItem {
     string airp;
     TPaxTotalsItem cls_totals;
-
-    typedef map<string, pair<int, int> > TBagCategory;
-    TBagCategory bag_category;
-
-    typedef map<string, int> TRemCategory;
-    TRemCategory rem_category;
-
     int rk_weight;
     TLCIPaxTotalsItem(): rk_weight(0) {}
 };
@@ -6218,22 +6206,10 @@ struct TLCIPaxTotals {
     vector<TLCIPaxTotalsItem> items;
     TByClass pax_tot_by_cls;
     void get(TypeB::TDetailCreateInfo &info);
-    void ToTlg(
-            TypeB::TDetailCreateInfo &info,
-            vector<string> &body,
-            vector<string> &si
-            );
+    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
 
-// baggage categories
-const string BCAT_BD = "BD";
-const string BCAT_BI = "BI";
-const string BCAT_BT = "BT";
-const string BCAT_BX = "BX";
-const string BCAT_BF = "BF";
-const string BCAT_BY = "BY";
-
-void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, vector<string> &si)
+void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     ostringstream result;
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
@@ -6280,30 +6256,6 @@ void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, 
                 << iv->rk_weight
                 << "." << KG;
             body.push_back(result.str());
-
-            for(TLCIPaxTotalsItem::TBagCategory::iterator i = iv->bag_category.begin();
-                    i != iv->bag_category.end(); i++) {
-                if(iv->bag_category[i->first].first != 0) {
-                    result.str(string());
-                    result
-                        << "-" << info.TlgElemIdToElem(etAirp, iv->airp)
-                        << "." << i->first << "."
-                        << iv->bag_category[i->first].first << "/"
-                        << iv->bag_category[i->first].second
-                        << "." << KG;
-                    si.push_back(result.str());
-                }
-            }
-
-            for(TLCIPaxTotalsItem::TRemCategory::iterator i = iv->rem_category.begin();
-                    i != iv->rem_category.end(); i++) {
-                result.str(string());
-                result
-                    << "-" << info.TlgElemIdToElem(etAirp, iv->airp)
-                    << "." << i->first << "/" << i->second;
-                si.push_back(result.str());
-            }
-
         }
     }
     if(options.pas_distrib) {
@@ -6329,20 +6281,11 @@ void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, 
 
 void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
 {
-    TRemGrp rem_grp;
-    rem_grp.Load(retTYPEB_LCI, info.point_id);
-
-    TypeB::TCreateInfo BTMcreateInfo("BTM", TypeB::TCreatePoint());
-
     // complayers нужен внутри PRL для вытаскивания номера места для ремарки SEAT
     // в данном случае, нужны только totals, поэтому передаем пустой вектор
     vector<TTlgCompLayer> complayers;
     TDestList<TPRLDest> dests;
     dests.get(info,complayers);
-    // вектор TPRLDest может содержать дублированные АП:
-    // ШРМ Б
-    // ШРМ Э
-    set<string> used_airps;
     for(vector<TPRLDest>::iterator iv = dests.items.begin(); iv != dests.items.end(); iv++) {
         size_t idx = 0;
         for(; idx < items.size(); idx++)
@@ -6351,65 +6294,11 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
             items.push_back(TLCIPaxTotalsItem());
             items[idx].airp = iv->airp;
         }
-
-        // Fetch transfer baggage
-        // if airp already handled - do nothing
-        if(used_airps.find(iv->airp) == used_airps.end()) {
-            used_airps.insert(iv->airp);
-            BTMcreateInfo.optionsAs<TypeB::TAirpTrferOptions>()->airp_trfer = iv->airp;
-            TypeB::TDetailCreateInfo BTMinfo;
-            BTMinfo.create_point = BTMcreateInfo.create_point;
-            BTMinfo.copy(BTMcreateInfo);
-            BTMinfo.point_id = info.point_id;
-
-            TFList<TBTMFItem> FList;
-            FList.get(BTMinfo);
-
-            for(size_t i_bag = 0; i_bag < FList.items.size(); i_bag++) {
-                const TBTMGrpList &bag_item = FList.items[i_bag].grp_list;
-                for(vector<TBTMGrpListItem>::const_iterator grp_i = bag_item.items.begin(); grp_i != bag_item.items.end(); grp_i++) {
-                    items[idx].bag_category[BCAT_BT].first += grp_i->W.bagAmount;
-                    items[idx].bag_category[BCAT_BT].second += grp_i->W.bagWeight;
-                    if(FList.items[i_bag].airline != info.airline) {
-                        items[idx].bag_category[BCAT_BI].first += grp_i->W.bagAmount;
-                        items[idx].bag_category[BCAT_BI].second += grp_i->W.bagWeight;
-                    }
-                    TBaseTable &baseairps = base_tables.get( "airps" );
-                    TBaseTable &basecities = base_tables.get( "cities" );
-                    if(((TCitiesRow&)basecities.get_row("code", ((TAirpsRow&)baseairps.get_row("code", FList.items[i_bag].airp_arv)).city)).country == "РФ") {
-                        items[idx].bag_category[BCAT_BD].first += grp_i->W.bagAmount;
-                        items[idx].bag_category[BCAT_BD].second += grp_i->W.bagWeight;
-                    }
-                }
-            }
-        }
-        // end of Fetch transliter baggage
-
         for(vector<TPRLPax>::iterator pax_i = iv->PaxList.begin(); pax_i != iv->PaxList.end(); pax_i++) {
             TGRPItem &grp_map = iv->grp_map->items[pax_i->grp_id][pax_i->bag_pool_num];
             items[idx].cls_totals[iv->cls].bag_amount += grp_map.W.bagAmount;
             items[idx].cls_totals[iv->cls].bag_weight += grp_map.W.bagWeight;
             items[idx].rk_weight += grp_map.W.rkWeight;
-
-            items[idx].bag_category[BCAT_BX].first += grp_map.W.rkAmount;
-            items[idx].bag_category[BCAT_BX].second += grp_map.W.rkWeight;
-
-            if(iv->cls == "Б") {
-                items[idx].bag_category[BCAT_BF].first += grp_map.W.bagAmount;
-                items[idx].bag_category[BCAT_BF].second += grp_map.W.bagWeight;
-            }
-
-            if(iv->cls == "Э") {
-                items[idx].bag_category[BCAT_BY].first += grp_map.W.bagAmount;
-                items[idx].bag_category[BCAT_BY].second += grp_map.W.bagWeight;
-            }
-
-            for(vector<string>::iterator rem_i = pax_i->rems.items.begin();
-                    rem_i != pax_i->rems.items.end(); rem_i++) {
-                if(rem_grp.exists(rem_i->substr(0, 4)))
-                    items[idx].rem_category[rem_i->substr(0, 4)]++;
-            }
-
             switch(pax_i->gender) {
                 case gMale:
                     pax_tot_by_cls[iv->cls].m++;
@@ -6630,13 +6519,8 @@ void TLCI::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     if(options.seat_restrict.find('Z') != string::npos) sr_z.ToTlg(info, body);
     if(options.seat_restrict.find('S') != string::npos) sr_s.ToTlg(info, body);
     if(options.weight_mode) wm.ToTlg(info, body);
-    vector<string> si;
-    pax_totals.ToTlg(info, body, si);
+    pax_totals.ToTlg(info, body);
     sp.ToTlg(info, body);
-    if(not si.empty()) {
-        body.push_back("SI");
-        body.insert(body.end(), si.begin(), si.end());
-    }
 }
 
 int LCI(TypeB::TDetailCreateInfo &info)
@@ -8518,23 +8402,19 @@ void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         string tlg_text = orig.addr + "\xa." + sender + "\n" + content;
 
         string tlg_type, airline, airp;
-        try {
-            get_tlg_info(tlg_text, tlg_type, airline, airp);
-            TReqInfo *reqInfo = TReqInfo::Instance();
-            if (not reqInfo->user.access.airlines().permitted(airline) or
-                    not reqInfo->user.access.airps().permitted(airp) ) {
-                NewTextChild(resNode, "content", ACCESS_DENIED);
-            } else {
-                int tlgs_id = loadTlg(tlg_text);
-                if(tlg_type == "LCI") { // Для LCI подвешиваем процесс, для остальных - возвр. пустой ответ.
-                    TypeBHelpMng::configForPerespros(tlgs_id);
-                    NewTextChild(resNode, "content", TIMEOUT_OCCURRED);
-                }
-            }
-        } catch(const Exception &E) {
-            NewTextChild(resNode, "content", E.what());
-        }
+        get_tlg_info(tlg_text, tlg_type, airline, airp);
 
+        TReqInfo *reqInfo = TReqInfo::Instance();
+        if (not reqInfo->user.access.airlines().permitted(airline) or
+                not reqInfo->user.access.airps().permitted(airp) ) {
+            NewTextChild(resNode, "content", ACCESS_DENIED);
+        } else {
+            int tlgs_id = loadTlg(tlg_text);
+            if(tlg_type == "LCI") { // Для LCI подвешиваем процесс, для остальных - возвр. пустой ответ.
+                TypeBHelpMng::configForPerespros(tlgs_id);
+                NewTextChild(resNode, "content", TIMEOUT_OCCURRED);
+            }
+        }
     }
 }
 
