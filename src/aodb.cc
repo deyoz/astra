@@ -1479,10 +1479,10 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
             throw Exception( "Ошибка формата номера стойки, значение=%s", term.name.c_str() );
           Qry.Clear();
           Qry.SQLText =
-            "SELECT desk, 1 as status FROM stations "
+            "SELECT desk, 2 as status FROM stations "
             " WHERE airp=:airp AND work_mode=:work_mode AND name=:code "
             " UNION "
-            "SELECT desk, 2 FROM aodb_stations a, stations s WHERE "
+            "SELECT desk, 1 FROM aodb_stations a, stations s WHERE "
             " a.airp=:airp AND s.airp=:airp AND a.aodb_name=:code AND a.name=s.name AND "
             " a.work_mode=:work_mode AND s.work_mode=:work_mode AND terminal=:terminal "
             " ORDER BY 2 ";
@@ -1520,12 +1520,16 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
           tmp = TrimString( tmp );
           if ( tmp.empty() || StrToInt( tmp.c_str(), term.pr_del ) == EOF || term.pr_del < 0 || term.pr_del > 1 )
             throw Exception( "Ошибка формата признака удаления стойки, значение=%s", tmp.c_str() );          
+          int prior_status = ASTRA::NoExists;
           for (; !Qry.Eof; Qry.Next() ) {
-            term.name = Qry.FieldAsString( "desk" );
-            fl.terms.push_back( term );
-            if ( Qry.FieldAsInteger( "status") != 2 ) {
+            if ( priorStatus == ASTRA::NoExists ) {
+              priorStatus = Qry.FieldAsInteger( "status" );
+            }
+            if ( Qry.FieldAsInteger( "status") != priorStatus ) {
               break;
             }
+            term.name = Qry.FieldAsString( "desk" );
+            fl.terms.push_back( term );
           }
         }
         catch( Exception &e ) {
