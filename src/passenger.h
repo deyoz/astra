@@ -498,6 +498,7 @@ class TPaxListItem
 
     void addFQT(const CheckIn::TPaxFQTItem &fqt);
     void checkFQTTierLevel();
+    void checkCrewType(bool new_checkin, ASTRA::TPaxStatus grp_status);
 };
 
 typedef std::list<CheckIn::TPaxListItem> TPaxList;

@@ -1438,6 +1438,66 @@ void TPaxListItem::checkFQTTierLevel()
   fqts=tmp_fqts;
 }
 
+void TPaxListItem::checkCrewType(bool new_checkin, ASTRA::TPaxStatus grp_status)
+{
+  Statistic<string> crewRemsStat;
+  for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end(); ++r)
+  {
+    TRemCategory cat=getRemCategory(r->code, r->text);
+    if (!r->code.empty() && cat==remCREW)
+      crewRemsStat.add(r->code);
+  };
+  if (!crewRemsStat.empty())
+  {
+    //есть ремарки, связанные с экипажем
+    //пороверяем дублирование ремарок и взаимоислючающие ремарки
+    if (crewRemsStat.size()>1)
+    {
+      //взаимоисключающие
+      throw UserException("MSG.REMARK.MUTUALLY_EXCLUSIVE",
+                          LParams() << LParam("surname", pax.full_name())
+                                    << LParam("remark1", crewRemsStat.begin()->first)
+                                    << LParam("remark2", crewRemsStat.rbegin()->first));
+    }
+    else
+    {
+      if (crewRemsStat.begin()->second>1)
+        //повторяющиеся
+        throw UserException("MSG.REMARK.DUPLICATED",
+                            LParams() << LParam("surname", pax.full_name())
+                                      << LParam("remark", crewRemsStat.begin()->first));
+
+      if (new_checkin)
+      {
+        if (grp_status==ASTRA::psCrew)
+          pax.crew_type=ASTRA::TCrewType::Unknown;
+        else
+          pax.crew_type=CrewTypes().decode(crewRemsStat.begin()->first);
+      };
+
+      string rem_code=CalcCrewRem(grp_status, pax.crew_type);
+      if (crewRemsStat.begin()->first!=rem_code)
+      {
+        //удаляем неправильную ремарку
+        for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end();)
+        {
+          if (r->code==crewRemsStat.begin()->first) r=Erase(rems, r); else ++r;
+        }
+        //добавляем правильную ремарку
+        if (!rem_code.empty())
+          rems.insert(CheckIn::TPaxRemItem(rem_code,rem_code));
+      }
+    };
+  }
+  else
+  {
+    //нет ремарок, связанных с экипажем
+    string rem_code=CalcCrewRem(grp_status, pax.crew_type);
+    if (!rem_code.empty())
+      rems.insert(CheckIn::TPaxRemItem(rem_code,rem_code));
+  };
+}
+
 const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
