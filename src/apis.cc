@@ -658,7 +658,7 @@ bool create_apis_file(int point_id, const string& task_name)
               }
               paxInfo.setTicketNumber(PaxQry.FieldAsString("ticket_no"));
 
-              std::vector<CheckIn::TPaxFQTItem> fqts;
+              std::set<CheckIn::TPaxFQTItem> fqts;
               CheckIn::LoadPaxFQT(pax_id, fqts);
               paxInfo.setFqts(fqts);
 

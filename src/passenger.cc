@@ -2,6 +2,7 @@
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "astra_utils.h"
+#include "astra_locale.h"
 #include "term_version.h"
 #include "baggage.h"
 #include "qrys.h"
@@ -16,6 +17,7 @@
 
 using namespace std;
 using namespace BASIC;
+using namespace AstraLocale;
 
 namespace APIS
 {
@@ -379,6 +381,22 @@ std::string TPaxDocItem::get_rem_text(bool inf_indicator,
   return RemoveTrailingChars(result.str(), "/");
 }
 
+std::string TPaxDocItem::logStr(const std::string &lang) const
+{
+  ostringstream result;
+  result << ElemIdToPrefferedElem(etPaxDocType, type, efmtCodeNative, lang)
+         << "/" << ElemIdToPrefferedElem(etPaxDocCountry, issue_country, efmtCodeNative, lang)
+         << "/" << no
+         << "/" << ElemIdToPrefferedElem(etPaxDocCountry, nationality, efmtCodeNative, lang)
+         << "/" << (birth_date!=ASTRA::NoExists?DateTimeToStr(birth_date, "ddmmmyy", lang!=AstraLocale::LANG_RU):"")
+         << "/" << ElemIdToPrefferedElem(etGenderType, gender, efmtCodeNative, lang)
+         << "/" << (expiry_date!=ASTRA::NoExists?DateTimeToStr(expiry_date, "ddmmmyy", lang!=AstraLocale::LANG_RU):"")
+         << "/" << surname
+         << "/" << first_name
+         << "/" << second_name;
+  return result.str();
+}
+
 bool TPaxDocoItem::needPseudoType() const
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -533,6 +551,19 @@ std::string TPaxDocoItem::get_rem_text(bool inf_indicator,
   return RemoveTrailingChars(result.str(), "/");
 }
 
+std::string TPaxDocoItem::logStr(const std::string &lang) const
+{
+  ostringstream result;
+  result << birth_place
+         << "/" << ElemIdToPrefferedElem(etPaxDocType, type, efmtCodeNative, lang)
+         << "/" << no
+         << "/" << issue_place
+         << "/" << (issue_date!=ASTRA::NoExists?DateTimeToStr(issue_date, "ddmmmyy", lang!=AstraLocale::LANG_RU):"")
+         << "/" << ElemIdToPrefferedElem(etPaxDocCountry, applic_country, efmtCodeNative, lang)
+         << "/" << (expiry_date!=ASTRA::NoExists?DateTimeToStr(expiry_date, "ddmmmyy", lang!=AstraLocale::LANG_RU):"");
+  return result.str();
+}
+
 const TPaxDocaItem& TPaxDocaItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -651,6 +682,18 @@ std::string TPaxDocaItem::get_rem_text(bool inf_indicator,
          << "/" << (inf_indicator?"I":"");
 
   return RemoveTrailingChars(result.str(), "/");
+}
+
+std::string TPaxDocaItem::logStr(const std::string &lang) const
+{
+  ostringstream result;
+  result << type
+         << "/" << ElemIdToPrefferedElem(etPaxDocCountry, country, efmtCodeNative, lang)
+         << "/" << address
+         << "/" << city
+         << "/" << region
+         << "/" << postal_code;
+  return result.str();
 }
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
@@ -1328,13 +1371,14 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
       rem.fromXML(remNode);
       TRemCategory cat=getRemCategory(rem.code, rem.text);
       if (cat==remASVC) continue; //пропускаем переданные ASVC
-      rems.push_back(rem);
+      rems.insert(rem);
     };
     if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION))
     {
       //ремарки FQT
       for(remNode=NodeAsNodeFast("fqt_rems",node2)->children; remNode!=NULL; remNode=remNode->next)
-        fqts.push_back(CheckIn::TPaxFQTItem().fromXML(remNode));
+        addFQT(CheckIn::TPaxFQTItem().fromXML(remNode));
+      checkFQTTierLevel();
     };
   };
   //нормы
@@ -1354,6 +1398,44 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
 
   return *this;
 };
+
+void TPaxListItem::addFQT(const CheckIn::TPaxFQTItem &fqt)
+{
+  if (!fqts.insert(fqt).second)
+  {
+    ostringstream rem;
+    rem << fqt.rem_code() << " " << fqt.logStr(TReqInfo::Instance()->desk.lang);
+    throw UserException("MSG.REMARK.DUPLICATED",
+                        LParams() << LParam("surname", pax.full_name())
+                                  << LParam("remark", rem.str()));
+  };
+}
+
+void TPaxListItem::checkFQTTierLevel()
+{
+  TPaxFQTCards cards;
+  GetPaxFQTCards(fqts, cards);
+
+  //простановка tier_level
+  set<TPaxFQTItem> tmp_fqts;
+  for(set<TPaxFQTItem>::const_iterator f=fqts.begin(); f!=fqts.end(); ++f)
+  {
+    TPaxFQTItem item=*f;
+    TPaxFQTCards::const_iterator i=cards.find(*f);
+    if (i==cards.end())
+      throw EXCEPTIONS::Exception("%s: i==cards.end() strange situation!", __FUNCTION__);
+    if (!item.tier_level.empty() &&
+        !i->second.tier_level.empty() &&
+        item.tier_level!=i->second.tier_level)
+      throw UserException("MSG.REMARK.DIFFERENT_TIER_LEVEL",
+                          LParams() << LParam("surname", pax.full_name())
+                                    << LParam("fqt_card", i->first.no_str(TReqInfo::Instance()->desk.lang)));
+    item.copyIfBetter(i->second);
+    tmp_fqts.insert(item);
+  };
+
+  fqts=tmp_fqts;
+}
 
 const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
 {
@@ -1543,7 +1625,7 @@ void CalcPaidBagEMDProps(const CheckIn::PaidBagEMDList &prior_emds,
   for(list<CheckIn::TPaidBagEMDItem>::const_iterator i=curr_emds.get().begin(); i!=curr_emds.get().end(); ++i)
     props2.insert(CheckIn::TPaidBagEMDPropsItem(*i, true));
   //в различия попадают и добавленные, и удаленные
-  set_difference(props1.begin(), props1.end(),
+  set_difference(props1.begin(), props1.end(),  //лучше бы set_symmetric_difference вместо двух set_difference
                  props2.begin(), props2.end(),
                  inserter(diff, diff.end()));
   set_difference(props2.begin(), props2.end(),

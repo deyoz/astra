@@ -306,7 +306,7 @@ struct TCondRate {
     return current_rate == rates.end() || current_rate->rate == INT_MAX;
   }
 
-  bool CanUseRate( TPlace *place ) { /* если все возможные тарифы попробовали при рассадке и не смогли рассадить или нет тарифов на рейсе или место без тарифа, то можно использовать */    
+  bool CanUseRate( TPlace *place ) { /* если все возможные тарифы попробовали при рассадке и не смогли рассадить или нет тарифов на рейсе или место без тарифа, то можно использовать */
     bool res = ( pr_web || (current_rate_end() && use_rate) /*!!!|| place->SeatTariff.empty()*/ || ignore_rate );
 //    ProgTrace( TRACE5, "CanUseRate: x=%d, y=%d, place->SeatTariff=%s, res=%d,use_rate=%d,  current_rate=%s",
 //               place->x, place->y, place->SeatTariff.str().c_str(), res, use_rate, current_rate->str().c_str() );
@@ -4076,7 +4076,7 @@ void SyncPRSA( const string &airline_oper,
   TRemGrp service_stat_rem_grp;
   service_stat_rem_grp.Load(retSERVICE_STAT, airline_oper);
 
-  vector<CheckIn::TPaxRemItem> prior_rems;
+  multiset<CheckIn::TPaxRemItem> prior_rems;
   CheckIn::LoadPaxRem(pax_id, prior_rems);
 
   TQuery RemQry(&OraSession);
@@ -4105,7 +4105,7 @@ void SyncPRSA( const string &airline_oper,
     RemQry.Execute();
   }
 
-  vector<CheckIn::TPaxRemItem> curr_rems;
+  multiset<CheckIn::TPaxRemItem> curr_rems;
   CheckIn::LoadPaxRem(pax_id, curr_rems);
 
   CheckIn::SyncPaxRemOrigin(service_stat_rem_grp,

@@ -517,8 +517,8 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
         paxInfo.pr_brd=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
         paxInfo.pr_exam=paxInfo.refuse.empty() && !Qry.FieldIsNULL("pr_exam") && Qry.FieldAsInteger("pr_exam")!=0;
         paxInfo.apis.fromDB(paxInfoKey.pax_id);
-        CheckIn::LoadPaxRem(paxInfoKey.pax_id, paxInfo.rems, true);
-        sort(paxInfo.rems.begin(), paxInfo.rems.end());
+        CheckIn::LoadPaxRem(paxInfoKey.pax_id, paxInfo.rems);
+        CheckIn::LoadPaxFQT(paxInfoKey.pax_id, paxInfo.fqts);
       }
       else
       {
@@ -571,12 +571,11 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
   };
 };
 
-void GetTKNLogMsgs(const CheckIn::TPaxTknItem &tknCrs,
+void AddTKNLogMsgs(const CheckIn::TPaxTknItem &tknCrs,
                    const boost::optional<CheckIn::TPaxTknItem> &tknBefore,
                    const CheckIn::TPaxTknItem &tknAfter,
                    list< pair<string, LEvntPrms> > &msgs)
 {
-  msgs.clear();
   const CheckIn::TPaxTknItem &tknPrior=tknBefore?tknBefore.get():tknCrs;
 
   if (tknAfter.equalAttrs(tknPrior)) return;
@@ -600,6 +599,85 @@ void GetTKNLogMsgs(const CheckIn::TPaxTknItem &tknCrs,
   };
 }
 
+bool EquivalentBooking(const set<CheckIn::TPaxFQTItem> &fqtsCrs,
+                       const CheckIn::TPaxFQTItem &fqt)
+{
+  for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqtsCrs.begin(); f!=fqtsCrs.end(); ++f)
+    if (fqt.airline==f->airline &&
+        fqt.no==f->no &&
+        fqt.tier_level==f->tier_level) return true;
+
+  return false;
+}
+
+void AddFQTLogMsgs(const set<CheckIn::TPaxFQTItem> &fqtsCrs,
+                   const boost::optional< set<CheckIn::TPaxFQTItem> > &fqtsBefore,
+                   const set<CheckIn::TPaxFQTItem> &fqtsAfter,
+                   list< pair<string, LEvntPrms> > &msgs)
+{
+  const set<CheckIn::TPaxFQTItem> &fqtsPrior=fqtsBefore?fqtsBefore.get():fqtsCrs;
+  for(int pass=0; pass<3; pass++)
+  {
+    set<CheckIn::TPaxFQTItem> fqts;
+    //pass==0 modified
+    //pass==1 deleted
+    //pass==2 added
+    if (pass==0)
+    {
+      if (fqtsBefore)
+      {
+        for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqtsAfter.begin(); f!=fqtsAfter.end(); ++f)
+        {
+          set<CheckIn::TPaxFQTItem>::const_iterator i=fqtsPrior.find(*f);
+          if (i!=fqtsPrior.end() && !(*f==*i)) fqts.insert(*f);
+        };
+      }
+      else
+      {
+        set_intersection(fqtsAfter.begin(), fqtsAfter.end(),
+                         fqtsPrior.begin(), fqtsPrior.end(),
+                         inserter(fqts, fqts.end()));
+      };
+    };
+    if (pass==1)
+      set_difference(fqtsPrior.begin(), fqtsPrior.end(),
+                     fqtsAfter.begin(), fqtsAfter.end(),
+                     inserter(fqts, fqts.end()));
+    if (pass==2)
+      set_difference(fqtsAfter.begin(), fqtsAfter.end(),
+                     fqtsPrior.begin(), fqtsPrior.end(),
+                     inserter(fqts, fqts.end()));
+
+    for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin(); f!=fqts.end(); ++f)
+    {
+      LEvntPrms params;
+
+      ostringstream msg;
+      msg << f->rem << " " << f->logStr();
+      params << PrmSmpl<string>("fqt_rem", msg.str())
+             << PrmSmpl<string>("tier_level", f->tier_level);
+
+      if (f->tier_level.empty())
+        params << PrmLexema("tier_level_status", "EVT.TIER_LEVEL_STATUS.UNKNOWN");
+      else if (EquivalentBooking(fqtsCrs, *f))
+        params << PrmLexema("tier_level_status", "EVT.TIER_LEVEL_STATUS.EQUIVALENT_BOOKING");
+      else if (f->tier_level_confirm)
+        params << PrmLexema("tier_level_status", "EVT.TIER_LEVEL_STATUS.CONFIRMED");
+      else
+        params << PrmLexema("tier_level_status", "EVT.TIER_LEVEL_STATUS.NOT_CONFIRMED");
+
+      switch (pass)
+      {
+        case 0: msgs.push_back(make_pair(fqtsBefore?"EVT.FQT_MODIFIED_FOR_PASSENGER":
+                                                    "EVT.FQT_FROM_BOOKING_FOR_PASSENGER", params)); break;
+        case 1: msgs.push_back(make_pair("EVT.FQT_DELETED_FOR_PASSENGER", params)); break;
+        case 2: msgs.push_back(make_pair("EVT.FQT_ADDED_FOR_PASSENGER", params)); break;
+        default: ;
+      }
+    }
+  };
+}
+
 void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
                     const CheckIn::TAPISItem &apisAfter,
                     list<pair<string, string> > &msgs)
@@ -613,17 +691,7 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
     //изменения по документу
     ostringstream msg;
     string id;
-    msg << "DOCS: "
-        << apisAfter.doc.type << "/"
-        << apisAfter.doc.issue_country << "/"
-        << apisAfter.doc.no << "/"
-        << apisAfter.doc.nationality << "/"
-        << (apisAfter.doc.birth_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doc.birth_date, "ddmmmyy", true):"") << "/"
-        << apisAfter.doc.gender << "/"
-        << (apisAfter.doc.expiry_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doc.expiry_date, "ddmmmyy", true):"") << "/"
-        << apisAfter.doc.surname << "/"
-        << apisAfter.doc.first_name << "/"
-        << apisAfter.doc.second_name << ".";
+    msg << "DOCS: " << apisAfter.doc.logStr() << ".";
     id = (manualInputAfter?"EVT.APIS_LOG_MANUAL_INPUT":"EVT.APIS_LOG_SCANNING");
     msgs.push_back(make_pair(id, msg.str()));
   };
@@ -635,15 +703,8 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
     //изменения по визе
     ostringstream msg;
     string id;
-    msg << "DOCO: "
-        << apisAfter.doco.birth_place << "/"
-        << apisAfter.doco.type << "/"
-        << apisAfter.doco.no << "/"
-        << apisAfter.doco.issue_place << "/"
-        << (apisAfter.doco.issue_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doco.issue_date, "ddmmmyy", true):"") << "/"
-        << apisAfter.doco.applic_country << "/"
-        << (apisAfter.doco.expiry_date!=ASTRA::NoExists?DateTimeToStr(apisAfter.doco.expiry_date, "ddmmmyy", true):"") << ".";
-        id = (manualInputAfter?"EVT.APIS_LOG_MANUAL_INPUT":"EVT.APIS_LOG_SCANNING");
+    msg << "DOCO: " << apisAfter.doco.logStr() << ".";
+    id = (manualInputAfter?"EVT.APIS_LOG_MANUAL_INPUT":"EVT.APIS_LOG_SCANNING");
     msgs.push_back(make_pair(id, msg.str()));
   };
 
@@ -672,12 +733,7 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
     if (pass==1) msg << "DOCA(R): ";
     if (pass==2) msg << "DOCA(D): ";
     //изменения адреса
-    msg << docaAfter[pass].type << "/"
-        << docaAfter[pass].country << "/"
-        << docaAfter[pass].address << "/"
-        << docaAfter[pass].city << "/"
-        << docaAfter[pass].region << "/"
-        << docaAfter[pass].postal_code;
+    msg << docaAfter[pass].logStr();
     msgs.push_back(make_pair("EVT.APIS_LOG", msg.str()));
   };
 };
@@ -872,24 +928,36 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
         if (!is_unaccomp)
         {
           //изменения по билету
+          list< pair<string, LEvntPrms> > msgs;
           if (!(bPax!=grpInfoBefore.pax.end() &&
                 bPax->second.refuse.empty() &&
                 aPax->second.tkn==bPax->second.tkn))
           {
             CheckIn::TPaxTknItem tknCrs;
             LoadCrsPaxTkn(aPax->first.pax_id, tknCrs);
-            list< pair<string, LEvntPrms> > msgs;
             if (bPax!=grpInfoBefore.pax.end() && bPax->second.refuse.empty())
-              GetTKNLogMsgs(tknCrs, bPax->second.tkn, aPax->second.tkn, msgs);
+              AddTKNLogMsgs(tknCrs, bPax->second.tkn, aPax->second.tkn, msgs);
             else
-              GetTKNLogMsgs(tknCrs, boost::none, aPax->second.tkn, msgs);
-            for(list< pair<string, LEvntPrms> >::iterator m=msgs.begin(); m!=msgs.end(); ++m)
-            {
-              aPax->second.getPaxName(m->second);
-              reqInfo->LocaleToLog(m->first, m->second, ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
-            }
+              AddTKNLogMsgs(tknCrs, boost::none, aPax->second.tkn, msgs);
             changed=true;
-          };
+          }
+          if (!(bPax!=grpInfoBefore.pax.end() &&
+                bPax->second.refuse.empty() &&
+                aPax->second.fqts==bPax->second.fqts))
+          {
+            set<CheckIn::TPaxFQTItem> fqtsCrs;
+            LoadCrsPaxFQT(aPax->first.pax_id, fqtsCrs);
+            if (bPax!=grpInfoBefore.pax.end() && bPax->second.refuse.empty())
+              AddFQTLogMsgs(fqtsCrs, bPax->second.fqts, aPax->second.fqts, msgs);
+            else
+              AddFQTLogMsgs(fqtsCrs, boost::none, aPax->second.fqts, msgs);
+            changed=true;
+          }
+          for(list< pair<string, LEvntPrms> >::iterator m=msgs.begin(); m!=msgs.end(); ++m)
+          {
+            aPax->second.getPaxName(m->second);
+            reqInfo->LocaleToLog(m->first, m->second, ASTRA::evtPax, point_id, aPax->first.reg_no, grp_id);
+          }
         };
       }
       else
@@ -967,7 +1035,7 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
       else
       {
         //первоначальная регистрация
-        vector<CheckIn::TPaxRemItem> crs_rems;
+        multiset<CheckIn::TPaxRemItem> crs_rems;
         CheckIn::LoadCrsPaxRem(aPax->first.pax_id, crs_rems);
         CheckIn::SyncPaxRemOrigin(service_stat_rem_grp,
                                   aPax->first.pax_id,

@@ -528,7 +528,7 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
       }
       if (!it->fqts().empty()) {
         xmlNodePtr fqtsNode = NewTextChild(checkInNode, "FrequentFlyer");
-        for(std::vector<CheckIn::TPaxFQTItem>::const_iterator i=it->fqts().begin();i!=it->fqts().end();i++)
+        for(std::set<CheckIn::TPaxFQTItem>::const_iterator i=it->fqts().begin();i!=it->fqts().end();i++)
         {
           xmlNodePtr memberNode = NewTextChild(fqtsNode, "ProgramMember");
           NewTextChild(memberNode, "Number", i->no);
@@ -1006,7 +1006,7 @@ START_TEST( test3 )
 
     // Сгенерированный текст
     LogTrace(TRACE5) << "\nText:\n" << text;
-    
+
     std::string chk( ts.check( text ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }

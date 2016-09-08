@@ -3213,15 +3213,15 @@ void TSSR::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 
 void TSSR::get(const TRemGrp &ssr_rem_grp, int pax_id)
 {
-  vector<CheckIn::TPaxRemItem> rems;
+  multiset<CheckIn::TPaxRemItem> rems;
   CheckIn::LoadPaxRem(pax_id, rems);
 
-  vector<CheckIn::TPaxFQTItem> fqts;
+  set<CheckIn::TPaxFQTItem> fqts;
   CheckIn::LoadPaxFQT(pax_id, fqts);
-  for(vector<CheckIn::TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
-    rems.push_back(CheckIn::TPaxRemItem(*r, false));
+  for(set<CheckIn::TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
+    rems.insert(CheckIn::TPaxRemItem(*r, false));
 
-  for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
+  for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
   {
     if(not ssr_rem_grp.exists(r->code)) continue;
     TRemCategory cat=getRemCategory(r->code, r->text);
@@ -7262,36 +7262,16 @@ bool APIPX_cmp_internal(TypeB::TDetailCreateInfo &info, int pax_id, bool inf_ind
     return rem.code.empty();
 };
 
-bool EqualFqts(const CheckIn::TPaxFQTItem &l, const CheckIn::TPaxFQTItem &r)
-{
-    return
-        l.airline == r.airline and
-        l.no == r.no and
-        l.extra == r.extra and
-        l.rem == r.rem;
-}
-
-bool CompareFqts(const CheckIn::TPaxFQTItem &l, const CheckIn::TPaxFQTItem &r)
-{
-    if(l.airline != r.airline)
-        return l.airline < r.airline;
-    if(l.no != r.no)
-        return l.no < r.no;
-    if(l.extra != r.extra)
-        return l.extra < r.extra;
-    return l.rem < r.rem;
-}
-
 struct TFQT {
-    vector<CheckIn::TPaxFQTItem> items;
+    CheckIn::TPaxFQTCards items;
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     {
-        for(vector<CheckIn::TPaxFQTItem>::iterator i = items.begin(); i != items.end(); i++) {
+        for(CheckIn::TPaxFQTCards::iterator i = items.begin(); i != items.end(); i++) {
             body.push_back((string)
                     ".F/" +
-                    info.TlgElemIdToElem(etAirline, i->airline) +
+                    info.TlgElemIdToElem(etAirline, i->first.airline) +
                     " " +
-                    transliter(i->no, 1, info.is_lat())
+                    transliter(i->first.no, 1, info.is_lat())
                     );
         }
     }
@@ -7333,39 +7313,20 @@ struct TCKINPaxInfo {
         bool fqt_diff()
         {
             fqt.items.clear();
-            vector<CheckIn::TPaxFQTItem> crs_fqt, ckin_fqt;
-
-            LoadPaxFQT(pax_id, ckin_fqt);
-            LoadCrsPaxFQT(pax_id, crs_fqt);
-
-            sort(crs_fqt.begin(), crs_fqt.end(), CompareFqts);
-            sort(ckin_fqt.begin(), ckin_fqt.end(), CompareFqts);
-            vector<CheckIn::TPaxFQTItem>::const_iterator i_crs_fqt = crs_fqt.begin();
-            vector<CheckIn::TPaxFQTItem>::const_iterator i_ckin_fqt = ckin_fqt.begin();
-
-            for(; i_crs_fqt != crs_fqt.end() or i_ckin_fqt != ckin_fqt.end(); ) {
-                bool process_crs_fqt =
-                    i_ckin_fqt == ckin_fqt.end() or
-                    (i_crs_fqt != crs_fqt.end() and CompareFqts(*i_crs_fqt, *i_ckin_fqt));
-                bool process_ckin_fqt =
-                    i_crs_fqt == crs_fqt.end() or
-                    (i_ckin_fqt != ckin_fqt.end() and CompareFqts(*i_ckin_fqt, *i_crs_fqt));
-                bool process_ckin_crs =
-                    i_crs_fqt != crs_fqt.end() and
-                    i_ckin_fqt != ckin_fqt.end() and
-                    EqualFqts(*i_ckin_fqt, *i_crs_fqt);
-
-                if(process_ckin_fqt)
-                    if(
-                            i_ckin_fqt->rem == "FQTV" or
-                            i_ckin_fqt->rem == "FQTU" or
-                            i_ckin_fqt->rem == "FQTR"
-                      )
-                        fqt.items.push_back(*i_ckin_fqt);
-
-                if(process_ckin_crs or process_ckin_fqt) i_ckin_fqt++;
-                if(process_ckin_crs or process_crs_fqt) i_crs_fqt++;
-            }
+            CheckIn::TPaxFQTCards crs_cards, ckin_cards, diff_cards;
+            set<CheckIn::TPaxFQTItem> fqts;
+            if (CheckIn::LoadPaxFQT(pax_id, fqts))
+              CheckIn::GetPaxFQTCards(fqts, ckin_cards);
+            if (CheckIn::LoadCrsPaxFQT(pax_id, fqts))
+              CheckIn::GetPaxFQTCards(fqts, crs_cards);
+            set_symmetric_difference(crs_cards.begin(), crs_cards.end(),
+                                     ckin_cards.begin(), ckin_cards.end(),
+                                     inserter(diff_cards, diff_cards.end()));
+            if (!diff_cards.empty())
+            {
+              //были изменения - передаем все карты, которые зарегистрированы
+              fqt.items=ckin_cards;
+            };
             return fqt.items.size() != 0;
         }
 
@@ -7837,7 +7798,10 @@ void TPFSBody::get(TypeB::TDetailCreateInfo &info)
                 }
             }
         } else { // Пассажир НЕ присутствует в PNL/ADL рейса
-            LoadPaxFQT(item.pax_id, ckin_pax.fqt.items); // get FQT if any
+            ckin_pax.fqt.items.clear();
+            set<CheckIn::TPaxFQTItem> fqts;
+            if (LoadPaxFQT(item.pax_id, fqts)) // get FQT if any
+              CheckIn::GetPaxFQTCards(fqts, ckin_pax.fqt.items);
             if(item.pax_id != NoExists) { // Зарегистрирован
                 if(ckin_pax.OK_status()) { // Пассажир имеет статус "бронь" или "сквозная регистрация"
                     if(ckin_pax.pr_brd != 0)

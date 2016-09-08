@@ -217,10 +217,10 @@ CheckIn::TPaxRemItem getAPPSRem(const int pax_id, const std::string &lang )
   return rem;
 }
 
-string GetRemarkStr(const TRemGrp &rem_grp, const vector<CheckIn::TPaxRemItem> &rems, const string &term)
+string GetRemarkStr(const TRemGrp &rem_grp, const multiset<CheckIn::TPaxRemItem> &rems, const string &term)
 {
   string result;
-  for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();++r)
+  for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();++r)
   {
     if (r->code.empty() || !rem_grp.exists(r->code)) continue;
     if (!result.empty()) result+=term;
@@ -254,21 +254,19 @@ string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &lang, cons
     QryParams << QParam("pax_id", otInteger, pax_id);
     TCachedQuery Qry(sql, QryParams);
     Qry.get().Execute();
-    vector<CheckIn::TPaxRemItem> rems;
+    multiset<CheckIn::TPaxRemItem> rems;
     for(;!Qry.get().Eof;Qry.get().Next())
-      rems.push_back(CheckIn::TPaxRemItem().fromDB(Qry.get()));
+      rems.insert(CheckIn::TPaxRemItem().fromDB(Qry.get()));
     CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id, lang );
     if ( !apps_satus_rem.empty() )
-     rems.push_back( apps_satus_rem );
-    sort(rems.begin(), rems.end());
+     rems.insert( apps_satus_rem );
     return GetRemarkStr(rem_grp, rems, term);
 };
 
 string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &term)
 {
-  vector<CheckIn::TPaxRemItem> rems;
+  multiset<CheckIn::TPaxRemItem> rems;
   LoadCrsPaxRem(pax_id, rems);
-  sort(rems.begin(),rems.end());
   return GetRemarkStr(rem_grp, rems, term);
 };
 
@@ -469,6 +467,23 @@ std::string TPaxFQTItem::get_rem_text(bool inf_indicator,
   return RemoveTrailingChars(result.str(), " ");
 }
 
+std::string TPaxFQTItem::logStr(const std::string &lang) const
+{
+  ostringstream result;
+  result << ElemIdToPrefferedElem(etAirline, airline, efmtCodeNative, lang)
+         << "/" << no;
+  if (!extra.empty())
+    result << "/" << extra;
+  return result.str();
+}
+
+std::string TPaxFQTCard::no_str(const std::string &lang) const
+{
+  ostringstream s;
+  s << ElemIdToPrefferedElem(etAirline, airline, efmtCodeNative, lang) << "/" << no;
+  return s.str();
+}
+
 const TPaxASVCItem& TPaxASVCItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -563,7 +578,7 @@ void TPaxASVCItem::rcpt_service_types(set<ASTRA::TRcptServiceType> &service_type
   };
 };
 
-bool LoadPaxRem(int pax_id, vector<TPaxRemItem> &rems, bool withFQT)
+bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems)
 {
   rems.clear();
   const char* sql=
@@ -579,21 +594,13 @@ bool LoadPaxRem(int pax_id, vector<TPaxRemItem> &rems, bool withFQT)
     rem.fromDB(PaxRemQry.get());
     TRemCategory cat=getRemCategory(rem.code, rem.text);
     if (isDisabledRemCategory(cat)) continue;
-    rems.push_back(rem);
+    rems.insert(rem);
   };
-
-  if (withFQT)
-  {
-    vector<TPaxFQTItem> fqts;
-    LoadPaxFQT(pax_id, fqts);
-    for(vector<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
-      rems.push_back(TPaxRemItem(*r, false));
-  }
 
   return !rems.empty();
 };
 
-bool LoadCrsPaxRem(int pax_id, vector<TPaxRemItem> &rems)
+bool LoadCrsPaxRem(int pax_id, multiset<TPaxRemItem> &rems)
 {
   rems.clear();
   const char* sql=
@@ -604,11 +611,11 @@ bool LoadCrsPaxRem(int pax_id, vector<TPaxRemItem> &rems)
   TCachedQuery PaxRemQry(sql, QryParams);
   PaxRemQry.get().Execute();
   for(;!PaxRemQry.get().Eof;PaxRemQry.get().Next())
-    rems.push_back(TPaxRemItem().fromDB(PaxRemQry.get()));
+    rems.insert(TPaxRemItem().fromDB(PaxRemQry.get()));
   return !rems.empty();
 };
 
-bool LoadCrsPaxFQT(int pax_id, vector<TPaxFQTItem> &fqts)
+bool LoadCrsPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
 {
   fqts.clear();
   const char* sql=
@@ -619,11 +626,11 @@ bool LoadCrsPaxFQT(int pax_id, vector<TPaxFQTItem> &fqts)
   TCachedQuery PaxFQTQry(sql, QryParams);
   PaxFQTQry.get().Execute();
   for(;!PaxFQTQry.get().Eof;PaxFQTQry.get().Next())
-    fqts.push_back(TPaxFQTItem().fromDB(PaxFQTQry.get()));
+    fqts.insert(TPaxFQTItem().fromDB(PaxFQTQry.get()));
   return !fqts.empty();
 };
 
-bool LoadPaxFQT(int pax_id, vector<TPaxFQTItem> &fqts)
+bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
 {
   fqts.clear();
   const char* sql=
@@ -634,7 +641,7 @@ bool LoadPaxFQT(int pax_id, vector<TPaxFQTItem> &fqts)
   TCachedQuery PaxFQTQry(sql, QryParams);
   PaxFQTQry.get().Execute();
   for(;!PaxFQTQry.get().Eof;PaxFQTQry.get().Next())
-    fqts.push_back(TPaxFQTItem().fromDB(PaxFQTQry.get()));
+    fqts.insert(TPaxFQTItem().fromDB(PaxFQTQry.get()));
   return !fqts.empty();
 };
 
@@ -729,7 +736,7 @@ bool LoadCrsPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc)
 };
 
 
-void SavePaxRem(int pax_id, const vector<TPaxRemItem> &rems)
+void SavePaxRem(int pax_id, const multiset<TPaxRemItem> &rems)
 {
   TQuery RemQry(&OraSession);
   RemQry.Clear();
@@ -741,7 +748,7 @@ void SavePaxRem(int pax_id, const vector<TPaxRemItem> &rems)
     "INSERT INTO pax_rem(pax_id,rem,rem_code) VALUES(:pax_id,:rem,:rem_code)";
   RemQry.DeclareVariable("rem",otString);
   RemQry.DeclareVariable("rem_code",otString);
-  for(vector<TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
+  for(multiset<TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
   {
     if (r->text.empty()) continue; //защита от пустой ремарки (иногда может почему то приходить с терминала)
     if ( isAPPSRem( r->code) )
@@ -751,7 +758,18 @@ void SavePaxRem(int pax_id, const vector<TPaxRemItem> &rems)
   };
 };
 
-void SyncFQTTierLevel(int pax_id, bool from_crs, vector<TPaxFQTItem> &fqts)
+void GetPaxFQTCards(const std::set<TPaxFQTItem> &fqts, TPaxFQTCards &cards)
+{
+  cards.clear();
+  for(set<TPaxFQTItem>::const_iterator f=fqts.begin(); f!=fqts.end(); ++f)
+  {
+    pair< TPaxFQTCards::iterator, bool > res=cards.insert(make_pair(*f, *f));
+    if (!res.second && res.first!=cards.end())
+      res.first->second.copyIfBetter(*f);
+  };
+}
+
+void SyncFQTTierLevel(int pax_id, bool from_crs, set<TPaxFQTItem> &fqts)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
@@ -759,26 +777,30 @@ void SyncFQTTierLevel(int pax_id, bool from_crs, vector<TPaxFQTItem> &fqts)
     if (pax_id==ASTRA::NoExists) return;
     if (fqts.empty()) return;
     //сохраняем tier_level
-    vector<TPaxFQTItem> prior_fqts;
+    set<TPaxFQTItem> prior_fqts;
     if (from_crs)
       LoadCrsPaxFQT(pax_id, prior_fqts);
     else
       LoadPaxFQT(pax_id, prior_fqts);
 
-    for(vector<TPaxFQTItem>::iterator curr=fqts.begin(); curr!=fqts.end(); ++curr)
-      for(vector<TPaxFQTItem>::const_iterator prior=prior_fqts.begin(); prior!=prior_fqts.end(); ++prior)
-        if (curr->airline==prior->airline &&
-            curr->no==prior->no &&
-            !prior->tier_level.empty() &&
-            curr->tier_level.empty())
-        {
-          curr->tier_level=prior->tier_level;
-          curr->tier_level_confirm=prior->tier_level_confirm;
-        }
+    TPaxFQTCards cards;
+    GetPaxFQTCards(prior_fqts, cards);
+
+    //простановка tier_level
+    set<TPaxFQTItem> tmp_fqts;
+    for(set<TPaxFQTItem>::const_iterator f=fqts.begin(); f!=fqts.end(); ++f)
+    {
+      TPaxFQTItem item=*f;
+      TPaxFQTCards::const_iterator i=cards.find(*f);
+      if (i!=cards.end()) item.copyIfBetter(i->second);
+      tmp_fqts.insert(item);
+    };
+
+    fqts=tmp_fqts;
   }
 }
 
-void SavePaxFQT(int pax_id, const vector<TPaxFQTItem> &fqts)
+void SavePaxFQT(int pax_id, const std::set<TPaxFQTItem> &fqts)
 {
   TQuery FQTQry(&OraSession);
   FQTQry.Clear();
@@ -795,7 +817,7 @@ void SavePaxFQT(int pax_id, const vector<TPaxFQTItem> &fqts)
   FQTQry.DeclareVariable("extra",otString);
   FQTQry.DeclareVariable("tier_level",otString);
   FQTQry.DeclareVariable("tier_level_confirm",otInteger);
-  for(vector<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
+  for(set<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
   {
     r->toDB(FQTQry);
     FQTQry.Execute();
@@ -945,8 +967,8 @@ void TPaxRemOriginList::del(const multiset<TPaxRemItem> &rems,
 }
 
 void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
-                         const vector<TPaxRemItem> &prior_rems,
-                         const vector<TPaxRemItem> &curr_rems,
+                         const multiset<TPaxRemItem> &prior_rems,
+                         const multiset<TPaxRemItem> &curr_rems,
                          multiset<TPaxRemItem> &added,
                          multiset<TPaxRemItem> &deleted)
 {
@@ -954,9 +976,9 @@ void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
   deleted.clear();
 
   multiset<TPaxRemItem> prior_rems_filtered, curr_rems_filtered;
-  for(vector<TPaxRemItem>::const_iterator i=prior_rems.begin(); i!=prior_rems.end(); ++i)
+  for(multiset<TPaxRemItem>::const_iterator i=prior_rems.begin(); i!=prior_rems.end(); ++i)
     if (!rem_grp || rem_grp.get().exists(i->code)) prior_rems_filtered.insert(*i);
-  for(vector<TPaxRemItem>::const_iterator i=curr_rems.begin(); i!=curr_rems.end(); ++i)
+  for(multiset<TPaxRemItem>::const_iterator i=curr_rems.begin(); i!=curr_rems.end(); ++i)
     if (!rem_grp || rem_grp.get().exists(i->code)) curr_rems_filtered.insert(*i);
 
   set_difference(prior_rems_filtered.begin(), prior_rems_filtered.end(),
@@ -970,8 +992,8 @@ void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
 
 void SyncPaxRemOrigin(const boost::optional<TRemGrp> &rem_grp,
                       const int &pax_id,
-                      const vector<TPaxRemItem> &prior_rems,
-                      const vector<TPaxRemItem> &curr_rems,
+                      const multiset<TPaxRemItem> &prior_rems,
+                      const multiset<TPaxRemItem> &curr_rems,
                       const int &user_id,
                       const string &desk)
 {
@@ -990,7 +1012,7 @@ void SyncPaxRemOrigin(const boost::optional<TRemGrp> &rem_grp,
 
 void PaxRemAndASVCFromDB(int pax_id,
                          bool from_crs,
-                         std::vector<TPaxRemItem> &rems_and_asvc)
+                         std::multiset<TPaxRemItem> &rems_and_asvc)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   rems_and_asvc.clear();
@@ -1007,37 +1029,37 @@ void PaxRemAndASVCFromDB(int pax_id,
     LoadPaxASVC(pax_id, asvc);
   };
 
-  for(vector<TPaxRemItem>::iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end();)
+  for(multiset<TPaxRemItem>::iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end();)
   {
     if (isDisabledRem(r->code, r->text))
-      r=rems_and_asvc.erase(r);
+      r=Erase(rems_and_asvc, r);
     else
       ++r;
   };
   for(vector<TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
   {
-    rems_and_asvc.push_back(TPaxRemItem(*r, false, reqInfo->desk.lang, applyLang));
+    rems_and_asvc.insert(TPaxRemItem(*r, false, reqInfo->desk.lang, applyLang));
   };
 
   if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
   {
-    std::vector<TPaxFQTItem> fqts;
+    std::set<TPaxFQTItem> fqts;
 
     if (from_crs)
       LoadCrsPaxFQT(pax_id, fqts);
     else
       LoadPaxFQT(pax_id, fqts);
 
-    for(vector<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
+    for(set<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
     {
-      rems_and_asvc.push_back(TPaxRemItem(*r, false, reqInfo->desk.lang, applyLang));
+      rems_and_asvc.insert(TPaxRemItem(*r, false, reqInfo->desk.lang, applyLang));
     };
   }
 }
 
 void PaxFQTFromDB(int pax_id,
                   bool from_crs,
-                  std::vector<TPaxFQTItem> &fqts)
+                  std::set<TPaxFQTItem> &fqts)
 {
   fqts.clear();
 
@@ -1047,23 +1069,23 @@ void PaxFQTFromDB(int pax_id,
     LoadPaxFQT(pax_id, fqts);
 }
 
-void PaxRemAndASVCToXML(const std::vector<TPaxRemItem> &rems_and_asvc,
+void PaxRemAndASVCToXML(const std::multiset<TPaxRemItem> &rems_and_asvc,
                         xmlNodePtr node)
 {
   if (node==NULL) return;
 
   xmlNodePtr remsNode=NewTextChild(node,"rems");
-  for(vector<TPaxRemItem>::const_iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end(); ++r)
+  for(multiset<TPaxRemItem>::const_iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end(); ++r)
     r->toXML(remsNode);
 }
 
-void PaxFQTToXML(const std::vector<TPaxFQTItem> &fqts,
+void PaxFQTToXML(const std::set<TPaxFQTItem> &fqts,
                  xmlNodePtr node)
 {
   if (node==NULL) return;
 
   xmlNodePtr remsNode=NewTextChild(node,"fqt_rems");
-  for(vector<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
+  for(set<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
     r->toXML(remsNode);
 }
 

@@ -121,7 +121,40 @@ class TPaxRemItem : public TPaxRemBasic
     }
 };
 
-class TPaxFQTItem : public TPaxRemBasic
+class TPaxFQTCard
+{
+  public:
+    std::string airline;
+    std::string no;
+    TPaxFQTCard()
+    {
+      clear();
+    }
+    void clear()
+    {
+      airline.clear();
+      no.clear();
+    }
+    bool empty() const
+    {
+      return airline.empty() &&
+             no.empty();
+    }
+    bool operator < (const TPaxFQTCard &item) const
+    {
+      if (no!=item.no)
+        return no<item.no;
+      return airline<item.airline;
+    }
+    bool operator == (const TPaxFQTCard &item) const
+    {
+      return airline==item.airline &&
+             no==item.no;
+    }
+    std::string no_str(const std::string &lang) const;
+};
+
+class TPaxFQTItem : public TPaxRemBasic, public TPaxFQTCard
 {
   protected:
     std::string get_rem_text(bool inf_indicator,
@@ -131,32 +164,28 @@ class TPaxFQTItem : public TPaxRemBasic
                              bool language_lat) const;
   public:
     std::string rem;
-    std::string airline;
-    std::string no;
     std::string extra;
     std::string tier_level;
     bool tier_level_confirm;
     TPaxFQTItem()
     {
       clear();
-    };
+    }
     void clear()
     {
+      TPaxFQTCard::clear();
       rem.clear();
-      airline.clear();
-      no.clear();
       extra.clear();
       tier_level.clear();
       tier_level_confirm=false;
-    };
+    }
     bool empty() const
     {
-      return rem.empty() &&
-             airline.empty() &&
-             no.empty() &&
+      return TPaxFQTCard::empty() &&
+             rem.empty() &&
              extra.empty() &&
              tier_level.empty();
-    };
+    }
     const TPaxFQTItem& toDB(TQuery &Qry) const;
     TPaxFQTItem& fromDB(TQuery &Qry);
     const TPaxFQTItem& toXML(xmlNodePtr node) const;
@@ -164,6 +193,38 @@ class TPaxFQTItem : public TPaxRemBasic
     std::string rem_code() const
     {
       return rem;
+    }
+
+    bool operator < (const TPaxFQTItem &item) const
+    {
+      if (!(TPaxFQTCard::operator ==(item)))
+        return TPaxFQTCard::operator <(item);
+      return rem<item.rem;
+    }
+
+    bool operator == (const TPaxFQTItem &item) const
+    {
+      return TPaxFQTCard::operator ==(item) &&
+             rem==item.rem &&
+             extra==item.extra &&
+             tier_level==item.tier_level &&
+             tier_level_confirm==item.tier_level_confirm;
+    }
+
+    std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
+    bool copyIfBetter(const TPaxFQTItem &item)
+    {
+      if (!item.tier_level.empty())
+      {
+        if (tier_level.empty() ||
+            (!tier_level.empty() && !tier_level_confirm && item.tier_level_confirm))
+        {
+          tier_level=item.tier_level;
+          tier_level_confirm=item.tier_level_confirm;
+          return true;
+        }
+      }
+      return false;
     }
 };
 
@@ -236,50 +297,54 @@ class TPaxASVCItem : public TPaxRemBasic
     void rcpt_service_types(std::set<ASTRA::TRcptServiceType> &service_types) const;
 };
 
-bool LoadPaxRem(int pax_id, std::vector<TPaxRemItem> &rems, bool withFQT=false);
-bool LoadCrsPaxRem(int pax_id, std::vector<TPaxRemItem> &rems);
-bool LoadPaxFQT(int pax_id, std::vector<TPaxFQTItem> &fqts);
-bool LoadCrsPaxFQT(int pax_id, std::vector<TPaxFQTItem> &fqts);
+bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
+bool LoadCrsPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
+bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
+bool LoadCrsPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
 bool LoadPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 bool LoadCrsPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 
-void SavePaxRem(int pax_id, const std::vector<TPaxRemItem> &rems);
-void SyncFQTTierLevel(int pax_id, bool from_crs, std::vector<TPaxFQTItem> &fqts);
-void SavePaxFQT(int pax_id, const std::vector<TPaxFQTItem> &fqts);
+void SavePaxRem(int pax_id, const std::multiset<TPaxRemItem> &rems);
+void SavePaxFQT(int pax_id, const std::set<TPaxFQTItem> &fqts);
+
+typedef std::map<TPaxFQTCard, TPaxFQTItem> TPaxFQTCards;
+void GetPaxFQTCards(const std::set<TPaxFQTItem> &fqts, TPaxFQTCards &cards);
+void SyncFQTTierLevel(int pax_id, bool from_crs, std::set<TPaxFQTItem> &fqts);
+
 
 bool SyncPaxASVC(int id, bool is_grp_id);
 
 void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
-                         const std::vector<TPaxRemItem> &prior_rems,
-                         const std::vector<TPaxRemItem> &curr_rems,
+                         const std::multiset<TPaxRemItem> &prior_rems,
+                         const std::multiset<TPaxRemItem> &curr_rems,
                          std::multiset<TPaxRemItem> &added,
                          std::multiset<TPaxRemItem> &deleted);
 
 void SyncPaxRemOrigin(const boost::optional<TRemGrp> &rem_grp,
                       const int &pax_id,
-                      const std::vector<TPaxRemItem> &prior_rems,
-                      const std::vector<TPaxRemItem> &curr_rems,
+                      const std::multiset<TPaxRemItem> &prior_rems,
+                      const std::multiset<TPaxRemItem> &curr_rems,
                       const int &user_id,
                       const std::string &desk);
 
 void PaxRemAndASVCFromDB(int pax_id,
                          bool from_crs,
-                         std::vector<TPaxRemItem> &rems_and_asvc);
+                         std::multiset<TPaxRemItem> &rems_and_asvc);
 
 void PaxFQTFromDB(int pax_id,
                   bool from_crs,
-                  std::vector<TPaxFQTItem> &fqts);
+                  std::set<TPaxFQTItem> &fqts);
 
-void PaxRemAndASVCToXML(const std::vector<TPaxRemItem> &rems_and_asvc,
+void PaxRemAndASVCToXML(const std::multiset<TPaxRemItem> &rems_and_asvc,
                         xmlNodePtr node);
 
-void PaxFQTToXML(const std::vector<TPaxFQTItem> &fqts,
+void PaxFQTToXML(const std::set<TPaxFQTItem> &fqts,
                  xmlNodePtr node);
 
 };
 
 CheckIn::TPaxRemItem getAPPSRem(const int pax_id, const std::string &lang );
-std::string GetRemarkStr(const TRemGrp &rem_grp, const std::vector<CheckIn::TPaxRemItem> &rems, const std::string &term = " ");
+std::string GetRemarkStr(const TRemGrp &rem_grp, const std::multiset<CheckIn::TPaxRemItem> &rems, const std::string &term = " ");
 std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &lang, const std::string &term = " ");
 std::string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &term = " ");
 

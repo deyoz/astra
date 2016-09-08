@@ -2663,8 +2663,8 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       CheckIn::TPaxDocItem doc;
       CheckIn::TPaxDocoItem doco;
       list<CheckIn::TPaxDocaItem> doca;
-      vector<CheckIn::TPaxFQTItem> fqts;
-      vector<CheckIn::TPaxRemItem> rems;
+      set<CheckIn::TPaxFQTItem> fqts;
+      multiset<CheckIn::TPaxRemItem> rems;
       map< TRemCategory, bool > cats;
       cats[remTKN]=false;
       cats[remDOC]=false;
@@ -2713,7 +2713,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
               break;
             case remFQT:
               LoadPaxFQT(pax_id, fqts);
-              for(vector<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
+              for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
               {
                 if (!f->rem.empty() &&
                     find(iRem->second.begin(),iRem->second.end(),f->rem)!=iRem->second.end())
@@ -2726,7 +2726,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
               break;
             default:
               LoadPaxRem(pax_id, rems);
-              for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
+              for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
               {
                 if (!r->code.empty() &&
                     find(iRem->second.begin(),iRem->second.end(),r->code)!=iRem->second.end())
@@ -2743,38 +2743,40 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         if (!pr_find) continue;
       };
 
+      multiset<CheckIn::TPaxRemItem> final_rems;
       CheckIn::TPaxRemItem rem;
       //обычные ремарки (обязательно обрабатываем первыми)
       if (!cats[remUnknown]) LoadPaxRem(pax_id, rems);
-      for(vector<CheckIn::TPaxRemItem>::iterator r=rems.begin();r!=rems.end();r++)
-        r->text=transliter(r->text, 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
+      for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin();r!=rems.end();++r)
+        if (getPaxRem(rpt_params, *r, inf_indicator, rem)) final_rems.insert(rem);
 
       //билет
       if (!cats[remTKN]) tkn.fromDB(Qry);
-      if (getPaxRem(rpt_params, tkn, inf_indicator, rem)) rems.push_back(rem);
+      if (getPaxRem(rpt_params, tkn, inf_indicator, rem)) final_rems.insert(rem);
       //документ
       if (!cats[remDOC]) LoadPaxDoc(pax_id, doc);
-      if (getPaxRem(rpt_params, doc, inf_indicator, rem)) rems.push_back(rem);
+      if (getPaxRem(rpt_params, doc, inf_indicator, rem)) final_rems.insert(rem);
       //виза
       if (!cats[remDOCO]) LoadPaxDoco(pax_id, doco);
-      if (getPaxRem(rpt_params, doco, inf_indicator, rem)) rems.push_back(rem);
+      if (getPaxRem(rpt_params, doco, inf_indicator, rem)) final_rems.insert(rem);
       //адреса
       if (!cats[remDOCA]) LoadPaxDoca(pax_id, doca);
       for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
-        if (getPaxRem(rpt_params, *d, inf_indicator, rem)) rems.push_back(rem);
+        if (getPaxRem(rpt_params, *d, inf_indicator, rem)) final_rems.insert(rem);
       //бонус-программа
       if (!cats[remFQT]) LoadPaxFQT(pax_id, fqts);
-      for(vector<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
-        if (getPaxRem(rpt_params, *f, inf_indicator, rem)) rems.push_back(rem);
+      for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
+        if (getPaxRem(rpt_params, *f, inf_indicator, rem)) final_rems.insert(rem);
 
-      if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT) {
-          vector<CheckIn::TPaxRemItem> tmp_rems;
-          for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
-              if(spec_rems.exists(r->code)) tmp_rems.push_back(*r);
-          rems = tmp_rems;
+      if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT)
+      {
+        for(multiset<CheckIn::TPaxRemItem>::iterator r=final_rems.begin();r!=final_rems.end();)
+        {
+          if (!spec_rems.exists(r->code)) r=Erase(final_rems, r); else ++r;
+        };
       }
 
-      if (rems.empty()) continue;
+      if (final_rems.empty()) continue;
 
       xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
       NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
@@ -2783,8 +2785,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
       NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
       ostringstream rem_info;
-      sort(rems.begin(),rems.end()); //сортировка по priority
-      for(vector<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
+      for(multiset<CheckIn::TPaxRemItem>::const_iterator r=final_rems.begin();r!=final_rems.end();++r)
       {
         rem_info << ".R/" << r->text << " ";
       };

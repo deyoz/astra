@@ -1663,7 +1663,7 @@ const TPaxSegItem& TPaxSegItem::toXML(xmlNodePtr node, const std::string &lang) 
   }
   for(list<CheckIn::TPnrAddrItem>::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
     SetProp(NewTextChild(node, "recloc", i->addr), "crs", airlineToXML(i->airline, lang));
-  for(vector<CheckIn::TPaxFQTItem>::const_iterator i=fqts.begin(); i!=fqts.end(); ++i)
+  for(std::set<CheckIn::TPaxFQTItem>::const_iterator i=fqts.begin(); i!=fqts.end(); ++i)
     SetProp(NewTextChild(node, "ffp", i->no), "company", airlineToXML(i->airline, lang));
 
   return *this;
