@@ -2191,7 +2191,7 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
     Qry.Execute();
     for ( ; !Qry.Eof; Qry.Next() ) {
       if (!paxs.insert( Qry.FieldAsInteger( "pax_id" ) ).second) continue;
-      CheckIn::TPaxItem pax;
+      CheckIn::TSimplePaxItem pax;
       pax.fromDB(Qry);
       TETickItem etick;
       if (pax.tkn.validET())
@@ -2216,7 +2216,7 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
     Qry.Execute();
     for ( ; !Qry.Eof; Qry.Next() ) {
       if (!paxs.insert( Qry.FieldAsInteger( "pax_id" ) ).second) continue;
-      CheckIn::TPaxItem pax;
+      CheckIn::TSimplePaxItem pax;
       pax.fromDB(Qry);
       TETickItem etick;
       if (pax.tkn.validET())

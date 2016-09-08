@@ -485,8 +485,6 @@ ASTRA::TCompLayerType DecodeCompLayerType(const char* s);
 const char* EncodeCompLayerType(ASTRA::TCompLayerType s);
 ASTRA::TBagNormType DecodeBagNormType(const char* s);
 const char* EncodeBagNormType(ASTRA::TBagNormType s);
-ASTRA::TCrewType DecodeCrewType(const char* s);
-const char* EncodeCrewType(ASTRA::TCrewType s);
 
 char DecodeStatus(char* s);
 
@@ -669,6 +667,24 @@ typename T::iterator Erase(T &c, typename T::iterator i)
   ++i;
   c.erase(curr);
   return i;
+};
+
+template <typename T>
+class Statistic : public std::map<T, int>
+{
+  public:
+    void add(const T &elem)
+    {
+      (this->insert(std::pair<T, int>(elem, 0)).first)->second++;
+    }
+
+    const T frequent(const T &nvl) const
+    {
+      std::pair<T, int> result=std::make_pair(nvl, 0);
+      for(typename std::map<T, int>::const_iterator i=this->begin(); i!=this->end(); ++i)
+        if (i->second > result.second) result=*i;
+      return result.first;
+    }
 };
 
 #endif /*_ASTRA_UTILS_H_*/

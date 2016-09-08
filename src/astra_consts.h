@@ -9,7 +9,6 @@
 #include "exceptions.h"
 
 namespace ASTRA
-
 {
 
 template <typename T1, typename T2>
@@ -158,8 +157,50 @@ enum TRptType {
 };
 extern const char *RptTypeS[rtTypeNum];
 
-enum TCrewType { ctCR1, ctCR2, ctCR3, ctCR4, ctCR5, ctUnknown };
-extern const char* TCrewTypeS[6];
+class TCrewType
+{
+  public:
+    enum Enum
+    {
+      Crew1,
+      Crew2,
+      Crew3,
+      Crew4,
+      Crew5,
+      ExtraCrew,
+      DeadHeadCrew,
+      MiscOperStaff,
+      Unknown
+    };
+
+    static const std::list< std::pair<Enum, std::string> >& pairs()
+    {
+      static std::list< std::pair<Enum, std::string> > l;
+      if (l.empty())
+      {
+        l.push_back(std::make_pair(Crew1,         "CR1"));
+        l.push_back(std::make_pair(Crew2,         "CR2"));
+        l.push_back(std::make_pair(Crew3,         "CR3"));
+        l.push_back(std::make_pair(Crew4,         "CR4"));
+        l.push_back(std::make_pair(Crew5,         "CR5"));
+        l.push_back(std::make_pair(ExtraCrew,     "XCR"));
+        l.push_back(std::make_pair(DeadHeadCrew,  "DHC"));
+        l.push_back(std::make_pair(MiscOperStaff, "MOS"));
+        l.push_back(std::make_pair(Unknown,       ""));
+      }
+      return l;
+    }
+};
+
+class TCrewTypes : public ASTRA::PairList<TCrewType::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "TCrewTypes"; }
+  public:
+    TCrewTypes() : ASTRA::PairList<TCrewType::Enum, std::string>(TCrewType::pairs(),
+                                                                 TCrewType::Unknown,
+                                                                 boost::none) {}
+};
 
 #define TRACE_SIGNATURE int Level, const char *nickname, const char *filename, int line
 #define TRACE_PARAMS Level, nickname, filename, line
@@ -168,6 +209,8 @@ extern const char* TCrewTypeS[6];
 enum TIdType {idFlt, idGrp, idPax};
 
 };
+
+const ASTRA::TCrewTypes& CrewTypes();
 
 const std::string TIMEOUT_OCCURRED = "Timeout occurred";
 const std::string ACCESS_DENIED = "Access denied";

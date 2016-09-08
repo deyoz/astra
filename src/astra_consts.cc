@@ -22,7 +22,7 @@ const char* TPaxStatusS[] = {"K","C","T","P","E"};
 
 const char* CompLayerTypeS[] = {"BLOCK_CENT","TRANZIT","CHECKIN","TCHECKIN","GOSHOW","BLOCK_TRZT","SOM_TRZT","PRL_TRZT",
                                 "PROT_BPAY", "PROT_APAY", "PNL_BPAY", "PNL_APAY",
-	                              "PROT_TRZT","PNL_CKIN","PROT_CKIN", "PROTECT","UNCOMFORT","SMOKE","DISABLE",""};
+                                  "PROT_TRZT","PNL_CKIN","PROT_CKIN", "PROTECT","UNCOMFORT","SMOKE","DISABLE",""};
 
 const char* BagNormTypeS[] = {"Åè", "éÅ", "èã", "Åè/ëç", "Åè/éÅ", "Åè/èã", "éÅ/èã", ""};
 
@@ -60,5 +60,10 @@ const char *RptTypeS[] = {
     "?"
 };
 
-const char* TCrewTypeS[] = {"CR1","CR2","CR3","CR4","CR5", ""};
-};
+}
+
+const ASTRA::TCrewTypes& CrewTypes()
+{
+  static ASTRA::TCrewTypes crewTypes;
+  return crewTypes;
+}

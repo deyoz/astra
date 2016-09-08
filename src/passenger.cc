@@ -1094,7 +1094,7 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
   NewTextChild(paxNode, "surname", surname);
   NewTextChild(paxNode, "name", name);
   NewTextChild(paxNode, "pers_type", EncodePerson(pers_type));
-  NewTextChild(paxNode, "crew_type", EncodeCrewType(crew_type));
+  NewTextChild(paxNode, "crew_type", CrewTypes().encode(crew_type));
   NewTextChild(paxNode, "seat_no", seat_no);
   NewTextChild(paxNode, "seat_type", seat_type);
   NewTextChild(paxNode, "seats", seats);
@@ -1151,7 +1151,7 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
   {
     pers_type=DecodePerson(NodeAsStringFast("pers_type",node2));
     if (!NodeIsNULLFast("crew_type",node2, true))
-      crew_type=DecodeCrewType(NodeAsStringFast("crew_type",node2));
+      crew_type=CrewTypes().decode(NodeAsStringFast("crew_type",node2));
     if (PaxUpdatesPending)
       refuse=NodeAsStringFast("refuse",node2);
 
@@ -1232,7 +1232,7 @@ const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
   if (Qry.GetVariableIndex("pers_type")>=0)
     Qry.SetVariable("pers_type", EncodePerson(pers_type));
   if (Qry.GetVariableIndex("crew_type")>=0)
-    Qry.SetVariable("crew_type", EncodeCrewType(crew_type));
+    Qry.SetVariable("crew_type", CrewTypes().encode(crew_type));
   if (Qry.GetVariableIndex("seat_type")>=0)
     Qry.SetVariable("seat_type", seat_type);
   if (Qry.GetVariableIndex("seats")>=0)
@@ -1267,7 +1267,7 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
   pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
-  crew_type=Qry.FieldIsNULL("crew_type")?ASTRA::ctUnknown:DecodeCrewType(Qry.FieldAsString("crew_type"));
+  crew_type=Qry.FieldIsNULL("crew_type")?ASTRA::TCrewType::Unknown:CrewTypes().decode(Qry.FieldAsString("crew_type"));
   seat_no=Qry.FieldAsString("seat_no");
   seat_type=Qry.FieldAsString("seat_type");
   seats=Qry.FieldAsInteger("seats");
@@ -1436,6 +1436,66 @@ void TPaxListItem::checkFQTTierLevel()
   };
 
   fqts=tmp_fqts;
+}
+
+void TPaxListItem::checkCrewType(bool new_checkin, ASTRA::TPaxStatus grp_status)
+{
+  Statistic<string> crewRemsStat;
+  for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end(); ++r)
+  {
+    TRemCategory cat=getRemCategory(r->code, r->text);
+    if (!r->code.empty() && cat==remCREW)
+      crewRemsStat.add(r->code);
+  };
+  if (!crewRemsStat.empty())
+  {
+    //есть ремарки, связанные с экипажем
+    //пороверяем дублирование ремарок и взаимоислючающие ремарки
+    if (crewRemsStat.size()>1)
+    {
+      //взаимоисключающие
+      throw UserException("MSG.REMARK.MUTUALLY_EXCLUSIVE",
+                          LParams() << LParam("surname", pax.full_name())
+                                    << LParam("remark1", crewRemsStat.begin()->first)
+                                    << LParam("remark2", crewRemsStat.rbegin()->first));
+    }
+    else
+    {
+      if (crewRemsStat.begin()->second>1)
+        //повторяющиеся
+        throw UserException("MSG.REMARK.DUPLICATED",
+                            LParams() << LParam("surname", pax.full_name())
+                                      << LParam("remark", crewRemsStat.begin()->first));
+
+      if (new_checkin)
+      {
+        if (grp_status==ASTRA::psCrew)
+          pax.crew_type=ASTRA::TCrewType::Unknown;
+        else
+          pax.crew_type=CrewTypes().decode(crewRemsStat.begin()->first);
+      };
+
+      string rem_code=CalcCrewRem(grp_status, pax.crew_type);
+      if (crewRemsStat.begin()->first!=rem_code)
+      {
+        //удаляем неправильную ремарку
+        for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end();)
+        {
+          if (r->code==crewRemsStat.begin()->first) r=Erase(rems, r); else ++r;
+        }
+        //добавляем правильную ремарку
+        if (!rem_code.empty())
+          rems.insert(CheckIn::TPaxRemItem(rem_code,rem_code));
+      }
+    };
+  }
+  else
+  {
+    //нет ремарок, связанных с экипажем
+    string rem_code=CalcCrewRem(grp_status, pax.crew_type);
+    if (!rem_code.empty())
+      rems.insert(CheckIn::TPaxRemItem(rem_code,rem_code));
+  };
 }
 
 const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
