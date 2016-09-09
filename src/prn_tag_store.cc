@@ -2209,21 +2209,20 @@ string TPrnTagStore::REM(TFieldParams fp)
 
 string TPrnTagStore::REG_NO(TFieldParams fp)
 {
-    if(scan_data != NULL)
-        return scan_data->check_in_seq_number(0);
-    else {
-        ostringstream result;
-        int regno = NoExists;
-        if(!fp.TagInfo.empty()) {
-            regno = boost::any_cast<int>(fp.TagInfo);
-        } else {
-            regno = paxInfo.reg_no;
-        }
+    ostringstream result;
+    int regno = NoExists;
 
-        if(regno != NoExists)
-            result << setw(3) << setfill('0') << regno;
-        return result.str();
+    if(scan_data != NULL)
+        regno = ToInt(scan_data->check_in_seq_number(0));
+    else if(!fp.TagInfo.empty()) {
+        regno = boost::any_cast<int>(fp.TagInfo);
+    } else {
+        regno = paxInfo.reg_no;
     }
+
+    if(regno != NoExists)
+        result << setw(3) << setfill('0') << regno;
+    return result.str();
 }
 
 string TPrnTagStore::RSTATION(TFieldParams fp)
