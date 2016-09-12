@@ -162,11 +162,13 @@ struct TInquiryFamily
 
 struct TInquiryGroup
 {
+  TPaxStatus status;
   TInquiryPrefix::Enum prefix;
   vector<TInquiryFamily> fams;
   bool digCkin,large;
   void Clear()
   {
+    status=psCheckin;
     prefix=TInquiryPrefix::Empty;
     fams.clear();
     digCkin=false;
@@ -178,29 +180,37 @@ struct TInquiryGroup
   }
 };
 
-void ParseInquiryStr(string query, TInquiryGroup &grp)
+void ParseInquiryStr(const string &query, const TPaxStatus status, TInquiryGroup &grp)
 {
   TInquiryFamily fam;
   string strh;
 
   grp.Clear();
+  grp.status=status;
   try
   {
     char c;
     int state=1;
     int pos=1;
-    string::iterator i=query.begin();
+    string::const_iterator i=query.begin();
     for(TInquiryPrefix::Pairs::const_iterator p=TInquiryPrefix::pairs().begin(); p!=TInquiryPrefix::pairs().end(); ++p)
     {
       if (p->second.empty()) continue;
       if (query.substr(0,p->second.size())!=p->second) continue;
       grp.prefix=p->first;
-      if ((grp.prefix==TInquiryPrefix::ExtraCrew ||
-           grp.prefix==TInquiryPrefix::DeadHeadCrew ||
-           grp.prefix==TInquiryPrefix::MiscOperStaff) &&
-          !TReqInfo::Instance()->desk.compatible(XXXCREW_VERSION))
-        throw UserException(100, "MSG.REQUEST_ERROR.NOT_SUPPORTED_BY_THE_TERM_VERSION",
-                            LParams() << LParam("request", InquiryPrefixes().encode(grp.prefix)));
+      if (grp.prefix==TInquiryPrefix::ExtraCrew ||
+          grp.prefix==TInquiryPrefix::DeadHeadCrew ||
+          grp.prefix==TInquiryPrefix::MiscOperStaff)
+      {
+        if (!TReqInfo::Instance()->desk.compatible(XXXCREW_VERSION))
+          throw UserException(100, "MSG.REQUEST_ERROR.NOT_SUPPORTED_BY_THE_TERM_VERSION",
+                                   LParams() << LParam("request", InquiryPrefixes().encode(grp.prefix)));
+        ProgError(STDLOG, "grp.status=%d", (int)grp.status);
+        if (grp.status==psCrew)
+          throw UserException(100, "MSG.REQUEST_ERROR.NOT_APPLICABLE_FOR_CHECKIN_STATUS",
+                                   LParams() << LParam("request", InquiryPrefixes().encode(grp.prefix))
+                                             << LParam("status", ElemIdToClientElem(etGrpStatusType, EncodePaxStatus(grp.status), efmtNameLong)));
+      }
       state=2;
       pos+=p->second.size();
       i+=p->second.size();
@@ -2037,7 +2047,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   {
     readTripCounters(point_dep,resNode);
 
-    ParseInquiryStr(query,grp);
+    ParseInquiryStr(query, pax_status, grp);
     TInquiryFormat fmt;
     fmt.persCountFmt=0;
     fmt.infSeatsFmt=0;
