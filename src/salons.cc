@@ -1456,6 +1456,9 @@ void TPlace::SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &sa
       else {
         tariff.rate = colorItem->second.rate;
       }
+      if ( selfckin_client() ) {
+         tariff.rate = irfisc->second.rate;
+      }
       AddTariff( irfisc->first, tariff );
       ProgTrace( TRACE5, "1 place(%d,%d) set rate=%s",
                          x, y,
@@ -5049,7 +5052,7 @@ void TSalonList::WriteFlight( int vpoint_id )
   TQuery QryReadX( &OraSession );
   FilterRoutesProperty filterRoutes;
   filterRoutes.Read( TFilterRoutesSets( vpoint_id ) );
-  if ( getRFISCMode() == rRFISC ) {
+  if ( getRFISCMode() == rRFISC ) { //!!!
     QryReadX.Clear();
     QryReadX.SQLText =
       "SELECT point_id,num,x,y,color,rate,rate_cur "
@@ -5059,7 +5062,7 @@ void TSalonList::WriteFlight( int vpoint_id )
     QryReadX.Execute();
     ReadTariff( QryReadX, filterRoutes, ASTRA::NoExists );
   }
-  if ( getRFISCMode() == rTariff )  {
+  if ( getRFISCMode() == rTariff )  { //!!!
     QryReadX.Clear();
     QryReadX.SQLText =
       "SELECT point_id,num,x,y,color "
