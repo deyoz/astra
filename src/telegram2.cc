@@ -921,6 +921,7 @@ namespace PRL_SPACE {
     struct TInfantsItem {
         int pax_id;
         int grp_id;
+        int bag_pool_num;
         int reg_no;
         string surname;
         string name;
@@ -929,10 +930,12 @@ namespace PRL_SPACE {
         string ticket_no;
         int coupon_no;
         string ticket_rem;
+        TWItem W;
         void dump();
         TInfantsItem() {
             pax_id = NoExists;
             grp_id = NoExists;
+            bag_pool_num = NoExists;
             reg_no = NoExists;
             parent_pax_id = NoExists;
             temp_parent_id = NoExists;
@@ -945,6 +948,7 @@ namespace PRL_SPACE {
         ProgTrace(TRACE5, "TInfantsItem");
         ProgTrace(TRACE5, "pax_id: %d", pax_id);
         ProgTrace(TRACE5, "grp_id: %d", grp_id);
+        ProgTrace(TRACE5, "bag_pool_num: %d", bag_pool_num);
         ProgTrace(TRACE5, "reg_no: %d", reg_no);
         ProgTrace(TRACE5, "surname: %s", surname.c_str());
         ProgTrace(TRACE5, "name: %s", name.c_str());
@@ -996,6 +1000,7 @@ namespace PRL_SPACE {
         TQuery Qry(&OraSession);
         string SQLText =
             "SELECT pax.grp_id, "
+            "       pax.bag_pool_num, "
             "       pax.pax_id, "
             "       pax.reg_no, "
             "       pax.surname, "
@@ -1022,6 +1027,7 @@ namespace PRL_SPACE {
         if(!Qry.Eof) {
             int col_pax_id = Qry.FieldIndex("pax_id");
             int col_grp_id = Qry.FieldIndex("grp_id");
+            int col_bag_pool_num = Qry.FieldIndex("bag_pool_num");
             int col_reg_no = Qry.FieldIndex("reg_no");
             int col_surname = Qry.FieldIndex("surname");
             int col_name = Qry.FieldIndex("name");
@@ -1033,6 +1039,9 @@ namespace PRL_SPACE {
                 TInfantsItem item;
                 item.pax_id = Qry.FieldAsInteger(col_pax_id);
                 item.grp_id = Qry.FieldAsInteger(col_grp_id);
+                if(not Qry.FieldIsNULL(col_bag_pool_num))
+                    item.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+                item.W.get(item.grp_id, item.bag_pool_num);
                 item.reg_no = Qry.FieldAsInteger(col_reg_no);
                 item.surname = Qry.FieldAsString(col_surname);
                 item.name = Qry.FieldAsString(col_name);
@@ -1427,12 +1436,14 @@ namespace PRL_SPACE {
 
     struct TGRPItem {
         int pax_count;
+        bool pr_apply_inf_bag;
         bool written;
         int bg;
         TWItem W;
         TPRLTagList tags;
         TGRPItem() {
             pax_count = NoExists;
+            pr_apply_inf_bag = false;
             written = false;
             bg = NoExists;
         }
@@ -4369,6 +4380,7 @@ struct TASLPax {
     string ticket_no;
     int coupon_no;
     int grp_id;
+    int bag_pool_num;
     TPNRListAddressee pnrs;
     TMItem M;
     TRemList rems;
@@ -4859,6 +4871,7 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    pax.ticket_no, "
         "    pax.coupon_no, "
         "    pax.grp_id, "
+        "    pax.bag_pool_num, "
         "    pax.bag_pool_num "
         "from "
         "    pax, "
@@ -4902,6 +4915,7 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         int col_ticket_no = Qry.FieldIndex("ticket_no");
         int col_coupon_no = Qry.FieldIndex("coupon_no");
         int col_grp_id = Qry.FieldIndex("grp_id");
+        int col_bag_pool_num = Qry.FieldIndex("bag_pool_num");
         for(; !Qry.Eof; Qry.Next()) {
             TASLPax pax(infants, &grpEmds);
             pax.target = Qry.FieldAsString(col_target);
@@ -4922,6 +4936,8 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
             pax.ticket_no = Qry.FieldAsString(col_ticket_no);
             pax.coupon_no = Qry.FieldAsInteger(col_coupon_no);
             pax.grp_id = Qry.FieldAsInteger(col_grp_id);
+            if(not Qry.FieldIsNULL(col_bag_pool_num))
+            pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
 
             TGrpEmds::iterator idx = grpEmds.find(pax.grp_id);
             if(idx == grpEmds.end()) {
@@ -5053,6 +5069,7 @@ struct TDestList {
     vector<T> items;
     void get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &lst);
     void get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers);
+    void apply_inf_bag();
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
 
@@ -6953,6 +6970,33 @@ struct TSubclsItem {
 };
 
 template <class T>
+void TDestList<T>::apply_inf_bag()
+{
+    for(size_t i = 0; i < items.size(); i++) {
+        T *iv = &items[i];
+        for(size_t i_pax = 0; i_pax < iv->PaxList.size(); i_pax++) {
+            int pax_id =  iv->PaxList[i_pax].pax_id;
+            int grp_id =  iv->PaxList[i_pax].grp_id;
+            int bag_pool_num =  iv->PaxList[i_pax].bag_pool_num;
+            for(vector<TInfantsItem>::iterator infRow = infants.items.begin(); infRow != infants.items.end(); infRow++) {
+                if(infRow->grp_id == grp_id and infRow->parent_pax_id == pax_id) {
+                    TGRPItem &grp_item = grp_map.items[grp_id][bag_pool_num];
+                    if(not(grp_item.W.bagAmount == 0 and grp_item.W.bagWeight == 0 and grp_item.W.rkWeight == 0)) {
+                        if(!grp_item.pr_apply_inf_bag) {
+                            grp_item.pr_apply_inf_bag = true;
+                            grp_item.W.bagAmount += infRow->W.bagAmount;
+                            grp_item.W.bagWeight += infRow->W.bagWeight;
+                            grp_item.W.rkAmount += infRow->W.rkAmount;
+                            grp_item.W.rkWeight += infRow->W.rkWeight;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+template <class T>
 void TDestList<T>::get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &lst)
 {
     const TypeB::TPRLOptions *PRLOptions=NULL;
@@ -7029,6 +7073,7 @@ void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &com
             dest.GetPaxList(info,complayers);
             items.push_back(dest);
         }
+    apply_inf_bag();
 }
 
 struct TNumByDestItem {
@@ -8517,4 +8562,3 @@ void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_t
   TPassSeats layerSeats;
   sectionInfo.GetTotalLayerSeat( layer_type, layerSeats );
 };
-
