@@ -5151,18 +5151,37 @@ struct TLDMBag {
 };
 
 struct TToRampBag {
-    int amount, weight;
-    TToRampBag():
-        amount(0),
-        weight(0)
-    {}
+    map<string, pair<int, int> > items; // items[airp] = <amount, weight>
     void get(int point_id);
+    pair<int, int> by_flight(); // return <amount, weight> summary
+    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
     bool empty();
 };
 
+void TToRampBag::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
+{
+    for(map<string, pair<int, int> >::iterator i = items.begin(); i != items.end(); i++) {
+        ostringstream res;
+        res
+            << "-" << info.TlgElemIdToElem(etAirp, i->first)
+            << ".DAA/" << i->second.first;
+        body.push_back(res.str());
+    }
+}
+
+pair<int, int> TToRampBag::by_flight()
+{
+    pair<int, int> result;
+    for(map<string, pair<int, int> >::iterator i = items.begin(); i != items.end(); i++) {
+        result.first += i->second.first;
+        result.second += i->second.second;
+    }
+    return result;
+}
+
 bool TToRampBag::empty()
 {
-    return not amount and not weight;
+    return items.empty();
 }
 
 // Сортировка багажа по настроечным таблицам:
@@ -5252,12 +5271,12 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
 
 void TToRampBag::get(int point_id)
 {
-    amount = 0;
-    weight = 0;
+    items.clear();
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, point_id);
     TCachedQuery Qry(
             "select "
+            "   pax_grp.airp_arv, "
             "   sum(amount) amount, "
             "   sum(weight) weight "
             "from "
@@ -5269,14 +5288,17 @@ void TToRampBag::get(int point_id)
             "   pax_grp.status NOT IN ('E') AND "
             "   bag2.pr_cabin=0 AND "
             "   ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 and "
-            "   bag2.to_ramp <> 0 ",
+            "   bag2.to_ramp <> 0 "
+            "group by "
+            "   airp_arv",
             QryParams
             );
     Qry.get().Execute();
-    if(not Qry.get().Eof) {
-        amount = Qry.get().FieldAsInteger("amount");
-        weight = Qry.get().FieldAsInteger("weight");
-    }
+    for(; not Qry.get().Eof; Qry.get().Next())
+        items[Qry.get().FieldAsString("airp_arv")] =
+            make_pair(
+                    Qry.get().FieldAsInteger("amount"),
+                    Qry.get().FieldAsInteger("weight"));
 }
 
 void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
@@ -5572,7 +5594,7 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
         if(to_ramp.empty())
             row << "NIL";
         else
-            row << to_ramp.amount << "/" << to_ramp.weight << KG;
+            row << to_ramp.by_flight().first << "/" << to_ramp.by_flight().second << KG;
         body.push_back(row.str());
     }
     //    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
@@ -6651,6 +6673,7 @@ struct TLCI {
     TLCIPaxTotals pax_totals;
     TSeatPlan sp;
     TBagRems bag_rems;
+    TToRampBag to_ramp;
     string get_action_code(TypeB::TDetailCreateInfo &info);
     void get(TypeB::TDetailCreateInfo &info);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
@@ -6671,8 +6694,10 @@ void TLCI::get(TypeB::TDetailCreateInfo &info)
         sr_s.get(info);
         pax_totals.get(info);
         sp.get(info);
-        if(options.bag_totals)
+        if(options.bag_totals) {
             bag_rems.get(info);
+            to_ramp.get(info.point_id);
+        }
     } catch(AstraLocale::UserException &E) {
         if(E.getLexemaData().lexema_id != "MSG.FLIGHT_WO_CRAFT_CONFIGURE")
             throw;
@@ -6737,8 +6762,10 @@ void TLCI::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     vector<string> si;
     pax_totals.ToTlg(info, body, si);
     sp.ToTlg(info, body);
-    if(options.bag_totals)
+    if(options.bag_totals) {
         bag_rems.ToTlg(info, si);
+        to_ramp.ToTlg(info, si);
+    }
     if(not si.empty()) {
         body.push_back("SI");
         body.insert(body.end(), si.begin(), si.end());
