@@ -113,6 +113,7 @@ class TRFISCSetting
     std::string RFISC;
     int priority;
     int min_weight, max_weight;
+    std::string rem_code;
 
     TRFISCSetting()
     {
@@ -124,6 +125,7 @@ class TRFISCSetting
       priority=ASTRA::NoExists;
       min_weight=ASTRA::NoExists;
       max_weight=ASTRA::NoExists;
+      rem_code.clear();
     }
 
     TRFISCSetting& fromDB(TQuery &Qry);
@@ -139,6 +141,7 @@ class TRFISCSettingList : public std::map<std::string/*RFISC*/, TRFISCSetting>
 
     void fromDB(const std::string &airline);
     void check(const CheckIn::TBagItem &bag) const;
+    std::string get_rem_code(const std::string &rfisc) const;
 };
 
 class TRFISCListWithSets : public TRFISCList, public TRFISCSettingList
