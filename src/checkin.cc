@@ -205,7 +205,6 @@ void ParseInquiryStr(const string &query, const TPaxStatus status, TInquiryGroup
         if (!TReqInfo::Instance()->desk.compatible(XXXCREW_VERSION))
           throw UserException(100, "MSG.REQUEST_ERROR.NOT_SUPPORTED_BY_THE_TERM_VERSION",
                                    LParams() << LParam("request", InquiryPrefixes().encode(grp.prefix)));
-        ProgError(STDLOG, "grp.status=%d", (int)grp.status);
         if (grp.status==psCrew)
           throw UserException(100, "MSG.REQUEST_ERROR.NOT_APPLICABLE_FOR_CHECKIN_STATUS",
                                    LParams() << LParam("request", InquiryPrefixes().encode(grp.prefix))
