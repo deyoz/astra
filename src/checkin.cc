@@ -79,6 +79,55 @@ void CheckInInterface::LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   };
 };
 
+class TInquiryPrefix
+{
+  public:
+    enum Enum
+    {
+      NoRec,
+      Crew,
+      ExtraCrew,
+      DeadHeadCrew,
+      MiscOperStaff,
+      Empty,
+      CrewOldStyle
+    };
+
+    typedef std::list< std::pair<Enum, std::string> > Pairs;
+
+    static const Pairs& pairs()
+    {
+      static Pairs l;
+      if (l.empty())
+      {
+        l.push_back(std::make_pair(NoRec,         "-"));
+        l.push_back(std::make_pair(Crew,          "CREW-"));
+        l.push_back(std::make_pair(ExtraCrew,     "XXXCREW-"));
+        l.push_back(std::make_pair(DeadHeadCrew,  "XXXDHC-"));
+        l.push_back(std::make_pair(MiscOperStaff, "XXXMOS-"));
+        l.push_back(std::make_pair(Empty,         ""));
+        l.push_back(std::make_pair(CrewOldStyle,  "CREW"));
+      }
+      return l;
+    }
+};
+
+class TInquiryPrefixes : public ASTRA::PairList<TInquiryPrefix::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "TInquiryPrefixes"; }
+  public:
+    TInquiryPrefixes() : ASTRA::PairList<TInquiryPrefix::Enum, std::string>(TInquiryPrefix::pairs(),
+                                                                            boost::none,
+                                                                            boost::none) {}
+};
+
+const TInquiryPrefixes& InquiryPrefixes()
+{
+  static TInquiryPrefixes inquiryPrefixes;
+  return inquiryPrefixes;
+}
+
 struct TInquiryFamily
 {
   string surname,name;
@@ -101,12 +150,14 @@ struct TInquiryFamily
 
 struct TInquiryGroup
 {
-  string prefix;
+  TPaxStatus status;
+  TInquiryPrefix::Enum prefix;
   vector<TInquiryFamily> fams;
   bool digCkin,large;
   void Clear()
   {
-    prefix.clear();
+    status=psCheckin;
+    prefix=TInquiryPrefix::Empty;
     fams.clear();
     digCkin=false;
     large=false;
@@ -117,24 +168,41 @@ struct TInquiryGroup
   };
 };
 
-void ParseInquiryStr(string query, TInquiryGroup &grp)
+void ParseInquiryStr(const string &query, const TPaxStatus status, TInquiryGroup &grp)
 {
   TInquiryFamily fam;
   string strh;
 
   grp.Clear();
+  grp.status=status;
   try
   {
     char c;
     int state=1;
     int pos=1;
-    string::iterator i=query.begin();
-    if (query.substr(0,4)=="CREW")
+    string::const_iterator i=query.begin();
+    for(TInquiryPrefix::Pairs::const_iterator p=TInquiryPrefix::pairs().begin(); p!=TInquiryPrefix::pairs().end(); ++p)
     {
-      grp.prefix="CREW";
+      if (p->second.empty()) continue;
+      if (query.substr(0,p->second.size())!=p->second) continue;
+      grp.prefix=p->first;
+      if (grp.prefix==TInquiryPrefix::ExtraCrew ||
+          grp.prefix==TInquiryPrefix::DeadHeadCrew ||
+          grp.prefix==TInquiryPrefix::MiscOperStaff)
+      {
+        if (!TReqInfo::Instance()->desk.compatible(XXXCREW_VERSION))
+          throw UserException(100, "MSG.REQUEST_ERROR.NOT_SUPPORTED_BY_THE_TERM_VERSION",
+                                   LParams() << LParam("request", InquiryPrefixes().encode(grp.prefix)));
+        ProgError(STDLOG, "grp.status=%d", (int)grp.status);
+        if (grp.status==psCrew)
+          throw UserException(100, "MSG.REQUEST_ERROR.NOT_APPLICABLE_FOR_CHECKIN_STATUS",
+                                   LParams() << LParam("request", InquiryPrefixes().encode(grp.prefix))
+                                             << LParam("status", ElemIdToClientElem(etGrpStatusType, EncodePaxStatus(grp.status), efmtNameLong)));
+      }
       state=2;
-      pos+=4;
-      i+=4;
+      pos+=p->second.size();
+      i+=p->second.size();
+      break;
     };
     for(;;)
     {
@@ -144,8 +212,6 @@ void ParseInquiryStr(string query, TInquiryGroup &grp)
         case 1:
           switch (c)
           {
-            case '+': grp.prefix="+"; break;
-            case '-': grp.prefix="-"; break;
             default:  state=2; continue;
           };
           state=2;
@@ -441,6 +507,7 @@ struct TInquiryFamilySummary
 
 struct TInquiryGroupSummary
 {
+  TInquiryPrefix::Enum prefix;
   int n[NoPerson];
   int nPaxWithPlace,nPax;
   vector<TInquiryFamilySummary> fams;
@@ -448,6 +515,7 @@ struct TInquiryGroupSummary
 
   void Clear()
   {
+    prefix=TInquiryPrefix::Empty;
     for(int i=0;i<NoPerson;i++) n[i]=0;
     nPaxWithPlace=0;
     nPax=0;
@@ -481,6 +549,7 @@ struct TInquiryFormat
 void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummary &sum)
 {
   sum.Clear();
+  sum.prefix=grp.prefix;
   if (grp.fams.empty()) throw UserException(100,"MSG.REQUEST.INVALID");
   vector<TInquiryFamily>::iterator i;
   if (!grp.large)
@@ -594,7 +663,8 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
     sum.nPaxWithPlace+=info.nPaxWithPlace;
     sum.fams.push_back(info);
   };
-   if (grp.large && sum.nPaxWithPlace<=9) grp.large=false;
+  if (grp.large && sum.nPaxWithPlace<=9) grp.large=false;
+
   if (sum.nPaxWithPlace==0)
     throw UserException(100,"MSG.CHECKIN.PASSENGERS_WITH_SEATS_MORE_ZERO");
   if (sum.nPax<sum.nPaxWithPlace)
@@ -605,8 +675,8 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
   if (sum.persCountFmt==1 && sum.nPax<(int)sum.fams.size())
     throw UserException(100,"MSG.CHECKIN.SURNAME_MORE_PASSENGERS_FOR_GRP");
 
-  if (grp.prefix=="+")
-    throw UserException(100,"MSG.REQUEST_ERROR.USE_STATUS_CHOICE");
+  if (grp.prefix==TInquiryPrefix::CrewOldStyle)
+    throw UserException(100,"MSG.REQUEST_ERROR.USE_CREW_MINUS");
 };
 
 void CheckTrferPermit(const pair<CheckIn::TTransferItem, TCkinSegFlts> &in,
@@ -1348,11 +1418,35 @@ void CreateNoRecResponse(const TInquiryGroupSummary &sum, xmlNodePtr resNode)
   xmlNodePtr paxNode=NewTextChild(resNode,"norec");
   for(list<CheckIn::TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
   {
+    if (sum.prefix==TInquiryPrefix::ExtraCrew ||
+        sum.prefix==TInquiryPrefix::DeadHeadCrew ||
+        sum.prefix==TInquiryPrefix::MiscOperStaff)
+    {
+      if (p->pers_type!=adult || p->seats<1)
+        throw UserException("MSG.PASSENGER.IS_ADULT_WITH_AT_LEAST_ONE_SEAT");
+    };
+
     xmlNodePtr node=NewTextChild(paxNode,"pax");
     NewTextChild(node,"surname",p->surname,"");
     NewTextChild(node,"name",p->name,"");
     NewTextChild(node,"pers_type",EncodePerson(p->pers_type),EncodePerson(ASTRA::adult));
     NewTextChild(node,"seats",p->seats,1);
+
+    string rem_code;
+    switch(sum.prefix)
+    {
+      case TInquiryPrefix::ExtraCrew:     rem_code=CrewTypes().encode(TCrewType::ExtraCrew); break;
+      case TInquiryPrefix::DeadHeadCrew:  rem_code=CrewTypes().encode(TCrewType::DeadHeadCrew); break;
+      case TInquiryPrefix::MiscOperStaff: rem_code=CrewTypes().encode(TCrewType::MiscOperStaff); break;
+      default: break;
+    }
+    if (!rem_code.empty())
+    {
+      xmlNodePtr remsNode=NewTextChild(node,"rems");
+      xmlNodePtr remNode=NewTextChild(remsNode,"rem");
+      NewTextChild(remNode,"rem_code",rem_code);
+      NewTextChild(remNode,"rem_text",rem_code);
+    }
   };
 };
 
@@ -1897,7 +1991,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   {
     readTripCounters(point_dep,resNode);
 
-    ParseInquiryStr(query,grp);
+    ParseInquiryStr(query, pax_status, grp);
     TInquiryFormat fmt;
     fmt.persCountFmt=0;
     fmt.infSeatsFmt=0;
@@ -1959,14 +2053,18 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     return;
   };
 
-  if ((grp.prefix.empty() && grp.digCkin) || grp.prefix=="-")
+  if ((grp.prefix==TInquiryPrefix::Empty && grp.digCkin) ||
+      grp.prefix==TInquiryPrefix::NoRec ||
+      grp.prefix==TInquiryPrefix::ExtraCrew ||
+      grp.prefix==TInquiryPrefix::DeadHeadCrew ||
+      grp.prefix==TInquiryPrefix::MiscOperStaff)
   {
     CreateNoRecResponse(sum,resNode);
     NewTextChild(resNode,"ckin_state","BeforeReg");
     return;
   };
 
-  if (pax_status==psCrew || grp.prefix=="CREW")
+  if (pax_status==psCrew || grp.prefix==TInquiryPrefix::Crew)
   {
     if (pax_status!=psCrew)
     {
@@ -4118,23 +4216,21 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       {
         TCompleteAPICheckInfo checkInfo(grp.point_dep, grp.airp_arv);
         Qry.Clear();
-        Qry.SQLText=
-          "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm, refuse, seats "
-          "FROM pax WHERE pax_id=:pax_id";
+        Qry.SQLText="SELECT pax.*, NULL AS seat_no FROM pax WHERE pax_id=:pax_id";
         Qry.DeclareVariable("pax_id", otInteger);
         for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p)
         {
           CheckIn::TPaxItem &pax=p->pax;
           try
           {
-            CheckIn::TPaxTknItem priorTkn;
-
+            CheckIn::TSimplePaxItem priorPax;
             if (!new_checkin)
             {
               Qry.SetVariable("pax_id",pax.id);
               Qry.Execute();
               if (Qry.Eof) throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-              priorTkn.fromDB(Qry);
+              priorPax.fromDB(Qry);
+              pax.crew_type=priorPax.crew_type;
             };
 
             if (pax.name.empty() && pr_mintrans_file)
@@ -4142,7 +4238,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             if (pax.tkn.rem=="TKNE" && !pr_etl_only && pr_etstatus>=0) //это ЭБ и есть связь с СЭБ
             {
-              if (!pax.tkn.equalAttrs(priorTkn))
+              if (!pax.tkn.equalAttrs(priorPax.tkn))
               {
                 //первоначальная регистрация или билет отличается от ранее записанного
                 if (pax.tkn.no.empty())
@@ -4173,7 +4269,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             {
               if (setList.value(tsRegWithoutTKNA) &&
                   pax.tkn.rem!="TKNE" &&
-                  !pax.tkn.equalAttrs(priorTkn))
+                  !pax.tkn.equalAttrs(priorPax.tkn))
                 throw UserException("MSG.CHECKIN.TKNA_DENIAL");
 
               if (pax.tkn.no.size()>15)
@@ -4223,14 +4319,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
               bool flagVIP=false,
                    flagSTCR=false,
-                   flagEXST=false,
-                   flagCREW=false;
+                   flagEXST=false;
               for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end();)
               {
+                TRemCategory cat=getRemCategory(r->code, r->text);
+
                 if (r->code=="VIP")  flagVIP=true;
                 if (r->code=="STCR") flagSTCR=true;
                 if (r->code=="EXST") flagEXST=true;
-                if (r->code=="CREW") flagCREW=true;
 
                 if (!(reqInfo->client_type==ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
                 {
@@ -4244,13 +4340,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   };
                 };
                 //проверим запрещенные для ввода ремарки...
-                if (isDisabledRem(r->code, r->text))
+                if (isDisabledRemCategory(cat))
                   throw UserException("MSG.REMARK.INPUT_CODE_DENIAL",
                                       LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
                 ++r;
               }
               //синхронизация tier_level для FQT при записи со старых терминалов
-              SyncFQTTierLevel(pax.id, new_checkin, p->fqts);
+              CheckIn::SyncFQTTierLevel(pax.id, new_checkin, p->fqts);
               //проверка readonly-ремарок
               multiset<CheckIn::TPaxRemItem> prior_rems;
               CheckIn::PaxRemAndASVCFromDB(pax.id, new_checkin, prior_rems);
@@ -4265,21 +4361,18 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   if (r->code.empty()) continue;
                   TRemCategory cat=getRemCategory(r->code, r->text);
                   if (cat==remASVC) continue; //пропускаем ASVC
-                  if (IsReadonlyRem(r->code, r->text))
+                  if (IsReadonlyRem(r->code, r->text) ||
+                      (cat==remCREW && !new_checkin))
                     throw UserException(pass==0?"MSG.REMARK.ADD_OR_CHANGE_DENIAL":"MSG.REMARK.CHANGE_OR_DEL_DENIAL",
                                         LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
                 };
               };
 
+              p->checkCrewType(new_checkin, grp.status);
+
               //простановка ремарок VIP,EXST, если нужно
               //набор ремарок FQT
-              int seats=pax.seats;
-              if (seats==NoExists)
-              {
-                Qry.SetVariable("pax_id",pax.id);
-                Qry.Execute();
-                if (!Qry.Eof) seats=Qry.FieldAsInteger("seats");
-              };
+              int seats=pax.seats!=NoExists?pax.seats:priorPax.seats;
 
               if (new_checkin && addVIP && !flagVIP)
                 rems.insert(CheckIn::TPaxRemItem("VIP","VIP"));
@@ -4292,8 +4385,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 {
                   if (r->code=="EXST") r=Erase(rems, r); else ++r;
                 };
-              if (grp.status==psCrew && !flagCREW)
-                rems.insert(CheckIn::TPaxRemItem("CREW","CREW"));
+            };
+            if (p->pax.crew_type!=TCrewType::Unknown)
+            {
+              if ((new_checkin && (p->pax.pers_type!=adult || p->pax.seats<1)) ||
+                  (!new_checkin && p->pax.PaxUpdatesPending && p->pax.pers_type!=adult))
+                throw UserException("MSG.PASSENGER.IS_ADULT_WITH_AT_LEAST_ONE_SEAT");
             };
           }
           catch(CheckIn::UserException)
@@ -5196,7 +5293,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             sql << "    surname=:surname, "
                    "    name=:name, "
                    "    pers_type=:pers_type, "
-                   "    crew_type=:crew_type, "
                    "    ticket_no=:ticket_no, "
                    "    coupon_no=:coupon_no, "
                    "    ticket_rem=:ticket_rem, "
@@ -5206,7 +5302,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             PaxQry.DeclareVariable("surname",otString);
             PaxQry.DeclareVariable("name",otString);
             PaxQry.DeclareVariable("pers_type",otString);
-            PaxQry.DeclareVariable("crew_type",otString);
             PaxQry.DeclareVariable("ticket_no",otString);
             PaxQry.DeclareVariable("coupon_no",otInteger);
             PaxQry.DeclareVariable("ticket_rem",otString);

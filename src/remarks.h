@@ -8,7 +8,7 @@
 #include "xml_unit.h"
 #include "astra_locale.h"
 
-enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remASVC, remUnknown };
+enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remASVC, remCREW, remUnknown };
 
 TRemCategory getRemCategory( const std::string &rem_code, const std::string &rem_text );
 bool isDisabledRemCategory( TRemCategory cat );
@@ -346,6 +346,9 @@ CheckIn::TPaxRemItem getAPPSRem(const int pax_id, const std::string &lang );
 std::string GetRemarkStr(const TRemGrp &rem_grp, const std::multiset<CheckIn::TPaxRemItem> &rems, const std::string &term = " ");
 std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &lang, const std::string &term = " ");
 std::string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &term = " ");
+
+std::string CalcCrewRem(const ASTRA::TPaxStatus grp_status,
+                        const ASTRA::TCrewType::Enum crew_type);
 
 #endif
 

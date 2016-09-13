@@ -33,7 +33,8 @@ TRemCategory getRemCategory( const string &rem_code, const string &rem_text )
       if (category=="DOCO") rem_cats[Qry.FieldAsString("rem_code")]=remDOCO; else
       if (category=="DOCA") rem_cats[Qry.FieldAsString("rem_code")]=remDOCA; else
       if (category=="FQT")  rem_cats[Qry.FieldAsString("rem_code")]=remFQT; else
-      if (category=="ASVC") rem_cats[Qry.FieldAsString("rem_code")]=remASVC;
+      if (category=="ASVC") rem_cats[Qry.FieldAsString("rem_code")]=remASVC; else
+      if (category=="CREW") rem_cats[Qry.FieldAsString("rem_code")]=remCREW;
     };
     init=true;
   };
@@ -1087,6 +1088,20 @@ void PaxFQTToXML(const std::set<TPaxFQTItem> &fqts,
 }
 
 }; //namespace CheckIn
+
+std::string CalcCrewRem(const ASTRA::TPaxStatus grp_status,
+                        const ASTRA::TCrewType::Enum crew_type)
+{
+  string result;
+  if (grp_status==ASTRA::psCrew)
+    result="CREW";
+  else if (crew_type==ASTRA::TCrewType::ExtraCrew ||
+           crew_type==ASTRA::TCrewType::DeadHeadCrew ||
+           crew_type==ASTRA::TCrewType::MiscOperStaff)
+    result=CrewTypes().encode(crew_type);
+  return result;
+}
+
 
 
 

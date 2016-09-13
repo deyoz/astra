@@ -359,7 +359,7 @@ class TSimplePaxItem
     std::string surname;
     std::string name;
     ASTRA::TPerson pers_type;
-    ASTRA::TCrewType crew_type;
+    ASTRA::TCrewType::Enum crew_type;
     std::string seat_no;
     std::string seat_type;
     int seats;
@@ -383,7 +383,7 @@ class TSimplePaxItem
       surname.clear();
       name.clear();
       pers_type=ASTRA::NoPerson;
-      crew_type=ASTRA::ctUnknown;
+      crew_type=ASTRA::TCrewType::Unknown;
       seat_no.clear();
       seat_type.clear();
       seats=ASTRA::NoExists;
@@ -495,6 +495,7 @@ class TPaxListItem
 
     void addFQT(const CheckIn::TPaxFQTItem &fqt);
     void checkFQTTierLevel();
+    void checkCrewType(bool new_checkin, ASTRA::TPaxStatus grp_status);
 };
 
 typedef std::list<CheckIn::TPaxListItem> TPaxList;

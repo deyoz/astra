@@ -48,6 +48,7 @@
 #define RFISC_VERSION                 "201605-0181021"
 #define STAT_CKBOX_VERSION            "201607-0182768"
 #define OP_TYPE_VERSION               "201608-0183981"
+#define XXXCREW_VERSION               "201609-0184743"
 
 #define TRANSIT_CRAFT_VERSION         "201700-0000000"
 #define EMDA_VERSION                  "202000-0000000"

@@ -455,7 +455,7 @@ class TPaxItem2
     {
       clear();
     }
-    void set(int _grp_id, const CheckIn::TPaxItem &item, const TETickItem &etick)
+    void set(int _grp_id, const CheckIn::TSimplePaxItem &item, const TETickItem &etick)
     {
       clear();
       if (!etick.surname.empty())
