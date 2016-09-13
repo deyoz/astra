@@ -287,7 +287,6 @@ TRFISCSetting& TRFISCSetting::fromDB(TQuery &Qry)
     min_weight=Qry.FieldAsInteger("min_weight");
   if (!Qry.FieldIsNULL("max_weight"))
     max_weight=Qry.FieldAsInteger("max_weight");
-  rem_code=Qry.FieldAsString("rem_code");
   return *this;
 }
 
@@ -306,13 +305,6 @@ void TRFISCSettingList::fromDB(const string& airline)
     setting.fromDB(Qry);
     insert(make_pair(setting.RFISC, setting));
   }
-}
-
-string TRFISCSettingList::get_rem_code(const string &rfisc) const
-{
-  TRFISCSettingList::const_iterator i=find(rfisc);
-  if (i==end()) return "";
-  return i->second.rem_code;
 }
 
 void TRFISCSettingList::check(const CheckIn::TBagItem &bag) const
