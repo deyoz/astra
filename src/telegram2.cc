@@ -5194,14 +5194,14 @@ void TBagRems::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 
 void TBagRems::get(TypeB::TDetailCreateInfo &info)
 {
-    PieceConcept::TRFISCSettingList rfisc_list;
-    rfisc_list.fromDB(info.airline);
+    PieceConcept::TRFISCListWithSets rfisc_list;
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, info.point_id);
     TCachedQuery Qry(
             "select "
             "   airp_arv, "
             "   bag2.rfisc, "
+            "   pax_grp.bag_types_id, "
             "   bag_types.rem_code, "
             "   sum(amount) amount, "
             "   sum(weight) weight "
@@ -5217,26 +5217,35 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
             "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 and "
             "   bag2.bag_type = bag_types.code(+) "
             "group by "
-            "   airp_arv, rfisc, rem_code ",
+            "   airp_arv, "
+            "   rfisc, "
+            "   bag_types_id, "
+            "   rem_code ",
             QryParams
             );
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_airp_arv = Qry.get().FieldIndex("airp_arv");
         int col_rfisc = Qry.get().FieldIndex("rfisc");
+        int col_bag_types_id = Qry.get().FieldIndex("bag_types_id");
         int col_rem_code = Qry.get().FieldIndex("rem_code");
         int col_amount = Qry.get().FieldIndex("amount");
         // int col_weight = Qry.get().FieldIndex("weight");
         for(; not Qry.get().Eof; Qry.get().Next()) {
             string airp_arv = Qry.get().FieldAsString(col_airp_arv);
             string rfisc = Qry.get().FieldAsString(col_rfisc);
+            int bag_types_id = Qry.get().FieldAsInteger(col_bag_types_id);
             string rem_code = Qry.get().FieldAsString(col_rem_code);
             int amount = Qry.get().FieldAsInteger(col_amount);
             // int weight = Qry.get().FieldAsInteger(col_weight);
-            if(not rfisc.empty()) // piece concept
+
+            if(not rfisc.empty()) { // piece concept
+                rfisc_list.fromDB(bag_types_id);
                 rem_code = rfisc_list.get_rem_code(rfisc);
+            }
+
             if(not rem_code.empty())
-                items[airp_arv][rem_code] = amount;
+                items[airp_arv][rem_code] += amount;
         }
     }
 }
