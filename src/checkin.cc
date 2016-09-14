@@ -6797,7 +6797,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
           pax.tkn.rem="TKNA";  //crew compatible
         };
         pax.toXML(paxNode);
-        if (pax.tkn.rem=="TKNE" && !pax.tkn.no.empty() && pax.tkn.coupon!=NoExists)
+        if (pax.tkn.validET())
           NewTextChild(paxNode, "ticket_bag_norm",
                        TETickItem().fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false).bag_norm_view(), "");
         NewTextChild(paxNode,"pr_norec",(int)PaxQry.FieldIsNULL("crs_pax_id"));

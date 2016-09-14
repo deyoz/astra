@@ -857,6 +857,8 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
             };
             pax.pax_id = Qry.FieldAsInteger( "pax_id" );
             pax.tkn.fromDB(Qry);
+            if (pax.tkn.validET())
+              pax.etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
             LoadPaxDoc(pax.pax_id, pax.doc);
             LoadPaxDoco(pax.pax_id, pax.doco);
             CheckIn::LoadPaxFQT(pax.pax_id, pax.fqts);
@@ -874,7 +876,12 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
 
             CrsTKNQry.SetVariable( "pax_id", pax.crs_pax_id );
             CrsTKNQry.Execute();
-            if (!CrsTKNQry.Eof) pax.tkn.fromDB(CrsTKNQry);
+            if (!CrsTKNQry.Eof)
+            {
+              pax.tkn.fromDB(CrsTKNQry);
+              if (pax.tkn.validET())
+                pax.etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+            };
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.tkn.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.tkn.getNotEmptyFieldsMask());
             LoadCrsPaxDoc(pax.crs_pax_id, pax.doc, true);
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.doc.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.doc.getNotEmptyFieldsMask());
@@ -1159,6 +1166,16 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids,
         xmlNodePtr fqtsNode = NewTextChild( paxNode, "fqt_rems" );
         for(set<CheckIn::TPaxFQTItem>::const_iterator f=iPax->fqts.begin(); f!=iPax->fqts.end(); ++f)
           if (f->rem=="FQTV") f->toXML(fqtsNode);
+
+        if (!iPax->etick.empty())
+        {
+          if (iPax->etick.bag_norm==ASTRA::NoExists || iPax->etick.bag_norm==0)
+            NewTextChild( paxNode, "bag_norm", 0 );
+          else
+            SetProp(NewTextChild( paxNode, "bag_norm", iPax->etick.bag_norm ), "unit", iPax->etick.bag_norm_unit.get_db_form() );
+
+        }
+        else NewTextChild( paxNode, "bag_norm" );
 
         xmlNodePtr tidsNode = NewTextChild( paxNode, "tids" );
         NewTextChild( tidsNode, "crs_pnr_tid", iPax->crs_pnr_tid );
