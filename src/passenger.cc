@@ -1268,7 +1268,8 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
   name=Qry.FieldAsString("name");
   pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
   crew_type=Qry.FieldIsNULL("crew_type")?ASTRA::TCrewType::Unknown:CrewTypes().decode(Qry.FieldAsString("crew_type"));
-  seat_no=Qry.FieldAsString("seat_no");
+  if(Qry.GetFieldIndex("seat_no") >= 0)
+      seat_no=Qry.FieldAsString("seat_no");
   seat_type=Qry.FieldAsString("seat_type");
   seats=Qry.FieldAsInteger("seats");
   refuse=Qry.FieldAsString("refuse");
