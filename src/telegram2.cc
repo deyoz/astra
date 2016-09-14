@@ -2248,6 +2248,57 @@ namespace PRL_SPACE {
 
 using namespace PRL_SPACE;
 
+struct TExtraCrew {
+    typedef map<TCrewType::Enum, int> TCrewItem; // <rem_code, crew amount>
+    typedef map<string, TCrewItem> TAirpItems; // <airp_arv, TCrewItem>
+    TAirpItems items;
+    void get(int point_id);
+    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
+};
+
+void TExtraCrew::get(int point_id)
+{
+    items.clear();
+    TCachedQuery Qry(
+            "select pax.*, pax_grp.airp_arv from "
+            "   pax_grp, "
+            "   pax "
+            "where "
+            "   pax_grp.point_dep = :point_id and "
+            "   pax_grp.grp_id = pax.grp_id ",
+            QParams() << QParam("point_id", otInteger, point_id)
+            );
+    Qry.get().Execute();
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        string airp_arv = Qry.get().FieldAsString("airp_arv");
+        CheckIn::TSimplePaxItem pax;
+        pax.fromDB(Qry.get());
+        switch(pax.crew_type) {
+            case TCrewType::Enum::ExtraCrew:
+            case TCrewType::Enum::DeadHeadCrew:
+            case TCrewType::Enum::MiscOperStaff:
+                items[airp_arv][pax.crew_type]++;
+                break;
+            default:
+                break;
+        };
+    }
+}
+
+void TExtraCrew::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
+{
+    for(TAirpItems::iterator airp = items.begin(); airp != items.end(); airp++) {
+        for(TCrewItem::iterator crew = airp->second.begin(); crew != airp->second.end(); crew++) {
+            ostringstream res;
+            res
+                << "-" << info.TlgElemIdToElem(etAirp, airp->first)
+                << "." << TCrewTypes().encode(crew->first)
+                << "/" << crew->second;
+            body.push_back(res.str());
+        }
+    }
+}
+
 int COM(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
@@ -6674,6 +6725,7 @@ struct TLCI {
     TSeatPlan sp;
     TBagRems bag_rems;
     TToRampBag to_ramp;
+    TExtraCrew extra_crew;
     string get_action_code(TypeB::TDetailCreateInfo &info);
     void get(TypeB::TDetailCreateInfo &info);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
@@ -6694,6 +6746,7 @@ void TLCI::get(TypeB::TDetailCreateInfo &info)
         sr_s.get(info);
         pax_totals.get(info);
         sp.get(info);
+        extra_crew.get(info.point_id);
         if(options.bag_totals) {
             bag_rems.get(info);
             to_ramp.get(info.point_id);
@@ -6766,6 +6819,7 @@ void TLCI::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
         bag_rems.ToTlg(info, si);
         to_ramp.ToTlg(info, si);
     }
+    extra_crew.ToTlg(info, si);
     if(not si.empty()) {
         body.push_back("SI");
         body.insert(body.end(), si.begin(), si.end());
