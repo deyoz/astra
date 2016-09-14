@@ -2274,9 +2274,9 @@ void TExtraCrew::get(int point_id)
         CheckIn::TSimplePaxItem pax;
         pax.fromDB(Qry.get());
         switch(pax.crew_type) {
-            case TCrewType::Enum::ExtraCrew:
-            case TCrewType::Enum::DeadHeadCrew:
-            case TCrewType::Enum::MiscOperStaff:
+            case TCrewType::ExtraCrew:
+            case TCrewType::DeadHeadCrew:
+            case TCrewType::MiscOperStaff:
                 items[airp_arv][pax.crew_type]++;
                 break;
             default:
