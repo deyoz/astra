@@ -676,15 +676,19 @@ void handle_tpb_tlg(const tlg_info &tlg)
         if (!errors.empty())
         {
           ETlgErrorType etype=tlgeNotError;
+          string error_text;
           for(list<ETlgError>::const_iterator e=errors.begin(); e!=errors.end(); ++e)
           {
             progError(typeb_tlg_id, typeb_tlg_num, error_no, *e, "", bind_flts);  //хорошо бы доделать, чтобы передавался tlg_type
-            if (etype < e->error_type()) etype=e->error_type();
+            if (etype < e->error_type()) {
+                etype=e->error_type();
+                error_text = e->error_text();
+            }
           };
           errorTlg(tlg.id,"PARS");
           parseTypeB(typeb_tlg_id);
           bindTypeB(typeb_tlg_id, bind_flts, etype);
-          TypeBHelpMng::notify(typeb_tlg_id, ASTRA::NoExists); // Отвешиваем процесс, если есть.
+          TypeBHelpMng::notify_msg(typeb_tlg_id, error_text); // Отвешиваем процесс, если есть.
         }
         else
         {
@@ -1053,7 +1057,7 @@ bool parse_tlg(void)
           progError(tlg_id, NoExists, error_no, E, tlg_type, bind_flts);
           parseTypeB(tlg_id);
           bindTypeB(tlg_id, bind_flts, E);
-          TypeBHelpMng::notify(tlg_id, ASTRA::NoExists); // Отвешиваем процесс, если есть.
+          TypeBHelpMng::notify_msg(tlg_id, E.what()); // Отвешиваем процесс, если есть.
           ASTRA::commit();//OraSession.Commit();
         }
         catch(...) {};
