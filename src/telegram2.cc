@@ -8511,14 +8511,10 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     xmlNodePtr curNode = reqNode->children;
     curNode = NodeAsNodeFast("content", curNode);
     // tlg_id is a tlg_out.id
-    int tlg_id = NoExists;
+    int tlg_id =  NodeAsInteger("content", reqNode);
     string res;
-    try {
-        tlg_id =  NodeAsInteger("content", reqNode);
-    } catch(...) {
-        res = NodeAsString("content", reqNode);
-    }
     if(tlg_id == ASTRA::NoExists) {
+        res = "tlg_id not exists";
         LogTrace(TRACE5) << "tlg_srv kick: " << res;
     } else {
         QParams QryParams;
