@@ -447,6 +447,7 @@ void TRptParams::Init(xmlNodePtr node)
             rems[cat].push_back(NodeAsString(currNode));
         };
     }
+    if(IsInter()) req_lang = AstraLocale::LANG_EN;
 }
 
 bool TRptParams::IsInter() const
