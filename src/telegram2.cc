@@ -82,10 +82,14 @@ struct TCompareCompLayers {
 };
 
 struct TCheckinPaxSeats {
-  std::string gender;
-  int pr_infant;
-  std::set<TTlgCompLayer,TCompareCompLayers> seats;
-  TCheckinPaxSeats(): pr_infant(NoExists) {}
+    std::string gender;
+    int pr_infant;
+    ASTRA::TCrewType::Enum crew_type;
+    std::set<TTlgCompLayer,TCompareCompLayers> seats;
+    TCheckinPaxSeats():
+        pr_infant(NoExists),
+        crew_type(TCrewType::Unknown)
+    {}
 };
 
 string getDefaultSex()
@@ -255,6 +259,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
           compLayer.yname = iseat->row;
         checkinPaxsSeats[ ilayer->first.getPaxId() ].gender = gender;
         checkinPaxsSeats[ ilayer->first.getPaxId() ].pr_infant = paxs[ ilayer->first.getPaxId() ].pr_infant;
+        checkinPaxsSeats[ ilayer->first.getPaxId() ].crew_type = paxs[ ilayer->first.getPaxId() ].crew_type;
         checkinPaxsSeats[ ilayer->first.getPaxId() ].seats.insert( compLayer );
       }
     }
@@ -1495,6 +1500,7 @@ namespace PRL_SPACE {
         TPRLOnwardList OList;
         TGender gender;
         TPerson pers_type;
+        ASTRA::TCrewType::Enum crew_type;
         TPRLPax(TInfants *ainfants): rems(ainfants) {
             cls_grp_id = NoExists;
             pnr_id = NoExists;
@@ -1502,6 +1508,7 @@ namespace PRL_SPACE {
             grp_id = NoExists;
             bag_pool_num = NoExists;
             gender = gMale;
+            crew_type = TCrewType::Unknown;
         }
     };
 
@@ -1704,7 +1711,8 @@ namespace PRL_SPACE {
             "    pax.bag_pool_num, "
             "    NVL(pax.subclass,pax_grp.class) subclass, "
             "    pax.is_female, "
-            "    pax.pers_type "
+            "    pax.pers_type, "
+            "    pax.crew_type "
             "from "
             "    pax, "
             "    pax_grp, ";
@@ -1764,6 +1772,7 @@ namespace PRL_SPACE {
             int col_subcls = Qry.get().FieldIndex("subclass");
             int col_is_female = Qry.get().FieldIndex("is_female");
             int col_pers_type = Qry.get().FieldIndex("pers_type");
+            int col_crew_type = Qry.get().FieldIndex("crew_type");
             for(; !Qry.get().Eof; Qry.get().Next()) {
                 TPRLPax pax(infants);
                 pax.target = Qry.get().FieldAsString(col_target);
@@ -1791,6 +1800,7 @@ namespace PRL_SPACE {
                 grp_map->get(pax.grp_id, pax.bag_pool_num);
                 pax.OList.get(pax.grp_id, pax.pax_id);
                 pax.pers_type = DecodePerson(Qry.get().FieldAsString(col_pers_type));
+                pax.crew_type = TCrewTypes().decode(Qry.get().FieldAsString(col_crew_type));
                 pax.rems.get(info, pax, complayers); // Обязательно после инициализации pers_type выше
                 switch(pax.pers_type) {
                     case NoPerson:
@@ -2258,6 +2268,7 @@ struct TExtraCrew {
 
 void TExtraCrew::get(int point_id)
 {
+    return; // ???
     items.clear();
     TCachedQuery Qry(
             "select pax.*, pax_grp.airp_arv from "
@@ -6505,6 +6516,7 @@ void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, 
 
 void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
 {
+    const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
     TRemGrp rem_grp;
     rem_grp.Load(retTYPEB_LCI, info.point_id);
 
@@ -6559,9 +6571,11 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
                 }
             }
         }
-        // end of Fetch transliter baggage
+        // end of Fetch transfer baggage
 
         for(vector<TPRLPax>::iterator pax_i = iv->PaxList.begin(); pax_i != iv->PaxList.end(); pax_i++) {
+            if(options.seat_plan == "WB" and pax_i->crew_type == TCrewType::ExtraCrew)
+                continue;
             TGRPItem &grp_map = iv->grp_map->items[pax_i->grp_id][pax_i->bag_pool_num];
             items[idx].cls_totals[iv->cls].bag_amount += grp_map.W.bagAmount;
             items[idx].cls_totals[iv->cls].bag_weight += grp_map.W.bagWeight;
@@ -6630,6 +6644,7 @@ void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
 template <typename T>
 void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
 {
+    const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
     for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
         // g stands for 'gender'; First iteration - seats for adult, second iteration - one seat for infant
         for(int g = 0; g <=1; g++) {
@@ -6648,6 +6663,21 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
                     "." + denorm_iata_row(is->yname, NULL) +
                     denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
                     "/" + gender;
+                if(options.seat_plan == "WB") {
+                    switch(im->second.crew_type) {
+                        case TCrewType::ExtraCrew:
+                            seat += "/1";
+                            break;
+                        case TCrewType::DeadHeadCrew:
+                            seat += "/D";
+                            break;
+                        case TCrewType::MiscOperStaff:
+                            seat += "/M";
+                            break;
+                        default:
+                            break;
+                    }
+                }
                 inserter.do_insert(seat, is->point_arv);
                 if(g == 1) break; // Для инфанта печатаем только первое место
             }
