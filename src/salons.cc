@@ -2919,6 +2919,7 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
   int idx_point_dep = Qry.FieldIndex( "point_dep" );
   int idx_point_arv = Qry.FieldIndex( "point_arv" );
   int idx_pr_web = Qry.FieldIndex( "pr_web" );
+  int idx_crew_type = Qry.FieldIndex( "crew_type" );
   vector<TPass> InfItems, AdultItems;
   //TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   for ( ; !Qry.Eof; Qry.Next() ) {
@@ -2935,6 +2936,8 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
     pass.parent_pax_id = Qry.FieldAsInteger( idx_parent_pax_id );
     pass.pers_type = DecodePerson( Qry.FieldAsString( idx_pers_type ) );
     pass.pr_web = ( Qry.FieldAsInteger( idx_pr_web ) != 0 );
+    if(not Qry.FieldIsNULL(idx_crew_type))
+        pass.crew_type = TCrewTypes().decode(Qry.FieldAsString(idx_crew_type));
     pass.seats = Qry.FieldAsInteger( idx_seats );
     pass.cl =  Qry.FieldAsString( idx_class );
     pass.class_grp = Qry.FieldAsInteger( idx_class_grp );
@@ -4463,7 +4466,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       "        reg_no, pax.name, pax.surname, pax.is_female, pax_grp.status, "
       "        pax_grp.point_dep, pax_grp.point_arv, "
       "        crs_inf.pax_id AS parent_pax_id, "
-      "        DECODE(client_type,:web_client,1,:mobile_client,1,0) pr_web "
+      "        DECODE(client_type,:web_client,1,:mobile_client,1,0) pr_web, "
+      "        crew_type "
       "    FROM pax_grp, pax, crs_inf "
       "   WHERE pax.grp_id=pax_grp.grp_id AND "
       "         pax_grp.point_dep=:point_dep AND "

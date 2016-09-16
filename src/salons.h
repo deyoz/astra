@@ -975,6 +975,7 @@ struct TPass {
   int class_grp;
   int seats;
   ASTRA::TPerson pers_type;
+  ASTRA::TCrewType::Enum crew_type;
   TPass() {
     pax_id = ASTRA::NoExists;
     grp_id = ASTRA::NoExists;
@@ -987,6 +988,7 @@ struct TPass {
     temp_parent_id = ASTRA::NoExists;
     pr_inf = false;
     pr_web = false;
+    crew_type = ASTRA::TCrewType::Unknown;
   }
 };
 
@@ -1011,6 +1013,7 @@ struct TSalonPax {
     int pr_infant; //+
     int parent_pax_id;
     bool pr_web;
+    ASTRA::TCrewType::Enum crew_type;
     TLayersPax layers;
     TLayersPax save_layers;
     std::map<TSeatLayer,TInvalidRange,SeatLayerCompare> invalid_ranges;
@@ -1025,6 +1028,7 @@ struct TSalonPax {
       point_arv = ASTRA::NoExists;
       parent_pax_id = ASTRA::NoExists;
       pr_web = false;
+      crew_type = ASTRA::TCrewType::Unknown;
     }
     void operator = ( const TPass &pass ) {
       grp_id = pass.grp_id;
@@ -1043,6 +1047,7 @@ struct TSalonPax {
         pr_infant = pass.parent_pax_id;
       }
       pr_web = pass.pr_web;
+      crew_type = pass.crew_type;
     }
     void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges ) const;
