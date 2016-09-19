@@ -9,7 +9,7 @@
 #include <sstream>
 
 #include "exceptions.h"
-#include "basic.h"
+#include "date_time.h"
 #include "stl_utils.h"
 #include "base_tables.h"
 #include "astra_consts.h"
@@ -33,7 +33,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace ASTRA;
 
 const std::string VALUE_TYPE_SQL = "SQL";

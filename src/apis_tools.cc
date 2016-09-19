@@ -5,7 +5,6 @@
 #include "exceptions.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
-#include "basic.h"
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -15,6 +14,8 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
+using namespace BASIC::date_time;
+
 void FlightLeg::toXML(xmlNodePtr FlightLegsNode) const
 {
   xmlNodePtr legNode = NewTextChild(FlightLegsNode, "FlightLeg");
@@ -22,9 +23,9 @@ void FlightLeg::toXML(xmlNodePtr FlightLegsNode) const
   SetProp(legNode, "Airport", airp);
   SetProp(legNode, "Country", country);
   if (sch_in != ASTRA::NoExists)
-    SetProp(legNode, "ArrivalDateTime", BASIC::DateTimeToStr(sch_in, "yyyy-mm-dd'T'hh:nn:00"));
+    SetProp(legNode, "ArrivalDateTime", DateTimeToStr(sch_in, "yyyy-mm-dd'T'hh:nn:00"));
   if (sch_out != ASTRA::NoExists)
-    SetProp(legNode, "DepartureDateTime", BASIC::DateTimeToStr(sch_out, "yyyy-mm-dd'T'hh:nn:00"));
+    SetProp(legNode, "DepartureDateTime", DateTimeToStr(sch_out, "yyyy-mm-dd'T'hh:nn:00"));
 }
 
 void FlightLegs::FlightLegstoXML(xmlNodePtr FlightLegsNode) const {
@@ -128,7 +129,7 @@ void getTBTripItem(const int point_dep, const int point_arv, const std::string& 
   route.insert( route.end(), tmp.begin(), tmp.end() );
 
   std::string airp;
-  BASIC::TDateTime date_time = ASTRA::NoExists;
+  TDateTime date_time = ASTRA::NoExists;
   if ( getCountryByAirp(route.front().airp).code_lat != country ) {
     // inbound flight
     for(TAdvTripRoute::const_iterator it=route.begin(); it->point_id!=point_arv; it++) {
@@ -150,9 +151,9 @@ void getTBTripItem(const int point_dep, const int point_arv, const std::string& 
 
   if ( !airp.empty() && date_time!=ASTRA::NoExists ) {
     TAirpsRow airp_row = (TAirpsRow&)base_tables.get("airps").get_row("code",airp);
-    BASIC::TDateTime date_time_local = UTCToLocal(date_time,AirpTZRegion(airp_row.code));
-    tb_date = BASIC::DateTimeToStr(date_time_local,"dd.mm.yyyy");
-    tb_time = BASIC::DateTimeToStr(date_time_local,"hh:nn");
+    TDateTime date_time_local = UTCToLocal(date_time,AirpTZRegion(airp_row.code));
+    tb_date = DateTimeToStr(date_time_local,"dd.mm.yyyy");
+    tb_time = DateTimeToStr(date_time_local,"hh:nn");
     tb_airp = airp_row.code_lat;
   }
 }

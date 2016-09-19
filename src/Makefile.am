@@ -140,13 +140,17 @@ astra_SOURCES = \
   astra_emd.cpp \
   EdiTimeOutsDaemon.cc \
   TypeBHelpMng.cpp \
-  img.cpp
+  img.cpp \
+  astra_date_time.cpp \
+  icu_conversion.cpp \ 
+  tz_test.cpp
 
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
   tests/libtests.a \
 	@ETICKLIB_LIBS@ \
+	@SHARED_EXT_LIBS@ \
 	@ORACLE_LIBS@ @EDILIB_LIBS@ @EDILIB_LIBLOADING@ \
 	@JXTLIB_LIBS@ @SHARED_LIBS@ \
 	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
@@ -272,4 +276,6 @@ noinst_HEADERS = \
   astra_dates_oci.h \
   astra_emd.h \
   TypeBHelpMng.h \
-  img.h
+  img.h \
+  astra_date_time.h \
+  tz_test.h

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "cent.h"
-#include "basic.h"
+#include "date_time.h"
+#include "misc.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "astra_utils.h"
@@ -16,7 +17,7 @@
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace ASTRA;
 

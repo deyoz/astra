@@ -3,9 +3,11 @@
 
 #include <libxml/tree.h>
 #include "jxtlib/JxtInterface.h"
-#include "basic.h"
+#include "date_time.h"
 
 namespace STAT {
+    using BASIC::date_time::TDateTime;
+
     struct agent_stat_t {
         int inc, dec;
         agent_stat_t(int ainc, int adec): inc(ainc), dec(adec) {};
@@ -25,7 +27,7 @@ namespace STAT {
             int point_id,
             int user_id,
             const std::string &desk,
-            BASIC::TDateTime ondate,
+            TDateTime ondate,
             int pax_time,
             int pax_amount,
             agent_stat_t dpax_amount, // d prefix stands for delta

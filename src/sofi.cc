@@ -9,7 +9,7 @@
 #include <sstream>
 
 #include "exceptions.h"
-#include "basic.h"
+#include "date_time.h"
 #include "stl_utils.h"
 #include "base_tables.h"
 #include "astra_utils.h"
@@ -21,7 +21,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC;
+using namespace BASIC::date_time;
 
 void createFileParamsSofi( int point_id, int receipt_id, string pult, const string &point_addr, map<string,string> &params )
 {

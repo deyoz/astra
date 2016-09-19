@@ -3,9 +3,11 @@
 
 #include <libxml/tree.h>
 #include "jxtlib/JxtInterface.h"
-#include "basic.h"
+#include "date_time.h"
 #include "oralib.h"
 #include "astra_misc.h"
+
+using BASIC::date_time::TDateTime;
 
 struct TBagPayType
 {
@@ -35,7 +37,7 @@ struct TBagReceipt
         std::string tickets,prev_no;
         std::string airline,aircode,airp_dep,airp_arv,suffix;
         int flt_no;
-        BASIC::TDateTime scd_local_date;
+        TDateTime scd_local_date;
         int ex_amount,ex_weight;
         double value_tax,rate,exch_pay_rate;
         int exch_rate;
@@ -44,7 +46,7 @@ struct TBagReceipt
         std::string remarks;
         double nds;
         std::string nds_cur;
-        BASIC::TDateTime issue_date,annul_date;
+        TDateTime issue_date,annul_date;
         std::string issue_desk,annul_desk,issue_place;
         
         bool is_inter;

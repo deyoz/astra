@@ -1,7 +1,7 @@
 #include "httpClient.h"
 #include "file_queue.h"
 #include "astra_utils.h"
-#include "basic.h"
+#include "misc.h"
 #include "serverlib/str_utils.h"
 #include <fstream>
 #include <boost/asio.hpp>
@@ -289,7 +289,7 @@ public:
              header = header.substr( 0, p );
            }
            int len;
-           if ( BASIC::StrToInt( header.c_str(), len ) == EOF ) {
+           if ( StrToInt( header.c_str(), len ) == EOF ) {
              ProgError( STDLOG, "handle_read_headers invalid property Content-length: %s", header.c_str() );
            }
            else {

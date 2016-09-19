@@ -4,13 +4,15 @@
 #include <string>
 #include <vector>
 #include <map>
-#include "basic.h"
+#include "date_time.h"
 #include "astra_consts.h"
 #include "astra_elems.h"
 #include "astra_utils.h"
 #include "astra_locale.h"
 #include "sopp.h"
 #include "stages.h"
+
+using BASIC::date_time::TDateTime;
 
 enum TStatus { tdUpdate, tdInsert, tdDelete };
 
@@ -66,7 +68,7 @@ enum TTripEvents { teNewLand, teNewTakeoff, teDeleteLand, teDeleteTakeoff,
 class TPointsDestDelay {
 public:
 	std::string code;
-	BASIC::TDateTime time;
+	TDateTime time;
 	TPointsDestDelay( const TSOPPDelay &delay ) {
     code = delay.code;
     time = delay.time;
@@ -297,12 +299,12 @@ public:
   std::string craft;
   std::string bort;
   int comp_id;
-  BASIC::TDateTime scd_in;
-  BASIC::TDateTime est_in;
-  BASIC::TDateTime act_in;
-  BASIC::TDateTime scd_out;
-  BASIC::TDateTime est_out;
-  BASIC::TDateTime act_out;
+  TDateTime scd_in;
+  TDateTime est_in;
+  TDateTime act_in;
+  TDateTime scd_out;
+  TDateTime est_out;
+  TDateTime act_out;
   std::string trip_type;
   std::string litera;
   std::string park_in;
@@ -317,7 +319,7 @@ public:
   TElemFmt craft_fmt;
   TFlightStages stages;
   TFlightDelays delays;
-  BASIC::TDateTime stage_scd, stage_est; //для расчета задержки шага тех. графика
+  TDateTime stage_scd, stage_est; //для расчета задержки шага тех. графика
   TFlightCargos cargos;
   TFlightMaxCommerce max_commerce;
   TFlightStations stations;
@@ -408,14 +410,14 @@ public:
   void SaveCargos();
   static bool isDouble( int move_id, std::string airline, int flt_no,
 	                      std::string suffix, std::string airp,
-	                      BASIC::TDateTime scd_in, BASIC::TDateTime scd_out );
+	                      TDateTime scd_in, TDateTime scd_out );
   static bool isDouble( int move_id, const TPointsDest &dest ) {
     return isDouble( move_id, dest.airline, dest.flt_no,
                      dest.suffix, dest.airp, dest.scd_in, dest.scd_out );
   }
   static bool isDouble( int move_id, std::string airline, int flt_no,
 	                      std::string suffix, std::string airp,
-	                      BASIC::TDateTime scd_in, BASIC::TDateTime scd_out,
+	                      TDateTime scd_in, TDateTime scd_out,
                         int &findMove_id, int &point_id );
   static bool isDouble( int move_id, const TPointsDest &dest,
                         int &findMove_id, int &point_id ) {
@@ -440,7 +442,7 @@ struct TFndFlt {
 typedef std::vector<TFndFlt> TFndFlts;
 
 bool findFlt( const std::string &airline, const int &flt_no, const std::string &suffix,
-              const BASIC::TDateTime &local_scd_out, const std::string &airp, const int &withDeleted,
+              const TDateTime &local_scd_out, const std::string &airp, const int &withDeleted,
               TFndFlts &flts );
 
 enum TFlightType { ftTranzit, ftAll };

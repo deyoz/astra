@@ -4,6 +4,7 @@
 #include <math.h>
 #include <iostream>
 #include "astra_main.h"
+#include "date_time.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "base_tables.h"
@@ -29,7 +30,7 @@
 #include "serverlib/posthooks.h"
 
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 using namespace TypeB;
@@ -409,7 +410,7 @@ bool handle_tlg(void)
       };
 
       if (!TlgQry.FieldIsNULL("ttl")&&
-           (NowUTC()-TlgQry.FieldAsDateTime("time"))*BASIC::SecsPerDay>=TlgQry.FieldAsInteger("ttl"))
+           (NowUTC()-TlgQry.FieldAsDateTime("time"))*SecsPerDay>=TlgQry.FieldAsInteger("ttl"))
       {
         errorTlg(tlg_id,"TTL");
       }

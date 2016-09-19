@@ -1,4 +1,5 @@
 #include "passenger.h"
+#include "misc.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "astra_utils.h"
@@ -16,7 +17,7 @@
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace AstraLocale;
 
 namespace APIS

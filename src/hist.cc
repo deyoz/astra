@@ -1,4 +1,4 @@
-#include "basic.h"
+#include "date_time.h"
 #include "hist.h"
 #include "hist_interface.h"
 #include "term_version.h"
@@ -12,7 +12,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC;
+using namespace BASIC::date_time;
 
 static const std::string Id = "ID";
 static const std::string StartTime = "START_TIME";

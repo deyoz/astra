@@ -8,7 +8,7 @@
 
 using namespace std;
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace AstraLocale;
 using namespace EXCEPTIONS;
 

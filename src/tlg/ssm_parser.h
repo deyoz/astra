@@ -1,11 +1,15 @@
 #ifndef _SSM_PARSER_H
 #define _SSM_PARSER_H
 
+#include "date_time.h"
 #include "tlg_parser.h"
 
 
 namespace TypeB
 {
+
+using BASIC::date_time::TDateTime;
+
 enum TTimeMode{tmLT, tmUTC, tmUnknown};
 
 struct TMsgSeqRef {
@@ -68,7 +72,7 @@ struct TSSMFltInfo: TFltInfo {
 };
 
 struct TSSMDate {
-    BASIC::TDateTime date;
+    TDateTime date;
     void parse(const char *val);
     TSSMDate(): date(ASTRA::NoExists) {};
 };
@@ -121,7 +125,7 @@ struct TDEI_6:TDEI {
     char suffix;
     int flt_no;
     int layover; // used in SSM
-    BASIC::TDateTime date; // used in ASM
+    TDateTime date; // used in ASM
     void parse(const char *val);
     void dump();
     bool empty() { return airline.empty(); };
@@ -220,7 +224,7 @@ struct TEquipment {
 
 struct TRouteStation {
     char airp[4];
-    BASIC::TDateTime scd, pax_scd;
+    TDateTime scd, pax_scd;
     int date_variation;
     void dump();
     void parse(const char *val);
@@ -385,7 +389,7 @@ void ParseASMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TASMContent& con,
 void SaveASMContent(int tlg_id, TSSMHeadingInfo& info, TASMContent& con);
 
 // на входе строка формата nn(aaa(nn))
-BASIC::TDateTime ParseDate(const std::string &buf);
+TDateTime ParseDate(const std::string &buf);
 
 int ssm(int argc,char **argv);
 

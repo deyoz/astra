@@ -4,7 +4,7 @@
 #include <map>
 #include <string>
 #include "exceptions.h"
-#include "basic.h"
+#include "date_time.h"
 #include <stl_utils.h>
 #include <boost/any.hpp>
 #include <boost/variant/get.hpp>
@@ -13,6 +13,8 @@
 enum TLangApplying { applyLang, applyLangForTranslit, applyLangForAll };
 
 namespace AstraLocale {
+
+using BASIC::date_time::TDateTime;
 
 const std::string LANG_RU = "RU";
 const std::string LANG_EN = "EN";
@@ -91,7 +93,7 @@ class LParams: public std::map<std::string, boost::any>
     double DoubleValue( const std::string &name ) {
         return DoubleValue( name, getParam( name ) );
     }
-    BASIC::TDateTime DateTimeValue( const std::string &name ) {
+    TDateTime DateTimeValue( const std::string &name ) {
       return DoubleValue( name );
     }
     LexemaData LexemaDataValue( const std::string &name, const boost::any &param );
