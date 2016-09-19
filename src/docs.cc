@@ -1951,8 +1951,14 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
   if (rpt_params.rpt_type==rtPTMTXT)
   {
     s.str("");
-    s << setw(21) << (getLocaleText("Всего в классе", rpt_params.GetLang())) << "M/F" << endl
-      << "%-17s%7s      %4u %3u %3u %2u/%-4u%4u";
+    s
+        << setw(21)
+        << (getLocaleText("Всего в классе", rpt_params.GetLang()))
+        << setw(40)
+        << "M/F"
+        << "XCR DHC MOS"
+        << endl
+        << "%-17s%7s      %4u %3u %3u %2u/%-4u%4u       %-3u %-3u %-3u";
     NewTextChild(variablesNode, "total_in_class_fmt", s.str());
 
     s.str("");
@@ -1968,8 +1974,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     else
       s << left
-        << setw(56) << (getLocaleText("Всего", rpt_params.GetLang()))
-        << (getLocaleText("Подпись", rpt_params.GetLang())) << endl;
+        << (getLocaleText("Всего", rpt_params.GetLang())) << endl;
 
     s << setw(7) << (getLocaleText("Кресел", rpt_params.GetLang()))
       << setw(8) << (getLocaleText("ВЗ/Ж", rpt_params.GetLang()))
@@ -1979,8 +1984,10 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       << setw(7) << (getLocaleText("Вес", rpt_params.GetLang()))
       << setw(7) << (getLocaleText("Р/кл", rpt_params.GetLang()))
       << setw(7) << (getLocaleText("CAP.DOC.EX_BAG", rpt_params.GetLang()))
-      << setw(24) << string(NodeAsString("pts_agent", variablesNode)).substr(0, 24) << endl
-      << "%-6u %-7s %-6u %-6u %-6u %-6u %-6u %-6s" << endl
+      << setw(12) << "XCR DHC MOS" << endl
+      << "%-6u %-7s %-6u %-6u %-6u %-6u %-6u %-6s %-3u %-3u %-3u" << endl
+      << (getLocaleText("Подпись", rpt_params.GetLang())) << endl
+      << setw(30) << string(NodeAsString("pts_agent", variablesNode)).substr(0, 30) << endl
       << (getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
 
     NewTextChild(variablesNode, "page_footer_top", s.str() );
@@ -2116,7 +2123,11 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         << setw(7) << NodeAsInteger("bag_amount",rowNode)
         << setw(7) << NodeAsInteger("bag_weight",rowNode)
         << setw(7) << NodeAsInteger("rk_weight",rowNode)
-        << setw(7) << str_excess.str();
+        << setw(7) << str_excess.str() << endl
+        << "              XCR/DHC/MOS: "
+        << NodeAsInteger("xcr",rowNode) << "/"
+        << NodeAsInteger("dhc",rowNode) << "/"
+        << NodeAsInteger("mos",rowNode);
 
       NewTextChild(rowNode,"str",s.str());
     };
