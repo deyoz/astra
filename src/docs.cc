@@ -447,6 +447,7 @@ void TRptParams::Init(xmlNodePtr node)
             rems[cat].push_back(NodeAsString(currNode));
         };
     }
+    if(IsInter()) req_lang = AstraLocale::LANG_EN;
 }
 
 bool TRptParams::IsInter() const
@@ -920,6 +921,7 @@ struct TPMTotalsCmp {
 
 struct TPMTotalsRow {
     int seats, adl_m, adl_f, chd, inf, rk_weight, bag_amount, bag_weight, excess, excess_pc;
+    int xcr, dhc, mos;
     TPMTotalsRow():
         seats(0),
         adl_m(0),
@@ -930,7 +932,10 @@ struct TPMTotalsRow {
         bag_amount(0),
         bag_weight(0),
         excess(0),
-        excess_pc(0)
+        excess_pc(0),
+        xcr(0),
+        dhc(0),
+        mos(0)
     {};
 };
 
@@ -1015,7 +1020,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   nvl(pax_grp.piece_concept,0) piece_concept, "
         "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, \n"
         "   reg_no, \n"
-        "   pax_grp.grp_id \n"
+        "   pax_grp.grp_id, \n"
+        "   pax.crew_type \n"
         "FROM  \n"
         "   pax_grp, \n"
         "   points, \n"
@@ -1154,6 +1160,21 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         else
             row.excess += Qry.FieldAsInteger("excess");
 
+        string crew_type = Qry.FieldAsString("crew_type");
+        switch(TCrewTypes().decode(crew_type)) {
+            case TCrewType::ExtraCrew:
+                row.xcr++;
+                break;
+            case TCrewType::DeadHeadCrew:
+                row.dhc++;
+                break;
+            case TCrewType::MiscOperStaff:
+                row.mos++;
+                break;
+            default:
+                break;
+        }
+
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "reg_no", Qry.FieldAsString("reg_no"));
         NewTextChild(rowNode, "full_name", transliter(Qry.FieldAsString("full_name"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
@@ -1175,6 +1196,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "class_name", key.cls_name);
         NewTextChild(rowNode, "class", key.cls);
         NewTextChild(rowNode, "seats", Qry.FieldAsInteger("seats"));
+        NewTextChild(rowNode, "crew_type", Qry.FieldAsString("crew_type"));
         NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
         NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
         NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
@@ -1249,6 +1271,9 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "bag_weight", row.bag_weight);
         NewTextChild(rowNode, "excess", row.excess);
         NewTextChild(rowNode, "excess_pc", row.excess_pc);
+        NewTextChild(rowNode, "xcr", row.xcr);
+        NewTextChild(rowNode, "dhc", row.dhc);
+        NewTextChild(rowNode, "mos", row.mos);
     }
 
     // Теперь переменные отчета
@@ -1926,8 +1951,14 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
   if (rpt_params.rpt_type==rtPTMTXT)
   {
     s.str("");
-    s << setw(21) << (getLocaleText("Всего в классе", rpt_params.GetLang())) << "M/F" << endl
-      << "%-17s%7s      %4u %3u %3u %2u/%-4u%4u";
+    s
+        << setw(21)
+        << (getLocaleText("Всего в классе", rpt_params.GetLang()))
+        << setw(40)
+        << "M/F"
+        << "XCR DHC MOS"
+        << endl
+        << "%-17s%7s      %4u %3u %3u %2u/%-4u%4u       %-3u %-3u %-3u";
     NewTextChild(variablesNode, "total_in_class_fmt", s.str());
 
     s.str("");
@@ -1943,8 +1974,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     else
       s << left
-        << setw(56) << (getLocaleText("Всего", rpt_params.GetLang()))
-        << (getLocaleText("Подпись", rpt_params.GetLang())) << endl;
+        << (getLocaleText("Всего", rpt_params.GetLang())) << endl;
 
     s << setw(7) << (getLocaleText("Кресел", rpt_params.GetLang()))
       << setw(8) << (getLocaleText("ВЗ/Ж", rpt_params.GetLang()))
@@ -1954,8 +1984,10 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       << setw(7) << (getLocaleText("Вес", rpt_params.GetLang()))
       << setw(7) << (getLocaleText("Р/кл", rpt_params.GetLang()))
       << setw(7) << (getLocaleText("CAP.DOC.EX_BAG", rpt_params.GetLang()))
-      << setw(24) << string(NodeAsString("pts_agent", variablesNode)).substr(0, 24) << endl
-      << "%-6u %-7s %-6u %-6u %-6u %-6u %-6u %-6s" << endl
+      << setw(12) << "XCR DHC MOS" << endl
+      << "%-6u %-7s %-6u %-6u %-6u %-6u %-6u %-6s %-3u %-3u %-3u" << endl
+      << (getLocaleText("Подпись", rpt_params.GetLang())) << endl
+      << setw(30) << string(NodeAsString("pts_agent", variablesNode)).substr(0, 30) << endl
       << (getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
 
     NewTextChild(variablesNode, "page_footer_top", s.str() );
@@ -2091,7 +2123,11 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         << setw(7) << NodeAsInteger("bag_amount",rowNode)
         << setw(7) << NodeAsInteger("bag_weight",rowNode)
         << setw(7) << NodeAsInteger("rk_weight",rowNode)
-        << setw(7) << str_excess.str();
+        << setw(7) << str_excess.str() << endl
+        << "              XCR/DHC/MOS: "
+        << NodeAsInteger("xcr",rowNode) << "/"
+        << NodeAsInteger("dhc",rowNode) << "/"
+        << NodeAsInteger("mos",rowNode);
 
       NewTextChild(rowNode,"str",s.str());
     };
