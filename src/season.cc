@@ -205,6 +205,20 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
 
 void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_city );
 
+bool LOCK_FLIGHT_SCHEDULE()
+{
+    static int lock = NoExists;
+    if (lock == NoExists)
+        lock = getTCLParam("LOCK_FLIGHT_SCHEDULE", 0, 1, 0);
+
+    return lock;
+}
+
+void throwOnScheduleLock() {
+    if(LOCK_FLIGHT_SCHEDULE())
+        throw UserException("MSG.FLIGHT_SCHEDULE.LOCKED");
+}
+
 string DefaultTripType( bool pr_lang = true )
 {
     string res = "п";
@@ -956,9 +970,8 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void CreateSPP( BASIC::TDateTime localdate )
 {
-//  if ( string( "МОВЖЕК" ) != TReqInfo::Instance()->desk.code ) {
-//    throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
-//  }
+    throwOnScheduleLock();
+
   TPersWeights persWeights;
   TQuery MIDQry(&OraSession);
   MIDQry.SQLText =
@@ -3413,9 +3426,8 @@ void ReadTripInfo( int trip_id, vector<TViewPeriod> &viewp, xmlNodePtr reqNode )
 
 void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-//  if ( string( "МОВЖЕК" ) != TReqInfo::Instance()->desk.code ) {
-//    throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
-//  }
+    throwOnScheduleLock();
+
   map<int,TDestList> mapds;
   TReqInfo *reqInfo = TReqInfo::Instance();
 //  ri->user.check_access( amRead );
@@ -3472,9 +3484,8 @@ void SeasonInterface::Slots(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 
 void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dataNode, string &err_city )
 {
-//  if ( string( "МОВЖЕК" ) != TReqInfo::Instance()->desk.code ) {
-//    throw UserException( "Работа с экраном 'Сезонное расписание' временно остановлено. Идет обновление" );
-//  }
+    throwOnScheduleLock();
+
   string err_tz_region;
   TQuery SQry( &OraSession );
   TDateTime begin_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );
