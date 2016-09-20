@@ -14,6 +14,7 @@ src/astra
 *.lo
 *.config
 *.autosave
+*.swp
 /*.creator
 /*.creator.user
 /*.files
@@ -108,6 +109,7 @@ locallibs/libtlg/compile
 locallibs/libtypeb/compile
 locallibs/serverlib/compile
 locallibs/external_env_file
+locallibs/shared/sharedconfig
 externallibs/
 NEWS
 README
@@ -118,3 +120,10 @@ TODO
 ChangeLog
 astra_qt_prj/
 nohup.out
+DEADJOE
+.vscode
+GPATH
+GRTAGS
+GSYMS
+GTAGS
+
