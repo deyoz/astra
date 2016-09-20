@@ -157,7 +157,8 @@ astra_SOURCES = \
   astra_api.cpp \
   astra_date_time.cpp \
   icu_conversion.cpp \ 
-  tz_test.cpp
+  tz_test.cpp \
+  brands.cpp
 
 
 astra_LDADD = $(all_libraries) \
@@ -305,4 +306,5 @@ noinst_HEADERS = \
   astra_iface.h \
   astra_api.h \
   astra_date_time.h \
-  tz_test.h
+  tz_test.h \
+  brands.h

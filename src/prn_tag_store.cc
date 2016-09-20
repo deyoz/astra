@@ -329,6 +329,7 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::TAGS,                    TTagListItem(&TPrnTagStore::TAGS, PAX_INFO)));
     tag_list.insert(make_pair(TAG::BAG_WEIGHT,              TTagListItem(&TPrnTagStore::BAG_WEIGHT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::BAGGAGE,                 TTagListItem(&TPrnTagStore::BAGGAGE, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::BRAND,                   TTagListItem(&TPrnTagStore::BRAND, PAX_INFO)));
     tag_list.insert(make_pair(TAG::BRD_FROM,                TTagListItem(&TPrnTagStore::BRD_FROM, BRD_INFO)));
     tag_list.insert(make_pair(TAG::BRD_TO,                  TTagListItem(&TPrnTagStore::BRD_TO, BRD_INFO | POINT_INFO)));
     tag_list.insert(make_pair(TAG::CHD,                     TTagListItem(&TPrnTagStore::CHD, PAX_INFO)));
@@ -910,6 +911,7 @@ void TPrnTagStore::TPaxInfo::Init(int agrp_id, int apax_id, TTagLang &tag_lang)
             Qry.CreateVariable("lang", otString, tag_lang.GetLang());
 
             TPrPrint().get_pr_print(agrp_id, pax_id, pr_bp_print, pr_bi_print);
+            brand.get(pax_id);
         }
         else
         {
@@ -1594,6 +1596,21 @@ string TPrnTagStore::BAG_WEIGHT(TFieldParams fp)
         if(scan_data == NULL)
             return IntToString(paxInfo.bag_weight);
         else
+            return string();
+    }
+}
+
+string TPrnTagStore::BRAND(TFieldParams fp)
+{
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
+    } else {
+        if(scan_data == NULL) {
+            ostringstream result;
+            if(not paxInfo.brand.items.empty())
+                result << *paxInfo.brand.items.begin();
+            return result.str();
+        } else
             return string();
     }
 }
