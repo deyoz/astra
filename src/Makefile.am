@@ -143,7 +143,8 @@ astra_SOURCES = \
   img.cpp \
   astra_date_time.cpp \
   icu_conversion.cpp \ 
-  tz_test.cpp
+  tz_test.cpp \
+  brands.cpp
 
 
 astra_LDADD = $(all_libraries) \
@@ -278,4 +279,5 @@ noinst_HEADERS = \
   TypeBHelpMng.h \
   img.h \
   astra_date_time.h \
-  tz_test.h
+  tz_test.h \
+  brands.h
