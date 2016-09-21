@@ -1355,8 +1355,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "pr_brd_pax", getLocaleText(pr_brd_pax_str, rpt_params.dup_lang()));
     NewTextChild(variablesNode, "pr_brd_pax_lat", getLocaleText(pr_brd_pax_str, AstraLocale::LANG_EN));
     NewTextChild(variablesNode, "pr_group", rpt_params.sort == stRegNo); // Если сортировка по рег. но., то выделяем группы пассажиров в fr-отчете
-    NewTextChild(variablesNode, "kg", getLocaleText("кг"));
-    NewTextChild(variablesNode, "pc", getLocaleText("м"));
+    NewTextChild(variablesNode, "kg", getLocaleText("кг", rpt_params.GetLang()));
+    NewTextChild(variablesNode, "pc", getLocaleText("м", rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
     trip_rpt_person(resNode, rpt_params);
