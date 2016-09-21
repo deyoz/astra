@@ -8,7 +8,7 @@
 #include "stl_utils.h"
 #include "oralib.h"
 #include "xml_unit.h"
-#include "astra_date_time.h"
+#include "basic.h"
 #include "misc.h"
 #include "exceptions.h"
 #include "sys/times.h"
@@ -44,11 +44,10 @@
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;
-using namespace ASTRA::date_time;
 using namespace boost::local_time;
 
 #define NOT_CHANGE_AIRLINE_FLT_NO_SCD_

@@ -1,4 +1,4 @@
-#include <stdlib.h>
+  #include <stdlib.h>
 #include "points.h"
 #include "pers_weights.h"
 #include "stages.h"
@@ -7,6 +7,7 @@
 #include "stl_utils.h"
 #include "oralib.h"
 #include "xml_unit.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "sys/times.h"
 #include <map>
@@ -36,7 +37,7 @@
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;
@@ -332,22 +333,22 @@ void TPoints::Verify( bool ignoreException, LexemaData &lexemaData )
 
 }
 
-inline bool isSetSCDTime( TStatus status, TDateTime time, TDateTime priortime )
+inline bool isSetSCDTime( TStatus status, BASIC::TDateTime time, BASIC::TDateTime priortime )
 {
   return ( status != tdDelete && status != tdInsert &&
            priortime == NoExists && time != NoExists );
 }
-inline bool isChangeTime( TStatus status, TDateTime time, TDateTime priortime )
+inline bool isChangeTime( TStatus status, BASIC::TDateTime time, BASIC::TDateTime priortime )
 {
   return ( status != tdDelete && status != tdInsert &&
            priortime != NoExists && time != NoExists && time != priortime );
 }
-inline bool isDeleteTime( TStatus status, TDateTime time, TDateTime priortime )
+inline bool isDeleteTime( TStatus status, BASIC::TDateTime time, BASIC::TDateTime priortime )
 {
   return ( status != tdDelete && status != tdInsert &&
            priortime != NoExists && time == NoExists );
 }
-inline bool isSetOtherTime( TStatus status, TDateTime time, TDateTime priortime )
+inline bool isSetOtherTime( TStatus status, BASIC::TDateTime time, BASIC::TDateTime priortime )
 {
   return ( status != tdDelete &&
           ((status == tdInsert && time != NoExists) ||
@@ -1947,7 +1948,7 @@ void TPoints::Save( bool isShowMsg )
 
 bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
                           std::string suffix, std::string airp,
-                          TDateTime scd_in, TDateTime scd_out,
+                          BASIC::TDateTime scd_in, BASIC::TDateTime scd_out,
                         int &findMove_id, int &point_id )
 {
   findMove_id = NoExists;
@@ -2076,7 +2077,7 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
 
 bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
                           std::string suffix, std::string airp,
-                          TDateTime scd_in, TDateTime scd_out )
+                          BASIC::TDateTime scd_in, BASIC::TDateTime scd_out )
 {
   int findMove_id, point_id;
   return isDouble( move_id, airline, flt_no, suffix, airp, scd_in, scd_out, findMove_id, point_id );
@@ -2149,7 +2150,7 @@ void WriteDests( TPoints &points, bool ignoreException,
 }
 
 bool findFlt( const std::string &airline, const int &flt_no, const std::string &suffix,
-              const TDateTime &local_scd_out, const std::string &airp, const int &withDeleted,
+              const BASIC::TDateTime &local_scd_out, const std::string &airp, const int &withDeleted,
               TFndFlts &flts )
 {
   flts.clear();

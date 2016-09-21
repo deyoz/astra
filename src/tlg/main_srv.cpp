@@ -5,8 +5,6 @@
 #include <errno.h>
 #include <tcl.h>
 #include <string>
-#include "misc.h"
-#include "date_time.h"
 #include "astra_consts.h"
 #include "astra_main.h"
 #include "astra_utils.h"
@@ -21,7 +19,7 @@
 #include "serverlib/test.h"
 
 using namespace ASTRA;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
@@ -239,7 +237,7 @@ void process_tlg(void)
 
           if (TlgQry.Eof) //не нашли - значит вставляем новую
           {
-            TDateTime nowUTC=NowUTC();
+            BASIC::TDateTime nowUTC=BASIC::NowUTC();
             ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Sender, tlg_in.num, nowUTC);
 
             int tlg_id = getNextTlgNum();

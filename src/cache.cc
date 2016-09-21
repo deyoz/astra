@@ -1,6 +1,5 @@
 #include "cache.h"
-#include "date_time.h"
-#include "misc.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
@@ -26,7 +25,7 @@ const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL",""}
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
-using namespace BASIC::date_time;
+using namespace BASIC;
 
 /* все названия тегов params переводятся в вверхний регистр - переменные в sql в верхнем регистре*/
 void TCacheTable::getParams(xmlNodePtr paramNode, TParams &vparams)
@@ -1887,7 +1886,7 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
 
     if (cache.code() == "CODESHARE_SETS")
     {
-        TDateTime now = Now();
+        TDateTime now=NowLocal();
         modf(now,&now);
         //два вектора: до и после изменений
         vector<TTripInfo> flts;

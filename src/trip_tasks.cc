@@ -15,7 +15,7 @@
 #include "serverlib/slogger.h"
 
 using namespace std;
-using namespace BASIC::date_time;
+using namespace BASIC;
 
 namespace TypeB {
     void check_tlg_out(int point_id, const std::string &task_name, const std::string &params);

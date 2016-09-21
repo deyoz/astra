@@ -12,7 +12,7 @@
 #include "tlg_parser.h"
 #include "apps_interaction.h"
 #include "alarms.h"
-#include "date_time.h"
+#include "basic.h"
 
 #include <serverlib/query_runner.h>
 #include <serverlib/posthooks.h>
@@ -26,7 +26,6 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC::date_time;
 
 static int WAIT_INTERVAL()       //миллисекунды
 {
@@ -164,7 +163,7 @@ void resend_tlg(void)
     int point_id = Qry.FieldAsInteger("point_id");
     int send_attempts = Qry.FieldAsInteger("send_attempts");
     bool apps_down = get_alarm(point_id, atAPPSOutage);
-    TDateTime send_time = Qry.FieldAsDateTime("send_time");
+    BASIC::TDateTime send_time = Qry.FieldAsDateTime("send_time");
     int msg_id = Qry.FieldAsInteger("msg_id");
     if (!checkTime(point_id) || send_attempts == MaxSendAttempts) {
       /* More than 2 days has passed after flight scheduled departure time or max value of send attempts has been reached.
@@ -172,7 +171,7 @@ void resend_tlg(void)
       deleteMsg(msg_id);
     }
     // maximum time to wait for a response from APPS is 4 sec
-    TDateTime now = NowUTC();
+    BASIC::TDateTime now = BASIC::NowUTC();
     double ttw_sec = apps_down?600.0:10.0;
     if (now - send_time < ttw_sec/(24.0*60.0*60.0)) {
       continue;
@@ -181,7 +180,7 @@ void resend_tlg(void)
       // включим тревогу "Нет связи с APPS"
       set_alarm(point_id, atAPPSOutage, true);
     }
-    ProgTrace(TRACE5, "resend_tlg: elapsed time %s", DateTimeToStr( (NowUTC() - send_time), "hh:nn:ss" ).c_str());
+    ProgTrace(TRACE5, "resend_tlg: elapsed time %s", BASIC::DateTimeToStr( (BASIC::NowUTC() - send_time), "hh:nn:ss" ).c_str());
     reSendMsg(send_attempts, Qry.FieldAsString("msg_text"), msg_id);
     callPostHooksBefore();
     ASTRA::commit();

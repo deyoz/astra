@@ -18,7 +18,7 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace ASTRA;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace AstraLocale;
 
 const int POINT_INFO = 1;
@@ -2148,7 +2148,7 @@ string TPrnTagStore::PAX_TITLE(TFieldParams fp)
 string TPrnTagStore::TIME_PRINT(TFieldParams fp)
 {
     if(scan_data != NULL) {
-        boost::optional<TDateTime> time_print = scan_data->date_of_boarding_pass_issuance();
+        boost::optional<BASIC::TDateTime> time_print = scan_data->date_of_boarding_pass_issuance();
         if(time_print != boost::none) {
             return get_date_from_bcbp(*time_print, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
         } else {

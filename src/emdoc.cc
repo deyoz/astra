@@ -2,14 +2,13 @@
 #include "edi_utils.h"
 #include "astra_utils.h"
 #include "qrys.h"
-#include "date_time.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace ASTRA;
 using namespace Ticketing;
 using namespace AstraEdifact;

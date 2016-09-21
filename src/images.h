@@ -7,10 +7,8 @@
 #include <set>
 #include "jxtlib/JxtInterface.h"
 #include "astra_consts.h"
-#include "date_time.h"
+#include "basic.h"
 #include "astra_locale.h"
-
-using BASIC::date_time::TDateTime;
 
 class ImagesInterface : public JxtInterface
 {
@@ -44,7 +42,7 @@ class TCompElemType {
     std::string name_lat;
     bool is_seat;
     bool is_default;
-    TDateTime time_create;
+    BASIC::TDateTime time_create;
     std::string image;
     std::string filename;
   public:
@@ -53,7 +51,7 @@ class TCompElemType {
                    const std::string &vname_lat,
                    const bool vis_seat,
                    const bool vis_default,
-                   const TDateTime &vtime_create,
+                   const BASIC::TDateTime &vtime_create,
                    const std::string &vimage,
                    const std::string &vfilename ) {
       code = vcode;
@@ -110,7 +108,7 @@ class TCompElemType {
 class TCompElemTypes {
   private:
     std::map<std::string,TCompElemType> is_places;
-    TDateTime max_time_create;
+    BASIC::TDateTime max_time_create;
     std::string default_elem_code;
   public:
     static TCompElemTypes *Instance() {
@@ -124,7 +122,7 @@ class TCompElemTypes {
     std::string getDefaultElemType() {
       return default_elem_code;
     }
-    TDateTime getLastUpdateDate() {
+    BASIC::TDateTime getLastUpdateDate() {
       return max_time_create;
     }
     void getElemTypes( std::vector<std::string> &elem_types ) {

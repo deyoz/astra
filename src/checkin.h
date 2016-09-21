@@ -5,8 +5,6 @@
 #include <map>
 #include <libxml/tree.h>
 #include "jxtlib/JxtInterface.h"
-#include "date_time.h"
-#include "baggage_pc.h"
 #include "astra_ticket.h"
 #include "astra_locale.h"
 #include "astra_consts.h"
@@ -17,8 +15,6 @@
 #include "transfer.h"
 #include "events.h"
 #include "tlg/tlg_parser.h"
-
-using BASIC::date_time::TDateTime;
 
 struct TSegInfo
 {
@@ -193,7 +189,7 @@ public:
   static void ParseTransfer(xmlNodePtr trferNode,
                             xmlNodePtr paxNode,
                             const std::string &airp_arv,
-                            const TDateTime scd_out_local,
+                            const BASIC::TDateTime scd_out_local,
                             std::vector<CheckIn::TTransferItem> &segs);
 
   static void SavePaxTransfer(int pax_id, int pax_no, const std::vector<CheckIn::TTransferItem> &trfer, int seg_no);

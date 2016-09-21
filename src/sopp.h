@@ -5,13 +5,11 @@
 #include <string>
 #include <vector>
 #include "jxtlib/JxtInterface.h"
-#include "date_time.h"
+#include "basic.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "alarms.h"
-
-using BASIC::date_time::TDateTime;
 
 enum TTrip_Calc_Data { tDesksGates, tTrferExists };
 
@@ -57,7 +55,7 @@ struct PaxLoad {
 
 struct Luggage {
     int pr_edit;
-    TDateTime scd_out;
+    BASIC::TDateTime scd_out;
     std::string region;
 
     std::vector<PaxLoad> vpaxload;
@@ -73,7 +71,7 @@ struct Luggage {
 
 struct TSOPPDelay {
     std::string code;
-    TDateTime time;
+    BASIC::TDateTime time;
 };
 
 struct TSOPPDest {
@@ -94,13 +92,13 @@ struct TSOPPDest {
   std::string bort;
   std::string commander;
   int cockpit, cabin;
-  TDateTime scd_in;
-  TDateTime est_in;
-  TDateTime act_in;
-  TDateTime scd_out;
-  TDateTime est_out;
-  TDateTime act_out;
-  TDateTime part_key;
+  BASIC::TDateTime scd_in;
+  BASIC::TDateTime est_in;
+  BASIC::TDateTime act_in;
+  BASIC::TDateTime scd_out;
+  BASIC::TDateTime est_out;
+  BASIC::TDateTime act_out;
+  BASIC::TDateTime part_key;
   std::vector<TSOPPDelay> delays;
   std::string triptype;
   std::string litera;
@@ -117,9 +115,9 @@ struct TSOPPDest {
 
 struct TSoppStage {
   int stage_id;
-  TDateTime scd;
-  TDateTime est;
-  TDateTime act;
+  BASIC::TDateTime scd;
+  BASIC::TDateTime est;
+  BASIC::TDateTime act;
   bool pr_auto;
   bool pr_manual;
   bool pr_permit;
@@ -155,9 +153,9 @@ struct TSOPPTrip {
   std::string commander_in;
   int cockpit_in;
   int cabin_in;
-  TDateTime scd_in;
-  TDateTime est_in;
-  TDateTime act_in;
+  BASIC::TDateTime scd_in;
+  BASIC::TDateTime est_in;
+  BASIC::TDateTime act_in;
   std::string triptype_in;
   std::string litera_in;
   std::string park_in;
@@ -180,10 +178,10 @@ struct TSOPPTrip {
   std::string commander_out;
   int cockpit_out;
   int cabin_out;
-  TDateTime scd_out;
-  TDateTime est_out;
-  TDateTime act_out;
-  TDateTime part_key;
+  BASIC::TDateTime scd_out;
+  BASIC::TDateTime est_out;
+  BASIC::TDateTime act_out;
+  BASIC::TDateTime part_key;
   std::string triptype_out;
   std::string litera_out;
   std::string park_out;
@@ -239,8 +237,8 @@ typedef std::vector<TSOPPTrip> TSOPPTrips;
 
 void createSOPPTrip( int point_id, TSOPPTrips &trips );
 
-bool filter_time( TDateTime time, TSOPPTrip &tr, TDateTime first_date, TDateTime next_date, std::string &errcity );
-bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date, /*bool LocalAll,*/
+bool filter_time( BASIC::TDateTime time, TSOPPTrip &tr, BASIC::TDateTime first_date, BASIC::TDateTime next_date, std::string &errcity );
+bool FilterFlightDate( TSOPPTrip &tr, BASIC::TDateTime first_date, BASIC::TDateTime next_date, /*bool LocalAll,*/
                        std::string &errcity, bool pr_isg );
 
 
@@ -328,7 +326,7 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
-void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act );
+void ChangeACT_OUT( int point_id, BASIC::TDateTime old_act, BASIC::TDateTime act );
 void check_TrferExists( int point_id );
 void get_DesksGates( int point_id, tstations &stations );
 void check_DesksGates( int point_id );
@@ -359,7 +357,7 @@ class TTripSetList : public std::map<TTripSetType, bool>
 void set_flight_sets(int point_id, int f=0, int c=0, int y=0);
 void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tranzit);
 
-void SetFlightFact(int point_id, TDateTime utc_act_out);
+void SetFlightFact(int point_id, BASIC::TDateTime utc_act_out);
 
 #endif /*_SOPP_H_*/
 

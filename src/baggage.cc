@@ -3,6 +3,7 @@
 #include "astra_locale.h"
 #include "astra_utils.h"
 #include "base_tables.h"
+#include "basic.h"
 #include "term_version.h"
 #include "astra_misc.h"
 #include "qrys.h"
@@ -14,7 +15,6 @@
 using namespace std;
 using namespace AstraLocale;
 using namespace EXCEPTIONS;
-using namespace BASIC::date_time;
 
 void TBagNormUnit::set(const Ticketing::Baggage::Baggage_t &value)
 {
@@ -378,7 +378,7 @@ const TUnaccompInfoItem& TUnaccompInfoItem::toXML(xmlNodePtr node) const
     NewTextChild(node,"suffix",suffix);
   }
   if ( scd != ASTRA::NoExists ) {
-    NewTextChild(node,"scd",DateTimeToStr( scd, ServerFormatDateTimeAsString ));
+    NewTextChild(node,"scd",BASIC::DateTimeToStr( scd, BASIC::ServerFormatDateTimeAsString ));
   }
   return *this;
 }
@@ -538,7 +538,7 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
             "       points.pr_del<>0 OR "
             "       NVL(points.act_out,NVL(points.est_out,points.scd_out))<:now_utc AND last_access<:now_utc-2/24 OR "
             "       NVL(points.act_out,NVL(points.est_out,NVL(points.scd_out,:now_utc+1)))>=:now_utc AND last_access<:now_utc-2) AND ";
-          Qry.CreateVariable("now_utc",otDate, NowUTC());
+          Qry.CreateVariable("now_utc",otDate,BASIC::NowUTC());
           if (k==2)
           {
             sql <<
@@ -984,7 +984,7 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall)
         nb->second.hall=hall;
         nb->second.user_id=reqInfo->user.user_id;
         nb->second.desk=reqInfo->desk.code;
-        nb->second.time_create= NowUTC();
+        nb->second.time_create=BASIC::NowUTC();
       }
       else
       {
@@ -1768,7 +1768,7 @@ std::string TPaxNormItem::bag_type_str() const
   return s.str();
 };
 
-bool PaxNormsFromDB(TDateTime part_key, int pax_id, list< pair<TPaxNormItem, TNormItem> > &norms)
+bool PaxNormsFromDB(BASIC::TDateTime part_key, int pax_id, list< pair<TPaxNormItem, TNormItem> > &norms)
 {
   norms.clear();
   const char* sql=
@@ -1812,7 +1812,7 @@ bool PaxNormsFromDB(TDateTime part_key, int pax_id, list< pair<TPaxNormItem, TNo
   return !norms.empty();
 };
 
-bool GrpNormsFromDB(TDateTime part_key, int grp_id, list< pair<TPaxNormItem, TNormItem> > &norms)
+bool GrpNormsFromDB(BASIC::TDateTime part_key, int grp_id, list< pair<TPaxNormItem, TNormItem> > &norms)
 {
   norms.clear();
   const char* sql=
@@ -2077,7 +2077,7 @@ void PaidBagToDB(int grp_id,
   BagQry.Execute();
 };
 
-void PaidBagFromDB(TDateTime part_key, int grp_id, list<TPaidBagItem> &paid)
+void PaidBagFromDB(BASIC::TDateTime part_key, int grp_id, list<TPaidBagItem> &paid)
 {
   paid.clear();
   const char* sql=

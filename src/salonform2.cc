@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "salonform2.h"
 #include "salonform.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
@@ -18,6 +19,7 @@
 #include "serverlib/test.h"
 
 using namespace std;
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;

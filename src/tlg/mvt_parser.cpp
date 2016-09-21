@@ -5,7 +5,7 @@
 #include "sopp.h"
 
 using namespace std;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace ASTRA;
 
 namespace TypeB
@@ -23,9 +23,9 @@ namespace TypeB
         {
             LogTrace(TRACE5) << "------------TAD::dump()------------------";
             if(off_block_time != ASTRA::NoExists) {
-                LogTrace(TRACE5) << "off_block_time: " << DateTimeToStr(off_block_time, ServerFormatDateTimeAsString);
-                LogTrace(TRACE5) << "airborne_time: " << DateTimeToStr(airborne_time, ServerFormatDateTimeAsString);
-                LogTrace(TRACE5) << "ea: " << DateTimeToStr(ea, ServerFormatDateTimeAsString);
+                LogTrace(TRACE5) << "off_block_time: " << DateTimeToStr(off_block_time, BASIC::ServerFormatDateTimeAsString);
+                LogTrace(TRACE5) << "airborne_time: " << DateTimeToStr(airborne_time, BASIC::ServerFormatDateTimeAsString);
+                LogTrace(TRACE5) << "ea: " << DateTimeToStr(ea, BASIC::ServerFormatDateTimeAsString);
                 LogTrace(TRACE5) << "airp_arv: " << airp_arv;
             }
             LogTrace(TRACE5) << "-----------------------------------------";

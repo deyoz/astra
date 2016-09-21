@@ -4,12 +4,10 @@
 #include <map>
 #include <vector>
 #include <string>
-#include "date_time.h"
+#include "basic.h"
 #include "astra_consts.h"
 #include <libxml/parser.h>
 #include "oralib.h"
-
-using BASIC::date_time::TDateTime;
 
 enum TStage { sNoActive = 0, /*не активен*/
               sPrepCheckIn = 10, /*Подготовка к регистрации*/
@@ -41,9 +39,9 @@ enum TStageStep { stPrior, stNext };
 class TTripStageTimes
 {
   public:
-    TDateTime scd;
-    TDateTime est;
-    TDateTime act;
+    BASIC::TDateTime scd;
+    BASIC::TDateTime est;
+    BASIC::TDateTime act;
 
     TTripStageTimes()
     {
@@ -52,7 +50,7 @@ class TTripStageTimes
       act = ASTRA::NoExists;
     };
 
-    TDateTime time() const
+    BASIC::TDateTime time() const
     {
       if ( act != ASTRA::NoExists )
         return act;
@@ -68,8 +66,8 @@ class TTripStage : public TTripStageTimes
 {
   public:
     TStage stage;
-    TDateTime old_est;
-    TDateTime old_act;
+    BASIC::TDateTime old_est;
+    BASIC::TDateTime old_act;
     int pr_auto;
     void fromDB(TQuery &Qry);
     TTripStage() {
@@ -104,7 +102,7 @@ class TTripStages {
     static void WriteStages( int point_id, TMapTripStages &t );
     static void WriteStagesUTC( int point_id, TMapTripStages &ts );
     static void ReadCkinClients( int point_id, TCkinClients &ckin_clients );
-    TDateTime time( TStage stage ) const;
+    BASIC::TDateTime time( TStage stage ) const;
     TTripStageTimes getStageTimes( TStage stage ) const;
     TStage getStage( TStage_Type stage_type );
 };
@@ -179,14 +177,14 @@ class TStageTimes {
      void GetStageTimes( );
 	 public:
 	 	 TStageTimes( TStage istage );
-     TDateTime GetTime( const std::string &airline, const std::string &airp,
+     BASIC::TDateTime GetTime( const std::string &airline, const std::string &airp,
                                const std::string &craft, const std::string &triptype,
-     	                         TDateTime vtime );
+     	                         BASIC::TDateTime vtime );
 };
 
 bool CompatibleStage( TStage stage );
 
-void astra_timer( TDateTime utcdate );
+void astra_timer( BASIC::TDateTime utcdate );
 void exec_stage( int point_id, int stage_id );
 void PrepCheckIn( int point_id );
 void OpenCheckIn( int point_id );

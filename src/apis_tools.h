@@ -3,22 +3,20 @@
 
 #include <string>
 #include <vector>
-#include "date_time.h"
+#include <basic.h>
 #include "xml_unit.h"
 #include "astra_misc.h"
 #include "astra_consts.h"
-
-using BASIC::date_time::TDateTime;
 
 class FlightLeg {
 private:
   int loc_qualifier;
   std::string airp;
   std::string country;
-  TDateTime sch_in;
-  TDateTime sch_out;
+  BASIC::TDateTime sch_in;
+  BASIC::TDateTime sch_out;
 public:
-  FlightLeg (std::string airp, std::string country, TDateTime sch_in, TDateTime sch_out):
+  FlightLeg (std::string airp, std::string country, BASIC::TDateTime sch_in, BASIC::TDateTime sch_out):
     airp(airp), country(country), sch_in(sch_in), sch_out(sch_out) {}
   void setLocQualifier(const int value) {loc_qualifier = value; }
   const std::string Country() { return country; }

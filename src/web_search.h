@@ -1,7 +1,7 @@
 #ifndef __WEB_SEARCH_H__
 #define __WEB_SEARCH_H__
 
-#include "date_time.h"
+#include "basic.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "stages.h"
@@ -10,8 +10,6 @@
 
 namespace WebSearch
 {
-
-  using BASIC::date_time::TDateTime;
 
 struct TPNRAddrInfo
 {
@@ -60,8 +58,8 @@ class TPNRFilter
     std::set<std::string> airlines;
     int flt_no;
     std::string suffix;
-    std::vector< std::pair<TDateTime, TDateTime> > scd_out_local_ranges;
-    std::vector< std::pair<TDateTime, TDateTime> > scd_out_utc_ranges;
+    std::vector< std::pair<BASIC::TDateTime, BASIC::TDateTime> > scd_out_local_ranges;
+    std::vector< std::pair<BASIC::TDateTime, BASIC::TDateTime> > scd_out_utc_ranges;
     std::string surname, name, pnr_addr_normal, ticket_no, document;
     int reg_no;
     std::vector<TTestPaxInfo> test_paxs;
@@ -124,7 +122,7 @@ class TPNRFilters
 struct TDestInfo
 {
   int point_arv;
-  TDateTime scd_in_local, est_in_local, act_in_local;
+  BASIC::TDateTime scd_in_local, est_in_local, act_in_local;
   std::string airp_arv, city_arv;
   int arv_utc_offset;
   TDestInfo() { clear(); };
@@ -163,7 +161,7 @@ struct TFlightInfo
   TTripInfo oper;
   std::string craft;
   int craft_fmt;
-  TDateTime scd_out_local, est_out_local, act_out_local;
+  BASIC::TDateTime scd_out_local, est_out_local, act_out_local;
   std::string city_dep;
   int dep_utc_offset;
 

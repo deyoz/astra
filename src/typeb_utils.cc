@@ -1,5 +1,6 @@
 
 #include "typeb_utils.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "astra_locale.h"
 #include "misc.h"
@@ -12,7 +13,7 @@
 
 using namespace std;
 using namespace ASTRA;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 

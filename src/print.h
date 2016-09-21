@@ -3,13 +3,11 @@
 
 #include <libxml/tree.h>
 #include "jxtlib/JxtInterface.h"
-#include "date_time.h"
+#include "basic.h"
 #include "oralib.h"
 #include <set>
 #include "prn_tag_store.h"
 #include "checkin.h"
-
-using BASIC::date_time::TDateTime;
 
 struct TPrnParams {
     std::string encoding;
@@ -59,7 +57,7 @@ class PrintInterface: public JxtInterface
           int reg_no;
           std::string full_name;
           std::pair<std::string, bool> gate; //bool=true, если делать set_tag, иначе с gate ничего не делаем
-          TDateTime time_print;
+          BASIC::TDateTime time_print;
           std::string prn_form;
           std::string scan;
 

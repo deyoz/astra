@@ -16,15 +16,13 @@
 #include <list>
 #include <vector>
 
-#include "date_time.h"
+#include <basic.h>
 #include <stl_utils.h>
 #include <astra_consts.h>
 #include "xml_unit.h"
 #include "remarks.h"
 #include "apis_tools.h"
 #include "astra_misc.h"
-
-using BASIC::date_time::TDateTime;
 
 namespace Paxlst
 {
@@ -119,7 +117,7 @@ class FlightInfo
 
     // Departure Flight date and time
     /* required = C */
-    TDateTime m_depDateTime;
+    BASIC::TDateTime m_depDateTime;
 
     // Flight arrival Airport. Three-character IATA Code
     /* maxlen = 25 */
@@ -128,7 +126,7 @@ class FlightInfo
 
     // Arrival Flight date and time
     /* required = C */
-    TDateTime m_arrDateTime;
+    BASIC::TDateTime m_arrDateTime;
 
     // Marketing flights
     std::map<std::string, std::string> mktFlts;
@@ -165,10 +163,10 @@ public:
     }
 
     // departure date/time
-    void setDepDateTime( const TDateTime& ddt ) {
+    void setDepDateTime( const BASIC::TDateTime& ddt ) {
         m_depDateTime = ddt;
     }
-    const TDateTime& depDateTime() const {
+    const BASIC::TDateTime& depDateTime() const {
         return m_depDateTime;
     }
 
@@ -181,10 +179,10 @@ public:
     }
 
     // arrival date/time
-    void setArrDateTime( const TDateTime& adt ) {
+    void setArrDateTime( const BASIC::TDateTime& adt ) {
         m_arrDateTime = adt;
     }
-    const TDateTime& arrDateTime() const {
+    const BASIC::TDateTime& arrDateTime() const {
         return m_arrDateTime;
     }
     // marketing flights
@@ -299,7 +297,7 @@ class PassengerInfo
 
     // Passenger's date of birth
     /* required = C */
-    TDateTime m_birthDate;
+    BASIC::TDateTime m_birthDate;
 
     std::string m_CBPPort;
 
@@ -338,7 +336,7 @@ class PassengerInfo
     // Expiration date of the identification document produced
     // by the passenger
     /* required = C */
-    TDateTime m_docExpirateDate;
+    BASIC::TDateTime m_docExpirateDate;
 
     // Country code where the produced document is used, as per ISO 3166
     /* maxlen = 25 */
@@ -444,10 +442,10 @@ public:
     }
 
     // passenger's birth date
-    const TDateTime& birthDate() const {
+    const BASIC::TDateTime& birthDate() const {
         return m_birthDate;
     }
-    void setBirthDate( const TDateTime& bd ) {
+    void setBirthDate( const BASIC::TDateTime& bd ) {
         m_birthDate = bd;
     }
 
@@ -508,10 +506,10 @@ public:
     }
 
     // passenger's document expiration date
-    const TDateTime& docExpirateDate() const {
+    const BASIC::TDateTime& docExpirateDate() const {
         return m_docExpirateDate;
     }
-    void setDocExpirateDate( const TDateTime& ded ) {
+    void setDocExpirateDate( const BASIC::TDateTime& ded ) {
         m_docExpirateDate = ded;
     }
 
@@ -677,13 +675,13 @@ std::string createEdiPaxlstFileName( const std::string& carrierCode,
                                      const std::string& flightSuffix,
                                      const std::string& origin,
                                      const std::string& destination,
-                                     const TDateTime& departureDate,
+                                     const BASIC::TDateTime& departureDate,
                                      const std::string& ext,
                                      unsigned partNum = 0,
                                      const std::string& lst_type = "" );
 
 std::string createIataCode( const std::string& flight,
-                            const TDateTime& destDateTime,
+                            const BASIC::TDateTime& destDateTime,
                             const std::string& destDateTimeFmt = "/yymmdd/hhnn" );
 }//namespace Paxlst
 

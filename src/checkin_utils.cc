@@ -4,7 +4,6 @@
 #include "salons.h"
 #include "seats.h"
 #include "salonform.h"
-#include "date_time.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "ANNA"
@@ -14,7 +13,7 @@
 using namespace std;
 using namespace ASTRA;
 using namespace AstraLocale;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace SALONS2;
 
 bool TWebPaxFromReq::mergePaxFQT(set<CheckIn::TPaxFQTItem> &fqts) const

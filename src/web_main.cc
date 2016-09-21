@@ -12,7 +12,7 @@
 #include "astra_utils.h"
 #include "astra_context.h"
 #include "convert.h"
-#include "date_time.h"
+#include "basic.h"
 #include "misc.h"
 #include "astra_misc.h"
 #include "print.h"
@@ -50,7 +50,7 @@
 using namespace std;
 using namespace ASTRA;
 using namespace SEATS2;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace AstraLocale;
 
 InetClient getInetClient(string client_id)
@@ -2362,7 +2362,7 @@ int BPReprintOptions::check_date(int lower_shift, int upper_shift, int julian_da
   JulianDate d(julian_date_of_flight, NowUTC(), JulianDate::everywhere);
   d.trace(__FUNCTION__);
 
-  TDateTime ret = NowUTC();
+  BASIC::TDateTime ret = NowUTC();
   try
   {
     ret=UTCToLocal(ret, AirpTZRegion(airp));
@@ -3447,7 +3447,7 @@ bool test_check_reprint_access()
     vector<string>airlines = {"AU", "", " ", "0000", "000"};
     vector<int> grps = {1};
     vector<string> desks = {"KIOSKB"};
-    vector<TDateTime> times;
+    vector<BASIC::TDateTime> times;
 //    int final_good_airps = Void::get_last_good(airps);
 //    int final_good_airlines = Void::get_last_good(airlines);
 //    int final_good_grps = 2;
@@ -3562,7 +3562,7 @@ bool test_check_reprint_access()
                   try
                   { TReqInfo::Instance()->desk.grp_id=i.grp;
             TReqInfo::Instance()->desk.code=i.desk;
-                    std::cout << DateTimeToStr(i.time(), "dd.mm.yy hh:nn", true) << std::endl;
+                    std::cout << BASIC::DateTimeToStr(i.time(), "dd.mm.yy hh:nn", true) << std::endl;
                     TPrnTagStore::check_reprint_access(i.time(), i.airp, i.airline);
                   }
                   catch(UserException &e)
@@ -3593,7 +3593,7 @@ bool test_check_reprint_access()
                          string err = string("Condition of test failed, waited ")  + i.err  + "\n with airp = "
                 + i.airp
                            + " airline = " + i.airline + " time " +
-                                 DateTimeToStr(i.time(), "dd.mm.yy", true) +  " kiosk " + i.desk + " kiosk group " + std::to_string(i.grp) + "\n"
+                                 BASIC::DateTimeToStr(i.time(), "dd.mm.yy", true) +  " kiosk " + i.desk + " kiosk group " + std::to_string(i.grp) + "\n"
             ;
                          err+= "\nException message: "  + exception_err_str +  " \n";
                          err+="for table {\n";
@@ -3630,7 +3630,7 @@ bool test_check_reprint_access()
                   { if(i.err.empty()){
                          string err = string("Condition of test failed in test with airp = ") + i.airp
                            + " airline = " + i.airline + " time " +
-                 DateTimeToStr(i.time(), "dd.mm.yy", true) +  " kiosk " + i.desk + " kiosk group " + std::to_string(i.grp) +
+                 BASIC::DateTimeToStr(i.time(), "dd.mm.yy", true) +  " kiosk " + i.desk + " kiosk group " + std::to_string(i.grp) +
                         "\nException message: "  + exception_err_str +  " \n"  +
             " in table: {\n";
                          for(auto &z: t.first)

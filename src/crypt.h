@@ -5,6 +5,7 @@
 
 #include <libxml/tree.h>
 #include <string>
+#include "basic.h"
 #include "astra_consts.h"
 #include "jxtlib/JxtInterface.h"
 #ifdef USE_MESPRO

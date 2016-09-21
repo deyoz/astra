@@ -370,7 +370,7 @@ string get_role_id(const string &role)
     string result;
     size_t idx = role.find(';');
     int i;
-    if(idx != string::npos and StrToInt(role.substr(0, idx).c_str(), i) != EOF)
+    if(idx != string::npos and BASIC::StrToInt(role.substr(0, idx).c_str(), i) != EOF)
             result = role.substr(0, idx);
     return result;
 }
@@ -954,7 +954,7 @@ void TUserData::update_aro(bool pr_insert)
         for(set<string>::iterator iv = roles.begin(); iv != roles.end(); iv++) {
             role_ids.push_back(get_role_id(*iv));
             int id;
-            StrToInt(role_ids.back().c_str(), id);
+            BASIC::StrToInt(role_ids.back().c_str(), id);
             Qry.SetVariable("role", role_ids.back());
             try {
                 Qry.Execute();

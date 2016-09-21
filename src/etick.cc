@@ -7,6 +7,7 @@
 #include "astra_tick_view_xml.h"
 #include "astra_emd_view_xml.h"
 #include "astra_tick_read_edi.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "astra_locale.h"
 #include "astra_consts.h"
@@ -57,7 +58,7 @@ using namespace boost::gregorian;
 using namespace boost::posix_time;
 using namespace ASTRA;
 using namespace AstraLocale;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace AstraEdifact;
 using namespace SirenaExchange;

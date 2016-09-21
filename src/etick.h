@@ -3,7 +3,6 @@
 
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/xmllibcpp.h"
-#include "date_time.h"
 #include "astra_utils.h"
 #include "astra_ticket.h"
 #include "astra_misc.h"
@@ -13,8 +12,6 @@
 #include "baggage.h"
 #include "qrys.h"
 #include "tlg/EdifactRequest.h"
-
-using BASIC::date_time::TDateTime;
 
 namespace edifact{
     class RemoteResults;
@@ -120,7 +117,7 @@ class TETickItem
 
     std::string et_no;
     int et_coupon;
-    TDateTime issue_date;
+    BASIC::TDateTime issue_date;
     std::string surname, name;
     std::string fare_basis;
     int bag_norm;
@@ -446,7 +443,7 @@ class EMDAutoBoundInterface: public JxtInterface
 inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
 {
 
-    xmlSetProp(resNode,"handle", "1");
+    xmlSetProp(resNode,"handle","1");
 
     xmlNodePtr ifaceNode=getNode(resNode,"interface");
     xmlSetProp(ifaceNode,"id",iface_id);

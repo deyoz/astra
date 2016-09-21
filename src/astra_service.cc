@@ -7,8 +7,7 @@
 #include "oralib.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
-#include "astra_date_time.h"
-#include "misc.h"
+#include "basic.h"
 #include "telegram.h"
 #include "qrys.h"
 #include "stl_utils.h"
@@ -36,8 +35,7 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
-using namespace BASIC::date_time;
-using namespace ASTRA::date_time;
+using namespace BASIC;
 
 const int WAIT_ANSWER_SEC = 30;   // ждем ответа 30 секунд
 const std::string PARAM_LOAD_DIR = "LOADDIR";

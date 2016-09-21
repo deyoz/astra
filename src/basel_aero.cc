@@ -4,7 +4,8 @@
 #include <vector>
 #include <tcl.h>
 #include "base_tables.h"
-#include "misc.h"
+
+#include "basic.h"
 #include "stl_utils.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
@@ -22,12 +23,18 @@
 #define NICKTRACE DJEK_TRACE
 #include "serverlib/test.h"
 
-using namespace std;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace EXCEPTIONS;
+
+
+
+using namespace std;
+using namespace EXCEPTIONS;
+using namespace BASIC;
 using namespace ASTRA;
 
 const std::string BASEL_AERO = "BASEL_AERO";
+
 
 TBaselAeroAirps *TBaselAeroAirps::Instance()
 {
@@ -89,11 +96,11 @@ struct TBaselStat {
 };
 
 
-void get_basel_aero_flight_stat( TDateTime part_key, int point_id, std::vector<TBaselStat> &stats );
-void write_basel_aero_stat( TDateTime time_create, const std::vector<TBaselStat> &stats );
+void get_basel_aero_flight_stat( BASIC::TDateTime part_key, int point_id, std::vector<TBaselStat> &stats );
+void write_basel_aero_stat( BASIC::TDateTime time_create, const std::vector<TBaselStat> &stats );
 void read_basel_aero_stat( const string &airp, ofstream &f );
 
-void sych_basel_aero_stat( TDateTime utcdate )
+void sych_basel_aero_stat( BASIC::TDateTime utcdate )
 {
   TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -197,7 +204,7 @@ void sych_basel_aero_stat( TDateTime utcdate )
   }
 }
 
-void write_basel_aero_stat( TDateTime time_create, const std::vector<TBaselStat> &stats )
+void write_basel_aero_stat( BASIC::TDateTime time_create, const std::vector<TBaselStat> &stats )
 {
   TQuery Qry(&OraSession);
   Qry.SQLText =
@@ -343,7 +350,7 @@ void read_basel_aero_stat( const string &airp, ofstream &f )
   }
 }
 
-void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TBaselStat> &stats )
+void get_basel_aero_flight_stat(BASIC::TDateTime part_key, int point_id, std::vector<TBaselStat> &stats )
 {
   stats.clear();
   TQuery Qry(&OraSession);
@@ -612,7 +619,7 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
 
 int basel_stat(int argc,char **argv)
 {
-  TDateTime part_key=ASTRA::NoExists;
+  BASIC::TDateTime part_key=ASTRA::NoExists;
   int point_id=ASTRA::NoExists;
 
   char buf[200];

@@ -4,14 +4,15 @@
 #include "convert.h"
 #include "stl_utils.h"
 #include "astra_consts.h"
-#include "misc.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace BASIC;
 using namespace ASTRA;
+
 
 void NormalizeSeat(TSeat &seat)
 {

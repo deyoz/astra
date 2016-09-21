@@ -5,14 +5,12 @@
 #include <vector>
 #include "astra_consts.h"
 #include "astra_misc.h"
-#include "date_time.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "seats_utils.h"
 #include "memory_manager.h"
 #include "flt_binding.h"
-
-using BASIC::date_time::TDateTime;
 
 namespace TypeB
 {
@@ -184,7 +182,7 @@ class THeadingInfo
     char sender[8];
     char double_signature[3];
     std::string message_identity;
-    TDateTime time_create;
+    BASIC::TDateTime time_create;
     char tlg_type[4];
     TTlgCategory tlg_cat;
 
@@ -340,7 +338,7 @@ class TDocItem : public TDetailRemAncestor
   public:
     char type[3],issue_country[4],no[16];
     char nationality[4],gender[3];
-    TDateTime birth_date,expiry_date;
+    BASIC::TDateTime birth_date,expiry_date;
     std::string surname,first_name,second_name;
     bool pr_multi;
     TDocItem()
@@ -383,7 +381,7 @@ class TDocoItem : public TDetailRemAncestor
 {
   public:
     char type[3],no[26],applic_country[4];
-    TDateTime issue_date;
+    BASIC::TDateTime issue_date;
     std::string birth_place, issue_place;
     TDocoItem()
     {
@@ -966,7 +964,7 @@ struct TFlightIdentifier {
     std::string airline;
     int flt_no;
     char suffix;
-    TDateTime date;
+    BASIC::TDateTime date;
     void parse(const char *val);
     void dump();
     TFlightIdentifier(): flt_no(ASTRA::NoExists), suffix(0), date(ASTRA::NoExists) {};

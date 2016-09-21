@@ -16,7 +16,5 @@ int compare_apis(int argc,char **argv);
 int test_sopp_sql(int argc,char **argv);
 int test_file_queue(int argc,char **argv);
 int convert_codeshare(int argc,char **argv);
-int tz_conversion(int argc, char **argv);
-int test_conversion(int, char **);
 
 #endif

@@ -1,7 +1,7 @@
 #ifndef _EDI_ELEMENTS_H_
 #define _EDI_ELEMENTS_H_
 
-#include "date_time.h"
+#include "basic.h"
 #include "ticket_types.h"
 #include "astra_dates.h"
 #include "astra_ticket.h"
@@ -17,7 +17,6 @@
 namespace edifact
 {
 
-using BASIC::date_time::TDateTime;
 ///@class UnbElem - Interchange Header --UNB
 struct UnbElem
 {
@@ -41,7 +40,7 @@ struct UngElem
     std::string m_senderCarrierCode;
     std::string m_recipientName;
     std::string m_recipientCarrierCode;
-    TDateTime m_prepareDateTime;
+    BASIC::TDateTime m_prepareDateTime;
     std::string m_groupRefNum;
     std::string m_cntrlAgnCode;
     std::string m_msgVerNum;
@@ -52,7 +51,7 @@ struct UngElem
              const std::string& senderCC,
              const std::string& recipientName,
              const std::string& recipientCC,
-             const TDateTime& prepareDt,
+             const BASIC::TDateTime& prepareDt,
              const std::string& groupRefNum,
              const std::string& cntrlAgnCode,
              const std::string& msgVerNum,
@@ -261,11 +260,11 @@ struct DtmElem
     };
 
     DtmQualifier m_dtmQualifier;
-    TDateTime m_dateTime;
+    BASIC::TDateTime m_dateTime;
     std::string m_formatCode;
 
     DtmElem( DtmQualifier dtmQualifier,
-             const TDateTime& dateTime,
+             const BASIC::TDateTime& dateTime,
              const std::string& formatCode = "" )
         : m_dtmQualifier( dtmQualifier ),
           m_dateTime( dateTime ),

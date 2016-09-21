@@ -6,7 +6,6 @@
 #include "exceptions.h"
 #include "stl_utils.h"
 #include "astra_utils.h"
-#include "astra_date_time.h"
 #include "base_tables.h"
 #include "season.h"
 #include "brd.h"
@@ -28,9 +27,8 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace ASTRA;
-using namespace ASTRA::date_time;
 using namespace boost;
 
 const string ALL_CKIN_ZONES = " ";

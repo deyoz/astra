@@ -5,10 +5,8 @@
 #include <map>
 #include <tcl.h>
 #include "astra_service.h"
-#include "date_time.h"
+#include "basic.h"
 #include "astra_misc.h"
-
-using BASIC::date_time::TDateTime;
 
 const std::string FILE_AODB_TYPE = "AODB";
 const std::string FILE_AODB_IN_TYPE = "AODBI";
@@ -30,7 +28,7 @@ int main_aodb_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 //void update_aodb_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
 //bool is_sync_aodb( int point_id );
 void bindingAODBFlt( const std::string &airline, const int flt_no, const std::string suffix,
-                     const TDateTime locale_scd_out, const std::string airp );
+                     const BASIC::TDateTime locale_scd_out, const std::string airp );
 bool is_sync_aodb_pax( const TTripInfo &tripInfo );
 
 #endif /*_AODB_H_*/

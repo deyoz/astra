@@ -1,15 +1,13 @@
 #include <stdlib.h>
 #include <boost/crc.hpp>
 #include "salons.h"
-#include "date_time.h"
-#include "misc.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
-#include "astra_date_time.h"
 #include "oralib.h"
 #include "seats.h"
 #include "images.h"
@@ -25,14 +23,15 @@
 #include "qrys.h"
 #include "etick.h"
 
+#include "astra_misc.h"
+
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
 using namespace std;
 using namespace AstraLocale;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace ASTRA;
-using namespace ASTRA::date_time;
 using namespace BASIC_SALONS;
 
 namespace SALONS2
@@ -9809,7 +9808,7 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
 
 
 void AddPass( int pax_id, const std::string &surname,  ASTRA::TCompLayerType layer_type,
-              TDateTime time_create,
+              BASIC::TDateTime time_create,
               const std::vector<std::string> &seatnames, SALONS2::TPaxList &paxList )
 {
   SALONS2::TSeatLayer seatLayer;
@@ -9911,7 +9910,7 @@ int testsalons(int argc,char **argv)
 {
   //!log tst();
   //добавляем пассажиров
-  TDateTime time_create = NowUTC();
+  BASIC::TDateTime time_create = NowUTC();
   SALONS2::TPaxList paxList;
   std::vector<std::string> seatnames;
   seatnames.push_back( "1A" );

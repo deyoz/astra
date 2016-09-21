@@ -3,14 +3,12 @@
 
 #include <string>
 #include "astra_consts.h"
-#include "date_time.h"
 #include "xml_unit.h"
 #include "httpClient.h"
 
+
 namespace SirenaExchange
 {
-
-using BASIC::date_time::TDateTime;
 
 class TErrorReference
 {
@@ -83,7 +81,7 @@ class TLastExchangeInfo
   public:
     int grp_id;
     std::string pc_payment_req, pc_payment_res;
-    TDateTime pc_payment_req_created, pc_payment_res_created;
+    BASIC::TDateTime pc_payment_req_created, pc_payment_res_created;
     void clear()
     {
       grp_id=ASTRA::NoExists;

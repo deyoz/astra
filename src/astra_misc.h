@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include <set>
-#include "date_time.h"
+#include "basic.h"
 #include "astra_consts.h"
 #include "oralib.h"
 #include "astra_utils.h"
@@ -12,8 +12,6 @@
 #include "astra_locale.h"
 #include "stages.h"
 #include "xml_unit.h"
-
-using BASIC::date_time::TDateTime;
 
 class TSimpleMktFlight
 {
@@ -56,7 +54,7 @@ class TMktFlight : public TSimpleMktFlight
   public:
     std::string subcls;
     int scd_day_local;
-    TDateTime scd_date_local;
+    BASIC::TDateTime scd_date_local;
     std::string airp_dep;
     std::string airp_arv;
 
@@ -103,7 +101,7 @@ class TGrpMktFlight : public TSimpleMktFlight
       pr_mark_norms=false;
     }
   public:
-    TDateTime scd_date_local;
+    BASIC::TDateTime scd_date_local;
     std::string airp_dep;
     bool pr_mark_norms;
 
@@ -186,7 +184,7 @@ class TTripInfo
     std::string airline,suffix,airp;
     int flt_no, pr_del;
     TElemFmt airline_fmt, suffix_fmt, airp_fmt;
-    TDateTime scd_out,real_out;
+    BASIC::TDateTime scd_out,real_out;
     TTripInfo()
     {
       init();
@@ -210,7 +208,7 @@ class TTripInfo
     };
     virtual bool getByPointId ( const int point_id );
     virtual bool getByPointIdTlg ( const int point_id_tlg );
-    void get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client, bool trunc_time=true) const;
+    void get_client_dates(BASIC::TDateTime &scd_out_client, BASIC::TDateTime &real_out_client, bool trunc_time=true) const;
 };
 
 std::string GetTripDate( const TTripInfo &info, const std::string &separator, const bool advanced_trip_list  );
@@ -413,11 +411,11 @@ std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs, std::stri
 //процедура перевода отдельного дня (без месяца и года) в полноценный TDateTime
 //ищет ближайшую или совпадающую дату по отношению к base_date
 //параметр back - направление поиска (true - в прошлое от base_date, false - в будущее)
-TDateTime DayToDate(int day, TDateTime base_date, bool back);
+BASIC::TDateTime DayToDate(int day, BASIC::TDateTime base_date, bool back);
 
 struct TTripRouteItem
 {
-  TDateTime part_key;
+  BASIC::TDateTime part_key;
   int point_id;
   int point_num;
   std::string airp;
@@ -438,7 +436,7 @@ struct TTripRouteItem
 
 struct TAdvTripRouteItem : TTripRouteItem
 {
-  TDateTime scd_in, scd_out, act_out;
+  BASIC::TDateTime scd_in, scd_out, act_out;
   std::string airline, suffix;
   int flt_num;
 
@@ -475,7 +473,7 @@ enum TTripRouteType2 { trtNotCancelled,
 class TTripBase
 {
 private:
-  virtual void GetRoute(TDateTime part_key,
+  virtual void GetRoute(BASIC::TDateTime part_key,
                 int point_id,
                 int point_num,
                 int first_point,
@@ -484,18 +482,18 @@ private:
                 TTripRouteType1 route_type1,
                 TTripRouteType2 route_type2,
                 TQuery& Qry) = 0;
-  virtual bool GetRoute(TDateTime part_key,
+  virtual bool GetRoute(BASIC::TDateTime part_key,
                 int point_id,
                 bool after_current,
                 TTripRouteType1 route_type1,
                 TTripRouteType2 route_type2) = 0;
 public:
   //маршрут после пункта point_id
-  bool GetRouteAfter(TDateTime part_key,
+  bool GetRouteAfter(BASIC::TDateTime part_key,
                      int point_id,
                      TTripRouteType1 route_type1,
                      TTripRouteType2 route_type2);
-  void GetRouteAfter(TDateTime part_key,
+  void GetRouteAfter(BASIC::TDateTime part_key,
                      int point_id,
                      int point_num,
                      int first_point,
@@ -503,11 +501,11 @@ public:
                      TTripRouteType1 route_type1,
                      TTripRouteType2 route_type2);
   //маршрут до пункта point_id
-  bool GetRouteBefore(TDateTime part_key,
+  bool GetRouteBefore(BASIC::TDateTime part_key,
                       int point_id,
                       TTripRouteType1 route_type1,
                       TTripRouteType2 route_type2);
-  void GetRouteBefore(TDateTime part_key,
+  void GetRouteBefore(BASIC::TDateTime part_key,
                       int point_id,
                       int point_num,
                       int first_point,
@@ -521,7 +519,7 @@ class TTripRoute : public TTripBase, public std::vector<TTripRouteItem>
 
 {
   private:
-    virtual void GetRoute(TDateTime part_key,
+    virtual void GetRoute(BASIC::TDateTime part_key,
                   int point_id,
                   int point_num,
                   int first_point,
@@ -530,34 +528,34 @@ class TTripRoute : public TTripBase, public std::vector<TTripRouteItem>
                   TTripRouteType1 route_type1,
                   TTripRouteType2 route_type2,
                   TQuery& Qry);
-    virtual bool GetRoute(TDateTime part_key,
+    virtual bool GetRoute(BASIC::TDateTime part_key,
                 int point_id,
                 bool after_current,
                 TTripRouteType1 route_type1,
                 TTripRouteType2 route_type2);
   public:
     //возвращает следующий пункт маршрута
-    void GetNextAirp(TDateTime part_key,
+    void GetNextAirp(BASIC::TDateTime part_key,
                      int point_id,
                      int point_num,
                      int first_point,
                      bool pr_tranzit,
                      TTripRouteType2 route_type2,
                      TTripRouteItem& item);
-    bool GetNextAirp(TDateTime part_key,
+    bool GetNextAirp(BASIC::TDateTime part_key,
                      int point_id,
                      TTripRouteType2 route_type2,
                      TTripRouteItem& item);
 
     //возвращает предыдущий пункт маршрута
-    void GetPriorAirp(TDateTime part_key,
+    void GetPriorAirp(BASIC::TDateTime part_key,
                       int point_id,
                       int point_num,
                       int first_point,
                       bool pr_tranzit,
                       TTripRouteType2 route_type2,
                       TTripRouteItem& item);
-    bool GetPriorAirp(TDateTime part_key,
+    bool GetPriorAirp(BASIC::TDateTime part_key,
                       int point_id,
                       TTripRouteType2 route_type2,
                       TTripRouteItem& item);
@@ -568,7 +566,7 @@ class TTripRoute : public TTripBase, public std::vector<TTripRouteItem>
 class TAdvTripRoute : public TTripBase, public std::vector<TAdvTripRouteItem>
 {
   private:
-    virtual void GetRoute(TDateTime part_key,
+    virtual void GetRoute(BASIC::TDateTime part_key,
                   int point_id,
                   int point_num,
                   int first_point,
@@ -577,7 +575,7 @@ class TAdvTripRoute : public TTripBase, public std::vector<TAdvTripRouteItem>
                   TTripRouteType1 route_type1,
                   TTripRouteType2 route_type2,
                   TQuery& Qry);
-    virtual bool GetRoute(TDateTime part_key,
+    virtual bool GetRoute(BASIC::TDateTime part_key,
                 int point_id,
                 bool after_current,
                 TTripRouteType1 route_type1,
@@ -761,7 +759,7 @@ void GetCrsList(int point_id, std::vector<std::string> &crs);
 bool IsRouteInter(int point_dep, int point_arv, std::string &country);
 bool IsTrferInter(std::string airp_dep, std::string airp_arv, std::string &country);
 
-std::string GetRouteAfterStr(TDateTime part_key,  //NoExists если в оперативной базе, иначе в архивной
+std::string GetRouteAfterStr(BASIC::TDateTime part_key,  //NoExists если в оперативной базе, иначе в архивной
                              int point_id,
                              TTripRouteType1 route_type1,
                              TTripRouteType2 route_type2,
@@ -891,10 +889,10 @@ struct TCFGItem {
 };
 
 struct TCFG:public std::vector<TCFGItem> {
-    void get(int point_id, TDateTime part_key = ASTRA::NoExists); //NoExists если в оперативной базе, иначе в архивной
+    void get(int point_id, BASIC::TDateTime part_key = ASTRA::NoExists); //NoExists если в оперативной базе, иначе в архивной
     std::string str(const std::string &lang="", const std::string &separator=" ");
     void param(LEvntPrms& params);
-    TCFG(int point_id, TDateTime part_key = ASTRA::NoExists) { get(point_id, part_key); };
+    TCFG(int point_id, BASIC::TDateTime part_key = ASTRA::NoExists) { get(point_id, part_key); };
     TCFG() {};
 };
 
@@ -903,7 +901,7 @@ class TSearchFltInfo
   public:
     std::string airline,suffix,airp_dep;
     int flt_no;
-    TDateTime scd_out;
+    BASIC::TDateTime scd_out;
     bool scd_out_in_utc;
     bool only_with_reg;
     std::string additional_where;
@@ -935,7 +933,7 @@ bool compareLists(const std::list<T> &a, const std::list<T> &b)
     return compareVectors(std::vector<T>(a.begin(), a.end()), std::vector<T>(b.begin(), b.end()));
 }
 
-TDateTime getTimeTravel(const std::string &craft, const std::string &airp, const std::string &airp_last);
+BASIC::TDateTime getTimeTravel(const std::string &craft, const std::string &airp, const std::string &airp_last);
 
 double getFileSizeDouble(const std::string &str);
 std::string getFileSizeStr(double size);

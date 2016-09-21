@@ -12,7 +12,6 @@
 #include "base_tables.h"
 #include "astra_misc.h"
 #include "astra_service.h"
-#include "astra_date_time.h"
 #include "file_queue.h"
 #include "http_io.h"
 #include "typeb_utils.h"
@@ -32,8 +31,7 @@
 
 using namespace std;
 using namespace ASTRA;
-using namespace ASTRA::date_time;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace boost::local_time;
@@ -2194,7 +2192,7 @@ void TTlgStat::putTypeBOut(const int queue_tlg_id,
                            const int typeb_tlg_num,
                            const TTlgStatPoint &sender,
                            const TTlgStatPoint &receiver,
-                           const TDateTime time_create,
+                           const BASIC::TDateTime time_create,
                            const std::string &tlg_type,
                            const int tlg_len,
                            const TTripInfo &fltInfo,

@@ -4,10 +4,8 @@
 #include <vector>
 #include <string>
 #include <libxml/parser.h>
-#include "date_time.h"
+#include "basic.h"
 #include "exceptions.h"
-
-using BASIC::date_time::TDateTime;
 
 class EXMLError: public EXCEPTIONS::Exception
 {
@@ -36,11 +34,11 @@ bool NodeAsBoolean(const char* expr, xmlNodePtr cur);
 double NodeAsFloat(xmlNodePtr node);
 double NodeAsFloat(const char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
 double NodeAsFloat(const char* expr, xmlNodePtr cur);
-TDateTime NodeAsDateTime(xmlNodePtr node);
-TDateTime NodeAsDateTime(xmlNodePtr node, const char* format);
-TDateTime NodeAsDateTime(const char* expr, xmlDocPtr data, const char* format, xmlNodePtr cur=NULL);
-TDateTime NodeAsDateTime(const char* expr, const char* format, xmlNodePtr cur);
-TDateTime NodeAsDateTime(const char* expr, xmlNodePtr cur);
+BASIC::TDateTime NodeAsDateTime(xmlNodePtr node);
+BASIC::TDateTime NodeAsDateTime(xmlNodePtr node, const char* format);
+BASIC::TDateTime NodeAsDateTime(const char* expr, xmlDocPtr data, const char* format, xmlNodePtr cur=NULL);
+BASIC::TDateTime NodeAsDateTime(const char* expr, const char* format, xmlNodePtr cur);
+BASIC::TDateTime NodeAsDateTime(const char* expr, xmlNodePtr cur);
 //оптимизированные по быстродействию функции
 //node - любой брат(сосед) искомого
 xmlNodePtr GetNodeFast(const char *expr, xmlNodePtr &node);
@@ -50,8 +48,8 @@ const char* NodeAsStringFast(const char *expr, xmlNodePtr &node);
 int NodeAsIntegerFast(const char *expr, xmlNodePtr &node);
 bool NodeAsBooleanFast(const char *expr, xmlNodePtr &node);
 double NodeAsFloatFast(const char *expr, xmlNodePtr &node);
-TDateTime NodeAsDateTimeFast(const char *expr, const char *format, xmlNodePtr &node);
-TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node);
+BASIC::TDateTime NodeAsDateTimeFast(const char *expr, const char *format, xmlNodePtr &node);
+BASIC::TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node);
 
 // Если узел не найден, возвращается nvl
 bool NodeIsNULLFast(const char *expr, xmlNodePtr &node, bool nvl);
@@ -59,14 +57,14 @@ const char* NodeAsStringFast(const char *expr, xmlNodePtr &node, const char* nvl
 int NodeAsIntegerFast(const char *expr, xmlNodePtr &node, int nvl);
 bool NodeAsBooleanFast(const char *expr, xmlNodePtr &node, bool nvl);
 double NodeAsFloatFast(const char *expr, xmlNodePtr &node, double nvl);
-TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node, TDateTime nvl);
+BASIC::TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node, BASIC::TDateTime nvl);
 
 bool NodeIsNULL(const char* expr, xmlNodePtr cur, bool nvl);
 const char* NodeAsString(const char* expr, xmlNodePtr cur, const char *nvl);
 int NodeAsInteger(const char* expr, xmlNodePtr cur, int nvl);
 bool NodeAsBoolean(const char* expr, xmlNodePtr cur, bool nvl);
 double NodeAsFloat(const char* expr, xmlNodePtr cur, double nvl);
-TDateTime NodeAsDateTime(const char* expr, xmlNodePtr cur, TDateTime nvl);
+BASIC::TDateTime NodeAsDateTime(const char* expr, xmlNodePtr cur, BASIC::TDateTime nvl);
 
 // Если content == nvl, узел не создается
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const std::string &content, const std::string &nvl);

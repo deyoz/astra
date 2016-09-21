@@ -3,9 +3,6 @@
 #include "exceptions.h"
 #include "oralib.h"
 
-#include "date_time.h"
-using namespace BASIC::date_time;
-
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
@@ -67,7 +64,7 @@ int SetContext(const std::string &name,
     else
       Qry.CreateVariable("id",otInteger,FNull);
     Qry.DeclareVariable("page_no",otInteger);
-    Qry.CreateVariable("time_create",otDate, NowUTC());
+    Qry.CreateVariable("time_create",otDate,BASIC::NowUTC());
     Qry.DeclareVariable("value",otString);
 
     longToDB(Qry, "value", value, true);
@@ -90,7 +87,7 @@ int SetContext(const std::string &name,
   return SetContext(name,ASTRA::NoExists,value);
 };
 
-TDateTime GetContext(const std::string &name,
+BASIC::TDateTime GetContext(const std::string &name,
                             const int id,
                             std::string &value)
 {
@@ -102,7 +99,7 @@ TDateTime GetContext(const std::string &name,
   Qry.CreateVariable("name",otString,name);
   Qry.CreateVariable("id",otInteger,id);
   Qry.Execute();
-  TDateTime time_create=ASTRA::NoExists;
+  BASIC::TDateTime time_create=ASTRA::NoExists;
   for(;!Qry.Eof;Qry.Next())
   {
     value.append(Qry.FieldAsString("value"));
@@ -112,7 +109,7 @@ TDateTime GetContext(const std::string &name,
 };
 
 void ClearContext(const std::string &name,
-                  const TDateTime time_create)
+                  const BASIC::TDateTime time_create)
 {
   TQuery Qry(&OraSession);
   if (time_create != ASTRA::NoExists)

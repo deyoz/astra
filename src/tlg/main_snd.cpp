@@ -6,8 +6,7 @@
 #include <tcl.h>
 #include "astra_consts.h"
 #include "astra_utils.h"
-#include "date_time.h"
-#include "misc.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
@@ -18,7 +17,7 @@
 #include "serverlib/test.h"
 
 using namespace ASTRA;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
@@ -101,7 +100,7 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
       InitLogTime(argc>0?argv[0]:NULL);
       bool sendOutAStepByStep=receivedCmdTlgSndStepByStep ||
                               lastSendOutAStepByStep==NoExists ||
-                              (lastSendOutAStepByStep<NowUTC()-((double)TLG_STEP_BY_STEP_TIMEOUT())/MSecsPerDay);
+                              (lastSendOutAStepByStep<NowUTC()-((double)TLG_STEP_BY_STEP_TIMEOUT())/BASIC::MSecsPerDay);
 
       bool queue_not_empty=scan_tlg(sendOutAStepByStep);
       if (sendOutAStepByStep) lastSendOutAStepByStep=NowUTC();
@@ -235,7 +234,7 @@ bool scan_tlg(bool sendOutAStepByStep)
         ttl=0;
         if (!TlgQry.FieldIsNULL("ttl"))
           ttl=TlgQry.FieldAsInteger("ttl")-
-              (int)((NowUTC()-TlgQry.FieldAsDateTime("time"))*SecsPerDay);
+              (int)((NowUTC()-TlgQry.FieldAsDateTime("time"))*BASIC::SecsPerDay);
         if (!TlgQry.FieldIsNULL("ttl") && ttl<=0 && priority!=(int)qpOutAStepByStep)
         {
             errorTlg(tlg_id,"TTL");
@@ -245,7 +244,7 @@ bool scan_tlg(bool sendOutAStepByStep)
           TDateTime nowUTC=NowUTC();
           TDateTime last_send=0;
           if (!TlgQry.FieldIsNULL("last_send")) last_send=TlgQry.FieldAsFloat("last_send");
-          if (last_send<nowUTC-((double)TLG_ACK_TIMEOUT())/MSecsPerDay)
+          if (last_send<nowUTC-((double)TLG_ACK_TIMEOUT())/BASIC::MSecsPerDay)
           {
             //таймаут TLG_ACK истек, надо перепослать
             //проверим, надо ли лепить h2h

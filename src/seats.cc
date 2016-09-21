@@ -1,13 +1,13 @@
 #include <stdlib.h>
 
 #include "seats.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "astra_locale.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
-#include "astra_date_time.h"
 #include "oralib.h"
 #include "salons.h"
 #include "comp_layers.h"
@@ -29,9 +29,8 @@
 
 using namespace std;
 using namespace AstraLocale;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace ASTRA;
-using namespace ASTRA::date_time;
 
 namespace SEATS2 //new terminal
 {

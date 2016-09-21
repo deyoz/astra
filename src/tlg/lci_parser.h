@@ -4,7 +4,6 @@
 #include "tlg_parser.h"
 #include <tr1/memory>
 
-using BASIC::date_time::TDateTime;
 
 namespace TypeB
 {
@@ -392,7 +391,7 @@ class TLCIContent
 };
 
 void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con, TMemoryManager &mem);
-void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, TLCIContent& con);
+void SaveLCIContent(int tlg_id, BASIC::TDateTime time_receive, TLCIHeadingInfo& info, TLCIContent& con);
 
 int lci(int argc,char **argv);
 

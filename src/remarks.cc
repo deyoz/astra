@@ -6,7 +6,6 @@
 #include "serverlib/str_utils.h"
 #include "astra_utils.h"
 #include "term_version.h"
-#include "date_time.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -14,7 +13,6 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC::date_time;
 
 TRemCategory getRemCategory( const string &rem_code, const string &rem_text )
 {
@@ -830,7 +828,7 @@ class TPaxRemOriginItem
     TPaxRemItem rem;
     int user_id;
     string desk;
-    TDateTime time_create;
+    BASIC::TDateTime time_create;
     TPaxRemOriginItem()
     {
       clear();
@@ -929,7 +927,7 @@ void TPaxRemOriginList::add(const multiset<TPaxRemItem> &rems,
   TPaxRemOriginItem item;
   item.user_id=user_id;
   item.desk=desk;
-  item.time_create=NowUTC();
+  item.time_create=BASIC::NowUTC();
   for(multiset<TPaxRemItem>::const_iterator i=rems.begin(); i!=rems.end(); ++i)
   {
     item.rem=*i;

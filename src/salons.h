@@ -8,13 +8,11 @@
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "astra_consts.h"
-#include "date_time.h"
+#include "basic.h"
 #include "images.h"
 #include "web_main.h"
 #include "base_tables.h"
 #include "seats_utils.h"
-
-using BASIC::date_time::TDateTime;
 
 namespace SALONS2
 {
@@ -114,9 +112,9 @@ struct TPlaceLayer {
     int point_arv;
     ASTRA::TCompLayerType layer_type;
     int priority;
-    TDateTime time_create;
+    BASIC::TDateTime time_create;
   TPlaceLayer( int vpax_id, int vpoint_dep, int vpoint_arv,
-               ASTRA::TCompLayerType vlayer_type, TDateTime vtime_create, int vpriority ) {
+               ASTRA::TCompLayerType vlayer_type, BASIC::TDateTime vtime_create, int vpriority ) {
         pax_id = vpax_id;
         point_dep = vpoint_dep;
         point_arv = vpoint_arv;
@@ -411,7 +409,7 @@ struct TSeatLayer {
   ASTRA::TCompLayerType layer_type;
   int pax_id;
   int crs_pax_id;
-  TDateTime time_create;
+  BASIC::TDateTime time_create;
   bool inRoute;
   bool equal( const TSeatLayer &seatLayer ) const {
     return ( point_id == seatLayer.point_id &&
@@ -450,7 +448,7 @@ struct TSeatLayer {
   std::string toString() const;
 };
 
-inline int SIGND( TDateTime a ) {
+inline int SIGND( BASIC::TDateTime a ) {
     return (a > 0.0) - (a < 0.0);
 };
 
@@ -858,7 +856,7 @@ class TPlace {
 
     void SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &salonTariffs, const TSeatTariffMap::TStatus &status );
     void SetTariffsByRFISC( int point_dep );
-    void AddLayerToPlace( ASTRA::TCompLayerType l, TDateTime time_create, int pax_id,
+    void AddLayerToPlace( ASTRA::TCompLayerType l, BASIC::TDateTime time_create, int pax_id,
                            int point_dep, int point_arv, int priority ) {
         std::vector<TPlaceLayer>::iterator i;
       for (i=layers.begin(); i!=layers.end(); i++) {

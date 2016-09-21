@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include "basic.h"
 #include "stages.h"
 #include "exceptions.h"
 #include "xml_unit.h"
@@ -8,7 +9,6 @@
 #include "xml_unit.h"
 #include "telegram.h"
 #include "astra_service.h"
-#include "astra_date_time.h"
 #include "apis.h"
 #include "salons.h"
 #include "term_version.h"
@@ -25,12 +25,10 @@
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;
-using namespace ASTRA::date_time;
-
 const struct {
     const char *name;
     TStage stage;

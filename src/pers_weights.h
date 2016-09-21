@@ -3,12 +3,10 @@
 
 #include <string>
 #include <vector>
-#include "date_time.h"
+#include "basic.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "events.h"
-
-using BASIC::date_time::TDateTime;
 
 struct ClassesPersWeight {
   int id;
@@ -61,8 +59,8 @@ class PersWeightRules {
 
 struct TPerTypeWeight {
   int id;
-  TDateTime first_date;
-  TDateTime last_date;
+  BASIC::TDateTime first_date;
+  BASIC::TDateTime last_date;
   bool pr_summer;
   std::string airline;
   std::string craft;
@@ -83,7 +81,7 @@ class TPersWeights
     //static TPersWeights *Instance();
     TPersWeights();
     void Update();
-    void getRules( const TDateTime &scd_utc, const std::string &airline,
+    void getRules( const BASIC::TDateTime &scd_utc, const std::string &airline,
                    const std::string &craft, const std::string &bort,
                    PersWeightRules &weights );
     void getRules( int point_id, PersWeightRules &rweights );

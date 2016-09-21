@@ -7,9 +7,6 @@
 #include "baggage.h"
 #include "remarks.h"
 #include <boost/optional.hpp>
-#include "date_time.h"
-
-using BASIC::date_time::TDateTime;
 
 const long int NO_FIELDS=0x0000;
 
@@ -97,7 +94,7 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
-bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn);
+bool LoadPaxTkn(BASIC::TDateTime part_key, int pax_id, TPaxTknItem &tkn);
 bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn);
 
 class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
@@ -113,9 +110,9 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
     std::string issue_country;
     std::string no;
     std::string nationality;
-    TDateTime birth_date;
+    BASIC::TDateTime birth_date;
     std::string gender;
-    TDateTime expiry_date;
+    BASIC::TDateTime expiry_date;
     std::string surname;
     std::string first_name;
     std::string second_name;
@@ -207,8 +204,8 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic
     std::string type;
     std::string no;
     std::string issue_place;
-    TDateTime issue_date;
-    TDateTime expiry_date;
+    BASIC::TDateTime issue_date;
+    BASIC::TDateTime expiry_date;
     std::string applic_country;
     long int scanned_attrs;
     bool doco_confirm;
@@ -568,14 +565,14 @@ class TPnrAddrItem
 };
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc);
-bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc);
-std::string GetPaxDocStr(TDateTime part_key,
+bool LoadPaxDoc(BASIC::TDateTime part_key, int pax_id, TPaxDocItem &doc);
+std::string GetPaxDocStr(BASIC::TDateTime part_key,
                          int pax_id,
                          bool with_issue_country=false,
                          const std::string &lang="");
 
 bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc);
-bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc);
+bool LoadPaxDoco(BASIC::TDateTime part_key, int pax_id, TPaxDocoItem &doc);
 enum TDocaType
 {
   docaDestination,
@@ -590,8 +587,8 @@ void ConvertDoca(const std::list<TPaxDocaItem> &doca,
 
 bool LoadPaxDoca(int pax_id, std::list<TPaxDocaItem> &doca);
 bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca);
-bool LoadPaxDoca(TDateTime part_key, int pax_id, std::list<TPaxDocaItem> &doca);
-bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca);
+bool LoadPaxDoca(BASIC::TDateTime part_key, int pax_id, std::list<TPaxDocaItem> &doca);
+bool LoadPaxDoca(BASIC::TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca);
 
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, bool without_inf_indicator=false);
 bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc);

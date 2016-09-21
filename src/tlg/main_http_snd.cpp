@@ -18,6 +18,7 @@
 using namespace EXCEPTIONS;
 using namespace ASTRA;
 using namespace std;
+using namespace BASIC;
 
 static int sockfd=-1;
 

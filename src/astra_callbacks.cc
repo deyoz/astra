@@ -26,6 +26,7 @@
 #include "crypt.h"
 #include "dev_tuning.h"
 #include "astra_utils.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "astra_locale.h"
 #include "oralib.h"
@@ -49,6 +50,7 @@
 #include "serverlib/test.h"
 
 using namespace jxtlib;
+using namespace BASIC;
 
 void AstraJxtCallbacks::InitInterfaces()
 {

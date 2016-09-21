@@ -5,6 +5,7 @@
 
 #include "file_queue.h"
 #include "exceptions.h"
+#include "basic.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "qrys.h"
@@ -15,7 +16,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC::date_time;
+using namespace BASIC;
 
 void TFilterQueue::createQuery( TQuery &Qry ) const
 {
@@ -92,7 +93,7 @@ std::string TFileQueue::gettype( int id )
   return res;
 }
 
-TDateTime TFileQueue::getwait_time( int id )
+BASIC::TDateTime TFileQueue::getwait_time( int id )
 {
   TQuery Qry( &OraSession );
   Qry.SQLText =
@@ -103,7 +104,7 @@ TDateTime TFileQueue::getwait_time( int id )
   if ( Qry.Eof ) {
     throw Exception( "TFileQueue::getstatus(%d): file not found", id );
   }
-  TDateTime res = NowUTC() - Qry.FieldAsDateTime( "puttime" );
+  BASIC::TDateTime res = NowUTC() - Qry.FieldAsDateTime( "puttime" );
   return res;
 }
 
@@ -204,7 +205,7 @@ void TFileQueue::get( const TFilterQueue &filter,
   TQuery Qry( &OraSession );
   filter.createQuery( Qry );
   Qry.Execute();
-  TDateTime UTCSysdate = NowUTC();
+  BASIC::TDateTime UTCSysdate = NowUTC();
   std::set<std::string> file_keys;
   for ( ; !Qry.Eof; Qry.Next() ) {
     if ( filter.pr_first_order ) { //нужна последовательность посылки данных

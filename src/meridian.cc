@@ -6,7 +6,7 @@
 #include "astra_utils.h"
 #include "astra_context.h"
 #include "convert.h"
-#include "astra_date_time.h"
+#include "basic.h"
 #include "misc.h"
 #include "astra_misc.h"
 #include "points.h"
@@ -20,8 +20,7 @@
 
 using namespace std;
 using namespace ASTRA;
-using namespace ASTRA::date_time;
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace AstraLocale;
 
 namespace MERIDIAN {
@@ -78,7 +77,7 @@ void GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   if ( str_scd_out.empty() )
         throw UserException( "MSG.FLIGHT_DATE.NOT_SET" );
     else
-        if ( StrToDateTime( str_scd_out.c_str(), "dd.mm.yyyy hh:nn", scd_out ) == EOF )
+        if ( BASIC::StrToDateTime( str_scd_out.c_str(), "dd.mm.yyyy hh:nn", scd_out ) == EOF )
             throw UserException( "MSG.FLIGHT_DATE.INVALID",
                                    LParams()<<LParam("scd_out", str_scd_out) );
     node = GetNode( "airp_dep", reqNode );
@@ -174,7 +173,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     throw AstraLocale::UserException( "Airline is not permit for user" );
   }
   TDateTime vdate, vpriordate;
-  if ( StrToDateTime( str_date.c_str(), "dd.mm.yyyy hh:nn:ss", vdate ) == EOF )
+  if ( BASIC::StrToDateTime( str_date.c_str(), "dd.mm.yyyy hh:nn:ss", vdate ) == EOF )
         throw UserException( "Invalid tag value '@time'" );
   bool pr_reset = ( GetNode( "@reset", reqNode ) != NULL );
   string prior_paxs;
@@ -187,7 +186,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
       node = GetNode( "@time", nodePax );
       if ( node == NULL )
         throw AstraLocale::UserException( "Tag '@time' not found in context" );
-      if ( StrToDateTime( NodeAsString( node ), "dd.mm.yyyy hh:nn:ss", vpriordate ) == EOF )
+      if ( BASIC::StrToDateTime( NodeAsString( node ), "dd.mm.yyyy hh:nn:ss", vpriordate ) == EOF )
             throw UserException( "Invalid tag value '@time' in context" );
       if ( vpriordate == vdate ) { // разбор дерева при условии, что предыдущий запрос не передал всех пассажиров за заданный момент времени
         nodePax = nodePax->children;

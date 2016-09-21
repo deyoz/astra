@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include <set>
-#include "astra_date_time.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "convert.h"
@@ -18,11 +18,10 @@
 #include "serverlib/slogger.h"
 #include "apis_utils.h"
 
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 using namespace ASTRA;
-using namespace ASTRA::date_time;
 
 bool TTripInfo::getByPointId ( const int point_id )
 {

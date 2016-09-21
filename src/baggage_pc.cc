@@ -3,6 +3,7 @@
 #include "astra_context.h"
 #include "httpClient.h"
 #include "points.h"
+#include "basic.h"
 #include "astra_misc.h"
 #include "misc.h"
 #include "emdoc.h"
@@ -17,7 +18,7 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
-using namespace BASIC::date_time;
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 using namespace AstraLocale;
@@ -2032,7 +2033,7 @@ void TPassengersReq::fromXML(xmlNodePtr node)
       if (str.empty()) throw Exception("Empty flight number <flight> '%s'", flight.c_str());
     };
 
-    if ( StrToInt( str.c_str(), flt_no ) == EOF ||
+    if ( BASIC::StrToInt( str.c_str(), flt_no ) == EOF ||
          flt_no > 99999 || flt_no <= 0 ) throw Exception("Wrong flight number <flight> '%s'", flight.c_str());
 
     str=suffix;
@@ -2044,7 +2045,7 @@ void TPassengersReq::fromXML(xmlNodePtr node)
 
     str=NodeAsString("departure_date", node);
     if (str.empty()) throw Exception("Empty <departure_date>");
-    if ( StrToDateTime(str.c_str(), "yyyy-mm-dd", scd_out) == EOF )
+    if ( BASIC::StrToDateTime(str.c_str(), "yyyy-mm-dd", scd_out) == EOF )
       throw Exception("Wrong <departure_date> '%s'", str.c_str());
 
     str=NodeAsString("departure", node);

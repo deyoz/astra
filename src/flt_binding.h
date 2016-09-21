@@ -2,10 +2,8 @@
 #define _FLT_BINDING_H_
 
 #include <vector>
-#include "date_time.h"
+#include "basic.h"
 #include "astra_misc.h"
-
-using BASIC::date_time::TDateTime;
 
 class TFltInfo
 {
@@ -13,7 +11,7 @@ class TFltInfo
     char airline[4];
     long flt_no;
     char suffix[2];
-    TDateTime scd;
+    BASIC::TDateTime scd;
     bool pr_utc;
     char airp_dep[4],airp_arv[4];
     TFltInfo()

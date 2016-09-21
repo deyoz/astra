@@ -1,5 +1,6 @@
 #include "astra_utils.h"
 #include "dev_utils.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "stl_utils.h"
 #include "misc.h"
@@ -11,6 +12,7 @@
 using namespace ASTRA;
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace BASIC;
 using namespace BCBPSectionsEnums;
 
 
@@ -239,7 +241,7 @@ int BCBPUniqueSections::numberOfLigs() const
 {
   if (mandatory.size()!=23) throw EConvertError("invalid size of unique mandatory section");
   int result=NoExists;
-  if (StrToInt(mandatory.substr(1,1).c_str(), result)==EOF ||
+  if (BASIC::StrToInt(mandatory.substr(1,1).c_str(), result)==EOF ||
       result<=0 || result>9) throw EConvertError("invalid item 5 <Number of Legs Encoded>");
   return result;
 }
@@ -331,7 +333,7 @@ std::pair<int, std::string> BCBPRepeatedSections::flightNumber() const
     if (str.empty()) throw EConvertError("invalid item 43 <Flight Number>");
   };
 
-  if ( StrToInt( str.c_str(), result.first ) == EOF ||
+  if ( BASIC::StrToInt( str.c_str(), result.first ) == EOF ||
        result.first > 99999 || result.first <= 0 )
     throw EConvertError("invalid item 43 <Flight Number>");
 
@@ -342,7 +344,7 @@ int BCBPRepeatedSections::dateOfFlight() const
 {
   if (mandatory.size()!=37) throw EConvertError("invalid size of repeated mandatory section");
   int result=NoExists;
-  if (StrToInt(mandatory.substr(21,3).c_str(), result)==EOF ||
+  if (BASIC::StrToInt(mandatory.substr(21,3).c_str(), result)==EOF ||
       result<=0 || result>366) throw EConvertError("invalid item 46 <Date of Flight (Julian Date)>");
   return result;
 }
@@ -363,7 +365,7 @@ std::pair<int, std::string> BCBPRepeatedSections::checkinSeqNumber() const
       if (str.empty()) throw EConvertError("invalid item 107 <Check-In Sequence Number>");
     };
 
-    if ( StrToInt( str.c_str(), result.first ) == EOF ||
+    if ( BASIC::StrToInt( str.c_str(), result.first ) == EOF ||
          result.first > 99999 || result.first <= 0 )
       throw EConvertError("invalid item 107 <Check-In Sequence Number>");
   };
@@ -1020,7 +1022,7 @@ boost::optional<BCBPSectionsEnums::SourceOfIssuance> BCBPSections::source_of_boa
     return ret;
 }
 
-boost::optional<TDateTime> BCBPSections::date_of_boarding_pass_issuance()
+boost::optional<BASIC::TDateTime> BCBPSections::date_of_boarding_pass_issuance()
 {   using namespace BASIC;
     string err;
     if(check_none_in_cond_int(unique.conditional, pos_pass_issuance_date, true))
@@ -1446,7 +1448,7 @@ void BCBPSections::set_source_of_boarding_pass_issuance(boost::optional<BCBPSect
 {  write_field(unique.conditional, pos_pass_issuance_source, x, "WKXRMOTV", "source of boarding pass issuance", conditional_str);
 }
 
-void BCBPSections::set_date_of_boarding_pass_issuance(boost::optional<TDateTime> x)
+void BCBPSections::set_date_of_boarding_pass_issuance(boost::optional<BASIC::TDateTime> x)
 {  if(x == boost::none)
     {   write_field(unique.conditional, pos_pass_issuance_date, "", "date of boarding pass issuance", conditional_str);
         return;
@@ -1506,7 +1508,7 @@ void BCBPSections::set_date_of_flight_raw(boost::optional<int> x, int i)
 
 
 
-void BCBPSections::set_date_of_flight(boost::optional<TDateTime> x, int i)
+void BCBPSections::set_date_of_flight(boost::optional<BASIC::TDateTime> x, int i)
 {       if(x == boost::none)
        {    write_field(repeated[i].mandatory, pos_date_of_flight, "", "date of flight", mandatory_str);
             return;
