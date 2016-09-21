@@ -302,7 +302,7 @@ namespace BIPrintRules {
                 TBrands brands;
                 brands.get(pax_id);
                 // Если не найдено ни одного бренда, добавляем пустой, чтобы get_rule все-таки отработала
-                if(brands.items.empty()) brands.items.push_back(string());
+                if(brands.items.empty()) brands.items.push_back(make_pair(NoExists, ""));
 
                 // Достаем ремарки
                 set<CheckIn::TPaxFQTItem> fqts;
@@ -317,14 +317,14 @@ namespace BIPrintRules {
 
                 BIPrintRules::TRule tmp_rule = bi_rule; // чтобы не потерять hall, is_business_hall, pr_print_bi
                 for(set<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); ++iFqt)
-                    for(list<string>::iterator iBrand = brands.items.begin(); iBrand != brands.items.end(); ++iBrand) {
+                    for(TBrands::TItems::iterator iBrand = brands.items.begin(); iBrand != brands.items.end(); ++iBrand) {
                         BIPrintRules::get_rule(
                                 t.airline,
                                 iFqt->tier_level,
                                 cls,
                                 subcls,
                                 iFqt->rem,
-                                *iBrand,
+                                iBrand->second,
                                 tmp_rule
                                 );
 
