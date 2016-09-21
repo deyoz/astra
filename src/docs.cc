@@ -2103,14 +2103,14 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       int excess_pc = NodeAsInteger("excess_pc",rowNode);
       if(excess != 0 and excess_pc != 0)
           str_excess
-              << excess << getLocaleText("ª£")
-              << "/" << excess_pc << getLocaleText("¬");
+              << excess << getLocaleText("ª£", rpt_params.GetLang())
+              << "/" << excess_pc << getLocaleText("¬", rpt_params.GetLang());
       else if(excess != 0)
           str_excess
-              << excess << getLocaleText("ª£");
+              << excess << getLocaleText("ª£", rpt_params.GetLang());
       else if(excess_pc != 0)
           str_excess
-              << excess_pc << getLocaleText("¬");
+              << excess_pc << getLocaleText("¬", rpt_params.GetLang());
       else
           str_excess << 0;
 
@@ -3282,8 +3282,8 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
     NodeSetContent(totalNode, getLocaleText("CAP.TOTAL.VAL", LParams() << LParam("total", NodeAsString(totalNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
-    NewTextChild(variablesNode, "kg", getLocaleText("ª£"));
-    NewTextChild(variablesNode, "pc", getLocaleText("¬"));
+    NewTextChild(variablesNode, "kg", getLocaleText("ª£", rpt_params.GetLang()));
+    NewTextChild(variablesNode, "pc", getLocaleText("¬", rpt_params.GetLang()));
 }
 
 void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
