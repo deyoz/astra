@@ -1000,6 +1000,18 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
   };
 }
 
+bool MoreThanOnePersonWithSeat(const vector< TWebPnr > &pnrs)
+{
+  int persons=0;
+  for(vector< TWebPnr >::const_iterator iPnr=pnrs.begin(); iPnr!=pnrs.end(); ++iPnr)
+    for(vector<TWebPax>::const_iterator iPax=iPnr->paxs.begin(); iPax!=iPnr->paxs.end(); ++iPax)
+    {
+      if (iPax->seats!=0) persons++;
+      if (persons>1) return true;
+    };
+  return persons>1;
+}
+
 void IntLoadPnr( const vector<TIdsPnrData> &ids,
                  const boost::optional<WebSearch::TPNRFilter> &filter,
                  vector< TWebPnr > &pnrs,
@@ -1222,9 +1234,10 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     ids.push_back( idsPnrData );
   };
 
+  bool charter_search=!ids.empty() &&
+                      GetSelfCkinSets(tsSelfCkinCharterSearch, ids.front().point_id, TReqInfo::Instance()->client_type);
   boost::optional<WebSearch::TPNRFilter> filter;
-  if (!ids.empty() &&
-      GetSelfCkinSets(tsSelfCkinCharterSearch, ids.front().point_id, TReqInfo::Instance()->client_type))
+  if (charter_search)
   {
     xmlNodePtr searchParamsNode=GetNode("search_params", reqNode);
     if (searchParamsNode!=NULL)
@@ -1237,6 +1250,8 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   vector< TWebPnr > pnrs;
   segsNode = NewTextChild( NewTextChild( resNode, "LoadPnr" ), "segments" );
   IntLoadPnr( ids, filter, pnrs, segsNode, false );
+  if (charter_search && MoreThanOnePersonWithSeat(pnrs))
+    throw UserException("MSG.CHARTER_SEARCH.FOUND_MORE.ADJUST_SEARCH_PARAMS");
 }
 
 bool isOwnerFreePlace( int pax_id, const vector<TWebPax> &pnr )
