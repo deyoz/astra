@@ -140,7 +140,8 @@ astra_SOURCES = \
   astra_emd.cpp \
   EdiTimeOutsDaemon.cc \
   TypeBHelpMng.cpp \
-  img.cpp
+  img.cpp \
+  brands.cpp
 
 
 astra_LDADD = $(all_libraries) \
@@ -272,4 +273,5 @@ noinst_HEADERS = \
   astra_dates_oci.h \
   astra_emd.h \
   TypeBHelpMng.h \
-  img.h
+  img.h \
+  brands.h

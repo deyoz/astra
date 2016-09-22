@@ -12,6 +12,7 @@
 #include "remarks.h"
 #include "passenger.h"
 #include "bi_rules.h"
+#include "brands.h"
 
 const std::string FT_M61 = "M61"; // form type
 const std::string FT_298_401 = "298 401";
@@ -33,6 +34,7 @@ namespace TAG {
     const std::string TAGS = "TAGS"; // багаж в посадочном
     const std::string BAG_WEIGHT = "BAG_WEIGHT";
     const std::string BAGGAGE = "BAGGAGE";
+    const std::string BRAND = "BRAND";
     const std::string BRD_FROM = "BRD_FROM";
     const std::string BRD_TO = "BRD_TO";
     const std::string CHD = "CHD";
@@ -347,6 +349,7 @@ class TPrnTagStore {
             bool pr_bp_print;
             bool pr_bi_print;
             CheckIn::TPaxDocItem doc;
+            TBrands brand;
             TPaxInfo():
                 pax_id(ASTRA::NoExists),
                 coupon_no(ASTRA::NoExists),
@@ -436,6 +439,7 @@ class TPrnTagStore {
         std::string TAGS(TFieldParams fp);
         std::string BAG_WEIGHT(TFieldParams fp);
         std::string BAGGAGE(TFieldParams fp);
+        std::string BRAND(TFieldParams fp);
         std::string BRD_FROM(TFieldParams fp);
         std::string BRD_TO(TFieldParams fp);
         std::string CHD(TFieldParams fp);
