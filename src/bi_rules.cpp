@@ -5,7 +5,6 @@
 #include "dev_utils.h"
 #include "etick.h"
 #include "term_version.h"
-#include "brands.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -278,7 +277,9 @@ namespace BIPrintRules {
                 "select "
                 "   pax.pax_id, "
                 "   pax_grp.class, "
-                "   pax.subclass "
+                "   pax.subclass, "
+                "   pax.ticket_no, "
+                "   pax.coupon_no "
                 "from "
                 "   pax, "
                 "   pax_grp "
@@ -291,6 +292,8 @@ namespace BIPrintRules {
             int pax_id = paxQry.get().FieldAsInteger("pax_id");
             string cls = paxQry.get().FieldAsString("class");
             string subcls = paxQry.get().FieldAsString("subclass");
+            string ticket_no = paxQry.get().FieldAsString("ticket_no");
+            int coupon_no = paxQry.get().FieldAsInteger("coupon_no");
             TRule bi_rule;
             // Достаем данные из кеша Обслуживание авиакомпаний в аэропортах
             if(bi_airline_service(t, bi_rule)) {
@@ -298,11 +301,30 @@ namespace BIPrintRules {
                 // Список залов     (bi_rule.halls)
                 // Биз. пригл.      (bi_rule.pr_print_bi)
 
-                // Достаем бренды
-                TBrands brands;
-                brands.get(pax_id);
+                // Достаем fare_basis (etick.fare_basis)
+                TETickItem etick;
+
+                try { // может не быть ЭБ
+                    etick.fromDB(ticket_no, coupon_no, TETickItem::Display, false);
+                } catch(...) {
+                }
+
+                list<string> brands;
+                if(not etick.fare_basis.empty())
+                {
+
+                    // Достаем бренды, соотв. etick.fare_basis (их не может быть > 1, ну а вдруг?)
+                    TCachedQuery brandQry(
+                            "select brand from brand_fares where  airline = :airline and :fare_basis like replace(fare_basis, '*', '%')",
+                            QParams()
+                            << QParam("airline", otString, t.airline)
+                            << QParam("fare_basis", otString, etick.fare_basis));
+                    brandQry.get().Execute();
+                    for(; not brandQry.get().Eof; brandQry.get().Next())
+                        brands.push_back(brandQry.get().FieldAsString("brand"));
+                }
                 // Если не найдено ни одного бренда, добавляем пустой, чтобы get_rule все-таки отработала
-                if(brands.items.empty()) brands.items.push_back(string());
+                if(brands.empty()) brands.push_back(string());
 
                 // Достаем ремарки
                 set<CheckIn::TPaxFQTItem> fqts;
@@ -317,7 +339,7 @@ namespace BIPrintRules {
 
                 BIPrintRules::TRule tmp_rule = bi_rule; // чтобы не потерять hall, is_business_hall, pr_print_bi
                 for(set<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); ++iFqt)
-                    for(list<string>::iterator iBrand = brands.items.begin(); iBrand != brands.items.end(); ++iBrand) {
+                    for(list<string>::iterator iBrand = brands.begin(); iBrand != brands.end(); ++iBrand) {
                         BIPrintRules::get_rule(
                                 t.airline,
                                 iFqt->tier_level,
