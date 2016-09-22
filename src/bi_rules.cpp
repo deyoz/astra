@@ -302,7 +302,7 @@ namespace BIPrintRules {
                 TBrands brands;
                 brands.get(pax_id);
                 // Если не найдено ни одного бренда, добавляем пустой, чтобы get_rule все-таки отработала
-                if(brands.items.empty()) brands.items.push_back(make_pair(NoExists, ""));
+                if(brands.items.empty()) brands.items.push_back(NoExists);
 
                 // Достаем ремарки
                 set<CheckIn::TPaxFQTItem> fqts;
@@ -324,7 +324,7 @@ namespace BIPrintRules {
                                 cls,
                                 subcls,
                                 iFqt->rem,
-                                iBrand->second,
+                                ElemIdToCodeNative(etBrand, *iBrand),
                                 tmp_rule
                                 );
 

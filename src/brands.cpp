@@ -49,8 +49,7 @@ void TBrands::get(const std::string &airline, const std::string &fare_basis)
     items.clear();
     TCachedQuery brandQry(
             "select "
-            "   brands.id, "
-            "   brand "
+            "   brands.id "
             "from "
             "   brand_fares, "
             "   brands "
@@ -64,12 +63,7 @@ void TBrands::get(const std::string &airline, const std::string &fare_basis)
             << QParam("fare_basis", otString, fare_basis));
     brandQry.get().Execute();
     for(; not brandQry.get().Eof; brandQry.get().Next())
-        items.push_back(
-                make_pair(
-                    brandQry.get().FieldAsInteger("id"),
-                    brandQry.get().FieldAsString("brand")
-                    )
-                );
+        items.push_back(brandQry.get().FieldAsInteger("id"));
 }
 
 
