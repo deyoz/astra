@@ -255,8 +255,10 @@ std::string get_canon_name(const std::string& edi_addr)
     "SELECT canon_name FROM edi_addrs WHERE addr=:addr";
   Qry.CreateVariable("addr",otString,edi_addr);
   Qry.Execute();
-  if (Qry.Eof||Qry.FieldIsNULL("canon_name"))
+  if (Qry.Eof||Qry.FieldIsNULL("canon_name")) {
+    LogTrace(TRACE3) << "get_canon_name by " << edi_addr << " return default canon_name";
     return ETS_CANON_NAME();
+  }
   return Qry.FieldAsString("canon_name");
 }
 void copy_notify_levb(const int src_edi_sess_id,

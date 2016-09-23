@@ -15,6 +15,7 @@
 #include "astra_context.h"
 #include "emd_disp_request.h"
 #include "postpone_edifact.h"
+#include "basetables.h"
 #include "tlg_source_edifact.h"
 #include "remote_system_context.h"
 #include "astra_tick_read_edi.h"
@@ -95,8 +96,100 @@ std::string get_edi_own_addr()
 
 //---------------------------------------------------------------------------------------
 
-std::string NewAstraEdiSessWR::ourUnbAddr() const { return sysCont()->ourAddrEdifact(); }
-std::string NewAstraEdiSessWR::unbAddr() const { return sysCont()->remoteAddrEdifact(); }
+AstraEdiSessWR::AstraEdiSessWR(const std::string &pult,
+                               edi_mes_head *mhead,
+                               const Ticketing::RemoteSystemContext::SystemContext* sysctxt)
+    : Pult(pult),
+      EdiHead(mhead),
+      H2H(0),
+      SysCtxt(sysctxt)
+{
+    BaseTables::Router rot(sysctxt->routerCanonName());
+    ASSERT(rot);
+    if(rot->isH2h())
+    {
+        if(!rot->h2hSrcAddr().empty() && !rot->h2hDestAddr().empty())
+        {
+            H2H = new hth::HthInfo;
+            memset(H2H, 0, sizeof(*H2H));
+        }
+        else
+        {
+            tst();
+            LogError(STDLOG) << "Some of h2h addresses are empty! " <<
+                    rot->h2hSrcAddr() << "/" << rot->h2hDestAddr();
+        }
+    }
+
+}
+
+hth::HthInfo* AstraEdiSessWR::hth()
+{
+    return H2H;
+}
+
+std::string AstraEdiSessWR::sndrHthAddr() const
+{
+    return BaseTables::Router(sysCont()->routerCanonName())->h2hSrcAddr();
+}
+
+std::string AstraEdiSessWR::rcvrHthAddr() const
+{
+    return BaseTables::Router(sysCont()->routerCanonName())->h2hDestAddr();
+}
+
+std::string AstraEdiSessWR::hthTpr() const
+{
+    if(ediSession()->ourCarf().length() > 4)
+        return ediSession()->ourCarf().substr(ediSession()->ourCarf().length() - 4);
+    else
+        return ediSession()->ourCarf();
+}
+
+std::string AstraEdiSessWR::baseOurrefName() const
+{
+    return "ASTRA";
+}
+
+edi_mes_head* AstraEdiSessWR::edih()
+{
+    return EdiHead;
+}
+
+const edi_mes_head* AstraEdiSessWR::edih() const
+{
+    return EdiHead;
+}
+
+std::string AstraEdiSessWR::pult() const
+{
+    return Pult;
+}
+
+std::string AstraEdiSessWR::ourUnbAddr() const
+{
+    return sysCont()->ourAddrEdifact();
+}
+
+std::string AstraEdiSessWR::unbAddr() const
+{
+    return sysCont()->remoteAddrEdifact();
+}
+
+edilib::EdiSession* AstraEdiSessWR::ediSession()
+{
+    return &EdiSess;
+}
+
+const edilib::EdiSession* AstraEdiSessWR::ediSession() const
+{
+    return &EdiSess;
+}
+
+const Ticketing::RemoteSystemContext::SystemContext* AstraEdiSessWR::sysCont() const
+{
+    return SysCtxt;
+}
 
 //---------------------------------------------------------------------------------------
 

@@ -35,6 +35,7 @@ bool TlgSourceEdifact::isItYours(const std::string & txt)
 
 void TlgSourceEdifact::write()
 {
+    LogTrace(TRACE1) << "TlgSourceEdifact write";
     TlgSourceTypified::writeToDb(*this);
     if(!h2h()) {
         LogTrace(TRACE3) << "No h2h";

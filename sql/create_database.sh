@@ -34,6 +34,7 @@ ${SYSCMD:-""}
 drop user $user cascade;
 create user $user identified by $password;
 alter user $user default tablespace USERS;
+alter user $user QUOTA UNLIMITED on USERS;
 alter system set open_cursors=2000 scope=both;
 grant create any view to $user;
 grant resource to $user;

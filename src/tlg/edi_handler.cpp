@@ -24,6 +24,7 @@
 #include <serverlib/ourtime.h>
 #include <serverlib/TlgLogger.h>
 #include <edilib/edi_func_cpp.h>
+#include <libtlg/telegrams.h>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -115,12 +116,21 @@ static bool isTlgPostponed(const tlg_info& tlg)
 
 void handle_edi_tlg(const tlg_info &tlg)
 {    
+    hth::HthInfo h2h = {};
+    bool isH2h = false;
+
+    tlgnum_t tlgNum(boost::lexical_cast<std::string>(tlg.id));
+    if (!telegrams::callbacks()->readHthInfo(tlgNum, h2h)) {
+        isH2h = true;
+    }
+
     LogTlg() << "| TNUM: " << tlg.id
              << " | DIR: " << "IN"
              << " | ROUTER: " << tlg.sender
              << " | TSTAMP: " << boost::posix_time::second_clock::local_time()
-             << (isTlgPostponed(tlg) ? " | POSTPONED" : "");
-    LogTlg() << TlgHandling::TlgSourceEdifact(tlg.text).text2view();
+             << (isTlgPostponed(tlg) ? " | POSTPONED" : "") << "\n"
+             << (isH2h ? hth::toStringOnTerm(h2h) + "\n" : "")
+             << TlgHandling::TlgSourceEdifact(tlg.text).text2view();
 
     const int tlg_id = tlg.id;
     ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg_id);
@@ -145,7 +155,8 @@ void handle_edi_tlg(const tlg_info &tlg)
         answTlg = proc_new_edifact(tlgSrc);
 
         // если сформировался ответ, отправим его
-        if(answTlg) {
+        if(answTlg)
+        {
             answTlg->setToRot(tlg.sender);
             answTlg->setFromRot(OWN_CANON_NAME());
             sendEdiTlg(*answTlg);

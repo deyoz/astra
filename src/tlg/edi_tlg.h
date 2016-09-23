@@ -29,77 +29,52 @@ struct EdiMess
     static const std::string EmdDisplay;
 };
 
-class AstraEdiSessWR : public edilib::EdiSessWrData
+class AstraEdiSessWR: public edilib::EdiSessWrData
 {
     edilib::EdiSession EdiSess;
     std::string Pult;
     edi_mes_head *EdiHead;
-public:
-    AstraEdiSessWR(const std::string &pult)
-    : Pult(pult)
-    {
-        static const edi_mes_head zero_head = {};
-        EdiHead = new edi_mes_head(zero_head);
-    }
 
-    AstraEdiSessWR(const std::string &pult, edi_mes_head *mhead)
-        : Pult(pult), EdiHead(mhead)
-    {
-    }
-
-    virtual edilib::EdiSession *ediSession() { return &EdiSess; }
-
-    virtual hth::HthInfo *hth() { return 0; };
-    virtual std::string sndrHthAddr() const { return ""; };
-    virtual std::string rcvrHthAddr() const { return ""; };
-    virtual std::string hthTpr() const { return ""; };
-
-    // В СИРЕНЕ это recloc/ или our_name из sirena.cfg
-    // Идентификатор сессии
-    virtual std::string baseOurrefName() const { return "ASTRA"; };
-    virtual edi_mes_head *edih() { return EdiHead; };
-    virtual const edi_mes_head *edih() const { return EdiHead; };
-    virtual std::string pult() const { return Pult; };
-    // Аттрибуты сообщения
-    virtual std::string ourUnbAddr() const { return get_edi_own_addr(); }
-    virtual std::string unbAddr() const { return get_edi_addr(); }
-};
-
-// new edifact
-class NewAstraEdiSessWR: public AstraEdiSessWR
-{
+    hth::HthInfo* H2H;
     const Ticketing::RemoteSystemContext::SystemContext* SysCtxt;
 public:
-    NewAstraEdiSessWR(const std::string &pult, edi_mes_head *mhead,
-                      const Ticketing::RemoteSystemContext::SystemContext* sysctxt)
-        : AstraEdiSessWR(pult, mhead), SysCtxt(sysctxt)
-    {}
+    AstraEdiSessWR(const std::string &pult,
+                   edi_mes_head *mhead,
+                   const Ticketing::RemoteSystemContext::SystemContext* sysctxt);
 
-    const Ticketing::RemoteSystemContext::SystemContext *sysCont() const { return SysCtxt; }
+    virtual hth::HthInfo *hth();
+    virtual std::string sndrHthAddr() const;
+    virtual std::string rcvrHthAddr() const;
+    virtual std::string hthTpr() const;
+    virtual std::string baseOurrefName() const;
+    virtual edi_mes_head *edih();
+    virtual const edi_mes_head *edih() const;
+    virtual std::string pult() const;
 
-    // Аттрибуты сообщения
     virtual std::string ourUnbAddr() const;
     virtual std::string unbAddr() const;
+
+    virtual edilib::EdiSession *ediSession();
+    virtual const edilib::EdiSession *ediSession() const;
+
+    const Ticketing::RemoteSystemContext::SystemContext *sysCont() const;
 };
 
 class AstraEdiSessRD : public edilib::EdiSessRdData
 {
     edi_mes_head Head;
     hth::HthInfo* H2H;
-    bool isH2H;
     std::string rcvr;
     std::string sndr;
     public:
         AstraEdiSessRD(const hth::HthInfo * H2H_, const edi_mes_head &Head_)
             : Head(Head_),
-              H2H( H2H_?(new hth::HthInfo(*H2H_)):0),
-              isH2H(H2H?true:false)
+              H2H( H2H_?(new hth::HthInfo(*H2H_)):0)
         {
         }
 
         AstraEdiSessRD()
-            : H2H(0),
-              isH2H(false)
+            : H2H(0)
         {
             memset(&Head, 0, sizeof(Head));
         }

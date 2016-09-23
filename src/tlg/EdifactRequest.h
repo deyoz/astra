@@ -18,7 +18,6 @@
 struct _edi_mes_head_;
 struct _EDI_REAL_MES_STRUCT_;
 
-class AstraEdiSessWR;
 namespace Ticketing {
 namespace RemoteSystemContext{
     class SystemContext;

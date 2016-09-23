@@ -43,7 +43,7 @@ EdifactRequest::EdifactRequest(const std::string &pult,
     :edilib::EdifactRequest(msg_type), TlgOut(0),
      ediSessCtxt(ctxt), m_kickInfo(v_kickInfo), SysCont(sysCont)
 {
-    setEdiSessionController(new NewAstraEdiSessWR(pult, msgHead(), sysCont));
+    setEdiSessionController(new AstraEdiSessWR(pult, msgHead(), sysCont));
     setEdiSessMesAttr();
 }
 
@@ -61,17 +61,14 @@ void EdifactRequest::sendTlg()
     collectMessage();
 
     TlgOut = new TlgSourceEdifact(makeEdifactText(), ediSess()->hth());
+    TlgOut->setToRot(sysCont()->routerCanonName());
+    TlgOut->setFromRot(OWN_CANON_NAME());
 
     LogTrace(TRACE1) << *TlgOut;
 
-    // Положить тлг в очередь на отправку
-    ::sendTlg(sysCont()->routerCanonName().c_str(),
-              OWN_CANON_NAME(),
-              qpOutA, //!!!здесь доделать step by step, если kickInfo.background_mode
-              sysCont()->edifactResponseTimeOut(),
-              TlgOut->text(),
-              ASTRA::NoExists,
-              ASTRA::NoExists);
+    // В очередь на отправку
+    sendEdiTlg(*TlgOut, sysCont()->edifactResponseTimeOut());
+
     ediSess()->ediSession()->CommitEdiSession();
 
     //запишем контексты
@@ -115,7 +112,7 @@ const TlgSourceEdifact * EdifactRequest::tlgOut() const
 
 const Ticketing::RemoteSystemContext::SystemContext * EdifactRequest::sysCont()
 {
-    return dynamic_cast<NewAstraEdiSessWR*>(ediSess())->sysCont();
+    return dynamic_cast<AstraEdiSessWR*>(ediSess())->sysCont();
 }
 
 } // namespace edifact

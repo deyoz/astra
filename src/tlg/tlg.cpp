@@ -20,6 +20,7 @@
 #include <serverlib/cursctl.h>
 #include <edilib/edi_user_func.h>
 #include <libtlg/tlg_outbox.h>
+#include <libtlg/hth.h>
 #include "xp_testing.h"
 
 #define NICKNAME "VLAD"
@@ -194,26 +195,27 @@ void putTlgText(int tlg_id, const string &tlg_text)
   TCachedQuery TextQry(sql, QryParams);
 
   longToDB(TextQry.get(), "text", tlg_text);
-};
+}
 
-string getTlgText(int tlg_id)
+std::string getTlgText(int tlg_id)
 {
-  string result;
+    std::string text;
 
-  const char* sql=
+    const char* sql=
     "SELECT text FROM tlgs_text WHERE id=:id ORDER BY page_no";
-  QParams QryParams;
-  QryParams << QParam("id", otInteger, tlg_id);
-  TCachedQuery TextQry(sql, QryParams);
-  TextQry.get().Execute();
-  for(;!TextQry.get().Eof;TextQry.get().Next())
-    result+=TextQry.get().FieldAsString("text");
-  return result;
+    QParams QryParams;
+    QryParams << QParam("id", otInteger, tlg_id);
+    TCachedQuery TextQry(sql, QryParams);
+    TextQry.get().Execute();
+    for(;!TextQry.get().Eof;TextQry.get().Next())
+        text+=TextQry.get().FieldAsString("text");
+    return text;
 }
 
 std::string getTlgText2(const tlgnum_t& tnum)
 {
-    const int tlg_id = boost::lexical_cast<int>(tnum.num);
+    tlgnum_t tlgNum(tnum); // to avoid compiler warning treated as error (used unitialized)
+    const int tlg_id = boost::lexical_cast<int>(tlgNum.num);
     return getTlgText(tlg_id);
 }
 
@@ -238,7 +240,7 @@ static void logTlg(const std::string& type, int tlgNum, const std::string& recei
         return;
 
     LogTlg() << "| TNUM: " << tlgNum
-             << " | DIR: " << "OUT"
+             << " | DIR: " << type
              << " | ROUTER: " << receiver
              << " | TSTAMP: " << boost::posix_time::second_clock::local_time();
 
@@ -248,6 +250,16 @@ static void logTlg(const std::string& type, int tlgNum, const std::string& recei
         logTlgTypeB(text);
     else
         logTlgTypeAPP(text);
+}
+
+static void logTlg(const TlgHandling::TlgSourceEdifact& tlg)
+{
+    LogTlg() << "| TNUM: " << *tlg.tlgNum()
+             << " | DIR: " << "OUTA"
+             << " | ROUTER: " << tlg.toRot()
+             << " | TSTAMP: " << boost::posix_time::second_clock::local_time() << "\n"
+             << (tlg.h2h() ? hth::toStringOnTerm(*tlg.h2h()) + "\n" : "")
+             << tlg.text2view();
 }
 
 static void putTlg2OutQueue(const std::string& receiver,
@@ -287,9 +299,47 @@ static void putTlg2OutQueue(const std::string& receiver,
         xp_testing::TlgOutbox::getInstance().push(tlgnum_t("no tlg num"), text, 0);
     }
 #endif /* #ifdef XP_TESTING */
+}
 
-    // дадим работу TlgLogger'у
-    logTlg(type, tlgNum, receiver, text);
+struct TlgTypePriority
+{
+    std::string Type;
+    int Priority;
+
+    TlgTypePriority(const std::string& t, int p)
+        : Type(t), Priority(p)
+    {}
+};
+
+static TlgTypePriority getTlgTypePriority(TTlgQueuePriority queuePriority)
+{
+    switch(queuePriority)
+    {
+    case qpOutA:
+        return TlgTypePriority("OUTA", qpOutA);
+    case qpOutAStepByStep:
+        return TlgTypePriority("OUTA", qpOutAStepByStep);
+    case qpOutApp:
+        return TlgTypePriority("OAPP", qpOutApp);
+    case qpOutB:
+        return TlgTypePriority("OUTB", qpOutB);
+    default:
+        return TlgTypePriority("OUTB", qpOutB);
+    }
+}
+
+static void putTlg2OutQueue(const TlgHandling::TlgSourceEdifact& tlg,
+                            TTlgQueuePriority queuePriority,
+                            int ttl)
+{
+    if(tlg.tlgNum()) {
+        TlgTypePriority tp = getTlgTypePriority(queuePriority);
+        tlgnum_t tlgNum = *tlg.tlgNum();
+        int tnum = boost::lexical_cast<int>(tlgNum.num);
+        putTlg2OutQueue(tlg.toRot(), tlg.fromRot(), tp.Type, tlg.text(), tp.Priority, tnum, ttl);
+    } else {
+        LogError(STDLOG) << "Invalid tlgNum!";
+    }
 }
 
 int sendTlg(const char* receiver,
@@ -302,33 +352,15 @@ int sendTlg(const char* receiver,
 {
     try
     {
-        std::string type;
-        int priority;
-        switch(queuePriority)
-        {
-          case qpOutA:
-            type = "OUTA";
-            priority = qpOutA;
-            break;
-          case qpOutAStepByStep:
-            type = "OUTA";
-            priority = qpOutAStepByStep;
-            break;
-          case qpOutApp:
-            type = "OAPP";
-            priority = qpOutApp;
-          break;
-          default:
-            type = "OUTB";
-            priority = qpOutB;
-            break;
-        };
+        TlgTypePriority tp = getTlgTypePriority(queuePriority);
 
-        int tlg_num = saveTlg(receiver, sender, type.c_str(), text,
+        int tlg_num = saveTlg(receiver, sender, tp.Type.c_str(), text,
                               typeb_tlg_id, typeb_tlg_num);
 
         // кладём тлг в очередь на отправку
-        putTlg2OutQueue(receiver, sender, type, text, priority, tlg_num, ttl);
+        putTlg2OutQueue(receiver, sender, tp.Type, text, tp.Priority, tlg_num, ttl);
+
+        logTlg(tp.Type, tlg_num, receiver, text);
 
         if (queuePriority==qpOutAStepByStep)
           registerHookAfter(sendCmdTlgSndStepByStep);
@@ -349,15 +381,34 @@ int sendTlg(const char* receiver,
     };
 }
 
-void sendEdiTlg(const TlgHandling::TlgSourceEdifact& tlg)
+
+void sendEdiTlg(TlgHandling::TlgSourceEdifact& tlg, int ttl)
 {
-    ::sendTlg(tlg.toRot().c_str(),
-              tlg.fromRot().c_str(),
-              qpOutA,
-              20,
-              tlg.text(),
-              ASTRA::NoExists,
-              ASTRA::NoExists);
+    try
+    {
+        tlg.write(); // сохранение телеграммы
+        putTlg2OutQueue(tlg, qpOutA, ttl);
+        logTlg(tlg);
+        registerHookAfter(sendCmdTlgSnd);
+    }
+    catch( std::exception &e)
+    {
+        ProgError(STDLOG, "%s", e.what());
+        throw;
+    }
+    catch(...)
+    {
+        ProgError(STDLOG, "sendTlg: Unknown error");
+        throw;
+    };
+
+//    return ::sendTlg(tlg.toRot().c_str(),
+//                     tlg.fromRot().c_str(),
+//                     qpOutA,
+//                     ttl,
+//                     tlg.text(),
+//                     ASTRA::NoExists,
+//                     ASTRA::NoExists);
 }
 
 int loadTlg(const std::string &text)

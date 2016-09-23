@@ -231,6 +231,7 @@ public:
     {
         TlgNum = tnum;
     }
+    void setTlgNum(int tnum_deprecated);
 
     void setGatewayNum(int gwNum)
     {

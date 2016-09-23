@@ -224,10 +224,19 @@ static std::string FP_init_eds(const std::vector<std::string> &p)
 {
     using namespace Ticketing::RemoteSystemContext;
 
-    assert(p.size() == 3);
+    assert(p.size() > 2);
+    std::string h2hAddr = "",
+             ourH2hAddr = "";
+    if(p.size() > 4) {
+        h2hAddr = p.at(3);
+        ourH2hAddr = p.at(4);
+    }
+
     EdsSystemContext::create4TestsOnly(p.at(0) /*airline*/,
                                        p.at(1) /*remote edi address - to*/,
-                                       p.at(2) /*our edi address - from*/);
+                                       p.at(2) /*our edi address - from*/,
+                                       h2hAddr,
+                                       ourH2hAddr);
 
     // for compatibility
     set_edi_addrs(std::make_pair(p.at(2) /*from*/, p.at(1) /*to*/));
@@ -238,10 +247,18 @@ static std::string FP_init_dcs(const std::vector<std::string> &p)
 {
     using namespace Ticketing::RemoteSystemContext;
 
-    assert(p.size() == 3);
+    assert(p.size() > 2);
+    std::string h2hAddr = "",
+             ourH2hAddr = "";
+    if(p.size() > 4) {
+        h2hAddr = p.at(3);
+        ourH2hAddr = p.at(4);
+    }
     DcsSystemContext::create4TestsOnly(p.at(0) /*airline*/,
                                        p.at(1) /*remote edi address - to*/,
-                                       p.at(2) /*our edi address - from*/);
+                                       p.at(2) /*our edi address - from*/,
+                                       h2hAddr,
+                                       ourH2hAddr);
 
     return "";
 }

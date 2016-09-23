@@ -6,16 +6,19 @@
 #include <tcl.h>
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "astra_main.h"
 #include "date_time.h"
 #include "misc.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
-#include "serverlib/query_runner.h"
-#include "serverlib/ourtime.h"
+#include <serverlib/query_runner.h>
+#include <serverlib/ourtime.h>
+#include <libtlg/hth.h>
+#include <libtlg/telegrams.h>
 
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include <serverlib/test.h>
 
 using namespace ASTRA;
 using namespace BASIC::date_time;
@@ -65,12 +68,13 @@ static int TLG_STEP_BY_STEP_TIMEOUT()       //миллисекунды
 static int sockfd=-1;
 
 static bool scan_tlg(bool sendOutAStepByStep);
-int h2h_out(H2H_MSG *h2h_msg);
+//int h2h_out(H2H_MSG *h2h_msg);
 
 int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
+    init_tlg_callbacks();
     sleep(2);
     InitLogTime(argc>0?argv[0]:NULL);
 
@@ -168,22 +172,13 @@ bool scan_tlg(bool sendOutAStepByStep)
     TlgUpdQry.DeclareVariable("id", otInteger);
   };
 
-  static TQuery H2HQry(&OraSession);
-  if (H2HQry.SQLText.IsEmpty())
-  {
-    H2HQry.Clear();
-    H2HQry.SQLText=
-      "SELECT type,qri5,qri6,sender,receiver,tpr,err FROM h2h_tlgs WHERE id=:id";
-    H2HQry.DeclareVariable("id",otInteger);
-  };
-
   //считаем все телеграммы, которые еще не отправлены
   struct sockaddr_in to_addr;
   memset(&to_addr,0,sizeof(to_addr));
-  AIRSRV_MSG tlg_out;
-  int len,ttl;
-  uint16_t ttl16;
-  H2H_MSG h2hinf;
+  AIRSRV_MSG tlg_out = {};
+  size_t len = 0;
+  int ttl = 0;
+  uint16_t ttl16 = 0;
 
   int trace_count=0;
   map< pair<string, int>, int > count;
@@ -227,9 +222,25 @@ bool scan_tlg(bool sendOutAStepByStep)
         strncpy(tlg_out.Sender,OWN_CANON_NAME(),5);
         strncpy(tlg_out.Receiver,TlgQry.FieldAsString("receiver"),5);
         string text=getTlgText(tlg_id);
-        if (text.size()>sizeof(tlg_out.body)) throw Exception("Telegram too long");
-        memcpy(tlg_out.body, text.c_str(), text.size());
-        len=text.size();
+        strcpy(tlg_out.body, text.c_str());
+
+        //проверим, надо ли лепить h2h
+        boost::optional<hth::HthInfo> hthInfo;
+        {
+            tlgnum_t tlgNum(boost::lexical_cast<std::string>(tlg_id));
+            hth::HthInfo hi = {};
+            int ret = telegrams::callbacks()->readHthInfo(tlgNum, hi);
+            if (ret == 0) {
+                hthInfo = hi;
+            }
+        }
+
+        if (hthInfo) {
+            hth::createTlg(tlg_out.body, hthInfo.get());
+        }
+
+        len=strlen(tlg_out.body);
+        if (len>sizeof(tlg_out.body)) throw Exception("Telegram too long");
 
         //проверим TTL
         ttl=0;
@@ -246,28 +257,8 @@ bool scan_tlg(bool sendOutAStepByStep)
           TDateTime last_send=0;
           if (!TlgQry.FieldIsNULL("last_send")) last_send=TlgQry.FieldAsFloat("last_send");
           if (last_send<nowUTC-((double)TLG_ACK_TIMEOUT())/MSecsPerDay)
-          {
+          {              
             //таймаут TLG_ACK истек, надо перепослать
-            //проверим, надо ли лепить h2h
-            H2HQry.SetVariable("id",tlg_id);
-            H2HQry.Execute();
-            if (!H2HQry.Eof)
-            {
-              if (len>(int)sizeof(h2hinf.data)-1) throw Exception("Telegram too long. Can't create H2H header");
-              strncpy(h2hinf.data,tlg_out.body,len);
-              h2hinf.data[len]=0;
-              h2hinf.type=H2HQry.FieldAsString("type")[0];
-              h2hinf.qri5=H2HQry.FieldAsString("qri5")[0];
-              h2hinf.qri6=H2HQry.FieldAsString("qri6")[0];
-              strcpy(h2hinf.sndr,H2HQry.FieldAsString("sender"));
-              strcpy(h2hinf.rcvr,H2HQry.FieldAsString("receiver"));
-              strcpy(h2hinf.tpr,H2HQry.FieldAsString("tpr"));
-              strcpy(h2hinf.err,H2HQry.FieldAsString("err"));
-              if (h2h_out(&h2hinf)==0) throw Exception("Can't create H2H header");
-              len=strlen(h2hinf.data);
-              if (len>(int)sizeof(tlg_out.body)) throw Exception("H2H telegram too long");
-              strncpy(tlg_out.body,h2hinf.data,len);
-            };
             ttl16=ttl;
             tlg_out.TTL=htons(ttl16);
 
@@ -319,111 +310,111 @@ bool scan_tlg(bool sendOutAStepByStep)
 /* Вставляем заголовок IATA Host-to-Host перед телом телеграммы */
 /*int h2h_tlg(char *body, char type, char *sndr, char *rcvr, char *tpr, char *err)*/
 /* ------------------------------------------------------------------------ */
-int h2h_out(H2H_MSG *h2h_msg)
-{
-  int i=0, head_len, data_len;
-  char h2h_head[MAX_H2H_HEAD_SIZE];
+//int h2h_out(H2H_MSG *h2h_msg)
+//{
+//  int i=0, head_len, data_len;
+//  char h2h_head[MAX_H2H_HEAD_SIZE];
 
-    if ( !h2h_msg->sndr	||	strlen(h2h_msg->sndr) > 10	||
-         !h2h_msg->rcvr	||	strlen(h2h_msg->rcvr) > 10	||
-         !h2h_msg->tpr	||	strlen(h2h_msg->tpr) > 19	||
-                            strlen(h2h_msg->err) > 2 )
-    {
-        ProgError(STDLOG, "h2h_out(): Can't forming H2H header");
-      return FALSE;
-    }
+//    if ( !h2h_msg->sndr	||	strlen(h2h_msg->sndr) > 10	||
+//         !h2h_msg->rcvr	||	strlen(h2h_msg->rcvr) > 10	||
+//         !h2h_msg->tpr	||	strlen(h2h_msg->tpr) > 19	||
+//                            strlen(h2h_msg->err) > 2 )
+//    {
+//        ProgError(STDLOG, "h2h_out(): Can't forming H2H header");
+//      return FALSE;
+//    }
 
-  strcpy(h2h_head, H2H_BEG_STR);	/*	V.\rV	*/
-  i += strlen(H2H_BEG_STR);
-/*
-  h2h_head[i++] = 0x56;				'V'
-  h2h_head[i++] = 0x2E;				'.'
-  h2h_head[i++] = 0x0D;				'\r'
-  h2h_head[i++] = 0x56;				'V'
-*/
-  h2h_head[i++] = h2h_msg->type;		/*4 QRI1	query / reply /	alone	*/
-#if 0
-  h2h_head[i++] = 0x45;	/* 0x50; */		/*5	QRI2 'E'	hold protection		*/
-#else
-  h2h_head[i++] = 'L';	/* 0x50; */		/*5	QRI2 'E'	hold protection		*/
-#endif
-  h2h_head[i++] = 0x47;					/*6	QRI3 'G'	medium priority		*/
-  h2h_head[i++] = 0x2E;					/*7	QRI4 '.'	no flow control		*/
-  h2h_head[i++] = h2h_msg->qri5;		/*8 QRI5							*/
-  h2h_head[i++] = h2h_msg->qri6;		/*9 QRI6							*/
+//  strcpy(h2h_head, H2H_BEG_STR);	/*	V.\rV	*/
+//  i += strlen(H2H_BEG_STR);
+///*
+//  h2h_head[i++] = 0x56;				'V'
+//  h2h_head[i++] = 0x2E;				'.'
+//  h2h_head[i++] = 0x0D;				'\r'
+//  h2h_head[i++] = 0x56;				'V'
+//*/
+//  h2h_head[i++] = h2h_msg->type;		/*4 QRI1	query / reply /	alone	*/
+//#if 0
+//  h2h_head[i++] = 0x45;	/* 0x50; */		/*5	QRI2 'E'	hold protection		*/
+//#else
+//  h2h_head[i++] = 'L';	/* 0x50; */		/*5	QRI2 'E'	hold protection		*/
+//#endif
+//  h2h_head[i++] = 0x47;					/*6	QRI3 'G'	medium priority		*/
+//  h2h_head[i++] = 0x2E;					/*7	QRI4 '.'	no flow control		*/
+//  h2h_head[i++] = h2h_msg->qri5;		/*8 QRI5							*/
+//  h2h_head[i++] = h2h_msg->qri6;		/*9 QRI6							*/
 
-/*
-  if ( h2h_msg->part == 1 )				8opt	QRI5 'V' First seg
-    h2h_head[i++] = 0x56;
-  else
-  if ( h2h_msg->part && !h2h_msg->end )	8opt	QRI5 'T' Intermediate seg
-    h2h_head[i++] = 0x54;
-  else
-  if ( h2h_msg->part && h2h_msg->end )	8opt	QRI5 'U' End seg
-    h2h_head[i++] = 0x55;
-  else									8opt	QRI5 'W' Only segment
-    h2h_head[i++] = 0x57;
+///*
+//  if ( h2h_msg->part == 1 )				8opt	QRI5 'V' First seg
+//    h2h_head[i++] = 0x56;
+//  else
+//  if ( h2h_msg->part && !h2h_msg->end )	8opt	QRI5 'T' Intermediate seg
+//    h2h_head[i++] = 0x54;
+//  else
+//  if ( h2h_msg->part && h2h_msg->end )	8opt	QRI5 'U' End seg
+//    h2h_head[i++] = 0x55;
+//  else									8opt	QRI5 'W' Only segment
+//    h2h_head[i++] = 0x57;
 
-  if ( h2h_msg->part )					9opt	QRI6 'A'-'Z' seg
-    h2h_head[i++] = (char)(h2h_msg->part + 64);
-*/
+//  if ( h2h_msg->part )					9opt	QRI6 'A'-'Z' seg
+//    h2h_head[i++] = (char)(h2h_msg->part + 64);
+//*/
 
-  h2h_head[i++] = 0x2F;					/*10'/'								*/
+//  h2h_head[i++] = 0x2F;					/*10'/'								*/
 
-  h2h_head[i++] = 0x45;					/*	'E'								*/
-  h2h_head[i++] = 0x35;					/*	'5'								*/
-  strcpy(&h2h_head[i],h2h_msg->sndr);	/*	Sender							*/
-  i += strlen(h2h_msg->sndr);			/*									*/
+//  h2h_head[i++] = 0x45;					/*	'E'								*/
+//  h2h_head[i++] = 0x35;					/*	'5'								*/
+//  strcpy(&h2h_head[i],h2h_msg->sndr);	/*	Sender							*/
+//  i += strlen(h2h_msg->sndr);			/*									*/
 
-  h2h_head[i++] = 0x2F;					/*	'/'								*/
+//  h2h_head[i++] = 0x2F;					/*	'/'								*/
 
-  h2h_head[i++] = 0x49;					/*	'I'								*/
-  h2h_head[i++] = 0x35;					/*	'5'								*/
-  strcpy(&h2h_head[i], h2h_msg->rcvr);	/*	Receiver						*/
-  i += strlen(h2h_msg->rcvr);			/*									*/
+//  h2h_head[i++] = 0x49;					/*	'I'								*/
+//  h2h_head[i++] = 0x35;					/*	'5'								*/
+//  strcpy(&h2h_head[i], h2h_msg->rcvr);	/*	Receiver						*/
+//  i += strlen(h2h_msg->rcvr);			/*									*/
 
-  h2h_head[i++] = 0x2F;					/*	'/'								*/
+//  h2h_head[i++] = 0x2F;					/*	'/'								*/
 
-  strcpy(&h2h_head[i++], "P");
-  strcpy(&h2h_head[i], h2h_msg->tpr);	/*	TPR								*/
-  i += strlen(h2h_msg->tpr);			/*									*/
-  if ( *h2h_msg->err )					/*									*/
-  {										/*									*/
-    h2h_head[i++] = 0x2F;				/*	'/'								*/
-    strcpy(&h2h_head[i],h2h_msg->err);	/*									*/
-    i += strlen(h2h_msg->err);			/*									*/
-  }										/*									*/
-  h2h_head[i++] = 0x0D;					/*	'\r'*****************************/
+//  strcpy(&h2h_head[i++], "P");
+//  strcpy(&h2h_head[i], h2h_msg->tpr);	/*	TPR								*/
+//  i += strlen(h2h_msg->tpr);			/*									*/
+//  if ( *h2h_msg->err )					/*									*/
+//  {										/*									*/
+//    h2h_head[i++] = 0x2F;				/*	'/'								*/
+//    strcpy(&h2h_head[i],h2h_msg->err);	/*									*/
+//    i += strlen(h2h_msg->err);			/*									*/
+//  }										/*									*/
+//  h2h_head[i++] = 0x0D;					/*	'\r'*****************************/
 
-  h2h_head[i++] = 0x56;			/*	'V'	*********************************/
-  h2h_head[i++] = 0x47;			/*	'G'									*/
-  h2h_head[i++] = 0x59;			/*	'Z'									*/
-  h2h_head[i++] = 0x41;			/*	'A'									*/
-  h2h_head[i++] = 0x0D;			/*	'\r'*********************************/
-#ifdef H2H_STX_ETX
-  h2h_head[i++] = 0x02;			/* STX	*********************************/
-#endif
-  h2h_head[i] =	0x00;
+//  h2h_head[i++] = 0x56;			/*	'V'	*********************************/
+//  h2h_head[i++] = 0x47;			/*	'G'									*/
+//  h2h_head[i++] = 0x59;			/*	'Z'									*/
+//  h2h_head[i++] = 0x41;			/*	'A'									*/
+//  h2h_head[i++] = 0x0D;			/*	'\r'*********************************/
+//#ifdef H2H_STX_ETX
+//  h2h_head[i++] = 0x02;			/* STX	*********************************/
+//#endif
+//  h2h_head[i] =	0x00;
 
-  head_len = i;
+//  head_len = i;
 
-/*#ifdef H2H_STX_ETX*/
-  strcat(h2h_msg->data, "\03");		/*	ETX	*************************/
-/*#endif*/
-  data_len = strlen(h2h_msg->data);
+///*#ifdef H2H_STX_ETX*/
+//  strcat(h2h_msg->data, "\03");		/*	ETX	*************************/
+///*#endif*/
+//  data_len = strlen(h2h_msg->data);
 
-//ProgTrace(1, STDLOG, "strlen(h2h_head)=%d, head_len=%d", strlen(h2h_head), i);
-  if ( head_len + data_len > MAX_TLG_LEN - 1 )
-  {
-        ProgError(STDLOG, "h2h_out(): Too much size of H2H tlg");
-    return FALSE;
-  }
+////ProgTrace(1, STDLOG, "strlen(h2h_head)=%d, head_len=%d", strlen(h2h_head), i);
+//  if ( head_len + data_len > MAX_TLG_LEN - 1 )
+//  {
+//        ProgError(STDLOG, "h2h_out(): Too much size of H2H tlg");
+//    return FALSE;
+//  }
 
-  for ( i = data_len; i >= 0; i-- )
-    h2h_msg->data[i+head_len] = h2h_msg->data[i];
+//  for ( i = data_len; i >= 0; i-- )
+//    h2h_msg->data[i+head_len] = h2h_msg->data[i];
 
-  memcpy(h2h_msg->data, h2h_head, head_len);
+//  memcpy(h2h_msg->data, h2h_head, head_len);
 
-  return TRUE;
-}
+//  return TRUE;
+//}
 

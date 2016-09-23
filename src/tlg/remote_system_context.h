@@ -138,6 +138,7 @@ namespace RemoteSystemContext
         friend struct SystemContextMaker;
 
         Ticketing::SystemAddrs_t Ida;
+        std::string CanonName;
         std::string Airline;
         std::string OurAddrEdifact;
         std::string RemoteAddrEdifact;
@@ -159,6 +160,8 @@ namespace RemoteSystemContext
         static pSystemContext SysCtxt;
     public:
         Ticketing::SystemAddrs_t ida() const { return Ida; }
+        void setIda(Ticketing::SystemAddrs_t ida) { Ida = ida; }
+        const std::string& canonName() const { return CanonName; }
         const std::string& airline() const { return Airline; }
         const std::string& ourAddrEdifact() const { return OurAddrEdifact; }
         const std::string& remoteAddrEdifact() const { return RemoteAddrEdifact; }
@@ -237,7 +240,9 @@ namespace RemoteSystemContext
 #ifdef XP_TESTING
         static EdsSystemContext* create4TestsOnly(const std::string& airline,
                                                   const std::string& ediAddr,
-                                                  const std::string& ourEdiAddr);
+                                                  const std::string& ourEdiAddr,
+                                                  const std::string& h2hAddr = "",
+                                                  const std::string& ourH2hAddr = "");
 #endif /*XP_TESTING*/
 
         /**
@@ -276,7 +281,9 @@ namespace RemoteSystemContext
 #ifdef XP_TESTING
         static DcsSystemContext* create4TestsOnly(const std::string& airline,
                                                   const std::string& ediAddr,
-                                                  const std::string& ourEdiAddr);
+                                                  const std::string& ourEdiAddr,
+                                                  const std::string& h2hAddr = "",
+                                                  const std::string& ourH2hAddr = "");
 #endif /*XP_TESTING*/
 
         virtual void deleteDb();
@@ -301,11 +308,43 @@ namespace RemoteSystemContext
         void setRemoteAddrEdifact(const std::string &val);
         void setAirline(const std::string& val);
         void setIda(SystemAddrs_t val);
+        void setCanonName(const std::string& canonName);
         void setSystemSettings(const SystemSettings &sett);
 
         SystemContext getSystemContext();
     };
 
 } // namespace RemoteSystemContext
+
+//---------------------------------------------------------------------------------------
+
+#ifdef XP_TESTING
+
+    struct RotParams
+    {
+        std::string canon_name;
+        std::string h2h_addr;
+        std::string our_h2h_addr;
+        bool h2h;
+
+        RotParams(const std::string &cn) :
+            canon_name(cn),
+            h2h(false)
+        {}
+
+
+        RotParams &setH2hAddrs(const std::string& their, const std::string& our)
+        {
+            h2h = true;
+            h2h_addr = their;
+            our_h2h_addr = our;
+            return *this;
+        }
+    };
+
+    std::string createRot(const RotParams &par);
+
+#endif /*XP_TESTING*/
+
 } // namespace Ticketing
 #endif /*_REMOTE_SYSTEM_CONTEXT_H_*/

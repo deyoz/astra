@@ -78,11 +78,12 @@ TlgSource TlgSource::readFromDb(const tlgnum_t& tlg_num)
 void TlgSource::writeToDb(TlgSource & tlg)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " called!";
-    saveTlg(tlg.fromRot().c_str(),
-            tlg.toRot().c_str(),
-            "TPA", // TODO
-            tlg.text().c_str());
+    int tlgNum = saveTlg(tlg.fromRot().c_str(),
+                         tlg.toRot().c_str(),
+                         "TPA", // TODO
+                         tlg.text().c_str());
 
+    tlg.setTlgNum(tlgNum);
     tlg.setReceiveDate(Dates::second_clock::local_time());
 }
 
@@ -116,6 +117,11 @@ TlgSource::TlgSource(const std::string& txt,
 void TlgSource::setTypeStr(const std::string & t)
 {
     TypeStr = t;
+}
+
+void TlgSource::setTlgNum(int tnum_deprecated)
+{
+    setTlgNum(tlgnum_t(boost::lexical_cast<std::string>(tnum_deprecated)));
 }
 
 tlgnum_t TlgSource::genNextTlgNum()

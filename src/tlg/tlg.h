@@ -6,9 +6,6 @@
 #include "astra_consts.h"
 #include "EdifactRequest.h"
 
-/* константы задающие максимальные значения для телеграмм */
-#define MAX_TLG_LEN       65536
-
 /* максимальный размер передаваемой по UDP телеграммы (зависит от центра) */
 #define MAX_TLG_SIZE 10240
 
@@ -42,22 +39,6 @@ typedef struct AIRSRV_MSG
 namespace TlgHandling{
     class TlgSourceEdifact;
 }//namespace TlgHandling
-
-#define H2H_BEG_STR		"V.\rV"
-
-typedef struct H2H_MSG
-{
-    char data[MAX_TLG_LEN];
-    char type;
-    char sndr[21];
-    char rcvr[21];
-    char tpr[21];
-    char err[3];
-    char part;
-    char end;
-    char qri5;
-    char qri6;
-} H2H_MSG;
 
 namespace edifact {
 int init_edifact();
@@ -114,8 +95,8 @@ int sendTlg(const char* receiver,
             int typeb_tlg_id,
             int typeb_tlg_num);
 
-
-void sendEdiTlg(const TlgHandling::TlgSourceEdifact& tlg);
+void sendEdiTlg(TlgHandling::TlgSourceEdifact& tlg,
+                int ttl=20);
 
 int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_error);
 int loadTlg(const std::string &text);

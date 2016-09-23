@@ -157,6 +157,7 @@ astra_SOURCES = \
   astra_api.cpp \
   astra_date_time.cpp \
   icu_conversion.cpp \ 
+  basetables.cc \
   tz_test.cpp \
   brands.cpp
 
@@ -306,5 +307,6 @@ noinst_HEADERS = \
   astra_iface.h \
   astra_api.h \
   astra_date_time.h \
+  basetables.h \
   tz_test.h \
   brands.h

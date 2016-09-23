@@ -19,6 +19,7 @@
 #include "edi_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
+#include "basetables.h"
 
 #include <serverlib/posthooks.h>
 #include <serverlib/cursctl.h>
@@ -46,8 +47,11 @@ boost::shared_ptr<SystemContext> SystemContext::SysCtxt;
 
 void SystemContext::checkContinuity() const
 {
-    if(OurAddrEdifact.empty() || RemoteAddrEdifact.empty())
+    if(OurAddrEdifact.empty() || RemoteAddrEdifact.empty() || CanonName.empty())
     {
+        LogTrace(TRACE0) << "our_addr: " << OurAddrEdifact << "; "
+                         << "rem_addr: " << RemoteAddrEdifact << "; "
+                         << "canon_name: " << CanonName;
         throw EXCEPTIONS::Exception("SystemContext: check continuity failed!");
     }
 }
@@ -78,7 +82,15 @@ void SystemContext::deleteDb()
 
 void SystemContext::addDb()
 {
-    // TODO
+    ProgTrace(TRACE0, "SystemContext::addDb");
+    OciCpp::CursCtl cur = make_curs(
+"insert into EDI_ADDRS (ADDR, CANON_NAME, CFG_ID) "
+"values (:addr, :canon_name, :cfg)");
+    cur.stb()
+       .bind(":addr", remoteAddrEdifact())
+       .bind(":canon_name", routerCanonName())
+       .bind(":cfg", ida().get());
+    cur.exec();
 }
 
 void SystemContext::updateDb()
@@ -102,7 +114,8 @@ SystemContext* SystemContext::init(const SystemContext& new_ctxt)
 
 SystemContext * SystemContext::initDummyContext()
 {
-    SystemContext dummyCtxt;
+    LogTrace(TRACE3) << "initDummyContext";
+    SystemContext dummyCtxt = {};
     return SystemContext::init(dummyCtxt);
 }
 
@@ -124,7 +137,7 @@ void SystemContext::free()
 
 std::string SystemContext::routerCanonName() const
 {
-    return AstraEdifact::get_canon_name(RemoteAddrEdifact);
+    return CanonName;
 }
 
 unsigned SystemContext::edifactResponseTimeOut() const
@@ -139,11 +152,13 @@ EdsSystemContext* EdsSystemContext::read(const std::string& airl, const Ticketin
     int systemId = 0;
     std::pair<std::string, std::string> addrs;
     if(!AstraEdifact::get_et_addr_set(airl, flNum?flNum.get():ASTRA::NoExists, addrs, systemId)) {
+        tst();
         throw system_not_found(airl, flNum);
     }
 
     SystemContextMaker ctxtMaker;
     ctxtMaker.setIda(Ticketing::SystemAddrs_t(systemId));
+    ctxtMaker.setCanonName(AstraEdifact::get_canon_name(addrs.first));
     ctxtMaker.setAirline(airl);
     ctxtMaker.setRemoteAddrEdifact(addrs.first);
     ctxtMaker.setOurAddrEdifact(addrs.second);
@@ -162,8 +177,11 @@ EdsSystemContext::EdsSystemContext(const SystemContext& baseCnt,
 #ifdef XP_TESTING
 EdsSystemContext* EdsSystemContext::create4TestsOnly(const std::string& airline,
                                                      const std::string& ediAddr,
-                                                     const std::string& ourEdiAddr)
+                                                     const std::string& ourEdiAddr,
+                                                     const std::string& h2hAddr,
+                                                     const std::string& ourH2hAddr)
 {
+    tst();
     EdsSystemContext* eds = 0;
     try
     {
@@ -174,10 +192,15 @@ EdsSystemContext* EdsSystemContext::create4TestsOnly(const std::string& airline,
     catch(const system_not_found& e)
     {
         SystemContextMaker ctxtMaker;
+        ctxtMaker.setIda(getNextId());
+        RotParams rotParams("MOWET");
+        if(!h2hAddr.empty() && !ourH2hAddr.empty()) {
+            rotParams.setH2hAddrs(h2hAddr, ourH2hAddr);
+        }
+        ctxtMaker.setCanonName(createRot(rotParams));
         ctxtMaker.setAirline(airline);
         ctxtMaker.setRemoteAddrEdifact(ediAddr);
         ctxtMaker.setOurAddrEdifact(ourEdiAddr);
-
         eds = new EdsSystemContext(ctxtMaker.getSystemContext());
         eds->addDb();
     }
@@ -204,13 +227,14 @@ void EdsSystemContext::deleteDb()
 
 void EdsSystemContext::addDb()
 {
+    SystemContext &cont = *this;
     std::string sql =
 "  insert into ET_ADDR_SET "
 "  (AIRLINE, EDI_ADDR, EDI_OWN_ADDR, ID) "
 "  values "
 "  (:airline, :edi_addr, :edi_own_addr, :id) ";
 
-    int systemId = getNextId().get();
+    int systemId = cont.ida().get();
     std::string airl = airline();
     std::string ediAddr = remoteAddrEdifact();
     std::string ourEdiAddr = ourAddrEdifact();
@@ -293,6 +317,7 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketin
 
     SystemContextMaker ctxtMaker;
     ctxtMaker.setIda(Ticketing::SystemAddrs_t(systemId));
+    ctxtMaker.setCanonName(AstraEdifact::get_canon_name(ediAddr));
     ctxtMaker.setAirline(airline);
     ctxtMaker.setRemoteAddrEdifact(ediAddr);    // their address
     ctxtMaker.setOurAddrEdifact(ourEdiAddr);    // our address
@@ -307,7 +332,9 @@ DcsSystemContext::DcsSystemContext(const SystemContext& baseCnt)
 #ifdef XP_TESTING
 DcsSystemContext* DcsSystemContext::create4TestsOnly(const std::string& airline,
                                                      const std::string& ediAddr,
-                                                     const std::string& ourEdiAddr)
+                                                     const std::string& ourEdiAddr,
+                                                     const std::string& h2hAddr,
+                                                     const std::string& ourH2hAddr)
 {
     DcsSystemContext* dcs = 0;
     try
@@ -319,7 +346,13 @@ DcsSystemContext* DcsSystemContext::create4TestsOnly(const std::string& airline,
     catch(const system_not_found& e)
     {
         SystemContextMaker ctxtMaker;
+        ctxtMaker.setIda(getNextId());
         ctxtMaker.setAirline(airline);
+        RotParams rotParams("REMDC");
+        if(!h2hAddr.empty() && !ourH2hAddr.empty()) {
+            rotParams.setH2hAddrs(h2hAddr, ourH2hAddr);
+        }
+        ctxtMaker.setCanonName(createRot(rotParams));
         ctxtMaker.setRemoteAddrEdifact(ediAddr);
         ctxtMaker.setOurAddrEdifact(ourEdiAddr);
 
@@ -344,7 +377,7 @@ void DcsSystemContext::addDb()
 "  values "
 "  (:airline, :edi_addr, :edi_own_addr, :id) ";
 
-    int systemId = getNextId().get();
+    int systemId = ida().get();
     std::string airl = airline();
     std::string ediAddr = remoteAddrEdifact();
     std::string ourEdiAddr = ourAddrEdifact();
@@ -391,6 +424,11 @@ void SystemContextMaker::setIda(Ticketing::SystemAddrs_t val)
     cont.Ida = val;
 }
 
+void SystemContextMaker::setCanonName(const std::string& val)
+{
+    cont.CanonName = val;
+}
+
 void SystemContextMaker::setAirline(const std::string& val)
 {
     cont.Airline = val;
@@ -408,5 +446,43 @@ SystemContext SystemContextMaker::getSystemContext()
 }
 
 }//namespace RemoteSystemContext
+
+
+#ifdef XP_TESTING
+
+std::string createRot(const RotParams &par)
+{
+    Ticketing::RouterId_t rot;
+
+    OciCpp::CursCtl cur = make_curs(
+"select ID from ROT where CANON_NAME=:cn");
+    cur.bind(":cn", par.canon_name)
+       .def(rot)
+       .exfet();
+
+    if(!rot)
+    {
+        LogTrace(TRACE3) << "create rot: " << par.canon_name;
+
+        make_curs("begin "
+            "insert into rot (CANON_NAME, OWN_CANON_NAME, ID, LOOPBACK, IP_ADDRESS, IP_PORT, H2H, H2H_ADDR, OUR_H2H_ADDR) "
+            "values "
+            "(:canon_name, 'ASTRA', id__seq.nextval, 1, '0.0.0.0', '8888', :h2h, :h2h_addr, :our_h2h_addr) "
+            "returning id into :id; end;").
+        bind(":canon_name", par.canon_name).
+        bind(":h2h", par.h2h?1:0).
+        bind(":h2h_addr", par.h2h_addr).
+        bind(":our_h2h_addr", par.our_h2h_addr).
+        bindOut(":id", rot).
+        exec();
+
+        BaseTables::CacheData<BaseTables::Router_impl>::clearCache();
+
+        LogTrace(TRACE3) << "rot.ida = " << rot << " for canon_name = " << par.canon_name;
+    }
+    return par.canon_name;
+}
+
+#endif//XP_TESTING
 
 }//namespace Ticketing
