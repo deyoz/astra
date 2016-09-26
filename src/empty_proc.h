@@ -18,5 +18,6 @@ int test_file_queue(int argc,char **argv);
 int convert_codeshare(int argc,char **argv);
 int tz_conversion(int argc, char **argv);
 int test_conversion(int, char **);
+namespace NatStat { int nat_stat(int argc,char **argv); }
 
 #endif
