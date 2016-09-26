@@ -2255,6 +2255,7 @@ namespace NatStat {
 
     int nat_stat(int argc,char **argv)
     {
+
         if(argc != 3) {
             cout << "usage: " << argv[0] << " yyyymmdd yyyymmdd" << endl;
             return 1;
@@ -2273,56 +2274,111 @@ namespace NatStat {
         }
 
         TQuery Qry(&OraSession);
-        Qry.Clear();
-        Qry.SQLText=
-            "SELECT point_id, craft FROM points "
-            "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND airline='ž’' AND "
-            "      pr_reg<>0 AND pr_del>=0";
-        Qry.CreateVariable("FirstDate", otDate, FirstDate);
-        Qry.CreateVariable("LastDate", otDate, LastDate);
-        Qry.Execute();
-        list< pair<int, string> > point_ids;
-        for(;!Qry.Eof;Qry.Next())
-            point_ids.push_back(make_pair(Qry.FieldAsInteger("point_id"), Qry.FieldAsString("craft")));
-
-        LogTrace(TRACE5) << "point_ids.size(): " << point_ids.size();
-
-        Qry.Clear();
-        Qry.SQLText=
-            "SELECT "
-            "   pax_grp.airp_dep, "
-            "   pax_grp.airp_arv, "
-            "   pax_doc.nationality, "
-            "   COUNT(*) AS num "
-            "FROM pax_grp, pax, pax_doc "
-            "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=pax_doc.pax_id AND "
-            "      pax_grp.status NOT IN ('E') AND pax_grp.point_dep=:point_id "
-            "GROUP BY "
-            "   pax_grp.airp_dep, "
-            "   pax_grp.airp_arv, "
-            "   pax_doc.nationality";
-        Qry.DeclareVariable("point_id", otInteger);
-
         natStatMap stat;
         int processed=0;
-        for(list< pair<int, string> >::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
-        {
-            Qry.SetVariable("point_id", i->first);
+
+        for(int step = 0; step < 2; step++) {
+            tst();
+            string SQLText =
+                "SELECT point_id, craft ";
+            if(step == 1)
+                SQLText +=
+                    "   ,part_key ";
+            SQLText +=
+                "FROM ";
+            if(step == 0)
+                SQLText +=
+                    "   points ";
+            else
+                SQLText +=
+                    "   arx_points ";
+            SQLText +=
+                "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND airline='ž’' AND "
+                "      pr_reg<>0 AND pr_del>=0";
+            Qry.Clear();
+            Qry.SQLText= SQLText;
+            Qry.CreateVariable("FirstDate", otDate, FirstDate);
+            Qry.CreateVariable("LastDate", otDate, LastDate);
             Qry.Execute();
-            for(;!Qry.Eof;Qry.Next())
-            {
-                int num=Qry.FieldAsInteger("num");
-                string airp_dep = Qry.FieldAsString("airp_dep");
-                string airp_arv = Qry.FieldAsString("airp_arv");
-                string nationality = Qry.FieldAsString("nationality");
-
-                stat[airp_dep][airp_arv][i->second][nationality] += num;
+            list< pair<int, pair<TDateTime, string> > > point_ids;
+            for(;!Qry.Eof;Qry.Next()) {
+                TDateTime part_key = NoExists;
+                if(step == 1)
+                    part_key = Qry.FieldAsDateTime("part_key");
+                point_ids.push_back(
+                        make_pair(
+                            Qry.FieldAsInteger("point_id"),
+                            make_pair(
+                                part_key,
+                                Qry.FieldAsString("craft")
+                                )
+                            )
+                        );
             }
-            processed++;
-            alter_wait(processed, false, 10, 0);
-        }
 
-        LogTrace(TRACE5) << "stat.size(): " << stat.size();
+            Qry.Clear();
+            tst();
+            SQLText =
+                "SELECT "
+                "   pax_grp.airp_dep, "
+                "   pax_grp.airp_arv, "
+                "   pax_doc.nationality, "
+                "   COUNT(*) AS num "
+                "FROM ";
+            if(step == 0)
+                SQLText +=
+                    "   pax_grp, "
+                    "   pax, "
+                    "   pax_doc ";
+            else
+                SQLText +=
+                    "   arx_pax_grp pax_grp, "
+                    "   arx_pax pax, "
+                    "   arx_pax_doc pax_doc ";
+            SQLText +=
+                "WHERE ";
+            if(step == 1) {
+                SQLText +=
+                    "   pax_grp.part_key = :part_key and "
+                    "   pax.part_key = :part_key and "
+                    "   pax_doc.part_key = :part_key and ";
+                Qry.DeclareVariable("part_key", otDate);
+            }
+            SQLText +=
+                "   pax_grp.grp_id=pax.grp_id AND pax.pax_id=pax_doc.pax_id AND "
+                "   pax_grp.status NOT IN ('E') AND pax_grp.point_dep=:point_id "
+                "GROUP BY "
+                "   pax_grp.airp_dep, "
+                "   pax_grp.airp_arv, "
+                "   pax_doc.nationality";
+
+            tst();
+            Qry.SQLText= SQLText;
+            Qry.DeclareVariable("point_id", otInteger);
+            tst();
+
+            for(list< pair<int, pair<TDateTime, string> > >::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
+            {
+                tst();
+                Qry.SetVariable("point_id", i->first);
+                if(step == 1) {
+                    Qry.SetVariable("part_key", i->second.first);
+                }
+                Qry.Execute();
+                for(;!Qry.Eof;Qry.Next())
+                {
+                    int num=Qry.FieldAsInteger("num");
+                    string airp_dep = Qry.FieldAsString("airp_dep");
+                    string airp_arv = Qry.FieldAsString("airp_arv");
+                    string nationality = Qry.FieldAsString("nationality");
+
+                    stat[airp_dep][airp_arv][i->second.second][nationality] += num;
+                }
+                processed++;
+                alter_wait(processed, false, 10, 0);
+            }
+            tst();
+        }
 
         Qry.Clear();
         Qry.SQLText="DELETE FROM drop_nat_stat";
