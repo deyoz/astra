@@ -27,7 +27,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace ASTRA;
 using namespace BASIC;
@@ -2187,8 +2187,10 @@ int convert_codeshare(int argc,char **argv)
 /*
 CREATE TABLE drop_nat_stat
 (
-    nationality VARCHAR2(3),
+    airp_dep VARCHAR2(3),
+    airp_arv VARCHAR2(3),
     craft       VARCHAR2(3),
+    nationality VARCHAR2(3),
     num         NUMBER(9)
 );
 
@@ -2225,73 +2227,165 @@ set pagesize 50;
 set linesize 150;
 */
 
-typedef pair<string/*nationality*/, string/*craft*/> natStatKey;
-typedef map< natStatKey, int> natStatMap;
+namespace NatStat {
 
-int nat_stat(int argc,char **argv)
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT point_id, craft FROM points "
-    "WHERE scd_out>=TO_DATE('01.12.2015','DD.MM.YYYY') AND scd_out<TO_DATE('01.04.2016','DD.MM.YYYY') AND airline='ЮТ' AND "
-    "      pr_reg<>0 AND pr_del>=0";
-  Qry.Execute();
-  list< pair<int, string> > point_ids;
-  for(;!Qry.Eof;Qry.Next())
-    point_ids.push_back(make_pair(Qry.FieldAsInteger("point_id"), Qry.FieldAsString("craft")));
+    typedef map<string, int> TNat;
+    typedef map<string, TNat> TCraft;
+    typedef map<string, TCraft> TAirpArv;
+    typedef map<string, TAirpArv> natStatMap;
 
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT pax_doc.nationality, COUNT(*) AS num "
-    "FROM pax_grp, pax, pax_doc "
-    "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=pax_doc.pax_id AND "
-    "      pax_grp.status NOT IN ('E') AND pax_grp.point_dep=:point_id "
-    "GROUP BY pax_doc.nationality";
-  Qry.DeclareVariable("point_id", otInteger);
-
-  natStatMap stat;
-  int processed=0;
-  for(list< pair<int, string> >::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
-  {
-    Qry.SetVariable("point_id", i->first);
-    Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
+    string get_nat_code(string country)
     {
-      natStatKey key(Qry.FieldAsString("nationality"), i->second);
-
-      int num=Qry.FieldAsInteger("num");
-      natStatMap::iterator j=stat.find(key);
-      if (j==stat.end())
-        stat.insert(make_pair(key, num));
-      else
-        j->second+=num;
+        if(
+                country == "AZE" or
+                country == "ARM" or
+                country == "BLR" or
+                country == "KAZ" or
+                country == "KGZ" or
+                country == "MDA" or
+                country == "RUS" or
+                country == "UZB" or
+                country == "UKR"
+          )
+            country = "СНГ";
+        else
+            country.clear();
+        return country;
     }
-    processed++;
-    alter_wait(processed, false, 10, 0);
-  }
 
-  Qry.Clear();
-  Qry.SQLText="DELETE FROM drop_nat_stat";
-  Qry.Execute();
+    int nat_stat(int argc,char **argv)
+    {
+        if(argc != 3) {
+            cout << "usage: " << argv[0] << " yyyymmdd yyyymmdd" << endl;
+            return 1;
+        }
 
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO drop_nat_stat(nationality, craft, num) VALUES(:nationality, :craft, :num)";
-  Qry.DeclareVariable("nationality", otString);
-  Qry.DeclareVariable("craft", otString);
-  Qry.DeclareVariable("num", otInteger);
-  for(natStatMap::const_iterator i=stat.begin(); i!=stat.end(); ++i)
-  {
-    Qry.SetVariable("nationality", i->first.first);
-    Qry.SetVariable("craft", i->first.second);
-    Qry.SetVariable("num", i->second);
-    Qry.Execute();
-  }
-  OraSession.Commit();
+        TDateTime FirstDate, LastDate;
 
+        if(StrToDateTime(argv[1], "yyyymmdd", FirstDate) == EOF) {
+            cout << "wrong first date: " << argv[1] << endl;
+            return 1;
+        }
 
-  return 0;
+        if(StrToDateTime(argv[2], "yyyymmdd", LastDate) == EOF) {
+            cout << "wrong last date: " << argv[1] << endl;
+            return 1;
+        }
+
+        TQuery Qry(&OraSession);
+        Qry.Clear();
+        Qry.SQLText=
+            "SELECT point_id, craft FROM points "
+            "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND airline='ЮТ' AND "
+            "      pr_reg<>0 AND pr_del>=0";
+        Qry.CreateVariable("FirstDate", otDate, FirstDate);
+        Qry.CreateVariable("LastDate", otDate, LastDate);
+        Qry.Execute();
+        list< pair<int, string> > point_ids;
+        for(;!Qry.Eof;Qry.Next())
+            point_ids.push_back(make_pair(Qry.FieldAsInteger("point_id"), Qry.FieldAsString("craft")));
+
+        LogTrace(TRACE5) << "point_ids.size(): " << point_ids.size();
+
+        Qry.Clear();
+        Qry.SQLText=
+            "SELECT "
+            "   pax_grp.airp_dep, "
+            "   pax_grp.airp_arv, "
+            "   pax_doc.nationality, "
+            "   COUNT(*) AS num "
+            "FROM pax_grp, pax, pax_doc "
+            "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=pax_doc.pax_id AND "
+            "      pax_grp.status NOT IN ('E') AND pax_grp.point_dep=:point_id "
+            "GROUP BY "
+            "   pax_grp.airp_dep, "
+            "   pax_grp.airp_arv, "
+            "   pax_doc.nationality";
+        Qry.DeclareVariable("point_id", otInteger);
+
+        natStatMap stat;
+        int processed=0;
+        for(list< pair<int, string> >::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
+        {
+            Qry.SetVariable("point_id", i->first);
+            Qry.Execute();
+            for(;!Qry.Eof;Qry.Next())
+            {
+                int num=Qry.FieldAsInteger("num");
+                string airp_dep = Qry.FieldAsString("airp_dep");
+                string airp_arv = Qry.FieldAsString("airp_arv");
+                string nationality = Qry.FieldAsString("nationality");
+
+                stat[airp_dep][airp_arv][i->second][nationality] += num;
+            }
+            processed++;
+            alter_wait(processed, false, 10, 0);
+        }
+
+        LogTrace(TRACE5) << "stat.size(): " << stat.size();
+
+        Qry.Clear();
+        Qry.SQLText="DELETE FROM drop_nat_stat";
+        Qry.Execute();
+
+        Qry.Clear();
+        Qry.SQLText=
+            "INSERT INTO drop_nat_stat( "
+            "   airp_dep, "
+            "   airp_arv, "
+            "   craft, "
+            "   nationality, "
+            "   num "
+            ") VALUES( "
+            "   :airp_dep, "
+            "   :airp_arv, "
+            "   :craft, "
+            "   :nationality, "
+            "   :num)";
+        Qry.DeclareVariable("airp_dep", otString);
+        Qry.DeclareVariable("airp_arv", otString);
+        Qry.DeclareVariable("craft", otString);
+        Qry.DeclareVariable("nationality", otString);
+        Qry.DeclareVariable("num", otInteger);
+
+        const string delim = ";";
+        TEncodedFileStream of("cp1251",
+                (string)"nat_stat." +
+                DateTimeToStr(FirstDate, "ddmmyy") + "-" +
+                DateTimeToStr(LastDate, "ddmmyy") +
+                ".csv");
+        of
+            << "а/п Вылета" << delim
+            << "а/п Прилета" << delim
+            << "Тип ВС" << delim
+            << "Страна" << delim
+            << "Код" << delim
+            << "Кол-во пассажиров" << endl;
+
+        for(natStatMap::const_iterator airp_dep =stat.begin(); airp_dep!=stat.end(); ++airp_dep)
+            for(TAirpArv::const_iterator airp_arv = airp_dep->second.begin(); airp_arv != airp_dep->second.end(); airp_arv++)
+                for(TCraft::const_iterator craft = airp_arv->second.begin(); craft != airp_arv->second.end(); craft++)
+                    for(TNat::const_iterator nat = craft->second.begin(); nat != craft->second.end(); nat++) {
+                        of
+                            << ElemIdToNameLong(etAirp, airp_dep->first) << delim
+                            << ElemIdToNameLong(etAirp, airp_arv->first) << delim
+                            << (craft->first.empty() ? "Тип ВС не определен" : craft->first) << delim
+                            << (nat->first.empty() ? "Гражданство не определено" : ElemIdToNameLong(etPaxDocCountry, nat->first)) << delim
+                            << get_nat_code(nat->first) << delim
+                            << nat->second << endl;
+                        Qry.SetVariable("airp_dep", airp_dep->first);
+                        Qry.SetVariable("airp_arv", airp_arv->first);
+                        Qry.SetVariable("craft", craft->first);
+                        Qry.SetVariable("nationality", nat->first);
+                        Qry.SetVariable("num", nat->second);
+                        Qry.Execute();
+                    }
+
+        OraSession.Commit();
+
+        return 0;
+    }
+
 }
 
 /*

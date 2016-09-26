@@ -16,5 +16,6 @@ int compare_apis(int argc,char **argv);
 int test_sopp_sql(int argc,char **argv);
 int test_file_queue(int argc,char **argv);
 int convert_codeshare(int argc,char **argv);
+namespace NatStat { int nat_stat(int argc,char **argv); }
 
 #endif
