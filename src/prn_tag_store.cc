@@ -2722,7 +2722,7 @@ string TPrnTagStore::AIRLINE_CODE(TFieldParams fp)
 {
     ostringstream result;
     result << tag_lang.ElemIdToTagElem(etAirline, rcpt.airline, efmtCodeNative);
-    if(rcpt.flt_no != -1)
+    if(rcpt.form_type != FT_FV_451 and rcpt.flt_no != -1)
         result << " " << setw(3) << setfill('0') << rcpt.flt_no << tag_lang.ElemIdToTagElem(etSuffix, rcpt.suffix, efmtCodeNative);
     return result.str();
 }
@@ -3122,7 +3122,8 @@ string TPrnTagStore::REMARKS1(TFieldParams fp)
             }
         } else if(
                 rcpt.form_type == FT_298_451 or
-                rcpt.form_type == FT_823_451
+                rcpt.form_type == FT_823_451 or
+                rcpt.form_type == FT_FV_451
                 )
             result << get_tag_no_err(TAG::EXCHANGE_RATE);
     }
@@ -3148,6 +3149,13 @@ string TPrnTagStore::REMARKS2(TFieldParams fp)
                 rcpt.form_type == FT_823_451
                 )
             result << get_tag_no_err(TAG::NDS);
+        else if(rcpt.form_type == FT_FV_451) {
+            result << tag_lang.ElemIdToTagElem(etAirline, rcpt.airline, efmtCodeNative);
+            if(rcpt.flt_no != -1)
+                result << setw(3) << setfill('0') << rcpt.flt_no << tag_lang.ElemIdToTagElem(etSuffix, rcpt.suffix, efmtCodeNative);
+            if (rcpt.scd_local_date!=ASTRA::NoExists)
+                result << "/" << DateTimeToStr(rcpt.scd_local_date, "ddmmmyy", tag_lang.GetLang() != AstraLocale::LANG_RU);
+        }
     }
     return result.str();
 }

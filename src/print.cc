@@ -1529,6 +1529,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
     if(DecodeDevFmtType(fmt_type) == dftEPSON) {
       to_esc::TConvertParams ConvertParams;
       ConvertParams.init(dev_model);
+      LogTrace(TRACE5) << "br form: " << mso_form;
       to_esc::convert(mso_form, ConvertParams, prnParams);
         StringToHex( string(mso_form), mso_form );
         hex=true;
