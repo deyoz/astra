@@ -1,4 +1,4 @@
-
+#include "apis.h"
 #include "typeb_utils.h"
 #include "exceptions.h"
 #include "astra_locale.h"
@@ -953,6 +953,47 @@ void add_filtered_item(const TSendInfo &sendInfo, TQuery &Qry, vector<TCreateInf
     result.push_back(createInfo);
 };
 
+bool CheckApis_USA( const std::string &airp )
+{
+  TBaseTable &baseairps = base_tables.get( "airps" );
+  TBaseTable &basecities = base_tables.get( "cities" );
+  string country = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp )).city)).country;
+  return ( APIS::customsUS().find( country ) != APIS::customsUS().end() );
+}
+
+void apis_cps(const TSendInfo &info, set<TCreatePoint> &result)
+{
+  TTripRoute routes;
+  routes.GetRouteAfter(ASTRA::NoExists, info.point_id, info.first_point, info.point_num,
+                       info.pr_tranzit, trtWithCurrent, trtNotCancelled);
+  bool before_takeoff = false;
+  for( TTripRoute::const_iterator item=routes.begin(); item!=routes.end(); item++ ) {
+    if ( CheckApis_USA( item->airp ) )
+      before_takeoff = true;
+  }
+  if ( before_takeoff ) {
+    result.insert(TCreatePoint(sTakeoff,-60));
+    result.insert(TCreatePoint(sTakeoff,-30));
+  }
+/*  result.insert(TCreatePoint(sCloseCheckIn,0));
+  result.insert(TCreatePoint(sCloseBoarding,0));
+  result.insert(TCreatePoint(sTakeoff,0)); */
+}
+
+void check_crew_alarms_cps(const TSendInfo &info, set<TCreatePoint> &result)
+{
+  TTripRoute routes;
+  routes.GetRouteAfter(ASTRA::NoExists, info.point_id, info.first_point, info.point_num,
+                       info.pr_tranzit, trtWithCurrent, trtNotCancelled);
+  bool check_crew_alarms = false;
+  for( TTripRoute::const_iterator item=routes.begin(); item!=routes.end(); item++ ) {
+    if ( CheckApis_USA( item->airp ) )
+      check_crew_alarms = true;
+  }
+  if ( check_crew_alarms )
+    result.insert(TCreatePoint(sTakeoff,-70));
+}
+
 template <typename T>
 void filter_typeb_addrs(const TSendInfo &sendInfo,
                         const vector<TSimpleMktFlight> &mktFlights,
@@ -1056,8 +1097,13 @@ void filter_typeb_addrs(const TSendInfo &sendInfo,
 void TSendInfo::getCreatePoints(const vector<TSimpleMktFlight> &mktFlights,
                                 set<TCreatePoint> &info) const
 {
+  if(tlg_type=="APIS")
+    apis_cps(*this, info);
+  else if((tlg_type=="CREW_ALARMS"))
+    check_crew_alarms_cps(*this, info);
+  else
     filter_typeb_addrs< set<TCreatePoint> >(*this, mktFlights, true, info);
-};
+}
 
 void TSendInfo::getCreateInfo(const vector<TSimpleMktFlight> &mktFlights,
                               bool onlyOneFlight,

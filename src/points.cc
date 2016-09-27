@@ -1211,39 +1211,6 @@ void PointsKeyTrip<T>::getEvents( KeyTrip<T> &trip )
       this->events.setFlag( teChangeStations );
     }
   }
-
-  if ( this->key.status == tdInsert ||
-       this->key.status == tdDelete ||
-       this->events.isFlag( teNewLand ) ||
-       this->events.isFlag( teNewTakeoff ) ||
-       this->events.isFlag( teDeleteLand ) ||
-       this->events.isFlag( teDeleteTakeoff ) ||
-       this->events.isFlag( teSetCancelLand ) ||
-       this->events.isFlag( teSetCancelTakeoff ) ||
-       this->events.isFlag( teSetUnCancelLand ) ||
-       this->events.isFlag( teSetUnCancelTakeoff ) ||
-       this->events.isFlag( teRegTakeoff ) ||
-       this->events.isFlag( teTranzitTakeoff ) ||
-       this->events.isFlag( teFirst_PointTakeoff ) ||
-       this->events.isFlag( teSetSCDOUT  ) ||
-       this->events.isFlag( teChangeSCDOUT  ) ||
-       this->events.isFlag( teDeleteSCDOUT  ) ||
-       this->events.isFlag( teSetACTOUT  ) ||
-       this->events.isFlag( teChangeACTOUT  ) ||
-       this->events.isFlag( teDeleteACTOUT  ) ||
-       this->events.isFlag( teChangeFlightAttrTakeoff  ) ||
-       this->events.isFlag( teSetESTOUT  ) ||
-       this->events.isFlag( teChangeESTOUT  ) ||
-       this->events.isFlag( teDeleteESTOUT  ) ||
-       this->events.isFlag( teChangeFlightAttrLand  ) ||
-       this->events.isFlag( teChangeStageESTTime  ) ) {
-    for ( vector<TPointsDest>::iterator id=this->dests.begin(); id!=this->dests.end(); id++ ) {
-      if ( CheckApis_USA( id->airp ) ) {
-        this->events.setFlag( teNeedApisUSA );
-        break;
-      }
-    }
-  }
 }
 
 string DecodeEvents( TTripEvents event )
@@ -1594,16 +1561,6 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
     tst();
     this->key.stations.Save( this->key.point_id );
   }
-
-  if ( this->events.isFlag( teNeedApisUSA ) ) {
-    try {
-      check_trip_tasks( move_id );
-    }
-    catch(std::exception &E) {
-      ProgError(STDLOG,"internal_WriteDests.check_trip_tasks (move_id=%d): %s",move_id,E.what());
-    };
-  }
-  tst();
 }
 
 bool existsTranzitPassengers( int point_id ) // определение того, можно ли сделать из транзитного рейса не транзитный

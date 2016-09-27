@@ -310,8 +310,8 @@ bool create_apis_file(int point_id, const string& task_name)
 
       if (!(task_name.empty() ||
             (use_us_customs_tasks &&
-             (task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL ||
-              task_name==BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL)) ||
+             (task_name==BEFORE_TAKEOFF_30 ||
+              task_name==BEFORE_TAKEOFF_60 )) ||
             (!use_us_customs_tasks &&
              (task_name==ON_TAKEOFF ||
               task_name==ON_CLOSE_CHECKIN ||
@@ -948,8 +948,8 @@ bool create_apis_file(int point_id, const string& task_name)
 
               if (!(task_name.empty() ||
                     !use_us_customs_tasks ||
-                    (task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL && pass==0) ||
-                    (task_name==BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL && pass!=0))) continue;
+                    (task_name==BEFORE_TAKEOFF_30 && pass==0) ||
+                    (task_name==BEFORE_TAKEOFF_60 && pass!=0))) continue;
 
               if (!paxlstInfo.passengersList().empty())
               {
@@ -1049,7 +1049,7 @@ bool create_apis_file(int point_id, const string& task_name)
           {
             if (task_name.empty() ||
                 !use_us_customs_tasks ||
-                task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL)
+                task_name==BEFORE_TAKEOFF_30)
             {
                 ostringstream file_name;
               if (fmt=="CSV_CZ" || fmt=="CSV_DE" || fmt=="CSV_AE"|| fmt=="CSV_TH")
@@ -1204,6 +1204,8 @@ bool create_apis_file(int point_id, const string& task_name)
 
 void create_apis_task(int point_id, const std::string& task_name, const string &params)
 {
-  create_apis_file(point_id, task_name);
+  ProgTrace(TRACE5, "create_apis_task: point_id: %d, task_name: %s, params: %s",
+            point_id, task_name.c_str(), params.c_str());
+  create_apis_file(point_id, params);
 };
 

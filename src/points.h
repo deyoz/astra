@@ -63,7 +63,7 @@ enum TTripEvents { teNewLand, teNewTakeoff, teDeleteLand, teDeleteTakeoff,
                    teChangeRemarkTakeoff, tePoint_NumTakeoff,
                    teNeedChangeComps, teNeedUnBindTlgs, teNeedBindTlgs,
                    teChangeCargos, teChangeMaxCommerce, teChangeStages,
-                   teChangeStations, teNeedApisUSA };
+                   teChangeStations };
                    
 class TPointsDestDelay {
 public:

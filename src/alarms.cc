@@ -611,7 +611,7 @@ void check_crew_alarms(int point_id)
       "      (next_exec IS NOT NULL AND next_exec<=:now_utc OR "
       "       next_exec IS NULL AND last_exec IS NOT NULL) ";
     Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("name", otString, BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL);
+    Qry.CreateVariable("name", otString, CHECK_CREW_ALARMS);
     Qry.CreateVariable("now_utc", otDate, NowUTC());
     Qry.Execute();
     if (!Qry.Eof) do_check=true;

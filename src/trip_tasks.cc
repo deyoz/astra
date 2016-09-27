@@ -31,14 +31,13 @@ struct TTripTasks {
 
 TTripTasks::TTripTasks()
 {
-    items.insert(make_pair(BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL, create_apis_task));
-    items.insert(make_pair(BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL, create_apis_task));
-    items.insert(make_pair(BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL, check_crew_alarms_task));
     items.insert(make_pair(SYNC_NEW_CHKD, TypeB::SyncNewCHKD ));
     items.insert(make_pair(SYNC_ALL_CHKD, TypeB::SyncAllCHKD ));
     items.insert(make_pair(EMD_SYS_UPDATE, emd_sys_update ));
     items.insert(make_pair(SEND_NEW_APPS_INFO, sendNewAPPSInfo));
     items.insert(make_pair(SEND_ALL_APPS_INFO, sendAllAPPSInfo));
+    items.insert(make_pair(CREATE_APIS, create_apis_task));
+    items.insert(make_pair(CHECK_CREW_ALARMS, check_crew_alarms_task));
     TSyncTlgOutMng::Instance()->add_tasks(items);
 }
 
@@ -573,6 +572,14 @@ struct TSLSFwdTripTask:public TTlgOutTripTask {
     TSLSFwdTripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, SLS_FWD) {}
 };
 
+struct TAPISTripTask:public TCreatePointTripTask {
+    TAPISTripTask(int vpoint_id): TCreatePointTripTask(vpoint_id, CREATE_APIS) {}
+};
+
+struct TCrewAlarmsTripTask:public TCreatePointTripTask {
+    TCrewAlarmsTripTask(int vpoint_id): TCreatePointTripTask(vpoint_id, CHECK_CREW_ALARMS) {}
+};
+
 TDateTime TCreatePointTripTask::actual_next_exec(TDateTime curr_next_exec) const
 {
     TTripStage ts;
@@ -787,6 +794,8 @@ void on_change_trip(const string &descr, int point_id)
     ProgTrace(TRACE5, "%s: %s; point_id: %d", __FUNCTION__, descr.c_str(), point_id);
     try {
         TSyncTlgOutMng::Instance()->sync_all(point_id);
+        sync_trip_tasks<TAPISTripTask>(point_id);
+        sync_trip_tasks<TCrewAlarmsTripTask>(point_id);
     } catch(std::exception &E) {
         ProgError(STDLOG,"%s: %s (point_id=%d): %s", __FUNCTION__, descr.c_str(), point_id,E.what());
     };
