@@ -2093,6 +2093,7 @@ namespace PRL_SPACE {
             "   pax, pax_grp "
             "WHERE "
             "   pax_grp.point_dep = :point_id AND "
+            "   pax.crew_type <> :xcr and "
             "   pax_grp.status NOT IN ('E') AND "
             "   pax_grp.grp_id = pax.grp_id AND "
             "   salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)=0 AND "
@@ -2113,8 +2114,10 @@ namespace PRL_SPACE {
             "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, 'ù0', weight, 0)) y_bag_weight, "
             "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, 'ù1', weight, 0)) y_rk_weight "
             "FROM "
-            "   pax_grp, bag2 "
+            "   pax_grp, bag2, pax "
             "WHERE "
+            "   pax_grp.grp_id = pax.grp_id(+) and "
+            "   (pax.crew_type is null or pax.crew_type <> :xcr) and "
             "   pax_grp.point_dep = :point_id AND "
             "   pax_grp.status NOT IN ('E') AND "
             "   pax_grp.grp_id = bag2.grp_id AND "
@@ -2131,6 +2134,7 @@ namespace PRL_SPACE {
         Qry.CreateVariable("point_id", otInteger, info.point_id);
         Qry.CreateVariable("first_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
         Qry.CreateVariable("point_num", otInteger, info.point_num);
+        Qry.CreateVariable("xcr", otString, TCrewTypes().encode(TCrewType::ExtraCrew));
         Qry.Execute();
         if(!Qry.Eof) {
             int col_target = Qry.FieldIndex("target");
