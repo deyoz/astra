@@ -35,54 +35,54 @@ public:
 
 //
 
-#define NON_IMPLEMETED_CALL throw EXCEPTIONS::Exception("Non-implemented call");
+#define NON_IMPLEMENTED_CALL throw EXCEPTIONS::Exception("Non-implemented call");
 
 telegrams::ErrorQueue& AstraTlgCallbacks::errorQueue()
 {
-    NON_IMPLEMETED_CALL
+    NON_IMPLEMENTED_CALL
 }
 
 telegrams::HandlerQueue& AstraTlgCallbacks::handlerQueue()
 {
-    NON_IMPLEMETED_CALL
+    NON_IMPLEMENTED_CALL
 }
 
 telegrams::GatewayQueue& AstraTlgCallbacks::gatewayQueue()
 {
-    NON_IMPLEMETED_CALL
+    NON_IMPLEMENTED_CALL
 }
 
 void AstraTlgCallbacks::registerHandlerHook(size_t)
 {
-    NON_IMPLEMETED_CALL
+    NON_IMPLEMENTED_CALL
 }
 
 int AstraTlgCallbacks::getRouterInfo(int router, telegrams::RouterInfo &ri)
 {
-    NON_IMPLEMETED_CALL
+    NON_IMPLEMENTED_CALL
 }
 
 Expected<telegrams::TlgResult, int> AstraTlgCallbacks::putTlg2OutQueue(OUT_INFO *oi, const char *body, std::list<tlgnum_t>* tlgParts)
 {
-    NON_IMPLEMETED_CALL
+    NON_IMPLEMENTED_CALL
 }
 
 int AstraTlgCallbacks::readTlg(const tlgnum_t& msg_id, boost::posix_time::ptime& saveTime, int &router, std::string& tlgText)
 {
-    NON_IMPLEMETED_CALL
+    NON_IMPLEMENTED_CALL
 }
 
 bool AstraTlgCallbacks::ttlExpired(const std::string& tlgText, bool from_our, int router, boost::optional<hth::HthInfo> hthInfo)
 {
-    NON_IMPLEMETED_CALL
+    NON_IMPLEMENTED_CALL
 }
 
 void AstraTlgCallbacks::readAllRouters(std::list<telegrams::RouterInfo>& routers)
 {
-    NON_IMPLEMETED_CALL
+    NON_IMPLEMENTED_CALL
 }
 
-#undef NON_IMPLEMETED_CALL
+#undef NON_IMPLEMENTED_CALL
 
 }//namespace
 
