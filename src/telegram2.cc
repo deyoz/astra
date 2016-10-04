@@ -2093,7 +2093,7 @@ namespace PRL_SPACE {
             "   pax, pax_grp "
             "WHERE "
             "   pax_grp.point_dep = :point_id AND "
-            "   pax.crew_type <> :xcr and "
+            "   (pax.crew_type is null or pax.crew_type <> :xcr) and "
             "   pax_grp.status NOT IN ('E') AND "
             "   pax_grp.grp_id = pax.grp_id AND "
             "   salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)=0 AND "
