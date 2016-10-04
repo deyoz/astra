@@ -462,6 +462,24 @@ static std::string FP_get_lat_code(const std::vector<std::string>& p)
     }
 }
 
+static std::string FP_deny_ets_interactive(const std::vector<std::string>& p)
+{
+    assert(p.size() == 3);
+    std::string airl = p.at(0);
+    std::string flt_no = p.at(1);
+    std::string airp_dep = p.at(2);
+
+    OciCpp::CursCtl cur = make_curs(
+"insert into MISC_SET (ID, TYPE, AIRLINE, FLT_NO, AIRP_DEP, PR_MISC) "
+"values (id__seq.nextval, 11, :airl, :flt_no, :airp_dep, 1)");
+    cur.bind(":airl", airl)
+       .bind(":flt_no", flt_no)
+       .bind(":airp_dep", airp_dep)
+       .exec();
+
+    return "";
+}
+
 static std::string getRandomBpTypeCode()
 {
     OciCpp::CursCtl cur = make_curs(
@@ -513,5 +531,6 @@ FP_REGISTER("get_single_grp_id", FP_getSingleGrpId);
 FP_REGISTER("get_single_tid", FP_getSingleTid);
 FP_REGISTER("get_lat_code", FP_get_lat_code);
 FP_REGISTER("prepare_bp_printing", FP_prepare_bp_printing);
+FP_REGISTER("deny_ets_interactive", FP_deny_ets_interactive);
 
 #endif /* XP_TESTING */

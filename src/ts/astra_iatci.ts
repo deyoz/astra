@@ -3441,3 +3441,65 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ’ 103 „„)
     </Show>
   </query>
 </term>}
+
+
+%%
+#########################################################################################
+# ό17 θ¨΅ª  Ά ®βΆ¥β ­  ΰ¥£¨αβΰ ζ¨ξ ¨ ΰ ΅®β  ΅¥§ ¨­β¥ΰ ªβ¨Ά 
+###
+
+
+$(init)
+$(init_jxt_pult ‚)
+$(login)
+$(init_dcs ‘7 TA OA)
+$(init_eds ’ UTET UTDC)
+
+
+$(PREPARE_FLIGHT_3 ’ 103 „„ ‹ ‘7 1027 ‹ ‘— REPIN IVAN)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+
+$(deny_ets_interactive ’ 103 „„)
+
+$(OPEN_CHECKIN $(get point_dep))
+#!! $(SAVE_ET_DISP $(get point_dep) 2986120030297)
+$(CHECK_ADV_TRIPS_LIST $(get point_dep) ’ 103 „„)
+#!! $(CHECK_FLIGHT $(get point_dep) ’ 103 „„ ‹)
+$(CHECK_SEARCH_PAX $(get point_dep) ’ 103 „„ ‹ REPIN IVAN )
+$(CHECK_DCS_ADDR_SET)
+$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) ‘7 1027 ‹ ‘— REPIN IVAN)
+$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) ‘7 1027 ‹ ‘— REPIN IVAN)
+$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ’ 103 „„ ‹
+                                                           ‘7 1027 ‹ ‘—
+                                                           REPIN IVAN
+                                                           2986120030297)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+LOR+’:„„"
+FDQ+‘7+1027+$(yymmdd)+‹+‘—++’+103+$(yymmdd)++„„+‹"
+PPD+REPIN+A++IVAN"
+PSD++7A"
+PSI++FOID::::::FOID PP7774441110"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+‘7+1027+$(yymmdd)1000+‹+‘—++T"
+RAD+I+F"
+ERD+1:17:PASSENGER SURNAME ALREADY CHECKED IN"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!!
+$(lastRedisplay)

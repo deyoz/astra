@@ -57,7 +57,6 @@ namespace
 
         xmlNodePtr node() const
         {
-            ASSERT(m_node != NULL);
             return m_node;
         }
 
@@ -69,7 +68,7 @@ namespace
     protected:
         void read(int ctxtId, const std::string& from)
         {
-            AstraEdifact::getEdiResponseCtxt(ctxtId, true, from, m_doc);
+            AstraEdifact::getEdiResponseCtxt(ctxtId, true, from, m_doc, false);
             m_node = NodeAsNode("/context", m_doc.docPtr());
         }
     };

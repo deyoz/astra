@@ -89,12 +89,6 @@ Router_impl::Router_impl(IdaType ida)
     IsH2h_    = (H2H != 0);
     Translit_ = (translit != 0);
     Loopback_ = (loopback != 0);
-
-    LogTrace(TRACE3) << "ida_" << ida_;
-    LogTrace(TRACE3) << "CanonName_" << canon_name_;
-    LogTrace(TRACE3) << "IsH2h_" << IsH2h_;
-    LogTrace(TRACE3) << "Translit_" << Translit_;
-    LogTrace(TRACE3) << "Loopback_" << Loopback_;
 }
 
 
