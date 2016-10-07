@@ -1293,11 +1293,45 @@ void TRequest::dump()
     ProgTrace(TRACE5, "--------------------");
 }
 
+void TSI::parse(TTlgPartInfo &body, TTlgParser &tlg, TLinePtr &line_p)
+{
+    items.clear();
+    bool start = true;
+    try
+    {
+        do {
+            tlg.GetToEOLLexeme(line_p);
+            if(not *tlg.lex)
+                throw ETlgError("TSI: blank line not allowed");
+            if(start) {
+                if(tlg.lex != (string)"SI")
+                    throw ETlgError("SI not found where expected");
+                start = false;
+            } else {
+                items.push_back(tlg.lex);
+            }
+            line_p=tlg.NextLine(line_p);
+        } while (line_p and *line_p != 0);
+    }
+    catch (ETlgError E)
+    {
+        throwTlgError(E.what(), body, line_p);
+    };
+}
+
+void TSI::dump()
+{
+    LogTrace(TRACE5) << "---TSI::dump---";
+    for(vector<string>::iterator i = items.begin(); i != items.end(); i++)
+        LogTrace(TRACE5) << *i;
+    LogTrace(TRACE5) << "---------------";
+}
+
 void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con, TMemoryManager &mem)
 {
     con.Clear();
     TTlgParser tlg;
-    const char *line_p=body.p;
+    TLinePtr line_p=body.p;
     TTlgElement e = ActionCode;
     try
     {
@@ -1332,6 +1366,8 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
                         con.pd.parse(tlg.lex);
                     else if(strncmp(tlg.lex, "SP", 2) == 0)
                         con.sp.parse(tlg.lex);
+                    else if(strncmp(tlg.lex, "SI", 2) == 0)
+                        con.si.parse(body, tlg, line_p);
                     else
                         throw ETlgError("unknown lexeme %s", tlg.lex);
                     break;
