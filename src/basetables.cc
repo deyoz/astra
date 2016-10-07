@@ -10,7 +10,10 @@
 
 namespace BaseTables {
 
-char const * const  RouterExceptionConf::thing="router";
+char const* const PortExceptionConf::thing="port";
+char const* const CityExceptionConf::thing="city";
+char const* const RouterExceptionConf::thing="router";
+char const* const CompanyExceptionConf::thing="company";
 
 
 #define __INIT_BT_TAB__(T) \
@@ -55,8 +58,85 @@ template<> bool CommonData<T::IdaType>::GetInstanceCode_help(\
     return true;\
 }
 
+__INIT_BT_TAB__(City_impl);
+__INIT_BT_TAB__(Port_impl);
+__INIT_BT_TAB__(Company_impl);
 
 __INIT_ROT_TAB__ (Router_impl);
+
+
+City_impl::City_impl(IdaType ida)
+{
+    ida_ = ida;
+    OciCpp::CursCtl c = make_curs(
+            "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), PR_DEL "
+            "FROM CITIES WHERE ID=:ida");
+    c.autoNull()
+     .bind(":ida", ida)
+     .def(rcode_)
+     .defNull(lcode_, "")
+     .def(rname_)
+     .defNull(lname_, "")
+     .defNull(closed_, 0)
+     .EXfet();
+}
+
+const City_impl* City_impl::GetInstance(const char* code)
+{
+    return CacheData<City_impl>::GetInstanceCode (code,
+            "SELECT ID FROM CITIES "
+            "WHERE CODE=:code OR CODE_LAT=:code");
+}
+
+
+Port_impl::Port_impl(IdaType ida)
+{
+    ida_ = ida;
+    OciCpp::CursCtl c = make_curs(
+            "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), PR_DEL "
+            "FROM AIRPS WHERE ID=:ida");
+    c.autoNull()
+     .bind(":ida", ida)
+     .def(rcode_)
+     .defNull(lcode_, "")
+     .def(rname_)
+     .defNull(lname_, "")
+     .defNull(closed_, 0)
+     .EXfet();
+}
+
+const Port_impl* Port_impl::GetInstance(const char* code)
+{
+    return CacheData<Port_impl>::GetInstanceCode (code,
+            "SELECT ID FROM AIRPS "
+            "WHERE CODE=:code OR CODE_LAT=:code");
+}
+
+
+Company_impl::Company_impl(IdaType ida)
+{
+    ida_ = ida;
+    OciCpp::CursCtl c = make_curs(
+            "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), "
+            "AIRCODE, PR_DEL "
+            "FROM AIRLINES WHERE ID=:ida");
+    c.autoNull()
+     .bind(":ida", ida)
+     .def(rcode_)
+     .defNull(lcode_, "")
+     .def(rname_)
+     .defNull(lname_, "")
+     .defNull(accode_, "")
+     .defNull(closed_, 0)
+     .EXfet();
+}
+
+const Company_impl* Company_impl::GetInstance(const char *code)
+{
+    return CacheData<Company_impl>::GetInstanceCode (code,
+            "SELECT ID FROM AIRLINES "
+            "WHERE CODE=:code OR CODE_LAT=:code");
+}
 
 
 Router_impl::Router_impl(IdaType ida)

@@ -32,7 +32,11 @@ namespace Ticketing
 
     enum IDS
     {
-        ROUTER=5
+        POINT,
+        CITY=0,
+        PORT,
+        AIRLINE,
+        ROUTER
     };
 
 
@@ -175,6 +179,9 @@ template <IDS T,class IntType>
     }
 
 
+    typedef Value<CITY,int> City_t;
+    typedef Value<PORT,int> Port_t;
+    typedef Value<AIRLINE,int> Airline_t;
     typedef Value<ROUTER,int> RouterId_t;
 
 } //namespace Ticketing

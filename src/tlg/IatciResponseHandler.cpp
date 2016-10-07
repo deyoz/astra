@@ -1,6 +1,7 @@
 #include "IatciResponseHandler.h"
 #include "read_edi_elements.h"
 #include "postpone_edifact.h"
+#include "basetables.h"
 #include "iatci_api.h"
 #include "edi_msg.h"
 
@@ -269,10 +270,10 @@ void IatciResultMaker::setPap(const boost::optional<edifact::PapElem>& pap, bool
 
 iatci::Result IatciResultMaker::makeResult() const
 {
-    iatci::FlightDetails flightDetails(m_fdr.m_airl,
+    iatci::FlightDetails flightDetails(BaseTables::Company(m_fdr.m_airl)->rcode(),
                                        m_fdr.m_flNum,
-                                       m_fdr.m_depPoint,
-                                       m_fdr.m_arrPoint,
+                                       BaseTables::Port(m_fdr.m_depPoint)->rcode(),
+                                       BaseTables::Port(m_fdr.m_arrPoint)->rcode(),
                                        m_fdr.m_depDate,
                                        m_fdr.m_arrDate,
                                        m_fdr.m_depTime,
@@ -313,10 +314,12 @@ iatci::Result IatciResultMaker::makeResult() const
 
     boost::optional<iatci::CascadeHostDetails> cascadeDetails;
     if(m_chd) {
-        cascadeDetails = iatci::CascadeHostDetails(m_chd->m_origAirline,
-                                                   m_chd->m_origPoint);
+        cascadeDetails = iatci::CascadeHostDetails(m_chd->m_origAirline.empty() ? "" 
+                                            : BaseTables::Company(m_chd->m_origAirline)->rcode(),
+                                                   m_chd->m_origPoint.empty() ? ""
+                                            : BaseTables::Port(m_chd->m_origPoint)->rcode());
         BOOST_FOREACH(const std::string& hostAirline, m_chd->m_hostAirlines) {
-            cascadeDetails->addHostAirline(hostAirline);
+            cascadeDetails->addHostAirline(BaseTables::Company(hostAirline)->rcode());
         }
     }
 

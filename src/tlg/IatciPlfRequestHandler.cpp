@@ -3,6 +3,7 @@
 #include "read_edi_elements.h"
 #include "view_edi_elements.h"
 #include "postpone_edifact.h"
+#include "basetables.h"
 #include "remote_system_context.h"
 #include "iatci_types.h"
 #include "iatci_api.h"
@@ -133,13 +134,15 @@ void IatciPlfParamsMaker::setChd(const boost::optional<edifact::ChdElem>& chd, b
 
 iatci::PlfParams IatciPlfParamsMaker::makeParams() const
 {
-    iatci::OriginatorDetails origDetails(m_lor.m_airline,
-                                         m_lor.m_port);
+    iatci::OriginatorDetails origDetails(m_lor.m_airline.empty() ? ""
+                                    : BaseTables::Company(m_lor.m_airline)->rcode(),
+                                         m_lor.m_port.empty() ? ""
+                                    : BaseTables::Port(m_lor.m_port)->rcode());
 
-    iatci::FlightDetails flight(m_fdq.m_outbAirl,
+    iatci::FlightDetails flight(BaseTables::Company(m_fdq.m_outbAirl)->rcode(),
                                 m_fdq.m_outbFlNum,
-                                m_fdq.m_outbDepPoint,
-                                m_fdq.m_outbArrPoint,
+                                BaseTables::Port(m_fdq.m_outbDepPoint)->rcode(),
+                                BaseTables::Port(m_fdq.m_outbArrPoint)->rcode(),
                                 m_fdq.m_outbDepDate,
                                 Dates::Date_t(),
                                 m_fdq.m_outbDepTime);
@@ -156,10 +159,12 @@ iatci::PlfParams IatciPlfParamsMaker::makeParams() const
 
     boost::optional<iatci::CascadeHostDetails> cascadeHostDetails;
     if(m_chd) {
-        cascadeHostDetails = iatci::CascadeHostDetails(m_chd->m_origAirline,
-                                                       m_chd->m_origPoint);
+        cascadeHostDetails = iatci::CascadeHostDetails(m_chd->m_origAirline.empty() ? ""
+                                                : BaseTables::Company(m_chd->m_origAirline)->rcode(),
+                                                       m_chd->m_origPoint.empty() ? ""
+                                                : BaseTables::Port(m_chd->m_origPoint)->rcode());
         BOOST_FOREACH(const std::string& hostAirline, m_chd->m_hostAirlines) {
-            cascadeHostDetails->addHostAirline(hostAirline);
+            cascadeHostDetails->addHostAirline(BaseTables::Company(hostAirline)->rcode());
         }
     }
 

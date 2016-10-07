@@ -69,7 +69,9 @@ namespace
         void read(int ctxtId, const std::string& from)
         {
             AstraEdifact::getEdiResponseCtxt(ctxtId, true, from, m_doc, false);
-            m_node = NodeAsNode("/context", m_doc.docPtr());
+            if(m_doc.docPtr() != NULL) {
+                m_node = NodeAsNode("/context", m_doc.docPtr());
+            }
         }
     };
 
@@ -1201,6 +1203,7 @@ void IatciInterface::KickHandler_onFailure(int ctxtId,
     case iatci::Result::Update:
         // откат смены статуса, произошедшей ранее
         if(!isReseatReq(initialReqNode)) {
+            tst();
             RollbackChangeOfStatus(ctxtId);
         }
         break;

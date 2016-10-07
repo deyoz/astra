@@ -1,5 +1,6 @@
 #include "view_edi_elements.h"
 #include "astra_consts.h"
+#include "basetables.h"
 
 #include <edilib/edi_func_cpp.h>
 #include <edilib/edi_astra_msg_types.h>
@@ -375,7 +376,13 @@ void viewOrgElement(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest&
 void viewLorElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::OriginatorDetails& origin)
 {
     std::ostringstream lor;
-    lor << origin.airline() << ":" << origin.port();
+    if(!origin.airline().empty()) {
+        lor << BaseTables::Company(origin.airline())->code(/*lang*/);
+    }
+    lor << ":";
+    if(!origin.port().empty()) {
+        lor << BaseTables::Port(origin.port())->code(/*lang*/);
+    }
     SetEdiFullSegment(pMes, SegmElement("LOR"), lor.str());
 }
 
@@ -399,7 +406,7 @@ void viewFdqElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& nex
     SetEdiComposite(pMes, CompElement("C013", 0));
     PushEdiPointW(pMes);
     SetEdiPointToCompositeW(pMes, CompElement("C013", 0));
-    SetEdiDataElem(pMes, DataElement(3127, 0), nextFlight.airline());
+    SetEdiDataElem(pMes, DataElement(3127, 0), BaseTables::Company(nextFlight.airline())->code(/*lang*/));
     PopEdiPointW(pMes);
 
     SetEdiComposite(pMes, CompElement("C014", 0));
@@ -409,15 +416,15 @@ void viewFdqElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& nex
     PopEdiPointW(pMes);
 
     SetEdiDataElem(pMes, DataElement(2281, 0), fullDateTimeString(nextFlight.depDate(), nextFlight.depTime()));
-    SetEdiDataElem(pMes, DataElement(3215, 0), nextFlight.depPort());
-    SetEdiDataElem(pMes, DataElement(3259, 0), nextFlight.arrPort());
+    SetEdiDataElem(pMes, DataElement(3215, 0), BaseTables::Port(nextFlight.depPort())->code(/*lang*/));
+    SetEdiDataElem(pMes, DataElement(3259, 0), BaseTables::Port(nextFlight.arrPort())->code(/*lang*/));
 
     if(currFlight)
     {
         SetEdiComposite(pMes, CompElement("C015", 0));
         PushEdiPointW(pMes);
         SetEdiPointToCompositeW(pMes, CompElement("C015", 0));
-        SetEdiDataElem(pMes, DataElement(3127, 0), currFlight->airline());
+        SetEdiDataElem(pMes, DataElement(3127, 0), BaseTables::Company(currFlight->airline())->code(/*lang*/));
         PopEdiPointW(pMes);
 
         SetEdiComposite(pMes, CompElement("C016", 0));
@@ -428,8 +435,8 @@ void viewFdqElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& nex
 
         SetEdiDataElem(pMes, DataElement(2281, 0, 1), fullDateTimeString(currFlight->depDate(), currFlight->depTime()));
         SetEdiDataElem(pMes, DataElement(2107, 0),    fullDateTimeString(currFlight->arrDate(), currFlight->arrTime()));
-        SetEdiDataElem(pMes, DataElement(3215, 0, 1), currFlight->depPort());
-        SetEdiDataElem(pMes, DataElement(3259, 0, 1), currFlight->arrPort());
+        SetEdiDataElem(pMes, DataElement(3215, 0, 1), BaseTables::Port(currFlight->depPort())->code(/*lang*/));
+        SetEdiDataElem(pMes, DataElement(3259, 0, 1), BaseTables::Port(currFlight->arrPort())->code(/*lang*/));
     }
 
     PopEdiPointW(pMes);
@@ -445,7 +452,7 @@ void viewFdrElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& fli
     SetEdiComposite(pMes, CompElement("C013", 0));
     PushEdiPointW(pMes);
     SetEdiPointToCompositeW(pMes, CompElement("C013", 0));
-    SetEdiDataElem(pMes, DataElement(3127, 0), flight.airline());
+    SetEdiDataElem(pMes, DataElement(3127, 0), BaseTables::Company(flight.airline())->code(/*lang*/));
     PopEdiPointW(pMes);
 
     SetEdiComposite(pMes, CompElement("C014", 0));
@@ -455,8 +462,8 @@ void viewFdrElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& fli
     PopEdiPointW(pMes);
 
     SetEdiDataElem(pMes, DataElement(2281, 0), fullDateTimeString(flight.depDate(), flight.depTime()));
-    SetEdiDataElem(pMes, DataElement(3215, 0), flight.depPort());
-    SetEdiDataElem(pMes, DataElement(3259, 0), flight.arrPort());
+    SetEdiDataElem(pMes, DataElement(3215, 0), BaseTables::Port(flight.depPort())->code(/*lang*/));
+    SetEdiDataElem(pMes, DataElement(3259, 0), BaseTables::Port(flight.arrPort())->code(/*lang*/));
     SetEdiDataElem(pMes, DataElement(2107, 0), fullDateTimeString(flight.arrDate(), flight.arrTime()));
     SetEdiDataElem(pMes, DataElement(9856, 0), fcIndicator);
 
@@ -490,7 +497,10 @@ void viewPsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ServiceDetails& se
     psi << service.osi();
     BOOST_FOREACH(const iatci::ServiceDetails::SsrInfo& ssr, service.lSsr())
     {
-        psi << "+" << ssr.ssrCode() << ":" << ssr.airline();
+        psi << "+" << ssr.ssrCode() << ":";
+        if(!ssr.airline().empty()) {
+            psi << BaseTables::Company(ssr.airline())->code(/*lang*/);
+        }
         psi << ":" << ssr.ssrText() << "::";
         if(ssr.quantity())
             psi << ssr.quantity();
@@ -532,10 +542,17 @@ void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& ba
 void viewChdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CascadeHostDetails& cascadeDetails)
 {
     std::ostringstream chd;
-    chd << cascadeDetails.originAirline() << ":" << cascadeDetails.originPort();
+    if(!cascadeDetails.originAirline().empty()) {
+        chd << BaseTables::Company(cascadeDetails.originAirline())->code(/*lang*/);
+    }
+    chd << ":";
+    if(!cascadeDetails.originPort().empty()) {
+        chd << BaseTables::Port(cascadeDetails.originPort())->code(/*lang*/);
+    }
+
     chd << "++++++++";
     BOOST_FOREACH(const std::string& hostAirline, cascadeDetails.hostAirlines()) {
-        chd << "H::" << hostAirline << "+";
+        chd << "H::" << BaseTables::Company(hostAirline)->code(/*lang*/) << "+";
     }
     SetEdiFullSegment(pMes, SegmElement("CHD"), chd.str());
 }
@@ -644,7 +661,10 @@ void viewUsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateServiceDetai
     BOOST_FOREACH(const iatci::UpdateServiceDetails::UpdSsrInfo& ssr, updService.lSsr())
     {
         usi << "+" << ssr.actionCodeAsString() << ":"
-                   << ssr.ssrCode() << ":" << ssr.airline();
+                   << ssr.ssrCode() << ":";
+        if(!ssr.airline().empty()) {
+            usi << BaseTables::Company(ssr.airline())->code(/*lang*/);
+        }
         usi << ":" << ssr.ssrText() << "::";
         if(ssr.quantity())
             usi << ssr.quantity();
