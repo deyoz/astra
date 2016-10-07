@@ -373,6 +373,14 @@ struct TRequest:public std::map<TReqType, TLCIReqInfo> {
     void dump();
 };
 
+typedef const char* TLinePtr;
+
+struct TSI {
+    std::vector<std::string> items;
+    void parse(TTlgPartInfo &body, TTlgParser &tlg, TLinePtr &line_p);
+    void dump();
+};
+
 class TLCIContent
 {
     public:
@@ -386,6 +394,7 @@ class TLCIContent
         TWM wm;
         TPD pd;
         TSP sp;
+        TSI si; // Non standard feature! Used in WBW exchange only
         void Clear() {};
         void dump();
 };
