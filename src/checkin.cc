@@ -1,5 +1,4 @@
 #include "checkin.h"
-#include "basic.h"
 #include "exceptions.h"
 #include "astra_locale.h"
 #include "oralib.h"
@@ -55,7 +54,7 @@
 
 using namespace std;
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace AstraLocale;
 
 void CheckInInterface::LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

@@ -6,7 +6,9 @@
 #include <netinet/in.h>
 #include <map>
 #include "xml_unit.h"
-#include "basic.h"
+#include "date_time.h"
+
+using BASIC::date_time::TDateTime;
 
 const std::string CobraMsgCodePage = "UTF-8";
 const std::string WBGarantMsgCodePage = "UTF-8";
@@ -45,7 +47,7 @@ class TTCPSession
   public:
     std::string client_type;
     bool use_heartBeat;
-    BASIC::TDateTime heartBeat;
+    TDateTime heartBeat;
     bool pr_wait_heartBeat;
     virtual ~TTCPSession() {};
     TTCPSession( int vhandle );
@@ -108,7 +110,7 @@ enum TExecuteStatus { teClientRequest, teClientAnswer, teServerRequest };
   xmlDocPtr sendDoc;
   bool pr_test;
   int flags;
-  BASIC::TDateTime putTime;
+  TDateTime putTime;
   TServMsgStatus status;
   TServMsg() {
     msg_id = 0;
@@ -144,7 +146,7 @@ enum TExecuteStatus { teClientRequest, teClientAnswer, teServerRequest };
 struct TAstraServMsg {
   int msg_id;
   int flags;
-  BASIC::TDateTime processTime;
+  TDateTime processTime;
   std::string strbody;
   TAstraServMsg() {
     msg_id = 0;

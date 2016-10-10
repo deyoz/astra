@@ -6,16 +6,17 @@
 namespace TypeB
 {
     namespace MVTParser {
+        using BASIC::date_time::TDateTime;
 
         struct TAD {
-            BASIC::TDateTime off_block_time;
-            BASIC::TDateTime airborne_time;
-            BASIC::TDateTime ea; // Estimated Arrival
+            TDateTime off_block_time;
+            TDateTime airborne_time;
+            TDateTime ea; // Estimated Arrival
             std::string airp_arv;
             void dump();
-            static BASIC::TDateTime fetch_time(BASIC::TDateTime scd, const std::string &val);
-            static BASIC::TDateTime nearest_date(BASIC::TDateTime time, int day);
-            void parse(BASIC::TDateTime scd, const std::string &val);
+            static TDateTime fetch_time(TDateTime scd, const std::string &val);
+            static TDateTime nearest_date(TDateTime time, int day);
+            void parse(TDateTime scd, const std::string &val);
             TAD():
                 off_block_time(ASTRA::NoExists),
                 airborne_time(ASTRA::NoExists),

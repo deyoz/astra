@@ -1,5 +1,5 @@
 #include "events.h"
-#include "basic.h"
+#include "astra_date_time.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "stl_utils.h"
@@ -17,10 +17,11 @@
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace AstraLocale;
 using namespace EXCEPTIONS;
 using namespace ASTRA;
+using namespace ASTRA::date_time;
 
 void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

@@ -8,9 +8,10 @@
 #include <list>
 #include <vector>
 #include <boost/optional/optional.hpp>
-#include "basic.h"
+#include "date_time.h"
 #include "astra_utils.h"
 
+using namespace BASIC::date_time;
 
 ASTRA::TDevOperType DecodeDevOperType(std::string s);
 ASTRA::TDevFmtType DecodeDevFmtType(std::string s);
@@ -187,8 +188,8 @@ namespace  BCBPSectionsEnums {
            ret+="\"" + x[i] + "\", ";
         return ret;
     }
-    inline std::string to_string(boost::optional<BASIC::TDateTime> e)
-    { return e == boost::none ? "void value" : BASIC::DateTimeToStr(*e, "dd.mm.yy", true);
+    inline std::string to_string(boost::optional<TDateTime> e)
+    { return e == boost::none ? "void value" : DateTimeToStr(*e, "dd.mm.yy", true);
     }
 
 }
@@ -383,7 +384,7 @@ class BCBPSections : public  BCBPInternalWork
 
     boost::optional<BCBPSectionsEnums::SourceOfIssuance> source_of_boarding_pass_issuance();
 
-    boost::optional<BASIC::TDateTime> date_of_boarding_pass_issuance();
+    boost::optional<TDateTime> date_of_boarding_pass_issuance();
     std::string airline_of_boarding_pass_issuance();
 
     std::string operatingCarrierPNR(int i);
@@ -453,7 +454,7 @@ class BCBPSections : public  BCBPInternalWork
      void set_doc_type(boost::optional<BCBPSectionsEnums::DocType> x);
      void set_version( boost::optional<int>  x);
      void set_source_of_boarding_pass_issuance(boost::optional<BCBPSectionsEnums::SourceOfIssuance> x);
-     void set_date_of_boarding_pass_issuance(boost::optional<BASIC::TDateTime>  x);
+     void set_date_of_boarding_pass_issuance(boost::optional<TDateTime>  x);
      void set_airline_of_boarding_pass_issuance(std::string x);
      void set_baggage_plate_nums(std::vector<Baggage_plate_nums> x);
      void set_baggage_plate_nums_as_str(std::vector<std::string> x);
@@ -475,7 +476,7 @@ class BCBPSections : public  BCBPInternalWork
      void set_international_doc_verification(char x, int i);
      void set_id_ad(char x, int i);
      void set_date_of_flight_raw(boost::optional<int> x, int i);
-     void set_date_of_flight(boost::optional<BASIC::TDateTime> x, int i);
+     void set_date_of_flight(boost::optional<TDateTime> x, int i);
      void set_airline_num_code(boost::optional<int> x, int i);
      void set_free_baggage_allowance(boost::optional<std::pair<int, BCBPSectionsEnums::FreeBaggage> > x, int i);
      void set_fast_track(boost::optional<bool> x, int i);

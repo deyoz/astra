@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <map>
 #include "prepreg.h"
-#include "basic.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "astra_utils.h"
@@ -23,7 +22,6 @@
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;

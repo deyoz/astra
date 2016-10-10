@@ -14,6 +14,9 @@
 #include "remarks.h"
 #include "typeb_utils.h"
 #include "base_tables.h"
+#include "date_time.h"
+
+using BASIC::date_time::TDateTime;
 
 const size_t PART_SIZE = 3000;
 
@@ -56,7 +59,7 @@ class TTlgStat
                      const int typeb_tlg_num,
                      const TTlgStatPoint &sender,
                      const TTlgStatPoint &receiver,
-                     const BASIC::TDateTime time_create,
+                     const TDateTime time_create,
                      const std::string &tlg_type,
                      const int tlg_len,
                      const TTripInfo &fltInfo,
@@ -145,7 +148,7 @@ struct TTlgOutPartInfo
   int id,num,point_id;
   std::string tlg_type,addr,origin,heading,body,ending;
   bool pr_lat;
-  BASIC::TDateTime
+  TDateTime
       time_create,
       time_send_scd,
       time_send_act;
@@ -328,7 +331,7 @@ int send_tlg(int argc,char **argv);
 
 bool check_delay_code(int delay_code);
 bool check_delay_code(const std::string &delay_code);
-bool check_delay_value(BASIC::TDateTime delay_time);
+bool check_delay_value(TDateTime delay_time);
 void markTlgAsSent(int tlg_id);
 void get_tlg_info(
         const std::string &tlg_text,

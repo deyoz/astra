@@ -4,9 +4,11 @@
 #include <string>
 #include <vector>
 #include <map>
-#include "basic.h"
+#include "date_time.h"
 #include "oralib.h"
 #include "astra_consts.h"
+
+using BASIC::date_time::TDateTime;
 
 const std::string PARAM_WORK_DIR = "WORKDIR";
 const std::string PARAM_HTTP_ADDR = "HTTP_ADDR";
@@ -20,13 +22,13 @@ const std::string FILE_BAG_MESSAGE_TYPE = "BSM";
 struct TFilterQueue {
   std::string receiver;
   std::string type;
-  BASIC::TDateTime last_time;
+  TDateTime last_time;
   int first_id;
   bool pr_first_order;
   int timeout_sec;
   void Init( const std::string &vreceiver,
                 const std::string &vtype,
-                const BASIC::TDateTime &vlast_time,
+                const TDateTime &vlast_time,
                 int vfirst_id,
                 bool vpr_first_order,
                 int vtimeout_sec ) {
@@ -39,7 +41,7 @@ struct TFilterQueue {
   }
   TFilterQueue( const std::string &vreceiver,
                 const std::string &vtype,
-                const BASIC::TDateTime &vlast_time,
+                const TDateTime &vlast_time,
                 int vfirst_id,
                 bool vpr_first_order,
                 int vtimeout_sec ) {
@@ -69,7 +71,7 @@ struct TFilterQueue {
   }
   TFilterQueue( const std::string &vreceiver,
                 const std::string &vtype,
-                const BASIC::TDateTime &vlast_time ) {
+                const TDateTime &vlast_time ) {
     Init( vreceiver, vtype, vlast_time, ASTRA::NoExists, false, 0 );
   }
   TFilterQueue( const std::string &vreceiver,
@@ -83,8 +85,8 @@ struct TQueueItem {
     int id;
     std::string receiver;
     std::string type;
-    BASIC::TDateTime time;
-    BASIC::TDateTime wait_time;
+    TDateTime time;
+    TDateTime wait_time;
     std::string data;
     std::map<std::string,std::string> params;
     TQueueItem() {
@@ -118,7 +120,7 @@ class TFileQueue: public std::vector<TQueueItem> {
     }
     static std::string getstatus( int id );
     static std::string gettype( int id );
-    static BASIC::TDateTime getwait_time( int id );
+    static TDateTime getwait_time( int id );
     static bool in_order( int id );
     static bool in_order( const std::string &type );
     static std::string getEncoding( const std::string &type,

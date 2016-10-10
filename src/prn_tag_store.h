@@ -4,7 +4,7 @@
 #include <string>
 #include <map>
 #include "astra_consts.h"
-#include "basic.h"
+#include "date_time.h"
 #include "astra_elems.h"
 #include "astra_misc.h"
 #include "dev_utils.h"
@@ -13,6 +13,8 @@
 #include "passenger.h"
 #include "bi_rules.h"
 #include "brands.h"
+
+using BASIC::date_time::TDateTime;
 
 const std::string FT_M61 = "M61"; // form type
 const std::string FT_298_401 = "298 401";
@@ -283,7 +285,7 @@ class TPrnTagStore {
         std::map<const std::string, TTagListItem> tag_list;
 
         struct TPointInfo {
-            BASIC::TDateTime scd, est, act;
+            TDateTime scd, est, act;
             int point_id;
             std::string craft, bort;
             std::string airline, suffix;
@@ -369,7 +371,7 @@ class TPrnTagStore {
         TPaxInfo paxInfo;
 
         struct TBrdInfo {
-            BASIC::TDateTime brd_from, brd_to, brd_to_est, brd_to_scd;
+            TDateTime brd_from, brd_to, brd_to_est, brd_to_scd;
             TBrdInfo():
                 brd_from(ASTRA::NoExists),
                 brd_to(ASTRA::NoExists),
@@ -411,8 +413,8 @@ class TPrnTagStore {
 
 
         struct TTimePrint {
-            BASIC::TDateTime val;
-            TTimePrint(BASIC::TDateTime aval): val(aval) {};
+            TDateTime val;
+            TTimePrint(TDateTime aval): val(aval) {};
         };
 
         TTimePrint time_print;
@@ -580,21 +582,21 @@ class TPrnTagStore {
         void set_tag(std::string name, const BIPrintRules::TRule &value);
         void set_tag(std::string name, std::string value);
         void set_tag(std::string name, int value);
-        void set_tag(std::string name, BASIC::TDateTime value);
+        void set_tag(std::string name, TDateTime value);
         std::string get_field(std::string name, size_t len, std::string align, std::string date_format, std::string tag_lang, bool pr_user_except = true);
         void confirm_print(bool pr_print, ASTRA::TDevOperType op_type);
         std::string get_tag_no_err( // Версия get_tag, которая игнорирует ошибку "Данные печати не латинские"
                 std::string name,
-                std::string date_format = BASIC::ServerFormatDateTimeAsString,
+                std::string date_format = BASIC::date_time::ServerFormatDateTimeAsString,
                 std::string tag_lang = "R"); // R - russian; E - english
         std::string get_tag(
                 std::string name,
-                std::string date_format = BASIC::ServerFormatDateTimeAsString,
+                std::string date_format = BASIC::date_time::ServerFormatDateTimeAsString,
                 std::string tag_lang = "R"); // R - russian; E - english
         bool tag_processed(std::string name);
         void set_print_mode(int val);
         void clear();
-        BASIC::TDateTime get_time_print() { return time_print.val; };
+        TDateTime get_time_print() { return time_print.val; };
         void tst_get_tag_list(std::vector<std::string> &tag_list);
 };
 

@@ -3,15 +3,15 @@
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
 #include "xml_unit.h"
-#include "basic.h"
 #include "stl_utils.h"
+#include "misc.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
 
 
 using namespace std;
-using namespace BASIC;
+using namespace BASIC::date_time;
 
 const char* NodeContent(xmlNodePtr node)
 {
@@ -354,12 +354,12 @@ double NodeAsFloatFast(const char *expr, xmlNodePtr &node)
   return NodeAsFloat(NodeAsNodeFast(expr,node));
 }
 
-BASIC::TDateTime NodeAsDateTimeFast(const char *expr, const char *format, xmlNodePtr &node)
+TDateTime NodeAsDateTimeFast(const char *expr, const char *format, xmlNodePtr &node)
 {
   return NodeAsDateTime(NodeAsNodeFast(expr,node),format);
 }
 
-BASIC::TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node)
+TDateTime NodeAsDateTimeFast(const char *expr, xmlNodePtr &node)
 {
   return NodeAsDateTime(NodeAsNodeFast(expr,node),(char*)ServerFormatDateTimeAsString);
 }

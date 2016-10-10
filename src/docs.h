@@ -4,7 +4,7 @@
 #include <libxml/tree.h>
 #include "jxtlib/JxtInterface.h"
 #include "astra_consts.h"
-#include "basic.h"
+#include "date_time.h"
 #include "remarks.h"
 #include "print.h"
 
@@ -53,7 +53,7 @@ bool bad_client_img_version();
 void get_new_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void get_compatible_report_form(const std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
-                 BASIC::TDateTime part_key = ASTRA::NoExists);
+                 BASIC::date_time::TDateTime part_key = ASTRA::NoExists);
 void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePtr reqNode);
 std::string get_flight(xmlNodePtr variablesNode);
 std::vector<std::string> get_grp_zone_list(int point_id);

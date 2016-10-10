@@ -10,7 +10,7 @@
 
 using namespace EXCEPTIONS;
 using namespace std;
-using namespace BASIC;
+using namespace BASIC::date_time;
 
 void TParseFlight::add_airline( const std::string &value ) {
   try {
@@ -404,8 +404,8 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
     int flt_no;
     std::string suffix;
     std::string airp;
-    BASIC::TDateTime scd_in;
-    BASIC::TDateTime scd_out;
+    TDateTime scd_in;
+    TDateTime scd_out;
     bool pr_land = false, pr_takeoff= false;
     int doubleMove_id = ASTRA::NoExists;
     int doublePoint_id = ASTRA::NoExists;

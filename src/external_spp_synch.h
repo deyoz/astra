@@ -2,11 +2,13 @@
 #define EXTERNAL_SPP_SYNCH_H
 
 #include <string>
-#include "basic.h"
+#include "date_time.h"
 #include "jxtlib/JxtInterface.h"
 #include "http_main.h"
 #include "stl_utils.h"
 #include "astra_elems.h"
+
+using BASIC::date_time::TDateTime;
 
 class HTTPRequestsIface : public JxtInterface
 {
@@ -57,8 +59,8 @@ struct  TParseFlight {
   int flt_no;
   TCode suffix;
   std::string trip_type;
-  BASIC::TDateTime scd;
-  BASIC::TDateTime est;
+  TDateTime scd;
+  TDateTime est;
   TCode craft;
   std::vector<TCode> airps_in;
   std::vector<TCode> airps_out;
@@ -89,7 +91,8 @@ struct  TParseFlight {
     return error.empty();
   }
   std::string key() const {
-    std::string res = airline.code + IntToString( flt_no ) + suffix.code + BASIC::DateTimeToStr( UTCToLocal( scd, own_region ), "dd" );
+    using namespace BASIC::date_time;
+    std::string res = airline.code + IntToString( flt_no ) + suffix.code + DateTimeToStr( UTCToLocal( scd, own_region ), "dd" );
     return res;
   }
 };

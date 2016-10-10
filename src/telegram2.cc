@@ -16,6 +16,7 @@
 #include "remarks.h"
 #include "pers_weights.h"
 #include "misc.h"
+#include "date_time.h"
 #include "qrys.h"
 #include "typeb_utils.h"
 #include "emdoc.h"
@@ -29,7 +30,7 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace boost::local_time;
 using namespace ASTRA;
 using namespace SALONS2;
@@ -5774,7 +5775,7 @@ bool check_delay_value(TDateTime delay_time)
     int hours, mins, secs;
     double f;
     double remain = modf(delay_time, &f);
-    BASIC::DecodeTime( remain, hours, mins, secs );
+    DecodeTime( remain, hours, mins, secs );
     return delay_time > 0 && f * 24 * 60 + hours * 60 + mins < MAX_DELAY_TIME;
 }
 
@@ -5800,7 +5801,7 @@ string TTripDelays::delay_value(TypeB::TDetailCreateInfo &info, TDateTime prev, 
         int hours, mins, secs;
         double f;
         double remain = modf(curr - prev, &f);
-        BASIC::DecodeTime( remain, hours, mins, secs );
+        DecodeTime( remain, hours, mins, secs );
         result << setfill('0') << setw(2) << f * 24 + hours << setw(2) << mins;
     } else
         result << info.err_lst.add_err(TypeB::DEFAULT_ERR, "Delay out of range %d mins", MAX_DELAY_TIME);

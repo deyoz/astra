@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include "salons2.h"
 #include "salons.h"
-#include "basic.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
@@ -20,7 +19,6 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
-using namespace BASIC;
 using namespace ASTRA;
 
 void TFilterLayers::getFilterLayers( int point_id )

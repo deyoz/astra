@@ -17,7 +17,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC;
+using namespace BASIC::date_time;
 
 namespace BASIC_SALONS {
 

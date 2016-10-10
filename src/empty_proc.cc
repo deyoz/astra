@@ -1,5 +1,5 @@
 //---------------------------------------------------------------------------
-#include "basic.h"
+#include "date_time.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "arx_daily.h"
@@ -30,7 +30,7 @@
 #include "serverlib/slogger.h"
 
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace std;
 
 void alter_wait(int processed, bool commit_before_sleep=false, int work_secs=5, int sleep_secs=5)
@@ -798,8 +798,8 @@ int unbind_trfer_trips(int argc,char **argv)
 int season_to_schedules(int argc,char **argv)
 {
   //!!!TDateTime first_date = NowUTC()-3000;
-  //BASIC::TDateTime first_date = NowUTC()-500;
-  //  BASIC::TDateTime last_date = NowUTC() + 750;
+  //TDateTime first_date = NowUTC()-500;
+  //  TDateTime last_date = NowUTC() + 750;
   try {
 //    ConvertSeason( first_date, last_date );
   }
@@ -1291,7 +1291,7 @@ int compare_apis(int argc,char **argv)
       };
       flt.airp_dep=ElemToElemId(etAirp, airp_dep, fmt);
       if (fmt==efmtUnknown) continue;
-      if (BASIC::StrToDateTime(scd_out_local, "yyyymmdd", flt.scd_out_local )==EOF) continue;
+      if (StrToDateTime(scd_out_local, "yyyymmdd", flt.scd_out_local )==EOF) continue;
 
       if (flt.scd_out_local<NowUTC()-7) continue;
 
@@ -1955,7 +1955,7 @@ int test_file_queue(int argc,char **argv)
    tst();
    type = "MINTRANS"; //не важна сортировка
    params[ "WORKDIR" ] = "c:\\work";
-   BASIC::TDateTime UTCSysdate = NowUTC() + 5.0/1440.0;
+   TDateTime UTCSysdate = NowUTC() + 5.0/1440.0;
    id1 = TFileQueue::putFile( receiver,
                               sender,
                               type,
@@ -2650,3 +2650,25 @@ int pc_wt_stat(int argc,char **argv)
 }
 
 
+void TZUpdate();
+
+int tz_conversion(int, char **) {
+    std::cout << "IANA timezone version: " << getTZDataVersion() << std::endl;
+    
+    TZUpdate();
+    return 0;
+}
+
+#include "tz_test.h"
+
+int test_conversion(int, char **) {
+    std::cout << "IANA timezone version: " << getTZDataVersion() << std::endl;
+
+    std::cout << "Creating points..." << std::endl;
+    createPoints();
+    std::cout << "Points created. Forming XML..." << std::endl;
+    createXMLFromPoints();
+    std::cout << "XML formed." << std::endl;
+
+    return 0;
+}

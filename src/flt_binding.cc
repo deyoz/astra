@@ -12,7 +12,7 @@
 #include "serverlib/slogger.h"
 
 using namespace ASTRA;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 
@@ -73,7 +73,7 @@ void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, b
     };
   if (!unbind) {
     add_trip_task(point_id_spp, SYNC_ALL_CHKD, "");
-    BASIC::TDateTime start_time;
+    TDateTime start_time;
     bool result = checkTime( point_id_spp, start_time );
     if ( result || start_time != ASTRA::NoExists )
       add_trip_task( point_id_spp, SEND_ALL_APPS_INFO, "", start_time );

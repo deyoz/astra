@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include "basic.h"
+#include "date_time.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "astra_utils.h"
@@ -196,7 +196,7 @@ class TFltInfo : public TTripInfo
       if (scd_out!=ASTRA::NoExists)
       {
         if (calc_local_time)
-          scd_out=UTCToLocal(scd_out,AirpTZRegion(airp));
+          scd_out = BASIC::date_time::UTCToLocal(scd_out,AirpTZRegion(airp));
         modf(scd_out,&scd_out);
       };
     };

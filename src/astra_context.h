@@ -1,9 +1,11 @@
 #ifndef _ASTRA_CONTEXT_H_
 #define _ASTRA_CONTEXT_H_
 
-#include "basic.h"
+#include "date_time.h"
 #include "astra_consts.h"
 #include "oralib.h"
+
+using BASIC::date_time::TDateTime;
 
 void longToDB(TQuery &Qry, const std::string &column_name, const std::string &src, bool nullable=false, int len=4000);
 
@@ -17,12 +19,12 @@ int SetContext(const std::string &name,
 int SetContext(const std::string &name,
                const std::string &value);
 
-BASIC::TDateTime GetContext(const std::string &name,
+TDateTime GetContext(const std::string &name,
                             const int id,
                             std::string &value);
 
 void ClearContext(const std::string &name,
-                  const BASIC::TDateTime time_create = ASTRA::NoExists);
+                  const TDateTime time_create = ASTRA::NoExists);
 
 void ClearContext(const std::string &name,
                   const int id);

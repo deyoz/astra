@@ -6,7 +6,6 @@
 #include "alarms.h"
 #include "apps_interaction.h"
 #include "astra_misc.h"
-#include "basic.h"
 #include "exceptions.h"
 #include "points.h"
 #include "qrys.h"
@@ -18,7 +17,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace ASTRA;
 
 static const std::string ReqTypeCirq = "CIRQ";
@@ -119,7 +118,7 @@ static void sendNewReq( const std::string& text, const int msg_id, const int poi
   Qry.SQLText = "INSERT INTO apps_messages(msg_id, msg_text, send_attempts, send_time, point_id) "
                 "VALUES (:msg_id, :msg_text, :send_attempts, :send_time, :point_id)";
   Qry.CreateVariable("msg_id", otString, msg_id);
-  Qry.CreateVariable("send_time", otDate, BASIC::NowUTC());
+  Qry.CreateVariable("send_time", otDate, NowUTC());
   Qry.CreateVariable("msg_text", otString, text);
   Qry.CreateVariable("send_attempts", otInteger, 1);
   Qry.CreateVariable("point_id", otInteger, point_id);
@@ -207,14 +206,14 @@ bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& tran
 
 bool checkTime( const int point_id )
 {
-  BASIC::TDateTime start_time = ASTRA::NoExists;
+  TDateTime start_time = ASTRA::NoExists;
   return checkTime( point_id, start_time );
 }
 
-bool checkTime( const int point_id, BASIC::TDateTime& start_time )
+bool checkTime( const int point_id, TDateTime& start_time )
 {
   start_time = ASTRA::NoExists;
-  BASIC::TDateTime now = BASIC::NowUTC();
+  TDateTime now = NowUTC();
   TTripInfo trip;
   trip.getByPointId(point_id);
   // The APP System only allows transactions on [- 2 days] TODAY [+ 10 days].
@@ -322,7 +321,7 @@ void TFlightData::init( const int id, const std::string& flt_type )
 }
 
 void TFlightData::init( const int id, const std::string& flt_type, const std::string&  num, const std::string& airp, const std::string& arv_airp,
-           BASIC::TDateTime dep, BASIC::TDateTime arv )
+           TDateTime dep, TDateTime arv )
 {
   point_id = id;
   type = flt_type;
@@ -747,7 +746,7 @@ void TPaxRequest::saveData() const
   Qry.CreateVariable("transfer_at_dest", otString, pax.trfer_at_dest);
   Qry.CreateVariable("pnr_source", otString, pax.pnr_source);
   Qry.CreateVariable("pnr_locator", otString, pax.pnr_locator);
-  Qry.CreateVariable("send_time", otDate, BASIC::NowUTC());
+  Qry.CreateVariable("send_time", otDate, NowUTC());
   Qry.CreateVariable("pre_ckin", otInteger, trans.type);
   Qry.CreateVariable("flt_num", otString, int_flt.flt_num);
   Qry.CreateVariable("dep_port", otString, int_flt.port);
@@ -1536,7 +1535,7 @@ void reSendMsg( const int send_attempts, const std::string& msg_text, const int 
                 "WHERE msg_id = :msg_id ";
   Qry.CreateVariable("msg_id", otInteger, msg_id);
   Qry.CreateVariable("send_attempts", otInteger, send_attempts + 1);
-  Qry.CreateVariable("send_time", otDate, BASIC::NowUTC());
+  Qry.CreateVariable("send_time", otDate, NowUTC());
   Qry.Execute();
   ProgTrace(TRACE5, "Message id=%d was re-sent. Send attempts: %d", msg_id, send_attempts);
 }

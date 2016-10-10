@@ -1,9 +1,10 @@
 #include <stdlib.h>
 #include "astra_consts.h"
-#include "basic.h"
+#include "date_time.h"
 #include "exceptions.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
+#include "astra_date_time.h"
 #include "stl_utils.h"
 #include "oralib.h"
 #include "term_version.h"
@@ -11,6 +12,7 @@
 #include "points.h"
 #include "events.h"
 #include "qrys.h"
+#include "date_time.h"
 
 #include "serverlib/perfom.h"
 
@@ -18,8 +20,9 @@
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace BASIC;
+using namespace BASIC::date_time;
 using namespace ASTRA;
+using namespace ASTRA::date_time;
 using namespace EXCEPTIONS;
 using namespace boost::local_time;
 
@@ -90,7 +93,7 @@ inline TDateTime SetDate( TDateTime date, int Year, int diffday )
   }
 }
 
-void TPersWeights::getRules( const BASIC::TDateTime &scd_utc, const std::string &airline,
+void TPersWeights::getRules( const TDateTime &scd_utc, const std::string &airline,
                              const std::string &craft, const std::string &bort,
                              PersWeightRules &rweights )
 {
@@ -118,7 +121,8 @@ void TPersWeights::getRules( const BASIC::TDateTime &scd_utc, const std::string 
       if ( p->first_date == ASTRA::NoExists &&
            p->last_date == ASTRA::NoExists ) {
         tst();
-        good_cond = ( is_dst( scd_utc, region ) == p->pr_summer );
+        //good_cond = ( is_dst( scd_utc, region ) == p->pr_summer );
+        good_cond = ( season( UTCToLocal(scd_utc, region) ).isSummer() == p->pr_summer );
       }
       else
         good_cond = true;
