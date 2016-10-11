@@ -811,6 +811,21 @@ struct TWItem {
         rkAmount(0),
         rkWeight(0)
     {};
+    TWItem &operator += (const TWItem &val)
+    {
+        bagAmount += val.bagAmount;
+        bagWeight += val.bagWeight;
+        rkAmount += val.rkAmount;
+        rkWeight += val.rkWeight;
+        return *this;
+    }
+    void operator = (const TWItem &val)
+    {
+        bagAmount = val.bagAmount;
+        bagWeight = val.bagWeight;
+        rkAmount = val.rkAmount;
+        rkWeight = val.rkWeight;
+    }
 };
 
 struct TMItem {
@@ -1441,26 +1456,25 @@ namespace PRL_SPACE {
 
     struct TGRPItem {
         int pax_count;
-        bool pr_apply_inf_bag;
         bool written;
         int bg;
         TWItem W;
         TPRLTagList tags;
         TGRPItem() {
             pax_count = NoExists;
-            pr_apply_inf_bag = false;
             written = false;
             bg = NoExists;
         }
     };
 
     struct TGRPMap {
-        map<int, map<int, TGRPItem> > items;
+        TInfants &infants;
+        map<int, map<int, TGRPItem> > items; // [grp_id][bag_pool_num]
         int items_count;
         bool find(int grp_id, int bag_pool_num);
         void get(int grp_id, int bag_pool_num);
         void ToTlg(TypeB::TDetailCreateInfo &info, int grp_id, int bag_pool_num, vector<string> &body);
-        TGRPMap(): items_count(0) {};
+        TGRPMap(TInfants &ainfants): infants(ainfants), items_count(0) {};
     };
 
     struct TFirmSpaceAvail {
@@ -4937,7 +4951,6 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    pax.ticket_no, "
         "    pax.coupon_no, "
         "    pax.grp_id, "
-        "    pax.bag_pool_num, "
         "    pax.bag_pool_num "
         "from "
         "    pax, "
@@ -5003,7 +5016,7 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
             pax.coupon_no = Qry.FieldAsInteger(col_coupon_no);
             pax.grp_id = Qry.FieldAsInteger(col_grp_id);
             if(not Qry.FieldIsNULL(col_bag_pool_num))
-            pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+                pax.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
 
             TGrpEmds::iterator idx = grpEmds.find(pax.grp_id);
             if(idx == grpEmds.end()) {
@@ -5130,14 +5143,31 @@ void TETLDest::PaxListToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body
 
 template <class T>
 struct TDestList {
-    TGRPMap grp_map; // PRL, ETL
     TInfants infants; // PRL
+    TGRPMap grp_map; // PRL, ETL
     vector<T> items;
     void get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &lst);
     void get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers);
-    void apply_inf_bag();
+
+    TWItem paxBag(int grp_id, int pax_id, int bag_pool_num); // calculate bagAmount using grp_map, infants
+
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
+    // grp_map (контейнер багажа взрослых паксов) зависит от контейнера младенцев, т.к.
+    // при достаче багажа взрослого к нему приплюсовывается соотв. багаж младенца
+    TDestList(): grp_map(infants) {}
 };
+
+template <class T>
+TWItem TDestList<T>::paxBag(int grp_id, int pax_id, int bag_pool_num)
+{
+    TWItem result;
+    TGRPItem &grp_i = grp_map.items[grp_id][bag_pool_num];
+    result = grp_i.W;
+    for(vector<TInfantsItem>::iterator infRow = infants.items.begin(); infRow != infants.items.end(); infRow++)
+        if(infRow->grp_id == grp_id and infRow->parent_pax_id == pax_id)
+            result += infRow->W;
+    return result;
+}
 
 void split_n_save(ostringstream &heading, size_t part_len, TTlgDraft &tlg_draft, TTlgOutPartInfo &tlg_row, vector<string> &body) {
     string part_begin;
@@ -6580,22 +6610,22 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
         for(vector<TPRLPax>::iterator pax_i = iv->PaxList.begin(); pax_i != iv->PaxList.end(); pax_i++) {
             if(options.seat_plan == "WB" and pax_i->crew_type == TCrewType::ExtraCrew)
                 continue;
-            TGRPItem &grp_map = iv->grp_map->items[pax_i->grp_id][pax_i->bag_pool_num];
-            items[idx].cls_totals[iv->cls].bag_amount += grp_map.W.bagAmount;
-            items[idx].cls_totals[iv->cls].bag_weight += grp_map.W.bagWeight;
-            items[idx].rk_weight += grp_map.W.rkWeight;
+            TWItem pax_bag = dests.paxBag(pax_i->grp_id, pax_i->pax_id, pax_i->bag_pool_num);
+            items[idx].cls_totals[iv->cls].bag_amount += pax_bag.bagAmount;
+            items[idx].cls_totals[iv->cls].bag_weight += pax_bag.bagWeight;
+            items[idx].rk_weight += pax_bag.rkWeight;
 
-            items[idx].bag_category[BCAT_BX].first += grp_map.W.rkAmount;
-            items[idx].bag_category[BCAT_BX].second += grp_map.W.rkWeight;
+            items[idx].bag_category[BCAT_BX].first += pax_bag.rkAmount;
+            items[idx].bag_category[BCAT_BX].second += pax_bag.rkWeight;
 
             if(iv->cls == "Б") {
-                items[idx].bag_category[BCAT_BF].first += grp_map.W.bagAmount;
-                items[idx].bag_category[BCAT_BF].second += grp_map.W.bagWeight;
+                items[idx].bag_category[BCAT_BF].first += pax_bag.bagAmount;
+                items[idx].bag_category[BCAT_BF].second += pax_bag.bagWeight;
             }
 
             if(iv->cls == "Э") {
-                items[idx].bag_category[BCAT_BY].first += grp_map.W.bagAmount;
-                items[idx].bag_category[BCAT_BY].second += grp_map.W.bagWeight;
+                items[idx].bag_category[BCAT_BY].first += pax_bag.bagAmount;
+                items[idx].bag_category[BCAT_BY].second += pax_bag.bagWeight;
             }
 
             for(vector<string>::iterator rem_i = pax_i->rems.items.begin();
@@ -7173,33 +7203,6 @@ struct TSubclsItem {
 };
 
 template <class T>
-void TDestList<T>::apply_inf_bag()
-{
-    for(size_t i = 0; i < items.size(); i++) {
-        T *iv = &items[i];
-        for(size_t i_pax = 0; i_pax < iv->PaxList.size(); i_pax++) {
-            int pax_id =  iv->PaxList[i_pax].pax_id;
-            int grp_id =  iv->PaxList[i_pax].grp_id;
-            int bag_pool_num =  iv->PaxList[i_pax].bag_pool_num;
-            for(vector<TInfantsItem>::iterator infRow = infants.items.begin(); infRow != infants.items.end(); infRow++) {
-                if(infRow->grp_id == grp_id and infRow->parent_pax_id == pax_id) {
-                    TGRPItem &grp_item = grp_map.items[grp_id][bag_pool_num];
-                    if(not(grp_item.W.bagAmount == 0 and grp_item.W.bagWeight == 0 and grp_item.W.rkWeight == 0)) {
-                        if(!grp_item.pr_apply_inf_bag) {
-                            grp_item.pr_apply_inf_bag = true;
-                            grp_item.W.bagAmount += infRow->W.bagAmount;
-                            grp_item.W.bagWeight += infRow->W.bagWeight;
-                            grp_item.W.rkAmount += infRow->W.rkAmount;
-                            grp_item.W.rkWeight += infRow->W.rkWeight;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-template <class T>
 void TDestList<T>::get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &lst)
 {
     const TypeB::TPRLOptions *PRLOptions=NULL;
@@ -7276,7 +7279,6 @@ void TDestList<T>::get(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &com
             dest.GetPaxList(info,complayers);
             items.push_back(dest);
         }
-    apply_inf_bag();
 }
 
 struct TNumByDestItem {
