@@ -1000,15 +1000,14 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
   };
 }
 
-bool MoreThanOnePersonWithSeat(const vector< TWebPnr > &pnrs)
+bool MoreThanOnePersonWithSeat(const TWebPnr &pnr)
 {
   int persons=0;
-  for(vector< TWebPnr >::const_iterator iPnr=pnrs.begin(); iPnr!=pnrs.end(); ++iPnr)
-    for(vector<TWebPax>::const_iterator iPax=iPnr->paxs.begin(); iPax!=iPnr->paxs.end(); ++iPax)
-    {
-      if (iPax->seats!=0) persons++;
-      if (persons>1) return true;
-    };
+  for(vector<TWebPax>::const_iterator iPax=pnr.paxs.begin(); iPax!=pnr.paxs.end(); ++iPax)
+  {
+    if (iPax->seats!=0) persons++;
+    if (persons>1) return true;
+  };
   return persons>1;
 }
 
@@ -1250,7 +1249,7 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   vector< TWebPnr > pnrs;
   segsNode = NewTextChild( NewTextChild( resNode, "LoadPnr" ), "segments" );
   IntLoadPnr( ids, filter, pnrs, segsNode, false );
-  if (charter_search && MoreThanOnePersonWithSeat(pnrs))
+  if (charter_search && !pnrs.empty() && MoreThanOnePersonWithSeat(*(pnrs.begin())))
     throw UserException("MSG.CHARTER_SEARCH.FOUND_MORE.ADJUST_SEARCH_PARAMS");
 }
 
