@@ -6435,9 +6435,42 @@ struct TLCIPaxTotalsItem {
     TLCIPaxTotalsItem(): rk_weight(0) {}
 };
 
+struct TUnaccBag {
+    map<string, pair<int, int> > items;
+    void get(int point_id);
+};
+
+void TUnaccBag::get(int point_id)
+{
+    items.clear();
+    TCachedQuery Qry(
+            "select "
+            "   airp_arv, "
+            "   sum ( "
+            "   nvl(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL), 0) + "
+            "   nvl(ckin.get_rkAmount2(pax_grp.grp_id,NULL,NULL), 0))  bag_amount, "
+            "   sum ( "
+            "   nvl(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL), 0) + "
+            "   nvl(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL), 0)) bag_weight "
+            "from pax_grp where "
+            "   point_dep = :point_id and "
+            "   pax_grp.class IS NULL and "
+            "   pax_grp.status NOT IN ('E') "
+            "group by "
+            "   airp_arv ",
+            QParams() << QParam("point_id", otInteger, point_id));
+    Qry.get().Execute();
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        items[Qry.get().FieldAsString("airp_arv")] = make_pair(
+                Qry.get().FieldAsInteger("bag_amount"),
+                Qry.get().FieldAsInteger("bag_weight"));
+    }
+}
+
 struct TLCIPaxTotals {
     vector<TLCIPaxTotalsItem> items;
     TByClass pax_tot_by_cls;
+    TUnaccBag unacc;
     void get(TypeB::TDetailCreateInfo &info);
     void ToTlg(
             TypeB::TDetailCreateInfo &info,
@@ -6480,11 +6513,13 @@ void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, 
                 <<
                 iv->cls_totals["è"].bag_amount +
                 iv->cls_totals["Å"].bag_amount +
-                iv->cls_totals["ù"].bag_amount
+                iv->cls_totals["ù"].bag_amount +
+                unacc.items[iv->airp].first
                 << "/" <<
                 iv->cls_totals["è"].bag_weight +
                 iv->cls_totals["Å"].bag_weight +
-                iv->cls_totals["ù"].bag_weight
+                iv->cls_totals["ù"].bag_weight +
+                unacc.items[iv->airp].second
                 << ".C."
                 << iv->cls_totals["è"].bag_amount << "/"
                 << iv->cls_totals["Å"].bag_amount << "/"
@@ -6651,6 +6686,8 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
         }
         items[idx].cls_totals[iv->cls].pax_size = iv->PaxList.size();
     }
+    if(options.seat_plan == "WB")
+        unacc.get(info.point_id);
 }
 
 struct TSeatPlan {
