@@ -1726,6 +1726,9 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   xmlNodePtr operNode=NULL,devsNode=NULL,devNode=NULL;
   for(;!Qry.Eof;Qry.Next())
   {
+    string dev_model_code=Qry.FieldAsString("dev_model_code");
+    if (reqInfo->desk.mode==omMUSE && dev_model_code=="DRV PRINT") continue;
+
     if (op_type!=Qry.FieldAsString("op_type")) operNode=NULL;
     if (operNode==NULL)
     {
