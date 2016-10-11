@@ -394,7 +394,7 @@ void TPaxData::init( const int pax_ident, const std::string& surname, const std:
       given_names = doc.first_name;
     if (!given_names.empty() && !doc.second_name.empty())
       given_names = given_names + " " + doc.second_name;
-    given_names = given_names.substr(0, 24);
+    given_names = given_names.substr(0, 40);
     given_names = transliter(given_names, 1, 1);
   }
   else {
@@ -462,9 +462,9 @@ void TPaxData::check_data() const
     throw Exception( "Passport number too long: %s", passport.c_str() );
   if( !doc_type.empty() && doc_type != "P" && doc_type != "O" && doc_type != "N" )
     throw Exception( "Incorrect doc_type: %s", doc_type.c_str() );
-  if( family_name.empty() || family_name.size() < 2 || family_name.size() > 24 )
+  if( family_name.empty() || family_name.size() < 2 || family_name.size() > 40 )
     throw Exception( "Incorrect family_name: %s", family_name.c_str() );
-  if( given_names.size() > 24 )
+  if( given_names.size() > 40 )
     throw Exception( "given_names too long: %s", given_names.c_str() );
   if( !sex.empty() && sex != "M" && sex != "F" && sex != "U" && sex != "X" )
     throw Exception( "Incorrect gender: %s", sex.c_str() );
@@ -1369,12 +1369,12 @@ void APPSFlightCloseout( const int point_id )
   route.GetRouteAfter( NoExists, point_id, trtWithCurrent, trtNotCancelled );
   TAdvTripRoute::const_iterator r=route.begin();
   set<string> countries;
-  countries.insert( getCountryByAirp(r->airp).code_lat );
+  countries.insert( getCountryByAirp(r->airp).code );
   for(r++; r!=route.end(); r++) {
     // определим, нужно ли отправлять данные
     if( !checkAPPSSets( point_id, r->point_id ) )
       continue;
-    countries.insert( getCountryByAirp(r->airp).code_lat );
+    countries.insert( getCountryByAirp(r->airp).code );
 
     /* Определим, есть ли пассажиры не прошедшие посадку,
      * информация о которых была отправлена в SITA.
@@ -1386,7 +1386,7 @@ void APPSFlightCloseout( const int point_id )
                 "WHERE pax_grp.grp_id=pax.grp_id AND apps_pax_data.pax_id = pax.pax_id AND "
                 "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND "
                 "      (pax.name IS NULL OR pax.name<>'CBBG') AND "
-                "      pr_brd=0 AND apps_pax_data.status = 'B'";
+                "      pr_brd=0 AND apps_pax_data.status = 'B'  and pax_crew != 'C'";
     Qry.CreateVariable("point_dep", otInteger, point_id);
     Qry.CreateVariable("point_arv", otInteger, r->point_id);
     Qry.Execute();
@@ -1402,8 +1402,9 @@ void APPSFlightCloseout( const int point_id )
   }
   set<string> countries_need_req = needFltCloseout( countries, route.front().airline );
   for( set<string>::const_iterator it = countries_need_req.begin(); it != countries_need_req.end(); it++ ) {
+    string country = ((TCountriesRow&)base_tables.get("countries").get_row("code",*it)).code_lat;
     TManifestRequest close_flt;
-    close_flt.init( point_id, *it );
+    close_flt.init( point_id, country );
     close_flt.sendReq();
   }
 }
