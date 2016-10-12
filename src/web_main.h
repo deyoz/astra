@@ -7,6 +7,7 @@
 #include "typeb_utils.h"
 #include "web_search.h"
 #include "checkin_utils.h"
+#include "etick.h"
 
 #define WEB_JXT_IFACE_ID "WEB"
 #define EMUL_CLIENT_TYPE ctWeb
@@ -133,6 +134,7 @@ struct TWebPax {
     CheckIn::TPaxTknItem tkn;
     CheckIn::TPaxDocItem doc;
     CheckIn::TPaxDocoItem doco;
+    TETickItem etick;
     std::list<CheckIn::TPaxDocaItem> doca;
     std::set<CheckIn::TPaxFQTItem> fqts;
     std::multiset<CheckIn::TPaxRemItem> rems;
