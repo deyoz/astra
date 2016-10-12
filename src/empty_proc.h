@@ -19,5 +19,6 @@ int convert_codeshare(int argc,char **argv);
 int tz_conversion(int argc, char **argv);
 int test_conversion(int, char **);
 namespace NatStat { int nat_stat(int argc,char **argv); }
+int ego_stat(int argc,char **argv);
 
 #endif
