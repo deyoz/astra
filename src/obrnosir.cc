@@ -91,6 +91,7 @@ const
     {"-http",                   verifyHTTP,             NULL,                       NULL},
     {"-bcbp",                   AstraWeb::bcbp_test,    NULL,                       NULL},
     {"-nat_stat",               NatStat::nat_stat,      NULL,                       NULL},
+    {"-ego_stat",               ego_stat,               NULL,                       NULL},
     {"-pc_wt_stat",             pc_wt_stat,             NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-rfisc_all",              nosir_rfisc_all,        NULL,                       NULL},
