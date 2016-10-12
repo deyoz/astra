@@ -790,14 +790,15 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   xmlNodePtr dataNode=NewTextChild( resNode, "data" );
   if (GetNode("refresh_type",reqNode)!=NULL)
     NewTextChild( dataNode, "refresh_type", NodeAsInteger("refresh_type",reqNode) );
-  GetSegInfo(reqNode, resNode, dataNode);
+  int first_point_id = NodeAsInteger( "point_id", reqNode );
+  GetSegInfo(reqNode, resNode, dataNode, first_point_id);
   //обработка многосегментного запроса
   xmlNodePtr node=GetNode("segments",reqNode);
   if (node!=NULL)
   {
     xmlNodePtr segsNode=NewTextChild(dataNode,"segments");
     for(node=node->children;node!=NULL;node=node->next)
-      GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"));
+      GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"), first_point_id);
   };
   //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
@@ -828,7 +829,8 @@ void TripsInterface::PectabsResponse(int point_id, xmlNodePtr reqNode, xmlNodePt
   };
 };
 
-void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodePtr dataNode)
+void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodePtr dataNode,
+                                bool first_point_id)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   int point_id = NodeAsInteger( "point_id", reqNode );
@@ -858,7 +860,7 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
     if ( GetNode( "tripcounters", reqNode ) )
       CheckInInterface::readTripCounters( point_id, dataNode );
     if ( GetNode( "tripdata", reqNode ) )
-      CheckInInterface::readTripData( point_id, dataNode );
+      CheckInInterface::readTripData( point_id, first_point_id, dataNode );
     if ( GetNode( "tripsets", reqNode ) )
       CheckInInterface::readTripSets( point_id, dataNode );
 

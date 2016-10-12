@@ -4105,6 +4105,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   segNode=NodeAsNode("segments/segment",reqNode);
   int seg_no=1;
   bool first_segment=true;
+  bool notCheckAPI=false;
   vector<CheckIn::TTransferItem>::const_iterator iTrfer;
   map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
 
@@ -4191,6 +4192,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       bool pr_etl_only=GetTripSets(tsETSNoInteract,fltInfo);
       bool pr_mintrans_file=GetTripSets(tsMintransFile,fltInfo);
       bool pr_mixed_norms=GetTripSets(tsMixedNorms,fltInfo);
+      if (first_segment)
+        notCheckAPI=GetTripSets(tsAPISControlOnFirstSegOnly, fltInfo);
 
       bool addVIP=false;
       if (first_segment)
@@ -4212,7 +4215,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       //проверим номера документов и билетов, ремарки
       if (!pr_unaccomp)
       {
-        TCompleteAPICheckInfo checkInfo(grp.point_dep, grp.airp_arv);
+        TCompleteAPICheckInfo checkInfo;
+        if (first_segment || !notCheckAPI)
+          checkInfo.set(grp.point_dep, grp.airp_arv);
         Qry.Clear();
         Qry.SQLText="SELECT pax.*, NULL AS seat_no FROM pax WHERE pax_id=:pax_id";
         Qry.DeclareVariable("pax_id", otInteger);
@@ -6227,7 +6232,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         else
         {
           readTripCounters( point_id, dataNode );
-          readTripData( point_id, dataNode );
+          readTripData( point_id, point_id, dataNode );
           readTripSets( point_id, dataNode );
           TripsInterface::PectabsResponse(point_id, reqNode, dataNode);
         };
@@ -6680,6 +6685,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
   set<string> pax_cats;
   vector<CheckIn::TTransferItem> segs;
   xmlNodePtr segsNode=NewTextChild(resNode,"segments");
+  int first_point_dep=NoExists;
   for(TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++)
   {
     list<WeightConcept::TBagNormInfo> all_norms;
@@ -6704,7 +6710,10 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
 
     if (grp_id==tckin_grp_ids.begin())
+    {
+      first_point_dep=grp.point_dep;
       trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
+    }
 
     TTripInfo operFlt(Qry);
 
@@ -6720,7 +6729,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     else
       operFltNode=segNode;
     TripsInterface::readOperFltHeader( operFlt, operFltNode );
-    readTripData( grp.point_dep, segNode );
+    readTripData( grp.point_dep, first_point_dep, segNode );
 
     if (grp.cl.empty() && grp.status==psCrew)
       grp.cl=EncodeClass(Y);  //crew compatible
@@ -7525,7 +7534,7 @@ void CheckInInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
     NewTextChild(dataNode,"load_residue");
 }
 
-void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
+void CheckInInterface::readTripData(int point_id, int first_point_id, xmlNodePtr dataNode)
 {
   xmlNodePtr tripdataNode = NewTextChild( dataNode, "tripdata" );
   xmlNodePtr itemNode,node;
@@ -7582,7 +7591,17 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
         NewTextChild( itemNode, "city_name", ElemIdToNameLong(etCity, airpsRow.city) );
       };
 
-      TCompleteAPICheckInfo checkInfo(point_id, airpsRow.code);
+      bool notCheckAPI=false;
+      if (point_id!=first_point_id)
+      {
+        TTripInfo firstOperFlt;
+        firstOperFlt.getByPointId(first_point_id);
+        notCheckAPI=GetTripSets(tsAPISControlOnFirstSegOnly, firstOperFlt);
+      };
+
+      TCompleteAPICheckInfo checkInfo;
+      if (point_id==first_point_id || !notCheckAPI)
+        checkInfo.set(point_id, airpsRow.code);
       if (TReqInfo::Instance()->desk.compatible(DOCA_VERSION))
       {
         checkInfo.toXML(NewTextChild(itemNode, "check_info"));
@@ -8046,7 +8065,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           else
             operFltNode=seg2Node;
           TripsInterface::readOperFltHeader( currSeg.fltInfo, operFltNode );
-          readTripData( currSeg.point_dep, seg2Node );
+          readTripData( currSeg.point_dep, firstSeg.point_dep, seg2Node );
 
           NewTextChild( seg2Node, "point_dep", currSeg.point_dep);
           NewTextChild( seg2Node, "airp_dep", currSeg.airp_dep);
