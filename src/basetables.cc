@@ -154,7 +154,7 @@ Router_impl::Router_impl(IdaType ida)
     c.      bind(":ida", ida).
             def(canon_name_).
             def(own_canon_name_).
-            defNull(resp_timeout_, defval).
+            defNull(resp_timeout_, (short)15).
             defNull(H2H, defval).
             defNull(H2hDestAddr_, "").
             defNull(H2hSrcAddr_, "").

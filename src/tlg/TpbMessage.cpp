@@ -46,6 +46,7 @@ std::string TpbMessage::fullMsg() const
 
 std::string TpbMessage::makeHeader()
 {
+    ASSERT(!sysCont()->remoteAddrAirimp().empty() && !sysCont()->ourAddrAirimp().empty());
     std::stringstream header;
     header << sysCont()->remoteAddrAirimp() << "\n";
     header << "." << sysCont()->ourAddrAirimp() << "\n";

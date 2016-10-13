@@ -142,7 +142,7 @@ std::string SystemContext::routerCanonName() const
 
 unsigned SystemContext::edifactResponseTimeOut() const
 {
-    return 15;
+    return BaseTables::Router(routerCanonName())->resp_timeout();
 }
 
 // ================== E D S =====================

@@ -2261,7 +2261,7 @@ $(ETS_COS_EXCHANGE 2986120030297 1 I SYSTEM)
 $(init)
 $(init_jxt_pult Œ‚Œ)
 $(login)
-$(init_dcs ‘7 TA OA)
+$(init_dcs ‘7 TA OA IFM1 IFM2)
 $(init_eds ’ UTET UTDC)
 
 
@@ -2353,14 +2353,6 @@ UNZ+1+$(last_edifact_ref)0001"
 
 >> lines=auto
     <kick req_ctxt_id...
-
-!! err="UNABLE TO PROCESS - SYSTEM ERROR"
-$(lastRedisplay)
-
-
-$(ETS_COS_EXCHANGE 2986120030297 1 CK SYSTEM)
-
-# ­ã   ¤ «ìè¥ ­¨ç¥£® ¨ ­¥ ¤®«¦­® ¯à®¨áå®¤¨âì ¯® ¨¤¥¥.
 
 
 %%
