@@ -15,6 +15,7 @@
 #include "tlg/IatciPlfRequest.h"
 #include "tlg/IatciBprRequest.h"
 #include "tlg/IatciSmfRequest.h"
+#include "tlg/IatciIfm.h"
 #include "tlg/remote_system_context.h"
 #include "tlg/edi_msg.h"
 
@@ -33,6 +34,7 @@
 
 using namespace astra_api;
 using namespace astra_api::xml_entities;
+using namespace iatci;
 using namespace BASIC::date_time;
 
 
@@ -426,8 +428,14 @@ namespace
 
 static bool isReseatReq(xmlNodePtr reqNode)
 {
-    return findNodeR(reqNode, "Reseat") ? true : false;
+    return findNodeR(reqNode, "Reseat") != NULL;
 }
+
+static bool isCheckinRequest(xmlNodePtr reqNode)
+{
+    return findNodeR(reqNode, "TCkinSavePax") != NULL;
+}
+
 
 static std::string getOldSeat(xmlNodePtr reqNode)
 {
@@ -1143,15 +1151,55 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
     FuncOut(KickHandler);
 }
 
+void IatciInterface::FallbackMessage(xmlNodePtr initialReqNode)
+{
+    if(isCheckinRequest(initialReqNode)) 
+    {
+        RequestType reqType = ClassifyCheckInRequest(initialReqNode);
+        switch(reqType) 
+        {
+        case Cki:
+        {
+            CkiParams ckiParams = getCkiParams(initialReqNode);
+            IfmMessage ifm(IfmFlights(ckiParams.flight(), ckiParams.flightFromPrevHost()),
+                           IfmAction(IfmAction::Del),
+                           IfmPaxes(ckiParams.pax()));
+            ifm.send();    
+        }
+        break;
+
+        case Cku:
+        {
+            ; // TODO
+        }   
+        break;
+
+        case Ckx:
+        {
+            CkxParams ckxParams = getCkxParams(initialReqNode);
+            IfmMessage ifm(IfmFlights(ckxParams.flight(), ckxParams.flightFromPrevHost()),
+                           IfmAction(IfmAction::Del),
+                           IfmPaxes(ckxParams.pax()));
+            ifm.send();                            
+        } 
+        break;
+
+        default:
+            ;
+        }
+    }
+}
+
 void IatciInterface::KickHandler_onTimeout(int ctxtId,
                                            xmlNodePtr initialReqNode,
                                            xmlNodePtr resNode)
 {
     FuncIn(KickHandler_onTimeout);
     AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
+    RollbackChangeOfStatus(initialReqNode, ctxtId); // откат ранее смененного статуса в СЭБ(если менялся)
+    FallbackMessage(initialReqNode); // send IFM
     FuncOut(KickHandler_onTimeout);
 }
-
 
 void IatciInterface::KickHandler_onSuccess(int ctxtId,
                                            xmlNodePtr initialReqNode,
@@ -1199,25 +1247,38 @@ void IatciInterface::KickHandler_onFailure(int ctxtId,
     switch(lRes.front().action())
     {
     case iatci::Result::Checkin:
+    {
+        RollbackChangeOfStatus(initialReqNode, ctxtId);
+    }
+    break;
+    
     case iatci::Result::Cancel:
+    {
+        RollbackChangeOfStatus(initialReqNode, ctxtId);
+        FallbackMessage(initialReqNode);
+    }
+    break;
+
     case iatci::Result::Update:
-        // откат смены статуса, произошедшей ранее
-        if(!isReseatReq(initialReqNode)) {
-            tst();
-            RollbackChangeOfStatus(ctxtId);
-        }
-        break;
+    {
+        FallbackMessage(initialReqNode);
+    }
+    break;
 
     case iatci::Result::Passlist:
+    {
         specialPlfErrorHandler(initialReqNode, errCode);
         CheckInInterface::LoadPax(initialReqNode, resNode);
-        break;
+    }
+    break;
 
     case iatci::Result::Reprint:
     case iatci::Result::Seatmap:
     case iatci::Result::SeatmapForPassenger:
+    {
         // ; NOP
-        break;
+    }
+    break;
 
     default:
         break;
@@ -1297,8 +1358,15 @@ void IatciInterface::DoKickAction(int ctxtId,
     FuncOut(DoKickAction);
 }
 
-void IatciInterface::RollbackChangeOfStatus(int ctxtId)
+void IatciInterface::RollbackChangeOfStatus(xmlNodePtr initialReqNode, int ctxtId)
 {
-    EdiResCtxtWrapper ediResCtxt(ctxtId, __FUNCTION__);
-    ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(), false);
+    if(!isCheckinRequest(initialReqNode)) {
+        return;
+    }
+    RequestType reqType = ClassifyCheckInRequest(initialReqNode);
+    if(reqType == Cki || reqType == Ckx)
+    {
+        EdiResCtxtWrapper ediResCtxt(ctxtId, __FUNCTION__);
+        ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(), false);
+    }
 }

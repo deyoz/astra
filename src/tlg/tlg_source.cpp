@@ -75,18 +75,6 @@ TlgSource TlgSource::readFromDb(const tlgnum_t& tlg_num)
     return tsrc;
 }
 
-void TlgSource::writeToDb(TlgSource & tlg)
-{
-    LogTrace(TRACE3) << __FUNCTION__ << " called!";
-    int tlgNum = saveTlg(tlg.fromRot().c_str(),
-                         tlg.toRot().c_str(),
-                         "TPA", // TODO
-                         tlg.text().c_str());
-
-    tlg.setTlgNum(tlgNum);
-    tlg.setReceiveDate(Dates::second_clock::local_time());
-}
-
 std::ostream & operator <<(std::ostream & os, const TlgSource &tlg)
 {
     os << tlg.text();
@@ -330,6 +318,18 @@ std::string TlgSource::diff(const TlgSource & tsrc, unsigned skeepfl, unsigned s
 TlgSourceTypified::TlgSourceTypified(const TlgSource & src)
         : TlgSource(src)
 {
+}
+
+void TlgSourceTypified::writeToDb(TlgSourceTypified& tlg)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " called!";
+    int tlgNum = saveTlg(tlg.fromRot().c_str(),
+                         tlg.toRot().c_str(),
+                         tlg.name(),
+                         tlg.text().c_str());
+
+    tlg.setTlgNum(tlgNum);
+    tlg.setReceiveDate(Dates::second_clock::local_time());
 }
 
 }//namespace TlgHandling

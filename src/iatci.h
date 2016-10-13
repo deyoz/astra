@@ -63,6 +63,9 @@ protected:
                                const Ticketing::AstraMsg_t& errCode);
     void KickHandler_onTimeout(int ctxtId, xmlNodePtr initialReqNode, xmlNodePtr resNode);
 
+    // IFM
+    void FallbackMessage(xmlNodePtr initialReqNode);
+
     // Kick handlers
     void CheckinKickHandler(int ctxtId, xmlNodePtr initialReqNode,
                             xmlNodePtr resNode, const std::list<iatci::Result>& lRes);
@@ -86,5 +89,5 @@ private:
                       RequestType reqType,
                       KickAction act);
 
-    void RollbackChangeOfStatus(int ctxtId);
+    void RollbackChangeOfStatus(xmlNodePtr initialReqNode, int ctxtId);
 };

@@ -289,20 +289,28 @@ void EdsSystemContext::updateDb()
 
 DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketing::FlightNum_t& flNum)
 {
-    std::string sql =
-"  select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR  "
-"  FROM DCS_ADDR_SET "
-"  WHERE AIRLINE = :airl and (FLT_NO is null or FLT_NO = :flt_no) ";
-
+    std::string sql = 
+"select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR, AIRIMP_ADDR, AIRIMP_OWN_ADDR, "
+"       DECODE(AIRLINE,NULL,0,2)+ "
+"       DECODE(FLT_NO,NULL,0,1) AS priority "
+"from DCS_ADDR_SET "
+"WHERE AIRLINE=:airl AND "
+"      (FLT_NO is null OR FLT_NO=:flt_no) "
+"ORDER BY priority DESC";    
+        
     int systemId = 0;
-    std::string airline, ediAddr, ourEdiAddr;
+    std::string airline;
+    std::string ediAddr, ourEdiAddr;
+    std::string airAddr, ourAirAddr; 
     short null = -1, nnull = 0;
 
     OciCpp::CursCtl cur = make_curs(sql);
     cur.def(systemId)
        .def(airline)
        .def(ediAddr)
-       .def(ourEdiAddr);
+       .def(ourEdiAddr)
+       .defNull(airAddr, "")
+       .defNull(ourAirAddr, "");
     cur.bind(":airl", airl)
        .bind(":flt_no", flNum?flNum.get():0, flNum?&nnull:&null);
     cur.EXfet();
@@ -315,12 +323,17 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketin
         throw system_not_found(airl, flNum);
     }
 
+    LogTrace(TRACE3) << "airimp address: " << airAddr;
+    LogTrace(TRACE3) << "our airimp address: " << ourAirAddr;
+
     SystemContextMaker ctxtMaker;
     ctxtMaker.setIda(Ticketing::SystemAddrs_t(systemId));
     ctxtMaker.setCanonName(AstraEdifact::get_canon_name(ediAddr));
     ctxtMaker.setAirline(airline);
-    ctxtMaker.setRemoteAddrEdifact(ediAddr);    // their address
-    ctxtMaker.setOurAddrEdifact(ourEdiAddr);    // our address
+    ctxtMaker.setRemoteAddrEdifact(ediAddr);    // their EDIFACT address
+    ctxtMaker.setOurAddrEdifact(ourEdiAddr);    // our EDIFACT address
+    ctxtMaker.setRemoteAddrAirimp(airAddr);      // their AIRIMP address
+    ctxtMaker.setOurAddrAirimp(ourAirAddr);     // our AIRIMP address
     return new DcsSystemContext(ctxtMaker.getSystemContext());
 }
 
@@ -333,6 +346,8 @@ DcsSystemContext::DcsSystemContext(const SystemContext& baseCnt)
 DcsSystemContext* DcsSystemContext::create4TestsOnly(const std::string& airline,
                                                      const std::string& ediAddr,
                                                      const std::string& ourEdiAddr,
+                                                     const std::string& airAddr,
+                                                     const std::string& ourAirAddr,
                                                      const std::string& h2hAddr,
                                                      const std::string& ourH2hAddr)
 {
@@ -355,6 +370,8 @@ DcsSystemContext* DcsSystemContext::create4TestsOnly(const std::string& airline,
         ctxtMaker.setCanonName(createRot(rotParams));
         ctxtMaker.setRemoteAddrEdifact(ediAddr);
         ctxtMaker.setOurAddrEdifact(ourEdiAddr);
+        ctxtMaker.setRemoteAddrAirimp(airAddr);
+        ctxtMaker.setOurAddrAirimp(ourAirAddr);
 
         dcs = new DcsSystemContext(ctxtMaker.getSystemContext());
         dcs->addDb();
@@ -373,19 +390,23 @@ void DcsSystemContext::addDb()
 {
     std::string sql =
 "  insert into DCS_ADDR_SET "
-"  (AIRLINE, EDI_ADDR, EDI_OWN_ADDR, ID) "
+"  (AIRLINE, EDI_ADDR, EDI_OWN_ADDR, AIRIMP_ADDR, AIRIMP_OWN_ADDR, ID) "
 "  values "
-"  (:airline, :edi_addr, :edi_own_addr, :id) ";
+"  (:airline, :edi_addr, :edi_own_addr, :air_addr, :air_own_addr, :id) ";
 
     int systemId = ida().get();
     std::string airl = airline();
     std::string ediAddr = remoteAddrEdifact();
     std::string ourEdiAddr = ourAddrEdifact();
+    std::string airAddr = remoteAddrAirimp();
+    std::string ourAirAddr = ourAddrAirimp();
 
     OciCpp::CursCtl cur = make_curs(sql);
     cur.bind(":airline", airl)
        .bind(":edi_addr", ediAddr)
        .bind(":edi_own_addr", ourEdiAddr)
+       .bind(":air_addr", airAddr)
+       .bind(":air_own_addr", ourAirAddr)
        .bind(":id", systemId)
        .exec();
 
@@ -417,6 +438,16 @@ void SystemContextMaker::setOurAddrEdifact(const std::string &val)
 void SystemContextMaker::setRemoteAddrEdifact(const std::string &val)
 {
     cont.RemoteAddrEdifact = val;
+}
+
+void SystemContextMaker::setOurAddrAirimp(const std::string& val)
+{
+    cont.OurAddrAirimp = val;
+}
+
+void SystemContextMaker::setRemoteAddrAirimp(const std::string& val)
+{
+    cont.RemoteAddrAirimp = val;
 }
 
 void SystemContextMaker::setIda(Ticketing::SystemAddrs_t val)

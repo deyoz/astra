@@ -45,6 +45,7 @@ private:
     std::string SubtypeStr;
     std::string FuncCodeStr;
 
+protected:
     void setReceiveDate(const boost::posix_time::ptime &date)
     {
         ReceiveDate = date;
@@ -53,7 +54,6 @@ private:
     {
         ProcessDate = date;
     }
-protected:
     void setTypeStr(const std::string &t);
     void setSubtypeStr(const std::string &st)
     {
@@ -64,14 +64,6 @@ protected:
         FuncCodeStr = fc;
     }
 protected:
-    /**
-     * Запись в базу
-     * Устанавливает номер телеграммы и дату
-     * Поэтому-то и принемает не константную сцылку
-     * @param tlg TlgSource
-     */
-    static void writeToDb(TlgSource &tlg);
-
     /**
      * Раскладывает текст телеграммы на строки (нужно для функции diff)
      * @param spliter - символ разделитель
@@ -282,7 +274,7 @@ public:
     /**
      * Запись в базу
      */
-    virtual void write() { TlgSource::writeToDb(*this); };
+    virtual void write() {}
 };
 
 /// @class TlgSourceTypified базовый класс типизированной тлг
@@ -327,10 +319,12 @@ public:
     virtual std::string text2viewHtml() const { return text2view(); }
 
     /**
-     * Установить подтип телеграммы
-     * @param stype  type
+     * Запись в базу
+     * Устанавливает номер телеграммы и дату
+     * Поэтому-то и принемает не константную сцылку
+     * @param tlg TlgSource
      */
-    virtual void setTlgSubtype(const std::string &stype) = 0;
+    static void writeToDb(TlgSourceTypified &tlg);
 };
 
 typedef boost::shared_ptr <TlgSourceTypified> TlgSourceTypifiedPtr_t;

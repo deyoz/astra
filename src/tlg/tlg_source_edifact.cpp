@@ -10,8 +10,8 @@
 #include <libtlg/telegrams.h>
 #include <serverlib/cursctl.h>
 
-#define NICKNAME "ROMAN"
-#define NICKTRACE ROMAN_TRACE
+#define NICKNAME "ANTON"
+#define NICKTRACE ANTON_TRACE
 #include <serverlib/slogger.h>
 
 
@@ -96,11 +96,6 @@ const std::string &TlgSourceEdifact::text2view() const
     return Text2View;
 }
 
-void TlgSourceEdifact::setTlgSubtype(const std::string & stype)
-{
-    throw EXCEPTIONS::Exception("Not implemented yet");
-}
-
 bool TlgHandling::TlgSourceEdifact::operator ==(const TlgSourceEdifact & t) const
 {
     if(text() == t.text() &&
@@ -128,4 +123,4 @@ std::ostream & operator <<(std::ostream & os, const TlgSourceEdifact & tlg)
     return os;
 }
 
-}
+}//namespace TlgHandling

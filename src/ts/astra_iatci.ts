@@ -3504,3 +3504,253 @@ UNZ+1+$(last_edifact_ref)0001"
 
 !! err="PASSENGER SURNAME ALREADY CHECKED IN"
 $(lastRedisplay)
+
+
+%%
+#########################################################################################
+# ü18 ’ ©¬ ãâ ­  à¥£¨áâà æ¨î - ¤®«¦¥­ ¯®©â¨ IFM/del
+###
+
+
+$(init)
+$(init_jxt_pult ŒŽ‚ŽŒ)
+$(login)
+$(init_dcs ‘7 TA OA REMIFM OURIFM)
+$(init_eds ž’ UTET UTDC)
+
+
+$(PREPARE_FLIGHT_3 ž’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘Ž— REPIN IVAN)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep) 2986120030297)
+$(CHECK_ADV_TRIPS_LIST $(get point_dep) ž’ 103 „Œ„)
+$(CHECK_FLIGHT $(get point_dep) ž’ 103 „Œ„ ‹Š)
+$(CHECK_SEARCH_PAX $(get point_dep) ž’ 103 „Œ„ ‹Š REPIN IVAN Š)
+$(CHECK_DCS_ADDR_SET)
+$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN)
+$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN)
+$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                           ‘7 1027 ‹Š ‘Ž—
+                                                           REPIN IVAN
+                                                           2986120030297)
+
+$(ETS_COS_EXCHANGE 2986120030297 1 CK)
+
+$(KICK_IN_SILENT)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
+PPD+REPIN+A++IVAN"
+PSD++7A"
+PSI++FOID::::::FOID PP7774441110"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(run_daemon edi_timeout)
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!! err="MSG.DCS_CONNECT_ERROR"
+$(lastRedisplay)
+
+
+# ®âª â á¬¥­ë áâ âãá  ¢ ‘
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ž’:ŒŽ‚++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2986120030297:T"
+CPN+1:I"
+TVL+$(ddmmyy)+„Œ„+‹Š+ž’+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+# IFM
+>>
+REMIFM
+.OURIFM
+IFM
+UT103/$(ddmon +0 en) DME
+-S71027/$(ddmon +0 en) LEDAER
+DEL
+1REPIN/IVAN
+ENDIFM
+
+
+
+%%
+#########################################################################################
+# ü18 ’ ©¬ ãâ ¨ ®è¨¡ª  ­  ®â¬¥­ã à¥£¨áâà æ¨¨ - ¤®«¦¥­ ¯®©â¨ IFM/del
+###
+
+
+$(init)
+$(init_jxt_pult ŒŽ‚ŽŒ)
+$(login)
+$(init_dcs ‘7 TA OA REMIFM OURIFM)
+$(init_eds ž’ UTET UTDC)
+
+
+$(PREPARE_FLIGHT_3 ž’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘Ž— REPIN IVAN)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep) 2986120030297)
+$(CHECK_ADV_TRIPS_LIST $(get point_dep) ž’ 103 „Œ„)
+$(CHECK_FLIGHT $(get point_dep) ž’ 103 „Œ„ ‹Š)
+$(CHECK_SEARCH_PAX $(get point_dep) ž’ 103 „Œ„ ‹Š REPIN IVAN Š)
+$(CHECK_DCS_ADDR_SET)
+$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN)
+$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN)
+$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                           ‘7 1027 ‹Š ‘Ž—
+                                                           REPIN IVAN
+                                                           2986120030297)
+
+
+$(ETS_COS_EXCHANGE 2986120030297 1 CK)
+
+$(KICK_IN_SILENT)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
+PPD+REPIN+A++IVAN"
+PSD++7A"
+PSI++FOID::::::FOID PP7774441110"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
+RAD+I+O"
+PPD+REPIN+A++IVAN"
+PFD+xx+:"
+PSI++TKNE::42161200302972"
+PAP+:::100386:::RUS++PP:5408123432:RUS:::311249:M::::::REPIN:IVAN"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!!
+$(lastRedisplay)
+
+$(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
+$(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
+
+# á­ ç «  â ©¬ ãâ
+
+$(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
+             ž’ 103 „Œ„ ‹Š
+             ‘7 1027 ‹Š ‘Ž—
+             REPIN IVAN 2986120030297 42161200302972)
+
+$(ETS_COS_EXCHANGE 2986120030297 1 I)
+
+$(KICK_IN_SILENT)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKX:96:2:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
+PPD+REPIN+A++IVAN"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(run_daemon edi_timeout)
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!! err="MSG.DCS_CONNECT_ERROR"
+$(lastRedisplay)
+
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ž’:ŒŽ‚++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2986120030297:T"
+CPN+1:CK"
+TVL+$(ddmmyy)+„Œ„+‹Š+ž’+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+>>
+REMIFM
+.OURIFM
+IFM
+-S71027/$(ddmon +0 en) LEDAER
+DEL
+1REPIN/IVAN
+ENDIFM
+
+
+
+# ¯®â®¬ ®è¨¡ª 
+
+$(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
+             ž’ 103 „Œ„ ‹Š
+             ‘7 1027 ‹Š ‘Ž— 
+             REPIN IVAN 2986120030297 42161200302972)
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKX:96:2:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
+PPD+REPIN+A++IVAN"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+‘7+1027+$(yymmdd)1000+‹Š+‘Ž—++T"
+RAD+X+F"
+ERD+1:102:UNABLE TO PROCESS - SYSTEM ERROR"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!! err=ignore
+$(lastRedisplay)
+
+>>
+REMIFM
+.OURIFM
+IFM
+-S71027/$(ddmon +0 en) LEDAER
+DEL
+1REPIN/IVAN
+ENDIFM

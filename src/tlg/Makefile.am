@@ -22,7 +22,8 @@ libtlg_a_SOURCES = apps_handler.cc apps_answer_emul.cc edi_handler.cpp edi_msg.c
         IatciBprRequest.cpp IatciBprResponseHandler.cpp IatciBprRequestHandler.cpp \
         IatciSeatmapRequestHandler.cpp IatciSmfRequestHandler.cpp EtDispResponseHandler.cpp \
         EtCosResponseHandler.cpp postpone_edifact.cpp mvt_parser.cpp et_request.cpp request_params.cpp \
-        et_disp_request.cpp et_cos_request.cpp typeb_handler.cpp
+        et_disp_request.cpp et_cos_request.cpp typeb_handler.cpp IatciIfm.cpp tlg_source_typeb.cpp \
+        TpbMessage.cpp
         
 
 noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_msg.h edi_elements.h \
@@ -41,5 +42,6 @@ noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_msg.h edi_elements.h \
    	IatciBprRequest.h IatciBprResponseHandler.h IatciBprRequestHandler.h \
    	IatciSeatmapRequestHandler.h IatciSmfRequestHandler.h EtDispResponseHandler.h \
    	EtCosResponseHandler.h postpone_edifact.h mvt_parser.h et_request.h request_params.h \
-   	et_disp_request.h et_cos_request.h typeb_handler.h
+   	et_disp_request.h et_cos_request.h typeb_handler.h IatciIfm.h tlg_source_typeb.h \
+   	TpbMessage.h
    	  	

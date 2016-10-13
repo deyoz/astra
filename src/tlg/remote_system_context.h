@@ -142,6 +142,8 @@ namespace RemoteSystemContext
         std::string Airline;
         std::string OurAddrEdifact;
         std::string RemoteAddrEdifact;
+        std::string OurAddrAirimp;
+        std::string RemoteAddrAirimp;
 
         mutable InboundTlgInfo InbTlgInfo;
 
@@ -165,6 +167,8 @@ namespace RemoteSystemContext
         const std::string& airline() const { return Airline; }
         const std::string& ourAddrEdifact() const { return OurAddrEdifact; }
         const std::string& remoteAddrEdifact() const { return RemoteAddrEdifact; }
+        const std::string& ourAddrAirimp() const { return OurAddrAirimp; }
+        const std::string& remoteAddrAirimp() const { return RemoteAddrAirimp; }
         std::string routerCanonName() const;
         unsigned edifactResponseTimeOut() const;
         InboundTlgInfo& inbTlgInfo() const { return InbTlgInfo; }
@@ -282,6 +286,8 @@ namespace RemoteSystemContext
         static DcsSystemContext* create4TestsOnly(const std::string& airline,
                                                   const std::string& ediAddr,
                                                   const std::string& ourEdiAddr,
+                                                  const std::string& airAddr = "",
+                                                  const std::string& ourAirAddr = "",
                                                   const std::string& h2hAddr = "",
                                                   const std::string& ourH2hAddr = "");
 #endif /*XP_TESTING*/
@@ -304,12 +310,14 @@ namespace RemoteSystemContext
             : cont(s)
         {}
 
-        void setOurAddrEdifact(const std::string &val);
-        void setRemoteAddrEdifact(const std::string &val);
+        void setOurAddrEdifact(const std::string& val);
+        void setRemoteAddrEdifact(const std::string& val);
+        void setOurAddrAirimp(const std::string& val);
+        void setRemoteAddrAirimp(const std::string& val);
         void setAirline(const std::string& val);
         void setIda(SystemAddrs_t val);
         void setCanonName(const std::string& canonName);
-        void setSystemSettings(const SystemSettings &sett);
+        void setSystemSettings(const SystemSettings& sett);
 
         SystemContext getSystemContext();
     };

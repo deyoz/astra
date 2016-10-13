@@ -11,6 +11,7 @@
 #include "astra_context.h"
 #include "astra_utils.h"
 #include "tlg_source_edifact.h"
+#include "tlg_source_typeb.h"
 #include "qrys.h"
 #include <serverlib/tcl_utils.h>
 #include <serverlib/logger.h>
@@ -262,6 +263,15 @@ static void logTlg(const TlgHandling::TlgSourceEdifact& tlg)
              << tlg.text2view();
 }
 
+static void logTlg(const TlgHandling::TlgSourceTypeB& tlg)
+{
+    LogTlg() << "| TNUM: " << *tlg.tlgNum()
+             << " | DIR: " << "OUTB"
+             << " | ROUTER: " << tlg.toRot()
+             << " | TSTAMP: " << boost::posix_time::second_clock::local_time() << "\n"
+             << tlg.text2view();
+}
+
 static void putTlg2OutQueue(const std::string& receiver,
                             const std::string& sender,
                             const std::string& type,
@@ -401,14 +411,27 @@ void sendEdiTlg(TlgHandling::TlgSourceEdifact& tlg, int ttl)
         ProgError(STDLOG, "sendTlg: Unknown error");
         throw;
     };
+}
 
-//    return ::sendTlg(tlg.toRot().c_str(),
-//                     tlg.fromRot().c_str(),
-//                     qpOutA,
-//                     ttl,
-//                     tlg.text(),
-//                     ASTRA::NoExists,
-//                     ASTRA::NoExists);
+void sendTpbTlg(TlgHandling::TlgSourceTypeB& tlg)
+{
+    try
+    {
+        tlg.write(); // сохранение телеграммы
+        putTlg2OutQueue(tlg, qpOutB, 0/*ttl*/);
+        logTlg(tlg);
+        registerHookAfter(sendCmdTlgSnd);
+    }
+    catch( std::exception &e)
+    {
+        ProgError(STDLOG, "%s", e.what());
+        throw;
+    }
+    catch(...)
+    {
+        ProgError(STDLOG, "sendTlg: Unknown error");
+        throw;
+    };
 }
 
 int loadTlg(const std::string &text)

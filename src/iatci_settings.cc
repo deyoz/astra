@@ -1,6 +1,7 @@
 #include "iatci_settings.h"
 #include "astra_msg.h"
 #include "exceptions.h"
+#include "astra_utils.h"
 #include <serverlib/cursctl.h>
 
 #define NICKNAME "ANTON"
@@ -14,17 +15,20 @@ using namespace Ticketing;
 
 IatciSettings::IatciSettings(const Ticketing::SystemAddrs_t& dcsId,
                              bool cki, bool ckx, bool cku,
-                             bool bpr, bool plf, bool smf)
+                             bool bpr, bool plf, bool smf,
+                             bool ifm)
     : DcsId(dcsId),
       Cki(cki), Ckx(ckx), Cku(cku),
-      Bpr(bpr), Plf(plf), Smf(smf)
+      Bpr(bpr), Plf(plf), Smf(smf),
+      Ifm(ifm)
 {}
 
 IatciSettings IatciSettings::defaultSettings(const Ticketing::SystemAddrs_t& dcsId)
 {
     return IatciSettings(dcsId,
                          true/*cki*/, true/*ckx*/, true/*cku*/,
-                         true/*bpr*/, true/*plf*/, true/*smf*/);
+                         true/*bpr*/, true/*plf*/, true/*smf*/, 
+                         true/*ifm*/);
 }
 
 //---------------------------------------------------------------------------------------
@@ -33,8 +37,8 @@ static void addIatciSettings(const IatciSettings& sett)
 {
     LogTrace(TRACE3) << "add iatci settings for dcs_id: " << sett.DcsId;
     make_curs(
-"insert into IATCI_SETTINGS(DCS_ID, CKI, CKX, CKU, BPR, PLF, SMF) "
-"values (:dcs_id, :cki, :ckx, :cku, :bpr, :plf, :smf)")
+"insert into IATCI_SETTINGS(DCS_ID, CKI, CKX, CKU, BPR, PLF, SMF, IFM) "
+"values (:dcs_id, :cki, :ckx, :cku, :bpr, :plf, :smf, :ifm)")
        .bind(":dcs_id", sett.DcsId.get())
        .bind(":cki",    sett.Cki)
        .bind(":ckx",    sett.Ckx)
@@ -42,6 +46,7 @@ static void addIatciSettings(const IatciSettings& sett)
        .bind(":bpr",    sett.Bpr)
        .bind(":plf",    sett.Plf)
        .bind(":smf",    sett.Smf)
+       .bind(":ifm",    sett.Ifm)
        .exec();
 }
 
@@ -50,8 +55,8 @@ static void updateIatciSettings(const IatciSettings& sett)
     LogTrace(TRACE3) << "update iatci settings for dcs_id: " << sett.DcsId;
     make_curs(
 "update IATCI_SETTINGS set "
-"CKI = :cki, CKX = :ckx, CKU = :cku, :BPR = :bpr, PLF = :plf, SMF = :smf "
-"where DCS_ID = :dcs_id")
+"CKI=:cki, CKX=:ckx, CKU=:cku, :BPR=:bpr, PLF=:plf, SMF=:smf, IFM=:ifm "
+"where DCS_ID=:dcs_id")
       .bind(":dcs_id", sett.DcsId.get())
       .bind(":cki",    sett.Cki)
       .bind(":ckx",    sett.Ckx)
@@ -59,17 +64,19 @@ static void updateIatciSettings(const IatciSettings& sett)
       .bind(":bpr",    sett.Bpr)
       .bind(":plf",    sett.Plf)
       .bind(":smf",    sett.Smf)
+      .bind(":ifm",    sett.Ifm)
       .exec();
 }
 
 IatciSettings readIatciSettings(const Ticketing::SystemAddrs_t& dcsId, bool createDefault)
-{
+{ 
     OciCpp::CursCtl cur = make_curs(
-"select DCS_ID, CKI, CKX, CKU, BPR, PLF, SMF "
+"select CKI, CKX, CKU, BPR, PLF, SMF, IFM "
 "from IATCI_SETTINGS "
 "where DCS_ID = :dcs_id");
 
     IatciSettings sett = IatciSettings::defaultSettings(dcsId);
+    sett.DcsId = dcsId;
     cur.stb()
        .bind(":dcs_id", dcsId.get())
        .def(sett.Cki)
@@ -78,6 +85,7 @@ IatciSettings readIatciSettings(const Ticketing::SystemAddrs_t& dcsId, bool crea
        .def(sett.Bpr)
        .def(sett.Plf)
        .def(sett.Smf)
+       .def(sett.Ifm)
        .EXfet();
 
     if(cur.err() == NO_DATA_FOUND) {

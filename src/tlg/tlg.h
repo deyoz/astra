@@ -5,6 +5,8 @@
 #include "serverlib/query_runner.h"
 #include "astra_consts.h"
 #include "EdifactRequest.h"
+#include "tlg_source_edifact.h"
+#include "tlg_source_typeb.h"
 
 /* максимальный размер передаваемой по UDP телеграммы (зависит от центра) */
 #define MAX_TLG_SIZE 10240
@@ -95,8 +97,8 @@ int sendTlg(const char* receiver,
             int typeb_tlg_id,
             int typeb_tlg_num);
 
-void sendEdiTlg(TlgHandling::TlgSourceEdifact& tlg,
-                int ttl=20);
+void sendEdiTlg(TlgHandling::TlgSourceEdifact& tlg, int ttl=20);
+void sendTpbTlg(TlgHandling::TlgSourceTypeB& tlg);
 
 int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_error);
 int loadTlg(const std::string &text);
