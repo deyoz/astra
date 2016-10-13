@@ -6436,9 +6436,22 @@ struct TLCIPaxTotalsItem {
 };
 
 struct TUnaccBag {
-    map<string, pair<int, int> > items;
+    map<string, pair<int, int> > items; // airp_arv, bag_amount, bag_weight
     void get(int point_id);
+    void dump();
 };
+
+void TUnaccBag::dump()
+{
+    LogTrace(TRACE5) << "---TUnaccBag::dump---";
+    for(map<string, pair<int, int> >::iterator i = items.begin(); i != items.end(); i++) {
+        LogTrace(TRACE5)
+            << "airp_arv: " << i->first
+            << "; bag_amount: " << i->second.first
+            << "; bag_weight: " << i->second.second;
+    }
+    LogTrace(TRACE5) << "---------------------";
+}
 
 void TUnaccBag::get(int point_id)
 {
@@ -6446,12 +6459,8 @@ void TUnaccBag::get(int point_id)
     TCachedQuery Qry(
             "select "
             "   airp_arv, "
-            "   sum ( "
-            "   nvl(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL), 0) + "
-            "   nvl(ckin.get_rkAmount2(pax_grp.grp_id,NULL,NULL), 0))  bag_amount, "
-            "   sum ( "
-            "   nvl(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL), 0) + "
-            "   nvl(ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL), 0)) bag_weight "
+            "   sum (nvl(ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL), 0))  bag_amount, "
+            "   sum (nvl(ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL), 0)) bag_weight "
             "from pax_grp where "
             "   point_dep = :point_id and "
             "   pax_grp.class IS NULL and "
@@ -6480,12 +6489,12 @@ struct TLCIPaxTotals {
 };
 
 // baggage categories
-const string BCAT_BD = "BD";
-const string BCAT_BI = "BI";
-const string BCAT_BT = "BT";
-const string BCAT_BX = "BX";
-const string BCAT_BF = "BF";
-const string BCAT_BY = "BY";
+const string BCAT_BT = "BT"; // Трансфер (вкл. несопр багаж кроме Р/кл)
+const string BCAT_BD = "BD"; // Трансфер по внутр. перевозке, в остальном как BT
+const string BCAT_BI = "BI"; // Трансфер на др. АК, в остальном как BT
+const string BCAT_BX = "BX"; // Р/кл паксов (несопр. багаж не вкл.)
+const string BCAT_BF = "BF"; // бизнес
+const string BCAT_BY = "BY"; // эконом
 
 void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, vector<string> &si)
 {
