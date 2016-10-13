@@ -28,7 +28,7 @@
 #include "tlg/AgentWaitsForRemote.h"
 
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
@@ -416,29 +416,69 @@ bool PaxUpdate(int point_id, int pax_id, int tid, bool mark, bool pr_exam_with_b
   return true;
 }
 
-bool CheckSeat(int pax_id, string& curr_seat_no)
+bool CheckSeat(int pax_id, const string& scan_data, string& curr_seat_no)
 {
     curr_seat_no.clear();
+
+    string scan_seat_no;
+    if (!scan_data.empty())
+    {
+      BCBPSections sections;
+      try
+      {
+        BCBPSections::get(scan_data, 0, scan_data.size(), sections, true);
+        scan_seat_no=sections.seat_number(0);
+      }
+      catch(EXCEPTIONS::Exception &e)
+      {
+        LogTrace(TRACE5) << '\n' << sections;
+        ProgTrace(TRACE5, "%s: %s", __FUNCTION__, e.what());
+      };
+    };
+
     TQuery Qry(&OraSession);
-    Qry.SQLText =
-      "SELECT salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,0) AS curr_seat_no, "
-      "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,1) AS curr_seat_no_lat, "
-      "       confirm_print.seat_no_lat AS bp_seat_no_lat "
-      "FROM confirm_print,pax, "
-      "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id AND pr_print<>0 and " OP_TYPE_COND("op_type")") a "
-      "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND "
-      "      " OP_TYPE_COND("confirm_print.op_type")" and "
-      "      pax.pax_id=:pax_id";
+    if (scan_seat_no.empty())
+    {
+      Qry.SQLText =
+        "SELECT salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,0) AS curr_seat_no_list, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,1) AS curr_seat_no_list_lat, "
+        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',1,0),4,'0') AS curr_seat_no_one, "
+        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',1,1),4,'0') AS curr_seat_no_one_lat, "
+        "       confirm_print.seat_no_lat AS bp_seat_no_lat "
+        "FROM confirm_print,pax, "
+        "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id AND pr_print<>0 and " OP_TYPE_COND("op_type")") a "
+        "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND "
+        "      " OP_TYPE_COND("confirm_print.op_type")" and "
+        "      pax.pax_id=:pax_id";
+      Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    }
+    else
+    {
+      Qry.SQLText =
+        "SELECT salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,0) AS curr_seat_no_list, "
+        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',1,0),4,'0') AS curr_seat_no_one, "
+        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',1,1),4,'0') AS curr_seat_no_one_lat "
+        "FROM pax "
+        "WHERE pax_id=:pax_id";
+    };
     Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
     Qry.Execute();
     if (!Qry.Eof)
     {
-      curr_seat_no=Qry.FieldAsString("curr_seat_no");
+      curr_seat_no=Qry.FieldAsString("curr_seat_no_list");
 
-      if (!Qry.FieldIsNULL("bp_seat_no_lat") &&
-          strcmp(Qry.FieldAsString("curr_seat_no_lat"), Qry.FieldAsString("bp_seat_no_lat"))!=0)
-        return false;
+      if (scan_seat_no.empty())
+      {
+        if (!Qry.FieldIsNULL("bp_seat_no_lat") &&
+            strcmp(Qry.FieldAsString("curr_seat_no_list_lat"), Qry.FieldAsString("bp_seat_no_lat"))!=0)
+          return false;
+      }
+      else
+      {
+        if (scan_seat_no!=Qry.FieldAsString("curr_seat_no_one") &&
+            scan_seat_no!=Qry.FieldAsString("curr_seat_no_one_lat"))
+          return false;
+      };
     };
     return true;
 }
@@ -1266,9 +1306,11 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                           GetNode("confirmations/seat_no",reqNode)==NULL)
                       {
                         if (setList.value(tsFreeSeating)) break;
-                        string curr_seat_no;
-                        if (paxWithSeat.exists() && CheckSeat(paxWithSeat.pax_id, curr_seat_no)) break;
-                        if (paxWithoutSeat.exists() && CheckSeat(paxWithoutSeat.pax_id, curr_seat_no)) break;
+                        string curr_seat_no, scan_data;
+                        if (GetNode("scan_data",reqNode)!=NULL)
+                          scan_data=NodeAsString("scan_data",reqNode);
+                        if (paxWithSeat.exists() && CheckSeat(paxWithSeat.pax_id, scan_data, curr_seat_no)) break;
+                        if (paxWithoutSeat.exists() && CheckSeat(paxWithoutSeat.pax_id, "", curr_seat_no)) break;
 
                         xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
                         NewTextChild(confirmNode,"reset",(int)reset);
