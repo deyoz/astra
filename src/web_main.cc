@@ -1232,7 +1232,7 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   vector< TWebPnr > pnrs;
   segsNode = NewTextChild( NewTextChild( resNode, "LoadPnr" ), "segments" );
   IntLoadPnr( ids, filter, pnrs, segsNode, false );
-  if (charter_search && !pnrs.empty() && MoreThanOnePersonWithSeat(*(pnrs.begin())))
+  if (charter_search && filter && !pnrs.empty() && MoreThanOnePersonWithSeat(*(pnrs.begin())))
     throw UserException("MSG.CHARTER_SEARCH.FOUND_MORE.ADJUST_SEARCH_PARAMS");
 }
 
