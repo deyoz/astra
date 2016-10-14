@@ -492,12 +492,17 @@ bool is_valid_pnr_status(const string &pnr_status)
                pnr_status=="WL");
 };
 
-bool is_web_cancel(int pax_id)
+bool is_forbidden_repeated_ckin(const TTripInfo &flt,
+                                int pax_id)
 {
+  if (!GetSelfCkinSets(tsNoRepeatedSelfCkin, flt, TReqInfo::Instance()->client_type)) return false;
+
   TCachedQuery Qry("SELECT time FROM crs_pax_refuse "
-                   "WHERE pax_id=:pax_id AND client_type=:client_type AND rownum<2",
+                   "WHERE pax_id=:pax_id AND client_type IN (:ctWeb, :ctMobile, :ctKiosk) AND rownum<2",
                    QParams() << QParam("pax_id", otInteger, pax_id)
-                             << QParam("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type)));
+                             << QParam("ctWeb", otString, EncodeClientType(ctWeb))
+                             << QParam("ctMobile", otString, EncodeClientType(ctMobile))
+                             << QParam("ctKiosk", otString, EncodeClientType(ctKiosk)));
   Qry.get().Execute();
   if (!Qry.get().Eof) return true;
   return false;
@@ -517,7 +522,7 @@ bool is_valid_pax_status(int point_id, int pax_id)
 {
   TTripInfo flt;
   flt.getByPointId(point_id);
-  return !is_web_cancel(pax_id) &&
+  return !is_forbidden_repeated_ckin(flt, pax_id) &&
          is_valid_pax_nationality(flt, pax_id);
 };
 
@@ -880,7 +885,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
 
             if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")))
               pax.agent_checkin_reasons.insert("pnr_status");
-            if (is_web_cancel(pax.crs_pax_id))
+            if (is_forbidden_repeated_ckin(flt, pax.crs_pax_id))
               pax.agent_checkin_reasons.insert("web_cancel");
             if (!is_valid_pax_nationality(flt, pax.crs_pax_id))
               pax.agent_checkin_reasons.insert("pax_nationality");

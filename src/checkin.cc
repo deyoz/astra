@@ -3214,9 +3214,10 @@ LexemaData GetLexemeDataWithFlight(const LexemaData &data, const TTripInfo &fltI
 bool CheckRefusability(int point_dep, int pax_id)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->client_type==ctTerm) return true;
-  if (reqInfo->client_type==ctKiosk) return false; //для киосков разрегистрация запрещена
-  //отмена регистрации не с терминала (с сайта или киоска)
+  if (!(reqInfo->client_type==ctWeb ||
+        reqInfo->client_type==ctKiosk ||
+        reqInfo->client_type==ctMobile)) return true;
+  //отмена регистрации с сайта, киоска или мобильного
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
@@ -3230,10 +3231,9 @@ bool CheckRefusability(int point_dep, int pax_id)
       Qry.FieldAsInteger("pr_brd")!=0) return false;
   int grp_id=Qry.FieldAsInteger("grp_id");
   TClientType ckinClientType=DecodeClientType(Qry.FieldAsString("client_type"));
-  if (!((ckinClientType==ctWeb || ckinClientType==ctMobile) &&               //!!!ctMobile
-        (reqInfo->client_type==ctWeb || reqInfo->client_type==ctMobile)) /*||
-        ckinClientType==ctWeb && reqInfo->client_type==ctKiosk ||
-        ckinClientType==ctKiosk && reqInfo->client_type==ctKiosk*/) return false;
+  if (!(ckinClientType==ctWeb ||
+        ckinClientType==ctKiosk ||
+        ckinClientType==ctMobile)) return false; //регистрации не с сайта, киоска или мобильного
 
   Qry.Clear();
   Qry.SQLText=

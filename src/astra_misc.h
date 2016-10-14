@@ -381,7 +381,8 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     /*не привязанные к рейсу для саморегистрации*/
                     tsRegWithSeatChoice=201,        //Запрет регистрации без выбора места
                     tsRegRUSNationOnly=203,         //Запрет регистрации нерезидентов РФ
-                    tsSelfCkinCharterSearch=204     //Поисковый запрос саморегистрации для чартеров
+                    tsSelfCkinCharterSearch=204,    //Поисковый запрос саморегистрации для чартеров
+                    tsNoRepeatedSelfCkin=205        //Запрет повторной саморегистрации
                   };
 
 bool DefaultTripSets( const TTripSetType setType );
