@@ -11,6 +11,7 @@
 #include "dev_utils.h"
 #include "astra_elem_utils.h"
 #include "sopp.h"
+#include "salons.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -763,6 +764,7 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
     pr_paid_ckin = false;
     if (!Qry.Eof)
       pr_paid_ckin = Qry.FieldAsInteger("pr_paid_ckin")!=0;
+    free_seating=SALONS2::isFreeSeating(point_dep);
   }
   catch(UserException &E)
   {
@@ -870,6 +872,7 @@ void TFlightInfo::toXML(xmlNodePtr node, bool old_style) const
     <term_brd>      0/1 признак активноcти посадки
   </semaphors>
   <paid_checkin>  0/1 признак платной регистрации на рейсе
+  <free_seating>  0/1 признак свободной рассадки на рейсе (не назначен салон)
   <mark_flights> секция коммерческих рейсов, связанных с оперирующим
     <flight>
       <airline>
@@ -1040,6 +1043,7 @@ void TFlightInfo::toXML(xmlNodePtr node, bool old_style) const
   };
 
   NewTextChild( node, "paid_checkin", (int)pr_paid_ckin );
+  NewTextChild( node, "free_seating", (int)free_seating );
 
   xmlNodePtr fltsNode = NewTextChild( node, "mark_flights" );
   for(vector<TTripInfo>::const_iterator m=mark.begin();
