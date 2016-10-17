@@ -6652,7 +6652,7 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
         // end of Fetch transfer baggage
 
         for(vector<TPRLPax>::iterator pax_i = iv->PaxList.begin(); pax_i != iv->PaxList.end(); pax_i++) {
-            if(options.seat_plan == "WB" and pax_i->crew_type == TCrewType::ExtraCrew)
+            if(options.version == "WB" and pax_i->crew_type == TCrewType::ExtraCrew)
                 continue;
             TWItem pax_bag = dests.paxBag(pax_i->grp_id, pax_i->pax_id, pax_i->bag_pool_num);
             items[idx].cls_totals[iv->cls].bag_amount += pax_bag.bagAmount;
@@ -6695,7 +6695,7 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
         }
         items[idx].cls_totals[iv->cls].pax_size = iv->PaxList.size();
     }
-    if(options.seat_plan == "WB")
+    if(options.version == "WB")
         unacc.get(info.point_id);
 }
 
@@ -6712,7 +6712,7 @@ struct TSeatPlan {
 void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
-    if(options.seat_plan != "0") {
+    if(options.seat_plan) {
         if(isFreeSeating(info.point_id))
             throw UserException("MSG.SALONS.FREE_SEATING");
         if(isEmptySalons(info.point_id))
@@ -6743,7 +6743,7 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
                     "." + denorm_iata_row(is->yname, NULL) +
                     denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
                     "/" + gender;
-                if(options.seat_plan == "WB") {
+                if(options.version == "WB") {
                     switch(im->second.crew_type) {
                         case TCrewType::ExtraCrew:
                             seat += "/1";
@@ -6796,12 +6796,13 @@ struct TWBInserter {
 void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
-    if(options.seat_plan == "AHM") {
+    if(not options.seat_plan) return;
+    if(options.version == "AHM") {
         string buf = "SP";
         fill_seats<TAHMInserter>(info, TAHMInserter(buf, body));
         if(buf != "SP")
             body.push_back(buf);
-    } else if(options.seat_plan == "WB") {
+    } else if(options.version == "WB") {
         map<int, vector<string> > wb_seats;
         fill_seats<TWBInserter>(info, TWBInserter(wb_seats));
         TTripRoute route;
