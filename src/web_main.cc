@@ -1068,38 +1068,19 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids,
         if (filter)
         {
           set<int> suitable_ids;
-          for(int pass=0; pass<2; pass++)
+          //найдем похожих взрослых или взрослых, привязанных к похожим младенцам
+          for(vector<TWebPax>::iterator iPax=pnr.paxs.begin();iPax!=pnr.paxs.end();++iPax)
           {
-            //отфильтруем пассажиров
-            for(vector<TWebPax>::iterator iPax=pnr.paxs.begin();iPax!=pnr.paxs.end();)
-            {
-              if ((pass==0 && iPax->seats==0) || (pass!=0 && iPax->seats!=0))
-              {
-                ++iPax;
-                continue;
-              };
-              if (iPax->seats!=0)
-              {
-                //не младенцы без мест
-                if (iPax->suitable(filter.get()))
-                {
-                  suitable_ids.insert(iPax->crs_pax_id);
-                  ++iPax;
-                }
-                else
-                  iPax=pnr.paxs.erase(iPax);
-              }
-              else
-              {
-                //младенцы без мест
-                //оставляем только младенцев, привязанных к отфильтрованным взрослым
-                if (iPax->crs_pax_id_parent!=NoExists &&
-                    suitable_ids.find(iPax->crs_pax_id_parent)!=suitable_ids.end())
-                  ++iPax;
-                else
-                  iPax=pnr.paxs.erase(iPax);
-              };
-            };
+            if (iPax->suitable(filter.get()))
+              suitable_ids.insert(iPax->crs_pax_id_parent!=NoExists?iPax->crs_pax_id_parent:iPax->crs_pax_id);
+          };
+          //отфильтруем пассажиров
+          for(vector<TWebPax>::iterator iPax=pnr.paxs.begin();iPax!=pnr.paxs.end();)
+          {
+            if (suitable_ids.find(iPax->crs_pax_id_parent!=NoExists?iPax->crs_pax_id_parent:iPax->crs_pax_id)==suitable_ids.end())
+              iPax=pnr.paxs.erase(iPax);
+            else
+              ++iPax;
           };
         };
 
