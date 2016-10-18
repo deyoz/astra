@@ -55,10 +55,17 @@ namespace ASTRA {
             int nextSeasonYear() const;
 
             int prevSeasonYear() const;
-            int getOppositeMonth() const {
-                return summer_ ?
-                         season::SummerPeriodLastMonth :
-                         season::SummerPeriodFirstMonth;
+
+            enum direction {dirBACKWARD, dirFORWARD};
+            int getOppositeMonth(direction dir) const {
+                if( summer_ )
+                    return dir == dirFORWARD ?
+                            season::SummerPeriodFirstMonth :
+                            season::SummerPeriodLastMonth ;
+                else
+                    return dir == dirFORWARD ?
+                            season::SummerPeriodLastMonth :
+                            season::SummerPeriodFirstMonth;
             }
         };
     }

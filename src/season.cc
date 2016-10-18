@@ -838,8 +838,6 @@ void TFilter::Parse( xmlNodePtr filterNode )
 /* здесь все уже в локальных временах */
 void TFilter::Build( xmlNodePtr filterNode )
 {
-  //time_zone_ptr tz = 0;
-
   NewTextChild( filterNode, "season_idx", 0 );
   NewTextChild( filterNode, "season_count", SEASON_PERIOD_COUNT );
   filterNode = NewTextChild( filterNode, "seasons" );

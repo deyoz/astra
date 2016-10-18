@@ -66,7 +66,7 @@ namespace ASTRA {
         }
 
         season& season::operator++() {
-            beg_ = LastSunday(nextSeasonYear(), getOppositeMonth()) + changeTime;
+            beg_ = LastSunday(nextSeasonYear(), getOppositeMonth(dirFORWARD)) + changeTime;
             std::swap(beg_, end_);
 
             summer_ = !summer_;
@@ -74,14 +74,14 @@ namespace ASTRA {
         }
 
         season& season::operator--() {
-            end_ = LastSunday(prevSeasonYear(), getOppositeMonth()) + changeTime;
+            end_ = LastSunday(prevSeasonYear(), getOppositeMonth(dirBACKWARD)) + changeTime;
             std::swap(beg_, end_);
             summer_ = !summer_;
             return *this;
         }
 
         int season::nextSeasonYear() const {
-            int year = Year(beg_);
+            int year = Year(end_);
             return summer_ ? ++year : year;
         }
 
