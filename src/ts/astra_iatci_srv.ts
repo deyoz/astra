@@ -615,3 +615,42 @@ RAD+I+F"
 ERD+1:5:INVALID FLIGHT/DATE"
 UNT+5+1"
 UNZ+1+ASTRA000660001"
+
+# считаем, что DCRCKA не дошёл до адресата, и эмулируем посылку им IFM
+<<
+IFMDCS2
+.IFMDCS1
+IFM
+OO1027/$(ddmon +0 en) AAA PART1
+-UU103/$(ddmon +0 en) LALLOL
+DEL
+1REPIN/IVAN
+ENDIFM
+
+
+%%
+#########################################################################################
+
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+
+
+# запрос к Астре
+<< h2h=V.\VHLG.WA/E11ADCS1/I11HDCS2/P015ZK3\VGYA\$()
+UNB+SIRE:1+U6+U6+161019:0436+1"
+UNH+1+DCQSMF:03:1:IA+GUZ2TQPGKY0025"
+LOR+U6:LCG"
+FDQ+U6+537+$(yymmdd)+SAW+MAD"
+SRP+Y"
+UNT+5+1"
+UNZ+1+1"
+
+>>
+UNB+SIRE:1+U6+U6+xxxxxx:xxxx+1"
+UNH+1+DCRSMF:03:1:IA+GUZ2TQPGKY0025"
+FDR+U6+537+$(yymmdd)+SAW+MAD++T"
+RAD+S+F"
+ERD+1:5:INVALID FLIGHT/DATE"
+UNT+5+1"
+UNZ+1+1"
