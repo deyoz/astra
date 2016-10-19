@@ -1,11 +1,16 @@
-#include <serverlib/tscript.h>
-#include <boost/scoped_ptr.hpp>
-#include <boost/algorithm/string/replace.hpp>
 #include "edilib/edi_func_cpp.h"
 #include "exceptions.h"
+#include "astra_utils.h"
 #include "xp_testing.h"
-#include "serverlib/EdiHelpManager.h"
+
+#include <serverlib/tscript.h>
+#include <serverlib/EdiHelpManager.h>
 #include <serverlib/func_placeholders.h>
+#include <libtlg/telegrams.h>
+
+#include <boost/scoped_ptr.hpp>
+#include <boost/algorithm/string/replace.hpp>
+
 #ifdef XP_TESTING
 #include "tlg/edi_handler.h"
 #include "tlg/typeb_handler.h"
@@ -33,6 +38,16 @@ namespace tscript {
             tlgi.id       = saveTlg("LOOPB", "LOOPB", "OUTA", tlg);
             tlgi.sender   = "LOOPB";
             tlgi.text     = edilib::ChangeEdiCharset(tlg, "IATA");
+
+            if(!h2h_str.empty()) {
+                hth::HthInfo hth = {};
+                if(!hth::fromString(h2h_str, hth)) {
+                    throw EXCEPTIONS::Exception("Invalid HtH info: " + h2h_str);
+                }
+                if (telegrams::callbacks()->writeHthInfo(ASTRA::make_tlgnum(tlgi.id), hth)) {
+                    LogError(STDLOG) << "writeHthInfo failed: " << tlgi.id;
+                }
+            }
             handle_edi_tlg(tlgi);
         }
         else

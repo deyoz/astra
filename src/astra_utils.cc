@@ -1696,6 +1696,11 @@ void rollback()
     }
 }
 
+tlgnum_t make_tlgnum(int n)
+{
+  return tlgnum_t(boost::lexical_cast<std::string>(n));
+}
+
 }// namespace ASTRA
 
 void TRegEvents::fromDB(TDateTime part_key, int point_id)

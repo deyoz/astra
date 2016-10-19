@@ -79,10 +79,10 @@ class AstraEdiSessRD : public edilib::EdiSessRdData
             memset(&Head, 0, sizeof(Head));
         }
 
-        virtual hth::HthInfo *hth() { return H2H; };
-        virtual std::string sndrHthAddr() const { return ""; };
-        virtual std::string rcvrHthAddr() const { return ""; };
-        virtual std::string hthTpr() const { return ""; };
+        virtual hth::HthInfo *hth() { return H2H; }
+        virtual std::string sndrHthAddr() const { return ""; }
+        virtual std::string rcvrHthAddr() const { return ""; }
+        virtual std::string hthTpr() const { return ""; }
 
         virtual std::string baseOurrefName() const
         {
@@ -90,8 +90,8 @@ class AstraEdiSessRD : public edilib::EdiSessRdData
         }
 
         void setMesHead(const edi_mes_head &head) { Head = head; }
-        virtual const edi_mes_head *edih() const { return &Head; };
-        virtual edi_mes_head *edih() { return &Head; };
+        virtual const edi_mes_head *edih() const { return &Head; }
+        virtual edi_mes_head *edih() { return &Head; }
 };
 
 class edi_udata

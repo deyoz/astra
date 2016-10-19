@@ -17,6 +17,7 @@
 #include "oralib.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_xml_cont.h"
+#include <libtlg/tlgnum.h>
 
 using BASIC::date_time::TDateTime;
 
@@ -624,6 +625,8 @@ void dumpTable(const std::string& table,
 
 void commit();
 void rollback();
+
+tlgnum_t make_tlgnum(int n);
 }//namespace ASTRA
 
 struct TRegEvents:public  std::map< std::pair<int, int>, std::pair<TDateTime, TDateTime> > {

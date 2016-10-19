@@ -150,8 +150,7 @@ void handle_edi_tlg(const tlg_info &tlg)
         ASTRA::commit();
 
         boost::shared_ptr<TlgHandling::TlgSourceEdifact> tlgSrc;
-        tlgSrc.reset(new TlgHandling::TlgSourceEdifact(tlg.text));
-        tlgSrc->setTlgNum(tlgnum_t(boost::lexical_cast<std::string>(tlg_id)));
+        tlgSrc.reset(new TlgHandling::TlgSourceEdifact(TlgHandling::TlgSource::readFromDb(ASTRA::make_tlgnum(tlg_id))));
         answTlg = proc_new_edifact(tlgSrc);
 
         // если сформировался ответ, отправим его
