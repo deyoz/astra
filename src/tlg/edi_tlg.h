@@ -69,7 +69,9 @@ class AstraEdiSessRD : public edilib::EdiSessRdData
     public:
         AstraEdiSessRD(const hth::HthInfo * H2H_, const edi_mes_head &Head_)
             : Head(Head_),
-              H2H( H2H_?(new hth::HthInfo(*H2H_)):0)
+              H2H( H2H_?(new hth::HthInfo(*H2H_)):0),
+              rcvr(H2H_?H2H->receiver:""),
+              sndr(H2H_?H2H->sender:"")
         {
         }
 
@@ -80,9 +82,9 @@ class AstraEdiSessRD : public edilib::EdiSessRdData
         }
 
         virtual hth::HthInfo *hth() { return H2H; }
-        virtual std::string sndrHthAddr() const { return ""; }
-        virtual std::string rcvrHthAddr() const { return ""; }
-        virtual std::string hthTpr() const { return ""; }
+        virtual std::string sndrHthAddr() const { return sndr; }
+        virtual std::string rcvrHthAddr() const { return rcvr; }
+        virtual std::string hthTpr() const { return H2H->tpr; }
 
         virtual std::string baseOurrefName() const
         {
