@@ -148,7 +148,7 @@ Router_impl::Router_impl(IdaType ida)
     short loopback = 0;
     OciCpp::CursCtl c = make_curs(
             "SELECT CANON_NAME, OWN_CANON_NAME, RESP_TIMEOUT, "
-            "H2H, H2H_ADDR, OUR_H2H_ADDR, ROUTER_TRANSLIT, LOOPBACK "
+            "H2H, H2H_ADDR, OUR_H2H_ADDR, H2H_REM_ADDR_NUM, ROUTER_TRANSLIT, LOOPBACK "
             "FROM ROT "
             "WHERE ID=:ida");
     c.      bind(":ida", ida).
@@ -158,6 +158,7 @@ Router_impl::Router_impl(IdaType ida)
             defNull(H2H, defval).
             defNull(H2hDestAddr_, "").
             defNull(H2hSrcAddr_, "").
+            def(H2hRemAddrNum_).
             defNull(translit, defval).
             defNull(loopback, defval).
             EXfet();

@@ -112,6 +112,7 @@ AstraEdiSessWR::AstraEdiSessWR(const std::string &pult,
         {
             H2H = new hth::HthInfo;
             memset(H2H, 0, sizeof(*H2H));
+            H2H->remAddrNum = rot->remAddrNum();
         }
         else
         {

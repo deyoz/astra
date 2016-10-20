@@ -420,6 +420,7 @@ private:
     short resp_timeout_;
     std::string H2hSrcAddr_;
     std::string H2hDestAddr_;
+    char H2hRemAddrNum_;
     bool IsH2h_;
     bool Translit_;
     bool Loopback_;
@@ -448,6 +449,12 @@ public:
      * @return
      */
     const std::string &h2hDestAddr() const { return H2hDestAddr_; }
+
+    /**
+     * @brief h2h layer5 remote addr number
+     * @return
+     */
+    char remAddrNum() const { return H2hRemAddrNum_; }
 
     /**
      * @brief is H2h supported by this type of router
