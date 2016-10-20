@@ -5601,6 +5601,7 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
     bool pr_send=sendInfo.isSend();
     const TypeB::TLDMOptions &options = *info.optionsAs<TypeB::TLDMOptions>();
 
+    vector<string> si;
     for(vector<TLDMDest>::iterator iv = items.begin(); iv != items.end(); iv++) {
         row.str("");
         row
@@ -5647,7 +5648,7 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
                 << "B/" << iv->bag.baggage
                 << ".C/" << iv->bag.cargo
                 << ".M/" << iv->bag.mail;
-            body.push_back(row.str());
+            si.push_back(row.str());
         }
         baggage_sum += iv->bag.baggage;
         cargo_sum += iv->bag.cargo;
@@ -5664,6 +5665,8 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
             body.push_back(buf.str());
         }
     }
+    if(options.version == "28ed")
+        body.insert(body.end(), si.begin(), si.end());
     if(options.version == "CEK") {
         row.str("");
         row << "SI: EXB" << excess.excess << KG;
