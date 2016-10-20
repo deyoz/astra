@@ -146,6 +146,7 @@ Router_impl::Router_impl(IdaType ida)
     short H2H = 0;
     short translit = 0;
     short loopback = 0;
+    int remAddrNumTmp = 0;
     OciCpp::CursCtl c = make_curs(
             "SELECT CANON_NAME, OWN_CANON_NAME, RESP_TIMEOUT, "
             "H2H, H2H_ADDR, OUR_H2H_ADDR, H2H_REM_ADDR_NUM, ROUTER_TRANSLIT, LOOPBACK "
@@ -158,7 +159,7 @@ Router_impl::Router_impl(IdaType ida)
             defNull(H2H, defval).
             defNull(H2hDestAddr_, "").
             defNull(H2hSrcAddr_, "").
-            def(H2hRemAddrNum_).
+            def(remAddrNumTmp).
             defNull(translit, defval).
             defNull(loopback, defval).
             EXfet();
@@ -170,6 +171,7 @@ Router_impl::Router_impl(IdaType ida)
     IsH2h_    = (H2H != 0);
     Translit_ = (translit != 0);
     Loopback_ = (loopback != 0);
+    H2hRemAddrNum_ = remAddrNumTmp + int('0');
 }
 
 
