@@ -2284,6 +2284,21 @@ struct TExtraCrew {
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
 
+bool isExtraCrew(TCrewType::Enum crew_type)
+{
+    bool result = false;
+    switch(crew_type) {
+        case TCrewType::ExtraCrew:
+        case TCrewType::DeadHeadCrew:
+        case TCrewType::MiscOperStaff:
+            result = true;
+            break;
+        default:
+            break;
+    };
+    return result;
+}
+
 void TExtraCrew::get(int point_id)
 {
     return; // ???
@@ -2302,15 +2317,8 @@ void TExtraCrew::get(int point_id)
         string airp_arv = Qry.get().FieldAsString("airp_arv");
         CheckIn::TSimplePaxItem pax;
         pax.fromDB(Qry.get());
-        switch(pax.crew_type) {
-            case TCrewType::ExtraCrew:
-            case TCrewType::DeadHeadCrew:
-            case TCrewType::MiscOperStaff:
-                items[airp_arv][pax.crew_type]++;
-                break;
-            default:
-                break;
-        };
+        if(isExtraCrew(pax.crew_type))
+            items[airp_arv][pax.crew_type]++;
     }
 }
 
@@ -6420,7 +6428,45 @@ struct TLCITotals {
     {};
 };
 
-typedef map<string, TLCITotals> TPaxTotalsItem;
+
+struct TPaxTotalsItem {
+    typedef map<string, TLCITotals> TItems;
+    TItems items; // обычные паксы
+    TItems extra_items; // доп. экипаж (extra crew)
+    int pax_size();
+    int bag_amount();
+    int bag_weight();
+};
+
+int TPaxTotalsItem::bag_weight()
+{
+    return
+        items["П"].bag_weight +
+        items["Б"].bag_weight +
+        items["Э"].bag_weight +
+        extra_items["П"].bag_weight +
+        extra_items["Б"].bag_weight +
+        extra_items["Э"].bag_weight;
+}
+
+int TPaxTotalsItem::bag_amount()
+{
+    return
+        items["П"].bag_amount +
+        items["Б"].bag_amount +
+        items["Э"].bag_amount +
+        extra_items["П"].bag_amount +
+        extra_items["Б"].bag_amount +
+        extra_items["Э"].bag_amount;
+}
+
+int TPaxTotalsItem::pax_size()
+{
+    return
+        items["П"].pax_size +
+        items["Б"].pax_size +
+        items["Э"].pax_size;
+}
 
 typedef map<string, TByGender> TByClass;
 
@@ -6492,10 +6538,9 @@ struct TLCIPaxTotals {
 };
 
 // baggage categories
-const string BCAT_BT = "BT"; // Трансфер (вкл. несопр багаж кроме Р/кл)
+const string BCAT_BT = "BT"; // Трансфер (вкл. несопр багаж кроме Р/кл), багаж доп. экипажа не попадает
 const string BCAT_BD = "BD"; // Трансфер по внутр. перевозке, в остальном как BT
 const string BCAT_BI = "BI"; // Трансфер на др. АК, в остальном как BT
-const string BCAT_BX = "BX"; // Р/кл паксов (несопр. багаж не вкл.)
 const string BCAT_BF = "BF"; // бизнес
 const string BCAT_BY = "BY"; // эконом
 
@@ -6508,38 +6553,25 @@ void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, 
             result.str(string());
             result
                 << "-" << info.TlgElemIdToElem(etAirp, iv->airp) << ".PT."
-                <<
-                iv->cls_totals["П"].pax_size +
-                iv->cls_totals["Б"].pax_size +
-                iv->cls_totals["Э"].pax_size
+                << iv->cls_totals.pax_size()
                 << ".C."
-                << iv->cls_totals["П"].pax_size << "/"
-                << iv->cls_totals["Б"].pax_size << "/"
-                << iv->cls_totals["Э"].pax_size;
+                << iv->cls_totals.pax_size();
             body.push_back(result.str());
         }
         if(options.bag_totals) {
             result.str(string());
             result
                 << "-" << info.TlgElemIdToElem(etAirp, iv->airp) << ".BT."
-                <<
-                iv->cls_totals["П"].bag_amount +
-                iv->cls_totals["Б"].bag_amount +
-                iv->cls_totals["Э"].bag_amount +
-                unacc.items[iv->airp].first
-                << "/" <<
-                iv->cls_totals["П"].bag_weight +
-                iv->cls_totals["Б"].bag_weight +
-                iv->cls_totals["Э"].bag_weight +
-                unacc.items[iv->airp].second
+                << iv->cls_totals.bag_amount() + unacc.items[iv->airp].first
+                << "/" << iv->cls_totals.bag_weight() + unacc.items[iv->airp].second
                 << ".C."
-                << iv->cls_totals["П"].bag_amount << "/"
-                << iv->cls_totals["Б"].bag_amount << "/"
-                << iv->cls_totals["Э"].bag_amount
+                << iv->cls_totals.items["П"].bag_amount << "/"
+                << iv->cls_totals.items["Б"].bag_amount << "/"
+                << iv->cls_totals.items["Э"].bag_amount
                 << ".A."
-                << iv->cls_totals["П"].bag_weight << "/"
-                << iv->cls_totals["Б"].bag_weight << "/"
-                << iv->cls_totals["Э"].bag_weight
+                << iv->cls_totals.items["П"].bag_weight << "/"
+                << iv->cls_totals.items["Б"].bag_weight << "/"
+                << iv->cls_totals.items["Э"].bag_weight
                 << "." << KG;
             body.push_back(result.str());
             result.str(string());
@@ -6655,25 +6687,31 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
         // end of Fetch transfer baggage
 
         for(vector<TPRLPax>::iterator pax_i = iv->PaxList.begin(); pax_i != iv->PaxList.end(); pax_i++) {
-            if(options.version == "WB" and pax_i->crew_type == TCrewType::ExtraCrew)
-                continue;
             TWItem pax_bag = dests.paxBag(pax_i->grp_id, pax_i->pax_id, pax_i->bag_pool_num);
-            items[idx].cls_totals[iv->cls].bag_amount += pax_bag.bagAmount;
-            items[idx].cls_totals[iv->cls].bag_weight += pax_bag.bagWeight;
+
+            if(isExtraCrew(pax_i->crew_type)) {
+                items[idx].cls_totals.extra_items[iv->cls].bag_amount += pax_bag.bagAmount;
+                items[idx].cls_totals.extra_items[iv->cls].bag_weight += pax_bag.bagWeight;
+            } else {
+
+                items[idx].cls_totals.items[iv->cls].bag_amount += pax_bag.bagAmount;
+                items[idx].cls_totals.items[iv->cls].bag_weight += pax_bag.bagWeight;
+            }
+
+            if(options.version != "WB" or not isExtraCrew(pax_i->crew_type)) {
+                if(iv->cls == "Б") {
+                    items[idx].bag_category[BCAT_BF].first += pax_bag.bagAmount;
+                    items[idx].bag_category[BCAT_BF].second += pax_bag.bagWeight;
+                }
+
+                if(iv->cls == "Э") {
+                    items[idx].bag_category[BCAT_BY].first += pax_bag.bagAmount;
+                    items[idx].bag_category[BCAT_BY].second += pax_bag.bagWeight;
+                }
+            }
+
+
             items[idx].rk_weight += pax_bag.rkWeight;
-
-            items[idx].bag_category[BCAT_BX].first += pax_bag.rkAmount;
-            items[idx].bag_category[BCAT_BX].second += pax_bag.rkWeight;
-
-            if(iv->cls == "Б") {
-                items[idx].bag_category[BCAT_BF].first += pax_bag.bagAmount;
-                items[idx].bag_category[BCAT_BF].second += pax_bag.bagWeight;
-            }
-
-            if(iv->cls == "Э") {
-                items[idx].bag_category[BCAT_BY].first += pax_bag.bagAmount;
-                items[idx].bag_category[BCAT_BY].second += pax_bag.bagWeight;
-            }
 
             for(vector<string>::iterator rem_i = pax_i->rems.items.begin();
                     rem_i != pax_i->rems.items.end(); rem_i++) {
@@ -6696,7 +6734,7 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
                     break;
             }
         }
-        items[idx].cls_totals[iv->cls].pax_size = iv->PaxList.size();
+        items[idx].cls_totals.items[iv->cls].pax_size = iv->PaxList.size();
     }
     if(options.version == "WB")
         unacc.get(info.point_id);

@@ -1416,7 +1416,8 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
     options.pas_totals = false;
     options.bag_totals = false;
     options.pas_distrib = false;
-    options.seat_plan = "0";
+    options.seat_plan = true;
+    options.version = "WB";
 
     if(con.action_code.action == aRequest) {
 
@@ -1431,12 +1432,6 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
                         seatRanges.insert( seatRanges.end(), ranges_tmp.begin(), ranges_tmp.end() );
                     }
                     SALONS2::resetLayers( point_id_spp, cltProtect, seatRanges, "EVT.LAYOUT_MODIFIED_LCI.SEAT_PLAN" );
-                    break;
-                case rtSP:
-                    if(i->second.sp_type == spWB)
-                        options.seat_plan = "WB";
-                    else
-                        options.seat_plan = "AHM";
                     break;
                 case rtWB:
                     options.is_lat = i->second.lang == AstraLocale::LANG_EN;
