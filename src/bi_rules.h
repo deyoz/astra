@@ -74,8 +74,9 @@ const TPrintTypesView& PrintTypesView();
     struct TRule {
         bool pr_get; // Признак того, что для тек. пакса был вызван Holder::get
         int id; // bi_print_rules.id
-        std::list<int> halls; // список id залов
-        int curr_hall; // зал, выбранный на клиенте
+        typedef std::map<int, int> THallsList;
+        THallsList halls; // список id залов; halls[hall] = terminal
+        std::pair<int, int> curr_hall; // зал, выбранный на клиенте <hall, terminal>
         bool pr_print_bi;     // Печатать отдельное БП или нет
         TPrintType::Enum print_type;
 
@@ -86,7 +87,7 @@ const TPrintTypesView& PrintTypesView();
         TRule():
             pr_get(false),
             id(ASTRA::NoExists),
-            curr_hall(ASTRA::NoExists),
+            curr_hall(std::pair<int, int>(ASTRA::NoExists, ASTRA::NoExists)),
             pr_print_bi(false),
             print_type(TPrintType::None)
         {}
@@ -113,12 +114,14 @@ const TPrintTypesView& PrintTypesView();
             int get_hall_id(ASTRA::TDevOperType op_type, int pax_id);
             std::set<int> grps;
             TPaxList items;
+            ASTRA::TDevOperType op_type;
         public:
             const TRule &get(int grp_id, int pax_id);
             void dump(const std::string &file, int line) const;
             bool complete() const;
             bool select(xmlNodePtr reqNode);
             void toXML(ASTRA::TDevOperType op_type, xmlNodePtr resNode);
+            Holder(ASTRA::TDevOperType aop_type): op_type(aop_type) {}
     };
 
 } //namespace BIPrintRules
@@ -141,6 +144,7 @@ class TPrPrint {
     public:
         void get_pr_print(int grp_id, int pax_id, bool &pr_bp_print, bool &pr_bi_print);
         void dump(const std::string &file, int line);
+        TPrPrint(): bi_rules(ASTRA::TDevOperType::dotPrnBI) {}
 };
 
 #endif

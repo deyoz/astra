@@ -29,9 +29,10 @@ namespace BIPrintRules {
         LogTrace(TRACE5) << "-------TRule::dump(): " << file << ":" << (line == NoExists ? 0 : line) << "-------";
         LogTrace(TRACE5) << "id: " << id;
         ostringstream buf;
-        copy(halls.begin(), halls.end(), ostream_iterator<int>(buf, " "));
+        for(THallsList::const_iterator i = halls.begin(); i != halls.end(); i++)
+            buf << "<" << i->first << ", " << i->second << ">";
         LogTrace(TRACE5) << "halls: [" << buf.str() << "]";
-        LogTrace(TRACE5) << "curr_hall: " << curr_hall;
+        LogTrace(TRACE5) << "curr_hall: " << curr_hall.first << " -> " << curr_hall.second;
         LogTrace(TRACE5) << "pr_print_bi: " << pr_print_bi;
         LogTrace(TRACE5) << "print_type: " << print_type;
         LogTrace(TRACE5) << "---------------------------";
@@ -86,9 +87,13 @@ namespace BIPrintRules {
 
     bool bi_airline_service(
             const TTripInfo &info,
+            TDevOperType op_type,
             TRule &rule
             )
     {
+        if(op_type != dotPrnBI and op_type != dotPrnBP) return false;
+        rule.pr_print_bi = op_type == dotPrnBI;
+
         TCachedQuery Qry(
                 "select "
                 "   terminal, "
@@ -99,7 +104,10 @@ namespace BIPrintRules {
                 "where "
                 "   airline = :airline and "
                 "   airp = :airp and "
-                "   pr_denial = 0 ",
+                "   pr_denial = 0 "
+                "order by "
+                "   hall nulls first "
+                ,
                 QParams()
                 << QParam("airline", otString, info.airline)
                 << QParam("airp", otString, info.airp)
@@ -107,6 +115,36 @@ namespace BIPrintRules {
         Qry.get().Execute();
         bool result = not Qry.get().Eof;
         if(result) {
+            for(; not Qry.get().Eof; Qry.get().Next()) {
+                int terminal = Qry.get().FieldAsInteger("terminal");
+                int hall = NoExists;
+                if(not Qry.get().FieldIsNULL("hall"))
+                    hall = Qry.get().FieldAsInteger("hall");
+                bool pr_print_bi = Qry.get().FieldAsInteger("pr_print_bi") != 0;
+
+                LogTrace(TRACE5) << "terminal: " << terminal;
+                LogTrace(TRACE5) << "hall: " << hall;
+                LogTrace(TRACE5) << "pr_print_bi: " << pr_print_bi;
+                LogTrace(TRACE5) << "rule.pr_print_bi: " << rule.pr_print_bi;
+
+                if(hall == NoExists) {
+                    if(pr_print_bi == rule.pr_print_bi) {
+                        // Если бизнес зал не задан, достаем все залы данного терминала.
+                        TCachedQuery hallsQry("select id from bi_halls where terminal = :terminal",
+                                QParams() << QParam("terminal", otInteger, Qry.get().FieldAsInteger("terminal")));
+                        hallsQry.get().Execute();
+                        for(; not hallsQry.get().Eof; hallsQry.get().Next())
+                            rule.halls[hallsQry.get().FieldAsInteger("id")] = terminal;
+                    }
+                } else if(pr_print_bi != rule.pr_print_bi) {
+                    rule.halls.erase(hall);
+                } else
+                    rule.halls[hall] = terminal;
+            }
+
+
+
+            /*
             if(Qry.get().FieldIsNULL("hall")) {
                 // Если бизнес зал не задан, достаем все залы данного терминала.
                 TCachedQuery hallsQry("select id from bi_halls where terminal = :terminal",
@@ -117,6 +155,7 @@ namespace BIPrintRules {
             } else
                 rule.halls.push_back(Qry.get().FieldAsInteger("hall"));
             rule.pr_print_bi = Qry.get().FieldAsInteger("pr_print_bi") != 0;
+            */
         }
         return result;
     }
@@ -153,13 +192,9 @@ namespace BIPrintRules {
                 break;
             }
 
-            list<int>::iterator iHall =
-                find(
-                        rule->second.halls.begin(),
-                        rule->second.halls.end(),
-                        hall_id);
+            TRule::THallsList::iterator iHall = rule->second.halls.find(hall_id);
             if(iHall != rule->second.halls.end())
-                rule->second.curr_hall = hall_id;
+                rule->second.curr_hall = *iHall;
             else {
                 result = false;
                 break;
@@ -168,9 +203,9 @@ namespace BIPrintRules {
         }
         if(result) {
             for(TPaxList::iterator i = items.begin(); i != items.end(); i++) {
-                if(i->second.curr_hall != NoExists) {
+                if(i->second.curr_hall.first != NoExists) {
                     i->second.halls.clear();
-                    i->second.halls.push_back(i->second.curr_hall);
+                    i->second.halls.insert(i->second.curr_hall);
                 }
             }
         }
@@ -209,10 +244,12 @@ namespace BIPrintRules {
                 NewTextChild(itemNode, "pax_id", i->first);
                 NewTextChild(itemNode, "hall_id", get_hall_id(op_type, i->first), NoExists); // last printed hall
                 xmlNodePtr hallsNode = NewTextChild(itemNode, "halls");
-                for(list<int>::const_iterator iHall = i->second.halls.begin(); iHall != i->second.halls.end(); iHall++) {
+                for(TRule::THallsList::const_iterator iHall = i->second.halls.begin(); iHall != i->second.halls.end(); iHall++) {
                     xmlNodePtr iHallNode = NewTextChild(hallsNode, "item");
-                    NewTextChild(iHallNode, "id", *iHall);
-                    NewTextChild(iHallNode, "name", ElemIdToNameLong(etBIHall, *iHall));
+                    NewTextChild(iHallNode, "id", iHall->first);
+                    NewTextChild(iHallNode, "name", (string)
+                            "[" + ElemIdToNameLong(etAirpTerminal, iHall->second) + "] " +
+                            ElemIdToNameLong(etBIHall, iHall->first));
                 }
             }
         }
@@ -293,7 +330,7 @@ namespace BIPrintRules {
             string subcls = paxQry.get().FieldAsString("subclass");
             TRule bi_rule;
             // Достаем данные из кеша Обслуживание авиакомпаний в аэропортах
-            if(bi_airline_service(t, bi_rule)) {
+            if(bi_airline_service(t, op_type, bi_rule)) {
                 // на данном этапе в bi_rule определены:
                 // Список залов     (bi_rule.halls)
                 // Биз. пригл.      (bi_rule.pr_print_bi)
