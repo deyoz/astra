@@ -1903,12 +1903,10 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     string pectab, data;
 
     // Начитываем правила БП для всех паксов
-    BIPrintRules::Holder bi_rules(op_type);
+    BIPrintRules::Holder bi_rules;
     if(TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION)) {
         bool bi_access = false;
         for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
-
-            LogTrace(TRACE5) << "bi_rules.get pax_id = " << iPax->pax_id;
 
             const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
 
@@ -1924,11 +1922,9 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) and
             not bi_rules.complete() // требуется назначить залы пассажирам
             ) {
-        LogTrace(TRACE5) << "complete false";
         bi_rules.toXML(op_type, resNode);
     } else {
 
-        LogTrace(TRACE5) << "complete true";
         GetPrintDataBP(op_type, params, data, pectab, bi_rules, paxs);
 
         xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"),
