@@ -5255,8 +5255,9 @@ struct TLDMBag {
 };
 
 struct TToRampBag {
+    enum Status{ rbBrd, rbReg };
     map<string, pair<int, int> > items; // items[airp] = <amount, weight>
-    void get(int point_id);
+    void get(int point_id, Status st);
     pair<int, int> by_flight(); // return <amount, weight> summary
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
     bool empty();
@@ -5373,12 +5374,13 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
     }
 }
 
-void TToRampBag::get(int point_id)
+void TToRampBag::get(int point_id, Status st)
 {
     items.clear();
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, point_id);
     TCachedQuery Qry(
+            (string)
             "select "
             "   pax_grp.airp_arv, "
             "   sum(amount) amount, "
@@ -5390,8 +5392,12 @@ void TToRampBag::get(int point_id)
             "   pax_grp.grp_id = bag2.grp_id and "
             "   pax_grp.point_dep = :point_id and "
             "   pax_grp.status NOT IN ('E') AND "
-            "   bag2.pr_cabin=0 AND "
+            "   bag2.pr_cabin=0 AND " +
+            (st == rbBrd ?
             "   ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 and "
+            :
+            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 and "
+            ) +
             "   bag2.to_ramp <> 0 "
             "group by "
             "   airp_arv",
@@ -5711,7 +5717,7 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
 {
     cfg.get(info);
     excess.get(info.point_id);
-    to_ramp.get(info.point_id);
+    to_ramp.get(info.point_id, TToRampBag::rbBrd);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT points.point_id AS point_arv, "
@@ -6903,7 +6909,7 @@ void TLCI::get(TypeB::TDetailCreateInfo &info)
         extra_crew.get(info.point_id);
         if(options.bag_totals) {
             bag_rems.get(info);
-            to_ramp.get(info.point_id);
+            to_ramp.get(info.point_id, TToRampBag::rbReg);
         }
     } catch(AstraLocale::UserException &E) {
         if(E.getLexemaData().lexema_id != "MSG.FLIGHT_WO_CRAFT_CONFIGURE")
