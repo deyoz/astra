@@ -2635,7 +2635,7 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   if (!ue.empty()) throw ue;
 
   string pectab, data;
-  BIPrintRules::Holder bi_rules;
+  BIPrintRules::Holder bi_rules(dotPrnBP);
   PrintInterface::GetPrintDataBP(dotPrnBP, params, data, pectab, bi_rules, paxs);
 
   xmlNodePtr BPNode = NewTextChild( resNode, "GetPrintDataBP" );
