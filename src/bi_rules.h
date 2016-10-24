@@ -144,7 +144,7 @@ class TPrPrint {
     public:
         void get_pr_print(int grp_id, int pax_id, bool &pr_bp_print, bool &pr_bi_print);
         void dump(const std::string &file, int line);
-        TPrPrint(): bi_rules(ASTRA::TDevOperType::dotPrnBI) {}
+        TPrPrint(): bi_rules(ASTRA::dotPrnBI) {}
 };
 
 #endif
