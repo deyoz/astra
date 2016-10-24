@@ -6785,7 +6785,9 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
                     denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
                     "/" + gender;
                 if(options.version == "WB") {
-                    switch(im->second.crew_type) {
+                    if(is != im->second.seats.begin())
+                        seat += "/B"; // так обозначаются доп. места (extra seats)
+                    else switch(im->second.crew_type) {
                         case TCrewType::ExtraCrew:
                             seat += "/1";
                             break;
