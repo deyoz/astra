@@ -12,7 +12,7 @@ SysTarg:
 	$(srcdir)/autotests.sh $(srcdir)/ts
 	$(MAKE) -f $(srcdir)/systarg.mk
 	
-astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@
+astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@ @LIBTYPEB_LDFLAGS@
 
 install-edimessages:
 	./nosir.tcl -ediinsert -i ${EDILIB_PATH}/edi_messages
@@ -35,7 +35,7 @@ xp-tests: clean-xp-tests
 	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
 	
 
-AM_CXXFLAGS = $(TCLINCLUDE) @SERVERLIB_CXXFLAGS@ @PION_CXXFLAGS@
+AM_CXXFLAGS = $(TCLINCLUDE) @SERVERLIB_CXXFLAGS@
 astra_SOURCES = \
   adm.cc \
   access.cc \
@@ -166,17 +166,20 @@ astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
 	tests/libtests.a \
 	@SHARED_LIBS@ @SHARED_EXT_LIBS@ \
+	@LIBTLG_LIBS@ \
+	@SERVERLIB_LIBS@ \
+        @LIBTYPEB_LIBS@ \
 	@ETICKLIB_LIBS@ @EDILIB_LIBS@ \
 	@ORACLE_LIBS@ @ORACLE_LDFLAGS@ \
 	@JXTLIB_LIBS@ \
-	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
-	$(XML_LIBS) @CHECK_LIBS@ \
+	@XML_LIBS@ \
+	@CHECK_LIBS@ \
+	@PION_LIBS@ \
 	@BOOST_IOSTREAMS_LIB@ \
 	@BOOST_SYSTEM_LIB@ \
 	@BOOST_FILESYSTEM_LIB@ \
 	@BOOST_REGEX_LIB@ \
-        @BOOST_THREAD_LIB@ \
-        @PION_LDFLAGS@
+        @BOOST_THREAD_LIB@
 
 
 #	-L/usr/lib -lboost_filesystem

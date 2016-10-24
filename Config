@@ -29,13 +29,10 @@ fi
 if [ -n "$BOOST_LIB" ]; then
       WITH_PARAMS="$WITH_PARAMS --with-boost-libdir=$BOOST_LIB"
 fi
-if [ -n "$PION" ]; then
-      WITH_PARAMS="$WITH_PARAMS --with-pion=$PION"
-fi
 if [ "$BUILD_TESTS" = "1" ]; then
       WITH_PARAMS="$WITH_PARAMS --enable-xp-testing"
 fi
 
-set -x
+
 pwd
 autoreconf --force --install && ./configure --silent CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS CC="$CC" CXX="$CXX" $WITH_PARAMS $shared_mode $@

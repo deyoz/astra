@@ -3,6 +3,7 @@ export BUILD_TESTS=${BUILD_TESTS:? BUILD_TESTS not set}
 export ENABLE_SHARED=${ENABLE_SHARED:? ENABLE_SHARED not set}
 export ASTRA_HOME=$(pwd)
 export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$(pwd)/pkgconfig"
+export MAKE_J=${MAKE_J:-`grep -c ^processor /proc/cpuinfo`}
 
 if [ -z "$LOCALCXX" ]; then
     if [ -z "$CXX" ]; then
@@ -66,24 +67,14 @@ buildboost="1"
 
 EXTERNALLIBS_DIR=${SIRENA_EXTERNALS:-$(pwd)/externallibs}
 
-if [ "$set_cxx11" = "1" ]; then
-    cat <<EOF > locallibs/external_env_file
-if [ -n "\$BOOST_LIB" ] || [ -n "\$BOOST_LIBS_SUFFIX" ] || [ -n "\$PION_LIB" ] ; then echo "unset BOOST_LIB BOOST_LIBS_SUFFIX PION_LIB, then $0 --build_external_libs" 1>&2; exit 2; fi
-export readonly CPP_STD_VERSION="c++11"
-export readonly BOOST=$EXTERNALLIBS_DIR/boost
-export readonly PION=$EXTERNALLIBS_DIR/pion
-export MY_LOCAL_CFLAGS="\$MY_LOCAL_CFLAGS -DBOOST_NO_CXX11_SCOPED_ENUMS -DBOOST_NO_CXX11_EXPLICIT_CONVERSION_OPERATORS -DBOOST_FILESYSTEM_DEPRECATED"
-EOF
-elif [ "$set_cxx11" = "0" ]; then
-    rm -f locallibs/external_env_file
-fi
 
 
-
-build_externallib() {
+function build_externallib() {
     ./bin/astra_update_and_build.sh $1 $EXTERNALLIBS_DIR/$1
     checkresult build_$1 $?
     export PKG_CONFIG_PATH=$EXTERNALLIBS_DIR/$1/lib/pkgconfig:$PKG_CONFIG_PATH
+    export LD_LIBRARY_PATH=$EXTERNALLIBS_DIR/$1/lib:$LD_LIBRARY_PATH
+    echo "export PKG_CONFIG_PATH=$EXTERNALLIBS_DIR/$1/lib/pkgconfig:\$PKG_CONFIG_PATH" >> locallibs/external_env_file
     echo "export LD_LIBRARY_PATH=$EXTERNALLIBS_DIR/$1/lib:\$LD_LIBRARY_PATH" >> locallibs/external_env_file
 }
 
@@ -195,6 +186,15 @@ if [ "$quiet" = "1" ]; then db_out_stream="/dev/null"; else db_out_stream="/dev/
 if [ "$quiet" = "1" ]; then make_silent="-s"; else make_silent=""; fi
 
 if [ "$build_external_libs" = "1" ]; then
+    cat <<EOF > locallibs/external_env_file
+if [ -n "\$BOOST_LIB" ] || [ -n "\$BOOST_LIBS_SUFFIX" ] || [ -n "\$PION_LIB" ] ; then echo "unset BOOST_LIB BOOST_LIBS_SUFFIX PION_LIB, then $0 --build_external_libs" 1>&2; exit 2; fi
+export readonly CPP_STD_VERSION="c++11"
+export readonly BOOST=$EXTERNALLIBS_DIR/boost
+export MY_LOCAL_CFLAGS="\$MY_LOCAL_CFLAGS -DBOOST_NO_CXX11_SCOPED_ENUMS -DBOOST_NO_CXX11_EXPLICIT_CONVERSION_OPERATORS -DBOOST_FILESYSTEM_DEPRECATED -DBOOST_NO_AUTO_PTR"
+EOF
+    build_externallib icu
+    build_externallib libxml2
+    build_externallib libxslt
     build_externallib boost
     build_externallib check
     build_externallib pion

@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 function uab_check_version() {
-    test "5.0.6" == "5.0.6"
+    grep -w 'PION_VERSION[ ]\+\"5.0.6\"' $1/include/pion/config.hpp
 }
 
 function uab_config_and_build() {
