@@ -10,6 +10,7 @@
 #include "lci_parser.h"
 #include "ucm_parser.h"
 #include "mvt_parser.h"
+#include "ifm_parser.h"
 #include "typeb_utils.h"
 #include "telegram.h"
 #include "memory_manager.h"
@@ -18,6 +19,9 @@
 #include "TypeBHelpMng.h"
 #include "edi_handler.h"
 #include "typeb_handler.h"
+#include "tlg_source_typeb.h"
+#include "postpone_edifact.h"
+#include "astra_context.h"
 
 #include <serverlib/posthooks.h>
 #include <serverlib/ourtime.h>
@@ -1008,6 +1012,16 @@ bool parse_tlg(void)
             count++;
             break;
           }
+          case tcIFM:
+          {
+            LogTrace(TRACE3) << "Enter to IFM handler";
+            std::string tlgBody = parts.addr + parts.heading + parts.body;
+            LogTrace(TRACE3) << "IFM body:\n" << tlgBody;
+            HandleTypebIfm::handle(typeb_parser::TypeBMessage::parse(tlgBody));
+            ASTRA::commit();
+            count++;
+            break;
+          }
           /*
           case tcSSM:
           {
@@ -1040,6 +1054,24 @@ bool parse_tlg(void)
             count++;
           };
         };
+      }
+      catch(TlgHandling::TlgToBePostponed& e)
+      {
+          LogTrace(TRACE3) << "tlg.id=" << tlg_id << " e.sessionId=" << e.sessionId();
+          if(tlg_id && e.sessionId())
+          {
+              ProgTrace(TRACE1, "Tlg %d to be postponed for session %d", tlg_id, e.sessionId().get());
+              AstraContext::CopyContext("EDI_SESSION", e.sessionId().get(), "EDI_SESSION_TLG", tlg_id);
+              TlgHandling::PostponeEdiHandling::postpone(tlg_id, e.sessionId());
+              callPostHooksBefore();
+              ASTRA::commit();
+              callPostHooksAfter();
+              emptyHookTables();
+          }
+          else
+          {
+              ProgError(STDLOG, "bad data!");
+          }
       }
       catch(std::exception &E)
       {

@@ -1,7 +1,9 @@
 #include "oralib.h"
-#include "tlg/tlg.h"
 #include "exceptions.h"
 #include "astra_main.h"
+#include "tlg/tlg.h"
+#include "tlg/typeb_template_init.h"
+
 #include <jxtlib/JxtInterface.h>
 #include <serverlib/ocilocal.h>
 #include <serverlib/TlgLogger.h>
@@ -94,6 +96,7 @@ int init_locale(void)
     JxtInterfaceMng::Instance();
     if(edifact::init_edifact() < 0)
         throw EXCEPTIONS::Exception("'init_edifact' error!");
+    typeb_parser::typeb_template_init();
     init_tlg_callbacks();
     TlgLogger::setLogging();
     return 0;

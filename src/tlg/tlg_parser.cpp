@@ -363,6 +363,7 @@ TTlgCategory GetTlgCategory(char *tlg_type)
   if (strcmp(tlg_type,"CPM")==0) cat=tcCPM;
   if (strcmp(tlg_type,"SLS")==0) cat=tcSLS;
   if (strcmp(tlg_type,"LDM")==0) cat=tcLDM;
+  if (strcmp(tlg_type,"IFM")==0) cat=tcIFM;
   return cat;
 };
 

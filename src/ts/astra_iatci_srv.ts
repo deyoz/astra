@@ -630,6 +630,8 @@ ENDIFM
 
 %%
 #########################################################################################
+# №9 host to host
+
 
 $(init)
 $(init_jxt_pult МОВРОМ)
@@ -654,3 +656,83 @@ RAD+S+F"
 ERD+1:5:INVALID FLIGHT/DATE"
 UNT+5+1"
 UNZ+1+1"
+
+
+%%
+#########################################################################################
+# №10
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_2 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ REPIN IVAN)
+
+# $(deny_ets_interactive ЮТ 103 ДМД)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:96:2:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+1:20"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+
+$(ETS_COS_EXCHANGE 2982401841689 1 CK SYSTEM)
+
+
+# ответ от Астры
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:96:2:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+I+O"
+PPD+REPIN+A++IVAN"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+TKNE::::::TKNE HK1 2982401841689/1"
+PAP+:::240785:::TJK++P:400522509:TJK:::050225:M::::::REPIN:IVAN"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+
+# но ответ потерялся и нам прислали IFM DEL
+<<
+IFMDCS2
+.IFMDCS1
+IFM
+S71027/$(ddmon +0 en) AER PART1
+-UT103/$(ddmon +0 en) DMELED
+DEL
+1REPIN/IVAN
+ENDIFM
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:I"
+TVL+201016+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# ответ от СЭБ
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841689:T::3"
+CPN+1:I::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
