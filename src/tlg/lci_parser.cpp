@@ -1226,13 +1226,19 @@ void TRequest::parse(const char *val)
             {
                 vector<string> items;
                 split(items, val, '.');
-                if(items[1] != "LANG") throw ETlgError("Unknown lexeme: '%s'", items[1].c_str());
-                if(
-                        items[2] != AstraLocale::LANG_RU and
-                        items[2] != AstraLocale::LANG_EN
-                  )
-                    throw ETlgError("Unknown LANG '%s'", items[2].c_str());
-                req_info.lang = items[2];
+                if(items[1] == "MAX_COMMERCE") {
+                    req_info.max_commerce = ToInt(items[2]);
+                    if(req_info.max_commerce >= 1000000)
+                        throw ETlgError("max_commerce too big: %d", req_info.max_commerce);
+                } else if(items[1] == "LANG") {
+                    if(
+                            items[2] != AstraLocale::LANG_RU and
+                            items[2] != AstraLocale::LANG_EN
+                      )
+                        throw ETlgError("Unknown LANG '%s'", items[2].c_str());
+                    req_info.lang = items[2];
+                } else
+                    throw ETlgError("Unknown lexeme: '%s'", items[1].c_str());
                 break;
             }
         case rtSR:
@@ -1435,6 +1441,8 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
                     break;
                 case rtWB:
                     options.is_lat = i->second.lang == AstraLocale::LANG_EN;
+                    if(i->second.max_commerce != NoExists)
+                        LogTrace(TRACE5) << "max_commerce: " << i->second.max_commerce;
                     break;
                 case rtBT:
                     options.bag_totals = true;

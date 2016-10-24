@@ -363,9 +363,11 @@ enum TSPType {
 struct TLCIReqInfo {
     TReqType req_type;
     std::string lang;
+    int max_commerce;
     TSR sr;             // filled if SR type
     TWMType wm_type;    // filled if WM type;
     TSPType sp_type;
+    TLCIReqInfo(): max_commerce(ASTRA::NoExists) {};
 };
 
 struct TRequest:public std::map<TReqType, TLCIReqInfo> {
