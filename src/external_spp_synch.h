@@ -16,11 +16,15 @@ public:
   HTTPRequestsIface() : JxtInterface("", SPP_SYNCH_JXT_INTERFACE_ID)
   {
      Handler *evHandle;
-     // Расширенный поиск пассажиров
+     //UFA
      evHandle=JxtHandler<HTTPRequestsIface>::CreateHandler(&HTTPRequestsIface::SaveSPP);
      AddEvent("SaveSPP",evHandle);
+     //SINHRON SVO
+     evHandle=JxtHandler<HTTPRequestsIface>::CreateHandler(&HTTPRequestsIface::SaveSinhronSPP);
+     AddEvent("SaveSinhronSPP",evHandle);
   }
   void SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void SaveSinhronSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
 };
 

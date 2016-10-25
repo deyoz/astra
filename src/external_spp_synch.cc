@@ -301,7 +301,7 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       }
     }
     if ( flight.is_valid() ) {
-      if ( flight.scd <= filter_scd - 1 || flight.scd > filter_scd + 2 ) {        
+      if ( flight.scd <= filter_scd - 1 || flight.scd > filter_scd + 2 ) {
         flight.error = "scd not in SPP";
         ProgTrace( TRACE5, "record=%s, error=%s", flight.record.c_str(), flight.error.c_str() );
       }
@@ -355,7 +355,7 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       }
       content[ fl_out->second.record ].time = NowUTC();
       content[ fl_out->second.record ].type = fl_out->second.error == EncodeEventType( ASTRA::evtFlt )?fl_out->second.error:EncodeEventType( ASTRA::evtProgError );
-    }    
+    }
   }
   string res = "\n";
   for ( std::map<std::string,AnswerContent>::iterator istr=content.begin(); istr!=content.end(); istr++ ) {
@@ -693,4 +693,15 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
       }
     }
   }
+}
+/////////////////////////////////////////SINCHRON SVO///////////////////////////////
+
+void HTTPRequestsIface::SaveSinhronSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ProgTrace( TRACE5, "SaveSinhronSPP: desk=%s, airp=%s", TReqInfo::Instance()->desk.code.c_str(), TReqInfo::Instance()->desk.airp.c_str() );
+//  xmlNodePtr contentNode = GetNode( "content", reqNode );
+//  if ( contentNode == NULL ) {
+    //return;
+  //}
+  NewTextChild( resNode, "good" );
 }
