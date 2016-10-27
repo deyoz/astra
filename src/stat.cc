@@ -6818,7 +6818,8 @@ void RunUnaccBagStat(
                 row.desk = Qry.get().FieldAsString(col_desk);
                 if(not Qry.get().FieldIsNULL(col_time_create))
                     row.time_create = Qry.get().FieldAsDateTime(col_time_create);
-                row.bag_type = Qry.get().FieldAsInteger(col_bag_type);
+                if(not Qry.get().FieldIsNULL(col_bag_type))
+                    row.bag_type = Qry.get().FieldAsInteger(col_bag_type);
                 row.num = Qry.get().FieldAsInteger(col_num);
                 row.amount = Qry.get().FieldAsInteger(col_amount);
                 row.weight = Qry.get().FieldAsInteger(col_weight);
@@ -6994,7 +6995,10 @@ void createXMLUnaccBagStat(
             NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->trfer_airp_arv));
         }
         //Тип багажа
-        NewTextChild(rowNode, "col",  ElemIdToNameLong(etBagType, i->bag_type));
+        if(i->bag_type == NoExists)
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col",  ElemIdToNameLong(etBagType, i->bag_type));
         //№ баг. бирки
         buf.str("");
         buf << fixed << setprecision(0) << setw(10) << setfill('0') << i->no;
