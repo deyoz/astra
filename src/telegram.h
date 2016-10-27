@@ -340,6 +340,10 @@ void get_tlg_info(
         std::string &airp);
 void EMDReport(int point_id, std::map<int, std::vector<std::string> > &tab);
 
+namespace CKIN_REPORT {
+    int run(int argc, char **argv);
+}
+
 
 #endif /*_TELEGRAM_H_*/
 

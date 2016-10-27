@@ -106,6 +106,7 @@ const
     {"-lim_capab_stat",         nosir_lim_capab_stat,   NULL,                       NULL},
 	{"-convert_tz",             tz_conversion,          NULL,                       NULL},
     {"-test_cnv",               test_conversion,        NULL,                       NULL},
+    {"-ckin_report",            CKIN_REPORT::run,       NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
