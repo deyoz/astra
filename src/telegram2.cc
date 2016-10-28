@@ -6428,7 +6428,18 @@ struct TByGender {
     size_t m, f, c, i;
     TByGender(): m(0), f(0), c(0), i(0) {};
     bool empty() const;
+    void append(TGender gender);
 };
+
+void TByGender::append(TGender gender)
+{
+    switch(gender) {
+        case gMale:     m++; break;
+        case gFemale:   f++; break;
+        case gChild:    c++; break;
+        case gInfant:   i++; break;
+    }
+}
 
 bool TByGender::empty() const
 {
@@ -6735,20 +6746,7 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
                     items[idx].rem_category[rem_i->substr(0, 4)]++;
             }
 
-            switch(pax_i->gender) {
-                case gMale:
-                    pax_tot_by_cls[iv->cls].m++;
-                    break;
-                case gFemale:
-                    pax_tot_by_cls[iv->cls].f++;
-                    break;
-                case gChild:
-                    pax_tot_by_cls[iv->cls].c++;
-                    break;
-                case gInfant:
-                    pax_tot_by_cls[iv->cls].i++;
-                    break;
-            }
+            pax_tot_by_cls[iv->cls].append(pax_i->gender);
         }
         items[idx].cls_totals.items[iv->cls].pax_size = iv->PaxList.size();
     }
@@ -8948,6 +8946,62 @@ namespace CKIN_REPORT {
 
     }
 
+    struct TCRSPaxList {
+        typedef map<string, int> TClsMap;
+        typedef map<string, TClsMap> TAirpMap;
+
+        TAirpMap items; // [airp_arv][class] = count
+        void get(int point_id);
+        void dump();
+    };
+
+    void TCRSPaxList::dump()
+    {
+        LogTrace(TRACE5) << "---TCRSPaxList::dump()---";
+        for(TAirpMap::iterator iAirp = items.begin(); iAirp != items.end(); iAirp++) {
+            for(TClsMap::iterator iCls = iAirp->second.begin(); iCls != iAirp->second.end(); iCls++) {
+                LogTrace(TRACE5)
+                    << "TCRSPaxList items[" << iAirp->first << "]"
+                    << "[" << iCls->first << "] = " << iCls->second;
+            }
+        }
+        LogTrace(TRACE5) << "-------------------------";
+    }
+
+    void TCRSPaxList::get(int point_id)
+    {
+        items.clear();
+        TCachedQuery Qry(
+                "select "
+                "   crs_pnr.airp_arv, "
+                "   crs_pnr.class, "
+                "   count(*) amount "
+                "from "
+                "   crs_pnr, "
+                "   tlg_binding, "
+                "   crs_pax "
+                "where "
+                "   crs_pnr.point_id=tlg_binding.point_id_tlg and "
+                "   crs_pnr.system='CRS' and "
+                "   crs_pnr.pnr_id=crs_pax.pnr_id and "
+                "   crs_pax.pr_del=0 and "
+                "   tlg_binding.point_id_spp = :point_id "
+                "group by "
+                "   crs_pnr.airp_arv, "
+                "   crs_pnr.class ",
+                QParams() << QParam("point_id", otInteger, point_id)
+                );
+        Qry.get().Execute();
+        LogTrace(TRACE5) << "point_id: " << point_id;
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            items
+                [Qry.get().FieldAsString("airp_arv")]
+                [Qry.get().FieldAsString("class")]
+                =
+                Qry.get().FieldAsInteger("amount");
+        }
+    }
+
     struct TReportData {
         int point_id;
         string airline;
@@ -8977,6 +9031,56 @@ namespace CKIN_REPORT {
         void get(int point_id);
         void toXML(xmlNodePtr rootNode);
     };
+
+    struct TTranzitPaxList {
+        void get(int point_id);
+    };
+
+    void TTranzitPaxList::get(int point_id)
+    {
+        SALONS2::TSalonList salonList;
+        salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ),
+                SALONS2::isTranzitSalons( point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
+                "", NoExists );
+        TSalonPassengers passengers;
+        SALONS2::TGetPassFlags flags;
+        flags.setFlag( SALONS2::gpWaitList );
+        flags.setFlag( SALONS2::gpTranzits );
+        flags.setFlag( SALONS2::gpInfants );
+        salonList.getPassengers( passengers, flags );
+        for(TSalonPassengers::iterator
+                iDep = passengers.begin();
+                iDep != passengers.end();
+                iDep++) {
+            for(_TSalonPassengers::iterator
+                    iArv = iDep->second.begin();
+                    iArv != iDep->second.end();
+                    iArv++) {
+                for(TIntClassSalonPassengers::iterator
+                        iCls = iArv->second.begin();
+                        iCls != iArv->second.end();
+                        iCls++) {
+                    for(TIntStatusSalonPassengers::iterator
+                            iStatus = iCls->second.begin();
+                            iStatus != iCls->second.end();
+                            iStatus++) {
+                        LogTrace(TRACE5)
+                            << "[" << iDep->first << "]"
+                            << "[" << iArv->first << "]"
+                            << "[" << iCls->first << "]"
+                            << "[" << iStatus->first << "]"
+                            << " = " << iStatus->second.size();
+                        for(set<TSalonPax,ComparePassenger>::iterator
+                                iPax = iStatus->second.begin();
+                                iPax != iStatus->second.end();
+                                iPax++) {
+                            LogTrace(TRACE5) << iPax->surname << " " << iPax->name;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     void TReportData::get(int apoint_id)
     {
@@ -9018,30 +9122,32 @@ namespace CKIN_REPORT {
         // òêå Å
         // òêå ù
 
+        TCRSPaxList crs_pax_list;
+        crs_pax_list.get(point_id);
+        crs_pax_list.dump();
+
+        TTranzitPaxList tranzit_pax_list;
+        tranzit_pax_list.get(point_id);
 
         TTripRoute trip_route;
         trip_route.GetRouteAfter(NoExists, point_id, trtWithCurrent, trtNotCancelled);
         int idx = 1;
         for(TTripRoute::iterator iRoute = trip_route.begin(); iRoute != trip_route.end(); iRoute++, idx++) {
+            // booking info
+            route[idx][iRoute->airp]["è"].booking = crs_pax_list.items[iRoute->airp]["è"];
+            route[idx][iRoute->airp]["Å"].booking = crs_pax_list.items[iRoute->airp]["Å"];
+            route[idx][iRoute->airp]["ù"].booking = crs_pax_list.items[iRoute->airp]["ù"];
+
+            // checkin info
             vector<TPRLDest>::iterator iDest = dests.items.begin();
             for(; iDest != dests.items.end(); iDest++) {
                 if(iRoute->airp == iDest->airp) {
                     TCounters &cnt = route[idx][iRoute->airp][iDest->cls];
-                    cnt.booking += iDest->PaxList.size();
                     for(vector<TPRLPax>::iterator pax_i = iDest->PaxList.begin(); pax_i != iDest->PaxList.end(); pax_i++) {
-                        switch(pax_i->gender) {
-                            case gMale:
-                                cnt.tranzit.m++;
-                                break;
-                            case gFemale:
-                                cnt.tranzit.f++;
-                                break;
-                            case gChild:
-                                cnt.tranzit.c++;
-                                break;
-                            case gInfant:
-                                cnt.tranzit.i++;
-                                break;
+                        switch(pax_i->grp_status) {
+                            case psTransit: cnt.tranzit.append(pax_i->gender); break;
+                            case psGoshow: cnt.goshow.append(pax_i->gender); break;
+                            default: ;
                         }
                     }
                 }
@@ -9093,7 +9199,6 @@ namespace CKIN_REPORT {
                 TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code",iAirp->first));
                 SetProp(airpNode, "code_iata", row.code_lat);
                 if(not iAirp->second.empty()) {
-
                     for(TClsRoute::iterator iCls = iAirp->second.begin(); iCls != iAirp->second.end(); iCls++) {
                         if(iCls->second.booking) {
                             xmlNodePtr bookingNode = getNode(airpNode, "booking");
