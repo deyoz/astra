@@ -144,6 +144,8 @@ astra_SOURCES = \
   astra_date_time.cpp \
   icu_conversion.cpp \ 
   tz_test.cpp \
+  collect.cc \
+  collect_data.cc \
   brands.cpp
 
 
@@ -280,4 +282,6 @@ noinst_HEADERS = \
   img.h \
   astra_date_time.h \
   tz_test.h \
+  collect.h \
+  collect_data.h \
   brands.h
