@@ -6740,7 +6740,7 @@ void RunUnaccBagStat(
             "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and \n"
             "   pax_grp.user_id = users2.user_id(+) and \n"
             "   bag2.grp_id = bag_tags.grp_id and \n"
-            "   bag2.num = bag_tags.num and \n";
+            "   bag2.num = bag_tags.bag_num and \n";
         params.AccessClause(SQLText);
         if(params.flt_no != NoExists) {
             SQLText += " points.flt_no = :flt_no and \n";
