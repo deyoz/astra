@@ -134,17 +134,17 @@ typedef std::vector<TStage_Status> TStage_Statuses;
 typedef std::map<TStage_Type,TStage_Statuses> TMapStatuses;
 
 struct TStage_name {
-	TStage stage;
-	std::string name;
-	std::string name_lat;
-	std::string airp;
+    TStage stage;
+    std::string name;
+    std::string name_lat;
+    std::string airp;
 };
 
 class TStagesRules {
   private:
-  	std::map<int,TCkinClients> ClientStages;
+    std::map<int,TCkinClients> ClientStages;
     std::vector<TStage_name> Graph_Stages;
-    void Update();    
+    void Update();
   public:
     std::map<TStageStep,TMapRules> GrphRls;
     TGraph_Level GrphLvl;
@@ -154,7 +154,7 @@ class TStagesRules {
     std::string status( TStage_Type stage_type, TStage stage, bool is_lat );
     std::string status_view( TStage_Type stage_type, TStage stage );
     std::string stage_name( TStage stage, const std::string &airp, bool is_lat );
-    std::string stage_name_view( TStage stage, const std::string &airp );    
+    std::string stage_name_view( TStage stage, const std::string &airp );
     void Build( xmlNodePtr dataNode );
     void UpdateGraph_Stages( );
     void BuildGraph_Stages( const std::string airp, xmlNodePtr dataNode );
@@ -165,7 +165,7 @@ class TStagesRules {
 
 struct TStageTime {
   std::string airline;
-	std::string airp;
+    std::string airp;
   std::string craft;
   std::string trip_type;
   int time;
@@ -173,15 +173,15 @@ struct TStageTime {
 };
 
 class TStageTimes {
-	 private:
-	 	 TStage stage;
-	 	 std::vector<TStageTime> times;
+     private:
+         TStage stage;
+         std::vector<TStageTime> times;
      void GetStageTimes( );
-	 public:
-	 	 TStageTimes( TStage istage );
+     public:
+         TStageTimes( TStage istage );
      TDateTime GetTime( const std::string &airline, const std::string &airp,
                                const std::string &craft, const std::string &triptype,
-     	                         TDateTime vtime );
+                                 TDateTime vtime );
 };
 
 bool CompatibleStage( TStage stage );
@@ -190,6 +190,7 @@ void astra_timer( TDateTime utcdate );
 void exec_stage( int point_id, int stage_id );
 void PrepCheckIn( int point_id );
 void OpenCheckIn( int point_id );
+void OpenWEBCheckIn( int point_id );
 void CloseCheckIn( int point_id );
 void CloseBoarding( int point_id );
 void Takeoff( int point_id );

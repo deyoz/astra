@@ -245,6 +245,20 @@ void TlgETDisplay(int point_id_tlg, int id, bool is_pax_id)
   TlgETDisplay(point_id_tlg, ids, is_pax_id);
 }
 
+void TlgETDisplay(int point_id_spp)
+{
+  set<int> ids;
+  ids.insert(point_id_spp);
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText = "SELECT point_id_tlg FROM tlg_binding WHERE point_id_spp=:point_id_spp";
+  Qry.CreateVariable( "point_id_spp", otInteger, point_id_spp );
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    TlgETDisplay(Qry.FieldAsInteger("point_id_tlg"), ids, false);
+}
+
 const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
 {
   if (empty())

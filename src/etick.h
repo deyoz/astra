@@ -113,6 +113,7 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
 
 void TlgETDisplay(int point_id_tlg, const std::set<int> &ids, bool is_pax_id);
 void TlgETDisplay(int point_id_tlg, int id, bool is_pax_id);
+void TlgETDisplay(int point_id_spp);
 
 class TETickItem
 {
