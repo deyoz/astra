@@ -33,6 +33,7 @@
 #include "tlg/ssm_parser.h"
 #include "tlg/lci_parser.h"
 #include "img.h"
+#include "collect.h"
 
 /*
 int LocalIsNosir=0;
@@ -102,6 +103,7 @@ const
     {"-seDCSAddReport",         nosir_seDCSAddReport,   NULL,                       NULL},
 	{"-convert_tz",             tz_conversion,          NULL,                       NULL},
     {"-test_cnv",               test_conversion,        NULL,                       NULL},
+    {"-bp",                     bp_tst,                 NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
