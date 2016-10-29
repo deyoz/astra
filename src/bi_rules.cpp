@@ -141,21 +141,7 @@ namespace BIPrintRules {
                 } else
                     rule.halls[hall] = terminal;
             }
-
-
-
-            /*
-            if(Qry.get().FieldIsNULL("hall")) {
-                // Если бизнес зал не задан, достаем все залы данного терминала.
-                TCachedQuery hallsQry("select id from bi_halls where terminal = :terminal",
-                        QParams() << QParam("terminal", otInteger, Qry.get().FieldAsInteger("terminal")));
-                hallsQry.get().Execute();
-                for(; not hallsQry.get().Eof; hallsQry.get().Next())
-                    rule.halls.push_back(hallsQry.get().FieldAsInteger("id"));
-            } else
-                rule.halls.push_back(Qry.get().FieldAsInteger("hall"));
-            rule.pr_print_bi = Qry.get().FieldAsInteger("pr_print_bi") != 0;
-            */
+            result = not rule.halls.empty();
         }
         return result;
     }
