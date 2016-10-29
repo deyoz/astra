@@ -171,13 +171,6 @@ struct TAfterSavePax:public TAfter {
     }
 };
 
-struct TAfterBP:public TAfter {
-    virtual void  Event(const XMLRequestCtxt *ctxt)
-    {
-        LogTrace(TRACE5) << GetXMLDocText(ctxt->resDoc);
-    }
-};
-
 struct TAfterCreateFlt:public TAfter {
     int point_id;
     virtual void  Event(const XMLRequestCtxt *ctxt)
@@ -646,18 +639,20 @@ int bp_tst(int argc,char **argv)
 {
     string pult = "MOVDEN";
     string opr = "DEN";
-    string passwd = "DbCeN5AS";
+    string passwd = "DEN";
+    string term_version = "201609-0184743";
     TExec clnt(pult, opr);
 
     string buf = req_logon;
     replace(buf, "userr", opr);
     replace(buf, "passwd", passwd);
+    replace(buf, "term_version", term_version);
 
     clnt.exec(buf, false);
 
     buf = req_print_bp;
-    TAfterBP after_bp;
-    clnt.exec(buf, true, &after_bp);
+    replace(buf, "grp_id", 2591139);
+    clnt.exec(buf, true);
 
     return 0;
 }
