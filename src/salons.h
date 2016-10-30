@@ -1271,6 +1271,9 @@ class _TSalonPassengers: public TIntArvSalonPassengers {
       status_wait_list = status;
     }
     bool isWaitList( );
+
+    void dump_pax_map(const TIntArvSalonPassengers &pax_map);
+    void dump();
 };
                                         //point_dep
 class TSalonPassengers: public std::map<int, _TSalonPassengers> {
@@ -1289,6 +1292,7 @@ class TSalonPassengers: public std::map<int, _TSalonPassengers> {
       }
       return false;
     }
+    void dump();
 };
                                                //point_dep
 struct TAutoSeat {

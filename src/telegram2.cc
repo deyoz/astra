@@ -9036,6 +9036,18 @@ namespace CKIN_REPORT {
         void get(int point_id);
     };
 
+    string getPointAirp(int point_id)
+    {
+        TCachedQuery Qry(
+                "select airp from points where point_id = :point_id",
+                QParams() << QParam("point_id", otInteger, point_id));
+        Qry.get().Execute();
+        string result;
+        if(not Qry.get().Eof)
+            result = Qry.get().FieldAsString(0);
+        return result;
+    }
+
     void TTranzitPaxList::get(int point_id)
     {
         SALONS2::TSalonList salonList;
@@ -9044,42 +9056,12 @@ namespace CKIN_REPORT {
                 "", NoExists );
         TSalonPassengers passengers;
         SALONS2::TGetPassFlags flags;
+//        flags.setFlag( SALONS2::gpPassenger );
         flags.setFlag( SALONS2::gpWaitList );
         flags.setFlag( SALONS2::gpTranzits );
         flags.setFlag( SALONS2::gpInfants );
         salonList.getPassengers( passengers, flags );
-        for(TSalonPassengers::iterator
-                iDep = passengers.begin();
-                iDep != passengers.end();
-                iDep++) {
-            for(_TSalonPassengers::iterator
-                    iArv = iDep->second.begin();
-                    iArv != iDep->second.end();
-                    iArv++) {
-                for(TIntClassSalonPassengers::iterator
-                        iCls = iArv->second.begin();
-                        iCls != iArv->second.end();
-                        iCls++) {
-                    for(TIntStatusSalonPassengers::iterator
-                            iStatus = iCls->second.begin();
-                            iStatus != iCls->second.end();
-                            iStatus++) {
-                        LogTrace(TRACE5)
-                            << "[" << iDep->first << "]"
-                            << "[" << iArv->first << "]"
-                            << "[" << iCls->first << "]"
-                            << "[" << iStatus->first << "]"
-                            << " = " << iStatus->second.size();
-                        for(set<TSalonPax,ComparePassenger>::iterator
-                                iPax = iStatus->second.begin();
-                                iPax != iStatus->second.end();
-                                iPax++) {
-                            LogTrace(TRACE5) << iPax->surname << " " << iPax->name;
-                        }
-                    }
-                }
-            }
-        }
+        passengers.dump();
     }
 
     void TReportData::get(int apoint_id)
@@ -9147,7 +9129,7 @@ namespace CKIN_REPORT {
                         switch(pax_i->grp_status) {
                             case psTransit: cnt.tranzit.append(pax_i->gender); break;
                             case psGoshow: cnt.goshow.append(pax_i->gender); break;
-                            default: ;
+                            default: cnt.self_checkin.append(pax_i->gender); break; // !!! all other statuses. testing !!!
                         }
                     }
                 }
@@ -9159,8 +9141,20 @@ namespace CKIN_REPORT {
     void genderToXML(xmlNodePtr parentNode, const string &path, const TByGender &gender, const string &cls)
     {
         if(gender.empty()) return;
-        xmlNodePtr genderNode = getNode(parentNode, path.c_str());
-        xmlNodePtr classNode = NewTextChild(genderNode, "class");
+
+        vector<string> tokens;
+        boost::split(tokens, path, boost::is_any_of("/"));
+
+        xmlNodePtr lvl1Node = NULL;
+        xmlNodePtr lvl2Node = NULL;
+
+        if(not (lvl1Node = GetNode(tokens[0].c_str(), parentNode)))
+            lvl1Node = NewTextChild(parentNode, tokens[0].c_str());
+
+        if(not (lvl2Node = GetNode(tokens[1].c_str(), lvl1Node)))
+            lvl2Node = NewTextChild(lvl1Node, tokens[1].c_str());
+
+        xmlNodePtr classNode = NewTextChild(lvl2Node, "class");
         SetProp(classNode, "code", cls);
         if(gender.m) SetProp(NewTextChild(classNode, "male", (int)gender.m), "seats", gender.m);
         if(gender.f)SetProp(NewTextChild(classNode, "female", (int)gender.f), "seats", gender.f);

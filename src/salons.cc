@@ -26,7 +26,7 @@
 #include "etick.h"
 
 #define NICKNAME "DJEK"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace AstraLocale;
@@ -3959,37 +3959,104 @@ inline void __getpass( int point_dep,
                        bool pr_waitlist,
                        bool pr_infants )
 {
-  TPassSeats seats;
-  TWaitListReason waitListReason;
-  for ( std::map<int,TSalonPax>::const_iterator ipax=pax_list.begin();
-        ipax!=pax_list.end(); ipax++ ) {
-    if ( ipax->second.point_arv == ASTRA::NoExists ||
-         ipax->second.grp_status.empty() ||
-         ipax->second.reg_no == ASTRA::NoExists ) {
-      //!logProgTrace( TRACE5, "__getpass: pnl pass - ipax->second.layers.empty() pax_id=%d", ipax->first );
-      continue;
+    TPassSeats seats;
+    TWaitListReason waitListReason;
+    for ( std::map<int,TSalonPax>::const_iterator ipax=pax_list.begin();
+            ipax!=pax_list.end(); ipax++ ) {
+        if ( ipax->second.point_arv == ASTRA::NoExists ||
+                ipax->second.grp_status.empty() ||
+                ipax->second.reg_no == ASTRA::NoExists ) {
+            //!logProgTrace( TRACE5, "__getpass: pnl pass - ipax->second.layers.empty() pax_id=%d", ipax->first );
+            continue;
+        }
+        if ( filterRoutes.useRouteProperty( ipax->second.point_dep, ipax->second.point_arv ) ) { //пассажир в нашем маршруте
+            if ( !pr_infants ) {
+                ipax->second.get_seats( waitListReason, seats );
+            }
+            if ( pr_infants ||
+                    waitListReason.layerStatus == layerValid ||
+                    pr_waitlist ) {
+                TSalonPax salonPax = ipax->second;
+                salonPax.pax_id = ipax->first;
+                //!logProgTrace( TRACE5,
+                //!log           "__getpass: add point_dep=%d, point_arv=%d,"
+                //!log           " filterRoutes.getDepartureId=%d, filterRoutes.getArrivalId=%d,"
+                //!log           "ipax->second.cl=%s, salonPax.grp_status=%s, pax_id=%d, salonPax.layers.size()=%zu, ipax->second.layers.size()=%zu",
+                //!log           salonPax.point_dep, salonPax.point_arv,
+                //!log           filterRoutes.getDepartureId(), filterRoutes.getArrivalId(),
+                //!log           salonPax.cl.c_str(), salonPax.grp_status.c_str(),
+                //!log           salonPax.pax_id, salonPax.layers.size(), ipax->second.layers.size() );
+                passes[ salonPax.point_arv ][ salonPax.cl ][ salonPax.grp_status ].insert( salonPax );
+            }
+        }
     }
-    if ( filterRoutes.useRouteProperty( ipax->second.point_dep, ipax->second.point_arv ) ) { //пассажир в нашем маршруте
-      if ( !pr_infants ) {
-        ipax->second.get_seats( waitListReason, seats );
-      }
-      if ( pr_infants ||
-           waitListReason.layerStatus == layerValid ||
-           pr_waitlist ) {
-        TSalonPax salonPax = ipax->second;
-        salonPax.pax_id = ipax->first;
-        //!logProgTrace( TRACE5,
-        //!log           "__getpass: add point_dep=%d, point_arv=%d,"
-        //!log           " filterRoutes.getDepartureId=%d, filterRoutes.getArrivalId=%d,"
-        //!log           "ipax->second.cl=%s, salonPax.grp_status=%s, pax_id=%d, salonPax.layers.size()=%zu, ipax->second.layers.size()=%zu",
-        //!log           salonPax.point_dep, salonPax.point_arv,
-        //!log           filterRoutes.getDepartureId(), filterRoutes.getArrivalId(),
-        //!log           salonPax.cl.c_str(), salonPax.grp_status.c_str(),
-        //!log           salonPax.pax_id, salonPax.layers.size(), ipax->second.layers.size() );
-        passes[ salonPax.point_arv ][ salonPax.cl ][ salonPax.grp_status ].insert( salonPax );
-      }
+}
+
+string getPointAirp(int point_id)
+{
+    TCachedQuery Qry(
+            "select airp from points where point_id = :point_id",
+            QParams() << QParam("point_id", otInteger, point_id));
+    Qry.get().Execute();
+    string result;
+    if(not Qry.get().Eof)
+        result = Qry.get().FieldAsString(0);
+    return result;
+}
+
+void _TSalonPassengers::dump_pax_map(const TIntArvSalonPassengers &pax_map)
+{
+    for(TIntArvSalonPassengers::const_iterator
+            iArv = pax_map.begin();
+            iArv != pax_map.end();
+            iArv++) {
+        for(TIntClassSalonPassengers::const_iterator
+                iCls = iArv->second.begin();
+                iCls != iArv->second.end();
+                iCls++) {
+            for(TIntStatusSalonPassengers::const_iterator
+                    iStatus = iCls->second.begin();
+                    iStatus != iCls->second.end();
+                    iStatus++) {
+                LogTrace(TRACE5)
+                    << "[" << getPointAirp(iArv->first) << "]"
+                    << "[" << iCls->first << "]"
+                    << "[" << iStatus->first << "]"
+                    << " = " << iStatus->second.size();
+                for(set<TSalonPax,ComparePassenger>::const_iterator
+                        iPax = iStatus->second.begin();
+                        iPax != iStatus->second.end();
+                        iPax++) {
+                    LogTrace(TRACE5)
+                        << iPax->pax_id << ": "
+                        << iPax->surname << " " << iPax->name
+                        << " seats: " << iPax->seats;
+                }
+            }
+        }
     }
-  }
+}
+
+void _TSalonPassengers::dump()
+{
+    LogTrace(TRACE5) << "---_TSalonPassengers::dump---";
+    LogTrace(TRACE5) << "infants.size(): " << infants.size();
+    if(not infants.empty()) {
+        LogTrace(TRACE5) << "---Infants map---";
+        dump_pax_map(infants);
+        LogTrace(TRACE5) << "-----------------";
+    }
+    dump_pax_map(*this);
+    LogTrace(TRACE5) << "-----------------------------";
+}
+void TSalonPassengers::dump()
+{
+    LogTrace(TRACE5) << "---TSalonPassengers::dump---";
+    for(TSalonPassengers::iterator iDep = begin(); iDep != end(); iDep++) {
+        LogTrace(TRACE5) << "airp_dep: " << getPointAirp(iDep->first);
+        iDep->second.dump();
+    }
+    LogTrace(TRACE5) << "----------------------------";
 }
 
 // point_dep, pont_arv, class, grp_status, pax_id
