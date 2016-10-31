@@ -183,6 +183,17 @@ void EmdXmlView::viewEmdTicketCoupons(const std::list<EmdCoupon>& lCpn) const
         xmlSetProp(xmlNewTextChild(rowNode, NULL, "rfisc_code", rfisc),
                    "index", colNum++);
 
+        std::ostringstream ossLuggage;
+        if(cpn.haveItin() && cpn.itin().luggage().haveLuggage()) {
+            ossLuggage << cpn.itin().luggage()->quantity() << " " << cpn.itin().luggage()->code();
+        } else {
+            ossLuggage << "-";
+        }
+        xmlSetProp(xmlNewTextChild(rowNode, NULL, "luggage", ossLuggage.str()),
+                   "index", colNum++);
+
+        //ProgTrace(TRACE5, "%s: luggage = %s", __FUNCTION__, ossLuggage.str().c_str());
+
         std::string rfiscDesc = cpn.rfisc() ? cpn.rfisc()->description() : " ";
         xmlSetProp(xmlNewTextChild(rowNode, NULL, "rfisc_desc", rfiscDesc),
                    "index", colNum++);
@@ -248,6 +259,7 @@ string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists, string &base_emd
     "Рейс",
     "Сумма",
     "RFISC",
+    "Опл.",
     "Название услуги",
     "СтКуп.",
     "Ассоц.",
@@ -289,6 +301,7 @@ string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists, string &base_emd
       i->second.push_back(NodeAsStringFast("flight", node2));
       i->second.push_back(NodeAsStringFast("amount", node2));
       i->second.push_back(NodeAsStringFast("rfisc_code", node2));
+      i->second.push_back(NodeAsStringFast("luggage", node2));
       i->second.push_back(NodeAsStringFast("rfisc_desc", node2));
       i->second.push_back(NodeAsStringFast("coup_status", node2));
       string assoc=NodeAsStringFast("associated_doc_num", node2, "");
