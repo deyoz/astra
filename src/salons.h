@@ -1518,6 +1518,7 @@ class TSalonList: public std::vector<TPlaceList*> {
 
   bool selfckin_client();
   void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tariffMap );
+  std::string getPointAirp(int point_id);
 } // END namespace SALONS2
 int testsalons(int argc,char **argv);
 #endif /*_SALONS2_H_*/
