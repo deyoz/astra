@@ -572,6 +572,14 @@ bool is_valid_tkn_info(const TCompleteAPICheckInfo &checkInfo,
   return true;
 };
 
+bool is_et_not_displayed(const CheckIn::TPaxTknItem &tkn,
+                         const TETickItem &etick)
+{
+  if (tkn.validET() && etick.empty()) return true;
+  return false;
+}
+
+
 bool is_valid_rem_codes(const TTripInfo &flt,
                         const std::multiset<CheckIn::TPaxRemItem> &rems)
 {
@@ -753,17 +761,6 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
 
     if (!isTestPaxId(pnr_id))
     {
-      TQuery CrsTKNQry(&OraSession);
-      CrsTKNQry.SQLText =
-          "SELECT rem_code AS ticket_rem, "
-          "       ticket_no, "
-          "       DECODE(rem_code,'TKNE',coupon_no,NULL) AS coupon_no, "
-          "       0 AS ticket_confirm "
-          "FROM crs_pax_tkn "
-          "WHERE pax_id=:pax_id "
-          "ORDER BY DECODE(rem_code,'TKNE',0,'TKNA',1,'TKNO',2,3),ticket_no,coupon_no";
-      CrsTKNQry.DeclareVariable( "pax_id", otInteger );
-
       TQuery SeatQry(&OraSession);
       SeatQry.SQLText=
           "BEGIN "
@@ -879,14 +876,9 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
             if (pax.name=="CBBG")
               pax.pers_type_extended = "ÅÉ"; //CBBG
 
-            CrsTKNQry.SetVariable( "pax_id", pax.crs_pax_id );
-            CrsTKNQry.Execute();
-            if (!CrsTKNQry.Eof)
-            {
-              pax.tkn.fromDB(CrsTKNQry);
-              if (pax.tkn.validET())
-                pax.etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
-            };
+            CheckIn::LoadCrsPaxTkn(pax.crs_pax_id, pax.tkn);
+            if (pax.tkn.validET())
+              pax.etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.tkn.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.tkn.getNotEmptyFieldsMask());
             LoadCrsPaxDoc(pax.crs_pax_id, pax.doc, true);
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.doc.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.doc.getNotEmptyFieldsMask());
@@ -914,6 +906,8 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
               pax.agent_checkin_reasons.insert("incomplete_doca");
             if (!is_valid_tkn_info(pnr.checkInfo, pax.tkn))
               pax.agent_checkin_reasons.insert("incomplete_tkn");
+            if (is_et_not_displayed(pax.tkn, pax.etick))
+              pax.agent_checkin_reasons.insert("et_not_displayed");
             if (!is_valid_rem_codes(flt, pax.rems))
               pax.agent_checkin_reasons.insert("forbidden_rem_code");
 

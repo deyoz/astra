@@ -20,6 +20,7 @@
 #include "qrys.h"
 #include "stat.h"
 #include "apps_interaction.h"
+#include "etick.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -76,30 +77,30 @@ bool CompatibleStage( TStage stage )
 {
   if ( !TStagesRules::Instance()->isClientStage( stage ) )
     return true;
-    
+
   if ( stage == sOpenWEBCheckIn ||
        stage == sOpenKIOSKCheckIn ||
        stage == sCloseWEBCheckIn ||
        stage == sCloseKIOSKCheckIn )
     return true;
-    
+
   if ( stage == sCloseWEBCancel )
     return TReqInfo::Instance()->desk.compatible( WEB_CANCEL_VERSION );
-    
+
   return false;
 }
 
 bool CompatibleStageType( TStage_Type stage_type )
 {
   if ( stage_type == stCheckIn ||
-  		 stage_type == stBoarding ||
-  		 stage_type == stCraft )
-  	return true;
-  	
-  if ( stage_type == stWEBCheckIn ||
-  		 stage_type == stKIOSKCheckIn )
+         stage_type == stBoarding ||
+         stage_type == stCraft )
     return true;
-    
+
+  if ( stage_type == stWEBCheckIn ||
+         stage_type == stKIOSKCheckIn )
+    return true;
+
   if ( stage_type == stWEBCancel )
     return TReqInfo::Instance()->desk.compatible( WEB_CANCEL_VERSION );
 
@@ -172,40 +173,40 @@ void TTripStages::LoadStages( int vpoint_id, TMapTripStages &ts )
 
 void TTripStages::ParseStages( xmlNodePtr node, TMapTripStages &ts )
 {
-	ts.clear();
-	node = node->children;
-	xmlNodePtr n,x;
-	while ( node ) {
-		TTripStage  tripStage;
-		n = node->children;
-		x = GetNodeFast( "scd", n );
-		if ( x )
-		  tripStage.scd = NodeAsDateTime( x );
-		else
-		  tripStage.scd = NoExists;
-		x = GetNodeFast( "est", n );
-		if ( x )
-		  tripStage.est = NodeAsDateTime( x );
-		else
-		  tripStage.est = NoExists;
-		x = GetNodeFast( "act", n );
-		if ( x )
-		  tripStage.act = NodeAsDateTime( x );
-		else
-		  tripStage.act = NoExists;
-		x = GetNodeFast( "old_est", n );
-		if ( x )
-		  tripStage.old_est = NodeAsDateTime( x );
-		else
-		  tripStage.old_est = NoExists;
-		x = GetNodeFast( "old_act", n );
-		if ( x )
-		  tripStage.old_act = NodeAsDateTime( x );
-		else
-		  tripStage.old_act = NoExists;
-		ts.insert( make_pair( (TStage)NodeAsIntegerFast( "stage_id", n ), tripStage ) );
-		node = node->next;
-	}
+    ts.clear();
+    node = node->children;
+    xmlNodePtr n,x;
+    while ( node ) {
+        TTripStage  tripStage;
+        n = node->children;
+        x = GetNodeFast( "scd", n );
+        if ( x )
+          tripStage.scd = NodeAsDateTime( x );
+        else
+          tripStage.scd = NoExists;
+        x = GetNodeFast( "est", n );
+        if ( x )
+          tripStage.est = NodeAsDateTime( x );
+        else
+          tripStage.est = NoExists;
+        x = GetNodeFast( "act", n );
+        if ( x )
+          tripStage.act = NodeAsDateTime( x );
+        else
+          tripStage.act = NoExists;
+        x = GetNodeFast( "old_est", n );
+        if ( x )
+          tripStage.old_est = NodeAsDateTime( x );
+        else
+          tripStage.old_est = NoExists;
+        x = GetNodeFast( "old_act", n );
+        if ( x )
+          tripStage.old_act = NodeAsDateTime( x );
+        else
+          tripStage.old_act = NoExists;
+        ts.insert( make_pair( (TStage)NodeAsIntegerFast( "stage_id", n ), tripStage ) );
+        node = node->next;
+    }
 }
 
 void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
@@ -214,8 +215,8 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
   flights.Get( point_id, ftTranzit );
   flights.Lock();
 
-	TReqInfo *reqInfo = TReqInfo::Instance();
-	std::string airp;
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    std::string airp;
   TQuery Qry( &OraSession );
   Qry.SQLText =
    "SELECT act_out,airp,pr_del FROM points WHERE points.point_id=:point_id";// FOR UPDATE";
@@ -252,11 +253,11 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
     if ( sr->isClientStage( (int)i->first ) && !sr->canClientStage( CkinClients, (int)i->first ) )
       continue;
 
-   	Qry.SetVariable( "stage_id", (int)i->first );
+    Qry.SetVariable( "stage_id", (int)i->first );
     if ( i->second.est == NoExists )
        Qry.SetVariable( "est", FNull );
     else
-    	 Qry.SetVariable( "est", i->second.est );
+         Qry.SetVariable( "est", i->second.est );
     if ( i->second.act == NoExists )
       Qry.SetVariable( "act", FNull );
     else
@@ -272,7 +273,7 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
       if ( i->second.est == NoExists )
         pr_manual = 0;
       else
-     	  pr_manual = 1;
+          pr_manual = 1;
     Qry.SetVariable( "pr_manual", pr_manual );
     Qry.Execute( );
 
@@ -288,7 +289,7 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
       };
     }
 
- 	  check_brd_alarm( point_id );
+      check_brd_alarm( point_id );
     check_unattached_trfer_alarm( point_id );
     check_crew_alarms( point_id );
     check_unbound_emd_alarm( point_id );
@@ -324,7 +325,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
   flights.Get( point_id, ftTranzit );
   flights.Lock();
 
-	TReqInfo *reqInfo = TReqInfo::Instance();
+    TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery Qry( &OraSession );
   Qry.SQLText =
    "SELECT airp FROM points WHERE points.point_id=:point_id";// FOR UPDATE";
@@ -333,12 +334,12 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
   string region, airp;
   airp = Qry.FieldAsString( "airp" );
   tst();
-	if ( reqInfo->user.sets.time == ustTimeLocalAirp )
- 	  region = AirpTZRegion( airp );
+    if ( reqInfo->user.sets.time == ustTimeLocalAirp )
+      region = AirpTZRegion( airp );
   for ( TMapTripStages::iterator i=ts.begin(); i!=ts.end(); i++ ) {
     if ( i->second.est != NoExists ) {
       try {
-   	    i->second.est = ClientToUTC( i->second.est, region );
+        i->second.est = ClientToUTC( i->second.est, region );
       }
       catch( boost::local_time::ambiguous_result ) {
          throw AstraLocale::UserException( "MSG.STAGE.EST_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
@@ -347,7 +348,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
       }
     }
     if ( i->second.act != NoExists ) {
-   	  try {
+      try {
         i->second.act = ClientToUTC( i->second.act, region );
       }
       catch( boost::local_time::ambiguous_result ) {
@@ -390,23 +391,23 @@ TTripStageTimes TTripStages::getStageTimes( TStage stage ) const
 
 void TTripStages::ReadCkinClients( int point_id, TCkinClients &ckin_clients )
 {
-	ckin_clients.clear();
-	TQuery Qry(&OraSession);
+    ckin_clients.clear();
+    TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT client_type FROM trip_ckin_client "
-  	" WHERE point_id=:point_id AND pr_permit!=0";
+    " WHERE point_id=:point_id AND pr_permit!=0";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   while ( !Qry.Eof ) {
-  	ckin_clients.push_back( Qry.FieldAsString( "client_type" ) );
-  	Qry.Next();
+    ckin_clients.push_back( Qry.FieldAsString( "client_type" ) );
+    Qry.Next();
   }
 }
 
 TStage TTripStages::getStage( TStage_Type stage_type )
 {
-	if ( CkinClients.empty() )
-		TTripStages::ReadCkinClients( point_id, CkinClients );
+    if ( CkinClients.empty() )
+        TTripStages::ReadCkinClients( point_id, CkinClients );
   TStagesRules *sr = TStagesRules::Instance();
   int level = 0;
   int p_level = 0;
@@ -416,7 +417,7 @@ TStage TTripStages::getStage( TStage_Type stage_type )
       continue;
 
     if ( sr->isClientStage( l->stage ) && !sr->canClientStage( CkinClients, l->stage ) )
-    	continue;
+        continue;
 
     if ( tripstages[ l->stage ].act == NoExists ) { /* надо отсечь все низшие вершины */
       p_level = l->level;
@@ -444,16 +445,16 @@ TStagesRules *TStagesRules::Instance()
 
 TStagesRules::TStagesRules()
 {
-	UpdateGraph_Stages( );
+    UpdateGraph_Stages( );
 
   Update();
 }
 
 void TStagesRules::UpdateGraph_Stages( )
 {
-	Graph_Stages.clear();
-	ClientStages.clear();
-	TQuery Qry( &OraSession );
+    Graph_Stages.clear();
+    ClientStages.clear();
+    TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT stage_id, name, name_lat, NULL airp FROM graph_stages "
     "UNION "
@@ -462,12 +463,12 @@ void TStagesRules::UpdateGraph_Stages( )
   Qry.Execute();
 
   while ( !Qry.Eof ) {
-  	TStage_name n;
-  	n.stage = (TStage)Qry.FieldAsInteger( "stage_id" );
-  	n.airp = Qry.FieldAsString( "airp" );
-  	n.name = Qry.FieldAsString( "name" );
-  	n.name_lat = Qry.FieldAsString( "name_lat" );
-  	Graph_Stages.push_back( n );
+    TStage_name n;
+    n.stage = (TStage)Qry.FieldAsInteger( "stage_id" );
+    n.airp = Qry.FieldAsString( "airp" );
+    n.name = Qry.FieldAsString( "name" );
+    n.name_lat = Qry.FieldAsString( "name_lat" );
+    Graph_Stages.push_back( n );
     Qry.Next();
   }
   Qry.Clear();
@@ -475,8 +476,8 @@ void TStagesRules::UpdateGraph_Stages( )
     "SELECT client_type, stage_id FROM ckin_client_stages ORDER BY stage_id, client_type";
   Qry.Execute();
   while ( !Qry.Eof ) {
-  	ClientStages[ Qry.FieldAsInteger( "stage_id" ) ].push_back( Qry.FieldAsString( "client_type" ) );
-  	Qry.Next();
+    ClientStages[ Qry.FieldAsInteger( "stage_id" ) ].push_back( Qry.FieldAsString( "client_type" ) );
+    Qry.Next();
   }
 
 }
@@ -538,10 +539,10 @@ void TStagesRules::Update()
 }
 
 string getLocaleName( const string &name, const string &name_lat, bool is_lat )
-{	
+{
     if ( !is_lat || name_lat.empty() )
         return name;
-	else
+    else
         return name_lat;
 }
 
@@ -549,9 +550,9 @@ void TStagesRules::BuildGraph_Stages( const string airp, xmlNodePtr dataNode )
 {
   xmlNodePtr snode, node = NewTextChild( dataNode, "Graph_Stages" );
   if ( !airp.empty() )
-  	SetProp( node, "airp", airp );
+    SetProp( node, "airp", airp );
   for ( vector<TStage_name>::iterator i=Graph_Stages.begin(); i!=Graph_Stages.end(); i++ ) {
-  	if ( airp.empty() || airp == i->airp ) {
+    if ( airp.empty() || airp == i->airp ) {
       if ( CompatibleStage( i->stage ) )	{
         snode = NewTextChild( node, "stage" );
         NewTextChild( snode, "stage_id", (int)i->stage );
@@ -567,17 +568,17 @@ void TStagesRules::Build( xmlNodePtr dataNode )
   xmlNodePtr node = NewTextChild( dataNode, "GrphRls" );
   xmlNodePtr snode;
   for ( map<TStageStep,TMapRules>::iterator st=GrphRls.begin(); st!=GrphRls.end(); st++ ) {
-  	snode = NewTextChild( node, "stagestep" );
+    snode = NewTextChild( node, "stagestep" );
     if ( st->first == stPrior )
       SetProp( snode, "step", "stPrior" );
     else
       SetProp( snode, "step", "stNext" );
     for ( map<TStage,vecRules>::iterator r=st->second.begin(); r!=st->second.end(); r++ ) {
-    	if ( CompatibleStage( r->first ) )	{
+        if ( CompatibleStage( r->first ) )	{
         xmlNodePtr stagerulesNode = NewTextChild( snode, "stagerules" );
         SetProp( stagerulesNode, "stage", r->first );
         for ( vecRules::iterator v=r->second.begin(); v!=r->second.end(); v++ ) {
-        	if ( CompatibleStage( v->cond_stage ) )	{
+            if ( CompatibleStage( v->cond_stage ) )	{
             xmlNodePtr ruleNode = NewTextChild( stagerulesNode, "rule" );
             NewTextChild( ruleNode, "num", v->num );
             NewTextChild( ruleNode, "cond_stage", v->cond_stage );
@@ -588,8 +589,8 @@ void TStagesRules::Build( xmlNodePtr dataNode )
   }
   node = NewTextChild( dataNode, "StageStatuses" );
   for ( TMapStatuses::iterator m=StageStatuses.begin(); m!=StageStatuses.end(); m++ ) {
-  	if ( !CompatibleStageType( m->first ) )
-  		continue;
+    if ( !CompatibleStageType( m->first ) )
+        continue;
     snode = NewTextChild( node, "stage_type" );
     SetProp( snode, "type", m->first );
     for ( TStage_Statuses::iterator s=m->second.begin(); s!=m->second.end(); s++ ) {
@@ -606,7 +607,7 @@ void TStagesRules::Build( xmlNodePtr dataNode )
   node = NewTextChild( dataNode, "GrphLvl" );
   for ( TGraph_Level::iterator l=GrphLvl.begin(); l!=GrphLvl.end(); l++ ) {
     if ( CompatibleStage( l->stage ) )	{
- 	    snode = NewTextChild( node, "stage_level" );
+        snode = NewTextChild( node, "stage_level" );
       NewTextChild( snode, "stage", (int)l->stage );
       NewTextChild( snode, "level", (int)l->level );
     }
@@ -645,46 +646,46 @@ string TStagesRules::stage_name_view( TStage stage, const std::string &airp )
 
 string TStagesRules::stage_name( TStage stage, const std::string &airp, bool is_lat )
 {
-	string res, res1;
-	for ( vector<TStage_name>::iterator n=Graph_Stages.begin(); n!=Graph_Stages.end(); n++ ) {
-		if ( n->stage == stage ) {
-  		if ( n->airp.empty() ) {
+    string res, res1;
+    for ( vector<TStage_name>::iterator n=Graph_Stages.begin(); n!=Graph_Stages.end(); n++ ) {
+        if ( n->stage == stage ) {
+        if ( n->airp.empty() ) {
             res1 = getLocaleName( n->name, n->name_lat, is_lat );
       }
-			else {
-			  if ( n->airp == airp ) {
+            else {
+              if ( n->airp == airp ) {
                 res = getLocaleName( n->name, n->name_lat, is_lat );
         }
       }
     }
-	}
-	if ( res.empty() )
-		return res1;
-	else
-		return res;
+    }
+    if ( res.empty() )
+        return res1;
+    else
+        return res;
 }
 
 bool TStagesRules::canClientStage( const TCkinClients &ckin_clients, int stage_id )
 {
-	for ( TCkinClients::const_iterator i=ckin_clients.begin(); i!=ckin_clients.end(); i++ ) {
-	 if ( find( ClientStages[ stage_id ].begin(), ClientStages[ stage_id ].end(), *i ) != ClientStages[ stage_id ].end() ) {
-	 	 return true;
-	 }
-	}
-	return false;
+    for ( TCkinClients::const_iterator i=ckin_clients.begin(); i!=ckin_clients.end(); i++ ) {
+     if ( find( ClientStages[ stage_id ].begin(), ClientStages[ stage_id ].end(), *i ) != ClientStages[ stage_id ].end() ) {
+         return true;
+     }
+    }
+    return false;
 }
 
 bool TStagesRules::isClientStage( int stage_id )
 {
-	return !ClientStages[ stage_id ].empty();
+    return !ClientStages[ stage_id ].empty();
 }
 
 
 
 TStageTimes::TStageTimes( TStage istage )
 {
-	stage = istage;
-	GetStageTimes( );
+    stage = istage;
+    GetStageTimes( );
 }
 
 void TStageTimes::GetStageTimes( )
@@ -721,30 +722,30 @@ TDateTime TStageTimes::GetTime( const string &airline, const string &airp,
                                 const string &craft, const string &triptype,
                                 TDateTime vtime )
 {
-	TDateTime res = NoExists;
-	if ( vtime == NoExists )
-		return res;
-	if ( times.empty() )
-	  GetStageTimes( );
-	for ( vector<TStageTime>::iterator st=times.begin(); st!=times.end(); st++ ) {
-   	if ( ( st->airline == airline || st->airline.empty() ) &&
+    TDateTime res = NoExists;
+    if ( vtime == NoExists )
+        return res;
+    if ( times.empty() )
+      GetStageTimes( );
+    for ( vector<TStageTime>::iterator st=times.begin(); st!=times.end(); st++ ) {
+    if ( ( st->airline == airline || st->airline.empty() ) &&
          ( st->airp == airp || st->airp.empty() ) &&
-   		   ( st->craft == craft || st->craft.empty() ) &&
+           ( st->craft == craft || st->craft.empty() ) &&
          ( st->trip_type == triptype || st->trip_type.empty() ) ) {
        res = vtime - (double)st->time/1440.0;
        break;
     }
-	}
-	return res;
+    }
+    return res;
 }
 
 void exec_stage( int point_id, int stage_id )
 {
 //	ProgTrace( TRACE5, "exec_stage: point_id=%d, stage_id=%d", point_id, stage_id );
   switch( (TStage)stage_id ) {
-  	case sNoActive:
+    case sNoActive:
            /*не активен*/
-  	   break;
+           break;
     case sPrepCheckIn:
            /*Подготовка к регистрации*/
            PrepCheckIn( point_id );
@@ -753,25 +754,26 @@ void exec_stage( int point_id, int stage_id )
            /*Открытие регистрации*/
            OpenCheckIn( point_id );
            break;
-  	case sOpenWEBCheckIn:
+    case sOpenWEBCheckIn:
            /*открытие WEB-регистрации*/
-  	     break;
-  	case sOpenKIOSKCheckIn:
+           OpenWEBCheckIn( point_id );
+           break;
+    case sOpenKIOSKCheckIn:
            /*открытие KIOSK-регистрации*/
-  	     break;
+           break;
     case sCloseWEBCancel:
-          /*Запрет разрегистрации web-пассажира*/
-          break;
+           /*Запрет разрегистрации web-пассажира*/
+           break;
     case sCloseCheckIn:
            /*Закрытие регистрации*/
            CloseCheckIn( point_id );
            break;
-  	case sCloseWEBCheckIn:
+    case sCloseWEBCheckIn:
            /*закрытие WEB-регистрации*/
-  	     break;
-  	case sCloseKIOSKCheckIn:
+         break;
+    case sCloseKIOSKCheckIn:
            /*закрытие KIOSK-регистрации*/
-  	     break;
+         break;
     case sOpenBoarding:
            /*Начало посадки*/
            break;
@@ -792,9 +794,9 @@ void exec_stage( int point_id, int stage_id )
 
 void astra_timer( TDateTime utcdate )
 {
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	 "SELECT trip_stages.point_id point_id, trip_stages.stage_id stage_id, points.airp "
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+     "SELECT trip_stages.point_id point_id, trip_stages.stage_id stage_id, points.airp "
    " FROM points, trip_stages "
    "WHERE points.point_id = trip_stages.point_id AND "
    "      points.act_out IS NULL AND "
@@ -816,76 +818,76 @@ void astra_timer( TDateTime utcdate )
 
   TDateTime execTime0 = NowUTC();
   while ( !pr_exit ) {
-  	pr_exit = true;
-  	TDateTime execTime1 = NowUTC();
-  	Qry.Execute();
-		if ( NowUTC() - execTime1 > 1.0/(1440.0*60) )
-  		ProgTrace( TRACE5, "Attention execute Query1 time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime1, "nn:ss" ).c_str(), count );
+    pr_exit = true;
+    TDateTime execTime1 = NowUTC();
+    Qry.Execute();
+        if ( NowUTC() - execTime1 > 1.0/(1440.0*60) )
+        ProgTrace( TRACE5, "Attention execute Query1 time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime1, "nn:ss" ).c_str(), count );
 
-  	while ( !Qry.Eof ) { // пробег по шагам, которые пора выполнить
-  		count++;
-  		int point_id = Qry.FieldAsInteger( "point_id" );
-  		int stage_id = Qry.FieldAsInteger( "stage_id" );
-  		string airp = Qry.FieldAsString( "airp" );
+    while ( !Qry.Eof ) { // пробег по шагам, которые пора выполнить
+        count++;
+        int point_id = Qry.FieldAsInteger( "point_id" );
+        int stage_id = Qry.FieldAsInteger( "stage_id" );
+        string airp = Qry.FieldAsString( "airp" );
       TFlights flightsForLock;
       flightsForLock.Get( point_id, ftTranzit );
       flightsForLock.Lock();
-  		QExecStage.SetVariable( "point_id", point_id );
-  		QExecStage.SetVariable( "stage_id", stage_id );
-  	  TDateTime execTime2 = NowUTC();
-  	  bool pr_exec_stage = false;
-  	  try {
-  		  QExecStage.Execute(); // признак того должен ли выполниться шаг + отметка о выполнении шага тех. графика
-  		  if ( NowUTC() - execTime2 > 1.0/(1440.0*60) )
-    		  ProgTrace( TRACE5, "Attention execute QCanStage time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );
-  		  pr_exec_stage = QExecStage.GetVariableAsInteger( "exec_stage" );
-  		  TDateTime act_stage = QExecStage.GetVariableAsDateTime( "act" );
-  		  if ( pr_exec_stage ) {
-    		  // запись в лог о выполнении шага
+        QExecStage.SetVariable( "point_id", point_id );
+        QExecStage.SetVariable( "stage_id", stage_id );
+      TDateTime execTime2 = NowUTC();
+      bool pr_exec_stage = false;
+      try {
+          QExecStage.Execute(); // признак того должен ли выполниться шаг + отметка о выполнении шага тех. графика
+          if ( NowUTC() - execTime2 > 1.0/(1440.0*60) )
+              ProgTrace( TRACE5, "Attention execute QCanStage time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );
+          pr_exec_stage = QExecStage.GetVariableAsInteger( "exec_stage" );
+          TDateTime act_stage = QExecStage.GetVariableAsDateTime( "act" );
+          if ( pr_exec_stage ) {
+              // запись в лог о выполнении шага
           TReqInfo::Instance()->LocaleToLog( "EVT.STAGE.COMPLETED_ACT_TIME", LEvntPrms() << PrmStage("stage", (TStage)stage_id, airp)
                                              << PrmDate("act_time", act_stage, "hh:nn dd.mm.yy (UTC)"),
                                              evtGraph, point_id, stage_id );
-  		  }
-  		}
+          }
+        }
       catch( Exception &E ) {
-      	try { OraSession.Rollback( ); } catch(...) { };
+        try { OraSession.Rollback( ); } catch(...) { };
         ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
                    E.what(),
                    DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str(),
                    point_id, stage_id );
       }
-			catch( ... ) {
-				try { OraSession.Rollback( ); } catch(...) { };
-				ProgError( STDLOG, "unknown timer error" );
- 			}
- 			OraSession.Commit(); // запоминание факта выполнения шага + лога в БД
-  		if ( pr_exec_stage ) { // выполняем действия связанные с этим шагом
-				pr_exit = false; // признак того, что надо бы проверить следующие шаги графика на то, что их можно и пора выполнить
-  			TDateTime execStep = NowUTC();
-  			try {
-			    exec_stage( point_id, stage_id );
+            catch( ... ) {
+                try { OraSession.Rollback( ); } catch(...) { };
+                ProgError( STDLOG, "unknown timer error" );
+            }
+            OraSession.Commit(); // запоминание факта выполнения шага + лога в БД
+        if ( pr_exec_stage ) { // выполняем действия связанные с этим шагом
+                pr_exit = false; // признак того, что надо бы проверить следующие шаги графика на то, что их можно и пора выполнить
+            TDateTime execStep = NowUTC();
+            try {
+                exec_stage( point_id, stage_id );
           if ( NowUTC() - execStep > 1.0/(1440.0*60) )
- 	          ProgTrace( TRACE5, "Attention execute point_id=%d, stage_id=%d time > 1 sec !!!, time=%s, count=%d", point_id, stage_id,
- 	                     DateTimeToStr( NowUTC() - execStep, "nn:ss" ).c_str(), count );
-			  }
+              ProgTrace( TRACE5, "Attention execute point_id=%d, stage_id=%d time > 1 sec !!!, time=%s, count=%d", point_id, stage_id,
+                         DateTimeToStr( NowUTC() - execStep, "nn:ss" ).c_str(), count );
+              }
         catch( Exception &E ) {
-      	  try { OraSession.Rollback( ); } catch(...) { };
+          try { OraSession.Rollback( ); } catch(...) { };
           ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
                      E.what(),
                      DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str(),
                      point_id, stage_id );
         }
-			  catch( ... ) {
-			  	try { OraSession.Rollback( ); } catch(...) { };
-			  	ProgError( STDLOG, "unknown timer error" );
- 			  }
-  		}
+              catch( ... ) {
+                try { OraSession.Rollback( ); } catch(...) { };
+                ProgError( STDLOG, "unknown timer error" );
+              }
+        }
       OraSession.Commit();
-  		Qry.Next();
-  	}
+        Qry.Next();
+    }
   }
-	if ( NowUTC() - execTime0 > 5.0/(1440.0*60) )
-  	ProgTrace( TRACE5, "Attention execute astra_time > 5 sec !!!, time=%s, steps count=%d", DateTimeToStr( NowUTC() - execTime0, "nn:ss" ).c_str(), count );
+    if ( NowUTC() - execTime0 > 5.0/(1440.0*60) )
+    ProgTrace( TRACE5, "Attention execute astra_time > 5 sec !!!, time=%s, steps count=%d", DateTimeToStr( NowUTC() - execTime0, "nn:ss" ).c_str(), count );
 
   //обработаем временные слои из tlg_comp_layers
   int curr_tid=NoExists;
@@ -941,10 +943,10 @@ void astra_timer( TDateTime utcdate )
 
 void SetCraft( int point_id, TStage stage )
 {
-	if ( stage != sPrepCheckIn && stage != sOpenCheckIn )
-		return;
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
+    if ( stage != sPrepCheckIn && stage != sOpenCheckIn )
+        return;
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
     "SELECT craft, b.bort, airp FROM points, "
     "( SELECT points.bort, points.point_id FROM comps, points "
     "  WHERE points.point_id = :point_id AND "
@@ -958,25 +960,37 @@ void SetCraft( int point_id, TStage stage )
   Qry.Execute();
   string craft = Qry.FieldAsString( "craft" );
   if ( (stage == sPrepCheckIn && (!Qry.FieldIsNULL( "bort" ) || string( "СОЧ" ) != Qry.FieldAsString( "airp" ))) ||
-  	   (stage == sOpenCheckIn && string( "СОЧ" ) == Qry.FieldAsString( "airp" )) ) {
+       (stage == sOpenCheckIn && string( "СОЧ" ) == Qry.FieldAsString( "airp" )) ) {
     SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( point_id );
     if ( res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
         TReqInfo::Instance()->LocaleToLog("EVT.LAYOUT_NOT_FOUND", LEvntPrms()
                                           << PrmElem<std::string>("craft", etCraft, craft), evtFlt, point_id );
-  	}
+    }
   }
 }
 
 void PrepCheckIn( int point_id )
 {
-	SetCraft( point_id, sPrepCheckIn );
+    SetCraft( point_id, sPrepCheckIn );
 }
 
 void OpenCheckIn( int point_id )
 {
-	tst();
-	SetCraft( point_id, sOpenCheckIn );
+    tst();
+    SetCraft( point_id, sOpenCheckIn );
   SALONS2::setManualCompChg( point_id );
+}
+
+void OpenWEBCheckIn( int point_id )
+{
+  try
+  {
+    TlgETDisplay(point_id);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"OpenWEBCheckIn.TlgETDisplay (point_id=%d): %s",point_id,E.what());
+  };
 }
 
 void CloseCheckIn( int point_id )
