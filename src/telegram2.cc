@@ -803,13 +803,15 @@ struct TWItem {
     int bagWeight;
     int rkAmount;
     int rkWeight;
+    int excess; // used in CKIN_REPORT
     void get(int grp_id, int bag_pool_num);
     void ToTlg(vector<string> &body);
     TWItem():
         bagAmount(0),
         bagWeight(0),
         rkAmount(0),
-        rkWeight(0)
+        rkWeight(0),
+        excess(0)
     {};
     TWItem &operator += (const TWItem &val)
     {
@@ -817,6 +819,7 @@ struct TWItem {
         bagWeight += val.bagWeight;
         rkAmount += val.rkAmount;
         rkWeight += val.rkWeight;
+        excess += val.excess;
         return *this;
     }
     void operator = (const TWItem &val)
@@ -825,6 +828,7 @@ struct TWItem {
         bagWeight = val.bagWeight;
         rkAmount = val.rkAmount;
         rkWeight = val.rkWeight;
+        excess = val.excess;
     }
 };
 
@@ -2428,7 +2432,8 @@ void TWItem::get(int grp_id, int bag_pool_num)
         << QParam("bagAmount", otInteger)
         << QParam("bagWeight", otInteger)
         << QParam("rkAmount", otInteger)
-        << QParam("rkWeight", otInteger);
+        << QParam("rkWeight", otInteger)
+        << QParam("excess", otInteger);
     TCachedQuery Qry(
             "declare "
             "   bag_pool_pax_id pax.pax_id%type; "
@@ -2438,6 +2443,7 @@ void TWItem::get(int grp_id, int bag_pool_num)
             "   :bagWeight := ckin.get_bagWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
             "   :rkAmount := ckin.get_rkAmount2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
             "   :rkWeight := ckin.get_rkWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
+            "   :excess := ckin.get_excess(:grp_id, bag_pool_pax_id); "
             "end;",
             QryParams);
     Qry.get().Execute();
@@ -2445,6 +2451,7 @@ void TWItem::get(int grp_id, int bag_pool_num)
     bagWeight = Qry.get().GetVariableAsInteger("bagWeight");
     rkAmount = Qry.get().GetVariableAsInteger("rkAmount");
     rkWeight = Qry.get().GetVariableAsInteger("rkWeight");
+    excess = Qry.get().GetVariableAsInteger("excess");
 }
 
 struct TBTMGrpList;
@@ -8961,6 +8968,7 @@ namespace CKIN_REPORT {
     struct TPaxCounters {
         TByGender pax_count;
         TByGender seat_count;
+        TWItem bag;
         bool empty() const { return pax_count.empty(); }
         void append(const TSalonPax &pax);
     };
@@ -8985,6 +8993,17 @@ namespace CKIN_REPORT {
            */
         pax_count.append(gender);
         seat_count.append(gender, pax.seats);
+
+        // adding baggage
+        TCachedQuery Qry("select bag_pool_num from pax where pax_id = :pax_id",
+                QParams() << QParam("pax_id", otInteger, pax.pax_id));
+        Qry.get().Execute();
+        int bag_pool_num = NoExists;
+        if(not Qry.get().Eof and not Qry.get().FieldIsNULL(0))
+            bag_pool_num = Qry.get().FieldAsInteger(0);
+        TWItem add_bag;
+        add_bag.get(pax.grp_id, bag_pool_num);
+        bag += add_bag;
     }
 
 
@@ -9024,6 +9043,39 @@ namespace CKIN_REPORT {
             }
         }
         LogTrace(TRACE5) << "-------------------------";
+    }
+
+    struct TSelfCkinPaxList {
+        set<int> items;
+        void get(int point_id);
+    };
+
+    void TSelfCkinPaxList::get(int point_id)
+    {
+        items.clear();
+        TCachedQuery Qry(
+                "select "
+                "   pax_id "
+                "from "
+                "   points, "
+                "   pax_grp, "
+                "   pax "
+                "where "
+                "   points.point_id = :point_id and "
+                "   points.point_id = pax_grp.point_dep and "
+                "   pax_grp.client_type in (:ctWeb, :ctMobile, :ctKiosk) and "
+                "   pax_grp.status not in ('E') and "
+                "   pax_grp.grp_id = pax.grp_id and "
+                "   pax.pr_brd is not null ",
+                QParams()
+                << QParam("point_id", otInteger, point_id)
+                << QParam("ctWeb", otString, EncodeClientType(ctWeb))
+                << QParam("ctMobile", otString, EncodeClientType(ctMobile))
+                << QParam("ctKiosk", otString, EncodeClientType(ctKiosk))
+                );
+        Qry.get().Execute();
+        for(; not Qry.get().Eof; Qry.get().Next())
+            items.insert(Qry.get().FieldAsInteger(0));
     }
 
     void TCRSPaxList::get(int point_id)
@@ -9087,6 +9139,9 @@ namespace CKIN_REPORT {
         int flt_no;
         string suffix;
         TDateTime scd_out;
+        bool pr_tranz_reg;
+
+        TSelfCkinPaxList self_ckin_pax_list;
 
         TRoute route;
 
@@ -9123,9 +9178,16 @@ namespace CKIN_REPORT {
             TTripRouteItem &routeItem
             )
     {
+        // Если вкл. галочка 'Перерегистрация транзита', то
+        // в счетчики попадают pax.grp_status == psTransit
+        // Если галочка выключена, то паксы, летящие через тек. point_id (routeItem.point_id)
         if(
-                pax.point_dep == report.point_id and
-                pax_map_coord.point_dep == routeItem.point_id)
+                (report.pr_tranz_reg and DecodePaxStatus(pax.grp_status.c_str()) == psTransit)
+                or
+                (not report.pr_tranz_reg and
+                 pax.point_dep == report.point_id and
+                 pax_map_coord.point_dep == routeItem.point_id)
+          )
             report.route[routeIdx][routeItem.airp][pax.cl].tranzit.append(pax);
     }
 
@@ -9138,10 +9200,27 @@ namespace CKIN_REPORT {
             )
     {
         if(
+                report.self_ckin_pax_list.items.find(pax.pax_id) != report.self_ckin_pax_list.items.end() and
                 pax.point_dep == report.point_id and
                 pax.point_arv == routeItem.point_id
           )
             report.route[routeIdx][routeItem.airp][pax.cl].self_checkin.append(pax);
+    }
+
+    void append_evt_goshow(
+            TPaxMapCoord &pax_map_coord,
+            TReportData &report,
+            const TSalonPax &pax,
+            int routeIdx,
+            TTripRouteItem &routeItem
+            )
+    {
+        if(
+                DecodePaxStatus(pax.grp_status.c_str()) == psGoshow and
+                pax.point_dep == report.point_id and
+                pax.point_arv == routeItem.point_id
+          )
+            report.route[routeIdx][routeItem.airp][pax.cl].goshow.append(pax);
     }
 
     struct TTranzitPaxList {
@@ -9209,14 +9288,17 @@ namespace CKIN_REPORT {
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "select "
-            "   airline, "
-            "   flt_no, "
-            "   suffix, "
-            "   scd_out "
+            "   points.airline, "
+            "   points.flt_no, "
+            "   points.suffix, "
+            "   points.scd_out, "
+            "   trip_sets.pr_tranz_reg "
             "from "
-            "   points "
+            "   points, "
+            "   trip_sets "
             "where "
-            "   point_id = :point_id";
+            "   points.point_id = :point_id and "
+            "   points.point_id = trip_sets.point_id ";
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();
 
@@ -9224,6 +9306,7 @@ namespace CKIN_REPORT {
         flt_no = Qry.FieldAsInteger("flt_no");
         suffix = Qry.FieldAsString("suffix");
         scd_out = Qry.FieldAsDateTime("scd_out");
+        pr_tranz_reg = Qry.FieldAsInteger("pr_tranz_reg") != 0;
 
 
         SALONS2::TSalonList salonList;
@@ -9251,6 +9334,8 @@ namespace CKIN_REPORT {
         crs_pax_list.get(point_id);
         crs_pax_list.dump();
 
+        self_ckin_pax_list.get(point_id);
+
         TTripRoute trip_route;
         trip_route.GetRouteAfter(NoExists, point_id, trtWithCurrent, trtNotCancelled);
         int idx = 1;
@@ -9266,13 +9351,19 @@ namespace CKIN_REPORT {
                     iDep = pax_map.begin();
                     iDep != pax_map.end();
                     iDep++) {
+                // self checkin
                 appendArv(iDep, iDep->second.infants, idx, *iRoute, append_evt_self_checkin);
                 appendArv(iDep, iDep->second, idx, *iRoute, append_evt_self_checkin);
+
+                // goshow
+                appendArv(iDep, iDep->second.infants, idx, *iRoute, append_evt_goshow);
+                appendArv(iDep, iDep->second, idx, *iRoute, append_evt_goshow);
             }
             for(TSalonPassengers::iterator
                     iDep = tranzit_pax_map.begin();
                     iDep != tranzit_pax_map.end();
                     iDep++) {
+                // tranzit
                 appendArv(iDep, iDep->second.infants, idx, *iRoute, append_evt_transit);
                 appendArv(iDep, iDep->second, idx, *iRoute, append_evt_transit);
             }
@@ -9301,6 +9392,10 @@ namespace CKIN_REPORT {
         if(gender.pax_count.f)SetProp(NewTextChild(classNode, "female", (int)gender.pax_count.f), "seats", gender.seat_count.f);
         if(gender.pax_count.c)SetProp(NewTextChild(classNode, "chd", (int)gender.pax_count.c), "seats", gender.seat_count.c);
         if(gender.pax_count.i)SetProp(NewTextChild(classNode, "inf", (int)gender.pax_count.i), "seats", gender.seat_count.i);
+        if(gender.bag.rkWeight) NewTextChild(classNode, "rk_weight", gender.bag.rkWeight);
+        if(gender.bag.bagAmount) NewTextChild(classNode, "bag_amount", gender.bag.bagAmount);
+        if(gender.bag.bagWeight) NewTextChild(classNode, "bag_weight", gender.bag.bagWeight);
+        if(gender.bag.excess) NewTextChild(classNode, "paybag_weight", gender.bag.excess);
     }
 
     void TReportData::toXML(xmlNodePtr rootNode)
