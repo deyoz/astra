@@ -8938,6 +8938,18 @@ namespace CKIN_REPORT {
         return result;
     }
 
+    int get_point_id(TSearchFltInfo &filter)
+    {
+        list<TAdvTripInfo> flts;
+        SearchFlt(filter, flts);
+
+        TNearestDate nd(filter.scd_out);
+        for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
+            nd.sorted_points[i->scd_out] = i->point_id;
+        int point_id = nd.get();
+        return point_id;
+    }
+
     int get_point_id(const string &val, const string &airp)
     {
         TypeB::TFlightIdentifier flt;
@@ -8952,14 +8964,7 @@ namespace CKIN_REPORT {
         filter.scd_out = flt.date;
         filter.scd_out_in_utc = true;
         filter.only_with_reg = false;
-
-        list<TAdvTripInfo> flts;
-        SearchFlt(filter, flts);
-
-        TNearestDate nd(flt.date);
-        for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
-            nd.sorted_points[i->scd_out] = i->point_id;
-        int point_id = nd.get();
+        int point_id = get_point_id(filter);
         if(point_id == NoExists)
             throw Exception("flight not found: %s", val.c_str());
         return point_id;
@@ -9468,4 +9473,32 @@ namespace CKIN_REPORT {
         out << GetXMLDocText(doc.docPtr());
         return 1;
     }
+}
+
+void TelegramInterface::ckin_report(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string airline = CKIN_REPORT::getElemId(etAirline, NodeAsString("airline", reqNode));
+    int flt_no = NodeAsInteger("flt_no", reqNode);
+    string suffix = NodeAsString("suffix", reqNode);
+    if(not suffix.empty())
+        suffix = CKIN_REPORT::getElemId(etSuffix, suffix);
+    string airp_dep = CKIN_REPORT::getElemId(etAirp, NodeAsString("airp_dep", reqNode));
+    TDateTime scd_out = NodeAsDateTime("scd_out", reqNode);
+
+    TSearchFltInfo filter;
+    filter.airline = airline;
+    filter.flt_no = flt_no;
+    filter.suffix = suffix;
+    filter.airp_dep = airp_dep;
+    filter.scd_out = scd_out;
+    filter.scd_out_in_utc = true;
+    filter.only_with_reg = false;
+
+    int point_id = CKIN_REPORT::get_point_id(filter);
+    if(point_id == NoExists)
+        throw UserException("flight not found");
+
+    CKIN_REPORT::TReportData data;
+    data.get(point_id);
+    data.toXML(resNode);
 }
