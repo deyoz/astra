@@ -803,13 +803,15 @@ struct TWItem {
     int bagWeight;
     int rkAmount;
     int rkWeight;
+    int excess; // used in CKIN_REPORT
     void get(int grp_id, int bag_pool_num);
     void ToTlg(vector<string> &body);
     TWItem():
         bagAmount(0),
         bagWeight(0),
         rkAmount(0),
-        rkWeight(0)
+        rkWeight(0),
+        excess(0)
     {};
     TWItem &operator += (const TWItem &val)
     {
@@ -817,6 +819,7 @@ struct TWItem {
         bagWeight += val.bagWeight;
         rkAmount += val.rkAmount;
         rkWeight += val.rkWeight;
+        excess += val.excess;
         return *this;
     }
     void operator = (const TWItem &val)
@@ -825,6 +828,7 @@ struct TWItem {
         bagWeight = val.bagWeight;
         rkAmount = val.rkAmount;
         rkWeight = val.rkWeight;
+        excess = val.excess;
     }
 };
 
@@ -879,6 +883,49 @@ struct TName {
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, string postfix = "");
     string ToPILTlg(TypeB::TDetailCreateInfo &info) const;
 };
+
+enum TGender {gMale, gFemale, gChild, gInfant};
+
+
+TGender getGender(TPerson pers_type, int is_female)
+{
+    TGender result = gMale;
+    switch(pers_type) {
+        case NoPerson:
+            break;
+        case adult:
+            result = (is_female == NoExists ? gMale : (is_female != 0 ? gFemale : gMale));
+            break;
+        case child:
+            result = gChild;
+            break;
+        case baby:
+            result = gInfant;
+            break;
+    }
+    return result;
+}
+
+TGender getGender(TQuery &Qry)
+{
+    if(Qry.Eof)
+        throw Exception("getGender: Qry.Eof");
+    int is_female = NoExists;
+    if(not Qry.FieldIsNULL("is_female"))
+        is_female = Qry.FieldAsInteger("is_female") != 0;
+    TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
+    return getGender(pers_type, is_female);
+}
+
+TGender getGender(int pax_id)
+{
+    TCachedQuery Qry(
+            "select is_female, pers_type from pax where pax_id = :pax_id",
+            QParams() << QParam("pax_id", otInteger, pax_id));
+    Qry.get().Execute();
+    return getGender(Qry.get());
+}
+
 
 namespace PRL_SPACE {
     struct TPNRItem {
@@ -1495,8 +1542,6 @@ namespace PRL_SPACE {
             body.push_back("." + status + "/" + priority);
     }
 
-    enum TGender {gMale, gFemale, gChild, gInfant};
-
     struct TPRLPax {
         string target;
         int cls_grp_id;
@@ -1506,6 +1551,7 @@ namespace PRL_SPACE {
         int pax_id;
         int grp_id;
         int bag_pool_num;
+        TPaxStatus grp_status;
         string subcls;
         TPNRList pnrs;
         TMItem M;
@@ -1724,6 +1770,7 @@ namespace PRL_SPACE {
             "    pax.grp_id, "
             "    pax.bag_pool_num, "
             "    NVL(pax.subclass,pax_grp.class) subclass, "
+            "    pax_grp.status grp_status, "
             "    pax.is_female, "
             "    pax.pers_type, "
             "    pax.crew_type "
@@ -1784,7 +1831,7 @@ namespace PRL_SPACE {
             int col_grp_id = Qry.get().FieldIndex("grp_id");
             int col_bag_pool_num = Qry.get().FieldIndex("bag_pool_num");
             int col_subcls = Qry.get().FieldIndex("subclass");
-            int col_is_female = Qry.get().FieldIndex("is_female");
+            int col_grp_status = Qry.get().FieldIndex("grp_status");
             int col_pers_type = Qry.get().FieldIndex("pers_type");
             int col_crew_type = Qry.get().FieldIndex("crew_type");
             for(; !Qry.get().Eof; Qry.get().Next()) {
@@ -1803,6 +1850,7 @@ namespace PRL_SPACE {
                     continue;
                 pax.pax_id = Qry.get().FieldAsInteger(col_pax_id);
                 pax.grp_id = Qry.get().FieldAsInteger(col_grp_id);
+                pax.grp_status = DecodePaxStatus(Qry.get().FieldAsString(col_grp_status));
                 if(not Qry.get().FieldIsNULL(col_bag_pool_num))
                     pax.bag_pool_num = Qry.get().FieldAsInteger(col_bag_pool_num);
                 pax.M.get(info, pax.pax_id);
@@ -1816,19 +1864,8 @@ namespace PRL_SPACE {
                 pax.pers_type = DecodePerson(Qry.get().FieldAsString(col_pers_type));
                 pax.crew_type = TCrewTypes().decode(Qry.get().FieldAsString(col_crew_type));
                 pax.rems.get(info, pax, complayers); // Обязательно после инициализации pers_type выше
-                switch(pax.pers_type) {
-                    case NoPerson:
-                        break;
-                    case adult:
-                        pax.gender = (Qry.get().FieldIsNULL(col_is_female) ? gMale : (Qry.get().FieldAsInteger(col_is_female) != 0 ? gFemale : gMale));
-                        break;
-                    case child:
-                        pax.gender = gChild;
-                        break;
-                    case baby:
-                        pax.gender = gInfant;
-                        break;
-                }
+                pax.gender = getGender(Qry.get());
+
                 PaxList.push_back(pax);
             }
         }
@@ -2395,7 +2432,8 @@ void TWItem::get(int grp_id, int bag_pool_num)
         << QParam("bagAmount", otInteger)
         << QParam("bagWeight", otInteger)
         << QParam("rkAmount", otInteger)
-        << QParam("rkWeight", otInteger);
+        << QParam("rkWeight", otInteger)
+        << QParam("excess", otInteger);
     TCachedQuery Qry(
             "declare "
             "   bag_pool_pax_id pax.pax_id%type; "
@@ -2405,6 +2443,7 @@ void TWItem::get(int grp_id, int bag_pool_num)
             "   :bagWeight := ckin.get_bagWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
             "   :rkAmount := ckin.get_rkAmount2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
             "   :rkWeight := ckin.get_rkWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
+            "   :excess := ckin.get_excess(:grp_id, bag_pool_pax_id); "
             "end;",
             QryParams);
     Qry.get().Execute();
@@ -2412,6 +2451,7 @@ void TWItem::get(int grp_id, int bag_pool_num)
     bagWeight = Qry.get().GetVariableAsInteger("bagWeight");
     rkAmount = Qry.get().GetVariableAsInteger("rkAmount");
     rkWeight = Qry.get().GetVariableAsInteger("rkWeight");
+    excess = Qry.get().GetVariableAsInteger("excess");
 }
 
 struct TBTMGrpList;
@@ -6423,7 +6463,24 @@ void TWM::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 struct TByGender {
     size_t m, f, c, i;
     TByGender(): m(0), f(0), c(0), i(0) {};
+    bool empty() const;
+    void append(TGender gender, int count = 1);
 };
+
+void TByGender::append(TGender gender, int count)
+{
+    switch(gender) {
+        case gMale:     m += count; break;
+        case gFemale:   f += count; break;
+        case gChild:    c += count; break;
+        case gInfant:   i += count; break;
+    }
+}
+
+bool TByGender::empty() const
+{
+    return not(m or f or c or i);
+}
 
 struct TLCITotals {
     size_t pax_size, bag_amount, bag_weight;
@@ -6725,20 +6782,7 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
                     items[idx].rem_category[rem_i->substr(0, 4)]++;
             }
 
-            switch(pax_i->gender) {
-                case gMale:
-                    pax_tot_by_cls[iv->cls].m++;
-                    break;
-                case gFemale:
-                    pax_tot_by_cls[iv->cls].f++;
-                    break;
-                case gChild:
-                    pax_tot_by_cls[iv->cls].c++;
-                    break;
-                case gInfant:
-                    pax_tot_by_cls[iv->cls].i++;
-                    break;
-            }
+            pax_tot_by_cls[iv->cls].append(pax_i->gender);
         }
         items[idx].cls_totals.items[iv->cls].pax_size = iv->PaxList.size();
     }
@@ -8865,3 +8909,594 @@ void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_t
   TPassSeats layerSeats;
   sectionInfo.GetTotalLayerSeat( layer_type, layerSeats );
 };
+
+#include "serverlib/xml_stuff.h"
+
+namespace CKIN_REPORT {
+
+    int error(const string &err = "")
+    {
+        cout << "error: " << err << endl;
+        return 1;
+    }
+
+    int usage(const string &prg, const string &err = "")
+    {
+        cout << "usage: " << prg << " UT001/14OCT DME" << endl;
+        return 1;
+    }
+
+    string getElemId(TElemType type, const string &elem)
+    {
+        TElemFmt fmt;
+        string result = ElemToElemId(type, elem, fmt, false);
+        if(fmt == efmtUnknown)
+            throw Exception("getElemId: elem not found (type = %s, elem = %s)",
+                    EncodeElemType(type),elem.c_str());
+        return result;
+    }
+
+    int get_point_id(TSearchFltInfo &filter)
+    {
+        list<TAdvTripInfo> flts;
+        SearchFlt(filter, flts);
+
+        TNearestDate nd(filter.scd_out);
+        for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
+            nd.sorted_points[i->scd_out] = i->point_id;
+        int point_id = nd.get();
+        return point_id;
+    }
+
+    int get_point_id(const string &val, const string &airp)
+    {
+        TypeB::TFlightIdentifier flt;
+        flt.parse(val.c_str());
+
+        TSearchFltInfo filter;
+        filter.airline = flt.airline;
+        filter.flt_no = flt.flt_no;
+        if(flt.suffix)
+            filter.suffix.append(flt.suffix, 1);
+        filter.airp_dep = getElemId(etAirp, airp);
+        filter.scd_out = flt.date;
+        filter.scd_out_in_utc = true;
+        filter.only_with_reg = false;
+        int point_id = get_point_id(filter);
+        if(point_id == NoExists)
+            throw Exception("flight not found: %s", val.c_str());
+        return point_id;
+    }
+
+    struct TPaxCounters {
+        TByGender pax_count;
+        TByGender seat_count;
+        TWItem bag;
+        bool empty() const { return pax_count.empty(); }
+        void append(const TSalonPax &pax);
+    };
+
+    void TPaxCounters::append(const TSalonPax &pax)
+    {
+        TGender gender = getGender(pax.pax_id);
+        /* Это не работает!
+           switch(pax.pers_type) {
+           case adult:
+           gender = pax.is_female ? gFemale : gMale;
+           break;
+           case child:
+           gender = gChild;
+           break;
+           case baby:
+           gender = gInfant;
+           break;
+           default:
+           gender = gMale;
+           }
+           */
+        pax_count.append(gender);
+        seat_count.append(gender, pax.seats);
+
+        // adding baggage
+        TCachedQuery Qry("select bag_pool_num from pax where pax_id = :pax_id",
+                QParams() << QParam("pax_id", otInteger, pax.pax_id));
+        Qry.get().Execute();
+        int bag_pool_num = NoExists;
+        if(not Qry.get().Eof and not Qry.get().FieldIsNULL(0))
+            bag_pool_num = Qry.get().FieldAsInteger(0);
+        TWItem add_bag;
+        add_bag.get(pax.grp_id, bag_pool_num);
+        bag += add_bag;
+    }
+
+
+    struct TCounters {
+        int booking;
+        TPaxCounters tranzit;
+        TPaxCounters goshow;
+        TPaxCounters self_checkin;
+        bool ckin_empty();
+        TCounters(): booking(0) {}
+    };
+
+    bool TCounters::ckin_empty() {
+        return
+            tranzit.empty() and
+            goshow.empty() and
+            self_checkin.empty();
+    }
+
+    struct TCRSPaxList {
+        typedef map<string, int> TClsMap;
+        typedef map<string, TClsMap> TAirpMap;
+
+        TAirpMap items; // [airp_arv][class] = count
+        void get(int point_id);
+        void dump();
+    };
+
+    void TCRSPaxList::dump()
+    {
+        LogTrace(TRACE5) << "---TCRSPaxList::dump()---";
+        for(TAirpMap::iterator iAirp = items.begin(); iAirp != items.end(); iAirp++) {
+            for(TClsMap::iterator iCls = iAirp->second.begin(); iCls != iAirp->second.end(); iCls++) {
+                LogTrace(TRACE5)
+                    << "TCRSPaxList items[" << iAirp->first << "]"
+                    << "[" << iCls->first << "] = " << iCls->second;
+            }
+        }
+        LogTrace(TRACE5) << "-------------------------";
+    }
+
+    struct TSelfCkinPaxList {
+        set<int> items;
+        void get(int point_id);
+    };
+
+    void TSelfCkinPaxList::get(int point_id)
+    {
+        items.clear();
+        TCachedQuery Qry(
+                "select "
+                "   pax_id "
+                "from "
+                "   points, "
+                "   pax_grp, "
+                "   pax "
+                "where "
+                "   points.point_id = :point_id and "
+                "   points.point_id = pax_grp.point_dep and "
+                "   pax_grp.client_type in (:ctWeb, :ctMobile, :ctKiosk) and "
+                "   pax_grp.status not in ('E') and "
+                "   pax_grp.grp_id = pax.grp_id and "
+                "   pax.pr_brd is not null ",
+                QParams()
+                << QParam("point_id", otInteger, point_id)
+                << QParam("ctWeb", otString, EncodeClientType(ctWeb))
+                << QParam("ctMobile", otString, EncodeClientType(ctMobile))
+                << QParam("ctKiosk", otString, EncodeClientType(ctKiosk))
+                );
+        Qry.get().Execute();
+        for(; not Qry.get().Eof; Qry.get().Next())
+            items.insert(Qry.get().FieldAsInteger(0));
+    }
+
+    void TCRSPaxList::get(int point_id)
+    {
+        items.clear();
+        TCachedQuery Qry(
+                "select "
+                "   crs_pnr.airp_arv, "
+                "   crs_pnr.class, "
+                "   count(*) amount "
+                "from "
+                "   crs_pnr, "
+                "   tlg_binding, "
+                "   crs_pax "
+                "where "
+                "   crs_pnr.point_id=tlg_binding.point_id_tlg and "
+                "   crs_pnr.system='CRS' and "
+                "   crs_pnr.pnr_id=crs_pax.pnr_id and "
+                "   crs_pax.pr_del=0 and "
+                "   tlg_binding.point_id_spp = :point_id "
+                "group by "
+                "   crs_pnr.airp_arv, "
+                "   crs_pnr.class ",
+                QParams() << QParam("point_id", otInteger, point_id)
+                );
+        Qry.get().Execute();
+        LogTrace(TRACE5) << "point_id: " << point_id;
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            items
+                [Qry.get().FieldAsString("airp_arv")]
+                [Qry.get().FieldAsString("class")]
+                =
+                Qry.get().FieldAsInteger("amount");
+        }
+    }
+
+    typedef map<string, TCounters> TClsRoute;
+    typedef map<string, TClsRoute> TAirpRoute;
+    typedef map<int, TAirpRoute> TRoute; // [order][airp][class] = count
+
+    struct TReportData;
+
+    struct TPaxMapCoord { // coordinates
+        int point_dep;
+        int point_arv;
+        string cls;
+        string grp_status;
+    };
+
+    typedef void (*TAppendEvent)(
+            TPaxMapCoord &pax_map_coord,
+            TReportData &report,
+            const TSalonPax &pax,
+            int routeIdx,
+            TTripRouteItem &routeItem
+            );
+
+    struct TReportData {
+        int point_id;
+        string airline;
+        int flt_no;
+        string suffix;
+        TDateTime scd_out;
+        bool pr_tranz_reg;
+
+        TSelfCkinPaxList self_ckin_pax_list;
+
+        TRoute route;
+
+        void Clear()
+        {
+            point_id = NoExists;
+            airline.clear();
+            flt_no = NoExists;
+            suffix.clear();
+            scd_out = NoExists;
+        }
+
+        TReportData()
+        {
+            Clear();
+        }
+
+        void get(int point_id);
+        void toXML(xmlNodePtr rootNode);
+        void appendArv(
+                TSalonPassengers::iterator iDep,
+                TIntArvSalonPassengers &arvMap,
+                int routeIdx,
+                TTripRouteItem &routeItem,
+                TAppendEvent append_evt
+                );
+    };
+
+    void append_evt_transit(
+            TPaxMapCoord &pax_map_coord,
+            TReportData &report,
+            const TSalonPax &pax,
+            int routeIdx,
+            TTripRouteItem &routeItem
+            )
+    {
+        // Если вкл. галочка 'Перерегистрация транзита', то
+        // в счетчики попадают pax.grp_status == psTransit
+        // Если галочка выключена, то паксы, летящие через тек. point_id (routeItem.point_id)
+        if(
+                (report.pr_tranz_reg and DecodePaxStatus(pax.grp_status.c_str()) == psTransit)
+                or
+                (not report.pr_tranz_reg and
+                 pax.point_dep == report.point_id and
+                 pax_map_coord.point_dep == routeItem.point_id)
+          )
+            report.route[routeIdx][routeItem.airp][pax.cl].tranzit.append(pax);
+    }
+
+    void append_evt_self_checkin(
+            TPaxMapCoord &pax_map_coord,
+            TReportData &report,
+            const TSalonPax &pax,
+            int routeIdx,
+            TTripRouteItem &routeItem
+            )
+    {
+        if(
+                report.self_ckin_pax_list.items.find(pax.pax_id) != report.self_ckin_pax_list.items.end() and
+                pax.point_dep == report.point_id and
+                pax.point_arv == routeItem.point_id
+          )
+            report.route[routeIdx][routeItem.airp][pax.cl].self_checkin.append(pax);
+    }
+
+    void append_evt_goshow(
+            TPaxMapCoord &pax_map_coord,
+            TReportData &report,
+            const TSalonPax &pax,
+            int routeIdx,
+            TTripRouteItem &routeItem
+            )
+    {
+        if(
+                DecodePaxStatus(pax.grp_status.c_str()) == psGoshow and
+                pax.point_dep == report.point_id and
+                pax.point_arv == routeItem.point_id
+          )
+            report.route[routeIdx][routeItem.airp][pax.cl].goshow.append(pax);
+    }
+
+    struct TTranzitPaxList {
+        void get(int point_id);
+    };
+
+    void TTranzitPaxList::get(int point_id)
+    {
+        SALONS2::TSalonList salonList;
+        salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ),
+                SALONS2::isTranzitSalons( point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
+                "", NoExists );
+        TSalonPassengers passengers;
+        SALONS2::TGetPassFlags flags;
+        //        flags.setFlag( SALONS2::gpPassenger );
+        flags.setFlag( SALONS2::gpWaitList );
+        flags.setFlag( SALONS2::gpTranzits );
+        flags.setFlag( SALONS2::gpInfants );
+        salonList.getPassengers( passengers, flags );
+        passengers.dump();
+    }
+
+    void TReportData::appendArv(
+            TSalonPassengers::iterator iDep,
+            TIntArvSalonPassengers &arvMap,
+            int routeIdx,
+            TTripRouteItem &routeItem,
+            TAppendEvent append_evt
+            )
+    {
+        for(TIntArvSalonPassengers::const_iterator
+                iArv = arvMap.begin();
+                iArv != arvMap.end();
+                iArv++) {
+            for(TIntClassSalonPassengers::const_iterator
+                    iCls = iArv->second.begin();
+                    iCls != iArv->second.end();
+                    iCls++) {
+                for(TIntStatusSalonPassengers::const_iterator
+                        iStatus = iCls->second.begin();
+                        iStatus != iCls->second.end();
+                        iStatus++) {
+                    for(set<TSalonPax,ComparePassenger>::const_iterator
+                            iPax = iStatus->second.begin();
+                            iPax != iStatus->second.end();
+                            iPax++) {
+                        TPaxMapCoord pax_map_coord;
+                        pax_map_coord.point_dep = iDep->first;
+                        pax_map_coord.point_arv = iArv->first;
+                        pax_map_coord.cls = iCls->first;
+                        pax_map_coord.grp_status = iStatus->first;
+                        (*append_evt)(pax_map_coord, *this, *iPax, routeIdx, routeItem);
+                    }
+                }
+            }
+        }
+    }
+
+    void TReportData::get(int apoint_id)
+    {
+        Clear();
+
+        point_id = apoint_id;
+
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "select "
+            "   points.airline, "
+            "   points.flt_no, "
+            "   points.suffix, "
+            "   points.scd_out, "
+            "   trip_sets.pr_tranz_reg "
+            "from "
+            "   points, "
+            "   trip_sets "
+            "where "
+            "   points.point_id = :point_id and "
+            "   points.point_id = trip_sets.point_id ";
+        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.Execute();
+
+        airline = Qry.FieldAsString("airline");
+        flt_no = Qry.FieldAsInteger("flt_no");
+        suffix = Qry.FieldAsString("suffix");
+        scd_out = Qry.FieldAsDateTime("scd_out");
+        pr_tranz_reg = Qry.FieldAsInteger("pr_tranz_reg") != 0;
+
+
+        SALONS2::TSalonList salonList;
+        salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ),
+                SALONS2::isTranzitSalons( point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
+                "", NoExists );
+        TSalonPassengers tranzit_pax_map;
+        TSalonPassengers pax_map;
+        SALONS2::TGetPassFlags flags;
+        flags.setFlag( SALONS2::gpWaitList );
+        flags.setFlag( SALONS2::gpTranzits );
+        flags.setFlag( SALONS2::gpInfants );
+        salonList.getPassengers( tranzit_pax_map, flags );
+
+        LogTrace(TRACE5) << "tranzit_pax_map:";
+        tranzit_pax_map.dump();
+
+        flags.setFlag( SALONS2::gpPassenger );
+        flags.clearFlag(SALONS2::gpTranzits);
+        salonList.getPassengers( pax_map, flags );
+
+
+
+        TCRSPaxList crs_pax_list;
+        crs_pax_list.get(point_id);
+        crs_pax_list.dump();
+
+        self_ckin_pax_list.get(point_id);
+
+        TTripRoute trip_route;
+        trip_route.GetRouteAfter(NoExists, point_id, trtWithCurrent, trtNotCancelled);
+        int idx = 1;
+        for(TTripRoute::iterator iRoute = trip_route.begin(); iRoute != trip_route.end(); iRoute++, idx++) {
+            // booking info
+            route[idx][iRoute->airp]["П"].booking = crs_pax_list.items[iRoute->airp]["П"];
+            route[idx][iRoute->airp]["Б"].booking = crs_pax_list.items[iRoute->airp]["Б"];
+            route[idx][iRoute->airp]["Э"].booking = crs_pax_list.items[iRoute->airp]["Э"];
+
+            // checkin info
+
+            for(TSalonPassengers::iterator
+                    iDep = pax_map.begin();
+                    iDep != pax_map.end();
+                    iDep++) {
+                // self checkin
+                appendArv(iDep, iDep->second.infants, idx, *iRoute, append_evt_self_checkin);
+                appendArv(iDep, iDep->second, idx, *iRoute, append_evt_self_checkin);
+
+                // goshow
+                appendArv(iDep, iDep->second.infants, idx, *iRoute, append_evt_goshow);
+                appendArv(iDep, iDep->second, idx, *iRoute, append_evt_goshow);
+            }
+            for(TSalonPassengers::iterator
+                    iDep = tranzit_pax_map.begin();
+                    iDep != tranzit_pax_map.end();
+                    iDep++) {
+                // tranzit
+                appendArv(iDep, iDep->second.infants, idx, *iRoute, append_evt_transit);
+                appendArv(iDep, iDep->second, idx, *iRoute, append_evt_transit);
+            }
+        }
+    }
+
+    void genderToXML(xmlNodePtr parentNode, const string &path, const TPaxCounters &gender, const string &cls)
+    {
+        if(gender.empty()) return;
+
+        vector<string> tokens;
+        boost::split(tokens, path, boost::is_any_of("/"));
+
+        xmlNodePtr lvl1Node = NULL;
+        xmlNodePtr lvl2Node = NULL;
+
+        if(not (lvl1Node = GetNode(tokens[0].c_str(), parentNode)))
+            lvl1Node = NewTextChild(parentNode, tokens[0].c_str());
+
+        if(not (lvl2Node = GetNode(tokens[1].c_str(), lvl1Node)))
+            lvl2Node = NewTextChild(lvl1Node, tokens[1].c_str());
+
+        xmlNodePtr classNode = NewTextChild(lvl2Node, "class");
+        SetProp(classNode, "code", cls);
+        if(gender.pax_count.m) SetProp(NewTextChild(classNode, "male", (int)gender.pax_count.m), "seats", gender.seat_count.m);
+        if(gender.pax_count.f)SetProp(NewTextChild(classNode, "female", (int)gender.pax_count.f), "seats", gender.seat_count.f);
+        if(gender.pax_count.c)SetProp(NewTextChild(classNode, "chd", (int)gender.pax_count.c), "seats", gender.seat_count.c);
+        if(gender.pax_count.i)SetProp(NewTextChild(classNode, "inf", (int)gender.pax_count.i), "seats", gender.seat_count.i);
+        if(gender.bag.rkWeight) NewTextChild(classNode, "rk_weight", gender.bag.rkWeight);
+        if(gender.bag.bagAmount) NewTextChild(classNode, "bag_amount", gender.bag.bagAmount);
+        if(gender.bag.bagWeight) NewTextChild(classNode, "bag_weight", gender.bag.bagWeight);
+        if(gender.bag.excess) NewTextChild(classNode, "paybag_weight", gender.bag.excess);
+    }
+
+    void TReportData::toXML(xmlNodePtr rootNode)
+    {
+        xmlNodePtr airlineNode = NewTextChild(rootNode, "airline");
+        SetProp(airlineNode, "code_zrt", airline);
+        TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code",airline));
+        SetProp(airlineNode, "code_iata", row.code_lat);
+        NewTextChild(rootNode, "flt_no",  IntToString(flt_no) + suffix);
+        NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy"));
+
+        string status;
+        TTripStage ts;
+        TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
+        if(ts.act != NoExists) status = "CL";
+        TTripStages::LoadStage(point_id, sTakeoff, ts);
+        if(ts.act != NoExists) status = "CC";
+        if(status.empty()) {
+            status = "DEBUG";
+            //    return error("status not found");
+        }
+
+        NewTextChild(rootNode, "status",  status);
+
+        for(TRoute::iterator idx = route.begin(); idx != route.end(); idx++) {
+            xmlNodePtr routeNode = NewTextChild(rootNode, "route");
+            SetProp(routeNode, "num", idx->first);
+            for(TAirpRoute::iterator iAirp = idx->second.begin(); iAirp != idx->second.end(); iAirp++) {
+                xmlNodePtr airpNode = NewTextChild(routeNode, "airp");
+                SetProp(airpNode, "code_zrt", iAirp->first);
+                TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code",iAirp->first));
+                SetProp(airpNode, "code_iata", row.code_lat);
+                if(not iAirp->second.empty()) {
+                    for(TClsRoute::iterator iCls = iAirp->second.begin(); iCls != iAirp->second.end(); iCls++) {
+                        if(iCls->second.booking) {
+                            xmlNodePtr bookingNode = getNode(airpNode, "booking");
+                            xmlNodePtr classNode = NewTextChild(bookingNode, "class", iCls->second.booking);
+                            SetProp(classNode, "code", iCls->first);
+                        }
+                        genderToXML(airpNode, "checkin/tranzit", iCls->second.tranzit, iCls->first);
+                        genderToXML(airpNode, "checkin/goshow", iCls->second.goshow, iCls->first);
+                        genderToXML(airpNode, "checkin/self_checkin", iCls->second.self_checkin, iCls->first);
+                    }
+                }
+            }
+        }
+    }
+
+    int run(int argc, char **argv)
+    {
+        if(argc != 3)
+            return usage(argv[0]);
+        int point_id = NoExists;
+        try {
+            point_id = get_point_id(argv[1], argv[2]);
+        } catch(Exception &E) {
+            return error(E.what());
+        }
+
+        XMLDoc doc("flight");
+        xmlNodePtr rootNode = doc.docPtr()->children;
+
+        TReportData data;
+        data.get(point_id);
+        data.toXML(rootNode);
+
+        xml_encode_nodelist(rootNode);
+
+        ofstream out("flight.xml");
+        out << GetXMLDocText(doc.docPtr());
+        return 1;
+    }
+}
+
+void TelegramInterface::ckin_report(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string airline = CKIN_REPORT::getElemId(etAirline, NodeAsString("airline", reqNode));
+    int flt_no = NodeAsInteger("flt_no", reqNode);
+    string suffix = NodeAsString("suffix", reqNode);
+    if(not suffix.empty())
+        suffix = CKIN_REPORT::getElemId(etSuffix, suffix);
+    string airp_dep = CKIN_REPORT::getElemId(etAirp, NodeAsString("airp_dep", reqNode));
+    TDateTime scd_out = NodeAsDateTime("scd_out", reqNode);
+
+    TSearchFltInfo filter;
+    filter.airline = airline;
+    filter.flt_no = flt_no;
+    filter.suffix = suffix;
+    filter.airp_dep = airp_dep;
+    filter.scd_out = scd_out;
+    filter.scd_out_in_utc = true;
+    filter.only_with_reg = false;
+
+    int point_id = CKIN_REPORT::get_point_id(filter);
+    if(point_id == NoExists)
+        throw UserException("flight not found");
+
+    CKIN_REPORT::TReportData data;
+    data.get(point_id);
+    data.toXML(resNode);
+}

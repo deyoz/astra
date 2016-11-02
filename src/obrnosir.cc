@@ -103,6 +103,7 @@ const
     {"-seDCSAddReport",         nosir_seDCSAddReport,   NULL,                       NULL},
 	{"-convert_tz",             tz_conversion,          NULL,                       NULL},
     {"-test_cnv",               test_conversion,        NULL,                       NULL},
+    {"-ckin_report",            CKIN_REPORT::run,       NULL,                       NULL},
     {"-bp",                     bp_tst,                 NULL,                       NULL},
   };
 
