@@ -1506,6 +1506,7 @@ namespace PRL_SPACE {
         int pax_id;
         int grp_id;
         int bag_pool_num;
+        TPaxStatus grp_status;
         string subcls;
         TPNRList pnrs;
         TMItem M;
@@ -1724,6 +1725,7 @@ namespace PRL_SPACE {
             "    pax.grp_id, "
             "    pax.bag_pool_num, "
             "    NVL(pax.subclass,pax_grp.class) subclass, "
+            "    pax_grp.status grp_status, "
             "    pax.is_female, "
             "    pax.pers_type, "
             "    pax.crew_type "
@@ -1784,6 +1786,7 @@ namespace PRL_SPACE {
             int col_grp_id = Qry.get().FieldIndex("grp_id");
             int col_bag_pool_num = Qry.get().FieldIndex("bag_pool_num");
             int col_subcls = Qry.get().FieldIndex("subclass");
+            int col_grp_status = Qry.get().FieldIndex("grp_status");
             int col_is_female = Qry.get().FieldIndex("is_female");
             int col_pers_type = Qry.get().FieldIndex("pers_type");
             int col_crew_type = Qry.get().FieldIndex("crew_type");
@@ -1803,6 +1806,7 @@ namespace PRL_SPACE {
                     continue;
                 pax.pax_id = Qry.get().FieldAsInteger(col_pax_id);
                 pax.grp_id = Qry.get().FieldAsInteger(col_grp_id);
+                pax.grp_status = DecodePaxStatus(Qry.get().FieldAsString(col_grp_status));
                 if(not Qry.get().FieldIsNULL(col_bag_pool_num))
                     pax.bag_pool_num = Qry.get().FieldAsInteger(col_bag_pool_num);
                 pax.M.get(info, pax.pax_id);
@@ -6423,7 +6427,13 @@ void TWM::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 struct TByGender {
     size_t m, f, c, i;
     TByGender(): m(0), f(0), c(0), i(0) {};
+    bool empty() const;
 };
+
+bool TByGender::empty() const
+{
+    return not(m or f or c or i);
+}
 
 struct TLCITotals {
     size_t pax_size, bag_amount, bag_weight;
@@ -8865,3 +8875,260 @@ void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_t
   TPassSeats layerSeats;
   sectionInfo.GetTotalLayerSeat( layer_type, layerSeats );
 };
+
+#include "serverlib/xml_stuff.h"
+
+namespace CKIN_REPORT {
+
+    int error(const string &err = "")
+    {
+        cout << "error: " << err << endl;
+        return 1;
+    }
+
+    int usage(const string &prg, const string &err = "")
+    {
+        cout << "usage: " << prg << " UT001/14OCT DME" << endl;
+        return 1;
+    }
+
+    string getElemId(TElemType type, const string &elem)
+    {
+        TElemFmt fmt;
+        string result = ElemToElemId(type, elem, fmt, false);
+        if(fmt == efmtUnknown)
+            throw Exception("getElemId: elem not found (type = %s, elem = %s)",
+                    EncodeElemType(type),elem.c_str());
+        return result;
+    }
+
+    int get_point_id(const string &val, const string &airp)
+    {
+        TypeB::TFlightIdentifier flt;
+        flt.parse(val.c_str());
+
+        TSearchFltInfo filter;
+        filter.airline = flt.airline;
+        filter.flt_no = flt.flt_no;
+        if(flt.suffix)
+            filter.suffix.append(flt.suffix, 1);
+        filter.airp_dep = getElemId(etAirp, airp);
+        filter.scd_out = flt.date;
+        filter.scd_out_in_utc = true;
+        filter.only_with_reg = false;
+
+        list<TAdvTripInfo> flts;
+        SearchFlt(filter, flts);
+
+        TNearestDate nd(flt.date);
+        for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
+            nd.sorted_points[i->scd_out] = i->point_id;
+        int point_id = nd.get();
+        if(point_id == NoExists)
+            throw Exception("flight not found: %s", val.c_str());
+        return point_id;
+    }
+
+    struct TCounters {
+        int booking;
+        TByGender tranzit;
+        TByGender goshow;
+        TByGender self_checkin;
+        bool ckin_empty();
+        TCounters(): booking(0) {}
+    };
+
+    bool TCounters::ckin_empty() {
+        return
+            tranzit.empty() and
+            goshow.empty() and
+            self_checkin.empty();
+
+    }
+
+    struct TReportData {
+        int point_id;
+        string airline;
+        int flt_no;
+        string suffix;
+        TDateTime scd_out;
+
+        typedef map<string, TCounters> TClsRoute;
+        typedef map<string, TClsRoute> TAirpRoute;
+        typedef map<int, TAirpRoute> TRoute; // [order][airp][class] = count
+        TRoute route;
+
+        void Clear()
+        {
+            point_id = NoExists;
+            airline.clear();
+            flt_no = NoExists;
+            suffix.clear();
+            scd_out = NoExists;
+        }
+
+        TReportData()
+        {
+            Clear();
+        }
+
+        void get(int point_id);
+        void toXML(xmlNodePtr rootNode);
+    };
+
+    void TReportData::get(int apoint_id)
+    {
+        Clear();
+
+        point_id = apoint_id;
+
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "select "
+            "   airline, "
+            "   flt_no, "
+            "   suffix, "
+            "   scd_out "
+            "from "
+            "   points "
+            "where "
+            "   point_id = :point_id";
+        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.Execute();
+
+        airline = Qry.FieldAsString("airline");
+        flt_no = Qry.FieldAsInteger("flt_no");
+        suffix = Qry.FieldAsString("suffix");
+        scd_out = Qry.FieldAsDateTime("scd_out");
+
+        TypeB::TCreateInfo PRLcreateInfo("PRL", TypeB::TCreatePoint());
+        TypeB::TDetailCreateInfo PRLinfo;
+        PRLinfo.create_point = PRLcreateInfo.create_point;
+        PRLinfo.copy(PRLcreateInfo);
+        PRLinfo.point_id = point_id;
+
+        // complayers нужен внутри PRL для вытаскивания номера места для ремарки SEAT
+        // в данном случае, нужны только totals, поэтому передаем пустой вектор
+        vector<TTlgCompLayer> complayers;
+        TDestList<TPRLDest> dests;
+        dests.get(PRLinfo,complayers);
+        // вектор TPRLDest может содержать дублированные АП:
+        // ШРМ Б
+        // ШРМ Э
+
+
+        TTripRoute trip_route;
+        trip_route.GetRouteAfter(NoExists, point_id, trtWithCurrent, trtNotCancelled);
+        int idx = 1;
+        for(TTripRoute::iterator iRoute = trip_route.begin(); iRoute != trip_route.end(); iRoute++, idx++) {
+            vector<TPRLDest>::iterator iDest = dests.items.begin();
+            for(; iDest != dests.items.end(); iDest++) {
+                if(iRoute->airp == iDest->airp) {
+                    TCounters &cnt = route[idx][iRoute->airp][iDest->cls];
+                    cnt.booking += iDest->PaxList.size();
+                    for(vector<TPRLPax>::iterator pax_i = iDest->PaxList.begin(); pax_i != iDest->PaxList.end(); pax_i++) {
+                        switch(pax_i->gender) {
+                            case gMale:
+                                cnt.tranzit.m++;
+                                break;
+                            case gFemale:
+                                cnt.tranzit.f++;
+                                break;
+                            case gChild:
+                                cnt.tranzit.c++;
+                                break;
+                            case gInfant:
+                                cnt.tranzit.i++;
+                                break;
+                        }
+                    }
+                }
+                route[idx][iRoute->airp]; // чтобы добавился АП вылета рейса
+            }
+        }
+    }
+
+    void genderToXML(xmlNodePtr parentNode, const string &path, const TByGender &gender, const string &cls)
+    {
+        if(gender.empty()) return;
+        xmlNodePtr genderNode = getNode(parentNode, path.c_str());
+        xmlNodePtr classNode = NewTextChild(genderNode, "class");
+        SetProp(classNode, "code", cls);
+        if(gender.m) SetProp(NewTextChild(classNode, "male", (int)gender.m), "seats", gender.m);
+        if(gender.f)SetProp(NewTextChild(classNode, "female", (int)gender.f), "seats", gender.f);
+        if(gender.c)SetProp(NewTextChild(classNode, "chd", (int)gender.c), "seats", gender.c);
+        if(gender.i)SetProp(NewTextChild(classNode, "inf", (int)gender.i), "seats", gender.i);
+    }
+
+    void TReportData::toXML(xmlNodePtr rootNode)
+    {
+        xmlNodePtr airlineNode = NewTextChild(rootNode, "airline");
+        SetProp(airlineNode, "code_zrt", airline);
+        TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code",airline));
+        SetProp(airlineNode, "code_iata", row.code_lat);
+        NewTextChild(rootNode, "flt_no",  IntToString(flt_no) + suffix);
+        NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy"));
+
+        string status;
+        TTripStage ts;
+        TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
+        if(ts.act != NoExists) status = "CL";
+        TTripStages::LoadStage(point_id, sTakeoff, ts);
+        if(ts.act != NoExists) status = "CC";
+        if(status.empty()) {
+            status = "DEBUG";
+            //    return error("status not found");
+        }
+
+        NewTextChild(rootNode, "status",  status);
+
+        for(TRoute::iterator idx = route.begin(); idx != route.end(); idx++) {
+            xmlNodePtr routeNode = NewTextChild(rootNode, "route");
+            SetProp(routeNode, "num", idx->first);
+            for(TAirpRoute::iterator iAirp = idx->second.begin(); iAirp != idx->second.end(); iAirp++) {
+                xmlNodePtr airpNode = NewTextChild(routeNode, "airp");
+                SetProp(airpNode, "code_zrt", iAirp->first);
+                TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code",iAirp->first));
+                SetProp(airpNode, "code_iata", row.code_lat);
+                if(not iAirp->second.empty()) {
+
+                    for(TClsRoute::iterator iCls = iAirp->second.begin(); iCls != iAirp->second.end(); iCls++) {
+                        if(iCls->second.booking) {
+                            xmlNodePtr bookingNode = getNode(airpNode, "booking");
+                            xmlNodePtr classNode = NewTextChild(bookingNode, "class", iCls->second.booking);
+                            SetProp(classNode, "code", iCls->first);
+                        }
+                        genderToXML(airpNode, "checkin/tranzit", iCls->second.tranzit, iCls->first);
+                        genderToXML(airpNode, "checkin/goshow", iCls->second.goshow, iCls->first);
+                        genderToXML(airpNode, "checkin/self_checkin", iCls->second.self_checkin, iCls->first);
+                    }
+                }
+            }
+        }
+    }
+
+    int run(int argc, char **argv)
+    {
+        if(argc != 3)
+            return usage(argv[0]);
+        int point_id = NoExists;
+        try {
+            point_id = get_point_id(argv[1], argv[2]);
+        } catch(Exception &E) {
+            return error(E.what());
+        }
+
+        XMLDoc doc("flight");
+        xmlNodePtr rootNode = doc.docPtr()->children;
+
+        TReportData data;
+        data.get(point_id);
+        data.toXML(rootNode);
+
+        xml_encode_nodelist(rootNode);
+
+        ofstream out("flight.xml");
+        out << GetXMLDocText(doc.docPtr());
+        return 1;
+    }
+}
