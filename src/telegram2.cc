@@ -6735,6 +6735,24 @@ string get_grp_cls(int pax_id)
     return result;
 }
 
+string get_rem_category(int grp_id)
+{
+    string result;
+    TCachedQuery Qry(
+            "select bag_types.rem_code "
+            "from pax_grp, bag2, bag_types where "
+            "   pax_grp.grp_id = :grp_id and "
+            "   pax_grp.grp_id = bag2.grp_id and "
+            "   bag2.pr_cabin=0 AND "
+            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 and "
+            "   bag2.bag_type = bag_types.code(+) ",
+            QParams() << QParam("grp_id", otInteger, grp_id));
+    Qry.get().Execute();
+    if(not Qry.get().Eof)
+        result = Qry.get().FieldAsString("rem_code");
+    return result;
+}
+
 void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
@@ -6767,12 +6785,14 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
         for(vector<TPRLPax>::iterator pax_i = iv->PaxList.begin(); pax_i != iv->PaxList.end(); pax_i++) {
             TWItem pax_bag = dests.paxBag(pax_i->grp_id, pax_i->pax_id, pax_i->bag_pool_num);
 
-            string rem_category;
+            string rem_category = get_rem_category(pax_i->grp_id);
+            /*
             for(vector<string>::iterator rem_i = pax_i->rems.items.begin();
                     rem_i != pax_i->rems.items.end(); rem_i++) {
                 if(rem_grp.exists(rem_i->substr(0, 4)))
                     rem_category = rem_i->substr(0, 4);
             }
+            */
 
 
             if(isExtraCrew(pax_i->crew_type)) {
