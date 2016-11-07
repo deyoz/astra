@@ -6799,8 +6799,8 @@ void TLCIPaxTotals::get(TypeB::TDetailCreateInfo &info)
                 items[idx].cls_totals.extra_items[iv->cls].bag_amount += pax_bag.bagAmount;
                 items[idx].cls_totals.extra_items[iv->cls].bag_weight += pax_bag.bagWeight;
 
-                items[idx].bag_category[BCAT_BZ][rem_category].first += pax_bag.bagAmount;
-                items[idx].bag_category[BCAT_BZ][rem_category].second += pax_bag.bagWeight;
+                items[idx].bag_category[BCAT_BZ][""].first += pax_bag.bagAmount;
+                items[idx].bag_category[BCAT_BZ][""].second += pax_bag.bagWeight;
                 extra_crew.insert(pax_i->pax_id);
             } else {
                 items[idx].cls_totals.items[iv->cls].bag_amount += pax_bag.bagAmount;
