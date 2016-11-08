@@ -161,6 +161,7 @@ astra_SOURCES = \
   tz_test.cpp \
   collect.cc \
   collect_data.cc \
+  SalonPaxList.cc \
   brands.cpp
 
 
@@ -316,4 +317,5 @@ noinst_HEADERS = \
   tz_test.h \
   collect.h \
   collect_data.h \
+  SalonPaxList.h \
   brands.h
