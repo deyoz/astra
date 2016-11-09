@@ -1458,7 +1458,8 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
         createInfo.set_addrs(info.sender);
         TelegramInterface::SendTlg(vector<TCreateInfo>(1, createInfo), tlg_id);
     } else if(con.action_code.action == aOpen) {
-        options.seat_plan = "AHM";
+        options.seat_plan = true;
+        options.version = "WB";
         createInfo.point_id = point_id_spp;
         createInfo.set_addrs(info.sender);
         TelegramInterface::SendTlg(vector<TCreateInfo>(1, createInfo));

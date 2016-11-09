@@ -6510,6 +6510,14 @@ struct TPaxTotalsItem {
 
 int TPaxTotalsItem::bag_weight()
 {
+    LogTrace(TRACE5) << "bag_weight() data:";
+    LogTrace(TRACE5)
+        << items["П"].bag_weight << " "
+        << items["Б"].bag_weight << " "
+        << items["Э"].bag_weight << " "
+        << extra_items["П"].bag_weight << " "
+        << extra_items["Б"].bag_weight << " "
+        << extra_items["Э"].bag_weight;
     return
         items["П"].bag_weight +
         items["Б"].bag_weight +
@@ -6772,17 +6780,8 @@ const string BCAT_BX = "BX"; // багаж доп. экипажа
 
 void TLCIPaxTotals::process()
 {
-    LogTrace(TRACE5) << "------process------";
-    LogTrace(TRACE5)
-        << "reg_no: " << pax->reg_no << " "
-        << "name: " << pax->surname << " " << pax->name;
-
     string airp_arv = airpByPointId(pax->point_arv);
     string airline = Finfo->airline;
-
-    LogTrace(TRACE5)
-        << "airp_arv: " << airp_arv << " "
-        << "airline: " << airline;
 
     size_t idx = 0;
     for(; idx < items.size(); idx++)
@@ -6795,10 +6794,6 @@ void TLCIPaxTotals::process()
     string trfer_airline, trfer_airp_arv;
     bool is_trfer = isTrfer(pax->grp_id, trfer_airline, trfer_airp_arv);
 
-    LogTrace(TRACE5)
-        << "trfer_airline: " << trfer_airline << " "
-        << "trfer_airp_arv: " << trfer_airp_arv;
-
     map<string, pair<int, int> > bag_info; // bag_types.rem_code, amount, weight
     int bag_pool_num;
     get_bag_info(bag_info, bag_pool_num, pax->grp_id, pax->pax_id);
@@ -6808,15 +6803,10 @@ void TLCIPaxTotals::process()
             iBag != bag_info.end();
             iBag++) {
         if(isExtraCrew(pax->crew_type)) {
-            items[idx].cls_totals.extra_items[pax->cl].bag_amount += get_bag_totals(bag_info).first;
-            items[idx].cls_totals.extra_items[pax->cl].bag_weight += get_bag_totals(bag_info).second;
-
             items[idx].bag_category[BCAT_BZ][""].first += iBag->second.first;
             items[idx].bag_category[BCAT_BZ][""].second += iBag->second.second;
         } else {
-            items[idx].cls_totals.items[pax->cl].bag_amount += get_bag_totals(bag_info).first;
-            items[idx].cls_totals.items[pax->cl].bag_weight += get_bag_totals(bag_info).second;
-
+            string category;
             if(is_trfer) {
                 TBaseTable &baseairps = base_tables.get( "airps" );
                 TBaseTable &basecities = base_tables.get( "cities" );
@@ -6824,48 +6814,26 @@ void TLCIPaxTotals::process()
                     ((TCitiesRow&)basecities.get_row("code", ((TAirpsRow&)baseairps.get_row("code", airp_arv)).city)).country == "РФ";
                 internal_flight = internal_flight and
                     ((TCitiesRow&)basecities.get_row("code", ((TAirpsRow&)baseairps.get_row("code", trfer_airp_arv)).city)).country == "РФ";
+
                 if(internal_flight) {
-                    items[idx].bag_category[BCAT_BD][iBag->first].first += iBag->second.first;
-                    items[idx].bag_category[BCAT_BD][iBag->first].second += iBag->second.second;
-                    LogTrace(TRACE5) << "rem: " << iBag->first;
-                    LogTrace(TRACE5) << "category: " << BCAT_BD << " "
-                        << iBag->second.first << "/" << iBag->second.second;
+                    category = BCAT_BD;
                 } else if(airline != trfer_airline) {
-                    items[idx].bag_category[BCAT_BI][iBag->first].first += iBag->second.first;
-                    items[idx].bag_category[BCAT_BI][iBag->first].second += iBag->second.second;
-                    LogTrace(TRACE5) << "rem: " << iBag->first;
-                    LogTrace(TRACE5) << "category: " << BCAT_BI << " "
-                        << iBag->second.first << "/" << iBag->second.second;
+                    category = BCAT_BI;
                 } else {
-                    items[idx].bag_category[BCAT_BT][iBag->first].first += iBag->second.first;
-                    items[idx].bag_category[BCAT_BT][iBag->first].second += iBag->second.second;
-                    LogTrace(TRACE5) << "rem: " << iBag->first;
-                    LogTrace(TRACE5) << "category: " << BCAT_BT << " "
-                        << iBag->second.first << "/" << iBag->second.second;
+                    category = BCAT_BT;
                 }
             } else {
                 if(pax->cl == "П") {
-                    items[idx].bag_category[BCAT_BF][iBag->first].first += iBag->second.first;
-                    items[idx].bag_category[BCAT_BF][iBag->first].second += iBag->second.second;
-                    LogTrace(TRACE5) << "rem: " << iBag->first;
-                    LogTrace(TRACE5) << "category: " << BCAT_BF << " "
-                        << iBag->second.first << "/" << iBag->second.second;
-                }
+                    category = BCAT_BF;
+                } else
                 if(pax->cl == "Б") {
-                    items[idx].bag_category[BCAT_BC][iBag->first].first += iBag->second.first;
-                    items[idx].bag_category[BCAT_BC][iBag->first].second += iBag->second.second;
-                    LogTrace(TRACE5) << "rem: " << iBag->first;
-                    LogTrace(TRACE5) << "category: " << BCAT_BC << " "
-                        << iBag->second.first << "/" << iBag->second.second;
-                }
-                if(pax->cl == "Э") {
-                    items[idx].bag_category[BCAT_BY][iBag->first].first += iBag->second.first;
-                    items[idx].bag_category[BCAT_BY][iBag->first].second += iBag->second.second;
-                    LogTrace(TRACE5) << "rem: " << iBag->first;
-                    LogTrace(TRACE5) << "category: " << BCAT_BY << " "
-                        << iBag->second.first << "/" << iBag->second.second;
+                    category = BCAT_BC;
+                } else /*if(pax->cl == "Э")*/ {
+                    category = BCAT_BY;
                 }
             }
+            items[idx].bag_category[category][iBag->first].first += iBag->second.first;
+            items[idx].bag_category[category][iBag->first].second += iBag->second.second;
         }
     }
 
@@ -6876,6 +6844,14 @@ void TLCIPaxTotals::process()
     pax_tot_by_cls[pax->cl].append(getGender(pax->pax_id));
 
     items[idx].cls_totals.items[pax->cl].pax_size++;
+
+    if(isExtraCrew(pax->crew_type)) {
+        items[idx].cls_totals.extra_items[pax->cl].bag_amount += get_bag_totals(bag_info).first;
+        items[idx].cls_totals.extra_items[pax->cl].bag_weight += get_bag_totals(bag_info).second;
+    } else {
+        items[idx].cls_totals.items[pax->cl].bag_amount += get_bag_totals(bag_info).first;
+        items[idx].cls_totals.items[pax->cl].bag_weight += get_bag_totals(bag_info).second;
+    }
 }
 
 void TLCIPaxTotals::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, vector<string> &si)
