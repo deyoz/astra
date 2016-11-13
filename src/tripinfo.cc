@@ -1149,7 +1149,9 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 
     if (reqInfo->screen.name == "AIR.EXE")
     {
-      NewTextChild( node, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,info) );
+        NewTextChild( node, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,info) );
+        NewTextChild( node, "pr_auto_pt_print", (int)GetTripSets(tsAutoPTPrint,info) );
+        NewTextChild( node, "pr_auto_pt_print_reseat", (int)GetTripSets(tsAutoPTPrintReseat,info) );
     };
   };
 
