@@ -355,6 +355,8 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsNoEMDAutoBinding=31,          //Запрет автопривязки EMD
                     tsCheckPayOnTCkinSegs=32,       //Контроль оплаты только на сквозных сегментах
                     tsAPISControlOnFirstSegOnly=33, //Контроль данных APIS только на первом сегменте
+                    tsAutoPTPrint=34,               //Автоматическая печать посадочных
+                    tsAutoPTPrintReseat=35,         //Автоматическая печать ПТ при изменении места
                     tsNoCrewCkinAlarm=40,           //Отмена тревоги 'Регистрация экипажа'
 
                     /*привязанные к рейсу (есть соответствующие поля в таблице trip_sets)*/

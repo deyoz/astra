@@ -7736,17 +7736,19 @@ void CheckInInterface::readTripSets( int point_id,
                                      const TTripInfo &fltInfo,
                                      xmlNodePtr tripSetsNode )
 {
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id ";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.Execute();
-  if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+    TQuery Qry( &OraSession );
+    Qry.Clear();
+    Qry.SQLText=
+        "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id ";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.Execute();
+    if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 
-  NewTextChild( tripSetsNode, "pr_etl_only", (int)GetTripSets(tsETSNoInteract,fltInfo) );
-  NewTextChild( tripSetsNode, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
-  NewTextChild( tripSetsNode, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,fltInfo) );
+    NewTextChild( tripSetsNode, "pr_etl_only", (int)GetTripSets(tsETSNoInteract,fltInfo) );
+    NewTextChild( tripSetsNode, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
+    NewTextChild( tripSetsNode, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,fltInfo) );
+    NewTextChild( tripSetsNode, "pr_auto_pt_print", (int)GetTripSets(tsAutoPTPrint,fltInfo) );
+    NewTextChild( tripSetsNode, "pr_auto_pt_print_reseat", (int)GetTripSets(tsAutoPTPrintReseat,fltInfo) );
 };
 
 void CheckInInterface::GetTripCounters(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
