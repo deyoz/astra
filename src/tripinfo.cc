@@ -2559,6 +2559,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   NewTextChild(defNode, "isseat", 1);
   NewTextChild(defNode, "reg_no", "");
   NewTextChild(defNode, "refuse", "");
+  NewTextChild(defNode, "brand", "");
+  NewTextChild(defNode, "fqt", "");
 
   TRemGrp rem_grp;
   rem_grp.Load(retPNL_SEL, point_id);
