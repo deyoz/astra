@@ -380,6 +380,8 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::PNR,                     TTagListItem(&TPrnTagStore::PNR, PNR_INFO)));
     tag_list.insert(make_pair(TAG::BI_HALL,                 TTagListItem(&TPrnTagStore::BI_HALL, POINT_INFO)));
     tag_list.insert(make_pair(TAG::BI_HALL_CAPTION,         TTagListItem(&TPrnTagStore::BI_HALL_CAPTION, POINT_INFO)));
+    tag_list.insert(make_pair(TAG::BI_RULE,                 TTagListItem(&TPrnTagStore::BI_RULE)));
+    tag_list.insert(make_pair(TAG::BI_RULE_GUEST,           TTagListItem(&TPrnTagStore::BI_RULE_GUEST)));
 }
 
 // BP && BT
@@ -2545,6 +2547,23 @@ string TPrnTagStore::AIRP_ARV_NAME2(TFieldParams fp) {
 
 string TPrnTagStore::AIRP_ARV_NAME3(TFieldParams fp) {
     return AIRP_ARV_NAME1(fp);
+}
+
+string TPrnTagStore::BI_RULE_GUEST(TFieldParams fp) {
+    string result = BI_RULE(fp);
+    if(not result.empty())
+        result += getLocaleText("гость", tag_lang.GetLang());
+    return result;
+}
+
+string TPrnTagStore::BI_RULE(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty()) {
+        const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
+        if(rule.exists() and rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
+                result << "+1";
+    }
+    return result.str();
 }
 
 string TPrnTagStore::BI_HALL_CAPTION(TFieldParams fp) {
