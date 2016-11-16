@@ -87,6 +87,9 @@ namespace TAG {
     const std::string PAX_TITLE = "PAX_TITLE";
     const std::string BI_HALL = "BI_HALL";
     const std::string BI_HALL_CAPTION = "BI_HALL_CAPTION";
+    const std::string BI_RULE = "BI_RULE";
+    const std::string BI_RULE_GUEST = "BI_RULE_GUEST";
+    const std::string BI_AIRP_TERMINAL = "BI_AIRP_TERMINAL";
 
     // specific for bag tags
     const std::string AIRCODE = "AIRCODE";
@@ -303,7 +306,8 @@ class TPrnTagStore {
 
         struct TBIHallInfo {
             int hall_id;
-            TBIHallInfo(): hall_id(ASTRA::NoExists) {}
+            int airp_terminal_id;
+            TBIHallInfo(): hall_id(ASTRA::NoExists), airp_terminal_id(ASTRA::NoExists) {}
         };
         TBIHallInfo BIHallInfo;
 
@@ -494,6 +498,9 @@ class TPrnTagStore {
         std::string PAX_TITLE(TFieldParams fp);
         std::string BI_HALL(TFieldParams fp);
         std::string BI_HALL_CAPTION(TFieldParams fp);
+        std::string BI_RULE(TFieldParams fp);
+        std::string BI_RULE_GUEST(TFieldParams fp);
+        std::string BI_AIRP_TERMINAL(TFieldParams fp);
 
         // specific for bag tags
         std::string AIRCODE(TFieldParams fp);
