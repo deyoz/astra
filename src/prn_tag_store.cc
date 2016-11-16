@@ -524,7 +524,7 @@ string TPrnTagStore::get_real_field(std::string name, size_t len, std::string da
     if((im->second.info_type & POINT_INFO) == POINT_INFO)
         pointInfo.Init(prn_tag_props.op, grpInfo.point_dep, grpInfo.grp_id);
     if((im->second.info_type & PAX_INFO) == PAX_INFO)
-        paxInfo.Init(grpInfo.grp_id, pax_id, tag_lang);
+        paxInfo.Init(grpInfo, pax_id, tag_lang);
     if((im->second.info_type & BRD_INFO) == BRD_INFO)
         brdInfo.Init(grpInfo.point_dep);
     if((im->second.info_type & FQT_INFO) == FQT_INFO)
@@ -872,7 +872,7 @@ void TPrnTagStore::TBrdInfo::Init(int point_id)
     }
 }
 
-void TPrnTagStore::TPaxInfo::Init(int agrp_id, int apax_id, TTagLang &tag_lang)
+void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLang &tag_lang)
 {
     if(apax_id == NoExists) {
         LogTrace(TRACE3) << "Fake pax_id detected!";
@@ -912,7 +912,7 @@ void TPrnTagStore::TPaxInfo::Init(int agrp_id, int apax_id, TTagLang &tag_lang)
                 "   pax_id = :pax_id ";
             Qry.CreateVariable("lang", otString, tag_lang.GetLang());
 
-            TPrPrint().get_pr_print(agrp_id, pax_id, pr_bp_print, pr_bi_print);
+            TPrPrint().get_pr_print(grp_info.grp_id, pax_id, pr_bp_print, pr_bi_print);
             brand.get(pax_id);
         }
         else
@@ -969,6 +969,21 @@ void TPrnTagStore::TPaxInfo::Init(int agrp_id, int apax_id, TTagLang &tag_lang)
         rk_weight = Qry.FieldAsInteger("rk_weight");
         tags = Qry.FieldAsString("tags");
         subcls = Qry.FieldAsString("subclass");
+
+        // daem dorabotat' do konca, potom
+
+        if(grp_info.pr_print_fio_pnl) {
+            // esli nastroyka vkluchena, togda vytaskivaem dannye is PNL
+            TCachedQuery Qry("select name, surname from crs_pax where pax_id = :pax_id",
+                    QParams() << QParam("pax_id", otInteger, pax_id));
+            Qry.get().Execute();
+            if(not Qry.get().Eof) {
+                surname = Qry.get().FieldAsString("surname");
+                name = Qry.get().FieldAsString("name");
+                surname_2d = surname;
+                name_2d = name;
+            }
+        }
     }
 }
 
@@ -1009,6 +1024,10 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
             if(not Qry.FieldIsNULL("hall"))
                 hall = Qry.FieldAsInteger("hall");
             excess = Qry.FieldAsInteger("excess");
+
+            TTripInfo info;
+            info.getByPointId(point_dep);
+            pr_print_fio_pnl = GetTripSets(tsPrintFioPNL,info);
         }
         else
         {

@@ -319,13 +319,15 @@ class TPrnTagStore {
             int excess;
             int hall;
             TPrPrint prPrintInfo;
+            bool pr_print_fio_pnl;
             TGrpInfo():
                 grp_id(ASTRA::NoExists),
                 point_dep(ASTRA::NoExists),
                 point_arv(ASTRA::NoExists),
                 class_grp(ASTRA::NoExists),
                 excess(ASTRA::NoExists),
-                hall(ASTRA::NoExists)
+                hall(ASTRA::NoExists),
+                pr_print_fio_pnl(false)
             {}
             void Init(int agrp_id, int apax_id);
         };
@@ -372,7 +374,7 @@ class TPrnTagStore {
                 pr_bp_print(false),
                 pr_bi_print(false)
             {}
-            void Init(int agrp_id, int apax_id, TTagLang &tag_lang);
+            void Init(const TGrpInfo &grp_info, int apax_id, TTagLang &tag_lang);
         };
         TPaxInfo paxInfo;
 
