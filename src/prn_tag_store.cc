@@ -2592,8 +2592,6 @@ string TPrnTagStore::BI_HALL_CAPTION(TFieldParams fp) {
         if(rule.exists()) {
             BIHallInfo.hall_id = rule.halls.begin()->first;
             result << upperc(getLocaleText("Бизнес зал", tag_lang.GetLang()));
-            if(rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
-                result << " +1";
         }
     }
     return result.str();
@@ -2607,8 +2605,6 @@ string TPrnTagStore::BI_HALL(TFieldParams fp) {
             BIHallInfo.hall_id = rule.halls.begin()->first;
             int hall = rule.halls.begin()->first;
             result << transliter(tag_lang.ElemIdToTagElem(etBIHall, hall, efmtNameLong), 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-            if(rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
-                result << " +1";
         }
     }
     return result.str();
