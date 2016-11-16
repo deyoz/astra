@@ -1790,6 +1790,7 @@ void PrintInterface::GetPrintDataBP(
                 parser->pts.set_tag(TAG::BI_HALL_CAPTION, bi_rule);
                 parser->pts.set_tag(TAG::BI_RULE, bi_rule);
                 parser->pts.set_tag(TAG::BI_RULE_GUEST, bi_rule);
+                parser->pts.set_tag(TAG::BI_AIRP_TERMINAL, bi_rule);
             }
         }
 

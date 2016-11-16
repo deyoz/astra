@@ -382,6 +382,7 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::BI_HALL_CAPTION,         TTagListItem(&TPrnTagStore::BI_HALL_CAPTION, POINT_INFO)));
     tag_list.insert(make_pair(TAG::BI_RULE,                 TTagListItem(&TPrnTagStore::BI_RULE)));
     tag_list.insert(make_pair(TAG::BI_RULE_GUEST,           TTagListItem(&TPrnTagStore::BI_RULE_GUEST)));
+    tag_list.insert(make_pair(TAG::BI_AIRP_TERMINAL,        TTagListItem(&TPrnTagStore::BI_AIRP_TERMINAL)));
 }
 
 // BP && BT
@@ -2581,6 +2582,21 @@ string TPrnTagStore::BI_RULE(TFieldParams fp) {
         const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
         if(rule.exists() and rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
                 result << "+1";
+    }
+    return result.str();
+}
+
+string TPrnTagStore::BI_AIRP_TERMINAL(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty()) {
+        const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
+        if(rule.exists() and not rule.halls.empty()) {
+            BIHallInfo.hall_id = rule.halls.begin()->first;
+            BIHallInfo.airp_terminal_id = rule.halls.begin()->second;
+            result << transliter(
+                    tag_lang.ElemIdToTagElem(etAirpTerminal, BIHallInfo.airp_terminal_id, efmtNameLong),
+                    1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+        }
     }
     return result.str();
 }
