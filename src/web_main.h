@@ -7,6 +7,7 @@
 #include "typeb_utils.h"
 #include "web_search.h"
 #include "checkin_utils.h"
+#include "brands.h"
 #include "etick.h"
 #include <tuple>
 #include <vector>
@@ -134,6 +135,7 @@ struct TWebPax {
     std::string checkin_status;
     std::set<std::string> agent_checkin_reasons;
     CheckIn::TPaxTknItem tkn;
+    TBrand brand;
     CheckIn::TPaxDocItem doc;
     CheckIn::TPaxDocoItem doco;
     TETickItem etick;
