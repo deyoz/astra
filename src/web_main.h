@@ -83,6 +83,8 @@ public:
      AddEvent("GetPaxsInfo",evHandle);
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::GetCacheTable);
      AddEvent("GetCacheTable",evHandle);
+     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::CheckFFP);
+     AddEvent("CheckFFP",evHandle);
   };
 
   void SearchPNRs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -103,7 +105,8 @@ public:
   void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);\
+  void CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
 };

@@ -42,6 +42,7 @@
 #include "baggage_pc.h"
 #include "meridian.h"
 #include "brands.h"
+#include "ffp_sirena.h"
 
 
 
@@ -3302,6 +3303,45 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     }
   }
   NewTextChild( n, "tid", tid );
+}
+
+void WebRequestsIface::CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  //а нужена ли проверка crs_pax_id? - пока не делаю!!!
+  xmlNodePtr ffpsNode = GetNode( "ffps", reqNode );
+  if ( ffpsNode == NULL ) {
+    throw EXCEPTIONS::Exception( "tag 'ffps' not found" );
+  }
+  xmlNodePtr reqffpNode = ffpsNode->children;
+  if ( reqffpNode == NULL || string("ffp") != (char*)reqffpNode->name ) {
+    throw EXCEPTIONS::Exception( "tag 'ffp' not found" );
+  }
+  ffpsNode = NewTextChild( resNode, "ffps" );
+  while ( reqffpNode!=NULL && string("ffp") == (char*)reqffpNode->name ) {
+    xmlNodePtr node = reqffpNode->children;
+    SirenaExchange::TFFPInfoReq req;
+    SirenaExchange::TFFPInfoRes res;
+    xmlNodePtr resFfpNode = NewTextChild( ffpsNode, "ffp" );
+    NewTextChild( resFfpNode, "crs_pax_id", NodeAsIntegerFast( "crs_pax_id", node ) );
+    req.set(NodeAsStringFast( "airline", node ), NodeAsStringFast( "card_number", node ));
+    bool pr_error = false;
+    try {
+      get_ffp_status(req, res);
+      NewTextChild( resFfpNode, "error_message" );
+    }
+    catch( EXCEPTIONS::Exception e ) {
+      pr_error = true;
+      NewTextChild( resFfpNode, "error_message", e.what() );
+    }
+    catch( ... ) {
+      pr_error = true;
+      NewTextChild( resFfpNode, "error_message", "Unknown error" );
+    }
+    NewTextChild( resFfpNode, "airline", pr_error?req.company:res.company );
+    NewTextChild( resFfpNode, "card_number", pr_error?req.card_number:res.card_number );
+    NewTextChild( resFfpNode, "tier_level", pr_error?"":res.status );
+    reqffpNode = reqffpNode->next;
+  }
 }
 
 void WebRequestsIface::ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
