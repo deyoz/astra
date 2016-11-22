@@ -162,6 +162,7 @@ astra_SOURCES = \
   collect.cc \
   collect_data.cc \
   SalonPaxList.cc \
+  annul_bt.cc \
   brands.cpp
 
 
@@ -318,4 +319,5 @@ noinst_HEADERS = \
   collect.h \
   collect_data.h \
   SalonPaxList.h \
+  annul_bt.h \
   brands.h
