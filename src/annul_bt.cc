@@ -22,6 +22,8 @@ void TAnnulBT::toDB()
             << QParam("time_create", otDate)
             << QParam("amount", otInteger)
             << QParam("weight", otInteger)
+            << QParam("airp_dep", otString, airp_dep)
+            << QParam("airp_arv", otString, airp_arv)
             << QParam("time_annul", otDate, NowUTC())
             << QParam("trfer_airline", otString, trfer_airline)
             << QParam("trfer_suffix", otString, trfer_suffix);
@@ -45,6 +47,8 @@ void TAnnulBT::toDB()
                 "      time_annul, "
                 "      amount, "
                 "      weight, "
+                "      airp_dep, "
+                "      airp_arv, "
                 "      trfer_airline, "
                 "      trfer_flt_no, "
                 "      trfer_suffix, "
@@ -58,6 +62,8 @@ void TAnnulBT::toDB()
                 "      :time_annul, "
                 "      :amount, "
                 "      :weight, "
+                "      :airp_dep, "
+                "      :airp_arv, "
                 "      :trfer_airline, "
                 "      :trfer_flt_no, "
                 "      :trfer_suffix, "
@@ -188,6 +194,19 @@ void TAnnulBT::get(int grp_id)
             trfer_suffix = trferQry.get().FieldAsString("trfer_suffix");
             trfer_scd = trferQry.get().FieldAsDateTime("trfer_scd");
         };
+
+        TCachedQuery grpQry(
+                "select "
+                "   airp_dep, "
+                "   airp_arv "
+                "from pax_grp where "
+                "   grp_id = :grp_id ",
+                QParams() << QParam("grp_id", otInteger, grp_id));
+        grpQry.get().Execute();
+        if(not grpQry.get().Eof) {
+            airp_dep = grpQry.get().FieldAsString("airp_dep");
+            airp_arv = grpQry.get().FieldAsString("airp_arv");
+        }
 
         TCachedQuery bagQry("SELECT * FROM bag2 WHERE grp_id=:grp_id",
                 QParams() << QParam("grp_id", otInteger, grp_id));

@@ -16,6 +16,9 @@ struct TAnnulBT {
     std::string trfer_suffix;
     TDateTime trfer_scd;
 
+    std::string airp_dep;
+    std::string airp_arv;
+
     TBagNumMap items;
 
     void get(int grp_id);
