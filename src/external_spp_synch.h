@@ -7,6 +7,7 @@
 #include "http_main.h"
 #include "stl_utils.h"
 #include "astra_elems.h"
+#include "points.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -42,32 +43,20 @@ struct FlightProperty {
 
 const std::string FormatFlightDateTime = "yyyy-mm-dd hh:nn:ss";
 
-struct TCode {
-  std::string code;
-  TElemFmt fmt;
-  TCode() {
-    clear();
-  }
-  void clear() {
-    code.clear();
-    fmt = efmtUnknown;
-  }
-};
-
 struct  TParseFlight {
   std::string own_region;
   std::string own_airp;
   std::string error;
-  TCode airline;
+  TElemStruct airline;
   std::string fltNo;
   int flt_no;
-  TCode suffix;
+  TElemStruct suffix;
   std::string trip_type;
   TDateTime scd;
   TDateTime est;
-  TCode craft;
-  std::vector<TCode> airps_in;
-  std::vector<TCode> airps_out;
+  TElemStruct craft;
+  std::vector<TElemStruct> airps_in;
+  std::vector<TElemStruct> airps_out;
   bool pr_landing;
   std::string status;
   std::string record;
@@ -99,6 +88,12 @@ struct  TParseFlight {
     std::string res = airline.code + IntToString( flt_no ) + suffix.code + DateTimeToStr( UTCToLocal( scd, own_region ), "dd" );
     return res;
   }
+};
+
+class TXMLFlightParser {
+  public:
+    std::string id;
+    void parse( xmlNodePtr reqNode, const std::string &airp, TPointDests &dests, std::string &warning );
 };
 
 void saveFlights( std::map<std::string,std::map<bool, TParseFlight> > &flights );

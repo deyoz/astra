@@ -31,6 +31,7 @@ int main_aodb_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 //bool is_sync_aodb( int point_id );
 void bindingAODBFlt( const std::string &airline, const int flt_no, const std::string suffix,
                      const TDateTime locale_scd_out, const std::string airp );
+void bindingAODBFlt( const std::string &point_addr, int point_id, float aodb_point_id );
 bool is_sync_aodb_pax( const TTripInfo &tripInfo );
 
 #endif /*_AODB_H_*/
