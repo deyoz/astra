@@ -763,11 +763,6 @@ void dump_bag_tags(vector<TBagTagRow> &bag_tags)
     ProgTrace(TRACE5, "%s", log.str().c_str());
 }
 
-struct t_tag_nos_row {
-    int pr_liab_limit;
-    double no;
-};
-
 bool lessTagNos(const t_tag_nos_row &p1, const t_tag_nos_row &p2)
 {
     return p1.no < p2.no;

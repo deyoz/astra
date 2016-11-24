@@ -100,6 +100,13 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
+struct t_tag_nos_row {
+    int pr_liab_limit;
+    double no;
+};
+
+std::string get_tag_range(std::vector<t_tag_nos_row> tag_nos, std::string lang);
+
 int testbm(int argc,char **argv);
 
 #endif

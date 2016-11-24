@@ -6,6 +6,7 @@
 #include "term_version.h"
 #include "astra_misc.h"
 #include "qrys.h"
+#include "annul_bt.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1051,6 +1052,9 @@ void TGroupBagItem::toDB(int grp_id) const
     BagQry.Execute();
   };
 
+  TAnnulBT annul_bt;
+  annul_bt.get(grp_id);
+
   BagQry.Clear();
   BagQry.SQLText="DELETE FROM bag2 WHERE grp_id=:grp_id";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
@@ -1088,6 +1092,9 @@ void TGroupBagItem::toDB(int grp_id) const
     nb->second.toDB(BagQry);
     BagQry.Execute();
   };
+
+  annul_bt.minus(bags);
+  annul_bt.toDB();
 
   if (!is_payment)
   {

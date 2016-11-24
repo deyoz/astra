@@ -45,6 +45,7 @@
 #include "sirena_exchange.h"
 #include "baggage_pc.h"
 #include "ffp_sirena.h"
+#include "annul_bt.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include <boost/algorithm/string.hpp>
 
@@ -5805,6 +5806,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         rozysk::sync_pax_grp(grp.id, reqInfo->desk.code, reqInfo->user.descr);
       };
 
+      TAnnulBT annul_bt;
+      annul_bt.get(grp.id);
+
       Qry.Clear();
       Qry.SQLText=
         "BEGIN "
@@ -5815,6 +5819,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       Qry.CreateVariable("grp_id",otInteger,grp.id);
       Qry.Execute();
       Qry.Close();
+
+      TAnnulBT annul_bt_after;
+      annul_bt_after.get(grp.id);
+      annul_bt.minus(annul_bt_after);
+
+      annul_bt.toDB();
 
       //проверим максимальную загрузку
       bool overload_alarm = calc_overload_alarm( grp.point_dep ); // вычислили признак перегрузки
