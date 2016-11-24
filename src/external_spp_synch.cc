@@ -207,8 +207,38 @@ struct AnswerContent {
    int rec_no;
    std::string msg;
    std::string type;
-   TDateTime time;
 };
+
+void ToEvent( const std::string &airline, const std::string &type,
+              const std::string &record, const std::string &msg )
+{
+  TDateTime filter_scd;
+  modf(UTCToLocal( NowUTC(), TReqInfo::Instance()->desk.tz_region ),&filter_scd);
+  TQuery sQry( &OraSession );
+  sQry.SQLText =
+    "DECLARE "
+    " vrec_no aodb_events.rec_no%TYPE;"
+    "BEGIN "
+    " UPDATE aodb_spp_files SET rec_no=NVL(rec_no,-1)+1 "
+    "  WHERE filename=:filename AND point_addr=:point_addr AND airline=:airline "
+    " RETURNING rec_no INTO vrec_no; "
+    " IF SQL%NOTFOUND THEN "
+    "   INSERT INTO aodb_spp_files(filename,point_addr,rec_no,airline) "
+    "    VALUES(:filename,:point_addr,0,:airline); "
+    "   vrec_no := 0;"
+    " END IF;"
+    " INSERT INTO aodb_events(filename,point_addr,rec_no,record,msg,type,time,airline) "
+    "  VALUES(:filename,:point_addr,vrec_no,:record,:msg,:type,:time,:airline);"
+    "END;";
+  sQry.CreateVariable( "filename", otString, DateTimeToStr( filter_scd, "SPPyymmdd.txt" ) );
+  sQry.CreateVariable( "point_addr", otString, TReqInfo::Instance()->desk.code );
+  sQry.CreateVariable( "airline", otString, airline.empty()?"ЮТ":airline );
+  sQry.CreateVariable( "record", otString, record.substr(0,4000) );
+  sQry.CreateVariable( "msg", otString, msg.substr(0,1000) );
+  sQry.CreateVariable( "type", otString, type );
+  sQry.CreateVariable( "time", otDate, NowUTC() );
+  sQry.Execute();
+}
 
 void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -219,32 +249,6 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   }
   TDateTime filter_scd;
   modf(UTCToLocal( NowUTC(), TReqInfo::Instance()->desk.tz_region ),&filter_scd);
-  TQuery sQry( &OraSession );
-  sQry.SQLText =
-    "BEGIN "
-    " UPDATE aodb_spp_files SET rec_no=NVL(rec_no,-1)+1 "
-    "  WHERE filename=:filename AND point_addr=:point_addr AND airline=:airline;"
-    " IF SQL%NOTFOUND THEN "
-    "   INSERT INTO aodb_spp_files(filename,point_addr,rec_no,airline) "
-    "    VALUES(:filename,:point_addr,0,:airline); "
-    " END IF;"
-    "END;";
-  sQry.CreateVariable( "filename", otString, DateTimeToStr( filter_scd, "SPPyymmdd.txt" ) );
-  sQry.CreateVariable( "point_addr", otString, TReqInfo::Instance()->desk.code );
-  sQry.DeclareVariable( "airline", otString );
-  TQuery eQry( &OraSession );
-  eQry.SQLText =
-    " INSERT INTO aodb_events(filename,point_addr,rec_no,record,msg,type,time,airline) "
-    "  VALUES(:filename,:point_addr,:rec_no,:record,:msg,:type,:time,:airline)";
-  eQry.CreateVariable( "filename", otString, DateTimeToStr( filter_scd, "SPPyymmdd.txt" ) );
-  eQry.CreateVariable( "point_addr", otString, TReqInfo::Instance()->desk.code );
-  eQry.DeclareVariable( "rec_no", otInteger );
-  eQry.DeclareVariable( "record", otString );
-  eQry.DeclareVariable( "msg", otString );
-  eQry.DeclareVariable( "type", otString );
-  eQry.DeclareVariable( "time", otDate );
-  eQry.DeclareVariable( "airline", otString );
-
   string buffer = NodeAsString( contentNode );
   typedef boost::char_separator<char> token_func_type;
   typedef boost::tokenizer<token_func_type> tokenizer_type;
@@ -344,7 +348,6 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       else {
         content[ fl_in->second.record ].msg = " " + fl_in->second.error;
       }
-      content[ fl_in->second.record ].time = NowUTC();
       content[ fl_in->second.record ].type = fl_in->second.error == EncodeEventType( ASTRA::evtFlt )?fl_in->second.error:EncodeEventType( ASTRA::evtProgError );
     }
     map<bool, TParseFlight>::iterator fl_out = iflight->second.find( false );
@@ -355,7 +358,6 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       else {
         content[ fl_out->second.record ].msg = " " + fl_out->second.error;
       }
-      content[ fl_out->second.record ].time = NowUTC();
       content[ fl_out->second.record ].type = fl_out->second.error == EncodeEventType( ASTRA::evtFlt )?fl_out->second.error:EncodeEventType( ASTRA::evtProgError );
     }
   }
@@ -363,15 +365,7 @@ void HTTPRequestsIface::SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   for ( std::map<std::string,AnswerContent>::iterator istr=content.begin(); istr!=content.end(); istr++ ) {
     ProgTrace( TRACE5, "record=%s, result=%s", istr->first.c_str(), istr->second.msg.c_str() );
     res += istr->first + istr->second.msg + "\n";
-    sQry.SetVariable( "airline", istr->second.airline.empty()?"ЮТ":istr->second.airline );
-    sQry.Execute();
-    eQry.SetVariable( "rec_no", istr->second.rec_no );
-    eQry.SetVariable( "record", istr->first );
-    eQry.SetVariable( "msg", istr->second.msg.substr(0,1000) );
-    eQry.SetVariable( "type", istr->second.type );
-    eQry.SetVariable( "time", istr->second.time );
-    eQry.SetVariable( "airline", istr->second.airline.empty()?"ЮТ":istr->second.airline );
-    eQry.Execute();
+    ToEvent( istr->second.airline, istr->second.type, istr->first, istr->second.msg );
   }
   NodeSetContent( resNode, res );
 //  ProgTrace( TRACE5, "finish, context=%s", content.c_str() );
@@ -756,6 +750,16 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
     else {
       SetProp( ansNode, "msg", msg );
     }
+    //скопировать кусок XML-дерева начиная с тега flight
+    xmlDocPtr flDoc = CreateXMLDoc( "flight" );
+    string record;
+    try {
+      CopyNodeList( flDoc->children, node );
+      record = XMLTreeToText( flDoc );
+    }
+    catch(...) {}
+    xmlFreeDoc( flDoc );
+    ToEvent( "", prerror?"!":"РЕЙ", record, msg );
     flight_number++;
     node = node->next;
   }
@@ -811,7 +815,7 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
   отдельно передается рейс на прилет и рейс на вылет
 */
 void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TPointDests &dests, std::string &warning )
-{
+{  
   warning.clear();
   dests.clear();
   id.clear();  
