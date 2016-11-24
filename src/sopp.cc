@@ -39,6 +39,7 @@
 #include "aodb.h"
 #include "emdoc.h"
 #include "serverlib/perfom.h"
+#include "annul_bt.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -2383,6 +2384,9 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
 
   rozysk::sync_pax_grp(grp_id, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr);
 
+  TAnnulBT annul_bt;
+  annul_bt.get(grp_id);
+
   TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
@@ -2392,6 +2396,7 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
 
+  annul_bt.toDB();
 };
 
 void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
