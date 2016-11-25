@@ -10,64 +10,40 @@ using namespace EXCEPTIONS;
 
 void TAnnulBT::toDB()
 {
-    if(point_id == ASTRA::NoExists) return;
-
     try {
         QParams qryParams;
         qryParams
             << QParam("id", otInteger)
-            << QParam("point_id", otInteger, point_id)
+            << QParam("grp_id", otInteger, grp_id)
+            << QParam("pax_id", otInteger)
             << QParam("bag_type", otInteger)
             << QParam("rfisc", otString)
             << QParam("time_create", otDate)
             << QParam("amount", otInteger)
-            << QParam("weight", otInteger)
-            << QParam("airp_dep", otString, airp_dep)
-            << QParam("airp_arv", otString, airp_arv)
-            << QParam("time_annul", otDate, NowUTC())
-            << QParam("trfer_airline", otString, trfer_airline)
-            << QParam("trfer_suffix", otString, trfer_suffix);
-        if(trfer_flt_no == ASTRA::NoExists)
-            qryParams << QParam("trfer_flt_no", otInteger, FNull);
-        else
-            qryParams << QParam("trfer_flt_no", otInteger, trfer_flt_no);
-        if(trfer_scd == ASTRA::NoExists)
-            qryParams << QParam("trfer_scd", otDate, FNull);
-        else
-            qryParams << QParam("trfer_scd", otDate, trfer_scd);
+            << QParam("weight", otInteger);
 
         TCachedQuery Qry(
                 "begin "
                 "   insert into annul_bag ( "
                 "      id, "
-                "      point_id, "
+                "      grp_id, "
+                "      pax_id, "
                 "      bag_type, "
                 "      rfisc, "
                 "      time_create, "
                 "      time_annul, "
                 "      amount, "
-                "      weight, "
-                "      airp_dep, "
-                "      airp_arv, "
-                "      trfer_airline, "
-                "      trfer_flt_no, "
-                "      trfer_suffix, "
-                "      trfer_scd "
+                "      weight "
                 "   ) values ( "
                 "      id__seq.nextval, "
-                "      :point_id, "
+                "      :grp_id, "
+                "      :pax_id, "
                 "      :bag_type, "
                 "      :rfisc, "
                 "      :time_create, "
                 "      :time_annul, "
                 "      :amount, "
-                "      :weight, "
-                "      :airp_dep, "
-                "      :airp_arv, "
-                "      :trfer_airline, "
-                "      :trfer_flt_no, "
-                "      :trfer_suffix, "
-                "      :trfer_scd "
+                "      :weight "
                 "   ) returning id into :id; "
                 "end; ",
             qryParams
@@ -78,6 +54,7 @@ void TAnnulBT::toDB()
                 QParams()
                 << QParam("id", otInteger)
                 << QParam("no", otFloat));
+        /*
         for(TBagNumMap::iterator
                 bag_num = items.begin();
                 bag_num != items.end();
@@ -106,6 +83,7 @@ void TAnnulBT::toDB()
                 tagsQry.get().Execute();
             }
         }
+        */
     } catch(Exception &E) {
         LogError(STDLOG) <<  "TAnnulBT::toDB failed: " << E.what();
     } catch(...) {
@@ -115,26 +93,31 @@ void TAnnulBT::toDB()
 
 void TAnnulBT::minus(const TAnnulBT &annul_bt)
 {
+    /*
     for(TBagNumMap::const_iterator
             bag_num = annul_bt.items.begin();
             bag_num != annul_bt.items.end();
             bag_num++) {
         items.erase(bag_num->first);
     }
+    */
 }
 
 void TAnnulBT::minus(const map<int, CheckIn::TBagItem> &bag_items)
 {
+    /*
     for(map<int, CheckIn::TBagItem>::const_iterator
             i = bag_items.begin();
             i != bag_items.end();
             i++) {
         items.erase(i->second.num);
     }
+    */
 }
 
 void TAnnulBT::dump()
 {
+    /*
     LogTrace(TRACE5) << "---TAnnulBT::dump---";
     LogTrace(TRACE5) << "point_id: " << point_id;
     for(TBagNumMap::iterator
@@ -147,82 +130,60 @@ void TAnnulBT::dump()
             << bag_num->second.bag_tags.size();
     }
     LogTrace(TRACE5) << "---------------------------";
+    */
 }
 
 void TAnnulBT::clear()
 {
-    point_id = ASTRA::NoExists;
-
-    trfer_airline.clear();
-    trfer_flt_no = ASTRA::NoExists;
-    trfer_suffix.clear();
-    trfer_scd = ASTRA::NoExists;
+    grp_id = ASTRA::NoExists;
 
     items.clear();
+}
+
+void TAnnulBT::TBagTags::add(const CheckIn::TBagItem &abag_item)
+{
+    if(bag_item.amount == ASTRA::NoExists) {
+        bag_item.amount = abag_item.amount;
+        bag_item.weight = abag_item.weight;
+    } else {
+        bag_item.amount += abag_item.amount;
+        bag_item.weight += abag_item.weight;
+    }
 }
 
 void TAnnulBT::get(int grp_id)
 {
     clear();
 
+    this->grp_id = grp_id;
+
     try {
-        TCachedQuery pointQry("select point_dep from pax_grp where grp_id = :grp_id",
-                QParams() << QParam("grp_id", otInteger, grp_id));
-        pointQry.get().Execute();
-        if(not pointQry.get().Eof)
-            point_id = pointQry.get().FieldAsInteger("point_dep");
-        if(point_id == ASTRA::NoExists) return; // группа может быть удалена уже
-
-        TCachedQuery trferQry(
-                "select "
-                "   trfer_trips.airline trfer_airline, "
-                "   trfer_trips.flt_no trfer_flt_no, "
-                "   trfer_trips.suffix trfer_suffix, "
-                "   trfer_trips.scd trfer_scd "
-                "from "
-                "   transfer, "
-                "   trfer_trips "
-                "where "
-                "   transfer.grp_id = :grp_id and "
-                "   transfer.pr_final <> 0 and "
-                "   transfer.point_id_trfer = trfer_trips.point_id ",
-                QParams() << QParam("grp_id", otInteger, grp_id));
-        trferQry.get().Execute();
-        if(not trferQry.get().Eof) {
-            trfer_airline = trferQry.get().FieldAsString("trfer_airline");
-            trfer_flt_no = trferQry.get().FieldAsInteger("trfer_flt_no");
-            trfer_suffix = trferQry.get().FieldAsString("trfer_suffix");
-            trfer_scd = trferQry.get().FieldAsDateTime("trfer_scd");
-        };
-
-        TCachedQuery grpQry(
-                "select "
-                "   airp_dep, "
-                "   airp_arv "
-                "from pax_grp where "
-                "   grp_id = :grp_id ",
-                QParams() << QParam("grp_id", otInteger, grp_id));
-        grpQry.get().Execute();
-        if(not grpQry.get().Eof) {
-            airp_dep = grpQry.get().FieldAsString("airp_dep");
-            airp_arv = grpQry.get().FieldAsString("airp_arv");
-        }
-
-        TCachedQuery bagQry("SELECT * FROM bag2 WHERE grp_id=:grp_id",
+        TCachedQuery bagQry(
+                "SELECT "
+                "   ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) pax_id, "
+                "   * FROM bag2 WHERE grp_id=:grp_id",
                 QParams() << QParam("grp_id", otInteger, grp_id));
         bagQry.get().Execute();
         for(; not bagQry.get().Eof; bagQry.get().Next()) {
+            int pax_id = ASTRA::NoExists;
+            if(not bagQry.get().FieldIsNULL("pax_id"))
+                pax_id = bagQry.get().FieldAsInteger("pax_id");
             CheckIn::TBagItem bag_item;
             bag_item.fromDB(bagQry.get());
-            items[bag_item.num].bag_item = bag_item;
-        }
-        TCachedQuery tagQry("SELECT * FROM bag_tags WHERE grp_id=:grp_id",
-                QParams() << QParam("grp_id", otInteger, grp_id));
-        tagQry.get().Execute();
-        for(; not tagQry.get().Eof; tagQry.get().Next()) {
-            CheckIn::TTagItem tag_item;
-            tag_item.fromDB(tagQry.get());
-            items[tag_item.bag_num].bag_tags.push_back(tag_item);
+            items[pax_id][bag_item.bag_type][bag_item.rfisc].add(bag_item);
+
+            TCachedQuery tagQry("SELECT * FROM bag_tags WHERE grp_id=:grp_id and bag_num = :bag_num ",
+                    QParams()
+                    << QParam("grp_id", otInteger, grp_id)
+                    << QParam("bag_num", otInteger, bag_item.num));
+            tagQry.get().Execute();
+            for(; not tagQry.get().Eof; tagQry.get().Next()) {
+                CheckIn::TTagItem tag_item;
+                tag_item.fromDB(tagQry.get());
+                items[pax_id][bag_item.bag_type][bag_item.rfisc].bag_tags.push_back(tag_item);
+            }
+
+
         }
     } catch(Exception &E) {
         LogError(STDLOG) <<  "TAnnulBT::get failed: " << E.what();
