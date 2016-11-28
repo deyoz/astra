@@ -889,7 +889,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   ProgTrace(TRACE5,"check terminal");
   int terminal = checkerFlt.checkTerminalNo( NodeAsStringFast( "terminal", flightNode ) );
   //park
-  prop = NodeAsStringFast( "park", flightNode );
+  prop = NodeAsStringFast( "park", flightNode, "" );
   dest.park_out = TrimString( prop ).substr( 0, 3 );
   //max_commerce
   ProgTrace(TRACE5,"check maxcommerce");
@@ -1025,7 +1025,7 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
     d = *idest;
   }
 
-  if ( !pr_find && \
+  if ( !pr_find &&
        d.trip_type == "ч" &&
        d.status == tdInsert &&
        pr_takeoff ) { // возможно это рейс, который в Синхроне удален и добавлен заново с новым плановым временем вылета
