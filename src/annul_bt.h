@@ -4,30 +4,33 @@
 #include "baggage.h"
 
 struct TAnnulBT {
-    struct TBagTags {
-        CheckIn::TBagItem bag_item;
-        std::list<CheckIn::TTagItem> bag_tags;
-    };
-    typedef std::map<int, TBagTags> TBagNumMap;
+    private:
+        struct TBagTags {
+            int pax_id;
+            TDateTime time_annul;
+            CheckIn::TBagItem bag_item;
+            std::list<CheckIn::TTagItem> bag_tags;
+            void clear();
+            TBagTags() { clear(); }
+        };
+        typedef std::map<int, TBagTags> TBagNumMap;
+        int grp_id;
+        TBagNumMap items;
 
-    int point_id;
-    std::string trfer_airline;
-    int trfer_flt_no;
-    std::string trfer_suffix;
-    TDateTime trfer_scd;
+        TBagNumMap backup_items;
 
-    std::string airp_dep;
-    std::string airp_arv;
+        void backup();
+        void toDB(const TBagNumMap &items, TDateTime time_annul);
+    public:
 
-    TBagNumMap items;
-
-    void get(int grp_id);
-    void minus(const std::map<int, CheckIn::TBagItem> &bag_items);
-    void minus(const TAnnulBT &annul_bt);
-    void toDB();
-    void dump();
-    void clear();
-    TAnnulBT() { clear(); }
+        int get_grp_id() const { return grp_id; }
+        void get(int grp_id);
+        void minus(const std::map<int, CheckIn::TBagItem> &bag_items);
+        void minus(const TAnnulBT &annul_bt);
+        void toDB();
+        void dump();
+        void clear();
+        TAnnulBT() { clear(); }
 };
 
 #endif

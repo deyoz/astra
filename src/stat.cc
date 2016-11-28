@@ -7156,36 +7156,55 @@ void RunAnnulBTStat(
             "   points.flt_no, "
             "   points.suffix, "
             "   annul_bag.id, "
-            "   annul_bag.airp_dep, "
-            "   annul_bag.airp_arv, "
-            "   annul_bag.point_id, "
+            "   pax_grp.airp_dep, "
+            "   pax_grp.airp_arv, "
             "   annul_bag.bag_type, "
             "   annul_bag.rfisc, "
             "   annul_bag.time_create, "
             "   annul_bag.time_annul, "
             "   annul_bag.amount, "
-            "   annul_bag.weight, "
-            "   annul_bag.trfer_airline, "
-            "   annul_bag.trfer_flt_no, "
-            "   annul_bag.trfer_suffix, "
-            "   annul_bag.trfer_scd "
+            "   annul_bag.weight, ";
+        if(pass != 0)
+            SQLText +=
+                "   transfer.airline trfer_airline, \n"
+                "   transfer.airp_dep trfer_airp_dep, \n"
+                "   transfer.flt_no trfer_flt_no, \n"
+                "   transfer.suffix trfer_suffix, \n"
+                "   transfer.scd trfer_scd, \n"
+                "   transfer.airp_arv trfer_airp_arv \n";
+        else
+            SQLText +=
+                "   trfer_trips.airline trfer_airline, \n"
+                "   trfer_trips.airp_dep trfer_airp_dep, \n"
+                "   trfer_trips.flt_no trfer_flt_no, \n"
+                "   trfer_trips.suffix trfer_suffix, \n"
+                "   trfer_trips.scd trfer_scd, \n"
+                "   transfer.airp_arv trfer_airp_arv \n";
+        SQLText +=
             "from ";
         if(pass != 0) {
             SQLText +=
+                "   arx_pax_grp pax_grp, \n"
                 "   arx_annul_bag annul_bag,"
-                "   arx_points points ";
+                "   arx_points points, \n "
+                "   arx_transfer transfer \n";
             if(pass == 2)
                 SQLText += ",(SELECT part_key, move_id FROM move_arx_ext \n"
                     "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
         } else {
             SQLText +=
                 "   annul_bag, "
+                "   pax_grp, \n"
+                "   transfer, \n"
+                "   trfer_trips, \n"
                 "   points ";
         }
         SQLText += "where ";
         if(pass != 0)
             SQLText +=
-                "   points.part_key = annul_bag.part_key and ";
+                "   points.part_key = annul_bag.part_key and "
+                "   pax_grp.part_key = points.part_key and \n"
+                "   pax_grp.part_key = transfer.part_key(+) and \n";
         if(pass == 1)
             SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
         if(pass == 2)
@@ -7193,7 +7212,13 @@ void RunAnnulBTStat(
         params.AccessClause(SQLText);
         SQLText +=
             "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and \n"
-            "   points.point_id = annul_bag.point_id ";
+            "   points.point_id = pax_grp.point_dep and "
+            "   pax_grp.grp_id = annul_bag.grp_id and "
+            "   pax_grp.grp_id = transfer.grp_id(+) and \n"
+            "   transfer.pr_final(+) <> 0 \n";
+        if(pass == 0)
+            SQLText +=
+                "   and transfer.point_id_trfer = trfer_trips.point_id(+) \n";
         if(params.flt_no != NoExists) {
             SQLText += " and points.flt_no = :flt_no \n";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
@@ -7209,7 +7234,6 @@ void RunAnnulBTStat(
             int col_id = Qry.get().FieldIndex("id");
             int col_airp_dep = Qry.get().FieldIndex("airp_dep");
             int col_airp_arv = Qry.get().FieldIndex("airp_arv");
-            int col_point_id = Qry.get().FieldIndex("point_id");
             int col_bag_type = Qry.get().FieldIndex("bag_type");
             int col_rfisc = Qry.get().FieldIndex("rfisc");
             int col_time_create = Qry.get().FieldIndex("time_create");
@@ -7235,7 +7259,6 @@ void RunAnnulBTStat(
                 row.id = Qry.get().FieldAsInteger(col_id);
                 row.airp_dep = Qry.get().FieldAsString(col_airp_dep);
                 row.airp_arv = Qry.get().FieldAsString(col_airp_arv);
-                row.point_id = Qry.get().FieldAsInteger(col_point_id);
                 if(not Qry.get().FieldIsNULL(col_bag_type))
                     row.bag_type = Qry.get().FieldAsInteger(col_bag_type);
                 row.rfisc = Qry.get().FieldAsString(col_rfisc);
