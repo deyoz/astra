@@ -119,15 +119,9 @@ void TAnnulBT::toDB(const TBagNumMap &items, TDateTime time_annul)
 
 void TAnnulBT::toDB()
 {
-    LogTrace(TRACE5) << "TAnnulBT::toDB start";
     TDateTime annul_date = NowUTC();
-    LogTrace(TRACE5) << "gpr_id: " << grp_id;
-    if(grp_id != ASTRA::NoExists) {
-        LogTrace(TRACE5) << "backup_items toDB";
-        toDB(backup_items, annul_date);
-        LogTrace(TRACE5) << "items toDB";
-        toDB(items, annul_date);
-    }
+    toDB(backup_items, annul_date);
+    toDB(items, annul_date);
 }
 
 void TAnnulBT::minus(const TAnnulBT &annul_bt)
