@@ -8754,6 +8754,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           NewTextChild(operFltNode, "pr_etl_only", 1);        // TODO
           NewTextChild(operFltNode, "pr_etstatus", 0);        // TODO
           NewTextChild(operFltNode, "pr_no_ticket_check", 1); // TODO
+          NewTextChild(operFltNode, "pr_auto_pt_print", 0);   // TODO
+          NewTextChild(operFltNode, "pr_auto_pt_print_reseat", 0); // TODO
 
           xmlNodePtr tripdataNode = NewTextChild(seg2Node, "tripdata");
           xmlNodePtr node = NewTextChild(tripdataNode, "airps");
