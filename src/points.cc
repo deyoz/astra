@@ -911,6 +911,7 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
   if ( events.isFlag( dmChangeAirline ) ||
        events.isFlag( dmChangeFltNo ) ||
        events.isFlag( dmChangeSuffix ) ) {
+    ProgTrace( TRACE5, "dmChangeAirline=%d, dmChangeFltNo=%d, dmChangeSuffix=%d",events.isFlag( dmChangeAirline ),events.isFlag( dmChangeFltNo ),events.isFlag( dmChangeSuffix ) );
     if ( dest.flt_no != NoExists )
         reqInfo->LocaleToLog("EVT.FLIGHT.MODIFY_ATTRIBUTES_FROM", LEvntPrms() << PrmFlight("flt", dest.airline, dest.flt_no, dest.suffix)
                               << PrmFlight("new_flt", airline, flt_no, suffix) << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
@@ -2751,6 +2752,12 @@ void TFlightStations::Save( int point_id )
   NewQry.DeclareVariable( "pr_main", otInteger );
   if ( !equal( old, "" ) ) {
     tst();
+    for (tstations::iterator ist=old_stations.begin(); ist!=old_stations.end(); ist++ ) {
+      ProgTrace( TRACE5, "old name=%s, work_mode=%s", ist->name.c_str(), ist->work_mode.c_str());
+    }
+    for (tstations::iterator ist=stations.begin(); ist!=stations.end(); ist++ ) {
+      ProgTrace( TRACE5, "new name=%s, work_mode=%s", ist->name.c_str(), ist->work_mode.c_str());
+    }
     for ( int i=0; i<2; i++ ) {
       switch (i) {
        case 0:

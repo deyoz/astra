@@ -1178,7 +1178,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     err++;
     TCheckerFlt checkerFlt;
     TElemStruct elem;
-    TFltNo fltNo = checkerFlt.parse_checkFltNo( tmp, TCheckerFlt::CheckMode::etExtAODB, Qry );
+    TFltNo fltNo = checkerFlt.parse_checkFltNo( tmp, TCheckerFlt::etExtAODB, Qry );
     fl.airline = fltNo.airline;
     fl.flt_no = fltNo.flt_no;
     fl.suffix = fltNo.suffix;
@@ -1189,7 +1189,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
 
     err++;
     tmp = linestr.substr( LITERA_IDX, LITERA_LEN );
-    fl.litera = checkerFlt.checkLitera( tmp, TCheckerFlt::CheckMode::etExtAODB, Qry );
+    fl.litera = checkerFlt.checkLitera( tmp, TCheckerFlt::etExtAODB, Qry );
     err++;    
     fl.scd = checkerFlt.checkLocalTime( linestr.substr( SCD_IDX, SCD_LEN ), region, "Плановое время вылета", true );
     TDateTime local_scd_out = UTCToLocal( fl.scd, region );
@@ -1215,7 +1215,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     err++;
     fl.max_load = checkerFlt.checkMaxCommerce( linestr.substr( MAX_LOAD_IDX, MAX_LOAD_LEN ) );
     err++;
-    fl.craft = checkerFlt.checkCraft( linestr.substr( CRAFT_IDX, CRAFT_LEN ), TCheckerFlt::CheckMode::etExtAODB, false, Qry );
+    fl.craft = checkerFlt.checkCraft( linestr.substr( CRAFT_IDX, CRAFT_LEN ), TCheckerFlt::etExtAODB, false, Qry );
     ProgTrace( TRACE5, "fl.craft=%s, fmt=%d", fl.craft.code.c_str(), fl.craft.fmt );
     err++;
     tmp = linestr.substr( BORT_IDX, BORT_LEN );
@@ -1273,7 +1273,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
         else {
           i++;
           tmp = linestr.substr( i, 3 );
-          dest.airp = checkerFlt.checkAirp( tmp, TCheckerFlt::CheckMode::etExtAODB, true, Qry ).code;
+          dest.airp = checkerFlt.checkAirp( tmp, TCheckerFlt::etExtAODB, true, Qry ).code;
           err++;
           i += 3;
           tmp = linestr.substr( i, 1 );
@@ -1296,7 +1296,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
           i++;
           tmp = linestr.substr( i, 4 );
           station.name = TrimString( tmp );
-          TSOPPStation station = checkerFlt.checkStation( airp, fl.hall, station.name, station.work_mode, TCheckerFlt::CheckMode::etExtAODB, Qry );
+          TSOPPStation station = checkerFlt.checkStation( airp, fl.hall, station.name, station.work_mode, TCheckerFlt::etExtAODB, Qry );
           i += 4;
           tmp = linestr.substr( i, 1 );
           tmp = TrimString( tmp );
