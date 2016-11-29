@@ -1044,19 +1044,6 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
   }
   ProgTrace( TRACE5, "pr_find=%d", pr_find );
 
-  // задаем всему маршруту АК, номер рейса, суффикс, тип ВС, борт..
-  for ( std::vector<TPointsDest>::iterator chdest=dests.items.begin(); chdest!=dests.items.end(); chdest++ ) {
-    chdest->airline = d.airline;
-    chdest->airline_fmt = d.airline_fmt;
-    chdest->flt_no = d.flt_no;
-    chdest->suffix = d.suffix;
-    chdest->suffix_fmt = d.suffix_fmt;
-    chdest->craft = d.craft;
-    chdest->craft_fmt = d.craft_fmt;
-    chdest->bort = d.bort;
-    chdest->trip_type = d.trip_type;
-    chdest->litera = d.litera;
-  }
   if ( pr_find ) { // рейс нашелся, надо зачитать
     BitSet<TUseDestData> UseData;
     UseData.clearFlags();
@@ -1084,6 +1071,19 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
         warning += ";Неизвестный тип ВС, значение='" + d.craft + "'";
         //!!!throw EConvertError( "Неизвестный тип ВС, значение=%s", d.craft.c_str() );
       }
+  }
+  // задаем всему маршруту АК, номер рейса, суффикс, тип ВС, борт..
+  for ( std::vector<TPointsDest>::iterator chdest=dests.items.begin(); chdest!=dests.items.end(); chdest++ ) {
+    chdest->airline = d.airline;
+    chdest->airline_fmt = d.airline_fmt;
+    chdest->flt_no = d.flt_no;
+    chdest->suffix = d.suffix;
+    chdest->suffix_fmt = d.suffix_fmt;
+    chdest->craft = d.craft;
+    chdest->craft_fmt = d.craft_fmt;
+    chdest->bort = d.bort;
+    chdest->trip_type = d.trip_type;
+    chdest->litera = d.litera;
   }
   if ( d.status == tdDelete && !pr_find ) {
     throw EConvertError( ";delete flight not exists" );
