@@ -901,6 +901,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   elem = checkerFlt.checkCraft( NodeAsStringFast( "craft", flightNode, "" ), TCheckerFlt::CheckMode::etExtAODB, false, Qry );
   dest.craft = elem.code;
   dest.craft_fmt = elem.fmt;
+  ProgTrace( TRACE5, "craft=%s, fmt=%d", dest.craft.c_str(), dest.craft_fmt );
   //bort
   prop = NodeAsStringFast( "bort", flightNode, "" );
   dest.bort =  TrimString( prop ).substr( 0, 10 );
@@ -1051,6 +1052,7 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
     chdest->suffix = d.suffix;
     chdest->suffix_fmt = d.suffix_fmt;
     chdest->craft = d.craft;
+    chdest->craft_fmt = d.craft_fmt;
     chdest->bort = d.bort;
     chdest->trip_type = d.trip_type;
     chdest->litera = d.litera;
@@ -1060,7 +1062,7 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
     UseData.clearFlags();
     UseData.setFlag( udStages );
     UseData.setFlag( udMaxCommerce );
-    UseData.setFlag( udStations );
+    //UseData.setFlag( udStations );
     points.dests.Load( points.move_id, UseData );
   }
   else { // новый рейс, а можно ли его создать?
@@ -1152,6 +1154,7 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
     owndest->litera = d.litera;
     owndest->bort = d.bort;
     owndest->craft = d.craft;
+    owndest->craft_fmt = d.craft_fmt;
     owndest->park_in = d.park_in;
     owndest->park_out = d.park_out;
     owndest->scd_in = d.scd_in;
@@ -1183,6 +1186,22 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
   // сохраняем
   try {
     points.Save( false );
+    for ( owndest=points.dests.items.begin(); owndest!=points.dests.items.end(); owndest++ ) {
+      if ( d.airp == owndest->airp ) {
+        break;
+      }
+    }
+    if ( owndest->point_id != ASTRA::NoExists ) {
+      // имеем point_id
+      //сохраняем стойки и выходы
+      tst();
+      d.stations.Save( owndest->point_id );
+      //max_commerce
+      d.max_commerce.Save( owndest->point_id );
+      //stages and delay for next dest!!!
+      //bindingAODBFlt была вызвана, когда сохраняли маршрут ???
+      bindingAODBFlt( TReqInfo::Instance()->desk.code, owndest->point_id, aodb_point_id );
+    }
   }
   catch( Exception &e ) {
     OraSession.Rollback();
@@ -1198,21 +1217,6 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
     OraSession.Rollback();
     warning += " ;write flight error : unknown";
     ProgError( STDLOG, "%s", warning.c_str() );
-  }
-  for ( owndest=points.dests.items.begin(); owndest!=points.dests.items.end(); owndest++ ) {
-    if ( d.airp == owndest->airp ) {
-      break;
-    }
-  }
-  if ( owndest->point_id != ASTRA::NoExists ) {
-    // имеем point_id
-    //сохраняем стойки и выходы
-    d.stations.Save( owndest->point_id );
-    //max_commerce
-    d.max_commerce.Save( owndest->point_id );
-    //stages and delay for next dest!!!
-    //bindingAODBFlt была вызвана, когда сохраняли маршрут ???
-    bindingAODBFlt( TReqInfo::Instance()->desk.code, owndest->point_id, aodb_point_id );
   }
 }
 

@@ -1190,7 +1190,7 @@ void TPoints::WriteDest( TPointsDest &dest )
   Qry.CreateVariable( "remark", otString, dest.remark );
   Qry.CreateVariable( "pr_reg", otInteger, dest.pr_reg );
   Qry.Execute();
-
+  tst();
   if ( dest.events.isFlag( dmChangeDelays ) ) {
      dest.delays.Save( dest.point_id );
   }
