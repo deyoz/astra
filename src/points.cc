@@ -357,10 +357,10 @@ TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
     throw EConvertError( "Ошибка формата типа стойки, значение='%s'", value2.c_str() );
   Qry.Clear();
   Qry.SQLText =
-    "SELECT desk, 2 as lvl FROM stations "
+    "SELECT desk, name, 2 as lvl FROM stations "
     " WHERE airp=:airp AND work_mode=:work_mode AND name=:code "
     " UNION "
-    "SELECT desk, 1 FROM aodb_stations a, stations s WHERE "
+    "SELECT desk, s.name, 1 FROM aodb_stations a, stations s WHERE "
     " a.airp=:airp AND s.airp=:airp AND a.aodb_name=:code AND a.name=s.name AND "
     " a.work_mode=:work_mode AND s.work_mode=:work_mode AND terminal=:terminal "
     " ORDER BY lvl";
@@ -398,7 +398,8 @@ TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
     if ( Qry.FieldAsInteger( "lvl") != priorLvl ) {
       break;
     }
-    station.name = Qry.FieldAsString( "desk" );
+    station.desk = Qry.FieldAsString( "desk" );
+    station.name = Qry.FieldAsString( "name" );
   }
   return station;
 }
@@ -599,6 +600,7 @@ void TPoints::Verify( bool ignoreException, LexemaData &lexemaData )
         for ( vector<TPointsDest>::iterator xd=id+1; xd!=dests.items.end(); xd++ ) {
             if ( xd->pr_del )
                 continue;
+          tst();
           throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
         }
       }
@@ -2727,6 +2729,120 @@ void TFlightStations::Save( int point_id )
   ProgTrace( TRACE5, "TFlightStations::Save, point_id=%d", point_id );
   TFlightStations old;
   old.Load( point_id );
+  tstations old_stations;
+  old.Get( old_stations );
+  string work_mode;
+  TQuery DelQry(&OraSession);
+  DelQry.SQLText =
+    "DELETE trip_stations WHERE point_id=:point_id AND work_mode=:work_mode AND desk IN "
+    "( SELECT desk FROM stations,points "
+    "  WHERE points.point_id=:point_id AND stations.airp=points.airp AND name=:name )";
+  DelQry.CreateVariable( "point_id", otInteger, point_id );
+  DelQry.DeclareVariable( "name", otString );
+  DelQry.DeclareVariable( "work_mode", otString );
+  TQuery NewQry(&OraSession);
+  NewQry.SQLText =
+    "INSERT INTO trip_stations(point_id,desk,work_mode,pr_main) "
+    " SELECT :point_id,desk,:work_mode,:pr_main FROM stations,points "
+    "  WHERE points.point_id=:point_id AND stations.airp=points.airp AND name=:name";
+  NewQry.CreateVariable( "point_id", otInteger, point_id );
+  NewQry.DeclareVariable( "name", otString );
+  NewQry.DeclareVariable( "work_mode", otString );
+  NewQry.DeclareVariable( "pr_main", otInteger );
+  if ( !equal( old, "" ) ) {
+    tst();
+    for ( int i=0; i<2; i++ ) {
+      switch (i) {
+       case 0:
+         work_mode = "Р";
+         break;
+       case 1:
+         work_mode = "П";
+         break;
+        default:
+         work_mode = "";
+      }
+      DelQry.SetVariable( "work_mode", work_mode );
+      NewQry.SetVariable( "work_mode", work_mode );
+      vector<string> delete_sts, new_sts;
+      PrmEnum del_prmenum("names", ",");
+      PrmEnum new_prmenum("names", ",");
+      for ( tstations::const_iterator istation=old_stations.begin(); istation!=old_stations.end(); istation++ ) {
+        if ( istation->work_mode != work_mode ) {
+          continue;
+        }
+        tstations::const_iterator jstation=stations.begin();
+        for ( ; jstation!=stations.end(); jstation++ ) {
+          if ( jstation->work_mode != work_mode ) {
+            continue;
+          }
+          if ( istation->name == jstation->name ) {
+            break;
+          }
+        }
+        if ( jstation == stations.end() ) {
+          if ( find( delete_sts.begin(), delete_sts.end(), istation->name ) == delete_sts.end() ) {
+            tst();
+            delete_sts.push_back( istation->name );
+            DelQry.SetVariable( "name", istation->name );
+            DelQry.Execute();
+            tst();
+            del_prmenum.prms << PrmSmpl<std::string>("", istation->name);
+            tst();
+          }
+        }
+      }
+      for ( tstations::const_iterator istation=stations.begin(); istation!=stations.end(); istation++ ) {
+        if ( istation->work_mode != work_mode ) {
+          continue;
+        }
+        tstations::const_iterator jstation=old_stations.begin();
+        for ( ; jstation!=old_stations.end(); jstation++ ) {
+          if ( jstation->work_mode != work_mode ) {
+            continue;
+          }
+          if ( istation->name == jstation->name ) {
+            break;
+          }
+        }
+        if ( jstation == old_stations.end() ) {
+          if ( find( new_sts.begin(), new_sts.end(), istation->name ) == new_sts.end() ) {
+            tst();
+            new_sts.push_back( istation->name );
+            NewQry.SetVariable( "name", istation->name );
+            NewQry.SetVariable( "pr_main", istation->pr_main );
+            NewQry.Execute();
+          }
+        }
+        new_prmenum.prms << PrmSmpl<std::string>("", istation->name);
+        if ( istation->pr_main ) {
+          PrmLexema prmlexema("", "EVT.DESK_MAIN");
+          prmlexema.prms << PrmSmpl<std::string>("", istation->name);
+          new_prmenum.prms << prmlexema;
+        }
+      }
+      tst();
+      if ( work_mode == "Р" ) {
+        if ( !new_sts.empty() ) {
+          TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_DESKS", LEvntPrms() << new_prmenum, evtFlt, point_id);
+        }
+        if ( !delete_sts.empty() ) {
+          TReqInfo::Instance()->LocaleToLog("EVT.DELETE_DESK", LEvntPrms() << del_prmenum, evtFlt, point_id);
+        }
+      }
+      if ( work_mode == "П" ) {
+        if ( !new_sts.empty() ) {
+          TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_BOARDING_GATES", LEvntPrms() << new_prmenum, evtFlt, point_id);
+        }
+        if ( !delete_sts.empty() ) {
+          TReqInfo::Instance()->LocaleToLog("EVT.DELETE_GATE_ON_FLIGHT", LEvntPrms() << del_prmenum, evtFlt, point_id);
+        }
+      }
+    }
+    check_DesksGates( point_id );
+  }
+  tst();
+/*
   TQuery DelQry(&OraSession);
   DelQry.SQLText =
     "DELETE trip_stations WHERE point_id=:point_id AND work_mode=:work_mode";
@@ -2752,6 +2868,7 @@ void TFlightStations::Save( int point_id )
         work_mode = "П";
         break;
     }
+  }
     if ( !equal( old, work_mode ) ) {
       DelQry.SetVariable( "work_mode", work_mode );
       DelQry.Execute();
@@ -2764,8 +2881,8 @@ void TFlightStations::Save( int point_id )
           continue;
         if ( find( terms.begin(), terms.end(), istation->name ) == terms.end() ) {
           terms.push_back( istation->name );
-            Qry.SetVariable( "name", istation->name );
-            Qry.SetVariable( "pr_main", istation->pr_main );
+          Qry.SetVariable( "name", istation->name );
+          Qry.SetVariable( "pr_main", istation->pr_main );
           Qry.Execute();
           if ( istation->pr_main ) {
             PrmLexema prmlexema("", "EVT.DESK_MAIN");
@@ -2795,7 +2912,7 @@ void TFlightStations::Save( int point_id )
       }
       check_DesksGates( point_id );
     }
-  }
+  }*/
 }
 //////////////////////////////TPointDests//////////////////////////////////////
 void TPointDests::Load( int move_id, BitSet<TUseDestData> FUseData )

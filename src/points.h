@@ -268,6 +268,18 @@ class TFlightStations {
     void Add( TSOPPStation &station ) {
       stations.push_back( station );
     }
+    void Delete( TSOPPStation &station ) {
+      for ( tstations::iterator istation=stations.begin(); istation!=stations.end(); istation++ ) {
+        if ( istation->name == station.name ) {
+          stations.erase( istation );
+          break;
+        }
+      }
+    }
+    void clear() {
+      stations.clear();
+    }
+
     bool equal( const TFlightStations &flightStations, std::string work_mode ) {
       return ( intequal( stations, flightStations.stations, work_mode ) &&
                intequal( flightStations.stations, stations, work_mode ) );

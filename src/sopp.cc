@@ -5722,6 +5722,32 @@ void SoppInterface::CreateAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     AstraLocale::showErrorMessage("MSG.APIS_NOT_CREATED_FOR_FLIGHT");
 }
 
+void SoppInterface::ReadVoucher(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id = NodeAsInteger( "point_id", reqNode );
+  ProgTrace( TRACE5, "ReadVoucher, point_id %d", point_id );
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT voucher_id FROM trip_vouchers WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  set<int> trip_vauchers;
+  for ( ; !Qry.Eof; Qry.Next() ) {
+     trip_vauchers.insert( Qry.FieldAsInteger("voucher_id") );
+  }
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT * FROM voucher_types";
+  Qry.Execute();
+  xmlNodePtr dataNode = NewTextChild( resNode, "vouchers" );
+  for ( ; !Qry.Eof; Qry.Next() ) {
+     xmlNodePtr voucherNode = NewTextChild( dataNode, "voucher" );
+     NewTextChild( voucherNode, "id", Qry.FieldAsInteger("voucher_id") );
+     NewTextChild( voucherNode, "name", TReqInfo::Instance()->desk.lang == AstraLocale::LANG_RU?Qry.FieldAsString("name"):Qry.FieldAsString("name_lat") ); //!!!base_table
+     NewTextChild( voucherNode, "use", trip_vauchers.find(Qry.FieldAsInteger("voucher_id")) != trip_vauchers.end() );
+  }
+}
+
 void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tranzit)
 {
   TQuery Qry(&OraSession);

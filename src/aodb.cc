@@ -84,11 +84,12 @@ struct AODB_Dest {
     int pr_del; //1
 };
 
-struct AODB_Term {
+/*struct AODB_Term {
     std::string type; //1
     std::string name; //4
+    std::string desk;
     int pr_del; //1
-};
+};*/
 
 const
 unsigned int REC_NO_IDX = 0;
@@ -154,8 +155,19 @@ struct AODB_Flight {
     int pr_cancel; //1
     int pr_del; //1
     vector<AODB_Dest> dests;
-    vector<AODB_Term> terms;
+    tstations stations;
+    tstations del_stations;
     string invalid_field;
+    void clear() {
+      stations.clear();
+      del_stations.clear();
+      dests.clear();
+      invalid_field.clear();
+      rec_no = ASTRA::NoExists;
+    }
+    AODB_Flight() {
+      clear();
+    }
 };
 
 void getRecord( int pax_id, int reg_no, bool pr_unaccomp, const vector<AODB_STRUCT> &aodb_pax,
@@ -1137,7 +1149,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
 {
   int err=0;
   try {
-    fl.invalid_field.clear();
+    fl.clear();
     fl.rec_no = NoExists;
     if ( linestr.length() < REC_NO_LEN )
       throw Exception( "Ошибка формата рейса, длина=%d, значение=%s, малая длина строки", linestr.length(), linestr.c_str() );
@@ -1240,7 +1252,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     bool dest_mode = true;
     err++;
     AODB_Dest dest;
-    AODB_Term term;
+    TSOPPStation station;
     while ( i < len ) {
       tmp = linestr.substr( i, 1 );
       tmp = TrimString( tmp );
@@ -1280,17 +1292,23 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       if ( !dest_mode ) {
         int old_i = i;
         try {
-          term.type = tmp;
+          station.work_mode = tmp;
           i++;
           tmp = linestr.substr( i, 4 );
-          term.name = TrimString( tmp );
-          TSOPPStation station = checkerFlt.checkStation( airp, fl.hall, term.name, term.type, TCheckerFlt::CheckMode::etExtAODB, Qry );
+          station.name = TrimString( tmp );
+          TSOPPStation station = checkerFlt.checkStation( airp, fl.hall, station.name, station.work_mode, TCheckerFlt::CheckMode::etExtAODB, Qry );
           i += 4;
           tmp = linestr.substr( i, 1 );
           tmp = TrimString( tmp );
-          if ( tmp.empty() || StrToInt( tmp.c_str(), term.pr_del ) == EOF || term.pr_del < 0 || term.pr_del > 1 )
+          int pr_del;
+          if ( tmp.empty() || StrToInt( tmp.c_str(), pr_del ) == EOF || pr_del < 0 || pr_del > 1 )
             throw Exception( "Ошибка формата признака удаления стойки, значение=%s", tmp.c_str() );          
-          fl.terms.push_back( term );
+          if ( pr_del ) {
+            fl.del_stations.push_back( station );
+          }
+          else {
+            fl.stations.push_back( station );
+          }
         }
         catch( Exception &e ) {
           i = old_i + 1 + 4;
@@ -1697,7 +1715,16 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     }
     err++;
     // обновление стоек регистрации и выходов на поcадку
-    Qry.Clear();
+    TFlightStations fltStations;
+    fltStations.Load(point_id);
+    for ( tstations::iterator istation=fl.stations.begin(); istation!=fl.stations.end(); istation++ ) {
+      fltStations.Add( *istation );
+    }
+    for ( tstations::iterator istation=fl.del_stations.begin(); istation!=fl.del_stations.end(); istation++ ) {
+      fltStations.Delete( *istation );
+    }
+    fltStations.Save(point_id);
+/*    Qry.Clear();
     Qry.SQLText =
         "BEGIN "
         " :pr_change := 0; "
@@ -1721,8 +1748,8 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     //ProgTrace( TRACE5, "fl.terms.size()=%zu, point_id=%d", fl.terms.size(), point_id );
     string reg, reg_del, brd, brd_del;
     bool pr_change_reg = false, pr_change_brd = false;
-    for ( vector<AODB_Term>::iterator it=fl.terms.begin(); it!=fl.terms.end(); it++ ) {
-      Qry.SetVariable( "desk", it->name );
+    for ( tstations::iterator it=fl.terms.begin(); it!=fl.terms.end(); it++ ) {
+      Qry.SetVariable( "desk", it->desk );
       Qry.SetVariable( "work_mode", it->type );
       Qry.SetVariable( "pr_del", it->pr_del );
       //ProgTrace( TRACE5, "desk=%s, work_mode=%s, pr_del=%d", it->name.c_str(), it->type.c_str(), it->pr_del );
@@ -1746,7 +1773,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     }
     if ( pr_change_reg ) {
       if ( !reg_del.empty() )
-        reqInfo->LocaleToLog("EVT.DELETE_DESK", LEvntPrms() << PrmSmpl<std::string>("desk", reg_del),
+        reqInfo->LocaleToLog("EVT.DELETE_DESK", LEvntPrms() << PrmSmpl<std::string>("names", reg_del),
                              evtDisp, move_id, point_id);
       if ( !reg.empty() )
         reqInfo->LocaleToLog("EVT.ASSIGNE_DESK", LEvntPrms() << PrmSmpl<std::string>("desk", reg),
@@ -1763,7 +1790,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     if ( pr_change_reg ||
          pr_change_brd ) {
       check_DesksGates( point_id );
-    }
+    }*/
 
     bindingAODBFlt( point_addr, point_id, fl.id );
     err++;

@@ -866,8 +866,10 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   ProgTrace(TRACE5,"check fltNo");
   TFltNo fltNo = checkerFlt.parse_checkFltNo( prop, TCheckerFlt::CheckMode::etExtAODB, Qry );  
   dest.airline = fltNo.airline.code;
+  dest.airline_fmt = fltNo.airline.fmt;
   dest.flt_no = fltNo.flt_no;
   dest.suffix = fltNo.suffix.code;
+  dest.suffix_fmt = fltNo.suffix.fmt;
   if ( string("C") == NodeAsStringFast( "trip_type", flightNode, "¯" ) ) { //¢ ¦­®, çâ®¡ë á®åà ­ï«áï â¨¯ à¥©á  — àâ¥à ¯à¨ "C" - â®«ìª® â ª ­ ¤® áâ®¨âì ãá«®¢¨ï ®¯à¥¤¥«¥­¨ï â¨¯ 
     dest.trip_type = "ç";
     tst();
@@ -1070,11 +1072,16 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
       ProgTrace( TRACE5, "IntWriteDests: missing right for create flight" );
       throw EConvertError( "missing right for create flight" );
     }
-    if ( d.craft.empty() )
-      throw EConvertError( "¥ § ¤ ­ â¨¯ ‚‘" );
+    if ( d.craft.empty() ) {
+      warning += ";¥ § ¤ ­ â¨¯ ‚‘";
+      //!!!throw EConvertError( "¥ § ¤ ­ â¨¯ ‚‘" );
+    }
     else
-      if ( d.craft_fmt == efmtUnknown )
-        throw EConvertError( "¥¨§¢¥áâ­ë© â¨¯ ‚‘, §­ ç¥­¨¥=%s", d.craft.c_str() );
+      if ( d.craft_fmt == efmtUnknown ) {
+        d.craft.clear();
+        warning += ";¥¨§¢¥áâ­ë© â¨¯ ‚‘, §­ ç¥­¨¥='" + d.craft + "'";
+        //!!!throw EConvertError( "¥¨§¢¥áâ­ë© â¨¯ ‚‘, §­ ç¥­¨¥=%s", d.craft.c_str() );
+      }
   }
   if ( d.status == tdDelete && !pr_find ) {
     throw EConvertError( ";delete flight not exists" );
@@ -1113,8 +1120,14 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
   }
 
   if ( owndest != points.dests.items.end() && owndest->point_id != ASTRA::NoExists ) { // ­ ¤® ¤®¡ ¢¨âì ¨§¬¥­¥­¨ï  ªªãà â­®
-    if ( d.craft_fmt == efmtUnknown ) {
-      warning += " ;¥¨§¢¥áâ­ë© â¨¯ ‚‘, §­ ç¥­¨¥ '" + d.craft + "', ®áâ ¢«ï¥¬ áâ à®¥ §­ ç¥­¨¥ '" + owndest->craft + "'";
+    if ( d.craft.empty() || d.craft_fmt == efmtUnknown ) {
+      if ( d.craft.empty() ) {
+        warning += " ;¥ § ¤ ­ â¨¯ ‚‘, ®áâ ¢«ï¥¬ áâ à®¥ §­ ç¥­¨¥ '" + owndest->craft + "'";
+      }
+      else
+        if ( d.craft_fmt == efmtUnknown ) {
+          warning += " ;¥¨§¢¥áâ­ë© â¨¯ ‚‘, §­ ç¥­¨¥ '" + d.craft + "', ®áâ ¢«ï¥¬ áâ à®¥ §­ ç¥­¨¥ '" + owndest->craft + "'";
+        }
       d.craft = owndest->craft;
       d.craft_fmt = owndest->craft_fmt;
     }
@@ -1139,7 +1152,7 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
     owndest->litera = d.litera;
     owndest->bort = d.bort;
     owndest->craft = d.craft;
-    owndest->park_out = d.park_out;
+    owndest->park_in = d.park_in;
     owndest->park_out = d.park_out;
     owndest->scd_in = d.scd_in;
     owndest->est_in = d.est_in;

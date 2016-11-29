@@ -127,6 +127,7 @@ struct TSoppStage {
 
 struct TSOPPStation {
   std::string name;
+  std::string desk;
   std::string work_mode;
   bool pr_main;
   TSOPPStation() {
@@ -305,6 +306,8 @@ public:
      AddEvent("GetTime",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::CreateAPIS);
      AddEvent("CreateAPIS",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::ReadVoucher);
+     AddEvent("ReadVoucher",evHandle);
   };
   void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -325,6 +328,7 @@ public:
   void WriteDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CreateAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void ReadVoucher(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
