@@ -1023,6 +1023,9 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall)
 
 void TGroupBagItem::toDB(int grp_id) const
 {
+  TAnnulBT annul_bt;
+  annul_bt.get(grp_id);
+
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool is_payment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
 
@@ -1051,9 +1054,6 @@ void TGroupBagItem::toDB(int grp_id) const
     v->second.toDB(BagQry);
     BagQry.Execute();
   };
-
-  TAnnulBT annul_bt;
-  annul_bt.get(grp_id);
 
   BagQry.Clear();
   BagQry.SQLText="DELETE FROM bag2 WHERE grp_id=:grp_id";

@@ -11,16 +11,17 @@ struct TAnnulBT {
             CheckIn::TBagItem bag_item;
             std::list<CheckIn::TTagItem> bag_tags;
             void clear();
+            void dump(const std::string &file, int line) const;
             TBagTags() { clear(); }
         };
-        typedef std::map<int, TBagTags> TBagNumMap;
+        typedef std::map<int, TBagTags> TBagIdMap;
         int grp_id;
-        TBagNumMap items;
+        TBagIdMap items;
 
-        TBagNumMap backup_items;
+        TBagIdMap backup_items;
 
         void backup();
-        void toDB(const TBagNumMap &items, TDateTime time_annul);
+        void toDB(const TBagIdMap &items, TDateTime time_annul);
     public:
 
         int get_grp_id() const { return grp_id; }
