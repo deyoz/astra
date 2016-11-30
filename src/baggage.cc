@@ -6,7 +6,6 @@
 #include "term_version.h"
 #include "astra_misc.h"
 #include "qrys.h"
-#include "annul_bt.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1023,9 +1022,6 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall)
 
 void TGroupBagItem::toDB(int grp_id) const
 {
-  TAnnulBT annul_bt;
-  annul_bt.get(grp_id);
-
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool is_payment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
 
@@ -1092,9 +1088,6 @@ void TGroupBagItem::toDB(int grp_id) const
     nb->second.toDB(BagQry);
     BagQry.Execute();
   };
-
-  annul_bt.minus(bags);
-  annul_bt.toDB();
 
   if (!is_payment)
   {
