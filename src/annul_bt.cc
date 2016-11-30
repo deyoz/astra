@@ -12,20 +12,20 @@ int get_pax_id(int grp_id, int bag_pool_num)
 {
     int result = ASTRA::NoExists;
     TCachedQuery Qry(
-            "begin "
-            "   ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) "
+            "select "
+            "   ckin.get_bag_pool_pax_id(:grp_id, :bag_pool_num) "
             "from "
             "   dual",
             QParams()
             << QParam("grp_id", otInteger, grp_id)
             << QParam("bag_pool_num", otInteger, bag_pool_num));
     Qry.get().Execute();
-    if(not Qry.get().Eof)
+    if(not Qry.get().Eof and not Qry.get().FieldIsNULL(0))
         result = Qry.get().FieldAsInteger(0);
     return result;
 }
 
-void TAnnulBT::toDB(const TBagNumMap &items, TDateTime time_annul)
+void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
 {
     if(grp_id == ASTRA::NoExists) return;
 
@@ -74,36 +74,36 @@ void TAnnulBT::toDB(const TBagNumMap &items, TDateTime time_annul)
                 QParams()
                 << QParam("id", otInteger)
                 << QParam("no", otFloat));
-        for(TBagNumMap::const_iterator
-                bag_num = items.begin();
-                bag_num != items.end();
-                bag_num++) {
-            if(bag_num->second.bag_tags.empty()) continue;
-            if(bag_num->second.pax_id == ASTRA::NoExists)
+        for(TBagIdMap::const_iterator
+                bag_id = items.begin();
+                bag_id != items.end();
+                bag_id++) {
+            if(bag_id->second.bag_tags.empty()) continue;
+            if(bag_id->second.pax_id == ASTRA::NoExists)
                 Qry.get().SetVariable("pax_id", FNull);
             else
-                Qry.get().SetVariable("pax_id", bag_num->second.pax_id);
-            if(bag_num->second.bag_item.bag_type == ASTRA::NoExists)
+                Qry.get().SetVariable("pax_id", bag_id->second.pax_id);
+            if(bag_id->second.bag_item.bag_type == ASTRA::NoExists)
                 Qry.get().SetVariable("bag_type", FNull);
             else
-                Qry.get().SetVariable("bag_type", bag_num->second.bag_item.bag_type);
-            Qry.get().SetVariable("rfisc", bag_num->second.bag_item.rfisc);
-            if(bag_num->second.bag_item.time_create == ASTRA::NoExists)
+                Qry.get().SetVariable("bag_type", bag_id->second.bag_item.bag_type);
+            Qry.get().SetVariable("rfisc", bag_id->second.bag_item.rfisc);
+            if(bag_id->second.bag_item.time_create == ASTRA::NoExists)
                 Qry.get().SetVariable("time_create", FNull);
             else
-                Qry.get().SetVariable("time_create", bag_num->second.bag_item.time_create);
-            if(bag_num->second.time_annul == ASTRA::NoExists)
+                Qry.get().SetVariable("time_create", bag_id->second.bag_item.time_create);
+            if(bag_id->second.time_annul == ASTRA::NoExists)
                 Qry.get().SetVariable("time_annul", time_annul);
             else
-                Qry.get().SetVariable("time_annul", bag_num->second.time_annul);
-            Qry.get().SetVariable("amount", bag_num->second.bag_item.amount);
-            Qry.get().SetVariable("weight", bag_num->second.bag_item.weight);
+                Qry.get().SetVariable("time_annul", bag_id->second.time_annul);
+            Qry.get().SetVariable("amount", bag_id->second.bag_item.amount);
+            Qry.get().SetVariable("weight", bag_id->second.bag_item.weight);
 
             Qry.get().Execute();
             int id = Qry.get().GetVariableAsInteger("id");
             for(list<CheckIn::TTagItem>::const_iterator
-                    bag_tag = bag_num->second.bag_tags.begin();
-                    bag_tag != bag_num->second.bag_tags.end();
+                    bag_tag = bag_id->second.bag_tags.begin();
+                    bag_tag != bag_id->second.bag_tags.end();
                     bag_tag++) {
                 tagsQry.get().SetVariable("id", id);
                 tagsQry.get().SetVariable("no", bag_tag->no);
@@ -129,11 +129,11 @@ void TAnnulBT::minus(const TAnnulBT &annul_bt)
     if(annul_bt.get_grp_id() == ASTRA::NoExists) {
         clear();
     } else
-        for(TBagNumMap::const_iterator
-                bag_num = annul_bt.items.begin();
-                bag_num != annul_bt.items.end();
-                bag_num++) {
-            items.erase(bag_num->first);
+        for(TBagIdMap::const_iterator
+                bag_id = annul_bt.items.begin();
+                bag_id != annul_bt.items.end();
+                bag_id++) {
+            items.erase(bag_id->first);
         }
 }
 
@@ -143,21 +143,27 @@ void TAnnulBT::minus(const map<int, CheckIn::TBagItem> &bag_items)
             i = bag_items.begin();
             i != bag_items.end();
             i++) {
-        items.erase(i->second.num);
+        items.erase(i->second.id);
     }
 }
 
 void TAnnulBT::dump()
 {
     LogTrace(TRACE5) << "---TAnnulBT::dump---";
-    for(TBagNumMap::iterator
-            bag_num = items.begin();
-            bag_num != items.end();
-            bag_num++) {
+    for(TBagIdMap::iterator
+            bag_id = items.begin();
+            bag_id != items.end();
+            bag_id++) {
         LogTrace(TRACE5)
-            << "[" << bag_num->first << "]"
+            << "[" << bag_id->first << "]"
             << ": "
-            << bag_num->second.bag_tags.size();
+            << bag_id->second.bag_tags.size();
+        LogTrace(TRACE5) << "pax_id: " << bag_id->second.pax_id;
+        LogTrace(TRACE5)
+            << "amount: "
+            << bag_id->second.bag_item.amount << "; "
+            << "weight: "
+            << bag_id->second.bag_item.weight;
     }
     LogTrace(TRACE5) << "---------------------------";
 }
@@ -167,6 +173,29 @@ void TAnnulBT::clear()
     grp_id = ASTRA::NoExists;
     items.clear();
     backup_items.clear();
+}
+
+void TAnnulBT::TBagTags::dump(const string &file, int line) const
+{
+    LogTrace(TRACE5) << "---TAnnulBT::TBagTags::dump(): " << file << ":" << (line == ASTRA::NoExists ? 0 : line) << "---";
+    LogTrace(TRACE5) << "pax_id: " << pax_id;
+    LogTrace(TRACE5) << "id: " << bag_item.id;
+    LogTrace(TRACE5) << "bag_num: " << bag_item.num;
+    LogTrace(TRACE5) << "time_create: " << DateTimeToStr(bag_item.time_create);
+    LogTrace(TRACE5) << "time_annul: " << DateTimeToStr(time_annul);
+    LogTrace(TRACE5) << "amount: " << bag_item.amount;
+    LogTrace(TRACE5) << "weight: " << bag_item.weight;
+    string tag_list;
+    for(std::list<CheckIn::TTagItem>::const_iterator
+            i = bag_tags.begin();
+            i != bag_tags.end();
+            i++) {
+        if(not tag_list.empty())
+            tag_list += ", ";
+        tag_list += FloatToString(i->no, 0);
+    }
+    LogTrace(TRACE5) << "tag_list: " << tag_list;
+    LogTrace(TRACE5) << "-----------------------------------";
 }
 
 void TAnnulBT::TBagTags::clear()
@@ -188,7 +217,6 @@ void TAnnulBT::backup()
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_id = Qry.get().FieldIndex("id");
-        int col_grp_id = Qry.get().FieldIndex("grp_id");
         int col_pax_id = Qry.get().FieldIndex("pax_id");
         int col_bag_type = Qry.get().FieldIndex("bag_type");
         int col_rfisc = Qry.get().FieldIndex("rfisc");
@@ -196,11 +224,10 @@ void TAnnulBT::backup()
         int col_time_annul = Qry.get().FieldIndex("time_annul");
         int col_amount = Qry.get().FieldIndex("amount");
         int col_weight = Qry.get().FieldIndex("weight");
-        int bag_num = 1;
+        int bag_id = 1;
         for(; not Qry.get().Eof; Qry.get().Next()) {
             CheckIn::TBagItem bag_item;
-            bag_item.id = Qry.get().FieldAsInteger(col_grp_id);
-            bag_item.num = bag_num++;
+            bag_item.id = bag_id++;
             if(not Qry.get().FieldIsNULL(col_bag_type))
                 bag_item.bag_type = Qry.get().FieldAsInteger(col_bag_type);
             bag_item.rfisc = Qry.get().FieldAsString(col_rfisc);
@@ -210,7 +237,7 @@ void TAnnulBT::backup()
                 bag_item.amount =  Qry.get().FieldAsInteger(col_amount);
             if(not Qry.get().FieldIsNULL(col_weight))
                 bag_item.weight =  Qry.get().FieldAsInteger(col_weight);
-            TBagTags &bag_tags = backup_items[bag_item.num];
+            TBagTags &bag_tags = backup_items[bag_item.id];
             if(not Qry.get().FieldIsNULL(col_pax_id))
                 bag_tags.pax_id = Qry.get().FieldAsInteger(col_pax_id);
             bag_tags.bag_item = bag_item;
@@ -222,7 +249,7 @@ void TAnnulBT::backup()
             for(; not tagsQry.get().Eof; tagsQry.get().Next()) {
                 CheckIn::TTagItem tag_item;
                 tag_item.no = tagsQry.get().FieldAsFloat("no");
-                backup_items[bag_item.num].bag_tags.push_back(tag_item);
+                bag_tags.bag_tags.push_back(tag_item);
             }
 
         }
@@ -250,23 +277,17 @@ void TAnnulBT::get(int grp_id)
 
     backup();
 
-    /*
     try {
-    */
         TCachedQuery bagQry(
-                "SELECT "
-                "   ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) pax_id, "
-                "   bag2.* FROM bag2 WHERE grp_id=:grp_id",
+                "SELECT * FROM bag2 WHERE grp_id=:grp_id",
                 QParams() << QParam("grp_id", otInteger, grp_id));
         bagQry.get().Execute();
         for(; not bagQry.get().Eof; bagQry.get().Next()) {
-            int pax_id = ASTRA::NoExists;
-            if(not bagQry.get().FieldIsNULL("pax_id"))
-                pax_id = bagQry.get().FieldAsInteger("pax_id");
+
             CheckIn::TBagItem bag_item;
             bag_item.fromDB(bagQry.get());
-            TBagTags &bag_tags = items[bag_item.num];
-            bag_tags.pax_id = pax_id;
+            TBagTags &bag_tags = items[bag_item.id];
+            bag_tags.pax_id = get_pax_id(grp_id, bag_item.bag_pool_num);
             bag_tags.bag_item = bag_item;
 
             TCachedQuery tagQry("SELECT * FROM bag_tags WHERE grp_id=:grp_id and bag_num = :bag_num ",
@@ -277,14 +298,12 @@ void TAnnulBT::get(int grp_id)
             for(; not tagQry.get().Eof; tagQry.get().Next()) {
                 CheckIn::TTagItem tag_item;
                 tag_item.fromDB(tagQry.get());
-                items[bag_item.num].bag_tags.push_back(tag_item);
+                bag_tags.bag_tags.push_back(tag_item);
             }
         }
-        /*
     } catch(Exception &E) {
         LogError(STDLOG) <<  "TAnnulBT::get failed: " << E.what();
     } catch(...) {
         LogError(STDLOG) <<  "TAnnulBT::get failed: something goes wrong";
     }
-    */
 }

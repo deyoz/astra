@@ -4325,6 +4325,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     CheckIn::TPaxGrpItem &grp=iSegListItem->grp;
     CheckIn::TPaxList &paxs=iSegListItem->paxs;
 
+    TAnnulBT annul_bt;
+    annul_bt.get(grp.id);
+
     map<int,TSegInfo>::const_iterator s=segs.find(grp.point_dep);
     if (s==segs.end())
       throw EXCEPTIONS::Exception("CheckInInterface::SavePax: point_id not found in map segs");
@@ -6017,9 +6020,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       {
         rozysk::sync_pax_grp(grp.id, reqInfo->desk.code, reqInfo->user.descr);
       }
-
-      TAnnulBT annul_bt;
-      annul_bt.get(grp.id);
 
       Qry.Clear();
       Qry.SQLText=
