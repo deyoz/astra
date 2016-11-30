@@ -137,16 +137,6 @@ void TAnnulBT::minus(const TAnnulBT &annul_bt)
         }
 }
 
-void TAnnulBT::minus(const map<int, CheckIn::TBagItem> &bag_items)
-{
-    for(map<int, CheckIn::TBagItem>::const_iterator
-            i = bag_items.begin();
-            i != bag_items.end();
-            i++) {
-        items.erase(i->second.id);
-    }
-}
-
 void TAnnulBT::dump()
 {
     LogTrace(TRACE5) << "---TAnnulBT::dump---";

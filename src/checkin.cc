@@ -6021,9 +6021,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         rozysk::sync_pax_grp(grp.id, reqInfo->desk.code, reqInfo->user.descr);
       }
 
-      TAnnulBT annul_bt_backup;
-      annul_bt_backup.get(grp.id); // just for clean annul_* tables, because grp.id may be deleted in next sql
-
       Qry.Clear();
       Qry.SQLText=
         "BEGIN "

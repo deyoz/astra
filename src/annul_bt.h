@@ -26,7 +26,6 @@ struct TAnnulBT {
 
         int get_grp_id() const { return grp_id; }
         void get(int grp_id);
-        void minus(const std::map<int, CheckIn::TBagItem> &bag_items);
         void minus(const TAnnulBT &annul_bt);
         void toDB();
         void dump();
