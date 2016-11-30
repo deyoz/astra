@@ -45,6 +45,7 @@
 #include "sirena_exchange.h"
 #include "baggage_pc.h"
 #include "ffp_sirena.h"
+#include "annul_bt.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include <boost/algorithm/string.hpp>
 
@@ -4116,6 +4117,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     CheckIn::TPaxGrpItem &grp=iSegListItem->grp;
     CheckIn::TPaxList &paxs=iSegListItem->paxs;
 
+    TAnnulBT annul_bt;
+    annul_bt.get(grp.id);
+
     map<int,TSegInfo>::const_iterator s=segs.find(grp.point_dep);
     if (s==segs.end())
       throw EXCEPTIONS::Exception("CheckInInterface::SavePax: point_id not found in map segs");
@@ -5815,6 +5819,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       Qry.CreateVariable("grp_id",otInteger,grp.id);
       Qry.Execute();
       Qry.Close();
+
+      TAnnulBT annul_bt_after;
+      annul_bt_after.get(grp.id);
+      annul_bt.minus(annul_bt_after);
+
+      annul_bt.toDB();
 
       //проверим максимальную загрузку
       bool overload_alarm = calc_overload_alarm( grp.point_dep ); // вычислили признак перегрузки
