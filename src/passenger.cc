@@ -1733,6 +1733,20 @@ void GetTCkinTickets(int pax_id, map<int, TCkinPaxTknItem> &tkns)
     tkns.insert(make_pair(Qry.FieldAsInteger("seg_no"), TCkinPaxTknItem().fromDB(Qry)));
 }
 
+std::string isFemaleStr( int is_female )
+{
+  switch (is_female) {
+    case ASTRA::NoExists:
+      return "";
+      break;
+    case 0:
+      return "M";
+      break;
+    default:
+      return "F";
+      break;
+  };
+}
 
 }; //namespace CheckIn
 

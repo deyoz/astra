@@ -115,15 +115,15 @@ struct TPlaceLayer {
     ASTRA::TCompLayerType layer_type;
     int priority;
     TDateTime time_create;
-  TPlaceLayer( int vpax_id, int vpoint_dep, int vpoint_arv,
-               ASTRA::TCompLayerType vlayer_type, TDateTime vtime_create, int vpriority ) {
-        pax_id = vpax_id;
-        point_dep = vpoint_dep;
-        point_arv = vpoint_arv;
-        layer_type = vlayer_type;
-        time_create = vtime_create;
-        priority = vpriority;
-  }
+    TPlaceLayer( int vpax_id, int vpoint_dep, int vpoint_arv,
+                 ASTRA::TCompLayerType vlayer_type, TDateTime vtime_create, int vpriority ) {
+      pax_id = vpax_id;
+      point_dep = vpoint_dep;
+      point_arv = vpoint_arv;
+      layer_type = vlayer_type;
+      time_create = vtime_create;
+      priority = vpriority;
+    }
 };
 
 struct TRFISC {
@@ -606,7 +606,7 @@ struct SeatRemarkCompare {
 
 class TPaxList;
 
-struct classcomp {
+struct classcomp   {
   bool operator() (const int& lhs, const int& rhs) const
   {return lhs<rhs;}
 };
@@ -855,7 +855,7 @@ class TPlace {
     void clearRFISCs() {
       rfiscs.clear();
     }
-
+   TRFISC getRFISC( int point_id );
     void SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &salonTariffs, const TSeatTariffMap::TStatus &status );
     void SetTariffsByRFISC( int point_dep );
     void AddLayerToPlace( ASTRA::TCompLayerType l, TDateTime time_create, int pax_id,
