@@ -11055,6 +11055,13 @@ int nosir_seDCSAddReport(int argc, char **argv)
     return 1;
 }
 
+struct TPaxInfo {
+    int reg_no;
+    string surname;
+    string name;
+    TPaxInfo(): reg_no(NoExists) {}
+};
+
 void ANNUL_TAGS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     get_compatible_report_form("annul_tags", reqNode, resNode);
@@ -11084,13 +11091,6 @@ void ANNUL_TAGS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
     TCachedQuery paxQry("select reg_no, name, surname from pax where pax_id = :pax_id",
             QParams() << QParam("pax_id", otInteger));
-
-    struct TPaxInfo {
-        int reg_no;
-        string surname;
-        string name;
-        TPaxInfo(): reg_no(NoExists) {}
-    };
 
     map<int, TPaxInfo> pax_map;
 
