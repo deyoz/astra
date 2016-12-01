@@ -2396,6 +2396,10 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
 
+  TAnnulBT annul_bt_after;
+  annul_bt_after.get(grp_id);
+  annul_bt.minus(annul_bt_after);
+
   annul_bt.toDB();
 };
 
