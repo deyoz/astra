@@ -109,4 +109,7 @@ std::string get_tag_range(std::vector<t_tag_nos_row> tag_nos, std::string lang);
 
 int testbm(int argc,char **argv);
 
+void populate_doc_cap(xmlNodePtr variablesNode, std::string lang);
+void ANNUL_TAGS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
+
 #endif

@@ -3521,6 +3521,9 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         case rtLIR:
             WB_MSG(rpt_params, reqNode, resNode);
             break;
+        case rtANNUL_TAGS:
+            ANNUL_TAGS(rpt_params, reqNode, resNode);
+            break;
         default:
             throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
     }
