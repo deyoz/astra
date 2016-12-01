@@ -57,6 +57,7 @@ const char *RptTypeS[] = {
     "LOADSHEET",
     "NOTOC",
     "LIR",
+    "ANNUL_TAGS",
     "?"
 };
 
