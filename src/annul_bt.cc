@@ -150,7 +150,7 @@ void TAnnulBT::minus(const TAnnulBT &annul_bt)
     } else {
         bool pr_found = true;
         while(pr_found) {
-            TBagIdMap::const_iterator bag_id = items.begin();
+            TBagIdMap::iterator bag_id = items.begin();
             for(; bag_id != items.end(); bag_id++) {
                 list<CheckIn::TTagItem>::const_iterator bag_tag = bag_id->second.bag_tags.begin();
                 for(; bag_tag != bag_id->second.bag_tags.end(); bag_tag++)
