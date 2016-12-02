@@ -124,17 +124,51 @@ void TAnnulBT::toDB()
     toDB(items, annul_date);
 }
 
+bool TAnnulBT::find_tag(const CheckIn::TTagItem &tag) const
+{
+    bool result = false;
+    for(TBagIdMap::const_iterator
+            bag_id = items.begin();
+            bag_id != items.end();
+            bag_id++) {
+        for(list<CheckIn::TTagItem>::const_iterator
+                bag_tag = bag_id->second.bag_tags.begin();
+                bag_tag != bag_id->second.bag_tags.end();
+                bag_tag++) {
+            result = bag_tag->no == tag.no;
+            if(result) break;
+        }
+        if(result) break;
+    }
+    return result;
+}
+
 void TAnnulBT::minus(const TAnnulBT &annul_bt)
 {
     if(annul_bt.get_grp_id() == ASTRA::NoExists) {
         clear();
-    } else
+    } else {
+        bool pr_found = true;
+        while(pr_found) {
+            TBagIdMap::const_iterator bag_id = items.begin();
+            for(; bag_id != items.end(); bag_id++) {
+                list<CheckIn::TTagItem>::const_iterator bag_tag = bag_id->second.bag_tags.begin();
+                for(; bag_tag != bag_id->second.bag_tags.end(); bag_tag++)
+                    if(annul_bt.find_tag(*bag_tag)) break;
+                if(bag_tag != bag_id->second.bag_tags.end())
+                    break;
+            }
+            pr_found = bag_id != items.end();
+            if(pr_found) items.erase(bag_id);
+        }
+
         for(TBagIdMap::const_iterator
                 bag_id = annul_bt.items.begin();
                 bag_id != annul_bt.items.end();
                 bag_id++) {
             items.erase(bag_id->first);
         }
+    }
 }
 
 void TAnnulBT::dump()
