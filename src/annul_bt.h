@@ -22,6 +22,7 @@ struct TAnnulBT {
 
         void backup();
         void toDB(const TBagIdMap &items, TDateTime time_annul);
+        bool find_tag(const CheckIn::TTagItem &tag) const;
     public:
 
         int get_grp_id() const { return grp_id; }
