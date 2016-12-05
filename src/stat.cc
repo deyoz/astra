@@ -7074,6 +7074,7 @@ struct TAnnulBTStatRow {
     int id;
     string airp_dep;
     string airp_arv;
+    int pax_id;
     int point_id;
     int bag_type;
     string rfisc;
@@ -7085,10 +7086,12 @@ struct TAnnulBTStatRow {
     int trfer_flt_no;
     string trfer_suffix;
     TDateTime trfer_scd;
+    string trfer_airp_arv;
     void get_tags(TDateTime part_key, int id);
     TAnnulBTStatRow():
         flt_no(NoExists),
         id(NoExists),
+        pax_id(NoExists),
         point_id(NoExists),
         bag_type(NoExists),
         time_create(NoExists),
@@ -7134,14 +7137,19 @@ struct TAnnulBTStat {
 void RunAnnulBTStat(
         const TStatParams &params,
         TAnnulBTStat &AnnulBTStat,
-        TPrintAirline &prn_airline
+        TPrintAirline &prn_airline,
+        int point_id = NoExists
         )
 {
-    for(int pass = 0; pass <= 2; pass++) {
+    int pass_count = (point_id == NoExists ? 2 : 0);
+    for(int pass = 0; pass <= pass_count; pass++) {
         QParams QryParams;
-        QryParams
-            << QParam("FirstDate", otDate, params.FirstDate)
-            << QParam("LastDate", otDate, params.LastDate);
+        if(point_id == NoExists)
+            QryParams
+                << QParam("FirstDate", otDate, params.FirstDate)
+                << QParam("LastDate", otDate, params.LastDate);
+        else
+            QryParams << QParam("point_id", otInteger, point_id);
         if (pass!=0)
             QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
         string SQLText =
@@ -7158,6 +7166,7 @@ void RunAnnulBTStat(
             "   annul_bag.id, "
             "   pax_grp.airp_dep, "
             "   pax_grp.airp_arv, "
+            "   annul_bag.pax_id, "
             "   annul_bag.bag_type, "
             "   annul_bag.rfisc, "
             "   annul_bag.time_create, "
@@ -7209,9 +7218,14 @@ void RunAnnulBTStat(
             SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
         if(pass == 2)
             SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
-        params.AccessClause(SQLText);
+        if(point_id == NoExists) {
+            params.AccessClause(SQLText);
+            SQLText +=
+                "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and \n";
+        } else
+            SQLText +=
+                "   points.point_id = :point_id and ";
         SQLText +=
-            "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and \n"
             "   points.point_id = pax_grp.point_dep and "
             "   pax_grp.grp_id = annul_bag.grp_id and "
             "   pax_grp.grp_id = transfer.grp_id(+) and \n"
@@ -7219,11 +7233,12 @@ void RunAnnulBTStat(
         if(pass == 0)
             SQLText +=
                 "   and transfer.point_id_trfer = trfer_trips.point_id(+) \n";
-        if(params.flt_no != NoExists) {
+        if(point_id == NoExists and params.flt_no != NoExists) {
             SQLText += " and points.flt_no = :flt_no \n";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
         TCachedQuery Qry(SQLText, QryParams);
+        LogTrace(TRACE5) << Qry.get().SQLText.SQLText();
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().FieldIndex("part_key");
@@ -7234,6 +7249,7 @@ void RunAnnulBTStat(
             int col_id = Qry.get().FieldIndex("id");
             int col_airp_dep = Qry.get().FieldIndex("airp_dep");
             int col_airp_arv = Qry.get().FieldIndex("airp_arv");
+            int col_pax_id = Qry.get().FieldIndex("pax_id");
             int col_bag_type = Qry.get().FieldIndex("bag_type");
             int col_rfisc = Qry.get().FieldIndex("rfisc");
             int col_time_create = Qry.get().FieldIndex("time_create");
@@ -7244,10 +7260,11 @@ void RunAnnulBTStat(
             int col_trfer_flt_no = Qry.get().FieldIndex("trfer_flt_no");
             int col_trfer_suffix = Qry.get().FieldIndex("trfer_suffix");
             int col_trfer_scd = Qry.get().FieldIndex("trfer_scd");
+            int col_trfer_airp_arv = Qry.get().FieldIndex("trfer_airp_arv");
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 prn_airline.check(Qry.get().FieldAsString(col_airline));
 
-                int part_key = NoExists;
+                TDateTime part_key = NoExists;
                 if(not Qry.get().FieldIsNULL(col_part_key))
                     part_key = Qry.get().FieldAsDateTime(col_part_key);
 
@@ -7259,6 +7276,8 @@ void RunAnnulBTStat(
                 row.id = Qry.get().FieldAsInteger(col_id);
                 row.airp_dep = Qry.get().FieldAsString(col_airp_dep);
                 row.airp_arv = Qry.get().FieldAsString(col_airp_arv);
+                if(not Qry.get().FieldIsNULL(col_pax_id))
+                    row.pax_id = Qry.get().FieldAsInteger(col_pax_id);
                 if(not Qry.get().FieldIsNULL(col_bag_type))
                     row.bag_type = Qry.get().FieldAsInteger(col_bag_type);
                 row.rfisc = Qry.get().FieldAsString(col_rfisc);
@@ -7266,14 +7285,19 @@ void RunAnnulBTStat(
                     row.time_create = Qry.get().FieldAsDateTime(col_time_create);
                 if(not Qry.get().FieldIsNULL(col_time_annul))
                     row.time_annul = Qry.get().FieldAsDateTime(col_time_annul);
-                row.amount = Qry.get().FieldAsInteger(col_amount);
-                row.weight = Qry.get().FieldAsInteger(col_weight);
+                if(not Qry.get().FieldIsNULL(col_amount))
+                    row.amount = Qry.get().FieldAsInteger(col_amount);
+                if(not Qry.get().FieldIsNULL(col_weight))
+                    row.weight = Qry.get().FieldAsInteger(col_weight);
                 row.trfer_airline = Qry.get().FieldAsString(col_trfer_airline);
                 if(not Qry.get().FieldIsNULL(col_trfer_flt_no))
                     row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
                 row.trfer_suffix = Qry.get().FieldAsString(col_trfer_suffix);
                 if(not Qry.get().FieldIsNULL(col_trfer_scd))
                     row.trfer_scd = Qry.get().FieldAsDateTime(col_trfer_scd);
+                row.trfer_airp_arv = Qry.get().FieldAsString(col_trfer_airp_arv);
+
+                LogTrace(TRACE5) << "trfer_airp_arv: " << row.trfer_airp_arv;
 
                 row.get_tags(part_key, row.id);
                 AnnulBTStat.rows.push_back(row);
@@ -7378,9 +7402,15 @@ void createXMLAnnulBTStat(
         // До
         NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp_arv));
         // Мест
-        NewTextChild(rowNode, "col", i->amount);
+        if(i->amount != NoExists)
+            NewTextChild(rowNode, "col", i->amount);
+        else
+            NewTextChild(rowNode, "col");
         // Вес
-        NewTextChild(rowNode, "col", i->weight);
+        if(i->weight != NoExists)
+            NewTextChild(rowNode, "col", i->weight);
+        else
+            NewTextChild(rowNode, "col");
         // Тип багажа/RFISC
         buf.str("");
         if(not i->rfisc.empty())
@@ -10718,4 +10748,105 @@ int nosir_seDCSAddReport(int argc, char **argv)
     }
 
     return 1;
+}
+
+struct TPaxInfo {
+    int reg_no;
+    string surname;
+    string name;
+    TPaxInfo(): reg_no(NoExists) {}
+};
+
+void ANNUL_TAGS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    get_compatible_report_form("annul_tags", reqNode, resNode);
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_annul");
+    // переменные отчёта
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
+    // заголовок отчёта
+    NewTextChild(variablesNode, "caption",
+            getLocaleText("CAP.DOC.ANNUL_TAGS", LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
+    populate_doc_cap(variablesNode, rpt_params.GetLang());
+
+    NewTextChild(variablesNode, "doc_cap_annul_reg_no", getLocaleText("№"));
+    NewTextChild(variablesNode, "doc_cap_annul_fio", getLocaleText("Ф.И.О."));
+    NewTextChild(variablesNode, "doc_cap_annul_no", getLocaleText("№№ баг. бирок"));
+    NewTextChild(variablesNode, "doc_cap_annul_weight", getLocaleText("БГ вес"));
+    NewTextChild(variablesNode, "doc_cap_annul_bag_type", getLocaleText("Тип багажа/RFISC"));
+    NewTextChild(variablesNode, "doc_cap_annul_trfer", getLocaleText("Трфр"));
+    NewTextChild(variablesNode, "doc_cap_annul_trfer_dir", getLocaleText("До трфр"));
+
+    TStatParams params;
+    TPrintAirline airline;
+    TAnnulBTStat AnnulBTStat;
+    RunAnnulBTStat(params, AnnulBTStat, airline, rpt_params.point_id);
+
+    TCachedQuery paxQry("select reg_no, name, surname from pax where pax_id = :pax_id",
+            QParams() << QParam("pax_id", otInteger));
+
+    map<int, TPaxInfo> pax_map;
+
+    for(list<TAnnulBTStatRow>::const_iterator i = AnnulBTStat.rows.begin(); i != AnnulBTStat.rows.end(); i++) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+        map<int, TPaxInfo>::iterator iPax = pax_map.find(i->pax_id);
+
+        if(iPax == pax_map.end()) {
+            TPaxInfo pax;
+            if(i->pax_id != NoExists) {
+                paxQry.get().SetVariable("pax_id", i->pax_id);
+                paxQry.get().Execute();
+                if(not paxQry.get().Eof) {
+                    pax.reg_no = paxQry.get().FieldAsInteger("reg_no");
+                    pax.name = paxQry.get().FieldAsString("name");
+                    pax.surname = paxQry.get().FieldAsString("surname");
+                }
+            }
+            pair<map<int, TPaxInfo>::iterator, bool> ret =
+                pax_map.insert(make_pair(i->pax_id, pax));
+            iPax = ret.first;
+        }
+
+        //  Рег№
+        if(iPax->second.reg_no == NoExists)
+            NewTextChild(rowNode, "reg_no");
+        else
+            NewTextChild(rowNode, "reg_no", iPax->second.reg_no);
+        //  пассажира ФИО
+        ostringstream buf;
+        if(iPax->second.reg_no != NoExists)
+            buf
+                << transliter(iPax->second.surname, 1, rpt_params.GetLang() != AstraLocale::LANG_RU) << " "
+                << transliter(iPax->second.name, 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
+        NewTextChild(rowNode, "fio", buf.str());
+        //  номер бирки
+        NewTextChild(rowNode, "no", get_tag_range(i->tags, LANG_EN));
+        //  значение по весу
+        if (i->weight != NoExists)
+            NewTextChild(rowNode, "weight", i->weight);
+        else
+            NewTextChild(rowNode, "weight");
+
+        //  тип багажа
+        buf.str("");
+        if(not i->rfisc.empty())
+            buf << i->rfisc;
+        else if(i->bag_type != NoExists)
+            buf << ElemIdToNameLong(etBagType, i->bag_type);
+        NewTextChild(rowNode, "bag_type", buf.str());
+
+        if(i->trfer_airline.empty()) {
+            //  призн.трансфера
+            NewTextChild(rowNode, "pr_trfer", getLocaleText("НЕТ"));
+            //  направление трфр
+            NewTextChild(rowNode, "trfer_airp_arv");
+        } else {
+            NewTextChild(rowNode, "pr_trfer", getLocaleText("ДА"));
+            NewTextChild(rowNode, "trfer_airp_arv", rpt_params.ElemIdToReportElem(etAirp, i->trfer_airp_arv, efmtCodeNative));
+        }
+    }
+    //LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 }

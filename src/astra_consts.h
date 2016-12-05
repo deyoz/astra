@@ -152,6 +152,7 @@ enum TRptType {
     rtLOADSHEET,
     rtNOTOC,
     rtLIR,
+    rtANNUL_TAGS,
     rtUnknown,
     rtTypeNum
 };

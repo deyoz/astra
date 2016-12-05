@@ -408,7 +408,8 @@ void TRptParams::Init(xmlNodePtr node)
             rpt_type != rtBDOCS and
             rpt_type != rtLOADSHEET and
             rpt_type != rtNOTOC and
-            rpt_type != rtLIR
+            rpt_type != rtLIR and
+            rpt_type != rtANNUL_TAGS
             )
         rpt_type = TRptType((int)rpt_type + 1);
     string route_country;
@@ -3520,6 +3521,9 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         case rtNOTOC:
         case rtLIR:
             WB_MSG(rpt_params, reqNode, resNode);
+            break;
+        case rtANNUL_TAGS:
+            ANNUL_TAGS(rpt_params, reqNode, resNode);
             break;
         default:
             throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");

@@ -22,13 +22,24 @@ struct TAnnulBT {
 
         void backup();
         void toDB(const TBagIdMap &items, TDateTime time_annul);
+        bool find_tag(const CheckIn::TTagItem &tag) const;
+
+        struct TRMExistTags {
+            struct TCheck {
+                const TAnnulBT &annul_bt;
+                bool operator()(const CheckIn::TTagItem &tag);
+                TCheck(const TAnnulBT &vannul_bt): annul_bt(vannul_bt) {}
+            };
+            bool exec(std::list<CheckIn::TTagItem> &bag_tags, const TAnnulBT &annul_bt);
+        };
+
     public:
 
         int get_grp_id() const { return grp_id; }
         void get(int grp_id);
         void minus(const TAnnulBT &annul_bt);
         void toDB();
-        void dump();
+        void dump() const;
         void clear();
         TAnnulBT() { clear(); }
 };
