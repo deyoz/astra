@@ -11138,9 +11138,12 @@ void ANNUL_TAGS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         //  номер бирки
         NewTextChild(rowNode, "no", get_tag_range(i->tags, LANG_EN));
         //  значение по весу
-        NewTextChild(rowNode, "weight", i->weight);
-        //  тип багажа
+        if (i->weight != NoExists)
+            NewTextChild(rowNode, "weight", i->weight);
+        else
+            NewTextChild(rowNode, "weight");
 
+        //  тип багажа
         buf.str("");
         if(not i->rfisc.empty())
             buf << i->rfisc;
