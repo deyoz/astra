@@ -7285,8 +7285,10 @@ void RunAnnulBTStat(
                     row.time_create = Qry.get().FieldAsDateTime(col_time_create);
                 if(not Qry.get().FieldIsNULL(col_time_annul))
                     row.time_annul = Qry.get().FieldAsDateTime(col_time_annul);
-                row.amount = Qry.get().FieldAsInteger(col_amount);
-                row.weight = Qry.get().FieldAsInteger(col_weight);
+                if(not Qry.get().FieldIsNULL(col_amount))
+                    row.amount = Qry.get().FieldAsInteger(col_amount);
+                if(not Qry.get().FieldIsNULL(col_weight))
+                    row.weight = Qry.get().FieldAsInteger(col_weight);
                 row.trfer_airline = Qry.get().FieldAsString(col_trfer_airline);
                 if(not Qry.get().FieldIsNULL(col_trfer_flt_no))
                     row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
@@ -7400,9 +7402,15 @@ void createXMLAnnulBTStat(
         // До
         NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp_arv));
         // Мест
-        NewTextChild(rowNode, "col", i->amount);
+        if(i->amount != NoExists)
+            NewTextChild(rowNode, "col", i->amount);
+        else
+            NewTextChild(rowNode, "col");
         // Вес
-        NewTextChild(rowNode, "col", i->weight);
+        if(i->weight != NoExists)
+            NewTextChild(rowNode, "col", i->weight);
+        else
+            NewTextChild(rowNode, "col");
         // Тип багажа/RFISC
         buf.str("");
         if(not i->rfisc.empty())
