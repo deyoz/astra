@@ -78,7 +78,6 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
                 bag_id = items.begin();
                 bag_id != items.end();
                 bag_id++) {
-            if(bag_id->second.bag_tags.empty()) continue;
             if(bag_id->second.pax_id == ASTRA::NoExists)
                 Qry.get().SetVariable("pax_id", FNull);
             else
@@ -96,8 +95,14 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
                 Qry.get().SetVariable("time_annul", time_annul);
             else
                 Qry.get().SetVariable("time_annul", bag_id->second.time_annul);
-            Qry.get().SetVariable("amount", bag_id->second.bag_item.amount);
-            Qry.get().SetVariable("weight", bag_id->second.bag_item.weight);
+            if(bag_id->second.bag_item.amount == ASTRA::NoExists)
+                Qry.get().SetVariable("amount", FNull);
+            else
+                Qry.get().SetVariable("amount", bag_id->second.bag_item.amount);
+            if(bag_id->second.bag_item.weight == ASTRA::NoExists)
+                Qry.get().SetVariable("weight", FNull);
+            else
+                Qry.get().SetVariable("weight", bag_id->second.bag_item.weight);
 
             Qry.get().Execute();
             int id = Qry.get().GetVariableAsInteger("id");
@@ -143,24 +148,49 @@ bool TAnnulBT::find_tag(const CheckIn::TTagItem &tag) const
     return result;
 }
 
+bool TAnnulBT::TRMExistTags::TCheck::operator()(const CheckIn::TTagItem &tag)
+{
+    return annul_bt.find_tag(tag);
+}
+
+bool TAnnulBT::TRMExistTags::exec(
+        list<CheckIn::TTagItem> &bag_tags,
+        const TAnnulBT &annul_bt
+        )
+{
+    annul_bt.dump();
+    list<CheckIn::TTagItem>::iterator pbegin, pend;
+    pbegin = bag_tags.begin();
+    pend = bag_tags.end();
+    pend = remove_if(pbegin, pend, TCheck(annul_bt));
+    bool result = pend != bag_tags.end();
+    bag_tags.erase(pend, bag_tags.end());
+    return result;
+}
+
 void TAnnulBT::minus(const TAnnulBT &annul_bt)
 {
     if(annul_bt.get_grp_id() == ASTRA::NoExists) {
         clear();
     } else {
-        bool pr_found = true;
-        while(pr_found) {
-            TBagIdMap::iterator bag_id = items.begin();
-            for(; bag_id != items.end(); bag_id++) {
-                list<CheckIn::TTagItem>::const_iterator bag_tag = bag_id->second.bag_tags.begin();
-                for(; bag_tag != bag_id->second.bag_tags.end(); bag_tag++)
-                    if(annul_bt.find_tag(*bag_tag)) break;
-                if(bag_tag != bag_id->second.bag_tags.end())
-                    break;
-            }
-            pr_found = bag_id != items.end();
-            if(pr_found) items.erase(bag_id);
-        }
+        for(TBagIdMap::iterator
+                bag_id = items.begin();
+                bag_id != items.end();)
+            if(TRMExistTags().exec(bag_id->second.bag_tags, annul_bt)) {
+                if(bag_id->second.bag_tags.empty())
+                    items.erase(bag_id++);
+                else {
+                    // Если у багажа остались бирки, то они были отвязаны
+                    bag_id->second.pax_id = ASTRA::NoExists;
+                    bag_id->second.bag_item.bag_type = ASTRA::NoExists;
+                    bag_id->second.bag_item.rfisc.clear();
+                    bag_id->second.bag_item.amount = ASTRA::NoExists;
+                    bag_id->second.bag_item.weight = ASTRA::NoExists;
+                    bag_id++;
+                }
+            } else
+                bag_id++;
+
 
         for(TBagIdMap::const_iterator
                 bag_id = annul_bt.items.begin();
@@ -171,10 +201,11 @@ void TAnnulBT::minus(const TAnnulBT &annul_bt)
     }
 }
 
-void TAnnulBT::dump()
+void TAnnulBT::dump() const
 {
     LogTrace(TRACE5) << "---TAnnulBT::dump---";
-    for(TBagIdMap::iterator
+    LogTrace(TRACE5) << "grp_id: " << grp_id;
+    for(TBagIdMap::const_iterator
             bag_id = items.begin();
             bag_id != items.end();
             bag_id++) {
@@ -182,12 +213,7 @@ void TAnnulBT::dump()
             << "[" << bag_id->first << "]"
             << ": "
             << bag_id->second.bag_tags.size();
-        LogTrace(TRACE5) << "pax_id: " << bag_id->second.pax_id;
-        LogTrace(TRACE5)
-            << "amount: "
-            << bag_id->second.bag_item.amount << "; "
-            << "weight: "
-            << bag_id->second.bag_item.weight;
+        bag_id->second.dump(__FILE__, __LINE__);
     }
     LogTrace(TRACE5) << "---------------------------";
 }
@@ -310,6 +336,7 @@ void TAnnulBT::get(int grp_id)
 
             CheckIn::TBagItem bag_item;
             bag_item.fromDB(bagQry.get());
+            if(bag_item.pr_cabin) continue;
             TBagTags &bag_tags = items[bag_item.id];
             bag_tags.pax_id = get_pax_id(grp_id, bag_item.bag_pool_num);
             bag_tags.bag_item = bag_item;
