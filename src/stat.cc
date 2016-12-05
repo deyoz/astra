@@ -7264,7 +7264,7 @@ void RunAnnulBTStat(
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 prn_airline.check(Qry.get().FieldAsString(col_airline));
 
-                int part_key = NoExists;
+                TDateTime part_key = NoExists;
                 if(not Qry.get().FieldIsNULL(col_part_key))
                     part_key = Qry.get().FieldAsDateTime(col_part_key);
 
