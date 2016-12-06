@@ -158,7 +158,6 @@ bool TAnnulBT::TRMExistTags::exec(
         const TAnnulBT &annul_bt
         )
 {
-    annul_bt.dump();
     list<CheckIn::TTagItem>::iterator pbegin, pend;
     pbegin = bag_tags.begin();
     pend = bag_tags.end();
@@ -190,14 +189,6 @@ void TAnnulBT::minus(const TAnnulBT &annul_bt)
                 }
             } else
                 bag_id++;
-
-
-        for(TBagIdMap::const_iterator
-                bag_id = annul_bt.items.begin();
-                bag_id != annul_bt.items.end();
-                bag_id++) {
-            items.erase(bag_id->first);
-        }
     }
 }
 
