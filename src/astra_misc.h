@@ -903,21 +903,34 @@ struct TCFG:public std::vector<TCFGItem> {
     TCFG() {};
 };
 
+enum TDepDateType {ddtSCD, ddtEST, ddtACT}; // departure date type
+class TDepDateFlags: public BitSet<TDepDateType> {};
+
 class TSearchFltInfo
 {
   public:
+
+    typedef bool  (*TBeforeAddEvent)(const TAdvTripInfo &);
+    typedef void  (*TBeforeExitEvent)(std::list<TAdvTripInfo> &flts);
+
     std::string airline,suffix,airp_dep;
     int flt_no;
     TDateTime scd_out;
     bool scd_out_in_utc;
     bool only_with_reg;
+    TDepDateFlags dep_date_flags;
     std::string additional_where;
+    TBeforeAddEvent OnBeforeAdd;
+    TBeforeExitEvent OnBeforeExit;
     TSearchFltInfo()
     {
       flt_no=ASTRA::NoExists;
       scd_out=ASTRA::NoExists;;
       scd_out_in_utc=false;
       only_with_reg=false;
+      dep_date_flags.setFlag(ddtSCD);
+      OnBeforeAdd = NULL;
+      OnBeforeExit = NULL;
     };
 };
 

@@ -174,6 +174,14 @@ void TFltBinding::bind_flt(TFltInfo &flt, TBindType bind_type, vector<int> &spp_
   filter.airp_dep=flt.airp_dep;
   filter.scd_out=flt.scd;
   filter.scd_out_in_utc=flt.pr_utc;
+  TTlgBindParamsPtr bind_params = get_bind_params();
+
+  if(bind_params) {
+      filter.dep_date_flags = bind_params->dep_date_flags;
+      filter.OnBeforeAdd = bind_params->before_add();
+      filter.OnBeforeExit = bind_params->before_exit();
+  } else
+      filter.dep_date_flags.setFlag(ddtSCD);
 
   list<TAdvTripInfo> flts;
   SearchFlt(filter, flts);
@@ -611,5 +619,26 @@ void TFltInfo::dump()
     LogTrace(TRACE5) << "airp_dep: " << airp_dep;
     LogTrace(TRACE5) << "airp_arv: " << airp_arv;
     LogTrace(TRACE5) << "----------------------";
+}
+
+void LCI_bind_before_exit(std::list<TAdvTripInfo> &flts)
+{
+    for(std::list<TAdvTripInfo>::iterator
+            flt = flts.begin();
+            flt != flts.end();
+            flt++) {
+        LogTrace(TRACE5) << "LCI_bind_before_exit point_id: " << flt->point_id;
+    }
+            
+}
+
+TSearchFltInfo::TBeforeAddEvent TLCIBindParams::before_add()
+{
+    return NULL;
+}
+
+TSearchFltInfo::TBeforeExitEvent TLCIBindParams::before_exit()
+{
+    return LCI_bind_before_exit;
 }
 

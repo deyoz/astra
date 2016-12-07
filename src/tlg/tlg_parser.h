@@ -177,7 +177,22 @@ struct TTlgPartsText
   };
 };
 
-typedef std::list< std::pair<TFltInfo, TBindType> > TFlightsForBind;
+struct TFltForBind {
+    TFltInfo flt_info;
+    TBindType bind_type;
+    TTlgBindParamsPtr bind_params;
+    TFltForBind(
+            TFltInfo vflt_info,
+            TBindType vbind_type,
+            TTlgBindParamsPtr vbind_params
+            ):
+        flt_info(vflt_info),
+        bind_type(vbind_type),
+        bind_params(vbind_params)
+    {}
+};
+
+typedef std::list<TFltForBind> TFlightsForBind;
 
 class THeadingInfo
 {
@@ -955,7 +970,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con);
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type);
-int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, ETlgErrorType error_type=tlgeNotError);
+int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TTlgBindParamsPtr bind_params, ETlgErrorType error_type=tlgeNotError);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
 
