@@ -4,7 +4,6 @@
 #include <vector>
 #include "date_time.h"
 #include "astra_misc.h"
-#include <tr1/memory>
 
 using BASIC::date_time::TDateTime;
 
@@ -66,21 +65,6 @@ void crs_recount(int point_id_tlg, int point_id_spp, bool check_comp);
 
 enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1};
 
-struct TTlgBindParams {
-    TDepDateFlags dep_date_flags;
-    virtual TSearchFltInfo::TBeforeAddEvent before_add() = 0;
-    virtual TSearchFltInfo::TBeforeExitEvent before_exit() = 0;
-    virtual ~TTlgBindParams() {}
-};
-
-typedef std::tr1::shared_ptr<TTlgBindParams> TTlgBindParamsPtr;
-
-struct TLCIBindParams:public TTlgBindParams {
-    TLCIBindParams() { dep_date_flags.setFlag(ddtEST); }
-    TSearchFltInfo::TBeforeAddEvent before_add();
-    TSearchFltInfo::TBeforeExitEvent before_exit();
-};
-
 class TFltBinding
 {
   private:
@@ -97,7 +81,7 @@ class TFltBinding
     virtual void bind_flt_virt(int point_id, const std::vector<int> &spp_point_ids)=0;
     virtual std::string bind_or_unbind_flt_sql(bool unbind, bool use_scd_utc)=0;
     virtual std::string unbind_flt_sql()=0;
-    virtual TTlgBindParamsPtr get_bind_params() { return TTlgBindParamsPtr(); }
+    virtual TExtSearchParamsPtr get_search_params() { return TExtSearchParamsPtr(); }
 
   public:
     void bind_flt(TFltInfo &flt, TBindType bind_type, std::vector<int> &spp_point_ids);
@@ -115,7 +99,7 @@ class TTlgBinding : public TFltBinding
 {
   private:
     bool check_comp;
-    TTlgBindParamsPtr bind_params;
+    TExtSearchParamsPtr search_params;
 
     void unbind_flt_virt(int point_id, int point_id_spp, bool try_bind_again);
     std::string bind_flt_sql();
@@ -123,11 +107,11 @@ class TTlgBinding : public TFltBinding
     std::string bind_or_unbind_flt_sql(bool unbind, bool use_scd_utc);
     std::string unbind_flt_sql();
     void after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, bool unbind);
-    virtual TTlgBindParamsPtr get_bind_params() { return bind_params; }
+    virtual TExtSearchParamsPtr get_search_params() { return search_params; }
 
   public:
-    TTlgBinding(bool pcheck_comp):check_comp(pcheck_comp), bind_params(TTlgBindParamsPtr()) {};
-    TTlgBinding(bool pcheck_comp, TTlgBindParamsPtr pbind_params):check_comp(pcheck_comp), bind_params(pbind_params) {};
+    TTlgBinding(bool pcheck_comp):check_comp(pcheck_comp), search_params(TExtSearchParamsPtr()) {};
+    TTlgBinding(bool pcheck_comp, TExtSearchParamsPtr psearch_params):check_comp(pcheck_comp), search_params(psearch_params) {};
 };
 
 class TTrferBinding : public TFltBinding

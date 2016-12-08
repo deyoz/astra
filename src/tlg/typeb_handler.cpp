@@ -265,7 +265,7 @@ void bindTypeB(int typeb_tlg_id, const TFlightsForBind &flts, ETlgErrorType erro
     {
       TFltInfo normFlt(f->flt_info);
       NormalizeFltInfo(normFlt);
-      SaveFlt(typeb_tlg_id, normFlt, f->bind_type, f->bind_params, error_type);
+      SaveFlt(typeb_tlg_id, normFlt, f->bind_type, f->search_params, error_type);
     }
     catch(...) {};
   };
@@ -982,7 +982,7 @@ bool parse_tlg(void)
                 MVTParser::SaveMVTContent(tlg_id, info, con);
             } else {
                 ParseAHMFltInfo(part,info,info.flt,info.bind_type);
-                SaveFlt(tlg_id,info.flt,info.bind_type, TTlgBindParamsPtr());
+                SaveFlt(tlg_id,info.flt,info.bind_type, TExtSearchParamsPtr());
             }
             parseTypeB(tlg_id);
             ASTRA::commit();//OraSession.Commit();
@@ -995,7 +995,7 @@ bool parse_tlg(void)
           case tcLDM:
           {
               TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
-              SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TTlgBindParamsPtr());
+              SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TExtSearchParamsPtr());
               parseTypeB(tlg_id);
               ASTRA::commit();//OraSession.Commit();
               count++;
