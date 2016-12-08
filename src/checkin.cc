@@ -3634,6 +3634,17 @@ void GetInboundTransferForWeb(TSegList &segList,
   };
 };
 
+void CheckBagWeightControl(const CheckIn::TBagItem &bag)
+{
+  //  GRISHA
+  const int MAX_WEIGHT_BAG = 50;
+  const int MAX_WEIGHT_CAB = 15;
+  if (not bag.pr_cabin and bag.weight > MAX_WEIGHT_BAG)
+    throw UserException("MSG.LUGGAGE.WRONG_CTRL_WEIGHT_BAG", LParams() << LParam("maxweight", MAX_WEIGHT_BAG));
+  if (bag.pr_cabin and bag.weight > MAX_WEIGHT_CAB)
+    throw UserException("MSG.LUGGAGE.WRONG_CTRL_WEIGHT_CAB", LParams() << LParam("maxweight", MAX_WEIGHT_CAB));
+}
+
 void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
 {
   if (!grp.group_bag) return;
@@ -3694,7 +3705,15 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
           rfisc_list=PieceConcept::TRFISCListWithSets();
         rfisc_list.get().fromDB(grp.bag_types_id);
         rfisc_list.get().check(aBag->second);
-      };
+      }
+      else
+      {
+        //  контроль веса багажа (настройки рейсов разные)
+        TTripInfo info;
+        info.getByPointId(grp.point_dep);
+        if (GetTripSets(tsWeightControl, info))
+          CheckBagWeightControl(aBag->second);
+      }
     }
   }
 };
