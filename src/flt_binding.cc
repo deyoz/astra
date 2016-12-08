@@ -174,6 +174,7 @@ void TFltBinding::bind_flt(TFltInfo &flt, TBindType bind_type, vector<int> &spp_
   filter.airp_dep=flt.airp_dep;
   filter.scd_out=flt.scd;
   filter.scd_out_in_utc=flt.pr_utc;
+  filter.ext_search_params = get_search_params();
 
   list<TAdvTripInfo> flts;
   SearchFlt(filter, flts);
@@ -612,4 +613,3 @@ void TFltInfo::dump()
     LogTrace(TRACE5) << "airp_arv: " << airp_arv;
     LogTrace(TRACE5) << "----------------------";
 }
-
