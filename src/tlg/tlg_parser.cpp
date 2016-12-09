@@ -5440,7 +5440,10 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TExtSearchPara
       Qry.Execute();
     };
   }
-  else point_id=Qry.FieldAsInteger("point_id");
+  else {
+      point_id=Qry.FieldAsInteger("point_id");
+      TTlgBinding(false, search_params).bind_flt(point_id);
+  }
 
 
   bool has_errors=error_type!=tlgeNotError;

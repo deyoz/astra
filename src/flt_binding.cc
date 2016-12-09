@@ -601,7 +601,7 @@ void TFltBinding::trace_for_bind(const vector<int> &point_ids, const string &whe
   ProgTrace(TRACE5, "%s", trace.str().c_str());
 }
 
-void TFltInfo::dump()
+void TFltInfo::dump() const
 {
     LogTrace(TRACE5) << "----TFltInfo::dump----";
     LogTrace(TRACE5) << "airline: " << airline;
