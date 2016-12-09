@@ -157,6 +157,16 @@ class PrintInterface: public JxtInterface
                 std::string &data,
                 std::string &pectab
                 );
+
+        static void GetPrintDataVO(
+                int first_seg_grp_id,
+                int pax_id,
+                int pr_all,
+                const BPParams &params,
+                xmlNodePtr reqNode,
+                xmlNodePtr resNode
+                );
+
 };
 
 #endif

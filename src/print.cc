@@ -1938,6 +1938,82 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     GetPrintDataBP(reqNode, resNode);
 }
 
+void PrintInterface::GetPrintDataVO(
+        int first_seg_grp_id,
+        int pax_id,
+        int pr_all,
+        const BPParams &params,
+        xmlNodePtr reqNode,
+        xmlNodePtr resNode
+        )
+{
+    xmlNodePtr currNode = reqNode->children;
+    currNode = GetNodeFast("vouchers", currNode);
+    if(not currNode) {
+        TCachedQuery Qry(
+                "SELECT pax_id, point_dep "
+                " FROM pax, pax_grp "
+                "WHERE pax.grp_id = :grp_id AND "
+                "      refuse IS NULL and "
+                "      pax.grp_id = pax_grp.grp_id "
+                "ORDER BY pax.reg_no ",
+                QParams() << QParam("grp_id", otInteger, first_seg_grp_id));
+        Qry.get().Execute();
+
+        int point_id = NoExists;
+        list<int> pax_ids;
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            point_id = Qry.get().FieldAsInteger("point_dep");
+            pax_ids.push_back(Qry.get().FieldAsInteger("pax_id"));
+        }
+
+        TCachedQuery voQry(
+                "select voucher_code, name from "
+                "   trip_vouchers, "
+                "   voucher_types "
+                "where "
+                "   point_id = :point_id and "
+                "   trip_vouchers.voucher_code = voucher_types.code ",
+                QParams() << QParam("point_id", otInteger, point_id));
+        list<pair<string, string> > vouchers;
+        voQry.get().Execute();
+        for(; not voQry.get().Eof; voQry.get().Next()) {
+            LogTrace(TRACE5) << voQry.get().FieldAsString("voucher_code");
+            LogTrace(TRACE5) << voQry.get().FieldAsString("name");
+            vouchers.push_back(make_pair(
+                        voQry.get().FieldAsString("voucher_code"),
+                        voQry.get().FieldAsString("name")
+                        ));
+        }
+
+        if(pax_ids.empty() or vouchers.empty())
+            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+
+        xmlNodePtr voNode = NewTextChild(resNode, "voucher_types");
+        for(list<pair<string, string> >::iterator
+                i = vouchers.begin(); i != vouchers.end(); i++) {
+            xmlNodePtr itemNode = NewTextChild(voNode, "item");
+            NewTextChild(itemNode, "code", i->first);
+            NewTextChild(itemNode, "name", i->second);
+        }
+
+        xmlNodePtr printNode = NewTextChild(NewTextChild(resNode, "data"), "print");
+        SetProp(printNode, "vouchers");
+        xmlNodePtr paxListNode = NewTextChild(printNode, "passengers");
+        for(list<int>::iterator i = pax_ids.begin(); i != pax_ids.end(); i++) {
+            xmlNodePtr paxNode = NewTextChild(paxListNode, "passenger");
+            NewTextChild(paxNode, "pax_id", *i);
+            voNode = NewTextChild(paxNode, "vouchers");
+            for(list<pair<string, string> >::iterator
+                    i = vouchers.begin(); i != vouchers.end(); i++) {
+                xmlNodePtr itemNode = NewTextChild(voNode, "item");
+                NewTextChild(itemNode, "code", i->first);
+                NewTextChild(itemNode, "pr_print", false);
+            }
+        }
+    }
+}
+
 void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr currNode = reqNode->children;
@@ -1946,6 +2022,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     int pax_id = NodeAsIntegerFast("pax_id", currNode, NoExists);
     int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
     TDevOperType op_type = DecodeDevOperType(NodeAsStringFast("op_type", currNode, EncodeDevOperType(dotPrnBP).c_str()));
+    bool pr_voucher = GetNodeFast("voucher", currNode) != NULL;
     params.dev_model = NodeAsStringFast("dev_model", currNode);
     params.fmt_type = NodeAsStringFast("fmt_type", currNode);
     params.prnParams.get_prn_params(reqNode);
@@ -1965,6 +2042,16 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 
     check_pectab_availability(params, first_seg_grp_id, op_type);
+
+    if(pr_voucher)
+        return GetPrintDataVO(
+                first_seg_grp_id,
+                pax_id,
+                pr_all,
+                params,
+                reqNode,
+                resNode
+                );
 
     std::vector<BPPax> paxs;
     Qry.Clear();
