@@ -3637,17 +3637,26 @@ void GetInboundTransferForWeb(TSegList &segList,
 void CheckBagWeightControl(const CheckIn::TBagItem &bag)
 {
   //  GRISHA
-  const int MAX_WEIGHT_BAG = 50;
-  const int MAX_WEIGHT_CAB = 15;
-  if (not bag.pr_cabin and bag.weight > MAX_WEIGHT_BAG)
-    throw UserException("MSG.LUGGAGE.WRONG_CTRL_WEIGHT_BAG", LParams() << LParam("maxweight", MAX_WEIGHT_BAG));
-  if (bag.pr_cabin and bag.weight > MAX_WEIGHT_CAB)
-    throw UserException("MSG.LUGGAGE.WRONG_CTRL_WEIGHT_CAB", LParams() << LParam("maxweight", MAX_WEIGHT_CAB));
+  const int MAX_WEIGHT_PIECE_BAG = 50;
+  const int MAX_WEIGHT_PIECE_CAB = 15;
+  //  багаж
+  if (not bag.pr_cabin and bag.weight > MAX_WEIGHT_PIECE_BAG * bag.amount)
+    throw UserException("MSG.LUGGAGE.BAG_EXCEEDS_WEIGHT", LParams() << LParam("maxweight", MAX_WEIGHT_PIECE_BAG));
+  //  ручная кладь
+  if (bag.pr_cabin and bag.amount > 1)
+    throw UserException("MSG.LUGGAGE.CAB_EXCEEDS_PCS");
+  if (bag.pr_cabin and bag.weight > MAX_WEIGHT_PIECE_CAB)
+    throw UserException("MSG.LUGGAGE.CAB_EXCEEDS_WEIGHT", LParams() << LParam("maxweight", MAX_WEIGHT_PIECE_CAB));
 }
 
 void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
 {
   if (!grp.group_bag) return;
+
+  //  Контроль ввода веса багажа и ручной клади
+  TTripInfo info;
+  info.getByPointId(grp.point_dep);
+  const bool check_bag_weight = GetTripSets(tsWeightControl, info);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -3706,14 +3715,8 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
         rfisc_list.get().fromDB(grp.bag_types_id);
         rfisc_list.get().check(aBag->second);
       }
-      else
-      {
-        //  контроль веса багажа (настройки рейсов разные)
-        TTripInfo info;
-        info.getByPointId(grp.point_dep);
-        if (GetTripSets(tsWeightControl, info))
-          CheckBagWeightControl(aBag->second);
-      }
+      if (check_bag_weight)
+        CheckBagWeightControl(aBag->second);
     }
   }
 };
