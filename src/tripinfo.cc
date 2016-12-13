@@ -2431,7 +2431,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 void viewCRSList( int point_id, xmlNodePtr dataNode )
 {
   bool pr_free_seating = SALONS2::isFreeSeating( point_id );
-    TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
+  TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   TQuery Qry( &OraSession );
   TPaxSeats priorSeats( point_id );
   Qry.Clear();
@@ -2564,6 +2564,9 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
   TRemGrp rem_grp;
   rem_grp.Load(retPNL_SEL, point_id);
+
+  TTripInfo flt;
+  flt.getByPointId(point_id);
 
   int point_id_tlg=-1;
   xmlNodePtr tripNode=NULL,paxNode=NULL,node=NULL;
@@ -2744,7 +2747,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
         NewTextChild( node, "nseat_no", seat_no );
         NewTextChild( node, "layer_type", layer_type );
     } // не задано место
-    else
+    else {
         if ( mode == 0 &&
            Qry.FieldAsInteger( col_seats ) &&
            !pr_free_seating ) {
@@ -2759,8 +2762,28 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
             if ( !old_seat_no.empty() )
               NewTextChild( node, "nseat_no", old_seat_no );
         }
+    }
+    CheckIn::TPaxTknItem tkn;
+    CheckIn::LoadCrsPaxTkn(pax_id, tkn);
+    if ( tkn.validET() ) {
+      TETickItem etick;
+      etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false);
+      TBrands brands;
+      brands.get(flt.airline,etick.fare_basis);
+      TBrand brand;
+      brands.getBrand( brand, TReqInfo::Instance()->desk.lang );
+      NewTextChild( node, "brand", brand.name );
+    }
+    std::set<CheckIn::TPaxFQTItem> fqts;
+    CheckIn::LoadCrsPaxFQT(pax_id, fqts);
+    for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin(); f!=fqts.end(); ++f) {
+      if (f->rem=="FQTV" && !f->tier_level.empty())  {
+        NewTextChild( node, "fqt", f->tier_level );
+        break;
+      }
+    }
+    //end for
   };
-
 };
 
 bool SearchPaxByScanData(xmlNodePtr reqNode,
