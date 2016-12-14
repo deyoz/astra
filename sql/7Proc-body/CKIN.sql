@@ -814,7 +814,12 @@ BEGIN
         DELETE FROM trip_comp_layers WHERE pax_id=curRow.pax_id;
         DELETE FROM paid_bag_pc WHERE pax_id=curRow.pax_id;
         UPDATE paid_bag_emd SET pax_id=NULL WHERE pax_id=curRow.pax_id;
+        UPDATE service_payment SET pax_id=NULL WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_alarms WHERE pax_id=curRow.pax_id;
+        DELETE FROM pax_service_lists WHERE pax_id=curRow.pax_id;
+        DELETE FROM pax_services WHERE pax_id=curRow.pax_id;
+        DELETE FROM paid_rfisc WHERE pax_id=curRow.pax_id;
+        DELETE FROM pax_norms_text WHERE pax_id=curRow.pax_id;
         DELETE FROM pax WHERE pax_id=curRow.pax_id;
         FOR langCurRow IN langCur LOOP
           UPDATE events_bilingual SET id2=NULL
@@ -899,11 +904,13 @@ BEGIN
     DELETE FROM paid_bag WHERE grp_id=vgrp_id;
     DELETE FROM paid_bag_emd WHERE grp_id=vgrp_id;
     DELETE FROM paid_bag_emd_props WHERE grp_id=vgrp_id;
+    DELETE FROM service_payment WHERE grp_id=vgrp_id;
     DELETE FROM tckin_pax_grp WHERE grp_id=vgrp_id;
     i:=delete_grp_trfer(vgrp_id);
     i:=delete_grp_tckin_segs(vgrp_id);
     DELETE FROM value_bag WHERE grp_id=vgrp_id;
     DELETE FROM pnr_addrs_pc WHERE grp_id=vgrp_id;
+    DELETE FROM grp_service_lists WHERE grp_id=vgrp_id;
     DELETE FROM pax_grp WHERE grp_id=vgrp_id;
     --не чистим mark_trips потому что будет слишком долгая проверка pax_grp.point_id_mark
     FOR langCurRow IN langCur LOOP

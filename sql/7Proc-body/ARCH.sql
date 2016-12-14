@@ -399,38 +399,11 @@ BEGIN
   END IF;
 
   FOR langCurRow IN langCur LOOP
-      SELECT rowid BULK COLLECT INTO rowids
-      FROM events_bilingual
-      WHERE lang=langCurRow.lang AND type IN (system.evtDisp) AND id1=vmove_id FOR UPDATE;
-  END LOOP;
-  IF use_move_insert THEN
-    FORALL i IN 1..rowids.COUNT
-      INSERT INTO arx_events
-        (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
-      SELECT
-         type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,vpart_key,part_num,lang
-      FROM events_bilingual
-      WHERE rowid=rowids(i);
-  END IF;
-  FORALL i IN 1..rowids.COUNT
-    DELETE FROM events_bilingual WHERE rowid=rowids(i);
-
-  FOR curRow IN cur LOOP
-    pax_count:=0;
-    use_insert:=curRow.pr_del<>-1;
-
-    FOR langCurRow IN langCur LOOP
     SELECT rowid BULK COLLECT INTO rowids
     FROM events_bilingual
-    WHERE lang=langCurRow.lang AND type IN (system.evtFlt,
-                                            system.evtGraph,
-                                            system.evtFltTask,
-                                            system.evtPax,
-                                            system.evtPay,
-                                            system.evtTlg,
-                                            system.evtPrn) AND id1=curRow.point_id FOR UPDATE;
-    END LOOP;
-    IF use_insert THEN
+    WHERE lang=langCurRow.lang AND type IN (system.evtDisp) AND id1=vmove_id FOR UPDATE;
+
+    IF use_move_insert THEN
       FORALL i IN 1..rowids.COUNT
         INSERT INTO arx_events
           (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
@@ -441,6 +414,34 @@ BEGIN
     END IF;
     FORALL i IN 1..rowids.COUNT
       DELETE FROM events_bilingual WHERE rowid=rowids(i);
+  END LOOP;
+
+  FOR curRow IN cur LOOP
+    pax_count:=0;
+    use_insert:=curRow.pr_del<>-1;
+
+    FOR langCurRow IN langCur LOOP
+      SELECT rowid BULK COLLECT INTO rowids
+      FROM events_bilingual
+      WHERE lang=langCurRow.lang AND type IN (system.evtFlt,
+                                              system.evtGraph,
+                                              system.evtFltTask,
+                                              system.evtPax,
+                                              system.evtPay,
+                                              system.evtTlg,
+                                              system.evtPrn) AND id1=curRow.point_id FOR UPDATE;
+      IF use_insert THEN
+        FORALL i IN 1..rowids.COUNT
+          INSERT INTO arx_events
+            (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
+          SELECT
+             type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,vpart_key,part_num,lang
+          FROM events_bilingual
+          WHERE rowid=rowids(i);
+      END IF;
+      FORALL i IN 1..rowids.COUNT
+        DELETE FROM events_bilingual WHERE rowid=rowids(i);
+    END LOOP;
 
     SELECT rowid,grp_id BULK COLLECT INTO grprowids,grpids
     FROM pax_grp
@@ -712,6 +713,29 @@ BEGIN
 
     FOR j IN 1..grpids.COUNT LOOP
       /* ======================цикл по группам пассажиров========================= */
+
+      SELECT id BULK COLLECT INTO miscids
+      FROM annul_bag
+      WHERE grp_id=grpids(j) FOR UPDATE;
+      IF use_insert THEN
+        FORALL i IN 1..miscids.COUNT
+          INSERT INTO arx_annul_bag
+          (id, grp_id, pax_id, bag_type, rfisc, time_create, time_annul, amount,
+          weight, part_key)
+          SELECT
+          id, grp_id, pax_id, bag_type, rfisc, time_create, time_annul, amount,
+          weight, vpart_key
+          FROM annul_bag
+          WHERE id=miscids(i);
+        forall i in 1..miscids.count
+          insert into arx_annul_tags (id, no, part_key)
+          select id, no, vpart_key from annul_tags where id = miscids(i);
+      END IF;
+      forall i in 1..miscids.count
+        delete from annul_tags where id = miscids(i);
+      FORALL i IN 1..miscids.count
+        DELETE FROM annul_bag WHERE id=miscids(i);
+
       SELECT rowid BULK COLLECT INTO rowids
       FROM unaccomp_bag_info
       WHERE grp_id=grpids(j) FOR UPDATE;

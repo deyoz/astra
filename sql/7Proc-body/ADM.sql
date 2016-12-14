@@ -2935,6 +2935,7 @@ END sync_LDM_options;
 
 PROCEDURE sync_LCI_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
+                           vversion       typeb_addr_options.value%TYPE,
                            vequipment     typeb_addr_options.value%TYPE,
                            vweignt_avail  typeb_addr_options.value%TYPE,
                            vseating       typeb_addr_options.value%TYPE,
@@ -2953,7 +2954,8 @@ BEGIN
   UPDATE typeb_addrs SET id=id WHERE id=vid;
   OPEN cur FOR
     SELECT vid AS typeb_addrs_id, src.tlg_type, src.category, dest.id,
-           DECODE(src.category, 'EQUIPMENT',    vequipment,
+           DECODE(src.category, 'VERSION',      vversion,
+                                'EQUIPMENT',    vequipment,
                                 'WEIGHT_AVAIL', vweignt_avail,
                                 'SEATING',      vseating,
                                 'WEIGHT_MODE',  vweight_mode,

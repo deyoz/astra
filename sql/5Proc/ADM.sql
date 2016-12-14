@@ -413,6 +413,7 @@ PROCEDURE sync_LDM_options(vid            typeb_addrs.id%TYPE,
 
 PROCEDURE sync_LCI_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
+                           vversion       typeb_addr_options.value%TYPE,
                            vequipment     typeb_addr_options.value%TYPE,
                            vweignt_avail  typeb_addr_options.value%TYPE,
                            vseating       typeb_addr_options.value%TYPE,
