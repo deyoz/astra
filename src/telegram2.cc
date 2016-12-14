@@ -9005,7 +9005,7 @@ namespace WBMessages {
         filter.airline = flt.airline;
         filter.flt_no = flt.flt_no;
         if(flt.suffix)
-            filter.suffix.append(flt.suffix, 1);
+            filter.suffix.append(1, flt.suffix);
         filter.airp_dep = "˜Œ";
         filter.scd_out = flt.date;
         filter.scd_out_in_utc = true;
@@ -9136,7 +9136,7 @@ namespace CKIN_REPORT {
         filter.airline = flt.airline;
         filter.flt_no = flt.flt_no;
         if(flt.suffix)
-            filter.suffix.append(flt.suffix, 1);
+            filter.suffix.append(1, flt.suffix);
         filter.airp_dep = getElemId(etAirp, airp);
         filter.scd_out = flt.date;
         filter.scd_out_in_utc = true;
