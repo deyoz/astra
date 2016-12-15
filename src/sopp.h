@@ -308,6 +308,8 @@ public:
      AddEvent("CreateAPIS",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::ReadVoucher);
      AddEvent("ReadVoucher",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteVoucher);
+     AddEvent("WriteVoucher",evHandle);
   };
   void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -329,6 +331,7 @@ public:
   void GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CreateAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ReadVoucher(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void WriteVoucher(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
@@ -361,6 +364,7 @@ void set_flight_sets(int point_id, int f=0, int c=0, int y=0);
 void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tranzit);
 
 void SetFlightFact(int point_id, TDateTime utc_act_out);
+void getTripVouchers( int point_id, std::set<std::string> &trip_vouchers );
 
 #endif /*_SOPP_H_*/
 

@@ -69,7 +69,8 @@ enum TElemType {
                  etUsers,                    //пользователи
                  etUserSetType,              //типы пользовательских настроек
                  etUserType,                 //типы пользователей
-                 etValidatorType             //типы валидаторов
+                 etValidatorType,            //типы валидаторов
+                 etVoucherType               //ваучеры
                };
 
 enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB, ecNone };

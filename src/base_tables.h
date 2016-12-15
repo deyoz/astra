@@ -1198,6 +1198,22 @@ class TBIPrintTypes: public TCodeBaseTable {
     };
 };
 
+class TVoucherTypesRow: public TCodeBaseTableRow {
+  public:
+    const char *get_row_name() const { return "TVoucherTypesRow"; };
+};
+
+class TVoucherTypes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TVoucherTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+    TVoucherTypes() {
+        Init( "voucher_types" );
+    }
+};
+
 class TBaseTables {
     private:
         typedef std::map<std::string, TBaseTable *> TTables;

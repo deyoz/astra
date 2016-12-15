@@ -5726,31 +5726,104 @@ void SoppInterface::CreateAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     AstraLocale::showErrorMessage("MSG.APIS_NOT_CREATED_FOR_FLIGHT");
 }
 
+void getVouchers( std::set<std::string> &vouchers, TQuery &Qry )
+{
+  vouchers.clear();
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT code FROM voucher_types";
+  Qry.Execute();
+  for ( ; !Qry.Eof; Qry.Next() ) {
+    vouchers.insert( Qry.FieldAsString("code") );
+  }
+}
+
+void getTripVouchers( int point_id, std::set<std::string> &trip_vouchers, TQuery &Qry )
+{
+  trip_vouchers.clear();
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT voucher_code FROM trip_vouchers WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  for ( ; !Qry.Eof; Qry.Next() ) {
+     trip_vouchers.insert( Qry.FieldAsString("voucher_code") );
+  }
+}
+
+void getTripVouchers( int point_id, std::set<std::string> &trip_vouchers )
+{
+  TQuery Qry(&OraSession);
+  getTripVouchers( point_id, trip_vouchers, Qry );
+}
+
 void SoppInterface::ReadVoucher(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
   ProgTrace( TRACE5, "ReadVoucher, point_id %d", point_id );
+  std::set<std::string> vouchers, trip_vouchers;
   TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT voucher_id FROM trip_vouchers WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  set<int> trip_vauchers;
-  for ( ; !Qry.Eof; Qry.Next() ) {
-     trip_vauchers.insert( Qry.FieldAsInteger("voucher_id") );
+  getVouchers( vouchers, Qry );
+  getTripVouchers( point_id, trip_vouchers, Qry );
+  xmlNodePtr dataNode = NewTextChild( resNode, "vouchers" );
+  for ( std::set<std::string>::iterator iv=vouchers.begin(); iv!=vouchers.end(); iv++ ) {
+     xmlNodePtr voucherNode = NewTextChild( dataNode, "voucher" );
+     NewTextChild( voucherNode, "code", *iv );
+     NewTextChild( voucherNode, "name", ElemIdToNameLong( etVoucherType, *iv ) );
+     NewTextChild( voucherNode, "use", trip_vouchers.find(*iv) != trip_vouchers.end() );
+  }
+}
+
+void SoppInterface::WriteVoucher(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id = NodeAsInteger( "point_id", reqNode );
+  ProgTrace( TRACE5, "WriteVoucher, point_id %d", point_id );
+  TQuery Qry(&OraSession);
+  std::set<std::string> vouchers_old, vouchers_new;
+  getTripVouchers( point_id, vouchers_old, Qry );
+  xmlNodePtr node = GetNode( "vouchers", reqNode );
+  node = node->children;
+  while ( node != NULL && string( "voucher" ) == (char*)node->name ) {
+    vouchers_new.insert( NodeAsString( node ) );
+    node = node->next;
   }
   Qry.Clear();
   Qry.SQLText =
-    "SELECT * FROM voucher_types";
-  Qry.Execute();
-  xmlNodePtr dataNode = NewTextChild( resNode, "vouchers" );
-  for ( ; !Qry.Eof; Qry.Next() ) {
-     xmlNodePtr voucherNode = NewTextChild( dataNode, "voucher" );
-     NewTextChild( voucherNode, "id", Qry.FieldAsInteger("voucher_id") );
-     NewTextChild( voucherNode, "name", TReqInfo::Instance()->desk.lang == AstraLocale::LANG_RU?Qry.FieldAsString("name"):Qry.FieldAsString("name_lat") ); //!!!base_table
-     NewTextChild( voucherNode, "use", trip_vauchers.find(Qry.FieldAsInteger("voucher_id")) != trip_vauchers.end() );
+    "DELETE trip_vouchers WHERE point_id=:point_id AND voucher_code=:voucher_code";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.DeclareVariable( "voucher_code", otString );
+  PrmEnum del_prmenum("names", ",");
+  PrmEnum new_prmenum("names", ",");
+  for ( std::set<std::string>::iterator ov=vouchers_old.begin(); ov!=vouchers_old.end(); ov++ ) {
+    if ( vouchers_new.find( *ov ) != vouchers_new.end() ) {
+      continue;
+    }
+    Qry.SetVariable( "voucher_code", *ov );
+    Qry.Execute();
+    del_prmenum.prms << PrmSmpl<std::string>("", ElemIdToNameLong( etVoucherType, *ov ) );
+  }
+  Qry.Clear();
+  Qry.SQLText =
+    "INSERT INTO trip_vouchers(point_id,voucher_code) VALUES(:point_id,:voucher_code)";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.DeclareVariable( "voucher_code", otString );
+  for ( std::set<std::string>::iterator nv=vouchers_new.begin(); nv!=vouchers_new.end(); nv++ ) {
+    if ( vouchers_old.find( *nv ) != vouchers_old.end() ) {
+      continue;
+    }
+    Qry.SetVariable( "voucher_code", *nv );
+    Qry.Execute();
+    new_prmenum.prms << PrmSmpl<std::string>("", ElemIdToNameLong( etVoucherType, *nv ) );
+  }
+  //to events
+  if ( !new_prmenum.prms.empty() ) {
+    TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_TRIP_VOUCHER", LEvntPrms() << new_prmenum, evtFlt, point_id);
+  }
+  if ( !del_prmenum.prms.empty() ) {
+    TReqInfo::Instance()->LocaleToLog("EVT.DELETE_TRIP_VOUCHER", LEvntPrms() << del_prmenum, evtFlt, point_id);
   }
 }
+
 
 void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tranzit)
 {
@@ -6542,4 +6615,3 @@ void set_flight_sets(int point_id, int f, int c, int y)
   set_trip_sets(flt);
   puttrip_stages(point_id);
 }
-
