@@ -1416,12 +1416,12 @@ void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
             string seat_no = Qry.GetVariableAsString("seat_no");
             LEvntPrms params;
             params << PrmSmpl<std::string>("full_name", iPax->full_name);
-            if (seat_no.empty()) params << PrmBool("seat_no", false);
+            if (seat_no.empty() or iPax->pr_voucher) params << PrmBool("seat_no", false);
             else params << PrmSmpl<std::string>("seat_no", seat_no);
             string lexeme;
             switch(op_type) {
                 case dotPrnBP:
-                    lexeme = "EVT.PRINT_BOARDING_PASS";
+                    lexeme = (iPax->pr_voucher ? "EVT.PRINT_VOUCHER" : "EVT.PRINT_BOARDING_PASS");
                     break;
                 case dotPrnBI:
                     lexeme = "EVT.PRINT_INVITATION";
@@ -1455,6 +1455,7 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         BPPax pax;
         pax.pax_id=NodeAsInteger("@pax_id", curNode);
         pax.time_print=NodeAsDateTime("@time_print", curNode);
+        pax.pr_voucher = GetNode("@pr_vouchers", curNode);
 
         PaxQry.SetVariable("pax_id", pax.pax_id);
         PaxQry.Execute();
@@ -2062,6 +2063,7 @@ void PrintInterface::GetPrintDataVO(
                     LogTrace(TRACE5) << "after StringToHex prn_form: " << prn_form;
                     hex=true;
                 }
+                parser.pts.confirm_print(false, dotPrnBP);
 
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
                 SetProp(paxNode, "pax_id", pax->first);
