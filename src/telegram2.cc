@@ -8965,7 +8965,7 @@ namespace WBMessages {
         TCachedQuery Qry(
                 "begin "
                 "   insert into wb_msg(id, msg_type, point_id, time_receive) values "
-                "      (id__seq.nextval, :msg_type, :point_id, system.utcsysdate) "
+                "      (cycle_id__seq.nextval, :msg_type, :point_id, system.utcsysdate) "
                 "      returning id into :id; "
                 "end; ",
                 QParams()

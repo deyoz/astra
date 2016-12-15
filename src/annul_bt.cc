@@ -55,7 +55,7 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
                 "      amount, "
                 "      weight "
                 "   ) values ( "
-                "      id__seq.nextval, "
+                "      cycle_id__seq.nextval, "
                 "      :grp_id, "
                 "      :pax_id, "
                 "      :bag_type, "
