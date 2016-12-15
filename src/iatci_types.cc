@@ -1258,7 +1258,7 @@ Result::Status_e Result::strToStatus(const std::string& s)
 {
     if(s == "O")      return Ok;
     else if(s == "P") return OkWithNoData;
-    else if(s == "F") return Failed;
+    else if(s == "X") return Failed;
     else {
         LogError(STDLOG) << "Unknown status string: " << s;
         return Failed;

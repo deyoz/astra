@@ -114,7 +114,7 @@ void IatciRequestHandler::makeAnAnswerErr()
     SetEdiPointToSegGrW(pMesW(), SegGrElement(1), "SegGr1(flg) not found");
 
     viewFdrElement(pMesW(), requestParams().flight());
-    viewRadElement(pMesW(), respType(), "F");
+    viewRadElement(pMesW(), respType(), "X");
     viewErdElement(pMesW(), ediErrorLevel(), ediErrorCode(), ediErrorText());
 
     PopEdiPointW(pMesW());

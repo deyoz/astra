@@ -172,7 +172,6 @@ $(defmacro CHECK_FLIGHT
         <pr_etstatus>0</pr_etstatus>
         <pr_etl_only>0</pr_etl_only>
         <pr_no_ticket_check>0</pr_no_ticket_check>
-        <pr_mixed_norms>0</pr_mixed_norms>
 
 }) #end-of-macro
 
@@ -393,6 +392,8 @@ $(defmacro CHECK_TCKIN_ROUTE_2
           <pr_etl_only>1</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>1</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
         </tripheader>
         <tripdata>
           <airps>
@@ -1171,6 +1172,8 @@ $(KICK_IN)
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
         </tripheader>
         <tripdata>
           <airps>
@@ -1588,6 +1591,8 @@ $(KICK_IN)
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
         </tripheader>
         <tripdata>
           <airps>
@@ -2464,6 +2469,8 @@ $(KICK_IN)
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
         </tripheader>
         <tripdata>
           <airps>
@@ -2587,7 +2594,7 @@ $(KICK_IN)
           <item>
             <point_arv>...
             <class>ù</class>
-            <noshow>0</noshow>
+            <noshow>1</noshow>
             <trnoshow>0</trnoshow>
             <show>1</show>
             <free_ok>...

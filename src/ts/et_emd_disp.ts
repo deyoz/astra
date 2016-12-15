@@ -165,9 +165,9 @@ $(KICK_IN)
 RFIC: C
 $()
 EMD$(sharp)2982121212122: $()
-  № куп. Дата   Время Отпр. Назн. А/к Рейс Сумма RFISC Название услуги         СтКуп. Ассоц.          СтАссоц. $()
-  1      $(ddmmyy +1) ----  KHH   BKI   UT  121  0.00  99K   BAGGAGE - EXCESS WEIGHT O      2982348111616/1 702      $()
-  2      $(ddmmyy +2) ----  BKI   KUL   UT  212  0.00  99K   BAGGAGE - EXCESS WEIGHT O      2982348111616/2 702      $()
+  № куп. Дата   Время Отпр. Назн. А/к Рейс Сумма RFISC Опл.  Название услуги         СтКуп. Ассоц.          СтАссоц. $()
+  1      $(ddmmyy +1) ----  KHH   BKI   UT  121  0.00  99K   25 КГ BAGGAGE - EXCESS WEIGHT O      2982348111616/1 702      $()
+  2      $(ddmmyy +2) ----  BKI   KUL   UT  212  0.00  99K   25 КГ BAGGAGE - EXCESS WEIGHT O      2982348111616/2 702      $()
 Оплата: $()
   Тариф: 150TWD
   Сборы: TW15
@@ -192,9 +192,9 @@ PNR: 00D5LW/UT
 RFIC: C
 $()
 EMD$(sharp)2982121212132: $()
-  № куп. Дата   Время Отпр. Назн. А/к Рейс Сумма RFISC Название услуги         СтКуп. Ассоц.          СтАссоц. $()
-  1      $(ddmmyy +1) ----  KHH   BKI   UT  121  0.00  99K   BAGGAGE - EXCESS WEIGHT O      2982348111616/1 702      $()
-  2      $(ddmmyy +2) ----  BKI   KUL   UT  212  0.00  99K   BAGGAGE - EXCESS WEIGHT O      2982348111616/2 702      $()
+  № куп. Дата   Время Отпр. Назн. А/к Рейс Сумма RFISC Опл.  Название услуги         СтКуп. Ассоц.          СтАссоц. $()
+  1      $(ddmmyy +1) ----  KHH   BKI   UT  121  0.00  99K   25 КГ BAGGAGE - EXCESS WEIGHT O      2982348111616/1 702      $()
+  2      $(ddmmyy +2) ----  BKI   KUL   UT  212  0.00  99K   25 КГ BAGGAGE - EXCESS WEIGHT O      2982348111616/2 702      $()
 Оплата: $()
   Тариф: 150TWD
   Сборы: TW15

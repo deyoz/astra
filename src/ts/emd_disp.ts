@@ -111,9 +111,10 @@ $(lastRedisplay)
           <flight index='9'>121</flight>
           <amount index='10'>0.00</amount>
           <rfisc_code index='11'>99K</rfisc_code>
-          <rfisc_desc index='12'>BAGGAGE - EXCESS WEIGHT</rfisc_desc>
-          <sac index='13'/>
-          <coup_status index='14'>O</coup_status>
+          <luggage index='12'>25 äÉ</luggage>
+          <rfisc_desc index='13'>BAGGAGE - EXCESS WEIGHT</rfisc_desc>
+          <sac index='14'/>
+          <coup_status index='15'>O</coup_status>
         </row>
         <row index='1'>
           <num index='0'>2</num>
@@ -128,9 +129,10 @@ $(lastRedisplay)
           <flight index='9'>212</flight>
           <amount index='10'>0.00</amount>
           <rfisc_code index='11'>99K</rfisc_code>
-          <rfisc_desc index='12'>BAGGAGE - EXCESS WEIGHT</rfisc_desc>
-          <sac index='13'/>
-          <coup_status index='14'>O</coup_status>
+          <luggage index='12'>25 äÉ</luggage>
+          <rfisc_desc index='13'>BAGGAGE - EXCESS WEIGHT</rfisc_desc>
+          <sac index='14'/>
+          <coup_status index='15'>O</coup_status>
         </row>
       </coupon>
     </emd1>
@@ -261,9 +263,10 @@ $(lastRedisplay)
           <flight index='6'> </flight>
           <amount index='7'>500.00</amount>
           <rfisc_code index='8'>0BW</rfisc_code>
-          <rfisc_desc index='9'>REGISTRATION</rfisc_desc>
-          <sac index='10'/>
-          <coup_status index='11'>O</coup_status>
+          <luggage index='9'>-</luggage>
+          <rfisc_desc index='10'>REGISTRATION</rfisc_desc>
+          <sac index='11'/>
+          <coup_status index='12'>O</coup_status>
         </row>
       </coupon>
     </emd1>
@@ -371,9 +374,10 @@ $(lastRedisplay)
           <flight index='6'>700</flight>
           <amount index='7'>0.00</amount>
           <rfisc_code index='8'>FNA</rfisc_code>
-          <rfisc_desc index='9'>ëèêÄÇäÄ éÅ àëè. ìóÄëíäÄ(éÇ)</rfisc_desc>
-          <sac index='10'/>
-          <coup_status index='11'>F</coup_status>
+          <luggage index='9'>-</luggage>
+          <rfisc_desc index='10'>ëèêÄÇäÄ éÅ àëè. ìóÄëíäÄ(éÇ)</rfisc_desc>
+          <sac index='11'/>
+          <coup_status index='12'>F</coup_status>
         </row>
       </coupon>
     </emd1>

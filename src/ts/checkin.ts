@@ -138,6 +138,8 @@ $(KICK_IN)
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
         </tripheader>
         <tripdata>
           <airps>
@@ -476,6 +478,8 @@ $(KICK_IN)
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
         </tripheader>
         <tripdata>
           <airps>
