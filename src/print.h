@@ -108,6 +108,7 @@ class PrintInterface: public JxtInterface
             AddEvent("GetGRPPrintDataBP", JXT_HANDLER(PrintInterface, GetPrintDataBP));
             AddEvent("GetGRPPrintData",   JXT_HANDLER(PrintInterface, GetPrintDataBP));
             AddEvent("GetPrintData",      JXT_HANDLER(PrintInterface, GetPrintDataBP));
+            AddEvent("GetTripVouchersSet",      JXT_HANDLER(PrintInterface, GetTripVouchersSet));
 
             AddEvent("ReprintDataBT",     JXT_HANDLER(PrintInterface, ReprintDataBTXML));
             AddEvent("GetPrintDataBT",    JXT_HANDLER(PrintInterface, GetPrintDataBTXML));
@@ -127,6 +128,8 @@ class PrintInterface: public JxtInterface
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void GetTripVouchersSet(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
         static void GetPrintDataBR(std::string &form_type, PrintDataParser &parser,
                 std::string &Print, bool &hex, xmlNodePtr reqNode
                 );
@@ -162,7 +165,7 @@ class PrintInterface: public JxtInterface
                 int first_seg_grp_id,
                 int pax_id,
                 int pr_all,
-                const BPParams &params,
+                BPParams &params,
                 xmlNodePtr reqNode,
                 xmlNodePtr resNode
                 );

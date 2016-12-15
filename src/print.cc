@@ -21,6 +21,7 @@
 #include "emdoc.h"
 #include "serverlib/str_utils.h"
 #include "qrys.h"
+#include "sopp.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -1942,14 +1943,16 @@ void PrintInterface::GetPrintDataVO(
         int first_seg_grp_id,
         int pax_id,
         int pr_all,
-        const BPParams &params,
+        BPParams &params,
         xmlNodePtr reqNode,
         xmlNodePtr resNode
         )
 {
     xmlNodePtr currNode = reqNode->children;
     currNode = GetNodeFast("vouchers", currNode);
-    if(not currNode) {
+    if(not currNode)
+        throw Exception("PrintInterface::GetPrintDataVO: vouchers tag not found");
+    if(not currNode->children) {
         TCachedQuery Qry(
                 "SELECT pax_id, point_dep "
                 " FROM pax, pax_grp "
@@ -1967,48 +1970,105 @@ void PrintInterface::GetPrintDataVO(
             pax_ids.push_back(Qry.get().FieldAsInteger("pax_id"));
         }
 
-        TCachedQuery voQry(
-                "select voucher_code, name from "
-                "   trip_vouchers, "
-                "   voucher_types "
-                "where "
-                "   point_id = :point_id and "
-                "   trip_vouchers.voucher_code = voucher_types.code ",
-                QParams() << QParam("point_id", otInteger, point_id));
-        list<pair<string, string> > vouchers;
-        voQry.get().Execute();
-        for(; not voQry.get().Eof; voQry.get().Next()) {
-            LogTrace(TRACE5) << voQry.get().FieldAsString("voucher_code");
-            LogTrace(TRACE5) << voQry.get().FieldAsString("name");
-            vouchers.push_back(make_pair(
-                        voQry.get().FieldAsString("voucher_code"),
-                        voQry.get().FieldAsString("name")
-                        ));
-        }
-
-        if(pax_ids.empty() or vouchers.empty())
+        if(pax_ids.empty())
             throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
 
-        xmlNodePtr voNode = NewTextChild(resNode, "voucher_types");
-        for(list<pair<string, string> >::iterator
-                i = vouchers.begin(); i != vouchers.end(); i++) {
-            xmlNodePtr itemNode = NewTextChild(voNode, "item");
-            NewTextChild(itemNode, "code", i->first);
-            NewTextChild(itemNode, "name", i->second);
-        }
+        set<string> trip_vouchers;
+        getTripVouchers(point_id, trip_vouchers);
+
+        if(trip_vouchers.empty())
+            throw AstraLocale::UserException("MSG.VOUCHER.ACCESS_DENIED");
 
         xmlNodePtr printNode = NewTextChild(NewTextChild(resNode, "data"), "print");
         SetProp(printNode, "vouchers");
+
+        xmlNodePtr voNode = NewTextChild(printNode, "voucher_types");
+        for(set<string>::iterator
+                i = trip_vouchers.begin(); i != trip_vouchers.end(); i++) {
+            xmlNodePtr itemNode = NewTextChild(voNode, "item");
+            NewTextChild(itemNode, "code", *i);
+            NewTextChild(itemNode, "name", ElemIdToNameLong(etVoucherType, *i));
+        }
+
         xmlNodePtr paxListNode = NewTextChild(printNode, "passengers");
         for(list<int>::iterator i = pax_ids.begin(); i != pax_ids.end(); i++) {
             xmlNodePtr paxNode = NewTextChild(paxListNode, "passenger");
             NewTextChild(paxNode, "pax_id", *i);
             voNode = NewTextChild(paxNode, "vouchers");
-            for(list<pair<string, string> >::iterator
-                    i = vouchers.begin(); i != vouchers.end(); i++) {
+            for(set<string>::iterator
+                    i = trip_vouchers.begin(); i != trip_vouchers.end(); i++) {
                 xmlNodePtr itemNode = NewTextChild(voNode, "item");
-                NewTextChild(itemNode, "code", i->first);
-                NewTextChild(itemNode, "pr_print", false);
+                NewTextChild(itemNode, "code", *i);
+                NewTextChild(itemNode, "pr_print", true);
+            }
+        }
+    } else {
+        // С клиента пришел список паксов с выбранными значениями
+        typedef list<pair<string, bool> > TvList;
+        typedef map<int, TvList> TPaxList;
+        TPaxList pax_list;
+        for(xmlNodePtr paxNode = currNode->children;
+                paxNode; paxNode = paxNode->next) {
+            currNode = paxNode->children;
+            int pax_id = NodeAsIntegerFast("pax_id", currNode);
+            currNode = NodeAsNodeFast("vouchers", currNode);
+            for(xmlNodePtr itemNode = currNode->children;
+                    itemNode; itemNode = itemNode->next) {
+                currNode = itemNode->children;
+                string vCode = NodeAsStringFast("code", currNode);
+                bool pr_print = NodeAsIntegerFast("pr_print", currNode) != 0;
+                pax_list[pax_id].push_back(make_pair(vCode, pr_print));
+            }
+        }
+
+        xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "print");
+        string data, pectab;
+        get_pectab(dotPrnBP, params, data, pectab);
+        NewTextChild(BPNode, "pectab", pectab);
+        xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
+
+        for(TPaxList::iterator
+                pax = pax_list.begin();
+                pax != pax_list.end();
+                pax++) {
+            for(TvList::iterator
+                    v = pax->second.begin();
+                    v != pax->second.end();
+                    v++) {
+                if(not v->second) continue;
+
+                TCachedQuery Qry("select grp_id, reg_no from pax where pax_id = :pax_id",
+                        QParams() << QParam("pax_id", otInteger, pax->first));
+                Qry.get().Execute();
+                if(Qry.get().Eof)
+                    throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+
+                int grp_id = Qry.get().FieldAsInteger("grp_id");
+                int reg_no = Qry.get().FieldAsInteger("reg_no");
+
+                PrintDataParser parser(grp_id, pax->first, params.prnParams.pr_lat, params.clientDataNode);
+
+                parser.pts.set_tag(TAG::VOUCHER_CODE, v->first);
+                parser.pts.set_tag(TAG::VOUCHER_TEXT, v->first);
+
+                string prn_form = parser.parse(data);
+                bool hex = false;
+                if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
+                    to_esc::TConvertParams ConvertParams;
+                    ConvertParams.init(params.dev_model);
+                    ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
+                    to_esc::convert(prn_form, ConvertParams, params.prnParams);
+                    StringToHex( string(prn_form), prn_form );
+                    LogTrace(TRACE5) << "after StringToHex prn_form: " << prn_form;
+                    hex=true;
+                }
+
+                xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+                SetProp(paxNode, "pax_id", pax->first);
+                SetProp(paxNode, "reg_no", reg_no);
+                SetProp(paxNode, "pr_print", true);
+                SetProp(paxNode, "time_print", DateTimeToStr(parser.pts.get_time_print()));
+                SetProp(NewTextChild(paxNode, "prn_form", prn_form),"hex",hex);
             }
         }
     }
@@ -2022,7 +2082,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     int pax_id = NodeAsIntegerFast("pax_id", currNode, NoExists);
     int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
     TDevOperType op_type = DecodeDevOperType(NodeAsStringFast("op_type", currNode, EncodeDevOperType(dotPrnBP).c_str()));
-    bool pr_voucher = GetNodeFast("voucher", currNode) != NULL;
+    bool pr_voucher = GetNodeFast("vouchers", currNode) != NULL;
     params.dev_model = NodeAsStringFast("dev_model", currNode);
     params.fmt_type = NodeAsStringFast("fmt_type", currNode);
     params.prnParams.get_prn_params(reqNode);
@@ -2333,6 +2393,15 @@ void PrintInterface::GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     xmlNodePtr kioskImgNode = NewTextChild(resNode, "kiosk_img");
     xmlNodePtr dataNode = NewTextChild(kioskImgNode, "data", result);
 }
+
+void PrintInterface::GetTripVouchersSet(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id = NodeAsInteger( "point_id", reqNode );
+  set<string> trip_vouchers;
+  getTripVouchers(point_id, trip_vouchers);
+  NewTextChild( resNode, "pr_vouchers", !trip_vouchers.empty() );
+}
+
 
 void PrintInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

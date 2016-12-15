@@ -383,6 +383,8 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::BI_RULE,                 TTagListItem(&TPrnTagStore::BI_RULE)));
     tag_list.insert(make_pair(TAG::BI_RULE_GUEST,           TTagListItem(&TPrnTagStore::BI_RULE_GUEST)));
     tag_list.insert(make_pair(TAG::BI_AIRP_TERMINAL,        TTagListItem(&TPrnTagStore::BI_AIRP_TERMINAL)));
+    tag_list.insert(make_pair(TAG::VOUCHER_CODE,            TTagListItem(&TPrnTagStore::VOUCHER_CODE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT)));
 }
 
 // BP && BT
@@ -2582,6 +2584,28 @@ string TPrnTagStore::BI_RULE(TFieldParams fp) {
         const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
         if(rule.exists() and rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
                 result << "+1";
+    }
+    return result.str();
+}
+
+string TPrnTagStore::VOUCHER_CODE(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty()) {
+        string code = boost::any_cast<string>(fp.TagInfo);
+        result << transliter(
+                tag_lang.ElemIdToTagElem(etVoucherType, code, efmtCodeNative),
+                1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    }
+    return result.str();
+}
+
+string TPrnTagStore::VOUCHER_TEXT(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty()) {
+        string code = boost::any_cast<string>(fp.TagInfo);
+        result << transliter(
+                tag_lang.ElemIdToTagElem(etVoucherType, code, efmtNameLong),
+                1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     }
     return result.str();
 }

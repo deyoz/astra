@@ -90,6 +90,8 @@ namespace TAG {
     const std::string BI_RULE = "BI_RULE";
     const std::string BI_RULE_GUEST = "BI_RULE_GUEST";
     const std::string BI_AIRP_TERMINAL = "BI_AIRP_TERMINAL";
+    const std::string VOUCHER_CODE = "VOUCHER_CODE";
+    const std::string VOUCHER_TEXT = "VOUCHER_TEXT";
 
     // specific for bag tags
     const std::string AIRCODE = "AIRCODE";
@@ -505,6 +507,8 @@ class TPrnTagStore {
         std::string BI_RULE(TFieldParams fp);
         std::string BI_RULE_GUEST(TFieldParams fp);
         std::string BI_AIRP_TERMINAL(TFieldParams fp);
+        std::string VOUCHER_CODE(TFieldParams fp);
+        std::string VOUCHER_TEXT(TFieldParams fp);
 
         // specific for bag tags
         std::string AIRCODE(TFieldParams fp);
