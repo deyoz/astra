@@ -65,7 +65,7 @@ class PrintInterface: public JxtInterface
           TDateTime time_print;
           std::string prn_form;
           std::string scan;
-          bool pr_voucher;
+          std::string voucher;
 
           bool hex;
           BPPax()
@@ -90,7 +90,6 @@ class PrintInterface: public JxtInterface
             time_print=ASTRA::NoExists;
             prn_form.clear();
             scan.clear();
-            pr_voucher = false;
             hex=false;
           };
           bool fromDB(int vpax_id, int test_point_dep);

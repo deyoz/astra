@@ -25,6 +25,8 @@
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -1393,8 +1395,13 @@ void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
         "BEGIN "
         "  UPDATE confirm_print "
         "  SET pr_print = 1 "
-        "  WHERE pax_id = :pax_id AND time_print = :time_print AND pr_print = 0 AND desk=:desk "
-        "  and " OP_TYPE_COND("op_type")
+        "  WHERE "
+        "   pax_id = :pax_id AND "
+        "   time_print = :time_print AND "
+        "   pr_print = 0 AND "
+        "   desk=:desk and "
+        "   (voucher = :voucher OR voucher IS NULL AND :voucher IS NULL) and "
+        OP_TYPE_COND("op_type")
         "  RETURNING seat_no INTO :seat_no; "
         "  :rows:=SQL%ROWCOUNT; "
         "END;";
@@ -1403,6 +1410,7 @@ void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
     Qry.DeclareVariable("seat_no", otString);
     Qry.DeclareVariable("pax_id", otInteger);
     Qry.DeclareVariable("time_print", otDate);
+    Qry.DeclareVariable("voucher", otString);
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
     for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
     {
@@ -1410,18 +1418,25 @@ void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
         {
             Qry.SetVariable("pax_id", iPax->pax_id);
             Qry.SetVariable("time_print", iPax->time_print);
+            Qry.SetVariable("voucher", iPax->voucher);
             Qry.Execute();
             if (Qry.GetVariableAsInteger("rows")==0)
                 throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
             string seat_no = Qry.GetVariableAsString("seat_no");
+
             LEvntPrms params;
             params << PrmSmpl<std::string>("full_name", iPax->full_name);
-            if (seat_no.empty() or iPax->pr_voucher) params << PrmBool("seat_no", false);
-            else params << PrmSmpl<std::string>("seat_no", seat_no);
+
             string lexeme;
             switch(op_type) {
                 case dotPrnBP:
-                    lexeme = (iPax->pr_voucher ? "EVT.PRINT_VOUCHER" : "EVT.PRINT_BOARDING_PASS");
+                    lexeme = (iPax->voucher.empty() ? "EVT.PRINT_BOARDING_PASS" : "EVT.PRINT_VOUCHER");
+                    if(not iPax->voucher.empty())
+                        params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, iPax->voucher));
+                    else {
+                        if (seat_no.empty()) params << PrmBool("seat_no", false);
+                        else params << PrmSmpl<std::string>("seat_no", seat_no);
+                    }
                     break;
                 case dotPrnBI:
                     lexeme = "EVT.PRINT_INVITATION";
@@ -1439,6 +1454,23 @@ void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
     };
 };
 
+string getVoucherCode(xmlNodePtr prnCodeNode)
+{
+    string result;
+    if(prnCodeNode) {
+        vector<string> tokens;
+        result = NodeAsString(prnCodeNode);
+        boost::split(tokens, result, boost::is_any_of("."));
+        if(
+                tokens.size() != 2 or
+                tokens[0] != "voucher"
+                )
+            throw Exception("getVoucherCode: wrong prn code format: %s", result.c_str());
+        result = tokens[1];
+    }
+    return result;
+}
+
 void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TDevOperType op_type = DecodeDevOperType(NodeAsString("@op_type", reqNode, EncodeDevOperType(dotPrnBP).c_str()));
@@ -1455,7 +1487,9 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         BPPax pax;
         pax.pax_id=NodeAsInteger("@pax_id", curNode);
         pax.time_print=NodeAsDateTime("@time_print", curNode);
-        pax.pr_voucher = GetNode("@pr_vouchers", curNode);
+        // Св-во print_code на данный момент передается только при печати ваучера
+        // в остальных случаях pax.voucher пустой.
+        pax.voucher = getVoucherCode(GetNode("@print_code", curNode));
 
         PaxQry.SetVariable("pax_id", pax.pax_id);
         PaxQry.Execute();
@@ -2051,6 +2085,7 @@ void PrintInterface::GetPrintDataVO(
 
                 parser.pts.set_tag(TAG::VOUCHER_CODE, v->first);
                 parser.pts.set_tag(TAG::VOUCHER_TEXT, v->first);
+                parser.pts.set_tag(TAG::DUPLICATE, 0);
 
                 string prn_form = parser.parse(data);
                 bool hex = false;
@@ -2069,6 +2104,7 @@ void PrintInterface::GetPrintDataVO(
                 SetProp(paxNode, "pax_id", pax->first);
                 SetProp(paxNode, "reg_no", reg_no);
                 SetProp(paxNode, "pr_print", true);
+                SetProp(paxNode, "print_code", "voucher." + v->first);
                 SetProp(paxNode, "time_print", DateTimeToStr(parser.pts.get_time_print()));
                 SetProp(NewTextChild(paxNode, "prn_form", prn_form),"hex",hex);
             }
