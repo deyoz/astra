@@ -2181,6 +2181,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
                 "WHERE  pax.grp_id = :grp_id AND "
                 "       pax.refuse IS NULL AND "
                 "       pax.pax_id = cp.pax_id(+) AND "
+                "       cp.voucher(+) is null and "
                 "       nvl(cp.op_type(+), :op_type) = :op_type and " // дефайн OP_TYPE_COND здесь не катит, т.к. плюсик.
                 "       cp.pr_print(+) <> 0 AND "
                 "       cp.pax_id IS NULL "

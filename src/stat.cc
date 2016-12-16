@@ -10505,7 +10505,7 @@ void departed_flt(TQuery &Qry, TEncodedFileStream &of)
     if(part_key == NoExists) {
         SQLText +=
             "   (SELECT 1 FROM confirm_print cnf  "
-            "   WHERE " OP_TYPE_COND("op_type")" and cnf.pax_id=pax.pax_id AND  "
+            "   WHERE " OP_TYPE_COND("op_type")" and cnf.pax_id=pax.pax_id AND voucher is null and"
             "   client_type='TERM' AND pr_print<>0 AND rownum<2) AS term_bp, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,0) AS seat_no, "
             "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
