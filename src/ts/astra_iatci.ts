@@ -1108,6 +1108,9 @@ $(login)
 $(init_dcs ‘7 TA OA)
 $(init_eds ž’ UTET UTDC)
 
+$(dump_table DCS_ADDR_SET)
+$(dump_table EDIFACT_PROFILES)
+
 
 $(PREPARE_FLIGHT_3 ž’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘Ž— REPIN IVAN)
 
@@ -1134,7 +1137,7 @@ $(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -1423,7 +1426,7 @@ $(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -1466,7 +1469,7 @@ $(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKX:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKX:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A++IVAN"
@@ -1524,7 +1527,7 @@ $(lastRedisplay)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -1555,7 +1558,7 @@ $(LOAD_PAX_BY_GRP_ID $(get point_dep) $(get grp_id))
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQPLF:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQPLF:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 SPD+REPIN:IVAN::1"
@@ -1851,7 +1854,7 @@ $(lastRedisplay)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -1881,7 +1884,7 @@ $(LOAD_PAX_BY_REG_NO $(get point_dep) 1)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQPLF:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQPLF:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 SPD+REPIN:IVAN::1"
@@ -1943,7 +1946,7 @@ $(lastRedisplay)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -1979,7 +1982,7 @@ $(LOAD_PAX_BY_PAX_ID $(get point_dep) $(get pax_id))
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQPLF:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQPLF:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 SPD+REPIN:IVAN::1"
@@ -2041,7 +2044,7 @@ $(lastRedisplay)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -2076,7 +2079,7 @@ $(LOAD_PAX_BY_GRP_ID $(get point_dep) $(get grp_id))
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQPLF:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQPLF:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 SPD+REPIN:IVAN::1"
@@ -2132,7 +2135,7 @@ $(lastRedisplay)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -2167,7 +2170,7 @@ $(LOAD_PAX_BY_GRP_ID $(get point_dep) $(get grp_id))
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQPLF:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQPLF:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 SPD+REPIN:IVAN::1"
@@ -2228,7 +2231,7 @@ $(lastRedisplay)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -2294,7 +2297,7 @@ $(lastRedisplay)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -2340,7 +2343,7 @@ $(lastRedisplay)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKX:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKX:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A++IVAN"
@@ -2396,7 +2399,7 @@ $(lastRedisplay)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -2433,7 +2436,7 @@ $(UPDATE_PAX_DOC $(get point_dep) $(get point_arv) „Œ„ ‹Š
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKU:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A++IVAN"
@@ -2725,7 +2728,7 @@ $(lastRedisplay)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -2808,7 +2811,7 @@ $(lastRedisplay)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -2846,7 +2849,7 @@ $(UPDATE_PAX_REMS $(get point_dep) $(get point_arv) „Œ„ ‹Š
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKU:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A++IVAN"
@@ -2914,7 +2917,7 @@ $(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -2980,7 +2983,7 @@ $(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -3103,7 +3106,7 @@ $(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -3142,7 +3145,7 @@ $(dump_table GRP_IATCI_XML)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQSMF:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQSMF:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 UNT+4+1"
@@ -3335,7 +3338,7 @@ $(KICK_IN)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKU:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A++IVAN"
@@ -3360,7 +3363,7 @@ $(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQSMF:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQSMF:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 UNT+4+1"
@@ -3479,7 +3482,7 @@ $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -3543,7 +3546,7 @@ $(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -3628,7 +3631,7 @@ $(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKI:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
@@ -3672,7 +3675,7 @@ $(KICK_IN_SILENT)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKX:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKX:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A++IVAN"
@@ -3723,7 +3726,7 @@ $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQCKX:96:2:IA+$(last_edifact_ref)"
+UNH+1+DCQCKX:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A++IVAN"

@@ -144,6 +144,8 @@ namespace RemoteSystemContext
         std::string RemoteAddrEdifact;
         std::string OurAddrAirimp;
         std::string RemoteAddrAirimp;
+        std::string EdifactProfileName;
+        boost::shared_ptr<edifact::EdifactProfile> EdiProfile;
 
         mutable InboundTlgInfo InbTlgInfo;
 
@@ -154,24 +156,29 @@ namespace RemoteSystemContext
 
     private:
         void checkContinuity() const;
+        void readEdifactProfile();
 
     protected:
         static Ticketing::SystemAddrs_t getNextId();
 
-
         static pSystemContext SysCtxt;
     public:
-        Ticketing::SystemAddrs_t ida() const { return Ida; }
-        void setIda(Ticketing::SystemAddrs_t ida) { Ida = ida; }
-        const std::string& canonName() const { return CanonName; }
-        const std::string& airline() const { return Airline; }
-        const std::string& ourAddrEdifact() const { return OurAddrEdifact; }
-        const std::string& remoteAddrEdifact() const { return RemoteAddrEdifact; }
-        const std::string& ourAddrAirimp() const { return OurAddrAirimp; }
-        const std::string& remoteAddrAirimp() const { return RemoteAddrAirimp; }
-        std::string routerCanonName() const;
+        Ticketing::SystemAddrs_t ida() const          { return Ida;                }
+        const std::string& canonName() const          { return CanonName;          }
+        const std::string& airline() const            { return Airline;            }
+        const std::string& ourAddrEdifact() const     { return OurAddrEdifact;     }
+        const std::string& remoteAddrEdifact() const  { return RemoteAddrEdifact;  }
+        const std::string& ourAddrAirimp() const      { return OurAddrAirimp;      }
+        const std::string& remoteAddrAirimp() const   { return RemoteAddrAirimp;   }
+        const std::string& edifactProfileName() const { return EdifactProfileName; }
+        const std::string& routerCanonName() const    { return CanonName;          }
+
+        edifact::EdifactProfile edifactProfile() const;
+
         unsigned edifactResponseTimeOut() const;
         InboundTlgInfo& inbTlgInfo() const { return InbTlgInfo; }
+
+        void setIda(Ticketing::SystemAddrs_t ida)     { Ida = ida; }
         virtual const SystemSettings& commonSettings() const { return CommonSettings; }
         virtual SystemSettings& commonSettings() { return CommonSettings; }
 
@@ -191,8 +198,6 @@ namespace RemoteSystemContext
          * @brief Деициализировать контекст системы
          */
         static void free();
-
-        static SystemContext readById(Ticketing::SystemAddrs_t Id);
 
         static const SystemContext& Instance(const char *nick, const char *file, unsigned line);
 
@@ -317,6 +322,7 @@ namespace RemoteSystemContext
         void setAirline(const std::string& val);
         void setIda(SystemAddrs_t val);
         void setCanonName(const std::string& canonName);
+        void setEdifactProfileName(const std::string& edifactProfileName);
         void setSystemSettings(const SystemSettings& sett);
 
         SystemContext getSystemContext();
@@ -351,6 +357,7 @@ namespace RemoteSystemContext
     };
 
     std::string createRot(const RotParams &par);
+    std::string createIatciEdifactProfile();
 
 #endif /*XP_TESTING*/
 

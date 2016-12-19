@@ -177,6 +177,31 @@ std::string AstraEdiSessWR::unbAddr() const
     return sysCont()->remoteAddrEdifact();
 }
 
+std::string AstraEdiSessWR::ctrlAgency() const
+{
+    return sysCont()->edifactProfile().ctrlAgency();
+}
+
+std::string AstraEdiSessWR::version() const
+{
+    return sysCont()->edifactProfile().version();
+}
+
+std::string AstraEdiSessWR::subVersion() const
+{
+    return sysCont()->edifactProfile().subVersion();
+}
+
+std::string AstraEdiSessWR::syntax() const
+{
+    return sysCont()->edifactProfile().syntaxName();
+}
+
+unsigned AstraEdiSessWR::syntaxVer() const
+{
+    return sysCont()->edifactProfile().syntaxVer();
+}
+
 edilib::EdiSession* AstraEdiSessWR::ediSession()
 {
     return &EdiSess;

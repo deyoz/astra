@@ -13,7 +13,6 @@
 #endif /*HAVE_CONFIG_H*/
 
 #include "remote_system_context.h"
-#include "EdifactProfile.h"
 #include "CheckinBaseTypesOci.h"
 #include "exceptions.h"
 #include "edi_utils.h"
@@ -63,6 +62,17 @@ Ticketing::SystemAddrs_t SystemContext::getNextId()
     cur.def(val).EXfet();
 
     return Ticketing::SystemAddrs_t(val);
+}
+
+void SystemContext::readEdifactProfile()
+{
+    using edifact::EdifactProfile;
+    if(EdifactProfileName.empty()) {
+        LogTrace(TRACE0) << "EdifactProfile not set. Use default!";
+        EdiProfile.reset(new EdifactProfile(EdifactProfile::createDefault()));
+    } else {
+        EdiProfile.reset(new EdifactProfile(EdifactProfile::readByName(EdifactProfileName)));
+    }
 }
 
 const SystemContext& SystemContext::Instance(const char *nick, const char *file, unsigned line)
@@ -135,14 +145,15 @@ void SystemContext::free()
     SystemContext::SysCtxt.reset();
 }
 
-std::string SystemContext::routerCanonName() const
-{
-    return CanonName;
-}
-
 unsigned SystemContext::edifactResponseTimeOut() const
 {
     return BaseTables::Router(routerCanonName())->resp_timeout();
+}
+
+edifact::EdifactProfile SystemContext::edifactProfile() const
+{
+    ASSERT(EdiProfile);
+    return *EdiProfile.get();
 }
 
 // ================== E D S =====================
@@ -290,7 +301,7 @@ void EdsSystemContext::updateDb()
 DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketing::FlightNum_t& flNum)
 {
     std::string sql = 
-"select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR, AIRIMP_ADDR, AIRIMP_OWN_ADDR, "
+"select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR, AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, "
 "       DECODE(AIRLINE,NULL,0,2)+ "
 "       DECODE(FLT_NO,NULL,0,1) AS priority "
 "from DCS_ADDR_SET "
@@ -302,6 +313,7 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketin
     std::string airline;
     std::string ediAddr, ourEdiAddr;
     std::string airAddr, ourAirAddr; 
+    std::string ediProfileName;
     short null = -1, nnull = 0;
 
     OciCpp::CursCtl cur = make_curs(sql);
@@ -310,7 +322,8 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketin
        .def(ediAddr)
        .def(ourEdiAddr)
        .defNull(airAddr, "")
-       .defNull(ourAirAddr, "");
+       .defNull(ourAirAddr, "")
+       .defNull(ediProfileName, "");
     cur.bind(":airl", airl)
        .bind(":flt_no", flNum?flNum.get():0, flNum?&nnull:&null);
     cur.EXfet();
@@ -329,6 +342,7 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketin
     SystemContextMaker ctxtMaker;
     ctxtMaker.setIda(Ticketing::SystemAddrs_t(systemId));
     ctxtMaker.setCanonName(AstraEdifact::get_canon_name(ediAddr));
+    ctxtMaker.setEdifactProfileName(ediProfileName);
     ctxtMaker.setAirline(airline);
     ctxtMaker.setRemoteAddrEdifact(ediAddr);    // their EDIFACT address
     ctxtMaker.setOurAddrEdifact(ourEdiAddr);    // our EDIFACT address
@@ -372,6 +386,7 @@ DcsSystemContext* DcsSystemContext::create4TestsOnly(const std::string& airline,
         ctxtMaker.setOurAddrEdifact(ourEdiAddr);
         ctxtMaker.setRemoteAddrAirimp(airAddr);
         ctxtMaker.setOurAddrAirimp(ourAirAddr);
+        ctxtMaker.setEdifactProfileName(createIatciEdifactProfile());
 
         dcs = new DcsSystemContext(ctxtMaker.getSystemContext());
         dcs->addDb();
@@ -390,24 +405,19 @@ void DcsSystemContext::addDb()
 {
     std::string sql =
 "  insert into DCS_ADDR_SET "
-"  (AIRLINE, EDI_ADDR, EDI_OWN_ADDR, AIRIMP_ADDR, AIRIMP_OWN_ADDR, ID) "
+"  (AIRLINE, EDI_ADDR, EDI_OWN_ADDR, AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, ID) "
 "  values "
-"  (:airline, :edi_addr, :edi_own_addr, :air_addr, :air_own_addr, :id) ";
-
-    int systemId = ida().get();
-    std::string airl = airline();
-    std::string ediAddr = remoteAddrEdifact();
-    std::string ourEdiAddr = ourAddrEdifact();
-    std::string airAddr = remoteAddrAirimp();
-    std::string ourAirAddr = ourAddrAirimp();
+"  (:airline, :edi_addr, :edi_own_addr, :air_addr, :air_own_addr, :edifact_profile, :id) ";
 
     OciCpp::CursCtl cur = make_curs(sql);
-    cur.bind(":airline", airl)
-       .bind(":edi_addr", ediAddr)
-       .bind(":edi_own_addr", ourEdiAddr)
-       .bind(":air_addr", airAddr)
-       .bind(":air_own_addr", ourAirAddr)
-       .bind(":id", systemId)
+    cur.stb()
+       .bind(":airline",         airline())
+       .bind(":edi_addr",        remoteAddrEdifact())
+       .bind(":edi_own_addr",    ourAddrEdifact())
+       .bind(":air_addr",        remoteAddrAirimp())
+       .bind(":air_own_addr",    ourAddrAirimp())
+       .bind(":edifact_profile", edifactProfileName())
+       .bind(":id",              ida().get())
        .exec();
 
     if(cur.err() == CERR_DUPK)
@@ -460,6 +470,11 @@ void SystemContextMaker::setCanonName(const std::string& val)
     cont.CanonName = val;
 }
 
+void SystemContextMaker::setEdifactProfileName(const std::string& edifactProfileName)
+{
+    cont.EdifactProfileName = edifactProfileName;
+}
+
 void SystemContextMaker::setAirline(const std::string& val)
 {
     cont.Airline = val;
@@ -473,6 +488,7 @@ void SystemContextMaker::setSystemSettings(const SystemSettings& val)
 SystemContext SystemContextMaker::getSystemContext()
 {
     cont.checkContinuity();
+    cont.readEdifactProfile();
     return cont;
 }
 
@@ -496,15 +512,15 @@ std::string createRot(const RotParams &par)
         LogTrace(TRACE3) << "create rot: " << par.canon_name;
 
         make_curs("begin "
-            "insert into rot (CANON_NAME, OWN_CANON_NAME, ID, LOOPBACK, IP_ADDRESS, IP_PORT, H2H, H2H_ADDR, OUR_H2H_ADDR) "
-            "values "
-            "(:canon_name, 'ASTRA', id__seq.nextval, 1, '0.0.0.0', '8888', :h2h, :h2h_addr, :our_h2h_addr) "
-            "returning id into :id; end;").
-        bind(":canon_name", par.canon_name).
-        bind(":h2h", par.h2h?1:0).
-        bind(":h2h_addr", par.h2h_addr).
+"insert into ROT (CANON_NAME, OWN_CANON_NAME, ID, LOOPBACK, IP_ADDRESS, IP_PORT, H2H, H2H_ADDR, OUR_H2H_ADDR) "
+"values "
+"(:canon_name, 'ASTRA', id__seq.nextval, 1, '0.0.0.0', '8888', :h2h, :h2h_addr, :our_h2h_addr) "
+"returning id into :id; end;").
+        bind(":canon_name",   par.canon_name).
+        bind(":h2h",          par.h2h?1:0).
+        bind(":h2h_addr",     par.h2h_addr).
         bind(":our_h2h_addr", par.our_h2h_addr).
-        bindOut(":id", rot).
+        bindOut(":id",        rot).
         exec();
 
         BaseTables::CacheData<BaseTables::Router_impl>::clearCache();
@@ -512,6 +528,36 @@ std::string createRot(const RotParams &par)
         LogTrace(TRACE3) << "rot.ida = " << rot << " for canon_name = " << par.canon_name;
     }
     return par.canon_name;
+}
+
+std::string createIatciEdifactProfile()
+{
+    edifact::EdifactProfileData p("IATCI",
+                                  "94",
+                                  "1",
+                                  "IA",
+                                  "IATA",
+                                  1);
+
+    make_curs("delete from EDIFACT_PROFILES where NAME=:name")
+            .bind(":name", p.m_profileName)
+            .exec();
+
+    LogTrace(TRACE3) << "create edifact profile: " << p.m_profileName;
+
+    make_curs(
+"insert into EDIFACT_PROFILES (NAME, VERSION, SUB_VERSION, CTRL_AGENCY, SYNTAX_NAME, SYNTAX_VER) "
+"values "
+"(:name, :version, :sub_version, :ctrl_agency, :syntax_name, :syntax_ver)")
+            .bind(":name",        p.m_profileName)
+            .bind(":version",     p.m_version)
+            .bind(":sub_version", p.m_subVersion)
+            .bind(":ctrl_agency", p.m_ctrlAgency)
+            .bind(":syntax_name", p.m_syntaxName)
+            .bind(":syntax_ver",  p.m_syntaxVer)
+            .exec();
+
+    return p.m_profileName;
 }
 
 #endif//XP_TESTING
