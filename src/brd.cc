@@ -531,6 +531,8 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    pax.wl_type, "
         "    pax.ticket_no, "
         "    pax.coupon_no, "
+        "    pax.ticket_rem, "
+        "    ticket_confirm, "
         "    pax.tid, "
         "    NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
         "    NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
@@ -1440,6 +1442,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       NewTextChild(defNode, "seats", 1);
       NewTextChild(defNode, "ticket_no", "");
       NewTextChild(defNode, "coupon_no", 0);
+      NewTextChild(defNode, "bag_norm", "");
       NewTextChild(defNode, "document", "");
       NewTextChild(defNode, "excess", 0);
       NewTextChild(defNode, "value_bag_count", 0);
@@ -1559,6 +1562,13 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           }
           else
             NewTextChild(paxNode, "value_bag_count", value_bag_count, 0);
+          //ticket_bag_norm
+          CheckIn::TPaxTknItem tkn;
+          tkn.fromDB( Qry );
+          if (tkn.validET()) {
+            NewTextChild(paxNode, "bag_norm",
+                         TETickItem().fromDB(tkn.no, tkn.coupon, TETickItem::Display, false).bag_norm_view(), "");
+          }
           NewTextChild(paxNode, "pr_payment", (int)pr_payment, (int)false);
           NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount), 0);
           NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight), 0);
