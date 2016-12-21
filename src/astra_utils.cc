@@ -1445,18 +1445,6 @@ TCountriesRow getCountryByAirp( const std::string& airp)
   return ((TCountriesRow&)base_tables.get("countries").get_row("code",cityRow.country));
 }
 
-/* Korotaev
-bool is_dst(TDateTime d, string region)
-{
-    if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");
-    ptime	utcd = DateTimeToBoost( d );
-  tz_database &tz_db = get_tz_database();
-  time_zone_ptr tz = tz_db.time_zone_from_region( region );
-  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",region.c_str());
-  local_date_time ld( utcd, tz ); // определяем текущее время локальное
-  return ( tz->has_dst() && ld.is_dst() );
-}*/
-
 char ToLatPnrAddr(char c)
 {
   if (!IsAscii7(c))
