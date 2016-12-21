@@ -982,7 +982,7 @@ bool parse_tlg(void)
                 MVTParser::SaveMVTContent(tlg_id, info, con);
             } else {
                 ParseAHMFltInfo(part,info,info.flt,info.bind_type);
-                SaveFlt(tlg_id,info.flt,info.bind_type, TExtSearchParamsPtr());
+                SaveFlt(tlg_id,info.flt,info.bind_type, TSearchFltInfoPtr());
             }
             parseTypeB(tlg_id);
             ASTRA::commit();//OraSession.Commit();
@@ -995,7 +995,7 @@ bool parse_tlg(void)
           case tcLDM:
           {
               TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
-              SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TExtSearchParamsPtr());
+              SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TSearchFltInfoPtr());
               parseTypeB(tlg_id);
               ASTRA::commit();//OraSession.Commit();
               count++;

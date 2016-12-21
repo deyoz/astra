@@ -81,7 +81,7 @@ class TFltBinding
     virtual void bind_flt_virt(int point_id, const std::vector<int> &spp_point_ids)=0;
     virtual std::string bind_or_unbind_flt_sql(bool unbind, bool use_scd_utc)=0;
     virtual std::string unbind_flt_sql()=0;
-    virtual TExtSearchParamsPtr get_search_params() { return TExtSearchParamsPtr(); }
+    virtual TSearchFltInfoPtr get_search_params() { return TSearchFltInfoPtr(); }
 
   public:
     void bind_flt(TFltInfo &flt, TBindType bind_type, std::vector<int> &spp_point_ids);
@@ -99,7 +99,7 @@ class TTlgBinding : public TFltBinding
 {
   private:
     bool check_comp;
-    TExtSearchParamsPtr search_params;
+    TSearchFltInfoPtr search_params;
 
     void unbind_flt_virt(int point_id, int point_id_spp, bool try_bind_again);
     std::string bind_flt_sql();
@@ -107,11 +107,11 @@ class TTlgBinding : public TFltBinding
     std::string bind_or_unbind_flt_sql(bool unbind, bool use_scd_utc);
     std::string unbind_flt_sql();
     void after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, bool unbind);
-    virtual TExtSearchParamsPtr get_search_params() { return search_params; }
+    virtual TSearchFltInfoPtr get_search_params() { return search_params; }
 
   public:
-    TTlgBinding(bool pcheck_comp):check_comp(pcheck_comp), search_params(TExtSearchParamsPtr()) {};
-    TTlgBinding(bool pcheck_comp, TExtSearchParamsPtr psearch_params):check_comp(pcheck_comp), search_params(psearch_params) {};
+    TTlgBinding(bool pcheck_comp):check_comp(pcheck_comp), search_params(TSearchFltInfoPtr()) {};
+    TTlgBinding(bool pcheck_comp, TSearchFltInfoPtr psearch_params):check_comp(pcheck_comp), search_params(psearch_params) {};
 };
 
 class TTrferBinding : public TFltBinding

@@ -1973,26 +1973,6 @@ void SearchMktFlt(const TSearchFltInfo &filter, set<int/*mark_trips.point_id*/> 
   }
 }
 
-void TSearchFltInfo::on_before_exit(std::list<TAdvTripInfo> &flts) const
-{
-    if(ext_search_params)
-        ext_search_params->before_exit(flts);
-}
-
-bool TSearchFltInfo::on_before_add(const TAdvTripInfo &flt) const
-{
-    if(ext_search_params)
-        return ext_search_params->before_add(flt);
-    else
-        return true;
-}
-
-bool TSearchFltInfo::isDepDateType(TDepDateType dtt) const
-{
-    return ext_search_params and
-        ext_search_params->dep_date_flags.isFlag(dtt);
-}
-
 void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
 {
   flts.clear();
@@ -2020,10 +2000,10 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
       "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND \n"
       "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND \n"
       "      (scd_out >= TO_DATE(:scd)-1 AND scd_out < TO_DATE(:scd)+2 \n ";
-    if(filter.isDepDateType(ddtEST))
+    if(filter.dep_date_flags.isFlag(ddtEST))
     sql <<
       "      or est_out >= TO_DATE(:scd)-1 AND est_out < TO_DATE(:scd)+2 \n ";
-    if(filter.isDepDateType(ddtACT))
+    if(filter.dep_date_flags.isFlag(ddtACT))
     sql <<
       "      or act_out >= TO_DATE(:scd)-1 AND act_out < TO_DATE(:scd)+2 \n ";
     sql <<
@@ -2037,10 +2017,10 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
       "      (:airp_dep IS NULL OR airp=:airp_dep) AND \n"
       "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND \n"
       "      (scd_out >= TO_DATE(:scd) AND scd_out < TO_DATE(:scd)+1 \n";
-    if(filter.isDepDateType(ddtEST))
+    if(filter.dep_date_flags.isFlag(ddtEST))
     sql <<
       "      or est_out >= TO_DATE(:scd) AND est_out < TO_DATE(:scd)+1 \n";
-    if(filter.isDepDateType(ddtACT))
+    if(filter.dep_date_flags.isFlag(ddtACT))
     sql <<
       "      or act_out >= TO_DATE(:scd) AND act_out < TO_DATE(:scd)+1 \n";
     sql <<
@@ -2064,10 +2044,10 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
       modf(scd,&scd);
       if (scd!=filter.scd_out) continue;
     };
-    if(filter.on_before_add(flt))
+    if(filter.before_add(flt))
         flts.push_back(flt);
   };
-  filter.on_before_exit(flts);
+  filter.before_exit(flts);
 };
 
 TDateTime getTimeTravel(const string &craft, const string &airp, const string &airp_last)

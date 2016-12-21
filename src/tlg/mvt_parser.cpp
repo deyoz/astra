@@ -210,7 +210,7 @@ namespace TypeB
         }
 
         void SaveMVTContent(int tlg_id, TAHMHeadingInfo& info, TMVTContent& con) {
-            int point_id_tlg=SaveFlt(tlg_id,info.flt,info.bind_type,TExtSearchParamsPtr());
+            int point_id_tlg=SaveFlt(tlg_id,info.flt,info.bind_type,TSearchFltInfoPtr());
             TTripInfo t;
             t.airline = info.flt.airline;
             t.flt_no = info.flt.flt_no;
