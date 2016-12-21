@@ -62,6 +62,7 @@ class PrintInterface: public JxtInterface
           TDateTime time_print;
           std::string prn_form;
           std::string scan;
+          std::string voucher;
 
           bool hex;
           BPPax()
@@ -100,26 +101,22 @@ class PrintInterface: public JxtInterface
         };
 
         PrintInterface(): JxtInterface("123", "print")
-        {
-            Handler *evHandle;
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBP);
-            AddEvent("GetPrintDataBP",evHandle);
-            AddEvent("GetGRPPrintDataBP",evHandle);
-            AddEvent("GetGRPPrintData",evHandle);
-            AddEvent("GetPrintData",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ReprintDataBTXML);
-            AddEvent("ReprintDataBT",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBTXML);
-            AddEvent("GetPrintDataBT",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ConfirmPrintBT);
-            AddEvent("ConfirmPrintBT",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ConfirmPrintBP);
-            AddEvent("ConfirmPrintBP",evHandle);
-            AddEvent("ConfirmPrintData",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::RefreshPrnTests);
-            AddEvent("refresh_prn_tests",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetImg);
-            AddEvent("GetImg",evHandle);
+        {            
+            AddEvent("GetPrintDataBP",    JXT_HANDLER(PrintInterface, GetPrintDataBP));
+            AddEvent("GetGRPPrintDataBP", JXT_HANDLER(PrintInterface, GetPrintDataBP));
+            AddEvent("GetGRPPrintData",   JXT_HANDLER(PrintInterface, GetPrintDataBP));
+            AddEvent("GetPrintData",      JXT_HANDLER(PrintInterface, GetPrintDataBP));
+            AddEvent("GetTripVouchersSet",      JXT_HANDLER(PrintInterface, GetTripVouchersSet));
+
+            AddEvent("ReprintDataBT",     JXT_HANDLER(PrintInterface, ReprintDataBTXML));
+            AddEvent("GetPrintDataBT",    JXT_HANDLER(PrintInterface, GetPrintDataBTXML));
+            AddEvent("ConfirmPrintBT",    JXT_HANDLER(PrintInterface, ConfirmPrintBT));
+
+            AddEvent("ConfirmPrintBP",    JXT_HANDLER(PrintInterface, ConfirmPrintBP));
+            AddEvent("ConfirmPrintData",    JXT_HANDLER(PrintInterface, ConfirmPrintBP));
+
+            AddEvent("refresh_prn_tests", JXT_HANDLER(PrintInterface, RefreshPrnTests));
+            AddEvent("GetImg",            JXT_HANDLER(PrintInterface, GetImg));
         }
 
         void GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -129,6 +126,8 @@ class PrintInterface: public JxtInterface
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void GetTripVouchersSet(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
         static void GetPrintDataBR(std::string &form_type, PrintDataParser &parser,
                 std::string &Print, bool &hex, xmlNodePtr reqNode
                 );
@@ -153,6 +152,16 @@ class PrintInterface: public JxtInterface
                 std::string &data,
                 std::string &pectab
                 );
+
+        static void GetPrintDataVO(
+                int first_seg_grp_id,
+                int pax_id,
+                int pr_all,
+                BPParams &params,
+                xmlNodePtr reqNode,
+                xmlNodePtr resNode
+                );
+
 };
 
 #endif

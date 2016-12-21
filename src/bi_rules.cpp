@@ -203,8 +203,8 @@ namespace BIPrintRules {
         TCachedQuery Qry(
                 "select confirm_print.hall_id "
                 "FROM confirm_print, "
-                "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id AND pr_print<>0 and " OP_TYPE_COND("op_type")") a "
-                "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND "
+                "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id and voucher is null AND pr_print<>0 and " OP_TYPE_COND("op_type")") a "
+                "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND voucher is null and "
                 "      " OP_TYPE_COND("confirm_print.op_type"),
                 QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, EncodeDevOperType(op_type))
                 );
@@ -476,7 +476,7 @@ void TPrPrint::fromDB(int grp_id, int pax_id, TQuery &Qry)
 void TPrPrint::get_pr_print(int grp_id, int pax_id, bool &pr_bp_print, bool &pr_bi_print)
 {
     TCachedQuery Qry(
-            "SELECT pax_id FROM confirm_print WHERE pax_id=:pax_id AND pr_print<>0 AND rownum=1 and " OP_TYPE_COND("op_type"),
+            "SELECT pax_id FROM confirm_print WHERE pax_id=:pax_id and voucher is null AND pr_print<>0 AND rownum=1 and " OP_TYPE_COND("op_type"),
             QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, EncodeDevOperType(dotPrnBP))
             );
     Qry.get().Execute();

@@ -128,6 +128,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TRateColors();
         else if(name == "BI_PRINT_TYPES")
             base_tables[name] = new TBIPrintTypes();
+        else if(name == "VOUCHER_TYPES")
+            base_tables[name] = new TVoucherTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
         mem.create(base_tables[name], STDLOG);
@@ -974,6 +976,13 @@ void TBIPrintTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
   *row = new TBIPrintTypesRow;
   mem.create(*row, STDLOG);
   ((TBIPrintTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TVoucherTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TVoucherTypesRow;
+  mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 

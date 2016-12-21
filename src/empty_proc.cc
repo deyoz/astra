@@ -2810,3 +2810,46 @@ int test_conversion(int, char **) {
 
     return 0;
 }
+
+#include "serverlib/xml_stuff.h" // для xml_decode_nodelist
+
+int tst_vo(int, char**)
+{
+    string qry =
+        "<?xml version='1.0' encoding='cp866'?> "
+        "<term> "
+        "  <query handle='0' id='print' ver='1' opr='DEN' screen='AIR.EXE' mode='STAND' lang='RU' term_id='158626489'> "
+        "    <GetGRPPrintData> "
+        "      <op_type>PRINT_BP</op_type> "
+        "      <voucher/> "
+        "      <grp_id>2591687</grp_id> "
+        "      <pr_all>1</pr_all> "
+        "      <dev_model>ML390</dev_model> "
+        "      <fmt_type>EPSON</fmt_type> "
+        "      <prnParams> "
+        "        <pr_lat>0</pr_lat> "
+        "        <encoding>CP866</encoding> "
+        "        <offset>20</offset> "
+        "        <top>0</top> "
+        "      </prnParams> "
+        "      <clientData> "
+        "        <gate>31</gate> "
+        "      </clientData> "
+        "    </GetGRPPrintData> "
+        "    <response/>" // сам дописал, туда будет засовываться ответ
+        "  </query> "
+        "</term> ";
+    xmlDocPtr doc = TextToXMLTree(qry); // все данные в UTF
+    xml_decode_nodelist(doc->children);
+    xmlNodePtr rootNode=xmlDocGetRootElement(doc);
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    reqInfo->Initialize("МОВ");
+    XMLRequestCtxt *ctxt = getXmlCtxt();
+    JxtInterfaceMng::Instance()->
+        GetInterface("print")->
+        OnEvent("GetGRPPrintData",  ctxt,
+                rootNode->children->children,
+                rootNode->children->children->next);
+    LogTrace(TRACE5) << GetXMLDocText(rootNode->doc);
+    return 1; // 0 - изменения коммитятся, 1 - rollback
+}

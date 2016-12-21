@@ -123,7 +123,8 @@ const
                          {etUsers,                 "etUsers",                 ""},
                          {etUserSetType,           "etUserSetType",           "user_set_types"},
                          {etUserType,              "etUserType",              "user_types"},
-                         {etValidatorType,         "etValidatorType",         ""}
+                         {etValidatorType,         "etValidatorType",         ""},
+                         {etVoucherType,           "etVoucherType",           "voucher_types"},
                        };
 
 const char* EncodeElemType(const TElemType type)

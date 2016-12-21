@@ -372,6 +372,8 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::BI_RULE,                 TTagListItem(&TPrnTagStore::BI_RULE)));
     tag_list.insert(make_pair(TAG::BI_RULE_GUEST,           TTagListItem(&TPrnTagStore::BI_RULE_GUEST)));
     tag_list.insert(make_pair(TAG::BI_AIRP_TERMINAL,        TTagListItem(&TPrnTagStore::BI_AIRP_TERMINAL)));
+    tag_list.insert(make_pair(TAG::VOUCHER_CODE,            TTagListItem(&TPrnTagStore::VOUCHER_CODE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT)));
 }
 
 // BP && BT
@@ -697,7 +699,12 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
 {
     part1 =
         "begin "
-        "   delete from confirm_print where pax_id = :pax_id and pr_print = 0 and desk=:desk and " OP_TYPE_COND("op_type")"; "
+        "   delete from confirm_print where "
+        "       pax_id = :pax_id and "
+        "       pr_print = 0 and "
+        "       desk=:desk and "
+        "       (voucher = :voucher OR voucher IS NULL AND :voucher IS NULL) and "
+        OP_TYPE_COND("op_type")"; "
         "   insert into confirm_print( "
         "       pax_id, "
         "       time_print, "
@@ -754,7 +761,12 @@ void TPrnTagStore::confirm_print(bool pr_print, TDevOperType op_type)
         prnQry.add_part("hall_id", BIHallInfo.hall_id);
     }
 
+    prnQry.add_part("voucher",
+            (tag_list[TAG::VOUCHER_CODE].TagInfo.empty() ? string() :
+             boost::any_cast<string>(tag_list[TAG::VOUCHER_CODE].TagInfo)));
+
     Qry.SQLText = prnQry.text();
+
     try {
         Qry.Execute();
     } catch(EOracleError &E) {
@@ -2331,6 +2343,28 @@ string TPrnTagStore::BI_RULE(TFieldParams fp) {
         const BIPrintRules::TRule &rule = boost::any_cast<BIPrintRules::TRule>(fp.TagInfo);
         if(rule.exists() and rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
                 result << "+1";
+    }
+    return result.str();
+}
+
+string TPrnTagStore::VOUCHER_CODE(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty()) {
+        string code = boost::any_cast<string>(fp.TagInfo);
+        result << transliter(
+                tag_lang.ElemIdToTagElem(etVoucherType, code, efmtCodeNative),
+                1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    }
+    return result.str();
+}
+
+string TPrnTagStore::VOUCHER_TEXT(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty()) {
+        string code = boost::any_cast<string>(fp.TagInfo);
+        result << transliter(
+                tag_lang.ElemIdToTagElem(etVoucherType, code, efmtNameLong),
+                1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     }
     return result.str();
 }
