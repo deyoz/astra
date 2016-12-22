@@ -21,6 +21,10 @@ extern const std::string req_save_bag;
 extern const std::string req_takeoff;
 
 extern const std::string req_save_pax;
+extern const std::string req_save_pax_bag;
+extern const std::string req_search_pax;
+extern const std::string req_delete_all_pax;
+extern const std::string req_new_pax;
 
 extern const std::string req_print_bp;
 
