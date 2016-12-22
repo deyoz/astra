@@ -30,6 +30,9 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
     if(grp_id == ASTRA::NoExists) return;
 
     try {
+        TCachedQuery paxQry("select * from pax where pax_id = :pax_id",
+                QParams() << QParam("pax_id", otInteger));
+
         QParams qryParams;
         qryParams
             << QParam("id", otInteger)
@@ -78,6 +81,14 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
                 bag_id = items.begin();
                 bag_id != items.end();
                 bag_id++) {
+
+            if(bag_id->second.pax_id != ASTRA::NoExists) {
+                paxQry.get().SetVariable("pax_id", bag_id->second.pax_id);
+                paxQry.get().Execute();
+                // Если пакса нету в базе, то нефиг писать по нему статистику
+                if(paxQry.get().Eof) continue;
+            }
+
             if(bag_id->second.pax_id == ASTRA::NoExists)
                 Qry.get().SetVariable("pax_id", FNull);
             else
