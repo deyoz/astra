@@ -132,8 +132,6 @@ $(KICK_IN_SILENT)
 $(set grp_id $(get_single_grp_id $(get point_dep) РЕПИН ИВАН))
 $(set tid $(get_single_tid $(get point_dep) РЕПИН ИВАН))
 
-$(dump_table TRIP_BP)
-
 
 !! capture=on
 {<?xml version='1.0' encoding='CP866'?>

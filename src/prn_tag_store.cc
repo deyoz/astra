@@ -1002,7 +1002,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
 
 void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
 {
-    if(agrp_id == NoExists || apax_id == NoExists) {
+    if(agrp_id == NoExists) {
         LogTrace(TRACE3) << "Fake grp_id or pax_id detected!";
         return;
     }
@@ -1069,6 +1069,9 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
                 "      subcls.class=cls_grp.class AND "
                 "      cls_grp.airline IS NULL AND cls_grp.airp IS NULL AND "
                 "      test_pax.id=:pax_id";
+            if(apax_id != NoExists) {
+                LogError(STDLOG) << "pax_id is not initialized but used!";
+            }
             Qry.CreateVariable("pax_id", otInteger, apax_id);
             Qry.Execute();
             if(Qry.Eof)
