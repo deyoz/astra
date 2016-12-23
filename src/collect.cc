@@ -138,8 +138,59 @@ struct TAfterTagPacks:public TAfter {
 struct TAfterSavePax:public TAfter {
     int tid;
     int grp_id;
+    int pax_id;
+    string surname;
     virtual void  Event(const XMLRequestCtxt *ctxt)
     {
+        surname = NodeAsString(
+                ctxt->resDoc->children // term
+                ->children // answer
+                ->children // segments
+                ->children // segment
+                ->children // tripheader
+                ->next // tripdata
+                ->next // grp_id
+                ->next // point_dep
+                ->next // airp_dep
+                ->next // point_arv
+                ->next // airp_arv
+                ->next // class
+                ->next // status
+                ->next // bag_refuse
+                ->next // bag_types_id
+                ->next // piece_concept
+                ->next // tid
+                ->next // city_arv
+                ->next // mark_flight
+                ->next // passengers
+                ->children // pax
+                ->children // pax_id
+                ->next // surname
+                );
+        pax_id = NodeAsInteger(
+                ctxt->resDoc->children // term
+                ->children // answer
+                ->children // segments
+                ->children // segment
+                ->children // tripheader
+                ->next // tripdata
+                ->next // grp_id
+                ->next // point_dep
+                ->next // airp_dep
+                ->next // point_arv
+                ->next // airp_arv
+                ->next // class
+                ->next // status
+                ->next // bag_refuse
+                ->next // bag_types_id
+                ->next // piece_concept
+                ->next // tid
+                ->next // city_arv
+                ->next // mark_flight
+                ->next // passengers
+                ->children // pax
+                ->children // pax_id
+                );
         tid = NodeAsInteger(
                 ctxt->resDoc->children // term
                 ->children // answer
@@ -679,6 +730,58 @@ int nosir_make_flt(int argc,char **argv)
         make_flt(clnt, day, i);
     }
     LogTrace(TRACE5) << "day " << DateTimeToStr(day, "dd.mm.yyyy") << " finished";
+
+    return 0;
+}
+
+int nosir_annul_bag(int argc,char **argv)
+{
+    string pult = "ŒŽ‚„…";
+    string opr = "DEN2";
+    string passwd = "DEN2";
+    TExec clnt(pult, opr);
+
+    string buf = req_logon;
+    replace(buf, "userr", opr);
+    replace(buf, "passwd", passwd);
+
+    clnt.exec(buf, false);
+
+    const int ITER = 500;
+
+    while(true) {
+//    for(int j = 0; j < 10; j++) {
+        TAfterSavePax after_save_pax;
+        clnt.exec(req_new_pax, true, &after_save_pax);
+
+        int i = 0;
+        for(; i < ITER; i++) {
+            int amount, weight;
+            if(i%2) {
+                amount = 2;
+                weight = 40;
+            } else {
+                amount = 1;
+                weight = 20;
+            }
+            LogTrace(TRACE5) << "amount: " << amount;
+            LogTrace(TRACE5) << "weight: " << weight;
+            string buf_req_save_pax_bag = req_save_pax_bag;
+            replace(buf_req_save_pax_bag, "tid", after_save_pax.tid, 2);
+            replace(buf_req_save_pax_bag, "grp_id", after_save_pax.grp_id);
+            replace(buf_req_save_pax_bag, "pax_id", after_save_pax.pax_id);
+            replace(buf_req_save_pax_bag, "surname", after_save_pax.surname);
+            replace(buf_req_save_pax_bag, "amount", amount);
+            replace(buf_req_save_pax_bag, "weight", weight);
+            try {
+                clnt.exec(buf_req_save_pax_bag, true, &after_save_pax);
+            } catch(...) {
+                break;
+            }
+        }
+        if(i == ITER)
+            break;
+    };
 
     return 0;
 }

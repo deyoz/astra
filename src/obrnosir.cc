@@ -105,6 +105,7 @@ const
     {"-test_cnv",               test_conversion,        NULL,                       NULL},
     {"-ckin_report",            CKIN_REPORT::run,       NULL,                       NULL},
     {"-bp",                     bp_tst,                 NULL,                       NULL},
+    {"-annul_bag",              nosir_annul_bag,        NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
