@@ -267,6 +267,7 @@ void TAnnulBT::backup()
     TCachedQuery tagsQry("select * from annul_tags where id = :id",
             QParams() << QParam("id", otInteger));
     Qry.get().Execute();
+    list<int> ids;
     if(not Qry.get().Eof) {
         int col_id = Qry.get().FieldIndex("id");
         int col_pax_id = Qry.get().FieldIndex("pax_id");
@@ -296,16 +297,26 @@ void TAnnulBT::backup()
             if(not Qry.get().FieldIsNULL(col_time_annul))
                 bag_tags.time_annul = Qry.get().FieldAsDateTime(col_time_annul);
 
-            tagsQry.get().SetVariable("id", Qry.get().FieldAsInteger(col_id));
+            ids.push_back(Qry.get().FieldAsInteger(col_id));
+            tagsQry.get().SetVariable("id", ids.back());
             tagsQry.get().Execute();
             for(; not tagsQry.get().Eof; tagsQry.get().Next()) {
                 CheckIn::TTagItem tag_item;
                 tag_item.no = tagsQry.get().FieldAsFloat("no");
                 bag_tags.bag_tags.push_back(tag_item);
             }
-
         }
     }
+    TCachedQuery delTagsQry("delete from annul_tags where id = :id",
+            QParams() << QParam("id", otInteger));
+    for(list<int>::iterator id = ids.begin(); id != ids.end(); id++)
+    {
+        delTagsQry.get().SetVariable("id", *id);
+        delTagsQry.get().Execute();
+    }
+    TCachedQuery delBagQry("delete from annul_bag where grp_id = :grp_id",
+            QParams() << QParam("grp_id", otInteger, grp_id));
+    delBagQry.get().Execute();
 }
 
 void TAnnulBT::get(int grp_id)
