@@ -306,14 +306,6 @@ void TAnnulBT::backup()
 
         }
     }
-    TCachedQuery delQry(
-            "begin "
-            "   delete from annul_tags where id in "
-            "       (select id from annul_bag where grp_id = :grp_id); "
-            "   delete from annul_bag where grp_id = :grp_id; "
-            "end; ",
-            QParams() << QParam("grp_id", otInteger, grp_id));
-    delQry.get().Execute();
 }
 
 void TAnnulBT::get(int grp_id)
