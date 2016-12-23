@@ -1069,7 +1069,7 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
                 "      subcls.class=cls_grp.class AND "
                 "      cls_grp.airline IS NULL AND cls_grp.airp IS NULL AND "
                 "      test_pax.id=:pax_id";
-            if(apax_id != NoExists) {
+            if(apax_id == NoExists) {
                 LogError(STDLOG) << "pax_id is not initialized but used!";
             }
             Qry.CreateVariable("pax_id", otInteger, apax_id);
