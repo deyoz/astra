@@ -106,6 +106,7 @@ const
     {"-ckin_report",            CKIN_REPORT::run,       NULL,                       NULL},
     {"-bp",                     bp_tst,                 NULL,                       NULL},
     {"-vo",                     tst_vo,                 NULL,                       NULL},
+    {"-annul_bag",              nosir_annul_bag,        NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

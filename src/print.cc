@@ -19,6 +19,7 @@
 #include "serverlib/str_utils.h"
 #include "qrys.h"
 #include "sopp.h"
+#include "points.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -1473,12 +1474,13 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TDevOperType op_type = DecodeDevOperType(NodeAsString("@op_type", reqNode, EncodeDevOperType(dotPrnBP).c_str()));
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText =
-      "SELECT pax.grp_id, surname||' '||name full_name, reg_no, point_dep "
-      "FROM pax, pax_grp  "
-      "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
+        "SELECT pax.grp_id, surname||' '||name full_name, reg_no, point_dep "
+        "FROM pax, pax_grp  "
+        "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
     PaxQry.DeclareVariable("pax_id",otInteger);
     std::vector<BPPax> paxs;
     xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
+    set<int> ids_set;
     for(; curNode != NULL; curNode = curNode->next)
     {
         BPPax pax;
@@ -1493,17 +1495,68 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         if(PaxQry.Eof) continue;
 
         pax.point_dep=PaxQry.FieldAsInteger("point_dep");
+        ids_set.insert(pax.point_dep);
         pax.grp_id=PaxQry.FieldAsInteger("grp_id");
         pax.reg_no=PaxQry.FieldAsInteger("reg_no");
         pax.full_name=PaxQry.FieldAsString("full_name");
         paxs.push_back(pax);
     };
+
+    vector<int> point_ids(ids_set.begin(), ids_set.end());
+    TFlights flightsForLock;
+    flightsForLock.Get( point_ids, ftTranzit );
+    //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
+    flightsForLock.Lock();
+
     CheckIn::UserException ue;
     ConfirmPrintBP(op_type, paxs, ue); //не надо прокидывать ue в терминал - подтверждаем все что можем!
 };
 
 void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    typedef pair<double, string> TNoColor;
+    typedef pair<string, TNoColor> TType;
+    list<TType> incoming_tags;
+
+    xmlNodePtr curNode = NodeAsNode("tags/tag", reqNode);
+    while(curNode) {
+        incoming_tags.push_back(
+                make_pair(
+                    NodeAsString("@type", curNode),
+                    make_pair(NodeAsFloat("@no", curNode),
+                        NodeAsString("@color", curNode))
+                ));
+        curNode = curNode->next;
+    }
+
+    set<int> ids_set;
+    TCachedQuery pointQry(
+            "select point_dep from pax_grp, bag_tags where "
+            "   no = :no and tag_type = :type and "
+            "   (color is null and :color is null or color = :color) and "
+            "   bag_tags.grp_id = pax_grp.grp_id ",
+            QParams()
+            << QParam("type", otString)
+            << QParam("no", otFloat)
+            << QParam("color", otString));
+    for(list<TType>::iterator tag = incoming_tags.begin();
+            tag != incoming_tags.end(); tag++) {
+        pointQry.get().SetVariable("type", tag->first);
+        pointQry.get().SetVariable("no", tag->second.first);
+        pointQry.get().SetVariable("color", tag->second.second);
+        pointQry.get().Execute();
+        if(pointQry.get().Eof)
+            throw AstraLocale::UserException("MSG.LUGGAGE.CHANGE_FROM_OTHER_DESK_REFRESH");
+        for(; not pointQry.get().Eof; pointQry.get().Next())
+            ids_set.insert(pointQry.get().FieldAsInteger("point_id"));
+    }
+
+    vector<int> point_ids(ids_set.begin(), ids_set.end());
+    TFlights flightsForLock;
+    flightsForLock.Get( point_ids, ftTranzit );
+    //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
+    flightsForLock.Lock();
+
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "update bag_tags set pr_print = 1 where no = :no and tag_type = :type and "
@@ -1511,15 +1564,15 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.DeclareVariable("type", otString);
     Qry.DeclareVariable("no", otFloat);
     Qry.DeclareVariable("color", otString);
-    xmlNodePtr curNode = NodeAsNode("tags/tag", reqNode);
-    while(curNode) {
-        Qry.SetVariable("type", NodeAsString("@type", curNode));
-        Qry.SetVariable("no", NodeAsFloat("@no", curNode));
-        Qry.SetVariable("color", NodeAsString("@color", curNode));
+
+    for(list<TType>::iterator tag = incoming_tags.begin();
+            tag != incoming_tags.end(); tag++) {
+        Qry.SetVariable("type", tag->first);
+        Qry.SetVariable("no", tag->second.first);
+        Qry.SetVariable("color", tag->second.second);
         Qry.Execute();
         if (Qry.RowsProcessed()==0)
             throw AstraLocale::UserException("MSG.LUGGAGE.CHANGE_FROM_OTHER_DESK_REFRESH");
-        curNode = curNode->next;
     }
 }
 
