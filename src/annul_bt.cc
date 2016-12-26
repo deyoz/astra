@@ -43,7 +43,8 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
             << QParam("time_create", otDate)
             << QParam("time_annul", otDate)
             << QParam("amount", otInteger)
-            << QParam("weight", otInteger);
+            << QParam("weight", otInteger)
+            << QParam("user_id", otInteger, TReqInfo::Instance()->user.user_id);
 
         TCachedQuery Qry(
                 "begin "
@@ -56,7 +57,8 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
                 "      time_create, "
                 "      time_annul, "
                 "      amount, "
-                "      weight "
+                "      weight, "
+                "      user_id "
                 "   ) values ( "
                 "      cycle_id__seq.nextval, "
                 "      :grp_id, "
@@ -66,7 +68,8 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
                 "      :time_create, "
                 "      :time_annul, "
                 "      :amount, "
-                "      :weight "
+                "      :weight, "
+                "      :user_id "
                 "   ) returning id into :id; "
                 "end; ",
             qryParams

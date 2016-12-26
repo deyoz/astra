@@ -7082,6 +7082,7 @@ struct TAnnulBTStatRow {
     TDateTime time_annul;
     int amount;
     int weight;
+    int user_id;
     string trfer_airline;
     int trfer_flt_no;
     string trfer_suffix;
@@ -7098,6 +7099,7 @@ struct TAnnulBTStatRow {
         time_annul(NoExists),
         amount(NoExists),
         weight(NoExists),
+        user_id(NoExists),
         trfer_flt_no(NoExists),
         trfer_scd(NoExists)
     {}
@@ -7172,7 +7174,8 @@ void RunAnnulBTStat(
             "   annul_bag.time_create, "
             "   annul_bag.time_annul, "
             "   annul_bag.amount, "
-            "   annul_bag.weight, ";
+            "   annul_bag.weight, "
+            "   annul_bag.user_id, ";
         if(pass != 0)
             SQLText +=
                 "   transfer.airline trfer_airline, \n"
@@ -7256,6 +7259,7 @@ void RunAnnulBTStat(
             int col_time_annul = Qry.get().FieldIndex("time_annul");
             int col_amount = Qry.get().FieldIndex("amount");
             int col_weight = Qry.get().FieldIndex("weight");
+            int col_user_id = Qry.get().FieldIndex("user_id");
             int col_trfer_airline = Qry.get().FieldIndex("trfer_airline");
             int col_trfer_flt_no = Qry.get().FieldIndex("trfer_flt_no");
             int col_trfer_suffix = Qry.get().FieldIndex("trfer_suffix");
@@ -7289,6 +7293,8 @@ void RunAnnulBTStat(
                     row.amount = Qry.get().FieldAsInteger(col_amount);
                 if(not Qry.get().FieldIsNULL(col_weight))
                     row.weight = Qry.get().FieldAsInteger(col_weight);
+                if(not Qry.get().FieldIsNULL(col_user_id))
+                    row.user_id = Qry.get().FieldAsInteger(col_user_id);
                 row.trfer_airline = Qry.get().FieldAsString(col_trfer_airline);
                 if(not Qry.get().FieldIsNULL(col_trfer_flt_no))
                     row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
@@ -7328,6 +7334,10 @@ void createXMLAnnulBTStat(
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
     SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
+    SetProp(colNode, "width", 100);
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("№№ баг. бирок"));
@@ -7383,6 +7393,10 @@ void createXMLAnnulBTStat(
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
 
+    map<int, string> agents;
+    TCachedQuery agentQry("select descr from users2 where user_id = :user_id",
+            QParams() << QParam("user_id", otInteger));
+
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
     for(list<TAnnulBTStatRow>::const_iterator i = AnnulBTStat.rows.begin(); i != AnnulBTStat.rows.end(); i++) {
@@ -7394,6 +7408,23 @@ void createXMLAnnulBTStat(
         //Рейс
         ostringstream buf;
         buf << setw(3) << setfill('0') << i->flt_no << ElemIdToCodeNative(etSuffix, i->suffix);
+        NewTextChild(rowNode, "col", buf.str());
+        // Агент
+        buf.str("");
+        if(i->user_id != NoExists) {
+            map<int, string>::iterator agent = agents.find(i->user_id);
+            if(agent == agents.end()) {
+                agentQry.get().SetVariable("user_id", i->user_id);
+                agentQry.get().Execute();
+                if(not agentQry.get().Eof)
+                    buf << agentQry.get().FieldAsString("descr");
+                pair<map<int, string>::iterator, bool> ret =
+                    agents.insert(make_pair(i->user_id, buf.str()));
+                buf.str("");
+                agent = ret.first;
+            }
+            buf << agent->second;
+        }
         NewTextChild(rowNode, "col", buf.str());
         // №№ баг. бирок
         NewTextChild(rowNode, "col", get_tag_range(i->tags, LANG_EN));
