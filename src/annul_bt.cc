@@ -44,7 +44,7 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
             << QParam("time_annul", otDate)
             << QParam("amount", otInteger)
             << QParam("weight", otInteger)
-            << QParam("user_id", otInteger, TReqInfo::Instance()->user.user_id);
+            << QParam("user_id", otInteger);
 
         TCachedQuery Qry(
                 "begin "
@@ -117,6 +117,10 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
                 Qry.get().SetVariable("weight", FNull);
             else
                 Qry.get().SetVariable("weight", bag_id->second.bag_item.weight);
+            if(bag_id->second.bag_item.user_id == ASTRA::NoExists)
+                Qry.get().SetVariable("user_id", FNull);
+            else
+                Qry.get().SetVariable("user_id", bag_id->second.bag_item.user_id);
 
             Qry.get().Execute();
             int id = Qry.get().GetVariableAsInteger("id");
@@ -280,6 +284,7 @@ void TAnnulBT::backup()
         int col_time_annul = Qry.get().FieldIndex("time_annul");
         int col_amount = Qry.get().FieldIndex("amount");
         int col_weight = Qry.get().FieldIndex("weight");
+        int col_user_id = Qry.get().FieldIndex("user_id");
         int bag_id = 1;
         for(; not Qry.get().Eof; Qry.get().Next()) {
             CheckIn::TBagItem bag_item;
@@ -293,6 +298,8 @@ void TAnnulBT::backup()
                 bag_item.amount =  Qry.get().FieldAsInteger(col_amount);
             if(not Qry.get().FieldIsNULL(col_weight))
                 bag_item.weight =  Qry.get().FieldAsInteger(col_weight);
+            if(not Qry.get().FieldIsNULL(col_user_id))
+                bag_item.user_id =  Qry.get().FieldAsInteger(col_user_id);
             TBagTags &bag_tags = backup_items[bag_item.id];
             if(not Qry.get().FieldIsNULL(col_pax_id))
                 bag_tags.pax_id = Qry.get().FieldAsInteger(col_pax_id);
