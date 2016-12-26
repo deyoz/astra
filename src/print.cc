@@ -1551,7 +1551,7 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         if(pointQry.get().Eof)
             throw AstraLocale::UserException("MSG.LUGGAGE.CHANGE_FROM_OTHER_DESK_REFRESH");
         for(; not pointQry.get().Eof; pointQry.get().Next())
-            ids_set.insert(pointQry.get().FieldAsInteger("point_id"));
+            ids_set.insert(pointQry.get().FieldAsInteger("point_dep"));
     }
 
     vector<int> point_ids(ids_set.begin(), ids_set.end());
