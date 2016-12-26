@@ -351,6 +351,8 @@ void TAnnulBT::get(int grp_id)
 
             CheckIn::TBagItem bag_item;
             bag_item.fromDB(bagQry.get());
+            // Сюда не создавшего багаж, а тек. юзера
+            bag_item.user_id = TReqInfo::Instance()->user.user_id;
             if(bag_item.pr_cabin) continue;
             TBagTags &bag_tags = items[bag_item.id];
             bag_tags.pax_id = get_pax_id(grp_id, bag_item.bag_pool_num);
