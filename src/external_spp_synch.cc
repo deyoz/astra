@@ -849,7 +849,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
       dest.status = tdUpdate;
     }
     else {
-      dest.status = tdDelete;
+      dest.status = tdDelete;      
     }
   }
   propNode = GetNodeFast( "@cancel", flightNode->children );
@@ -870,7 +870,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   dest.flt_no = fltNo.flt_no;
   dest.suffix = fltNo.suffix.code;
   dest.suffix_fmt = fltNo.suffix.fmt;
-  if ( string("C") == NodeAsStringFast( "trip_type", flightNode, "п" ) ) { //важно, чтобы сохранялся тип рейса Чартер при "C" - только так надо стоить условия определения типа
+  if ( string("C") == NodeAsStringFast( "trip_type", flightNode, "п" ) ) { //важно, чтобы сохранялся тип рейса Чартер при "C" - только так надо строить условия определения типа
     dest.trip_type = "ч";
     tst();
   }
@@ -883,6 +883,15 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
     else {
       dest.trip_type = "п";
     }
+  }
+  if ( dest.status == tdDelete ) { //airp не задан!!!
+      dest.pr_del = -1;
+/*    elem = checkerFlt.checkAirp( TReqInfo::Instance()->desk.airp, TCheckerFlt::CheckMode::etExtAODB, true, Qry );
+    dest.airp = elem.code;
+    dest.airp_fmt = elem.fmt;
+    dests.items.push_back( dest );
+    tst();
+    return;*/
   }
   //litera
   ProgTrace(TRACE5,"check litera");
@@ -1003,7 +1012,8 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
 {
   tst();
   warning.clear();
-  if ( dests.items.empty() || dests.items.size() == 1 ) {
+  if ( dests.items.empty() ||
+       (dests.items.size() == 1 && dests.items.begin()->status != tdDelete) ) {
     throw EConvertError( "flight dests empty" );
   }
   //ищем ШРМ, относительно которого завели рейс
@@ -1045,6 +1055,11 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
   ProgTrace( TRACE5, "pr_find=%d", pr_find );
 
   if ( pr_find ) { // рейс нашелся, надо зачитать
+    if ( d.status == tdDelete ) {
+      ProgTrace( TRACE5, "flight status=delete, but not save this event to db, ignore" );
+      //aodb_points - set pr_del for charter or update aodb_point_id to NULL!!!
+      return;
+    }
     BitSet<TUseDestData> UseData;
     UseData.clearFlags();
     UseData.setFlag( udStages );
@@ -1067,8 +1082,8 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
     }
     else
       if ( d.craft_fmt == efmtUnknown ) {
-        d.craft.clear();
         warning += ";Неизвестный тип ВС, значение='" + d.craft + "'";
+        d.craft.clear();
         //!!!throw EConvertError( "Неизвестный тип ВС, значение=%s", d.craft.c_str() );
       }
   }
@@ -1084,6 +1099,7 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
     chdest->bort = d.bort;
     chdest->trip_type = d.trip_type;
     chdest->litera = d.litera;
+    chdest->pr_del = d.pr_del;
   }
   if ( d.status == tdDelete && !pr_find ) {
     throw EConvertError( ";delete flight not exists" );
@@ -1180,6 +1196,9 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
     dests.items.rbegin()->airline.clear();
     dests.items.rbegin()->flt_no = ASTRA::NoExists;
     dests.items.rbegin()->suffix.clear();
+  }
+  if ( d.status == tdDelete ) {
+    dests.items.clear();
   }
   //синхронизация пунктов посадки с удалением пунктов
   points.dests.sychDests( dests, true, dtSomeLocalSCD );

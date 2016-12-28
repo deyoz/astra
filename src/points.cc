@@ -416,8 +416,8 @@ void TPointsDest::getDestData( TQuery &Qry )
     first_point = NoExists;
   airp = Qry.FieldAsString( "airp" );
   airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );
-    airline = Qry.FieldAsString( "airline" );
-    airline_fmt = (TElemFmt)Qry.FieldAsInteger( "airline_fmt" );
+  airline = Qry.FieldAsString( "airline" );
+  airline_fmt = (TElemFmt)Qry.FieldAsInteger( "airline_fmt" );
   if ( !Qry.FieldIsNULL( "flt_no" ) )
     flt_no = Qry.FieldAsInteger( "flt_no" );
   else

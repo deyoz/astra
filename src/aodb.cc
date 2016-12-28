@@ -1296,7 +1296,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
           i++;
           tmp = linestr.substr( i, 4 );
           station.name = TrimString( tmp );
-          TSOPPStation station = checkerFlt.checkStation( airp, fl.hall, station.name, station.work_mode, TCheckerFlt::etExtAODB, Qry );
+          station = checkerFlt.checkStation( airp, fl.hall, station.name, station.work_mode, TCheckerFlt::etExtAODB, Qry );
           i += 4;
           tmp = linestr.substr( i, 1 );
           tmp = TrimString( tmp );
