@@ -1231,7 +1231,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "gender", gender);
         }
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
-        // seat_no достается с добитыми слева пробелами, чтобы order by 
+        // seat_no достается с добитыми слева пробелами, чтобы order by
         // правильно отрабатывал, далее эти пробелы нам ни к чему
         // (в частности они мешаются в текстовом отчете).
         NewTextChild(rowNode, "seat_no", trim(Qry.FieldAsString("seat_no")));
@@ -2716,6 +2716,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       CheckIn::TPaxDocoItem doco;
       list<CheckIn::TPaxDocaItem> doca;
       set<CheckIn::TPaxFQTItem> fqts;
+      vector<CheckIn::TPaxASVCItem> asvc;
       multiset<CheckIn::TPaxRemItem> rems;
       map< TRemCategory, bool > cats;
       cats[remTKN]=false;
@@ -2723,6 +2724,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       cats[remDOCO]=false;
       cats[remDOCA]=false;
       cats[remFQT]=false;
+      cats[remASVC]=false;
       cats[remUnknown]=false;
       int pax_id=Qry.FieldAsInteger("pax_id");
       bool inf_indicator=DecodePerson(Qry.FieldAsString("pers_type"))==ASTRA::baby && Qry.FieldAsInteger("seats")==0;
@@ -2776,6 +2778,13 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
               };
               cats[remFQT]=true;
               break;
+            case remASVC:
+              if (find(iRem->second.begin(),iRem->second.end(),"ASVC")!=iRem->second.end())
+              {
+                if (LoadPaxASVC(pax_id, asvc)) pr_find=true;
+                cats[remASVC]=true;
+              };
+              break;
             default:
               LoadPaxRem(pax_id, rems);
               for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
@@ -2817,8 +2826,13 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         if (getPaxRem(rpt_params, *d, inf_indicator, rem)) final_rems.insert(rem);
       //бонус-программа
       if (!cats[remFQT]) LoadPaxFQT(pax_id, fqts);
-      for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
+      for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();++f)
         if (getPaxRem(rpt_params, *f, inf_indicator, rem)) final_rems.insert(rem);
+      //услуги
+      if (!cats[remASVC]) LoadPaxASVC(pax_id, asvc);
+      for(vector<CheckIn::TPaxASVCItem>::const_iterator a=asvc.begin();a!=asvc.end();++a)
+        if (getPaxRem(rpt_params, *a, inf_indicator, rem)) final_rems.insert(rem);
+
 
       if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT)
       {
