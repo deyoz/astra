@@ -5,6 +5,8 @@
 #include <libxml/uri.h>
 
 #include <boost/tokenizer.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 #include "oralib.h"
 #include "astra_utils.h"
 #include "http_main.h"
@@ -42,12 +44,51 @@ const std::string OPERATION = "OPERATION";
 const std::string HOST = "Host";
 const std::string AUTHORIZATION = "Authorization";
 
+const std::string LOGIN = "login";
+const std::string PASSWORD = "password";
+
 using namespace ServerFramework::HTTP;
 
 std::string HTTPClient::toString()
 {
   string res = "client_id: " + client_info.client_id + ", operation=" + operation + ", user_name=" + user_name + ", password=" + password;
   return res;
+}
+
+void populate_client_from_uri(const request& req, HTTPClient& client)
+{
+    if ( req.uri.find("?") == std::string::npos ) return;
+    // before "?"
+    std::string uri = req.uri.substr( 0, req.uri.find("?") );
+    ProgTrace( TRACE5, "%s: uri = %s", __FUNCTION__, uri.c_str() );
+    std::vector<std::string> uri_vec;
+    boost::split(uri_vec, uri, boost::is_any_of("/"));
+    if ( uri_vec.size() >= 4 )
+    {
+        client.extra_params["FLIGHT"] = uri_vec[1];
+        client.extra_params["DATE"] = uri_vec[2];
+        client.extra_params["AIRP"] = uri_vec[3];
+    }
+    // after "?"
+    std::string query = req.uri.substr( req.uri.find("?") + 1 );
+    ProgTrace( TRACE5, "%s: query = %s", __FUNCTION__, query.c_str() );
+    std::vector<std::string> query_vec;
+    std::map<std::string, std::string> query_map;
+    boost::split(query_vec, query, boost::is_any_of("&"));
+    for ( std::vector<std::string>::iterator i_part = query_vec.begin(); i_part != query_vec.end(); ++i_part )
+    {
+        ProgTrace( TRACE5, "%s: %s", __FUNCTION__, i_part->c_str() );
+        std::vector<std::string> part_vec;
+        boost::split(part_vec, *i_part, boost::is_any_of("="));
+        if ( part_vec.size() == 2 and !part_vec[0].empty() and !part_vec[1].empty() ) {
+            query_map[part_vec[0]] = part_vec[1];
+            client.extra_params[part_vec[0]] = part_vec[1];
+        }
+    }
+    client.client_info = getInetClient(query_map[CLIENT_ID]);
+    client.operation = query_map[OPERATION];
+    client.user_name = query_map[LOGIN];
+    client.password = query_map[PASSWORD];
 }
 
 HTTPClient getHTTPClient(const request& req)
@@ -70,7 +111,12 @@ HTTPClient getHTTPClient(const request& req)
       }
     }
   }
-  if (client.client_info.client_id.empty()) ProgError(STDLOG, "%s: empty client_id", __FUNCTION__);
+  if (client.client_info.client_id.empty())
+  {
+    //ProgError(STDLOG, "%s: empty client_id", __FUNCTION__);
+    ProgTrace( TRACE5, "%s: empty client_id, trying to populate HTTPClient from URI", __FUNCTION__ );
+    populate_client_from_uri(req, client);
+  }
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
@@ -104,6 +150,13 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
     http_header += string("<param>") +
                    "<name>" + iheader->name + "</name>\n" +
                    "<value>" + iheader->value + "</value>\n" + "</param>\n";
+  }
+  // дополнительные заголовки, полученные при разборе URI
+  for (std::map<std::string, std::string>::iterator i_extra = extra_params.begin(); i_extra != extra_params.end(); ++i_extra )
+  {
+      http_header += string("<param>") +
+                   "<name>" + i_extra->first + "</name>\n" +
+                   "<value>" + i_extra->second + "</value>\n" + "</param>\n";
   }
   http_header += "</header>\n";
 
@@ -252,6 +305,10 @@ void save_http_client_headers(const request &req)
 
 void http_main(reply& rep, const request& req)
 {
+  LogTrace(TRACE5) << "GRISHA: " << __FUNCTION__;
+  LogTrace(TRACE5) << "method = " << req.method;
+  LogTrace(TRACE5) << "uri = " << req.uri;
+  LogTrace(TRACE5) << "content = " << req.content;
   try
   {
     try

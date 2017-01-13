@@ -35,6 +35,7 @@ struct HTTPClient
   std::string user_name;
   std::string password;
   std::map<std::string, JxtInfo> jxt_interface;
+  std::map<std::string, std::string> extra_params;
   std::string toString();
   void toJXT( const ServerFramework::HTTP::request& req, std::string &header, std::string &body );
   ServerFramework::HTTP::reply& fromJXT( std::string res, ServerFramework::HTTP::reply& rep );
@@ -46,6 +47,7 @@ struct HTTPClient
     jxt_interface["tlg_srv"] =              JxtInfo(TELEGRAM_JXT_INTERFACE_ID, TlgPostProcessXMLAnswer);
     jxt_interface["kick"] =                 JxtInfo(TELEGRAM_JXT_INTERFACE_ID, TlgPostProcessXMLAnswer);
     jxt_interface["ckin_report"] =          JxtInfo(TELEGRAM_JXT_INTERFACE_ID, TlgPostProcessXMLAnswer);
+    jxt_interface["SCS_OPER"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID, TlgPostProcessXMLAnswer);
     jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID, NULL);
     jxt_interface["piece_concept"] =        JxtInfo(PIECE_CONCEPT_JXT_INTERFACE_ID, NULL);
     jxt_interface["GetPrintDataBP"] =       JxtInfo(PRINT_JXT_INTERFACE_ID, NULL);

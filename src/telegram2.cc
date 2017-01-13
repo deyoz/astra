@@ -9082,6 +9082,52 @@ void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     }
 }
 
+void TelegramInterface::scs_oper(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    ProgTrace(TRACE5, "GRISHA: %s", __FUNCTION__);
+
+    string airp;
+    int flt_no = NoExists;
+    TDateTime scd_out = NoExists;
+
+    xmlNodePtr node = reqNode->children;
+    node = NodeAsNodeFast("header", node);
+    if(node == NULL)
+        throw Exception("node header not found where expected");
+    node = node->children;
+    if(node == NULL)
+        throw Exception("node param not found where expected");
+    for(; node; node = node->next) {
+        string name = NodeAsString("name", node);
+        TElemFmt fmt;
+        if(name == "AIRP") airp = ElemToElemId(etAirp, NodeAsString("value", node), fmt);
+        if(name == "DATE") {
+            if( StrToDateTime(NodeAsString("value", node), "dd.mm.yy", scd_out) == EOF)
+                throw Exception("wrong date format");
+        }
+        if(name == "FLIGHT") {
+            flt_no = ToInt(NodeAsString("value", node));
+        }
+    }
+
+    if ( not airp.size() or flt_no == NoExists or scd_out == NoExists )
+        throw Exception("wrong parameters");
+
+    LogTrace(TRACE5) << "airp: " << airp;
+    LogTrace(TRACE5) << "scd_out: " << DateTimeToStr(scd_out);
+    LogTrace(TRACE5) << "flt_no: " << flt_no;
+
+    xmlNodePtr contentNode = NewTextChild(resNode, "content");
+    xmlNodePtr htmlNode = NewTextChild(contentNode, "html");
+    xmlNodePtr headNode = NewTextChild(htmlNode, "head");
+    SetProp(NewTextChild(headNode, "meta"), "charset", "utf-8");
+    NewTextChild(headNode, "title", "Тег BUTTON");
+    xmlNodePtr bodyNode = NewTextChild(htmlNode, "body");
+    xmlNodePtr pNode = NewTextChild(bodyNode, "p");
+    SetProp(pNode, "style", "text-align: center");
+    NewTextChild(bodyNode, "button", "Кнопка с текстом");
+}
+
 void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_type )
 {
   //try verify its new code!!!
