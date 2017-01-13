@@ -116,7 +116,7 @@ struct IOHandler {
     response_reader_ptr reader;
     bool processed;
     void handleWrite(const boost::system::error_code &write_error, std::size_t bytes_written);
-    void handleRead(response_ptr& response, pion::tcp::connection_ptr& tcp_conn);
+    void handleRead(const response_ptr& response, const pion::tcp::connection_ptr& tcp_conn);
     IOHandler(
             io_service &io_service,
             string host,
@@ -159,7 +159,7 @@ void IOHandler::handleWrite(const boost::system::error_code &write_error, std::s
         throw Exception("connect failed: %s", write_error.message().c_str());
 }
 
-void IOHandler::handleRead(response_ptr& response, pion::tcp::connection_ptr& tcp_conn)
+void IOHandler::handleRead(const response_ptr& response, const pion::tcp::connection_ptr& tcp_conn)
 {
     processed = true;
 

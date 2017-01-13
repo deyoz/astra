@@ -121,7 +121,6 @@ void TPersWeights::getRules( const TDateTime &scd_utc, const std::string &airlin
       if ( p->first_date == ASTRA::NoExists &&
            p->last_date == ASTRA::NoExists ) {
         tst();
-        //good_cond = ( is_dst( scd_utc, region ) == p->pr_summer );
         good_cond = ( season( UTCToLocal(scd_utc, region) ).isSummer() == p->pr_summer );
       }
       else
