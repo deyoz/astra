@@ -1431,12 +1431,12 @@ void CreateNoRecResponse(const TInquiryGroupSummary &sum, xmlNodePtr resNode)
     NewTextChild(node,"pers_type",EncodePerson(p->pers_type),EncodePerson(ASTRA::adult));
     NewTextChild(node,"seats",p->seats,1);
 
-    string rem_code;
+    string rem_code, rem_text;
     switch(sum.prefix)
     {
-      case TInquiryPrefix::ExtraCrew:     rem_code=CrewTypes().encode(TCrewType::ExtraCrew); break;
-      case TInquiryPrefix::DeadHeadCrew:  rem_code=CrewTypes().encode(TCrewType::DeadHeadCrew); break;
-      case TInquiryPrefix::MiscOperStaff: rem_code=CrewTypes().encode(TCrewType::MiscOperStaff); break;
+      case TInquiryPrefix::ExtraCrew:     rem_code=CrewTypes().encode(TCrewType::ExtraCrew); rem_text=rem_code+" 2"; break;
+      case TInquiryPrefix::DeadHeadCrew:  rem_code=CrewTypes().encode(TCrewType::DeadHeadCrew); rem_text=rem_code; break;
+      case TInquiryPrefix::MiscOperStaff: rem_code=CrewTypes().encode(TCrewType::MiscOperStaff); rem_text=rem_code; break;
       default: break;
     }
     if (!rem_code.empty())
@@ -1444,7 +1444,7 @@ void CreateNoRecResponse(const TInquiryGroupSummary &sum, xmlNodePtr resNode)
       xmlNodePtr remsNode=NewTextChild(node,"rems");
       xmlNodePtr remNode=NewTextChild(remsNode,"rem");
       NewTextChild(remNode,"rem_code",rem_code);
-      NewTextChild(remNode,"rem_text",rem_code);
+      NewTextChild(remNode,"rem_text",rem_text);
     }
   };
 };
@@ -4390,8 +4390,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   if (r->code.empty()) continue;
                   TRemCategory cat=getRemCategory(r->code, r->text);
                   if (cat==remASVC) continue; //пропускаем ASVC
-                  if (IsReadonlyRem(r->code, r->text) ||
-                      (cat==remCREW && !new_checkin))
+                  if (IsReadonlyRem(r->code, r->text))
                     throw UserException(pass==0?"MSG.REMARK.ADD_OR_CHANGE_DENIAL":"MSG.REMARK.CHANGE_OR_DEL_DENIAL",
                                         LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
                 };
