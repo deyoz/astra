@@ -7,6 +7,8 @@
 #include "serverlib/EdiHelpManager.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/http_parser.h"
+#include "serverlib/internal_msgid.h" 
+#include "serverlib/posthooks.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -220,8 +222,8 @@ bool notify_msg(int typeb_in_id, const string &str)
             throw EXCEPTIONS::Exception("TypeBHelpMng.notify: wrong intmsgid=%s", typeb_help.intmsgid.c_str());
         make_notify_msg(typeb_help.text, str);
         sethAfter(EdiHelpSignal((const int*)intmsgid.c_str(),
-                    typeb_help.addr.c_str(),
-                    typeb_help.text.c_str()));
+                                typeb_help.addr.c_str(),
+                                typeb_help.text.c_str()));
     }
     return result;
 }

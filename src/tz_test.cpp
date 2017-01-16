@@ -423,6 +423,7 @@ void setRegion(const std::string& city, const std::string& region) {
 struct IfaceTest {
     virtual void setRequest(xmlNodePtr& xml) = 0;
     virtual void setResult(const XMLDoc& query, const XMLDoc& answer) = 0;
+    virtual ~IfaceTest(){}
 };
 
 struct seasonTestStg : IfaceTest {

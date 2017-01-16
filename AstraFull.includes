@@ -1,0 +1,11 @@
+/usr/include/libxml2
+debug
+src/tlg
+src
+locallibs/edilib/include
+locallibs/eticklib/include
+locallibs/jxtlib/include
+locallibs/libtlg/include
+locallibs/serverlib/include
+locallibs/shared/src
+eternallibs/boost/include
