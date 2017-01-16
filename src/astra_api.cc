@@ -55,7 +55,7 @@ void savePrintBP(const LoadPaxXmlResult& loadPaxRes)
                      << " grp_id:" << seg.grp_id
                      << " pax_id:" << pax.pax_id;
 
-    TReqInfo::Instance()->desk.code = "IATCI";
+    TReqInfo::Instance()->desk.code = "IATCIP";
 
     PrintDataParser parser(seg.grp_id, pax.pax_id, 0, NULL);
     parser.pts.confirm_print(true, ASTRA::dotPrnBP);
