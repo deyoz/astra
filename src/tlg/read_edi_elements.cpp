@@ -1139,12 +1139,12 @@ boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
 
     std::string expiryDate = GetDBFName(pMes, DataElement(2380), CompElement("C700"));
     if(!expiryDate.empty()) {
-        pap.m_expiryDate = Dates::ddmmrr(expiryDate);
+        pap.m_expiryDate = Dates::rrmmdd(expiryDate);
     }
 
     std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
     if(!birthDate.empty()) {
-        pap.m_birthDate = Dates::DateFromDDMMYY(birthDate,
+        pap.m_birthDate = Dates::DateFromYYMMDD(birthDate,
                                                 Dates::YY2YYYY_WraparoundFutureDate,
                                                 Dates::currentDate());
     }
@@ -1174,12 +1174,12 @@ boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
 
     std::string expiryDate = GetDBFName(pMes, DataElement(2380), CompElement("C700"));
     if(!expiryDate.empty()) {
-        uap.m_expiryDate = Dates::ddmmrr(expiryDate);
+        uap.m_expiryDate = Dates::rrmmdd(expiryDate);
     }
 
     std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
     if(!birthDate.empty()) {
-        uap.m_birthDate = Dates::DateFromDDMMYY(birthDate,
+        uap.m_birthDate = Dates::DateFromYYMMDD(birthDate,
                                                 Dates::YY2YYYY_WraparoundFutureDate,
                                                 Dates::currentDate());
     }
