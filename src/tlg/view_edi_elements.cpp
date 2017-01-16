@@ -642,12 +642,12 @@ void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdatePaxDetails::
 {
     std::ostringstream uap;
     uap << updDoc.actionCodeAsString() << "+";
-    uap << ":::" << Dates::ddmmrr(updDoc.birthDate())
+    uap << ":::" << Dates::rrmmdd(updDoc.birthDate())
         << ":::" << updDoc.nationality() << "++";
     uap << updDoc.docType() << ":"
         << updDoc.no() << ":"
         << updDoc.issueCountry() << ":::"
-        << Dates::ddmmrr(updDoc.expiryDate()) << ":"
+        << Dates::rrmmdd(updDoc.expiryDate()) << ":"
         << updDoc.gender() << "::::::"
         << updDoc.surname() << ":"
         << updDoc.name() << ":"
@@ -730,12 +730,12 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
 void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails::DocInfo& doc)
 {
     std::ostringstream pap;
-    pap << ":::" << Dates::ddmmrr(doc.birthDate())
+    pap << ":::" << Dates::rrmmdd(doc.birthDate())
         << ":::" << doc.nationality() << "++";
     pap << doc.docType() << ":"
         << doc.no() << ":"
         << doc.issueCountry() << ":::"
-        << Dates::ddmmrr(doc.expiryDate()) << ":"
+        << Dates::rrmmdd(doc.expiryDate()) << ":"
         << doc.gender() << "::::::"
         << doc.surname() << ":"
         << doc.name() << ":"
