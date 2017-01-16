@@ -5,6 +5,7 @@
 #include <edilib/edi_func_cpp.h>
 #include <edilib/edi_astra_msg_types.h>
 #include <edilib/edi_sess.h>
+#include <etick/tick_data.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/dates_io.h>
 #include <serverlib/dates.h>
@@ -595,7 +596,8 @@ void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const PfdElem& elem)
 {
     std::ostringstream pfd;
     pfd << elem.m_seat;
-    pfd << "+" << elem.m_noSmokingInd << ":" << elem.m_cabinClass;
+    pfd << "+" << elem.m_noSmokingInd;
+    pfd << ":" << Ticketing::SubClass(elem.m_cabinClass)->code(ENGLISH);
     pfd << "+" << elem.m_securityId;
     SetEdiFullSegment(pMes, SegmElement("PFD"), pfd.str());
 }

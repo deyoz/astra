@@ -424,6 +424,7 @@ void AstraEngine::initReqInfo() const
     TReqInfo::Instance()->Initialize("ŒŽ‚");
     TReqInfo::Instance()->client_type  = ASTRA::ctTerm;
     TReqInfo::Instance()->desk.version = VERSION_WITH_BAG_POOLS;
+    TReqInfo::Instance()->desk.lang    = AstraLocale::LANG_EN;
     TReqInfo::Instance()->api_mode     = true;
     JxtContext::JxtContHolder::Instance()
             ->setHandler(new JxtContext::JxtContHandlerSir(""));
