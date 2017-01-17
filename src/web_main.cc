@@ -558,10 +558,12 @@ bool is_valid_tkn_info(const TCompleteAPICheckInfo &checkInfo,
   return true;
 };
 
-bool is_et_not_displayed(const CheckIn::TPaxTknItem &tkn,
+bool is_et_not_displayed(const TTripInfo &flt,
+                         const CheckIn::TPaxTknItem &tkn,
                          const TETickItem &etick)
 {
-  if (tkn.validET() && etick.empty()) return true;
+  bool pr_etl_only=GetTripSets(tsETSNoInteract, flt);
+  if (!pr_etl_only && tkn.validET() && etick.empty()) return true;
   return false;
 }
 
@@ -902,7 +904,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
               pax.agent_checkin_reasons.insert("incomplete_doca");
             if (!is_valid_tkn_info(pnr.checkInfo, pax.tkn))
               pax.agent_checkin_reasons.insert("incomplete_tkn");
-            if (is_et_not_displayed(pax.tkn, pax.etick))
+            if (is_et_not_displayed(flt, pax.tkn, pax.etick))
               pax.agent_checkin_reasons.insert("et_not_displayed");
             if (!is_valid_rem_codes(flt, pax.rems))
               pax.agent_checkin_reasons.insert("forbidden_rem_code");
@@ -1325,7 +1327,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
     "SELECT airline FROM points WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  TSublsRems subcls_rems( Qry.FieldAsString("airline") );  
+  TSublsRems subcls_rems( Qry.FieldAsString("airline") );
   SALONS2::TSalons SalonsO( point_id, SALONS2::rTripSalons );
   if ( isTranzitSalonsVersion ) {
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, crs_class, NoExists );
