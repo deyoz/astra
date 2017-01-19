@@ -72,6 +72,33 @@ void file_to_db(const string& init_path, const string& file_path)
     longToDB(Qry2.get(), "text", file_to_string(init_path + file_path));
 }
 
+string getHTMLResource(string file_path)
+{
+    try
+    {
+        TCachedQuery Qry1(
+            "select text from HTML_PAGES, HTML_PAGES_TEXT "
+            "where "
+            "   HTML_PAGES.name = :name and "
+            "   HTML_PAGES.id = HTML_PAGES_TEXT.id "
+            "order by "
+            "   page_no",
+            QParams()
+            << QParam("name", otString, file_path)
+        );
+        Qry1.get().Execute();
+        string result;
+        for (; not Qry1.get().Eof; Qry1.get().Next())
+            result += Qry1.get().FieldAsString("text");
+        return result;
+    }
+    catch(Exception &E)
+    {
+        cout << __FUNCTION__ << " " << E.what() << endl;
+        return "";
+    }
+}
+
 //  --------------------------------
 int html_to_db(int argc, char **argv)
 {
