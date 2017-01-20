@@ -1308,6 +1308,8 @@ void Result::toXml(xmlNodePtr node) const
     NewTextChild(tripHeaderNode, "pr_etl_only", "0"); // TODO
     NewTextChild(tripHeaderNode, "pr_etstatus", "0"); // TODO
     NewTextChild(tripHeaderNode, "pr_no_ticket_check", "0"); // TODO)
+    NewTextChild(tripHeaderNode, "pr_auto_pt_print", 0); // TODO
+    NewTextChild(tripHeaderNode, "pr_auto_pt_print_reseat", 0); // TODO
 
     xmlNodePtr tripDataNode = newChild(segNode, "tripdata");
     xmlNodePtr airpsNode = newChild(tripDataNode, "airps");
@@ -1395,6 +1397,7 @@ void Result::toXml(xmlNodePtr node) const
         NewTextChild(paxNode, "pr_norec", 0); // TODO
         NewTextChild(paxNode, "pr_bp_print", 0); // TODO
         NewTextChild(paxNode, "pr_bi_print", 0); // TODO
+
 
         xmlNodePtr paxRemsNode = newChild(paxNode, "rems");
         if(serviceDetails())
