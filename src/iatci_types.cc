@@ -1334,7 +1334,7 @@ void Result::toXml(xmlNodePtr node) const
     NewTextChild(segNode, "bag_refuse", ""); // TODO
     NewTextChild(segNode, "piece_concept", 0); // TODO
     NewTextChild(segNode, "tid", 0); // TODO
-    NewTextChild(segNode, "city_arv", cityCode(flight().arrPort()));
+    NewTextChild(segNode, "city_arv", airportCityCode(flight().arrPort()));
     //xmlNodePtr markFltNode = newChild(segNode, "mark_flight"); // TODO
 
     if(pax())
