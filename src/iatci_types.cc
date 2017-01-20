@@ -1259,6 +1259,7 @@ Result::Status_e Result::strToStatus(const std::string& s)
     if(s == "O")      return Ok;
     else if(s == "P") return OkWithNoData;
     else if(s == "X") return Failed;
+    else if(s == "N") return RecoverableError;
     else {
         LogError(STDLOG) << "Unknown status string: " << s;
         return Failed;
@@ -1285,9 +1286,10 @@ std::string Result::statusAsString() const
 {
     switch(m_status)
     {
-    case Ok:           return "O";
-    case OkWithNoData: return "P";
-    case Failed:       return "X";
+    case Ok:               return "O";
+    case OkWithNoData:     return "P";
+    case Failed:           return "X";
+    case RecoverableError: return "N";
     }
 
     throw EXCEPTIONS::Exception("Unknown status value: %d", m_status);

@@ -1319,6 +1319,8 @@ $(KICK_IN)
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
         </tripheader>
         <tripdata>
           <airps>
@@ -1738,6 +1740,8 @@ $(KICK_IN)
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
         </tripheader>
         <tripdata>
           <airps>
@@ -2616,6 +2620,8 @@ $(KICK_IN)
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
         </tripheader>
         <tripdata>
           <airps>
@@ -3591,7 +3597,7 @@ ENDIFM
 
 %%
 #########################################################################################
-# ü18 ’ ©¬ ãâ ¨ ®è¨¡ª  ­  ®â¬¥­ã à¥£¨áâà æ¨¨ - ¤®«¦¥­ ¯®©â¨ IFM/del
+# ü19 ’ ©¬ ãâ ¨ ®è¨¡ª  ­  ®â¬¥­ã à¥£¨áâà æ¨¨ - ¤®«¦¥­ ¯®©â¨ IFM/del
 ###
 
 
@@ -3753,3 +3759,71 @@ IFM
 DEL
 1REPIN/IVAN
 ENDIFM
+
+
+
+%%
+#########################################################################################
+# ü20 ¯¥à¢¨ç­ ï à¥£¨áâà æ¨ï á ®è¨¡ª®© á® áâ âãá®¬ N
+###
+
+
+$(init)
+$(init_jxt_pult ŒŽ‚ŽŒ)
+$(login)
+$(init_dcs ‘7 TA OA)
+$(init_eds ž’ UTET UTDC)
+
+
+$(PREPARE_FLIGHT_3 ž’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘Ž— REPIN IVAN)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep) 2986120030297)
+$(CHECK_ADV_TRIPS_LIST $(get point_dep) ž’ 103 „Œ„)
+$(CHECK_FLIGHT $(get point_dep) ž’ 103 „Œ„ ‹Š)
+$(CHECK_SEARCH_PAX $(get point_dep) ž’ 103 „Œ„ ‹Š REPIN IVAN Š)
+$(CHECK_DCS_ADDR_SET)
+$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN)
+$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN)
+$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                           ‘7 1027 ‹Š ‘Ž—
+                                                           REPIN IVAN
+                                                           2986120030297)
+$(ETS_COS_EXCHANGE 2986120030297 1 CK)
+
+$(KICK_IN_SILENT)
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
+PPD+REPIN+A++IVAN"
+PSD++7A"
+PSI+++FOID::::::FOID PP7774441110"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
+RAD+I+N"
+ERD+1:35"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!! err=ignore
+$(lastRedisplay)
+
+
+$(ETS_COS_EXCHANGE 2986120030297 1 I SYSTEM)

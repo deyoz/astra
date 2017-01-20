@@ -43,6 +43,7 @@ namespace Ticketing
         DEFERR(CASCADED_QUERY_TIMEOUT);
         DEFERR(ID_CARD_REQUIRED);
         DEFERR(INV_SEAT);
+        DEFERR(FLIGHT_CLOSED);
     };
 }//namespace Ticketing
 

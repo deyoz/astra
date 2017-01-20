@@ -72,5 +72,8 @@ REGERR(ID_CARD_REQUIRED,
 REGERR(INV_SEAT,
        "INVALID SEAT NUMBER",
        "…‚…›‰ ŽŒ… Œ…‘’€")
+REGERR(FLIGHT_CLOSED,
+       "FLIGHT CLOSED",
+       "…‰‘ ‡€Š›’")
 
 }//namespace Ticketing

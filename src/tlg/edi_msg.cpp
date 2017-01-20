@@ -101,6 +101,7 @@ void EdiErrMsg::init()
     ADD_MSG2(PAX_ALREADY_CHECKED_IN,          "17");
     ADD_MSG2(BAGGAGE_WEIGHT_REQUIRED,         "19");
     ADD_MSG2(NO_SEAT_SELCTN_ON_FLIGHT,        "26");
+    ADD_MSG2(FLIGHT_CLOSED,                   "35");
     ADD_MSG2(TOO_MANY_PAXES,                  "44");
     ADD_MSG2(TOO_MANY_INFANTS,                "61");
     ADD_MSG2(SMOKING_ZONE_UNAVAILABLE,        "62");

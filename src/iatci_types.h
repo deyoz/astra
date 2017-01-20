@@ -1099,7 +1099,8 @@ struct Result
     {
         Ok,
         OkWithNoData,
-        Failed
+        Failed,
+        RecoverableError
     };
 
 protected:

@@ -147,7 +147,9 @@ void IatciRequestHandler::loadDeferredData()
     m_lRes = iatci::loadDeferredCkiData(inboundTlgNum());
     if(m_lRes.empty()) {
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Empty result list!");
-    } else if(m_lRes.size() == 1 && m_lRes.front().status() == iatci::Result::Failed) {
+    } else if(m_lRes.size() == 1 &&
+              (m_lRes.front().status() == iatci::Result::Failed ||
+               m_lRes.front().status() == iatci::Result::RecoverableError)) {
         // что-то пошло не так - скорее всего, случился таймаут
         boost::optional<iatci::ErrorDetails> err = m_lRes.front().errorDetails();
         if(err) {

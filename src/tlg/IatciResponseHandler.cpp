@@ -85,7 +85,9 @@ void IatciResponseHandler::fillFuncCodeRespStatus()
                 LogError(STDLOG) << "Different response types in message!";
             }
 
-            if(iatci::Result::strToStatus(rad->m_status) == iatci::Result::Failed) {
+            if(iatci::Result::strToStatus(rad->m_status) == iatci::Result::Failed ||
+               iatci::Result::strToStatus(rad->m_status) == iatci::Result::RecoverableError)
+            {
                 numFailedFlights++;
             }
         }
