@@ -496,6 +496,7 @@ void viewPsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ServiceDetails& se
 {
     std::ostringstream psi;
     psi << service.osi();
+    psi << "+"; // TODO show API
     BOOST_FOREACH(const iatci::ServiceDetails::SsrInfo& ssr, service.lSsr())
     {
         psi << "+" << ssr.ssrCode() << ":";
