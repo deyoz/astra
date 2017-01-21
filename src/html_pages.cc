@@ -7,6 +7,10 @@
 #include "exceptions.h"
 #include "astra_context.h"
 #include "serverlib/str_utils.h"
+#include "xml_unit.h"
+
+#define NICKNAME "KOSHKIN"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -161,3 +165,11 @@ int html_from_db(int argc, char **argv)
     }
     return 0;
 }
+
+void HtmlInterface::get_resource(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string uri_path = NodeAsString("uri_path", reqNode);
+    LogTrace(TRACE5) << "get_resource uri_path: " << uri_path;
+    SetProp( NewTextChild(resNode, "content",  getHTMLResource(uri_path)), "b64", true);
+}
+

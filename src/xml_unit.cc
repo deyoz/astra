@@ -2,12 +2,13 @@
 #include <string>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
+#include <libxml/uri.h>
 #include "xml_unit.h"
 #include "stl_utils.h"
 #include "misc.h"
 
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 
 using namespace std;
@@ -626,6 +627,27 @@ xmlDocPtr CreateXMLDoc(const char *root)
   xmlDocSetRootElement(resDoc,rootNode);
   return resDoc;
 };
+
+string URIUnescapeString(const string &val)
+{
+    return xmlURIUnescapeString(val.c_str(), 0, NULL);
+}
+
+string EncodeSpecialChars(const string &val)
+{
+    string result;
+    xmlChar *xchar = nullptr;
+    try {
+        xchar = xmlEncodeSpecialChars(nullptr, BAD_CAST val.c_str());
+        if(xchar) {
+            result = (char *)xchar;
+            xmlFree(xchar);
+        }
+    } catch(...) {
+        if(xchar) xmlFree(xchar);
+    }
+    return result;
+}
 
 xmlDocPtr TextToXMLTree( const string& str )
 {

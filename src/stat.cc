@@ -7934,46 +7934,6 @@ void TPeriods::get(TDateTime FirstDate, TDateTime LastDate)
         items.back().second = LastDate;
 }
 
-void longToDB(TQuery &Qry, TQuery &monthsEndQry, TDateTime month, const std::string &src, int &page_no)
-{
-    bool nullable = false;
-    int len = 4000;
-    if (!src.empty())
-    {
-        std::string::const_iterator ib,ie;
-        ib=src.begin();
-        page_no = 1;
-        for(;ib<src.end();page_no++)
-        {
-            ie=ib+len;
-            if (ie>src.end()) ie=src.end();
-            Qry.SetVariable("page_no", page_no);
-            Qry.SetVariable("text", std::string(ib,ie));
-            Qry.Execute();
-            if(page_no % 1000 == 0) {
-                monthsEndQry.SetVariable("month", month);
-                monthsEndQry.SetVariable("page_count", page_no);
-                monthsEndQry.Execute();
-                OraSession.Commit();
-            }
-            ib=ie;
-        };
-    }
-    else
-    {
-        if (nullable)
-        {
-            Qry.SetVariable("page_no", 1);
-            Qry.SetVariable("text", FNull);
-            Qry.Execute();
-        };
-    }
-    monthsEndQry.SetVariable("month", month);
-    monthsEndQry.SetVariable("page_count", page_no);
-    monthsEndQry.Execute();
-    OraSession.Commit();
-}
-
 struct TFileParams {
     std::map<std::string,std::string> items;
     void get(int file_id);

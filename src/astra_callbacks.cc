@@ -44,6 +44,7 @@
 #include "serverlib/perfom.h"
 #include "external_spp_synch.h"
 #include "baggage_pc.h"
+#include "html_pages.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -85,6 +86,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new AccessInterface();
     new CryptInterface();
     new TestInterface();
+    new HtmlInterface();
 
     new AstraWeb::WebRequestsIface();
 

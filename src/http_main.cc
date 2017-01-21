@@ -2,7 +2,6 @@
 //#include <memory.h>
 #include <string>
 #include <vector>
-#include <libxml/uri.h>
 
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -33,6 +32,7 @@ using namespace EXCEPTIONS;
 #include "serverlib/slogger.h"
 
 using namespace std;
+
 //using namespace ASTRA;
 //using namespace ServerFramework;
 
@@ -43,6 +43,7 @@ const std::string CLIENT_ID = "CLIENT-ID";
 const std::string OPERATION = "OPERATION";
 const std::string HOST = "Host";
 const std::string AUTHORIZATION = "Authorization";
+const std::string REFERER = "Referer";
 
 const std::string LOGIN = "login";
 const std::string PASSWORD = "password";
@@ -55,25 +56,16 @@ std::string HTTPClient::toString()
   return res;
 }
 
-void populate_client_from_uri(const request& req, HTTPClient& client)
+void populate_client_from_uri(const string& uri, HTTPClient& client)
 {
-    if ( req.uri.find("?") == std::string::npos ) return;
-    // before "?"
-    std::string uri = req.uri.substr( 0, req.uri.find("?") );
-    ProgTrace( TRACE5, "%s: uri = %s", __FUNCTION__, uri.c_str() );
-    std::vector<std::string> uri_vec;
-    boost::split(uri_vec, uri, boost::is_any_of("/"));
-    if ( uri_vec.size() >= 4 )
-    {
-        client.extra_params["FLIGHT"] = uri_vec[1];
-        client.extra_params["DATE"] = uri_vec[2];
-        client.extra_params["AIRP"] = uri_vec[3];
-    }
+    LogTrace(TRACE5) << "populate_client_from_uri incoming uri: '" << uri << "'";
+    if(client.uri_path.empty())
+        client.uri_path = uri.substr( 0, uri.find("?") );
+    ProgTrace( TRACE5, "%s: client.uri_path = %s", __FUNCTION__, client.uri_path.c_str() );
     // after "?"
-    std::string query = req.uri.substr( req.uri.find("?") + 1 );
+    std::string query = uri.substr( uri.find("?") + 1 );
     ProgTrace( TRACE5, "%s: query = %s", __FUNCTION__, query.c_str() );
     std::vector<std::string> query_vec;
-    std::map<std::string, std::string> query_map;
     boost::split(query_vec, query, boost::is_any_of("&"));
     for ( std::vector<std::string>::iterator i_part = query_vec.begin(); i_part != query_vec.end(); ++i_part )
     {
@@ -81,14 +73,17 @@ void populate_client_from_uri(const request& req, HTTPClient& client)
         std::vector<std::string> part_vec;
         boost::split(part_vec, *i_part, boost::is_any_of("="));
         if ( part_vec.size() == 2 and !part_vec[0].empty() and !part_vec[1].empty() ) {
-            query_map[part_vec[0]] = part_vec[1];
-            client.extra_params[part_vec[0]] = part_vec[1];
+            client.get_params[part_vec[0]] = part_vec[1];
         }
     }
-    client.client_info = getInetClient(query_map[CLIENT_ID]);
-    client.operation = query_map[OPERATION];
-    client.user_name = query_map[LOGIN];
-    client.password = query_map[PASSWORD];
+    if(not client.get_params[CLIENT_ID].empty()) {
+        client.client_info = getInetClient(client.get_params[CLIENT_ID]);
+        client.operation = client.get_params[OPERATION];
+        if(client.operation.empty()) 
+            client.operation = "get_resource";
+        client.user_name = client.get_params[LOGIN];
+        client.password = client.get_params[PASSWORD];
+    }
 }
 
 HTTPClient getHTTPClient(const request& req)
@@ -113,10 +108,24 @@ HTTPClient getHTTPClient(const request& req)
   }
   if (client.client_info.client_id.empty())
   {
-    //ProgError(STDLOG, "%s: empty client_id", __FUNCTION__);
+    // Не удалось заполнить client из http headers
+    // Пробуем из uri
     ProgTrace( TRACE5, "%s: empty client_id, trying to populate HTTPClient from URI", __FUNCTION__ );
-    populate_client_from_uri(req, client);
+    populate_client_from_uri(req.uri, client);
+    if (client.client_info.client_id.empty()) {
+        // Из uri не получилось
+        // Пробуем из http header-а Referer
+        ProgTrace( TRACE5, "%s: empty client_id, trying to populate HTTPClient from Referer HTTP header", __FUNCTION__ );
+        for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {
+            if(iheader->name == REFERER) {
+                populate_client_from_uri(iheader->value, client);
+                break;
+            }
+        }
+    }
   }
+
+  if (client.client_info.client_id.empty()) ProgError(STDLOG, "%s: empty client_id", __FUNCTION__);
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
@@ -149,16 +158,20 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
   for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++){
     http_header += string("<param>") +
                    "<name>" + iheader->name + "</name>\n" +
-                   "<value>" + iheader->value + "</value>\n" + "</param>\n";
-  }
-  // дополнительные заголовки, полученные при разборе URI
-  for (std::map<std::string, std::string>::iterator i_extra = extra_params.begin(); i_extra != extra_params.end(); ++i_extra )
-  {
-      http_header += string("<param>") +
-                   "<name>" + i_extra->first + "</name>\n" +
-                   "<value>" + i_extra->second + "</value>\n" + "</param>\n";
+                   "<value>" + EncodeSpecialChars(iheader->value) + "</value>\n" + "</param>\n";
   }
   http_header += "</header>\n";
+  http_header += "<get_params>\n";
+  // параметры, полученные при разборе URI
+  for (std::map<std::string, std::string>::iterator i_param = get_params.begin(); i_param != get_params.end(); ++i_param )
+  {
+      string unescaped = URIUnescapeString(i_param->second);
+      http_header += string("<param>") +
+                   "<name>" + i_param->first + "</name>\n" +
+                   "<value>" + URIUnescapeString(i_param->second) + "</value>\n" + "</param>\n";
+  }
+  http_header += "</get_params>\n";
+  http_header += "<uri_path>" + EncodeSpecialChars(uri_path) + "</uri_path>";
 
   //reqInfoData.pr_web = (head[0]==2); //чтобы pr_web установился в  true
   header = (string(1,2) + string(44,0) + client_info.pult + "  " + client_info.client_id + string(100,0)).substr(0,100);
@@ -194,13 +207,22 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
 
          if(is_xml) {
              body += content.c_str();
-             body.insert( pos + sss.length(), string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" + http_header + "<content>\n" );
+             body.insert(
+                     pos + sss.length(),
+                     string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" +
+                     http_header + "<content>\n" );
              body += string(" </content>\n") + "</" + operation + ">\n</query></term>";
          } else {
-             body.insert( pos + sss.length(), string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" + http_header + "<content/>\n" );
+             body.insert(
+                     pos + sss.length(),
+                     string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" +
+                     http_header +
+                     "<content/>\n" );
              body += (string)"</" + operation + ">\n</query></term>";
              // screeneng chars such as ampersand, may be encountered in content (& -> &amp;)
              XMLDoc doc(body);
+             if(not doc.docPtr())
+                 throw Exception("toJXT wrong content");
              string nodeName = "/term/query/" + operation;
              ReplaceTextChild(NodeAsNode(nodeName.c_str(), doc.docPtr()), "content", content);
              body = XMLTreeToText(doc.docPtr());
@@ -226,8 +248,16 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
   }
 }
 
+bool get_b64_prop(const string &val)
+{
+    bool result;
+    result = val.find(" b64=\"1\"") != string::npos;
+    return result;
+}
+
 reply& HTTPClient::fromJXT( std::string res, reply& rep )
 {
+  bool b64 = false;
   if (!jxt_format)
   {
     string::size_type pos = res.find( "<content" );
@@ -238,17 +268,27 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
       else {
           string::size_type pos2 = res.find( "</content>", pos );
           if ( pos1 != string::npos && pos2 != string::npos ) {
+            b64 = get_b64_prop(res.substr(pos, pos1 - pos));
             res = res.substr( pos1, pos2-pos1 );
           }
       }
     }
   }
+
+  if(b64)
+      rep.content = StrUtils::b64_decode(res);
+  else
+      rep.content = /*"<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +*/ res;
+
   rep.status = reply::ok;
-  rep.content = /*"<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +*/ res;
-  rep.headers.resize(2);
+  rep.headers.resize(4);
   rep.headers[0].name = "Content-Length";
   rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
   rep.headers[1].name = "Content-Type";
+  rep.headers[2].name = "Access-Control-Allow-Origin";
+  rep.headers[2].value = "*";
+  rep.headers[3].name = "Access-Control-Allow-Headers";
+  rep.headers[3].value = "CLIENT-ID,OPERATION,Authorization";
   return rep;
 }
 
@@ -356,6 +396,7 @@ void http_main(reply& rep, const request& req)
     rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
     rep.headers[1].name = "Content-Type";
   }
+  LogTrace(TRACE5) << "http_main: finished uri = " << req.uri;
   InitLogTime(NULL);
   return;
 }

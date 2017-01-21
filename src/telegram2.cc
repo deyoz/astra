@@ -21,6 +21,8 @@
 #include "typeb_utils.h"
 #include "emdoc.h"
 #include "SalonPaxList.h"
+#include "serverlib/xml_stuff.h" // для xml_decode_nodelist
+#include "serverlib/str_utils.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -9082,52 +9084,6 @@ void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     }
 }
 
-void TelegramInterface::scs_oper(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    ProgTrace(TRACE5, "GRISHA: %s", __FUNCTION__);
-
-    string airp;
-    int flt_no = NoExists;
-    TDateTime scd_out = NoExists;
-
-    xmlNodePtr node = reqNode->children;
-    node = NodeAsNodeFast("header", node);
-    if(node == NULL)
-        throw Exception("node header not found where expected");
-    node = node->children;
-    if(node == NULL)
-        throw Exception("node param not found where expected");
-    for(; node; node = node->next) {
-        string name = NodeAsString("name", node);
-        TElemFmt fmt;
-        if(name == "AIRP") airp = ElemToElemId(etAirp, NodeAsString("value", node), fmt);
-        if(name == "DATE") {
-            if( StrToDateTime(NodeAsString("value", node), "dd.mm.yy", scd_out) == EOF)
-                throw Exception("wrong date format");
-        }
-        if(name == "FLIGHT") {
-            flt_no = ToInt(NodeAsString("value", node));
-        }
-    }
-
-    if ( not airp.size() or flt_no == NoExists or scd_out == NoExists )
-        throw Exception("wrong parameters");
-
-    LogTrace(TRACE5) << "airp: " << airp;
-    LogTrace(TRACE5) << "scd_out: " << DateTimeToStr(scd_out);
-    LogTrace(TRACE5) << "flt_no: " << flt_no;
-
-    xmlNodePtr contentNode = NewTextChild(resNode, "content");
-    xmlNodePtr htmlNode = NewTextChild(contentNode, "html");
-    xmlNodePtr headNode = NewTextChild(htmlNode, "head");
-    SetProp(NewTextChild(headNode, "meta"), "charset", "utf-8");
-    NewTextChild(headNode, "title", "Тег BUTTON");
-    xmlNodePtr bodyNode = NewTextChild(htmlNode, "body");
-    xmlNodePtr pNode = NewTextChild(bodyNode, "p");
-    SetProp(pNode, "style", "text-align: center");
-    NewTextChild(bodyNode, "button", "Кнопка с текстом");
-}
-
 void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_type )
 {
   //try verify its new code!!!
@@ -9140,8 +9096,6 @@ void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_t
   TPassSeats layerSeats;
   sectionInfo.GetTotalLayerSeat( layer_type, layerSeats );
 };
-
-#include "serverlib/xml_stuff.h"
 
 namespace CKIN_REPORT {
 
@@ -9702,6 +9656,63 @@ namespace CKIN_REPORT {
         out << GetXMLDocText(doc.docPtr());
         return 1;
     }
+}
+
+void TelegramInterface::kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr node = reqNode->children;
+    node = NodeAsNodeFast("get_params", node);
+    if(not node) throw Exception("kuf_stat: get_params not found where expected");
+    node = node->children;
+    string airline;
+    string airp;
+    int flt_no;
+    string suffix;
+    TDateTime scd_out;
+    for(; node; node = node->next) {
+        xmlNodePtr node2 = node->children;
+        string name = NodeAsStringFast("name", node2);
+        string value = NodeAsStringFast("value", node2);
+        TElemFmt fmt;
+        if(name == "airline") airline = ElemToElemId(etAirline, value, fmt);
+        if(name == "airp") airp = ElemToElemId(etAirp, value, fmt);
+        if(name == "flt_no") flt_no = ToInt(value);
+        if(name == "suffix") suffix = ElemToElemId(etSuffix, value, fmt);
+        if(name == "scd_out") {
+            if(StrToDateTime(value.c_str(), "dd.mm.yyyy", scd_out) == EOF)
+                throw Exception("kuf_stat: can't convert scd_out: %s", value.c_str());
+        }
+    }
+    LogTrace(TRACE5) << "airline: " << airline;
+    LogTrace(TRACE5) << "airp: " << airp;
+    LogTrace(TRACE5) << "flt_no: " << flt_no;
+    LogTrace(TRACE5) << "scd_out: " << DateTimeToStr(scd_out);
+    LogTrace(TRACE5) << "suffix: " << suffix;
+
+    TSearchFltInfo filter;
+    filter.airline = airline;
+    filter.flt_no = flt_no;
+    filter.suffix = suffix;
+    filter.airp_dep = airp;
+    filter.scd_out = scd_out;
+    filter.scd_out_in_utc = true;
+    filter.only_with_reg = false;
+
+    int point_id = CKIN_REPORT::get_point_id(filter);
+    if(point_id == NoExists)
+        throw UserException("flight not found");
+
+    XMLDoc doc("flight");
+    xmlNodePtr rootNode = doc.docPtr()->children;
+
+    CKIN_REPORT::TReportData data;
+    data.get(point_id);
+    data.toXML(rootNode);
+    xml_encode_nodelist(rootNode);
+
+    SetProp(
+            NewTextChild(resNode, "content", StrUtils::b64_encode(GetXMLDocText(doc.docPtr()))),
+            "b64", true);
 }
 
 void TelegramInterface::ckin_report(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

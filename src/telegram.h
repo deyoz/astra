@@ -293,8 +293,8 @@ public:
      AddEvent("kick",evHandle);
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::ckin_report);
      AddEvent("ckin_report",evHandle);
-     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::scs_oper);
-     AddEvent("SCS_OPER",evHandle);
+     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::kuf_stat);
+     AddEvent("kuf_stat",evHandle);
 
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::TestSeatRanges);
      AddEvent("TestSeatRanges",evHandle);
@@ -313,6 +313,7 @@ public:
   void tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ckin_report(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void scs_oper(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
