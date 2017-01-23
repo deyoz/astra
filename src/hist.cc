@@ -302,6 +302,12 @@ void THistCacheTable::initFields()
             FField.ReferName="DESCR";
         };
 
+        if ((code == "PROFILES" && FField.Name == "NAME") ||
+            (FField.ReferCode == "PROFILES" && FField.ReferName == "NAME"))
+        {
+          FField.ElemCategory=cecProfileName;
+        };
+
         if ((code == "ROLES" && FField.Name == "ROLE_NAME") ||
             (FField.ReferCode == "ROLES" && FField.ReferName == "ROLE_NAME"))
         {

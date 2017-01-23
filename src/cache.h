@@ -39,7 +39,16 @@ enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString
 enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
 enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
-enum TCacheElemCategory {cecNone, cecCode, cecNameShort, cecName, cecRoleName, cecUserName, cecUserPerms};
+enum TCacheElemCategory {
+    cecNone,
+    cecCode,
+    cecNameShort,
+    cecName,
+    cecRoleName,
+    cecUserName,
+    cecUserPerms,
+    cecProfileName
+};
 
 extern const char * CacheFieldTypeS[NumFieldType];
 
