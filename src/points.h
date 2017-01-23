@@ -26,7 +26,7 @@ enum TDestField { dfPoint_num, dfAirp, dfPr_tranzit, dfFirst_point,
                   
                   
 enum TUseDestData { udNoCalcESTTimeStage, udDelays, udStages, udCargo, udMaxCommerce,
-                    udNum, udStations };
+                    udStations, udNum };
 enum TDestEvents { dmChangeCraft, dmSetCraft, dmInitStages, dmInitComps,
                    dmChangeBort, dmSetBort, dmSetCancel, dmSetUnCancel, dmSetDelete,
                    dmSetSCDOUT, dmChangeSCDOUT, dmDeleteSCDOUT,

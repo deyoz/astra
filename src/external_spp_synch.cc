@@ -13,6 +13,8 @@ using namespace EXCEPTIONS;
 using namespace std;
 using namespace BASIC::date_time;
 
+#define SEARCH_SYNCHRON_FLIGHT_RANGE 24;
+
 void TParseFlight::add_airline( const std::string &value ) {
   try {
     airline.code = ElemToElemId( etAirline, value, airline.fmt, false );
@@ -691,7 +693,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
   }
 }
 
-void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, std::string &warning );
+void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, std::string &warning );
 /////////////////////////////////////////SINCHRON SVO///////////////////////////////
 void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
@@ -1008,7 +1010,71 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   ProgTrace(TRACE5,"end check, dests size()=%zu", dests.items.size());
 }
 
-void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, std::string &warning )
+/*
+ * на входе рейс из синхрона flt
+ * ищем в Астре рейсы чартерные без факта вылета, на велет, не отмененные, в диапазоне range_hours
+ * наиболее приближенный по дате к рейсу из Синхрона и имеющий в Астре признак того, что по рейсу приходило удаление
+ */
+class ConnectSinchronAstraCharterFlight
+{
+private:
+  bool isDeleteStatusAODB( int point_id, TQuery &Qry ) {
+    Qry.SetVariable( "point_id", point_id );
+    Qry.Execute();
+    return ( !Qry.Eof && Qry.FieldAsInteger( "pr_del" ) );
+  }
+public:
+   void search( int range_hours, const TAdvTripInfo &flt, TAdvTripInfo &idealFlt ) {
+     idealFlt.Clear();
+     TQuery Qry(&OraSession);
+     Qry.SQLText =
+       "SELECT pr_del from aodb_points WHERE point_id=:point_id";
+     Qry.DeclareVariable( "point_id", otInteger );
+     TSearchFltInfo filter;
+     filter.airline = flt.airline;
+     filter.airp_dep = flt.airp;
+     filter.flt_no = flt.flt_no;
+     filter.suffix = flt.suffix;
+     filter.dep_date_flags.setFlag(ddtEST);
+     filter.scd_out_in_utc = true;
+     filter.only_with_reg = true;
+     double f, l;
+     modf( flt.scd_out - range_hours/24.0, &f );
+     modf( flt.scd_out + range_hours/24.0, &l );
+     list<TAdvTripInfo> flts;
+     for ( int d=f; d<=l; d++ ) {
+       filter.scd_out = d;
+       flts.clear();
+       SearchFlt( filter, flts ); //utc за сутки т.к. нет времени, а только дата
+       for ( list<TAdvTripInfo>::iterator iflt=flts.begin(); iflt!=flts.end(); iflt++ ) {
+         TPointsDest dest;
+         BitSet<TUseDestData> UseData;
+         UseData.clearFlags();
+         dest.Load( iflt->point_id, UseData );
+         if ( dest.trip_type != string("ч") ||
+              dest.pr_del != 0 ||
+              dest.scd_out == ASTRA::NoExists ||
+              dest.act_out != ASTRA::NoExists ) {
+           ProgTrace( TRACE5, "point_id=%d, continue", iflt->point_id );
+           continue;
+         }
+         if ( idealFlt.point_id == ASTRA::NoExists ) { //first init
+           if ( isDeleteStatusAODB( iflt->point_id, Qry ) ) {
+             idealFlt = *iflt;
+           }
+           continue;
+         }
+         if ( fabs( idealFlt.real_out - flt.scd_out ) > fabs( iflt->real_out - flt.scd_out ) ) {
+           if ( isDeleteStatusAODB( iflt->point_id, Qry ) ) {
+             idealFlt = *iflt;
+           }
+         }
+       }
+     }
+   }
+};
+
+void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, std::string &warning )
 {
   tst();
   warning.clear();
@@ -1018,16 +1084,18 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
   }
   //ищем ШРМ, относительно которого завели рейс
   bool pr_find = false;
-  TPoints points;
-  int point_id;
+  TPoints points;  
   bool pr_takeoff;
   bool pr_charter_range = false;
+  TQuery Qry(&OraSession);
   TPointsDest d;
   {
     std::vector<TPointsDest>::iterator idest;
     for ( idest=dests.items.begin(); idest!=dests.items.end(); idest++ ) {
       if ( !idest->airline.empty() ) { // нашли - ищем рейс в СПП
+        int point_id;
         pr_find = TPoints::isDouble( ASTRA::NoExists, *idest, points.move_id, point_id );
+        ProgTrace( TRACE5, "pr_find=%d, point_id=%d", pr_find, point_id );
         break;
       }
     }
@@ -1037,27 +1105,54 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
     pr_takeoff = ( dests.items.begin() == idest );
     d = *idest;
   }
-
-  if ( !pr_find &&
+  if ( //!pr_find && //рейса новый или он переносится на другую дату - задержка? - ищем ближайший по времени
        d.trip_type == "ч" &&
-       d.status == tdInsert &&
-       pr_takeoff ) { // возможно это рейс, который в Синхроне удален и добавлен заново с новым плановым временем вылета
-    TPointsDest searchFlight = d;
-    searchFlight.scd_out = d.scd_out + range_hours/24.0;
-    pr_find = TPoints::isDouble( ASTRA::NoExists, searchFlight, points.move_id, point_id );
-    if ( !pr_find ) {
-      searchFlight.scd_out = d.scd_out - range_hours/24.0;
+       //d.status == tdInsert &&
+       pr_takeoff &&
+       d.scd_out != ASTRA::NoExists ) { // возможно это рейс, который в Синхроне удален и добавлен заново с новым плановым временем вылета
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT point_id FROM aodb_points WHERE aodb_point_id=:aodb_point_id";
+    Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
+    Qry.Execute();
+    TAdvTripInfo astraFlt;
+    if ( Qry.Eof ) {
+      ConnectSinchronAstraCharterFlight searchAstraFlt;
+      TAdvTripInfo sinchronFlt;
+      sinchronFlt.airline = d.airline;
+      sinchronFlt.airp = d.airp;
+      sinchronFlt.flt_no = d.flt_no;
+      sinchronFlt.suffix = d.suffix;
+      sinchronFlt.scd_out = d.scd_out;
+      searchAstraFlt.search( range_hours, sinchronFlt, astraFlt );
+      tst();
     }
-    pr_find = TPoints::isDouble( ASTRA::NoExists, searchFlight, points.move_id, point_id );
-    pr_charter_range = pr_find;
-    ProgTrace( TRACE5, "search charter flight in range hours %d", range_hours );
+    else {
+      astraFlt.point_id = Qry.FieldAsInteger( "point_id" );
+      tst();
+    }
+    if ( astraFlt.point_id != ASTRA::NoExists ) {
+      pr_find = true;
+      Qry.Clear();
+      Qry.SQLText =
+        "SELECT move_id FROM points WHERE point_id=:point_id";
+      Qry.CreateVariable( "point_id", otInteger, astraFlt.point_id );
+      Qry.Execute();
+      points.move_id = Qry.FieldAsInteger( "move_id" );
+      pr_charter_range = true;
+    }
   }
-  ProgTrace( TRACE5, "pr_find=%d", pr_find );
+  ProgTrace( TRACE5, "pr_find=%d, move_id=%d", pr_find, points.move_id );
 
   if ( pr_find ) { // рейс нашелся, надо зачитать
     if ( d.status == tdDelete ) {
       ProgTrace( TRACE5, "flight status=delete, but not save this event to db, ignore" );
       //aodb_points - set pr_del for charter or update aodb_point_id to NULL!!!
+      Qry.Clear();
+      Qry.SQLText =
+        "UPDATE aodb_points SET pr_del=1 WHERE aodb_point_id=:aodb_point_id";
+      Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id  );
+      Qry.Execute();
       return;
     }
     BitSet<TUseDestData> UseData;
@@ -1178,12 +1273,14 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
     owndest->act_in = d.act_in;
     owndest->est_out = d.est_out;
     if ( pr_charter_range ) { // был перенесен рейс, изменилась плановая дата вылета в Синхроне, у нас старый рейс, изменяем расчетное время вылета
-      if ( owndest->est_out == ASTRA::NoExists ) {
-        owndest->est_out = d.scd_out;
+      //!!!if ( owndest->est_out == ASTRA::NoExists ) {
+        if ( d.est_out == ASTRA::NoExists ) {
+          owndest->est_out = d.scd_out;
+        }
         if ( pr_takeoff ) {
           dests.items.begin()->scd_out = owndest->scd_out; //возвращаем дату на ту, по которой создан рейс
         }
-      }
+//!!!      }
       //надо проставить старое плановое время вылета, иначе произойдет удаление ШРМ и добавление нового
     }
     else {
@@ -1251,7 +1348,7 @@ void IntWriteDests( float aodb_point_id, int range_hours, TPointDests &dests, st
 void HTTPRequestsIface::SaveSinhronSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace( TRACE5, "SaveSinhronSPP: desk=%s, airp=%s", TReqInfo::Instance()->desk.code.c_str(), TReqInfo::Instance()->desk.airp.c_str() );
-  int range_hours = 4; //+-4 часа для поиска чартера
+  int range_hours = SEARCH_SYNCHRON_FLIGHT_RANGE; //+-24 часа для поиска чартера
   parse_saveFlights( range_hours, reqNode, resNode );
 }
 

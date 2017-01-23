@@ -180,7 +180,7 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
                    string &res_checkin );
 
 // привязка к новому рейсу
-void bindingAODBFlt( const std::string &point_addr, int point_id, float aodb_point_id )
+void bindingAODBFlt( const std::string &point_addr, int point_id, double aodb_point_id )
 {
   ProgTrace( TRACE5, "bindingAODBFlt: point_addr=%s, point_id=%d, aodb_point_id=%f",
              point_addr.c_str(), point_id, aodb_point_id );
@@ -221,11 +221,11 @@ void bindingAODBFlt( const std::string &point_addr, int point_id, float aodb_poi
     Qry.SQLText =
         "BEGIN "
         " UPDATE aodb_points "
-        " SET aodb_point_id=:aodb_point_id "
+        " SET aodb_point_id=:aodb_point_id, pr_del=0 "
         " WHERE point_id=:point_id AND point_addr=:point_addr; "
         " IF SQL%NOTFOUND THEN "
-        "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id,rec_no_pax,rec_no_bag,rec_no_flt,rec_no_unaccomp,overload_alarm) "
-        "    VALUES(:aodb_point_id,:point_addr,:point_id,-1,-1,-1,-1,0);"
+        "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id,rec_no_pax,rec_no_bag,rec_no_flt,rec_no_unaccomp,overload_alarm,pr_del) "
+        "    VALUES(:aodb_point_id,:point_addr,:point_id,-1,-1,-1,-1,0,0);"
         " END IF; "
         "END;";
     Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -255,7 +255,7 @@ void bindingAODBFlt( const std::string &airline, const int flt_no, const std::st
     "SELECT point_addr, aodb_point_id FROM aodb_points WHERE point_id=:point_id AND aodb_point_id IS NOT NULL FOR UPDATE";
   Qry.DeclareVariable( "point_id", otInteger );
   if ( findFlt( airline, flt_no, suffix, locale_scd_out, airp, true, flts ) ) {
-    map<string,int> aodb_point_ids;
+    map<string,double> aodb_point_ids;
     int point_id = NoExists;
     for ( TFndFlts::iterator i=flts.begin(); i!=flts.end(); i++ ) {
       ProgTrace( TRACE5, "bindingAODBFlt: i->point_id=%d, i->pr_del=%d", i->point_id, i->pr_del );
@@ -263,7 +263,7 @@ void bindingAODBFlt( const std::string &airline, const int flt_no, const std::st
         Qry.SetVariable( "point_id", i->point_id );
         Qry.Execute();
         if ( !Qry.Eof ) {
-          aodb_point_ids[ Qry.FieldAsString( "point_addr" ) ] = Qry.FieldAsInteger( "aodb_point_id" );
+          aodb_point_ids[ Qry.FieldAsString( "point_addr" ) ] = Qry.FieldAsFloat( "aodb_point_id" );
         }
       }
       if ( i->pr_del != -1 && point_id == NoExists ) {
@@ -272,12 +272,12 @@ void bindingAODBFlt( const std::string &airline, const int flt_no, const std::st
     }
     if ( point_id == NoExists )
       return;
-    for ( map<string,int>::iterator i=aodb_point_ids.begin(); i!=aodb_point_ids.end(); i++ ) {
+    for ( map<string,double>::iterator i=aodb_point_ids.begin(); i!=aodb_point_ids.end(); i++ ) {
       Qry.Clear();
       Qry.SQLText =
           "BEGIN "
           "DELETE aodb_points WHERE point_id=:point_id AND point_addr=:point_addr AND aodb_point_id!=:aodb_point_id;"
-          "UPDATE aodb_points SET point_id=:point_id WHERE aodb_point_id=:aodb_point_id AND point_addr=:point_addr;"
+          "UPDATE aodb_points SET point_id=:point_id, pr_del=0 WHERE aodb_point_id=:aodb_point_id AND point_addr=:point_addr;"
           "END;";
       Qry.CreateVariable( "point_id", otInteger, point_id );
       Qry.CreateVariable( "point_addr", otString, i->first );
