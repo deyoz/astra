@@ -283,6 +283,9 @@ struct XmlPnr
     // пока можем работать только с одним пассажиром
     XmlPax& pax();
     const XmlPax& pax() const;
+
+    std::list<XmlPax> applyNameFilter(const std::string& surname,
+                                      const std::string& name) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -442,6 +445,9 @@ struct XmlTrip
     // пока можем работать только с одним Pnr
     XmlPnr& pnr();
     const XmlPnr& pnr() const;
+
+    std::list<XmlPnr> applyNameFilter(const std::string& surname,
+                                      const std::string& name) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -623,8 +629,8 @@ struct SearchPaxXmlResult
 {
     std::list<XmlTrip> lTrip;
 
-    std::list<XmlPax> applyNameFilter(const std::string& surname,
-                                      const std::string& name);
+    std::list<XmlTrip> applyNameFilter(const std::string& surname,
+                                       const std::string& name) const;
 
     SearchPaxXmlResult(xmlNodePtr node);
 };
@@ -652,7 +658,7 @@ struct PaxListXmlResult
     std::list<XmlPax> lPax;
 
     std::list<XmlPax> applyNameFilter(const std::string& surname,
-                                      const std::string& name);
+                                      const std::string& name) const;
 
     PaxListXmlResult(xmlNodePtr node);
 };
@@ -663,7 +669,7 @@ struct GetAdvTripListXmlResult
 {
     std::list<XmlTrip> lTrip;
 
-    std::list<XmlTrip> applyFlightFilter(const std::string& flightName);
+    std::list<XmlTrip> applyFlightFilter(const std::string& flightName) const;
 
     GetAdvTripListXmlResult(xmlNodePtr node);
 };
@@ -711,10 +717,9 @@ public:
     xml_entities::LoadPaxXmlResult LoadPax(int depPointId, int paxRegNo);
 
     // поиск НЕзарегистрированного пассажира на рейсе
-    xml_entities::SearchPaxXmlResult SearchPax(int depPointId,
-                                               const std::string& paxSurname,
-                                               const std::string& paxName,
-                                               const std::string& paxStatus);
+    xml_entities::SearchPaxXmlResult SearchCheckInPax(int depPointId,
+                                                      const std::string& paxSurname,
+                                                      const std::string& paxName);
 
     // сохранение информации о пассажире
     xml_entities::LoadPaxXmlResult SavePax(int depPointId, const xml_entities::XmlTrip& paxTrip);

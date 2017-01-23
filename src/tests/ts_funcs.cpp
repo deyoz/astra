@@ -404,20 +404,28 @@ static std::string FP_create_random_trip_comp(const std::vector<std::string>& p)
 static std::string FP_getSinglePaxId(const std::vector<std::string>& p)
 {
     using namespace astra_api::xml_entities;
-    assert(p.size() == 4);
+    assert(p.size() == 3);
     int pointDep = atoi(p.at(0).c_str());
     std::string paxSurname = p.at(1);
     std::string paxName = p.at(2);
-    std::string paxStatus = p.at(3);
 
-    SearchPaxXmlResult spRes = astra_api::AstraEngine::singletone().SearchPax(pointDep,
-                                                                              paxSurname,
-                                                                              paxName,
-                                                                              paxStatus);
-    std::list<XmlPax> lPax = spRes.applyNameFilter(paxSurname, paxName);
+    SearchPaxXmlResult spRes =
+            astra_api::AstraEngine::singletone().SearchCheckInPax(pointDep,
+                                                                  paxSurname,
+                                                                  paxName);
+
+    std::list<XmlTrip> lTrip = spRes.applyNameFilter(paxSurname, paxName);
+    assert(!lTrip.empty());
+    const XmlTrip& frontTrip = lTrip.front();
+
+    std::list<XmlPnr> lPnr = frontTrip.applyNameFilter(paxSurname, paxName);
+    assert(!lPnr.empty());
+    const XmlPnr& frontPnr = lPnr.front();
+
+    std::list<XmlPax> lPax = frontPnr.applyNameFilter(paxSurname, paxName);
     assert(!lPax.empty());
-
     const XmlPax& pax = lPax.front();
+
     return boost::lexical_cast<std::string>(pax.pax_id);
 }
 

@@ -14,7 +14,7 @@ $(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š …ˆ ˆ‚€)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) …ˆ ˆ‚€ K))
+$(set pax_id $(get_single_pax_id $(get point_dep) …ˆ ˆ‚€))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2981212121212 …ˆ ˆ‚€)
@@ -292,8 +292,8 @@ $(dump_table CRS_PAX)
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 
-$(set pax1_id $(get_single_pax_id $(get point_dep) …ˆ ‚€‘ˆ‹ˆ‰ K))
-$(set pax2_id $(get_single_pax_id $(get point_dep) …ˆ€ €€ K))
+$(set pax1_id $(get_single_pax_id $(get point_dep) …ˆ ‚€‘ˆ‹ˆ‰))
+$(set pax2_id $(get_single_pax_id $(get point_dep) …ˆ€ €€))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2981212121212 …ˆ ‚€‘ˆ‹ˆ‰)

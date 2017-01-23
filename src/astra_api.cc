@@ -35,13 +35,27 @@ using namespace BASIC::date_time;
 
 namespace {
 
-void fillPaxTrip(XmlTrip& paxTrip, const iatci::CkiParams& ckiParams)
+XmlTrip createCheckInTrip(const XmlTrip& baseTrip,
+                          const XmlPnr& basePnr,
+                          const XmlPax& basePax,
+                          const iatci::CkiParams& ckiParams)
 {
-    paxTrip.status = "K"; // TODO всегда "K" ?
-    paxTrip.pnr().pax().pers_type = "ВЗ";
+    XmlTrip ckiTrip = baseTrip;
+    ckiTrip.status = "K"; // TODO всегда "K" ???
+    ckiTrip.pnrs.clear();
+
+    XmlPnr ckiPnr = basePnr;
+    ckiPnr.passengers.clear();
+
+    XmlPax ckiPax = basePax;
+    ckiPax.pers_type = "ВЗ"; // TODO всегда "ВЗ" ???
     if(ckiParams.seat()) {
-        paxTrip.pnr().pax().seat_no = ckiParams.seat()->seat();
+        ckiPax.seat_no = ckiParams.seat()->seat();
     }
+
+    ckiPnr.passengers.push_back(ckiPax);
+    ckiTrip.pnrs.push_back(ckiPnr);
+    return ckiTrip;
 }
 
 void savePrintBP(const LoadPaxXmlResult& loadPaxRes)
@@ -105,10 +119,9 @@ LoadPaxXmlResult AstraEngine::LoadPax(int pointId, int paxRegNo)
 }
 
 
-SearchPaxXmlResult AstraEngine::SearchPax(int pointDep,
-                                          const std::string& paxSurname,
-                                          const std::string& paxName,
-                                          const std::string& paxStatus)
+SearchPaxXmlResult AstraEngine::SearchCheckInPax(int pointDep,
+                                                 const std::string& paxSurname,
+                                                 const std::string& paxName)
 {
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
@@ -117,7 +130,7 @@ SearchPaxXmlResult AstraEngine::SearchPax(int pointDep,
 
     xmlNodePtr searchPaxNode = newChild(reqNode, "SearchPax");
     NewTextChild(searchPaxNode, "point_dep", pointDep);
-    NewTextChild(searchPaxNode, "pax_status", paxStatus);
+    NewTextChild(searchPaxNode, "pax_status", "К"); // pax status "CheckIn"
     NewTextChild(searchPaxNode, "query", query);
 
     initReqInfo();
@@ -796,13 +809,16 @@ int findGrpIdByPaxId(int pointDep, int paxId)
 
 iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams)
 {
+    const std::string PaxSurname = ckiParams.pax().surname();
+    const std::string PaxName    = ckiParams.pax().name();
+
     LogTrace(TRACE3) << __FUNCTION__ << " by "
                      << "airp_dep[" << ckiParams.flight().depPort() << "]; "
                      << "airline["  << ckiParams.flight().airline() << "]; "
                      << "flight["   << ckiParams.flight().flightNum() << "]; "
                      << "dep_date[" << ckiParams.flight().depDate() << "]; "
-                     << "surname["  << ckiParams.pax().surname() << "]; "
-                     << "name["     << ckiParams.pax().name() << "] ";
+                     << "surname["  << PaxSurname << "]; "
+                     << "name["     << PaxName << "] ";
 
     int pointDep = astra_api::findDepPointId(ckiParams.flight().depPort(),
                                              ckiParams.flight().airline(),
@@ -811,41 +827,63 @@ iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams)
 
     LogTrace(TRACE3) << __FUNCTION__ << " point_dep[" << pointDep << "]";
 
+
+
     SearchPaxXmlResult searchPaxXmlRes =
-            AstraEngine::singletone().SearchPax(pointDep,
-                                                ckiParams.pax().surname(),
-                                                ckiParams.pax().name(),
-                                                "К");
+            AstraEngine::singletone().SearchCheckInPax(pointDep,
+                                                       PaxSurname,
+                                                       PaxName);
 
     if(searchPaxXmlRes.lTrip.size() == 0) {
         // пассажир не найден в списке незарегистрированных
         // тогда поищем его в списке зарегистрированных
         PaxListXmlResult paxListXmlRes = AstraEngine::singletone().PaxList(pointDep);
-        std::list<XmlPax> wantedPaxes = paxListXmlRes.applyNameFilter(ckiParams.pax().surname(),
-                                                                      ckiParams.pax().name());
+        std::list<XmlPax> wantedPaxes = paxListXmlRes.applyNameFilter(PaxSurname,
+                                                                      PaxName);
         if(!wantedPaxes.empty()) {
             // нашли пассажира в списке зарегистрированных
             throw tick_soft_except(STDLOG, AstraErr::PAX_ALREADY_CHECKED_IN);
         } else {
             throw tick_soft_except(STDLOG, AstraErr::PAX_SURNAME_NF);
         }
-    } else if(searchPaxXmlRes.lTrip.size() > 1) {
-        // найдено несколько пассажиров
-        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
-    }
+    } else {
+        std::list<XmlTrip> tripsFiltered = searchPaxXmlRes.applyNameFilter(PaxSurname,
+                                                                           PaxName);
+        ASSERT(tripsFiltered.size() == 1);
 
-    XmlTrip& paxTrip = searchPaxXmlRes.lTrip.front();
-    fillPaxTrip(paxTrip, ckiParams);
-    // SavePax
-    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(pointDep,
-                                                                       paxTrip);
-    if(loadPaxXmlRes.lSeg.empty()) {
-        // не смогли зарегистрировать
-        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
-    }
+        XmlTrip& paxTrip = tripsFiltered.front();
 
-    return loadPaxXmlRes.toIatciFirst(iatci::Result::Checkin,
-                                      iatci::Result::Ok);
+        std::list<XmlPnr> pnrsFiltered = paxTrip.applyNameFilter(PaxSurname,
+                                                                 PaxName);
+        ASSERT(!pnrsFiltered.empty());
+        if(pnrsFiltered.size() > 1) {
+            throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
+        }
+
+        XmlPnr& paxPnr = pnrsFiltered.front();
+
+        std::list<XmlPax> paxesFiltered = paxPnr.applyNameFilter(PaxSurname,
+                                                                 PaxName);
+        ASSERT(!paxesFiltered.empty());
+        if(paxesFiltered.size() > 1) {
+            throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
+        }
+
+        XmlPax& pax = paxesFiltered.front();
+
+        XmlTrip ckiTrip = createCheckInTrip(paxTrip, paxPnr, pax, ckiParams);
+
+        // SavePax
+        LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(pointDep,
+                                                                           ckiTrip);
+        if(loadPaxXmlRes.lSeg.empty()) {
+            // не смогли зарегистрировать
+            throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
+        }
+
+        return loadPaxXmlRes.toIatciFirst(iatci::Result::Checkin,
+                                          iatci::Result::Ok);
+    }
 }
 
 iatci::Result checkinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
@@ -1199,6 +1237,21 @@ const XmlPnr& XmlTrip::pnr() const
     return pnrs.front();
 }
 
+std::list<XmlPnr> XmlTrip::applyNameFilter(const std::string& surname,
+                                           const std::string& name) const
+{
+    std::list<XmlPnr> res;
+    for(const XmlPnr& pnr: pnrs) {
+        for(const XmlPax& pax: pnr.passengers) {
+            if(pax.surname == surname && pax.name == name) {
+                res.push_back(pnr);
+            }
+        }
+    }
+
+    return res;
+}
+
 //---------------------------------------------------------------------------------------
 
 XmlPax& XmlPnr::pax()
@@ -1211,6 +1264,18 @@ const XmlPax& XmlPnr::pax() const
 {
     ASSERT(!passengers.empty());
     return passengers.front();
+}
+
+std::list<XmlPax> XmlPnr::applyNameFilter(const std::string& surname,
+                                          const std::string& name) const
+{
+    std::list<XmlPax> res;
+    for(const XmlPax& pax: passengers) {
+        if(pax.surname == surname && pax.name == name) {
+            res.push_back(pax);
+        }
+    }
+    return res;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1954,16 +2019,16 @@ SearchPaxXmlResult::SearchPaxXmlResult(xmlNodePtr node)
     }
 }
 
-std::list<XmlPax> SearchPaxXmlResult::applyNameFilter(const std::string& surname,
-                                                      const std::string& name)
+std::list<XmlTrip> SearchPaxXmlResult::applyNameFilter(const std::string& surname,
+                                                       const std::string& name) const
 {
-    std::list<XmlPax> res;
+    std::list<XmlTrip> res;
     for(const XmlTrip& trip: lTrip) {
         for(const XmlPnr& pnr: trip.pnrs) {
             for(const XmlPax& pax: pnr.passengers) {
                 // TODO необходимо усложнить функцию сравнения (trim, translit)
                 if(surname == pax.surname && name == pax.name) {
-                    res.push_back(pax);
+                    res.push_back(trip);
                 }
             }
         }
@@ -2130,7 +2195,7 @@ PaxListXmlResult::PaxListXmlResult(xmlNodePtr node)
 }
 
 std::list<XmlPax> PaxListXmlResult::applyNameFilter(const std::string& surname,
-                                                    const std::string& name)
+                                                    const std::string& name) const
 {
     std::list<XmlPax> res;
     for(const XmlPax& pax: lPax) {
@@ -2153,7 +2218,7 @@ GetAdvTripListXmlResult::GetAdvTripListXmlResult(xmlNodePtr node)
     }
 }
 
-std::list<XmlTrip> GetAdvTripListXmlResult::applyFlightFilter(const std::string& flightName)
+std::list<XmlTrip> GetAdvTripListXmlResult::applyFlightFilter(const std::string& flightName) const
 {
     std::list<XmlTrip> res;
     for(const XmlTrip& trip: lTrip) {

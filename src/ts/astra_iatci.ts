@@ -1113,7 +1113,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -1409,7 +1409,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -1506,7 +1506,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -1835,7 +1835,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -1927,7 +1927,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -2025,7 +2025,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -2116,7 +2116,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -2212,7 +2212,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -2278,7 +2278,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -2380,7 +2380,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -2711,7 +2711,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -2794,7 +2794,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -2904,7 +2904,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -2970,7 +2970,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -3093,7 +3093,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -3134,7 +3134,6 @@ $(KICK_IN_SILENT)
 
 $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 
-$(dump_table GRP_IATCI_XML)
 
 !! err=ignore
 {<?xml version='1.0' encoding='CP866'?>
@@ -3431,7 +3430,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -3466,7 +3465,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(deny_ets_interactive ’ 103 „Œ„)
 
@@ -3528,7 +3527,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -3612,7 +3611,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
@@ -3779,7 +3778,7 @@ $(PREPARE_FLIGHT_3 ’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘— REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN K))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
