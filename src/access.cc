@@ -7,6 +7,7 @@
 #include "cache.h"
 #include <set>
 #include "misc.h"
+#include "qrys.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -45,6 +46,74 @@ string get_rights_table(TRightListType rlt)
             throw Exception("AccessInterface::RoleRights: unexpected TRightListType: %d", rlt);
     }
     return table;
+}
+
+void AccessInterface::SaveProfileRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TReqInfo &reqInfo = *(TReqInfo::Instance());
+    if (!reqInfo.user.access.rights().permitted(980))
+        throw AstraLocale::UserException("MSG.NO_ACCESS");
+    TReqInfo &info = *(TReqInfo::Instance());
+    int profile_id = NodeAsInteger("profile_id", reqNode);
+    xmlNodePtr itemNode = NodeAsNode("items", reqNode)->children;
+    TQuery Qry(&OraSession);
+    Qry.CreateVariable("user_id", otInteger, info.user.user_id);
+    Qry.CreateVariable("profile_id", otInteger, profile_id);
+    Qry.DeclareVariable("right_id", otInteger);
+    Qry.CreateVariable("SYS_user_descr", otString, reqInfo.user.descr);
+    Qry.CreateVariable("SYS_desk_code", otString, reqInfo.desk.code);
+    for(; itemNode; itemNode = itemNode->next) {
+        string lexema_id;
+        LEvntPrms params;
+        xmlNodePtr dataNode = itemNode->children;
+        int right_id = NodeAsIntegerFast("id", dataNode);
+        Qry.SetVariable("right_id", right_id);
+        TRightState state = TRightState(NodeAsIntegerFast("state", dataNode));
+        string SQLText;
+        switch(state) {
+            case rsOn:
+                SQLText =
+                    "DECLARE "
+                    "  vid NUMBER(9); "
+                    "BEGIN "
+                    "  :profile_id:=adm.check_profile_access(:profile_id,:user_id,1); "
+                    "  :right_id:=adm.check_right_access(:right_id,:user_id,1); "
+                    "  INSERT INTO profile_rights(profile_id,right_id,id) VALUES(:profile_id,:right_id,id__seq.nextval) "
+                    "  RETURNING id INTO vid; "
+                    "  hist.synchronize_history('profile_rights',vid,:SYS_user_descr,:SYS_desk_code); "
+                    "END;";
+                lexema_id = "MSG.ACCESS.PROFILE.OPERATION.ON";
+                params << PrmElem<int>("name", etProfiles, profile_id, efmtNameLong) << PrmSmpl<int>("id", profile_id)
+                       << PrmElem<int>("right", etRight, right_id, efmtNameLong);
+                break;
+            case rsOff:
+                SQLText =
+                    "DECLARE "
+                    "  vid    NUMBER(9); "
+                    "BEGIN "
+                    "  :profile_id:=adm.check_profile_access(:profile_id,:user_id,2); "
+                    "  :right_id:=adm.check_right_access(:right_id,:user_id,2); "
+                    "  DELETE FROM profile_rights "
+                    "  WHERE profile_id=:profile_id AND right_id=:right_id RETURNING id INTO vid; "
+                    "  hist.synchronize_history('profile_rights',vid,:SYS_user_descr,:SYS_desk_code); "
+                    "END;";
+                lexema_id = "MSG.ACCESS.PROFILE.OPERATION.OFF";
+                params << PrmElem<int>("name", etProfiles, profile_id, efmtNameLong) << PrmSmpl<int>("id", profile_id)
+                       << PrmElem<int>("right", etRight, right_id, efmtNameLong);                break;
+        }
+        Qry.SQLText = SQLText;
+        try {
+            Qry.Execute();
+        } catch(EOracleError &E) {
+            if ( E.Code >= 20000 ) {
+                string str = E.what();
+                EOracleError2UserException(str);
+                throw UserException( str );
+            } else
+                throw;
+        }
+        info.LocaleToLog(lexema_id, params, evtAccess);
+    }
 }
 
 void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -225,6 +294,40 @@ void AccessInterface::Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             NewTextChild(resNode, "alert");
         else
             throw;
+    }
+}
+
+void AccessInterface::ProfileRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TReqInfo &info = *(TReqInfo::Instance());
+    TCachedQuery Qry(
+        "select "
+        "   rights_list.ida, "
+        "   rights_list.name, "
+        "   rights_list.name_lat "
+        "from "
+        "   profile_rights, "
+        "   rights_list "
+        "where "
+        "   profile_rights.profile_id = :profile_id and "
+        "   profile_rights.right_id=rights_list.ida and "
+        "   adm.check_profile_aro_access(profile_rights.profile_id, :user_id)<>0 "
+        "order by "
+        "   ida ",
+        QParams()
+        << QParam("profile_id", otInteger, NodeAsInteger("profile_id", reqNode))
+        << QParam("user_id", otInteger, info.user.user_id)
+        );
+    Qry.get().Execute();
+    xmlNodePtr profileRightsNode = NULL;
+    for(; !Qry.get().Eof; Qry.get().Next()) {
+        if(!profileRightsNode)
+            profileRightsNode = NewTextChild(resNode, "profile_rights");
+        xmlNodePtr itemNode = NewTextChild(profileRightsNode, "item");
+        NewTextChild(itemNode, "id", Qry.get().FieldAsInteger("ida"));
+        NewTextChild(itemNode, "name",
+                (TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU ?
+                 Qry.get().FieldAsString("name_lat") : Qry.get().FieldAsString("name")));
     }
 }
 

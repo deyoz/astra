@@ -101,6 +101,7 @@ const
                          {etPaxDocType,            "etPaxDocType",            "pax_doc_types"},
                          {etPayType,               "etPayType",               "pay_types"},
                          {etPersType,              "etPersType",              "pers_types"},
+                         {etProfiles,              "etProfiles",              ""},
                          {etRateColor,             "etRateColor",             "rate_colors"},
                          {etRcptDocType,           "etRcptDocType",           "rcpt_doc_types"},
                          {etRefusalType,           "etRefusalType",           "refusal_types"},
@@ -672,6 +673,7 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
               case etRemGrp: Qry.SQLText="SELECT name, name_lat FROM rem_grp WHERE id=:id"; break;
                case etUsers: Qry.SQLText="SELECT descr AS name, descr AS name_lat FROM users2 WHERE user_id=:id"; break;
                case etRoles: Qry.SQLText="SELECT name AS name, name AS name_lat FROM roles WHERE role_id=:id"; break;
+            case etProfiles: Qry.SQLText="SELECT name AS name, name AS name_lat FROM airline_profiles WHERE profile_id=:id"; break;
         case etAirpTerminal: Qry.SQLText="SELECT name AS name, name AS name_lat FROM airp_terminals WHERE id=:id"; break;
                case etBrand: Qry.SQLText="SELECT code, code code_lat, name, name_lat FROM brands WHERE id=:id"; break;
                     default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
