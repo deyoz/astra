@@ -1042,7 +1042,7 @@ public:
      modf( flt.scd_out - range_hours/24.0, &f );
      modf( flt.scd_out + range_hours/24.0, &l );
      list<TAdvTripInfo> flts;
-     for ( int d=f; d<=l; d++ ) {
+     for ( int d=(int)f; d<=l; d++ ) {
        filter.scd_out = d;
        flts.clear();
        SearchFlt( filter, flts ); //utc за сутки т.к. нет времени, а только дата
@@ -1300,7 +1300,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
   //синхронизация пунктов посадки с удалением пунктов
   points.dests.sychDests( dests, true, dtSomeLocalSCD );
   // сохраняем
-  try {
+  //try {
     points.Save( false );
     for ( owndest=points.dests.items.begin(); owndest!=points.dests.items.end(); owndest++ ) {
       if ( d.airp == owndest->airp ) {
@@ -1318,7 +1318,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
       //bindingAODBFlt была вызвана, когда сохраняли маршрут ???
       bindingAODBFlt( TReqInfo::Instance()->desk.code, owndest->point_id, aodb_point_id );
     }
-  }
+/*  }
   catch( Exception &e ) {
     OraSession.Rollback();
     warning += string(" ;write flight error : ") + e.what();
@@ -1333,7 +1333,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
     OraSession.Rollback();
     warning += " ;write flight error : unknown";
     ProgError( STDLOG, "%s", warning.c_str() );
-  }
+  }*/
 }
 
 
