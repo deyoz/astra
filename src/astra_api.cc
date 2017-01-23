@@ -849,7 +849,13 @@ iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams)
     } else {
         std::list<XmlTrip> tripsFiltered = searchPaxXmlRes.applyNameFilter(PaxSurname,
                                                                            PaxName);
-        ASSERT(tripsFiltered.size() == 1);
+        if(tripsFiltered.empty()) {
+            throw tick_soft_except(STDLOG, AstraErr::PAX_SURNAME_NF);
+        }
+
+        if(tripsFiltered.size() > 1) {
+            LogError(STDLOG) << "Warning: too many trips found!";
+        }
 
         XmlTrip& paxTrip = tripsFiltered.front();
 
@@ -866,6 +872,7 @@ iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams)
                                                                  PaxName);
         ASSERT(!paxesFiltered.empty());
         if(paxesFiltered.size() > 1) {
+            // TODO здесь можно уточнить пакса по доп. признакам, например TKNE
             throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
         }
 
