@@ -373,7 +373,7 @@ TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
   tst();
   string term_name;
   if ( !Qry.RowCount() && mode != CheckMode::etNormal ) {
-    if ( station.name == "" )
+    if ( station.work_mode == "" )
       term_name = "G" + station.name;
     else
       term_name = "R" + station.name;
@@ -381,7 +381,7 @@ TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
     Qry.Execute();
   }
   if ( !Qry.RowCount() && mode != CheckMode::etNormal ) {
-    if ( station.name == "" )
+    if ( station.work_mode == "" )
       term_name = "G0" + station.name;
     else
       term_name = "R0" + station.name;
@@ -2789,13 +2789,10 @@ void TFlightStations::Save( int point_id )
         }
         if ( jstation == stations.end() ) {
           if ( find( delete_sts.begin(), delete_sts.end(), istation->name ) == delete_sts.end() ) {
-            tst();
             delete_sts.push_back( istation->name );
             DelQry.SetVariable( "name", istation->name );
             DelQry.Execute();
-            tst();
             del_prmenum.prms << PrmSmpl<std::string>("", istation->name);
-            tst();
           }
         }
       }
@@ -2814,21 +2811,20 @@ void TFlightStations::Save( int point_id )
         }
         if ( jstation == old_stations.end() ) {
           if ( find( new_sts.begin(), new_sts.end(), istation->name ) == new_sts.end() ) {
-            tst();
             new_sts.push_back( istation->name );
             NewQry.SetVariable( "name", istation->name );
             NewQry.SetVariable( "pr_main", istation->pr_main );
             NewQry.Execute();
+            if ( istation->pr_main ) {
+              PrmLexema prmlexema("", "EVT.DESK_MAIN");
+              prmlexema.prms << PrmSmpl<std::string>("", istation->name);
+              prmenum.prms << prmlexema;
+            }
+            else
+              prmenum.prms << PrmSmpl<std::string>("", istation->name);
           }
         }
-        new_prmenum.prms << PrmSmpl<std::string>("", istation->name);
-        if ( istation->pr_main ) {
-          PrmLexema prmlexema("", "EVT.DESK_MAIN");
-          prmlexema.prms << PrmSmpl<std::string>("", istation->name);
-          new_prmenum.prms << prmlexema;
-        }
       }
-      tst();
       if ( work_mode == "" ) {
         if ( !new_sts.empty() ) {
           TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_DESKS", LEvntPrms() << new_prmenum, evtFlt, point_id);
@@ -2848,7 +2844,6 @@ void TFlightStations::Save( int point_id )
     }
     check_DesksGates( point_id );
   }
-  tst();
 /*
   TQuery DelQry(&OraSession);
   DelQry.SQLText =
