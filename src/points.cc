@@ -100,7 +100,7 @@ void TCheckerFlt::checkFltNo( CheckMode mode, TFltNo &fltNo, TQuery &Qry )
       throw EConvertError("");
   }
   catch( EConvertError &e ) {
-    if ( mode != CheckMode::etExtAODB ) {
+    if ( mode != etExtAODB ) {
       throw;
     }
     Qry.Clear();
@@ -372,7 +372,7 @@ TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
   Qry.Execute();
   tst();
   string term_name;
-  if ( !Qry.RowCount() && mode != CheckMode::etNormal ) {
+  if ( !Qry.RowCount() && mode != etNormal ) {
     if ( station.work_mode == "è" )
       term_name = "G" + station.name;
     else
@@ -380,7 +380,7 @@ TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
     Qry.SetVariable( "code", term_name );
     Qry.Execute();
   }
-  if ( !Qry.RowCount() && mode != CheckMode::etNormal ) {
+  if ( !Qry.RowCount() && mode != etNormal ) {
     if ( station.work_mode == "è" )
       term_name = "G0" + station.name;
     else
