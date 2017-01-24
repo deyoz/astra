@@ -2818,10 +2818,10 @@ void TFlightStations::Save( int point_id )
             if ( istation->pr_main ) {
               PrmLexema prmlexema("", "EVT.DESK_MAIN");
               prmlexema.prms << PrmSmpl<std::string>("", istation->name);
-              prmenum.prms << prmlexema;
+              new_prmenum.prms << prmlexema;
             }
             else
-              prmenum.prms << PrmSmpl<std::string>("", istation->name);
+              new_prmenum.prms << PrmSmpl<std::string>("", istation->name);
           }
         }
       }
