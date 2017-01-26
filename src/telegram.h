@@ -295,6 +295,8 @@ public:
      AddEvent("ckin_report",evHandle);
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::kuf_stat);
      AddEvent("kuf_stat",evHandle);
+     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::kuf_stat_flts);
+     AddEvent("kuf_stat_flts",evHandle);
 
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::TestSeatRanges);
      AddEvent("TestSeatRanges",evHandle);
@@ -314,6 +316,7 @@ public:
   void kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ckin_report(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void scs_oper(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

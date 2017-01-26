@@ -9321,6 +9321,8 @@ namespace CKIN_REPORT {
             TTripRouteItem &routeItem
             );
 
+    typedef vector<TSalonPax> TPaxList;
+
     struct TReportData {
         int point_id;
         string airline;
@@ -9332,6 +9334,7 @@ namespace CKIN_REPORT {
         TSelfCkinPaxList self_ckin_pax_list;
 
         TRoute route;
+        TPaxList pax_list;
 
         void Clear()
         {
@@ -9375,8 +9378,10 @@ namespace CKIN_REPORT {
                 (not report.pr_tranz_reg and
                  pax.point_dep == report.point_id and
                  pax_map_coord.point_dep == routeItem.point_id)
-          )
+          ) {
             report.route[routeIdx][routeItem.airp][pax.cl].tranzit.append(pax);
+            report.pax_list.push_back(pax);
+        }
     }
 
     void append_evt_self_checkin(
@@ -9391,8 +9396,10 @@ namespace CKIN_REPORT {
                 report.self_ckin_pax_list.items.find(pax.pax_id) != report.self_ckin_pax_list.items.end() and
                 pax.point_dep == report.point_id and
                 pax.point_arv == routeItem.point_id
-          )
+          ) {
             report.route[routeIdx][routeItem.airp][pax.cl].self_checkin.append(pax);
+            report.pax_list.push_back(pax);
+        }
     }
 
     void append_evt_goshow(
@@ -9407,8 +9414,10 @@ namespace CKIN_REPORT {
                 DecodePaxStatus(pax.grp_status.c_str()) == psGoshow and
                 pax.point_dep == report.point_id and
                 pax.point_arv == routeItem.point_id
-          )
+          ) {
             report.route[routeIdx][routeItem.airp][pax.cl].goshow.append(pax);
+            report.pax_list.push_back(pax);
+        }
     }
 
     struct TTranzitPaxList {
@@ -9489,6 +9498,9 @@ namespace CKIN_REPORT {
             "   points.point_id = trip_sets.point_id ";
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();
+
+        if(Qry.Eof)
+            throw UserException("flight not found");
 
         airline = Qry.FieldAsString("airline");
         flt_no = Qry.FieldAsInteger("flt_no");
@@ -9658,49 +9670,137 @@ namespace CKIN_REPORT {
     }
 }
 
-void TelegramInterface::kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+string html_get_param(const string &tag_name, xmlNodePtr reqNode)
 {
+    string result;
     xmlNodePtr node = reqNode->children;
     node = NodeAsNodeFast("get_params", node);
-    if(not node) throw Exception("kuf_stat: get_params not found where expected");
+    if(not node) throw Exception("html_get_param: get_params not found where expected");
     node = node->children;
-    string airline;
-    string airp;
-    int flt_no;
-    string suffix;
-    TDateTime scd_out;
     for(; node; node = node->next) {
         xmlNodePtr node2 = node->children;
         string name = NodeAsStringFast("name", node2);
         string value = NodeAsStringFast("value", node2);
-        TElemFmt fmt;
-        if(name == "airline") airline = ElemToElemId(etAirline, value, fmt);
-        if(name == "airp") airp = ElemToElemId(etAirp, value, fmt);
-        if(name == "flt_no") flt_no = ToInt(value);
-        if(name == "suffix") suffix = ElemToElemId(etSuffix, value, fmt);
-        if(name == "scd_out") {
-            if(StrToDateTime(value.c_str(), "dd.mm.yyyy", scd_out) == EOF)
-                throw Exception("kuf_stat: can't convert scd_out: %s", value.c_str());
+        if(name == tag_name) {
+            result = value;
+            break;
         }
     }
-    LogTrace(TRACE5) << "airline: " << airline;
-    LogTrace(TRACE5) << "airp: " << airp;
-    LogTrace(TRACE5) << "flt_no: " << flt_no;
-    LogTrace(TRACE5) << "scd_out: " << DateTimeToStr(scd_out);
-    LogTrace(TRACE5) << "suffix: " << suffix;
+    return result;
+}
 
-    TSearchFltInfo filter;
-    filter.airline = airline;
-    filter.flt_no = flt_no;
-    filter.suffix = suffix;
-    filter.airp_dep = airp;
-    filter.scd_out = scd_out;
-    filter.scd_out_in_utc = true;
-    filter.only_with_reg = false;
+void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    LogTrace(TRACE5) << "b64_encode: " << StrUtils::b64_encode(ConvertCodepage("Г", "cp866", "utf-8"));
+    TDateTime scd_out;
+    string str_scd_out = html_get_param("scd_out", reqNode);
+    if(StrToDateTime(str_scd_out.c_str(), "dd.mm.yy", scd_out) == EOF)
+        throw Exception("kuf_stat_flts: can't convert scd_out: %s", str_scd_out.c_str());
+    TCachedQuery Qry("select * from points where scd_out >= :scd_out and scd_out < :scd_out + 1 and pr_del >= 0",
+            QParams() << QParam("scd_out", otDate, scd_out));
+    Qry.get().Execute();
+    xmlNodePtr contentNode = NewTextChild(resNode, "content");
+    xmlNodePtr fltsNode = NewTextChild(contentNode, "flts");
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        int point_id = Qry.get().FieldAsInteger("point_id");
 
-    int point_id = CKIN_REPORT::get_point_id(filter);
-    if(point_id == NoExists)
-        throw UserException("flight not found");
+        TTripStage ts;
+        TStage stage = sNoActive;
+        TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
+        if(ts.act != NoExists) stage = sCloseCheckIn;
+        TTripStages::LoadStage(point_id, sTakeoff, ts);
+        if(ts.act != NoExists) stage = sTakeoff;
+
+        if(stage == sNoActive) continue;
+
+        TTripInfo tripInfo(Qry.get());
+        ostringstream flt_name;
+        flt_name
+            << tripInfo.airline
+            << setw(3) << setfill('0') << tripInfo.flt_no
+            << tripInfo.suffix << ' '
+            << tripInfo.airp;
+        ostringstream ref_name;
+        ref_name
+            << tripInfo.airline
+            << setw(3) << setfill('0') << tripInfo.flt_no
+            << tripInfo.suffix << '.'
+            << str_scd_out << ".totals.xml";
+        xmlNodePtr itemNode = NewTextChild(fltsNode, "item");
+        NewTextChild(itemNode, "flt", flt_name.str());
+        NewTextChild(itemNode, "status", ElemIdToNameLong(etGraphStage, stage));
+
+        xmlNodePtr totalsNode = NewTextChild(itemNode, "totals", ref_name.str());
+        SetProp(totalsNode, "point_id", point_id);
+        SetProp(totalsNode, "status", EncodeStage(stage));
+
+        NewTextChild(itemNode, "pax_list");
+    }
+
+}
+
+void TelegramInterface::kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string file_name;
+    int point_id = NoExists;
+    string buf = html_get_param("point_id", reqNode);
+    if(buf.empty()) { // первая версия отчетов
+        xmlNodePtr node = reqNode->children;
+        node = NodeAsNodeFast("get_params", node);
+        if(not node) throw Exception("kuf_stat: get_params not found where expected");
+        node = node->children;
+        string airline;
+        string airp;
+        int flt_no;
+        string suffix;
+        TDateTime scd_out;
+        for(; node; node = node->next) {
+            xmlNodePtr node2 = node->children;
+            string name = NodeAsStringFast("name", node2);
+            string value = NodeAsStringFast("value", node2);
+            TElemFmt fmt;
+            if(name == "airline") airline = ElemToElemId(etAirline, value, fmt);
+            if(name == "airp") airp = ElemToElemId(etAirp, value, fmt);
+            if(name == "flt_no") flt_no = ToInt(value);
+            if(name == "suffix") suffix = ElemToElemId(etSuffix, value, fmt);
+            if(name == "scd_out") {
+                if(StrToDateTime(value.c_str(), "dd.mm.yyyy", scd_out) == EOF)
+                    throw Exception("kuf_stat: can't convert scd_out: %s", value.c_str());
+            }
+        }
+        LogTrace(TRACE5) << "airline: " << airline;
+        LogTrace(TRACE5) << "airp: " << airp;
+        LogTrace(TRACE5) << "flt_no: " << flt_no;
+        LogTrace(TRACE5) << "scd_out: " << DateTimeToStr(scd_out);
+        LogTrace(TRACE5) << "suffix: " << suffix;
+
+        TSearchFltInfo filter;
+        filter.airline = airline;
+        filter.flt_no = flt_no;
+        filter.suffix = suffix;
+        filter.airp_dep = airp;
+        filter.scd_out = scd_out;
+        filter.scd_out_in_utc = true;
+        filter.only_with_reg = false;
+
+        point_id = CKIN_REPORT::get_point_id(filter);
+        if(point_id == NoExists)
+            throw UserException("flight not found");
+    } else { // вторая версия
+        point_id = ToInt(buf);
+        file_name = html_get_param("file_name", reqNode);
+        TStage stage = DecodeStage(html_get_param("status", reqNode).c_str());
+
+        TStage db_stage = sNoActive;
+        TTripStage ts;
+        TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
+        if(ts.act != NoExists) db_stage = sCloseCheckIn;
+        TTripStages::LoadStage(point_id, sTakeoff, ts);
+        if(ts.act != NoExists) db_stage = sTakeoff;
+
+        if(db_stage != stage)
+            throw UserException("Данные устарели.");
+    }
 
     XMLDoc doc("flight");
     xmlNodePtr rootNode = doc.docPtr()->children;
@@ -9710,9 +9810,16 @@ void TelegramInterface::kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     data.toXML(rootNode);
     xml_encode_nodelist(rootNode);
 
-    SetProp(
-            NewTextChild(resNode, "content", StrUtils::b64_encode(GetXMLDocText(doc.docPtr()))),
-            "b64", true);
+    if(file_name.empty())
+        SetProp(
+                NewTextChild(resNode, "content", StrUtils::b64_encode(GetXMLDocText(doc.docPtr()))),
+                "b64", true);
+    else {
+        xmlNodePtr contentNode = NewTextChild(resNode, "content");
+        xmlNodePtr fileNode = NewTextChild(contentNode, "file");
+        NewTextChild(fileNode, "name", file_name);
+        NewTextChild(fileNode, "data", StrUtils::b64_encode(GetXMLDocText(doc.docPtr())));
+    }
 }
 
 void TelegramInterface::ckin_report(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
