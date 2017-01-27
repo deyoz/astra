@@ -9755,7 +9755,6 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 namespace KUF_STAT {
     string fromDB(int point_id)
     {
-        string result;
         TCachedQuery Qry(
                 "select text from kuf_stat, kuf_stat_text "
                 "where "
