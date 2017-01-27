@@ -9725,101 +9725,130 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
             << tripInfo.airline
             << setw(3) << setfill('0') << tripInfo.flt_no
             << tripInfo.suffix << '.'
-            << str_scd_out << ".totals.xml";
+            << str_scd_out;
+
+        string totals_close_ckin_ref = ref_name.str() + ".CL.xml";
+        string totals_dep_ref = ref_name.str() + ".CC.xml";
+
         xmlNodePtr itemNode = NewTextChild(fltsNode, "item");
-        NewTextChild(itemNode, "flt", flt_name.str());
+
+        xmlNodePtr fltNode = NewTextChild(itemNode, "flt", flt_name.str());
+        SetProp(fltNode, "flt_status", EncodeStage(stage));
+        SetProp(fltNode, "point_id", point_id);
+
         NewTextChild(itemNode, "status", ElemIdToNameLong(etGraphStage, stage));
 
-        xmlNodePtr totalsNode = NewTextChild(itemNode, "totals", ref_name.str());
-        SetProp(totalsNode, "point_id", point_id);
-        SetProp(totalsNode, "status", EncodeStage(stage));
+        xmlNodePtr totalsCLNode = NewTextChild(itemNode, "totals_close_ckin", totals_close_ckin_ref);
+        SetProp(totalsCLNode, "file_status", EncodeStage(sCloseCheckIn));
+
+        if(stage == sTakeoff) {
+            xmlNodePtr totalsCCNode = NewTextChild(itemNode, "totals_dep", totals_dep_ref);
+            SetProp(totalsCCNode, "file_status", EncodeStage(sTakeoff));
+        } else
+            NewTextChild(itemNode, "totals_dep");
 
         NewTextChild(itemNode, "pax_list");
     }
 
 }
 
+namespace KUF_STAT {
+    string fromDB(int point_id)
+    {
+        string result;
+        TCachedQuery Qry(
+                "select text from kuf_stat, kuf_stat_text "
+                "where "
+                "   kuf_stat.point_id = :point_id and "
+                "   kuf_stat.id = kuf_stat_text.id "
+                "order by "
+                "   page_no",
+                QParams()
+                << QParam("point_id", otInteger, point_id)
+                );
+        Qry.get().Execute();
+        string result;
+        for (; not Qry.get().Eof; Qry.get().Next())
+            result += Qry.get().FieldAsString("text");
+        return result;
+    }
+
+    void toDB(int point_id, const string &data)
+    {
+        TCachedQuery Qry(
+                "begin "
+                "   delete from kuf_stat_text where id = (select id from kuf_stat where point_id = :point_id); "
+                "   delete from kuf_stat where point_id = :point_id; "
+                "   insert into kuf_stat values(tid_seq.nextval, :point_id) returning id into :id; "
+                "end; ",
+                QParams()
+                << QParam("point_id", otInteger, point_id)
+                << QParam("id", otInteger)
+                );
+        Qry.get().Execute();
+        int id = Qry.get().FieldAsInteger("id");
+        TCachedQuery txtQry(
+                "insert into kuf_stat_text(id, page_no, text) values(:id, :page_no, :text)",
+                QParams()
+                << QParam("id", otInteger, id)
+                << QParam("page_no", otInteger)
+                << QParam("text", otString)
+                );
+        longToDB(txtQry.get(), "text", data);
+    }
+
+    string getFileData(int point_id)
+    {
+        XMLDoc doc("flight");
+        xmlNodePtr rootNode = doc.docPtr()->children;
+
+        CKIN_REPORT::TReportData data;
+        data.get(point_id);
+        data.toXML(rootNode);
+        xml_encode_nodelist(rootNode);
+        return StrUtils::b64_encode(GetXMLDocText(doc.docPtr()));
+    }
+}
+
 void TelegramInterface::kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    string file_name;
     int point_id = NoExists;
-    string buf = html_get_param("point_id", reqNode);
-    if(buf.empty()) { // первая версия отчетов
-        xmlNodePtr node = reqNode->children;
-        node = NodeAsNodeFast("get_params", node);
-        if(not node) throw Exception("kuf_stat: get_params not found where expected");
-        node = node->children;
-        string airline;
-        string airp;
-        int flt_no;
-        string suffix;
-        TDateTime scd_out;
-        for(; node; node = node->next) {
-            xmlNodePtr node2 = node->children;
-            string name = NodeAsStringFast("name", node2);
-            string value = NodeAsStringFast("value", node2);
-            TElemFmt fmt;
-            if(name == "airline") airline = ElemToElemId(etAirline, value, fmt);
-            if(name == "airp") airp = ElemToElemId(etAirp, value, fmt);
-            if(name == "flt_no") flt_no = ToInt(value);
-            if(name == "suffix") suffix = ElemToElemId(etSuffix, value, fmt);
-            if(name == "scd_out") {
-                if(StrToDateTime(value.c_str(), "dd.mm.yyyy", scd_out) == EOF)
-                    throw Exception("kuf_stat: can't convert scd_out: %s", value.c_str());
-            }
+    point_id = ToInt(html_get_param("point_id", reqNode));
+    string file_name = html_get_param("file_name", reqNode);
+    TStage file_status = DecodeStage(html_get_param("file_status", reqNode).c_str());
+    TStage flt_status = DecodeStage(html_get_param("flt_status", reqNode).c_str());
+
+    TStage db_stage = sNoActive;
+    TTripStage ts;
+    TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
+    if(ts.act != NoExists) db_stage = sCloseCheckIn;
+    TTripStages::LoadStage(point_id, sTakeoff, ts);
+    if(ts.act != NoExists) db_stage = sTakeoff;
+
+    if(db_stage != flt_status)
+        throw UserException("Данные устарели.");
+
+    string data;
+
+    if(file_status == sCloseCheckIn) {
+        if(flt_status == sTakeoff) {
+            // достаем сохраненный отчет
+            data = KUF_STAT::fromDB(point_id);
+            if(data.empty())
+                throw Exception("file not found: %s", file_name.c_str());
+        } else {
+            data = KUF_STAT::getFileData(point_id);
+            KUF_STAT::toDB(point_id, data);
         }
-        LogTrace(TRACE5) << "airline: " << airline;
-        LogTrace(TRACE5) << "airp: " << airp;
-        LogTrace(TRACE5) << "flt_no: " << flt_no;
-        LogTrace(TRACE5) << "scd_out: " << DateTimeToStr(scd_out);
-        LogTrace(TRACE5) << "suffix: " << suffix;
+    } else if(file_status == sTakeoff) {
+        data = KUF_STAT::getFileData(point_id);
+    } else
+        throw Exception("Unexpected file_status %d", file_status);
 
-        TSearchFltInfo filter;
-        filter.airline = airline;
-        filter.flt_no = flt_no;
-        filter.suffix = suffix;
-        filter.airp_dep = airp;
-        filter.scd_out = scd_out;
-        filter.scd_out_in_utc = true;
-        filter.only_with_reg = false;
-
-        point_id = CKIN_REPORT::get_point_id(filter);
-        if(point_id == NoExists)
-            throw UserException("flight not found");
-    } else { // вторая версия
-        point_id = ToInt(buf);
-        file_name = html_get_param("file_name", reqNode);
-        TStage stage = DecodeStage(html_get_param("status", reqNode).c_str());
-
-        TStage db_stage = sNoActive;
-        TTripStage ts;
-        TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
-        if(ts.act != NoExists) db_stage = sCloseCheckIn;
-        TTripStages::LoadStage(point_id, sTakeoff, ts);
-        if(ts.act != NoExists) db_stage = sTakeoff;
-
-        if(db_stage != stage)
-            throw UserException("Данные устарели.");
-    }
-
-    XMLDoc doc("flight");
-    xmlNodePtr rootNode = doc.docPtr()->children;
-
-    CKIN_REPORT::TReportData data;
-    data.get(point_id);
-    data.toXML(rootNode);
-    xml_encode_nodelist(rootNode);
-
-    if(file_name.empty())
-        SetProp(
-                NewTextChild(resNode, "content", StrUtils::b64_encode(GetXMLDocText(doc.docPtr()))),
-                "b64", true);
-    else {
-        xmlNodePtr contentNode = NewTextChild(resNode, "content");
-        xmlNodePtr fileNode = NewTextChild(contentNode, "file");
-        NewTextChild(fileNode, "name", file_name);
-        NewTextChild(fileNode, "data", StrUtils::b64_encode(GetXMLDocText(doc.docPtr())));
-    }
+    xmlNodePtr contentNode = NewTextChild(resNode, "content");
+    xmlNodePtr fileNode = NewTextChild(contentNode, "file");
+    NewTextChild(fileNode, "name", file_name);
+    NewTextChild(fileNode, "data", data);
 }
 
 void TelegramInterface::ckin_report(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
