@@ -985,8 +985,8 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
         " DELETE aodb_pax WHERE pax_id=:pax_id AND point_addr=:point_addr; "
         " UPDATE aodb_points SET rec_no_pax=NVL(rec_no_pax,-1)+1 WHERE point_id=:point_id AND point_addr=:point_addr; "
         "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp) "
-        "      VALUES(:point_id,:point_addr,NULL,-1,0,-1,-1); "
+        "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp,pr_del) "
+        "      VALUES(:point_id,:point_addr,NULL,-1,0,-1,-1,0); "
         "  END IF; "
         "END; ";
   PQry.CreateVariable( "point_id", otInteger, point_id );
@@ -2067,8 +2067,8 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr,
         " UPDATE aodb_points SET rec_no_flt=NVL(rec_no_flt,-1)+1 "
         "  WHERE point_id=:point_id AND point_addr=:point_addr; "
         "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp) "
-        "      VALUES(:point_id,:point_addr,NULL,0,-1,-1,-1); "
+        "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp,pr_del) "
+        "      VALUES(:point_id,:point_addr,NULL,0,-1,-1,-1,0); "
         "  END IF; "
         "END;";
     Qry.CreateVariable( "point_id", otInteger, point_id );

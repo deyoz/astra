@@ -389,8 +389,8 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
    " UPDATE aodb_points SET rec_no_flt=NVL(rec_no_flt,-1)+1 "
    "  WHERE point_id=:point_id AND point_addr=:point_addr; "
    "  IF SQL%NOTFOUND THEN "
-   "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp) "
-   "      VALUES(:point_id,:point_addr,NULL,0,-1,-1,-1); "
+   "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp,pr_del) "
+   "      VALUES(:point_id,:point_addr,NULL,0,-1,-1,-1,0); "
    "  END IF; "
    "END;";
   pQry.DeclareVariable( "point_id", otInteger );
