@@ -580,7 +580,7 @@ struct TBagTagRow {
         point_num = -1;
         grp_id = -1;
         class_priority = -1;
-        bag_type = -1;
+        bag_type = NoExists;
         bag_name_priority = -1;
         bag_num = -1;
         amount = -1;
@@ -1488,7 +1488,8 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         bag_tag_row.point_num = Qry.FieldAsInteger("point_num");
         bag_tag_row.grp_id = cur_grp_id;
         bag_tag_row.airp_arv = Qry.FieldAsString("airp_arv");
-        bag_tag_row.bag_type = Qry.FieldAsInteger("bag_type");
+        if(not Qry.FieldIsNULL("bag_type"))
+            bag_tag_row.bag_type = Qry.FieldAsInteger("bag_type");
         bag_tag_row.to_ramp = Qry.FieldAsInteger("to_ramp");
         if(bag_tag_row.to_ramp)
             bag_tag_row.to_ramp_str = getLocaleText("ì íêÄèÄ", rpt_params.GetLang());
