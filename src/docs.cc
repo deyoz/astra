@@ -580,7 +580,7 @@ struct TBagTagRow {
         point_num = -1;
         grp_id = -1;
         class_priority = -1;
-        bag_type = -1;
+        bag_type = NoExists;
         bag_name_priority = -1;
         bag_num = -1;
         amount = -1;
@@ -620,7 +620,7 @@ bool lessBagTagRow(const TBagTagRow &p1, const TBagTagRow &p2)
     return result;
 }
 
-typedef struct {
+struct TBagNameRow {
     int bag_type;
     string rfisc;
     string class_code;
@@ -628,7 +628,8 @@ typedef struct {
     string airline;
     string name;
     string name_lat;
-} TBagNameRow;
+    TBagNameRow(): bag_type(NoExists) {}
+};
 
 class t_rpt_bm_bag_name {
     private:
@@ -647,7 +648,7 @@ void t_rpt_bm_bag_name::get(string class_code, TBagTagRow &bag_tag_row, TRptPara
         bool eval = false;
         if(class_code == iv->class_code) {
             if(bag_tag_row.rfisc.empty()) {
-                if(bag_tag_row.bag_type and bag_tag_row.bag_type == iv->bag_type) {
+                if(bag_tag_row.bag_type != NoExists and bag_tag_row.bag_type == iv->bag_type) {
                     eval = true;
                 }
             } else if(bag_tag_row.rfisc == iv->rfisc) {
@@ -694,7 +695,8 @@ void t_rpt_bm_bag_name::init(const string &airp, const string &airline)
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
         TBagNameRow bag_name_row;
-        bag_name_row.bag_type = Qry.FieldAsInteger("bag_type");
+        if(not Qry.FieldIsNULL("bag_type"))
+            bag_name_row.bag_type = Qry.FieldAsInteger("bag_type");
         bag_name_row.rfisc = Qry.FieldAsString("rfisc");
         bag_name_row.class_code = Qry.FieldAsString("class");
         bag_name_row.airp = Qry.FieldAsString("airp");
@@ -1486,7 +1488,8 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         bag_tag_row.point_num = Qry.FieldAsInteger("point_num");
         bag_tag_row.grp_id = cur_grp_id;
         bag_tag_row.airp_arv = Qry.FieldAsString("airp_arv");
-        bag_tag_row.bag_type = Qry.FieldAsInteger("bag_type");
+        if(not Qry.FieldIsNULL("bag_type"))
+            bag_tag_row.bag_type = Qry.FieldAsInteger("bag_type");
         bag_tag_row.to_ramp = Qry.FieldAsInteger("to_ramp");
         if(bag_tag_row.to_ramp)
             bag_tag_row.to_ramp_str = getLocaleText("ì íêÄèÄ", rpt_params.GetLang());
