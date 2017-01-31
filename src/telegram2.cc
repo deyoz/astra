@@ -9352,6 +9352,7 @@ namespace CKIN_REPORT {
 
         void get(int point_id);
         void toXML(xmlNodePtr rootNode);
+        void paxLstToXML(xmlNodePtr rootNode);
         void appendArv(
                 TSalonPassengers::iterator iDep,
                 TIntArvSalonPassengers &arvMap,
@@ -9598,6 +9599,21 @@ namespace CKIN_REPORT {
         if(gender.bag.excess) NewTextChild(classNode, "paybag_weight", gender.bag.excess);
     }
 
+    void TReportData::paxLstToXML(xmlNodePtr rootNode)
+    {
+        xmlNodePtr airlineNode = NewTextChild(rootNode, "airline");
+        SetProp(airlineNode, "code_zrt", airline);
+        TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code",airline));
+        SetProp(airlineNode, "code_iata", row.code_lat);
+        NewTextChild(rootNode, "flt_no",  IntToString(flt_no) + suffix);
+        NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy"));
+        xmlNodePtr paxNode = NewTextChild(rootNode, "passengers");
+        for(TPaxList::iterator iPax = pax_list.begin(); iPax != pax_list.end(); iPax++) {
+            xmlNodePtr itemNode = NewTextChild(paxNode, "passenger");
+//            NewTextChild(itemNode, "pnr", 
+        }
+    }
+
     void TReportData::toXML(xmlNodePtr rootNode)
     {
         xmlNodePtr airlineNode = NewTextChild(rootNode, "airline");
@@ -9689,103 +9705,104 @@ string html_get_param(const string &tag_name, xmlNodePtr reqNode)
     return result;
 }
 
-void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    LogTrace(TRACE5) << "b64_encode: " << StrUtils::b64_encode(ConvertCodepage("Г", "cp866", "utf-8"));
-    TDateTime scd_out;
-    string str_scd_out = html_get_param("scd_out", reqNode);
-    if(StrToDateTime(str_scd_out.c_str(), "dd.mm.yy", scd_out) == EOF)
-        throw Exception("kuf_stat_flts: can't convert scd_out: %s", str_scd_out.c_str());
-    TCachedQuery Qry("select * from points where scd_out >= :scd_out and scd_out < :scd_out + 1 and pr_del >= 0",
-            QParams() << QParam("scd_out", otDate, scd_out));
-    Qry.get().Execute();
-    xmlNodePtr contentNode = NewTextChild(resNode, "content");
-    xmlNodePtr fltsNode = NewTextChild(contentNode, "flts");
-    for(; not Qry.get().Eof; Qry.get().Next()) {
-        int point_id = Qry.get().FieldAsInteger("point_id");
-
-        TTripStage ts;
-        TStage stage = sNoActive;
-        TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
-        if(ts.act != NoExists) stage = sCloseCheckIn;
-        TTripStages::LoadStage(point_id, sTakeoff, ts);
-        if(ts.act != NoExists) stage = sTakeoff;
-
-        if(stage == sNoActive) continue;
-
-        TTripInfo tripInfo(Qry.get());
-        ostringstream flt_name;
-        flt_name
-            << tripInfo.airline
-            << setw(3) << setfill('0') << tripInfo.flt_no
-            << tripInfo.suffix << ' '
-            << tripInfo.airp;
-        ostringstream ref_name;
-        ref_name
-            << tripInfo.airline
-            << setw(3) << setfill('0') << tripInfo.flt_no
-            << tripInfo.suffix << '.'
-            << str_scd_out;
-
-        string totals_close_ckin_ref = ref_name.str() + ".CL.xml";
-        string totals_dep_ref = ref_name.str() + ".CC.xml";
-
-        xmlNodePtr itemNode = NewTextChild(fltsNode, "item");
-
-        xmlNodePtr fltNode = NewTextChild(itemNode, "flt", flt_name.str());
-        SetProp(fltNode, "flt_status", EncodeStage(stage));
-        SetProp(fltNode, "point_id", point_id);
-
-        NewTextChild(itemNode, "status", ElemIdToNameLong(etGraphStage, stage));
-
-        xmlNodePtr totalsCLNode = NewTextChild(itemNode, "totals_close_ckin", totals_close_ckin_ref);
-        SetProp(totalsCLNode, "file_status", EncodeStage(sCloseCheckIn));
-
-        if(stage == sTakeoff) {
-            xmlNodePtr totalsCCNode = NewTextChild(itemNode, "totals_dep", totals_dep_ref);
-            SetProp(totalsCCNode, "file_status", EncodeStage(sTakeoff));
-        } else
-            NewTextChild(itemNode, "totals_dep");
-
-        NewTextChild(itemNode, "pax_list");
-    }
-
-}
-
 namespace KUF_STAT {
-    string fromDB(int point_id)
+
+    class TFileType {
+        public:
+            enum Enum {ftClose, ftTakeoff, ftPax};
+
+            static const std::list< std::pair<Enum, std::string> >& pairs()
+            {
+                static std::list< std::pair<Enum, std::string> > l;
+                if (l.empty())
+                {
+                    l.push_back(std::make_pair(ftClose,     "cl"));
+                    l.push_back(std::make_pair(ftTakeoff,   "cc"));
+                    l.push_back(std::make_pair(ftPax,       "pax"));
+                }
+                return l;
+            }
+    };
+
+    class TFileTypes : public ASTRA::PairList<TFileType::Enum, std::string>
     {
+        private:
+            virtual std::string className() const { return "TFileTypes"; }
+        public:
+            TFileTypes() : ASTRA::PairList<TFileType::Enum, std::string>(TFileType::pairs(),
+                    boost::none,
+                    boost::none) {}
+    };
+
+
+    class TAirps
+    {
+        private:
+            set<string> items;
+        public:
+            TAirps()
+            {
+                TCachedQuery airpsQry("select airp from kuf_stat_airps");
+                airpsQry.get().Execute();
+                for(; not airpsQry.get().Eof; airpsQry.get().Next()) {
+                    items.insert(airpsQry.get().FieldAsString("airp"));
+                }
+            }
+            bool find(const string &airp)
+            {
+                return items.find(airp) != items.end();
+            }
+
+    };
+
+    string fromDB(int point_id, TFileType::Enum file_type, string &fname)
+    {
+        fname.clear();
         TCachedQuery Qry(
-                "select text from kuf_stat, kuf_stat_text "
+                "select file_name, text from kuf_stat, kuf_stat_text "
                 "where "
                 "   kuf_stat.point_id = :point_id and "
+                "   kuf_stat.file_type = :file_type and "
                 "   kuf_stat.id = kuf_stat_text.id "
                 "order by "
                 "   page_no",
                 QParams()
                 << QParam("point_id", otInteger, point_id)
+                << QParam("file_type", otString, TFileTypes().encode(file_type))
                 );
         Qry.get().Execute();
         string result;
-        for (; not Qry.get().Eof; Qry.get().Next())
+        for (; not Qry.get().Eof; Qry.get().Next()) {
+            if(fname.empty()) fname = Qry.get().FieldAsString("file_name");
             result += Qry.get().FieldAsString("text");
+        }
         return result;
     }
 
-    void toDB(int point_id, const string &data)
+    void toDB(const TTripInfo tripInfo, TFileType::Enum ftype, const string &data)
     {
+        ostringstream fname;
+        fname
+            << tripInfo.airline
+            << setw(3) << setfill('0') << tripInfo.flt_no
+            << tripInfo.suffix << '.'
+            << DateTimeToStr(tripInfo.scd_out, "dd.mm.yy") << '.'
+            << TFileTypes().encode(ftype)
+            << ".xml";
         TCachedQuery Qry(
                 "begin "
-                "   delete from kuf_stat_text where id = (select id from kuf_stat where point_id = :point_id); "
-                "   delete from kuf_stat where point_id = :point_id; "
-                "   insert into kuf_stat values(tid_seq.nextval, :point_id) returning id into :id; "
+                "   delete from kuf_stat_text where id = (select id from kuf_stat where point_id = :point_id and file_type = :file_type); "
+                "   delete from kuf_stat where point_id = :point_id and file_type = :file_type; "
+                "   insert into kuf_stat(id, point_id, file_type, file_name)  values(tid__seq.nextval, :point_id, :file_type, :fname) returning id into :id; "
                 "end; ",
                 QParams()
-                << QParam("point_id", otInteger, point_id)
+                << QParam("point_id", otInteger, tripInfo.point_id)
+                << QParam("file_type", otString, TFileTypes().encode(ftype))
+                << QParam("fname", otString, fname.str())
                 << QParam("id", otInteger)
                 );
         Qry.get().Execute();
-        int id = Qry.get().FieldAsInteger("id");
+        int id = Qry.get().GetVariableAsInteger("id");
         TCachedQuery txtQry(
                 "insert into kuf_stat_text(id, page_no, text) values(:id, :page_no, :text)",
                 QParams()
@@ -9796,16 +9813,86 @@ namespace KUF_STAT {
         longToDB(txtQry.get(), "text", data);
     }
 
-    string getFileData(int point_id)
+    string getFileData(int point_id, TFileType::Enum ft)
     {
         XMLDoc doc("flight");
         xmlNodePtr rootNode = doc.docPtr()->children;
 
         CKIN_REPORT::TReportData data;
         data.get(point_id);
-        data.toXML(rootNode);
+        if(ft == TFileType::ftPax)
+            data.paxLstToXML(rootNode);
+        else
+            data.toXML(rootNode);
         xml_encode_nodelist(rootNode);
         return StrUtils::b64_encode(GetXMLDocText(doc.docPtr()));
+    }
+}
+
+void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TDateTime scd_out;
+    string str_scd_out = html_get_param("scd_out", reqNode);
+    if(StrToDateTime(str_scd_out.c_str(), "dd.mm.yy", scd_out) == EOF)
+        throw Exception("kuf_stat_flts: can't convert scd_out: %s", str_scd_out.c_str());
+    TCachedQuery Qry("select * from points where scd_out >= :scd_out and scd_out < :scd_out + 1 and pr_del >= 0",
+            QParams() << QParam("scd_out", otDate, scd_out));
+    Qry.get().Execute();
+    xmlNodePtr contentNode = NewTextChild(resNode, "content");
+    xmlNodePtr fltsNode = NewTextChild(contentNode, "flts");
+
+    TCachedQuery fileQry("select file_type, file_name from kuf_stat where point_id = :point_id",
+            QParams() << QParam("point_id", otInteger));
+
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        int point_id = Qry.get().FieldAsInteger("point_id");
+
+        TTripInfo tripInfo(Qry.get());
+        
+        if(not KUF_STAT::TAirps().find(tripInfo.airp)) continue;
+
+        TTripStage ts;
+        TStage stage = sNoActive;
+        TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
+        if(ts.act != NoExists) stage = sCloseCheckIn;
+        TTripStages::LoadStage(point_id, sTakeoff, ts);
+        if(ts.act != NoExists) stage = sTakeoff;
+
+        if(stage == sNoActive) continue;
+
+        ostringstream flt_name;
+        flt_name
+            << tripInfo.airline
+            << setw(3) << setfill('0') << tripInfo.flt_no
+            << tripInfo.suffix << ' '
+            << tripInfo.airp;
+
+        xmlNodePtr itemNode = NewTextChild(fltsNode, "item");
+
+        xmlNodePtr fltNode = NewTextChild(itemNode, "flt", flt_name.str());
+        SetProp(fltNode, "flt_status", EncodeStage(stage));
+        SetProp(fltNode, "point_id", point_id);
+
+        NewTextChild(itemNode, "status", ElemIdToNameLong(etGraphStage, stage));
+
+        fileQry.get().SetVariable("point_id", point_id);
+        fileQry.get().Execute();
+
+        map<KUF_STAT::TFileType::Enum, string> files;
+        for(; not fileQry.get().Eof; fileQry.get().Next())
+            files.insert(make_pair(
+                    KUF_STAT::TFileTypes().decode(fileQry.get().FieldAsString("file_type")),
+                    fileQry.get().FieldAsString("file_name")));
+
+        for(
+                std::list< std::pair<KUF_STAT::TFileType::Enum, std::string> >::const_iterator iFTypes = KUF_STAT::TFileType::pairs().begin();
+                iFTypes != KUF_STAT::TFileType::pairs().end(); iFTypes++) {
+            if(files.find(iFTypes->first) == files.end() or (stage != sTakeoff and iFTypes->first != KUF_STAT::TFileType::ftClose))
+                NewTextChild(itemNode, KUF_STAT::TFileTypes().encode(iFTypes->first).c_str());
+            else
+                NewTextChild(itemNode, KUF_STAT::TFileTypes().encode(iFTypes->first).c_str(), files[iFTypes->first]);
+        }
+
     }
 }
 
@@ -9814,7 +9901,7 @@ void TelegramInterface::kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     int point_id = NoExists;
     point_id = ToInt(html_get_param("point_id", reqNode));
     string file_name = html_get_param("file_name", reqNode);
-    TStage file_status = DecodeStage(html_get_param("file_status", reqNode).c_str());
+    KUF_STAT::TFileType::Enum file_type = KUF_STAT::TFileTypes().decode(html_get_param("file_type", reqNode));
     TStage flt_status = DecodeStage(html_get_param("flt_status", reqNode).c_str());
 
     TStage db_stage = sNoActive;
@@ -9827,26 +9914,12 @@ void TelegramInterface::kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if(db_stage != flt_status)
         throw UserException("Данные устарели.");
 
-    string data;
-
-    if(file_status == sCloseCheckIn) {
-        if(flt_status == sTakeoff) {
-            // достаем сохраненный отчет
-            data = KUF_STAT::fromDB(point_id);
-            if(data.empty())
-                throw Exception("file not found: %s", file_name.c_str());
-        } else {
-            data = KUF_STAT::getFileData(point_id);
-            KUF_STAT::toDB(point_id, data);
-        }
-    } else if(file_status == sTakeoff) {
-        data = KUF_STAT::getFileData(point_id);
-    } else
-        throw Exception("Unexpected file_status %d", file_status);
+    string fname;
+    string data = KUF_STAT::fromDB(point_id, file_type, fname);
 
     xmlNodePtr contentNode = NewTextChild(resNode, "content");
     xmlNodePtr fileNode = NewTextChild(contentNode, "file");
-    NewTextChild(fileNode, "name", file_name);
+    NewTextChild(fileNode, "name", fname);
     NewTextChild(fileNode, "data", data);
 }
 
@@ -9876,4 +9949,30 @@ void TelegramInterface::ckin_report(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     CKIN_REPORT::TReportData data;
     data.get(point_id);
     data.toXML(resNode);
+}
+
+void get_kuf_stat(int point_id)
+{
+    TCachedQuery Qry("select * from points where point_id = :point_id",
+            QParams() << QParam("point_id", otInteger, point_id));
+    Qry.get().Execute();
+
+    TTripInfo tripInfo(Qry.get());
+
+    if(not KUF_STAT::TAirps().find(tripInfo.airp)) return;
+
+    TTripStage ts;
+    TStage stage = sNoActive;
+    TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
+    if(ts.act != NoExists) stage = sCloseCheckIn;
+    TTripStages::LoadStage(point_id, sTakeoff, ts);
+    if(ts.act != NoExists) stage = sTakeoff;
+
+    if(stage == sNoActive) return;
+
+    if(stage == sTakeoff) {
+        KUF_STAT::toDB(tripInfo, KUF_STAT::TFileType::ftTakeoff, KUF_STAT::getFileData(point_id, KUF_STAT::TFileType::ftTakeoff));
+        KUF_STAT::toDB(tripInfo, KUF_STAT::TFileType::ftPax, KUF_STAT::getFileData(point_id, KUF_STAT::TFileType::ftPax));
+    } else
+        KUF_STAT::toDB(tripInfo, KUF_STAT::TFileType::ftClose, KUF_STAT::getFileData(point_id, KUF_STAT::TFileType::ftClose));
 }

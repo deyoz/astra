@@ -13,6 +13,7 @@
 #include "term_version.h"
 #include "passenger.h"
 #include "points.h"
+#include "telegram.h"
 #include "qrys.h"
 #include "tlg/tlg.h"
 #include "astra_elem_utils.h"
@@ -10223,6 +10224,7 @@ void get_flight_stat(int point_id, bool final_collection)
      get_rfisc_stat(point_id);
      get_service_stat(point_id);
      get_limited_capability_stat(point_id);
+     get_kuf_stat(point_id);
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
