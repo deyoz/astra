@@ -808,6 +808,7 @@ struct TWItem {
     int rkWeight;
     int excess; // used in CKIN_REPORT
     void get(int grp_id, int bag_pool_num);
+    void get(int pax_id);
     void ToTlg(vector<string> &body);
     TWItem():
         bagAmount(0),
@@ -2423,6 +2424,20 @@ void TWItem::ToTlg(vector<string> &body)
     if(rkWeight != 0)
         buf << '/' << rkWeight;
     body.push_back(buf.str());
+}
+
+void TWItem::get(int pax_id)
+{
+    TCachedQuery Qry("select grp_id, bag_pool_num from pax where pax_id = :pax_id",
+            QParams() << QParam("pax_id", otInteger, pax_id));
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int bag_pool_num = NoExists;
+        if(not Qry.get().FieldIsNULL("bag_pool_num"))
+            bag_pool_num = Qry.get().FieldAsInteger("bag_pool_num");
+        int grp_id = Qry.get().FieldAsInteger("grp_id");
+        get(grp_id, bag_pool_num);
+    }
 }
 
 void TWItem::get(int grp_id, int bag_pool_num)
@@ -9183,14 +9198,8 @@ namespace CKIN_REPORT {
         seat_count.append(gender, pax.seats);
 
         // adding baggage
-        TCachedQuery Qry("select bag_pool_num from pax where pax_id = :pax_id",
-                QParams() << QParam("pax_id", otInteger, pax.pax_id));
-        Qry.get().Execute();
-        int bag_pool_num = NoExists;
-        if(not Qry.get().Eof and not Qry.get().FieldIsNULL(0))
-            bag_pool_num = Qry.get().FieldAsInteger(0);
         TWItem add_bag;
-        add_bag.get(pax.grp_id, bag_pool_num);
+        add_bag.get(pax.pax_id);
         bag += add_bag;
     }
 
@@ -9678,6 +9687,32 @@ namespace CKIN_REPORT {
         return p1.reg_no < p2.reg_no;
     }
 
+    int get_bag_pool_num(int pax_id)
+    {
+        TCachedQuery Qry("select bag_pool_num from pax where pax_id = :pax_id",
+                QParams() << QParam("pax_id", otInteger, pax_id));
+        Qry.get().Execute();
+        int result = NoExists;
+        if(not Qry.get().Eof and not Qry.get().FieldIsNULL("bag_pool_num"))
+            result = Qry.get().FieldAsInteger("bag_pool_num");
+        return result;
+    }
+
+    string get_bag_tags(const TSalonPax &pax, int bag_pool_num)
+    {
+        TCachedQuery Qry(
+                "select ckin.get_birks2(:grp_id,:pax_id,:bag_pool_num,1) from dual",
+                QParams()
+                << QParam("grp_id", otInteger, pax.grp_id)
+                << QParam("pax_id", otInteger, pax.pax_id)
+                << QParam("bag_pool_num", otInteger, bag_pool_num));
+        Qry.get().Execute();
+        string result;
+        if(not Qry.get().Eof and not Qry.get().FieldIsNULL(0))
+            result = Qry.get().FieldAsString(0);
+        return result;
+    }
+
     void TReportData::paxLstToXML(xmlNodePtr rootNode)
     {
         xmlNodePtr airlineNode = NewTextChild(rootNode, "airline");
@@ -9708,6 +9743,7 @@ namespace CKIN_REPORT {
         sort(pax_list.begin(), pax_list.end(), cmpPaxList);
 
         for(TPaxList::iterator iPax = pax_list.begin(); iPax != pax_list.end(); iPax++) {
+            int bag_pool_num = get_bag_pool_num(iPax->pax_id);
             xmlNodePtr itemNode = NewTextChild(paxNode, "passenger");
             vector<TPnrAddrItem> pnrs;
             NewTextChild(itemNode, "pnr", GetPaxPnrAddr(iPax->pax_id, pnrs));
@@ -9719,7 +9755,46 @@ namespace CKIN_REPORT {
             NewTextChild(itemNode, "ures");
             NewTextChild(itemNode, "inf", get_inf(inf, *iPax, pwr));
             NewTextChild(itemNode, "chd", get_chd(childs, *iPax, pwr));
+
+            TWItem w;
+            w.get(iPax->pax_id);
+            ostringstream buf;
+            if(w.bagAmount != 0 or w.bagWeight != 0 or w.rkWeight != 0)
+                buf << w.bagAmount << "/" << w.bagWeight << "/" << w.rkWeight;
+            NewTextChild(itemNode, "bag", buf.str());
+            buf.str("");
+            if(w.excess != 0)
+                buf << w.excess << KG;
+            NewTextChild(itemNode, "xbag", buf.str());
+
+            NewTextChild(itemNode, "bagtags", get_bag_tags(*iPax, bag_pool_num));
+
+            set<CheckIn::TPaxFQTItem> fqts;
+            CheckIn::TPaxFQTCards fqt_cards;
+            if (LoadPaxFQT(iPax->pax_id, fqts))
+                CheckIn::GetPaxFQTCards(fqts, fqt_cards);
+            buf.str("");
+            if(not fqt_cards.empty())
+                buf << fqt_cards.begin()->first.airline << " " << fqt_cards.begin()->first.no;
+            NewTextChild(itemNode, "fqtv", buf.str());
+
+            CheckIn::TPaxTknItem tkn;
+            LoadPaxTkn(NoExists, iPax->pax_id, tkn);
+            NewTextChild(itemNode, "tkna", ((not tkn.empty() and tkn.rem == "TKNA") ? tkn.no_str(): ""));
+
+            NewTextChild(itemNode, "tknm");
+            NewTextChild(itemNode, "outbound");
+            NewTextChild(itemNode, "inbound");
+            NewTextChild(itemNode, "z");
+
             NewTextChild(itemNode, "passnum", iPax->reg_no);
+
+            NewTextChild(itemNode, "dest");
+            NewTextChild(itemNode, "sb");
+            NewTextChild(itemNode, "nrec");
+            NewTextChild(itemNode, "hall");
+            NewTextChild(itemNode, "tkne", ((not tkn.empty() and tkn.rem == "TKNE") ? tkn.no_str(): ""));
+            NewTextChild(itemNode, "selfcheckin");
         }
     }
 
