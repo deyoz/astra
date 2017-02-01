@@ -9599,6 +9599,85 @@ namespace CKIN_REPORT {
         if(gender.bag.excess) NewTextChild(classNode, "paybag_weight", gender.bag.excess);
     }
 
+    string get_seats(const TCheckinPaxSeats &seats)
+    {
+        string result;
+        for(set<TTlgCompLayer,TCompareCompLayers>::const_iterator is = seats.seats.begin(); is != seats.seats.end(); is++) {
+            if(not result.empty()) result += " ";
+            result += denorm_iata_row(is->yname, NULL) + denorm_iata_line(is->xname, true);
+        }
+        return result;
+    }
+
+    typedef map<int, vector<TSalonPax> > TChilds;
+
+    string get_chd(const TChilds &chd, TSalonPax &pax, PersWeightRules &pwr)
+    {
+        LogTrace(TRACE5) << "get_chd pax_id: " << pax.pax_id;
+
+        ClassesPersWeight cpw;
+        pwr.weight(pax.cl, string(), cpw);
+
+        TChilds::const_iterator iChd = chd.find(pax.pax_id);
+
+        ostringstream result;
+
+        if(iChd != chd.end()) {
+            int amount = 0;
+            int weight = 0;
+            string names;
+            for(vector<TSalonPax>::const_iterator i = iChd->second.begin(); i != iChd->second.end(); i++) {
+                amount++;
+                weight += cpw.child;
+                if(not names.empty()) names += " ";
+                names += i->name;
+            }
+            if(amount) result << amount << "/" << weight << "/" << names;
+        }
+        return result.str();
+    }
+
+    string get_inf(const TInfants &inf, TSalonPax &pax, PersWeightRules &pwr)
+    {
+        ostringstream result;
+        for(vector<TInfantsItem>::const_iterator i = inf.items.begin(); i != inf.items.end(); i++) {
+            if(i->parent_pax_id == pax.pax_id) {
+                ClassesPersWeight cpw;
+                pwr.weight(pax.cl, string(), cpw);
+                result << "1/" << cpw.infant << "/" << i->name;
+            }
+        }
+        return result.str();
+    }
+
+    void SetChildsToAdults(const TPaxList &pax_list, TChilds &childs)
+    {
+        set<int> chd_processed;
+        for(TPaxList::const_iterator parentPax = pax_list.begin(); parentPax != pax_list.end(); parentPax++) {
+            for(int k = 1; k <= 2; k++) {
+                for(TPaxList::const_iterator chdPax = pax_list.begin(); chdPax != pax_list.end(); chdPax++) {
+                    if(
+                            parentPax->pax_id != chdPax->pax_id and
+                            parentPax->pers_type == adult and
+                            chdPax->pers_type == child and
+                            parentPax->grp_id == chdPax->grp_id and
+                            chd_processed.find(chdPax->pax_id) == chd_processed.end() and
+                            ((k == 1 and parentPax->surname == chdPax->surname) or
+                             (k == 2))
+                      ) {
+                        childs[parentPax->pax_id].push_back(*chdPax);
+                        chd_processed.insert(chdPax->pax_id);
+                    }
+                }
+            }
+        }
+    }
+
+    bool cmpPaxList(const TSalonPax &p1, const TSalonPax &p2)
+    {
+        return p1.reg_no < p2.reg_no;
+    }
+
     void TReportData::paxLstToXML(xmlNodePtr rootNode)
     {
         xmlNodePtr airlineNode = NewTextChild(rootNode, "airline");
@@ -9608,9 +9687,39 @@ namespace CKIN_REPORT {
         NewTextChild(rootNode, "flt_no",  IntToString(flt_no) + suffix);
         NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy"));
         xmlNodePtr paxNode = NewTextChild(rootNode, "passengers");
+
+        map<int,TCheckinPaxSeats> checkinPaxsSeats;
+        getSalonPaxsSeats(point_id, checkinPaxsSeats);
+
+        TypeB::TCreateInfo createInfo("LCI", TypeB::TCreatePoint());
+        TypeB::TDetailCreateInfo info;
+        info.create_point = createInfo.create_point;
+        info.copy(createInfo);
+        info.point_id = point_id;
+        TInfants inf;
+        inf.get(info);
+
+        PersWeightRules pwr;
+        pwr.read(info.point_id);
+
+        TChilds childs;
+        SetChildsToAdults(pax_list, childs);
+
+        sort(pax_list.begin(), pax_list.end(), cmpPaxList);
+
         for(TPaxList::iterator iPax = pax_list.begin(); iPax != pax_list.end(); iPax++) {
             xmlNodePtr itemNode = NewTextChild(paxNode, "passenger");
-//            NewTextChild(itemNode, "pnr", 
+            vector<TPnrAddrItem> pnrs;
+            NewTextChild(itemNode, "pnr", GetPaxPnrAddr(iPax->pax_id, pnrs));
+            NewTextChild(itemNode, "name", iPax->name + " " + iPax->surname);
+            NewTextChild(itemNode, "del");
+            NewTextChild(itemNode, "grp");
+            NewTextChild(itemNode, "sn", get_seats(checkinPaxsSeats[iPax->pax_id]));
+            NewTextChild(itemNode, "clss", iPax->cl);
+            NewTextChild(itemNode, "ures");
+            NewTextChild(itemNode, "inf", get_inf(inf, *iPax, pwr));
+            NewTextChild(itemNode, "chd", get_chd(childs, *iPax, pwr));
+            NewTextChild(itemNode, "passnum", iPax->reg_no);
         }
     }
 
@@ -9827,6 +9936,11 @@ namespace KUF_STAT {
         xml_encode_nodelist(rootNode);
         return StrUtils::b64_encode(GetXMLDocText(doc.docPtr()));
     }
+
+    void run(const TTripInfo &tripInfo, TFileType::Enum ftype)
+    {
+        KUF_STAT::toDB(tripInfo, ftype, KUF_STAT::getFileData(tripInfo.point_id, ftype));
+    }
 }
 
 void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -9961,18 +10075,24 @@ void get_kuf_stat(int point_id)
 
     if(not KUF_STAT::TAirps().find(tripInfo.airp)) return;
 
+    bool close = false;
+    bool takeoff = false;
+
     TTripStage ts;
-    TStage stage = sNoActive;
+
     TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
-    if(ts.act != NoExists) stage = sCloseCheckIn;
+    close = ts.act != NoExists;
+
     TTripStages::LoadStage(point_id, sTakeoff, ts);
-    if(ts.act != NoExists) stage = sTakeoff;
+    takeoff = ts.act != NoExists;
 
-    if(stage == sNoActive) return;
+    if(not close and not takeoff) return;
 
-    if(stage == sTakeoff) {
-        KUF_STAT::toDB(tripInfo, KUF_STAT::TFileType::ftTakeoff, KUF_STAT::getFileData(point_id, KUF_STAT::TFileType::ftTakeoff));
-        KUF_STAT::toDB(tripInfo, KUF_STAT::TFileType::ftPax, KUF_STAT::getFileData(point_id, KUF_STAT::TFileType::ftPax));
-    } else
-        KUF_STAT::toDB(tripInfo, KUF_STAT::TFileType::ftClose, KUF_STAT::getFileData(point_id, KUF_STAT::TFileType::ftClose));
+    if(close)
+        KUF_STAT::run(tripInfo, KUF_STAT::TFileType::ftClose);
+
+    if(takeoff) {
+        KUF_STAT::run(tripInfo, KUF_STAT::TFileType::ftTakeoff);
+        KUF_STAT::run(tripInfo, KUF_STAT::TFileType::ftPax);
+    }
 }
