@@ -518,6 +518,7 @@ class TPaxGrpItem
     int bag_types_id;
     bool piece_concept;
     int tid;
+    ASTRA::TClientType client_type;
     boost::optional< std::list<WeightConcept::TPaxNormItem> > norms;
     boost::optional< std::list<WeightConcept::TPaidBagItem> > paid;
     boost::optional< TGroupBagItem > group_bag;
@@ -539,6 +540,7 @@ class TPaxGrpItem
       bag_types_id=ASTRA::NoExists;
       piece_concept=false;
       tid=ASTRA::NoExists;
+      client_type = ASTRA::ctTypeNum;
       norms=boost::none;
       paid=boost::none;
       group_bag=boost::none;

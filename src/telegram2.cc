@@ -9713,6 +9713,73 @@ namespace CKIN_REPORT {
         return result;
     }
 
+    string RouteItemToStr(const TCkinRouteItem &route_item)
+    {
+        ostringstream result;
+        if(route_item.point_dep != NoExists) {
+
+            TCachedQuery grpQry("select * from pax_grp where grp_id = :grp_id",
+                    QParams() << QParam("grp_id", otInteger, route_item.grp_id));
+            grpQry.get().Execute();
+            string cls = CheckIn::TPaxGrpItem().fromDB(grpQry.get()).cl;
+
+            TTripInfo trip_info;
+            trip_info.getByPointId(route_item.point_dep);
+            TElemFmt fmt;
+            result
+                << ElemToElemId(etAirline, trip_info.airline, fmt, LANG_EN)
+                << setw(3) << setfill('0') << trip_info.flt_no
+                << ElemToElemId(etSuffix, trip_info.suffix, fmt, LANG_EN)
+                << "/"
+                << ElemToElemId(etClass, cls, fmt, LANG_EN) << "/"
+                << DateTimeToStr(trip_info.scd_out, "ddmmm", 1) << "/"
+                << ElemToElemId(etAirp, trip_info.airp, fmt, LANG_EN);
+        }
+        return result.str();
+    }
+
+    bool get_norec(const TPFSBody &pfs, int pax_id)
+    {
+        // В NOREC попадают только посаженные NOREC
+        // LogTrace(TRACE5) << "get_norec pax_id: " << pax_id;
+        bool result = false;
+        for(TPFSItems::const_iterator
+                target = pfs.items.begin();
+                target != pfs.items.end();
+                target++) {
+            for(TPFSCtgryList::const_iterator
+                    category = target->second.begin();
+                    category != target->second.end();
+                    category++) {
+                for(TPFSClsList::const_iterator
+                        cls = category->second.begin();
+                        cls != category->second.end();
+                        cls++) {
+                    ostringstream pax_lst;
+                    for(TPFSPaxList::const_iterator
+                            pax = cls->second.begin();
+                            pax != cls->second.end();
+                            pax++) {
+                        if(not pax_lst.str().empty()) pax_lst << ", ";
+                        pax_lst << pax->pax_id;
+                        if(pax->pax_id == pax_id) {
+                            result = category->first == "NOREC";
+                            break;
+                        }
+                    }
+                    /*
+                    LogTrace(TRACE5)
+                        << "pfs[" << target->first << "]"
+                        << "[" << category->first << "]"
+                        << "[" << cls->first << "] = "
+                        << pax_lst.str();
+                        */
+                }
+            }
+        }
+        return result;
+    }
+
     void TReportData::paxLstToXML(xmlNodePtr rootNode)
     {
         xmlNodePtr airlineNode = NewTextChild(rootNode, "airline");
@@ -9726,24 +9793,50 @@ namespace CKIN_REPORT {
         map<int,TCheckinPaxSeats> checkinPaxsSeats;
         getSalonPaxsSeats(point_id, checkinPaxsSeats);
 
-        TypeB::TCreateInfo createInfo("LCI", TypeB::TCreatePoint());
-        TypeB::TDetailCreateInfo info;
-        info.create_point = createInfo.create_point;
-        info.copy(createInfo);
-        info.point_id = point_id;
         TInfants inf;
-        inf.get(info);
+        {
+            TypeB::TCreateInfo createInfo("LCI", TypeB::TCreatePoint());
+            TypeB::TDetailCreateInfo info;
+            info.create_point = createInfo.create_point;
+            info.copy(createInfo);
+            info.point_id = point_id;
+            inf.get(info);
+        }
+
+        TPFSBody pfs;
+        {
+            TypeB::TCreateInfo createInfo("PFS", TypeB::TCreatePoint());
+            TypeB::TDetailCreateInfo info;
+            info.create_point = createInfo.create_point;
+            info.copy(createInfo);
+            info.point_id = point_id;
+            pfs.get(info);
+        }
 
         PersWeightRules pwr;
-        pwr.read(info.point_id);
+        pwr.read(point_id);
 
         TChilds childs;
         SetChildsToAdults(pax_list, childs);
 
         sort(pax_list.begin(), pax_list.end(), cmpPaxList);
 
+
+        map<int, CheckIn::TPaxGrpItem> grps;
+        TCachedQuery grpQry("select * from pax_grp where grp_id = :grp_id",
+                QParams() << QParam("grp_id", otInteger));
+
         for(TPaxList::iterator iPax = pax_list.begin(); iPax != pax_list.end(); iPax++) {
+            map<int, CheckIn::TPaxGrpItem>::iterator grp = grps.find(iPax->grp_id);
+            if(grp == grps.end()) {
+                grpQry.get().SetVariable("grp_id", iPax->grp_id);
+                grpQry.get().Execute();
+                pair<map<int, CheckIn::TPaxGrpItem>::iterator, bool> res = grps.insert(make_pair(iPax->grp_id, CheckIn::TPaxGrpItem().fromDB(grpQry.get())));
+                grp = res.first;
+            }
+
             int bag_pool_num = get_bag_pool_num(iPax->pax_id);
+
             xmlNodePtr itemNode = NewTextChild(paxNode, "passenger");
             vector<TPnrAddrItem> pnrs;
             NewTextChild(itemNode, "pnr", GetPaxPnrAddr(iPax->pax_id, pnrs));
@@ -9783,18 +9876,33 @@ namespace CKIN_REPORT {
             NewTextChild(itemNode, "tkna", ((not tkn.empty() and tkn.rem == "TKNA") ? tkn.no_str(): ""));
 
             NewTextChild(itemNode, "tknm");
-            NewTextChild(itemNode, "outbound");
-            NewTextChild(itemNode, "inbound");
+
+            TCkinRouteItem route_item;
+            TCkinRoute().GetNextSeg(iPax->grp_id, crtIgnoreDependent, route_item);
+            NewTextChild(itemNode, "outbound", RouteItemToStr(route_item));
+            TCkinRoute().GetPriorSeg(iPax->grp_id, crtIgnoreDependent, route_item);
+            NewTextChild(itemNode, "inbound", RouteItemToStr(route_item));
+
             NewTextChild(itemNode, "z");
 
             NewTextChild(itemNode, "passnum", iPax->reg_no);
 
-            NewTextChild(itemNode, "dest");
+            TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code",grp->second.airp_arv));
+            NewTextChild(itemNode, "dest", row.code_lat);
             NewTextChild(itemNode, "sb");
-            NewTextChild(itemNode, "nrec");
-            NewTextChild(itemNode, "hall");
+            NewTextChild(itemNode, "nrec", get_norec(pfs, iPax->pax_id));
+
+            string hall;
+            if(grp->second.hall != NoExists)
+                hall = ElemIdToNameLong(etHall, grp->second.hall);
+            NewTextChild(itemNode, "hall", hall);
+
             NewTextChild(itemNode, "tkne", ((not tkn.empty() and tkn.rem == "TKNE") ? tkn.no_str(): ""));
-            NewTextChild(itemNode, "selfcheckin");
+            NewTextChild(itemNode, "selfcheckin",
+                    grp->second.client_type == ctWeb or
+                    grp->second.client_type == ctMobile or
+                    grp->second.client_type == ctKiosk
+                    );
         }
     }
 
@@ -10042,8 +10150,12 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
         TTripStage ts;
         TStage stage = sNoActive;
+        bool pr_close_checkin = false;
         TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
-        if(ts.act != NoExists) stage = sCloseCheckIn;
+        if(ts.act != NoExists) {
+            stage = sCloseCheckIn;
+            pr_close_checkin = true;
+        }
         TTripStages::LoadStage(point_id, sTakeoff, ts);
         if(ts.act != NoExists) stage = sTakeoff;
 
@@ -10076,7 +10188,11 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
         for(
                 std::list< std::pair<KUF_STAT::TFileType::Enum, std::string> >::const_iterator iFTypes = KUF_STAT::TFileType::pairs().begin();
                 iFTypes != KUF_STAT::TFileType::pairs().end(); iFTypes++) {
-            if(files.find(iFTypes->first) == files.end() or (stage != sTakeoff and iFTypes->first != KUF_STAT::TFileType::ftClose))
+            if(
+                    files.find(iFTypes->first) == files.end() or
+                    (stage != sTakeoff and iFTypes->first != KUF_STAT::TFileType::ftClose) or
+                    (not pr_close_checkin and iFTypes->first == KUF_STAT::TFileType::ftClose)
+                    )
                 NewTextChild(itemNode, KUF_STAT::TFileTypes().encode(iFTypes->first).c_str());
             else
                 NewTextChild(itemNode, KUF_STAT::TFileTypes().encode(iFTypes->first).c_str(), files[iFTypes->first]);
