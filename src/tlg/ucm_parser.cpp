@@ -1,5 +1,7 @@
 #include "ucm_parser.h"
 #include "ssm_parser.h" // for ParseDate
+#include "astra_misc.h" // for DayToDate
+#include "date_time.h" // for NowUTC()
 #include <utility>
 #include <boost/regex.hpp>
 
@@ -7,6 +9,7 @@
 #include "serverlib/slogger.h"
 
 using namespace std;
+using namespace BASIC::date_time;
 
 namespace TypeB
 {
@@ -109,13 +112,13 @@ void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts)
         airline = new_breed::GetAirline(results[1]);
         flt_no = ToInt(results[2]);
         suffix = new_breed::GetSuffix(results[3]);
-        date = ParseDate(results[6]);
+        date = DayToDate(ToInt(results[6]), NowUTC() + 1, true);
     } else if (boost::regex_match(src, results, e2))
     {
         airline = new_breed::GetAirline(results[1]);
         flt_no = ToInt(results[2]);
         suffix = new_breed::GetSuffix(results[3]);
-        date = ParseDate(results[4]);
+        date = DayToDate(ToInt(results[4]), NowUTC() + 1, true);
     } else
         throw ETlgError(tlgeNotMonitorNotAlarm, "Wrong flight: " + src);
 
