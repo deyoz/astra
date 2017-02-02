@@ -1021,6 +1021,14 @@ void CloseCheckIn( int point_id )
   {
     ProgError(STDLOG,"CloseCheckIn.create_apis_file (point_id=%d): %s",point_id,E.what());
   };
+  try
+  {
+      get_kuf_stat(point_id);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"CloseCheckIn.get_kuf_stat (point_id=%d): %s",point_id,E.what());
+  };
 };
 
 void CloseBoarding( int point_id )
@@ -1055,6 +1063,10 @@ void Takeoff( int point_id )
   try
   {
     get_flight_stat(point_id, false);
+  }
+  catch(const EOracleError &E) {
+      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+      ProgError(STDLOG,"SQL: %s",E.SQLText());
   }
   catch(std::exception &E)
   {

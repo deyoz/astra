@@ -21,6 +21,8 @@
 #include "typeb_utils.h"
 #include "emdoc.h"
 #include "SalonPaxList.h"
+#include "serverlib/xml_stuff.h" // для xml_decode_nodelist
+#include "serverlib/str_utils.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -806,6 +808,7 @@ struct TWItem {
     int rkWeight;
     int excess; // used in CKIN_REPORT
     void get(int grp_id, int bag_pool_num);
+    void get(int pax_id);
     void ToTlg(vector<string> &body);
     TWItem():
         bagAmount(0),
@@ -2421,6 +2424,20 @@ void TWItem::ToTlg(vector<string> &body)
     if(rkWeight != 0)
         buf << '/' << rkWeight;
     body.push_back(buf.str());
+}
+
+void TWItem::get(int pax_id)
+{
+    TCachedQuery Qry("select grp_id, bag_pool_num from pax where pax_id = :pax_id",
+            QParams() << QParam("pax_id", otInteger, pax_id));
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int bag_pool_num = NoExists;
+        if(not Qry.get().FieldIsNULL("bag_pool_num"))
+            bag_pool_num = Qry.get().FieldAsInteger("bag_pool_num");
+        int grp_id = Qry.get().FieldAsInteger("grp_id");
+        get(grp_id, bag_pool_num);
+    }
 }
 
 void TWItem::get(int grp_id, int bag_pool_num)
@@ -9093,8 +9110,6 @@ void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_t
   sectionInfo.GetTotalLayerSeat( layer_type, layerSeats );
 };
 
-#include "serverlib/xml_stuff.h"
-
 namespace CKIN_REPORT {
 
     int error(const string &err = "")
@@ -9181,14 +9196,8 @@ namespace CKIN_REPORT {
         seat_count.append(gender, pax.seats);
 
         // adding baggage
-        TCachedQuery Qry("select bag_pool_num from pax where pax_id = :pax_id",
-                QParams() << QParam("pax_id", otInteger, pax.pax_id));
-        Qry.get().Execute();
-        int bag_pool_num = NoExists;
-        if(not Qry.get().Eof and not Qry.get().FieldIsNULL(0))
-            bag_pool_num = Qry.get().FieldAsInteger(0);
         TWItem add_bag;
-        add_bag.get(pax.grp_id, bag_pool_num);
+        add_bag.get(pax.pax_id);
         bag += add_bag;
     }
 
@@ -9319,6 +9328,8 @@ namespace CKIN_REPORT {
             TTripRouteItem &routeItem
             );
 
+    typedef vector<TSalonPax> TPaxList;
+
     struct TReportData {
         int point_id;
         string airline;
@@ -9330,6 +9341,7 @@ namespace CKIN_REPORT {
         TSelfCkinPaxList self_ckin_pax_list;
 
         TRoute route;
+        TPaxList pax_list;
 
         void Clear()
         {
@@ -9347,6 +9359,7 @@ namespace CKIN_REPORT {
 
         void get(int point_id);
         void toXML(xmlNodePtr rootNode);
+        void paxLstToXML(xmlNodePtr rootNode);
         void appendArv(
                 TSalonPassengers::iterator iDep,
                 TIntArvSalonPassengers &arvMap,
@@ -9373,8 +9386,10 @@ namespace CKIN_REPORT {
                 (not report.pr_tranz_reg and
                  pax.point_dep == report.point_id and
                  pax_map_coord.point_dep == routeItem.point_id)
-          )
+          ) {
             report.route[routeIdx][routeItem.airp][pax.cl].tranzit.append(pax);
+            report.pax_list.push_back(pax);
+        }
     }
 
     void append_evt_self_checkin(
@@ -9389,8 +9404,10 @@ namespace CKIN_REPORT {
                 report.self_ckin_pax_list.items.find(pax.pax_id) != report.self_ckin_pax_list.items.end() and
                 pax.point_dep == report.point_id and
                 pax.point_arv == routeItem.point_id
-          )
+          ) {
             report.route[routeIdx][routeItem.airp][pax.cl].self_checkin.append(pax);
+            report.pax_list.push_back(pax);
+        }
     }
 
     void append_evt_goshow(
@@ -9405,8 +9422,10 @@ namespace CKIN_REPORT {
                 DecodePaxStatus(pax.grp_status.c_str()) == psGoshow and
                 pax.point_dep == report.point_id and
                 pax.point_arv == routeItem.point_id
-          )
+          ) {
             report.route[routeIdx][routeItem.airp][pax.cl].goshow.append(pax);
+            report.pax_list.push_back(pax);
+        }
     }
 
     struct TTranzitPaxList {
@@ -9487,6 +9506,9 @@ namespace CKIN_REPORT {
             "   points.point_id = trip_sets.point_id ";
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();
+
+        if(Qry.Eof)
+            throw UserException("flight not found");
 
         airline = Qry.FieldAsString("airline");
         flt_no = Qry.FieldAsInteger("flt_no");
@@ -9584,6 +9606,304 @@ namespace CKIN_REPORT {
         if(gender.bag.excess) NewTextChild(classNode, "paybag_weight", gender.bag.excess);
     }
 
+    string get_seats(const TCheckinPaxSeats &seats)
+    {
+        string result;
+        for(set<TTlgCompLayer,TCompareCompLayers>::const_iterator is = seats.seats.begin(); is != seats.seats.end(); is++) {
+            if(not result.empty()) result += " ";
+            result += denorm_iata_row(is->yname, NULL) + denorm_iata_line(is->xname, true);
+        }
+        return result;
+    }
+
+    typedef map<int, vector<TSalonPax> > TChilds;
+
+    string get_chd(const TChilds &chd, TSalonPax &pax, PersWeightRules &pwr)
+    {
+        LogTrace(TRACE5) << "get_chd pax_id: " << pax.pax_id;
+
+        ClassesPersWeight cpw;
+        pwr.weight(pax.cl, string(), cpw);
+
+        TChilds::const_iterator iChd = chd.find(pax.pax_id);
+
+        ostringstream result;
+
+        if(iChd != chd.end()) {
+            int amount = 0;
+            int weight = 0;
+            string names;
+            for(vector<TSalonPax>::const_iterator i = iChd->second.begin(); i != iChd->second.end(); i++) {
+                amount++;
+                weight += cpw.child;
+                if(not names.empty()) names += " ";
+                names += i->name;
+            }
+            if(amount) result << amount << "/" << weight << "/" << names;
+        }
+        return result.str();
+    }
+
+    string get_inf(const TInfants &inf, TSalonPax &pax, PersWeightRules &pwr)
+    {
+        ostringstream result;
+        for(vector<TInfantsItem>::const_iterator i = inf.items.begin(); i != inf.items.end(); i++) {
+            if(i->parent_pax_id == pax.pax_id) {
+                ClassesPersWeight cpw;
+                pwr.weight(pax.cl, string(), cpw);
+                result << "1/" << cpw.infant << "/" << i->name;
+            }
+        }
+        return result.str();
+    }
+
+    void SetChildsToAdults(const TPaxList &pax_list, TChilds &childs)
+    {
+        set<int> chd_processed;
+        for(TPaxList::const_iterator parentPax = pax_list.begin(); parentPax != pax_list.end(); parentPax++) {
+            for(int k = 1; k <= 2; k++) {
+                for(TPaxList::const_iterator chdPax = pax_list.begin(); chdPax != pax_list.end(); chdPax++) {
+                    if(
+                            parentPax->pax_id != chdPax->pax_id and
+                            parentPax->pers_type == adult and
+                            chdPax->pers_type == child and
+                            parentPax->grp_id == chdPax->grp_id and
+                            chd_processed.find(chdPax->pax_id) == chd_processed.end() and
+                            ((k == 1 and parentPax->surname == chdPax->surname) or
+                             (k == 2))
+                      ) {
+                        childs[parentPax->pax_id].push_back(*chdPax);
+                        chd_processed.insert(chdPax->pax_id);
+                    }
+                }
+            }
+        }
+    }
+
+    bool cmpPaxList(const TSalonPax &p1, const TSalonPax &p2)
+    {
+        return p1.reg_no < p2.reg_no;
+    }
+
+    int get_bag_pool_num(int pax_id)
+    {
+        TCachedQuery Qry("select bag_pool_num from pax where pax_id = :pax_id",
+                QParams() << QParam("pax_id", otInteger, pax_id));
+        Qry.get().Execute();
+        int result = NoExists;
+        if(not Qry.get().Eof and not Qry.get().FieldIsNULL("bag_pool_num"))
+            result = Qry.get().FieldAsInteger("bag_pool_num");
+        return result;
+    }
+
+    string get_bag_tags(const TSalonPax &pax, int bag_pool_num)
+    {
+        TCachedQuery Qry(
+                "select ckin.get_birks2(:grp_id,:pax_id,:bag_pool_num,1) from dual",
+                QParams()
+                << QParam("grp_id", otInteger, pax.grp_id)
+                << QParam("pax_id", otInteger, pax.pax_id)
+                << QParam("bag_pool_num", otInteger, bag_pool_num));
+        Qry.get().Execute();
+        string result;
+        if(not Qry.get().Eof and not Qry.get().FieldIsNULL(0))
+            result = Qry.get().FieldAsString(0);
+        return result;
+    }
+
+    string RouteItemToStr(const TCkinRouteItem &route_item)
+    {
+        ostringstream result;
+        if(route_item.point_dep != NoExists) {
+
+            TCachedQuery grpQry("select * from pax_grp where grp_id = :grp_id",
+                    QParams() << QParam("grp_id", otInteger, route_item.grp_id));
+            grpQry.get().Execute();
+            string cls = CheckIn::TPaxGrpItem().fromDB(grpQry.get()).cl;
+
+            TTripInfo trip_info;
+            trip_info.getByPointId(route_item.point_dep);
+            TElemFmt fmt;
+            result
+                << ElemToElemId(etAirline, trip_info.airline, fmt, LANG_EN)
+                << setw(3) << setfill('0') << trip_info.flt_no
+                << ElemToElemId(etSuffix, trip_info.suffix, fmt, LANG_EN)
+                << "/"
+                << ElemToElemId(etClass, cls, fmt, LANG_EN) << "/"
+                << DateTimeToStr(trip_info.scd_out, "ddmmm", 1) << "/"
+                << ElemToElemId(etAirp, trip_info.airp, fmt, LANG_EN);
+        }
+        return result.str();
+    }
+
+    bool get_norec(const TPFSBody &pfs, int pax_id)
+    {
+        // В NOREC попадают только посаженные NOREC
+        // LogTrace(TRACE5) << "get_norec pax_id: " << pax_id;
+        bool result = false;
+        for(TPFSItems::const_iterator
+                target = pfs.items.begin();
+                target != pfs.items.end();
+                target++) {
+            for(TPFSCtgryList::const_iterator
+                    category = target->second.begin();
+                    category != target->second.end();
+                    category++) {
+                for(TPFSClsList::const_iterator
+                        cls = category->second.begin();
+                        cls != category->second.end();
+                        cls++) {
+                    ostringstream pax_lst;
+                    for(TPFSPaxList::const_iterator
+                            pax = cls->second.begin();
+                            pax != cls->second.end();
+                            pax++) {
+                        if(not pax_lst.str().empty()) pax_lst << ", ";
+                        pax_lst << pax->pax_id;
+                        if(pax->pax_id == pax_id) {
+                            result = category->first == "NOREC";
+                            break;
+                        }
+                    }
+                    /*
+                    LogTrace(TRACE5)
+                        << "pfs[" << target->first << "]"
+                        << "[" << category->first << "]"
+                        << "[" << cls->first << "] = "
+                        << pax_lst.str();
+                        */
+                }
+            }
+        }
+        return result;
+    }
+
+    void TReportData::paxLstToXML(xmlNodePtr rootNode)
+    {
+        xmlNodePtr airlineNode = NewTextChild(rootNode, "airline");
+        SetProp(airlineNode, "code_zrt", airline);
+        TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code",airline));
+        SetProp(airlineNode, "code_iata", row.code_lat);
+        NewTextChild(rootNode, "flt_no",  IntToString(flt_no) + suffix);
+        NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy"));
+        xmlNodePtr paxNode = NewTextChild(rootNode, "passengers");
+
+        map<int,TCheckinPaxSeats> checkinPaxsSeats;
+        getSalonPaxsSeats(point_id, checkinPaxsSeats);
+
+        TInfants inf;
+        {
+            TypeB::TCreateInfo createInfo("LCI", TypeB::TCreatePoint());
+            TypeB::TDetailCreateInfo info;
+            info.create_point = createInfo.create_point;
+            info.copy(createInfo);
+            info.point_id = point_id;
+            inf.get(info);
+        }
+
+        TPFSBody pfs;
+        {
+            TypeB::TCreateInfo createInfo("PFS", TypeB::TCreatePoint());
+            TypeB::TDetailCreateInfo info;
+            info.create_point = createInfo.create_point;
+            info.copy(createInfo);
+            info.point_id = point_id;
+            pfs.get(info);
+        }
+
+        PersWeightRules pwr;
+        pwr.read(point_id);
+
+        TChilds childs;
+        SetChildsToAdults(pax_list, childs);
+
+        sort(pax_list.begin(), pax_list.end(), cmpPaxList);
+
+
+        map<int, CheckIn::TPaxGrpItem> grps;
+        TCachedQuery grpQry("select * from pax_grp where grp_id = :grp_id",
+                QParams() << QParam("grp_id", otInteger));
+
+        for(TPaxList::iterator iPax = pax_list.begin(); iPax != pax_list.end(); iPax++) {
+            map<int, CheckIn::TPaxGrpItem>::iterator grp = grps.find(iPax->grp_id);
+            if(grp == grps.end()) {
+                grpQry.get().SetVariable("grp_id", iPax->grp_id);
+                grpQry.get().Execute();
+                pair<map<int, CheckIn::TPaxGrpItem>::iterator, bool> res = grps.insert(make_pair(iPax->grp_id, CheckIn::TPaxGrpItem().fromDB(grpQry.get())));
+                grp = res.first;
+            }
+
+            int bag_pool_num = get_bag_pool_num(iPax->pax_id);
+
+            xmlNodePtr itemNode = NewTextChild(paxNode, "passenger");
+            vector<TPnrAddrItem> pnrs;
+            NewTextChild(itemNode, "pnr", GetPaxPnrAddr(iPax->pax_id, pnrs));
+            NewTextChild(itemNode, "name", iPax->name + " " + iPax->surname);
+            NewTextChild(itemNode, "del");
+            NewTextChild(itemNode, "grp");
+            NewTextChild(itemNode, "sn", get_seats(checkinPaxsSeats[iPax->pax_id]));
+            NewTextChild(itemNode, "clss", iPax->cl);
+            NewTextChild(itemNode, "ures");
+            NewTextChild(itemNode, "inf", get_inf(inf, *iPax, pwr));
+            NewTextChild(itemNode, "chd", get_chd(childs, *iPax, pwr));
+
+            TWItem w;
+            w.get(iPax->pax_id);
+            ostringstream buf;
+            if(w.bagAmount != 0 or w.bagWeight != 0 or w.rkWeight != 0)
+                buf << w.bagAmount << "/" << w.bagWeight << "/" << w.rkWeight;
+            NewTextChild(itemNode, "bag", buf.str());
+            buf.str("");
+            if(w.excess != 0)
+                buf << w.excess << KG;
+            NewTextChild(itemNode, "xbag", buf.str());
+
+            NewTextChild(itemNode, "bagtags", get_bag_tags(*iPax, bag_pool_num));
+
+            set<CheckIn::TPaxFQTItem> fqts;
+            CheckIn::TPaxFQTCards fqt_cards;
+            if (LoadPaxFQT(iPax->pax_id, fqts))
+                CheckIn::GetPaxFQTCards(fqts, fqt_cards);
+            buf.str("");
+            if(not fqt_cards.empty())
+                buf << fqt_cards.begin()->first.airline << " " << fqt_cards.begin()->first.no;
+            NewTextChild(itemNode, "fqtv", buf.str());
+
+            CheckIn::TPaxTknItem tkn;
+            LoadPaxTkn(NoExists, iPax->pax_id, tkn);
+            NewTextChild(itemNode, "tkna", ((not tkn.empty() and tkn.rem == "TKNA") ? tkn.no_str(): ""));
+
+            NewTextChild(itemNode, "tknm");
+
+            TCkinRouteItem route_item;
+            TCkinRoute().GetNextSeg(iPax->grp_id, crtIgnoreDependent, route_item);
+            NewTextChild(itemNode, "outbound", RouteItemToStr(route_item));
+            TCkinRoute().GetPriorSeg(iPax->grp_id, crtIgnoreDependent, route_item);
+            NewTextChild(itemNode, "inbound", RouteItemToStr(route_item));
+
+            NewTextChild(itemNode, "z");
+
+            NewTextChild(itemNode, "passnum", iPax->reg_no);
+
+            TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code",grp->second.airp_arv));
+            NewTextChild(itemNode, "dest", row.code_lat);
+            NewTextChild(itemNode, "sb");
+            NewTextChild(itemNode, "nrec", get_norec(pfs, iPax->pax_id));
+
+            string hall;
+            if(grp->second.hall != NoExists)
+                hall = ElemIdToNameLong(etHall, grp->second.hall);
+            NewTextChild(itemNode, "hall", hall);
+
+            NewTextChild(itemNode, "tkne", ((not tkn.empty() and tkn.rem == "TKNE") ? tkn.no_str(): ""));
+            NewTextChild(itemNode, "selfcheckin",
+                    grp->second.client_type == ctWeb or
+                    grp->second.client_type == ctMobile or
+                    grp->second.client_type == ctKiosk
+                    );
+        }
+    }
+
     void TReportData::toXML(xmlNodePtr rootNode)
     {
         xmlNodePtr airlineNode = NewTextChild(rootNode, "airline");
@@ -9656,6 +9976,256 @@ namespace CKIN_REPORT {
     }
 }
 
+string html_get_param(const string &tag_name, xmlNodePtr reqNode)
+{
+    string result;
+    xmlNodePtr node = reqNode->children;
+    node = NodeAsNodeFast("get_params", node);
+    if(not node) throw Exception("html_get_param: get_params not found where expected");
+    node = node->children;
+    for(; node; node = node->next) {
+        xmlNodePtr node2 = node->children;
+        string name = NodeAsStringFast("name", node2);
+        string value = NodeAsStringFast("value", node2);
+        if(name == tag_name) {
+            result = value;
+            break;
+        }
+    }
+    return result;
+}
+
+namespace KUF_STAT {
+
+    class TFileType {
+        public:
+            enum Enum {ftClose, ftTakeoff, ftPax};
+
+            static const std::list< std::pair<Enum, std::string> >& pairs()
+            {
+                static std::list< std::pair<Enum, std::string> > l;
+                if (l.empty())
+                {
+                    l.push_back(std::make_pair(ftClose,     "cl"));
+                    l.push_back(std::make_pair(ftTakeoff,   "cc"));
+                    l.push_back(std::make_pair(ftPax,       "pax"));
+                }
+                return l;
+            }
+    };
+
+    class TFileTypes : public ASTRA::PairList<TFileType::Enum, std::string>
+    {
+        private:
+            virtual std::string className() const { return "TFileTypes"; }
+        public:
+            TFileTypes() : ASTRA::PairList<TFileType::Enum, std::string>(TFileType::pairs(),
+                    boost::none,
+                    boost::none) {}
+    };
+
+
+    class TAirps
+    {
+        private:
+            set<string> items;
+        public:
+            TAirps()
+            {
+                TCachedQuery airpsQry("select airp from kuf_stat_airps");
+                airpsQry.get().Execute();
+                for(; not airpsQry.get().Eof; airpsQry.get().Next()) {
+                    items.insert(airpsQry.get().FieldAsString("airp"));
+                }
+            }
+            bool find(const string &airp)
+            {
+                return items.find(airp) != items.end();
+            }
+
+    };
+
+    string fromDB(int point_id, TFileType::Enum file_type, string &fname)
+    {
+        fname.clear();
+        TCachedQuery Qry(
+                "select file_name, text from kuf_stat, kuf_stat_text "
+                "where "
+                "   kuf_stat.point_id = :point_id and "
+                "   kuf_stat.file_type = :file_type and "
+                "   kuf_stat.id = kuf_stat_text.id "
+                "order by "
+                "   page_no",
+                QParams()
+                << QParam("point_id", otInteger, point_id)
+                << QParam("file_type", otString, TFileTypes().encode(file_type))
+                );
+        Qry.get().Execute();
+        string result;
+        for (; not Qry.get().Eof; Qry.get().Next()) {
+            if(fname.empty()) fname = Qry.get().FieldAsString("file_name");
+            result += Qry.get().FieldAsString("text");
+        }
+        return result;
+    }
+
+    void toDB(const TTripInfo tripInfo, TFileType::Enum ftype, const string &data)
+    {
+        ostringstream fname;
+        fname
+            << tripInfo.airline
+            << setw(3) << setfill('0') << tripInfo.flt_no
+            << tripInfo.suffix << '.'
+            << DateTimeToStr(tripInfo.scd_out, "dd.mm.yy") << '.'
+            << TFileTypes().encode(ftype)
+            << ".xml";
+        TCachedQuery Qry(
+                "begin "
+                "   delete from kuf_stat_text where id = (select id from kuf_stat where point_id = :point_id and file_type = :file_type); "
+                "   delete from kuf_stat where point_id = :point_id and file_type = :file_type; "
+                "   insert into kuf_stat(id, point_id, file_type, file_name)  values(tid__seq.nextval, :point_id, :file_type, :fname) returning id into :id; "
+                "end; ",
+                QParams()
+                << QParam("point_id", otInteger, tripInfo.point_id)
+                << QParam("file_type", otString, TFileTypes().encode(ftype))
+                << QParam("fname", otString, fname.str())
+                << QParam("id", otInteger)
+                );
+        Qry.get().Execute();
+        int id = Qry.get().GetVariableAsInteger("id");
+        TCachedQuery txtQry(
+                "insert into kuf_stat_text(id, page_no, text) values(:id, :page_no, :text)",
+                QParams()
+                << QParam("id", otInteger, id)
+                << QParam("page_no", otInteger)
+                << QParam("text", otString)
+                );
+        longToDB(txtQry.get(), "text", data);
+    }
+
+    string getFileData(int point_id, TFileType::Enum ft)
+    {
+        XMLDoc doc("flight");
+        xmlNodePtr rootNode = doc.docPtr()->children;
+
+        CKIN_REPORT::TReportData data;
+        data.get(point_id);
+        if(ft == TFileType::ftPax)
+            data.paxLstToXML(rootNode);
+        else
+            data.toXML(rootNode);
+        xml_encode_nodelist(rootNode);
+        return StrUtils::b64_encode(GetXMLDocText(doc.docPtr()));
+    }
+
+    void run(const TTripInfo &tripInfo, TFileType::Enum ftype)
+    {
+        KUF_STAT::toDB(tripInfo, ftype, KUF_STAT::getFileData(tripInfo.point_id, ftype));
+    }
+}
+
+void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TDateTime scd_out;
+    string str_scd_out = html_get_param("scd_out", reqNode);
+    if(StrToDateTime(str_scd_out.c_str(), "dd.mm.yy", scd_out) == EOF)
+        throw Exception("kuf_stat_flts: can't convert scd_out: %s", str_scd_out.c_str());
+    TCachedQuery Qry("select * from points where scd_out >= :scd_out and scd_out < :scd_out + 1 and pr_del >= 0",
+            QParams() << QParam("scd_out", otDate, scd_out));
+    Qry.get().Execute();
+    xmlNodePtr contentNode = NewTextChild(resNode, "content");
+    xmlNodePtr fltsNode = NewTextChild(contentNode, "flts");
+
+    TCachedQuery fileQry("select file_type, file_name from kuf_stat where point_id = :point_id",
+            QParams() << QParam("point_id", otInteger));
+
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        int point_id = Qry.get().FieldAsInteger("point_id");
+
+        TTripInfo tripInfo(Qry.get());
+        
+        if(not KUF_STAT::TAirps().find(tripInfo.airp)) continue;
+
+        TTripStage ts;
+        TStage stage = sNoActive;
+        bool pr_close_checkin = false;
+        TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
+        if(ts.act != NoExists) {
+            stage = sCloseCheckIn;
+            pr_close_checkin = true;
+        }
+        TTripStages::LoadStage(point_id, sTakeoff, ts);
+        if(ts.act != NoExists) stage = sTakeoff;
+
+        if(stage == sNoActive) continue;
+
+        ostringstream flt_name;
+        flt_name
+            << tripInfo.airline
+            << setw(3) << setfill('0') << tripInfo.flt_no
+            << tripInfo.suffix << ' '
+            << tripInfo.airp;
+
+        xmlNodePtr itemNode = NewTextChild(fltsNode, "item");
+
+        xmlNodePtr fltNode = NewTextChild(itemNode, "flt", flt_name.str());
+        SetProp(fltNode, "flt_status", EncodeStage(stage));
+        SetProp(fltNode, "point_id", point_id);
+
+        NewTextChild(itemNode, "status", ElemIdToNameLong(etGraphStage, stage));
+
+        fileQry.get().SetVariable("point_id", point_id);
+        fileQry.get().Execute();
+
+        map<KUF_STAT::TFileType::Enum, string> files;
+        for(; not fileQry.get().Eof; fileQry.get().Next())
+            files.insert(make_pair(
+                    KUF_STAT::TFileTypes().decode(fileQry.get().FieldAsString("file_type")),
+                    fileQry.get().FieldAsString("file_name")));
+
+        for(
+                std::list< std::pair<KUF_STAT::TFileType::Enum, std::string> >::const_iterator iFTypes = KUF_STAT::TFileType::pairs().begin();
+                iFTypes != KUF_STAT::TFileType::pairs().end(); iFTypes++) {
+            if(
+                    files.find(iFTypes->first) == files.end() or
+                    (stage != sTakeoff and iFTypes->first != KUF_STAT::TFileType::ftClose) or
+                    (not pr_close_checkin and iFTypes->first == KUF_STAT::TFileType::ftClose)
+                    )
+                NewTextChild(itemNode, KUF_STAT::TFileTypes().encode(iFTypes->first).c_str());
+            else
+                NewTextChild(itemNode, KUF_STAT::TFileTypes().encode(iFTypes->first).c_str(), files[iFTypes->first]);
+        }
+
+    }
+}
+
+void TelegramInterface::kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int point_id = NoExists;
+    point_id = ToInt(html_get_param("point_id", reqNode));
+    string file_name = html_get_param("file_name", reqNode);
+    KUF_STAT::TFileType::Enum file_type = KUF_STAT::TFileTypes().decode(html_get_param("file_type", reqNode));
+    TStage flt_status = DecodeStage(html_get_param("flt_status", reqNode).c_str());
+
+    TStage db_stage = sNoActive;
+    TTripStage ts;
+    TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
+    if(ts.act != NoExists) db_stage = sCloseCheckIn;
+    TTripStages::LoadStage(point_id, sTakeoff, ts);
+    if(ts.act != NoExists) db_stage = sTakeoff;
+
+    if(db_stage != flt_status)
+        throw UserException("Данные устарели.");
+
+    string fname;
+    string data = KUF_STAT::fromDB(point_id, file_type, fname);
+
+    xmlNodePtr contentNode = NewTextChild(resNode, "content");
+    xmlNodePtr fileNode = NewTextChild(contentNode, "file");
+    NewTextChild(fileNode, "name", fname);
+    NewTextChild(fileNode, "data", data);
+}
+
 void TelegramInterface::ckin_report(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string airline = CKIN_REPORT::getElemId(etAirline, NodeAsString("airline", reqNode));
@@ -9682,4 +10252,36 @@ void TelegramInterface::ckin_report(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     CKIN_REPORT::TReportData data;
     data.get(point_id);
     data.toXML(resNode);
+}
+
+void get_kuf_stat(int point_id)
+{
+    TCachedQuery Qry("select * from points where point_id = :point_id",
+            QParams() << QParam("point_id", otInteger, point_id));
+    Qry.get().Execute();
+
+    TTripInfo tripInfo(Qry.get());
+
+    if(not KUF_STAT::TAirps().find(tripInfo.airp)) return;
+
+    bool close = false;
+    bool takeoff = false;
+
+    TTripStage ts;
+
+    TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
+    close = ts.act != NoExists;
+
+    TTripStages::LoadStage(point_id, sTakeoff, ts);
+    takeoff = ts.act != NoExists;
+
+    if(not close and not takeoff) return;
+
+    if(close)
+        KUF_STAT::run(tripInfo, KUF_STAT::TFileType::ftClose);
+
+    if(takeoff) {
+        KUF_STAT::run(tripInfo, KUF_STAT::TFileType::ftTakeoff);
+        KUF_STAT::run(tripInfo, KUF_STAT::TFileType::ftPax);
+    }
 }

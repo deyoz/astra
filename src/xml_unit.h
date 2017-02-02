@@ -100,6 +100,8 @@ xmlDocPtr CreateXMLDoc(const char *root);
 xmlDocPtr TextToXMLTree( const std::string& str );
 std::string XMLTreeToText( xmlDocPtr doc);
 std::string GetXMLDocText( xmlDocPtr doc);
+std::string EncodeSpecialChars(const std::string &val);
+std::string URIUnescapeString(const std::string &val);
 
 class xmlDocPtrCover
 {

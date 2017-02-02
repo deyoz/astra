@@ -34,6 +34,7 @@
 #include "tlg/lci_parser.h"
 #include "img.h"
 #include "collect.h"
+#include "html_pages.h"
 
 /*
 int LocalIsNosir=0;
@@ -107,6 +108,8 @@ const
     {"-bp",                     bp_tst,                 NULL,                       NULL},
     {"-vo",                     tst_vo,                 NULL,                       NULL},
     {"-annul_bag",              nosir_annul_bag,        NULL,                       NULL},
+    {"-html_to_db",             html_to_db,             NULL,                       "loading html files to database"},
+    {"-html_from_db",           html_from_db,           NULL,                       "getting html files from database to local path"},
   };
 
 int nosir_test(int argc,char **argv)

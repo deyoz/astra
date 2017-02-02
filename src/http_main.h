@@ -13,16 +13,22 @@ namespace AstraHTTP
 #define CHECKIN_JXT_INTERFACE_ID "CheckIn"
 #define TELEGRAM_JXT_INTERFACE_ID "Telegram"
 #define STAT_JXT_INTERFACE_ID "stat"
+#define HTML_JXT_INTERFACE_ID "html"
 #define PIECE_CONCEPT_JXT_INTERFACE_ID "PieceConcept"
 #define PRINT_JXT_INTERFACE_ID "print"
+
+struct HTTPClient;
 
 void HTTPPostProcessXMLAnswer();
 void TlgPostProcessXMLAnswer();
 
 struct JxtInfo {
   std::string interface;
-  void (*post_proc)();
-  JxtInfo(const std::string& name, void (*proc)()):
+
+  typedef void (*TPostProc)();
+
+  TPostProc post_proc;
+  JxtInfo(const std::string& name, TPostProc proc):
     interface(name), post_proc(proc) {}
   JxtInfo() : post_proc(NULL) {}
 };
@@ -34,7 +40,9 @@ struct HTTPClient
   bool jxt_format;
   std::string user_name;
   std::string password;
+  std::string uri_path;
   std::map<std::string, JxtInfo> jxt_interface;
+  std::map<std::string, std::string> get_params;
   std::string toString();
   void toJXT( const ServerFramework::HTTP::request& req, std::string &header, std::string &body );
   ServerFramework::HTTP::reply& fromJXT( std::string res, ServerFramework::HTTP::reply& rep );
@@ -45,11 +53,14 @@ struct HTTPClient
     jxt_interface["tlg_srv"] =              JxtInfo(TELEGRAM_JXT_INTERFACE_ID, TlgPostProcessXMLAnswer);
     jxt_interface["kick"] =                 JxtInfo(TELEGRAM_JXT_INTERFACE_ID, TlgPostProcessXMLAnswer);
     jxt_interface["ckin_report"] =          JxtInfo(TELEGRAM_JXT_INTERFACE_ID, TlgPostProcessXMLAnswer);
+    jxt_interface["kuf_stat"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
+    jxt_interface["kuf_stat_flts"] =        JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
     jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID, NULL);
     jxt_interface["piece_concept"] =        JxtInfo(PIECE_CONCEPT_JXT_INTERFACE_ID, NULL);
     jxt_interface["GetPrintDataBP"] =       JxtInfo(PRINT_JXT_INTERFACE_ID, NULL);
     jxt_interface["GetGRPPrintDataBP"] =    JxtInfo(PRINT_JXT_INTERFACE_ID, NULL);
     jxt_interface["GetImg"] =               JxtInfo(PRINT_JXT_INTERFACE_ID, NULL);
+    jxt_interface["get_resource"] =         JxtInfo(HTML_JXT_INTERFACE_ID, NULL);
   }
 };
 
