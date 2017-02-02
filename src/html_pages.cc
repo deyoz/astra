@@ -2,7 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include "boost/filesystem/operations.hpp"
+#include "boost/filesystem.hpp"
 #include "qrys.h"
 #include "exceptions.h"
 #include "astra_context.h"
@@ -32,14 +32,12 @@ vector<string> get_file_list(const string& init_path)
     //  https://gist.github.com/vivithemage/9517678
     //  http://stackoverflow.com/questions/67273/how-do-you-iterate-through-every-file-directory-recursively-in-standard-c
     vector<string> file_list;
-    /*
     if (init_path.empty())
         throw Exception("Path is empty");
     fs::recursive_directory_iterator end;
     for (fs::recursive_directory_iterator i_entry(init_path); i_entry != end; ++i_entry)
         if (fs::is_regular_file(i_entry->path()))
             file_list.push_back( i_entry->path().string().substr(init_path.size()) );
-            */
     return file_list;
 }
 
@@ -128,7 +126,6 @@ int html_to_db(int argc, char **argv)
 //  --------------------------------
 int html_from_db(int argc, char **argv)
 {
-    /*
     try
     {
         if (argc != 2)
@@ -152,10 +149,10 @@ int html_from_db(int argc, char **argv)
         {
             string file_path =  ip->first;
             string full_path = init_path + file_path;
-            string dir_path = full_path.substr( 0, full_path.size() - fs::path(full_path).filename().string().size() );
+            string dir_path = full_path.substr( 0, full_path.size() - string( fs::path(full_path).filename().c_str() ).size() );
             fs::create_directories(dir_path);
             if (LOCAL_DEBUG) cout << __FUNCTION__ << " WRITE FILE: " << full_path << endl;
-            ofstream out(full_path, std::ios::binary|std::ios::trunc);
+            ofstream out(full_path.c_str(), std::ios::binary|std::ios::trunc);
             if(!out.good())
                 throw Exception("Cannot open for write file %s", full_path.c_str());
             out << StrUtils::b64_decode(ip->second);
@@ -166,7 +163,6 @@ int html_from_db(int argc, char **argv)
         html_db_usage(argv[0], E.what());
         return 1;
     }
-    */
     return 0;
 }
 
