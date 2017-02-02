@@ -32,12 +32,14 @@ vector<string> get_file_list(const string& init_path)
     //  https://gist.github.com/vivithemage/9517678
     //  http://stackoverflow.com/questions/67273/how-do-you-iterate-through-every-file-directory-recursively-in-standard-c
     vector<string> file_list;
+    /*
     if (init_path.empty())
         throw Exception("Path is empty");
     fs::recursive_directory_iterator end;
     for (fs::recursive_directory_iterator i_entry(init_path); i_entry != end; ++i_entry)
         if (fs::is_regular_file(i_entry->path()))
             file_list.push_back( i_entry->path().string().substr(init_path.size()) );
+            */
     return file_list;
 }
 
@@ -126,6 +128,7 @@ int html_to_db(int argc, char **argv)
 //  --------------------------------
 int html_from_db(int argc, char **argv)
 {
+    /*
     try
     {
         if (argc != 2)
@@ -163,6 +166,7 @@ int html_from_db(int argc, char **argv)
         html_db_usage(argv[0], E.what());
         return 1;
     }
+    */
     return 0;
 }
 

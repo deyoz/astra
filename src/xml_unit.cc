@@ -636,9 +636,9 @@ string URIUnescapeString(const string &val)
 string EncodeSpecialChars(const string &val)
 {
     string result;
-    xmlChar *xchar = nullptr;
+    xmlChar *xchar = NULL;
     try {
-        xchar = xmlEncodeSpecialChars(nullptr, BAD_CAST val.c_str());
+        xchar = xmlEncodeSpecialChars(NULL, BAD_CAST val.c_str());
         if(xchar) {
             result = (char *)xchar;
             xmlFree(xchar);
