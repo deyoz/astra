@@ -587,6 +587,17 @@ xmlNodePtr CopyNodeList(xmlNodePtr dest, xmlNodePtr src)
   return res;
 };
 
+void RemoveChildNodes(xmlNodePtr node)
+{
+    xmlNodePtr chdNode = node->children;
+    while(chdNode) {
+        xmlNodePtr rmNode = chdNode;
+        chdNode = chdNode->next;
+        xmlUnlinkNode(rmNode);
+        xmlFreeNode(rmNode);
+    }
+}
+
 xmlNodePtr CopyNode(xmlNodePtr dest, xmlNodePtr src, bool recursive)
 {
   xmlNodePtr node,res;
