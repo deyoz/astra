@@ -2,7 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include "boost/filesystem/operations.hpp"
+#include "boost/filesystem.hpp"
 #include "qrys.h"
 #include "exceptions.h"
 #include "astra_context.h"
@@ -149,10 +149,10 @@ int html_from_db(int argc, char **argv)
         {
             string file_path =  ip->first;
             string full_path = init_path + file_path;
-            string dir_path = full_path.substr( 0, full_path.size() - fs::path(full_path).filename().string().size() );
+            string dir_path = full_path.substr( 0, full_path.size() - string( fs::path(full_path).filename().c_str() ).size() );
             fs::create_directories(dir_path);
             if (LOCAL_DEBUG) cout << __FUNCTION__ << " WRITE FILE: " << full_path << endl;
-            ofstream out(full_path, std::ios::binary|std::ios::trunc);
+            ofstream out(full_path.c_str(), std::ios::binary|std::ios::trunc);
             if(!out.good())
                 throw Exception("Cannot open for write file %s", full_path.c_str());
             out << StrUtils::b64_decode(ip->second);
