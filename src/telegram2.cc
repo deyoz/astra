@@ -23,6 +23,7 @@
 #include "SalonPaxList.h"
 #include "serverlib/xml_stuff.h" // для xml_decode_nodelist
 #include "serverlib/str_utils.h"
+#include <boost/regex.hpp>
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -6994,11 +6995,31 @@ struct TSeatPlan {
     private:
         template <typename T>
             void fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter);
+        string getXCRType(int pax_id);
     public:
         map<int,TCheckinPaxSeats> checkinPaxsSeats;
         void get(TypeB::TDetailCreateInfo &info);
         void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
+
+string TSeatPlan::getXCRType(int pax_id)
+{
+    string result;
+    multiset<CheckIn::TPaxRemItem> rems;
+    LoadPaxRem(pax_id, rems);
+    for(multiset<CheckIn::TPaxRemItem>::iterator
+            i = rems.begin();
+            i != rems.end(); i++) {
+        if(i->code == TCrewTypes().encode(TCrewType::ExtraCrew)) {
+            boost::match_results<std::string::const_iterator> results;
+            static const boost::regex e("^XCR ([12])$");
+            if(boost::regex_match(i->text, results, e)) {
+                result = results[1];
+            }
+        }
+    }
+    return result;
+}
 
 void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
 {
@@ -7017,6 +7038,7 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
     for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
+        string xcr_type = getXCRType(im->first);
         // g stands for 'gender'; First iteration - seats for adult, second iteration - one seat for infant
         for(int g = 0; g <=1; g++) {
             string gender;
@@ -7032,14 +7054,18 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
             for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
                 string seat =
                     "." + denorm_iata_row(is->yname, NULL) +
-                    denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
-                    "/" + gender;
+                    denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat);
                 if(options.version == "WB") {
+                    if(is == im->second.seats.begin())
+                        seat += "/" + gender;
                     if(is != im->second.seats.begin())
                         seat += "/B"; // так обозначаются доп. места (extra seats)
                     else switch(im->second.crew_type) {
                         case TCrewType::ExtraCrew:
-                            seat += "/1";
+                            {
+                                if(not xcr_type.empty())
+                                    seat += "/" + xcr_type;
+                            }
                             break;
                         case TCrewType::DeadHeadCrew:
                             seat += "/D";
@@ -7050,7 +7076,8 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
                         default:
                             break;
                     }
-                }
+                } else
+                    seat += "/" + gender;
                 inserter.do_insert(seat, is->point_arv);
                 if(g == 1) break; // Для инфанта печатаем только первое место
             }
