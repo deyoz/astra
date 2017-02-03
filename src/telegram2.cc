@@ -9112,6 +9112,26 @@ void ccccccccccccccccccccc( int point_dep,  const ASTRA::TCompLayerType &layer_t
   sectionInfo.GetTotalLayerSeat( layer_type, layerSeats );
 };
 
+namespace KUF_STAT {
+
+    class TFileType {
+        public:
+            enum Enum {ftClose, ftTakeoff, ftPax};
+
+            static const std::list< std::pair<Enum, std::string> >& pairs()
+            {
+                static std::list< std::pair<Enum, std::string> > l;
+                if (l.empty())
+                {
+                    l.push_back(std::make_pair(ftClose,     "cl"));
+                    l.push_back(std::make_pair(ftTakeoff,   "cc"));
+                    l.push_back(std::make_pair(ftPax,       "pax"));
+                }
+                return l;
+            }
+    };
+}
+
 namespace CKIN_REPORT {
 
     int error(const string &err = "")
@@ -9360,7 +9380,7 @@ namespace CKIN_REPORT {
         }
 
         void get(int point_id);
-        void toXML(xmlNodePtr rootNode);
+        void toXML(xmlNodePtr rootNode, KUF_STAT::TFileType::Enum ft);
         void paxLstToXML(xmlNodePtr rootNode);
         void appendArv(
                 TSalonPassengers::iterator iDep,
@@ -9906,7 +9926,7 @@ namespace CKIN_REPORT {
         }
     }
 
-    void TReportData::toXML(xmlNodePtr rootNode)
+    void TReportData::toXML(xmlNodePtr rootNode, KUF_STAT::TFileType::Enum ft)
     {
         xmlNodePtr airlineNode = NewTextChild(rootNode, "airline");
         SetProp(airlineNode, "code_zrt", airline);
@@ -9916,15 +9936,10 @@ namespace CKIN_REPORT {
         NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy"));
 
         string status;
-        TTripStage ts;
-        TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
-        if(ts.act != NoExists) status = "CL";
-        TTripStages::LoadStage(point_id, sTakeoff, ts);
-        if(ts.act != NoExists) status = "CC";
-        if(status.empty()) {
-            status = "DEBUG";
-            //    return error("status not found");
-        }
+        if(ft == KUF_STAT::TFileType::ftClose) status = "CL";
+        if(ft == KUF_STAT::TFileType::ftTakeoff) status = "CC";
+        if(status.empty())
+            throw Exception("TReportData::toXML: unknown file type %d", ft);
 
         NewTextChild(rootNode, "status",  status);
 
@@ -9951,31 +9966,6 @@ namespace CKIN_REPORT {
             }
         }
     }
-
-    int run(int argc, char **argv)
-    {
-        if(argc != 3)
-            return usage(argv[0]);
-        int point_id = NoExists;
-        try {
-            point_id = get_point_id(argv[1], argv[2]);
-        } catch(Exception &E) {
-            return error(E.what());
-        }
-
-        XMLDoc doc("flight");
-        xmlNodePtr rootNode = doc.docPtr()->children;
-
-        TReportData data;
-        data.get(point_id);
-        data.toXML(rootNode);
-
-        xml_encode_nodelist(rootNode);
-
-        ofstream out("flight.xml");
-        out << GetXMLDocText(doc.docPtr());
-        return 1;
-    }
 }
 
 string html_get_param(const string &tag_name, xmlNodePtr reqNode)
@@ -9998,23 +9988,6 @@ string html_get_param(const string &tag_name, xmlNodePtr reqNode)
 }
 
 namespace KUF_STAT {
-
-    class TFileType {
-        public:
-            enum Enum {ftClose, ftTakeoff, ftPax};
-
-            static const std::list< std::pair<Enum, std::string> >& pairs()
-            {
-                static std::list< std::pair<Enum, std::string> > l;
-                if (l.empty())
-                {
-                    l.push_back(std::make_pair(ftClose,     "cl"));
-                    l.push_back(std::make_pair(ftTakeoff,   "cc"));
-                    l.push_back(std::make_pair(ftPax,       "pax"));
-                }
-                return l;
-            }
-    };
 
     class TFileTypes : public ASTRA::PairList<TFileType::Enum, std::string>
     {
@@ -10115,7 +10088,7 @@ namespace KUF_STAT {
         if(ft == TFileType::ftPax)
             data.paxLstToXML(rootNode);
         else
-            data.toXML(rootNode);
+            data.toXML(rootNode, ft);
         xml_encode_nodelist(rootNode);
         return StrUtils::b64_encode(GetXMLDocText(doc.docPtr()));
     }
@@ -10226,34 +10199,6 @@ void TelegramInterface::kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     xmlNodePtr fileNode = NewTextChild(contentNode, "file");
     NewTextChild(fileNode, "name", fname);
     NewTextChild(fileNode, "data", data);
-}
-
-void TelegramInterface::ckin_report(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    string airline = CKIN_REPORT::getElemId(etAirline, NodeAsString("airline", reqNode));
-    int flt_no = NodeAsInteger("flt_no", reqNode);
-    string suffix = NodeAsString("suffix", reqNode);
-    if(not suffix.empty())
-        suffix = CKIN_REPORT::getElemId(etSuffix, suffix);
-    string airp_dep = CKIN_REPORT::getElemId(etAirp, NodeAsString("airp_dep", reqNode));
-    TDateTime scd_out = NodeAsDateTime("scd_out", reqNode);
-
-    TSearchFltInfo filter;
-    filter.airline = airline;
-    filter.flt_no = flt_no;
-    filter.suffix = suffix;
-    filter.airp_dep = airp_dep;
-    filter.scd_out = scd_out;
-    filter.scd_out_in_utc = true;
-    filter.only_with_reg = false;
-
-    int point_id = CKIN_REPORT::get_point_id(filter);
-    if(point_id == NoExists)
-        throw UserException("flight not found");
-
-    CKIN_REPORT::TReportData data;
-    data.get(point_id);
-    data.toXML(resNode);
 }
 
 void get_kuf_stat(int point_id)
