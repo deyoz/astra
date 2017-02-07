@@ -3004,14 +3004,14 @@ typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
 
 
 template <class keyClass, class rowClass, class cmpClass>
-void AddStatRow(const keyClass &key, const rowClass &row, map<keyClass, rowClass, cmpClass> &stat)
+void AddStatRow(const keyClass &key, const rowClass &row, map<keyClass, rowClass, cmpClass> &stat, bool full = false)
 {
   typename map< keyClass, rowClass, cmpClass >::iterator i = stat.find(key);
   if (i!=stat.end())
     i->second+=row;
   else
   {
-    if (stat.size()<=MAX_STAT_ROWS)
+    if (full or stat.size()<=MAX_STAT_ROWS)
       stat.insert(make_pair(key,row));
   };
 };
@@ -3276,6 +3276,13 @@ void setClientTypeCaps(xmlNodePtr variablesNode)
     NewTextChild(variablesNode, "pax", getLocaleText("CAP.PAX"));
     NewTextChild(variablesNode, "mob", getLocaleText("CAP.MOB"));
     NewTextChild(variablesNode, "mobile_devices", getLocaleText("CAP.MOBILE_DEVICES"));
+}
+
+namespace AstraLocale {
+class MaxStatRowsException: public UserException
+{
+    public: MaxStatRowsException(const std::string &vlexema, const LParams &aparams): UserException(vlexema, aparams) {}
+};
 }
 
 void createXMLDetailStat(const TStatParams &params, bool pr_pact,
@@ -4548,6 +4555,8 @@ struct TTlgOutStatRow {
     {
         return tlg_count == item.tlg_count &&
                tlg_len == item.tlg_len;
+               // FIXME проверка на равенство double tlg_len (c++ double equality comparison)
+               // http://en.cppreference.com/w/cpp/types/numeric_limits/epsilon
     };
     void operator += (const TTlgOutStatRow &item)
     {
@@ -4591,7 +4600,7 @@ typedef map<TTlgOutStatKey, TTlgOutStatRow, TTlgOutStatCmp> TTlgOutStat;
 
 void RunTlgOutStat(const TStatParams &params,
                    TTlgOutStat &TlgOutStat, TTlgOutStatRow &TlgOutStatTotal,
-                   TPrintAirline &prn_airline)
+                   TPrintAirline &prn_airline, bool full = false)
 {
     TQuery Qry(&OraSession);
     for(int pass = 0; pass <= 1; pass++) {
@@ -4619,6 +4628,7 @@ void RunTlgOutStat(const TStatParams &params,
             SQLText +=
                 "   tlg_stat \n";
         }
+        //SQLText += "WHERE rownum < 1000\n"; //SQLText += "WHERE \n";
         SQLText += "WHERE sender_canon_name=:own_canon_name AND \n";
         if (pass!=0)
           SQLText +=
@@ -4718,7 +4728,7 @@ void RunTlgOutStat(const TStatParams &params,
                     key.tlg_type=Qry.FieldAsString(col_tlg_type);
                   };
                 };
-                AddStatRow(key, row, TlgOutStat);
+                AddStatRow(key, row, TlgOutStat, full);
               }
               else
               {
@@ -4751,10 +4761,11 @@ void createXMLTlgOutStat(const TStatParams &params,
       for(TTlgOutStat::const_iterator im = TlgOutStat.begin(); im != TlgOutStat.end(); ++im, rows++)
       {
           if(rows >= MAX_STAT_ROWS) {
-              AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
+              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+              /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
                                             LParams() << LParam("num", MAX_STAT_ROWS));
               if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-              break;
+              break;*/
           }
 
           rowNode = NewTextChild(rowsNode, "row");
@@ -4922,6 +4933,94 @@ void createXMLTlgOutStat(const TStatParams &params,
             break;
     }
     NewTextChild(variablesNode, "stat_type_caption", stat_type_caption);
+}
+
+/* GRISHA */
+struct TTlgOutStatCombo : public TOrderStatItem
+{
+    std::pair<TTlgOutStatKey, TTlgOutStatRow> data;
+    TStatType statType;
+    TTlgOutStatCombo(const std::pair<TTlgOutStatKey, TTlgOutStatRow> &aData,
+        const TStatParams &aParams): data(aData), statType(aParams.statType) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TTlgOutStatCombo::add_header(ostringstream &buf) const
+{
+    buf
+        << "Адрес отпр." << delim
+        << "Канал" << delim
+        << "Адрес получ." << delim
+        << "Гос-во" << delim
+        << "Дата отпр." << delim
+        << "А/к факт." << delim
+        << "А/к комм." << delim
+        << "Код а/п" << delim
+        << "Тип тлг." << delim
+        << "Дата вылета" << delim
+        << "Рейс" << delim
+        << "Кол-во" << delim
+        << "Объем (байт)" << delim
+        << "№ договора"
+        << endl;
+}
+
+void TTlgOutStatCombo::add_data(ostringstream &buf) const
+{
+    buf
+        // Адрес отпр.
+        << data.first.sender_sita_addr << delim
+        // Канал
+        << data.first.receiver_descr << delim
+        // Адрес получ.
+        << data.first.receiver_sita_addr << delim
+        // Гос-во
+        << data.first.receiver_country_view << delim;
+        // Дата отпр.
+        if (data.first.time_send!=NoExists)
+            buf << DateTimeToStr(data.first.time_send, "dd.mm.yy");
+    buf << delim
+        // А/к факт.
+        << data.first.airline_view << delim
+        // А/к комм.
+        << data.first.airline_mark_view << delim
+        // Код а/п
+        << data.first.airp_dep_view << delim
+        // Тип тлг.
+        << data.first.tlg_type << delim;
+        // Дата вылета
+        if (data.first.scd_local_date!=NoExists)
+            buf << DateTimeToStr(data.first.scd_local_date, "dd.mm.yy");
+    buf << delim;
+        // Рейс
+        if (data.first.flt_no!=NoExists)
+        {
+            ostringstream oss1;
+            oss1 << setw(3) << setfill('0') << data.first.flt_no
+                  << data.first.suffix_view;
+            buf << oss1.str();
+        }
+    buf << delim
+        // Кол-во
+        << data.second.tlg_count << delim;
+        // Объем (байт)
+        ostringstream oss2;
+        oss2 << fixed << setprecision(0) << data.second.tlg_len;
+        buf << oss2.str() << delim
+        // № договора
+        << data.first.extra
+        << endl;
+}
+
+template <class T>
+void RunTlgOutStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TTlgOutStat TlgOutStat;
+    TTlgOutStatRow TlgOutStatTotal;
+    RunTlgOutStat(params, TlgOutStat, TlgOutStatTotal, prn_airline, true);
+    for (TTlgOutStat::const_iterator i = TlgOutStat.begin(); i != TlgOutStat.end(); ++i)
+        writer.insert(TTlgOutStatCombo(*i, params));
 }
 
 /****************** end of TlgOutStat ******************/
@@ -5918,6 +6017,7 @@ void createCSVFullStat(const TStatParams &params, const TFullStat &FullStat, con
 void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
 {
     if(RFISCStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    if (RFISCStat.size() > MAX_STAT_ROWS) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -6854,6 +6954,7 @@ void createXMLUnaccBagStat(
         xmlNodePtr resNode)
 {
     if(UnaccBagStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    if (UnaccBagStat.rows.size() > MAX_STAT_ROWS) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -7779,6 +7880,7 @@ void RunServiceStat(
 void createXMLServiceStat(const TStatParams &params, const TServiceStat &ServiceStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
 {
     if(ServiceStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    if (ServiceStat.size() > MAX_STAT_ROWS) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -8316,7 +8418,7 @@ class TMD5Filter : public boost::iostreams::multichar_output_filter {
         /* Other members */
 };
 
-
+// TODO перенести выше (или в header), чтобы сделать функцию RunTlgOutStatFile не шаблонной
 struct TOrderStatWriter {
     const string enc;
     int file_id;
@@ -8412,7 +8514,7 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
     out.flush();
 }
 
-
+/* GRISHA */
 void create_plain_files(
         const TStatParams &params,
         double &data_size,
@@ -8439,9 +8541,13 @@ void create_plain_files(
         case statUnaccBag:
             RunUnaccBagStat(params, order_writer, airline);
             break;
+        case statTlgOutShort:
+        case statTlgOutDetail:
+        case statTlgOutFull:
+            RunTlgOutStatFile(params, order_writer, airline);
+            break;
         default:
             throw Exception("unsupported statType %d", params.statType);
-
     }
     order_writer.finish();
     data_size += order_writer.data_size;
@@ -8665,16 +8771,19 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 
     TStatParams params;
     params.get(reqNode);
-
+/* GRISHA */
+/*
     if(
             (TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION) and (
-                params.statType == statRFISC or
-                params.statType == statService
+                params.statType == statRFISC
+                or params.statType == statService
+                or params.statType == statTlgOutFull
                 )) or
             params.order
       )
         return orderStat(params, ctxt, reqNode, resNode);
-
+*/        
+/*
     if (
             params.statType==statFull ||
             params.statType==statTrferFull ||
@@ -8695,6 +8804,10 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         if(IncMonth(params.FirstDate, 12) < params.LastDate)
             throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_YEAR");
     }
+    */
+
+    if(IncMonth(params.FirstDate, 12) < params.LastDate)
+        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_YEAR");
 
     switch(params.statType)
     {
@@ -8835,6 +8948,16 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             RunAnnulBTStat(params, AnnulBTStat, airline);
             createXMLAnnulBTStat(params, AnnulBTStat, airline, resNode);
         }
+    }
+    catch (MaxStatRowsException &E)
+    {
+        if(TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION))
+        {
+            RemoveChildNodes(resNode);
+            return orderStat(params, ctxt, reqNode, resNode);
+        }
+        else
+            AstraLocale::showErrorMessage(E.getLexemaData());
     }
     catch (EOracleError &E)
     {
