@@ -9348,7 +9348,15 @@ namespace CKIN_REPORT {
             TTripRouteItem &routeItem
             );
 
-    typedef vector<TSalonPax> TPaxList;
+    bool cmpPaxList(const TSalonPax &p1, const TSalonPax &p2)
+    {
+        if(p1.reg_no == p2.reg_no)
+            return p1.pax_id < p2.pax_id;
+        else
+            return p1.reg_no < p2.reg_no;
+    }
+
+    typedef set<TSalonPax, bool(*)(const TSalonPax &, const TSalonPax &)> TPaxList;
 
     struct TReportData {
         int point_id;
@@ -9372,7 +9380,7 @@ namespace CKIN_REPORT {
             scd_out = NoExists;
         }
 
-        TReportData()
+        TReportData(): pax_list(cmpPaxList)
         {
             Clear();
         }
@@ -9408,7 +9416,7 @@ namespace CKIN_REPORT {
                  pax_map_coord.point_dep == routeItem.point_id)
           ) {
             report.route[routeIdx][routeItem.airp][pax.cl].tranzit.append(pax);
-            report.pax_list.push_back(pax);
+            report.pax_list.insert(pax);
         }
     }
 
@@ -9426,7 +9434,7 @@ namespace CKIN_REPORT {
                 pax.point_arv == routeItem.point_id
           ) {
             report.route[routeIdx][routeItem.airp][pax.cl].self_checkin.append(pax);
-            report.pax_list.push_back(pax);
+            report.pax_list.insert(pax);
         }
     }
 
@@ -9444,7 +9452,7 @@ namespace CKIN_REPORT {
                 pax.point_arv == routeItem.point_id
           ) {
             report.route[routeIdx][routeItem.airp][pax.cl].goshow.append(pax);
-            report.pax_list.push_back(pax);
+            report.pax_list.insert(pax);
         }
     }
 
@@ -9638,7 +9646,7 @@ namespace CKIN_REPORT {
 
     typedef map<int, vector<TSalonPax> > TChilds;
 
-    string get_chd(const TChilds &chd, TSalonPax &pax, PersWeightRules &pwr)
+    string get_chd(const TChilds &chd, const TSalonPax &pax, PersWeightRules &pwr)
     {
         LogTrace(TRACE5) << "get_chd pax_id: " << pax.pax_id;
 
@@ -9664,7 +9672,7 @@ namespace CKIN_REPORT {
         return result.str();
     }
 
-    string get_inf(const TInfants &inf, TSalonPax &pax, PersWeightRules &pwr)
+    string get_inf(const TInfants &inf, const TSalonPax &pax, PersWeightRules &pwr)
     {
         ostringstream result;
         for(vector<TInfantsItem>::const_iterator i = inf.items.begin(); i != inf.items.end(); i++) {
@@ -9698,11 +9706,6 @@ namespace CKIN_REPORT {
                 }
             }
         }
-    }
-
-    bool cmpPaxList(const TSalonPax &p1, const TSalonPax &p2)
-    {
-        return p1.reg_no < p2.reg_no;
     }
 
     int get_bag_pool_num(int pax_id)
@@ -9836,9 +9839,6 @@ namespace CKIN_REPORT {
 
         TChilds childs;
         SetChildsToAdults(pax_list, childs);
-
-        sort(pax_list.begin(), pax_list.end(), cmpPaxList);
-
 
         map<int, CheckIn::TPaxGrpItem> grps;
         TCachedQuery grpQry("select * from pax_grp where grp_id = :grp_id",
