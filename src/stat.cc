@@ -4938,9 +4938,10 @@ void createXMLTlgOutStat(const TStatParams &params,
 /* GRISHA */
 struct TTlgOutStatCombo : public TOrderStatItem
 {
-    // TODO признак детализации (statTlgOutFull итд), от него будет зависеть вывод
     std::pair<TTlgOutStatKey, TTlgOutStatRow> data;
-    TTlgOutStatCombo(const std::pair<TTlgOutStatKey, TTlgOutStatRow> &aData) : data(aData) {}
+    TStatType statType;
+    TTlgOutStatCombo(const std::pair<TTlgOutStatKey, TTlgOutStatRow> &aData,
+        const TStatParams &aParams): data(aData), statType(aParams.statType) {}
     void add_header(ostringstream &buf) const;
     void add_data(ostringstream &buf) const;
 };
@@ -5019,7 +5020,7 @@ void RunTlgOutStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_
     TTlgOutStatRow TlgOutStatTotal;
     RunTlgOutStat(params, TlgOutStat, TlgOutStatTotal, prn_airline, true);
     for (TTlgOutStat::const_iterator i = TlgOutStat.begin(); i != TlgOutStat.end(); ++i)
-        writer.insert(TTlgOutStatCombo(*i));
+        writer.insert(TTlgOutStatCombo(*i, params));
 }
 
 /****************** end of TlgOutStat ******************/
@@ -8538,12 +8539,13 @@ void create_plain_files(
         case statUnaccBag:
             RunUnaccBagStat(params, order_writer, airline);
             break;
+        case statTlgOutShort:
+        case statTlgOutDetail:
         case statTlgOutFull:
             RunTlgOutStatFile(params, order_writer, airline);
             break;
         default:
             throw Exception("unsupported statType %d", params.statType);
-
     }
     order_writer.finish();
     data_size += order_writer.data_size;
