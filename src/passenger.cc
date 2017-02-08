@@ -1646,6 +1646,8 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
     bag_types_id=Qry.FieldAsInteger("bag_types_id");
   piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
   tid=Qry.FieldAsInteger("tid");
+  if (Qry.GetFieldIndex("client_type")>=0)
+      client_type = DecodeClientType(Qry.FieldAsString("client_type"));
   return *this;
 };
 

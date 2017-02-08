@@ -291,8 +291,10 @@ public:
      AddEvent("tlg_srv",evHandle);
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::kick);
      AddEvent("kick",evHandle);
-     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::ckin_report);
-     AddEvent("ckin_report",evHandle);
+     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::kuf_stat);
+     AddEvent("kuf_stat",evHandle);
+     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::kuf_stat_flts);
+     AddEvent("kuf_stat_flts",evHandle);
 
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::TestSeatRanges);
      AddEvent("TestSeatRanges",evHandle);
@@ -310,7 +312,9 @@ public:
   void DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void ckin_report(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void scs_oper(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
@@ -346,6 +350,7 @@ void EMDReport(int point_id, std::map<int, std::vector<std::string> > &tab);
 namespace CKIN_REPORT {
     int run(int argc, char **argv);
 }
+void get_kuf_stat(int point_id);
 
 
 #endif /*_TELEGRAM_H_*/

@@ -137,6 +137,7 @@ class TTripInfo
   private:
     void init()
     {
+      point_id = ASTRA::NoExists;
       airline.clear();
       flt_no=0;
       suffix.clear();
@@ -172,6 +173,8 @@ class TTripInfo
           suffix_fmt = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
       if (Qry.GetFieldIndex("airp_fmt")>=0)
           airp_fmt = (TElemFmt)Qry.FieldAsInteger("airp_fmt");
+      if (Qry.GetFieldIndex("point_id")>=0)
+          point_id = Qry.FieldAsInteger("point_id");
     };
     void init( const TGrpMktFlight &flt )
     {
@@ -183,6 +186,7 @@ class TTripInfo
       airp=flt.airp_dep;
     }
   public:
+    int point_id;
     std::string airline,suffix,airp;
     int flt_no, pr_del;
     TElemFmt airline_fmt, suffix_fmt, airp_fmt;
