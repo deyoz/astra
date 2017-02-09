@@ -2640,10 +2640,15 @@ void TFlightMaxCommerce::Save( int point_id )
     Qry.CreateVariable( "max_commerce", otInteger, value );
     Qry.Execute();
     if ( value == NoExists )
-      TReqInfo::Instance()->LocaleToLog("EVT.MAX_COMMERCE_LOAD_UNKNOWN", evtFlt, point_id);
+      TReqInfo::Instance()->LocaleToLog(
+              (lci ? "EVT.LCI.MAX_COMMERCE_LOAD_UNKNOWN" :
+              "EVT.MAX_COMMERCE_LOAD_UNKNOWN"),
+              evtFlt, point_id);
     else
-      TReqInfo::Instance()->LocaleToLog("EVT.MAX_COMMERCE_LOAD", LEvntPrms()
-                                        << PrmSmpl<int>("weight", value), evtFlt, point_id);
+      TReqInfo::Instance()->LocaleToLog(
+              (lci ? "EVT.LCI.MAX_COMMERCE_LOAD" :
+              "EVT.MAX_COMMERCE_LOAD"),
+              LEvntPrms() << PrmSmpl<int>("weight", value), evtFlt, point_id);
   Set_AODB_overload_alarm( point_id, pr_overload_alarm );
 }
 ////////////////////////////////////TFlightDelays///////////////////////////////
