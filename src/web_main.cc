@@ -4003,3 +4003,114 @@ void SyncAllCHKD(int point_id_spp, const string& task_name, const string& params
 };
 
 } //namespace TypeB
+
+namespace SirenaExchange
+{
+
+void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
+{
+  TPseudoGroupInfoRes *pseudoGroupInfoRes=dynamic_cast<TPseudoGroupInfoRes*>(&exch);
+  if (!pseudoGroupInfoRes) return;
+  TBagList &svcs_ref=pseudoGroupInfoRes->bags;
+  std::list<TPaxItem> &paxs_ref=pseudoGroupInfoRes->paxs;
+
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT crs_pnr.point_id, crs_pnr.airp_arv, "
+    "       crs_pax.surname, crs_pax.name, crs_pax.pers_type, crs_pax.seats "
+    "FROM crs_pax, crs_pnr "
+    "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND "
+    "      crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0";
+  Qry.DeclareVariable("pax_id", otInteger);
+  for(TEntityList::const_iterator i=entities.begin(); i!=entities.end(); ++i)
+  {
+    const TPaxSegKey &entity=*i;
+
+    Qry.SetVariable("pax_id", entity.pax_id);
+    Qry.Execute();
+    if (Qry.Eof) continue;
+
+    int point_id_tlg=Qry.FieldAsInteger("point_id");
+    string airp_arv=Qry.FieldAsString("airp_arv");
+
+    boost::optional<TAdvTripInfo> operFlt=boost::none;
+    TAdvTripInfoList flts=getTripsByPointIdTlg(point_id_tlg);
+    for(TAdvTripInfoList::const_iterator f=flts.begin(); f!=flts.end(); ++f)
+    {
+      if (f->pr_del!=0) continue;
+      operFlt=*f;
+      break;
+    };
+    if (!operFlt) continue;
+
+    list<TPaxItem>::iterator iReqPax=paxs_ref.insert(paxs_ref.end(), TPaxItem());
+    if (iReqPax==paxs_ref.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqPax==paxs.end()");
+    TPaxItem &reqPax=*iReqPax;
+
+    CheckIn::TPaxItem pax;
+    pax.id=entity.pax_id;
+    pax.surname=Qry.FieldAsString("surname");
+    pax.name=Qry.FieldAsString("name");
+    pax.pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
+    pax.seats=Qry.FieldAsInteger("seats");
+    CheckIn::LoadCrsPaxDoc(pax.id, pax.doc);
+    CheckIn::LoadCrsPaxTkn(pax.id, pax.tkn);
+
+    TETickItem etick;
+    if (pax.tkn.validET())
+      etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+
+    reqPax.set(pax, etick);
+
+    SirenaExchange::TPaxSegMap::iterator iReqSeg=
+        reqPax.segs.insert(make_pair(entity.seg_id,SirenaExchange::TPaxSegItem())).first;
+    if (iReqSeg==reqPax.segs.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqSeg==reqPax.segs.end()");
+    SirenaExchange::TPaxSegItem &reqSeg=iReqSeg->second;
+    TMktFlight mktFlight;
+    mktFlight.getByCrsPaxId(pax.id);
+    reqSeg.set(entity.seg_id, operFlt.get(), airp_arv, mktFlight, operFlt.get().get_scd_in(airp_arv));
+    reqSeg.subcl=mktFlight.subcls;
+    reqSeg.tkn=pax.tkn;
+    CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
+    CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
+
+    int point_id=operFlt.get().point_id;
+
+    if (SALONS2::isFreeSeating(point_id) ||
+        SALONS2::isEmptySalons(point_id)) continue;
+
+    //получить RFISC компоновки и номера мест, который размечен на местах BeforePay, если BeforePay самый приоритетный слой пассажира
+    int point_arv = SALONS2::getCrsPaxPointArv( entity.pax_id, point_id );
+    TSalonList salonList;
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, "", entity.pax_id );
+    if (salonList.getRFISCMode()==rRFISC)
+    {
+      TSeatLayer seatLayer;
+      std::set<TPlace*,CompareSeats> seats;
+      salonList.getPaxLayer( point_id, entity.pax_id, seatLayer, seats );
+      if (seatLayer.layer_type == cltProtBeforePay)
+      {
+        for(std::set<TPlace*,CompareSeats>::const_iterator s=seats.begin(); s!=seats.end(); ++s)
+        {
+          //цикл по местам
+          const TPlace &place=**s;
+
+          TRFISC rfisc=place.getRFISC(point_id);
+          if (rfisc.empty() || rfisc.code.empty()) continue;
+
+          PieceConcept::TPaidBagItem item;
+          item.pax_id=entity.pax_id;
+          item.trfer_num=entity.seg_id;
+          item.RFISC=rfisc.code;
+          item.status=PieceConcept::bsNeed;
+          item.service_type="F";
+          item.ssr_text= denorm_iata_row( place.yname, NULL ) +
+                         denorm_iata_line( place.xname, salonList.isCraftLat() );
+          svcs_ref.push_back(make_pair(entity, item));
+        }
+      }
+    };
+  }
+}
+
+} //namespace SirenaExchange

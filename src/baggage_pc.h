@@ -234,6 +234,8 @@ class TSimplePaidBagItem
     std::string emd_type;
     TBagStatus status;
     bool pr_cabin;
+    std::string service_type;
+    std::string ssr_text;
 
     TSimplePaidBagItem()
     {
@@ -246,6 +248,8 @@ class TSimplePaidBagItem
       emd_type.clear();
       status=bsUnknown;
       pr_cabin=false;
+      service_type.clear();
+      ssr_text.clear();
     }
 };
 
@@ -317,8 +321,8 @@ class TSegItem
     }
     void set(int seg_id,
              const TTripInfo &_operFlt,
-             const CheckIn::TPaxGrpItem grp,
-             const TGrpMktFlight &mktFlight,
+             const std::string &_airp_arv,
+             const TSimpleMktFlight &mktFlight,
              const TDateTime &_scd_in)
     {
       clear();
@@ -329,7 +333,7 @@ class TSegItem
         operFlt.scd_out=UTCToLocal(operFlt.scd_out, AirpTZRegion(operFlt.airp));
         scd_out_contain_time=true;
       };
-      airp_arv=grp.airp_arv;
+      airp_arv=_airp_arv;
       scd_in=_scd_in;
       if (scd_in!=ASTRA::NoExists)
       {
@@ -340,7 +344,14 @@ class TSegItem
       if (!mktFlight.empty())
       {
         markFlt=TTripInfo();
-        markFlt.get().Init(mktFlight);
+        try
+        {
+          markFlt.get().Init(dynamic_cast<const TGrpMktFlight&>(mktFlight));
+        }
+        catch (std::bad_cast)
+        {
+          markFlt.get().Init(dynamic_cast<const TMktFlight&>(mktFlight));
+        };
       };
     }
 
@@ -557,6 +568,13 @@ class TGroupInfo : public TExchange
     virtual std::string exchangeId() const { return id; }
 };
 
+class TPseudoGroupInfo : public TExchange
+{
+  public:
+    static const std::string id;
+    virtual std::string exchangeId() const { return id; }
+};
+
 class TPassengers : public TExchange
 {
   public:
@@ -717,6 +735,42 @@ class TGroupInfoRes : public TGroupInfo
     virtual void toXML(xmlNodePtr node) const;
 };
 
+typedef std::set<TPaxSegKey> TEntityList;
+
+class TPseudoGroupInfoReq : public TPseudoGroupInfo
+{
+  protected:
+    virtual bool isRequest() const { return true; }
+  public:
+    std::string pnr_addr;
+    TEntityList entities;
+    TPseudoGroupInfoReq()
+    {
+      clear();
+    }
+    void clear()
+    {
+      pnr_addr.clear();
+      entities.clear();
+    }
+    virtual void fromXML(xmlNodePtr node);
+};
+
+class TPseudoGroupInfoRes : public TPseudoGroupInfo
+{
+  protected:
+    virtual bool isRequest() const { return false; }
+  public:
+    std::list<TPaxItem> paxs;
+    TBagList bags;
+    virtual void clear()
+    {
+      paxs.clear();
+      bags.clear();
+    }
+    virtual void toXML(xmlNodePtr node) const;
+};
+
 void SendRequest(const TExchange &request, TExchange &response,
                  RequestInfo &requestInfo, ResponseInfo &responseInfo);
 void SendRequest(const TExchange &request, TExchange &response);
@@ -751,6 +805,9 @@ class TLastExchangeList : public std::list<TLastExchangeInfo>
     void handle(const std::string& where);
 };
 */
+
+void fillPaxsSvcs(const TEntityList &entities, TExchange &exch);
+
 } //namespace SirenaExchange
 
 class PieceConceptInterface : public JxtInterface
@@ -766,6 +823,7 @@ public:
   void procPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   static void procPassengers( const SirenaExchange::TPassengersReq &req, SirenaExchange::TPassengersRes &res );
   static void procGroupInfo( const SirenaExchange::TGroupInfoReq &req, SirenaExchange::TGroupInfoRes &res );
+  static void procPseudoGroupInfo( const SirenaExchange::TPseudoGroupInfoReq &req, SirenaExchange::TPseudoGroupInfoRes &res );
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 

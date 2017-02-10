@@ -66,8 +66,8 @@ TAdvTripInfoList getTripsByPointIdTlg( const int point_id_tlg )
   TAdvTripInfoList trips;
   for( ; !Qry.Eof; Qry.Next() ) {
     TAdvTripInfo info;
-    info.getByPointId( Qry.FieldAsInteger( "point_id_spp" ) );
-    trips.push_back( info );
+    if (info.getByPointId( Qry.FieldAsInteger( "point_id_spp" ) ))
+      trips.push_back( info );
   }
 
   return trips;
@@ -93,6 +93,30 @@ void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_
   else
     real_out_client=scd_out_client;
 };
+
+TDateTime TTripInfo::get_scd_in(const int &point_arv)
+{
+  TCachedQuery PointsQry("SELECT scd_in FROM points WHERE point_id=:point_arv AND pr_del>=0",
+                         QParams() << QParam("point_arv", otInteger, point_arv));
+  PointsQry.get().Execute();
+  if (!PointsQry.get().Eof && !PointsQry.get().FieldIsNULL("scd_in"))
+    return PointsQry.get().FieldAsDateTime("scd_in");
+  else
+    return ASTRA::NoExists;
+}
+
+TDateTime TTripInfo::get_scd_in(const std::string &airp_arv) const
+{
+  if (point_id==ASTRA::NoExists) return ASTRA::NoExists;
+  TTripRoute route;
+  route.GetRouteAfter( NoExists,
+                       point_id,
+                       trtNotCurrent, trtWithCancelled );
+  for( TTripRoute::const_iterator iroute=route.begin(); iroute!=route.end(); ++iroute )
+    if ( iroute->airp == airp_arv )
+      return TTripInfo::get_scd_in(iroute->point_id);
+  return ASTRA::NoExists;
+}
 
 string GetTripDate( const TTripInfo &info, const string &separator, const bool advanced_trip_list )
 {
