@@ -1483,6 +1483,21 @@ void TPlace::SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &sa
   }
 }
 
+TRFISC TPlace::getRFISC( int point_id ) const
+{
+  TRFISC rfisc;
+  if ( !visible || !isplace ) {
+    return rfisc;
+  }
+  std::map<int, TRFISC,classcomp>::const_iterator irfisc = rfiscs.find( point_id );
+  if ( irfisc!=rfiscs.end() ) {
+    if ( !irfisc->second.color.empty() ) {
+      rfisc = irfisc->second;
+    }
+  }
+  return rfisc;
+}
+
 void TPlace::SetTariffsByRFISC( int point_dep )
 {
   if ( !visible || !isplace ) {

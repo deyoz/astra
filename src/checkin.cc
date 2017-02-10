@@ -6382,14 +6382,8 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &is_unaccomp_or_crew, 
 
     CheckIn::TPaxGrpItem grp;
     grp.fromDB(Qry.get());
-
-    TDateTime scd_in=NoExists;
     TTripInfo operFlt(Qry.get());
-    TCachedQuery PointsQry("SELECT scd_in FROM points WHERE point_id=:point_arv AND pr_del>=0",
-                           QParams() << QParam("point_arv", otInteger, grp.point_arv));
-    PointsQry.get().Execute();
-    if (!PointsQry.get().Eof && !PointsQry.get().FieldIsNULL("scd_in"))
-      scd_in=PointsQry.get().FieldAsDateTime("scd_in");
+    TDateTime scd_in=TTripInfo::get_scd_in(grp.point_arv);
 
     if (grp_id==tckin_grp_ids.begin())
     {
@@ -6465,7 +6459,7 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &is_unaccomp_or_crew, 
           pair< SirenaExchange::TPaxSegMap::iterator, bool > res=
               reqPax.segs.insert(make_pair(seg_no,SirenaExchange::TPaxSegItem()));
           SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
-          reqSeg.set(seg_no, operFlt, grp, mktFlight, scd_in);
+          reqSeg.set(seg_no, operFlt, grp.airp_arv, mktFlight, scd_in);
           reqSeg.subcl=pax.subcl;
           reqSeg.tkn=pax.tkn;
           CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);

@@ -40,6 +40,7 @@ class TSimpleMktFlight
              flt_no==ASTRA::NoExists &&
              suffix.empty();
     };
+    virtual ~TSimpleMktFlight() {}
 };
 
 class TMktFlight : public TSimpleMktFlight
@@ -186,6 +187,15 @@ class TTripInfo
       scd_out=flt.scd_date_local;
       airp=flt.airp_dep;
     }
+    void init( const TMktFlight &flt )
+    {
+      init();
+      airline=flt.airline;
+      flt_no=flt.flt_no;
+      suffix=flt.suffix;
+      scd_out=flt.scd_date_local;
+      airp=flt.airp_dep;
+    }
   public:
     int point_id;
     std::string airline,suffix,airp;
@@ -213,9 +223,15 @@ class TTripInfo
     {
       init(flt);
     };
+    virtual void Init( const TMktFlight &flt )
+    {
+      init(flt);
+    };
     virtual bool getByPointId ( const int point_id );
     virtual bool getByPointIdTlg ( const int point_id_tlg );
     void get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client, bool trunc_time=true) const;
+    static TDateTime get_scd_in(const int &point_arv);
+    TDateTime get_scd_in(const std::string &airp_arv) const;
 };
 
 std::string GetTripDate( const TTripInfo &info, const std::string &separator, const bool advanced_trip_list  );
