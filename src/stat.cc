@@ -2352,6 +2352,7 @@ void TPrintAirline::check(string val)
         multi_airlines = true;
 }
 
+/* GRISHA */
 void TStatParams::get(xmlNodePtr reqNode)
 {
     name = NodeAsString("stat_mode", reqNode);
@@ -4005,8 +4006,6 @@ void RunFullStat(const TStatParams &params,
     }
 };
 
-
-
 struct TSelfCkinStatRow {
     int pax_amount;
     int term_bp;
@@ -4098,7 +4097,7 @@ typedef map<TSelfCkinStatKey, TSelfCkinStatRow, TKioskCmp> TSelfCkinStat;
 
 void RunSelfCkinStat(const TStatParams &params,
                   TSelfCkinStat &SelfCkinStat, TSelfCkinStatRow &SelfCkinStatTotal,
-                  TPrintAirline &prn_airline)
+                  TPrintAirline &prn_airline, bool full = false)
 {
     TQuery Qry(&OraSession);
     for(int pass = 0; pass <= 2; pass++) {
@@ -4242,7 +4241,7 @@ void RunSelfCkinStat(const TStatParams &params,
                     key.places.set(GetRouteAfterStr( NoExists, point_id, trtNotCurrent, trtNotCancelled), false);
                 }
 
-                AddStatRow(key, row, SelfCkinStat);
+                AddStatRow(key, row, SelfCkinStat, full);
               }
               else
               {
@@ -4253,6 +4252,7 @@ void RunSelfCkinStat(const TStatParams &params,
     }
 }
 
+/* GRISHA */
 void createXMLSelfCkinStat(const TStatParams &params,
                         const TSelfCkinStat &SelfCkinStat, const TSelfCkinStatRow &SelfCkinStatTotal,
                         const TPrintAirline &airline, xmlNodePtr resNode)
@@ -4272,10 +4272,11 @@ void createXMLSelfCkinStat(const TStatParams &params,
     for(TSelfCkinStat::const_iterator im = SelfCkinStat.begin(); im != SelfCkinStat.end(); ++im, rows++)
     {
         if(rows >= MAX_STAT_ROWS) {
-            AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
+            throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+            /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
                     LParams() << LParam("num", MAX_STAT_ROWS));
             if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-            break;
+            break;*/
         }
         //region обязательно в начале цикла, иначе будет испорчен xml
         string region;
@@ -4524,6 +4525,89 @@ void createXMLSelfCkinStat(const TStatParams &params,
             break;
     }
     NewTextChild(variablesNode, "stat_type_caption", buf);
+}
+
+/* GRISHA */
+struct TSelfCkinStatCombo : public TOrderStatItem
+{
+    std::pair<TSelfCkinStatKey, TSelfCkinStatRow> data;
+    TStatType statType;
+    TSelfCkinStatCombo(const std::pair<TSelfCkinStatKey, TSelfCkinStatRow> &aData,
+        const TStatParams &aParams): data(aData), statType(aParams.statType) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TSelfCkinStatCombo::add_header(ostringstream &buf) const
+{
+    buf
+        << "Тип рег." << delim
+        << "Пульт" << delim
+        << "АП пульта" << delim
+        << "Примечание" << delim
+        << "Код а/к" << delim
+        << "Код а/п" << delim
+        << "Номер рейса" << delim
+        << "Дата" << delim
+        << "Направление" << delim
+        << "Пас." << delim
+        << "БГ" << delim
+        << "ПТ" << delim
+        << "Всё сами" << delim
+        << "ВЗ" << delim
+        << "РБ" << delim
+        << "РМ" << delim
+        << "Сквоз." << endl;
+}
+
+void TSelfCkinStatCombo::add_data(ostringstream &buf) const
+{
+    string region;
+    try { region = AirpTZRegion(data.first.ap); }
+    catch(AstraLocale::UserException &E) { return; };
+        // Тип рег.
+    buf <<  data.first.client_type << delim
+        // Пульт
+        <<  data.first.desk << delim
+        // А/П пульта
+        <<  data.first.desk_airp << delim
+        // примечание
+        <<  data.first.descr << delim
+        // код а/к
+        <<  data.first.ak << delim
+        // код а/п
+        << ElemIdToCodeNative(etAirp, data.first.ap) << delim;
+        // номер рейса
+        ostringstream oss1;
+        oss1 << setw(3) << setfill('0') << data.first.flt_no;
+    buf <<  oss1.str() << delim
+        // Дата
+        <<  DateTimeToStr(UTCToClient(data.first.scd_out, region), "dd.mm.yy") << delim
+        // Направление
+        <<  data.first.places.get() << delim
+        // Кол-во пасс.
+        <<  data.second.pax_amount << delim
+        <<  data.second.term_bag << delim
+        <<  data.second.term_bp << delim
+        <<  (data.second.pax_amount - data.second.term_ckin_service) << delim
+        // ВЗ
+        <<  data.second.adult << delim
+        // РБ
+        <<  data.second.child << delim
+        // РМ
+        <<  data.second.baby << delim
+        // Сквоз. рег.
+        <<  data.second.tckin << endl;
+}
+
+template <class T>
+void RunSelfCkinStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TSelfCkinStat SelfCkinStat;
+    TSelfCkinStatRow SelfCkinStatTotal;
+    RunSelfCkinStat(params, SelfCkinStat, SelfCkinStatTotal, prn_airline, true);
+    for (TSelfCkinStat::const_iterator i = SelfCkinStat.begin(); i != SelfCkinStat.end(); ++i)
+        writer.insert(TSelfCkinStatCombo(*i, params));
 }
 
 /****************** TlgOutStat *************************/
@@ -8544,6 +8628,11 @@ void create_plain_files(
         case statTlgOutFull:
             RunTlgOutStatFile(params, order_writer, airline);
             break;
+        case statSelfCkinShort:
+        case statSelfCkinDetail:
+        case statSelfCkinFull:
+            RunSelfCkinStatFile(params, order_writer, airline);
+            break;
         default:
             throw Exception("unsupported statType %d", params.statType);
     }
@@ -8758,6 +8847,7 @@ void orderStat(const TStatParams &params, XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     }
 }
 
+/* GRISHA */
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -8769,7 +8859,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 
     TStatParams params;
     params.get(reqNode);
-/* GRISHA */
+
 /*
     if(
             (TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION) and (
