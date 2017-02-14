@@ -10057,6 +10057,26 @@ namespace KUF_STAT {
     };
 
 
+    class TAirlines
+    {
+        private:
+            set<string> items;
+        public:
+            TAirlines()
+            {
+                TCachedQuery airlinesQry("select airline from kuf_stat_airlines");
+                airlinesQry.get().Execute();
+                for(; not airlinesQry.get().Eof; airlinesQry.get().Next()) {
+                    items.insert(airlinesQry.get().FieldAsString("airline"));
+                }
+            }
+            bool find(const string &airline)
+            {
+                return items.find(airline) != items.end();
+            }
+
+    };
+
     class TAirps
     {
         private:
@@ -10176,7 +10196,8 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
         TTripInfo tripInfo(Qry.get());
         
-        if(not KUF_STAT::TAirps().find(tripInfo.airp)) continue;
+        if(not KUF_STAT::TAirps().find(tripInfo.airp) or
+                not KUF_STAT::TAirlines().find(tripInfo.airline)) continue;
 
         TTripStage ts;
         TStage stage = sNoActive;
@@ -10268,7 +10289,8 @@ void get_kuf_stat(int point_id)
 
     TTripInfo tripInfo(Qry.get());
 
-    if(not KUF_STAT::TAirps().find(tripInfo.airp)) return;
+    if(not KUF_STAT::TAirps().find(tripInfo.airp) or
+            not KUF_STAT::TAirlines().find(tripInfo.airline)) return;
 
     bool close = false;
     bool takeoff = false;
