@@ -10162,6 +10162,17 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
         if(stage == sNoActive) continue;
 
+        fileQry.get().SetVariable("point_id", point_id);
+        fileQry.get().Execute();
+
+        map<KUF_STAT::TFileType::Enum, string> files;
+        for(; not fileQry.get().Eof; fileQry.get().Next())
+            files.insert(make_pair(
+                    KUF_STAT::TFileTypes().decode(fileQry.get().FieldAsString("file_type")),
+                    fileQry.get().FieldAsString("file_name")));
+
+        if(files.empty()) continue;
+
         ostringstream flt_name;
         flt_name
             << tripInfo.airline
@@ -10176,15 +10187,6 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
         SetProp(fltNode, "point_id", point_id);
 
         NewTextChild(itemNode, "status", ElemIdToNameLong(etGraphStage, stage));
-
-        fileQry.get().SetVariable("point_id", point_id);
-        fileQry.get().Execute();
-
-        map<KUF_STAT::TFileType::Enum, string> files;
-        for(; not fileQry.get().Eof; fileQry.get().Next())
-            files.insert(make_pair(
-                    KUF_STAT::TFileTypes().decode(fileQry.get().FieldAsString("file_type")),
-                    fileQry.get().FieldAsString("file_name")));
 
         for(
                 std::list< std::pair<KUF_STAT::TFileType::Enum, std::string> >::const_iterator iFTypes = KUF_STAT::TFileType::pairs().begin();
