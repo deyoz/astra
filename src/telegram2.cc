@@ -10196,8 +10196,8 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
         TTripInfo tripInfo(Qry.get());
         
-        if(not KUF_STAT::TAirps().find(tripInfo.airp) or
-                not KUF_STAT::TAirlines().find(tripInfo.airline)) continue;
+        if (not TReqInfo::Instance()->user.access.airlines().permitted(tripInfo.airline) or
+                not TReqInfo::Instance()->user.access.airps().permitted(tripInfo.airp) ) continue;
 
         TTripStage ts;
         TStage stage = sNoActive;
