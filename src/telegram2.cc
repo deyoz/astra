@@ -9542,34 +9542,64 @@ namespace CKIN_REPORT {
 
 
         SALONS2::TSalonList salonList;
-        salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ),
-                SALONS2::isTranzitSalons( point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
-                "", NoExists );
-        TSalonPassengers tranzit_pax_map;
-        TSalonPassengers pax_map;
         SALONS2::TGetPassFlags flags;
-        flags.setFlag( SALONS2::gpWaitList );
-        flags.setFlag( SALONS2::gpTranzits );
-        flags.setFlag( SALONS2::gpInfants );
-        salonList.getPassengers( tranzit_pax_map, flags );
 
-        LogTrace(TRACE5) << "tranzit_pax_map:";
-        tranzit_pax_map.dump();
+        try {
+            salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ),
+                    SALONS2::isTranzitSalons( point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
+                    "", NoExists );
+        } catch(const Exception &E) {
+            LogTrace(TRACE5) << "TReportData::get: salonList.ReadFlight failed: " << E.what();
+        } catch(...) {
+            LogTrace(TRACE5) << "TReportData::get: salonList.ReadFlight failed: unexpected";
+        }
 
-        flags.setFlag( SALONS2::gpPassenger );
-        flags.clearFlag(SALONS2::gpTranzits);
-        salonList.getPassengers( pax_map, flags );
+        TSalonPassengers tranzit_pax_map;
+        try {
+            flags.setFlag( SALONS2::gpWaitList );
+            flags.setFlag( SALONS2::gpTranzits );
+            flags.setFlag( SALONS2::gpInfants );
+            salonList.getPassengers( tranzit_pax_map, flags );
+        } catch(const Exception &E) {
+            LogTrace(TRACE5) << "TReportData::get: tranzit_pax_map failed: " << E.what();
+        } catch(...) {
+            LogTrace(TRACE5) << "TReportData::get: tranzit_pax_map failed: unexpected";
+        }
+
+        TSalonPassengers pax_map;
+        try {
+            flags.setFlag( SALONS2::gpPassenger );
+            flags.clearFlag(SALONS2::gpTranzits);
+            salonList.getPassengers( pax_map, flags );
+        } catch(const Exception &E) {
+            LogTrace(TRACE5) << "TReportData::get: pax_map failed: " << E.what();
+        } catch(...) {
+            LogTrace(TRACE5) << "TReportData::get: pax_map failed: unexpected";
+        }
 
 
 
         TCRSPaxList crs_pax_list;
-        crs_pax_list.get(point_id);
-        crs_pax_list.dump();
+        try {
+            crs_pax_list.get(point_id);
+            crs_pax_list.dump();
+        } catch(const Exception &E) {
+            LogTrace(TRACE5) << "TReportData::get: crs_pax_list failed: " << E.what();
+        } catch(...) {
+            LogTrace(TRACE5) << "TReportData::get: crs_pax_list failed: unexpected";
+        }
 
         self_ckin_pax_list.get(point_id);
 
         TTripRoute trip_route;
-        trip_route.GetRouteAfter(NoExists, point_id, trtWithCurrent, trtNotCancelled);
+        try {
+            trip_route.GetRouteAfter(NoExists, point_id, trtWithCurrent, trtNotCancelled);
+        } catch(const Exception &E) {
+            LogTrace(TRACE5) << "TReportData::get: trip_route failed: " << E.what();
+        } catch(...) {
+            LogTrace(TRACE5) << "TReportData::get: trip_route failed: unexpected";
+        }
+
         int idx = 1;
         for(TTripRoute::iterator iRoute = trip_route.begin(); iRoute != trip_route.end(); iRoute++, idx++) {
             // booking info
@@ -10128,6 +10158,17 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
         if(stage == sNoActive) continue;
 
+        fileQry.get().SetVariable("point_id", point_id);
+        fileQry.get().Execute();
+
+        map<KUF_STAT::TFileType::Enum, string> files;
+        for(; not fileQry.get().Eof; fileQry.get().Next())
+            files.insert(make_pair(
+                    KUF_STAT::TFileTypes().decode(fileQry.get().FieldAsString("file_type")),
+                    fileQry.get().FieldAsString("file_name")));
+
+        if(files.empty()) continue;
+
         ostringstream flt_name;
         flt_name
             << tripInfo.airline
@@ -10142,15 +10183,6 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
         SetProp(fltNode, "point_id", point_id);
 
         NewTextChild(itemNode, "status", ElemIdToNameLong(etGraphStage, stage));
-
-        fileQry.get().SetVariable("point_id", point_id);
-        fileQry.get().Execute();
-
-        map<KUF_STAT::TFileType::Enum, string> files;
-        for(; not fileQry.get().Eof; fileQry.get().Next())
-            files.insert(make_pair(
-                    KUF_STAT::TFileTypes().decode(fileQry.get().FieldAsString("file_type")),
-                    fileQry.get().FieldAsString("file_name")));
 
         for(
                 std::list< std::pair<KUF_STAT::TFileType::Enum, std::string> >::const_iterator iFTypes = KUF_STAT::TFileType::pairs().begin();

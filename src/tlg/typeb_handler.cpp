@@ -620,15 +620,18 @@ bool handle_tlg(void)
             if (!errors.empty())
             {
               ETlgErrorType etype=tlgeNotError;
+              ostringstream err_msg;
               for(list<ETlgError>::const_iterator e=errors.begin(); e!=errors.end(); ++e)
               {
+                if(not err_msg.str().empty()) err_msg << std::endl;
+                err_msg << e->what();
                 progError(typeb_tlg_id, typeb_tlg_num, error_no, *e, "", bind_flts);  //хорошо бы доделать, чтобы передавался tlg_type
                 if (etype < e->error_type()) etype=e->error_type();
               };
               errorTlg(tlg_id,"PARS");
               parseTypeB(typeb_tlg_id);
               bindTypeB(typeb_tlg_id, bind_flts, etype);
-              TypeBHelpMng::notify(typeb_tlg_id, ASTRA::NoExists); // Отвешиваем процесс, если есть.
+              TypeBHelpMng::notify_msg(typeb_tlg_id, err_msg.str()); // Отвешиваем процесс, если есть.
             }
             else
             {
@@ -1000,7 +1003,7 @@ bool parse_tlg(void)
           progError(tlg_id, NoExists, error_no, E, tlg_type, bind_flts);
           parseTypeB(tlg_id);
           bindTypeB(tlg_id, bind_flts, E);
-          TypeBHelpMng::notify(tlg_id, ASTRA::NoExists); // Отвешиваем процесс, если есть.
+          TypeBHelpMng::notify_msg(tlg_id, E.what()); // Отвешиваем процесс, если есть.
           OraSession.Commit();
         }
         catch(...) {};

@@ -43,8 +43,6 @@ vector<string> get_file_list(const string& init_path)
 
 string file_to_string(const string& full_path)
 {
-    //  http://www.cplusplus.com/reference/istream/istream/tellg/
-    //  http://stackoverflow.com/questions/9518659/how-to-read-a-specific-amount-of-characters-from-a-text-file
     if (LOCAL_DEBUG) cout << __FUNCTION__ << " READ FILE: " << full_path << endl;
     ifstream in(full_path.c_str(), std::ios::binary);
     if (!in.good())
@@ -111,6 +109,7 @@ int html_to_db(int argc, char **argv)
         if (argc != 2)
             throw Exception("Must provide path");
         string init_path(argv[1]);
+        while (init_path.size() > 1 and *init_path.rbegin() == '/') init_path.erase(init_path.size() - 1);
         vector<string> file_list = get_file_list(init_path);
         for (vector<string>::iterator i_file_path = file_list.begin(); i_file_path != file_list.end(); ++i_file_path)
             file_to_db(init_path, *i_file_path);
@@ -131,6 +130,7 @@ int html_from_db(int argc, char **argv)
         if (argc != 2)
             throw Exception("Must provide path");
         string init_path(argv[1]);
+        while (init_path.size() > 1 and *init_path.rbegin() == '/') init_path.erase(init_path.size() - 1);
         TCachedQuery Qry1(
             "select name, text from HTML_PAGES, HTML_PAGES_TEXT "
             "where "
@@ -149,6 +149,7 @@ int html_from_db(int argc, char **argv)
         {
             string file_path =  ip->first;
             string full_path = init_path + file_path;
+            // path.filename() возвращает разные типы в разных версиях boost, поэтому c_str()
             string dir_path = full_path.substr( 0, full_path.size() - string( fs::path(full_path).filename().c_str() ).size() );
             fs::create_directories(dir_path);
             if (LOCAL_DEBUG) cout << __FUNCTION__ << " WRITE FILE: " << full_path << endl;

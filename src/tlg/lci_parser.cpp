@@ -2,6 +2,7 @@
 #include "misc.h"
 #include "salons.h"
 #include "telegram.h"
+#include "TypeBHelpMng.h"
 #include <sstream>
 
 
@@ -129,6 +130,7 @@ const char *TWMDesignatorS[] =
 {
     "S",
     "A",
+    "WB",
     ""
 };
 
@@ -152,6 +154,14 @@ const char *TWMTypeS[] =
     "P",
     "H",
     "B",
+
+    // non standard WBW types
+    "TT",
+    "PT",
+    "HT",
+    "BT",
+    "CT",
+    "MT",
     ""
 };
 
@@ -817,6 +827,33 @@ void TWM::dump()
     ProgTrace(TRACE5, "---------------");
 }
 
+bool TWM::parse_wb(const char *val)
+{
+    vector<string> by_slashes;
+    split(by_slashes, val, '/');
+    bool result = by_slashes.size() > 1;
+    if(result) {
+        vector<string> by_periods;
+        split(by_periods, val, '.');
+        if(by_periods.size() < 2)
+            throw Exception("TWM::parse_wb can't parse %s", val);
+        for(vector<string>::const_iterator
+                item = by_slashes.begin();
+                item != by_slashes.end();
+                item++) {
+            string item_to_parse;
+            if(item != by_slashes.begin())
+                item_to_parse = by_periods[0] + "." + by_periods[1] + ".";
+            item_to_parse += *item;
+            if(item + 1 != by_slashes.end())
+                item_to_parse += (string)"." + by_periods.back();
+            LogTrace(TRACE5) << "item_to_parse: '" << item_to_parse << "'";
+            parse(item_to_parse.c_str());
+        }
+    }
+    return result;
+}
+
 void TWM::parse(const char *val)
 {
     vector<string> items;
@@ -825,6 +862,7 @@ void TWM::parse(const char *val)
         throw ETlgError("WM wrong fomrat %s", val);
     TWMDesignator desig = DecodeWMDesignator(items[1]);
     if(desig == wmdUnknown) throw ETlgError("unknown WM designator %s", items[1].c_str());
+
     TWMType type = DecodeWMType(items[2]);
     if(type == wmtUnknown) throw ETlgError("unknown WM type %s", items[2].c_str());
 
@@ -842,6 +880,7 @@ void TWM::parse(const char *val)
         // В оставшихся элементах содержится инфа по sub_type
         TWMSubType sub_type = DecodeWMSubType(items[0]);
         if(sub_type == wmsUnknown) {
+            if(parse_wb(val)) return; // парсинг строки вида WM.WB.TT.4257/PT.2000/HT.150/BT.1000/CT.1100/MT.7.KG
             sth = tr1::shared_ptr<TSubTypeHolder>(new TSimpleWeight);
         } else {
             items.erase(items.begin(), items.begin() + 1); // избавляемся от идентификатора sub_type
@@ -1463,6 +1502,10 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
         createInfo.point_id = point_id_spp;
         createInfo.set_addrs(info.sender);
         TelegramInterface::SendTlg(vector<TCreateInfo>(1, createInfo));
+    } else if(con.action_code.action == aUpdate) {
+        LogTrace(TRACE5) << "dump wm";
+        con.wm.dump();
+        TypeBHelpMng::notify_ok(tlg_id, NoExists); // Отвешиваем процесс, если есть.
     } else {
         //
     }

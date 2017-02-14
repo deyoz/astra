@@ -129,6 +129,7 @@ struct TSR {
 enum TWMDesignator {
     wmdStandard,
     wmdActual,
+    wmdWB,
     wmdUnknown
 };
 
@@ -136,6 +137,15 @@ enum TWMType {
     wmtPax,
     wmtHand,
     wmtBag,
+
+    // non standard WBW types
+    wmtWBTotalWeight,
+    wmtWBTotalPaxWeight,
+    wmtWBTotalHandWeight,
+    wmtWBTotalBagWeight,
+    wmtWBTotalCargoWeight,
+    wmtWBTotalMailWeight,
+
     wmtUnknown
 };
 
@@ -221,6 +231,7 @@ struct TWM:public TWMMap {
         bool find_item(TWMDesignator desig, TWMType type);
     public:
         void parse(const char *val);
+        bool parse_wb(const char *val);
         void dump();
 };
 
