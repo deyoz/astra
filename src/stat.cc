@@ -28,6 +28,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/shared_array.hpp>
 #include <boost/crc.hpp>
+#include "md5_sum.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -8315,47 +8316,6 @@ void TStatOrder::toDB()
             );
     Qry.get().Execute();
 }
-
-#include <openssl/md5.h>
-
-struct TMD5Sum {
-    MD5_CTX c;
-    u_char digest[16];
-    double data_size;
-
-    void init()
-    {
-        data_size = 0;
-        MD5_Init(&c);
-    }
-
-    int update(const void *data, size_t len)
-    {
-        data_size += len;
-        return MD5_Update(&c, (unsigned char *)data, len);
-    }
-
-    int Final()
-    {
-        return MD5_Final(digest, &c);
-    }
-
-    string str()
-    {
-        ostringstream md5sum;
-        for(size_t i = 0; i < sizeof(digest) / sizeof(u_char); i++)
-            md5sum << hex << setw(2) << setfill('0') << (int)digest[i];
-        return md5sum.str();
-    }
-
-    static TMD5Sum *Instance()
-    {
-        static TMD5Sum *instance_ = 0;
-        if(not instance_)
-            instance_ = new TMD5Sum();
-        return instance_;
-    }
-};
 
 void TStatOrder::check_integrity(TDateTime month)
 {

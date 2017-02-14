@@ -163,7 +163,8 @@ astra_SOURCES = \
   SalonPaxList.cc \
   annul_bt.cc \
   html_pages.cc \
-  brands.cpp
+  brands.cpp \
+  md5_sum.cc
 
 
 astra_LDADD = $(all_libraries) \
@@ -320,4 +321,5 @@ noinst_HEADERS = \
   SalonPaxList.h \
   annul_bt.h \
   html_pages.h \
-  brands.h
+  brands.h \
+  md5_sum.h

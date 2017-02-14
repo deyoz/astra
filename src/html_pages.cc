@@ -8,12 +8,14 @@
 #include "astra_context.h"
 #include "serverlib/str_utils.h"
 #include "xml_unit.h"
+#include "md5_sum.h"
 
 #define NICKNAME "KOSHKIN"
 #include "serverlib/slogger.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace BASIC::date_time;
 namespace fs = boost::filesystem;
 
 const bool LOCAL_DEBUG = true;
@@ -52,15 +54,18 @@ string file_to_string(const string& full_path)
 
 void file_to_db(const string& init_path, const string& file_path)
 {
+    string file_data =  file_to_string(init_path + file_path);
     TCachedQuery Qry1(
         "begin "
         "   delete from HTML_PAGES_TEXT where id = (select id from HTML_PAGES where name = :name); "
         "   delete from HTML_PAGES where name = :name; "
-        "   insert into HTML_PAGES values(tid__seq.nextval, :name) returning id into :id; "
+        "   insert into HTML_PAGES(id, name, etag, last_modified) values(tid__seq.nextval, :name, :etag, :last_modified) returning id into :id; "
         "end; ",
         QParams()
         << QParam("name", otString, file_path)
         << QParam("id", otInteger)
+        << QParam("etag", otString, md5_sum(file_data))
+        << QParam("last_modified", otDate, NowUTC())
     );
     Qry1.get().Execute();
     int id = Qry1.get().GetVariableAsInteger("id");
@@ -71,34 +76,7 @@ void file_to_db(const string& init_path, const string& file_path)
         << QParam("page_no", otInteger)
         << QParam("text", otString)
     );
-    longToDB(Qry2.get(), "text", file_to_string(init_path + file_path));
-}
-
-string getHTMLResource(string file_path)
-{
-    try
-    {
-        TCachedQuery Qry1(
-            "select text from HTML_PAGES, HTML_PAGES_TEXT "
-            "where "
-            "   HTML_PAGES.name = :name and "
-            "   HTML_PAGES.id = HTML_PAGES_TEXT.id "
-            "order by "
-            "   page_no",
-            QParams()
-            << QParam("name", otString, file_path)
-        );
-        Qry1.get().Execute();
-        string result;
-        for (; not Qry1.get().Eof; Qry1.get().Next())
-            result += Qry1.get().FieldAsString("text");
-        return result;
-    }
-    catch(Exception &E)
-    {
-        cout << __FUNCTION__ << " " << E.what() << endl;
-        return "";
-    }
+    longToDB(Qry2.get(), "text", file_data);
 }
 
 //  --------------------------------
@@ -167,10 +145,56 @@ int html_from_db(int argc, char **argv)
     return 0;
 }
 
+struct THTMLResurce {
+    string name;
+    string etag;
+    TDateTime last_modified;
+    string data;
+    void Clear();
+    THTMLResurce() { Clear(); }
+    void get(const string &aname);
+};
+
+void THTMLResurce::Clear()
+{
+    name.clear();
+    etag.clear();
+    last_modified = ASTRA::NoExists;
+    data.clear();
+}
+
+void THTMLResurce::get(const string &aname)
+{
+    Clear();
+    TCachedQuery Qry(
+            "select etag, last_modified, text from HTML_PAGES, HTML_PAGES_TEXT "
+            "where "
+            "   HTML_PAGES.name = :name and "
+            "   HTML_PAGES.id = HTML_PAGES_TEXT.id "
+            "order by "
+            "   page_no",
+            QParams()
+            << QParam("name", otString, aname)
+            );
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        for (; not Qry.get().Eof; Qry.get().Next()) {
+            if(name.empty()) {
+                name = aname;
+                etag = Qry.get().FieldAsString("etag");
+                last_modified = Qry.get().FieldAsDateTime("last_modified");
+            }
+            data += Qry.get().FieldAsString("text");
+        }
+    }
+}
+
 void HtmlInterface::get_resource(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string uri_path = NodeAsString("uri_path", reqNode);
     LogTrace(TRACE5) << "get_resource uri_path: " << uri_path;
-    SetProp( NewTextChild(resNode, "content",  getHTMLResource(uri_path)), "b64", true);
+    THTMLResurce html_resource;
+    html_resource.get(uri_path);
+    SetProp( NewTextChild(resNode, "content",  html_resource.data), "b64", true);
 }
 
