@@ -811,8 +811,6 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
       Qry.CreateVariable( "pnr_id", otInteger, pnr_id );
       Qry.Execute();
       SeatQry.SetVariable("crs_row", 1);
-      SeatQry.SetVariable("layer_type", FNull);
-      SeatQry.SetVariable("crs_seat_no", FNull);
       if (!Qry.Eof)
       {
         pnr.checkInfo.set(point_id, Qry.FieldAsString("airp_arv"));
@@ -828,12 +826,13 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
           pax.name = Qry.FieldAsString( "name" );
           pax.pers_type_extended = Qry.FieldAsString( "pers_type" );
           pax.seat_no = Qry.FieldAsString( "seat_no" );
-
           SeatQry.SetVariable("pax_id", Qry.FieldAsInteger("crs_pax_id"));
           SeatQry.SetVariable("xname", Qry.FieldAsString("seat_xname"));
           SeatQry.SetVariable("yname", Qry.FieldAsString("seat_yname"));
           SeatQry.SetVariable("seats", Qry.FieldAsInteger("crs_seats"));
           SeatQry.SetVariable("point_id", Qry.FieldAsInteger("point_id_tlg"));
+          SeatQry.SetVariable("layer_type", FNull);
+          SeatQry.SetVariable("crs_seat_no", FNull);
           SeatQry.Execute();
           pax.crs_seat_layer=DecodeCompLayerType(SeatQry.GetVariableAsString("layer_type"));
           pax.crs_seat_no=SeatQry.GetVariableAsString("crs_seat_no");

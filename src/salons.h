@@ -607,7 +607,7 @@ struct SeatRemarkCompare {
 class TPaxList;
 
 struct classcomp {
-  bool operator() (const char& lhs, const char& rhs) const
+  bool operator() (const int& lhs, const int& rhs) const
   {return lhs<rhs;}
 };
 
