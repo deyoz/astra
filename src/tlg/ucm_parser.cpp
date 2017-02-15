@@ -123,7 +123,7 @@ void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts)
         throw ETlgError(tlgeNotMonitorNotAlarm, "Wrong flight: " + src);
 
     // привязка к рейсы
-    flts.push_back(TFltForBind(toFltInfo(),  btFirstSeg, TExtSearchParamsPtr()));
+    flts.push_back(TFltForBind(toFltInfo(),  btFirstSeg, TSearchFltInfoPtr()));
 }
 
 TFltInfo TUCMFltInfo::toFltInfo()

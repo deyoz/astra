@@ -167,17 +167,18 @@ void TFltBinding::bind_flt(TFltInfo &flt, TBindType bind_type, vector<int> &spp_
   spp_point_ids.clear();
   if (!flt.pr_utc && *flt.airp_dep==0) return;
 
-  TSearchFltInfo filter;
-  filter.airline=flt.airline;
-  filter.flt_no=flt.flt_no;
-  filter.suffix=flt.suffix;
-  filter.airp_dep=flt.airp_dep;
-  filter.scd_out=flt.scd;
-  filter.scd_out_in_utc=flt.pr_utc;
-  filter.ext_search_params = get_search_params();
+  TSearchFltInfoPtr filter = get_search_params();
+  if(not filter)
+      filter = TSearchFltInfoPtr(new TSearchFltInfo());
+  filter->airline=flt.airline;
+  filter->flt_no=flt.flt_no;
+  filter->suffix=flt.suffix;
+  filter->airp_dep=flt.airp_dep;
+  filter->scd_out=flt.scd;
+  filter->scd_out_in_utc=flt.pr_utc;
 
   list<TAdvTripInfo> flts;
-  SearchFlt(filter, flts);
+  SearchFlt(*filter.get(), flts);
 
   // Влад !!!
   // Пусть есть рейс с 4 пунктами ДМД-ВРН-МХЛ-ПЛК-СОЧ
@@ -601,7 +602,7 @@ void TFltBinding::trace_for_bind(const vector<int> &point_ids, const string &whe
   ProgTrace(TRACE5, trace.str().c_str());
 };
 
-void TFltInfo::dump()
+void TFltInfo::dump() const
 {
     LogTrace(TRACE5) << "----TFltInfo::dump----";
     LogTrace(TRACE5) << "airline: " << airline;

@@ -1072,7 +1072,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info, TFligh
                 if (c!=0||res!=1) throw ETlgError("Wrong boarding point");
               }
               else throw ETlgError("Wrong boarding point");
-              flts.push_back(TFltForBind(info.flt,  btFirstSeg, TExtSearchParamsPtr()));
+              flts.push_back(TFltForBind(info.flt,  btFirstSeg, TSearchFltInfoPtr()));
             };
             if (strcmp(info.tlg_type,"PTM")==0)
             {
@@ -1083,7 +1083,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info, TFligh
                 if (c!=0||res!=2) throw ETlgError("Wrong boarding/transfer point");
               }
               else throw ETlgError("Wrong bording/transfer point");
-              flts.push_back(TFltForBind(info.flt,  btLastSeg, TExtSearchParamsPtr()));
+              flts.push_back(TFltForBind(info.flt,  btLastSeg, TSearchFltInfoPtr()));
             };
 
             if ((p=tlg.GetLexeme(p))!=NULL)
@@ -5384,7 +5384,7 @@ void GetParts(const char* tlg_p, TTlgPartsText &text, THeadingInfo* &info, TFlig
   };
 };
 
-int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TExtSearchParamsPtr search_params, ETlgErrorType error_type)
+int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TSearchFltInfoPtr search_params, ETlgErrorType error_type)
 {
   int point_id;
   TQuery Qry(&OraSession);
@@ -5439,7 +5439,10 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TExtSearchPara
       Qry.Execute();
     };
   }
-  else point_id=Qry.FieldAsInteger("point_id");
+  else {
+      point_id=Qry.FieldAsInteger("point_id");
+      TTlgBinding(false, search_params).bind_flt(point_id);
+  }
 
 
   bool has_errors=error_type!=tlgeNotError;
@@ -5672,7 +5675,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
   set<int> alarm_point_ids;
   for(vector<TBtmTransferInfo>::const_iterator iIn=con.Transfer.begin();iIn!=con.Transfer.end();++iIn)
   {
-    point_id_in=SaveFlt(tlg_id,iIn->InFlt,btLastSeg,TExtSearchParamsPtr());
+    point_id_in=SaveFlt(tlg_id,iIn->InFlt,btLastSeg,TSearchFltInfoPtr());
     //найдем point_id_spp рейсов, которым отправляется трансфер
     set<int> point_ids;
     AlarmQry.SetVariable("point_id_in", point_id_in);
@@ -5685,7 +5688,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
     TrferQry.SetVariable("subcl_in",iIn->InFlt.subcl);
     for(vector<TBtmOutFltInfo>::const_iterator iOut=iIn->OutFlt.begin();iOut!=iIn->OutFlt.end();++iOut)
     {
-      point_id_out=SaveFlt(tlg_id,*iOut,btFirstSeg,TExtSearchParamsPtr());
+      point_id_out=SaveFlt(tlg_id,*iOut,btFirstSeg,TSearchFltInfoPtr());
       TrferQry.SetVariable("point_id_out",point_id_out);
       TrferQry.SetVariable("subcl_out",iOut->subcl);
       TrferQry.Execute();
@@ -5774,7 +5777,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   vector<string>::iterator i;
   int point_id_in,point_id_out;
 
-  point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(con.InFlt),btLastSeg,TExtSearchParamsPtr());
+  point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(con.InFlt),btLastSeg,TSearchFltInfoPtr());
   if (!DeletePTMBTMContent(point_id_in,info)) return;
 
   TQuery TrferQry(&OraSession);
@@ -5804,7 +5807,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
 
   for(iOut=con.OutFlt.begin();iOut!=con.OutFlt.end();iOut++)
   {
-    point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut),btFirstSeg,TExtSearchParamsPtr());
+    point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut),btFirstSeg,TSearchFltInfoPtr());
     TrferQry.SetVariable("point_id_out",point_id_out);
     TrferQry.SetVariable("subcl_out",iOut->subcl);
     TrferQry.Execute();
@@ -6169,7 +6172,7 @@ void SaveDCSBaggage(int pax_id, const TNameElement &ne)
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con)
 {
   //vector<TSeatsByDest>::iterator iSeats;
-  int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg,TExtSearchParamsPtr());
+  int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg,TSearchFltInfoPtr());
   if (!DeleteSOMContent(point_id,info)) return;
 
   bool usePriorContext=false;
@@ -6263,7 +6266,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
   if (info.time_create==0) throw ETlgError("Creation time not defined");
 
-  int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg,TExtSearchParamsPtr());
+  int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg,TSearchFltInfoPtr());
 
   //идентифицируем систему бронирования
   bool isPRL=strcmp(info.tlg_type,"PRL")==0;

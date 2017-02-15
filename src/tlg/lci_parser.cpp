@@ -397,7 +397,7 @@ void TLCIFltInfo::parse(const char *val, TFlightsForBind &flts)
     if(airp.empty())
         throw ETlgError("airp '%s' not found", aairp.c_str());
     // привязка к рейсы
-    flts.push_back(TFltForBind(toFltInfo(),  btFirstSeg, TExtSearchParamsPtr(new TLCISearchParams())));
+    flts.push_back(TFltForBind(toFltInfo(),  btFirstSeg, TSearchFltInfoPtr(new TLCISearchParams())));
 }
 
 TTlgPartInfo ParseLCIHeading(TTlgPartInfo heading, TLCIHeadingInfo &info, TFlightsForBind &flts)
@@ -1428,7 +1428,7 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
 
 void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, TLCIContent& con)
 {
-    int point_id_tlg=SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TExtSearchParamsPtr(new TLCISearchParams()));
+    int point_id_tlg=SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TSearchFltInfoPtr(new TLCISearchParams()));
     TQuery Qry(&OraSession);
     Qry.SQLText =
       "SELECT point_id_spp, nvl(points.est_out, points.scd_out) scd_out FROM tlg_binding, points WHERE point_id_tlg=:point_id and point_id_spp = point_id",
