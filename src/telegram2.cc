@@ -9840,6 +9840,7 @@ namespace CKIN_REPORT {
         NewTextChild(rootNode, "flt_no",  IntToString(flt_no) + suffix);
         NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy"));
         xmlNodePtr paxNode = NewTextChild(rootNode, "passengers");
+        if(pax_list.empty()) return;
 
         map<int,TCheckinPaxSeats> checkinPaxsSeats;
         getSalonPaxsSeats(point_id, checkinPaxsSeats);
