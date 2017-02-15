@@ -9,6 +9,7 @@
 #include "serverlib/str_utils.h"
 #include "xml_unit.h"
 #include "md5_sum.h"
+#include <boost/regex.hpp>
 
 #define NICKNAME "KOSHKIN"
 #include "serverlib/slogger.h"
@@ -19,6 +20,14 @@ using namespace BASIC::date_time;
 namespace fs = boost::filesystem;
 
 const bool LOCAL_DEBUG = true;
+
+namespace HTTP_HDR {
+    const string IF_NONE_MATCH = "If-None-Match";
+    const string IF_MODIFIED_SINCE = "If-Modified-Since";
+    const string LAST_MODIFIED = "Last-Modified";
+    const string ETAG = "ETag";
+    const string DATE = "Date";
+};
 
 void html_db_usage(string name, string what)
 {
@@ -153,7 +162,16 @@ struct THTMLResurce {
     void Clear();
     THTMLResurce() { Clear(); }
     void get(const string &aname);
+    string get_last_modified();
 };
+
+string THTMLResurce::get_last_modified()
+{
+    TCachedQuery Qry("select to_char(:last_modified, 'Dy, dd Mon yyyy hh24:mm:ss', 'NLS_DATE_LANGUAGE = American')||' GMT' from dual",
+            QParams() << QParam("last_modified", otDate, last_modified));
+    Qry.get().Execute();
+    return Qry.get().FieldAsString(0);
+}
 
 void THTMLResurce::Clear()
 {
@@ -189,12 +207,117 @@ void THTMLResurce::get(const string &aname)
     }
 }
 
+const string TResHTTPParams::NAME = "res_http_params";
+
+void TResHTTPParams::Clear()
+{
+    status = ServerFramework::HTTP::reply::ok;
+    hdrs.clear();
+}
+
+void TResHTTPParams::fromXML(string &data)
+{
+    LogTrace(TRACE5) << "TResHTTPParams::fromXML data: '" << data << "'";
+
+    static const boost::regex e("^(.*)(<" + NAME + ">.*</" + NAME + ">)(.*)$");
+    boost::match_results<std::string::const_iterator> results;
+    if(boost::regex_match(data, results, e)) {
+        data = results[1] + results[3]; // выкидываем из ответного контента секцию про http params
+
+        XMLDoc doc = XMLDoc(results[2]);
+        if(not doc.docPtr()) throw Exception("TResHTTPParams::fromXML failed to parse xml");
+        xmlNodePtr node = doc.docPtr()->children->children;
+        xmlNodePtr curNode = NodeAsNodeFast("status", node);
+        status = (ServerFramework::HTTP::reply::status_type)NodeAsInteger(curNode);
+        curNode = NodeAsNodeFast("hdrs", node);
+        curNode = curNode->children;
+        for(; curNode; curNode = curNode->next)
+            hdrs[(char *)curNode->name] = NodeAsString(curNode);
+    }
+}
+
+void TResHTTPParams::toXML(xmlNodePtr node)
+{
+    xmlNodePtr paramsNode = NewTextChild(node, NAME.c_str());
+    NewTextChild(paramsNode, "status", status);
+    xmlNodePtr hdrsNode = NULL;
+    for(map<string, string>::const_iterator i = hdrs.begin();
+            i != hdrs.end(); i++) {
+        if(not hdrsNode)
+            hdrsNode = NewTextChild(paramsNode, "hdrs");
+        NewTextChild(hdrsNode, i->first.c_str(), i->second);
+    }
+}
+
 void HtmlInterface::get_resource(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string uri_path = NodeAsString("uri_path", reqNode);
     LogTrace(TRACE5) << "get_resource uri_path: " << uri_path;
+
+    string if_none_match = html_header_param(HTTP_HDR::IF_NONE_MATCH, reqNode);
+    string if_modified_since_str = html_header_param(HTTP_HDR::IF_MODIFIED_SINCE, reqNode);
+
+    LogTrace(TRACE5) << "if_none_match: '" << if_none_match << "'";
+    LogTrace(TRACE5) << "if_modified_since_str: '" << if_modified_since_str << "'";
+
+    TDateTime if_modified_since = ASTRA::NoExists;
+    if(not if_modified_since_str.empty()) {
+        // Здесь ожидается строка вида 'Fri, 10 Feb 2017 09:33:30 GMT'
+        // Откидываем день недели и GMT
+        size_t idx = if_modified_since_str.find(',');
+        if(idx == string::npos)
+            throw Exception("unexpected format of %s", HTTP_HDR::IF_MODIFIED_SINCE.c_str());
+        if_modified_since_str.erase(0, idx + 1);
+        if_modified_since_str.erase(if_modified_since_str.size() - 4);
+        LogTrace(TRACE5) << "if_modified_since_str after strip: '" << if_modified_since_str << "'";
+    }
+
+    TResHTTPParams rhp;
     THTMLResurce html_resource;
     html_resource.get(uri_path);
-    SetProp( NewTextChild(resNode, "content",  html_resource.data), "b64", true);
+    xmlNodePtr contentNode = NewTextChild(resNode, "content");
+    if(not html_resource.data.empty()) {
+        if(if_none_match.empty() or if_none_match != html_resource.etag) {
+            NodeSetContent(contentNode, html_resource.data);
+            SetProp(contentNode, "b64", true);
+            rhp.hdrs[HTTP_HDR::LAST_MODIFIED] = html_resource.get_last_modified();
+        } else {
+            // not modified
+            rhp.status = ServerFramework::HTTP::reply::not_modified;
+        }
+        rhp.hdrs[HTTP_HDR::ETAG] = html_resource.etag;
+        rhp.toXML(resNode);
+    }
 }
 
+string http_req_param(const string &tag_name, xmlNodePtr reqNode, bool hdr)
+{
+    string result;
+    xmlNodePtr node = reqNode->children;
+    if(hdr)
+        node = NodeAsNodeFast("header", node);
+    else
+        node = NodeAsNodeFast("get_params", node);
+    if(not node) throw Exception("html_get_param: get_params not found where expected");
+    node = node->children;
+    for(; node; node = node->next) {
+        xmlNodePtr node2 = node->children;
+        string name = NodeAsStringFast("name", node2);
+        string value = NodeAsStringFast("value", node2);
+        if(name == tag_name) {
+            result = value;
+            break;
+        }
+    }
+    return result;
+}
+
+string html_header_param(const string &tag_name, xmlNodePtr reqNode)
+{
+    return http_req_param(tag_name, reqNode, true);
+}
+
+string html_get_param(const string &tag_name, xmlNodePtr reqNode)
+{
+    return http_req_param(tag_name, reqNode, false);
+}

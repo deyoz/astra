@@ -21,6 +21,7 @@
 #include "astra_callbacks.h"
 #include "xml_unit.h"
 #include "qrys.h"
+#include "html_pages.h"
 
 using namespace EXCEPTIONS;
 
@@ -257,6 +258,9 @@ bool get_b64_prop(const string &val)
 
 reply& HTTPClient::fromJXT( std::string res, reply& rep )
 {
+  TResHTTPParams http_params;
+  http_params.fromXML(res);
+
   bool b64 = false;
   if (!jxt_format)
   {
@@ -280,7 +284,7 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
   else
       rep.content = /*"<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +*/ res;
 
-  rep.status = reply::ok;
+  rep.status = http_params.status;
   rep.headers.resize(4);
   rep.headers[0].name = "Content-Length";
   rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
@@ -289,6 +293,13 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
   rep.headers[2].value = "*";
   rep.headers[3].name = "Access-Control-Allow-Headers";
   rep.headers[3].value = "CLIENT-ID,OPERATION,Authorization";
+  for(map<string, string>::const_iterator i = http_params.hdrs.begin();
+          i != http_params.hdrs.end(); i++) {
+      rep.headers.resize(rep.headers.size() + 1);
+      rep.headers.back().name = i->first;
+      rep.headers.back().value = i->second;
+  }
+
   return rep;
 }
 

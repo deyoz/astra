@@ -30,6 +30,7 @@
 
 #include "alarms.h"
 #include "TypeBHelpMng.h"
+#include "html_pages.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -10023,25 +10024,6 @@ namespace CKIN_REPORT {
             }
         }
     }
-}
-
-string html_get_param(const string &tag_name, xmlNodePtr reqNode)
-{
-    string result;
-    xmlNodePtr node = reqNode->children;
-    node = NodeAsNodeFast("get_params", node);
-    if(not node) throw Exception("html_get_param: get_params not found where expected");
-    node = node->children;
-    for(; node; node = node->next) {
-        xmlNodePtr node2 = node->children;
-        string name = NodeAsStringFast("name", node2);
-        string value = NodeAsStringFast("value", node2);
-        if(name == tag_name) {
-            result = value;
-            break;
-        }
-    }
-    return result;
 }
 
 namespace KUF_STAT {
