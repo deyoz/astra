@@ -3,6 +3,7 @@
 #include "salons.h"
 #include "telegram.h"
 #include "TypeBHelpMng.h"
+#include "points.h" // for TFlightMaxCommerce
 #include <sstream>
 
 
@@ -847,7 +848,6 @@ bool TWM::parse_wb(const char *val)
             item_to_parse += *item;
             if(item + 1 != by_slashes.end())
                 item_to_parse += (string)"." + by_periods.back();
-            LogTrace(TRACE5) << "item_to_parse: '" << item_to_parse << "'";
             parse(item_to_parse.c_str());
         }
     }
@@ -1503,8 +1503,16 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
         createInfo.set_addrs(info.sender);
         TelegramInterface::SendTlg(vector<TCreateInfo>(1, createInfo));
     } else if(con.action_code.action == aUpdate) {
-        LogTrace(TRACE5) << "dump wm";
-        con.wm.dump();
+        std::tr1::shared_ptr<TSubTypeHolder> sth = con.wm[wmdWB][wmtWBTotalWeight];
+        if(sth) {
+            const TSimpleWeight &mc = *dynamic_cast<TSimpleWeight *>(sth.get());
+            TFlightMaxCommerce maxCommerce(true);
+            if ( mc.weight == 0 )
+                maxCommerce.SetValue( ASTRA::NoExists );
+            else
+                maxCommerce.SetValue( mc.weight );
+            maxCommerce.Save( point_id_spp );
+        }
         TypeBHelpMng::notify_ok(tlg_id, NoExists); // Отвешиваем процесс, если есть.
     } else {
         //
