@@ -9301,7 +9301,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(!tag_no.empty()) {
         if(tag_no.size() < 3)
             throw AstraLocale::UserException("MSG.PAX_SRC.MIN_TAG_LENGTH");
-        Qry.CreateVariable("tag_no", otInteger, ToInt(tag_no));
+        double Value;
+        if ( StrToFloat( tag_no.c_str(), Value ) == EOF )
+            throw Exception("Cannot convert tag no '%s' to an Float", tag_no.c_str());
+        Qry.CreateVariable("tag_no", otFloat, Value);
     }
     int count = 0;
     for(int pass = 0; (pass <= 2) && (count < MAX_STAT_ROWS); pass++) {
