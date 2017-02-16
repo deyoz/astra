@@ -158,7 +158,7 @@ std::string TCheckerFlt::checkLitera( const std::string &value, CheckMode mode, 
         " ORDER BY lvl";
     Qry.CreateVariable( "code", otString, tmp );
     Qry.Execute();
-    if ( !Qry.RowCount() || (mode == CheckMode::etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
+    if ( !Qry.RowCount() || (mode == etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
       throw EConvertError( "Неизвестная литера, значение=%s", tmp.c_str() );
     litera = Qry.FieldAsString( "code" );
   }
@@ -229,7 +229,7 @@ TElemStruct TCheckerFlt::checkCraft( const::string &value, CheckMode mode, bool 
             " ORDER BY lvl";
         Qry.CreateVariable( "code", otString, craft.code );
         Qry.Execute();
-        if ( !Qry.RowCount() || (mode == CheckMode::etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
+        if ( !Qry.RowCount() || (mode == etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
           throw EConvertError( "Неизвестный тип ВС, значение=%s", value.c_str() );
         tmp = Qry.FieldAsString( "code" );
         tmp = ElemCtxtToElemId( ecDisp, etCraft, tmp, craft.fmt, false );
@@ -278,7 +278,7 @@ TElemStruct TCheckerFlt::checkAirp( const std::string &value, CheckMode mode, bo
           " ORDER BY lvl";
         Qry.CreateVariable( "code", otString, airp.code );
         Qry.Execute();
-        if ( !Qry.RowCount() || (mode == CheckMode::etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
+        if ( !Qry.RowCount() || (mode == etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
           throw EConvertError( "Неизвестный код аэропорта, значение=%s", value.c_str() );
         tmp = Qry.FieldAsString( "code" );
         tmp = ElemCtxtToElemId( ecDisp, etAirp, tmp, airp.fmt, false );
