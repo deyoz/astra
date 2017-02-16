@@ -2014,7 +2014,7 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
   ostringstream sql;
   sql <<
     "SELECT point_id, point_num, first_point, pr_tranzit, \n"
-    "       airline, flt_no, suffix, airp, scd_out, pr_del \n"
+    "       airline, flt_no, suffix, airp, scd_out, NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del \n"
     "FROM points \n";
 
   if (!filter.scd_out_in_utc)

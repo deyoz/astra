@@ -56,12 +56,10 @@ const char* points_dest_SQL =
   " FROM points WHERE point_id=:point_id";
 
 
-void parseFlt( const string &value, string &airline, int &flt_no, string &suffix )
+void TCheckerFlt::parseFltNo( const string &value, TFltNo &fltNo )
 {
   ProgTrace( TRACE5, "parseFlt: value=%s", value.c_str() );
-  airline.clear();
-  flt_no = NoExists;
-  suffix.clear();
+  fltNo.clear();
   string tmp = value;
   tmp = TrimString( tmp );
     if ( tmp.length() < 3 || tmp.length() > 8 )
@@ -79,14 +77,334 @@ void parseFlt( const string &value, string &airline, int &flt_no, string &suffix
     i = sscanf( tmp.c_str(), "%3[A-ZА-ЯЁ0-9]%5lu%c%c",
                 cairline,  &cflt_no, &(csuffix[0]), &c );
   if ( c != 0 || i < 2 || cflt_no < 0 )
-    throw Exception( "Ошибка формата номера рейса, значение=%s", value.c_str() );
+    throw EConvertError( "Ошибка формата номера рейса, значение=%s", value.c_str() );
   if ( i == 3&& !IsUpperLetter( csuffix[0] ) )
-    throw Exception( "Ошибка формата номера рейса, значение=%s", value.c_str() );
-  airline = cairline;
-  flt_no = cflt_no;
-  suffix = csuffix;
+    throw EConvertError( "Ошибка формата номера рейса, значение=%s", value.c_str() );
+  fltNo.airline.code = cairline;
+  fltNo.flt_no = cflt_no;
+  fltNo.suffix.code = csuffix;
 }
 
+void TCheckerFlt::checkFltNo( CheckMode mode, TFltNo &fltNo )
+{
+  TQuery Qry(&OraSession);
+  checkFltNo( mode, fltNo, Qry );
+}
+
+void TCheckerFlt::checkFltNo( CheckMode mode, TFltNo &fltNo, TQuery &Qry )
+{
+  string tmp = fltNo.airline.code;
+  try {
+    fltNo.airline.code = ElemToElemId( etAirline, fltNo.airline.code, fltNo.airline.fmt, false );
+    if ( fltNo.airline.fmt == efmtUnknown )
+      throw EConvertError("");
+  }
+  catch( EConvertError &e ) {
+    if ( mode != etExtAODB ) {
+      throw;
+    }
+    Qry.Clear();
+    Qry.SQLText =
+        "SELECT airline as code FROM aodb_airlines WHERE aodb_code=:code";
+    Qry.CreateVariable( "code", otString, tmp );
+    Qry.Execute();
+    if ( !Qry.RowCount() )
+      throw EConvertError( "Неизвестная авиакомпания, значение=%s", tmp.c_str() );
+    fltNo.airline.code = ElemToElemId( etAirline, Qry.FieldAsString( "code" ), fltNo.airline.fmt, false );
+  }
+  if ( fltNo.flt_no <= 0 || fltNo.flt_no > 99999 ) {
+    throw EConvertError( "Ошибка в номере рейса, значение=%d", fltNo.flt_no );
+  }
+  tmp = fltNo.suffix.code;
+  if ( !fltNo.suffix.code.empty() ) {
+    fltNo.suffix.code = ElemToElemId( etSuffix, fltNo.suffix.code, fltNo.suffix.fmt, false );
+    if ( fltNo.suffix.fmt == efmtUnknown )
+      throw EConvertError( "Неизвестный суффикс рейса, значение=%s", tmp.c_str() );
+  }
+}
+
+TFltNo TCheckerFlt::parse_checkFltNo( const std::string &value, CheckMode mode )
+{
+  TQuery Qry(&OraSession);
+  return parse_checkFltNo( value, mode, Qry );
+}
+
+TFltNo TCheckerFlt::parse_checkFltNo( const std::string &value, CheckMode mode, TQuery &Qry )
+{
+  std::string tmp = value;
+  TFltNo fltNo;
+  parseFltNo(  TrimString( tmp ), fltNo );
+  checkFltNo( mode, fltNo, Qry );
+  return fltNo;
+}
+
+std::string TCheckerFlt::checkLitera( const std::string &value, CheckMode mode )
+{
+  TQuery Qry(&OraSession);
+  return checkLitera( value, mode, Qry );
+}
+
+std::string TCheckerFlt::checkLitera( const std::string &value, CheckMode mode, TQuery &Qry )
+{
+  string litera;
+  std::string tmp = value;
+  tmp =  TrimString( tmp );
+  if ( !tmp.empty() ) {
+    Qry.Clear();
+    Qry.SQLText =
+        "SELECT code, 1 as lvl FROM trip_liters WHERE code=:code AND pr_del=0"
+        " UNION "
+        "SELECT litera as code,2 FROM aodb_liters WHERE aodb_code=:code "
+        " ORDER BY lvl";
+    Qry.CreateVariable( "code", otString, tmp );
+    Qry.Execute();
+    if ( !Qry.RowCount() || (mode == CheckMode::etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
+      throw EConvertError( "Неизвестная литера, значение=%s", tmp.c_str() );
+    litera = Qry.FieldAsString( "code" );
+  }
+  return litera;
+}
+
+int TCheckerFlt::checkTerminalNo( const std::string &value )
+{
+  int terminalNo = ASTRA::NoExists;
+  std::string tmp = value;
+  tmp =  TrimString( tmp );
+  if ( !tmp.empty() ) {
+    if ( StrToInt( tmp.c_str(), terminalNo ) == EOF || terminalNo < 0 || terminalNo > 99 ) {
+      throw EConvertError( "Неверное значение терминала=%s", tmp.c_str() );
+    }
+  }
+  return terminalNo;
+}
+
+int TCheckerFlt::checkMaxCommerce( const std::string &value )
+{
+  int max_commerce = ASTRA::NoExists;
+  std::string tmp = value;
+  tmp =  TrimString( tmp );
+  if ( !tmp.empty() ) {
+    if ( StrToInt( tmp.c_str(), max_commerce ) == EOF || max_commerce < 0 || max_commerce > 999999 ) {
+      throw EConvertError( "Неверное значение МКЗ=%s", tmp.c_str() );
+    }
+  }
+  return max_commerce;
+}
+
+int TCheckerFlt::checkPointNum( const std::string &value )
+{
+  int num;
+  std::string tmp = value;
+  tmp = TrimString( tmp );
+  if ( StrToInt( tmp.c_str(), num ) == EOF || num < 0 || num > 9 )
+    throw EConvertError( "Ошибка номера пункта посадки '%s'", value.c_str() );
+  return num;
+}
+
+TElemStruct TCheckerFlt::checkCraft( const::string &value, CheckMode mode, bool with_exception )
+{
+  TQuery Qry(&OraSession);
+  return checkCraft( value, mode, with_exception, Qry );
+
+}
+
+TElemStruct TCheckerFlt::checkCraft( const::string &value, CheckMode mode, bool with_exception, TQuery &Qry )
+{
+  TElemStruct craft;
+  std::string tmp = value;
+  tmp =  TrimString( tmp );
+  craft.code = tmp;
+  if ( !tmp.empty() ) {
+    try {
+      try {
+        tmp = ElemCtxtToElemId( ecDisp, etCraft, tmp, craft.fmt, false );
+        craft.code = tmp;
+      }
+      catch( EConvertError &e ) {
+        Qry.Clear();
+        Qry.SQLText =
+            "SELECT code, 1 as lvl FROM crafts WHERE ( name=:code OR name_lat=:code ) AND pr_del=0 "
+            " UNION "
+            "SELECT craft as code, 2 FROM aodb_crafts WHERE aodb_code=:code "
+            " ORDER BY lvl";
+        Qry.CreateVariable( "code", otString, craft.code );
+        Qry.Execute();
+        if ( !Qry.RowCount() || (mode == CheckMode::etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
+          throw EConvertError( "Неизвестный тип ВС, значение=%s", value.c_str() );
+        tmp = Qry.FieldAsString( "code" );
+        tmp = ElemCtxtToElemId( ecDisp, etCraft, tmp, craft.fmt, false );
+        craft.code = tmp;
+      }
+    }
+    catch( EConvertError &e ) {
+      if ( with_exception ) {
+        throw;
+      }
+      craft.code = value;
+      craft.fmt = efmtUnknown;
+    }
+  }
+  else {
+    if ( with_exception )
+      throw EConvertError( "Не задан тип ВС" );
+  }
+  return craft;
+}
+
+TElemStruct TCheckerFlt::checkAirp( const std::string &value, CheckMode mode, bool with_exception )
+{
+  TQuery Qry(&OraSession);
+  return checkAirp( value, mode, with_exception, Qry );
+}
+
+TElemStruct TCheckerFlt::checkAirp( const std::string &value, CheckMode mode, bool with_exception, TQuery &Qry )
+{
+  TElemStruct airp;
+  std::string tmp = value;
+  tmp =  TrimString( tmp );
+  airp.code = tmp;
+  if ( !tmp.empty() ) {
+    try {
+      try {
+        tmp = ElemCtxtToElemId( ecDisp, etAirp, tmp, airp.fmt, false );
+        airp.code = tmp;
+      }
+      catch( EConvertError &e ) {
+        Qry.Clear();
+        Qry.SQLText =
+          "SELECT code, 1 as lvl FROM airps WHERE ( name=:code OR name_lat=:code ) AND pr_del=0 "
+          " UNION "
+          "SELECT airp as code, 2 FROM aodb_airps WHERE aodb_code=:code "
+          " ORDER BY lvl";
+        Qry.CreateVariable( "code", otString, airp.code );
+        Qry.Execute();
+        if ( !Qry.RowCount() || (mode == CheckMode::etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
+          throw EConvertError( "Неизвестный код аэропорта, значение=%s", value.c_str() );
+        tmp = Qry.FieldAsString( "code" );
+        tmp = ElemCtxtToElemId( ecDisp, etAirp, tmp, airp.fmt, false );
+        airp.code = tmp;
+      }
+    }
+    catch( EConvertError &e ) {
+      if ( with_exception ) {
+        throw;
+      }
+      airp.code = value;
+      airp.fmt = efmtUnknown;
+    }
+  }
+  else {
+    if ( with_exception )
+      throw EConvertError( "Не задан кода аэропорта" );
+  }
+  return airp;
+}
+
+BASIC::date_time::TDateTime TCheckerFlt::checkLocalTime( const std::string &value,
+                                                         const std::string &region, const std::string stage,
+                                                         bool empty_value_exception )
+{
+  return checkLocalTime( value, "dd.mm.yyyy hh:nn", region, stage, empty_value_exception );
+}
+
+BASIC::date_time::TDateTime TCheckerFlt::checkLocalTime( const std::string &value, const std::string format,
+                                                         const std::string &region, const std::string stage,
+                                                         bool empty_value_exception )
+{
+  BASIC::date_time::TDateTime res = ASTRA::NoExists;
+  std::string tmp = value;
+  tmp = TrimString( tmp );
+  if ( !tmp.empty() ) {
+    if ( BASIC::date_time::StrToDateTime( tmp.c_str(), format.c_str(), res ) == EOF )
+      throw EConvertError( "Ошибка формата '%s', значение '%s'", stage.c_str(), tmp.c_str() );
+    try {
+      res = LocalToUTC( res, region );
+    }
+    catch( boost::local_time::ambiguous_result ) {
+      res = LocalToUTC( res + 1, region ) - 1;
+    }
+    catch( boost::local_time::time_label_invalid ) {
+      throw EConvertError( "'%s' рейса не существует, регион '%s'", stage.c_str(), region.c_str() );
+    }
+  }
+  else {
+    if ( empty_value_exception )
+      throw EConvertError( "Не задано значение '%s'", stage.c_str() );
+  }
+  return res;
+}
+
+TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
+                                        const std::string &value1, const std::string value2,
+                                        CheckMode mode )
+{
+  TQuery Qry(&OraSession);
+  return checkStation( airp, terminal, value1, value2, mode, Qry );
+}
+
+TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
+                                        const std::string &value1, const std::string value2,
+                                        CheckMode mode, TQuery &Qry )
+{
+  TSOPPStation station;
+  station.name = value1;
+  station.name = TrimString( station.name );
+  station.work_mode = value2;
+  station.work_mode = TrimString( station.work_mode );
+  if ( station.name.empty() )
+    throw Exception( "Ошибка формата номера стойки, значение='%s'", value1.c_str() );
+  if ( station.work_mode != "П" && station.work_mode != "Р" )
+    throw EConvertError( "Ошибка формата типа стойки, значение='%s'", value2.c_str() );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT desk, name, 2 as lvl FROM stations "
+    " WHERE airp=:airp AND work_mode=:work_mode AND name=:code "
+    " UNION "
+    "SELECT desk, s.name, 1 FROM aodb_stations a, stations s WHERE "
+    " a.airp=:airp AND s.airp=:airp AND a.aodb_name=:code AND a.name=s.name AND "
+    " a.work_mode=:work_mode AND s.work_mode=:work_mode AND terminal=:terminal "
+    " ORDER BY lvl";
+  Qry.CreateVariable( "airp", otString, airp );
+  Qry.CreateVariable( "work_mode", otString, station.work_mode );
+  Qry.CreateVariable( "code", otString, station.name );
+  Qry.CreateVariable( "terminal", otInteger, terminal );
+  tst();
+  Qry.Execute();
+  tst();
+  string term_name;
+  if ( !Qry.RowCount() && mode != etNormal ) {
+    if ( station.work_mode == "П" )
+      term_name = "G" + station.name;
+    else
+      term_name = "R" + station.name;
+    Qry.SetVariable( "code", term_name );
+    Qry.Execute();
+  }
+  if ( !Qry.RowCount() && mode != etNormal ) {
+    if ( station.work_mode == "П" )
+      term_name = "G0" + station.name;
+    else
+      term_name = "R0" + station.name;
+    Qry.SetVariable( "code", term_name );
+    Qry.Execute();
+  }
+  if ( !Qry.RowCount() )
+    throw EConvertError( "Неизвестная стойка, значение=%s", station.name.c_str() );
+  int priorLvl = ASTRA::NoExists;
+  for (; !Qry.Eof; Qry.Next() ) {
+    if ( priorLvl == ASTRA::NoExists ) {
+      priorLvl = Qry.FieldAsInteger( "lvl" );
+    }
+    if ( Qry.FieldAsInteger( "lvl") != priorLvl ) {
+      break;
+    }
+    station.desk = Qry.FieldAsString( "desk" );
+    station.name = Qry.FieldAsString( "name" );
+  }
+  return station;
+}
+
+//////////////////////////////////////////////////////////////////////////////
 void TPointsDest::getDestData( TQuery &Qry )
 {
   if ( Qry.GetFieldIndex( "point_id" ) >= 0 )
@@ -98,8 +416,8 @@ void TPointsDest::getDestData( TQuery &Qry )
     first_point = NoExists;
   airp = Qry.FieldAsString( "airp" );
   airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );
-    airline = Qry.FieldAsString( "airline" );
-    airline_fmt = (TElemFmt)Qry.FieldAsInteger( "airline_fmt" );
+  airline = Qry.FieldAsString( "airline" );
+  airline_fmt = (TElemFmt)Qry.FieldAsInteger( "airline_fmt" );
   if ( !Qry.FieldIsNULL( "flt_no" ) )
     flt_no = Qry.FieldAsInteger( "flt_no" );
   else
@@ -282,6 +600,7 @@ void TPoints::Verify( bool ignoreException, LexemaData &lexemaData )
         for ( vector<TPointsDest>::iterator xd=id+1; xd!=dests.items.end(); xd++ ) {
             if ( xd->pr_del )
                 continue;
+          tst();
           throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
         }
       }
@@ -592,6 +911,7 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
   if ( events.isFlag( dmChangeAirline ) ||
        events.isFlag( dmChangeFltNo ) ||
        events.isFlag( dmChangeSuffix ) ) {
+    ProgTrace( TRACE5, "dmChangeAirline=%d, dmChangeFltNo=%d, dmChangeSuffix=%d",events.isFlag( dmChangeAirline ),events.isFlag( dmChangeFltNo ),events.isFlag( dmChangeSuffix ) );
     if ( dest.flt_no != NoExists )
         reqInfo->LocaleToLog("EVT.FLIGHT.MODIFY_ATTRIBUTES_FROM", LEvntPrms() << PrmFlight("flt", dest.airline, dest.flt_no, dest.suffix)
                               << PrmFlight("new_flt", airline, flt_no, suffix) << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
@@ -850,8 +1170,9 @@ void TPoints::WriteDest( TPointsDest &dest )
     Qry.CreateVariable( "act_out", otDate, dest.act_out );
   if ( dest.trip_type.empty() )
     Qry.CreateVariable( "trip_type", otString, FNull );
-  else
+  else {
     Qry.CreateVariable( "trip_type", otString, dest.trip_type );
+  }
   if ( dest.litera.empty() )
     Qry.CreateVariable( "litera", otString, FNull );
   else
@@ -869,6 +1190,7 @@ void TPoints::WriteDest( TPointsDest &dest )
   Qry.CreateVariable( "remark", otString, dest.remark );
   Qry.CreateVariable( "pr_reg", otInteger, dest.pr_reg );
   Qry.Execute();
+  tst();
   if ( dest.events.isFlag( dmChangeDelays ) ) {
      dest.delays.Save( dest.point_id );
   }
@@ -953,7 +1275,7 @@ void TPoints::WriteDest( TPointsDest &dest )
       dest.stage_est = Qry.GetVariableAsDateTime( "vest" );
     }
   }
-  tst();
+  tst();  
 }
 
 template <class A, class B>
@@ -1819,30 +2141,15 @@ void TPoints::Save( bool isShowMsg )
       if ( !olddests[ id->point_id ].craft.empty() && !id->events.isFlag( dmChangeCraft ) )
         id->craft_fmt = olddests[ id->point_id ].craft_fmt;
     }*/
-    if ( id->events.isFlag( dmSetDelete ) ||
-         id->events.isFlag( dmSetCancel ) ) {
-      tst();
-      Qry.Clear();
-        Qry.SQLText =
-          "SELECT COUNT(*) c FROM "
-          "( SELECT 1 FROM pax_grp,points "
-          "   WHERE points.point_id=:point_id AND "
-          "         point_dep=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 AND rownum<2 "
-          "  UNION "
-          " SELECT 2 FROM pax_grp,points "
-          "   WHERE points.point_id=:point_id AND "
-          "         point_arv=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 AND rownum<2 ) ";
-        Qry.CreateVariable( "point_id", otInteger, id->point_id );
-        Qry.Execute();
-        if ( Qry.FieldAsInteger( "c" ) ) {
-            if ( id->events.isFlag( dmSetDelete) ) {
-              throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_DEL_AIRP.PAX_EXISTS",
-                                              LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
-        }
-          else {
-            throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_CANCEL_AIRP.PAX_EXISTS",
-                                                LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
-        }
+    if ( (id->events.isFlag( dmSetDelete ) ||
+          id->events.isFlag( dmSetCancel )) && checkDeleteDest( id->point_id ) ) {
+      if ( id->events.isFlag( dmSetDelete) ) {
+        throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_DEL_AIRP.PAX_EXISTS",
+                                          LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
+      }
+      else {
+        throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_CANCEL_AIRP.PAX_EXISTS",
+                                          LParams() << LParam("airp", ElemIdToCodeNative(etAirp,id->airp)));
       }
     }
     ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d, id->craft=%s", id->airp.c_str(), id->pr_del, id->craft.c_str() );
@@ -1945,9 +2252,26 @@ void TPoints::Save( bool isShowMsg )
   }
 }
 
+bool TPoints::checkDeleteDest( int point_id )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT COUNT(*) c FROM "
+    "( SELECT 1 FROM pax_grp,points "
+    "   WHERE points.point_id=:point_id AND "
+    "         point_dep=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 AND rownum<2 "
+    "  UNION "
+    " SELECT 2 FROM pax_grp,points "
+    "   WHERE points.point_id=:point_id AND "
+    "         point_arv=:point_id AND pax_grp.status NOT IN ('E') AND bag_refuse=0 AND rownum<2 ) ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  return Qry.FieldAsInteger( "c" );
+}
+
 bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
-                          std::string suffix, std::string airp,
-                          TDateTime scd_in, TDateTime scd_out,
+                        std::string suffix, std::string airp,
+                        TDateTime scd_in, TDateTime scd_out,
                         int &findMove_id, int &point_id )
 {
   findMove_id = NoExists;
@@ -1981,31 +2305,23 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
     "       ( scd_in BETWEEN :scd_in-2 AND :scd_in+2 OR "
     "         scd_out BETWEEN :scd_out-2 AND :scd_out+2 ) "
     "ORDER BY move_id,point_num ";
-/*    "SELECT scd_in, scd_out, move_id, point_id FROM points "
-    " WHERE airline=:airline AND flt_no=:flt_no AND NVL(suffix,' ')=NVL(:suffix,' ') AND "
-    "       move_id!=:move_id AND airp=:airp AND pr_del!=-1 AND "
-    "       ( scd_in BETWEEN :scd_in-2 AND :scd_in+2 OR "
-    "         scd_out BETWEEN :scd_out-2 AND :scd_out+2 )";*/
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.CreateVariable( "airp", otString, airp );
-/*  Qry.CreateVariable( "airline", otString,airline );
-  Qry.CreateVariable( "flt_no", otInteger, flt_no );
-  Qry.CreateVariable( "suffix", otString, suffix );*/
-    if ( scd_in > NoExists ) {
+  if ( scd_in > NoExists ) {
     double d;
     modf( scd_in, &d );
       Qry.CreateVariable( "scd_in", otDate, d );
   }
-    else
-        Qry.CreateVariable( "scd_in", otDate, FNull );
-    if ( scd_out > NoExists ) {
+  else
+    Qry.CreateVariable( "scd_in", otDate, FNull );
+  if ( scd_out > NoExists ) {
     double d;
     modf( scd_out, &d );
-        Qry.CreateVariable( "scd_out", otDate, d );
+    Qry.CreateVariable( "scd_out", otDate, d );
   }
-    else
-        Qry.CreateVariable( "scd_out", otDate, FNull );
-    Qry.Execute();
+  else
+    Qry.CreateVariable( "scd_out", otDate, FNull );
+  Qry.Execute();
   string prior_airline, prior_suffix;
   int prior_flt_no;
   while ( !Qry.Eof ) {
@@ -2020,6 +2336,7 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
       }
     }
     else {
+      // конец маршрута - найти предыдущий пункт посадки для определения авиакомпании и номера рейса
       prior_airline.clear();
       prior_suffix.clear();
       prior_flt_no = NoExists;
@@ -2055,7 +2372,7 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
         point_id = Qry.FieldAsInteger( "point_id" );
         ProgTrace( TRACE5, "isDouble: scd_in, move_id=%d, findMovde_id=%d, point_id=%d",
                    move_id, findMove_id, point_id );
-            return true;
+        return true;
       }
     }
     if ( !Qry.FieldIsNULL( "scd_out" ) && local_scd_out > NoExists ) {
@@ -2065,18 +2382,18 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
         point_id = Qry.FieldAsInteger( "point_id" );
         ProgTrace( TRACE5, "isDouble: scd_in, move_id=%d, findMovde_id=%d, point_id=%d",
                    move_id, findMove_id, point_id );
-            return true;
+        return true;
       }
     }
     Qry.Next();
   }
   tst();
-    return false;
+  return false;
 }
 
 bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
-                          std::string suffix, std::string airp,
-                          TDateTime scd_in, TDateTime scd_out )
+                        std::string suffix, std::string airp,
+                        TDateTime scd_in, TDateTime scd_out )
 {
   int findMove_id, point_id;
   return isDouble( move_id, airline, flt_no, suffix, airp, scd_in, scd_out, findMove_id, point_id );
@@ -2152,6 +2469,7 @@ bool findFlt( const std::string &airline, const int &flt_no, const std::string &
               const TDateTime &local_scd_out, const std::string &airp, const int &withDeleted,
               TFndFlts &flts )
 {
+  //range_hours - диапазон
   flts.clear();
   TQuery Qry(&OraSession);
   string sql =
@@ -2170,7 +2488,7 @@ bool findFlt( const std::string &airline, const int &flt_no, const std::string &
       Qry.CreateVariable( "suffix", otString, FNull );
     else
         Qry.CreateVariable( "suffix", otString, suffix );
-  string region = AirpTZRegion( airp, true );
+    string region = AirpTZRegion( airp, true );
     TDateTime  utc_scd_out =  LocalToUTC( local_scd_out, region );
     modf( utc_scd_out, &utc_scd_out );
     Qry.CreateVariable( "scd_out", otDate, utc_scd_out );
@@ -2180,19 +2498,19 @@ bool findFlt( const std::string &airline, const int &flt_no, const std::string &
     modf( local_scd_out, &lso );
     //может выбраться 2 рейса
     while ( !Qry.Eof ) {
-    tst();
-    TDateTime local_scd_out1 = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
-    modf( local_scd_out1, &local_scd_out1 );
-    ProgTrace( TRACE5, "local_scd_out1=%f, local_scd_out=%f", local_scd_out1, lso );
-    if ( local_scd_out1 == lso ) {
       tst();
-      TFndFlt flt;
-      flt.move_id = Qry.FieldAsInteger( "move_id" );
-      flt.point_id = Qry.FieldAsInteger( "point_id" );
-      flt.pr_del = Qry.FieldAsInteger( "pr_del" );
-      flts.push_back( flt );
-    }
-    Qry.Next();
+      TDateTime local_scd_out1 = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
+      modf( local_scd_out1, &local_scd_out1 );
+      ProgTrace( TRACE5, "local_scd_out1=%f, local_scd_out=%f", local_scd_out1, lso );
+      if ( local_scd_out1 == lso ) {
+        TFndFlt flt;
+        flt.move_id = Qry.FieldAsInteger( "move_id" );
+        flt.point_id = Qry.FieldAsInteger( "point_id" );
+        flt.pr_del = Qry.FieldAsInteger( "pr_del" );
+        flts.push_back( flt );
+        ProgTrace( TRACE5, "findFlt: add flight move_id=%d, point_id=%d, pr_del=%d", flt.move_id, flt.point_id, flt.pr_del );
+      }
+      Qry.Next();
     }
     return !flts.empty();
 }
@@ -2455,6 +2773,121 @@ void TFlightStations::Save( int point_id )
   ProgTrace( TRACE5, "TFlightStations::Save, point_id=%d", point_id );
   TFlightStations old;
   old.Load( point_id );
+  tstations old_stations;
+  old.Get( old_stations );
+  string work_mode;
+  TQuery DelQry(&OraSession);
+  DelQry.SQLText =
+    "DELETE trip_stations WHERE point_id=:point_id AND work_mode=:work_mode AND desk IN "
+    "( SELECT desk FROM stations,points "
+    "  WHERE points.point_id=:point_id AND stations.airp=points.airp AND name=:name )";
+  DelQry.CreateVariable( "point_id", otInteger, point_id );
+  DelQry.DeclareVariable( "name", otString );
+  DelQry.DeclareVariable( "work_mode", otString );
+  TQuery NewQry(&OraSession);
+  NewQry.SQLText =
+    "INSERT INTO trip_stations(point_id,desk,work_mode,pr_main) "
+    " SELECT :point_id,desk,:work_mode,:pr_main FROM stations,points "
+    "  WHERE points.point_id=:point_id AND stations.airp=points.airp AND name=:name";
+  NewQry.CreateVariable( "point_id", otInteger, point_id );
+  NewQry.DeclareVariable( "name", otString );
+  NewQry.DeclareVariable( "work_mode", otString );
+  NewQry.DeclareVariable( "pr_main", otInteger );
+  if ( !equal( old, "" ) ) {
+    tst();
+    for (tstations::iterator ist=old_stations.begin(); ist!=old_stations.end(); ist++ ) {
+      ProgTrace( TRACE5, "old name=%s, work_mode=%s", ist->name.c_str(), ist->work_mode.c_str());
+    }
+    for (tstations::iterator ist=stations.begin(); ist!=stations.end(); ist++ ) {
+      ProgTrace( TRACE5, "new name=%s, work_mode=%s", ist->name.c_str(), ist->work_mode.c_str());
+    }
+    for ( int i=0; i<2; i++ ) {
+      switch (i) {
+       case 0:
+         work_mode = "Р";
+         break;
+       case 1:
+         work_mode = "П";
+         break;
+        default:
+         work_mode = "";
+      }
+      DelQry.SetVariable( "work_mode", work_mode );
+      NewQry.SetVariable( "work_mode", work_mode );
+      vector<string> delete_sts, new_sts;
+      PrmEnum del_prmenum("names", ",");
+      PrmEnum new_prmenum("names", ",");
+      for ( tstations::const_iterator istation=old_stations.begin(); istation!=old_stations.end(); istation++ ) {
+        if ( istation->work_mode != work_mode ) {
+          continue;
+        }
+        tstations::const_iterator jstation=stations.begin();
+        for ( ; jstation!=stations.end(); jstation++ ) {
+          if ( jstation->work_mode != work_mode ) {
+            continue;
+          }
+          if ( istation->name == jstation->name ) {
+            break;
+          }
+        }
+        if ( jstation == stations.end() ) {
+          if ( find( delete_sts.begin(), delete_sts.end(), istation->name ) == delete_sts.end() ) {
+            delete_sts.push_back( istation->name );
+            DelQry.SetVariable( "name", istation->name );
+            DelQry.Execute();
+            del_prmenum.prms << PrmSmpl<std::string>("", istation->name);
+          }
+        }
+      }
+      for ( tstations::const_iterator istation=stations.begin(); istation!=stations.end(); istation++ ) {
+        if ( istation->work_mode != work_mode ) {
+          continue;
+        }
+        tstations::const_iterator jstation=old_stations.begin();
+        for ( ; jstation!=old_stations.end(); jstation++ ) {
+          if ( jstation->work_mode != work_mode ) {
+            continue;
+          }
+          if ( istation->name == jstation->name ) {
+            break;
+          }
+        }
+        if ( jstation == old_stations.end() ) {
+          if ( find( new_sts.begin(), new_sts.end(), istation->name ) == new_sts.end() ) {
+            new_sts.push_back( istation->name );
+            NewQry.SetVariable( "name", istation->name );
+            NewQry.SetVariable( "pr_main", istation->pr_main );
+            NewQry.Execute();
+            if ( istation->pr_main ) {
+              PrmLexema prmlexema("", "EVT.DESK_MAIN");
+              prmlexema.prms << PrmSmpl<std::string>("", istation->name);
+              new_prmenum.prms << prmlexema;
+            }
+            else
+              new_prmenum.prms << PrmSmpl<std::string>("", istation->name);
+          }
+        }
+      }
+      if ( work_mode == "Р" ) {
+        if ( !new_sts.empty() ) {
+          TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_DESKS", LEvntPrms() << new_prmenum, evtFlt, point_id);
+        }
+        if ( !delete_sts.empty() ) {
+          TReqInfo::Instance()->LocaleToLog("EVT.DELETE_DESK", LEvntPrms() << del_prmenum, evtFlt, point_id);
+        }
+      }
+      if ( work_mode == "П" ) {
+        if ( !new_sts.empty() ) {
+          TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_BOARDING_GATES", LEvntPrms() << new_prmenum, evtFlt, point_id);
+        }
+        if ( !delete_sts.empty() ) {
+          TReqInfo::Instance()->LocaleToLog("EVT.DELETE_GATE_ON_FLIGHT", LEvntPrms() << del_prmenum, evtFlt, point_id);
+        }
+      }
+    }
+    check_DesksGates( point_id );
+  }
+/*
   TQuery DelQry(&OraSession);
   DelQry.SQLText =
     "DELETE trip_stations WHERE point_id=:point_id AND work_mode=:work_mode";
@@ -2480,6 +2913,7 @@ void TFlightStations::Save( int point_id )
         work_mode = "П";
         break;
     }
+  }
     if ( !equal( old, work_mode ) ) {
       DelQry.SetVariable( "work_mode", work_mode );
       DelQry.Execute();
@@ -2492,8 +2926,8 @@ void TFlightStations::Save( int point_id )
           continue;
         if ( find( terms.begin(), terms.end(), istation->name ) == terms.end() ) {
           terms.push_back( istation->name );
-            Qry.SetVariable( "name", istation->name );
-            Qry.SetVariable( "pr_main", istation->pr_main );
+          Qry.SetVariable( "name", istation->name );
+          Qry.SetVariable( "pr_main", istation->pr_main );
           Qry.Execute();
           if ( istation->pr_main ) {
             PrmLexema prmlexema("", "EVT.DESK_MAIN");
@@ -2523,7 +2957,7 @@ void TFlightStations::Save( int point_id )
       }
       check_DesksGates( point_id );
     }
-  }
+  }*/
 }
 //////////////////////////////TPointDests//////////////////////////////////////
 void TPointDests::Load( int move_id, BitSet<TUseDestData> FUseData )
@@ -2784,3 +3218,8 @@ void TFlights::Lock()
   }
 }
 
+std::string getRegion( const std::string &airp )
+{
+  string city =((TAirpsRow&)base_tables.get("airps").get_row( "code", airp, true )).city;
+  return ((TCitiesRow&)base_tables.get("cities").get_row( "code", city, true )).tz_region;
+}

@@ -4,7 +4,6 @@
 #include "astra_main.h"
 #include "tlg/tlg.h"
 #include "timer.h"
-#include "cobra.h"
 #include "aodb.h"
 #include "request_dup.h"
 #include "crypt.h"
@@ -87,10 +86,6 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
                 ->add("typeb_parser", "logairimp", main_typeb_parser_tcl)
                 ->add("edi_handler", "logairimp", main_edi_handler_tcl)
                 ->add("aodb_handler", "logdaemon", main_aodb_handler_tcl)
-                ->add("cobraserv", "logdaemon", main_tcp_cobra_tcl)
-                ->add("cobra_handler", "logdaemon", main_cobra_handler_tcl)
-                ->add("wb_garantserv", "logdaemon", main_tcp_wb_garant_tcl)
-                ->add("wb_garant_handler", "logdaemon", main_wb_garant_handler_tcl)
                 ->add("request_dup", "logdaemon", main_request_dup_tcl)
                 ->add("edi_timer", "logdaemon", main_edi_timer_tcl)                
                 ->add("apps_handler", "logairimp", main_apps_handler_tcl)

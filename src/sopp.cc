@@ -5978,7 +5978,6 @@ void SoppInterface::WriteVoucher(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   }
 }
 
-
 void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tranzit)
 {
   TQuery Qry(&OraSession);
