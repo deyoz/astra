@@ -1626,6 +1626,24 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       }
     }
   }
+  //salon_descriptions
+  TSalonDesrcs descrs;
+  getSalonDesrcs( point_id, descrs );
+  if ( !descrs.empty() ) {
+    xmlNodePtr salonDescrsNode = NULL;
+    for ( TSalonDesrcs::iterator idescr=descrs.begin(); idescr!=descrs.end(); idescr++ ) {
+       if ( !idescr->second.empty() ) {
+         if ( salonDescrsNode == NULL ) {
+           salonDescrsNode = NewTextChild( nodeViewCraft, "salon_properties" );
+         }
+         xmlNodePtr salonListNode = NewTextChild( salonDescrsNode, "placelist" );
+         SetProp( salonListNode, "num", idescr->first );
+         for ( std::set<std::string>::iterator icompart=idescr->second.begin(); icompart!=idescr->second.end(); icompart++ ) {
+           NewTextChild( salonListNode, "property", *icompart );
+         }
+       }
+    }
+  }
   ProgTrace( TRACE5, "isTranzitSalonsVersion %d, flagsNode %d", isTranzitSalonsVersion, flagsNode != NULL );
   if ( isTranzitSalonsVersion && flagsNode != NULL ) {
     xmlNodePtr passesNode = NULL;

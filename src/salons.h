@@ -1444,7 +1444,7 @@ class TSalonList: public std::vector<TPlaceList*> {
     void check_waitlist_alarm_on_tranzit_routes( const std::set<int> &paxs_external_logged );
 
     void getSectionInfo( std::vector<TSectionInfo> &CompSections, const TGetPassFlags &flags );
-    void getSectionInfo( TSectionInfo &sectionInfo, const TGetPassFlags &flags );
+    void getSectionInfo( TSectionInfo &sectionInfo, const TGetPassFlags &flags );    
 };
 
     void check_waitlist_alarm_on_tranzit_routes( int point_dep, const std::set<int> &paxs_external_logged );
@@ -1518,7 +1518,9 @@ class TSalonList: public std::vector<TPlaceList*> {
 
   bool selfckin_client();
   void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tariffMap );
-  std::string getPointAirp(int point_id);
+                                 std::string getPointAirp(int point_id);
+  typedef std::map<int,std::set<std::string> > TSalonDesrcs;
+  void getSalonDesrcs( int point_id, TSalonDesrcs &descrs );
 } // END namespace SALONS2
 int testsalons(int argc,char **argv);
 #endif /*_SALONS2_H_*/
