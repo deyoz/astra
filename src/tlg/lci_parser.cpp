@@ -4,6 +4,7 @@
 #include "telegram.h"
 #include "TypeBHelpMng.h"
 #include "points.h" // for TFlightMaxCommerce
+#include "pers_weights.h"
 #include <sstream>
 
 
@@ -1512,6 +1513,18 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
             else
                 maxCommerce.SetValue( mc.weight );
             maxCommerce.Save( point_id_spp );
+        }
+        sth = con.wm[wmdStandard][wmtPax];
+        if(sth and sth->sub_type == wmsGender) {
+            const TGenderCount &gc = *dynamic_cast<TGenderCount *>(sth.get());
+            ClassesPersWeight cpw;
+            cpw.male = gc.m;
+            cpw.female = gc.f;
+            cpw.child = gc.c;
+            cpw.infant = gc.i;
+            PersWeightRules pwr;
+            pwr.Add(cpw);
+            pwr.write(point_id_spp);
         }
         TypeBHelpMng::notify_ok(tlg_id, NoExists); // Отвешиваем процесс, если есть.
     } else {
