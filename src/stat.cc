@@ -33,7 +33,7 @@
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
 
-#define MAX_STAT_ROWS 2000
+#define MAX_STAT_ROWS 10
 #define WITHOUT_TOTAL_WHEN_PROBLEM false
 
 using namespace std;
@@ -1954,7 +1954,8 @@ const char *TStatTypeS[statNum] = {
     "statRFISC",
     "statService",
     "statLimitedCapab",
-    "statUnaccBag"
+    "statUnaccBag",
+    "statAnnulBT"
 };
 
 TStatType DecodeStatType( const string stat_type )
@@ -4253,7 +4254,6 @@ void RunSelfCkinStat(const TStatParams &params,
     }
 }
 
-/* GRISHA */
 void createXMLSelfCkinStat(const TStatParams &params,
                         const TSelfCkinStat &SelfCkinStat, const TSelfCkinStatRow &SelfCkinStatTotal,
                         const TPrintAirline &airline, xmlNodePtr resNode)
@@ -7270,6 +7270,7 @@ struct TAnnulBTStatRow {
     int amount;
     int weight;
     int user_id;
+    string agent;
     string trfer_airline;
     int trfer_flt_no;
     string trfer_suffix;
@@ -7330,6 +7331,10 @@ void RunAnnulBTStat(
         int point_id = NoExists
         )
 {
+    map<int, string> agents;
+    TCachedQuery agentQry("select descr from users2 where user_id = :user_id",
+            QParams() << QParam("user_id", otInteger));
+
     int pass_count = (point_id == NoExists ? 2 : 0);
     for(int pass = 0; pass <= pass_count; pass++) {
         QParams QryParams;
@@ -7452,6 +7457,7 @@ void RunAnnulBTStat(
             int col_trfer_suffix = Qry.get().FieldIndex("trfer_suffix");
             int col_trfer_scd = Qry.get().FieldIndex("trfer_scd");
             int col_trfer_airp_arv = Qry.get().FieldIndex("trfer_airp_arv");
+
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 prn_airline.check(Qry.get().FieldAsString(col_airline));
 
@@ -7482,6 +7488,20 @@ void RunAnnulBTStat(
                     row.weight = Qry.get().FieldAsInteger(col_weight);
                 if(not Qry.get().FieldIsNULL(col_user_id))
                     row.user_id = Qry.get().FieldAsInteger(col_user_id);
+                if(row.user_id != NoExists) {
+                    map<int, string>::iterator agent = agents.find(row.user_id);
+                    if(agent == agents.end()) {
+                        agentQry.get().SetVariable("user_id", row.user_id);
+                        agentQry.get().Execute();
+                        string buf;
+                        if(not agentQry.get().Eof)
+                            buf = agentQry.get().FieldAsString("descr");
+                        pair<map<int, string>::iterator, bool> ret =
+                            agents.insert(make_pair(row.user_id, buf));
+                        agent = ret.first;
+                    }
+                    row.agent = agent->second;
+                }
                 row.trfer_airline = Qry.get().FieldAsString(col_trfer_airline);
                 if(not Qry.get().FieldIsNULL(col_trfer_flt_no))
                     row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
@@ -7499,6 +7519,7 @@ void RunAnnulBTStat(
     }
 }
 
+/* GRISHA */
 void createXMLAnnulBTStat(
         const TStatParams &params,
         const TAnnulBTStat &AnnulBTStat,
@@ -7506,6 +7527,8 @@ void createXMLAnnulBTStat(
         xmlNodePtr resNode)
 {
     if(AnnulBTStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    if (AnnulBTStat.rows.size() > MAX_STAT_ROWS)
+        throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -7580,10 +7603,6 @@ void createXMLAnnulBTStat(
     SetProp(colNode, "align", taLeftJustify);
     SetProp(colNode, "sort", sortString);
 
-    map<int, string> agents;
-    TCachedQuery agentQry("select descr from users2 where user_id = :user_id",
-            QParams() << QParam("user_id", otInteger));
-
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
     for(list<TAnnulBTStatRow>::const_iterator i = AnnulBTStat.rows.begin(); i != AnnulBTStat.rows.end(); i++) {
@@ -7597,22 +7616,7 @@ void createXMLAnnulBTStat(
         buf << setw(3) << setfill('0') << i->flt_no << ElemIdToCodeNative(etSuffix, i->suffix);
         NewTextChild(rowNode, "col", buf.str());
         // Агент
-        buf.str("");
-        if(i->user_id != NoExists) {
-            map<int, string>::iterator agent = agents.find(i->user_id);
-            if(agent == agents.end()) {
-                agentQry.get().SetVariable("user_id", i->user_id);
-                agentQry.get().Execute();
-                if(not agentQry.get().Eof)
-                    buf << agentQry.get().FieldAsString("descr");
-                pair<map<int, string>::iterator, bool> ret =
-                    agents.insert(make_pair(i->user_id, buf.str()));
-                buf.str("");
-                agent = ret.first;
-            }
-            buf << agent->second;
-        }
-        NewTextChild(rowNode, "col", buf.str());
+        NewTextChild(rowNode, "col", i->agent);
         // №№ баг. бирок
         NewTextChild(rowNode, "col", get_tag_range(i->tags, LANG_EN));
         // От
@@ -7676,6 +7680,111 @@ void createXMLAnnulBTStat(
     NewTextChild(variablesNode, "stat_type", params.statType);
     NewTextChild(variablesNode, "stat_mode", getLocaleText("Аннул. бирки"));
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
+}
+
+/* GRISHA */
+struct TAnnulBTStatCombo : public TOrderStatItem
+{
+    TAnnulBTStatRow data;
+    TAnnulBTStatCombo(const TAnnulBTStatRow &aData): data(aData) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TAnnulBTStatCombo::add_header(ostringstream &buf) const
+{
+    buf
+        << "АК" << delim
+        << "АП" << delim
+        << "Рейс" << delim
+        << "Агент" << delim
+        << "№№ баг. бирок" << delim
+        << "От" << delim
+        << "До" << delim
+        << "БГ мест" << delim
+        << "БГ вес" << delim
+        << "Тип багажа/RFISC" << delim
+        << "Дата выпуска" << delim
+        << "Время выпуска" << delim
+        << "Дата удаления" << delim
+        << "Время удаления" << delim
+        << "Трфр" << delim
+        << "Рейс" << delim
+        << "Дата" << endl;
+}
+
+void TAnnulBTStatCombo::add_data(ostringstream &buf) const
+{
+        // АК
+    buf <<  ElemIdToCodeNative(etAirline, data.airline) << delim
+        // АП
+        <<  ElemIdToCodeNative(etAirp, data.airp) << delim;
+        //Рейс
+    ostringstream oss1;
+    oss1 << setw(3) << setfill('0') << data.flt_no
+            << ElemIdToCodeNative(etSuffix, data.suffix);
+    buf <<  oss1.str() << delim
+        // Агент
+        <<  data.agent << delim
+        // №№ баг. бирок
+        <<  get_tag_range(data.tags, LANG_EN) << delim
+        // От
+        << ElemIdToCodeNative(etAirp, data.airp_dep) << delim
+        // До
+        <<  ElemIdToCodeNative(etAirp, data.airp_arv) << delim;
+    // Мест
+    if (data.amount != NoExists) buf << data.amount;
+    buf << delim;
+    // Вес
+    if (data.weight != NoExists) buf << data.weight;
+    buf << delim;
+    // Тип багажа/RFISC
+    oss1.str("");
+    if (not data.rfisc.empty())
+        oss1 << data.rfisc;
+    else if (data.bag_type != NoExists)
+        oss1 << ElemIdToNameLong(etBagType, data.bag_type);
+    buf <<  oss1.str() << delim;
+    if (data.time_create != NoExists)
+    {
+        // Дата выпуска
+        buf <<  DateTimeToStr(data.time_create, "dd.mm.yyyy") << delim
+        // Время выпуска
+            <<  DateTimeToStr(data.time_create, "hh:nn") << delim;
+    } else buf << delim << delim;
+    if (data.time_create != NoExists)
+    {
+        // Дата удаления
+        buf <<  DateTimeToStr(data.time_annul, "dd.mm.yyyy") << delim
+        // Время удаления
+            <<  DateTimeToStr(data.time_annul, "hh:nn") << delim;
+    } else buf << delim << delim;
+    // Трфр
+    if (data.trfer_airline.empty())
+    {
+        buf << getLocaleText("НЕТ") << delim << delim;
+    } else {
+        // Трфр
+        buf << getLocaleText("ДА") << delim;
+        //Рейс
+        oss1.str("");
+        oss1 << ElemIdToCodeNative(etAirline, data.trfer_airline)
+                << setw(3) << setfill('0') << data.trfer_flt_no
+                << ElemIdToCodeNative(etSuffix, data.trfer_suffix);
+        buf <<  oss1.str() << delim;
+        // Дата
+        buf << DateTimeToStr(data.trfer_scd, "dd.mm.yyyy");
+    }
+    buf << endl;
+}
+
+template <class T>
+void RunAnnulBTStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TAnnulBTStat AnnulBTStat;
+    RunAnnulBTStat(params, AnnulBTStat, prn_airline);
+    for (list<TAnnulBTStatRow>::const_iterator i = AnnulBTStat.rows.begin(); i != AnnulBTStat.rows.end(); ++i)
+        writer.insert(TAnnulBTStatCombo(*i));
 }
 
 //---------------------------------------//
@@ -8468,7 +8577,7 @@ struct TOrderStatWriter {
     int file_id;
     TDateTime month;
     string file_name;
-    double data_size = 0;   // TODO уточнить (since C++11) http://en.cppreference.com/w/cpp/language/data_members#Member_initialization
+    double data_size = 0;
     double data_size_zip = 0;
     boost::iostreams::filtering_ostream out;
     size_t rowcount;
@@ -8592,6 +8701,9 @@ void create_plain_files(
         case statSelfCkinDetail:
         case statSelfCkinFull:
             RunSelfCkinStatFile(params, order_writer, airline);
+            break;
+        case statAnnulBT:
+            RunAnnulBTStatFile(params, order_writer, airline);
             break;
         default:
             throw Exception("unsupported statType %d", params.statType);
@@ -9003,9 +9115,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         {
             RemoveChildNodes(resNode);
             return orderStat(params, ctxt, reqNode, resNode);
-        }
-        else
+        } else {
             AstraLocale::showErrorMessage(E.getLexemaData());
+        }
     }
     catch (EOracleError &E)
     {
