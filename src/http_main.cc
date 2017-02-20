@@ -285,17 +285,26 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
       rep.content = /*"<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +*/ res;
 
   rep.status = http_params.status;
-  rep.headers.resize(4);
-  rep.headers[0].name = "Content-Length";
-  rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
-  rep.headers[1].name = "Content-Type";
-  rep.headers[2].name = "Access-Control-Allow-Origin";
-  rep.headers[2].value = "*";
-  rep.headers[3].name = "Access-Control-Allow-Headers";
-  rep.headers[3].value = "CLIENT-ID,OPERATION,Authorization";
+
+  rep.headers.clear();
+  rep.headers.push_back(header());
+  rep.headers.back().name = "Content-Length";
+  rep.headers.back().value = boost::lexical_cast<std::string>(rep.content.size());
+  rep.headers.push_back(header());
+  rep.headers.back().name = "Content-Type";
+  rep.headers.push_back(header());
+  rep.headers.back().name = "Access-Control-Allow-Origin";
+  rep.headers.back().value = "*";
+  rep.headers.push_back(header());
+  rep.headers.back().name = "Access-Control-Allow-Headers";
+  rep.headers.back().value = "CLIENT-ID,OPERATION,Authorization";
+  rep.headers.push_back(header());
+  rep.headers.back().name = "Cache-Control";
+  rep.headers.back().value = "no-cache";
+
   for(map<string, string>::const_iterator i = http_params.hdrs.begin();
           i != http_params.hdrs.end(); i++) {
-      rep.headers.resize(rep.headers.size() + 1);
+      rep.headers.push_back(header());
       rep.headers.back().name = i->first;
       rep.headers.back().value = i->second;
   }

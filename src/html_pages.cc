@@ -9,6 +9,7 @@
 #include "serverlib/str_utils.h"
 #include "xml_unit.h"
 #include "md5_sum.h"
+#include "stl_utils.h"
 #include <boost/regex.hpp>
 
 #define NICKNAME "KOSHKIN"
@@ -254,29 +255,35 @@ void HtmlInterface::get_resource(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     string uri_path = NodeAsString("uri_path", reqNode);
     LogTrace(TRACE5) << "get_resource uri_path: " << uri_path;
 
-    string if_none_match = html_header_param(HTTP_HDR::IF_NONE_MATCH, reqNode);
-    string if_modified_since_str = html_header_param(HTTP_HDR::IF_MODIFIED_SINCE, reqNode);
-
-    LogTrace(TRACE5) << "if_none_match: '" << if_none_match << "'";
-    LogTrace(TRACE5) << "if_modified_since_str: '" << if_modified_since_str << "'";
-
-    TDateTime if_modified_since = ASTRA::NoExists;
-    if(not if_modified_since_str.empty()) {
-        // Здесь ожидается строка вида 'Fri, 10 Feb 2017 09:33:30 GMT'
-        // Откидываем день недели и GMT
-        size_t idx = if_modified_since_str.find(',');
-        if(idx == string::npos)
-            throw Exception("unexpected format of %s", HTTP_HDR::IF_MODIFIED_SINCE.c_str());
-        if_modified_since_str.erase(0, idx + 1);
-        if_modified_since_str.erase(if_modified_since_str.size() - 4);
-        LogTrace(TRACE5) << "if_modified_since_str after strip: '" << if_modified_since_str << "'";
-    }
-
     TResHTTPParams rhp;
     THTMLResurce html_resource;
     html_resource.get(uri_path);
     xmlNodePtr contentNode = NewTextChild(resNode, "content");
     if(not html_resource.data.empty()) {
+
+        string if_none_match = html_header_param(HTTP_HDR::IF_NONE_MATCH, reqNode);
+        string if_modified_since_str = html_header_param(HTTP_HDR::IF_MODIFIED_SINCE, reqNode);
+
+        LogTrace(TRACE5) << "if_none_match: '" << if_none_match << "'";
+        LogTrace(TRACE5) << "if_modified_since_str: '" << if_modified_since_str << "'";
+
+        TDateTime if_modified_since = ASTRA::NoExists;
+        if(not if_modified_since_str.empty()) {
+            // Здесь ожидается строка вида 'Fri, 10 Feb 2017 09:33:30 GMT'
+            // Откидываем день недели и GMT
+            size_t idx = if_modified_since_str.find(',');
+            if(idx == string::npos)
+                throw Exception("unexpected format of %s", HTTP_HDR::IF_MODIFIED_SINCE.c_str());
+            if_modified_since_str.erase(0, idx + 1);
+            if_modified_since_str.erase(if_modified_since_str.size() - 4);
+            if_modified_since_str = upperc(if_modified_since_str);
+            LogTrace(TRACE5) << "if_modified_since_str after strip: '" << if_modified_since_str << "'";
+
+            if(StrToDateTime(if_modified_since_str.c_str(), "dd mmm yyyy hh:nn:ss", if_modified_since, true) == EOF)
+                throw Exception("get_resource: can't parse if_modified_since date: %s", if_modified_since_str.c_str());
+            LogTrace(TRACE5) << "if_modified_since: " << DateTimeToStr(if_modified_since);
+        }
+
         if(if_none_match.empty() or if_none_match != html_resource.etag) {
             NodeSetContent(contentNode, html_resource.data);
             SetProp(contentNode, "b64", true);
