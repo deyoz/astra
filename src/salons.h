@@ -855,7 +855,7 @@ class TPlace {
     void clearRFISCs() {
       rfiscs.clear();
     }
-
+   TRFISC getRFISC( int point_id ) const;
     void SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &salonTariffs, const TSeatTariffMap::TStatus &status );
     void SetTariffsByRFISC( int point_dep );
     void AddLayerToPlace( ASTRA::TCompLayerType l, TDateTime time_create, int pax_id,

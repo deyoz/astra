@@ -286,7 +286,8 @@ void SendTestRequest(const string &req)
   };
   if (!response.completed ) throw Exception("%s: responseInfo.completed()=false", __FUNCTION__);
 
-  ProgTrace( TRACE5, "response=%s", response.toString().c_str());
+  ProgTrace( TRACE5, "response: %s", response.toString().c_str());
+  ProgTrace( TRACE5, "response.content=%s", response.content.c_str());
 }
 
 string airlineToXML(const std::string &code, const std::string &lang)
