@@ -33,6 +33,8 @@ class PersWeightRules {
   private:
     std::vector<ClassesPersWeight> weights;
     bool intequal( PersWeightRules *p );
+    bool from_lci;
+    bool really_write(int point_id, std::string &source);
   public:
     void Clear() {
       weights.clear();
@@ -56,6 +58,7 @@ class PersWeightRules {
     bool empty() {
       return weights.empty();
     }
+    PersWeightRules(bool _from_lci = false): from_lci(_from_lci) {}
 };
 
 

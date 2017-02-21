@@ -1522,9 +1522,13 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
             cpw.female = gc.f;
             cpw.child = gc.c;
             cpw.infant = gc.i;
-            PersWeightRules pwr;
-            pwr.Add(cpw);
-            pwr.write(point_id_spp);
+            PersWeightRules lci_pwr(true);
+            lci_pwr.Add(cpw);
+
+            PersWeightRules db_pwr;
+            db_pwr.read(point_id_spp);
+            if(not lci_pwr.equal(&db_pwr))
+                lci_pwr.write(point_id_spp);
         }
         TypeBHelpMng::notify_ok(tlg_id, NoExists); // Отвешиваем процесс, если есть.
     } else {
