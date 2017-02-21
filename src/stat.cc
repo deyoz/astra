@@ -3076,7 +3076,7 @@ void GetDetailStat(const TStatParams &params, TQuery &Qry,
 
 void GetFullStat(const TStatParams &params, TQuery &Qry,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
-                 TPrintAirline &airline)
+                 TPrintAirline &airline, bool full = false)
 {
   Qry.Execute();
   if(!Qry.Eof) {
@@ -3172,7 +3172,7 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
                                              trtNotCurrent,
                                              trtNotCancelled),
                            false);
-          AddStatRow(key, row, FullStat);
+          AddStatRow(key, row, FullStat, full);
         }
         else
         {
@@ -3464,6 +3464,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     }
 };
 
+/* GRISHA */
 void createXMLFullStat(const TStatParams &params,
                        const TFullStat &FullStat, const TFullStatRow &FullStatTotal,
                        const TPrintAirline &airline, xmlNodePtr resNode)
@@ -3484,10 +3485,11 @@ void createXMLFullStat(const TStatParams &params,
       for(TFullStat::const_iterator im = FullStat.begin(); im != FullStat.end(); ++im, rows++)
       {
           if(rows >= MAX_STAT_ROWS) {
-              AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
+              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+              /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
                                             LParams() << LParam("num", MAX_STAT_ROWS));
               if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-              break;
+              break;*/
           }
           //region обязательно в начале цикла, иначе будет испорчен xml
           string region;
@@ -3953,7 +3955,7 @@ void RunDetailStat(const TStatParams &params,
 
 void RunFullStat(const TStatParams &params,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
-                 TPrintAirline &airline)
+                 TPrintAirline &airline, bool full = false)
 {
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
@@ -3984,7 +3986,7 @@ void RunFullStat(const TStatParams &params,
                                             i!=params.airlines.elems().end(); i++)
             {
               Qry.SetVariable("ak",*i);
-              GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
+              GetFullStat(params, Qry, FullStat, FullStatTotal, airline, full);
             };
           };
           continue;
@@ -3999,14 +4001,103 @@ void RunFullStat(const TStatParams &params,
                                             i!=params.airps.elems().end(); i++)
             {
               Qry.SetVariable("ap",*i);
-              GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
+              GetFullStat(params, Qry, FullStat, FullStatTotal, airline, full);
             };
           };
           continue;
         };
-        GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
+        GetFullStat(params, Qry, FullStat, FullStatTotal, airline, full);
     }
 };
+
+/* GRISHA */
+struct TFullStatCombo : public TOrderStatItem
+{
+    typedef std::pair<TFullStatKey, TFullStatRow> Tdata;
+    Tdata data;
+    TStatParams params;
+    TFullStatCombo(const Tdata &aData, const TStatParams &aParams)
+        : data(aData), params(aParams) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TFullStatCombo::add_header(ostringstream &buf) const
+{
+    if (params.airp_column_first)
+    {
+        buf << "Код а/п" << delim;
+        buf << "Код а/к" << delim;
+    } else {
+        buf << "Код а/к" << delim;
+        buf << "Код а/п" << delim;
+    }
+    buf << "Номер рейса" << delim;
+    buf << "Дата" << delim;
+    buf << "Направление" << delim;
+    buf << "Кол-во пасс." << delim;
+    /* TInetStat::toXML begin */
+    buf << "Web" << delim;
+    buf << "БГ" << delim;
+    buf << "ПТ" << delim;
+    buf << "Киоски" << delim;
+    buf << "БГ" << delim;
+    buf << "ПТ" << delim;
+    buf << "Моб." << delim;
+    buf << "БГ" << delim;
+    buf << "ПТ" << delim;
+    /* end */
+    buf << "ВЗ" << delim;
+    buf << "РБ" << delim;
+    buf << "РМ" << delim;
+    buf << "Р/кладь (вес)" << delim;
+    buf << "БГ мест" << delim;
+    buf << "БГ вес" << delim;
+    buf << "Пл.м" << delim;
+    buf << "Пл.вес" << endl;
+}
+
+void TFullStatCombo::add_data(ostringstream &buf) const
+{
+    string region;
+    try { region = AirpTZRegion(data.first.airp); }
+    catch(AstraLocale::UserException &E) { return; };
+    buf << data.first.col1 << delim; // col1
+    buf << data.first.col2 << delim; // col2
+    buf << data.first.flt_no << delim; // Номер рейса
+    buf << DateTimeToStr(UTCToClient(data.first.scd_out, region), "dd.mm.yy") << delim; // Дата
+    buf << data.first.places.get() << delim; // Направление
+    buf << data.second.pax_amount << delim; // Кол-во пасс.
+    buf << data.second.i_stat.web << delim; // Web
+    buf << data.second.i_stat.web_bag << delim; // БГ
+    buf << data.second.i_stat.web_bp << delim; // ПТ
+    buf << data.second.i_stat.kiosk << delim; // Киоски
+    buf << data.second.i_stat.kiosk_bag << delim; // БГ
+    buf << data.second.i_stat.kiosk_bp << delim; // ПТ
+    buf << data.second.i_stat.mobile << delim; // Моб.
+    buf << data.second.i_stat.mobile_bag << delim; // БГ
+    buf << data.second.i_stat.mobile_bp << delim; // ПТ
+    buf << data.second.adult << delim; // ВЗ
+    buf << data.second.child << delim; // РБ
+    buf << data.second.baby << delim; // РМ
+    buf << data.second.rk_weight << delim; // Р/кладь (вес)
+    buf << data.second.bag_amount << delim; // БГ мест
+    buf << data.second.bag_weight << delim; // БГ вес
+    buf << data.second.paid.excess_pcs << delim; // Пл.м
+    buf << data.second.paid.excess << endl; // Пл.вес
+}
+
+template <class T>
+void RunFullStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TFullStat FullStat;
+    TFullStatRow FullStatTotal;
+    RunFullStat(params, FullStat, FullStatTotal, prn_airline, true);
+    for (TFullStat::const_iterator i = FullStat.begin(); i != FullStat.end(); ++i)
+        writer.insert(TFullStatCombo(*i, params));
+}
+
+/**************************************************/
 
 struct TSelfCkinStatRow {
     int pax_amount;
@@ -7519,7 +7610,6 @@ void RunAnnulBTStat(
     }
 }
 
-/* GRISHA */
 void createXMLAnnulBTStat(
         const TStatParams &params,
         const TAnnulBTStat &AnnulBTStat,
@@ -8705,6 +8795,9 @@ void create_plain_files(
         case statAnnulBT:
             RunAnnulBTStatFile(params, order_writer, airline);
             break;
+        case statFull:
+            RunFullStatFile(params, order_writer, airline);
+            break;
         default:
             throw Exception("unsupported statType %d", params.statType);
     }
@@ -8919,7 +9012,6 @@ void orderStat(const TStatParams &params, XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     }
 }
 
-/* GRISHA */
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -9109,6 +9201,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             createXMLAnnulBTStat(params, AnnulBTStat, airline, resNode);
         }
     }
+    /* GRISHA */
     catch (MaxStatRowsException &E)
     {
         if(TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION))
