@@ -396,6 +396,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsAPISControl=24,               //Контроль данных APIS
                     tsAPISManualInput=25,           //Ручной ввод данных APIS
                     tsPieceConcept=30,              //Расчет багажа по кол-ву мест
+                    tsLCIPersWeights=38,            //Веса пассажиров на основании LCI
 
                     //Ден, Женя, не добавляйте в эту секцию настройки, которые не в таблице trip_sets
 
