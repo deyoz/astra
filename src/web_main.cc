@@ -41,6 +41,7 @@
 #include "astra_callbacks.h"
 #include "baggage_pc.h"
 #include "meridian.h"
+#include "brands.h"
 
 
 
@@ -763,6 +764,9 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
 
     if (!isTestPaxId(pnr_id))
     {
+      TTripInfo flt;
+      flt.getByPointId(point_id);
+
       TQuery SeatQry(&OraSession);
       SeatQry.SQLText=
           "BEGIN "
@@ -861,7 +865,12 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
             pax.pax_id = Qry.FieldAsInteger( "pax_id" );
             pax.tkn.fromDB(Qry);
             if (pax.tkn.validET())
+            {
               pax.etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+              TBrands brands;
+              brands.get(flt.airline,pax.etick.fare_basis);
+              brands.getBrand( pax.brand, TReqInfo::Instance()->desk.lang );
+            };
             LoadPaxDoc(pax.pax_id, pax.doc);
             LoadPaxDoco(pax.pax_id, pax.doco);
             CheckIn::LoadPaxFQT(pax.pax_id, pax.fqts);
@@ -879,7 +888,12 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
 
             CheckIn::LoadCrsPaxTkn(pax.crs_pax_id, pax.tkn);
             if (pax.tkn.validET())
+            {
               pax.etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+              TBrands brands;
+              brands.get(flt.airline,pax.etick.fare_basis);
+              brands.getBrand( pax.brand, TReqInfo::Instance()->desk.lang );
+            }
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.tkn.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.tkn.getNotEmptyFieldsMask());
             LoadCrsPaxDoc(pax.crs_pax_id, pax.doc, true);
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.doc.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.doc.getNotEmptyFieldsMask());
@@ -889,9 +903,6 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
 
             CheckIn::LoadCrsPaxRem(pax.crs_pax_id, pax.rems);
             CheckIn::LoadCrsPaxFQT(pax.crs_pax_id, pax.fqts);
-
-            TTripInfo flt;
-            flt.getByPointId(point_id);
 
             if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")))
               pax.agent_checkin_reasons.insert("pnr_status");
@@ -1158,6 +1169,8 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids,
         xmlNodePtr fqtsNode = NewTextChild( paxNode, "fqt_rems" );
         for(set<CheckIn::TPaxFQTItem>::const_iterator f=iPax->fqts.begin(); f!=iPax->fqts.end(); ++f)
           if (f->rem=="FQTV") f->toXML(fqtsNode);
+
+        iPax->brand.toXML( NewTextChild( paxNode, "brand" ) );
 
         if (!iPax->etick.empty())
         {

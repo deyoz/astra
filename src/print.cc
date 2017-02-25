@@ -2182,17 +2182,22 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
             // В режиме приглашений выводим только тех, у кого есть правила.
             const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
-            if(op_type == dotPrnBI and not(bi_rule.exists())) continue;
+            bool pr_print =
+                op_type == dotPrnBP or
+                (op_type == dotPrnBI and bi_rule.exists());
 
             xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-            SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
             SetProp(paxNode, "pax_id", iPax->pax_id);
             SetProp(paxNode, "reg_no", (int)iPax->reg_no);
-            SetProp(paxNode, "time_print", DateTimeToStr(iPax->time_print));
-            bool unbound_emd_warning=(pax_id == NoExists &&               // печать всех или только тех, у которых не подтверждена распечатка
-                    iPax->grp_id == first_seg_grp_id && // только для пассажиров первого сегмента сквозной регистрации
-                    PaxASVCList::ExistsPaxUnboundEMD(iPax->pax_id));
-            NewTextChild(paxNode, "unbound_emd_warning", (int)unbound_emd_warning, (int)false);
+            SetProp(paxNode, "pr_print", pr_print);
+            if(pr_print) {
+                SetProp(paxNode, "time_print", DateTimeToStr(iPax->time_print));
+                bool unbound_emd_warning=(pax_id == NoExists &&               // печать всех или только тех, у которых не подтверждена распечатка
+                        iPax->grp_id == first_seg_grp_id && // только для пассажиров первого сегмента сквозной регистрации
+                        PaxASVCList::ExistsPaxUnboundEMD(iPax->pax_id));
+                NewTextChild(paxNode, "unbound_emd_warning", (int)unbound_emd_warning, (int)false);
+                SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
+            }
         }
     }
 }
