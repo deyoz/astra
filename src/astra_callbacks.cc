@@ -43,7 +43,7 @@
 #include "serverlib/ocilocal.h"
 #include "serverlib/perfom.h"
 #include "external_spp_synch.h"
-#include "baggage_pc.h"
+#include "rfisc_sirena.h"
 #include "html_pages.h"
 
 #define NICKNAME "VLAD"
@@ -92,6 +92,7 @@ void AstraJxtCallbacks::InitInterfaces()
 
     new HTTPRequestsIface();
     new PieceConceptInterface();
+    new ServicePaymentInterface();
 
     CheckInInterface::instance();
     TripsInterface::instance();
@@ -346,6 +347,11 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
           ProgError(STDLOG,"ServerFramework::Exception: %s",e->what());
 
       AstraLocale::showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
+      try
+      {
+        traceXML(ctxt->reqDoc);
+      }
+      catch(...) {};
       throw 1;
     }
     catch( int ) {

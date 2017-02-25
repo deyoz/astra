@@ -493,12 +493,14 @@ const TPaxASVCItem& TPaxASVCItem::toXML(xmlNodePtr node) const
   xmlNodePtr remNode=NewTextChild(node, "asvc");
   NewTextChild(remNode, "rfic", RFIC);
   NewTextChild(remNode, "rfisc", RFISC);
+  NewTextChild(remNode, "service_quantity", service_quantity, 1);
   NewTextChild(remNode, "ssr_code", ssr_code, "");
   NewTextChild(remNode, "service_name", service_name);
   NewTextChild(remNode, "emd_type", emd_type);
   NewTextChild(remNode, "emd_no", emd_no);
   NewTextChild(remNode, "emd_coupon", emd_coupon);
   NewTextChild(remNode, "ssr_text", ssr_text, "");
+  NewTextChild(remNode, "paid_weight", ASTRA::NoExists, ASTRA::NoExists); //!!! докрутить
   set<ASTRA::TRcptServiceType> service_types;
   rcpt_service_types(service_types);
   if (!service_types.empty())
@@ -514,6 +516,10 @@ const TPaxASVCItem& TPaxASVCItem::toDB(TQuery &Qry) const
 {
   Qry.SetVariable("rfic", RFIC);
   Qry.SetVariable("rfisc", RFISC);
+  if (service_quantity!=ASTRA::NoExists)
+    Qry.SetVariable("service_quantity", service_quantity);
+  else
+    Qry.SetVariable("service_quantity", FNull); //!!! потом удалить
   Qry.SetVariable("ssr_code", ssr_code);
   Qry.SetVariable("service_name", service_name);
   Qry.SetVariable("emd_type", emd_type);
@@ -527,6 +533,10 @@ TPaxASVCItem& TPaxASVCItem::fromDB(TQuery &Qry)
   clear();
   RFIC=Qry.FieldAsString("rfic");
   RFISC=Qry.FieldAsString("rfisc");
+  if (!Qry.FieldIsNULL("service_quantity"))
+    service_quantity=Qry.FieldAsInteger("service_quantity");
+  else
+    service_quantity=1;  //!!! потом удалить
   ssr_code=Qry.FieldAsString("ssr_code");
   service_name=Qry.FieldAsString("service_name");
   emd_type=Qry.FieldAsString("emd_type");
@@ -543,7 +553,7 @@ std::string TPaxASVCItem::get_rem_text(bool inf_indicator,
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
-         << " HI1"
+         << " HI" << service_quantity
          << " " << RFIC
          << "/" << RFISC
          << "/" << (strictly_lat && !IsAscii7(ssr_code)?"":ssr_code)
@@ -652,8 +662,8 @@ bool SyncPaxASVC(int id, bool is_grp_id)
 {
   ostringstream sql;
   sql <<
-    "INSERT INTO pax_asvc(pax_id, rfic, rfisc, ssr_code, service_name, emd_type, emd_no, emd_coupon) "
-    "SELECT pax.pax_id, rfic, rfisc, ssr_code, service_name, emd_type, emd_no, emd_coupon "
+    "INSERT INTO pax_asvc(pax_id, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon) "
+    "SELECT pax.pax_id, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon "
     "FROM pax, crs_pax_asvc "
     "WHERE pax.pax_id=crs_pax_asvc.pax_id AND "
     "      rem_status='HI' AND "

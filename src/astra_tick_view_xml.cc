@@ -8,7 +8,7 @@
 #include "astra_ticket.h"
 #include "astra_tick_view_xml.h"
 #include "term_version.h"
-#include "baggage.h"
+#include "baggage_base.h"
 #include "jxtlib/xmllibcpp.h"
 #include "jxtlib/gettext.h"
 #include "jxtlib/xml_tools.h"

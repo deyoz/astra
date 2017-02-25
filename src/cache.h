@@ -33,7 +33,6 @@ public:
 #define TAG_CODE                "CODE"
 
 enum TCacheFieldCharCase {ecNormal, ecUpperCase, ecLowerCase};
-enum TAlignment {taLeftJustify, taRightJustify, taCenter};
 enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString, ftBoolean, ftStringList,
                       ftUnknown, NumFieldType};
 enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
@@ -129,7 +128,7 @@ struct TCacheField2 {
     std::string Title;
     int Width;
     TCacheFieldCharCase CharCase;
-    TAlignment Align;
+    TAlignment::Enum Align;
     TCacheFieldType DataType;
     int DataSize;
     int Scale;

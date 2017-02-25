@@ -42,6 +42,8 @@ class TErrorReference
 
 class TExchange
 {
+  private:
+    std::string src_filename, dest_filename;
   public:
     virtual std::string exchangeId() const=0;
   protected:
@@ -59,6 +61,10 @@ class TExchange
     std::string traceError() const;
     virtual void clear()=0;
     virtual ~TExchange() {}
+    void setSrcFile(const std::string &_filename);
+    void setDestFile(const std::string &_filename);
+    bool loadFromFile(std::string &content) const;
+    bool saveToFile(const std::string &content) const;
 };
 
 class TErrorRes : public TExchange
@@ -110,9 +116,6 @@ class TLastExchangeList : public std::list<TLastExchangeInfo>
 };
 
 void SendTestRequest(const std::string &req);
-
-std::string airlineToXML(const std::string &code, const std::string &lang);
-std::string airpToXML(const std::string &code, const std::string &lang);
 
 } //namespace SirenaExchange
 

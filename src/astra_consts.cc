@@ -69,3 +69,10 @@ const ASTRA::TCrewTypes& CrewTypes()
   static ASTRA::TCrewTypes crewTypes;
   return crewTypes;
 }
+
+const TAlignments& Alignments()
+{
+  static TAlignments alignments;
+  return alignments;
+}
+

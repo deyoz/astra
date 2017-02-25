@@ -43,8 +43,10 @@
 #include "astra_callbacks.h"
 #include "apps_interaction.h"
 #include "astra_elem_utils.h"
-#include "sirena_exchange.h"
-#include "baggage_pc.h"
+#include "baggage_wt.h"
+#include "payment_base.h"
+#include "rfisc.h"
+#include "rfisc_sirena.h"
 #include "ffp_sirena.h"
 #include "annul_bt.h"
 #include "tlg/AgentWaitsForRemote.h"
@@ -2036,7 +2038,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   setList.fromDB(point_dep);
   if (setList.empty())
     throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-  if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2) &&
+  if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION) &&
       setList.value(tsPieceConcept))
     throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
 
@@ -2589,7 +2591,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
   Qry.Execute();
   xmlNodePtr node=NewTextChild(resNode,"passengers");
-  PieceConcept::TNodeList pcNodeList;
+  TExcessNodeList excessNodeList;
   if (!Qry.Eof)
   {
     createDefaults=true;
@@ -2719,7 +2721,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
       xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
       bool piece_concept=Qry.FieldAsInteger(col_piece_concept)!=0;
-      pcNodeList.set_concept(excessNode, piece_concept);
+      excessNodeList.set_concept(excessNode, piece_concept);
 
       NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
       NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang),"");
@@ -2748,8 +2750,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         map< pair<int, int>, pair<bool, bool> >::iterator i=rcpt_complete_map.find(rcpt_complete_key);
         if (i==rcpt_complete_map.end())
         {
-          bool pr_payment=piece_concept?PieceConcept::BagPaymentCompleted(grp_id, pax_id, check_pay_on_tckin_segs):
-                                        WeightConcept::BagPaymentCompleted(grp_id);
+          bool pr_payment=RFISCPaymentCompleted(grp_id, pax_id, check_pay_on_tckin_segs) &&
+                          WeightConcept::BagPaymentCompleted(grp_id);
           rcpt_complete_map[rcpt_complete_key]=make_pair(pr_payment, !receipts.empty());
         }
         else
@@ -2889,7 +2891,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
       xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger("excess"),0);
       bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
-      pcNodeList.set_concept(excessNode, piece_concept);
+      excessNodeList.set_concept(excessNode, piece_concept);
 
       NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"),"");
       if (with_rcpt_info)
@@ -3536,10 +3538,16 @@ void GetInboundGroupBag(const InboundTrfer::TNewGrpInfo &inbound_trfer,
                                       p->pax.surname.c_str(), p->pax.name.c_str());
         CheckIn::TGroupBagItem gbag;
         if (iTagMap->second.first.bag_pool_num!=NoExists)  //индикатор того, откуда багаж: из телеграмм или зарегистрированный в Астре
+        {
           gbag.fromDB(iTagMap->second.first.grp_id,
                       iTagMap->second.first.bag_pool_num, true);
+          gbag.bags111.procInboundTrferFromDBTmp();
+        }
         else
+        {
           gbag.setInboundTrfer(iTagMap->second.first);
+          gbag.bags111.procInboundTrferFromBTM(iTagMap->second.first);
+        };
         if (!gbag.empty())
         {
           p->pax.bag_pool_num=bag_pool_num;
@@ -3852,7 +3860,7 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
 
   TReqInfo *reqInfo = TReqInfo::Instance();
 
-  boost::optional<PieceConcept::TRFISCListWithSets> rfisc_list;
+  TRFISCListWithPropsCache lists;
 
   const map< int/*id*/, TEventsBagItem> &bagBefore=prev.bag;
   multimap< int/*id*/, CheckIn::TBagItem> bagAfter;  //может модержать множество id=NoExists;
@@ -3898,15 +3906,7 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
     }
     if (aBag!=bagAfter.end())
     {
-      if (grp.piece_concept)
-      {
-        if (aBag->second.amount!=1)
-          throw UserException("MSG.LUGGAGE.EACH_PIECE_SHOULD_WEIGHTED_SEPARATELY");
-        if (!rfisc_list)
-          rfisc_list=PieceConcept::TRFISCListWithSets();
-        rfisc_list.get().fromDB(grp.bag_types_id);
-        rfisc_list.get().check(aBag->second);
-      }
+      aBag->second.check(lists);
       if (check_bag_weight)
         CheckBagWeightControl(aBag->second);
     }
@@ -3914,51 +3914,52 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
 }
 
 //эта процедура проставляет pax_id
-void PaidBagEMDToDBAdv(int grp_id,
-                       bool piece_concept,
-                       const CheckIn::PaidBagEMDList &prior_emds,
-                       boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds)
+void ServicePaymentToDBAdv(int grp_id,
+                           bool is_unaccomp,
+                           const CheckIn::TServicePaymentList &prior_payment,
+                           boost::optional< CheckIn::TServicePaymentList > &curr_payment)
 {
-  if (!curr_emds) return;
+  if (!curr_payment) return;
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText= PaxASVCList::GetSQL(PaxASVCList::oneWithTknByGrpId);
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.DeclareVariable("emd_no", otString);
   Qry.DeclareVariable("emd_coupon", otInteger);
-  for(list<CheckIn::TPaidBagEMDItem>::iterator i=curr_emds.get().begin(); i!=curr_emds.get().end(); ++i)
+  for(CheckIn::TServicePaymentList::iterator i=curr_payment.get().begin(); i!=curr_payment.get().end(); ++i)
   {
-    CheckIn::TPaidBagEMDItem &emd=*i;
-    CheckIn::PaidBagEMDList::const_iterator j=prior_emds.begin();
-    for(; j!=prior_emds.end(); ++j)
-      if (j->second.emd_no==emd.emd_no &&
-          j->second.emd_coupon==emd.emd_coupon) break;
-    if (j!=prior_emds.end() && j->second.pax_id!=ASTRA::NoExists)
+    if (!i->isEMD()) continue;
+    CheckIn::TServicePaymentItem &item=*i;
+    CheckIn::TServicePaymentList::const_iterator j=prior_payment.begin();
+    for(; j!=prior_payment.end(); ++j)
+      if (j->similar(item)) break;
+    if (j!=prior_payment.end() && j->pax_id!=ASTRA::NoExists)
     {
       //EMD уже была раньше
-      if (piece_concept) emd.pax_id=j->second.pax_id;
+      item.pax_id=j->pax_id;
     }
     else
     {
       //EMD новая
-      Qry.SetVariable("emd_no", emd.emd_no);
-      Qry.SetVariable("emd_coupon", emd.emd_coupon);
+      Qry.SetVariable("emd_no", item.doc_no);
+      Qry.SetVariable("emd_coupon", item.doc_coupon);
       Qry.Execute();
       if (Qry.Eof)
         throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
-                            LParams() << LParam("emd", emd.no_str()));
-      if (piece_concept) emd.pax_id=Qry.FieldAsInteger("pax_id");
+                            LParams() << LParam("emd", item.no_str()));
+      item.pax_id=Qry.FieldAsInteger("pax_id");
       TPaxEMDItem asvc;
       asvc.fromDB(Qry);
-      if (emd.trfer_num!=asvc.trfer_num)
+      if (item.trfer_num!=asvc.trfer_num)
         throw UserException("MSG.EMD_WRONG_ATTACHMENT_DIFFERENT_SEG",
-                            LParams() << LParam("emd", emd.no_str()));
-      if (!emd.rfisc.empty() && emd.rfisc!=asvc.RFISC)
+                            LParams() << LParam("emd", item.no_str()));
+      if (item.pc && item.pc.get().RFISC!=asvc.RFISC)
         throw UserException("MSG.EMD_WRONG_ATTACHMENT_DIFFERENT_RFISC",
-                            LParams() << LParam("emd", emd.no_str()));
+                            LParams() << LParam("emd", item.no_str()));
     }
   }
-  CheckIn::PaidBagEMDToDB(grp_id, curr_emds);
+  curr_payment.get().getAllListItems(grp_id, is_unaccomp);
+  curr_payment.get().toDB777(grp_id);
 }
 
 static bool GetDeferEtStatusFlag(xmlNodePtr ediResNode)
@@ -3994,11 +3995,6 @@ static bool GetDeferEtStatusFlag(xmlNodePtr ediResNode)
 
     return defer_etstatus;
 
-}
-
-namespace SirenaExchange
-{
-void fillPaxsBags(int first_grp_id, TExchange &exch, bool &is_unaccomp_or_crew, TCkinGrpIds &tckin_grp_ids);
 }
 
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
@@ -4097,9 +4093,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     if (!grp.fromXML(segNode))
       throw UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //WEB
 
+    if (grp.id!=NoExists && grp.need_upgrade_db)
+      UpgradeDBForServices(grp.id);
+
     if (first_segment)
     {
-      grp.fromXMLadditional(reqNode);
+      grp.fromXMLadditional(reqNode, pr_unaccomp);
       //определим - новая регистрация или запись изменений
       new_checkin=(grp.id==NoExists);
     }
@@ -4204,8 +4203,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       if (segList.begin()->grp.group_bag)
       {
         //проверим чтобы для экипажа не регистрировался багаж в багажник
-        for(map<int, CheckIn::TBagItem>::const_iterator b=segList.begin()->grp.group_bag.get().bags.begin();
-                                                        b!=segList.begin()->grp.group_bag.get().bags.end();++b)
+        for(CheckIn::TBagMap::const_iterator b=segList.begin()->grp.group_bag.get().bags111.begin();
+                                             b!=segList.begin()->grp.group_bag.get().bags111.end();++b)
           if (!b->second.pr_cabin)
             throw UserException("MSG.CREW.CAN_CHECKIN_ONLY_CABIN_BAGGAGE");
       }
@@ -4319,8 +4318,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
   if (!inbound_group_bag.empty())
   {
-    for(map<int, CheckIn::TBagItem>::iterator b=inbound_group_bag.bags.begin();
-                                              b!=inbound_group_bag.bags.end(); ++b)
+    for(CheckIn::TBagMap::iterator b=inbound_group_bag.bags111.begin();
+                                   b!=inbound_group_bag.bags111.end(); ++b)
     {
       b->second.to_ramp=false;
       b->second.is_trfer=true;
@@ -4725,7 +4724,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       bool needCheckUnattachedTrferAlarm=need_check_u_trfer_alarm_for_grp(grp.point_dep);
       map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> grpTagsBefore;
-      CheckIn::PaidBagEMDList paidBagEMDBefore;
+      CheckIn::TServicePaymentList paymentBefore;
       bool first_pax_on_flight = false;
       bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( grp.point_dep );
       bool pr_do_check_wait_list_alarm = true;
@@ -5102,11 +5101,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           "  END LOOP; "
           "  SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
           "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
-          "                      status,excess,hall,bag_refuse,trfer_confirm,user_id,desk,time_create,client_type, "
-          "                      point_id_mark,pr_mark_norms,trfer_conflict,inbound_confirm,tid) "
+          "    status,excess,excess_wt,excess_pc,hall,bag_refuse,trfer_confirm,user_id,desk,time_create,client_type, "
+          "    point_id_mark,pr_mark_norms,trfer_conflict,inbound_confirm,tid) "
           "  VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
-          "         :status,0,:hall,0,:trfer_confirm,:user_id,:desk,:time_create,:client_type, "
-          "         :point_id_mark,:pr_mark_norms,:trfer_conflict,:inbound_confirm,cycle_tid__seq.nextval); "
+          "    :status,0,0,0,:hall,0,:trfer_confirm,:user_id,:desk,:time_create,:client_type, "
+          "    :point_id_mark,:pr_mark_norms,:trfer_conflict,:inbound_confirm,cycle_tid__seq.nextval); "
           "  IF :seg_no IS NOT NULL THEN "
           "    IF :seg_no=1 THEN :tckin_id:=:grp_id; END IF; "
           "    INSERT INTO tckin_pax_grp(tckin_id,seg_no,grp_id,first_reg_no,pr_depend) "
@@ -5457,7 +5456,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         GetGrpToLogInfo(grp.id, grpInfoBefore); //для всех сегментов
         if (needCheckUnattachedTrferAlarm)
           InboundTrfer::GetCheckedTags(grp.id, idGrp, grpTagsBefore); //для всех сегментов
-        PaxASVCList::GetBoundPaidBagEMD(grp.id, NoExists, paidBagEMDBefore);
+        paymentBefore.fromDB(grp.id);
         //BSM
         if (BSMsend)
           BSM::LoadContent(grp.id,BSMContentBefore);
@@ -5709,7 +5708,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
       }
 
-      if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2) &&
+      if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION) &&
           AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value(tsPieceConcept))
         throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
 
@@ -5725,7 +5724,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
         else
         {
-          if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2) &&
+          if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION) &&
               AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value(tsPieceConcept))
           {
             //не записываем багаж на этом этапе, так как еще не знаем систему расчета
@@ -5738,48 +5737,59 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             if (grp.group_bag)
             {
               grp.group_bag.get().checkAndGenerateTags(grp.point_dep, grp.id);
+              grp.group_bag.get().getAllListItems(grp.id, pr_unaccomp, 0);
               CheckBagChanges(grpInfoBefore, grp);
               grp.group_bag.get().toDB(grp.id);
             }
 
-            boost::optional< list<CheckIn::TPaidBagEMDItem> > emd;
-            CheckIn::PaidBagEMDFromXML(segNode, emd, grp.piece_concept);
+            boost::optional< CheckIn::TServicePaymentList> payment;
+            CheckIn::ServicePaymentFromXML(segNode, grp.id, pr_unaccomp, grp.baggage_pc, paymentBefore, payment);
             CheckIn::TPaidBagEMDProps paid_bag_emd_props;
-            CheckIn::CalcPaidBagEMDProps(paidBagEMDBefore, emd, handmadeEMDDiff, paid_bag_emd_props);
+            CheckIn::CalcPaidBagEMDProps(paymentBefore, payment, handmadeEMDDiff, paid_bag_emd_props);
             CheckIn::PaidBagEMDPropsToDB(grp.id, paid_bag_emd_props);
 
-            if (!grp.piece_concept)
+            if (grp.svc)
+            {
+              grp.svc.get().getAllListItems();
+              grp.svc.get().toDB(grp.id);
+            }
+            if (grp.wt)
             {
               if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
               {
                 //расчет и запись норм и платного багажа
-                WeightConcept::TNormFltInfo fltInfo;
-                fltInfo.point_id=grp.point_dep;
-                fltInfo.airline_mark=markFltInfo.airline;
-                fltInfo.flt_no_mark=markFltInfo.flt_no;
-                fltInfo.use_mark_flt=pr_mark_norms;
-                fltInfo.use_mixed_norms=pr_mixed_norms;
+                WeightConcept::TNormFltInfo normFltInfo;
+                normFltInfo.point_id=grp.point_dep;
+                normFltInfo.airline_mark=markFltInfo.airline;
+                normFltInfo.flt_no_mark=markFltInfo.flt_no;
+                normFltInfo.use_mark_flt=pr_mark_norms;
+                normFltInfo.use_mixed_norms=pr_mixed_norms;
+                WeightConcept::TAirlines airlines(pr_mark_norms?markFltInfo.airline:fltInfo.airline);
                 map<int/*id*/, TEventsBagItem> curr_bag;
                 GetBagToLogInfo(grp.id, curr_bag);
-                list<WeightConcept::TPaidBagItem> prior_paid;
+                WeightConcept::TPaidBagList prior_paid;
                 WeightConcept::PaidBagFromDB(NoExists, grp.id, prior_paid);
-                list<WeightConcept::TPaidBagItem> result_paid;
-                WeightConcept::RecalcPaidBagToDB(grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, fltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true, result_paid);
-                WeightConcept::TryDelPaidBagEMD(result_paid, paidBagEMDBefore, emd);
+                WeightConcept::TPaidBagList result_paid;
+                WeightConcept::RecalcPaidBagToDB(airlines, grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, normFltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true, result_paid);
+                CheckIn::TryCleanServicePayment(result_paid, paymentBefore, payment);
               }
               else
               {
-                WeightConcept::PaidBagToDB(grp.id, grp.paid);
                 if (grp.paid)
-                  WeightConcept::TryDelPaidBagEMD(grp.paid.get(), paidBagEMDBefore, emd);
+                {
+                  WeightConcept::PaidBagToDB(grp.id, pr_unaccomp, grp.paid.get());
+                  CheckIn::TryCleanServicePayment(grp.paid.get(), paymentBefore, payment);
+                };
               }
             }
-            else
+
+            if (grp.rfisc_used && AfterSaveInfo.action==CheckIn::actionNone)
             {
-              if (AfterSaveInfo.action==CheckIn::actionNone)
+              if (TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION) || grp.pc)
                 AfterSaveInfo.action=CheckIn::actionRefreshPaidBagPC;
             }
-            PaidBagEMDToDBAdv(grp.id, grp.piece_concept, paidBagEMDBefore, emd);
+
+            ServicePaymentToDBAdv(grp.id, pr_unaccomp, paymentBefore, payment);
 
             SaveTagPacks(reqNode);
           }
@@ -5802,9 +5812,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  SELECT :grp_id ,num,value,value_cur,NULL,NULL,NULL "
             "  FROM value_bag WHERE grp_id=:first_grp_id; "
             "  INSERT INTO bag2(grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
-            "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,desk,time_create,is_trfer,handmade) "
+            "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,desk,time_create,is_trfer,handmade,"
+            "    list_id, bag_type_str, service_type, airline) "
             "  SELECT :grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
-            "    pr_liab_limit,0,using_scales,bag_pool_num,hall,user_id,desk,time_create,1,0 "
+            "    pr_liab_limit,0,using_scales,bag_pool_num,hall,user_id,desk,time_create,1,0, "
+            "    list_id, bag_type_str, service_type, airline "
             "  FROM bag2 WHERE grp_id=:first_grp_id; "
             "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print) "
             "  SELECT :grp_id,num,tag_type,no,color,bag_num,pr_print "
@@ -6019,7 +6031,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       {
         if (!defer_etstatus)
           ETStatusInterface::ETCheckStatus(grp.id, csaGrp, NoExists, false, ChangeStatusInfo.ET, true);
-        EMDStatusInterface::EMDCheckStatus(grp.id, paidBagEMDBefore, ChangeStatusInfo.EMD);
+        EMDStatusInterface::EMDCheckStatus(grp.id, paymentBefore, ChangeStatusInfo.EMD);
       }
 
       if (!pr_unaccomp && grp.status!=psCrew)
@@ -6312,7 +6324,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   {
 
     if (reqInfo->client_type==ASTRA::ctTerm &&
-        !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
+        !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
     {
       showErrorMessage("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
       throw 1;
@@ -6320,15 +6332,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     if (AfterSaveInfo.segs.empty()) throw 1;
     int first_grp_id=AfterSaveInfo.segs.front().grp_id;
     TCkinGrpIds tckin_grp_ids;
-    bool is_unaccomp_or_crew;
+    CheckIn::TPaxGrpCategory::Enum grp_cat;
 
     SirenaExchange::TPaymentStatusReq req;
-    SirenaExchange::fillPaxsBags(first_grp_id, req, is_unaccomp_or_crew, tckin_grp_ids);
+    SirenaExchange::fillPaxsBags(first_grp_id, req, grp_cat, tckin_grp_ids);
 
-    if (tckin_grp_ids.empty() || is_unaccomp_or_crew) throw 1;
+    if (tckin_grp_ids.empty() || grp_cat!=CheckIn::TPaxGrpCategory::Passenges) throw 1;
 
-    list<PieceConcept::TPaidBagItem> paid;
-    if (!req.bags.empty())
+    TPaidRFISCList paid;
+    ProgError(STDLOG, "actionRefreshPaidBagPC req.svcs.size()=%zu", req.svcs.size()); //!!!vlad
+    if (!req.svcs.empty())
     {
       try
       {
@@ -6360,20 +6373,20 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         {
           string flight_view=GetTripName(s->second.operFlt, ecCkin);
 
-          set<string> rfiscs;
+          set<TRFISCListKey> rfiscs;
           res.check_unknown_status(s->second.id, rfiscs);
           if (!rfiscs.empty())
             throw UserException("MSG.CHECKIN.UNKNOWN_PAYMENT_STATUS_FOR_BAG_TYPE_ON_SEGMENT",
                                 LParams() << LParam("flight", flight_view)
-                                          << LParam("bag_type", *rfiscs.begin()));
+                                          << LParam("bag_type", rfiscs.begin()->str()));
         }
         //мы не должны допустить запись в БД статуса unknown
-        for(SirenaExchange::TBagList::const_iterator i=res.bags.begin(); i!=res.bags.end(); ++i)
-          if (i->second.status==PieceConcept::bsUnknown)
-            throw EXCEPTIONS::Exception("%s: strange situation: bsUnknown for seg_id=%d", __FUNCTION__, i->first.seg_id);
+        for(SirenaExchange::TSvcList::const_iterator i=res.svcs.begin(); i!=res.svcs.end(); ++i)
+          if (i->status==TServiceStatus::Unknown)
+            throw EXCEPTIONS::Exception("%s: strange situation: TServiceStatus::Unknown for trfer_num=%d", __FUNCTION__, i->trfer_num);
 
         res.normsToDB(tckin_grp_ids);
-        res.convert(paid);
+        res.svcs.get(paid);
       }
       catch(UserException &e)
       {
@@ -6385,18 +6398,17 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         throw UserException("MSG.CHECKIN.UNABLE_CALC_PAID_BAG_TRY_RE_CHECKIN");
       }
     }
-    CheckIn::PaidBagEMDList paidBagEMDBefore;
-    PaxASVCList::GetBoundPaidBagEMD(first_grp_id, NoExists, paidBagEMDBefore);
-    PieceConcept::PaidBagToDB(first_grp_id, paid);
-    list<CheckIn::TPaidBagEMDItem> emds;
-    for(CheckIn::PaidBagEMDList::const_iterator i=paidBagEMDBefore.begin(); i!=paidBagEMDBefore.end(); ++i)
-      emds.push_back(i->second);
-    if (PieceConcept::TryDelPaidBagEMD(paid, emds))
-      CheckIn::PaidBagEMDToDB(first_grp_id, emds);
+    CheckIn::TServicePaymentList paymentBefore, payment;
+    paymentBefore.fromDB(first_grp_id);
+    payment=paymentBefore;
+    paid.getAllListItems();
+    paid.toDB777(first_grp_id);
+    if (CheckIn::TryCleanServicePayment(paid, payment))
+      payment.toDB777(first_grp_id);
 
     if (ediResNode==NULL && reqInfo->client_type!=ctPNL)
     {
-      EMDStatusInterface::EMDCheckStatus(first_grp_id, paidBagEMDBefore, ChangeStatusInfo.EMD);
+      EMDStatusInterface::EMDCheckStatus(first_grp_id, paymentBefore, ChangeStatusInfo.EMD);
     }
   }
   catch(int) {}
@@ -6525,9 +6537,10 @@ void AddPaxCategory(const CheckIn::TPaxItem &pax, set<string> &cats)
   if (pax.pers_type==baby && pax.seats==0) cats.insert("INA");
 }
 
-void ShowPaxCatWarning(const string &airline, const set<string> &cats, TQuery &Qry)
+void ShowPaxCatWarning(const string &airline, const set<string> &cats)
 {
   if (cats.empty()) return;
+  TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText="SELECT airline FROM bag_norms WHERE airline=:airline AND pax_cat=:pax_cat AND rownum<2";
   Qry.CreateVariable("airline", otString, airline);
@@ -6543,14 +6556,6 @@ void ShowPaxCatWarning(const string &airline, const set<string> &cats, TQuery &Q
   if (*i=="CHC") showErrorMessage("MSG.NEED_SELECT_BAG_NORMS_MANUALLY.CHC");
   if (*i=="INA") showErrorMessage("MSG.NEED_SELECT_BAG_NORMS_MANUALLY.INA");
 }
-
-const char* pax_grp_sql=
-    "SELECT points.airline,points.flt_no,points.suffix,points.airp,points.scd_out, "
-    "       pax_grp.grp_id,pax_grp.point_dep,pax_grp.airp_dep,pax_grp.point_arv,pax_grp.airp_arv, "
-    "       pax_grp.class,pax_grp.status,pax_grp.hall,pax_grp.bag_refuse,pax_grp.excess, "
-    "       pax_grp.trfer_confirm, piece_concept, NVL(bag_types_id, 0) AS bag_types_id, pax_grp.tid "
-    "FROM pax_grp,points "
-    "WHERE pax_grp.point_dep=points.point_id AND grp_id=:grp_id";
 
 const char* pax_sql=
     "SELECT pax.pax_id,pax.surname,pax.name,pax.pers_type,crew_type,"
@@ -6568,8 +6573,12 @@ const char* pax_sql=
 namespace SirenaExchange
 {
 
-void fillPaxsBags(int first_grp_id, TExchange &exch, bool &is_unaccomp_or_crew, TCkinGrpIds &tckin_grp_ids)
+void fillPaxsBags(int first_grp_id, TExchange &exch, CheckIn::TPaxGrpCategory::Enum &grp_cat, TCkinGrpIds &tckin_grp_ids,
+                  bool include_refused)
 {
+  grp_cat=CheckIn::TPaxGrpCategory::Unknown;
+  tckin_grp_ids.clear();
+
   TAvailabilityReq  *availabilityReq=dynamic_cast<TAvailabilityReq*>(&exch);
   TPaymentStatusReq *paymentStatusReq=dynamic_cast<TPaymentStatusReq*>(&exch);
   TGroupInfoRes     *groupInfoRes=dynamic_cast<TGroupInfoRes*>(&exch);
@@ -6579,46 +6588,38 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &is_unaccomp_or_crew, 
   tckin_route.get(tckin_grp_ids);
   tckin_grp_ids.insert(tckin_grp_ids.begin(), first_grp_id);
 
-  is_unaccomp_or_crew=false;
   TTrferRoute trfer;
   int seg_no=0;
-  for(list<int>::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++,seg_no++)
+  for(TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++,seg_no++)
   {
-    TCachedQuery Qry(pax_grp_sql, QParams() << QParam("grp_id", otInteger, *grp_id));
-    Qry.get().Execute();
-    if (Qry.get().Eof)
+    CheckIn::TPaxGrpItem grp;
+    if (!grp.fromDB(*grp_id))
     {
       tckin_grp_ids.clear();
       return; //это бывает когда разрегистрация всей группы по ошибке агента
     }
 
+    TTripInfo operFlt;
+    operFlt.getByGrpId(*grp_id);
 
-    CheckIn::TPaxGrpItem grp;
-    grp.fromDB(Qry.get());
-    TTripInfo operFlt(Qry.get());
     TDateTime scd_in=TTripInfo::get_scd_in(grp.point_arv);
 
     if (grp_id==tckin_grp_ids.begin())
-    {
-      is_unaccomp_or_crew=(grp.cl.empty() && grp.status!=psCrew) || grp.status==psCrew;
-    }
+      grp_cat=grp.grpCategory();
 
-    if (!is_unaccomp_or_crew)
+    if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag)
     {
       if (grp_id==tckin_grp_ids.begin())
         trfer.GetRoute(grp.id, trtNotFirstSeg);
 
       if ((paymentStatusReq || groupInfoRes) && grp_id==tckin_grp_ids.begin())
       {
-        list<PieceConcept::TPaidBagItem> paid_bag;
         int trfer_seg_count_pc=0;
         for(TTrferRoute::const_iterator t=trfer.begin(); t!=trfer.end(); ++t, trfer_seg_count_pc++)
           if (!t->piece_concept || !t->piece_concept.get()) break; //подсчитываем только кол-во трансферных сегментов с местовой системой расчета
 
-        PieceConcept::PreparePaidBagInfo(*grp_id, tckin_route.size()+1, trfer_seg_count_pc+1, paid_bag);
-        TBagList &bags_ref=(paymentStatusReq?paymentStatusReq->bags:groupInfoRes->bags);
-        for(list<PieceConcept::TPaidBagItem>::const_iterator i=paid_bag.begin(); i!=paid_bag.end(); ++i)
-          bags_ref.push_back(make_pair(TPaxSegKey(i->pax_id,i->trfer_num), TBagItem(*i)));
+        TSvcList &svcs_ref=(paymentStatusReq?paymentStatusReq->svcs:groupInfoRes->svcs);
+        svcs_ref.set(*grp_id, tckin_route.size()+1, trfer_seg_count_pc+1);
       }
 
       TGrpMktFlight mktFlight;
@@ -6637,7 +6638,7 @@ void fillPaxsBags(int first_grp_id, TExchange &exch, bool &is_unaccomp_or_crew, 
         {
           CheckIn::TPaxItem pax;
           pax.fromDB(PaxQry.get());
-          if (!pax.refuse.empty()) continue;
+          if (!pax.refuse.empty() && !include_refused) continue;
 
           if (grp_id==tckin_grp_ids.begin())
             iReqPax=paxs_ref.insert(paxs_ref.end(), TPaxItem());
@@ -6692,7 +6693,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
 {
   if (action!=CheckIn::actionCheckPieceConcept) return;
 
-  ProgTrace(TRACE5, "%s started with actionCheckPieceConcept", __FUNCTION__);
+  ProgTrace(TRACE5, "%s started with actionCheckPieceConcept (first_grp_id=%d)", __FUNCTION__, first_grp_id);
 
   TCachedQuery Qry("SELECT point_dep, piece_concept "
                    "FROM pax_grp "
@@ -6710,21 +6711,21 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
 
   int bag_types_id=ASTRA::NoExists;
   TCkinGrpIds tckin_grp_ids;
-  map<int/*seg_no*/,TBagConcept> bag_concept_by_seg;
-  bool is_unaccomp_or_crew;
+  map<int/*seg_no*/,TBagConcept::Enum> bag_concept_by_seg;
+  CheckIn::TPaxGrpCategory::Enum grp_cat;
   TLogLocale event;
   SirenaExchange::TAvailabilityReq req;
-  SirenaExchange::fillPaxsBags(first_grp_id, req, is_unaccomp_or_crew, tckin_grp_ids);
+  SirenaExchange::fillPaxsBags(first_grp_id, req, grp_cat, tckin_grp_ids);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (setList.value(tsPieceConcept))
   {
     if (reqInfo->client_type!=ASTRA::ctTerm  ||
-        reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
+        reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
     {
       if (tckin_grp_ids.empty()) return;
 
-      if (!is_unaccomp_or_crew)
+      if (grp_cat==CheckIn::TPaxGrpCategory::Passenges)
       {
         SirenaExchange::TAvailabilityRes res;
         try
@@ -6736,26 +6737,26 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
             if (req.paxs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: req.paxs.empty()", __FUNCTION__);
             const SirenaExchange::TPaxSegMap &segs=req.paxs.front().segs;
             if (segs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: segs.empty()", __FUNCTION__);
-            boost::optional<TBagConcept> bag_concept=bcUnknown;
+            boost::optional<TBagConcept::Enum> bag_concept=TBagConcept::Unknown;
             bag_concept=boost::none; //дурацкое решение, но это для того чтобы не вызывать ошибку error: ?*((void*)& bag_concept +4)? may be used uninitialized in this function
             for(SirenaExchange::TPaxSegMap::const_iterator s=segs.begin(); s!=segs.end(); ++s)
             {
               string flight_view=GetTripName(s->second.operFlt, ecCkin);
               //пробегаемся по сегментам
-              boost::optional<TBagConcept> seg_concept;
-              if (!res.identical_concept(s->second.id, seg_concept))
+              boost::optional<TBagConcept::Enum> seg_concept;
+              if (!res.identical_concept(s->second.id, false, seg_concept)) //на первом этапе контролируем только концепт багажа !!!потом убрать
               {
                 if ((unsigned)s->second.id<tckin_grp_ids.size())
                   //только если сквозной сегмент
                   throw UserException("MSG.CHECKIN.DIFFERENT_BAG_CONCEPT_ON_SEGMENT",
                                       LParams()<<LParam("flight", flight_view));
-                seg_concept=bcUnknown;
+                seg_concept=TBagConcept::Unknown;
               }
               if (!seg_concept) throw EXCEPTIONS::Exception("%s: strange situation: unknown concept for seg_id=%d", __FUNCTION__, s->second.id);
-              if (seg_concept.get()==bcNo)
+              if (seg_concept.get()==TBagConcept::No)
               {
                 //определяем piece или weight по наличию/отсутствию RFISC
-                seg_concept=res.exists_rfisc_list(s->second.id)?bcPiece:bcWeight;
+                seg_concept=res.exists_rfisc(s->second.id, TServiceType::BaggageCharge)?TBagConcept::Piece:TBagConcept::Weight;
               }
               bag_concept_by_seg.insert(make_pair(s->second.id, seg_concept.get()));
 
@@ -6766,7 +6767,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
                   bag_concept=seg_concept.get();
                 else
                 {
-                  if (seg_concept.get()==bcUnknown)
+                  if (seg_concept.get()==TBagConcept::Unknown)
                     throw UserException("MSG.TRANSFER_FLIGHT.NOT_MADE_TCHECKIN.UNKNOWN_BAG_CONCEPT",
                                         LParams()<<LParam("flight", flight_view));
 
@@ -6778,12 +6779,12 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
             }
             if (!bag_concept) throw EXCEPTIONS::Exception("%s: strange situation: unknown bag_concept", __FUNCTION__);
 
-            if (bag_concept.get()==bcPiece)
+            if (bag_concept.get()==TBagConcept::Piece)
             {
               if (req.paxs.size()>9)
                 throw UserException("MSG.CHECKIN.PIECE_CONCEPT_NOT_SUPPORT_MORE_9_PASSENGERS");
-              boost::optional<PieceConcept::TRFISCList> rfisc_list;
-              if (!res.identical_rfisc_list(segs.begin()->second.id, rfisc_list))
+              boost::optional<TRFISCList> rfisc_list;
+              if (!res.identical_rfisc_list(segs.begin()->second.id, rfisc_list))  //проверяем идентичность только багажных RFISC и только на первом сегменте !!!потом убрать
               {
                 string flight_view=GetTripName(segs.begin()->second.operFlt, ecCkin);
                 throw UserException("MSG.CHECKIN.DIFFERENT_RFISC_LISTS_ON_SEGMENT",
@@ -6791,10 +6792,11 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
               }
               if (!rfisc_list)
                 throw EXCEPTIONS::Exception("%s: strange situation: unknown rfisc_list!", __FUNCTION__);
-              bag_types_id=rfisc_list.get().toDBAdv();
-              res.normsToDB(tckin_grp_ids);
-              res.brandsToDB(tckin_grp_ids);
-            }
+              bag_types_id=rfisc_list.get().toDBAdv(true);
+            };
+            res.rfiscsToDB(tckin_grp_ids, true); //на первом этапе применяем только концепт багажа (old_version=true) !!!потом убрать
+            res.normsToDB(tckin_grp_ids);
+            res.brandsToDB(tckin_grp_ids);
           }
         }
         catch(UserException &e)
@@ -6831,6 +6833,11 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
     }
     else throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
   }
+
+  if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag)
+    req.bagTypesToDB(tckin_grp_ids);  //дополняем весовыми типами багажа
+  else
+    unaccBagTypesToDB(first_grp_id);
 
   TCachedQuery GrpQry("BEGIN "
                       "  UPDATE pax_grp "
@@ -6869,7 +6876,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
   }
   else
   {
-    map<int/*seg_no*/,TBagConcept>::const_iterator i=bag_concept_by_seg.begin();
+    map<int/*seg_no*/,TBagConcept::Enum>::const_iterator i=bag_concept_by_seg.begin();
     for(int seg_no=0; grp_id!=tckin_grp_ids.end(); ++grp_id, seg_no++)
     {
       if (i==bag_concept_by_seg.end())
@@ -6877,21 +6884,21 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
       if (i->first!=seg_no)
         throw EXCEPTIONS::Exception("%s: strange situation: i->first=%d seg_no=%d!", __FUNCTION__, i->first, seg_no);
       GrpQry.get().SetVariable("grp_id", *grp_id);
-      GrpQry.get().SetVariable("piece_concept", (int)(i->second==bcPiece));
+      GrpQry.get().SetVariable("piece_concept", (int)(i->second==TBagConcept::Piece));
       bag_types_id==ASTRA::NoExists?GrpQry.get().SetVariable("bag_types_id", FNull):
                                     GrpQry.get().SetVariable("bag_types_id", bag_types_id);
       GrpQry.get().SetVariable("point_id", FNull);
       GrpQry.get().Execute();
       ++i;
 
-      for(map<int/*seg_no*/,TBagConcept>::const_iterator j=i; j!=bag_concept_by_seg.end(); ++j)
+      for(map<int/*seg_no*/,TBagConcept::Enum>::const_iterator j=i; j!=bag_concept_by_seg.end(); ++j)
       {
         TrferQry.get().SetVariable("grp_id", *grp_id);
         TrferQry.get().SetVariable("transfer_num", j->first-seg_no);
-        if (j->second==bcUnknown)
+        if (j->second==TBagConcept::Unknown)
           TrferQry.get().SetVariable("piece_concept", FNull);
         else
-          TrferQry.get().SetVariable("piece_concept", (int)(j->second==bcPiece));
+          TrferQry.get().SetVariable("piece_concept", (int)(j->second==TBagConcept::Piece));
         TrferQry.get().Execute();
       };
 
@@ -6935,7 +6942,6 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
   TReqInfo *reqInfo = TReqInfo::Instance();
 
   xmlNodePtr node;
-  TQuery Qry(&OraSession);
   TCkinGrpIds tckin_grp_ids;
   TCkinRoute tckin_route;
   tckin_route.GetRouteAfter(grp_id, crtNotCurrent, crtOnlyDependent);
@@ -6954,30 +6960,25 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
     ostringstream norms_view;
     string used_norms_airline_mark;
 
-    Qry.Clear();
-    Qry.SQLText=pax_grp_sql;
-    Qry.CreateVariable("grp_id",otInteger,*grp_id);
-    Qry.Execute();
-    if (Qry.Eof)
+    CheckIn::TPaxGrpItem grp;
+    if (!grp.fromDB(*grp_id))
     {
       if (grp_id==tckin_grp_ids.begin() && !afterSavePax)
         throw AstraLocale::UserException("MSG.PAX_GRP_OR_LUGGAGE_NOT_CHECKED_IN");
       return; //это бывает когда разрегистрация всей группы по ошибке агента
     }
 
-    CheckIn::TPaxGrpItem grp;
-    grp.fromDB(Qry);
-
-    if (grp.piece_concept && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
+    if (grp.pc && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
       throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
 
     if (grp_id==tckin_grp_ids.begin())
     {
       first_point_dep=grp.point_dep;
-      trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
+      trfer_confirm=grp.trfer_confirm;
     }
 
-    TTripInfo operFlt(Qry);
+    TTripInfo operFlt;
+    operFlt.getByGrpId(*grp_id);
 
     CheckIn::TTransferItem seg;
     seg.operFlt=operFlt;
@@ -7018,14 +7019,16 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
       catch(EBaseTableError) {}
     }
 
-    bool pr_unaccomp=grp.cl.empty() && grp.status!=psCrew;
-
     CheckIn::TGroupBagItem group_bag;
+    TGrpServiceList svc;
     if (grp_id==tckin_grp_ids.begin())
+    {
       group_bag.fromDB(grp.id, ASTRA::NoExists, !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS));
+      svc.fromDB(grp.id);
+    };
 
     TTrferRoute trfer;
-    if (!pr_unaccomp)
+    if (!grp.is_unaccomp())
     {
       TGrpMktFlight mktFlight;
       if (mktFlight.getByGrpId(grp.id))
@@ -7046,6 +7049,8 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
       {
         trfer.GetRoute(grp.id, trtWithFirstSeg);
         BuildTransfer(trfer, trtNotFirstSeg, resNode);
+        BuildTCkinSegments(grp.id, resNode);
+        NewTextChild(resNode, "show_wt_details", (int)grp.wt, (int)false);
       }
 
       TPrPrint prPrint;
@@ -7070,7 +7075,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
         pax.toXML(paxNode);
         if (pax.tkn.validET())
           NewTextChild(paxNode, "ticket_bag_norm",
-                       TETickItem().fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false).bag_norm_view(), "");
+                       lowerc(TETickItem().fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false).bag_norm_view()), "");
         NewTextChild(paxNode,"pr_norec",(int)PaxQry.FieldIsNULL("crs_pax_id"));
 
         bool pr_bp_print, pr_bi_print;
@@ -7080,24 +7085,22 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
         if (grp_id==tckin_grp_ids.begin())
         {
           std::list<CheckIn::TPaxTransferItem> pax_trfer;
-          PaxTransferFromDB(pax.id, pax_trfer);
-          PaxTransferToXML(pax_trfer, paxNode);
+          CheckIn::PaxTransferFromDB(pax.id, pax_trfer);
+          CheckIn::PaxTransferToXML(pax_trfer, paxNode);
+          TPaxServiceLists().toXML111(pax.id, false, tckin_grp_ids.size(), NewTextChild(paxNode, "service_lists"));
         }
         LoadPaxRem(paxNode);
         if (grp_id==tckin_grp_ids.begin())
         {
-          if (!grp.piece_concept)
+          if (grp.wt)
           {
             list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
             WeightConcept::PaxNormsFromDB(NoExists, pax.id, norms);
-            WeightConcept::NormsToXML(norms, group_bag, paxNode);
+            WeightConcept::NormsToXML(norms, group_bag.trferExists(), paxNode);
             if (pax.refuse.empty())
               all_norms.insert(all_norms.end(), norms.begin(), norms.end());
-          }
-          else
-          {
-            PieceConcept::PaxBrandsNormsToStream(trfer, pax, norms_view);
-          }
+          };
+          Sirena::PaxBrandsNormsToStream(trfer, pax, norms_view);
 
           pax_cat_airline=seg.operFlt.airline;
           AddPaxCategory(pax, pax_cats);
@@ -7111,11 +7114,13 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
       {
         trfer.GetRoute(grp.id, trtWithFirstSeg);
         BuildTransfer(trfer, trtNotFirstSeg, resNode);
-        if (!grp.piece_concept)
+        BuildTCkinSegments(grp.id, resNode);
+        TPaxServiceLists().toXML111(grp.id, true, tckin_grp_ids.size(), NewTextChild(segNode, "service_lists"));
+        if (grp.wt)
         {
           list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
           WeightConcept::GrpNormsFromDB(NoExists, grp.id, norms);
-          WeightConcept::NormsToXML(norms, group_bag, segNode);
+          WeightConcept::NormsToXML(norms, group_bag.trferExists(), segNode);
           all_norms.insert(all_norms.end(), norms.begin(), norms.end());
         }
       }
@@ -7123,35 +7128,45 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
     if (grp_id==tckin_grp_ids.begin())
     {
       group_bag.toXML(resNode);
-      if (!grp.piece_concept)
+
+      CheckIn::TServicePaymentList payment;
+      payment.fromDB(grp.id);
+      payment.toXML(segNode);
+
+      TPaidRFISCViewMap PaidRFISCViewMap;
+      if (TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION) || grp.pc)
       {
-        list<WeightConcept::TPaidBagItem> paid;
+        //услуги + pc
+        svc.toXML(resNode);
+        TPaidRFISCList PaidRFISCList;
+        PaidRFISCList.fromDB(grp.id, true);
+        CalcPaidRFISCView(PaidRFISCList, PaidRFISCViewMap);
+        PaidRFISCViewToXML(PaidRFISCViewMap, resNode);
+        NewTextChild(resNode, "norms_view", norms_view.str());
+      };
+
+      //wt
+      TPaidBagViewMap PaidBagViewMap;
+      TPaidBagViewMap TrferBagViewMap;
+      if (grp.wt)
+      {
+        WeightConcept::TPaidBagList paid;
         WeightConcept::PaidBagFromDB(NoExists, grp.id, paid);
-        if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-          WeightConcept::PaidBagToXML(paid, group_bag, resNode);
-        list<CheckIn::TPaidBagEMDItem> emd;
-        CheckIn::PaidBagEMDFromDB(grp.id, emd);
-        CheckIn::PaidBagEMDToXML(emd, segNode);
         if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
         {
           map<int/*id*/, TEventsBagItem> tmp_bag;
           GetBagToLogInfo(grp.id, tmp_bag);
-          WeightConcept::PaidBagViewToXML(tmp_bag, all_norms, paid, emd, used_norms_airline_mark, resNode);
+          WeightConcept::TAirlines airlines(used_norms_airline_mark.empty()?seg.operFlt.airline:used_norms_airline_mark);
+          WeightConcept::CalcPaidBagView(airlines, tmp_bag, all_norms, paid, payment, used_norms_airline_mark,
+                                         PaidBagViewMap, TrferBagViewMap);
+          WeightConcept::PaidBagViewToXML(PaidBagViewMap, TrferBagViewMap, resNode);
         }
-      }
-      else
-      {
-        list<PieceConcept::TPaidBagItem> paid;
-        PieceConcept::PaidBagFromDB(grp.id, true, paid);
-        PieceConcept::TRFISCList rfisc_list;
-        rfisc_list.fromDB(grp.bag_types_id);
-        PieceConcept::PaidBagViewToXML(trfer, paid, rfisc_list, resNode);
+        else
+          WeightConcept::PaidBagToXML(paid, group_bag.trferExists(), resNode);
+      };
 
-        list<CheckIn::TPaidBagEMDItem> emd;
-        CheckIn::PaidBagEMDFromDB(grp.id, emd);
-        CheckIn::PaidBagEMDToXML(emd, segNode);
-        NewTextChild(resNode, "norms_view", norms_view.str());
-      }
+      //табличка платности
+      GridInfoToXML(trfer, PaidRFISCViewMap, PaidBagViewMap, TrferBagViewMap, resNode);
 
       readTripCounters(grp.point_dep, segNode);
 
@@ -7176,7 +7191,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
     //собираем информацию о неподтвержденном трансфере
     LoadUnconfirmedTransfer(segs, resNode);
     if (!reqInfo->desk.compatible(INA_BUGFIX_VERSION))
-      ShowPaxCatWarning(pax_cat_airline, pax_cats, Qry);
+      ShowPaxCatWarning(pax_cat_airline, pax_cats);
   }
 
   // если посылался iatci-запрос на checkin/update,
@@ -7697,6 +7712,7 @@ void CheckInInterface::BuildTransfer(const TTrferRoute &trfer, TTrferRouteType r
   {
     if (t==trfer.begin() && route_type==trtNotFirstSeg) continue;
     xmlNodePtr trferNode=NewTextChild(node,"segment");
+    NewTextChild(trferNode,"flight_short",t->operFlt.flight_view());
     NewTextChild(trferNode,"airline",
                  ElemIdToClientElem(etAirline, t->operFlt.airline, t->operFlt.airline_fmt));
 
@@ -7723,6 +7739,34 @@ void CheckInInterface::BuildTransfer(const TTrferRoute &trfer, TTrferRouteType r
     NewTextChild(trferNode,"city_arv",
                  base_tables.get("airps").get_row("code",t->airp_arv).AsString("city"));
   }
+}
+
+void CheckInInterface::BuildTCkinSegments(int grp_id, xmlNodePtr tckinNode)
+{
+  if (tckinNode==NULL) return;
+
+  xmlNodePtr node=NewTextChild(tckinNode,"tckin_segments");
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline, flt_no, suffix, scd AS scd_out, "
+    "       airp_dep AS airp, airp_arv, seg_no "
+    "FROM tckin_segments,trfer_trips "
+    "WHERE tckin_segments.point_id_trfer=trfer_trips.point_id AND "
+    "      grp_id=:grp_id AND seg_no>0 "
+    "ORDER BY seg_no";
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TTripInfo flt(Qry);
+    int seg_no=Qry.FieldAsInteger("seg_no");
+
+    xmlNodePtr segNode=NewTextChild(node,"segment");
+    SetProp(segNode, "num", seg_no);
+    NewTextChild(segNode, "flight_short", flt.flight_view());
+  };
 }
 
 void CheckInInterface::SaveTagPacks(xmlNodePtr node)

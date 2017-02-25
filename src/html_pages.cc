@@ -5,7 +5,7 @@
 #include "boost/filesystem.hpp"
 #include "qrys.h"
 #include "exceptions.h"
-#include "astra_context.h"
+#include "astra_utils.h"
 #include "serverlib/str_utils.h"
 #include "xml_unit.h"
 #include "md5_sum.h"

@@ -4,9 +4,9 @@
 #include <string>
 
 #include "passenger.h"
-#include "baggage.h"
 #include "events.h"
 #include "astra_misc.h"
+#include "emdoc.h"
 
 namespace WeightConcept
 {
@@ -127,42 +127,66 @@ class TBagNormInfo : public TPaxNormItem, public TNormItem
     int priority() const;
 };
 
+class TAirlines : public std::set<std::string>
+{
+  public:
+    TAirlines(const std::string &airline);
+    const std::string single() const;
+};
+
 void CheckOrGetPaxBagNorm(const TNormFltInfo &flt,
                           const TPaxInfo &pax,
                           const bool only_category,
-                          const int bag_type,
+                          const std::string &bag_type,
                           const TPaxNormItem &norm,
                           TBagNormInfo &result);
 
-void PaidBagViewToXML(const std::map<int/*id*/, TEventsBagItem> &bag,
-                      const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
-                      const std::list<TPaidBagItem> &paid,
-                      const std::list<CheckIn::TPaidBagEMDItem> &emd,
-                      const std::string &used_airline_mark,
-                      xmlNodePtr dataNode);
+void CalcPaidBagView(const TAirlines &airlines,
+                     const std::map<int/*id*/, TEventsBagItem> &bag,
+                     const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
+                     const TPaidBagList &paid,
+                     const CheckIn::TServicePaymentList &payment,
+                     const std::string &used_airline_mark,
+                     TPaidBagViewMap &paid_view,
+                     TPaidBagViewMap &trfer_view);
 
-void RecalcPaidBagToDB(const std::map<int/*id*/, TEventsBagItem> &prior_bag, //TEventsBagItem а не CheckIn::TBagItem потому что есть refused
+void PaidBagViewToXML(const TPaidBagViewMap &paid_view,
+                      const TPaidBagViewMap &trfer_view,
+                      xmlNodePtr node);
+
+void RecalcPaidBagToDB(const TAirlines &airlines,
+                       const std::map<int/*id*/, TEventsBagItem> &prior_bag, //TEventsBagItem а не CheckIn::TBagItem потому что есть refused
                        const std::map<int/*id*/, TEventsBagItem> &curr_bag,
                        const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
                        const TNormFltInfo &flt,
                        const std::vector<CheckIn::TTransferItem> &trfer,
                        const CheckIn::TPaxGrpItem &grp,
                        const CheckIn::TPaxList &curr_paxs,
-                       const std::list<TPaidBagItem> &prior_paid,
+                       const TPaidBagList &prior_paid,
                        bool pr_unaccomp,
                        bool use_traces,
-                       std::list<TPaidBagItem> &result_paid);
-
-void TryDelPaidBagEMD(const std::list<WeightConcept::TPaidBagItem> &curr_paid,
-                      const CheckIn::PaidBagEMDList &prior_emds,
-                      boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds);
+                       TPaidBagList &result_paid);
 
 int test_norms(int argc,char **argv);
 
 std::string GetBagRcptStr(int grp_id, int pax_id);
 bool BagPaymentCompleted(int grp_id, int *value_bag_count=NULL);
 
+std::string GetBagAirline(const TTripInfo &operFlt, const TTripInfo &markFlt, bool is_local_scd_out);
+
 } //namespace WeightConcept
+
+namespace PieceConcept
+{
+
+std::string GetBagRcptStr(int grp_id, int pax_id);
+
+bool TryEnlargeServicePayment(TPaidRFISCList &paid_bag,
+                              CheckIn::TServicePaymentList &payment,
+                              const CheckIn::TPaidBagEMDProps &paid_bag_emd_props,
+                              const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd);
+
+} //namespace PieceConcept
 
 #endif
 

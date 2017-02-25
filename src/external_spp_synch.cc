@@ -21,7 +21,7 @@ void TParseFlight::add_airline( const std::string &value ) {
     if ( airline.fmt == efmtUnknown )
       throw EConvertError("");
 /*      if ( airline.fmt == efmtCodeInter || airline.fmt == efmtCodeICAOInter )
-          trip_type = "м";  //!!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
+          trip_type = "м";  //!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
     else
     */
       trip_type = "п";
@@ -717,7 +717,7 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
       event = "parse";
       parser.parse( node, airp, dests, warning1 );
       StrToFloat( parser.id.c_str(), aodb_point_id );
-      event = "write";      
+      event = "write";
       IntWriteDests( aodb_point_id, range_hours, dests, warning2 );
       msg = event + ": " + "flight_number=" + IntToString( flight_number ) + ",id=" + parser.id;
       if ( !warning1.empty() || !warning2.empty() ) {
@@ -817,10 +817,10 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
   отдельно передается рейс на прилет и рейс на вылет
 */
 void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TPointDests &dests, std::string &warning )
-{  
+{
   warning.clear();
   dests.clear();
-  id.clear();  
+  id.clear();
   if ( flightNode == NULL ) {
     throw EConvertError( "node 'flight' not found" );
   }
@@ -851,7 +851,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
       dest.status = tdUpdate;
     }
     else {
-      dest.status = tdDelete;      
+      dest.status = tdDelete;
     }
   }
   propNode = GetNodeFast( "@cancel", flightNode->children );
@@ -866,7 +866,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   TQuery Qry(&OraSession);
   TElemStruct elem;
   ProgTrace(TRACE5,"check fltNo");
-  TFltNo fltNo = checkerFlt.parse_checkFltNo( prop, TCheckerFlt::etExtAODB, Qry );  
+  TFltNo fltNo = checkerFlt.parse_checkFltNo( prop, TCheckerFlt::etExtAODB, Qry );
   dest.airline = fltNo.airline.code;
   dest.airline_fmt = fltNo.airline.fmt;
   dest.flt_no = fltNo.flt_no;
@@ -1084,7 +1084,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
   }
   //ищем ШРМ, относительно которого завели рейс
   bool pr_find = false;
-  TPoints points;  
+  TPoints points;
   bool pr_takeoff;
   bool pr_charter_range = false;
   TQuery Qry(&OraSession);

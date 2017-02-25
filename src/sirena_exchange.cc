@@ -181,6 +181,37 @@ std::string TExchange::traceError() const
   return s.str();
 }
 
+void TExchange::setSrcFile(const std::string &_filename)
+{
+  src_filename=_filename;
+}
+
+void TExchange::setDestFile(const std::string &_filename)
+{
+  dest_filename=_filename;
+}
+
+bool TExchange::loadFromFile(std::string &content) const
+{
+  if (src_filename.empty()) return false;
+  std::ifstream f(src_filename);
+  if(!f.is_open()) return false;
+  content.clear();
+  std::getline(f, content, '\0');
+  f.close();
+  return !content.empty();
+}
+
+bool TExchange::saveToFile(const std::string &content) const
+{
+  if (dest_filename.empty()) return false;
+  std::ofstream f(dest_filename);
+  if(!f.is_open()) return false;
+  f << content;
+  f.close();
+  return true;
+}
+
 void traceXML(const string& xml)
 {
   size_t len=xml.size();
@@ -193,24 +224,34 @@ void SendRequest(const TExchange &request, TExchange &response,
                  RequestInfo &requestInfo, ResponseInfo &responseInfo)
 {
   time_t start_time=time(NULL);
-  requestInfo.host = SIRENA_HOST();
-  requestInfo.port = SIRENA_PORT();
-  requestInfo.path = "/astra";
-  request.build(requestInfo.content);
-  requestInfo.using_ssl = false;
-  requestInfo.timeout = SIRENA_REQ_TIMEOUT();
-  int request_count = SIRENA_REQ_ATTEMPTS();
-  traceXML(requestInfo.content);
-  for(int pass=0; pass<request_count; pass++)
+
+  bool load_res=response.loadFromFile(responseInfo.content);
+  if (!load_res)
   {
-    httpClient_main(requestInfo, responseInfo);
-    if (!(!responseInfo.completed && responseInfo.error_code==boost::asio::error::eof && responseInfo.error_operation==toStatus))
-      break;
-    ProgTrace( TRACE5, "SIRENA DEADED, next request!" );
+    requestInfo.host = SIRENA_HOST();
+    requestInfo.port = SIRENA_PORT();
+    requestInfo.path = "/astra";
+    if (!request.loadFromFile(requestInfo.content))
+    {
+      request.build(requestInfo.content);
+      request.saveToFile(requestInfo.content);
+    };
+    requestInfo.using_ssl = false;
+    requestInfo.timeout = SIRENA_REQ_TIMEOUT();
+    int request_count = SIRENA_REQ_ATTEMPTS();
+    traceXML(requestInfo.content);
+    for(int pass=0; pass<request_count; pass++)
+    {
+      httpClient_main(requestInfo, responseInfo);
+      if (!(!responseInfo.completed && responseInfo.error_code==boost::asio::error::eof && responseInfo.error_operation==toStatus))
+        break;
+      ProgTrace( TRACE5, "SIRENA DEADED, next request!" );
+    };
+    if (!responseInfo.completed ) throw Exception("%s: responseInfo.completed()=false", __FUNCTION__);
   };
-  if (!responseInfo.completed ) throw Exception("%s: responseInfo.completed()=false", __FUNCTION__);
 
   xmlDocPtr doc=TextToXMLTree(responseInfo.content);
+  if (!load_res) response.saveToFile(XMLTreeToText(doc));
   if (doc!=NULL)
     traceXML(XMLTreeToText(doc));
   else
@@ -288,24 +329,6 @@ void SendTestRequest(const string &req)
 
   ProgTrace( TRACE5, "response: %s", response.toString().c_str());
   ProgTrace( TRACE5, "response.content=%s", response.content.c_str());
-}
-
-string airlineToXML(const std::string &code, const std::string &lang)
-{
-  string result;
-  result=ElemIdToPrefferedElem(etAirline, code, efmtCodeNative, lang);
-  if (result.size()==3) //â¨¯  ˆŠ€Ž
-    result=ElemIdToPrefferedElem(etAirline, code, efmtCodeNative, lang==LANG_EN?LANG_RU:LANG_EN);
-  return result;
-}
-
-string airpToXML(const std::string &code, const std::string &lang)
-{
-  string result;
-  result=ElemIdToPrefferedElem(etAirp, code, efmtCodeNative, lang);
-  if (result.size()==4) //â¨¯  ˆŠ€Ž
-    result=ElemIdToPrefferedElem(etAirp, code, efmtCodeNative, lang==LANG_EN?LANG_RU:LANG_EN);
-  return result;
 }
 
 } //namespace SirenaExchange

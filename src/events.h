@@ -3,7 +3,6 @@
 #include "astra_consts.h"
 #include "passenger.h"
 #include "baggage.h"
-#include "baggage_pc.h"
 #include "remarks.h"
 #include "astra_misc.h"
 #include "astra_utils.h"
@@ -46,8 +45,8 @@ class TEventsBagItem : public CheckIn::TBagItem
              pr_cabin == item.pr_cabin &&
              amount == item.amount &&
              weight == item.weight &&
-             bag_type == item.bag_type &&
-             rfisc == item.rfisc &&
+             pc == item.pc &&
+             wt == item.wt &&
              using_scales == item.using_scales &&
              is_trfer == item.is_trfer &&
              handmade == item.handmade;
@@ -59,40 +58,6 @@ class TEventsBagItem : public CheckIn::TBagItem
     }
 
     TEventsBagItem& fromDB(TQuery &Qry);
-};
-
-class TEventsPaidBagEMDItem : public CheckIn::TPaidBagEMDItem
-{
-  public:
-    std::string bag_type_view;
-
-    void clear()
-    {
-      CheckIn::TPaidBagEMDItem::clear();
-      bag_type_view=bag_type_str();
-    }
-
-    TEventsPaidBagEMDItem()
-    {
-      clear();
-    }
-
-    TEventsPaidBagEMDItem(const CheckIn::TPaidBagEMDItem& item) : CheckIn::TPaidBagEMDItem(item)
-    {
-      bag_type_view=bag_type_str();
-    }
-
-    bool operator < (const TEventsPaidBagEMDItem &item) const
-    {
-      if (bag_type_view!=item.bag_type_view)
-        return bag_type_view<item.bag_type_view;
-      if (emd_no!=item.emd_no)
-        return emd_no<item.emd_no;
-      return (emd_coupon==ASTRA::NoExists ||
-              (item.emd_coupon!=ASTRA::NoExists && emd_coupon<item.emd_coupon));
-    }
-
-    TEventsPaidBagEMDItem& fromDB(TQuery &Qry);
 };
 
 class TEventsSumBagKey
@@ -155,16 +120,16 @@ class TPaidToLogInfo
   public:
     int excess;
     std::map<TEventsSumBagKey, TEventsSumBagItem> bag;
-    std::multiset<TEventsPaidBagEMDItem> emd;
+    std::multiset<CheckIn::TServicePaymentItem> payment;
     void clear()
     {
       excess=0;
       bag.clear();
-      emd.clear();
+      payment.clear();
     }
     void add(const TEventsBagItem& item);
     void add(const WeightConcept::TPaidBagItem& item);
-    void add(const PieceConcept::TPaidBagItem& item);
+    void add(const TPaidRFISCItem& item);
     void clearExcess()
     {
       excess=0;

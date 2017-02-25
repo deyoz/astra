@@ -28,9 +28,9 @@ bool TTripInfo::getByPointId ( const int point_id )
 {
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT airline, flt_no, suffix, airp, scd_out, "
+    "SELECT airline, flt_no, suffix, airp, craft, scd_out, "
     "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
-    "       airline_fmt, suffix_fmt, airp_fmt  "
+    "       airline_fmt, suffix_fmt, airp_fmt, craft_fmt  "
     "FROM points "
     "WHERE point_id = :point_id AND pr_del>=0";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -53,6 +53,19 @@ bool TTripInfo::getByPointIdTlg ( const int point_id_tlg )
   if ( Qry.Eof ) return false;
 
   return getByPointId( Qry.FieldAsInteger( "point_id_spp" ) );
+}
+
+bool TTripInfo::getByGrpId ( const int grp_id )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT point_dep FROM pax_grp WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.Execute();
+
+  if ( Qry.Eof ) return false;
+
+  return getByPointId( Qry.FieldAsInteger( "point_dep" ) );
 }
 
 TAdvTripInfoList getTripsByPointIdTlg( const int point_id_tlg )
@@ -116,6 +129,24 @@ TDateTime TTripInfo::get_scd_in(const std::string &airp_arv) const
     if ( iroute->airp == airp_arv )
       return TTripInfo::get_scd_in(iroute->point_id);
   return ASTRA::NoExists;
+}
+
+std::string TTripInfo::flight_view(TElemContext ctxt, bool showScdOut, bool showAirp) const
+{
+  ostringstream s;
+  s << ElemIdToElemCtxt(ctxt, etAirline, airline, ctxt==ecNone?efmtCodeNative:airline_fmt)
+    << setw(3) << setfill('0') << flt_no
+    << ElemIdToElemCtxt(ctxt, etSuffix, suffix, ctxt==ecNone?efmtCodeNative:suffix_fmt);
+  if (showScdOut)
+  {
+    if (scd_out!=NoExists)
+      s << "/" << DateTimeToStr(scd_out,"dd");
+    else
+      s << "/??";
+  };
+  if (showAirp)
+    s << " " << ElemIdToElemCtxt(ctxt, etAirp, airp, ctxt==ecNone?efmtCodeNative:airp_fmt);
+  return s.str();
 }
 
 string GetTripDate( const TTripInfo &info, const string &separator, const bool advanced_trip_list )
@@ -1508,13 +1539,13 @@ TCodeShareSets::~TCodeShareSets()
   delete Qry;
 };
 
-void TCodeShareSets::get(const TTripInfo &operFlt, const TTripInfo &markFlt)
+void TCodeShareSets::get(const TTripInfo &operFlt, const TTripInfo &markFlt, bool is_local_scd_out)
 {
   clear();
   if (operFlt.airline==markFlt.airline &&
       operFlt.flt_no==markFlt.flt_no) return;
 
-  TDateTime scd_local=UTCToLocal(operFlt.scd_out, AirpTZRegion(operFlt.airp));
+  TDateTime scd_local=is_local_scd_out?operFlt.scd_out:UTCToLocal(operFlt.scd_out, AirpTZRegion(operFlt.airp));
 
   Qry->SetVariable("airline_oper",operFlt.airline);
   Qry->SetVariable("flt_no_oper",operFlt.flt_no);

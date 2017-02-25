@@ -63,8 +63,9 @@ astra_SOURCES = \
   astra_utils.cc \
   autotests.cc \
   baggage.cc \
+  baggage_base.cc \
   baggage_calc.cc \
-  baggage_pc.cc \
+  baggage_wt.cc \
   base_tables.cc \
   basel_aero.cc \
   bi_rules.cpp \
@@ -106,6 +107,7 @@ astra_SOURCES = \
   obrnosir.cc \
   passenger.cc \
   payment.cc \
+  payment_base.cc \
   pers_weights.cc \
   points.cc \
   prepreg.cc \
@@ -113,6 +115,8 @@ astra_SOURCES = \
   prn_tag_store.cc \
   remarks.cc \
   request_dup.cc \
+  rfisc.cc \
+  rfisc_sirena.cc \
   rozysk.cc \
   salonform.cc \
   salonform2.cc \
@@ -225,8 +229,9 @@ noinst_HEADERS = \
   astra_utils.h \
   apis_utils.h \
   baggage.h \
+  baggage_base.h \
   baggage_calc.h \
-  baggage_pc.h \
+  baggage_wt.h \
   base_tables.h \
   basel_aero.h \
   bi_rules.h \
@@ -266,6 +271,7 @@ noinst_HEADERS = \
   obrnosir.h \
   passenger.h \
   payment.h \
+  payment_base.h \
   pers_weights.h \
   points.h \
   prepreg.h \
@@ -273,6 +279,8 @@ noinst_HEADERS = \
   prn_tag_store.h \
   remarks.h \
   request_dup.h \
+  rfisc.h \
+  rfisc_sirena.h \
   rozysk.h \
   salonform.h \
   salonform2.h \

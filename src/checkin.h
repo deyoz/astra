@@ -6,7 +6,6 @@
 #include <libxml/tree.h>
 #include "jxtlib/JxtInterface.h"
 #include "date_time.h"
-#include "baggage_pc.h"
 #include "astra_ticket.h"
 #include "astra_locale.h"
 #include "astra_consts.h"
@@ -17,6 +16,7 @@
 #include "transfer.h"
 #include "events.h"
 #include "tlg/tlg_parser.h"
+#include "sirena_exchange.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -201,6 +201,7 @@ public:
   static void LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int grpId, bool needSync);
   static void LoadPaxRem(xmlNodePtr paxNode);
   static void BuildTransfer(const TTrferRoute &trfer, TTrferRouteType route_type, xmlNodePtr transferNode);
+  static void BuildTCkinSegments(int grp_id, xmlNodePtr tckinNode);
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);
 
   static int CheckCounters(int point_dep,

@@ -19,7 +19,6 @@
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/str_utils.h"
 #include <boost/shared_array.hpp>
-#include "baggage_pc.h"
 #include "baggage_calc.h"
 
 #define NICKNAME "DENIS"
@@ -3262,8 +3261,8 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
         bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
         NewTextChild(paxNode, "piece_concept", (int)piece_concept);
-        bool pr_payment=piece_concept?PieceConcept::BagPaymentCompleted(grp_id, pax_id, check_pay_on_tckin_segs):
-                                      WeightConcept::BagPaymentCompleted(grp_id);
+        bool pr_payment=RFISCPaymentCompleted(grp_id, pax_id, check_pay_on_tckin_segs) &&
+                        WeightConcept::BagPaymentCompleted(grp_id);
         NewTextChild(paxNode, "pr_payment", (int)pr_payment);
         NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
         NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, rpt_params.GetLang()));

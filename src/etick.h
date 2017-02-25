@@ -404,7 +404,7 @@ public:
     virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
     static void EMDCheckStatus(const int grp_id,
-                               const CheckIn::PaidBagEMDList &prior_emds,
+                               const CheckIn::TServicePaymentList &prior_payment,
                                TEMDChangeStatusList &emdList);
     static bool EMDChangeStatus(const edifact::KickInfo &kickInfo,
                                 const TEMDChangeStatusList &emdList);
@@ -440,7 +440,7 @@ class EMDAutoBoundInterface: public AstraJxtIface
     void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
     virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
-    static bool Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id, bool &piece_concept);
+    static bool Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id);
     static void EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode);
     static void EMDTryBind(int grp_id, xmlNodePtr termReqNode, xmlNodePtr ediResNode);
 };

@@ -56,8 +56,8 @@ void EmdCosResponseHandler::handle()
       EMDCtxt.fromXML(node, rootNode);
 
       TEMDocItem EMDocItem;
-      EMDocItem.emd_no=EMDCtxt.asvc.emd_no;
-      EMDocItem.emd_coupon=EMDCtxt.asvc.emd_coupon;
+      EMDocItem.emd_no=EMDCtxt.emd_no;
+      EMDocItem.emd_coupon=EMDCtxt.emd_coupon;
       EMDocItem.et_no=EMDCtxt.pax.tkn.no;
       EMDocItem.et_coupon=EMDCtxt.pax.tkn.coupon;
       EMDocItem.action=EMDCtxt.action;

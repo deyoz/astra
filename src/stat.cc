@@ -17,7 +17,6 @@
 #include "qrys.h"
 #include "tlg/tlg.h"
 #include "astra_elem_utils.h"
-#include "baggage_pc.h"
 #include "astra_elems.h"
 #include "serverlib/xml_stuff.h"
 #include "astra_misc.h"
@@ -1391,7 +1390,7 @@ struct THallItem {
     string name;
 };
 
-void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList &pcNodeList, bool isPaxSearch, int pass, int &count)
+void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, TExcessNodeList &excessNodeList, bool isPaxSearch, int pass, int &count)
 {
   if(Qry.Eof) return;
 
@@ -1459,7 +1458,7 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList 
       NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
 
       xmlNodePtr excessNode =  NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));;
-      pcNodeList.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
+      excessNodeList.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
 
       NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
@@ -1487,7 +1486,7 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList 
   ProgTrace(TRACE5, "XML%d: %s", pass, tm.PrintWithMessage().c_str());
 };
 
-void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList& pcNodeList, bool isPaxSearch, int pass, int &count)
+void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, TExcessNodeList& excessNodeList, bool isPaxSearch, int pass, int &count)
 {
   if(Qry.Eof) return;
 
@@ -1566,7 +1565,7 @@ void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, PieceConcept::TNodeList& pcNo
       NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
       NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
       xmlNodePtr excessNode = NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
-      pcNodeList.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
+      excessNodeList.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
 
       NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
@@ -1748,8 +1747,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         ProgTrace(TRACE5, "Qry.Execute: %s", tm.PrintWithMessage().c_str());
 
         int count=0;
-        PieceConcept::TNodeList pcNodeList;
-        PaxListToXML(Qry, resNode, pcNodeList, false, 0, count);
+        TExcessNodeList excessNodeList;
+        PaxListToXML(Qry, resNode, excessNodeList, false, 0, count);
 
         ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
 
@@ -1841,7 +1840,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
         Qry.Execute();
 
-        UnaccompListToXML(Qry, resNode, pcNodeList, false, 0, count);
+        UnaccompListToXML(Qry, resNode, excessNodeList, false, 0, count);
 
 
         xmlNodePtr paxListNode = GetNode("paxList", resNode);
@@ -2567,57 +2566,57 @@ struct TInetStat {
         //Web
         xmlNodePtr colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", web);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("БГ"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", web_bag);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("ПТ"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", web_bp);
 
         // Киоски
         colNode = NewTextChild(headerNode, "col", getLocaleText("Киоски"));
         SetProp(colNode, "width", 40);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", kiosk);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("БГ"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", kiosk_bag);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("ПТ"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", kiosk_bp);
 
         // Моб.
         colNode = NewTextChild(headerNode, "col", getLocaleText("Моб."));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", mobile);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("БГ"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", mobile_bag);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("ПТ"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", mobile_bp);
     }
@@ -3357,28 +3356,28 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
         if(params.airp_column_first) {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "align", TAlignment::LeftJustify);
             SetProp(colNode, "sort", sortString);
             NewTextChild(rowNode, "col", getLocaleText("Итого:"));
             if (params.statType==statDetail)
             {
                 colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
                 SetProp(colNode, "width", 50);
-                SetProp(colNode, "align", taLeftJustify);
+                SetProp(colNode, "align", TAlignment::LeftJustify);
                 SetProp(colNode, "sort", sortString);
                 NewTextChild(rowNode, "col");
             };
         } else {
             colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", taLeftJustify);
+            SetProp(colNode, "align", TAlignment::LeftJustify);
             SetProp(colNode, "sort", sortString);
             NewTextChild(rowNode, "col", getLocaleText("Итого:"));
             if (params.statType==statDetail)
             {
                 colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
                 SetProp(colNode, "width", 50);
-                SetProp(colNode, "align", taLeftJustify);
+                SetProp(colNode, "align", TAlignment::LeftJustify);
                 SetProp(colNode, "sort", sortString);
                 NewTextChild(rowNode, "col");
             };
@@ -3388,7 +3387,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     if(params.statType != statPactShort) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
         SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", (int)(pr_pact?total.flts.size():total.flt_amount));
     }
@@ -3397,33 +3396,33 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     {
         colNode = NewTextChild(headerNode, "col", getLocaleText("№ договора"));
         SetProp(colNode, "width", 230);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col", getLocaleText("Итого:"));
     }
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
     SetProp(colNode, "width", 85);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.pax_amount);
 
     if(params.statType != statPactShort) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("П"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.f);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Б"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.c);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Э"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.y);
 
@@ -3434,7 +3433,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     {
         colNode = NewTextChild(headerNode, "col", getLocaleText("№ договора"));
         SetProp(colNode, "width", 230);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col");
     }
@@ -3550,49 +3549,49 @@ void createXMLFullStat(const TStatParams &params,
     if(params.airp_column_first) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
         SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col", getLocaleText("Итого:"));
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
         SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col");
     } else {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
         SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col", getLocaleText("Итого:"));
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
         SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col");
     }
     colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
     SetProp(colNode, "width", 75);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col");
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
     NewTextChild(rowNode, "col");
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Направление"));
     SetProp(colNode, "width", 90);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col");
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
     SetProp(colNode, "width", 75);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.pax_amount);
 
@@ -3601,49 +3600,49 @@ void createXMLFullStat(const TStatParams &params,
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
     SetProp(colNode, "width", 30);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.adult);
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("РБ"));
     SetProp(colNode, "width", 30);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.child);
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("РМ"));
     SetProp(colNode, "width", 30);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.baby);
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь (вес)"));
     SetProp(colNode, "width", 80);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.rk_weight);
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("БГ мест"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortIntegerSlashInteger);
     NewTextChild(rowNode, "col", total.bag_amount);
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("БГ вес"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortIntegerSlashInteger);
     NewTextChild(rowNode, "col", total.bag_weight);
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Пл.м"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col",  total.paid.excess_pcs);
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Пл.вес"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col",  total.paid.excess);
 
@@ -4459,29 +4458,29 @@ void createXMLSelfCkinStat(const TStatParams &params,
     xmlNodePtr colNode;
     colNode = NewTextChild(headerNode, "col", getLocaleText("Тип рег."));
     SetProp(colNode, "width", 75);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col", getLocaleText("Итого:"));
     colNode = NewTextChild(headerNode, "col", getLocaleText("Пульт"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col");
     colNode = NewTextChild(headerNode, "col", getLocaleText("АП пульта"));
     SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col");
     if(params.statType == statSelfCkinFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
         SetProp(colNode, "width", 280);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col");
     }
     colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col");
     if(
@@ -4490,7 +4489,7 @@ void createXMLSelfCkinStat(const TStatParams &params,
       ) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
         SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col");
     }
@@ -4500,24 +4499,24 @@ void createXMLSelfCkinStat(const TStatParams &params,
       ) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
         SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", flts_total);
     }
     if(params.statType == statSelfCkinFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
         SetProp(colNode, "width", 75);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col");
         colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
         SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortDate);
         NewTextChild(rowNode, "col");
         colNode = NewTextChild(headerNode, "col", getLocaleText("Направление"));
         SetProp(colNode, "width", 90);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col");
     }
@@ -4526,42 +4525,42 @@ void createXMLSelfCkinStat(const TStatParams &params,
     // Киоски
     colNode = NewTextChild(headerNode, "col", getLocaleText("Пас."));
     SetProp(colNode, "width", 30);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.pax_amount);
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("БГ"));
     SetProp(colNode, "width", 30);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.term_bag);
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("ПТ"));
     SetProp(colNode, "width", 30);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.term_bp);
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("Всё сами"));
     SetProp(colNode, "width", 45);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.pax_amount-total.term_ckin_service);
 
     if(params.statType == statSelfCkinFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.adult);
         colNode = NewTextChild(headerNode, "col", getLocaleText("РБ"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.child);
         colNode = NewTextChild(headerNode, "col", getLocaleText("РМ"));
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.baby);
     }
@@ -4571,7 +4570,7 @@ void createXMLSelfCkinStat(const TStatParams &params,
       ) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз."));
         SetProp(colNode, "width", 45);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.tckin);
     }
@@ -4581,7 +4580,7 @@ void createXMLSelfCkinStat(const TStatParams &params,
       ) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Примечание"));
         SetProp(colNode, "width", 280);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col");
     }
@@ -4997,19 +4996,19 @@ void createXMLTlgOutStat(const TStatParams &params,
     xmlNodePtr colNode;
     colNode = NewTextChild(headerNode, "col", getLocaleText("Адрес отпр."));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col", getLocaleText("Итого:"));
     colNode = NewTextChild(headerNode, "col", getLocaleText("Канал"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col");
     if (params.statType == statTlgOutFull)
     {
       colNode = NewTextChild(headerNode, "col", getLocaleText("Адрес получ."));
       SetProp(colNode, "width", 70);
-      SetProp(colNode, "align", taLeftJustify);
+      SetProp(colNode, "align", TAlignment::LeftJustify);
       SetProp(colNode, "sort", sortString);
       NewTextChild(rowNode, "col");
     };
@@ -5018,14 +5017,14 @@ void createXMLTlgOutStat(const TStatParams &params,
       SetProp(colNode, "width", 200);
     else
       SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col");
     if (params.statType == statTlgOutFull)
     {
       colNode = NewTextChild(headerNode, "col", getLocaleText("Дата отпр."));
       SetProp(colNode, "width", 60);
-      SetProp(colNode, "align", taLeftJustify);
+      SetProp(colNode, "align", TAlignment::LeftJustify);
       SetProp(colNode, "sort", sortDate);
       NewTextChild(rowNode, "col");
     };
@@ -5034,17 +5033,17 @@ void createXMLTlgOutStat(const TStatParams &params,
     {
       colNode = NewTextChild(headerNode, "col", getLocaleText("А/к факт."));
       SetProp(colNode, "width", 50);
-      SetProp(colNode, "align", taLeftJustify);
+      SetProp(colNode, "align", TAlignment::LeftJustify);
       SetProp(colNode, "sort", sortString);
       NewTextChild(rowNode, "col");
       colNode = NewTextChild(headerNode, "col", getLocaleText("А/к комм."));
       SetProp(colNode, "width", 50);
-      SetProp(colNode, "align", taLeftJustify);
+      SetProp(colNode, "align", TAlignment::LeftJustify);
       SetProp(colNode, "sort", sortString);
       NewTextChild(rowNode, "col");
       colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
       SetProp(colNode, "width", 50);
-      SetProp(colNode, "align", taLeftJustify);
+      SetProp(colNode, "align", TAlignment::LeftJustify);
       SetProp(colNode, "sort", sortString);
       NewTextChild(rowNode, "col");
     };
@@ -5052,35 +5051,35 @@ void createXMLTlgOutStat(const TStatParams &params,
     {
       colNode = NewTextChild(headerNode, "col", getLocaleText("Тип тлг."));
       SetProp(colNode, "width", 50);
-      SetProp(colNode, "align", taLeftJustify);
+      SetProp(colNode, "align", TAlignment::LeftJustify);
       SetProp(colNode, "sort", sortString);
       NewTextChild(rowNode, "col");
       colNode = NewTextChild(headerNode, "col", getLocaleText("Дата вылета"));
       SetProp(colNode, "width", 70);
-      SetProp(colNode, "align", taLeftJustify);
+      SetProp(colNode, "align", TAlignment::LeftJustify);
       SetProp(colNode, "sort", sortDate);
       NewTextChild(rowNode, "col");
       colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
       SetProp(colNode, "width", 50);
-      SetProp(colNode, "align", taLeftJustify);
+      SetProp(colNode, "align", TAlignment::LeftJustify);
       SetProp(colNode, "sort", sortString);
       NewTextChild(rowNode, "col");
     };
     colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во"));
     SetProp(colNode, "width", params.statType == statTlgOutFull?40:70);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.tlg_count);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Объем (байт)"));
     SetProp(colNode, "width", params.statType == statTlgOutFull?70:100);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortFloat);
     buf.str("");
     buf << fixed << setprecision(0) << total.tlg_len;
     NewTextChild(rowNode, "col", buf.str());
     colNode = NewTextChild(headerNode, "col", getLocaleText("№ договора"));
     SetProp(colNode, "width", 150);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     NewTextChild(rowNode, "col");
 
@@ -5614,19 +5613,19 @@ void createXMLAgentStat(const TStatParams &params,
       ) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
         SetProp(colNode, "width", 70);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col", getLocaleText("Итого:"));
         colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
         SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortDate);
         NewTextChild(rowNode, "col");
     }
     if(params.statType == statAgentFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Стойка"));
         SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         NewTextChild(rowNode, "col");
     }
@@ -5636,7 +5635,7 @@ void createXMLAgentStat(const TStatParams &params,
       ) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
         SetProp(colNode, "width", 100);
-        SetProp(colNode, "align", taLeftJustify);
+        SetProp(colNode, "align", TAlignment::LeftJustify);
         SetProp(colNode, "sort", sortString);
         if (params.statType == statAgentTotal)
           NewTextChild(rowNode, "col", getLocaleText("Итого:"));
@@ -5646,74 +5645,74 @@ void createXMLAgentStat(const TStatParams &params,
     if(params.statType == statAgentTotal) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Пас."));
         SetProp(colNode, "width", 45);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.dpax_amount.inc);
         colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз."));
         SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.dtckin_amount.inc);
         colNode = NewTextChild(headerNode, "col", getLocaleText("Баг."));
         SetProp(colNode, "width", 70);
-        SetProp(colNode, "align", taCenter);
+        SetProp(colNode, "align", TAlignment::Center);
         SetProp(colNode, "sort", sortIntegerSlashInteger);
         NewTextChild(rowNode, "col", IntToString(total.dbag_amount.inc) +
                                      "/" +
                                      IntToString(total.dbag_weight.inc));
         colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к"));
         SetProp(colNode, "width", 45);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.drk_weight.inc);
     } else {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Пас.")+" (+)");
         SetProp(colNode, "width", 45);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.dpax_amount.inc);
         colNode = NewTextChild(headerNode, "col", getLocaleText("Пас.")+" (-)");
         SetProp(colNode, "width", 45);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", -total.dpax_amount.dec);
         colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз.")+"(+)");
         SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.dtckin_amount.inc);
         colNode = NewTextChild(headerNode, "col", getLocaleText("Сквоз.")+"(-)");
         SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", -total.dtckin_amount.dec);
         colNode = NewTextChild(headerNode, "col", getLocaleText("Баг.")+" (+)");
         SetProp(colNode, "width", 70);
-        SetProp(colNode, "align", taCenter);
+        SetProp(colNode, "align", TAlignment::Center);
         SetProp(colNode, "sort", sortIntegerSlashInteger);
         NewTextChild(rowNode, "col", IntToString(total.dbag_amount.inc) +
                                      "/" +
                                      IntToString(total.dbag_weight.inc));
         colNode = NewTextChild(headerNode, "col", getLocaleText("Баг.")+" (-)");
         SetProp(colNode, "width", 70);
-        SetProp(colNode, "align", taCenter);
+        SetProp(colNode, "align", TAlignment::Center);
         SetProp(colNode, "sort", sortIntegerSlashInteger);
         NewTextChild(rowNode, "col", IntToString(-total.dbag_amount.dec) +
                                      "/" +
                                      IntToString(-total.dbag_weight.dec));
         colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к")+" (+)");
         SetProp(colNode, "width", 45);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", total.drk_weight.inc);
         colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к")+" (-)");
         SetProp(colNode, "width", 45);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
         NewTextChild(rowNode, "col", -total.drk_weight.dec);
         colNode = NewTextChild(headerNode, "col", getLocaleText("Сек./пас."));
         SetProp(colNode, "width", 65);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortFloat);
         ostringstream buf;
         if (total.processed_pax!=0)
@@ -6201,83 +6200,83 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
     xmlNodePtr colNode;
     colNode = NewTextChild(headerNode, "col", "RFISC");
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Платн."));
     SetProp(colNode, "width", 100);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Опл."));
     SetProp(colNode, "width", 80);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Бирка"));
     SetProp(colNode, "width", 80);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("SPEQ"));
     SetProp(colNode, "width", 100);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("FQTV"));
     SetProp(colNode, "width", 150);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата вылета"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("От"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Тип ВС"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Время в пути"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Трфр.рейс"));
     SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("От"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("АП рег."));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Стойка"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", "LOGIN");
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
     SetProp(colNode, "width", 100);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата оформ."));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
@@ -7138,91 +7137,91 @@ void createXMLUnaccBagStat(
     xmlNodePtr colNode;
     colNode = NewTextChild(headerNode, "col", getLocaleText("АП рег. багажа"));
     SetProp(colNode, "width", 90);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Стойка"));
     SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
     SetProp(colNode, "width", 80);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата оформления"));
     SetProp(colNode, "width", 100);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
     colNode = NewTextChild(headerNode, "col", getLocaleText("АК"));
     SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("От"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Тип ВС"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Время в пути"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Трфр"));
     SetProp(colNode, "width", 35);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("АК трфр"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс трфр"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("От трфр"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortFloat);
     colNode = NewTextChild(headerNode, "col", getLocaleText("До трфр"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Тип багажа"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Бирка"));
     SetProp(colNode, "width", 75);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("ФИО пассажира"));
     SetProp(colNode, "width", 85);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Первичная бирка"));
     SetProp(colNode, "width", 110);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Первичная АК"));
     SetProp(colNode, "width", 80);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Первичный рейс"));
     SetProp(colNode, "width", 90);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата вылета"));
     SetProp(colNode, "width", 105);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
@@ -7626,71 +7625,71 @@ void createXMLAnnulBTStat(
     xmlNodePtr colNode;
     colNode = NewTextChild(headerNode, "col", getLocaleText("АК"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("АП"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
     SetProp(colNode, "width", 100);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("№№ баг. бирок"));
     SetProp(colNode, "width", 90);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("От"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("БГ мест"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("БГ вес"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Тип багажа/RFISC"));
     SetProp(colNode, "width", 100);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата выпуска"));
     SetProp(colNode, "width", 80);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Время выпуска"));
     SetProp(colNode, "width", 80);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата удаления"));
     SetProp(colNode, "width", 85);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Время удаления"));
     SetProp(colNode, "width", 85);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Трфр"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
     SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
@@ -7978,30 +7977,30 @@ void createXMLLimitedCapabStat(const TStatParams &params, const TLimitedCapabSta
     xmlNodePtr colNode;
     colNode = NewTextChild(headerNode, "col", getLocaleText("АК"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("АП"));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taRightJustify);
+    SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
     SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
     colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
     SetProp(colNode, "width", 90);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     for(TLimitedCapabStat::TRems::const_iterator rem_col = LimitedCapabStat.total.begin();
             rem_col != LimitedCapabStat.total.end(); rem_col++)
     {
         colNode = NewTextChild(headerNode, "col", rem_col->first);
         SetProp(colNode, "width", 40);
-        SetProp(colNode, "align", taRightJustify);
+        SetProp(colNode, "align", TAlignment::RightJustify);
         SetProp(colNode, "sort", sortInteger);
     }
 
@@ -8172,59 +8171,59 @@ void createXMLServiceStat(const TStatParams &params, const TServiceStat &Service
     xmlNodePtr colNode;
     colNode = NewTextChild(headerNode, "col", getLocaleText("АП рег."));
     SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Стойка"));
     SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
     SetProp(colNode, "width", 80);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Билет"));
     SetProp(colNode, "width", 100);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
     SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("От"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Тип ВС"));
     SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Время в пути"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Код услуги"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("RFISC"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Тариф"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortFloat);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Валюта"));
     SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
@@ -9034,7 +9033,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             params.order
       )
         return orderStat(params, ctxt, reqNode, resNode);
-*/        
+*/
 /*
     if (
             params.statType==statFull ||
@@ -9331,7 +9330,7 @@ void TStatOrders::get(int user_id, int file_id, const string &source)
     if(not condition.empty())
         SQLText += " where " + condition;
     TCachedQuery Qry(SQLText, QryParams);
-    
+
     Qry.get().Execute();
     TPerfTimer tm;
     tm.Init();
@@ -9352,31 +9351,31 @@ void TStatOrders::toXML(xmlNodePtr resNode)
     xmlNodePtr colNode;
     colNode = NewTextChild(headerNode, "col", getLocaleText("Отчет"));
     SetProp(colNode, "width", 150);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Время заказа"));
     SetProp(colNode, "width", 110);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Время выполнения"));
     SetProp(colNode, "width", 110);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Время удаления"));
     SetProp(colNode, "width", 110);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Статус"));
     SetProp(colNode, "width", 110);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Готовность"));
     SetProp(colNode, "width", 110);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Размер"));
     SetProp(colNode, "width", 110);
-    SetProp(colNode, "align", taLeftJustify);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortFloat);
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
@@ -9694,8 +9693,8 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             else
                 throw;
         }
-        PieceConcept::TNodeList pcNodeList;
-        PaxListToXML(Qry, resNode, pcNodeList, true, pass, count);
+        TExcessNodeList excessNodeList;
+        PaxListToXML(Qry, resNode, excessNodeList, true, pass, count);
 
     }
     if(count == 0)
@@ -9875,42 +9874,57 @@ struct TRFISCBag {
     {
         TGrpIdGroup::iterator result = items.find(grp_id);
         if(result == items.end()) {
-            list<PieceConcept::TPaidBagItem> paid;
-            PaidBagFromDB(grp_id, true, paid);
-            for(list<PieceConcept::TPaidBagItem>::iterator i = paid.begin(); i != paid.end(); i++) {
-                if(i->trfer_num == 0 and not i->pr_cabin) {
-                    TBagInfo val;
+          TPaidRFISCList paid;
+          paid.fromDB(grp_id, true);
+          TPaidRFISCStatusList statusList;
+          for(TPaidRFISCList::const_iterator i=paid.begin(); i!=paid.end(); ++i)
+          {
+            const TPaidRFISCItem &item=i->second;
+            if (!item.list_item)
+              throw Exception("TRFISCBag::get: item.list_item=boost::none! (%s)", item.traceStr().c_str());
 
-                    switch(i->status) {
-                        case PieceConcept::bsFree:
-                            val.excess = 0;
-                            break;
-                        case PieceConcept::bsPaid:
-                        case PieceConcept::bsNeed:
-                            val.excess = 1;
-                            break;
-                        default:
-                            val.excess = NoExists;
-                            break;
-                    }
+            if (!item.list_item.get().carry_on()) continue;
+            //только относящиеся к багажу или ручной клади
+            if (item.list_item.get().carry_on().get()) continue;
+            //только относящиеся к багажу
+            if (item.trfer_num!=0) continue;
+            //только относящиеся к багажу и только на начальном сегменте
+            item.addStatusList(statusList);
+          };
+          for(TPaidRFISCStatusList::const_iterator i=statusList.begin();
+                                                   i!=statusList.end(); ++i)
+          {
+            TBagInfo val;
 
-                    switch(i->status) {
-                        case PieceConcept::bsPaid:
-                            val.paid = 1;
-                            break;
-                        case PieceConcept::bsUnknown:
-                        case PieceConcept::bsNeed:
-                            val.paid = 0;
-                            break;
-                        default:
-                            val.paid = NoExists;
-                            break;
-                    }
-
-                    items[grp_id][i->RFISC].push_back(val);
-                }
+            switch(i->status) {
+                case TServiceStatus::Free:
+                    val.excess = 0;
+                    break;
+                case TServiceStatus::Paid:
+                case TServiceStatus::Need:
+                    val.excess = 1;
+                    break;
+                default:
+                    val.excess = NoExists;
+                    break;
             }
-            result = items.find(grp_id);
+
+            switch(i->status) {
+                case TServiceStatus::Paid:
+                    val.paid = 1;
+                    break;
+                case TServiceStatus::Unknown:
+                case TServiceStatus::Need:
+                    val.paid = 0;
+                    break;
+                default:
+                    val.paid = NoExists;
+                    break;
+            }
+
+            items[grp_id][i->RFISC].push_back(val);
+          }
+          result = items.find(grp_id);
         }
         return result;
     }
@@ -11165,7 +11179,7 @@ int nosir_departed_pax(int argc, char **argv)
         string airp_arv;
         if(not route.empty())
             airp_arv = route.begin()->airp;
-        
+
         paxQry.SetVariable("point_id", point_id);
         paxQry.Execute();
         for(; not paxQry.Eof; paxQry.Next()) {
@@ -11569,7 +11583,7 @@ void VOUCHERS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "tick_no", "298855588585/1");
         NewTextChild(rowNode, "quantity", i+1);
         NewTextChild(rowNode, "rem", "FQTV GOLD");
-        
+
         NewTextChild(rowNode, "data", i); // TODO delete
         NewTextChild(rowNode, "subtotal", i); // TODO delete
     }

@@ -5,7 +5,9 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "baggage.h"
+#include "baggage_wt.h"
 #include "remarks.h"
+#include "payment_base.h"
 #include <boost/optional.hpp>
 #include "date_time.h"
 
@@ -17,6 +19,43 @@ enum TAPIType { apiDoc, apiDoco, apiDocaB, apiDocaR, apiDocaD, apiTkn, apiUnknow
 
 namespace CheckIn
 {
+
+class TPaxGrpCategory
+{
+  public:
+    enum Enum
+    {
+      Passenges,
+      Crew,
+      UnnacompBag,
+      Unknown
+    };
+
+    static const std::list< std::pair<Enum, std::string> >& view_pairs()
+    {
+      static std::list< std::pair<Enum, std::string> > l;
+      if (l.empty())
+      {
+        l.push_back(std::make_pair(Passenges,   "Passenges"));
+        l.push_back(std::make_pair(Crew,        "Crew"));
+        l.push_back(std::make_pair(UnnacompBag, "UnnacompBag"));
+        l.push_back(std::make_pair(Unknown,     "Unknown"));
+      }
+      return l;
+    }
+};
+
+class TPaxGrpCategoriesView : public ASTRA::PairList<TPaxGrpCategory::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "TPaxGrpCategoriesView"; }
+  public:
+    TPaxGrpCategoriesView() : ASTRA::PairList<TPaxGrpCategory::Enum, std::string>(TPaxGrpCategory::view_pairs(),
+                                                                                  boost::none,
+                                                                                  boost::none) {}
+};
+
+const TPaxGrpCategoriesView& PaxGrpCategories();
 
 class TPaxAPIItem
 {
@@ -405,6 +444,7 @@ class TSimplePaxItem
     TSimplePaxItem& fromDB(TQuery &Qry);
     std::string full_name() const;
     bool api_doc_applied() const;
+    bool upward_within_bag_pool(const TSimplePaxItem& pax) const;
 };
 
 class TPaxItem : public TSimplePaxItem
@@ -501,7 +541,11 @@ class TPaxListItem
     void checkCrewType(bool new_checkin, ASTRA::TPaxStatus grp_status);
 };
 
-typedef std::list<CheckIn::TPaxListItem> TPaxList;
+class TPaxList : public std::list<CheckIn::TPaxListItem>
+{
+  public:
+    int getBagPoolMainPaxId(int bag_pool_num) const;
+};
 
 class TPaxGrpItem
 {
@@ -515,13 +559,20 @@ class TPaxGrpItem
     ASTRA::TPaxStatus status;
     int hall;
     std::string bag_refuse;
-    int bag_types_id;
-    bool piece_concept;
-    int tid;
+    bool pc, wt;
+    bool rfisc_used;
+    bool trfer_confirm;
+    bool is_mark_norms;
     ASTRA::TClientType client_type;
+    int tid;
+    int bag_types_id;     //!!!потом удалить
+    bool baggage_pc;      //!!!потом удалить
+    bool need_upgrade_db; //!!!потом удалить
+
     boost::optional< std::list<WeightConcept::TPaxNormItem> > norms;
-    boost::optional< std::list<WeightConcept::TPaidBagItem> > paid;
+    boost::optional< WeightConcept::TPaidBagList > paid;
     boost::optional< TGroupBagItem > group_bag;
+    boost::optional< TGrpServiceList > svc;
     TPaxGrpItem()
     {
       clear();
@@ -537,20 +588,35 @@ class TPaxGrpItem
       status=ASTRA::psCheckin;
       hall=ASTRA::NoExists;
       bag_refuse.clear();
-      bag_types_id=ASTRA::NoExists;
-      piece_concept=false;
-      tid=ASTRA::NoExists;
+      pc=false;
+      wt=false;
+      rfisc_used=false;
+      trfer_confirm=false;
+      is_mark_norms=false;
       client_type = ASTRA::ctTypeNum;
+      tid=ASTRA::NoExists;
+
+      bag_types_id=ASTRA::NoExists;
+      baggage_pc=false;
+      need_upgrade_db=false;
+
       norms=boost::none;
       paid=boost::none;
       group_bag=boost::none;
+      svc=boost::none;
     };
 
     const TPaxGrpItem& toXML(xmlNodePtr node) const;
     bool fromXML(xmlNodePtr node);
-    TPaxGrpItem& fromXMLadditional(xmlNodePtr node);
+    TPaxGrpItem& fromXMLadditional(xmlNodePtr node, bool is_unaccomp);
     const TPaxGrpItem& toDB(TQuery &Qry) const;
     TPaxGrpItem& fromDB(TQuery &Qry);
+    bool fromDB(int grp_id);
+    TPaxGrpCategory::Enum grpCategory() const;
+    bool is_unaccomp() const
+    {
+      return grpCategory()==TPaxGrpCategory::UnnacompBag;
+    }
 };
 
 class TPnrAddrItem
@@ -608,11 +674,8 @@ std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);
 
 bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs);
 
-
-typedef std::list< std::pair<TPaxASVCItem, TPaidBagEMDItem> > PaidBagEMDList;
-
-void CalcPaidBagEMDProps(const CheckIn::PaidBagEMDList &prior_emds,
-                         const boost::optional< std::list<CheckIn::TPaidBagEMDItem> > &curr_emds,
+void CalcPaidBagEMDProps(const CheckIn::TServicePaymentList &prior_payment,
+                         const boost::optional< CheckIn::TServicePaymentList > &curr_payment,
                          CheckIn::TPaidBagEMDProps &diff,
                          CheckIn::TPaidBagEMDProps &props);
 
@@ -640,6 +703,14 @@ void GetTCkinTickets(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
 std::string isFemaleStr( int is_female );
 
 } //namespace CheckIn
+
+namespace Sirena
+{
+
+void PaxBrandsNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &pax, std::ostringstream &s);
+
+} //namespace Sirena
+
 
 #endif
 

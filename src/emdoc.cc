@@ -27,6 +27,7 @@ string GetSQL(const TListType ltype)
   {
     sql << "SELECT a.rfic, \n"
            "       a.rfisc, \n"
+           "       a.service_quantity, \n"
            "       a.ssr_code, \n"
            "       a.service_name, \n"
            "       a.emd_type, \n"
@@ -57,6 +58,7 @@ string GetSQL(const TListType ltype)
       sql << "  SELECT pax_grp.grp_id, \n"
              "         e.rfic, \n"
              "         e.rfisc, \n"
+             "         e.service_quantity, \n"
              "         e.ssr_code, \n"
              "         e.service_name, \n"
              "         e.emd_type, \n"
@@ -139,6 +141,7 @@ string GetSQL(const TListType ltype)
              "       pax.refuse, \n"
              "       e.rfic, \n"
              "       e.rfisc, \n"
+             "       e.service_quantity, \n"
              "       e.ssr_code, \n"
              "       e.service_name, \n"
              "       e.emd_type, \n"
@@ -181,6 +184,7 @@ string GetSQL(const TListType ltype)
     {
       sql << "SELECT e.rfic, \n"
              "       e.rfisc, \n"
+             "       e.service_quantity, \n"
              "       e.ssr_code, \n"
              "       e.service_name, \n"
              "       e.emd_type, \n"
@@ -263,46 +267,6 @@ bool ExistsPaxUnboundEMD(int pax_id)
   return !asvc.empty();
 };
 
-void GetBoundPaidBagEMD(int grp_id, int trfer_num, CheckIn::PaidBagEMDList &emd)
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT paid_bag_emd.bag_type, "
-    "       paid_bag_emd.rfisc, "
-    "       paid_bag_emd.transfer_num, "
-    "       paid_bag_emd.emd_no, "
-    "       paid_bag_emd.emd_coupon, "
-    "       paid_bag_emd.weight, "
-    "       paid_bag_emd.pax_id, "
-    "       'C' AS rfic, "
-    "       NULL AS ssr_code, "
-    "       NULL AS service_name, "
-    "       NULL AS emd_type "
-    "FROM paid_bag_emd "
-    "WHERE paid_bag_emd.grp_id=:grp_id AND "
-    "      (:transfer_num IS NULL OR NVL(transfer_num,0)=:transfer_num)";
-
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  if (trfer_num!=NoExists)
-    Qry.CreateVariable("transfer_num", otInteger, trfer_num);
-  else
-    Qry.CreateVariable("transfer_num", otInteger, FNull);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    CheckIn::TPaxASVCItem asvcItem;
-    CheckIn::TPaidBagEMDItem emdItem;
-    asvcItem.fromDB(Qry);
-    emdItem.fromDB(Qry);
-    std::set<ASTRA::TRcptServiceType> service_types;
-    asvcItem.rcpt_service_types(service_types);
-    if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
-        service_types.find(ASTRA::rstPaid)==service_types.end()) continue;
-    emd.push_back(make_pair(asvcItem, emdItem));
-  };
-};
-
 }; //namespace PaxASVCList
 
 
@@ -381,9 +345,9 @@ const TEMDCtxtItem& TEMDCtxtItem::toXML(xmlNodePtr node) const
 
   TEdiPaxCtxt::toXML(node);
 
-  NewTextChild(node, "doc_no", asvc.emd_no);
-  asvc.emd_coupon!=NoExists?NewTextChild(node, "coupon_no", asvc.emd_coupon):
-                            NewTextChild(node, "coupon_no");
+  NewTextChild(node, "doc_no", emd_no);
+  emd_coupon!=NoExists?NewTextChild(node, "coupon_no", emd_coupon):
+                       NewTextChild(node, "coupon_no");
   status!=CouponStatus::Unavailable?NewTextChild(node, "coupon_status", status->dispCode()):
                                     NewTextChild(node, "coupon_status", FNull);
   NewTextChild(node, "associated", (int)(action==CpnStatAction::associate));
@@ -402,8 +366,8 @@ TEMDCtxtItem& TEMDCtxtItem::fromXML(xmlNodePtr node, xmlNodePtr originNode)
   if (originNode!=NULL) TEdiOriginCtxt::fromXML(originNode);
 
   xmlNodePtr node2=node->children;
-  asvc.emd_no=NodeAsStringFast("doc_no", node2);
-  asvc.emd_coupon=NodeAsIntegerFast("coupon_no", node2, NoExists);
+  emd_no=NodeAsStringFast("doc_no", node2);
+  emd_coupon=NodeAsIntegerFast("coupon_no", node2, NoExists);
   action=NodeAsIntegerFast("associated", node2)!=0?CpnStatAction::associate:
                                                    CpnStatAction::disassociate;
   status=NodeIsNULLFast("coupon_status", node2)?CouponStatus(CouponStatus::Unavailable):
@@ -412,6 +376,17 @@ TEMDCtxtItem& TEMDCtxtItem::fromXML(xmlNodePtr node, xmlNodePtr originNode)
   pax.tkn.coupon=NodeAsIntegerFast("associated_coupon", node2, NoExists);
   return *this;
 };
+
+std::string TEMDCtxtItem::no_str() const
+{
+  ostringstream s;
+  s << emd_no;
+  if (emd_coupon!=ASTRA::NoExists)
+    s << "/" << emd_coupon;
+  else
+    s << "/?";
+  return s.str();
+}
 
 void GetEMDDisassocList(const int point_id,
                         const bool in_final_status,
@@ -426,13 +401,16 @@ void GetEMDDisassocList(const int point_id,
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
-    TEMDCtxtItem item;
-    item.asvc.fromDB(Qry);
+    CheckIn::TPaxASVCItem asvc;
+    asvc.fromDB(Qry);
     std::set<ASTRA::TRcptServiceType> service_types;
-    item.asvc.rcpt_service_types(service_types);
+    asvc.rcpt_service_types(service_types);
     if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
         service_types.find(ASTRA::rstPaid)==service_types.end()) continue;
 
+    TEMDCtxtItem item;
+    item.emd_no=asvc.emd_no;
+    item.emd_coupon=asvc.emd_coupon;
     item.paxFromDB(Qry);
     item.point_id=point_id;
     item.grp_id=Qry.FieldAsInteger("grp_id");
@@ -453,7 +431,7 @@ void GetEMDDisassocList(const int point_id,
 
 void GetEMDStatusList(const int grp_id,
                       const bool in_final_status,
-                      const CheckIn::PaidBagEMDList &priorBoundEMDs,
+                      const CheckIn::TServicePaymentList &prior_payment,
                       std::list<TEMDCtxtItem> &added_emds,
                       std::list<TEMDCtxtItem> &deleted_emds)
 {
@@ -462,8 +440,8 @@ void GetEMDStatusList(const int grp_id,
 
   if (in_final_status) return;
 
-  CheckIn::PaidBagEMDList currBoundEMDs;
-  PaxASVCList::GetBoundPaidBagEMD(grp_id, NoExists, currBoundEMDs);
+  CheckIn::TServicePaymentList curr_payment;
+  curr_payment.fromDB(grp_id);
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText= GetSQL(PaxASVCList::oneWithTknByGrpId);
@@ -474,23 +452,27 @@ void GetEMDStatusList(const int grp_id,
   {
     //1 проход - добавленные EMD
     //2 проход - удаленные EMD
-    const CheckIn::PaidBagEMDList &boundEMDs1 = pass==0?currBoundEMDs:priorBoundEMDs;
-    const CheckIn::PaidBagEMDList &boundEMDs2 = pass==0?priorBoundEMDs:currBoundEMDs;
+    const CheckIn::TServicePaymentList &payment1 = pass==0?curr_payment:prior_payment;
+    const CheckIn::TServicePaymentList &payment2 = pass==0?prior_payment:curr_payment;
     std::list<TEMDCtxtItem> &emds = pass==0?added_emds:deleted_emds;
-    for(CheckIn::PaidBagEMDList::const_iterator e1=boundEMDs1.begin(); e1!=boundEMDs1.end(); ++e1)
+    for(CheckIn::TServicePaymentList::const_iterator p1=payment1.begin(); p1!=payment1.end(); ++p1)
     {
-      CheckIn::PaidBagEMDList::const_iterator e2=boundEMDs2.begin();
-      for(; e2!=boundEMDs2.end(); ++e2)
-        if (e1->first==e2->first) break;
-      if (e2!=boundEMDs2.end()) continue;
-      if (e1->second.trfer_num!=0) continue; //работаем только со статусом 'нашего' сегмента
+      CheckIn::TServicePaymentList::const_iterator p2=payment2.begin();
+      for(; p2!=payment2.end(); ++p2)
+      {
+        if (p1->sameDoc(*p2)) break;
+      };
+      if (p2!=payment2.end()) continue;
+      if (!p1->isEMD()) continue; //работаем только с EMD
+      if (p1->trfer_num!=0) continue; //работаем только со статусом 'нашего' сегмента
 
       TEMDCtxtItem item;
-      item.asvc=e1->first;
+      item.emd_no=p1->doc_no;
+      item.emd_coupon=p1->doc_coupon;
       item.grp_id=grp_id;
 
-      Qry.SetVariable("emd_no", e1->second.emd_no);
-      Qry.SetVariable("emd_coupon", e1->second.emd_coupon);
+      Qry.SetVariable("emd_no", p1->doc_no);
+      Qry.SetVariable("emd_coupon", p1->doc_coupon);
       Qry.Execute();
       if (!Qry.Eof)
       {
@@ -657,8 +639,8 @@ bool ActualEMDEvent(const TEMDCtxtItem &EMDCtxt,
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, EMDCtxt.pax.id)
-            << QParam("emd_no", otString, EMDCtxt.asvc.emd_no)
-            << QParam("emd_coupon", otInteger, EMDCtxt.asvc.emd_coupon);
+            << QParam("emd_no", otString, EMDCtxt.emd_no)
+            << QParam("emd_coupon", otInteger, EMDCtxt.emd_coupon);
 
   TCachedQuery Qry(PaxASVCList::GetSQL(PaxASVCList::oneWithTknByPaxId), QryParams);
   Qry.get().Execute();
@@ -751,28 +733,21 @@ void GetPaxEMD(int pax_id, multiset<TPaxEMDItem> &emds)
                    QParams() << QParam("id", otInteger, pax_id));
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
-  {
-    TPaxEMDItem item;
-    item.fromDB(Qry.get());
-    std::set<ASTRA::TRcptServiceType> service_types;
-    item.rcpt_service_types(service_types);
-    if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
-        service_types.find(ASTRA::rstPaid)==service_types.end()) continue;
-    emds.insert(item);
-  };
+   emds.insert(TPaxEMDItem().fromDB(Qry.get()));
 }
 
 void PaxEMDToDB(int pax_id, const list<TPaxEMDItem> &emds)
 {
   TCachedQuery Qry(
-    "INSERT INTO pax_emd(pax_id, transfer_num, rfic, rfisc, ssr_code, service_name, emd_type, "
+    "INSERT INTO pax_emd(pax_id, transfer_num, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, "
     "  emd_no, emd_coupon, et_no, et_coupon, emd_no_base) "
-    "VALUES(:pax_id, :transfer_num, :rfic, :rfisc, :ssr_code, :service_name, :emd_type, "
+    "VALUES(:pax_id, :transfer_num, :rfic, :rfisc, :service_quantity, :ssr_code, :service_name, :emd_type, "
     "  :emd_no, :emd_coupon, :et_no, :et_coupon, :emd_no_base)",
     QParams() << QParam("pax_id", otInteger, pax_id)
               << QParam("transfer_num", otInteger)
               << QParam("rfic", otString)
               << QParam("rfisc", otString)
+              << QParam("service_quantity", otInteger)
               << QParam("ssr_code", otString)
               << QParam("service_name", otString)
               << QParam("emd_type", otString)
@@ -797,12 +772,6 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
       trfer.operFlt.scd_out==NoExists ||
       trfer.airp_arv.empty()) return;
   if (!emd.valid()) return;
-
-  //проверка что EMD относятся к багажу
-  std::set<ASTRA::TRcptServiceType> service_types;
-  emd.rcpt_service_types(service_types);
-  if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
-      service_types.find(ASTRA::rstPaid)==service_types.end()) return;
 
   TQuery Qry(&OraSession);
   Qry.Clear();

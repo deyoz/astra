@@ -1,5 +1,6 @@
 #include "astra_context.h"
 #include "astra_consts.h"
+#include "astra_utils.h"
 #include "exceptions.h"
 #include "oralib.h"
 
@@ -9,33 +10,6 @@ using namespace BASIC::date_time;
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include <serverlib/slogger.h>
-
-void longToDB(TQuery &Qry, const std::string &column_name, const std::string &src, bool nullable, int len)
-{
-  if (!src.empty())
-  {
-    std::string::const_iterator ib,ie;
-    ib=src.begin();
-    for(int page_no=1;ib<src.end();page_no++)
-    {
-      ie=ib+len;
-      if (ie>src.end()) ie=src.end();
-      Qry.SetVariable("page_no", page_no);
-      Qry.SetVariable(column_name.c_str(), std::string(ib,ie));
-      Qry.Execute();
-      ib=ie;
-    };
-  }
-  else
-  {
-    if (nullable)
-    {
-      Qry.SetVariable("page_no", 1);
-      Qry.SetVariable(column_name.c_str(), FNull);
-      Qry.Execute();
-    };
-  }
-}
 
 namespace AstraContext
 {

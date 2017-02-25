@@ -1,6 +1,5 @@
 #include "baggage.h"
 #include "astra_consts.h"
-#include "astra_locale.h"
 #include "astra_utils.h"
 #include "base_tables.h"
 #include "term_version.h"
@@ -11,52 +10,12 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
+//какая-то фигня с определением кодировки этого файла, поэтому я вставил эту фразу
+
 using namespace std;
 using namespace AstraLocale;
 using namespace EXCEPTIONS;
 using namespace BASIC::date_time;
-
-void TBagNormUnit::set(const Ticketing::Baggage::Baggage_t &value)
-{
-  unit=value;
-}
-
-void TBagNormUnit::set(const std::string &value)
-{
-  if      (value=="PC") unit=Ticketing::Baggage::NumPieces;
-  else if (value=="KG") unit=Ticketing::Baggage::WeightKilo;
-  else if (value=="LB") unit=Ticketing::Baggage::WeightPounds;
-  else                  unit=Ticketing::Baggage::Nil;
-}
-
-Ticketing::Baggage::Baggage_t TBagNormUnit::get() const
-{
-  return unit;
-}
-
-std::string TBagNormUnit::get_db_form() const
-{
-  switch(unit)
-  {
-    case Ticketing::Baggage::NumPieces:    return "PC";
-    case Ticketing::Baggage::WeightKilo:   return "KG";
-    case Ticketing::Baggage::WeightPounds: return "LB";
-    case Ticketing::Baggage::Nil:          return "";
-  }
-  return "";
-}
-
-std::string TBagNormUnit::get_lexeme_form() const
-{
-  switch(unit)
-  {
-    case Ticketing::Baggage::NumPieces:    return "MSG.BAGGAGE_UNIT.PC";
-    case Ticketing::Baggage::WeightKilo:   return "MSG.BAGGAGE_UNIT.KG";
-    case Ticketing::Baggage::WeightPounds: return "MSG.BAGGAGE_UNIT.LB";
-    case Ticketing::Baggage::Nil:          return "";
-  }
-  return "";
-}
 
 namespace CheckIn
 {
@@ -139,7 +98,13 @@ const TBagItem& TBagItem::toXML(xmlNodePtr node) const
   if (node==NULL) return *this;
   NewTextChild(node,"id",id);
   NewTextChild(node,"num",num);
-  NewTextChild(node,"bag_type",bag_type_str());
+  if (TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
+  {
+    if (pc) pc.get().toXML(node);
+    else if (wt) wt.get().toXML(node);
+  }
+  else
+    NewTextChild(node,"bag_type",key_str_compatible());
   NewTextChild(node,"pr_cabin",(int)pr_cabin);
   NewTextChild(node,"amount",amount);
   NewTextChild(node,"weight",weight);
@@ -150,14 +115,14 @@ const TBagItem& TBagItem::toXML(xmlNodePtr node) const
   NewTextChild(node,"pr_liab_limit",(int)pr_liab_limit);
   NewTextChild(node,"to_ramp",(int)to_ramp);
   NewTextChild(node,"using_scales",(int)using_scales);
-  if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+  if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
   {
     NewTextChild(node,"is_trfer",(int)is_trfer);
     NewTextChild(node,"handmade_trfer", (int)(is_trfer && handmade), (int)false);
   }
   else
   {
-    if (is_trfer) ReplaceTextChild(node,"bag_type",99);
+    if (is_trfer) ReplaceTextChild(node,"bag_type",WeightConcept::OLD_TRFER_BAG_TYPE);
     NewTextChild(node,"is_trfer",(int)(is_trfer && !handmade));
   };
   if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
@@ -165,7 +130,7 @@ const TBagItem& TBagItem::toXML(xmlNodePtr node) const
   return *this;
 };
 
-TBagItem& TBagItem::fromXML(xmlNodePtr node, bool piece_concept)
+TBagItem& TBagItem::fromXML(xmlNodePtr node, bool baggage_pc)
 {
   clear();
   if (node==NULL) return *this;
@@ -175,19 +140,43 @@ TBagItem& TBagItem::fromXML(xmlNodePtr node, bool piece_concept)
   if (id==ASTRA::NoExists)
   {
     //только для вновь введенного багажа
-    if (!piece_concept)
+    if (TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
     {
-      if (!NodeIsNULLFast("bag_type",node2))
-        bag_type=NodeAsIntegerFast("bag_type",node2);
+      if (GetNodeFast("rfisc",node2)!=NULL)
+      {
+        pc=TRFISCKey();
+        pc.get().fromXML(node);
+      }
+      else
+      {
+        wt=TBagTypeKey();
+        wt.get().fromXML(node);
+      };
     }
-    else rfisc=NodeAsStringFast("bag_type",node2);
+    else
+    {
+      if (baggage_pc)
+      {
+        pc=TRFISCKey();
+        pc.get().fromXMLcompatible(node);
+      }
+      else
+      {
+        wt=TBagTypeKey();
+        wt.get().fromXMLcompatible(node);
+      };
+    };
 
-    if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+    if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
       is_trfer=NodeAsIntegerFast("is_trfer",node2)!=0;
     else
     {
-      is_trfer=(bag_type==99);
-      if (bag_type==99) bag_type=ASTRA::NoExists;
+      is_trfer=false;
+      if (wt && wt.get().bag_type==WeightConcept::OLD_TRFER_BAG_TYPE)
+      {
+        is_trfer=true;
+        wt.get().bag_type.clear();
+      };
     };
   };
   pr_cabin=NodeAsIntegerFast("pr_cabin",node2)!=0;
@@ -217,11 +206,10 @@ const TBagItem& TBagItem::toDB(TQuery &Qry) const
   else
     Qry.SetVariable("id",FNull);
   Qry.SetVariable("num",num);
-  if (bag_type!=ASTRA::NoExists)
-    Qry.SetVariable("bag_type",bag_type);
-  else
-    Qry.SetVariable("bag_type",FNull);
-  Qry.SetVariable("rfisc",rfisc);
+  if (!pc) TRFISCKey().toDB(Qry);   //устанавливаем FNull
+  if (!wt) TBagTypeKey().toDBcompatible(Qry, "TBagItem::toDB"); //устанавливаем FNull
+  if (pc) pc.get().toDB(Qry);
+  else if (wt) wt.get().toDBcompatible(Qry, "TBagItem::toDB");
   Qry.SetVariable("pr_cabin",(int)pr_cabin);
   Qry.SetVariable("amount",amount);
   Qry.SetVariable("weight",weight);
@@ -247,7 +235,7 @@ const TBagItem& TBagItem::toDB(TQuery &Qry) const
   else
     Qry.SetVariable("time_create",FNull);
   Qry.SetVariable("is_trfer",(int)is_trfer);
-  Qry.SetVariable("handmade",(int)handmade);  
+  Qry.SetVariable("handmade",(int)handmade);
   return *this;
 };
 
@@ -256,9 +244,18 @@ TBagItem& TBagItem::fromDB(TQuery &Qry)
   clear();
   id=Qry.FieldAsInteger("id");
   num=Qry.FieldAsInteger("num");
-  if (!Qry.FieldIsNULL("bag_type"))
-    bag_type=Qry.FieldAsInteger("bag_type");
-  rfisc=Qry.FieldAsString("rfisc");
+  if (!Qry.FieldIsNULL("rfisc"))
+  {
+    pc=TRFISCKey();
+    pc.get().fromDB(Qry);
+    pc.get().getListItem();
+  }
+  else
+  {
+    wt=TBagTypeKey();
+    wt.get().fromDBcompatible(Qry);
+    wt.get().getListItem();
+  }
   pr_cabin=Qry.FieldAsInteger("pr_cabin")!=0;
   amount=Qry.FieldAsInteger("amount");
   weight=Qry.FieldAsInteger("weight");
@@ -280,17 +277,133 @@ TBagItem& TBagItem::fromDB(TQuery &Qry)
   return *this;
 };
 
-std::string TBagItem::bag_type_str() const
+void TBagItem::check(const TRFISCBagPropsList &list) const
 {
-  ostringstream s;
-  if (rfisc.empty())
+  if (!pc) return;
+  TRFISCBagPropsList::const_iterator i=list.find(pc.get().key());
+  if (i==list.end()) return;
+  if ((i->second.min_weight!=ASTRA::NoExists &&
+       weight<i->second.min_weight*amount) ||
+      (i->second.max_weight!=ASTRA::NoExists &&
+       weight>i->second.max_weight*amount))
   {
-    if (bag_type!=ASTRA::NoExists)
-      s << setw(2) << setfill('0') << bag_type;
+    ostringstream s;
+    s << weight << " " << getLocaleText("кг");
+    throw UserException("MSG.LUGGAGE.WRONG_WEIGHT_FOR_BAG_TYPE",
+                        LParams() << LParam("bag_type", pc.get().key().str())
+                                  << LParam("weight", s.str()));
+  };
+}
+
+void TBagItem::check(TRFISCListWithPropsCache &lists) const
+{
+  if (!pc) return;
+  if (amount!=1)
+    throw UserException("MSG.LUGGAGE.EACH_PIECE_SHOULD_WEIGHTED_SEPARATELY");
+  if (!pc.get().list_item ||
+      !pc.get().list_item.get().carry_on())
+    throw UserException("MSG.LUGGAGE.UNKNOWN_BAG_TYPE",
+                        LParams() << LParam("bag_type", pc.get().key().str()));
+
+  bool carry_on=pc.get().list_item.get().carry_on().get();
+  if (pr_cabin!=carry_on)
+  {
+    if (carry_on)
+      throw UserException("MSG.LUGGAGE.BAG_TYPE_SHOULD_BE_ADDED_TO_CABIN",
+                          LParams() << LParam("bag_type", pc.get().key().str()));
+    else
+      throw UserException("MSG.LUGGAGE.BAG_TYPE_SHOULD_BE_ADDED_TO_HOLD",
+                          LParams() << LParam("bag_type", pc.get().key().str()));
   }
-  else s << rfisc;
-  return s.str();
+  //сюда дошли, значит проверяем bagProps
+  check(lists.getBagProps(pc.get().list_id));
+}
+
+std::string TBagItem::key_str(const std::string& lang) const
+{
+  if (pc)
+    return pc.get().str(lang);
+  else if (wt)
+    return wt.get().str(lang);
+  else
+    return "";
+}
+
+std::string TBagItem::key_str_compatible() const
+{
+  if (pc)
+    return pc.get().RFISC;
+  else if (wt)
+    return wt.get().bag_type;
+  else
+    return "";
 };
+
+void TBagMap::procInboundTrferFromDBTmp()
+{
+  for(TBagMap::iterator i=begin(); i!=end(); i++)
+  {
+    TBagItem &bag=i->second;
+    if (bag.pc && bag.pc.get().list_id<0)
+    {
+      int grp_id=-bag.pc.get().list_id;
+      bag.pc.get().list_id=ASTRA::NoExists;
+      TQuery Qry(&OraSession);
+      Qry.Clear();
+      Qry.SQLText=
+          "SELECT bag_types_id FROM pax_grp WHERE grp_id=:grp_id";
+      Qry.CreateVariable("grp_id", otInteger, grp_id);
+      Qry.Execute();
+      if (Qry.Eof || Qry.FieldIsNULL("bag_types_id")) return;
+      TRFISCList list;
+      list.fromDB(Qry.FieldAsInteger("bag_types_id"), true);
+      bag.pc.get().list_id=list.toDBAdv(false);
+    }
+    if (bag.wt && bag.wt.get().list_id<0)
+    {
+      int grp_id=-bag.wt.get().list_id;
+      bag.wt.get().list_id=ASTRA::NoExists;
+      TBagTypeList list;
+      list.createWithCurrSegBagAirline(grp_id); //procInboundTrferFromDBTmp - checked!
+      bag.wt.get().list_id=list.toDBAdv();
+    }
+  };
+}
+
+void TBagMap::procInboundTrferFromBTM(const TrferList::TGrpItem &grp)
+{
+  for(TBagMap::iterator i=begin(); i!=end(); i++)
+  {
+    TBagItem &bag=i->second;
+    if (bag.wt && bag.wt.get().airline.empty())
+    {
+      bag.wt.get().list_id=ASTRA::NoExists;
+      TQuery Qry(&OraSession);
+      Qry.Clear();
+      Qry.SQLText=
+          "SELECT airline FROM tlg_trips WHERE point_id=:point_id";
+      Qry.CreateVariable("point_id", otInteger, grp.point_id);
+      Qry.Execute();
+      if (Qry.Eof || Qry.FieldIsNULL("airline")) return;
+      TBagTypeList list;
+      list.createForInboundTrferFromBTM(Qry.FieldAsString("airline"));
+      bag.wt.get().airline=Qry.FieldAsString("airline");
+      bag.wt.get().list_id=list.toDBAdv();
+    }
+  };
+}
+
+void TBagMap::dump(const std::string &where)
+{
+  for(TBagMap::iterator i=begin(); i!=end(); i++)
+  {
+    TBagItem &bag=i->second;
+    if (bag.pc)
+      ProgTrace(TRACE5, "%s: id=%s, %s", where.c_str(), bag.id==ASTRA::NoExists?"NoExists":IntToString(bag.id).c_str(), bag.pc.get().traceStr().c_str());
+    if (bag.wt)
+      ProgTrace(TRACE5, "%s: id=%s, %s", where.c_str(), bag.id==ASTRA::NoExists?"NoExists":IntToString(bag.id).c_str(), bag.wt.get().traceStr().c_str());
+  };
+}
 
 const TTagItem& TTagItem::toXML(xmlNodePtr node) const
 {
@@ -677,11 +790,12 @@ void TGroupBagItem::setInboundTrfer(const TrferList::TGrpItem &grp)
   if (bag_weight!=ASTRA::NoExists && bag_weight>0 && !grp.tags.empty())
   {
     TBagItem bag;
+    bag.wt=TBagTypeKey();
     bag.num=bag_num;
     bag.pr_cabin=false;
     bag.amount=grp.tags.size();
     bag.weight=bag_weight;
-    bags[bag.num]=bag;
+    bags111[bag.num]=bag;
     int tag_num=1;
     for(multiset<TBagTagNumber>::const_iterator t=grp.tags.begin(); t!=grp.tags.end(); ++t, tag_num++)
     {
@@ -700,29 +814,30 @@ void TGroupBagItem::setInboundTrfer(const TrferList::TGrpItem &grp)
   if (rk_weight!=ASTRA::NoExists && rk_weight>0)
   {
     TBagItem bag;
+    bag.wt=TBagTypeKey();
     bag.num=bag_num;
     bag.pr_cabin=true;
     bag.amount=1;
     bag.weight=rk_weight;
-    bags[bag.num]=bag;
+    bags111[bag.num]=bag;
     bag_num++;
   };
 };
 
 void TGroupBagItem::setPoolNum(int bag_pool_num)
 {
-  for(map<int /*num*/, TBagItem>::iterator i=bags.begin();i!=bags.end();++i)
+  for(TBagMap::iterator i=bags111.begin();i!=bags111.end();++i)
     i->second.bag_pool_num=bag_pool_num;
 };
 
 bool TGroupBagItem::trferExists() const
 {
-  for(map<int /*num*/, TBagItem>::const_iterator i=bags.begin();i!=bags.end();++i)
+  for(TBagMap::const_iterator i=bags111.begin();i!=bags111.end();++i)
     if (i->second.is_trfer) return true;
   return false;
 }
 
-bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool piece_concept)
+bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is_unaccomp, bool baggage_pc)
 {
   clear();
   if (bagtagNode==NULL) return false;
@@ -750,12 +865,12 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool pi
   for(node=bagNode->children;node!=NULL;node=node->next)
   {
     TBagItem bag;
-    bag.fromXML(node, piece_concept);
-    if (bags.find(bag.num)!=bags.end())
+    bag.fromXML(node, baggage_pc);
+    if (bags111.find(bag.num)!=bags111.end())
       throw Exception("TGroupBagItem::fromXML: bags[%d] duplicated", bag.num);
     if (bag.value_bag_num!=ASTRA::NoExists && vals.find(bag.value_bag_num)==vals.end())
       throw Exception("TGroupBagItem::fromXML: bags[%d].value_bag_num=%d not found", bag.num, bag.value_bag_num);
-    bags[bag.num]=bag;
+    bags111[bag.num]=bag;
   };
 
   for(node=tagNode->children;node!=NULL;node=node->next)
@@ -764,7 +879,7 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool pi
     tag.fromXML(node);
     if (tags.find(tag.num)!=tags.end())
       throw Exception("TGroupBagItem::fromXML: tags[%d] duplicated", tag.num);
-    if (tag.bag_num!=ASTRA::NoExists && bags.find(tag.bag_num)==bags.end())
+    if (tag.bag_num!=ASTRA::NoExists && bags111.find(tag.bag_num)==bags111.end())
       throw Exception("TGroupBagItem::fromXML: tags[%d].bag_num=%d not found", tag.num, tag.bag_num);
     tags[tag.num]=tag;
   };
@@ -776,7 +891,7 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool pi
       unaccomp.fromXML(node);
       if (unaccomps.find(unaccomp.num)!=unaccomps.end())
         throw Exception("TGroupBagItem::fromXML: unaccomps[%d] duplicated", unaccomp.num);
-      if (bags.find(unaccomp.num)==bags.end())
+      if (bags111.find(unaccomp.num)==bags111.end())
         throw Exception("TGroupBagItem::fromXML: bags[%d] not found", unaccomp.num);
       unaccomps[unaccomp.num]=unaccomp;
     };
@@ -790,7 +905,7 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool pi
       throw Exception("TGroupBagItem::fromXML: vals[%d] not found", v->second.num);
   };
   num=1;
-  for(map<int, TBagItem>::const_iterator b=bags.begin();b!=bags.end();++b,num++)
+  for(TBagMap::const_iterator b=bags111.begin();b!=bags111.end();++b,num++)
   {
     if (b->second.num!=num)
       throw Exception("TGroupBagItem::fromXML: bags[%d] not found", b->second.num);
@@ -803,7 +918,7 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool pi
   };
   pr_tag_print=NodeAsInteger("@pr_print",tagNode)!=0;
 
-  fromXMLcompletion(grp_id, hall);
+  fromXMLcompletion(grp_id, hall, is_unaccomp);
 
   return true;
 }
@@ -814,7 +929,7 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
   bool is_payment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
 
   map<int /*num*/, int> bound_tags;
-  for(map<int, TBagItem>::const_iterator b=bags.begin();b!=bags.end();++b)
+  for(TBagMap::const_iterator b=bags111.begin();b!=bags111.end();++b)
     bound_tags[b->second.num]=0;
 
   int unbound_tags=0;
@@ -834,7 +949,7 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
       for(map<int, TTagItem>::iterator t=tags.begin();t!=tags.end();++t)
       {
         if (t->second.bag_num!=ASTRA::NoExists) continue;
-        for(map<int, TBagItem>::const_iterator b=bags.begin();b!=bags.end();b++)
+        for(TBagMap::const_iterator b=bags111.begin();b!=bags111.end();b++)
         {
           if (!b->second.pr_cabin && bound_tags[b->second.num]<b->second.amount)
           {
@@ -861,7 +976,7 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
 
     int bagAmount=0;
     int rebind_tags=0;
-    for(map<int, TBagItem>::const_iterator b=bags.begin();b!=bags.end();++b)
+    for(TBagMap::const_iterator b=bags111.begin();b!=bags111.end();++b)
     {
       if (b->second.pr_cabin)
       {
@@ -916,7 +1031,7 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
         };
         //привязываем к багажу
         map<int, TTagItem>::iterator t=generated_tags.begin();
-        for(map<int, TBagItem>::const_iterator b=bags.begin();b!=bags.end();)
+        for(TBagMap::const_iterator b=bags111.begin();b!=bags111.end();)
         {
           if (!b->second.pr_cabin && bound_tags[b->second.num]<b->second.amount)
           {
@@ -935,48 +1050,38 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
   };
 };
 
-void TGroupBagItem::fromXMLcompletion(int grp_id, int hall)
+void TGroupBagItem::fromXMLcompletion(int grp_id, int hall, bool is_unaccomp)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool is_payment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
 
-  map<int /*num*/, TBagItem> old_bags;
-  if (grp_id!=ASTRA::NoExists)
-  {
-    TQuery BagQry(&OraSession);
-    BagQry.Clear();
-    BagQry.SQLText="SELECT * FROM bag2 WHERE grp_id=:grp_id FOR UPDATE";
-    BagQry.CreateVariable("grp_id",otInteger,grp_id);
-    BagQry.Execute();
-    for(;!BagQry.Eof;BagQry.Next())
-    {
-      TBagItem bag;
-      bag.fromDB(BagQry);
-      old_bags[bag.num]=bag;
-    };
-  };
+  TBagMap old_bags;
+  if (grp_id!=ASTRA::NoExists) old_bags.fromDB(grp_id);
+
+  bags111.dump("TGroupBagItem::fromXMLcompletion: new_bags:");
+  old_bags.dump("TGroupBagItem::fromXMLcompletion: old_bags:");
 
   if (is_payment && !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
   {
     //для кассы используем old_bags, но с очисткой и переустановлением всех value_bag_num
     //работаем по идентификаторам
-    for(map<int, TBagItem>::iterator ob=old_bags.begin();ob!=old_bags.end();++ob)
+    for(TBagMap::iterator ob=old_bags.begin();ob!=old_bags.end();++ob)
     {
-      map<int, TBagItem>::const_iterator nb=bags.begin();
-      for(;nb!=bags.end();++nb)
+      TBagMap::const_iterator nb=bags111.begin();
+      for(;nb!=bags111.end();++nb)
         if (nb->second.id==ob->second.id) break;
-      if (nb!=bags.end())
+      if (nb!=bags111.end())
         ob->second.value_bag_num=nb->second.value_bag_num;
       else
         ob->second.value_bag_num=ASTRA::NoExists;
     };
 
-    bags=old_bags;
+    bags111=old_bags;
   }
   else
   {
     //пробегаемся по сортированным массивам с целью заполнения старых hall и user_id в массиве нового багажа
-    for(map<int, TBagItem>::iterator nb=bags.begin();nb!=bags.end();++nb)
+    for(TBagMap::iterator nb=bags111.begin();nb!=bags111.end();++nb)
     {
       if (nb->second.id==ASTRA::NoExists)
       {
@@ -989,13 +1094,13 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall)
       else
       {
         //старый багаж
-        map<int, TBagItem>::const_iterator ob=old_bags.begin();
+        TBagMap::const_iterator ob=old_bags.begin();
         for(;ob!=old_bags.end();++ob)
           if (ob->second.id==nb->second.id) break;
         if (ob!=old_bags.end())
         {
-          nb->second.bag_type=ob->second.bag_type;
-          nb->second.rfisc=ob->second.rfisc;
+          nb->second.pc=ob->second.pc;
+          nb->second.wt=ob->second.wt;
           nb->second.is_trfer=ob->second.is_trfer;
 
           nb->second.hall=ob->second.hall;
@@ -1014,11 +1119,93 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall)
           };
           nb->second.handmade=ob->second.handmade;
         }
-        else throw Exception("%s: strange situation ob==old_bags.end()!");
+        else throw Exception("%s: strange situation ob==old_bags.end()! (id=%d)", __FUNCTION__, nb->second.id);
       };
     };
   };
+
+  if (!reqInfo->desk.compatible(PAX_SERVICE_VERSION))
+    getAllListKeys(grp_id, is_unaccomp, 0);
 };
+
+void TBagMap::toDB(int grp_id) const
+{
+  TQuery BagQry(&OraSession);
+  BagQry.Clear();
+  BagQry.SQLText="DELETE FROM bag2 WHERE grp_id=:grp_id";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
+  BagQry.SQLText=
+    "BEGIN "
+    "  IF :id IS NULL THEN "
+    "    SELECT cycle_id__seq.nextval INTO :id FROM dual; "
+    "  END IF; "
+    "  INSERT INTO bag2 (grp_id, num, id, list_id, bag_type, bag_type_str, rfisc, service_type, airline, "
+    "    pr_cabin,amount,weight,value_bag_num, "
+    "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,desk,time_create,is_trfer,handmade) "
+    "  VALUES (:grp_id, :num, :id, :list_id, :bag_type, :bag_type_str, :rfisc, :service_type, :airline, "
+    "    :pr_cabin,:amount,:weight,:value_bag_num, "
+    "    :pr_liab_limit,:to_ramp,:using_scales,:bag_pool_num,:hall,:user_id,:desk,:time_create,:is_trfer,:handmade); "
+    "END;";
+  BagQry.DeclareVariable("num",otInteger);
+  BagQry.DeclareVariable("id",otInteger);
+  BagQry.DeclareVariable("list_id", otInteger);
+  BagQry.DeclareVariable("bag_type", otInteger);
+  BagQry.DeclareVariable("bag_type_str", otString);
+  BagQry.DeclareVariable("rfisc",otString);
+  BagQry.DeclareVariable("service_type", otString);
+  BagQry.DeclareVariable("airline", otString);
+  BagQry.DeclareVariable("pr_cabin",otInteger);
+  BagQry.DeclareVariable("amount",otInteger);
+  BagQry.DeclareVariable("weight",otInteger);
+  BagQry.DeclareVariable("value_bag_num",otInteger);
+  BagQry.DeclareVariable("pr_liab_limit",otInteger);
+  BagQry.DeclareVariable("to_ramp",otInteger);
+  BagQry.DeclareVariable("using_scales",otInteger);
+  BagQry.DeclareVariable("bag_pool_num",otInteger);
+  BagQry.DeclareVariable("hall",otInteger);
+  BagQry.DeclareVariable("user_id",otInteger);
+  BagQry.DeclareVariable("desk",otString);
+  BagQry.DeclareVariable("time_create",otDate);
+  BagQry.DeclareVariable("is_trfer",otInteger);
+  BagQry.DeclareVariable("handmade",otInteger);
+  for(TBagMap::const_iterator nb=begin();nb!=end();++nb)
+  {
+    nb->second.toDB(BagQry);
+    BagQry.Execute();
+  };
+}
+
+void TGroupBagItem::bagToDB(int grp_id) const
+{
+  TQuery BagQry(&OraSession);
+  BagQry.Clear();
+  BagQry.SQLText="DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
+
+  bags111.toDB(grp_id);
+
+  BagQry.Clear();
+  BagQry.SQLText=
+    "INSERT INTO unaccomp_bag_info(grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd) "
+    "VALUES(:grp_id,:num,:original_tag_no,:surname,:name,:airline,:flt_no,:suffix,:scd) ";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.DeclareVariable("num",otInteger);
+  BagQry.DeclareVariable("original_tag_no",otString);
+  BagQry.DeclareVariable("surname",otString);
+  BagQry.DeclareVariable("name",otString);
+  BagQry.DeclareVariable("airline",otString);
+  BagQry.DeclareVariable("flt_no",otInteger);
+  BagQry.DeclareVariable("suffix",otString);
+  BagQry.DeclareVariable("scd",otDate);
+  for(map<int, TUnaccompInfoItem>::const_iterator ub=unaccomps.begin();ub!=unaccomps.end();++ub)
+  {
+    ub->second.toDB(BagQry);
+    BagQry.Execute();
+  };
+
+}
 
 void TGroupBagItem::toDB(int grp_id) const
 {
@@ -1031,11 +1218,7 @@ void TGroupBagItem::toDB(int grp_id) const
   BagQry.SQLText="DELETE FROM value_bag WHERE grp_id=:grp_id";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
   BagQry.Execute();
-  //unaccomp
-  BagQry.Clear();
-  BagQry.SQLText="DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id",otInteger,grp_id);
-  BagQry.Execute();
+
   BagQry.SQLText=
     "INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
     "VALUES(:grp_id,:num,:value,:value_cur,:tax_id,:tax,:tax_trfer)";
@@ -1051,43 +1234,7 @@ void TGroupBagItem::toDB(int grp_id) const
     BagQry.Execute();
   };
 
-  BagQry.Clear();
-  BagQry.SQLText="DELETE FROM bag2 WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id",otInteger,grp_id);
-  BagQry.Execute();
-  BagQry.SQLText=
-    "BEGIN "
-    "  IF :id IS NULL THEN "
-    "    SELECT cycle_id__seq.nextval INTO :id FROM dual; "
-    "  END IF; "
-    "  INSERT INTO bag2 (grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
-    "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,desk,time_create,is_trfer,handmade) "
-    "  VALUES (:grp_id,:num,:id,:bag_type,:rfisc,:pr_cabin,:amount,:weight,:value_bag_num, "
-    "    :pr_liab_limit,:to_ramp,:using_scales,:bag_pool_num,:hall,:user_id,:desk,:time_create,:is_trfer,:handmade); "
-    "END;";
-  BagQry.DeclareVariable("num",otInteger);
-  BagQry.DeclareVariable("id",otInteger);
-  BagQry.DeclareVariable("bag_type",otInteger);
-  BagQry.DeclareVariable("rfisc",otString);
-  BagQry.DeclareVariable("pr_cabin",otInteger);
-  BagQry.DeclareVariable("amount",otInteger);
-  BagQry.DeclareVariable("weight",otInteger);
-  BagQry.DeclareVariable("value_bag_num",otInteger);
-  BagQry.DeclareVariable("pr_liab_limit",otInteger);
-  BagQry.DeclareVariable("to_ramp",otInteger);
-  BagQry.DeclareVariable("using_scales",otInteger);
-  BagQry.DeclareVariable("bag_pool_num",otInteger);
-  BagQry.DeclareVariable("hall",otInteger);
-  BagQry.DeclareVariable("user_id",otInteger);
-  BagQry.DeclareVariable("desk",otString);
-  BagQry.DeclareVariable("time_create",otDate);
-  BagQry.DeclareVariable("is_trfer",otInteger);
-  BagQry.DeclareVariable("handmade",otInteger);
-  for(map<int, TBagItem>::const_iterator nb=bags.begin();nb!=bags.end();++nb)
-  {
-    nb->second.toDB(BagQry);
-    BagQry.Execute();
-  };
+  bagToDB(grp_id);
 
   if (!is_payment)
   {
@@ -1110,28 +1257,6 @@ void TGroupBagItem::toDB(int grp_id) const
       BagQry.Execute();
     };
   }; //!pr_payment
-  //unaccomp
-  BagQry.Clear();
-  BagQry.SQLText="DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id",otInteger,grp_id);
-  BagQry.Execute();
-  BagQry.SQLText=
-    "INSERT INTO unaccomp_bag_info(grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd) "
-    "VALUES(:grp_id,:num,:original_tag_no,:surname,:name,:airline,:flt_no,:suffix,:scd) ";
-  BagQry.CreateVariable("grp_id",otInteger,grp_id);
-  BagQry.DeclareVariable("num",otInteger);
-  BagQry.DeclareVariable("original_tag_no",otString);
-  BagQry.DeclareVariable("surname",otString);
-  BagQry.DeclareVariable("name",otString);
-  BagQry.DeclareVariable("airline",otString);
-  BagQry.DeclareVariable("flt_no",otInteger);
-  BagQry.DeclareVariable("suffix",otString);
-  BagQry.DeclareVariable("scd",otDate);
-  for(map<int, TUnaccompInfoItem>::const_iterator ub=unaccomps.begin();ub!=unaccomps.end();++ub)
-  {
-    ub->second.toDB(BagQry);
-    BagQry.Execute();
-  };
 };
 
 void TGroupBagItem::toLists(list<TValueBagItem> &vals_list,
@@ -1140,7 +1265,7 @@ void TGroupBagItem::toLists(list<TValueBagItem> &vals_list,
 {
   for(map<int /*num*/, TValueBagItem>::const_iterator i=vals.begin();i!=vals.end();++i)
     vals_list.push_back(i->second);
-  for(map<int /*num*/, TBagItem>::const_iterator i=bags.begin();i!=bags.end();++i)
+  for(TBagMap::const_iterator i=bags111.begin();i!=bags111.end();++i)
     bags_list.push_back(i->second);
   for(map<int /*num*/, TTagItem>::const_iterator i=tags.begin();i!=tags.end();++i)
     tags_list.push_back(i->second);
@@ -1154,7 +1279,7 @@ void TGroupBagItem::fromLists(const list<TValueBagItem> &vals_list,
     if (!vals.insert(make_pair(i->num, *i)).second)
       throw Exception("TGroupBagItem::fromLists: vals[%d] duplicated", i->num);
   for(list<TBagItem>::const_iterator i=bags_list.begin();i!=bags_list.end();++i)
-    if (!bags.insert(make_pair(i->num, *i)).second)
+    if (!bags111.insert(make_pair(i->num, *i)).second)
       throw Exception("TGroupBagItem::fromLists: bags[%d] duplicated", i->num);
   for(list<TTagItem>::const_iterator i=tags_list.begin();i!=tags_list.end();++i)
     if (!tags.insert(make_pair(i->num, *i)).second)
@@ -1205,7 +1330,7 @@ void TGroupBagItem::add(const TGroupBagItem &item)
   list<TBagItem> bags_tmp;
   list<TTagItem> tags_tmp;
   item.toLists(vals_tmp, bags_tmp, tags_tmp);
-  normalizeLists(vals.size()+1, bags.size()+1, tags.size()+1, vals_tmp, bags_tmp, tags_tmp);
+  normalizeLists(vals.size()+1, bags111.size()+1, tags.size()+1, vals_tmp, bags_tmp, tags_tmp);
   fromLists(vals_tmp, bags_tmp, tags_tmp);
 };
 
@@ -1249,10 +1374,97 @@ void TGroupBagItem::filterPools(const set<int/*bag_pool_num*/> &pool_nums,
   fromLists(vals_tmp, bags_tmp, tags_tmp);
 };
 
+void TBagMap::fromDB(int grp_id)
+{
+  clear();
+
+  TQuery BagQry(&OraSession);
+  BagQry.Clear();
+  BagQry.SQLText="SELECT * FROM bag2 WHERE grp_id=:grp_id AND list_id IS NOT NULL"; //!!!list_id IS NOT NULL потом удалить
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
+  for(;!BagQry.Eof;BagQry.Next())
+  {
+    TBagItem bag;
+    bag.fromDB(BagQry);
+    insert(make_pair(bag.num, bag));
+  };
+
+  if (empty()) //!!!потом удалить
+  {
+    string airline_wt=WeightConcept::GetCurrSegBagAirline(grp_id); //TBagMap::fromDB - checked!
+
+    TCachedQuery Qry("SELECT bag2.grp_id, bag2.num, bag2.bag_type, bag2.pr_cabin, bag2.amount, bag2.weight, "
+                     "       bag2.value_bag_num, bag2.pr_liab_limit, bag2.bag_pool_num, bag2.id, bag2.hall, "
+                     "       bag2.user_id, bag2.to_ramp, bag2.using_scales, bag2.is_trfer, bag2.handmade, "
+                     "       bag2.rfisc, bag2.desk, bag2.time_create, "
+                     "       -bag2.grp_id AS list_id, "
+                     "       bag2.bag_type_str, "
+                     "       :airline_wt AS airline, "
+                     "       NULL AS service_type "
+                     "FROM bag2 "
+                     "WHERE bag2.grp_id=:grp_id AND bag2.rfisc IS NULL "
+                     "UNION "
+                     "SELECT bag2.grp_id, bag2.num, bag2.bag_type, bag2.pr_cabin, bag2.amount, bag2.weight, "
+                     "       bag2.value_bag_num, bag2.pr_liab_limit, bag2.bag_pool_num, bag2.id, bag2.hall, "
+                     "       bag2.user_id, bag2.to_ramp, bag2.using_scales, bag2.is_trfer, bag2.handmade, "
+                     "       bag2.rfisc, bag2.desk, bag2.time_create, "
+                     "       DECODE(rfisc_list_items.airline, NULL, TO_NUMBER(NULL), -bag2.grp_id) AS list_id, "
+                     "       bag2.bag_type_str, "
+                     "       rfisc_list_items.airline, "
+                     "       rfisc_list_items.service_type "
+                     "FROM bag2, "
+                     "     (SELECT bag_types_lists.airline, grp_rfisc_lists.service_type, grp_rfisc_lists.rfisc "
+                     "      FROM pax_grp, bag_types_lists, grp_rfisc_lists "
+                     "      WHERE pax_grp.bag_types_id=bag_types_lists.id AND "
+                     "            bag_types_lists.id=grp_rfisc_lists.list_id AND "
+                     "            pax_grp.grp_id=:grp_id) rfisc_list_items "
+                     "WHERE bag2.grp_id=:grp_id AND bag2.rfisc IS NOT NULL AND "
+                     "      bag2.rfisc=rfisc_list_items.rfisc(+) ",
+                     QParams() << QParam("grp_id", otInteger, grp_id)
+                               << QParam("airline_wt", otString, airline_wt));
+    Qry.get().Execute();
+    for(; !Qry.get().Eof; Qry.get().Next())
+    {
+      if (!Qry.get().FieldIsNULL("rfisc") && Qry.get().FieldAsInteger("is_trfer")==0 &&
+          (Qry.get().FieldIsNULL("airline") || Qry.get().FieldIsNULL("service_type")))
+        throw Exception("TGroupBagItem::fromDB: wrong data (grp_id=%d, rfisc=%s)",
+                        grp_id, Qry.get().FieldAsString("rfisc"));
+      if (Qry.get().FieldIsNULL("rfisc") && Qry.get().FieldIsNULL("airline"))
+        throw Exception("TGroupBagItem::fromDB: wrong data (grp_id=%d, bag_type=%s)",
+                        grp_id, Qry.get().FieldAsString("bag_type_str"));
+      TBagItem bag;
+      bag.fromDB(Qry.get());
+      if (bag.pc && bag.is_trfer && bag.pc.get().airline.empty())
+        bag.pc.get().getPseudoListIdForInboundTrfer(grp_id);
+      insert(make_pair(bag.num, bag));
+    };
+  };
+}
+
+void TGroupBagItem::bagFromDB(int grp_id)
+{
+  bags111.fromDB(grp_id);
+
+  TQuery BagQry(&OraSession);
+  BagQry.Clear();
+  BagQry.SQLText=
+    "SELECT * FROM unaccomp_bag_info "
+    "WHERE grp_id=:grp_id";
+  BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.Execute();
+  for(;!BagQry.Eof;BagQry.Next())
+  {
+    TUnaccompInfoItem unaccomp;
+    unaccomp.fromDB(BagQry);
+    unaccomps[unaccomp.num]=unaccomp;
+  };
+}
+
 void TGroupBagItem::fromDB(int grp_id, int bag_pool_num, bool without_refused)
 {
   vals.clear();
-  bags.clear();
+  bags111.clear();
   tags.clear();
 
   TQuery BagQry(&OraSession);
@@ -1267,16 +1479,7 @@ void TGroupBagItem::fromDB(int grp_id, int bag_pool_num, bool without_refused)
     vals[val.num]=val;
   };
 
-  BagQry.Clear();
-  BagQry.SQLText="SELECT * FROM bag2 WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id",otInteger,grp_id);
-  BagQry.Execute();
-  for(;!BagQry.Eof;BagQry.Next())
-  {
-    TBagItem bag;
-    bag.fromDB(BagQry);
-    bags[bag.num]=bag;
-  };
+  bagFromDB(grp_id);
 
   BagQry.Clear();
   BagQry.SQLText=
@@ -1291,19 +1494,6 @@ void TGroupBagItem::fromDB(int grp_id, int bag_pool_num, bool without_refused)
     TTagItem tag;
     tag.fromDB(BagQry);
     tags[tag.num]=tag;
-  };
-
-  BagQry.Clear();
-  BagQry.SQLText=
-    "SELECT * FROM unaccomp_bag_info "
-    "WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id",otInteger,grp_id);
-  BagQry.Execute();
-  for(;!BagQry.Eof;BagQry.Next())
-  {
-    TUnaccompInfoItem unaccomp;
-    unaccomp.fromDB(BagQry);
-    unaccomps[unaccomp.num]=unaccomp;
   };
 
   //!!!djek
@@ -1338,7 +1528,7 @@ void TGroupBagItem::fromDB(int grp_id, int bag_pool_num, bool without_refused)
       BagQry.CreateVariable("class",otString,cl);
       BagQry.CreateVariable("bag_refuse",otInteger,(int)bag_refuse);
       set<int/*bag_pool_num*/> del_pools;
-      for(map<int, TBagItem>::const_iterator i=bags.begin();i!=bags.end();++i)
+      for(TBagMap::const_iterator i=bags111.begin();i!=bags111.end();++i)
       {
         if (del_pools.find(i->second.bag_pool_num)==del_pools.end())
         {
@@ -1363,7 +1553,7 @@ void TGroupBagItem::toXML(xmlNodePtr bagtagNode) const
     i->second.toXML(NewTextChild(node,"value_bag"));
 
   node=NewTextChild(bagtagNode,"bags");
-  for(map<int /*num*/, TBagItem>::const_iterator i=bags.begin();i!=bags.end();++i)
+  for(TBagMap::const_iterator i=bags111.begin();i!=bags111.end();++i)
     i->second.toXML(NewTextChild(node,"bag"));
 
   node=NewTextChild(bagtagNode,"tags");
@@ -1381,7 +1571,7 @@ void TGroupBagItem::convertBag(std::multimap<int /*id*/, TBagItem> &result) cons
 {
   //multimap - потому что м.б. id=NoExists если добавляются сразу несколько мест багажа
   result.clear();
-  for(multimap<int /*num*/, TBagItem>::const_iterator b=bags.begin(); b!=bags.end(); ++b)
+  for(TBagMap::const_iterator b=bags111.begin(); b!=bags111.end(); ++b)
     result.insert(make_pair(b->second.id, b->second));
 }
 
@@ -1395,752 +1585,210 @@ void TGroupBagItem::fillUnaccompRules()
   unaccomp_rules.insert( TUnaccompRuleItem("scd",true,ASTRA::NoExists,5) );
 }
 
-const TPaidBagEMDItem& TPaidBagEMDItem::toXML(xmlNodePtr node) const
+void TGroupBagItem::getAllListKeys(const int grp_id, const bool is_unaccomp, const int transfer_num)
 {
-  if (node==NULL) return *this;
-  NewTextChild(node,"bag_type",bag_type_str());
-  NewTextChild(node,"transfer_num",trfer_num);
-  NewTextChild(node,"emd_no",emd_no);
-  NewTextChild(node,"emd_coupon",emd_coupon);
-  NewTextChild(node,"weight",weight);
-  return *this;
-};
-
-TPaidBagEMDItem& TPaidBagEMDItem::fromXML(xmlNodePtr node, bool piece_concept)
-{
-  clear();
-  if (node==NULL) return *this;
-  xmlNodePtr node2=node->children;
-
-  if (!piece_concept)
+  for(TBagMap::iterator b=bags111.begin(); b!=bags111.end(); ++b)
   {
-    if (!NodeIsNULLFast("bag_type",node2))
-      bag_type=NodeAsIntegerFast("bag_type",node2);
-  }
-  else rfisc=NodeAsStringFast("bag_type",node2);
-
-  if (TReqInfo::Instance()->client_type==ASTRA::ctTerm && TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
-    trfer_num=NodeAsIntegerFast("transfer_num",node2);
-  else
-    trfer_num=0;
-  emd_no=NodeAsStringFast("emd_no",node2);
-  emd_coupon=NodeAsIntegerFast("emd_coupon",node2);
-  weight=NodeAsIntegerFast("weight",node2);
-  return *this;
-};
-
-const TPaidBagEMDItem& TPaidBagEMDItem::toDB(TQuery &Qry) const
-{
-  if (bag_type!=ASTRA::NoExists)
-    Qry.SetVariable("bag_type",bag_type);
-  else
-    Qry.SetVariable("bag_type",FNull);
-  Qry.SetVariable("rfisc",rfisc);
-  Qry.SetVariable("transfer_num",trfer_num);
-  Qry.SetVariable("emd_no",emd_no);
-  Qry.SetVariable("emd_coupon",emd_coupon);
-  Qry.SetVariable("weight",weight);
-  pax_id!=ASTRA::NoExists?Qry.SetVariable("pax_id",pax_id):
-                          Qry.SetVariable("pax_id",FNull);
-  return *this;
-};
-
-TPaidBagEMDItem& TPaidBagEMDItem::fromDB(TQuery &Qry)
-{
-  clear();
-  if (!Qry.FieldIsNULL("bag_type"))
-    bag_type=Qry.FieldAsInteger("bag_type");
-  rfisc=Qry.FieldAsString("rfisc");
-  trfer_num=Qry.FieldAsInteger("transfer_num");
-  emd_no=Qry.FieldAsString("emd_no");
-  emd_coupon=Qry.FieldAsInteger("emd_coupon");
-  weight=Qry.FieldAsInteger("weight");
-  if (!Qry.FieldIsNULL("pax_id"))
-    pax_id=Qry.FieldAsInteger("pax_id");
-  return *this;
-};
-
-std::string TPaidBagEMDItem::no_str() const
-{
-  ostringstream s;
-  s << emd_no;
-  if (emd_coupon!=ASTRA::NoExists)
-    s << "/" << emd_coupon;
-  return s.str();
-};
-
-std::string TPaidBagEMDItem::bag_type_str() const
-{
-  ostringstream s;
-  if (rfisc.empty())
-  {
-    if (bag_type!=ASTRA::NoExists)
-      s << setw(2) << setfill('0') << bag_type;
-  }
-  else s << rfisc;
-  return s.str();
-};
-
-void PaidBagEMDFromXML(xmlNodePtr emdNode,
-                       boost::optional< std::list<TPaidBagEMDItem> > &emd,
-                       bool piece_concept)
-{
-  emd=boost::none;
-  if (emdNode==NULL) return;
-  emdNode=GetNode("paid_bag_emd",emdNode);
-  if (emdNode!=NULL)
-  {
-    emd=list<TPaidBagEMDItem>();
-    for(xmlNodePtr node=emdNode->children;node!=NULL;node=node->next)
-    {
-      TPaidBagEMDItem item;
-      item.fromXML(node, piece_concept);
-      if (/*item.trfer_num!=0 || !!!vlad */
-          item.bag_type==99) continue;  //!!!vlad потом докрутить
-      if (piece_concept && item.rfisc.empty())
-        throw UserException("MSG.EMD_ATTACHED_TO_UNKNOWN_RFISC", LParams()<<LParam("emd_no",item.no_str()));
-      emd.get().push_back(item);
-    };
-  };
-};
-
-void PaidBagEMDToDB(int grp_id,
-                    const boost::optional< std::list<TPaidBagEMDItem> > &emd)
-{
-  if (!emd) return;
-  TQuery BagQry(&OraSession);
-  BagQry.Clear();
-  BagQry.SQLText="DELETE FROM paid_bag_emd WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id",otInteger,grp_id);
-  BagQry.Execute();
-  BagQry.SQLText=
-    "INSERT INTO paid_bag_emd(grp_id,bag_type,rfisc,transfer_num,emd_no,emd_coupon,weight,pax_id) "
-    "VALUES(:grp_id,:bag_type,:rfisc,:transfer_num,:emd_no,:emd_coupon,:weight,:pax_id)";
-  BagQry.DeclareVariable("bag_type",otInteger);
-  BagQry.DeclareVariable("rfisc",otString);
-  BagQry.DeclareVariable("transfer_num",otInteger);
-  BagQry.DeclareVariable("emd_no",otString);
-  BagQry.DeclareVariable("emd_coupon",otInteger);
-  BagQry.DeclareVariable("weight",otInteger);
-  BagQry.DeclareVariable("pax_id",otInteger);
-  for(list<TPaidBagEMDItem>::const_iterator i=emd.get().begin(); i!=emd.get().end(); ++i)
-  {
-    i->toDB(BagQry);
+    TBagItem &bag=b->second;
+    if (grp_id==ASTRA::NoExists) throw UserException("MSG.BAGGAGE_INPUT_ONLY_AFTER_CHECKIN");
+    TServiceCategory::Enum category=bag.pr_cabin?TServiceCategory::CarryOn:TServiceCategory::Baggage;
     try
     {
-      BagQry.Execute();
+      if (bag.pc)
+      {
+        if (is_unaccomp)
+          bag.pc.get().getListKeyUnaccomp(grp_id, transfer_num, category, "TGroupBagItem");
+        else
+          bag.pc.get().getListKeyByGrpId(grp_id, transfer_num, category, "TGroupBagItem");
+          //bag.pc.get().getListKeyByBagPool(grp_id, transfer_num, bag.bag_pool_num, category); //это более правильно, но не работает пока не проапдейтится pax.bag_pool_num
+      }
+      else if (bag.wt)
+      {
+        if (is_unaccomp)
+          bag.wt.get().getListKeyUnaccomp(grp_id, transfer_num, category, "TGroupBagItem");
+        else
+          bag.wt.get().getListKeyByGrpId(grp_id, transfer_num, category, "TGroupBagItem");
+          //bag.wt.get().getListKeyByBagPool(grp_id, transfer_num, bag.bag_pool_num, category); //это более правильно, но не работает пока не проапдейтится pax.bag_pool_num
+      };
     }
-    catch(EOracleError E)
+    catch(EConvertError &e)
     {
-      if (E.Code==1)
-        throw UserException("MSG.DUPLICATED_EMD_NUMBER", LParams()<<LParam("emd_no",i->no_str()));
-      else
-        throw;
+      throw;  //входящий трансфер не обрабатываем, поскольку он не может вводиться через терминал
     };
-  };
-};
-
-void PaidBagEMDFromDB(int grp_id,
-                      std::list<TPaidBagEMDItem> &emd)
-{
-  TQuery BagQry(&OraSession);
-  BagQry.Clear();
-  BagQry.SQLText=
-    "SELECT * FROM paid_bag_emd WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id",otInteger,grp_id);
-  BagQry.Execute();
-  for(;!BagQry.Eof;BagQry.Next())
-    emd.push_back(TPaidBagEMDItem().fromDB(BagQry));
-
-};
-
-void PaidBagEMDToXML(const std::list<TPaidBagEMDItem> &emd,
-                     xmlNodePtr emdNode)
-{
-  if (emdNode==NULL) return;
-
-  xmlNodePtr node=NewTextChild(emdNode,"paid_bag_emd");
-  for(list<TPaidBagEMDItem>::const_iterator i=emd.begin(); i!=emd.end(); ++i)
-    i->toXML(NewTextChild(node,"emd"));
+  }
 }
 
-void PaidBagEMDPropsFromDB(int grp_id, TPaidBagEMDProps &props)
+void TGroupBagItem::getAllListItems(const int grp_id, const bool is_unaccomp, const int transfer_num)
 {
-  props.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT * FROM paid_bag_emd_props WHERE grp_id=:grp_id";
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.Execute();
-  for(; !Qry.Eof; Qry.Next())
-    props.insert(TPaidBagEMDPropsItem(Qry.FieldAsString("emd_no"),
-                                      Qry.FieldAsInteger("emd_coupon"),
-                                      Qry.FieldAsInteger("manual_bind")!=0));
-}
-
-void PaidBagEMDPropsToDB(int grp_id, const TPaidBagEMDProps &props)
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "BEGIN "
-    "  UPDATE paid_bag_emd_props "
-    "  SET grp_id=:grp_id, manual_bind=:manual_bind "
-    "  WHERE emd_no=:emd_no AND emd_coupon=:emd_coupon; "
-    "  IF SQL%NOTFOUND THEN "
-    "    INSERT INTO paid_bag_emd_props(grp_id, emd_no, emd_coupon, manual_bind) "
-    "    VALUES(:grp_id, :emd_no, :emd_coupon, :manual_bind); "
-    "  END IF; "
-    "END;";
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.DeclareVariable("emd_no", otString);
-  Qry.DeclareVariable("emd_coupon", otInteger);
-  Qry.DeclareVariable("manual_bind" ,otInteger);
-  for(TPaidBagEMDProps::const_iterator i=props.begin(); i!=props.end(); ++i)
+  for(TBagMap::iterator b=bags111.begin(); b!=bags111.end(); ++b)
   {
-    Qry.SetVariable("emd_no", i->emd_no);
-    Qry.SetVariable("emd_coupon", i->emd_coupon);
-    Qry.SetVariable("manual_bind" ,(int)i->manual_bind);
-    Qry.Execute();
-  };
+    TBagItem &bag=b->second;
+    if (grp_id==ASTRA::NoExists) throw UserException("MSG.BAGGAGE_INPUT_ONLY_AFTER_CHECKIN");
+    TServiceCategory::Enum category=bag.pr_cabin?TServiceCategory::CarryOn:TServiceCategory::Baggage;
+    try
+    {
+      if (bag.pc)
+      {
+        if (is_unaccomp)
+          bag.pc.get().getListItemUnaccomp(grp_id, transfer_num, category, "TGroupBagItem");
+        else
+        {
+          if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
+            bag.pc.get().getListItemByBagPool(grp_id, transfer_num, bag.bag_pool_num, category, "TGroupBagItem");
+          else
+            bag.pc.get().getListItemByGrpId(grp_id, transfer_num, category, "TGroupBagItem");
+        };
+      }
+      else if (bag.wt)
+      {
+        if (is_unaccomp)
+          bag.wt.get().getListItemUnaccomp(grp_id, transfer_num, category, "TGroupBagItem");
+        else
+        {
+          if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
+            bag.wt.get().getListItemByBagPool(grp_id, transfer_num, bag.bag_pool_num, category, "TGroupBagItem");
+          else
+            bag.wt.get().getListItemByGrpId(grp_id, transfer_num, category, "TGroupBagItem");
+        };
+      };
+    }
+    catch(EConvertError &e)
+    {
+      if (!bag.is_trfer) throw;
+      if (bag.pc)
+      {
+        bag.pc.get().getListItemInboundTrferTmp("TGroupBagItem");
+      }
+      else if (bag.wt)
+      {
+        bag.wt.get().getListItemInboundTrferTmp("TGroupBagItem");
+      };
+    };
+  }
 }
 
 } //namespace CheckIn
 
-namespace WeightConcept
+void GridInfoToXML(const TTrferRoute &trfer,
+                   const TPaidRFISCViewMap &paidRFISC,
+                   const TPaidBagViewMap &paidBag,
+                   const TPaidBagViewMap &trferBag,
+                   xmlNodePtr node)
 {
-
-const TNormItem& TNormItem::toXML(xmlNodePtr node) const
-{
-  if (node==NULL) return *this;
-  NewTextChild(node,"norm_type", EncodeBagNormType(norm_type));
-  if (amount!=ASTRA::NoExists)
-    NewTextChild(node,"amount", amount);
-  else
-    NewTextChild(node,"amount");
-  if (weight!=ASTRA::NoExists)
-    NewTextChild(node,"weight", weight);
-  else
-    NewTextChild(node,"weight");
-  if (per_unit!=ASTRA::NoExists)
-    NewTextChild(node,"per_unit",(int)(per_unit!=0));
-  else
-    NewTextChild(node,"per_unit");
-  return *this;
-};
-
-TNormItem& TNormItem::fromDB(TQuery &Qry)
-{
-  clear();
-  norm_type=DecodeBagNormType(Qry.FieldAsString("norm_type"));
-  if (!Qry.FieldIsNULL("amount"))
-    amount=Qry.FieldAsInteger("amount");
-  if (!Qry.FieldIsNULL("weight"))
-    weight=Qry.FieldAsInteger("weight");
-  if (!Qry.FieldIsNULL("per_unit"))
-    per_unit=(int)(Qry.FieldAsInteger("per_unit")!=0);
-  return *this;
-};
-
-std::string TNormItem::str(const std::string& lang) const
-{
-  if (empty()) return "";
-  ostringstream result;
-  result << ElemIdToPrefferedElem(etBagNormType, EncodeBagNormType(norm_type), efmtCodeNative, lang);
-  if (weight!=ASTRA::NoExists)
+  class TGridCol
   {
-    if (amount!=ASTRA::NoExists)
-      result << " " << amount << getLocaleText("м", lang) << weight;
-    else
-      result << " " << weight;
-    if (per_unit!=ASTRA::NoExists && per_unit!=0)
-      result << getLocaleText("кг/м", lang);
-    else
-      result << getLocaleText("кг", lang);
-  }
-  else
-  {
-    if (amount!=ASTRA::NoExists)
-      result << " " << amount << getLocaleText("м", lang);
-  };
-  return result.str();
-}
-
-void TNormItem::GetNorms(PrmEnum& prmenum) const
-{
-  if (empty()) return;
-
-  prmenum.prms << PrmElem<string>("", etBagNormType, EncodeBagNormType(norm_type), efmtCodeNative);
-
-  if (weight!=ASTRA::NoExists)
-  {
-    if (amount!=ASTRA::NoExists)
-      prmenum.prms << PrmSmpl<string>("", " ") << PrmSmpl<int>("", amount) << PrmLexema("", "EVT.P") << PrmSmpl<int>("", weight);
-    else
-      prmenum.prms << PrmSmpl<string>("", " ") << PrmSmpl<int>("", weight);
-    if (per_unit!=ASTRA::NoExists && per_unit!=0)
-      prmenum.prms << PrmLexema("", "EVT.KG_P");
-    else
-      prmenum.prms << PrmLexema("", "EVT.KG");
-  }
-  else
-  {
-    if (amount!=ASTRA::NoExists)
-      prmenum.prms << PrmSmpl<string>("", " ") << PrmSmpl<int>("", amount) << PrmLexema("", "EVT.P");
-  };
-}
-
-const TPaxNormItem& TPaxNormItem::toXML(xmlNodePtr node) const
-{
-  if (node==NULL) return *this;
-  NewTextChild(node,"bag_type",bag_type_str());
-  if (norm_id!=ASTRA::NoExists)
-  {
-    NewTextChild(node,"norm_id",norm_id);
-    NewTextChild(node,"norm_trfer",(int)norm_trfer);
-  }
-  else
-  {
-    NewTextChild(node,"norm_id");
-    NewTextChild(node,"norm_trfer");
-  };
-  return *this;
-};
-
-TPaxNormItem& TPaxNormItem::fromXML(xmlNodePtr node)
-{
-  clear();
-  if (node==NULL) return *this;
-  xmlNodePtr node2=node->children;
-  if (!NodeIsNULLFast("bag_type",node2))
-    bag_type=NodeAsIntegerFast("bag_type",node2);
-  if (!NodeIsNULLFast("norm_id",node2))
-  {
-    norm_id=NodeAsIntegerFast("norm_id",node2);
-    norm_trfer=NodeAsIntegerFast("norm_trfer",node2,0)!=0;
-  };
-  return *this;
-};
-
-const TPaxNormItem& TPaxNormItem::toDB(TQuery &Qry) const
-{
-  if (bag_type!=ASTRA::NoExists)
-    Qry.SetVariable("bag_type",bag_type);
-  else
-    Qry.SetVariable("bag_type",FNull);
-  if (norm_id!=ASTRA::NoExists)
-  {
-    Qry.SetVariable("norm_id",norm_id);
-    Qry.SetVariable("norm_trfer",(int)norm_trfer);
-  }
-  else
-  {
-    Qry.SetVariable("norm_id",FNull);
-    Qry.SetVariable("norm_trfer",FNull);
-  };
-  if (handmade!=ASTRA::NoExists)
-    Qry.SetVariable("handmade",handmade);
-  else
-    Qry.SetVariable("handmade",FNull);
-  return *this;
-};
-
-TPaxNormItem& TPaxNormItem::fromDB(TQuery &Qry)
-{
-  clear();
-  if (!Qry.FieldIsNULL("bag_type"))
-    bag_type=Qry.FieldAsInteger("bag_type");
-  if (!Qry.FieldIsNULL("norm_id"))
-  {
-    norm_id=Qry.FieldAsInteger("norm_id");
-    norm_trfer=Qry.FieldAsInteger("norm_trfer")!=0;
-  };
-  handmade=(int)(Qry.FieldAsInteger("handmade")!=0);
-  return *this;
-};
-
-std::string TPaxNormItem::bag_type_str() const
-{
-  ostringstream s;
-  if (bag_type!=ASTRA::NoExists)
-    s << setw(2) << setfill('0') << bag_type;
-  return s.str();
-};
-
-bool PaxNormsFromDB(TDateTime part_key, int pax_id, list< pair<TPaxNormItem, TNormItem> > &norms)
-{
-  norms.clear();
-  const char* sql=
-      "SELECT pax_norms.bag_type, pax_norms.norm_id, pax_norms.norm_trfer, pax_norms.handmade, "
-      "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
-      "FROM pax_norms,bag_norms "
-      "WHERE pax_norms.norm_id=bag_norms.id(+) AND pax_norms.pax_id=:pax_id ";
-  const char* sql_arx=
-      "SELECT arx_pax_norms.bag_type, arx_pax_norms.norm_id, arx_pax_norms.norm_trfer, arx_pax_norms.handmade, "
-      "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
-      "FROM arx_pax_norms,bag_norms "
-      "WHERE arx_pax_norms.norm_id=bag_norms.id(+) AND "
-      "      arx_pax_norms.part_key=:part_key AND "
-      "      arx_pax_norms.pax_id=:pax_id "
-      "UNION "
-      "SELECT arx_pax_norms.bag_type, arx_pax_norms.norm_id, arx_pax_norms.norm_trfer, arx_pax_norms.handmade, "
-      "       arx_bag_norms.norm_type, arx_bag_norms.amount, arx_bag_norms.weight, arx_bag_norms.per_unit "
-      "FROM arx_pax_norms,arx_bag_norms "
-      "WHERE arx_pax_norms.norm_id=arx_bag_norms.id(+) AND "
-      "      arx_pax_norms.part_key=:part_key AND "
-      "      arx_pax_norms.pax_id=:pax_id ";
-  const char *result_sql = NULL;
-  QParams QryParams;
-  if (part_key!=ASTRA::NoExists)
-  {
-    result_sql = sql_arx;
-    QryParams << QParam("part_key", otDate, part_key);
-  }
-  else
-    result_sql = sql;
-  QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery NormQry(result_sql, QryParams);
-  NormQry.get().Execute();
-  for(;!NormQry.get().Eof;NormQry.get().Next())
-  {
-    norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry.get()),
-                               TNormItem().fromDB(NormQry.get())) );
-    if (norms.back().first.bag_type==99) norms.pop_back();  //!!!vlad потом удалить
+    public:
+      std::string name1, name2;
+      int width;
+      TAlignment::Enum align;
+    TGridCol(const std::string& _name,
+             const int _width,
+             const TAlignment::Enum _align) : name1(_name), width(_width), align(_align) {}
+    TGridCol(const std::string& _name1,
+             const std::string& _name2,
+             const int _width,
+             const TAlignment::Enum _align) : name1(_name1), name2(_name2), width(_width), align(_align) {}
   };
 
-  return !norms.empty();
-};
+  typedef std::list<TGridCol> TGridColList;
 
-bool GrpNormsFromDB(TDateTime part_key, int grp_id, list< pair<TPaxNormItem, TNormItem> > &norms)
-{
-  norms.clear();
-  const char* sql=
-      "SELECT grp_norms.bag_type, grp_norms.norm_id, grp_norms.norm_trfer, grp_norms.handmade, "
-      "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
-      "FROM grp_norms,bag_norms "
-      "WHERE grp_norms.norm_id=bag_norms.id(+) AND grp_norms.grp_id=:grp_id ";
-  const char* sql_arx=
-      "SELECT arx_grp_norms.bag_type, arx_grp_norms.norm_id, arx_grp_norms.norm_trfer, arx_grp_norms.handmade, "
-      "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
-      "FROM arx_grp_norms,bag_norms "
-      "WHERE arx_grp_norms.norm_id=bag_norms.id(+) AND "
-      "      arx_grp_norms.part_key=:part_key AND "
-      "      arx_grp_norms.grp_id=:grp_id "
-      "UNION "
-      "SELECT arx_grp_norms.bag_type, arx_grp_norms.norm_id, arx_grp_norms.norm_trfer, arx_grp_norms.handmade, "
-      "       arx_bag_norms.norm_type, arx_bag_norms.amount, arx_bag_norms.weight, arx_bag_norms.per_unit "
-      "FROM arx_grp_norms,arx_bag_norms "
-      "WHERE arx_grp_norms.norm_id=arx_bag_norms.id(+) AND "
-      "      arx_grp_norms.part_key=:part_key AND "
-      "      arx_grp_norms.grp_id=:grp_id ";
-  const char *result_sql = NULL;
-  QParams QryParams;
-  if (part_key!=ASTRA::NoExists)
+  bool pc=!paidRFISC.empty();
+  bool wt=!paidBag.empty() || !trferBag.empty();
+  TGridColList cols;
+  if (wt)
   {
-    result_sql = sql_arx;
-    QryParams << QParam("part_key", otDate, part_key);
-  }
-  else
-    result_sql = sql;
-  QryParams << QParam("grp_id", otInteger, grp_id);
-  TCachedQuery NormQry(result_sql, QryParams);
-  NormQry.get().Execute();
-  for(;!NormQry.get().Eof;NormQry.get().Next())
-  {
-    norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry.get()),
-                               TNormItem().fromDB(NormQry.get())) );
-    if (norms.back().first.bag_type==99) norms.pop_back();  //!!!vlad потом удалить
-  };
-
-  return !norms.empty();
-};
-
-void NormsToXML(const list< pair<TPaxNormItem, TNormItem> > &norms, const CheckIn::TGroupBagItem &group_bag, xmlNodePtr node)
-{
-  if (node==NULL) return;
-
-  xmlNodePtr normsNode=NewTextChild(node,"norms");
-  for(list< pair<TPaxNormItem, TNormItem> >::const_iterator i=norms.begin();i!=norms.end();++i)
-  {
-    xmlNodePtr normNode=NewTextChild(normsNode,"norm");
-    i->first.toXML(normNode);
-    i->second.toXML(normNode);
-  };
-
-  if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2) && group_bag.trferExists())
-  {
-    //добавим неопределенную норму по 99 багажу для старых терминалов
-    xmlNodePtr normNode=NewTextChild(normsNode,"norm");
-    TPaxNormItem paxNormItem;
-    paxNormItem.bag_type=99;
-    paxNormItem.norm_id=1000000000;
-    paxNormItem.toXML(normNode);
-    TNormItem normItem;
-    normItem.norm_type=ASTRA::bntFree;
-    normItem.toXML(normNode);
-  };
-};
-
-void PaxNormsToDB(int pax_id, const boost::optional< list<TPaxNormItem> > &norms)
-{
-  if (!norms) return;
-  TQuery NormQry(&OraSession);
-  NormQry.Clear();
-  NormQry.SQLText="DELETE FROM pax_norms WHERE pax_id=:pax_id";
-  NormQry.CreateVariable("pax_id",otInteger,pax_id);
-  NormQry.Execute();
-  NormQry.SQLText=
-    "INSERT INTO pax_norms(pax_id,bag_type,norm_id,norm_trfer,handmade) "
-    "VALUES(:pax_id,:bag_type,:norm_id,:norm_trfer,:handmade)";
-  NormQry.DeclareVariable("bag_type",otInteger);
-  NormQry.DeclareVariable("norm_id",otInteger);
-  NormQry.DeclareVariable("norm_trfer",otInteger);
-  NormQry.DeclareVariable("handmade",otInteger);
-  for(list<TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
-  {
-    n->toDB(NormQry);
-    NormQry.Execute();
-  };
-};
-
-void GrpNormsToDB(int grp_id, const boost::optional< list<TPaxNormItem> > &norms)
-{
-  if (!norms) return;
-  TQuery NormQry(&OraSession);
-  NormQry.Clear();
-  NormQry.SQLText="DELETE FROM grp_norms WHERE grp_id=:grp_id";
-  NormQry.CreateVariable("grp_id",otInteger,grp_id);
-  NormQry.Execute();
-  NormQry.SQLText=
-    "INSERT INTO grp_norms(grp_id,bag_type,norm_id,norm_trfer,handmade) "
-    "VALUES(:grp_id,:bag_type,:norm_id,:norm_trfer,:handmade)";
-  NormQry.DeclareVariable("bag_type",otInteger);
-  NormQry.DeclareVariable("norm_id",otInteger);
-  NormQry.DeclareVariable("norm_trfer",otInteger);
-  NormQry.DeclareVariable("handmade",otInteger);
-  for(list<TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
-  {
-    n->toDB(NormQry);
-    NormQry.Execute();
-  };
-};
-
-void ConvertNormsList(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms,
-                      std::map<std::string, TNormItem> &result)
-{
-  result.clear();
-  std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> >::const_iterator i=norms.begin();
-  for(; i!=norms.end(); ++i)
-  {
-    if (i->second.empty()) continue;
-    result.insert(make_pair(i->first.bag_type_str(), i->second));
-  };
-}
-
-const TPaidBagItem& TPaidBagItem::toXML(xmlNodePtr node) const
-{
-  if (node==NULL) return *this;
-  NewTextChild(node,"bag_type",bag_type_str());
-  NewTextChild(node,"weight",weight);
-  if (rate_id!=ASTRA::NoExists)
-  {
-    NewTextChild(node,"rate_id",rate_id);
-    NewTextChild(node,"rate",rate);
-    NewTextChild(node,"rate_cur",rate_cur);
-    NewTextChild(node,"rate_trfer",(int)rate_trfer);
-  }
-  else
-  {
-    NewTextChild(node,"rate_id");
-    NewTextChild(node,"rate");
-    NewTextChild(node,"rate_cur");
-    NewTextChild(node,"rate_trfer");
-  };
-  return *this;
-};
-
-TPaidBagItem& TPaidBagItem::fromXML(xmlNodePtr node)
-{
-  clear();
-  if (node==NULL) return *this;
-  xmlNodePtr node2=node->children;
-  if (!NodeIsNULLFast("bag_type",node2))
-    bag_type=NodeAsIntegerFast("bag_type",node2);
-  weight=NodeAsIntegerFast("weight",node2);
-  if (!NodeIsNULLFast("rate_id",node2))
-  {
-    rate_id=NodeAsIntegerFast("rate_id",node2);
-    rate_trfer=NodeAsIntegerFast("rate_trfer",node2,0)!=0;
-  };
-  return *this;
-};
-
-const TPaidBagItem& TPaidBagItem::toDB(TQuery &Qry) const
-{
-  if (bag_type!=ASTRA::NoExists)
-    Qry.SetVariable("bag_type",bag_type);
-  else
-    Qry.SetVariable("bag_type",FNull);
-  Qry.SetVariable("weight",weight);
-  if (rate_id!=ASTRA::NoExists)
-  {
-    Qry.SetVariable("rate_id",rate_id);
-    Qry.SetVariable("rate_trfer",(int)rate_trfer);
-  }
-  else
-  {
-    Qry.SetVariable("rate_id",FNull);
-    Qry.SetVariable("rate_trfer",FNull);
-  };
-  if (handmade!=ASTRA::NoExists)
-    Qry.SetVariable("handmade",handmade);
-  else
-    Qry.SetVariable("handmade",FNull);
-  return *this;
-};
-
-TPaidBagItem& TPaidBagItem::fromDB(TQuery &Qry)
-{
-  clear();
-  if (!Qry.FieldIsNULL("bag_type"))
-    bag_type=Qry.FieldAsInteger("bag_type");
-  weight=Qry.FieldAsInteger("weight");
-  if (!Qry.FieldIsNULL("rate_id"))
-  {
-    rate_id=Qry.FieldAsInteger("rate_id");
-    rate=Qry.FieldAsFloat("rate");
-    rate_cur=Qry.FieldAsString("rate_cur");
-    rate_trfer=Qry.FieldAsInteger("rate_trfer")!=0;
-  };
-  handmade=(int)(Qry.FieldAsInteger("handmade")!=0);
-  return *this;
-};
-
-std::string TPaidBagItem::bag_type_str() const
-{
-  ostringstream s;
-  if (bag_type!=ASTRA::NoExists)
-    s << setw(2) << setfill('0') << bag_type;
-  return s.str();
-};
-
-void PaidBagFromXML(xmlNodePtr paidbagNode,
-                    boost::optional< list<TPaidBagItem> > &paid)
-{
-  paid=boost::none;
-  if (paidbagNode==NULL) return;
-  xmlNodePtr paidBagNode=GetNode("paid_bags",paidbagNode);
-  if (paidBagNode!=NULL)
-  {
-    paid=list<TPaidBagItem>();
-    for(xmlNodePtr node=paidBagNode->children;node!=NULL;node=node->next)
+    if (pc)
     {
-      paid.get().push_back(TPaidBagItem().fromXML(node));
-      if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
-      {
-        if (paid.get().back().bag_type==99) paid.get().pop_back();
-      };
-    };
-  };
-};
-
-void PaidBagToDB(int grp_id,
-                 const boost::optional< list<TPaidBagItem> > &paid)
-{
-  if (!paid) return;
-  TQuery BagQry(&OraSession);
-  BagQry.Clear();
-  BagQry.SQLText="DELETE FROM paid_bag WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id",otInteger,grp_id);
-  BagQry.Execute();
-  BagQry.SQLText=
-    "INSERT INTO paid_bag(grp_id,bag_type,weight,rate_id,rate_trfer,handmade) "
-    "VALUES(:grp_id,:bag_type,:weight,:rate_id,:rate_trfer,:handmade)";
-  BagQry.DeclareVariable("bag_type",otInteger);
-  BagQry.DeclareVariable("weight",otInteger);
-  BagQry.DeclareVariable("rate_id",otInteger);
-  BagQry.DeclareVariable("rate_trfer",otInteger);
-  BagQry.DeclareVariable("handmade",otInteger);
-  int excess=0;
-  for(list<TPaidBagItem>::const_iterator i=paid.get().begin(); i!=paid.get().end(); ++i)
-  {
-    excess+=i->weight;
-    i->toDB(BagQry);
-    BagQry.Execute();
-  };
-
-  BagQry.Clear();
-  BagQry.SQLText="UPDATE pax_grp SET excess=:excess WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id", otInteger, grp_id);
-  BagQry.CreateVariable("excess", otInteger, excess);
-  BagQry.Execute();
-};
-
-void PaidBagFromDB(TDateTime part_key, int grp_id, list<TPaidBagItem> &paid)
-{
-  paid.clear();
-  const char* sql=
-      "SELECT paid_bag.bag_type,paid_bag.weight,paid_bag.handmade, "
-      "       paid_bag.rate_id,bag_rates.rate,bag_rates.rate_cur,paid_bag.rate_trfer "
-      "FROM paid_bag,bag_rates "
-      "WHERE paid_bag.rate_id=bag_rates.id(+) AND paid_bag.grp_id=:grp_id";
-  const char* sql_arx=
-      "SELECT arx_paid_bag.bag_type,arx_paid_bag.weight,arx_paid_bag.handmade, "
-      "       arx_paid_bag.rate_id,bag_rates.rate,bag_rates.rate_cur,arx_paid_bag.rate_trfer "
-      "FROM arx_paid_bag,bag_rates "
-      "WHERE arx_paid_bag.rate_id=bag_rates.id(+) AND "
-      "      arx_paid_bag.part_key=:part_key AND "
-      "      arx_paid_bag.grp_id=:grp_id "
-      "UNION "
-      "SELECT arx_paid_bag.bag_type,arx_paid_bag.weight,arx_paid_bag.handmade, "
-      "       arx_paid_bag.rate_id,arx_bag_rates.rate,arx_bag_rates.rate_cur,arx_paid_bag.rate_trfer "
-      "FROM arx_paid_bag,arx_bag_rates "
-      "WHERE arx_paid_bag.rate_id=arx_bag_rates.id(+) AND "
-      "      arx_paid_bag.part_key=:part_key AND "
-      "      arx_paid_bag.grp_id=:grp_id ";
-  const char *result_sql = NULL;
-  QParams QryParams;
-  if (part_key!=ASTRA::NoExists)
-  {
-    result_sql = sql_arx;
-    QryParams << QParam("part_key", otDate, part_key);
+      cols.push_back(TGridCol("RFISC","Тип багажа", 140, TAlignment::LeftJustify));
+      cols.push_back(TGridCol("Кол.",                30, TAlignment::Center));
+      cols.push_back(TGridCol("Норма","Сегмент",     80, TAlignment::LeftJustify));
+      cols.push_back(TGridCol("К опл.",              40, TAlignment::RightJustify));
+      cols.push_back(TGridCol("Оплачено",            40, TAlignment::RightJustify));
+    }
+    else
+    {
+      cols.push_back(TGridCol("Тип багажа", 120, TAlignment::LeftJustify));
+      cols.push_back(TGridCol("Кол.",        30, TAlignment::Center));
+      cols.push_back(TGridCol("Норма",       80, TAlignment::LeftJustify));
+      cols.push_back(TGridCol("Трфр",        25, TAlignment::Center));
+      cols.push_back(TGridCol("К опл.",      35, TAlignment::RightJustify));
+      cols.push_back(TGridCol("Оплачено",    40, TAlignment::RightJustify));
+    }
   }
   else
-    result_sql = sql;
-  QryParams << QParam("grp_id", otInteger, grp_id);
-  TCachedQuery BagQry(result_sql, QryParams);
-  BagQry.get().Execute();
-  for(;!BagQry.get().Eof;BagQry.get().Next())
   {
-    paid.push_back(TPaidBagItem().fromDB(BagQry.get()));
-    if (paid.back().bag_type==99) paid.pop_back();  //!!!vlad потом удалить
+    cols.push_back(TGridCol("RFISC"   , 140, TAlignment::LeftJustify));
+    cols.push_back(TGridCol("Кол."    ,  30, TAlignment::Center));
+    cols.push_back(TGridCol("Сегмент" ,  80, TAlignment::LeftJustify));
+    cols.push_back(TGridCol("К опл."  ,  40, TAlignment::RightJustify));
+    cols.push_back(TGridCol("Оплачено",  40, TAlignment::RightJustify));
+  }
+
+
+
+  xmlNodePtr paidViewNode=NewTextChild(node, "paid_bag_view");
+  SetProp(paidViewNode, "font_size", 8);
+
+  //секция описывающая столбцы
+  xmlNodePtr colsNode=NewTextChild(paidViewNode, "cols");
+  for(TGridColList::const_iterator i=cols.begin(); i!=cols.end(); ++i)
+  {
+    xmlNodePtr colNode=NewTextChild(colsNode, "col");
+    SetProp(colNode, "width", i->width);
+    SetProp(colNode, "align", Alignments().encode(i->align));
+  }
+
+  //секция описывающая заголовок
+  xmlNodePtr headerNode=NewTextChild(paidViewNode, "header");
+  SetProp(headerNode, "font_size", 10);
+  SetProp(headerNode, "font_style", "");
+  SetProp(headerNode, "align", Alignments().encode(TAlignment::LeftJustify));
+  for(TGridColList::const_iterator i=cols.begin(); i!=cols.end(); ++i)
+  {
+    ostringstream s;
+    s << getLocaleText(i->name1);
+    if (!i->name2.empty())
+      s << "/" << getLocaleText(i->name2);
+    NewTextChild(headerNode, "col", s.str());
   };
+
+  xmlNodePtr rowsNode = NewTextChild(paidViewNode, "rows");
+
+  for(TPaidRFISCViewMap::const_iterator i=paidRFISC.begin(); i!=paidRFISC.end(); ++i)
+    i->second.GridInfoToXML(rowsNode, trfer);
+  for(TPaidBagViewMap::const_iterator i=paidBag.begin(); i!=paidBag.end(); ++i)
+    i->second.GridInfoToXML(rowsNode, !pc && wt);
+  for(TPaidBagViewMap::const_iterator i=trferBag.begin(); i!=trferBag.end(); ++i)
+    i->second.GridInfoToXML(rowsNode, !pc && wt);
 }
 
-void PaidBagToXML(const list<TPaidBagItem> &paid, const CheckIn::TGroupBagItem &group_bag, xmlNodePtr paidbagNode)
+TExcessNodeList::TExcessNodeList(): concept(ctInitial) {
+    must_work = true;
+    if (TReqInfo::Instance()->client_type != ASTRA::ctTerm || ! TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
+        must_work = false;
+}
+
+void TExcessNodeList::apply()
 {
-  if (paidbagNode==NULL) return;
-
-  xmlNodePtr node=NewTextChild(paidbagNode,"paid_bags");
-  for(list<TPaidBagItem>::const_iterator i=paid.begin(); i!=paid.end(); ++i)
-  {
-    xmlNodePtr paidBagNode=NewTextChild(node,"paid_bag");
-    i->toXML(paidBagNode);
-  };
-
-  if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2) && group_bag.trferExists())
-  {
-    //добавим нулевой платный 99 багаж для старых терминалов
-    xmlNodePtr paidBagNode=NewTextChild(node,"paid_bag");
-    TPaidBagItem item;
-    item.bag_type=99;
-    item.weight=0;
-    item.handmade=false;
-    item.toXML(paidBagNode);
-  };
+    if(concept == ctAll) {
+        for(TConceptList::iterator i = items.begin(); i != items.end(); i++) {
+            if(i->second)
+                NodeSetContent(i->first, std::string(NodeAsString(i->first))+AstraLocale::getLocaleText("м"));
+            else
+                NodeSetContent(i->first, std::string(NodeAsString(i->first))+AstraLocale::getLocaleText("кг"));
+        }
+    }
 }
 
-} //namespace WeightConcept
-
+void TExcessNodeList::set_concept(xmlNodePtr& node, bool val)
+{   if(!must_work) return;
+    if(node) {
+        items.push_back(std::make_pair(node,val));
+    }
+    ConceptType tmp = (val == false ? ctWeight : ctPiece);
+    if(concept == ctInitial) {
+        concept = tmp;
+    } else if(concept != ctAll and concept != tmp)
+        concept = ctAll;
+}
 

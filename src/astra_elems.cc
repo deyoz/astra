@@ -846,3 +846,33 @@ TElemFmt prLatToElemFmt(TElemFmt fmt, bool pr_lat)
   return res;
 };
 
+string airlineToXML(const std::string &code, const std::string &lang)
+{
+  string result;
+  result=ElemIdToPrefferedElem(etAirline, code, efmtCodeNative, lang);
+  if (result.size()==3) //â¨¯  ˆŠ€Ž
+    result=ElemIdToPrefferedElem(etAirline, code, efmtCodeNative, lang==AstraLocale::LANG_EN?AstraLocale::LANG_RU:
+                                                                                             AstraLocale::LANG_EN);
+  return result;
+}
+
+string airpToXML(const std::string &code, const std::string &lang)
+{
+  string result;
+  result=ElemIdToPrefferedElem(etAirp, code, efmtCodeNative, lang);
+  if (result.size()==4) //â¨¯  ˆŠ€Ž
+    result=ElemIdToPrefferedElem(etAirp, code, efmtCodeNative, lang==AstraLocale::LANG_EN?AstraLocale::LANG_RU:
+                                                                                          AstraLocale::LANG_EN);
+  return result;
+}
+
+string craftToXML(const std::string &code, const std::string &lang)
+{
+  string result;
+  result=ElemIdToPrefferedElem(etCraft, code, efmtCodeNative, lang);
+  if (result.size()==4) //â¨¯  ˆŠ€Ž
+    result=ElemIdToPrefferedElem(etCraft, code, efmtCodeNative, lang==AstraLocale::LANG_EN?AstraLocale::LANG_RU:
+                                                                                           AstraLocale::LANG_EN);
+  return result;
+}
+
