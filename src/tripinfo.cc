@@ -29,6 +29,7 @@
 #include "web_search.h"
 #include "sopp.h"
 #include "apps_interaction.h"
+#include "brands.h"
 
 #include <serverlib/testmode.h>
 

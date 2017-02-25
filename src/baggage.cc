@@ -1669,29 +1669,29 @@ void TGroupBagItem::getAllListItems(const int grp_id, const bool is_unaccomp, co
 
 } //namespace CheckIn
 
+class TGridCol
+{
+  public:
+    std::string name1, name2;
+    int width;
+    TAlignment::Enum align;
+  TGridCol(const std::string& _name,
+           const int _width,
+           const TAlignment::Enum _align) : name1(_name), width(_width), align(_align) {}
+  TGridCol(const std::string& _name1,
+           const std::string& _name2,
+           const int _width,
+           const TAlignment::Enum _align) : name1(_name1), name2(_name2), width(_width), align(_align) {}
+};
+
+typedef std::list<TGridCol> TGridColList;
+
 void GridInfoToXML(const TTrferRoute &trfer,
                    const TPaidRFISCViewMap &paidRFISC,
                    const TPaidBagViewMap &paidBag,
                    const TPaidBagViewMap &trferBag,
                    xmlNodePtr node)
 {
-  class TGridCol
-  {
-    public:
-      std::string name1, name2;
-      int width;
-      TAlignment::Enum align;
-    TGridCol(const std::string& _name,
-             const int _width,
-             const TAlignment::Enum _align) : name1(_name), width(_width), align(_align) {}
-    TGridCol(const std::string& _name1,
-             const std::string& _name2,
-             const int _width,
-             const TAlignment::Enum _align) : name1(_name1), name2(_name2), width(_width), align(_align) {}
-  };
-
-  typedef std::list<TGridCol> TGridColList;
-
   bool pc=!paidRFISC.empty();
   bool wt=!paidBag.empty() || !trferBag.empty();
   TGridColList cols;

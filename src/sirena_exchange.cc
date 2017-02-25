@@ -194,7 +194,7 @@ void TExchange::setDestFile(const std::string &_filename)
 bool TExchange::loadFromFile(std::string &content) const
 {
   if (src_filename.empty()) return false;
-  std::ifstream f(src_filename);
+  std::ifstream f(src_filename.c_str());
   if(!f.is_open()) return false;
   content.clear();
   std::getline(f, content, '\0');
@@ -205,7 +205,7 @@ bool TExchange::loadFromFile(std::string &content) const
 bool TExchange::saveToFile(const std::string &content) const
 {
   if (dest_filename.empty()) return false;
-  std::ofstream f(dest_filename);
+  std::ofstream f(dest_filename.c_str());
   if(!f.is_open()) return false;
   f << content;
   f.close();

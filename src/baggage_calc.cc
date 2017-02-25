@@ -2427,6 +2427,36 @@ bool Confirmed(const CheckIn::TServicePaymentItem &emd,
   return false;
 }
 
+class TQuantityPerSeg : public map<int/*trfer_num*/, int/*кол-во*/>
+{
+  public:
+    void add(int trfer_num, int quantity)
+    {
+      TQuantityPerSeg::iterator i=insert(make_pair(trfer_num, 0)).first;
+      if (i==end()) throw Exception("%s: i==TQuantityPerSeg.end()", __FUNCTION__);
+      i->second+=quantity;
+    }
+    void remove(int trfer_num, int quantity)
+    {
+      TQuantityPerSeg::iterator i=find(trfer_num);
+      if (i!=end())
+      {
+        i->second-=quantity;
+        if (i->second<=0) erase(i);
+      };
+    }
+    string traceStr() const
+    {
+      ostringstream s;
+      for(TQuantityPerSeg::const_iterator i=begin(); i!=end(); ++i)
+      {
+        if (i!=begin()) s << ", ";
+        s << i->first << ":" << i->second;
+      }
+      return s.str();
+    }
+};
+
 bool TryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
                               CheckIn::TServicePaymentList &payment,
                               const CheckIn::TPaidBagEMDProps &paid_bag_emd_props,
@@ -2514,36 +2544,6 @@ bool TryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
             if (j!=i->second.begin()) s << "/";
             s << *j;
           }
-        }
-        return s.str();
-      }
-  };
-
-  class TQuantityPerSeg : public map<int/*trfer_num*/, int/*кол-во*/>
-  {
-    public:
-      void add(int trfer_num, int quantity)
-      {
-        TQuantityPerSeg::iterator i=insert(make_pair(trfer_num, 0)).first;
-        if (i==end()) throw Exception("%s: i==TQuantityPerSeg.end()", __FUNCTION__);
-        i->second+=quantity;
-      }
-      void remove(int trfer_num, int quantity)
-      {
-        TQuantityPerSeg::iterator i=find(trfer_num);
-        if (i!=end())
-        {
-          i->second-=quantity;
-          if (i->second<=0) erase(i);
-        };
-      }
-      string traceStr() const
-      {
-        ostringstream s;
-        for(TQuantityPerSeg::const_iterator i=begin(); i!=end(); ++i)
-        {
-          if (i!=begin()) s << ", ";
-          s << i->first << ":" << i->second;
         }
         return s.str();
       }
