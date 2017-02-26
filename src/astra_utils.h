@@ -687,4 +687,8 @@ class Statistic : public std::map<T, int>
     }
 };
 
+void longToDB(TQuery &Qry, const std::string &column_name, const std::string &src, bool nullable=false, int len=4000);
+
+void traceXML(const xmlDocPtr doc);
+
 #endif /*_ASTRA_UTILS_H_*/

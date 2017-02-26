@@ -242,30 +242,54 @@ void write_basel_aero_stat( TDateTime time_create, const std::vector<TBaselStat>
 
 
   for ( std::vector<TBaselStat>::const_iterator i=stats.begin(); i!=stats.end(); i++ ) {
-    Qry.SetVariable( "viewdate", i->viewDate == NoExists?FNull:i->viewDate );
+    i->viewDate == NoExists?
+      Qry.SetVariable( "viewdate", FNull ):
+      Qry.SetVariable( "viewdate", i->viewDate );
     Qry.SetVariable( "viewflight", i->viewFlight );
     Qry.SetVariable( "viewname", i->viewName );
-    Qry.SetVariable( "viewgroup", i->viewGroup == NoExists?FNull:i->viewGroup );
-    Qry.SetVariable( "viewpct", i->viewPCT == NoExists?FNull:i->viewPCT );
-    Qry.SetVariable( "viewweight", i->viewWeight == NoExists?FNull:i->viewWeight );
-    Qry.SetVariable( "viewcarryon", i->viewCarryon == NoExists?FNull:i->viewCarryon );
-    Qry.SetVariable( "viewpayweight", i->viewPayWeight == NoExists?FNull:i->viewPayWeight );
+    i->viewGroup == NoExists?
+      Qry.SetVariable( "viewgroup", FNull ):
+      Qry.SetVariable( "viewgroup", i->viewGroup );
+    i->viewPCT == NoExists?
+      Qry.SetVariable( "viewpct", FNull ):
+      Qry.SetVariable( "viewpct", i->viewPCT );
+    i->viewWeight == NoExists?
+      Qry.SetVariable( "viewweight", FNull ):
+      Qry.SetVariable( "viewweight", i->viewWeight );
+    i->viewCarryon == NoExists?
+      Qry.SetVariable( "viewcarryon", FNull ):
+      Qry.SetVariable( "viewcarryon", i->viewCarryon );
+    i->viewPayWeight == NoExists?
+      Qry.SetVariable( "viewpayweight", FNull ):
+      Qry.SetVariable( "viewpayweight", i->viewPayWeight );
     Qry.SetVariable( "viewtag", i->viewTag );
     Qry.SetVariable( "viewuncheckin", i->viewUncheckin );
     Qry.SetVariable( "viewstatus", i->viewStatus );
-    Qry.SetVariable( "viewcheckinno", i->viewCheckinNo == NoExists?FNull:i->viewCheckinNo );
+    i->viewCheckinNo == NoExists?
+      Qry.SetVariable( "viewcheckinno", FNull ):
+      Qry.SetVariable( "viewcheckinno", i->viewCheckinNo );
     Qry.SetVariable( "viewstation", i->viewStation );
     Qry.SetVariable( "viewclienttype", i->viewClientType );
-    Qry.SetVariable( "viewcheckintime", i->viewCheckinTime == NoExists?FNull:i->viewCheckinTime );
-    Qry.SetVariable( "viewboardingtime", i->viewBoardingTime == NoExists?FNull:i->viewBoardingTime );
-    Qry.SetVariable( "viewdepartureplantime", i->viewDeparturePlanTime == NoExists?FNull:i->viewDeparturePlanTime );
-    Qry.SetVariable( "viewdeparturerealtime", i->viewDepartureRealTime == NoExists?FNull:i->viewDepartureRealTime );
+    i->viewCheckinTime == NoExists?
+      Qry.SetVariable( "viewcheckintime", FNull ):
+      Qry.SetVariable( "viewcheckintime", i->viewCheckinTime );
+    i->viewBoardingTime == NoExists?
+      Qry.SetVariable( "viewboardingtime", FNull ):
+      Qry.SetVariable( "viewboardingtime", i->viewBoardingTime );
+    i->viewDeparturePlanTime == NoExists?
+      Qry.SetVariable( "viewdepartureplantime", FNull ):
+      Qry.SetVariable( "viewdepartureplantime", i->viewDeparturePlanTime );
+    i->viewDepartureRealTime == NoExists?
+      Qry.SetVariable( "viewdeparturerealtime", FNull ):
+      Qry.SetVariable( "viewdeparturerealtime", i->viewDepartureRealTime );
     Qry.SetVariable( "viewbagnorms", i->viewBagNorms );
     Qry.SetVariable( "viewpctweightpaidbytype", i->viewPCTWeightPaidByType );
     Qry.SetVariable( "viewclass", i->viewClass );
     Qry.SetVariable( "point_id", i->point_id );
     Qry.SetVariable( "airp", i->airp );
-    Qry.SetVariable( "pax_id", i->pax_id == NoExists?FNull:i->pax_id );
+    i->pax_id == NoExists?
+      Qry.SetVariable( "pax_id", FNull ):
+      Qry.SetVariable( "pax_id", i->pax_id );
     Qry.Execute();
   }
 }
@@ -315,25 +339,47 @@ void read_basel_aero_stat( const string &airp, ofstream &f )
   string region = AirpTZRegion( airp );
   ostringstream strline;
   for ( ; !Qry.Eof; Qry.Next() ) {
-    strline << (Qry.FieldAsDateTime( viewdate_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewdate_idx ),region), "dd.mm.yyyy")) << ";";
+    if (Qry.FieldIsNULL( viewdate_idx )) strline << ";";
+    else
+      strline << (Qry.FieldAsDateTime( viewdate_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewdate_idx ),region), "dd.mm.yyyy")) << ";";
     strline << Qry.FieldAsString( viewflight_idx ) << ";";
     strline << Qry.FieldAsString( viewname_idx ) << ";";
     strline << Qry.FieldAsInteger( viewgroup_idx ) << ";";
-    strline << (Qry.FieldAsInteger( viewpct_idx ) == 0?"":Qry.FieldAsString( viewpct_idx )) << ";";
-    strline << (Qry.FieldAsInteger( viewweight_idx ) == 0?"":Qry.FieldAsString( viewweight_idx )) << ";";
-    strline << (Qry.FieldAsInteger( viewcarryon_idx ) == 0?"":Qry.FieldAsString( viewcarryon_idx )) << ";";
-    strline << (Qry.FieldAsInteger( viewpayweight_idx ) == 0?"":Qry.FieldAsString( viewpayweight_idx )) << ";";
+    if (Qry.FieldIsNULL( viewpct_idx )) strline << ";";
+    else
+      strline << (Qry.FieldAsInteger( viewpct_idx ) == 0?"":Qry.FieldAsString( viewpct_idx )) << ";";
+    if (Qry.FieldIsNULL( viewweight_idx )) strline << ";";
+    else
+      strline << (Qry.FieldAsInteger( viewweight_idx ) == 0?"":Qry.FieldAsString( viewweight_idx )) << ";";
+    if (Qry.FieldIsNULL( viewcarryon_idx )) strline << ";";
+    else
+      strline << (Qry.FieldAsInteger( viewcarryon_idx ) == 0?"":Qry.FieldAsString( viewcarryon_idx )) << ";";
+    if (Qry.FieldIsNULL( viewpayweight_idx )) strline << ";";
+    else
+      strline << (Qry.FieldAsInteger( viewpayweight_idx ) == 0?"":Qry.FieldAsString( viewpayweight_idx )) << ";";
     strline << Qry.FieldAsString( viewtag_idx ) << ";";
     strline << Qry.FieldAsString( viewuncheckin_idx ) << ";";
     strline << Qry.FieldAsString( viewstatus_idx ) << ";";
-    strline << (Qry.FieldAsInteger( viewcheckinno_idx ) == NoExists?"":Qry.FieldAsString( viewcarryon_idx )) << ";";
+    if (Qry.FieldIsNULL( viewcheckinno_idx )) strline << ";";
+    else
+      strline << (Qry.FieldAsInteger( viewcheckinno_idx ) == NoExists?"":Qry.FieldAsString( viewcarryon_idx )) << ";";
     strline << Qry.FieldAsString( viewstation_idx ) << ";";
     strline << Qry.FieldAsString( viewclienttype_idx ) << ";";
-    strline << (Qry.FieldAsDateTime( viewcheckintime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewcheckintime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
-    strline << (Qry.FieldAsDateTime( viewcheckinduration_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewcheckinduration_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
-    strline << (Qry.FieldAsDateTime( viewboardingtime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewboardingtime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
-    strline << (Qry.FieldAsDateTime( viewdepartureplantime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewdepartureplantime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
-    strline << (Qry.FieldAsDateTime( viewdeparturerealtime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewdeparturerealtime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
+    if (Qry.FieldIsNULL( viewcheckintime_idx )) strline << ";";
+    else
+      strline << (Qry.FieldAsDateTime( viewcheckintime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewcheckintime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
+    if (Qry.FieldIsNULL( viewcheckinduration_idx )) strline << ";";
+    else
+      strline << (Qry.FieldAsDateTime( viewcheckinduration_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewcheckinduration_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
+    if (Qry.FieldIsNULL( viewboardingtime_idx )) strline << ";";
+    else
+      strline << (Qry.FieldAsDateTime( viewboardingtime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewboardingtime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
+    if (Qry.FieldIsNULL( viewdepartureplantime_idx )) strline << ";";
+    else
+      strline << (Qry.FieldAsDateTime( viewdepartureplantime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewdepartureplantime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
+    if (Qry.FieldIsNULL( viewdeparturerealtime_idx )) strline << ";";
+    else
+      strline << (Qry.FieldAsDateTime( viewdeparturerealtime_idx ) == NoExists?"":DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime( viewdeparturerealtime_idx ),region), "dd.mm.yyyy hh:nn")) << ";";
     strline << Qry.FieldAsString( viewbagnorms_idx ) << ";";
     strline << Qry.FieldAsString( viewpctweightpaidbytype_idx ) << ";";
     strline << Qry.FieldAsString( viewclass_idx );
@@ -378,31 +424,28 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
   if (part_key!=NoExists)
   {
     bag_sql=
-      "SELECT bag_type, rfisc, is_trfer, SUM(amount) AS amount, SUM(weight) AS weight "
+      "SELECT arx_bag2.* "
       "FROM arx_pax_grp,arx_bag2 "
       "WHERE arx_pax_grp.part_key=arx_bag2.part_key AND "
       "      arx_pax_grp.grp_id=arx_bag2.grp_id AND "
       "      arx_pax_grp.part_key=:part_key AND "
       "      arx_pax_grp.point_dep=:point_id AND "
       "      arx_pax_grp.grp_id=:grp_id AND "
-      "      arch.bag_pool_refused(arx_bag2.part_key,arx_bag2.grp_id,arx_bag2.bag_pool_num,arx_pax_grp.class,arx_pax_grp.bag_refuse)=0 "
-      "GROUP BY bag_type, rfisc, is_trfer";
+      "      arch.bag_pool_refused(arx_bag2.part_key,arx_bag2.grp_id,arx_bag2.bag_pool_num,arx_pax_grp.class,arx_pax_grp.bag_refuse)=0";
   }
   else
   {
     bag_sql=
-      "SELECT bag_type, rfisc, is_trfer, SUM(amount) AS amount, SUM(weight) AS weight "
+      "SELECT bag2.* "
       "FROM pax_grp,bag2 "
       "WHERE pax_grp.grp_id=bag2.grp_id AND "
       "      pax_grp.grp_id=:grp_id AND "
-      "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
-      "GROUP BY bag_type, rfisc, is_trfer";
+      "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0";
     bag_pc_sql=
-      "SELECT bag_type, rfisc, is_trfer, SUM(amount) AS amount, SUM(weight) AS weight "
+      "SELECT bag2.* "
       "FROM bag2 "
       "WHERE bag2.grp_id=:grp_id AND "
-      "      ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num,0)=:pax_id "
-      "GROUP BY bag_type, rfisc, is_trfer";
+      "      ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num,0)=:pax_id";
 
     TimeQry.SQLText =
       "SELECT time,NVL(stations.name,aodb_pax_change.desk) station, client_type, airp "
@@ -551,31 +594,26 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
         for(;!BagQry.Eof;BagQry.Next())
         {
           TEventsBagItem bagItem;
-          if (!BagQry.FieldIsNULL("bag_type"))
-            bagItem.bag_type=BagQry.FieldAsInteger("bag_type");
-          bagItem.rfisc=BagQry.FieldAsString("rfisc");
-          bagItem.amount=BagQry.FieldAsInteger("amount");
-          bagItem.weight=BagQry.FieldAsInteger("weight");
-          bagItem.is_trfer=BagQry.FieldAsInteger("is_trfer")!=0;
+          bagItem.fromDB(BagQry);
           paidInfo.add(bagItem);
         };
         if (!piece_concept)
         {
-          list<WeightConcept::TPaidBagItem> paid;
+          WeightConcept::TPaidBagList paid;
           WeightConcept::PaidBagFromDB(part_key, stat.viewGroup, paid);
-          for(list<WeightConcept::TPaidBagItem>::const_iterator p=paid.begin(); p!=paid.end(); ++p)
+          for(WeightConcept::TPaidBagList::const_iterator p=paid.begin(); p!=paid.end(); ++p)
             paidInfo.add(*p);
         }
         else
         {
           if (part_key==NoExists)
           {
-            list<PieceConcept::TPaidBagItem> paid;
-            PieceConcept::PaidBagFromDB(stat.pax_id==NoExists?stat.viewGroup:stat.pax_id, stat.pax_id==NoExists, paid);
-            for(list<PieceConcept::TPaidBagItem>::const_iterator p=paid.begin(); p!=paid.end(); ++p)
+            TPaidRFISCList paid;
+            paid.fromDB(stat.pax_id==NoExists?stat.viewGroup:stat.pax_id, stat.pax_id==NoExists);
+            for(TPaidRFISCList::const_iterator p=paid.begin(); p!=paid.end(); ++p)
             {
-              if (p->trfer_num!=0) continue;
-              paidInfo.add(*p);
+              if (p->second.trfer_num!=0) continue;
+              paidInfo.add(p->second);
             };
           };
         };

@@ -58,10 +58,14 @@ src/AsyncNet.cpp
 src/AsyncNet.hpp
 src/baggage.cc
 src/baggage.h
+src/baggage_base.cc
+src/baggage_base.h
 src/baggage_calc.cc
 src/baggage_calc.h
 src/baggage_pc.cc
 src/baggage_pc.h
+src/baggage_wt.cc
+src/baggage_wt.h
 src/base_tables.cc
 src/base_tables.h
 src/basel_aero.cc
@@ -113,6 +117,8 @@ src/events.cc
 src/events.h
 src/external_spp_synch.cc
 src/external_spp_synch.h
+src/ffp_sirena.cc
+src/ffp_sirena.h
 src/file_queue.cc
 src/file_queue.h
 src/flt_binding.cc
@@ -141,6 +147,8 @@ src/passenger.cc
 src/passenger.h
 src/payment.cc
 src/payment.h
+src/payment_base.cc
+src/payment_base.h
 src/pers_weights.cc
 src/pers_weights.h
 src/points.cc
@@ -157,6 +165,10 @@ src/remarks.cc
 src/remarks.h
 src/request_dup.cc
 src/request_dup.h
+src/rfisc.cc
+src/rfisc.h
+src/rfisc_sirena.cc
+src/rfisc_sirena.h
 src/rozysk.cc
 src/rozysk.h
 src/salonform.cc
@@ -173,6 +185,8 @@ src/seats.cc
 src/seats.h
 src/seats_utils.cc
 src/seats_utils.h
+src/sirena_exchange.cc
+src/sirena_exchange.h
 src/sofi.cc
 src/sofi.h
 src/sopp.cc

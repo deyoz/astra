@@ -8,36 +8,11 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "transfer.h"
+#include "baggage_wt.h"
+#include "rfisc.h"
 #include <boost/optional.hpp>
 #include <etick/tick_data.h>
 #include "date_time.h"
-
-using BASIC::date_time::TDateTime;
-
-enum TBagConcept { bcUnknown, bcPiece, bcWeight, bcNo };
-
-class TBagNormUnit
-{
-  private:
-    Ticketing::Baggage::Baggage_t unit;
-  public:
-    TBagNormUnit() : unit(Ticketing::Baggage::Nil) {}
-    TBagNormUnit(const Ticketing::Baggage::Baggage_t &value) : unit(value) {}
-    TBagNormUnit(const std::string &value) { set(value); }
-    void clear()
-    {
-      unit=Ticketing::Baggage::Nil;
-    }
-    bool empty() const
-    {
-      return unit==Ticketing::Baggage::Nil;
-    }
-    void set(const Ticketing::Baggage::Baggage_t &value);
-    void set(const std::string &value);
-    Ticketing::Baggage::Baggage_t get() const;
-    std::string get_db_form() const;
-    std::string get_lexeme_form() const;
-};
 
 namespace CheckIn
 {
@@ -138,8 +113,10 @@ class TBagItem
 {
   public:
     int id,num;
-    int bag_type;
-    std::string rfisc;
+
+    boost::optional<TRFISCKey> pc;
+    boost::optional<TBagTypeKey> wt;
+
     bool pr_cabin;
     int amount;
     int weight;
@@ -159,8 +136,8 @@ class TBagItem
     {
       id=ASTRA::NoExists;
       num=ASTRA::NoExists;
-      bag_type=ASTRA::NoExists;
-      rfisc.clear();
+      pc=boost::none;
+      wt=boost::none;
       pr_cabin=false;
       amount=ASTRA::NoExists;
       weight=ASTRA::NoExists;
@@ -177,20 +154,24 @@ class TBagItem
       handmade=true;
     };
     const TBagItem& toXML(xmlNodePtr node) const;
-    TBagItem& fromXML(xmlNodePtr node, bool piece_concept);
+    TBagItem& fromXML(xmlNodePtr node, bool baggage_pc);
     const TBagItem& toDB(TQuery &Qry) const;
     TBagItem& fromDB(TQuery &Qry);
-    std::string bag_type_str() const;
     bool basicallyEqual(const TBagItem& item) const
     {
-      return bag_type==item.bag_type &&
-             rfisc==item.rfisc &&
+      return pc==item.pc &&
+             wt==item.wt &&
              pr_cabin==item.pr_cabin &&
              amount==item.amount &&
              weight==item.weight &&
              is_trfer==item.is_trfer &&
              handmade==item.handmade;
     }
+    void check(TRFISCListWithPropsCache &lists) const;
+    void check(const TRFISCBagPropsList &list) const;
+
+    std::string key_str(const std::string& lang="") const;
+    std::string key_str_compatible() const;
 };
 
 class TTagItem
@@ -225,6 +206,16 @@ class TTagItem
     TTagItem& fromDB(TQuery &Qry);
 };
 
+class TBagMap : public std::map<int /*num*/, TBagItem>
+{
+  public:
+    void toDB(int grp_id) const;
+    void fromDB(int grp_id);
+    void procInboundTrferFromDBTmp();
+    void procInboundTrferFromBTM(const TrferList::TGrpItem &grp);
+    void dump(const std::string &where);
+};
+
 class TGroupBagItem
 {
   private:
@@ -242,10 +233,10 @@ class TGroupBagItem
                                std::list<TTagItem> &tags_list);
     void filterPools(const std::set<int/*bag_pool_num*/> &pool_nums,
                      bool pool_nums_for_keep);
-    void fromXMLcompletion(int grp_id, int hall);
+    void fromXMLcompletion(int grp_id, int hall, bool is_unaccomp);
   public:
     std::map<int /*num*/, TValueBagItem> vals;
-    std::map<int /*num*/, TBagItem> bags;
+    TBagMap bags111;
     std::map<int /*num*/, TTagItem> tags;
     std::map<int /*num*/, TUnaccompInfoItem> unaccomps;
     std::set<TUnaccompRuleItem> unaccomp_rules;
@@ -257,7 +248,7 @@ class TGroupBagItem
     void clear()
     {
       vals.clear();
-      bags.clear();
+      bags111.clear();
       tags.clear();
       unaccomps.clear();
       unaccomp_rules.clear();
@@ -266,13 +257,15 @@ class TGroupBagItem
     bool empty() const
     {
       return vals.empty() &&
-             bags.empty() &&
+             bags111.empty() &&
              tags.empty();
     };
-    bool fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool piece_concept);
+    bool fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is_unaccomp, bool baggage_pc);
     void checkAndGenerateTags(int point_id, int grp_id);
     void toDB(int grp_id) const;
+    void bagToDB(int grp_id) const;
     void fromDB(int grp_id, int bag_pool_num, bool without_refused);
+    void bagFromDB(int grp_id);
     void toXML(xmlNodePtr bagtagNode) const;
     void add(const TGroupBagItem &item);
     void setInboundTrfer(const TrferList::TGrpItem &grp);
@@ -280,229 +273,33 @@ class TGroupBagItem
     bool trferExists() const;
     void convertBag(std::multimap<int, TBagItem> &result) const;
     void fillUnaccompRules();
+    void getAllListKeys(const int grp_id, const bool is_unaccomp, const int transfer_num);
+    void getAllListItems(const int grp_id, const bool is_unaccomp, const int transfer_num);
 };
-
-class TPaidBagEMDItem
-{
-  public:
-    int bag_type;
-    std::string rfisc;
-    int trfer_num;
-    std::string emd_no;
-    int emd_coupon;
-    int weight;
-    int pax_id;
-  TPaidBagEMDItem()
-  {
-    clear();
-  };
-  void clear()
-  {
-    bag_type=ASTRA::NoExists;
-    rfisc.clear();
-    trfer_num=ASTRA::NoExists;
-    emd_no.clear();
-    emd_coupon=ASTRA::NoExists;
-    weight=ASTRA::NoExists;
-    pax_id=ASTRA::NoExists;
-  };
-  const TPaidBagEMDItem& toXML(xmlNodePtr node) const;
-  TPaidBagEMDItem& fromXML(xmlNodePtr node, bool piece_concept);
-  const TPaidBagEMDItem& toDB(TQuery &Qry) const;
-  TPaidBagEMDItem& fromDB(TQuery &Qry);
-  std::string no_str() const;
-  std::string bag_type_str() const;
-};
-
-void PaidBagEMDFromXML(xmlNodePtr emdNode,
-                       boost::optional<std::list<TPaidBagEMDItem> > &emd, bool piece_concept);
-void PaidBagEMDToDB(int grp_id,
-                    const boost::optional< std::list<TPaidBagEMDItem> > &emd);
-
-void PaidBagEMDFromDB(int grp_id,
-                      std::list<TPaidBagEMDItem> &emd);
-void PaidBagEMDToXML(const std::list<TPaidBagEMDItem> &emd,
-                     xmlNodePtr emdNode);
-
-class TPaidBagEMDPropsItem
-{
-  public:
-    std::string emd_no;
-    int emd_coupon;
-    bool manual_bind;
-  TPaidBagEMDPropsItem(const std::string &_emd_no,
-                       const int &_emd_coupon,
-                       bool _manual_bind=false)
-  {
-    emd_no=_emd_no;
-    emd_coupon=_emd_coupon;
-    manual_bind=_manual_bind;
-  }
-  TPaidBagEMDPropsItem(const TPaidBagEMDItem &item, bool _manual_bind=false)
-  {
-    emd_no=item.emd_no;
-    emd_coupon=item.emd_coupon;
-    manual_bind=_manual_bind;
-  }
-  bool operator < (const TPaidBagEMDPropsItem &item) const
-  {
-    if(emd_no != item.emd_no)
-      return emd_no < item.emd_no;
-    return emd_coupon < item.emd_coupon;
-  }
-};
-
-class TPaidBagEMDProps : public std::set<TPaidBagEMDPropsItem>
-{
-  public:
-    TPaidBagEMDPropsItem get(const std::string &_emd_no,
-                             const int &_emd_coupon) const
-    {
-      TPaidBagEMDPropsItem item(_emd_no, _emd_coupon);
-      TPaidBagEMDProps::const_iterator i=find(item);
-      return i!=end()?*i:item;
-    }
-};
-
-void PaidBagEMDPropsFromDB(int grp_id, TPaidBagEMDProps &props);
-void PaidBagEMDPropsToDB(int grp_id, const TPaidBagEMDProps &props);
 
 } //namespace CheckIn
 
-namespace WeightConcept
-{
+void GridInfoToXML(const TTrferRoute &trfer,
+                   const TPaidRFISCViewMap &paidRFISC,
+                   const TPaidBagViewMap &paidBag,
+                   const TPaidBagViewMap &trferBag,
+                   xmlNodePtr node);
 
-class TNormItem
-{
-  public:
-    ASTRA::TBagNormType norm_type;
-    int amount;
-    int weight;
-    int per_unit;
-  TNormItem()
-  {
-    clear();
-  };
-  void clear()
-  {
-    norm_type=ASTRA::bntUnknown;
-    amount=ASTRA::NoExists;
-    weight=ASTRA::NoExists;
-    per_unit=ASTRA::NoExists;
-  };
-  bool operator == (const TNormItem &item) const
-  {
-    return norm_type == item.norm_type &&
-           amount == item.amount &&
-           weight == item.weight &&
-           per_unit == item.per_unit;
-  };
-  bool empty() const
-  {
-    return norm_type==ASTRA::bntUnknown &&
-           amount==ASTRA::NoExists &&
-           weight==ASTRA::NoExists &&
-           per_unit==ASTRA::NoExists;
-  };
-  const TNormItem& toXML(xmlNodePtr node) const;
-  TNormItem& fromDB(TQuery &Qry);
-  std::string str(const std::string& lang) const;
-  void GetNorms(PrmEnum& prmenum) const;
+struct TExcessNodeList {
+    enum ConceptType {ctInitial, ctAll, ctPiece, ctWeight} concept;
+    typedef std::vector<std::pair<xmlNodePtr, bool> > TConceptList; // bool: false - weight, true - seat
+    TConceptList items;
+    bool must_work;
+    void set_concept(xmlNodePtr& node, bool val);
+    TExcessNodeList();
+    ~TExcessNodeList()
+    {  if(must_work) apply();
+        //временно отключено
+
+    }
+private:
+     void apply();
 };
-
-class TPaxNormItem
-{
-  public:
-    int bag_type;
-    int norm_id;
-    bool norm_trfer;
-    int handmade;
-  TPaxNormItem()
-  {
-    clear();
-  };
-  void clear()
-  {
-    bag_type=ASTRA::NoExists;
-    norm_id=ASTRA::NoExists;
-    norm_trfer=false;
-    handmade=ASTRA::NoExists;
-  };
-  bool empty() const
-  {
-    return bag_type==ASTRA::NoExists &&
-           norm_id==ASTRA::NoExists &&
-           norm_trfer==false;
-  };
-  bool operator == (const TPaxNormItem &item) const
-  {
-    return bag_type==item.bag_type &&
-           norm_id==item.norm_id &&
-           norm_trfer==item.norm_trfer;
-  };
-  const TPaxNormItem& toXML(xmlNodePtr node) const;
-  TPaxNormItem& fromXML(xmlNodePtr node);
-  const TPaxNormItem& toDB(TQuery &Qry) const;
-  TPaxNormItem& fromDB(TQuery &Qry);
-  std::string bag_type_str() const;
-};
-
-bool PaxNormsFromDB(TDateTime part_key, int pax_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
-bool GrpNormsFromDB(TDateTime part_key, int grp_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
-void NormsToXML(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms, const CheckIn::TGroupBagItem &group_bag, xmlNodePtr node);
-void PaxNormsToDB(int pax_id, const boost::optional< std::list<TPaxNormItem> > &norms);
-void GrpNormsToDB(int grp_id, const boost::optional< std::list<TPaxNormItem> > &norms);
-void ConvertNormsList(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms,
-                      std::map< std::string/*bag_type_view*/, TNormItem> &result);
-
-class TPaidBagItem
-{
-  public:
-    int bag_type;
-    int weight;
-    int rate_id;
-    double rate;
-    std::string rate_cur;
-    bool rate_trfer;
-    int handmade;
-  TPaidBagItem()
-  {
-    clear();
-  };
-  void clear()
-  {
-    bag_type=ASTRA::NoExists;
-    weight=0;
-    rate_id=ASTRA::NoExists;
-    rate=ASTRA::NoExists;
-    rate_cur.clear();
-    rate_trfer=false;
-    handmade=ASTRA::NoExists;
-  };
-  bool operator == (const TPaidBagItem &item) const
-  {
-    return bag_type==item.bag_type &&
-           weight==item.weight &&
-           rate_id==item.rate_id &&
-           rate==item.rate &&
-           rate_cur==item.rate_cur &&
-           rate_trfer==item.rate_trfer;
-  };
-  const TPaidBagItem& toXML(xmlNodePtr node) const;
-  TPaidBagItem& fromXML(xmlNodePtr node);
-  const TPaidBagItem& toDB(TQuery &Qry) const;
-  TPaidBagItem& fromDB(TQuery &Qry);
-  std::string bag_type_str() const;
-};
-
-void PaidBagFromXML(xmlNodePtr paidbagNode,
-                    boost::optional< std::list<TPaidBagItem> > &paid);
-void PaidBagToDB(int grp_id,
-                 const boost::optional< std::list<TPaidBagItem> > &paid);
-void PaidBagFromDB(TDateTime part_key, int grp_id, std::list<TPaidBagItem> &paid);
-void PaidBagToXML(const std::list<TPaidBagItem> &paid, const CheckIn::TGroupBagItem &group_bag, xmlNodePtr paidbagNode);
-
-} //namespace WeightConcept
 
 #endif
 

@@ -297,6 +297,7 @@ void GetModuleList(xmlNodePtr resNode)
     {
       string exe=Qry.FieldAsString("exe");
       if (exe=="ACCESS.EXE" && !reqinfo->desk.compatible(ACCESS_MODULE_VERSION)) continue;
+      if (exe=="KASSA.EXE" && reqinfo->desk.compatible(PAX_SERVICE_VERSION)) continue;
       xmlNodePtr moduleNode = NewTextChild(modulesNode, "module");
       NewTextChild(moduleNode, "id", Qry.FieldAsInteger("id"));
       NewTextChild(moduleNode, "name", Qry.FieldAsString("name"));

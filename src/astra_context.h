@@ -7,8 +7,6 @@
 
 using BASIC::date_time::TDateTime;
 
-void longToDB(TQuery &Qry, const std::string &column_name, const std::string &src, bool nullable=false, int len=4000);
-
 namespace AstraContext
 {
 

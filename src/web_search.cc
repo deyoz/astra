@@ -1264,7 +1264,7 @@ bool TPNRInfo::fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest, b
     paxInfo.cl=segs.begin()->second.cls;
 
     WeightConcept::TBagNormInfo norm;
-    WeightConcept::CheckOrGetPaxBagNorm(fltInfo, paxInfo, false, NoExists, WeightConcept::TPaxNormItem(), norm); //обычный багаж
+    WeightConcept::CheckOrGetPaxBagNorm(fltInfo, paxInfo, false, WeightConcept::REGULAR_BAG_TYPE, WeightConcept::TPaxNormItem(), norm); //обычный багаж
     if (!norm.empty())
       bag_norm=norm.weight;
   };

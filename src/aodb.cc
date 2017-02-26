@@ -1183,14 +1183,14 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     fl.flt_no = fltNo.flt_no;
     fl.suffix = fltNo.suffix;
     if ( fltNo.airline.fmt == efmtCodeInter || fltNo.airline.fmt == efmtCodeICAOInter )
-      fl.trip_type = "м";  //!!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
+      fl.trip_type = "м";  //!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
     else
       fl.trip_type = "п";
 
     err++;
     tmp = linestr.substr( LITERA_IDX, LITERA_LEN );
     fl.litera = checkerFlt.checkLitera( tmp, TCheckerFlt::etExtAODB, Qry );
-    err++;    
+    err++;
     fl.scd = checkerFlt.checkLocalTime( linestr.substr( SCD_IDX, SCD_LEN ), region, "Плановое время вылета", true );
     TDateTime local_scd_out = UTCToLocal( fl.scd, region );
     err++;
@@ -1198,7 +1198,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     err++;
     fl.act = checkerFlt.checkLocalTime( linestr.substr( ACT_IDX, ACT_LEN ), region, "Фактическое время вылета", false );
     err++;
-    tmp = linestr.substr( HALL_IDX, HALL_LEN );    
+    tmp = linestr.substr( HALL_IDX, HALL_LEN );
     fl.hall = checkerFlt.checkTerminalNo( tmp );
     err++;
     tmp = linestr.substr( PARK_OUT_IDX, PARK_OUT_LEN );
@@ -1302,7 +1302,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
           tmp = TrimString( tmp );
           int pr_del;
           if ( tmp.empty() || StrToInt( tmp.c_str(), pr_del ) == EOF || pr_del < 0 || pr_del > 1 )
-            throw Exception( "Ошибка формата признака удаления стойки, значение=%s", tmp.c_str() );          
+            throw Exception( "Ошибка формата признака удаления стойки, значение=%s", tmp.c_str() );
           if ( pr_del ) {
             fl.del_stations.push_back( station );
           }
@@ -1588,7 +1588,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       if ( fl.max_load != NoExists )
         Qry.SetVariable( "max_commerce", fl.max_load );
       else
-        QrySet.SetVariable( "max_commerce", FNull );      
+        QrySet.SetVariable( "max_commerce", FNull );
       err++;
       Qry.Execute();
       err++;
