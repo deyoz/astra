@@ -135,6 +135,7 @@ begin
       (SELECT 1 FROM confirm_print
        WHERE confirm_print.pax_id=pax.pax_id AND
              op_type = 'PRINT_BP' and
+             voucher is null and
              client_type='TERM' AND pr_print<>0 AND rownum<2) AS term_bp,
       (SELECT 1 FROM bag2
        WHERE bag2.grp_id=pax.grp_id AND pax.bag_pool_num IS NOT NULL AND
@@ -238,6 +239,7 @@ BEGIN
            (SELECT 1 FROM confirm_print
             WHERE confirm_print.pax_id=pax.pax_id AND
                   op_type = 'PRINT_BP' and
+                  voucher is null and
                   client_type='TERM' AND pr_print<>0 AND rownum<2) AS term_bp,
            (SELECT 1 FROM bag2
             WHERE bag2.grp_id=pax.grp_id AND pax.bag_pool_num IS NOT NULL AND

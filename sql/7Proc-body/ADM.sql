@@ -321,6 +321,21 @@ BEGIN
   RETURN vright_id;
 END check_right_access;
 
+FUNCTION check_profile_aro_access(vprofile_id IN airline_profiles.profile_id%TYPE,
+                           vuser_id IN users2.user_id%TYPE) return number
+is
+vairline airlines.code%TYPE;
+vairp airps.code%TYPE;
+begin
+  SELECT airline,airp INTO vairline,vairp FROM airline_profiles WHERE profile_id=vprofile_id;
+  if check_airline_access(vairline,vuser_id)<>0 AND
+     check_airp_access(vairp,vuser_id)<>0 then
+    return 1;
+  else
+    return 0;
+  end if;
+end check_profile_aro_access;
+
 FUNCTION check_role_aro_access(vrole_id IN roles.role_id%TYPE,
                            vuser_id IN users2.user_id%TYPE,
                            view_only IN BOOLEAN) RETURN NUMBER
@@ -452,6 +467,23 @@ IS
 BEGIN
   RETURN check_role_access(vrole_id,vuser_id,FALSE);
 END check_role_access;
+
+FUNCTION check_profile_access(vprofile_id IN airline_profiles.profile_id%TYPE,
+                           vuser_id IN users2.user_id%TYPE,
+                           vexception IN NUMBER) RETURN airline_profiles.profile_id%TYPE
+is
+begin
+  IF check_profile_aro_access(vprofile_id,vuser_id)=0 THEN
+    IF vexception<>0 THEN
+      IF vexception=1 THEN
+        system.raise_user_exception('MSG.ACCESS.NO_PERM_ENTER_AIRLINE_PROFILE');
+      ELSE
+        system.raise_user_exception('MSG.ACCESS.NO_PERM_MODIFY_AIRLINE_PROFILE');
+      END IF;
+    END IF;
+  END IF;
+  RETURN vprofile_id;
+end check_profile_access;
 
 FUNCTION check_role_access(vrole_id IN roles.role_id%TYPE,
                            vuser_id IN users2.user_id%TYPE,
@@ -3149,6 +3181,26 @@ BEGIN
         lower(vname) like 'досмотр%';
   hist.synchronize_history('trip_list_days',vrole_id,vsetting_user,vstation);
 END modify_roles;
+
+PROCEDURE delete_airline_profiles(vprofile_id       airline_profiles.profile_id%TYPE,
+                       vsetting_user  history_events.open_user%TYPE,
+                       vstation       history_events.open_desk%TYPE)
+IS
+TYPE TIdsTable IS TABLE OF NUMBER(9);
+ids               TIdsTable;
+i                 BINARY_INTEGER;
+begin
+  DELETE FROM profile_rights WHERE profile_id=vprofile_id RETURNING id BULK COLLECT INTO ids;
+  IF SQL%ROWCOUNT>0 THEN
+    FOR i IN ids.FIRST..ids.LAST
+    LOOP
+      hist.synchronize_history('profile_rights',ids(i),vsetting_user,vstation);
+    END LOOP;
+  END IF;
+
+  DELETE FROM airline_profiles WHERE profile_id=vprofile_id;
+  hist.synchronize_history('airline_profiles',vprofile_id,vsetting_user,vstation);
+end delete_airline_profiles;
 
 PROCEDURE delete_roles(vrole_id       roles.role_id%TYPE,
                        vsetting_user  history_events.open_user%TYPE,

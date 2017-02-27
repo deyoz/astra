@@ -466,11 +466,11 @@ BEGIN
       FORALL i IN 1..grprowids.COUNT
         INSERT INTO arx_pax_grp
           (grp_id,point_dep,point_arv,airp_dep,airp_arv,class,class_grp,
-           status,excess,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
+           status,excess,excess_wt,excess_pc,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
            piece_concept,bag_types_id,desk,time_create,tid,part_key)
         SELECT
            grp_id,point_dep,point_arv,airp_dep,airp_arv,class,class_grp,
-           status,excess,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
+           status,excess,excess_wt,excess_pc,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
            piece_concept,bag_types_id,desk,time_create,tid,vpart_key
         FROM pax_grp
         WHERE rowid=grprowids(i);
@@ -721,10 +721,10 @@ BEGIN
         FORALL i IN 1..miscids.COUNT
           INSERT INTO arx_annul_bag
           (id, grp_id, pax_id, bag_type, rfisc, time_create, time_annul, amount,
-          weight, part_key)
+          weight, user_id, part_key)
           SELECT
           id, grp_id, pax_id, bag_type, rfisc, time_create, time_annul, amount,
-          weight, vpart_key
+          weight, user_id, vpart_key
           FROM annul_bag
           WHERE id=miscids(i);
         forall i in 1..miscids.count
@@ -758,10 +758,12 @@ BEGIN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_bag2
             (grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,to_ramp,
-             using_scales,bag_pool_num,hall,user_id,is_trfer,handmade,desk,time_create,part_key)
+             using_scales,bag_pool_num,hall,user_id,is_trfer,handmade,desk,time_create,
+             list_id, bag_type_str, service_type, airline, part_key)
           SELECT
              grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,to_ramp,
-             using_scales,bag_pool_num,hall,user_id,is_trfer,handmade,desk,time_create,vpart_key
+             using_scales,bag_pool_num,hall,user_id,is_trfer,handmade,desk,time_create,
+             list_id, bag_type_str, service_type, airline, vpart_key
           FROM bag2
           WHERE rowid=rowids(i);
       END IF;
@@ -805,9 +807,11 @@ BEGIN
       IF use_insert THEN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_paid_bag
-            (grp_id,bag_type,weight,rate_id,rate_trfer,handmade,part_key)
+            (grp_id,bag_type,weight,rate_id,rate_trfer,handmade,
+             list_id, bag_type_str, airline, part_key)
           SELECT
-             grp_id,bag_type,weight,rate_id,rate_trfer,handmade,vpart_key
+             grp_id,bag_type,weight,rate_id,rate_trfer,handmade,
+             list_id, bag_type_str, airline, vpart_key
           FROM paid_bag
           WHERE rowid=rowids(i);
       END IF;
@@ -1084,6 +1088,9 @@ BEGIN
     DELETE FROM counters_by_subcls WHERE point_id=curRow.point_id;
     DELETE FROM apps_messages WHERE point_id=curRow.point_id;
     DELETE FROM apps_pax_data WHERE point_id=curRow.point_id;
+    DELETE FROM wb_msg_text where id in(SELECT id FROM wb_msg WHERE point_id = curRow.point_id);
+    DELETE FROM wb_msg where point_id = curRow.point_id;
+    DELETE FROM trip_vouchers WHERE point_id=curRow.point_id;
   END LOOP;
   DELETE FROM points WHERE move_id=vmove_id;
   DELETE FROM move_ref WHERE move_id=vmove_id;

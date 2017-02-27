@@ -58,6 +58,12 @@ FUNCTION check_right_access(vright_id IN rights_list.ida%TYPE,
                             vuser_id IN users2.user_id%TYPE,
                             vexception IN NUMBER) RETURN rights_list.ida%TYPE;
 
+FUNCTION check_profile_aro_access(vprofile_id IN airline_profiles.profile_id%TYPE,
+                           vuser_id IN users2.user_id%TYPE) return number;
+FUNCTION check_profile_access(vprofile_id IN airline_profiles.profile_id%TYPE,
+                           vuser_id IN users2.user_id%TYPE,
+                           vexception IN NUMBER) RETURN airline_profiles.profile_id%TYPE;
+
 FUNCTION check_role_view_access(vrole_id IN roles.role_id%TYPE,
                                 vuser_id IN users2.user_id%TYPE) RETURN NUMBER;
 FUNCTION check_role_aro_access(vrole_id IN roles.role_id%TYPE,
@@ -469,6 +475,10 @@ PROCEDURE modify_roles(vrole_id       roles.role_id%TYPE,
                        vname          roles.name%TYPE,
                        vairline       airlines.code%TYPE,
                        vairp          airps.code%TYPE,
+                       vsetting_user  history_events.open_user%TYPE,
+                       vstation       history_events.open_desk%TYPE);
+
+PROCEDURE delete_airline_profiles(vprofile_id       airline_profiles.profile_id%TYPE,
                        vsetting_user  history_events.open_user%TYPE,
                        vstation       history_events.open_desk%TYPE);
 
