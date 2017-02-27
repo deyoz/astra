@@ -436,19 +436,23 @@ bool TRFISCKey::getPseudoListIdForInboundTrfer(int grp_id)
   if (Qry.get().Eof) return false;
   TRFISCListKey tmp_key=*this;
 
-  for(int pass=0; pass<2; pass++)
+  for(int pass=0; pass<3; pass++)
   {
-    tmp_key.airline=Qry.get().FieldAsString(pass==0?"oper_airline":"mark_airline");
+    tmp_key.airline=pass<2?(Qry.get().FieldAsString(pass==0?"oper_airline":"mark_airline")):"";
     tmp_key.service_type=TServiceType::BaggageCharge;
 
-    TCachedQuery Qry2("SELECT pax_grp.grp_id "
-                      "FROM grp_rfisc_lists, bag_types_lists, pax_grp "
-                      "WHERE grp_rfisc_lists.list_id=pax_grp.bag_types_id AND "
-                      "      bag_types_lists.id=pax_grp.bag_types_id AND "
-                      "      grp_rfisc_lists.rfisc=:rfisc AND "
-                      "      grp_rfisc_lists.service_type=:service_type AND "
-                      "      bag_types_lists.airline=:airline AND "
-                      "      rownum<2",
+    ostringstream sql;
+    sql << "SELECT pax_grp.grp_id, bag_types_lists.airline "
+           "FROM grp_rfisc_lists, bag_types_lists, pax_grp "
+           "WHERE grp_rfisc_lists.list_id=pax_grp.bag_types_id AND "
+           "      bag_types_lists.id=pax_grp.bag_types_id AND "
+           "      grp_rfisc_lists.rfisc=:rfisc AND "
+           "      grp_rfisc_lists.service_type=:service_type AND "
+        << (pass<2?
+           "      bag_types_lists.airline=:airline AND ":
+           "      :airline IS NULL AND ")
+        << "      rownum<2";
+    TCachedQuery Qry2(sql.str(),
                       QParams() << QParam("rfisc", otString)
                                 << QParam("service_type", otString)
                                 << QParam("airline", otString));
@@ -456,9 +460,9 @@ bool TRFISCKey::getPseudoListIdForInboundTrfer(int grp_id)
     Qry2.get().Execute();
     if (!Qry2.get().Eof && !Qry2.get().FieldIsNULL("grp_id"))
     {
-      airline=tmp_key.airline;
+      airline=Qry2.get().FieldAsString("airline");
       service_type=tmp_key.service_type;
-      list_id=-Qry2.get().FieldIsNULL("grp_id");
+      list_id=-Qry2.get().FieldAsInteger("grp_id");
       return true;
     };
   };
@@ -1401,7 +1405,7 @@ void TPaidRFISCList::toDB777(int grp_id) const
   {
     TCachedQuery Qry("UPDATE pax_grp "
                      "SET excess_pc=:excess, excess=DECODE(NVL(piece_concept,0), 0, excess, :excess) "
-                     "WHERE grp_id=:grp_id AND trfer_confirm<>0",
+                     "WHERE grp_id=:grp_id",
                      QParams() << QParam("grp_id", otInteger, grp_id)
                                << QParam("excess", otInteger, excess));
     Qry.get().Execute();
@@ -1885,6 +1889,7 @@ void GetBagConcepts(int grp_id, bool &pc, bool &wt, bool &rfisc_used)
     //!!! потом удалить!
     int bag_types_id=ASTRA::NoExists;
     GetBagConceptsCompatible(grp_id, pc, wt, bag_types_id);
+    rfisc_used=bag_types_id!=ASTRA::NoExists;
   };
 }
 

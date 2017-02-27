@@ -1619,10 +1619,10 @@ TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node, bool is_unaccomp)
     hall=NodeAsIntegerFast("hall",node2);
   };
 
-  PaidBagFromXML(node, id, is_unaccomp, paid);
+  PaidBagFromXML(node, id, is_unaccomp, trfer_confirm, paid);
 
   group_bag=TGroupBagItem();
-  if (!group_bag.get().fromXML(node, id, hall, is_unaccomp, baggage_pc)) group_bag=boost::none;
+  if (!group_bag.get().fromXML(node, id, hall, is_unaccomp, baggage_pc, trfer_confirm)) group_bag=boost::none;
 
   svc=TGrpServiceList();
   if (!svc.get().fromXML(node)) svc=boost::none;

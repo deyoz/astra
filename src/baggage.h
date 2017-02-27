@@ -233,7 +233,7 @@ class TGroupBagItem
                                std::list<TTagItem> &tags_list);
     void filterPools(const std::set<int/*bag_pool_num*/> &pool_nums,
                      bool pool_nums_for_keep);
-    void fromXMLcompletion(int grp_id, int hall, bool is_unaccomp);
+    void fromXMLcompletion(int grp_id, int hall, bool is_unaccomp, bool trfer_confirm);
   public:
     std::map<int /*num*/, TValueBagItem> vals;
     TBagMap bags111;
@@ -260,7 +260,7 @@ class TGroupBagItem
              bags111.empty() &&
              tags.empty();
     };
-    bool fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is_unaccomp, bool baggage_pc);
+    bool fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is_unaccomp, bool baggage_pc, bool trfer_confirm);
     void checkAndGenerateTags(int point_id, int grp_id);
     void toDB(int grp_id) const;
     void bagToDB(int grp_id) const;

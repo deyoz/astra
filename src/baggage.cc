@@ -837,7 +837,7 @@ bool TGroupBagItem::trferExists() const
   return false;
 }
 
-bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is_unaccomp, bool baggage_pc)
+bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is_unaccomp, bool baggage_pc, bool trfer_confirm)
 {
   clear();
   if (bagtagNode==NULL) return false;
@@ -918,7 +918,7 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is
   };
   pr_tag_print=NodeAsInteger("@pr_print",tagNode)!=0;
 
-  fromXMLcompletion(grp_id, hall, is_unaccomp);
+  fromXMLcompletion(grp_id, hall, is_unaccomp, trfer_confirm);
 
   return true;
 }
@@ -1050,7 +1050,7 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
   };
 };
 
-void TGroupBagItem::fromXMLcompletion(int grp_id, int hall, bool is_unaccomp)
+void TGroupBagItem::fromXMLcompletion(int grp_id, int hall, bool is_unaccomp, bool trfer_confirm)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool is_payment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
@@ -1058,8 +1058,8 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall, bool is_unaccomp)
   TBagMap old_bags;
   if (grp_id!=ASTRA::NoExists) old_bags.fromDB(grp_id);
 
-  bags111.dump("TGroupBagItem::fromXMLcompletion: new_bags:");
-  old_bags.dump("TGroupBagItem::fromXMLcompletion: old_bags:");
+//  bags111.dump("TGroupBagItem::fromXMLcompletion: new_bags:");
+//  old_bags.dump("TGroupBagItem::fromXMLcompletion: old_bags:");
 
   if (is_payment && !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
   {
@@ -1125,7 +1125,11 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall, bool is_unaccomp)
   };
 
   if (!reqInfo->desk.compatible(PAX_SERVICE_VERSION))
+  {
+    if ((grp_id==ASTRA::NoExists || !trfer_confirm) && !bags111.empty())
+      throw UserException("MSG.BAGGAGE_INPUT_ONLY_AFTER_CHECKIN");
     getAllListKeys(grp_id, is_unaccomp, 0);
+  }
 };
 
 void TBagMap::toDB(int grp_id) const
@@ -1590,7 +1594,6 @@ void TGroupBagItem::getAllListKeys(const int grp_id, const bool is_unaccomp, con
   for(TBagMap::iterator b=bags111.begin(); b!=bags111.end(); ++b)
   {
     TBagItem &bag=b->second;
-    if (grp_id==ASTRA::NoExists) throw UserException("MSG.BAGGAGE_INPUT_ONLY_AFTER_CHECKIN");
     TServiceCategory::Enum category=bag.pr_cabin?TServiceCategory::CarryOn:TServiceCategory::Baggage;
     try
     {
@@ -1623,7 +1626,6 @@ void TGroupBagItem::getAllListItems(const int grp_id, const bool is_unaccomp, co
   for(TBagMap::iterator b=bags111.begin(); b!=bags111.end(); ++b)
   {
     TBagItem &bag=b->second;
-    if (grp_id==ASTRA::NoExists) throw UserException("MSG.BAGGAGE_INPUT_ONLY_AFTER_CHECKIN");
     TServiceCategory::Enum category=bag.pr_cabin?TServiceCategory::CarryOn:TServiceCategory::Baggage;
     try
     {

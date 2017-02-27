@@ -333,7 +333,7 @@ class TPaidBagList : public std::list<TPaidBagItem>
 };
 
 void PaidBagFromXML(xmlNodePtr paidbagNode,
-                    int grp_id, bool is_unaccomp,
+                    int grp_id, bool is_unaccomp, bool trfer_confirm,
                     boost::optional< TPaidBagList > &paid);
 void PaidBagToDB(int grp_id, bool is_unaccomp,
                  TPaidBagList &paid);

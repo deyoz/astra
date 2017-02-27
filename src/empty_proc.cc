@@ -2856,15 +2856,17 @@ int pc_wt_test(int argc,char **argv)
   Qry.SQLText=
     "SELECT grp_id, point_dep FROM pax_grp "
     "WHERE "
+    " grp_id in (132827995, 132821341)";
+ //   "  grp_id BETWEEN 132816281 AND 132840000 ";
 //    "WHERE grp_id>32588640 "; //stand
 //    "WHERE grp_id>34405 AND grp_id<36000 AND " //beta
 //    "WHERE time_create IS NOT NULL AND rownum<=1000 AND "
-    "      NOT EXISTS(SELECT * FROM paid_rfisc, pax WHERE paid_rfisc.pax_id=pax.pax_id AND pax.grp_id=pax_grp.grp_id AND rownum<2) AND "
-    "      NOT EXISTS(SELECT * FROM service_payment WHERE service_payment.grp_id=pax_grp.grp_id AND rownum<2) AND "
-    "      NOT EXISTS(SELECT * FROM bag2 WHERE bag2.grp_id=pax_grp.grp_id AND bag2.list_id IS NOT NULL AND rownum<2) AND "
-    "      NOT EXISTS(SELECT * FROM paid_bag WHERE paid_bag.grp_id=pax_grp.grp_id AND paid_bag.list_id IS NOT NULL AND rownum<2) AND "
-    "      NOT EXISTS(SELECT * FROM grp_service_lists WHERE grp_service_lists.grp_id=pax_grp.grp_id AND rownum<2) AND "
-    "      NOT EXISTS(SELECT * FROM pax_service_lists, pax WHERE pax_service_lists.pax_id=pax.pax_id AND pax.grp_id=pax_grp.grp_id AND rownum<2)";
+//    "      NOT EXISTS(SELECT * FROM paid_rfisc, pax WHERE paid_rfisc.pax_id=pax.pax_id AND pax.grp_id=pax_grp.grp_id AND rownum<2) AND "
+//    "      NOT EXISTS(SELECT * FROM service_payment WHERE service_payment.grp_id=pax_grp.grp_id AND rownum<2) AND "
+//    "      NOT EXISTS(SELECT * FROM bag2 WHERE bag2.grp_id=pax_grp.grp_id AND bag2.list_id IS NOT NULL AND rownum<2) AND "
+//    "      NOT EXISTS(SELECT * FROM paid_bag WHERE paid_bag.grp_id=pax_grp.grp_id AND paid_bag.list_id IS NOT NULL AND rownum<2) AND "
+//    "      NOT EXISTS(SELECT * FROM grp_service_lists WHERE grp_service_lists.grp_id=pax_grp.grp_id AND rownum<2) AND "
+//    "      NOT EXISTS(SELECT * FROM pax_service_lists, pax WHERE pax_service_lists.pax_id=pax.pax_id AND pax.grp_id=pax_grp.grp_id AND rownum<2)";
   Qry.Execute();
   list< pair<int, int> > grp_ids;
   for(;!Qry.Eof;Qry.Next())
@@ -2900,6 +2902,16 @@ int pc_wt_test(int argc,char **argv)
     " WHERE paid_bag_pc.pax_id=pax.pax_id AND pax.grp_id=:grp_id) ";
   Qry3.DeclareVariable("grp_id", otInteger);
 
+  TQuery Qry32(&OraSession);
+  Qry32.Clear();
+  Qry32.SQLText=
+    "SELECT COUNT(*) "
+    "FROM paid_bag_pc, pax "
+    "WHERE paid_bag_pc.pax_id=pax.pax_id AND pax.grp_id=:grp_id "
+    "MINUS "
+    "SELECT COUNT(*) FROM drop_paid_bag_pc ";
+  Qry32.DeclareVariable("grp_id", otInteger);
+
   TQuery Qry4(&OraSession);
   Qry4.Clear();
   Qry4.SQLText=
@@ -2911,6 +2923,14 @@ int pc_wt_test(int argc,char **argv)
     " MINUS "
     " SELECT * FROM paid_bag_emd WHERE grp_id=:grp_id) ";
   Qry4.DeclareVariable("grp_id", otInteger);
+
+  TQuery Qry42(&OraSession);
+  Qry42.Clear();
+  Qry42.SQLText=
+    "SELECT COUNT(*) FROM paid_bag_emd WHERE grp_id=:grp_id "
+    "MINUS "
+    "SELECT COUNT(*) FROM drop_paid_bag_emd ";
+  Qry42.DeclareVariable("grp_id", otInteger);
 
   printf("total %zu iterations\n", grp_ids.size());
 
@@ -2929,6 +2949,15 @@ int pc_wt_test(int argc,char **argv)
       Qry2.Execute();
 
       UpgradeDBForServices(grp_id);
+
+      Qry32.SetVariable("grp_id", grp_id);
+      Qry32.Execute();
+      if (!Qry32.Eof)
+        throw EXCEPTIONS::Exception("paid_bag_pc different sizes!");
+      Qry42.SetVariable("grp_id", grp_id);
+      Qry42.Execute();
+      if (!Qry42.Eof)
+        throw EXCEPTIONS::Exception("paid_bag_emd different sizes!");
 
       Qry3.SetVariable("grp_id", grp_id);
       Qry3.Execute();

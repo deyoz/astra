@@ -760,14 +760,15 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     UpgradeDBForServices(grp.id);
 
   CheckIn::TGroupBagItem group_bag;
-  if (group_bag.fromXML(reqNode, grp_id, ASTRA::NoExists, grp.is_unaccomp(), grp.baggage_pc))
+  if (group_bag.fromXML(reqNode, grp_id, ASTRA::NoExists,
+                           grp.is_unaccomp(), grp.baggage_pc, grp.trfer_confirm))
   {
     group_bag.checkAndGenerateTags(point_dep, grp_id);
     group_bag.toDB(grp_id);
   };
 
   boost::optional< WeightConcept::TPaidBagList > paid;
-  WeightConcept::PaidBagFromXML(reqNode, grp_id, grp.is_unaccomp(), paid);
+  WeightConcept::PaidBagFromXML(reqNode, grp_id, grp.is_unaccomp(), grp.trfer_confirm, paid);
   if (paid)
     WeightConcept::PaidBagToDB(grp_id, grp.is_unaccomp(), paid.get());
 
