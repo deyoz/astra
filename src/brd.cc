@@ -446,8 +446,8 @@ bool CheckSeat(int pax_id, const string& scan_data, string& curr_seat_no)
         "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',1,1),4,'0') AS curr_seat_no_one_lat, "
         "       confirm_print.seat_no_lat AS bp_seat_no_lat "
         "FROM confirm_print,pax, "
-        "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id AND pr_print<>0 and " OP_TYPE_COND("op_type")") a "
-        "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND "
+        "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id AND voucher is null and pr_print<>0 and " OP_TYPE_COND("op_type")") a "
+        "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND voucher is null and "
         "      " OP_TYPE_COND("confirm_print.op_type")" and "
         "      pax.pax_id=:pax_id";
       Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));

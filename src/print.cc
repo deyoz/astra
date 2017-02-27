@@ -18,10 +18,13 @@
 #include "emdoc.h"
 #include "serverlib/str_utils.h"
 #include "qrys.h"
+#include "sopp.h"
 #include "points.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -1390,8 +1393,13 @@ void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
         "BEGIN "
         "  UPDATE confirm_print "
         "  SET pr_print = 1 "
-        "  WHERE pax_id = :pax_id AND time_print = :time_print AND pr_print = 0 AND desk=:desk "
-        "  and " OP_TYPE_COND("op_type")
+        "  WHERE "
+        "   pax_id = :pax_id AND "
+        "   time_print = :time_print AND "
+        "   pr_print = 0 AND "
+        "   desk=:desk and "
+        "   (voucher = :voucher OR voucher IS NULL AND :voucher IS NULL) and "
+        OP_TYPE_COND("op_type")
         "  RETURNING seat_no INTO :seat_no; "
         "  :rows:=SQL%ROWCOUNT; "
         "END;";
@@ -1400,6 +1408,7 @@ void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
     Qry.DeclareVariable("seat_no", otString);
     Qry.DeclareVariable("pax_id", otInteger);
     Qry.DeclareVariable("time_print", otDate);
+    Qry.DeclareVariable("voucher", otString);
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
     for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
     {
@@ -1407,18 +1416,25 @@ void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
         {
             Qry.SetVariable("pax_id", iPax->pax_id);
             Qry.SetVariable("time_print", iPax->time_print);
+            Qry.SetVariable("voucher", iPax->voucher);
             Qry.Execute();
             if (Qry.GetVariableAsInteger("rows")==0)
                 throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
             string seat_no = Qry.GetVariableAsString("seat_no");
+
             LEvntPrms params;
             params << PrmSmpl<std::string>("full_name", iPax->full_name);
-            if (seat_no.empty()) params << PrmBool("seat_no", false);
-            else params << PrmSmpl<std::string>("seat_no", seat_no);
+
             string lexeme;
             switch(op_type) {
                 case dotPrnBP:
-                    lexeme = "EVT.PRINT_BOARDING_PASS";
+                    lexeme = (iPax->voucher.empty() ? "EVT.PRINT_BOARDING_PASS" : "EVT.PRINT_VOUCHER");
+                    if(not iPax->voucher.empty())
+                        params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, iPax->voucher));
+                    else {
+                        if (seat_no.empty()) params << PrmBool("seat_no", false);
+                        else params << PrmSmpl<std::string>("seat_no", seat_no);
+                    }
                     break;
                 case dotPrnBI:
                     lexeme = "EVT.PRINT_INVITATION";
@@ -1435,6 +1451,23 @@ void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
         };
     };
 };
+
+string getVoucherCode(xmlNodePtr prnCodeNode)
+{
+    string result;
+    if(prnCodeNode) {
+        vector<string> tokens;
+        result = NodeAsString(prnCodeNode);
+        boost::split(tokens, result, boost::is_any_of("."));
+        if(
+                tokens.size() != 2 or
+                tokens[0] != "voucher"
+                )
+            throw Exception("getVoucherCode: wrong prn code format: %s", result.c_str());
+        result = tokens[1];
+    }
+    return result;
+}
 
 void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1453,6 +1486,9 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         BPPax pax;
         pax.pax_id=NodeAsInteger("@pax_id", curNode);
         pax.time_print=NodeAsDateTime("@time_print", curNode);
+        // Св-во print_code на данный момент передается только при печати ваучера
+        // в остальных случаях pax.voucher пустой.
+        pax.voucher = getVoucherCode(GetNode("@print_code", curNode));
 
         PaxQry.SetVariable("pax_id", pax.pax_id);
         PaxQry.Execute();
@@ -1860,6 +1896,144 @@ void PrintInterface::GetPrintDataBP(
     }
 };
 
+void PrintInterface::GetPrintDataVO(
+        int first_seg_grp_id,
+        int pax_id,
+        int pr_all,
+        BPParams &params,
+        xmlNodePtr reqNode,
+        xmlNodePtr resNode
+        )
+{
+    xmlNodePtr currNode = reqNode->children;
+    currNode = GetNodeFast("vouchers", currNode);
+    if(not currNode)
+        throw Exception("PrintInterface::GetPrintDataVO: vouchers tag not found");
+    if(not currNode->children) {
+        TCachedQuery Qry(
+                "SELECT pax_id, point_dep "
+                " FROM pax, pax_grp "
+                "WHERE pax.grp_id = :grp_id AND "
+                "      refuse IS NULL and "
+                "      pax.grp_id = pax_grp.grp_id "
+                "ORDER BY pax.reg_no ",
+                QParams() << QParam("grp_id", otInteger, first_seg_grp_id));
+        Qry.get().Execute();
+
+        int point_id = NoExists;
+        list<int> pax_ids;
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            point_id = Qry.get().FieldAsInteger("point_dep");
+            pax_ids.push_back(Qry.get().FieldAsInteger("pax_id"));
+        }
+
+        if(pax_ids.empty())
+            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+
+        set<string> trip_vouchers;
+        getTripVouchers(point_id, trip_vouchers);
+
+        if(trip_vouchers.empty())
+            throw AstraLocale::UserException("MSG.VOUCHER.ACCESS_DENIED");
+
+        xmlNodePtr printNode = NewTextChild(NewTextChild(resNode, "data"), "print");
+        SetProp(printNode, "vouchers");
+
+        xmlNodePtr voNode = NewTextChild(printNode, "voucher_types");
+        for(set<string>::iterator
+                i = trip_vouchers.begin(); i != trip_vouchers.end(); i++) {
+            xmlNodePtr itemNode = NewTextChild(voNode, "item");
+            NewTextChild(itemNode, "code", *i);
+            NewTextChild(itemNode, "name", ElemIdToNameLong(etVoucherType, *i));
+        }
+
+        xmlNodePtr paxListNode = NewTextChild(printNode, "passengers");
+        for(list<int>::iterator i = pax_ids.begin(); i != pax_ids.end(); i++) {
+            xmlNodePtr paxNode = NewTextChild(paxListNode, "passenger");
+            NewTextChild(paxNode, "pax_id", *i);
+            voNode = NewTextChild(paxNode, "vouchers");
+            for(set<string>::iterator
+                    i = trip_vouchers.begin(); i != trip_vouchers.end(); i++) {
+                xmlNodePtr itemNode = NewTextChild(voNode, "item");
+                NewTextChild(itemNode, "code", *i);
+                NewTextChild(itemNode, "pr_print", true);
+            }
+        }
+    } else {
+        // С клиента пришел список паксов с выбранными значениями
+        typedef list<pair<string, bool> > TvList;
+        typedef map<int, TvList> TPaxList;
+        TPaxList pax_list;
+        for(xmlNodePtr paxNode = currNode->children;
+                paxNode; paxNode = paxNode->next) {
+            currNode = paxNode->children;
+            int pax_id = NodeAsIntegerFast("pax_id", currNode);
+            currNode = NodeAsNodeFast("vouchers", currNode);
+            for(xmlNodePtr itemNode = currNode->children;
+                    itemNode; itemNode = itemNode->next) {
+                currNode = itemNode->children;
+                string vCode = NodeAsStringFast("code", currNode);
+                bool pr_print = NodeAsIntegerFast("pr_print", currNode) != 0;
+                pax_list[pax_id].push_back(make_pair(vCode, pr_print));
+            }
+        }
+
+        xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "print");
+        string data, pectab;
+        get_pectab(dotPrnBP, params, data, pectab);
+        NewTextChild(BPNode, "pectab", pectab);
+        xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
+
+        for(TPaxList::iterator
+                pax = pax_list.begin();
+                pax != pax_list.end();
+                pax++) {
+            for(TvList::iterator
+                    v = pax->second.begin();
+                    v != pax->second.end();
+                    v++) {
+                if(not v->second) continue;
+
+                TCachedQuery Qry("select grp_id, reg_no from pax where pax_id = :pax_id",
+                        QParams() << QParam("pax_id", otInteger, pax->first));
+                Qry.get().Execute();
+                if(Qry.get().Eof)
+                    throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+
+                int grp_id = Qry.get().FieldAsInteger("grp_id");
+                int reg_no = Qry.get().FieldAsInteger("reg_no");
+
+                PrintDataParser parser(grp_id, pax->first, params.prnParams.pr_lat, params.clientDataNode);
+
+                parser.pts.set_tag(TAG::VOUCHER_CODE, v->first);
+                parser.pts.set_tag(TAG::VOUCHER_TEXT, v->first);
+                parser.pts.set_tag(TAG::DUPLICATE, 0);
+
+                string prn_form = parser.parse(data);
+                bool hex = false;
+                if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
+                    to_esc::TConvertParams ConvertParams;
+                    ConvertParams.init(params.dev_model);
+                    ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
+                    to_esc::convert(prn_form, ConvertParams, params.prnParams);
+                    StringToHex( string(prn_form), prn_form );
+                    LogTrace(TRACE5) << "after StringToHex prn_form: " << prn_form;
+                    hex=true;
+                }
+                parser.pts.confirm_print(false, dotPrnBP);
+
+                xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+                SetProp(paxNode, "pax_id", pax->first);
+                SetProp(paxNode, "reg_no", reg_no);
+                SetProp(paxNode, "pr_print", true);
+                SetProp(paxNode, "print_code", "voucher." + v->first);
+                SetProp(paxNode, "time_print", DateTimeToStr(parser.pts.get_time_print()));
+                SetProp(NewTextChild(paxNode, "prn_form", prn_form),"hex",hex);
+            }
+        }
+    }
+}
+
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr currNode = reqNode->children;
@@ -1868,6 +2042,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     int pax_id = NodeAsIntegerFast("pax_id", currNode, NoExists);
     int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
     TDevOperType op_type = DecodeDevOperType(NodeAsStringFast("op_type", currNode, EncodeDevOperType(dotPrnBP).c_str()));
+    bool pr_voucher = GetNodeFast("vouchers", currNode) != NULL;
     params.dev_model = NodeAsStringFast("dev_model", currNode);
     params.fmt_type = NodeAsStringFast("fmt_type", currNode);
     params.prnParams.get_prn_params(reqNode);
@@ -1887,6 +2062,16 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
 
     check_pectab_availability(params, first_seg_grp_id, op_type);
+
+    if(pr_voucher)
+        return GetPrintDataVO(
+                first_seg_grp_id,
+                pax_id,
+                pr_all,
+                params,
+                reqNode,
+                resNode
+                );
 
     std::vector<BPPax> paxs;
     Qry.Clear();
@@ -1918,6 +2103,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 "WHERE  pax.grp_id = :grp_id AND "
                 "       pax.refuse IS NULL AND "
                 "       pax.pax_id = cp.pax_id(+) AND "
+                "       cp.voucher(+) is null and "
                 "       nvl(cp.op_type(+), :op_type) = :op_type and " // дефайн OP_TYPE_COND здесь не катит, т.к. плюсик.
                 "       cp.pr_print(+) <> 0 AND "
                 "       cp.pax_id IS NULL "
@@ -2158,6 +2344,15 @@ void PrintInterface::GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     xmlNodePtr kioskImgNode = NewTextChild(resNode, "kiosk_img");
     xmlNodePtr dataNode = NewTextChild(kioskImgNode, "data", result);
 }
+
+void PrintInterface::GetTripVouchersSet(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id = NodeAsInteger( "point_id", reqNode );
+  set<string> trip_vouchers;
+  getTripVouchers(point_id, trip_vouchers);
+  NewTextChild( resNode, "pr_vouchers", !trip_vouchers.empty() );
+}
+
 
 void PrintInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
