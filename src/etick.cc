@@ -19,7 +19,6 @@
 #include "misc.h"
 #include "qrys.h"
 #include "request_dup.h"
-#include "sirena_exchange.h"
 #include <jxtlib/jxtlib.h>
 #include <jxtlib/xml_stuff.h>
 #include <serverlib/query_runner.h>
@@ -33,6 +32,8 @@
 #include "edi_utils.h"
 #include "points.h"
 #include "brd.h"
+#include "astra_elems.h"
+#include "baggage_calc.h"
 #include "tlg/emd_disp_request.h"
 #include "tlg/emd_system_update_request.h"
 #include "tlg/emd_cos_request.h"
@@ -60,7 +61,6 @@ using namespace AstraLocale;
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace AstraEdifact;
-using namespace SirenaExchange;
 
 #define MAX_TICKETS_IN_TLG 5
 
@@ -954,14 +954,14 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
         i->pax.tkn.coupon==ASTRA::NoExists ||
         i->pax.tkn.rem!="TKNE")
     {
-      /*  Невозможно провести операцию ассоциации/диссоциации из-за отсутствия или неполной информации по эл. билету пассажира */
-      //!!!vlad возможно надо более тонко
+      //  Невозможно провести операцию ассоциации/диссоциации из-за отсутствия или неполной информации по эл. билету пассажира
+      //  возможно надо более тонко
       TLogLocale event;
       event.ev_type=ASTRA::evtPay;
       event.lexema_id= i->action==CpnStatAction::associate?"EVT.EMD_ASSOCIATION_MISTAKE":
                                                            "EVT.EMD_DISASSOCIATION_MISTAKE";
-      event.prms << PrmSmpl<std::string>("emd_no", i->asvc.emd_no)
-                 << PrmSmpl<int>("emd_coupon", i->asvc.emd_coupon);
+      event.prms << PrmSmpl<std::string>("emd_no", i->emd_no)
+                 << PrmSmpl<int>("emd_coupon", i->emd_coupon);
 
       if (i->pax.tkn.rem!="TKNE" || i->pax.tkn.no.empty())
         event.prms << PrmLexema("err", "MSG.ETICK.NUMBER_NOT_SET");
@@ -973,7 +973,7 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
     };
 
     TEMDocItem EMDocItem;
-    EMDocItem.fromDB(i->asvc.emd_no, i->asvc.emd_coupon, false);
+    EMDocItem.fromDB(i->emd_no, i->emd_coupon, false);
     if (!EMDocItem.empty())
     {
       if (EMDocItem.action==i->action) continue;
@@ -996,7 +996,7 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
     item.airline_oper=getTripAirline(fltParams.fltInfo);
     item.flt_no_oper=getTripFlightNum(fltParams.fltInfo);
     item.et=Ticketing::TicketCpn_t(i->pax.tkn.no, i->pax.tkn.coupon);
-    item.emd=Ticketing::TicketCpn_t(i->asvc.emd_no, i->asvc.emd_coupon);
+    item.emd=Ticketing::TicketCpn_t(i->emd_no, i->emd_coupon);
     item.action=i->action;
 
     XMLDoc &ctxt=emdList.back().second;
@@ -1425,7 +1425,7 @@ void TEMDChangeStatusList::addEMD(const TEMDChangeStatusKey &key,
   if (i==end()) throw EXCEPTIONS::Exception("%s: i==end()", __FUNCTION__);
 
   list<TEMDChangeStatusItem>::iterator j=i->second.insert(i->second.end(), TEMDChangeStatusItem());
-  j->emd=Ticketing::TicketCpn_t(item.asvc.emd_no, item.asvc.emd_coupon);
+  j->emd=Ticketing::TicketCpn_t(item.emd_no, item.emd_coupon);
   xmlNodePtr emdocsNode=NULL;
   if (j->ctxt.docPtr()==NULL)
   {
@@ -1441,7 +1441,7 @@ void TEMDChangeStatusList::addEMD(const TEMDChangeStatusKey &key,
 
 
 void EMDStatusInterface::EMDCheckStatus(const int grp_id,
-                                        const CheckIn::PaidBagEMDList &prior_emds,
+                                        const CheckIn::TServicePaymentList &prior_payment,
                                         TEMDChangeStatusList &emdList)
 {
   if (TReqInfo::Instance()->duplicate) return;
@@ -1458,7 +1458,7 @@ void EMDStatusInterface::EMDCheckStatus(const int grp_id,
   if (fltParams.eds_no_interact) return;
 
   list<TEMDCtxtItem> added_emds, deleted_emds;
-  GetEMDStatusList(grp_id, fltParams.in_final_status, prior_emds, added_emds, deleted_emds);
+  GetEMDStatusList(grp_id, fltParams.in_final_status, prior_payment, added_emds, deleted_emds);
   string flight=GetTripName(fltParams.fltInfo,ecNone,true,false);
 
   for(int pass=0; pass<2; pass++)
@@ -1470,7 +1470,7 @@ void EMDStatusInterface::EMDCheckStatus(const int grp_id,
       {
         if (pass==0)
           throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
-                              LParams() << LParam("emd", e->asvc.no_str()));
+                              LParams() << LParam("emd", e->no_str()));
         else
           continue;
       };
@@ -2204,11 +2204,10 @@ void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     }
 }
 
-bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id, bool &piece_concept)
+bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id)
 {
   point_id=NoExists;
   grp_id=NoExists;
-  piece_concept=false;
 
   QParams params;
   id.setSQLParams(params);
@@ -2217,7 +2216,6 @@ bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, int &g
   if (Qry.get().Eof) return false; //это бывает когда разрегистрация всей группы по ошибке агента
   point_id=Qry.get().FieldAsInteger("point_dep");
   grp_id=Qry.get().FieldAsInteger("grp_id");
-  piece_concept=!Qry.get().FieldIsNULL("piece_concept") && Qry.get().FieldAsInteger("piece_concept")!=0;
 
   TTripInfo info;
   if (!info.getByPointId(point_id)) return false;
@@ -2233,45 +2231,40 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
 {
   int point_id=NoExists;
   int grp_id=NoExists;
-  bool piece_concept=false;
-  if (!Lock(id, point_id, grp_id, piece_concept)) return;
-
-  string reqName=(char*)(reqNode->name);
-  if (!piece_concept && reqName!="TCkinLoadPax") return; //для местовой системы делаем refresh только при загрузке группы
-
-  set<int> pax_ids;
-  if (piece_concept)
-  {
-    list<PieceConcept::TPaidBagItem> paid;
-    PieceConcept::PaidBagFromDB(grp_id, true, paid);
-    for(list<PieceConcept::TPaidBagItem>::const_iterator p=paid.begin(); p!=paid.end(); ++p)
-      if (p->status==PieceConcept::bsNeed) pax_ids.insert(p->pax_id);
-    if (pax_ids.empty()) return;
-  }
-  else
-  {
-    list<WeightConcept::TPaidBagItem> paid;
-    WeightConcept::PaidBagFromDB(NoExists, grp_id, paid);
-    list<CheckIn::TPaidBagEMDItem> emd;
-    CheckIn::PaidBagEMDFromDB(grp_id, emd);
-    list<WeightConcept::TPaidBagItem>::const_iterator p=paid.begin();
-    for(; p!=paid.end(); ++p)
-    {
-      if (p->weight<=0) continue;
-      int emd_weight=0;
-      for(list<CheckIn::TPaidBagEMDItem>::const_iterator e=emd.begin(); e!=emd.end(); ++e)
-        if (e->rfisc.empty() &&
-            e->bag_type==p->bag_type &&
-            (e->trfer_num==NoExists || e->trfer_num==0) &&
-            e->weight!=NoExists) emd_weight+=e->weight;
-      if (emd_weight<p->weight) break;
-    };
-    if (p==paid.end()) return;
-  };
+  if (!Lock(id, point_id, grp_id)) return;
 
   //проверим, что нет тревоги "Нет связи с СЭБ"
   TFltParams fltParams;
   if (!(fltParams.get(point_id) && fltParams.pr_etstatus>=0)) return;
+
+  //услуги
+  set<int> pax_ids_for_refresh;
+  TPaidRFISCList paid_rfisc;
+  paid_rfisc.fromDB(grp_id, true);
+  for(TPaidRFISCList::const_iterator p=paid_rfisc.begin(); p!=paid_rfisc.end(); ++p)
+    if (p->second.need_positive()) pax_ids_for_refresh.insert(p->second.pax_id);
+  //багаж wt
+  bool all_pax_ids_for_refresh=false;
+  string reqName=(char*)(reqNode->name);
+  if (reqName=="TCkinLoadPax")
+  {
+    //для местовой системы делаем refresh только при загрузке группы
+    WeightConcept::TPaidBagList paid;
+    WeightConcept::PaidBagFromDB(NoExists, grp_id, paid);
+    CheckIn::TServicePaymentList payment;
+    payment.fromDB(grp_id);
+    for(WeightConcept::TPaidBagList::const_iterator p=paid.begin(); p!=paid.end(); ++p)
+    {
+      if (p->weight<=0) continue;
+      if (payment.getDocWeight(*p)<p->weight)
+      {
+        all_pax_ids_for_refresh=true;
+        break;
+      };
+    };
+  };
+
+  if (!all_pax_ids_for_refresh && pax_ids_for_refresh.empty()) return;
 
   boost::optional<edifact::KickInfo> kickInfo;
 
@@ -2284,7 +2277,8 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
   {
     int pax_id=PaxQry.get().FieldAsInteger("pax_id");
     string refuse=PaxQry.get().FieldAsString("refuse");
-    if (piece_concept && pax_ids.find(pax_id)==pax_ids.end()) continue;
+    if (!all_pax_ids_for_refresh &&
+        pax_ids_for_refresh.find(pax_id)==pax_ids_for_refresh.end()) continue;
     if (!refuse.empty()) continue;
 
     map<int, CheckIn::TCkinPaxTknItem> tkns;
@@ -2319,6 +2313,8 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     AstraLocale::showErrorMessage("MSG.ETS_EDS_CONNECT_ERROR"); //потом переделать на MSG.ETS_CONNECT_ERROR, когда дисплей будет возвращать RFISC
 }
 
+#include "rfisc_sirena.h" //!!!только ради UpgradeDBForServices, потом удалить
+
 void EMDAutoBoundInterface::EMDTryBind(int grp_id,
                                        xmlNodePtr termReqNode,
                                        xmlNodePtr ediResNode)
@@ -2327,18 +2323,12 @@ void EMDAutoBoundInterface::EMDTryBind(int grp_id,
   {
     bool second_call=GetNode("second_call", termReqNode)!=NULL;
 
-    list<PieceConcept::TPaidBagItem> paid_bag;
-    list<CheckIn::TPaidBagEMDItem> paid_bag_emd;
-    CheckIn::TPaidBagEMDProps paid_bag_emd_props;
-    PieceConcept::PaidBagFromDB(grp_id, true, paid_bag);
-    CheckIn::PaidBagEMDFromDB(grp_id, paid_bag_emd);
-    CheckIn::PaidBagEMDPropsFromDB(grp_id, paid_bag_emd_props);
-    boost::optional< list<CheckIn::TPaidBagEMDItem> > confirmed_emd;
+    boost::optional< list<TEMDCtxtItem> > confirmed_emd;
     if (second_call)
     {
-      confirmed_emd=list<CheckIn::TPaidBagEMDItem>();
+      confirmed_emd=list<TEMDCtxtItem>();
 
-      //надо бы в paid_bag_emd включить только изменившие статус EMD
+      //надо бы в payment включить только изменившие статус EMD
       xmlNodePtr emdNode=GetNode("emdocs", ediResNode);
       if (emdNode!=NULL) emdNode=emdNode->children;
       for(; emdNode!=NULL; emdNode=emdNode->next)
@@ -2352,23 +2342,31 @@ void EMDAutoBoundInterface::EMDTryBind(int grp_id,
         GetEdiError(emdNode, errList);
         if (!errList.empty()) continue;
 
-        CheckIn::TPaidBagEMDItem item;
-        item.emd_no=EMDCtxt.asvc.emd_no;
-        item.emd_coupon=EMDCtxt.asvc.emd_coupon;
-        item.pax_id=EMDCtxt.pax.id;
-
-        confirmed_emd.get().push_back(item);
+        confirmed_emd.get().push_back(EMDCtxt);
       };
     };
 
+    CheckIn::TPaxGrpItem grp; //!!!потом удалить вместе с UpgradeDBForServices
+    if (!grp.fromDB(grp_id)) return;
 
-    if (PieceConcept::TryAddPaidBagEMD(paid_bag, paid_bag_emd, paid_bag_emd_props, confirmed_emd))
+    if (grp.need_upgrade_db)
+      UpgradeDBForServices(grp.id);
+
+    TPaidRFISCList paid_rfisc;
+    paid_rfisc.fromDB(grp_id, true);
+    if (paid_rfisc.empty()) return; //не к чему пытаться привязывать
+    CheckIn::TServicePaymentList payment;
+    payment.fromDB(grp_id);
+    CheckIn::TPaidBagEMDProps paid_bag_emd_props;
+    CheckIn::PaidBagEMDPropsFromDB(grp_id, paid_bag_emd_props);
+
+    if (PieceConcept::TryEnlargeServicePayment(paid_rfisc, payment, paid_bag_emd_props, confirmed_emd))
     {
       TGrpToLogInfo grpInfoBefore;
       GetGrpToLogInfo(grp_id, grpInfoBefore);
-      CheckIn::PaidBagEMDList paidBagEMDBefore;
+      CheckIn::TServicePaymentList paymentBefore;
       if (!second_call)
-        PaxASVCList::GetBoundPaidBagEMD(grp_id, NoExists, paidBagEMDBefore);
+        paymentBefore.fromDB(grp_id);
 
       TQuery Qry(&OraSession);
       Qry.Clear();
@@ -2377,14 +2375,14 @@ void EMDAutoBoundInterface::EMDTryBind(int grp_id,
       Qry.CreateVariable("grp_id", otInteger, grp_id);
       Qry.Execute();
 
-      PieceConcept::PaidBagToDB(grp_id, paid_bag);
-      CheckIn::PaidBagEMDToDB(grp_id, paid_bag_emd);
+      paid_rfisc.toDB777(grp_id);
+      payment.toDB777(grp_id);
 
       if (!second_call)
       {
         //здесь ChangeStatus
         TEMDChangeStatusList EMDList;
-        EMDStatusInterface::EMDCheckStatus(grp_id, paidBagEMDBefore, EMDList);
+        EMDStatusInterface::EMDCheckStatus(grp_id, paymentBefore, EMDList);
 
         if (!EMDList.empty())
         {
@@ -2435,7 +2433,6 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   xmlNodePtr ediResNode=NodeAsNode("/context",ediResCtxt.docPtr());
 
   int point_id=NoExists, grp_id=NoExists;
-  bool piece_concept=false;
   if (termReqName=="TCkinLoadPax" ||
       termReqName=="TCkinSavePax" ||
       termReqName=="TCkinSaveUnaccompBag")
@@ -2444,9 +2441,9 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
                       termReqName=="TCkinSaveUnaccompBag";
 
     EMDAutoBoundGrpId id(termReqNode);
-    if (Lock(id, point_id, grp_id, piece_concept))
+    if (Lock(id, point_id, grp_id))
     {
-      if (piece_concept) EMDTryBind(grp_id, termReqNode, ediResNode);
+      EMDTryBind(grp_id, termReqNode, ediResNode);
     }
     else grp_id=id.grp_id;
 
@@ -2467,9 +2464,9 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       termReqName=="PaxByScanData")
   {
     EMDAutoBoundRegNo id(termReqNode);
-    if (Lock(id, point_id, grp_id, piece_concept))
+    if (Lock(id, point_id, grp_id))
     {
-      if (piece_concept) EMDTryBind(grp_id, termReqNode, ediResNode);
+      EMDTryBind(grp_id, termReqNode, ediResNode);
     };
 
     if (Ticketing::isDoomedToWait())

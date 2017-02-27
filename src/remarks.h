@@ -239,6 +239,7 @@ class TPaxASVCItem : public TPaxRemBasic
   public:
     std::string RFIC;
     std::string RFISC;
+    int service_quantity;
     std::string ssr_code;
     std::string service_name;
     std::string emd_type;
@@ -253,6 +254,7 @@ class TPaxASVCItem : public TPaxRemBasic
     {
       RFIC.clear();
       RFISC.clear();
+      service_quantity=ASTRA::NoExists;
       ssr_code.clear();
       service_name.clear();
       emd_type.clear();
@@ -264,6 +266,7 @@ class TPaxASVCItem : public TPaxRemBasic
     {
       return RFIC.empty() &&
              RFISC.empty() &&
+             service_quantity==ASTRA::NoExists &&
              ssr_code.empty() &&
              service_name.empty() &&
              emd_type.empty() &&
@@ -295,6 +298,7 @@ class TPaxASVCItem : public TPaxRemBasic
     }
     std::string no_str() const;
     void rcpt_service_types(std::set<ASTRA::TRcptServiceType> &service_types) const;
+    bool service_quantity_valid() const { return service_quantity!=ASTRA::NoExists && service_quantity>0; }
 };
 
 bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);

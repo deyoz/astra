@@ -894,7 +894,11 @@ void TripsInterface::readOperFltHeader( const TTripInfo &info, xmlNodePtr node )
   TReqInfo *reqInfo = TReqInfo::Instance();
 
   if ( reqInfo->screen.name == "AIR.EXE" )
-    NewTextChild( node, "flight", GetTripName(info,ecCkin,true,false) );
+  {
+    string flight=GetTripName(info,ecCkin,true,false);
+    NewTextChild( node, "flight", flight );
+    NewTextChild( node, "flight_short", info.flight_view(), flight );
+  };
 
   NewTextChild( node, "airline", info.airline );
 
@@ -991,7 +995,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "pr_tranzit" )!=0 );
 
   //trip нужен для ChangeTrip клиента:
-  NewTextChild( node, "trip", GetTripName(info,ecCkin,reqInfo->screen.name=="TLG.EXE",true)); //ecCkin? !!!vlad
+  NewTextChild( node, "trip", GetTripName(info,ecCkin,reqInfo->screen.name=="TLG.EXE",true)); //ecCkin? !!vlad
 
   TTripStages tripStages( point_id );
   TStagesRules *stagesRules = TStagesRules::Instance();

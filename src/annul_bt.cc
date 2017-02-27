@@ -96,11 +96,12 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
                 Qry.get().SetVariable("pax_id", FNull);
             else
                 Qry.get().SetVariable("pax_id", bag_id->second.pax_id);
-            if(bag_id->second.bag_item.bag_type == ASTRA::NoExists)
-                Qry.get().SetVariable("bag_type", FNull);
-            else
-                Qry.get().SetVariable("bag_type", bag_id->second.bag_item.bag_type);
-            Qry.get().SetVariable("rfisc", bag_id->second.bag_item.rfisc);
+            Qry.get().SetVariable("rfisc", FNull);
+            Qry.get().SetVariable("bag_type", FNull);
+            if(bag_id->second.bag_item.pc)
+              Qry.get().SetVariable("rfisc", bag_id->second.bag_item.pc.get().RFISC);
+            else if(bag_id->second.bag_item.wt)
+              BagTypeToDB(Qry.get(), bag_id->second.bag_item.wt.get().bag_type, "TAnnulBT::toDB");
             if(bag_id->second.bag_item.time_create == ASTRA::NoExists)
                 Qry.get().SetVariable("time_create", FNull);
             else
@@ -199,8 +200,8 @@ void TAnnulBT::minus(const TAnnulBT &annul_bt)
                 else {
                     // Если у багажа остались бирки, то они были отвязаны
                     bag_id->second.pax_id = ASTRA::NoExists;
-                    bag_id->second.bag_item.bag_type = ASTRA::NoExists;
-                    bag_id->second.bag_item.rfisc.clear();
+                    bag_id->second.bag_item.pc=boost::none;
+                    bag_id->second.bag_item.wt=boost::none;
                     bag_id->second.bag_item.amount = ASTRA::NoExists;
                     bag_id->second.bag_item.weight = ASTRA::NoExists;
                     bag_id++;
@@ -278,7 +279,6 @@ void TAnnulBT::backup()
     if(not Qry.get().Eof) {
         int col_id = Qry.get().FieldIndex("id");
         int col_pax_id = Qry.get().FieldIndex("pax_id");
-        int col_bag_type = Qry.get().FieldIndex("bag_type");
         int col_rfisc = Qry.get().FieldIndex("rfisc");
         int col_time_create = Qry.get().FieldIndex("time_create");
         int col_time_annul = Qry.get().FieldIndex("time_annul");
@@ -289,9 +289,16 @@ void TAnnulBT::backup()
         for(; not Qry.get().Eof; Qry.get().Next()) {
             CheckIn::TBagItem bag_item;
             bag_item.id = bag_id++;
-            if(not Qry.get().FieldIsNULL(col_bag_type))
-                bag_item.bag_type = Qry.get().FieldAsInteger(col_bag_type);
-            bag_item.rfisc = Qry.get().FieldAsString(col_rfisc);
+            if(not Qry.get().FieldIsNULL(col_rfisc))
+            {
+              bag_item.pc=TRFISCKey();
+              bag_item.pc.get().RFISC=Qry.get().FieldAsString(col_rfisc);
+            }
+            else
+            {
+              bag_item.wt=TBagTypeKey();
+              bag_item.wt.get().bag_type=BagTypeFromDB(Qry.get());
+            };
             if(not Qry.get().FieldIsNULL(col_time_create))
                 bag_item.time_create =  Qry.get().FieldAsDateTime(col_time_create);
             if(not Qry.get().FieldIsNULL(col_amount))

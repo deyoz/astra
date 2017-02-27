@@ -4515,7 +4515,7 @@ void TName::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, string p
     body.push_back(result);
 }
 
-typedef map<int, CheckIn::PaidBagEMDList> TGrpEmds;
+typedef map<int, CheckIn::TServicePaymentList> TGrpEmds;
 
 struct TASLPax {
     string target;
@@ -4580,12 +4580,14 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
     multiset<TPaxEMDItem> emds;
     GetPaxEMD(pax.pax_id, emds);
 
-    CheckIn::PaidBagEMDList &emdList = (*pax.grpEmds)[pax.grp_id];
+    CheckIn::TServicePaymentList &payment = (*pax.grpEmds)[pax.grp_id];
 
-    for(CheckIn::PaidBagEMDList::iterator emdItem = emdList.begin(); emdItem != emdList.end(); emdItem++)
+    for(CheckIn::TServicePaymentList::iterator p = payment.begin(); p != payment.end(); ++p)
     {
-      for(multiset<TPaxEMDItem>::iterator EMDItem = emds.begin(); EMDItem != emds.end(); EMDItem++)
-        if(emdItem->first == *EMDItem) pax.used_asvc.push_back(*EMDItem);
+      if (!p->isEMD()) continue; //обрабатываем только EMD
+      for(multiset<TPaxEMDItem>::iterator e = emds.begin(); e != emds.end(); ++e)
+        if (p->doc_no==e->emd_no &&
+            p->doc_coupon==e->emd_coupon) pax.used_asvc.push_back(*e);
     }
 
     if(not pax.used_asvc.empty()) {
@@ -5088,8 +5090,15 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
 
             TGrpEmds::iterator idx = grpEmds.find(pax.grp_id);
             if(idx == grpEmds.end()) {
-                CheckIn::PaidBagEMDList &emds = grpEmds[pax.grp_id];
-                PaxASVCList::GetBoundPaidBagEMD(pax.grp_id, (is_report() ? NoExists : 0), emds); //!!!vlad текущий сегмент или все? только ASVC из PNL или из псевдо PNR тоже?
+                CheckIn::TServicePaymentList &payment = grpEmds[pax.grp_id];
+                payment.fromDB(pax.grp_id);
+                for(CheckIn::TServicePaymentList::iterator p=payment.begin(); p!=payment.end();)
+                {
+                  if (p->isEMD() && (is_report() || p->trfer_num==0))  //!!! текущий сегмент или все? только ASVC из PNL или из псевдо PNR тоже?
+                    ++p;
+                  else
+                    p=payment.erase(p);
+                };
             }
 
             pax.pnrs.get(pax.pnr_id);
@@ -5376,9 +5385,9 @@ void TBagRems::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     }
 }
 
-void TBagRems::get(TypeB::TDetailCreateInfo &info)
+void TBagRems::get(TypeB::TDetailCreateInfo &info)  //лучше бы переделать
 {
-    PieceConcept::TRFISCListWithSets rfisc_list;
+    TRFISCListWithProps rfisc_list;
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, info.point_id);
     TCachedQuery Qry(
@@ -5424,8 +5433,8 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
             // int weight = Qry.get().FieldAsInteger(col_weight);
 
             if(not rfisc.empty()) { // piece concept
-                rfisc_list.fromDB(bag_types_id);
-                rem_code = rfisc_list.get_rem_code(rfisc);
+                rfisc_list.fromDB(bag_types_id, true); //!!!vlad тестировать!
+                rem_code = rfisc_list.get_rem_code(rfisc, false); //что делать в будущем если ручная кладь тоже попадает?
             }
 
             if(not rem_code.empty())
@@ -10163,7 +10172,7 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
         int point_id = Qry.get().FieldAsInteger("point_id");
 
         TTripInfo tripInfo(Qry.get());
-        
+
         if (not TReqInfo::Instance()->user.access.airlines().permitted(tripInfo.airline) or
                 not TReqInfo::Instance()->user.access.airps().permitted(tripInfo.airp) ) continue;
 

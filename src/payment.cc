@@ -245,6 +245,8 @@ namespace RCPT_PAX_NAME {
 void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->desk.compatible(PAX_SERVICE_VERSION))
+    throw UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
 
   enum TSearchType {searchByPaxId,
                     searchByGrpId,
@@ -418,27 +420,20 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     point_dep=Qry.FieldAsInteger("point_id");
   };
 
+  TTripInfo operFlt;
+  bool operFltExists=operFlt.getByPointId(point_id);
   if (point_id!=point_dep)
   {
     point_id=point_dep;
     if (!TripsInterface::readTripHeader( point_id, dataNode) && !pr_annul_rcpt)
     {
-      TQuery FltQry(&OraSession);
-      FltQry.Clear();
-      FltQry.SQLText=
-        "SELECT airline,flt_no,suffix,airp,scd_out, "
-        "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
-        "FROM points WHERE point_id=:point_id AND pr_del>=0";
-      FltQry.CreateVariable("point_id",otInteger,point_id);
-      FltQry.Execute();
       string msg;
-      if (!FltQry.Eof)
+      if (!operFltExists)
       {
-        TTripInfo info(FltQry);
         if (!pr_unaccomp)
-          msg=getLocaleText("MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
+          msg=getLocaleText("MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(operFlt,ecCkin)));
         else
-          msg=getLocaleText("MSG.BAGGAGE.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
+          msg=getLocaleText("MSG.BAGGAGE.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(operFlt,ecCkin)));
       }
       else
       {
@@ -602,20 +597,24 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   CheckIn::TGroupBagItem group_bag;
   group_bag.fromDB(grp_id, ASTRA::NoExists, !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS));
   group_bag.toXML(dataNode);
-  list<WeightConcept::TPaidBagItem> paid;
+  WeightConcept::TPaidBagList paid;
   WeightConcept::PaidBagFromDB(NoExists, grp_id, paid);
   if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-    WeightConcept::PaidBagToXML(paid, group_bag, dataNode);
+    WeightConcept::PaidBagToXML(paid, group_bag.trferExists(), dataNode);
   else
   {
+    TPaidBagViewMap PaidBagViewMap;
+    TPaidBagViewMap TrferBagViewMap;
     map<int/*id*/, TEventsBagItem> tmp_bag;
     GetBagToLogInfo(grp_id, tmp_bag);
-    WeightConcept::PaidBagViewToXML(tmp_bag,
-                                    list<WeightConcept::TBagNormInfo>(),
-                                    paid,
-                                    list<CheckIn::TPaidBagEMDItem>(),
-                                    "",
-                                    dataNode);
+    WeightConcept::CalcPaidBagView(WeightConcept::TAirlines(mktFlight.pr_mark_norms?mktFlight.airline:operFlt.airline),
+                                   tmp_bag,
+                                   list<WeightConcept::TBagNormInfo>(),
+                                   paid,
+                                   CheckIn::TServicePaymentList(),
+                                   "",
+                                   PaidBagViewMap, TrferBagViewMap);
+    WeightConcept::PaidBagViewToXML(PaidBagViewMap, TrferBagViewMap, dataNode);
   };
 
   LoadReceipts(grp_id,true,prnParams.pr_lat,dataNode);
@@ -633,18 +632,29 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
   {
     xmlNodePtr node=NewTextChild(dataNode,"prepayment");
 
-    //квитанции EMD
-    CheckIn::PaidBagEMDList emd;
-    PaxASVCList::GetBoundPaidBagEMD(id, 0, emd);
-    for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
+    //квитанции EMD, MCO
+    CheckIn::TServicePaymentList payment;
+    payment.fromDB(id);
+    for(CheckIn::TServicePaymentList::const_iterator i=payment.begin(); i!=payment.end(); ++i)
     {
+      const CheckIn::TServicePaymentItem &item=*i;
+      if (item.trfer_num!=0) continue;
+      if (item.pc && !item.pc.get().isBaggageOrCarryOn("PaymentInterface::LoadReceipts")) continue;
       xmlNodePtr receiptNode=NewTextChild(node,"receipt");
       NewTextChild(receiptNode,"id",EMD_RCPT_ID);
-      NewTextChild(receiptNode,"no",i->first.no_str());
-      NewTextChild(receiptNode,"aircode","");
-      NewTextChild(receiptNode,"ex_weight",i->second.weight);
-      NewTextChild(receiptNode,"bag_type",i->second.bag_type_str());
-    };
+      if (item.isEMD())
+      {
+        NewTextChild(receiptNode,"no",item.emd_no_str());
+        NewTextChild(receiptNode,"aircode");
+      }
+      else
+      {
+        NewTextChild(receiptNode,"no",item.doc_no);
+        NewTextChild(receiptNode,"aircode",item.doc_aircode);
+      };
+      NewTextChild(receiptNode,"ex_weight", item.doc_weight!=ASTRA::NoExists?item.doc_weight:0);
+      NewTextChild(receiptNode,"bag_type", item.key_str_compatible());
+    }
 
     //квитанции предоплаты
     Qry.Clear();
@@ -732,30 +742,44 @@ int PaymentInterface::LockAndUpdTid(int point_dep, int grp_id, int tid)
   return new_tid;
 };
 
+#include "rfisc_sirena.h" //!!!только ради UpgradeDBForServices, потом удалить
+
 void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    int point_dep=NodeAsInteger("point_dep",reqNode);
-    int grp_id=NodeAsInteger("grp_id",reqNode);
-    int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
-    NewTextChild(resNode,"tid",tid);
+  if (TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
+    throw UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
+  int point_dep=NodeAsInteger("point_dep",reqNode);
+  int grp_id=NodeAsInteger("grp_id",reqNode);
+  int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
+  NewTextChild(resNode,"tid",tid);
 
-    CheckIn::TGroupBagItem grp;
-    if (grp.fromXML(reqNode, grp_id, ASTRA::NoExists, false)) //для кассы piece_concept=false
-    {
-      grp.checkAndGenerateTags(point_dep, grp_id);
-      grp.toDB(grp_id);
-    };
+  CheckIn::TPaxGrpItem grp;
+  if (!grp.fromDB(grp_id)) return;
 
-    boost::optional< list<WeightConcept::TPaidBagItem> > paid;
-    WeightConcept::PaidBagFromXML(reqNode, paid);
-    WeightConcept::PaidBagToDB(grp_id, paid);
+  if (grp.need_upgrade_db)
+    UpgradeDBForServices(grp.id);
 
-    TReqInfo::Instance()->LocaleToLog("EVT.LUGGAGE.SAVE_DATA", ASTRA::evtPay,point_dep,0,grp_id);
+  CheckIn::TGroupBagItem group_bag;
+  if (group_bag.fromXML(reqNode, grp_id, ASTRA::NoExists,
+                           grp.is_unaccomp(), grp.baggage_pc, grp.trfer_confirm))
+  {
+    group_bag.checkAndGenerateTags(point_dep, grp_id);
+    group_bag.toDB(grp_id);
+  };
+
+  boost::optional< WeightConcept::TPaidBagList > paid;
+  WeightConcept::PaidBagFromXML(reqNode, grp_id, grp.is_unaccomp(), grp.trfer_confirm, paid);
+  if (paid)
+    WeightConcept::PaidBagToDB(grp_id, grp.is_unaccomp(), paid.get());
+
+  TReqInfo::Instance()->LocaleToLog("EVT.LUGGAGE.SAVE_DATA", ASTRA::evtPay,point_dep,0,grp_id);
 };
 
 void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
+    if (reqInfo->desk.compatible(PAX_SERVICE_VERSION))
+      throw UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
 
     int point_dep=NodeAsInteger("point_dep",reqNode);
     int grp_id=NodeAsInteger("grp_id",reqNode);
@@ -1552,14 +1576,18 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
       if (NodeIsNULL("no",rcptNode) && !rcpt.prev_no.empty())
       {
         //проверим что это не номер EMD
-        CheckIn::PaidBagEMDList emd;
-        PaxASVCList::GetBoundPaidBagEMD(grp_id, 0, emd);
-        for(CheckIn::PaidBagEMDList::const_iterator i=emd.begin(); i!=emd.end(); ++i)
-          if (rcpt.prev_no==i->first.no_str())
+        CheckIn::TServicePaymentList payment;
+        payment.fromDB(grp_id);
+        for(CheckIn::TServicePaymentList::const_iterator i=payment.begin(); i!=payment.end(); ++i)
+        {
+          const CheckIn::TServicePaymentItem &item=*i;
+          if (item.trfer_num!=0) continue;
+          if (item.isEMD() && rcpt.prev_no==item.emd_no_str())
           {
             rcpt.prev_no.clear();
             break;
           };
+        };
       };
     };
 
@@ -1762,6 +1790,9 @@ void PaymentInterface::PutReceiptFields(int id, bool pr_lat, xmlNodePtr node)
 
 void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  if (TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
+    throw UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
+
   xmlNodePtr rcptNode=NewTextChild(resNode,"receipt");
 
   TPrnParams prnParams(reqNode);
@@ -1788,6 +1819,9 @@ void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 void PaymentInterface::ReplaceReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->desk.compatible(PAX_SERVICE_VERSION))
+    throw UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
+
   TBagReceipt rcpt;
   int rcpt_id=NodeAsInteger("receipt/id",reqNode);
 
@@ -1817,6 +1851,9 @@ void PaymentInterface::ReplaceReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->desk.compatible(PAX_SERVICE_VERSION))
+    throw UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
+
   TBagReceipt rcpt;
   TQuery Qry(&OraSession);
 
@@ -1911,6 +1948,8 @@ void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
+    if (reqInfo->desk.compatible(PAX_SERVICE_VERSION))
+      throw UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
 
     int point_dep=NodeAsInteger("point_dep",reqNode);
     int grp_id=NodeAsInteger("grp_id",reqNode);

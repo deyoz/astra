@@ -22,9 +22,9 @@
 #include "term_version.h"
 #include "events.h"
 #include "apps_interaction.h"
-#include "baggage_pc.h"
 #include "baggage_calc.h"
 #include "sopp.h"
+#include "rfisc.h"
 #include "tlg/AgentWaitsForRemote.h"
 
 #define NICKNAME "VLAD"
@@ -1021,7 +1021,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       Qry.Clear();
       Qry.SQLText=
         "SELECT pax_grp.grp_id, pax_grp.point_arv, pax_grp.airp_arv, pax_grp.status, "
-        "       NVL(pax_grp.piece_concept, 0) AS piece_concept, "
         "       pax.pax_id, pax.surname, pax.name, pax.seats, "
         "       pax.pr_brd, pax.pr_exam, pax.wl_type, pax.ticket_rem, pax.tid "
         "FROM pax_grp, pax "
@@ -1037,7 +1036,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int point_arv=Qry.FieldAsInteger("point_arv");
       string airp_arv=Qry.FieldAsString("airp_arv");
       TPaxStatus grp_status=DecodePaxStatus(Qry.FieldAsString("status"));
-      bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
 
       class TPaxItem
       {
@@ -1197,7 +1195,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         //============================ проверка листа ожидания ============================
         if (set_mark && !setList.value(tsFreeSeating) &&
             ((paxWithSeat.exists() && !paxWithSeat.wl_type.empty()) ||
-             (paxWithoutSeat.exists() && !paxWithoutSeat.wl_type.empty())))   //!!!vlad младенцы без мест и ЛО?
+             (paxWithoutSeat.exists() && !paxWithoutSeat.wl_type.empty())))   //!!vlad младенцы без мест и ЛО?
         {
             AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_CONFIRM_FROM_WAIT_LIST");
             throw 1;
@@ -1215,9 +1213,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         //============================ проверка оплаты багажа ============================
         if (set_mark &&
             (screen==sBoarding?setList.value(tsCheckPay):setList.value(tsExamCheckPay)) &&
-            ((!piece_concept && !WeightConcept::BagPaymentCompleted(grp_id)) ||
-             (piece_concept && (!PieceConcept::BagPaymentCompleted(grp_id, paxWithSeat.pax_id, check_pay_on_tckin_segs)||
-                                !PieceConcept::BagPaymentCompleted(grp_id, paxWithoutSeat.pax_id, check_pay_on_tckin_segs)))))
+            (!WeightConcept::BagPaymentCompleted(grp_id) ||
+             !RFISCPaymentCompleted(grp_id, paxWithSeat.pax_id, check_pay_on_tckin_segs)||
+             !RFISCPaymentCompleted(grp_id, paxWithoutSeat.pax_id, check_pay_on_tckin_segs)))
         {
             AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BAG_PAID");
             throw 1;
@@ -1492,7 +1490,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       TPaxSeats priorSeats(point_id);
       TRemGrp rem_grp;
       if(not Qry.Eof) rem_grp.Load(retBRD_VIEW, point_id);
-      PieceConcept::TNodeList pcNodeList;
+      TExcessNodeList excessNodeList;
       for(;!Qry.Eof;Qry.Next())
       {
           int grp_id=Qry.FieldAsInteger(col_grp_id);
@@ -1544,14 +1542,14 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
 
           bool piece_concept=Qry.FieldAsInteger(col_piece_concept)!=0;
-          pcNodeList.set_concept(excessNode, piece_concept);
+          excessNodeList.set_concept(excessNode, piece_concept);
 
 
           int value_bag_count=0;
-          bool pr_payment=piece_concept?PieceConcept::BagPaymentCompleted(grp_id, pax_id, check_pay_on_tckin_segs):
-                                        WeightConcept::BagPaymentCompleted(grp_id, &value_bag_count);
+          bool pr_payment=RFISCPaymentCompleted(grp_id, pax_id, check_pay_on_tckin_segs) &&
+                          WeightConcept::BagPaymentCompleted(grp_id, &value_bag_count);
 
-          if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+          if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
           {
             if (value_bag_count!=0)
             {

@@ -22,6 +22,7 @@
 #include "pers_weights.h"
 #include "basel_aero.h"
 #include "ffp_sirena.h"
+#include "baggage_calc.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/testmode.h"
@@ -47,6 +48,8 @@ int nosir_tscript(int argc, char** argv);
 int tz2db(int argc,char **argv);
 int verifyHTTP(int argc,char **argv);
 int pc_wt_stat(int argc,char **argv);
+int pc_wt_test(int argc,char **argv);
+int rfisc_test(int argc,char **argv);
 int test_reprint(int argc,char **argv);
 
 const
@@ -66,7 +69,6 @@ const
     {"-termversion",            SetTermVersionNotice,   SetTermVersionNoticeHelp,   NULL},
     {"-create_apis",            create_apis_nosir,      create_apis_nosir_help,     NULL},
     {"-send_tlg",               send_tlg,               send_tlg_help,              NULL},
-    {"-create_tlg",             create_tlg,             NULL,                       NULL},
     {"-dst_seasons",            seasons_dst_format,     NULL,                       NULL},
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
     {"-lci",                    TypeB::lci,             NULL,                       NULL},
@@ -95,6 +97,8 @@ const
     {"-nat_stat",               NatStat::nat_stat,      NULL,                       NULL},
     {"-ego_stat",               ego_stat,               NULL,                       NULL},
     {"-pc_wt_stat",             pc_wt_stat,             NULL,                       NULL},
+    {"-pc_wt_test",             pc_wt_test,             NULL,                       NULL},
+    {"-rfisc_test",             rfisc_test,             NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
     {"-ffp",                    ffp,                    ffp_help,                   "getting FFP card status"},
@@ -102,13 +106,14 @@ const
     {"-departed",               nosir_departed,         NULL,                       NULL},
     {"-sql",                    nosir_departed_sql,     NULL,                       NULL},
     {"-seDCSAddReport",         nosir_seDCSAddReport,   NULL,                       NULL},
-	{"-convert_tz",             tz_conversion,          NULL,                       NULL},
+    {"-convert_tz",             tz_conversion,          NULL,                       NULL},
     {"-test_cnv",               test_conversion,        NULL,                       NULL},
     {"-bp",                     bp_tst,                 NULL,                       NULL},
     {"-vo",                     tst_vo,                 NULL,                       NULL},
     {"-annul_bag",              nosir_annul_bag,        NULL,                       NULL},
     {"-html_to_db",             html_to_db,             NULL,                       "loading html files to database"},
     {"-html_from_db",           html_from_db,           NULL,                       "getting html files from database to local path"},    
+    {"-test_norms",             WeightConcept::test_norms,             NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
@@ -276,7 +281,7 @@ void gettime( const TDateTime &old_utc, TDateTime &new_utc,
    if ( old_utc == NoExists ) {
      return;
    }
-   
+
    /*tz_database &tz_db = get_tz_database();
    old_local = UTCToLocal( old_utc, region );
    ptime vtime( DateTimeToBoost( old_utc ) );
@@ -309,14 +314,14 @@ struct P {
 void getPeriods( string filter_tz_region, vector<P> &periods ) {
   ptime utcd = second_clock::universal_time();
   int year = utcd.date().year();
-  
+
   /*tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( filter_tz_region );
   if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",filter_tz_region.c_str());
   local_date_time ld( utcd, tz ); // определяем текущее время локальное
-  
+
   bool summer = true;
-  // устанавливаем первый год и признак периода 
+  // устанавливаем первый год и признак периода
   for ( int i=0; i<SEASON_PRIOR_PERIOD; i++ ) {
     if ( tz->has_dst() ) {  // если есть переход на зимнее/летнее расписание
         if ( i == 0 ) {
@@ -364,7 +369,7 @@ void getPeriods( string filter_tz_region, vector<P> &periods ) {
       summer = !summer;
     }
     else {
-     // период - это целый год 
+     // период - это целый год
      s_time = ptime( boost::gregorian::date(year,1,1) );
      year++;
      e_time = ptime( boost::gregorian::date(year,1,1) );

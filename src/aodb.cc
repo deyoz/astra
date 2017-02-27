@@ -1187,7 +1187,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       if ( fmt == efmtUnknown )
         throw EConvertError("");
       if ( fmt == efmtCodeInter || fmt == efmtCodeICAOInter )
-        fl.trip_type = "м";  //!!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
+        fl.trip_type = "м";  //!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
       else
         fl.trip_type = "п";
     }

@@ -42,6 +42,12 @@ char ReplaceDigit(char c)
 namespace CheckIn
 {
 
+const TPaxGrpCategoriesView& PaxGrpCategories()
+{
+  static TPaxGrpCategoriesView paxGrpCategories;
+  return paxGrpCategories;
+}
+
 const TPaxTknItem& TPaxTknItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -1330,6 +1336,20 @@ bool TSimplePaxItem::api_doc_applied() const
   return name!="CBBG";
 }
 
+bool TSimplePaxItem::upward_within_bag_pool(const TSimplePaxItem& pax) const
+{
+  int res;
+  res=int(refuse!=ASTRA::refuseAgentError)-int(pax.refuse!=ASTRA::refuseAgentError);
+  if (res==0) res=int(pers_type==ASTRA::adult || pers_type==ASTRA::child)-
+                  int(pax.pers_type==ASTRA::adult || pax.pers_type==ASTRA::child);
+  if (res==0) res=int(seats>0)-int(pax.seats>0);
+  if (res==0) res=int(refuse.empty())-int(pax.refuse.empty());
+  //специально чтобы при прочих равных выбрать ВЗ:
+  if (res==0) res=-(int(pers_type)-int(pax.pers_type));
+
+  return res>0;
+}
+
 TAPISItem& TAPISItem::fromDB(int pax_id)
 {
   clear();
@@ -1391,9 +1411,9 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
     for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
     {
       norms.get().push_back(WeightConcept::TPaxNormItem().fromXML(normNode));
-      if (!reqInfo->desk.compatible(PIECE_CONCEPT_VERSION2))
+      if (!reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
       {
-        if (norms.get().back().bag_type==99) norms.get().pop_back();
+        if (norms.get().back().bag_type222==WeightConcept::OLD_TRFER_BAG_TYPE) norms.get().pop_back();
       };
     };
   };
@@ -1499,6 +1519,18 @@ void TPaxListItem::checkCrewType(bool new_checkin, ASTRA::TPaxStatus grp_status)
   };
 }
 
+int TPaxList::getBagPoolMainPaxId(int bag_pool_num) const
+{
+  if (bag_pool_num==ASTRA::NoExists) return ASTRA::NoExists;
+  boost::optional<TSimplePaxItem> pax;
+  for(TPaxList::const_iterator i=begin(); i!=end(); ++i)
+  {
+    if (i->pax.bag_pool_num!=bag_pool_num) continue;
+    if (!pax || i->pax.upward_within_bag_pool(pax.get())) pax=i->pax;
+  };
+  return pax?pax.get().id:ASTRA::NoExists;
+}
+
 const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -1512,11 +1544,17 @@ const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
   NewTextChild(grpNode, "class", cl);
   NewTextChild(grpNode, "status", EncodePaxStatus(status));
   NewTextChild(grpNode, "bag_refuse", bag_refuse);
-  bag_types_id!=ASTRA::NoExists?
-    NewTextChild(grpNode, "bag_types_id", bag_types_id):
-    NewTextChild(grpNode, "bag_types_id");
-  NewTextChild(grpNode, "piece_concept", (int)piece_concept);
+  if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
+  {
+    bag_types_id!=ASTRA::NoExists?
+          NewTextChild(grpNode, "bag_types_id", bag_types_id):
+          NewTextChild(grpNode, "bag_types_id");
+    NewTextChild(grpNode, "piece_concept", (int)baggage_pc);
+  };
   NewTextChild(grpNode, "tid", tid);
+
+  NewTextChild(grpNode, "show_ticket_norms", (int)pc);
+  NewTextChild(grpNode, "show_wt_norms", (int)wt);
   return *this;
 };
 
@@ -1526,6 +1564,13 @@ bool TPaxGrpItem::fromXML(xmlNodePtr node)
   if (node==NULL) return true;
   xmlNodePtr node2=node->children;
 
+  int grp_id=NodeAsIntegerFast("grp_id",node2,ASTRA::NoExists);
+  if (grp_id!=ASTRA::NoExists)
+  {
+    //запись изменений
+    if (!fromDB(grp_id)) return false;
+  };
+
   id=NodeAsIntegerFast("grp_id",node2,ASTRA::NoExists);
   point_dep=NodeAsIntegerFast("point_dep",node2);
   airp_dep=NodeAsStringFast("airp_dep",node2);
@@ -1533,28 +1578,8 @@ bool TPaxGrpItem::fromXML(xmlNodePtr node)
   airp_arv=NodeAsStringFast("airp_arv",node2);
   cl=NodeAsStringFast("class",node2);
   tid=NodeAsIntegerFast("tid",node2,ASTRA::NoExists);
-  if (id!=ASTRA::NoExists)
-  {
-    //запись изменений
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT status, piece_concept, NVL(bag_types_id, 0) AS bag_types_id "
-      "FROM pax_grp WHERE grp_id=:grp_id AND tid=:tid";
-    Qry.CreateVariable("grp_id", otInteger, id);
-    Qry.CreateVariable("tid", otInteger, tid);
-    Qry.Execute();
-    if (Qry.Eof) return false;
-
-    status=DecodePaxStatus(Qry.FieldAsString("status"));
-    if (!Qry.FieldIsNULL("bag_types_id"))
-      bag_types_id=Qry.FieldAsInteger("bag_types_id");
-    piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
-  }
-  else
-  {
+  if (id==ASTRA::NoExists)
     status=DecodePaxStatus(NodeAsStringFast("status",node2));
-  };
 
   xmlNodePtr normNode=GetNodeFast("norms",node2);
   if (normNode!=NULL)
@@ -1563,16 +1588,16 @@ bool TPaxGrpItem::fromXML(xmlNodePtr node)
     for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
     {
       norms.get().push_back(WeightConcept::TPaxNormItem().fromXML(normNode));
-      if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION2))
+      if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
       {
-        if (norms.get().back().bag_type==99) norms.get().pop_back();
+        if (norms.get().back().bag_type222==WeightConcept::OLD_TRFER_BAG_TYPE) norms.get().pop_back();
       };
     };
   };
   return true;
 };
 
-TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node)
+TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node, bool is_unaccomp)
 {
   hall=ASTRA::NoExists;
   bag_refuse.clear();
@@ -1594,10 +1619,13 @@ TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node)
     hall=NodeAsIntegerFast("hall",node2);
   };
 
-  PaidBagFromXML(node, paid);
+  PaidBagFromXML(node, id, is_unaccomp, trfer_confirm, paid);
 
   group_bag=TGroupBagItem();
-  if (!group_bag.get().fromXML(node, id, hall, piece_concept)) group_bag=boost::none;
+  if (!group_bag.get().fromXML(node, id, hall, is_unaccomp, baggage_pc, trfer_confirm)) group_bag=boost::none;
+
+  svc=TGrpServiceList();
+  if (!svc.get().fromXML(node)) svc=boost::none;
 
   return *this;
 };
@@ -1642,14 +1670,45 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
     hall=Qry.FieldAsInteger("hall");
   if (Qry.FieldAsInteger("bag_refuse")!=0)
     bag_refuse=ASTRA::refuseAgentError;
+  GetBagConcepts(id, pc, wt, rfisc_used);
+  trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
+  is_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
+  if (Qry.GetFieldIndex("client_type")>=0)
+    client_type = DecodeClientType(Qry.FieldAsString("client_type"));
+  tid=Qry.FieldAsInteger("tid");
+
   if (!Qry.FieldIsNULL("bag_types_id"))
     bag_types_id=Qry.FieldAsInteger("bag_types_id");
-  piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
-  tid=Qry.FieldAsInteger("tid");
-  if (Qry.GetFieldIndex("client_type")>=0)
-      client_type = DecodeClientType(Qry.FieldAsString("client_type"));
+  baggage_pc=Qry.FieldAsInteger("piece_concept")!=0;
+  need_upgrade_db=Qry.FieldIsNULL("excess_wt") && Qry.FieldIsNULL("excess_pc");
   return *this;
 };
+
+bool TPaxGrpItem::fromDB(int grp_id)
+{
+  clear();
+  TCachedQuery Qry("SELECT pax_grp.grp_id,pax_grp.point_dep,pax_grp.airp_dep,pax_grp.point_arv,pax_grp.airp_arv, "
+                   "       pax_grp.class,pax_grp.status,pax_grp.hall,pax_grp.bag_refuse,pax_grp.excess, "
+                   "       pax_grp.excess_wt, pax_grp.excess_pc, pax_grp.pr_mark_norms, "
+                   "       pax_grp.trfer_confirm, piece_concept, NVL(bag_types_id, 0) AS bag_types_id, pax_grp.tid "
+                   "FROM pax_grp "
+                   "WHERE pax_grp.grp_id=:grp_id",
+                   QParams() << QParam("grp_id", otInteger, grp_id));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return false;
+  fromDB(Qry.get());
+  return true;
+}
+
+TPaxGrpCategory::Enum TPaxGrpItem::grpCategory() const
+{
+  if (status==ASTRA::psCrew)
+    return TPaxGrpCategory::Crew;
+  else if (cl.empty())
+    return TPaxGrpCategory::UnnacompBag;
+  else
+    return TPaxGrpCategory::Passenges;
+}
 
 TPnrAddrItem& TPnrAddrItem::fromDB(TQuery &Qry)
 {
@@ -1675,26 +1734,23 @@ bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs)
   return !pnrs.empty();
 };
 
-void CalcPaidBagEMDProps(const CheckIn::PaidBagEMDList &prior_emds,
-                         const boost::optional< list<CheckIn::TPaidBagEMDItem> > &curr_emds,
+void CalcPaidBagEMDProps(const CheckIn::TServicePaymentList &prior_payment,
+                         const boost::optional< CheckIn::TServicePaymentList > &curr_payment,
                          CheckIn::TPaidBagEMDProps &diff,
                          CheckIn::TPaidBagEMDProps &props)
 {
   diff.clear();
   props.clear();
-  if (!curr_emds) return;  //ничего не изменялось
+  if (!curr_payment) return;  //ничего не изменялось
   CheckIn::TPaidBagEMDProps props1, props2;
-  for(CheckIn::PaidBagEMDList::const_iterator i=prior_emds.begin(); i!=prior_emds.end(); ++i)
-    props1.insert(CheckIn::TPaidBagEMDPropsItem(i->second, true));
-  for(list<CheckIn::TPaidBagEMDItem>::const_iterator i=curr_emds.get().begin(); i!=curr_emds.get().end(); ++i)
-    props2.insert(CheckIn::TPaidBagEMDPropsItem(*i, true));
+  for(CheckIn::TServicePaymentList::const_iterator i=prior_payment.begin(); i!=prior_payment.end(); ++i)
+    if (i->isEMD()) props1.insert(CheckIn::TPaidBagEMDPropsItem(*i, true));
+  for(CheckIn::TServicePaymentList::const_iterator i=curr_payment.get().begin(); i!=curr_payment.get().end(); ++i)
+    if (i->isEMD()) props2.insert(CheckIn::TPaidBagEMDPropsItem(*i, true));
   //в различия попадают и добавленные, и удаленные
-  set_difference(props1.begin(), props1.end(),  //лучше бы set_symmetric_difference вместо двух set_difference
-                 props2.begin(), props2.end(),
-                 inserter(diff, diff.end()));
-  set_difference(props2.begin(), props2.end(),
-                 props1.begin(), props1.end(),
-                 inserter(diff, diff.end()));
+  set_symmetric_difference(props1.begin(), props1.end(),
+                           props2.begin(), props2.end(),
+                           inserter(diff, diff.end()));
   //manual_bind=true только для удаленных
   set_difference(props1.begin(), props1.end(),
                  props2.begin(), props2.end(),
@@ -1738,5 +1794,105 @@ void GetTCkinTickets(int pax_id, map<int, TCkinPaxTknItem> &tkns)
 
 }; //namespace CheckIn
 
+namespace Sirena
+{
 
+void PaxBrandsNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &pax, ostringstream &s)
+{
+  s << "#" << setw(3) << setfill('0') << pax.reg_no << " "
+    << pax.full_name() << "(" << ElemIdToCodeNative(etPersType, EncodePerson(pax.pers_type)) << "):" << endl;
 
+  TPaxNormList norms;
+  PaxNormsFromDB(pax.id, norms);
+  TPaxBrandList brands;
+  PaxBrandsFromDB(pax.id, brands);
+
+  for(int pass=0; pass<2; pass++)
+  {
+    string prior_text;
+    int trfer_num=0;
+    for(TTrferRoute::const_iterator t=trfer.begin(); ; ++t, trfer_num++)
+    {
+      //ищем норму, соответствующую сегменту
+      string curr_text;
+      if (t!=trfer.end())
+      {
+        if (pass==0)
+        {
+          //бренды
+
+          for(TPaxBrandList::const_iterator b=brands.begin(); b!=brands.end(); ++b)
+          {
+            if (b->first.trfer_num!=trfer_num) continue;
+
+            const TSimplePaxBrandItem &brand=b->second;
+
+            TSimplePaxBrandItem::const_iterator i=brand.find(TReqInfo::Instance()->desk.lang);
+            if (i==brand.end() && !brand.empty()) i=brand.begin(); //первая попавшаяся
+
+            if (i!=brand.end()) curr_text=i->second.text;
+            break;
+          }
+        }
+        else
+        {
+          //нормы
+          for(TPaxNormList::const_iterator n=norms.begin(); n!=norms.end(); ++n)
+          {
+            if (n->first.trfer_num!=trfer_num) continue;
+
+            const TSimplePaxNormItem &norm=n->second;
+
+            TSimplePaxNormItem::const_iterator i=norm.find(TReqInfo::Instance()->desk.lang);
+            if (i==norm.end() && !norm.empty()) i=norm.begin(); //первая попавшаяся
+
+            if (i!=norm.end())
+            {
+              if (!curr_text.empty()) curr_text+='\n';
+              curr_text+=i->second.text;
+            };
+          };
+        };
+      };
+
+      if (t!=trfer.begin())
+      {
+        if (t==trfer.end() || curr_text!=prior_text)
+        {
+          if (pass==1 || !prior_text.empty())
+          {
+            s << ":" << endl //закончили секцию сегментов
+              << (prior_text.empty()?getLocaleText(pass==0?"MSG.UNKNOWN_BRAND":
+                                                           "MSG.LUGGAGE.UNKNOWN_BAG_NORM"):prior_text) << endl;  //записали соответствующую норму
+          };
+        }
+        else
+        {
+          if (pass==1 || !prior_text.empty()) s << " -> ";
+        }
+      };
+
+      if (t==trfer.end()) break;
+
+      if (t==trfer.begin() || curr_text!=prior_text)
+      {
+        if (pass==1 || t==trfer.begin() || !prior_text.empty()) s << endl;
+      };
+
+      if (pass==1 || !curr_text.empty())
+      {
+        const TTrferRouteItem &item=*t;
+        s << ElemIdToCodeNative(etAirline, item.operFlt.airline)
+          << setw(2) << setfill('0') << item.operFlt.flt_no
+          << ElemIdToCodeNative(etSuffix, item.operFlt.suffix)
+          << " " << ElemIdToCodeNative(etAirp, item.operFlt.airp);
+      };
+
+      prior_text=curr_text;
+    }
+  }
+
+  s << string(100,'=') << endl; //подведем черту :)
+}
+
+} //namespace Sirena

@@ -37,7 +37,7 @@
 #include "http_io.h"
 #include "httpClient.h"
 #include "TypeBHelpMng.h"
-#include "baggage_pc.h"
+#include "sirena_exchange.h"
 #include <boost/thread/thread.hpp>
 
 #define NICKNAME "VLAD"

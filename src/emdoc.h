@@ -25,8 +25,6 @@ void GetUnboundEMD(int point_id, std::multiset<CheckIn::TPaxASVCItem> &asvc);
 bool ExistsUnboundEMD(int point_id);
 bool ExistsPaxUnboundEMD(int pax_id);
 
-void GetBoundPaidBagEMD(int grp_id, int trfer_num, CheckIn::PaidBagEMDList &emd);
-
 }; //namespace PaxASVCList
 
 class TEdiOriginCtxt
@@ -86,7 +84,8 @@ class TEdiCtxtItem : public TEdiPaxCtxt, public TEdiOriginCtxt {};
 class TEMDCtxtItem : public TEdiCtxtItem
 {
   public:
-    CheckIn::TPaxASVCItem asvc;
+    std::string emd_no;
+    int emd_coupon;
     Ticketing::CouponStatus status;
     Ticketing::CpnStatAction::CpnStatAction_t action;
     TEMDCtxtItem()
@@ -98,13 +97,15 @@ class TEMDCtxtItem : public TEdiCtxtItem
     {
       TEdiPaxCtxt::clear();
       TEdiOriginCtxt::clear();
-      asvc.clear();
+      emd_no.clear();
+      emd_coupon=ASTRA::NoExists;
       status=Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable);
       action=Ticketing::CpnStatAction::associate;
     }
 
     const TEMDCtxtItem& toXML(xmlNodePtr node) const;
     TEMDCtxtItem& fromXML(xmlNodePtr node, xmlNodePtr originNode=NULL);
+    std::string no_str() const;
 };
 
 void GetEMDDisassocList(const int point_id,
@@ -113,7 +114,7 @@ void GetEMDDisassocList(const int point_id,
 
 void GetEMDStatusList(const int grp_id,
                       const bool in_final_status,
-                      const CheckIn::PaidBagEMDList &priorBoundEMDs,
+                      const CheckIn::TServicePaymentList &prior_payment,
                       std::list<TEMDCtxtItem> &added_emds,
                       std::list<TEMDCtxtItem> &deleted_emds);
 
@@ -227,7 +228,7 @@ class EMDAutoBoundGrpId : public EMDAutoBoundId
     }
     virtual const char* grpSQL() const
     {
-      return "SELECT pax_grp.point_dep, pax_grp.grp_id, pax_grp.piece_concept "
+      return "SELECT pax_grp.point_dep, pax_grp.grp_id "
              "FROM pax_grp "
              "WHERE pax_grp.grp_id=:grp_id";
     }
@@ -278,7 +279,7 @@ class EMDAutoBoundRegNo : public EMDAutoBoundId
     }
     virtual const char* grpSQL() const
     {
-      return "SELECT pax_grp.point_dep, pax_grp.grp_id, pax_grp.piece_concept "
+      return "SELECT pax_grp.point_dep, pax_grp.grp_id "
              "FROM pax_grp, pax "
              "WHERE pax_grp.grp_id=pax.grp_id AND "
              "      pax_grp.point_dep=:point_id AND pax.reg_no=:reg_no";

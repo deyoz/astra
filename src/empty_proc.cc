@@ -582,26 +582,6 @@ int get_sirena_rozysk_stat(int argc,char **argv)
   return 0;
 };
 
-int create_tlg(int argc,char **argv)
-{
-/* !!!vlad
-  TCreateTlgInfo tlgInfo;
-  tlgInfo.type="PTMN";
-  tlgInfo.point_id=3229569;
-  tlgInfo.airp_trfer="ДМД";
-  tlgInfo.pr_lat=true;
-  tlgInfo.addrs.addrs="MOWKB1H";
-  TelegramInterface::create_tlg(tlgInfo);
-*/
-/*
-  TypeB::TestBSMElemOrder("IFNNPOOEEW");
-  TypeB::TestBSMElemOrder("IFNPPOOEEW");
-  TypeB::TestBSMElemOrder("IFFNNPPOEW");
-  TypeB::TestBSMElemOrder("IFFNNPPOEV");
-*/
-  return 1;
-};
-
 int test_trfer_exists(int argc,char **argv)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -2729,7 +2709,7 @@ int pc_wt_stat(int argc,char **argv)
         WeightConcept::PaxNormsFromDB(NoExists, pax_id, norms);
         for(list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> >::const_iterator n=norms.begin(); n!=norms.end(); ++n)
         {
-          if (n->first.bag_type!=NoExists) continue;
+          if (n->first.bag_type222!=WeightConcept::REGULAR_BAG_TYPE) continue;
           pax_norm_view=n->second.str(AstraLocale::LANG_RU);
           break;
         };
@@ -2792,7 +2772,7 @@ void TZUpdate();
 
 int tz_conversion(int, char **) {
     std::cout << "IANA timezone version: " << getTZDataVersion() << std::endl;
-    
+
     TZUpdate();
     return 0;
 }
@@ -2853,3 +2833,182 @@ int tst_vo(int, char**)
     LogTrace(TRACE5) << GetXMLDocText(rootNode->doc);
     return 1; // 0 - изменения коммитятся, 1 - rollback
 }
+
+/*
+CREATE TABLE drop_paid_bag_pc AS SELECT * FROM paid_bag_pc WHERE pax_id IS NULL;
+CREATE TABLE drop_paid_bag_emd AS SELECT * FROM paid_bag_emd WHERE grp_id IS NULL;
+DROP TABLE drop_paid_bag_pc;
+DROP TABLE drop_paid_bag_emd;
+
+    SELECT MIN(pax_grp.grp_id) FROM pax_grp, points
+    WHERE pax_grp.point_dep=points.point_id AND
+          points.scd_out BETWEEN TO_DATE('01.01.2015', 'DD.MM.YYYY') AND
+                                 TO_DATE('01.02.2015', 'DD.MM.YYYY')
+*/
+
+#include "rfisc_sirena.h"
+#include "points.h"
+
+int pc_wt_test(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT grp_id, point_dep FROM pax_grp "
+    "WHERE "
+    " grp_id in (132827995, 132821341)";
+ //   "  grp_id BETWEEN 132816281 AND 132840000 ";
+//    "WHERE grp_id>32588640 "; //stand
+//    "WHERE grp_id>34405 AND grp_id<36000 AND " //beta
+//    "WHERE time_create IS NOT NULL AND rownum<=1000 AND "
+//    "      NOT EXISTS(SELECT * FROM paid_rfisc, pax WHERE paid_rfisc.pax_id=pax.pax_id AND pax.grp_id=pax_grp.grp_id AND rownum<2) AND "
+//    "      NOT EXISTS(SELECT * FROM service_payment WHERE service_payment.grp_id=pax_grp.grp_id AND rownum<2) AND "
+//    "      NOT EXISTS(SELECT * FROM bag2 WHERE bag2.grp_id=pax_grp.grp_id AND bag2.list_id IS NOT NULL AND rownum<2) AND "
+//    "      NOT EXISTS(SELECT * FROM paid_bag WHERE paid_bag.grp_id=pax_grp.grp_id AND paid_bag.list_id IS NOT NULL AND rownum<2) AND "
+//    "      NOT EXISTS(SELECT * FROM grp_service_lists WHERE grp_service_lists.grp_id=pax_grp.grp_id AND rownum<2) AND "
+//    "      NOT EXISTS(SELECT * FROM pax_service_lists, pax WHERE pax_service_lists.pax_id=pax.pax_id AND pax.grp_id=pax_grp.grp_id AND rownum<2)";
+  Qry.Execute();
+  list< pair<int, int> > grp_ids;
+  for(;!Qry.Eof;Qry.Next())
+    grp_ids.push_back(make_pair(Qry.FieldAsInteger("grp_id"),
+                                Qry.FieldAsInteger("point_dep")));
+
+  TQuery Qry2(&OraSession);
+  Qry2.Clear();
+  Qry2.SQLText=
+    "BEGIN "
+    "  INSERT INTO drop_paid_bag_pc "
+    "  SELECT paid_bag_pc.* "
+    "  FROM paid_bag_pc, pax "
+    "  WHERE paid_bag_pc.pax_id=pax.pax_id AND pax.grp_id=:grp_id; "
+    "  INSERT INTO drop_paid_bag_emd "
+    "  SELECT * FROM paid_bag_emd WHERE grp_id=:grp_id; "
+    "END;";
+  Qry2.DeclareVariable("grp_id", otInteger);
+
+  TQuery Qry3(&OraSession);
+  Qry3.Clear();
+  Qry3.SQLText=
+    "(SELECT paid_bag_pc.* "
+    " FROM paid_bag_pc, pax "
+    " WHERE paid_bag_pc.pax_id=pax.pax_id AND pax.grp_id=:grp_id "
+    " MINUS "
+    " SELECT * FROM drop_paid_bag_pc) "
+    "UNION "
+    "(SELECT * FROM drop_paid_bag_pc "
+    " MINUS "
+    " SELECT paid_bag_pc.* "
+    " FROM paid_bag_pc, pax "
+    " WHERE paid_bag_pc.pax_id=pax.pax_id AND pax.grp_id=:grp_id) ";
+  Qry3.DeclareVariable("grp_id", otInteger);
+
+  TQuery Qry32(&OraSession);
+  Qry32.Clear();
+  Qry32.SQLText=
+    "SELECT COUNT(*) "
+    "FROM paid_bag_pc, pax "
+    "WHERE paid_bag_pc.pax_id=pax.pax_id AND pax.grp_id=:grp_id "
+    "MINUS "
+    "SELECT COUNT(*) FROM drop_paid_bag_pc ";
+  Qry32.DeclareVariable("grp_id", otInteger);
+
+  TQuery Qry4(&OraSession);
+  Qry4.Clear();
+  Qry4.SQLText=
+    "(SELECT * FROM paid_bag_emd WHERE grp_id=:grp_id "
+    " MINUS "
+    " SELECT * FROM drop_paid_bag_emd) "
+    "UNION "
+    "(SELECT * FROM drop_paid_bag_emd "
+    " MINUS "
+    " SELECT * FROM paid_bag_emd WHERE grp_id=:grp_id) ";
+  Qry4.DeclareVariable("grp_id", otInteger);
+
+  TQuery Qry42(&OraSession);
+  Qry42.Clear();
+  Qry42.SQLText=
+    "SELECT COUNT(*) FROM paid_bag_emd WHERE grp_id=:grp_id "
+    "MINUS "
+    "SELECT COUNT(*) FROM drop_paid_bag_emd ";
+  Qry42.DeclareVariable("grp_id", otInteger);
+
+  printf("total %zu iterations\n", grp_ids.size());
+
+  int processed=0;
+  for(list< pair<int, int> >::const_iterator i=grp_ids.begin(); i!=grp_ids.end(); ++i)
+  {
+    alter_wait(processed, false, 10, 1);
+    int grp_id=i->first;
+    int point_id=i->second;
+    try
+    {
+      TFlights flightsForLock;
+      flightsForLock.Get( point_id, ftTranzit );
+
+      Qry2.SetVariable("grp_id", grp_id);
+      Qry2.Execute();
+
+      UpgradeDBForServices(grp_id);
+
+      Qry32.SetVariable("grp_id", grp_id);
+      Qry32.Execute();
+      if (!Qry32.Eof)
+        throw EXCEPTIONS::Exception("paid_bag_pc different sizes!");
+      Qry42.SetVariable("grp_id", grp_id);
+      Qry42.Execute();
+      if (!Qry42.Eof)
+        throw EXCEPTIONS::Exception("paid_bag_emd different sizes!");
+
+      Qry3.SetVariable("grp_id", grp_id);
+      Qry3.Execute();
+      if (!Qry3.Eof)
+        throw EXCEPTIONS::Exception("paid_bag_pc difference!");
+      Qry4.SetVariable("grp_id", grp_id);
+      Qry4.Execute();
+      if (!Qry4.Eof)
+        throw EXCEPTIONS::Exception("paid_bag_emd difference!");
+    }
+    catch(EXCEPTIONS::Exception &e)
+    {
+      ProgError(STDLOG, "%s: grp_id=%d: %s", __FUNCTION__, grp_id, e.what());
+    }
+    catch(...)
+    {
+      ProgError(STDLOG, "%s: grp_id=%d: unknown error", __FUNCTION__, grp_id);
+    }
+    OraSession.Rollback();
+    processed++;
+  }
+  return 1;
+}
+
+int rfisc_test(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT id, crc FROM bag_types_lists ORDER BY id";
+  Qry.Execute();
+  map<int, int> crcs;
+  for(;!Qry.Eof;Qry.Next())
+    crcs.insert(make_pair(Qry.FieldAsInteger("id"), Qry.FieldAsInteger("crc")));
+  printf("total %zu iterations\n", crcs.size());
+  for(map<int, int>::const_iterator i=crcs.begin(); i!=crcs.end(); ++i)
+  {
+    int list_id=i->first;
+    int crc=i->second;
+    TRFISCList list;
+    list.fromDB(list_id, true);
+    int crc2=list.crc(true);
+    if (crc2!=crc)
+      ProgError(STDLOG, "list_id=%d crc=%d crc()=%d", list_id, crc, crc2);
+    int list_id2=list.toDBAdv(true);
+    if (list_id!=list_id2)
+      ProgError(STDLOG, "list_id=%d list_id2=%d", list_id, list_id2);
+    OraSession.Rollback();
+  }
+
+  return 0;
+}
+
+

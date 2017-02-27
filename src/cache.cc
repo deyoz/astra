@@ -247,14 +247,14 @@ void TCacheTable::initFields()
         switch(FField.DataType) {
             case ftSignedNumber:
             case ftUnsignedNumber:
-                FField.Align = taRightJustify;
+                FField.Align = TAlignment::RightJustify;
                 break;
-            default: FField.Align = taLeftJustify;
+            default: FField.Align = TAlignment::LeftJustify;
         }
 
-        if((string)Qry->FieldAsString("align") == "L") FField.Align = taLeftJustify;
-        if((string)Qry->FieldAsString("align") == "R") FField.Align = taRightJustify;
-        if((string)Qry->FieldAsString("align") == "C") FField.Align = taCenter;
+        if((string)Qry->FieldAsString("align") == "L") FField.Align = TAlignment::LeftJustify;
+        if((string)Qry->FieldAsString("align") == "R") FField.Align = TAlignment::RightJustify;
+        if((string)Qry->FieldAsString("align") == "C") FField.Align = TAlignment::Center;
 
         FField.DataSize = Qry->FieldAsInteger("data_size");
         if(FField.DataSize<=0)

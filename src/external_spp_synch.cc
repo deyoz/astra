@@ -18,7 +18,7 @@ void TParseFlight::add_airline( const std::string &value ) {
     if ( airline.fmt == efmtUnknown )
       throw EConvertError("");
 /*      if ( airline.fmt == efmtCodeInter || airline.fmt == efmtCodeICAOInter )
-          trip_type = "м";  //!!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
+          trip_type = "м";  //!!vlad а правильно ли так определять тип рейса? не уверен. Проверка при помощи маршрута. Если в маршруте все п.п. принадлежат одной стране то "п" иначе "м"
     else
     */
       trip_type = "п";

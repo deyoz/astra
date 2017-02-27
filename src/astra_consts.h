@@ -219,5 +219,42 @@ const std::string ACCESS_DENIED = "Access denied";
 // TODO: get rid of this outrageous define
 #define OP_TYPE_COND(COL) "nvl(" COL", :op_type) = :op_type" // c++11 standard requires space before identifier: ..." COL"...
 
+class TAlignment
+{
+  public:
+    enum Enum
+    {
+      LeftJustify,
+      RightJustify,
+      Center
+    };
+
+    static const std::list< std::pair<Enum, std::string> >& pairs()
+    {
+      static std::list< std::pair<Enum, std::string> > l;
+      if (l.empty())
+      {
+        l.push_back(std::make_pair(LeftJustify,    "taLeftJustify"));
+        l.push_back(std::make_pair(RightJustify,   "taRightJustify"));
+        l.push_back(std::make_pair(Center,         "taCenter"));
+      }
+      return l;
+    }
+};
+
+class TAlignments : public ASTRA::PairList<TAlignment::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "TAlignments"; }
+  public:
+    TAlignments() : ASTRA::PairList<TAlignment::Enum, std::string>(TAlignment::pairs(),
+                                                                   boost::none,
+                                                                   boost::none) {}
+};
+
+const TAlignments& Alignments();
+
+const std::string fsBold="fsBold";
+
 #endif
 

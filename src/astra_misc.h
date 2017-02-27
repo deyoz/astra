@@ -143,37 +143,38 @@ class TTripInfo
       flt_no=0;
       suffix.clear();
       airp.clear();
+      craft.clear();
       scd_out=ASTRA::NoExists;
       real_out=ASTRA::NoExists;
       pr_del = ASTRA::NoExists;
       airline_fmt = efmtUnknown;
       suffix_fmt = efmtUnknown;
       airp_fmt = efmtUnknown;
+      craft_fmt = efmtUnknown;
     };
     void init( TQuery &Qry )
     {
+      init();
       airline=Qry.FieldAsString("airline");
       flt_no=Qry.FieldAsInteger("flt_no");
       suffix=Qry.FieldAsString("suffix");
       airp=Qry.FieldAsString("airp");
+      if (Qry.GetFieldIndex("craft")>=0)
+        craft=Qry.FieldAsString("craft");
       if (!Qry.FieldIsNULL("scd_out"))
         scd_out = Qry.FieldAsDateTime("scd_out");
-      else
-        scd_out = ASTRA::NoExists;
       if (Qry.GetFieldIndex("real_out")>=0 && !Qry.FieldIsNULL("real_out"))
         real_out = Qry.FieldAsDateTime("real_out");
-      else
-        real_out = ASTRA::NoExists;
       if (Qry.GetFieldIndex("pr_del")>=0)
         pr_del = Qry.FieldAsInteger("pr_del");
-      else
-        pr_del = ASTRA::NoExists;
       if (Qry.GetFieldIndex("airline_fmt")>=0)
-          airline_fmt = (TElemFmt)Qry.FieldAsInteger("airline_fmt");
+        airline_fmt = (TElemFmt)Qry.FieldAsInteger("airline_fmt");
       if (Qry.GetFieldIndex("suffix_fmt")>=0)
-          suffix_fmt = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
+        suffix_fmt = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
       if (Qry.GetFieldIndex("airp_fmt")>=0)
-          airp_fmt = (TElemFmt)Qry.FieldAsInteger("airp_fmt");
+        airp_fmt = (TElemFmt)Qry.FieldAsInteger("airp_fmt");
+      if (Qry.GetFieldIndex("craft_fmt")>=0)
+        craft_fmt = (TElemFmt)Qry.FieldAsInteger("craft_fmt");
       if (Qry.GetFieldIndex("point_id")>=0)
           point_id = Qry.FieldAsInteger("point_id");
     };
@@ -197,10 +198,10 @@ class TTripInfo
     }
   public:
     int point_id;
-    std::string airline,suffix,airp;
+    std::string airline, suffix, airp, craft;
     int flt_no, pr_del;
-    TElemFmt airline_fmt, suffix_fmt, airp_fmt;
-    TDateTime scd_out,real_out;
+    TElemFmt airline_fmt, suffix_fmt, airp_fmt, craft_fmt;
+    TDateTime scd_out, real_out;
     TTripInfo()
     {
       init();
@@ -228,9 +229,11 @@ class TTripInfo
     };
     virtual bool getByPointId ( const int point_id );
     virtual bool getByPointIdTlg ( const int point_id_tlg );
+    virtual bool getByGrpId ( const int grp_id );
     void get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client, bool trunc_time=true) const;
     static TDateTime get_scd_in(const int &point_arv);
     TDateTime get_scd_in(const std::string &airp_arv) const;
+    std::string flight_view(TElemContext ctxt=ecNone, bool showScdOut=true, bool showAirp=true) const;
 };
 
 std::string GetTripDate( const TTripInfo &info, const std::string &separator, const bool advanced_trip_list  );
@@ -767,10 +770,10 @@ struct TCodeShareSets {
       pr_mark_norms=false;
       pr_mark_bp=false;
       pr_mark_rpt=false;
-    };
-    //важно! время вылета scd_out у operFlt в UTC
+    }
     void get(const TTripInfo &operFlt,
-             const TTripInfo &markFlt);
+             const TTripInfo &markFlt,
+             bool is_local_scd_out=false);
 };
 
 //важно! время вылета scd_out у operFlt должно быть в UTC

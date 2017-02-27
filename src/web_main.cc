@@ -39,9 +39,9 @@
 #include "apis_utils.h"
 #include "stl_utils.h"
 #include "astra_callbacks.h"
-#include "baggage_pc.h"
 #include "meridian.h"
 #include "brands.h"
+#include "rfisc_sirena.h"
 
 
 
@@ -3866,7 +3866,7 @@ void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
 {
   TPseudoGroupInfoRes *pseudoGroupInfoRes=dynamic_cast<TPseudoGroupInfoRes*>(&exch);
   if (!pseudoGroupInfoRes) return;
-  TBagList &svcs_ref=pseudoGroupInfoRes->bags;
+  TSvcList &svcs_ref=pseudoGroupInfoRes->svcs;
   std::list<TPaxItem> &paxs_ref=pseudoGroupInfoRes->paxs;
 
   TQuery Qry(&OraSession);
@@ -3879,7 +3879,7 @@ void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
   Qry.DeclareVariable("pax_id", otInteger);
   for(TEntityList::const_iterator i=entities.begin(); i!=entities.end(); ++i)
   {
-    const TPaxSegKey &entity=*i;
+    const Sirena::TPaxSegKey &entity=*i;
 
     Qry.SetVariable("pax_id", entity.pax_id);
     Qry.Execute();
@@ -3918,12 +3918,12 @@ void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
     reqPax.set(pax, etick);
 
     SirenaExchange::TPaxSegMap::iterator iReqSeg=
-        reqPax.segs.insert(make_pair(entity.seg_id,SirenaExchange::TPaxSegItem())).first;
+        reqPax.segs.insert(make_pair(entity.trfer_num,SirenaExchange::TPaxSegItem())).first;
     if (iReqSeg==reqPax.segs.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqSeg==reqPax.segs.end()");
     SirenaExchange::TPaxSegItem &reqSeg=iReqSeg->second;
     TMktFlight mktFlight;
     mktFlight.getByCrsPaxId(pax.id);
-    reqSeg.set(entity.seg_id, operFlt.get(), airp_arv, mktFlight, operFlt.get().get_scd_in(airp_arv));
+    reqSeg.set(entity.trfer_num, operFlt.get(), airp_arv, mktFlight, operFlt.get().get_scd_in(airp_arv));
     reqSeg.subcl=mktFlight.subcls;
     reqSeg.tkn=pax.tkn;
     CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
@@ -3953,15 +3953,14 @@ void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
           TRFISC rfisc=place.getRFISC(point_id);
           if (rfisc.empty() || rfisc.code.empty()) continue;
 
-          PieceConcept::TPaidBagItem item;
-          item.pax_id=entity.pax_id;
-          item.trfer_num=entity.seg_id;
-          item.RFISC=rfisc.code;
-          item.status=PieceConcept::bsNeed;
-          item.service_type="F";
+          TRFISCKey RFISCKey;
+          RFISCKey.RFISC=rfisc.code;
+          RFISCKey.service_type=TServiceType::FlightRelated;
+          RFISCKey.airline=operFlt.get().airline;
+          TSvcItem item(TPaxSegRFISCKey(entity, RFISCKey), TServiceStatus::Need);
           item.ssr_text= denorm_iata_row( place.yname, NULL ) +
                          denorm_iata_line( place.xname, salonList.isCraftLat() );
-          svcs_ref.push_back(make_pair(entity, item));
+          svcs_ref.push_back(item);
         }
       }
     };
