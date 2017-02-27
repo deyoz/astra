@@ -46,6 +46,7 @@ void TBrands::get(int pax_id)
 
 void TBrands::get(const std::string &airline, const std::string &fare_basis)
 {
+    oper_airline = airline;
     items.clear();
     TCachedQuery brandQry(
             "select "
@@ -66,4 +67,37 @@ void TBrands::get(const std::string &airline, const std::string &fare_basis)
         items.push_back(brandQry.get().FieldAsInteger("id"));
 }
 
+bool TBrands::getBrand( TBrand &brand, std::string lang ) const
+{
+  brand.clear();
+  if ( items.empty() ) {
+    return false;
+  }
+  return getBrand( *items.begin(), brand, lang );
+}
 
+bool TBrands::getBrand( int id, TBrand &brand, std::string lang ) const
+{
+  bool res = false;
+  brand.clear();
+  for ( TItems::const_iterator item=items.begin(); item!=items.end(); item++ ) {
+    if ( *item == id ) {
+       brand.oper_airline = oper_airline;
+       brand.code = ElemIdToElem(etBrand, id, efmtCodeNative, lang);
+       brand.name = ElemIdToElem(etBrand, id, efmtNameLong, lang);
+       res = true;
+       break;
+    }
+  }
+  ProgTrace( TRACE5, "getBrand return oper_airline=%s, code=%s, name=%s, res=%d", brand.oper_airline.c_str(), brand.code.c_str(), brand.name.c_str(), res );
+  return res;
+}
+
+void TBrand::toXML( xmlNodePtr brandNode ) const
+{
+  if ( !oper_airline.empty() || !code.empty() || !name.empty() ) {
+    NewTextChild( brandNode, "airline", oper_airline );
+    NewTextChild( brandNode, "brand_code", code );
+    NewTextChild( brandNode, "name", name );
+  }
+}
