@@ -814,7 +814,19 @@ void TRFISCList::toDB(int list_id, bool old_version) const
   {
     if (old_version && i->second.service_type!=TServiceType::BaggageCharge) continue;
     i->second.toDB(Qry, old_version);
-    Qry.Execute();
+    try
+    {
+      Qry.Execute();
+    }
+    catch(EOracleError E)
+    {
+      if (E.Code==1)
+      {
+        if (!old_version) throw;
+      }
+      else
+        throw;
+    };
   }
 }
 
@@ -1021,7 +1033,7 @@ void TRFISCBagPropsList::fromDB(const set<string> &airlines)
 string TRFISCBagPropsList::get_rem_code(const std::string &airline, const std::string &rfisc) const
 {
   if (rfisc.empty()) return "";
-  TRFISCBagPropsList::const_iterator i=find(TRFISCListKey(airline, TServiceType::BaggageCharge, rfisc));
+  TRFISCBagPropsList::const_iterator i=find(TRFISCListKey(rfisc, TServiceType::BaggageCharge, airline));
   if (i==end()) return "";
   return i->second.rem_code;
 }
