@@ -6133,7 +6133,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     if (tckin_grp_ids.empty() || grp_cat!=CheckIn::TPaxGrpCategory::Passenges) throw 1;
 
     TPaidRFISCList paid;
-    ProgError(STDLOG, "actionRefreshPaidBagPC req.svcs.size()=%zu", req.svcs.size()); //!!!vlad
+    ProgTrace(TRACE5, "actionRefreshPaidBagPC req.svcs.size()=%zu", req.svcs.size());
     if (!req.svcs.empty())
     {
       try

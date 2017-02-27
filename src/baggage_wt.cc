@@ -1131,7 +1131,7 @@ void TPaidBagList::getAllListItems(int grp_id, bool is_unaccomp)
 }
 
 void PaidBagFromXML(xmlNodePtr paidbagNode,
-                    int grp_id, bool is_unaccomp,
+                    int grp_id, bool is_unaccomp, bool trfer_confirm,
                     boost::optional<TPaidBagList> &paid)
 {
   paid=boost::none;
@@ -1149,7 +1149,7 @@ void PaidBagFromXML(xmlNodePtr paidbagNode,
       };
     };
     if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
-      if (grp_id!=ASTRA::NoExists)
+      if (!(grp_id==ASTRA::NoExists || !trfer_confirm))
         paid.get().getAllListKeys(grp_id, is_unaccomp);
   };
 };
@@ -1187,7 +1187,7 @@ void PaidBagToDB(int grp_id, bool is_unaccomp,
   BagQry.SQLText=
     "UPDATE pax_grp "
     "SET excess_wt=:excess, excess=DECODE(NVL(piece_concept,0), 0, :excess, excess) "
-    "WHERE grp_id=:grp_id AND trfer_confirm<>0";
+    "WHERE grp_id=:grp_id";
   BagQry.CreateVariable("grp_id", otInteger, grp_id);
   BagQry.CreateVariable("excess", otInteger, excess);
   BagQry.Execute();
