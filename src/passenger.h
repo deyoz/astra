@@ -700,7 +700,9 @@ class TCkinPaxTknItem : public TPaxTknItem
 
 void GetTCkinTickets(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
 
-}; //namespace CheckIn
+std::string isFemaleStr( int is_female );
+
+} //namespace CheckIn
 
 namespace Sirena
 {

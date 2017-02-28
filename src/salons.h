@@ -115,15 +115,15 @@ struct TPlaceLayer {
     ASTRA::TCompLayerType layer_type;
     int priority;
     TDateTime time_create;
-  TPlaceLayer( int vpax_id, int vpoint_dep, int vpoint_arv,
-               ASTRA::TCompLayerType vlayer_type, TDateTime vtime_create, int vpriority ) {
-        pax_id = vpax_id;
-        point_dep = vpoint_dep;
-        point_arv = vpoint_arv;
-        layer_type = vlayer_type;
-        time_create = vtime_create;
-        priority = vpriority;
-  }
+    TPlaceLayer( int vpax_id, int vpoint_dep, int vpoint_arv,
+                 ASTRA::TCompLayerType vlayer_type, TDateTime vtime_create, int vpriority ) {
+      pax_id = vpax_id;
+      point_dep = vpoint_dep;
+      point_arv = vpoint_arv;
+      layer_type = vlayer_type;
+      time_create = vtime_create;
+      priority = vpriority;
+    }
 };
 
 struct TRFISC {
@@ -606,7 +606,7 @@ struct SeatRemarkCompare {
 
 class TPaxList;
 
-struct classcomp {
+struct classcomp   {
   bool operator() (const int& lhs, const int& rhs) const
   {return lhs<rhs;}
 };
@@ -1444,7 +1444,7 @@ class TSalonList: public std::vector<TPlaceList*> {
     void check_waitlist_alarm_on_tranzit_routes( const std::set<int> &paxs_external_logged );
 
     void getSectionInfo( std::vector<TSectionInfo> &CompSections, const TGetPassFlags &flags );
-    void getSectionInfo( TSectionInfo &sectionInfo, const TGetPassFlags &flags );
+    void getSectionInfo( TSectionInfo &sectionInfo, const TGetPassFlags &flags );    
 };
 
     void check_waitlist_alarm_on_tranzit_routes( int point_dep, const std::set<int> &paxs_external_logged );
@@ -1516,7 +1516,9 @@ class TSalonList: public std::vector<TPlaceList*> {
                     const std::vector<TSeatRange> &seatRanges, const std::string &reason );
   bool selfckin_client();
   void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tariffMap );
-  std::string getPointAirp(int point_id);
+                                 std::string getPointAirp(int point_id);
+  typedef std::map<int,std::set<std::string> > TSalonDesrcs;
+  void getSalonDesrcs( int point_id, TSalonDesrcs &descrs );
 } // END namespace SALONS2
 int testsalons(int argc,char **argv);
 #endif /*_SALONS2_H_*/
