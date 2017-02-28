@@ -1569,6 +1569,7 @@ bool TPaxGrpItem::fromXML(xmlNodePtr node)
   {
     //запись изменений
     if (!fromDB(grp_id)) return false;
+    if (tid!=NodeAsIntegerFast("tid",node2)) return false;
   };
 
   id=NodeAsIntegerFast("grp_id",node2,ASTRA::NoExists);
@@ -1577,7 +1578,6 @@ bool TPaxGrpItem::fromXML(xmlNodePtr node)
   point_arv=NodeAsIntegerFast("point_arv",node2);
   airp_arv=NodeAsStringFast("airp_arv",node2);
   cl=NodeAsStringFast("class",node2);
-  tid=NodeAsIntegerFast("tid",node2,ASTRA::NoExists);
   if (id==ASTRA::NoExists)
     status=DecodePaxStatus(NodeAsStringFast("status",node2));
 

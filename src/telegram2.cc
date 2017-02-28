@@ -5433,7 +5433,7 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)  //лучше бы переделать
             // int weight = Qry.get().FieldAsInteger(col_weight);
 
             if(not rfisc.empty()) { // piece concept
-                rfisc_list.fromDB(bag_types_id, true); //!!!vlad тестировать!
+                rfisc_list.fromDB(bag_types_id, true);
                 rem_code = rfisc_list.get_rem_code(rfisc, false); //что делать в будущем если ручная кладь тоже попадает?
             }
 

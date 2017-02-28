@@ -127,7 +127,7 @@ class TPaidToLogInfo
       bag.clear();
       payment.clear();
     }
-    void add(const TEventsBagItem& item);
+    void add(const CheckIn::TBagItem& item);
     void add(const WeightConcept::TPaidBagItem& item);
     void add(const TPaidRFISCItem& item);
     void clearExcess()
