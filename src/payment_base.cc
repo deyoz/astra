@@ -445,7 +445,7 @@ void TServicePaymentList::toDB777(int grp_id) const
                               << QParam("pax_id", otInteger));
   for(TServicePaymentList::const_iterator i=begin(); i!=end(); ++i)
   {
-    if (notCompatibleWithPriorTermVersions()) continue;
+    if (i->notCompatibleWithPriorTermVersions()) continue;
     i->toDBTmp(Qry2.get());
     Qry2.get().Execute();
   }
