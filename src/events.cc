@@ -268,7 +268,7 @@ TEventsBagItem& TEventsBagItem::fromDB(TQuery &Qry)
   return *this;
 };
 
-void TPaidToLogInfo::add(const TEventsBagItem& item)
+void TPaidToLogInfo::add(const CheckIn::TBagItem &item)
 {
   TEventsSumBagKey key;
   key.bag_type_view=item.key_str_compatible();

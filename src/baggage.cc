@@ -1616,6 +1616,10 @@ void TGroupBagItem::getAllListKeys(const int grp_id, const bool is_unaccomp, con
     }
     catch(EConvertError &e)
     {
+      if (is_unaccomp)
+        throw UserException("MSG.UNACCOMP_BAGGAGE_NOT_AVAIL_ON_SEG",
+                            LParams() << LParam("svc_key_view", bag.key_str_compatible())
+                                      << LParam("flight", ""));  //!!! потом хорошо бы выводить сегмент
       throw;  //входящий трансфер не обрабатываем, поскольку он не может вводиться через терминал
     };
   }

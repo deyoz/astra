@@ -814,7 +814,19 @@ void TRFISCList::toDB(int list_id, bool old_version) const
   {
     if (old_version && i->second.service_type!=TServiceType::BaggageCharge) continue;
     i->second.toDB(Qry, old_version);
-    Qry.Execute();
+    try
+    {
+      Qry.Execute();
+    }
+    catch(EOracleError E)
+    {
+      if (E.Code==1)
+      {
+        if (!old_version) throw;
+      }
+      else
+        throw;
+    };
   }
 }
 
@@ -1021,7 +1033,7 @@ void TRFISCBagPropsList::fromDB(const set<string> &airlines)
 string TRFISCBagPropsList::get_rem_code(const std::string &airline, const std::string &rfisc) const
 {
   if (rfisc.empty()) return "";
-  TRFISCBagPropsList::const_iterator i=find(TRFISCListKey(airline, TServiceType::BaggageCharge, rfisc));
+  TRFISCBagPropsList::const_iterator i=find(TRFISCListKey(rfisc, TServiceType::BaggageCharge, airline));
   if (i==end()) return "";
   return i->second.rem_code;
 }
@@ -1396,7 +1408,7 @@ void TPaidRFISCList::toDB777(int grp_id) const
   int excess=0;
   for(TPaidRFISCList::const_iterator i=begin(); i!=end(); ++i)
   {
-    if (i->second.paid_positive())
+    if (i->second.trfer_num==0 && i->second.paid_positive())
       excess+=i->second.paid;
     i->second.toDB(Qry.get());
     Qry.get().Execute();
@@ -1859,13 +1871,13 @@ void GetBagConcepts(int grp_id, bool &pc, bool &wt, bool &rfisc_used)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT service_lists.rfisc_used, pax_service_lists.category "
+    "SELECT DISTINCT service_lists.rfisc_used, pax_service_lists.category "
     "FROM pax, pax_service_lists, service_lists "
     "WHERE pax.pax_id=pax_service_lists.pax_id AND "
     "      pax_service_lists.list_id=service_lists.id AND "
     "      pax.grp_id=:grp_id AND transfer_num=0 "
     "UNION "
-    "SELECT service_lists.rfisc_used, grp_service_lists.category "
+    "SELECT DISTINCT service_lists.rfisc_used, grp_service_lists.category "
     "FROM grp_service_lists, service_lists "
     "WHERE grp_service_lists.list_id=service_lists.id AND "
     "      grp_service_lists.grp_id=:grp_id AND transfer_num=0";
