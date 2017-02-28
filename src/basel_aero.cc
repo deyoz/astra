@@ -593,7 +593,7 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
       {
         for(;!BagQry.Eof;BagQry.Next())
         {
-          TEventsBagItem bagItem;
+          CheckIn::TBagItem bagItem;
           bagItem.fromDB(BagQry);
           paidInfo.add(bagItem);
         };
