@@ -662,6 +662,12 @@ void TSR::parse(const char *val)
 {
     vector<string> items;
     split(items, val, '.');
+    if(items.size() >= 2 and items[1] == "WB") {
+        type = srWB;
+        items.erase(items.begin() + 1);
+    } else
+        type = srStd;
+    LogTrace(TRACE5) << "SR type: " << (type == srStd ? "srStd" : "srWB");
     string data;
     if(items.size() > 3)
         throw ETlgError("wrong item count within SR %s", val);
@@ -1478,6 +1484,7 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
                         seatRanges.insert( seatRanges.end(), ranges_tmp.begin(), ranges_tmp.end() );
                     }
                     SALONS2::resetLayers( point_id_spp, cltProtect, seatRanges, "EVT.LAYOUT_MODIFIED_LCI.SEAT_PLAN" );
+                    if(i->second.sr.type == TSR::srWB and not i->second.sr.c.empty()) options.seat_restrict = "C";
                     break;
                 case rtWB:
                     options.is_lat = i->second.lang == AstraLocale::LANG_EN;
