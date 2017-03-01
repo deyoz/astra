@@ -9,7 +9,6 @@
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "convert.h"
-#include "salons.h"
 #include "salonform.h"
 #include "astra_consts.h"
 #include "passenger.h"
@@ -252,7 +251,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
         default:
           break;
       }
-      for ( SALONS2::TPassSeats::const_iterator iseat=ilayer->second.begin();
+      for ( TPassSeats::const_iterator iseat=ilayer->second.begin();
             iseat!=ilayer->second.end(); iseat++ ) {
         TTlgCompLayer compLayer;
         compLayer.pax_id = ilayer->first.getPaxId();
@@ -6397,7 +6396,9 @@ struct TSR_S {
     void get(TypeB::TDetailCreateInfo &info)
     {
         const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
-        if(options.seat_restrict.find('S') != string::npos) {
+        if(not options.seats.empty()) {
+            layerSeats = options.seats;
+        } else if(options.seat_restrict.find('S') != string::npos) {
             SALONS2::TSalonList salonList;
             salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
             SALONS2::TSectionInfo sectionInfo;
@@ -6413,9 +6414,16 @@ struct TSR_S {
         static const string PREFIX = "SR.S";
         string buf = PREFIX;
         for(TPassSeats::iterator i_seat = layerSeats.begin(); i_seat != layerSeats.end(); i_seat++) {
-            string seat =
-                denorm_iata_row(i_seat->row, NULL) + // denorm - чтобы избавиться от нулей: 002 -> 2
-                denorm_iata_line(i_seat->line, info.is_lat() or info.pr_lat_seat);
+            string seat;
+            if(i_seat->Empty()) {
+                if(layerSeats.size() != 1)
+                    throw Exception("empty seat must be single");
+                seat = "N";
+            } else {
+                seat = 
+                    denorm_iata_row(i_seat->row, NULL) + // denorm - чтобы избавиться от нулей: 002 -> 2
+                    denorm_iata_line(i_seat->line, info.is_lat() or info.pr_lat_seat);
+            }
             if(buf.size() + seat.size() + 1 > LINE_SIZE) {
                 body.push_back(buf);
                 buf = PREFIX;
@@ -6451,6 +6459,33 @@ struct TSR_Z {
             }
             body.push_back(result.str());
         }
+    }
+};
+
+struct TSR_WB_C {
+    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body) {
+        const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
+        if(options.cfg.empty()) return;
+        TCFG cfg(info.point_id);
+
+        // Необходимо сбросить все поля в значения по умлочанию,
+        // кроме cls и cfg чтобы сортировалось одинаково с opt_cfg
+        // заодно сформируем текст для телеграммы
+        ostringstream buf;
+        buf << "SR.WB.C.";
+        for(TCFG::iterator i = cfg.begin(); i != cfg.end(); i++) {
+            TCFGItem new_item;
+            new_item.cls = i->cls;
+            new_item.cfg = i->cfg;
+            *i = new_item;
+            buf << info.TlgElemIdToElem(etSubcls, i->cls) << i->cfg;
+        }
+        body.push_back(buf.str());
+
+        sort(cfg.begin(), cfg.end());
+        TCFG opt_cfg = options.cfg;
+        sort(opt_cfg.begin(), opt_cfg.end());
+        set_alarm(info.point_id, atWBDifferLayout, not(opt_cfg == cfg));
     }
 };
 
@@ -7157,6 +7192,7 @@ void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 struct TLCI {
     TLCICFG eqt;
     TWA wa;
+    TSR_WB_C sr_wb_c; // поле SR.WB.C - конфиг салона - возвращается в WBW
     TSR_C sr_c;
     TSR_Z sr_z;
     TSR_S sr_s;
@@ -7248,6 +7284,7 @@ void TLCI::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     eqt.ToTlg(info, body);
     wa.ToTlg(info, body);
     if(options.seating) body.push_back("SM.S"); // Seating method 'By Seat' always
+    sr_wb_c.ToTlg(info, body);
     if(options.seat_restrict.find('C') != string::npos) sr_c.ToTlg(info, body);
     if(options.seat_restrict.find('Z') != string::npos) sr_z.ToTlg(info, body);
     if(options.seat_restrict.find('S') != string::npos) sr_s.ToTlg(info, body);

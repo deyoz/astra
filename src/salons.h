@@ -465,15 +465,6 @@ struct SeatLayerCompare {
 struct TSalonPax;
 class TPlace;
 
-struct CompareSeat  {
-  bool operator() ( const TSeat &seat1, const TSeat &seat2 ) const {
-    if ( seat1 != seat2 ) {
-      return ( seat1 < seat2 );
-    }
-    return false;
-  }
-};
-
 struct CompareSeatRange  {
   bool operator() ( const TSeatRange &seat1, const TSeatRange &seat2 ) const {
     if ( seat1 != seat2 ) {
@@ -484,23 +475,6 @@ struct CompareSeatRange  {
 };
 
 class TInvalidRange: public std::set<TSeatRange,CompareSeatRange> {
-};
-
-class TPassSeats: public std::set<TSeat,CompareSeat> {
-  public:
-    bool operator == (const TPassSeats &seats) const {
-      if ( size() != seats.size() ) {
-        return false;
-      }
-      for ( std::set<TSeat>::const_iterator iseat1=begin(),
-            iseat2=seats.begin();
-            iseat1!=end(), iseat2!=seats.end(); iseat1++, iseat2++ ) {
-        if (  *iseat1 != *iseat2 ) {
-          return false;
-        }
-      }
-      return true;
-    }
 };
 
 

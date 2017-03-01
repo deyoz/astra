@@ -25,7 +25,7 @@ class TSeat
       *row=0;
       *line=0;
     };
-    bool Empty()
+    bool Empty() const
     {
       return *row==0 || *line==0;
     };
@@ -81,6 +81,33 @@ class TSeatRange : public std::pair<TSeat,TSeat>
       return range1.first<range2.first;
     };
 };
+
+struct CompareSeat  {
+  bool operator() ( const TSeat &seat1, const TSeat &seat2 ) const {
+    if ( seat1 != seat2 ) {
+      return ( seat1 < seat2 );
+    }
+    return false;
+  }
+};
+
+class TPassSeats: public std::set<TSeat,CompareSeat> {
+  public:
+    bool operator == (const TPassSeats &seats) const {
+      if ( size() != seats.size() ) {
+        return false;
+      }
+      for ( std::set<TSeat>::const_iterator iseat1=begin(),
+            iseat2=seats.begin();
+            iseat1!=end(), iseat2!=seats.end(); iseat1++, iseat2++ ) {
+        if (  *iseat1 != *iseat2 ) {
+          return false;
+        }
+      }
+      return true;
+    }
+};
+
 
 //функция кроме представления номера места возвращает кол-во мест
 std::string GetSeatRangeView(const std::vector<TSeatRange> &ranges,

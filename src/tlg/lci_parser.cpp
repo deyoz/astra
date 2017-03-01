@@ -662,6 +662,12 @@ void TSR::parse(const char *val)
 {
     vector<string> items;
     split(items, val, '.');
+    if(items.size() >= 2 and items[1] == "WB") {
+        type = srWB;
+        items.erase(items.begin() + 1);
+    } else
+        type = srStd;
+    LogTrace(TRACE5) << "SR type: " << (type == srStd ? "srStd" : "srWB");
     string data;
     if(items.size() > 3)
         throw ETlgError("wrong item count within SR %s", val);
@@ -669,7 +675,8 @@ void TSR::parse(const char *val)
         data = items[2];
     if(items[1].size() != 1)
         throw ETlgError("SR wrong type %s", items[1].c_str());
-    switch(items[1][0]) {
+    format = items[1][0];
+    switch(format) {
         case 'C':
             c.parse(data, etClass);
             break;
@@ -1427,6 +1434,32 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
     };
 }
 
+void set_seats_option(TPassSeats &seats, const vector<TSeatRange> &seatRanges, int point_id_spp)
+{
+    SALONS2::TSalonList salonList;
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id_spp ), SALONS2::rfTranzitVersion, "", NoExists );
+    for ( std::vector<SALONS2::TPlaceList*>::iterator isalonList=salonList.begin();
+            isalonList!=salonList.end(); isalonList++ ) {
+        for ( SALONS2::TPlaces::iterator iseat=(*isalonList)->places.begin(); iseat!=(*isalonList)->places.end(); iseat++ ) {
+            if(not iseat->isplace) continue;
+            seats.insert(TSeat(iseat->yname, iseat->xname));
+        }
+    }
+
+    for(vector<TSeatRange>::const_iterator
+            seat_range = seatRanges.begin();
+            seat_range != seatRanges.end();
+            seat_range++) {
+        TPassSeats::iterator found_seat = seats.find(seat_range->first);
+        if(found_seat != seats.end())
+            seats.erase(found_seat);
+        else
+            seats.insert(seat_range->first);
+    }
+    set_alarm(point_id_spp, atWBDifferSeats, not seats.empty());
+    if(seats.empty()) seats.insert(TSeat());
+}
+
 void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, TLCIContent& con)
 {
     int point_id_tlg=SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TSearchFltInfoPtr(new TLCISearchParams()));
@@ -1477,7 +1510,30 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
                         ParseSeatRange(*sr_i, ranges_tmp, false);
                         seatRanges.insert( seatRanges.end(), ranges_tmp.begin(), ranges_tmp.end() );
                     }
-                    SALONS2::resetLayers( point_id_spp, cltProtect, seatRanges, "EVT.LAYOUT_MODIFIED_LCI.SEAT_PLAN" );
+                    switch(i->second.sr.type) {
+                        case TSR::srWB:
+                            {
+                                set_seats_option(options.seats, seatRanges, point_id_spp);
+                                options.seat_plan = false;
+                            }
+                            break;
+                        case TSR::srStd:
+                            SALONS2::resetLayers( point_id_spp, cltProtect, seatRanges, "EVT.LAYOUT_MODIFIED_LCI.SEAT_PLAN" );
+                            break;
+                        default:
+                            break;
+                    }
+                    if(i->second.sr.type == TSR::srWB and not i->second.sr.c.empty()) {
+                        for(TCFG::iterator
+                                cfg_item = i->second.sr.c.begin();
+                                cfg_item != i->second.sr.c.end();
+                                ++cfg_item) {
+                            options.cfg.push_back(TCFGItem());
+                            options.cfg.back().cls = cfg_item->first;
+                            options.cfg.back().cfg = cfg_item->second;
+                        }
+                        options.seat_restrict.clear();
+                    }
                     break;
                 case rtWB:
                     options.is_lat = i->second.lang == AstraLocale::LANG_EN;
