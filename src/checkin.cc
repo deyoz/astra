@@ -5764,12 +5764,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 normFltInfo.flt_no_mark=markFltInfo.flt_no;
                 normFltInfo.use_mark_flt=pr_mark_norms;
                 normFltInfo.use_mixed_norms=pr_mixed_norms;
+                WeightConcept::TAirlines airlines(grp.id, 
+                                                  pr_mark_norms?markFltInfo.airline:fltInfo.airline,
+                                                  "RecalcPaidBagToDB");
                 map<int/*id*/, TEventsBagItem> curr_bag;
                 GetBagToLogInfo(grp.id, curr_bag);
                 WeightConcept::TPaidBagList prior_paid;
                 WeightConcept::PaidBagFromDB(NoExists, grp.id, prior_paid);
-                WeightConcept::TPaidBagList result_paid;
-                WeightConcept::TAirlines airlines(grp.id, "RecalcPaidBagToDB");
+                WeightConcept::TPaidBagList result_paid;                
                 WeightConcept::RecalcPaidBagToDB(airlines, grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, normFltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true, result_paid);
                 CheckIn::TryCleanServicePayment(result_paid, paymentBefore, payment);
               }
@@ -7158,7 +7160,9 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
         {
           map<int/*id*/, TEventsBagItem> tmp_bag;
           GetBagToLogInfo(grp.id, tmp_bag);
-          WeightConcept::TAirlines airlines(grp.id, "CalcPaidBagView");
+          WeightConcept::TAirlines airlines(grp.id, 
+                                            used_norms_airline_mark.empty()?seg.operFlt.airline:used_norms_airline_mark,
+                                            "CalcPaidBagView");
           WeightConcept::CalcPaidBagView(airlines, tmp_bag, all_norms, paid, payment, used_norms_airline_mark,
                                          PaidBagViewMap, TrferBagViewMap);
           WeightConcept::PaidBagViewToXML(PaidBagViewMap, TrferBagViewMap, resNode);
