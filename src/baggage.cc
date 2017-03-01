@@ -1616,11 +1616,21 @@ void TGroupBagItem::getAllListKeys(const int grp_id, const bool is_unaccomp, con
     }
     catch(EConvertError &e)
     {
+      ProgError(STDLOG, "Warning: %s", e.what());
+
+      string flight=flight_view(grp_id, transfer_num+1);
+      if (flight.empty()) flight=IntToString(transfer_num+1);
+
       if (is_unaccomp)
         throw UserException("MSG.UNACCOMP_BAGGAGE_NOT_AVAIL_ON_SEG",
                             LParams() << LParam("svc_key_view", bag.key_str_compatible())
-                                      << LParam("flight", ""));  //!!! потом хорошо бы выводить сегмент
-      throw;  //входящий трансфер не обрабатываем, поскольку он не может вводиться через терминал
+                                      << LParam("flight", flight));
+      else
+        throw UserException(bag.pr_cabin?"MSG.CARRY_ON_NOT_AVAIL_FOR_PASSENGER_ON_SEG":
+                                         "MSG.BAGGAGE_NOT_AVAIL_FOR_PASSENGER_ON_SEG",
+                            LParams() << LParam("svc_key_view", bag.key_str_compatible())
+                                      << LParam("pax_name", "") //!!!потом выводить фамилию/имя
+                                      << LParam("flight", flight));
     };
   }
 }
@@ -1660,7 +1670,24 @@ void TGroupBagItem::getAllListItems(const int grp_id, const bool is_unaccomp, co
     }
     catch(EConvertError &e)
     {
-      if (!bag.is_trfer) throw;
+      if (!bag.is_trfer)
+      {
+        ProgError(STDLOG, "Warning: %s", e.what());
+
+        string flight=flight_view(grp_id, transfer_num+1);
+        if (flight.empty()) flight=IntToString(transfer_num+1);
+
+        if (is_unaccomp)
+          throw UserException("MSG.UNACCOMP_BAGGAGE_NOT_AVAIL_ON_SEG",
+                              LParams() << LParam("svc_key_view", bag.key_str())
+                                        << LParam("flight", flight));
+        else
+          throw UserException(bag.pr_cabin?"MSG.CARRY_ON_NOT_AVAIL_FOR_PASSENGER_ON_SEG":
+                                           "MSG.BAGGAGE_NOT_AVAIL_FOR_PASSENGER_ON_SEG",
+                              LParams() << LParam("svc_key_view", bag.key_str())
+                                        << LParam("pax_name", "") //!!!потом выводить фамилию/имя
+                                        << LParam("flight", flight));
+      }
       if (bag.pc)
       {
         bag.pc.get().getListItemInboundTrferTmp("TGroupBagItem");

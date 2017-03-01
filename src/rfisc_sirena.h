@@ -307,6 +307,7 @@ class TAvailabilityResItem
       carry_on_norm.clear();
       brand.clear();
     }
+    void remove_unnecessary();
 };
 
 typedef std::map<Sirena::TPaxSegKey, TAvailabilityResItem> TAvailabilityResMap;
