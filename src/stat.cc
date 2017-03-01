@@ -1952,7 +1952,8 @@ const char *TStatTypeS[statNum] = {
     "statRFISC",
     "statService",
     "statLimitedCapab",
-    "statUnaccBag"
+    "statUnaccBag",
+    "statAnnulBT"
 };
 
 TStatType DecodeStatType( const string stat_type )
@@ -2351,6 +2352,7 @@ void TPrintAirline::check(string val)
         multi_airlines = true;
 }
 
+/* GRISHA */
 void TStatParams::get(xmlNodePtr reqNode)
 {
     name = NodeAsString("stat_mode", reqNode);
@@ -3072,7 +3074,7 @@ void GetDetailStat(const TStatParams &params, TQuery &Qry,
 
 void GetFullStat(const TStatParams &params, TQuery &Qry,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
-                 TPrintAirline &airline)
+                 TPrintAirline &airline, bool full = false)
 {
   Qry.Execute();
   if(!Qry.Eof) {
@@ -3168,7 +3170,7 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
                                              trtNotCurrent,
                                              trtNotCancelled),
                            false);
-          AddStatRow(key, row, FullStat);
+          AddStatRow(key, row, FullStat, full);
         }
         else
         {
@@ -3460,6 +3462,7 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     }
 };
 
+/* GRISHA */
 void createXMLFullStat(const TStatParams &params,
                        const TFullStat &FullStat, const TFullStatRow &FullStatTotal,
                        const TPrintAirline &airline, xmlNodePtr resNode)
@@ -3480,10 +3483,11 @@ void createXMLFullStat(const TStatParams &params,
       for(TFullStat::const_iterator im = FullStat.begin(); im != FullStat.end(); ++im, rows++)
       {
           if(rows >= MAX_STAT_ROWS) {
-              AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
+              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+              /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
                                             LParams() << LParam("num", MAX_STAT_ROWS));
               if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-              break;
+              break;*/
           }
           //region обязательно в начале цикла, иначе будет испорчен xml
           string region;
@@ -3949,7 +3953,7 @@ void RunDetailStat(const TStatParams &params,
 
 void RunFullStat(const TStatParams &params,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
-                 TPrintAirline &airline)
+                 TPrintAirline &airline, bool full = false)
 {
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
@@ -3980,7 +3984,7 @@ void RunFullStat(const TStatParams &params,
                                             i!=params.airlines.elems().end(); i++)
             {
               Qry.SetVariable("ak",*i);
-              GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
+              GetFullStat(params, Qry, FullStat, FullStatTotal, airline, full);
             };
           };
           continue;
@@ -3995,16 +3999,103 @@ void RunFullStat(const TStatParams &params,
                                             i!=params.airps.elems().end(); i++)
             {
               Qry.SetVariable("ap",*i);
-              GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
+              GetFullStat(params, Qry, FullStat, FullStatTotal, airline, full);
             };
           };
           continue;
         };
-        GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
+        GetFullStat(params, Qry, FullStat, FullStatTotal, airline, full);
     }
 };
 
+/* GRISHA */
+struct TFullStatCombo : public TOrderStatItem
+{
+    typedef std::pair<TFullStatKey, TFullStatRow> Tdata;
+    Tdata data;
+    TStatParams params;
+    TFullStatCombo(const Tdata &aData, const TStatParams &aParams)
+        : data(aData), params(aParams) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
 
+void TFullStatCombo::add_header(ostringstream &buf) const
+{
+    if (params.airp_column_first)
+    {
+        buf << "Код а/п" << delim;
+        buf << "Код а/к" << delim;
+    } else {
+        buf << "Код а/к" << delim;
+        buf << "Код а/п" << delim;
+    }
+    buf << "Номер рейса" << delim;
+    buf << "Дата" << delim;
+    buf << "Направление" << delim;
+    buf << "Кол-во пасс." << delim;
+    /* TInetStat::toXML begin */
+    buf << "Web" << delim;
+    buf << "БГ" << delim;
+    buf << "ПТ" << delim;
+    buf << "Киоски" << delim;
+    buf << "БГ" << delim;
+    buf << "ПТ" << delim;
+    buf << "Моб." << delim;
+    buf << "БГ" << delim;
+    buf << "ПТ" << delim;
+    /* end */
+    buf << "ВЗ" << delim;
+    buf << "РБ" << delim;
+    buf << "РМ" << delim;
+    buf << "Р/кладь (вес)" << delim;
+    buf << "БГ мест" << delim;
+    buf << "БГ вес" << delim;
+    buf << "Пл.м" << delim;
+    buf << "Пл.вес" << endl;
+}
+
+void TFullStatCombo::add_data(ostringstream &buf) const
+{
+    string region;
+    try { region = AirpTZRegion(data.first.airp); }
+    catch(AstraLocale::UserException &E) { return; };
+    buf << data.first.col1 << delim; // col1
+    buf << data.first.col2 << delim; // col2
+    buf << data.first.flt_no << delim; // Номер рейса
+    buf << DateTimeToStr(UTCToClient(data.first.scd_out, region), "dd.mm.yy") << delim; // Дата
+    buf << data.first.places.get() << delim; // Направление
+    buf << data.second.pax_amount << delim; // Кол-во пасс.
+    buf << data.second.i_stat.web << delim; // Web
+    buf << data.second.i_stat.web_bag << delim; // БГ
+    buf << data.second.i_stat.web_bp << delim; // ПТ
+    buf << data.second.i_stat.kiosk << delim; // Киоски
+    buf << data.second.i_stat.kiosk_bag << delim; // БГ
+    buf << data.second.i_stat.kiosk_bp << delim; // ПТ
+    buf << data.second.i_stat.mobile << delim; // Моб.
+    buf << data.second.i_stat.mobile_bag << delim; // БГ
+    buf << data.second.i_stat.mobile_bp << delim; // ПТ
+    buf << data.second.adult << delim; // ВЗ
+    buf << data.second.child << delim; // РБ
+    buf << data.second.baby << delim; // РМ
+    buf << data.second.rk_weight << delim; // Р/кладь (вес)
+    buf << data.second.bag_amount << delim; // БГ мест
+    buf << data.second.bag_weight << delim; // БГ вес
+    buf << data.second.paid.excess_pcs << delim; // Пл.м
+    buf << data.second.paid.excess << endl; // Пл.вес
+}
+
+template <class T>
+void RunFullStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TFullStat FullStat;
+    TFullStatRow FullStatTotal;
+    RunFullStat(params, FullStat, FullStatTotal, prn_airline, true);
+    for (TFullStat::const_iterator i = FullStat.begin(); i != FullStat.end(); ++i)
+        writer.insert(TFullStatCombo(*i, params));
+}
+
+/**************************************************/
 
 struct TSelfCkinStatRow {
     int pax_amount;
@@ -4097,7 +4188,7 @@ typedef map<TSelfCkinStatKey, TSelfCkinStatRow, TKioskCmp> TSelfCkinStat;
 
 void RunSelfCkinStat(const TStatParams &params,
                   TSelfCkinStat &SelfCkinStat, TSelfCkinStatRow &SelfCkinStatTotal,
-                  TPrintAirline &prn_airline)
+                  TPrintAirline &prn_airline, bool full = false)
 {
     TQuery Qry(&OraSession);
     for(int pass = 0; pass <= 2; pass++) {
@@ -4241,7 +4332,7 @@ void RunSelfCkinStat(const TStatParams &params,
                     key.places.set(GetRouteAfterStr( NoExists, point_id, trtNotCurrent, trtNotCancelled), false);
                 }
 
-                AddStatRow(key, row, SelfCkinStat);
+                AddStatRow(key, row, SelfCkinStat, full);
               }
               else
               {
@@ -4271,10 +4362,11 @@ void createXMLSelfCkinStat(const TStatParams &params,
     for(TSelfCkinStat::const_iterator im = SelfCkinStat.begin(); im != SelfCkinStat.end(); ++im, rows++)
     {
         if(rows >= MAX_STAT_ROWS) {
-            AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
+            throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+            /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
                     LParams() << LParam("num", MAX_STAT_ROWS));
             if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-            break;
+            break;*/
         }
         //region обязательно в начале цикла, иначе будет испорчен xml
         string region;
@@ -4523,6 +4615,89 @@ void createXMLSelfCkinStat(const TStatParams &params,
             break;
     }
     NewTextChild(variablesNode, "stat_type_caption", buf);
+}
+
+/* GRISHA */
+struct TSelfCkinStatCombo : public TOrderStatItem
+{
+    std::pair<TSelfCkinStatKey, TSelfCkinStatRow> data;
+    TStatType statType;
+    TSelfCkinStatCombo(const std::pair<TSelfCkinStatKey, TSelfCkinStatRow> &aData,
+        const TStatParams &aParams): data(aData), statType(aParams.statType) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TSelfCkinStatCombo::add_header(ostringstream &buf) const
+{
+    buf
+        << "Тип рег." << delim
+        << "Пульт" << delim
+        << "АП пульта" << delim
+        << "Примечание" << delim
+        << "Код а/к" << delim
+        << "Код а/п" << delim
+        << "Номер рейса" << delim
+        << "Дата" << delim
+        << "Направление" << delim
+        << "Пас." << delim
+        << "БГ" << delim
+        << "ПТ" << delim
+        << "Всё сами" << delim
+        << "ВЗ" << delim
+        << "РБ" << delim
+        << "РМ" << delim
+        << "Сквоз." << endl;
+}
+
+void TSelfCkinStatCombo::add_data(ostringstream &buf) const
+{
+    string region;
+    try { region = AirpTZRegion(data.first.ap); }
+    catch(AstraLocale::UserException &E) { return; };
+        // Тип рег.
+    buf <<  data.first.client_type << delim
+        // Пульт
+        <<  data.first.desk << delim
+        // А/П пульта
+        <<  data.first.desk_airp << delim
+        // примечание
+        <<  data.first.descr << delim
+        // код а/к
+        <<  data.first.ak << delim
+        // код а/п
+        << ElemIdToCodeNative(etAirp, data.first.ap) << delim;
+        // номер рейса
+        ostringstream oss1;
+        oss1 << setw(3) << setfill('0') << data.first.flt_no;
+    buf <<  oss1.str() << delim
+        // Дата
+        <<  DateTimeToStr(UTCToClient(data.first.scd_out, region), "dd.mm.yy") << delim
+        // Направление
+        <<  data.first.places.get() << delim
+        // Кол-во пасс.
+        <<  data.second.pax_amount << delim
+        <<  data.second.term_bag << delim
+        <<  data.second.term_bp << delim
+        <<  (data.second.pax_amount - data.second.term_ckin_service) << delim
+        // ВЗ
+        <<  data.second.adult << delim
+        // РБ
+        <<  data.second.child << delim
+        // РМ
+        <<  data.second.baby << delim
+        // Сквоз. рег.
+        <<  data.second.tckin << endl;
+}
+
+template <class T>
+void RunSelfCkinStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TSelfCkinStat SelfCkinStat;
+    TSelfCkinStatRow SelfCkinStatTotal;
+    RunSelfCkinStat(params, SelfCkinStat, SelfCkinStatTotal, prn_airline, true);
+    for (TSelfCkinStat::const_iterator i = SelfCkinStat.begin(); i != SelfCkinStat.end(); ++i)
+        writer.insert(TSelfCkinStatCombo(*i, params));
 }
 
 /****************** TlgOutStat *************************/
@@ -7184,6 +7359,7 @@ struct TAnnulBTStatRow {
     int amount;
     int weight;
     int user_id;
+    string agent;
     string trfer_airline;
     int trfer_flt_no;
     string trfer_suffix;
@@ -7244,6 +7420,10 @@ void RunAnnulBTStat(
         int point_id = NoExists
         )
 {
+    map<int, string> agents;
+    TCachedQuery agentQry("select descr from users2 where user_id = :user_id",
+            QParams() << QParam("user_id", otInteger));
+
     int pass_count = (point_id == NoExists ? 2 : 0);
     for(int pass = 0; pass <= pass_count; pass++) {
         QParams QryParams;
@@ -7366,6 +7546,7 @@ void RunAnnulBTStat(
             int col_trfer_suffix = Qry.get().FieldIndex("trfer_suffix");
             int col_trfer_scd = Qry.get().FieldIndex("trfer_scd");
             int col_trfer_airp_arv = Qry.get().FieldIndex("trfer_airp_arv");
+
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 prn_airline.check(Qry.get().FieldAsString(col_airline));
 
@@ -7396,6 +7577,20 @@ void RunAnnulBTStat(
                     row.weight = Qry.get().FieldAsInteger(col_weight);
                 if(not Qry.get().FieldIsNULL(col_user_id))
                     row.user_id = Qry.get().FieldAsInteger(col_user_id);
+                if(row.user_id != NoExists) {
+                    map<int, string>::iterator agent = agents.find(row.user_id);
+                    if(agent == agents.end()) {
+                        agentQry.get().SetVariable("user_id", row.user_id);
+                        agentQry.get().Execute();
+                        string buf;
+                        if(not agentQry.get().Eof)
+                            buf = agentQry.get().FieldAsString("descr");
+                        pair<map<int, string>::iterator, bool> ret =
+                            agents.insert(make_pair(row.user_id, buf));
+                        agent = ret.first;
+                    }
+                    row.agent = agent->second;
+                }
                 row.trfer_airline = Qry.get().FieldAsString(col_trfer_airline);
                 if(not Qry.get().FieldIsNULL(col_trfer_flt_no))
                     row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
@@ -7420,6 +7615,8 @@ void createXMLAnnulBTStat(
         xmlNodePtr resNode)
 {
     if(AnnulBTStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    if (AnnulBTStat.rows.size() > MAX_STAT_ROWS)
+        throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -7494,10 +7691,6 @@ void createXMLAnnulBTStat(
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
 
-    map<int, string> agents;
-    TCachedQuery agentQry("select descr from users2 where user_id = :user_id",
-            QParams() << QParam("user_id", otInteger));
-
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
     for(list<TAnnulBTStatRow>::const_iterator i = AnnulBTStat.rows.begin(); i != AnnulBTStat.rows.end(); i++) {
@@ -7511,22 +7704,7 @@ void createXMLAnnulBTStat(
         buf << setw(3) << setfill('0') << i->flt_no << ElemIdToCodeNative(etSuffix, i->suffix);
         NewTextChild(rowNode, "col", buf.str());
         // Агент
-        buf.str("");
-        if(i->user_id != NoExists) {
-            map<int, string>::iterator agent = agents.find(i->user_id);
-            if(agent == agents.end()) {
-                agentQry.get().SetVariable("user_id", i->user_id);
-                agentQry.get().Execute();
-                if(not agentQry.get().Eof)
-                    buf << agentQry.get().FieldAsString("descr");
-                pair<map<int, string>::iterator, bool> ret =
-                    agents.insert(make_pair(i->user_id, buf.str()));
-                buf.str("");
-                agent = ret.first;
-            }
-            buf << agent->second;
-        }
-        NewTextChild(rowNode, "col", buf.str());
+        NewTextChild(rowNode, "col", i->agent);
         // №№ баг. бирок
         NewTextChild(rowNode, "col", get_tag_range(i->tags, LANG_EN));
         // От
@@ -7592,8 +7770,113 @@ void createXMLAnnulBTStat(
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
 }
 
-//---------------------------------------//
+/* GRISHA */
+struct TAnnulBTStatCombo : public TOrderStatItem
+{
+    TAnnulBTStatRow data;
+    TAnnulBTStatCombo(const TAnnulBTStatRow &aData): data(aData) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
 
+void TAnnulBTStatCombo::add_header(ostringstream &buf) const
+{
+    buf
+        << "АК" << delim
+        << "АП" << delim
+        << "Рейс" << delim
+        << "Агент" << delim
+        << "№№ баг. бирок" << delim
+        << "От" << delim
+        << "До" << delim
+        << "БГ мест" << delim
+        << "БГ вес" << delim
+        << "Тип багажа/RFISC" << delim
+        << "Дата выпуска" << delim
+        << "Время выпуска" << delim
+        << "Дата удаления" << delim
+        << "Время удаления" << delim
+        << "Трфр" << delim
+        << "Рейс" << delim
+        << "Дата" << endl;
+}
+
+void TAnnulBTStatCombo::add_data(ostringstream &buf) const
+{
+        // АК
+    buf <<  ElemIdToCodeNative(etAirline, data.airline) << delim
+        // АП
+        <<  ElemIdToCodeNative(etAirp, data.airp) << delim;
+        //Рейс
+    ostringstream oss1;
+    oss1 << setw(3) << setfill('0') << data.flt_no
+            << ElemIdToCodeNative(etSuffix, data.suffix);
+    buf <<  oss1.str() << delim
+        // Агент
+        <<  data.agent << delim
+        // №№ баг. бирок
+        <<  get_tag_range(data.tags, LANG_EN) << delim
+        // От
+        << ElemIdToCodeNative(etAirp, data.airp_dep) << delim
+        // До
+        <<  ElemIdToCodeNative(etAirp, data.airp_arv) << delim;
+    // Мест
+    if (data.amount != NoExists) buf << data.amount;
+    buf << delim;
+    // Вес
+    if (data.weight != NoExists) buf << data.weight;
+    buf << delim;
+    // Тип багажа/RFISC
+    oss1.str("");
+    if (not data.rfisc.empty())
+        oss1 << data.rfisc;
+    else if (data.bag_type != NoExists)
+        oss1 << ElemIdToNameLong(etBagType, data.bag_type);
+    buf <<  oss1.str() << delim;
+    if (data.time_create != NoExists)
+    {
+        // Дата выпуска
+        buf <<  DateTimeToStr(data.time_create, "dd.mm.yyyy") << delim
+        // Время выпуска
+            <<  DateTimeToStr(data.time_create, "hh:nn") << delim;
+    } else buf << delim << delim;
+    if (data.time_create != NoExists)
+    {
+        // Дата удаления
+        buf <<  DateTimeToStr(data.time_annul, "dd.mm.yyyy") << delim
+        // Время удаления
+            <<  DateTimeToStr(data.time_annul, "hh:nn") << delim;
+    } else buf << delim << delim;
+    // Трфр
+    if (data.trfer_airline.empty())
+    {
+        buf << getLocaleText("НЕТ") << delim << delim;
+    } else {
+        // Трфр
+        buf << getLocaleText("ДА") << delim;
+        //Рейс
+        oss1.str("");
+        oss1 << ElemIdToCodeNative(etAirline, data.trfer_airline)
+                << setw(3) << setfill('0') << data.trfer_flt_no
+                << ElemIdToCodeNative(etSuffix, data.trfer_suffix);
+        buf <<  oss1.str() << delim;
+        // Дата
+        buf << DateTimeToStr(data.trfer_scd, "dd.mm.yyyy");
+    }
+    buf << endl;
+}
+
+template <class T>
+void RunAnnulBTStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TAnnulBTStat AnnulBTStat;
+    RunAnnulBTStat(params, AnnulBTStat, prn_airline);
+    for (list<TAnnulBTStatRow>::const_iterator i = AnnulBTStat.rows.begin(); i != AnnulBTStat.rows.end(); ++i)
+        writer.insert(TAnnulBTStatCombo(*i));
+}
+
+//---------------------------------------//
+/* GRISHA */
 struct TLimitedCapabStat {
     typedef map<string, int> TRems;
     typedef map<string, TRems> TAirpArv;
@@ -7686,6 +7969,8 @@ void RunLimitedCapabStat(
 void createXMLLimitedCapabStat(const TStatParams &params, const TLimitedCapabStat &LimitedCapabStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
 {
     if(LimitedCapabStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    if (LimitedCapabStat.rows.size() >= MAX_STAT_ROWS)
+        throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
 
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
@@ -7770,6 +8055,77 @@ void createXMLLimitedCapabStat(const TStatParams &params, const TLimitedCapabSta
     NewTextChild(variablesNode, "stat_mode", getLocaleText("Пассажиры с ограниченными возможностями"));
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
 }
+
+/* GRISHA */
+struct TLimitedCapabStatCombo : public TOrderStatItem
+{
+    typedef std::pair<TFlight, TLimitedCapabStat::TAirpArv> Tdata;
+    Tdata data;
+    TLimitedCapabStat::TRems total;
+    TLimitedCapabStatCombo(const Tdata &aData, TLimitedCapabStat::TRems &aTotal)
+        : data(aData), total(aTotal) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TLimitedCapabStatCombo::add_header(ostringstream &buf) const
+{
+    buf << "АК" << delim;
+    buf << "АП" << delim;
+    buf << "Рейс" << delim;
+    buf << "Дата" << delim;
+    buf << "До" << delim;
+    for (TLimitedCapabStat::TRems::const_iterator rem_col = total.begin();;)
+    {
+        if (rem_col != total.end()) buf << rem_col->first;
+        else { buf << endl; break; }
+        if (++rem_col != total.end()) buf << delim;
+        else { buf << endl; break; }
+    }
+}
+
+void TLimitedCapabStatCombo::add_data(ostringstream &buf) const
+{
+    for(TLimitedCapabStat::TAirpArv::const_iterator airp = data.second.begin();
+                airp != data.second.end(); airp++)
+    {
+        // АК
+        buf << ElemIdToCodeNative(etAirline, data.first.airline) << delim;
+        // АП
+        buf << ElemIdToCodeNative(etAirp, data.first.airp) << delim;
+        // Рейс
+        ostringstream oss1;
+        oss1 << setw(3) << setfill('0') << data.first.flt_no << ElemIdToCodeNative(etSuffix, data.first.suffix);
+        buf << oss1.str() << delim;
+        // Дата
+        buf << DateTimeToStr(data.first.scd_out, "dd.mm.yyyy") << delim;
+        // До
+        buf << ElemIdToCodeNative(etAirp, airp->first) << delim;
+
+        const TLimitedCapabStat::TRems &rems = airp->second;
+        for(TLimitedCapabStat::TRems::const_iterator rem_col = total.begin(); rem_col != total.end();)
+        {
+            TLimitedCapabStat::TRems::const_iterator rems_idx = rems.find(rem_col->first);
+            int pax_count = 0;
+            if (rems_idx != rems.end()) pax_count = rems_idx->second;
+            buf << pax_count;
+            if (++rem_col != total.end()) buf << delim;
+        }
+        buf << endl;
+    }
+}
+
+template <class T>
+void RunLimitedCapabStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TLimitedCapabStat LimitedCapabStat;
+    RunLimitedCapabStat(params, LimitedCapabStat, prn_airline);
+    for(TLimitedCapabStat::TRows::const_iterator row = LimitedCapabStat.rows.begin();
+            row != LimitedCapabStat.rows.end(); row++)
+        writer.insert(TLimitedCapabStatCombo(*row, LimitedCapabStat.total));
+}
+
+/********************************************************/
 
 typedef multiset<TServiceStatRow> TServiceStat;
 
@@ -8545,6 +8901,20 @@ void create_plain_files(
         case statTlgOutFull:
             RunTlgOutStatFile(params, order_writer, airline);
             break;
+        case statSelfCkinShort:
+        case statSelfCkinDetail:
+        case statSelfCkinFull:
+            RunSelfCkinStatFile(params, order_writer, airline);
+            break;
+        case statAnnulBT:
+            RunAnnulBTStatFile(params, order_writer, airline);
+            break;
+        case statFull:
+            RunFullStatFile(params, order_writer, airline);
+            break;
+        case statLimitedCapab:
+            RunLimitedCapabStatFile(params, order_writer, airline);
+            break;
         default:
             throw Exception("unsupported statType %d", params.statType);
     }
@@ -8770,7 +9140,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 
     TStatParams params;
     params.get(reqNode);
-/* GRISHA */
+
 /*
     if(
             (TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION) and (
@@ -8948,15 +9318,16 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             createXMLAnnulBTStat(params, AnnulBTStat, airline, resNode);
         }
     }
+    /* GRISHA */
     catch (MaxStatRowsException &E)
     {
         if(TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION))
         {
             RemoveChildNodes(resNode);
             return orderStat(params, ctxt, reqNode, resNode);
-        }
-        else
+        } else {
             AstraLocale::showErrorMessage(E.getLexemaData());
+        }
     }
     catch (EOracleError &E)
     {
