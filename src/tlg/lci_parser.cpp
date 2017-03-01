@@ -1512,7 +1512,10 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
                     }
                     switch(i->second.sr.type) {
                         case TSR::srWB:
-                            set_seats_option(options.seats, seatRanges, point_id_spp);
+                            {
+                                set_seats_option(options.seats, seatRanges, point_id_spp);
+                                options.seat_plan = false;
+                            }
                             break;
                         case TSR::srStd:
                             SALONS2::resetLayers( point_id_spp, cltProtect, seatRanges, "EVT.LAYOUT_MODIFIED_LCI.SEAT_PLAN" );
@@ -1529,6 +1532,7 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
                             options.cfg.back().cls = cfg_item->first;
                             options.cfg.back().cfg = cfg_item->second;
                         }
+                        options.seat_restrict.clear();
                     }
                     break;
                 case rtWB:
