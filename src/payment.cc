@@ -607,7 +607,9 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     TPaidBagViewMap TrferBagViewMap;
     map<int/*id*/, TEventsBagItem> tmp_bag;
     GetBagToLogInfo(grp_id, tmp_bag);
-    WeightConcept::CalcPaidBagView(WeightConcept::TAirlines(grp_id, "CalcPaidBagView"),
+    WeightConcept::CalcPaidBagView(WeightConcept::TAirlines(grp_id, 
+                                                            mktFlight.pr_mark_norms?mktFlight.airline:operFlt.airline, 
+                                                            "CalcPaidBagView"),
                                    tmp_bag,
                                    list<WeightConcept::TBagNormInfo>(),
                                    paid,
