@@ -849,6 +849,25 @@ bool TTrferRoute::GetRoute(int grp_id,
   return true;
 };
 
+std::string flight_view(int grp_id, int seg_no)
+{
+  if (seg_no<1) return "";
+  if (seg_no>1)
+  {
+    TTrferRoute trfer;
+    trfer.GetRoute(grp_id, trtNotFirstSeg);
+    if (seg_no-2<(int)trfer.size())
+      return trfer[seg_no-2].operFlt.flight_view();
+  }
+  else
+  {
+    TTripInfo operFlt;
+    if (operFlt.getByGrpId(grp_id))
+      return operFlt.flight_view();
+  };
+  return "";
+}
+
 void TCkinRoute::GetRoute(int tckin_id,
                           int seg_no,
                           bool after_current,

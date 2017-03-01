@@ -180,6 +180,25 @@ void TAvailabilityReq::toXML(xmlNodePtr node) const
     p->toSirenaXML(NewTextChild(node, "passenger"), LANG_EN);
 }
 
+void TAvailabilityResItem::remove_unnecessary()
+{
+  for(TRFISCList::iterator i=rfisc_list.begin(); i!=rfisc_list.end();)
+  {
+    const TRFISCListItem &item=i->second;
+    if (item.carry_on())
+    {
+      //багаж или р/кладь
+      if ((!item.carry_on().get() && baggage_norm.airline!=item.airline) ||
+          (item.carry_on().get() && carry_on_norm.airline!=item.airline))
+      {
+        i=Erase<TRFISCList>(rfisc_list, i);
+        continue;
+      };
+    };
+    ++i;
+  };
+}
+
 void TAvailabilityRes::fromXML(xmlNodePtr node)
 {
   clear();
@@ -199,6 +218,7 @@ void TAvailabilityRes::fromXML(xmlNodePtr node)
       item.baggage_norm.fromSirenaXMLAdv(node, false);
       item.carry_on_norm.fromSirenaXMLAdv(node, true);
       item.brand.fromSirenaXMLAdv(node);
+      item.remove_unnecessary();
     };
     if (empty()) throw Exception("empty()");
   }

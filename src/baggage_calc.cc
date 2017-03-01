@@ -816,6 +816,14 @@ TAirlines::TAirlines(const std::string& airline)
   insert(airline);
 }
 
+TAirlines::TAirlines(int grp_id, const std::string& where)
+{
+  TBagTypeKey key;
+  key.bag_type=REGULAR_BAG_TYPE;
+  key.getListKeyByGrpId(grp_id, 0, boost::none, where);
+  insert(key.airline);
+}
+
 const std::string TAirlines::single() const
 {
   if (size()!=1)
