@@ -131,7 +131,9 @@ class TAirlines : public std::set<std::string>
 {
   public:
     TAirlines(const std::string &airline);
+    TAirlines(int grp_id, const std::string& where);
     const std::string single() const;
+
 };
 
 void CheckOrGetPaxBagNorm(const TNormFltInfo &flt,

@@ -237,6 +237,8 @@ class TTripInfo
     std::string flight_view(TElemContext ctxt=ecNone, bool showScdOut=true, bool showAirp=true) const;
 };
 
+std::string flight_view(int grp_id, int seg_no); //начиная с 1
+
 std::string GetTripDate( const TTripInfo &info, const std::string &separator, const bool advanced_trip_list  );
 std::string GetTripName( const TTripInfo &info, TElemContext ctxt, bool showAirp=false, bool prList=false );
 
