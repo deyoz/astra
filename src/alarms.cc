@@ -50,7 +50,8 @@ const char *TripAlarmsTypeS[] = {
     "APPS_CONFLICT",
     "APPS_NEGATIVE_DIRECTIVE",
     "APPS_ERROR",
-    "WB_DIFF_LAYOUT"
+    "WB_DIFF_LAYOUT",
+    "WB_DIFF_SEATS"
 };
 
 TTripAlarmsType DecodeAlarmType( const string &alarm )
@@ -225,6 +226,7 @@ void set_alarm( int point_id, TTripAlarmsType alarm_type, bool alarm_value )
         case atAPPSProblem:
         case atAPPSOutage:
         case atWBDifferLayout:
+        case atWBDifferSeats:
             break;
         default: throw Exception("set_alarm: alarm_type=%s not processed", EncodeAlarmType(alarm_type).c_str());
     };
