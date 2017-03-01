@@ -227,3 +227,4 @@ string GetSeatView(const TSeat &seat, const string &format, bool pr_lat)
 {
   return GetSeatRangeView(vector<TSeatRange>(1,TSeatRange(seat,seat)), format, pr_lat);
 };
+

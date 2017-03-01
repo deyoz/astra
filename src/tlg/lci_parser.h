@@ -124,12 +124,13 @@ struct TSR {
     };
 
     Type type;
+    char format;
     TCFG c;
     TSRZones z;
     TSRItems r;
     TSRItems s;
     TSRJump j;
-    TSR(): type(srUnknown) {}
+    TSR(): type(srUnknown), format(0) {}
     void parse(const char *val);
     void dump();
 };

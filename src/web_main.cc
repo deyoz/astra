@@ -1684,7 +1684,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             for ( std::set<SALONS2::TSalonPax,SALONS2::ComparePassenger>::iterator ipass=ipass_status->second.begin();
                   ipass!=ipass_status->second.end(); ipass++ ) {
               TWaitListReason waitListReason;
-              SALONS2::TPassSeats seats;
+              TPassSeats seats;
               ipass->get_seats( waitListReason, seats );
               if ( !passesNode ) {
                 passesNode = NewTextChild( nodeViewCraft, "passengers" );

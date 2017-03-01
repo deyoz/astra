@@ -919,6 +919,29 @@ struct TCFGItem {
         block(ASTRA::NoExists),
         prot(ASTRA::NoExists)
     {};
+    bool operator < (const TCFGItem &i) const
+    {
+        if(priority != i.priority)
+            return priority < i.priority;
+        if(cls != i.cls)
+            return cls < i.cls;
+        if(cfg != i.cfg)
+            return cfg < i.cfg;
+        if(block != i.block)
+            return block < i.block;
+        return prot < i.prot;
+    }
+
+    bool operator == (const TCFGItem &i) const
+    {
+        return
+            priority == i.priority and
+            cls == i.cls and
+            cfg == i.cfg and
+            block == i.block and
+            prot == i.prot;
+    }
+
 };
 
 struct TCFG:public std::vector<TCFGItem> {
