@@ -32,7 +32,7 @@
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
 
-#define MAX_STAT_ROWS 10
+#define MAX_STAT_ROWS 2000
 #define WITHOUT_TOTAL_WHEN_PROBLEM false
 
 using namespace std;
@@ -7877,7 +7877,7 @@ void RunAnnulBTStatFile(const TStatParams &params, T &writer, TPrintAirline &prn
 }
 
 //---------------------------------------//
-
+/* GRISHA */
 struct TLimitedCapabStat {
     typedef map<string, int> TRems;
     typedef map<string, TRems> TAirpArv;
@@ -7970,6 +7970,8 @@ void RunLimitedCapabStat(
 void createXMLLimitedCapabStat(const TStatParams &params, const TLimitedCapabStat &LimitedCapabStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
 {
     if(LimitedCapabStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    if (LimitedCapabStat.rows.size() >= MAX_STAT_ROWS)
+        throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
 
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
@@ -8054,6 +8056,77 @@ void createXMLLimitedCapabStat(const TStatParams &params, const TLimitedCapabSta
     NewTextChild(variablesNode, "stat_mode", getLocaleText("Пассажиры с ограниченными возможностями"));
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
 }
+
+/* GRISHA */
+struct TLimitedCapabStatCombo : public TOrderStatItem
+{
+    typedef std::pair<TFlight, TLimitedCapabStat::TAirpArv> Tdata;
+    Tdata data;
+    TLimitedCapabStat::TRems total;
+    TLimitedCapabStatCombo(const Tdata &aData, TLimitedCapabStat::TRems &aTotal)
+        : data(aData), total(aTotal) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TLimitedCapabStatCombo::add_header(ostringstream &buf) const
+{
+    buf << "АК" << delim;
+    buf << "АП" << delim;
+    buf << "Рейс" << delim;
+    buf << "Дата" << delim;
+    buf << "До" << delim;
+    for (TLimitedCapabStat::TRems::const_iterator rem_col = total.begin();;)
+    {
+        if (rem_col != total.end()) buf << rem_col->first;
+        else { buf << endl; break; }
+        if (++rem_col != total.end()) buf << delim;
+        else { buf << endl; break; }
+    }
+}
+
+void TLimitedCapabStatCombo::add_data(ostringstream &buf) const
+{
+    for(TLimitedCapabStat::TAirpArv::const_iterator airp = data.second.begin();
+                airp != data.second.end(); airp++)
+    {
+        // АК
+        buf << ElemIdToCodeNative(etAirline, data.first.airline) << delim;
+        // АП
+        buf << ElemIdToCodeNative(etAirp, data.first.airp) << delim;
+        // Рейс
+        ostringstream oss1;
+        oss1 << setw(3) << setfill('0') << data.first.flt_no << ElemIdToCodeNative(etSuffix, data.first.suffix);
+        buf << oss1.str() << delim;
+        // Дата
+        buf << DateTimeToStr(data.first.scd_out, "dd.mm.yyyy") << delim;
+        // До
+        buf << ElemIdToCodeNative(etAirp, airp->first) << delim;
+
+        const TLimitedCapabStat::TRems &rems = airp->second;
+        for(TLimitedCapabStat::TRems::const_iterator rem_col = total.begin(); rem_col != total.end();)
+        {
+            TLimitedCapabStat::TRems::const_iterator rems_idx = rems.find(rem_col->first);
+            int pax_count = 0;
+            if (rems_idx != rems.end()) pax_count = rems_idx->second;
+            buf << pax_count;
+            if (++rem_col != total.end()) buf << delim;
+        }
+        buf << endl;
+    }
+}
+
+template <class T>
+void RunLimitedCapabStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TLimitedCapabStat LimitedCapabStat;
+    RunLimitedCapabStat(params, LimitedCapabStat, prn_airline);
+    for(TLimitedCapabStat::TRows::const_iterator row = LimitedCapabStat.rows.begin();
+            row != LimitedCapabStat.rows.end(); row++)
+        writer.insert(TLimitedCapabStatCombo(*row, LimitedCapabStat.total));
+}
+
+/********************************************************/
 
 typedef multiset<TServiceStatRow> TServiceStat;
 
@@ -8796,6 +8869,9 @@ void create_plain_files(
             break;
         case statFull:
             RunFullStatFile(params, order_writer, airline);
+            break;
+        case statLimitedCapab:
+            RunLimitedCapabStatFile(params, order_writer, airline);
             break;
         default:
             throw Exception("unsupported statType %d", params.statType);
