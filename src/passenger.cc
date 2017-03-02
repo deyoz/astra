@@ -1619,7 +1619,7 @@ TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node, bool is_unaccomp)
     hall=NodeAsIntegerFast("hall",node2);
   };
 
-  PaidBagFromXML(node, id, is_unaccomp, trfer_confirm, paid);
+  if (wt) WeightConcept::PaidBagFromXML(node, id, is_unaccomp, trfer_confirm, paid);
 
   group_bag=TGroupBagItem();
   if (!group_bag.get().fromXML(node, id, hall, is_unaccomp, baggage_pc, trfer_confirm)) group_bag=boost::none;

@@ -1149,8 +1149,7 @@ void PaidBagFromXML(xmlNodePtr paidbagNode,
       };
     };
     if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
-      if (!(grp_id==ASTRA::NoExists || !trfer_confirm))
-        paid.get().getAllListKeys(grp_id, is_unaccomp);
+      paid.get().getAllListKeys(grp_id, is_unaccomp);
   };
 };
 
