@@ -1513,8 +1513,21 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
                     switch(i->second.sr.type) {
                         case TSR::srWB:
                             {
-                                set_seats_option(options.seats, seatRanges, point_id_spp);
-                                options.seat_plan = false;
+                                if(not seatRanges.empty()) { // Пришел запрос вида LR SR.WB.C.C12Y116
+                                    set_seats_option(options.seats, seatRanges, point_id_spp);
+                                    options.seat_plan = false;
+                                }
+                                if(not i->second.sr.c.empty()) { // Пришел запрос вида LR SR.WB.S.1A/1B....
+                                    for(TCFG::iterator
+                                            cfg_item = i->second.sr.c.begin();
+                                            cfg_item != i->second.sr.c.end();
+                                            ++cfg_item) {
+                                        options.cfg.push_back(TCFGItem());
+                                        options.cfg.back().cls = cfg_item->first;
+                                        options.cfg.back().cfg = cfg_item->second;
+                                    }
+                                    options.seat_restrict.clear();
+                                }
                             }
                             break;
                         case TSR::srStd:
@@ -1522,17 +1535,6 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
                             break;
                         default:
                             break;
-                    }
-                    if(i->second.sr.type == TSR::srWB and not i->second.sr.c.empty()) {
-                        for(TCFG::iterator
-                                cfg_item = i->second.sr.c.begin();
-                                cfg_item != i->second.sr.c.end();
-                                ++cfg_item) {
-                            options.cfg.push_back(TCFGItem());
-                            options.cfg.back().cls = cfg_item->first;
-                            options.cfg.back().cfg = cfg_item->second;
-                        }
-                        options.seat_restrict.clear();
                     }
                     break;
                 case rtWB:
