@@ -1224,9 +1224,9 @@ bool EqualCrsTransfer(const map<int, CheckIn::TTransferItem> &trfer1,
   return i1==trfer1.end() && i2==trfer2.end();
 };
 
-void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNodePtr transferNode)
+bool LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNodePtr transferNode)
 {
-  if (segs.empty() || transferNode==NULL) return;
+  if (segs.empty() || transferNode==NULL) return false;
 
   const CheckIn::TTransferItem &firstSeg=*segs.begin();
 
@@ -1337,11 +1337,14 @@ void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
   //формируем XML
   xmlNodePtr itemsNode=NewTextChild(transferNode,"unconfirmed_transfer");
 
+  bool result=false;
+
   vector< pair< pair< string, map<int, CheckIn::TTransferItem> >, vector<int> > >::const_iterator iTrfer=trfer.begin();
   for(;iTrfer!=trfer.end();++iTrfer)
   {
     if (iTrfer->first.second.empty()) continue;
     xmlNodePtr itemNode=NewTextChild(itemsNode,"item");
+    result=true;
 
     map<int, pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
     traceTrfer(TRACE5, "LoadUnconfirmedTransfer: trfer", iTrfer->first.second);
@@ -1360,6 +1363,7 @@ void LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
                                     pax_id!=iTrfer->second.end();pax_id++)
       NewTextChild( NewTextChild(paxNode, "pax"),"pax_id", *pax_id);
   };
+  return result;
 };
 
 void GetPaxNoRecResponse(const TInquiryGroupSummary &sum,
@@ -5547,12 +5551,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 normFltInfo.flt_no_mark=markFltInfo.flt_no;
                 normFltInfo.use_mark_flt=pr_mark_norms;
                 normFltInfo.use_mixed_norms=pr_mixed_norms;
+                WeightConcept::TAirlines airlines(grp.id,
+                                                  pr_mark_norms?markFltInfo.airline:fltInfo.airline,
+                                                  "RecalcPaidBagToDB");
                 map<int/*id*/, TEventsBagItem> curr_bag;
                 GetBagToLogInfo(grp.id, curr_bag);
                 WeightConcept::TPaidBagList prior_paid;
                 WeightConcept::PaidBagFromDB(NoExists, grp.id, prior_paid);
                 WeightConcept::TPaidBagList result_paid;
-                WeightConcept::TAirlines airlines(grp.id, "RecalcPaidBagToDB");
                 WeightConcept::RecalcPaidBagToDB(airlines, grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, normFltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true, result_paid);
                 CheckIn::TryCleanServicePayment(result_paid, paymentBefore, payment);
               }
@@ -6922,7 +6928,9 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         {
           map<int/*id*/, TEventsBagItem> tmp_bag;
           GetBagToLogInfo(grp.id, tmp_bag);
-          WeightConcept::TAirlines airlines(grp.id, "CalcPaidBagView");
+          WeightConcept::TAirlines airlines(grp.id,
+                                            used_norms_airline_mark.empty()?seg.operFlt.airline:used_norms_airline_mark,
+                                            "CalcPaidBagView");
           WeightConcept::CalcPaidBagView(airlines, tmp_bag, all_norms, paid, payment, used_norms_airline_mark,
                                          PaidBagViewMap, TrferBagViewMap);
           WeightConcept::PaidBagViewToXML(PaidBagViewMap, TrferBagViewMap, resNode);
@@ -6954,10 +6962,12 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
   };
   if (!trfer_confirm)
   {
-    //собираем информацию о неподтвержденном трансфере
-    LoadUnconfirmedTransfer(segs, resNode);
     if (!reqInfo->desk.compatible(INA_BUGFIX_VERSION))
       ShowPaxCatWarning(pax_cat_airline, pax_cats);
+    //собираем информацию о неподтвержденном трансфере
+    if (!LoadUnconfirmedTransfer(segs, resNode) &&
+        !reqInfo->desk.compatible(NOT_F9_WARNING_VERSION))
+      showErrorMessage("MSG.BAGGAGE_INPUT_ONLY_AFTER_CHECKIN");  
   };
 };
 
