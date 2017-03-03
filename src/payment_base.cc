@@ -75,9 +75,9 @@ const TPaymentDoc& TPaymentDoc::toDB(TQuery &Qry) const
 
 const TPaymentDoc& TPaymentDoc::toDBTmp(TQuery &Qry) const //!!! потом удалить
 {
-  if (notCompatibleWithPriorTermVersions())
-    throw UserException(isEMD()?"MSG.MULTIEMD_TEMPORARILY_DISABLED":
-                                "MSG.MCO_TEMPORARILY_DISABLED");
+//  if (notCompatibleWithPriorTermVersions())
+//    throw UserException(isEMD()?"MSG.MULTIEMD_TEMPORARILY_DISABLED":
+//                                "MSG.MCO_TEMPORARILY_DISABLED");
 
   Qry.SetVariable("emd_no", doc_no);
   doc_coupon!=ASTRA::NoExists?Qry.SetVariable("emd_coupon", doc_coupon):
@@ -445,6 +445,7 @@ void TServicePaymentList::toDB777(int grp_id) const
                               << QParam("pax_id", otInteger));
   for(TServicePaymentList::const_iterator i=begin(); i!=end(); ++i)
   {
+    if (i->notCompatibleWithPriorTermVersions()) continue;
     i->toDBTmp(Qry2.get());
     Qry2.get().Execute();
   }

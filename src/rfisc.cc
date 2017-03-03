@@ -1453,7 +1453,8 @@ void TPaidRFISCList::toDB777(int grp_id) const
     if (item.need==ASTRA::NoExists)
       throw Exception("TPaidRFISCList::toDB: item.need=ASTRA::NoExists! (%s)", item.traceStr().c_str());
     if (!item.list_item.get().carry_on())
-      throw UserException("MSG.OTHER_SVC_TEMPORARILY_DISABLED");
+      continue;
+//      throw UserException("MSG.OTHER_SVC_TEMPORARILY_DISABLED");
     //только относящиеся к багажу
     item.addStatusList(statusList[(int)item.list_item.get().carry_on().get()]);
   }
