@@ -547,6 +547,7 @@ class TASVCItem : public TDetailRemAncestor
 {
   public:
     char RFIC[2], RFISC[16], ssr_code[5], service_name[31];
+    int service_quantity;
     char emd_type[2], emd_no[14];
     int emd_coupon;
     TASVCItem()
@@ -558,6 +559,7 @@ class TASVCItem : public TDetailRemAncestor
       TDetailRemAncestor::Clear();
       *RFIC=0;
       *RFISC=0;
+      service_quantity=ASTRA::NoExists;
       *ssr_code=0;
       *service_name=0;
       *emd_type=0;
@@ -569,6 +571,7 @@ class TASVCItem : public TDetailRemAncestor
       return TDetailRemAncestor::Empty() &&
              *RFIC==0 &&
              *RFISC==0 &&
+             service_quantity==ASTRA::NoExists &&
              *ssr_code==0 &&
              *service_name==0 &&
              *emd_type==0 &&
