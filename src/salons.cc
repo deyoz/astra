@@ -1513,6 +1513,7 @@ void TPlace::SetTariffsByRFISC( int point_dep )
       tariff.rate = irfisc->second.rate;
       SeatTariff = tariff;
       AddTariff( irfisc->first, tariff );
+
       ProgTrace( TRACE5, "SetTariffsByRFICS: place(%d,%d) set tarif=%s",
                  x, y, irfisc->second.str().c_str() );
     }
@@ -9887,6 +9888,34 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
   }
   else {
     check_waitlist_alarm( point_id );
+  }
+}
+
+void getSalonDesrcs( int point_id, TSalonDesrcs &descrs )
+{
+  descrs.clear();
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT airline,craft,bort FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if ( Qry.Eof ) {
+    throw UserException( "MSG.FLIGHT.NOT_FOUND.REFRESH_DATA" );
+  }
+  string airline = Qry.FieldAsString( "airline" );
+  string craft = Qry.FieldAsString( "craft" );
+  string bort = Qry.FieldAsString( "bort" );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT desc_code,salon_num,bort FROM compart_desc_sets "
+    "WHERE airline=:airline AND craft=:craft AND (bort IS NULL OR bort=:bort) "
+    "ORDER BY salon_num, bort, desc_code";
+  Qry.CreateVariable( "airline", otString, airline );
+  Qry.CreateVariable( "craft", otString, craft );
+  Qry.CreateVariable( "bort", otString, bort );
+  Qry.Execute();
+  for ( ;!Qry.Eof; Qry.Next() ) {
+    descrs[ Qry.FieldAsInteger( "salon_num" ) ].insert( Qry.FieldAsString( "desc_code" ) );
   }
 }
 
