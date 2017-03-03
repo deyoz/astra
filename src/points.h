@@ -149,9 +149,11 @@ class TFlightCargos {
 class TFlightMaxCommerce {
   private:
     int value;
+    bool lci;
   public:
-    TFlightMaxCommerce() {
+    TFlightMaxCommerce(bool alci = false) {
       value = ASTRA::NoExists;
+      lci = alci;
     }
     void SetValue( int vvalue ) {
       value = vvalue;

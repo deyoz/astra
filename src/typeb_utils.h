@@ -9,6 +9,7 @@
 #include "astra_misc.h"
 #include "exceptions.h"
 #include "xml_unit.h"
+#include "seats_utils.h"
 #include <typeinfo>
 
 using BASIC::date_time::TDateTime;
@@ -891,6 +892,8 @@ class TLCIOptions : public TCreateOptions
       pas_distrib = true;
       seat_plan = true;
       version = "AHM";
+      seats.clear();
+      cfg.clear();
     };
   public:
     bool equipment, seating, weight_mode;
@@ -898,6 +901,10 @@ class TLCIOptions : public TCreateOptions
     bool pas_totals, bag_totals, pas_distrib;
     bool seat_plan;
     std::string version;
+
+    TPassSeats seats;
+    ::TCFG cfg;
+
     TLCIOptions() {init();};
     virtual ~TLCIOptions() {};
     virtual void clear()
@@ -1130,6 +1137,8 @@ class TLCIOptions : public TCreateOptions
         pas_distrib=opt.pas_distrib;
         seat_plan=opt.seat_plan;
         version=opt.version;
+        seats = opt.seats;
+        cfg = opt.cfg;
       }
       catch(std::bad_cast) {};
     };

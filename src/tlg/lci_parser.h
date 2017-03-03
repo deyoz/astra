@@ -117,11 +117,21 @@ struct TSRJump {
 };
 
 struct TSR {
+
+    enum Type {
+        srStd,      // Поле SR соотв. стандарту AHM
+        srWB,       // SR по просьбе WB-гарантии
+        srUnknown
+    };
+
+    Type type;
+    char format;
     TCFG c;
     TSRZones z;
     TSRItems r;
     TSRItems s;
     TSRJump j;
+    TSR(): type(srUnknown), format(0) {}
     void parse(const char *val);
     void dump();
 };

@@ -1958,7 +1958,7 @@ void SalonFormInterface::Tranzit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   Qry.SQLText =
     "SELECT airp FROM points WHERE point_id=:point_id";
   Qry.DeclareVariable( "point_id", otInteger );
-  SALONS2::TPassSeats seats;
+  TPassSeats seats;
   SALONS2::TWaitListReason waitListReason;
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
     salonList.getPassengers( passengers, flags );

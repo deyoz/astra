@@ -400,6 +400,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsAPISControl=24,               //Контроль данных APIS
                     tsAPISManualInput=25,           //Ручной ввод данных APIS
                     tsPieceConcept=30,              //Расчет багажа по кол-ву мест
+                    tsLCIPersWeights=38,            //Веса пассажиров на основании LCI
 
                     //Ден, Женя, не добавляйте в эту секцию настройки, которые не в таблице trip_sets
 
@@ -919,6 +920,29 @@ struct TCFGItem {
         block(ASTRA::NoExists),
         prot(ASTRA::NoExists)
     {};
+    bool operator < (const TCFGItem &i) const
+    {
+        if(priority != i.priority)
+            return priority < i.priority;
+        if(cls != i.cls)
+            return cls < i.cls;
+        if(cfg != i.cfg)
+            return cfg < i.cfg;
+        if(block != i.block)
+            return block < i.block;
+        return prot < i.prot;
+    }
+
+    bool operator == (const TCFGItem &i) const
+    {
+        return
+            priority == i.priority and
+            cls == i.cls and
+            cfg == i.cfg and
+            block == i.block and
+            prot == i.prot;
+    }
+
 };
 
 struct TCFG:public std::vector<TCFGItem> {

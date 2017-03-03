@@ -17,7 +17,7 @@
 #include "serverlib/perfom.h"
 
 #define NICKNAME "DJEK"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace BASIC::date_time;
@@ -224,9 +224,58 @@ bool PersWeightRules::intequal( PersWeightRules *p )
   return true;
 }
 
+bool PersWeightRules::really_write(int point_id, string &source)
+{
+    TTripInfo info;
+    info.getByPointId(point_id);
+    bool lci_pers_weights = GetTripSets(tsLCIPersWeights,info);
+
+    TCachedQuery setsQry("select lci_pers_weights from trip_sets where point_id = :point_id",
+            QParams() << QParam("point_id", otInteger, point_id));
+    setsQry.get().Execute();
+    bool set_by_lci = false;
+    if(not setsQry.get().Eof and not setsQry.get().FieldIsNULL(0))
+        set_by_lci = setsQry.get().FieldAsInteger(0) != 0;
+
+    TCachedQuery updSetsQry("update trip_sets set lci_pers_weights = :lci_pers_weights where point_id = :point_id",
+            QParams()
+            << QParam("lci_pers_weights", otInteger)
+            << QParam("point_id", otInteger, point_id));
+
+    // В этом блоке if-else решается, выполнять перезапись весов или нет.
+
+    if(lci_pers_weights) { // В настройках рейсов разных ВКЛЮЧЕНЫ веса LCI
+        if(from_lci) {// перезапись инициируется LCI
+            if(not set_by_lci) { // устанавливаем признак LCI, если его еще не было
+                updSetsQry.get().SetVariable("lci_pers_weights", not set_by_lci);
+                updSetsQry.get().Execute();
+            }
+            // переходим в перезапись
+            source = "LCI: ";
+        } else { // перезапись инициируется настр. таблицами
+            if(set_by_lci) return false; // Если веса были установлены LCI, перезаписи нет
+            // переходим в перезапись
+        }
+    } else { // В настройках рейсов разных ОТКЛЮЧЕНЫ веса LCI
+        if(from_lci)
+            return false; // Перезапись инициируется LCI, перезаписи нет
+        else // перезапись инициируется настр. таблицами
+            if(set_by_lci) { // сбрасываем признак LCI, если он еще не сброшен
+                updSetsQry.get().SetVariable("lci_pers_weights", not set_by_lci);
+                updSetsQry.get().Execute();
+            }
+        // переходим в перезапись
+    }
+    return true;
+}
+
 void PersWeightRules::write( int point_id )
 {
   ProgTrace( TRACE5, "PersWeightRules::write point_id=%d", point_id );
+
+  string source;
+  if(not really_write(point_id, source)) return;
+
   TFlights fligths;
   fligths.Get( point_id, ftTranzit );
   if ( fligths.empty() )
@@ -283,7 +332,11 @@ void PersWeightRules::write( int point_id )
     lexema.prms << PrmSmpl<int>("infant", i->infant);
     prmenum.prms << lexema;
   }
-    TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms() << prmenum, evtFlt, point_id);
+    TReqInfo::Instance()->LocaleToLog(lexema_id,
+            LEvntPrms()
+            << PrmSmpl<std::string>("source", source)
+            << prmenum,
+            evtFlt, point_id);
 }
 
 bool PersWeightRules::weight( std::string cl, std::string subcl, ClassesPersWeight &weight )

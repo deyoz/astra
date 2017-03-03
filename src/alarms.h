@@ -29,6 +29,8 @@ enum TTripAlarmsType { atSalon,
                        atAPPSConflict,
                        atAPPSNegativeDirective,
                        atAPPSError,
+                       atWBDifferLayout,
+                       atWBDifferSeats,
                        atLength };
 extern const char *TripAlarmsTypeS[];
 

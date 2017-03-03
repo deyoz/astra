@@ -9,7 +9,6 @@
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "convert.h"
-#include "salons.h"
 #include "salonform.h"
 #include "astra_consts.h"
 #include "passenger.h"
@@ -23,6 +22,7 @@
 #include "SalonPaxList.h"
 #include "serverlib/xml_stuff.h" // для xml_decode_nodelist
 #include "serverlib/str_utils.h"
+#include <boost/regex.hpp>
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -251,7 +251,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
         default:
           break;
       }
-      for ( SALONS2::TPassSeats::const_iterator iseat=ilayer->second.begin();
+      for ( TPassSeats::const_iterator iseat=ilayer->second.begin();
             iseat!=ilayer->second.end(); iseat++ ) {
         TTlgCompLayer compLayer;
         compLayer.pax_id = ilayer->first.getPaxId();
@@ -6392,7 +6392,9 @@ struct TSR_S {
     void get(TypeB::TDetailCreateInfo &info)
     {
         const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
-        if(options.seat_restrict.find('S') != string::npos) {
+        if(not options.seats.empty()) {
+            layerSeats = options.seats;
+        } else if(options.seat_restrict.find('S') != string::npos) {
             SALONS2::TSalonList salonList;
             salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
             SALONS2::TSectionInfo sectionInfo;
@@ -6408,9 +6410,16 @@ struct TSR_S {
         static const string PREFIX = "SR.S";
         string buf = PREFIX;
         for(TPassSeats::iterator i_seat = layerSeats.begin(); i_seat != layerSeats.end(); i_seat++) {
-            string seat =
-                denorm_iata_row(i_seat->row, NULL) + // denorm - чтобы избавиться от нулей: 002 -> 2
-                denorm_iata_line(i_seat->line, info.is_lat() or info.pr_lat_seat);
+            string seat;
+            if(i_seat->Empty()) {
+                if(layerSeats.size() != 1)
+                    throw Exception("empty seat must be single");
+                seat = "N";
+            } else {
+                seat = 
+                    denorm_iata_row(i_seat->row, NULL) + // denorm - чтобы избавиться от нулей: 002 -> 2
+                    denorm_iata_line(i_seat->line, info.is_lat() or info.pr_lat_seat);
+            }
             if(buf.size() + seat.size() + 1 > LINE_SIZE) {
                 body.push_back(buf);
                 buf = PREFIX;
@@ -6446,6 +6455,33 @@ struct TSR_Z {
             }
             body.push_back(result.str());
         }
+    }
+};
+
+struct TSR_WB_C {
+    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body) {
+        const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
+        if(options.cfg.empty()) return;
+        TCFG cfg(info.point_id);
+
+        // Необходимо сбросить все поля в значения по умлочанию,
+        // кроме cls и cfg чтобы сортировалось одинаково с opt_cfg
+        // заодно сформируем текст для телеграммы
+        ostringstream buf;
+        buf << "SR.WB.C.";
+        for(TCFG::iterator i = cfg.begin(); i != cfg.end(); i++) {
+            TCFGItem new_item;
+            new_item.cls = i->cls;
+            new_item.cfg = i->cfg;
+            *i = new_item;
+            buf << info.TlgElemIdToElem(etSubcls, i->cls) << i->cfg;
+        }
+        body.push_back(buf.str());
+
+        sort(cfg.begin(), cfg.end());
+        TCFG opt_cfg = options.cfg;
+        sort(opt_cfg.begin(), opt_cfg.end());
+        set_alarm(info.point_id, atWBDifferLayout, not(opt_cfg == cfg));
     }
 };
 
@@ -6999,11 +7035,31 @@ struct TSeatPlan {
     private:
         template <typename T>
             void fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter);
+        string getXCRType(int pax_id);
     public:
         map<int,TCheckinPaxSeats> checkinPaxsSeats;
         void get(TypeB::TDetailCreateInfo &info);
         void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
+
+string TSeatPlan::getXCRType(int pax_id)
+{
+    string result;
+    multiset<CheckIn::TPaxRemItem> rems;
+    LoadPaxRem(pax_id, rems);
+    for(multiset<CheckIn::TPaxRemItem>::iterator
+            i = rems.begin();
+            i != rems.end(); i++) {
+        if(i->code == TCrewTypes().encode(TCrewType::ExtraCrew)) {
+            boost::match_results<std::string::const_iterator> results;
+            static const boost::regex e("^XCR ([12])$");
+            if(boost::regex_match(i->text, results, e)) {
+                result = results[1];
+            }
+        }
+    }
+    return result;
+}
 
 void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
 {
@@ -7022,6 +7078,7 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
     for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
+        string xcr_type = getXCRType(im->first);
         // g stands for 'gender'; First iteration - seats for adult, second iteration - one seat for infant
         for(int g = 0; g <=1; g++) {
             string gender;
@@ -7037,14 +7094,18 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
             for(set<TTlgCompLayer,TCompareCompLayers>::iterator is = im->second.seats.begin(); is != im->second.seats.end(); is++) {
                 string seat =
                     "." + denorm_iata_row(is->yname, NULL) +
-                    denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat) +
-                    "/" + gender;
+                    denorm_iata_line(is->xname, info.is_lat() or info.pr_lat_seat);
                 if(options.version == "WB") {
+                    if(is == im->second.seats.begin())
+                        seat += "/" + gender;
                     if(is != im->second.seats.begin())
                         seat += "/B"; // так обозначаются доп. места (extra seats)
                     else switch(im->second.crew_type) {
                         case TCrewType::ExtraCrew:
-                            seat += "/1";
+                            {
+                                if(not xcr_type.empty())
+                                    seat += "/" + xcr_type;
+                            }
                             break;
                         case TCrewType::DeadHeadCrew:
                             seat += "/D";
@@ -7055,7 +7116,8 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
                         default:
                             break;
                     }
-                }
+                } else
+                    seat += "/" + gender;
                 inserter.do_insert(seat, is->point_arv);
                 if(g == 1) break; // Для инфанта печатаем только первое место
             }
@@ -7126,6 +7188,7 @@ void TSeatPlan::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 struct TLCI {
     TLCICFG eqt;
     TWA wa;
+    TSR_WB_C sr_wb_c; // поле SR.WB.C - конфиг салона - возвращается в WBW
     TSR_C sr_c;
     TSR_Z sr_z;
     TSR_S sr_s;
@@ -7217,6 +7280,7 @@ void TLCI::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     eqt.ToTlg(info, body);
     wa.ToTlg(info, body);
     if(options.seating) body.push_back("SM.S"); // Seating method 'By Seat' always
+    sr_wb_c.ToTlg(info, body);
     if(options.seat_restrict.find('C') != string::npos) sr_c.ToTlg(info, body);
     if(options.seat_restrict.find('Z') != string::npos) sr_z.ToTlg(info, body);
     if(options.seat_restrict.find('S') != string::npos) sr_s.ToTlg(info, body);
