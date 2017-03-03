@@ -1035,7 +1035,10 @@ TPaidBagItem& TPaidBagItem::fromXML(xmlNodePtr node)
   clear();
   if (node==NULL) return *this;
   xmlNodePtr node2=node->children;
-  TBagTypeKey::fromXMLcompatible(node);
+  if (TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
+    TBagTypeKey::fromXML(node);
+  else
+    TBagTypeKey::fromXMLcompatible(node);
   weight=NodeAsIntegerFast("weight",node2);
   if (!NodeIsNULLFast("rate_id",node2))
   {
@@ -1149,8 +1152,7 @@ void PaidBagFromXML(xmlNodePtr paidbagNode,
       };
     };
     if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
-      if (!(grp_id==ASTRA::NoExists || !trfer_confirm))
-        paid.get().getAllListKeys(grp_id, is_unaccomp);
+      paid.get().getAllListKeys(grp_id, is_unaccomp);
   };
 };
 

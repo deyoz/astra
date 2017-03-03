@@ -4912,8 +4912,9 @@ bool ParseASVCRem(TTlgParser &tlg, string &rem_text, TASVCItem &asvc)
         switch(k)
         {
           case 0:
-            res=sscanf(tlg.lex,"%2[A-Z]%1[1]%c",asvc.rem_status,lexh,&c);
-            if (c!=0||res!=2) throw ETlgError("Wrong format");
+            res=sscanf(tlg.lex,"%2[A-Z]%d%c",asvc.rem_status,&asvc.service_quantity,&c);
+            if (c!=0||res!=2||
+                asvc.service_quantity<1||asvc.service_quantity>999) throw ETlgError("Wrong format");
             break;
           case 1:
             res=sscanf(tlg.lex,"%1[A-Z€-Ÿð0-9]%c",asvc.RFIC,&c);
@@ -6061,13 +6062,14 @@ void SaveASVCRem(int pax_id, const vector<TASVCItem> &asvc, bool &sync_pax_asvc)
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO crs_pax_asvc "
-    "  (pax_id,rem_status,rfic,rfisc,ssr_code,service_name,emd_type,emd_no,emd_coupon) "
+    "  (pax_id,rem_status,rfic,rfisc,service_quantity,ssr_code,service_name,emd_type,emd_no,emd_coupon) "
     "VALUES "
-    "  (:pax_id,:rem_status,:rfic,:rfisc,:ssr_code,:service_name,:emd_type,:emd_no,:emd_coupon) ";
+    "  (:pax_id,:rem_status,:rfic,:rfisc,:service_quantity,:ssr_code,:service_name,:emd_type,:emd_no,:emd_coupon) ";
   Qry.CreateVariable("pax_id",otInteger,pax_id);
   Qry.DeclareVariable("rem_status",otString);
   Qry.DeclareVariable("rfic",otString);
   Qry.DeclareVariable("rfisc",otString);
+  Qry.DeclareVariable("service_quantity",otInteger);
   Qry.DeclareVariable("ssr_code",otString);
   Qry.DeclareVariable("service_name",otString);
   Qry.DeclareVariable("emd_type",otString);
@@ -6079,6 +6081,7 @@ void SaveASVCRem(int pax_id, const vector<TASVCItem> &asvc, bool &sync_pax_asvc)
     Qry.SetVariable("rem_status",i->rem_status);
     Qry.SetVariable("rfic",i->RFIC);
     Qry.SetVariable("rfisc",i->RFISC);
+    Qry.SetVariable("service_quantity",i->service_quantity);
     Qry.SetVariable("ssr_code",i->ssr_code);
     Qry.SetVariable("service_name",i->service_name);
     Qry.SetVariable("emd_type",i->emd_type);
