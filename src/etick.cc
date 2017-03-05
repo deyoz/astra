@@ -2428,8 +2428,8 @@ void EMDAutoBoundInterface::EMDTryBind(int grp_id,
       Qry.CreateVariable("grp_id", otInteger, grp_id);
       Qry.Execute();
 
-      paid_rfisc.toDB777(grp_id);
-      payment.toDB777(grp_id);
+      paid_rfisc.toDB(grp_id);
+      payment.toDB(grp_id);
 
       if (!second_call)
       {

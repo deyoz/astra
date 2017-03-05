@@ -53,7 +53,7 @@ int TBagNormInfo::priority() const
     switch(norm_type)
     {
           case bntFree: return 1;
-      case bntOrdinary: if (bag_type222!=REGULAR_BAG_TYPE) return 10; else break;
+      case bntOrdinary: if (!isRegularBagType()) return 10; else break;
           case bntPaid: return 19;
                default: break;
     }
@@ -66,9 +66,9 @@ int TBagNormInfo::priority() const
     switch(norm_type)
     {
         case bntFreeExcess: return 3;
-      case bntFreeOrdinary: if (bag_type222!=REGULAR_BAG_TYPE) return 2; else break;
+      case bntFreeOrdinary: if (!isRegularBagType()) return 2; else break;
           case bntFreePaid: return 11;
-      case bntOrdinaryPaid: if (bag_type222!=REGULAR_BAG_TYPE) return 15; else break;
+      case bntOrdinaryPaid: if (!isRegularBagType()) return 15; else break;
                    default: break;
     }
   }
@@ -80,9 +80,9 @@ int TBagNormInfo::priority() const
     switch(norm_type)
     {
         case bntFreeExcess: return 5;
-      case bntFreeOrdinary: if (bag_type222!=REGULAR_BAG_TYPE) return 4; else break;
+      case bntFreeOrdinary: if (!isRegularBagType()) return 4; else break;
           case bntFreePaid: return 12;
-      case bntOrdinaryPaid: if (bag_type222!=REGULAR_BAG_TYPE) return 16; else break;
+      case bntOrdinaryPaid: if (!isRegularBagType()) return 16; else break;
                    default: break;
     }
   }
@@ -94,9 +94,9 @@ int TBagNormInfo::priority() const
     switch(norm_type)
     {
         case bntFreeExcess: return 7;
-      case bntFreeOrdinary: if (bag_type222!=REGULAR_BAG_TYPE) return 6; else break;
+      case bntFreeOrdinary: if (!isRegularBagType()) return 6; else break;
           case bntFreePaid: return 13;
-      case bntOrdinaryPaid: if (bag_type222!=REGULAR_BAG_TYPE) return 17; else break;
+      case bntOrdinaryPaid: if (!isRegularBagType()) return 17; else break;
                    default: break;
     }
   }
@@ -108,9 +108,9 @@ int TBagNormInfo::priority() const
     switch(norm_type)
     {
         case bntFreeExcess: return 9;
-      case bntFreeOrdinary: if (bag_type222!=REGULAR_BAG_TYPE) return 8; else break;
+      case bntFreeOrdinary: if (!isRegularBagType()) return 8; else break;
           case bntFreePaid: return 14;
-      case bntOrdinaryPaid: if (bag_type222!=REGULAR_BAG_TYPE) return 18; else break;
+      case bntOrdinaryPaid: if (!isRegularBagType()) return 18; else break;
                    default: break;
     }
   }
@@ -564,7 +564,7 @@ class TPaidBagCalcItem : public TPaidBagWideItem
         bag_weight+=b->weight;
       };
       norm_per_unit=false;
-      norm_ordinary=(bag_type333()!=REGULAR_BAG_TYPE);
+      norm_ordinary=!isRegularBagType();
     }
     bool AddNorm(const TBagNormInfo &norm);
 };
@@ -711,11 +711,7 @@ string PaidTraceStr(const TPaidBagMap &paid)
   for(TPaidBagMap::const_iterator p=paid.begin(); p!=paid.end(); ++p)
   {
     if (p!=paid.begin()) s << "; ";
-    if (!p->second.bag_type333().empty())
-      s << p->second.bag_type333();
-    else
-      s << "--";
-    s << ": " << p->second.weight;
+    s << p->second.key().str(LANG_EN) << ": " << p->second.weight;
     if (p->second.rate_id!=ASTRA::NoExists)
       s << "/" << p->second.rate_id;
     else
@@ -912,8 +908,8 @@ void RecalcPaidBagWide(const TAirlines &airlines,
     for(TPaidBagCalcMap::iterator i=paid_calc.begin(); i!=paid_calc.end(); ++i)
     {
       TPaidBagCalcItem &item=i->second;
-      if ((pass==0 && item.bag_type333()==REGULAR_BAG_TYPE) ||
-          (pass!=0 && item.bag_type333()!=REGULAR_BAG_TYPE)) continue; //обычный багаж всегда в последней итерации
+      if ((pass==0 && item.isRegularBagType()) ||
+          (pass!=0 && !item.isRegularBagType())) continue; //обычный багаж всегда в последней итерации
 
       multiset<TSimpleBagItem> prior_bag_sorted;
       TSimpleBagMap::const_iterator iPriorBag=prior_bag_simple.find(item);
@@ -961,9 +957,9 @@ void RecalcPaidBagWide(const TAirlines &airlines,
           for(list<TSimpleBagItem>::const_iterator b=added_bag.begin(); b!=added_bag.end(); ++b)
             if (b->amount>1)
             {
-              if (item.bag_type333()!=REGULAR_BAG_TYPE)
+              if (!item.isRegularBagType())
                 throw UserException("MSG.LUGGAGE.EACH_SEAT_SHOULD_WEIGHTED_SEPARATELY",
-                                    LParams() << LParam("bagtype", item.bag_type333()));
+                                    LParams() << LParam("bagtype", item.key().str()));
               else
                 throw UserException("MSG.LUGGAGE.EACH_COMMON_SEAT_SHOULD_WEIGHTED_SEPARATELY");
             };
@@ -1213,9 +1209,9 @@ void RecalcPaidBagToDB(const TAirlines &airlines,
      const TPaidBagWideItem &item=i->second;
      if (item.weight==NoExists)
      {
-       if (item.bag_type333()!=REGULAR_BAG_TYPE)
+       if (!item.isRegularBagType())
          throw UserException("MSG.PAID_BAG.UNKNOWN_PAID_WEIGHT_BAG_TYPE",
-                             LParams() << LParam("bagtype", item.bag_type333()));
+                             LParams() << LParam("bagtype", item.key().str()));
        else
          throw UserException("MSG.PAID_BAG.UNKNOWN_PAID_WEIGHT_ORDINARY");
      }
@@ -1678,16 +1674,16 @@ void CalcPaidBagBase(const TAirlines &airlines,
     for(TPaidBagCalcMap::iterator i=paid.begin(); i!=paid.end(); ++i)
     {
       TPaidBagCalcItem &item=i->second;
-      if ((pass==0 && item.bag_type333()==REGULAR_BAG_TYPE) ||
-          (pass!=0 && item.bag_type333()!=REGULAR_BAG_TYPE)) continue; //обычный багаж всегда в последней итерации
+      if ((pass==0 && item.isRegularBagType()) ||
+          (pass!=0 && !item.isRegularBagType())) continue; //обычный багаж всегда в последней итерации
 
-      if (item.bag_type333()==REGULAR_BAG_TYPE && ordinaryUnknown) item.weight_calc=NoExists;
+      if (item.isRegularBagType() && ordinaryUnknown) item.weight_calc=NoExists;
       else
       {
         //проверим задана хотя бы одна норма
         if (item.norms.empty())
         {
-          if (item.bag_type333()!=REGULAR_BAG_TYPE)
+          if (!item.isRegularBagType())
           {
             //ни одной нормы для выделенного типа багажа не задано
             //перебрасываем в обычный багаж
@@ -1723,7 +1719,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
                 switch(norm.norm_type)
                 {
                   case bntOrdinary:
-                    if (item.bag_type333()!=REGULAR_BAG_TYPE)
+                    if (!item.isRegularBagType())
                     {
                       itemOrdinary.bag.push_back(*j);
                       j=item.bag.erase(j);
@@ -1759,7 +1755,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
                       item.weight_calc+=j->weight-norm.weight;
                       break;
                     case bntFreeOrdinary:
-                      if (item.bag_type333()!=REGULAR_BAG_TYPE)
+                      if (!item.isRegularBagType())
                       {
                         if (!itemOrdinary.norm_per_unit) j->weight-=norm.weight;
                         itemOrdinary.bag.push_back(*j);
@@ -1780,7 +1776,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
                   switch(norm.norm_type)
                   {
                     case bntOrdinaryPaid:
-                      if (item.bag_type333()!=REGULAR_BAG_TYPE)
+                      if (!item.isRegularBagType())
                       {
                         itemOrdinary.bag.push_back(*j);
                         j=item.bag.erase(j);
@@ -1812,7 +1808,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
                       item.weight_calc+=j->weight;
                       break;
                     case bntFreeOrdinary:
-                      if (item.bag_type333()!=REGULAR_BAG_TYPE)
+                      if (!item.isRegularBagType())
                       {
                         itemOrdinary.bag.push_back(*j);
                         j=item.bag.erase(j);
@@ -1833,7 +1829,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
                   switch(norm.norm_type)
                   {
                     case bntOrdinaryPaid:
-                      if (item.bag_type333()!=REGULAR_BAG_TYPE)
+                      if (!item.isRegularBagType())
                       {
                         itemOrdinary.bag.push_back(*j);
                         j=item.bag.erase(j);
@@ -1865,7 +1861,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
                       item.weight_calc+=k-norm.weight;
                       break;
                     case bntFreeOrdinary:
-                      if (item.bag_type333()!=REGULAR_BAG_TYPE)
+                      if (!item.isRegularBagType())
                       {
                         TSimpleBagItem sum(item);
                         sum.amount=1;
@@ -1913,7 +1909,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
                     bool inc=true;
                     if (k+j->weight>norm.weight)
                     {
-                      if (item.bag_type333()!=REGULAR_BAG_TYPE)
+                      if (!item.isRegularBagType())
                       {
                         itemOrdinary.bag.push_back(*j);
                         j=item.bag.erase(j);
@@ -1932,7 +1928,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
                     bool inc=true;
                     if (l+j->weight>norm.weight)
                     {
-                      if (item.bag_type333()!=REGULAR_BAG_TYPE)
+                      if (!item.isRegularBagType())
                       {
                         itemOrdinary.bag.push_back(*j);
                         item.bag.erase(--j.base());
@@ -1966,7 +1962,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
                         item.weight_calc+=j->weight;
                         break;
                       case bntFreeOrdinary:
-                        if (item.bag_type333()!=REGULAR_BAG_TYPE)
+                        if (!item.isRegularBagType())
                         {
                           itemOrdinary.bag.push_back(*j);
                           j=item.bag.erase(j);
@@ -1991,7 +1987,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
                           item.weight_calc+=j->weight-k->weight;
                           break;
                         case bntFreeOrdinary:
-                          if (item.bag_type333()!=REGULAR_BAG_TYPE)
+                          if (!item.isRegularBagType())
                           {
                             j->weight-=k->weight;
                             itemOrdinary.bag.push_back(*j);
@@ -2025,7 +2021,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
                     switch(norm.norm_type)
                     {
                       case bntFreeOrdinary:
-                        if (item.bag_type333()!=REGULAR_BAG_TYPE)
+                        if (!item.isRegularBagType())
                         {
                           itemOrdinary.bag.push_back(*j);
                           j=item.bag.erase(j);
@@ -2045,7 +2041,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
                     switch(norm.norm_type)
                     {
                       case bntOrdinaryPaid:
-                        if (item.bag_type333()!=REGULAR_BAG_TYPE)
+                        if (!item.isRegularBagType())
                         {
                           itemOrdinary.bag.push_back(*j);
                           j=item.bag.erase(j);
@@ -2076,7 +2072,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
       };
 
       //для платного багажа проверим есть ли среди норм ОБ
-      if (item.bag_type333()==REGULAR_BAG_TYPE && item.weight_calc==NoExists && item.norm_ordinary) ordinaryUnknown=true;
+      if (item.isRegularBagType() && item.weight_calc==NoExists && item.norm_ordinary) ordinaryUnknown=true;
 
       item.weight=NoExists;
     };

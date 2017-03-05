@@ -470,9 +470,9 @@ class TPaxServiceListsItem : public TPaxServiceListsKey
 class TPaxServiceLists : public std::set<TPaxServiceListsItem>
 {
   public:
-    void fromDB111(int id, bool is_unaccomp, bool emul_nonexistent_lists);
-    void toDB111(bool is_unaccomp) const;
-    void toXML111(int id, bool is_unaccomp, int tckin_seg_count, xmlNodePtr node);
+    void fromDB(int id, bool is_unaccomp, bool emul_nonexistent_lists);
+    void toDB(bool is_unaccomp) const;
+    void toXML(int id, bool is_unaccomp, int tckin_seg_count, xmlNodePtr node);
 };
 
 class TPaxSegRFISCKey : public Sirena::TPaxSegKey, public TRFISCKey
@@ -587,8 +587,7 @@ class TPaidRFISCList : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
 {
   public:
     void fromDB(int id, bool is_grp_id);
-    void toDB777(int grp_id) const;
-    void toXML(xmlNodePtr node) const;
+    void toDB(int grp_id) const;
     void inc(const TPaxSegRFISCKey& key, const TServiceStatus::Enum status);
     boost::optional<TRFISCKey> getKeyIfSingleRFISC(int pax_id, const std::string &rfisc) const;
     void getAllListItems();

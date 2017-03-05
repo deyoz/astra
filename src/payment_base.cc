@@ -379,7 +379,7 @@ void TServicePaymentList::fromDB(int grp_id)
   };
 }
 
-void TServicePaymentList::toDB777(int grp_id) const
+void TServicePaymentList::toDB(int grp_id) const
 {
   {
     TCachedQuery Qry("DELETE FROM service_payment WHERE grp_id=:grp_id",

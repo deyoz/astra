@@ -795,7 +795,7 @@ void TGroupBagItem::setInboundTrfer(const TrferList::TGrpItem &grp)
     bag.pr_cabin=false;
     bag.amount=grp.tags.size();
     bag.weight=bag_weight;
-    bags111[bag.num]=bag;
+    bags[bag.num]=bag;
     int tag_num=1;
     for(multiset<TBagTagNumber>::const_iterator t=grp.tags.begin(); t!=grp.tags.end(); ++t, tag_num++)
     {
@@ -819,20 +819,20 @@ void TGroupBagItem::setInboundTrfer(const TrferList::TGrpItem &grp)
     bag.pr_cabin=true;
     bag.amount=1;
     bag.weight=rk_weight;
-    bags111[bag.num]=bag;
+    bags[bag.num]=bag;
     bag_num++;
   };
 };
 
 void TGroupBagItem::setPoolNum(int bag_pool_num)
 {
-  for(TBagMap::iterator i=bags111.begin();i!=bags111.end();++i)
+  for(TBagMap::iterator i=bags.begin();i!=bags.end();++i)
     i->second.bag_pool_num=bag_pool_num;
 };
 
 bool TGroupBagItem::trferExists() const
 {
-  for(TBagMap::const_iterator i=bags111.begin();i!=bags111.end();++i)
+  for(TBagMap::const_iterator i=bags.begin();i!=bags.end();++i)
     if (i->second.is_trfer) return true;
   return false;
 }
@@ -866,11 +866,11 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is
   {
     TBagItem bag;
     bag.fromXML(node, baggage_pc);
-    if (bags111.find(bag.num)!=bags111.end())
+    if (bags.find(bag.num)!=bags.end())
       throw Exception("TGroupBagItem::fromXML: bags[%d] duplicated", bag.num);
     if (bag.value_bag_num!=ASTRA::NoExists && vals.find(bag.value_bag_num)==vals.end())
       throw Exception("TGroupBagItem::fromXML: bags[%d].value_bag_num=%d not found", bag.num, bag.value_bag_num);
-    bags111[bag.num]=bag;
+    bags[bag.num]=bag;
   };
 
   for(node=tagNode->children;node!=NULL;node=node->next)
@@ -879,7 +879,7 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is
     tag.fromXML(node);
     if (tags.find(tag.num)!=tags.end())
       throw Exception("TGroupBagItem::fromXML: tags[%d] duplicated", tag.num);
-    if (tag.bag_num!=ASTRA::NoExists && bags111.find(tag.bag_num)==bags111.end())
+    if (tag.bag_num!=ASTRA::NoExists && bags.find(tag.bag_num)==bags.end())
       throw Exception("TGroupBagItem::fromXML: tags[%d].bag_num=%d not found", tag.num, tag.bag_num);
     tags[tag.num]=tag;
   };
@@ -891,7 +891,7 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is
       unaccomp.fromXML(node);
       if (unaccomps.find(unaccomp.num)!=unaccomps.end())
         throw Exception("TGroupBagItem::fromXML: unaccomps[%d] duplicated", unaccomp.num);
-      if (bags111.find(unaccomp.num)==bags111.end())
+      if (bags.find(unaccomp.num)==bags.end())
         throw Exception("TGroupBagItem::fromXML: bags[%d] not found", unaccomp.num);
       unaccomps[unaccomp.num]=unaccomp;
     };
@@ -905,7 +905,7 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is
       throw Exception("TGroupBagItem::fromXML: vals[%d] not found", v->second.num);
   };
   num=1;
-  for(TBagMap::const_iterator b=bags111.begin();b!=bags111.end();++b,num++)
+  for(TBagMap::const_iterator b=bags.begin();b!=bags.end();++b,num++)
   {
     if (b->second.num!=num)
       throw Exception("TGroupBagItem::fromXML: bags[%d] not found", b->second.num);
@@ -929,7 +929,7 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
   bool is_payment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
 
   map<int /*num*/, int> bound_tags;
-  for(TBagMap::const_iterator b=bags111.begin();b!=bags111.end();++b)
+  for(TBagMap::const_iterator b=bags.begin();b!=bags.end();++b)
     bound_tags[b->second.num]=0;
 
   int unbound_tags=0;
@@ -949,7 +949,7 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
       for(map<int, TTagItem>::iterator t=tags.begin();t!=tags.end();++t)
       {
         if (t->second.bag_num!=ASTRA::NoExists) continue;
-        for(TBagMap::const_iterator b=bags111.begin();b!=bags111.end();b++)
+        for(TBagMap::const_iterator b=bags.begin();b!=bags.end();b++)
         {
           if (!b->second.pr_cabin && bound_tags[b->second.num]<b->second.amount)
           {
@@ -976,7 +976,7 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
 
     int bagAmount=0;
     int rebind_tags=0;
-    for(TBagMap::const_iterator b=bags111.begin();b!=bags111.end();++b)
+    for(TBagMap::const_iterator b=bags.begin();b!=bags.end();++b)
     {
       if (b->second.pr_cabin)
       {
@@ -1031,7 +1031,7 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
         };
         //привязываем к багажу
         map<int, TTagItem>::iterator t=generated_tags.begin();
-        for(TBagMap::const_iterator b=bags111.begin();b!=bags111.end();)
+        for(TBagMap::const_iterator b=bags.begin();b!=bags.end();)
         {
           if (!b->second.pr_cabin && bound_tags[b->second.num]<b->second.amount)
           {
@@ -1058,7 +1058,7 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall, bool is_unaccomp, bo
   TBagMap old_bags;
   if (grp_id!=ASTRA::NoExists) old_bags.fromDB(grp_id);
 
-//  bags111.dump("TGroupBagItem::fromXMLcompletion: new_bags:");
+//  bags.dump("TGroupBagItem::fromXMLcompletion: new_bags:");
 //  old_bags.dump("TGroupBagItem::fromXMLcompletion: old_bags:");
 
   if (is_payment && !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
@@ -1067,21 +1067,21 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall, bool is_unaccomp, bo
     //работаем по идентификаторам
     for(TBagMap::iterator ob=old_bags.begin();ob!=old_bags.end();++ob)
     {
-      TBagMap::const_iterator nb=bags111.begin();
-      for(;nb!=bags111.end();++nb)
+      TBagMap::const_iterator nb=bags.begin();
+      for(;nb!=bags.end();++nb)
         if (nb->second.id==ob->second.id) break;
-      if (nb!=bags111.end())
+      if (nb!=bags.end())
         ob->second.value_bag_num=nb->second.value_bag_num;
       else
         ob->second.value_bag_num=ASTRA::NoExists;
     };
 
-    bags111=old_bags;
+    bags=old_bags;
   }
   else
   {
     //пробегаемся по сортированным массивам с целью заполнения старых hall и user_id в массиве нового багажа
-    for(TBagMap::iterator nb=bags111.begin();nb!=bags111.end();++nb)
+    for(TBagMap::iterator nb=bags.begin();nb!=bags.end();++nb)
     {
       if (nb->second.id==ASTRA::NoExists)
       {
@@ -1126,7 +1126,7 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall, bool is_unaccomp, bo
 
   if (!reqInfo->desk.compatible(PAX_SERVICE_VERSION))
   {
-    if ((grp_id==ASTRA::NoExists || !trfer_confirm) && !bags111.empty())
+    if ((grp_id==ASTRA::NoExists || !trfer_confirm) && !bags.empty())
       throw UserException("MSG.BAGGAGE_INPUT_ONLY_AFTER_CHECKIN");
     getAllListKeys(grp_id, is_unaccomp, 0);
   }
@@ -1188,7 +1188,7 @@ void TGroupBagItem::bagToDB(int grp_id) const
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
   BagQry.Execute();
 
-  bags111.toDB(grp_id);
+  bags.toDB(grp_id);
 
   BagQry.Clear();
   BagQry.SQLText=
@@ -1269,7 +1269,7 @@ void TGroupBagItem::toLists(list<TValueBagItem> &vals_list,
 {
   for(map<int /*num*/, TValueBagItem>::const_iterator i=vals.begin();i!=vals.end();++i)
     vals_list.push_back(i->second);
-  for(TBagMap::const_iterator i=bags111.begin();i!=bags111.end();++i)
+  for(TBagMap::const_iterator i=bags.begin();i!=bags.end();++i)
     bags_list.push_back(i->second);
   for(map<int /*num*/, TTagItem>::const_iterator i=tags.begin();i!=tags.end();++i)
     tags_list.push_back(i->second);
@@ -1283,7 +1283,7 @@ void TGroupBagItem::fromLists(const list<TValueBagItem> &vals_list,
     if (!vals.insert(make_pair(i->num, *i)).second)
       throw Exception("TGroupBagItem::fromLists: vals[%d] duplicated", i->num);
   for(list<TBagItem>::const_iterator i=bags_list.begin();i!=bags_list.end();++i)
-    if (!bags111.insert(make_pair(i->num, *i)).second)
+    if (!bags.insert(make_pair(i->num, *i)).second)
       throw Exception("TGroupBagItem::fromLists: bags[%d] duplicated", i->num);
   for(list<TTagItem>::const_iterator i=tags_list.begin();i!=tags_list.end();++i)
     if (!tags.insert(make_pair(i->num, *i)).second)
@@ -1334,7 +1334,7 @@ void TGroupBagItem::add(const TGroupBagItem &item)
   list<TBagItem> bags_tmp;
   list<TTagItem> tags_tmp;
   item.toLists(vals_tmp, bags_tmp, tags_tmp);
-  normalizeLists(vals.size()+1, bags111.size()+1, tags.size()+1, vals_tmp, bags_tmp, tags_tmp);
+  normalizeLists(vals.size()+1, bags.size()+1, tags.size()+1, vals_tmp, bags_tmp, tags_tmp);
   fromLists(vals_tmp, bags_tmp, tags_tmp);
 };
 
@@ -1448,7 +1448,7 @@ void TBagMap::fromDB(int grp_id)
 
 void TGroupBagItem::bagFromDB(int grp_id)
 {
-  bags111.fromDB(grp_id);
+  bags.fromDB(grp_id);
 
   TQuery BagQry(&OraSession);
   BagQry.Clear();
@@ -1468,7 +1468,7 @@ void TGroupBagItem::bagFromDB(int grp_id)
 void TGroupBagItem::fromDB(int grp_id, int bag_pool_num, bool without_refused)
 {
   vals.clear();
-  bags111.clear();
+  bags.clear();
   tags.clear();
 
   TQuery BagQry(&OraSession);
@@ -1532,7 +1532,7 @@ void TGroupBagItem::fromDB(int grp_id, int bag_pool_num, bool without_refused)
       BagQry.CreateVariable("class",otString,cl);
       BagQry.CreateVariable("bag_refuse",otInteger,(int)bag_refuse);
       set<int/*bag_pool_num*/> del_pools;
-      for(TBagMap::const_iterator i=bags111.begin();i!=bags111.end();++i)
+      for(TBagMap::const_iterator i=bags.begin();i!=bags.end();++i)
       {
         if (del_pools.find(i->second.bag_pool_num)==del_pools.end())
         {
@@ -1557,7 +1557,7 @@ void TGroupBagItem::toXML(xmlNodePtr bagtagNode) const
     i->second.toXML(NewTextChild(node,"value_bag"));
 
   node=NewTextChild(bagtagNode,"bags");
-  for(TBagMap::const_iterator i=bags111.begin();i!=bags111.end();++i)
+  for(TBagMap::const_iterator i=bags.begin();i!=bags.end();++i)
     i->second.toXML(NewTextChild(node,"bag"));
 
   node=NewTextChild(bagtagNode,"tags");
@@ -1575,7 +1575,7 @@ void TGroupBagItem::convertBag(std::multimap<int /*id*/, TBagItem> &result) cons
 {
   //multimap - потому что м.б. id=NoExists если добавляются сразу несколько мест багажа
   result.clear();
-  for(TBagMap::const_iterator b=bags111.begin(); b!=bags111.end(); ++b)
+  for(TBagMap::const_iterator b=bags.begin(); b!=bags.end(); ++b)
     result.insert(make_pair(b->second.id, b->second));
 }
 
@@ -1591,7 +1591,7 @@ void TGroupBagItem::fillUnaccompRules()
 
 void TGroupBagItem::getAllListKeys(const int grp_id, const bool is_unaccomp, const int transfer_num)
 {
-  for(TBagMap::iterator b=bags111.begin(); b!=bags111.end(); ++b)
+  for(TBagMap::iterator b=bags.begin(); b!=bags.end(); ++b)
   {
     TBagItem &bag=b->second;
     TServiceCategory::Enum category=bag.pr_cabin?TServiceCategory::CarryOn:TServiceCategory::Baggage;
@@ -1637,7 +1637,7 @@ void TGroupBagItem::getAllListKeys(const int grp_id, const bool is_unaccomp, con
 
 void TGroupBagItem::getAllListItems(const int grp_id, const bool is_unaccomp, const int transfer_num)
 {
-  for(TBagMap::iterator b=bags111.begin(); b!=bags111.end(); ++b)
+  for(TBagMap::iterator b=bags.begin(); b!=bags.end(); ++b)
   {
     TBagItem &bag=b->second;
     TServiceCategory::Enum category=bag.pr_cabin?TServiceCategory::CarryOn:TServiceCategory::Baggage;
@@ -1786,13 +1786,29 @@ void GridInfoToXML(const TTrferRoute &trfer,
   };
 
   xmlNodePtr rowsNode = NewTextChild(paidViewNode, "rows");
-
-  for(TPaidRFISCViewMap::const_iterator i=paidRFISC.begin(); i!=paidRFISC.end(); ++i)
-    i->second.GridInfoToXML(rowsNode, trfer);
-  for(TPaidBagViewMap::const_iterator i=paidBag.begin(); i!=paidBag.end(); ++i)
-    i->second.GridInfoToXML(rowsNode, !pc && wt);
-  for(TPaidBagViewMap::const_iterator i=trferBag.begin(); i!=trferBag.end(); ++i)
-    i->second.GridInfoToXML(rowsNode, !pc && wt);
+  for(bool free=false; ;free=!free)
+  {
+    //первыми идут платные
+    for(TPaidRFISCViewMap::const_iterator i=paidRFISC.begin(); i!=paidRFISC.end(); ++i)
+    {
+      const TPaidRFISCViewItem &item=i->second;
+      if ((free && item.paid>0) || (!free && item.paid<=0)) continue;
+      item.GridInfoToXML(rowsNode, trfer);
+    };
+    for(TPaidBagViewMap::const_iterator i=paidBag.begin(); i!=paidBag.end(); ++i)
+    {
+      const TPaidBagViewItem &item=i->second;
+      if ((free && item.weight>0) || (!free && item.weight<=0)) continue;
+      item.GridInfoToXML(rowsNode, !pc && wt);
+    };
+    for(TPaidBagViewMap::const_iterator i=trferBag.begin(); i!=trferBag.end(); ++i)
+    {
+      const TPaidBagViewItem &item=i->second;
+      if ((free && item.weight>0) || (!free && item.weight<=0)) continue;
+      item.GridInfoToXML(rowsNode, !pc && wt);
+    };
+    if (free) break;
+  };
 }
 
 TExcessNodeList::TExcessNodeList(): concept(ctInitial) {

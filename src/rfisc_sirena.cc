@@ -334,7 +334,7 @@ void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, bool old_ver
   for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
   {
     if (i==tckin_grp_ids.begin())
-      serviceLists.toDB111(false);
+      serviceLists.toDB(false);
     else
       CopyPaxServiceLists(*tckin_grp_ids.begin(), *i, false, true);
   }
@@ -895,7 +895,7 @@ void TAvailabilityReq::bagTypesToDB(const TCkinGrpIds &tckin_grp_ids, bool copy_
   for(list<TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
   {
     TPaxServiceLists paxServiceLists;
-    paxServiceLists.fromDB111(p->id, false, false);
+    paxServiceLists.fromDB(p->id, false, false);
 
     TPaxServiceListsItem serviceItem;
     serviceItem.pax_id=p->id;
@@ -922,7 +922,7 @@ void TAvailabilityReq::bagTypesToDB(const TCkinGrpIds &tckin_grp_ids, bool copy_
   for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
   {
     if (i==tckin_grp_ids.begin())
-      serviceLists.toDB111(false);
+      serviceLists.toDB(false);
     else if (copy_all_segs)
       CopyPaxServiceLists(*tckin_grp_ids.begin(), *i, false, false);
   }
@@ -965,7 +965,7 @@ void unaccBagTypesToDB(int grp_id, bool ignore_unaccomp_sets) //!!! потом удалит
       serviceLists.insert(serviceItem);
     };
   };
-  serviceLists.toDB111(true);
+  serviceLists.toDB(true);
 }
 
 void CopyPaxServiceLists(int grp_id_src, int grp_id_dest, bool is_grp_id, bool rfisc_used)
@@ -1093,7 +1093,7 @@ void UpgradeDBForServices(int grp_id)
             };
           }
         }
-        serviceLists.toDB111(false);
+        serviceLists.toDB(false);
       }
       else if (wt)
       {
@@ -1106,7 +1106,7 @@ void UpgradeDBForServices(int grp_id)
 
     CheckIn::TGroupBagItem group_bag;
     group_bag.bagFromDB(grp_id);
-    for(CheckIn::TBagMap::iterator i=group_bag.bags111.begin(); i!=group_bag.bags111.end(); ++i)
+    for(CheckIn::TBagMap::iterator i=group_bag.bags.begin(); i!=group_bag.bags.end(); ++i)
     {
       CheckIn::TBagItem &item=i->second;
       if (item.pc)
@@ -1144,7 +1144,7 @@ void UpgradeDBForServices(int grp_id)
       paid_rfisc_new.insert(make_pair(item, item));
     }
     paid_rfisc_new.getAllListItems();
-    paid_rfisc_new.toDB777(grp_id);
+    paid_rfisc_new.toDB(grp_id);
 
     progress="PaidBagToDB";
 
@@ -1186,7 +1186,7 @@ void UpgradeDBForServices(int grp_id)
       }
     }
     payment.getAllListItems(grp_id, grp_cat==CheckIn::TPaxGrpCategory::UnnacompBag);
-    payment.toDB777(grp_id);
+    payment.toDB(grp_id);
   }
   catch(Exception &e)
   {
