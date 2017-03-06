@@ -274,6 +274,7 @@ class TPaxNormItem
   TPaxNormItem& fromXML(xmlNodePtr node);
   const TPaxNormItem& toDB(TQuery &Qry) const;
   TPaxNormItem& fromDB(TQuery &Qry);
+  bool isRegularBagType() const { return bag_type222==REGULAR_BAG_TYPE; }
 };
 
 bool PaxNormsFromDB(TDateTime part_key, int pax_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
@@ -320,6 +321,7 @@ class TPaidBagItem : public TBagTypeKey
   TPaidBagItem& fromXML(xmlNodePtr node);
   const TPaidBagItem& toDB(TQuery &Qry) const;
   TPaidBagItem& fromDB(TQuery &Qry);
+  bool isRegularBagType() const { return bag_type==REGULAR_BAG_TYPE; }
   const std::string& bag_type333() const { return bag_type; } //!!!vlad
   int priority() const;
   std::string bag_type_view(const std::string& lang="") const;

@@ -236,7 +236,7 @@ class TGroupBagItem
     void fromXMLcompletion(int grp_id, int hall, bool is_unaccomp, bool trfer_confirm);
   public:
     std::map<int /*num*/, TValueBagItem> vals;
-    TBagMap bags111;
+    TBagMap bags;
     std::map<int /*num*/, TTagItem> tags;
     std::map<int /*num*/, TUnaccompInfoItem> unaccomps;
     std::set<TUnaccompRuleItem> unaccomp_rules;
@@ -248,7 +248,7 @@ class TGroupBagItem
     void clear()
     {
       vals.clear();
-      bags111.clear();
+      bags.clear();
       tags.clear();
       unaccomps.clear();
       unaccomp_rules.clear();
@@ -257,7 +257,7 @@ class TGroupBagItem
     bool empty() const
     {
       return vals.empty() &&
-             bags111.empty() &&
+             bags.empty() &&
              tags.empty();
     };
     bool fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is_unaccomp, bool baggage_pc, bool trfer_confirm);
