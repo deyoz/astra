@@ -129,7 +129,10 @@ boost::optional<PtsElem> readEdiPts(_EDI_REAL_MES_STRUCT_ *pMes)
 
     PtsElem res;
 
-    res.m_itemNumber = GetDBNumCast<int>(EdiCast::EdiDigitCast<int>("EtsErr::EDI_PROC_ERR", "-1"), pMes, 7140);
+    int itemNum = GetDBNumCast<int>(EdiCast::EdiDigitCast<int>("EtsErr::EDI_PROC_ERR", "-1"), pMes, 7140);
+    if(itemNum >= 0 ) {
+        res.m_itemNumber = itemNum;
+    }
     res.m_fareBasis  = GetDBFName(pMes, DataElement(5242), CompElement("C643"));
     res.m_rfic       = GetDBNum  (pMes, DataElement(4183, 0, 0));
     res.m_rfisc      = GetDBNum  (pMes, DataElement(4183, 0, 1));
