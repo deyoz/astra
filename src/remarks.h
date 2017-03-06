@@ -290,6 +290,7 @@ class TPaxASVCItem : public TPaxRemBasic
             emd_coupon == item.emd_coupon;
     }
     const TPaxASVCItem& toXML(xmlNodePtr node) const;
+    const TPaxASVCItem& toWebXML(xmlNodePtr node) const;
     const TPaxASVCItem& toDB(TQuery &Qry) const;
     TPaxASVCItem& fromDB(TQuery &Qry);
     std::string rem_code() const
