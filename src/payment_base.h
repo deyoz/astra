@@ -138,7 +138,7 @@ class TServicePaymentList : public std::list<TServicePaymentItem>
 {
   public:
     void fromDB(int grp_id);
-    void toDB777(int grp_id) const;
+    void toDB(int grp_id) const;
     void toXML(xmlNodePtr node) const;
     void getAllListKeys(int grp_id, bool is_unaccomp);
     void getAllListItems(int grp_id, bool is_unaccomp);

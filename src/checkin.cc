@@ -3353,12 +3353,12 @@ void GetInboundGroupBag(const InboundTrfer::TNewGrpInfo &inbound_trfer,
         {
           gbag.fromDB(iTagMap->second.first.grp_id,
                       iTagMap->second.first.bag_pool_num, true);
-          gbag.bags111.procInboundTrferFromDBTmp();
+          gbag.bags.procInboundTrferFromDBTmp();
         }
         else
         {
           gbag.setInboundTrfer(iTagMap->second.first);
-          gbag.bags111.procInboundTrferFromBTM(iTagMap->second.first);
+          gbag.bags.procInboundTrferFromBTM(iTagMap->second.first);
         };
         if (!gbag.empty())
         {
@@ -3771,7 +3771,7 @@ void ServicePaymentToDBAdv(int grp_id,
     };
   };
   curr_payment.get().getAllListItems(grp_id, is_unaccomp);
-  curr_payment.get().toDB777(grp_id);
+  curr_payment.get().toDB(grp_id);
 }
 
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
@@ -3999,8 +3999,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       if (segList.begin()->grp.group_bag)
       {
         //проверим чтобы для экипажа не регистрировался багаж в багажник
-        for(CheckIn::TBagMap::const_iterator b=segList.begin()->grp.group_bag.get().bags111.begin();
-                                             b!=segList.begin()->grp.group_bag.get().bags111.end();++b)
+        for(CheckIn::TBagMap::const_iterator b=segList.begin()->grp.group_bag.get().bags.begin();
+                                             b!=segList.begin()->grp.group_bag.get().bags.end();++b)
           if (!b->second.pr_cabin)
             throw UserException("MSG.CREW.CAN_CHECKIN_ONLY_CABIN_BAGGAGE");
       };
@@ -4114,8 +4114,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
   if (!inbound_group_bag.empty())
   {
-    for(CheckIn::TBagMap::iterator b=inbound_group_bag.bags111.begin();
-                                   b!=inbound_group_bag.bags111.end(); ++b)
+    for(CheckIn::TBagMap::iterator b=inbound_group_bag.bags.begin();
+                                   b!=inbound_group_bag.bags.end(); ++b)
     {
       b->second.to_ramp=false;
       b->second.is_trfer=true;
@@ -6140,6 +6140,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       try
       {
         SirenaExchange::TPaymentStatusRes res;
+//        res.setSrcFile("svc_payment_status_res.xml");
+//        res.setDestFile("svc_payment_status_res.xml");
 
         SirenaExchange::TLastExchangeInfo prior, curr;
         prior.fromDB(first_grp_id);
@@ -6196,9 +6198,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     paymentBefore.fromDB(first_grp_id);
     payment=paymentBefore;
     paid.getAllListItems();
-    paid.toDB777(first_grp_id);
+    paid.toDB(first_grp_id);
     if (CheckIn::TryCleanServicePayment(paid, payment))
-      payment.toDB777(first_grp_id);
+      payment.toDB(first_grp_id);
 
     if (ediResNode==NULL && reqInfo->client_type!=ctPNL)
     {
@@ -6522,8 +6524,8 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
       if (grp_cat==CheckIn::TPaxGrpCategory::Passenges)
       {
         SirenaExchange::TAvailabilityRes res;
-//        res.setSrcFile("response.xml");
-//        res.setDestFile("response.xml");
+//        res.setSrcFile("svc_availability_res.xml");
+//        res.setDestFile("svc_availability_res.xml");
         try
         {
           if (!req.paxs.empty())
@@ -6859,7 +6861,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
           std::list<CheckIn::TPaxTransferItem> pax_trfer;
           CheckIn::PaxTransferFromDB(pax.id, pax_trfer);
           CheckIn::PaxTransferToXML(pax_trfer, paxNode);
-          TPaxServiceLists().toXML111(pax.id, false, tckin_grp_ids.size(), NewTextChild(paxNode, "service_lists"));
+          TPaxServiceLists().toXML(pax.id, false, tckin_grp_ids.size(), NewTextChild(paxNode, "service_lists"));
         };
         LoadPaxRem(paxNode);
         if (grp_id==tckin_grp_ids.begin())
@@ -6887,7 +6889,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
         trfer.GetRoute(grp.id, trtWithFirstSeg);
         BuildTransfer(trfer, trtNotFirstSeg, resNode);
         BuildTCkinSegments(grp.id, resNode);
-        TPaxServiceLists().toXML111(grp.id, true, tckin_grp_ids.size(), NewTextChild(segNode, "service_lists"));
+        TPaxServiceLists().toXML(grp.id, true, tckin_grp_ids.size(), NewTextChild(segNode, "service_lists"));
         if (grp.wt)
         {
           list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;

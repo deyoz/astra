@@ -1135,7 +1135,7 @@ std::string TPaxServiceListsItem::traceStr() const
   return s.str();
 }
 
-void TPaxServiceLists::fromDB111(int id, bool is_unaccomp, bool emul_nonexistent_lists)
+void TPaxServiceLists::fromDB(int id, bool is_unaccomp, bool emul_nonexistent_lists)
 {
   clear();
   TCachedQuery Qry(is_unaccomp?"SELECT grp_service_lists.*, grp_id AS pax_id FROM grp_service_lists WHERE grp_id=:id":
@@ -1177,7 +1177,7 @@ void TPaxServiceLists::fromDB111(int id, bool is_unaccomp, bool emul_nonexistent
   }
 }
 
-void TPaxServiceLists::toDB111(bool is_unaccomp) const
+void TPaxServiceLists::toDB(bool is_unaccomp) const
 {
   TCachedQuery Qry(is_unaccomp?"INSERT INTO grp_service_lists(grp_id, transfer_num, category, list_id) "
                                "VALUES(:pax_id, :transfer_num, :category, :list_id)":
@@ -1194,10 +1194,10 @@ void TPaxServiceLists::toDB111(bool is_unaccomp) const
   }
 }
 
-void TPaxServiceLists::toXML111(int id, bool is_unaccomp, int tckin_seg_count, xmlNodePtr node)
+void TPaxServiceLists::toXML(int id, bool is_unaccomp, int tckin_seg_count, xmlNodePtr node)
 {
   if (node==NULL) return;
-  fromDB111(id, is_unaccomp, true);
+  fromDB(id, is_unaccomp, true);
   for(TPaxServiceLists::const_iterator i=begin(); i!=end(); ++i)
   {
     if (i->trfer_num>=tckin_seg_count) continue; //не передаем дополнительные сегменты трансфера
@@ -1387,7 +1387,7 @@ void TGrpServiceList::toDB(int grp_id) const
   }
 }
 
-void TPaidRFISCList::toDB777(int grp_id) const
+void TPaidRFISCList::toDB(int grp_id) const
 {
   {
     TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, paid_rfisc WHERE paid_rfisc.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
@@ -1543,14 +1543,6 @@ void TGrpServiceList::toXML(xmlNodePtr node) const
     i->toXML(NewTextChild(servicesNode, "item"));
 }
 
-void TPaidRFISCList::toXML(xmlNodePtr node) const
-{
-  if (node==NULL) return;
-  xmlNodePtr servicesNode=NewTextChild(node, "paid_rfiscs");
-  for(TPaidRFISCList::const_iterator i=begin(); i!=end(); ++i)
-    i->second.toXML(NewTextChild(servicesNode, "item"));
-}
-
 const TPaidRFISCItem& TPaidRFISCItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -1663,8 +1655,6 @@ const TPaidRFISCViewItem& TPaidRFISCViewItem::toXML(xmlNodePtr node) const
   NewTextChild(node, "service_quantity", service_quantity);
   NewTextChild(node, "paid", paid);
   NewTextChild(node, "priority", priority(), ASTRA::NoExists);
-  NewTextChild(node, "total_view", service_quantity);
-  NewTextChild(node, "paid_view", paid);
   return *this;
 }
 
@@ -1762,8 +1752,35 @@ const TSumPaidRFISCViewItem& TSumPaidRFISCViewItem::toXML(xmlNodePtr node) const
   if (node==NULL) return *this;
 
   if (empty()) return *this;
+
+  ostringstream total_view, paid_view;
+  int trfer_num=0;
+  for(TSumPaidRFISCViewItem::const_iterator i=begin(); i!=end();)
+  {
+    if (!total_view.str().empty()) total_view << "/";
+    if (!paid_view.str().empty()) paid_view << "/";
+    if (trfer_num>=i->trfer_num)
+    {
+      total_view << i->service_quantity;
+      paid_view << i->paid;
+      if (trfer_num==i->trfer_num) trfer_num++;
+      ++i;
+    }
+    else
+    {
+      total_view << "-";
+      paid_view << "-";
+      trfer_num++;
+    };
+  };
+
   for(TSumPaidRFISCViewItem::const_iterator i=begin(); i!=end(); ++i)
-    i->toXML(NewTextChild(node, "item"));
+  {
+    xmlNodePtr itemNode=NewTextChild(node, "item");
+    i->toXML(itemNode);
+    NewTextChild(itemNode, "total_view", total_view.str());
+    NewTextChild(itemNode, "paid_view", paid_view.str());
+  };
 
   return *this;
 }
