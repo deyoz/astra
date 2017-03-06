@@ -352,8 +352,8 @@ std::string GetRemarkStr(const TRemGrp &rem_grp, const std::multiset<CheckIn::TP
 std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &lang, const std::string &term = " ");
 std::string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &term = " ");
 
-std::string CalcCrewRem(const ASTRA::TPaxStatus grp_status,
-                        const ASTRA::TCrewType::Enum crew_type);
+CheckIn::TPaxRemItem CalcCrewRem(const ASTRA::TPaxStatus grp_status,
+                                 const ASTRA::TCrewType::Enum crew_type);
 
 #endif
 

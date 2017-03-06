@@ -1496,8 +1496,8 @@ void TPaxListItem::checkCrewType(bool new_checkin, ASTRA::TPaxStatus grp_status)
           pax.crew_type=CrewTypes().decode(crewRemsStat.begin()->first);
       };
 
-      string rem_code=CalcCrewRem(grp_status, pax.crew_type);
-      if (crewRemsStat.begin()->first!=rem_code)
+      CheckIn::TPaxRemItem rem=CalcCrewRem(grp_status, pax.crew_type);
+      if (crewRemsStat.begin()->first!=rem.code)
       {
         //удаляем неправильную ремарку
         for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end();)
@@ -1505,17 +1505,17 @@ void TPaxListItem::checkCrewType(bool new_checkin, ASTRA::TPaxStatus grp_status)
           if (r->code==crewRemsStat.begin()->first) r=Erase(rems, r); else ++r;
         }
         //добавляем правильную ремарку
-        if (!rem_code.empty())
-          rems.insert(CheckIn::TPaxRemItem(rem_code,rem_code));
+        if (!rem.code.empty())
+          rems.insert(CheckIn::TPaxRemItem(rem.code,rem.text));
       }
     };
   }
   else
   {
     //нет ремарок, связанных с экипажем
-    string rem_code=CalcCrewRem(grp_status, pax.crew_type);
-    if (!rem_code.empty())
-      rems.insert(CheckIn::TPaxRemItem(rem_code,rem_code));
+    CheckIn::TPaxRemItem rem=CalcCrewRem(grp_status, pax.crew_type);
+    if (!rem.code.empty())
+      rems.insert(CheckIn::TPaxRemItem(rem.code,rem.text));
   };
 }
 

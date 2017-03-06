@@ -1104,17 +1104,17 @@ void PaxFQTToXML(const std::set<TPaxFQTItem> &fqts,
 
 }; //namespace CheckIn
 
-std::string CalcCrewRem(const ASTRA::TPaxStatus grp_status,
-                        const ASTRA::TCrewType::Enum crew_type)
+CheckIn::TPaxRemItem CalcCrewRem(const ASTRA::TPaxStatus grp_status,
+                                 const ASTRA::TCrewType::Enum crew_type)
 {
-  string result;
   if (grp_status==ASTRA::psCrew)
-    result="CREW";
-  else if (crew_type==ASTRA::TCrewType::ExtraCrew ||
-           crew_type==ASTRA::TCrewType::DeadHeadCrew ||
+    return CheckIn::TPaxRemItem("CREW", "CREW");
+  else if (crew_type==ASTRA::TCrewType::ExtraCrew)
+    return CheckIn::TPaxRemItem(CrewTypes().encode(crew_type), CrewTypes().encode(crew_type)+" 2");
+  else if (crew_type==ASTRA::TCrewType::DeadHeadCrew ||
            crew_type==ASTRA::TCrewType::MiscOperStaff)
-    result=CrewTypes().encode(crew_type);
-  return result;
+    return CheckIn::TPaxRemItem(CrewTypes().encode(crew_type), CrewTypes().encode(crew_type));
+  return CheckIn::TPaxRemItem();
 }
 
 
