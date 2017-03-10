@@ -3004,7 +3004,7 @@ struct TFullCmp {
 };
 typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
 
-
+// TODO переименовать здесь и всюду bool full в что-то типа override_MAX_STAT_ROWS
 template <class keyClass, class rowClass, class cmpClass>
 void AddStatRow(const keyClass &key, const rowClass &row, map<keyClass, rowClass, cmpClass> &stat, bool full = false)
 {
@@ -5296,7 +5296,7 @@ typedef map<TAgentStatKey, TAgentStatRow, TAgentCmp> TAgentStat;
 
 void RunAgentStat(const TStatParams &params,
                   TAgentStat &AgentStat, TAgentStatRow &AgentStatTotal,
-                  TPrintAirline &prn_airline)
+                  TPrintAirline &prn_airline, bool override_max_rows = false)
 {
     TQuery Qry(&OraSession);
     for(int pass = 0; pass <= 1; pass++) {
@@ -5476,7 +5476,7 @@ void RunAgentStat(const TStatParams &params,
                     key.user_descr = Qry.FieldAsString(col_user_descr);
                 }
 
-                AddStatRow(key, row, AgentStat);
+                AddStatRow(key, row, AgentStat, override_max_rows);
               }
               else
               {
@@ -5508,10 +5508,11 @@ void createXMLAgentStat(const TStatParams &params,
       for(TAgentStat::const_iterator im = AgentStat.begin(); im != AgentStat.end(); ++im, rows++)
       {
         if(rows >= MAX_STAT_ROWS) {
-            AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
+            throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+            /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
                                           LParams() << LParam("num", MAX_STAT_ROWS));
             if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-            break;
+            break;*/
         }
         TDateTime scd_out_local=im->first.scd_out_local;
         if(
@@ -5747,6 +5748,94 @@ void createXMLAgentStat(const TStatParams &params,
             break;
     }
     NewTextChild(variablesNode, "stat_type_caption", buf);
+}
+
+/* GRISHA */
+struct TAgentStatCombo : public TOrderStatItem
+{
+    typedef std::pair<TAgentStatKey, TAgentStatRow> Tdata;
+    Tdata data;
+    TAgentStatCombo(const Tdata &aData): data(aData) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TAgentStatCombo::add_header(ostringstream &buf) const
+{
+    buf << "Рейс" << delim;
+    buf << "Дата" << delim;
+    buf << "Стойка" << delim;
+    buf << "Агент" << delim;
+    buf << "Пас. (+)" << delim;
+    buf << "Пас. (-)" << delim;
+    buf << "Сквоз.(+)" << delim;
+    buf << "Сквоз.(-)" << delim;
+    buf << "Баг. (+)" << delim;
+    buf << "Баг. (-)" << delim;
+    buf << "Р/к (+)" << delim;
+    buf << "Р/к (-)" << delim;
+    buf << "Сек./пас." << endl;
+}
+
+void TAgentStatCombo::add_data(ostringstream &buf) const
+{
+    TDateTime scd_out_local = data.first.scd_out_local;
+    if (scd_out_local == NoExists)
+    try { scd_out_local = UTCToClient(data.first.scd_out, AirpTZRegion(data.first.airp)); }
+    catch(AstraLocale::UserException &E)
+    {
+        AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN",
+            LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
+        return;
+    };
+    ostringstream oss;
+    // Код а/к
+    oss << data.first.airline_view
+        << setw(3) << setfill('0') << data.first.flt_no
+        << data.first.suffix_view << " "
+        << data.first.airp_view;
+    buf << oss.str() << delim;
+    // Дата
+    buf << DateTimeToStr( scd_out_local, "dd.mm.yy") << delim;
+    // Пульт
+    buf << data.first.desk << delim;
+    // Пользователь
+    buf << data.first.user_descr << delim;
+    // Кол-во пасс. (+)
+    buf << data.second.dpax_amount.inc << delim;
+    // Кол-во пасс. (-)
+    buf << -data.second.dpax_amount.dec << delim;
+    // Кол-во сквоз. (+)
+    buf << data.second.dtckin_amount.inc << delim;
+    // Кол-во сквоз. (-)
+    buf << -data.second.dtckin_amount.dec << delim;
+    // Багаж (мест/вес) (+)
+    buf <<  IntToString(data.second.dbag_amount.inc) + "/" +
+            IntToString(data.second.dbag_weight.inc) << delim;
+    // Багаж (мест/вес) (-)
+    buf <<  IntToString(-data.second.dbag_amount.dec) + "/" +
+            IntToString(-data.second.dbag_weight.dec) << delim;
+    // Р/кладь (вес) (+)
+    buf << data.second.drk_weight.inc << delim;
+    // Р/кладь (вес) (-)
+    buf << -data.second.drk_weight.dec << delim;
+    // Среднее время, затраченное на пассажира
+    oss.str("");
+    if (data.second.processed_pax!=0)
+        oss << fixed << setprecision(2) << data.second.time / data.second.processed_pax;
+    else
+        oss << fixed << setprecision(2) << 0.0;
+    buf << oss.str() << endl;
+}
+
+template <class T>
+void RunAgentStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TAgentStat AgentStat;
+    TAgentStatRow AgentStatTotal;
+    RunAgentStat(params, AgentStat, AgentStatTotal, prn_airline, true);
+    for(TAgentStat::const_iterator im = AgentStat.begin(); im != AgentStat.end(); ++im)
+        writer.insert(TAgentStatCombo(*im));
 }
 
 /****************** end of AgentStat ******************/
@@ -7877,7 +7966,6 @@ void RunAnnulBTStatFile(const TStatParams &params, T &writer, TPrintAirline &prn
 }
 
 //---------------------------------------//
-/* GRISHA */
 struct TLimitedCapabStat {
     typedef map<string, int> TRems;
     typedef map<string, TRems> TAirpArv;
@@ -8872,6 +8960,11 @@ void create_plain_files(
             break;
         case statLimitedCapab:
             RunLimitedCapabStatFile(params, order_writer, airline);
+            break;
+        case statAgentShort:
+        case statAgentFull:
+        case statAgentTotal:
+            RunAgentStatFile(params, order_writer, airline);
             break;
         default:
             throw Exception("unsupported statType %d", params.statType);
