@@ -820,6 +820,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( trip_id ), SALONS2::rfTranzitVersion, "", NoExists );
   BitSet<ASTRA::TCompLayerType> editabeLayers;
   salonList.getEditableFlightLayers( editabeLayers );
+
   LEvntPrms salon_changes;
   salonChangesToText( trip_id, priorsalonList, priorsalonList.isCraftLat(),
                         salonList, salonList.isCraftLat(),

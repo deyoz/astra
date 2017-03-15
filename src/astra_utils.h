@@ -314,6 +314,7 @@ class TAccess {
     void fromDB(int user_id, TUserType user_type);
     void toXML(xmlNodePtr accessNode);
     void fromXML(xmlNodePtr accessNode);
+    bool check_profile(int point_id, int right_id);
 };
 
 class TUserSettings {
@@ -690,5 +691,14 @@ class Statistic : public std::map<T, int>
 void longToDB(TQuery &Qry, const std::string &column_name, const std::string &src, bool nullable=false, int len=4000);
 
 void traceXML(const xmlDocPtr doc);
+
+struct TProfiledRights {
+
+    void fromDB(const std::string &airline, const std::string &airp);
+    std::set<int> items;
+    TProfiledRights(const std::string &airline, const std::string &airp);
+    TProfiledRights(int point_id);
+    void toXML(xmlNodePtr node);
+};
 
 #endif /*_ASTRA_UTILS_H_*/

@@ -486,7 +486,7 @@ void getMenuLayers( bool isTripCraft,
 void buildMenuLayers( bool isTripCraft,
                       const std::map<ASTRA::TCompLayerType,TMenuLayer> &menuLayers,
                       const BitSet<TDrawPropsType> &props,
-                      xmlNodePtr salonsNode )
+                      xmlNodePtr salonsNode, int point_id )
 {
   int max_priority = -1;
   int id = 0;
@@ -519,16 +519,16 @@ void buildMenuLayers( bool isTripCraft,
     if ( ilayer->second.editable ) { // надо еще проверить на права редактирования того или иного слоя
       bool pr_edit = true;
       if ( (ilayer->first == cltBlockTrzt || ilayer->first == cltProtTrzt )&&
-           !r->user.access.rights().permitted(430) )
+           !r->user.access.check_profile(point_id, 430) )
         pr_edit = false;
       if ( ilayer->first == cltBlockCent &&
-           !r->user.access.rights().permitted(420) )
+           !r->user.access.check_profile(point_id, 420) )
         pr_edit = false;
       if ( (ilayer->first == cltUncomfort || ilayer->first == cltProtect || ilayer->first == cltSmoke) &&
-           !r->user.access.rights().permitted(410) )
+           !r->user.access.check_profile(point_id, 410) )
         pr_edit = false;
       if ( ilayer->first == cltDisable &&
-           !r->user.access.rights().permitted(425) )
+           !r->user.access.check_profile(point_id, 425) )
         pr_edit = false;
         if ( pr_edit ) {
           SetProp( n, "edit", 1 );
@@ -578,7 +578,7 @@ void CreateSalonMenu( int point_dep, xmlNodePtr salonsNode )
   std::map<ASTRA::TCompLayerType,SALONS2::TMenuLayer> menuLayers;
   getMenuLayers( true, filterLayers, menuLayers );
   BitSet<TDrawPropsType> props;
-  buildMenuLayers( true, menuLayers, props, salonsNode );
+  buildMenuLayers( true, menuLayers, props, salonsNode, point_dep );
 }
 
 bool compatibleLayer( ASTRA::TCompLayerType layer_type )
@@ -1736,16 +1736,16 @@ void TSalons::BuildLayersInfo( xmlNodePtr salonsNode,
     if ( i->second.editable ) { // надо еще проверить на права редактирования того или иного слоя
       bool pr_edit = true;
       if ( (i->first == cltBlockTrzt || i->first == cltProtTrzt )&&
-           !r->user.access.rights().permitted(430) )
+           !r->user.access.check_profile(trip_id, 430) )
         pr_edit = false;
       if ( i->first == cltBlockCent &&
-           !r->user.access.rights().permitted(420) )
+           !r->user.access.check_profile(trip_id, 420) )
         pr_edit = false;
       if ( (i->first == cltUncomfort || i->first == cltProtect || i->first == cltSmoke) &&
-           !r->user.access.rights().permitted(410) )
+           !r->user.access.check_profile(trip_id, 410) )
         pr_edit = false;
       if ( i->first == cltDisable &&
-           !r->user.access.rights().permitted(425) )
+           !r->user.access.check_profile(trip_id, 425) )
         pr_edit = false;
         if ( pr_edit ) {
           SetProp( n, "edit", 1 );
@@ -4744,7 +4744,7 @@ void TSalonList::Build( bool with_pax,
                  filterSets.filtersLayers[ getDepartureId() ],
                  menuLayers );
   buildMenuLayers( getDepartureId() != ASTRA::NoExists,
-                   menuLayers, props, salonsNode );
+                   menuLayers, props, salonsNode, getDepartureId() );
   TSeatTariffMap tariffMap;
   ProgTrace( TRACE5, "airline=%s", getAirline().c_str() );
   if ( !this->getAirline().empty() ) {
