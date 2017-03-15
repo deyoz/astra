@@ -815,7 +815,8 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"), first_point_id);
       }
   };
-  //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+  TProfiledRights(first_point_id).toXML(dataNode);
+  LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 };
 
 void TripsInterface::PectabsResponse(int point_id, xmlNodePtr reqNode, xmlNodePtr dataNode)

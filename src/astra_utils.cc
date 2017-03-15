@@ -429,6 +429,81 @@ void TReqInfo::traceToMonitor( TRACE_SIGNATURE, const char *format,  ...)
   va_end(ap);
 }
 
+void TProfiledRights::toXML(xmlNodePtr node)
+{
+    xmlNodePtr lstNode = NULL;
+    for(set<int>::iterator i = items.begin(); i != items.end(); i++) {
+        if(not lstNode)
+            lstNode = NewTextChild(node, "profile_rights");
+        NewTextChild(lstNode, "item", *i);
+    }
+}
+
+void TProfiledRights::fromDB(const string &airline, const string &airp)
+{
+    TCachedQuery Qry(
+            "select profile_id from airline_profiles where "
+            "   airline = :airline and "
+            "   (airp is null or airp = :airp) "
+            "order by airp nulls last ",
+            QParams()
+            << QParam("airline", otString, airline)
+            << QParam("airp", otString, airp));
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        TCachedQuery rightQry(
+                "select right_id from profile_rights where "
+                "   profile_id = :profile_id ",
+                QParams()
+                << QParam("profile_id", otInteger, Qry.get().FieldAsInteger("profile_id")));
+        rightQry.get().Execute();
+        for(; not rightQry.get().Eof; rightQry.get().Next())
+            items.insert(rightQry.get().FieldAsInteger("right_id"));
+    }
+}
+
+TProfiledRights::TProfiledRights(const string &airline, const string &airp)
+{
+    fromDB(airline, airp);
+}
+
+TProfiledRights::TProfiledRights(int point_id)
+{
+    TTripInfo flt;
+    flt.getByPointId(point_id);
+    fromDB(flt.airline, flt.airp);
+}
+
+bool TAccess::check_profile(int point_id, int right_id)
+{
+    bool result = true;
+    TTripInfo flt;
+    flt.getByPointId(point_id);
+    TCachedQuery Qry(
+            "select profile_id from airline_profiles where "
+            "   airline = :airline and "
+            "   (airp is null or airp = :airp) "
+            "order by airp nulls last ",
+            QParams()
+            << QParam("airline", otString, flt.airline)
+            << QParam("airp", otString, flt.airp));
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        TCachedQuery rightQry(
+                "select * from profile_rights where "
+                "   profile_id = :profile_id and "
+                "   right_id = :right_id ",
+                QParams()
+                << QParam("profile_id", otInteger, Qry.get().FieldAsInteger("profile_id"))
+                << QParam("right_id", otInteger, right_id));
+        rightQry.get().Execute();
+        result = rightQry.get().Eof;
+
+    }
+    if(result) result = TReqInfo::Instance()->user.access.rights().permitted(right_id);
+    return result;
+}
+
 void TAccess::fromDB(int user_id, TUserType user_type)
 {
   clear();
