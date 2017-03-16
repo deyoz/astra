@@ -314,7 +314,8 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
         "   craft, "
         "   bort, "
         "   park_out park, "
-        "   NVL(act_out,NVL(est_out,scd_out)) real_out, "
+//        "   NVL(act_out,NVL(est_out,scd_out)) real_out, "
+        "   act_out, "
         "   scd_out "
         "from ";
     if(part_key == NoExists)
@@ -354,8 +355,11 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
 
     NewTextChild(variablesNode, "trip", trip.str());
     TDateTime scd_out, real_out;
-    scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
-    real_out= UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
+    scd_out= UTCToClient(getReportSCDOut(point_id),tz_region);
+    if(Qry.FieldIsNULL("act_out"))
+        real_out = scd_out;
+    else
+        real_out= UTCToClient(Qry.FieldAsDateTime("act_out"),tz_region);
     NewTextChild(variablesNode, "scd_out", DateTimeToStr(scd_out, "dd.mm.yyyy"));
     NewTextChild(variablesNode, "real_out", DateTimeToStr(real_out, "dd.mm.yyyy"));
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm"));
@@ -954,6 +958,13 @@ void trip_rpt_person(xmlNodePtr resNode, TRptParams &rpt_params)
     NewTextChild(variablesNode, "pts_agent", transliter(pts_agent, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
 }
 
+TDateTime getReportSCDOut(int point_id)
+{
+    TTripInfo flt;
+    flt.getByPointId(point_id);
+    return flt.scd_out;
+}
+
 void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
@@ -1288,6 +1299,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   bort, "
         "   park_out park, "
         "   scd_out, "
+        "   act_out, "
         "   airp_fmt, "
         "   airline_fmt, "
         "   suffix_fmt, "
@@ -1342,7 +1354,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", rpt_params.ElemIdToReportElem(etCraft, craft, craft_fmt));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
-    TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
+    TDateTime scd_out = UTCToLocal(getReportSCDOut(rpt_params.point_id), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", rpt_params.IsInter()));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", rpt_params.IsInter()));
     NewTextChild(variablesNode, "airp_arv_name", rpt_params.ElemIdToReportElem(etAirp, rpt_params.airp_arv, efmtNameLong));
@@ -1360,6 +1372,11 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
     trip_rpt_person(resNode, rpt_params);
+
+    TDateTime takeoff = NoExists;
+    if(not Qry.FieldIsNULL("act_out"))
+        takeoff = Qry.FieldAsDateTime("act_out");
+    NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
 }
 
 void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1747,6 +1764,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   bort, "
         "   park_out park, "
         "   scd_out, "
+        "   act_out, "
         "   airp_fmt, "
         "   airline_fmt, "
         "   suffix_fmt, "
@@ -1793,7 +1811,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", rpt_params.ElemIdToReportElem(etCraft, craft, craft_fmt));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
-    TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
+    TDateTime scd_out = UTCToLocal(getReportSCDOut(rpt_params.point_id), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", rpt_params.IsInter()));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", rpt_params.IsInter()));
     string airp_arv_name;
@@ -1820,6 +1838,10 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
     trip_rpt_person(resNode, rpt_params);
+    TDateTime takeoff = NoExists;
+    if(not Qry.FieldIsNULL("act_out"))
+        takeoff = Qry.FieldAsDateTime("act_out");
+    NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
 }
 
 string get_test_str(int page_width, string lang)
@@ -1906,6 +1928,9 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
   s << setw(6) << NodeAsString("scd_date",variablesNode)
     << setw(5) << NodeAsString("scd_time",variablesNode);
+  string departure = NodeAsString("takeoff", variablesNode);
+  if(not departure.empty())
+      s << endl << getLocaleText("Вылет", rpt_params.GetLang()) << ": " << departure;
   NewTextChild(variablesNode, "page_header_center", s.str() );
 
   s.str("");
