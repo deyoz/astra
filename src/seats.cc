@@ -2010,23 +2010,13 @@ void TPassenger::build( xmlNodePtr pNode, const TDefaults& def )
 {
   NewTextChild( pNode, "grp_id", grpId );
   NewTextChild( pNode, "pax_id", paxId );
-  if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-  {
-    NewTextChild( pNode, "clname", clname, def.clname );
-    NewTextChild( pNode, "grp_layer_type",
-                         EncodeCompLayerType(grp_status),
-                         EncodeCompLayerType(def.grp_status) );
-    NewTextChild( pNode, "pers_type",
-                         ElemIdToCodeNative(etPersType, pers_type),
-                         ElemIdToCodeNative(etPersType, def.pers_type) );
-  }
-  else
-  {
-    NewTextChild( pNode, "clname", clname );
-    NewTextChild( pNode, "grp_layer_type",
-                         EncodeCompLayerType(grp_status) );
-    NewTextChild( pNode, "pers_type", pers_type );
-  };
+  NewTextChild( pNode, "clname", clname, def.clname );
+  NewTextChild( pNode, "grp_layer_type",
+                       EncodeCompLayerType(grp_status),
+                       EncodeCompLayerType(def.grp_status) );
+  NewTextChild( pNode, "pers_type",
+                       ElemIdToCodeNative(etPersType, pers_type),
+                       ElemIdToCodeNative(etPersType, def.pers_type) );
   NewTextChild( pNode, "reg_no", regNo );
   NewTextChild( pNode, "name", fullName );
   NewTextChild( pNode, "seat_no", foundSeats, def.placeName );

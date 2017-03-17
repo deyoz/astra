@@ -134,7 +134,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 
   duplicate=InitData.duplicate;
 
-  if (!InitData.lang.empty() /*desk.compatible(LATIN_VERSION)*/)
+  if (!InitData.lang.empty())
     desk.lang=InitData.lang;
   else
     desk.lang=AstraLocale::LANG_RU;
@@ -1375,25 +1375,20 @@ void showBasicInfo(void)
   {
     node = NewTextChild(resNode,"desk");
     NewTextChild(node,"city",reqInfo->desk.city);
-    if (!reqInfo->desk.compatible(LATIN_VERSION))
-      NewTextChild(node,"lang",reqInfo->desk.lang);
     NewTextChild(node,"currency",reqInfo->desk.currency);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
     NewTextChild(node,"time_utc",DateTimeToStr(NowUTC()) );
     //настройки пульта
     xmlNodePtr setsNode = NewTextChild(node, "settings");
-    if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
-    {
-      Qry.Clear();
-      Qry.SQLText="SELECT defer_etstatus FROM desk_grp_sets WHERE grp_id=:grp_id";
-      Qry.CreateVariable("grp_id",otInteger,reqInfo->desk.grp_id);
-      Qry.Execute();
-      if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
-        NewTextChild(setsNode,"defer_etstatus",(int)(Qry.FieldAsInteger("defer_etstatus")!=0));
-      else
-        NewTextChild(setsNode,"defer_etstatus",(int)true);
-    }
-    else NewTextChild(setsNode,"defer_etstatus",(int)true);
+
+    Qry.Clear();
+    Qry.SQLText="SELECT defer_etstatus FROM desk_grp_sets WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id",otInteger,reqInfo->desk.grp_id);
+    Qry.Execute();
+    if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
+      NewTextChild(setsNode,"defer_etstatus",(int)(Qry.FieldAsInteger("defer_etstatus")!=0));
+    else
+      NewTextChild(setsNode,"defer_etstatus",(int)true);
 
     Qry.Clear();
     Qry.SQLText="SELECT file_size,send_size,send_portion,backup_num FROM desk_logging WHERE desk=:desk";

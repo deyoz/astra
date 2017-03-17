@@ -151,7 +151,6 @@ void SetTermVersionNoticeHelp(const char *name)
 void GetNotices(xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  if (!reqInfo->desk.compatible(DESK_NOTICE_VERSION)) return;
 
 /*  ProgTrace(TRACE5,"GetNotices: desk=%s lang=%s desk_grp_id=%d term_mode=%s version=%s",
             reqInfo->desk.code.c_str(),
@@ -1880,12 +1879,7 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         op_type!=dotScnDoc &&
         op_type!=dotScnCard) throw EConvertError("op_type=%s not supported",EncodeDevOperType(op_type).c_str());
 
-    TDevFmtType fmt_type;
-    if (TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION))
-      fmt_type=DecodeDevFmtType(NodeAsString("operation/fmt_params/@type",reqNode));
-    else
-      fmt_type=dftSCAN1;
-
+    TDevFmtType fmt_type=DecodeDevFmtType(NodeAsString("operation/fmt_params/@type",reqNode));
     if (fmt_type!=dftSCAN1 &&
         fmt_type!=dftBCR &&
         fmt_type!=dftSCAN2 &&

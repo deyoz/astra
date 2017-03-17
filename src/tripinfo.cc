@@ -528,33 +528,6 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     {
       int shift_down_default=-1;
       int shift_up_default=1;
-      if (!reqInfo->desk.compatible(ADV_TRIP_LIST_VERSION))
-      {
-        shift_down_default=-7;
-        shift_up_default=2;
-
-        Qry.Clear();
-        Qry.SQLText=
-          "SELECT NVL(shift_down,-7) AS shift_down, NVL(shift_up,2) AS shift_up "
-          "FROM trip_list_days, user_roles "
-          "WHERE trip_list_days.role_id(+)=user_roles.role_id AND "
-          "      user_roles.user_id=:user_id "
-          "ORDER BY shift_down";
-        Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
-        Qry.Execute();
-        for(;!Qry.Eof;Qry.Next())
-        {
-          if (Qry.FieldAsInteger("shift_down")>Qry.FieldAsInteger("shift_up")) continue;
-
-          pair<int, int> curr_shift(Qry.FieldAsInteger("shift_down")+shift_down_additional,
-                                    Qry.FieldAsInteger("shift_up")+shift_up_additional+1);
-          MergeSortedRanges(shifts, curr_shift);
-
-          pair<TDateTime, TDateTime> curr_range(client_date+Qry.FieldAsInteger("shift_down"),
-                                                client_date+Qry.FieldAsInteger("shift_up")+1);
-          MergeSortedRanges(ranges, curr_range);
-        };
-      };
       if (shifts.empty())
         shifts.push_back( make_pair(shift_down_default+shift_down_additional,
                                     shift_up_default+shift_up_additional+1) );
@@ -919,8 +892,6 @@ void TripsInterface::readOperFltHeader( const TTripInfo &info, xmlNodePtr node )
   NewTextChild( node, "airline", info.airline );
 
   TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",info.airline);
-  if (!reqInfo->desk.compatible(LATIN_VERSION))
-    NewTextChild( node, "airline_lat", row.code_lat );
   NewTextChild( node, "aircode", row.aircode );
 
   NewTextChild( node, "flt_no", info.flt_no );
@@ -2659,12 +2630,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     };
 
     NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
-
-    if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-      NewTextChild( node, "document", Qry.FieldAsString( col_document ), "" );
-    else
-      NewTextChild( node, "document", Qry.FieldAsString( col_document ) );
-
+    NewTextChild( node, "document", Qry.FieldAsString( col_document ), "" );
     NewTextChild( node, "status", Qry.FieldAsString( col_status ), def_status );
 
     int pax_id=Qry.FieldAsInteger( col_pax_id );
@@ -2748,8 +2714,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
                 NewTextChild( node, "seat_no", seat_no );
                 break;
         }
-      if ( !TReqInfo::Instance()->desk.compatible(SORT_SEAT_NO_VERSION) )
-        seat_no = LTrimString( seat_no );
         NewTextChild( node, "nseat_no", seat_no );
         NewTextChild( node, "layer_type", layer_type );
     } // не задано место
@@ -2804,8 +2768,7 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
   pax_id=NoExists;
 
   string bcbp;
-  if (TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION) &&
-      NodeAsInteger("scan_data/@hex", reqNode)!=0)
+  if (NodeAsInteger("scan_data/@hex", reqNode)!=0)
   {
     if (!HexToString(NodeAsString("scan_data", reqNode), bcbp))
       throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
