@@ -114,5 +114,6 @@ void ANNUL_TAGS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
 void VOUCHERS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
 
 TDateTime getReportSCDOut(int point_id);
+std::string getJMPSeatNo(int pax_id);
 
 #endif

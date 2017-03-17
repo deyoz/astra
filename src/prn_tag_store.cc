@@ -2334,22 +2334,26 @@ string TPrnTagStore::get_fmt_seat(string fmt, bool english_tag)
     TQuery Qry(&OraSession);
     if (!isTestPaxId(paxInfo.pax_id))
     {
-        Qry.SQLText =
-            "select "
-            "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,:fmt,NULL,:is_inter) AS seat_no "
-            "from dual";
-        Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
-        Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-        Qry.CreateVariable("fmt", otString, fmt);
+        string result = getJMPSeatNo(paxInfo.pax_id);
+        if(result.empty()) {
+            Qry.SQLText =
+                "select "
+                "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,:fmt,NULL,:is_inter) AS seat_no "
+                "from dual";
+            Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
+            Qry.CreateVariable("seats", otInteger, paxInfo.seats);
+            Qry.CreateVariable("fmt", otString, fmt);
 
-        Qry.CreateVariable("is_inter", otInteger, 0);
-        Qry.Execute();
-        if ((tag_lang.get_pr_lat() or english_tag) && not IsAscii7(Qry.FieldAsString("seat_no")))
-        {
-            Qry.SetVariable("is_inter",1);
+            Qry.CreateVariable("is_inter", otInteger, 0);
             Qry.Execute();
+            if ((tag_lang.get_pr_lat() or english_tag) && not IsAscii7(Qry.FieldAsString("seat_no")))
+            {
+                Qry.SetVariable("is_inter",1);
+                Qry.Execute();
+            }
+            result = Qry.FieldAsString("seat_no");
         }
-        return Qry.FieldAsString("seat_no");
+        return result;
     }
     else
     {
