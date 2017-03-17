@@ -9,6 +9,7 @@
 struct TWebPaxFromReq
 {
   int crs_pax_id;
+  bool dont_check_payment;
   std::string seat_no;
   CheckIn::TPaxDocItem doc;
   CheckIn::TPaxDocoItem doco;
@@ -17,11 +18,12 @@ struct TWebPaxFromReq
   std::set<TAPIType> present_in_req;
   bool refuse;
   int crs_pnr_tid;
-    int crs_pax_tid;
-    int pax_grp_tid;
-    int pax_tid;
+  int crs_pax_tid;
+  int pax_grp_tid;
+  int pax_tid;
   TWebPaxFromReq() {
         crs_pax_id = ASTRA::NoExists;
+        dont_check_payment = false;
         fqtv_rems_present = false;
         refuse = false;
         crs_pnr_tid = ASTRA::NoExists;
@@ -72,12 +74,14 @@ struct TWebPaxForCkin
   std::set<TAPIType> present_in_req;
   std::string subclass;
   int reg_no;
+  bool dont_check_payment;
 
   TWebPaxForCkin()
   {
     crs_pax_id = ASTRA::NoExists;
     seats = ASTRA::NoExists;
     reg_no = ASTRA::NoExists;
+    dont_check_payment = false;
   }
 
   bool operator == (const TWebPaxForCkin &pax) const

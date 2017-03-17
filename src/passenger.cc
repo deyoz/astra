@@ -1224,6 +1224,7 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
   };
 
   subcl=NodeAsStringFast("subclass",node2,"");
+  dont_check_payment=NodeAsIntegerFast("dont_check_payment", node2, 0)!=0;
   return *this;
 };
 

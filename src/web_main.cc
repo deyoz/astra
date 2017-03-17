@@ -2094,6 +2094,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
               };
 
               pax.subclass = Qry.FieldAsString("subclass");
+              pax.dont_check_payment = iPax->dont_check_payment;
 
               TPerson p=DecodePerson(pax.pers_type.c_str());
               if (p==ASTRA::adult) adult_count++;
@@ -2287,6 +2288,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         TWebPaxFromReq pax;
 
         pax.crs_pax_id=NodeAsIntegerFast("crs_pax_id", node2);
+        pax.dont_check_payment=NodeAsIntegerFast("dont_check_payment", node2, 0)!=0;
         pax.seat_no=NodeAsStringFast("seat_no", node2, "");
 
         xmlNodePtr docNode = GetNode("document", paxNode);

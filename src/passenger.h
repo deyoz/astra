@@ -457,6 +457,7 @@ class TPaxItem : public TSimplePaxItem
     bool DocExists;
     bool DocoExists;
     bool DocaExists;
+    bool dont_check_payment;
     TPaxItem()
     {
       clear();
@@ -471,6 +472,7 @@ class TPaxItem : public TSimplePaxItem
       DocExists=false;
       DocoExists=false;
       DocaExists=false;
+      dont_check_payment=false;
     }
 
     const TPaxItem& toXML(xmlNodePtr node) const;
