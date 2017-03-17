@@ -32,8 +32,8 @@ struct TSeatAlgoParams {
 	 TSeatAlgoTypes SeatAlgoType;
 	 bool pr_canUseOneRow;
 	 TSeatAlgoParams() {
-	 	 SeatAlgoType = sdUpDown_Line;
-	 	 pr_canUseOneRow = false;
+		 SeatAlgoType = sdUpDown_Line;
+		 pr_canUseOneRow = false;
 	 }
 };
 
@@ -124,6 +124,7 @@ struct TPassenger {
     std::string preseat_no;
     ASTRA::TCompLayerType preseat_layer;
     std::vector<TCoordSeat> preseatPlaces;
+    bool dont_check_payment;
     //std::string agent_seat;
     std::string ticket_no;
     std::string document;
@@ -147,6 +148,7 @@ struct TPassenger {
       excess = 0;
       countPlace = 1;
       prSmoke = false;
+      dont_check_payment = false;
       preseat_layer = ASTRA::cltUnknown;
       grp_status = ASTRA::cltUnknown;
       priority = 0;
@@ -258,6 +260,9 @@ struct TPassenger {
       if ( !isValidPlace ) {
         buf << "not isValidPlace,";
       }
+      if ( dont_check_payment ) {
+        buf << "dont_check_payment,";
+      }
       buf << "tariffPassStatus=";
       switch(tariffStatus)
       {
@@ -341,7 +346,7 @@ class TSeatPlaces {
     bool SeatsGrp_On( SALONS2::TPoint FP );
     bool SeatsPassenger_OnBasePlace( std::string &placeName, TSeatStep Step );
   public:
-  	ASTRA::TCompLayerType grp_status;
+        ASTRA::TCompLayerType grp_status;
     TCounters counters;
     TSeatPlaces( /*ASTRA::TCompLayerType layer_type*/ );
     ~TSeatPlaces();
@@ -394,7 +399,7 @@ bool ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, in
                   std::string first_xname, std::string first_yname, TSeatsType seat_type,
                   bool pr_lat_seat, TChangeLayerProcFlag seatFlag );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats,
-	                       int pax_id, int point_dep, int point_arv, TDateTime time_create );
+                         int pax_id, int point_dep, int point_arv, TDateTime time_create );
 bool GetPassengersForWaitList( int point_id, TPassengers &p );
 TSeatAlgoParams GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
 bool IsSubClsRem( const std::string &airline, const std::string &subclass, std::string &rem );
