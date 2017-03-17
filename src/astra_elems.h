@@ -47,6 +47,7 @@ enum TElemType {
                  etPaxDocType,               //типы документов пассажиров
                  etPayType,                  //код типа оплаты
                  etPersType,                 //тип пассажира ВЗ, РБ, РМ
+                 etProfiles,                 //профили АК
                  etRateColor,                //цвета тарифов в компоновке
                  etRcptDocType,              //типы документов пассажиров для оплаты багажа
                  etRefusalType,              //коды причин отказа в регистрации

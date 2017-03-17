@@ -10,6 +10,14 @@ public:
   AccessInterface() : JxtInterface("123","access")
   {
      Handler *evHandle;
+
+     evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::GetProfileRights);
+     AddEvent("GetProfileRights",evHandle);
+     evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::ProfileRights);
+     AddEvent("profile_rights",evHandle);
+     evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::SaveProfileRights);
+     AddEvent("save_profile_rights",evHandle);
+
      evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::RoleRights);
      AddEvent("role_rights",evHandle);
      evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::SaveRoleRights);
@@ -33,6 +41,9 @@ public:
   void Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetProfileRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void ProfileRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void SaveProfileRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 

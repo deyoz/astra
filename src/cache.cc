@@ -367,6 +367,12 @@ void TCacheTable::initFields()
           FField.ElemCategory=cecRoleName;
         };
 
+        if ((code == "AIRLINE_PROFILES" && FField.Name == "NAME") ||
+            (FField.ReferCode == "AIRLINE_PROFILES" && FField.ReferName == "NAME"))
+        {
+          FField.ElemCategory=cecProfileName;
+        };
+
         if ((code == "USERS" && FField.Name == "USER_NAME") ||
             (FField.ReferCode == "USERS" && FField.ReferName == "USER_NAME"))
         {
@@ -493,6 +499,31 @@ void TCacheTable::DeclareSysVariables(std::vector<string> &vars, TQuery *Qry)
       Qry->SetVariable( "SYS_desk_version", TReqInfo::Instance()->desk.version );
       vars.erase( f );
     }
+};
+
+string get_profile_name(int profile_id, TQuery &Qry)
+{
+  ostringstream res;
+  const char* sql="SELECT name,airline,airp FROM airline_profiles WHERE profile_id=:profile_id";
+  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
+  {
+    Qry.Clear();
+    Qry.SQLText=sql;
+    Qry.DeclareVariable("profile_id", otInteger);
+  };
+  Qry.SetVariable("profile_id", profile_id);
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    res << Qry.FieldAsString("name");
+    if (!Qry.FieldIsNULL("airline") || !Qry.FieldIsNULL("airp"))
+    {
+      res << " (" << ElemIdToCodeNative(etAirline, Qry.FieldAsString("airline"));
+      if (!Qry.FieldIsNULL("airline") && !Qry.FieldIsNULL("airp")) res << "+";
+      res << ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp")) << ")";
+    };
+  };
+  return res.str();
 };
 
 string get_role_name(int role_id, TQuery &Qry)
@@ -789,6 +820,11 @@ TUpdateDataType TCacheTable::refreshData()
                                     row.cols.push_back( ElemIdToNameShort( i->ElemType, int_id ) );
                                   else
                                     row.cols.push_back( ElemIdToNameShort( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) );
+                                  break;
+                case cecProfileName: if (int_id!=ASTRA::NoExists)
+                                    row.cols.push_back( get_profile_name(int_id, TempQry1));
+                                  else
+                                    row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
                                   break;
                 case cecRoleName: if (int_id!=ASTRA::NoExists)
                                     row.cols.push_back( get_role_name(int_id, TempQry1));

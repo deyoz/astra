@@ -42,7 +42,7 @@
 #include "annul_bt.h"
 
 #define NICKNAME "DJEK"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace BASIC::date_time;
@@ -1726,6 +1726,7 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       continue;
     }
     xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
+    TProfiledRights((tr->airline_out.empty() ? tr->airline_in : tr->airline_out), tr->airp).toXML(tripNode);
     NewTextChild( tripNode, "move_id", tr->move_id );
     NewTextChild( tripNode, "point_id", tr->point_id );
     if ( tr->part_key > NoExists )
@@ -1969,6 +1970,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
     NewTextChild( tripNode, "move_id", tr->move_id );
     NewTextChild( tripNode, "point_id", tr->point_id );
+    TProfiledRights(tr->point_id).toXML(tripNode);
     if ( tr->part_key > NoExists )
       NewTextChild( tripNode, "part_key", DateTimeToStr( tr->part_key, ServerFormatDateTimeAsString ) );
     if ( !tr->airline_in.empty() )
@@ -3214,6 +3216,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   string region;
   for ( TSOPPDests::iterator d=dests.begin(); d!=dests.end(); d++ ) {
     snode = NewTextChild( node, "dest" );
+    TProfiledRights(d->point_id).toXML(snode);
     NewTextChild( snode, "point_id", d->point_id );
     NewTextChild( snode, "point_num", d->point_num );
     if ( d->first_point > NoExists )
