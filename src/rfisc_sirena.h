@@ -325,7 +325,7 @@ class TAvailabilityRes : public TAvailability, public TAvailabilityResMap
     bool identical_concept(int seg_id, bool carry_on, boost::optional<TBagConcept::Enum> &concept) const;
     bool identical_rfisc_list(int seg_id, boost::optional<TRFISCList> &rfisc_list) const;
     bool exists_rfisc(int seg_id, TServiceType::Enum service_type) const;
-    void rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, bool old_version) const;
+    void rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, TBagConcept::Enum bag_concept, bool old_version) const;
     void normsToDB(const TCkinGrpIds &tckin_grp_ids) const;
     void brandsToDB(const TCkinGrpIds &tckin_grp_ids) const;
 };

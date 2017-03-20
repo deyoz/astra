@@ -6597,7 +6597,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
                 throw EXCEPTIONS::Exception("%s: strange situation: unknown rfisc_list!", __FUNCTION__);
               bag_types_id=rfisc_list.get().toDBAdv(true);
             };
-            res.rfiscsToDB(tckin_grp_ids, true); //на первом этапе применяем только концепт багажа (old_version=true) !!!потом убрать
+            res.rfiscsToDB(tckin_grp_ids, bag_concept.get(), true); //на первом этапе применяем только концепт багажа (old_version=true) !!!потом убрать
             res.normsToDB(tckin_grp_ids);
             res.brandsToDB(tckin_grp_ids);
           }
