@@ -279,7 +279,7 @@ bool TAvailabilityRes::exists_rfisc(int seg_id, TServiceType::Enum service_type)
   return false;
 };
 
-void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, bool old_version) const
+void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, TBagConcept::Enum bag_concept, bool old_version) const
 {
   TPaxServiceLists serviceLists;
   for(TAvailabilityRes::const_iterator i=begin(); i!=end(); ++i)
@@ -301,19 +301,28 @@ void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, bool old_ver
       if (cat==TServiceCategory::Baggage ||
           cat==TServiceCategory::CarryOn)
       {
-        //проверяем норму
-        const Sirena::TSimplePaxNormItem& norm=(cat==TServiceCategory::Baggage)?i->second.baggage_norm:
-                                                                                i->second.carry_on_norm;
-        if (norm.concept==TBagConcept::Weight ||
-            norm.concept==TBagConcept::Unknown) continue;
-        if (norm.concept==TBagConcept::No)
+        if (bag_concept==TBagConcept::Weight ||
+            bag_concept==TBagConcept::Unknown) continue;
+
+        if (bag_concept==TBagConcept::No)
         {
-           boost::optional<TBagConcept::Enum> seg_concept;
-           identical_concept(i->first.trfer_num, cat==TServiceCategory::CarryOn, seg_concept);
-           if ((!seg_concept || seg_concept.get()==TBagConcept::No) &&
-               !i->second.rfisc_list.exists(TServiceType::BaggageCharge)) continue; //по сути - weight
-           if (seg_concept && seg_concept.get()==TBagConcept::Weight) continue;
-        };
+          ProgError(STDLOG, "%s: strange situation bag_concept==TBagConcept::No!", __FUNCTION__);
+          continue;
+        }
+
+        //проверяем норму
+//        const Sirena::TSimplePaxNormItem& norm=(cat==TServiceCategory::Baggage)?i->second.baggage_norm:
+//                                                                                i->second.carry_on_norm;
+//        if (norm.concept==TBagConcept::Weight ||
+//            norm.concept==TBagConcept::Unknown) continue;
+//        if (norm.concept==TBagConcept::No)
+//        {
+//           boost::optional<TBagConcept::Enum> seg_concept;
+//           identical_concept(i->first.trfer_num, cat==TServiceCategory::CarryOn, seg_concept);
+//           if ((!seg_concept || seg_concept.get()==TBagConcept::No) &&
+//               !i->second.rfisc_list.exists(TServiceType::BaggageCharge)) continue; //по сути - weight
+//           if (seg_concept && seg_concept.get()==TBagConcept::Weight) continue;
+//        };
       }
 
       TPaxServiceListsItem serviceItem;
