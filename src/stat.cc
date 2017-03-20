@@ -1970,6 +1970,7 @@ static const string PARAM_RECEIVER_DESCR        = "receiver_descr";
 static const string PARAM_REG_TYPE              = "reg_type";
 static const string PARAM_SKIP_ROWS             = "skip_rows";
 static const string PARAM_ORDER_SOURCE          = "order_source";
+static const string PARAM_PR_PACTS              = "pr_pacts";
 
 struct TStatParams {
     string desk_city; // Используется в TReqInfo::Initialize(city) в фоновой статистике
@@ -1989,6 +1990,7 @@ struct TStatParams {
     string reg_type;
     bool order;
     bool skip_rows;
+    bool pr_pacts;
     void get(xmlNodePtr resNode);
     void toFileParams(map<string, string> &file_params) const;
     void fromFileParams(map<string, string> &file_params);
@@ -2022,6 +2024,7 @@ void TStatParams::fromFileParams(map<string, string> &file_params)
     receiver_descr = file_params[PARAM_RECEIVER_DESCR];
     reg_type = file_params[PARAM_REG_TYPE];
     skip_rows = ToInt(file_params[PARAM_SKIP_ROWS]);
+    pr_pacts = ToInt(file_params[PARAM_PR_PACTS]) != 0;
 }
 
 void TStatParams::toFileParams(map<string, string> &file_params) const
@@ -2057,6 +2060,7 @@ void TStatParams::toFileParams(map<string, string> &file_params) const
     file_params[PARAM_SKIP_ROWS] = IntToString(skip_rows);
 
     file_params[PARAM_ORDER_SOURCE] = EncodeOrderSource(osSTAT);
+    file_params[PARAM_PR_PACTS] = IntToString(pr_pacts);
 }
 
 string GetStatSQLText(const TStatParams &params, int pass)
@@ -2479,6 +2483,7 @@ void TStatParams::get(xmlNodePtr reqNode)
         ap.empty() and
         flt_no == NoExists and
         seance == seanceAll;
+    pr_pacts = false;
 };
 
 struct TInetStat {
@@ -3625,7 +3630,7 @@ void createXMLFullStat(const TStatParams &params,
 
 void RunPactDetailStat(const TStatParams &params,
                        TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
-                       TPrintAirline &prn_airline)
+                       TPrintAirline &prn_airline, bool full = false)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3851,7 +3856,7 @@ void RunPactDetailStat(const TStatParams &params,
                         }
                     }
 
-                    AddStatRow(key, row, DetailStat);
+                    AddStatRow(key, row, DetailStat, full);
                 }
                 else
                 {
@@ -3922,7 +3927,7 @@ struct TDetailStatCombo : public TOrderStatItem
     TStatParams params;
     bool pr_pact;
     TDetailStatCombo(const Tdata &aData, const TStatParams &aParams)
-        : data(aData), params(aParams), pr_pact(true) /*HACK*/ {}
+        : data(aData), params(aParams), pr_pact(aParams.pr_pacts) {}
     void add_header(ostringstream &buf) const;
     void add_data(ostringstream &buf) const;
 };
@@ -4005,7 +4010,10 @@ void RunDetailStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_
 {
     TDetailStat DetailStat;
     TDetailStatRow DetailStatTotal;
-    RunDetailStat(params, DetailStat, DetailStatTotal, prn_airline, true);
+    if(params.pr_pacts)
+        RunPactDetailStat(params, DetailStat, DetailStatTotal, prn_airline, true);
+    else
+        RunDetailStat(params, DetailStat, DetailStatTotal, prn_airline, true);
     for (TDetailStat::const_iterator i = DetailStat.begin(); i != DetailStat.end(); ++i)
         writer.insert(TDetailStatCombo(*i, params));
 }
@@ -9376,22 +9384,22 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     {
         if (params.statType==statShort || params.statType==statDetail || params.statType == statPactShort)
         {
-            bool pr_pacts =
+            params.pr_pacts =
                 reqInfo->user.access.rights().permitted(605) and params.seance == seanceAll;
 
-            if(not pr_pacts and params.statType == statPactShort)
+            if(not params.pr_pacts and params.statType == statPactShort)
                 throw UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
 
             TDetailStat DetailStat;
             TDetailStatRow DetailStatTotal;
             TPrintAirline airline;
 
-            if (pr_pacts)
+            if (params.pr_pacts)
                 RunPactDetailStat(params, DetailStat, DetailStatTotal, airline);
             else
                 RunDetailStat(params, DetailStat, DetailStatTotal, airline);
 
-            createXMLDetailStat(params, pr_pacts, DetailStat, DetailStatTotal, airline, resNode);
+            createXMLDetailStat(params, params.pr_pacts, DetailStat, DetailStatTotal, airline, resNode);
         };
         if (params.statType==statFull || params.statType==statTrferFull)
         {
