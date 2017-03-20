@@ -4053,6 +4053,7 @@ void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
   for(TEntityList::const_iterator i=entities.begin(); i!=entities.end(); ++i)
   {
     const Sirena::TPaxSegKey &entity=*i;
+    ProgTrace(TRACE5, "%s: entity.pax_id=%d, entity.trfer_num=%d", __FUNCTION__, entity.pax_id, entity.trfer_num);
 
     Qry.SetVariable("pax_id", entity.pax_id);
     Qry.Execute();
@@ -4105,17 +4106,23 @@ void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
     int point_id=operFlt.get().point_id;
 
     if (SALONS2::isFreeSeating(point_id) ||
-        SALONS2::isEmptySalons(point_id)) continue;
+        SALONS2::isEmptySalons(point_id))
+    {
+      ProgTrace(TRACE5, "%s: isFreeSeating or isEmptySalons (point_id=%d)", __FUNCTION__, point_id);
+      continue;
+    };
 
     //получить RFISC компоновки и номера мест, который размечен на местах BeforePay, если BeforePay самый приоритетный слой пассажира
     int point_arv = SALONS2::getCrsPaxPointArv( entity.pax_id, point_id );
     TSalonList salonList;
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, "", entity.pax_id );
+    ProgTrace(TRACE5, "%s: salonList.ReadFlight (point_dep=%d, point_arv=%d, pax_id=%d)", __FUNCTION__, point_id, point_arv, entity.pax_id);
     if (salonList.getRFISCMode()==rRFISC)
     {
       TSeatLayer seatLayer;
       std::set<TPlace*,CompareSeats> seats;
       salonList.getPaxLayer( point_id, entity.pax_id, seatLayer, seats );
+      ProgTrace(TRACE5, "%s: seatLayer.layer_type=%s", __FUNCTION__, EncodeCompLayerType(seatLayer.layer_type));
       if (seatLayer.layer_type == cltProtBeforePay)
       {
         for(std::set<TPlace*,CompareSeats>::const_iterator s=seats.begin(); s!=seats.end(); ++s)
@@ -4123,16 +4130,22 @@ void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
           //цикл по местам
           const TPlace &place=**s;
 
+          string seat_no=denorm_iata_row( place.yname, NULL ) + denorm_iata_line( place.xname, salonList.isCraftLat() );
+          ProgTrace(TRACE5, "%s: seat_no=%s", __FUNCTION__, seat_no.c_str());
+
           TRFISC rfisc=place.getRFISC(point_id);
-          if (rfisc.empty() || rfisc.code.empty()) continue;
+          if (rfisc.empty() || rfisc.code.empty())
+          {
+            ProgTrace(TRACE5, "%s: rfisc.empty() || rfisc.code.empty()", __FUNCTION__);
+            continue;
+          };
 
           TRFISCKey RFISCKey;
           RFISCKey.RFISC=rfisc.code;
           RFISCKey.service_type=TServiceType::FlightRelated;
           RFISCKey.airline=operFlt.get().airline;
           TSvcItem item(TPaxSegRFISCKey(entity, RFISCKey), TServiceStatus::Need);
-          item.ssr_text= denorm_iata_row( place.yname, NULL ) +
-                         denorm_iata_line( place.xname, salonList.isCraftLat() );
+          item.ssr_text=seat_no;
           svcs_ref.push_back(item);
         }
       }
