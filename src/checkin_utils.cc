@@ -496,6 +496,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             CreateEmulRems(paxNode, rems, fqts);
 
             NewTextChild(paxNode,"norms"); //пустой тег - норм нет
+            NewTextChild(paxNode, "dont_check_payment", (int)iPaxForCkin->dont_check_payment, (int)false);
           }
           catch(CheckIn::UserException)
           {

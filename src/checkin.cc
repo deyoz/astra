@@ -4738,6 +4738,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   pas.tariffStatus = tariffMap.status();
                   tariffMap.trace(TRACE5);
 
+                  pas.dont_check_payment = pax.dont_check_payment;
+
                   if ( isTranzitSalonsVersion ) {
                     SEATS2::Passengers.Add(salonList,pas);
                   }
