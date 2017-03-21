@@ -1066,7 +1066,7 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
 void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no, string &slayer_type, int &tid )
 {
-    seat_no.clear();
+  seat_no.clear();
   TQuery SQry( &OraSession );
   if ( pr_pnl ) {
       SQry.SQLText =
@@ -1106,8 +1106,10 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
   };
   SQry.CreateVariable( "pax_id", otInteger, pax_id );
   SQry.Execute();
-  if ( SQry.Eof )
+  if ( SQry.Eof ) {
+    tst();
     throw UserException( "MSG.PASSENGER.NOT_FOUND" );
+  }
   tid = SQry.FieldAsInteger( "tid" );
   int point_dep = SQry.FieldAsInteger( "point_dep" );
   string xname = SQry.FieldAsString( "seat_xname" );
@@ -1305,7 +1307,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     SALONS2::getSalonChanges( salonList, salonList.isCraftLat(), NewSalonList, NewSalonList.isCraftLat(), NewSalonList.getRFISCMode(), seats );
     ProgTrace( TRACE5, "salon changes seats.size()=%zu", seats.size() );
     string seat_no, slayer_type;
-    if ( layer_type == cltProtCkin )
+    if ( layer_type == cltProtCkin || layer_type == cltProtAfterPay || layer_type == cltPNLAfterPay )
       getSeat_no( pax_id, true, string("_seats"), seat_no, slayer_type, tid );
     else
       getSeat_no( pax_id, false, string("one"), seat_no, slayer_type, tid );
@@ -1383,7 +1385,7 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
   if ( SALONS2::isFreeSeating( point_id ) ) {
     throw UserException( "MSG.SALONS.FREE_SEATING" );
   }
-    TFlights flights;
+  TFlights flights;
   flights.Get( point_id, ftTranzit );
   flights.Lock();
   TQuery Qry( &OraSession );
@@ -1498,7 +1500,7 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     SALONS2::getSalonChanges( Salons, rTariff, seats );
     ProgTrace( TRACE5, "salon changes seats.size()=%zu", seats.size() );
     string seat_no, slayer_type;
-    if ( layer_type == cltProtCkin )
+    if ( layer_type == cltProtCkin || layer_type == cltProtAfterPay || layer_type == cltPNLAfterPay )
       getSeat_no( pax_id, true, string("_seats"), seat_no, slayer_type, tid );
     else
         getSeat_no( pax_id, false, string("one"), seat_no, slayer_type, tid );
@@ -1553,6 +1555,44 @@ static void ChangeIatciSeats(xmlNodePtr reqNode, int point_id)
     return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO
 }
 
+void CheckResetLayer( TCompLayerType &layer_type, int crs_pax_id )
+{
+  if ( layer_type != cltProtCkin ) {
+    return;
+  }
+  ProgTrace( TRACE5, "CheckResetLayer input layer_type=%s", EncodeCompLayerType(layer_type) );
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "DECLARE "
+    "vseat_xname crs_pax.seat_xname%TYPE; "
+    "vseat_yname crs_pax.seat_yname%TYPE; "
+    "vseats      crs_pax.seats%TYPE; "
+    "vpoint_id   crs_pnr.point_id%TYPE; "
+    "BEGIN "
+    "  SELECT crs_pax.seat_xname, crs_pax.seat_yname, crs_pax.seats, crs_pnr.point_id "
+    "  INTO vseat_xname, vseat_yname, vseats, vpoint_id "
+    "  FROM crs_pnr,crs_pax "
+    "  WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:crs_pax_id AND crs_pax.pr_del=0; "
+    "  :crs_seat_no:=salons.get_crs_seat_no(:crs_pax_id, vseat_xname, vseat_yname, vseats, vpoint_id, :layer_type, 'one', 1); "
+    "EXCEPTION "
+    "  WHEN NO_DATA_FOUND THEN NULL; "
+    "END;";
+  Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
+  Qry.CreateVariable("layer_type", otString, FNull);
+  Qry.CreateVariable("crs_seat_no", otString, FNull);
+  Qry.Execute();
+  TCompLayerType layer_type_out = DecodeCompLayerType( Qry.GetVariableAsString( "layer_type" ) );
+  if ( layer_type_out == cltProtAfterPay || layer_type_out == cltPNLAfterPay ) {
+    //проверка прав изменения платного слоя
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if ( !reqInfo->user.access.rights().permitted(193) ) {
+      throw UserException( "MSG.SEATS.CHANGE_PAY_SEATS_DENIED" );
+    }
+    layer_type = layer_type_out;
+  }
+  ProgTrace( TRACE5, "CheckResetLayer return layer_type=%s", EncodeCompLayerType(layer_type) );
+}
+
 void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType seat_type )
 {
   int point_id = NodeAsInteger( "trip_id", reqNode );
@@ -1579,10 +1619,13 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
   if (  GetNode( "question_reseat", reqNode ) ) {
     change_layer_flags.setFlag( flQuestionReseat );
   }
+  // если пришел слой cltProtCkin а есть более приоритетный clt..AfterPay то надо подменить слой
+  TCompLayerType layer_type = DecodeCompLayerType( NodeAsString( "layer", reqNode, "" ) );
+  CheckResetLayer( layer_type, pax_id );
   if ( isTranzitSalonsVersion ) {
     IntChangeSeatsN( point_id, pax_id, tid, xname, yname,
                     seat_type,
-                    DecodeCompLayerType( NodeAsString( "layer", reqNode, "" ) ),
+                    layer_type,
                     change_layer_flags,
                     comp_crc, tariff_pax_id,
                     resNode );
@@ -1590,7 +1633,7 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
   else {
     IntChangeSeats( point_id, pax_id, tid, xname, yname,
                     seat_type,
-                    DecodeCompLayerType( NodeAsString( "layer", reqNode, "" ) ),
+                    layer_type,
                     change_layer_flags,
                     resNode );
   }

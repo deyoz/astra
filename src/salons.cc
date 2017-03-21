@@ -1893,6 +1893,7 @@ void TSalons::Write( const TComponSets &compSets )
                   " DELETE trip_comp_rem WHERE point_id=:point_id; "
                   " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
                   " DELETE trip_comp_rates WHERE point_id=:point_id; "
+                  " DELETE trip_comp_rfisc WHERE point_id=:point_id; "
                   " DELETE trip_comp_elems WHERE point_id=:point_id; "
                   "END;";
 
