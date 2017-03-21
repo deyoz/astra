@@ -314,7 +314,8 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
         "   craft, "
         "   bort, "
         "   park_out park, "
-        "   NVL(act_out,NVL(est_out,scd_out)) real_out, "
+//        "   NVL(act_out,NVL(est_out,scd_out)) real_out, "
+        "   act_out, "
         "   scd_out "
         "from ";
     if(part_key == NoExists)
@@ -354,8 +355,11 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
 
     NewTextChild(variablesNode, "trip", trip.str());
     TDateTime scd_out, real_out;
-    scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
-    real_out= UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
+    scd_out= UTCToClient(getReportSCDOut(point_id),tz_region);
+    if(Qry.FieldIsNULL("act_out"))
+        real_out = scd_out;
+    else
+        real_out= UTCToClient(Qry.FieldAsDateTime("act_out"),tz_region);
     NewTextChild(variablesNode, "scd_out", DateTimeToStr(scd_out, "dd.mm.yyyy"));
     NewTextChild(variablesNode, "real_out", DateTimeToStr(real_out, "dd.mm.yyyy"));
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm"));
@@ -954,6 +958,28 @@ void trip_rpt_person(xmlNodePtr resNode, TRptParams &rpt_params)
     NewTextChild(variablesNode, "pts_agent", transliter(pts_agent, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
 }
 
+TDateTime getReportSCDOut(int point_id)
+{
+    TTripInfo flt;
+    flt.getByPointId(point_id);
+    return flt.scd_out;
+}
+
+string getJMPSeatNo(int pax_id)
+{
+    LogTrace(TRACE5) << "getJMPSeatNo: pax_id: " << pax_id;
+    static const string JMP = "JMP";
+    multiset<CheckIn::TPaxRemItem> rems;
+    LoadPaxRem(pax_id, rems);
+    LogTrace(TRACE5) << "getJMPSeatNo: rems.size: " << rems.size();
+    string result;
+    for(multiset<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++)
+        if(i->code == JMP) {
+            result = JMP;
+        }
+    return result;
+}
+
 void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
@@ -1232,10 +1258,14 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "gender", gender);
         }
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
+
         // seat_no достается с добитыми слева пробелами, чтобы order by
         // правильно отрабатывал, далее эти пробелы нам ни к чему
         // (в частности они мешаются в текстовом отчете).
-        NewTextChild(rowNode, "seat_no", trim(Qry.FieldAsString("seat_no")));
+        string seat_no = getJMPSeatNo(pax_id);
+        if(seat_no.empty()) seat_no = trim(Qry.FieldAsString("seat_no"));
+        NewTextChild(rowNode, "seat_no", seat_no);
+
         if(not rem_grp_loaded) {
             rem_grp_loaded = true;
             rem_grp.Load(retRPT_PM, rpt_params.point_id);
@@ -1288,6 +1318,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   bort, "
         "   park_out park, "
         "   scd_out, "
+        "   act_out, "
         "   airp_fmt, "
         "   airline_fmt, "
         "   suffix_fmt, "
@@ -1342,7 +1373,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", rpt_params.ElemIdToReportElem(etCraft, craft, craft_fmt));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
-    TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
+    TDateTime scd_out = UTCToLocal(getReportSCDOut(rpt_params.point_id), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", rpt_params.IsInter()));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", rpt_params.IsInter()));
     NewTextChild(variablesNode, "airp_arv_name", rpt_params.ElemIdToReportElem(etAirp, rpt_params.airp_arv, efmtNameLong));
@@ -1360,6 +1391,11 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
     trip_rpt_person(resNode, rpt_params);
+
+    TDateTime takeoff = NoExists;
+    if(not Qry.FieldIsNULL("act_out"))
+        takeoff = Qry.FieldAsDateTime("act_out");
+    NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
 }
 
 void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1747,6 +1783,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   bort, "
         "   park_out park, "
         "   scd_out, "
+        "   act_out, "
         "   airp_fmt, "
         "   airline_fmt, "
         "   suffix_fmt, "
@@ -1793,7 +1830,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", rpt_params.ElemIdToReportElem(etCraft, craft, craft_fmt));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
-    TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
+    TDateTime scd_out = UTCToLocal(getReportSCDOut(rpt_params.point_id), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", rpt_params.IsInter()));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", rpt_params.IsInter()));
     string airp_arv_name;
@@ -1820,6 +1857,10 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     populate_doc_cap(variablesNode, rpt_params.GetLang());
     STAT::set_variables(resNode, rpt_params.GetLang());
     trip_rpt_person(resNode, rpt_params);
+    TDateTime takeoff = NoExists;
+    if(not Qry.FieldIsNULL("act_out"))
+        takeoff = Qry.FieldAsDateTime("act_out");
+    NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
 }
 
 string get_test_str(int page_width, string lang)
@@ -1906,6 +1947,9 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
   s << setw(6) << NodeAsString("scd_date",variablesNode)
     << setw(5) << NodeAsString("scd_time",variablesNode);
+  string departure = NodeAsString("takeoff", variablesNode);
+  if(not departure.empty())
+      s << endl << getLocaleText("Вылет", rpt_params.GetLang()) << ": " << departure;
   NewTextChild(variablesNode, "page_header_center", s.str() );
 
   s.str("");
@@ -2529,6 +2573,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT point_dep AS point_id, "
+        "       pax_id, "
         "       reg_no, "
         "       surname||' '||pax.name family, "
         "       pax.pers_type, "
@@ -2567,7 +2612,11 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
         NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
-        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+
+        string seat_no = getJMPSeatNo(Qry.FieldAsInteger("pax_id"));
+        if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
+        NewTextChild(rowNode, "seat_no", seat_no);
+
         NewTextChild(rowNode, "bagamount", Qry.FieldAsInteger("bagamount"));
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
 
@@ -2851,7 +2900,11 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
       NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
       NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
-      NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+
+      string seat_no = getJMPSeatNo(pax_id);
+      if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
+      NewTextChild(rowNode, "seat_no", seat_no);
+
       ostringstream rem_info;
       for(multiset<CheckIn::TPaxRemItem>::const_iterator r=final_rems.begin();r!=final_rems.end();++r)
       {
@@ -3087,7 +3140,11 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "pnr_ref", pnr_addr);
             NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
             NewTextChild(rowNode, "class", rpt_params.ElemIdToReportElem(etClass, Qry.FieldAsString("class"), efmtCodeNative));
-            NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+
+            string seat_no = getJMPSeatNo(pax_id);
+            if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
+            NewTextChild(rowNode, "seat_no", seat_no);
+
             NewTextChild(rowNode, "target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("target"), efmtCodeNative));
             string last_target = Qry.FieldAsString("last_target");
             TElemFmt fmt;
@@ -3250,7 +3307,11 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
         NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam"), 0);
         NewTextChild(paxNode, "pr_brd", Qry.FieldAsInteger("pr_brd"), 0);
-        NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
+
+        string seat_no = getJMPSeatNo(pax_id);
+        if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
+        NewTextChild(paxNode, "seat_no", seat_no);
+
         NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax_id, false, rpt_params.GetLang()));
         NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));
         NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger("coupon_no"));
