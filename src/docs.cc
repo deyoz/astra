@@ -3743,10 +3743,7 @@ void get_report_form(const string name, xmlNodePtr resNode)
 
 void get_compatible_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    if (TReqInfo::Instance()->desk.compatible(ADD_FORM_VERSION))
-        get_new_report_form(name, reqNode, resNode);
-    else
-        get_report_form(name, resNode);
+    get_new_report_form(name, reqNode, resNode);
 }
 
 void get_new_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNode)

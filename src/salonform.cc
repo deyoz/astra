@@ -780,14 +780,10 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   string lexema_id;
   LEvntPrms params;
   string comp_lang;
-  if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
-    if ( NodeAsInteger( "pr_lat", refcompNode ) != 0 )
-      comp_lang = "лат.";
-    else
-        comp_lang = "рус.";
-  }
+  if ( NodeAsInteger( "pr_lat", refcompNode ) != 0 )
+    comp_lang = "лат.";
   else
-    comp_lang = NodeAsString( "lang", refcompNode );
+    comp_lang = "рус.";
 
   if ( pr_initcomp ) { /* изменение компоновки */
     if ( cBase && cChange ) {
@@ -1056,8 +1052,7 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     NewTextChild( dataNode, "airline", ElemIdToCodeNative( etAirline, componSets.airline ) );
   if ( !componSets.airp.empty() )
     NewTextChild( dataNode, "airp", ElemIdToCodeNative( etAirp, componSets.airp ) );
-  if ( r->desk.compatible(LATIN_VERSION) )
-    NewTextChild( dataNode, "craft", ElemIdToCodeNative( etCraft, componSets.craft ) );
+  NewTextChild( dataNode, "craft", ElemIdToCodeNative( etCraft, componSets.craft ) );
   AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
 }
 
@@ -1313,10 +1308,8 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
     if ( !seat_no.empty() ) {
-      if ( !TReqInfo::Instance()->desk.compatible(SORT_SEAT_NO_VERSION) )
-        seat_no = LTrimString( seat_no );
-        NewTextChild( dataNode, "seat_no", seat_no );
-        NewTextChild( dataNode, "layer_type", slayer_type );
+      NewTextChild( dataNode, "seat_no", seat_no );
+      NewTextChild( dataNode, "layer_type", slayer_type );
     }
     SALONS2::BuildSalonChanges( dataNode, point_id, seats, true, NewSalonList.pax_lists );
     if ( flags.isFlag( flWaitList ) ) {
@@ -1508,10 +1501,8 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
     if ( !seat_no.empty() ) {
-      if ( !TReqInfo::Instance()->desk.compatible(SORT_SEAT_NO_VERSION) )
-        seat_no = LTrimString( seat_no );
-        NewTextChild( dataNode, "seat_no", seat_no );
-        NewTextChild( dataNode, "layer_type", slayer_type );
+      NewTextChild( dataNode, "seat_no", seat_no );
+      NewTextChild( dataNode, "layer_type", slayer_type );
     }
     SALONS2::BuildSalonChanges( dataNode, seats );
     if ( flags.isFlag( flWaitList ) ) {
@@ -1694,10 +1685,8 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
     if ( !seat_no.empty() ) {
-      if ( !TReqInfo::Instance()->desk.compatible(SORT_SEAT_NO_VERSION) )
-        seat_no = LTrimString( seat_no );
-        NewTextChild( dataNode, "seat_no", seat_no );
-        NewTextChild( dataNode, "layer_type", slayer_type );
+      NewTextChild( dataNode, "seat_no", seat_no );
+      NewTextChild( dataNode, "layer_type", slayer_type );
     }
     if ( pr_update_salons ) {
       if ( isTranzitSalonsVersion ) {

@@ -1742,9 +1742,9 @@ void GridInfoToXML(const TTrferRoute &trfer,
     {
       cols.push_back(TGridCol("Тип багажа", 120, TAlignment::LeftJustify));
       cols.push_back(TGridCol("Кол.",        30, TAlignment::Center));
-      cols.push_back(TGridCol("Норма",       80, TAlignment::LeftJustify));
+      cols.push_back(TGridCol("Норма",       75, TAlignment::LeftJustify));
       cols.push_back(TGridCol("Трфр",        25, TAlignment::Center));
-      cols.push_back(TGridCol("К опл.",      35, TAlignment::RightJustify));
+      cols.push_back(TGridCol("К опл.",      40, TAlignment::RightJustify));
       cols.push_back(TGridCol("Оплачено",    40, TAlignment::RightJustify));
     }
   }

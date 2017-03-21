@@ -1364,13 +1364,16 @@ void TPaidRFISCList::fromDB(int id, bool is_grp_id)
   };
 }
 
+void TGrpServiceList::clearDB(int grp_id)
+{
+  TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, pax_services WHERE pax_services.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
+                   QParams() << QParam("grp_id", otInteger, grp_id));
+  Qry.get().Execute();
+}
+
 void TGrpServiceList::toDB(int grp_id) const
 {
-  {
-    TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, pax_services WHERE pax_services.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
-                     QParams() << QParam("grp_id", otInteger, grp_id));
-    Qry.get().Execute();
-  }
+  clearDB(grp_id);
   TCachedQuery Qry("INSERT INTO pax_services(pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity) "
                    "VALUES(:pax_id, :transfer_num, :list_id, :rfisc, :service_type, :airline, :service_quantity)",
                    QParams() << QParam("pax_id", otInteger)
@@ -1387,13 +1390,50 @@ void TGrpServiceList::toDB(int grp_id) const
   }
 }
 
+void TGrpServiceList::copyDB(int grp_id_src, int grp_id_dest)
+{
+  clearDB(grp_id_dest);
+  TCachedQuery Qry(
+    "INSERT INTO pax_services(pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity) "
+    "SELECT dest.pax_id, "
+    "       pax_services.transfer_num+src.seg_no-dest.seg_no, "
+    "       pax_services.list_id, "
+    "       pax_services.rfisc, "
+    "       pax_services.service_type, "
+    "       pax_services.airline, "
+    "       pax_services.service_quantity "
+    "FROM pax_services, "
+    "     (SELECT pax.pax_id, "
+    "             tckin_pax_grp.tckin_id, "
+    "             tckin_pax_grp.seg_no, "
+    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+    "      FROM pax, tckin_pax_grp "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
+    "     (SELECT pax.pax_id, "
+    "             tckin_pax_grp.tckin_id, "
+    "             tckin_pax_grp.seg_no, "
+    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+    "      FROM pax, tckin_pax_grp "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
+    "WHERE src.tckin_id=dest.tckin_id AND "
+    "      src.distance=dest.distance AND "
+    "      pax_services.pax_id=src.pax_id AND "
+    "      pax_services.transfer_num+src.seg_no-dest.seg_no>=0 ",
+    QParams() << QParam("grp_id_src", otInteger, grp_id_src)
+              << QParam("grp_id_dest", otInteger, grp_id_dest));
+  Qry.get().Execute();
+}
+
+void TPaidRFISCList::clearDB(int grp_id)
+{
+  TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, paid_rfisc WHERE paid_rfisc.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
+                   QParams() << QParam("grp_id", otInteger, grp_id));
+  Qry.get().Execute();
+}
+
 void TPaidRFISCList::toDB(int grp_id) const
 {
-  {
-    TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, paid_rfisc WHERE paid_rfisc.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
-                     QParams() << QParam("grp_id", otInteger, grp_id));
-    Qry.get().Execute();
-  }
+  clearDB(grp_id);
   TCachedQuery Qry("INSERT INTO paid_rfisc(pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity, paid, need) "
                    "VALUES(:pax_id, :transfer_num, :list_id, :rfisc, :service_type, :airline, :service_quantity, :paid, :need)",
                    QParams() << QParam("pax_id", otInteger)
@@ -1405,74 +1445,70 @@ void TPaidRFISCList::toDB(int grp_id) const
                              << QParam("service_quantity", otInteger)
                              << QParam("paid", otInteger)
                              << QParam("need", otInteger));
-  int excess=0;
   for(TPaidRFISCList::const_iterator i=begin(); i!=end(); ++i)
   {
-    if (i->second.trfer_num==0 && i->second.paid_positive())
-      excess+=i->second.paid;
     i->second.toDB(Qry.get());
     Qry.get().Execute();
   }
 
-  {
-    TCachedQuery Qry("UPDATE pax_grp "
-                     "SET excess_pc=:excess, excess=DECODE(NVL(piece_concept,0), 0, excess, :excess) "
-                     "WHERE grp_id=:grp_id",
-                     QParams() << QParam("grp_id", otInteger, grp_id)
-                               << QParam("excess", otInteger, excess));
-    Qry.get().Execute();
-  }
+  updateExcess(grp_id);
+}
 
+void TPaidRFISCList::updateExcess(int grp_id)
+{
+  TCachedQuery Qry(
+    "BEGIN "
+    "  SELECT NVL(SUM(paid_rfisc.paid),0) INTO :excess "
+    "  FROM paid_rfisc, pax "
+    "  WHERE paid_rfisc.pax_id=pax.pax_id AND "
+    "        pax.grp_id=:grp_id AND "
+    "        paid_rfisc.transfer_num=0 AND "
+    "        paid_rfisc.paid>0; "
+    "  UPDATE pax_grp "
+    "  SET excess_pc=:excess, excess=DECODE(NVL(piece_concept,0), 0, excess, :excess) "
+    "  WHERE grp_id=:grp_id; "
+    "END; ",
+    QParams() << QParam("grp_id", otInteger, grp_id)
+              << QParam("excess", otInteger, FNull));
+  Qry.get().Execute();
+}
 
-  //!!! потом удалить
-  {
-    TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, paid_bag_pc WHERE paid_bag_pc.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
-                     QParams() << QParam("grp_id", otInteger, grp_id));
-    Qry.get().Execute();
-  }
+void TPaidRFISCList::copyDB(int grp_id_src, int grp_id_dest)
+{
+  clearDB(grp_id_dest);
+  TCachedQuery Qry(
+    "INSERT INTO paid_rfisc(pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity, paid, need) "
+    "SELECT dest.pax_id, "
+    "       paid_rfisc.transfer_num+src.seg_no-dest.seg_no, "
+    "       paid_rfisc.list_id, "
+    "       paid_rfisc.rfisc, "
+    "       paid_rfisc.service_type, "
+    "       paid_rfisc.airline, "
+    "       paid_rfisc.service_quantity, "
+    "       paid_rfisc.paid, "
+    "       paid_rfisc.need "
+    "FROM paid_rfisc, "
+    "     (SELECT pax.pax_id, "
+    "             tckin_pax_grp.tckin_id, "
+    "             tckin_pax_grp.seg_no, "
+    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+    "      FROM pax, tckin_pax_grp "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
+    "     (SELECT pax.pax_id, "
+    "             tckin_pax_grp.tckin_id, "
+    "             tckin_pax_grp.seg_no, "
+    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+    "      FROM pax, tckin_pax_grp "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
+    "WHERE src.tckin_id=dest.tckin_id AND "
+    "      src.distance=dest.distance AND "
+    "      paid_rfisc.pax_id=src.pax_id AND "
+    "      paid_rfisc.transfer_num+src.seg_no-dest.seg_no>=0 ",
+    QParams() << QParam("grp_id_src", otInteger, grp_id_src)
+              << QParam("grp_id_dest", otInteger, grp_id_dest));
+  Qry.get().Execute();
 
-  TCachedQuery Qry2("INSERT INTO paid_bag_pc(pax_id, transfer_num, rfisc, status, pr_cabin) "
-                    "VALUES(:pax_id, :transfer_num, :rfisc, :status, :pr_cabin)",
-                    QParams() << QParam("pax_id", otInteger)
-                              << QParam("transfer_num", otInteger)
-                              << QParam("rfisc", otString)
-                              << QParam("status", otString)
-                              << QParam("pr_cabin", otInteger));
-
-  TPaidRFISCStatusList statusList[2];
-  for(TPaidRFISCList::const_iterator i=begin(); i!=end(); ++i)
-  {
-    TPaidRFISCItem item=i->second;
-    item.getListItemIfNone();
-    if (!item.list_item)
-      throw Exception("TPaidRFISCList::toDB: item.list_item=boost::none! (%s)", item.traceStr().c_str());
-    if (item.service_quantity==ASTRA::NoExists)
-      throw Exception("TPaidRFISCList::toDB: item.service_quantity=ASTRA::NoExists! (%s)", item.traceStr().c_str());
-    if (item.paid==ASTRA::NoExists)
-      throw Exception("TPaidRFISCList::toDB: item.paid=ASTRA::NoExists! (%s)", item.traceStr().c_str());
-    if (item.need==ASTRA::NoExists)
-      throw Exception("TPaidRFISCList::toDB: item.need=ASTRA::NoExists! (%s)", item.traceStr().c_str());
-    if (!item.list_item.get().carry_on())
-      continue;
-//      throw UserException("MSG.OTHER_SVC_TEMPORARILY_DISABLED");
-    //только относящиеся к багажу
-    item.addStatusList(statusList[(int)item.list_item.get().carry_on().get()]);
-  }
-
-  for(bool pr_cabin=false;;pr_cabin=!pr_cabin)
-  {
-    for(TPaidRFISCStatusList::const_iterator i=statusList[(int)pr_cabin].begin();
-                                             i!=statusList[(int)pr_cabin].end(); ++i)
-    {
-      Qry2.get().SetVariable("pax_id", i->pax_id);
-      Qry2.get().SetVariable("transfer_num", i->trfer_num);
-      Qry2.get().SetVariable("rfisc", i->RFISC);
-      Qry2.get().SetVariable("pr_cabin", (int)pr_cabin);
-      Qry2.get().SetVariable("status", ServiceStatuses().encode(i->status));
-      Qry2.get().Execute();
-    }
-    if (pr_cabin) break;
-  }
+  updateExcess(grp_id_dest);
 }
 
 void TGrpServiceList::addBagInfo(int grp_id,
@@ -1488,7 +1524,7 @@ void TGrpServiceList::addBagInfo(int grp_id,
                    "       bag2.amount AS service_quantity, "
                    "       bag2.pr_cabin "
                    "FROM bag2 "
-                   "WHERE bag2.grp_id=:grp_id AND bag2.rfisc IS NOT NULL AND bag2.is_trfer=0",
+                   "WHERE bag2.grp_id=:grp_id AND bag2.rfisc IS NOT NULL ",
                    QParams() << QParam("grp_id", otInteger, grp_id));
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())

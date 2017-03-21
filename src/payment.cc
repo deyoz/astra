@@ -478,26 +478,8 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   //информация по трансферу багажа
   TTrferRoute trfer;
   trfer.GetRoute(grp_id, trtNotFirstSeg);
-  if (reqInfo->desk.compatible(BAG_RCPT_KITS_VERSION))
-  {
-    if (!trfer.empty())
-      BuildTransfer(trfer, dataNode);
-  }
-  else
-  {
-    string last_trfer_airp, last_trfer_city;
-    if (!trfer.empty())
-    {
-      last_trfer_airp=trfer.back().airp_arv;
-      try
-      {
-        last_trfer_city=base_tables.get("airps").get_row("code",last_trfer_airp).AsString("city");
-      }
-      catch(EBaseTableError) {};
-    };
-    NewTextChild(dataNode, "last_trfer_airp", last_trfer_airp);
-    NewTextChild(dataNode, "last_trfer_city", last_trfer_city);
-  };
+  if (!trfer.empty())
+    BuildTransfer(trfer, dataNode);
 
   if (!pr_unaccomp)
   {
@@ -560,8 +542,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   {
     mktFlight.toXML(dataNode);
     xmlNodePtr markFltNode=NodeAsNode("mark_flight", dataNode);
-    if (reqInfo->desk.compatible(BAG_RCPT_KITS_VERSION) &&
-        !reqInfo->desk.compatible(AIRCODE_BUGFIX_VERSION))
+    if (!reqInfo->desk.compatible(AIRCODE_BUGFIX_VERSION))
       NewTextChild(markFltNode,"aircode",mktFlight.airline);
     else
       NewTextChild(markFltNode,"aircode",
@@ -607,8 +588,8 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     TPaidBagViewMap TrferBagViewMap;
     map<int/*id*/, TEventsBagItem> tmp_bag;
     GetBagToLogInfo(grp_id, tmp_bag);
-    WeightConcept::CalcPaidBagView(WeightConcept::TAirlines(grp_id, 
-                                                            mktFlight.pr_mark_norms?mktFlight.airline:operFlt.airline, 
+    WeightConcept::CalcPaidBagView(WeightConcept::TAirlines(grp_id,
+                                                            mktFlight.pr_mark_norms?mktFlight.airline:operFlt.airline,
                                                             "CalcPaidBagView"),
                                    tmp_bag,
                                    list<WeightConcept::TBagNormInfo>(),
@@ -1497,10 +1478,7 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
     airline_fact = route.begin()->operFlt.airline;
     rcpt.scd_local_date=route.begin()->operFlt.scd_out; //TTrferRoute содержит локальные даты
     rcpt.airp_dep=route.begin()->operFlt.airp;
-    if (reqInfo->desk.compatible(BAG_RCPT_KITS_VERSION))
-      rcpt.airp_arv=route.begin()->airp_arv;
-    else
-      rcpt.airp_arv=NodeAsString("airp_arv",rcptNode);
+    rcpt.airp_arv=route.begin()->airp_arv;
   }
   else
   {
@@ -1801,10 +1779,6 @@ void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
   if (GetNode("receipt/id",reqNode)==NULL)
   {
-
-    if (!TReqInfo::Instance()->desk.compatible(BAG_RCPT_KITS_VERSION) &&
-        NodeAsNode("receipt",reqNode)->children==NULL)
-      throw UserException("MSG.BEFORE_RECEIPT_PRINT_CLOSE_PAYMENT_FORMS");
     //этот код выполняется при выводе еще не напечатанной квитанции
     TBagReceipt rcpt;
     GetReceiptFromXML(reqNode,rcpt);
@@ -1874,21 +1848,11 @@ void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
   vector<int> rcpt_ids;
   xmlNodePtr rcptsNode;
-  string new_status;
-  if (reqInfo->desk.compatible(BAG_RCPT_KITS_VERSION))
-  {
-    new_status=NodeAsInteger("replacement",reqNode)!=0?"З":"А";
-    xmlNodePtr node=NodeAsNode("receipt",reqNode)->children;
-    for(;node!=NULL;node=node->next)
-      rcpt_ids.push_back(NodeAsInteger(node));
-    rcptsNode=NewTextChild(resNode,"receipts");
-  }
-  else
-  {
-    new_status="А";
-    rcpt_ids.push_back(NodeAsInteger("receipt/id",reqNode));
-    rcptsNode=resNode;
-  };
+  string new_status=NodeAsInteger("replacement",reqNode)!=0?"З":"А";
+  xmlNodePtr node=NodeAsNode("receipt",reqNode)->children;
+  for(;node!=NULL;node=node->next)
+    rcpt_ids.push_back(NodeAsInteger(node));
+  rcptsNode=NewTextChild(resNode,"receipts");
 
   for(vector<int>::const_iterator rcpt_id=rcpt_ids.begin();rcpt_id!=rcpt_ids.end();++rcpt_id)
   {

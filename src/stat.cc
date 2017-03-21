@@ -182,10 +182,7 @@ void GetSystemLogAgentSQL(TQuery &Qry)
         "select -1, null agent, -1 view_order from dual "
         "union "
         "select 0, '";
-    if(TReqInfo::Instance()->desk.compatible(ARX_MODULE_LST_VERSION))
-        SQLText += getLocaleText(SYSTEM_USER);
-    else
-        SQLText += SYSTEM_USER;
+    SQLText += getLocaleText(SYSTEM_USER);
     SQLText +=
         "' agent, 0 view_order from dual "
         "union "
@@ -203,10 +200,7 @@ void GetSystemLogStationSQL(TQuery &Qry)
         "select -1, null station, -1 view_order from dual "
         "union "
         "select 0, '";
-    if(TReqInfo::Instance()->desk.compatible(ARX_MODULE_LST_VERSION))
-        SQLText += getLocaleText(SYSTEM_USER);
-    else
-        SQLText += SYSTEM_USER;
+    SQLText += getLocaleText(SYSTEM_USER);
     SQLText +=
         "' station, 0 view_order from dual "
         "union "
@@ -224,10 +218,7 @@ void GetSystemLogModuleSQL(TQuery &Qry)
         "select -1, null module, -1 view_order from dual "
         "union "
         "select 0, '";
-    if(TReqInfo::Instance()->desk.compatible(ARX_MODULE_LST_VERSION))
-        SQLText += getLocaleText(SYSTEM_USER);
-    else
-        SQLText += SYSTEM_USER;
+    SQLText += getLocaleText(SYSTEM_USER);
     SQLText +=
         "' module, 0 view_order from dual "
         "union "
@@ -524,13 +515,8 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
     while(!Qry.Eof) {
         xmlNodePtr fNode = NewTextChild(cboxNode, "f");
-        if(TReqInfo::Instance()->desk.compatible(ARX_MODULE_LST_VERSION)) {
-                NewTextChild(fNode, "key", Qry.FieldAsInteger(0));
-                NewTextChild(fNode, "value", getLocaleText(Qry.FieldAsString(1)));
-        } else {
-            NewTextChild(fNode, "key", 0);
-            NewTextChild(fNode, "value", Qry.FieldAsString(1));
-        }
+        NewTextChild(fNode, "key", Qry.FieldAsInteger(0));
+        NewTextChild(fNode, "value", getLocaleText(Qry.FieldAsString(1)));
         Qry.Next();
     }
 }
@@ -1070,29 +1056,19 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     string module;
 
     TQuery Qry(&OraSession);
-    if(TReqInfo::Instance()->desk.compatible(ARX_MODULE_LST_VERSION)) {
-        xmlNodePtr moduleNode = GetNode("module", reqNode);
-        if(not moduleNode)
-            ;
-        else if(NodeIsNULL(moduleNode))
-            module = SYSTEM_USER;
-        else {
-            Qry.SQLText = "select exe from screen where id = :module";
-            Qry.CreateVariable("module", otInteger, NodeAsInteger(moduleNode));
-            Qry.Execute();
-            if(!Qry.Eof) module = Qry.FieldAsString("exe");
-        }
-    } else {
-        module = NodeAsString("module", reqNode);
-        TQuery Qry(&OraSession);
-        Qry.SQLText = "select exe from screen where name = :module";
-        Qry.CreateVariable("module", otString, module);
+    xmlNodePtr moduleNode = GetNode("module", reqNode);
+    if(not moduleNode)
+        ;
+    else if(NodeIsNULL(moduleNode))
+        module = SYSTEM_USER;
+    else {
+        Qry.SQLText = "select exe from screen where id = :module";
+        Qry.CreateVariable("module", otInteger, NodeAsInteger(moduleNode));
         Qry.Execute();
         if(!Qry.Eof) module = Qry.FieldAsString("exe");
     }
 
     string agent, station;
-    if(TReqInfo::Instance()->desk.compatible(ARX_MODULE_LST_VERSION)) {
     xmlNodePtr agentNode = GetNode("agent", reqNode);
     if(not agentNode)
         ;
@@ -1108,10 +1084,6 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         station = SYSTEM_USER;
     else
         station = NodeAsString(stationNode);
-    } else {
-        agent = NodeAsString("agent", reqNode);
-        station = NodeAsString("station", reqNode);
-    }
 
     ProgTrace(TRACE5, "module: '%s'", module.c_str());
     ProgTrace(TRACE5, "agent: '%s'", agent.c_str());
@@ -2485,21 +2457,12 @@ void TStatParams::get(xmlNodePtr reqNode)
 
     bool all_seances_permit = info.user.access.rights().permitted(615);
 
-    if (info.desk.compatible(AIRL_AIRP_STAT_VERSION) or
-        info.client_type==ctHTTP)
+    if (info.user.user_type != utSupport && !all_seances_permit)
     {
-        if (info.user.user_type != utSupport && !all_seances_permit)
-        {
-            if (info.user.user_type == utAirline)
-                seance=seanceAirline;
-            else
-                seance=seanceAirport;
-        };
-    }
-    else
-    {
-        if (!ak.empty()) seance=seanceAirline;
-        if (!ap.empty()) seance=seanceAirport;
+      if (info.user.user_type == utAirline)
+        seance=seanceAirline;
+      else
+        seance=seanceAirport;
     };
 
     if (seance==seanceAirline)

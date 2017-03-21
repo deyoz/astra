@@ -586,12 +586,6 @@ bool compatibleLayer( ASTRA::TCompLayerType layer_type )
   if ( layer_type == cltDisable &&
        !TReqInfo::Instance()->desk.compatible( DISABLE_LAYERS ) )
     return false;
-  if ( ( layer_type == ASTRA::cltProtBeforePay ||
-         layer_type == ASTRA::cltProtAfterPay ||
-         layer_type == ASTRA::cltPNLBeforePay ||
-         layer_type == ASTRA::cltPNLAfterPay ) &&
-        !TReqInfo::Instance()->desk.compatible( PROT_PAID_VERSION ) )
-    return false;
   return true;
 }
 
@@ -9660,22 +9654,13 @@ bool _TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
       Qry.Execute();
       NewTextChild( passNode, "grp_id", ipass->grp_id );
       NewTextChild( passNode, "pax_id", ipass->pax_id );
-      if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
-        NewTextChild( passNode, "clname", ipass->cl, def.clname );
-        NewTextChild( passNode, "grp_layer_type",
-                      grp_status_row.layer_type,
-                      EncodeCompLayerType( def.grp_status ) );
-        NewTextChild( passNode, "pers_type",
-                      ElemIdToCodeNative(etPersType, ipass->pers_type),
-                      ElemIdToCodeNative(etPersType, def.pers_type) );
-
-      }
-      else {
-        NewTextChild( passNode, "clname", ipass->cl );
-        NewTextChild( passNode, "grp_layer_type",
-                      grp_status_row.layer_type );
-        NewTextChild( passNode, "pers_type", ipass->pers_type );
-      }
+      NewTextChild( passNode, "clname", ipass->cl, def.clname );
+      NewTextChild( passNode, "grp_layer_type",
+                    grp_status_row.layer_type,
+                    EncodeCompLayerType( def.grp_status ) );
+      NewTextChild( passNode, "pers_type",
+                    ElemIdToCodeNative(etPersType, ipass->pers_type),
+                    ElemIdToCodeNative(etPersType, def.pers_type) );
       NewTextChild( passNode, "reg_no", ipass->reg_no );
       string name = ipass->surname;
       NewTextChild( passNode, "name", TrimString( name ) + string(" ") + ipass->name );

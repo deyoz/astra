@@ -117,8 +117,7 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     NewTextChild( dataNode, "airline", ElemIdToCodeNative( etAirline, Salons.airline ) );
   if ( !Salons.airp.empty() )
     NewTextChild( dataNode, "airp", ElemIdToCodeNative( etAirp, Salons.airp ) );
-  if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-    NewTextChild( dataNode, "craft", ElemIdToCodeNative( etCraft, Salons.craft ) );
+  NewTextChild( dataNode, "craft", ElemIdToCodeNative( etCraft, Salons.craft ) );
   AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
 }
 
@@ -137,12 +136,8 @@ bool showComponAirpColumn()
   return r->user.user_type != utAirline &&
          (!r->user.access.airps().only_single_permit() ||
           (r->user.user_type == utSupport &&
-           ((r->user.access.airlines().only_single_permit() &&
-             r->user.access.airps().only_single_permit()) ||
-            (!r->desk.compatible(BASE_COMP_BUGFIX_VERSION) &&
-             r->user.access.airps().only_single_permit())
-           )
-          )
+           r->user.access.airlines().only_single_permit() &&
+           r->user.access.airps().only_single_permit())
          );
 }
 

@@ -575,6 +575,7 @@ class TPaxGrpItem
     boost::optional< WeightConcept::TPaidBagList > paid;
     boost::optional< TGroupBagItem > group_bag;
     boost::optional< TGrpServiceList > svc;
+    boost::optional< TServicePaymentList > payment;
     TPaxGrpItem()
     {
       clear();
@@ -606,11 +607,12 @@ class TPaxGrpItem
       paid=boost::none;
       group_bag=boost::none;
       svc=boost::none;
+      payment=boost::none;
     };
 
     const TPaxGrpItem& toXML(xmlNodePtr node) const;
     bool fromXML(xmlNodePtr node);
-    TPaxGrpItem& fromXMLadditional(xmlNodePtr node, bool is_unaccomp);
+    TPaxGrpItem& fromXMLadditional(xmlNodePtr node, xmlNodePtr firstSegNode, bool is_unaccomp);
     const TPaxGrpItem& toDB(TQuery &Qry) const;
     TPaxGrpItem& fromDB(TQuery &Qry);
     bool fromDB(int grp_id);
@@ -671,7 +673,6 @@ void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
 void SavePaxDoca(int pax_id, const std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry, bool new_checkin);
 
-std::string PaxDocCountryFromTerm(const std::string &doc_code);
 std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);
 
 bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs);

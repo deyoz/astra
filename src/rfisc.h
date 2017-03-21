@@ -536,6 +536,8 @@ class TGrpServiceList : public std::list<TGrpServiceItem>
                           int tckin_seg_count,
                           int trfer_seg_count);
     void getAllListItems();
+    static void clearDB(int grp_id);
+    static void copyDB(int grp_id_src, int grp_id_dest);
 };
 
 class TPaidRFISCStatus : public TPaxSegRFISCKey
@@ -592,6 +594,9 @@ class TPaidRFISCList : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
     boost::optional<TRFISCKey> getKeyIfSingleRFISC(int pax_id, const std::string &rfisc) const;
     void getAllListItems();
     void getStatusList(TPaidRFISCStatusList &list) const;
+    static void clearDB(int grp_id);
+    static void copyDB(int grp_id_src, int grp_id_dest);
+    static void updateExcess(int grp_id);
 };
 
 class TPaidRFISCViewKey : public TRFISCKey

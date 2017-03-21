@@ -1824,22 +1824,12 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     }
     if ( !tr->cfg.empty() ) {
         lNode = NewTextChild( tripNode, "classes" );
-        string str;
       for ( vector<TCFGItem>::iterator icfg=tr->cfg.begin(); icfg!=tr->cfg.end(); icfg++ ) {
-        if ( TReqInfo::Instance()->desk.compatible( LATIN_VERSION ) )
-          SetProp( NewTextChild( lNode, "class", ElemIdToCodeNative( etClass, icfg->cls ) ), "cfg", icfg->cfg );
-        else {
-          if ( !str.empty() )
-            str += " ";
-            str += ElemIdToCodeNative( etClass, icfg->cls ) + IntToString( icfg->cfg );
-        }
+        SetProp( NewTextChild( lNode, "class", ElemIdToCodeNative( etClass, icfg->cls ) ), "cfg", icfg->cfg );
       }
-      if ( !TReqInfo::Instance()->desk.compatible( LATIN_VERSION ) )
-        NodeSetContent( lNode, str );
     }
     else {
-      if ( TReqInfo::Instance()->desk.compatible( LATIN_VERSION ) &&
-           SALONS2::isFreeSeating( tr->point_id ) ) {
+      if ( SALONS2::isFreeSeating( tr->point_id ) ) {
         lNode = NewTextChild( tripNode, "pr_free_seating", "-" );
       }
     }

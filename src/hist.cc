@@ -274,32 +274,24 @@ void THistCacheTable::initFields()
             FField.ReferName == "CODE_LAT/CODE" )
         {
           FField.ElemCategory=cecCode;
-          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-            FField.ReferName="CODE";
         };
 
         if (FField.ReferName == "NAME/NAME_LAT" ||
             FField.ReferName == "NAME_LAT/NAME" )
         {
           FField.ElemCategory=cecName;
-          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-            FField.ReferName="NAME";
         };
 
         if (FField.ReferName == "SHORT_NAME/SHORT_NAME_LAT" ||
             FField.ReferName == "SHORT_NAME_LAT/SHORT_NAME" )
         {
           FField.ElemCategory=cecNameShort;
-          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-            FField.ReferName="SHORT_NAME";
         };
 
         if (FField.ReferName == "DESCR/DESCR_LAT" ||
             FField.ReferName == "DESCR_LAT/DESCR" )
         {
           FField.ElemCategory=cecNone;
-          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-            FField.ReferName="DESCR";
         };
 
         if ((code == "PROFILES" && FField.Name == "NAME") ||

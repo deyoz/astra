@@ -196,33 +196,6 @@ bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn)
   return !tkn.empty();
 };
 
-string PaxDocCountryToTerm(const string &pax_doc_country)
-{
-  if (TReqInfo::Instance()->client_type!=ASTRA::ctTerm ||
-      TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION) ||
-      pax_doc_country.empty())
-    return pax_doc_country;
-  else
-    return getBaseTable(etPaxDocCountry).get_row("code",pax_doc_country).AsString("country");
-};
-
-string PaxDocCountryFromTerm(const string &doc_code)
-{
-  if (TReqInfo::Instance()->client_type!=ASTRA::ctTerm ||
-      TReqInfo::Instance()->desk.compatible(SCAN_DOC_VERSION) ||
-      doc_code.empty())
-    return doc_code;
-  else
-    try
-    {
-      return getBaseTable(etPaxDocCountry).get_row("country",doc_code).AsString("code");
-    }
-    catch (EBaseTableError)
-    {
-      return "";
-    };
-};
-
 string PaxDocGenderNormalize(const string &pax_doc_gender)
 {
   if (pax_doc_gender.empty()) return "";
@@ -239,9 +212,9 @@ const TPaxDocItem& TPaxDocItem::toXML(xmlNodePtr node) const
   //документ
   xmlNodePtr docNode=NewTextChild(node,"document");
   NewTextChild(docNode, "type", type, "");
-  NewTextChild(docNode, "issue_country", PaxDocCountryToTerm(issue_country), "");
+  NewTextChild(docNode, "issue_country", issue_country, "");
   NewTextChild(docNode, "no", no, "");
-  NewTextChild(docNode, "nationality", PaxDocCountryToTerm(nationality), "");
+  NewTextChild(docNode, "nationality", nationality, "");
   if (birth_date!=ASTRA::NoExists)
     NewTextChild(docNode, "birth_date", DateTimeToStr(birth_date, ServerFormatDateTimeAsString));
   NewTextChild(docNode, "gender", gender, "");
@@ -263,9 +236,9 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   if (node2==NULL) return *this;
 
   type=NodeAsStringFast("type",node2,"");
-  issue_country=PaxDocCountryFromTerm(NodeAsStringFast("issue_country",node2,""));
+  issue_country=NodeAsStringFast("issue_country",node2,"");
   no=NodeAsStringFast("no",node2,"");
-  nationality=PaxDocCountryFromTerm(NodeAsStringFast("nationality",node2,""));
+  nationality=NodeAsStringFast("nationality",node2,"");
   if (!NodeIsNULLFast("birth_date",node2,true))
     birth_date = date_fromXML(NodeAsStringFast("birth_date",node2,""));
   gender=PaxDocGenderNormalize(NodeAsStringFast("gender",node2,""));
@@ -426,7 +399,7 @@ const TPaxDocoItem& TPaxDocoItem::toXML(xmlNodePtr node) const
     NewTextChild(docNode, "issue_date", DateTimeToStr(issue_date, ServerFormatDateTimeAsString));
   if (expiry_date!=ASTRA::NoExists)
     NewTextChild(docNode, "expiry_date", DateTimeToStr(expiry_date, ServerFormatDateTimeAsString));
-  NewTextChild(docNode, "applic_country", PaxDocCountryToTerm(applic_country), "");
+  NewTextChild(docNode, "applic_country", applic_country, "");
   NewTextChild(docNode, "scanned_attrs", scanned_attrs, (int)NO_FIELDS);
   return *this;
 };
@@ -449,7 +422,7 @@ TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
     issue_date = date_fromXML(NodeAsStringFast("issue_date",node2,""));
   if (!NodeIsNULLFast("expiry_date",node2,true))
     expiry_date=date_fromXML(NodeAsStringFast("expiry_date",node2,""));
-  applic_country=PaxDocCountryFromTerm(NodeAsStringFast("applic_country",node2,""));
+  applic_country=NodeAsStringFast("applic_country",node2,"");
   scanned_attrs=NodeAsIntegerFast("scanned_attrs",node2,NO_FIELDS);
   if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_CONFIRM_VERSION))
   {
@@ -576,7 +549,7 @@ const TPaxDocaItem& TPaxDocaItem::toXML(xmlNodePtr node) const
   if (node==NULL) return *this;
   xmlNodePtr docaNode=NewTextChild(node,"doca");
   NewTextChild(docaNode, "type", type);
-  NewTextChild(docaNode, "country", PaxDocCountryToTerm(country), "");
+  NewTextChild(docaNode, "country", country, "");
   NewTextChild(docaNode, "address", address, "");
   if (TReqInfo::Instance()->client_type!=ASTRA::ctTerm ||
       TReqInfo::Instance()->desk.compatible(APIS_CITY_REGION_VERSION))
@@ -606,7 +579,7 @@ TPaxDocaItem& TPaxDocaItem::fromXML(xmlNodePtr node)
   xmlNodePtr node2=node->children;
   if (node2==NULL) return *this;
   type=NodeAsStringFast("type",node2);
-  country=PaxDocCountryFromTerm(NodeAsStringFast("country",node2,""));
+  country=NodeAsStringFast("country",node2,"");
   address=NodeAsStringFast("address",node2,"");
   city=NodeAsStringFast("city",node2,"");
   region=NodeAsStringFast("region",node2,"");
@@ -1598,7 +1571,7 @@ bool TPaxGrpItem::fromXML(xmlNodePtr node)
   return true;
 };
 
-TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node, bool is_unaccomp)
+TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node, xmlNodePtr firstSegNode, bool is_unaccomp)
 {
   hall=ASTRA::NoExists;
   bag_refuse.clear();
@@ -1627,6 +1600,8 @@ TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node, bool is_unaccomp)
 
   svc=TGrpServiceList();
   if (!svc.get().fromXML(node)) svc=boost::none;
+
+  ServicePaymentFromXML(firstSegNode, id, is_unaccomp, baggage_pc, payment);
 
   return *this;
 };
