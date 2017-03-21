@@ -9187,7 +9187,7 @@ namespace KUF_STAT {
 
     class TFileType {
         public:
-            enum Enum {ftClose, ftTakeoff, ftPax};
+            enum Enum {ftClose, ftTakeoff, ftPax, ftUnknown};
 
             static const std::list< std::pair<Enum, std::string> >& pairs()
             {
@@ -9197,6 +9197,7 @@ namespace KUF_STAT {
                     l.push_back(std::make_pair(ftClose,     "cl"));
                     l.push_back(std::make_pair(ftTakeoff,   "cc"));
                     l.push_back(std::make_pair(ftPax,       "pax"));
+                    l.push_back(std::make_pair(ftUnknown,   "unknown"));
                 }
                 return l;
             }
@@ -10286,6 +10287,7 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
         for(
                 std::list< std::pair<KUF_STAT::TFileType::Enum, std::string> >::const_iterator iFTypes = KUF_STAT::TFileType::pairs().begin();
                 iFTypes != KUF_STAT::TFileType::pairs().end(); iFTypes++) {
+            if(iFTypes->first == KUF_STAT::TFileType::ftUnknown) continue;
             if(
                     files.find(iFTypes->first) == files.end() or
                     (stage != sTakeoff and iFTypes->first != KUF_STAT::TFileType::ftClose) or
@@ -10296,6 +10298,71 @@ void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
                 NewTextChild(itemNode, KUF_STAT::TFileTypes().encode(iFTypes->first).c_str(), files[iFTypes->first]);
         }
 
+    }
+}
+
+void TelegramInterface::kuf_file(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    try {
+        string uri_path = NodeAsString("uri_path", reqNode);
+        vector<string> items;
+        boost::split(items, uri_path, boost::is_any_of("/"));
+
+        if(items.size() != 5 or not items[0].empty())
+            throw Exception("kuf_file: wrong query format");
+        int qry_file_type = ToInt(items[1]);
+        TSearchFltInfo filter;
+        filter.airline = "ž’";
+        filter.flt_no = ToInt(items[2]);
+        filter.airp_dep = CKIN_REPORT::getElemId(etAirp, items[4]);
+
+        if(StrToDateTime(items[3].c_str(), "dd.mm.yy", filter.scd_out) == EOF)
+            throw Exception("kuf_file: can't convert scd_out: %s", items[3].c_str());
+        filter.scd_out_in_utc = true;
+        filter.only_with_reg = false;
+
+        list<TAdvTripInfo> flts;
+        SearchFlt(filter, flts);
+
+        TNearestDate nd(filter.scd_out);
+        for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
+            nd.sorted_points[i->scd_out] = i->point_id;
+        int point_id = nd.get();
+        if(point_id == NoExists)
+            throw Exception("kuf_file: flight not found");
+
+        TStage db_stage = sNoActive;
+        TTripStage ts;
+        TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
+        if(ts.act != NoExists) db_stage = sCloseCheckIn;
+        TTripStages::LoadStage(point_id, sTakeoff, ts);
+        if(ts.act != NoExists) db_stage = sTakeoff;
+
+        xmlNodePtr contentNode = NewTextChild(resNode, "content");
+
+        if(db_stage != sNoActive) {
+            KUF_STAT::TFileType::Enum file_type = KUF_STAT::TFileType::ftUnknown;
+            switch(qry_file_type) {
+                case 1:
+                    file_type = db_stage == sCloseCheckIn ? KUF_STAT::TFileType::ftClose : KUF_STAT::TFileType::ftTakeoff;
+                    break;
+                case 2:
+                    if(db_stage == sTakeoff)
+                        file_type = KUF_STAT::TFileType::ftPax;
+                    break;
+                default:
+                    throw Exception("kuf_file: unknown file type %d", qry_file_type);
+                    break;
+            }
+
+            if(file_type != KUF_STAT::TFileType::ftUnknown) {
+                string fname;
+                NodeSetContent(contentNode, KUF_STAT::fromDB(point_id, file_type, fname));
+                SetProp(contentNode, "b64", true);
+            }
+        }
+    } catch(const Exception &E) {
+        NewTextChild(resNode, "content", E.what());
     }
 }
 
