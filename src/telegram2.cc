@@ -9915,7 +9915,7 @@ namespace CKIN_REPORT {
         TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code",airline));
         SetProp(airlineNode, "code_iata", row.code_lat);
         NewTextChild(rootNode, "flt_no",  IntToString(flt_no) + suffix);
-        NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy"));
+        NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy hh:nn:ss"));
         xmlNodePtr paxNode = NewTextChild(rootNode, "passengers");
         if(pax_list.empty()) return;
 
@@ -10039,7 +10039,7 @@ namespace CKIN_REPORT {
         TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code",airline));
         SetProp(airlineNode, "code_iata", row.code_lat);
         NewTextChild(rootNode, "flt_no",  IntToString(flt_no) + suffix);
-        NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy"));
+        NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy hh:nn:ss"));
 
         string status;
         if(ft == KUF_STAT::TFileType::ftClose) status = "CL";
