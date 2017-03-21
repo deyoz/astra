@@ -1997,6 +1997,7 @@ static const string PARAM_RECEIVER_DESCR        = "receiver_descr";
 static const string PARAM_REG_TYPE              = "reg_type";
 static const string PARAM_SKIP_ROWS             = "skip_rows";
 static const string PARAM_ORDER_SOURCE          = "order_source";
+static const string PARAM_PR_PACTS              = "pr_pacts";
 
 struct TStatParams {
     string desk_city; // Используется в TReqInfo::Initialize(city) в фоновой статистике
@@ -2016,6 +2017,7 @@ struct TStatParams {
     string reg_type;
     bool order;
     bool skip_rows;
+    bool pr_pacts;
     void get(xmlNodePtr resNode);
     void toFileParams(map<string, string> &file_params) const;
     void fromFileParams(map<string, string> &file_params);
@@ -2049,6 +2051,7 @@ void TStatParams::fromFileParams(map<string, string> &file_params)
     receiver_descr = file_params[PARAM_RECEIVER_DESCR];
     reg_type = file_params[PARAM_REG_TYPE];
     skip_rows = ToInt(file_params[PARAM_SKIP_ROWS]);
+    pr_pacts = ToInt(file_params[PARAM_PR_PACTS]) != 0;
 }
 
 void TStatParams::toFileParams(map<string, string> &file_params) const
@@ -2084,6 +2087,7 @@ void TStatParams::toFileParams(map<string, string> &file_params) const
     file_params[PARAM_SKIP_ROWS] = IntToString(skip_rows);
 
     file_params[PARAM_ORDER_SOURCE] = EncodeOrderSource(osSTAT);
+    file_params[PARAM_PR_PACTS] = IntToString(pr_pacts);
 }
 
 string GetStatSQLText(const TStatParams &params, int pass)
@@ -2515,6 +2519,7 @@ void TStatParams::get(xmlNodePtr reqNode)
         ap.empty() and
         flt_no == NoExists and
         seance == seanceAll;
+    pr_pacts = false;
 };
 
 struct TInetStat {
@@ -3003,7 +3008,7 @@ struct TFullCmp {
 };
 typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
 
-
+// TODO переименовать здесь и всюду bool full в что-то типа override_MAX_STAT_ROWS
 template <class keyClass, class rowClass, class cmpClass>
 void AddStatRow(const keyClass &key, const rowClass &row, map<keyClass, rowClass, cmpClass> &stat, bool full = false)
 {
@@ -3019,7 +3024,7 @@ void AddStatRow(const keyClass &key, const rowClass &row, map<keyClass, rowClass
 
 void GetDetailStat(const TStatParams &params, TQuery &Qry,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
-                   TPrintAirline &airline, string pact_descr = "")
+                   TPrintAirline &airline, string pact_descr = "", bool full = false)
 {
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
@@ -3063,7 +3068,7 @@ void GetDetailStat(const TStatParams &params, TQuery &Qry,
           airline.check(key.col1);
       }
 
-      AddStatRow(key, row, DetailStat);
+      AddStatRow(key, row, DetailStat, full);
     }
     else
     {
@@ -3306,10 +3311,11 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
       for(TDetailStat::const_iterator si = DetailStat.begin(); si != DetailStat.end(); ++si, rows++)
       {
           if(rows >= MAX_STAT_ROWS) {
-              AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
+              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+              /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
                       LParams() << LParam("num", MAX_STAT_ROWS));
               if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-              break;
+              break;*/
           }
 
           rowNode = NewTextChild(rowsNode, "row");
@@ -3462,7 +3468,6 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
     }
 };
 
-/* GRISHA */
 void createXMLFullStat(const TStatParams &params,
                        const TFullStat &FullStat, const TFullStatRow &FullStatTotal,
                        const TPrintAirline &airline, xmlNodePtr resNode)
@@ -3661,7 +3666,7 @@ void createXMLFullStat(const TStatParams &params,
 
 void RunPactDetailStat(const TStatParams &params,
                        TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
-                       TPrintAirline &prn_airline)
+                       TPrintAirline &prn_airline, bool full = false)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3887,7 +3892,7 @@ void RunPactDetailStat(const TStatParams &params,
                         }
                     }
 
-                    AddStatRow(key, row, DetailStat);
+                    AddStatRow(key, row, DetailStat, full);
                 }
                 else
                 {
@@ -3900,7 +3905,7 @@ void RunPactDetailStat(const TStatParams &params,
 
 void RunDetailStat(const TStatParams &params,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
-                   TPrintAirline &airline)
+                   TPrintAirline &airline, bool full = false)
 {
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
@@ -3927,7 +3932,7 @@ void RunDetailStat(const TStatParams &params,
                                             i!=params.airlines.elems().end(); i++)
             {
               Qry.SetVariable("ak",*i);
-              GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline);
+              GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "", full);
             };
           };
           continue;
@@ -3942,14 +3947,112 @@ void RunDetailStat(const TStatParams &params,
                                             i!=params.airps.elems().end(); i++)
             {
               Qry.SetVariable("ap",*i);
-              GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline);
+              GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "", full);
             };
           };
           continue;
         };
-        GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline);
+        GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "", full);
     }
 };
+
+struct TDetailStatCombo : public TOrderStatItem
+{
+    typedef std::pair<TDetailStatKey, TDetailStatRow> Tdata;
+    Tdata data;
+    TStatParams params;
+    bool pr_pact;
+    TDetailStatCombo(const Tdata &aData, const TStatParams &aParams)
+        : data(aData), params(aParams), pr_pact(aParams.pr_pacts) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TDetailStatCombo::add_header(ostringstream &buf) const
+{
+    if(params.statType != statPactShort)
+    {
+        if (params.airp_column_first)
+        {
+            buf << "Код а/п" << delim;
+            if (params.statType==statDetail)
+                buf << "Код а/к" << delim;
+        } else {
+            buf << "Код а/к" << delim;
+            if (params.statType==statDetail)
+                buf << "Код а/п" << delim;
+        }
+    }
+    if(params.statType != statPactShort)
+        buf << "Кол-во рейсов" << delim;
+    if(params.statType == statPactShort)
+        buf << "№ договора" << delim;
+    buf << "Кол-во пасс." << delim;
+    if (params.statType != statPactShort)
+    {
+        buf << "П" << delim;
+        buf << "Б" << delim;
+        buf << "Э" << delim;
+        /* TInetStat::toXML begin */
+        buf << "Web" << delim;
+        buf << "БГ" << delim;
+        buf << "ПТ" << delim;
+        buf << "Киоски" << delim;
+        buf << "БГ" << delim;
+        buf << "ПТ" << delim;
+        buf << "Моб." << delim;
+        buf << "БГ" << delim;
+        buf << "ПТ" << delim;
+        /* end */
+    }
+    if(pr_pact and params.statType != statPactShort)
+        buf << "№ договора" << delim;
+    buf << endl; /* остаётся пустой столбец */
+}
+
+void TDetailStatCombo::add_data(ostringstream &buf) const
+{
+    if(params.statType != statPactShort)
+        buf << data.first.col1 << delim; // col1
+    if (params.statType == statDetail)
+        buf << data.first.col2 << delim; // col2
+    if(params.statType != statPactShort)    
+        buf << (int)(pr_pact ? data.second.flts.size() : data.second.flt_amount) << delim; // Кол-во рейсов
+    if(params.statType == statPactShort)
+        buf << data.first.pact_descr << delim; // № договора
+    buf << data.second.pax_amount << delim; // Кол-во пасс.
+    if (params.statType != statPactShort)
+    {
+        buf << data.second.f << delim; // П
+        buf << data.second.c << delim; // Б
+        buf << data.second.y << delim; // Э  
+        buf << data.second.i_stat.web << delim; // Web
+        buf << data.second.i_stat.web_bag << delim; // БГ
+        buf << data.second.i_stat.web_bp << delim; // ПТ
+        buf << data.second.i_stat.kiosk << delim; // Киоски
+        buf << data.second.i_stat.kiosk_bag << delim; // БГ
+        buf << data.second.i_stat.kiosk_bp << delim; // ПТ
+        buf << data.second.i_stat.mobile << delim; // Моб.
+        buf << data.second.i_stat.mobile_bag << delim; // БГ
+        buf << data.second.i_stat.mobile_bp << delim; // ПТ
+    }
+    if(pr_pact and params.statType != statPactShort)
+        buf << data.first.pact_descr << delim; // № договора
+    buf << endl; /* остаётся пустой столбец */
+}
+
+template <class T>
+void RunDetailStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TDetailStat DetailStat;
+    TDetailStatRow DetailStatTotal;
+    if(params.pr_pacts)
+        RunPactDetailStat(params, DetailStat, DetailStatTotal, prn_airline, true);
+    else
+        RunDetailStat(params, DetailStat, DetailStatTotal, prn_airline, true);
+    for (TDetailStat::const_iterator i = DetailStat.begin(); i != DetailStat.end(); ++i)
+        writer.insert(TDetailStatCombo(*i, params));
+}
 
 void RunFullStat(const TStatParams &params,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
@@ -4008,7 +4111,6 @@ void RunFullStat(const TStatParams &params,
     }
 };
 
-/* GRISHA */
 struct TFullStatCombo : public TOrderStatItem
 {
     typedef std::pair<TFullStatKey, TFullStatRow> Tdata;
@@ -4034,17 +4136,20 @@ void TFullStatCombo::add_header(ostringstream &buf) const
     buf << "Дата" << delim;
     buf << "Направление" << delim;
     buf << "Кол-во пасс." << delim;
-    /* TInetStat::toXML begin */
-    buf << "Web" << delim;
-    buf << "БГ" << delim;
-    buf << "ПТ" << delim;
-    buf << "Киоски" << delim;
-    buf << "БГ" << delim;
-    buf << "ПТ" << delim;
-    buf << "Моб." << delim;
-    buf << "БГ" << delim;
-    buf << "ПТ" << delim;
-    /* end */
+    if (params.statType==statFull)
+    {    
+        /* TInetStat::toXML begin */
+        buf << "Web" << delim;
+        buf << "БГ" << delim;
+        buf << "ПТ" << delim;
+        buf << "Киоски" << delim;
+        buf << "БГ" << delim;
+        buf << "ПТ" << delim;
+        buf << "Моб." << delim;
+        buf << "БГ" << delim;
+        buf << "ПТ" << delim;
+        /* end */
+    }
     buf << "ВЗ" << delim;
     buf << "РБ" << delim;
     buf << "РМ" << delim;
@@ -4066,15 +4171,18 @@ void TFullStatCombo::add_data(ostringstream &buf) const
     buf << DateTimeToStr(UTCToClient(data.first.scd_out, region), "dd.mm.yy") << delim; // Дата
     buf << data.first.places.get() << delim; // Направление
     buf << data.second.pax_amount << delim; // Кол-во пасс.
-    buf << data.second.i_stat.web << delim; // Web
-    buf << data.second.i_stat.web_bag << delim; // БГ
-    buf << data.second.i_stat.web_bp << delim; // ПТ
-    buf << data.second.i_stat.kiosk << delim; // Киоски
-    buf << data.second.i_stat.kiosk_bag << delim; // БГ
-    buf << data.second.i_stat.kiosk_bp << delim; // ПТ
-    buf << data.second.i_stat.mobile << delim; // Моб.
-    buf << data.second.i_stat.mobile_bag << delim; // БГ
-    buf << data.second.i_stat.mobile_bp << delim; // ПТ
+    if (params.statType==statFull)
+    {    
+        buf << data.second.i_stat.web << delim; // Web
+        buf << data.second.i_stat.web_bag << delim; // БГ
+        buf << data.second.i_stat.web_bp << delim; // ПТ
+        buf << data.second.i_stat.kiosk << delim; // Киоски
+        buf << data.second.i_stat.kiosk_bag << delim; // БГ
+        buf << data.second.i_stat.kiosk_bp << delim; // ПТ
+        buf << data.second.i_stat.mobile << delim; // Моб.
+        buf << data.second.i_stat.mobile_bag << delim; // БГ
+        buf << data.second.i_stat.mobile_bp << delim; // ПТ
+    }
     buf << data.second.adult << delim; // ВЗ
     buf << data.second.child << delim; // РБ
     buf << data.second.baby << delim; // РМ
@@ -4617,77 +4725,94 @@ void createXMLSelfCkinStat(const TStatParams &params,
     NewTextChild(variablesNode, "stat_type_caption", buf);
 }
 
-/* GRISHA */
 struct TSelfCkinStatCombo : public TOrderStatItem
 {
     std::pair<TSelfCkinStatKey, TSelfCkinStatRow> data;
-    TStatType statType;
+    TStatParams params;
     TSelfCkinStatCombo(const std::pair<TSelfCkinStatKey, TSelfCkinStatRow> &aData,
-        const TStatParams &aParams): data(aData), statType(aParams.statType) {}
+        const TStatParams &aParams): data(aData), params(aParams) {}
     void add_header(ostringstream &buf) const;
     void add_data(ostringstream &buf) const;
 };
 
 void TSelfCkinStatCombo::add_header(ostringstream &buf) const
 {
-    buf
-        << "Тип рег." << delim
-        << "Пульт" << delim
-        << "АП пульта" << delim
-        << "Примечание" << delim
-        << "Код а/к" << delim
-        << "Код а/п" << delim
-        << "Номер рейса" << delim
-        << "Дата" << delim
-        << "Направление" << delim
-        << "Пас." << delim
-        << "БГ" << delim
-        << "ПТ" << delim
-        << "Всё сами" << delim
-        << "ВЗ" << delim
-        << "РБ" << delim
-        << "РМ" << delim
-        << "Сквоз." << endl;
+    buf << "Тип рег." << delim;
+    buf << "Пульт" << delim;
+    buf << "АП пульта" << delim;
+    if (params.statType == statSelfCkinFull)
+        buf << "Примечание" << delim;
+    buf << "Код а/к" << delim;
+    if (params.statType == statSelfCkinDetail or params.statType == statSelfCkinFull)
+        buf << "Код а/п" << delim;
+    if (params.statType == statSelfCkinShort or params.statType == statSelfCkinDetail)
+        buf << "Кол-во рейсов" << delim;
+    if (params.statType == statSelfCkinFull)
+    {
+        buf << "Номер рейса" << delim;
+        buf << "Дата" << delim;
+        buf << "Направление" << delim;
+    }
+    buf << "Пас." << delim;
+    buf << "БГ" << delim;
+    buf << "ПТ" << delim;
+    buf << "Всё сами" << delim;
+    if (params.statType == statSelfCkinFull)
+    {
+        buf << "ВЗ" << delim;
+        buf << "РБ" << delim;
+        buf << "РМ" << delim;
+    }
+    if (params.statType == statSelfCkinDetail or params.statType == statSelfCkinFull)
+        buf << "Сквоз." << delim;
+    if (params.statType == statSelfCkinShort or params.statType == statSelfCkinDetail)
+        buf << "Примечание" << delim;
+    buf << endl;
 }
 
 void TSelfCkinStatCombo::add_data(ostringstream &buf) const
 {
     string region;
-    try { region = AirpTZRegion(data.first.ap); }
-    catch(AstraLocale::UserException &E) { return; };
-        // Тип рег.
-    buf <<  data.first.client_type << delim
-        // Пульт
-        <<  data.first.desk << delim
-        // А/П пульта
-        <<  data.first.desk_airp << delim
-        // примечание
-        <<  data.first.descr << delim
-        // код а/к
-        <<  data.first.ak << delim
-        // код а/п
-        << ElemIdToCodeNative(etAirp, data.first.ap) << delim;
-        // номер рейса
+    if (params.statType == statSelfCkinFull)
+    {
+        try { region = AirpTZRegion(data.first.ap); }
+        catch(AstraLocale::UserException &E) { return; };
+    }
+    buf << data.first.client_type << delim; // Тип рег.
+    buf << data.first.desk << delim; // Пульт
+    buf << data.first.desk_airp << delim; // А/П пульта
+    if (params.statType == statSelfCkinFull)
+        buf << data.first.descr << delim; // примечание
+    buf << data.first.ak << delim; // код а/к
+    if (params.statType == statSelfCkinDetail or params.statType == statSelfCkinFull)
+        buf << ElemIdToCodeNative(etAirp, data.first.ap) << delim; // код а/п
+    if (params.statType == statSelfCkinShort or params.statType == statSelfCkinDetail)        
+        buf << (int)data.second.flts.size() << delim; // Кол-во рейсов
+    if (params.statType == statSelfCkinFull)
+    {
         ostringstream oss1;
         oss1 << setw(3) << setfill('0') << data.first.flt_no;
-    buf <<  oss1.str() << delim
-        // Дата
-        <<  DateTimeToStr(UTCToClient(data.first.scd_out, region), "dd.mm.yy") << delim
-        // Направление
-        <<  data.first.places.get() << delim
-        // Кол-во пасс.
-        <<  data.second.pax_amount << delim
-        <<  data.second.term_bag << delim
-        <<  data.second.term_bp << delim
-        <<  (data.second.pax_amount - data.second.term_ckin_service) << delim
-        // ВЗ
-        <<  data.second.adult << delim
-        // РБ
-        <<  data.second.child << delim
-        // РМ
-        <<  data.second.baby << delim
-        // Сквоз. рег.
-        <<  data.second.tckin << endl;
+        buf << oss1.str() << delim; // номер рейса
+        buf << DateTimeToStr(UTCToClient(data.first.scd_out, region), "dd.mm.yy")
+         << delim; // Дата
+        buf << data.first.places.get() << delim; // Направление
+    }
+    buf << data.second.pax_amount << delim; // Кол-во пасс.
+    buf << data.second.term_bag << delim; // БГ
+    buf << data.second.term_bp << delim; // ПТ
+    buf << (data.second.pax_amount - data.second.term_ckin_service)
+     << delim; // Всё сами
+    if (params.statType == statSelfCkinFull)
+    {
+        buf << data.second.adult << delim; // ВЗ
+        buf << data.second.child << delim; // РБ
+        buf << data.second.baby << delim; // РМ
+    }
+    if (params.statType == statSelfCkinDetail or params.statType == statSelfCkinFull)
+        buf << data.second.tckin << delim; // Сквоз. рег.
+    if (params.statType == statSelfCkinShort or params.statType == statSelfCkinDetail)
+        buf << data.first.descr << delim; // примечание
+    buf << endl;
 }
 
 template <class T>
@@ -5109,82 +5234,81 @@ void createXMLTlgOutStat(const TStatParams &params,
     NewTextChild(variablesNode, "stat_type_caption", stat_type_caption);
 }
 
-/* GRISHA */
 struct TTlgOutStatCombo : public TOrderStatItem
 {
     std::pair<TTlgOutStatKey, TTlgOutStatRow> data;
-    TStatType statType;
+    TStatParams params;
     TTlgOutStatCombo(const std::pair<TTlgOutStatKey, TTlgOutStatRow> &aData,
-        const TStatParams &aParams): data(aData), statType(aParams.statType) {}
+        const TStatParams &aParams): data(aData), params(aParams) {}
     void add_header(ostringstream &buf) const;
     void add_data(ostringstream &buf) const;
 };
 
 void TTlgOutStatCombo::add_header(ostringstream &buf) const
 {
-    buf
-        << "Адрес отпр." << delim
-        << "Канал" << delim
-        << "Адрес получ." << delim
-        << "Гос-во" << delim
-        << "Дата отпр." << delim
-        << "А/к факт." << delim
-        << "А/к комм." << delim
-        << "Код а/п" << delim
-        << "Тип тлг." << delim
-        << "Дата вылета" << delim
-        << "Рейс" << delim
-        << "Кол-во" << delim
-        << "Объем (байт)" << delim
-        << "№ договора"
-        << endl;
+    buf << "Адрес отпр." << delim;
+    buf << "Канал" << delim;
+    if (params.statType == statTlgOutFull)
+        buf << "Адрес получ." << delim;
+    buf << "Гос-во" << delim;
+    if (params.statType == statTlgOutFull)
+        buf << "Дата отпр." << delim;
+    if (params.statType == statTlgOutDetail || params.statType == statTlgOutFull)
+    {
+        buf << "А/к факт." << delim;
+        buf << "А/к комм." << delim;
+        buf << "Код а/п" << delim;
+    }
+    if (params.statType == statTlgOutFull)
+    {
+        buf << "Тип тлг." << delim;
+        buf << "Дата вылета" << delim;
+        buf << "Рейс" << delim;
+    }
+    buf << "Кол-во" << delim;
+    buf << "Объем (байт)" << delim;
+    buf << "№ договора" << endl;
 }
 
 void TTlgOutStatCombo::add_data(ostringstream &buf) const
 {
-    buf
-        // Адрес отпр.
-        << data.first.sender_sita_addr << delim
-        // Канал
-        << data.first.receiver_descr << delim
-        // Адрес получ.
-        << data.first.receiver_sita_addr << delim
-        // Гос-во
-        << data.first.receiver_country_view << delim;
-        // Дата отпр.
-        if (data.first.time_send!=NoExists)
-            buf << DateTimeToStr(data.first.time_send, "dd.mm.yy");
-    buf << delim
-        // А/к факт.
-        << data.first.airline_view << delim
-        // А/к комм.
-        << data.first.airline_mark_view << delim
-        // Код а/п
-        << data.first.airp_dep_view << delim
-        // Тип тлг.
-        << data.first.tlg_type << delim;
-        // Дата вылета
-        if (data.first.scd_local_date!=NoExists)
-            buf << DateTimeToStr(data.first.scd_local_date, "dd.mm.yy");
-    buf << delim;
-        // Рейс
-        if (data.first.flt_no!=NoExists)
+    buf << data.first.sender_sita_addr << delim; // Адрес отпр.
+    buf << data.first.receiver_descr << delim; // Канал
+    if (params.statType == statTlgOutFull)
+        buf << data.first.receiver_sita_addr << delim; // Адрес получ.
+    buf << data.first.receiver_country_view << delim; // Гос-во
+    if (params.statType == statTlgOutFull)
+    {
+        if (data.first.time_send != NoExists)
+            buf << DateTimeToStr(data.first.time_send, "dd.mm.yy"); // Дата отпр.
+        buf << delim;
+    }
+    if (params.statType == statTlgOutDetail || params.statType == statTlgOutFull)
+    {
+        buf << data.first.airline_view << delim; // А/к факт.
+        buf << data.first.airline_mark_view << delim; // А/к комм.
+        buf << data.first.airp_dep_view << delim; // Код а/п
+    }
+    if (params.statType == statTlgOutFull)
+    {
+        buf << data.first.tlg_type << delim; // Тип тлг.
+        if (data.first.scd_local_date != NoExists)
+            buf << DateTimeToStr(data.first.scd_local_date, "dd.mm.yy"); // Дата вылета
+        buf << delim;
+        if (data.first.flt_no != NoExists)
         {
             ostringstream oss1;
-            oss1 << setw(3) << setfill('0') << data.first.flt_no
-                  << data.first.suffix_view;
-            buf << oss1.str();
+            oss1 << setw(3) << setfill('0')
+             << data.first.flt_no << data.first.suffix_view;
+            buf << oss1.str(); // Рейс
         }
-    buf << delim
-        // Кол-во
-        << data.second.tlg_count << delim;
-        // Объем (байт)
-        ostringstream oss2;
-        oss2 << fixed << setprecision(0) << data.second.tlg_len;
-        buf << oss2.str() << delim
-        // № договора
-        << data.first.extra
-        << endl;
+        buf << delim;
+    }
+    buf << data.second.tlg_count << delim; // Кол-во
+    ostringstream oss2;
+    oss2 << fixed << setprecision(0) << data.second.tlg_len;
+    buf << oss2.str() << delim; // Объем (байт)
+    buf << data.first.extra << endl; // № договора
 }
 
 template <class T>
@@ -5295,7 +5419,7 @@ typedef map<TAgentStatKey, TAgentStatRow, TAgentCmp> TAgentStat;
 
 void RunAgentStat(const TStatParams &params,
                   TAgentStat &AgentStat, TAgentStatRow &AgentStatTotal,
-                  TPrintAirline &prn_airline)
+                  TPrintAirline &prn_airline, bool override_max_rows = false)
 {
     TQuery Qry(&OraSession);
     for(int pass = 0; pass <= 1; pass++) {
@@ -5475,7 +5599,7 @@ void RunAgentStat(const TStatParams &params,
                     key.user_descr = Qry.FieldAsString(col_user_descr);
                 }
 
-                AddStatRow(key, row, AgentStat);
+                AddStatRow(key, row, AgentStat, override_max_rows);
               }
               else
               {
@@ -5507,10 +5631,11 @@ void createXMLAgentStat(const TStatParams &params,
       for(TAgentStat::const_iterator im = AgentStat.begin(); im != AgentStat.end(); ++im, rows++)
       {
         if(rows >= MAX_STAT_ROWS) {
-            AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
+            throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+            /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
                                           LParams() << LParam("num", MAX_STAT_ROWS));
             if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-            break;
+            break;*/
         }
         TDateTime scd_out_local=im->first.scd_out_local;
         if(
@@ -5746,6 +5871,114 @@ void createXMLAgentStat(const TStatParams &params,
             break;
     }
     NewTextChild(variablesNode, "stat_type_caption", buf);
+}
+
+struct TAgentStatCombo : public TOrderStatItem
+{
+    typedef std::pair<TAgentStatKey, TAgentStatRow> Tdata;
+    Tdata data;
+    TStatParams params;
+    TAgentStatCombo(const Tdata &aData, const TStatParams &aParams)
+        : data(aData), params(aParams) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TAgentStatCombo::add_header(ostringstream &buf) const
+{
+    if (params.statType == statAgentFull or params.statType == statAgentShort)
+    {
+        buf << "Рейс" << delim;
+        buf << "Дата" << delim;
+    }
+    if (params.statType == statAgentFull)
+        buf << "Стойка" << delim;
+    if (params.statType == statAgentFull or params.statType == statAgentTotal)
+        buf << "Агент" << delim;
+    if (params.statType == statAgentTotal)
+    {
+        buf << "Пас." << delim;
+        buf << "Сквоз." << delim;
+        buf << "Баг." << delim;
+        buf << "Р/к" << delim;
+    }
+    else
+    {
+        buf << "Пас. (+)" << delim;
+        buf << "Пас. (-)" << delim;
+        buf << "Сквоз.(+)" << delim;
+        buf << "Сквоз.(-)" << delim;
+        buf << "Баг. (+)" << delim;
+        buf << "Баг. (-)" << delim;
+        buf << "Р/к (+)" << delim;
+        buf << "Р/к (-)" << delim;
+        buf << "Сек./пас." << delim;
+    }
+    buf << endl;
+}
+
+void TAgentStatCombo::add_data(ostringstream &buf) const
+{
+    TDateTime scd_out_local = data.first.scd_out_local;
+    if (scd_out_local == NoExists)
+    try { scd_out_local = UTCToClient(data.first.scd_out, AirpTZRegion(data.first.airp)); }
+    catch(AstraLocale::UserException &E)
+    {
+        AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN",
+            LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
+        return;
+    };
+    ostringstream oss;
+    if (params.statType == statAgentFull or params.statType == statAgentShort)
+    {
+        oss << data.first.airline_view
+            << setw(3) << setfill('0') << data.first.flt_no
+            << data.first.suffix_view << " "
+            << data.first.airp_view;
+        buf << oss.str() << delim; // Код а/к
+        buf << DateTimeToStr( scd_out_local, "dd.mm.yy") << delim; // Дата
+    }
+    if (params.statType == statAgentFull)
+        buf << data.first.desk << delim; // Пульт
+    if (params.statType == statAgentFull or params.statType == statAgentTotal)
+        buf << data.first.user_descr << delim; // Пользователь
+    if (params.statType == statAgentTotal)
+    {
+        buf << data.second.dpax_amount.inc << delim; // Кол-во пасс.
+        buf << data.second.dtckin_amount.inc << delim; // Кол-во сквоз.
+        buf <<  IntToString(data.second.dbag_amount.inc) + "/" +
+                IntToString(data.second.dbag_weight.inc) << delim; // Багаж (мест/вес)
+        buf << data.second.drk_weight.inc << delim; // Р/кладь (вес)
+    }
+    else
+    {
+        buf << data.second.dpax_amount.inc << delim; // Кол-во пасс. (+)
+        buf << -data.second.dpax_amount.dec << delim; // Кол-во пасс. (-)
+        buf << data.second.dtckin_amount.inc << delim; // Кол-во сквоз. (+)
+        buf << -data.second.dtckin_amount.dec << delim; // Кол-во сквоз. (-)
+        buf <<  IntToString(data.second.dbag_amount.inc) + "/" +
+                IntToString(data.second.dbag_weight.inc) << delim; // Багаж (мест/вес) (+)
+        buf <<  IntToString(-data.second.dbag_amount.dec) + "/" +
+                IntToString(-data.second.dbag_weight.dec) << delim; // Багаж (мест/вес) (-)
+        buf << data.second.drk_weight.inc << delim; // Р/кладь (вес) (+)
+        buf << -data.second.drk_weight.dec << delim; // Р/кладь (вес) (-)
+        oss.str("");
+        if (data.second.processed_pax!=0)
+            oss << fixed << setprecision(2) << data.second.time / data.second.processed_pax;
+        else
+            oss << fixed << setprecision(2) << 0.0;
+        buf << oss.str() << delim; // Среднее время, затраченное на пассажира
+    }
+}
+
+template <class T>
+void RunAgentStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TAgentStat AgentStat;
+    TAgentStatRow AgentStatTotal;
+    RunAgentStat(params, AgentStat, AgentStatTotal, prn_airline, true);
+    for(TAgentStat::const_iterator im = AgentStat.begin(); im != AgentStat.end(); ++im)
+        writer.insert(TAgentStatCombo(*im, params));
 }
 
 /****************** end of AgentStat ******************/
@@ -7770,7 +8003,6 @@ void createXMLAnnulBTStat(
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
 }
 
-/* GRISHA */
 struct TAnnulBTStatCombo : public TOrderStatItem
 {
     TAnnulBTStatRow data;
@@ -7876,7 +8108,6 @@ void RunAnnulBTStatFile(const TStatParams &params, T &writer, TPrintAirline &prn
 }
 
 //---------------------------------------//
-/* GRISHA */
 struct TLimitedCapabStat {
     typedef map<string, int> TRems;
     typedef map<string, TRems> TAirpArv;
@@ -8056,7 +8287,6 @@ void createXMLLimitedCapabStat(const TStatParams &params, const TLimitedCapabSta
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
 }
 
-/* GRISHA */
 struct TLimitedCapabStatCombo : public TOrderStatItem
 {
     typedef std::pair<TFlight, TLimitedCapabStat::TAirpArv> Tdata;
@@ -8910,10 +9140,21 @@ void create_plain_files(
             RunAnnulBTStatFile(params, order_writer, airline);
             break;
         case statFull:
+        case statTrferFull:
             RunFullStatFile(params, order_writer, airline);
             break;
         case statLimitedCapab:
             RunLimitedCapabStatFile(params, order_writer, airline);
+            break;
+        case statAgentShort:
+        case statAgentFull:
+        case statAgentTotal:
+            RunAgentStatFile(params, order_writer, airline);
+            break;
+        case statShort:
+        case statDetail:
+        case statPactShort:
+            RunDetailStatFile(params, order_writer, airline);
             break;
         default:
             throw Exception("unsupported statType %d", params.statType);
@@ -9222,22 +9463,22 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     {
         if (params.statType==statShort || params.statType==statDetail || params.statType == statPactShort)
         {
-            bool pr_pacts =
+            params.pr_pacts =
                 reqInfo->user.access.rights().permitted(605) and params.seance == seanceAll;
 
-            if(not pr_pacts and params.statType == statPactShort)
+            if(not params.pr_pacts and params.statType == statPactShort)
                 throw UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
 
             TDetailStat DetailStat;
             TDetailStatRow DetailStatTotal;
             TPrintAirline airline;
 
-            if (pr_pacts)
+            if (params.pr_pacts)
                 RunPactDetailStat(params, DetailStat, DetailStatTotal, airline);
             else
                 RunDetailStat(params, DetailStat, DetailStatTotal, airline);
 
-            createXMLDetailStat(params, pr_pacts, DetailStat, DetailStatTotal, airline, resNode);
+            createXMLDetailStat(params, params.pr_pacts, DetailStat, DetailStatTotal, airline, resNode);
         };
         if (params.statType==statFull || params.statType==statTrferFull)
         {
