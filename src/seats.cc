@@ -2794,7 +2794,7 @@ class AnomalisticConditionsPayment
       for ( int i=0; i<passengers.getCount(); i++ ) {
         TPassenger &pass = passengers.Get( i );
         ProgTrace( TRACE5, "pass.preseatPlaces.size()=%zu", pass.preseatPlaces.size() );
-        if ( pass.preseatPlaces.empty() ) {
+        if ( pass.preseatPlaces.empty() || pass.dont_check_payment ) {
           tst();
           continue;
         }
