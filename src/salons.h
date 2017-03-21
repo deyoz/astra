@@ -425,7 +425,7 @@ struct TSeatLayer {
   }
   bool operator == (const TSeatLayer &seatLayer) const {
     return equal( seatLayer );
-  };
+  }
   bool operator != (const TSeatLayer &seatLayer) const {
     return !equal( seatLayer );
   }
@@ -439,7 +439,7 @@ struct TSeatLayer {
     crs_pax_id = ASTRA::NoExists;
     time_create = ASTRA::NoExists;
     inRoute = true;
-  };
+  }
   int getPaxId() const {
     if ( pax_id != ASTRA::NoExists )
       return pax_id;
@@ -452,7 +452,7 @@ struct TSeatLayer {
 
 inline int SIGND( TDateTime a ) {
     return (a > 0.0) - (a < 0.0);
-};
+}
 
 bool compareSeatLayer( const TSeatLayer &layer1, const TSeatLayer &layer2 );
 

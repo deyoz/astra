@@ -2489,17 +2489,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   SQry.DeclareVariable( "pax_row", otInteger );
   SQry.DeclareVariable( "crs_row", otInteger );
   SQry.DeclareVariable( "seat_no", otString );
-  // старые места пассажира
-  TQuery QrySeat( &OraSession );
-  QrySeat.SQLText =
-    "SELECT first_xname, first_yname, layer_type FROM trip_comp_layers, comp_layer_types "
-    " WHERE point_id=:point_id AND "
-    "       pax_id=:pax_id AND "
-    "       trip_comp_layers.layer_type=comp_layer_types.code AND "
-    "       comp_layer_types.pr_occupy=1 "
-    "ORDER BY priority ASC, time_create DESC";
-  QrySeat.CreateVariable( "point_id", otInteger, point_id );
-  QrySeat.DeclareVariable( "pax_id", otInteger );
 
   //рейс пассажиров
   TQuery TlgTripsQry( &OraSession );
