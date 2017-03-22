@@ -314,7 +314,9 @@ class TAccess {
     void fromDB(int user_id, TUserType user_type);
     void toXML(xmlNodePtr accessNode);
     void fromXML(xmlNodePtr accessNode);
+    bool check_profile_by_crs_pax(int pax_id, int right_id);
     bool check_profile(int point_id, int right_id);
+    bool check_profile(const std::string &airp, const std::string &airline, int right_id);
 };
 
 class TUserSettings {

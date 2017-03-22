@@ -1570,7 +1570,7 @@ void CheckResetLayer( TCompLayerType &layer_type, int crs_pax_id )
   if ( layer_type_out == cltProtAfterPay || layer_type_out == cltPNLAfterPay ) {
     //проверка прав изменения платного слоя
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if ( !reqInfo->user.access.rights().permitted(193) ) {
+    if ( !reqInfo->user.access.check_profile_by_crs_pax(crs_pax_id, 193) ) {
       throw UserException( "MSG.SEATS.CHANGE_PAY_SEATS_DENIED" );
     }
     layer_type = layer_type_out;
