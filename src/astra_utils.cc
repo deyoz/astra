@@ -474,19 +474,17 @@ TProfiledRights::TProfiledRights(int point_id)
     fromDB(flt.airline, flt.airp);
 }
 
-bool TAccess::check_profile(int point_id, int right_id)
+bool TAccess::check_profile(const string &airp, const string &airline, int right_id)
 {
     bool result = true;
-    TTripInfo flt;
-    flt.getByPointId(point_id);
     TCachedQuery Qry(
             "select profile_id from airline_profiles where "
             "   airline = :airline and "
             "   (airp is null or airp = :airp) "
             "order by airp nulls last ",
             QParams()
-            << QParam("airline", otString, flt.airline)
-            << QParam("airp", otString, flt.airp));
+            << QParam("airline", otString, airline)
+            << QParam("airp", otString, airp));
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         TCachedQuery rightQry(
@@ -502,6 +500,20 @@ bool TAccess::check_profile(int point_id, int right_id)
     }
     if(result) result = TReqInfo::Instance()->user.access.rights().permitted(right_id);
     return result;
+}
+
+bool TAccess::check_profile_by_crs_pax(int pax_id, int right_id)
+{
+    TTripInfo flt;
+    flt.getByCRSPaxId(pax_id);
+    return check_profile(flt.airp, flt.airline, right_id);
+}
+
+bool TAccess::check_profile(int point_id, int right_id)
+{
+    TTripInfo flt;
+    flt.getByPointId(point_id);
+    return check_profile(flt.airp, flt.airline, right_id);
 }
 
 void TAccess::fromDB(int user_id, TUserType user_type)
