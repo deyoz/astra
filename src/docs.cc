@@ -1394,7 +1394,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
     TDateTime takeoff = NoExists;
     if(not Qry.FieldIsNULL("act_out"))
-        takeoff = Qry.FieldAsDateTime("act_out");
+        takeoff = UTCToLocal(Qry.FieldAsDateTime("act_out"), tz_region);
     NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
 }
 
@@ -1859,7 +1859,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     trip_rpt_person(resNode, rpt_params);
     TDateTime takeoff = NoExists;
     if(not Qry.FieldIsNULL("act_out"))
-        takeoff = Qry.FieldAsDateTime("act_out");
+        takeoff = UTCToLocal(Qry.FieldAsDateTime("act_out"), tz_region);
     NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
 }
 
