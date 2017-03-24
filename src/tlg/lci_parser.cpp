@@ -1567,12 +1567,14 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
         std::tr1::shared_ptr<TSubTypeHolder> sth = con.wm[wmdWB][wmtWBTotalWeight];
         if(sth) {
             const TSimpleWeight &mc = *dynamic_cast<TSimpleWeight *>(sth.get());
-            TFlightMaxCommerce maxCommerce(true);
-            if ( mc.weight == 0 )
-                maxCommerce.SetValue( ASTRA::NoExists );
-            else
-                maxCommerce.SetValue( mc.weight );
-            maxCommerce.Save( point_id_spp );
+            if(mc.measur != mN) {
+                TFlightMaxCommerce maxCommerce(true);
+                if ( mc.weight == 0 )
+                    maxCommerce.SetValue( ASTRA::NoExists );
+                else
+                    maxCommerce.SetValue( mc.weight );
+                maxCommerce.Save( point_id_spp );
+            }
         }
         sth = con.wm[wmdStandard][wmtPax];
         if(sth and sth->sub_type == wmsGender) {
