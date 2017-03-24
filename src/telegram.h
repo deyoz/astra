@@ -352,6 +352,7 @@ void EMDReport(int point_id, std::map<int, std::vector<std::string> > &tab);
 
 namespace CKIN_REPORT {
     int run(int argc, char **argv);
+    std::string getElemId(TElemType type, const std::string &elem);
 }
 void get_kuf_stat(int point_id);
 

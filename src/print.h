@@ -120,10 +120,13 @@ class PrintInterface: public JxtInterface
 
             AddEvent("refresh_prn_tests", JXT_HANDLER(PrintInterface, RefreshPrnTests));
             AddEvent("GetImg",            JXT_HANDLER(PrintInterface, GetImg));
+
+            AddEvent("print_bp", JXT_HANDLER(PrintInterface, print_bp));
         }
 
         void GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

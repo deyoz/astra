@@ -118,6 +118,7 @@ const
     {"-html_to_db",             html_to_db,             NULL,                       "loading html files to database"},
     {"-html_from_db",           html_from_db,           NULL,                       "getting html files from database to local path"},
     {"-test_norms",             WeightConcept::test_norms,             NULL,                       NULL},
+    {"-prn_tags",               prn_tags,               NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
