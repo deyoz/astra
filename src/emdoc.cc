@@ -105,15 +105,37 @@ string GetSQL(const TListType ltype)
            " (SELECT pax_grp.grp_id, paid_bag_emd.emd_no, paid_bag_emd.emd_coupon \n";
     if (ltype==unboundByPointId ||
         ltype==allWithTknByPointId)
-      sql << "  FROM pax_grp, paid_bag_emd \n"
-             "  WHERE pax_grp.grp_id=paid_bag_emd.grp_id AND \n"
-             "        pax_grp.point_dep=:id AND \n";
+      sql <<
+           "  FROM pax_grp, paid_bag_emd \n"
+           "  WHERE pax_grp.grp_id=paid_bag_emd.grp_id AND \n"
+           "        pax_grp.point_dep=:id AND \n";
     if (ltype==unboundByPaxId)
-      sql << "  FROM pax_grp, paid_bag_emd, pax \n"
-             "  WHERE pax_grp.grp_id=paid_bag_emd.grp_id AND \n"
-             "        pax.grp_id=pax_grp.grp_id AND \n"
-             "        pax.pax_id=:id AND \n";
-    sql << "        pax_grp.status NOT IN ('E')) b \n"
+      sql <<
+           "  FROM pax_grp, paid_bag_emd, pax \n"
+           "  WHERE pax_grp.grp_id=paid_bag_emd.grp_id AND \n"
+           "        pax.grp_id=pax_grp.grp_id AND \n"
+           "        pax.pax_id=:id AND \n";
+
+    sql << "        pax_grp.excess_wt IS NULL AND pax_grp.excess_pc IS NULL AND \n"
+           "        pax_grp.status NOT IN ('E') \n"
+           "  UNION \n"
+           "  SELECT pax_grp.grp_id, service_payment.doc_no, service_payment.doc_coupon \n";
+    if (ltype==unboundByPointId ||
+        ltype==allWithTknByPointId)
+      sql <<
+           "  FROM pax_grp, service_payment \n"
+           "  WHERE pax_grp.grp_id=service_payment.grp_id AND \n"
+           "        pax_grp.point_dep=:id AND \n";
+    if (ltype==unboundByPaxId)
+      sql <<
+           "  FROM pax_grp, service_payment, pax \n"
+           "  WHERE pax_grp.grp_id=service_payment.grp_id AND \n"
+           "        pax.grp_id=pax_grp.grp_id AND \n"
+           "        pax.pax_id=:id AND \n";
+
+    sql << "        service_payment.doc_type IN ('EMDA', 'EMDS') AND \n"
+           "        NOT(pax_grp.excess_wt IS NULL AND pax_grp.excess_pc IS NULL) AND \n"
+           "        pax_grp.status NOT IN ('E')) b \n"
            "WHERE a.grp_id=b.grp_id(+) AND \n"
            "      a.emd_no=b.emd_no(+) AND \n"
            "      a.emd_coupon=b.emd_coupon(+) \n";

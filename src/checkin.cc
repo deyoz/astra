@@ -2583,11 +2583,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     sql <<
     "  AND pax_grp.status NOT IN ('E') "
     "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
-    "                            pax_grp.piece_concept, pax_grp.excess, pax.pax_id)<>0 ";
+    "                            pax_grp.piece_concept, pax_grp.excess, pax_grp.excess_wt, pax_grp.excess_pc, pax.pax_id)<>0 ";
   sql <<
     "ORDER BY pax.reg_no, pax.seats DESC"; //в будущем убрать ORDER BY
 
-  ProgTrace(TRACE5, "%s", sql.str().c_str());
+  //ProgTrace(TRACE5, "%s", sql.str().c_str());
 
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
@@ -2833,9 +2833,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (with_rcpt_info)
     sql <<
     "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
-    "                            pax_grp.piece_concept, pax_grp.excess, NULL)<>0 ";
+    "                            pax_grp.piece_concept, pax_grp.excess, pax_grp.excess_wt, pax_grp.excess_pc, NULL)<>0 ";
 
-  ProgTrace(TRACE5, "%s", sql.str().c_str());
+  //ProgTrace(TRACE5, "%s", sql.str().c_str());
 
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
