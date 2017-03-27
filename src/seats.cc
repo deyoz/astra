@@ -3639,6 +3639,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     if ( placeList == Salons.placelists.end() )
         throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     std::vector<SALONS2::TPlace> verifyPlaces;
+    TCompLayerType old_pax_layer = cltUnknown;
     for ( int i=0; i<seats_count; i++ ) { // пробег по кол-ву мест и по местам
         SALONS2::TPoint coord( p.x, p.y );
         place = (*placeList)->place( coord );
@@ -3662,6 +3663,9 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
             throw UserException( "MSG.SEATS.UNABLE_SET_CURRENT" );
           if ( QrySeatRules.FieldAsInteger( "pr_owner" ) && pax_id != place->layers.begin()->pax_id )
             throw UserException( "MSG.SEATS.SEAT_NO.OCCUPIED_OTHER_PASSENGER" );
+          if ( pax_id == place->layers.begin()->pax_id ) {
+            old_pax_layer = place->layers.begin()->layer_type;
+          }
         }
       }
       strcpy( r.first.line, place->xname.c_str() );
@@ -3681,7 +3685,9 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     if ( pr_INFT || !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересдка INFT запрещена
       throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     }
-    if ( seatFlag != clNotPaySeat && !nseats.empty() ) { // были платные места - не должны измениться
+    if ( seatFlag != clNotPaySeat &&
+         ( old_pax_layer == cltProtBeforePay || old_pax_layer == cltProtAfterPay ) &&
+         !nseats.empty() ) { // были платные места - не должны измениться
       tst();
       //сравниваем
       if ( seats.size() != nseats.size() ||
@@ -4338,6 +4344,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
             throw UserException( "MSG.SEATS.SEAT_NO.PASSENGER_OWNER" );
           }
           else {
+            ProgTrace( TRACE5, "layer_type=%s, seat=%s", EncodeCompLayerType( layer_type ), string(seat->xname + seat->yname).c_str() );
             nseats.insert( seat );
             continue;
           }
@@ -4388,11 +4395,14 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     if ( pr_INFT || !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересадка INFT запрещена
       throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     }
-    if ( seatFlag != clNotPaySeat && !seats.empty() ) { // были платные места - не должны измениться!!!
-      tst();
+    if ( seatFlag != clNotPaySeat &&
+         ( seatLayer.layer_type == cltProtBeforePay || seatLayer.layer_type == cltProtAfterPay ) &&
+         !seats.empty() ) { // были платные места - не должны измениться!!!
+      ProgTrace( TRACE5, "seats.size()=%zu, nseats.size()=%zu", seats.size(), nseats.size() );
       //сравниваем
       if ( seats.size() != nseats.size() ||
            seats != nseats ) {
+        tst();
         throw  UserException( "MSG.SEATS.SEAT_NO.NOT_COINCIDE_WITH_PREPAID" );
       }
       changedOrNotPay = false;
