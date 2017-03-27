@@ -2414,6 +2414,34 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             throw Exception("print_bp: flight not found");
 
         int reg_no = ToInt(params[4]);
+
+        TCachedQuery Qry(
+                "select "
+                "   pax.grp_id, "
+                "   pax.pax_id "
+                "from "
+                "   pax_grp, "
+                "   pax "
+                "where "
+                "   pax_grp.point_dep = :point_id and "
+                "   pax_grp.grp_id = pax.grp_id and "
+                "   pax.reg_no = :reg_no ",
+                QParams()
+                << QParam("point_id", otInteger, point_id)
+                << QParam("reg_no", otInteger, reg_no)
+                );
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            int grp_id = Qry.get().FieldAsInteger("grp_id");
+            int pax_id = Qry.get().FieldAsInteger("pax_id");
+            PrintDataParser parser(grp_id, pax_id, false, NULL);
+            parser.pts.set_tag(TAG::GATE, "‚€’€");
+            parser.pts.set_tag(TAG::DUPLICATE, 1);
+            content = StrUtils::b64_encode(
+                    ConvertCodepage(parser.parse(content),"CP866","UTF-8"));
+            SetProp(NewTextChild(resNode, "content", content), "b64", true);
+        } else
+            throw Exception("reg_no %d not found", reg_no);
     }
 }
 
