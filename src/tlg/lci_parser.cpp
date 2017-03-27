@@ -233,6 +233,7 @@ const char *TMeasurS[] =
 {
     "KG",
     "LB",
+    "N", // см. коммент к TMeasur
     ""
 };
 
@@ -888,7 +889,8 @@ void TWM::parse(const char *val)
         // В оставшихся элементах содержится инфа по sub_type
         TWMSubType sub_type = DecodeWMSubType(items[0]);
         if(sub_type == wmsUnknown) {
-            if(parse_wb(val)) return; // парсинг строки вида WM.WB.TT.4257/PT.2000/HT.150/BT.1000/CT.1100/MT.7.KG
+            // парсинг строки вида WM.WB.TT.4257/PT.2000/HT.150/BT.1000/CT.1100/MT.7.KG
+            if(parse_wb(val)) return;
             sth = tr1::shared_ptr<TSubTypeHolder>(new TSimpleWeight);
         } else {
             items.erase(items.begin(), items.begin() + 1); // избавляемся от идентификатора sub_type
@@ -1565,12 +1567,14 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
         std::tr1::shared_ptr<TSubTypeHolder> sth = con.wm[wmdWB][wmtWBTotalWeight];
         if(sth) {
             const TSimpleWeight &mc = *dynamic_cast<TSimpleWeight *>(sth.get());
-            TFlightMaxCommerce maxCommerce(true);
-            if ( mc.weight == 0 )
-                maxCommerce.SetValue( ASTRA::NoExists );
-            else
-                maxCommerce.SetValue( mc.weight );
-            maxCommerce.Save( point_id_spp );
+            if(mc.measur != mN) {
+                TFlightMaxCommerce maxCommerce(true);
+                if ( mc.weight == 0 )
+                    maxCommerce.SetValue( ASTRA::NoExists );
+                else
+                    maxCommerce.SetValue( mc.weight );
+                maxCommerce.Save( point_id_spp );
+            }
         }
         sth = con.wm[wmdStandard][wmtPax];
         if(sth and sth->sub_type == wmsGender) {
