@@ -560,8 +560,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     }
     if (oldSetList.value(tsAPISManualInput)!=newSetList.value(tsAPISManualInput))
     {
-      set<TTripAlarmsType> checked_alarms;
-      checked_alarms.insert(atAPISManualInput);
+      set<Alarm::Enum> checked_alarms;
+      checked_alarms.insert(Alarm::APISManualInput);
       check_apis_alarms(point_id, checked_alarms);
     }
   };

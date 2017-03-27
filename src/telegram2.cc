@@ -6421,7 +6421,7 @@ struct TSR_S {
                     throw Exception("empty seat must be single");
                 seat = "N";
             } else {
-                seat = 
+                seat =
                     denorm_iata_row(i_seat->row, NULL) + // denorm - чтобы избавиться от нулей: 002 -> 2
                     denorm_iata_line(i_seat->line, info.is_lat() or info.pr_lat_seat);
             }
@@ -6486,7 +6486,7 @@ struct TSR_WB_C {
         sort(cfg.begin(), cfg.end());
         TCFG opt_cfg = options.cfg;
         sort(opt_cfg.begin(), opt_cfg.end());
-        set_alarm(info.point_id, atWBDifferLayout, not(opt_cfg == cfg));
+        set_alarm(info.point_id, Alarm::WBDifferLayout, not(opt_cfg == cfg));
     }
 };
 

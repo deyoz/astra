@@ -163,7 +163,7 @@ void resend_tlg(void)
   {
     int point_id = Qry.FieldAsInteger("point_id");
     int send_attempts = Qry.FieldAsInteger("send_attempts");
-    bool apps_down = get_alarm(point_id, atAPPSOutage);
+    bool apps_down = get_alarm(point_id, Alarm::APPSOutage);
     TDateTime send_time = Qry.FieldAsDateTime("send_time");
     int msg_id = Qry.FieldAsInteger("msg_id");
     if (!checkTime(point_id) || send_attempts == MaxSendAttempts) {
@@ -179,7 +179,7 @@ void resend_tlg(void)
     }
     if( ( send_attempts >= NumSendAttempts ) && !apps_down ) {
       // включим тревогу "Нет связи с APPS"
-      set_alarm(point_id, atAPPSOutage, true);
+      set_alarm(point_id, Alarm::APPSOutage, true);
     }
     ProgTrace(TRACE5, "resend_tlg: elapsed time %s", DateTimeToStr( (NowUTC() - send_time), "hh:nn:ss" ).c_str());
     reSendMsg(send_attempts, Qry.FieldAsString("msg_text"), msg_id);

@@ -6318,7 +6318,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
         }
       }
     }
-    set_alarm( ipoint->point_id, atWaitlist,
+    set_alarm( ipoint->point_id, Alarm::Waitlist,
                idep_pass != passengers.end() &&
                idep_pass->second.isWaitList() &&
                !isFreeSeating( ipoint->point_id ) );
@@ -8004,7 +8004,7 @@ void check_diffcomp_alarm( TCompsRoutes &routes )
  for (  TCompsRoutes::iterator i=routes.begin(); i!=routes.end(); i++ ) {
    //!logProgTrace( TRACE5, "check_diffcomp_alarm: i->point_id=%d, pr_alarm=%d",
    //!log           i->point_id, i->pr_alarm );
-   set_alarm( i->point_id, atDiffComps, i->pr_alarm );
+   set_alarm( i->point_id, Alarm::DiffComps, i->pr_alarm );
  }
 }
 

@@ -6120,7 +6120,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 }
               }
 
-              set_alarm( grp.point_dep, atOverload, true ); // установили признак перегрузки несмотря на то что реальной перегрузки нет
+              set_alarm( grp.point_dep, Alarm::Overload, true ); // установили признак перегрузки несмотря на то что реальной перегрузки нет
               Set_AODB_overload_alarm( grp.point_dep, true );
 
               if (reqInfo->client_type==ctPNL) throw;
@@ -6130,7 +6130,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
       }
 
-      set_alarm( grp.point_dep, atOverload, overload_alarm ); // установили признак перегрузки
+      set_alarm( grp.point_dep, Alarm::Overload, overload_alarm ); // установили признак перегрузки
 
       if (!pr_unaccomp && grp.status!=psCrew)
       {

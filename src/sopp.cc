@@ -1860,12 +1860,13 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
         NewTextChild( stationNode, "pr_main" );
     }
     xmlNodePtr alarmsNode = NULL;
-    for ( int ialarm=0; ialarm<atLength; ialarm++ ) {
-        TTripAlarmsType alarm = (TTripAlarmsType)ialarm;
+    for(Alarm::TPairs::const_iterator a=Alarm::pairs().begin(); a!=Alarm::pairs().end(); ++a)
+    {
+      Alarm::Enum alarm = a->first;
       if ( tr->Alarms.isFlag( alarm ) ) {
         if ( !alarmsNode )
             alarmsNode = NewTextChild( tripNode, "alarms" );
-        xmlNodePtr an=NewTextChild( alarmsNode, "alarm", EncodeAlarmType(alarm) );
+        xmlNodePtr an=NewTextChild( alarmsNode, "alarm", AlarmTypes().encode(alarm) );
         SetProp( an, "text", TripAlarmString( alarm ) );
       }
     }
@@ -3052,8 +3053,9 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( i->point_id == point_id ) {
       NewTextChild( headerNode, "remark_out", i->remark_out );
       string stralarms;
-      for ( int ialarm=0; ialarm<atLength; ialarm++ ) {
-        TTripAlarmsType alarm = (TTripAlarmsType)ialarm;
+      for(Alarm::TPairs::const_iterator a=Alarm::pairs().begin(); a!=Alarm::pairs().end(); ++a)
+      {
+        Alarm::Enum alarm = a->first;
         if ( !i->Alarms.isFlag( alarm ) )
           continue;
         if ( !stralarms.empty() )
