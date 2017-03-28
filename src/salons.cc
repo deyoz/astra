@@ -469,8 +469,7 @@ void getMenuLayers( bool isTripCraft,
 
     if ( FilterLayers.isFlag( cltProtBeforePay ) ||
          FilterLayers.isFlag( cltProtAfterPay ) ||
-         FilterLayers.isFlag( cltPNLBeforePay ) ||
-         FilterLayers.isFlag( cltPNLAfterPay ) )
+         FilterLayers.isFlag( cltPNLBeforePay ) )
       menuLayers[ cltProtBeforePay ].name_view = AstraLocale::getLocaleText("Резервирование платного места");
     if ( FilterLayers.isFlag( cltProtect ) )
       menuLayers[ cltProtect ].func_key = "Shift+F4";
