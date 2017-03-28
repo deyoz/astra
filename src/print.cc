@@ -2437,6 +2437,8 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             PrintDataParser parser(grp_id, pax_id, false, NULL);
             parser.pts.set_tag(TAG::GATE, "ÇêÄíÄ");
             parser.pts.set_tag(TAG::DUPLICATE, 1);
+            parser.pts.set_tag(TAG::VOUCHER_CODE, "DV");
+            parser.pts.set_tag(TAG::VOUCHER_TEXT, "DV");
             content = StrUtils::b64_encode(
                     ConvertCodepage(parser.parse(content),"CP866","UTF-8"));
             SetProp(NewTextChild(resNode, "content", content), "b64", true);
