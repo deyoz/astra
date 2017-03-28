@@ -1026,7 +1026,7 @@ struct TSalonPax {
     void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges ) const;
     std::string seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const;
-    std::string event_seat_no(bool pr_lat_seat, const std::string &airline, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const;
+    std::string event_seat_no(bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const;
     std::string prior_seat_no( const std::string &format, bool pr_lat_seat ) const;
 };
                                 //pax_id,TSalonPax
@@ -1418,8 +1418,19 @@ class TSalonList: public std::vector<TPlaceList*> {
     void check_waitlist_alarm_on_tranzit_routes( const std::set<int> &paxs_external_logged );
 
     void getSectionInfo( std::vector<TSectionInfo> &CompSections, const TGetPassFlags &flags );
-    void getSectionInfo( TSectionInfo &sectionInfo, const TGetPassFlags &flags );    
+    void getSectionInfo( TSectionInfo &sectionInfo, const TGetPassFlags &flags );
 };
+
+  class TSelfCkinSalonTariff {
+    public:
+      void setTariffMap( int point_id,
+                         TSeatTariffMap &tariffMap );
+      void setTariffMap( const std::string &airline,
+                         const std::string &airp_dep,
+                         const std::string &airp_arv,
+                         const std::string &craft,
+                         TSeatTariffMap &tariffMap );
+  };
 
     void check_waitlist_alarm_on_tranzit_routes( int point_dep, const std::set<int> &paxs_external_logged );
     void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm,
@@ -1491,8 +1502,8 @@ class TSalonList: public std::vector<TPlaceList*> {
   void processSalonsCfg_TestMode(int point_id, int comp_id);
 
   bool selfckin_client();
-  void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tariffMap );
-                                 std::string getPointAirp(int point_id);
+/*  void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tariffMap );
+                                 std::string getPointAirp(int point_id);*/
   typedef std::map<int,std::set<std::string> > TSalonDesrcs;
   void getSalonDesrcs( int point_id, TSalonDesrcs &descrs );
 } // END namespace SALONS2

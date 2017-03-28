@@ -40,13 +40,73 @@ namespace SALONS2
 
 int getCRC_Comp( int point_id );
 
-bool selfckin_client()
-{
+bool selfckin_client() {
   return ( TReqInfo::Instance()->client_type == ctWeb ||
            TReqInfo::Instance()->client_type == ctKiosk ||
            TReqInfo::Instance()->client_type == ctMobile );
 }
 
+void TSelfCkinSalonTariff::setTariffMap( int point_id,
+                                         TSeatTariffMap &tariffMap ) {
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT airline,flt_no,suffix,airp,craft,scd_out "
+    " FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if ( Qry.Eof ) {
+    return;
+  }
+  TTripInfo tripInfo( Qry );
+  TTripRoute routes;
+  if ( routes.GetRouteAfter( ASTRA::NoExists,
+                             point_id,
+                             trtNotCurrent,
+                             trtNotCancelled ) &&
+       !routes.empty() ) {
+    setTariffMap( tripInfo.airline, tripInfo.airp, routes.begin()->airp, tripInfo.craft, tariffMap  );
+  }
+}
+void TSelfCkinSalonTariff::setTariffMap( const std::string &airline,
+                                         const std::string &airp_dep,
+                                         const std::string &airp_arv,
+                                         const std::string &craft,
+                                         TSeatTariffMap &tariffMap ) {
+  if ( !selfckin_client() ||
+       tariffMap.empty() ||
+       tariffMap.status() != TSeatTariffMap::stUseRFISC ||
+       airline.empty() ||
+       airp_dep.empty() ||
+       airp_arv.empty()
+        ) {
+    return;
+  }
+  ProgTrace( TRACE5, "TSelfCkinSalonTariff::setTariffMapp: airline=%s, airp_dep=%s, airp_arv=%s, craft=%s",
+             airline.c_str(), airp_dep.c_str(), airp_arv.c_str(), craft.c_str() );
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT rfisc,rate,rate_cur, "
+    "       DECODE(airp_dep,:airp_dep,4,0) + DECODE(airp_arv,:airp_arv,2,0) + DECODE(craft,:craft,1,0) as priority "
+    " FROM rfisc_rates_self_ckin "
+    " WHERE airline=:airline AND rfisc=:rfisc "
+    "ORDER BY priority DESC";
+  Qry.CreateVariable( "airline", otString, airline );
+  Qry.DeclareVariable( "rfisc", otString );
+  for ( TSeatTariffMapType::iterator itariff=tariffMap.begin(); itariff!=tariffMap.end(); itariff++ ) {
+    Qry.SetVariable( "rfisc", itariff->second.code );
+    Qry.Execute();
+    if ( !Qry.Eof ) {
+      itariff->second.rate = Qry.FieldAsFloat("rate");
+      itariff->second.currency_id = Qry.FieldAsString("rate_cur");
+    }
+    else {
+      itariff->second.clear();
+      itariff->second.rate = INT_MAX;
+    }
+  }
+}
+
+/*
 
 void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tariffMap )
 {
@@ -64,6 +124,7 @@ void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tarif
   for ( TSeatTariffMapType::iterator itariff=tariffMap.begin(); itariff!=tariffMap.end(); itariff++ ) {
     Qry.SetVariable( "rfisc", itariff->second.code );
     Qry.Execute();
+    //find priority
     if ( !Qry.Eof ) {
       itariff->second.rate = Qry.FieldAsFloat("rate");
       itariff->second.currency_id = Qry.FieldAsString("rate_cur");
@@ -74,7 +135,7 @@ void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tarif
     }
   }
   tariffMap.trace(TRACE5);
-}
+}*/
 
 void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
 {
@@ -471,6 +532,7 @@ void getMenuLayers( bool isTripCraft,
          FilterLayers.isFlag( cltProtAfterPay ) ||
          FilterLayers.isFlag( cltPNLBeforePay ) )
       menuLayers[ cltProtBeforePay ].name_view = AstraLocale::getLocaleText("Резервирование платного места");
+
     if ( FilterLayers.isFlag( cltProtect ) )
       menuLayers[ cltProtect ].func_key = "Shift+F4";
     if ( FilterLayers.isFlag( cltUncomfort ) )
@@ -3358,8 +3420,9 @@ void TSalonList::ReadCompon( int vcomp_id, int point_id )
     TSeatTariffMap tariffMap;
     tariffMap.get_rfisc_colors( airline );
     if ( tariffMap.status() == TSeatTariffMap::stUseRFISC ) {
-      if ( selfckin_client() ) {
-        addAirlineSelfCkinTariff( airline, tariffMap );
+      SALONS2::TSelfCkinSalonTariff SelfCkinSalonTariff;
+      if ( point_id != ASTRA::NoExists ) {
+        SelfCkinSalonTariff.setTariffMap( point_id, tariffMap );
       }
       SetRFISC( ASTRA::NoExists, tariffMap );
       if ( point_id != ASTRA::NoExists ) {
@@ -3373,7 +3436,6 @@ void TSalonList::ReadCompon( int vcomp_id, int point_id )
     }
   }
 }
-
 
 //поиск самого приоритетного и валидного слоя в пункте вылета
 bool getTopSeatLayerOnRoute( const std::map<int,TPaxList> &pax_lists,
@@ -4667,9 +4729,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   tariffMap.trace(TRACE5);
   //задаем тарифы
   if ( RFISCMode != rTariff ) {
-    if ( selfckin_client() ) {
-      addAirlineSelfCkinTariff( filterRoutes.getAirline(), tariffMap );
-    }
+    SALONS2::TSelfCkinSalonTariff SelfCkinSalonTariff;
+    SelfCkinSalonTariff.setTariffMap( filterRoutesSets.point_dep, tariffMap );
     SetRFISC( filterRoutesSets.point_dep, tariffMap );
   }
   //AddRFISCRemarks( filterRoutesSets.point_dep, tariffMap );
@@ -6073,7 +6134,7 @@ void CheckWaitListToLog( TQuery &QryAirp,
   if ( !QryAirp.Eof ) {
     airline = QryAirp.FieldAsString( "airline" );
   }
-  string new_seat_no = ipass->second.event_seat_no( pr_craft_lat, airline, point_dep, waitListReason, seatPrmEnum.prms );
+  string new_seat_no = ipass->second.event_seat_no( pr_craft_lat, point_dep, waitListReason, seatPrmEnum.prms );
   if ( waitListReason.layerStatus == layerValid ) {
     if ( pr_exists ) {
       TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT_AUTOMATICALLY",
@@ -9614,7 +9675,7 @@ std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, TWa
   return GetSeatRangeView(ranges, format, pr_lat_seat);
 }
 
-std::string TSalonPax::event_seat_no( bool pr_lat_seat, const std::string &airline, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const
+std::string TSalonPax::event_seat_no( bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const
 {
   evntPrms.clear();
   std::vector<TSeatRange> ranges;
@@ -9639,9 +9700,8 @@ std::string TSalonPax::event_seat_no( bool pr_lat_seat, const std::string &airli
     TRFISC rfisc;
     passTariffs.get( pax_id );
     if ( passTariffs.status() == TSeatTariffMap::stUseRFISC ) {
-      if ( selfckin_client() ) {
-        addAirlineSelfCkinTariff( airline, passTariffs );
-      }
+      SALONS2::TSelfCkinSalonTariff SelfCkinSalonTariff;
+      SelfCkinSalonTariff.setTariffMap( point_dep, passTariffs );
       (*iseat)->SetRFISC( point_dep, passTariffs );
       std::map<int, TRFISC,classcomp> vrfiscs;
       (*iseat)->GetRFISCs( vrfiscs );
