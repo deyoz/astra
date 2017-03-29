@@ -860,8 +860,11 @@ bool parse_tlg(void)
               if (SavePNLADLPRLContent(tlg_id,info,con,forcibly))
               {
                 parseTypeB(tlg_id);
+                callPostHooksBefore();
                 OraSession.Commit();
                 count++;
+                callPostHooksAfter();
+                emptyHookTables();
               }
               else
               {
@@ -881,8 +884,11 @@ bool parse_tlg(void)
               ParsePNLADLPRLContent(part,info,con);
               SavePNLADLPRLContent(tlg_id,info,con,true);
               parseTypeB(tlg_id);
+              callPostHooksBefore();
               OraSession.Commit();
               count++;
+              callPostHooksAfter();
+              emptyHookTables();
             };
             if (strcmp(info.tlg_type,"PTM")==0)
             {
@@ -890,8 +896,11 @@ bool parse_tlg(void)
               ParsePTMContent(part,info,con);
               SavePTMContent(tlg_id,info,con);
               parseTypeB(tlg_id);
+              callPostHooksBefore();
               OraSession.Commit();
               count++;
+              callPostHooksAfter();
+              emptyHookTables();
             };
             if (strcmp(info.tlg_type,"SOM")==0)
             {
@@ -899,8 +908,11 @@ bool parse_tlg(void)
               ParseSOMContent(part,info,con);
               SaveSOMContent(tlg_id,info,con);
               parseTypeB(tlg_id);
+              callPostHooksBefore();
               OraSession.Commit();
               count++;
+              callPostHooksAfter();
+              emptyHookTables();
             };
             break;
           }
@@ -913,8 +925,11 @@ bool parse_tlg(void)
               ParseBTMContent(part,info,con,mem);
               SaveBTMContent(tlg_id,info,con);
               parseTypeB(tlg_id);
+              callPostHooksBefore();
               OraSession.Commit();
               count++;
+              callPostHooksAfter();
+              emptyHookTables();
             };
             break;
           }
@@ -931,8 +946,11 @@ bool parse_tlg(void)
                 SaveFlt(tlg_id,info.flt,info.bind_type, TSearchFltInfoPtr());
             }
             parseTypeB(tlg_id);
+            callPostHooksBefore();
             OraSession.Commit();
             count++;
+            callPostHooksAfter();
+            emptyHookTables();
             break;
           }
           case tcUCM:
@@ -943,8 +961,11 @@ bool parse_tlg(void)
               TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
               SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TSearchFltInfoPtr());
               parseTypeB(tlg_id);
+              callPostHooksBefore();
               ASTRA::commit();//OraSession.Commit();
               count++;
+              callPostHooksAfter();
+              emptyHookTables();
               break;
           }
           case tcLCI:
@@ -954,8 +975,11 @@ bool parse_tlg(void)
             ParseLCIContent(part,info,con,mem);
             SaveLCIContent(tlg_id,time_receive,info,con);
             parseTypeB(tlg_id);
+            callPostHooksBefore();
             OraSession.Commit();
             count++;
+            callPostHooksAfter();
+            emptyHookTables();
             break;
           }
           /*
@@ -986,8 +1010,11 @@ bool parse_tlg(void)
           {
             //телеграмму неизвестного типа сразу пишем в разобранные
             parseTypeB(tlg_id);
+            callPostHooksBefore();
             OraSession.Commit();
             count++;
+            callPostHooksAfter();
+            emptyHookTables();
           };
         };
       }

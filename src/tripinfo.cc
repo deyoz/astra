@@ -1119,15 +1119,16 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 
   {
     string stralarms;
-    BitSet<TTripAlarmsType> Alarms;
+    BitSet<Alarm::Enum> Alarms;
     TripAlarms( point_id, Alarms );
-    for ( int ialarm=0; ialarm<atLength; ialarm++ ) {
+    for(Alarm::TPairs::const_iterator a=Alarm::pairs().begin(); a!=Alarm::pairs().end(); ++a)
+    {
+      Alarm::Enum alarm = a->first;
       string rem;
-      TTripAlarmsType alarm = (TTripAlarmsType)ialarm;
       if ( !Alarms.isFlag( alarm ) )
         continue;
       switch( alarm ) {
-        case atWaitlist:
+        case Alarm::Waitlist:
           if (reqInfo->screen.name == "CENT.EXE" ||
               reqInfo->screen.name == "PREPREG.EXE" ||
               reqInfo->screen.name == "AIR.EXE" ||
@@ -1137,28 +1138,28 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
             rem = TripAlarmString( alarm );
           }
           break;
-        case atOverload:
+        case Alarm::Overload:
           if (reqInfo->screen.name == "CENT.EXE" ||
               reqInfo->screen.name == "PREPREG.EXE")
             rem = TripAlarmString( alarm );
           break;
-        case atBrd:
+        case Alarm::Brd:
           if (reqInfo->screen.name == "BRDBUS.EXE" ||
               reqInfo->screen.name == "DOCS.EXE")
             rem = TripAlarmString( alarm );
           break;
-        case atSalon:
+        case Alarm::Salon:
           if (reqInfo->screen.name == "CENT.EXE" ||
               reqInfo->screen.name == "PREPREG.EXE" ||
               reqInfo->screen.name == "AIR.EXE")
             rem = TripAlarmString( alarm );
           break;
-        case atETStatus:
+        case Alarm::ETStatus:
             if (reqInfo->screen.name == "AIR.EXE" ||
                   reqInfo->screen.name == "BRDBUS.EXE")
             rem = TripAlarmString( alarm );
           break;
-        case atDiffComps:
+        case Alarm::DiffComps:
           if (reqInfo->screen.name == "CENT.EXE" ||
               reqInfo->screen.name == "PREPREG.EXE" ||
               reqInfo->screen.name == "AIR.EXE" ||
@@ -1168,19 +1169,19 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
             rem = TripAlarmString( alarm ) + SALONS2::getDiffCompsAlarmRoutes( point_id );
           }
           break;
-        case atTlgIn:
+        case Alarm::TlgIn:
           if (reqInfo->screen.name == "TLG.EXE")
             rem = TripAlarmString( alarm );
           break;
-        case atTlgOut:
+        case Alarm::TlgOut:
           if (reqInfo->screen.name == "TLG.EXE")
             rem = TripAlarmString( alarm );
           break;
-        case atAPISIncomplete:
+        case Alarm::APISIncomplete:
           if (reqInfo->screen.name == "AIR.EXE")
             rem = TripAlarmString( alarm );
           break;
-        case atAPISManualInput:
+        case Alarm::APISManualInput:
           if (reqInfo->screen.name == "AIR.EXE")
             rem = TripAlarmString( alarm );
           break;

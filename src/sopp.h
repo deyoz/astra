@@ -207,7 +207,7 @@ struct TSOPPTrip {
   std::string region;
   int trfer_out_point_id;
   BitSet<TTrferType> TrferType;
-  BitSet<TTripAlarmsType> Alarms;
+  BitSet<Alarm::Enum> Alarms;
 
   TSOPPTrip() {
     flt_no_in = ASTRA::NoExists;

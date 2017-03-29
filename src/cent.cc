@@ -67,7 +67,7 @@ void getBalanceDBF( Develop_dbf &dbf, string dbf_file )
     dbf.AddField( "PANTRY_C", 'C', 2 ); //38 Код PANTRY
     dbf.AddField( "CREW_C", 'C', 2 ); //39 Код CREW
     dbf.AddField( "CABIN_CONF", 'C', 3 ); //40 Конфигурация кабины
-    
+
     dbf.AddField( "PORT1", 'C', 3 ); //41 Первый пункт посадки
     //ТРАНЗИТ ДО 1-ГО ПУНКТА
     dbf.AddField( "T_MAN1", 'N', 3 ); //42 Взрослые пассажиры / Мужчины
@@ -91,7 +91,7 @@ void getBalanceDBF( Develop_dbf &dbf, string dbf_file )
     dbf.AddField( "D_PBAG1", 'N', 4 ); //59 Платный багаж
     dbf.AddField( "D_CARGO1", 'N', 6 ); //60 Груз
     dbf.AddField( "D_MAIL1", 'N', 5 ); //61 Почта
-    
+
     dbf.AddField( "PORT2", 'C', 3 ); //62 Второй пункт посадки
     //ТРАНЗИТ ДО 2-ГО ПУНКТА
     dbf.AddField( "T_MAN2", 'N', 3 ); //63 Взрослые пассажиры / Мужчины
@@ -115,7 +115,7 @@ void getBalanceDBF( Develop_dbf &dbf, string dbf_file )
     dbf.AddField( "D_PBAG2", 'N', 4 ); //80 Платный багаж
     dbf.AddField( "D_CARGO2", 'N', 6 ); //81 Груз
     dbf.AddField( "D_MAIL2", 'N', 5 ); //82 Почта
-    
+
     dbf.AddField( "PORT3", 'C', 3 ); //83 Второй пункт посадки
     //ТРАНЗИТ ДО 3-ГО ПУНКТА
     dbf.AddField( "T_MAN3", 'N', 3 ); //84 Взрослые пассажиры / Мужчины
@@ -139,7 +139,7 @@ void getBalanceDBF( Develop_dbf &dbf, string dbf_file )
     dbf.AddField( "D_PBAG3", 'N', 4 ); //101 Платный багаж
     dbf.AddField( "D_CARGO3", 'N', 6 ); //102 Груз
     dbf.AddField( "D_MAIL3", 'N', 5 ); //103 Почта
-    
+
     dbf.AddField( "PORT4", 'C', 3 ); //104 Второй пункт посадки
     //ТРАНЗИТ ДО 4-ГО ПУНКТА
     dbf.AddField( "T_MAN4", 'N', 3 ); //105 Взрослые пассажиры / Мужчины
@@ -163,7 +163,7 @@ void getBalanceDBF( Develop_dbf &dbf, string dbf_file )
     dbf.AddField( "D_PBAG4", 'N', 4 ); //122 Платный багаж
     dbf.AddField( "D_CARGO4", 'N', 6 ); //123 Груз
     dbf.AddField( "D_MAIL4", 'N', 5 ); //124 Почта
-    
+
     //В ТОМ ЧИСЛЕ 1 КЛАСС
     dbf.AddField( "I_MAN", 'N', 3 ); //125 Взрослые пассажиры / Мужчины
     dbf.AddField( "I_FAM", 'N', 3 ); //126 Женщины
@@ -193,7 +193,7 @@ void getBalanceDBF( Develop_dbf &dbf, string dbf_file )
     dbf.AddField( "XCR_F", 'N', 3 ); //147 Сверхнорм.экипаж и стюарды 1 кл.
     dbf.AddField( "XCR_C", 'N', 3 ); //148 Сверхнорм.экипаж и стюарды бзн.кл.
     dbf.AddField( "XCR_Y", 'N', 3 ); //149 Сверхнорм.экипаж и стюарды эк.кл.
-    
+
     //ПАРАМЕТРЫ, ИСПОЛЬЗУЕМЫЕ ЦЕНТРОВКОЙ  (150-151)
     dbf.AddField( "DC_TOW", 'N', 3 ); //150 Оперативная МДВ
     dbf.AddField( "SERV", 'N', 3 ); //151 Используется опционально
@@ -248,7 +248,7 @@ void getBalanceDBF( Develop_dbf &dbf, string dbf_file )
     dbf.AddField( "HOLDUP14", 'N', 5 ); //197 Загрузка секции N  14
     dbf.AddField( "HOLDUP15", 'N', 5 ); //198 Загрузка секции N  15
     dbf.AddField( "HOLDUP16", 'N', 5 ); //199 Загрузка секции N  16
-    
+
     dbf.AddField( "PAS_ROW", 'C', 1 ); //200 * Метка "размещение пассажиров"
                                        //("C"- классы,  "Z"-зоны)
                                        //  При "зональном" размещении пасс.
@@ -521,9 +521,9 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
     maxdestnum = 4;
   else
     maxdestnum = routesA.size();
-    
+
   TQuery *PassQry, *BagQry, *ExcessBagQry;
-  
+
   ProgTrace( TRACE5, "pr_tranzit_pass=%d", pr_tranzit_pass );
   if ( pr_tranzit_pass ) {
     PassQry = qPassQry;
@@ -542,7 +542,7 @@ void TBalanceData::getPassBalance( bool pr_tranzit_pass, int point_id, const TTr
   int inf;
   int seats;
   string strclass;
-    
+
   for ( unsigned int num=1; num<=maxdestnum; num++ ) {
     TDestBalance dest_bal;
     dest_bal.num = num;
@@ -821,10 +821,10 @@ void importDBF( int external_point_id, string &dbf_file )
     "       pr_denial "
     " FROM balance_sets "
     " WHERE airp=:airp AND "
-	  "       ( bort IS NULL OR bort=:bort ) AND "
-	  "       ( airline IS NULL OR airline=:airline ) AND "
-	  "       ( flt_no IS NULL OR flt_no=:flt_no ) "
-	  " ORDER BY priority DESC";
+      "       ( bort IS NULL OR bort=:bort ) AND "
+      "       ( airline IS NULL OR airline=:airline ) AND "
+      "       ( flt_no IS NULL OR flt_no=:flt_no ) "
+      " ORDER BY priority DESC";
   FlightPermitQry.DeclareVariable( "airp", otString );
   FlightPermitQry.DeclareVariable( "bort", otString );
   FlightPermitQry.DeclareVariable( "airline", otString );
@@ -1075,8 +1075,8 @@ void importDBF( int external_point_id, string &dbf_file )
         tst();
         idx++;
       }
-    
-      if ( get_alarm( point_id, atWaitlist ) ) {
+
+      if ( get_alarm( point_id, Alarm::Waitlist ) ) {
         ProgTrace( TRACE5, "waitlist exists, point_id=%d", point_id );
         throw Exception( "waitlist exists" );
       }
@@ -1085,7 +1085,7 @@ void importDBF( int external_point_id, string &dbf_file )
                             point_id, total_tranzit_man_seats, total_goshow_man_seats );
         throw Exception( "total seats not equal layers" );
       }
-    
+
       if ( prior_constraint_balance_value != getConstraintRowValue( dbf, irow ) ) {
         dbf.SetFieldValue( irow, "FL_SPP_B", FLAG_SET ); // есть изменения влияющие на результат центровки
         ProgTrace( TRACE5, "FL_SPP_B" );
@@ -1117,16 +1117,16 @@ void importDBF( int external_point_id, string &dbf_file )
   dbf.Build( "CP866" );
   dbf_file = dbf.Result();
   tst();
-  
+
 }
 
 void CentInterface::synchBalance(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	string command_line_params;
-	xmlNodePtr node = GetNode( "commandline_params", reqNode );
-	if ( node ) {
-	  command_line_params = NodeAsString( node );
-	  command_line_params = TrimString( command_line_params );
+    string command_line_params;
+    xmlNodePtr node = GetNode( "commandline_params", reqNode );
+    if ( node ) {
+      command_line_params = NodeAsString( node );
+      command_line_params = TrimString( command_line_params );
   }
   if ( command_line_params.empty() )
     throw AstraLocale::UserException( "param 'commandline_params' not found" );
@@ -1175,7 +1175,7 @@ void CentInterface::synchBalance(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     catch( ... ) { };
     throw;
   };
-  
+
   if ( pr_import ) {
     outdbf_file = indbf_file;
     importDBF( external_point_id, outdbf_file );

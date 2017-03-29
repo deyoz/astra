@@ -663,7 +663,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
 
   if ( pr_comps ) {
-    if ( get_alarm( point_id, atWaitlist ) ) {
+    if ( get_alarm( point_id, Alarm::Waitlist ) ) {
         AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
         SetProp(NewTextChild( dataNode, "passengers" ), "pr_waitlist", 1);
     }
@@ -852,7 +852,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     ReadCompSections( comp_id, CompSections );
     BuildCompSections( dataNode, CompSections );
   }
-  if ( get_alarm( trip_id, atWaitlist ) ) {
+  if ( get_alarm( trip_id, Alarm::Waitlist ) ) {
     AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
     SetProp(NewTextChild( dataNode, "passengers" ), "pr_waitlist", 1);
   }

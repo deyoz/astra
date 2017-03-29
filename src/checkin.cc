@@ -2526,11 +2526,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     sql <<
     "  AND pax_grp.status NOT IN ('E') "
     "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
-    "                            pax_grp.piece_concept, pax_grp.excess, pax.pax_id)<>0 ";
+    "                            pax_grp.piece_concept, pax_grp.excess, pax_grp.excess_wt, pax_grp.excess_pc, pax.pax_id)<>0 ";
   sql <<
     "ORDER BY pax.reg_no, pax.seats DESC"; //в будущем убрать ORDER BY
 
-  ProgTrace(TRACE5, "%s", sql.str().c_str());
+  //ProgTrace(TRACE5, "%s", sql.str().c_str());
 
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
@@ -2776,9 +2776,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (with_rcpt_info)
     sql <<
     "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
-    "                            pax_grp.piece_concept, pax_grp.excess, NULL)<>0 ";
+    "                            pax_grp.piece_concept, pax_grp.excess, pax_grp.excess_wt, pax_grp.excess_pc, NULL)<>0 ";
 
-  ProgTrace(TRACE5, "%s", sql.str().c_str());
+  //ProgTrace(TRACE5, "%s", sql.str().c_str());
 
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
@@ -5915,7 +5915,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 };
               };
 
-              set_alarm( grp.point_dep, atOverload, true ); // установили признак перегрузки несмотря на то что реальной перегрузки нет
+              set_alarm( grp.point_dep, Alarm::Overload, true ); // установили признак перегрузки несмотря на то что реальной перегрузки нет
               Set_AODB_overload_alarm( grp.point_dep, true );
 
               if (reqInfo->client_type==ctPNL) throw;
@@ -5925,7 +5925,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         };
       };
 
-      set_alarm( grp.point_dep, atOverload, overload_alarm ); // установили признак перегрузки
+      set_alarm( grp.point_dep, Alarm::Overload, overload_alarm ); // установили признак перегрузки
 
       if (!pr_unaccomp && grp.status!=psCrew)
       {
@@ -6034,9 +6034,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.Execute();
         };
         //вычисляем и записываем признак waitlist_alarm и brd_alarm и spec_service_alarm
-        check_brd_alarm( grp.point_dep );
+        TTripAlarmHook::set(Alarm::Brd, grp.point_dep);
         check_spec_service_alarm( grp.point_dep );
-        check_unbound_emd_alarm( grp.point_dep );
+        TTripAlarmHook::set(Alarm::UnboundEMD, grp.point_dep);
         check_conflict_trfer_alarm( grp.point_dep );
         if ( first_pax_on_flight ) {
           SALONS2::setManualCompChg( grp.point_dep );
